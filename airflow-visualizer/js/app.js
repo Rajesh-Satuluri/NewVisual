@@ -15,10 +15,10 @@
   var ROUTES = {
     home: { title: "Home", ready: true },
     architecture: { title: "Architecture Overview", ready: true },
-    "dag-parsing": { title: "DAG Parsing" },
+    "dag-parsing": { title: "DAG Parsing", ready: true },
     "dag-run": { title: "DAG Run Lifecycle" },
-    "task-instance": { title: "Task Instance" },
-    scheduler: { title: "Scheduler Internals" },
+    "task-instance": { title: "Task Instance", ready: true },
+    scheduler: { title: "Scheduler Internals", ready: true },
     scheduling: { title: "Scheduling & Timetables" },
     backfill: { title: "Backfill" },
     executors: { title: "Executors" },

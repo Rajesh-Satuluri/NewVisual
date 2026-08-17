@@ -433,3 +433,62 @@ a.card:hover { text-decoration: none; }
   padding: 3px 6px;
   font-size: var(--text-xs);
 }
+
+/* ── Two-column code/compare rows ────────────────────────────── */
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+  align-items: start;
+}
+@media (max-width: 820px) { .two-col { grid-template-columns: 1fr; } }
+
+/* Config "knob" cards */
+.knob-default {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  margin-bottom: var(--space-2);
+}
+.knob-default b { color: var(--cyan); font-family: var(--font-mono); }
+
+/* ── State machine diagram ───────────────────────────────────── */
+.sm-diagram { width: 100%; height: auto; display: block; }
+.sm-diagram text { font-family: var(--font-ui); user-select: none; }
+
+.sm-edge {
+  stroke: var(--border-muted);
+  stroke-width: 1.5;
+  fill: none;
+  transition: stroke var(--ease-base), stroke-width var(--ease-base);
+}
+.sm-edge.active { stroke: var(--airflow); stroke-width: 2.5; }
+.sm-arrowhead { fill: var(--border-muted); }
+.sm-edge-label { fill: var(--text-muted); font-size: 10px; font-family: var(--font-mono); }
+
+.sm-state { cursor: pointer; }
+.sm-state .sm-body {
+  fill: var(--bg-3);
+  stroke: var(--border-muted);
+  stroke-width: 1.5;
+  transition: stroke var(--ease-base), stroke-width var(--ease-base), filter var(--ease-base);
+}
+.sm-state .sm-strip { fill: var(--sm, var(--airflow)); }
+.sm-state:hover .sm-body { stroke: var(--sm, var(--airflow-bright)); }
+.sm-state:focus { outline: none; }
+.sm-state:focus-visible .sm-body { stroke: var(--sm, var(--airflow-bright)); stroke-width: 2.5; }
+.sm-state.active .sm-body {
+  stroke: var(--sm, var(--airflow));
+  stroke-width: 2.5;
+  filter: drop-shadow(0 0 7px var(--sm, var(--airflow-glow)));
+}
+.sm-state.selected .sm-body { stroke: var(--cyan); stroke-width: 2.5; }
+.sm-state .sm-label { fill: var(--text-primary); font-weight: 600; font-size: 13px; font-family: var(--font-mono); }
+
+/* State legend */
+.sm-legend {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-3);
+}
+.legend-item { display: flex; align-items: center; gap: var(--space-3); }
+.legend-item .state-chip { flex-shrink: 0; }
