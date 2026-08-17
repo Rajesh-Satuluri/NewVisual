@@ -10,8 +10,8 @@
     { id: "dag-parsing", icon: "📄", title: "DAG Parsing", desc: "From .py file to serialized DAG in the database.", ready: true },
     { id: "scheduler", icon: "⏱️", title: "Scheduler Internals", desc: "The loop that turns schedules into task instances.", ready: true },
     { id: "task-instance", icon: "🔲", title: "Task Instance", desc: "The state machine every task moves through.", ready: true },
-    { id: "executors", icon: "⚙️", title: "Executors", desc: "Local, Celery, and Kubernetes — how work gets dispatched." },
-    { id: "failure-scenarios", icon: "🔥", title: "Failure Scenarios", desc: "15 production incidents, root-caused." }
+    { id: "executors", icon: "⚙️", title: "Executors", desc: "Local, Celery, and Kubernetes — how work gets dispatched.", ready: true },
+    { id: "xcoms", icon: "📦", title: "XCom", desc: "How tasks pass data — and when not to.", ready: true }
   ];
 
   var STATS = [
