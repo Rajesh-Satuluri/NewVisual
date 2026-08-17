@@ -177,26 +177,26 @@
   </div><!-- /#app -->
 
   <!-- JS load order: core → components → data → modules → app
-       Uncommented progressively as each build phase lands. -->
-  <!-- Phase 1 (core):
+       Module screens (js/modules/*.js) are lazy-loaded on demand by
+       the router; shared core/components/data load eagerly below. -->
+
+  <!-- Core engine -->
   <script src="js/core/animation-engine.js"></script>
   <script src="js/core/router.js"></script>
   <script src="js/core/tooltip.js"></script>
   <script src="js/core/keyboard.js"></script>
-  -->
-  <!-- Phase 2 (components):
+
+  <!-- Shared components -->
   <script src="js/components/animation-controls.js"></script>
   <script src="js/components/code-viewer.js"></script>
-  <script src="js/components/state-machine.js"></script>
-  <script src="js/components/timeline.js"></script>
   <script src="js/components/arch-diagram.js"></script>
-  -->
-  <!-- Phase 3 (data):
+  <!-- Upcoming: state-machine.js, timeline.js -->
+
+  <!-- Data -->
   <script src="js/data/shopkart-data.js"></script>
   <script src="js/data/airflow-concepts.js"></script>
-  <script src="js/data/interview-questions.js"></script>
-  <script src="js/data/scenarios.js"></script>
-  -->
+  <!-- Upcoming: interview-questions.js, scenarios.js -->
+
   <script src="js/app.js"></script>
 </body>
 </html>

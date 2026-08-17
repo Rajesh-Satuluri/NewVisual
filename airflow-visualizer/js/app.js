@@ -1,13 +1,56 @@
 /* ============================================================
-   app.js — bootstrap (Phase 0 shell)
-   Wires theme toggle, sidebar active-state, keyboard-help modal,
-   and renders a placeholder in the canvas. The hash router and
-   module registry land in Phase 1.
+   app.js — application bootstrap
+   Owns: route registry, hash router, theme toggle, keyboard-help
+   modal, sidebar/topbar active-state, mobile sidebar toggle.
+   Modules are lazy-loaded on demand by the router.
    ============================================================ */
 (function () {
   "use strict";
+  var AV = (window.AirflowViz = window.AirflowViz || {});
 
-  window.AirflowViz = window.AirflowViz || {};
+  // ── Route registry ───────────────────────────────────────
+  // ready:true → a module file exists at js/modules/<id>.js and is
+  // lazy-loaded on navigation. Others render a "coming soon" screen
+  // but still show correct titles + active nav state.
+  var ROUTES = {
+    home: { title: "Home", ready: true },
+    architecture: { title: "Architecture Overview", ready: true },
+    "dag-parsing": { title: "DAG Parsing" },
+    "dag-run": { title: "DAG Run Lifecycle" },
+    "task-instance": { title: "Task Instance" },
+    scheduler: { title: "Scheduler Internals" },
+    scheduling: { title: "Scheduling & Timetables" },
+    backfill: { title: "Backfill" },
+    executors: { title: "Executors" },
+    "task-lifecycle": { title: "Task Lifecycle" },
+    xcoms: { title: "XCom" },
+    sensors: { title: "Sensors & Deferrable" },
+    pools: { title: "Pools & Slots" },
+    "task-mapping": { title: "Dynamic Tasks" },
+    serialization: { title: "Serialization" },
+    "metadata-db": { title: "Metadata DB" },
+    callbacks: { title: "Callbacks" },
+    templating: { title: "Templating & Jinja" },
+    priority: { title: "Priority & Concurrency" },
+    connections: { title: "Connections & Hooks" },
+    variables: { title: "Variables & Params" },
+    retries: { title: "Retries & SLAs" },
+    logging: { title: "Logging" },
+    monitoring: { title: "Monitoring & Metrics" },
+    security: { title: "Security & RBAC" },
+    cli: { title: "CLI Deep Dive" },
+    "failure-scenarios": { title: "Failure Scenarios" },
+    performance: { title: "Performance Tuning" },
+    "ha-setup": { title: "High Availability" },
+    kubernetes: { title: "Kubernetes Executor" },
+    celery: { title: "Celery Executor" },
+    interview: { title: "Interview Q&A" },
+    quiz: { title: "Quiz" },
+    glossary: { title: "Glossary" },
+    "event-simulator": { title: "Event Simulator" },
+    "master-map": { title: "Master Concept Map" }
+  };
+  AV.routes = ROUTES;
 
   var App = {
     // ── Theme ──────────────────────────────────────────────
@@ -15,17 +58,14 @@
       var root = document.documentElement;
       var stored = null;
       try { stored = localStorage.getItem("afviz-theme"); } catch (e) {}
-      if (stored === "light" || stored === "dark") {
-        root.setAttribute("data-theme", stored);
-      }
+      if (stored === "light" || stored === "dark") root.setAttribute("data-theme", stored);
+
       var toggle = document.getElementById("theme-toggle");
       if (toggle) {
         toggle.addEventListener("click", function () {
           var current = root.getAttribute("data-theme");
-          // If unset, infer from OS to decide the flip target.
           if (!current) {
-            current = window.matchMedia("(prefers-color-scheme: light)").matches
-              ? "light" : "dark";
+            current = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
           }
           var next = current === "dark" ? "light" : "dark";
           root.setAttribute("data-theme", next);
@@ -34,22 +74,7 @@
       }
     },
 
-    // ── Sidebar / nav active state (hash-driven) ───────────
-    initNav: function () {
-      var self = this;
-      function sync() {
-        var route = (location.hash || "#home").slice(1);
-        var links = document.querySelectorAll("[data-route]");
-        links.forEach(function (el) {
-          el.classList.toggle("active", el.getAttribute("data-route") === route);
-        });
-        self.renderPlaceholder(route);
-      }
-      window.addEventListener("hashchange", sync);
-      sync();
-    },
-
-    // ── Keyboard-help modal + basic shortcuts ──────────────
+    // ── Keyboard-help modal + global (non-transport) keys ──
     initKeyboard: function () {
       var modal = document.getElementById("kbd-modal");
       var openBtn = document.getElementById("kbd-help-btn");
@@ -66,8 +91,8 @@
       document.addEventListener("keydown", function (e) {
         var tag = (e.target && e.target.tagName) || "";
         if (tag === "INPUT" || tag === "TEXTAREA") return;
-        if (e.key === "?") { open(); }
-        else if (e.key === "Escape") { close(); }
+        if (e.key === "?") open();
+        else if (e.key === "Escape") close();
         else if (e.key === "t" || e.key === "T") {
           var toggle = document.getElementById("theme-toggle");
           if (toggle) toggle.click();
@@ -89,54 +114,56 @@
         { keys: ["?"], desc: "Show this help" },
         { keys: ["Esc"], desc: "Close dialog" }
       ];
-      list.innerHTML = shortcuts.map(function (s) {
-        var keys = s.keys.map(function (k) { return "<kbd>" + k + "</kbd>"; }).join("");
-        return '<div class="kbd-row"><span>' + s.desc +
-               '</span><span class="kbd-keys">' + keys + "</span></div>";
-      }).join("");
+      list.innerHTML = shortcuts
+        .map(function (s) {
+          var keys = s.keys.map(function (k) { return "<kbd>" + k + "</kbd>"; }).join("");
+          return '<div class="kbd-row"><span>' + s.desc + '</span><span class="kbd-keys">' + keys + "</span></div>";
+        })
+        .join("");
     },
 
-    // ── Placeholder canvas (until Phase 1 modules land) ────
-    renderPlaceholder: function (route) {
-      var container = document.getElementById("module-container");
-      if (!container) return;
-      var label = route.replace(/-/g, " ").replace(/\b\w/g, function (c) {
-        return c.toUpperCase();
+    // ── Mobile sidebar ─────────────────────────────────────
+    initSidebar: function () {
+      var sidebar = document.getElementById("sidebar");
+      if (!sidebar) return;
+      // Close the drawer after choosing a link on small screens.
+      sidebar.addEventListener("click", function (e) {
+        if (e.target.closest("a") && window.innerWidth <= 768) sidebar.classList.remove("open");
       });
-      container.innerHTML =
-        '<div class="module-header animate-fade-in-up">' +
-          '<div class="module-eyebrow">Apache Airflow Visualizer</div>' +
-          '<h1 class="module-title gradient-text">' + label + '</h1>' +
-          '<p class="module-subtitle">The application shell is live. Interactive ' +
-          'modules, animations, and diagrams arrive in the next build phases.</p>' +
-        '</div>' +
-        '<div class="card animate-fade-in" style="margin-top:var(--space-6)">' +
-          '<div class="card-title">Phase 0 — Foundation shipped</div>' +
-          '<p>Design tokens, layout shell, component styles, and animation ' +
-          'primitives are in place. Navigate the sidebar to preview routing; ' +
-          'each link will resolve to a full interactive module as phases land.</p>' +
-          '<div class="flex gap-2" style="margin-top:var(--space-4);flex-wrap:wrap">' +
-            '<span class="badge badge-airflow">Tokens</span>' +
-            '<span class="badge badge-cyan">Layout</span>' +
-            '<span class="badge badge-green">Components</span>' +
-            '<span class="badge badge-purple">Animations</span>' +
-          '</div>' +
-        '</div>' +
-        '<div class="callout info" style="margin-top:var(--space-6)">' +
-          '<span class="callout-icon">🌬️</span>' +
-          '<div class="callout-body">Built as a static site — pure HTML, CSS, ' +
-          'and vanilla JS. Deployed to GitHub Pages, no framework, no bundler.</div>' +
-        '</div>';
+    },
+
+    // ── Active-nav sync (called by the router on every route) ─
+    syncNav: function (id) {
+      var links = document.querySelectorAll("[data-route]");
+      links.forEach(function (el) {
+        el.classList.toggle("active", el.getAttribute("data-route") === id);
+      });
+      var route = ROUTES[id];
+      document.title = (route && route.title ? route.title + " · " : "") + "Apache Airflow Visualizer";
+    },
+
+    // ── Router ─────────────────────────────────────────────
+    initRouter: function () {
+      var container = document.getElementById("module-container");
+      var self = this;
+      this.router = new AV.Router({
+        routes: ROUTES,
+        container: container,
+        defaultRoute: "home",
+        onRoute: function (id) { self.syncNav(id); }
+      });
+      this.router.start();
     },
 
     start: function () {
       this.initTheme();
       this.initKeyboard();
-      this.initNav();
+      this.initSidebar();
+      this.initRouter();
     }
   };
 
-  window.AirflowViz.App = App;
+  AV.App = App;
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", function () { App.start(); });
