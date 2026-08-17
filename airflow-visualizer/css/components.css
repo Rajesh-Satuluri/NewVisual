@@ -558,3 +558,53 @@ a.card:hover { text-decoration: none; }
 .tl-marker.active .tl-marker-line { stroke: var(--airflow); stroke-dasharray: none; }
 .tl-marker.active .tl-marker-dot { fill: var(--airflow); }
 .tl-marker.active .tl-marker-label { fill: var(--airflow-bright); font-weight: 600; }
+
+/* ── Pool slot visual ────────────────────────────────────────── */
+.pool-viz { padding: var(--space-4) var(--space-2); }
+.pool-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: var(--space-4); }
+.pool-name { font-family: var(--font-mono); font-weight: 700; color: var(--airflow-bright); font-size: var(--text-lg); }
+.pool-count { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--text-muted); }
+.pool-slots {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+.pool-slot {
+  height: 84px;
+  border: 1.5px dashed var(--border-muted);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-1);
+  transition: all var(--ease-base);
+}
+.pool-slot.filled { border-style: solid; border-color: var(--airflow); background: var(--airflow-subtle); box-shadow: var(--shadow-glow); }
+.slot-empty { color: var(--text-disabled); font-size: var(--text-xs); font-family: var(--font-mono); }
+.task-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  height: 40px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius);
+  background: var(--airflow);
+  color: var(--text-on-accent);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: var(--text-lg);
+  animation: scale-in var(--ease-bounce) both;
+}
+.task-chip.queued { background: var(--yellow-subtle); color: var(--yellow); border: 1px solid var(--yellow); }
+.pool-queue-lane { display: flex; align-items: center; gap: var(--space-3); }
+.pool-queue-label {
+  font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-muted); font-weight: 700; flex-shrink: 0;
+}
+.pool-queue {
+  flex: 1; display: flex; gap: var(--space-2); align-items: center;
+  min-height: 48px; padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-default); border-radius: var(--radius); background: var(--bg-1);
+}
