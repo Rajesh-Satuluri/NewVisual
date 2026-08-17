@@ -14,6 +14,7 @@
   // but still show correct titles + active nav state.
   var ROUTES = {
     home: { title: "Home", ready: true },
+    "business-scenario": { title: "Business Scenario: E-commerce Pipeline", ready: true },
     architecture: { title: "Architecture Overview", ready: true },
     "dag-parsing": { title: "DAG Parsing", ready: true },
     "dag-run": { title: "DAG Run Lifecycle", ready: true },

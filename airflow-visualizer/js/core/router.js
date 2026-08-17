@@ -94,6 +94,11 @@
     var canvas = document.getElementById("canvas");
     if (canvas) canvas.scrollTop = 0;
     try { mod.render(c); } catch (e) { console.error("Module render error:", e); }
+    // Append the recurring e-commerce business example below concept
+    // modules (no-op for modules without a lens entry).
+    if (AV.BusinessLens) {
+      try { AV.BusinessLens.append(c, mod.id); } catch (e) { console.error("BusinessLens error:", e); }
+    }
     this.current = mod;
   };
 
