@@ -549,6 +549,7 @@ a.card:hover { text-decoration: none; }
 .tl-block-strip { fill: var(--tl, var(--airflow)); }
 .tl-block-label { fill: var(--text-primary); font-weight: 600; font-size: 13px; }
 .tl-block-sub { fill: var(--text-muted); font-size: 10px; font-family: var(--font-mono); }
+.tl-item.filled .tl-block { stroke: var(--tl, var(--airflow)); }
 .tl-item.active .tl-block { stroke: var(--tl, var(--airflow)); stroke-width: 2.5; filter: drop-shadow(0 0 7px var(--tl, var(--airflow-glow))); }
 
 .tl-marker-line { stroke: var(--border-muted); stroke-width: 1.5; stroke-dasharray: 4 4; }

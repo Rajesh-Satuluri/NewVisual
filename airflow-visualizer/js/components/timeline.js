@@ -93,6 +93,12 @@
         Object.keys(markerEls).forEach(function (k) { markerEls[k].classList.remove("active"); });
         if (markerEls[id]) markerEls[id].classList.add("active");
       },
+      setItemState: function (id, state) {
+        var g = itemEls[id];
+        if (!g) return;
+        g.setAttribute("style", "--tl:" + tokenFor(state));
+        g.classList.toggle("filled", state && state !== "none");
+      },
       clear: function () {
         Object.keys(itemEls).forEach(function (k) { itemEls[k].classList.remove("active"); });
         Object.keys(markerEls).forEach(function (k) { markerEls[k].classList.remove("active"); });
