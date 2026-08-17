@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Apache Airflow Visualizer</title>
+  <meta name="description" content="Interactive Apache Airflow internals — architecture, execution, debugging, and interview prep for data engineers." />
+
+  <!-- CSS load order -->
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/layout.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/animations.css" />
+</head>
+<body>
+
+  <!-- App shell — populated by js/app.js -->
+  <div id="app">
+
+    <!-- Topbar -->
+    <header id="topbar" class="topbar">
+      <div class="topbar-brand">
+        <span class="brand-icon" aria-hidden="true">
+          <!-- Airflow logo mark -->
+          <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="16" cy="16" r="14" fill="var(--airflow)" opacity="0.15"/>
+            <path d="M8 16 Q12 8 16 16 Q20 24 24 16" stroke="var(--airflow)" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+            <circle cx="8" cy="16" r="2" fill="var(--airflow)"/>
+            <circle cx="16" cy="16" r="2" fill="var(--cyan)"/>
+            <circle cx="24" cy="16" r="2" fill="var(--airflow)"/>
+          </svg>
+        </span>
+        <span class="brand-name">Airflow <span class="brand-accent">Visualizer</span></span>
+        <span class="brand-version badge">v3.x</span>
+      </div>
+
+      <nav class="topbar-nav" aria-label="Module categories">
+        <a href="#home" class="nav-pill" data-route="home">Home</a>
+        <a href="#architecture" class="nav-pill" data-route="architecture">Architecture</a>
+        <a href="#scheduler" class="nav-pill" data-route="scheduler">Scheduler</a>
+        <a href="#executors" class="nav-pill" data-route="executors">Executors</a>
+        <a href="#interview" class="nav-pill" data-route="interview">Interview</a>
+      </nav>
+
+      <div class="topbar-actions">
+        <button id="theme-toggle" class="icon-btn" title="Toggle theme (T)" aria-label="Toggle theme">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </button>
+        <button id="kbd-help-btn" class="icon-btn" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="6" width="20" height="12" rx="2"/>
+            <path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Body: sidebar + main canvas -->
+    <div class="app-body">
+
+      <!-- Sidebar nav -->
+      <aside id="sidebar" class="sidebar" aria-label="Module navigation">
+        <div class="sidebar-section">
+          <div class="sidebar-label">Core Concepts</div>
+          <ul class="sidebar-list" role="list">
+            <li><a href="#home" class="sidebar-link" data-route="home">Home</a></li>
+            <li><a href="#architecture" class="sidebar-link" data-route="architecture">Architecture Overview</a></li>
+            <li><a href="#dag-parsing" class="sidebar-link" data-route="dag-parsing">DAG Parsing</a></li>
+            <li><a href="#dag-run" class="sidebar-link" data-route="dag-run">DAG Run Lifecycle</a></li>
+            <li><a href="#task-instance" class="sidebar-link" data-route="task-instance">Task Instance</a></li>
+          </ul>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="sidebar-label">Scheduler</div>
+          <ul class="sidebar-list" role="list">
+            <li><a href="#scheduler" class="sidebar-link" data-route="scheduler">Scheduler Internals</a></li>
+            <li><a href="#scheduling" class="sidebar-link" data-route="scheduling">Scheduling & Timetables</a></li>
+            <li><a href="#backfill" class="sidebar-link" data-route="backfill">Backfill</a></li>
+          </ul>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="sidebar-label">Execution</div>
+          <ul class="sidebar-list" role="list">
+            <li><a href="#executors" class="sidebar-link" data-route="executors">Executors</a></li>
+            <li><a href="#task-lifecycle" class="sidebar-link" data-route="task-lifecycle">Task Lifecycle</a></li>
+            <li><a href="#xcoms" class="sidebar-link" data-route="xcoms">XCom</a></li>
+            <li><a href="#sensors" class="sidebar-link" data-route="sensors">Sensors & Deferrable</a></li>
+            <li><a href="#pools" class="sidebar-link" data-route="pools">Pools & Slots</a></li>
+            <li><a href="#task-mapping" class="sidebar-link" data-route="task-mapping">Dynamic Tasks</a></li>
+          </ul>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="sidebar-label">Internals</div>
+          <ul class="sidebar-list" role="list">
+            <li><a href="#serialization" class="sidebar-link" data-route="serialization">Serialization</a></li>
+            <li><a href="#metadata-db" class="sidebar-link" data-route="metadata-db">Metadata DB</a></li>
+            <li><a href="#callbacks" class="sidebar-link" data-route="callbacks">Callbacks</a></li>
+            <li><a href="#templating" class="sidebar-link" data-route="templating">Templating & Jinja</a></li>
+            <li><a href="#priority" class="sidebar-link" data-route="priority">Priority & Concurrency</a></li>
+          </ul>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="sidebar-label">Operations</div>
+          <ul class="sidebar-list" role="list">
+            <li><a href="#connections" class="sidebar-link" data-route="connections">Connections & Hooks</a></li>
+            <li><a href="#variables" class="sidebar-link" data-route="variables">Variables & Params</a></li>
+            <li><a href="#retries" class="sidebar-link" data-route="retries">Retries & SLAs</a></li>
+            <li><a href="#logging" class="sidebar-link" data-route="logging">Logging</a></li>
+            <li><a href="#monitoring" class="sidebar-link" data-route="monitoring">Monitoring & Metrics</a></li>
+            <li><a href="#security" class="sidebar-link" data-route="security">Security & RBAC</a></li>
+            <li><a href="#cli" class="sidebar-link" data-route="cli">CLI Deep Dive</a></li>
+          </ul>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="sidebar-label">Production</div>
+          <ul class="sidebar-list" role="list">
+            <li><a href="#failure-scenarios" class="sidebar-link" data-route="failure-scenarios">Failure Scenarios</a></li>
+            <li><a href="#performance" class="sidebar-link" data-route="performance">Performance Tuning</a></li>
+            <li><a href="#ha-setup" class="sidebar-link" data-route="ha-setup">High Availability</a></li>
+            <li><a href="#kubernetes" class="sidebar-link" data-route="kubernetes">Kubernetes Executor</a></li>
+            <li><a href="#celery" class="sidebar-link" data-route="celery">Celery Executor</a></li>
+          </ul>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="sidebar-label">Learning Mode</div>
+          <ul class="sidebar-list" role="list">
+            <li><a href="#interview" class="sidebar-link" data-route="interview">Interview Q&amp;A</a></li>
+            <li><a href="#quiz" class="sidebar-link" data-route="quiz">Quiz</a></li>
+            <li><a href="#glossary" class="sidebar-link" data-route="glossary">Glossary</a></li>
+            <li><a href="#event-simulator" class="sidebar-link" data-route="event-simulator">Event Simulator</a></li>
+            <li><a href="#master-map" class="sidebar-link" data-route="master-map">Master Concept Map</a></li>
+          </ul>
+        </div>
+
+      </aside>
+
+      <!-- Main content canvas -->
+      <main id="canvas" class="canvas" role="main" aria-live="polite">
+        <!-- Module rendered here by router -->
+        <div id="module-container" class="module-container"></div>
+      </main>
+
+      <!-- Detail panel (used by modules that need it) -->
+      <aside id="detail-panel" class="detail-panel hidden" aria-label="Detail panel">
+        <div id="detail-panel-content"></div>
+      </aside>
+
+    </div><!-- /.app-body -->
+
+    <!-- Tooltip (global, positioned by tooltip.js) -->
+    <div id="tooltip" class="tooltip hidden" role="tooltip"></div>
+
+    <!-- Keyboard shortcuts modal -->
+    <div id="kbd-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
+      <div class="modal-backdrop"></div>
+      <div class="modal-box">
+        <div class="modal-header">
+          <h2 class="modal-title">Keyboard Shortcuts</h2>
+          <button class="modal-close icon-btn" aria-label="Close">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body" id="kbd-list"></div>
+      </div>
+    </div>
+
+  </div><!-- /#app -->
+
+  <!-- JS load order: core → components → data → modules → app
+       Uncommented progressively as each build phase lands. -->
+  <!-- Phase 1 (core):
+  <script src="js/core/animation-engine.js"></script>
+  <script src="js/core/router.js"></script>
+  <script src="js/core/tooltip.js"></script>
+  <script src="js/core/keyboard.js"></script>
+  -->
+  <!-- Phase 2 (components):
+  <script src="js/components/animation-controls.js"></script>
+  <script src="js/components/code-viewer.js"></script>
+  <script src="js/components/state-machine.js"></script>
+  <script src="js/components/timeline.js"></script>
+  <script src="js/components/arch-diagram.js"></script>
+  -->
+  <!-- Phase 3 (data):
+  <script src="js/data/shopkart-data.js"></script>
+  <script src="js/data/airflow-concepts.js"></script>
+  <script src="js/data/interview-questions.js"></script>
+  <script src="js/data/scenarios.js"></script>
+  -->
+  <script src="js/app.js"></script>
+</body>
+</html>
