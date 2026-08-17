@@ -43,12 +43,12 @@
     performance: { title: "Performance Tuning", ready: true },
     "ha-setup": { title: "High Availability", ready: true },
     kubernetes: { title: "Kubernetes Executor", ready: true },
-    celery: { title: "Celery Executor" },
-    interview: { title: "Interview Q&A" },
-    quiz: { title: "Quiz" },
-    glossary: { title: "Glossary" },
-    "event-simulator": { title: "Event Simulator" },
-    "master-map": { title: "Master Concept Map" }
+    celery: { title: "Celery Executor", ready: true },
+    interview: { title: "Interview Q&A", ready: true },
+    quiz: { title: "Quiz", ready: true },
+    glossary: { title: "Glossary", ready: true },
+    "event-simulator": { title: "Event Simulator", ready: true },
+    "master-map": { title: "Master Concept Map", ready: true }
   };
   AV.routes = ROUTES;
 
