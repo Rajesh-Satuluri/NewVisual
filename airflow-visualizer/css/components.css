@@ -987,3 +987,29 @@ a.card:hover { text-decoration: none; }
 @media (max-width: 900px) {
   .metrics-grid { grid-template-columns: 1fr; }
 }
+
+/* ── failure-scenarios: incident card (failure-scenarios.js) ─ */
+.fail-viz { display: flex; flex-direction: column; }
+.fail-intro { color: var(--text-secondary); font-size: var(--text-sm); }
+.fail-card {
+  border: 1px solid var(--border-default); border-radius: var(--radius-md);
+  background: var(--bg-2); padding: var(--space-4);
+  display: flex; flex-direction: column; gap: var(--space-3);
+}
+.fail-head { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.fail-icon { font-size: 1.4rem; }
+.fail-title { font-size: 1.05rem; font-weight: 700; color: var(--text-primary); }
+.fail-sev { margin-left: auto; }
+.fail-row { display: grid; grid-template-columns: 90px 1fr; gap: var(--space-3); align-items: start; }
+.fail-tag {
+  font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.05em;
+  font-weight: 700; padding: 3px 8px; border-radius: var(--radius-sm);
+  text-align: center; white-space: nowrap;
+}
+.fail-tag-symptom { color: var(--red);   background: var(--red-subtle); }
+.fail-tag-cause   { color: var(--orange);background: var(--orange-subtle); }
+.fail-tag-fix     { color: var(--green); background: var(--green-subtle); }
+.fail-text { font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.55; }
+@media (max-width: 560px) {
+  .fail-row { grid-template-columns: 1fr; gap: var(--space-1); }
+}
