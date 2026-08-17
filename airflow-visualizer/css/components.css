@@ -608,3 +608,32 @@ a.card:hover { text-decoration: none; }
   min-height: 48px; padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border-default); border-radius: var(--radius); background: var(--bg-1);
 }
+
+/* ── Dynamic task mapping fan-out ────────────────────────────── */
+.map-flow { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-4) var(--space-2); overflow-x: auto; }
+.map-stage { display: flex; flex-direction: column; gap: var(--space-2); flex: 1 1 0; min-width: 132px; }
+.map-stage-label { font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-family: var(--font-mono); }
+.map-arrow { color: var(--text-muted); font-size: var(--text-2xl); flex-shrink: 0; }
+.map-box {
+  border: 1.5px solid var(--border-muted); border-radius: var(--radius-md);
+  padding: var(--space-3); background: var(--bg-1); transition: all var(--ease-base);
+}
+.map-box-title { font-family: var(--font-mono); font-weight: 700; font-size: var(--text-sm); }
+.map-box-sub { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); margin-top: 2px; }
+.map-fan { display: flex; flex-direction: column; gap: var(--space-2); }
+.map-item {
+  border: 1.5px solid var(--border-muted); border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3); background: var(--bg-1);
+  font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 600;
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
+  transition: all var(--ease-base); animation: scale-in var(--ease-bounce) both;
+}
+.map-item .mi-x { color: var(--text-muted); font-weight: 400; }
+.map-item.placeholder { border-style: dashed; color: var(--text-secondary); }
+
+/* Shared state coloring for map boxes/items */
+.s-idle, .s-none { }
+.s-queued { border-color: var(--yellow); background: var(--yellow-subtle); }
+.s-running { border-color: var(--airflow); background: var(--airflow-subtle); box-shadow: var(--shadow-glow); }
+.s-success { border-color: var(--green); background: var(--green-subtle); }
+.map-item.s-running .mi-x, .map-item.s-success .mi-x { color: inherit; }
