@@ -15,7 +15,7 @@
   ];
 
   var STATS = [
-    { num: "36", label: "Modules planned" },
+    { num: "21", label: "Modules live" },
     { num: "4", label: "Network echelons" },
     { num: "6", label: "Solver scenarios" },
     { num: "CATMPN", label: "o9 configuration" }
