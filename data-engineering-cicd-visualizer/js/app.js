@@ -63,8 +63,8 @@
     observability: { title: "Observability", ready: true },
 
     // Learning
-    interview: { title: "Interview Questions", ready: false },
-    quiz: { title: "Quiz", ready: false },
+    interview: { title: "Interview Questions", ready: true },
+    quiz: { title: "Quiz", ready: true },
     glossary: { title: "Glossary", ready: true },
     "master-map": { title: "Master Map", ready: true }
   };
