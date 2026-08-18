@@ -85,17 +85,38 @@
       function showNodeDetail(id) {
         var d = data.detail[id];
         if (!d) return;
+
+        var checksHtml = "";
+        if (d.checks && d.checks.length) {
+          checksHtml =
+            '<div class="arch-detail-sub">' + (d.checksLabel || "What it does") + "</div>" +
+            '<ul class="arch-check-list">' +
+              d.checks.map(function (c) { return "<li>" + c + "</li>"; }).join("") +
+            "</ul>";
+        }
+
+        var bizHtml = "";
+        if (d.business) {
+          bizHtml =
+            '<div class="callout info arch-biz"><span class="callout-icon">🛒</span>' +
+            '<div class="callout-body"><b>ShopKart:</b> ' + d.business + "</div></div>";
+        }
+
         var noteHtml = "";
         if (d.note) {
+          var badgeClass = d.note.v === "3.x" ? "badge-v3" : d.note.v === "HA" ? "badge-purple" : "badge-v2";
           noteHtml =
             '<div class="callout info" style="margin-top:var(--space-4)">' +
-              '<span class="badge badge-v' + (d.note.v === "3.x" ? "3" : "2") + '">' + d.note.v + "</span>" +
+              '<span class="badge ' + badgeClass + '">' + d.note.v + "</span>" +
               '<div class="callout-body">' + d.note.text + "</div>" +
             "</div>";
         }
+
+        // Support both the new structured shape and any legacy {body}.
+        var lead = d.plain ? "<p>" + d.plain + "</p>" : (d.body ? "<p>" + d.body + "</p>" : "");
         detail.innerHTML =
           '<div class="arch-detail-title">' + d.title + "</div>" +
-          "<p>" + d.body + "</p>" + noteHtml;
+          lead + checksHtml + bizHtml + noteHtml;
       }
 
       // ── Engine + steps ──────────────────────────────────

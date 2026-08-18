@@ -1274,3 +1274,20 @@ a.card:hover { text-decoration: none; }
 @media (prefers-reduced-motion: reduce) {
   .arch-edge-flow { animation: none; opacity: 0.5; }
 }
+
+/* ── architecture: enriched node inspector (architecture.js) ─ */
+.arch-detail-sub {
+  font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-muted); font-weight: 700; margin: var(--space-4) 0 var(--space-2);
+}
+.arch-check-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.arch-check-list li {
+  position: relative; padding-left: 22px; font-size: var(--text-sm);
+  color: var(--text-secondary); line-height: 1.45;
+}
+.arch-check-list li::before {
+  content: "✓"; position: absolute; left: 0; top: 0;
+  color: var(--airflow-bright); font-weight: 700;
+}
+.arch-biz { margin-top: var(--space-4); }
+.arch-biz .callout-icon { font-size: 1.05rem; }
