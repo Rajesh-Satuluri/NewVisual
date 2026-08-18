@@ -57,7 +57,7 @@
     "artifact-lifecycle": { title: "Artifact Lifecycle", ready: true },
     branching: { title: "Git Branching", ready: true },
     "testing-pyramid": { title: "Testing Pyramid", ready: true },
-    "deployment-strategies": { title: "Deployment Strategies", ready: false },
+    "deployment-strategies": { title: "Deployment Strategies", ready: true },
     rollback: { title: "Rollback", ready: true },
     security: { title: "CI/CD Security", ready: true },
     observability: { title: "Observability", ready: true },
