@@ -23,7 +23,7 @@
     "business-scenario": { title: "A Code Change Travels to Production", ready: true },
     "end-to-end-pipeline": { title: "End-to-End Pipeline", ready: true },
     "environment-promotion": { title: "Environment Promotion", ready: false },
-    "failure-simulator": { title: "Failure Simulator", ready: false },
+    "failure-simulator": { title: "Failure Simulator", ready: true },
 
     // Tier 1 — Essential Foundations
     git: { title: "Git", ready: true },
@@ -66,7 +66,7 @@
     interview: { title: "Interview Questions", ready: false },
     quiz: { title: "Quiz", ready: false },
     glossary: { title: "Glossary", ready: false },
-    "master-map": { title: "Master Map", ready: false }
+    "master-map": { title: "Master Map", ready: true }
   };
   NS.routes = ROUTES;
 
