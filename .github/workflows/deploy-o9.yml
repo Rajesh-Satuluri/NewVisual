@@ -1,0 +1,47 @@
+name: Deploy o9 Solver Visualizer (branch preview)
+
+# Additive workflow: publishes the whole repo (landing page + all
+# visualizers, including o9-solver-visualizer/) to GitHub Pages,
+# without touching deploy.yml.
+#
+# Manual-only: the github-pages environment is restricted to the
+# default branch, so a push-triggered run from a feature branch is
+# rejected by environment protection (fails instantly, no logs).
+# Real deploys happen via deploy.yml on merge to main. This workflow
+# is retained for manual runs if the branch is ever allowed in the
+# github-pages environment.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
