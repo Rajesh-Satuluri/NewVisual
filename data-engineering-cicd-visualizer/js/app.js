@@ -17,44 +17,44 @@
   // ready:true → a module file exists at js/modules/<id>.js and is
   // lazy-loaded on navigation. Order mirrors the ROI-first sidebar.
   var ROUTES = {
-    home: { title: "Home", ready: false },
+    home: { title: "Home", ready: true },
 
     // Real-world scenario
-    "business-scenario": { title: "A Code Change Travels to Production", ready: false },
-    "end-to-end-pipeline": { title: "End-to-End Pipeline", ready: false },
+    "business-scenario": { title: "A Code Change Travels to Production", ready: true },
+    "end-to-end-pipeline": { title: "End-to-End Pipeline", ready: true },
     "environment-promotion": { title: "Environment Promotion", ready: false },
     "failure-simulator": { title: "Failure Simulator", ready: false },
 
     // Tier 1 — Essential Foundations
-    git: { title: "Git", ready: false },
-    github: { title: "GitHub", ready: false },
-    "github-actions": { title: "GitHub Actions", ready: false },
+    git: { title: "Git", ready: true },
+    github: { title: "GitHub", ready: true },
+    "github-actions": { title: "GitHub Actions", ready: true },
 
     // Tier 2 — Data Engineering CI/CD
-    terraform: { title: "Terraform", ready: false },
-    docker: { title: "Docker", ready: false },
-    "databricks-bundles": { title: "Databricks Asset Bundles", ready: false },
-    "dbt-cicd": { title: "dbt CI/CD", ready: false },
-    pytest: { title: "pytest / Python Testing", ready: false },
-    "sql-testing": { title: "SQL Testing", ready: false },
-    "airflow-cicd": { title: "Airflow CI/CD", ready: false },
+    terraform: { title: "Terraform", ready: true },
+    docker: { title: "Docker", ready: true },
+    "databricks-bundles": { title: "Databricks Asset Bundles", ready: true },
+    "dbt-cicd": { title: "dbt CI/CD", ready: true },
+    pytest: { title: "pytest / Python Testing", ready: true },
+    "sql-testing": { title: "SQL Testing", ready: true },
+    "airflow-cicd": { title: "Airflow CI/CD", ready: true },
 
     // Tier 3 — Production Engineering
-    kubernetes: { title: "Kubernetes", ready: false },
-    helm: { title: "Helm", ready: false },
-    "container-registry": { title: "Container Registry", ready: false },
-    secrets: { title: "Secrets & Environment Management", ready: false },
-    "data-quality": { title: "Data Quality", ready: false },
-    sonarqube: { title: "SonarQube / Static Analysis", ready: false },
+    kubernetes: { title: "Kubernetes", ready: true },
+    helm: { title: "Helm", ready: true },
+    "container-registry": { title: "Container Registry", ready: true },
+    secrets: { title: "Secrets & Environment Management", ready: true },
+    "data-quality": { title: "Data Quality", ready: true },
+    sonarqube: { title: "SonarQube / Static Analysis", ready: true },
 
     // Tier 4 — Enterprise / Platform
-    "azure-devops": { title: "Azure DevOps", ready: false },
-    "argo-cd": { title: "Argo CD / GitOps", ready: false },
-    jenkins: { title: "Jenkins", ready: false },
+    "azure-devops": { title: "Azure DevOps", ready: true },
+    "argo-cd": { title: "Argo CD / GitOps", ready: true },
+    jenkins: { title: "Jenkins", ready: true },
 
     // Engineering concepts
-    "ci-vs-cd": { title: "CI vs CD", ready: false },
-    "artifact-lifecycle": { title: "Artifact Lifecycle", ready: false },
+    "ci-vs-cd": { title: "CI vs CD", ready: true },
+    "artifact-lifecycle": { title: "Artifact Lifecycle", ready: true },
     branching: { title: "Git Branching", ready: false },
     "testing-pyramid": { title: "Testing Pyramid", ready: false },
     "deployment-strategies": { title: "Deployment Strategies", ready: false },
