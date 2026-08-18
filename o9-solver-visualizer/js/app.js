@@ -55,11 +55,11 @@
 
     // Learning Mode
     "sim-lab": { title: "Solver Behavior Lab", ready: true },
-    interview: { title: "Interview Q&A", ready: false },
-    "scenario-interview": { title: "Scenario Interviews", ready: false },
-    quiz: { title: "Quiz", ready: false },
-    glossary: { title: "Glossary", ready: false },
-    "master-map": { title: "Master Concept Map", ready: false }
+    interview: { title: "Interview Q&A", ready: true },
+    "scenario-interview": { title: "Scenario Interviews", ready: true },
+    quiz: { title: "Quiz", ready: true },
+    glossary: { title: "Glossary", ready: true },
+    "master-map": { title: "Master Concept Map", ready: true }
   };
   AV.routes = ROUTES;
 
