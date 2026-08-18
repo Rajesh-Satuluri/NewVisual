@@ -16,7 +16,7 @@
 
   var EDGES = [
     ["proc", "db"], ["sched", "db"], ["db", "sched"],
-    ["worker", "db"], ["db", "worker"], ["ui", "db"]
+    ["worker", "db"], ["db", "worker"], ["db", "ui"]
   ];
 
   var STEPS = [
@@ -41,7 +41,7 @@
       desc: "Workers fetch task params from the DB, execute the task, then write the final <code>task_instance</code> state (success/failed), <code>xcom</code> return values, and duration metrics."
     },
     {
-      nodes: ["ui", "db"], edges: [["ui", "db"]],
+      nodes: ["ui", "db"], edges: [["db", "ui"]],
       label: "5 · API Server / UI is read-only",
       desc: "The web UI and REST API read from <code>dag_run</code>, <code>task_instance</code>, <code>xcom</code>, <code>log</code>, and friends. They own <i>no state</i> — everything you see in the UI is a query against the metadata DB."
     },

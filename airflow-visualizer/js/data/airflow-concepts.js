@@ -26,19 +26,20 @@
       { id: "triggerer",  label: "Triggerer",     sub: "async deferrable",   x: 755, y: 388, w: 170, h: 60, color: "purple" }
     ],
 
-    // [fromId, toId]
+    // [fromId, toId, meta?] — meta: { dir:"both", label, curve }.
+    // Direction reflects data flow; "both" = read+write (double-headed).
     edges: [
-      ["dag", "processor"],
-      ["processor", "metadb"],
-      ["scheduler", "metadb"],
-      ["scheduler", "executor"],
-      ["executor", "queue"],
-      ["queue", "worker"],
-      ["worker", "task"],
-      ["task", "metadb"],
-      ["task", "logs"],
-      ["api", "metadb"],
-      ["triggerer", "metadb"]
+      ["dag", "processor", { label: "parse" }],
+      ["processor", "metadb", { label: "serialize" }],
+      ["scheduler", "metadb", { dir: "both", label: "read / write", curve: 210 }],
+      ["scheduler", "executor", { label: "hand off" }],
+      ["executor", "queue", { label: "enqueue" }],
+      ["queue", "worker", { label: "pull" }],
+      ["worker", "task", { label: "execute" }],
+      ["task", "metadb", { label: "report" }],
+      ["task", "logs", { label: "write", curve: 235 }],
+      ["api", "metadb", { dir: "both", label: "read / write" }],
+      ["triggerer", "metadb", { dir: "both", label: "poll / resume" }]
     ],
 
     // The narrated request/scheduling flow. Driven by the AnimationEngine;

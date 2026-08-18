@@ -1249,3 +1249,28 @@ a.card:hover { text-decoration: none; }
   .lens-grid { grid-template-columns: 1fr; gap: var(--space-4); }
   .biz-controls-row { flex-direction: column; align-items: stretch; }
 }
+
+/* ── arch-diagram: directional edges (arch-diagram.js) ─────── */
+/* Visible, theme-aware arrowheads (override the old faint fill). */
+.arch-arrow { fill: var(--text-secondary); }
+/* Base edge line. */
+.arch-edge { stroke: var(--border-muted); stroke-width: 1.6; fill: none; transition: stroke var(--ease-base), stroke-width var(--ease-base); }
+/* Directional flow overlay — dashes march source → target. */
+.arch-edge-flow {
+  stroke: var(--text-muted); stroke-width: 2; fill: none;
+  stroke-dasharray: 3 9; stroke-linecap: round; opacity: 0.35;
+  pointer-events: none; animation: arch-flow 1.5s linear infinite;
+}
+@keyframes arch-flow { to { stroke-dashoffset: -12; } }
+/* Active (during an animation step): brighten line, arrow region, and flow. */
+.arch-edge-group.active .arch-edge { stroke: var(--airflow); stroke-width: 2.4; }
+.arch-edge-group.active .arch-edge-flow { stroke: var(--airflow); opacity: 1; stroke-width: 2.6; animation-duration: 0.85s; }
+/* Edge labels sit above everything with a background halo for legibility. */
+.arch-edge-label {
+  fill: var(--text-secondary); font-size: 10.5px; font-weight: 600;
+  paint-order: stroke; stroke: var(--bg-2); stroke-width: 3.5px; stroke-linejoin: round;
+  letter-spacing: 0.02em; user-select: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .arch-edge-flow { animation: none; opacity: 0.5; }
+}
