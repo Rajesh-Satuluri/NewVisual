@@ -110,6 +110,53 @@
       task: "Ration Widget-A when short", system: "Priority framework",
       meaning: "Fulfil the most critical demand first.",
       point: "Priority Part → SCHEDULE ORDER → COMMERCIAL → PULL, tie-broken by Demand Priority. Widget-A as a Priority Part is supplied before lower tiers, and its Line Down Date is tracked."
+    },
+    // ── Solver Decisions ──
+    "net-requirements": {
+      task: "Compute Widget-A net requirement", system: "Solver core",
+      meaning: "How much new supply is needed.",
+      point: "max(0, 400 − 200 + 150) = 350 units, converted to 70 boxes, rounded by Min/Mult to a 500-unit order — the single most-asked calculation in an interview."
+    },
+    "timing-logic": {
+      task: "Back-schedule Widget-A", system: "Lead time + freeze",
+      meaning: "When the order must ship.",
+      point: "Required ship date = Week-3 delivery − 14-day lead time = today. If that date were inside the freeze, the solver would raise a shortage exception instead of ordering."
+    },
+    "sourcing-logic": {
+      task: "Choose Widget-A's source", system: "BILT graph + priority",
+      meaning: "Where supply comes from.",
+      point: "Single-source Widget-A uses its one active BILT lane; if it were dual-sourced, Split Ratio would divide the 500 units across suppliers in fixed proportions."
+    },
+    "shortage-handling": {
+      task: "Widget-A can't be fully met", system: "Shortage-allocation mode",
+      meaning: "Detect, ration, record, escalate.",
+      point: "The six-step flow records Short Qty, tiers it by horizon, traces root cause via MaterialRootCause, and raises Short Exception — never a silent miss."
+    },
+    allocation: {
+      task: "Split short Widget-A supply", system: "Priority framework",
+      meaning: "Who gets the limited supply.",
+      point: "300 available units fill Priority-Part and SCHEDULE-ORDER demand first; COMMERCIAL and PULL absorb the shortfall — consistent, rule-based rationing."
+    },
+    pegging: {
+      task: "Trace a Widget-A demand line", system: "Consumption/Production pegging",
+      meaning: "Which PO fulfils which demand.",
+      point: "The customer demand pegs down to DC-North's receipt, to DC-National's supply, to the specific Supplier PO — full traceability for promise accuracy."
+    },
+    // ── Execution & Outputs ──
+    "batch-sequence": {
+      task: "Run the nightly CAT batch", system: "Automated daily cycle",
+      meaning: "Ingestion → rule → solve → rule → outputs.",
+      point: "Widget-A's 500-unit plan is produced inside one automated nightly run, so any change since yesterday is re-optimised without anyone pressing a button."
+    },
+    "solver-outputs": {
+      task: "Write Widget-A results back", system: "Supply/Inventory/Delivery/Exception",
+      meaning: "What the Buyer actually sees.",
+      point: "Dist Prod Qty 500, Purchase Schedule 500, SCS Ending on Hand 300, InvHealth InStock — the numbers on the 8 AM workbench all come from these output families."
+    },
+    "worked-example": {
+      task: "Widget-A end to end", system: "All six solver stages",
+      meaning: "The canonical narrated solve.",
+      point: "Input → net requirement 350 → constrained 500 → ship today → outputs → ending OH 300 InStock. Narrate these six with the numbers and you own the core interview question."
     }
   };
 
