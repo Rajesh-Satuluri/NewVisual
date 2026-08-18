@@ -1360,3 +1360,34 @@ a.card:hover { text-decoration: none; }
 .ref-table tbody tr:hover { background: var(--bg-2); }
 .ref-table code { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--cyan); }
 .ref-table .mono-cell { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--airflow); white-space: nowrap; }
+
+/* Net-requirement calc ladder + sim-lab helpers (appended) */
+.calc-ladder { display: flex; flex-direction: column; gap: 8px; padding: var(--space-2); }
+.calc-row { display: flex; justify-content: space-between; align-items: center; gap: var(--space-4);
+  background: var(--bg-2); border: 1px solid var(--border-default); border-left: 4px solid var(--border-muted);
+  border-radius: var(--radius); padding: 10px 14px; animation: fadeInUp .3s ease; }
+.calc-label { font-size: var(--text-sm); color: var(--text-secondary); }
+.calc-val { font-family: var(--font-mono); font-weight: 700; font-size: var(--text-lg); }
+.calc-demand { border-left-color: var(--demand); } .calc-onhand { border-left-color: var(--lc); }
+.calc-ss { border-left-color: var(--airflow); } .calc-net { border-left-color: var(--cyan); }
+.calc-net .calc-val { color: var(--cyan); } .calc-box { border-left-color: var(--dc); }
+.calc-order { border-left-color: var(--green); } .calc-order .calc-val { color: var(--green); }
+
+/* Scenario picker for the Sim Lab */
+.scenario-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-3); margin-bottom: var(--space-4); }
+.scenario-btn { text-align: left; background: var(--bg-2); border: 1px solid var(--border-default); border-radius: var(--radius-lg);
+  padding: var(--space-4); cursor: pointer; color: inherit; font: inherit; transition: border-color .15s, transform .15s; }
+.scenario-btn:hover { transform: translateY(-2px); border-color: var(--airflow); }
+.scenario-btn.active { border-color: var(--airflow); box-shadow: 0 0 0 1px var(--airflow); }
+.scenario-btn .s-name { font-weight: 700; margin-bottom: 4px; }
+.scenario-btn .s-trig { font-size: var(--text-xs); color: var(--text-secondary); }
+.scenario-btn .s-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+.s-dot.ok { background: var(--green); } .s-dot.warn { background: var(--orange); } .s-dot.err { background: var(--red); }
+
+/* Priority allocation waterfall */
+.alloc-tier { display: flex; align-items: center; gap: var(--space-3); padding: 10px 14px; margin: 6px 0;
+  border-radius: var(--radius); background: var(--bg-2); border: 1px solid var(--border-default); }
+.alloc-tier .tier-name { flex: 1; font-weight: 600; }
+.alloc-tier .tier-bar { height: 14px; border-radius: 7px; background: var(--green); }
+.alloc-tier.short .tier-bar { background: var(--red); }
+.alloc-tier .tier-qty { font-family: var(--font-mono); font-size: var(--text-sm); min-width: 92px; text-align: right; }

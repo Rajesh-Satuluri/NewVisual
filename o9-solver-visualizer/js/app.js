@@ -41,20 +41,20 @@
     "priority-constraints": { title: "Priority Rules", ready: true },
 
     // Solver Decisions
-    "net-requirements": { title: "Net Requirements", ready: false },
-    "timing-logic": { title: "Timing Logic", ready: false },
-    "sourcing-logic": { title: "Sourcing Logic", ready: false },
-    "shortage-handling": { title: "Shortage Handling", ready: false },
-    allocation: { title: "Allocation", ready: false },
-    pegging: { title: "Pegging", ready: false },
+    "net-requirements": { title: "Net Requirements", ready: true },
+    "timing-logic": { title: "Timing Logic", ready: true },
+    "sourcing-logic": { title: "Sourcing Logic", ready: true },
+    "shortage-handling": { title: "Shortage Handling", ready: true },
+    allocation: { title: "Allocation", ready: true },
+    pegging: { title: "Pegging", ready: true },
 
     // Execution & Outputs
-    "batch-sequence": { title: "Batch Sequence", ready: false },
-    "solver-outputs": { title: "Solver Outputs", ready: false },
-    "worked-example": { title: "Worked Example", ready: false },
+    "batch-sequence": { title: "Batch Sequence", ready: true },
+    "solver-outputs": { title: "Solver Outputs", ready: true },
+    "worked-example": { title: "Worked Example", ready: true },
 
     // Learning Mode
-    "sim-lab": { title: "Solver Behavior Lab", ready: false },
+    "sim-lab": { title: "Solver Behavior Lab", ready: true },
     interview: { title: "Interview Q&A", ready: false },
     "scenario-interview": { title: "Scenario Interviews", ready: false },
     quiz: { title: "Quiz", ready: false },
