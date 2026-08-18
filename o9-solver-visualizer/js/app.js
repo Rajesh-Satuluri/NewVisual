@@ -20,25 +20,25 @@
     "solver-components": { title: "Solver Components", ready: true },
 
     // DRP Framework
-    "drp-overview": { title: "DRP Overview", ready: false },
-    "multi-echelon": { title: "Multi-Echelon Flow", ready: false },
-    objectives: { title: "Solver Objectives", ready: false },
+    "drp-overview": { title: "DRP Overview", ready: true },
+    "multi-echelon": { title: "Multi-Echelon Flow", ready: true },
+    objectives: { title: "Solver Objectives", ready: true },
 
     // Solver Inputs
-    "demand-inputs": { title: "Demand Inputs", ready: false },
-    "inventory-inputs": { title: "Inventory Inputs", ready: false },
-    "supply-order-inputs": { title: "In-Flight Supply", ready: false },
-    "network-topology": { title: "Network Topology", ready: false },
-    "constraint-params": { title: "Constraint Parameters", ready: false },
-    "capacity-inputs": { title: "Capacity Inputs", ready: false },
+    "demand-inputs": { title: "Demand Inputs", ready: true },
+    "inventory-inputs": { title: "Inventory Inputs", ready: true },
+    "supply-order-inputs": { title: "In-Flight Supply", ready: true },
+    "network-topology": { title: "Network Topology", ready: true },
+    "constraint-params": { title: "Constraint Parameters", ready: true },
+    "capacity-inputs": { title: "Capacity Inputs", ready: true },
 
     // Constraints
-    "freeze-windows": { title: "Freeze Windows", ready: false },
-    "calendar-constraints": { title: "Calendar Constraints", ready: false },
-    "quantity-constraints": { title: "Min / Mult / EOQ", ready: false },
-    "capacity-constraints": { title: "Capacity Limits", ready: false },
-    "network-validity": { title: "Network Validity", ready: false },
-    "priority-constraints": { title: "Priority Rules", ready: false },
+    "freeze-windows": { title: "Freeze Windows", ready: true },
+    "calendar-constraints": { title: "Calendar Constraints", ready: true },
+    "quantity-constraints": { title: "Min / Mult / EOQ", ready: true },
+    "capacity-constraints": { title: "Capacity Limits", ready: true },
+    "network-validity": { title: "Network Validity", ready: true },
+    "priority-constraints": { title: "Priority Rules", ready: true },
 
     // Solver Decisions
     "net-requirements": { title: "Net Requirements", ready: false },

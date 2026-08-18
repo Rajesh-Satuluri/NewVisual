@@ -32,6 +32,85 @@
       meaning: "What actually leaves a node vs. arrives at a node.",
       point: "For Widget-A the <b>Production Solver</b> decides the 500-unit planned receipt at DC-North, while the <b>Consumption Solver</b> decides the matching 500-unit draw from Supplier X on the ship date. The WIP component handles intermediate states and infeasibility — together they model the full flow, not just one side of it."
     }
+    ,
+    // ── DRP Framework ──
+    "drp-overview": {
+      task: "Demand climbs LC-Store-A → Supplier X", system: "DRP methodology",
+      meaning: "Propagate customer demand upward, level by level.",
+      point: "Widget-A demand at LC-Store-A (L1) becomes DRP Independent Demand at DC-North (L2), consolidates at DC-National (L3), and lands as a Purchase Schedule at Supplier X (L4) — one aligned chain."
+    },
+    "multi-echelon": {
+      task: "4-echelon Widget-A solve", system: "CAT network",
+      meaning: "One integrated pass across all levels.",
+      point: "The 350-unit net requirement at LC-Store-A propagates up and returns as a constrained 500-unit purchase schedule cascading back down — solved together, so the supplier plan can't drift from customer demand."
+    },
+    objectives: {
+      task: "Fulfil Widget-A on time", system: "Delivery Plan measures",
+      meaning: "Demand-first, then position inventory ahead.",
+      point: "For Widget-A the solver first guarantees the Week-3 forecast is met on time (Total Met OnTime Qty), then positions stock for future periods across the 740-day horizon — never a pure cost minimisation."
+    },
+    // ── Solver Inputs ──
+    "demand-inputs": {
+      task: "Stage Widget-A demand", system: "Rule engine (before solve)",
+      meaning: "The signal the solver must meet.",
+      point: "SplitWeek Final Forecast = 100 units/slot at LC-Store-A → 400 units to Week 3. The solver consumes this; it does not create it."
+    },
+    "inventory-inputs": {
+      task: "Widget-A inventory position", system: "LC-Store-A",
+      meaning: "On-hand offsets demand; safety stock adds a buffer.",
+      point: "On hand 200, Safety Stock Final 150. These flow straight into the net-requirement formula: 400 − 200 + 150 = 350 units."
+    },
+    "supply-order-inputs": {
+      task: "Net out in-flight supply", system: "Open POs / in-transit STOs",
+      meaning: "Count committed supply so you don't double-order.",
+      point: "If a 200-unit STO is already inbound to DC-North for Widget-A, the solver subtracts it before generating any new order."
+    },
+    "network-topology": {
+      task: "Walk the Widget-A graph", system: "BILT / BOD graphs",
+      meaning: "Which node sources which, on what lane.",
+      point: "Widget-A's BILT lanes define Supplier X → DC-National → DC-North → LC-Store-A. The solver traverses exactly this graph to decide sourcing."
+    },
+    "constraint-params": {
+      task: "Read Widget-A parameters", system: "Solver parameters",
+      meaning: "The numeric levers read at solve time.",
+      point: "Min 50, Mult 50, Lead time 14 days — these turn the 350-unit requirement into a 500-unit order shipped today for Week-3 delivery."
+    },
+    "capacity-inputs": {
+      task: "Respect LC throughput", system: "Inbound / outbound capacity",
+      meaning: "Keep the plan physically executable.",
+      point: "If Week-3 receipts exceed LC-Store-A's inbound box capacity, the solver spreads them across days or flags a shortage rather than planning the impossible."
+    },
+    // ── Constraints ──
+    "freeze-windows": {
+      task: "Check Widget-A ship date vs fence", system: "Firm Fence / Activity Freeze",
+      meaning: "Can't change plans already underway.",
+      point: "If Widget-A's required ship date falls inside the freeze, the solver raises a Short Exception and alerts the planner instead of auto-ordering."
+    },
+    "calendar-constraints": {
+      task: "Place Widget-A on valid days", system: "Transport / supplier / LC calendars",
+      meaning: "Only ship and receive on working days.",
+      point: "If LC-Store-A receives only Mon & Thu, the planned receipt lands on the nearest valid delivery day; a supplier holiday shifts the ship date earlier."
+    },
+    "quantity-constraints": {
+      task: "Round Widget-A order", system: "Min / Mult / EOQ",
+      meaning: "Economic and logistical order sizing.",
+      point: "70 boxes needed → Min 50 ✓ → Mult 50 → 100 boxes (500 units). The extra 150 units become projected safety stock."
+    },
+    "capacity-constraints": {
+      task: "Soft-cap Widget-A receipts", system: "Inbound/outbound/demonstrated capacity",
+      meaning: "Breach is allowed, then flagged.",
+      point: "If demand forces receipts above LC-Store-A's capacity, the solver plans the breach and raises an exception — a soft constraint, unlike the hard freeze."
+    },
+    "network-validity": {
+      task: "Use only real Widget-A lanes", system: "Effective dates / split ratio / NoCarry",
+      meaning: "No phantom supply, correct source splits.",
+      point: "Dual-source Widget-A is split (e.g. 60/40) by Split Ratio; expired lanes are ignored; NoCarry stops the solver stockpiling surplus forward."
+    },
+    "priority-constraints": {
+      task: "Ration Widget-A when short", system: "Priority framework",
+      meaning: "Fulfil the most critical demand first.",
+      point: "Priority Part → SCHEDULE ORDER → COMMERCIAL → PULL, tie-broken by Demand Priority. Widget-A as a Priority Part is supplied before lower tiers, and its Line Down Date is tracked."
+    }
   };
 
   function row(k, v, mono) {
