@@ -54,7 +54,8 @@
       from: e[0], to: e[1],
       both: meta.dir === "both",
       label: meta.label || null,
-      curve: typeof meta.curve === "number" ? meta.curve : 0
+      curve: typeof meta.curve === "number" ? meta.curve : 0,
+      labelT: typeof meta.labelT === "number" ? meta.labelT : 0.5
     };
   }
 
@@ -100,8 +101,10 @@
       var end = boxBorder(b, ca.x, ca.y, GAP);
 
       // Path (straight, or quadratic bow when curve != 0). Positive curve
-      // bows to the right of the travel direction.
-      var d, mid;
+      // bows to the right of the travel direction. The label anchors at the
+      // parametric point labelT along the path (0=source … 1=target), so two
+      // opposite lanes between the same nodes don't stack their labels.
+      var d, mid, tt = e.labelT, mt = 1 - tt;
       if (e.curve) {
         var ex = end.x - start.x, ey = end.y - start.y;
         var L = Math.sqrt(ex * ex + ey * ey) || 1;
@@ -109,10 +112,11 @@
         var mx = (start.x + end.x) / 2, my = (start.y + end.y) / 2;
         var cxp = mx + px * e.curve, cyp = my + py * e.curve;
         d = "M" + start.x + " " + start.y + " Q" + cxp + " " + cyp + " " + end.x + " " + end.y;
-        mid = { x: 0.25 * start.x + 0.5 * cxp + 0.25 * end.x, y: 0.25 * start.y + 0.5 * cyp + 0.25 * end.y };
+        mid = { x: mt * mt * start.x + 2 * mt * tt * cxp + tt * tt * end.x,
+                y: mt * mt * start.y + 2 * mt * tt * cyp + tt * tt * end.y };
       } else {
         d = "M" + start.x + " " + start.y + " L" + end.x + " " + end.y;
-        mid = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
+        mid = { x: start.x + (end.x - start.x) * tt, y: start.y + (end.y - start.y) * tt };
       }
 
       var g = el("g", { class: "arch-edge-group", "data-edge": edgeKey(e.from, e.to) });

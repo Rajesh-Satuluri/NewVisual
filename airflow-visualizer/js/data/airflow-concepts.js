@@ -31,7 +31,9 @@
     edges: [
       ["dag", "processor", { label: "parse" }],
       ["processor", "metadb", { label: "serialize" }],
-      ["scheduler", "metadb", { dir: "both", label: "read / write", curve: 210 }],
+      // Two-way, split into directed lanes so each direction reads clearly:
+      ["metadb", "scheduler", { label: "reads serialized DAGs", curve: -340, labelT: 0.34 }],
+      ["scheduler", "metadb", { label: "writes runs & TIs", curve: 230, labelT: 0.30 }],
       ["scheduler", "executor", { label: "hand off" }],
       ["executor", "queue", { label: "enqueue" }],
       ["queue", "worker", { label: "pull" }],
@@ -51,8 +53,8 @@
         desc: "The <b>DAG Processor</b> (a standalone process in Airflow 3.x) imports the file on a schedule, evaluating the Python top-level code to build the DAG object in memory." },
       { label: "3 · Serialize to the DB", nodes: ["processor", "metadb"], edges: [["processor", "metadb"]],
         desc: "The parsed DAG is <b>serialized to JSON</b> and stored in the metadata DB. The scheduler and UI read this serialized form — they never import your Python file directly." },
-      { label: "4 · Scheduler evaluates", nodes: ["scheduler", "metadb"], edges: [["scheduler", "metadb"]],
-        desc: "The <b>Scheduler</b> loop reads serialized DAGs, checks timetables, and creates a <b>DAG run</b> plus <b>task instances</b> in state <span class='state-chip scheduled'>scheduled</span>." },
+      { label: "4 · Scheduler evaluates", nodes: ["scheduler", "metadb"], edges: [["metadb", "scheduler"], ["scheduler", "metadb"]],
+        desc: "The <b>Scheduler</b> loop <b>reads</b> serialized DAGs and task states from the metadata DB, checks timetables, then <b>writes</b> a new <b>DAG run</b> plus <b>task instances</b> in state <span class='state-chip scheduled'>scheduled</span>. Those are the two directions of its metadata-DB link." },
       { label: "5 · Hand off to the executor", nodes: ["scheduler", "executor"], edges: [["scheduler", "executor"]],
         desc: "For tasks whose dependencies are met, the scheduler asks the <b>Executor</b> to run them. The task instance moves to <span class='state-chip queued'>queued</span>." },
       { label: "6 · Enqueue the work", nodes: ["executor", "queue"], edges: [["executor", "queue"]],
