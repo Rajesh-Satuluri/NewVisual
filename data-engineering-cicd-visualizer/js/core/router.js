@@ -130,8 +130,8 @@
       "</div>" +
       '<div class="callout tip animate-fade-in">' +
         '<span class="callout-icon">🚧</span>' +
-        '<div class="callout-body">Under construction. Try <a href="#home">Home</a> or ' +
-        'the <a href="#architecture">Architecture Overview</a> — both are fully interactive.</div>' +
+        '<div class="callout-body">Under construction. The scaffold (engine, routing, ' +
+        'navigation, design system) is live — concept content lands in upcoming build batches.</div>' +
       "</div>";
   };
 

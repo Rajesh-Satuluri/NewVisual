@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - claude/newvisual-visualizer-independent-b1u945
   workflow_dispatch:
 
 permissions:
