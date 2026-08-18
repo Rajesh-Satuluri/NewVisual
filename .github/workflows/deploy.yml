@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - claude/newvisual-visualizer-independent-b1u945
   workflow_dispatch:
 
 permissions:
@@ -34,8 +35,12 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Publish the visualizer directory as the site root
-          path: airflow-visualizer
+          # Option A — multi-site: publish the repo root so the landing
+          # page plus both visualizers are served:
+          #   /                                → landing page
+          #   /airflow-visualizer/             → Airflow lab (unchanged files)
+          #   /data-engineering-cicd-visualizer/ → CI/CD lab
+          path: .
 
       - name: Deploy to GitHub Pages
         id: deployment

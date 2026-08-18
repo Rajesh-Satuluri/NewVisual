@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Data Engineering CI/CD Visualizer</title>
+  <meta name="description" content="Interactive Data Engineering CI/CD — Git, GitHub Actions, Terraform, Docker, Databricks, dbt, Airflow, Kubernetes: from git push to production data, taught through RetailFlow." />
+
+  <!-- CSS load order -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>" />
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/layout.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/animations.css" />
+</head>
+<body>
+
+  <!-- App shell — populated by js/app.js -->
+  <div id="app">
+
+    <!-- Topbar -->
+    <header id="topbar" class="topbar">
+      <div class="topbar-brand">
+        <span class="brand-icon" aria-hidden="true">
+          <!-- CI/CD pipeline mark -->
+          <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="6" cy="16" r="3" fill="var(--airflow)"/>
+            <circle cx="16" cy="16" r="3" fill="var(--cyan)"/>
+            <circle cx="26" cy="16" r="3" fill="var(--green)"/>
+            <path d="M9 16 H13" stroke="var(--airflow)" stroke-width="2" stroke-linecap="round"/>
+            <path d="M19 16 H23" stroke="var(--cyan)" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span class="brand-name">DataEng <span class="brand-accent">CI/CD</span></span>
+        <span class="brand-version badge">RetailFlow</span>
+      </div>
+
+      <nav class="topbar-nav" aria-label="Module categories">
+        <a href="#home" class="nav-pill" data-route="home">Home</a>
+        <a href="#business-scenario" class="nav-pill" data-route="business-scenario">🚀 Code → Production</a>
+        <a href="#git" class="nav-pill" data-route="git">Git</a>
+        <a href="#github-actions" class="nav-pill" data-route="github-actions">CI/CD</a>
+        <a href="#terraform" class="nav-pill" data-route="terraform">Terraform</a>
+        <a href="#interview" class="nav-pill" data-route="interview">Interview</a>
+      </nav>
+
+      <div class="topbar-actions">
+        <button id="theme-toggle" class="icon-btn" title="Toggle theme (T)" aria-label="Toggle theme">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </button>
+        <button id="kbd-help-btn" class="icon-btn" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="6" width="20" height="12" rx="2"/>
+            <path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Body: sidebar + main canvas -->
+    <div class="app-body">
+
+      <!-- Sidebar nav — ordered by decreasing Data-Engineer ROI (prompt §3/§30) -->
+      <aside id="sidebar" class="sidebar" aria-label="Module navigation">
+
+        <div class="sidebar-section">
+          <div class="sidebar-label">Home</div>
+          <ul class="sidebar-list" role="list">
+            <li><a href="#home" class="sidebar-link" data-route="home">Home</a></li>
+          </ul>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="sidebar-label">Real-World Scenario</div>
+          <ul class="sidebar-list" role="list">
+            <li><a href="#business-scenario" class="sidebar-link" data-route="business-scenario">🚀 A Code Change Travels to Production</a></li>
+            <li><a href="#end-to-end-pipeline" class="sidebar-link" data-route="end-to-end-pipeline">End-to-End Pipeline</a></li>
+            <li><a href="#environment-promotion" class="sidebar-link" data-route="environment-promotion">Environment Promotion</a></li>
+            <li><a href="#failure-simulator" class="sidebar-link" data-route="failure-simulator">Failure Simulator</a></li>
+          </ul>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="sidebar-label">Tier 1 — Essential Foundations</div>
+          <ul class="sidebar-list" role="list">
+            <li><a href="#git" class="sidebar-link" data-route="git">Git</a></li>
+            <li><a href="#github" class="sidebar-link" data-route="github">GitHub</a></li>
+            <li><a href="#github-actions" class="sidebar-link" data-route="github-actions">GitHub Actions</a></li>
+          </ul>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="sidebar-label">Tier 2 — Data Engineering CI/CD</div>
+          <ul class="sidebar-list" role="list">
+            <li><a href="#terraform" class="sidebar-link" data-route="terraform">Terraform</a></li>
+            <li><a href="#docker" class="sidebar-link" data-route="docker">Docker</a></li>
+            <li><a href="#databricks-bundles" class="sidebar-link" data-route="databricks-bundles">Databricks Asset Bundles</a></li>
+            <li><a href="#dbt-cicd" class="sidebar-link" data-route="dbt-cicd">dbt CI/CD</a></li>
+            <li><a href="#pytest" class="sidebar-link" data-route="pytest">pytest</a></li>
+            <li><a href="#sql-testing" class="sidebar-link" data-route="sql-testing">SQL Testing</a></li>
+            <li><a href="#airflow-cicd" class="sidebar-link" data-route="airflow-cicd">Airflow CI/CD</a></li>
+          </ul>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="sidebar-label">Tier 3 — Production Engineering</div>
+          <ul class="sidebar-list" role="list">
+            <li><a href="#kubernetes" class="sidebar-link" data-route="kubernetes">Kubernetes</a></li>
+            <li><a href="#helm" class="sidebar-link" data-route="helm">Helm</a></li>
+            <li><a href="#container-registry" class="sidebar-link" data-route="container-registry">Container Registry</a></li>
+            <li><a href="#secrets" class="sidebar-link" data-route="secrets">Secrets &amp; Environments</a></li>
+            <li><a href="#data-quality" class="sidebar-link" data-route="data-quality">Data Quality</a></li>
+            <li><a href="#sonarqube" class="sidebar-link" data-route="sonarqube">SonarQube</a></li>
+          </ul>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="sidebar-label">Tier 4 — Enterprise / Platform</div>
+          <ul class="sidebar-list" role="list">
+            <li><a href="#azure-devops" class="sidebar-link" data-route="azure-devops">Azure DevOps</a></li>
+            <li><a href="#argo-cd" class="sidebar-link" data-route="argo-cd">Argo CD / GitOps</a></li>
+            <li><a href="#jenkins" class="sidebar-link" data-route="jenkins">Jenkins</a></li>
+          </ul>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="sidebar-label">Engineering Concepts</div>
+          <ul class="sidebar-list" role="list">
+            <li><a href="#ci-vs-cd" class="sidebar-link" data-route="ci-vs-cd">CI vs CD</a></li>
+            <li><a href="#artifact-lifecycle" class="sidebar-link" data-route="artifact-lifecycle">Artifact Lifecycle</a></li>
+            <li><a href="#branching" class="sidebar-link" data-route="branching">Git Branching</a></li>
+            <li><a href="#testing-pyramid" class="sidebar-link" data-route="testing-pyramid">Testing Pyramid</a></li>
+            <li><a href="#deployment-strategies" class="sidebar-link" data-route="deployment-strategies">Deployment Strategies</a></li>
+            <li><a href="#rollback" class="sidebar-link" data-route="rollback">Rollback</a></li>
+            <li><a href="#security" class="sidebar-link" data-route="security">CI/CD Security</a></li>
+            <li><a href="#observability" class="sidebar-link" data-route="observability">Observability</a></li>
+          </ul>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="sidebar-label">Learning</div>
+          <ul class="sidebar-list" role="list">
+            <li><a href="#interview" class="sidebar-link" data-route="interview">Interview Questions</a></li>
+            <li><a href="#quiz" class="sidebar-link" data-route="quiz">Quiz</a></li>
+            <li><a href="#glossary" class="sidebar-link" data-route="glossary">Glossary</a></li>
+            <li><a href="#master-map" class="sidebar-link" data-route="master-map">Master Map</a></li>
+          </ul>
+        </div>
+
+      </aside>
+
+      <!-- Main content canvas -->
+      <main id="canvas" class="canvas" role="main" aria-live="polite">
+        <div id="module-container" class="module-container"></div>
+      </main>
+
+      <!-- Detail panel (used by modules that need it) -->
+      <aside id="detail-panel" class="detail-panel hidden" aria-label="Detail panel">
+        <div id="detail-panel-content"></div>
+      </aside>
+
+    </div><!-- /.app-body -->
+
+    <!-- Tooltip (global, positioned by tooltip.js) -->
+    <div id="tooltip" class="tooltip hidden" role="tooltip"></div>
+
+    <!-- Keyboard shortcuts modal -->
+    <div id="kbd-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
+      <div class="modal-backdrop"></div>
+      <div class="modal-box">
+        <div class="modal-header">
+          <h2 class="modal-title">Keyboard Shortcuts</h2>
+          <button class="modal-close icon-btn" aria-label="Close">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body" id="kbd-list"></div>
+      </div>
+    </div>
+
+  </div><!-- /#app -->
+
+  <!-- JS load order: core → components → data → modules → app
+       Module screens (js/modules/*.js) are lazy-loaded on demand by
+       the router; shared core/components/data load eagerly below. -->
+
+  <!-- Core engine -->
+  <script src="js/core/animation-engine.js"></script>
+  <script src="js/core/router.js"></script>
+  <script src="js/core/tooltip.js"></script>
+  <script src="js/core/keyboard.js"></script>
+
+  <!-- Shared components -->
+  <script src="js/components/animation-controls.js"></script>
+  <script src="js/components/code-viewer.js"></script>
+  <script src="js/components/arch-diagram.js"></script>
+  <script src="js/components/state-machine.js"></script>
+  <script src="js/components/timeline.js"></script>
+  <script src="js/components/data-engineering-lens.js"></script>
+
+  <!-- Data -->
+  <script src="js/data/retailflow-data.js"></script>
+  <script src="js/data/cicd-concepts.js"></script>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
