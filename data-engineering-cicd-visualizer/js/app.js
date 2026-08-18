@@ -22,7 +22,7 @@
     // Real-world scenario
     "business-scenario": { title: "A Code Change Travels to Production", ready: true },
     "end-to-end-pipeline": { title: "End-to-End Pipeline", ready: true },
-    "environment-promotion": { title: "Environment Promotion", ready: false },
+    "environment-promotion": { title: "Environment Promotion", ready: true },
     "failure-simulator": { title: "Failure Simulator", ready: true },
 
     // Tier 1 — Essential Foundations
@@ -55,17 +55,17 @@
     // Engineering concepts
     "ci-vs-cd": { title: "CI vs CD", ready: true },
     "artifact-lifecycle": { title: "Artifact Lifecycle", ready: true },
-    branching: { title: "Git Branching", ready: false },
-    "testing-pyramid": { title: "Testing Pyramid", ready: false },
+    branching: { title: "Git Branching", ready: true },
+    "testing-pyramid": { title: "Testing Pyramid", ready: true },
     "deployment-strategies": { title: "Deployment Strategies", ready: false },
-    rollback: { title: "Rollback", ready: false },
-    security: { title: "CI/CD Security", ready: false },
-    observability: { title: "Observability", ready: false },
+    rollback: { title: "Rollback", ready: true },
+    security: { title: "CI/CD Security", ready: true },
+    observability: { title: "Observability", ready: true },
 
     // Learning
     interview: { title: "Interview Questions", ready: false },
     quiz: { title: "Quiz", ready: false },
-    glossary: { title: "Glossary", ready: false },
+    glossary: { title: "Glossary", ready: true },
     "master-map": { title: "Master Map", ready: true }
   };
   NS.routes = ROUTES;
