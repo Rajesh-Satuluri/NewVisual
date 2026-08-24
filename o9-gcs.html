@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>o9 Graph Cube Server (GCS) — How It Works &amp; Stores Data</title>
+<style>
+  :root{
+    --bg:#0f141b;
+    --panel:#161d27;
+    --ink:#e8eef6;
+    --ink-dim:#9fb0c3;
+    --line:#31465f;
+    --accent:#4ea1ff;      /* flows / graph */
+    --accent2:#ffb347;      /* cube / measures */
+    --accent3:#59d99a;      /* consumption */
+    --accent4:#c084fc;      /* solver / what-if */
+    --hot:#ff6b6b;          /* in-memory hot */
+    --cold:#6fb3ff;         /* persistent cold */
+    --lane1:rgba(89,217,154,.06);
+    --lane2:rgba(255,179,71,.06);
+    --lane3:rgba(78,161,255,.06);
+    --lane4:rgba(159,176,195,.06);
+  }
+  /* Light theme */
+  @media (prefers-color-scheme: light){
+    :root{
+      --bg:#f4f7fb;
+      --panel:#ffffff;
+      --ink:#14202e;
+      --ink-dim:#4a5c70;
+      --line:#b9c8da;
+      --accent:#1667d6;
+      --accent2:#c9781a;
+      --accent3:#1f9c62;
+      --accent4:#8b3fd6;
+      --hot:#d64545;
+      --cold:#1667d6;
+      --lane1:rgba(31,156,98,.07);
+      --lane2:rgba(201,120,26,.07);
+      --lane3:rgba(22,103,214,.07);
+      --lane4:rgba(74,92,112,.06);
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    display:flex;flex-direction:column;min-height:100%;
+  }
+  header{
+    padding:14px 20px 6px;
+    border-bottom:1px solid var(--line);
+  }
+  header h1{font-size:19px;margin:0 0 2px;font-weight:700;letter-spacing:.2px}
+  header p{margin:0;font-size:13px;color:var(--ink-dim)}
+  .stage{
+    flex:1;display:flex;align-items:center;justify-content:center;
+    padding:10px 14px;min-height:0;
+  }
+  svg.scene{width:100%;height:auto;max-height:74vh;display:block}
+
+  /* SVG text defaults — kept large for projector legibility */
+  .scene text{font-family:inherit;fill:var(--ink)}
+  .band-label{font-size:15px;font-weight:700;fill:var(--ink-dim);letter-spacing:.5px}
+  .node-label{font-size:15px;font-weight:600}
+  .edge-label{font-size:13px;fill:var(--ink-dim);font-weight:600}
+  .box-title{font-size:15px;font-weight:700}
+  .box-sub{font-size:12.5px;fill:var(--ink-dim)}
+  .chip-label{font-size:13px;font-weight:700;fill:#1a1206}
+  .flow-label{font-size:13px;font-weight:700}
+
+  /* Controls */
+  .controls{
+    display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+    padding:10px 20px 6px;border-top:1px solid var(--line);
+  }
+  button{
+    background:var(--panel);color:var(--ink);
+    border:1px solid var(--line);border-radius:8px;
+    padding:8px 16px;font-size:14px;font-weight:600;cursor:pointer;
+    transition:transform .08s ease, border-color .15s ease;
+  }
+  button:hover{border-color:var(--accent)}
+  button:active{transform:translateY(1px)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .seglabel{font-size:12.5px;color:var(--ink-dim);margin-left:4px}
+  .seglabel b{color:var(--ink)}
+  .caption{
+    margin:2px 20px 16px;padding:12px 16px;
+    background:var(--panel);border:1px solid var(--line);
+    border-left:4px solid var(--accent);border-radius:8px;
+    font-size:15px;line-height:1.45;min-height:52px;
+  }
+  .caption b{color:var(--accent2)}
+  .progress{
+    height:4px;background:var(--line);border-radius:2px;overflow:hidden;
+    margin:0 20px;
+  }
+  .progress > i{display:block;height:100%;width:0;background:var(--accent);border-radius:2px}
+</style>
+</head>
+<body>
+<header>
+  <h1>o9 Graph Cube Server (GCS)</h1>
+  <p>An Enterprise Knowledge Graph &amp; in-memory graph cube — how data loads, how measures live at dimension intersections, and how values aggregate along graph edges.</p>
+</header>
+
+<div class="stage">
+<svg class="scene" viewBox="0 0 1200 800" role="img"
+     aria-label="Four-layer diagram of the o9 Graph Cube Server: Sources, Graph Model, Graph Cube plus Engine, and Consumption.">
+  <defs>
+    <!-- Arrow markers -->
+    <marker id="arrowUp" markerWidth="10" markerHeight="10" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="var(--accent)"/>
+    </marker>
+    <marker id="arrowDown" markerWidth="10" markerHeight="10" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="var(--accent3)"/>
+    </marker>
+    <marker id="arrowGrey" markerWidth="9" markerHeight="9" refX="5.5" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="var(--ink-dim)"/>
+    </marker>
+    <marker id="arrowHot" markerWidth="9" markerHeight="9" refX="5.5" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="var(--hot)"/>
+    </marker>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.25"/>
+    </filter>
+    <linearGradient id="cubeTop" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffd28a"/><stop offset="1" stop-color="#ffb347"/>
+    </linearGradient>
+    <linearGradient id="cubeLeft" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e8912e"/><stop offset="1" stop-color="#b9701f"/>
+    </linearGradient>
+    <linearGradient id="cubeRight" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f4a63a"/><stop offset="1" stop-color="#cf8322"/>
+    </linearGradient>
+  </defs>
+
+  <!-- ============ BAND BACKGROUNDS ============ -->
+  <g id="bands">
+    <rect id="band-consume" x="70" y="20"  width="1110" height="170" rx="10" fill="var(--lane3)" stroke="var(--line)"/>
+    <rect id="band-engine"  x="70" y="210" width="1110" height="190" rx="10" fill="var(--lane2)" stroke="var(--line)"/>
+    <rect id="band-graph"   x="70" y="420" width="1110" height="170" rx="10" fill="var(--lane3)" stroke="var(--line)"/>
+    <rect id="band-sources" x="70" y="610" width="1110" height="170" rx="10" fill="var(--lane4)" stroke="var(--line)"/>
+
+    <text class="band-label" transform="translate(88,105) rotate(-90)" text-anchor="middle">4 · CONSUMPTION</text>
+    <text class="band-label" transform="translate(88,305) rotate(-90)" text-anchor="middle">3 · GRAPH CUBE + ENGINE</text>
+    <text class="band-label" transform="translate(88,505) rotate(-90)" text-anchor="middle">2 · GRAPH MODEL</text>
+    <text class="band-label" transform="translate(88,695) rotate(-90)" text-anchor="middle">1 · SOURCES</text>
+  </g>
+
+  <!-- ============ MASTER FLOW ARROWS (side rails) ============ -->
+  <g id="masterflows">
+    <!-- data load : bottom-up (left rail) -->
+    <path id="flow-load" d="M140,700 C118,560 118,360 140,150" fill="none"
+          stroke="var(--accent)" stroke-width="3" stroke-dasharray="7 6" marker-end="url(#arrowUp)"/>
+    <text class="flow-label" fill="var(--accent)" transform="translate(112,430) rotate(-90)" text-anchor="middle">DATA LOAD ▲</text>
+
+    <!-- query / plan / write-back : top-down and back (right rail) -->
+    <path id="flow-query" d="M1150,150 C1172,360 1172,560 1150,700" fill="none"
+          stroke="var(--accent3)" stroke-width="3" stroke-dasharray="7 6" marker-end="url(#arrowDown)"/>
+    <text class="flow-label" fill="var(--accent3)" transform="translate(1178,430) rotate(90)" text-anchor="middle">QUERY · PLAN · WRITE-BACK ▼</text>
+  </g>
+
+  <!-- ============ BAND 1 · SOURCES / INGESTION ============ -->
+  <g id="g-sources">
+    <!-- source systems -->
+    <g id="src-erp">
+      <rect x="170" y="650" width="120" height="52" rx="8" fill="var(--panel)" stroke="var(--line)" filter="url(#soft)"/>
+      <text class="box-title" x="230" y="672" text-anchor="middle">ERP</text>
+      <text class="box-sub"   x="230" y="690" text-anchor="middle">orders · master data</text>
+    </g>
+    <g id="src-pos">
+      <rect x="170" y="712" width="120" height="52" rx="8" fill="var(--panel)" stroke="var(--line)" filter="url(#soft)"/>
+      <text class="box-title" x="230" y="734" text-anchor="middle">POS</text>
+      <text class="box-sub"   x="230" y="752" text-anchor="middle">point-of-sale</text>
+    </g>
+    <g id="src-feed">
+      <rect x="170" y="620" width="120" height="24" rx="6" fill="var(--panel)" stroke="var(--line)"/>
+      <text class="box-sub" x="230" y="636" text-anchor="middle" font-weight="700">External feeds</text>
+    </g>
+
+    <!-- connectors -->
+    <g id="src-connectors">
+      <rect x="360" y="656" width="150" height="90" rx="10" fill="var(--panel)" stroke="var(--accent)" stroke-width="1.5" filter="url(#soft)"/>
+      <text class="box-title" x="435" y="688" text-anchor="middle">Connectors</text>
+      <text class="box-sub"   x="435" y="708" text-anchor="middle">extract · map</text>
+      <text class="box-sub"   x="435" y="724" text-anchor="middle">validate</text>
+    </g>
+    <!-- staging -->
+    <g id="src-staging">
+      <rect x="560" y="656" width="150" height="90" rx="10" fill="var(--panel)" stroke="var(--accent)" stroke-width="1.5" filter="url(#soft)"/>
+      <text class="box-title" x="635" y="688" text-anchor="middle">Staging</text>
+      <text class="box-sub"   x="635" y="708" text-anchor="middle">landed &amp;</text>
+      <text class="box-sub"   x="635" y="724" text-anchor="middle">conformed rows</text>
+    </g>
+
+    <!-- ingest arrows -->
+    <path id="ing-a1" d="M290,676 L358,690" stroke="var(--ink-dim)" stroke-width="2" fill="none" marker-end="url(#arrowGrey)"/>
+    <path id="ing-a2" d="M290,732 L358,712" stroke="var(--ink-dim)" stroke-width="2" fill="none" marker-end="url(#arrowGrey)"/>
+    <path id="ing-a3" d="M290,632 L340,660 L358,668" stroke="var(--ink-dim)" stroke-width="2" fill="none" marker-end="url(#arrowGrey)"/>
+    <path id="ing-a4" d="M510,701 L558,701" stroke="var(--ink-dim)" stroke-width="2" fill="none" marker-end="url(#arrowGrey)"/>
+
+    <!-- load path from staging UP to graph model (used for packets) -->
+    <path id="load-path" d="M710,700 C820,660 700,560 560,500" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="5 6" opacity="0.55"/>
+    <text class="box-sub" x="812" y="600" fill="var(--accent)" font-weight="700">load into graph ▲</text>
+  </g>
+
+  <!-- ============ BAND 2 · GRAPH MODEL (semantic layer) ============ -->
+  <g id="g-graph">
+    <!-- edges first (drawn under nodes). Each is a <path> for stroke-anim + motion path -->
+    <g id="edges" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round">
+      <path id="edge-1" d="M300,505 L455,492"/>              <!-- ProdFamily - Item : belongs-to -->
+      <path id="edge-2" d="M505,495 L680,520"/>              <!-- Item - Location : stored-at -->
+      <path id="edge-3" d="M710,522 L865,500"/>              <!-- Location - Customer : ships-to -->
+      <path id="edge-4" d="M470,510 L520,558"/>              <!-- Item - Time : phased-over -->
+      <path id="edge-5" d="M700,535 L560,562"/>              <!-- Location - Time : sold-in -->
+    </g>
+    <g id="edge-labels">
+      <text class="edge-label" id="el-1" x="375" y="486" text-anchor="middle">belongs-to</text>
+      <text class="edge-label" id="el-2" x="592" y="500" text-anchor="middle">stored-at</text>
+      <text class="edge-label" id="el-3" x="792" y="503" text-anchor="middle">ships-to</text>
+      <text class="edge-label" id="el-4" x="470" y="546" text-anchor="middle">phased-over</text>
+      <text class="edge-label" id="el-5" x="628" y="562" text-anchor="middle">sold-in</text>
+    </g>
+
+    <!-- dimension nodes -->
+    <g id="node-family" class="dim-node">
+      <circle cx="300" cy="505" r="34" fill="var(--panel)" stroke="var(--accent)" stroke-width="2.5" filter="url(#soft)"/>
+      <text class="node-label" x="300" y="502" text-anchor="middle">Product</text>
+      <text class="node-label" x="300" y="519" text-anchor="middle">Family</text>
+    </g>
+    <g id="node-item" class="dim-node">
+      <circle cx="480" cy="490" r="34" fill="var(--panel)" stroke="var(--accent)" stroke-width="2.5" filter="url(#soft)"/>
+      <text class="node-label" x="480" y="495" text-anchor="middle">Item</text>
+    </g>
+    <g id="node-location" class="dim-node">
+      <circle cx="690" cy="525" r="34" fill="var(--panel)" stroke="var(--accent)" stroke-width="2.5" filter="url(#soft)"/>
+      <text class="node-label" x="690" y="530" text-anchor="middle">Location</text>
+    </g>
+    <g id="node-customer" class="dim-node">
+      <circle cx="895" cy="497" r="34" fill="var(--panel)" stroke="var(--accent)" stroke-width="2.5" filter="url(#soft)"/>
+      <text class="node-label" x="895" y="502" text-anchor="middle">Customer</text>
+    </g>
+    <g id="node-time" class="dim-node">
+      <circle cx="540" cy="565" r="30" fill="var(--panel)" stroke="var(--accent)" stroke-width="2.5" filter="url(#soft)"/>
+      <text class="node-label" x="540" y="570" text-anchor="middle">Time</text>
+    </g>
+
+    <g id="graph-legend">
+      <text class="box-sub" x="1010" y="470" text-anchor="middle" font-style="italic">dimensions = nodes,</text>
+      <text class="box-sub" x="1010" y="488" text-anchor="middle" font-style="italic">relationships = edges</text>
+    </g>
+  </g>
+
+  <!-- ============ BAND 3 · GRAPH CUBE + ENGINE ============ -->
+  <g id="g-engine">
+    <!-- connectors from cube down to the dimension nodes it is anchored to -->
+    <g id="cube-anchors" stroke="var(--accent2)" stroke-width="1.6" stroke-dasharray="4 5" fill="none" opacity="0.9">
+      <path id="anchor-item"     d="M255,360 L470,458"/>
+      <path id="anchor-location" d="M300,360 L678,494"/>
+      <path id="anchor-family"   d="M215,360 L300,472"/>
+      <path id="anchor-time"     d="M270,360 L536,536"/>
+    </g>
+
+    <!-- isometric cube (3 polygon faces) around (230,300) -->
+    <g id="cube">
+      <polygon id="cube-top"   points="230,238 302,274 230,310 158,274" fill="url(#cubeTop)"  stroke="#a5741f" stroke-width="1.5"/>
+      <polygon id="cube-left"  points="158,274 230,310 230,382 158,346" fill="url(#cubeLeft)" stroke="#8a5f18" stroke-width="1.5"/>
+      <polygon id="cube-right" points="302,274 230,310 230,382 302,346" fill="url(#cubeRight)" stroke="#8a5f18" stroke-width="1.5"/>
+      <!-- grid hint lines on faces -->
+      <g id="cube-grid" stroke="#7a5415" stroke-width="0.8" opacity="0.5">
+        <line x1="194" y1="256" x2="266" y2="292"/>
+        <line x1="266" y1="256" x2="194" y2="292"/>
+        <line x1="194" y1="328" x2="194" y2="364"/>
+        <line x1="266" y1="328" x2="266" y2="364"/>
+      </g>
+      <!-- highlighted intersection cell (a small diamond on the top face) -->
+      <polygon id="cell" points="230,264 248,273 230,282 212,273" fill="var(--hot)" stroke="#fff" stroke-width="1.5"/>
+      <text class="box-sub" id="cell-tip" x="230" y="228" text-anchor="middle" font-weight="700" fill="var(--hot)">Item×Location×Time cell</text>
+      <text id="cube-name" class="box-title" x="230" y="404" text-anchor="middle" fill="var(--accent2)">In-memory Graph Cube</text>
+    </g>
+
+    <!-- measure chips -->
+    <g id="chips">
+      <g id="chip-forecast">
+        <rect x="345" y="248" width="118" height="30" rx="15" fill="var(--accent2)"/>
+        <text class="chip-label" x="404" y="268" text-anchor="middle">Forecast</text>
+      </g>
+      <g id="chip-inventory">
+        <rect x="345" y="286" width="118" height="30" rx="15" fill="var(--accent2)"/>
+        <text class="chip-label" x="404" y="306" text-anchor="middle">Inventory</text>
+      </g>
+      <g id="chip-sales">
+        <rect x="345" y="324" width="118" height="30" rx="15" fill="var(--accent2)"/>
+        <text class="chip-label" x="404" y="344" text-anchor="middle">Sales</text>
+      </g>
+      <text class="box-sub" x="404" y="374" text-anchor="middle" font-style="italic">measures</text>
+    </g>
+
+    <!-- storage + solver boxes -->
+    <g id="store-hot">
+      <rect x="560" y="238" width="180" height="66" rx="10" fill="var(--panel)" stroke="var(--hot)" stroke-width="2" filter="url(#soft)"/>
+      <text class="box-title" x="650" y="264" text-anchor="middle" fill="var(--hot)">In-memory columnar</text>
+      <text class="box-sub"   x="650" y="284" text-anchor="middle">HOT · low-latency reads</text>
+      <text class="box-sub"   x="650" y="298" text-anchor="middle">active planning data</text>
+    </g>
+    <g id="store-cold">
+      <rect x="560" y="318" width="180" height="66" rx="10" fill="var(--panel)" stroke="var(--cold)" stroke-width="2" filter="url(#soft)"/>
+      <text class="box-title" x="650" y="344" text-anchor="middle" fill="var(--cold)">Persistent store</text>
+      <text class="box-sub"   x="650" y="364" text-anchor="middle">COLD · durable / versioned</text>
+      <text class="box-sub"   x="650" y="378" text-anchor="middle">history &amp; snapshots</text>
+    </g>
+    <!-- hot <-> cold spill arrows -->
+    <path id="spill-a" d="M652,304 L652,316" stroke="var(--hot)" stroke-width="2" marker-end="url(#arrowHot)"/>
+    <path id="spill-b" d="M672,316 L672,306" stroke="var(--cold)" stroke-width="2" marker-end="url(#arrowGrey)"/>
+
+    <g id="solver">
+      <rect x="770" y="270" width="200" height="82" rx="10" fill="var(--panel)" stroke="var(--accent4)" stroke-width="2" filter="url(#soft)"/>
+      <text class="box-title" x="870" y="298" text-anchor="middle" fill="var(--accent4)">Solver / planning math</text>
+      <text class="box-sub"   x="870" y="318" text-anchor="middle">aggregation · allocation</text>
+      <text class="box-sub"   x="870" y="334" text-anchor="middle">optimization · what-if</text>
+    </g>
+    <!-- cube -> stores -->
+    <path id="cube2store-a" d="M304,290 L558,268" stroke="var(--accent2)" stroke-width="2" fill="none" marker-end="url(#arrowGrey)" opacity="0.8"/>
+    <path id="cube2store-b" d="M740,300 L768,306" stroke="var(--accent2)" stroke-width="2" fill="none" marker-end="url(#arrowGrey)" opacity="0.8"/>
+  </g>
+
+  <!-- ============ BAND 4 · CONSUMPTION ============ -->
+  <g id="g-consume">
+    <g id="use-workbench">
+      <rect x="180" y="70" width="180" height="70" rx="10" fill="var(--panel)" stroke="var(--accent3)" stroke-width="2" filter="url(#soft)"/>
+      <text class="box-title" x="270" y="98" text-anchor="middle" fill="var(--accent3)">Planning workbench</text>
+      <text class="box-sub"   x="270" y="118" text-anchor="middle">grids · pivots · edits</text>
+    </g>
+    <g id="use-ibp">
+      <rect x="390" y="70" width="200" height="70" rx="10" fill="var(--panel)" stroke="var(--accent3)" stroke-width="2" filter="url(#soft)"/>
+      <text class="box-title" x="490" y="98" text-anchor="middle" fill="var(--accent3)">IBP / What-if</text>
+      <text class="box-sub"   x="490" y="118" text-anchor="middle">scenarios &amp; simulation</text>
+    </g>
+    <g id="use-dash">
+      <rect x="620" y="70" width="180" height="70" rx="10" fill="var(--panel)" stroke="var(--accent3)" stroke-width="2" filter="url(#soft)"/>
+      <text class="box-title" x="710" y="98" text-anchor="middle" fill="var(--accent3)">Dashboards</text>
+      <text class="box-sub"   x="710" y="118" text-anchor="middle">KPIs · reports</text>
+    </g>
+    <g id="use-api">
+      <rect x="830" y="70" width="150" height="70" rx="10" fill="var(--panel)" stroke="var(--accent3)" stroke-width="2" filter="url(#soft)"/>
+      <text class="box-title" x="905" y="98" text-anchor="middle" fill="var(--accent3)">API</text>
+      <text class="box-sub"   x="905" y="118" text-anchor="middle">integrations</text>
+    </g>
+
+    <!-- surface path from cube up to workbench (used for result packet) -->
+    <path id="surface-path" d="M300,238 C340,190 320,150 300,145" fill="none"
+          stroke="var(--accent3)" stroke-width="2" stroke-dasharray="5 6" opacity="0.6"/>
+
+    <!-- what-if branch (revealed in consume segment) -->
+    <g id="whatif-branch" opacity="0">
+      <path id="wi-1" d="M490,140 C520,175 600,175 660,150" fill="none" stroke="var(--accent4)" stroke-width="2.5" marker-end="url(#arrowGrey)"/>
+      <circle id="wi-dot-a" cx="640" cy="158" r="9" fill="var(--accent4)"/>
+      <text class="box-sub" x="700" y="162" fill="var(--accent4)" font-weight="700">scenario B</text>
+      <path id="wi-2" d="M490,140 C520,120 600,120 660,60 " fill="none" stroke="var(--accent4)" stroke-width="2.5" stroke-dasharray="4 4"/>
+    </g>
+  </g>
+
+  <!-- ============ ANIMATION PACKETS (created hidden) ============ -->
+  <g id="packets">
+    <circle id="pk1" r="6" fill="var(--accent)" opacity="0"/>
+    <circle id="pk2" r="6" fill="var(--accent)" opacity="0"/>
+    <circle id="pk3" r="6" fill="var(--accent)" opacity="0"/>
+    <!-- aggregate value travelling along edges -->
+    <g id="agg" opacity="0">
+      <circle id="agg-dot" r="11" fill="var(--hot)" stroke="#fff" stroke-width="2"/>
+      <text id="agg-val" x="0" y="4" text-anchor="middle" font-size="12" font-weight="800" fill="#fff">42</text>
+    </g>
+    <!-- result surfacing packet -->
+    <circle id="res" r="7" fill="var(--accent3)" opacity="0"/>
+  </g>
+</svg>
+</div>
+
+<div class="progress"><i id="progbar"></i></div>
+
+<div class="controls">
+  <button id="btn-play" class="primary">▶ Play</button>
+  <button id="btn-step">⏭ Step</button>
+  <button id="btn-reset">↺ Reset</button>
+  <span class="seglabel">Segment: <b id="seg-name">— ready —</b> <span id="seg-idx"></span></span>
+</div>
+
+<div class="caption" id="caption">
+  Press <b>Play</b> to watch the full story, or <b>Step</b> through it one stage at a time.
+  The o9 GCS is an <b>Enterprise Knowledge Graph</b>, not a classic OLAP cube — dimensions are graph nodes, and measures aggregate <b>along the edges</b>.
+</div>
+
+<!-- GSAP + MotionPathPlugin -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/MotionPathPlugin.min.js"></script>
+<script>
+(function(){
+  "use strict";
+  var hasGSAP = (typeof gsap !== "undefined");
+  if(hasGSAP && typeof MotionPathPlugin !== "undefined"){ gsap.registerPlugin(MotionPathPlugin); }
+
+  var $ = function(id){ return document.getElementById(id); };
+  var captionEl = $("caption");
+  var segName  = $("seg-name");
+  var segIdx   = $("seg-idx");
+  var progbar  = $("progbar");
+
+  // ---- helper: length of a path for stroke-draw setup ----
+  function dashSetup(el){
+    if(!el || !el.getTotalLength) return 0;
+    var L = el.getTotalLength();
+    gsap.set(el, { strokeDasharray: L, strokeDashoffset: L, opacity: 1 });
+    return L;
+  }
+
+  var edgeIds  = ["edge-1","edge-2","edge-3","edge-4","edge-5"];
+  var elIds    = ["el-1","el-2","el-3","el-4","el-5"];
+  var nodeIds  = ["node-family","node-item","node-location","node-customer","node-time"];
+  var chipIds  = ["chip-forecast","chip-inventory","chip-sales"];
+  var anchorIds= ["anchor-item","anchor-location","anchor-family","anchor-time"];
+
+  // ordered captions per label
+  var captions = {
+    ingest: "<b>Ingest.</b> ERP, POS and external feeds flow through connectors into staging — rows are extracted, mapped and validated, then loaded upward into the graph model.",
+    graph:  "<b>Graph model (semantic layer).</b> Each dimension — Item, Location, Customer, Time, Product Family — is a <b>node</b>. Labeled relationships (belongs-to, stored-at, ships-to) are the <b>edges</b>. This graph is what makes it a knowledge graph, not a flat cube.",
+    cube:   "<b>Graph cube + engine.</b> Measures (Forecast, Inventory, Sales) are stored at the <b>intersection</b> of dimensions. Active data lives in an in-memory columnar store (HOT); a persistent store (COLD) keeps durable history. A solver runs the planning math.",
+    aggregate: "<b>Aggregate along the edges.</b> A value at Item×Location×Time rolls up the graph relationships — Item→Product Family, Location→Region — instead of down fixed cube axes. Allocation runs the same edges in reverse. This is the core of the graph cube.",
+    consume: "<b>Consume &amp; write-back.</b> Results surface into the planning workbench, dashboards and API. A <b>what-if</b> scenario branches the graph cube, re-solves, and edits write back down — HOT first, then persisted COLD.",
+    end:    "<b>Full cycle.</b> Data loads bottom-up into the graph; measures sit at intersections; values aggregate along edges; plans surface up and write back down. Replay with <b>Reset</b>, or <b>Step</b> to revisit any stage."
+  };
+
+  var order = ["ingest","graph","cube","aggregate","consume","end"];
+  var curIndex = 0;
+
+  function setCaption(name){
+    if(captions[name]) captionEl.innerHTML = captions[name];
+    segName.textContent = name;
+    var i = order.indexOf(name);
+    if(i>=0){ curIndex = i; segIdx.textContent = "(" + (i+1) + "/" + order.length + ")"; }
+  }
+
+  // ---------- Fallback if GSAP failed to load ----------
+  if(!hasGSAP){
+    // Reveal everything statically so the diagram is still useful offline.
+    ["whatif-branch"].forEach(function(id){ var e=$(id); if(e) e.style.opacity=1; });
+    edgeIds.forEach(function(id){ var e=$(id); if(e){ e.style.strokeDasharray="none"; e.style.strokeDashoffset=0; }});
+    captionEl.innerHTML = "<b>Static view.</b> (GSAP CDN did not load — animation disabled, but the full diagram is shown.) The o9 GCS stores measures at dimension intersections and aggregates along graph edges.";
+    ["btn-play","btn-step","btn-reset"].forEach(function(id){ $(id).disabled = true; });
+    return;
+  }
+
+  // =======================================================
+  //  INITIAL STATE — hide/dim future elements with gsap.set
+  // =======================================================
+  // Bands & master rails stay visible as the scaffold.
+  gsap.set("#g-sources", {opacity:0});
+  gsap.set(nodeIds.map(function(i){return "#"+i;}), {opacity:0, transformOrigin:"center", scale:0.4});
+  edgeIds.forEach(function(id){ dashSetup($(id)); });          // edges: drawn state, offset hidden
+  gsap.set(elIds.map(function(i){return "#"+i;}), {opacity:0});
+  gsap.set("#edge-labels", {opacity:1});
+  gsap.set("#graph-legend", {opacity:0});
+  gsap.set(["#cube-top","#cube-left","#cube-right"], {opacity:0, transformOrigin:"center", scale:0.6});
+  gsap.set("#cell", {opacity:0, transformBox:"fill-box", transformOrigin:"center"});
+  gsap.set("#cell-tip", {opacity:0});
+  gsap.set(["#cube-grid","#cube-name","#cube2store-a","#cube2store-b"], {opacity:0});
+  gsap.set(chipIds.map(function(i){return "#"+i;}), {opacity:0, transformOrigin:"center", scale:0.4});
+  gsap.set("#chips text", {opacity:0});
+  gsap.set(["#store-hot","#store-cold","#solver","#spill-a","#spill-b"], {opacity:0});
+  anchorIds.forEach(function(id){ dashSetup($(id)); });
+  gsap.set("#g-consume rect", {opacity:0});
+  gsap.set("#g-consume text", {opacity:0});
+  gsap.set("#whatif-branch", {opacity:0});
+  gsap.set(["#pk1","#pk2","#pk3","#res"], {opacity:0});
+  gsap.set("#agg", {opacity:0});
+  // cube face grid + storage arrows dim until cube segment
+  gsap.set(["#g-engine"], {opacity:1});
+  gsap.set("#cube-anchors", {opacity:0});
+
+  // =======================================================
+  //  MASTER TIMELINE
+  // =======================================================
+  var tl = gsap.timeline({
+    paused:true,
+    defaults:{ ease:"power2.inOut", duration:0.6 },
+    onUpdate:function(){ progbar.style.width = (tl.progress()*100).toFixed(1) + "%"; }
+  });
+
+  // ---------- SEGMENT: INGEST ----------
+  tl.addLabel("ingest");
+  tl.call(setCaption, ["ingest"], "ingest");
+  tl.to("#g-sources", {opacity:1, duration:0.5});
+  // packets travel up the load-path into the graph model
+  var loadPath = "#load-path";
+  function packetTween(sel, delay){
+    return gsap.fromTo(sel,
+      {opacity:0},
+      {opacity:1, duration:0.2, delay:delay,
+       motionPath:{ path:loadPath, align:loadPath, alignOrigin:[0.5,0.5] },
+       onComplete:function(){ gsap.to(sel,{opacity:0,duration:0.2}); }
+      });
+  }
+  // build a small staggered convoy along the load path
+  tl.add(gsap.fromTo("#pk1",{opacity:0},{opacity:1,duration:0.1}), "+=0.1");
+  tl.to("#pk1", {duration:1.4, ease:"power1.inOut",
+      motionPath:{path:loadPath, align:loadPath, alignOrigin:[0.5,0.5]}}, "<");
+  tl.to("#pk1", {opacity:0, duration:0.2}, ">-0.2");
+  tl.fromTo("#pk2",{opacity:0},{opacity:1,duration:0.1}, "ingest+=0.5");
+  tl.to("#pk2", {duration:1.4, ease:"power1.inOut",
+      motionPath:{path:loadPath, align:loadPath, alignOrigin:[0.5,0.5]}}, "<");
+  tl.to("#pk2", {opacity:0, duration:0.2}, ">-0.2");
+  tl.fromTo("#pk3",{opacity:0},{opacity:1,duration:0.1}, "ingest+=0.9");
+  tl.to("#pk3", {duration:1.4, ease:"power1.inOut",
+      motionPath:{path:loadPath, align:loadPath, alignOrigin:[0.5,0.5]}}, "<");
+  tl.to("#pk3", {opacity:0, duration:0.2}, ">-0.2");
+
+  // ---------- SEGMENT: GRAPH ----------
+  tl.addLabel("graph", "+=0.2");
+  tl.call(setCaption, ["graph"], "graph");
+  // nodes pop in (stagger)
+  tl.to(nodeIds.map(function(i){return "#"+i;}),
+        {opacity:1, scale:1, duration:0.5, ease:"back.out(1.7)", stagger:0.12}, "graph");
+  // edges stroke-draw in, then their labels fade
+  tl.to(edgeIds.map(function(i){return "#"+i;}),
+        {strokeDashoffset:0, duration:0.7, stagger:0.15, ease:"power2.out"}, "graph+=0.5");
+  tl.to(elIds.map(function(i){return "#"+i;}),
+        {opacity:1, duration:0.4, stagger:0.1}, "graph+=1.0");
+  tl.to("#graph-legend", {opacity:1, duration:0.4}, "graph+=1.0");
+
+  // ---------- SEGMENT: CUBE ----------
+  tl.addLabel("cube", "+=0.3");
+  tl.call(setCaption, ["cube"], "cube");
+  // assemble faces
+  tl.to("#cube-top",   {opacity:1, scale:1, duration:0.4}, "cube");
+  tl.to("#cube-left",  {opacity:1, scale:1, duration:0.4}, "cube+=0.2");
+  tl.to("#cube-right", {opacity:1, scale:1, duration:0.4}, "cube+=0.35");
+  tl.to("#cube-grid",  {opacity:0.5, duration:0.4}, "cube+=0.4");
+  tl.to("#cube-name",  {opacity:1, duration:0.4}, "cube+=0.5");
+  // measure chips pop
+  tl.to(chipIds.map(function(i){return "#"+i;}),
+        {opacity:1, scale:1, duration:0.4, ease:"back.out(1.7)", stagger:0.12}, "cube+=0.5");
+  tl.to("#chips text", {opacity:1, duration:0.3}, "cube+=0.9");
+  // storage + solver appear
+  tl.to(["#store-hot","#store-cold"], {opacity:1, duration:0.5, stagger:0.15}, "cube+=0.7");
+  tl.to(["#cube2store-a","#cube2store-b"], {opacity:0.8, duration:0.4}, "cube+=0.8");
+  tl.to(["#spill-a","#spill-b"], {opacity:1, duration:0.3}, "cube+=1.1");
+  tl.to("#solver", {opacity:1, duration:0.5}, "cube+=1.0");
+  // light up intersection cell + its connectors down to dimensions
+  tl.to("#cube-anchors", {opacity:1, duration:0.3}, "cube+=1.2");
+  tl.to(anchorIds.map(function(i){return "#"+i;}),
+        {strokeDashoffset:0, duration:0.6, stagger:0.1}, "cube+=1.2");
+  tl.to(["#cell","#cell-tip"], {opacity:1, duration:0.4}, "cube+=1.5");
+  tl.fromTo("#cell", {scale:0.5}, {scale:1, duration:0.5, ease:"back.out(2)"}, "cube+=1.5");
+  // gentle pulse on the cell
+  tl.to("#cell", {scale:1.35, duration:0.5, yoyo:true, repeat:1, ease:"sine.inOut"}, "cube+=1.9");
+
+  // ---------- SEGMENT: AGGREGATE (the key shot) ----------
+  tl.addLabel("aggregate", "+=0.3");
+  tl.call(setCaption, ["aggregate"], "aggregate");
+  // place agg value at the Item node, reveal
+  tl.set("#agg", {x:480, y:490});
+  tl.to("#agg", {opacity:1, duration:0.3}, "aggregate");
+  tl.fromTo("#agg", {scale:0.4}, {scale:1, transformOrigin:"center", duration:0.4, ease:"back.out(2)"}, "aggregate");
+  // travel ALONG edge-1 (Item -> Product Family): roll-up
+  tl.to("#agg", {duration:1.1, ease:"power2.inOut",
+        motionPath:{ path:"#edge-1", align:"#edge-1", alignOrigin:[0.5,0.5], start:1, end:0 }}, "aggregate+=0.5");
+  tl.call(function(){ $("agg-val").textContent = "128"; }, null, ">-0.05"); // rolled-up total
+  tl.to("#agg-dot", {attr:{r:14}, duration:0.3, yoyo:true, repeat:1}, ">-0.1");
+  // then travel UP the anchor connector into the cube (Product Family anchor)
+  tl.to("#agg", {duration:1.0, ease:"power2.inOut",
+        motionPath:{ path:"#anchor-family", align:"#anchor-family", alignOrigin:[0.5,0.5], start:1, end:0 }}, ">+0.1");
+  // flash the intersection cell as the aggregate lands in the cube
+  tl.to("#cell", {scale:1.6, duration:0.35, yoyo:true, repeat:1, ease:"sine.inOut"}, ">-0.2");
+  // allocation: value splits back down two edges (disaggregation) — quick echo
+  tl.to("#agg", {opacity:0, duration:0.3}, ">+0.1");
+  tl.call(function(){ $("agg-val").textContent = "64"; });
+  tl.set("#agg", {x:300, y:505});
+  tl.to("#agg", {opacity:1, duration:0.2});
+  tl.to("#agg", {duration:0.9, ease:"power2.inOut",
+        motionPath:{ path:"#edge-1", align:"#edge-1", alignOrigin:[0.5,0.5], start:0, end:1 }});
+  tl.to("#agg", {opacity:0, duration:0.3});
+
+  // ---------- SEGMENT: CONSUME ----------
+  tl.addLabel("consume", "+=0.2");
+  tl.call(setCaption, ["consume"], "consume");
+  // consumption apps surface in
+  tl.to("#g-consume rect", {opacity:1, duration:0.5, stagger:0.12}, "consume");
+  tl.to("#g-consume text", {opacity:1, duration:0.4, stagger:0.08}, "consume+=0.2");
+  // result packet surfaces from cube up to workbench
+  tl.set("#res", {x:300, y:238});
+  tl.to("#res", {opacity:1, duration:0.2}, "consume+=0.4");
+  tl.to("#res", {duration:1.0, ease:"power2.inOut",
+        motionPath:{ path:"#surface-path", align:"#surface-path", alignOrigin:[0.5,0.5] }}, "consume+=0.5");
+  tl.to("#res", {opacity:0, duration:0.2}, ">-0.15");
+  // what-if scenario branches
+  tl.to("#whatif-branch", {opacity:1, duration:0.4}, "consume+=1.1");
+  dashSetup($("wi-1")); dashSetup($("wi-2"));
+  tl.to("#wi-1", {strokeDashoffset:0, duration:0.7}, "consume+=1.3");
+  tl.fromTo("#wi-dot-a", {scale:0, transformOrigin:"center"}, {scale:1, duration:0.4, ease:"back.out(2)"}, "consume+=1.9");
+  tl.to("#wi-2", {strokeDashoffset:0, duration:0.7}, "consume+=2.0");
+
+  // ---------- END ----------
+  tl.addLabel("end", "+=0.3");
+  tl.call(setCaption, ["end"], "end");
+  tl.to({}, {duration:0.4}); // tail so 'end' label is reachable via tweenTo
+
+  // =======================================================
+  //  CONTROLS
+  // =======================================================
+  var btnPlay = $("btn-play");
+  $("btn-play").addEventListener("click", function(){
+    if(tl.progress() >= 1){ tl.restart(); }
+    else { tl.play(); }
+  });
+  $("btn-reset").addEventListener("click", function(){
+    tl.restart(); tl.pause(); progbar.style.width="0%"; setCaption("ingest");
+    // reset mutable label text
+    $("agg-val").textContent = "42";
+    curIndex = 0; segName.textContent = "— ready —"; segIdx.textContent="";
+  });
+  $("btn-step").addEventListener("click", function(){
+    tl.pause();
+    // advance to the next label after current playhead
+    var t = tl.time();
+    var next = null;
+    for(var i=0;i<order.length;i++){
+      var lt = tl.labels[order[i]];
+      if(lt !== undefined && lt > t + 0.01){ next = order[i]; break; }
+    }
+    if(next){ tl.tweenTo(next, {ease:"none"}); }
+    else { tl.tweenTo("end", {ease:"none"}); }
+  });
+
+  // start on the ingest caption but paused
+  setCaption("ingest");
+  segName.textContent = "— ready —"; segIdx.textContent="";
+})();
+</script>
+</body>
+</html>
