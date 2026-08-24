@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>o9 GCS — Insert · Store · Retrieve</title>
+<style>
+  :root{
+    --bg:#0f141b; --panel:#161d27; --panel2:#1b2430;
+    --ink:#e8eef6; --ink-dim:#9fb0c3; --line:#31465f;
+    --insert:#4ea1ff; --store:#ffb347; --retrieve:#59d99a; --dict:#c084fc;
+    --hot:#ff6b6b; --cold:#6fb3ff; --cell:#ffb347;
+    --lane:rgba(255,255,255,.02);
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --bg:#f4f7fb; --panel:#ffffff; --panel2:#eef3f9;
+      --ink:#14202e; --ink-dim:#4a5c70; --line:#b9c8da;
+      --insert:#1667d6; --store:#c9781a; --retrieve:#1f9c62; --dict:#8b3fd6;
+      --hot:#d64545; --cold:#1667d6; --cell:#e0902f;
+      --lane:rgba(0,0,0,.02);
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    display:flex;flex-direction:column;min-height:100%}
+  header{padding:14px 20px 6px;border-bottom:1px solid var(--line)}
+  header h1{font-size:19px;margin:0 0 2px;font-weight:700}
+  header p{margin:0;font-size:12.5px;color:var(--ink-dim)}
+  header .note{font-size:11.5px;color:var(--ink-dim);font-style:italic;margin-top:2px}
+  .stage{flex:1;display:flex;align-items:center;justify-content:center;padding:8px 14px;min-height:0}
+  svg.scene{width:100%;height:auto;max-height:74vh;display:block}
+  .scene text{font-family:inherit;fill:var(--ink)}
+  .zone-label{font-size:14px;font-weight:800;letter-spacing:.4px}
+  .box-title{font-size:14.5px;font-weight:700}
+  .box-sub{font-size:12px;fill:var(--ink-dim)}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .axis-label{font-size:13px;font-weight:700;fill:var(--ink-dim)}
+  .cellval{font-size:14px;font-weight:800;fill:#1a1206}
+  .rowtxt{font-size:12.5px}
+  .chip-label{font-size:12.5px;font-weight:700;fill:#1a1206}
+  .flow-label{font-size:12.5px;font-weight:800}
+
+  .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 20px 6px;border-top:1px solid var(--line)}
+  button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;
+    padding:8px 16px;font-size:14px;font-weight:600;cursor:pointer;transition:transform .08s,border-color .15s}
+  button:hover{border-color:var(--insert)}
+  button:active{transform:translateY(1px)}
+  button.primary{background:var(--insert);border-color:var(--insert);color:#fff}
+  .seglabel{font-size:12.5px;color:var(--ink-dim);margin-left:4px}
+  .seglabel b{color:var(--ink)}
+  .caption{margin:2px 20px 16px;padding:12px 16px;background:var(--panel);border:1px solid var(--line);
+    border-left:4px solid var(--insert);border-radius:8px;font-size:15px;line-height:1.45;min-height:52px}
+  .caption b{color:var(--store)}
+  .progress{height:4px;background:var(--line);border-radius:2px;overflow:hidden;margin:0 20px}
+  .progress > i{display:block;height:100%;width:0;background:var(--insert);border-radius:2px}
+</style>
+</head>
+<body>
+<header>
+  <h1>o9 Graph Cube Server — how data is inserted, stored &amp; retrieved</h1>
+  <p>A fact is <b>addressed by its dimension keys</b>, kept in a <b>sparse, columnar</b> in-memory store, and read back by <b>scanning one measure column and rolling up along the graph</b>.</p>
+  <p class="note">Conceptual model for explanation — not o9's proprietary internal storage format.</p>
+</header>
+
+<div class="stage">
+<svg class="scene" viewBox="0 0 1200 800" role="img"
+  aria-label="How the o9 Graph Cube Server inserts, stores and retrieves data: a fact is keyed by dimensions into a sparse cube, kept as columnar measure arrays in a hot in-memory tier and a cold persistent tier, and retrieved by scanning a column and aggregating along the graph.">
+  <defs>
+    <marker id="mA" markerWidth="10" markerHeight="10" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="var(--insert)"/></marker>
+    <marker id="mS" markerWidth="10" markerHeight="10" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="var(--store)"/></marker>
+    <marker id="mR" markerWidth="10" markerHeight="10" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="var(--retrieve)"/></marker>
+    <marker id="mG" markerWidth="9" markerHeight="9" refX="5.5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="var(--ink-dim)"/></marker>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.25"/></filter>
+    <linearGradient id="gTop" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3b4a5e" stop-opacity="0.55"/><stop offset="1" stop-color="#2a3646" stop-opacity="0.55"/></linearGradient>
+    <linearGradient id="gRight" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a3646" stop-opacity="0.55"/><stop offset="1" stop-color="#1f2937" stop-opacity="0.55"/></linearGradient>
+  </defs>
+
+  <!-- ================= INSERT ZONE (write path) ================= -->
+  <g id="z-insert">
+    <text class="zone-label" x="44" y="70" fill="var(--insert)">1 · INSERT  (write path)</text>
+    <!-- incoming fact card -->
+    <g id="fact-card">
+      <rect x="44" y="82" width="215" height="120" rx="10" fill="var(--panel)" stroke="var(--insert)" stroke-width="1.8" filter="url(#soft)"/>
+      <text class="box-title" x="58" y="104" fill="var(--insert)">Incoming fact</text>
+      <text class="rowtxt mono" x="58" y="128">Item&#160;&#160;&#160;&#160;&#160;= <tspan id="ci-item" font-weight="800">SKU-100</tspan></text>
+      <text class="rowtxt mono" x="58" y="147">Location = <tspan id="ci-loc" font-weight="800">DC-1</tspan></text>
+      <text class="rowtxt mono" x="58" y="166">Time&#160;&#160;&#160;&#160;&#160;= <tspan id="ci-time" font-weight="800">W32</tspan></text>
+      <text class="rowtxt mono" x="58" y="188">Sales&#160;&#160;&#160;&#160;= <tspan id="ci-val" font-weight="800" fill="var(--store)">500</tspan></text>
+    </g>
+  </g>
+
+  <!-- ================= DICTIONARY ================= -->
+  <g id="z-dict">
+    <g id="dict-panel">
+      <rect x="300" y="82" width="300" height="120" rx="10" fill="var(--panel)" stroke="var(--dict)" stroke-width="1.6" filter="url(#soft)"/>
+      <text class="box-title" x="314" y="104" fill="var(--dict)">Dictionary encoding</text>
+      <text class="box-sub" x="314" y="120">members &#8594; compact ids</text>
+      <g class="mono" font-size="13" font-weight="800">
+        <text id="dk-1" x="314" y="144">SKU-100 &#8594; <tspan fill="var(--dict)">i7</tspan></text>
+        <text id="dk-2" x="314" y="164">DC-1&#160;&#160;&#160;&#160;&#8594; <tspan fill="var(--dict)">l3</tspan></text>
+        <text id="dk-3" x="314" y="184">W32&#160;&#160;&#160;&#160;&#160;&#8594; <tspan fill="var(--dict)">t32</tspan></text>
+      </g>
+      <text class="box-sub" x="470" y="150">key =</text>
+      <text id="dk-key" class="mono" x="470" y="172" font-size="14" font-weight="800" fill="var(--dict)">(i7,l3,t32)</text>
+    </g>
+  </g>
+
+  <!-- ================= CUBE (address space) ================= -->
+  <g id="z-cube">
+    <text class="zone-label" x="44" y="250" fill="var(--ink-dim)">ADDRESS SPACE</text>
+    <text class="box-sub" x="44" y="268">every cell = one (Item &#215; Location &#215; Time) intersection</text>
+
+    <!-- top face (depth = Location) -->
+    <polygon id="cube-top" points="250,300 424,300 508,216 334,216" fill="url(#gTop)" stroke="var(--line)" stroke-width="1.5"/>
+    <g id="top-grid" stroke="var(--line)" stroke-width="0.8" opacity="0.6">
+      <line x1="308" y1="300" x2="392" y2="216"/><line x1="366" y1="300" x2="450" y2="216"/>
+      <line x1="278" y1="272" x2="452" y2="272"/><line x1="306" y1="244" x2="480" y2="244"/>
+    </g>
+    <!-- right face (depth = Location) -->
+    <polygon id="cube-right" points="424,300 424,474 508,390 508,216" fill="url(#gRight)" stroke="var(--line)" stroke-width="1.5"/>
+    <g id="right-grid" stroke="var(--line)" stroke-width="0.8" opacity="0.6">
+      <line x1="424" y1="358" x2="508" y2="274"/><line x1="424" y1="416" x2="508" y2="332"/>
+      <line x1="452" y1="300" x2="452" y2="446"/><line x1="480" y1="300" x2="480" y2="418"/>
+    </g>
+
+    <!-- front face 3x3 grid of readable cells (Location = DC-1 slice) -->
+    <g id="front-grid">
+      <!-- 9 cells: id cell-row-col ; fill overlay id fill-row-col ; value id val-row-col -->
+      <!-- row 0 -->
+      <g><rect class="cell" x="250" y="300" width="58" height="58" fill="none" stroke="var(--line)" stroke-width="1.3"/><rect id="fill-0-0" x="252" y="302" width="54" height="54" fill="var(--cell)" opacity="0"/><text id="val-0-0" class="cellval" x="279" y="334" text-anchor="middle" opacity="0"></text></g>
+      <g><rect class="cell" x="308" y="300" width="58" height="58" fill="none" stroke="var(--line)" stroke-width="1.3"/><rect id="fill-0-1" x="310" y="302" width="54" height="54" fill="var(--cell)" opacity="0"/><text id="val-0-1" class="cellval" x="337" y="334" text-anchor="middle" opacity="0"></text></g>
+      <g><rect class="cell" x="366" y="300" width="58" height="58" fill="none" stroke="var(--line)" stroke-width="1.3"/><rect id="fill-0-2" x="368" y="302" width="54" height="54" fill="var(--cell)" opacity="0"/><text id="val-0-2" class="cellval" x="395" y="334" text-anchor="middle" opacity="0"></text></g>
+      <!-- row 1 -->
+      <g><rect class="cell" x="250" y="358" width="58" height="58" fill="none" stroke="var(--line)" stroke-width="1.3"/><rect id="fill-1-0" x="252" y="360" width="54" height="54" fill="var(--cell)" opacity="0"/><text id="val-1-0" class="cellval" x="279" y="392" text-anchor="middle" opacity="0"></text></g>
+      <g><rect class="cell" x="308" y="358" width="58" height="58" fill="none" stroke="var(--line)" stroke-width="1.3"/><rect id="fill-1-1" x="310" y="360" width="54" height="54" fill="var(--cell)" opacity="0"/><text id="val-1-1" class="cellval" x="337" y="392" text-anchor="middle" opacity="0"></text></g>
+      <g><rect class="cell" x="366" y="358" width="58" height="58" fill="none" stroke="var(--line)" stroke-width="1.3"/><rect id="fill-1-2" x="368" y="360" width="54" height="54" fill="var(--cell)" opacity="0"/><text id="val-1-2" class="cellval" x="395" y="392" text-anchor="middle" opacity="0"></text></g>
+      <!-- row 2 -->
+      <g><rect class="cell" x="250" y="416" width="58" height="58" fill="none" stroke="var(--line)" stroke-width="1.3"/><rect id="fill-2-0" x="252" y="418" width="54" height="54" fill="var(--cell)" opacity="0"/><text id="val-2-0" class="cellval" x="279" y="450" text-anchor="middle" opacity="0"></text></g>
+      <g><rect class="cell" x="308" y="416" width="58" height="58" fill="none" stroke="var(--line)" stroke-width="1.3"/><rect id="fill-2-1" x="310" y="418" width="54" height="54" fill="var(--cell)" opacity="0"/><text id="val-2-1" class="cellval" x="337" y="450" text-anchor="middle" opacity="0"></text></g>
+      <g><rect class="cell" x="366" y="416" width="58" height="58" fill="none" stroke="var(--line)" stroke-width="1.3"/><rect id="fill-2-2" x="368" y="418" width="54" height="54" fill="var(--cell)" opacity="0"/><text id="val-2-2" class="cellval" x="395" y="450" text-anchor="middle" opacity="0"></text></g>
+    </g>
+
+    <!-- axis labels -->
+    <text class="axis-label" transform="translate(238,387) rotate(-90)" text-anchor="middle">Item &#9660;</text>
+    <text id="ax-items" class="mono box-sub" transform="translate(224,387) rotate(-90)" text-anchor="middle">SKU-100 · 101 · 102</text>
+    <text class="axis-label" x="337" y="494" text-anchor="middle">Time &#9654;</text>
+    <text id="ax-time" class="mono box-sub" x="337" y="510" text-anchor="middle">W31 · W32 · W33</text>
+    <text class="axis-label" x="470" y="250" text-anchor="middle">Location &#8599;</text>
+    <text id="ax-loc" class="mono box-sub" x="486" y="234" text-anchor="middle">DC-1 (front) · DC-2 · DC-3</text>
+    <text class="box-sub" x="337" y="530" text-anchor="middle" font-style="italic">front slice shown = Location DC-1 · most cells stay empty (sparse)</text>
+  </g>
+
+  <!-- ================= STORE ZONE ================= -->
+  <g id="z-store">
+    <text class="zone-label" x="620" y="250" fill="var(--store)">2 · STORE  (at rest)</text>
+
+    <!-- HOT in-memory columnar -->
+    <g id="hot-panel">
+      <rect x="620" y="262" width="540" height="212" rx="10" fill="var(--panel)" stroke="var(--hot)" stroke-width="1.8" filter="url(#soft)"/>
+      <text class="box-title" x="634" y="284" fill="var(--hot)">In-memory columnar store · HOT</text>
+      <text class="box-sub" x="634" y="300">one array per measure · only populated (sparse) cells stored</text>
+
+      <!-- Sales column -->
+      <g id="col-sales">
+        <rect x="634" y="312" width="168" height="26" rx="6" fill="var(--store)"/>
+        <text class="chip-label" x="718" y="330" text-anchor="middle">Sales[]</text>
+        <text id="sr-0" class="rowtxt mono" x="640" y="358" opacity="0"></text>
+        <text id="sr-1" class="rowtxt mono" x="640" y="380" opacity="0"></text>
+        <text id="sr-2" class="rowtxt mono" x="640" y="402" opacity="0"></text>
+        <text id="sr-3" class="rowtxt mono" x="640" y="424" opacity="0"></text>
+      </g>
+      <!-- Forecast column (parallel, dim) -->
+      <g id="col-fc" opacity="0">
+        <rect x="814" y="312" width="150" height="26" rx="6" fill="var(--store)" opacity="0.6"/>
+        <text class="chip-label" x="889" y="330" text-anchor="middle">Forecast[]</text>
+        <text class="rowtxt mono" x="820" y="358" fill="var(--ink-dim)">(i7,l3,t32) 540</text>
+        <text class="rowtxt mono" x="820" y="380" fill="var(--ink-dim)">(i8,l3,t32) 300</text>
+      </g>
+      <!-- Inventory column (parallel, dim) -->
+      <g id="col-inv" opacity="0">
+        <rect x="978" y="312" width="168" height="26" rx="6" fill="var(--store)" opacity="0.6"/>
+        <text class="chip-label" x="1062" y="330" text-anchor="middle">Inventory[]</text>
+        <text class="rowtxt mono" x="984" y="358" fill="var(--ink-dim)">(i7,l3,t32) 900</text>
+        <text class="rowtxt mono" x="984" y="380" fill="var(--ink-dim)">(i9,l3,t31) 410</text>
+      </g>
+      <text class="box-sub" x="634" y="462">keys are dictionary-encoded ids · values contiguous per measure &#8594; fast column scans</text>
+    </g>
+
+    <!-- COLD persistent -->
+    <g id="cold-panel" opacity="0">
+      <rect x="620" y="498" width="540" height="150" rx="10" fill="var(--panel)" stroke="var(--cold)" stroke-width="1.8" filter="url(#soft)"/>
+      <text class="box-title" x="634" y="520" fill="var(--cold)">Persistent store · COLD (durable, versioned)</text>
+      <!-- versioned snapshot stack -->
+      <g id="snap-3"><rect x="642" y="536" width="150" height="88" rx="8" fill="var(--panel2)" stroke="var(--cold)" stroke-width="1"/></g>
+      <g id="snap-2"><rect x="630" y="548" width="150" height="88" rx="8" fill="var(--panel2)" stroke="var(--cold)" stroke-width="1"/></g>
+      <g id="snap-1">
+        <rect x="618" y="560" width="150" height="88" rx="8" fill="var(--panel2)" stroke="var(--cold)" stroke-width="1.5"/>
+        <text class="box-sub" x="628" y="580" font-weight="700" fill="var(--cold)">snapshot v3 (current)</text>
+        <text class="rowtxt mono" x="628" y="600">Sales[] · Forecast[]</text>
+        <text class="rowtxt mono" x="628" y="618">Inventory[] · graph</text>
+        <text class="rowtxt mono" x="628" y="636">+ v2 · v1 history</text>
+      </g>
+      <text class="box-sub" x="800" y="556">HOT is rebuilt from COLD on load;</text>
+      <text class="box-sub" x="800" y="574">edits are written back down &amp; versioned.</text>
+      <text class="box-sub" x="800" y="600" font-weight="700" fill="var(--cold)">graph (nodes + edges)</text>
+      <text class="box-sub" x="800" y="618">Item&#8594;Product Family, Time&#8594;Month …</text>
+      <text class="box-sub" x="800" y="636">stored alongside &#8594; drives roll-up.</text>
+    </g>
+  </g>
+
+  <!-- ================= RETRIEVE ZONE ================= -->
+  <g id="z-retrieve">
+    <text class="zone-label" x="44" y="600" fill="var(--retrieve)">3 · RETRIEVE  (read path)</text>
+    <!-- query card -->
+    <g id="query-card">
+      <rect x="44" y="612" width="236" height="150" rx="10" fill="var(--panel)" stroke="var(--retrieve)" stroke-width="1.8" filter="url(#soft)"/>
+      <text class="box-title" x="58" y="634" fill="var(--retrieve)">Query</text>
+      <text class="rowtxt mono" x="58" y="658">measure = <tspan font-weight="800" fill="var(--store)">Sales</tspan></text>
+      <text class="rowtxt mono" x="58" y="678">Product Family = <tspan font-weight="800">PF-A</tspan></text>
+      <text class="rowtxt mono" x="58" y="698">Location = <tspan font-weight="800">DC-1</tspan></text>
+      <text class="rowtxt mono" x="58" y="718">Time = <tspan font-weight="800">Aug</tspan></text>
+      <line x1="58" y1="730" x2="266" y2="730" stroke="var(--line)"/>
+      <text id="q-result" class="mono" x="58" y="752" font-size="17" font-weight="800" fill="var(--retrieve)" opacity="0">result = 1,280</text>
+    </g>
+
+    <!-- graph expansion callout -->
+    <g id="expand-panel" opacity="0">
+      <rect x="300" y="612" width="300" height="96" rx="10" fill="var(--panel)" stroke="var(--retrieve)" stroke-width="1.4"/>
+      <text class="box-title" x="314" y="632" fill="var(--retrieve)">Graph expands the query</text>
+      <text class="rowtxt mono" x="314" y="654">PF-A &#8835; {SKU-100, 101, 102}</text>
+      <text class="rowtxt mono" x="314" y="674">Aug&#160;&#160; &#8835; {W31, W32, W33}</text>
+      <text class="box-sub" x="314" y="694">&#8594; scan Sales[] for matching keys, sum</text>
+    </g>
+
+    <!-- running accumulator -->
+    <g id="acc" opacity="0">
+      <rect x="300" y="726" width="300" height="40" rx="8" fill="var(--panel2)" stroke="var(--retrieve)" stroke-width="1.4"/>
+      <text id="acc-val" class="mono" x="450" y="752" text-anchor="middle" font-size="16" font-weight="800" fill="var(--retrieve)">&#931; Sales = 0</text>
+    </g>
+  </g>
+
+  <!-- ================= FLOW GUIDES (curved, per-segment) ================= -->
+  <g id="flows" fill="none">
+    <!-- insert: card -> dict -> cube -->
+    <path id="f-ins1" d="M262,140 L296,140" stroke="var(--insert)" stroke-width="2.4" marker-end="url(#mA)"/>
+    <path id="f-ins2" d="M470,204 C440,250 400,300 355,336" stroke="var(--insert)" stroke-width="2.4" stroke-dasharray="6 6" marker-end="url(#mA)"/>
+    <!-- store: cube -> hot -> cold -->
+    <path id="f-st1" d="M512,360 C560,340 590,340 616,352" stroke="var(--store)" stroke-width="2.4" stroke-dasharray="6 6" marker-end="url(#mS)"/>
+    <path id="f-st2" d="M890,476 L890,496" stroke="var(--store)" stroke-width="2.4" marker-end="url(#mS)"/>
+    <text id="fl-st" class="flow-label" x="560" y="330" fill="var(--store)">store &#9654;</text>
+    <text id="fl-st2" class="flow-label" x="900" y="490" fill="var(--store)">persist &#9660;</text>
+    <!-- retrieve: query -> cube ; result back -->
+    <path id="f-rt1" d="M282,690 C300,600 300,540 306,476" stroke="var(--retrieve)" stroke-width="2.4" stroke-dasharray="6 6" marker-end="url(#mR)"/>
+    <path id="f-rt2" d="M636,400 C560,470 400,650 284,724" stroke="var(--retrieve)" stroke-width="2.4" stroke-dasharray="2 7" marker-end="url(#mR)"/>
+    <text id="fl-rt" class="flow-label" x="196" y="556" fill="var(--retrieve)">scan &#9650;</text>
+  </g>
+
+  <!-- ================= PACKETS ================= -->
+  <g id="packets">
+    <g id="ipk" opacity="0"><circle r="12" fill="var(--insert)" stroke="#fff" stroke-width="2"/><text id="ipk-t" x="0" y="4" text-anchor="middle" font-size="11" font-weight="800" fill="#fff">500</text></g>
+    <g id="spk" opacity="0"><circle r="9" fill="var(--store)" stroke="#fff" stroke-width="1.5"/></g>
+    <circle id="rpk" r="8" fill="var(--retrieve)" opacity="0"/>
+  </g>
+</svg>
+</div>
+
+<div class="progress"><i id="progbar"></i></div>
+<div class="controls">
+  <button id="btn-play" class="primary">▶ Play</button>
+  <button id="btn-step">⏭ Step</button>
+  <button id="btn-reset">↺ Reset</button>
+  <span class="seglabel">Segment: <b id="seg-name">— ready —</b> <span id="seg-idx"></span></span>
+</div>
+<div class="caption" id="caption">
+  Press <b>Play</b> for the full insert → store → retrieve story, or <b>Step</b> through it.
+  A fact is <b>addressed by its dimension keys</b>, kept as <b>columnar arrays</b>, and read back by <b>scanning a column and rolling up along the graph</b>.
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/MotionPathPlugin.min.js"></script>
+<script>
+(function(){
+  "use strict";
+  var hasGSAP = (typeof gsap !== "undefined");
+  if(hasGSAP && typeof MotionPathPlugin !== "undefined"){ gsap.registerPlugin(MotionPathPlugin); }
+  var $ = function(id){ return document.getElementById(id); };
+  var captionEl=$("caption"), segName=$("seg-name"), segIdx=$("seg-idx"), progbar=$("progbar");
+
+  function dash(el){ if(!el||!el.getTotalLength) return 0; var L=el.getTotalLength();
+    gsap.set(el,{strokeDasharray:L,strokeDashoffset:L,opacity:1}); return L; }
+  // center of an element (svg user coords) for packet targeting
+  function cx(id){ var e=$(id); var b=e.getBBox(); return b.x+b.width/2; }
+  function cy(id){ var e=$(id); var b=e.getBBox(); return b.y+b.height/2; }
+
+  var order=["address","insert","store","retrieve","recap"];
+  var curIndex=0;
+  var captions={
+    address:"<b>Address space.</b> The cube is not dense storage — it is an <b>address</b>. Every cell is one (Item &#215; Location &#215; Time) intersection. The front slice shown is Location = DC-1; almost every cell is empty.",
+    insert:"<b>Insert.</b> Each incoming fact's members are <b>dictionary-encoded</b> to compact ids (SKU-100&#8594;i7, DC-1&#8594;l3, W32&#8594;t32). The composite key <b>(i7,l3,t32)</b> addresses exactly one cell, and the measure value lands there. Only addressed cells fill &#8212; the cube stays <b>sparse</b>.",
+    store:"<b>Store.</b> Populated cells are kept as <b>columnar arrays</b> &#8212; one per measure (Sales[], Forecast[], Inventory[]) &#8212; holding only the cells that exist. This lives <b>HOT</b> in memory and is persisted <b>COLD</b> as versioned snapshots, with the graph stored alongside.",
+    retrieve:"<b>Retrieve.</b> The query names a level, not raw cells. The <b>graph expands</b> it (PF-A &#8835; its items, Aug &#8835; its weeks); the engine <b>scans only Sales[]</b>, picks the matching keys, and <b>sums along the edges</b> &#8212; 500 + 320 + 260 + 200 = <b>1,280</b>.",
+    recap:"<b>In one line:</b> INSERT keys a fact into a cell &#183; STORE keeps sparse columnar arrays (HOT + versioned COLD) &#183; RETRIEVE scans one column and rolls up along the graph. Replay with <b>Reset</b> or revisit stages with <b>Step</b>."
+  };
+  function setCaption(name){
+    if(captions[name]) captionEl.innerHTML=captions[name];
+    segName.textContent=name;
+    var i=order.indexOf(name);
+    if(i>=0){ curIndex=i; segIdx.textContent="("+(i+1)+"/"+order.length+")"; }
+  }
+
+  // record data for the 4 inserts: [item,loc,time,val, cellRow,cellCol, idkey]
+  var records=[
+    ["SKU-100","DC-1","W32","500",0,1,"(i7,l3,t32)"],
+    ["SKU-101","DC-1","W32","320",1,1,"(i8,l3,t32)"],
+    ["SKU-100","DC-1","W33","260",0,2,"(i7,l3,t33)"],
+    ["SKU-102","DC-1","W31","200",2,0,"(i9,l3,t31)"]
+  ];
+
+  if(!hasGSAP){
+    // static fallback: reveal everything
+    ["col-fc","col-inv","cold-panel","expand-panel","acc","q-result"].forEach(function(id){var e=$(id);if(e)e.style.opacity=1;});
+    records.forEach(function(r){ $("fill-"+r[4]+"-"+r[5]).style.opacity=1; var v=$("val-"+r[4]+"-"+r[5]); v.textContent=r[3]; v.style.opacity=1; });
+    ["sr-0","sr-1","sr-2","sr-3"].forEach(function(id,i){var e=$(id); e.textContent=records[i][6]+" "+records[i][3]; e.style.opacity=1;});
+    $("acc-val").textContent="Σ Sales = 1,280";
+    captionEl.innerHTML="<b>Static view.</b> (GSAP CDN did not load &#8212; animation disabled, full diagram shown.) A fact is keyed into a cell; stored as sparse columnar arrays (HOT + COLD); retrieved by scanning a column and rolling up along the graph.";
+    ["btn-play","btn-step","btn-reset"].forEach(function(id){$(id).disabled=true;});
+    return;
+  }
+
+  // ---------- initial hidden state ----------
+  gsap.set(["#cube-top","#cube-right","#top-grid","#right-grid","#front-grid"],{opacity:0});
+  gsap.set("#z-cube text",{opacity:0});
+  gsap.set(["#fact-card","#dict-panel"],{opacity:0});
+  gsap.set(["#hot-panel","#cold-panel"],{opacity:0});
+  gsap.set(["#col-fc","#col-inv"],{opacity:0});
+  gsap.set(["#sr-0","#sr-1","#sr-2","#sr-3"],{opacity:0});
+  gsap.set(["#query-card","#expand-panel","#acc","#q-result"],{opacity:0});
+  gsap.set("#z-store text.zone-label",{opacity:0});
+  gsap.set("#z-retrieve text.zone-label",{opacity:0});
+  // fills/vals
+  for(var r=0;r<3;r++){ for(var c=0;c<3;c++){ gsap.set("#fill-"+r+"-"+c,{opacity:0, transformBox:"fill-box", transformOrigin:"center"}); gsap.set("#val-"+r+"-"+c,{opacity:0});} }
+  // flows hidden (draw-in)
+  ["f-ins1","f-ins2","f-st1","f-st2","f-rt1","f-rt2"].forEach(function(id){ dash($(id)); });
+  gsap.set(["#fl-st","#fl-st2","#fl-rt"],{opacity:0});
+  gsap.set(["#ipk","#spk","#rpk"],{opacity:0});
+
+  var tl=gsap.timeline({paused:true, defaults:{ease:"power2.inOut",duration:0.6},
+    onUpdate:function(){ progbar.style.width=(tl.progress()*100).toFixed(1)+"%"; }});
+
+  // ============ ADDRESS ============
+  tl.addLabel("address");
+  tl.call(setCaption,["address"],"address");
+  tl.to(["#cube-top","#cube-right"],{opacity:1,duration:0.5},"address");
+  tl.to(["#top-grid","#right-grid"],{opacity:0.6,duration:0.4},"address+=0.2");
+  tl.to("#front-grid",{opacity:1,duration:0.5},"address+=0.3");
+  tl.to("#z-cube text",{opacity:1,duration:0.5,stagger:0.03},"address+=0.4");
+
+  // ============ INSERT ============
+  tl.addLabel("insert","+=0.3");
+  tl.call(setCaption,["insert"],"insert");
+  tl.to("#z-insert .zone-label",{opacity:1,duration:0.3},"insert");
+  tl.to("#fact-card",{opacity:1,duration:0.5},"insert");
+  tl.to("#f-ins1",{strokeDashoffset:0,duration:0.4},"insert+=0.3");
+  tl.to("#dict-panel",{opacity:1,duration:0.5},"insert+=0.4");
+  // per-record loop
+  records.forEach(function(rec,i){
+    var t = "insert+="+(0.9 + i*1.15);
+    // update the fact card + dictionary key text
+    tl.call(function(){
+      $("ci-item").textContent=rec[0]; $("ci-loc").textContent=rec[1];
+      $("ci-time").textContent=rec[2]; $("ci-val").textContent=rec[3];
+      $("ipk-t").textContent=rec[3];
+      $("dk-1").innerHTML=rec[0]+" &#8594; <tspan fill='var(--dict)'>i"+(7+rec[4])+"</tspan>";
+      $("dk-3").innerHTML=rec[2]+"&#160;&#160; &#8594; <tspan fill='var(--dict)'>t"+(31+rec[5])+"</tspan>";
+      $("dk-key").textContent=rec[6];
+    },null,t);
+    // pulse dictionary key
+    tl.fromTo("#dk-key",{scale:1},{scale:1.18,transformBox:"fill-box",transformOrigin:"left center",duration:0.25,yoyo:true,repeat:1},t);
+    // draw f-ins2 once (first record)
+    if(i===0) tl.to("#f-ins2",{strokeDashoffset:0,duration:0.4},t);
+    // packet from dict key -> target cell
+    var tgtX = cx("fill-"+rec[4]+"-"+rec[5]), tgtY = cy("fill-"+rec[4]+"-"+rec[5]);
+    tl.set("#ipk",{x:475,y:172});
+    tl.to("#ipk",{opacity:1,duration:0.15},t+"+=0.15");
+    tl.to("#ipk",{x:tgtX,y:tgtY,duration:0.75,ease:"power2.inOut"},t+"+=0.3");
+    // land: fill cell + value pop
+    tl.to("#ipk",{opacity:0,duration:0.15},t+"+=1.05");
+    tl.to("#fill-"+rec[4]+"-"+rec[5],{opacity:0.92,duration:0.3},t+"+=1.0");
+    tl.call(function(){ $("val-"+rec[4]+"-"+rec[5]).textContent=rec[3]; },null,t+"+=1.05");
+    tl.fromTo("#val-"+rec[4]+"-"+rec[5],{opacity:0,scale:0.4},{opacity:1,scale:1,transformBox:"fill-box",transformOrigin:"center",duration:0.35,ease:"back.out(2)"},t+"+=1.05");
+  });
+
+  // ============ STORE ============
+  tl.addLabel("store","+=0.4");
+  tl.call(setCaption,["store"],"store");
+  tl.to("#z-store .zone-label",{opacity:1,duration:0.3},"store");
+  tl.to("#hot-panel",{opacity:1,duration:0.5},"store");
+  tl.to("#f-st1",{strokeDashoffset:0,duration:0.4},"store+=0.3");
+  tl.to("#fl-st",{opacity:1,duration:0.3},"store+=0.3");
+  // stream each populated cell into a Sales[] row
+  records.forEach(function(rec,i){
+    var t="store+="+(0.6 + i*0.55);
+    var srcX=cx("fill-"+rec[4]+"-"+rec[5]), srcY=cy("fill-"+rec[4]+"-"+rec[5]);
+    tl.set("#spk",{x:srcX,y:srcY});
+    tl.to("#spk",{opacity:1,duration:0.12},t);
+    tl.to("#spk",{x:648,y:352+i*22,duration:0.5,ease:"power2.inOut"},t+"+=0.1");
+    tl.to("#spk",{opacity:0,duration:0.12},t+"+=0.6");
+    tl.call(function(){ $("sr-"+i).textContent=rec[6]+"  "+rec[3]; },null,t+"+=0.55");
+    tl.fromTo("#sr-"+i,{opacity:0,x:-8},{opacity:1,x:0,duration:0.35},t+"+=0.55");
+  });
+  // parallel measure columns appear
+  tl.to(["#col-fc","#col-inv"],{opacity:1,duration:0.5,stagger:0.15},"store+=2.7");
+  // persist to COLD
+  tl.to("#cold-panel",{opacity:1,duration:0.5},"store+=3.2");
+  tl.to("#f-st2",{strokeDashoffset:0,duration:0.4},"store+=3.2");
+  tl.to("#fl-st2",{opacity:1,duration:0.3},"store+=3.2");
+  tl.fromTo(["#snap-2","#snap-3"],{opacity:0,y:6},{opacity:1,y:0,duration:0.4,stagger:0.12},"store+=3.5");
+
+  // ============ RETRIEVE ============
+  tl.addLabel("retrieve","+=0.4");
+  tl.call(setCaption,["retrieve"],"retrieve");
+  tl.to("#z-retrieve .zone-label",{opacity:1,duration:0.3},"retrieve");
+  tl.to("#query-card",{opacity:1,duration:0.5},"retrieve");
+  tl.to("#f-rt1",{strokeDashoffset:0,duration:0.4},"retrieve+=0.3");
+  tl.to("#fl-rt",{opacity:1,duration:0.3},"retrieve+=0.3");
+  tl.to("#expand-panel",{opacity:1,duration:0.5},"retrieve+=0.5");
+  tl.to("#acc",{opacity:1,duration:0.4},"retrieve+=0.8");
+  // scan: light matching cells + rows, accumulate
+  var accObj={v:0};
+  records.forEach(function(rec,i){
+    var t="retrieve+="+(1.1 + i*0.6);
+    // pulse the cube cell
+    tl.to("#fill-"+rec[4]+"-"+rec[5],{opacity:1,duration:0.2,yoyo:true,repeat:1},t);
+    tl.fromTo("#fill-"+rec[4]+"-"+rec[5],{scale:1},{scale:1.15,transformBox:"fill-box",transformOrigin:"center",duration:0.2,yoyo:true,repeat:1},t);
+    // highlight the Sales[] row
+    tl.fromTo("#sr-"+i,{fill:"var(--ink)"},{fill:"var(--retrieve)",fontWeight:800,duration:0.25},t);
+    // fly a small retrieve packet from row to accumulator
+    tl.set("#rpk",{x:660,y:352+i*22});
+    tl.to("#rpk",{opacity:1,duration:0.1},t+"+=0.1");
+    tl.to("#rpk",{x:450,y:746,duration:0.5,ease:"power2.inOut"},t+"+=0.15");
+    tl.to("#rpk",{opacity:0,duration:0.1},t+"+=0.65");
+    // bump accumulator
+    (function(rec){
+      tl.to(accObj,{v:"+="+parseInt(rec[3],10),duration:0.4,
+        onUpdate:function(){ $("acc-val").textContent="Σ Sales = "+Math.round(accObj.v).toLocaleString(); }},t+"+=0.6");
+    })(rec);
+  });
+  // result surfaces to query card
+  tl.to("#f-rt2",{strokeDashoffset:0,duration:0.5},"retrieve+=3.6");
+  tl.to("#fl-rt2",{opacity:1,duration:0.3},"retrieve+=3.6");
+  tl.fromTo("#q-result",{opacity:0,scale:0.6},{opacity:1,scale:1,transformBox:"fill-box",transformOrigin:"left center",duration:0.5,ease:"back.out(2)"},"retrieve+=3.9");
+
+  // ============ RECAP ============
+  tl.addLabel("recap","+=0.4");
+  tl.call(setCaption,["recap"],"recap");
+  tl.to("#flows text",{opacity:1,duration:0.4},"recap");
+  tl.to({},{duration:0.4});
+
+  // ---------- controls ----------
+  $("btn-play").addEventListener("click",function(){ if(tl.progress()>=1){tl.restart();} else {tl.play();} });
+  $("btn-reset").addEventListener("click",function(){
+    tl.pause(0); progbar.style.width="0%";
+    // reset mutable text
+    for(var r=0;r<3;r++)for(var c=0;c<3;c++){var v=$("val-"+r+"-"+c);v.textContent="";}
+    ["sr-0","sr-1","sr-2","sr-3"].forEach(function(id){$(id).textContent="";});
+    $("acc-val").textContent="Σ Sales = 0";
+    $("ci-item").textContent="SKU-100";$("ci-loc").textContent="DC-1";$("ci-time").textContent="W32";$("ci-val").textContent="500";
+    accObj.v=0; curIndex=0; segName.textContent="— ready —"; segIdx.textContent="";
+    tl.invalidate();
+  });
+  $("btn-step").addEventListener("click",function(){
+    tl.pause(); var t=tl.time(), next=null;
+    for(var i=0;i<order.length;i++){ var lt=tl.labels[order[i]]; if(lt!==undefined && lt>t+0.01){ next=order[i]; break; } }
+    tl.tweenTo(next||"recap",{ease:"none"});
+  });
+
+  setCaption("address"); segName.textContent="— ready —"; segIdx.textContent="";
+})();
+</script>
+</body>
+</html>
