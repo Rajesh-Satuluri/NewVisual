@@ -13,12 +13,12 @@ as-is in **SSMS 19 / 21** (SQL Server 2019 / 2022). For every problem (once cont
 
 **Live:** https://rajesh-satuluri.github.io/NewVisual/sql-visualizer/
 
-> **Status:** app + SQL-adapted problem view are live, with **all 12 topics
-> populated** (22 problems): Aggregation & Grouping, Filtering & Subqueries,
-> Ranking, Joins, Window Functions, CTE & Complex Joins, String & Date
-> Functions, Recursive / Hierarchy, Pivot / Conditional Agg, Gaps & Islands,
-> Set Operations, and DML / DDL. More problems per topic will be added over
-> time. A dev-only validation harness lives in `tools/` (see `tools/README.md`).
+> **Status:** app + SQL-adapted problem view are live, with a **curated set of
+> ~65 problems across all 12 topics**: Aggregation & Grouping, Filtering &
+> Subqueries, Ranking, Joins, Window Functions, CTE & Complex Joins, String &
+> Date Functions, Recursive / Hierarchy, Pivot / Conditional Agg, Gaps &
+> Islands, Set Operations, and DML / DDL. A dev-only validation harness lives in
+> `tools/` (see `tools/README.md`).
 
 ## Study features
 

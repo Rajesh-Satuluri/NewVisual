@@ -80,6 +80,90 @@
         "Deleting all copies instead of keeping the minimum-Id row.",
         "Forgetting the alias in the DELETE clause (syntax error in T-SQL)."
       ]
+    },
+
+    {
+      id: "update-salary-from-raise-table",
+      number: "SS 10404",
+      platform: "StrataScratch",
+      title: "Apply Department Raises (UPDATE … FROM)",
+      difficulty: "Medium",
+      category: "DML / DDL",
+      topics: ["DML / DDL", "Joins"],
+      domains: ["HR Analytics"],
+      link: "https://www.stratascratch.com/",
+      meta: { pattern: "Set-based update via join", sqlConcept: "UPDATE … FROM", technique: "Update one table from another" },
+      descriptionBrief:
+        "Given **Employee(Id, DeptId, Salary)** and **Raise(DeptId, Pct)**, **increase each " +
+        "employee's salary** by their department's raise percentage. Show the table after the update.",
+      schema: [
+        { name: "Raise", columns: [
+          { name: "DeptId", type: "INT", note: "PK" },
+          { name: "Pct", type: "INT", note: "percent, e.g. 10" } ] },
+        { name: "Employee", columns: [
+          { name: "Id", type: "INT", note: "PK" },
+          { name: "DeptId", type: "INT" },
+          { name: "Salary", type: "INT" } ] }
+      ],
+      setupSql:
+        "IF OBJECT_ID('dbo.Employee','U') IS NOT NULL DROP TABLE dbo.Employee;\n" +
+        "IF OBJECT_ID('dbo.Raise','U') IS NOT NULL DROP TABLE dbo.Raise;\n" +
+        "CREATE TABLE dbo.Raise (DeptId INT PRIMARY KEY, Pct INT);\n" +
+        "CREATE TABLE dbo.Employee (Id INT PRIMARY KEY, DeptId INT, Salary INT);\n" +
+        "INSERT INTO dbo.Raise VALUES (10,10),(20,0);\n" +
+        "INSERT INTO dbo.Employee VALUES (1,10,1000),(2,10,2000),(3,20,3000);",
+      sampleData: [
+        { table: "Raise", columns: ["DeptId","Pct"], rows: [[10,10],[20,0]] },
+        { table: "Employee", columns: ["Id","DeptId","Salary"], rows: [[1,10,1000],[2,10,2000],[3,20,3000]] }
+      ],
+      expectedOutput: { columns: ["Id","DeptId","Salary"], rows: [[1,10,1100],[2,10,2200],[3,20,3000]] },
+      approaches: [
+        {
+          name: "UPDATE … FROM join (recommended)",
+          perfNote: "A single set-based UPDATE joins each employee to their department's raise and applies it in one statement — no row-by-row loop.",
+          dialectNote: "T-SQL's `UPDATE t SET … FROM t JOIN … ` extends standard UPDATE; alias the updated table in the UPDATE clause.",
+          logic:
+            "**What it asks.** Raise every salary by a department-specific percentage stored in another table.\n\n" +
+            "**Why the naive idea fails.** A bare `UPDATE Employee SET Salary = Salary * …` can't reach the per-department Pct in the Raise table without a join.\n\n" +
+            "**Key Idea.** `UPDATE e SET e.Salary = … FROM Employee e JOIN Raise r ON r.DeptId = e.DeptId` applies each department's percentage to its employees in one pass.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Join `Employee` to `Raise` on DeptId.\n" +
+            "2. Set `Salary = Salary + Salary * Pct / 100`.\n" +
+            "3. Employees whose department has Pct 0 are unchanged.\n\n" +
+            "**Why it works.** The join makes each department's Pct available per employee row, so the arithmetic is a normal column expression.\n\n" +
+            "**Common Gotchas.** Integer math: `Salary * Pct / 100` is fine here (1000*10/100=100) but watch truncation with odd percentages — multiply before dividing, or use decimals. Alias the updated table.\n\n" +
+            "**Performance.** One join-driven set update.\n\n" +
+            "**Interview mindset.** 'update a table using values from another' → UPDATE … FROM join (set-based, not a cursor).",
+          tsql:
+            "UPDATE e\n" +
+            "SET e.Salary = e.Salary + e.Salary * r.Pct / 100   -- apply the dept raise\n" +
+            "FROM dbo.Employee e\n" +
+            "JOIN dbo.Raise r ON r.DeptId = e.DeptId;\n" +
+            "-- SELECT * FROM dbo.Employee;  -- inspect the result",
+          clean:
+            "UPDATE e\n" +
+            "SET e.Salary = e.Salary + e.Salary * r.Pct / 100\n" +
+            "FROM dbo.Employee e\n" +
+            "JOIN dbo.Raise r ON r.DeptId = e.DeptId;"
+        }
+      ],
+      walkthrough: [
+        { step: "Join each employee to their dept raise", note: "Dept 10 → +10%, Dept 20 → +0%.",
+          table: { columns: ["Id","Salary","Pct"], rows: [[1,1000,10],[2,2000,10],[3,3000,0]] } },
+        { step: "Employee after UPDATE",
+          table: { columns: ["Id","DeptId","Salary"], rows: [[1,10,1100],[2,10,2200],[3,20,3000]] } }
+      ],
+      patternRecognition: [
+        "'update/set a column using another table' → UPDATE … FROM with a join (set-based)."
+      ],
+      interviewRecall: [
+        "Alias the updated table in the UPDATE clause: `UPDATE e … FROM Employee e JOIN …`.",
+        "Watch integer truncation in percentage math; multiply before dividing or use decimals."
+      ],
+      commonMistakes: [
+        "Trying to reference the other table's column without a FROM join.",
+        "Dividing before multiplying and truncating the raise to 0."
+      ]
     }
 
   ]);

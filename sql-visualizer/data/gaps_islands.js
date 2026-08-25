@@ -105,6 +105,98 @@
         "Duplicate rows per day inflate streaks — dedupe first.",
         "Subtracting the row number without DATEADD(DAY,…) on a date column."
       ]
+    },
+
+    {
+      id: "merge-overlapping-status-ranges",
+      number: "SS 10333",
+      platform: "StrataScratch",
+      title: "Collapse Consecutive Same-Status Days",
+      difficulty: "Hard",
+      category: "Gaps & Islands",
+      topics: ["Gaps & Islands", "Window Functions"],
+      domains: ["Operations Analytics"],
+      link: "https://www.stratascratch.com/",
+      meta: { pattern: "Islands by value change", sqlConcept: "Two-ROW_NUMBER difference", technique: "Group runs of equal values" },
+      descriptionBrief:
+        "Given **MachineStatus(Day, Status)** (one row per day), collapse maximal runs of the " +
+        "**same status** into ranges: return Status, StartDay, EndDay for each run.",
+      schema: [
+        { name: "MachineStatus", columns: [
+          { name: "Day", type: "INT", note: "1..N" },
+          { name: "Status", type: "VARCHAR(10)" } ] }
+      ],
+      setupSql:
+        "IF OBJECT_ID('dbo.MachineStatus','U') IS NOT NULL DROP TABLE dbo.MachineStatus;\n" +
+        "CREATE TABLE dbo.MachineStatus (Day INT, Status VARCHAR(10));\n" +
+        "INSERT INTO dbo.MachineStatus VALUES\n" +
+        "  (1,'up'),(2,'up'),(3,'down'),(4,'up'),(5,'up'),(6,'up');",
+      sampleData: [
+        { table: "MachineStatus", columns: ["Day","Status"],
+          rows: [[1,"up"],[2,"up"],[3,"down"],[4,"up"],[5,"up"],[6,"up"]] }
+      ],
+      expectedOutput: { columns: ["Status","StartDay","EndDay"],
+        rows: [["up",1,2],["down",3,3],["up",4,6]] },
+      approaches: [
+        {
+          name: "Difference of two ROW_NUMBERs (recommended)",
+          perfNote: "Two window numberings in one pass; their difference is constant within a same-status run, so grouping on it collapses each run. No self-join.",
+          dialectNote: "",
+          logic:
+            "**What it asks.** Merge adjacent equal-status days into contiguous ranges.\n\n" +
+            "**Why the naive idea fails.** `GROUP BY Status` alone merges the two separate 'up' runs (days 1-2 and 4-6) into one — it ignores that a 'down' day breaks them.\n\n" +
+            "**Key Idea.** Number all rows by Day (`rnAll`) and number rows within each Status by Day (`rnByStatus`). Inside a single run both advance in lockstep, so `rnAll − rnByStatus` is **constant** per run and changes when the status breaks.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. `rnAll = ROW_NUMBER() OVER (ORDER BY Day)`.\n" +
+            "2. `rnByStatus = ROW_NUMBER() OVER (PARTITION BY Status ORDER BY Day)`.\n" +
+            "3. `grp = rnAll − rnByStatus`.\n" +
+            "4. `GROUP BY Status, grp`, take `MIN(Day)`, `MAX(Day)`.\n\n" +
+            "**Why it works.** The two counters drift apart only when a different status interrupts, so equal (Status, grp) identifies one maximal run.\n\n" +
+            "**Common Gotchas.** Group by Status **and** grp — grp alone can repeat across statuses. The two 'up' runs get different grp values (0 and 1).\n\n" +
+            "**Performance.** Two window numberings + a group aggregate, O(n log n).\n\n" +
+            "**Interview mindset.** 'merge runs of equal values / sessionize' → the two-ROW_NUMBER difference trick.",
+          tsql:
+            "WITH Marked AS (\n" +
+            "    SELECT Day, Status,\n" +
+            "           ROW_NUMBER() OVER (ORDER BY Day)\n" +
+            "         - ROW_NUMBER() OVER (PARTITION BY Status ORDER BY Day) AS grp\n" +
+            "    FROM dbo.MachineStatus\n" +
+            ")\n" +
+            "SELECT Status, MIN(Day) AS StartDay, MAX(Day) AS EndDay\n" +
+            "FROM Marked\n" +
+            "GROUP BY Status, grp\n" +
+            "ORDER BY StartDay;",
+          clean:
+            "WITH Marked AS (\n" +
+            "    SELECT Day, Status,\n" +
+            "           ROW_NUMBER() OVER (ORDER BY Day)\n" +
+            "         - ROW_NUMBER() OVER (PARTITION BY Status ORDER BY Day) AS grp\n" +
+            "    FROM dbo.MachineStatus\n" +
+            ")\n" +
+            "SELECT Status, MIN(Day) AS StartDay, MAX(Day) AS EndDay\n" +
+            "FROM Marked\n" +
+            "GROUP BY Status, grp\n" +
+            "ORDER BY StartDay;"
+        }
+      ],
+      walkthrough: [
+        { step: "Two row-numbers and their difference", note: "Days 1-2 up → grp 0; day 3 down → grp 2; days 4-6 up → grp 1.",
+          table: { columns: ["Day","Status","rnAll","rnByStatus","grp"],
+            rows: [[1,"up",1,1,0],[2,"up",2,2,0],[3,"down",3,1,2],[4,"up",4,3,1],[5,"up",5,4,1],[6,"up",6,5,1]] } },
+        { step: "Group by (Status, grp), min/max day",
+          table: { columns: ["Status","StartDay","EndDay"], rows: [["up",1,2],["down",3,3],["up",4,6]] } }
+      ],
+      patternRecognition: [
+        "'merge adjacent equal values / sessionize runs' → difference of two ROW_NUMBERs (all vs per-value)."
+      ],
+      interviewRecall: [
+        "Group by BOTH the value and the derived group key — the key alone repeats across values.",
+        "The all-rows vs per-value row numbers drift apart exactly at a value change."
+      ],
+      commonMistakes: [
+        "GROUP BY Status only, merging non-adjacent runs of the same status.",
+        "Grouping on grp without Status, colliding runs of different statuses."
+      ]
     }
 
   ]);
