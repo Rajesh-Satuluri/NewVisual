@@ -23,10 +23,13 @@
       { name: "title", weight: 0.4 },
       { name: "category", weight: 0.2 },
       { name: "meta.pattern", weight: 0.2 },
-      { name: "meta.dataStructure", weight: 0.15 },
+      { name: "meta.sqlConcept", weight: 0.15 },
       { name: "meta.technique", weight: 0.15 },
+      { name: "topics", weight: 0.15 },
+      { name: "domains", weight: 0.1 },
+      { name: "platform", weight: 0.1 },
       { name: "difficulty", weight: 0.1 },
-      { name: "lc", weight: 0.1 }
+      { name: "number", weight: 0.1 }
     ]
   });
 
@@ -37,6 +40,7 @@
     filterDifficulty: "all",
     filterStatus: "all",
     filterPattern: "all",
+    filterPlatform: "all",
     approachIndex: {}   // problemId -> selected approach index
   };
 
@@ -66,6 +70,11 @@
     ALL.forEach(function (p) { if (p.meta && p.meta.pattern) set[p.meta.pattern] = true; });
     return Object.keys(set).sort();
   }
+  function allPlatforms() {
+    var set = {};
+    ALL.forEach(function (p) { if (p.platform) set[p.platform] = true; });
+    return Object.keys(set).sort();
+  }
 
   // Which problems pass the current filters/search? Returns a Set of ids.
   function visibleIds() {
@@ -83,6 +92,7 @@
         } else if (st !== state.filterStatus) return;
       }
       if (state.filterPattern !== "all" && (!p.meta || p.meta.pattern !== state.filterPattern)) return;
+      if (state.filterPlatform !== "all" && p.platform !== state.filterPlatform) return;
       ids[p.id] = true;
     });
     return ids;
@@ -150,16 +160,16 @@
   }
 
   // ============================================================= CODE BLOCK
-  function codeBlock(source, extraClass) {
+  function codeBlock(source, extraClass, copyLabel) {
     var wrap = h("div", { class: "code-wrap " + (extraClass || "") });
     var bar = h("div", { class: "code-bar" });
-    var copy = h("button", { class: "copy-btn" }, "Copy");
+    var copy = h("button", { class: "copy-btn" }, copyLabel || "Copy");
     copy.addEventListener("click", function () {
       var text = source;
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text).then(flash, function () { fallbackCopy(text); flash(); });
       } else { fallbackCopy(text); flash(); }
-      function flash() { copy.textContent = "Copied!"; setTimeout(function () { copy.textContent = "Copy"; }, 1200); }
+      function flash() { copy.textContent = "Copied!"; setTimeout(function () { copy.textContent = copyLabel || "Copy"; }, 1200); }
     });
     bar.appendChild(h("span", { class: "code-lang" }, "SQL"));
     bar.appendChild(copy);
@@ -195,6 +205,42 @@
     sec.appendChild(head);
     sec.appendChild(body);
     return sec;
+  }
+
+  // ============================================================= SQL TABLES
+  // Render a result set / sample table as an .sql-table inside a scroller.
+  function sqlTable(columns, rows, caption) {
+    var wrap = h("div", { class: "sql-table-wrap" });
+    if (caption) wrap.appendChild(h("div", { class: "sql-table-cap" }, esc(caption)));
+    var scroller = h("div", { class: "sql-table-scroll" });
+    var tbl = h("table", { class: "sql-table" });
+    var thead = "<thead><tr>";
+    (columns || []).forEach(function (c) { thead += "<th>" + esc(c) + "</th>"; });
+    thead += "</tr></thead>";
+    var tb = "<tbody>";
+    (rows || []).forEach(function (r) {
+      tb += "<tr>";
+      r.forEach(function (cell) {
+        var isNull = cell === null || cell === undefined;
+        tb += '<td' + (isNull ? ' class="sql-null"' : "") + ">" +
+          (isNull ? "NULL" : esc(cell)) + "</td>";
+      });
+      tb += "</tr>";
+    });
+    tb += "</tbody>";
+    tbl.innerHTML = thead + tb;
+    scroller.appendChild(tbl);
+    wrap.appendChild(scroller);
+    return wrap;
+  }
+
+  // Render a schema definition (columns + types + notes) as a table.
+  function schemaTable(t) {
+    var cols = ["Column", "Type", "Notes"];
+    var rows = (t.columns || []).map(function (c) {
+      return [c.name, c.type || "", c.note || ""];
+    });
+    return sqlTable(cols, rows, t.name);
   }
 
   // ============================================================= MAIN VIEW
@@ -259,14 +305,13 @@
     // ---- metadata badge row ----
     var metaBox = h("div", { class: "meta-box" });
     var m = p.meta || {};
-    var approach0 = p.approaches[0] || {};
     var metaItems = [
       ["Pattern", m.pattern],
-      ["Data Structure", m.dataStructure],
+      ["SQL Concept", m.sqlConcept],
       ["Technique", m.technique],
       ["Difficulty", p.difficulty],
-      ["Time", approach0.time],
-      ["Space", approach0.space]
+      ["Platform", p.platform],
+      ["Domain", (p.domains || []).join(", ")]
     ];
     metaItems.forEach(function (it) {
       if (!it[1]) return;
@@ -287,61 +332,59 @@
     });
     main.appendChild(metaBox);
 
-    // ---- animation / visualization links (above the description) ----
+    // ---- reference / visualization links ----
     main.appendChild(buildLinksSection(p));
 
-    // ---- Problem Description ----
+    // ---- Brief Description ----
     var descNode = h("div", { class: "md" });
-    descNode.innerHTML = md(p.description);
-    if (p.constraints && p.constraints.length) {
-      var cwrap = h("div", { class: "constraints" });
-      cwrap.appendChild(h("div", { class: "subhead" }, "Constraints"));
-      var ul = h("ul");
-      p.constraints.forEach(function (c) { ul.appendChild(h("li", { html: md(c).replace(/^<p>|<\/p>$/g, "") })); });
-      cwrap.appendChild(ul);
-      descNode.appendChild(cwrap);
-    }
-    if (p.notes && p.notes.length) {
-      var nwrap = h("div", { class: "notes-block" });
-      nwrap.appendChild(h("div", { class: "subhead" }, "Notes"));
-      var ul2 = h("ul");
-      p.notes.forEach(function (c) { ul2.appendChild(h("li", { html: md(c).replace(/^<p>|<\/p>$/g, "") })); });
-      nwrap.appendChild(ul2);
-      descNode.appendChild(nwrap);
-    }
-    main.appendChild(section("description", "Problem Description", descNode));
+    descNode.innerHTML = md(p.descriptionBrief || p.description || "");
+    main.appendChild(section("description", "Brief Description", descNode));
 
-    // ---- Examples ----
-    var exWrap = h("div", { class: "examples" });
-    (p.examples || []).forEach(function (ex, idx) {
-      var card = h("div", { class: "example-card" });
-      card.appendChild(h("div", { class: "ex-num" }, "Example " + (idx + 1)));
-      var io = h("div", { class: "ex-io" });
-      io.innerHTML =
-        '<div class="ex-row"><span class="ex-label">Input</span><code>' + esc(ex.input) + "</code></div>" +
-        '<div class="ex-row"><span class="ex-label">Output</span><code>' + esc(ex.output) + "</code></div>";
-      card.appendChild(io);
-      if (ex.reasoning) {
-        var r = h("div", { class: "ex-reason md" }); r.innerHTML = md(ex.reasoning); card.appendChild(r);
+    // ---- Schema & Sample Data (tables) ----
+    if ((p.schema && p.schema.length) || (p.sampleData && p.sampleData.length)) {
+      var sdWrap = h("div", { class: "sql-block" });
+      if (p.schema && p.schema.length) {
+        sdWrap.appendChild(h("div", { class: "subhead" }, "Table schema"));
+        p.schema.forEach(function (t) { sdWrap.appendChild(schemaTable(t)); });
       }
-      if (ex.visual) {
-        var v = h("div", { class: "ex-visual md" }); v.innerHTML = md(ex.visual); card.appendChild(v);
+      if (p.sampleData && p.sampleData.length) {
+        sdWrap.appendChild(h("div", { class: "subhead" }, "Sample data"));
+        p.sampleData.forEach(function (t) {
+          sdWrap.appendChild(sqlTable(t.columns, t.rows, t.table));
+        });
       }
-      exWrap.appendChild(card);
-    });
-    main.appendChild(section("examples", "Examples", exWrap, { badge: (p.examples || []).length + "" }));
+      main.appendChild(section("schema", "Schema & Sample Data", sdWrap,
+        { badge: (p.schema || []).length + " table" + ((p.schema || []).length === 1 ? "" : "s") }));
+    }
 
-    // ---- Approach switcher (drives Logic + Code) ----
+    // ---- Expected Output (table) ----
+    if (p.expectedOutput && p.expectedOutput.columns) {
+      var eo = h("div", { class: "sql-block" });
+      eo.appendChild(sqlTable(p.expectedOutput.columns, p.expectedOutput.rows, null));
+      main.appendChild(section("expected", "Expected Output", eo,
+        { badge: (p.expectedOutput.rows || []).length + " row" +
+          ((p.expectedOutput.rows || []).length === 1 ? "" : "s") }));
+    }
+
+    // ---- Setup Script (copy into SSMS) ----
+    if (p.setupSql) {
+      var setupArea = h("div", { class: "code-area" });
+      var setupCb = codeBlock(p.setupSql, "", "Copy setup for SSMS");
+      setupArea.appendChild(setupCb);
+      main.appendChild(section("setup", "Setup Script (paste into SSMS)", setupArea));
+    }
+
+    // ---- Approach switcher (drives Logic + SQL) ----
     var approaches = p.approaches || [];
-    if (state.approachIndex[p.id] == null) state.approachIndex[p.id] = approaches.length - 1; // default: optimal
+    if (state.approachIndex[p.id] == null) state.approachIndex[p.id] = 0; // default: recommended (first)
     var ai = state.approachIndex[p.id];
+    if (ai >= approaches.length) ai = 0;
 
     var apWrap = h("div", { class: "approach-area" });
     if (approaches.length > 1) {
       var switcher = h("div", { class: "approach-switch" });
       approaches.forEach(function (a, i) {
-        var b = h("button", { class: "app-tab" + (i === ai ? " active" : "") },
-          esc(a.name) + '<span class="app-cx">' + esc(a.time) + "</span>");
+        var b = h("button", { class: "app-tab" + (i === ai ? " active" : "") }, esc(a.name));
         b.addEventListener("click", function () {
           state.approachIndex[p.id] = i;
           renderProblem();
@@ -361,12 +404,12 @@
     var logicSection = section("logic", "Complete Logic — " + (cur.name || "Approach"), logicNode);
     apWrap.appendChild(logicSection);
 
-    // Code (RCS / Plain toggle)
+    // Code (RCS commented / Clean toggle)
     var codeMode = store.getPref("codeMode") || "rcs";
     var codeArea = h("div", { class: "code-area" });
     var toggle = h("div", { class: "code-toggle" });
-    var rcsBtn = h("button", { class: "ct-btn" + (codeMode === "rcs" ? " active" : "") }, "RCS Code");
-    var plainBtn = h("button", { class: "ct-btn" + (codeMode === "plain" ? " active" : "") }, "Plain SQL");
+    var rcsBtn = h("button", { class: "ct-btn" + (codeMode === "rcs" ? " active" : "") }, "RCS (commented)");
+    var plainBtn = h("button", { class: "ct-btn" + (codeMode === "plain" ? " active" : "") }, "Clean SQL");
     rcsBtn.addEventListener("click", function () { store.setPref("codeMode", "rcs"); renderProblem(); });
     plainBtn.addEventListener("click", function () { store.setPref("codeMode", "plain"); renderProblem(); });
     toggle.appendChild(rcsBtn); toggle.appendChild(plainBtn);
@@ -374,30 +417,40 @@
     toggle.appendChild(hint);
     codeArea.appendChild(toggle);
 
-    var source = codeMode === "rcs" ? cur.rcs : cur.plain;
-    var cb = codeBlock(source, blur ? "blurred" : "");
+    var source = codeMode === "rcs" ? cur.tsql : cur.clean;
+    var cb = codeBlock(source || "", blur ? "blurred" : "");
     if (blur) cb.appendChild(revealOverlay(cb));
     codeArea.appendChild(cb);
 
-    if (cur.whenToUse) {
-      codeArea.appendChild(h("div", { class: "when-use" }, "<strong>When to use:</strong> " + esc(cur.whenToUse)));
+    if (cur.perfNote) {
+      codeArea.appendChild(h("div", { class: "when-use" }, "<strong>Performance:</strong> " + esc(cur.perfNote)));
     }
-    apWrap.appendChild(section("code", "Solution Code — " + (cur.name || "Approach"),
-      codeArea, { badge: (cur.time || "") + " / " + (cur.space || "") }));
+    if (cur.dialectNote) {
+      codeArea.appendChild(h("div", { class: "when-use dialect" }, "<strong>Dialect note:</strong> " + esc(cur.dialectNote)));
+    }
+    apWrap.appendChild(section("code", "SQL Solution — " + (cur.name || "Approach"), codeArea));
 
     main.appendChild(apWrap);
 
-    // ---- Complexity summary (all approaches) ----
-    var cxNode = h("div", { class: "cx-table" });
-    approaches.forEach(function (a) {
-      var row = h("div", { class: "cx-row" });
-      row.innerHTML =
-        '<span class="cx-name">' + esc(a.name) + "</span>" +
-        '<span class="cx-time">Time <code>' + esc(a.time) + "</code></span>" +
-        '<span class="cx-space">Space <code>' + esc(a.space) + "</code></span>";
-      cxNode.appendChild(row);
-    });
-    main.appendChild(section("complexity", "Complexity", cxNode));
+    // ---- Walkthrough (intermediate result sets as tables) ----
+    if (p.walkthrough && p.walkthrough.length) {
+      var wt = h("div", { class: "sql-block walkthrough" });
+      p.walkthrough.forEach(function (w, i) {
+        var card = h("div", { class: "wt-step" });
+        card.appendChild(h("div", { class: "wt-head" }, "Step " + (i + 1) + " — " + esc(w.step || "")));
+        if (w.note) { var n = h("div", { class: "wt-note md" }); n.innerHTML = md(w.note); card.appendChild(n); }
+        if (w.table && w.table.columns) card.appendChild(sqlTable(w.table.columns, w.table.rows, null));
+        wt.appendChild(card);
+      });
+      main.appendChild(section("walkthrough", "Walkthrough", wt, { badge: p.walkthrough.length + " step" + (p.walkthrough.length === 1 ? "" : "s") }));
+    }
+
+    // ---- Common mistakes ----
+    if (p.commonMistakes && p.commonMistakes.length) {
+      var cm = h("ul", { class: "cue-list mistakes" });
+      p.commonMistakes.forEach(function (t) { cm.appendChild(h("li", { html: md(t).replace(/^<p>|<\/p>$/g, "") })); });
+      main.appendChild(section("mistakes", "Common Mistakes", cm));
+    }
 
     // ---- Pattern recognition ----
     if (p.patternRecognition && p.patternRecognition.length) {
@@ -521,21 +574,20 @@
     var body = el("gridBody");
     body.innerHTML = "";
     var table = h("table", { class: "grid-table" });
-    table.innerHTML = "<thead><tr><th>#</th><th>Problem</th><th>Category</th><th>Difficulty</th>" +
-      "<th>Pattern</th><th>Time</th><th>Space</th><th>Status</th></tr></thead>";
+    table.innerHTML = "<thead><tr><th>#</th><th>Problem</th><th>Topic</th><th>Difficulty</th>" +
+      "<th>Pattern</th><th>Platform</th><th>SQL Concept</th><th>Status</th></tr></thead>";
     var tbody = h("tbody");
     ALL.forEach(function (p) {
-      var a0 = p.approaches[p.approaches.length - 1] || {};
       var stt = store.getStatus(p.id);
       var tr = h("tr", { class: "grid-row" });
       tr.innerHTML =
-        "<td>" + p.lc + "</td>" +
+        "<td>" + esc(p.number || "") + "</td>" +
         '<td class="g-title">' + esc(p.title) + "</td>" +
         "<td>" + esc(p.category) + "</td>" +
         '<td class="d-' + p.difficulty.toLowerCase() + '">' + p.difficulty + "</td>" +
         "<td>" + esc((p.meta && p.meta.pattern) || "") + "</td>" +
-        "<td><code>" + esc(a0.time || "") + "</code></td>" +
-        "<td><code>" + esc(a0.space || "") + "</code></td>" +
+        "<td>" + esc(p.platform || "") + "</td>" +
+        "<td><code>" + esc((p.meta && p.meta.sqlConcept) || "") + "</code></td>" +
         '<td class="st st-' + stt + '">' + STATUS_GLYPH[stt] + "</td>";
       tr.addEventListener("click", function () { modal.classList.add("hidden"); selectProblem(p.id); });
       tbody.appendChild(tr);
@@ -562,9 +614,17 @@
     });
     pf.addEventListener("change", function (e) { state.filterPattern = e.target.value; renderSidebar(); });
 
+    var plf = el("filterPlatform");
+    if (plf) {
+      allPlatforms().forEach(function (pl) { plf.appendChild(h("option", { value: pl }, pl)); });
+      plf.addEventListener("change", function (e) { state.filterPlatform = e.target.value; renderSidebar(); });
+    }
+
     el("clearFilters").addEventListener("click", function () {
-      state.query = ""; state.filterDifficulty = "all"; state.filterStatus = "all"; state.filterPattern = "all";
+      state.query = ""; state.filterDifficulty = "all"; state.filterStatus = "all";
+      state.filterPattern = "all"; state.filterPlatform = "all";
       search.value = ""; el("filterDifficulty").value = "all"; el("filterStatus").value = "all"; pf.value = "all";
+      if (plf) plf.value = "all";
       renderSidebar();
     });
 
