@@ -63,13 +63,21 @@
           space: "O(n)",
           whenToUse: "Only to state the naive baseline before optimizing; too slow for the given limits.",
           logic:
-            "**A. What is being asked?** Find every distinct group of three values that sum to zero.\n\n" +
-            "**B. Brute force idea.** Try all triples of indices `(i, j, k)` with `i < j < k` and check whether the three values sum to 0.\n\n" +
-            "**C. Why it is slow.** There are about `n^3 / 6` triples, so for `n = 3000` that is billions of checks — far too slow. It also does nothing to prevent duplicate triplets, so we must deduplicate the results ourselves.\n\n" +
-            "**G/H. Handling duplicates.** Because the same values can appear at different indices, two different index-triples may produce the *same* triplet of values. We normalize each hit by sorting its three values into a tuple and storing those tuples in a **set**, which collapses duplicates automatically.\n\n" +
-            "**I. Step by step.** Three nested loops enumerate every index triple; when the sum is 0, add the sorted tuple to a set; at the end convert the set back to a list of lists.\n\n" +
-            "**J. Why correct.** Every index-triple is examined, so no valid triplet is missed; the set guarantees uniqueness.\n\n" +
-            "**K/L. Complexity.** Time `O(n^3)`, space `O(n)` for the set of results.",
+            "**What it asks.** Return every distinct group of three values from `nums` that sum to zero, with no duplicate triplets in the output.\n\n" +
+            "**The idea.** The most direct approach is to try all triples of indices `(i, j, k)` with `i < j < k` and check whether the three values sum to 0. This examines every possible triplet, so it cannot miss an answer.\n\n" +
+            "**Why it's slow.** There are about `n^3 / 6` triples, so for `n = 3000` that is billions of checks — far too slow for the given limits. It also does nothing on its own to prevent duplicate triplets, so we must deduplicate the results ourselves.\n\n" +
+            "**Key Idea.** Because the same value can appear at different indices, two different index-triples may produce the *same* triplet of values. Normalize each zero-sum hit by sorting its three values into a tuple and store those tuples in a **set**, which collapses duplicates automatically regardless of the order the indices were found in.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Use three nested loops with `i < j < k` to enumerate every index triple.\n" +
+            "2. When `nums[i] + nums[j] + nums[k] == 0`, sort the three values and add the resulting tuple to a set.\n" +
+            "3. After all triples are examined, convert the set of tuples back into a list of lists and return it.\n\n" +
+            "**Why it works.** Every index-triple is examined, so no valid triplet is missed. Sorting each hit into a canonical tuple plus storing it in a set guarantees each distinct value-triplet is reported exactly once.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Forgetting to canonicalize before inserting: `(-1, 0, 1)` and `(0, 1, -1)` are the same triplet and must collapse — always sort before adding to the set.\n" +
+            "- All-equal inputs like `[0, 0, 0]` must still produce one triplet; distinct indices with equal values are valid.\n" +
+            "- The set holds tuples, not lists (lists are unhashable in Python).\n\n" +
+            "**Complexity.** Time `O(n^3)` for the three nested loops; space `O(n)` for the set of unique triplets.\n\n" +
+            "**Interview mindset.** State this only as the baseline before optimizing — it shows you understand the problem and the duplication trap, then you pivot to sort + two pointers to cut a factor of `n`.",
           rcs:
             "class Solution:\n" +
             "    def threeSum(self, nums: List[int]) -> List[List[int]]:\n" +
@@ -101,25 +109,22 @@
           space: "O(1) or O(n)",
           whenToUse: "The expected answer: reduce a k-sum problem by one dimension by sorting and sweeping two pointers inward.",
           logic:
-            "**D. Key observation.** 3Sum is really \"for each fixed first value, solve **2Sum-to-a-target** on the rest.\" If we **sort** the array first, that inner 2Sum can be solved with two pointers in linear time instead of a hash map — and sorting also makes deduplication trivial.\n\n" +
-            "**E. Why sorted order enables two pointers.** After sorting, values increase left to right. Put a `left` pointer just after the fixed element and a `right` pointer at the end, and look at `total = nums[i] + nums[left] + nums[right]`:\n" +
-            "- If `total < 0`, the sum is **too small**. The only way to increase it is to bring in a larger value, so move `left` **rightward** (to a bigger number).\n" +
-            "- If `total > 0`, the sum is **too big**. Move `right` **leftward** (to a smaller number) to decrease it.\n" +
-            "- If `total == 0`, we found a triplet.\n\n" +
-            "This works *because* the array is sorted: each pointer move changes the sum in a known direction, so we never have to backtrack. Every step eliminates possibilities we can prove cannot contain a new answer, so the two pointers sweep toward each other in `O(n)` per fixed element.\n\n" +
-            "**F. Pattern.** Fix one element (outer loop), converge two pointers on the remaining sorted range. This drops one factor of `n` versus brute force.\n\n" +
-            "**G/H. What the pointers hold.** `i` is the fixed first element; `left` and `right` bound the still-unexamined window `nums[left..right]` whose two-sum target is `-nums[i]`.\n\n" +
-            "**I. Step by step.**\n" +
-            "1. Sort `nums`.\n" +
-            "2. For each `i`: if `nums[i] > 0` we can stop entirely (three ascending values starting positive can never sum to 0). If `nums[i]` equals the previous fixed value, **skip** it to avoid repeating triplets.\n" +
-            "3. Set `left = i+1`, `right = n-1`; move them inward per the sign of `total`.\n" +
-            "4. On a hit, record the triplet, then advance **both** pointers past any duplicate values so the same triplet is not emitted twice.\n\n" +
-            "**Deduplication — the subtle part.** There are two independent dedup steps, and both matter:\n" +
-            "- *Skip duplicate `i`*: `if i > 0 and nums[i] == nums[i-1]: continue`. If we already used a given first value, running the whole inner scan again from an equal first value can only reproduce triplets we already found.\n" +
-            "- *Skip duplicate `left`/`right` after a hit*: once a zero-sum triplet is recorded, walk `left` forward while `nums[left] == nums[left-1]` and `right` backward while `nums[right] == nums[right+1]`. Otherwise an adjacent equal value would yield an identical triplet. We only do this *after* recording a hit so we never skip a genuinely new pair.\n\n" +
-            "**J. Why correct.** Sorting groups equal values together, so the skip rules provably reach every distinct triplet exactly once; the two-pointer sweep is a complete search of the 2Sum subproblem because each move only discards pairs that cannot beat the current comparison.\n\n" +
-            "**K/L. Complexity.** Sorting is `O(n log n)`; the outer loop with an inner linear sweep is `O(n^2)`, which dominates. Extra space is `O(1)` beyond the output (or `O(n)` depending on the sort implementation).\n\n" +
-            "**M. Interview mindset.** \"Find k numbers that sum to a target\" almost always means: sort, fix `k-2` of them with loops, and finish with two pointers. 3Sum is the canonical instance of that template.",
+            "**What it asks.** Return all unique zero-sum triplets, efficiently enough for `n` up to 3000.\n\n" +
+            "**Why the naive idea fails.** Checking all `O(n^3)` triples is far too slow at these limits, and it forces a separate deduplication pass over the results.\n\n" +
+            "**Key Idea.** 3Sum is really \"for each fixed first value, solve **2Sum-to-a-target** on the rest,\" where the target is `-nums[i]`. If we **sort** the array first, that inner 2Sum can be solved with two converging pointers in linear time instead of a hash map — and sorting also groups equal values together, which makes deduplication trivial. After sorting, values increase left to right, so a `left` pointer just after the fixed element and a `right` pointer at the end can be steered by the sign of `total = nums[i] + nums[left] + nums[right]`: if `total < 0` the sum is too small, so move `left` rightward to a bigger value; if `total > 0` it is too big, so move `right` leftward to a smaller value; if `total == 0` we have a triplet. Each move changes the sum in a known direction, so we never backtrack and the pair sweeps inward in `O(n)` per fixed element.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Sort `nums`. `i` will be the fixed first element; `left` and `right` bound the still-unexamined window `nums[left..right]` whose two-sum target is `-nums[i]`.\n" +
+            "2. For each `i`: if `nums[i] > 0`, stop entirely — three ascending values starting positive can never sum to 0. If `nums[i]` equals the previous fixed value (`i > 0 and nums[i] == nums[i-1]`), **skip** it to avoid repeating triplets.\n" +
+            "3. Set `left = i+1`, `right = n-1`, and move them inward according to the sign of `total`.\n" +
+            "4. On a hit, record `[nums[i], nums[left], nums[right]]`, advance **both** pointers, then walk `left` forward while `nums[left] == nums[left-1]` and `right` backward while `nums[right] == nums[right+1]` so an adjacent equal value cannot re-emit the same triplet.\n\n" +
+            "**Why it works.** Sorting groups equal values, so the two skip rules provably reach every distinct triplet exactly once: skipping an equal `nums[i]` avoids re-running an inner scan that could only reproduce known triplets, and the post-hit skips (done *only after* recording, so no genuinely new pair is lost) prevent adjacent duplicates. The two-pointer sweep is a complete search of the 2Sum subproblem because each move only discards pairs that cannot beat the current comparison.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Two independent dedup steps are needed — the skip on `nums[i]` and the post-hit skips on `left`/`right`; missing either produces duplicate triplets.\n" +
+            "- Skip duplicates *after* recording a hit, never before, or you will drop valid pairs.\n" +
+            "- Guard the inner skip loops with `left < right` so the pointers do not cross while skipping.\n" +
+            "- The `nums[i] > 0` early break is a real speedup but must not be an early `continue` — once the fixed value is positive, all later ones are too.\n\n" +
+            "**Complexity.** Sorting is `O(n log n)`; the outer loop with an inner linear sweep is `O(n^2)`, which dominates. Extra space is `O(1)` beyond the output (or `O(n)` depending on the sort implementation).\n\n" +
+            "**Interview mindset.** \"Find k numbers that sum to a target\" almost always means: sort, fix `k-2` of them with loops, and finish with two pointers. 3Sum is the canonical instance of that template.",
           rcs:
             "class Solution:\n" +
             "    def threeSum(self, nums: List[int]) -> List[List[int]]:\n" +
@@ -244,12 +249,22 @@
           space: "O(1)",
           whenToUse: "Only as the naive baseline to state before optimizing; too slow for n up to 10^5.",
           logic:
-            "**A. What is being asked?** Choose two lines maximizing `width * min(height)`.\n\n" +
-            "**B. Brute force idea.** Try every pair of lines `(i, j)`, compute the area `(j - i) * min(height[i], height[j])`, and keep the maximum.\n\n" +
-            "**C. Why it is slow.** There are about `n^2 / 2` pairs, so for `n = 10^5` that is ~5 billion evaluations — far too slow.\n\n" +
-            "**I. Step by step.** Outer loop fixes the left line; inner loop tries every line to its right; track the best area.\n\n" +
-            "**J. Why correct.** Every pair is considered, so the optimum cannot be missed.\n\n" +
-            "**K/L. Complexity.** Time `O(n^2)`, space `O(1)`.",
+            "**What it asks.** Choose two of the vertical lines that, with the x-axis, hold the most water — maximize `width * min(height)` over every pair.\n\n" +
+            "**The idea.** The most direct approach is to try every pair of lines `(i, j)`, compute the area `(j - i) * min(height[i], height[j])`, and keep the maximum seen.\n\n" +
+            "**Why it's slow.** There are about `n^2 / 2` pairs, so for `n = 10^5` that is roughly 5 billion evaluations — far too slow for the given limits.\n\n" +
+            "**Key Idea.** There is no clever insight here; the value of the brute force is simply that it exhaustively considers every candidate pair, which makes it an unmissable baseline and a correctness reference for the optimized version.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Keep a running `best`, the largest area found so far, initialized to 0.\n" +
+            "2. Outer loop fixes the left line `i`.\n" +
+            "3. Inner loop tries every line `j` to the right of `i`.\n" +
+            "4. Compute `(j - i) * min(height[i], height[j])` and update `best` with the larger of the two.\n\n" +
+            "**Why it works.** Every pair of lines is considered exactly once, so the optimal container is necessarily evaluated and captured in `best`.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- The height is the `min` of the two walls, not the max — water spills over the shorter wall.\n" +
+            "- Start the inner loop at `i + 1` to avoid pairing a line with itself and to avoid re-checking pairs.\n" +
+            "- With `n` up to 10^5 this will time out; state it only as a stepping stone.\n\n" +
+            "**Complexity.** Time `O(n^2)` for the nested loops; space `O(1)`.\n\n" +
+            "**Interview mindset.** Name the brute force to lock down the definition of area (min of the two walls times width), then immediately look for a way to discard candidates without checking them — which points to two pointers.",
           rcs:
             "class Solution:\n" +
             "    def maxArea(self, height: List[int]) -> int:\n" +
@@ -277,18 +292,22 @@
           space: "O(1)",
           whenToUse: "The expected answer: converging two pointers when an area/width is maximized by walls at the two ends.",
           logic:
-            "**D. Key observation.** Start with the **widest possible** container: one pointer at each end. This pair has the maximum width. From here, any other pair is narrower, so it can only beat the current area by being **taller** — i.e. by having a larger *limiting* (shorter) wall.\n\n" +
-            "**E. Why move the SHORTER wall (the greedy exchange argument).** The area is `width * min(left_height, right_height)`. Suppose `height[left] < height[right]`. The limiting wall is `left`. Consider what happens if we instead moved the *taller* wall (`right`) inward: the width shrinks by 1, and the new height is `min(height[left], height[new_right])`, which is **still at most `height[left]`** — because `left` is already the shorter one. So every container that keeps the short wall `left` and uses any `right' < right` has width smaller *and* height no larger than the current one — it can never be bigger. Therefore we can safely **discard the shorter wall** and never revisit it: move `left` inward. (Symmetrically, if `right` is shorter, move `right`.) The short wall is the bottleneck; the only hope of improvement is to replace it with something taller.\n\n" +
-            "**F. Why sorted order isn't needed here.** Unlike 3Sum, we do not sort — the two pointers instead exploit that width is maximal at the ends and shrinks monotonically as we move inward, so we trade width for a chance at more height, one step at a time.\n\n" +
-            "**G/H. What the pointers hold.** `left` and `right` are the two candidate walls. `best` tracks the largest area found. Every step computes the current area, records it, then eliminates the provably-dominated shorter wall.\n\n" +
-            "**I. Step by step.**\n" +
-            "1. `left = 0`, `right = n-1` (widest container).\n" +
-            "2. Compute `area = (right - left) * min(height[left], height[right])`; update `best`.\n" +
-            "3. Move whichever pointer points at the shorter wall inward (if equal, moving either is fine).\n" +
+            "**What it asks.** Find the maximum water area over all pairs of walls, `width * min(height)`, in linear time.\n\n" +
+            "**Why the naive idea fails.** Evaluating all `O(n^2)` pairs is too slow at `n` up to 10^5, and most of those pairs can be ruled out without ever computing them.\n\n" +
+            "**Key Idea.** Start with the **widest possible** container: one pointer at each end. This pair has the maximum width, so any other pair is strictly narrower and can only beat it by being **taller** — by having a larger *limiting* (shorter) wall. This lets us throw away one wall per step. Suppose `height[left] < height[right]`, so `left` is the bottleneck. If we instead kept `left` and moved the taller wall `right` inward, the width would shrink and the height would still be at most `height[left]` (since `left` is already the shorter one) — so every container pairing the short wall `left` with any nearer right wall is no larger than the one we just measured. Those containers can never win, so we safely **discard the shorter wall** and never revisit it. The short wall is the bottleneck; the only hope of improvement is to replace it with something taller. (Note we do not sort as in 3Sum — the pointers instead exploit that width is maximal at the ends and shrinks monotonically inward, trading width for a shot at more height.)\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Set `left = 0` and `right = n-1` (the widest container), and `best = 0` to track the largest area found.\n" +
+            "2. Compute `area = (right - left) * min(height[left], height[right])` and update `best`.\n" +
+            "3. Move whichever pointer sits at the shorter wall inward; if the two walls are equal, moving either is fine.\n" +
             "4. Repeat until the pointers meet.\n\n" +
-            "**J. Why correct.** Each move discards only containers that are provably no larger than one we have already measured (the exchange argument above), so the optimum is never skipped. Since one pointer moves each step, we examine `O(n)` containers yet still cover the optimum.\n\n" +
-            "**K/L. Complexity.** A single inward sweep -> time `O(n)`, space `O(1)`.\n\n" +
-            "**M. Interview mindset.** When you want to maximize something governed by two endpoints and a min/width trade-off, start at the extremes and greedily discard the limiting side. Be ready to justify WHY discarding the shorter wall loses nothing — that exchange argument is the whole interview.",
+            "**Why it works.** Each move discards only containers that are provably no larger than one already measured (the exchange argument above), so the optimum is never skipped. One pointer advances every step, so the pointers meet after `O(n)` steps while still covering the optimal pair.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Move the pointer at the **shorter** wall; moving the taller one can never raise the limiting height and may skip the optimum.\n" +
+            "- When the walls are equal, moving either is safe — but you must move one, not both prematurely.\n" +
+            "- Record the area **before** moving a pointer, so no candidate is missed.\n" +
+            "- Use strict `left < right` as the loop condition; a wall paired with itself has zero width.\n\n" +
+            "**Complexity.** A single inward sweep gives time `O(n)`, space `O(1)`.\n\n" +
+            "**Interview mindset.** When you want to maximize something governed by two endpoints and a min/width trade-off, start at the extremes and greedily discard the limiting side. Be ready to justify WHY discarding the shorter wall loses nothing — that exchange argument is the whole interview.",
           rcs:
             "class Solution:\n" +
             "    def maxArea(self, height: List[int]) -> int:\n" +

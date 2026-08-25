@@ -73,14 +73,22 @@
           space: "O(h)",
           whenToUse: "The canonical solution — any time a tree operation is defined identically on every subtree.",
           logic:
-            "**A. What is being asked?** Turn the tree into its mirror image: at every node the left subtree and right subtree switch places.\n\n" +
-            "**D. Key observation.** Inverting a tree is *self-similar*: the mirror of a node is that node with its two subtrees swapped **and each of those subtrees already inverted**. That recursive definition is the whole solution.\n\n" +
-            "**E. Pattern / data structure.** Plain tree recursion (a post-order-flavoured DFS). Trust the recursion: assume the calls on the children return correctly inverted subtrees, then wire them in reversed.\n\n" +
-            "**F. Why it works.** If `invert(left)` and `invert(right)` correctly mirror the subtrees, then attaching the inverted right subtree as the new left child (and vice-versa) mirrors the current node too. By induction on tree height, the whole tree is mirrored.\n\n" +
-            "**I. Step by step.** If the node is `None`, return `None` (base case). Otherwise recursively invert both children, assign them to the *opposite* sides, and return the node. The order — swap first vs recurse first — does not matter as long as you capture both results before overwriting.\n\n" +
-            "**J. Why correct.** Every node is visited exactly once and has its two children swapped exactly once, which is precisely the definition of the mirror.\n\n" +
-            "**K/L. Complexity.** Each of `n` nodes is touched once → time `O(n)`. Space is the recursion stack, `O(h)` where `h` is the height (`O(log n)` balanced, `O(n)` worst case / skewed).\n\n" +
-            "**M. Interview mindset.** When an operation on a tree is defined the same way on every subtree, reach for recursion and let the base case (`None`) do the stopping.",
+            "**What it asks.** Produce the mirror image of the tree: at every node, its left subtree and right subtree switch places, all the way down.\n\n" +
+            "**Why the naive idea fails.** There is no shortcut that touches only the top — swapping just the root's two children leaves every deeper level un-mirrored. The flip has to reach every node, so the real question is how to express 'do this everywhere' cleanly rather than manually walking level by level.\n\n" +
+            "**Key Idea.** Inverting a tree is *self-similar*: the mirror of a node is that same node with its two subtrees swapped **and each of those subtrees already inverted**. That recursive definition is the entire solution — you only have to trust that the recursive calls return correctly inverted subtrees and then wire them in reversed.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. If the node is `None`, return `None` — the base case that stops the recursion.\n" +
+            "2. Recursively invert the left child; call the result `left`.\n" +
+            "3. Recursively invert the right child; call the result `right`.\n" +
+            "4. Assign `right` to the node's left pointer and `left` to its right pointer — the swap onto the *opposite* sides.\n" +
+            "5. Return the node, now the root of a fully mirrored subtree.\n\n" +
+            "**Why it works.** By induction on height: the base case (`None`) is trivially its own mirror. If `invert(left)` and `invert(right)` correctly mirror the subtrees, then attaching the inverted right subtree as the new left child (and vice-versa) mirrors the current node too. Every node is visited exactly once and has its children swapped exactly once, which is precisely the definition of the mirror.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Capture *both* inverted subtrees in local variables before reassigning either pointer; overwriting `root.left` first would clobber the value you still need for `root.right`.\n" +
+            "- An empty tree (`root == None`) must return `None`, not error.\n" +
+            "- The swap must happen at every level, not just the root's immediate children.\n\n" +
+            "**Complexity.** Time `O(n)` — each of the `n` nodes is touched once. Space `O(h)` for the recursion stack, where `h` is the height (`O(log n)` balanced, `O(n)` for a skewed tree).\n\n" +
+            "**Interview mindset.** When an operation on a tree is defined the same way on every subtree, reach for recursion and let the base case (`None`) do the stopping — 'mirror / flip / reverse a tree' is the textbook cue.",
           rcs:
 `class Solution:
     def invertTree(self, root: Optional[TreeNode]) -> Optional[TreeNode]:
@@ -170,14 +178,20 @@
           space: "O(h)",
           whenToUse: "The standard height computation — any 'how tall / how deep' tree question.",
           logic:
-            "**A. What is being asked?** The length (in nodes) of the longest downward path.\n\n" +
-            "**D. Key observation.** The depth of a tree is `1 + the depth of its deeper subtree`. That single recurrence solves it: a node contributes 1 (itself) plus the best its children can offer.\n\n" +
-            "**E. Pattern.** Bottom-up DFS: the recursion returns the height of each subtree, and the parent combines them with `max`.\n\n" +
-            "**F. Why it works.** The longest path through a node either goes down its left subtree or its right subtree; taking the max of the two subtree depths and adding 1 gives the deepest reach from that node.\n\n" +
-            "**I. Step by step.** If the node is `None`, its depth is 0 (base case). Otherwise compute the depth of each child, take the larger, add 1 for the current node.\n\n" +
-            "**J. Why correct.** By induction: if each child returns its own correct max depth, `1 + max(left, right)` is correct for the parent, and the base case anchors it.\n\n" +
-            "**K/L. Complexity.** Every node contributes one call → time `O(n)`; stack depth is the tree height → space `O(h)`.\n\n" +
-            "**M. Interview mindset.** 'Height / depth / max path length downward' is the textbook cue for `1 + max(recurse left, recurse right)`.",
+            "**What it asks.** Return the maximum depth — the number of nodes along the longest path from the root down to the farthest leaf.\n\n" +
+            "**Why the naive idea fails.** You could try to enumerate every root-to-leaf path and take the longest, but that repeats work and is awkward to code. The cleaner realization is that depth is defined recursively, so you never need to materialize whole paths.\n\n" +
+            "**Key Idea.** The depth of a tree is `1 + the depth of its deeper subtree`. That single recurrence solves everything: a node contributes 1 (itself) plus the best its two children can offer. A bottom-up DFS lets each subtree report its own height and the parent simply combines them with `max`.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. If the node is `None`, its depth is 0 — the base case.\n" +
+            "2. Recursively compute the depth of the left child.\n" +
+            "3. Recursively compute the depth of the right child.\n" +
+            "4. Take the larger of the two and add 1 for the current node; return that.\n\n" +
+            "**Why it works.** The longest path through a node goes down either its left subtree or its right subtree, so the deeper side plus the node itself is the deepest reach from that node. By induction: if each child returns its own correct max depth, `1 + max(left, right)` is correct for the parent, and the base case of 0 anchors it.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Depth here is counted in *nodes*, not edges, so a single node has depth 1 and an empty tree has depth 0.\n" +
+            "- Do not forget the `+ 1` for the current node — returning just `max(left, right)` undercounts by one.\n\n" +
+            "**Complexity.** Time `O(n)` — every node contributes exactly one call. Space `O(h)` for the recursion stack, where `h` is the tree height.\n\n" +
+            "**Interview mindset.** 'How deep / how tall / longest root-to-leaf' is the textbook cue for `1 + max(recurse left, recurse right)`; a bottom-up DFS that returns a number the parent combines.",
           rcs:
 `class Solution:
     def maxDepth(self, root: Optional[TreeNode]) -> int:
@@ -269,17 +283,20 @@
           space: "O(h)",
           whenToUse: "Comparing two trees node-for-node; also the helper you reuse inside Subtree of Another Tree.",
           logic:
-            "**A. What is being asked?** Are the two trees structurally identical with matching values everywhere?\n\n" +
-            "**D. Key observation.** Two trees are the same iff their **roots match** and their **left subtrees are the same** and their **right subtrees are the same**. That definition is directly recursive.\n\n" +
-            "**E. Pattern.** Walk both trees *in lockstep*, comparing the two current nodes at each step.\n\n" +
-            "**F. Why it works.** We check three things at every position: both nodes exist (or both are `None`), their values are equal, and the recursion agrees on both children. Any mismatch anywhere short-circuits to `False`.\n\n" +
-            "**I. Step by step.**\n" +
-            "1. If both nodes are `None` → identical here, return `True`.\n" +
-            "2. If exactly one is `None`, or the values differ → return `False`.\n" +
-            "3. Otherwise recurse on `(p.left, q.left)` **and** `(p.right, q.right)`.\n\n" +
-            "**J. Why correct.** The base cases capture the leaf/empty boundaries; the `and` requires every corresponding pair of nodes to agree, so a single difference propagates up as `False`.\n\n" +
-            "**K/L. Complexity.** Each pair of nodes is compared once → time `O(n)` (n = size of the smaller tree, since a shape mismatch stops early); space `O(h)` for the stack.\n\n" +
-            "**M. Interview mindset.** 'Compare two trees' → parallel recursion with the None/None, None/one, value-mismatch cases handled first.",
+            "**What it asks.** Decide whether two binary trees are the same — identical in structure and in every corresponding node value.\n\n" +
+            "**Why the naive idea fails.** You might be tempted to compare serializations or value sets, but same values with a different shape are *not* the same tree, and serialization needs careful null markers to be correct. Comparing the trees directly, position by position, is simpler and airtight.\n\n" +
+            "**Key Idea.** Two trees are the same iff their **roots match** and their **left subtrees are the same** and their **right subtrees are the same**. That definition is directly recursive: walk both trees *in lockstep*, comparing the two current nodes at each step.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. If both nodes are `None`, they are identical here — return `True`.\n" +
+            "2. If exactly one is `None`, or the two values differ, return `False`.\n" +
+            "3. Otherwise recurse on `(p.left, q.left)` **and** `(p.right, q.right)`, combining with `and`.\n\n" +
+            "**Why it works.** The base cases capture the leaf and empty boundaries: both-`None` means a matched gap, one-`None` means a shape mismatch. The `and` requires every corresponding pair of nodes to agree on existence and value, so a single difference anywhere propagates up as `False`.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Order the base cases: both `None` (True) must be checked before the one-`None`-or-value-mismatch (False) test, or you would dereference a `None`.\n" +
+            "- Both structure *and* values must match — equal value multisets in different shapes is still `False`.\n" +
+            "- Two empty trees are trivially the same and should return `True`.\n\n" +
+            "**Complexity.** Time `O(n)` — each pair of nodes is compared once (n = size of the smaller tree, since a shape mismatch stops early). Space `O(h)` for the recursion stack.\n\n" +
+            "**Interview mindset.** 'Compare two trees for equality' signals parallel/lockstep recursion with the None/None, None/one, and value-mismatch cases handled first — and this exact helper gets reused inside subtree, mirror, and symmetric-tree problems.",
           rcs:
 `class Solution:
     def isSameTree(self, p: Optional[TreeNode], q: Optional[TreeNode]) -> bool:
@@ -371,14 +388,21 @@
           space: "O(m + n)",
           whenToUse: "The direct, always-correct approach; clean to explain and reuses the Same Tree helper.",
           logic:
-            "**A. What is being asked?** Does `subRoot` appear somewhere inside `root` as a *complete* subtree (node + all descendants)?\n\n" +
-            "**D. Key observation.** `subRoot` is a subtree of `root` iff **some** node of `root` roots a tree identical to `subRoot`. So the problem decomposes into: (1) visit every node of `root`, and (2) at each node run a full 'same tree' check against `subRoot`.\n\n" +
-            "**E. Pattern.** Outer traversal over `root` + the Same-Tree comparison (LC 100) as a helper. Two recursions working together.\n\n" +
-            "**F. Why it works.** If any starting node produces an exact match, we have found the subtree; if we exhaust all nodes without a match, it does not exist. An empty `subRoot` is a subtree of anything; if `root` runs out first, the answer is `False`.\n\n" +
-            "**I. Step by step.** At the current `root` node: if `sameTree(root, subRoot)` is `True`, return `True`. Otherwise recurse into the left and right children with `or` — a match anywhere below suffices.\n\n" +
-            "**J. Why correct.** Every node of `root` is tried as a potential match point, and `sameTree` verifies the *entire* subtree, so partial fragments never count.\n\n" +
-            "**K/L. Complexity.** For each of the `m` nodes in `root` we may compare against up to `n` nodes of `subRoot` → time `O(m * n)`; space `O(m + n)` for the two recursion stacks. (An `O(m + n)` solution exists via serialization + KMP, but the nested-recursion version is the expected answer.)\n\n" +
-            "**M. Interview mindset.** 'Find a pattern tree inside a big tree' → traverse the big tree and run an equality check at each node; factor the equality check into its own function.",
+            "**What it asks.** Determine whether `subRoot` appears somewhere inside `root` as a *complete* subtree — a node together with all of its descendants, matching in structure and values.\n\n" +
+            "**Why the naive idea fails.** Searching for just the value of `subRoot`'s root inside `root` is not enough: matching one value (or even a fragment) does not guarantee the whole subtree beneath it matches. A subtree must include *all* descendants, so any check that stops short of the full subtree can produce false positives.\n\n" +
+            "**Key Idea.** `subRoot` is a subtree of `root` iff **some** node of `root` roots a tree identical to `subRoot`. So the problem decomposes into two pieces: (1) visit every node of `root`, and (2) at each node run a full 'same tree' equality check against `subRoot`. This factors cleanly into an outer traversal plus the Same-Tree comparison (LC 100) as a reusable helper — two recursions working together.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. If `subRoot` is `None`, it is a subtree of anything — return `True`.\n" +
+            "2. If `root` is `None` (but `subRoot` is not), we ran out of tree — return `False`.\n" +
+            "3. If `sameTree(root, subRoot)` is `True`, the subtree rooted here matches — return `True`.\n" +
+            "4. Otherwise recurse into the left child *or* the right child; a match anywhere below suffices.\n\n" +
+            "**Why it works.** Every node of `root` is tried as a potential match point via the `or`, and `sameTree` verifies the *entire* subtree at that point, so partial fragments never count. If any starting node produces an exact match we return `True`; if all nodes are exhausted without one, the subtree genuinely does not exist.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- An empty `subRoot` is a subtree of everything; an empty `root` with a non-empty `subRoot` never is — handle these base cases before comparing.\n" +
+            "- The inner check must be full tree equality, not a value search — matching descendants is required.\n" +
+            "- Combine the two recursive calls with `or` (a match on either side is enough), not `and`.\n\n" +
+            "**Complexity.** Time `O(m * n)` — for each of the `m` nodes in `root` we may compare against up to `n` nodes of `subRoot`. Space `O(m + n)` for the two recursion stacks. (An `O(m + n)` solution exists via serialization + substring/KMP, but the nested-recursion version is the expected answer.)\n\n" +
+            "**Interview mindset.** 'Find a pattern tree inside a bigger tree' → traverse the big tree and run an equality check at each node, factoring that equality check into its own function you can reuse.",
           rcs:
 `class Solution:
     def isSubtree(self, root: Optional[TreeNode], subRoot: Optional[TreeNode]) -> bool:
@@ -500,14 +524,22 @@
           space: "O(1)",
           whenToUse: "Whenever the tree is a BST — exploit the ordering instead of searching the whole tree.",
           logic:
-            "**A. What is being asked?** The deepest node that is an ancestor of both `p` and `q`.\n\n" +
-            "**D. Key observation.** In a BST the LCA is the unique **split point**: the first node from the root where `p` and `q` stop going the same direction. If both values are **less** than the current node, the LCA is somewhere to the **left**; if both are **greater**, it is to the **right**; the moment they straddle the node (one ≤ node ≤ other, i.e. they diverge), the current node is the LCA.\n\n" +
-            "**E. Pattern.** BST navigation using value comparisons — no full traversal needed, just follow one root-to-target path.\n\n" +
-            "**F. Why it works.** As long as `p` and `q` are both on the same side, their common ancestor must also be on that side, so we can safely descend and discard the other half. When they split (or one equals the current node), no deeper node can contain both, so this is the lowest such ancestor.\n\n" +
-            "**I. Step by step.** Start at the root. While both `p.val` and `q.val` are less than `node.val`, move left; while both are greater, move right; otherwise return `node`. Because both nodes are guaranteed present, we always stop at a valid answer.\n\n" +
-            "**J. Why correct.** Every step preserves the invariant 'the LCA is in the current subtree.' The stopping condition is exactly the definition of the split point, and a node counts as its own descendant, so the `p == node` case is handled naturally (values no longer both smaller or both larger).\n\n" +
-            "**K/L. Complexity.** We descend at most the height of the tree → time `O(h)`; only a moving pointer is stored → space `O(1)`.\n\n" +
-            "**M. Interview mindset.** See 'BST' + 'LCA' and immediately think 'walk down until the two targets split' — this is strictly better than the general-tree recursion.",
+            "**What it asks.** Find the lowest common ancestor of two nodes `p` and `q` in a binary search tree — the deepest node that has both as descendants (a node counts as its own descendant).\n\n" +
+            "**Why the naive idea fails.** The general-tree LCA does a full DFS to find both nodes and reconcile their paths, taking `O(n)` time and touching the whole tree. On a BST that ignores the ordering that makes the tree special — you can do far better than searching everything.\n\n" +
+            "**Key Idea.** In a BST the LCA is the unique **split point**: the first node, walking down from the root, where `p` and `q` stop heading in the same direction. If both values are **less** than the current node, the LCA lies to the **left**; if both are **greater**, it lies to the **right**; the moment they straddle the node — one on each side, or one equal to it — that node is the LCA. This is pure BST navigation by value comparison: follow a single root-to-target path, no full traversal.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Start with a pointer `node` at the root.\n" +
+            "2. If both `p.val` and `q.val` are less than `node.val`, move `node` to its left child.\n" +
+            "3. Else if both are greater than `node.val`, move `node` to its right child.\n" +
+            "4. Otherwise the targets diverge here (or one equals `node`) — return `node`.\n" +
+            "5. Repeat; because both nodes are guaranteed present, the walk always stops at a valid answer.\n\n" +
+            "**Why it works.** Each step preserves the invariant 'the LCA is in the current subtree': as long as `p` and `q` are both on the same side, their common ancestor must be on that side too, so discarding the other half is safe. When they split, no deeper node can contain both, so the split point is the *lowest* common ancestor. Because a node is its own descendant, the case where one target equals the current node is handled naturally — the values are no longer both smaller or both larger, so the walk stops.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- This relies on the BST ordering; the same trick does not apply to a general binary tree.\n" +
+            "- Do not overlook the self-descendant rule: if `p` is an ancestor of `q`, the answer is `p`, and the straddle condition captures that automatically.\n" +
+            "- Compare values, not node identities, to decide direction.\n\n" +
+            "**Complexity.** Time `O(h)` — we descend at most the height of the tree. Space `O(1)` iteratively, since only a moving pointer is stored.\n\n" +
+            "**Interview mindset.** See 'BST' plus 'LCA' and immediately think 'walk down until the two targets split' — exploiting the ordering is strictly better than the general-tree recursion.",
           rcs:
 `class Solution:
     def lowestCommonAncestor(self, root: 'TreeNode', p: 'TreeNode', q: 'TreeNode') -> 'TreeNode':
@@ -603,14 +635,22 @@
           space: "O(n)",
           whenToUse: "The canonical level-order solution — process the tree in horizontal waves.",
           logic:
-            "**A. What is being asked?** Group node values by depth, each level left to right.\n\n" +
-            "**D. Key observation.** Breadth-first search naturally visits a tree level by level. The trick to *separate* the levels is to record the queue's size at the start of each round — that count is exactly how many nodes are on the current level.\n\n" +
-            "**E. Pattern / data structure.** A FIFO **queue** (`collections.deque`). We enqueue children as we dequeue parents, so the queue always holds one contiguous frontier.\n\n" +
-            "**F. Why it works.** When we begin a round, everything in the queue belongs to the same level. By looping exactly `len(queue)` times, we drain that whole level (collecting its values) while enqueuing the *next* level's nodes behind them — cleanly partitioning the waves.\n\n" +
-            "**I. Step by step.** Seed the queue with the root. While it is non-empty: take `size = len(queue)`, then pop `size` nodes, append each value to the current level's list and push its non-null children. After the inner loop, append the level list to the result.\n\n" +
-            "**J. Why correct.** The size snapshot freezes the level boundary before any children of this level are added, so each output sublist contains exactly one level in left-to-right order.\n\n" +
-            "**K/L. Complexity.** Every node is enqueued and dequeued once → time `O(n)`; the queue holds at most one level, up to `O(n)` in the worst case (a full bottom level) → space `O(n)`.\n\n" +
-            "**M. Interview mindset.** 'Per level', 'shortest path in an unweighted graph', 'wave/ripple outward' → BFS with a queue and the level-size snapshot.",
+            "**What it asks.** Return the level-order traversal: a list of lists where each inner list holds one level's node values, top to bottom, left to right within a level.\n\n" +
+            "**Why the naive idea fails.** A plain BFS visits nodes level by level but produces one flat stream — it loses the level boundaries the problem wants. You need a way to know where one level ends and the next begins, otherwise you cannot slice the output into per-level sublists.\n\n" +
+            "**Key Idea.** Breadth-first search naturally visits the tree in horizontal waves. The trick to *separate* the levels is to record the queue's size at the start of each round: at that instant the queue holds exactly the current level's nodes, so that count tells you precisely how many to drain before the next level begins.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. If the tree is empty, return `[]`.\n" +
+            "2. Seed a FIFO queue (`collections.deque`) with the root.\n" +
+            "3. While the queue is non-empty, snapshot `size = len(queue)` and start an empty `level` list.\n" +
+            "4. Loop exactly `size` times: pop a node from the front, append its value to `level`, and push its non-null left then right children to the back.\n" +
+            "5. After the inner loop, append `level` to the result. Return the result when the queue empties.\n\n" +
+            "**Why it works.** When a round begins, everything in the queue belongs to the same level. The size snapshot freezes that boundary *before* any of this level's children are enqueued, so looping `size` times drains exactly one level while the next level's nodes accumulate behind them — cleanly partitioning the waves in left-to-right order.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Snapshot `len(queue)` *before* the inner loop; reading it inside the loop would include the children you just pushed and merge levels.\n" +
+            "- Only enqueue non-null children, and push left before right to preserve order.\n" +
+            "- An empty tree must return `[]`, not `[[]]`.\n\n" +
+            "**Complexity.** Time `O(n)` — every node is enqueued and dequeued once. Space `O(n)` — the queue holds at most one level, which can be up to `O(n)` for a full bottom level.\n\n" +
+            "**Interview mindset.** 'Per level', 'shortest path in an unweighted graph', 'wave/ripple outward' → reach for BFS with a queue plus the level-size snapshot.",
           rcs:
 `class Solution:
     def levelOrder(self, root: Optional[TreeNode]) -> List[List[int]]:
@@ -658,12 +698,21 @@
           space: "O(h)",
           whenToUse: "When you prefer recursion, or want to build level lists without an explicit queue.",
           logic:
-            "**D. Alternative observation.** You do not strictly need BFS: a DFS that carries the current **depth** can drop each value into the sublist for its level. The order of levels is still correct because level `d`'s list is created the first time depth `d` is reached, and left-before-right recursion preserves left-to-right order within a level.\n\n" +
-            "**E. Pattern.** Pre-order DFS with an extra `depth` argument; `result[depth]` is the bucket for that level.\n\n" +
-            "**F. Why it works.** We recurse left before right, so within any level, nodes are appended in left-to-right order. The first time we descend to a new depth, we append a fresh empty list, guaranteeing `result` grows one level at a time in order.\n\n" +
-            "**I. Step by step.** Call `dfs(root, 0)`. In `dfs(node, depth)`: return if `node` is `None`; if `depth == len(result)` this level is new, so append `[]`; append `node.val` to `result[depth]`; recurse into left then right at `depth + 1`.\n\n" +
-            "**J. Why correct.** Every node lands in the bucket matching its depth, and buckets are filled left to right, matching the required output.\n\n" +
-            "**K/L. Complexity.** One visit per node → time `O(n)`; recursion stack up to the height → space `O(h)` (plus the output).",
+            "**What it asks.** Same goal — group node values by level, each level left to right — but built with recursion instead of an explicit queue.\n\n" +
+            "**Why the naive idea fails.** A DFS visits nodes in depth-first order, which does *not* naturally emit them level by level. Without extra bookkeeping the output would be scrambled across levels, so we need each node to know which level it belongs to.\n\n" +
+            "**Key Idea.** You do not strictly need BFS: a DFS that carries the current **depth** as an argument can drop each value into the sublist for its level, using `result[depth]` as that level's bucket. Level order still comes out correctly because level `d`'s bucket is created the first time depth `d` is reached, and recursing left before right fills each bucket left to right.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Start with an empty `result` and call `dfs(root, 0)`.\n" +
+            "2. In `dfs(node, depth)`, return immediately if `node` is `None`.\n" +
+            "3. If `depth == len(result)`, this is the first node seen at this depth — append a fresh empty list `[]` to start the level bucket.\n" +
+            "4. Append `node.val` to `result[depth]`.\n" +
+            "5. Recurse into the left child, then the right child, each at `depth + 1`.\n\n" +
+            "**Why it works.** Every node lands in the bucket matching its depth, so values never cross levels. Because we recurse left before right, nodes within a level are appended in left-to-right order, and because a new bucket is created only the first time a depth is reached, `result` grows one level at a time in order — matching the required output.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- The `depth == len(result)` check is what lazily creates each level's bucket; forgetting it causes an index error on the first node of a new level.\n" +
+            "- Recurse left before right, or the within-level order is wrong.\n" +
+            "- An empty tree yields an empty `result`, which is correct.\n\n" +
+            "**Complexity.** Time `O(n)` — one visit per node. Space `O(h)` for the recursion stack (plus the `O(n)` output).",
           rcs:
 `class Solution:
     def levelOrder(self, root: Optional[TreeNode]) -> List[List[int]]:
@@ -768,15 +817,22 @@
           space: "O(h)",
           whenToUse: "The clearest way to enforce that EVERY node respects its ancestors' limits, not just its parent.",
           logic:
-            "**A. What is being asked?** Is the tree a valid BST — strictly increasing left-to-right at every scale?\n\n" +
-            "**B. Naive trap.** Checking only `left < node < right` for each node is **wrong**: it misses violations from deeper descendants (e.g. a node in the far-left of a right subtree that is smaller than a high ancestor). The constraint is global, not local.\n\n" +
-            "**D. Key observation.** As we descend, each node is confined to an **open interval `(low, high)`** dictated by all its ancestors. Going left tightens the upper bound to the current value; going right tightens the lower bound.\n\n" +
-            "**E. Pattern.** DFS that threads a valid `(low, high)` range down the tree.\n\n" +
-            "**F. Why it works.** A node is valid iff `low < node.val < high`. When we recurse left, everything there must be less than `node.val`, so `high` becomes `node.val`. When we recurse right, everything must exceed `node.val`, so `low` becomes `node.val`. This carries every ancestor's constraint to every descendant.\n\n" +
-            "**I. Step by step.** Start with bounds `(-inf, +inf)`. At each node: if it is `None`, return `True`; if `node.val` is not strictly inside `(low, high)`, return `False`; otherwise validate the left child with `(low, node.val)` and the right child with `(node.val, high)`.\n\n" +
-            "**J. Why correct.** The interval passed to any node is the exact intersection of all constraints from the path above it, so a single out-of-range value anywhere is caught.\n\n" +
-            "**K/L. Complexity.** One visit per node → time `O(n)`; recursion depth up to the height → space `O(h)`.\n\n" +
-            "**M. Interview mindset.** The word 'valid BST' should trigger 'carry min/max bounds down' — never validate with only the immediate children.",
+            "**What it asks.** Decide whether a binary tree is a valid BST: every node's entire left subtree is strictly smaller, its entire right subtree strictly larger, recursively — i.e. strictly increasing left-to-right at every scale.\n\n" +
+            "**Why the naive idea fails.** Checking only `left.val < node.val < right.val` for each node against its immediate children is **wrong**: it misses violations from deeper descendants. A node in the far left of a right subtree can be smaller than a high ancestor while still satisfying its own parent locally. The constraint is global, not local — every node must respect the limits imposed by *all* of its ancestors.\n\n" +
+            "**Key Idea.** As we descend, each node is confined to an **open interval `(low, high)`** dictated by all its ancestors. Going left tightens the upper bound to the current node's value; going right tightens the lower bound. A node is valid iff `low < node.val < high`. Threading this range down the tree carries every ancestor's constraint to every descendant.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Start at the root with bounds `(-inf, +inf)`.\n" +
+            "2. At each node: if it is `None`, return `True` (an empty subtree is a valid BST).\n" +
+            "3. If `node.val` is not strictly inside `(low, high)`, return `False`.\n" +
+            "4. Validate the left child with the range `(low, node.val)` — everything left must be below the current value.\n" +
+            "5. Validate the right child with `(node.val, high)` — everything right must be above it. Require both to hold.\n\n" +
+            "**Why it works.** The interval passed to any node is the exact intersection of all constraints from the path above it: left turns lower the ceiling, right turns raise the floor. So a single out-of-range value anywhere in the tree falls outside its inherited `(low, high)` and is caught, and if every node fits its interval the ordering holds globally.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- The comparison must be *strict* (`low < node.val < high`); equal values are not allowed in a valid BST.\n" +
+            "- The bound is global — never validate against only the immediate children.\n" +
+            "- Use `float('-inf')` and `float('inf')` as the initial sentinels so any integer value fits at the root, including the extreme `-2^31` / `2^31 - 1`.\n\n" +
+            "**Complexity.** Time `O(n)` — one visit per node. Space `O(h)` for the recursion depth.\n\n" +
+            "**Interview mindset.** The phrase 'valid BST' should trigger 'carry min/max bounds down' — the classic wrong answer is a parent-only check.",
           rcs:
 `class Solution:
     def isValidBST(self, root: Optional[TreeNode]) -> bool:
@@ -807,12 +863,21 @@
           space: "O(h)",
           whenToUse: "When you want to avoid passing bounds — exploit that a BST's inorder sequence is strictly increasing.",
           logic:
-            "**D. Alternative observation.** The **inorder traversal** (left, node, right) of a BST visits values in **strictly increasing** order. So a tree is a valid BST iff its inorder sequence never fails to increase.\n\n" +
-            "**E. Pattern.** Iterative inorder using an explicit stack, tracking only the **previous** value visited.\n\n" +
-            "**F. Why it works.** We push left spines onto the stack, then pop to visit nodes in sorted order. At each visit we compare against the previously visited value: if the current value is **not strictly greater**, the increasing property is broken and it is not a BST.\n\n" +
-            "**I. Step by step.** Keep a stack and a `prev = -inf`. Walk left pushing nodes; pop a node, and if `node.val <= prev` return `False`; otherwise set `prev = node.val` and move to the right child. Repeat until both stack and pointer are exhausted.\n\n" +
-            "**J. Why correct.** Inorder yields the values in the exact left-to-right order they should appear; a strictly increasing check on that stream is equivalent to the full BST property.\n\n" +
-            "**K/L. Complexity.** Each node is pushed and popped once → time `O(n)`; the stack holds at most one root-to-leaf path → space `O(h)`.",
+            "**What it asks.** The same question — is this a valid BST — approached without threading bounds through the recursion.\n\n" +
+            "**Why the naive idea fails.** As with the bounds method, a local parent-only comparison is wrong. This approach instead leans on a global property of BSTs so you never have to reason about ancestor limits explicitly.\n\n" +
+            "**Key Idea.** The **inorder traversal** (left, node, right) of a BST visits values in **strictly increasing** order. So a tree is a valid BST iff its inorder sequence never fails to increase. Doing inorder iteratively with an explicit stack, and remembering only the **previous** value visited, is enough to check this in one pass.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Keep an explicit `stack`, a pointer `node = root`, and `prev = -inf` (the last value visited in inorder).\n" +
+            "2. While `node` exists or the stack is non-empty, dive left: push `node` and move to its left child until `None`.\n" +
+            "3. Pop a node — this is the next value in sorted order.\n" +
+            "4. If `node.val <= prev`, the strictly-increasing property is broken — return `False`.\n" +
+            "5. Otherwise set `prev = node.val` and move to `node.right`; repeat. If the walk completes, return `True`.\n\n" +
+            "**Why it works.** Pushing left spines then popping visits nodes in exactly the left-node-right order, which for a BST is the order the values should appear sorted. A strictly-increasing check across that stream is therefore equivalent to the full global BST property — any inversion between consecutive visited values pinpoints a violation.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Use `<=` against `prev` so equal values are rejected — the ordering must be strict.\n" +
+            "- Initialize `prev` to `float('-inf')` so the very first (smallest) node always passes.\n" +
+            "- The outer loop condition must be `stack or node`, or you stop before finishing the right subtrees.\n\n" +
+            "**Complexity.** Time `O(n)` — each node is pushed and popped once. Space `O(h)` — the stack holds at most one root-to-leaf path.",
           rcs:
 `class Solution:
     def isValidBST(self, root: Optional[TreeNode]) -> bool:
@@ -924,13 +989,22 @@
           space: "O(h)",
           whenToUse: "Simplest to write when you are comfortable stopping the recursion once the kth node is found.",
           logic:
-            "**A. What is being asked?** The kth smallest value (1-indexed) in a BST.\n\n" +
-            "**D. Key observation.** An **inorder traversal** of a BST visits values in **ascending** order. So the kth node visited in inorder is exactly the kth smallest — we do not need to sort or count anything extra.\n\n" +
-            "**E. Pattern.** Inorder DFS with a running counter; stop as soon as the counter reaches `k`.\n\n" +
-            "**F. Why it works.** Inorder = (left subtree, node, right subtree). Because everything in the left subtree is smaller, visiting left-then-node-then-right emits values smallest to largest. Decrementing `k` on each visit and capturing the value when `k` hits 0 pinpoints the target.\n\n" +
-            "**I. Step by step.** Recurse left; on 'visiting' a node decrement `k` and, if it reached 0, record the value and stop descending further; otherwise recurse right. Guard with an early return once the answer is set so we do not keep walking.\n\n" +
-            "**J. Why correct.** The counter counts nodes in ascending order; the value captured when the count equals `k` is the kth smallest by definition.\n\n" +
-            "**K/L. Complexity.** Worst case visits `O(n)` nodes (and at least `k`); recursion depth is the height → space `O(h)`.",
+            "**What it asks.** Return the value of the kth smallest element (1-indexed) among all node values of a binary search tree.\n\n" +
+            "**Why the naive idea fails.** You could collect every value, sort them, and index the `k`-th — but that is `O(n log n)` and throws away the structure the BST already gives you for free. A BST is *already* sorted if you read it in the right order, so sorting is wasted work.\n\n" +
+            "**Key Idea.** An **inorder traversal** of a BST (left subtree, node, right subtree) visits values in **ascending** order. So the kth node visited in inorder is exactly the kth smallest — no sorting or extra counting needed, just a running counter that stops when it reaches `k`.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Keep a counter `k` (remaining nodes to reach) and a `result` slot, initially unset.\n" +
+            "2. Run an inorder DFS: for each node, return immediately if the node is `None` or the answer has already been found.\n" +
+            "3. Recurse into the left child first — the smaller values.\n" +
+            "4. 'Visit' the node: decrement `k`; if `k` has reached 0, record `node.val` as the answer and stop descending.\n" +
+            "5. Otherwise recurse into the right child — the larger values.\n\n" +
+            "**Why it works.** Because everything in a node's left subtree is smaller, visiting left-then-node-then-right emits values smallest to largest. The counter therefore counts nodes in ascending order, and the value captured exactly when the count hits `k` is the kth smallest by definition. The early-return guard stops the walk the instant the answer is set so no further nodes are touched needlessly.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- `k` is 1-indexed, so `k = 1` asks for the minimum — decrement *before* the zero-check, not after.\n" +
+            "- Guard the recursion with an early return once `result` is set, or the DFS keeps walking the right subtree after the answer is found.\n" +
+            "- Recurse left before right, or the visit order is no longer ascending.\n\n" +
+            "**Complexity.** Time `O(n)` worst case — it may visit up to all `n` nodes (at least `k`). Space `O(h)` for the recursion stack, where `h` is the tree height.\n\n" +
+            "**Interview mindset.** 'kth smallest / largest in a BST' is the cue that inorder gives sorted order for free — count down `k` and grab the value when it hits 0; reverse inorder handles kth largest.",
           rcs:
 `class Solution:
     def kthSmallest(self, root: Optional[TreeNode], k: int) -> int:
@@ -970,12 +1044,22 @@
           space: "O(h)",
           whenToUse: "The preferred version — it stops early after exactly k pops without recursion, ideal for large trees.",
           logic:
-            "**D. Same observation, better control.** Inorder still gives ascending order, but doing it **iteratively** with an explicit stack lets us **stop the instant** we pop the kth node — no wasted work on the rest of the tree, and no recursion-depth worries.\n\n" +
-            "**E. Pattern.** Explicit-stack inorder: repeatedly push the entire left spine, then pop to visit.\n\n" +
-            "**F. Why it works.** Pushing left children until `None` stacks the smallest unvisited nodes on top. Each pop yields the next value in sorted order; counting pops and returning on the kth gives the answer directly.\n\n" +
-            "**I. Step by step.** With `node = root` and an empty stack: while `node` exists, push it and go left. Then pop a node, decrement `k`; if `k == 0` return its value; otherwise set `node = node.right` and repeat.\n\n" +
-            "**J. Why correct.** The stack order guarantees pops happen in ascending value order, so the kth pop is the kth smallest.\n\n" +
-            "**K/L. Complexity.** We descend one spine (`O(h)`) and pop `k` nodes → time `O(h + k)`, better than `O(n)` when `k` is small; the stack holds one path → space `O(h)`.",
+            "**What it asks.** The same goal — the kth smallest value (1-indexed) in a BST — but with tighter control over when to stop.\n\n" +
+            "**Why the naive idea fails.** The recursive inorder is correct but keeps unwinding call frames even after the answer is found, and on a deeply skewed tree it can hit the recursion limit. When `k` is small, walking the whole subtree is also wasteful.\n\n" +
+            "**Key Idea.** Inorder still yields ascending order, but doing it **iteratively** with an explicit stack lets you **stop the instant** the kth node is popped — no wasted work on the rest of the tree and no recursion-depth worries. The stack simulates the recursion: push the entire left spine, then pop to visit.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Start with an empty `stack` and a pointer `node = root`.\n" +
+            "2. While `node` exists or the stack is non-empty, dive left: push `node` and move to its left child until `None` — this stacks the smallest unvisited nodes on top.\n" +
+            "3. Pop a node — this is the next value in ascending order — and decrement `k`.\n" +
+            "4. If `k` has reached 0, return `node.val` immediately.\n" +
+            "5. Otherwise move to `node.right` and repeat.\n\n" +
+            "**Why it works.** Pushing left children until `None` guarantees the top of the stack is always the smallest unvisited node, so each pop yields the next value in sorted order. Counting pops and returning on the kth therefore returns the kth smallest, and the early return means only the first `k` values in sorted order are ever touched.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- The outer loop condition must be `stack or node`, or the walk stops before finishing right subtrees.\n" +
+            "- `k` is 1-indexed; decrement on each pop and return when it hits 0.\n" +
+            "- Push the whole left spine before popping — popping too early skips smaller values.\n\n" +
+            "**Complexity.** Time `O(h + k)` — descend one spine (`O(h)`) then pop `k` nodes, better than `O(n)` when `k` is small. Space `O(h)` — the stack holds at most one root-to-leaf path.\n\n" +
+            "**Interview mindset.** When you want to stop a traversal early or avoid recursion depth, convert the inorder DFS into an explicit-stack loop; 'kth smallest and stop as soon as possible' is the signal.",
           rcs:
 `class Solution:
     def kthSmallest(self, root: Optional[TreeNode], k: int) -> int:
@@ -1088,13 +1172,22 @@
           space: "O(n^2)",
           whenToUse: "Easiest to reason about first; fine for small inputs before optimizing.",
           logic:
-            "**A. What is being asked?** Rebuild the unique tree that produced these two traversals.\n\n" +
-            "**D. Key observation.** The **first** element of `preorder` is always the **root**. Finding that root inside `inorder` splits it into everything **left** of the root (the left subtree) and everything **right** (the right subtree). The sizes of those halves tell us how to split `preorder` too.\n\n" +
-            "**E. Pattern.** Divide and conquer: pick the root, partition both arrays, recurse on each side.\n\n" +
-            "**F. Why it works.** In inorder, all left-subtree nodes come before the root and all right-subtree nodes after it. In preorder, the root is followed by its entire left subtree, then its entire right subtree. Matching the left-subtree size from inorder lets us carve preorder into the correct left/right chunks.\n\n" +
-            "**I. Step by step.** Take `root_val = preorder[0]`, build the node, find `mid = inorder.index(root_val)`. The left subtree uses `preorder[1:mid+1]` with `inorder[:mid]`; the right uses `preorder[mid+1:]` with `inorder[mid+1:]`. Recurse.\n\n" +
-            "**J. Why correct.** Uniqueness guarantees `mid` is well-defined, and the slice sizes exactly correspond, so each recursive call receives a valid (preorder, inorder) pair for a genuine subtree.\n\n" +
-            "**K/L. Complexity.** `inorder.index` is `O(n)` and slicing copies `O(n)` per call across `O(n)` calls → time `O(n^2)`, and the slices cost `O(n^2)` space too. Clean, but improvable.",
+            "**What it asks.** Rebuild the unique binary tree that produced the given `preorder` and `inorder` traversals, and return its root.\n\n" +
+            "**Why the naive idea fails.** There is no way to guess the shape from either traversal alone — many trees share a preorder, and many share an inorder. You need both together, and the obvious 'try every shape' search is exponential. The two traversals must be combined structurally instead.\n\n" +
+            "**Key Idea.** The **first** element of `preorder` is always the **root**. Locating that root value inside `inorder` splits it cleanly: everything **left** of it is the left subtree, everything **right** is the right subtree. The size of the left half then tells you exactly how to split `preorder` into its left and right chunks too. That decomposition is directly recursive — divide and conquer.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. If `preorder` is empty, return `None` — the base case for an empty subtree.\n" +
+            "2. Take `root_val = preorder[0]` and build the root node.\n" +
+            "3. Find `mid = inorder.index(root_val)` — the root's position inside `inorder`.\n" +
+            "4. Build the left child from `preorder[1:mid+1]` paired with `inorder[:mid]`.\n" +
+            "5. Build the right child from `preorder[mid+1:]` paired with `inorder[mid+1:]`. Recurse and attach both.\n\n" +
+            "**Why it works.** In inorder, all left-subtree nodes appear before the root and all right-subtree nodes after it; in preorder, the root is followed by its entire left subtree, then its entire right subtree. Because values are unique, `mid` is well-defined, and the left-subtree size read from inorder carves preorder into exactly the matching left/right chunks. Each recursive call therefore receives a valid (preorder, inorder) pair describing a genuine subtree.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- The slice sizes must line up: `preorder[1:mid+1]` has exactly `mid` elements to match `inorder[:mid]`.\n" +
+            "- Uniqueness of values is what makes `inorder.index` unambiguous — the method breaks if values repeat.\n" +
+            "- The empty-slice base case must return `None`, not error, at the leaves.\n\n" +
+            "**Complexity.** Time `O(n^2)` — `inorder.index` is `O(n)` and each call copies `O(n)` slices, across `O(n)` calls. Space `O(n^2)` from the accumulated slice copies. Clean to reason about, but improvable.\n\n" +
+            "**Interview mindset.** 'Reconstruct a tree from two traversals' → preorder's first (or postorder's last) element is the root, and inorder splits left from right; start with this slicing version, then optimize.",
           rcs:
 `class Solution:
     def buildTree(self, preorder: List[int], inorder: List[int]) -> Optional[TreeNode]:
@@ -1125,13 +1218,22 @@
           space: "O(n)",
           whenToUse: "The expected optimal: removes the O(n) index-search and array copying.",
           logic:
-            "**D. Two optimizations.** The slicing version wastes time on (1) `inorder.index(...)` linear searches and (2) copying subarrays. Fix both: pre-build a hash map `value → index in inorder` for `O(1)` root location, and consume `preorder` left-to-right with a single moving **pointer** instead of slicing.\n\n" +
-            "**E. Pattern.** Same divide and conquer, but pass index **ranges** into `inorder` rather than new arrays, and advance one global preorder cursor.\n\n" +
-            "**F. Why it works.** Preorder is root, then the whole left subtree, then the whole right subtree — exactly the order recursion needs if we always take 'the next preorder value' as the current root. Recursing left before right consumes preorder in precisely the right sequence. The inorder index map instantly tells us where the root splits the current `[left, right]` range.\n\n" +
-            "**I. Step by step.** Build `idx = {val: i}` over `inorder`. Keep `self.pre = 0`. `build(l, r)` over inorder bounds: if `l > r` return `None`; take `val = preorder[self.pre]`, advance `self.pre`; make the node; `mid = idx[val]`; build left over `(l, mid-1)` **first**, then right over `(mid+1, r)`.\n\n" +
-            "**J. Why correct.** Because left is built before right and preorder lists the left subtree entirely before the right, the shared cursor always points at the correct next root. The inorder range shrinks to empty exactly at leaves.\n\n" +
-            "**K/L. Complexity.** Each node is created once with `O(1)` work → time `O(n)`; the map plus recursion stack → space `O(n)`.\n\n" +
-            "**M. Interview mindset.** 'Reconstruct a tree from traversals' → first element/last element of preorder/postorder is the root; use inorder to split; optimize the root lookup with a hash map.",
+            "**What it asks.** The same reconstruction, done in linear time by removing the two costs that made the slicing version quadratic.\n\n" +
+            "**Why the naive idea fails.** The slicing approach wastes time twice: each `inorder.index(...)` is an `O(n)` linear search, and every recursive call copies fresh subarrays. Both compound to `O(n^2)`. To reach `O(n)` you must locate the root in `O(1)` and stop copying.\n\n" +
+            "**Key Idea.** Two optimizations do it: pre-build a hash map `value → index in inorder` so the root's split point is found in `O(1)`, and consume `preorder` left-to-right with a single moving **pointer** instead of slicing. Recursion then passes index **ranges** into `inorder` rather than new arrays, while one global preorder cursor advances through the roots.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Build `idx = {val: i}` mapping each inorder value to its position, for `O(1)` lookups.\n" +
+            "2. Keep a shared cursor `self.pre = 0` pointing at the next preorder value (the next root).\n" +
+            "3. Define `build(left, right)` over inorder bounds: if `left > right`, the range is empty — return `None`.\n" +
+            "4. Take `val = preorder[self.pre]` as this subtree's root, advance `self.pre`, and create the node.\n" +
+            "5. Look up `mid = idx[val]`, build the left child over `(left, mid-1)` **first**, then the right child over `(mid+1, right)`; attach both and return the node.\n\n" +
+            "**Why it works.** Preorder lists the root, then the *entire* left subtree, then the *entire* right subtree — exactly the order recursion consumes it if you always take 'the next preorder value' as the current root and recurse left before right. So the shared cursor always points at the correct next root, and the inorder index map instantly tells you where that root splits the current `[left, right]` range. The range shrinks to empty precisely at the leaves.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Build the left subtree **before** the right, or the shared preorder cursor falls out of sync and the tree is wrong.\n" +
+            "- The base case is `left > right` (empty inorder range), not a length check on a slice.\n" +
+            "- The cursor must be shared across all calls (an attribute or nonlocal), not a fresh local per call.\n\n" +
+            "**Complexity.** Time `O(n)` — each node is created once with `O(1)` work. Space `O(n)` for the index map plus the recursion stack.\n\n" +
+            "**Interview mindset.** When a divide-and-conquer repeatedly searches for a value or copies subarrays, replace the search with a hash map and the copies with index ranges plus a shared cursor — the standard way to turn `O(n^2)` reconstruction into `O(n)`.",
           rcs:
 `class Solution:
     def buildTree(self, preorder: List[int], inorder: List[int]) -> Optional[TreeNode]:
@@ -1241,17 +1343,22 @@
           space: "O(h)",
           whenToUse: "The canonical tree-DP: when each node's answer combines results from its children but only one child can extend upward.",
           logic:
-            "**A. What is being asked?** The largest possible sum along any connected path in the tree — it may bend at a node using both children, or run straight down.\n\n" +
-            "**D. Key observation — two different quantities.** At each node distinguish:\n" +
-            "- The **path that peaks here** (the node plus its best left downward path plus its best right downward path). This can update the global answer but **cannot be passed to the parent**, because a path through the parent can only enter this node from one side.\n" +
-            "- The **gain to hand upward** (the node plus the **better single** child branch). This is what the parent may attach to.\n\n" +
-            "**E. Pattern.** Post-order DFS (tree DP): compute children first, combine, and bubble up a single number while separately tracking a global maximum.\n\n" +
-            "**F. Why the `max(..., 0)` matters.** A subtree that returns a negative gain should be **dropped** (contribute 0) rather than dragging a path down. Clamping each child's gain at 0 encodes 'only extend into a child if it helps.'\n\n" +
-            "**G/H. State.** `gain(node)` returns the best sum of a path that **starts at `node` and goes strictly downward**. A global `best` records the maximum over all 'peak-here' paths seen.\n\n" +
-            "**I. Step by step.** For each node: `left = max(gain(left), 0)`, `right = max(gain(right), 0)`. Update `best = max(best, node.val + left + right)` (the bent path through this node). Return `node.val + max(left, right)` as the upward gain.\n\n" +
-            "**J. Why correct.** Every path has a unique highest node (its 'peak'); at that node the path is exactly `node.val + left_gain + right_gain`, which we test against `best`. Since we do this at every node, the true maximum path is considered. Returning only one branch upward respects that a path cannot fork at the parent.\n\n" +
-            "**K/L. Complexity.** One visit per node → time `O(n)`; recursion depth is the height → space `O(h)`.\n\n" +
-            "**M. Interview mindset.** When 'the answer at a node' (bend allowed) differs from 'what you can pass to the parent' (one branch only), split them into a returned value plus a global variable — the signature tree-DP move.",
+            "**What it asks.** Return the largest possible sum along any non-empty connected path in the tree. A path may bend at a node (using both of its children) or run straight down, and it need not pass through the root.\n\n" +
+            "**Why the naive idea fails.** Enumerating every possible path and summing each is exponential — there are far too many paths. And because values can be negative, you cannot greedily keep extending a path; sometimes a single node beats any longer path. You need to compute the answer bottom-up in one pass while being careful about what a subtree can contribute upward.\n\n" +
+            "**Key Idea.** At each node, distinguish **two different quantities**. First, the **path that peaks here** — the node plus its best left downward path plus its best right downward path; this can update the global answer but **cannot be handed to the parent**, because a path continuing through the parent may only enter this node from one side. Second, the **gain to hand upward** — the node plus the *better single* child branch — which is what a parent may attach to. Splitting these two is the whole trick.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Keep a global `best`, initialized to negative infinity, recording the maximum 'peak-here' path seen anywhere.\n" +
+            "2. Define `gain(node)` returning the best sum of a path that starts at `node` and goes strictly downward. For a `None` node it returns 0.\n" +
+            "3. Compute `left = max(gain(node.left), 0)` and `right = max(gain(node.right), 0)` — clamping at 0 drops any branch that would only subtract.\n" +
+            "4. Update `best = max(best, node.val + left + right)` — the bent path that peaks at this node using both sides.\n" +
+            "5. Return `node.val + max(left, right)` as the upward gain — the parent can only continue through one child.\n\n" +
+            "**Why it works.** Every path has a unique highest node, its 'peak'. At that node the path sum is exactly `node.val + left_gain + right_gain`, which is tested against `best`. Since this test runs at every node, the true maximum path is always considered. Returning only the single better branch upward respects that a path cannot fork at the parent, and clamping negative gains at 0 encodes 'only extend into a child if it helps.'\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Initialize `best` to `float('-inf')`, not 0 — all values can be negative, and a single node may be the answer.\n" +
+            "- The `max(gain(child), 0)` clamp is essential; without it a negative subtree drags valid paths down.\n" +
+            "- Do not return `node.val + left + right` upward — that would let a path illegally fork at the parent; return `node.val + max(left, right)`.\n\n" +
+            "**Complexity.** Time `O(n)` — one visit per node. Space `O(h)` for the recursion stack, where `h` is the tree height.\n\n" +
+            "**Interview mindset.** When 'the answer computed at a node' (bend allowed) differs from 'what you can pass to the parent' (one branch only), split them into a returned value plus a global variable — the signature tree-DP move.",
           rcs:
 `class Solution:
     def maxPathSum(self, root: Optional[TreeNode]) -> int:

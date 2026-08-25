@@ -60,17 +60,21 @@
           space: "O(n)",
           whenToUse: "The go-to approach: intuitive, generalizes to grids with obstacles or weights.",
           logic:
-            "**A. What is being asked?** Count monotone lattice paths (right/down only) from the top-left to the bottom-right of an `m x n` grid.\n\n" +
-            "**B. Brute force.** Recurse: `paths(i,j) = paths(i+1,j) + paths(i,j+1)`, bottoming out at the goal. This re-explores the same cells exponentially many times — there are up to `2^(m+n)` recursion branches.\n\n" +
-            "**D. Key observation.** The only way to arrive at cell `(i,j)` is from directly **above** `(i-1,j)` or directly **left** `(i,j-1)`. Those two sets of paths are disjoint and together cover every path, so the counts simply add.\n\n" +
-            "**E. Pattern / data structure.** Classic **grid DP**. Define a table `dp[i][j]` = number of distinct paths from the start to cell `(i,j)`.\n\n" +
-            "**F. Base cases.** `dp[0][0] = 1` (one empty path). The entire **first row** and **first column** are all `1`: along an edge there is exactly one way to get there (keep going straight).\n\n" +
-            "**G/H. Transition.** For every interior cell, `dp[i][j] = dp[i-1][j] + dp[i][j-1]`.\n\n" +
-            "**I. Step by step.** Fill the table row by row (or column by column). Each cell reads the value above it and to its left — both already computed — and stores their sum. The answer is `dp[m-1][n-1]`.\n\n" +
-            "**J. Why correct.** By induction, if `dp[i-1][j]` and `dp[i][j-1]` correctly count paths to those cells, then since any path to `(i,j)` ends with a single move from one of them, their sum counts every path to `(i,j)` exactly once (no path is double-counted because its last move is uniquely 'from above' or 'from the left').\n\n" +
-            "**K/L. Complexity.** Time `O(m*n)` — each cell filled once. Space `O(m*n)` for the full table, but note a cell only needs the current and previous rows.\n\n" +
-            "**Space optimization.** Because `dp[i][j]` depends only on the row above and the cell just written, keep a single 1-D array of length `n`. Sweeping left to right, `row[j] += row[j-1]` folds in the left neighbour while `row[j]` still holds the value from the row above — reducing space to `O(n)`.\n\n" +
-            "**M. Interview mindset.** 'Count ways to reach a cell moving in fixed directions' is the textbook grid-DP trigger: define dp as ways-to-reach and add the incoming directions.",
+            "**What it asks.** Count the distinct paths a robot can take from the top-left to the bottom-right of an `m x n` grid when it may only move one step **right** or one step **down** at a time.\n\n" +
+            "**Why the naive idea fails.** The obvious recursion is `paths(i,j) = paths(i+1,j) + paths(i,j+1)`, bottoming out at the goal. But it re-explores the same cells over and over — the number of recursive branches blows up to roughly `2^(m+n)`, far too slow even for a 100x100 grid.\n\n" +
+            "**Key Idea.** Let `dp[i][j]` be the number of distinct paths from the start to cell `(i,j)`. The only way to arrive at `(i,j)` is from directly **above** `(i-1,j)` or directly **left** `(i,j-1)`. Those two families of paths are disjoint and together cover every path, so the count at a cell is simply the sum of the counts of its top and left neighbours.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Base cases: `dp[0][0] = 1` (the single empty path), and the entire **first row** and **first column** are all `1` — along an edge there is exactly one way to get there (keep going straight).\n" +
+            "2. Transition: for every interior cell, `dp[i][j] = dp[i-1][j] + dp[i][j-1]` — the ways from above plus the ways from the left.\n" +
+            "3. Fill the table row by row (or column by column) so each cell reads neighbours that are already computed.\n" +
+            "4. The answer is `dp[m-1][n-1]`, the count at the bottom-right corner.\n\n" +
+            "**Why it works.** By induction: if `dp[i-1][j]` and `dp[i][j-1]` correctly count the paths to those cells, then since any path to `(i,j)` ends with exactly one final move — from above or from the left — summing the two counts every path to `(i,j)` exactly once. No path is double-counted, because its last move is uniquely 'from above' or 'from the left'.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Forgetting to seed the whole first row and first column to `1` — a single missed edge cell corrupts everything downstream.\n" +
+            "- The `1 x 1` grid must return `1` (start already equals finish), which the base case handles.\n" +
+            "- Iterating in the wrong order so a cell reads a neighbour that hasn't been filled yet.\n\n" +
+            "**Complexity.** Time `O(m*n)` — each cell is filled once with `O(1)` work. Space `O(m*n)` for the full table, but a cell only ever needs the current and previous rows. **Space optimization:** since `dp[i][j]` depends only on the row above and the cell just written, keep a single 1-D array of length `n`; sweeping left to right, `row[j] += row[j-1]` folds in the left neighbour while `row[j]` still holds the value from the row above — reducing space to `O(n)`.\n\n" +
+            "**Interview mindset.** 'Count the ways to reach a cell while moving in fixed directions' is the textbook grid-DP trigger: define `dp` as ways-to-reach and add the incoming directions.",
           rcs:
             "class Solution:\n" +
             "    def uniquePaths(self, m: int, n: int) -> int:\n" +
@@ -98,12 +102,18 @@
           space: "O(1)",
           whenToUse: "When you recognize the closed form: no obstacles, pure right/down grid.",
           logic:
-            "**D. Key observation.** Every valid path is a sequence of exactly `(m-1)` downs and `(n-1)` rights — `(m+n-2)` moves total. A path is fully determined by **which of those moves are the downs**.\n\n" +
-            "**E. Pattern.** This is a pure counting (combinations) problem: choose the positions of the `m-1` down-moves among `m+n-2` slots. So the answer is the binomial coefficient `C(m+n-2, m-1)` (equivalently `C(m+n-2, n-1)`).\n\n" +
-            "**I. Step by step.** Compute the coefficient with a multiplicative loop to avoid overflow and huge factorials: multiply by the numerator terms and divide by the denominator terms as you go. Choosing the smaller of `m-1`, `n-1` as the count keeps the loop short.\n\n" +
-            "**J. Why correct.** There is a bijection between paths and choices of down-move positions: distinct choices give distinct paths and every path yields one choice. Counting the choices therefore counts the paths exactly.\n\n" +
-            "**K/L. Complexity.** `O(min(m,n))` multiplications, `O(1)` space — the fastest possible.\n\n" +
-            "**M. Interview mindset.** State it as the elegant alternative after the DP: it shows you see the structure (a fixed multiset of moves), but the DP is what generalizes when obstacles appear.",
+            "**What it asks.** Count the distinct right/down paths across an `m x n` grid — but here we solve it with counting math instead of a table.\n\n" +
+            "**Key Idea.** Every valid path is a sequence of exactly `(m-1)` down-moves and `(n-1)` right-moves — `(m+n-2)` moves in total. A path is fully determined by **which of those move-slots are the downs**. So the count is just the number of ways to choose the `m-1` down positions among `m+n-2` slots: the binomial coefficient `C(m+n-2, m-1)` (equivalently `C(m+n-2, n-1)`).\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Recognize the total move count is `m+n-2` and the number of downs is `m-1`.\n" +
+            "2. Compute `C(m+n-2, m-1)` with a multiplicative loop to avoid overflow and huge factorials — multiply by numerator terms and divide by denominator terms as you go.\n" +
+            "3. Choose the smaller of `m-1` and `n-1` as the count to keep the loop short.\n\n" +
+            "**Why it works.** There is a bijection between paths and choices of down-move positions: distinct choices give distinct paths, and every path yields exactly one choice. Counting the choices therefore counts the paths exactly.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Computing `(m+n-2)!` directly overflows and is wasteful — build the coefficient incrementally instead.\n" +
+            "- This closed form only holds for an unobstructed pure right/down grid; add any obstacle or weight and you must fall back to the DP.\n\n" +
+            "**Complexity.** `O(min(m,n))` multiplications and `O(1)` space — the fastest possible.\n\n" +
+            "**Interview mindset.** Offer it as the elegant alternative after the DP: it shows you see the structure (a fixed multiset of moves), but be clear the DP is what generalizes once obstacles appear.",
           rcs:
             "import math\n" +
             "\n" +
@@ -182,19 +192,21 @@
           space: "O(m * n)",
           whenToUse: "The canonical, easy-to-explain version; build the full table when you may need to reconstruct the subsequence.",
           logic:
-            "**A. What is being asked?** The length of the longest sequence of characters that appears, in order, in both strings.\n\n" +
-            "**B. Brute force.** Try every subsequence of `text1` and test membership in `text2` — exponential (`2^m`). Or recurse on the two indices: if the front characters match, take them and advance both; otherwise try advancing each side and take the max. Recursion alone re-solves the same `(i,j)` pairs repeatedly.\n\n" +
-            "**D. Key observation.** Compare the two strings by their **suffixes** (or prefixes). Look at the last characters. If `text1[i-1] == text2[j-1]`, that character can be the tail of an LCS, so the answer is `1 +` LCS of the two shorter strings without those characters. If they differ, at least one of those last characters is not in the LCS, so drop one and take the better option.\n\n" +
-            "**E. Pattern / state.** Two-string **grid DP**. Define `dp[i][j]` = length of the LCS of the first `i` characters of `text1` and the first `j` characters of `text2`.\n\n" +
-            "**F. Base cases.** `dp[0][j] = dp[i][0] = 0` — an empty string shares nothing. That is why the table has an extra leading row and column of zeros.\n\n" +
-            "**G/H. Transition.**\n" +
-            "- **Match:** if `text1[i-1] == text2[j-1]`, then `dp[i][j] = dp[i-1][j-1] + 1` (extend the diagonal result by this shared character).\n" +
-            "- **Mismatch:** otherwise `dp[i][j] = max(dp[i-1][j], dp[i][j-1])` (best of dropping the last char of one string or the other).\n\n" +
-            "**I. Step by step.** Fill the table row by row. Each cell looks up its diagonal, up, and left neighbours — all already computed. The answer is `dp[m][n]`.\n\n" +
-            "**J. Why correct.** Any common subsequence either uses the pair of equal last characters (captured by the diagonal + 1 case) or does not use at least one of them (captured by taking the max after dropping one). These cases are exhaustive, and each subproblem is optimal by induction, so the recurrence yields the true optimum — optimal substructure plus overlapping subproblems, the DP hallmark.\n\n" +
-            "**K/L. Complexity.** `m*n` cells, `O(1)` work each → time `O(m*n)`, space `O(m*n)`.\n\n" +
-            "**Space optimization.** Each row depends only on the row above and the current row, so two rolling 1-D arrays of length `n+1` (or even one array with a saved diagonal) shrink space to `O(n)`.\n\n" +
-            "**M. Interview mindset.** 'Compare two sequences / edit-style problem' → a 2-D table indexed by prefixes of each string, with a match-diagonal-versus-skip transition. LCS is the template for edit distance and many variants.",
+            "**What it asks.** Find the length of the longest sequence of characters that appears, in the same relative order (but not necessarily contiguously), in both `text1` and `text2`.\n\n" +
+            "**Why the naive idea fails.** You could enumerate every subsequence of `text1` and test membership in `text2` — but there are `2^m` subsequences, hopelessly exponential. Even the natural recursion on the two indices (if the front characters match, take them and advance both; otherwise try advancing each side and keep the max) re-solves the same `(i,j)` pairs over and over.\n\n" +
+            "**Key Idea.** Define `dp[i][j]` = the length of the LCS of the first `i` characters of `text1` and the first `j` characters of `text2`. Compare the two strings by their prefixes and look at the last character of each. If `text1[i-1] == text2[j-1]`, that shared character can be the tail of an LCS, so the answer is `1 +` the LCS of the two strings with those characters removed. If they differ, at least one of those last characters is not in the LCS, so drop one side and take the better of the two options.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Base cases: `dp[0][j] = dp[i][0] = 0` — an empty string shares nothing. This is why the table carries an extra leading row and column of zeros.\n" +
+            "2. Transition (in words): when the current characters **match** (`text1[i-1] == text2[j-1]`), extend the diagonal result — `dp[i][j] = dp[i-1][j-1] + 1`. When they **mismatch**, take the best of dropping the last character of one string or the other — `dp[i][j] = max(dp[i-1][j], dp[i][j-1])`.\n" +
+            "3. Fill the table row by row so each cell can read its already-computed diagonal, up, and left neighbours.\n" +
+            "4. The answer is `dp[m][n]`, covering both full strings.\n\n" +
+            "**Why it works.** Any common subsequence either uses the pair of equal last characters — captured by the diagonal `+ 1` case — or does not use at least one of them — captured by taking the max after dropping one side. These two cases are exhaustive, and each subproblem is optimal by induction, so the recurrence yields the true optimum. This is optimal substructure plus overlapping subproblems, the DP hallmark.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Off-by-one on indexing: `dp[i][j]` refers to `text1[i-1]` and `text2[j-1]` because of the zero-padded row/column.\n" +
+            "- This is a subsequence, not a substring — order matters but contiguity does not; do not require adjacency.\n" +
+            "- Forgetting the extra zero row and column, which the base cases rely on.\n\n" +
+            "**Complexity.** `m*n` cells with `O(1)` work each → time `O(m*n)`, space `O(m*n)`. **Space optimization:** each row depends only on the row above and the current row, so two rolling 1-D arrays of length `n+1` (or even one array with a saved diagonal value) shrink space to `O(n)`.\n\n" +
+            "**Interview mindset.** 'Compare two sequences / an edit-style problem' → reach for a 2-D table indexed by prefixes of each string, with a match-diagonal-versus-skip transition. LCS is the template for edit distance and many variants.",
           rcs:
             "class Solution:\n" +
             "    def longestCommonSubsequence(self, text1: str, text2: str) -> int:\n" +
@@ -286,23 +298,22 @@
           space: "O(n)",
           whenToUse: "The canonical weighted-interval-scheduling solution whenever intervals carry values you must maximize.",
           logic:
-            "**A. What is being asked?** Pick a non-overlapping subset of valued intervals whose total value is maximized — the classic **weighted interval scheduling** problem.\n\n" +
-            "**B. Why greedy fails.** Unweighted interval scheduling (maximize the *count*) is greedy: always take the interval that ends earliest. But here profits differ, so 'earliest finish' or 'fewest conflicts' can skip a single hugely profitable job. Profits force a DP.\n\n" +
-            "**D. Key observation.** Sort the jobs by **end time**. Process them in that order and ask, for each job, a binary either/or: **skip it** (carry the best profit so far) or **take it** (its profit plus the best profit achievable among jobs that finish at or before this job's start). Sorting by end time is what makes 'the best profit up to a given time' a monotonic, look-back-able quantity.\n\n" +
-            "**E. Pattern / state.** Let the jobs be sorted by end time. Define `dp[i]` = the maximum profit obtainable using only the first `i` jobs (in end-time order). This is a 1-D DP over a sorted list — the 'two dimensions' are time and choice, collapsed via the sort.\n\n" +
-            "**F. Base case.** `dp[0] = 0` — no jobs, no profit.\n\n" +
-            "**G/H. Transition (weighted-interval recurrence).** For job `i` (1-indexed into the sorted order) with start `s`, end `e`, profit `p`:\n" +
-            "`dp[i] = max(dp[i-1],  p + dp[k])`\n" +
-            "where `dp[i-1]` is the best if we **skip** job `i`, and `k` is the number of jobs whose **end time is <= s** — the last job that does not conflict with `i`. We find `k` with **binary search** over the sorted end times (`bisect`), since the ends are sorted.\n\n" +
-            "**I. Step by step.**\n" +
-            "1. Zip the jobs and sort by end time.\n" +
-            "2. Keep an array of end times for binary searching, and a `dp` array where `dp[i]` covers the first `i` jobs.\n" +
-            "3. For each job in order, binary-search the rightmost job ending `<= start`; that index is how many earlier jobs are compatible.\n" +
-            "4. `dp[i] = max(skip, take)` as above.\n" +
+            "**What it asks.** From a set of jobs, each with a start time, an end time, and a profit, pick a subset of **non-overlapping** jobs (a job may start exactly when another ends) so that the total profit is maximized — the classic **weighted interval scheduling** problem.\n\n" +
+            "**Why the naive idea fails.** Unweighted interval scheduling (maximize the *count* of jobs) has a clean greedy rule: always take the job that ends earliest. But here profits differ, so 'earliest finish' or 'fewest conflicts' can skip a single hugely profitable job and lose. The differing weights are exactly what breaks greedy and force a DP.\n\n" +
+            "**Key Idea.** Sort the jobs by **end time** and define `dp[i]` = the maximum profit obtainable using only the first `i` jobs in that sorted order. For each job you then face a binary either/or: **skip it** (carry the best profit so far) or **take it** (its profit plus the best profit achievable among jobs that finish at or before this job's start). Sorting by end time is what makes 'the best profit up to a given time' a monotonic quantity you can look back into — and it guarantees the compatible earlier jobs always form a prefix, so a binary search can locate them.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Base case: `dp[0] = 0` — no jobs means no profit.\n" +
+            "2. Zip the jobs together and sort them by end time; keep a separate array of the sorted end times for binary searching.\n" +
+            "3. Transition (in words): for job `i` with start `s` and profit `p`, `dp[i]` is the better of **skipping** it (`dp[i-1]`) or **taking** it (`p + dp[k]`), where `k` is the count of jobs whose end time is `<= s` — the last job compatible with job `i`.\n" +
+            "4. Find `k` with a binary search (`bisect_right` on the sorted end times against the start `s`), since `end == start` does not conflict.\n" +
             "5. The answer is `dp[n]`.\n\n" +
-            "**J. Why correct.** Consider the optimal subset restricted to the first `i` jobs. Either it excludes job `i` — then it is optimal for the first `i-1` jobs, i.e. `dp[i-1]` — or it includes job `i`, in which case every other chosen job must end by job `i`'s start (non-overlap), so the rest is an optimal solution among the compatible prefix, i.e. `dp[k]`. Taking the max over these two exhaustive cases gives the optimum, and induction over `i` finishes the proof. The end-time sort guarantees the compatible jobs form a prefix, which is exactly what `bisect` locates.\n\n" +
-            "**K/L. Complexity.** Sorting is `O(n log n)`; each of the `n` jobs does one `O(log n)` binary search → `O(n log n)` total, `O(n)` space for the dp and end arrays.\n\n" +
-            "**M. Interview mindset.** Intervals + a value to maximize + non-overlap → say 'weighted interval scheduling': sort by end time, DP, and binary-search for the last compatible job. The give-away that greedy is wrong is that the intervals are *weighted*.",
+            "**Why it works.** Consider the optimal subset restricted to the first `i` jobs. Either it excludes job `i` — then it is optimal for the first `i-1` jobs, i.e. `dp[i-1]` — or it includes job `i`, in which case every other chosen job must end by job `i`'s start (non-overlap), so the rest is an optimal solution over the compatible prefix, i.e. `dp[k]`. These two cases are exhaustive, so their max is the optimum, and induction over `i` completes the proof. The end-time sort is what guarantees the compatible jobs form a prefix that `bisect` can pinpoint.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Sort by **end** time, not start time — sorting by start breaks the prefix property the binary search relies on.\n" +
+            "- `end == start` is allowed, so use `bisect_right` on the start value (not `bisect_left`), or you will wrongly reject jobs that merely touch.\n" +
+            "- Keep the `dp` array 1-indexed against the sorted jobs so `dp[i-1]` (skip) and `dp[k]` (compatible prefix) line up correctly.\n\n" +
+            "**Complexity.** Sorting is `O(n log n)`, and each of the `n` jobs does one `O(log n)` binary search → `O(n log n)` total, with `O(n)` space for the `dp` and end-time arrays.\n\n" +
+            "**Interview mindset.** Intervals + a value to maximize + a non-overlap constraint → name it 'weighted interval scheduling': sort by end time, run a DP, and binary-search for the last compatible job. The give-away that greedy is wrong is that the intervals are *weighted*.",
           rcs:
             "import bisect\n" +
             "\n" +
@@ -416,26 +427,24 @@
           space: "O(m * n)",
           whenToUse: "The robust, provably-correct approach for full-string regex matching with '.' and '*'.",
           logic:
-            "**A. What is being asked?** Decide whether pattern `p` matches the **entire** string `s`, where `.` is any single char and `*` repeats the token before it zero or more times.\n\n" +
-            "**B. Brute force.** Recurse over positions in `s` and `p`. The trouble is `*`: at each `*` you may consume zero characters or one-more-and-stay, branching heavily and re-visiting the same `(i,j)` states exponentially. Memoizing those states is exactly the DP.\n\n" +
-            "**D. Key observation.** What matters is only *how far into `s`* and *how far into `p`* we are. So define a boolean state on the two suffix lengths and figure out, character by character (with `*` handled as a pair with its preceding token), whether the remainders can match.\n\n" +
-            "**E. Pattern / state.** Two-sequence **grid DP**. Let `dp[i][j]` = `True` if the first `i` characters of `s` match the first `j` characters of `p`. Answer is `dp[m][n]`.\n\n" +
-            "**F. Base cases.**\n" +
-            "- `dp[0][0] = True` — empty pattern matches empty string.\n" +
-            "- `dp[i][0] = False` for `i > 0` — a non-empty string cannot match an empty pattern.\n" +
-            "- **First row** `dp[0][j]`: a non-empty pattern can still match the empty string via `*` erasing tokens. Whenever `p[j-1] == '*'`, `dp[0][j] = dp[0][j-2]` (the `*` and its token contribute zero). This seeds patterns like `a*`, `a*b*`, `.*`.\n\n" +
-            "**G/H. Transition.** For `i>=1`, `j>=1`, look at `p[j-1]`:\n" +
-            "1. **Ordinary char or `.`** (`p[j-1] == s[i-1]` or `p[j-1] == '.'`): this token consumes one string char, so `dp[i][j] = dp[i-1][j-1]` — inherit the match of the shorter suffixes.\n" +
-            "2. **`*`** (`p[j-1] == '*'`, quantifying `p[j-2]`): two sub-cases combined with OR:\n" +
-            "   - **Zero occurrences:** ignore the `*` and its token entirely → `dp[i][j-2]`. (E.g. `a*` matching zero a's.)\n" +
-            "   - **One or more occurrences:** only possible if the token `p[j-2]` matches the current string char `s[i-1]` (either equal or `p[j-2] == '.'`). Then we consume that string char and *stay on the same `*`* to allow more repeats → `dp[i-1][j]`.\n" +
-            "   So `dp[i][j] = dp[i][j-2] OR ( (p[j-2] == s[i-1] or p[j-2]=='.') and dp[i-1][j] )`.\n" +
-            "3. **Mismatch** (plain char that differs): `dp[i][j] = False`.\n\n" +
-            "**I. Step by step.** Fill the `(m+1) x (n+1)` table, seeding row 0 as above, then sweeping `i` and `j`. Each cell reads earlier cells only. Return `dp[m][n]`.\n\n" +
-            "**J. Why correct (the `*` cases carefully).** A `*` group `x*` in an optimal match either contributes **no** copies of `x` — in which case the match is the same as if `x*` were deleted, i.e. `dp[i][j-2]` — or it contributes **at least one** copy, whose final copy must match the last string char `s[i-1]`; peeling that one copy off leaves the rest of the string still facing the same `x*` (because `*` allows more), i.e. `dp[i-1][j]`. Every match falls into exactly one of these two cases, so the OR is exhaustive and sound. The plain-char and `.` cases are direct one-to-one consumption. Together with the base cases, induction over `(i,j)` proves the table correct.\n\n" +
-            "**K/L. Complexity.** `(m+1)(n+1)` cells, `O(1)` each → time `O(m*n)`, space `O(m*n)`.\n\n" +
-            "**Space optimization.** Row `i` depends only on row `i` (via `j-2`) and row `i-1` (via the `*` repeat), so two rolling rows of length `n+1` reduce space to `O(n)`.\n\n" +
-            "**M. Interview mindset.** The whole difficulty is the `*`: always treat it as a pair with its preceding token and split into 'zero copies (jump two back)' vs 'one-more copy (stay, go one string char up)'. Seeding the first row for patterns that erase to empty is the classic missed edge case.",
+            "**What it asks.** Decide whether the pattern `p` matches the **entire** string `s`, where `.` matches any single character and `*` matches zero or more copies of the token immediately preceding it.\n\n" +
+            "**Why the naive idea fails.** You can recurse over positions in `s` and `p`, but the trouble is `*`: at each `*` you may consume zero characters, or one-more-and-stay, so the recursion branches heavily and re-visits the same `(i,j)` position pairs exponentially. Memoizing those states is exactly what turns it into the DP below.\n\n" +
+            "**Key Idea.** Let `dp[i][j]` be `True` if the first `i` characters of `s` match the first `j` characters of `p`. All that matters is how far into `s` and how far into `p` we are, so we can decide each cell character by character — with `*` always handled as a **pair** with the token before it — by looking back at shorter prefixes. The answer is `dp[m][n]`.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Base cases: `dp[0][0] = True` (empty pattern matches empty string); `dp[i][0] = False` for `i > 0` (a non-empty string cannot match an empty pattern). Then seed the **first row** `dp[0][j]`: a non-empty pattern can still match the empty string when a `*` erases its token, so whenever `p[j-1] == '*'`, set `dp[0][j] = dp[0][j-2]`. This handles patterns like `a*`, `a*b*`, and `.*`.\n" +
+            "2. Transition (in words), for `i>=1, j>=1`, based on `p[j-1]`:\n" +
+            "   - **Ordinary char or `.`** (matches `s[i-1]`): this token consumes one string char, so inherit the shorter-suffix result — `dp[i][j] = dp[i-1][j-1]`.\n" +
+            "   - **`*`** (quantifying `p[j-2]`): combine two possibilities with OR. **Zero occurrences** — ignore the `*` and its token, `dp[i][j-2]`. **One or more occurrences** — only if the token `p[j-2]` matches `s[i-1]` (equal or `.`); then consume that string char and stay on the same `*` to allow more repeats, `dp[i-1][j]`.\n" +
+            "   - **Mismatch** (a plain char that differs): `dp[i][j] = False`.\n" +
+            "3. Fill the `(m+1) x (n+1)` table after seeding row 0, sweeping `i` then `j`; each cell reads only earlier cells. Return `dp[m][n]`.\n\n" +
+            "**Why it works.** A `*` group `x*` in any match either contributes **no** copies of `x` — identical to deleting `x*`, i.e. `dp[i][j-2]` — or **at least one** copy, whose final copy must match the last string char `s[i-1]`; peeling that copy off leaves the rest of the string still facing the same `x*` (since `*` permits more), i.e. `dp[i-1][j]`. Every match falls into exactly one of these cases, so the OR is exhaustive and sound. The plain-char and `.` cases are direct one-to-one consumption. With the base cases, induction over `(i,j)` proves the whole table correct.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- `*` is a quantifier on the *preceding* token, never a wildcard on its own — always pair it with `p[j-2]`, never evaluate it alone.\n" +
+            "- Forgetting to seed the first row means patterns that erase to empty (like `a*` against `\"\"`) wrongly fail.\n" +
+            "- The match must cover the whole string — return `dp[m][n]`, not any earlier partial match.\n" +
+            "- Off-by-one: `dp[i][j]` reasons about `s[i-1]` and `p[j-1]` because of the zero-padded row and column.\n\n" +
+            "**Complexity.** `(m+1)(n+1)` cells with `O(1)` work each → time `O(m*n)`, space `O(m*n)`. **Space optimization:** row `i` depends only on row `i` itself (via `j-2`) and row `i-1` (via the `*` repeat), so two rolling rows of length `n+1` reduce space to `O(n)`.\n\n" +
+            "**Interview mindset.** The whole difficulty is the `*`: treat it as a pair with its preceding token and split into 'zero copies (jump two back)' versus 'one-more copy (stay, move one string char up)'. Seeding the first row for patterns that erase to empty is the classic missed edge case.",
           rcs:
             "class Solution:\n" +
             "    def isMatch(self, s: str, p: str) -> bool:\n" +

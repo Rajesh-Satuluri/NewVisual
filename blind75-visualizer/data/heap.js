@@ -97,26 +97,23 @@
           space: "O(n)",
           whenToUse: "The canonical streaming-median solution: any time you need the middle (or a running percentile) of data that keeps arriving.",
           logic:
-            "**A. What is being asked?** Maintain the median of a growing multiset under two operations: insert a number, and read the current median. The challenge is doing both fast — inserting into a sorted array is `O(n)` (shifting), and sorting on every query is `O(n log n)`.\n\n" +
-            "**D. Key observation.** The median only cares about the *boundary* between the smaller half of the values and the larger half. If we could always peek at the largest element of the low half and the smallest element of the high half, we would have everything we need — and a heap peeks at its extreme in `O(1)`.\n\n" +
-            "**E. Pattern / data structure — TWO heaps.** Split the numbers into two balanced halves:\n" +
-            "- `low`: a **max-heap** holding the smaller half. Its root is the *largest* of the low half.\n" +
-            "- `high`: a **min-heap** holding the larger half. Its root is the *smallest* of the high half.\n\n" +
-            "Because Python only has a min-heap, we simulate the max-heap by **negating** every value pushed into `low` (push `-num`, and read the max back as `-low[0]`).\n\n" +
-            "**F. The balancing invariant.** We enforce two rules after every insert:\n" +
-            "1. **Ordering:** every value in `low` is `<=` every value in `high` (so `-low[0] <= high[0]`). This is what makes the two roots the true middle elements.\n" +
-            "2. **Size:** the heaps differ in size by at most 1. We choose the convention that `low` may have one extra element (i.e. `len(low) == len(high)` or `len(low) == len(high) + 1`).\n\n" +
-            "**G/H. What each structure holds.** `low` = smaller half (negated for max-heap behaviour); `high` = larger half. Together they hold every number ever added.\n\n" +
-            "**I. Step by step (addNum).**\n" +
-            "1. Push the new number onto `low` (as `-num`). Now `low`'s root is a candidate for the overall middle.\n" +
-            "2. **Fix ordering:** move `low`'s root over to `high` — pop the max of `low` and push it to `high`. This guarantees rule 1 (the element we just moved is the largest of the low side and now sits on the high side, so nothing on the low side exceeds the high side).\n" +
-            "3. **Fix size:** if `high` now has more elements than `low`, move `high`'s root (its min) back to `low`. This restores the size convention (`low` >= `high`).\n\n" +
-            "**I. Step by step (findMedian).**\n" +
-            "- If the heaps are equal in size, the count is even and the two middles are the two roots: `(-low[0] + high[0]) / 2`.\n" +
-            "- Otherwise `low` has the extra element, so the count is odd and the single middle is `low`'s root: `-low[0]`.\n\n" +
-            "**J. Why it is correct.** Steps 2 and 3 together guarantee both invariants after every insert, so at all times `low` holds the floor(count/2) or ceil(count/2) smallest values and `high` holds the rest. The boundary between the halves is exactly the roots, which is exactly where the median lives.\n\n" +
-            "**K/L. Complexity.** Each `addNum` does a constant number of heap push/pop operations = `O(log n)`. `findMedian` just reads one or two roots = `O(1)`. Space `O(n)` to store all elements.\n\n" +
-            "**M. Interview mindset.** 'Running median / running percentile of a stream' is the signature cue for the two-heaps pattern. The reusable idea: a max-heap and a min-heap facing each other let you keep the middle of a dataset accessible in `O(1)` while inserts stay `O(log n)`.",
+            "**What it asks.** Maintain the median of a growing multiset under two operations: insert a number, and read the current median at any moment. Both must be fast because the stream can hold tens of thousands of values.\n\n" +
+            "**Why the naive idea fails.** The obvious approach is to keep the numbers in a sorted array. But inserting into a sorted array is `O(n)` because you must shift elements to make room, and if instead you re-sort on every query that is `O(n log n)` per call — far too slow across so many operations.\n\n" +
+            "**Key Idea.** The median only cares about the *boundary* between the smaller half of the values and the larger half — never the full ordering. If we could always peek at the largest element of the low half and the smallest element of the high half, we would have everything we need. A heap peeks at its extreme element in `O(1)`, so we keep two heaps facing each other: `low`, a **max-heap** holding the smaller half (its root is the largest of the low half), and `high`, a **min-heap** holding the larger half (its root is the smallest of the high half). Because Python's `heapq` is a min-heap only, we simulate the max-heap by **negating** every value pushed into `low` (push `-num`, read the max back as `-low[0]`).\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Maintain two invariants after every insert. **Ordering:** every value in `low` is `<=` every value in `high` (so `-low[0] <= high[0]`), which makes the two roots the true middle elements. **Size:** the heaps differ by at most 1, with the convention that `low` may carry the one extra element (`len(low) == len(high)` or `len(low) == len(high) + 1`).\n" +
+            "2. On `addNum`, push the new number onto `low` (as `-num`); its root is now a candidate for the middle.\n" +
+            "3. Fix ordering: pop the max of `low` and push it onto `high`. The moved element is the largest of the low side and now sits on the high side, so nothing on the low side exceeds the high side.\n" +
+            "4. Fix size: if `high` now has more elements than `low`, pop `high`'s root (its min) and push it back onto `low`, restoring the `low >= high` size convention.\n" +
+            "5. On `findMedian`, if the heaps are equal in size the count is even and the median is the average of the two roots, `(-low[0] + high[0]) / 2`; otherwise `low` holds the extra element, the count is odd, and the median is its root, `-low[0]`.\n\n" +
+            "**Why it works.** The ordering and size fixes together guarantee both invariants after every insert, so at all times `low` holds the `floor(count/2)` or `ceil(count/2)` smallest values and `high` holds the rest. The boundary between the two halves is exactly the two roots, which is exactly where the median lives.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Forgetting the negation: `heapq` is a min-heap, so `low` must store negatives and be read back as `-low[0]`.\n" +
+            "- Skipping the size rebalance step lets the heaps drift apart, breaking the median lookup — always re-check sizes after the ordering fix.\n" +
+            "- Even counts must average the two middles as a `float`; returning only one root gives a wrong answer.\n" +
+            "- A single element is its own median — the odd-count branch handles it naturally.\n\n" +
+            "**Complexity.** `addNum` does a constant number of heap push/pop operations, each `O(log n)`, so `O(log n)` per insert. `findMedian` reads one or two roots, `O(1)`. Space `O(n)` to store every element.\n\n" +
+            "**Interview mindset.** 'Running median' or 'running percentile of a stream' is the signature cue for the two-heaps pattern. The reusable idea: a max-heap and a min-heap facing each other keep the middle of a dataset accessible in `O(1)` while inserts stay `O(log n)`.",
           rcs:
             "import heapq\n" +
             "\n" +
@@ -230,15 +227,21 @@
           space: "O(n)",
           whenToUse: "When k is much smaller than the number of distinct elements, or when a streaming / bounded-memory top-k is wanted.",
           logic:
-            "**A. Asked.** Return the `k` values that occur most often.\n\n" +
-            "**B. First step (both approaches share it).** Count occurrences with a hash map in one `O(n)` pass: `count[value] = frequency`.\n\n" +
-            "**C. Naive follow-up.** Sort the distinct values by frequency and take the last `k` — that is `O(m log m)` where `m` is the number of distinct values. Correct but does more work than needed when `k` is small.\n\n" +
-            "**D. Key observation.** We don't need the full ordering of all frequencies — we only need the top `k`. A **min-heap of size k** lets us keep exactly the k most frequent seen so far: the smallest frequency in the heap sits at the root, so whenever a new element beats it we evict the root.\n\n" +
-            "**E. Pattern / data structure.** Push `(frequency, value)` pairs. Because it is a min-heap keyed on frequency, the root is always the *least* frequent of the current top-k — the first candidate to drop.\n\n" +
-            "**I. Step by step.** Build the counts. Iterate the distinct `(value, freq)` pairs: push each onto the heap; if the heap exceeds size `k`, pop the smallest-frequency entry. After processing everything, the heap holds exactly the k most frequent — extract their values.\n\n" +
-            "**J. Why correct.** At all times the heap contains the k highest frequencies seen so far, since we only ever discard the current minimum once size exceeds k. Anything discarded had a frequency no larger than k surviving entries.\n\n" +
-            "**K/L. Complexity.** Counting is `O(n)`. Each of the `m` distinct values does an `O(log k)` heap op, and the heap never exceeds size `k`, so `O(m log k) <= O(n log k)`. Space `O(n)` for the counts.\n\n" +
-            "**M. Interview mindset.** 'Top-k by some score' with k small -> a size-k heap keyed on the score. Use a min-heap when you want the k LARGEST (root = the weakest survivor to evict).",
+            "**What it asks.** Return the `k` values that occur most often in the array. Only the set of top-k values matters, not their order.\n\n" +
+            "**Why the naive idea fails.** After counting occurrences with a hash map in one `O(n)` pass (`count[value] = frequency`), the tempting follow-up is to sort the distinct values by frequency and take the last `k`. That is `O(m log m)` where `m` is the number of distinct values — correct, but it fully orders every frequency when we only need the largest `k`, wasted work when `k` is small.\n\n" +
+            "**Key Idea.** We don't need the full ordering of all frequencies, only the top `k`. A **min-heap of size k** keeps exactly the k most frequent values seen so far: the smallest frequency in the heap sits at the root, so whenever a new candidate beats the root we evict the root. Storing `(frequency, value)` pairs makes the heap order by frequency, so the root is always the *least* frequent of the current top-k — the first to drop.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Count occurrences into a hash map in one `O(n)` pass.\n" +
+            "2. Iterate the distinct `(value, freq)` pairs. Push each as a `(freq, value)` pair onto the heap.\n" +
+            "3. Whenever the heap exceeds size `k`, pop the root — the smallest-frequency entry — so the heap never holds more than `k` items.\n" +
+            "4. After processing everything, the heap holds exactly the k most frequent pairs; extract their values as the answer.\n\n" +
+            "**Why it works.** At all times the heap contains the k highest frequencies seen so far, because we only ever discard the current minimum once size exceeds `k`. Anything discarded had a frequency no larger than the `k` surviving entries, so it can never belong in the top-k.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Pairs must be keyed with frequency FIRST (`(freq, value)`) so the heap orders by frequency, not by value.\n" +
+            "- Pop only when the size strictly exceeds `k`; popping at exactly `k` would discard a valid survivor.\n" +
+            "- The final result is the heap's values in arbitrary order — that is acceptable since order does not matter.\n\n" +
+            "**Complexity.** Counting is `O(n)`. Each of the `m` distinct values does an `O(log k)` heap operation and the heap never exceeds size `k`, so `O(m log k) <= O(n log k)` overall. Space `O(n)` for the counts.\n\n" +
+            "**Interview mindset.** 'Top-k by some score' with small `k` is the cue for a size-`k` heap keyed on the score. Use a min-heap when you want the k LARGEST — the root is the weakest survivor, the one to evict.",
           rcs:
             "import heapq\n" +
             "from collections import Counter\n" +
@@ -272,16 +275,20 @@
           space: "O(n)",
           whenToUse: "The linear-time answer: frequencies are bounded by n, so they can index buckets directly instead of being sorted.",
           logic:
-            "**D. Key observation that beats the heap.** A frequency can be at most `n` (an element cannot appear more times than the array is long). So frequencies live in the small range `1..n` and can be used directly as **array indices** — no comparisons, no logs.\n\n" +
-            "**E. Pattern — bucket sort.** Create `n + 1` buckets, where `buckets[f]` is the list of values that occur exactly `f` times. This places every distinct value into its frequency slot in `O(m)` total.\n\n" +
-            "**F. Why it works.** Frequency is a bounded integer, which is exactly the precondition for counting/bucket sort to sort in linear time. We sidestep comparison-based sorting entirely.\n\n" +
-            "**I. Step by step.**\n" +
+            "**What it asks.** Return the `k` most frequent values, this time in guaranteed linear time — better than any comparison-based sort of the frequencies.\n\n" +
+            "**Why the naive idea fails.** Even the size-`k` heap costs `O(n log k)` because it compares frequencies. The `log` factor comes from treating frequency as an opaque value to be compared, when in fact it is a small bounded integer we could exploit directly.\n\n" +
+            "**Key Idea.** A frequency can be at most `n` — an element cannot appear more times than the array is long. So frequencies live in the small range `1..n` and can be used directly as **array indices**, with no comparisons and no logs. This is exactly the precondition for bucket/counting sort to run in linear time. Create `n + 1` buckets where `buckets[f]` is the list of values that occur exactly `f` times, placing every distinct value into its frequency slot.\n\n" +
+            "**Step-by-Step Approach.**\n" +
             "1. Count frequencies with a hash map (`O(n)`).\n" +
-            "2. Fill buckets: for each `(value, freq)`, append `value` to `buckets[freq]`.\n" +
-            "3. Walk buckets from the **highest** frequency downward, collecting values until we have `k`.\n\n" +
-            "**J. Why correct.** Scanning from the highest index means we always take the most frequent remaining values first, so the first `k` collected are the top-k by frequency.\n\n" +
-            "**K/L. Complexity.** Counting `O(n)`, filling buckets `O(m)`, scanning buckets `O(n)` in the worst case -> `O(n)` overall. Space `O(n)` for counts and buckets.\n\n" +
-            "**M. Interview mindset.** When the sort key is a bounded integer (here, frequency <= n), reach for bucket/counting sort to break the `O(n log n)` barrier. Index by the key instead of comparing.",
+            "2. Fill buckets: for each `(value, freq)`, append `value` to `buckets[freq]`. Every distinct value lands in its frequency slot in `O(m)` total.\n" +
+            "3. Walk the buckets from the **highest** frequency index downward, collecting values into the result until it holds `k`, then return.\n\n" +
+            "**Why it works.** Scanning from the highest index means we always take the most frequent remaining values first, so the first `k` values collected are precisely the top-k by frequency. Because frequency is a bounded integer, indexing replaces comparison entirely and no ordering step is needed.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Size the bucket array `n + 1` so index `n` (a value appearing in every position) is valid; an off-by-one here overflows.\n" +
+            "- Index 0 stays empty — no value has frequency 0 — so the downward scan can stop at 1.\n" +
+            "- A single frequency bucket may hold several values (ties); collect them all but stop the instant the result reaches `k`.\n\n" +
+            "**Complexity.** Counting `O(n)`, filling buckets `O(m)`, scanning buckets `O(n)` in the worst case, so `O(n)` overall. Space `O(n)` for the counts and buckets.\n\n" +
+            "**Interview mindset.** When the sort key is a bounded integer (here, frequency <= n), reach for bucket/counting sort to break the `O(n log n)` barrier — index by the key instead of comparing it.",
           rcs:
             "from collections import Counter\n" +
             "\n" +
@@ -387,14 +394,21 @@
           space: "O(k)",
           whenToUse: "Clean and reliable; ideal when k is small or when elements arrive as a stream and you want bounded memory.",
           logic:
-            "**A. Asked.** Find the value that would sit at position `k` if the array were sorted from largest to smallest.\n\n" +
-            "**B. Brute force.** Sort the whole array descending and index `k-1`: correct but `O(n log n)` and computes far more order than we need.\n\n" +
-            "**D. Key observation.** The k-th largest element is precisely the **smallest** among the k largest elements. If we keep only the k biggest values seen so far in a **min-heap**, the root is that smallest-of-the-top-k — which is exactly the answer.\n\n" +
-            "**E. Pattern / data structure.** A min-heap capped at size `k`. Its root is the weakest member of the current top-k, so any incoming value larger than the root deserves to replace it.\n\n" +
-            "**I. Step by step.** Push elements one by one. Whenever the heap grows beyond `k`, pop the root (the current smallest of the top-k). After the whole array is processed, the heap holds the k largest values and its root is the k-th largest.\n\n" +
-            "**J. Why correct.** The heap always retains the k largest values seen so far: we only ever evict the minimum once size exceeds k, and an evicted value is smaller than k others, so it can never be the k-th largest. At the end the root is the minimum of the top-k, i.e. the k-th largest overall.\n\n" +
-            "**K/L. Complexity.** Each of `n` elements does an `O(log k)` heap op -> `O(n log k)` time, `O(k)` space for the heap.\n\n" +
-            "**M. Interview mindset.** 'k-th largest / k-th smallest / top-k' -> a size-k heap of the OPPOSITE polarity: for k-th largest use a MIN-heap (root = the one to evict); for k-th smallest use a max-heap.",
+            "**What it asks.** Find the value that would sit at position `k` if the array were sorted from largest to smallest. Duplicates count, so this is rank `k` in sorted order, not the k-th distinct value.\n\n" +
+            "**Why the naive idea fails.** Sorting the whole array descending and indexing `k-1` is correct but `O(n log n)`, computing the full order of every element when we only need one of them.\n\n" +
+            "**Key Idea.** The k-th largest element is precisely the **smallest** among the k largest elements. If we keep only the `k` biggest values seen so far in a **min-heap**, its root is that smallest-of-the-top-k — which is exactly the answer. The root is the weakest member of the current top-k, so any incoming value larger than the root deserves to replace it.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Start with an empty min-heap.\n" +
+            "2. Push array elements onto it one by one.\n" +
+            "3. Whenever the heap grows beyond size `k`, pop the root — the current smallest of the top-k — so the heap never exceeds `k` items.\n" +
+            "4. After the whole array is processed, the heap holds the k largest values and its root (`heap[0]`) is the k-th largest.\n\n" +
+            "**Why it works.** The heap always retains the k largest values seen so far: we only ever evict the minimum once size exceeds `k`, and an evicted value is smaller than `k` other retained values, so it can never be the k-th largest. At the end the root is the minimum of the top-k, i.e. the k-th largest overall.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Use a MIN-heap for the k-th LARGEST — a common slip is to reach for a max-heap here.\n" +
+            "- Pop only when the size strictly exceeds `k`; the answer is the root, not a popped value.\n" +
+            "- Duplicates are kept, not deduplicated, so the k-th largest of `[7,7,7]` is still `7`.\n\n" +
+            "**Complexity.** Each of the `n` elements does an `O(log k)` heap operation, so `O(n log k)` time, with `O(k)` space for the bounded heap.\n\n" +
+            "**Interview mindset.** 'k-th largest / k-th smallest / top-k' calls for a size-`k` heap of the OPPOSITE polarity: for the k-th largest use a MIN-heap (root = the one to evict); for the k-th smallest use a max-heap.",
           rcs:
             "import heapq\n" +
             "\n" +
@@ -424,17 +438,23 @@
           space: "O(1)",
           whenToUse: "When you want the best average-case running time and the array is available in full (not a stream); the classic selection algorithm.",
           logic:
-            "**D. Key observation.** Sorting orders *all* n elements, but we only need the ONE element at a known rank. Quickselect adapts quicksort's partition step to home in on that single position without sorting the rest.\n\n" +
-            "**E. Rank conversion.** The k-th *largest* is the element at 0-based index `target = len(nums) - k` in **ascending** sorted order (e.g. the largest sits at the last index `n-1`). We hunt for whatever value ends up at that index.\n\n" +
-            "**F. Partition intuition.** Pick a `pivot`. Rearrange the current range so that every element `< pivot` comes before it and every element `>= pivot` comes after — the pivot lands at its **final sorted index** `p`. Crucially we now KNOW the pivot's true rank for free.\n" +
-            "- If `p == target`, the pivot IS the answer — return it.\n" +
-            "- If `p < target`, the answer lies to the RIGHT; recurse (or loop) on the right part only.\n" +
-            "- If `p > target`, the answer lies to the LEFT; recurse on the left part only.\n\n" +
-            "**G/H. Why it is fast.** Unlike quicksort we discard one side each round instead of recursing into both. On average each partition halves the search range, so the work is `n + n/2 + n/4 + ... = O(n)`. The worst case (`O(n^2)`) happens with pathological pivots; a random pivot makes that astronomically unlikely.\n\n" +
-            "**I. Step by step.** Maintain a `[left, right]` window over the array. Repeatedly partition it around a (randomly chosen) pivot; compare the pivot's final index `p` to `target` and shrink the window to the side that must contain `target`, until `p == target`.\n\n" +
-            "**J. Why correct.** After each partition the pivot is at its exact sorted position, so comparing `p` with `target` reliably tells us which side holds the target rank. The window always contains index `target`, and it terminates when a pivot lands exactly on it.\n\n" +
-            "**K/L. Complexity.** Average `O(n)` time, worst `O(n^2)`; `O(1)` extra space (in-place partitioning, iterative loop).\n\n" +
-            "**M. Interview mindset.** 'Find the element of a given rank (median, k-th largest) without full sorting' -> Quickselect. Say the average is `O(n)`, mention random pivots to dodge the `O(n^2)` worst case, and note the size-k heap as the simpler `O(n log k)` alternative.",
+            "**What it asks.** Return the k-th largest value, aiming for the best average running time by finding only the ONE element at that rank rather than ordering the whole array.\n\n" +
+            "**Why the naive idea fails.** Sorting orders *all* `n` elements, but we need only the single element at a known rank. Even the size-`k` heap pays a `log` factor. Quickselect adapts quicksort's partition step to home in on one position without sorting the rest.\n\n" +
+            "**Key Idea.** Pick a `pivot` and partition the current range so every element `< pivot` comes before it and every element `>= pivot` comes after — the pivot then lands at its **final sorted index** `p`, so we learn its true rank for free. First convert the target: the k-th *largest* is the element at 0-based index `target = len(nums) - k` in **ascending** sorted order (the largest sits at index `n-1`). Now compare `p` to `target`: if equal, the pivot IS the answer; if `p < target`, the answer lies to the right; if `p > target`, it lies to the left. Each round we discard one whole side instead of recursing into both.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Compute `target = len(nums) - k`, the ascending-order index of the k-th largest.\n" +
+            "2. Maintain a `[left, right]` window over the array, initially the whole array.\n" +
+            "3. Partition the window around a randomly chosen pivot: sweep the range moving elements smaller than the pivot to the front, then drop the pivot into the boundary slot; that slot index `p` is its final sorted position.\n" +
+            "4. If `p == target`, return `nums[p]`. If `p < target`, move `left` to `p + 1`; if `p > target`, move `right` to `p - 1`.\n" +
+            "5. Repeat until a pivot lands exactly on `target`.\n\n" +
+            "**Why it works.** After each partition the pivot is at its exact sorted position, so comparing `p` with `target` reliably tells us which side holds the target rank. The window always contains index `target`, and the loop terminates when a pivot lands exactly on it. On average each partition roughly halves the search range, giving `n + n/2 + n/4 + ... = O(n)`.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- The rank conversion `target = n - k` is the classic trap — ascending index, not `k` or `k-1`.\n" +
+            "- A pathological pivot sequence causes the `O(n^2)` worst case; a random pivot makes it astronomically unlikely.\n" +
+            "- Partitioning mutates `nums` in place — fine here, but note it if the caller needs the original order.\n" +
+            "- Shrink the window to `p + 1` / `p - 1`, excluding the pivot, or the loop can fail to make progress.\n\n" +
+            "**Complexity.** Average `O(n)` time, worst `O(n^2)`; `O(1)` extra space with in-place partitioning and an iterative loop.\n\n" +
+            "**Interview mindset.** 'Find the element of a given rank (median, k-th largest) without full sorting' points to Quickselect. State the average is `O(n)`, mention random pivots to dodge the `O(n^2)` worst case, and note the size-`k` heap as the simpler `O(n log k)` alternative.",
           rcs:
             "import random\n" +
             "\n" +
