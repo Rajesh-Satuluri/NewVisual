@@ -13,9 +13,10 @@ as-is in **SSMS 19 / 21** (SQL Server 2019 / 2022). For every problem (once cont
 
 **Live:** https://rajesh-satuluri.github.io/NewVisual/sql-visualizer/
 
-> **Status:** app + SQL-adapted problem view are live, with the **Ranking**
-> exemplar topic (iterations 1–5). The remaining 11 topics roll out
-> topic-by-topic in validated batches. A dev-only validation harness lives in
+> **Status:** app + SQL-adapted problem view are live. Six topics are
+> populated so far — Aggregation & Grouping, Filtering & Subqueries, Ranking,
+> Joins, Window Functions, and CTE & Complex Joins (15 problems). The remaining
+> topics roll out in validated batches. A dev-only validation harness lives in
 > `tools/` (see `tools/README.md`).
 
 ## Study features
