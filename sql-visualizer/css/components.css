@@ -185,3 +185,41 @@
   .prob-header { padding-left: 16px; padding-right: 16px; }
   .ph-title { font-size: 22px; }
 }
+
+/* ---------- SQL tables (schema / sample data / expected output / walkthrough) ---------- */
+.sql-block { display: flex; flex-direction: column; gap: 14px; }
+.sql-block .subhead { margin-top: 4px; }
+.sql-table-wrap { display: flex; flex-direction: column; gap: 6px; }
+.sql-table-cap {
+  font-size: 12px; font-weight: 700; letter-spacing: .3px; color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.sql-table-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.sql-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: max-content; }
+.sql-table th {
+  background: var(--bg-2); color: var(--muted); text-align: left;
+  font-size: 11px; text-transform: uppercase; letter-spacing: .5px;
+  padding: 8px 14px; border-bottom: 1px solid var(--border); white-space: nowrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.sql-table td {
+  padding: 7px 14px; border-bottom: 1px solid var(--border-soft); color: var(--text-2);
+  white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.sql-table tbody tr:nth-child(even) td { background: var(--bg-2); }
+.sql-table tbody tr:last-child td { border-bottom: none; }
+.sql-table td.sql-null { color: var(--muted); font-style: italic; opacity: .8; }
+
+/* walkthrough steps */
+.walkthrough .wt-step {
+  border: 1px solid var(--border-soft); border-radius: var(--radius-sm);
+  padding: 12px 14px; background: var(--bg-1); display: flex; flex-direction: column; gap: 8px;
+}
+.wt-head { font-weight: 700; font-size: 13px; color: var(--text); }
+.wt-note { font-size: 13px; color: var(--text-2); }
+
+/* dialect note variant */
+.when-use.dialect { border-left-color: var(--brand); }
+
+/* common mistakes list marker */
+.cue-list.mistakes li::marker { content: "✗ "; }

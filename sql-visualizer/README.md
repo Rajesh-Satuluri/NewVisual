@@ -13,8 +13,10 @@ as-is in **SSMS 19 / 21** (SQL Server 2019 / 2022). For every problem (once cont
 
 **Live:** https://rajesh-satuluri.github.io/NewVisual/sql-visualizer/
 
-> **Status:** app scaffold is live (iterations 1–2). SQL topic content (12 topics) is
-> rolling out topic-by-topic in validated batches.
+> **Status:** app + SQL-adapted problem view are live, with the **Ranking**
+> exemplar topic (iterations 1–5). The remaining 11 topics roll out
+> topic-by-topic in validated batches. A dev-only validation harness lives in
+> `tools/` (see `tools/README.md`).
 
 ## Study features
 
