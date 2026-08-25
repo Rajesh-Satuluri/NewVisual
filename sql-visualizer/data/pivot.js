@@ -119,6 +119,168 @@
         "Leaving NULLs for absent categories instead of 0.",
         "Forgetting that multiple source rows for one cell must be summed (Widget's two Q1 rows)."
       ]
+    },
+
+    {
+      id: "status-counts-per-day",
+      number: "DL 10188",
+      platform: "DataLemur",
+      title: "Order Status Counts per Day",
+      difficulty: "Medium",
+      category: "Pivot / Conditional Agg",
+      topics: ["Pivot / Conditional Agg", "Aggregation & Grouping"],
+      domains: ["Operations Analytics"],
+      link: "https://datalemur.com/",
+      meta: { pattern: "Conditional count crosstab", sqlConcept: "COUNT(CASE …)", technique: "Count per category into columns" },
+      descriptionBrief:
+        "Given **Orders(OrderDate, Status)** with statuses 'Placed','Shipped','Cancelled', " +
+        "return one row per day with a **count column for each status**.",
+      schema: [
+        { name: "Orders", columns: [
+          { name: "Id", type: "INT", note: "PK" },
+          { name: "OrderDate", type: "DATE" },
+          { name: "Status", type: "VARCHAR(20)" } ] }
+      ],
+      setupSql:
+        "IF OBJECT_ID('dbo.Orders','U') IS NOT NULL DROP TABLE dbo.Orders;\n" +
+        "CREATE TABLE dbo.Orders (Id INT PRIMARY KEY, OrderDate DATE, Status VARCHAR(20));\n" +
+        "INSERT INTO dbo.Orders VALUES\n" +
+        "  (1,'2024-01-01','Placed'),(2,'2024-01-01','Shipped'),(3,'2024-01-01','Placed'),\n" +
+        "  (4,'2024-01-02','Cancelled'),(5,'2024-01-02','Shipped');",
+      sampleData: [
+        { table: "Orders", columns: ["Id","OrderDate","Status"],
+          rows: [[1,"2024-01-01","Placed"],[2,"2024-01-01","Shipped"],[3,"2024-01-01","Placed"],[4,"2024-01-02","Cancelled"],[5,"2024-01-02","Shipped"]] }
+      ],
+      expectedOutput: { columns: ["OrderDate","Placed","Shipped","Cancelled"],
+        rows: [["2024-01-01",2,1,0],["2024-01-02",0,1,1]] },
+      approaches: [
+        {
+          name: "COUNT(CASE …) (recommended)",
+          perfNote: "Counts all status columns in one grouped pass; COUNT ignores the NULLs the CASE produces for non-matching rows.",
+          dialectNote: "",
+          logic:
+            "**What it asks.** A per-day breakdown of orders by status, statuses as columns.\n\n" +
+            "**Why the naive idea fails.** A single `COUNT(*)` per day gives one number; you need a separate count per status.\n\n" +
+            "**Key Idea.** `COUNT(CASE WHEN Status='Placed' THEN 1 END)` counts only Placed rows (the CASE yields NULL otherwise, and COUNT skips NULLs) — one such expression per status.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. `GROUP BY OrderDate`.\n" +
+            "2. One `COUNT(CASE WHEN Status='X' THEN 1 END)` per status.\n\n" +
+            "**Why it works.** COUNT counts non-NULLs, so each conditional counts exactly its status.\n\n" +
+            "**Common Gotchas.** Use `COUNT` (not `SUM`) with `THEN 1 END` and no ELSE — or use `SUM(CASE … THEN 1 ELSE 0 END)`. Mixing them (COUNT with ELSE 0) counts everything.\n\n" +
+            "**Performance.** Single group-aggregate pass.\n\n" +
+            "**Interview mindset.** 'count per category across columns' → COUNT(CASE …) (a conditional-aggregation crosstab).",
+          tsql:
+            "SELECT OrderDate,\n" +
+            "       COUNT(CASE WHEN Status='Placed'    THEN 1 END) AS Placed,\n" +
+            "       COUNT(CASE WHEN Status='Shipped'   THEN 1 END) AS Shipped,\n" +
+            "       COUNT(CASE WHEN Status='Cancelled' THEN 1 END) AS Cancelled\n" +
+            "FROM dbo.Orders\n" +
+            "GROUP BY OrderDate\n" +
+            "ORDER BY OrderDate;",
+          clean:
+            "SELECT OrderDate,\n" +
+            "       COUNT(CASE WHEN Status='Placed' THEN 1 END) AS Placed,\n" +
+            "       COUNT(CASE WHEN Status='Shipped' THEN 1 END) AS Shipped,\n" +
+            "       COUNT(CASE WHEN Status='Cancelled' THEN 1 END) AS Cancelled\n" +
+            "FROM dbo.Orders\n" +
+            "GROUP BY OrderDate\n" +
+            "ORDER BY OrderDate;"
+        }
+      ],
+      walkthrough: [
+        { step: "Count each status per day", note: "Jan 1: 2 Placed, 1 Shipped, 0 Cancelled. Jan 2: 0/1/1.",
+          table: { columns: ["OrderDate","Placed","Shipped","Cancelled"],
+            rows: [["2024-01-01",2,1,0],["2024-01-02",0,1,1]] } }
+      ],
+      patternRecognition: [
+        "'count of each category as its own column' → COUNT(CASE WHEN cat THEN 1 END) per category."
+      ],
+      interviewRecall: [
+        "COUNT(CASE … THEN 1 END) counts matches because COUNT ignores NULLs.",
+        "Don't add ELSE 0 to a COUNT(CASE …) — that counts every row."
+      ],
+      commonMistakes: [
+        "Using COUNT(CASE … THEN 1 ELSE 0 END), which counts all rows.",
+        "Returning NULL instead of 0 for a status absent on a given day (COUNT gives 0 correctly; SUM needs ISNULL)."
+      ]
+    },
+
+    {
+      id: "unpivot-quarter-columns",
+      number: "SS 10233",
+      platform: "StrataScratch",
+      title: "Unpivot Quarterly Columns to Rows",
+      difficulty: "Medium",
+      category: "Pivot / Conditional Agg",
+      topics: ["Pivot / Conditional Agg"],
+      domains: ["Sales Analytics"],
+      link: "https://www.stratascratch.com/",
+      meta: { pattern: "Columns → rows", sqlConcept: "UNPIVOT / CROSS APPLY VALUES", technique: "Normalize a wide table" },
+      descriptionBrief:
+        "Given a wide table **Wide(Product, Q1, Q2, Q3, Q4)**, return a **long** result with one " +
+        "row per product-quarter: columns Product, Quarter, Amount.",
+      schema: [
+        { name: "Wide", columns: [
+          { name: "Product", type: "VARCHAR(30)", note: "PK" },
+          { name: "Q1", type: "INT" }, { name: "Q2", type: "INT" },
+          { name: "Q3", type: "INT" }, { name: "Q4", type: "INT" } ] }
+      ],
+      setupSql:
+        "IF OBJECT_ID('dbo.Wide','U') IS NOT NULL DROP TABLE dbo.Wide;\n" +
+        "CREATE TABLE dbo.Wide (Product VARCHAR(30) PRIMARY KEY, Q1 INT, Q2 INT, Q3 INT, Q4 INT);\n" +
+        "INSERT INTO dbo.Wide VALUES ('Widget',150,150,0,0),('Gadget',0,200,0,75);",
+      sampleData: [
+        { table: "Wide", columns: ["Product","Q1","Q2","Q3","Q4"],
+          rows: [["Widget",150,150,0,0],["Gadget",0,200,0,75]] }
+      ],
+      expectedOutput: { columns: ["Product","Quarter","Amount"],
+        rows: [["Widget","Q1",150],["Widget","Q2",150],["Widget","Q3",0],["Widget","Q4",0],
+               ["Gadget","Q1",0],["Gadget","Q2",200],["Gadget","Q3",0],["Gadget","Q4",75]] },
+      approaches: [
+        {
+          name: "CROSS APPLY (VALUES …) (recommended)",
+          perfNote: "One scan expands each row into four; more flexible than UNPIVOT (handles multiple measures and expressions) and easy to read.",
+          dialectNote: "CROSS APPLY (VALUES …) is the modern, flexible way to unpivot in T-SQL; the older UNPIVOT operator also works.",
+          logic:
+            "**What it asks.** Turn four quarter columns back into four rows per product (normalize a cross-tab).\n\n" +
+            "**Why the naive idea fails.** A plain SELECT keeps the wide shape; you must explode each row into one row per quarter.\n\n" +
+            "**Key Idea.** `CROSS APPLY (VALUES ('Q1',Q1),('Q2',Q2),('Q3',Q3),('Q4',Q4)) v(Quarter,Amount)` pairs each product with its four (quarter, amount) tuples.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. For each Wide row, APPLY a 4-row VALUES list mapping label → column.\n" +
+            "2. Project Product, v.Quarter, v.Amount.\n\n" +
+            "**Why it works.** CROSS APPLY runs the VALUES table-expression per outer row, multiplying one wide row into four long rows.\n\n" +
+            "**Common Gotchas.** All unpivoted columns must share a compatible type; UNPIVOT drops NULLs whereas the VALUES approach keeps them.\n\n" +
+            "**Performance.** One scan with a 4× row expansion.\n\n" +
+            "**Interview mindset.** 'columns into rows / normalize wide data' → CROSS APPLY (VALUES …) or UNPIVOT.",
+          tsql:
+            "SELECT w.Product, v.Quarter, v.Amount\n" +
+            "FROM dbo.Wide w\n" +
+            "CROSS APPLY (VALUES ('Q1', w.Q1), ('Q2', w.Q2),\n" +
+            "                    ('Q3', w.Q3), ('Q4', w.Q4)) v(Quarter, Amount)\n" +
+            "ORDER BY w.Product DESC, v.Quarter;",
+          clean:
+            "SELECT w.Product, v.Quarter, v.Amount\n" +
+            "FROM dbo.Wide w\n" +
+            "CROSS APPLY (VALUES ('Q1', w.Q1), ('Q2', w.Q2), ('Q3', w.Q3), ('Q4', w.Q4)) v(Quarter, Amount)\n" +
+            "ORDER BY w.Product DESC, v.Quarter;"
+        }
+      ],
+      walkthrough: [
+        { step: "Explode each product into four quarter rows", note: "Widget → Q1..Q4; Gadget → Q1..Q4.",
+          table: { columns: ["Product","Quarter","Amount"],
+            rows: [["Widget","Q1",150],["Widget","Q2",150],["Widget","Q3",0],["Widget","Q4",0],["Gadget","Q1",0],["Gadget","Q2",200],["Gadget","Q3",0],["Gadget","Q4",75]] } }
+      ],
+      patternRecognition: [
+        "'columns into rows / normalize a wide table' → CROSS APPLY (VALUES …) or the UNPIVOT operator."
+      ],
+      interviewRecall: [
+        "CROSS APPLY (VALUES …) is the flexible unpivot; it keeps NULLs, UNPIVOT drops them.",
+        "Unpivoted source columns must be type-compatible."
+      ],
+      commonMistakes: [
+        "Assuming UNPIVOT preserves NULL rows (it removes them).",
+        "Unpivoting columns of incompatible types without casting."
+      ]
     }
 
   ]);
