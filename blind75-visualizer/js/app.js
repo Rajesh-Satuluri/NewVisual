@@ -198,9 +198,12 @@
   }
 
   // ============================================================= MAIN VIEW
-  function renderProblem() {
+  function renderProblem(preserveScroll) {
     var p = byId[state.currentId];
     var main = el("main");
+    // Keep the reading position on in-place re-renders (code/approach/status
+    // toggles); only jump to top when navigating to a different problem.
+    var prevScroll = preserveScroll === false ? 0 : main.scrollTop;
     main.innerHTML = "";
     if (!p) {
       main.appendChild(h("div", { class: "empty-state" }, "Select a problem from the sidebar to begin."));
@@ -438,8 +441,7 @@
     footer.appendChild(pbtn); footer.appendChild(nbtn);
     main.appendChild(footer);
 
-    main.scrollTop = 0;
-    window.scrollTo(0, 0);
+    main.scrollTop = prevScroll;
   }
 
   function revealOverlay(target) {
@@ -456,7 +458,7 @@
   function selectProblem(id) {
     state.currentId = id;
     if (location.hash !== "#" + id) history.replaceState(null, "", "#" + id);
-    renderProblem();
+    renderProblem(false);
     renderSidebar();
   }
 
