@@ -287,6 +287,9 @@
     });
     main.appendChild(metaBox);
 
+    // ---- animation / visualization links (above the description) ----
+    main.appendChild(buildLinksSection(p));
+
     // ---- Problem Description ----
     var descNode = h("div", { class: "md" });
     descNode.innerHTML = md(p.description);
@@ -428,7 +431,23 @@
     noteWrap.appendChild(saveHint);
     main.appendChild(section("notes", "My Notes", noteWrap));
 
-    // ---- animation / visualization links ----
+    // ---- prev/next nav ----
+    var footer = h("div", { class: "prob-nav" });
+    var idx = ALL.findIndex(function (x) { return x.id === p.id; });
+    var prev = ALL[idx - 1], next = ALL[idx + 1];
+    var pbtn = h("button", { class: "nav-btn" + (prev ? "" : " disabled") },
+      prev ? "← " + esc(prev.title) : "← Start");
+    if (prev) pbtn.addEventListener("click", function () { selectProblem(prev.id); });
+    var nbtn = h("button", { class: "nav-btn" + (next ? "" : " disabled") },
+      next ? esc(next.title) + " →" : "End →");
+    if (next) nbtn.addEventListener("click", function () { selectProblem(next.id); });
+    footer.appendChild(pbtn); footer.appendChild(nbtn);
+    main.appendChild(footer);
+
+    main.scrollTop = prevScroll;
+  }
+
+  function buildLinksSection(p) {
     var linksWrap = h("div", { class: "links-wrap" });
     linksWrap.appendChild(h("div", { class: "links-hint" },
       "Paste up to two links to external animations/visualizations of this problem (e.g. VisuAlgo, YouTube, a blog). Saved to this browser; click Open to launch in a new tab."));
@@ -475,22 +494,7 @@
         linksWrap.appendChild(row);
       })(li);
     }
-    main.appendChild(section("links", "Animation / Visualization Links", linksWrap));
-
-    // ---- prev/next nav ----
-    var footer = h("div", { class: "prob-nav" });
-    var idx = ALL.findIndex(function (x) { return x.id === p.id; });
-    var prev = ALL[idx - 1], next = ALL[idx + 1];
-    var pbtn = h("button", { class: "nav-btn" + (prev ? "" : " disabled") },
-      prev ? "← " + esc(prev.title) : "← Start");
-    if (prev) pbtn.addEventListener("click", function () { selectProblem(prev.id); });
-    var nbtn = h("button", { class: "nav-btn" + (next ? "" : " disabled") },
-      next ? esc(next.title) + " →" : "End →");
-    if (next) nbtn.addEventListener("click", function () { selectProblem(next.id); });
-    footer.appendChild(pbtn); footer.appendChild(nbtn);
-    main.appendChild(footer);
-
-    main.scrollTop = prevScroll;
+    return section("links", "Animation / Visualization Links", linksWrap);
   }
 
   function revealOverlay(target) {
