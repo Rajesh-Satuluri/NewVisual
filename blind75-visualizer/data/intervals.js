@@ -94,20 +94,21 @@
           space: "O(n)",
           whenToUse: "The expected answer: exploit the fact that the list is already sorted, so one linear scan suffices.",
           logic:
-            "**A. What is asked.** Drop one new interval into an already-sorted, non-overlapping list and re-establish those two properties (sorted, non-overlapping).\n\n" +
-            "**B. Naive idea.** Append the new interval, sort everything (`O(n log n)`), then run the Merge-Intervals routine. Correct, but it throws away the gift the problem hands you: the input is ALREADY sorted.\n\n" +
-            "**D. Key observation.** Because the list is sorted by start, every existing interval falls into exactly one of three zones relative to `newInterval`:\n" +
-            "1. **Entirely BEFORE** it: the interval ends before `newInterval` starts (`interval.end < newInterval.start`). Copy it as-is.\n" +
-            "2. **OVERLAPPING** it: not fully before and not fully after. Absorb it into `newInterval` by widening: `newInterval.start = min(...)`, `newInterval.end = max(...)`.\n" +
-            "3. **Entirely AFTER** it: the interval starts after `newInterval` ends (`interval.start > newInterval.end`). Everything from here on is copied as-is.\n\n" +
-            "**E. Pattern.** A one-pass merge that only ever compares against the (growing) `newInterval`, so no repeated sorting is needed.\n\n" +
-            "**I. Step by step.**\n" +
-            "1. Copy all intervals that end before `newInterval` starts.\n" +
-            "2. While the current interval overlaps `newInterval` (`interval.start <= newInterval.end`), grow `newInterval` to cover both. Then push the merged `newInterval` once.\n" +
-            "3. Copy the remaining intervals.\n\n" +
-            "**J. Why correct.** The three zones are contiguous because the list is sorted: all 'before' intervals come first, then a (possibly empty) run of overlapping ones, then all 'after' intervals. Merging the middle run into one interval keeps the whole result sorted and non-overlapping.\n\n" +
-            "**K/L. Complexity.** Each interval is examined once → `O(n)` time; the output list is `O(n)` space.\n\n" +
-            "**M. Interview mindset.** When the input is pre-sorted, resist re-sorting — a single positional sweep is the intended, faster solution.",
+            "**What it asks.** Drop one new interval into an already-sorted, non-overlapping list and return the list still sorted and still non-overlapping.\n\n" +
+            "**Why the naive idea fails.** The tempting approach is to append `newInterval`, sort everything (`O(n log n)`), then run the full Merge-Intervals routine. It works, but it throws away the gift the problem hands you: the input is ALREADY sorted, so the re-sort is wasted work.\n\n" +
+            "**Key Idea.** Because the list is sorted by start, every existing interval falls into exactly one of three CONTIGUOUS zones relative to `newInterval`: entirely BEFORE it (ends before `newInterval` starts, `interval.end < newInterval.start`), OVERLAPPING it (neither fully before nor fully after), or entirely AFTER it (starts after `newInterval` ends, `interval.start > newInterval.end`). Since the zones never interleave, one linear sweep that only ever compares against the single growing `newInterval` suffices — no repeated sorting.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Copy every interval that ends before `newInterval` starts straight into the result.\n" +
+            "2. While the current interval overlaps `newInterval` (`interval.start <= newInterval.end`), absorb it by widening: set `newInterval.start` to the `min` of the two starts and `newInterval.end` to the `max` of the two ends.\n" +
+            "3. Push the fully merged `newInterval` exactly once.\n" +
+            "4. Copy every remaining interval as-is.\n\n" +
+            "**Why it works.** Sorting makes the three zones contiguous: all the before intervals come first, then a (possibly empty) run of overlapping ones, then all the after intervals. Collapsing the middle run into one widened interval keeps the whole result sorted and non-overlapping, and each interval is placed exactly once.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Touching endpoints count as overlap here (`[1,3]` and `[3,5]` merge into `[1,5]`), so the overlap test must use `<=`.\n" +
+            "- Empty input, or a `newInterval` that lands entirely before or after everything, must still work — the overlapping run is simply empty and `newInterval` is pushed in its sorted position.\n" +
+            "- A `newInterval` fully contained in an existing one leaves that interval effectively unchanged after taking the `min`/`max`.\n\n" +
+            "**Complexity.** Time `O(n)` — each interval is examined once. Space `O(n)` for the output list.\n\n" +
+            "**Interview mindset.** When the input is already sorted, resist re-sorting — a single positional sweep past the insertion point is the intended, faster solution.",
           rcs:
             "class Solution:\n" +
             "    def insert(self, intervals: List[List[int]], newInterval: List[int]) -> List[List[int]]:\n" +
@@ -214,19 +215,20 @@
           space: "O(n)",
           whenToUse: "The canonical interval-merging routine; the foundation nearly every other interval problem builds on.",
           logic:
-            "**A. What is asked.** Collapse any group of overlapping intervals into a single covering interval and return the minimal disjoint set.\n\n" +
-            "**B. Brute force.** Repeatedly scan all pairs, merge any that overlap, and repeat until nothing changes — `O(n^2)` or worse and awkward to code.\n\n" +
-            "**D. Key observation.** If we **sort by start**, then any interval that overlaps a given one must come immediately after it. So overlaps are always between *adjacent* intervals in sorted order — we never need to look back further than the last interval we committed to the answer.\n\n" +
-            "**E. Pattern / data structure.** Sort, then sweep left to right keeping a single 'current accumulated' interval (the last one in the result list).\n\n" +
-            "**F. Why it works.** After sorting, let `last` be the most recent merged interval. For the next interval `cur`, we already know `last.start <= cur.start`. They overlap iff `cur.start <= last.end`. If so, extend `last.end = max(last.end, cur.end)` (the start stays, since `last.start` is the smaller). If not, `cur` opens a brand-new block and becomes the new `last`.\n\n" +
-            "**G/H. What we track.** The result list; its final element is the interval currently being extended.\n\n" +
-            "**I. Step by step.**\n" +
+            "**What it asks.** Collapse every group of overlapping intervals into a single covering interval and return the minimal set of disjoint intervals that exactly covers the input.\n\n" +
+            "**Why the naive idea fails.** Brute force repeatedly scans all pairs, merges any that overlap, and repeats until nothing changes. That is `O(n^2)` or worse and awkward to code, because overlaps can chain arbitrarily (A overlaps B overlaps C) and a single pass over unsorted data misses them.\n\n" +
+            "**Key Idea.** If you **sort by start**, any interval that overlaps a given one must come immediately after it in sorted order. So overlaps are always between *adjacent* intervals — you never need to look back further than the last interval already committed to the answer. That lets you sweep once, keeping a single 'accumulator' interval (the last element of the result list).\n\n" +
+            "**Step-by-Step Approach.**\n" +
             "1. Sort `intervals` by start.\n" +
-            "2. Put the first interval in `result`.\n" +
-            "3. For each subsequent interval: if its start <= result's last end, merge by taking `max` of the ends; otherwise append it as a new block.\n\n" +
-            "**J. Why correct.** Sorting guarantees we meet the intervals of any overlapping cluster consecutively, so a single running interval captures the whole cluster before a gap ends it. No overlap can be 'stranded' earlier in the list.\n\n" +
-            "**K/L. Complexity.** Sorting dominates: `O(n log n)` time; `O(n)` for the output (or `O(log n)`–`O(n)` for the sort's own scratch space).\n\n" +
-            "**M. Interview mindset.** 'Merge / combine overlapping ranges' → sort by start, then compare each to the last kept interval. Memorize this loop; it is reused everywhere.",
+            "2. Seed the result with the first interval; its last element is the interval currently being extended.\n" +
+            "3. For each subsequent interval `[start, end]`, let `last_end` be the end of the result's last interval. If `start <= last_end` they overlap (or touch) — extend only the end via `last.end = max(last_end, end)`. Otherwise there is a gap — append `[start, end]` as a new block.\n\n" +
+            "**Why it works.** After sorting, `last.start <= cur.start` always holds, so the only overlap test that matters is `cur.start <= last.end`. Sorting guarantees the members of any overlapping cluster are met consecutively, so one running interval captures the whole cluster before a gap ends it — no overlap can be stranded earlier in the list. The start of the accumulator never changes because it is already the smallest in its cluster.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Touching intervals merge here (`[1,4]` and `[4,5]` become `[1,5]`), so the test is `<=`, not `<`.\n" +
+            "- A fully contained interval (`[2,3]` inside `[1,4]`) must not shrink the accumulator — take `max` of the ends, never overwrite.\n" +
+            "- Merging extends only the end; do not touch the accumulator's start.\n\n" +
+            "**Complexity.** Time `O(n log n)`, dominated by the sort; the sweep itself is `O(n)`. Space `O(n)` for the output (plus the sort's own `O(log n)`–`O(n)` scratch).\n\n" +
+            "**Interview mindset.** 'Merge / combine overlapping ranges' or 'return the minimal set of disjoint intervals' → sort by start, then compare each interval to the last kept one. Memorize this loop; nearly every other interval problem builds on it.",
           rcs:
             "class Solution:\n" +
             "    def merge(self, intervals: List[List[int]]) -> List[List[int]]:\n" +
@@ -315,19 +317,20 @@
           space: "O(1)",
           whenToUse: "The optimal solution; recognize it as interval scheduling / activity selection whenever you must keep as many disjoint intervals as possible.",
           logic:
-            "**A. What is asked.** Delete as few intervals as possible so none of the survivors overlap. Equivalently: **keep the maximum number of mutually non-overlapping intervals**, then removals = total − kept.\n\n" +
-            "**B. Why not sort by start.** Sorting by start can trip you up: a very long interval could start earliest yet block many short ones. The quantity that matters for packing more intervals afterward is how *early each one finishes*.\n\n" +
-            "**D. Key greedy observation.** Among intervals competing for the same space, always keep the one that **ends earliest**. Finishing as early as possible leaves the most room on the right for future intervals, which can never hurt and often helps.\n\n" +
-            "**E. Pattern.** Classic greedy 'activity selection'. Sort by end time; sweep once; whenever the next interval starts before the last kept interval ends, it overlaps — drop it (count a removal). Otherwise keep it and advance the 'last end' pointer.\n\n" +
-            "**Greedy exchange argument (why it is optimal).** Suppose an optimal solution keeps some interval X where our greedy would have kept Y, the earliest-finishing compatible interval, and `Y.end <= X.end`. Swap X for Y in the optimal set. Y finishes no later than X, so it cannot conflict with anything scheduled after X — the swapped set is still valid and just as large. Repeating this exchange transforms any optimal solution into the greedy one without shrinking it, so the greedy choice is optimal.\n\n" +
-            "**G/H. What we track.** `prev_end` = end of the last interval we decided to keep; `removals` = how many we dropped.\n\n" +
-            "**I. Step by step.**\n" +
-            "1. Sort by end ascending.\n" +
-            "2. Initialize `prev_end = -infinity`, `removals = 0`.\n" +
-            "3. For each `[start, end]`: if `start >= prev_end` it does not overlap the last kept one — keep it, set `prev_end = end`. Otherwise it overlaps — increment `removals` (drop it, `prev_end` unchanged).\n\n" +
-            "**J. Why correct.** By always retaining the earliest finisher we maximize the count of survivors; removals is then forced to be minimal.\n\n" +
-            "**K/L. Complexity.** Sorting → `O(n log n)` time, `O(1)` extra space beyond the sort.\n\n" +
-            "**M. Interview mindset.** 'Minimum removals to make disjoint' or 'maximum non-overlapping intervals' → greedy by END time. Note `start >= prev_end` (strict endpoints touch and are allowed).",
+            "**What it asks.** Delete as few intervals as possible so none of the survivors overlap. Equivalently, **keep the maximum number of mutually non-overlapping intervals**; then removals = total − kept.\n\n" +
+            "**Why the naive idea fails.** Sorting by start feels natural but misleads: a very long interval could start earliest yet block many short ones that could otherwise coexist. Trying every subset to find the largest non-overlapping one is exponential. The quantity that actually matters for packing in more intervals is how *early each one finishes*, not when it starts.\n\n" +
+            "**Key Idea.** Among intervals competing for the same space, always keep the one that **ends earliest**. Finishing as early as possible leaves the most room on the right for future intervals, which can never hurt and often helps. This is the classic greedy 'activity selection' choice.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Sort by end time, ascending.\n" +
+            "2. Initialize `prev_end` to `-infinity` (end of the last interval kept) and `removals` to `0`.\n" +
+            "3. For each `[start, end]`: if `start >= prev_end` it does not overlap the last kept interval — keep it and set `prev_end = end`. Otherwise it overlaps — increment `removals` and leave `prev_end` unchanged, dropping the later finisher.\n\n" +
+            "**Why it works.** The exchange argument proves optimality. Suppose an optimal solution keeps some interval X where greedy would keep Y, the earliest-finishing compatible interval, with `Y.end <= X.end`. Swap X for Y: Y finishes no later than X, so it cannot conflict with anything scheduled after X — the swapped set is still valid and just as large. Repeating this exchange transforms any optimal solution into the greedy one without shrinking it, so always retaining the earliest finisher maximizes survivors and forces removals to be minimal.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Touching endpoints are NOT overlaps here, so the keep test uses `>=` (`[1,2]` and `[2,3]` can both stay).\n" +
+            "- Sort by END, not start — sorting by start gives the wrong answer on the long-interval case.\n" +
+            "- Initialize `prev_end` to `-infinity` so the very first interval is always kept.\n\n" +
+            "**Complexity.** Time `O(n log n)` for the sort; the single sweep is `O(n)`. Space `O(1)` beyond the sort.\n\n" +
+            "**Interview mindset.** 'Minimum removals to make disjoint' or 'maximum count of non-overlapping intervals' → greedy by earliest END time. It is the interval-scheduling / activity-selection signature.",
           rcs:
             "class Solution:\n" +
             "    def eraseOverlapIntervals(self, intervals: List[List[int]]) -> int:\n" +
@@ -419,17 +422,21 @@
           space: "O(1)",
           whenToUse: "Whenever you must simply confirm that a set of intervals is conflict-free.",
           logic:
-            "**A. What is asked.** Can all meetings be attended by one person? That is true exactly when no two meetings overlap.\n\n" +
-            "**B. Brute force.** Compare every pair of meetings for overlap — `O(n^2)`. Correct but unnecessary.\n\n" +
-            "**D. Key observation.** After **sorting by start**, if any conflict exists it must be between two *consecutive* meetings. Why: if meeting A (earlier start) conflicts with some later meeting C, then A also conflicts with the meeting immediately after A in sorted order (that neighbor starts no later than C and A extends past it). So checking neighbors is enough.\n\n" +
-            "**E. Pattern.** Sort, then a single sweep comparing each meeting's start to the previous meeting's end.\n\n" +
-            "**I. Step by step.**\n" +
-            "1. Sort by start.\n" +
-            "2. For i from 1 to n−1: if `intervals[i].start < intervals[i-1].end`, a meeting begins before the previous one ends → return `false`.\n" +
-            "3. If no such pair, return `true`.\n\n" +
-            "**J. Why correct.** Sorting guarantees any overlapping pair becomes adjacent, so a single adjacent check catches every conflict; the strict `<` lets touching endpoints pass.\n\n" +
-            "**K/L. Complexity.** Sorting dominates → `O(n log n)` time, `O(1)` extra space.\n\n" +
-            "**M. Interview mindset.** 'Can one person do all of these?' = 'are these intervals pairwise disjoint?' → sort by start and scan neighbors. This is the warm-up to Meeting Rooms II.",
+            "**What it asks.** Can a single person attend every meeting? That is `true` exactly when no two meetings overlap.\n\n" +
+            "**Why the naive idea fails.** Comparing every pair of meetings for overlap is `O(n^2)`. It is correct but does unnecessary work — most pairs are far apart in time and can never conflict.\n\n" +
+            "**Key Idea.** After **sorting by start**, any conflict must be between two *consecutive* meetings. Why: if meeting A (earlier start) conflicts with some later meeting C, then A also conflicts with the meeting immediately after it in sorted order — that neighbor starts no later than C and A extends past it. So checking only adjacent pairs catches every conflict.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Sort the meetings by start.\n" +
+            "2. For `i` from 1 to n−1, compare `intervals[i].start` with `intervals[i-1].end`.\n" +
+            "3. If `intervals[i].start < intervals[i-1].end`, a meeting begins before the previous one ends → return `false`.\n" +
+            "4. If no such pair is found, return `true`.\n\n" +
+            "**Why it works.** Sorting guarantees any overlapping pair becomes adjacent, so a single adjacent scan is sufficient to find a conflict if one exists. The strict `<` lets meetings that merely touch at an endpoint pass as non-conflicting.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Meetings that touch (`[1,5]` then `[5,10]`) do NOT conflict, so use strict `<`, not `<=`.\n" +
+            "- An empty list returns `true` — there is nothing to conflict.\n" +
+            "- Do not forget to sort first; scanning neighbors in the original order misses conflicts.\n\n" +
+            "**Complexity.** Time `O(n log n)`, dominated by the sort; the scan is `O(n)`. Space `O(1)` extra.\n\n" +
+            "**Interview mindset.** 'Can one person do all of these?' = 'are these intervals pairwise disjoint?' → sort by start and scan neighbors. This is the warm-up to Meeting Rooms II.",
           rcs:
             "class Solution:\n" +
             "    def canAttendMeetings(self, intervals: List[List[int]]) -> bool:\n" +

@@ -61,13 +61,21 @@
           space: "O(n)",
           whenToUse: "Good first framing: state the recurrence naturally as a recursion, then add a cache to kill the exponential blowup.",
           logic:
-            "**A. What is asked.** Count the distinct ordered sequences of 1s and 2s that sum to `n`.\n\n" +
-            "**B. The recursive insight.** To reach step `n`, your *last* move was either a 1-step (arriving from step `n-1`) or a 2-step (arriving from step `n-2`). Those two arrival sets are disjoint and cover every possibility, so `ways(n) = ways(n-1) + ways(n-2)`.\n\n" +
-            "**C. Why naive recursion is slow.** Expanding that recurrence without a cache re-solves the same subproblems over and over — `ways(n-2)` is recomputed by both `ways(n)` and `ways(n-1)`. The call tree has ~Fibonacci(n) leaves, i.e. exponential `O(2^n)` time.\n\n" +
-            "**D. Memoization.** Store each `ways(i)` the first time it is computed in a `memo` dict. Every state is then solved once; later calls are `O(1)` lookups.\n\n" +
-            "**Base cases.** `ways(1) = 1` (one single step) and `ways(2) = 2` (1+1 or 2). Here `ways(i) = i` for `i <= 2` captures both cleanly.\n\n" +
-            "**Transition & why it is correct.** `ways(i) = ways(i-1) + ways(i-2)`. Correct because the last step partitions all paths to `i` into exactly two non-overlapping groups by whether it was a 1 or a 2.\n\n" +
-            "**K/L. Complexity.** `n` distinct states, each `O(1)` → time `O(n)`; recursion stack + memo → space `O(n)`.",
+            "**What it asks.** Count the distinct ordered sequences of 1-steps and 2-steps that sum to `n` — the number of different ways to climb to the top.\n\n" +
+            "**Why the naive idea fails.** You could recurse on the last move without a cache, but that re-solves the same subproblems repeatedly: `ways(n-2)` is recomputed by both `ways(n)` and `ways(n-1)`. The call tree has roughly Fibonacci(n) leaves, giving exponential `O(2^n)` time.\n\n" +
+            "**Key Idea.** Let `dp[i]` (written here as `ways(i)`) be the number of distinct ways to reach step `i`. To land on step `i`, your last move was either a 1-step (arriving from `i-1`) or a 2-step (arriving from `i-2`). Those two arrival sets are disjoint and cover every path, so `ways(i) = ways(i-1) + ways(i-2)`. Caching each result once removes the exponential blowup.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Base cases: `ways(1) = 1` (a single step) and `ways(2) = 2` (1+1 or one 2). The check `i <= 2` returns `i`, which captures both.\n" +
+            "2. For any larger `i`, if it is already in the `memo` cache, return the stored value.\n" +
+            "3. Otherwise compute `ways(i-1) + ways(i-2)` — the transition in words: the ways to reach `i` are the ways to reach the step one below plus the ways to reach the step two below.\n" +
+            "4. Store the result in `memo[i]` before returning, so each state is solved exactly once.\n\n" +
+            "**Why it works.** The last move partitions every path to step `i` into exactly two non-overlapping groups (ended with a 1 or a 2), so adding the two subproblem counts counts each path exactly once. Induction from the base cases proves every `ways(i)` correct.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Forgetting the cache leaves the solution exponential — the memo is what makes it linear.\n" +
+            "- Off-by-one in the base cases: `ways(2)` is 2, not 1.\n" +
+            "- Deep recursion for large `n` uses `O(n)` stack; an iterative bottom-up form avoids it.\n\n" +
+            "**Complexity.** `n` distinct states each solved in `O(1)` → time `O(n)`; recursion stack plus memo → space `O(n)`.\n\n" +
+            "**Interview mindset.** 'Count paths where each step depends on the previous one or two' is the Fibonacci-DP signal: write the recurrence naturally as recursion, then add a cache.",
           rcs:
             "class Solution:\n" +
             "    def climbStairs(self, n: int) -> int:\n" +

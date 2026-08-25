@@ -64,24 +64,24 @@
           space: "O(1)",
           whenToUse: "The expected O(log n) answer for locating the rotation point / minimum in a rotated, uniquely-valued sorted array.",
           logic:
-            "**A. What is being asked?** Find the smallest value in an ascending array that has been rotated. The minimum is exactly the *rotation point* — the single place where a larger number is immediately followed by a smaller one.\n\n" +
-            "**B. Brute force.** Scan all `n` elements and take the min — `O(n)`. Correct, but it ignores the huge amount of structure still present and violates the `O(log n)` requirement.\n\n" +
-            "**C. The key structural fact.** A rotated sorted array is really **two ascending runs** glued together, and the second run is entirely *smaller* than the first. Example `[4,5,6,7,0,1,2]`: the left run `4,5,6,7` is all larger than the right run `0,1,2`. The minimum is the first element of the right (lower) run. If the array happens not to be rotated at all, it is one ascending run and the minimum is `nums[0]`.\n\n" +
-            "**D. Search space.** Keep a window `[left, right]` that is **guaranteed to still contain the minimum**. Start with the whole array. Each step we throw away a half that provably cannot hold the minimum, so the window shrinks logarithmically.\n\n" +
-            "**E. The decisive comparison: `nums[mid]` vs `nums[right]`.** We deliberately compare mid to the *right end*, not the left, because the right end sits in the same (lower) run as the minimum whenever a rotation exists — that makes the test unambiguous:\n" +
-            "- **If `nums[mid] > nums[right]`**: the values dropped somewhere *after* mid (a bigger number is left of a smaller one), so the rotation point — the minimum — must be **strictly to the right of mid**. Eliminate everything from `left..mid` by setting `left = mid + 1`.\n" +
-            "- **If `nums[mid] <= nums[right]`**: the segment `mid..right` is cleanly ascending with no drop, so the smallest value in that segment is `nums[mid]` itself, and nothing to the right of mid can be smaller. The minimum is `nums[mid]` **or to its left**. Keep it by setting `right = mid`.\n\n" +
-            "**F. Why comparing to `right` (not `left`) is correct.** If we compared `nums[mid]` to `nums[left]` we could not distinguish a rotated array from a fully-sorted one without extra cases. Comparing to `right` works because `nums[right]` is always an anchor in the lower run (or, when unrotated, the maximum) — so `nums[mid] > nums[right]` cleanly means ‘mid is still in the upper run’ and the drop is ahead.\n\n" +
-            "**G. What the pointers mean.** `left` and `right` bound the candidate window for the minimum. The loop invariant is: **the minimum always lies within `[left, right]`.** Note `right = mid` (not `mid - 1`) because `nums[mid]` is itself a live candidate in that branch and must not be discarded.\n\n" +
-            "**H. Loop condition `while left < right`.** We stop when the window is a single index. Because we never discard the true minimum, that final index *is* the minimum — no separate answer variable is needed, and this framing avoids the classic off-by-one infinite loop (the `left = mid + 1` branch always makes progress; the `right = mid` branch strictly shrinks the window since `mid < right` when `left < right`).\n\n" +
-            "**I. Step by step on `[4,5,6,7,0,1,2]`.**\n" +
-            "1. L=0, R=6, M=3, nums[3]=7 > nums[6]=2 -> min is right of 3 -> L=4.\n" +
-            "2. L=4, R=6, M=5, nums[5]=1 <= nums[6]=2 -> min is mid-or-left -> R=5.\n" +
-            "3. L=4, R=5, M=4, nums[4]=0 <= nums[5]=1 -> R=4.\n" +
-            "4. L=R=4 -> return nums[4] = 0.\n\n" +
-            "**J. Why correct.** Every step preserves the invariant ‘minimum ∈ [left, right]’, and the window strictly shrinks, so it converges to exactly the minimum.\n\n" +
-            "**K/L. Complexity.** We halve the window each iteration → time `O(log n)`, space `O(1)`.\n\n" +
-            "**M. Interview mindset.** ‘Sorted-ish but rotated + O(log n)’ screams binary search on the rotation point. The one thing to nail out loud: compare `mid` to `right`, and move `right = mid` (keep mid) versus `left = mid + 1` (drop mid).",
+            "**What it asks.** Find the smallest value in an ascending array that has been rotated. The minimum is exactly the *rotation point* — the single place where a larger number is immediately followed by a smaller one — and it must be found in `O(log n)`.\n\n" +
+            "**Why the naive idea fails.** Scanning all `n` elements and taking the min is correct but `O(n)`. It throws away the huge amount of structure still present in the array and violates the required `O(log n)` bound.\n\n" +
+            "**Key Idea.** A rotated sorted array is really **two ascending runs** glued together, and the second run is entirely *smaller* than the first. In `[4,5,6,7,0,1,2]` the left run `4,5,6,7` is all larger than the right run `0,1,2`; the minimum is the first element of the lower (right) run. The unlocking move is to compare `nums[mid]` to the **right end** `nums[right]` rather than the left: `nums[right]` always sits in the lower run when a rotation exists (and is the maximum when the array is unrotated), which makes the comparison unambiguous. If instead we compared `nums[mid]` to `nums[left]`, we could not distinguish a rotated array from a fully-sorted one without extra cases.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Maintain a window `[left, right]` that is **guaranteed to still contain the minimum**; start it as the whole array. This is the search space, and each step discards a half that provably cannot hold the minimum.\n" +
+            "2. Take `mid` as the midpoint of the current window.\n" +
+            "3. **If `nums[mid] > nums[right]`**: the values dropped somewhere *after* mid (a bigger number lies left of a smaller one), so the minimum is **strictly to the right of mid**. Eliminate `left..mid` by setting `left = mid + 1`.\n" +
+            "4. **If `nums[mid] <= nums[right]`**: the segment `mid..right` is cleanly ascending with no drop, so `nums[mid]` is the smallest value in it and nothing right of mid can be smaller. The minimum is `nums[mid]` or to its left, so keep mid by setting `right = mid` (not `mid - 1`).\n" +
+            "5. Loop `while left < right`. When the window collapses to a single index, that index *is* the minimum — return `nums[left]`; no separate answer variable is needed.\n\n" +
+            "**Why it works.** The loop invariant is that **the minimum always lies within `[left, right]`**, and every branch discards only a half proven not to contain it, so the invariant is preserved. The window also strictly shrinks each step (the `left = mid + 1` branch always advances; the `right = mid` branch shrinks because `mid < right` whenever `left < right`), so it converges to exactly the minimum.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Use `right = mid`, **not** `right = mid - 1`, in the ascending branch — `nums[mid]` is itself a live candidate and discarding it can drop the true minimum.\n" +
+            "- Compare to `nums[right]`, not `nums[left]`; comparing to the left end fails to separate the rotated case from the sorted case.\n" +
+            "- An unrotated array (rotation by a multiple of `n`) is handled automatically: `nums[mid] <= nums[right]` on the first step drives the window left until it lands on `nums[0]`.\n" +
+            "- This uses `while left < right` (converge to one index), not `while left <= right`, which would loop forever with `right = mid`.\n\n" +
+            "**Complexity.** Time `O(log n)` — the window halves each iteration. Space `O(1)` — only two indices.\n\n" +
+            "**Interview mindset.** 'Sorted-ish but rotated + O(log n)' is the signal to run binary search on the rotation point. The line to say out loud: compare `mid` to `right`, then `right = mid` (keep mid) versus `left = mid + 1` (drop mid).\n\n" +
+            "Trace on `[4,5,6,7,0,1,2]`: L=0,R=6,M=3 → `nums[3]=7 > nums[6]=2` → L=4; L=4,R=6,M=5 → `nums[5]=1 <= nums[6]=2` → R=5; L=4,R=5,M=4 → `nums[4]=0 <= nums[5]=1` → R=4; L=R=4 → return `nums[4]=0`.",
           rcs:
             "class Solution:\n" +
             "    def findMin(self, nums: List[int]) -> int:\n" +
@@ -174,8 +174,14 @@
           space: "O(1)",
           whenToUse: "Only as the naive baseline to contrast against; it ignores the rotation structure and misses the required O(log n).",
           logic:
-            "**B. Brute force.** Ignore the rotation entirely and just scan every element, returning the first index whose value equals `target`, else `-1`.\n\n" +
-            "**C. Why it is insufficient.** It is `O(n)`, which throws away the fact that the array is (piecewise) sorted. The problem explicitly demands `O(log n)`, so this only serves to motivate the binary-search solution.",
+            "**What it asks.** Return the index of `target` in a sorted-then-rotated array of distinct values, or `-1` if it is absent.\n\n" +
+            "**The idea, and why it's slow.** Ignore the rotation entirely and walk the array from left to right, returning the first index whose value equals `target`, else `-1`. It is trivially correct, but it is `O(n)` — it throws away the fact that the array is (piecewise) sorted. The problem explicitly demands `O(log n)`, so this brute force serves only as the baseline that motivates the binary-search solution.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Iterate over `nums` with both index `i` and value.\n" +
+            "2. If the value equals `target`, return `i` immediately.\n" +
+            "3. If the loop finishes with no match, return `-1`.\n\n" +
+            "**Complexity.** Time `O(n)` — every element may be inspected. Space `O(1)`.\n\n" +
+            "**Interview mindset.** State this as the obvious baseline, then immediately pivot: the sorted-then-rotated structure plus an `O(log n)` requirement is the cue to reach for binary search.",
           rcs:
             "class Solution:\n" +
             "    def search(self, nums: List[int], target: int) -> int:\n" +
@@ -197,25 +203,24 @@
           space: "O(1)",
           whenToUse: "The expected O(log n) solution for locating a target in a rotated, uniquely-valued sorted array.",
           logic:
-            "**A. What is being asked?** Locate `target` in one binary-search pass over an array that is sorted-then-rotated, returning its index or `-1`.\n\n" +
-            "**B. Why plain binary search fails.** Ordinary binary search assumes the whole range is sorted so it can decide 'go left' vs 'go right' from `nums[mid]` alone. After rotation the range as a whole is *not* sorted, so that single comparison is no longer enough.\n\n" +
-            "**C. The rotation intuition.** A rotated sorted array is two ascending runs stuck together (e.g. `4 5 6 7 | 0 1 2`). Here is the crucial invariant: **for any `mid`, at least one of the two halves `[left..mid]` or `[mid..right]` is fully sorted** — the rotation point can only sit in one of them, so the other is a clean ascending stretch. Because values are distinct, we can tell which half is sorted with a single comparison.\n\n" +
-            "**D. Search space.** Maintain a window `[left, right]` that still could contain `target`. Each iteration we (1) figure out which half is the sorted one, then (2) use ordinary sorted-range reasoning on that half to decide whether `target` is inside it, and eliminate the half that cannot contain it.\n\n" +
-            "**E. Step 1 — which half is sorted?** Compare `nums[left]` to `nums[mid]`:\n" +
-            "- If `nums[left] <= nums[mid]`, the **left half `[left..mid]` is sorted** (no drop between them).\n" +
-            "- Otherwise the drop is in the left half, so the **right half `[mid..right]` is sorted**.\n\n" +
-            "**F. Step 2 — is `target` inside the sorted half?** Because that half is a normal ascending range, membership is a simple bounds check:\n" +
-            "- **Left half sorted:** if `nums[left] <= target < nums[mid]`, the target must be in the left half → `right = mid - 1`; else it can only be in the right half → `left = mid + 1`.\n" +
-            "- **Right half sorted:** if `nums[mid] < target <= nums[right]`, the target must be in the right half → `left = mid + 1`; else → `right = mid - 1`.\n\n" +
-            "**G. Why this is correct.** We always test `target` against the boundaries of the half we *know* is sorted, where 'between the ends' exactly means 'present in this half'. Whatever half fails that test provably cannot contain `target` (its values are outside the range or lie in the other run), so discarding it is safe. Each step eliminates half the window.\n\n" +
-            "**H. What the pointers mean.** `left`/`right` bound the live search window; `mid` is checked first — if `nums[mid] == target` we return immediately. We use `right = mid - 1` and `left = mid + 1` (mid already handled) with the loop condition `while left <= right`, the standard find-exact-value template.\n\n" +
-            "**I. Step by step on `nums = [4,5,6,7,0,1,2]`, target = 0.**\n" +
-            "1. L=0,R=6,M=3: nums[3]=7 != 0. nums[0]=4 <= 7 -> left half sorted. Is 4 <= 0 < 7? No -> go right: L=4.\n" +
-            "2. L=4,R=6,M=5: nums[5]=1 != 0. nums[4]=0 <= 1 -> left half [4..5] sorted. Is 0 <= 0 < 1? Yes -> go left: R=4.\n" +
-            "3. L=4,R=4,M=4: nums[4]=0 == target -> return 4.\n\n" +
-            "**J. Why it terminates.** Every branch moves `left` past mid or `right` below mid, so the window strictly shrinks; when `left > right` the target is absent and we return `-1`.\n\n" +
-            "**K/L. Complexity.** One half discarded per step → time `O(log n)`, space `O(1)`.\n\n" +
-            "**M. Interview mindset.** The whole trick is: **identify the sorted half first** (compare `nums[left]` and `nums[mid]`), then apply a plain in-range check on that half to decide which way to go. Say that sentence out loud and the code writes itself.",
+            "**What it asks.** Locate `target` in one binary-search pass over a sorted-then-rotated array of distinct values, returning its index or `-1`, in `O(log n)`.\n\n" +
+            "**Why the naive idea fails.** A linear scan is `O(n)` and ignores the ordering. But plain binary search fails too: ordinary binary search assumes the whole range is sorted so it can pick 'go left' vs 'go right' from `nums[mid]` alone. After rotation the range as a whole is *not* sorted, so that single comparison is no longer enough to know which side holds `target`.\n\n" +
+            "**Key Idea.** A rotated sorted array is two ascending runs stuck together (e.g. `4 5 6 7 | 0 1 2`). The unlocking invariant is: **for any `mid`, at least one of the two halves `[left..mid]` or `[mid..right]` is fully sorted** — the single rotation point can lie in only one of them, so the other is a clean ascending stretch. Because values are distinct, one comparison tells us which half is sorted, and within a sorted half membership of `target` is a simple bounds check. So each step we identify the sorted half, decide whether `target` falls inside it, and eliminate the half that provably cannot contain it.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Maintain a window `[left, right]` — the search space that may still contain `target` — and take `mid` as its midpoint.\n" +
+            "2. If `nums[mid] == target`, return `mid` immediately.\n" +
+            "3. **Identify the sorted half.** If `nums[left] <= nums[mid]`, the **left half `[left..mid]` is sorted** (no drop between them); otherwise the drop is on the left, so the **right half `[mid..right]` is sorted**.\n" +
+            "4. **Test `target` against the sorted half's ends.** If the left half is sorted and `nums[left] <= target < nums[mid]`, `target` is in it → `right = mid - 1`; else it can only be in the right half → `left = mid + 1`. If instead the right half is sorted and `nums[mid] < target <= nums[right]`, `target` is in it → `left = mid + 1`; else → `right = mid - 1`.\n" +
+            "5. Loop `while left <= right`; if the window empties, return `-1`.\n\n" +
+            "**Why it works.** We always test `target` against the boundaries of the half we *know* is sorted, where 'strictly between the ends' exactly means 'present in this half'. The half that fails that test provably cannot contain `target` — its values are either outside the range or lie in the other run — so discarding it is safe. Each step eliminates half the window and the remaining half still satisfies the invariant, so the search is both correct and converges. Termination is guaranteed because every branch moves `left` past `mid` or `right` below `mid`, strictly shrinking the window.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- The comparison for the sorted half must be `<=` (`nums[left] <= nums[mid]`), not `<`, so a two-element or equal-boundary window still classifies correctly.\n" +
+            "- Get the in-range bounds right: the strict/non-strict ends (`nums[left] <= target < nums[mid]` and `nums[mid] < target <= nums[right]`) matter because `mid` was already handled.\n" +
+            "- This relies on **distinct** values; with duplicates `nums[left] == nums[mid]` becomes ambiguous (that is the harder LC 81 variant).\n" +
+            "- Use `right = mid - 1` / `left = mid + 1` (mid is already checked) with `while left <= right`, the standard exact-match template — off-by-one here either misses the target or loops.\n\n" +
+            "**Complexity.** Time `O(log n)` — one half discarded per step. Space `O(1)` — just the two indices.\n\n" +
+            "**Interview mindset.** The whole trick is: **identify the sorted half first** (compare `nums[left]` and `nums[mid]`), then apply a plain in-range check on that half to pick a direction. A rotated sorted array plus an `O(log n)` requirement is the exact signal for this technique.\n\n" +
+            "Trace on `nums = [4,5,6,7,0,1,2]`, target = 0: L=0,R=6,M=3 → `nums[3]=7`≠0, `nums[0]=4 <= 7` left sorted, `4 <= 0 < 7`? no → L=4; L=4,R=6,M=5 → `nums[5]=1`≠0, `nums[4]=0 <= 1` left sorted, `0 <= 0 < 1`? yes → R=4; L=4,R=4,M=4 → `nums[4]=0`==target → return 4.",
           rcs:
             "class Solution:\n" +
             "    def search(self, nums: List[int], target: int) -> int:\n" +

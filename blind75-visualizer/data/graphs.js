@@ -67,15 +67,25 @@
           space: "O(V)",
           whenToUse: "Cleanest recursive solution; the default answer when copying a graph with possible cycles.",
           logic:
-            "**A. Asked.** Produce an independent deep copy of an undirected graph: new nodes, new edges, nothing shared with the original.\n\n" +
-            "**Modeling.** The **nodes** are the `Node` objects; the **edges** are the entries in each node's `neighbors` list (each undirected edge is stored on both endpoints). We are *visiting every node once* and, as we go, rebuilding each node and re-wiring its neighbor list to point at the clones.\n\n" +
-            "**B. The trap.** The graph can contain cycles (node 1 points to 2, node 2 points back to 1). If you naively recurse into neighbors you will bounce 1\u21922\u21921\u21922\u2026 forever. You also must not create two different copies of the same original node.\n\n" +
-            "**D. Key observation.** Both problems are solved by one memo: a hash map `old -> new` that records, for each original node, its unique clone. Before recursing into a node, check the map. If the clone exists, return it (this both prevents infinite loops AND guarantees a single copy per node).\n\n" +
-            "**E. Why DFS fits.** Cloning a node requires cloning all of its neighbors, which is naturally recursive: clone me, then for each neighbor clone it (or fetch its existing clone) and attach. The `visited` structure here IS the clone map \u2014 a node counts as visited the moment its clone is placed in the map.\n\n" +
-            "**G/H. What the map holds.** `clones[original_node] = cloned_node`. Presence in the map means 'already cloned', so it doubles as the visited set.\n\n" +
-            "**I. Step by step.** For the current node: if it is in `clones`, return `clones[node]`. Otherwise create its clone (copy `val`), register it in `clones` *before* recursing (so cycles resolve), then for each neighbor append `dfs(neighbor)` to the clone's neighbor list. Return the clone.\n\n" +
-            "**J. Why correct.** Registering the clone before descending means any cycle that leads back to this node finds the finished (or in-progress) clone in the map instead of recreating it, so edges are wired exactly once in each direction.\n\n" +
-            "**K/L. Complexity.** Every node and every edge is processed a constant number of times \u2192 time `O(V + E)`; the recursion stack and the map are `O(V)`.",
+            "**What it asks.** Produce an independent deep copy of a connected, undirected graph given a reference to one node: brand-new nodes, brand-new edges, nothing shared with the original.\n\n" +
+            "**Graph modeling.** The **nodes** are the `Node` objects; the **edges** are the entries in each node's `neighbors` list (each undirected edge is stored on both endpoints). We are *visiting every node once* and, as we go, rebuilding each node and re-wiring its neighbor list to point at the clones instead of the originals.\n\n" +
+            "**Why the naive idea fails.** The graph is connected and can contain cycles (node 1 points to 2, node 2 points back to 1). If you just recurse into neighbors you bounce 1\u21922\u21921\u21922\u2026 forever, and you also risk creating two different copies of the same original node when several neighbors point back to it.\n\n" +
+            "**Key Idea.** Keep one memo: a hash map `old -> new` that records, for each original node, its unique clone. Before cloning a node, check the map \u2014 if its clone already exists, return that. This single structure both stops the infinite loop AND guarantees exactly one copy per node. The clone map IS the `visited` structure: a node counts as visited the moment its clone is placed in the map.\n\n" +
+            "**Why DFS fits.** Cloning a node requires cloning all of its neighbors, which is naturally recursive \u2014 clone me, then for each neighbor clone it (or fetch its existing clone) and attach. Depth-first recursion follows edges to their end and unwinds, wiring each node's neighbor list on the way back.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Maintain `clones`, mapping each original node to its clone (also the visited set).\n" +
+            "2. To clone the current node: if it is already in `clones`, return `clones[node]`.\n" +
+            "3. Otherwise create its clone by copying `val`.\n" +
+            "4. Register the clone in `clones` *before* recursing, so a cycle leading back here resolves to the in-progress clone rather than recreating it.\n" +
+            "5. For each neighbor of the original, recurse to get that neighbor's clone and append it to the current clone's neighbor list.\n" +
+            "6. Return the clone; kick the whole thing off from the entry node (or return null if the input is null).\n\n" +
+            "**Why it works.** Registering the clone before descending means any cycle that leads back to this node finds the existing clone in the map instead of building a fresh one, so every edge is wired exactly once in each direction and the traversal terminates.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- A null input must be handled first \u2014 return null before touching the map.\n" +
+            "- Register the clone in the map BEFORE recursing; doing it after descending reintroduces the infinite loop on cycles.\n" +
+            "- Undirected edges live on both endpoints; wiring each neighbor once per direction reproduces that symmetry.\n\n" +
+            "**Complexity.** Time `O(V + E)` \u2014 every node and every edge is processed a constant number of times. Space `O(V)` for the recursion stack and the clone map.\n\n" +
+            "**Interview mindset.** 'Deep copy a graph with possible cycles' is the signal for an `old -> new` map that doubles as the visited set \u2014 the same memo pattern any traversal over a cyclic graph needs to terminate.",
           rcs:
             "class Solution:\n" +
             "    def cloneGraph(self, node: 'Optional[Node]') -> 'Optional[Node]':\n" +
@@ -113,11 +123,25 @@
           space: "O(V)",
           whenToUse: "When you want to avoid deep recursion (large graphs / recursion-limit worries) or simply prefer an iterative traversal.",
           logic:
-            "**Same modeling, iterative traversal.** Nodes are `Node` objects, edges are neighbor-list entries. We still keep the `old -> new` clone map that doubles as the visited set, but we expand the graph level by level with a queue instead of the call stack.\n\n" +
-            "**D. Key idea.** Create the clone of the start node first and seed both the map and the queue with it. Then repeatedly pop an original node, and for each of its neighbors: if the neighbor has no clone yet, create one and enqueue it; either way, append the neighbor's clone to the current node's clone neighbor list.\n\n" +
-            "**F. Why the queue never double-visits.** A node is enqueued only at the moment its clone is first created and inserted into the map. The `if neighbor not in clones` guard is exactly the visited check, so each node is enqueued once and each edge is wired once per direction.\n\n" +
-            "**I. Step by step.** Seed `clones[node] = Node(node.val)` and `queue = [node]`. While the queue is non-empty, pop `cur`; for each `nei` in `cur.neighbors`, clone it if unseen (and enqueue), then link `clones[cur].neighbors.append(clones[nei])`.\n\n" +
-            "**K/L. Complexity.** `O(V + E)` time, `O(V)` for the map and queue \u2014 identical asymptotics to DFS, just no recursion depth.",
+            "**What it asks.** The same task \u2014 a deep copy of the connected, undirected graph \u2014 but produced with an explicit queue instead of recursion.\n\n" +
+            "**Graph modeling.** Unchanged: **nodes** are `Node` objects, **edges** are neighbor-list entries stored on both endpoints. We still keep the `old -> new` clone map that doubles as the `visited` set, but expand the graph outward with a queue instead of the call stack.\n\n" +
+            "**Why the naive idea fails.** The DFS solution is correct, but on a very large graph deep recursion can hit the interpreter's recursion limit and blow the stack. An iterative BFS sidesteps that entirely while keeping the same linear cost.\n\n" +
+            "**Key Idea.** Clone the start node up front and seed both the map and the queue with it. A node is enqueued only at the instant its clone is first created and inserted into the map, so the `if neighbor not in clones` guard is exactly the visited check \u2014 each node enters the queue once and each edge is wired once per direction.\n\n" +
+            "**Why BFS fits.** Cloning only needs every node reached and every edge re-pointed; the order does not matter, so a queue-driven frontier works just as well as recursion. The queue holds the original nodes still waiting to have their neighbor lists copied.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Handle the null input first \u2014 return null.\n" +
+            "2. Seed `clones[node] = Node(node.val)` and put the original `node` in the queue.\n" +
+            "3. While the queue is non-empty, pop an original node `cur`.\n" +
+            "4. For each neighbor `nei` of `cur`: if `nei` has no clone yet, create one and enqueue `nei`.\n" +
+            "5. Append `clones[nei]` to `clones[cur]`'s neighbor list to wire the cloned edge.\n" +
+            "6. When the queue drains, return the clone of the entry node.\n\n" +
+            "**Why it works.** Inserting a clone into the map at enqueue time makes the guard a true visited check, so no node is processed twice and no edge is duplicated; every reachable node is eventually dequeued and fully wired.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Clone the start node and put it in the map before the loop, or its own edges never get wired.\n" +
+            "- Mark on enqueue, not on dequeue \u2014 otherwise two neighbors can enqueue the same node twice.\n" +
+            "- Still handle the null input, and remember each undirected edge is wired once from each side.\n\n" +
+            "**Complexity.** Time `O(V + E)` and space `O(V)` for the map and queue \u2014 identical asymptotics to DFS, just with no recursion depth.\n\n" +
+            "**Interview mindset.** When a graph traversal is correct recursively but the input could be huge, reach for the queue-based BFS variant \u2014 same clone map, no stack-overflow risk.",
           rcs:
             "from collections import deque\n" +
             "\n" +
@@ -220,13 +244,24 @@
           space: "O(V + E)",
           whenToUse: "The clean, iterative way to detect a cycle and (bonus) produce a valid ordering; no recursion depth risk.",
           logic:
-            "**Modeling.** **Nodes** are courses `0..numCourses-1`. Each pair `[a, b]` is a directed **edge `b -> a`** ('b unlocks a'). Finishing all courses is possible exactly when this directed graph is a **DAG** (no cycle). We are *finding whether every node can be removed in dependency order*.\n\n" +
-            "**D. Key idea (indegree).** A course can be taken once all its prerequisites are done. In graph terms, a node is ready when its **indegree** (number of incoming edges = unmet prerequisites) drops to 0. Kahn's algorithm repeatedly takes ready nodes and removes their outgoing edges, which may free up more nodes.\n\n" +
-            "**E. Why it detects cycles.** If we can process all `numCourses` nodes this way, the graph is acyclic and everything is finishable. If we get stuck with nodes still unprocessed (all remaining have indegree \u2265 1), those nodes sit in a cycle where each waits on another \u2014 return `false`.\n\n" +
-            "**G/H. What we track.** `indegree[c]` = count of unmet prerequisites for course `c`; the **queue** holds courses currently ready (indegree 0). A `processed` counter is our 'visited' measure \u2014 how many courses we managed to schedule.\n\n" +
-            "**I. Step by step.** Build the adjacency list `graph[b].append(a)` and the indegree array. Enqueue every course with indegree 0. Pop a course, increment `processed`, and for each course it unlocks decrement that course's indegree; if it hits 0, enqueue it. At the end return `processed == numCourses`.\n\n" +
-            "**J. Why correct.** Each edge is relaxed exactly once (when its source is processed). A node reaches indegree 0 iff all its prerequisites were scheduled before it, so any node never reaching 0 is trapped in a cycle.\n\n" +
-            "**K/L. Complexity.** Build + traversal touch every node and edge once \u2192 `O(V + E)` time and space.",
+            "**What it asks.** Given courses with prerequisite pairs, decide whether it is possible to finish all of them \u2014 i.e. whether a valid order exists that respects every prerequisite.\n\n" +
+            "**Graph modeling.** **Nodes** are courses `0..numCourses-1`. Each pair `[a, b]` ('take b before a') is a directed **edge `b -> a`** \u2014 b unlocks a. Finishing everything is possible exactly when this directed graph is a **DAG** (no cycle), so we are really asking 'is this graph acyclic?'.\n\n" +
+            "**Why the naive idea fails.** Trying to simulate 'pick a course whose prereqs are all done, repeat' without structure means rescanning all courses each round to find a ready one \u2014 and it is easy to loop forever or miss the cycle. We need a systematic way to track readiness and detect the deadlock.\n\n" +
+            "**Key Idea.** A course is ready to take once all its prerequisites are done \u2014 in graph terms, when its **indegree** (count of incoming edges = unmet prerequisites) drops to 0. Kahn's algorithm repeatedly removes indegree-0 nodes and deletes their outgoing edges, which lowers other nodes' indegrees and may free them. If every node can be removed this way the graph is acyclic; if some never reach indegree 0 they are trapped in a cycle.\n\n" +
+            "**Why topological sort fits.** 'Order tasks under dependency constraints' is the definition of a topological ordering, and Kahn's BFS produces one (or proves none exists) using indegrees. The `visited` measure here is a `processed` counter \u2014 how many courses were successfully scheduled.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Build adjacency list `graph[b].append(a)` and an `indegree` array counting incoming edges per course.\n" +
+            "2. Enqueue every course whose indegree is already 0 (no prerequisites).\n" +
+            "3. Pop a course, increment `processed` \u2014 it is now 'taken'.\n" +
+            "4. For each course it unlocks, decrement that course's indegree; if it hits 0, enqueue it.\n" +
+            "5. When the queue drains, return whether `processed == numCourses`.\n\n" +
+            "**Why it works.** Each edge is relaxed exactly once, when its source is processed. A node reaches indegree 0 iff all its prerequisites were scheduled before it, so if `processed` equals `numCourses` every course had its prereqs met in order; any node that never reaches 0 is on a cycle where each waits on another, and the count falls short.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Edge direction is the #1 bug: `[a, b]` means b before a, i.e. edge `b -> a`. Draw it before coding.\n" +
+            "- The graph may be disconnected and include courses with no edges \u2014 those start at indegree 0 and must be counted.\n" +
+            "- Compare the final `processed` count to `numCourses`, not to the number of edges.\n\n" +
+            "**Complexity.** Time `O(V + E)` and space `O(V + E)` \u2014 building and traversing touch every node and edge once.\n\n" +
+            "**Interview mindset.** 'Can all tasks finish?' or 'is there a valid build/schedule order?' under pairwise dependencies is the classic signal for topological sort via indegree BFS.",
           rcs:
             "from collections import deque\n" +
             "\n" +
@@ -274,12 +309,25 @@
           space: "O(V + E)",
           whenToUse: "When you think in DFS or need to reuse the recursion to also emit an order; classic 'detect a cycle in a directed graph'.",
           logic:
-            "**Modeling.** Same directed graph (nodes = courses, edge `b -> a` per `[a, b]`). Here 'finishable' = 'no back edge exists in a DFS'. We *find a cycle by coloring nodes during a depth-first walk*.\n\n" +
-            "**D. The three states.** Each node is colored: **0 = unvisited**, **1 = in the current DFS path (visiting)**, **2 = fully done (safe)**. The `visited`/color array IS the memory of the traversal. A cycle exists precisely when DFS reaches a node currently colored 1 \u2014 that is a *back edge* pointing to an ancestor on the active path.\n\n" +
-            "**F. Why the two 'visited' meanings differ.** Color 1 means 'on the stack right now' (finding it again = cycle). Color 2 means 'explored and proven acyclic below' \u2014 revisiting it is fine and we can short-circuit, which is what keeps the algorithm `O(V + E)` instead of exponential.\n\n" +
-            "**I. Step by step.** For each course not yet done, run `dfs`. In `dfs(c)`: if `color[c] == 1` return `False` (cycle); if `color[c] == 2` return `True` (already cleared). Mark `color[c] = 1`, recurse into all neighbors (any `False` propagates up), then mark `color[c] = 2` and return `True`.\n\n" +
-            "**J. Why correct.** A directed graph has a cycle iff a DFS finds a back edge to a gray (color-1) ancestor. Marking nodes black (color 2) after exploring guarantees each node/edge is examined once.\n\n" +
-            "**K/L. Complexity.** Each node colored a constant number of times, each edge followed once \u2192 `O(V + E)` time; recursion + arrays `O(V + E)`.",
+            "**What it asks.** The same question \u2014 can all courses finish? \u2014 answered by detecting whether the directed prerequisite graph contains a cycle.\n\n" +
+            "**Graph modeling.** Same graph: **nodes** are courses, and each `[a, b]` is a directed **edge `b -> a`**. 'Finishable' is equivalent to 'a depth-first walk finds no back edge', i.e. the graph is acyclic. We find a cycle by coloring nodes as we descend.\n\n" +
+            "**Why the naive idea fails.** A plain DFS with a single boolean visited set can't tell 'this node is an ancestor still on my current path' (which signals a cycle) from 'this node was fully explored earlier on a different path' (which is safe). Conflating them either misses cycles or wrongly reports them.\n\n" +
+            "**Key Idea.** Give each node three states: **0 = unvisited**, **1 = on the current DFS path (visiting)**, **2 = fully explored and proven safe**. The color array IS the traversal's memory. A cycle exists precisely when DFS reaches a node currently colored 1 \u2014 a *back edge* to an ancestor on the active recursion path. Color 2 lets a later path short-circuit a node already cleared, which keeps the whole search linear instead of exponential.\n\n" +
+            "**Why DFS fits.** Cycle detection in a directed graph is exactly about the recursion stack: the set of color-1 nodes is the current path. Depth-first descent naturally maintains that path, marking a node gray on entry and black on exit.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Build adjacency list `graph[b].append(a)` and a `color` array initialized to 0.\n" +
+            "2. In `dfs(c)`: if `color[c] == 1` a back edge was found \u2014 return false (cycle).\n" +
+            "3. If `color[c] == 2` the node is already cleared \u2014 return true.\n" +
+            "4. Mark `color[c] = 1` (now on the active path) and recurse into every neighbor; if any returns false, propagate false up.\n" +
+            "5. After exploring all neighbors, mark `color[c] = 2` (done, safe) and return true.\n" +
+            "6. Run `dfs` from every course, since the graph may be disconnected; return false the moment any call reports a cycle.\n\n" +
+            "**Why it works.** A directed graph has a cycle iff a DFS encounters a back edge to a gray ancestor. Marking nodes black after fully exploring them means each node and edge is examined once, and a black node can be trusted as cycle-free without re-descending.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Two distinct states are essential: gray (on path) vs black (done). A single visited flag is the classic wrong answer here.\n" +
+            "- Restart the DFS from every unfinished node \u2014 a cycle may live in a component you haven't entered.\n" +
+            "- Keep edge direction straight: `[a, b]` is `b -> a`.\n\n" +
+            "**Complexity.** Time `O(V + E)` \u2014 each node colored a constant number of times, each edge followed once. Space `O(V + E)` for the recursion, color array, and adjacency list.\n\n" +
+            "**Interview mindset.** 'Detect a cycle in a directed graph' \u2014 build order, dependency resolution, deadlock detection \u2014 is the trigger for three-color DFS (or, equivalently, Kahn's indegree BFS).",
           rcs:
             "class Solution:\n" +
             "    def canFinish(self, numCourses: int, prerequisites: List[List[int]]) -> bool:\n" +
@@ -390,9 +438,23 @@
           space: "O(m*n)",
           whenToUse: "Only to state the naive idea; too slow for a 200x200 grid but clarifies what 'reachable' means.",
           logic:
-            "**Modeling.** The grid is an implicit graph: **nodes** are cells `(r, c)`; a directed **edge** goes from cell X to neighbor Y when `heights[Y] <= heights[X]` (water can move X -> Y). We want cells that can reach *both* ocean border sets.\n\n" +
-            "**B. Naive idea.** For every cell, run a DFS/BFS following the downhill (\u2264) edges and see whether it touches a top/left border (Pacific) and separately a bottom/right border (Atlantic). Collect cells that reach both.\n\n" +
-            "**C. Why it is slow.** Each of the `m*n` cells launches its own traversal that can visit up to `m*n` cells \u2192 `O((m*n)^2)`. For 200x200 = 40,000 cells this is 1.6 billion steps \u2014 too slow.",
+            "**What it asks.** Find every grid cell from which water can flow to *both* oceans \u2014 the Pacific (top/left edges) and the Atlantic (bottom/right edges) \u2014 where water moves to an equal-or-lower neighbor.\n\n" +
+            "**Graph modeling.** The grid is an implicit graph: **nodes** are cells `(r, c)`; a directed **edge** goes from cell X to neighbor Y when `heights[Y] <= heights[X]` (water can flow X -> Y downhill). We want cells that can reach both border sets, and a `visited`/`seen` set per search prevents re-processing cells during one flow.\n\n" +
+            "**Why the naive idea fails (this is the idea).** The obvious approach: for every cell, run a DFS/BFS following the downhill (\u2264) edges and check whether it touches a top/left border (Pacific) and, separately, a bottom/right border (Atlantic); collect the cells that reach both. It is correct but slow \u2014 each of the `m*n` cells launches its own traversal that can visit up to `m*n` cells, giving `O((m*n)^2)`. For a 200x200 grid that is ~1.6 billion steps.\n\n" +
+            "**Key Idea.** Model each cell's ability to drain as a reachability query in the downhill graph, then simply answer that query independently for every source cell. There is no sharing between searches \u2014 which is exactly why it is quadratic and motivates the reverse-flood optimization.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. For each cell `(r, c)`, start a fresh DFS/BFS with its own `seen` set.\n" +
+            "2. During the walk, if the current cell is on the top or left edge, mark Pacific reached; on the bottom or right edge, mark Atlantic reached.\n" +
+            "3. Move to any in-bounds neighbor whose height is `<=` the current cell's (water flows down-or-equal).\n" +
+            "4. When the walk ends, the cell qualifies iff both oceans were marked.\n" +
+            "5. Collect all qualifying cells.\n\n" +
+            "**Why it works.** Each per-cell search explores exactly the set of cells water can drain through from that source, so touching both a Pacific and an Atlantic border proves that cell drains to both. The `seen` set guarantees termination on flat/equal regions.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Flow uses `<=`, so equal-height neighbors pass water both ways \u2014 the `seen` set is essential or the search loops.\n" +
+            "- A border cell reaches its own ocean immediately; don't require it to move first.\n" +
+            "- Re-initialize `seen` (and the two ocean flags) for every source cell.\n\n" +
+            "**Complexity.** Time `O((m*n)^2)` \u2014 one traversal of up to `m*n` cells per source cell. Space `O(m*n)` for the per-search `seen` set.\n\n" +
+            "**Interview mindset.** When 'can each of many sources reach a target?' leads to relaunching a full search per source, that quadratic blowup is the cue to flip the direction and flood once from the targets instead.",
           rcs:
             "class Solution:\n" +
             "    def pacificAtlantic(self, heights: List[List[int]]) -> List[List[int]]:\n" +
@@ -450,13 +512,23 @@
           space: "O(m*n)",
           whenToUse: "The expected solution: whenever many sources must reach a target set, flip the search and flood from the target.",
           logic:
-            "**D. Key reversal.** Instead of asking 'from each cell, can water flow DOWN to an ocean?', ask the reverse: 'starting AT an ocean's border, which cells can water climb UP from?'. Reverse the edge condition: from a border we move to a neighbor whose height is `>=` the current cell (water could have flowed the other way). Every cell we reach this way can drain into that ocean.\n\n" +
-            "**E. Multi-source flood.** Run one traversal seeded with *all* Pacific border cells at once (top row + left column), marking every cell reachable \u2192 set `pac`. Run another seeded with all Atlantic border cells (bottom row + right column) \u2192 set `atl`. The answer is the **intersection** `pac \u2229 atl`.\n\n" +
-            "**G/H. What visited means.** `pac` is the set of cells that can reach the Pacific; `atl` the set that can reach the Atlantic. Each set is its own visited marker for its flood, preventing re-processing.\n\n" +
-            "**F. Why this is `O(m*n)`.** Each ocean flood visits every cell at most once (a cell is added to a set once). Two floods + one intersection = linear in the number of cells, versus the quadratic brute force.\n\n" +
-            "**I. Step by step.** For each border cell of an ocean, DFS: mark it in the ocean's set, then for each neighbor not yet in the set with `heights[neighbor] >= heights[cur]`, recurse. After both floods, output cells present in both sets.\n\n" +
-            "**J. Why correct.** Reversing the inequality makes 'reachable from the ocean going uphill' equivalent to 'can send water to the ocean going downhill'. A cell in both sets can therefore drain to both oceans.\n\n" +
-            "**K/L. Complexity.** `O(m*n)` time and space.",
+            "**What it asks.** The same result \u2014 cells that can drain to both oceans \u2014 computed in linear time instead of quadratic.\n\n" +
+            "**Graph modeling.** Same implicit grid graph (nodes = cells, edges follow height). But instead of the downhill edge, we traverse its reverse: from a cell we step to a neighbor whose height is `>=` (water could have flowed the other way, from that neighbor down into us).\n\n" +
+            "**Why the naive idea fails.** Searching from every cell repeats enormous overlapping work \u2014 `O((m*n)^2)`. The oceans, however, are shared targets, so the reachability should be computed once per ocean, not once per cell.\n\n" +
+            "**Key Idea.** Flip the question. Instead of 'from each cell, can water flow DOWN to an ocean?', ask 'starting AT an ocean's border, which cells can water have come DOWN from?' \u2014 walk uphill (neighbor height `>=` current). Every cell reachable this way can drain into that ocean. Do this once per ocean and intersect.\n\n" +
+            "**Why multi-source DFS/BFS fits.** All border cells of one ocean are equivalent sources, so we seed a single flood with the entire border at once. Two floods \u2014 Pacific set `pac` and Atlantic set `atl` \u2014 each act as their own `visited` marker (a cell is added once, preventing re-processing), and the answer is the intersection `pac \u2229 atl`.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Create two sets, `pac` and `atl`, for cells that can reach each ocean.\n" +
+            "2. Seed the Pacific flood from every top-row and left-column cell; seed the Atlantic flood from every bottom-row and right-column cell.\n" +
+            "3. From each seed, DFS/BFS: mark the cell in that ocean's set, then move to any neighbor not yet in the set whose height is `>=` the current cell's (reverse/uphill flow).\n" +
+            "4. After both floods complete, output every cell present in both `pac` and `atl`.\n\n" +
+            "**Why it works.** Reversing the inequality makes 'reachable from the ocean going uphill' logically equivalent to 'can send water to the ocean going downhill'. So `pac` is exactly the cells that drain to the Pacific and `atl` those that drain to the Atlantic; a cell in both drains to both.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- The inequality flips to `>=` for the reverse flow \u2014 using `<=` here silently computes the wrong set.\n" +
+            "- Seed each flood with the whole border (multi-source), and keep a separate visited set per ocean.\n" +
+            "- Corner cells touch both oceans and are always in the answer; a 1x1 or single-row/column grid is all-answer.\n\n" +
+            "**Complexity.** Time `O(m*n)` and space `O(m*n)` \u2014 each cell is visited at most once per ocean, so two floods plus an intersection stay linear.\n\n" +
+            "**Interview mindset.** Grid plus 'can many sources reach a border/target' is the signal to reverse the search and flood FROM the target; two targets means two floods and intersect the reachable sets.",
           rcs:
             "class Solution:\n" +
             "    def pacificAtlantic(self, heights: List[List[int]]) -> List[List[int]]:\n" +
@@ -573,13 +645,24 @@
           space: "O(m*n)",
           whenToUse: "The default: counting connected regions in a grid; concise recursion that sinks each island as it is found.",
           logic:
-            "**Modeling.** The grid is an implicit graph: **nodes** are land cells (`'1'`); an **edge** connects two land cells that are vertically/horizontally adjacent. An **island is a connected component**. We are *counting connected components*.\n\n" +
-            "**D. Key idea.** Scan every cell. The first time we hit unvisited land, we have discovered a new island \u2014 increment the count, then flood-fill (DFS) the entire component so its cells are never counted again.\n\n" +
-            "**E. Why DFS fits.** Flood fill = 'from this land cell, reach all land connected to it'. That is exactly a component traversal. The `visited` marker prevents recounting: either a separate boolean grid/set, or (cheaper) overwrite each visited `'1'` with `'0'` to 'sink' it.\n\n" +
-            "**G/H. What visited represents.** A cell is visited once its entire island is being flooded; sinking it to `'0'` means 'already part of a counted island'.\n\n" +
-            "**I. Step by step.** For each `(r, c)`: if `grid[r][c] == '1'`, do `count += 1` and call `dfs(r, c)`. `dfs` sinks the current cell to `'0'` and recurses into the four neighbors that are still `'1'` and in bounds.\n\n" +
-            "**J. Why correct.** Each land cell is flooded exactly once, by the first scan that reaches its island; the count increments once per component because subsequent cells of that island are already `'0'`.\n\n" +
-            "**K/L. Complexity.** Every cell is examined a constant number of times \u2192 `O(m*n)` time; worst-case recursion depth (one giant island) is `O(m*n)` space.",
+            "**What it asks.** Count the islands in a grid of `'1'` (land) and `'0'` (water), where an island is a maximal group of land cells connected horizontally or vertically.\n\n" +
+            "**Graph modeling.** The grid is an implicit graph: **nodes** are land cells (`'1'`); an **edge** connects two land cells that are vertically or horizontally adjacent. An **island is exactly a connected component**, so the task is *counting connected components*.\n\n" +
+            "**Why the naive idea fails.** You can't just count `'1'`s \u2014 many belong to the same island. And re-scanning the whole grid to test membership of already-counted land wastes work. We need to discover each component once and mark all its cells so they're never recounted.\n\n" +
+            "**Key Idea.** Scan every cell. The first time you hit unvisited land, you've found a new island \u2014 increment the count, then flood-fill (DFS) its entire component so none of its cells triggers another increment. The flood is a connected-component traversal: 'from this land cell, reach all land connected to it'.\n\n" +
+            "**Why DFS fits.** Reaching all land connected to a start cell is precisely a depth-first traversal over the adjacency edges. The `visited` marker prevents recounting \u2014 either a separate set, or (cheaper) overwrite each visited `'1'` with `'0'` to 'sink' it, meaning 'already part of a counted island'.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Iterate over every cell `(r, c)`.\n" +
+            "2. When `grid[r][c] == '1'`, increment the island count and call `dfs(r, c)`.\n" +
+            "3. `dfs` sinks the current cell to `'0'`, then recurses into the four neighbors (up/down/left/right).\n" +
+            "4. Each recursive call stops immediately if it is out of bounds or on water/visited (`!= '1'`).\n" +
+            "5. Return the accumulated count after the full scan.\n\n" +
+            "**Why it works.** Each land cell is flooded exactly once \u2014 by the first scan that reaches its island \u2014 so the count increments once per component, since every other cell of that island is already `'0'` by the time the outer loop reaches it.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Cells are the string characters `'1'`/`'0'`, not integers \u2014 compare against `'1'`.\n" +
+            "- Connectivity is 4-directional only; diagonal touches do NOT join islands.\n" +
+            "- On a single giant island the recursion depth reaches `m*n`, which can overflow the stack \u2014 that's the reason BFS exists.\n\n" +
+            "**Complexity.** Time `O(m*n)` \u2014 each cell examined a constant number of times. Space `O(m*n)` worst-case recursion depth (one grid-filling island).\n\n" +
+            "**Interview mindset.** 'Count regions/blobs/clusters in a grid' with 4-directional adjacency is the connected-components-via-flood-fill signal \u2014 DFS or BFS, sinking visited land as you go.",
           rcs:
             "class Solution:\n" +
             "    def numIslands(self, grid: List[List[str]]) -> int:\n" +
@@ -633,11 +716,24 @@
           space: "O(min(m, n))",
           whenToUse: "When the grid is huge and deep recursion could overflow the stack; iterative flood fill with a queue.",
           logic:
-            "**Same modeling, iterative flood.** Nodes = land cells, edges = 4-directional adjacency, an island = a component. We still scan for the first cell of each island and count it, but we flood the component with a **queue** instead of recursion.\n\n" +
-            "**D. Key idea.** On finding unvisited land, increment the count, sink the starting cell, and push it onto a queue. Repeatedly pop a cell and enqueue its still-`'1'` neighbors, sinking each as it is enqueued (so it can't be enqueued twice).\n\n" +
-            "**F. Why sink-on-enqueue matters.** Marking a cell `'0'` at the moment it enters the queue is the visited check; without it the same cell could be added by two neighbors and processed twice.\n\n" +
-            "**I. Step by step.** For each `(r, c)` with `grid[r][c] == '1'`: `count += 1`, set it to `'0'`, `queue = deque([(r,c)])`; while the queue is non-empty pop `(cr, cc)` and for each in-bounds `'1'` neighbor, sink it and enqueue.\n\n" +
-            "**K/L. Complexity.** `O(m*n)` time; the queue holds at most a frontier of the grid, so `O(min(m, n))` in the typical analysis \u2014 no deep call stack.",
+            "**What it asks.** The same island count, produced with an explicit queue so there's no deep recursion.\n\n" +
+            "**Graph modeling.** Unchanged: **nodes** are land cells, **edges** are 4-directional adjacency, and an island is a connected component. We still scan for the first cell of each island and count it, but flood the component with a **queue** instead of the call stack.\n\n" +
+            "**Why the naive idea fails.** The recursive DFS is correct but on a huge single island (up to 300x300 land cells) its recursion depth can overflow the stack. An iterative BFS keeps memory to the frontier and avoids that.\n\n" +
+            "**Key Idea.** On finding unvisited land, increment the count, sink the starting cell to `'0'`, and push it onto a queue. Repeatedly pop a cell and enqueue its still-`'1'` neighbors, sinking each *as it is enqueued*. Marking a cell `'0'` at enqueue time is the visited check \u2014 without it, two neighbors could enqueue the same cell and it would be processed twice.\n\n" +
+            "**Why BFS fits.** Flood fill only needs to reach every connected land cell; order is irrelevant, so a queue-driven frontier explores the component just as completely as recursion, with bounded depth.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Iterate over every cell `(r, c)`.\n" +
+            "2. When `grid[r][c] == '1'`, increment the count, sink it to `'0'`, and seed a queue with `(r, c)`.\n" +
+            "3. While the queue is non-empty, pop a cell and look at its four neighbors.\n" +
+            "4. For each in-bounds neighbor still equal to `'1'`, sink it to `'0'` and enqueue it.\n" +
+            "5. When the queue drains, the island is fully consumed; continue the scan and return the count.\n\n" +
+            "**Why it works.** Sinking on enqueue makes each land cell enter the queue exactly once, so a component is flooded completely and counted a single time, identical in outcome to the DFS version.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Sink cells on enqueue, not on dequeue \u2014 otherwise duplicates enter the queue.\n" +
+            "- Cells are string `'1'`/`'0'`; compare against the character.\n" +
+            "- 4-directional only; diagonals don't connect.\n\n" +
+            "**Complexity.** Time `O(m*n)` \u2014 every cell processed once. Space is the queue frontier, `O(min(m, n))` in the usual analysis \u2014 no deep call stack.\n\n" +
+            "**Interview mindset.** When a grid flood-fill is correct recursively but the grid is large, switch to the queue-based BFS to remove stack-overflow risk while keeping linear time.",
           rcs:
             "from collections import deque\n" +
             "\n" +

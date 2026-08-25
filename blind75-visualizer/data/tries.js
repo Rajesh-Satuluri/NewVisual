@@ -82,19 +82,22 @@
           space: "O(total characters inserted)",
           whenToUse: "The canonical design whenever you need fast prefix membership, autocomplete, or shared-prefix storage.",
           logic:
-            "**A. What is being asked?** Build a container that not only answers 'is this exact word present?' but also 'does any stored word start with this prefix?' — both quickly.\n\n" +
-            "**B. Why a hash set is not enough.** A `set` of words answers exact-match `search` in `O(L)`, but `startsWith` would force you to scan every stored word and test its prefix — `O(number of words * L)`. Prefix questions are the reason a trie exists.\n\n" +
-            "**D. Key observation.** Words that share a prefix should share storage for that prefix. If we lay strings out character-by-character along a tree, the common prefix 'app' of 'app' and 'apple' is one single path, and any prefix query is just 'can I walk this path from the root?'\n\n" +
-            "**E. Pattern / data structure.** Each **node** owns a dictionary `children` mapping one character to the next node, plus a boolean `is_end`. The root represents the empty prefix. Descending one edge consumes exactly one character.\n\n" +
-            "**F. Why prefix queries become O(L).** To process a word of length `L` you follow at most `L` edges, doing one `O(1)` dict lookup per edge. Crucially this cost does NOT depend on how many words the trie holds — a million stored words do not slow down a five-character lookup. That independence is the whole point.\n\n" +
-            "**G/H. What each field holds.** `children[c]` is the node you reach by reading character `c`; `is_end` on a node means 'the characters spelled from the root to here form a complete inserted word,' distinguishing a real word from a mere prefix.\n\n" +
-            "**I. Step by step.**\n" +
-            "- *insert*: start at the root; for each character, create the child if missing, then move into it; mark the final node `is_end = True`.\n" +
-            "- *search*: walk the characters; if any child is missing return `False`; at the end return the final node's `is_end`.\n" +
-            "- *startsWith*: identical walk, but at the end just return `True` (reaching the end of the path is enough — no `is_end` check).\n\n" +
-            "**J. Why correct.** A word is present iff its full path exists AND its terminal node is flagged, which is exactly what `insert` guarantees and `search` checks. A prefix exists iff its path exists, which `startsWith` checks.\n\n" +
-            "**K/L. Complexity.** Every operation is `O(L)` time. Space is `O(total characters inserted)` in the worst case (no shared prefixes), less when prefixes overlap.\n\n" +
-            "**M. Interview mindset.** The instant you hear 'prefix', 'autocomplete', or 'words sharing a start', reach for a trie. The only subtlety to get right is the `is_end` flag — it is what separates `search` from `startsWith`.",
+            "**What it asks.** Build a container that not only answers 'is this exact word present?' but also 'does any stored word start with this prefix?' — both quickly. Support `insert`, `search`, and `startsWith`.\n\n" +
+            "**Why the naive idea fails.** A `set` of words answers exact-match `search` in `O(L)`, but `startsWith` would force you to scan every stored word and test whether it begins with the prefix — `O(number of words * L)` per query. As the dictionary grows, prefix questions get linearly slower. Prefix queries are the whole reason a trie exists.\n\n" +
+            "**Key Idea.** Words that share a prefix should share storage for that prefix. Lay the strings out character-by-character along a tree so the common prefix `app` of `app` and `apple` becomes one single path from the root. Then any prefix question reduces to 'can I walk this path from the root?' — and, crucially, that walk costs `O(L)` no matter how many words are stored, because you only follow the query's own characters.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Represent each **node** as a dictionary `children` (mapping one character to the next node) plus a boolean `is_end`. The root represents the empty prefix; descending one edge consumes exactly one character.\n" +
+            "2. `insert(word)`: start at the root; for each character, create the child node if it is missing, then move into it; after the last character, mark the final node `is_end = True`.\n" +
+            "3. `search(word)`: walk the characters from the root; if any child is missing, return `False`; after the last character, return the final node's `is_end` flag.\n" +
+            "4. `startsWith(prefix)`: identical walk, but at the end just return `True` — reaching the end of the path is enough, with no `is_end` check.\n\n" +
+            "**Why it works.** `children[c]` is precisely the node you reach by reading character `c`, and `is_end` means 'the characters spelled from the root to here form a complete inserted word.' So a word is present iff its full path exists AND its terminal node is flagged — exactly what `insert` guarantees and `search` checks. A prefix exists iff its path exists, which is what `startsWith` checks. That single `is_end` flag is the only thing separating the two queries.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Forgetting to set `is_end` on `insert` makes every `search` return `False` even though the path exists.\n" +
+            "- Confusing `search` and `startsWith`: `startsWith` must NOT check `is_end`, or valid prefixes report as absent.\n" +
+            "- A single-character word marks the child reached directly from the root — don't special-case it away.\n" +
+            "- Querying an empty trie must fail gracefully at the first missing child, not crash.\n\n" +
+            "**Complexity.** Every operation is `O(L)` time (one `O(1)` dict lookup per edge, at most `L` edges), independent of how many words are stored. Space is `O(total characters inserted)` in the worst case (no shared prefixes), less when prefixes overlap.\n\n" +
+            "**Interview mindset.** The instant you hear 'prefix', 'autocomplete', or 'words sharing a start', reach for a trie — a hash set gives you only exact lookup. The one subtlety to get right is the `is_end` flag; it is what distinguishes `search` from `startsWith`.",
           rcs:
             "class TrieNode:\n" +
             "    def __init__(self):\n" +
@@ -231,17 +234,23 @@
           space: "O(total characters added) + O(L) recursion",
           whenToUse: "When exact-match prefix storage must also support single-character wildcards in queries.",
           logic:
-            "**A. What is being asked?** Same trie as before, but `search` may include `.` that matches any single letter.\n\n" +
-            "**D. Key observation.** A concrete character is deterministic — from the current node you follow exactly one edge (or fail). A `.` is non-deterministic — it could be any of the current node's children, so you must **try them all** and succeed if any branch leads to a full match. That is a depth-first search with backtracking.\n\n" +
-            "**E. Pattern / data structure.** Build the identical `TrieNode` (children dict + is_end). `addWord` is exactly the trie insert. `search` becomes a recursive DFS parameterized by (position in the pattern, current node).\n\n" +
-            "**F. The branching, precisely.** Walk the pattern with an index `i`:\n" +
-            "- If `word[i]` is a normal letter, look it up in `node.children`; if absent, this whole branch fails; if present, recurse into that one child at `i+1`.\n" +
-            "- If `word[i]` is `.`, iterate over EVERY child node and recurse into each at `i+1`; if any recursion returns `True`, the match succeeds.\n\n" +
-            "**G/H. Base case.** When `i` reaches the end of the pattern, the match is valid iff the current node's `is_end` is set — meaning the letters consumed spell a complete stored word of exactly this length.\n\n" +
-            "**I. Step by step.** Start DFS at (index 0, root). Consume characters, branching on dots, until either you exhaust the pattern (check `is_end`) or hit a dead end (return `False`). Backtracking is automatic: a failed child simply returns and the loop tries the next child.\n\n" +
-            "**J. Why correct.** A stored word matches the pattern iff, letter by letter, each concrete character equals the word's character and each dot lines up with some character — which is exactly the set of paths the DFS explores. The `is_end` base case enforces that lengths agree and the path is a real word.\n\n" +
-            "**K/L. Complexity.** With no dots it is a straight `O(L)` walk. Each dot can fan out to up to 26 children, so with `d` dots the worst case is `O(26^d * L)`. Space is the trie plus `O(L)` recursion depth.\n\n" +
-            "**M. Interview mindset.** 'Wildcard that matches one character' over a dictionary = trie + DFS. The concrete-letter case narrows to one child; the dot case forks over all children. Everything else is the plain trie you already know.",
+            "**What it asks.** The same trie as before, plus a `search` that may include the wildcard `.`, which matches any single letter. Return `true` if any stored word matches the pattern.\n\n" +
+            "**Why the naive idea fails.** For a concrete letter you always know which single edge to follow, but a `.` gives no such guidance. Trying to keep just one 'current node' breaks down the moment you hit a dot, because the right next node might be any of the current node's children — and you can't know which until you look further ahead. You need to explore multiple branches, not commit to one.\n\n" +
+            "**Key Idea.** A concrete character is deterministic — from the current node you follow exactly one edge (or fail). A `.` is non-deterministic — it could be any of the current node's children, so you must **try them all** and succeed if any branch leads to a full match. That is a depth-first search with backtracking over the trie, parameterized by (position in the pattern, current node).\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Build the identical `TrieNode` (children dict + `is_end`). `addWord` is exactly the plain trie insert.\n" +
+            "2. `search` runs a recursive DFS carrying an index `i` into the pattern and the current trie `node`, starting at (index 0, root).\n" +
+            "3. If `word[i]` is a normal letter, look it up in `node.children`; if absent, this branch fails; if present, recurse into that one child at `i+1`.\n" +
+            "4. If `word[i]` is `.`, iterate over EVERY child and recurse into each at `i+1`; if any recursion returns `True`, the match succeeds; if none do, this branch fails.\n" +
+            "5. Base case: when `i` reaches the end of the pattern, return the current node's `is_end` — the consumed letters must spell a complete stored word of exactly this length.\n\n" +
+            "**Why it works.** A stored word matches the pattern iff, letter by letter, each concrete character equals the word's character and each dot lines up with some character — which is exactly the set of root-to-node paths the DFS explores. Backtracking is automatic: a failed child simply returns and the loop tries the next. The `is_end` base case enforces both that the lengths agree and that the path is a real word, not just a prefix.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- The base case must check `is_end`, not merely that the node exists — a pattern matching only a prefix is not a match.\n" +
+            "- `.` matches exactly ONE character, so it still consumes one trie edge; it is not a multi-character wildcard.\n" +
+            "- On a dot, remember to return `False` after the loop if no child succeeded — don't fall through.\n" +
+            "- A pattern longer than every stored word simply hits missing children and fails; a pattern shorter than a word fails the `is_end` check.\n\n" +
+            "**Complexity.** With no dots it is a straight `O(L)` walk. Each dot can fan out to up to 26 children, so with `d` dots the worst case is `O(26^d * L)`. Space is the trie plus `O(L)` recursion depth.\n\n" +
+            "**Interview mindset.** 'Wildcard that matches one character' over a dictionary is the signal for trie + DFS. The concrete-letter case narrows to one child; the dot case forks over all children. The moment a query becomes non-deterministic about the next node, reach for backtracking over the structure you already have.",
           rcs:
             "class TrieNode:\n" +
             "    def __init__(self):\n" +
@@ -378,8 +387,20 @@
           space: "O(L) recursion",
           whenToUse: "Only as the baseline you contrast against; it re-explores the board for every single word.",
           logic:
-            "**B. Brute force.** Treat each word independently: for each of the `W` words, run the standard Word Search I DFS over the whole board, trying to trace that one word from every cell.\n\n" +
-            "**C. Why it is slow.** Every word restarts the search from scratch. Words sharing a prefix (e.g. 'oath', 'oat', 'oatmeal') each re-walk the same 'oat' cells over and over. With up to `3 * 10^4` words this is enormous duplicated work — the board is explored `W` separate times.",
+            "**What it asks.** Given a grid of letters and a list of `W` words, return every listed word that can be traced along a path of adjacent, non-repeating cells on the board.\n\n" +
+            "**The idea, and why it's slow.** The obvious approach treats each word independently: for each of the `W` words, run the standard Word Search I DFS over the whole board, trying to trace that one word starting from every cell. It is correct but wasteful — every word restarts the search from scratch, and words sharing a prefix (e.g. `oath`, `oat`, `oatmeal`) each re-walk the same `oat` cells over and over. The board gets explored `W` separate times with no sharing between words.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. For each word, define a DFS carrying a board position `(r, c)` and an index `i` into the word.\n" +
+            "2. Succeed when `i` reaches the word's length; fail when off-grid or when the cell's letter differs from `word[i]`.\n" +
+            "3. Mark the current cell used (temporarily overwrite it with `#`), recurse into the four neighbours at `i+1`, then restore the cell on backtrack so it can be reused for a different starting position.\n" +
+            "4. Launch the DFS from every cell; if any start traces the whole word, record the word.\n\n" +
+            "**Why it works.** For each word it is exactly Word Search I, which is a sound backtracking search: the `#` marker enforces 'no cell reused within one word' and restoring on backtrack keeps the board intact for the next attempt. Running it once per word therefore finds precisely the traceable words.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Forgetting to restore the cell after recursion corrupts the board for subsequent searches.\n" +
+            "- Not bounds-checking before reading `board[r][c]` causes index errors at the edges.\n" +
+            "- Duplicate work across shared prefixes is the whole weakness — it is correct, just slow.\n\n" +
+            "**Complexity.** `O(W * m * n * 4^L)` time — for each of `W` words, a DFS from every one of `m*n` cells branching up to 4 ways for `L` steps. Space is `O(L)` recursion depth.\n\n" +
+            "**Interview mindset.** This is the baseline to contrast against, not the answer. Recognizing that many words share prefixes and that re-searching per word duplicates that shared traversal is exactly what motivates flipping to a trie-driven single board search.",
           rcs:
             "class Solution:\n" +
             "    def findWords(self, board: List[List[str]], words: List[str]) -> List[str]:\n" +
@@ -445,18 +466,24 @@
           space: "O(total characters in words)",
           whenToUse: "The expected solution: many words to find on one grid, especially when words share prefixes.",
           logic:
-            "**D. Key observation.** Instead of searching the board once per word, build a **trie of all the words** and search the board ONCE. As the DFS moves cell to cell it simultaneously descends the trie: the current letter must be a child of the current trie node, or the whole branch is dead.\n\n" +
-            "**E. Why the trie beats per-word search.** All words that share a prefix share one trie path, so tracing 'oat' on the board advances 'oath', 'oats', and 'oatmeal' at the same time — the shared prefix is walked once, not once per word. Equally important, the trie **prunes**: from a board cell you only recurse into neighbours whose letter is an existing child of the current node. If no word continues with the letter under you, you stop immediately instead of exploring the four directions blindly.\n\n" +
-            "**G/H. What the DFS carries.** The recursion holds a position `(r, c)` on the board and a `node` in the trie. When `node.is_end` (or a stored word marker) is true, the characters spelled along this path form a complete word — record it.\n\n" +
-            "**I. Step by step.**\n" +
-            "1. Insert every word into a trie; store the finished word at its terminal node (convenient for collecting results).\n" +
-            "2. From each board cell, DFS: if the cell's letter is not a child of the current node, return. Otherwise descend into that child.\n" +
-            "3. If the child marks a complete word, add it to results and clear its marker so it is reported only once.\n" +
-            "4. Mark the cell used (e.g. set it to '#'), recurse into the four neighbours, then restore the cell (backtrack).\n\n" +
-            "**Pruning refinement.** After exploring a node fully, if it has no remaining children you may delete it from its parent — this keeps the trie shrinking and future DFS branches even shorter.\n\n" +
-            "**J. Why correct.** A word is reported iff there is an adjacent, non-repeating cell path spelling it, which is exactly a DFS path along the board that also forms a root-to-terminal path in the trie. Marking cells with '#' enforces 'no cell reused within one word'; restoring on backtrack allows other words to reuse the cell.\n\n" +
-            "**K/L. Complexity.** Building the trie is `O(total characters)`. The board DFS is bounded by `O(m * n * 4 * 3^(L-1))` — from each start cell the first step has 4 directions and each later step at most 3 (cannot return to the previous cell), with `L` the max word length — but the trie prunes most of this in practice. Space is `O(total characters in the words)` for the trie.\n\n" +
-            "**M. Interview mindset.** 'Find MANY words on one grid' is the flag to invert the naive loop: put the words in a trie and drive a single board search with it. The trie is both the shared-prefix optimizer and the pruner.",
+            "**What it asks.** Return all listed words traceable on the board, but do it efficiently across the whole dictionary at once rather than one word at a time.\n\n" +
+            "**Why the naive idea fails.** Searching the board once per word re-walks every shared prefix repeatedly and rescans the entire grid `W` times — `O(W * m * n * 4^L)`. With up to `3 * 10^4` words this is far too much duplicated traversal, and nothing tells the search to stop early when no word could possibly continue.\n\n" +
+            "**Key Idea.** Invert the loop: build a **trie of all the words** and search the board ONCE. As the DFS moves cell to cell it simultaneously descends the trie — the current cell's letter must be a child of the current trie node, or the entire branch is dead. This does two things at once. Shared prefixes are walked a single time: tracing `oat` on the board advances `oath`, `oats`, and `oatmeal` together. And the trie **prunes** — from a cell you only recurse into neighbours whose letter is an existing child, so you stop the instant no word continues with the letter under you instead of blindly trying all four directions.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Insert every word into a trie; store the finished word string at its terminal node, which makes collecting results trivial.\n" +
+            "2. The DFS carries a board position `(r, c)` and the current trie `node`. Look up the cell's letter among `node.children`; if it is absent, return immediately (prune).\n" +
+            "3. Otherwise descend into that child. If the child holds a stored word, append it to results and clear the marker so it is reported only once.\n" +
+            "4. Mark the cell used (overwrite with `#`), recurse into the four neighbours with the descended child node, then restore the cell on backtrack so other words may reuse it.\n" +
+            "5. Launch the DFS from every board cell, starting at the trie root.\n" +
+            "6. Optional pruning refinement: after fully exploring a node, if it has no remaining children, delete it from its parent — this shrinks the trie and makes future DFS branches end even sooner.\n\n" +
+            "**Why it works.** A word is reported iff there is an adjacent, non-repeating cell path spelling it — which is exactly a DFS path along the board that also forms a root-to-terminal path in the trie. Marking cells with `#` enforces 'no cell reused within one word'; restoring on backtrack lets a different word reuse the cell. Clearing the stored word after finding it prevents duplicate reports.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Not clearing the terminal marker after a find causes the same word to be reported multiple times.\n" +
+            "- Forgetting to restore the cell after recursion corrupts the board for other starting cells.\n" +
+            "- Checking `board[nr][nc] != '#'` (or bounds) before recursing is what enforces non-reuse and stays on-grid.\n" +
+            "- The trie must drive the pruning: recurse only into children that exist, or you lose the entire speedup.\n\n" +
+            "**Complexity.** Building the trie is `O(total characters in the words)`. The board DFS is bounded by `O(m * n * 4 * 3^(L-1))` — from each start cell the first step has 4 directions and each later step at most 3 (it cannot return to the previous cell), with `L` the max word length — but the trie prunes most of this in practice. Space is `O(total characters in the words)` for the trie.\n\n" +
+            "**Interview mindset.** 'Find MANY words on one grid' is the flag to invert the naive per-word loop: put the words in a trie and drive a single board search with it. The trie serves double duty as the shared-prefix optimizer and the branch pruner.",
           rcs:
             "class TrieNode:\n" +
             "    def __init__(self):\n" +

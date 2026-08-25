@@ -63,22 +63,23 @@
           space: "O(1)",
           whenToUse: "The only real answer: any time addition must be simulated with bit operations.",
           logic:
-            "**A. What is being asked?** Add two integers using only bitwise operators \u2014 essentially, build an adder by hand.\n\n" +
-            "**B. Brute force is off the table.** We cannot use `+`, so we have to reconstruct what `+` does at the bit level.\n\n" +
-            "**D. Key observation \u2014 split addition into two independent pieces.** When you add two bits you get a *sum bit* and a *carry bit*:\n" +
-            "- `0+0=0`, `0+1=1`, `1+0=1`, `1+1=0 carry 1`.\n" +
-            "That sum-without-carry table is **exactly XOR** (`a ^ b`). The carry is generated only where *both* bits are 1, and it applies to the **next** position up \u2014 that is `(a & b) << 1`.\n\n" +
-            "**E. Pattern.** Repeatedly: let `a` hold the running sum-without-carry and `b` hold the carry that still needs to be added. Adding the carry can itself generate new carries, so we loop until there is no carry left (`b == 0`).\n\n" +
-            "**F. Why it terminates.** Each iteration the carry shifts strictly left. After at most 32 shifts (for 32-bit values) the carry falls off the top and becomes 0, so the loop runs a bounded number of times \u2014 `O(1)`.\n\n" +
-            "**G/H. What the variables hold.** `a` = partial sum so far; `b` = the pending carry to fold in next.\n\n" +
-            "**I. Step by step.**\n" +
-            "1. `sum = a ^ b` (add every column, ignoring carries).\n" +
-            "2. `carry = (a & b) << 1` (carries move one column left).\n" +
-            "3. Set `a = sum`, `b = carry`, repeat until `b == 0`.\n\n" +
-            "**Python 32-bit masking (crucial).** Java/C++ ints wrap at 32 bits automatically, which is what makes two's-complement negatives work. **Python ints are unbounded**, so left-shifting a carry would grow forever and negatives would never settle. Fix: after every step AND with `mask = 0xFFFFFFFF` to keep only the low 32 bits. When the loop ends, if `a` is above `0x7FFFFFFF` the 32-bit pattern represents a **negative** number, so convert it back with `~(a ^ mask)` (flip the low 32 bits and negate) to recover Python's signed value.\n\n" +
-            "**J. Why correct.** XOR + carry-shift is precisely the definition of binary addition; looping until the carry is exhausted reproduces a ripple-carry adder. Masking makes Python behave like a 32-bit machine so signs are handled the same way hardware handles them.\n\n" +
-            "**K/L. Complexity.** At most ~32 iterations of constant work \u2192 time `O(1)`, space `O(1)`.\n\n" +
-            "**M. Interview mindset.** \u201cAdd without +\u201d \u2192 immediately say: XOR is the sum, AND-shift is the carry, loop until carry is gone. Then mention the Python masking caveat \u2014 it is the detail interviewers look for.",
+            "**What it asks.** Add two integers `a` and `b` and return their sum using only bitwise operators \u2014 no `+` or `-`. In effect, you have to build a hardware adder by hand.\n\n" +
+            "**Why the naive idea fails.** The obvious move is to just write `a + b`, but that is exactly the operator we are forbidden to use. There is no arithmetic shortcut; we must reconstruct what `+` does at the level of individual bits.\n\n" +
+            "**Key Idea.** Adding two bits produces a *sum bit* and a *carry bit*, and each can be computed separately with a bitwise operator. The sum-without-carry table is `0+0=0`, `0+1=1`, `1+0=1`, `1+1=0` \u2014 that is **exactly XOR** (`a ^ b`). A carry is generated only where *both* bits are 1, and it belongs one column to the left, which is `(a & b) << 1`. So addition splits into two independent pieces: XOR gives every column's sum ignoring carries, and AND-shift gives the carries. Folding the carry back in can generate new carries, so we repeat until no carry remains.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Let `a` hold the running sum-without-carry and `b` hold the carry still waiting to be added.\n" +
+            "2. Compute `sum = a ^ b` \u2014 add every column, ignoring carries.\n" +
+            "3. Compute `carry = (a & b) << 1` \u2014 the carries, moved one column left.\n" +
+            "4. Set `a = sum` and `b = carry`, then repeat from step 2.\n" +
+            "5. Stop when `b == 0`; the answer is `a`.\n\n" +
+            "**Python 32-bit masking (crucial).** Java/C++ ints wrap at 32 bits automatically, which is what makes two's-complement negatives work. `Python` ints are unbounded, so a left-shifted carry would grow forever and negatives would never settle. The fix: after every step AND with `mask = 0xFFFFFFFF` to keep only the low 32 bits. When the loop ends, if `a` is above `0x7FFFFFFF` the 32-bit pattern represents a **negative** number, so convert it back with `~(a ^ mask)` (flip the low 32 bits and negate) to recover Python's signed value.\n\n" +
+            "**Why it works.** XOR plus carry-shift is precisely the definition of binary addition, so looping until the carry is exhausted reproduces a ripple-carry adder. Each iteration the carry shifts strictly left, so after at most 32 shifts it falls off the top and becomes 0 \u2014 the loop is guaranteed to terminate. Masking makes Python behave like a fixed-width 32-bit machine, so signs are handled exactly as hardware handles them.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Forgetting the mask in Python: the carry keeps growing and the loop never ends (or negatives never resolve).\n" +
+            "- Skipping the final sign fix: without it, negative results come back as huge positive numbers.\n" +
+            "- Looping on `b` alone rather than `b & mask` \u2014 out-of-range carry bits can keep the loop alive spuriously.\n\n" +
+            "**Complexity.** Time `O(1)` \u2014 at most ~32 iterations of constant work. Space `O(1)`.\n\n" +
+            "**Interview mindset.** \u201cAdd without `+`\u201d should immediately trigger: XOR is the sum, AND-shift is the carry, loop until the carry is gone. Then volunteer the Python masking caveat \u2014 it is the detail interviewers are listening for.",
           rcs:
             "class Solution:\n" +
             "    def getSum(self, a: int, b: int) -> int:\n" +
@@ -161,11 +162,19 @@
           space: "O(1)",
           whenToUse: "Perfectly fine and easy to explain; loops a fixed 32 times regardless of how many bits are set.",
           logic:
-            "**A. Asked.** Count how many bits equal 1.\n\n" +
-            "**D. Idea.** Inspect the lowest bit with `n & 1`; if it is 1 add to the count. Then shift `n` right by one (`n >>= 1`) to expose the next bit, and repeat until `n` becomes 0.\n\n" +
-            "**G/H. What we store.** A running `count` of ones and the shrinking value `n`.\n\n" +
-            "**J. Correctness.** Every bit passes through position 0 exactly once as we shift, so each 1 is counted exactly once.\n\n" +
-            "**K/L. Complexity.** At most 32 iterations \u2192 `O(1)` for a fixed-width integer, `O(1)` space.",
+            "**What it asks.** Given an integer, return how many of its bits equal `1` \u2014 its Hamming weight, or population count.\n\n" +
+            "**The idea.** Walk the bits one at a time from the bottom. Inspect the lowest bit with `n & 1`; if it is `1`, add to the count. Then shift `n` right by one (`n >>= 1`) to expose the next bit, and repeat until `n` becomes 0. This is the straightforward baseline: it always does a fixed amount of work per bit position, regardless of how many bits are actually set.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Start `count = 0`; `n` is the shrinking value we consume bit by bit.\n" +
+            "2. While `n` is non-zero, add `n & 1` to `count` (adds 1 exactly when the current lowest bit is set).\n" +
+            "3. Shift `n` right by one to drop the bit just examined and expose the next.\n" +
+            "4. When `n` reaches 0, return `count`.\n\n" +
+            "**Why it works.** Every bit of the original number passes through position 0 exactly once as we keep shifting right, so each `1` is inspected and counted exactly once, and no bit is counted twice.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- For `n = 0` the loop body never runs and correctly returns 0.\n" +
+            "- In fixed-width languages a signed right shift can smear the sign bit; use an unsigned shift or a 32-iteration loop. Python ints are non-negative here, so `n >>= 1` is safe.\n\n" +
+            "**Complexity.** Time `O(1)` \u2014 at most 32 iterations for a fixed-width integer. Space `O(1)`.\n\n" +
+            "**Interview mindset.** \u201cCount the set bits\u201d has this shift-and-mask baseline as the obvious first answer; state it plainly, then reach for the faster `n & (n - 1)` trick.",
           rcs:
             "class Solution:\n" +
             "    def hammingWeight(self, n: int) -> int:\n" +
@@ -189,16 +198,21 @@
           space: "O(1)",
           whenToUse: "The slick answer: loops once per set bit, so it is faster on sparse numbers.",
           logic:
-            "**D. Key trick \u2014 `n & (n - 1)` clears the lowest set bit.** Subtracting 1 flips the lowest `1` to `0` and turns every `0` below it into `1`. AND-ing that with the original `n` wipes out the lowest set bit and leaves all higher bits untouched.\n\n" +
-            "Concrete example with `n = 12 = 1100`:\n" +
-            "- `n - 1 = 1011`\n" +
-            "- `n & (n - 1) = 1100 & 1011 = 1000` \u2014 the lowest set bit (bit 2) is gone.\n\n" +
-            "**E. Pattern.** Each application removes exactly one set bit, so if we count how many times we can do it before `n` reaches 0, that count is the number of 1 bits.\n\n" +
-            "**F. Why it works.** `n - 1` borrows through the trailing zeros up to (and including) the lowest 1: that lowest 1 becomes 0, the zeros beneath it become 1s, and everything above is unchanged. AND with `n` keeps only the unchanged upper bits.\n\n" +
-            "**I. Step by step.** While `n` is non-zero: do `n &= n - 1` (drop one set bit) and increment the count. Stop when `n == 0`.\n\n" +
-            "**J. Correctness.** The loop runs exactly once per set bit, and there is nothing left when all set bits are cleared.\n\n" +
-            "**K/L. Complexity.** Time `O(k)` where `k` is the number of set bits (at most 32), space `O(1)`.\n\n" +
-            "**M. Interview mindset.** `n & (n - 1)` is the single most reused bit trick in interviews \u2014 knowing it also unlocks 'is power of two' (`n & (n-1) == 0`) and Counting Bits.",
+            "**What it asks.** Return the number of `1` bits in an integer \u2014 but loop once per set bit instead of once per bit position, so sparse numbers are handled faster.\n\n" +
+            "**Why the naive idea is slower.** Shifting through all 32 positions does constant work per position even when almost every bit is 0. If only a few bits are set, most of that work is wasted. We want the loop count to track the number of ones, not the width of the integer.\n\n" +
+            "**Key Idea.** The trick `n & (n - 1)` clears the lowest set bit in one step. Subtracting 1 flips the lowest `1` to `0` and turns every `0` below it into `1`; AND-ing that with the original `n` wipes out that lowest set bit and leaves all higher bits untouched. For example with `n = 12 = 1100`: `n - 1 = 1011`, and `n & (n - 1) = 1100 & 1011 = 1000` \u2014 the lowest set bit (bit 2) is gone. Because each application removes exactly one set bit, the number of applications needed to reach 0 *is* the number of 1 bits.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Start `count = 0`.\n" +
+            "2. While `n` is non-zero, do `n &= n - 1` to drop the lowest set bit.\n" +
+            "3. Increment `count` \u2014 one set bit was just removed.\n" +
+            "4. Stop when `n == 0` and return `count`.\n\n" +
+            "**Why it works.** `n - 1` borrows through the trailing zeros up to and including the lowest `1`: that lowest `1` becomes `0`, the zeros beneath it become `1`s, and everything above is unchanged. AND-ing with `n` keeps only those unchanged upper bits, so precisely one set bit disappears per iteration. The loop therefore runs exactly once per set bit and terminates when the last one is cleared.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- For `n = 0` the loop never runs and returns 0 correctly.\n" +
+            "- Remember the operation clears the *lowest* set bit, not the highest \u2014 don't expect it to strip from the top.\n" +
+            "- The same identity `n & (n - 1) == 0` (for `n > 0`) is the standard power-of-two check.\n\n" +
+            "**Complexity.** Time `O(k)` where `k` is the number of set bits (at most 32). Space `O(1)`.\n\n" +
+            "**Interview mindset.** `n & (n - 1)` is the single most reused bit trick in interviews \u2014 recognizing it also unlocks the power-of-two test and the Counting Bits recurrence.",
           rcs:
             "class Solution:\n" +
             "    def hammingWeight(self, n: int) -> int:\n" +
@@ -278,11 +292,18 @@
           space: "O(1) extra",
           whenToUse: "Simple and correct; fine when n is small or you just want to state the obvious baseline first.",
           logic:
-            "**A. Asked.** Produce the set-bit count for every value in `0..n`.\n\n" +
-            "**B. Brute force.** For each `i`, count its bits independently using the `i & (i - 1)` trick (clear the lowest set bit, count the removals).\n\n" +
-            "**C. Why it is not ideal.** Each number costs up to `O(log i)` work, so the whole array is `O(n log n)`. It repeats effort \u2014 the bit count of `i` is closely related to that of a smaller number, which the DP approach exploits.\n\n" +
-            "**I. Step by step.** Loop `i` from 0 to `n`; for each, run the clear-lowest-set-bit loop to get its popcount and store it.\n\n" +
-            "**K/L. Complexity.** Time `O(n log n)`, space `O(1)` beyond the required output.",
+            "**What it asks.** Produce an array whose `i`-th entry is the number of `1` bits in `i`, for every `i` from `0` to `n`.\n\n" +
+            "**The idea and why it's not ideal.** The obvious approach is to count each number's bits independently: for every `i`, run the `i & (i - 1)` loop (clear the lowest set bit, count the removals). It is simple and correct, but each number costs up to `O(log i)` work, making the whole array `O(n log n)`. Worse, it repeats effort \u2014 the bit count of `i` is closely related to that of a smaller, already-computed number, a relationship the DP approach exploits to reach `O(n)`.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Loop `i` from `0` to `n`.\n" +
+            "2. For each `i`, run the clear-lowest-set-bit loop (`i &= i - 1`, incrementing a counter) to get its popcount.\n" +
+            "3. Store that count at position `i` in the result.\n\n" +
+            "**Why it works.** The per-number popcount is itself exact \u2014 each pass removes exactly one set bit and counts it \u2014 so filling every index with an independently correct value yields the correct array.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- The result array has length `n + 1`, not `n` \u2014 index `0` through `n` inclusive.\n" +
+            "- `ans[0]` is always 0; the inner loop handles this naturally.\n\n" +
+            "**Complexity.** Time `O(n log n)` \u2014 up to `O(log i)` per number. Space `O(1)` beyond the required output.\n\n" +
+            "**Interview mindset.** State this per-number baseline first to show you can solve it, then note the wasted, repeated work \u2014 that observation is the natural bridge to the `O(n)` DP.",
           rcs:
             "class Solution:\n" +
             "    def countBits(self, n: int) -> List[int]:\n" +
@@ -310,16 +331,21 @@
           space: "O(1) extra",
           whenToUse: "The intended answer: reuse already-computed smaller results to build each count in O(1).",
           logic:
-            "**D. Key observation.** The binary form of `i` is the binary form of `i >> 1` (i.e. `i // 2`) with one extra bit \u2014 the lowest bit of `i` \u2014 appended at the bottom. So the number of ones in `i` equals the number of ones in `i >> 1` **plus** the lowest bit of `i` itself.\n\n" +
-            "Concretely, `i = 13 = 1101`. Then `i >> 1 = 110 = 6` which has two ones, and the dropped lowest bit `i & 1 = 1`. So `ones(13) = ones(6) + 1 = 2 + 1 = 3`. Check: `1101` has three ones.\n\n" +
-            "**E. Pattern \u2014 dynamic programming over bits.** Define `dp[i]` = number of set bits in `i`. Because `i >> 1 < i`, its answer is already computed when we reach `i`, so we can fill the array left to right.\n\n" +
-            "**Transition.** `dp[i] = dp[i >> 1] + (i & 1)`.\n\n" +
-            "**Base case.** `dp[0] = 0`.\n\n" +
-            "**F. Why the transition is correct.** Right-shifting by one discards exactly the lowest bit and keeps all higher bits in place, so `ones(i)` = `ones(i without its lowest bit)` + `value of that lowest bit`. The lowest bit's value is `i & 1` (0 or 1).\n\n" +
-            "**I. Step by step.** Allocate `dp` of length `n + 1` filled with 0. For `i` from 1 to `n`, set `dp[i] = dp[i >> 1] + (i & 1)`. Return `dp`.\n\n" +
-            "**J. Correctness.** Each `dp[i]` depends only on a strictly smaller, already-finalized index, so by induction every entry is exact.\n\n" +
-            "**K/L. Complexity.** One `O(1)` step per index \u2192 time `O(n)`, `O(1)` extra space beyond the output.\n\n" +
-            "**M. Interview mindset.** Recognizing that a number relates to its halved self is the whole insight \u2014 an alternative DP is `dp[i] = dp[i & (i - 1)] + 1` (one more than the number with its lowest bit cleared).",
+            "**What it asks.** Return, in a single `O(n)` pass, the set-bit count of every integer from `0` to `n` \u2014 without calling a popcount routine per number.\n\n" +
+            "**Why the naive idea falls short.** Counting each number's bits independently costs `O(log i)` per value and `O(n log n)` overall, and it recomputes work that a smaller number already established. We want to reuse those smaller results so each new count is `O(1)`.\n\n" +
+            "**Key Idea.** Define `dp[i]` as the number of set bits in `i`. The binary form of `i` is the binary form of `i >> 1` (i.e. `i // 2`) with one extra bit \u2014 the lowest bit of `i` \u2014 appended at the bottom. So the ones in `i` equal the ones in `i >> 1` **plus** the lowest bit of `i` itself. Concretely, `i = 13 = 1101`: then `i >> 1 = 110 = 6` has two ones, and the dropped lowest bit is `i & 1 = 1`, giving `ones(13) = ones(6) + 1 = 3`. Since `i >> 1 < i`, that smaller answer is already computed when we reach `i`, so we fill the array left to right.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Allocate `dp` of length `n + 1` filled with 0. The base case is `dp[0] = 0` (zero has no set bits).\n" +
+            "2. Loop `i` from `1` to `n`.\n" +
+            "3. Apply the transition `dp[i] = dp[i >> 1] + (i & 1)` \u2014 the ones in `i // 2`, plus `i`'s own lowest bit.\n" +
+            "4. Return `dp`.\n\n" +
+            "**Why it works.** Right-shifting by one discards exactly the lowest bit and keeps all higher bits in place, so `ones(i)` equals `ones(i with its lowest bit removed)` plus the value of that lowest bit, which is `i & 1` (0 or 1) \u2014 the transition is exactly this identity. Each `dp[i]` depends only on a strictly smaller, already-finalized index, so by induction every entry is exact.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- The array length is `n + 1`; starting the loop at `1` leaves the correct `dp[0] = 0` base case intact.\n" +
+            "- Use `i >> 1` (or `i // 2`), not a signed shift that could misbehave on negatives \u2014 inputs here are non-negative.\n" +
+            "- An equivalent recurrence is `dp[i] = dp[i & (i - 1)] + 1` (one more than the number with its lowest set bit cleared); don't mix the two up.\n\n" +
+            "**Complexity.** Time `O(n)` \u2014 one constant-time step per index. Space `O(1)` extra beyond the required output array.\n\n" +
+            "**Interview mindset.** \u201cCompute a bit property for every number up to n\u201d signals reusing a smaller already-solved subproblem \u2014 relating `i` to `i >> 1` (or to `i & (i - 1)`) is the DP hook that turns `O(n log n)` into `O(n)`.",
           rcs:
             "class Solution:\n" +
             "    def countBits(self, n: int) -> List[int]:\n" +
@@ -400,12 +426,21 @@
           space: "O(1)",
           whenToUse: "Cleanest to explain: the missing value is the expected total minus the actual total.",
           logic:
-            "**A. Asked.** Find the one value from `0..n` that is not in the array.\n\n" +
-            "**D. Key observation.** The sum of all integers from `0` to `n` is fixed: `n * (n + 1) / 2` (Gauss's formula). If we subtract the actual sum of the array from that expected total, everything present cancels and only the **missing** number remains.\n\n" +
-            "**I. Step by step.** Compute `expected = n * (n + 1) // 2`, compute `actual = sum(nums)`, return `expected - actual`.\n\n" +
-            "**J. Correctness.** `expected` counts every value in `0..n` exactly once; `actual` counts every present value exactly once. Their difference is precisely the single absent value.\n\n" +
-            "**K/L. Complexity.** One pass to sum \u2192 time `O(n)`, space `O(1)`.\n\n" +
-            "**Caveat.** In fixed-width languages the sum can overflow for large `n`; that is why XOR is often preferred. Python integers are unbounded, so this is safe here.",
+            "**What it asks.** An array holds `n` distinct numbers drawn from the range `0..n`, which has `n + 1` possible values, so exactly one is absent. Find that missing value.\n\n" +
+            "**Why the naive idea is heavier.** You could sort and scan for the gap (`O(n log n)`), or build a hash set of the values and check each candidate (`O(n)` time but `O(n)` extra space). Both do more work than necessary when a closed-form total is available.\n\n" +
+            "**Key Idea.** The sum of all integers from `0` to `n` is fixed by Gauss's formula: `n * (n + 1) / 2`. If you subtract the actual sum of the array from that expected total, every value that is *present* cancels out, and only the single **missing** number remains.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Let `n` be the array length; the range is `0..n`.\n" +
+            "2. Compute `expected = n * (n + 1) // 2` \u2014 the sum of the full range.\n" +
+            "3. Compute `actual = sum(nums)` \u2014 the sum of what is actually present.\n" +
+            "4. Return `expected - actual`.\n\n" +
+            "**Why it works.** `expected` counts every value in `0..n` exactly once, and `actual` counts every present value exactly once. Subtracting removes each present value entirely, leaving precisely the one absent value as the difference.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- The range size is `n + 1`, so `expected` uses the length `n` in `n * (n + 1) // 2` \u2014 off-by-one here gives a wrong total.\n" +
+            "- In fixed-width languages the sum can overflow for large `n`, which is why XOR is often preferred; Python integers are unbounded, so this is safe here.\n" +
+            "- Use integer division (`//`) so `expected` stays an exact integer.\n\n" +
+            "**Complexity.** Time `O(n)` \u2014 one pass to sum the array. Space `O(1)`.\n\n" +
+            "**Interview mindset.** A contiguous range `0..n` with a single gap should suggest a closed-form total: the expected sum minus the actual sum isolates the missing element without extra space.",
           rcs:
             "class Solution:\n" +
             "    def missingNumber(self, nums: List[int]) -> int:\n" +
@@ -425,21 +460,21 @@
           space: "O(1)",
           whenToUse: "Preferred bit-manipulation answer: no overflow risk and pure O(1) space.",
           logic:
-            "**D. Key XOR properties.** XOR has three properties that make this work:\n" +
-            "- `x ^ x = 0` (a value XORed with itself cancels).\n" +
-            "- `x ^ 0 = x` (0 is the identity).\n" +
-            "- XOR is commutative and associative, so order does not matter.\n\n" +
-            "**E. The idea.** If we XOR together **all indices `0..n`** and **all values in the array**, every number that is *present* appears exactly twice \u2014 once as an index (or as the extra `n`) and once as a value \u2014 and cancels to 0. The one value that is missing appears only once (as an index) and survives.\n\n" +
-            "**F. Why it works.** Start the accumulator at `n` (to cover the top index that has no array slot). Then for each position `i`, fold in both `i` and `nums[i]`. Present values pair up index-with-value and vanish; the absent value has no matching array entry, so it remains.\n\n" +
-            "Concrete trace on `nums = [3, 0, 1]`, `n = 3`:\n" +
-            "- start `result = 3`\n" +
-            "- i=0: `result ^= 0 ^ 3` \u2192 `3 ^ 0 ^ 3 = 0`\n" +
-            "- i=1: `result ^= 1 ^ 0` \u2192 `0 ^ 1 ^ 0 = 1`\n" +
-            "- i=2: `result ^= 2 ^ 1` \u2192 `1 ^ 2 ^ 1 = 2` \u2192 missing number is 2.\n\n" +
-            "**I. Step by step.** Initialize `result = len(nums)`. For each `i, num`, do `result ^= i ^ num`. Return `result`.\n\n" +
-            "**J. Correctness.** Every value in `0..n` except the missing one is XORed an even number of times (cancels to 0); the missing value is XORed exactly once, so it is what remains.\n\n" +
-            "**K/L. Complexity.** One pass \u2192 time `O(n)`, space `O(1)`. No sum, so no overflow.\n\n" +
-            "**M. Interview mindset.** \u201cEverything appears twice except one\u201d is the flagship XOR signal \u2014 here we manufacture the pairing by XORing indices against values.",
+            "**What it asks.** Find the single value from `0..n` missing from an array of `n` distinct numbers \u2014 the preferred bit-manipulation answer, with no overflow risk and pure `O(1)` space.\n\n" +
+            "**Why the naive idea is heavier.** Sorting is `O(n log n)`, and a hash set of seen values costs `O(n)` extra space. The Gauss-sum trick is `O(1)` space but can overflow in fixed-width languages. We want the space efficiency without any arithmetic overflow.\n\n" +
+            "**Key Idea.** XOR has three properties that make this work: `x ^ x = 0` (a value XORed with itself cancels), `x ^ 0 = x` (0 is the identity), and XOR is commutative and associative so order does not matter. If we XOR together **all indices `0..n`** and **all values in the array**, every *present* number appears exactly twice \u2014 once as an index (or as the extra top value `n`) and once as an array value \u2014 and cancels to 0. The one missing value appears only once (as an index) and survives.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Initialize `result = len(nums)` \u2014 this seeds the accumulator with `n`, the top index that has no array slot.\n" +
+            "2. For each position, fold in both the index `i` and the value `nums[i]` with `result ^= i ^ num`.\n" +
+            "3. After the full pass, return `result`.\n\n" +
+            "Concrete trace on `nums = [3, 0, 1]`, `n = 3`: start `result = 3`; at `i=0`, `result ^= 0 ^ 3` gives `0`; at `i=1`, `result ^= 1 ^ 0` gives `1`; at `i=2`, `result ^= 2 ^ 1` gives `2` \u2014 the missing number.\n\n" +
+            "**Why it works.** Every value in `0..n` except the missing one is XORed an even number of times (once as an index, once as a value) and cancels to 0; the missing value is XORed exactly once \u2014 it has no matching array entry \u2014 so it is precisely what remains.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Forgetting to seed `result` with `n`: the top index has no array slot, so without it that value is never paired.\n" +
+            "- XOR needs each present value to pair index-with-value, which relies on the values being distinct and within `0..n`.\n" +
+            "- Unlike the sum method, there is no overflow to worry about \u2014 a point worth stating.\n\n" +
+            "**Complexity.** Time `O(n)` \u2014 a single pass. Space `O(1)`, with no sum and thus no overflow.\n\n" +
+            "**Interview mindset.** \u201cEverything appears twice except one\u201d is the flagship XOR signal; here we manufacture that pairing by XORing indices against values to cancel all present numbers.",
           rcs:
             "class Solution:\n" +
             "    def missingNumber(self, nums: List[int]) -> int:\n" +
@@ -519,20 +554,21 @@
           space: "O(1)",
           whenToUse: "The standard approach: pull bits off one end of the input and push them onto the other end of the result.",
           logic:
-            "**A. Asked.** Produce the value whose 32-bit binary pattern is the input's pattern reversed.\n\n" +
-            "**D. Key idea \u2014 pour from one end into the other.** Think of two containers. We repeatedly take the **lowest** bit of the input (`n & 1`) and place it as the **next-lowest** bit of the result. But between placements we shift the result **left**, so each bit we add lands one position higher than the previous \u2014 effectively reversing the order.\n\n" +
-            "**E. Pattern.** Build the answer over exactly 32 iterations:\n" +
-            "- `result = (result << 1) | (n & 1)` \u2014 make room in the result and drop in the input's current lowest bit.\n" +
-            "- `n >>= 1` \u2014 discard the bit we just consumed, exposing the next one.\n\n" +
-            "**F. Why it reverses.** The **first** bit we read is the input's least significant bit; after 31 more left-shifts of the result it ends up in the **most significant** position. The **last** bit we read (input's MSB) is the final one appended and stays least significant. That is exactly a mirror.\n\n" +
-            "Small 4-bit illustration with `n = 1011` (reading right to left, building left to right):\n" +
-            "```\nread 1 -> result 1\nread 1 -> result 11\nread 0 -> result 110\nread 1 -> result 1101\n```\n" +
-            "`1011` reversed is `1101`.\n\n" +
-            "**G/H. What we store.** `result` accumulates the reversed bits; `n` is consumed one bit at a time.\n\n" +
-            "**I. Step by step.** Loop 32 times: shift `result` left by 1, OR in `n & 1`, then shift `n` right by 1.\n\n" +
-            "**J. Why correct / fixed 32 iterations.** We must run exactly 32 times so leading zeros of the input are reversed into trailing zeros of the result; stopping early (e.g. when `n` hits 0) would drop those and give the wrong magnitude.\n\n" +
-            "**K/L. Complexity.** Fixed 32 iterations \u2192 time `O(1)`, space `O(1)`.\n\n" +
-            "**M. Interview mindset.** \u201cReverse bits\u201d \u2192 shift-in/shift-out over a fixed width; emphasize the fixed 32 loops so the leading zeros are handled.",
+            "**What it asks.** Given a 32-bit unsigned integer, produce the value whose 32-bit binary pattern is the input's pattern reversed \u2014 the most significant bit becomes the least significant and vice versa.\n\n" +
+            "**Why care about the naive framing.** It is tempting to convert to a bit string, reverse it, and convert back, but that is clumsy and easy to get wrong on width. A direct bit-shuffle over a fixed 32 positions is cleaner and constant space \u2014 the key is to process exactly 32 bits so leading zeros are handled.\n\n" +
+            "**Key Idea.** Pour bits from one end of the input into the other end of the result. Repeatedly take the **lowest** bit of the input (`n & 1`) and append it to the result \u2014 but before each append, shift the result **left** by one. Because the result shifts left every step, each bit lands one position higher than the last, so the first bit read ends up highest and the last bit read stays lowest: the order is mirrored. Small 4-bit trace with `n = 1011` (reading right to left, building left to right): read `1` -> `1`; read `1` -> `11`; read `0` -> `110`; read `1` -> `1101`. So `1011` reverses to `1101`.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Start `result = 0`; `n` is consumed one bit at a time.\n" +
+            "2. Repeat exactly 32 times: set `result = (result << 1) | (n & 1)` \u2014 make room, then drop in the input's current lowest bit.\n" +
+            "3. Shift `n` right by one (`n >>= 1`) to discard the consumed bit and expose the next.\n" +
+            "4. After 32 iterations, return `result`.\n\n" +
+            "**Why it works.** The first bit read is the input's least significant bit; after 31 further left-shifts of the result it lands in the most significant position. The last bit read (the input's MSB) is appended last and stays least significant. That end-to-end swap is exactly a mirror. Running a fixed 32 times is what makes leading zeros of the input become trailing zeros of the result.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Do not stop early when `n` hits 0 \u2014 the remaining leading zeros must still be shifted into the result, or the magnitude comes out wrong.\n" +
+            "- Always loop exactly 32 times, matching the fixed width, regardless of how many bits are set.\n" +
+            "- In fixed-width languages keep the result unsigned so the top bit is not misread as a sign.\n\n" +
+            "**Complexity.** Time `O(1)` \u2014 a fixed 32 iterations. Space `O(1)`.\n\n" +
+            "**Interview mindset.** \u201cReverse or mirror the bits of a fixed-width integer\u201d signals shift-out-of-one, shift-into-the-other over a constant number of positions; emphasize the fixed 32 loops so leading zeros are handled correctly.",
           rcs:
             "class Solution:\n" +
             "    def reverseBits(self, n: int) -> int:\n" +

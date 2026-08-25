@@ -58,12 +58,21 @@
           space: "O(1)",
           whenToUse: "Only to state the naive idea before optimizing; too slow for n up to 10^5.",
           logic:
-            "**A. What is being asked?** Pick a buy day `i` and a strictly later sell day `j > i` that maximize `prices[j] - prices[i]`, or `0` if no positive difference exists.\n\n" +
-            "**B. Brute force idea.** Try every ordered pair `(i, j)` with `i < j`. For each buy day, scan every later sell day and track the largest `prices[j] - prices[i]` seen.\n\n" +
-            "**C. Why it is slow.** There are about `n^2 / 2` pairs. For `n = 10^5` that is ~5 billion checks — far too slow. It repeats work: for each buy day it re-scans the entire suffix even though the profitable information is highly shared across buy days.\n\n" +
-            "**I. Step by step.** Keep `best = 0`. Outer loop fixes the buy day; inner loop tries every later sell day; whenever `prices[j] - prices[i] > best`, update `best`.\n\n" +
-            "**J. Why correct.** Every valid (buy, sell) ordering is examined exactly once, so the optimum cannot be missed. Initializing `best` to `0` encodes the 'do nothing' option.\n\n" +
-            "**K/L. Complexity.** Time `O(n^2)`, space `O(1)`.",
+            "**What it asks.** Choose one buy day `i` and a strictly later sell day `j > i` that maximize `prices[j] - prices[i]`, returning `0` if no positive difference exists.\n\n" +
+            "**Why the naive idea fails.** The brute-force idea is to try every ordered pair `(i, j)` with `i < j`: for each buy day, scan every later sell day and keep the largest `prices[j] - prices[i]`. There are about `n^2 / 2` such pairs — for `n = 10^5` that is roughly 5 billion checks, far too slow. It also repeats work, re-scanning the whole suffix for each buy day even though the useful information is shared across them.\n\n" +
+            "**Key Idea.** There is no shortcut inside the brute force itself; the only insight here is that every valid (buy, sell) ordering must be considered, and initializing the best profit to `0` bakes in the 'do nothing' option so a purely falling market yields `0`.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Keep `best = 0`, representing the maximum profit found (and the 'no trade' floor).\n" +
+            "2. Outer loop fixes the buy day `i`.\n" +
+            "3. Inner loop tries every later sell day `j > i`.\n" +
+            "4. Whenever `prices[j] - prices[i] > best`, update `best`.\n" +
+            "5. After all pairs, return `best`.\n\n" +
+            "**Why it works.** Every valid buy-before-sell ordering is examined exactly once, so the true optimum cannot be skipped. Because `best` starts at `0`, if no pair gives a positive profit the answer stays `0`.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- The sell index must be strictly greater than the buy index — never allow `j <= i` (you cannot sell before you buy).\n" +
+            "- Do not initialize `best` to a negative number or the first price difference; `0` must remain the floor so a decreasing series returns `0`.\n\n" +
+            "**Complexity.** Time `O(n^2)` from the nested loops over all pairs; space `O(1)` since only a running `best` is stored.\n\n" +
+            "**Interview mindset.** State this only to frame the problem — the moment you write a nested loop over pairs to maximize a later-minus-earlier value, that is the signal to look for a single-pass improvement.",
           rcs:
             "class Solution:\n" +
             "    def maxProfit(self, prices: List[int]) -> int:\n" +
@@ -93,14 +102,22 @@
           space: "O(1)",
           whenToUse: "The expected answer whenever you want the best single buy-then-sell profit in one scan.",
           logic:
-            "**D. Key observation (the greedy insight).** On any given sell day `j`, the best possible profit ending there is `prices[j] - (cheapest price on any day before j)`. So the only thing worth remembering as we move right is the **minimum price seen so far**. We never need the full history — just that one number.\n\n" +
-            "**E. Pattern / data structure.** Single left-to-right pass carrying two scalars: `min_price` (best buy point so far) and `best` (best profit so far). No extra array needed.\n\n" +
-            "**F. Why the greedy choice is safe (exchange argument).** Consider any optimal solution that buys on day `b` and sells on day `s`. Let `m` be the day of the minimum price in `prices[0..s-1]`. Since `prices[m] <= prices[b]`, replacing the buy day `b` with `m` can only *increase* profit (`prices[s] - prices[m] >= prices[s] - prices[b]`) and keeps `m < s`. So there is always an optimal solution that buys at the running minimum before the sell day. That is exactly what tracking `min_price` does — for each candidate sell day it pairs it with the cheapest prior buy, which is never worse than any other choice. The greedy 'always buy at the min so far' therefore loses nothing.\n\n" +
-            "**G/H. What we store.** `min_price` = smallest price among all days processed so far (the best day to have bought). `best` = maximum of `price - min_price` over all sell days considered.\n\n" +
-            "**I. Step by step.** Walk the prices. For each `price`: first update the best profit as `max(best, price - min_price)` (selling today against the cheapest prior buy), then update `min_price = min(min_price, price)` so future days can buy today if it is the new low. Order matters conceptually but either order works because you cannot buy and sell the same slot for positive profit (`price - price = 0`).\n\n" +
-            "**J. Why correct.** By the exchange argument every sell day is evaluated against its optimal buy day (the running minimum), and we take the max over all sell days — which is the global optimum. Initializing `best = 0` guarantees a non-negative answer.\n\n" +
-            "**K/L. Complexity.** One pass, `O(n)` time; two scalars, `O(1)` space.\n\n" +
-            "**M. Interview mindset.** 'Best single transaction / max difference where the smaller value must come first' is the signal to track a running minimum and a running best answer in one sweep.",
+            "**What it asks.** Find the maximum profit from a single buy-then-later-sell over the price series, in one efficient pass instead of checking all pairs.\n\n" +
+            "**Why the naive idea fails.** Comparing every (buy, sell) pair is `O(n^2)` — about 5 billion operations at `n = 10^5`. It re-scans the suffix for each buy day even though the only thing that governs the best profit at a sell day is one number: the cheapest price before it.\n\n" +
+            "**Key Idea.** On any given sell day `j`, the best possible profit ending there is `prices[j] - (cheapest price on any day before j)`. So the only thing worth remembering as we move right is the **minimum price seen so far** — never the full history, just that one scalar. Carry `min_price` (best buy point so far) and `best` (best profit so far) in a single left-to-right sweep, no extra array needed.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Initialize `min_price` to infinity (no buy seen yet) and `best = 0` (the 'don't trade' floor).\n" +
+            "2. Walk the prices, treating each `price` as a candidate sell day.\n" +
+            "3. First update `best = max(best, price - min_price)` — selling today against the cheapest prior buy.\n" +
+            "4. Then update `min_price = min(min_price, price)` so later days can buy today if it is a new low.\n" +
+            "5. After the pass, return `best`.\n\n" +
+            "**Why it works.** The greedy choice is 'always buy at the minimum price seen so far,' and an exchange argument shows this is safe. Consider any optimal solution that buys on day `b` and sells on day `s`. Let `m` be the day of the minimum price in `prices[0..s-1]`. Since `prices[m] <= prices[b]`, swapping the buy from `b` to `m` can only *increase* profit (`prices[s] - prices[m] >= prices[s] - prices[b]`) while keeping `m < s`. So some optimal solution always buys at the running minimum before the sell day — exactly what tracking `min_price` does. Because we evaluate every sell day against its best-possible buy and take the max over all of them, the result is the global optimum; starting `best` at `0` keeps the answer non-negative.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Update `best` using the *prior* `min_price` before folding today's price into `min_price`; the two-line order avoids ever pairing a day with itself (`price - price = 0` is harmless but the intent is buy-before-sell).\n" +
+            "- Initialize `best` to `0`, not to a negative sentinel, so a strictly decreasing series correctly returns `0`.\n" +
+            "- A single-day array yields `0` — the loop runs once and no profitable sell exists.\n\n" +
+            "**Complexity.** Time `O(n)` — one pass; space `O(1)` — just the two scalars `min_price` and `best`.\n\n" +
+            "**Interview mindset.** 'Best single transaction / maximum difference where the smaller value must come first' is the signal to track a running minimum and a running best answer in one sweep.",
           rcs:
             "class Solution:\n" +
             "    def maxProfit(self, prices: List[int]) -> int:\n" +
@@ -186,12 +203,22 @@
           space: "O(n)",
           whenToUse: "To illustrate the search view before recognizing the greedy shortcut; too slow at the naive extreme.",
           logic:
-            "**A. What is being asked?** Decide whether some sequence of jumps from index `0` lands on the last index.\n\n" +
-            "**B. Naive idea.** Model it as a search: from index `i` you may move to any `i+1 .. i+nums[i]`. Recurse from each choice; a position is 'good' if it is the last index or if any reachable next position is 'good'. Pure recursion re-explores the same indices exponentially.\n\n" +
-            "**C. Why it is slow.** Overlapping subproblems: the same index is asked 'can you reach the end?' many times. Memoizing each index as GOOD/BAD collapses it to `O(n^2)` (each index scans up to `n` next positions), but even that is wasteful compared to the greedy `O(n)`.\n\n" +
-            "**I. Step by step (memoized).** Cache `can_reach[i]`. `can_reach[i]` is true if `i` is the last index, or if any `j` in `[i+1, i+nums[i]]` has `can_reach[j]` true. Compute from the right so each lookup is ready.\n\n" +
-            "**J. Why correct.** It literally enumerates reachability via the transition, so it cannot be wrong; memoization only removes repeated work.\n\n" +
-            "**K/L. Complexity.** Time `O(n^2)`, space `O(n)` for the cache.",
+            "**What it asks.** Decide whether some sequence of jumps starting at index `0` can land exactly on the last index, given each `nums[i]` is a maximum step length.\n\n" +
+            "**Why the naive idea fails.** Model it as a search: from index `i` you may move to any of `i+1 .. i+nums[i]`, and an index is 'good' if it is the last index or if any position it can reach is 'good'. Pure recursion re-explores the same indices exponentially, because the same index is asked 'can you reach the end?' over and over. Memoizing each index as good/bad collapses this to `O(n^2)`, but that is still wasteful compared to the greedy `O(n)`.\n\n" +
+            "**Key Idea.** Reachability of the end is a recursive property with heavily overlapping subproblems, so caching each index's answer removes the exponential blowup. Define `can_reach[i]` = whether the last index is reachable from index `i`; the whole answer is `can_reach[0]`.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Allocate a boolean array `can_reach` of length `n`, all false.\n" +
+            "2. Set `can_reach[n-1] = true` — the goal trivially reaches itself.\n" +
+            "3. Fill from right to left: for each index `i`, compute `farthest = min(i + nums[i], n - 1)`.\n" +
+            "4. Scan `j` from `i+1` to `farthest`; if any `can_reach[j]` is true, mark `can_reach[i] = true` and stop.\n" +
+            "5. Return `can_reach[0]`.\n\n" +
+            "**Why it works.** The recurrence directly encodes the definition of reachability: `i` reaches the end iff it is the end or some landing spot `j` reaches the end. Computing right to left guarantees every `can_reach[j]` needed by `i` is already final, so by induction each entry is correct. Memoization changes only the running time, not the answer.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Clamp the landing range with `min(i + nums[i], n - 1)` so you never index past the array.\n" +
+            "- A `0` value at index `i` gives an empty landing range, correctly leaving `can_reach[i]` false unless `i` is the last index.\n" +
+            "- Must fill from the right; scanning left to right would read `can_reach[j]` entries that are not yet computed.\n\n" +
+            "**Complexity.** Time `O(n^2)` — each of `n` indices may scan up to `n` successors; space `O(n)` for the cache.\n\n" +
+            "**Interview mindset.** Reaching this DP is a good first step, but 'each value is a *maximum* reach' is the hint that a single farthest-reach scalar can replace the whole table — recognize that to jump to the `O(n)` greedy.",
           rcs:
             "class Solution:\n" +
             "    def canJump(self, nums: List[int]) -> bool:\n" +
@@ -226,14 +253,22 @@
           space: "O(1)",
           whenToUse: "The expected answer: reachability with 'max jump' values — track the farthest index you can get to.",
           logic:
-            "**D. Key observation (the greedy insight).** You do not need to know *which* path reaches the end — only how far you can possibly get. As you scan left to right, maintain `farthest`, the maximum index reachable using everything seen so far. At index `i`, you can extend the horizon to `i + nums[i]`.\n\n" +
-            "**E. Pattern / data structure.** One scalar, `farthest`. Single pass. This is the canonical 'greedy reachability / farthest reach' pattern.\n\n" +
-            "**F. Why the greedy choice is safe (invariant argument).** Invariant: after processing indices `0..i`, `farthest` equals the largest index reachable from the start. The key subtlety is that if index `i` is itself reachable (`i <= farthest`), then *every* index in `[i+1, i+nums[i]]` is reachable too — because reachability is 'downward closed': if you can land on `i`, you can also land on any nearer index and step from `i` to anywhere up to `i+nums[i]`. So folding `max(farthest, i + nums[i])` in at each reachable `i` never overstates reach, and taking the maximum never understates it. There is no path the greedy could miss, because a longer reach can only ever help. Conversely, once `i > farthest`, index `i` is unreachable, so nothing beyond it can be reached either — we can stop and return `false`.\n\n" +
-            "**G/H. What we store.** `farthest` = the rightmost index currently reachable from index 0.\n\n" +
-            "**I. Step by step.** Start `farthest = 0`. For each index `i`: if `i > farthest`, index `i` is unreachable → return `false`. Otherwise update `farthest = max(farthest, i + nums[i])`. If `farthest >= n - 1` at any point, the last index is reachable → return `true`. If the loop finishes, return `true`.\n\n" +
-            "**J. Why correct.** The invariant guarantees `farthest` is always exactly the true reachable frontier. Reaching or passing the last index means success; getting stuck (`i > farthest`) means the frontier can never advance again.\n\n" +
-            "**K/L. Complexity.** One pass, `O(n)` time; a single scalar, `O(1)` space.\n\n" +
-            "**M. Interview mindset.** 'Can I reach the end with max-length steps?' → forget explicit paths, just carry the farthest reachable index and check whether the frontier stalls before an index.",
+            "**What it asks.** Return whether the last index is reachable from index `0`, given each `nums[i]` is a maximum jump length.\n\n" +
+            "**Why the naive idea fails.** Searching over concrete jump sequences (backtracking, or even the `O(n^2)` reachability DP) tracks *which* paths reach the end — far more information than the yes/no question needs, and too slow at `n = 10^4` in the exponential form.\n\n" +
+            "**Key Idea.** You do not need to know which path reaches the end — only how far you can possibly get. Scanning left to right, maintain one scalar `farthest`, the maximum index reachable using everything seen so far; at each reachable index `i` you can extend the horizon to `i + nums[i]`. This is the canonical 'greedy farthest reach' pattern, one pass and `O(1)` space.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Start `farthest = 0` — index `0` is where you stand.\n" +
+            "2. For each index `i` from `0`: if `i > farthest`, index `i` lies beyond the frontier and is unreachable, so return `false`.\n" +
+            "3. Otherwise fold in `farthest = max(farthest, i + nums[i])`.\n" +
+            "4. If `farthest >= n - 1` at any point, the last index is within reach, so return `true`.\n" +
+            "5. If the loop finishes without stalling, return `true`.\n\n" +
+            "**Why it works.** The loop maintains the invariant that after processing indices `0..i`, `farthest` equals the largest index reachable from the start. The subtle part is that reachability is *downward closed*: if index `i` is reachable (`i <= farthest`), then every index in `[i+1, i+nums[i]]` is reachable too, since you can land on `i` and step from it to anywhere up to `i+nums[i]`. So folding `max(farthest, i + nums[i])` at each reachable `i` never overstates the frontier, and taking the maximum never understates it — a longer reach can only ever help, so the greedy misses no reachable path. Conversely, once `i > farthest`, index `i` is unreachable, hence everything beyond it is unreachable too, and returning `false` is justified.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- A `0` value is only fatal if the frontier cannot already extend past it; the `i > farthest` check captures exactly that, so do not special-case zeros.\n" +
+            "- A single-element array must return `true` — you already stand on the last index; the early `farthest >= n - 1` check (or the loop finishing) handles it.\n" +
+            "- Compare against `n - 1`, the last *index*, not `n`; an off-by-one here misjudges success.\n\n" +
+            "**Complexity.** Time `O(n)` — one pass; space `O(1)` — a single scalar `farthest`.\n\n" +
+            "**Interview mindset.** 'Can I reach the end with max-length steps?' → forget explicit paths, carry the farthest reachable index and check whether the frontier stalls before an index.",
           rcs:
             "class Solution:\n" +
             "    def canJump(self, nums: List[int]) -> bool:\n" +
@@ -324,16 +359,22 @@
           space: "O(1)",
           whenToUse: "The expected answer for 'minimum jumps to reach the end' with max-length steps.",
           logic:
-            "**A. What is being asked?** The *fewest* jumps to go from index 0 to the last index, where each `nums[i]` is a maximum step length.\n\n" +
-            "**B. Naive idea.** A DP where `dp[i]` = min jumps to reach `i`, filling each index from all its predecessors, is `O(n^2)`. Plain BFS over indices also works but managing a queue is unnecessary here.\n\n" +
-            "**D. Key observation (the greedy / BFS-levels insight).** Think of it as breadth-first search where a 'level' is the set of indices reachable in exactly `k` jumps. Level 0 is just index 0. From all indices in the current level, the next level covers `[current_end + 1 .. farthest]`, where `farthest` is the maximum `i + nums[i]` over the current level. Every time you exhaust the current level's window, you have spent one more jump.\n\n" +
-            "**E. Pattern / data structure.** Implicit BFS with two scalars instead of a queue: `current_end` (right boundary of the current jump level) and `farthest` (the best index reachable while scanning within this level).\n\n" +
-            "**F. Why the greedy choice is safe (BFS optimality).** BFS explores indices in nondecreasing order of jump count, so the first time an index enters a level is via the minimum number of jumps — identical to why BFS finds shortest paths in an unweighted graph. We do not need to know *which* index inside the current window we jumped from; because reachability is downward-closed, from somewhere in the current level we can reach every index up to `farthest`. Committing a jump exactly when we hit `current_end` and resetting the window to `farthest` therefore counts the minimum number of levels crossed. Greedily maximizing `farthest` within a level can never require more jumps than any other choice, since a farther frontier only ever includes more of the next indices.\n\n" +
-            "**G/H. What we store.** `jumps` = levels crossed so far. `current_end` = the last index reachable with the jumps counted so far. `farthest` = the farthest index reachable if we take one more jump from anywhere in the current window.\n\n" +
-            "**I. Step by step.** Scan `i` from `0` to `n - 2` (we never need to jump *from* the last index). At each `i` extend `farthest = max(farthest, i + nums[i])`. When `i == current_end`, we have consumed the current level's window, so increment `jumps` and set `current_end = farthest`. When `current_end >= n - 1`, we can stop — the last index is inside the newest window. Stopping the loop at `n - 2` also prevents an extra phantom jump if `current_end` lands exactly on the last index.\n\n" +
-            "**J. Why correct.** `jumps` increments once per BFS level, and BFS levels correspond to exact jump counts; the first level whose window covers `n - 1` is the minimum. The guarantee that the end is reachable means `farthest` always advances past `current_end` before we get stuck.\n\n" +
-            "**K/L. Complexity.** One pass, `O(n)` time; three scalars, `O(1)` space.\n\n" +
-            "**M. Interview mindset.** 'Minimum steps / jumps to the end' with max-length moves is greedy-BFS: expand a window level by level, count a jump each time you reach the current window's edge.",
+            "**What it asks.** Return the *fewest* jumps to go from index `0` to the last index, where each `nums[i]` is a maximum step length (reachability is guaranteed).\n\n" +
+            "**Why the naive idea fails.** A DP where `dp[i]` = minimum jumps to reach `i`, filled from every predecessor, is `O(n^2)`. Plain BFS over indices with an explicit queue gives the right count but wastes time and space managing the queue — unnecessary because the reachable set at each level is always a contiguous window.\n\n" +
+            "**Key Idea.** Think of it as breadth-first search where a 'level' is the set of indices reachable in exactly `k` jumps. Level 0 is just index `0`. From all indices in the current level, the next level covers `[current_end + 1 .. farthest]`, where `farthest` is the maximum `i + nums[i]` over the current level. Every time you exhaust the current level's window you have spent one more jump — so an implicit BFS needs only two scalars instead of a queue: `current_end` (right boundary of the current level) and `farthest` (the best index reachable while scanning within it).\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Initialize `jumps = 0`, `current_end = 0`, `farthest = 0`.\n" +
+            "2. Scan `i` from `0` to `n - 2` — you never need to jump *from* the last index.\n" +
+            "3. At each `i`, extend `farthest = max(farthest, i + nums[i])`.\n" +
+            "4. When `i == current_end`, the current level's window is consumed: increment `jumps` and set `current_end = farthest` to open the next level.\n" +
+            "5. If `current_end >= n - 1`, the last index is inside the newest window — stop and return `jumps`.\n\n" +
+            "**Why it works.** BFS explores indices in nondecreasing order of jump count, so the first level whose window covers `n - 1` uses the minimum number of jumps — the same reason BFS finds shortest paths in an unweighted graph. The greedy choice is 'within a level, push `farthest` as far as possible,' and it is safe by an exchange/dominance argument: we need not know *which* index inside the window we jumped from, because reachability is downward closed — from somewhere in the current level every index up to `farthest` is reachable. A window ending at a larger `farthest` contains every index a smaller one would, so committing to the maximal frontier can never require more jumps than any alternative choice. Incrementing `jumps` exactly when `i` hits `current_end` therefore counts the minimum levels crossed; the reachability guarantee ensures `farthest` always advances past `current_end` so we never stall.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Loop only to `n - 2`; scanning through the last index can add a phantom extra jump when `current_end` lands exactly on `n - 1`.\n" +
+            "- A single-element array must return `0` — the loop body never runs, leaving `jumps` at `0`.\n" +
+            "- Increment `jumps` when you *reach* the window edge, not on every index; the count is levels crossed, not indices visited.\n\n" +
+            "**Complexity.** Time `O(n)` — one pass; space `O(1)` — the three scalars `jumps`, `current_end`, `farthest`.\n\n" +
+            "**Interview mindset.** 'Minimum steps / jumps to the end' with max-length moves is greedy-BFS: expand a window level by level and count a jump each time you reach the current window's edge.",
           rcs:
             "class Solution:\n" +
             "    def jump(self, nums: List[int]) -> int:\n" +

@@ -71,17 +71,23 @@
           space: "O(n)",
           whenToUse: "The canonical answer for any 'are these brackets/tags balanced and correctly nested?' question.",
           logic:
-            "**A. What is being asked?** Decide if the brackets are balanced *and* correctly nested \u2014 same type on each side, and closed in the reverse order they were opened.\n\n" +
-            "**B. Why a counter is not enough.** Just counting opens vs closes would accept `\"([)]\"`, because the totals balance. The problem is about *order*, not just counts, so we need to know which specific bracket is still waiting to be closed.\n\n" +
-            "**C. The key insight \u2014 most recent open must close first.** When a close bracket appears, it must match the **most recently opened** bracket that is still unclosed. \u201cMost recent, first to be resolved\u201d is exactly **LIFO**, so a **stack** is the natural fit.\n\n" +
-            "**D. What the stack holds / the invariant.** The stack holds every open bracket seen so far that has **not yet been closed**, with the most recent one on top. Invariant: at any moment the stack, read top-to-bottom, is the chain of still-open brackets from innermost to outermost.\n\n" +
-            "**E. The matching map.** Keep a dictionary from each **close** bracket to its required **open** bracket: `{ ')': '(', ']': '[', '}': '{' }`. This lets us check a match in one lookup instead of a tangle of `if`s.\n\n" +
-            "**F. Step by step.** Scan left to right. If the character is an open bracket, **push** it. If it is a close bracket, the top of the stack must be its matching open: **pop** and compare. A mismatch \u2014 or an empty stack when a close arrives (a close with no open) \u2014 means invalid.\n\n" +
-            "**G. Why the empty-at-end check matters.** After the scan, the stack must be **empty**. Anything left over is an open bracket that was never closed (e.g. `\"(((\"`). Valid iff the stack empties exactly.\n\n" +
-            "**H. Growing and shrinking.** Each open grows the stack by one; each correct close shrinks it by one. A perfectly balanced string returns the stack to empty at the end.\n\n" +
-            "```\ns = \"{[]}\"\n\n  {        [        ]        }\n\n  |  |     | [|     |  |     |  |\n  |{ |  -> |{ |  -> |{ |  -> |  |\n  +--+     +--+     +--+     +--+\n  push {   push [   pop [    pop {\n                    (match)  (empty -> valid)\n```\n\n" +
-            "**K/L. Complexity.** One pass, each character pushed/popped at most once \u2192 time `O(n)`; the stack can hold up to `n` opens \u2192 space `O(n)`.\n\n" +
-            "**M. Interview mindset.** \u201cBalanced / correctly nested\u201d anything \u2014 brackets, HTML tags, nested expressions \u2014 is the signal to reach for a stack of the things still waiting to be closed.",
+            "**What it asks.** Given a string of only bracket characters, decide whether it is valid: every open bracket is closed by one of the **same type**, and brackets close in the **correct order** \u2014 the most recently opened is the first to be closed.\n\n" +
+            "**Why the naive idea fails.** The tempting shortcut is to just count opens versus closes and check they match. But counting accepts `\"([)]\"`, because the totals balance perfectly even though the pairs interleave instead of nesting. The problem is about *order*, not just quantity, so you must know exactly which bracket is still waiting to be closed at any moment.\n\n" +
+            "**Key Idea.** When a close bracket appears, it must match the **most recently opened** bracket that is still unclosed. \u201cMost recent thing must be resolved first\u201d is precisely **LIFO**, which is exactly what a **stack** gives you. Pair this with a lookup map from each close bracket to its required open (`{ ')': '(', ']': '[', '}': '{' }`) so each match is a single comparison rather than a tangle of `if`s.\n\n" +
+            "**What the stack holds.** The stack holds every open bracket seen so far that has **not yet been closed**, most recent on top. Invariant: read top-to-bottom, the stack is the chain of still-open brackets from innermost to outermost \u2014 so its top is always the next bracket that must be closed.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Scan the string left to right one character at a time.\n" +
+            "2. If the character is an open bracket, **push** it onto the stack.\n" +
+            "3. If it is a close bracket, look up its required open. Check the stack: if it is non-empty and its top equals that required open, **pop** (this resolves the pair).\n" +
+            "4. Otherwise \u2014 wrong type on top, or an empty stack (a close with nothing open to match) \u2014 return invalid immediately.\n" +
+            "5. After the whole scan, return valid only if the stack is **empty**.\n\n" +
+            "**Why it works.** Each open grows the stack by one; each correct close shrinks it by one. Because the top is always the most recently opened unclosed bracket, matching against it enforces both correct type and correct nesting order in a single check. The empty-at-end test is essential: anything left over (e.g. `\"(((\"`) is an open bracket that was never closed, so the string is valid iff the stack empties exactly.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- A close bracket arriving on an **empty** stack must be rejected \u2014 there is nothing to match it to.\n" +
+            "- Do not forget the final empty check; a string of only opens passes every per-character step but is still invalid.\n" +
+            "- Matching type matters, not just open-vs-close: `\"(]\"` must fail even though counts balance.\n\n" +
+            "**Complexity.** Time `O(n)`: one pass, each character pushed and popped at most once. Space `O(n)`: an all-open string like `\"((((\"` holds up to `n` brackets on the stack.\n\n" +
+            "**Interview mindset.** \u201cBalanced\u201d or \u201ccorrectly nested\u201d anything \u2014 brackets, HTML tags, nested expressions \u2014 is the signal to reach for a stack of the things still waiting to be closed, matching each new closer against the top.",
           rcs:
             "class Solution:\n" +
             "    def isValid(self, s: str) -> bool:\n" +
@@ -191,16 +197,22 @@
           space: "O(n)",
           whenToUse: "Cleanest one-stack version: store the running minimum alongside each value.",
           logic:
-            "**A. What is being asked?** A normal stack, plus `getMin()` that returns the smallest element currently held \u2014 all in `O(1)`.\n\n" +
-            "**B. Why the naive idea is too slow.** Keeping just the values and scanning for the minimum on every `getMin` is `O(n)`. Keeping a single `min` variable breaks on `pop`: once you remove the current minimum, you have no idea what the *previous* minimum was.\n\n" +
-            "**C. The key observation.** The minimum of the stack depends only on which elements are present, and elements are added/removed strictly at the top. So for each element we can record **what the minimum was at the moment that element was on top**. That value never needs recomputing.\n\n" +
-            "**D. What the stack holds / the invariant.** Each stack entry is a pair `(val, cur_min)`, where `cur_min` is the smallest value among everything at or below this entry. Invariant: the `cur_min` in the **top** pair is always the minimum of the whole stack.\n\n" +
-            "**E. push.** The new running minimum is `min(val, previous_top_min)` (or just `val` if the stack was empty). Push the pair `(val, that_min)`.\n\n" +
-            "**F. pop / top / getMin.** `pop` removes the top pair. `top` returns the top pair's **value**. `getMin` returns the top pair's stored **minimum** \u2014 a direct read, no scanning.\n\n" +
-            "**G. Why this is O(1) and correct.** Every method touches only the top of the list: append, pop, and index `[-1]` are all constant time. Because each entry froze the min that was true when it was pushed, popping automatically \u2018restores\u2019 the earlier minimum \u2014 the new top pair already carries it. Duplicated minimums are safe: each copy stored its own `cur_min`, so removing one copy still leaves a correct min on top.\n\n" +
-            "```\npush -2        push 0          push -3\n(val, min)     (val, min)      (val, min)\n+---------+    +---------+     +---------+\n| -2, -2  |    |  0, -2  |     | -3, -3  | <- top: getMin reads -3\n+---------+    | -2, -2  |     |  0, -2  |\n               +---------+     | -2, -2  |\n                               +---------+\n                after pop -> top is (0,-2), getMin reads -2\n```\n\n" +
-            "**K/L. Complexity.** Every operation is `O(1)`; storing a pair per element is `O(n)` space.\n\n" +
-            "**M. Interview mindset.** When a data structure must answer an aggregate (min/max) in `O(1)` while it mutates, the move is to **carry the answer along with the data** so removals restore the previous answer for free.",
+            "**What it asks.** Design a stack with the usual `push`, `pop`, and `top`, plus a `getMin()` that returns the smallest element currently held \u2014 and *every* operation, `getMin` included, must run in `O(1)`.\n\n" +
+            "**Why the naive idea fails.** Storing only the values and scanning for the minimum on each `getMin` is `O(n)`, not `O(1)`. Keeping a single `min` variable seems to fix that, but it breaks on `pop`: the moment you remove the element that was the current minimum, you have no record of what the *previous* minimum was and cannot restore it.\n\n" +
+            "**Key Idea.** The minimum depends only on which elements are present, and elements enter and leave strictly at the top. So at the instant each element is pushed, record **what the minimum is with that element on top**, and store that frozen value right next to the element. It never needs recomputing, and when the element leaves, its frozen min leaves with it.\n\n" +
+            "**What the stack holds.** Each stack entry is a pair `(val, cur_min)`, where `cur_min` is the smallest value among everything at or below that entry. Invariant: the `cur_min` of the **top** pair is always the minimum of the entire stack.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. `push(val)`: compute the new running minimum as `min(val, previous top's cur_min)`, or just `val` if the stack was empty. Append the pair `(val, that_min)`.\n" +
+            "2. `pop()`: remove the top pair (which discards its frozen min along with it).\n" +
+            "3. `top()`: return the **value** component of the top pair.\n" +
+            "4. `getMin()`: return the **cur_min** component of the top pair \u2014 a direct read, no scanning.\n\n" +
+            "**Why it works.** Every method touches only the top of the list \u2014 append, pop, and index `[-1]` are all constant time. Because each entry froze the minimum that was true when it was pushed, popping automatically restores the earlier minimum: the pair now exposed at the top already carries the correct answer. Duplicated minimums are safe because each copy stored its own `cur_min`, so removing one copy still leaves a valid min on top.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- The empty-stack case on `push`: with nothing below, the running min is just `val` itself.\n" +
+            "- Duplicate minimum values must both carry their own frozen min \u2014 do not try to track the min with a single counter or variable.\n" +
+            "- `getMin` reads the top pair's min, not the whole-list minimum recomputed; trusting the invariant is what keeps it `O(1)`.\n\n" +
+            "**Complexity.** Time `O(1)` for every operation (only top-of-stack access). Space `O(n)`: one pair stored per element.\n\n" +
+            "**Interview mindset.** When a structure must answer an aggregate (min/max) in `O(1)` while it keeps mutating, the move is to **carry the answer alongside the data** so that a removal restores the previous answer for free.",
           rcs:
             "class MinStack:\n" +
             "    def __init__(self):\n" +
@@ -243,14 +255,22 @@
           space: "O(n)",
           whenToUse: "The classic phrasing; keep a separate stack whose top is always the current minimum.",
           logic:
-            "**Same goal, two parallel stacks.** Some interviewers ask for this framing explicitly. Keep the values in one stack and the running minimums in a second stack that rises and falls in lockstep.\n\n" +
-            "**D. What each stack holds.** `stack` holds the actual values. `min_stack` holds, at its top, the minimum of everything currently in `stack`. Invariant: `min_stack[-1]` is always the current overall minimum, and the two stacks have the same height.\n\n" +
-            "**E. push.** Push `val` onto `stack`. For `min_stack`, push `min(val, min_stack[-1])` \u2014 i.e. the smaller of the new value and the previous minimum (or just `val` when empty). Pushing onto `min_stack` on **every** push keeps the two heights equal, which makes `pop` trivial.\n\n" +
-            "**F. pop.** Pop from **both** stacks. Because `min_stack` recorded the minimum as it was at each level, removing the top of both restores the previous minimum automatically.\n\n" +
-            "**G. top / getMin.** `top` reads `stack[-1]`; `getMin` reads `min_stack[-1]`. Both are `O(1)`.\n\n" +
-            "**Why duplicates are safe.** If the minimum value appears twice, it was pushed onto `min_stack` twice (once per push), so popping one copy still leaves the min on top. This is exactly why we push to `min_stack` unconditionally rather than only when a new minimum appears \u2014 it sidesteps the tricky duplicate-count bookkeeping.\n\n" +
-            "```\n         stack        min_stack\npush -2  [-2]         [-2]\npush  0  [-2, 0]      [-2, -2]\npush -3  [-2, 0, -3]  [-2, -2, -3]  <- getMin = -3\npop      [-2, 0]      [-2, -2]      <- getMin = -2\n```\n\n" +
-            "**K/L. Complexity.** All operations `O(1)`; two stacks of up to `n` entries \u2192 `O(n)` space.",
+            "**What it asks.** The same problem \u2014 a stack whose `push`, `pop`, `top`, and `getMin` all run in `O(1)` \u2014 but solved with the framing some interviewers request explicitly: two parallel stacks instead of pairs.\n\n" +
+            "**Why the naive idea fails.** As before, scanning for the minimum is `O(n)`, and a single `min` variable cannot be recovered after you pop the element that held it. The fix is again to remember the minimum per level, here stored in a dedicated second stack.\n\n" +
+            "**Key Idea.** Keep the values in one stack and the running minimums in a second stack that rises and falls in lockstep with it. Push onto the min stack on **every** push (even when the value is not a new minimum), so the two stacks always have equal height and `pop` can simply remove the top of both.\n\n" +
+            "**What the stacks hold.** `stack` holds the actual values. `min_stack` holds, at each level, the minimum of everything in `stack` up to and including that level \u2014 so its top is the current overall minimum. Invariant: `min_stack[-1]` is always the current minimum, and the two stacks have identical height.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. `push(val)`: append `val` to `stack`; append `min(val, min_stack[-1])` to `min_stack` (or just `val` when `min_stack` is empty).\n" +
+            "2. `pop()`: pop from **both** stacks so they stay the same height.\n" +
+            "3. `top()`: return `stack[-1]`.\n" +
+            "4. `getMin()`: return `min_stack[-1]`.\n\n" +
+            "**Why it works.** Because `min_stack` recorded the minimum as it stood at each level, removing the top of both stacks automatically re-exposes the minimum that was correct one level down \u2014 no recomputation needed. Duplicated minimums are safe: a repeated minimum value gets pushed onto `min_stack` again (one push per value), so popping one copy still leaves a correct min on top. Pushing to `min_stack` unconditionally is exactly what sidesteps the fragile duplicate-count bookkeeping.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Push to `min_stack` on *every* `push`, not only when a new minimum appears \u2014 otherwise the heights diverge and `pop` cannot stay in sync.\n" +
+            "- Always pop both stacks together; popping only `stack` corrupts the minimum tracking.\n" +
+            "- Handle the empty `min_stack` on the first push, where the running min is simply `val`.\n\n" +
+            "**Complexity.** Time `O(1)` per operation (only top-of-stack access). Space `O(n)`: two stacks of up to `n` entries each.\n\n" +
+            "**Interview mindset.** Two synchronized stacks are the classic way to answer a running aggregate in `O(1)`; keeping them the same height turns `pop` into a mechanical, mistake-proof step.",
           rcs:
             "class MinStack:\n" +
             "    def __init__(self):\n" +

@@ -96,12 +96,21 @@
           space: "O(1)",
           whenToUse: "Fine for tiny inputs or as the first thing you say in an interview before optimizing.",
           logic:
-            "**A. What is being asked?** Find two positions whose values sum to `target`.\n\n" +
-            "**B. Brute force idea.** Try every pair `(i, j)`. For each `i`, scan every later `j` and check whether `nums[i] + nums[j] == target`.\n\n" +
-            "**C. Why it is slow.** There are about `n^2 / 2` pairs, so for `n = 10^4` that is ~50 million checks. It works but wastes effort re-scanning the array for every element.\n\n" +
-            "**I. Step by step.** Outer loop fixes the first index; inner loop looks for a partner among the elements after it. The moment a pair sums to target, return both indices.\n\n" +
-            "**J. Why correct.** Every unordered pair is examined exactly once, so the unique answer cannot be missed.\n\n" +
-            "**K/L. Complexity.** Time `O(n^2)`, space `O(1)`.",
+            "**What it asks.** Given an unsorted array `nums` and a `target`, return the indices of the two elements whose values add up to `target`.\n\n" +
+            "**Why the naive idea fails.** The brute-force idea is to try every pair `(i, j)`: for each `i`, scan every later `j` and check whether `nums[i] + nums[j] == target`. It's correct, but there are about `n^2 / 2` pairs, so for `n = 10^4` that's ~50 million checks. The waste is re-scanning the whole array for every element instead of remembering what we've already seen.\n\n" +
+            "**Key Idea.** For this approach the insight is simply exhaustiveness: if a valid pair exists, checking every unordered pair once is guaranteed to find it. This is the baseline you state before optimizing.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Let the outer loop fix the first index `i`.\n" +
+            "2. Let the inner loop try each later index `j` (starting at `i + 1`), so each unordered pair is considered exactly once.\n" +
+            "3. Check whether `nums[i] + nums[j]` equals `target`.\n" +
+            "4. On the first match, return `[i, j]` immediately.\n\n" +
+            "**Why it works.** Every unordered pair `(i, j)` with `i < j` is examined exactly once, so the guaranteed unique answer cannot be skipped. Returning on the first hit is safe because only one solution exists.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Start the inner loop at `i + 1`, not `0`, so an element is never paired with itself.\n" +
+            "- Return the indices, not the values.\n" +
+            "- Duplicate values are fine as long as the two indices differ.\n\n" +
+            "**Complexity.** Time `O(n^2)` from the nested loops; space `O(1)` since no extra structure is used.\n\n" +
+            "**Interview mindset.** State this first to show you understand the problem, then immediately note the redundant re-scanning as the motivation to reach for a hash map.",
           rcs:
             "class Solution:\n" +
             "    def twoSum(self, nums: List[int], target: int) -> List[int]:\n" +
@@ -127,14 +136,21 @@
           space: "O(n)",
           whenToUse: "The expected answer. Use whenever you need to find pairs by value in an unsorted array.",
           logic:
-            "**D. Key observation.** For each number `x`, its partner is fixed: it must be `target - x` (the *complement*). So instead of searching for the partner by scanning, we can *remember* the numbers we have already seen and ask a hash map \u201chave I seen the complement?\u201d in `O(1)`.\n\n" +
-            "**E. Pattern / data structure.** Hash map from **value \u2192 index**. This trades `O(n)` space for turning the inner scan into a constant-time lookup.\n\n" +
-            "**F. Why it works.** If `x` and `y` form the answer and `x` appears earlier, then when we reach `y` the value `x` is already stored, and `target - y == x` is a hit. Every valid pair is discovered when its *second* member is processed.\n\n" +
-            "**G/H. What we store.** `seen[value] = index` for every element to the left of the current one.\n\n" +
-            "**I. Step by step.** Walk left to right. For the current `num`, compute `complement = target - num`. If the complement is already in `seen`, we have the pair \u2014 return `[seen[complement], i]`. Otherwise record `seen[num] = i` and continue.\n\n" +
-            "**J. Why correct.** We only ever pair the current element with an *earlier* one, so we never reuse the same index, and because exactly one solution exists it is guaranteed to be found.\n\n" +
-            "**K/L. Complexity.** One pass with `O(1)` map operations \u2192 time `O(n)`, space `O(n)` for the map.\n\n" +
-            "**M. Interview mindset.** \u201cFind two things that combine to a target\u201d in an unsorted array is the canonical signal to reach for a hash map of what you have seen.",
+            "**What it asks.** Return the indices of the two numbers in an unsorted `nums` that sum to `target`, in a single pass.\n\n" +
+            "**Why the naive idea fails.** Brute force tries every pair in `O(n^2)`, re-scanning the array for each element's partner. That repeated searching is the wasted work we want to eliminate.\n\n" +
+            "**Key Idea.** For each number `x`, its partner is completely determined: it must be `target - x`, the *complement*. So rather than searching for the partner, we *remember* the numbers we've already passed in a hash map and ask, in `O(1)`, \u201chave I already seen the complement?\u201d\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Keep a hash map `seen` mapping each value we've passed to its index.\n" +
+            "2. Walk left to right; for the current `num` at index `i`, compute `complement = target - num`.\n" +
+            "3. If `complement` is already in `seen`, the pair is complete \u2014 return `[seen[complement], i]` (earlier index first).\n" +
+            "4. Otherwise record `seen[num] = i` and continue.\n\n" +
+            "**Why it works.** We only ever pair the current element with an *earlier* one, so the same index is never reused. If `x` and `y` are the answer and `x` comes first, then by the time we reach `y` its complement `x` is already stored, so the pair is discovered when its second member is processed. Since exactly one solution exists, it's guaranteed to be found.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Check for the complement *before* inserting the current number, or an element could match itself.\n" +
+            "- Store value `\u2192` index, not the reverse; you need indices back.\n" +
+            "- Duplicate values are handled correctly because each is checked before it overwrites the map.\n\n" +
+            "**Complexity.** One pass with `O(1)` map operations gives time `O(n)`; space `O(n)` for the map.\n\n" +
+            "**Interview mindset.** \u201cFind two things that combine to a target\u201d in an unsorted array is the canonical signal to reach for a hash map of what you've already seen.",
           rcs:
             "class Solution:\n" +
             "    def twoSum(self, nums: List[int], target: int) -> List[int]:\n" +
@@ -196,13 +212,22 @@
           space: "O(n)",
           whenToUse: "Default answer whenever you must detect repeats and can spend O(n) extra memory.",
           logic:
-            "**A. Asked.** Does any number repeat?\n\n" +
-            "**B. Brute force.** Compare every pair \u2014 `O(n^2)`. Or sort first (`O(n log n)`) and check neighbours; that mutates/copies and is slower than needed.\n\n" +
-            "**D. Key observation.** A duplicate exists the instant we encounter a value we have already seen. We do not need to compare all pairs \u2014 we just need fast membership tests.\n\n" +
-            "**E. Data structure.** A hash **set** of values seen so far gives `O(1)` add and lookup.\n\n" +
-            "**I. Step by step.** For each number: if it is already in the set, return `true`; otherwise add it. If the scan finishes, everything was unique \u2192 `false`.\n\n" +
-            "**J. Correctness.** The set holds exactly the values to the left of the cursor; a hit means the same value occurred earlier.\n\n" +
-            "**K/L. Complexity.** Time `O(n)`, space `O(n)`. (A one-liner `len(set(nums)) != len(nums)` is the same idea but always scans the whole array.)",
+            "**What it asks.** Return `true` if any value in `nums` appears at least twice, and `false` if every element is distinct.\n\n" +
+            "**Why the naive idea fails.** Comparing every pair is `O(n^2)`. Sorting first and checking neighbours is better at `O(n log n)`, but it mutates or copies the array and is still slower than necessary \u2014 the pairwise comparison is more work than the question requires.\n\n" +
+            "**Key Idea.** A duplicate exists the instant we encounter a value we have already seen. We never need to compare all pairs \u2014 we only need a fast membership test on the values encountered so far.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Keep a hash **set** `seen` of the values encountered so far (empty at the start).\n" +
+            "2. Scan `nums` left to right.\n" +
+            "3. For each `num`, if it is already in `seen`, return `true`.\n" +
+            "4. Otherwise add it to `seen` and continue.\n" +
+            "5. If the scan finishes with no hit, return `false`.\n\n" +
+            "**Why it works.** At any point the set holds exactly the values to the left of the cursor, so a membership hit means that same value occurred earlier \u2014 a genuine duplicate. Finishing the scan without a hit proves every value was distinct.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- A single-element (or empty) array can never contain a duplicate.\n" +
+            "- Add each value only after checking it, so the current element isn't matched against itself.\n" +
+            "- Early-exit on the first repeat instead of counting all occurrences.\n\n" +
+            "**Complexity.** Time `O(n)` for one pass with `O(1)` set operations; space `O(n)` for the set. (The one-liner `len(set(nums)) != len(nums)` is the same idea but always scans the whole array.)\n\n" +
+            "**Interview mindset.** \u201cAre there any repeats / is everything unique?\u201d is the signal to reach for a hash set built as you scan.",
           rcs:
             "class Solution:\n" +
             "    def containsDuplicate(self, nums: List[int]) -> bool:\n" +
@@ -282,8 +307,21 @@
           space: "O(n)",
           whenToUse: "Only to illustrate the naive idea; it violates the required O(n) time.",
           logic:
-            "**B. Brute force.** For each index `i`, multiply every other element with a nested loop. Simple but `O(n^2)`, and for `n = 10^5` that is far too slow.\n\n" +
-            "**C. Why insufficient.** It recomputes overlapping products again and again \u2014 the products to the left and right of each index are shared work we throw away.",
+            "**What it asks.** Build an array where `answer[i]` is the product of every element of `nums` except `nums[i]`, without using division.\n\n" +
+            "**Why the naive idea fails.** The obvious approach fixes each index `i` and multiplies every other element with a nested inner loop. It's simple and correct, but it's `O(n^2)`, and for `n = 10^5` that's far too slow \u2014 it also violates the required `O(n)` time.\n\n" +
+            "**Key Idea.** For this baseline there's no clever insight beyond directness: each `answer[i]` is just the product of all `j != i`. The point of writing it out is to expose the waste \u2014 the products to the left and right of each index are shared work being recomputed for every `i`, which motivates the prefix/suffix approach.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Initialize `answer` with all `1`s (the multiplicative identity).\n" +
+            "2. For each output index `i`, start a running `product` at `1`.\n" +
+            "3. In an inner loop over every `j`, multiply `product` by `nums[j]` whenever `j != i`.\n" +
+            "4. Store `answer[i] = product`.\n\n" +
+            "**Why it works.** By construction, `answer[i]` accumulates the product of exactly the elements other than `nums[i]`, and using multiplication avoids the banned division entirely.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Skip the element itself (`j != i`) or the answer collapses to the full product.\n" +
+            "- Zeros need no special handling here since we never divide.\n" +
+            "- Starting `product` at `1` (not `0`) is essential.\n\n" +
+            "**Complexity.** Time `O(n^2)` from the nested loops; space `O(n)` for the output array.\n\n" +
+            "**Interview mindset.** Reach for this only to frame the problem \u2014 the moment you notice you're recomputing overlapping left/right products, pivot to prefix/suffix accumulation.",
           rcs:
             "class Solution:\n" +
             "    def productExceptSelf(self, nums: List[int]) -> List[int]:\n" +
@@ -315,14 +353,20 @@
           space: "O(1)",
           whenToUse: "The expected solution: any 'combine everything except me' where division is banned or unsafe (zeros).",
           logic:
-            "**D. Key observation.** The product of everything except index `i` equals *(product of all elements to the LEFT of i)* \u00d7 *(product of all elements to the RIGHT of i)*. Division is unnecessary if we precompute those two running products.\n\n" +
-            "**E. Pattern.** Prefix / suffix accumulation \u2014 a hallmark of array problems where each answer depends on 'everything before' and 'everything after'.\n\n" +
-            "**G/H. What we store.** We build the answer in two sweeps. First pass fills `answer[i]` with the prefix product (product of all elements before `i`). Second pass walks from the right multiplying in a running `suffix` product.\n\n" +
-            "**I. Step by step.**\n" +
-            "1. Left pass: keep a running `prefix` = product of elements seen so far; set `answer[i] = prefix` *before* multiplying `nums[i]` in.\n" +
-            "2. Right pass: keep a running `suffix`; multiply `answer[i] *= suffix`, then fold `nums[i]` into `suffix`.\n\n" +
-            "**J. Why correct.** After both passes `answer[i] = prefix_i * suffix_i`, which is exactly the product of all elements other than `nums[i]`. Zeros are handled naturally \u2014 no special casing, no division by zero.\n\n" +
-            "**K/L. Complexity.** Two linear passes \u2192 `O(n)` time. The output array is not counted as extra space, and we only use a couple of scalars, so `O(1)` auxiliary space.",
+            "**What it asks.** For each index `i`, produce the product of all other elements of `nums`, in `O(n)` time and without division.\n\n" +
+            "**Why the naive idea fails.** Brute force multiplies every other element per index in `O(n^2)`. The tempting `O(n)` shortcut \u2014 divide the total product by `nums[i]` \u2014 breaks on zeros (division by zero, and a single zero makes the total zero), and division is banned outright.\n\n" +
+            "**Key Idea.** The product of everything except index `i` equals *(product of all elements to the LEFT of `i`)* \u00d7 *(product of all elements to the RIGHT of `i`)*. If we precompute those two running products, no division is ever needed.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Initialize `answer` with all `1`s.\n" +
+            "2. Left pass: keep a running `prefix` (product of elements seen so far, starting at `1`). At each `i`, set `answer[i] = prefix` *before* folding `nums[i]` into `prefix`. Now `answer[i]` holds the product of everything to the left of `i`.\n" +
+            "3. Right pass: keep a running `suffix` (starting at `1`), walking from the last index down. At each `i`, multiply `answer[i] *= suffix`, then fold `nums[i]` into `suffix`.\n\n" +
+            "**Why it works.** After both sweeps `answer[i] = prefix_i * suffix_i`, which is precisely the product of all elements other than `nums[i]`. Writing the prefix in *before* multiplying `nums[i]` guarantees index `i` excludes itself. Zeros fall out naturally \u2014 no special casing, no division.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Store the prefix into `answer[i]` *before* including `nums[i]`, or the index won't exclude itself.\n" +
+            "- Start both `prefix` and `suffix` at `1`, not `0`.\n" +
+            "- One or more zeros are handled automatically; don't add division to \"optimize.\"\n\n" +
+            "**Complexity.** Two linear passes give `O(n)` time. The output array isn't counted as extra space and we use only a couple of scalars, so `O(1)` auxiliary space.\n\n" +
+            "**Interview mindset.** When each answer depends on \"everything before\" and \"everything after\" an index \u2014 especially with division banned or unsafe \u2014 reach for prefix/suffix accumulation.",
           rcs:
             "class Solution:\n" +
             "    def productExceptSelf(self, nums: List[int]) -> List[int]:\n" +
@@ -414,8 +458,23 @@
           space: "O(1)",
           whenToUse: "Acceptable when O(n log n) is fine and you want minimal extra memory / simple code.",
           logic:
-            "**B. Idea.** If we sort the numbers, consecutive values sit next to each other, so we can walk the sorted array counting run lengths, resetting when the gap is not exactly 1 (and skipping equal neighbours).\n\n" +
-            "**C. Why not ideal.** Sorting is `O(n log n)`, which violates the stated `O(n)` requirement \u2014 but it is a clean, easy-to-reason fallback and often good enough.",
+            "**What it asks.** Find the length of the longest run of consecutive integers present in an unsorted `nums`, ignoring their positions in the array.\n\n" +
+            "**Why the naive idea fails.** Checking, for each value, how far its run extends by scanning the whole array repeatedly is `O(n^2)`. Sorting is the intuitive fix, but it costs `O(n log n)` and so does not meet the stated `O(n)` requirement \u2014 still, it's a clean, easy-to-reason fallback and often good enough.\n\n" +
+            "**Key Idea.** Once the numbers are sorted, consecutive values sit right next to each other, so a single linear walk can measure every run: extend the current run when the next value is exactly one more, and reset when there's a gap.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Handle the empty array up front (answer `0`).\n" +
+            "2. Sort `nums` so equal and consecutive values become adjacent.\n" +
+            "3. Track `current` (length of the run being extended) and `longest` (best seen), both starting at `1`.\n" +
+            "4. Walk from the second element: if it equals the previous value, skip it (a duplicate doesn't extend a run).\n" +
+            "5. If it is exactly one more than the previous, increment `current` and update `longest`.\n" +
+            "6. Otherwise the run is broken \u2014 reset `current` to `1`.\n\n" +
+            "**Why it works.** After sorting, any maximal run of consecutive integers appears as a contiguous block of adjacent values differing by one; the walk measures each such block exactly, and skipping equal neighbours keeps duplicates from inflating a run.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Handle the empty array separately, or the initial `longest = 1` returns a wrong answer.\n" +
+            "- Skip duplicates explicitly; `[1,2,2,3]` still has run length 3.\n" +
+            "- Reset `current` to `1` (not `0`) on a gap, since the breaking element itself starts a new run.\n\n" +
+            "**Complexity.** Time `O(n log n)` dominated by the sort; space `O(1)` beyond the sort (in-place).\n\n" +
+            "**Interview mindset.** If the `O(n)` bound weren't required, sorting-then-scanning is the fastest thing to reason about correctly \u2014 offer it as a fallback, then note sorting is why it misses `O(n)`.",
           rcs:
             "class Solution:\n" +
             "    def longestConsecutive(self, nums: List[int]) -> int:\n" +
@@ -457,12 +516,22 @@
           space: "O(n)",
           whenToUse: "The required O(n) solution. Use when you must find consecutive runs without sorting.",
           logic:
-            "**D. Key observation.** A number begins a consecutive run **only if `num - 1` is not present**. If we start counting only from those true starts, each element is visited at most twice overall, giving `O(n)`.\n\n" +
-            "**E. Data structure.** Put every value in a hash **set** for `O(1)` presence checks; duplicates collapse automatically.\n\n" +
-            "**F. Why it works / avoids blowup.** For a start value `s`, we walk `s, s+1, s+2, \u2026` while each next value is in the set, counting the length. Because we only ever start walking from run starts, the inner walks across the whole array sum to `O(n)`, not `O(n^2)`.\n\n" +
-            "**I. Step by step.** For each `num`: if `num - 1` is in the set, skip (it is in the middle of some run, someone else will count it). Otherwise it is a start \u2014 extend upward counting length, and track the max.\n\n" +
-            "**J. Correctness.** Every maximal run has exactly one start (the value with no predecessor in the set); we measure each run once, from its start.\n\n" +
-            "**K/L. Complexity.** Time `O(n)` amortized, space `O(n)` for the set.",
+            "**What it asks.** Return the length of the longest run of consecutive integers in `nums`, in `O(n)` time and without sorting.\n\n" +
+            "**Why the naive idea fails.** Naively extending a run from every value by repeated membership checks risks re-walking the same run from each of its members, which is `O(n^2)`. Sorting would fix ordering but costs `O(n log n)`, missing the required bound.\n\n" +
+            "**Key Idea.** A number begins a consecutive run **only if `num - 1` is not present**. If we start counting *only* from those true run-starts, each value is visited at most twice overall (once as a candidate start, once while being walked over), so the total work is `O(n)`.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Put every value into a hash **set** for `O(1)` presence checks; duplicates collapse automatically.\n" +
+            "2. Iterate the distinct values in the set.\n" +
+            "3. For each `num`, if `num - 1` is in the set, skip it \u2014 it sits in the middle of some run and will be counted from that run's start.\n" +
+            "4. If `num - 1` is absent, `num` is a run start: walk `num, num+1, num+2, \u2026` while each next value is in the set, counting the length.\n" +
+            "5. Track the maximum length seen.\n\n" +
+            "**Why it works.** Every maximal run has exactly one start \u2014 the value with no predecessor in the set \u2014 so each run is measured exactly once, from that start. Because inner walks only ever begin at starts, the walks across the whole array sum to `O(n)` rather than `O(n^2)`.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Iterate the *set* (distinct values), not the list, to avoid redundant work on duplicates.\n" +
+            "- The empty input must return `0`; initialize `longest` to `0`, not `1`.\n" +
+            "- Only start walking when `num - 1` is absent \u2014 walking from every value reintroduces `O(n^2)`.\n\n" +
+            "**Complexity.** Time `O(n)` amortized (each value entered by an inner walk at most once); space `O(n)` for the set.\n\n" +
+            "**Interview mindset.** Consecutive-integer runs required in `O(n)` where only presence (not order) matters is the signal for a hash set plus the \"count only from run starts\" trick.",
           rcs:
             "class Solution:\n" +
             "    def longestConsecutive(self, nums: List[int]) -> int:\n" +
@@ -551,13 +620,21 @@
           space: "O(N)",
           whenToUse: "The standard, robust serialization trick whenever payloads can contain your delimiter.",
           logic:
-            "**A. Asked.** Turn a list of arbitrary strings into one string and back, losslessly.\n\n" +
-            "**B. Naive idea and why it fails.** Joining with a separator like `,` or `#` breaks the moment a string *contains* that separator \u2014 decode can't tell a real delimiter from data.\n\n" +
-            "**D. Key observation.** If we prefix each string with its **length** plus a marker, decode never has to guess. It reads the number, reads the marker, then consumes *exactly* that many characters as the payload \u2014 regardless of what those characters are.\n\n" +
-            "**E. Pattern.** Length-prefixed framing (the same idea network protocols use). Format each item as `len(s) + '#' + s`.\n\n" +
-            "**I. Step by step (decode).** Start at position 0. Scan digits until the `#` to get the length `L`. The payload is the next `L` characters after the `#`. Append it, jump the cursor past the payload, and repeat until the string is consumed.\n\n" +
-            "**J. Why correct.** The length tells decode precisely where each payload ends, so a `#` or digits *inside* a payload are just data, never misread as structure.\n\n" +
-            "**K/L. Complexity.** Each character is written/read a constant number of times \u2192 `O(N)` time and space where `N` is the total length.",
+            "**What it asks.** Turn a list of arbitrary strings into one single string, and later reconstruct the exact original list from it \u2014 losslessly.\n\n" +
+            "**Why the naive idea fails.** The tempting approach is to join the strings with a separator like `,` or `#`. But the strings can contain any character, including your separator. The moment a string contains `#`, the decoder can't tell a real delimiter from data, and the round-trip breaks.\n\n" +
+            "**Key Idea.** To distinguish the separator from the content, we prepend each string with its length followed by a special character (e.g. `#`). For example, `hello` becomes `5#hello`. During decoding we read digits until we hit `#` to get the length, then read exactly that many characters as the payload \u2014 so whatever those characters are (even `#` or digits) they're treated as data, never as structure.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Encode: for each string `s`, append `len(s) + '#' + s` to a result string; return the concatenation of all frames.\n" +
+            "2. Decode: use a pointer `i` to traverse the encoded string.\n" +
+            "3. Scan from `i` to the next `#` to read the length `n`.\n" +
+            "4. Extract the substring starting just after the `#`, of length `n` \u2014 that's one original string.\n" +
+            "5. Move `i` past that substring and repeat until the string is consumed.\n\n" +
+            "**Why it works.** The length prefix makes every payload self-describing: the decoder always knows precisely where the current string ends before it starts reading it, so it never guesses at delimiters. Each frame is read exactly once.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- The `#` character (or digits) can appear inside a string \u2014 the length prefix removes the ambiguity; never search for `#` inside a payload.\n" +
+            "- Empty strings must round-trip cleanly (they encode as `0#`), and an empty list encodes to the empty string.\n\n" +
+            "**Complexity.** Time `O(N)` for both encode and decode (N = total characters, each read a constant number of times). Space `O(N)` for the output.\n\n" +
+            "**Interview mindset.** \"A separator won't work because the payload can contain it\" is the exact signal to switch to length-prefixed framing \u2014 the same trick network protocols use.",
           rcs:
             "class Solution:\n" +
             "    def encode(self, strs: List[str]) -> str:\n" +

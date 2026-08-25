@@ -64,19 +64,19 @@
           space: "O(1)",
           whenToUse: "The clean, expected answer for a square-matrix 90° clockwise rotation in place.",
           logic:
-            "**A. What is being asked?** Rotate a square grid 90° clockwise, editing the same array, using no second matrix.\n\n" +
-            "**B. Brute force idea.** Allocate a fresh `n x n` grid and copy: the element at `(r, c)` in a 90°-clockwise rotation lands at `(c, n-1-r)`. That is correct and easy, but it uses `O(n^2)` extra space, which the problem forbids.\n\n" +
-            "**D. Key observation.** A 90° clockwise rotation is exactly two simpler, in-place operations composed:\n" +
-            "1. **Transpose** the matrix (reflect across the main diagonal): swap `matrix[i][j]` with `matrix[j][i]`. After this, `(r, c)` holds what used to be at `(c, r)`.\n" +
-            "2. **Reverse each row** (reflect left-to-right). After this, column `c` becomes column `n-1-c`.\n\n" +
-            "**E. Why the composition equals a rotation.** Track a single cell. Start with value `v` at `(r, c)`. Transpose sends it to `(c, r)`. Reversing row `c` sends `(c, r)` to `(c, n-1-r)`. So `v` ends at `(c, n-1-r)` — which is precisely where a 90° clockwise rotation puts the value from `(r, c)`. Two reflections about intersecting axes always compose into a rotation; here the two axes (main diagonal, then vertical) meet at 45°, and reflecting across two lines that meet at angle θ rotates by `2θ` = 90°.\n\n" +
-            "**F. Why in place works.** The transpose only swaps mirror pairs across the diagonal, so we iterate the upper triangle (`j > i`) and swap each pair once — touching the diagonal itself would undo swaps. Reversing a row is a standard two-pointer swap needing no extra grid.\n\n" +
-            "**I. Step by step.**\n" +
-            "1. For every `i`, for every `j > i`: swap `matrix[i][j]` and `matrix[j][i]` (transpose).\n" +
-            "2. For every row, reverse it in place with two pointers (or `row.reverse()`).\n\n" +
-            "**J. Why correct.** Shown per-cell in E: the composed map `(r, c) -> (c, n-1-r)` is the clockwise rotation, and every cell follows it.\n\n" +
-            "**K/L. Complexity.** Each phase touches ~`n^2/2` cells, so time `O(n^2)`; only scalar temporaries are used, so space `O(1)`.\n\n" +
-            "**M. Interview mindset.** “Rotate a square matrix in place” should immediately trigger “transpose, then reverse each row” for clockwise (and “reverse each row, then transpose”, or transpose then reverse each column, for counter-clockwise).",
+            "**What it asks.** Rotate a square `n x n` grid 90° clockwise, editing the same array, without allocating a second matrix.\n\n" +
+            "**Why the naive idea fails.** The obvious approach allocates a fresh `n x n` grid and copies each element to its rotated home: the value at `(r, c)` lands at `(c, n-1-r)` under a 90° clockwise rotation. That is correct and easy, but it uses `O(n^2)` extra space, which the problem explicitly forbids.\n\n" +
+            "**Key Idea.** A 90° clockwise rotation is exactly two simpler in-place reflections composed. First **transpose** the matrix (reflect across the main diagonal) by swapping `matrix[i][j]` with `matrix[j][i]`; afterwards `(r, c)` holds what used to sit at `(c, r)`. Then **reverse each row** (reflect left-to-right); afterwards column `c` becomes column `n-1-c`. Two reflections across lines meeting at angle θ compose into a rotation by `2θ`, and here the diagonal and the vertical axis meet at 45°, giving a 90° turn.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Transpose: for every `i`, for every `j > i`, swap `matrix[i][j]` and `matrix[j][i]`. Only the upper triangle is touched so each mirror pair swaps exactly once.\n" +
+            "2. Reverse each row: for every row, use two pointers `left` and `right` moving inward, swapping until they meet (equivalent to `row.reverse()`).\n\n" +
+            "**Why it works.** Track a single value `v` starting at `(r, c)`. The transpose sends it to `(c, r)`; reversing row `c` then sends `(c, r)` to `(c, n-1-r)`. That is precisely where a 90° clockwise rotation puts the value originally at `(r, c)`, and since every cell follows the same composed map `(r, c) -> (c, n-1-r)`, the whole grid is rotated correctly.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- In the transpose you must start the inner loop at `j = i + 1`; iterating the full range (or including the diagonal) swaps every pair twice and undoes the work.\n" +
+            "- The trick relies on the matrix being square — a rectangular grid cannot be transposed in place this way.\n" +
+            "- For counter-clockwise, reverse each row first and then transpose (or transpose then reverse each column); getting the order backwards rotates the wrong way.\n\n" +
+            "**Complexity.** Time `O(n^2)` — each phase touches about `n^2/2` cells. Space `O(1)` — only scalar temporaries are used, no second grid.\n\n" +
+            "**Interview mindset.** “Rotate a square matrix in place” should immediately trigger “transpose, then reverse each row” for clockwise. Recognizing a rotation as a composition of two reflections is the reusable insight.",
           rcs:
             "class Solution:\n" +
             "    def rotate(self, matrix: List[List[int]]) -> None:\n" +
@@ -113,17 +113,22 @@
           space: "O(1)",
           whenToUse: "When you want to rotate in a single pass, or to show you understand the geometry directly.",
           logic:
-            "**D. Alternative observation.** A rotation permutes cells in groups of four: each cell maps to the next corner of a rotated square, and after four moves you return to the start. So we can move four elements at a time with one temporary variable.\n\n" +
-            "**E. Layers.** Think of the matrix as concentric square rings (layers). The outermost ring is layer 0, then layer 1 inside it, and so on for `n // 2` layers. We rotate each ring independently.\n\n" +
-            "**F. The 4-way cycle.** Within a layer, for each offset `i` along the top edge, four positions rotate into each other clockwise: top -> right -> bottom -> left -> top. Save the top element, then pull left into top, bottom into left, right into bottom, and the saved top into right.\n\n" +
-            "**G/H. Index bookkeeping.** With `first = layer` and `last = n - 1 - layer`, for `i` in `[first, last)` the four cells are:\n" +
-            "- top:    `matrix[first][i]`\n" +
-            "- left:   `matrix[last - offset][first]`  (where `offset = i - first`)\n" +
-            "- bottom: `matrix[last][last - offset]`\n" +
-            "- right:  `matrix[i][last]`\n\n" +
-            "**I. Step by step.** For each layer, walk `i` across the top edge and perform the four assignments above using one saved temp, so no scratch grid is needed.\n\n" +
-            "**J. Why correct.** Each 4-cycle is exactly the orbit of the clockwise rotation on those four cells; rotating every orbit in every layer rotates the whole matrix.\n\n" +
-            "**K/L. Complexity.** Every cell is moved exactly once -> time `O(n^2)`, space `O(1)`.",
+            "**What it asks.** Rotate a square `n x n` grid 90° clockwise in place, but in a single geometric pass rather than two reflection phases.\n\n" +
+            "**Why the naive idea fails.** Copying into a fresh grid is simple but costs `O(n^2)` extra space, which is forbidden. We need to permute cells directly inside the input.\n\n" +
+            "**Key Idea.** A clockwise rotation permutes cells in disjoint groups of four: each cell maps to the next corner of a rotated square, and after four moves you return to the start. So you can rotate four elements at a time using just one temporary variable. Viewing the matrix as concentric square rings (layers), each ring can be rotated independently.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Process each layer for `layer` in `0 .. n//2 - 1`; set `first = layer` (top/left boundary) and `last = n - 1 - layer` (bottom/right boundary).\n" +
+            "2. Walk `i` across the top edge from `first` to `last - 1`, letting `offset = i - first` measure distance from the corner.\n" +
+            "3. Save the top element `top = matrix[first][i]`.\n" +
+            "4. Perform the 4-way cycle with one temp: left into top (`matrix[last-offset][first]` -> top), bottom into left, right into bottom, and the saved top into right (`matrix[i][last]`).\n" +
+            "The four cells involved are top `matrix[first][i]`, left `matrix[last-offset][first]`, bottom `matrix[last][last-offset]`, and right `matrix[i][last]`.\n\n" +
+            "**Why it works.** Each group of four cells is exactly the orbit of the clockwise rotation acting on those positions; performing the cycle moves each of the four to where a 90° clockwise turn sends it. Rotating every orbit in every layer therefore rotates the whole matrix, and because the orbits are disjoint no cell is disturbed twice.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- The inner loop must stop at `last - 1` (range `[first, last)`); including `last` re-processes a corner already handled by the next side.\n" +
+            "- The offset indexing is the classic trap — pull the four cells in the correct clockwise order (top <- left <- bottom <- right <- saved top) or you rotate the wrong direction.\n" +
+            "- Only `n // 2` layers are needed; an odd `n` leaves a fixed center cell that never moves.\n\n" +
+            "**Complexity.** Time `O(n^2)` — every cell is moved exactly once. Space `O(1)` — a single saved temporary, no scratch grid.\n\n" +
+            "**Interview mindset.** When you want to show you understand the rotation's geometry directly, reach for the layer-by-layer 4-way swap; the signal is any in-place ring/layer permutation of a grid.",
           rcs:
             "class Solution:\n" +
             "    def rotate(self, matrix: List[List[int]]) -> None:\n" +
@@ -226,20 +231,22 @@
           space: "O(1)",
           whenToUse: "The standard approach for any clockwise/counter-clockwise spiral traversal of a grid.",
           logic:
-            "**A. What is being asked?** Visit every cell exactly once following a clockwise inward spiral, collecting values in order.\n\n" +
-            "**D. Key observation.** At any moment the un-visited region is a rectangle. Track it with four boundaries: `top`, `bottom` (row indices) and `left`, `right` (column indices). One full loop peels the outer ring of that rectangle and then moves the four boundaries inward by one.\n\n" +
-            "**E. Pattern / data structure.** No auxiliary grid — just four integer boundaries and the output list. The spiral is four directional sweeps in a fixed clockwise order.\n\n" +
-            "**G/H. What the boundaries mean.** `top`/`bottom`/`left`/`right` are the *inclusive* edges of the still-unvisited rectangle. The instant a sweep finishes an edge, we retract that edge so it is never touched again.\n\n" +
-            "**I. Step by step (one iteration of the outer loop).**\n" +
-            "1. Go **right** along `top` from `left` to `right`, then `top += 1`.\n" +
-            "2. Go **down** along `right` from `top` to `bottom`, then `right -= 1`.\n" +
-            "3. If `top <= bottom`: go **left** along `bottom` from `right` to `left`, then `bottom -= 1`.\n" +
-            "4. If `left <= right`: go **up** along `left` from `bottom` to `top`, then `left += 1`.\n" +
-            "Repeat while `top <= bottom` and `left <= right`.\n\n" +
-            "**F. Why the two inner checks matter (avoiding double-visits).** After the top and right sweeps retract their edges, the leftover strip may be a *single* row or a *single* column. Without the `if top <= bottom` guard, the bottom sweep would re-read a row the top sweep already consumed; without `if left <= right`, the up sweep would re-read a column the right sweep already consumed. Those two guards are exactly what prevent duplicates on odd/thin rectangles.\n\n" +
-            "**J. Why correct.** Each of the four sweeps traverses one edge of the current rectangle and then that edge is retracted, so no cell is ever visited twice; the loop ends precisely when the rectangle is empty, so no cell is missed.\n\n" +
-            "**K/L. Complexity.** Every cell is appended once -> time `O(m * n)`; aside from the output, only four indices -> space `O(1)`.\n\n" +
-            "**M. Interview mindset.** “Spiral / ring / layer traversal of a grid” = shrinking boundaries. The one thing that trips people is the two guards before the bottom and left sweeps; state them explicitly.",
+            "**What it asks.** Visit every cell of an `m x n` grid exactly once following a clockwise inward spiral, collecting the values into a flat list in visit order.\n\n" +
+            "**Why the naive idea fails.** You might try to simulate a walker with a direction and a `visited` grid, turning right whenever the next cell is out of bounds or already seen. That works but costs `O(m * n)` extra space for the visited marks and is fiddly to get right. Tracking the frontier as a rectangle is cleaner and needs no auxiliary grid.\n\n" +
+            "**Key Idea.** At any moment the un-visited region is exactly a rectangle, so track it with four *inclusive* boundaries: `top` and `bottom` (row indices) and `left` and `right` (column indices). One full pass peels the outer ring of that rectangle with four directional sweeps in fixed clockwise order, and after each sweep you retract the edge it consumed so it is never touched again.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Sweep **right** along row `top` from column `left` to `right`, then do `top += 1`.\n" +
+            "2. Sweep **down** column `right` from row `top` to `bottom`, then do `right -= 1`.\n" +
+            "3. If `top <= bottom`, sweep **left** along row `bottom` from column `right` to `left`, then do `bottom -= 1`.\n" +
+            "4. If `left <= right`, sweep **up** column `left` from row `bottom` to `top`, then do `left += 1`.\n" +
+            "5. Repeat the whole loop while `top <= bottom` and `left <= right`.\n\n" +
+            "**Why it works.** Each sweep traverses exactly one edge of the current rectangle and then retracts it, so no cell is visited twice; the loop terminates precisely when the boundaries cross and the rectangle is empty, so no cell is missed. The two inner guards handle the subtle case: after the top and right sweeps retract, the leftover strip may be a single row or single column, and without `if top <= bottom` the bottom sweep would re-read a row the top sweep already consumed (and likewise `if left <= right` protects against re-reading a column). Those guards are what keep thin or odd rectangles correct.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Skipping the two guards before the bottom and left sweeps causes double-visits on single-row or single-column leftovers.\n" +
+            "- Handle an empty matrix (or a matrix whose first row is empty) up front, or the boundary initialization breaks.\n" +
+            "- The grid need not be square; `m` and `n` can differ, so use both row and column boundaries independently.\n\n" +
+            "**Complexity.** Time `O(m * n)` — every cell is appended exactly once. Space `O(1)` — aside from the output list, only four integer indices.\n\n" +
+            "**Interview mindset.** “Spiral / ring / layer traversal of a grid” is the signal for four shrinking boundaries. State the two guards before the bottom and left sweeps explicitly — that is the detail interviewers watch for.",
           rcs:
             "class Solution:\n" +
             "    def spiralOrder(self, matrix: List[List[int]]) -> List[int]:\n" +
@@ -356,15 +363,20 @@
           space: "O(m + n)",
           whenToUse: "The clear, correct baseline — say this first, then optimize to O(1) for the follow-up.",
           logic:
-            "**A. What is being asked?** For every original zero, blank its whole row and whole column, editing the matrix in place.\n\n" +
-            "**B. Broken naive idea.** Zeroing a row/column the instant you see a 0 corrupts the scan: the new zeros look like original zeros and cascade until everything is 0. So detection must finish before any mutation.\n\n" +
-            "**D. Key observation.** We only need to know *which rows* and *which columns* contain at least one zero. That is two small collections, not the full grid of decisions.\n\n" +
-            "**E. Data structure.** A set `zero_rows` and a set `zero_cols`. First pass records every row and column that holds a zero; second pass blanks any cell whose row or column is marked.\n\n" +
-            "**I. Step by step.**\n" +
-            "1. Scan all cells; whenever `matrix[r][c] == 0`, add `r` to `zero_rows` and `c` to `zero_cols`.\n" +
-            "2. Scan all cells again; set `matrix[r][c] = 0` if `r in zero_rows` or `c in zero_cols`.\n\n" +
-            "**J. Why correct.** Detection is fully separated from mutation, so only ORIGINAL zeros drive the blanking — no cascade.\n\n" +
-            "**K/L. Complexity.** Two full passes -> time `O(m * n)`; the two sets hold at most `m` rows and `n` columns -> space `O(m + n)`.",
+            "**What it asks.** For every element that is originally `0`, blank its entire row and entire column, editing the matrix in place.\n\n" +
+            "**Why the naive idea fails.** Zeroing a row or column the instant you see a `0` corrupts the scan: the freshly written zeros are indistinguishable from original zeros, so they trigger more zeroing and the whole matrix cascades to all zeros. Detection must be fully separated from mutation.\n\n" +
+            "**Key Idea.** You do not need to remember every zero — only *which rows* and *which columns* contain at least one zero. That is two small collections rather than a grid of decisions, and it captures all the information needed to blank correctly.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Create two sets, `zero_rows` and `zero_cols`.\n" +
+            "2. First pass: scan every cell; whenever `matrix[r][c] == 0`, add `r` to `zero_rows` and `c` to `zero_cols`. Never mutate the matrix here.\n" +
+            "3. Second pass: scan every cell again; set `matrix[r][c] = 0` whenever `r in zero_rows` or `c in zero_cols`.\n\n" +
+            "**Why it works.** Because detection completes entirely before any mutation, only the ORIGINAL zeros are recorded in the sets, so the blanking phase is driven purely by original zeros and can never cascade. Every cell in a marked row or column is set to zero, and no other cell is touched.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Do not zero cells during the first pass — mixing detection and mutation is the classic bug that collapses the grid.\n" +
+            "- A matrix with no zeros must be left unchanged; the two-pass structure handles this naturally.\n" +
+            "- Use both a row set and a column set; a single combined structure loses the ability to test rows and columns independently.\n\n" +
+            "**Complexity.** Time `O(m * n)` — two full passes over the grid. Space `O(m + n)` — the sets hold at most `m` rows and `n` columns.\n\n" +
+            "**Interview mindset.** “A zero clears its whole row and column” is the signal to separate detection from mutation. State this clean `O(m + n)` baseline first, then offer the `O(1)` optimization for the follow-up.",
           rcs:
             "class Solution:\n" +
             "    def setZeroes(self, matrix: List[List[int]]) -> None:\n" +
@@ -402,21 +414,23 @@
           space: "O(1)",
           whenToUse: "The follow-up answer: same logic but store the marks inside the matrix's own first row and column.",
           logic:
-            "**D. Key observation.** The marker sets from the baseline can live *inside the matrix*. Use row 0 as the “this column has a zero” flags and column 0 as the “this row has a zero” flags. Cell `matrix[0][c]` records whether column `c` must be cleared; `matrix[r][0]` records whether row `r` must be cleared. That reuses existing storage, so no extra sets.\n\n" +
-            "**F. The conflict, and why we need two extra flags.** Cell `matrix[0][0]` is shared — it would have to flag both “row 0 has a zero” and “column 0 has a zero”, which is one bit for two facts. Resolve it by pulling one of them out into a single boolean. We keep `matrix[0][0]` to mean “row 0 has a zero” and use a separate variable `col0` to mean “column 0 has a zero”.\n\n" +
-            "**G/H. What each marker holds.**\n" +
-            "- `col0` (bool): does the first column contain any original zero?\n" +
-            "- `matrix[r][0]` for `r >= 0`: does row `r` contain a zero? (`matrix[0][0]` covers row 0.)\n" +
-            "- `matrix[0][c]` for `c >= 1`: does column `c` contain a zero?\n\n" +
-            "**I. Step by step.**\n" +
-            "1. Determine `col0` first: scan column 0; if any `matrix[r][0] == 0`, set `col0 = True`.\n" +
-            "2. First pass over cells with `c >= 1`: if `matrix[r][c] == 0`, write the marks `matrix[r][0] = 0` and `matrix[0][c] = 0`.\n" +
-            "3. Second pass over the *interior* (`r >= 1`, `c >= 1`), from anywhere: if `matrix[r][0] == 0` or `matrix[0][c] == 0`, set the cell to 0. Doing the interior first protects the marker line from being overwritten before it is read.\n" +
-            "4. Handle row 0: if `matrix[0][0] == 0`, blank the entire first row.\n" +
-            "5. Handle column 0: if `col0` is True, blank the entire first column.\n\n" +
-            "**J. Why correct.** The marks record exactly which rows/columns had an original zero (same information as the two sets). By clearing the interior before overwriting the marker row/column, and by handling row 0 and column 0 last using `matrix[0][0]` and `col0`, every original zero clears its full row and column and nothing cascades.\n\n" +
-            "**K/L. Complexity.** A constant number of passes -> time `O(m * n)`; only the single boolean `col0` beyond the matrix -> space `O(1)`.\n\n" +
-            "**M. Interview mindset.** The move “store your auxiliary marks inside the input's border” is the classic O(1)-space matrix trick; the only subtlety is the shared `(0,0)` cell, solved with one extra flag.",
+            "**What it asks.** Same task — blank the row and column of every original zero, in place — but now using only `O(1)` extra space, as the follow-up demands.\n\n" +
+            "**Why the naive idea fails.** The baseline stores which rows and columns to clear in two sets costing `O(m + n)` space. To reach `O(1)` we cannot keep any auxiliary collection that grows with the matrix.\n\n" +
+            "**Key Idea.** The marker sets can live *inside the matrix itself*, in its own first row and first column. Let `matrix[0][c]` flag whether column `c` contains a zero, and `matrix[r][0]` flag whether row `r` contains a zero. This reuses existing storage, so no extra sets are needed. The one wrinkle: cell `matrix[0][0]` is shared between the row-0 flag and the column-0 flag — one bit for two facts. Resolve it by keeping `matrix[0][0]` to mean “row 0 has a zero” and using a single separate boolean `col0` for “column 0 has a zero”.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Determine `col0` first: scan column 0, and if any `matrix[r][0] == 0`, set `col0 = True`.\n" +
+            "2. First pass over cells with `c >= 1`: whenever `matrix[r][c] == 0`, write the marks `matrix[r][0] = 0` and `matrix[0][c] = 0`.\n" +
+            "3. Second pass over the interior only (`r >= 1`, `c >= 1`): set `matrix[r][c] = 0` if its row marker `matrix[r][0] == 0` or its column marker `matrix[0][c] == 0`. Doing the interior before the borders protects the marker line from being overwritten before it is read.\n" +
+            "4. Handle row 0 last: if `matrix[0][0] == 0`, blank the entire first row.\n" +
+            "5. Handle column 0 last: if `col0` is True, blank the entire first column.\n\n" +
+            "**Why it works.** The border markers record exactly which rows and columns held an original zero — the same information the two sets held. Clearing the interior before overwriting the marker row and column ensures no marker is destroyed before it is used, and deferring row 0 and column 0 to the end (using `matrix[0][0]` and `col0`) means every original zero clears its full row and column with no cascade.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Compute `col0` before writing marks into column 0, or you cannot tell an original zero from a mark you just wrote.\n" +
+            "- Clear the interior BEFORE overwriting the marker row and column — reversing the order destroys markers still needed.\n" +
+            "- The shared cell `(0,0)` must not carry both flags; the extra boolean `col0` is what prevents the collision.\n" +
+            "- Handle row 0 and column 0 last, separately from the interior.\n\n" +
+            "**Complexity.** Time `O(m * n)` — a constant number of passes. Space `O(1)` — only the single boolean `col0` beyond the matrix.\n\n" +
+            "**Interview mindset.** “Store your auxiliary marks inside the input's border” is the classic `O(1)`-space matrix trick; the only subtlety is the shared `(0,0)` cell, solved with one extra flag. Any “in-place, `O(1)` extra space” matrix problem hints at reusing the border as scratch space.",
           rcs:
             "class Solution:\n" +
             "    def setZeroes(self, matrix: List[List[int]]) -> None:\n" +
