@@ -332,9 +332,6 @@
     });
     main.appendChild(metaBox);
 
-    // ---- reference / visualization links ----
-    main.appendChild(buildLinksSection(p));
-
     // ---- Brief Description ----
     var descNode = h("div", { class: "md" });
     descNode.innerHTML = md(p.descriptionBrief || p.description || "");
