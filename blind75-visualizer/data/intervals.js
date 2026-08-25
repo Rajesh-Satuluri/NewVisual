@@ -520,17 +520,21 @@
           space: "O(n)",
           whenToUse: "Clean, intuitive approach: keep a heap of the end times of meetings currently using rooms.",
           logic:
-            "**A. What is asked.** The fewest rooms = the maximum number of meetings that are ever simultaneously in progress.\n\n" +
-            "**B. Naive idea.** For every meeting, count how many others overlap it — `O(n^2)`. We can do better.\n\n" +
-            "**D. Key observation.** Process meetings in order of **start time**. A min-heap holding the **end times** of meetings still occupying a room lets us ask, in `O(log n)`, 'has the earliest-finishing ongoing meeting already ended?' If it has, that room is free and can be reused.\n\n" +
-            "**E. Pattern / data structure.** A min-heap keyed on end time = a priority queue of 'when does a room next free up'. Its size at any moment is the number of rooms in use; the maximum size is the answer.\n\n" +
-            "**I. Step by step.**\n" +
-            "1. Sort meetings by start time.\n" +
-            "2. For each meeting `[start, end]`: if the heap is non-empty and its smallest end `<= start`, that room is free — pop it (reuse). Then push `end`.\n" +
-            "3. The heap's size after each push is the rooms currently needed; the running maximum (equivalently, the final heap size given this reuse rule) is the answer. Popping at most one before each push means heap size grows only when no room is free.\n\n" +
-            "**J. Why correct.** Sorting by start means when we consider a meeting, every room that could possibly be free has already had its end time pushed. Freeing the earliest-ending room first is optimal because it is the one most likely to have finished.\n\n" +
-            "**K/L. Complexity.** Sort `O(n log n)` plus `n` heap operations at `O(log n)` → `O(n log n)` time, `O(n)` space for the heap.\n\n" +
-            "**M. Interview mindset.** 'Minimum resources for overlapping intervals' → min-heap of end times, or the sweep-line below.",
+            "**What it asks.** Find the minimum number of conference rooms so every meeting has one. That equals the maximum number of meetings that are ever simultaneously in progress — the peak concurrency.\n\n" +
+            "**Why the naive idea fails.** For every meeting you could count how many others overlap it and take the maximum, but that is `O(n^2)`. It re-checks the same time regions over and over; the structure of the problem lets us track concurrency incrementally instead.\n\n" +
+            "**Key Idea.** Process meetings in order of **start time**, and keep a **min-heap of the end times** of the meetings still occupying a room. The heap's root is the earliest time any current room frees up. When a new meeting begins, we ask in `O(log n)`: 'has the earliest-finishing ongoing meeting already ended?' If yes, that room is free and can be reused instead of allocating a new one. The heap's size is exactly the number of rooms in use, so its peak is the answer.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Sort the meetings by start time so we consider them chronologically.\n" +
+            "2. Keep a min-heap `heap` holding the end times of meetings currently using a room.\n" +
+            "3. For each meeting `[start, end]`: if the heap is non-empty and its smallest end (`heap[0]`) is `<= start`, the earliest-finishing room is already free — pop it to reuse it. Then push `end` onto the heap for this meeting.\n" +
+            "4. Because we pop at most one room before each push, the heap grows only when no room was free. The final heap size (equivalently the running maximum) is the minimum rooms needed.\n\n" +
+            "**Why it works.** Sorting by start guarantees that when we consider a meeting, every room that could possibly be free has already had its end time pushed onto the heap. Freeing the earliest-ending room first is optimal: if the earliest finisher has not ended yet, no room has, so we genuinely need a new one. If it has ended, reusing it is always safe. Thus the heap size tracks true concurrency at every step, and its peak is the fewest rooms that suffice.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- A room frees exactly at its end time, so a meeting starting at `t` may reuse a room ending at `t` — the reuse test is `heap[0] <= start`, not strict `<`.\n" +
+            "- Handle the empty input by returning `0` before touching the heap.\n" +
+            "- The heap must be keyed on END time, and you must sort the meetings by START — mixing these up breaks the reuse logic.\n\n" +
+            "**Complexity.** Time `O(n log n)`: the sort plus `n` heap operations each `O(log n)`. Space `O(n)` for the heap in the worst case (all meetings overlap).\n\n" +
+            "**Interview mindset.** 'Minimum rooms / machines / resources for a set of overlapping intervals' → a min-heap of end times that models 'when does the next resource free up'. The same shape solves any 'reuse the earliest-freed resource' problem.",
           rcs:
             "import heapq\n" +
             "\n" +
@@ -566,17 +570,21 @@
           space: "O(n)",
           whenToUse: "When you want the raw 'count concurrent events' intuition without a heap — two sorted arrays and two pointers.",
           logic:
-            "**D. Key observation.** Rooms needed = the peak number of meetings in progress at once. If we split every meeting into two events — a `+1` at its start and a `−1` at its end — then sweeping through time and keeping a running sum gives the concurrency at each instant. The maximum that running sum ever reaches is the answer.\n\n" +
-            "**E. Pattern.** Extract the starts and the ends into two SEPARATE arrays, sort each. Walk them with two pointers: whenever the next start is strictly before the next end, a meeting begins and rooms go up; otherwise a meeting has ended and a room frees.\n\n" +
-            "**F. Why the `<` (not `<=`) matters.** If a start equals an end (`start_i == end_j`), the ending meeting frees its room exactly in time for the starting one, so we should process the END first (no new room). Using `if start < end: rooms += 1 else: free` handles ties by advancing the end pointer, correctly reusing the room.\n\n" +
-            "**I. Step by step.**\n" +
-            "1. `starts = sorted(all start times)`, `ends = sorted(all end times)`.\n" +
-            "2. Two pointers `s`, `e` at 0; `rooms = 0`, `max_rooms = 0`.\n" +
-            "3. While `s < n`: if `starts[s] < ends[e]`, a meeting starts → `rooms += 1`, `s += 1`, update `max_rooms`. Else a meeting ended → `rooms -= 1`, `e += 1`.\n" +
-            "4. Return `max_rooms`.\n\n" +
-            "**J. Why correct.** Sorting starts and ends independently is legitimate because we only care about *how many* meetings are open at each time, not which specific meeting owns which room. The running counter is exactly the concurrency; its peak is the minimum rooms.\n\n" +
-            "**K/L. Complexity.** Two sorts → `O(n log n)` time, `O(n)` space for the two arrays.\n\n" +
-            "**M. Interview mindset.** This 'chronological ordering / event counting' framing generalizes to any 'maximum simultaneous X' problem (max concurrent calls, cars on a road, etc.).",
+            "**What it asks.** Return the minimum number of rooms for all meetings, which is the peak number of meetings in progress at any single instant.\n\n" +
+            "**Why the naive idea fails.** Comparing every meeting against every other to count overlaps is `O(n^2)`. Instead of thinking in terms of whole meetings, we can think in terms of the individual moments when concurrency changes — starts and ends — and count them directly.\n\n" +
+            "**Key Idea.** Split every meeting into two events: a `+1` at its start and a `-1` at its end. If you sweep through time and keep a running sum of these events, that sum is the number of meetings open at each instant, and its maximum is the answer. Crucially, we do not need to keep starts and ends paired — we only care *how many* meetings are open at a time, not which one owns which room. So extract all starts into one sorted array and all ends into another, then walk both with two pointers.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Build `starts` = all start times sorted, and `ends` = all end times sorted, independently.\n" +
+            "2. Set two pointers `s` and `e` to 0, and `rooms = 0`, `max_rooms = 0`.\n" +
+            "3. While `s < n`: if `starts[s] < ends[e]`, the next chronological event is a meeting BEGINNING — do `rooms += 1`, advance `s`, and update `max_rooms`. Otherwise the next event is a meeting ENDING — do `rooms -= 1` and advance `e`, freeing a room.\n" +
+            "4. When all starts are consumed, `max_rooms` holds the peak concurrency; return it.\n\n" +
+            "**Why it works.** Sorting starts and ends separately is valid because concurrency at a time depends only on how many meetings have begun but not yet ended, not on their identities. The two-pointer walk visits the events in chronological order, and the running counter is exactly the concurrency; its peak is therefore the minimum rooms.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Use strict `<` when comparing `starts[s]` with `ends[e]`: if a start equals an end, the ending meeting frees its room exactly in time, so the end must be processed first (no new room). `<=` would over-count.\n" +
+            "- Return `0` for empty input before building the arrays.\n" +
+            "- The loop condition only needs `s < n`; once starts are exhausted, no further increases to concurrency are possible.\n\n" +
+            "**Complexity.** Time `O(n log n)` for the two sorts; the sweep is `O(n)`. Space `O(n)` for the two arrays.\n\n" +
+            "**Interview mindset.** 'Maximum simultaneous X' — concurrent calls, cars on a road, rooms in use — is the signal for this chronological event-counting sweep: turn each entity into a `+1`/`-1` event and track the running peak.",
           rcs:
             "class Solution:\n" +
             "    def minMeetingRooms(self, intervals: List[List[int]]) -> int:\n" +

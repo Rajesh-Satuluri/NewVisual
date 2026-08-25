@@ -1044,12 +1044,22 @@
           space: "O(h)",
           whenToUse: "The preferred version — it stops early after exactly k pops without recursion, ideal for large trees.",
           logic:
-            "**D. Same observation, better control.** Inorder still gives ascending order, but doing it **iteratively** with an explicit stack lets us **stop the instant** we pop the kth node — no wasted work on the rest of the tree, and no recursion-depth worries.\n\n" +
-            "**E. Pattern.** Explicit-stack inorder: repeatedly push the entire left spine, then pop to visit.\n\n" +
-            "**F. Why it works.** Pushing left children until `None` stacks the smallest unvisited nodes on top. Each pop yields the next value in sorted order; counting pops and returning on the kth gives the answer directly.\n\n" +
-            "**I. Step by step.** With `node = root` and an empty stack: while `node` exists, push it and go left. Then pop a node, decrement `k`; if `k == 0` return its value; otherwise set `node = node.right` and repeat.\n\n" +
-            "**J. Why correct.** The stack order guarantees pops happen in ascending value order, so the kth pop is the kth smallest.\n\n" +
-            "**K/L. Complexity.** We descend one spine (`O(h)`) and pop `k` nodes → time `O(h + k)`, better than `O(n)` when `k` is small; the stack holds one path → space `O(h)`.",
+            "**What it asks.** The same goal — the kth smallest value (1-indexed) in a BST — but with tighter control over when to stop.\n\n" +
+            "**Why the naive idea fails.** The recursive inorder is correct but keeps unwinding call frames even after the answer is found, and on a deeply skewed tree it can hit the recursion limit. When `k` is small, walking the whole subtree is also wasteful.\n\n" +
+            "**Key Idea.** Inorder still yields ascending order, but doing it **iteratively** with an explicit stack lets you **stop the instant** the kth node is popped — no wasted work on the rest of the tree and no recursion-depth worries. The stack simulates the recursion: push the entire left spine, then pop to visit.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Start with an empty `stack` and a pointer `node = root`.\n" +
+            "2. While `node` exists or the stack is non-empty, dive left: push `node` and move to its left child until `None` — this stacks the smallest unvisited nodes on top.\n" +
+            "3. Pop a node — this is the next value in ascending order — and decrement `k`.\n" +
+            "4. If `k` has reached 0, return `node.val` immediately.\n" +
+            "5. Otherwise move to `node.right` and repeat.\n\n" +
+            "**Why it works.** Pushing left children until `None` guarantees the top of the stack is always the smallest unvisited node, so each pop yields the next value in sorted order. Counting pops and returning on the kth therefore returns the kth smallest, and the early return means only the first `k` values in sorted order are ever touched.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- The outer loop condition must be `stack or node`, or the walk stops before finishing right subtrees.\n" +
+            "- `k` is 1-indexed; decrement on each pop and return when it hits 0.\n" +
+            "- Push the whole left spine before popping — popping too early skips smaller values.\n\n" +
+            "**Complexity.** Time `O(h + k)` — descend one spine (`O(h)`) then pop `k` nodes, better than `O(n)` when `k` is small. Space `O(h)` — the stack holds at most one root-to-leaf path.\n\n" +
+            "**Interview mindset.** When you want to stop a traversal early or avoid recursion depth, convert the inorder DFS into an explicit-stack loop; 'kth smallest and stop as soon as possible' is the signal.",
           rcs:
 `class Solution:
     def kthSmallest(self, root: Optional[TreeNode], k: int) -> int:
@@ -1162,13 +1172,22 @@
           space: "O(n^2)",
           whenToUse: "Easiest to reason about first; fine for small inputs before optimizing.",
           logic:
-            "**A. What is being asked?** Rebuild the unique tree that produced these two traversals.\n\n" +
-            "**D. Key observation.** The **first** element of `preorder` is always the **root**. Finding that root inside `inorder` splits it into everything **left** of the root (the left subtree) and everything **right** (the right subtree). The sizes of those halves tell us how to split `preorder` too.\n\n" +
-            "**E. Pattern.** Divide and conquer: pick the root, partition both arrays, recurse on each side.\n\n" +
-            "**F. Why it works.** In inorder, all left-subtree nodes come before the root and all right-subtree nodes after it. In preorder, the root is followed by its entire left subtree, then its entire right subtree. Matching the left-subtree size from inorder lets us carve preorder into the correct left/right chunks.\n\n" +
-            "**I. Step by step.** Take `root_val = preorder[0]`, build the node, find `mid = inorder.index(root_val)`. The left subtree uses `preorder[1:mid+1]` with `inorder[:mid]`; the right uses `preorder[mid+1:]` with `inorder[mid+1:]`. Recurse.\n\n" +
-            "**J. Why correct.** Uniqueness guarantees `mid` is well-defined, and the slice sizes exactly correspond, so each recursive call receives a valid (preorder, inorder) pair for a genuine subtree.\n\n" +
-            "**K/L. Complexity.** `inorder.index` is `O(n)` and slicing copies `O(n)` per call across `O(n)` calls → time `O(n^2)`, and the slices cost `O(n^2)` space too. Clean, but improvable.",
+            "**What it asks.** Rebuild the unique binary tree that produced the given `preorder` and `inorder` traversals, and return its root.\n\n" +
+            "**Why the naive idea fails.** There is no way to guess the shape from either traversal alone — many trees share a preorder, and many share an inorder. You need both together, and the obvious 'try every shape' search is exponential. The two traversals must be combined structurally instead.\n\n" +
+            "**Key Idea.** The **first** element of `preorder` is always the **root**. Locating that root value inside `inorder` splits it cleanly: everything **left** of it is the left subtree, everything **right** is the right subtree. The size of the left half then tells you exactly how to split `preorder` into its left and right chunks too. That decomposition is directly recursive — divide and conquer.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. If `preorder` is empty, return `None` — the base case for an empty subtree.\n" +
+            "2. Take `root_val = preorder[0]` and build the root node.\n" +
+            "3. Find `mid = inorder.index(root_val)` — the root's position inside `inorder`.\n" +
+            "4. Build the left child from `preorder[1:mid+1]` paired with `inorder[:mid]`.\n" +
+            "5. Build the right child from `preorder[mid+1:]` paired with `inorder[mid+1:]`. Recurse and attach both.\n\n" +
+            "**Why it works.** In inorder, all left-subtree nodes appear before the root and all right-subtree nodes after it; in preorder, the root is followed by its entire left subtree, then its entire right subtree. Because values are unique, `mid` is well-defined, and the left-subtree size read from inorder carves preorder into exactly the matching left/right chunks. Each recursive call therefore receives a valid (preorder, inorder) pair describing a genuine subtree.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- The slice sizes must line up: `preorder[1:mid+1]` has exactly `mid` elements to match `inorder[:mid]`.\n" +
+            "- Uniqueness of values is what makes `inorder.index` unambiguous — the method breaks if values repeat.\n" +
+            "- The empty-slice base case must return `None`, not error, at the leaves.\n\n" +
+            "**Complexity.** Time `O(n^2)` — `inorder.index` is `O(n)` and each call copies `O(n)` slices, across `O(n)` calls. Space `O(n^2)` from the accumulated slice copies. Clean to reason about, but improvable.\n\n" +
+            "**Interview mindset.** 'Reconstruct a tree from two traversals' → preorder's first (or postorder's last) element is the root, and inorder splits left from right; start with this slicing version, then optimize.",
           rcs:
 `class Solution:
     def buildTree(self, preorder: List[int], inorder: List[int]) -> Optional[TreeNode]:
@@ -1199,13 +1218,22 @@
           space: "O(n)",
           whenToUse: "The expected optimal: removes the O(n) index-search and array copying.",
           logic:
-            "**D. Two optimizations.** The slicing version wastes time on (1) `inorder.index(...)` linear searches and (2) copying subarrays. Fix both: pre-build a hash map `value → index in inorder` for `O(1)` root location, and consume `preorder` left-to-right with a single moving **pointer** instead of slicing.\n\n" +
-            "**E. Pattern.** Same divide and conquer, but pass index **ranges** into `inorder` rather than new arrays, and advance one global preorder cursor.\n\n" +
-            "**F. Why it works.** Preorder is root, then the whole left subtree, then the whole right subtree — exactly the order recursion needs if we always take 'the next preorder value' as the current root. Recursing left before right consumes preorder in precisely the right sequence. The inorder index map instantly tells us where the root splits the current `[left, right]` range.\n\n" +
-            "**I. Step by step.** Build `idx = {val: i}` over `inorder`. Keep `self.pre = 0`. `build(l, r)` over inorder bounds: if `l > r` return `None`; take `val = preorder[self.pre]`, advance `self.pre`; make the node; `mid = idx[val]`; build left over `(l, mid-1)` **first**, then right over `(mid+1, r)`.\n\n" +
-            "**J. Why correct.** Because left is built before right and preorder lists the left subtree entirely before the right, the shared cursor always points at the correct next root. The inorder range shrinks to empty exactly at leaves.\n\n" +
-            "**K/L. Complexity.** Each node is created once with `O(1)` work → time `O(n)`; the map plus recursion stack → space `O(n)`.\n\n" +
-            "**M. Interview mindset.** 'Reconstruct a tree from traversals' → first element/last element of preorder/postorder is the root; use inorder to split; optimize the root lookup with a hash map.",
+            "**What it asks.** The same reconstruction, done in linear time by removing the two costs that made the slicing version quadratic.\n\n" +
+            "**Why the naive idea fails.** The slicing approach wastes time twice: each `inorder.index(...)` is an `O(n)` linear search, and every recursive call copies fresh subarrays. Both compound to `O(n^2)`. To reach `O(n)` you must locate the root in `O(1)` and stop copying.\n\n" +
+            "**Key Idea.** Two optimizations do it: pre-build a hash map `value → index in inorder` so the root's split point is found in `O(1)`, and consume `preorder` left-to-right with a single moving **pointer** instead of slicing. Recursion then passes index **ranges** into `inorder` rather than new arrays, while one global preorder cursor advances through the roots.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Build `idx = {val: i}` mapping each inorder value to its position, for `O(1)` lookups.\n" +
+            "2. Keep a shared cursor `self.pre = 0` pointing at the next preorder value (the next root).\n" +
+            "3. Define `build(left, right)` over inorder bounds: if `left > right`, the range is empty — return `None`.\n" +
+            "4. Take `val = preorder[self.pre]` as this subtree's root, advance `self.pre`, and create the node.\n" +
+            "5. Look up `mid = idx[val]`, build the left child over `(left, mid-1)` **first**, then the right child over `(mid+1, right)`; attach both and return the node.\n\n" +
+            "**Why it works.** Preorder lists the root, then the *entire* left subtree, then the *entire* right subtree — exactly the order recursion consumes it if you always take 'the next preorder value' as the current root and recurse left before right. So the shared cursor always points at the correct next root, and the inorder index map instantly tells you where that root splits the current `[left, right]` range. The range shrinks to empty precisely at the leaves.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Build the left subtree **before** the right, or the shared preorder cursor falls out of sync and the tree is wrong.\n" +
+            "- The base case is `left > right` (empty inorder range), not a length check on a slice.\n" +
+            "- The cursor must be shared across all calls (an attribute or nonlocal), not a fresh local per call.\n\n" +
+            "**Complexity.** Time `O(n)` — each node is created once with `O(1)` work. Space `O(n)` for the index map plus the recursion stack.\n\n" +
+            "**Interview mindset.** When a divide-and-conquer repeatedly searches for a value or copies subarrays, replace the search with a hash map and the copies with index ranges plus a shared cursor — the standard way to turn `O(n^2)` reconstruction into `O(n)`.",
           rcs:
 `class Solution:
     def buildTree(self, preorder: List[int], inorder: List[int]) -> Optional[TreeNode]:
@@ -1315,17 +1343,22 @@
           space: "O(h)",
           whenToUse: "The canonical tree-DP: when each node's answer combines results from its children but only one child can extend upward.",
           logic:
-            "**A. What is being asked?** The largest possible sum along any connected path in the tree — it may bend at a node using both children, or run straight down.\n\n" +
-            "**D. Key observation — two different quantities.** At each node distinguish:\n" +
-            "- The **path that peaks here** (the node plus its best left downward path plus its best right downward path). This can update the global answer but **cannot be passed to the parent**, because a path through the parent can only enter this node from one side.\n" +
-            "- The **gain to hand upward** (the node plus the **better single** child branch). This is what the parent may attach to.\n\n" +
-            "**E. Pattern.** Post-order DFS (tree DP): compute children first, combine, and bubble up a single number while separately tracking a global maximum.\n\n" +
-            "**F. Why the `max(..., 0)` matters.** A subtree that returns a negative gain should be **dropped** (contribute 0) rather than dragging a path down. Clamping each child's gain at 0 encodes 'only extend into a child if it helps.'\n\n" +
-            "**G/H. State.** `gain(node)` returns the best sum of a path that **starts at `node` and goes strictly downward**. A global `best` records the maximum over all 'peak-here' paths seen.\n\n" +
-            "**I. Step by step.** For each node: `left = max(gain(left), 0)`, `right = max(gain(right), 0)`. Update `best = max(best, node.val + left + right)` (the bent path through this node). Return `node.val + max(left, right)` as the upward gain.\n\n" +
-            "**J. Why correct.** Every path has a unique highest node (its 'peak'); at that node the path is exactly `node.val + left_gain + right_gain`, which we test against `best`. Since we do this at every node, the true maximum path is considered. Returning only one branch upward respects that a path cannot fork at the parent.\n\n" +
-            "**K/L. Complexity.** One visit per node → time `O(n)`; recursion depth is the height → space `O(h)`.\n\n" +
-            "**M. Interview mindset.** When 'the answer at a node' (bend allowed) differs from 'what you can pass to the parent' (one branch only), split them into a returned value plus a global variable — the signature tree-DP move.",
+            "**What it asks.** Return the largest possible sum along any non-empty connected path in the tree. A path may bend at a node (using both of its children) or run straight down, and it need not pass through the root.\n\n" +
+            "**Why the naive idea fails.** Enumerating every possible path and summing each is exponential — there are far too many paths. And because values can be negative, you cannot greedily keep extending a path; sometimes a single node beats any longer path. You need to compute the answer bottom-up in one pass while being careful about what a subtree can contribute upward.\n\n" +
+            "**Key Idea.** At each node, distinguish **two different quantities**. First, the **path that peaks here** — the node plus its best left downward path plus its best right downward path; this can update the global answer but **cannot be handed to the parent**, because a path continuing through the parent may only enter this node from one side. Second, the **gain to hand upward** — the node plus the *better single* child branch — which is what a parent may attach to. Splitting these two is the whole trick.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Keep a global `best`, initialized to negative infinity, recording the maximum 'peak-here' path seen anywhere.\n" +
+            "2. Define `gain(node)` returning the best sum of a path that starts at `node` and goes strictly downward. For a `None` node it returns 0.\n" +
+            "3. Compute `left = max(gain(node.left), 0)` and `right = max(gain(node.right), 0)` — clamping at 0 drops any branch that would only subtract.\n" +
+            "4. Update `best = max(best, node.val + left + right)` — the bent path that peaks at this node using both sides.\n" +
+            "5. Return `node.val + max(left, right)` as the upward gain — the parent can only continue through one child.\n\n" +
+            "**Why it works.** Every path has a unique highest node, its 'peak'. At that node the path sum is exactly `node.val + left_gain + right_gain`, which is tested against `best`. Since this test runs at every node, the true maximum path is always considered. Returning only the single better branch upward respects that a path cannot fork at the parent, and clamping negative gains at 0 encodes 'only extend into a child if it helps.'\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Initialize `best` to `float('-inf')`, not 0 — all values can be negative, and a single node may be the answer.\n" +
+            "- The `max(gain(child), 0)` clamp is essential; without it a negative subtree drags valid paths down.\n" +
+            "- Do not return `node.val + left + right` upward — that would let a path illegally fork at the parent; return `node.val + max(left, right)`.\n\n" +
+            "**Complexity.** Time `O(n)` — one visit per node. Space `O(h)` for the recursion stack, where `h` is the tree height.\n\n" +
+            "**Interview mindset.** When 'the answer computed at a node' (bend allowed) differs from 'what you can pass to the parent' (one branch only), split them into a returned value plus a global variable — the signature tree-DP move.",
           rcs:
 `class Solution:
     def maxPathSum(self, root: Optional[TreeNode]) -> int:

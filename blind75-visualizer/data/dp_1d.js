@@ -107,15 +107,21 @@
           space: "O(1)",
           whenToUse: "The expected answer: any Fibonacci-shaped recurrence where dp[i] depends only on the previous two states.",
           logic:
-            "**E. Turn it around.** Instead of recursing down from `n`, build up from the base. Define `dp[i]` = number of distinct ways to reach step `i`.\n\n" +
-            "**dp meaning.** `dp[i]` is the answer to the whole problem for a staircase of height `i`.\n\n" +
-            "**Base cases.** `dp[1] = 1`, `dp[2] = 2`.\n\n" +
-            "**Transition.** `dp[i] = dp[i-1] + dp[i-2]` — identical recurrence, now filled left to right so each dependency is already known.\n\n" +
-            "**F. Space optimization.** `dp[i]` only ever looks back two cells, so we never need the whole array. Keep two scalars — `first = dp[i-2]` and `second = dp[i-1]` — and roll them forward. This drops space from `O(n)` to `O(1)`.\n\n" +
-            "**G/H. What the variables hold.** After each iteration `second` holds `dp[i]` and `first` holds `dp[i-1]`, ready for the next step.\n\n" +
-            "**J. Why correct.** Same last-move argument as the recursion; we simply compute the states in dependency order.\n\n" +
-            "**K/L. Complexity.** One pass → time `O(n)`, space `O(1)`.\n\n" +
-            "**M. Interview mindset.** Recognizing 'count paths where each step depends on the last one or two' as Fibonacci-style DP is the whole game; then collapse to two variables.",
+            "**What it asks.** Count the distinct ordered sequences of 1-steps and 2-steps that sum to `n`.\n\n" +
+            "**Why the naive idea fails.** Plain recursion on the last move re-solves the same subproblems, giving exponential `O(2^n)` time. Even memoized top-down recursion, while linear, carries `O(n)` call-stack and cache overhead — building the answer iteratively removes both.\n\n" +
+            "**Key Idea.** Let `dp[i]` be the number of distinct ways to reach step `i`. To land on step `i` your last move was a 1-step (arriving from `i-1`) or a 2-step (arriving from `i-2`), and those two arrival sets are disjoint and cover every path, so `dp[i] = dp[i-1] + dp[i-2]`. Building `dp` bottom-up means every dependency is already known when you need it.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Base cases: `dp[1] = 1` (one way — a single step) and `dp[2] = 2` (1+1 or one 2-step).\n" +
+            "2. Transition in words: for each step from 3 up to `n`, the number of ways to reach it is the ways to reach the step one below plus the ways to reach the step two below.\n" +
+            "3. Fill left to right so each `dp[i]` reads the two already-final cells before it; `dp[n]` is the answer.\n\n" +
+            "**Why it works.** The last-move argument partitions every path to step `i` into exactly two non-overlapping groups (ended with a 1 or a 2), so adding the two subproblem counts counts each path once. Computing states in dependency order (small to large) guarantees each value is final when read; induction from the base cases proves every `dp[i]` correct.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Off-by-one in the base cases: `dp[2]` is 2, not 1.\n" +
+            "- Reading a cell before it is filled — always go strictly left to right.\n" +
+            "- Remember to handle `n <= 2` before the loop starts.\n\n" +
+            "**Space optimization.** `dp[i]` only ever looks back two cells, so the whole array is unnecessary: keep two scalars `first = dp[i-2]` and `second = dp[i-1]`, roll them forward (`second` becomes the new `dp[i]`), and space drops from `O(n)` to `O(1)`.\n\n" +
+            "**Complexity.** One pass over the steps → time `O(n)`; two rolling variables → space `O(1)`.\n\n" +
+            "**Interview mindset.** 'Count paths where each step depends only on the last one or two' is the Fibonacci-DP signal: write the recurrence, fill it bottom-up, then collapse to two variables.",
           rcs:
             "class Solution:\n" +
             "    def climbStairs(self, n: int) -> int:\n" +
@@ -199,17 +205,22 @@
           space: "O(amount)",
           whenToUse: "The canonical solution for 'minimum items to reach a target' with unlimited reuse of each item.",
           logic:
-            "**A. What is asked.** The minimum coin count to total exactly `amount`, or `-1` if impossible.\n\n" +
-            "**B. Why greedy fails.** Taking the largest coin that fits can strand you (coins `[1,3,4]`, amount `6`: greedy gives 4+1+1=3, optimal is 3+3=2). We must consider all denominations at each sub-total, which is what DP does.\n\n" +
-            "**dp meaning.** `dp[a]` = the fewest coins needed to make exactly amount `a`. The final answer is `dp[amount]`.\n\n" +
-            "**Base case.** `dp[0] = 0` — zero coins make amount 0. Initialize every other `dp[a]` to a sentinel 'infinity' (`amount + 1`, which is larger than any real answer since you can never need more than `amount` coins of value >= 1).\n\n" +
-            "**Decision at each step.** To build amount `a`, the *last coin* placed was some `coin <= a`. Removing it leaves the subproblem `a - coin`, already solved. So try every coin and take the best.\n\n" +
-            "**Transition.** `dp[a] = min(dp[a], dp[a - coin] + 1)` for every `coin <= a`.\n\n" +
-            "**Why the transition is correct.** Any optimal way to make `a` ends with *some* coin; that coin's removal yields an optimal way to make `a - coin` (optimal substructure). Minimizing over all possible last coins therefore finds the global minimum. Because coins are reusable, we read `dp[a - coin]` from the *same* dp array (unbounded knapsack), not a previous 'row'.\n\n" +
-            "**State evolution.** Fill `dp` from `a = 1` up to `amount`; each cell only depends on smaller amounts, which are already final.\n\n" +
-            "**Answer / impossibility.** If `dp[amount]` is still the sentinel, no combination works → return `-1`.\n\n" +
-            "**Space.** Already `O(amount)`; this 1-D array is the space-optimized form of the 2-D coins-vs-amount table.\n\n" +
-            "**K/L. Complexity.** `amount` cells × `len(coins)` choices → time `O(amount * len(coins))`, space `O(amount)`.",
+            "**What it asks.** Find the fewest coins that total exactly `amount`, with unlimited copies of each denomination, or `-1` if it cannot be formed.\n\n" +
+            "**Why the naive idea fails.** The tempting greedy 'take the largest coin that fits' can strand you: for coins `[1,3,4]` and amount `6`, greedy gives 4+1+1 = 3 coins but the optimum is 3+3 = 2. Greedy ignores that a smaller coin now can unlock a better total later, so we must consider every denomination at every sub-amount — which is what DP does.\n\n" +
+            "**Key Idea.** Let `dp[a]` be the minimum number of coins needed to make exactly amount `a`. Any optimal way to make `a` ends with *some* last coin `c <= a`; strip that coin and what remains is an optimal way to make `a - c`. So `dp[a]` is one more than the best `dp[a - c]` over all coins that fit. Because coins are reusable, `dp[a - c]` is read from the *same* array (unbounded knapsack), not a previous row.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Base case: `dp[0] = 0` — zero coins make amount 0. Initialize every other `dp[a]` to a sentinel 'infinity' (`amount + 1`, larger than any real answer since you never need more than `amount` coins of value >= 1).\n" +
+            "2. Transition in words: for each amount `a` from 1 up to `amount`, try every coin that fits and set `dp[a]` to one plus the smallest `dp[a - coin]` — the best over all choices of last coin.\n" +
+            "3. Fill `a` from small to large so every `dp[a - coin]` is already final when read.\n" +
+            "4. Answer: if `dp[amount]` is still the sentinel, no combination works → return `-1`; otherwise return `dp[amount]`.\n\n" +
+            "**Why it works.** Optimal substructure: an optimal solution for `a` contains an optimal solution for `a - c` for its last coin `c`. Minimizing over all possible last coins finds the global minimum, and filling amounts in increasing order guarantees each subproblem is solved before it is needed. Induction from `dp[0] = 0` proves every cell correct.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- `amount = 0` must return 0 — the base case handles it.\n" +
+            "- Use a sentinel that can't collide with a real count (`amount + 1`) and check for it before returning, or you'll return a bogus large number instead of `-1`.\n" +
+            "- Skip coins larger than the current amount to avoid a negative index.\n\n" +
+            "**Space optimization.** The 1-D `dp` array of size `amount + 1` is already the space-optimized form of the 2-D coins-vs-amount table; reusing the same row is exactly what models unlimited coin reuse.\n\n" +
+            "**Complexity.** `amount` cells × `len(coins)` choices each → time `O(amount * len(coins))`; space `O(amount)` for the array.\n\n" +
+            "**Interview mindset.** 'Minimum / maximum items to reach a target with unlimited reuse' — especially when greedy visibly breaks on non-canonical coins — is the unbounded-knapsack DP signal.",
           rcs:
             "class Solution:\n" +
             "    def coinChange(self, coins: List[int], amount: int) -> int:\n" +
@@ -294,14 +305,22 @@
           space: "O(n)",
           whenToUse: "The intuitive DP: clear, easy to reason about, fine for n up to a few thousand.",
           logic:
-            "**A. What is asked.** The length of the longest strictly increasing subsequence (LIS).\n\n" +
-            "**dp meaning.** `dp[i]` = the length of the longest increasing subsequence that **ends exactly at index `i`** (i.e. `nums[i]` is its final element).\n\n" +
-            "**Base case.** Every element alone is a subsequence of length 1, so `dp[i]` starts at 1.\n\n" +
-            "**Decision at each step.** For element `i`, look at every earlier element `j < i`. If `nums[j] < nums[i]`, then `nums[i]` can extend the best subsequence ending at `j`.\n\n" +
-            "**Transition.** `dp[i] = max(dp[i], dp[j] + 1)` for all `j < i` with `nums[j] < nums[i]`.\n\n" +
-            "**Why correct.** Any LIS ending at `i` has some second-to-last element at index `j < i` with `nums[j] < nums[i]`; that prefix is itself an LIS ending at `j`, whose length we already have in `dp[j]`. Taking the max over all valid `j` finds the best predecessor.\n\n" +
-            "**State evolution.** Fill `dp` left to right; the answer is `max(dp)`, not `dp[n-1]`, because the LIS can end anywhere.\n\n" +
-            "**K/L. Complexity.** Nested loops → time `O(n^2)`, space `O(n)`.",
+            "**What it asks.** Return the length of the longest strictly increasing subsequence (LIS) — elements kept in order but not necessarily contiguous.\n\n" +
+            "**Why the naive idea fails.** Enumerating all subsequences to test which are increasing is `O(2^n)`; even the obvious 'for each element, how long a chain ends here?' is wasteful if recomputed from scratch. DP reuses the answers for earlier endpoints.\n\n" +
+            "**Key Idea.** Let `dp[i]` be the length of the longest increasing subsequence that ends *exactly* at index `i` (with `nums[i]` as its final element). Any such subsequence has a second-to-last element at some `j < i` with `nums[j] < nums[i]`, and that prefix is itself an LIS ending at `j` — whose length is already `dp[j]`. So `dp[i]` is one more than the best compatible `dp[j]`.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Base case: every element alone is a subsequence of length 1, so initialize each `dp[i] = 1`.\n" +
+            "2. Transition in words: for each `i`, look at every earlier `j`; if `nums[j] < nums[i]`, then `nums[i]` can extend the chain ending at `j`, so take the max of the current `dp[i]` and `dp[j] + 1`.\n" +
+            "3. Fill `dp` left to right.\n" +
+            "4. Answer: `max(dp)` — the LIS can end at any index, not necessarily the last one.\n\n" +
+            "**Why it works.** Every increasing subsequence ends somewhere; defining `dp` by its endpoint makes the choices exhaustive, and taking the best valid predecessor `j` finds the longest chain that can precede `nums[i]`. Induction over increasing `i` proves each `dp[i]` optimal.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Return `max(dp)`, not `dp[n-1]` — the longest subsequence rarely ends at the last element.\n" +
+            "- 'Strictly' increasing means the comparison is `<`, not `<=`; equal values cannot both be chosen.\n" +
+            "- Don't confuse subsequence with subarray — elements need not be contiguous.\n\n" +
+            "**Space optimization.** The `O(n)` `dp` array is intrinsic to this formulation; reducing time (not space) below `O(n^2)` requires the patience/binary-search approach.\n\n" +
+            "**Complexity.** Nested loops over pairs `(i, j)` → time `O(n^2)`; space `O(n)` for `dp`.\n\n" +
+            "**Interview mindset.** 'Longest increasing/decreasing subsequence (not subarray)' with `dp[i]` defined as 'best answer ending at i' is the standard subsequence-DP framing.",
           rcs:
             "class Solution:\n" +
             "    def lengthOfLIS(self, nums: List[int]) -> int:\n" +
@@ -329,14 +348,21 @@
           space: "O(n)",
           whenToUse: "When O(n^2) is too slow, or the interviewer explicitly asks for the O(n log n) follow-up.",
           logic:
-            "**D. Key observation.** Maintain an array `tails` where `tails[k]` = the **smallest possible tail value** of any increasing subsequence of length `k+1` seen so far. Keeping tails as small as possible leaves the most room to extend later.\n\n" +
-            "**Invariant.** `tails` is always sorted in strictly increasing order. Its **length equals the current LIS length**.\n\n" +
-            "**Decision per element.** For each `num`, binary-search the first tail `>= num` (`bisect_left`). Two cases:\n" +
-            "1. If none exists (num is larger than all tails), `num` extends the longest subsequence → append it, growing the LIS by 1.\n" +
-            "2. Otherwise overwrite that tail with `num`. This does not change the LIS length but lowers the tail for that length, improving future extensibility.\n\n" +
-            "**Why correct.** Overwriting keeps each `tails[k]` minimal for its length while preserving sortedness; the length of `tails` therefore tracks the true LIS length. (Note: `tails` itself is not necessarily a real subsequence — only its *length* is the answer.)\n\n" +
-            "**Why strict.** `bisect_left` finds the first element `>= num`, so an equal value overwrites rather than extends — enforcing *strictly* increasing.\n\n" +
-            "**K/L. Complexity.** `n` elements × `O(log n)` binary search → time `O(n log n)`, space `O(n)` for `tails`.",
+            "**What it asks.** The length of the longest strictly increasing subsequence, in `O(n log n)` instead of `O(n^2)`.\n\n" +
+            "**Why the naive idea fails.** The `O(n^2)` endpoint DP compares each new element against every earlier one. Most of that work is redundant: what actually matters is, for each achievable subsequence length, the smallest value that can end it.\n\n" +
+            "**Key Idea.** Maintain an array `tails` where `tails[k]` is the smallest possible tail value of any increasing subsequence of length `k+1` seen so far. Keeping each length's tail as small as possible leaves the most room to extend later. Crucially, `tails` stays sorted in strictly increasing order, and its length equals the current LIS length — so we can binary-search it.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Start with an empty `tails`. The search space each step is the sorted `tails` array.\n" +
+            "2. For each `num`, binary-search (`bisect_left`) for the first tail `>= num`.\n" +
+            "3. If none exists (`num` is larger than every tail), `num` extends the longest chain → append it, growing the LIS by one.\n" +
+            "4. Otherwise overwrite that first tail `>= num` with `num`: this eliminates a larger, less useful tail for that length without changing the LIS length, improving future extensibility.\n\n" +
+            "**Why it works.** Each overwrite keeps `tails[k]` minimal for its length while preserving sortedness, so the length of `tails` always tracks the true LIS length. Using `bisect_left` (first element `>= num`) means an equal value overwrites rather than appends, enforcing *strictly* increasing. Note `tails` is not necessarily a real subsequence — only its length is the answer.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- `bisect_left` (>=) enforces strict increase; `bisect_right` (>) would allow equal values (non-decreasing) — pick deliberately.\n" +
+            "- Don't treat `tails` as the actual subsequence; reconstructing the sequence needs extra bookkeeping.\n" +
+            "- Appending only when the insertion point is at the end is what grows the length — get that boundary right.\n\n" +
+            "**Complexity.** `n` elements × `O(log n)` binary search → time `O(n log n)`; space `O(n)` for `tails`.\n\n" +
+            "**Interview mindset.** When an `O(n^2)` subsequence DP is too slow, 'smallest tail per length + binary search' (patience sorting) is the go-to `O(n log n)` upgrade.",
           rcs:
             "class Solution:\n" +
             "    def lengthOfLIS(self, nums: List[int]) -> int:\n" +
@@ -428,11 +454,21 @@
           space: "O(n) recursion depth",
           whenToUse: "To frame the recurrence before optimizing; unusable on long strings without memoization.",
           logic:
-            "**A. What is asked.** Can `s` be cut into pieces that are all dictionary words?\n\n" +
-            "**B. Recursive idea.** Define `can(start)` = 'can the suffix `s[start:]` be fully segmented?'. Try every prefix `s[start:end]`; if it is a dictionary word AND the remainder `can(end)` is segmentable, the answer is true.\n\n" +
-            "**C. Why it is slow.** Overlapping subproblems: many different prefix choices lead to the same `start`, and each is re-explored from scratch, giving exponential `O(2^n)` time in the worst case (e.g. `s = 'aaaa...'`).\n\n" +
-            "**Base case.** `can(len(s)) = True` — reaching the end means every character was consumed by valid words.\n\n" +
-            "**J. Why correct.** It exhaustively tries every way to place the first word, and recursion handles the rest — so if any valid segmentation exists it will be found.",
+            "**What it asks.** Decide whether `s` can be cut into a sequence of pieces that are all dictionary words (words may be reused).\n\n" +
+            "**The idea, and why it's slow.** Define `can(start)` = 'can the suffix `s[start:]` be fully segmented?'. Try every prefix `s[start:end]`; if it is a dictionary word AND the remainder `can(end)` is segmentable, the answer is true. Without caching this re-explores the same `start` positions through many different prefix choices, giving exponential `O(2^n)` time on strings like `'aaaa...'`.\n\n" +
+            "**Key Idea.** The problem has a clean recursive structure: a suffix is segmentable iff some dictionary word is a prefix of it and the rest of the suffix is also segmentable. That recurrence is the seed for both this brute force and the memoized/bottom-up optimizations.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Put the dictionary in a set for `O(1)` membership tests.\n" +
+            "2. Base case: `can(len(s))` is true — reaching the end means every character was consumed by valid words.\n" +
+            "3. From `start`, try each end position; if `s[start:end]` is a word and `can(end)` returns true, succeed.\n" +
+            "4. If no prefix leads to a full segmentation, return false.\n\n" +
+            "**Why it works.** It exhaustively tries every way to place the first word and recurses on the rest, so if any valid segmentation exists it is found. Correctness is by induction on suffix length from the base case.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Without memoization this is exponential — usable only to frame the recurrence.\n" +
+            "- The base case is 'index reached the end', not 'the sliced string is empty' — index bookkeeping matters.\n" +
+            "- Words are reusable, so don't remove a word from the set once used.\n\n" +
+            "**Complexity.** Exponential `O(2^n)` time in the worst case; `O(n)` recursion depth for the stack.\n\n" +
+            "**Interview mindset.** State the suffix-reachability recurrence first; the moment you see overlapping `start` calls, reach for memoization or a bottom-up prefix DP.",
           rcs:
             "class Solution:\n" +
             "    def wordBreak(self, s: str, wordDict: List[str]) -> bool:\n" +
@@ -464,14 +500,22 @@
           space: "O(n)",
           whenToUse: "The expected solution: turn the reachability recursion into a linear-scan DP over prefixes.",
           logic:
-            "**D. Reframe as reachability.** `dp[i]` = 'can the **prefix** `s[:i]` (the first `i` characters) be segmented into dictionary words?'. The answer is `dp[n]`.\n\n" +
-            "**Base case.** `dp[0] = True` — the empty prefix is trivially segmentable.\n\n" +
-            "**Decision at each step.** For each end position `i`, ask: is there a split point `j < i` such that the prefix up to `j` is segmentable (`dp[j]` is true) AND the chunk `s[j:i]` is a dictionary word? If so, `s[:i]` is segmentable too.\n\n" +
-            "**Transition.** `dp[i] = True` if any `j` in `[0, i)` has `dp[j] and s[j:i] in words`.\n\n" +
-            "**Why the transition is correct.** A valid segmentation of `s[:i]` must end with some final word `s[j:i]`; removing it leaves a valid segmentation of `s[:j]`, which is exactly `dp[j]`. Scanning all `j` covers every possible last word.\n\n" +
-            "**State evolution.** Fill `dp[1..n]` left to right; each `dp[i]` only reads smaller, already-final `dp[j]`. Break as soon as one `j` works.\n\n" +
-            "**Space.** `O(n)` for the boolean array — this is already the minimal 1-D state.\n\n" +
-            "**K/L. Complexity.** Two nested position loops → `O(n^2)` combinations, each doing an `O(word length)` slice/lookup; space `O(n)`.",
+            "**What it asks.** Return whether `s` can be segmented into dictionary words, computed efficiently.\n\n" +
+            "**Why the naive idea fails.** The plain recursion re-solves the same suffix positions, exponentially. Turning it into a bottom-up scan over prefixes solves each position once.\n\n" +
+            "**Key Idea.** Let `dp[i]` be true iff the prefix `s[:i]` (the first `i` characters) can be segmented into dictionary words. A valid segmentation of `s[:i]` must end with some final word `s[j:i]`; removing it leaves a valid segmentation of `s[:j]`, which is exactly `dp[j]`. So `dp[i]` is true when some split point `j` has `dp[j]` true and `s[j:i]` in the dictionary. The answer is `dp[n]`.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Put the dictionary in a set for `O(1)` lookups.\n" +
+            "2. Base case: `dp[0] = True` — the empty prefix is trivially segmentable.\n" +
+            "3. Transition in words: for each end position `i` from 1 to `n`, scan split points `j < i`; if the prefix up to `j` is segmentable and the chunk `s[j:i]` is a dictionary word, mark `dp[i]` true and stop scanning (one valid split is enough).\n" +
+            "4. Fill `dp[1..n]` left to right; each `dp[i]` reads only smaller, already-final cells. Return `dp[n]`.\n\n" +
+            "**Why it works.** Scanning all `j` covers every possible last word, and every segmentation of `s[:i]` corresponds to exactly one such last word plus a segmentation of the preceding prefix. Induction over increasing `i` from `dp[0]` proves correctness.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- `dp[0] = True` is the anchor; forgetting it makes everything false.\n" +
+            "- Break the inner loop on the first working split — you only need existence, not a count.\n" +
+            "- Index vs. length: `dp[i]` covers the first `i` characters, so the array has size `n + 1`.\n\n" +
+            "**Space optimization.** The boolean `dp` array of size `n + 1` is already the minimal 1-D state; there's no smaller rolling window because `s[j:i]` can reach far back.\n\n" +
+            "**Complexity.** Two nested position loops → `O(n^2)` combinations, each doing an `O(word length)` slice/lookup; space `O(n)`.\n\n" +
+            "**Interview mindset.** 'Can this string be split into valid pieces?' → boolean partition/reachability DP over prefixes with `dp[i]` = 'is the first i characters segmentable'.",
           rcs:
             "class Solution:\n" +
             "    def wordBreak(self, s: str, wordDict: List[str]) -> bool:\n" +
@@ -562,14 +606,21 @@
           space: "O(n)",
           whenToUse: "Clearest first version: makes the pick/skip decision and base cases explicit.",
           logic:
-            "**A. What is asked.** Maximum total from a subset of houses with no two adjacent.\n\n" +
-            "**dp meaning.** `dp[i]` = the most money robbable considering houses `0..i` (the best answer for the prefix ending at house `i`).\n\n" +
-            "**Base cases.** `dp[0] = nums[0]` (only one house). `dp[1] = max(nums[0], nums[1])` (can't take both adjacent, so take the richer).\n\n" +
-            "**Decision at each step.** At house `i` you choose: **skip it** and keep `dp[i-1]`, or **rob it** and add `nums[i]` to the best total that ended at `i-2` (skipping the adjacent `i-1`).\n\n" +
-            "**Transition.** `dp[i] = max(dp[i-1], dp[i-2] + nums[i])`.\n\n" +
-            "**Why correct.** The two options are exhaustive and mutually exclusive: either house `i` is robbed or not. If robbed, house `i-1` must be skipped, so the compatible best is `dp[i-2]`. If skipped, the best is whatever `dp[i-1]` already achieved. Taking the max is optimal by induction on the prefix.\n\n" +
-            "**State evolution.** Fill left to right; `dp[n-1]` is the answer.\n\n" +
-            "**K/L. Complexity.** One pass → time `O(n)`, space `O(n)` (reducible — see next approach).",
+            "**What it asks.** Maximize the total money robbed from a straight line of houses without robbing two adjacent houses.\n\n" +
+            "**Why the naive idea fails.** Trying every valid subset of non-adjacent houses is exponential. But each house poses only a local take/skip choice whose best outcome depends on a couple of earlier answers, so DP collapses the search.\n\n" +
+            "**Key Idea.** Let `dp[i]` be the most money robbable considering houses `0..i` (the best answer for the prefix ending at house `i`). At house `i` you either skip it — keeping `dp[i-1]` — or rob it, adding `nums[i]` to the best total that ended at `i-2` (the adjacent house `i-1` must be skipped). So `dp[i] = max(dp[i-1], dp[i-2] + nums[i])`.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Base cases: `dp[0] = nums[0]` (only one house); `dp[1] = max(nums[0], nums[1])` (can't take both adjacent, so take the richer).\n" +
+            "2. Transition in words: for each house from index 2 onward, the best total is the larger of (skip this house, keep the previous best) and (rob this house plus the best total from two houses back).\n" +
+            "3. Fill left to right; `dp[n-1]` is the answer.\n\n" +
+            "**Why it works.** The two options — rob house `i` or not — are exhaustive and mutually exclusive. Robbing forces skipping `i-1`, so the compatible best is `dp[i-2]`; skipping inherits `dp[i-1]`. Taking the max is optimal by induction on the prefix length.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Handle `n == 1` (and technically empty input) before touching `dp[1]`.\n" +
+            "- `dp[1]` is `max(nums[0], nums[1])`, not `nums[1]`.\n" +
+            "- Adjacency is the only constraint — non-adjacent houses can always be combined freely.\n\n" +
+            "**Space optimization.** `dp[i]` reads only `dp[i-1]` and `dp[i-2]`, so the array collapses to two rolling variables for `O(1)` space (the next approach).\n\n" +
+            "**Complexity.** One pass → time `O(n)`; the `dp` array → space `O(n)`.\n\n" +
+            "**Interview mindset.** 'Maximum sum where you cannot pick two adjacent items' is the signature House Robber pattern: a per-element take/skip decision resolved by `dp[i-1]` vs `dp[i-2] + value`.",
           rcs:
             "class Solution:\n" +
             "    def rob(self, nums: List[int]) -> int:\n" +
@@ -601,12 +652,20 @@
           space: "O(1)",
           whenToUse: "The polished answer: dp[i] depends only on the two previous states, so two scalars suffice.",
           logic:
-            "**F. Space optimization.** In `dp[i] = max(dp[i-1], dp[i-2] + nums[i])`, only `dp[i-1]` and `dp[i-2]` are ever read. Track them as two variables and roll forward — no array needed.\n\n" +
-            "**What the variables hold.** Let `prev` = best loot up to two houses back (`dp[i-2]`), and `curr` = best loot up to the previous house (`dp[i-1]`). Starting both at 0 elegantly handles the base cases without special-casing `n == 1`.\n\n" +
-            "**Transition (rolled).** For each `num`: `new = max(curr, prev + num)`; then shift `prev = curr`, `curr = new`. In one tuple assignment: `prev, curr = curr, max(curr, prev + num)`.\n\n" +
-            "**Why correct.** Identical recurrence and pick/skip logic; the initial zeros act as `dp[-1] = dp[-2] = 0`, and the first iteration correctly yields `max(0, 0 + nums[0]) = nums[0]`.\n\n" +
-            "**K/L. Complexity.** One pass → time `O(n)`, space `O(1)`.\n\n" +
-            "**M. Interview mindset.** 'Max sum of non-adjacent elements' is the signature House Robber pattern; always mention the O(1) rolling form.",
+            "**What it asks.** The same maximum non-adjacent total, in constant extra space.\n\n" +
+            "**Why the naive idea fails.** Keeping the full `dp` array wastes memory: in `dp[i] = max(dp[i-1], dp[i-2] + nums[i])` only the two most recent states are ever read.\n\n" +
+            "**Key Idea.** Track just two scalars that roll forward: `prev` holds the best loot up to two houses back (`dp[i-2]`) and `curr` holds the best up to the previous house (`dp[i-1]`). Each element updates them with the same take/skip recurrence, so the whole array is never needed.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Base case (rolled): start `prev = 0` and `curr = 0`; these zeros act as `dp[-2] = dp[-1] = 0` and cleanly handle tiny arrays with no special-casing.\n" +
+            "2. Transition in words: for each house's value, the new best is the larger of the previous best (skip) and `prev + value` (rob this house plus the best from two back); then shift `prev` to the old `curr` and `curr` to the new best.\n" +
+            "3. After the loop, `curr` holds `dp[n-1]`, the best for the whole street.\n\n" +
+            "**Why it works.** It is the identical recurrence and pick/skip logic as the array version, computed in the same left-to-right order; the initial zeros make the first iteration yield `max(0, 0 + nums[0]) = nums[0]`, matching the base case.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Do the shift as a single simultaneous assignment (`prev, curr = curr, max(curr, prev + num)`); updating `prev` first would corrupt the computation.\n" +
+            "- Starting both at 0 is what removes the need to special-case length 1 — don't seed them with `nums` values.\n" +
+            "- Return `curr`, not `prev`.\n\n" +
+            "**Complexity.** One pass → time `O(n)`; two variables → space `O(1)`.\n\n" +
+            "**Interview mindset.** Whenever `dp[i]` depends only on the last one or two states, mention the rolling-variable collapse to `O(1)` — it's the polished House Robber answer.",
           rcs:
             "class Solution:\n" +
             "    def rob(self, nums: List[int]) -> int:\n" +
@@ -683,15 +742,22 @@
           space: "O(1)",
           whenToUse: "The clean reduction: turn the circular constraint into two ordinary (linear) House Robber problems.",
           logic:
-            "**A. What is asked.** House Robber, but houses 0 and n-1 are now adjacent (a circle).\n\n" +
-            "**D. Key observation.** The only new constraint is 'you cannot rob both the first and the last house'. So in any valid plan, at least one of them is left out. Split into two independent linear scenarios:\n" +
-            "1. **Exclude the last house** → solve House Robber on `nums[0 .. n-2]`.\n" +
-            "2. **Exclude the first house** → solve House Robber on `nums[1 .. n-1]`.\n\n" +
-            "The true answer is the max of the two. This is correct because every legal circular plan falls into at least one of these two windows (it must skip house 0, or skip house n-1, or both), and neither window contains the forbidden adjacent pair.\n\n" +
-            "**Reused subroutine.** Each scenario is plain House Robber solved with the O(1) rolling recurrence `prev, curr = curr, max(curr, prev + num)` — `dp[i] = max(dp[i-1], dp[i-2] + nums[i])`.\n\n" +
-            "**Edge case.** If there is only one house, the split windows would be empty, so return `nums[0]` directly.\n\n" +
-            "**State evolution.** Two independent left-to-right passes, each maintaining two rolling variables.\n\n" +
-            "**K/L. Complexity.** Two O(n) passes with O(1) memory → time `O(n)`, space `O(1)`.",
+            "**What it asks.** House Robber on a circle: houses are in a ring, so the first and last house are now adjacent and can't both be robbed.\n\n" +
+            "**Why the naive idea fails.** You can't just run linear House Robber once — it would happily rob both ends, which the circular adjacency forbids. Patching that constraint into a single pass is awkward.\n\n" +
+            "**Key Idea.** The only new constraint is 'not both house 0 and house n-1'. In any valid plan at least one of them is left out, which splits the problem into two ordinary (linear) House Robber problems: one on `nums[0 .. n-2]` (exclude the last house) and one on `nums[1 .. n-1]` (exclude the first house). The answer is the larger of the two, since every legal circular plan fits at least one window and neither window contains the forbidden adjacent pair.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Edge case: if there is only one house, return `nums[0]` directly (the split windows would be empty).\n" +
+            "2. Run linear House Robber on the array with the last element dropped.\n" +
+            "3. Run linear House Robber on the array with the first element dropped.\n" +
+            "4. Each linear pass uses the `O(1)` rolling recurrence — best-so-far is `max(skip previous, rob this + best from two back)` — and the final answer is the max of the two passes.\n\n" +
+            "**Why it works.** Every circular-legal selection must skip house 0, or skip house n-1, or both; each of those cases is exactly captured by one of the two linear windows, and within a window the ordinary non-adjacency rule is all that remains. Taking the max covers all cases without ever allowing both ends together.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Special-case length 1 before slicing, or an empty window misbehaves.\n" +
+            "- Both windows exclude exactly one endpoint — don't accidentally drop an interior house.\n" +
+            "- The two subproblems are independent; don't share rolling state between them.\n\n" +
+            "**Space optimization.** Each linear pass is the `O(1)` rolling-variable House Robber, so the whole solution is two `O(n)` scans with constant memory.\n\n" +
+            "**Complexity.** Two linear passes → time `O(n)`; rolling variables → space `O(1)`.\n\n" +
+            "**Interview mindset.** A circular/wrap-around constraint on the endpoints → split into cases that each exclude one endpoint and reuse the simpler linear solution as a subroutine.",
           rcs:
             "class Solution:\n" +
             "    def rob(self, nums: List[int]) -> int:\n" +
@@ -779,17 +845,21 @@
           space: "O(n)",
           whenToUse: "The standard count-ways DP where each position can be consumed as one digit or paired with the previous.",
           logic:
-            "**A. What is asked.** Count the distinct ways to group the digit string into valid codes (1–26, no leading zeros).\n\n" +
-            "**dp meaning.** `dp[i]` = the number of ways to decode the first `i` characters, `s[:i]`. The answer is `dp[n]`.\n\n" +
-            "**Base cases.** `dp[0] = 1` — the empty string has exactly one (empty) decoding, which anchors the recurrence. `dp[1] = 1` if `s[0] != '0'` else `0` — a single leading zero is undecodable.\n\n" +
-            "**Decision at each step.** The character `s[i-1]` (the i-th character) is decoded either:\n" +
-            "1. as a **single digit** — valid iff it is not '0'; this contributes `dp[i-1]` ways, or\n" +
-            "2. as the **second half of a two-digit code** with `s[i-2]` — valid iff that two-digit value is in 10–26; this contributes `dp[i-2]` ways.\n\n" +
-            "**Transition.** `dp[i] = (dp[i-1] if s[i-1] != '0') + (dp[i-2] if '10' <= s[i-2:i] <= '26')`.\n\n" +
-            "**Why the transition is correct.** Any decoding of `s[:i]` ends with a last code that is either one digit or two digits; these cases are disjoint and exhaustive, and the count of decodings for each equals the count for the string with that last code stripped off (`dp[i-1]` or `dp[i-2]`). Summing counts all decodings exactly once. A '0' can only survive as part of '10' or '20'; otherwise it kills the single-digit branch and, if not preceded by a valid tens digit, forces `dp[i] = 0`.\n\n" +
-            "**State evolution.** Fill `dp[2..n]` left to right; each cell reads the previous two. (Two-character string comparison `'10' <= two <= '26'` orders identically to the numeric value.)\n\n" +
-            "**Space.** Only `dp[i-1]` and `dp[i-2]` are used, so this is space-optimizable to two rolling variables → `O(1)`.\n\n" +
-            "**K/L. Complexity.** One pass → time `O(n)`, space `O(n)` (or `O(1)` rolled).",
+            "**What it asks.** Count the distinct ways to group a digit string back into letter codes A=1..Z=26, where a leading zero (e.g. `06`) is not a valid code.\n\n" +
+            "**Why the naive idea fails.** Recursively trying one-digit and two-digit splits at every position re-solves the same suffixes exponentially. Since each position's count depends only on the previous one or two, DP makes it linear.\n\n" +
+            "**Key Idea.** Let `dp[i]` be the number of ways to decode the first `i` characters, `s[:i]`. Any decoding of `s[:i]` ends with a last code that is either one digit or two digits — disjoint, exhaustive cases — so `dp[i]` is the sum of the ways with each valid ending: `dp[i-1]` if the single digit `s[i-1]` is 1–9, plus `dp[i-2]` if the two-digit chunk `s[i-2:i]` is in 10–26. The answer is `dp[n]`.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Base cases: `dp[0] = 1` — the empty string has exactly one (empty) decoding, which anchors the recurrence; `dp[1] = 1` if `s[0] != '0'`, else `0` (a lone leading zero is undecodable).\n" +
+            "2. Transition in words: for each position `i` from 2 to `n`, if the current single digit is not '0' add the ways for the string one shorter (`dp[i-1]`); if the current two-digit chunk is between 10 and 26 add the ways for the string two shorter (`dp[i-2]`).\n" +
+            "3. Fill `dp[2..n]` left to right; each cell reads the previous two. Return `dp[n]`.\n\n" +
+            "**Why it works.** The last code of any decoding is one or two digits, so summing the counts of both stripped-down strings counts every decoding exactly once. A '0' survives only inside '10' or '20'; otherwise it kills the single-digit branch and, if not preceded by a valid tens digit, forces `dp[i] = 0`. Induction from the base cases proves each cell.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- A string starting with '0' has `dp[1] = 0` and decodes to 0 ways overall.\n" +
+            "- The only zeros that decode are inside '10' and '20'; a stray '0' zeroes out its position.\n" +
+            "- Two-digit codes are valid only in 10–26; '27'..'99' and anything below '10' don't count as a pair. (String comparison `'10' <= two <= '26'` orders identically to the numeric value.)\n\n" +
+            "**Space optimization.** Only `dp[i-1]` and `dp[i-2]` are ever read, so this reduces to two rolling variables for `O(1)` space.\n\n" +
+            "**Complexity.** One pass → time `O(n)`; the `dp` array → space `O(n)` (or `O(1)` rolled).\n\n" +
+            "**Interview mindset.** 'Count the ways to parse a sequence where each unit is 1 or 2 tokens' is a Fibonacci-shaped count DP — but with validity guards (no leading zero, pair in range) gating each branch.",
           rcs:
             "class Solution:\n" +
             "    def numDecodings(self, s: str) -> int:\n" +
@@ -883,9 +953,21 @@
           space: "O(1)",
           whenToUse: "Only to state the naive baseline before presenting Kadane.",
           logic:
-            "**B. Brute force.** Fix each start index `i`, extend a running total across every end `j >= i`, and track the best sum seen. This examines all `O(n^2)` contiguous subarrays.\n\n" +
-            "**C. Why it is slow.** For `n = 10^5` that is ~5 billion operations. It redundantly recomputes overlapping sums instead of reusing the previous window's work.\n\n" +
-            "**J. Why correct.** Every contiguous subarray is generated exactly once by some `(i, j)` pair, so the maximum cannot be missed.",
+            "**What it asks.** Find the largest sum among all contiguous, non-empty subarrays of `nums`.\n\n" +
+            "**The idea, and why it's slow.** Fix each start index `i`, extend a running total across every end `j >= i`, and track the best sum seen — examining all `O(n^2)` contiguous subarrays. For `n = 10^5` that is billions of operations, because it recomputes overlapping sums from scratch instead of reusing the previous window's work.\n\n" +
+            "**Key Idea.** There is no clever insight here — this is the exhaustive baseline. Its value is establishing correctness and the `O(n^2)` bar that Kadane's single-pass idea then beats.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Initialize `best` to `nums[0]` so all-negative arrays are handled.\n" +
+            "2. For each start index `i`, reset a running total to 0.\n" +
+            "3. For each end index `j` from `i` onward, add `nums[j]` to the total and update `best`.\n" +
+            "4. Return `best` after all pairs are considered.\n\n" +
+            "**Why it works.** Every contiguous subarray is generated exactly once by some `(i, j)` pair and its sum is tracked, so the maximum cannot be missed.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Initialize `best` to `nums[0]`, not 0, or all-negative inputs wrongly return 0.\n" +
+            "- Reset the running total at each new start `i`.\n" +
+            "- The subarray must be non-empty — never consider the empty range.\n\n" +
+            "**Complexity.** Two nested loops → time `O(n^2)`; a couple of scalars → space `O(1)`.\n\n" +
+            "**Interview mindset.** State this only as the naive baseline; the redundant overlapping sums are exactly the signal to look for a single-pass 'best ending here' recurrence (Kadane).",
           rcs:
             "class Solution:\n" +
             "    def maxSubArray(self, nums: List[int]) -> int:\n" +
@@ -915,14 +997,22 @@
           space: "O(1)",
           whenToUse: "The expected answer for maximum contiguous sum in one linear pass.",
           logic:
-            "**D. Key observation.** As we scan, we track the best subarray sum that **ends at the current index**. At each new element, that best-ending-here is either the element **started fresh**, or the element **appended** to the previous best-ending-here — whichever is larger.\n\n" +
-            "**dp meaning.** `current` = maximum sum of a subarray ending exactly at index `i`. (This is the classic `dp[i]`, collapsed to a single variable because only the previous value is needed.)\n\n" +
-            "**Base case.** `current = best = nums[0]` — the subarray ending at index 0 is just `nums[0]`.\n\n" +
-            "**Transition.** `current = max(num, current + num)`. If the running sum has gone negative, carrying it forward would only hurt, so we discard it and restart at `num`. Then `best = max(best, current)`.\n\n" +
-            "**Why the transition is correct.** A max-sum subarray ending at `i` must either be `nums[i]` alone or `nums[i]` glued to a max-sum subarray ending at `i-1`; extending a *negative* prefix can never help, so restarting is optimal exactly when `current + num < num`. Taking the running max of `current` over all `i` yields the global maximum, since every subarray ends *somewhere*.\n\n" +
-            "**State evolution.** `current` rolls forward one element at a time; `best` records the high-water mark. Starting `best` at `nums[0]` (not 0) correctly handles all-negative arrays.\n\n" +
-            "**K/L. Complexity.** One pass → time `O(n)`, space `O(1)`.\n\n" +
-            "**M. Interview mindset.** 'Largest contiguous sum' is the textbook Kadane trigger: extend-or-restart in a single scan.",
+            "**What it asks.** The largest sum over all contiguous, non-empty subarrays, in one linear pass.\n\n" +
+            "**Why the naive idea fails.** The `O(n^2)` brute force recomputes overlapping sums. The fix is to reuse the best subarray sum ending at the previous index when deciding the current one.\n\n" +
+            "**Key Idea.** Let `current` be the maximum sum of a subarray ending exactly at the current index — the classic `dp[i]`, collapsed to a single variable because only the previous value is needed. A best subarray ending at `i` is either `nums[i]` started fresh or `nums[i]` appended to the best subarray ending at `i-1`, whichever is larger: `current = max(num, current + num)`. The overall answer is the running maximum of `current`.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Base case: `current = best = nums[0]` — the subarray ending at index 0 is just `nums[0]`.\n" +
+            "2. Transition in words: for each later element, the best sum ending here is the larger of starting a new subarray at this element or extending the previous best-ending-here by this element.\n" +
+            "3. After updating `current`, update `best = max(best, current)` so the high-water mark is never lost.\n" +
+            "4. Return `best`.\n\n" +
+            "**Why it works.** A max-sum subarray ending at `i` is either `nums[i]` alone or `nums[i]` glued to a max-sum subarray ending at `i-1`; extending a *negative* prefix can only hurt, so restarting is optimal exactly when `current + num < num`. Since every subarray ends somewhere, the running max of `current` over all `i` is the global maximum.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Seed both `current` and `best` with `nums[0]`, not 0, so all-negative arrays return the least-negative element.\n" +
+            "- Update `best` every iteration, not just at the end.\n" +
+            "- A running sum that turns negative should be dropped — carrying it forward only drags future sums down.\n\n" +
+            "**Space optimization.** `dp[i]` needs only `dp[i-1]`, so it is already collapsed to the single scalar `current` — `O(1)` space.\n\n" +
+            "**Complexity.** One pass → time `O(n)`; two scalars → space `O(1)`.\n\n" +
+            "**Interview mindset.** 'Largest contiguous sum' is the textbook Kadane trigger: an extend-or-restart decision on a single 'best ending here' variable.",
           rcs:
             "class Solution:\n" +
             "    def maxSubArray(self, nums: List[int]) -> int:\n" +
@@ -1006,15 +1096,22 @@
           space: "O(1)",
           whenToUse: "The go-to when products can flip sign — you must carry the minimum as a candidate future maximum.",
           logic:
-            "**A. What is asked.** The largest product over all contiguous subarrays.\n\n" +
-            "**B. Why Kadane alone fails.** For sums, a negative prefix is always bad. For products, a very *negative* running product is valuable: one more negative number flips it to a large positive. So tracking only the max loses information.\n\n" +
-            "**dp meaning.** At each index `i` keep TWO values: `cur_max` = largest product of a subarray ending at `i`, and `cur_min` = smallest (most negative) product of a subarray ending at `i`.\n\n" +
-            "**Base case.** `best = cur_max = cur_min = nums[0]`.\n\n" +
-            "**Decision at each step.** The product ending at `i` is either `num` alone (restart), or `num * cur_max`, or `num * cur_min`. When `num` is negative, multiplying flips signs, so the previous *min* can produce the new *max* and vice versa.\n\n" +
-            "**Transition.** `cur_max = max(num, cur_max*num, cur_min*num)` and `cur_min = min(num, cur_max*num, cur_min*num)` — computed from the SAME old values (compute both candidate sets before overwriting). Then `best = max(best, cur_max)`.\n\n" +
-            "**Why correct.** Every subarray ending at `i` extends one ending at `i-1` (or restarts). The extremes of the extended products can only come from multiplying `num` into the previous extreme products or starting fresh — considering all three candidates for both min and max captures every sign flip. Restarting at `num` naturally handles zeros: after a 0, both extremes reset to the next element.\n\n" +
-            "**State evolution.** Two rolling scalars sweep left to right; `best` tracks the running maximum.\n\n" +
-            "**K/L. Complexity.** One pass → time `O(n)`, space `O(1)`.",
+            "**What it asks.** Find the largest product among all contiguous, non-empty subarrays of `nums`.\n\n" +
+            "**Why the naive idea fails.** Plain Kadane on products breaks: for sums a negative prefix is always bad, but for products a very *negative* running product is valuable, since one more negative number flips it to a large positive. Tracking only the maximum throws away that information.\n\n" +
+            "**Key Idea.** At each index keep TWO states: `cur_max` = the largest product of a subarray ending here, and `cur_min` = the smallest (most negative) product ending here. When the current number is negative, multiplying flips signs, so the previous *min* can become the new *max* and vice versa — carrying both is what handles sign flips.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Base case: `best = cur_max = cur_min = nums[0]`.\n" +
+            "2. Transition in words: for each later `num`, the product ending here is `num` alone (restart), `num * cur_max`, or `num * cur_min`; the new `cur_max` is the largest of these three and the new `cur_min` is the smallest.\n" +
+            "3. Compute both new values from the SAME old `cur_max`/`cur_min` before overwriting either (evaluate the three candidates first).\n" +
+            "4. Update `best = max(best, cur_max)` each step; return `best`.\n\n" +
+            "**Why it works.** Every subarray ending at `i` extends one ending at `i-1` or restarts, and the extreme products of the extended subarray can only come from multiplying `num` into the previous extremes or starting fresh. Considering all three candidates for both min and max captures every sign flip; restarting at `num` also resets cleanly after a zero, since a product-subarray cannot span a zero.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Compute the candidates before overwriting `cur_max`; using the just-updated `cur_max` to compute `cur_min` is a classic bug.\n" +
+            "- Initialize everything to `nums[0]`, not 0 or 1 — the min matters precisely because of negatives.\n" +
+            "- Zeros reset both extremes; the 'restart at `num`' candidate handles them for free.\n\n" +
+            "**Space optimization.** Two rolling scalars replace any array — `O(1)` space.\n\n" +
+            "**Complexity.** One pass → time `O(n)`; a few scalars → space `O(1)`.\n\n" +
+            "**Interview mindset.** 'Largest product of a contiguous subarray' means sign flips matter, so track BOTH the running min and max — the minimum is a candidate future maximum.",
           rcs:
             "class Solution:\n" +
             "    def maxProduct(self, nums: List[int]) -> int:\n" +
@@ -1103,14 +1200,21 @@
           space: "O(1)",
           whenToUse: "The clean, memory-light way to count/find palindromes without a full DP table.",
           logic:
-            "**A. What is asked.** Count every contiguous substring of `s` that reads the same forwards and backwards.\n\n" +
-            "**B. Naive idea.** Check all `O(n^2)` substrings, each verified in `O(n)` → `O(n^3)`. Too much repeated work.\n\n" +
-            "**D. Key observation.** Every palindrome has a **center** and is symmetric around it. Rather than test arbitrary substrings, grow outward from each possible center: matching characters on both sides extend the palindrome, a mismatch stops it.\n\n" +
-            "**The two center types.** A palindrome of **odd** length has a single-character center (index `i`); one of **even** length has a center *between* two characters (indices `i` and `i+1`). For a string of length `n` there are `2n - 1` centers total.\n\n" +
-            "**Expansion routine.** From `(left, right)`, while `left >= 0`, `right < n`, and `s[left] == s[right]`: you have found one more palindrome (count it), then step `left--`, `right++`. Each successful expansion is a distinct, valid palindromic substring, so counting per step gives the total.\n\n" +
-            "**Why correct.** Every palindromic substring is uniquely identified by its center and radius, and center expansion visits each (center, radius) once, counting exactly the palindromes centered there. Summing over all centers counts every palindrome exactly once.\n\n" +
-            "**State / space.** No table needed — just the two pointers and a counter, so `O(1)` extra space (an alternative 2-D DP where `dp[i][j]` = 'is s[i..j] a palindrome' also works but uses `O(n^2)` space).\n\n" +
-            "**K/L. Complexity.** `2n-1` centers, each expanding up to `O(n)` → time `O(n^2)`, space `O(1)`.",
+            "**What it asks.** Count every contiguous substring of `s` that reads the same forwards and backwards (substrings at different positions count separately).\n\n" +
+            "**Why the naive idea fails.** Checking all `O(n^2)` substrings and verifying each in `O(n)` is `O(n^3)` — it repeats work because a longer palindrome contains shorter ones with the same center.\n\n" +
+            "**Key Idea.** Every palindrome is symmetric around a center, so instead of testing arbitrary substrings, grow outward from each possible center: matching characters on both sides extend the palindrome, a mismatch stops it. A palindrome of odd length has a single-character center (index `i`); an even-length one has a center *between* two characters (`i` and `i+1`) — giving `2n - 1` centers total.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Keep a running `count`.\n" +
+            "2. For each index, run an expansion for the odd center `(i, i)` and another for the even center `(i, i+1)`.\n" +
+            "3. In each expansion, while `left >= 0`, `right < n`, and `s[left] == s[right]`, count one more palindrome and step `left` down and `right` up.\n" +
+            "4. Sum the counts from all centers and return the total.\n\n" +
+            "**Why it works.** Every palindromic substring is uniquely identified by its center and radius; center expansion visits each (center, radius) exactly once and counts exactly the palindromes centered there, so summing over all centers counts every palindrome once and none twice.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Remember BOTH center kinds — odd (single index) and even (between two indices); missing the even centers undercounts.\n" +
+            "- Bound-check `left >= 0` and `right < n` before comparing characters.\n" +
+            "- Each successful expansion step is its own palindrome — count per step, not once per center.\n\n" +
+            "**Complexity.** `2n - 1` centers, each expanding up to `O(n)` → time `O(n^2)`; only two pointers and a counter → space `O(1)`. (A 2-D `dp[i][j]` = 'is s[i..j] a palindrome' table also works but costs `O(n^2)` space.)\n\n" +
+            "**Interview mindset.** 'Count or find palindromic substrings' → expand around center; symmetry around a center beats brute-force substring checking.",
           rcs:
             "class Solution:\n" +
             "    def countSubstrings(self, s: str) -> int:\n" +
@@ -1207,14 +1311,21 @@
           space: "O(1)",
           whenToUse: "The standard interview solution: no DP table, constant extra space, easy to reason about.",
           logic:
-            "**A. What is asked.** Return a longest contiguous substring that reads the same both ways.\n\n" +
-            "**B. Naive idea.** Test every substring for palindromeness → `O(n^3)`; wasteful.\n\n" +
-            "**D. Key observation.** A palindrome is symmetric around its center, so grow outward from each center and keep track of the longest span found. Odd-length palindromes center on a character; even-length ones center between two characters — try both for every position (`2n-1` centers).\n\n" +
-            "**Expansion routine.** From `(left, right)`, expand while `left >= 0`, `right < n`, and `s[left] == s[right]`. When the loop stops, the widest valid palindrome is `s[left+1 : right]` (the pointers overshoot by one on each side), i.e. the inclusive range `[left+1, right-1]`. Return those bounds.\n\n" +
-            "**Tracking the best.** Keep `start` and `end` for the best range seen. After expanding both center types at index `i`, if a returned span is longer than `end - start`, update the bounds.\n\n" +
-            "**Why correct.** Every palindrome corresponds to exactly one center; expanding each center finds the maximal palindrome around it, and taking the longest across all centers is therefore the global longest.\n\n" +
-            "**State / space.** Only a few index variables → `O(1)` extra space. (A 2-D `dp[i][j]` = 'is s[i..j] a palindrome' table also solves it but costs `O(n^2)` space.)\n\n" +
-            "**K/L. Complexity.** `2n-1` centers × up to `O(n)` expansion → time `O(n^2)`, space `O(1)`. (Manacher's algorithm reaches `O(n)` but is rarely required.)",
+            "**What it asks.** Return a longest contiguous substring of `s` that reads the same both ways (any one, if several tie).\n\n" +
+            "**Why the naive idea fails.** Testing every substring for palindromeness is `O(n^3)` and wastefully rechecks nested palindromes that share a center.\n\n" +
+            "**Key Idea.** A palindrome is symmetric around its center, so grow outward from each center and remember the longest span found. Odd-length palindromes center on a character, even-length ones between two characters — try both for every position (`2n - 1` centers). Tracking `(start, end)` bounds avoids rebuilding strings while comparing lengths.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Keep best bounds `start`, `end` (initially the first character).\n" +
+            "2. For each index, expand the odd center `(i, i)` and the even center `(i, i+1)`.\n" +
+            "3. In an expansion, step `left` down and `right` up while `left >= 0`, `right < n`, and `s[left] == s[right]`; when it stops, the widest palindrome is the inclusive range `[left+1, right-1]` (the pointers overshoot by one on each side).\n" +
+            "4. If a returned span is longer than the current best, update `start` and `end`; finally return the substring between them.\n\n" +
+            "**Why it works.** Every palindrome corresponds to exactly one center; expanding each center yields the maximal palindrome around it, so the longest across all centers is the global longest.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- On exit the palindrome is `s[left+1 : right]` — forgetting to step back the overshoot gives wrong bounds.\n" +
+            "- Handle both odd `(i, i)` and even `(i, i+1)` centers, or you miss even-length answers like 'bb'.\n" +
+            "- Compare spans by length and track bounds rather than slicing repeatedly.\n\n" +
+            "**Complexity.** `2n - 1` centers × up to `O(n)` expansion → time `O(n^2)`; a few index variables → space `O(1)`. (A 2-D `dp[i][j]` palindrome table also solves it but costs `O(n^2)` space; Manacher's reaches `O(n)` time but is rarely required.)\n\n" +
+            "**Interview mindset.** 'Longest palindromic substring' → expand around center, handling odd and even centers and tracking `(start, end)`; mention Manacher's `O(n)` only if pushed.",
           rcs:
             "class Solution:\n" +
             "    def longestPalindrome(self, s: str) -> str:\n" +

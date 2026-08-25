@@ -846,14 +846,23 @@
           space: "O(1) letters (O(U + E) in general)",
           whenToUse: "The standard approach: order elements given pairwise ordering constraints => build a graph and topo-sort.",
           logic:
-            "**Modeling.** **Nodes** are the distinct letters appearing anywhere in `words`. **Edges** are ordering constraints we DERIVE by comparing adjacent word pairs. We are *finding a total order of the letters consistent with all constraints* \u2014 a topological ordering of a directed graph.\n\n" +
-            "**D. Deriving edges.** Compare each adjacent pair `(w1, w2)`. Because the list is sorted, the FIRST position where they differ tells us `w1[i]` comes before `w2[i]` in the alien order \u2192 add edge `w1[i] -> w2[i]`, then stop comparing this pair (later characters give no information). Only the first difference matters.\n\n" +
-            "**The prefix trap.** If we reach the end of the shorter word with no difference AND `w1` is longer than `w2` (e.g. 'abc' before 'ab'), the ordering is impossible \u2014 return `\"\"` immediately. A valid dictionary always lists a prefix before the longer word.\n\n" +
-            "**E. Why topo-sort.** Each edge `a -> b` means 'a must appear before b'. A valid alphabet is any linear order respecting all edges \u2014 exactly a topological sort. Kahn's algorithm: repeatedly output letters with **indegree 0** (no letter must precede them), removing their outgoing edges.\n\n" +
-            "**Cycle detection.** If a cycle exists (a<b and b<a), some letters never reach indegree 0, so the output length is shorter than the number of distinct letters \u2192 return `\"\"`.\n\n" +
-            "**G/H. What we track.** `adj[a]` = letters that must come after `a`; `indegree[c]` = number of letters that must come before `c`; the queue holds letters ready to be placed (indegree 0).\n\n" +
-            "**I. Step by step.** (1) Initialize `indegree` for every distinct letter to 0 and `adj` empty. (2) For each adjacent pair, find the first differing char, add the edge (guarding the prefix case). (3) Enqueue all indegree-0 letters, pop and append to the result, decrementing neighbors' indegrees. (4) If the result covers all letters, return it; else return `\"\"`.\n\n" +
-            "**K/L. Complexity.** Let `C` be total characters across all words. Building edges is `O(C)`; the sort is `O(U + E)` where `U` \u2264 26 letters \u2192 effectively `O(C)` time and `O(1)` extra for the fixed alphabet.",
+            "**What it asks.** Given a list of words sorted lexicographically by an unknown alien alphabet, recover any letter ordering consistent with that sorting, or return `\"\"` if no valid order exists.\n\n" +
+            "**Why the naive idea fails.** You can't read the order off a single word \u2014 the ordering information is hidden in how *adjacent* words relate. Brute-forcing every permutation of up to 26 letters (26! orders) to find one consistent with the sorting is astronomically slow. We need to extract the pairwise constraints directly and stitch them into one global order.\n\n" +
+            "**Key Idea.** Model letters as graph **nodes** and each derived 'letter X comes before letter Y' as a directed **edge** `X -> Y`, then topologically sort. The constraints come from comparing adjacent words: at the FIRST position where two adjacent words differ, the earlier word's character must precede the later word's character in the alien order \u2014 that single first difference is the only edge that pair yields (later characters tell you nothing). A valid alphabet is any linear order respecting every edge, which is exactly a topological ordering.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Collect every distinct letter as a node; initialize `indegree` to 0 for each and an empty `adj` map where `adj[a]` = letters that must come after `a`.\n" +
+            "2. For each adjacent word pair `(w1, w2)`, scan to the first differing character, add edge `w1[i] -> w2[i]` (incrementing `indegree[w2[i]]`), and stop comparing that pair.\n" +
+            "3. Guard the prefix trap: if you reach the end of the shorter word with no difference and `w1` is longer than `w2` (e.g. 'abc' before 'ab'), the sorting is impossible \u2014 return `\"\"`.\n" +
+            "4. Kahn's BFS: enqueue every letter with `indegree` 0 (nothing must precede it), pop and append to the result, decrementing each neighbor's indegree and enqueuing any that reach 0.\n" +
+            "5. If the result contains every distinct letter, return it; otherwise a cycle stranded some letters \u2014 return `\"\"`.\n\n" +
+            "**Why it works.** Each edge `a -> b` enforces 'a before b', so any order that places a node only after all its predecessors satisfies every constraint \u2014 which is precisely what Kahn's algorithm does. A cycle (a<b and b<a) means some letters never reach indegree 0, so the output is shorter than the letter count and we correctly report failure. The `visited`/readiness structure here is the `indegree` array plus the queue of indegree-0 letters.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Only the FIRST differing character between two adjacent words gives an edge; break immediately after adding it.\n" +
+            "- The prefix rule: a longer word before its own prefix is invalid \u2014 check it before assuming 'no difference' means 'no constraint'.\n" +
+            "- Include every distinct letter as a node even if it appears in no comparison, or it will be missing from the output.\n" +
+            "- Adding the same edge twice inflates indegree \u2014 guard against re-adding a duplicate edge.\n\n" +
+            "**Complexity.** Let `C` be the total number of characters across all words. Building the graph is `O(C)`; the topological sort is `O(U + E)` where `U` \u2264 26 letters \u2014 so overall `O(C)` time and `O(1)` extra space for the fixed alphabet (`O(U + E)` in general).\n\n" +
+            "**Interview mindset.** 'Recover an ordering from pairwise comparisons' is the signal to build a directed graph of the constraints and topologically sort \u2014 and to remember the two failure modes: a cycle (contradiction) and the prefix-comes-after rule.",
           rcs:
             "from collections import deque, defaultdict\n" +
             "\n" +
@@ -985,14 +994,24 @@
           space: "O(n)",
           whenToUse: "The go-to for undirected connectivity/cycle questions; each edge either joins two groups or reveals a cycle.",
           logic:
-            "**Modeling.** **Nodes** are `0..n-1`; **edges** are the undirected pairs. A valid tree means: (1) exactly `n - 1` edges, (2) all nodes in ONE connected group, (3) no cycle. Union-Find checks all three cheaply.\n\n" +
-            "**D. Key idea.** Union-Find maintains disjoint sets, each identified by a representative 'root'. `find(x)` returns x's root; `union(a, b)` merges their sets. Process each edge: if its two endpoints are ALREADY in the same set, adding this edge creates a **cycle** \u2192 not a tree. Otherwise union them.\n\n" +
-            "**E. Why it works.** Start with `n` singleton sets. Each successful union reduces the number of components by one. A tree needs exactly one component at the end, which requires exactly `n - 1` successful unions and zero cycle-forming edges. So: reject early if `len(edges) != n - 1`; then if no edge connects two already-joined nodes, the graph is a single acyclic component \u2014 a tree.\n\n" +
-            "**find / union with path compression.** `find` walks parent pointers up to the root; **path compression** re-points visited nodes directly to the root so future `find`s are near-`O(1)`. **Union by rank/size** attaches the smaller tree under the larger to keep them shallow. Together they give near-linear `\u03b1(n)` (inverse Ackermann) amortized cost.\n\n" +
-            "**G/H. What visited/state means.** `parent[x]` is x's current parent (itself if it is a root). Two nodes share a root iff they are in the same connected component so far.\n\n" +
-            "**I. Step by step.** If `len(edges) != n - 1` return `False`. Init `parent[i] = i`. For each `(a, b)`: `ra, rb = find(a), find(b)`; if `ra == rb` return `False` (cycle); else set `parent[ra] = rb`. If we survive all edges, return `True`.\n\n" +
-            "**J. Why correct.** With exactly `n - 1` edges and no cycle detected, every union succeeded, collapsing `n` singletons into a single component \u2014 the definition of a tree.\n\n" +
-            "**K/L. Complexity.** `O(n + E * \u03b1(n))` \u2248 linear time, `O(n)` space. (A DFS/BFS from node 0 that checks 'visited all n nodes and never revisits a non-parent' is an equivalent alternative.)",
+            "**What it asks.** Given `n` nodes and a list of undirected edges, decide whether they form a valid **tree** \u2014 a graph that is both connected and contains no cycle.\n\n" +
+            "**Why the naive idea fails.** You could run a full DFS/BFS and separately test connectivity and acyclicity, but checking cycles ad hoc is clumsy and easy to get wrong. The cleaner realization is structural: with the right edge count the two conditions collapse into one cheap check.\n\n" +
+            "**Key Idea.** A tree on `n` nodes has EXACTLY `n - 1` edges, and given that count, 'connected' and 'acyclic' are equivalent \u2014 so it suffices to confirm `n - 1` edges and that no edge closes a cycle. Model the **nodes** as `0..n-1` and the **edges** as undirected pairs; Union-Find tracks connectivity incrementally. Process each edge and, if its two endpoints already share a root (same component), that edge would create a **cycle** \u2192 not a tree. The `visited`/state structure is `parent[x]`, x's representative root; two nodes are in the same component iff `find` returns the same root.\n\n" +
+            "**Why Union-Find fits.** Undirected connectivity plus cycle detection is its canonical use \u2014 each edge either merges two disjoint groups or reveals a cycle by linking two already-connected nodes.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Fast reject: if the number of edges `!= n - 1`, it cannot be a tree \u2014 return false.\n" +
+            "2. Initialize `parent[i] = i` so every node is its own singleton set.\n" +
+            "3. `find(x)` walks parent pointers to the root using path compression (re-point each node toward its grandparent) so future finds are near-`O(1)`.\n" +
+            "4. For each edge `(a, b)`: let `ra = find(a)`, `rb = find(b)`. If `ra == rb` the endpoints are already connected, so this edge closes a cycle \u2014 return false. Otherwise union them (`parent[ra] = rb`).\n" +
+            "5. If all edges survive, return true.\n\n" +
+            "**Why it works.** Starting from `n` singleton components, each successful union reduces the component count by one. With exactly `n - 1` edges and no cycle-forming edge, all `n - 1` unions succeed, collapsing the `n` singletons into a single connected, acyclic component \u2014 the definition of a tree. If any edge joined two already-connected nodes, a cycle exists; if the edge count is wrong, connectivity and acyclicity cannot both hold.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Check the `n - 1` edge count first \u2014 it rejects most non-trees instantly and is what makes 'no cycle => connected' valid.\n" +
+            "- `n = 1` with no edges is a valid tree (`0 == n - 1`).\n" +
+            "- Path compression (and/or union by rank) keeps `find` near-constant; without it adversarial inputs degrade to `O(n)` per find.\n" +
+            "- A cycle in an undirected graph is exactly an edge whose endpoints already share a root.\n\n" +
+            "**Complexity.** `O(n + E * \u03b1(n))` \u2248 linear time (\u03b1 is the inverse Ackermann function), `O(n)` space for the parent array. A DFS/BFS from node 0 that checks 'visited all n nodes and never revisits a non-parent' is an equivalent alternative.\n\n" +
+            "**Interview mindset.** An undirected graph plus 'is it a tree / any cycle / all connected' is the Union-Find signal \u2014 recall the counting shortcut that a tree on `n` nodes has exactly `n - 1` edges.",
           rcs:
             "class Solution:\n" +
             "    def validTree(self, n: int, edges: List[List[int]]) -> bool:\n" +
@@ -1097,14 +1116,23 @@
           space: "O(n)",
           whenToUse: "The cleanest way to count components as edges arrive; also the base for many connectivity problems.",
           logic:
-            "**Modeling.** **Nodes** are `0..n-1`; **edges** are undirected pairs. A **connected component** is a maximal set of mutually reachable nodes. We are *counting components*.\n\n" +
-            "**D. Key idea.** Start assuming every node is isolated: `count = n` separate components. Each edge that connects two nodes from DIFFERENT components merges them, reducing `count` by 1. An edge between two nodes already in the same component changes nothing.\n\n" +
-            "**E. Why Union-Find fits.** `find(x)` gives the representative root of x's component; `union(a, b)` merges two components. Decrement `count` only when a union actually joins two distinct sets. After processing all edges, `count` is the number of components.\n\n" +
-            "**find / union with path compression.** `find` follows parent pointers to the root and flattens the path so repeated lookups are near-constant; **union by rank/size** keeps trees shallow. Amortized cost is `\u03b1(n)` (inverse Ackermann), effectively constant.\n\n" +
-            "**G/H. State.** `parent[x]` is x's parent (root if equal to x); `count` is the current number of disjoint sets. Two nodes are in the same component iff they share a root.\n\n" +
-            "**I. Step by step.** Init `parent[i] = i`, `count = n`. For each `(a, b)`: `ra, rb = find(a), find(b)`; if `ra != rb`, set `parent[ra] = rb` and do `count -= 1`. Return `count`.\n\n" +
-            "**J. Why correct.** Each real merge reduces the component count by exactly one; redundant edges (same root) are ignored, so `count` always equals the true number of components.\n\n" +
-            "**K/L. Complexity.** `O(n + E * \u03b1(n))` \u2248 linear time, `O(n)` space. (Equivalently: build an adjacency list and run a DFS/BFS from each unvisited node, incrementing a counter once per traversal.)",
+            "**What it asks.** Given `n` nodes and undirected edges, count the **connected components** \u2014 the number of maximal groups of mutually reachable nodes.\n\n" +
+            "**Why the naive idea fails.** Just counting nodes or edges tells you nothing directly; you must actually determine which nodes reach which. Testing reachability between all pairs would be wasteful. Instead we want to merge nodes into groups as edges arrive and keep a running count.\n\n" +
+            "**Key Idea.** Start by assuming every node is isolated: `count = n` separate components. Each edge that links two nodes from DIFFERENT components merges them and reduces `count` by one; an edge between two nodes already in the same component changes nothing. Model the **nodes** as `0..n-1` and the **edges** as undirected pairs; Union-Find maintains the disjoint sets, so decrementing `count` only on a genuine merge yields the answer. The `visited`/state structure is `parent[x]` (root if equal to x) plus `count`; two nodes are in the same component iff they share a root.\n\n" +
+            "**Why Union-Find fits.** It is the cleanest way to maintain a running component count as edges stream in \u2014 `find(x)` gives x's representative root and `union` merges two sets in near-constant amortized time.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Initialize `parent[i] = i` and `count = n`.\n" +
+            "2. `find(x)` follows parent pointers to the root with path compression (flatten each node toward its grandparent) for near-constant lookups.\n" +
+            "3. For each edge `(a, b)`: let `ra = find(a)`, `rb = find(b)`. If `ra != rb` it is a real merge \u2014 set `parent[ra] = rb` and decrement `count`.\n" +
+            "4. Return `count` after processing all edges.\n\n" +
+            "**Why it works.** Each real merge reduces the component count by exactly one, and redundant edges (endpoints already sharing a root) are ignored, so `count` always equals the true number of disjoint sets remaining.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Decrement `count` only when `find(a) != find(b)`; decrementing on every edge overcounts merges.\n" +
+            "- Isolated nodes count as their own components; with no edges the answer is `n`.\n" +
+            "- Use path compression (and/or union by rank) to keep `find` near-`O(1)`.\n" +
+            "- Each edge merges at most two components into one, never more.\n\n" +
+            "**Complexity.** `O(n + E * \u03b1(n))` \u2248 linear time (\u03b1 = inverse Ackermann), `O(n)` space for the parent array.\n\n" +
+            "**Interview mindset.** 'How many separate groups/clusters?' in an undirected graph is the connected-components signal; Union-Find shines when edges stream in and you want a running count.",
           rcs:
             "class Solution:\n" +
             "    def countComponents(self, n: int, edges: List[List[int]]) -> int:\n" +
@@ -1148,12 +1176,23 @@
           space: "O(n + E)",
           whenToUse: "When you prefer explicit traversal or also need to enumerate the members of each component.",
           logic:
-            "**Same modeling, explicit traversal.** Nodes `0..n-1`, undirected edges, components = maximal reachable groups. Instead of merging sets, we *walk each component once and count how many walks it takes*.\n\n" +
-            "**D. Key idea.** Build an adjacency list. Keep a `visited` set. Scan nodes `0..n-1`; each time we find an unvisited node, it belongs to a component not yet counted \u2014 increment the count and DFS/BFS to mark every node reachable from it as visited.\n\n" +
-            "**G/H. What visited means.** A node is in `visited` once some component traversal has reached it; it will never start a new count again. The number of traversals launched equals the number of components.\n\n" +
-            "**I. Step by step.** Build `adj[a].append(b)` and `adj[b].append(a)` for every edge (undirected => both directions). For each node `i` not in `visited`: `count += 1`, then DFS from `i` adding every reachable node to `visited`.\n\n" +
-            "**J. Why correct.** Each component is entered exactly once \u2014 by the first of its nodes reached in the outer scan \u2014 and fully marked, so no component is counted twice and none is missed.\n\n" +
-            "**K/L. Complexity.** Building the list and visiting every node/edge once \u2192 `O(n + E)` time and space.",
+            "**What it asks.** The same count of connected components, computed with explicit traversal instead of disjoint sets \u2014 handy when you also want to enumerate each group's members.\n\n" +
+            "**Why the naive idea fails (the idea itself).** Rather than merging sets, we walk each component once and count how many walks it takes to cover all nodes. It is correct and linear; the only pitfall is re-entering a component that was already counted, which a `visited` set prevents.\n\n" +
+            "**Key Idea.** Build an adjacency list from the edges, keep a `visited` set, and scan nodes `0..n-1`. The first time you hit an unvisited node it belongs to a component not yet counted \u2014 increment the count and flood (DFS/BFS) from it, marking every reachable node visited so none of them starts a new count. The **nodes** are `0..n-1` and each undirected **edge** is stored in both directions; `visited` holds every node some component traversal has already reached, and the number of traversals launched equals the number of components.\n\n" +
+            "**Why DFS fits.** Reaching all nodes connected to a start node is exactly a depth-first (or breadth-first) traversal over the adjacency edges \u2014 one flood covers one whole component.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Build `adj[a].append(b)` and `adj[b].append(a)` for every edge (undirected => both directions).\n" +
+            "2. Initialize an empty `visited` set and `count = 0`.\n" +
+            "3. For each node `i` in `0..n-1` not yet in `visited`: increment `count`, mark `i` visited, and DFS/BFS from `i`, adding every reachable node to `visited`.\n" +
+            "4. Return `count`.\n\n" +
+            "**Why it works.** Each component is entered exactly once \u2014 by the first of its nodes the outer scan reaches \u2014 and then fully marked, so no component is counted twice and none is missed.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Store both directions for each undirected edge, or the traversal misses reachable nodes.\n" +
+            "- Mark nodes visited on discovery (when pushed), so the same node isn't enqueued twice.\n" +
+            "- Isolated nodes still count \u2014 the outer scan reaches them and launches a one-node traversal.\n" +
+            "- A recursive DFS can overflow the stack on a long chain; an explicit stack (as here) or BFS avoids that.\n\n" +
+            "**Complexity.** `O(n + E)` time and space \u2014 building the adjacency list and visiting every node and edge once.\n\n" +
+            "**Interview mindset.** DFS/BFS from each unvisited node is the explicit alternative to Union-Find, and it lets you list the members of each group, not just count them.",
           rcs:
             "class Solution:\n" +
             "    def countComponents(self, n: int, edges: List[List[int]]) -> int:\n" +
