@@ -428,6 +428,55 @@
     noteWrap.appendChild(saveHint);
     main.appendChild(section("notes", "My Notes", noteWrap));
 
+    // ---- animation / visualization links ----
+    var linksWrap = h("div", { class: "links-wrap" });
+    linksWrap.appendChild(h("div", { class: "links-hint" },
+      "Paste up to two links to external animations/visualizations of this problem (e.g. VisuAlgo, YouTube, a blog). Saved to this browser; click Open to launch in a new tab."));
+    var savedLinks = store.getLinks(p.id);
+    for (var li = 0; li < 2; li++) {
+      (function (idx) {
+        var row = h("div", { class: "link-row" });
+        var nameIn = h("input", { class: "link-name", type: "text", placeholder: "Label (optional)" });
+        var urlIn = h("input", { class: "link-url", type: "url", placeholder: "https://…  animation link" });
+        var open = h("a", { class: "link-open", target: "_blank", rel: "noopener" }, "Open ↗");
+        var cur = savedLinks[idx] || { name: "", url: "" };
+        nameIn.value = cur.name || "";
+        urlIn.value = cur.url || "";
+
+        function normalize(u) {
+          u = u.trim();
+          if (!u) return "";
+          if (!/^https?:\/\//i.test(u)) u = "https://" + u;
+          return u;
+        }
+        function refresh() {
+          var u = normalize(urlIn.value);
+          if (u) { open.href = u; open.classList.add("active"); open.title = u; }
+          else { open.removeAttribute("href"); open.classList.remove("active"); open.removeAttribute("title"); }
+        }
+        refresh();
+
+        var lt;
+        function save() {
+          clearTimeout(lt);
+          lt = setTimeout(function () {
+            var arr = store.getLinks(p.id);
+            arr[idx] = { name: nameIn.value.trim(), url: normalize(urlIn.value) };
+            store.setLinks(p.id, arr);
+          }, 300);
+        }
+        nameIn.addEventListener("input", save);
+        urlIn.addEventListener("input", function () { refresh(); save(); });
+        open.addEventListener("click", function (e) { if (!open.getAttribute("href")) e.preventDefault(); });
+
+        row.appendChild(nameIn);
+        row.appendChild(urlIn);
+        row.appendChild(open);
+        linksWrap.appendChild(row);
+      })(li);
+    }
+    main.appendChild(section("links", "Animation / Visualization Links", linksWrap));
+
     // ---- prev/next nav ----
     var footer = h("div", { class: "prob-nav" });
     var idx = ALL.findIndex(function (x) { return x.id === p.id; });

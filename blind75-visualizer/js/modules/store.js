@@ -10,6 +10,7 @@
     status: {},     // problemId -> "not-started" | "learning" | "solved"
     review: {},     // problemId -> true (flagged for review)
     notes: {},      // problemId -> string
+    links: {},      // problemId -> [{name,url}, {name,url}] (animation/visualization links)
     prefs: {
       theme: "dark",
       codeMode: "rcs",       // "rcs" | "plain"
@@ -28,6 +29,7 @@
       data.status = data.status || {};
       data.review = data.review || {};
       data.notes = data.notes || {};
+      data.links = data.links || {};
       data.prefs = Object.assign({}, DEFAULT.prefs, data.prefs || {});
       data.prefs.collapsedCats = data.prefs.collapsedCats || {};
       return data;
@@ -88,6 +90,21 @@
       save();
     },
 
+    // ---- animation / visualization links ----
+    getLinks: function (id) {
+      var arr = state.links[id] || [];
+      // always return exactly two slots for a stable UI
+      return [arr[0] || { name: "", url: "" }, arr[1] || { name: "", url: "" }];
+    },
+    setLinks: function (id, arr) {
+      var cleaned = (arr || [])
+        .map(function (l) { return { name: (l && l.name || "").trim(), url: (l && l.url || "").trim() }; })
+        .filter(function (l) { return l.url || l.name; });
+      if (cleaned.length) state.links[id] = cleaned;
+      else delete state.links[id];
+      save();
+    },
+
     // ---- prefs ----
     getPref: function (key) {
       return state.prefs[key];
@@ -118,6 +135,7 @@
       state.status = incoming.status || {};
       state.review = incoming.review || {};
       state.notes = incoming.notes || {};
+      state.links = incoming.links || {};
       state.prefs = Object.assign({}, DEFAULT.prefs, incoming.prefs || {});
       state.prefs.collapsedCats = state.prefs.collapsedCats || {};
       save();
