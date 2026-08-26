@@ -34,10 +34,16 @@ Every explanation carries a source badge and a classification tag:
   Internals** (INSERT/UPDATE/DELETE/MERGE → add/remove file actions in `_delta_log`), and a
   **Batch vs Real-Time** spectrum — `availableNow=True` framed as incremental batch, continuous
   streaming labelled *Architecture Evolution / Hypothetical*.
-- [ ] Iteration 4 — Silver, Gold, DLT/Lakeflow, SCD, Unity Catalog, security, monitoring.
-- [ ] Iteration 5 — Failure/debugging, incident simulator, data quality, CI/CD, DR, trace-a-record.
-- [ ] Iteration 6 — Interview system, follow-up engine, whiteboard, system design, quiz, cheat sheet.
-- [ ] Iteration 7 — Global search, cross-linking, learning path, progress tracking, code explorer, polish.
+- [x] **Iteration 4 — Data Lineage (Mode 4) + Trace a Record (Mode 5).** Upstream lineage for any
+  Gold asset; a single Spotify stream event animated end-to-end through the stack with per-stage
+  transformation. New records: SCD Type 1/2, data quality, security, monitoring.
+- [x] **Iteration 5 — Failure/Debugging (Mode 6) + Architecture Decision Engine (Mode 7).**
+  "Break the pipeline" playbooks (Symptom→Root Cause→Investigation→Recovery→Impact→Prevention→Interview),
+  a Production Incident Simulator, and why-this/why-not decision matrices for every major technology.
+- [x] **Iteration 6 — Interview (Mode 8) + Whiteboard (Mode 9) + Quiz (Mode 10).** Level-filtered
+  interview bank (L1 definition → L6 system design) with strong/senior answers and follow-ups;
+  place-and-compare whiteboard; scored quiz with per-answer explanations. **All 10 modes now live.**
+- [ ] Iteration 7 (polish) — global search, cross-linking, learning path, progress tracking, code explorer.
 
 ## Structure
 

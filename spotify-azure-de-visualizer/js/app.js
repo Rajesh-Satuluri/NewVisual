@@ -11,13 +11,13 @@ const MODES = [
   { id: "complete",   n: 1,  label: "Complete Architecture", live: true },
   { id: "batch",      n: 2,  label: "Batch / Incremental",   live: true },
   { id: "streaming",  n: 3,  label: "Streaming / Micro-Batch", live: true },
-  { id: "lineage",    n: 4,  label: "Data Lineage",          live: false },
-  { id: "trace",      n: 5,  label: "Trace a Record",        live: false },
-  { id: "failure",    n: 6,  label: "Failure / Debugging",   live: false },
-  { id: "decisions",  n: 7,  label: "Architecture Decisions", live: false },
-  { id: "interview",  n: 8,  label: "Interview Mode",        live: false },
-  { id: "whiteboard", n: 9,  label: "Whiteboard Design",     live: false },
-  { id: "quiz",       n: 10, label: "Quiz Mode",             live: false }
+  { id: "lineage",    n: 4,  label: "Data Lineage",          live: true },
+  { id: "trace",      n: 5,  label: "Trace a Record",        live: true },
+  { id: "failure",    n: 6,  label: "Failure / Debugging",   live: true },
+  { id: "decisions",  n: 7,  label: "Architecture Decisions", live: true },
+  { id: "interview",  n: 8,  label: "Interview Mode",        live: true },
+  { id: "whiteboard", n: 9,  label: "Whiteboard Design",     live: true },
+  { id: "quiz",       n: 10, label: "Quiz Mode",             live: true }
 ];
 
 let currentMode = "complete";
@@ -163,8 +163,12 @@ function setMode(m) {
     hint.style.display = "none";
     closePanel();
     modeView.classList.add("show");
-    if (m.id === "batch") buildMode2();
-    else if (m.id === "streaming") buildMode3();
+    modeView.scrollTop = 0;
+    ({
+      batch: buildMode2, streaming: buildMode3, lineage: buildMode4,
+      trace: buildMode5, failure: buildMode6, decisions: buildMode7,
+      interview: buildMode8, whiteboard: buildMode9, quiz: buildMode10
+    }[m.id])();
   }
 }
 function showLocked(m) {
