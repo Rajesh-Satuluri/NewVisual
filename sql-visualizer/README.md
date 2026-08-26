@@ -13,8 +13,8 @@ as-is in **SSMS 19 / 21** (SQL Server 2019 / 2022). For every problem (once cont
 
 **Live:** https://rajesh-satuluri.github.io/NewVisual/sql-visualizer/
 
-> **Status:** app + SQL-adapted problem view are live, with a **curated set of
-> ~65 problems across all 12 topics**: Aggregation & Grouping, Filtering &
+> **Status:** app + SQL-adapted problem view are live, with **~145 problems
+> across all 12 topics** (the full backlog): Aggregation & Grouping, Filtering &
 > Subqueries, Ranking, Joins, Window Functions, CTE & Complex Joins, String &
 > Date Functions, Recursive / Hierarchy, Pivot / Conditional Agg, Gaps &
 > Islands, Set Operations, and DML / DDL. A dev-only validation harness lives in
