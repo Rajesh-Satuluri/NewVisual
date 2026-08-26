@@ -15,6 +15,7 @@
       theme: "dark",
       codeMode: "rcs",       // "rcs" | "plain"
       blur: false,           // blur logic + code until revealed
+      setFilter: "all",      // "all" (NeetCode 150) | "blind75"
       lastProblem: null,
       collapsedCats: {}      // category -> true if collapsed in sidebar
     }

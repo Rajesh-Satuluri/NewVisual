@@ -35,7 +35,16 @@
   display: flex; flex-direction: column;
   overflow: hidden;
 }
-.progress-box { padding: 16px 16px 14px; border-bottom: 1px solid var(--border-soft); }
+.set-toggle { display: flex; gap: 4px; padding: 12px 14px 0; }
+.set-btn {
+  flex: 1; padding: 8px 10px; font-size: 12.5px; font-weight: 700; cursor: pointer;
+  background: var(--bg-2); border: 1px solid var(--border); color: var(--muted);
+  border-radius: 8px; transition: background .12s ease, color .12s ease, border-color .12s ease;
+}
+.set-btn:hover { color: var(--text); }
+.set-btn.active { background: var(--brand); border-color: var(--brand); color: #06111f; }
+
+.progress-box { padding: 14px 16px 14px; border-bottom: 1px solid var(--border-soft); }
 .progress-head { display: flex; justify-content: space-between; align-items: baseline; font-weight: 600; font-size: 14px; }
 .progress-track { height: 8px; background: var(--bg-3); border-radius: 6px; margin: 10px 0 6px; overflow: hidden; }
 .progress-fill { height: 100%; width: 0; background: linear-gradient(90deg, var(--brand), var(--brand-2)); border-radius: 6px; transition: width .35s ease; }

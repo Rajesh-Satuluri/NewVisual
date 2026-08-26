@@ -15,6 +15,7 @@
     "Heap / Priority Queue",
     "Backtracking",
     "Graphs",
+    "Advanced Graphs",
     "1-D Dynamic Programming",
     "2-D Dynamic Programming",
     "Greedy",
@@ -36,6 +37,7 @@
     "Heap / Priority Queue": "▲",
     "Backtracking": "↺",
     "Graphs": "◎",
+    "Advanced Graphs": "◈",
     "1-D Dynamic Programming": "①",
     "2-D Dynamic Programming": "②",
     "Greedy": "⚑",
@@ -44,12 +46,33 @@
     "Bit Manipulation": "⚙"
   };
 
+  // LeetCode numbers of the classic Blind 75 (the original set this tool shipped
+  // with). Every problem whose lc is in this set is part of Blind 75; everything
+  // else is a NeetCode-150 addition. Used by the [All 150 | Blind 75] filter.
+  var BLIND75_LC = [
+    1, 3, 5, 10, 11, 15, 19, 20, 21, 23, 33, 39, 45, 48, 51, 53, 54, 55, 56, 57,
+    62, 70, 73, 76, 91, 98, 100, 102, 104, 105, 121, 124, 128, 133, 139, 141, 143,
+    152, 153, 155, 190, 191, 198, 200, 207, 208, 211, 212, 213, 215, 217, 226, 230,
+    235, 238, 252, 253, 261, 268, 269, 271, 295, 300, 322, 323, 338, 347, 371, 417,
+    424, 435, 572, 647, 1143, 1235
+  ];
+  var BLIND75_SET = {};
+  for (var _b = 0; _b < BLIND75_LC.length; _b++) BLIND75_SET[BLIND75_LC[_b]] = true;
+
   var registry = {}; // category -> [problems]
 
   window.BLIND75 = {
     CATEGORY_ORDER: CATEGORY_ORDER,
     CATEGORY_ICON: CATEGORY_ICON,
+    BLIND75_SET: BLIND75_SET,
     _registry: registry,
+
+    // A problem is Blind 75 if flagged explicitly, else by its LeetCode number.
+    isBlind75: function (p) {
+      if (p && p.blind75 === true) return true;
+      if (p && p.blind75 === false) return false;
+      return !!(p && BLIND75_SET[p.lc]);
+    },
 
     register: function (category, problems) {
       if (!registry[category]) registry[category] = [];
