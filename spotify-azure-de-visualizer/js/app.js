@@ -9,8 +9,8 @@
    The rest are declared and gated so the roadmap is visible. */
 const MODES = [
   { id: "complete",   n: 1,  label: "Complete Architecture", live: true },
-  { id: "batch",      n: 2,  label: "Batch / Incremental",   live: false },
-  { id: "streaming",  n: 3,  label: "Streaming / Micro-Batch", live: false },
+  { id: "batch",      n: 2,  label: "Batch / Incremental",   live: true },
+  { id: "streaming",  n: 3,  label: "Streaming / Micro-Batch", live: true },
   { id: "lineage",    n: 4,  label: "Data Lineage",          live: false },
   { id: "trace",      n: 5,  label: "Trace a Record",        live: false },
   { id: "failure",    n: 6,  label: "Failure / Debugging",   live: false },
@@ -144,6 +144,28 @@ function setMode(m) {
   currentMode = m.id;
   document.getElementById("lockedView").classList.remove("show");
   document.querySelectorAll(".mode-chip").forEach((c, i) => c.classList.toggle("active", MODES[i].id === currentMode));
+
+  const diagram = document.getElementById("diagram");
+  const toolbar = document.querySelector(".canvas-toolbar");
+  const hint = document.getElementById("diagramHint");
+  const modeView = document.getElementById("modeView");
+
+  if (m.id === "complete") {
+    // architecture diagram
+    diagram.style.display = "block";
+    toolbar.style.display = "flex";
+    hint.style.display = "";
+    modeView.classList.remove("show");
+  } else {
+    // an interactive mode view
+    diagram.style.display = "none";
+    toolbar.style.display = "none";
+    hint.style.display = "none";
+    closePanel();
+    modeView.classList.add("show");
+    if (m.id === "batch") buildMode2();
+    else if (m.id === "streaming") buildMode3();
+  }
 }
 function showLocked(m) {
   const lv = document.getElementById("lockedView");
