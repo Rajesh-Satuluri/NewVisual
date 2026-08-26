@@ -611,6 +611,16 @@
     });
     pf.addEventListener("change", function (e) { state.filterPattern = e.target.value; renderSidebar(); });
 
+    // expand / collapse all categories
+    function setAllCollapsed(collapsed) {
+      B.byCategory().forEach(function (g) { store.setCatCollapsed(g.category, collapsed); });
+      renderSidebar();
+    }
+    var expandAllBtn = el("expandAll");
+    if (expandAllBtn) expandAllBtn.addEventListener("click", function () { setAllCollapsed(false); });
+    var collapseAllBtn = el("collapseAll");
+    if (collapseAllBtn) collapseAllBtn.addEventListener("click", function () { setAllCollapsed(true); });
+
     el("clearFilters").addEventListener("click", function () {
       state.query = ""; state.filterDifficulty = "all"; state.filterStatus = "all"; state.filterPattern = "all";
       search.value = ""; el("filterDifficulty").value = "all"; el("filterStatus").value = "all"; pf.value = "all";
