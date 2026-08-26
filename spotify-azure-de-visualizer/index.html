@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spotify Azure DE — Architecture & Interview Visualizer</title>
+  <meta name="description" content="Interactive Data Engineering lab for the Spotify Azure project: architecture visualizer, implementation lab, production debugging simulator, and senior interview coach." />
+  <link rel="stylesheet" href="css/main.css" />
+</head>
+<body>
+
+  <!-- Top bar -->
+  <header class="appbar">
+    <div class="brand-mark">
+      <div class="dot">🎧</div>
+      <div>
+        <h1>Spotify Azure Data Engineering</h1>
+        <div class="sub">Architecture · Implementation · Debugging · Interview Visualizer</div>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <input id="search" class="search" placeholder="Search (e.g. watermark, Auto Loader)…" />
+    <a class="homelink" href="../index.html">← All labs</a>
+  </header>
+
+  <!-- Mode rail (Mode 1 live in Iteration 1) -->
+  <nav class="modes" id="modeRail"></nav>
+
+  <!-- Main stage -->
+  <main class="stage">
+    <div class="canvas-wrap">
+      <div class="canvas-toolbar">
+        <button class="tbtn primary" id="explainBtn">✨ Explain Architecture</button>
+        <div class="zoomgroup">
+          <button class="tbtn" id="zoomOut">−</button>
+          <button class="tbtn" id="zoomIn">+</button>
+          <button class="tbtn" id="zoomReset">Reset</button>
+          <button class="tbtn" id="fitBtn">Fit</button>
+        </div>
+        <button class="tbtn" id="flowBtn">⏸ Pause flow</button>
+      </div>
+
+      <svg id="diagram"></svg>
+
+      <div class="hint">Click a component to open its 9-layer breakdown · drag to pan · scroll to zoom · double-click empty space to clear highlight</div>
+
+      <!-- Locked-mode placeholder -->
+      <div class="locked-view" id="lockedView">
+        <div class="big">🚧</div>
+        <h3></h3>
+        <p></p>
+        <div class="rmap"></div>
+        <button class="tbtn primary" style="margin-top:22px" onclick="setMode(MODES[0]); document.getElementById('lockedView').classList.remove('show')">← Back to Complete Architecture</button>
+      </div>
+    </div>
+
+    <!-- Side panel -->
+    <aside class="panel" id="panel">
+      <div class="panel-head">
+        <div class="kicker" id="panelKicker">Architecture Component</div>
+        <h2 id="panelTitle">—</h2>
+        <div class="tech" id="panelTech"></div>
+        <button class="panel-close" id="panelClose">✕</button>
+      </div>
+      <div class="panel-body" id="panelBody"></div>
+    </aside>
+  </main>
+
+  <!-- Overlay (walkthrough + what-if) -->
+  <div class="overlay-scrim" id="overlay">
+    <div class="walk-card">
+      <div class="walk-head">
+        <div>
+          <div class="kicker" id="walkKicker" style="font-size:10.5px;text-transform:uppercase;letter-spacing:.14em;color:var(--brand2);font-weight:700">Explain Architecture</div>
+          <h3 id="walkTitle" style="font-size:19px;margin-top:4px">—</h3>
+        </div>
+        <div class="step-dots" id="walkDots"></div>
+      </div>
+      <div class="walk-body" id="walkBody"></div>
+      <div class="walk-foot">
+        <button class="tbtn" id="walkPrev">← Back</button>
+        <div class="spacer"></div>
+        <button class="tbtn primary" id="walkNext">Next →</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="data/content.js"></script>
+  <script src="js/explain.js"></script>
+  <script src="js/architecture.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
