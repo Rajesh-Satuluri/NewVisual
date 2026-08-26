@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PySpark Interview Lab — Interactive Study Tool</title>
+  <meta name="description" content="An interactive study tool for PySpark interview coding questions: paraphrased prompts, sample DataFrames, plain-English logic, RCS + clean PySpark, the Spark SQL equivalent, Spark internals & performance notes, recognize-and-recall cues, and progress tracking." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23e8590c'/%3E%3Ctext x='50' y='68' font-size='46' font-family='Arial' font-weight='bold' text-anchor='middle' fill='%23fff'%3E%E2%9A%A1%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="css/prism-tomorrow.css" />
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/layout.css" />
+  <link rel="stylesheet" href="css/components.css" />
+</head>
+<body>
+  <!-- ============ TOP BAR ============ -->
+  <header class="topbar">
+    <button id="menuBtn" class="icon-btn menu-only" aria-label="Toggle sidebar">☰</button>
+    <a class="brand" href="#">
+      <span class="brand-mark">⚡</span>
+      <span class="brand-text">PySpark <b>Interview</b> Lab</span>
+    </a>
+    <div class="topbar-right">
+      <button id="gridBtn" class="ghost-btn" title="Revision grid">▦ Revision grid</button>
+      <button id="exportBtn" class="ghost-btn" title="Download progress as JSON">↓ Export</button>
+      <button id="importBtn" class="ghost-btn" title="Import progress JSON">↑ Import</button>
+      <input id="importFile" type="file" accept="application/json" hidden />
+      <button id="resetBtn" class="ghost-btn danger" title="Reset all progress">⟳ Reset</button>
+      <button id="themeBtn" class="ghost-btn">☀ Light</button>
+      <a class="ghost-btn" href="../index.html" title="Back to NewVisual labs">⌂ Labs</a>
+    </div>
+  </header>
+
+  <div class="shell">
+    <!-- ============ SIDEBAR ============ -->
+    <aside class="sidebar">
+      <div id="setToggle" class="set-toggle" role="tablist" aria-label="Difficulty set">
+        <button class="set-btn active" data-set="all" role="tab">All</button>
+        <button class="set-btn" data-set="Easy" role="tab">Easy</button>
+        <button class="set-btn" data-set="Medium" role="tab">Medium</button>
+        <button class="set-btn" data-set="Hard" role="tab">Hard</button>
+      </div>
+      <div class="progress-box">
+        <div class="progress-head">
+          <span id="progressText">0 / 0 solved</span>
+          <span id="progressSub" class="muted">0 learning</span>
+        </div>
+        <div class="progress-track"><div id="progressFill" class="progress-fill"></div></div>
+        <div class="progress-foot muted"><span id="totalCount">0</span> <span id="setLabel">all</span> problems in view</div>
+      </div>
+
+      <div class="search-box">
+        <input id="search" type="text" placeholder="Search title, pattern, transformation, function…  ( / )" autocomplete="off" />
+      </div>
+
+      <div class="filters">
+        <select id="filterStatus" title="Filter by status">
+          <option value="all">Any status</option>
+          <option value="not-started">Not started</option>
+          <option value="learning">Learning</option>
+          <option value="solved">Solved</option>
+          <option value="review">★ Review queue</option>
+        </select>
+        <select id="filterPattern" title="Filter by pattern">
+          <option value="all">All patterns</option>
+        </select>
+        <button id="clearFilters" class="clear-btn" title="Clear search & filters">✕</button>
+      </div>
+
+      <div class="nav-tools">
+        <button id="expandAll" class="nav-tool-btn" title="Expand all categories">▾ Expand all</button>
+        <button id="collapseAll" class="nav-tool-btn" title="Collapse all categories">▸ Collapse all</button>
+      </div>
+
+      <nav id="nav" class="nav"></nav>
+    </aside>
+
+    <!-- ============ MAIN ============ -->
+    <main id="main" class="main"></main>
+  </div>
+
+  <!-- ============ REVISION GRID MODAL ============ -->
+  <div id="gridModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2>Revision Grid</h2>
+        <button id="gridClose" class="icon-btn">✕</button>
+      </div>
+      <div id="gridBody" class="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- ============ SCRIPTS ============ -->
+  <script src="js/vendor/prism.js"></script>
+  <script src="js/vendor/prism-python.js"></script>
+  <script src="js/vendor/prism-sql.js"></script>
+  <script src="js/vendor/fuse.js"></script>
+
+  <script src="js/core.js"></script>
+  <script src="js/modules/markdown.js"></script>
+  <script src="js/modules/store.js"></script>
+
+  <!-- data (canonical order) -->
+  <script src="data/dataframe_basics.js"></script>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
