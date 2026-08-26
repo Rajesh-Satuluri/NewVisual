@@ -43,7 +43,11 @@ Every explanation carries a source badge and a classification tag:
 - [x] **Iteration 6 — Interview (Mode 8) + Whiteboard (Mode 9) + Quiz (Mode 10).** Level-filtered
   interview bank (L1 definition → L6 system design) with strong/senior answers and follow-ups;
   place-and-compare whiteboard; scored quiz with per-answer explanations. **All 10 modes now live.**
-- [ ] Iteration 7 (polish) — global search, cross-linking, learning path, progress tracking, code explorer.
+- [x] **Iteration 7 — Polish.** Global search across every content record (title + all layer text),
+  cross-linking (related-concept chips in every panel), a **Learning Path** over the 17 handbook
+  modules, browser-local **Progress Tracking** across the six knowledge dimensions with weak-area
+  callouts, and a **Code Explorer** (4 representative snippets, each with the 8-question treatment,
+  labelled *Illustrative*). **The visualizer is now feature-complete.**
 
 ## Structure
 
