@@ -42,7 +42,10 @@
 
       <svg id="diagram"></svg>
 
-      <div class="hint">Click a component to open its 9-layer breakdown · drag to pan · scroll to zoom · double-click empty space to clear highlight</div>
+      <div class="hint" id="diagramHint">Click a component to open its 9-layer breakdown · drag to pan · scroll to zoom · double-click empty space to clear highlight</div>
+
+      <!-- Mode views (Iterations 2 & 3) render here -->
+      <div class="mode-view" id="modeView"></div>
 
       <!-- Locked-mode placeholder -->
       <div class="locked-view" id="lockedView">
@@ -86,7 +89,9 @@
   </div>
 
   <script src="data/content.js"></script>
+  <script src="data/content-modes.js"></script>
   <script src="js/explain.js"></script>
+  <script src="js/modes.js"></script>
   <script src="js/architecture.js"></script>
   <script src="js/app.js"></script>
 </body>

@@ -25,8 +25,15 @@ Every explanation carries a source badge and a classification tag:
   (Azure SQL → ADF → Bronze → Databricks/Auto Loader → Silver → DLT/Lakeflow → Gold → Unity Catalog →
   Consumers) with zoom, pan, clickable nodes, upstream/downstream highlighting, animated data flow,
   per-node **WHY?** and **WHAT IF?**, and a progressive **Explain Architecture** walkthrough.
-- [ ] Iteration 2 — Batch/incremental simulators (watermark, watermark-failure, backfill, ADF pipeline).
-- [ ] Iteration 3 — Streaming, Auto Loader, checkpoint internals, Delta internals.
+- [x] **Iteration 2 — Batch / Incremental mode.** ADF pipeline visualizer (clickable
+  `PL_SPOTIFY_INCREMENTAL_LOAD` activities), First-run vs Subsequent-run toggle, a live
+  **Watermark Simulator** (editable boundaries + `updated_at`, shows exactly which rows select),
+  a **Watermark Failure** stepper, and a **Backfill Simulator**.
+- [x] **Iteration 3 — Streaming / Micro-Batch mode.** Auto Loader flow, **Checkpoint Internals**
+  (offsets/commits/sources/schema), a trigger-selectable **Micro-Batch Timeline**, **Delta
+  Internals** (INSERT/UPDATE/DELETE/MERGE → add/remove file actions in `_delta_log`), and a
+  **Batch vs Real-Time** spectrum — `availableNow=True` framed as incremental batch, continuous
+  streaming labelled *Architecture Evolution / Hypothetical*.
 - [ ] Iteration 4 — Silver, Gold, DLT/Lakeflow, SCD, Unity Catalog, security, monitoring.
 - [ ] Iteration 5 — Failure/debugging, incident simulator, data quality, CI/CD, DR, trace-a-record.
 - [ ] Iteration 6 — Interview system, follow-up engine, whiteboard, system design, quiz, cheat sheet.
