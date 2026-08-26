@@ -36,6 +36,7 @@ function openPanel(recId) {
   techEl.textContent = rec ? rec.tech : "";
   body.innerHTML = renderExplanation(recId);
   panel.classList.add("open");
+  if (typeof trackRecord === "function") trackRecord(recId);
 
   // wire in-panel actions
   body.querySelectorAll("[data-goto]").forEach(c =>
@@ -142,6 +143,7 @@ function setMode(m) {
     return;
   }
   currentMode = m.id;
+  if (typeof trackMode === "function") trackMode(m.id);
   document.getElementById("lockedView").classList.remove("show");
   document.querySelectorAll(".mode-chip").forEach((c, i) => c.classList.toggle("active", MODES[i].id === currentMode));
 
@@ -256,8 +258,10 @@ function boot() {
   const search = document.getElementById("search");
   search.addEventListener("keydown", (e) => { if (e.key === "Enter") doSearch(search.value); });
 
+  if (typeof initPolish === "function") initPolish();
+
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") { closeOverlay(); closePanel(); }
+    if (e.key === "Escape") { closeOverlay(); closePanel(); if (typeof closeModal === "function") closeModal(); }
   });
 }
 document.addEventListener("DOMContentLoaded", boot);

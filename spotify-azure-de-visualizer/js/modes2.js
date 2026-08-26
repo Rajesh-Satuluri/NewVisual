@@ -292,6 +292,7 @@ function buildMode10() {
 function renderQuiz() {
   const card = document.getElementById("quizCard");
   if (quizIdx >= window.QUIZ.length) {
+    if (typeof setQuizBest === "function") setQuizBest(quizScore);
     card.innerHTML = `<div class="quiz-done"><h3>Score: ${quizScore} / ${window.QUIZ.length}</h3>
       <p class="mv-lead">${quizScore === window.QUIZ.length ? "Perfect — interview-ready on these." : "Review the explanations for anything you missed."}</p>
       <button class="tbtn primary" id="qRestart">Restart quiz</button></div>`;

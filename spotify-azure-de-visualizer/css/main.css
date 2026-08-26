@@ -443,3 +443,50 @@ aside.panel.open { width: 440px; }
 .quiz-fb .tbtn { margin-top: 10px; }
 .quiz-done { text-align: center; padding: 30px; }
 .quiz-done h3 { font-size: 28px; margin-bottom: 8px; }
+
+/* ============================================================
+   Iteration 7 — polish (search, progress, learn, code)
+   ============================================================ */
+.search-wrap { position: relative; }
+.search-drop { position: absolute; top: 40px; right: 0; width: 340px; max-height: 380px; overflow-y: auto;
+  background: var(--panel); border: 1px solid var(--border-2); border-radius: 12px; box-shadow: var(--shadow);
+  z-index: 50; display: none; padding: 6px; }
+.search-drop.show { display: block; }
+.sd-item { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 9px; cursor: pointer; font-size: 13px; }
+.sd-item:hover { background: var(--bg-2); }
+.sd-icon { font-size: 16px; }
+.sd-title { font-weight: 600; }
+.appbar .homelink { cursor: pointer; background: var(--bg-2); font-family: var(--font); }
+
+/* progress */
+.prog-grid { display: flex; flex-direction: column; gap: 12px; margin: 14px 0; }
+.prog-row { display: grid; grid-template-columns: 130px 1fr 44px; align-items: center; gap: 12px; }
+.prog-label { font-size: 13px; font-weight: 600; }
+.prog-bar { height: 12px; background: var(--bg-2); border: 1px solid var(--border-2); border-radius: 999px; overflow: hidden; }
+.prog-fill { height: 100%; background: linear-gradient(90deg, var(--brand), var(--brand2)); border-radius: 999px; transition: width .4s ease; }
+.prog-val { font-size: 12.5px; font-weight: 700; color: var(--brand2); text-align: right; font-family: var(--mono); }
+
+/* learn */
+.learn-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.learn-row { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 12px; background: var(--bg-1); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; }
+.learn-n { width: 26px; height: 26px; border-radius: 7px; background: var(--brand2); color: #04160b; font-weight: 800; font-size: 12px; display: grid; place-items: center; }
+.learn-t { font-size: 13px; font-weight: 600; }
+.learn-go { display: flex; gap: 6px; }
+.learn-go .chip { cursor: pointer; font-size: 11.5px; padding: 5px 9px; border: 1px solid var(--border-2); border-radius: 8px; color: var(--muted); white-space: nowrap; }
+.learn-go .chip:hover { border-color: var(--brand2); color: var(--text); }
+
+/* code explorer */
+.code-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.codeblk { background: var(--bg-1); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.codeblk > summary { list-style: none; cursor: pointer; padding: 13px 15px; font-size: 14px; display: flex; align-items: center; gap: 9px; }
+.codeblk > summary::-webkit-details-marker { display: none; }
+.codeblk .chev { color: var(--faint); font-size: 12px; transition: transform .16s ease; }
+.codeblk[open] .chev { transform: rotate(90deg); }
+.csrc { margin-left: auto; font-size: 10.5px; color: var(--faint); font-family: var(--mono); }
+.codebody { padding: 4px 16px 16px; font-size: 12.5px; line-height: 1.6; color: #d3ddf0; }
+.codebody p { margin: 7px 0; }
+.codebody ul { margin: 6px 0 6px; padding-left: 18px; }
+pre.code { background: #0a0f1a; border: 1px solid var(--border); border-radius: 9px; padding: 13px 15px; overflow-x: auto; font-family: var(--mono); font-size: 12px; line-height: 1.6; color: #cfe3ff; margin: 4px 0 12px; white-space: pre; }
+.cwrong { color: #f7c463; }
+#modal .walk-card { width: min(720px, 100%); }
+#modal .walk-body { max-height: 74vh; overflow-y: auto; }
