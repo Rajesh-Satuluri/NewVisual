@@ -1,6 +1,8 @@
-# Blind 75 — Interactive DSA Study Lab
+# NeetCode 150 — Interactive DSA Study Lab
 
-An interactive study tool for the **Blind 75** LeetCode problems. For every problem:
+An interactive study tool for the **NeetCode 150** LeetCode problems, with a built-in
+**[ All 150 | Blind 75 ]** filter to study either set. (The classic Blind 75 is a subset.)
+For every problem:
 
 - **Problem Description** — a faithful paraphrase (not copyrighted LeetCode text), with constraints and notes
 - **Examples** — 3–5 worked examples with step-by-step reasoning and ASCII visuals

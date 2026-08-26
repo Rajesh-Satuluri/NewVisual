@@ -37,6 +37,7 @@
     filterDifficulty: "all",
     filterStatus: "all",
     filterPattern: "all",
+    setFilter: store.getPref("setFilter") || "all",  // "all" (NeetCode 150) | "blind75"
     approachIndex: {}   // problemId -> selected approach index
   };
 
@@ -67,6 +68,15 @@
     return Object.keys(set).sort();
   }
 
+  // Is a problem in the currently-selected study set (All 150 vs Blind 75)?
+  function inActiveSet(p) {
+    return state.setFilter === "blind75" ? B.isBlind75(p) : true;
+  }
+  // Problems of the active set (optionally within a given list).
+  function activeProblems(list) {
+    return (list || ALL).filter(inActiveSet);
+  }
+
   // Which problems pass the current filters/search? Returns a Set of ids.
   function visibleIds() {
     var base = ALL;
@@ -75,6 +85,7 @@
     }
     var ids = {};
     base.forEach(function (p) {
+      if (!inActiveSet(p)) return;
       if (state.filterDifficulty !== "all" && p.difficulty !== state.filterDifficulty) return;
       if (state.filterStatus !== "all") {
         var st = store.getStatus(p.id);
@@ -99,14 +110,15 @@
       if (!matching.length) return;
 
       var collapsed = store.isCatCollapsed(g.category);
-      var solvedInCat = g.problems.filter(function (p) { return store.getStatus(p.id) === "solved"; }).length;
+      var inSet = activeProblems(g.problems);
+      var solvedInCat = inSet.filter(function (p) { return store.getStatus(p.id) === "solved"; }).length;
 
       var header = h("button", { class: "cat-header", "data-cat": g.category });
       header.innerHTML =
         '<span class="cat-caret">' + (collapsed ? "▸" : "▾") + "</span>" +
         '<span class="cat-icon">' + (B.CATEGORY_ICON[g.category] || "•") + "</span>" +
         '<span class="cat-name">' + esc(g.category) + "</span>" +
-        '<span class="cat-count">' + solvedInCat + "/" + g.problems.length + "</span>";
+        '<span class="cat-count">' + solvedInCat + "/" + inSet.length + "</span>";
       header.addEventListener("click", function () {
         store.setCatCollapsed(g.category, !store.isCatCollapsed(g.category));
         renderSidebar();
@@ -140,13 +152,22 @@
 
   // ============================================================= PROGRESS
   function renderProgress() {
-    var solved = store.countSolved();
-    var learning = store.countLearning();
-    var total = ALL.length;
+    var set = activeProblems();
+    var solved = 0, learning = 0;
+    set.forEach(function (p) {
+      var s = store.getStatus(p.id);
+      if (s === "solved") solved++;
+      else if (s === "learning") learning++;
+    });
+    var total = set.length;
     var pct = total ? Math.round((solved / total) * 100) : 0;
     el("progressText").textContent = solved + " / " + total + " solved";
     el("progressSub").textContent = learning + " learning";
     el("progressFill").style.width = pct + "%";
+    var tc = el("totalCount");
+    if (tc) tc.textContent = total;
+    var lbl = el("setLabel");
+    if (lbl) lbl.textContent = state.setFilter === "blind75" ? "Blind 75" : "NeetCode 150";
   }
 
   // ============================================================= CODE BLOCK
@@ -524,7 +545,7 @@
     table.innerHTML = "<thead><tr><th>#</th><th>Problem</th><th>Category</th><th>Difficulty</th>" +
       "<th>Pattern</th><th>Time</th><th>Space</th><th>Status</th></tr></thead>";
     var tbody = h("tbody");
-    ALL.forEach(function (p) {
+    activeProblems().forEach(function (p) {
       var a0 = p.approaches[p.approaches.length - 1] || {};
       var stt = store.getStatus(p.id);
       var tr = h("tr", { class: "grid-row" });
@@ -546,12 +567,40 @@
   }
 
   // ============================================================= CONTROLS
+  function applySetFilter(value) {
+    state.setFilter = value;
+    store.setPref("setFilter", value);
+    // reflect on the segmented control
+    var btns = document.querySelectorAll("#setToggle .set-btn");
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].classList.toggle("active", btns[i].getAttribute("data-set") === value);
+    }
+    // if the current problem falls outside the new set, jump to the first in-set one
+    var cur = byId[state.currentId];
+    if (cur && !inActiveSet(cur)) {
+      var first = activeProblems()[0];
+      if (first) { state.currentId = first.id; store.setPref("lastProblem", first.id); }
+    }
+    renderAll();
+  }
+
   function wireControls() {
     var search = el("search");
     search.addEventListener("input", function () {
       state.query = search.value;
       renderSidebar();
     });
+
+    // set toggle: All 150 vs Blind 75
+    var setToggle = el("setToggle");
+    if (setToggle) {
+      var sbtns = setToggle.querySelectorAll(".set-btn");
+      for (var si = 0; si < sbtns.length; si++) {
+        sbtns[si].addEventListener("click", function (e) {
+          applySetFilter(e.currentTarget.getAttribute("data-set"));
+        });
+      }
+    }
 
     el("filterDifficulty").addEventListener("change", function (e) { state.filterDifficulty = e.target.value; renderSidebar(); });
     el("filterStatus").addEventListener("change", function (e) { state.filterStatus = e.target.value; renderSidebar(); });
@@ -654,7 +703,17 @@
       var id = location.hash.slice(1);
       if (byId[id]) state.currentId = id;
     }
-    el("totalCount").textContent = ALL.length;
+    // reflect the persisted set filter on the segmented control
+    var sbtns = document.querySelectorAll("#setToggle .set-btn");
+    for (var i = 0; i < sbtns.length; i++) {
+      sbtns[i].classList.toggle("active", sbtns[i].getAttribute("data-set") === state.setFilter);
+    }
+    // ensure the current problem is inside the active set
+    var cur = byId[state.currentId];
+    if (cur && !inActiveSet(cur)) {
+      var first = activeProblems()[0];
+      if (first) state.currentId = first.id;
+    }
     wireControls();
     renderAll();
 

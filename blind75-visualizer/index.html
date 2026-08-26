@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Blind 75 — Interactive DSA Study Lab</title>
-  <meta name="description" content="An interactive study tool for the Blind 75 LeetCode problems: paraphrased statements, worked examples, plain-English logic, RCS + clean Python, complexity, and progress tracking." />
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%234f8cff'/%3E%3Ctext x='50' y='68' font-size='52' font-family='Arial' font-weight='bold' text-anchor='middle' fill='%23071120'%3E75%3C/text%3E%3C/svg%3E" />
+  <title>NeetCode 150 — Interactive DSA Study Lab</title>
+  <meta name="description" content="An interactive study tool for the NeetCode 150 (incl. Blind 75) LeetCode problems: paraphrased statements, worked examples, plain-English logic, RCS + clean Python, complexity, pattern recognition, and progress tracking." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%234f8cff'/%3E%3Ctext x='50' y='70' font-size='40' font-family='Arial' font-weight='bold' text-anchor='middle' fill='%23071120'%3E150%3C/text%3E%3C/svg%3E" />
   <link rel="stylesheet" href="css/prism-tomorrow.css" />
   <link rel="stylesheet" href="css/main.css" />
   <link rel="stylesheet" href="css/layout.css" />
@@ -16,11 +16,11 @@
   <header class="topbar">
     <button id="menuBtn" class="icon-btn menu-only" aria-label="Toggle sidebar">☰</button>
     <a class="brand" href="#">
-      <span class="brand-mark">75</span>
-      <span class="brand-text">Blind <b>75</b> · DSA Study Lab</span>
+      <span class="brand-mark">150</span>
+      <span class="brand-text">NeetCode <b>150</b> · DSA Study Lab</span>
     </a>
     <div class="topbar-right">
-      <button id="gridBtn" class="ghost-btn" title="All-75 revision grid">▦ Revision grid</button>
+      <button id="gridBtn" class="ghost-btn" title="Revision grid">▦ Revision grid</button>
       <button id="exportBtn" class="ghost-btn" title="Download progress as JSON">↓ Export</button>
       <button id="importBtn" class="ghost-btn" title="Import progress JSON">↑ Import</button>
       <input id="importFile" type="file" accept="application/json" hidden />
@@ -33,13 +33,17 @@
   <div class="shell">
     <!-- ============ SIDEBAR ============ -->
     <aside class="sidebar">
+      <div id="setToggle" class="set-toggle" role="tablist" aria-label="Study set">
+        <button class="set-btn active" data-set="all" role="tab">All 150</button>
+        <button class="set-btn" data-set="blind75" role="tab">Blind 75</button>
+      </div>
       <div class="progress-box">
         <div class="progress-head">
-          <span id="progressText">0 / 75 solved</span>
+          <span id="progressText">0 / 150 solved</span>
           <span id="progressSub" class="muted">0 learning</span>
         </div>
         <div class="progress-track"><div id="progressFill" class="progress-fill"></div></div>
-        <div class="progress-foot muted">of <span id="totalCount">75</span> Blind 75 problems</div>
+        <div class="progress-foot muted">of <span id="totalCount">150</span> <span id="setLabel">NeetCode 150</span> problems</div>
       </div>
 
       <div class="search-box">
@@ -105,6 +109,7 @@
   <script src="data/heap.js"></script>
   <script src="data/backtracking.js"></script>
   <script src="data/graphs.js"></script>
+  <script src="data/advanced_graphs.js"></script>
   <script src="data/dp_1d.js"></script>
   <script src="data/dp_2d.js"></script>
   <script src="data/greedy.js"></script>
