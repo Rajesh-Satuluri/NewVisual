@@ -702,6 +702,987 @@
         "Cut the list with `slow.next = None` so the two halves are independent and the weave terminates.",
         "Drive the merge loop by the (shorter-or-equal) second half; save both `next` pointers before rewiring."
       ]
+    },
+
+    {
+      id: "reverse-linked-list",
+      lc: 206,
+      title: "Reverse Linked List",
+      difficulty: "Easy",
+      category: "Linked List",
+      link: "https://leetcode.com/problems/reverse-linked-list/",
+      meta: { pattern: "Pointer Reversal", dataStructure: "Linked List", technique: "prev/curr in-place flip" },
+      description:
+        "Given the `head` of a singly linked list, reverse the list and return the head of the reversed list.\n\n" +
+        "Each node's `next` pointer must be flipped so that the last node becomes the new head and the original head becomes the tail.",
+      constraints: [
+        "The number of nodes is in the range `[0, 5000]`.",
+        "`-5000 <= Node.val <= 5000`"
+      ],
+      notes: [
+        "The list may be empty (`head` is `null`).",
+        "Both an iterative `O(1)`-space and a recursive `O(n)`-stack solution are commonly expected."
+      ],
+      examples: [
+        {
+          input: "head = [1, 2, 3, 4, 5]",
+          output: "[5, 4, 3, 2, 1]",
+          reasoning: "Every `next` pointer is flipped so the chain runs backward.",
+          visual:
+            "```\nbefore: 1 -> 2 -> 3 -> 4 -> 5 -> null\nafter:  5 -> 4 -> 3 -> 2 -> 1 -> null\n```"
+        },
+        {
+          input: "head = [1, 2]",
+          output: "[2, 1]",
+          reasoning: "Two nodes swap direction: 2 becomes head, 1 becomes tail."
+        },
+        {
+          input: "head = []",
+          output: "[]",
+          reasoning: "An empty list reverses to an empty list."
+        },
+        {
+          input: "head = [7]",
+          output: "[7]",
+          reasoning: "A single node is its own reverse."
+        }
+      ],
+      approaches: [
+        {
+          name: "Iterative — prev/curr Pointer Flip",
+          time: "O(n)",
+          space: "O(1)",
+          whenToUse: "The standard, constant-space answer; reach for this first.",
+          logic:
+            "**What it asks.** Turn the chain `head -> ... -> tail -> null` into `tail -> ... -> head -> null` by redirecting every `next` pointer, then return the new head (the old tail).\n\n" +
+            "**Why the naive idea fails.** You could collect all values into an array and rebuild a fresh list from the back, but that allocates `O(n)` extra space and creates new nodes when the task is really just to rewire the existing ones. In-place pointer flipping does it with no extra structure.\n\n" +
+            "**Key Idea.** Walk the list once with a `curr` cursor while trailing a `prev` pointer that holds the portion already reversed. At each node, flip `curr.next` to point back at `prev` instead of forward. The only danger is that flipping the pointer destroys the link to the rest of the list, so you must save `curr.next` in a temporary before rewiring. `prev` starts at `null` because the original head must become the new tail, whose `next` is `null`.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Initialize `prev = None` (the eventual tail's `next`) and `curr = head`.\n" +
+            "2. While `curr` is non-null, first save `nxt = curr.next` so the remainder of the list is not lost.\n" +
+            "3. Flip the link: `curr.next = prev`, pointing the current node backward.\n" +
+            "4. Slide both pointers forward: `prev = curr`, then `curr = nxt`.\n" +
+            "5. When `curr` becomes `null`, `prev` is sitting on the old last node — the new head. Return `prev`.\n\n" +
+            "**Why it works.** Loop invariant: `prev` always heads a correctly-reversed prefix of the nodes seen so far, and `curr` heads the untouched remainder. Each iteration detaches one node from the remainder and prepends it to the reversed prefix, which keeps the invariant true. When the remainder is empty, `prev` heads the fully reversed list.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Save `curr.next` into a temp *before* overwriting `curr.next`, or you lose the rest of the list.\n" +
+            "- Start `prev` at `null`, not at `head`; the original head must end up with `next = null`.\n" +
+            "- Return `prev` (the new head), not `curr`, which is `null` at the end.\n\n" +
+            "**Complexity.** Time `O(n)` — one pass, flipping each pointer once. Space `O(1)` — three pointers, no extra structure.\n\n" +
+            "**Interview mindset.** 'Reverse a linked list' is the canonical `prev`/`curr` walk — memorize the save-flip-advance rhythm; it is a building block inside reorder, k-group reversal, and palindrome checks.",
+          rcs:
+            "class Solution:\n" +
+            "    def reverseList(self, head: Optional[ListNode]) -> Optional[ListNode]:\n" +
+            "        prev = None                     # Reversed prefix; also the eventual tail's next.\n" +
+            "        curr = head                     # Cursor over the untouched remainder.\n" +
+            "        while curr:                     # Until every node is flipped.\n" +
+            "            nxt = curr.next             # Save the rest before rewiring.\n" +
+            "            curr.next = prev            # Flip this node's pointer backward.\n" +
+            "            prev = curr                 # Reversed prefix now starts here.\n" +
+            "            curr = nxt                  # Advance into the remainder.\n" +
+            "        return prev                     # prev is the old tail = new head.",
+          plain:
+            "class Solution:\n" +
+            "    def reverseList(self, head: Optional[ListNode]) -> Optional[ListNode]:\n" +
+            "        prev = None\n" +
+            "        curr = head\n" +
+            "        while curr:\n" +
+            "            nxt = curr.next\n" +
+            "            curr.next = prev\n" +
+            "            prev = curr\n" +
+            "            curr = nxt\n" +
+            "        return prev"
+        },
+        {
+          name: "Recursive — Reverse from the Tail",
+          time: "O(n)",
+          space: "O(n)",
+          whenToUse: "When an interviewer asks for a recursive version, or to show you can reason about the call stack.",
+          logic:
+            "**What it asks.** Reverse the same list, but expressed recursively — letting the call stack do the trailing-pointer bookkeeping the iterative version does by hand.\n\n" +
+            "**Why the naive idea fails.** The iterative flip is already optimal in time; recursion trades its `O(1)` space for `O(n)` stack frames. It is worth knowing not for efficiency but because it clarifies the structure and is a common follow-up.\n\n" +
+            "**Key Idea.** Recurse to the end of the list first; the deepest call returns the new head (the old last node). As each frame unwinds, the current node's *successor* should now point back at the current node. Concretely, from node `head`, once `head.next` and everything after it is reversed, make `head.next.next = head` (the next node points back to us) and cut `head.next = None` so the old head becomes the tail.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Base case: if `head` is `null` or `head.next` is `null`, the list of length 0 or 1 is its own reverse — return `head`.\n" +
+            "2. Recurse on `head.next`; it returns `new_head`, the head of the already-reversed remainder.\n" +
+            "3. Rewire the boundary: `head.next.next = head` makes the node after `head` point back at `head`.\n" +
+            "4. Set `head.next = None` so `head` becomes the new tail with a null terminator.\n" +
+            "5. Return `new_head` unchanged up the stack — it stays the head at every level.\n\n" +
+            "**Why it works.** By the time a frame runs its rewiring, everything past `head` is already reversed and `head.next` is that reversed sublist's tail. Pointing that tail back at `head` and nulling `head.next` extends the reversal by exactly one node, and `new_head` — the original last node — is threaded back unchanged so the top-level call returns the correct head.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Do not forget `head.next = None`; without it the original head keeps its forward link and you create a two-node cycle.\n" +
+            "- Return `new_head` (bubbled up from the base case), never `head`.\n" +
+            "- Deep lists can hit Python's recursion limit; the iterative version avoids that.\n\n" +
+            "**Complexity.** Time `O(n)` — one call per node. Space `O(n)` — the recursion stack holds one frame per node.\n\n" +
+            "**Interview mindset.** The recursive form is the cleanest illustration of 'reverse the rest, then fix the one boundary link'; mention its `O(n)` stack cost as the reason the iterative version is preferred in practice.",
+          rcs:
+            "class Solution:\n" +
+            "    def reverseList(self, head: Optional[ListNode]) -> Optional[ListNode]:\n" +
+            "        if not head or not head.next:   # Length 0 or 1: already reversed.\n" +
+            "            return head\n" +
+            "        new_head = self.reverseList(head.next)  # Reverse everything after head.\n" +
+            "        head.next.next = head           # The next node points back at head.\n" +
+            "        head.next = None                # head becomes the new tail.\n" +
+            "        return new_head                 # Old last node stays the head throughout.",
+          plain:
+            "class Solution:\n" +
+            "    def reverseList(self, head: Optional[ListNode]) -> Optional[ListNode]:\n" +
+            "        if not head or not head.next:\n" +
+            "            return head\n" +
+            "        new_head = self.reverseList(head.next)\n" +
+            "        head.next.next = head\n" +
+            "        head.next = None\n" +
+            "        return new_head"
+        }
+      ],
+      patternRecognition: [
+        "'Reverse a linked list' or 'flip pointer direction' → the prev/curr save-flip-advance walk.",
+        "Reversal is a reusable subroutine inside reorder, palindrome, and k-group problems.",
+        "Constant-space requirement → iterative; 'do it recursively' → reverse-the-rest-then-fix-boundary."
+      ],
+      interviewRecall: [
+        "Iterative: `prev=None`, save `nxt`, `curr.next=prev`, advance both; return `prev`.",
+        "Always stash `curr.next` before flipping, or you lose the remainder of the list.",
+        "Recursive: reverse `head.next`, then `head.next.next=head` and `head.next=None`."
+      ]
+    },
+
+    {
+      id: "add-two-numbers",
+      lc: 2,
+      title: "Add Two Numbers",
+      difficulty: "Medium",
+      category: "Linked List",
+      link: "https://leetcode.com/problems/add-two-numbers/",
+      meta: { pattern: "Elementary Addition + Dummy Head", dataStructure: "Linked List", technique: "Digit-by-digit carry" },
+      description:
+        "You are given two non-empty linked lists, `l1` and `l2`, representing two non-negative integers. The digits are stored in **reverse order**, one digit per node (so the ones place is the head).\n\n" +
+        "Add the two numbers and return the sum as a linked list, also in reverse-order digits.\n\n" +
+        "Neither number has leading zeros, except the number 0 itself.",
+      constraints: [
+        "The number of nodes in each list is in the range `[1, 100]`.",
+        "`0 <= Node.val <= 9`",
+        "Each input represents a number without leading zeros."
+      ],
+      notes: [
+        "Reverse-order storage is convenient: the heads are the ones digits, so you add left to right exactly as you carry.",
+        "The lists may differ in length, and a final carry can add one more node."
+      ],
+      examples: [
+        {
+          input: "l1 = [2, 4, 3], l2 = [5, 6, 4]",
+          output: "[7, 0, 8]",
+          reasoning: "342 + 465 = 807, stored in reverse as 7 -> 0 -> 8.",
+          visual:
+            "```\n  2 -> 4 -> 3   (342)\n+ 5 -> 6 -> 4   (465)\n---------------\n  7 -> 0 -> 8   (807)   digit sums: 7, 10(->0 carry 1), 3+4+1=8\n```"
+        },
+        {
+          input: "l1 = [0], l2 = [0]",
+          output: "[0]",
+          reasoning: "0 + 0 = 0."
+        },
+        {
+          input: "l1 = [9, 9, 9, 9, 9, 9, 9], l2 = [9, 9, 9, 9]",
+          output: "[8, 9, 9, 9, 0, 0, 0, 1]",
+          reasoning: "9999999 + 9999 = 10009998; the final carry creates an extra leading node (1 at the end in reverse order).",
+          visual:
+            "```\n  9 9 9 9 9 9 9\n+ 9 9 9 9\n= 8 9 9 9 0 0 0 1   (carry propagates and adds one node)\n```"
+        },
+        {
+          input: "l1 = [5], l2 = [5]",
+          output: "[0, 1]",
+          reasoning: "5 + 5 = 10; the carry produces a second node."
+        }
+      ],
+      approaches: [
+        {
+          name: "Digit-by-Digit with Carry and a Dummy Head",
+          time: "O(max(n, m))",
+          space: "O(max(n, m))",
+          whenToUse: "The standard, single-pass answer for reverse-order digit lists.",
+          logic:
+            "**What it asks.** Add two numbers whose digits are given least-significant-first as linked lists, returning the sum in the same reverse-digit format.\n\n" +
+            "**Why the naive idea fails.** You might walk both lists to reconstruct two integers, add them, then rebuild a list from the sum's digits. In many languages that overflows for the 100-digit inputs allowed here; even in Python it throws away the very convenience the format hands you. Because the heads are the ones digits, you can add place by place in one pass with a running carry — exactly grade-school addition.\n\n" +
+            "**Key Idea.** Reverse order means the two nodes you meet at each step share the same place value, so their digits add directly. Maintain a single `carry`. At each position compute `carry + d1 + d2`, write `sum % 10` as the new digit, and roll `sum // 10` into the carry for the next position. A `dummy` head lets you append result nodes uniformly without special-casing the first one, and a running `tail` tracks where to append.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Create a `dummy` node and a `tail = dummy`; initialize `carry = 0`.\n" +
+            "2. Loop while either list has nodes left **or** the carry is nonzero.\n" +
+            "3. Read `d1 = l1.val if l1 else 0` and `d2 = l2.val if l2 else 0`, treating a finished list as contributing 0.\n" +
+            "4. Compute `total = d1 + d2 + carry`; set `carry = total // 10` and append a new node with value `total % 10` to `tail`, then advance `tail`.\n" +
+            "5. Advance whichever of `l1`, `l2` still has nodes. When the loop ends, return `dummy.next`.\n\n" +
+            "**Why it works.** Since the lists are least-significant-first, position `i` of both inputs holds the same power of ten, so adding them with a carried overflow reproduces long addition exactly. Padding a shorter list with 0 keeps alignment; continuing the loop while `carry` is nonzero captures a final overflow digit (the extra node in 5+5=10). Each iteration emits exactly one output digit, so the result is correct and complete.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Keep looping while `carry` is nonzero even after both lists end, or you drop the leading digit of sums like 5+5.\n" +
+            "- Use `if l1 else 0` for the missing digit when lists have different lengths.\n" +
+            "- Split the total with `divmod` (or `% 10` and `// 10`); do not forget to reset the carry each step.\n" +
+            "- Return `dummy.next`, not `dummy`.\n\n" +
+            "**Complexity.** Time `O(max(n, m))` — one pass over the longer list. Space `O(max(n, m))` — the result list, which is the required output.\n\n" +
+            "**Interview mindset.** Reverse-order digits plus 'add' is textbook long addition with a carry; a `dummy` head plus a `while ... or carry` guard is the clean idiom that folds the leftover carry into the same loop.",
+          rcs:
+            "class Solution:\n" +
+            "    def addTwoNumbers(self, l1: Optional[ListNode], l2: Optional[ListNode]) -> Optional[ListNode]:\n" +
+            "        dummy = ListNode()              # Sentinel so the first append is uniform.\n" +
+            "        tail = dummy                    # Last node of the result so far.\n" +
+            "        carry = 0                       # Overflow carried into the next place.\n" +
+            "        while l1 or l2 or carry:        # Continue while digits remain OR a carry is pending.\n" +
+            "            d1 = l1.val if l1 else 0    # Missing digit counts as 0.\n" +
+            "            d2 = l2.val if l2 else 0\n" +
+            "            total = d1 + d2 + carry     # Column sum plus incoming carry.\n" +
+            "            carry, digit = divmod(total, 10)  # carry = total//10, digit = total%10.\n" +
+            "            tail.next = ListNode(digit) # Append the new digit node.\n" +
+            "            tail = tail.next\n" +
+            "            l1 = l1.next if l1 else None  # Advance each list that still has nodes.\n" +
+            "            l2 = l2.next if l2 else None\n" +
+            "        return dummy.next               # Real head is past the sentinel.",
+          plain:
+            "class Solution:\n" +
+            "    def addTwoNumbers(self, l1: Optional[ListNode], l2: Optional[ListNode]) -> Optional[ListNode]:\n" +
+            "        dummy = ListNode()\n" +
+            "        tail = dummy\n" +
+            "        carry = 0\n" +
+            "        while l1 or l2 or carry:\n" +
+            "            d1 = l1.val if l1 else 0\n" +
+            "            d2 = l2.val if l2 else 0\n" +
+            "            total = d1 + d2 + carry\n" +
+            "            carry, digit = divmod(total, 10)\n" +
+            "            tail.next = ListNode(digit)\n" +
+            "            tail = tail.next\n" +
+            "            l1 = l1.next if l1 else None\n" +
+            "            l2 = l2.next if l2 else None\n" +
+            "        return dummy.next"
+        }
+      ],
+      patternRecognition: [
+        "Digits stored least-significant-first → add head to head with a running carry (long addition).",
+        "Building a result list whose first node is awkward → dummy head plus a tail pointer.",
+        "A trailing carry can add one more node → loop while `l1 or l2 or carry`."
+      ],
+      interviewRecall: [
+        "Loop condition is `while l1 or l2 or carry` so the final carry becomes its own node.",
+        "Treat a finished list as digit 0; use `divmod(total, 10)` for carry and digit.",
+        "Dummy head + tail pointer, return `dummy.next`."
+      ]
+    },
+
+    {
+      id: "copy-list-with-random-pointer",
+      lc: 138,
+      title: "Copy List with Random Pointer",
+      difficulty: "Medium",
+      category: "Linked List",
+      link: "https://leetcode.com/problems/copy-list-with-random-pointer/",
+      meta: { pattern: "Deep Copy with Back-References", dataStructure: "Linked List", technique: "Old->new hash map / interleave clone" },
+      description:
+        "You are given the `head` of a linked list where each node has a `val`, a `next` pointer, and an extra `random` pointer that can point to **any** node in the list or to `null`.\n\n" +
+        "Construct a **deep copy** of the list: a brand-new set of nodes whose `next` and `random` pointers mirror the original structure but point only to the copied nodes, never to the originals. Return the head of the copied list.\n\n" +
+        "Each node is described as a pair `[val, random_index]`, where `random_index` is the index of the node `random` points to, or `null`.",
+      constraints: [
+        "The number of nodes is in the range `[0, 1000]`.",
+        "`-10^4 <= Node.val <= 10^4`",
+        "`random` is `null` or points to some node in the list."
+      ],
+      notes: [
+        "The challenge is `random`: it may point forward, backward, at the node itself, or nowhere.",
+        "Assume the node class is `class Node: def __init__(self, x, next=None, random=None): ...`."
+      ],
+      examples: [
+        {
+          input: "head = [[7,null],[13,0],[11,4],[10,2],[1,0]]",
+          output: "[[7,null],[13,0],[11,4],[10,2],[1,0]]",
+          reasoning: "The copy has identical values and random targets by index, but all pointers reference new nodes.",
+          visual:
+            "```\nidx:   0    1    2    3    4\nval:   7    13   11   10   1\nrand:  -    ->0  ->4  ->2  ->0   (random targets by index)\ncopy mirrors every next and random among the NEW nodes\n```"
+        },
+        {
+          input: "head = [[1,1],[2,1]]",
+          output: "[[1,1],[2,1]]",
+          reasoning: "Both nodes' random pointers target index 1 (the second node)."
+        },
+        {
+          input: "head = [[3,null],[3,0],[3,null]]",
+          output: "[[3,null],[3,0],[3,null]]",
+          reasoning: "Duplicate values are fine; identity, not value, defines each random target."
+        },
+        {
+          input: "head = []",
+          output: "[]",
+          reasoning: "An empty list copies to an empty list."
+        }
+      ],
+      approaches: [
+        {
+          name: "Hash Map old -> new (Two Passes)",
+          time: "O(n)",
+          space: "O(n)",
+          whenToUse: "The most intuitive answer; explain this first before the O(1)-space trick.",
+          logic:
+            "**What it asks.** Produce a fully independent clone of the list — new nodes only — whose `next` and `random` pointers reproduce the original wiring but stay entirely within the copy.\n\n" +
+            "**Why the naive idea fails.** Copying `next` in a single walk is easy, but `random` can point to a node you have not created yet (a forward reference) or one you already passed. You cannot set a clone's `random` until the clone of its target exists, so a single naive pass cannot resolve all the back- and forward-references.\n\n" +
+            "**Key Idea.** Break the dependency by first creating every clone, then wiring the pointers. A hash map from each original node to its clone gives you `O(1)` lookup of 'the copy of this node.' In pass one, create a bare clone for every original and record the mapping. In pass two, for each original node set `clone.next = map[original.next]` and `clone.random = map[original.random]` — both targets now exist in the map, forward or backward.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. If `head` is `null`, return `null`.\n" +
+            "2. Pass one: walk the list; for each `curr`, create `Node(curr.val)` and store `mapping[curr] = clone`.\n" +
+            "3. Pass two: walk again; for each `curr`, set `mapping[curr].next = mapping.get(curr.next)` and `mapping[curr].random = mapping.get(curr.random)`.\n" +
+            "4. Use `.get(...)` (or map `None -> None`) so a `null` `next`/`random` maps cleanly to `null`.\n" +
+            "5. Return `mapping[head]`, the clone of the original head.\n\n" +
+            "**Why it works.** After pass one, every original node has a corresponding clone recorded in the map, so any reference target — no matter its direction — can be translated to its clone in pass two. Wiring both pointers through the map guarantees the copy references only copied nodes and mirrors the original topology exactly.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Map `null` to `null`: a node's `next` or `random` may be `null`, so use `.get()` which returns `None` for a missing key.\n" +
+            "- Key the map by node identity, not value — duplicate values must remain distinct nodes.\n" +
+            "- Do not set pointers during pass one; the target clones may not exist yet.\n\n" +
+            "**Complexity.** Time `O(n)` — two linear passes. Space `O(n)` — the hash map holds one entry per node.\n\n" +
+            "**Interview mindset.** 'Deep copy with arbitrary cross-references' is the signature cue for an old-to-new hash map; mention it first, then offer the interleaving trick if asked to drop the `O(n)` map.",
+          rcs:
+            "class Solution:\n" +
+            "    def copyRandomList(self, head: 'Optional[Node]') -> 'Optional[Node]':\n" +
+            "        if not head:\n" +
+            "            return None\n" +
+            "        mapping = {}                    # original node -> its clone.\n" +
+            "        curr = head                     # Pass 1: create every clone first.\n" +
+            "        while curr:\n" +
+            "            mapping[curr] = Node(curr.val)\n" +
+            "            curr = curr.next\n" +
+            "        curr = head                     # Pass 2: wire next and random via the map.\n" +
+            "        while curr:\n" +
+            "            mapping[curr].next = mapping.get(curr.next)      # None -> None automatically.\n" +
+            "            mapping[curr].random = mapping.get(curr.random)  # Forward or backward, both exist now.\n" +
+            "            curr = curr.next\n" +
+            "        return mapping[head]            # Clone of the original head.",
+          plain:
+            "class Solution:\n" +
+            "    def copyRandomList(self, head: 'Optional[Node]') -> 'Optional[Node]':\n" +
+            "        if not head:\n" +
+            "            return None\n" +
+            "        mapping = {}\n" +
+            "        curr = head\n" +
+            "        while curr:\n" +
+            "            mapping[curr] = Node(curr.val)\n" +
+            "            curr = curr.next\n" +
+            "        curr = head\n" +
+            "        while curr:\n" +
+            "            mapping[curr].next = mapping.get(curr.next)\n" +
+            "            mapping[curr].random = mapping.get(curr.random)\n" +
+            "            curr = curr.next\n" +
+            "        return mapping[head]"
+        },
+        {
+          name: "Optimized — Interleave Clones (O(1) extra space)",
+          time: "O(n)",
+          space: "O(1)",
+          whenToUse: "The follow-up answer when asked to copy without the O(n) hash map.",
+          logic:
+            "**What it asks.** Produce the same deep copy but without an auxiliary map — using only constant extra space beyond the output itself.\n\n" +
+            "**Why the naive idea fails.** The hash map answer is clean but costs `O(n)` memory just to answer 'what is the clone of this node?' We can encode that lookup directly in the list's own structure instead of a separate map.\n\n" +
+            "**Key Idea.** Weave each clone in right after its original, so the list becomes `A -> A' -> B -> B' -> C -> C' -> ...`. Now the clone of any node `X` is simply `X.next`, giving the same lookup the map provided — for free. That lets you set each clone's `random`: `X'.random = X.random.next` (the clone sitting just after `X`'s random target). Finally, unweave the two lists to restore the original and extract the copy.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. If `head` is `null`, return `null`.\n" +
+            "2. Interleave: for each original `curr`, create `clone = Node(curr.val)`, splice it in with `clone.next = curr.next` and `curr.next = clone`, then jump to `clone.next`.\n" +
+            "3. Assign randoms: walk originals again; if `curr.random` exists, set `curr.next.random = curr.random.next` (each clone is one step after its original).\n" +
+            "4. Separate the lists: restore each original's `next` and stitch the clones together into their own chain.\n" +
+            "5. Return the head of the extracted clone list.\n\n" +
+            "**Why it works.** After interleaving, the invariant `X.next` is the clone of `X` holds for every node, so `X.random.next` is exactly the clone of `X`'s random target — no map needed. The unweave step reverses the splice, leaving the original list untouched and the copies linked correctly among themselves.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Guard `curr.random` before dereferencing: `curr.random.next` crashes if `random` is `null`.\n" +
+            "- During separation, fully restore the original `next` pointers, or you corrupt the input list.\n" +
+            "- Advance in steps of two (original, clone) consistently; off-by-one weaving tangles the chains.\n\n" +
+            "**Complexity.** Time `O(n)` — three linear passes. Space `O(1)` — no map; the interleaving reuses the list's own links.\n\n" +
+            "**Interview mindset.** When told 'do the deep copy without extra space,' the interleave-clone-then-split trick is the expected reply; the crux is that a node's clone lives at `node.next` so `random` resolves without a lookup table.",
+          rcs:
+            "class Solution:\n" +
+            "    def copyRandomList(self, head: 'Optional[Node]') -> 'Optional[Node]':\n" +
+            "        if not head:\n" +
+            "            return None\n" +
+            "        curr = head                     # Pass 1: weave A -> A' -> B -> B' -> ...\n" +
+            "        while curr:\n" +
+            "            clone = Node(curr.val)\n" +
+            "            clone.next = curr.next      # Clone points to the original's successor.\n" +
+            "            curr.next = clone           # Original now points to its clone.\n" +
+            "            curr = clone.next           # Jump past the clone to the next original.\n" +
+            "        curr = head                     # Pass 2: set each clone's random.\n" +
+            "        while curr:\n" +
+            "            if curr.random:             # Clone of X is X.next, so target clone is X.random.next.\n" +
+            "                curr.next.random = curr.random.next\n" +
+            "            curr = curr.next.next       # Advance two nodes (original -> next original).\n" +
+            "        dummy = Node(0)                 # Pass 3: unweave the two lists.\n" +
+            "        copy_tail = dummy\n" +
+            "        curr = head\n" +
+            "        while curr:\n" +
+            "            copy_tail.next = curr.next  # Detach the clone into the copy list.\n" +
+            "            copy_tail = copy_tail.next\n" +
+            "            curr.next = curr.next.next  # Restore the original's next pointer.\n" +
+            "            curr = curr.next\n" +
+            "        return dummy.next               # Head of the extracted copy.",
+          plain:
+            "class Solution:\n" +
+            "    def copyRandomList(self, head: 'Optional[Node]') -> 'Optional[Node]':\n" +
+            "        if not head:\n" +
+            "            return None\n" +
+            "        curr = head\n" +
+            "        while curr:\n" +
+            "            clone = Node(curr.val)\n" +
+            "            clone.next = curr.next\n" +
+            "            curr.next = clone\n" +
+            "            curr = clone.next\n" +
+            "        curr = head\n" +
+            "        while curr:\n" +
+            "            if curr.random:\n" +
+            "                curr.next.random = curr.random.next\n" +
+            "            curr = curr.next.next\n" +
+            "        dummy = Node(0)\n" +
+            "        copy_tail = dummy\n" +
+            "        curr = head\n" +
+            "        while curr:\n" +
+            "            copy_tail.next = curr.next\n" +
+            "            copy_tail = copy_tail.next\n" +
+            "            curr.next = curr.next.next\n" +
+            "            curr = curr.next\n" +
+            "        return dummy.next"
+        }
+      ],
+      patternRecognition: [
+        "'Deep copy' a structure with arbitrary cross-pointers → old-to-new hash map.",
+        "'Copy without extra space' → interleave each clone after its original so `node.next` IS the clone.",
+        "Any time a pointer may reference a not-yet-created node → create all nodes first, wire second."
+      ],
+      interviewRecall: [
+        "Two-pass map: create all clones (map original->clone), then wire next/random via the map.",
+        "Map null to null with `.get()`, and key by node identity not value.",
+        "O(1) trick: weave A->A'->B->B', set `X'.random = X.random.next`, then unweave to restore the original."
+      ]
+    },
+
+    {
+      id: "find-the-duplicate-number",
+      lc: 287,
+      title: "Find the Duplicate Number",
+      difficulty: "Medium",
+      category: "Linked List",
+      link: "https://leetcode.com/problems/find-the-duplicate-number/",
+      meta: { pattern: "Cycle Detection on Implicit List", dataStructure: "Array as Linked List", technique: "Floyd's tortoise & hare" },
+      description:
+        "Given an array `nums` of `n + 1` integers where each value is in the range `[1, n]`, exactly one value is repeated — possibly more than once. Return that repeated number.\n\n" +
+        "You must solve it **without modifying** the array and using only `O(1)` extra space.",
+      constraints: [
+        "`1 <= n <= 10^5`, and `nums` has length `n + 1`.",
+        "`1 <= nums[i] <= n`",
+        "Exactly one value appears more than once; it may appear multiple times."
+      ],
+      notes: [
+        "The pigeonhole principle guarantees a duplicate: `n + 1` values drawn from `[1, n]`.",
+        "The 'do not modify + O(1) space' pair is what forces the cycle-detection insight."
+      ],
+      examples: [
+        {
+          input: "nums = [1, 3, 4, 2, 2]",
+          output: "2",
+          reasoning: "The value 2 appears twice.",
+          visual:
+            "```\nindex: 0 1 2 3 4\nvalue: 1 3 4 2 2\nfollow i -> nums[i] as a 'next' pointer:\n0->1->3->2->4->2->4...  (cycle enters at value 2)\n```"
+        },
+        {
+          input: "nums = [3, 1, 3, 4, 2]",
+          output: "3",
+          reasoning: "The value 3 appears twice."
+        },
+        {
+          input: "nums = [2, 2, 2, 2, 2]",
+          output: "2",
+          reasoning: "The duplicate value can appear many times; the answer is still 2."
+        },
+        {
+          input: "nums = [1, 1]",
+          output: "1",
+          reasoning: "n = 1, two elements both equal 1."
+        }
+      ],
+      approaches: [
+        {
+          name: "Floyd's Cycle Detection (values as next-pointers)",
+          time: "O(n)",
+          space: "O(1)",
+          whenToUse: "The expected answer given the no-modify, O(1)-space constraints.",
+          logic:
+            "**What it asks.** Find the one repeated value among `n + 1` numbers drawn from `[1, n]`, without altering the array and using constant extra space.\n\n" +
+            "**Why the naive idea fails.** Sorting or a hash set finds the duplicate easily, but sorting mutates the array (or costs `O(n)` space for a copy) and a set costs `O(n)` space — both violate the constraints. Marking visited indices by negating values also mutates the input. The constraints deliberately rule out every easy route.\n\n" +
+            "**Key Idea.** Treat the array as a hidden linked list: from index `i`, the 'next' index is `nums[i]`. Because every value lies in `[1, n]`, following `i -> nums[i]` always lands on a valid index and never on index 0 after the start, so the sequence `0, nums[0], nums[nums[0]], ...` never falls off. With `n + 1` slots but values only in `[1, n]`, two different indices must point to the same value — that shared target is a node with two incoming links, which forces a **cycle**, and the value at the cycle's entrance is exactly the duplicate. So this is Floyd's tortoise-and-hare cycle detection, and finding the cycle's entry point yields the answer.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Phase 1 (find a meeting point): start `slow = nums[0]` and `fast = nums[0]`. Repeatedly move `slow = nums[slow]` (one hop) and `fast = nums[nums[fast]]` (two hops) until `slow == fast`. They are now somewhere inside the cycle.\n" +
+            "2. Phase 2 (find the entrance): reset `slow = nums[0]`, keep `fast` at the meeting point, then advance both one hop at a time (`slow = nums[slow]`, `fast = nums[fast]`) until they are equal again.\n" +
+            "3. The index where they meet the second time is the cycle's entrance — return that value, the duplicate.\n\n" +
+            "**Why it works.** The duplicate value is pointed to by at least two indices, so it is the unique node with two predecessors — the entry of the loop. Phase 1 guarantees a meeting inside the loop (the hare gains one step per move and cannot skip past the tortoise). For phase 2: let `F` be the distance from start to entry and `a` the distance from entry to the meeting point. Floyd's math shows the distance from the start to the entry equals the distance from the meeting point to the entry (mod cycle length), so two pointers advancing one step each — one from the start, one from the meeting point — collide exactly at the entrance.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Start both pointers at `nums[0]` (one step in), consistent with the `i -> nums[i]` mapping.\n" +
+            "- In phase 2 both pointers move at the *same* speed (one hop); only phase 1 uses the 2x hare.\n" +
+            "- This works because values are in `[1, n]` and length is `n + 1`; index 0 is never a link target, so it can safely be the entry point of the whole traversal.\n\n" +
+            "**Complexity.** Time `O(n)` — both phases are linear. Space `O(1)` — two integer pointers; the array is never modified.\n\n" +
+            "**Interview mindset.** 'Find a duplicate, no modification, O(1) space' is the disguised-cycle tell: reframe values as `next` pointers and run Floyd's two-phase algorithm, returning the cycle entrance.",
+          rcs:
+            "class Solution:\n" +
+            "    def findDuplicate(self, nums: List[int]) -> int:\n" +
+            "        slow = nums[0]                  # Tortoise: one hop, i -> nums[i].\n" +
+            "        fast = nums[0]                  # Hare: two hops.\n" +
+            "        while True:                     # Phase 1: find a meeting point in the cycle.\n" +
+            "            slow = nums[slow]\n" +
+            "            fast = nums[nums[fast]]\n" +
+            "            if slow == fast:\n" +
+            "                break\n" +
+            "        slow = nums[0]                  # Phase 2: reset one pointer to the start.\n" +
+            "        while slow != fast:             # Both move one hop until they meet at the entrance.\n" +
+            "            slow = nums[slow]\n" +
+            "            fast = nums[fast]\n" +
+            "        return slow                     # Cycle entrance = the duplicate value.",
+          plain:
+            "class Solution:\n" +
+            "    def findDuplicate(self, nums: List[int]) -> int:\n" +
+            "        slow = nums[0]\n" +
+            "        fast = nums[0]\n" +
+            "        while True:\n" +
+            "            slow = nums[slow]\n" +
+            "            fast = nums[nums[fast]]\n" +
+            "            if slow == fast:\n" +
+            "                break\n" +
+            "        slow = nums[0]\n" +
+            "        while slow != fast:\n" +
+            "            slow = nums[slow]\n" +
+            "            fast = nums[fast]\n" +
+            "        return slow"
+        },
+        {
+          name: "Binary Search on the Count",
+          time: "O(n log n)",
+          space: "O(1)",
+          whenToUse: "An alternative when the cycle insight feels slippery, or as a second idea in interview.",
+          logic:
+            "**What it asks.** Find the repeated value under the same no-modify, `O(1)`-space rules, without needing the linked-list reframing.\n\n" +
+            "**Why the naive idea fails.** Direct approaches either mutate the array or use linear extra space. Instead of searching positions, we binary-search over the *value range* `[1, n]`, using a counting property that never touches the array's order.\n\n" +
+            "**Key Idea.** Pick a candidate value `mid`. Count how many array elements are `<= mid`. If there were no duplicate, exactly `mid` of the numbers `1..n` would be `<= mid`. A count strictly greater than `mid` means the extra copies of the duplicate fall at or below `mid`, so the duplicate lies in `[low, mid]`; otherwise it lies in `[mid + 1, high]`. This is a monotone predicate, so binary search on the value converges to the duplicate.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Set `low = 1`, `high = n` (the value bounds, where `n = len(nums) - 1`).\n" +
+            "2. While `low < high`, let `mid = (low + high) // 2` and count elements `<= mid` in one pass.\n" +
+            "3. If `count > mid`, the duplicate is in the lower half: set `high = mid`. Otherwise set `low = mid + 1`.\n" +
+            "4. When `low == high`, that value is the duplicate — return it.\n\n" +
+            "**Why it works.** Define `f(x)` = count of elements `<= x`. Without a duplicate `f(x) = x`; the duplicate adds extra elements, making `f(x) > x` for every `x` at or above the duplicate value and `f(x) = x` below it. That threshold is monotone, so halving the value range on the `count > mid` test always keeps the duplicate inside `[low, high]` and squeezes it to a single value.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Binary-search the value range `[1, n]`, not array indices.\n" +
+            "- Use `count > mid` (strictly greater) as the go-left test; `>=` is wrong.\n" +
+            "- The array is read-only here too — counting never reorders it.\n\n" +
+            "**Complexity.** Time `O(n log n)` — `log n` iterations, each an `O(n)` count. Space `O(1)`. Slower than Floyd's `O(n)` but conceptually simpler.\n\n" +
+            "**Interview mindset.** When 'binary search' is not obvious because the array is unsorted, remember you can search the *answer's value range* whenever a monotone counting predicate exists — a broadly reusable technique.",
+          rcs:
+            "class Solution:\n" +
+            "    def findDuplicate(self, nums: List[int]) -> int:\n" +
+            "        low, high = 1, len(nums) - 1    # Search the VALUE range [1, n].\n" +
+            "        while low < high:\n" +
+            "            mid = (low + high) // 2\n" +
+            "            count = sum(1 for x in nums if x <= mid)  # How many values are <= mid.\n" +
+            "            if count > mid:             # Too many => duplicate is in the lower half.\n" +
+            "                high = mid\n" +
+            "            else:                       # Otherwise it is in the upper half.\n" +
+            "                low = mid + 1\n" +
+            "        return low                      # low == high == the duplicate value.",
+          plain:
+            "class Solution:\n" +
+            "    def findDuplicate(self, nums: List[int]) -> int:\n" +
+            "        low, high = 1, len(nums) - 1\n" +
+            "        while low < high:\n" +
+            "            mid = (low + high) // 2\n" +
+            "            count = sum(1 for x in nums if x <= mid)\n" +
+            "            if count > mid:\n" +
+            "                high = mid\n" +
+            "            else:\n" +
+            "                low = mid + 1\n" +
+            "        return low"
+        }
+      ],
+      patternRecognition: [
+        "'Find a duplicate, no modification, O(1) space' → treat values as next-pointers and run Floyd's cycle detection.",
+        "Values in `[1, n]` over `n + 1` slots → pigeonhole guarantees a duplicate = a cycle entrance.",
+        "Unsorted array but a monotone counting predicate → binary search on the value range."
+      ],
+      interviewRecall: [
+        "Phase 1 finds a meeting point (slow 1 hop, fast 2 hops); phase 2 resets slow to `nums[0]`, both move 1 hop to the entrance.",
+        "The cycle entrance is the node with two predecessors — exactly the duplicate value.",
+        "Binary search alternative: count elements `<= mid`; if `count > mid`, go left. O(n log n)."
+      ]
+    },
+
+    {
+      id: "lru-cache",
+      lc: 146,
+      title: "LRU Cache",
+      difficulty: "Medium",
+      category: "Linked List",
+      link: "https://leetcode.com/problems/lru-cache/",
+      meta: { pattern: "Hash Map + Doubly Linked List", dataStructure: "DLL + Dict", technique: "O(1) move-to-front, evict-tail" },
+      description:
+        "Design a data structure for a **Least Recently Used (LRU) cache**. Implement `LRUCache`:\n\n" +
+        "- `LRUCache(capacity)` initializes the cache with a positive `capacity`.\n" +
+        "- `get(key)` returns the value for `key` if present, otherwise `-1`.\n" +
+        "- `put(key, value)` inserts or updates the value. If inserting exceeds `capacity`, evict the **least recently used** entry first.\n\n" +
+        "Both `get` and `put` must run in average `O(1)` time. Any access (get or put) counts as a use, making that key the most recently used.",
+      constraints: [
+        "`1 <= capacity <= 3000`",
+        "`0 <= key <= 10^4`, `0 <= value <= 10^5`",
+        "At most `2 * 10^5` calls to `get` and `put`."
+      ],
+      notes: [
+        "'Least recently used' = the entry untouched for the longest time; it is the one evicted on overflow.",
+        "The `O(1)` requirement is what forces a doubly linked list paired with a hash map."
+      ],
+      examples: [
+        {
+          input: "LRUCache(2); put(1,1); put(2,2); get(1); put(3,3); get(2); put(4,4); get(1); get(3); get(4)",
+          output: "[null, null, null, 1, null, -1, null, -1, 3, 4]",
+          reasoning: "Capacity 2. get(1)=1 makes 1 most-recent; put(3,3) evicts key 2 (LRU); get(2)=-1; put(4,4) evicts key 1; get(1)=-1; get(3)=3; get(4)=4.",
+          visual:
+            "```\nput(1,1): [1]\nput(2,2): [2,1]           (front = most recent)\nget(1)=1: [1,2]\nput(3,3): [3,1]  evict 2  (2 was LRU at the tail)\nget(2)=-1\nput(4,4): [4,3]  evict 1\nget(1)=-1  get(3)=3  get(4)=4\n```"
+        },
+        {
+          input: "LRUCache(1); put(1,1); get(1); put(2,2); get(1); get(2)",
+          output: "[null, null, 1, null, -1, 2]",
+          reasoning: "Capacity 1: put(2,2) evicts key 1, so get(1)=-1."
+        },
+        {
+          input: "LRUCache(2); put(1,1); put(1,10); get(1)",
+          output: "[null, null, null, 10]",
+          reasoning: "put on an existing key updates its value and marks it most-recent, without adding a new entry."
+        },
+        {
+          input: "LRUCache(2); put(2,1); put(2,2); get(2); put(1,1); put(4,1); get(2)",
+          output: "[null, null, null, 2, null, null, -1]",
+          reasoning: "After put(4,1) with capacity 2, key 2 was least recently used and is evicted, so get(2)=-1."
+        }
+      ],
+      approaches: [
+        {
+          name: "Hash Map + Doubly Linked List",
+          time: "O(1) per operation",
+          space: "O(capacity)",
+          whenToUse: "The expected design answer, showing you can build the O(1) structure by hand.",
+          logic:
+            "**What it asks.** Support `get` and `put` in `O(1)` while always knowing which entry is least recently used so it can be evicted on overflow.\n\n" +
+            "**Why the naive idea fails.** A plain dictionary gives `O(1)` lookup but no notion of recency order, so finding the LRU entry to evict would need an `O(n)` scan. An array or singly linked list ordered by recency makes eviction easy but moving a touched entry to the front is `O(n)` because you cannot splice it out without its predecessor. You need both: instant lookup **and** instant reordering.\n\n" +
+            "**Key Idea.** Combine a hash map with a **doubly** linked list. The hash map maps `key -> node` for `O(1)` lookup. The doubly linked list keeps entries in recency order, most-recent at the head and least-recent at the tail. Because the list is doubly linked, any node can be unlinked in `O(1)` (you have both neighbors) and reinserted at the head in `O(1)`. Two sentinel nodes, `head` and `tail`, remove all edge cases for inserting and removing at the ends. The core invariant: after any access, the touched node sits right behind `head`, and the node just before `tail` is always the eviction victim.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. In `__init__`, store `capacity`, an empty `cache` dict, and create two sentinels `head` and `tail` linked to each other (`head.next = tail`, `tail.prev = head`).\n" +
+            "2. Helper `_remove(node)`: splice it out via `node.prev.next = node.next` and `node.next.prev = node.prev`.\n" +
+            "3. Helper `_insert_front(node)`: link it between `head` and `head.next`.\n" +
+            "4. `get(key)`: if absent return `-1`; else `_remove` the node, `_insert_front` it (mark most-recent), and return its value.\n" +
+            "5. `put(key, value)`: if the key exists, remove its old node; create a new node, insert at front, and record it in the dict. If size now exceeds `capacity`, evict `tail.prev` — remove it from the list and delete its key from the dict.\n\n" +
+            "**Why it works.** The dict guarantees `O(1)` access to any node, and the doubly linked list makes unlink-and-move-to-front `O(1)`. Every access moves its node to the front, so recency order is maintained continuously; therefore the node adjacent to the `tail` sentinel is, by construction, always the least recently used and correct to evict.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Use a *doubly* linked list; a singly linked list cannot unlink an interior node in `O(1)`.\n" +
+            "- On `put` of an existing key, remove the old node before inserting the new one, or the key appears twice in the list.\n" +
+            "- Keep the dict and list in sync on eviction: remove from both.\n" +
+            "- Sentinel `head`/`tail` nodes avoid null checks when inserting/removing at the ends.\n\n" +
+            "**Complexity.** Time `O(1)` amortized for both `get` and `put`. Space `O(capacity)` — the dict and list hold at most `capacity` entries.\n\n" +
+            "**Interview mindset.** 'O(1) get and put with eviction by recency' is the flagship hash-map-plus-doubly-linked-list design; rehearse the `_remove`/`_insert_front` helpers and the head=most-recent, tail=LRU invariant until they are automatic.",
+          rcs:
+            "class Node:\n" +
+            "    def __init__(self, key=0, value=0):\n" +
+            "        self.key = key                  # Store key so eviction can delete it from the dict.\n" +
+            "        self.value = value\n" +
+            "        self.prev = None                # Doubly linked: both neighbors known.\n" +
+            "        self.next = None\n" +
+            "\n" +
+            "class LRUCache:\n" +
+            "    def __init__(self, capacity: int):\n" +
+            "        self.capacity = capacity\n" +
+            "        self.cache = {}                 # key -> Node.\n" +
+            "        self.head = Node()              # Sentinel: most-recent side.\n" +
+            "        self.tail = Node()              # Sentinel: least-recent side.\n" +
+            "        self.head.next = self.tail      # Empty list: head <-> tail.\n" +
+            "        self.tail.prev = self.head\n" +
+            "\n" +
+            "    def _remove(self, node):            # Unlink a node in O(1).\n" +
+            "        node.prev.next = node.next\n" +
+            "        node.next.prev = node.prev\n" +
+            "\n" +
+            "    def _insert_front(self, node):      # Insert just behind head (most recent).\n" +
+            "        node.prev = self.head\n" +
+            "        node.next = self.head.next\n" +
+            "        self.head.next.prev = node\n" +
+            "        self.head.next = node\n" +
+            "\n" +
+            "    def get(self, key: int) -> int:\n" +
+            "        if key not in self.cache:\n" +
+            "            return -1\n" +
+            "        node = self.cache[key]\n" +
+            "        self._remove(node)              # Touching it makes it most-recent...\n" +
+            "        self._insert_front(node)        # ...move to the front.\n" +
+            "        return node.value\n" +
+            "\n" +
+            "    def put(self, key: int, value: int) -> None:\n" +
+            "        if key in self.cache:           # Overwrite: drop the stale node first.\n" +
+            "            self._remove(self.cache[key])\n" +
+            "        node = Node(key, value)\n" +
+            "        self.cache[key] = node\n" +
+            "        self._insert_front(node)        # New/updated entry is most-recent.\n" +
+            "        if len(self.cache) > self.capacity:  # Over capacity: evict the LRU.\n" +
+            "            lru = self.tail.prev        # Node just before tail = least recently used.\n" +
+            "            self._remove(lru)\n" +
+            "            del self.cache[lru.key]",
+          plain:
+            "class Node:\n" +
+            "    def __init__(self, key=0, value=0):\n" +
+            "        self.key = key\n" +
+            "        self.value = value\n" +
+            "        self.prev = None\n" +
+            "        self.next = None\n" +
+            "\n" +
+            "class LRUCache:\n" +
+            "    def __init__(self, capacity: int):\n" +
+            "        self.capacity = capacity\n" +
+            "        self.cache = {}\n" +
+            "        self.head = Node()\n" +
+            "        self.tail = Node()\n" +
+            "        self.head.next = self.tail\n" +
+            "        self.tail.prev = self.head\n" +
+            "\n" +
+            "    def _remove(self, node):\n" +
+            "        node.prev.next = node.next\n" +
+            "        node.next.prev = node.prev\n" +
+            "\n" +
+            "    def _insert_front(self, node):\n" +
+            "        node.prev = self.head\n" +
+            "        node.next = self.head.next\n" +
+            "        self.head.next.prev = node\n" +
+            "        self.head.next = node\n" +
+            "\n" +
+            "    def get(self, key: int) -> int:\n" +
+            "        if key not in self.cache:\n" +
+            "            return -1\n" +
+            "        node = self.cache[key]\n" +
+            "        self._remove(node)\n" +
+            "        self._insert_front(node)\n" +
+            "        return node.value\n" +
+            "\n" +
+            "    def put(self, key: int, value: int) -> None:\n" +
+            "        if key in self.cache:\n" +
+            "            self._remove(self.cache[key])\n" +
+            "        node = Node(key, value)\n" +
+            "        self.cache[key] = node\n" +
+            "        self._insert_front(node)\n" +
+            "        if len(self.cache) > self.capacity:\n" +
+            "            lru = self.tail.prev\n" +
+            "            self._remove(lru)\n" +
+            "            del self.cache[lru.key]"
+        },
+        {
+          name: "OrderedDict (built-in)",
+          time: "O(1) per operation",
+          space: "O(capacity)",
+          whenToUse: "A concise Python answer once you have explained the underlying DLL design.",
+          logic:
+            "**What it asks.** The same `O(1)` LRU cache, but leveraging Python's `collections.OrderedDict`, which is internally a dict plus a doubly linked list — exactly the structure built by hand above.\n\n" +
+            "**Why the naive idea fails.** A regular dict has no recency ordering. `OrderedDict` remembers insertion order and, crucially, supports `move_to_end` and `popitem(last=False)` in `O(1)`, giving the recency operations for free.\n\n" +
+            "**Key Idea.** Treat the *end* of the `OrderedDict` as most-recently-used. On any access, `move_to_end(key)` promotes it. On overflow, `popitem(last=False)` removes and returns the oldest (front) item — the LRU — in `O(1)`.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. `__init__`: store `capacity` and an empty `OrderedDict`.\n" +
+            "2. `get(key)`: if absent return `-1`; else `move_to_end(key)` to mark most-recent and return the value.\n" +
+            "3. `put(key, value)`: if the key exists, `move_to_end(key)`; set `cache[key] = value`.\n" +
+            "4. If `len(cache) > capacity`, call `popitem(last=False)` to evict the least-recently-used entry.\n\n" +
+            "**Why it works.** `OrderedDict` maintains the same dict-plus-doubly-linked-list internally, so `move_to_end` and `popitem(last=False)` are `O(1)` and preserve recency order automatically. The semantics match the manual version exactly.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Choose an end convention and stick with it: here end = most-recent, so evict with `last=False`.\n" +
+            "- On `put` of an existing key you must still `move_to_end`; a bare reassignment does not reorder it.\n" +
+            "- Interviewers often want the manual DLL design first; offer this as the concise follow-up.\n\n" +
+            "**Complexity.** Time `O(1)` per operation. Space `O(capacity)`.\n\n" +
+            "**Interview mindset.** Knowing that `OrderedDict` *is* a hash map over a doubly linked list is the connective insight; use it to write the short version, but be ready to expand it into the hand-rolled structure on request.",
+          rcs:
+            "from collections import OrderedDict\n" +
+            "\n" +
+            "class LRUCache:\n" +
+            "    def __init__(self, capacity: int):\n" +
+            "        self.capacity = capacity\n" +
+            "        self.cache = OrderedDict()      # dict + doubly linked list under the hood.\n" +
+            "\n" +
+            "    def get(self, key: int) -> int:\n" +
+            "        if key not in self.cache:\n" +
+            "            return -1\n" +
+            "        self.cache.move_to_end(key)     # End = most recently used.\n" +
+            "        return self.cache[key]\n" +
+            "\n" +
+            "    def put(self, key: int, value: int) -> None:\n" +
+            "        if key in self.cache:\n" +
+            "            self.cache.move_to_end(key) # Refresh recency for an existing key.\n" +
+            "        self.cache[key] = value\n" +
+            "        if len(self.cache) > self.capacity:\n" +
+            "            self.cache.popitem(last=False)  # Evict the front = least recently used.",
+          plain:
+            "from collections import OrderedDict\n" +
+            "\n" +
+            "class LRUCache:\n" +
+            "    def __init__(self, capacity: int):\n" +
+            "        self.capacity = capacity\n" +
+            "        self.cache = OrderedDict()\n" +
+            "\n" +
+            "    def get(self, key: int) -> int:\n" +
+            "        if key not in self.cache:\n" +
+            "            return -1\n" +
+            "        self.cache.move_to_end(key)\n" +
+            "        return self.cache[key]\n" +
+            "\n" +
+            "    def put(self, key: int, value: int) -> None:\n" +
+            "        if key in self.cache:\n" +
+            "            self.cache.move_to_end(key)\n" +
+            "        self.cache[key] = value\n" +
+            "        if len(self.cache) > self.capacity:\n" +
+            "            self.cache.popitem(last=False)"
+        }
+      ],
+      patternRecognition: [
+        "'O(1) get and put with eviction by recency' → hash map + doubly linked list.",
+        "Need instant lookup AND instant reordering → dict for lookup, DLL for order.",
+        "In Python, `OrderedDict` (move_to_end + popitem) is the ready-made version of that structure."
+      ],
+      interviewRecall: [
+        "Head = most recent, tail = least recent; evict `tail.prev` on overflow.",
+        "Doubly linked list so any node unlinks in O(1); sentinels remove end-case checks.",
+        "Store the key inside each node so eviction can also delete it from the dict."
+      ]
+    },
+
+    {
+      id: "reverse-nodes-in-k-group",
+      lc: 25,
+      title: "Reverse Nodes in k-Group",
+      difficulty: "Hard",
+      category: "Linked List",
+      link: "https://leetcode.com/problems/reverse-nodes-in-k-group/",
+      meta: { pattern: "Grouped Pointer Reversal", dataStructure: "Linked List", technique: "Dummy + per-group reverse & reconnect" },
+      description:
+        "Given the `head` of a linked list, reverse the nodes of the list `k` at a time and return the modified list.\n\n" +
+        "`k` is a positive integer no larger than the list length. If the number of nodes is not a multiple of `k`, the leftover nodes at the end stay in their original order.\n\n" +
+        "You may not change node values — only rearrange the nodes themselves.",
+      constraints: [
+        "The number of nodes is `n`, with `1 <= k <= n <= 5000`.",
+        "`0 <= Node.val <= 1000`",
+        "Solve it using `O(1)` extra memory (in-place)."
+      ],
+      notes: [
+        "A trailing group of fewer than `k` nodes is left as-is, not reversed.",
+        "This generalizes 'reverse a linked list': the same prev/curr flip, applied group by group and stitched together."
+      ],
+      examples: [
+        {
+          input: "head = [1, 2, 3, 4, 5], k = 2",
+          output: "[2, 1, 4, 3, 5]",
+          reasoning: "Reverse [1,2]->[2,1] and [3,4]->[4,3]; the leftover [5] stays.",
+          visual:
+            "```\n 1 -> 2 | 3 -> 4 | 5\n reverse each full group of 2:\n 2 -> 1 | 4 -> 3 | 5   (5 alone, unchanged)\n```"
+        },
+        {
+          input: "head = [1, 2, 3, 4, 5], k = 3",
+          output: "[3, 2, 1, 4, 5]",
+          reasoning: "Reverse [1,2,3]->[3,2,1]; [4,5] is shorter than k, so it stays.",
+          visual:
+            "```\n 1 -> 2 -> 3 | 4 -> 5\n 3 -> 2 -> 1 | 4 -> 5   (leftover of 2 < k=3 left as-is)\n```"
+        },
+        {
+          input: "head = [1, 2, 3, 4], k = 4",
+          output: "[4, 3, 2, 1]",
+          reasoning: "The whole list is one group of 4 and gets fully reversed."
+        },
+        {
+          input: "head = [1, 2, 3, 4, 5], k = 1",
+          output: "[1, 2, 3, 4, 5]",
+          reasoning: "k = 1 reverses each single node — no change."
+        }
+      ],
+      approaches: [
+        {
+          name: "Dummy + Per-Group Reverse and Reconnect",
+          time: "O(n)",
+          space: "O(1)",
+          whenToUse: "The expected in-place answer; the canonical hard linked-list reversal.",
+          logic:
+            "**What it asks.** Reverse the list in consecutive blocks of `k` nodes, leaving a final block shorter than `k` untouched, all in place without altering values.\n\n" +
+            "**Why the naive idea fails.** Reversing the whole list, or copying values into an array to reverse in chunks, either produces the wrong order or spends `O(n)` extra space and sidesteps the pointer work the problem is about. The real task is careful pointer surgery: reverse each full group and re-stitch the groups so the boundaries connect correctly.\n\n" +
+            "**Key Idea.** Process the list group by group. Before reversing a group, check that a full `k` nodes remain — if not, stop and leave the tail as-is. Track a `group_prev` pointer: the node just before the current group (initially a `dummy` before `head`). Find the group's `kth` node, reverse the `k` nodes with the standard `prev`/`curr` flip, then reconnect: `group_prev.next` becomes the group's new front (the old `kth` node), and the group's new tail (the old first node) links to the node after the group. Advance `group_prev` to that old first node and repeat.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Create `dummy` with `dummy.next = head`; set `group_prev = dummy`.\n" +
+            "2. Loop: from `group_prev`, walk `k` steps to find the group's `kth` node. If you run off the end (fewer than `k` nodes remain), break — the leftover stays in place.\n" +
+            "3. Record `group_next = kth.next` (the first node of the following group) as the reversal's stopping point.\n" +
+            "4. Reverse the group: set `prev = group_next`, `curr = group_prev.next`, and repeatedly flip `curr.next = prev`, advancing `prev` and `curr` until `curr` reaches `group_next`. Now the group points backward and its last-processed node's `next` already points at `group_next`.\n" +
+            "5. Reconnect: the old first node (now the group's tail) is `group_prev.next`; save it as `new_group_prev`. Set `group_prev.next = kth` (the group's new front), then move `group_prev = new_group_prev` for the next iteration.\n" +
+            "6. When no full group remains, return `dummy.next`.\n\n" +
+            "**Why it works.** Reversing a group with `prev` initialized to `group_next` automatically wires the group's new tail to the next group, so no separate link fix is needed there. Setting `group_prev.next = kth` attaches the reversed group's new front to the preceding part. Because `group_prev` advances to the group's tail (the old first node), each subsequent group attaches seamlessly. The pre-check for `k` remaining nodes guarantees a short final group is never reversed.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Check that a full group of `k` exists *before* reversing; otherwise you would wrongly reverse a short tail.\n" +
+            "- Initialize the group reversal's `prev` to `group_next` (not `None`) so the group's tail connects to the following group.\n" +
+            "- Update `group_prev` to the old first node (the group's new tail), not to `kth`.\n" +
+            "- Use a `dummy` so the very first group's front can be reattached uniformly; return `dummy.next`.\n\n" +
+            "**Complexity.** Time `O(n)` — each node is visited a constant number of times (one scan to find `kth`, one to reverse). Space `O(1)` — only pointers.\n\n" +
+            "**Interview mindset.** k-group reversal is 'reverse a linked list' scaled up with bookkeeping: a helper to locate the `kth` node, the standard flip bounded by `group_next`, and disciplined reconnection through `group_prev`. Draw the three boundary pointers before coding.",
+          rcs:
+            "class Solution:\n" +
+            "    def reverseKGroup(self, head: Optional[ListNode], k: int) -> Optional[ListNode]:\n" +
+            "        dummy = ListNode(0, head)       # Sentinel so the first group reattaches uniformly.\n" +
+            "        group_prev = dummy              # Node just before the current group.\n" +
+            "\n" +
+            "        def get_kth(node, k):           # Walk k steps; return the kth node or None.\n" +
+            "            while node and k > 0:\n" +
+            "                node = node.next\n" +
+            "                k -= 1\n" +
+            "            return node\n" +
+            "\n" +
+            "        while True:\n" +
+            "            kth = get_kth(group_prev, k)  # Last node of the group to reverse.\n" +
+            "            if not kth:                 # Fewer than k nodes remain: leave the tail as-is.\n" +
+            "                break\n" +
+            "            group_next = kth.next       # First node of the NEXT group = reversal boundary.\n" +
+            "            prev = group_next           # Initializing prev here wires the tail to the next group.\n" +
+            "            curr = group_prev.next      # First node of the current group.\n" +
+            "            while curr != group_next:   # Standard prev/curr flip across the group.\n" +
+            "                nxt = curr.next\n" +
+            "                curr.next = prev\n" +
+            "                prev = curr\n" +
+            "                curr = nxt\n" +
+            "            new_group_prev = group_prev.next  # Old first node = group's new tail.\n" +
+            "            group_prev.next = kth       # Attach preceding part to the group's new front.\n" +
+            "            group_prev = new_group_prev # Advance to the group's tail for the next round.\n" +
+            "        return dummy.next",
+          plain:
+            "class Solution:\n" +
+            "    def reverseKGroup(self, head: Optional[ListNode], k: int) -> Optional[ListNode]:\n" +
+            "        dummy = ListNode(0, head)\n" +
+            "        group_prev = dummy\n" +
+            "\n" +
+            "        def get_kth(node, k):\n" +
+            "            while node and k > 0:\n" +
+            "                node = node.next\n" +
+            "                k -= 1\n" +
+            "            return node\n" +
+            "\n" +
+            "        while True:\n" +
+            "            kth = get_kth(group_prev, k)\n" +
+            "            if not kth:\n" +
+            "                break\n" +
+            "            group_next = kth.next\n" +
+            "            prev = group_next\n" +
+            "            curr = group_prev.next\n" +
+            "            while curr != group_next:\n" +
+            "                nxt = curr.next\n" +
+            "                curr.next = prev\n" +
+            "                prev = curr\n" +
+            "                curr = nxt\n" +
+            "            new_group_prev = group_prev.next\n" +
+            "            group_prev.next = kth\n" +
+            "            group_prev = new_group_prev\n" +
+            "        return dummy.next"
+        }
+      ],
+      patternRecognition: [
+        "'Reverse in blocks of k' → per-group prev/curr flip stitched together with a dummy.",
+        "Leftover shorter than k stays put → check k nodes exist before reversing each group.",
+        "Boundary-heavy linked-list surgery → draw group_prev, kth, and group_next before coding."
+      ],
+      interviewRecall: [
+        "Find the kth node first; if it is null, stop and leave the tail unreversed.",
+        "Init the group flip's `prev` to `group_next` so the group's tail auto-links to the next group.",
+        "Reconnect: `group_prev.next = kth`, then advance `group_prev` to the old first node (the new tail)."
+      ]
     }
   ]);
 })();

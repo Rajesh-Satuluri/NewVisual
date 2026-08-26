@@ -426,6 +426,315 @@
         "Validity test is have == required in O(1) — do not compare whole maps every step.",
         "Record the answer INSIDE the while-loop before shrinking, and remember to return \"\" when no window was ever valid."
       ]
+    },
+
+    {
+      id: "permutation-in-string",
+      lc: 567,
+      title: "Permutation in String",
+      difficulty: "Medium",
+      category: "Sliding Window",
+      link: "https://leetcode.com/problems/permutation-in-string/",
+      meta: { pattern: "Fixed-size Sliding Window", dataStructure: "Frequency Count (26-array)", technique: "Anagram / count match" },
+      description:
+        "Given two strings `s1` and `s2`, return `true` if `s2` contains a **permutation** of `s1` as a **contiguous substring**, and `false` otherwise.\n\n" +
+        "In other words, does any window of `s2` of length `|s1|` have exactly the same character multiset as `s1`? A permutation is just a reordering, so order inside the window does not matter — only the counts do.",
+      constraints: [
+        "`1 <= s1.length, s2.length <= 10^4`",
+        "`s1` and `s2` consist of lowercase English letters."
+      ],
+      notes: [
+        "The match must be a contiguous substring of `s2` — not a subsequence.",
+        "If `|s1| > |s2|` the answer is immediately `false`; no window of the required size exists.",
+        "'Contains a permutation of s1' is the same as 'contains an anagram of s1'."
+      ],
+      examples: [
+        {
+          input: 's1 = "ab", s2 = "eidbaooo"',
+          output: "true",
+          reasoning: 'The window "ba" (starting at index 3) is a permutation of "ab", so the answer is true.',
+          visual:
+            "```\ns2:  e i d b a o o o     |s1| = 2, target counts a:1 b:1\n         [d b]              window \"db\" -> no match\n           [b a]            window \"ba\" -> counts a:1 b:1 -> MATCH\n```"
+        },
+        {
+          input: 's1 = "ab", s2 = "eidboaoo"',
+          output: "false",
+          reasoning: 'No length-2 window of "eidboaoo" ("ei","id","db","bo","oa","ao","oo") has exactly one "a" and one "b".'
+        },
+        {
+          input: 's1 = "adc", s2 = "dcda"',
+          output: "true",
+          reasoning: 'The window "dca" is a permutation of "adc" (counts a:1 c:1 d:1).'
+        },
+        {
+          input: 's1 = "abc", s2 = "ab"',
+          output: "false",
+          reasoning: "s2 is shorter than s1, so no window of the required length exists."
+        }
+      ],
+      approaches: [
+        {
+          name: "Fixed-size Sliding Window with count match",
+          time: "O(|s1| + |s2|)",
+          space: "O(1) (two 26-slot arrays)",
+          whenToUse: "The canonical answer for 'does any fixed-length window equal a target multiset' (anagram/permutation search).",
+          logic:
+            "**What it asks.** Determine whether some contiguous substring of `s2` is a rearrangement of `s1` — i.e. a window of length `|s1|` whose letter counts exactly match those of `s1`.\n\n" +
+            "**Why the naive idea fails.** The obvious approach takes every length-`|s1|` substring of `s2`, sorts it (or builds a fresh count), and compares to `s1`. There are `O(|s2|)` such windows and each sort/rebuild costs `O(|s1| log|s1|)` or `O(|s1|)`, giving `O(|s2| * |s1|)` overall — too slow when both are up to `10^4`, and wasteful because adjacent windows overlap in all but two characters.\n\n" +
+            "**Key Idea.** A permutation is defined purely by character counts, so build a target count for `s1` and slide a FIXED-width window of length `|s1|` across `s2`, maintaining the window's counts INCREMENTALLY. When the window moves one step, only two letters change: the new letter entering on the right and the old letter leaving on the left. So each step is `O(1)` to update, and a match is just 'window counts == target counts'. To avoid re-comparing all 26 slots every step, keep a `matches` counter of how many of the 26 letters currently agree between window and target, and adjust it as the two changing letters shift their agreement in or out.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. If `|s1| > |s2|`, return `false` — no window of the needed length fits. Build `s1_count[26]` from `s1` and `window_count[26]` from the first `|s1|` characters of `s2`; this first window is the initial candidate.\n" +
+            "2. Initialize `matches` = the number of the 26 letters for which `s1_count[c] == window_count[c]`. If `matches == 26` right away, return `true`.\n" +
+            "3. The **window** is always exactly `|s1|` wide; it does not grow or shrink, it only SLIDES. Slide `right` from `|s1|` to the end of `s2`: the letter `s2[right]` enters and the letter `s2[left]` (with `left = right - |s1|`) leaves.\n" +
+            "4. For the entering letter, adjust `matches` around the increment: if its window count was equal to target before the change, it is about to break agreement (decrement `matches`); increment the count; if it now equals target, agreement is restored (increment `matches`).\n" +
+            "5. Do the symmetric update for the leaving letter: check-before, decrement its window count, check-after, adjusting `matches` the same way.\n" +
+            "6. After each slide, if `matches == 26` the whole multiset agrees — return `true`. If the loop finishes with no match, return `false`.\n\n" +
+            "**Why it works.** The window always has the exact length of `s1`, so a full 26-letter count match is a necessary and sufficient condition for the window to be a permutation of `s1`. The `matches` counter is kept exactly in sync because only the two letters that change can alter agreement, and for each we compare 'equal to target' immediately before and after its single count change. Every window of the correct length is examined, so if a permutation exists it is found.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Handle `|s1| > |s2|` up front, or the initial window build reads past the end of `s2`.\n" +
+            "- Check for a match on the INITIAL window (before sliding), otherwise a permutation at the very start is missed.\n" +
+            "- When updating `matches`, compare against the target BEFORE and AFTER changing a letter's count — flipping the order or forgetting one side corrupts the counter.\n" +
+            "- A simpler variant just compares the two 26-arrays for equality after every slide; that is `O(26)` per step (still `O(26 * |s2|)` = linear) and is easier to get right if the `matches` bookkeeping feels error-prone.\n\n" +
+            "**Complexity.** Time `O(|s1| + |s2|)` — building the counts is linear and each of the `O(|s2|)` slides is `O(1)` with the `matches` counter (or `O(26)` = `O(1)` with the array-compare variant). Space `O(1)`: two fixed 26-slot arrays regardless of input size.\n\n" +
+            "**Interview mindset.** 'Does a fixed-length window match a target multiset?' (anagram/permutation search) is the fixed-size sliding-window signal: the window never changes width, you update counts by add-right/remove-left, and a lowercase-only alphabet points to a 26-slot array.",
+          rcs:
+            "class Solution:\n" +
+            "    def checkInclusion(self, s1: str, s2: str) -> bool:\n" +
+            "        if len(s1) > len(s2):                  # No window of the needed length fits.\n" +
+            "            return False\n" +
+            "        s1_count = [0] * 26                    # Target letter counts from s1.\n" +
+            "        window_count = [0] * 26                # Letter counts in the current window.\n" +
+            "        for i in range(len(s1)):               # Build target and the first window.\n" +
+            "            s1_count[ord(s1[i]) - ord('a')] += 1\n" +
+            "            window_count[ord(s2[i]) - ord('a')] += 1\n" +
+            "        matches = 0                            # How many of 26 letters currently agree.\n" +
+            "        for c in range(26):\n" +
+            "            if s1_count[c] == window_count[c]:\n" +
+            "                matches += 1\n" +
+            "        left = 0\n" +
+            "        for right in range(len(s1), len(s2)):  # Slide the fixed-width window right.\n" +
+            "            if matches == 26:                  # First window already matched.\n" +
+            "                return True\n" +
+            "            enter = ord(s2[right]) - ord('a')  # Letter entering on the right.\n" +
+            "            if window_count[enter] == s1_count[enter]:  # Was equal -> about to break.\n" +
+            "                matches -= 1\n" +
+            "            window_count[enter] += 1\n" +
+            "            if window_count[enter] == s1_count[enter]:  # Now equal -> restored.\n" +
+            "                matches += 1\n" +
+            "            leave = ord(s2[left]) - ord('a')   # Letter leaving on the left.\n" +
+            "            if window_count[leave] == s1_count[leave]:  # Was equal -> about to break.\n" +
+            "                matches -= 1\n" +
+            "            window_count[leave] -= 1\n" +
+            "            if window_count[leave] == s1_count[leave]:  # Now equal -> restored.\n" +
+            "                matches += 1\n" +
+            "            left += 1\n" +
+            "        return matches == 26                   # Check the final window too.",
+          plain:
+            "class Solution:\n" +
+            "    def checkInclusion(self, s1: str, s2: str) -> bool:\n" +
+            "        if len(s1) > len(s2):\n" +
+            "            return False\n" +
+            "        s1_count = [0] * 26\n" +
+            "        window_count = [0] * 26\n" +
+            "        for i in range(len(s1)):\n" +
+            "            s1_count[ord(s1[i]) - ord('a')] += 1\n" +
+            "            window_count[ord(s2[i]) - ord('a')] += 1\n" +
+            "        matches = 0\n" +
+            "        for c in range(26):\n" +
+            "            if s1_count[c] == window_count[c]:\n" +
+            "                matches += 1\n" +
+            "        left = 0\n" +
+            "        for right in range(len(s1), len(s2)):\n" +
+            "            if matches == 26:\n" +
+            "                return True\n" +
+            "            enter = ord(s2[right]) - ord('a')\n" +
+            "            if window_count[enter] == s1_count[enter]:\n" +
+            "                matches -= 1\n" +
+            "            window_count[enter] += 1\n" +
+            "            if window_count[enter] == s1_count[enter]:\n" +
+            "                matches += 1\n" +
+            "            leave = ord(s2[left]) - ord('a')\n" +
+            "            if window_count[leave] == s1_count[leave]:\n" +
+            "                matches -= 1\n" +
+            "            window_count[leave] -= 1\n" +
+            "            if window_count[leave] == s1_count[leave]:\n" +
+            "                matches += 1\n" +
+            "            left += 1\n" +
+            "        return matches == 26"
+        }
+      ],
+      patternRecognition: [
+        "'Does any fixed-length window equal a target character multiset' → fixed-size sliding window with a 26-slot count.",
+        "'Permutation / anagram of s1 as a substring' is a counts-only comparison; order inside the window is irrelevant.",
+        "The window width is constant (|s1|); it only slides — one letter in on the right, one out on the left."
+      ],
+      interviewRecall: [
+        "Fixed window of width |s1|: update counts incrementally (add-right, remove-left), don't rebuild each step.",
+        "A `matches` counter tracks how many of the 26 letters agree, giving O(1) match checks; adjust it before/after each count change.",
+        "Guard |s1| > |s2| up front, and check the initial window before you start sliding."
+      ]
+    },
+
+    {
+      id: "sliding-window-maximum",
+      lc: 239,
+      title: "Sliding Window Maximum",
+      difficulty: "Hard",
+      category: "Sliding Window",
+      link: "https://leetcode.com/problems/sliding-window-maximum/",
+      meta: { pattern: "Fixed-size Sliding Window", dataStructure: "Monotonic Deque", technique: "Maintain decreasing candidates" },
+      description:
+        "Given an integer array `nums` and an integer `k`, a window of size `k` slides from the far left to the far right, one position at a time. Each position covers `k` consecutive elements.\n\n" +
+        "Return an array of the **maximum** value in each window, in order — there are `len(nums) - k + 1` windows.",
+      constraints: [
+        "`1 <= nums.length <= 10^5`",
+        "`-10^4 <= nums[i] <= 10^4`",
+        "`1 <= k <= nums.length`"
+      ],
+      notes: [
+        "The output has exactly `len(nums) - k + 1` entries.",
+        "The window always has exactly `k` elements — it slides, it does not grow or shrink.",
+        "A naive max-per-window recompute is O(n*k); the goal is to do better."
+      ],
+      examples: [
+        {
+          input: "nums = [1,3,-1,-3,5,3,6,7], k = 3",
+          output: "[3,3,5,5,6,7]",
+          reasoning: "Each window of 3 contributes its maximum: [1,3,-1]→3, [3,-1,-3]→3, [-1,-3,5]→5, [-3,5,3]→5, [5,3,6]→6, [3,6,7]→7.",
+          visual:
+            "```\nnums:  1  3 -1 -3  5  3  6  7      k = 3\n      [1  3 -1]                    max = 3\n         [3 -1 -3]                 max = 3\n            [-1 -3  5]             max = 5\n               [-3  5  3]          max = 5\n                  [5  3  6]        max = 6\n                     [3  6  7]     max = 7\n```"
+        },
+        {
+          input: "nums = [1], k = 1",
+          output: "[1]",
+          reasoning: "One window containing the single element."
+        },
+        {
+          input: "nums = [9,8,7,6], k = 2",
+          output: "[9,8,7]",
+          reasoning: "A strictly decreasing array: each window's max is its leftmost element, which is why old maxima must be evicted as the window moves past them."
+        },
+        {
+          input: "nums = [1,2,3,4], k = 2",
+          output: "[2,3,4]",
+          reasoning: "A strictly increasing array: each new right element becomes the max, wiping out smaller candidates behind it."
+        }
+      ],
+      approaches: [
+        {
+          name: "Max-heap of (value, index)",
+          time: "O(n log n)",
+          space: "O(n)",
+          whenToUse: "A clean first improvement over the O(n*k) brute force; easy to reason about, though not optimal.",
+          logic:
+            "**What it asks.** Produce the maximum of every contiguous window of size `k` as the window slides across `nums`.\n\n" +
+            "**Why the naive idea fails.** Recomputing the max of each window from scratch scans `k` elements per window across `n - k + 1` windows — `O(n*k)`, up to `10^10` for the limits. Adjacent windows overlap in `k - 1` elements, so this repeats almost all the work.\n\n" +
+            "**Key Idea.** A max-heap can report the largest element in `O(log n)`, but heap entries do not disappear when the window moves past them. Store `(value, index)` pairs so that whenever we peek the top, we can check whether that maximum's index has fallen OUT of the current window; if so, discard it (lazy deletion) and peek again. The top of the heap, once we have discarded any stale entries, is the current window's maximum.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Use a max-heap of `(value, index)` (in Python, push `(-value, index)` since `heapq` is a min-heap). The window is the fixed range of the last `k` indices; the heap holds candidates, some possibly stale.\n" +
+            "2. For each index `right`, push `(nums[right], right)` — the window has just admitted this element.\n" +
+            "3. Before recording an answer, evict stale maxima: while the top entry's index is `<= right - k` (left of the window), pop it. This lazy deletion is what keeps the top valid.\n" +
+            "4. Once `right >= k - 1` (the first full window is formed), the heap top's value is this window's maximum — append it.\n\n" +
+            "**Why it works.** The true maximum of the current window is always somewhere in the heap (we never remove an in-window element early). Stale entries only ever sit ABOVE valid ones if they are larger, and we pop exactly those whose index has left the window before reading the top, so the exposed top is guaranteed to be the largest element whose index is still inside the window.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Push index alongside value; a bare value heap cannot tell whether the max is still in the window.\n" +
+            "- Evict stale tops (`index <= right - k`) BEFORE reading the answer, not after.\n" +
+            "- In Python negate values to simulate a max-heap with `heapq`.\n" +
+            "- Only start recording once the first window is complete (`right >= k - 1`).\n\n" +
+            "**Complexity.** Time `O(n log n)` — each element is pushed once and popped at most once, each `O(log n)`. Space `O(n)` for the heap in the worst case (e.g. a strictly increasing array where nothing is evicted early).\n\n" +
+            "**Interview mindset.** State brute force `O(n*k)`, then reach for a structure that yields the running max cheaply; a lazily-deleted max-heap is the natural first upgrade, and it sets up the observation that leads to the optimal deque.",
+          rcs:
+            "class Solution:\n" +
+            "    def maxSlidingWindow(self, nums: List[int], k: int) -> List[int]:\n" +
+            "        import heapq\n" +
+            "        heap = []                              # Max-heap of (-value, index).\n" +
+            "        result = []\n" +
+            "        for right in range(len(nums)):         # Slide the right edge across nums.\n" +
+            "            heapq.heappush(heap, (-nums[right], right))  # Admit the new element.\n" +
+            "            while heap[0][1] <= right - k:     # Top's index has left the window...\n" +
+            "                heapq.heappop(heap)            # ...lazily discard the stale max.\n" +
+            "            if right >= k - 1:                 # First full window formed onward.\n" +
+            "                result.append(-heap[0][0])     # Top is the current window max.\n" +
+            "        return result",
+          plain:
+            "class Solution:\n" +
+            "    def maxSlidingWindow(self, nums: List[int], k: int) -> List[int]:\n" +
+            "        import heapq\n" +
+            "        heap = []\n" +
+            "        result = []\n" +
+            "        for right in range(len(nums)):\n" +
+            "            heapq.heappush(heap, (-nums[right], right))\n" +
+            "            while heap[0][1] <= right - k:\n" +
+            "                heapq.heappop(heap)\n" +
+            "            if right >= k - 1:\n" +
+            "                result.append(-heap[0][0])\n" +
+            "        return result"
+        },
+        {
+          name: "Monotonic decreasing deque of indices",
+          time: "O(n)",
+          space: "O(k)",
+          whenToUse: "The optimal answer for 'max (or min) of every fixed-size window' — linear time, constant-ish space.",
+          logic:
+            "**What it asks.** Return the maximum of every window of size `k` as it slides across `nums`, in `O(n)`.\n\n" +
+            "**Why the naive idea fails.** Recomputing each window's max is `O(n*k)`. Even the heap approach is `O(n log n)` and can hold stale entries. We want each element handled in amortized `O(1)`.\n\n" +
+            "**Key Idea.** Maintain a **deque of INDICES** whose corresponding values are in strictly (or weakly) DECREASING order — a monotonic deque. The invariant: the front always holds the index of the current window's maximum, and every index in the deque is a genuine 'future candidate' — an element still in the window that has not yet been beaten by a later, larger element. When a new element arrives, any smaller-or-equal values sitting at the BACK can never be the max again (the newcomer is larger and stays in the window at least as long), so we pop them off before appending the newcomer. When the front index falls out of the window's left edge, we pop it off the front. What the deque holds: indices of elements, largest at the front, decreasing toward the back; its invariant is that it contains exactly the elements that could still become a window maximum, in decreasing value order.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Use a `deque` of indices, `dq`, and an output list. The window is the last `k` indices ending at `right`; `dq` holds the candidates for its maximum, front = largest.\n" +
+            "2. For each `right`: **maintain monotonicity at the back** — while `dq` is non-empty and `nums[dq[-1]] <= nums[right]`, pop from the back. Those elements are smaller than the incoming one and stay in-window no longer, so they can never again be a maximum.\n" +
+            "3. Append `right` to the back — it is the newest candidate.\n" +
+            "4. **Evict the expired front** — if the front index `dq[0]` equals `right - k` it has just slid out of the window; pop it from the front.\n" +
+            "5. **Record the max** — once `right >= k - 1`, the front `nums[dq[0]]` is this window's maximum; append it to the output.\n\n" +
+            "**Why it works.** The deque's decreasing invariant guarantees the front is the largest value among all indices still in the window: any element smaller than a later one was removed from the back when that later, longer-lived element arrived, so nothing at the front is ever dominated by something behind it. Front eviction removes exactly the element leaving the window. Each index is appended once and removed once, so the total back-pops and front-pops are bounded by `n` — amortized `O(1)` per element.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- The deque stores INDICES, not values — you need indices to know when the front has left the window.\n" +
+            "- Use `<=` (not `<`) when popping the back so equal values do not linger as dead weight; either works for correctness but `<=` keeps the deque smaller.\n" +
+            "- Evict the front by comparing index to `right - k` (the position that just fell out), a common off-by-one.\n" +
+            "- Only start appending answers once the first full window exists (`right >= k - 1`).\n\n" +
+            "**Complexity.** Time `O(n)` — every index enters and leaves the deque at most once. Space `O(k)` — the deque never holds more than one window's worth of candidates.\n\n" +
+            "**Interview mindset.** 'Running max/min over a fixed-size sliding window in linear time' is THE monotonic-deque signal. Say aloud what the deque holds (indices, values decreasing front-to-back) and its invariant (front = window max, everything inside is still a live candidate) — that framing is what interviewers listen for.",
+          rcs:
+            "class Solution:\n" +
+            "    def maxSlidingWindow(self, nums: List[int], k: int) -> List[int]:\n" +
+            "        from collections import deque\n" +
+            "        dq = deque()                           # Indices, values decreasing front->back.\n" +
+            "        result = []\n" +
+            "        for right in range(len(nums)):         # Slide the right edge across nums.\n" +
+            "            while dq and nums[dq[-1]] <= nums[right]:  # Back values <= newcomer...\n" +
+            "                dq.pop()                       # ...can never be max again: drop them.\n" +
+            "            dq.append(right)                   # Newcomer is the newest candidate.\n" +
+            "            if dq[0] == right - k:             # Front index slid out of the window.\n" +
+            "                dq.popleft()                   # Evict the expired maximum.\n" +
+            "            if right >= k - 1:                 # First full window formed onward.\n" +
+            "                result.append(nums[dq[0]])     # Front is the current window max.\n" +
+            "        return result",
+          plain:
+            "class Solution:\n" +
+            "    def maxSlidingWindow(self, nums: List[int], k: int) -> List[int]:\n" +
+            "        from collections import deque\n" +
+            "        dq = deque()\n" +
+            "        result = []\n" +
+            "        for right in range(len(nums)):\n" +
+            "            while dq and nums[dq[-1]] <= nums[right]:\n" +
+            "                dq.pop()\n" +
+            "            dq.append(right)\n" +
+            "            if dq[0] == right - k:\n" +
+            "                dq.popleft()\n" +
+            "            if right >= k - 1:\n" +
+            "                result.append(nums[dq[0]])\n" +
+            "        return result"
+        }
+      ],
+      patternRecognition: [
+        "'Maximum (or minimum) of every fixed-size window' in better than O(n*k) → monotonic deque.",
+        "You need the running extreme of a window and old extremes must expire as the window moves → deque of indices.",
+        "Each element can be dominated by a later, larger element that outlives it → pop smaller values from the back."
+      ],
+      interviewRecall: [
+        "Deque holds INDICES with values strictly decreasing front-to-back; the front is always the window max.",
+        "Pop smaller-or-equal values off the back before appending; pop the front when its index == right - k.",
+        "Amortized O(n): every index is pushed once and popped once. Mention the O(n log n) lazy-deletion max-heap as the simpler alternative."
+      ]
     }
   ]);
 })();
