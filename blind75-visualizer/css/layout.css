@@ -73,6 +73,14 @@
 }
 .clear-btn:hover { color: var(--red); border-color: var(--red); }
 
+.nav-tools { display: flex; gap: 6px; padding: 2px 14px 8px; }
+.nav-tool-btn {
+  flex: 1; padding: 6px 8px; font-size: 11.5px; font-weight: 600; cursor: pointer;
+  background: var(--bg-2); border: 1px solid var(--border); color: var(--muted);
+  border-radius: 7px;
+}
+.nav-tool-btn:hover { color: var(--text); border-color: var(--brand); }
+
 .nav { flex: 1; overflow-y: auto; padding: 6px 8px 40px; }
 .nav-empty { padding: 24px 16px; color: var(--muted); font-size: 13px; text-align: center; }
 
