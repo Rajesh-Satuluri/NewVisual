@@ -37,9 +37,19 @@
     filterDifficulty: "all",
     filterStatus: "all",
     filterPattern: "all",
+    filterImportance: "all",
     setFilter: store.getPref("setFilter") || "all",  // "all" | "Easy" | "Medium" | "Hard"
     approachIndex: {}   // problemId -> selected approach index
   };
+
+  // ---- interview-importance tier (curated estimate; central map in data/importance.js) ----
+  var IMPORTANCE = B.IMPORTANCE || {};
+  var IMP_META = {
+    essential:  { label: "Essential", stars: "★★★", cls: "imp-essential" },
+    common:     { label: "Common",    stars: "★★",  cls: "imp-common" },
+    occasional: { label: "Occasional", stars: "★",  cls: "imp-occasional" }
+  };
+  function impOf(p) { return IMPORTANCE[p.lc] || "common"; }
 
   // ---- tiny DOM helpers ----
   function el(id) { return document.getElementById(id); }
@@ -91,9 +101,12 @@
         var st = store.getStatus(p.id);
         if (state.filterStatus === "review") {
           if (!store.isReview(p.id)) return;
+        } else if (state.filterStatus === "due") {
+          if (!store.isDue(p.id)) return;
         } else if (st !== state.filterStatus) return;
       }
       if (state.filterPattern !== "all" && (!p.meta || p.meta.pattern !== state.filterPattern)) return;
+      if (state.filterImportance !== "all" && impOf(p) !== state.filterImportance) return;
       ids[p.id] = true;
     });
     return ids;
@@ -133,8 +146,10 @@
         var item = h("a", { class: "nav-item" + (p.id === state.currentId ? " active" : ""), href: "#" + p.id, "data-id": p.id });
         item.innerHTML =
           '<span class="st st-' + st + '">' + STATUS_GLYPH[st] + "</span>" +
+          '<span class="ni-imp ' + IMP_META[impOf(p)].cls + '" title="' + IMP_META[impOf(p)].label + ' (curated estimate)"></span>' +
           '<span class="ni-title">' + esc(p.title) + "</span>" +
           (store.isReview(p.id) ? '<span class="ni-review" title="Flagged for review">★</span>' : "") +
+          (store.isDue(p.id) ? '<span class="ni-review" title="Due for review">◔</span>' : "") +
           '<span class="ni-diff d-' + p.difficulty.toLowerCase() + '">' + p.difficulty.charAt(0) + "</span>";
         item.addEventListener("click", function (e) {
           e.preventDefault();
@@ -168,6 +183,60 @@
     if (tc) tc.textContent = total;
     var lbl = el("setLabel");
     if (lbl) lbl.textContent = state.setFilter === "all" ? "all" : state.setFilter;
+    updateFilterCounts();
+    updateReviewChip();
+    updateFilterDot();
+  }
+
+  // Base labels for filter options (counts appended, never touching value).
+  var STATUS_BASE = { "all": "Any status", "not-started": "Not started", "learning": "Learning",
+    "solved": "Solved", "review": "★ Review queue", "due": "◔ Due for review" };
+  var IMP_BASE = { "all": "All importance", "essential": "★★★ Essential", "common": "★★ Common", "occasional": "★ Occasional" };
+
+  // Per-option match counts, scoped to the active study set only (not cross-filtered).
+  function updateFilterCounts() {
+    var set = activeProblems();
+    var byStatus = { "not-started": 0, "learning": 0, "solved": 0, review: 0, due: 0 };
+    var byImp = { essential: 0, common: 0, occasional: 0 };
+    var byPat = {};
+    set.forEach(function (p) {
+      byStatus[store.getStatus(p.id)]++;
+      if (store.isReview(p.id)) byStatus.review++;
+      if (store.isDue(p.id)) byStatus.due++;
+      byImp[impOf(p)]++;
+      var pat = p.meta && p.meta.pattern; if (pat) byPat[pat] = (byPat[pat] || 0) + 1;
+    });
+    var fs = el("filterStatus");
+    if (fs) Array.prototype.forEach.call(fs.options, function (o) {
+      var base = STATUS_BASE[o.value] || o.value;
+      var n = o.value === "all" ? set.length : (byStatus[o.value] || 0);
+      o.textContent = base + " (" + n + ")";
+    });
+    var fi = el("filterImportance");
+    if (fi) Array.prototype.forEach.call(fi.options, function (o) {
+      var base = IMP_BASE[o.value] || o.value;
+      var n = o.value === "all" ? set.length : (byImp[o.value] || 0);
+      o.textContent = base + " (" + n + ")";
+    });
+    var fp = el("filterPattern");
+    if (fp) Array.prototype.forEach.call(fp.options, function (o) {
+      if (o.value === "all") { o.textContent = "All patterns (" + set.length + ")"; return; }
+      o.textContent = o.getAttribute("data-base") + " (" + (byPat[o.value] || 0) + ")";
+    });
+  }
+
+  function updateReviewChip() {
+    var chip = el("reviewDue"); if (!chip) return;
+    var n = store.countDue(activeProblems().map(function (p) { return p.id; }));
+    chip.textContent = "◔ Review " + n + " due";
+    chip.disabled = n === 0;
+  }
+
+  function anyFilterActive() {
+    return state.filterStatus !== "all" || state.filterPattern !== "all" || state.filterImportance !== "all";
+  }
+  function updateFilterDot() {
+    var t = el("filterToggle"); if (t) t.classList.toggle("has-active", anyFilterActive());
   }
 
   // ============================================================= CODE BLOCK
@@ -209,15 +278,56 @@
     var head = h("button", { class: "sec-head" });
     head.innerHTML = '<span class="sec-caret">▾</span><span class="sec-title">' + esc(title) + "</span>" +
       (opts.badge ? '<span class="sec-badge">' + esc(opts.badge) + "</span>" : "");
+    // grid-rows animation wrapper (see components.css)
+    var outer = h("div", { class: "sec-body-outer" });
     var body = h("div", { class: "sec-body" });
     body.appendChild(bodyNode);
+    outer.appendChild(body);
     head.addEventListener("click", function () {
-      var isCollapsed = sec.classList.toggle("collapsed");
-      head.querySelector(".sec-caret").textContent = isCollapsed ? "▸" : "▾";
+      sec.classList.toggle("collapsed");
     });
     sec.appendChild(head);
-    sec.appendChild(body);
+    sec.appendChild(outer);
     return sec;
+  }
+
+  // ---- animated modal open/close (route every open/close through these) ----
+  function openModal(id) {
+    var m = el(id); if (!m) return;
+    m.classList.remove("hidden"); void m.offsetWidth; m.classList.add("open");
+  }
+  function closeModal(id) {
+    var m = el(id); if (!m || m.classList.contains("hidden")) return;
+    m.classList.remove("open");
+    setTimeout(function () { m.classList.add("hidden"); }, 200); // 200 == --dur
+  }
+  function anyModalOpen() {
+    var ms = document.querySelectorAll(".modal:not(.hidden)");
+    return ms.length ? ms[ms.length - 1].id : null;
+  }
+
+  // ---- humanized due date ----
+  function humanWhen(dueMs) {
+    var now = Date.now();
+    if (dueMs <= now) return "today";
+    var start = new Date(); start.setHours(0, 0, 0, 0);
+    var days = Math.round((dueMs - start.getTime()) / 86400000);
+    if (days <= 0) return "today";
+    if (days === 1) return "tomorrow";
+    if (days < 14) return "in " + days + " days";
+    if (days < 60) return "in " + Math.round(days / 7) + " weeks";
+    return "in " + Math.round(days / 30) + " months";
+  }
+
+  // ---- generic labeled progress bar (dashboard) ----
+  function bar(label, value, total, weak) {
+    var pct = total ? Math.round((value / total) * 100) : 0;
+    var row = h("div", { class: "bar-row" + (weak ? " weak" : "") });
+    row.innerHTML =
+      '<div class="bar-label" title="' + esc(label) + '">' + esc(label) + "</div>" +
+      '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%"></div></div>' +
+      '<div class="bar-val">' + value + "/" + total + "</div>";
+    return row;
   }
 
   // ============================================================= MAIN VIEW
@@ -241,6 +351,7 @@
       '<div class="ph-top">' +
         '<span class="ph-lc">Q' + p.lc + "</span>" +
         '<span class="ph-diff d-' + p.difficulty.toLowerCase() + '">' + p.difficulty + "</span>" +
+        '<span class="imp-pill ' + IMP_META[impOf(p)].cls + '" title="Interview importance — curated estimate">' + IMP_META[impOf(p)].stars + " " + IMP_META[impOf(p)].label + "</span>" +
         '<span class="ph-cat">' + esc(p.category) + "</span>" +
         (p.link ? '<a class="ph-link" href="' + p.link + '" target="_blank" rel="noopener">Docs ↗</a>' : "") +
       "</div>" +
@@ -254,7 +365,10 @@
         STATUS_GLYPH[s] + " " + STATUS_LABEL[s]);
       b.addEventListener("click", function () {
         store.setStatus(p.id, s);
-        renderProblem(); renderSidebar(); renderProgress();
+        // in-place: just move the .sel class (no full re-render) + refresh sidebar/progress
+        statusSel.querySelectorAll(".status-btn").forEach(function (x) { x.classList.remove("sel"); });
+        b.classList.add("sel");
+        renderSidebar(); renderProgress();
       });
       statusSel.appendChild(b);
     });
@@ -286,7 +400,8 @@
       ["Pattern", m.pattern],
       ["Transformation", m.transformation],
       ["Functions", m.functions],
-      ["Difficulty", p.difficulty]
+      ["Difficulty", p.difficulty],
+      ["Importance", IMP_META[impOf(p)].stars + " " + IMP_META[impOf(p)].label]
     ];
     metaItems.forEach(function (it) {
       if (!it[1]) return;
@@ -425,6 +540,9 @@
       main.appendChild(section("recognize-recall", "Recognize & Recall", rr));
     }
 
+    // ---- Spaced Repetition ----
+    main.appendChild(buildSrsSection(p));
+
     // ---- My notes ----
     var noteWrap = h("div", { class: "note-wrap" });
     var ta = h("textarea", { class: "note-area", placeholder: "Your own notes, gotchas, or an attempt outline… (saved automatically)" });
@@ -459,6 +577,40 @@
     main.scrollTop = prevScroll;
   }
 
+  var GRADES = [
+    { key: "again", label: "Again", sub: "< 1 day", cls: "grade-again" },
+    { key: "hard", label: "Hard", sub: "sooner", cls: "grade-hard" },
+    { key: "good", label: "Good", sub: "on track", cls: "grade-good" },
+    { key: "easy", label: "Easy", sub: "later", cls: "grade-easy" }
+  ];
+
+  function srsStatusText(p) {
+    var c = store.getSrs(p.id);
+    if (!c) return "New card — not yet scheduled.";
+    if (store.isDue(p.id)) return "<b>Due now.</b> Grade your recall to reschedule.";
+    return "Scheduled — next review <b>" + humanWhen(c.due) + "</b> (reps " + c.reps + ").";
+  }
+
+  function buildSrsSection(p) {
+    var box = h("div", { class: "srs-box" });
+    var status = h("div", { class: "srs-status" }); status.innerHTML = srsStatusText(p);
+    var toast = h("div", { class: "srs-toast" }, "");
+    var grades = h("div", { class: "srs-grades" });
+    GRADES.forEach(function (g) {
+      var b = h("button", { class: "grade-btn " + g.cls }, g.label + "<small>" + g.sub + "</small>");
+      b.addEventListener("click", function () {
+        var c = store.reviewCard(p.id, g.key);
+        if (store.getStatus(p.id) === "not-started") store.setStatus(p.id, "learning");
+        status.innerHTML = srsStatusText(p);
+        toast.textContent = "Next review " + humanWhen(c.due) + ".";
+        renderSidebar(); renderProgress();
+      });
+      grades.appendChild(b);
+    });
+    box.appendChild(status); box.appendChild(grades); box.appendChild(toast);
+    return section("srs", "Spaced Repetition Review", box);
+  }
+
   function revealOverlay(target) {
     var ov = h("button", { class: "reveal-overlay" }, "👁 Click to reveal");
     ov.addEventListener("click", function (e) {
@@ -474,7 +626,12 @@
     state.currentId = id;
     if (location.hash !== "#" + id) history.replaceState(null, "", "#" + id);
     renderProblem(false);
+    // one-shot cross-fade on real navigation
+    var main = el("main");
+    main.classList.remove("nav-enter"); void main.offsetWidth; main.classList.add("nav-enter");
     renderSidebar();
+    // close mobile drawer after picking
+    if (matchMedia("(max-width:900px)").matches) document.body.classList.remove("sidebar-open");
   }
 
   // ============================================================= REVISION GRID
@@ -497,12 +654,176 @@
         "<td>" + esc((p.meta && p.meta.pattern) || "") + "</td>" +
         "<td>" + esc((p.meta && p.meta.transformation) || "") + "</td>" +
         '<td class="st st-' + stt + '">' + STATUS_GLYPH[stt] + "</td>";
-      tr.addEventListener("click", function () { modal.classList.add("hidden"); selectProblem(p.id); });
+      tr.addEventListener("click", function () { closeModal("gridModal"); selectProblem(p.id); });
       tbody.appendChild(tr);
     });
     table.appendChild(tbody);
     body.appendChild(table);
-    modal.classList.remove("hidden");
+    openModal("gridModal");
+  }
+
+  // ============================================================= DASHBOARD
+  function openDashboard() {
+    var body = el("dashBody");
+    body.innerHTML = "";
+    var set = activeProblems();
+    var ids = set.map(function (p) { return p.id; });
+    var solved = 0, learning = 0, notStarted = 0, flagged = 0;
+    set.forEach(function (p) {
+      var s = store.getStatus(p.id);
+      if (s === "solved") solved++; else if (s === "learning") learning++; else notStarted++;
+      if (store.isReview(p.id)) flagged++;
+    });
+    var due = store.countDue(ids), streak = store.currentStreak();
+
+    // stat cards
+    var grid = h("div", { class: "dash-grid" });
+    [["Solved", solved, ""], ["Learning", learning, "amber"], ["Not started", notStarted, ""],
+     ["Day streak", streak, "accent"], ["Due now", due, "accent"], ["Flagged", flagged, "amber"]
+    ].forEach(function (c) {
+      var card = h("div", { class: "stat-card " + c[2] });
+      card.innerHTML = '<div class="stat-num">' + c[1] + '</div><div class="stat-label">' + c[0] + "</div>";
+      grid.appendChild(card);
+    });
+    body.appendChild(grid);
+
+    // by difficulty
+    var diffSec = h("div", { class: "dash-section" });
+    diffSec.appendChild(h("h3", null, "Solved by difficulty"));
+    ["Easy", "Medium", "Hard"].forEach(function (d) {
+      var inD = set.filter(function (p) { return p.difficulty === d; });
+      var sv = inD.filter(function (p) { return store.getStatus(p.id) === "solved"; }).length;
+      if (inD.length) diffSec.appendChild(bar(d, sv, inD.length, false));
+    });
+    body.appendChild(diffSec);
+
+    // by importance
+    var impSec = h("div", { class: "dash-section" });
+    impSec.appendChild(h("h3", null, "By importance (curated estimate)"));
+    ["essential", "common", "occasional"].forEach(function (k) {
+      var inK = set.filter(function (p) { return impOf(p) === k; });
+      var sv = inK.filter(function (p) { return store.getStatus(p.id) === "solved"; }).length;
+      if (inK.length) impSec.appendChild(bar(IMP_META[k].stars + " " + IMP_META[k].label, sv, inK.length, false));
+    });
+    body.appendChild(impSec);
+
+    // weakest-first breakdown helper
+    function breakdown(title, keyFn) {
+      var groups = {};
+      set.forEach(function (p) {
+        var k = keyFn(p); if (!k) return;
+        if (!groups[k]) groups[k] = { total: 0, solved: 0 };
+        groups[k].total++; if (store.getStatus(p.id) === "solved") groups[k].solved++;
+      });
+      var rows = Object.keys(groups).map(function (k) {
+        var g = groups[k]; return { k: k, total: g.total, solved: g.solved, pct: g.solved / g.total };
+      }).sort(function (a, b) { return a.pct - b.pct; }); // weakest first
+      if (!rows.length) return;
+      var sec = h("div", { class: "dash-section" });
+      sec.appendChild(h("h3", null, title));
+      rows.forEach(function (r) { sec.appendChild(bar(r.k, r.solved, r.total, r.pct < 0.5)); });
+      body.appendChild(sec);
+    }
+    breakdown("Category (weakest first)", function (p) { return p.category; });
+    breakdown("Pattern (weakest first)", function (p) { return p.meta && p.meta.pattern; });
+
+    // activity heatmap (26 weeks)
+    var hmSec = h("div", { class: "dash-section" });
+    hmSec.appendChild(h("h3", null, "Activity — last 26 weeks"));
+    hmSec.appendChild(buildHeatmap());
+    body.appendChild(hmSec);
+
+    openModal("dashModal");
+  }
+
+  function buildHeatmap() {
+    var wrap = h("div");
+    var hm = h("div", { class: "heatmap" });
+    var weeks = 26;
+    var today = new Date(); today.setHours(0, 0, 0, 0);
+    // start on the Sunday `weeks` weeks back
+    var start = new Date(today.getTime() - (weeks * 7 - 1) * 86400000);
+    start.setDate(start.getDate() - start.getDay());
+    function level(n) { return n === 0 ? 0 : n === 1 ? 1 : n <= 3 ? 2 : n <= 6 ? 3 : 4; }
+    for (var w = 0; w < weeks; w++) {
+      var col = h("div", { class: "heat-col" });
+      for (var d = 0; d < 7; d++) {
+        var day = new Date(start.getTime() + (w * 7 + d) * 86400000);
+        var n = store.activityOn(day);
+        var lv = level(n);
+        var cell = h("div", { class: "heat-cell" + (lv ? " heat-" + lv : ""),
+          title: day.toISOString().slice(0, 10) + ": " + n + " action" + (n === 1 ? "" : "s") });
+        if (day > today) cell.style.visibility = "hidden";
+        col.appendChild(cell);
+      }
+      hm.appendChild(col);
+    }
+    wrap.appendChild(hm);
+    var legend = h("div", { class: "heat-legend" });
+    legend.innerHTML = "Less " +
+      '<span class="heat-cell"></span><span class="heat-cell heat-1"></span>' +
+      '<span class="heat-cell heat-2"></span><span class="heat-cell heat-3"></span>' +
+      '<span class="heat-cell heat-4"></span> More';
+    wrap.appendChild(legend);
+    return wrap;
+  }
+
+  // ============================================================= REVIEW SESSION
+  var rsQueue = [], rsIndex = 0, rsRevealed = false;
+  function startReviewSession() {
+    rsQueue = activeProblems().filter(function (p) { return store.isDue(p.id); });
+    rsIndex = 0; rsRevealed = false;
+    if (!rsQueue.length) return;
+    openModal("rsModal");
+    renderReviewCard();
+  }
+  function renderReviewCard() {
+    var body = el("rsBody"); body.innerHTML = "";
+    if (rsIndex >= rsQueue.length) {
+      var done = h("div", { class: "rs-done" });
+      done.innerHTML = '<div class="big">✓</div><h2>Session complete</h2>' +
+        '<p class="muted">You reviewed ' + rsQueue.length + " card" + (rsQueue.length === 1 ? "" : "s") + ".</p>";
+      var close = h("button", { class: "rs-reveal-btn" }, "Done");
+      close.style.alignSelf = "center";
+      close.addEventListener("click", function () { closeModal("rsModal"); renderAll(); });
+      done.appendChild(close); body.appendChild(done);
+      return;
+    }
+    var p = rsQueue[rsIndex];
+    var ai = (p.approaches || []).length - 1;
+    var cur = (p.approaches || [])[ai] || {};
+
+    var prog = h("div", { class: "rs-progress" });
+    prog.innerHTML = '<div class="rs-progress-fill" style="width:' + Math.round((rsIndex / rsQueue.length) * 100) + '%"></div>';
+    body.appendChild(prog);
+    body.appendChild(h("div", { class: "rs-count" }, "Card " + (rsIndex + 1) + " of " + rsQueue.length));
+    body.appendChild(h("div", { class: "rs-q-title" }, esc(p.title)));
+    body.appendChild(h("div", { class: "rs-q-meta" }, "Recall the pattern & approach, then reveal."));
+
+    if (!rsRevealed) {
+      var rev = h("button", { class: "rs-reveal-btn" }, "Reveal answer");
+      rev.addEventListener("click", function () { rsRevealed = true; renderReviewCard(); });
+      body.appendChild(rev);
+    } else {
+      var ans = h("div", { class: "rs-answer" });
+      var mdNode = h("div", { class: "md" });
+      mdNode.innerHTML = "<p><strong>Pattern:</strong> " + esc((p.meta && p.meta.pattern) || "—") +
+        " &nbsp;·&nbsp; <strong>Transformation:</strong> " + esc((p.meta && p.meta.transformation) || "—") + "</p>";
+      ans.appendChild(mdNode);
+      ans.appendChild(codeBlock(cur.plain || "", "", "python"));
+      body.appendChild(ans);
+      var grades = h("div", { class: "srs-grades" });
+      GRADES.forEach(function (g) {
+        var b = h("button", { class: "grade-btn " + g.cls }, g.label + "<small>" + g.sub + "</small>");
+        b.addEventListener("click", function () {
+          store.reviewCard(p.id, g.key);
+          if (store.getStatus(p.id) === "not-started") store.setStatus(p.id, "learning");
+          rsIndex++; rsRevealed = false; renderReviewCard();
+        });
+        grades.appendChild(b);
+      });
+      body.appendChild(grades);
+    }
   }
 
   // ============================================================= CONTROLS
@@ -521,6 +842,8 @@
       if (first) { state.currentId = first.id; store.setPref("lastProblem", first.id); }
     }
     renderAll();
+    var nav = el("nav");
+    if (nav) { nav.classList.remove("sidebar-fade"); void nav.offsetWidth; nav.classList.add("sidebar-fade"); }
   }
 
   function wireControls() {
@@ -541,13 +864,16 @@
       }
     }
 
-    el("filterStatus").addEventListener("change", function (e) { state.filterStatus = e.target.value; renderSidebar(); });
+    el("filterStatus").addEventListener("change", function (e) { state.filterStatus = e.target.value; renderSidebar(); renderProgress(); });
 
     var pf = el("filterPattern");
     allPatterns().forEach(function (pat) {
-      pf.appendChild(h("option", { value: pat }, pat));
+      pf.appendChild(h("option", { value: pat, "data-base": pat }, pat));
     });
-    pf.addEventListener("change", function (e) { state.filterPattern = e.target.value; renderSidebar(); });
+    pf.addEventListener("change", function (e) { state.filterPattern = e.target.value; renderSidebar(); renderProgress(); });
+
+    var fi = el("filterImportance");
+    if (fi) fi.addEventListener("change", function (e) { state.filterImportance = e.target.value; renderSidebar(); renderProgress(); });
 
     // expand / collapse all categories
     function setAllCollapsed(collapsed) {
@@ -560,10 +886,36 @@
     if (collapseAllBtn) collapseAllBtn.addEventListener("click", function () { setAllCollapsed(true); });
 
     el("clearFilters").addEventListener("click", function () {
-      state.query = ""; state.filterDifficulty = "all"; state.filterStatus = "all"; state.filterPattern = "all";
+      state.query = ""; state.filterStatus = "all"; state.filterPattern = "all"; state.filterImportance = "all";
       search.value = ""; el("filterStatus").value = "all"; pf.value = "all";
-      renderSidebar();
+      if (fi) fi.value = "all";
+      renderSidebar(); renderProgress();
     });
+
+    // filters drawer toggle (⚙)
+    var filterToggle = el("filterToggle");
+    var filtersDrawer = el("filtersDrawer");
+    if (filterToggle && filtersDrawer) {
+      if (store.getPref("filtersOpen")) { filtersDrawer.classList.add("open"); filterToggle.classList.add("on"); }
+      filterToggle.addEventListener("click", function () {
+        var open = !filtersDrawer.classList.contains("open");
+        filtersDrawer.classList.toggle("open", open);
+        filterToggle.classList.toggle("on", open);
+        store.setPref("filtersOpen", open);
+      });
+    }
+
+    // dashboard
+    var dashBtn = el("dashBtn");
+    if (dashBtn) dashBtn.addEventListener("click", openDashboard);
+    el("dashClose").addEventListener("click", function () { closeModal("dashModal"); });
+    el("dashModal").addEventListener("click", function (e) { if (e.target === el("dashModal")) closeModal("dashModal"); });
+
+    // review session
+    var reviewDue = el("reviewDue");
+    if (reviewDue) reviewDue.addEventListener("click", startReviewSession);
+    el("rsClose").addEventListener("click", function () { closeModal("rsModal"); renderAll(); });
+    el("rsModal").addEventListener("click", function (e) { if (e.target === el("rsModal")) { closeModal("rsModal"); renderAll(); } });
 
     // theme
     var themeBtn = el("themeBtn");
@@ -576,8 +928,8 @@
 
     // grid
     el("gridBtn").addEventListener("click", openGrid);
-    el("gridClose").addEventListener("click", function () { el("gridModal").classList.add("hidden"); });
-    el("gridModal").addEventListener("click", function (e) { if (e.target === el("gridModal")) el("gridModal").classList.add("hidden"); });
+    el("gridClose").addEventListener("click", function () { closeModal("gridModal"); });
+    el("gridModal").addEventListener("click", function (e) { if (e.target === el("gridModal")) closeModal("gridModal"); });
 
     // export / import / reset
     el("exportBtn").addEventListener("click", function () {
@@ -605,9 +957,15 @@
       }
     });
 
-    // sidebar toggle (mobile)
+    // sidebar toggle: off-canvas drawer on mobile, collapse-to-full-width on desktop
     el("menuBtn").addEventListener("click", function () {
-      document.body.classList.toggle("sidebar-open");
+      if (matchMedia("(max-width:900px)").matches) {
+        document.body.classList.toggle("sidebar-open");
+      } else {
+        var c = !document.body.classList.contains("sidebar-collapsed");
+        document.body.classList.toggle("sidebar-collapsed", c);
+        store.setPref("sidebarCollapsed", c);
+      }
     });
 
     // keyboard nav
@@ -617,7 +975,7 @@
         return;
       }
       if (e.key === "/") { e.preventDefault(); search.focus(); return; }
-      if (e.key === "Escape") { el("gridModal").classList.add("hidden"); return; }
+      if (e.key === "Escape") { var open = anyModalOpen(); if (open) closeModal(open); return; }
       var idx = ALL.findIndex(function (x) { return x.id === state.currentId; });
       if (e.key === "j" || e.key === "ArrowDown") { if (ALL[idx + 1]) { e.preventDefault(); selectProblem(ALL[idx + 1].id); } }
       if (e.key === "k" || e.key === "ArrowUp") { if (ALL[idx - 1]) { e.preventDefault(); selectProblem(ALL[idx - 1].id); } }
@@ -661,6 +1019,10 @@
     if (cur && !inActiveSet(cur)) {
       var first = activeProblems()[0];
       if (first) state.currentId = first.id;
+    }
+    // restore desktop sidebar-collapsed state
+    if (store.getPref("sidebarCollapsed") && !matchMedia("(max-width:900px)").matches) {
+      document.body.classList.add("sidebar-collapsed");
     }
     wireControls();
     renderAll();

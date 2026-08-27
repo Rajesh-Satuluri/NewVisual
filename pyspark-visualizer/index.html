@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PySpark Interview Lab — Interactive Study Tool</title>
-  <meta name="description" content="An interactive study tool for PySpark interview coding questions: paraphrased prompts, sample DataFrames, plain-English logic, RCS + clean PySpark, the Spark SQL equivalent, Spark internals & performance notes, recognize-and-recall cues, and progress tracking." />
+  <meta name="description" content="An interactive study tool for PySpark interview coding questions: paraphrased prompts, sample DataFrames, plain-English logic, RCS + clean PySpark, the Spark SQL equivalent, Spark internals & performance notes, spaced-repetition review, a progress dashboard, and recognize-and-recall cues." />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23e8590c'/%3E%3Ctext x='50' y='68' font-size='46' font-family='Arial' font-weight='bold' text-anchor='middle' fill='%23fff'%3E%E2%9A%A1%3C/text%3E%3C/svg%3E" />
   <link rel="stylesheet" href="css/prism-tomorrow.css" />
   <link rel="stylesheet" href="css/main.css" />
@@ -20,6 +20,7 @@
       <span class="brand-text">PySpark <b>Interview</b> Lab</span>
     </a>
     <div class="topbar-right">
+      <button id="dashBtn" class="ghost-btn" title="Progress analytics">📊 Dashboard</button>
       <button id="gridBtn" class="ghost-btn" title="Revision grid">▦ Revision grid</button>
       <button id="exportBtn" class="ghost-btn" title="Download progress as JSON">↓ Export</button>
       <button id="importBtn" class="ghost-btn" title="Import progress JSON">↑ Import</button>
@@ -39,36 +40,50 @@
         <button class="set-btn" data-set="Medium" role="tab">Medium</button>
         <button class="set-btn" data-set="Hard" role="tab">Hard</button>
       </div>
+
       <div class="progress-box">
         <div class="progress-head">
           <span id="progressText">0 / 0 solved</span>
-          <span id="progressSub" class="muted">0 learning</span>
+          <button id="reviewDue" class="review-chip" title="Start a spaced-repetition review session" disabled>◔ Review 0 due</button>
         </div>
         <div class="progress-track"><div id="progressFill" class="progress-fill"></div></div>
-        <div class="progress-foot muted"><span id="totalCount">0</span> <span id="setLabel">all</span> problems in view</div>
+        <div class="progress-foot muted"><span id="progressSub">0 learning</span> · <span id="totalCount">0</span> <span id="setLabel">all</span> in view</div>
       </div>
 
-      <div class="search-box">
-        <input id="search" type="text" placeholder="Search title, pattern, transformation, function…  ( / )" autocomplete="off" />
+      <div class="search-row">
+        <div class="search-box">
+          <input id="search" type="text" placeholder="Search title, pattern, function…  ( / )" autocomplete="off" />
+        </div>
+        <button id="filterToggle" class="filter-toggle" title="Filters" aria-label="Toggle filters">⚙<span class="filter-dot"></span></button>
       </div>
 
-      <div class="filters">
-        <select id="filterStatus" title="Filter by status">
-          <option value="all">Any status</option>
-          <option value="not-started">Not started</option>
-          <option value="learning">Learning</option>
-          <option value="solved">Solved</option>
-          <option value="review">★ Review queue</option>
-        </select>
-        <select id="filterPattern" title="Filter by pattern">
-          <option value="all">All patterns</option>
-        </select>
-        <button id="clearFilters" class="clear-btn" title="Clear search & filters">✕</button>
+      <div id="filtersDrawer" class="filters-drawer">
+        <div class="filters">
+          <select id="filterStatus" title="Filter by status">
+            <option value="all">Any status</option>
+            <option value="not-started">Not started</option>
+            <option value="learning">Learning</option>
+            <option value="solved">Solved</option>
+            <option value="review">★ Review queue</option>
+            <option value="due">◔ Due for review</option>
+          </select>
+          <select id="filterImportance" title="Filter by interview importance">
+            <option value="all">All importance</option>
+            <option value="essential">★★★ Essential</option>
+            <option value="common">★★ Common</option>
+            <option value="occasional">★ Occasional</option>
+          </select>
+          <select id="filterPattern" title="Filter by pattern">
+            <option value="all">All patterns</option>
+          </select>
+          <button id="clearFilters" class="clear-btn" title="Clear search & filters">✕</button>
+        </div>
       </div>
 
-      <div class="nav-tools">
-        <button id="expandAll" class="nav-tool-btn" title="Expand all categories">▾ Expand all</button>
-        <button id="collapseAll" class="nav-tool-btn" title="Collapse all categories">▸ Collapse all</button>
+      <div class="cats-row">
+        <span class="cats-label">Categories</span>
+        <button id="expandAll" class="nav-tool-btn" title="Expand all categories">▾</button>
+        <button id="collapseAll" class="nav-tool-btn" title="Collapse all categories">▸</button>
       </div>
 
       <nav id="nav" class="nav"></nav>
@@ -89,6 +104,28 @@
     </div>
   </div>
 
+  <!-- ============ DASHBOARD MODAL ============ -->
+  <div id="dashModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2>Progress Analytics</h2>
+        <button id="dashClose" class="icon-btn">✕</button>
+      </div>
+      <div id="dashBody" class="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- ============ REVIEW SESSION MODAL ============ -->
+  <div id="rsModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2>Review Session</h2>
+        <button id="rsClose" class="icon-btn">✕</button>
+      </div>
+      <div id="rsBody" class="rs-body"></div>
+    </div>
+  </div>
+
   <!-- ============ SCRIPTS ============ -->
   <script src="js/vendor/prism.js"></script>
   <script src="js/vendor/prism-python.js"></script>
@@ -99,8 +136,12 @@
   <script src="js/modules/markdown.js"></script>
   <script src="js/modules/store.js"></script>
 
+  <!-- central lookup maps (before data) -->
+  <script src="data/importance.js"></script>
+
   <!-- data (canonical order) -->
   <script src="data/dataframe_basics.js"></script>
+  <script src="data/aggregations_groupby.js"></script>
 
   <script src="js/app.js"></script>
 </body>
