@@ -18,6 +18,12 @@
     // Aggregations & GroupBy (Q21–Q26, Q33–Q35, Q40, Q42, Q43)
     21: "essential", 22: "essential", 23: "common", 24: "essential", 25: "common",
     26: "common", 33: "essential", 34: "common", 35: "essential", 40: "essential",
-    42: "common", 43: "common"
+    42: "common", 43: "common",
+    // Joins (Q51–Q58)
+    51: "essential", 52: "essential", 53: "common", 54: "common", 55: "common",
+    56: "common", 57: "common", 58: "common",
+    // Window Functions (Q71, Q73–Q77, Q89, Q90)
+    71: "essential", 73: "common", 74: "essential", 75: "common", 76: "common",
+    77: "common", 89: "common", 90: "occasional"
   };
 })();
