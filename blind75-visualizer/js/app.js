@@ -37,6 +37,7 @@
     filterDifficulty: "all",
     filterStatus: "all",
     filterPattern: "all",
+    filterImportance: "all",
     setFilter: store.getPref("setFilter") || "all",  // "all" (NeetCode 150) | "blind75"
     approachIndex: {}   // problemId -> selected approach index
   };
@@ -72,6 +73,17 @@
     if (!m || m.classList.contains("hidden")) return;
     m.classList.remove("open");
     setTimeout(function () { m.classList.add("hidden"); }, MODAL_MS);
+  }
+
+  // interview-importance tiers
+  var IMP_META = {
+    essential:  { label: "Essential",  stars: "★★★", cls: "imp-essential" },
+    common:     { label: "Common",     stars: "★★",  cls: "imp-common" },
+    occasional: { label: "Occasional", stars: "★",   cls: "imp-occasional" }
+  };
+  function impOf(p) {
+    var m = B.IMPORTANCE || {};
+    return m[p && p.lc] || "common";
   }
 
   var STATUS_GLYPH = { "not-started": "○", "learning": "◐", "solved": "✓" };
@@ -113,6 +125,7 @@
         } else if (st !== state.filterStatus) return;
       }
       if (state.filterPattern !== "all" && (!p.meta || p.meta.pattern !== state.filterPattern)) return;
+      if (state.filterImportance !== "all" && impOf(p) !== state.filterImportance) return;
       ids[p.id] = true;
     });
     return ids;
@@ -153,10 +166,14 @@
       matching.forEach(function (p) {
         var st = store.getStatus(p.id);
         var item = h("a", { class: "nav-item" + (p.id === state.currentId ? " active" : ""), href: "#" + p.id, "data-id": p.id });
+        var imp = impOf(p);
+        var impDot = imp === "occasional" ? "" :
+          '<span class="ni-imp ' + IMP_META[imp].cls + '" title="' + IMP_META[imp].label + ' — interview importance">●</span>';
         item.innerHTML =
           '<span class="st st-' + st + '">' + STATUS_GLYPH[st] + "</span>" +
           '<span class="ni-title">' + esc(p.title) + "</span>" +
           (store.isReview(p.id) ? '<span class="ni-review" title="Flagged for review">★</span>' : "") +
+          impDot +
           '<span class="ni-diff d-' + p.difficulty.toLowerCase() + '">' + p.difficulty.charAt(0) + "</span>";
         item.addEventListener("click", function (e) {
           e.preventDefault();
@@ -273,6 +290,8 @@
       '<div class="ph-top">' +
         '<span class="ph-lc">#' + p.lc + "</span>" +
         '<span class="ph-diff d-' + p.difficulty.toLowerCase() + '">' + p.difficulty + "</span>" +
+        '<span class="ph-imp ' + IMP_META[impOf(p)].cls + '" title="Interview importance (curated estimate)">' +
+          IMP_META[impOf(p)].stars + " " + IMP_META[impOf(p)].label + "</span>" +
         '<span class="ph-cat">' + esc(p.category) + "</span>" +
         '<a class="ph-link" href="' + p.link + '" target="_blank" rel="noopener">LeetCode ↗</a>' +
       "</div>" +
@@ -344,6 +363,12 @@
       }
       metaBox.appendChild(cell);
     });
+    // importance cell (stars + tier)
+    var impCell = h("div", { class: "meta-cell" });
+    var impInfo = IMP_META[impOf(p)];
+    impCell.innerHTML = '<div class="meta-k">Importance</div>' +
+      '<div class="meta-v ' + impInfo.cls + '">' + impInfo.stars + " " + impInfo.label + "</div>";
+    metaBox.appendChild(impCell);
     main.appendChild(metaBox);
 
     // ---- spaced-repetition review ----
@@ -673,7 +698,7 @@
     body.innerHTML = "";
     var table = h("table", { class: "grid-table" });
     table.innerHTML = "<thead><tr><th>#</th><th>Problem</th><th>Category</th><th>Difficulty</th>" +
-      "<th>Pattern</th><th>Time</th><th>Space</th><th>Status</th></tr></thead>";
+      "<th>Importance</th><th>Pattern</th><th>Time</th><th>Space</th><th>Status</th></tr></thead>";
     var tbody = h("tbody");
     activeProblems().forEach(function (p) {
       var a0 = p.approaches[p.approaches.length - 1] || {};
@@ -684,6 +709,7 @@
         '<td class="g-title">' + esc(p.title) + "</td>" +
         "<td>" + esc(p.category) + "</td>" +
         '<td class="d-' + p.difficulty.toLowerCase() + '">' + p.difficulty + "</td>" +
+        '<td class="' + IMP_META[impOf(p)].cls + '" title="' + IMP_META[impOf(p)].label + '">' + IMP_META[impOf(p)].stars + "</td>" +
         "<td>" + esc((p.meta && p.meta.pattern) || "") + "</td>" +
         "<td><code>" + esc(a0.time || "") + "</code></td>" +
         "<td><code>" + esc(a0.space || "") + "</code></td>" +
@@ -828,6 +854,16 @@
     });
     body.appendChild(diffWrap);
 
+    // ---- by importance ----
+    var impWrap = h("div", { class: "db-block" });
+    impWrap.appendChild(h("h3", null, "By interview importance"));
+    ["essential", "common", "occasional"].forEach(function (tier) {
+      var inT = set.filter(function (p) { return impOf(p) === tier; });
+      var sv = inT.filter(function (p) { return store.getStatus(p.id) === "solved"; }).length;
+      impWrap.appendChild(bar(IMP_META[tier].stars + " " + IMP_META[tier].label, sv, inT.length, "imp-fill-" + tier));
+    });
+    body.appendChild(impWrap);
+
     // ---- by category (weakest first) ----
     var catWrap = h("div", { class: "db-block" });
     catWrap.appendChild(h("h3", null, "By category — weakest first"));
@@ -960,6 +996,9 @@
     });
     pf.addEventListener("change", function (e) { state.filterPattern = e.target.value; renderSidebar(); });
 
+    var impf = el("filterImportance");
+    if (impf) impf.addEventListener("change", function (e) { state.filterImportance = e.target.value; renderSidebar(); });
+
     // expand / collapse all categories
     function setAllCollapsed(collapsed) {
       B.byCategory().forEach(function (g) { store.setCatCollapsed(g.category, collapsed); });
@@ -971,8 +1010,9 @@
     if (collapseAllBtn) collapseAllBtn.addEventListener("click", function () { setAllCollapsed(true); });
 
     el("clearFilters").addEventListener("click", function () {
-      state.query = ""; state.filterDifficulty = "all"; state.filterStatus = "all"; state.filterPattern = "all";
+      state.query = ""; state.filterDifficulty = "all"; state.filterStatus = "all"; state.filterPattern = "all"; state.filterImportance = "all";
       search.value = ""; el("filterDifficulty").value = "all"; el("filterStatus").value = "all"; pf.value = "all";
+      if (impf) impf.value = "all";
       renderSidebar();
     });
 
