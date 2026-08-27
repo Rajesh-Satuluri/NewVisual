@@ -524,6 +524,746 @@
         "Quickselect: target index = n - k in ascending order; partition, compare pivot index to target, recurse on one side only.",
         "Use a random pivot to avoid Quickselect's O(n^2) worst case; average is O(n)."
       ]
+    },
+
+    {
+      id: "kth-largest-element-in-a-stream",
+      lc: 703,
+      title: "Kth Largest Element in a Stream",
+      difficulty: "Easy",
+      category: "Heap / Priority Queue",
+      link: "https://leetcode.com/problems/kth-largest-element-in-a-stream/",
+      meta: { pattern: "Streaming top-k", dataStructure: "Min-heap of size k", technique: "Bounded heap, peek the root" },
+      description:
+        "Design a class that tracks the `k`-th **largest** value in a stream of numbers. Note this is the k-th largest in *sorted order*, not the k-th distinct element.\n\n" +
+        "Implement:\n\n" +
+        "- `KthLargest(k, nums)` — initialize with the integer `k` and an initial array `nums`.\n" +
+        "- `add(val)` — append `val` to the stream and return the current `k`-th largest element.\n\n" +
+        "Each `add` should be fast because it may be called many times.",
+      constraints: [
+        "`1 <= k <= 10^4`",
+        "`0 <= nums.length <= 10^4`",
+        "`-10^4 <= nums[i] <= 10^4`",
+        "`-10^4 <= val <= 10^4`",
+        "At most `10^4` calls to `add`.",
+        "It is guaranteed there are at least `k` elements in the array when `add` is called."
+      ],
+      notes: [
+        "Re-sorting the whole collection on every `add` would be `O(n log n)` per call — far too slow across thousands of calls.",
+        "You never need the full ordering, only fast access to the smallest of the k largest values seen so far."
+      ],
+      examples: [
+        {
+          input: "KthLargest(3, [4, 5, 8, 2]); add(3); add(5); add(10); add(9); add(4)",
+          output: "4, 5, 5, 8, 8",
+          reasoning: "k=3 tracks the 3rd largest. After adding 3 the stream is [4,5,8,2,3] whose 3rd largest is 4; after 5 -> 5; after 10 -> 5; after 9 -> 8; after 4 -> 8.",
+          visual:
+            "```\n" +
+            "k = 3  ->  keep a MIN-heap of the 3 largest values; its root is the answer.\n" +
+            "\n" +
+            "init [4,5,8,2] -> keep top 3 -> heap = [4, 5, 8]   root=4\n" +
+            "add 3: push 3 -> [3,5,8,4], size 4 > 3, pop min 3 -> [4,5,8]  root=4\n" +
+            "add 5: push 5 -> size 4, pop min 4 -> [5,8,5]                 root=5\n" +
+            "add 10: push 10, pop min 5 -> [8,10,5]... root stays 5        root=5\n" +
+            "add 9: push 9, pop min 5 -> [8,10,9]                          root=8\n" +
+            "add 4: push 4, pop min 4 -> [8,10,9]                          root=8\n" +
+            "```"
+        },
+        {
+          input: "KthLargest(1, []); add(-3); add(-2); add(-4); add(0); add(4)",
+          output: "-3, -2, -2, 0, 4",
+          reasoning: "k=1 tracks the maximum so far. The running max is -3, -2, -2, 0, 4."
+        },
+        {
+          input: "KthLargest(2, [0]); add(-1); add(1); add(-2); add(-4); add(3)",
+          output: "-1, 0, 0, 0, 1",
+          reasoning: "k=2 tracks the 2nd largest. After each add the 2nd largest is -1, 0, 0, 0, then 1."
+        },
+        {
+          input: "KthLargest(2, [7, 7]); add(7); add(6)",
+          output: "7, 7",
+          reasoning: "Duplicates count, so with values [7,7,7] the 2nd largest is 7; after adding 6 it is still 7."
+        }
+      ],
+      approaches: [
+        {
+          name: "Min-heap of size k",
+          time: "O((n + m) log k) for n initial elements and m adds",
+          space: "O(k)",
+          whenToUse: "The natural fit for a streaming k-th largest: values arrive over time and each query must be fast with bounded memory.",
+          logic:
+            "**What it asks.** Support a stream of integers and, after every insertion, report the k-th largest value seen so far. Duplicates count, so this is rank `k` in sorted order.\n\n" +
+            "**Why the naive idea fails.** Storing everything and re-sorting on each `add` is `O(n log n)` per call; with up to 10^4 adds that repeated sorting is wasteful, because each call recomputes the full order when we only need one boundary value.\n\n" +
+            "**Key Idea.** The k-th largest element is exactly the **smallest** among the k largest elements. So keep a **min-heap that never holds more than k values**: it retains precisely the k biggest numbers seen so far, and its root — the minimum of those k — is the k-th largest. Python's `heapq` is a MIN-heap, which is exactly the polarity we want here (no negation needed): the root is the weakest survivor, the first to be evicted when a bigger value arrives.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. In `__init__`, store `k`, copy `nums` into a list, and `heapq.heapify` it into a min-heap in `O(n)`. Then pop the smallest until the heap has at most `k` elements, so it holds only the k largest.\n" +
+            "2. In `add(val)`, push `val` onto the heap.\n" +
+            "3. If the heap now exceeds size `k`, pop the root (the current minimum) so it is back to `k` items.\n" +
+            "4. Return `heap[0]`, the root — the smallest of the k largest, i.e. the current k-th largest.\n\n" +
+            "**Why it works.** At all times the heap contains the k largest values of the stream: we only ever discard the minimum once size exceeds `k`, and any discarded value is smaller than `k` retained values, so it can never be the k-th largest. The root is therefore always the k-th largest overall.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Use a MIN-heap for the k-th LARGEST; reaching for a max-heap here is the classic slip.\n" +
+            "- The initial array may be longer than `k`, so trim it down to size `k` in the constructor, not just in `add`.\n" +
+            "- Pop only when the size strictly exceeds `k`; the answer is the root, never a popped value.\n" +
+            "- Duplicates are kept, so `[7,7,7]` has 2nd largest `7`.\n\n" +
+            "**Complexity.** Building and trimming the initial heap is `O(n log k)` (heapify `O(n)` plus trimming pops). Each `add` does a push and possibly a pop, `O(log k)`, and returns the root in `O(1)`. Space `O(k)` for the bounded heap.\n\n" +
+            "**Interview mindset.** 'k-th largest in a stream' is the textbook cue for a size-`k` min-heap: bounded memory, `O(log k)` updates, and the root is the answer at all times. Note that `heapq` being a min-heap is a convenience here — no negation trick needed, unlike max-heap problems where you push `-x`.",
+          rcs:
+            "import heapq\n" +
+            "\n" +
+            "class KthLargest:\n" +
+            "    def __init__(self, k: int, nums: List[int]):\n" +
+            "        self.k = k\n" +
+            "        self.heap = nums[:]               # Copy so we don't mutate the caller's list.\n" +
+            "        heapq.heapify(self.heap)          # O(n): turn the list into a min-heap.\n" +
+            "        while len(self.heap) > k:         # Trim down to the k largest values.\n" +
+            "            heapq.heappop(self.heap)      # Drop the current smallest.\n" +
+            "\n" +
+            "    def add(self, val: int) -> int:\n" +
+            "        heapq.heappush(self.heap, val)    # Tentatively add the new value.\n" +
+            "        if len(self.heap) > self.k:       # More than k? The smallest can't be top-k.\n" +
+            "            heapq.heappop(self.heap)      # Evict the current minimum.\n" +
+            "        return self.heap[0]               # Root = smallest of the k largest = k-th largest.",
+          plain:
+            "import heapq\n" +
+            "\n" +
+            "class KthLargest:\n" +
+            "    def __init__(self, k: int, nums: List[int]):\n" +
+            "        self.k = k\n" +
+            "        self.heap = nums[:]\n" +
+            "        heapq.heapify(self.heap)\n" +
+            "        while len(self.heap) > k:\n" +
+            "            heapq.heappop(self.heap)\n" +
+            "\n" +
+            "    def add(self, val: int) -> int:\n" +
+            "        heapq.heappush(self.heap, val)\n" +
+            "        if len(self.heap) > self.k:\n" +
+            "            heapq.heappop(self.heap)\n" +
+            "        return self.heap[0]"
+        }
+      ],
+      patternRecognition: [
+        "'k-th largest in a stream' or 'return the k-th largest after each insertion' -> size-k min-heap.",
+        "Values arrive over time and each query must be fast with bounded memory -> bounded heap, peek the root.",
+        "You need only the boundary of the top-k, never the full order -> keep exactly k elements."
+      ],
+      interviewRecall: [
+        "Keep a MIN-heap of size k; the root is the k-th largest at all times.",
+        "Constructor: heapify nums (O(n)), then pop until size <= k.",
+        "add: push val, pop if size > k, return heap[0].",
+        "heapq is a min-heap, which is exactly what we want for k-th LARGEST — no negation needed here."
+      ]
+    },
+
+    {
+      id: "last-stone-weight",
+      lc: 1046,
+      title: "Last Stone Weight",
+      difficulty: "Easy",
+      category: "Heap / Priority Queue",
+      link: "https://leetcode.com/problems/last-stone-weight/",
+      meta: { pattern: "Repeated extract-max", dataStructure: "Max-heap (via negation)", technique: "Pop two heaviest, push difference" },
+      description:
+        "You are given an array `stones` of positive integer weights. Each turn, pick the two **heaviest** stones and smash them together:\n\n" +
+        "- If they weigh the same, both are destroyed.\n" +
+        "- Otherwise the lighter is destroyed and the heavier loses the lighter's weight (a new stone of weight `heavier - lighter` remains).\n\n" +
+        "Repeat until at most one stone is left. Return the weight of the last remaining stone, or `0` if none remain.",
+      constraints: [
+        "`1 <= stones.length <= 30`",
+        "`1 <= stones[i] <= 1000`"
+      ],
+      notes: [
+        "Each turn removes the two largest weights, so you repeatedly need fast access to the maximum — a heap fits perfectly.",
+        "Python's `heapq` is a MIN-heap, so store NEGATED weights to simulate a max-heap: the smallest negative is the largest weight."
+      ],
+      examples: [
+        {
+          input: "stones = [2, 7, 4, 1, 8, 1]",
+          output: "1",
+          reasoning: "Smash 8 and 7 -> 1 remains, giving [2,4,1,1,1]. Smash 4 and 2 -> 2, giving [2,1,1,1]. Smash 2 and 1 -> 1, giving [1,1,1]. Smash 1 and 1 -> 0, giving [1]. Last stone is 1.",
+          visual:
+            "```\n" +
+            "Use a MAX-heap (store negatives). Each turn pop the two largest:\n" +
+            "\n" +
+            "[2,7,4,1,8,1]  pop 8,7 -> push 8-7=1   -> [2,4,1,1,1]\n" +
+            "[2,4,1,1,1]    pop 4,2 -> push 4-2=2   -> [2,1,1,1]\n" +
+            "[2,1,1,1]      pop 2,1 -> push 2-1=1   -> [1,1,1]\n" +
+            "[1,1,1]        pop 1,1 -> equal, nothing pushed -> [1]\n" +
+            "one stone left -> answer 1\n" +
+            "```"
+        },
+        {
+          input: "stones = [1]",
+          output: "1",
+          reasoning: "A single stone never gets smashed; it is the last one."
+        },
+        {
+          input: "stones = [3, 3]",
+          output: "0",
+          reasoning: "The two equal stones destroy each other, leaving none, so the answer is 0."
+        },
+        {
+          input: "stones = [10, 4, 2, 10]",
+          output: "2",
+          reasoning: "Smash 10 and 10 -> 0 (both gone), leaving [4,2]. Smash 4 and 2 -> 2. Last stone is 2."
+        }
+      ],
+      approaches: [
+        {
+          name: "Max-heap (via negation)",
+          time: "O(n log n)",
+          space: "O(n)",
+          whenToUse: "Whenever a process repeatedly consumes the largest one or two elements and feeds a new element back in.",
+          logic:
+            "**What it asks.** Simulate smashing the two heaviest stones each turn — the heavier keeps the difference, equal stones vanish — until one or zero stones remain, then report the survivor's weight.\n\n" +
+            "**Why the naive idea fails.** You could re-sort the array every turn to find the two largest, but that is `O(n log n)` *per turn* and up to `n` turns, `O(n^2 log n)`. Each turn only needs the top two elements and one insertion, so a full re-sort is overkill.\n\n" +
+            "**Key Idea.** The operation is 'repeatedly take the maximum, then the next maximum, then put one value back'. That is precisely what a **max-heap** delivers: `O(1)` peek and `O(log n)` pop/push. Python's `heapq` is a MIN-heap only, so we **negate** every weight going in — the most negative stored value is the heaviest real stone — and negate again when reading a value out.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Build a max-heap by pushing every `-weight` (or negate the list and `heapq.heapify` it in `O(n)`).\n" +
+            "2. While more than one stone remains, pop the two heaviest: `first = -heappop` and `second = -heappop` (un-negated, so `first >= second`).\n" +
+            "3. If `first != second`, push the difference back as a negative: `heappush(-(first - second))`. If they are equal, push nothing — both are destroyed.\n" +
+            "4. When at most one stone remains, return `-heap[0]` if the heap is non-empty, otherwise `0`.\n\n" +
+            "**Why it works.** The heap invariant guarantees the two pops always yield the current two heaviest stones, exactly the pair the rules smash. Pushing back only a positive difference faithfully models 'the heavier loses the lighter's weight', and pushing nothing on a tie models mutual destruction. The loop shrinks the multiset by at least one each turn, so it terminates with zero or one stone.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Forgetting to negate: `heapq` is a min-heap, so store `-weight` and read back `-value` to get max-heap behaviour.\n" +
+            "- Only push the difference when it is non-zero; pushing a `0` stone would corrupt the count of remaining stones.\n" +
+            "- Handle the empty-heap case at the end (all stones destroyed) by returning `0`.\n" +
+            "- After popping two you must re-check the loop condition; don't assume two are always available.\n\n" +
+            "**Complexity.** Building the heap is `O(n)`; each turn does a constant number of `O(log n)` heap operations over up to `n` turns, so `O(n log n)` overall. Space `O(n)` for the heap.\n\n" +
+            "**Interview mindset.** 'Repeatedly take the largest (or two largest) and feed something back' is the signature of a max-heap simulation. In Python, say out loud that `heapq` is a min-heap and you negate to simulate a max-heap — interviewers look for that detail.",
+          rcs:
+            "import heapq\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def lastStoneWeight(self, stones: List[int]) -> int:\n" +
+            "        heap = [-w for w in stones]         # Negate: min-heap of negatives == max-heap of weights.\n" +
+            "        heapq.heapify(heap)                 # O(n) build.\n" +
+            "        while len(heap) > 1:                # Need two stones to smash.\n" +
+            "            first = -heapq.heappop(heap)    # Heaviest stone (un-negate).\n" +
+            "            second = -heapq.heappop(heap)   # Second heaviest.\n" +
+            "            if first != second:             # Unequal -> a stone of the difference survives.\n" +
+            "                heapq.heappush(heap, -(first - second))  # Push it back (negated).\n" +
+            "            # Equal -> both destroyed, push nothing.\n" +
+            "        return -heap[0] if heap else 0      # Survivor's weight, or 0 if none left.",
+          plain:
+            "import heapq\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def lastStoneWeight(self, stones: List[int]) -> int:\n" +
+            "        heap = [-w for w in stones]\n" +
+            "        heapq.heapify(heap)\n" +
+            "        while len(heap) > 1:\n" +
+            "            first = -heapq.heappop(heap)\n" +
+            "            second = -heapq.heappop(heap)\n" +
+            "            if first != second:\n" +
+            "                heapq.heappush(heap, -(first - second))\n" +
+            "        return -heap[0] if heap else 0"
+        }
+      ],
+      patternRecognition: [
+        "'Repeatedly take the largest / two largest and feed a value back' -> max-heap simulation.",
+        "You need the maximum many times, interleaved with insertions -> heap, not repeated sorting.",
+        "In Python, max-heap behaviour is achieved by negating values into heapq (a min-heap)."
+      ],
+      interviewRecall: [
+        "Max-heap via negation: push -weight, the smallest negative is the heaviest stone.",
+        "Each turn pop two, and if they differ push back -(first - second); if equal push nothing.",
+        "Loop while len(heap) > 1; answer is -heap[0] or 0 if empty.",
+        "State that heapq is a MIN-heap, hence the negation to simulate a max-heap."
+      ]
+    },
+
+    {
+      id: "k-closest-points-to-origin",
+      lc: 973,
+      title: "K Closest Points to Origin",
+      difficulty: "Medium",
+      category: "Heap / Priority Queue",
+      link: "https://leetcode.com/problems/k-closest-points-to-origin/",
+      meta: { pattern: "Top-k by distance", dataStructure: "Max-heap of size k / heapify", technique: "Squared distance, bounded heap or nsmallest" },
+      description:
+        "Given an array `points` where `points[i] = [xi, yi]` on the 2-D plane and an integer `k`, return the `k` points **closest** to the origin `(0, 0)`.\n\n" +
+        "Distance is the usual Euclidean distance `sqrt(x^2 + y^2)`, but since we only compare distances you can compare the **squared** distance `x^2 + y^2` and skip the square root entirely. The answer may be returned in any order and is guaranteed to be unique.",
+      constraints: [
+        "`1 <= k <= points.length <= 10^4`",
+        "`-10^4 <= xi, yi <= 10^4`"
+      ],
+      notes: [
+        "`sqrt` is monotonic, so ordering by `x^2 + y^2` is identical to ordering by true distance — never compute the square root.",
+        "Only the SET of k closest points matters, not their order."
+      ],
+      examples: [
+        {
+          input: "points = [[1, 3], [-2, 2]], k = 1",
+          output: "[[-2, 2]]",
+          reasoning: "Squared distances: [1,3] -> 1+9=10, [-2,2] -> 4+4=8. The closer point is [-2,2].",
+          visual:
+            "```\n" +
+            "squared dist = x^2 + y^2  (no sqrt needed, ordering is identical)\n" +
+            "\n" +
+            "[1,3]   -> 1 + 9 = 10\n" +
+            "[-2,2]  -> 4 + 4 = 8   <- smaller -> closer -> the k=1 answer\n" +
+            "```"
+        },
+        {
+          input: "points = [[3, 3], [5, -1], [-2, 4]], k = 2",
+          output: "[[3, 3], [-2, 4]]",
+          reasoning: "Squared distances: [3,3]->18, [5,-1]->26, [-2,4]->20. The two smallest are 18 and 20."
+        },
+        {
+          input: "points = [[1, 1], [2, 2], [3, 3]], k = 3",
+          output: "[[1, 1], [2, 2], [3, 3]]",
+          reasoning: "k equals the number of points, so all of them are returned."
+        },
+        {
+          input: "points = [[0, 1], [1, 0]], k = 1",
+          output: "[[0, 1]]",
+          reasoning: "Both have squared distance 1 — a tie — and any one is acceptable; the answer is guaranteed unique for the judge's inputs."
+        }
+      ],
+      approaches: [
+        {
+          name: "Max-heap of size k",
+          time: "O(n log k)",
+          space: "O(k)",
+          whenToUse: "When k is much smaller than n, or points stream in and you want bounded memory holding just the current k closest.",
+          logic:
+            "**What it asks.** Return the `k` points with the smallest distance to the origin. Only the set matters, and squared distance suffices for comparison.\n\n" +
+            "**Why the naive idea fails.** Sorting all points by distance and taking the first `k` is correct but `O(n log n)`, fully ordering every point when we only need the closest `k`. When `k` is small that is wasted work.\n\n" +
+            "**Key Idea.** To keep the k *smallest* distances, use a **max-heap of size k**: its root is the *largest* distance among the current k candidates — the weakest, the first to be evicted. Whenever a new point is closer than the root, it belongs in the top-k, so we drop the root and add it. Python's `heapq` is a MIN-heap, so we simulate the max-heap by **negating** the distance in each heap entry (`(-dist, point)`); the most-negative distance (largest real distance) sits at the root.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. For each point compute `dist = x*x + y*y` (no square root).\n" +
+            "2. Push `(-dist, x, y)` onto the heap.\n" +
+            "3. Whenever the heap exceeds size `k`, pop the root — the entry with the largest real distance — so the heap keeps only the k closest so far.\n" +
+            "4. After all points, the heap holds the k closest; extract their coordinates as the answer.\n\n" +
+            "**Why it works.** The heap always retains the k smallest distances seen so far: the only entry ever discarded is the current maximum once size exceeds `k`, and that discarded point is farther than `k` retained points, so it cannot be among the k closest. Negating turns 'evict the largest' into a min-heap pop.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- For the k CLOSEST (smallest) use a MAX-heap (store negated distances); mixing up the polarity is the classic error.\n" +
+            "- Compare squared distance, never `sqrt` — it is slower and can introduce floating-point noise.\n" +
+            "- Pop only when size strictly exceeds `k`.\n\n" +
+            "**Complexity.** Each of the `n` points does an `O(log k)` heap operation, so `O(n log k)` time with `O(k)` space for the bounded heap.\n\n" +
+            "**Interview mindset.** 'k closest / k smallest by a score, k small' -> a size-`k` heap of the OPPOSITE polarity: max-heap for the k smallest, min-heap for the k largest.",
+          rcs:
+            "import heapq\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def kClosest(self, points: List[List[int]], k: int) -> List[List[int]]:\n" +
+            "        heap = []                              # Max-heap of size k via negated distances.\n" +
+            "        for x, y in points:\n" +
+            "            dist = x * x + y * y               # Squared distance — no sqrt needed.\n" +
+            "            heapq.heappush(heap, (-dist, x, y)) # Negate so the farthest sits at the root.\n" +
+            "            if len(heap) > k:                  # Too many? Drop the farthest of the k+1.\n" +
+            "                heapq.heappop(heap)            # Root = largest real distance -> evict.\n" +
+            "        return [[x, y] for _, x, y in heap]    # The k closest points.",
+          plain:
+            "import heapq\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def kClosest(self, points: List[List[int]], k: int) -> List[List[int]]:\n" +
+            "        heap = []\n" +
+            "        for x, y in points:\n" +
+            "            dist = x * x + y * y\n" +
+            "            heapq.heappush(heap, (-dist, x, y))\n" +
+            "            if len(heap) > k:\n" +
+            "                heapq.heappop(heap)\n" +
+            "        return [[x, y] for _, x, y in heap]"
+        },
+        {
+          name: "Optimized — heapify + nsmallest",
+          time: "O(n) to build + O(k log n) to extract",
+          space: "O(n)",
+          whenToUse: "When all points are available at once and k is not tiny relative to n; the shortest, most idiomatic Python solution.",
+          logic:
+            "**What it asks.** Return the `k` closest points, this time leaning on `heapq`'s bulk helpers for a concise solution when the whole input is in hand.\n\n" +
+            "**Why the naive idea fails.** Sorting is `O(n log n)`. If we build a min-heap of *all* points keyed by distance, we can then pop just the `k` smallest, paying the log factor only `k` times instead of for the full sort.\n\n" +
+            "**Key Idea.** Build one min-heap over *all* points keyed by squared distance in `O(n)` via `heapq.heapify`, then pull the `k` smallest. `heapq.nsmallest(k, iterable, key=...)` does exactly this: it returns the k items with the smallest key. Because we want the k *closest*, we use a plain min-heap here — no negation — and let distance be the key.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Compute `(dist, point)` for every point, where `dist = x^2 + y^2`.\n" +
+            "2. Either `heapq.heapify` the list of `(dist, x, y)` in `O(n)` and `heappop` `k` times, or call `heapq.nsmallest(k, points, key=lambda p: p[0]**2 + p[1]**2)` directly.\n" +
+            "3. Return the coordinates of the k extracted entries.\n\n" +
+            "**Why it works.** A min-heap over all distances has the globally closest point at its root, so the first `k` pops are the k closest in order. `nsmallest` performs the same selection internally (it maintains a bounded max-heap of size k under the hood), returning exactly the k smallest-key items.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Building a heap of all `n` points costs `O(n)` space; the size-`k` max-heap approach uses only `O(k)`, which matters for very large `n`.\n" +
+            "- Still compare squared distance, not `sqrt`.\n" +
+            "- With `nsmallest`, pass a `key` so it compares distances, not raw coordinate tuples.\n\n" +
+            "**Complexity.** `heapify` is `O(n)`; popping `k` times (or `nsmallest`) is `O(k log n)`, so `O(n + k log n)` overall — better than `O(n log n)` sorting when `k << n`. Space `O(n)` for the heap. For an even faster average `O(n)` selection, mention **Quickselect** partitioning around the k-th distance.\n\n" +
+            "**Interview mindset.** Know your language's bulk heap helpers: `heapq.nsmallest`/`nlargest` express 'k smallest/largest' in one line. If asked for the theoretical best, cite Quickselect at average `O(n)`; the size-`k` heap wins on memory for streams.",
+          rcs:
+            "import heapq\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def kClosest(self, points: List[List[int]], k: int) -> List[List[int]]:\n" +
+            "        # nsmallest keeps the k smallest by key; squared distance is the key (no sqrt).\n" +
+            "        return heapq.nsmallest(k, points, key=lambda p: p[0] * p[0] + p[1] * p[1])",
+          plain:
+            "import heapq\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def kClosest(self, points: List[List[int]], k: int) -> List[List[int]]:\n" +
+            "        return heapq.nsmallest(k, points, key=lambda p: p[0] * p[0] + p[1] * p[1])"
+        }
+      ],
+      patternRecognition: [
+        "'k closest / k nearest / k smallest by a computed score' -> top-k selection.",
+        "k small vs n -> size-k MAX-heap (store negated distances) for O(n log k) and O(k) space.",
+        "All data in hand -> heapify + nsmallest for O(n + k log n); mention Quickselect for average O(n)."
+      ],
+      interviewRecall: [
+        "Compare squared distance x^2 + y^2 — never take sqrt (monotonic, same ordering).",
+        "k closest -> MAX-heap of size k via negated distance; root is the farthest, evict it.",
+        "One-liner: heapq.nsmallest(k, points, key=squared distance).",
+        "heapq is a MIN-heap, so simulate the max-heap by negating; Quickselect gives average O(n)."
+      ]
+    },
+
+    {
+      id: "task-scheduler",
+      lc: 621,
+      title: "Task Scheduler",
+      difficulty: "Medium",
+      category: "Heap / Priority Queue",
+      link: "https://leetcode.com/problems/task-scheduler/",
+      meta: { pattern: "Greedy scheduling with cooldown", dataStructure: "Frequency count / Max-heap + queue", technique: "Idle-slot formula or heap simulation" },
+      description:
+        "You are given an array `tasks` of CPU tasks, each labeled by an uppercase letter, and an integer `n` — the **cooldown**: identical tasks must be separated by at least `n` intervals. Each task takes one interval; the CPU may also sit **idle** in an interval.\n\n" +
+        "Return the **minimum number of intervals** needed to finish all tasks.",
+      constraints: [
+        "`1 <= tasks.length <= 10^4`",
+        "`tasks[i]` is an uppercase English letter.",
+        "`0 <= n <= 100`"
+      ],
+      notes: [
+        "The bottleneck is the MOST frequent task: it forces a fixed skeleton of slots, and other tasks fill the gaps.",
+        "If there are enough distinct tasks to fill every cooldown gap, no idling is needed and the answer is just `len(tasks)`."
+      ],
+      examples: [
+        {
+          input: "tasks = ['A','A','A','B','B','B'], n = 2",
+          output: "8",
+          reasoning: "One optimal order is A B idle A B idle A B — 8 intervals. A appears 3 times and needs 2 gaps between copies, so those gaps must be filled by B or idle.",
+          visual:
+            "```\n" +
+            "max_count = 3 (A appears 3x), n = 2\n" +
+            "\n" +
+            "skeleton built around A with gaps of size n:\n" +
+            "  A _ _ | A _ _ | A\n" +
+            "(max_count-1) full frames of size (n+1), then the last A:\n" +
+            "  (3-1) * (2+1) + 1 = 2*3 + 1 = 7\n" +
+            "\n" +
+            "fill gaps with B (also 3x, ties A -> num_max = 2):\n" +
+            "  A B _ | A B _ | A B  -> the last frame carries both A and B\n" +
+            "  (3-1) * (2+1) + 2 = 8\n" +
+            "answer = max(8, len(tasks)=6) = 8\n" +
+            "```"
+        },
+        {
+          input: "tasks = ['A','A','A','B','B','B'], n = 0",
+          output: "6",
+          reasoning: "With no cooldown there is never any idling, so the answer is simply the number of tasks, 6."
+        },
+        {
+          input: "tasks = ['A','A','A','A','A','A','B','C','D','E','F','G'], n = 2",
+          output: "16",
+          reasoning: "A appears 6 times (max_count=6, num_max=1): (6-1)*(2+1)+1 = 16. The other tasks are too few to fill all gaps, so idles are needed and the formula dominates len(tasks)=12."
+        },
+        {
+          input: "tasks = ['A','A','A','B','B','B','C','C','C','D','D','E'], n = 2",
+          output: "12",
+          reasoning: "There are enough distinct tasks to fill every gap, so no idling is needed and the answer equals len(tasks)=12."
+        }
+      ],
+      approaches: [
+        {
+          name: "Max-heap + queue simulation",
+          time: "O(N) where N = len(tasks) (heap over <= 26 letters)",
+          space: "O(1) (at most 26 distinct tasks)",
+          whenToUse: "When you want to actually simulate the timeline, or the interviewer wants a solution that generalizes (e.g. also outputs a valid schedule).",
+          logic:
+            "**What it asks.** Compute the fewest intervals to run all tasks so that identical tasks are always at least `n` intervals apart, inserting idles only when forced.\n\n" +
+            "**Why the naive idea fails.** Greedily running whatever task is available can strand a very frequent task at the end with mandatory idles between its remaining copies, inflating the total. We must always prefer the task with the most remaining copies so its copies get spread out as early as possible.\n\n" +
+            "**Key Idea.** At each interval, run the **available task with the highest remaining count** — a **max-heap** on counts gives that in `O(log 26)`. After running a task, it enters cooldown and cannot run again until `n` intervals later, so we park it in a **queue** together with the time it becomes available; when that time arrives we push it back onto the heap. Python's `heapq` is a MIN-heap, so store **negated** counts to pull the largest count first.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Count each task's frequency and push all counts (negated) onto the max-heap.\n" +
+            "2. Keep a `time` counter and a FIFO queue of `(remaining_count, ready_time)` for cooling tasks.\n" +
+            "3. Each loop iteration is one interval: increment `time`. If the heap is non-empty, pop the largest count, decrement it (one copy done); if copies remain, enqueue `(count_left, time + n)`.\n" +
+            "4. If the heap is empty but the queue is not, the CPU idles this interval (still increment `time`).\n" +
+            "5. Whenever the front of the queue has `ready_time == time`, move it back to the heap.\n" +
+            "6. Stop when both heap and queue are empty; `time` is the answer.\n\n" +
+            "**Why it works.** Always scheduling the highest-count available task keeps the most-constrained task flowing as fast as its cooldown allows, which is optimal — delaying it could only add idles later. The queue enforces the exact cooldown by withholding a task until `time + n`. Counting intervals directly (including idles) yields the true minimum length.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Use a max-heap (negated counts) — always run the MOST frequent available task, not any task.\n" +
+            "- The cooldown target is `time + n` (the task is available again `n` intervals after it runs).\n" +
+            "- Remember to advance `time` on idle intervals too, and to return items from the queue to the heap when they cool down.\n\n" +
+            "**Complexity.** The heap holds at most 26 entries, so each operation is `O(1)` effectively; total work is `O(N)` over the schedule length (bounded by output size). Space `O(1)` (at most 26 tasks in heap + queue).\n\n" +
+            "**Interview mindset.** 'Schedule with a cooldown / rate limit, minimize time' -> greedily run the highest-remaining task via a max-heap, parking cooling tasks in a timed queue. The simulation also lets you emit an actual valid schedule if asked.",
+          rcs:
+            "import heapq\n" +
+            "from collections import Counter, deque\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def leastInterval(self, tasks: List[str], n: int) -> int:\n" +
+            "        counts = Counter(tasks)\n" +
+            "        heap = [-c for c in counts.values()]   # Max-heap of remaining counts (negated).\n" +
+            "        heapq.heapify(heap)\n" +
+            "        queue = deque()                        # (remaining_count_negated, ready_time) while cooling.\n" +
+            "        time = 0\n" +
+            "        while heap or queue:\n" +
+            "            time += 1                          # This interval is consumed (task or idle).\n" +
+            "            if heap:\n" +
+            "                count = heapq.heappop(heap) + 1  # Run one copy: -count moves toward 0.\n" +
+            "                if count != 0:                 # Copies remain -> it must cool down.\n" +
+            "                    queue.append((count, time + n))\n" +
+            "            # else: nothing available -> CPU idles this interval.\n" +
+            "            if queue and queue[0][1] == time:  # A cooled task is ready again.\n" +
+            "                heapq.heappush(heap, queue.popleft()[0])\n" +
+            "        return time",
+          plain:
+            "import heapq\n" +
+            "from collections import Counter, deque\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def leastInterval(self, tasks: List[str], n: int) -> int:\n" +
+            "        counts = Counter(tasks)\n" +
+            "        heap = [-c for c in counts.values()]\n" +
+            "        heapq.heapify(heap)\n" +
+            "        queue = deque()\n" +
+            "        time = 0\n" +
+            "        while heap or queue:\n" +
+            "            time += 1\n" +
+            "            if heap:\n" +
+            "                count = heapq.heappop(heap) + 1\n" +
+            "                if count != 0:\n" +
+            "                    queue.append((count, time + n))\n" +
+            "            if queue and queue[0][1] == time:\n" +
+            "                heapq.heappush(heap, queue.popleft()[0])\n" +
+            "        return time"
+        },
+        {
+          name: "Optimized — Greedy math formula",
+          time: "O(N)",
+          space: "O(1)",
+          whenToUse: "When you only need the minimum count (not an actual schedule); the fastest and simplest solution.",
+          logic:
+            "**What it asks.** Return just the minimum number of intervals, without necessarily producing a schedule.\n\n" +
+            "**Why the naive idea fails.** Simulating interval by interval works but is more code than needed when only the count is required. The structure of an optimal schedule can be computed directly from a single statistic: the maximum task frequency.\n\n" +
+            "**Key Idea.** The most frequent task dictates a rigid skeleton. Let `max_count` be the highest frequency and `num_max` how many tasks share it. Place the `max_count` copies of the busiest task as anchors separated by gaps of size `n`. That forms `(max_count - 1)` **frames** of length `(n + 1)` — each frame is 'the anchor plus `n` following slots' — followed by a final partial frame holding the last anchors. Every gap slot can be filled by another task or, if none is available, left idle. So the skeleton length is `(max_count - 1) * (n + 1) + num_max`, where `num_max` accounts for the several equally-frequent tasks that all appear in the last frame.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Count frequencies; find `max_count` (the largest) and `num_max` (how many tasks equal it).\n" +
+            "2. Compute the skeleton length `slots = (max_count - 1) * (n + 1) + num_max`.\n" +
+            "3. The answer is `max(slots, len(tasks))`.\n\n" +
+            "**Why it works.** The formula counts the anchor frames plus the tail. But if there are *many distinct tasks*, the gaps overflow — there are more tasks than idle slots — and no idling is ever needed; in that case the schedule is simply packed and its length is `len(tasks)`. The formula can *undercount* in that regime (idles it assumed don't exist), so taking `max(slots, len(tasks))` picks the binding constraint. When idles ARE forced, `slots >= len(tasks)` and the formula wins.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Don't forget the `max(..., len(tasks))` guard — with many distinct tasks the packed length dominates and the formula alone is too small.\n" +
+            "- `num_max` (not 1) is added, to seat every maximally-frequent task in the last frame.\n" +
+            "- A frame has length `n + 1` (the anchor plus `n` cooldown slots), and there are `max_count - 1` full frames, not `max_count`.\n\n" +
+            "**Complexity.** Counting is `O(N)`; the rest is `O(1)` arithmetic over at most 26 counts. Space `O(1)`.\n\n" +
+            "**Interview mindset.** When a greedy schedule's length is governed by one dominant frequency, look for a closed-form: `(max_count - 1) * (n + 1) + num_max`, clamped up to `len(tasks)`. State the idle-slot intuition (frames around the busiest task) so the formula isn't a magic incantation.",
+          rcs:
+            "from collections import Counter\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def leastInterval(self, tasks: List[str], n: int) -> int:\n" +
+            "        counts = Counter(tasks)\n" +
+            "        max_count = max(counts.values())            # Frequency of the busiest task.\n" +
+            "        num_max = sum(1 for c in counts.values() if c == max_count)  # How many tie for it.\n" +
+            "        # (max_count-1) frames of size (n+1), plus the last frame's num_max anchors.\n" +
+            "        slots = (max_count - 1) * (n + 1) + num_max\n" +
+            "        return max(slots, len(tasks))               # Packed length wins when no idles are forced.",
+          plain:
+            "from collections import Counter\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def leastInterval(self, tasks: List[str], n: int) -> int:\n" +
+            "        counts = Counter(tasks)\n" +
+            "        max_count = max(counts.values())\n" +
+            "        num_max = sum(1 for c in counts.values() if c == max_count)\n" +
+            "        slots = (max_count - 1) * (n + 1) + num_max\n" +
+            "        return max(slots, len(tasks))"
+        }
+      ],
+      patternRecognition: [
+        "'Schedule tasks with a cooldown / rate limit, minimize total time' -> greedy around the most frequent task.",
+        "Need only the count -> closed-form (max_count-1)*(n+1)+num_max clamped to len(tasks).",
+        "Need an actual schedule or a generalization -> max-heap + timed queue simulation."
+      ],
+      interviewRecall: [
+        "Bottleneck is the busiest task: build frames of size (n+1) around its copies.",
+        "Formula: (max_count-1)*(n+1) + num_max, then max with len(tasks).",
+        "Simulation: max-heap of counts (negated) + queue of (count, ready_time = time+n); idle when heap empty.",
+        "heapq is a MIN-heap, so negate counts to always run the MOST frequent available task."
+      ]
+    },
+
+    {
+      id: "design-twitter",
+      lc: 355,
+      title: "Design Twitter",
+      difficulty: "Medium",
+      category: "Heap / Priority Queue",
+      link: "https://leetcode.com/problems/design-twitter/",
+      meta: { pattern: "Merge k recent lists", dataStructure: "Hash maps + Max-heap", technique: "Global timestamp, heap-merge newest" },
+      description:
+        "Design a simplified Twitter where users post tweets, follow/unfollow others, and read a news feed. Implement:\n\n" +
+        "- `Twitter()` — initialize.\n" +
+        "- `postTweet(userId, tweetId)` — user `userId` posts a tweet with id `tweetId`.\n" +
+        "- `getNewsFeed(userId)` — return the ids of the **10 most recent** tweets in the user's feed, newest first, drawn from the user's own tweets and the tweets of everyone they follow.\n" +
+        "- `follow(followerId, followeeId)` — `followerId` starts following `followeeId`.\n" +
+        "- `unfollow(followerId, followeeId)` — `followerId` stops following `followeeId`.",
+      constraints: [
+        "`1 <= userId, followeeId, followerId <= 500`",
+        "`0 <= tweetId <= 10^4`",
+        "All tweetIds are unique.",
+        "At most `3 * 10^4` calls total across all methods."
+      ],
+      notes: [
+        "Recency is the ordering key, so stamp each tweet with a global counter that only increases (or decreases) — no wall-clock time needed.",
+        "The feed is a merge of several time-ordered tweet lists, taking only the 10 newest — a classic 'merge k sorted lists, keep the top' via a heap."
+      ],
+      examples: [
+        {
+          input: "postTweet(1,5); getNewsFeed(1); follow(1,2); postTweet(2,6); getNewsFeed(1); unfollow(1,2); getNewsFeed(1)",
+          output: "[5], then [6,5], then [5]",
+          reasoning: "User 1's feed starts with their own tweet 5. After following 2 and 2 posting 6, the feed merges to [6,5] (6 is newer). After unfollowing 2, tweet 6 drops out, leaving [5].",
+          visual:
+            "```\n" +
+            "global timestamp ticks down each post so 'smaller' = newer in a min-heap,\n" +
+            "or ticks and we use a MAX-heap on the timestamp. Either way newest first.\n" +
+            "\n" +
+            "postTweet(1,5): tweets[1] = [(t0, 5)]\n" +
+            "follow(1,2); postTweet(2,6): tweets[2] = [(t1, 6)]   (t1 newer than t0)\n" +
+            "\n" +
+            "getNewsFeed(1): merge user 1's + followees' tweet lists by timestamp,\n" +
+            "  push each list's newest into a max-heap, pop 10 times newest-first:\n" +
+            "  -> [6, 5]\n" +
+            "```"
+        },
+        {
+          input: "postTweet(1,1); postTweet(1,2); ... postTweet(1,11); getNewsFeed(1)",
+          output: "[11,10,9,8,7,6,5,4,3,2]",
+          reasoning: "A single user with 11 tweets: the feed returns only the 10 most recent, newest first, so tweet 1 is excluded."
+        },
+        {
+          input: "follow(1,1); getNewsFeed(1)",
+          output: "[]",
+          reasoning: "Following yourself is a no-op / harmless; with no tweets posted the feed is empty."
+        },
+        {
+          input: "postTweet(2,7); follow(1,2); getNewsFeed(1); unfollow(1,2); getNewsFeed(1)",
+          output: "[7], then []",
+          reasoning: "After following 2 the feed shows 2's tweet 7; after unfollowing, user 1 has no tweets of their own so the feed is empty."
+        }
+      ],
+      approaches: [
+        {
+          name: "Hash maps + max-heap merge",
+          time: "postTweet/follow/unfollow O(1); getNewsFeed O(F + 10 log F) where F = number of followees",
+          space: "O(U + T) for users, follows, and tweets",
+          whenToUse: "The standard design: recency-ordered feeds assembled from a user's own tweets plus their followees', taking only the newest few.",
+          logic:
+            "**What it asks.** Support posting, following/unfollowing, and reading a feed of the 10 most recent tweets from a user and everyone they follow, newest first.\n\n" +
+            "**Why the naive idea fails.** Collecting *all* tweets from the user and every followee and fully sorting them by time is `O(M log M)` in the total tweet count `M` per feed request — wasteful when we only want the newest 10. We should merge just enough to surface the top 10.\n\n" +
+            "**Key Idea.** Give every tweet a monotonic **global timestamp** so recency is a simple integer comparison — no clocks. Store each user's tweets as a time-ordered list (append-only, so it is already sorted by time). A feed is then a **merge of several already-sorted lists**, and we want only the 10 newest — exactly the 'merge k sorted lists, take the top-k' pattern solved with a **heap**. Seed the heap with each relevant list's newest tweet; repeatedly pop the newest and push that list's previous tweet, ten times. Using a **decreasing** global counter makes 'most recent' the smallest number, so a plain `heapq` MIN-heap pops newest-first; equivalently, keep an increasing counter and negate it to make a max-heap.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Data: `tweets` maps `userId -> list of (timestamp, tweetId)` in post order; `following` maps `userId -> set of followees`; a global `time` counter.\n" +
+            "2. `postTweet`: append `(time, tweetId)` to the user's list and decrement `time` (so later tweets have smaller = 'more recent' keys). `O(1)`.\n" +
+            "3. `follow` / `unfollow`: add/discard the followee in the user's set. `O(1)`.\n" +
+            "4. `getNewsFeed`: consider the user plus their followees (a user always sees their own tweets). For each whose tweet list is non-empty, push its *newest* tweet into the heap as `(timestamp, tweetId, ownerId, index_of_that_tweet)`.\n" +
+            "5. Pop up to 10 times: each pop yields the current newest tweet across all lists; append its `tweetId` to the result, and if that owner has an older tweet, push it next. This heap-merge surfaces the 10 newest without sorting everything.\n\n" +
+            "**Why it works.** Each user's list is already sorted by time, so the newest unseen tweet of every list is always one of the heap entries; popping the heap's extreme repeatedly yields a globally time-ordered stream, and stopping after 10 gives exactly the 10 most recent. The monotonic counter guarantees a total order over tweets even within the same call.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- A user must see their OWN tweets even if they don't follow themselves — include `userId` in the merge set.\n" +
+            "- Ordering must be by the global timestamp, not by `tweetId` (ids are unique but not time-ordered).\n" +
+            "- With a decreasing counter, newest = smallest, so a min-heap works directly; if you use an increasing counter, negate it for a max-heap.\n" +
+            "- `unfollow` should not error if the pair isn't followed — use `set.discard`, and don't let a user unfollow into an inconsistent state.\n\n" +
+            "**Complexity.** `postTweet`, `follow`, `unfollow` are `O(1)`. `getNewsFeed` seeds the heap with one entry per followee (`O(F)`) then does at most 10 pop/push pairs, each `O(log F)`, so `O(F + 10 log F)`. Space `O(U + T)` across users, follow sets, and stored tweets.\n\n" +
+            "**Interview mindset.** 'Merge several time-ordered streams and take the newest few' is a heap-merge (LC 23, Merge k Sorted Lists, in disguise). The reusable trick: a monotonic global counter turns recency into an integer key, and a size-bounded heap-merge extracts the top-k without a full sort.",
+          rcs:
+            "import heapq\n" +
+            "from collections import defaultdict\n" +
+            "\n" +
+            "class Twitter:\n" +
+            "    def __init__(self):\n" +
+            "        self.time = 0                              # Decreasing counter: newer tweets get smaller keys.\n" +
+            "        self.tweets = defaultdict(list)            # userId -> list of (timestamp, tweetId).\n" +
+            "        self.following = defaultdict(set)          # userId -> set of followee ids.\n" +
+            "\n" +
+            "    def postTweet(self, userId: int, tweetId: int) -> None:\n" +
+            "        self.tweets[userId].append((self.time, tweetId))  # Append in post order.\n" +
+            "        self.time -= 1                             # Next tweet is 'more recent' (smaller key).\n" +
+            "\n" +
+            "    def getNewsFeed(self, userId: int) -> List[int]:\n" +
+            "        heap = []                                  # Min-heap on timestamp; smallest = newest.\n" +
+            "        people = self.following[userId] | {userId} # Own tweets + followees'.\n" +
+            "        for uid in people:\n" +
+            "            if self.tweets[uid]:                   # Seed with each person's newest tweet.\n" +
+            "                idx = len(self.tweets[uid]) - 1\n" +
+            "                t, tid = self.tweets[uid][idx]\n" +
+            "                heapq.heappush(heap, (t, tid, uid, idx))\n" +
+            "        feed = []\n" +
+            "        while heap and len(feed) < 10:             # Pop the 10 newest across all lists.\n" +
+            "            t, tid, uid, idx = heapq.heappop(heap)\n" +
+            "            feed.append(tid)\n" +
+            "            if idx > 0:                            # Push this owner's next-newest tweet.\n" +
+            "                nidx = idx - 1\n" +
+            "                nt, ntid = self.tweets[uid][nidx]\n" +
+            "                heapq.heappush(heap, (nt, ntid, uid, nidx))\n" +
+            "        return feed\n" +
+            "\n" +
+            "    def follow(self, followerId: int, followeeId: int) -> None:\n" +
+            "        self.following[followerId].add(followeeId)\n" +
+            "\n" +
+            "    def unfollow(self, followerId: int, followeeId: int) -> None:\n" +
+            "        self.following[followerId].discard(followeeId)  # discard: no error if absent.",
+          plain:
+            "import heapq\n" +
+            "from collections import defaultdict\n" +
+            "\n" +
+            "class Twitter:\n" +
+            "    def __init__(self):\n" +
+            "        self.time = 0\n" +
+            "        self.tweets = defaultdict(list)\n" +
+            "        self.following = defaultdict(set)\n" +
+            "\n" +
+            "    def postTweet(self, userId: int, tweetId: int) -> None:\n" +
+            "        self.tweets[userId].append((self.time, tweetId))\n" +
+            "        self.time -= 1\n" +
+            "\n" +
+            "    def getNewsFeed(self, userId: int) -> List[int]:\n" +
+            "        heap = []\n" +
+            "        people = self.following[userId] | {userId}\n" +
+            "        for uid in people:\n" +
+            "            if self.tweets[uid]:\n" +
+            "                idx = len(self.tweets[uid]) - 1\n" +
+            "                t, tid = self.tweets[uid][idx]\n" +
+            "                heapq.heappush(heap, (t, tid, uid, idx))\n" +
+            "        feed = []\n" +
+            "        while heap and len(feed) < 10:\n" +
+            "            t, tid, uid, idx = heapq.heappop(heap)\n" +
+            "            feed.append(tid)\n" +
+            "            if idx > 0:\n" +
+            "                nidx = idx - 1\n" +
+            "                nt, ntid = self.tweets[uid][nidx]\n" +
+            "                heapq.heappush(heap, (nt, ntid, uid, nidx))\n" +
+            "        return feed\n" +
+            "\n" +
+            "    def follow(self, followerId: int, followeeId: int) -> None:\n" +
+            "        self.following[followerId].add(followeeId)\n" +
+            "\n" +
+            "    def unfollow(self, followerId: int, followeeId: int) -> None:\n" +
+            "        self.following[followerId].discard(followeeId)"
+        }
+      ],
+      patternRecognition: [
+        "'Merge several time-ordered lists and return the newest k' -> heap-merge (Merge k Sorted Lists in disguise).",
+        "Recency ordering with no real clock -> a monotonic global counter as the timestamp key.",
+        "Design problem with follow graph + feed -> hash map of tweet lists + hash map of follow sets + a heap."
+      ],
+      interviewRecall: [
+        "Stamp every tweet with a global counter; decreasing counter makes newest = smallest for a min-heap.",
+        "Feed = user's own tweets + followees'; a user always sees their own posts.",
+        "Seed the heap with each person's newest tweet, pop 10 times, pushing each owner's next-newest.",
+        "postTweet/follow/unfollow are O(1); getNewsFeed is O(F + 10 log F). heapq is a MIN-heap — use a decreasing counter or negate for a max-heap."
+      ]
     }
   ]);
 })();

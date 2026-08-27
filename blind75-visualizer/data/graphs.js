@@ -1255,6 +1255,1142 @@
         "DFS approach: count once per unvisited node, then flood the whole component.",
         "Isolated nodes count; with no edges the answer is n."
       ]
+    },
+
+    {
+      id: "max-area-of-island",
+      lc: 695,
+      title: "Max Area of Island",
+      difficulty: "Medium",
+      category: "Graphs",
+      link: "https://leetcode.com/problems/max-area-of-island/",
+      meta: { pattern: "Connected Components (flood fill)", dataStructure: "Grid as implicit graph", technique: "DFS/BFS area count" },
+      description:
+        "You are given an `m x n` binary matrix `grid`. An **island** is a maximal group of `1`s connected **4-directionally** (horizontal or vertical). You may assume all four edges of the grid are surrounded by water (`0`).\n\n" +
+        "The **area** of an island is the number of cells with value `1` in it. Return the **maximum** area of an island in `grid`. If there is no island, return `0`.",
+      constraints: [
+        "`m == grid.length`, `n == grid[i].length`",
+        "`1 <= m, n <= 50`",
+        "`grid[i][j]` is `0` or `1` (integers, not characters)."
+      ],
+      notes: [
+        "Same shape as Number of Islands, but instead of *counting* components you measure the *size* of each and keep the maximum.",
+        "Connectivity is 4-directional only; diagonal touches do NOT join two islands.",
+        "Cells here are integers `0`/`1`, so compare against `1` not `'1'`."
+      ],
+      examples: [
+        {
+          input: "grid = [[0,0,1,0,0],[0,0,0,0,0],[0,1,1,0,0],[0,1,0,0,0]]",
+          output: "3",
+          reasoning: "The largest island is the L-shaped group of 3 cells at the bottom-left; the lone 1 at top has area 1.",
+          visual: "```\n0 0 1 0 0     top 1: area 1\n0 0 0 0 0\n0 1 1 0 0     bottom blob:\n0 1 0 0 0       (2,1)(2,2)(3,1) = area 3\n=> max area 3\n```"
+        },
+        {
+          input: "grid = [[0,0,0,0,0,0,0,0]]",
+          output: "0",
+          reasoning: "No land at all, so the maximum area is 0."
+        },
+        {
+          input: "grid = [[1,1,0,0,0],[1,1,0,0,0],[0,0,0,1,1],[0,0,0,1,1]]",
+          output: "4",
+          reasoning: "Two separate 2x2 blocks, each of area 4; the maximum is 4.",
+          visual: "```\n1 1 0 0 0\n1 1 0 0 0     block A = 4\n0 0 0 1 1\n0 0 0 1 1     block B = 4\n=> max area 4\n```"
+        },
+        {
+          input: "grid = [[1,0,1],[0,1,0],[1,0,1]]",
+          output: "1",
+          reasoning: "Diagonal land does not connect, so every island is a single cell of area 1."
+        }
+      ],
+      approaches: [
+        {
+          name: "DFS flood fill returning area",
+          time: "O(m*n)",
+          space: "O(m*n)",
+          whenToUse: "The default: measuring the size of each connected region; concise recursion that returns a cell count and sinks land as it goes.",
+          logic:
+            "**What it asks.** Find the largest island by cell count in a binary grid, where an island is a maximal group of `1`s connected up/down/left/right.\n\n" +
+            "**Graph modeling.** The grid is an implicit graph: **nodes** are land cells (value `1`); an **edge** connects two land cells that are vertically or horizontally adjacent. An **island is a connected component**, so we are computing the size of each component and taking the maximum.\n\n" +
+            "**Why the naive idea fails.** You can't just tally `1`s \u2014 that gives the total land, not the size of any single island. And rescanning to test which counted cells belong together wastes work. We must discover each component once, measure it, and mark its cells so they are never remeasured.\n\n" +
+            "**Key Idea.** Scan every cell; the first time you hit unvisited land you've found a new island, so flood-fill (DFS) its whole component and have the flood *return the number of cells it consumed*. Compare that area against a running maximum. The flood is a connected-component traversal that both measures and marks.\n\n" +
+            "**Why DFS fits.** Reaching every land cell connected to a start cell is precisely a depth-first traversal over the adjacency edges, and recursion naturally sums subresults \u2014 each call returns `1 + area of its four neighbors`. The `visited` marker is the grid itself: sink each visited `1` to `0` so it is neither remeasured nor recounted.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Iterate over every cell `(r, c)`.\n" +
+            "2. When `grid[r][c] == 1`, call `dfs(r, c)` and update `best = max(best, dfs result)`.\n" +
+            "3. `dfs` returns `0` if out of bounds or on water/visited (`!= 1`); otherwise it sinks the cell to `0` and returns `1 +` the areas of the four neighbors.\n" +
+            "4. Return `best` after the full scan.\n\n" +
+            "**Why it works.** Each land cell is flooded exactly once \u2014 by the first scan that reaches its island \u2014 so each component contributes its true size once, and sinking guarantees the outer loop never re-enters an already-measured island.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Cells are integers `1`/`0`, not the string characters \u2014 compare against `1`.\n" +
+            "- The base case must return `0` (not `None`) so the `1 + sum` arithmetic works.\n" +
+            "- Connectivity is 4-directional only; diagonals do NOT join islands.\n" +
+            "- On a grid that is one giant island the recursion depth reaches `m*n` \u2014 the reason a BFS variant exists.\n\n" +
+            "**Complexity.** Time `O(m*n)` \u2014 each cell examined a constant number of times. Space `O(m*n)` worst-case recursion depth (a single grid-filling island).\n\n" +
+            "**Interview mindset.** 'Largest / size of a region in a grid' with 4-directional adjacency is flood fill that RETURNS a count \u2014 the same connected-components traversal as Number of Islands, but you track a max area instead of a component tally.",
+          rcs:
+            "class Solution:\n" +
+            "    def maxAreaOfIsland(self, grid: List[List[int]]) -> int:\n" +
+            "        m, n = len(grid), len(grid[0])\n" +
+            "\n" +
+            "        def dfs(r, c):\n" +
+            "            if r < 0 or r >= m or c < 0 or c >= n or grid[r][c] != 1:\n" +
+            "                return 0                      # Out of bounds or water/visited: contributes 0.\n" +
+            "            grid[r][c] = 0                    # Sink this land so it isn't recounted.\n" +
+            "            return 1 + dfs(r + 1, c) + dfs(r - 1, c) + dfs(r, c + 1) + dfs(r, c - 1)\n" +
+            "\n" +
+            "        best = 0\n" +
+            "        for r in range(m):\n" +
+            "            for c in range(n):\n" +
+            "                if grid[r][c] == 1:           # New unvisited land => a new island.\n" +
+            "                    best = max(best, dfs(r, c))  # Measure it, keep the biggest.\n" +
+            "        return best",
+          plain:
+            "class Solution:\n" +
+            "    def maxAreaOfIsland(self, grid: List[List[int]]) -> int:\n" +
+            "        m, n = len(grid), len(grid[0])\n" +
+            "\n" +
+            "        def dfs(r, c):\n" +
+            "            if r < 0 or r >= m or c < 0 or c >= n or grid[r][c] != 1:\n" +
+            "                return 0\n" +
+            "            grid[r][c] = 0\n" +
+            "            return 1 + dfs(r + 1, c) + dfs(r - 1, c) + dfs(r, c + 1) + dfs(r, c - 1)\n" +
+            "\n" +
+            "        best = 0\n" +
+            "        for r in range(m):\n" +
+            "            for c in range(n):\n" +
+            "                if grid[r][c] == 1:\n" +
+            "                    best = max(best, dfs(r, c))\n" +
+            "        return best"
+        },
+        {
+          name: "BFS flood fill (queue)",
+          time: "O(m*n)",
+          space: "O(min(m, n))",
+          whenToUse: "When the grid could be large and deep recursion risks a stack overflow; iterative area count with a queue.",
+          logic:
+            "**What it asks.** The same maximum island area, produced with an explicit queue so there is no deep recursion.\n\n" +
+            "**Graph modeling.** Unchanged: **nodes** are land cells, **edges** are 4-directional adjacency, an island is a connected component. We scan for the first cell of each island, then flood the component with a **queue**, counting cells as we go.\n\n" +
+            "**Why the naive idea fails.** The recursive DFS is correct but on a single large island its recursion depth can overflow the stack. An iterative BFS keeps memory to the frontier and sidesteps that entirely.\n\n" +
+            "**Key Idea.** On finding unvisited land, sink it to `0`, seed a queue with it, and initialize `area = 0`. Pop cells one at a time, incrementing `area`, and enqueue each still-`1` neighbor \u2014 sinking it *at enqueue time*. Marking on enqueue is the visited check: without it two neighbors could enqueue the same cell and it would be counted twice.\n\n" +
+            "**Why BFS fits.** Measuring a component only needs every connected land cell reached; order is irrelevant, so a queue-driven frontier covers the island just as completely as recursion, with bounded depth.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Iterate over every cell `(r, c)`.\n" +
+            "2. When `grid[r][c] == 1`, sink it, seed a queue with `(r, c)`, and set `area = 0`.\n" +
+            "3. While the queue is non-empty, pop a cell, add `1` to `area`, and for each in-bounds neighbor still equal to `1`, sink it and enqueue it.\n" +
+            "4. Update `best = max(best, area)` and continue the scan; return `best`.\n\n" +
+            "**Why it works.** Sinking on enqueue makes each land cell enter the queue exactly once, so a component's `area` counts each of its cells a single time \u2014 identical in outcome to the DFS version.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Sink cells on enqueue, not on dequeue \u2014 otherwise duplicates enter the queue and inflate the area.\n" +
+            "- Count the seed cell too (it is popped and adds 1), so start `area` at 0 and increment per pop.\n" +
+            "- Cells are integers `1`/`0`; 4-directional adjacency only.\n\n" +
+            "**Complexity.** Time `O(m*n)` \u2014 every cell processed once. Space is the queue frontier, `O(min(m, n))` in the usual analysis \u2014 no deep call stack.\n\n" +
+            "**Interview mindset.** When a grid flood-fill is correct recursively but the grid could be large, switch to the queue-based BFS to remove stack-overflow risk while keeping linear time.",
+          rcs:
+            "from collections import deque\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def maxAreaOfIsland(self, grid: List[List[int]]) -> int:\n" +
+            "        m, n = len(grid), len(grid[0])\n" +
+            "        best = 0\n" +
+            "        for r in range(m):\n" +
+            "            for c in range(n):\n" +
+            "                if grid[r][c] == 1:           # Start of a new island.\n" +
+            "                    grid[r][c] = 0            # Sink immediately (mark visited).\n" +
+            "                    queue = deque([(r, c)])\n" +
+            "                    area = 0\n" +
+            "                    while queue:\n" +
+            "                        cr, cc = queue.popleft()\n" +
+            "                        area += 1            # Count this cell.\n" +
+            "                        for dr, dc in ((1,0),(-1,0),(0,1),(0,-1)):\n" +
+            "                            nr, nc = cr + dr, cc + dc\n" +
+            "                            if 0 <= nr < m and 0 <= nc < n and grid[nr][nc] == 1:\n" +
+            "                                grid[nr][nc] = 0   # Sink on enqueue to avoid duplicates.\n" +
+            "                                queue.append((nr, nc))\n" +
+            "                    best = max(best, area)\n" +
+            "        return best",
+          plain:
+            "from collections import deque\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def maxAreaOfIsland(self, grid: List[List[int]]) -> int:\n" +
+            "        m, n = len(grid), len(grid[0])\n" +
+            "        best = 0\n" +
+            "        for r in range(m):\n" +
+            "            for c in range(n):\n" +
+            "                if grid[r][c] == 1:\n" +
+            "                    grid[r][c] = 0\n" +
+            "                    queue = deque([(r, c)])\n" +
+            "                    area = 0\n" +
+            "                    while queue:\n" +
+            "                        cr, cc = queue.popleft()\n" +
+            "                        area += 1\n" +
+            "                        for dr, dc in ((1,0),(-1,0),(0,1),(0,-1)):\n" +
+            "                            nr, nc = cr + dr, cc + dc\n" +
+            "                            if 0 <= nr < m and 0 <= nc < n and grid[nr][nc] == 1:\n" +
+            "                                grid[nr][nc] = 0\n" +
+            "                                queue.append((nr, nc))\n" +
+            "                    best = max(best, area)\n" +
+            "        return best"
+        }
+      ],
+      patternRecognition: [
+        "'Largest / size of a region in a grid' => flood fill that RETURNS a cell count, not just a tally.",
+        "4-directional adjacency on a 2D grid => implicit graph, DFS or BFS.",
+        "Track a running max area across components; sink visited land so each is measured once."
+      ],
+      interviewRecall: [
+        "DFS returns 1 + area of the four neighbors; base case returns 0 for out-of-bounds/water.",
+        "Sink each visited 1 to 0 so no cell is counted twice; cells here are integers, not '1'.",
+        "Same skeleton as Number of Islands \u2014 keep a max area instead of incrementing a count."
+      ]
+    },
+
+    {
+      id: "surrounded-regions",
+      lc: 130,
+      title: "Surrounded Regions",
+      difficulty: "Medium",
+      category: "Graphs",
+      link: "https://leetcode.com/problems/surrounded-regions/",
+      meta: { pattern: "Border-anchored flood fill", dataStructure: "Grid as implicit graph", technique: "DFS/BFS from border, then flip" },
+      description:
+        "Given an `m x n` matrix `board` containing `'X'` and `'O'`, **capture** all regions that are 4-directionally **surrounded** by `'X'`.\n\n" +
+        "A region is captured by flipping all `'O'`s into `'X'`s in that surrounded region. An `'O'` is **safe** (never captured) if it is connected \u2014 4-directionally, through other `'O'`s \u2014 to an `'O'` on the **border** of the board. Modify the board **in place**.",
+      constraints: [
+        "`m == board.length`, `n == board[i].length`",
+        "`1 <= m, n <= 200`",
+        "`board[i][j]` is `'X'` or `'O'`."
+      ],
+      notes: [
+        "The key insight: only `'O'`s connected to the border survive; every other `'O'` is surrounded and gets captured.",
+        "Any `'O'` on an edge, plus everything reachable from it through `'O'`s, is safe.",
+        "This is easier to solve by finding the SAFE cells (border-anchored) than by trying to detect enclosure directly."
+      ],
+      examples: [
+        {
+          input: 'board = [["X","X","X","X"],["X","O","O","X"],["X","X","O","X"],["X","O","X","X"]]',
+          output: '[["X","X","X","X"],["X","X","X","X"],["X","X","X","X"],["X","O","X","X"]]',
+          reasoning: "The interior O region (1,1)(1,2)(2,2) is fully surrounded and captured. The O at (3,1) touches the bottom border, so it survives.",
+          visual:
+            "```\nX X X X          X X X X\nX O O X   =>     X X X X\nX X O X          X X X X\nX O X X          X O X X   <- (3,1) touches border, stays O\n```"
+        },
+        {
+          input: 'board = [["X"]]',
+          output: '[["X"]]',
+          reasoning: "No O cells, nothing to capture."
+        },
+        {
+          input: 'board = [["O","O"],["O","O"]]',
+          output: '[["O","O"],["O","O"]]',
+          reasoning: "Every O is on the border, so all are safe \u2014 nothing is captured."
+        },
+        {
+          input: 'board = [["X","X","X"],["X","O","X"],["X","X","X"]]',
+          output: '[["X","X","X"],["X","X","X"],["X","X","X"]]',
+          reasoning: "The single interior O is completely surrounded and flips to X."
+        }
+      ],
+      approaches: [
+        {
+          name: "DFS from the border (mark safe, then flip)",
+          time: "O(m*n)",
+          space: "O(m*n)",
+          whenToUse: "The expected solution: when 'enclosed' is hard to test directly, flood from the border to mark what is NOT enclosed.",
+          logic:
+            "**What it asks.** Flip every `'O'` region that is completely surrounded by `'X'` into `'X'`, in place \u2014 leaving only the `'O'` regions that touch (or connect to) the border.\n\n" +
+            "**Graph modeling.** The grid is an implicit graph: **nodes** are `'O'` cells; an **edge** connects two `'O'`s that are 4-directionally adjacent. An `'O'` region is a connected component of `'O'`s, and a region is 'safe' exactly when its component includes a border cell.\n\n" +
+            "**Why the naive idea fails.** Trying to test each region for enclosure directly \u2014 'does this blob touch any edge?' \u2014 forces you to explore a region and then decide, and it is fiddly to flip only the enclosed ones without accidentally capturing a border-connected region mid-search. The relationship is easier read the other way around.\n\n" +
+            "**Border-anchoring insight (Key Idea).** Turn the problem inside out: instead of hunting for surrounded regions, find the SAFE ones. Every `'O'` on the border cannot be captured, and neither can any `'O'` reachable from a border `'O'` through other `'O'`s. So flood-fill from every border `'O'`, marking all reached cells as safe (e.g. a temporary `'#'`). After that sweep, any cell still `'O'` is genuinely surrounded \u2014 flip it to `'X'` \u2014 and every `'#'` is restored to `'O'`. This converts a hard 'is it enclosed?' test into an easy reachability flood from a known-safe frontier.\n\n" +
+            "**Why DFS fits.** Reaching all `'O'`s connected to a border `'O'` is a depth-first traversal over the adjacency edges. The temporary `'#'` marker doubles as the `visited` structure \u2014 a cell marked `'#'` is both 'safe' and 'already processed', so the flood terminates.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. For every cell on the four borders that is `'O'`, launch a DFS.\n" +
+            "2. `dfs` returns immediately if out of bounds or the cell is not `'O'`; otherwise mark it `'#'` (safe) and recurse into the four neighbors.\n" +
+            "3. After all border floods finish, scan the entire board: flip each remaining `'O'` to `'X'` (it was unreachable from any border, hence surrounded), and revert each `'#'` back to `'O'`.\n\n" +
+            "**Why it works.** A region is captured iff none of its cells is on the border. The border flood marks precisely the border-connected component of `'O'`s as `'#'`; whatever stays `'O'` is in no such component, so it is fully enclosed and correctly flipped. Reverting `'#'` restores the safe cells untouched.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Anchor the flood at the BORDER, not the interior \u2014 flooding from interior `'O'`s captures nothing useful.\n" +
+            "- Use a distinct temporary marker (`'#'`) so the final pass can tell 'safe' from 'to-capture'; do not flip during the flood.\n" +
+            "- Do the flip and the revert in the SAME final scan, after every border flood completes.\n" +
+            "- A recursive DFS can overflow the stack on a 200x200 all-`'O'` board \u2014 the reason a BFS variant exists.\n\n" +
+            "**Complexity.** Time `O(m*n)` \u2014 each cell is visited a constant number of times across the floods and the final scan. Space `O(m*n)` worst-case recursion depth.\n\n" +
+            "**Interview mindset.** When 'is this region enclosed / trapped?' is awkward to test directly, flip it: flood from the border to mark everything that ESCAPES, then whatever is left is trapped. The same reverse-from-the-target trick as Pacific Atlantic.",
+          rcs:
+            "class Solution:\n" +
+            "    def solve(self, board: List[List[str]]) -> None:\n" +
+            "        if not board or not board[0]:\n" +
+            "            return\n" +
+            "        m, n = len(board), len(board[0])\n" +
+            "\n" +
+            "        def dfs(r, c):\n" +
+            "            if r < 0 or r >= m or c < 0 or c >= n or board[r][c] != 'O':\n" +
+            "                return                        # Off board or not an O: stop.\n" +
+            "            board[r][c] = '#'                 # Mark border-connected O as safe (also visited).\n" +
+            "            dfs(r + 1, c); dfs(r - 1, c); dfs(r, c + 1); dfs(r, c - 1)\n" +
+            "\n" +
+            "        for r in range(m):                    # Left and right border columns.\n" +
+            "            dfs(r, 0); dfs(r, n - 1)\n" +
+            "        for c in range(n):                    # Top and bottom border rows.\n" +
+            "            dfs(0, c); dfs(m - 1, c)\n" +
+            "\n" +
+            "        for r in range(m):\n" +
+            "            for c in range(n):\n" +
+            "                if board[r][c] == 'O':        # Unreached O => surrounded => capture.\n" +
+            "                    board[r][c] = 'X'\n" +
+            "                elif board[r][c] == '#':      # Safe O => restore.\n" +
+            "                    board[r][c] = 'O'",
+          plain:
+            "class Solution:\n" +
+            "    def solve(self, board: List[List[str]]) -> None:\n" +
+            "        if not board or not board[0]:\n" +
+            "            return\n" +
+            "        m, n = len(board), len(board[0])\n" +
+            "\n" +
+            "        def dfs(r, c):\n" +
+            "            if r < 0 or r >= m or c < 0 or c >= n or board[r][c] != 'O':\n" +
+            "                return\n" +
+            "            board[r][c] = '#'\n" +
+            "            dfs(r + 1, c); dfs(r - 1, c); dfs(r, c + 1); dfs(r, c - 1)\n" +
+            "\n" +
+            "        for r in range(m):\n" +
+            "            dfs(r, 0); dfs(r, n - 1)\n" +
+            "        for c in range(n):\n" +
+            "            dfs(0, c); dfs(m - 1, c)\n" +
+            "\n" +
+            "        for r in range(m):\n" +
+            "            for c in range(n):\n" +
+            "                if board[r][c] == 'O':\n" +
+            "                    board[r][c] = 'X'\n" +
+            "                elif board[r][c] == '#':\n" +
+            "                    board[r][c] = 'O'"
+        },
+        {
+          name: "BFS from the border (queue)",
+          time: "O(m*n)",
+          space: "O(m*n)",
+          whenToUse: "When the board is large and deep recursion could overflow the stack; the same border-anchoring with an explicit queue.",
+          logic:
+            "**What it asks.** The same capture, produced with an explicit queue so there is no deep recursion.\n\n" +
+            "**Graph modeling.** Unchanged: **nodes** are `'O'` cells, **edges** are 4-directional `'O'`-to-`'O'` adjacency, and a region is safe iff it connects to a border `'O'`. We still mark the border-connected component as `'#'`, but expand it with a **queue** instead of the call stack.\n\n" +
+            "**Why the naive idea fails.** The recursive border DFS is correct, but on a 200x200 board that is essentially all `'O'` the recursion depth can overflow the stack. Multi-source BFS from the border keeps memory to the frontier.\n\n" +
+            "**Key Idea (same border anchoring).** Seed a queue with EVERY border `'O'` at once (multi-source), marking each `'#'` as it is enqueued. Repeatedly pop a cell and enqueue its `'O'` neighbors, marking them `'#'` on enqueue \u2014 that mark is the visited check, so each safe cell enters the queue once. Then the same final scan flips leftover `'O'` to `'X'` and reverts `'#'` to `'O'`.\n\n" +
+            "**Why BFS fits.** Marking the border-connected component needs every such `'O'` reached; order is irrelevant, so a queue-driven frontier covers it just as completely as recursion, without deep stacks.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Enqueue every border cell that is `'O'`, marking each `'#'` immediately.\n" +
+            "2. While the queue is non-empty, pop a cell and, for each in-bounds `'O'` neighbor, mark it `'#'` and enqueue it.\n" +
+            "3. Scan the whole board: flip each remaining `'O'` to `'X'` and revert each `'#'` to `'O'`.\n\n" +
+            "**Why it works.** The multi-source flood reaches exactly the border-connected `'O'`s (marking them safe), so anything still `'O'` afterward is enclosed and captured \u2014 identical in outcome to the DFS version.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Mark `'#'` on enqueue, not on dequeue \u2014 otherwise a cell can be enqueued twice.\n" +
+            "- Seed the queue with the ENTIRE border, then do the flip/revert in the final scan only.\n" +
+            "- Use a temporary marker distinct from `'O'`/`'X'` so the last pass can distinguish safe from captured.\n\n" +
+            "**Complexity.** Time `O(m*n)` \u2014 every cell processed once. Space `O(m*n)` for the queue in the worst case.\n\n" +
+            "**Interview mindset.** Same border-anchoring insight, iterative form: when the region flood could be deep, seed a multi-source BFS from the border instead of recursing.",
+          rcs:
+            "from collections import deque\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def solve(self, board: List[List[str]]) -> None:\n" +
+            "        if not board or not board[0]:\n" +
+            "            return\n" +
+            "        m, n = len(board), len(board[0])\n" +
+            "        queue = deque()\n" +
+            "        for r in range(m):\n" +
+            "            for c in range(n):\n" +
+            "                if (r in (0, m - 1) or c in (0, n - 1)) and board[r][c] == 'O':\n" +
+            "                    board[r][c] = '#'         # Border O is safe; mark on enqueue.\n" +
+            "                    queue.append((r, c))\n" +
+            "        while queue:\n" +
+            "            r, c = queue.popleft()\n" +
+            "            for dr, dc in ((1,0),(-1,0),(0,1),(0,-1)):\n" +
+            "                nr, nc = r + dr, c + dc\n" +
+            "                if 0 <= nr < m and 0 <= nc < n and board[nr][nc] == 'O':\n" +
+            "                    board[nr][nc] = '#'       # Reachable from border => safe.\n" +
+            "                    queue.append((nr, nc))\n" +
+            "        for r in range(m):\n" +
+            "            for c in range(n):\n" +
+            "                if board[r][c] == 'O':        # Enclosed => capture.\n" +
+            "                    board[r][c] = 'X'\n" +
+            "                elif board[r][c] == '#':      # Safe => restore.\n" +
+            "                    board[r][c] = 'O'",
+          plain:
+            "from collections import deque\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def solve(self, board: List[List[str]]) -> None:\n" +
+            "        if not board or not board[0]:\n" +
+            "            return\n" +
+            "        m, n = len(board), len(board[0])\n" +
+            "        queue = deque()\n" +
+            "        for r in range(m):\n" +
+            "            for c in range(n):\n" +
+            "                if (r in (0, m - 1) or c in (0, n - 1)) and board[r][c] == 'O':\n" +
+            "                    board[r][c] = '#'\n" +
+            "                    queue.append((r, c))\n" +
+            "        while queue:\n" +
+            "            r, c = queue.popleft()\n" +
+            "            for dr, dc in ((1,0),(-1,0),(0,1),(0,-1)):\n" +
+            "                nr, nc = r + dr, c + dc\n" +
+            "                if 0 <= nr < m and 0 <= nc < n and board[nr][nc] == 'O':\n" +
+            "                    board[nr][nc] = '#'\n" +
+            "                    queue.append((nr, nc))\n" +
+            "        for r in range(m):\n" +
+            "            for c in range(n):\n" +
+            "                if board[r][c] == 'O':\n" +
+            "                    board[r][c] = 'X'\n" +
+            "                elif board[r][c] == '#':\n" +
+            "                    board[r][c] = 'O'"
+        }
+      ],
+      patternRecognition: [
+        "'Capture / enclosed / trapped regions' => flip it: flood from the border to mark what ESCAPES.",
+        "Whatever the border flood does NOT reach is the enclosed set to transform.",
+        "Use a temporary marker for safe cells, then a final scan to flip and revert."
+      ],
+      interviewRecall: [
+        "Border-anchoring: only O's connected to a border O survive; everything else is captured.",
+        "Mark border-reachable O's as '#', then flip leftover O->X and revert '#'->O in one scan.",
+        "DFS is concise; multi-source BFS from the border avoids stack overflow on big boards."
+      ]
+    },
+
+    {
+      id: "rotting-oranges",
+      lc: 994,
+      title: "Rotting Oranges",
+      difficulty: "Medium",
+      category: "Graphs",
+      link: "https://leetcode.com/problems/rotting-oranges/",
+      meta: { pattern: "Multi-source BFS (level-order)", dataStructure: "Grid as implicit graph", technique: "Simultaneous BFS counting minutes" },
+      description:
+        "You are given an `m x n` grid where each cell is `0` (empty), `1` (a **fresh** orange), or `2` (a **rotten** orange).\n\n" +
+        "Each minute, any fresh orange that is 4-directionally adjacent to a rotten orange becomes rotten. Return the **minimum number of minutes** that must elapse until no cell has a fresh orange. If this is impossible (some fresh orange can never be reached), return `-1`.",
+      constraints: [
+        "`m == grid.length`, `n == grid[i].length`",
+        "`1 <= m, n <= 10`",
+        "`grid[i][j]` is `0`, `1`, or `2`."
+      ],
+      notes: [
+        "All currently-rotten oranges spread at the SAME time each minute \u2014 this is why it is multi-source BFS, not one BFS per source.",
+        "The elapsed minutes equal the number of BFS levels after the initial one.",
+        "If any fresh orange remains after the BFS drains, it was unreachable => return -1.",
+        "If there are no fresh oranges to begin with, the answer is 0."
+      ],
+      examples: [
+        {
+          input: "grid = [[2,1,1],[1,1,0],[0,1,1]]",
+          output: "4",
+          reasoning: "Rot spreads outward from (0,0) one ring per minute; the last fresh orange at (2,2) rots at minute 4.",
+          visual:
+            "```\nmin 0:  2 1 1     min 1:  2 2 1     ...     min 4:  2 2 2\n        1 1 0             2 1 0                     2 2 0\n        0 1 1             0 1 1                     0 2 2\nfront expands one ring per minute => 4 minutes\n```"
+        },
+        {
+          input: "grid = [[2,1,1],[0,1,1],[1,0,1]]",
+          output: "-1",
+          reasoning: "The orange at (2,0) is isolated by empty cells and can never rot, so it is impossible.",
+          visual: "```\n2 1 1\n0 1 1\n1 0 1   <- (2,0) is boxed off by 0s => never rots => -1\n```"
+        },
+        {
+          input: "grid = [[0,2]]",
+          output: "0",
+          reasoning: "No fresh oranges exist, so zero minutes are needed."
+        },
+        {
+          input: "grid = [[1]]",
+          output: "-1",
+          reasoning: "A single fresh orange with no rotten source can never rot."
+        }
+      ],
+      approaches: [
+        {
+          name: "Multi-source BFS (level-order)",
+          time: "O(m*n)",
+          space: "O(m*n)",
+          whenToUse: "The canonical multi-source BFS: many sources spread simultaneously and you need the time for everything to be reached.",
+          logic:
+            "**What it asks.** Find the number of minutes until every fresh orange has rotted, where each minute rot spreads from every rotten orange to its fresh 4-directional neighbors \u2014 or `-1` if some fresh orange can never be reached.\n\n" +
+            "**Graph modeling.** The grid is an implicit graph: **nodes** are orange cells; an **edge** connects two 4-directionally adjacent oranges. 'Minutes to rot' is the **shortest distance** from the nearest initially-rotten orange, measured in edges \u2014 and the answer is the MAXIMUM such distance over all fresh oranges.\n\n" +
+            "**Why the naive idea fails.** Running a separate BFS from each rotten orange and combining distances is wasteful and error-prone, and simulating minute-by-minute with full grid rescans is clumsy. Because ALL rotten oranges spread at once, the frontiers should advance together in lockstep.\n\n" +
+            "**Key Idea.** Seed a BFS queue with EVERY initially-rotten orange at once (multi-source), and process the queue **level by level** \u2014 each level is one minute. All cells enqueued so far rot their fresh neighbors simultaneously; those newly-rotten cells form the next level. The number of levels processed after the initial seeding is the elapsed minutes. Track a `fresh` counter, decrementing it as each fresh orange rots; if it hits `0` everything was reached, and if any remains the answer is `-1`. The `visited` structure is the grid itself \u2014 a cell set to `2` is 'already rotten', so it is never reprocessed.\n\n" +
+            "**Why multi-source BFS fits.** Simultaneous spread from many equivalent sources with 'time = distance' is exactly what a level-order BFS seeded with all sources computes \u2014 one shared frontier expands one ring per minute, giving each fresh orange its true shortest time to rot.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Scan the grid: enqueue every rotten orange `(r, c)` and count the `fresh` oranges.\n" +
+            "2. If `fresh == 0`, return `0` immediately (nothing to rot).\n" +
+            "3. BFS in levels: while the queue is non-empty and fresh remain, process the whole current level \u2014 for each cell, rot each fresh neighbor (set it to `2`), decrement `fresh`, and enqueue it. After the level, increment `minutes`.\n" +
+            "4. Return `minutes` if `fresh == 0`, else `-1` (some fresh orange was unreachable).\n\n" +
+            "**Why it works.** Level `k` of a multi-source BFS holds exactly the cells at shortest distance `k` from the nearest source, so an orange rots at the minute equal to its distance from the closest rotten orange \u2014 and the last level processed equals the maximum such distance, the total time. Any fresh orange in a component with no rotten orange is never enqueued, so `fresh` stays positive and we report `-1`.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Seed the queue with ALL rotten oranges before starting \u2014 the 'simultaneous' rule is the whole point.\n" +
+            "- Advance minutes per LEVEL, not per cell; process a snapshot of the current queue size each round.\n" +
+            "- Handle `fresh == 0` up front so an all-empty or all-rotten grid returns `0`, not an off-by-one.\n" +
+            "- Mark a fresh orange rotten (set `2`) when you enqueue it, so it isn't counted or spread twice.\n\n" +
+            "**Complexity.** Time `O(m*n)` \u2014 each cell enqueued and processed at most once. Space `O(m*n)` for the queue in the worst case.\n\n" +
+            "**Interview mindset.** 'Spread / infect / fill from multiple starting points at once, how long until everything is covered?' is the multi-source BFS signal \u2014 seed all sources, expand level by level, and count levels.",
+          rcs:
+            "from collections import deque\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def orangesRotting(self, grid: List[List[int]]) -> int:\n" +
+            "        m, n = len(grid), len(grid[0])\n" +
+            "        queue = deque()\n" +
+            "        fresh = 0\n" +
+            "        for r in range(m):\n" +
+            "            for c in range(n):\n" +
+            "                if grid[r][c] == 2:\n" +
+            "                    queue.append((r, c))      # Seed every rotten orange (multi-source).\n" +
+            "                elif grid[r][c] == 1:\n" +
+            "                    fresh += 1                # Count what must still rot.\n" +
+            "        if fresh == 0:\n" +
+            "            return 0                          # Nothing fresh => 0 minutes.\n" +
+            "        minutes = 0\n" +
+            "        while queue and fresh > 0:\n" +
+            "            minutes += 1                      # One BFS level = one minute.\n" +
+            "            for _ in range(len(queue)):       # Process this whole level at once.\n" +
+            "                r, c = queue.popleft()\n" +
+            "                for dr, dc in ((1,0),(-1,0),(0,1),(0,-1)):\n" +
+            "                    nr, nc = r + dr, c + dc\n" +
+            "                    if 0 <= nr < m and 0 <= nc < n and grid[nr][nc] == 1:\n" +
+            "                        grid[nr][nc] = 2      # Rot it (and mark visited).\n" +
+            "                        fresh -= 1\n" +
+            "                        queue.append((nr, nc))\n" +
+            "        return minutes if fresh == 0 else -1  # Leftover fresh => unreachable.",
+          plain:
+            "from collections import deque\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def orangesRotting(self, grid: List[List[int]]) -> int:\n" +
+            "        m, n = len(grid), len(grid[0])\n" +
+            "        queue = deque()\n" +
+            "        fresh = 0\n" +
+            "        for r in range(m):\n" +
+            "            for c in range(n):\n" +
+            "                if grid[r][c] == 2:\n" +
+            "                    queue.append((r, c))\n" +
+            "                elif grid[r][c] == 1:\n" +
+            "                    fresh += 1\n" +
+            "        if fresh == 0:\n" +
+            "            return 0\n" +
+            "        minutes = 0\n" +
+            "        while queue and fresh > 0:\n" +
+            "            minutes += 1\n" +
+            "            for _ in range(len(queue)):\n" +
+            "                r, c = queue.popleft()\n" +
+            "                for dr, dc in ((1,0),(-1,0),(0,1),(0,-1)):\n" +
+            "                    nr, nc = r + dr, c + dc\n" +
+            "                    if 0 <= nr < m and 0 <= nc < n and grid[nr][nc] == 1:\n" +
+            "                        grid[nr][nc] = 2\n" +
+            "                        fresh -= 1\n" +
+            "                        queue.append((nr, nc))\n" +
+            "        return minutes if fresh == 0 else -1"
+        }
+      ],
+      patternRecognition: [
+        "'Everything spreads simultaneously, how long until all covered?' => multi-source BFS, count levels.",
+        "Seed the queue with ALL sources at once, then expand the shared frontier one ring per minute.",
+        "Track a fresh/remaining counter; if any is left after the BFS drains, return -1."
+      ],
+      interviewRecall: [
+        "Level-order BFS: one level = one minute; process len(queue) cells per round.",
+        "Handle no-fresh up front (answer 0); leftover fresh after the BFS => -1.",
+        "Set a fresh orange to rotten on enqueue so it isn't spread or counted twice."
+      ]
+    },
+
+    {
+      id: "walls-and-gates",
+      lc: 286,
+      title: "Walls and Gates",
+      difficulty: "Medium",
+      category: "Graphs",
+      link: "https://leetcode.com/problems/walls-and-gates/",
+      meta: { pattern: "Multi-source BFS (shortest distance)", dataStructure: "Grid as implicit graph", technique: "BFS from all gates at once" },
+      description:
+        "You are given an `m x n` grid `rooms` initialized with three possible values:\n\n" +
+        "- `-1` \u2014 a **wall** or obstacle.\n" +
+        "- `0` \u2014 a **gate**.\n" +
+        "- `2147483647` (`INF`) \u2014 an **empty room** (this is 2^31 - 1, used to mean infinity).\n\n" +
+        "Fill each empty room with the distance to its **nearest gate**, moving 4-directionally. If an empty room cannot reach any gate, leave it as `INF`. Modify the grid **in place**.\n\n" +
+        "_(This is a LeetCode premium problem; the statement above is the standard formulation.)_",
+      constraints: [
+        "`m == rooms.length`, `n == rooms[i].length`",
+        "`1 <= m, n <= 250`",
+        "`rooms[i][j]` is `-1`, `0`, or `2147483647`."
+      ],
+      notes: [
+        "`INF = 2147483647` marks an empty room; walls are `-1`; gates are `0`.",
+        "Distance is the number of 4-directional steps; a room right beside a gate gets `1`.",
+        "Running one BFS per gate would be O(gates * m * n); a single multi-source BFS from all gates at once is O(m * n)."
+      ],
+      examples: [
+        {
+          input: "rooms = [[INF,-1,0,INF],[INF,INF,INF,-1],[INF,-1,INF,-1],[0,-1,INF,INF]]",
+          output: "[[3,-1,0,1],[2,2,1,-1],[1,-1,2,-1],[0,-1,3,4]]",
+          reasoning: "Each empty room is filled with its shortest 4-directional distance to the nearest of the two gates.",
+          visual:
+            "```\n INF  -1   0  INF          3  -1   0   1\n INF INF INF  -1     =>     2   2   1  -1\n INF  -1 INF  -1            1  -1   2  -1\n  0   -1 INF INF            0  -1   3   4\n(-1 = wall, 0 = gate, numbers = steps to nearest gate)\n```"
+        },
+        {
+          input: "rooms = [[-1]]",
+          output: "[[-1]]",
+          reasoning: "A single wall; nothing to fill."
+        },
+        {
+          input: "rooms = [[0]]",
+          output: "[[0]]",
+          reasoning: "A single gate; distance to itself is 0."
+        },
+        {
+          input: "rooms = [[INF]]",
+          output: "[[INF]]",
+          reasoning: "One empty room with no gate reachable \u2014 stays INF."
+        }
+      ],
+      approaches: [
+        {
+          name: "Multi-source BFS from all gates",
+          time: "O(m*n)",
+          space: "O(m*n)",
+          whenToUse: "Shortest distance from EACH cell to the nearest of many targets => one BFS seeded with all targets, not one per target.",
+          logic:
+            "**What it asks.** Fill every empty room with the number of 4-directional steps to the closest gate, leaving unreachable rooms as `INF`, modifying the grid in place.\n\n" +
+            "**Graph modeling.** The grid is an implicit graph: **nodes** are non-wall cells; an **edge** connects two 4-directionally adjacent non-wall cells. Each empty room's answer is its **shortest distance to the nearest gate** \u2014 a shortest-path-in-an-unweighted-graph query, from every cell to a set of targets (the gates).\n\n" +
+            "**Why the naive idea fails.** BFS from every empty room to find its nearest gate reprocesses the grid once per room \u2014 far too slow. Even BFS from each gate separately costs `O(gates * m * n)` and needs distance-merging. The efficient move is to compute all nearest-gate distances in a single pass.\n\n" +
+            "**Key Idea.** Reverse the direction and go multi-source: instead of searching from each room to a gate, flood OUTWARD from ALL gates simultaneously. Seed a BFS queue with every gate (all at distance `0`) and expand level by level; the first time the flood reaches an empty room, that room is at its shortest distance from SOME gate \u2014 necessarily the nearest, because BFS explores in nondecreasing distance order. Because all gates share one frontier, each room is claimed by whichever gate reaches it first. A room stays `INF` iff no flood ever reaches it. The `visited` structure is the grid itself: an empty room still equal to `INF` is unvisited; once assigned a finite distance it is 'done' and never reprocessed.\n\n" +
+            "**Why multi-source BFS fits.** 'Nearest of many targets' for every cell is exactly a BFS seeded with all targets at once \u2014 the merged frontier assigns each cell the minimum distance to any source in a single linear sweep, and BFS's level order guarantees the first assignment is the smallest.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Scan the grid and enqueue every gate `(r, c)` (value `0`). Gates already hold distance `0`.\n" +
+            "2. While the queue is non-empty, pop a cell `(r, c)` with its known distance `d = rooms[r][c]`.\n" +
+            "3. For each 4-directional neighbor that is still `INF` (an unvisited empty room), set it to `d + 1` and enqueue it.\n" +
+            "4. Walls (`-1`) and already-assigned rooms are skipped by the `== INF` check. When the queue drains, every reachable room holds its nearest-gate distance.\n\n" +
+            "**Why it works.** A multi-source BFS processes cells in nondecreasing distance from the closest source, so when a room is first dequeued-into and assigned `d + 1`, no shorter path from any gate exists \u2014 that value is the true minimum. Rooms in a component with no gate are never reached and correctly remain `INF`.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Seed with ALL gates before the loop \u2014 one BFS per gate defeats the purpose and is slower.\n" +
+            "- The `== INF` test doubles as the visited check; it naturally skips walls (`-1`) and rooms already assigned a smaller distance, so never overwrite them.\n" +
+            "- Set the neighbor's distance when you ENQUEUE it, not when you pop it, or a room can be enqueued by two gates and get the larger value.\n" +
+            "- `INF` is exactly `2147483647`; compare against it explicitly.\n\n" +
+            "**Complexity.** Time `O(m*n)` \u2014 each cell is enqueued and assigned at most once. Space `O(m*n)` for the queue in the worst case.\n\n" +
+            "**Interview mindset.** 'Distance from every cell to the nearest of several sources' in an unweighted grid is the multi-source BFS signal \u2014 seed all sources at distance 0 and let one flood assign every cell its minimum.",
+          rcs:
+            "from collections import deque\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def wallsAndGates(self, rooms: List[List[int]]) -> None:\n" +
+            "        if not rooms or not rooms[0]:\n" +
+            "            return\n" +
+            "        INF = 2147483647\n" +
+            "        m, n = len(rooms), len(rooms[0])\n" +
+            "        queue = deque()\n" +
+            "        for r in range(m):\n" +
+            "            for c in range(n):\n" +
+            "                if rooms[r][c] == 0:          # Seed EVERY gate (all distance 0).\n" +
+            "                    queue.append((r, c))\n" +
+            "        while queue:\n" +
+            "            r, c = queue.popleft()\n" +
+            "            d = rooms[r][c]                   # Distance already assigned to this cell.\n" +
+            "            for dr, dc in ((1,0),(-1,0),(0,1),(0,-1)):\n" +
+            "                nr, nc = r + dr, c + dc\n" +
+            "                if 0 <= nr < m and 0 <= nc < n and rooms[nr][nc] == INF:\n" +
+            "                    rooms[nr][nc] = d + 1     # First flood to reach it = nearest gate.\n" +
+            "                    queue.append((nr, nc))    # Assign on enqueue (also marks visited).",
+          plain:
+            "from collections import deque\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def wallsAndGates(self, rooms: List[List[int]]) -> None:\n" +
+            "        if not rooms or not rooms[0]:\n" +
+            "            return\n" +
+            "        INF = 2147483647\n" +
+            "        m, n = len(rooms), len(rooms[0])\n" +
+            "        queue = deque()\n" +
+            "        for r in range(m):\n" +
+            "            for c in range(n):\n" +
+            "                if rooms[r][c] == 0:\n" +
+            "                    queue.append((r, c))\n" +
+            "        while queue:\n" +
+            "            r, c = queue.popleft()\n" +
+            "            d = rooms[r][c]\n" +
+            "            for dr, dc in ((1,0),(-1,0),(0,1),(0,-1)):\n" +
+            "                nr, nc = r + dr, c + dc\n" +
+            "                if 0 <= nr < m and 0 <= nc < n and rooms[nr][nc] == INF:\n" +
+            "                    rooms[nr][nc] = d + 1\n" +
+            "                    queue.append((nr, nc))"
+        }
+      ],
+      patternRecognition: [
+        "'Distance from every cell to the NEAREST of many targets' => multi-source BFS from all targets.",
+        "Seed the queue with all sources at distance 0; the first flood to reach a cell gives its minimum.",
+        "One BFS from all gates is O(m*n); one BFS per gate would be O(gates * m*n)."
+      ],
+      interviewRecall: [
+        "Multi-source BFS: enqueue every gate first, then flood outward assigning d+1.",
+        "The '== INF' check is the visited test; it skips walls (-1) and already-filled rooms.",
+        "Assign a neighbor's distance on enqueue so the nearest gate (smallest d) wins."
+      ]
+    },
+
+    {
+      id: "course-schedule-ii",
+      lc: 210,
+      title: "Course Schedule II",
+      difficulty: "Medium",
+      category: "Graphs",
+      link: "https://leetcode.com/problems/course-schedule-ii/",
+      meta: { pattern: "Topological Sort (produce ordering)", dataStructure: "Directed adjacency list", technique: "Kahn BFS or DFS postorder" },
+      description:
+        "There are `numCourses` courses labeled `0` to `numCourses - 1`. You are given `prerequisites`, where `prerequisites[i] = [a, b]` means you **must take course `b` before course `a`**.\n\n" +
+        "Return **any valid order** in which you can take all the courses. If it is impossible to finish all courses (the prerequisites contain a cycle), return an **empty array** `[]`.",
+      constraints: [
+        "`1 <= numCourses <= 2000`",
+        "`0 <= prerequisites.length <= numCourses * (numCourses - 1)`",
+        "`prerequisites[i].length == 2`, `0 <= a, b < numCourses`, `a != b`",
+        "All prerequisite pairs `[a, b]` are distinct."
+      ],
+      notes: [
+        "This is Course Schedule I but you must OUTPUT an ordering, not just a boolean.",
+        "A valid order exists iff the prerequisite graph is acyclic (a DAG); otherwise return `[]`.",
+        "`[a, b]` is a directed edge b -> a (take b, which unlocks a).",
+        "Several valid orders may exist \u2014 returning any one is accepted."
+      ],
+      examples: [
+        {
+          input: "numCourses = 2, prerequisites = [[1,0]]",
+          output: "[0,1]",
+          reasoning: "Course 0 has no prerequisite; take it first, then course 1.",
+          visual: "```\n0 --> 1     order: [0, 1]\n```"
+        },
+        {
+          input: "numCourses = 4, prerequisites = [[1,0],[2,0],[3,1],[3,2]]",
+          output: "[0,1,2,3]",
+          reasoning: "0 unlocks 1 and 2; both unlock 3. A valid order is 0,1,2,3 (0,2,1,3 also works).",
+          visual: "```\n     0\n    / \\\n   1   2      one valid order: 0 1 2 3\n    \\ /\n     3\n```"
+        },
+        {
+          input: "numCourses = 1, prerequisites = []",
+          output: "[0]",
+          reasoning: "A single course with no prerequisites."
+        },
+        {
+          input: "numCourses = 2, prerequisites = [[1,0],[0,1]]",
+          output: "[]",
+          reasoning: "0 requires 1 and 1 requires 0 \u2014 a cycle, so no valid order exists."
+        }
+      ],
+      approaches: [
+        {
+          name: "Kahn's Algorithm (BFS topological sort by indegree)",
+          time: "O(V + E)",
+          space: "O(V + E)",
+          whenToUse: "The clean, iterative way to emit a topological order and detect a cycle in one pass; no recursion depth risk.",
+          logic:
+            "**What it asks.** Produce a valid order to take all courses respecting every prerequisite, or return `[]` if the prerequisites form a cycle (no order can exist).\n\n" +
+            "**Graph modeling.** **Nodes** are courses `0..numCourses-1`. Each pair `[a, b]` ('take b before a') is a directed **edge `b -> a`** \u2014 b unlocks a. A valid course order is exactly a **topological ordering** of this directed graph, which exists iff the graph is a **DAG** (acyclic).\n\n" +
+            "**Why the naive idea fails.** 'Repeatedly pick any course whose prerequisites are all done' is the right instinct but needs structure: rescanning all courses each round to find a ready one is slow, and without tracking readiness you cannot cleanly detect the deadlock (cycle) that makes the task impossible.\n\n" +
+            "**Key Idea.** A course is ready once all its prerequisites are taken \u2014 in graph terms, when its **indegree** (count of unmet prerequisites = incoming edges) reaches `0`. Kahn's algorithm repeatedly removes an indegree-`0` course, APPENDS IT TO THE ORDER, and deletes its outgoing edges, which lowers other courses' indegrees and may free them. Building the output list as you remove nodes yields the topological order directly. The `visited`/readiness structure is the `indegree` array plus the queue of ready courses.\n\n" +
+            "**Why topological sort fits.** 'Order tasks under dependency constraints' is the definition of a topological ordering, and Kahn's BFS both produces one and proves when none exists (a leftover cycle).\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Build adjacency list `graph[b].append(a)` and an `indegree` array of incoming-edge counts.\n" +
+            "2. Enqueue every course with indegree `0` (no prerequisites).\n" +
+            "3. Pop a course, append it to `order`, and for each course it unlocks, decrement that course's indegree; if it hits `0`, enqueue it.\n" +
+            "4. When the queue drains, if `len(order) == numCourses` return `order`; otherwise a cycle left some courses unscheduled \u2014 return `[]`.\n\n" +
+            "**Why it works.** Each edge is relaxed once, when its source is appended. A course reaches indegree `0` only after all its prerequisites precede it in `order`, so the list respects every constraint. If a cycle exists, its courses forever wait on one another, never reach indegree `0`, and `order` falls short of `numCourses` \u2014 exactly the impossible case.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Edge direction: `[a, b]` means b before a, i.e. edge `b -> a`. Draw it before coding.\n" +
+            "- Return `[]` only when the order is INCOMPLETE (`len < numCourses`); a complete order is the answer even with many courses of indegree 0.\n" +
+            "- Include courses that appear in no prerequisite \u2014 they start at indegree `0` and belong in the order.\n\n" +
+            "**Complexity.** Time `O(V + E)` and space `O(V + E)` \u2014 building and traversing touch every course and edge once.\n\n" +
+            "**Interview mindset.** 'Give a valid build/schedule order under pairwise dependencies' is the topological-sort signal; Kahn's indegree BFS emits the order and flags a cycle in the same loop.",
+          rcs:
+            "from collections import deque\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def findOrder(self, numCourses: int, prerequisites: List[List[int]]) -> List[int]:\n" +
+            "        graph = [[] for _ in range(numCourses)]   # graph[b] = courses b unlocks.\n" +
+            "        indegree = [0] * numCourses               # indegree[c] = unmet prerequisites of c.\n" +
+            "        for a, b in prerequisites:                # 'b before a' => edge b -> a.\n" +
+            "            graph[b].append(a)\n" +
+            "            indegree[a] += 1\n" +
+            "        queue = deque(c for c in range(numCourses) if indegree[c] == 0)  # Ready courses.\n" +
+            "        order = []\n" +
+            "        while queue:\n" +
+            "            course = queue.popleft()\n" +
+            "            order.append(course)                  # Schedule it next.\n" +
+            "            for nxt in graph[course]:             # Every course it unlocks...\n" +
+            "                indegree[nxt] -= 1                # ...loses one unmet prerequisite.\n" +
+            "                if indegree[nxt] == 0:            # Now ready.\n" +
+            "                    queue.append(nxt)\n" +
+            "        return order if len(order) == numCourses else []  # Incomplete => cycle => [].",
+          plain:
+            "from collections import deque\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def findOrder(self, numCourses: int, prerequisites: List[List[int]]) -> List[int]:\n" +
+            "        graph = [[] for _ in range(numCourses)]\n" +
+            "        indegree = [0] * numCourses\n" +
+            "        for a, b in prerequisites:\n" +
+            "            graph[b].append(a)\n" +
+            "            indegree[a] += 1\n" +
+            "        queue = deque(c for c in range(numCourses) if indegree[c] == 0)\n" +
+            "        order = []\n" +
+            "        while queue:\n" +
+            "            course = queue.popleft()\n" +
+            "            order.append(course)\n" +
+            "            for nxt in graph[course]:\n" +
+            "                indegree[nxt] -= 1\n" +
+            "                if indegree[nxt] == 0:\n" +
+            "                    queue.append(nxt)\n" +
+            "        return order if len(order) == numCourses else []"
+        },
+        {
+          name: "DFS postorder (three-color cycle detection)",
+          time: "O(V + E)",
+          space: "O(V + E)",
+          whenToUse: "When you think in DFS; the reverse of the postorder finishing sequence is a valid topological order, with coloring to catch cycles.",
+          logic:
+            "**What it asks.** The same valid course ordering (or `[]` on a cycle), produced by a depth-first traversal instead of indegree bookkeeping.\n\n" +
+            "**Graph modeling.** Same graph: **nodes** are courses, each `[a, b]` is a directed **edge `b -> a`**. A valid order is a topological ordering, which the DFS finishing order gives: a node is finished only after all courses it unlocks are finished, so reversing the finish order places every prerequisite before what it unlocks.\n\n" +
+            "**Why the naive idea fails.** A plain DFS with a single visited flag cannot distinguish 'this node is an ancestor still on my current path' (a cycle) from 'this node was fully explored earlier on another path' (safe). Conflating the two either misses cycles or falsely reports them, and gives no clean way to emit the order.\n\n" +
+            "**Key Idea.** Color each node `0 = unvisited`, `1 = on the current DFS path`, `2 = fully explored`. A cycle exists exactly when DFS reaches a color-`1` node (a back edge to an ancestor on the active path) \u2014 then return `[]`. Otherwise, when a node finishes (all its unlocked courses explored), append it to a list; the REVERSE of that postorder list is a valid topological order. The color array is the traversal's memory: `1` is the recursion path, `2` short-circuits already-cleared nodes to keep the search linear.\n\n" +
+            "**Why DFS fits.** Topological ordering falls straight out of DFS postorder, and directed-cycle detection is precisely about the recursion stack \u2014 the set of color-`1` nodes IS the current path.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Build adjacency list `graph[b].append(a)` and a `color` array of `0`s; prepare an empty `order` list.\n" +
+            "2. In `dfs(c)`: if `color[c] == 1` return False (back edge => cycle); if `color[c] == 2` return True (already safe).\n" +
+            "3. Mark `color[c] = 1`, recurse into every neighbor; if any returns False, propagate False.\n" +
+            "4. Mark `color[c] = 2`, append `c` to `order` (postorder), and return True.\n" +
+            "5. Run `dfs` from every course; if any reports a cycle, return `[]`. Otherwise return `order` REVERSED.\n\n" +
+            "**Why it works.** A node is appended only after everything it depends on it (its unlocked courses) is appended, so reversing puts prerequisites first \u2014 a valid topological order. The gray/black coloring detects a back edge iff the directed graph has a cycle, correctly yielding `[]` when no order exists.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Two states are essential: gray (on path) vs black (done). A single visited flag is the classic wrong answer.\n" +
+            "- REVERSE the postorder \u2014 the raw finishing order is the opposite of a valid schedule.\n" +
+            "- Restart DFS from every course; the graph may be disconnected, and a cycle can hide in an unvisited component.\n" +
+            "- On deep chains the recursion can approach `numCourses` frames \u2014 Kahn's BFS avoids that.\n\n" +
+            "**Complexity.** Time `O(V + E)` \u2014 each node colored a constant number of times, each edge followed once. Space `O(V + E)` for recursion, the color array, and the adjacency list.\n\n" +
+            "**Interview mindset.** 'Produce a dependency order' via DFS = postorder then reverse, with three-color coloring to reject cycles \u2014 the recursive twin of Kahn's indegree BFS.",
+          rcs:
+            "class Solution:\n" +
+            "    def findOrder(self, numCourses: int, prerequisites: List[List[int]]) -> List[int]:\n" +
+            "        graph = [[] for _ in range(numCourses)]   # graph[b] = courses b unlocks.\n" +
+            "        for a, b in prerequisites:\n" +
+            "            graph[b].append(a)\n" +
+            "        color = [0] * numCourses                  # 0=unvisited, 1=on path, 2=done.\n" +
+            "        order = []\n" +
+            "\n" +
+            "        def dfs(c):\n" +
+            "            if color[c] == 1:                     # Back edge to an active node => cycle.\n" +
+            "                return False\n" +
+            "            if color[c] == 2:                     # Already explored and safe.\n" +
+            "                return True\n" +
+            "            color[c] = 1                          # Enter the current path.\n" +
+            "            for nxt in graph[c]:\n" +
+            "                if not dfs(nxt):                  # Cycle found deeper => propagate.\n" +
+            "                    return False\n" +
+            "            color[c] = 2                          # Fully explored.\n" +
+            "            order.append(c)                       # Postorder: append on finish.\n" +
+            "            return True\n" +
+            "\n" +
+            "        for c in range(numCourses):               # Graph may be disconnected.\n" +
+            "            if not dfs(c):\n" +
+            "                return []                         # Cycle => no valid order.\n" +
+            "        return order[::-1]                        # Reverse postorder = topological order.",
+          plain:
+            "class Solution:\n" +
+            "    def findOrder(self, numCourses: int, prerequisites: List[List[int]]) -> List[int]:\n" +
+            "        graph = [[] for _ in range(numCourses)]\n" +
+            "        for a, b in prerequisites:\n" +
+            "            graph[b].append(a)\n" +
+            "        color = [0] * numCourses\n" +
+            "        order = []\n" +
+            "\n" +
+            "        def dfs(c):\n" +
+            "            if color[c] == 1:\n" +
+            "                return False\n" +
+            "            if color[c] == 2:\n" +
+            "                return True\n" +
+            "            color[c] = 1\n" +
+            "            for nxt in graph[c]:\n" +
+            "                if not dfs(nxt):\n" +
+            "                    return False\n" +
+            "            color[c] = 2\n" +
+            "            order.append(c)\n" +
+            "            return True\n" +
+            "\n" +
+            "        for c in range(numCourses):\n" +
+            "            if not dfs(c):\n" +
+            "                return []\n" +
+            "        return order[::-1]"
+        }
+      ],
+      patternRecognition: [
+        "'Give a valid order under dependencies' => topological sort (Kahn's BFS or DFS postorder).",
+        "A valid order exists iff the directed graph is acyclic; a cycle => return [].",
+        "Direction matters: '[a,b] = b before a' is edge b -> a. Draw it before coding."
+      ],
+      interviewRecall: [
+        "Kahn's: append indegree-0 nodes as you pop them; if the order misses any course there was a cycle => [].",
+        "DFS: append on finish (postorder), then REVERSE for the order; gray-node revisit => cycle.",
+        "Same graph as Course Schedule I \u2014 here you output the order instead of a boolean."
+      ]
+    },
+
+    {
+      id: "redundant-connection",
+      lc: 684,
+      title: "Redundant Connection",
+      difficulty: "Medium",
+      category: "Graphs",
+      link: "https://leetcode.com/problems/redundant-connection/",
+      meta: { pattern: "Cycle detection (undirected)", dataStructure: "Disjoint Set Union", technique: "Union-Find first cycle-closing edge" },
+      description:
+        "A tree is an undirected graph that is connected and has no cycles. You start with a tree of `n` nodes labeled `1` to `n`, then **one extra edge is added**. The result is given as `edges`, where `edges[i] = [a, b]` is an undirected edge.\n\n" +
+        "Return the **one edge** that can be removed so the graph becomes a tree of `n` nodes again. If multiple answers exist, return the one that appears **last** in the input.",
+      constraints: [
+        "`n == edges.length`",
+        "`3 <= n <= 1000`",
+        "`edges[i].length == 2`, `1 <= a < b <= n`",
+        "There are no repeated edges and no self-loops.",
+        "The input graph is guaranteed to be a tree plus exactly one extra edge (so exactly one cycle)."
+      ],
+      notes: [
+        "The graph has exactly `n` nodes and `n` edges \u2014 a tree has `n - 1`, so the one extra edge creates exactly one cycle.",
+        "Nodes are labeled from `1` (not `0`); size the parent array `n + 1` or offset by one.",
+        "Processing edges in order and returning the FIRST edge whose endpoints already share a root gives the last such edge on the unique cycle \u2014 which is what 'last in input' asks for."
+      ],
+      examples: [
+        {
+          input: "edges = [[1,2],[1,3],[2,3]]",
+          output: "[2,3]",
+          reasoning: "Edges 1-2 and 1-3 join everything; adding 2-3 closes the cycle 1-2-3-1, so [2,3] is redundant.",
+          visual: "```\n1-2   union 1,2\n1-3   union 1,3 (now 1,2,3 connected)\n2-3   find(2)==find(3) already => redundant edge [2,3]\n```"
+        },
+        {
+          input: "edges = [[1,2],[2,3],[3,4],[1,4],[1,5]]",
+          output: "[1,4]",
+          reasoning: "1-2, 2-3, 3-4 form a chain; 1-4 closes the cycle 1-2-3-4-1, so [1,4] is the answer.",
+          visual: "```\n1-2-3-4 chain, then 1-4 closes cycle 1-2-3-4-1 => [1,4]\n(1-5 comes later but is not part of the cycle)\n```"
+        },
+        {
+          input: "edges = [[1,2],[2,3],[1,3]]",
+          output: "[1,3]",
+          reasoning: "The first two edges connect 1,2,3; edge 1-3 finds both endpoints already connected."
+        }
+      ],
+      approaches: [
+        {
+          name: "Union-Find (first edge that closes a cycle)",
+          time: "O(n * \u03b1(n))",
+          space: "O(n)",
+          whenToUse: "The canonical use of Union-Find: process undirected edges and catch the one that links two already-connected nodes.",
+          logic:
+            "**What it asks.** In a graph that is a tree plus one extra edge, find the edge whose removal restores a tree \u2014 i.e. the edge lying on the single cycle \u2014 returning the one that appears last in the input.\n\n" +
+            "**Graph modeling.** **Nodes** are `1..n`; **edges** are the undirected pairs, processed in input order. The graph has `n` nodes and `n` edges, so it contains exactly one cycle. The redundant edge is any edge on that cycle; among them we want the last-listed.\n\n" +
+            "**Why the naive idea fails.** You could, for each edge, remove it and run a full connectivity/acyclicity check \u2014 `O(n^2)`. Or DFS to find the cycle and pick an edge \u2014 workable but fiddly to get 'last in input' right. Union-Find catches the cycle-closing edge directly as edges arrive.\n\n" +
+            "**Key Idea.** Maintain disjoint sets over the nodes with Union-Find. Process edges left to right; for edge `(a, b)`, if `a` and `b` are ALREADY in the same set (`find(a) == find(b)`), this edge connects two already-connected nodes and therefore closes a cycle \u2014 it is redundant, so return it. Otherwise `union(a, b)` and continue. Because the graph is a tree plus one edge, exactly one edge triggers this, and processing in order means it is the last edge of the cycle as listed \u2014 which is what the problem wants. The `visited`/state structure is `parent[x]`, x's representative root; two nodes are connected iff `find` returns the same root.\n\n" +
+            "**find with path compression + union.** `find(x)` walks parent pointers up to the set's root; **path compression** re-points each node along the way toward its grandparent (`parent[x] = parent[parent[x]]`), flattening the tree so later `find`s on those nodes are near-`O(1)`. **union(a, b)** links the two roots (`parent[find(a)] = find(b)`), merging the sets \u2014 after which `a` and `b`, and everything in their two groups, share one root.\n\n" +
+            "**Why Union-Find fits.** Detecting a cycle in an undirected graph as edges stream in is its textbook application \u2014 each edge either merges two disjoint groups or, if both endpoints already share a root, reveals the cycle.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Initialize `parent[i] = i` for `i` in `1..n` (nodes are 1-indexed, so size `n + 1`).\n" +
+            "2. For each edge `(a, b)` in order: compute `find(a)` and `find(b)` (with path compression).\n" +
+            "3. If the two roots are equal, `a` and `b` are already connected \u2014 return `[a, b]` (it closes the cycle).\n" +
+            "4. Otherwise union them (`parent[find(a)] = find(b)`) and move on.\n\n" +
+            "**Why it works.** Union-Find keeps each connected component as one set. An edge whose endpoints already share a root would add a second path between them, forming a cycle; since the graph is a tree plus exactly one edge, precisely one edge does this, and scanning in input order returns it \u2014 the last edge on the cycle as listed.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Nodes are labeled from `1`; size the parent array `n + 1` (or offset), or you index out of range / mishandle node `n`.\n" +
+            "- Return the edge the FIRST time `find(a) == find(b)` while scanning in order \u2014 that is the last-in-input cycle edge the problem asks for.\n" +
+            "- Include path compression (and/or union by rank) to keep `find` near-`O(1)`.\n" +
+            "- A cycle in an UNDIRECTED graph is exactly an edge whose endpoints already share a root \u2014 different from directed cycle detection.\n\n" +
+            "**Complexity.** Time `O(n * \u03b1(n))` \u2248 linear (\u03b1 is the inverse Ackermann function), `O(n)` space for the parent array.\n\n" +
+            "**Interview mindset.** 'Find the edge that creates a cycle in an undirected graph' is the Union-Find signal \u2014 process edges in order and return the one whose endpoints are already united.",
+          rcs:
+            "class Solution:\n" +
+            "    def findRedundantConnection(self, edges: List[List[int]]) -> List[int]:\n" +
+            "        parent = list(range(len(edges) + 1))     # Nodes 1..n; index 0 unused.\n" +
+            "\n" +
+            "        def find(x):                             # Root of x's set, with path compression.\n" +
+            "            while parent[x] != x:\n" +
+            "                parent[x] = parent[parent[x]]    # Point x at its grandparent (flatten).\n" +
+            "                x = parent[x]\n" +
+            "            return x\n" +
+            "\n" +
+            "        def union(a, b):                         # Merge the two sets; True if merged.\n" +
+            "            ra, rb = find(a), find(b)\n" +
+            "            if ra == rb:                         # Already connected => this edge is a cycle.\n" +
+            "                return False\n" +
+            "            parent[ra] = rb\n" +
+            "            return True\n" +
+            "\n" +
+            "        for a, b in edges:                       # Scan in input order.\n" +
+            "            if not union(a, b):                  # First edge that fails to merge...\n" +
+            "                return [a, b]                    # ...is the redundant (last cycle) edge.\n" +
+            "        return []",
+          plain:
+            "class Solution:\n" +
+            "    def findRedundantConnection(self, edges: List[List[int]]) -> List[int]:\n" +
+            "        parent = list(range(len(edges) + 1))\n" +
+            "\n" +
+            "        def find(x):\n" +
+            "            while parent[x] != x:\n" +
+            "                parent[x] = parent[parent[x]]\n" +
+            "                x = parent[x]\n" +
+            "            return x\n" +
+            "\n" +
+            "        def union(a, b):\n" +
+            "            ra, rb = find(a), find(b)\n" +
+            "            if ra == rb:\n" +
+            "                return False\n" +
+            "            parent[ra] = rb\n" +
+            "            return True\n" +
+            "\n" +
+            "        for a, b in edges:\n" +
+            "            if not union(a, b):\n" +
+            "                return [a, b]\n" +
+            "        return []"
+        }
+      ],
+      patternRecognition: [
+        "'Find the edge that creates a cycle in an undirected graph' => Union-Find as edges arrive.",
+        "Tree + one extra edge => n nodes, n edges, exactly one cycle.",
+        "The redundant edge is the first one (scanning in order) whose endpoints already share a root."
+      ],
+      interviewRecall: [
+        "Union-Find: return the edge where find(a) == find(b) before union \u2014 it closes the cycle.",
+        "find uses path compression (point nodes at grandparents); union links the two roots.",
+        "Nodes are 1-indexed \u2014 size parent as n + 1; scan in order to get the last-in-input edge."
+      ]
+    },
+
+    {
+      id: "word-ladder",
+      lc: 127,
+      title: "Word Ladder",
+      difficulty: "Hard",
+      category: "Graphs",
+      link: "https://leetcode.com/problems/word-ladder/",
+      meta: { pattern: "Shortest path (unweighted)", dataStructure: "Implicit word graph", technique: "BFS over wildcard adjacency buckets" },
+      description:
+        "A **transformation sequence** from `beginWord` to `endWord` using a dictionary `wordList` is a sequence `beginWord -> s1 -> s2 -> ... -> endWord` where every adjacent pair differs by exactly **one letter**, and every `si` (for `i >= 1`) is in `wordList`. Note `beginWord` itself need not be in `wordList`.\n\n" +
+        "Return the **number of words** in the shortest such transformation sequence, or `0` if none exists.",
+      constraints: [
+        "`1 <= beginWord.length <= 10`",
+        "`endWord.length == beginWord.length`",
+        "`1 <= wordList.length <= 5000`",
+        "`wordList[i].length == beginWord.length`",
+        "All words consist of lowercase English letters; `beginWord != endWord`; all words in `wordList` are unique."
+      ],
+      notes: [
+        "The answer counts WORDS (nodes), not steps \u2014 begin -> end changing one letter with end in the list returns 2.",
+        "If `endWord` is not in `wordList`, no valid sequence exists => return 0.",
+        "Building edges by comparing all pairs of words is O(N^2 * L); wildcard patterns make adjacency O(N * L) to build.",
+        "BFS (not DFS) because we need the SHORTEST sequence in an unweighted graph."
+      ],
+      examples: [
+        {
+          input: 'beginWord = "hit", endWord = "cog", wordList = ["hot","dot","dog","lot","log","cog"]',
+          output: "5",
+          reasoning: "hit -> hot -> dot -> dog -> cog is a shortest chain of 5 words.",
+          visual:
+            "```\nhit -> hot -> dot -> dog -> cog\n  (h*t) (*ot) (do*) (*og)\n5 words in the shortest ladder\n```"
+        },
+        {
+          input: 'beginWord = "hit", endWord = "cog", wordList = ["hot","dot","dog","lot","log"]',
+          output: "0",
+          reasoning: "endWord 'cog' is not in the word list, so no sequence can end there."
+        },
+        {
+          input: 'beginWord = "a", endWord = "c", wordList = ["a","b","c"]',
+          output: "2",
+          reasoning: "a -> c directly (one letter changes, 'c' is in the list): 2 words."
+        }
+      ],
+      approaches: [
+        {
+          name: "BFS over wildcard-pattern adjacency buckets",
+          time: "O(N * L^2)",
+          space: "O(N * L^2)",
+          whenToUse: "Shortest transformation / fewest steps where each move changes one unit and the endpoints are unweighted => BFS.",
+          logic:
+            "**What it asks.** Find the length (in words) of the shortest chain from `beginWord` to `endWord` where each step changes exactly one letter and every intermediate word is in `wordList`, or `0` if no such chain exists.\n\n" +
+            "**Graph modeling.** Model each word as a **node**; an undirected **edge** connects two words that differ by exactly one letter. The shortest transformation is the **shortest path** in this unweighted graph, and its word-count is that path's node count. We are doing a shortest-path search, so `visited` marks words already reached (at their minimum distance) to avoid revisiting.\n\n" +
+            "**Why the naive idea fails.** Building the graph by comparing every pair of words to see if they differ by one letter is `O(N^2 * L)` \u2014 up to 5000 words makes ~25 million pairwise comparisons. And DFS would explore long chains without guaranteeing the shortest. We need cheap adjacency and a breadth-first search.\n\n" +
+            "**Key Idea.** Two ideas combine. First, **wildcard patterns for adjacency**: for a word like `hot`, generate the patterns `*ot`, `h*t`, `ho*` (each with one position replaced by `*`). Two words are one letter apart iff they share a wildcard pattern, so bucket every word under each of its `L` patterns; the words in a bucket are mutually adjacent. This builds all edges in `O(N * L^2)` instead of `O(N^2 * L)`. Second, **BFS for the shortest path**: because every edge has weight 1, BFS explores words in increasing distance from `beginWord`, so the first time it reaches `endWord` it has found the shortest ladder. The BFS level (starting the count at 1 for `beginWord`) is the number of words in the sequence.\n\n" +
+            "**Why BFS fits.** Fewest one-letter steps in an unweighted graph is the definition of an unweighted shortest path, and BFS is exactly that \u2014 level `k` holds all words reachable in `k-1` transformations, so the level at which `endWord` first appears is the answer. DFS could find A path but not necessarily the shortest.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. If `endWord` is not in `wordList`, return `0` immediately.\n" +
+            "2. Build a map `patterns`: for every word, for each position `i`, add the word to the bucket keyed by `word[:i] + '*' + word[i+1:]`.\n" +
+            "3. BFS from `beginWord` with a queue of `(word, level)` starting at level `1`, and a `visited` set.\n" +
+            "4. Pop a word; if it equals `endWord`, return its level. Otherwise, for each of its `L` wildcard patterns, visit every unvisited word in that bucket \u2014 mark it visited and enqueue it at `level + 1`.\n" +
+            "5. If the queue drains without reaching `endWord`, return `0`.\n\n" +
+            "**Why it works.** The wildcard buckets encode exactly the one-letter-difference edges, so the BFS traverses the true transformation graph. BFS's level order guarantees the first arrival at `endWord` is via a shortest path, and marking words visited on enqueue keeps each word processed once and prevents cycles.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Return early if `endWord` is absent from the list \u2014 otherwise you search for an unreachable target.\n" +
+            "- Count WORDS, not steps: start the level at `1` for `beginWord`, so a direct one-letter transform to `endWord` returns `2`.\n" +
+            "- Mark words visited on enqueue (not dequeue), or the same word floods in from several buckets.\n" +
+            "- `beginWord` may not be in `wordList`, but you still expand from it; include its patterns when searching buckets.\n\n" +
+            "**Complexity.** With `N` words of length `L`: building the buckets and each expansion cost `O(N * L^2)` (each of `N` words yields `L` patterns, each of length `L`). Space `O(N * L^2)` for the pattern map and queue.\n\n" +
+            "**Interview mindset.** 'Shortest transformation / minimum steps changing one unit at a time' is an unweighted shortest-path problem \u2014 reach for BFS, and use wildcard buckets (or precomputed adjacency) to avoid the `O(N^2)` edge build.",
+          rcs:
+            "from collections import deque, defaultdict\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def ladderLength(self, beginWord: str, endWord: str, wordList: List[str]) -> int:\n" +
+            "        words = set(wordList)\n" +
+            "        if endWord not in words:                 # Target unreachable => no ladder.\n" +
+            "            return 0\n" +
+            "        L = len(beginWord)\n" +
+            "        patterns = defaultdict(list)             # 'h*t' -> [words matching that pattern].\n" +
+            "        for word in words:\n" +
+            "            for i in range(L):\n" +
+            "                patterns[word[:i] + '*' + word[i+1:]].append(word)\n" +
+            "\n" +
+            "        visited = {beginWord}\n" +
+            "        queue = deque([(beginWord, 1)])          # Count WORDS: beginWord is level 1.\n" +
+            "        while queue:\n" +
+            "            word, level = queue.popleft()\n" +
+            "            if word == endWord:                  # First arrival = shortest (BFS).\n" +
+            "                return level\n" +
+            "            for i in range(L):                   # Each one-letter-off neighbor...\n" +
+            "                pat = word[:i] + '*' + word[i+1:]\n" +
+            "                for nei in patterns[pat]:        # ...shares a wildcard pattern.\n" +
+            "                    if nei not in visited:\n" +
+            "                        visited.add(nei)         # Mark on enqueue.\n" +
+            "                        queue.append((nei, level + 1))\n" +
+            "        return 0                                 # endWord never reached.",
+          plain:
+            "from collections import deque, defaultdict\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def ladderLength(self, beginWord: str, endWord: str, wordList: List[str]) -> int:\n" +
+            "        words = set(wordList)\n" +
+            "        if endWord not in words:\n" +
+            "            return 0\n" +
+            "        L = len(beginWord)\n" +
+            "        patterns = defaultdict(list)\n" +
+            "        for word in words:\n" +
+            "            for i in range(L):\n" +
+            "                patterns[word[:i] + '*' + word[i+1:]].append(word)\n" +
+            "\n" +
+            "        visited = {beginWord}\n" +
+            "        queue = deque([(beginWord, 1)])\n" +
+            "        while queue:\n" +
+            "            word, level = queue.popleft()\n" +
+            "            if word == endWord:\n" +
+            "                return level\n" +
+            "            for i in range(L):\n" +
+            "                pat = word[:i] + '*' + word[i+1:]\n" +
+            "                for nei in patterns[pat]:\n" +
+            "                    if nei not in visited:\n" +
+            "                        visited.add(nei)\n" +
+            "                        queue.append((nei, level + 1))\n" +
+            "        return 0"
+        }
+      ],
+      patternRecognition: [
+        "'Shortest transformation / fewest one-step changes' in an unweighted graph => BFS.",
+        "One-letter-difference adjacency => wildcard patterns (h*t) as buckets, not O(N^2) pairwise checks.",
+        "First BFS arrival at the target is the shortest; count words by starting the level at 1."
+      ],
+      interviewRecall: [
+        "Build 'h*t'-style pattern buckets so one-letter neighbors are found in O(L), not O(N).",
+        "BFS gives the shortest ladder; return 0 immediately if endWord is not in the list.",
+        "Answer counts WORDS: beginWord is level 1, so a single transform to endWord returns 2."
+      ]
     }
   ]);
 })();
