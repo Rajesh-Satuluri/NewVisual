@@ -22,6 +22,12 @@ as-is in **SSMS 19 / 21** (SQL Server 2019 / 2022). For every problem (once cont
 
 ## Study features
 
+- **Progress Analytics dashboard** (📊): headline stats (solved / learning / due / streak / flagged), solved-by-difficulty and by-importance bars, weakest-first topic & pattern breakdowns, and a 26-week activity heatmap.
+- **Spaced repetition (SM-2 lite)**: grade recall Again / Hard / Good / Easy per problem; a "Review N due" chip opens a flashcard session (recall → reveal → grade). A "Due for review" status filter surfaces the queue.
+- **Interview-importance tiers** (★★★ essential / ★★ common / ★ occasional) — a curated estimate shown as a header pill, sidebar dot, filter, and dashboard breakdown.
+- **Compact sidebar**: filters behind a ⚙ drawer (with an active-filter dot), per-option match counts in every dropdown, a day-streak line, and a desktop sidebar collapse (☰).
+- **Motion pass**: animated section collapse, modal enter/exit, hover/press micro-interactions — all reduced-motion-safe.
+
 - Topic sidebar with per-problem status (○ Not Started / ◐ Learning / ✓ Solved) and a progress bar
 - Approach switcher + **RCS ↔ Clean SQL** toggle, collapsible sections, copy button
 - **Recall mode** — blur logic + code until you click to reveal (attempt first, then check)

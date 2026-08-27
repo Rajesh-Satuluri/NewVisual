@@ -27,7 +27,31 @@
   --mono: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, Menlo, Consolas, monospace;
   --topbar-h: 56px;
   --sidebar-w: 320px;
+  /* motion */
+  --dur-fast: 120ms; --dur: 200ms; --dur-slow: 320ms;
+  --ease: cubic-bezier(.2,.8,.2,1); --ease-in: cubic-bezier(.4,0,1,1);
+  --lift: 0 6px 20px rgba(0,0,0,.22);
 }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important; transition-duration: .001ms !important;
+    animation-iteration-count: 1 !important; scroll-behavior: auto !important;
+  }
+}
+
+/* micro-interactions */
+button, .ghost-btn, .pill-btn, .chip-btn, .nav-item, select, .status-btn, .srs-btn, .app-tab, .ct-btn {
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease),
+              border-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease),
+              box-shadow var(--dur-fast) var(--ease);
+}
+button:active, .nav-item:active { transform: translateY(1px) scale(.99); }
+.nav-item:hover { transform: translateX(3px); }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+button:focus:not(:focus-visible) { outline: none; }
+.nav-enter { animation: navEnter var(--dur) var(--ease); }
+@keyframes navEnter { from { opacity: .3; } to { opacity: 1; } }
 
 html[data-theme="light"] {
   --bg-0: #f4f6fb;
