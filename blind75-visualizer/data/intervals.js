@@ -637,6 +637,125 @@
         "Sweep: sort starts and ends separately; count +1 on a start, -1 on an end; peak count is the answer.",
         "Tie handling: a room freed at time t can host a meeting starting at t (use <= to pop / < to add)."
       ]
+    },
+
+    {
+      id: "minimum-interval-to-include-each-query",
+      lc: 1851,
+      title: "Minimum Interval to Include Each Query",
+      difficulty: "Hard",
+      category: "Intervals",
+      link: "https://leetcode.com/problems/minimum-interval-to-include-each-query/",
+      meta: { pattern: "Offline Queries + Min-Heap", dataStructure: "Min-Heap", technique: "Sort intervals & queries, sweep" },
+      description:
+        "You are given a list of `intervals`, where `intervals[i] = [left, right]` covers every integer from `left` to `right` inclusive, and an array of `queries`.\n\n" +
+        "For each query `q`, return the **size of the smallest interval** that contains `q` (an interval `[l, r]` contains `q` when `l <= q <= r`), where size is `r - l + 1`. If no interval contains `q`, return `-1` for it. Return the answers in the original query order.",
+      constraints: [
+        "`1 <= intervals.length <= 10^5`",
+        "`1 <= queries.length <= 10^5`",
+        "`intervals[i].length == 2`",
+        "`1 <= left_i <= right_i <= 10^7`",
+        "`1 <= queries[j] <= 10^7`"
+      ],
+      notes: [
+        "Answers must be returned in the ORDER the queries were given, even though it's efficient to PROCESS them sorted.",
+        "Interval size is inclusive: `[2, 4]` has size `4 - 2 + 1 = 3`.",
+        "This is an 'offline' problem — you're allowed to see all queries up front and reorder your processing."
+      ],
+      examples: [
+        {
+          input: "intervals = [[1,4],[2,4],[3,6],[4,4]], queries = [2,3,4,5]",
+          output: "[3,3,1,4]",
+          reasoning: "q=2 → smallest containing is [2,4] (size 3); q=3 → [2,4] (size 3); q=4 → [4,4] (size 1); q=5 → only [3,6] (size 4).",
+          visual:
+            "```\nintervals (by start):\n [1,4] size4 : #### \n [2,4] size3 :  ###\n [3,6] size4 :   ####\n [4,4] size1 :    #\nquery 4 -> heap holds sizes {4,3,4,1} active -> min = 1\n```"
+        },
+        {
+          input: "intervals = [[2,3],[2,5],[1,8],[20,25]], queries = [2,19,5,22]",
+          output: "[2,-1,4,6]",
+          reasoning: "q=2 → [2,3] size 2; q=19 → no interval covers 19 → -1; q=5 → [2,5] size 4 (smaller than [1,8] size 8); q=22 → [20,25] size 25-20+1 = 6.",
+        },
+        {
+          input: "intervals = [[1,4]], queries = [1, 4, 5]",
+          output: "[4, 4, -1]",
+          reasoning: "[1,4] has size 4 and covers 1 and 4 but not 5, so the third query has no containing interval."
+        }
+      ],
+      approaches: [
+        {
+          name: "Offline sort + Min-Heap by interval size",
+          time: "O(n log n + q log q)",
+          space: "O(n + q)",
+          whenToUse: "The expected solution: answer all queries in one sweep by feeding intervals into a size-ordered heap.",
+          logic:
+            "**What it asks.** For each query point `q`, report the length of the shortest interval that covers it, or `-1` when none does — returning answers in the original query order.\n\n" +
+            "**Why the naive idea fails.** Checking every interval against every query is `O(n * q)` — up to `10^10` operations for `10^5` of each. We need to avoid re-scanning all intervals per query by reusing work across queries.\n\n" +
+            "**Key Idea.** Process queries in **increasing order** (offline). Sweep a pointer through the intervals sorted by `start`, and keep a **min-heap keyed by interval size** holding every interval whose `start <= q` (already 'opened'). Before answering `q`, evict any heap-top interval whose `end < q` (it closed before this query). Whatever size sits at the top of the heap is then the smallest interval still covering `q`. Because queries only move forward, an interval opened for one query stays available for later ones, so each interval is pushed and popped at most once.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Sort `intervals` by start; sort a copy of the queries ascending (remembering each query's original index, or use a dict from query value → answer).\n" +
+            "2. Keep a pointer `i` into the sorted intervals and an empty min-heap of `(size, end)` pairs, with `size = r - l + 1`.\n" +
+            "3. For each query `q` in ascending order: push every interval with `start <= q` onto the heap (advancing `i`).\n" +
+            "4. Pop from the heap while its top's `end < q` — those intervals end before `q` and can't contain it.\n" +
+            "5. The heap's top `size` (if any) is the answer for `q`; otherwise `-1`. Record it against `q`.\n" +
+            "6. After processing, emit answers in the original query order.\n\n" +
+            "**Why it works.** When we answer `q`, the heap contains exactly the intervals with `start <= q` and `end >= q` — i.e. all intervals covering `q` — because we've added everything that opened by `q` and removed everything that closed before it. The min-heap by size therefore exposes the smallest covering interval in `O(log n)`. Sorting queries ascending is what makes the 'only-add, lazy-remove' sweep valid: pointers never move backward.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Size is INCLUSIVE: `r - l + 1`, not `r - l`.\n" +
+            "- Sort the queries but map answers back to their ORIGINAL positions (store the index, or a value→answer dict since equal query values share an answer).\n" +
+            "- Eviction compares `end < q` (strict): an interval ending exactly at `q` still contains `q`.\n" +
+            "- Removal is lazy — only ever check/pop the heap TOP; don't try to delete arbitrary expired intervals.\n\n" +
+            "**Complexity.** Sorting dominates: `O(n log n)` for intervals plus `O(q log q)` for queries; each interval is pushed/popped once → `O(n log n)` heap work. Space `O(n + q)` for the heap and answers.\n\n" +
+            "**Interview mindset.** 'Answer many range/point queries, smallest-covering-something' with big inputs is the signal for an OFFLINE sweep: sort the queries, stream the intervals in by start, and let a heap keyed on the quantity you're minimizing surface the answer.",
+          rcs:
+            "import heapq\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def minInterval(self, intervals: List[List[int]], queries: List[int]) -> List[int]:\n" +
+            "        intervals.sort()                       # Sort by start so we can stream them in.\n" +
+            "        heap = []                              # Min-heap of (size, end) for OPEN intervals.\n" +
+            "        answer = {}                            # query value -> smallest covering size.\n" +
+            "        i = 0\n" +
+            "        n = len(intervals)\n" +
+            "        for q in sorted(queries):              # Process queries in increasing order.\n" +
+            "            while i < n and intervals[i][0] <= q:   # Add every interval opened by q.\n" +
+            "                l, r = intervals[i]\n" +
+            "                heapq.heappush(heap, (r - l + 1, r))  # size = r - l + 1 (inclusive).\n" +
+            "                i += 1\n" +
+            "            while heap and heap[0][1] < q:     # Evict intervals that ended before q.\n" +
+            "                heapq.heappop(heap)\n" +
+            "            answer[q] = heap[0][0] if heap else -1  # Smallest open interval, else -1.\n" +
+            "        return [answer[q] for q in queries]    # Re-emit in the original query order.",
+          plain:
+            "import heapq\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def minInterval(self, intervals: List[List[int]], queries: List[int]) -> List[int]:\n" +
+            "        intervals.sort()\n" +
+            "        heap = []\n" +
+            "        answer = {}\n" +
+            "        i = 0\n" +
+            "        n = len(intervals)\n" +
+            "        for q in sorted(queries):\n" +
+            "            while i < n and intervals[i][0] <= q:\n" +
+            "                l, r = intervals[i]\n" +
+            "                heapq.heappush(heap, (r - l + 1, r))\n" +
+            "                i += 1\n" +
+            "            while heap and heap[0][1] < q:\n" +
+            "                heapq.heappop(heap)\n" +
+            "            answer[q] = heap[0][0] if heap else -1\n" +
+            "        return [answer[q] for q in queries]"
+        }
+      ],
+      patternRecognition: [
+        "Many point/range queries against many intervals, minimizing some interval property → offline sweep + heap.",
+        "Sorting the queries lets you process them monotonically and reuse a growing heap of active intervals.",
+        "A min-heap keyed by the quantity you minimize (here interval size) surfaces the best active candidate."
+      ],
+      interviewRecall: [
+        "Sort intervals by start and queries ascending; keep a min-heap of (size, end) for open intervals.",
+        "Per query: push all intervals with start <= q, lazily pop heap tops with end < q, then read heap[0].",
+        "Size is r - l + 1 (inclusive); map answers back to the original query order via a value->answer dict."
+      ]
     }
   ]);
 })();

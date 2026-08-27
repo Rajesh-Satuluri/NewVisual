@@ -488,6 +488,715 @@
         "The shared cell (0,0) needs an extra boolean (col0) so row-0 and col-0 flags don't collide.",
         "Clear the interior BEFORE overwriting the marker row/column; handle row 0 and column 0 last."
       ]
+    },
+
+    {
+      id: "happy-number",
+      lc: 202,
+      title: "Happy Number",
+      difficulty: "Easy",
+      category: "Math & Geometry",
+      link: "https://leetcode.com/problems/happy-number/",
+      meta: { pattern: "Cycle Detection", dataStructure: "Hash Set", technique: "Digit-square iteration" },
+      description:
+        "A number is **happy** if the following process reaches `1`: repeatedly replace the number with the **sum of the squares of its digits**; keep going, and if the sequence ever reaches `1` the number is happy.\n\n" +
+        "The danger is that the sequence can instead fall into a **cycle that never contains `1`**, looping forever. Given an integer `n`, return `true` if `n` is happy and `false` otherwise.",
+      constraints: [
+        "`1 <= n <= 2^31 - 1`"
+      ],
+      notes: [
+        "Every starting number either reaches 1 or enters a cycle — it can never grow without bound, because for any number the digit-square sum is small (a 3-digit number maps to at most 3·81 = 243), so the sequence is eventually trapped in a small range and must repeat.",
+        "Because the sequence must eventually repeat, detecting a repeated value (other than 1) proves the number is unhappy.",
+        "The famous non-1 cycle is 4 -> 16 -> 37 -> 58 -> 89 -> 145 -> 42 -> 20 -> 4; every unhappy number funnels into it."
+      ],
+      examples: [
+        {
+          input: "n = 19",
+          output: "true",
+          reasoning: "1^2 + 9^2 = 82; 8^2 + 2^2 = 68; 6^2 + 8^2 = 100; 1^2 + 0^2 + 0^2 = 1. Reached 1, so happy.",
+          visual:
+            "```\n19 -> 1+81 = 82\n82 -> 64+4 = 68\n68 -> 36+64 = 100\n100 -> 1+0+0 = 1   <- happy!\n```"
+        },
+        {
+          input: "n = 2",
+          output: "false",
+          reasoning: "2 -> 4 -> 16 -> 37 -> 58 -> 89 -> 145 -> 42 -> 20 -> 4, which repeats 4. A cycle that never hits 1, so unhappy.",
+          visual:
+            "```\n2 -> 4 -> 16 -> 37 -> 58 -> 89 -> 145 -> 42 -> 20 -> 4 ...\n                                                    ^-- back to 4: cycle, no 1\n```"
+        },
+        {
+          input: "n = 1",
+          output: "true",
+          reasoning: "Already 1, so trivially happy."
+        },
+        {
+          input: "n = 7",
+          output: "true",
+          reasoning: "7 -> 49 -> 97 -> 130 -> 10 -> 1. Reaches 1, so happy."
+        }
+      ],
+      approaches: [
+        {
+          name: "Hash Set of Seen Values",
+          time: "O(log n) per step, O(k) total",
+          space: "O(k)",
+          whenToUse: "The clearest, most direct answer — record every value you have seen and stop when one repeats.",
+          logic:
+            "**What it asks.** Repeatedly replace `n` with the sum of the squares of its digits; decide whether this process ever reaches `1` (happy) or loops forever without reaching `1` (unhappy).\n\n" +
+            "**Why the naive idea fails.** Simply iterating until you hit `1` never terminates for an unhappy number — the sequence loops forever. You need a way to detect that you have entered a cycle so you can stop and answer `false`.\n\n" +
+            "**Key Idea.** The sequence is deterministic: each value maps to exactly one next value. So if you ever see the same value twice, you are in a cycle and will never escape it. Track every value you have produced in a hash set; if the next value is `1` the number is happy, and if the next value is already in the set you have found a cycle and the number is unhappy.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Create an empty set `seen`.\n" +
+            "2. Loop while `n != 1` and `n not in seen`: add `n` to `seen`, then replace `n` with the digit-square sum of `n`.\n" +
+            "3. To compute the digit-square sum, repeatedly take `n % 10` (last digit), add its square to a running total, and do `n //= 10` until `n` becomes 0.\n" +
+            "4. When the loop ends, return `n == 1` — true if we exited because we reached 1, false if we exited because we revisited a value.\n\n" +
+            "**Why it works.** The mapping from a number to its digit-square sum is a function, so the trajectory from any start is a single deterministic path. Because values stay bounded (they cannot grow without limit), the path must eventually repeat a value. If `1` appears first, the number is happy; otherwise the first repeat marks the entrance to a non-1 cycle, so the number is unhappy. The set guarantees we detect that first repeat.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Do not forget to add the current value to the set before advancing, or you can loop forever.\n" +
+            "- The digit-square helper must fully consume `n` with `//= 10` until it reaches 0; stopping early drops digits.\n" +
+            "- Return `n == 1` (not `True` unconditionally) after the loop — the loop can end for either reason.\n\n" +
+            "**Complexity.** Time is proportional to the number of steps before a repeat, each step costing `O(log n)` to sum digits; the values quickly collapse into a small range so the step count is small. Space `O(k)` for the set of distinct values seen.\n\n" +
+            "**Interview mindset.** 'A deterministic sequence that either terminates or loops' is textbook cycle detection — reach for a seen-set first, then mention Floyd's if asked to save space.",
+          rcs:
+            "class Solution:\n" +
+            "    def isHappy(self, n: int) -> bool:\n" +
+            "        def digit_square_sum(x: int) -> int:\n" +
+            "            total = 0\n" +
+            "            while x > 0:                          # Consume every digit of x.\n" +
+            "                d = x % 10                        # Last digit.\n" +
+            "                total += d * d                    # Add its square.\n" +
+            "                x //= 10                          # Drop the last digit.\n" +
+            "            return total\n" +
+            "        seen = set()                             # Values we have already produced.\n" +
+            "        while n != 1 and n not in seen:          # Stop at 1 (happy) or a repeat (cycle).\n" +
+            "            seen.add(n)                           # Record before advancing.\n" +
+            "            n = digit_square_sum(n)               # Move to the next value.\n" +
+            "        return n == 1                            # 1 -> happy; otherwise we hit a cycle.",
+          plain:
+            "class Solution:\n" +
+            "    def isHappy(self, n: int) -> bool:\n" +
+            "        def digit_square_sum(x: int) -> int:\n" +
+            "            total = 0\n" +
+            "            while x > 0:\n" +
+            "                d = x % 10\n" +
+            "                total += d * d\n" +
+            "                x //= 10\n" +
+            "            return total\n" +
+            "        seen = set()\n" +
+            "        while n != 1 and n not in seen:\n" +
+            "            seen.add(n)\n" +
+            "            n = digit_square_sum(n)\n" +
+            "        return n == 1"
+        },
+        {
+          name: "Floyd's Cycle Detection (slow / fast)",
+          time: "O(log n) per step",
+          space: "O(1)",
+          whenToUse: "When asked to detect the cycle without any extra memory — treat the sequence as an implicit linked list.",
+          logic:
+            "**What it asks.** Same task — decide if the digit-square-sum sequence reaches `1` — but detect the cycle using `O(1)` extra space instead of a hash set.\n\n" +
+            "**Why the naive idea fails.** The seen-set answer is correct but stores every visited value, costing `O(k)` memory. If an interviewer asks for constant space, that set is exactly what must be eliminated.\n\n" +
+            "**Key Idea.** The sequence `n -> next(n) -> next(next(n)) -> ...` is an implicit linked list where each node points to its digit-square successor. Detecting whether such a list contains a cycle is exactly **Floyd's tortoise-and-hare**: run a `slow` pointer one step at a time and a `fast` pointer two steps at a time. If the fast pointer reaches `1`, the number is happy; otherwise slow and fast must eventually meet inside the cycle, proving it is unhappy — all without storing history.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Initialize `slow = n` and `fast = next(n)` where `next(x)` is the digit-square sum.\n" +
+            "2. Loop while `fast != 1` and `slow != fast`: advance `slow` by one step (`slow = next(slow)`) and `fast` by two steps (`fast = next(next(fast))`).\n" +
+            "3. When the loop ends, return `fast == 1`. If fast reached 1 the number is happy; if slow met fast first they collided inside a non-1 cycle.\n\n" +
+            "**Why it works.** In any functional graph (each node has exactly one successor) a path from a start either terminates at a fixed point that leads to `1` or enters a cycle. If a cycle exists, a pointer moving twice as fast gains one step per iteration on the slower pointer and, modulo the cycle length, must land on it — the classic Floyd guarantee. Reaching `1` first means the sequence terminated happily before any cycle closed. Either way we decide correctly, keeping only two integers.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Check `fast == 1` (the fast pointer is the one that races ahead to the terminal value); testing slow instead can miss the early exit.\n" +
+            "- Advance fast by two `next` calls per iteration and slow by one — mismatched speeds break the meeting guarantee.\n" +
+            "- Start `fast` one step ahead of `slow` so the `slow != fast` termination check does not fire immediately.\n\n" +
+            "**Complexity.** Time comparable to the set approach — proportional to the number of steps before termination or meeting. Space `O(1)`: only two integer pointers, no history.\n\n" +
+            "**Interview mindset.** When a deterministic sequence must be cycle-checked in constant space, say 'treat it as a linked list and run Floyd's tortoise and hare' — the same trick as Linked List Cycle.",
+          rcs:
+            "class Solution:\n" +
+            "    def isHappy(self, n: int) -> bool:\n" +
+            "        def next_num(x: int) -> int:\n" +
+            "            total = 0\n" +
+            "            while x > 0:                          # Sum of squares of digits.\n" +
+            "                d = x % 10\n" +
+            "                total += d * d\n" +
+            "                x //= 10\n" +
+            "            return total\n" +
+            "        slow = n                                 # Tortoise: one step at a time.\n" +
+            "        fast = next_num(n)                       # Hare: starts one step ahead.\n" +
+            "        while fast != 1 and slow != fast:        # Stop at 1 (happy) or a meeting (cycle).\n" +
+            "            slow = next_num(slow)                 # Advance slow by one.\n" +
+            "            fast = next_num(next_num(fast))       # Advance fast by two.\n" +
+            "        return fast == 1                         # 1 -> happy; meeting -> unhappy.",
+          plain:
+            "class Solution:\n" +
+            "    def isHappy(self, n: int) -> bool:\n" +
+            "        def next_num(x: int) -> int:\n" +
+            "            total = 0\n" +
+            "            while x > 0:\n" +
+            "                d = x % 10\n" +
+            "                total += d * d\n" +
+            "                x //= 10\n" +
+            "            return total\n" +
+            "        slow = n\n" +
+            "        fast = next_num(n)\n" +
+            "        while fast != 1 and slow != fast:\n" +
+            "            slow = next_num(slow)\n" +
+            "            fast = next_num(next_num(fast))\n" +
+            "        return fast == 1"
+        }
+      ],
+      patternRecognition: [
+        "'Iterate a deterministic transform until it repeats or hits a target' -> cycle detection.",
+        "Values stay bounded, so the sequence must eventually cycle — a seen-set or Floyd's both work.",
+        "Constant-space variant: model the sequence as a linked list and run tortoise/hare."
+      ],
+      interviewRecall: [
+        "Happy = sum of squares of digits eventually reaches 1; unhappy = falls into a non-1 cycle.",
+        "Seen-set: loop while n != 1 and n not in seen; return n == 1.",
+        "Floyd's O(1): slow one step, fast two steps; return fast == 1 (start fast one step ahead).",
+        "Digit-square helper: while x: d = x%10; total += d*d; x //= 10."
+      ]
+    },
+
+    {
+      id: "plus-one",
+      lc: 66,
+      title: "Plus One",
+      difficulty: "Easy",
+      category: "Math & Geometry",
+      link: "https://leetcode.com/problems/plus-one/",
+      meta: { pattern: "Digit Array Arithmetic", dataStructure: "Array", technique: "Right-to-left carry" },
+      description:
+        "You are given a large integer represented as an array of digits `digits`, where `digits[0]` is the **most significant** digit. The array contains no leading zeros (except the number 0 itself).\n\n" +
+        "**Increment** the integer by one and return the resulting digit array.",
+      constraints: [
+        "`1 <= digits.length <= 100`",
+        "`0 <= digits[i] <= 9`",
+        "`digits` does not contain any leading zeros except for the number `0` itself."
+      ],
+      notes: [
+        "Because you add 1 to the last digit, a carry only ever propagates leftward, and only while it meets a 9.",
+        "The only case that changes the array's length is an all-9s number (like 99 or 999), which becomes a 1 followed by all zeros and gains one digit."
+      ],
+      examples: [
+        {
+          input: "digits = [1,2,3]",
+          output: "[1,2,4]",
+          reasoning: "The number is 123; adding one gives 124. Only the last digit changes, no carry.",
+          visual:
+            "```\n1 2 3\n    +1\n-----\n1 2 4   (3 -> 4, no carry)\n```"
+        },
+        {
+          input: "digits = [4,3,2,1]",
+          output: "[4,3,2,2]",
+          reasoning: "1321 + 1 = 1322 (the array reads most-significant first, so [4,3,2,1] is 4321; 4321 + 1 = 4322)."
+        },
+        {
+          input: "digits = [9]",
+          output: "[1,0]",
+          reasoning: "9 + 1 = 10; the carry ripples off the front, so we prepend a 1 and the length grows.",
+          visual:
+            "```\n  9\n +1\n---\n1 0   (9 -> 0 with carry, prepend 1)\n```"
+        },
+        {
+          input: "digits = [9,9,9]",
+          output: "[1,0,0,0]",
+          reasoning: "999 + 1 = 1000; every 9 becomes 0 and a leading 1 is prepended.",
+          visual:
+            "```\n9 9 9  +1\n-------\n1 0 0 0   (all nines roll over, new leading digit)\n```"
+        },
+        {
+          input: "digits = [1,9,9]",
+          output: "[2,0,0]",
+          reasoning: "199 + 1 = 200; the trailing 9s roll to 0 and the carry stops at the 1, which becomes 2. No length change."
+        }
+      ],
+      approaches: [
+        {
+          name: "Right-to-left carry",
+          time: "O(n)",
+          space: "O(1)",
+          whenToUse: "The standard approach — add one at the least significant end and propagate the carry only as far as needed.",
+          logic:
+            "**What it asks.** Treat a digit array as one big integer (most significant digit first) and return the array for that integer plus one.\n\n" +
+            "**Why the naive idea fails.** Converting the array to an actual integer, adding one, and converting back works in many languages but is conceptually a cheat and can overflow fixed-width integer types for the 100-digit upper bound. The array itself is the number, so we should do the arithmetic digit by digit exactly as you would on paper.\n\n" +
+            "**Key Idea.** Adding one only ever affects the **rightmost** digit and any carry it triggers. Walk from the last digit toward the first: if a digit is less than 9, increment it and you are done immediately (no carry can propagate further). If a digit is 9, it becomes 0 and the carry moves one position left. If the carry survives past the front, the whole number was all 9s and we prepend a single 1.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Loop `i` from the last index down to 0.\n" +
+            "2. If `digits[i] < 9`, do `digits[i] += 1` and immediately return `digits` — the carry stops here.\n" +
+            "3. Otherwise `digits[i] == 9`: set `digits[i] = 0` and continue left (the carry rolls on).\n" +
+            "4. If the loop finishes without returning, every digit was 9. Return `[1] + digits` (a leading 1 followed by all the zeros we just wrote).\n\n" +
+            "**Why it works.** Incrementing a base-10 number affects the units digit; a carry appears only when that digit is 9 and turns to 0, and it continues leftward exactly while it keeps meeting 9s. The first non-9 digit absorbs the carry by increasing by one and halts the process, which is precisely the early return. The array grows by one digit only when the carry escapes the most significant position — the all-9s case — handled by prepending 1.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Return as soon as a digit is incremented; failing to break keeps looping and can corrupt other digits.\n" +
+            "- Remember the all-9s case explicitly — after the loop you must prepend the leading 1, or you return an all-zeros array.\n" +
+            "- Iterate from the LEAST significant digit (the end of the array), since that is where +1 is applied.\n\n" +
+            "**Complexity.** Time `O(n)` worst case (all 9s force a full sweep); best case `O(1)` when the last digit is not 9. Space `O(1)` in place, or `O(n)` only in the all-9s case where a new longer array is built.\n\n" +
+            "**Interview mindset.** 'A number stored as a digit array' means simulate grade-school arithmetic right-to-left with a carry; the single edge case to name aloud is the all-9s rollover that lengthens the array.",
+          rcs:
+            "class Solution:\n" +
+            "    def plusOne(self, digits: List[int]) -> List[int]:\n" +
+            "        for i in range(len(digits) - 1, -1, -1):  # Walk from least significant digit.\n" +
+            "            if digits[i] < 9:\n" +
+            "                digits[i] += 1                     # Absorb the +1, carry stops here.\n" +
+            "                return digits                      # Done immediately.\n" +
+            "            digits[i] = 0                          # A 9 rolls to 0 and carries left.\n" +
+            "        return [1] + digits                        # All nines: prepend a new leading 1.",
+          plain:
+            "class Solution:\n" +
+            "    def plusOne(self, digits: List[int]) -> List[int]:\n" +
+            "        for i in range(len(digits) - 1, -1, -1):\n" +
+            "            if digits[i] < 9:\n" +
+            "                digits[i] += 1\n" +
+            "                return digits\n" +
+            "            digits[i] = 0\n" +
+            "        return [1] + digits"
+        }
+      ],
+      patternRecognition: [
+        "'Integer stored as an array of digits' -> simulate paper arithmetic digit by digit.",
+        "Adding one propagates a carry leftward only while it meets 9s; the first non-9 stops it.",
+        "The array lengthens exactly when the number is all 9s (carry escapes the front)."
+      ],
+      interviewRecall: [
+        "Iterate from the last index toward 0.",
+        "digit < 9 -> increment and return; digit == 9 -> set 0 and continue.",
+        "After the loop (all nines) -> return [1] + digits."
+      ]
+    },
+
+    {
+      id: "pow-x-n",
+      lc: 50,
+      title: "Pow(x, n)",
+      difficulty: "Medium",
+      category: "Math & Geometry",
+      link: "https://leetcode.com/problems/powx-n/",
+      meta: { pattern: "Fast Exponentiation", dataStructure: "None", technique: "Exponentiation by squaring" },
+      description:
+        "Implement `pow(x, n)`, which computes `x` raised to the power `n` (that is, `x^n`).\n\n" +
+        "`n` can be **negative**, in which case `x^n = 1 / x^(-n)`.",
+      constraints: [
+        "`-100.0 < x < 100.0`",
+        "`-2^31 <= n <= 2^31 - 1`",
+        "`n` is an integer",
+        "Either `x` is not zero, or `n > 0`",
+        "`-10^4 <= x^n <= 10^4`"
+      ],
+      notes: [
+        "Multiplying x by itself n times is O(n) and far too slow for n up to ~2·10^9 — you must exploit that x^n can be built from x^(n/2).",
+        "For negative n, compute the positive power and take the reciprocal: x^n = 1 / x^(-n).",
+        "Watch the most negative n = -2^31: negating it overflows fixed-width ints in some languages (Python is fine, but state the guard in interview)."
+      ],
+      examples: [
+        {
+          input: "x = 2.00000, n = 10",
+          output: "1024.00000",
+          reasoning: "2^10 = 1024. Built as ((2^2)^2 ... ) via repeated squaring in ~log2(10) multiplications.",
+          visual:
+            "```\n2^10 = (2^5)^2\n2^5  = 2 * (2^2)^2\n2^2  = 2 * 2 = 4\n=> 2^5 = 2*16 = 32 ; 2^10 = 32*32 = 1024\n(only ~4 multiplications, not 10)\n```"
+        },
+        {
+          input: "x = 2.10000, n = 3",
+          output: "9.26100",
+          reasoning: "2.1^3 = 2.1 * 2.1 * 2.1 = 9.261."
+        },
+        {
+          input: "x = 2.00000, n = -2",
+          output: "0.25000",
+          reasoning: "2^-2 = 1 / 2^2 = 1/4 = 0.25. Compute 2^2 = 4, then take the reciprocal.",
+          visual:
+            "```\nn = -2  ->  x = 1/2 = 0.5, n = 2\n0.5^2 = 0.25\n(equivalently 1 / 2^2 = 1/4)\n```"
+        },
+        {
+          input: "x = 2.00000, n = 0",
+          output: "1.00000",
+          reasoning: "Any nonzero base to the power 0 is 1 (the base case of the recursion)."
+        }
+      ],
+      approaches: [
+        {
+          name: "Recursive Exponentiation by Squaring",
+          time: "O(log n)",
+          space: "O(log n)",
+          whenToUse: "The most readable way to show the halving recurrence x^n = (x^(n/2))^2.",
+          logic:
+            "**What it asks.** Compute `x^n` for a floating-point base and an integer exponent that may be negative, efficiently.\n\n" +
+            "**Why the naive idea fails.** Multiplying `x` by itself `n` times is `O(n)`; with `|n|` up to about `2·10^9` that is billions of operations — far too slow and also numerically wasteful. We need to reduce the number of multiplications drastically.\n\n" +
+            "**Key Idea — the halving recurrence.** `x^n` can be expressed in terms of a half-sized problem: if `n` is even, `x^n = (x^(n/2))^2` — compute the half power once and square it. If `n` is odd, `x^n = x · (x^((n-1)/2))^2`. Each step **halves the exponent**, so only `O(log n)` multiplications are needed instead of `O(n)`. Negative exponents are handled once at the top: `x^n = 1 / x^(-n)`.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Handle sign: if `n < 0`, set `x = 1 / x` and `n = -n`, then compute the positive power.\n" +
+            "2. Define a recursive helper `power(base, exp)`:\n" +
+            "   - Base case: if `exp == 0`, return `1.0`.\n" +
+            "   - Compute `half = power(base, exp // 2)` (solve the half problem once).\n" +
+            "   - If `exp` is even, return `half * half`; if odd, return `half * half * base`.\n" +
+            "3. Return the helper's result.\n\n" +
+            "**Why it works.** The recurrence is exact algebra: `(x^(n/2))^2 = x^n` for even `n`, and one extra factor of `x` accounts for the dropped unit when `n` is odd (integer division floors). Reusing `half` for both factors of the square is what turns linear work into logarithmic — the exponent strictly decreases toward the `exp == 0` base case, guaranteeing termination.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Compute `half` ONCE and square it; calling `power` twice re-expands the recursion into `O(n)`.\n" +
+            "- Convert negative `n` up front (`x = 1/x`, `n = -n`); mixing the sign into the recursion is error-prone.\n" +
+            "- The most negative exponent `-2^31` overflows when negated in fixed-width languages — negate as a wider/absolute value (Python's ints are unbounded, so it is safe here, but say so).\n" +
+            "- Base case `exp == 0` returns `1.0` (a float), keeping the result a float throughout.\n\n" +
+            "**Complexity.** Time `O(log n)` — the exponent halves each call. Space `O(log n)` for the recursion stack.\n\n" +
+            "**Interview mindset.** 'Compute a power fast' is the signature of exponentiation by squaring; state the recurrence `x^n = (x^(n/2))^2` (times an extra `x` when odd) and handle negative `n` by reciprocal.",
+          rcs:
+            "class Solution:\n" +
+            "    def myPow(self, x: float, n: int) -> float:\n" +
+            "        def power(base: float, exp: int) -> float:\n" +
+            "            if exp == 0:\n" +
+            "                return 1.0                        # Base case: anything^0 = 1.\n" +
+            "            half = power(base, exp // 2)          # Solve the half problem ONCE.\n" +
+            "            if exp % 2 == 0:\n" +
+            "                return half * half                # Even: square the half power.\n" +
+            "            return half * half * base             # Odd: square, plus one extra factor.\n" +
+            "        if n < 0:                                 # Negative exponent -> reciprocal base.\n" +
+            "            x = 1 / x\n" +
+            "            n = -n\n" +
+            "        return power(x, n)",
+          plain:
+            "class Solution:\n" +
+            "    def myPow(self, x: float, n: int) -> float:\n" +
+            "        def power(base: float, exp: int) -> float:\n" +
+            "            if exp == 0:\n" +
+            "                return 1.0\n" +
+            "            half = power(base, exp // 2)\n" +
+            "            if exp % 2 == 0:\n" +
+            "                return half * half\n" +
+            "            return half * half * base\n" +
+            "        if n < 0:\n" +
+            "            x = 1 / x\n" +
+            "            n = -n\n" +
+            "        return power(x, n)"
+        },
+        {
+          name: "Iterative Exponentiation by Squaring (binary exponent)",
+          time: "O(log n)",
+          space: "O(1)",
+          whenToUse: "When you want constant space and to show the bit-by-bit view: multiply in x^(2^k) for each set bit of n.",
+          logic:
+            "**What it asks.** Same computation of `x^n`, but iteratively so it uses only `O(1)` extra space.\n\n" +
+            "**Why the naive idea fails.** The linear repeated-multiply is `O(n)`; even the clean recursion costs `O(log n)` stack space. To reach constant space we unroll the halving into a loop.\n\n" +
+            "**Key Idea — read the exponent in binary.** Write `n` in binary. Then `x^n` is the product of `x^(2^k)` over exactly the bit positions `k` where `n` has a 1. Maintain a running `result = 1` and a running `contrib = x` that is repeatedly squared (`x, x^2, x^4, x^8, ...`, i.e. `x^(2^k)`). Walk the bits of `n` from least significant to most: whenever the current bit is 1, multiply that power of `x` into `result`; square `contrib` and shift to the next bit each iteration.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. If `n < 0`, set `x = 1 / x` and `n = -n`.\n" +
+            "2. Initialize `result = 1.0` and `contrib = x` (this is `x^(2^0)`).\n" +
+            "3. While `n > 0`:\n" +
+            "   - If `n` is odd (`n & 1`), do `result *= contrib` — this bit contributes `x^(2^k)`.\n" +
+            "   - Square the contribution: `contrib *= contrib` (advance from `x^(2^k)` to `x^(2^(k+1))`).\n" +
+            "   - Halve the exponent: `n //= 2` (drop the processed bit).\n" +
+            "4. Return `result`.\n\n" +
+            "**Why it works.** `n = sum of 2^k` over its set bits, and `x^(sum) = product of x^(2^k)`. The loop generates each `x^(2^k)` by repeated squaring and folds in only those whose bit is set — exactly the binary expansion of the exponent. The number of iterations equals the number of bits in `n`, giving `O(log n)` multiplications with no recursion.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Square `contrib` every iteration regardless of whether the bit was set — the powers of two must keep advancing.\n" +
+            "- Convert negative `n` before the loop; a negative `n` never enters `while n > 0`.\n" +
+            "- Use integer halving `n //= 2` (or `n >>= 1`) so the loop terminates cleanly.\n" +
+            "- Initialize `result` to `1.0` (float) so the return type stays float.\n\n" +
+            "**Complexity.** Time `O(log n)` — one iteration per bit of `n`. Space `O(1)` — a handful of scalars, no stack.\n\n" +
+            "**Interview mindset.** The iterative 'square-and-multiply' is the constant-space form of fast power; frame it as 'multiply in `x^(2^k)` for each set bit of `n`.'",
+          rcs:
+            "class Solution:\n" +
+            "    def myPow(self, x: float, n: int) -> float:\n" +
+            "        if n < 0:                                 # Negative exponent -> reciprocal base.\n" +
+            "            x = 1 / x\n" +
+            "            n = -n\n" +
+            "        result = 1.0                              # Accumulates the product.\n" +
+            "        contrib = x                               # Current x^(2^k), starts at x^1.\n" +
+            "        while n > 0:\n" +
+            "            if n & 1:                             # This bit of n is set...\n" +
+            "                result *= contrib                 # ...so fold in x^(2^k).\n" +
+            "            contrib *= contrib                    # Advance to x^(2^(k+1)).\n" +
+            "            n //= 2                               # Drop the processed bit.\n" +
+            "        return result",
+          plain:
+            "class Solution:\n" +
+            "    def myPow(self, x: float, n: int) -> float:\n" +
+            "        if n < 0:\n" +
+            "            x = 1 / x\n" +
+            "            n = -n\n" +
+            "        result = 1.0\n" +
+            "        contrib = x\n" +
+            "        while n > 0:\n" +
+            "            if n & 1:\n" +
+            "                result *= contrib\n" +
+            "            contrib *= contrib\n" +
+            "            n //= 2\n" +
+            "        return result"
+        }
+      ],
+      patternRecognition: [
+        "'Compute x^n efficiently' -> exponentiation by squaring, O(log n).",
+        "Halving recurrence: x^n = (x^(n/2))^2, times an extra x when n is odd.",
+        "Negative exponent -> take the reciprocal of the base and negate n.",
+        "Iterative form reads the binary bits of n: multiply in x^(2^k) for each set bit."
+      ],
+      interviewRecall: [
+        "Handle n < 0 first: x = 1/x, n = -n.",
+        "Recursive: half = power(x, n//2); even -> half*half; odd -> half*half*x.",
+        "Iterative: result=1, contrib=x; while n: if n&1 result*=contrib; contrib*=contrib; n//=2.",
+        "Watch n = -2^31 negation overflow in fixed-width languages."
+      ]
+    },
+
+    {
+      id: "multiply-strings",
+      lc: 43,
+      title: "Multiply Strings",
+      difficulty: "Medium",
+      category: "Math & Geometry",
+      link: "https://leetcode.com/problems/multiply-strings/",
+      meta: { pattern: "Big-Integer Arithmetic", dataStructure: "Array", technique: "Schoolbook multiply with position array" },
+      description:
+        "Given two non-negative integers `num1` and `num2` represented as **strings**, return the product of `num1` and `num2`, also as a **string**.\n\n" +
+        "You must **not** use any built-in big-integer library or convert the inputs directly to an integer.",
+      constraints: [
+        "`1 <= num1.length, num2.length <= 200`",
+        "`num1` and `num2` consist of digits only.",
+        "Both `num1` and `num2` do not contain any leading zero, except the number `0` itself."
+      ],
+      notes: [
+        "The product of an m-digit and an n-digit number has at most m + n digits (and at least m + n - 1), which is exactly the size of the result buffer you allocate.",
+        "When you multiply digit i of num1 by digit j of num2, the product lands in result positions i+j (carry) and i+j+1 (units) — this index rule is the crux.",
+        "Remember the '0' edge case: if either input is \"0\" the answer is \"0\", and stripping leading zeros from the buffer must not leave an empty string."
+      ],
+      examples: [
+        {
+          input: 'num1 = "2", num2 = "3"',
+          output: '"6"',
+          reasoning: "2 * 3 = 6."
+        },
+        {
+          input: 'num1 = "123", num2 = "456"',
+          output: '"56088"',
+          reasoning: "123 * 456 = 56088, computed by schoolbook multiplication accumulating partial products by position.",
+          visual:
+            "```\n      1 2 3\n    x 4 5 6\n    -------\n      7 3 8   (123 x 6)\n    6 1 5 .    (123 x 5, shifted)\n  4 9 2 . .    (123 x 4, shifted)\n  ---------\n  5 6 0 8 8\ndigit i (num1) x digit j (num2) -> positions i+j, i+j+1\n```"
+        },
+        {
+          input: 'num1 = "0", num2 = "52"',
+          output: '"0"',
+          reasoning: "Anything times 0 is 0; the explicit zero check (or leading-zero strip) returns \"0\"."
+        },
+        {
+          input: 'num1 = "9", num2 = "9"',
+          output: '"81"',
+          reasoning: "9 * 9 = 81; the single-digit product 81 splits as 8 into the tens position and 1 into the units."
+        }
+      ],
+      approaches: [
+        {
+          name: "Schoolbook multiplication into a position array",
+          time: "O(m * n)",
+          space: "O(m + n)",
+          whenToUse: "The standard big-integer multiply: accumulate every digit-pair product into a result buffer using the i+j / i+j+1 index rule, then handle carries.",
+          logic:
+            "**What it asks.** Multiply two non-negative integers given as strings and return the product as a string, without converting the whole numbers to native integers or using a bigint library.\n\n" +
+            "**Why the naive idea fails.** Converting `num1` and `num2` to `int` is disallowed (and would overflow fixed-width types for 200-digit inputs). Repeated addition (`num1` added `num2` times) is astronomically slow. We must reproduce grade-school long multiplication directly on the digits.\n\n" +
+            "**Key Idea — the position rule.** The product of an `m`-digit number and an `n`-digit number has at most `m + n` digits, so allocate a result buffer `res` of `m + n` zeros. When you multiply digit `num1[i]` by digit `num2[j]`, the two-digit product contributes to exactly two positions of the buffer: the **units** go to index `i + j + 1` and the **carry (tens)** go to index `i + j`, using **right-aligned** indexing (index 0 is the most significant slot). Accumulate every pair's contribution, carrying as you go, then read the buffer back as a string.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. If either input is `\"0\"`, return `\"0\"` immediately.\n" +
+            "2. Reverse both strings (or index from the right) so digit `i` is the `10^i` place; create `res = [0] * (len(num1) + len(num2))`.\n" +
+            "3. For each `i` (over `num1`, from the right) and each `j` (over `num2`, from the right):\n" +
+            "   - Compute `mul = (num1[i]) * (num2[j])`.\n" +
+            "   - Let `p1 = i + j` (carry position) and `p2 = i + j + 1` (units position).\n" +
+            "   - Add to the existing value: `total = mul + res[p2]`.\n" +
+            "   - Write `res[p2] = total % 10` and add the carry `res[p1] += total // 10`.\n" +
+            "4. Build the answer string from `res`, skipping leading zeros; if the result is empty, return `\"0\"`.\n\n" +
+            "**Why it works.** Digit `num1[i]` has place value `10^i` and `num2[j]` has `10^j` (counting from the right), so their product has place value `10^(i+j)` — which is exactly buffer index `i + j + 1` when the buffer is filled right-aligned, with the overflow tens spilling one place higher into `i + j`. Adding `res[p2]` before splitting folds in any prior contribution to that place, and pushing `total // 10` into `p1` carries correctly. Summing all `m·n` partial products reconstructs the full product, place value by place value.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Get the index rule right: units at `i + j + 1`, carry at `i + j`. Swapping them misplaces every digit.\n" +
+            "- Add the existing `res[p2]` before taking `% 10` so overlapping partial products accumulate, and push the carry into `p1` (not directly out of range).\n" +
+            "- Strip leading zeros at the end, but guard against returning an empty string — the true `\"0\"` case (handled up front) must survive.\n" +
+            "- Index from the right (reverse the strings, or convert with `ord(c) - ord('0')`); mixing up digit order corrupts place values.\n\n" +
+            "**Complexity.** Time `O(m * n)` — every pair of digits is multiplied once. Space `O(m + n)` for the result buffer.\n\n" +
+            "**Interview mindset.** 'Multiply big numbers given as strings' is schoolbook long multiplication into a size-`m+n` array; the one line that matters is 'digit i times digit j lands at positions i+j and i+j+1.'",
+          rcs:
+            "class Solution:\n" +
+            "    def multiply(self, num1: str, num2: str) -> str:\n" +
+            "        if num1 == \"0\" or num2 == \"0\":\n" +
+            "            return \"0\"                            # Zero product shortcut.\n" +
+            "        m, n = len(num1), len(num2)\n" +
+            "        res = [0] * (m + n)                       # Buffer: product has <= m+n digits.\n" +
+            "        # Index digits from the right so position reflects place value.\n" +
+            "        for i in range(m - 1, -1, -1):\n" +
+            "            d1 = ord(num1[i]) - ord('0')          # Digit of num1 at place (m-1-i).\n" +
+            "            for j in range(n - 1, -1, -1):\n" +
+            "                d2 = ord(num2[j]) - ord('0')      # Digit of num2 at place (n-1-j).\n" +
+            "                mul = d1 * d2                     # Single digit-pair product.\n" +
+            "                p1, p2 = i + j, i + j + 1         # carry position, units position.\n" +
+            "                total = mul + res[p2]             # Fold into any prior contribution.\n" +
+            "                res[p2] = total % 10              # Units digit here.\n" +
+            "                res[p1] += total // 10            # Carry into the higher position.\n" +
+            "        # Skip leading zeros while building the string.\n" +
+            "        start = 0\n" +
+            "        while start < len(res) and res[start] == 0:\n" +
+            "            start += 1\n" +
+            "        return \"\".join(str(d) for d in res[start:]) or \"0\"",
+          plain:
+            "class Solution:\n" +
+            "    def multiply(self, num1: str, num2: str) -> str:\n" +
+            "        if num1 == \"0\" or num2 == \"0\":\n" +
+            "            return \"0\"\n" +
+            "        m, n = len(num1), len(num2)\n" +
+            "        res = [0] * (m + n)\n" +
+            "        for i in range(m - 1, -1, -1):\n" +
+            "            d1 = ord(num1[i]) - ord('0')\n" +
+            "            for j in range(n - 1, -1, -1):\n" +
+            "                d2 = ord(num2[j]) - ord('0')\n" +
+            "                mul = d1 * d2\n" +
+            "                p1, p2 = i + j, i + j + 1\n" +
+            "                total = mul + res[p2]\n" +
+            "                res[p2] = total % 10\n" +
+            "                res[p1] += total // 10\n" +
+            "        start = 0\n" +
+            "        while start < len(res) and res[start] == 0:\n" +
+            "            start += 1\n" +
+            "        return \"\".join(str(d) for d in res[start:]) or \"0\""
+        }
+      ],
+      patternRecognition: [
+        "'Multiply numbers given as strings without bigint' -> schoolbook long multiplication into a position array.",
+        "Product of m-digit and n-digit numbers fits in m + n digits.",
+        "digit i x digit j contributes to result positions i+j (carry) and i+j+1 (units)."
+      ],
+      interviewRecall: [
+        "Allocate res = [0]*(m+n); index digits from the right.",
+        "For each pair: total = d1*d2 + res[i+j+1]; res[i+j+1] = total%10; res[i+j] += total//10.",
+        "Strip leading zeros at the end; handle the \"0\" input up front, never return \"\"."
+      ]
+    },
+
+    {
+      id: "detect-squares",
+      lc: 2013,
+      title: "Detect Squares",
+      difficulty: "Medium",
+      category: "Math & Geometry",
+      link: "https://leetcode.com/problems/detect-squares/",
+      meta: { pattern: "Point Counting", dataStructure: "Hash Map (Counter)", technique: "Diagonal + corner lookup" },
+      description:
+        "Design a data structure that lets you add points in the 2D plane and, given a query point, count the number of **axis-aligned squares** that can be formed using the query point as one corner and three previously added points as the other corners.\n\n" +
+        "Implement `DetectSquares`:\n" +
+        "- `add(point)` — adds `point = [x, y]` to the structure (duplicate points are allowed and counted with multiplicity).\n" +
+        "- `count(point)` — returns the number of axis-aligned squares with `point` as one corner and three added points as the others.",
+      constraints: [
+        "`point.length == 2`",
+        "`0 <= x, y <= 1000`",
+        "Points may be added **multiple times** (duplicates count).",
+        "At most `3000` calls total to `add` and `count`."
+      ],
+      notes: [
+        "Axis-aligned means the sides are parallel to the axes, so a valid square is determined by two opposite corners that lie on a diagonal — the diagonal must have equal horizontal and vertical span (|dx| == |dy|) and be nonzero.",
+        "Duplicates matter: if a corner point was added k times, it contributes k to the count, so combinations multiply the stored frequencies of the three other corners.",
+        "The efficient query fixes the query point, iterates candidate points sharing its x-coordinate (a vertical side), and multiplies the counts of the two remaining corners."
+      ],
+      examples: [
+        {
+          input: "add([3,10]); add([11,2]); add([3,2]); count([11,10])",
+          output: "1",
+          reasoning: "Query (11,10) pairs with the diagonal point (3,2): |dx|=|dy|=8. The other two corners (3,10) and (11,2) both exist once each, so 1 square.",
+          visual:
+            "```\n(3,10) ------- (11,10)  <- query\n  |               |\n  |               |\n(3,2) -------- (11,2)\ndiagonal (11,10)-(3,2): |dx|=8,|dy|=8 -> square; corners (3,10),(11,2) present -> count 1\n```"
+        },
+        {
+          input: "... then count([14,8])",
+          output: "0",
+          reasoning: "No stored point forms a valid diagonal (equal |dx|,|dy|) with (14,8) whose other two corners also exist, so 0 squares."
+        },
+        {
+          input: "add([11,2]) again; count([11,10])",
+          output: "2",
+          reasoning: "Now (11,2) has count 2. The square with diagonal (3,2) uses corner (11,2), which exists twice, so the square is counted twice -> 2.",
+          visual:
+            "```\n(11,2) added twice -> the square counts once per copy of each corner\ncount = cnt(3,2) * cnt(3,10) * cnt(11,2) = 1 * 1 * 2 = 2\n```"
+        }
+      ],
+      approaches: [
+        {
+          name: "Counter of points + diagonal iteration",
+          time: "O(1) add, O(k) count",
+          space: "O(k)",
+          whenToUse: "The intended design: store point frequencies, then for a query iterate points on the same vertical line and check the two opposite corners.",
+          logic:
+            "**What it asks.** Support adding points (with duplicates) and, for a query point, count axis-aligned squares that use the query point as a corner and three stored points as the other corners.\n\n" +
+            "**Why the naive idea fails.** Enumerating all triples of stored points for every `count` is `O(k^3)` and hopeless. Even fixing the query point and trying all pairs of others is `O(k^2)`. We need to exploit the rigid geometry of an axis-aligned square so each query scans points only once.\n\n" +
+            "**Key Idea — a diagonal fixes the whole square.** For an axis-aligned square, picking the query point and the **diagonally opposite** corner determines the other two corners uniquely. A point `(px, py)` is diagonal to the query `(qx, qy)` exactly when the horizontal and vertical distances are equal and nonzero: `abs(px - qx) == abs(py - qy)` and `px != qx`. Given such a diagonal point, the remaining two corners are `(qx, py)` and `(px, qy)`. So store a frequency map of all points; for a query, iterate only the **candidate diagonal points that share the query's x-coordinate** (forming a vertical side), and for each, multiply the stored counts of the two other corners.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. `__init__`: keep `self.counts`, a `Counter` mapping `(x, y) -> frequency`, and `self.points_by_x`, a map from x-coordinate to the **set of distinct points** added there, to iterate candidates quickly (a set, not a list, so multiplicity is carried only by `counts` and never double-counted).\n" +
+            "2. `add(point)`: increment `self.counts[(x, y)]` and add the point to `self.points_by_x[x]`.\n" +
+            "3. `count(point)` with query `(qx, qy)`: initialize `total = 0`. For every stored point `(qx, py)` on the same vertical line as the query (so it shares `qx`) with `py != qy`, let the side length `d = abs(py - qy)`.\n" +
+            "   - The two other corners are at `(qx + d, qy)`, `(qx + d, py)` and at `(qx - d, qy)`, `(qx - d, py)` — check both the left and right square.\n" +
+            "   - For each side, add `counts[(qx, py)] * counts[(other_x, qy)] * counts[(other_x, py)]` to `total`.\n" +
+            "4. Return `total`.\n\n" +
+            "**Why it works.** Every axis-aligned square with the query as a corner has exactly one corner directly above or below the query (sharing its x) — that is the vertical side. Iterating those candidates enumerates each square exactly once. The side length `d` fixes the opposite vertical line at `qx ± d`, and the two remaining corners are forced; multiplying the three stored frequencies counts every combination of duplicate points, which is precisely the required multiplicity.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Skip the degenerate case `py == qy` (zero side length) — a square needs a nonzero side.\n" +
+            "- Check BOTH horizontal directions (`qx + d` and `qx - d`); a square can extend left or right of the vertical side.\n" +
+            "- Multiply the counts of all three other corners (not just check existence) so duplicate points are counted with correct multiplicity.\n" +
+            "- Iterate candidates sharing the query's x (a vertical side) so the enumeration is by diagonal/side, not all pairs.\n\n" +
+            "**Complexity.** `add` is `O(1)`. `count` is `O(k)` where `k` is the number of points sharing the query's x-coordinate — each contributes an `O(1)` corner lookup. Space `O(k)` for the stored points.\n\n" +
+            "**Interview mindset.** 'Count axis-aligned squares from a corner' -> store point frequencies and, per query, walk the vertical-line candidates; a diagonal (or one shared-coordinate side) pins the square, then multiply the three corner counts for duplicates.",
+          rcs:
+            "from collections import Counter, defaultdict\n" +
+            "\n" +
+            "class DetectSquares:\n" +
+            "    def __init__(self):\n" +
+            "        self.counts = Counter()                   # (x, y) -> how many times added.\n" +
+            "        self.points_by_x = defaultdict(list)      # x -> list of points with that x.\n" +
+            "\n" +
+            "    def add(self, point: List[int]) -> None:\n" +
+            "        x, y = point\n" +
+            "        self.counts[(x, y)] += 1                   # Record with multiplicity.\n" +
+            "        self.points_by_x[x].append((x, y))         # Index by x for fast candidate scan.\n" +
+            "\n" +
+            "    def count(self, point: List[int]) -> int:\n" +
+            "        qx, qy = point\n" +
+            "        total = 0\n" +
+            "        # Candidates share the query's x -> they form a vertical side with the query.\n" +
+            "        for (_, py) in self.points_by_x[qx]:\n" +
+            "            if py == qy:\n" +
+            "                continue                           # Zero-length side: not a square.\n" +
+            "            d = abs(py - qy)                        # Side length.\n" +
+            "            # Two opposite corners can lie to the right (qx+d) or left (qx-d).\n" +
+            "            for other_x in (qx + d, qx - d):\n" +
+            "                total += (self.counts[(qx, py)]\n" +
+            "                          * self.counts[(other_x, qy)]\n" +
+            "                          * self.counts[(other_x, py)])\n" +
+            "        return total",
+          plain:
+            "from collections import Counter, defaultdict\n" +
+            "\n" +
+            "class DetectSquares:\n" +
+            "    def __init__(self):\n" +
+            "        self.counts = Counter()\n" +
+            "        self.points_by_x = defaultdict(list)\n" +
+            "\n" +
+            "    def add(self, point: List[int]) -> None:\n" +
+            "        x, y = point\n" +
+            "        self.counts[(x, y)] += 1\n" +
+            "        self.points_by_x[x].append((x, y))\n" +
+            "\n" +
+            "    def count(self, point: List[int]) -> int:\n" +
+            "        qx, qy = point\n" +
+            "        total = 0\n" +
+            "        for (_, py) in self.points_by_x[qx]:\n" +
+            "            if py == qy:\n" +
+            "                continue\n" +
+            "            d = abs(py - qy)\n" +
+            "            for other_x in (qx + d, qx - d):\n" +
+            "                total += (self.counts[(qx, py)]\n" +
+            "                          * self.counts[(other_x, qy)]\n" +
+            "                          * self.counts[(other_x, py)])\n" +
+            "        return total"
+        }
+      ],
+      patternRecognition: [
+        "'Count axis-aligned squares with a query corner' -> store point frequencies, iterate a shared-coordinate side.",
+        "Two opposite corners on a diagonal (|dx| == |dy| != 0) fix the whole axis-aligned square.",
+        "Duplicates -> multiply the counts of the three other corners for correct multiplicity."
+      ],
+      interviewRecall: [
+        "counts = Counter of (x,y); points_by_x indexes candidates on the query's vertical line.",
+        "For each candidate (qx, py) with py != qy: d = |py - qy|; check other_x = qx+d and qx-d.",
+        "Add counts[(qx,py)] * counts[(other_x,qy)] * counts[(other_x,py)] per side.",
+        "Skip py == qy (zero side); check both left and right; multiply (don't just test presence)."
+      ]
     }
   ]);
 })();

@@ -417,6 +417,639 @@
         "Increment jumps exactly when i reaches current_end, then jump the window to farthest.",
         "Loop only to n-2 so you never count a phantom jump from the last index."
       ]
+    },
+
+    {
+      id: "gas-station",
+      lc: 134,
+      title: "Gas Station",
+      difficulty: "Medium",
+      category: "Greedy",
+      link: "https://leetcode.com/problems/gas-station/",
+      meta: { pattern: "Running Tank + Reset", dataStructure: "Array", technique: "Single-pass greedy start" },
+      description:
+        "There are `n` gas stations arranged in a **circle**. At station `i` you can pick up `gas[i]` units of fuel, and it costs `cost[i]` units to drive from station `i` to the next station `i + 1` (wrapping around from the last back to the first).\n\n" +
+        "You begin with an empty tank and may start at any station. Return the **index of the starting station** from which you can drive all the way around the circuit exactly once, or `-1` if no such start exists. If a solution exists, it is **guaranteed to be unique**.",
+      constraints: [
+        "`n == gas.length == cost.length`",
+        "`1 <= n <= 10^5`",
+        "`0 <= gas[i], cost[i] <= 10^4`"
+      ],
+      notes: [
+        "The tank starts empty and can never go negative at any point along the route.",
+        "The net fuel gained by driving one leg from station `i` is `gas[i] - cost[i]`.",
+        "A complete loop is possible if and only if the total gas is at least the total cost."
+      ],
+      examples: [
+        {
+          input: "gas = [1, 2, 3, 4, 5], cost = [3, 4, 5, 1, 2]",
+          output: "3",
+          reasoning: "Total gas (15) equals total cost (15), so a solution exists. Starting at index 3: tank = 4, then +5-2=... a full loop 3->4->0->1->2->3 succeeds. No earlier start survives.",
+          visual:
+            "```\nstation :   0   1   2   3   4\ngas     :   1   2   3   4   5\ncost    :   3   4   5   1   2\ndiff    :  -2  -2  -2  +3  +3\n                          start=3\ntank from 3: 0 ->+3=3 ->+3=6 ->-2=4 ->-2=2 ->-2=0  (never < 0)\n```"
+        },
+        {
+          input: "gas = [2, 3, 4], cost = [3, 4, 3]",
+          output: "-1",
+          reasoning: "Total gas (9) is less than total cost (10), so no starting station can complete the loop; return -1."
+        },
+        {
+          input: "gas = [5, 1, 2, 3, 4], cost = [4, 4, 1, 5, 1]",
+          output: "4",
+          reasoning: "Total gas (15) equals total cost (15). The unique valid start is index 4."
+        },
+        {
+          input: "gas = [3], cost = [2]",
+          output: "0",
+          reasoning: "One station: gas 3 covers cost 2 to loop back to itself, so start at index 0."
+        }
+      ],
+      approaches: [
+        {
+          name: "Brute Force",
+          time: "O(n^2)",
+          space: "O(1)",
+          whenToUse: "Only to state the naive idea before optimizing; too slow for n up to 10^5.",
+          logic:
+            "**What it asks.** Find a start index from which a running tank never dips below zero across the full circular route, or report `-1` if none exists.\n\n" +
+            "**Why the naive idea fails.** The brute-force idea tries every station as a candidate start: simulate the whole loop from it, adding `gas[i] - cost[i]` at each step, and accept the first start whose tank stays non-negative all the way around. Each simulation is `O(n)` and there are `n` candidates, so it is `O(n^2)` — about 10^10 operations at `n = 10^5`. It also throws away information: when a simulation fails partway, it restarts from the next station and re-drives legs it already knew the outcome of.\n\n" +
+            "**Key Idea.** There is no shortcut inside the brute force itself; the only correctness fact it relies on is that a start works iff the prefix sum of `gas[i] - cost[i]` (from that start, wrapping) is non-negative at every step of the loop.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. For each candidate start `s` from `0` to `n - 1`:\n" +
+            "2. Set `tank = 0` and drive `n` legs, visiting stations `s, s+1, …` modulo `n`.\n" +
+            "3. At each leg add `gas[cur] - cost[cur]`; if `tank` ever goes negative, abandon this start.\n" +
+            "4. If all `n` legs complete with `tank >= 0` throughout, return `s`.\n" +
+            "5. If no start survives, return `-1`.\n\n" +
+            "**Why it works.** Every possible start is simulated exactly and fully, so a valid start cannot be missed, and the first one found is returned (uniqueness guarantees there is at most one anyway).\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Use modular indexing `(s + k) % n` to wrap around the circle correctly.\n" +
+            "- The tank must stay non-negative at *every* step, not just at the end of the loop.\n" +
+            "- Drive exactly `n` legs — returning to the start is the completion condition.\n\n" +
+            "**Complexity.** Time `O(n^2)` from re-simulating the loop per candidate; space `O(1)`.\n\n" +
+            "**Interview mindset.** State this to frame the problem — then notice that a failed simulation tells you something about *many* starts at once, which is the door to the linear greedy.",
+          rcs:
+            "class Solution:\n" +
+            "    def canCompleteCircuit(self, gas: List[int], cost: List[int]) -> int:\n" +
+            "        n = len(gas)\n" +
+            "        for s in range(n):                      # Try every station as a start.\n" +
+            "            tank = 0\n" +
+            "            ok = True\n" +
+            "            for k in range(n):                  # Drive all n legs from s.\n" +
+            "                cur = (s + k) % n               # Wrap around the circle.\n" +
+            "                tank += gas[cur] - cost[cur]    # Net fuel for this leg.\n" +
+            "                if tank < 0:                    # Ran dry: this start fails.\n" +
+            "                    ok = False\n" +
+            "                    break\n" +
+            "            if ok:                              # Completed the whole loop.\n" +
+            "                return s\n" +
+            "        return -1                               # No start works.",
+          plain:
+            "class Solution:\n" +
+            "    def canCompleteCircuit(self, gas: List[int], cost: List[int]) -> int:\n" +
+            "        n = len(gas)\n" +
+            "        for s in range(n):\n" +
+            "            tank = 0\n" +
+            "            ok = True\n" +
+            "            for k in range(n):\n" +
+            "                cur = (s + k) % n\n" +
+            "                tank += gas[cur] - cost[cur]\n" +
+            "                if tank < 0:\n" +
+            "                    ok = False\n" +
+            "                    break\n" +
+            "            if ok:\n" +
+            "                return s\n" +
+            "        return -1"
+        },
+        {
+          name: "Optimized — One Pass (total check + reset start)",
+          time: "O(n)",
+          space: "O(1)",
+          whenToUse: "The expected answer whenever you need the unique circular start in a single scan.",
+          logic:
+            "**What it asks.** Return the unique start index that lets a running tank survive the whole circular route, or `-1` if the trip is impossible.\n\n" +
+            "**Why the naive idea fails.** Re-simulating from every candidate is `O(n^2)`. It ignores a powerful fact: when a run starting at `s` first goes negative at station `j`, *none* of the stations `s, s+1, …, j` can be a valid start either — so re-testing each of them one by one is wasted work.\n\n" +
+            "**Key Idea.** Two observations collapse the problem to one pass. First, **feasibility**: a full loop is possible iff `sum(gas) >= sum(cost)`; if total gas falls short, no start can work, so return `-1`. Second, **locating the start**: sweep left to right keeping a running `tank`; whenever `tank` drops below zero at station `i`, reset `tank = 0` and set the candidate `start = i + 1`. The station immediately after the failure point becomes the new candidate. Carry two scalars — `total` (to decide feasibility) and `tank` (the run since the last reset).\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Initialize `total = 0`, `tank = 0`, `start = 0`.\n" +
+            "2. Walk `i` from `0` to `n - 1`, computing the leg's net `diff = gas[i] - cost[i]`.\n" +
+            "3. Add `diff` to both `total` and `tank`.\n" +
+            "4. If `tank < 0`, the segment from `start` through `i` cannot begin a valid loop: set `start = i + 1` and reset `tank = 0`.\n" +
+            "5. After the pass, return `start` if `total >= 0`, else `-1`.\n\n" +
+            "**Why it works — and why the reset is safe.** The feasibility half is a global conservation argument: driving the whole circle nets exactly `sum(gas) - sum(cost)`, so if that total is negative the tank must go negative somewhere no matter where you begin, and `-1` is correct; if it is non-negative, a valid start is guaranteed to exist and be unique.\n\n" +
+            "The reset is the greedy choice, and its safety is an exchange/contradiction argument. Suppose the run from the current `start` accumulates a non-negative tank across stations `start, …, i-1` but goes negative for the first time at station `i` (`tank + diff_i < 0`). Claim: **no station `p` in `[start, i]` can be a valid starting point.** Take any such `p`. Because `start` reached `p` with a non-negative tank (that was the running invariant up to the failure — every partial sum from `start` up to any station before `i` was `>= 0`), the tank a real trip beginning at `p` would have on arriving at `i` is *no larger* than the tank our run from `start` had there: starting at `p` you forgo the (non-negative) fuel banked from `start` to `p`. Formally, `prefix(p..i) = prefix(start..i) - prefix(start..p-1) <= prefix(start..i) < 0`. So a trip from `p` also fails to clear the leg into/at `i` — `p` cannot be a valid start. Hence every candidate up to and including `i` is eliminated in one stroke, and the only stations that remain possible are those from `i + 1` onward. That is exactly why we jump `start` to `i + 1` and zero the tank, and why a single left-to-right sweep never skips the true start: whenever total fuel suffices, the last surviving candidate is the unique answer.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Keep `total` (over the whole array) separate from `tank` (which resets); the feasibility decision uses `total`, the start location uses `tank`.\n" +
+            "- On a negative tank, reset the candidate to `i + 1`, not `i` — station `i` is the one that just failed.\n" +
+            "- Do not return `start` without the `total >= 0` check; a surviving `start` from the sweep is only valid when the whole trip is feasible.\n\n" +
+            "**Complexity.** Time `O(n)` — one pass; space `O(1)` — the three scalars `total`, `tank`, `start`.\n\n" +
+            "**Interview mindset.** 'Circular route, running resource that can't go negative, find the start' is the signal: check global feasibility with a total, then locate the start by resetting the moment a running sum dips below zero.",
+          rcs:
+            "class Solution:\n" +
+            "    def canCompleteCircuit(self, gas: List[int], cost: List[int]) -> int:\n" +
+            "        total = 0                               # Net fuel over the WHOLE circle (feasibility).\n" +
+            "        tank = 0                                # Running tank since the last reset.\n" +
+            "        start = 0                               # Current candidate start station.\n" +
+            "        for i in range(len(gas)):\n" +
+            "            diff = gas[i] - cost[i]             # Net fuel for the leg out of station i.\n" +
+            "            total += diff                       # Accumulate the global total.\n" +
+            "            tank += diff                        # Accumulate the current run.\n" +
+            "            if tank < 0:                        # Ran dry within this segment...\n" +
+            "                start = i + 1                   # ...so no station start..i works; jump past.\n" +
+            "                tank = 0                        # Fresh tank for the new candidate.\n" +
+            "        return start if total >= 0 else -1      # Feasible only if total gas >= total cost.",
+          plain:
+            "class Solution:\n" +
+            "    def canCompleteCircuit(self, gas: List[int], cost: List[int]) -> int:\n" +
+            "        total = 0\n" +
+            "        tank = 0\n" +
+            "        start = 0\n" +
+            "        for i in range(len(gas)):\n" +
+            "            diff = gas[i] - cost[i]\n" +
+            "            total += diff\n" +
+            "            tank += diff\n" +
+            "            if tank < 0:\n" +
+            "                start = i + 1\n" +
+            "                tank = 0\n" +
+            "        return start if total >= 0 else -1"
+        }
+      ],
+      patternRecognition: [
+        "'Circular route with a running resource that must never go negative' → total-feasibility check plus a reset scan.",
+        "A failed prefix eliminates a whole segment of candidate starts at once, not just one.",
+        "Answer is guaranteed unique when total supply >= total demand."
+      ],
+      interviewRecall: [
+        "Two accumulators: total (whole array, decides -1) and tank (resets on negativity).",
+        "When tank < 0 at i, set start = i + 1 and zero the tank.",
+        "Return start only if total >= 0, else -1."
+      ]
+    },
+
+    {
+      id: "hand-of-straights",
+      lc: 846,
+      title: "Hand of Straights",
+      difficulty: "Medium",
+      category: "Greedy",
+      link: "https://leetcode.com/problems/hand-of-straights/",
+      meta: { pattern: "Count Map + Smallest-First", dataStructure: "Hash Map / Heap", technique: "Consume runs greedily" },
+      description:
+        "You are given an integer array `hand` of card values and an integer `groupSize`. Determine whether the cards can be rearranged into groups such that **every group has exactly `groupSize` cards** and each group is a run of **consecutive** values (like 3,4,5).\n\n" +
+        "Return `true` if such a rearrangement is possible and `false` otherwise.",
+      constraints: [
+        "`1 <= hand.length <= 10^4`",
+        "`0 <= hand[i] <= 10^9`",
+        "`1 <= groupSize <= hand.length`"
+      ],
+      notes: [
+        "If `len(hand)` is not divisible by `groupSize`, grouping is impossible.",
+        "Duplicate values are allowed; they simply belong to different groups.",
+        "Each group must be `groupSize` *consecutive* integers, e.g. size 3 means `x, x+1, x+2`."
+      ],
+      examples: [
+        {
+          input: "hand = [1, 2, 3, 6, 2, 3, 4, 7, 8], groupSize = 3",
+          output: "true",
+          reasoning: "The cards split into [1,2,3], [2,3,4], [6,7,8] — three consecutive runs of size 3.",
+          visual:
+            "```\ncounts: {1:1, 2:2, 3:2, 4:1, 6:1, 7:1, 8:1}\nsmallest=1 -> take 1,2,3   remaining {2:1,3:1,4:1,6:1,7:1,8:1}\nsmallest=2 -> take 2,3,4   remaining {6:1,7:1,8:1}\nsmallest=6 -> take 6,7,8   remaining {}\nall consumed -> true\n```"
+        },
+        {
+          input: "hand = [1, 2, 3, 4, 5], groupSize = 4",
+          output: "false",
+          reasoning: "5 cards cannot be split into groups of 4 (5 is not divisible by 4), so it fails immediately."
+        },
+        {
+          input: "hand = [1, 2, 3, 4, 5, 6], groupSize = 2",
+          output: "true",
+          reasoning: "Split into [1,2], [3,4], [5,6] — three consecutive pairs."
+        },
+        {
+          input: "hand = [8, 10, 12], groupSize = 3",
+          output: "false",
+          reasoning: "Starting from 8, the values 9 and 10 are needed but 9 is missing, so no consecutive run of size 3 can form."
+        }
+      ],
+      approaches: [
+        {
+          name: "Optimized — Count Map + Smallest Available First",
+          time: "O(n log n)",
+          space: "O(n)",
+          whenToUse: "The expected answer for 'partition into consecutive fixed-size groups' problems.",
+          logic:
+            "**What it asks.** Decide whether every card can be placed into groups of exactly `groupSize` consecutive values, using each card exactly once.\n\n" +
+            "**Why the naive idea fails.** Trying all ways to assign cards to groups is combinatorial. Even sorting and greedily forming groups left to right needs a way to know, quickly, whether the *next consecutive card* is still available — a plain sorted list forces expensive scans or deletions from the middle.\n\n" +
+            "**Key Idea.** The smallest remaining card is the crux: it can only ever be the **lowest** value of some group (nothing smaller exists to sit below it). So its group is forced to be `min, min+1, …, min+groupSize-1`. Track how many of each value remain in a count map (a `Counter`), repeatedly take the smallest available value, and try to remove one of each of the next `groupSize` consecutive values. A min-heap or the sorted keys give the smallest value cheaply.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. If `len(hand) % groupSize != 0`, return `false` — the cards cannot divide evenly.\n" +
+            "2. Build `count = Counter(hand)` and get the values in sorted order (or push them into a min-heap).\n" +
+            "3. Take the smallest value `v` that still has a positive count; it must start a group.\n" +
+            "4. For `k` in `0 … groupSize-1`, check that `v + k` is present with count `>= count[v]` needed; decrement `count[v + k]`. If any `v + k` is missing (count `0`), return `false`.\n" +
+            "5. Continue until all counts hit zero; return `true`.\n\n" +
+            "**Why it works — greedy-choice safety.** The greedy choice is 'always build the group anchored at the smallest available card.' It is safe by an exchange argument. Let `m` be the smallest remaining value. In *any* valid full grouping, `m` belongs to some group `G`; because a group is `groupSize` consecutive values and `m` is the global minimum remaining, `m` must be the *smallest* element of `G` (any element below `m` would contradict minimality). Therefore `G` is exactly `m, m+1, …, m+groupSize-1` — the identical group our greedy forms. Removing this forced group leaves a strictly smaller subproblem whose solvability is unchanged, so by induction the greedy reaches a valid grouping exactly when one exists. Equivalently: since every solution is *forced* to spend `m` as a group-minimum, committing to that group can never rule out an otherwise-achievable solution. If at any point the required `m+k` is absent, then even this forced group cannot be completed, so no valid grouping exists and `false` is correct.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Divisibility check first: skip it and you can loop into a wrong answer on non-divisible sizes.\n" +
+            "- Always start from the *smallest* available value; starting elsewhere can strand a value that nothing below it can absorb.\n" +
+            "- Decrement counts and treat count `0` as 'absent'; a value can be needed by multiple overlapping groups (via duplicates), so respect the multiplicity.\n\n" +
+            "**Complexity.** Time `O(n log n)` — sorting the distinct values (or heap operations) dominates; each card is consumed once. Space `O(n)` for the count map / heap.\n\n" +
+            "**Interview mindset.** 'Partition into consecutive groups of fixed size' → count map plus 'the smallest leftover card forces its group,' consumed smallest-first.",
+          rcs:
+            "from collections import Counter\n" +
+            "import heapq\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def isNStraightHand(self, hand: List[int], groupSize: int) -> bool:\n" +
+            "        if len(hand) % groupSize != 0:          # Cannot split evenly at all.\n" +
+            "            return False\n" +
+            "        count = Counter(hand)                   # value -> how many copies remain.\n" +
+            "        min_heap = list(count.keys())           # Distinct values...\n" +
+            "        heapq.heapify(min_heap)                 # ...as a min-heap for smallest-first access.\n" +
+            "        while min_heap:\n" +
+            "            start = min_heap[0]                 # Smallest remaining value must start a group.\n" +
+            "            need = count[start]                 # This many groups all begin at 'start'.\n" +
+            "            for v in range(start, start + groupSize):  # Need v, v+1, ..., v+groupSize-1.\n" +
+            "                if count[v] < need:             # Not enough copies to complete the runs.\n" +
+            "                    return False\n" +
+            "                count[v] -= need               # Consume 'need' copies of this value.\n" +
+            "                if count[v] == 0:              # Exhausted; must be the current heap min.\n" +
+            "                    if v != min_heap[0]:       # A hole below the smallest => impossible.\n" +
+            "                        return False\n" +
+            "                    heapq.heappop(min_heap)    # Remove the used-up smallest value.\n" +
+            "        return True",
+          plain:
+            "from collections import Counter\n" +
+            "import heapq\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def isNStraightHand(self, hand: List[int], groupSize: int) -> bool:\n" +
+            "        if len(hand) % groupSize != 0:\n" +
+            "            return False\n" +
+            "        count = Counter(hand)\n" +
+            "        min_heap = list(count.keys())\n" +
+            "        heapq.heapify(min_heap)\n" +
+            "        while min_heap:\n" +
+            "            start = min_heap[0]\n" +
+            "            need = count[start]\n" +
+            "            for v in range(start, start + groupSize):\n" +
+            "                if count[v] < need:\n" +
+            "                    return False\n" +
+            "                count[v] -= need\n" +
+            "                if count[v] == 0:\n" +
+            "                    if v != min_heap[0]:\n" +
+            "                        return False\n" +
+            "                    heapq.heappop(min_heap)\n" +
+            "        return True"
+        }
+      ],
+      patternRecognition: [
+        "'Partition all items into consecutive runs of a fixed size' → count map + smallest-first.",
+        "The smallest remaining value is forced to be a group's minimum.",
+        "Divisibility of the total by the group size is a necessary first check."
+      ],
+      interviewRecall: [
+        "Counter of values + a min-heap (or sorted keys) for smallest-first access.",
+        "Each group is forced: min, min+1, ..., min+groupSize-1.",
+        "Decrement counts; a missing consecutive value means return false."
+      ]
+    },
+
+    {
+      id: "merge-triplets-to-form-target-triplet",
+      lc: 1899,
+      title: "Merge Triplets to Form Target Triplet",
+      difficulty: "Medium",
+      category: "Greedy",
+      link: "https://leetcode.com/problems/merge-triplets-to-form-target-triplet/",
+      meta: { pattern: "Componentwise Max Filter", dataStructure: "Array", technique: "Feasible-triplet selection" },
+      description:
+        "You are given a 2D array `triplets` where `triplets[i] = [a_i, b_i, c_i]`, and a `target = [x, y, z]`. You may repeatedly pick two triplets and replace them with their **componentwise maximum** — i.e. merging `[a, b, c]` and `[d, e, f]` produces `[max(a,d), max(b,e), max(c,f)]`.\n\n" +
+        "Return `true` if, by choosing some subset of triplets and merging them, you can produce a triplet exactly equal to `target`.",
+      constraints: [
+        "`1 <= triplets.length <= 10^5`",
+        "`triplets[i].length == target.length == 3`",
+        "`1 <= a_i, b_i, c_i, x, y, z <= 1000`"
+      ],
+      notes: [
+        "Merging takes the max per position, so a chosen component can never decrease.",
+        "Any triplet with a component strictly greater than the matching target component is unusable — it would push that position past the target.",
+        "You do not need to use every triplet; you choose which ones to merge."
+      ],
+      examples: [
+        {
+          input: "triplets = [[2,5,3],[1,8,4],[1,7,5]], target = [2,7,5]",
+          output: "true",
+          reasoning: "All three triplets are usable (no component exceeds target). Merge [2,5,3] and [1,7,5] -> [2,7,5], which equals target.",
+          visual:
+            "```\ntarget       : [2, 7, 5]\n[2,5,3] ok -> hits x=2 (pos0)\n[1,8,4] BAD -> 8 > 7 at pos1, discard\n[1,7,5] ok -> hits y=7 (pos1) and z=5 (pos2)\ncovered positions: {0,1,2} -> true\n```"
+        },
+        {
+          input: "triplets = [[3,4,5],[4,5,6]], target = [3,2,5]",
+          output: "false",
+          reasoning: "Every triplet has a component larger than the target (4>2 or 5>2 at position 1), so none is usable and target can never be hit."
+        },
+        {
+          input: "triplets = [[2,5,3],[2,3,4],[1,2,5],[5,2,3]], target = [5,5,5]",
+          output: "true",
+          reasoning: "Usable triplets contribute x=5 (from [5,2,3]), y=5 (from [2,5,3]), z=5 (from [1,2,5]); merging them yields [5,5,5]."
+        },
+        {
+          input: "triplets = [[1,1,1]], target = [2,2,2]",
+          output: "false",
+          reasoning: "The only triplet cannot reach any target component (all are below), so target is unreachable."
+        }
+      ],
+      approaches: [
+        {
+          name: "Optimized — Filter then Componentwise Max",
+          time: "O(n)",
+          space: "O(1)",
+          whenToUse: "The expected answer for 'reach a target vector via componentwise max of chosen items'.",
+          logic:
+            "**What it asks.** Decide whether some subset of triplets, combined by taking the maximum in each of the three positions, produces exactly `target = [x, y, z]`.\n\n" +
+            "**Why the naive idea fails.** Enumerating subsets to merge is exponential (`2^n` choices). Even considering pairs of merges is unnecessary work — merging is just a repeated componentwise max, so the order and grouping of merges never matter; only *which* triplets are included does.\n\n" +
+            "**Key Idea.** Componentwise max is monotonic and can never *decrease* a coordinate, so a triplet with any component **strictly greater than the target** is poison: include it and that position overshoots `target` forever. Discard those. Among the remaining *safe* triplets (every component `<=` target), we can freely merge all of them, and the result is exactly the componentwise max over that safe set. So the answer is `true` iff, restricting to safe triplets, some triplet hits `x` in position 0, some hits `y` in position 1, and some hits `z` in position 2. Track three booleans, one per coordinate.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Initialize three flags `found = [false, false, false]` for positions 0, 1, 2.\n" +
+            "2. For each triplet `[a, b, c]`, skip it if `a > x` or `b > y` or `c > z` (unsafe — would overshoot).\n" +
+            "3. For a safe triplet, set `found[0] = true` if `a == x`, `found[1] = true` if `b == y`, `found[2] = true` if `c == z`.\n" +
+            "4. After scanning, return `true` iff all three flags are set.\n\n" +
+            "**Why it works — greedy-choice safety.** The greedy choice is 'include every safe triplet, exclude every unsafe one,' and it is safe by a dominance/exchange argument in both directions. *Unsafe triplets:* if a triplet has a component above the target, including it forces that coordinate strictly above the target (max only grows), so no valid solution can contain it — discarding is never a loss. *Safe triplets:* including *all* of them is optimal because adding a safe triplet can only raise coordinates toward (never past) the target — its components are all `<=` target — so it can only help satisfy an as-yet-unmet coordinate and can never break an already-met one. Thus the componentwise max over the full safe set dominates the max of any sub-selection: if *any* achievable subset reaches `target`, the all-safe set reaches it too. Since each target coordinate `x`, `y`, `z` must be attained by *some* included triplet whose component equals it (max can't exceed the values present), checking that each coordinate is hit by at least one safe triplet is exactly necessary and sufficient.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- The exceed test must use strict `>` against the target; a component *equal* to the target is exactly what you want, not a disqualifier.\n" +
+            "- A single triplet may satisfy more than one coordinate at once — check all three flags per safe triplet.\n" +
+            "- Do not require one triplet to match all three positions; different triplets can cover different coordinates and merge together.\n\n" +
+            "**Complexity.** Time `O(n)` — one pass over the triplets; space `O(1)` — three boolean flags.\n\n" +
+            "**Interview mindset.** 'Reach a target vector by componentwise max of chosen items' → filter out anything that overshoots, then check each coordinate is individually achievable among survivors.",
+          rcs:
+            "class Solution:\n" +
+            "    def mergeTriplets(self, triplets: List[List[int]], target: List[int]) -> bool:\n" +
+            "        x, y, z = target\n" +
+            "        found = [False, False, False]           # Whether each target coord is achievable.\n" +
+            "        for a, b, c in triplets:\n" +
+            "            if a > x or b > y or c > z:         # Overshoots the target somewhere: unusable.\n" +
+            "                continue\n" +
+            "            if a == x:                         # Safe triplet hits target position 0.\n" +
+            "                found[0] = True\n" +
+            "            if b == y:                         # ...position 1.\n" +
+            "                found[1] = True\n" +
+            "            if c == z:                         # ...position 2.\n" +
+            "                found[2] = True\n" +
+            "        return all(found)                       # All three coords covered => target reachable.",
+          plain:
+            "class Solution:\n" +
+            "    def mergeTriplets(self, triplets: List[List[int]], target: List[int]) -> bool:\n" +
+            "        x, y, z = target\n" +
+            "        found = [False, False, False]\n" +
+            "        for a, b, c in triplets:\n" +
+            "            if a > x or b > y or c > z:\n" +
+            "                continue\n" +
+            "            if a == x:\n" +
+            "                found[0] = True\n" +
+            "            if b == y:\n" +
+            "                found[1] = True\n" +
+            "            if c == z:\n" +
+            "                found[2] = True\n" +
+            "        return all(found)"
+        }
+      ],
+      patternRecognition: [
+        "'Reach a target vector via componentwise max of a chosen subset' → filter overshooters, check each coord.",
+        "Merge is monotone (never decreases), so order/grouping is irrelevant — only inclusion matters.",
+        "Any item exceeding the target in any coordinate is disqualified outright."
+      ],
+      interviewRecall: [
+        "Discard any triplet with a component > the target's; it can only overshoot.",
+        "Among safe triplets, mark which target coordinate each one equals.",
+        "Return true iff all three coordinates are individually matched."
+      ]
+    },
+
+    {
+      id: "partition-labels",
+      lc: 763,
+      title: "Partition Labels",
+      difficulty: "Medium",
+      category: "Greedy",
+      link: "https://leetcode.com/problems/partition-labels/",
+      meta: { pattern: "Last-Occurrence Reach", dataStructure: "Hash Map", technique: "Extend-until-closed window" },
+      description:
+        "You are given a string `s`. Partition it into as **many parts as possible** so that each letter appears in **at most one** part. Return a list of the sizes of these parts, in order.\n\n" +
+        "The concatenation of the parts, in order, must reconstruct the original string `s`.",
+      constraints: [
+        "`1 <= s.length <= 500`",
+        "`s` consists of lowercase English letters."
+      ],
+      notes: [
+        "Every occurrence of a given letter must fall inside the same part.",
+        "The parts are contiguous and in order; you are only choosing where to cut.",
+        "Returning as many parts as possible is achieved by cutting at the earliest safe boundary."
+      ],
+      examples: [
+        {
+          input: 's = "ababcbacadefegdehijhklij"',
+          output: "[9, 7, 8]",
+          reasoning: "The first part 'ababcbaca' (length 9) contains all a's, b's, and c's. Then 'defegde' (7) contains all d/e/f/g, and 'hijhklij' (8) the rest.",
+          visual:
+            "```\ns: a b a b c b a c a d e f e g d e h i j h k l i j\n   |-------- 9 --------|--- 7 ---|---- 8 ----|\nlast('a')=8 -> window must reach >=8; c ends at 7, all fit by index 8\ncut at 8, restart; next window d..g ends at 15; etc.\n```"
+        },
+        {
+          input: 's = "eccbbbbdec"',
+          output: "[10]",
+          reasoning: "The letter 'e' first appears at index 0 and last at index 8, and 'c' spans to index 9, so the whole string must stay in one part.",
+        },
+        {
+          input: 's = "a"',
+          output: "[1]",
+          reasoning: "A single character is its own part of size 1."
+        },
+        {
+          input: 's = "abcabc"',
+          output: "[6]",
+          reasoning: "Each of a, b, c appears on both sides, so no cut is safe; the whole string is one part."
+        }
+      ],
+      approaches: [
+        {
+          name: "Optimized — Last-Occurrence + Extend Window",
+          time: "O(n)",
+          space: "O(1)",
+          whenToUse: "The expected answer for 'cut a string/array into maximal independent segments'.",
+          logic:
+            "**What it asks.** Split `s` into the greatest number of contiguous pieces such that no letter is shared between two pieces, and return the piece sizes.\n\n" +
+            "**Why the naive idea fails.** Trying candidate cut positions and verifying that no letter crosses each cut is expensive and repetitive. The real constraint is simple: a piece must extend far enough to include the **last occurrence** of every letter it contains, so brute-forcing cuts ignores that this reach is directly computable.\n\n" +
+            "**Key Idea.** First record `last[ch]` = the last index at which each character appears (one pass). Then sweep left to right maintaining `end`, the farthest last-occurrence index among letters seen since the current part began. Every time the scan index `i` **reaches `end`**, every letter inside the current window has all its occurrences within `[start, i]`, so it is safe to cut — this is the earliest legal boundary, which maximizes the number of parts. Carry two scalars, `start` and `end`.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Build `last` mapping each character to its final index in `s`.\n" +
+            "2. Initialize `start = 0` and `end = 0`.\n" +
+            "3. Walk `i` over `s`; extend `end = max(end, last[s[i]])` to cover the current letter's full span.\n" +
+            "4. When `i == end`, the window is self-contained: append `i - start + 1` to the answer and set `start = i + 1`.\n" +
+            "5. Continue to the end of the string and return the list of sizes.\n\n" +
+            "**Why it works — greedy-choice safety.** The greedy choice is 'cut at the first index `i` where `i == end`.' It is safe by an invariant plus an exchange argument. *Invariant:* while scanning a part beginning at `start`, `end` is the maximum last-occurrence over all letters in `[start, i]`; so the part cannot legally end before `end`, because some letter still has an occurrence at `end` (cutting earlier would split that letter across parts). *Earliest is optimal:* when `i` first equals `end`, no letter within `[start, i]` occurs after `i` (that is exactly what `i == end` asserts), so `[start, i]` is a valid, self-contained part. Cutting here rather than later can only *increase* the number of parts: any valid partition's first cut must be at index `>= end` (by the invariant), and choosing the minimum such index leaves the largest possible remainder to subdivide. Formally, an exchange argument shows that from any optimal partition we can move its first boundary left to `end` without merging any letter's occurrences across the cut and without reducing the part count — so a partition that always cuts at the earliest safe boundary is optimal (maximal in count). Applying this inductively to each remaining suffix yields the maximum number of parts.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- The part size is `i - start + 1` (inclusive of both endpoints), then reset `start = i + 1`.\n" +
+            "- Extend `end` with the *current* letter's last index before testing `i == end`.\n" +
+            "- Compute `last` in a separate first pass; you need each letter's final index before deciding any cut.\n\n" +
+            "**Complexity.** Time `O(n)` — one pass to build `last`, one pass to partition; space `O(1)` — the last-occurrence map holds at most 26 entries.\n\n" +
+            "**Interview mindset.** 'Cut into maximal independent segments where each item type stays in one segment' → record each type's last position, then close a window the moment the scan reaches its farthest required reach.",
+          rcs:
+            "class Solution:\n" +
+            "    def partitionLabels(self, s: str) -> List[int]:\n" +
+            "        last = {ch: i for i, ch in enumerate(s)}  # Final index of each character.\n" +
+            "        result = []\n" +
+            "        start = 0                               # Left boundary of the current part.\n" +
+            "        end = 0                                 # Farthest last-occurrence seen in this part.\n" +
+            "        for i, ch in enumerate(s):\n" +
+            "            end = max(end, last[ch])            # Window must reach this letter's last index.\n" +
+            "            if i == end:                       # Every letter here is fully contained.\n" +
+            "                result.append(i - start + 1)   # Close the part; record its size.\n" +
+            "                start = i + 1                  # Next part starts after the cut.\n" +
+            "        return result",
+          plain:
+            "class Solution:\n" +
+            "    def partitionLabels(self, s: str) -> List[int]:\n" +
+            "        last = {ch: i for i, ch in enumerate(s)}\n" +
+            "        result = []\n" +
+            "        start = 0\n" +
+            "        end = 0\n" +
+            "        for i, ch in enumerate(s):\n" +
+            "            end = max(end, last[ch])\n" +
+            "            if i == end:\n" +
+            "                result.append(i - start + 1)\n" +
+            "                start = i + 1\n" +
+            "        return result"
+        }
+      ],
+      patternRecognition: [
+        "'Cut a sequence into maximal parts where each element type stays in one part' → last-occurrence + window reach.",
+        "The part must extend to the farthest last-occurrence of any element inside it.",
+        "Closing at the earliest safe boundary maximizes the number of parts."
+      ],
+      interviewRecall: [
+        "Precompute each character's last index in one pass.",
+        "Sweep, extend end = max(end, last[ch]); cut when i == end.",
+        "Part size is i - start + 1; then move start to i + 1."
+      ]
+    },
+
+    {
+      id: "valid-parenthesis-string",
+      lc: 678,
+      title: "Valid Parenthesis String",
+      difficulty: "Medium",
+      category: "Greedy",
+      link: "https://leetcode.com/problems/valid-parenthesis-string/",
+      meta: { pattern: "Open-Count Range", dataStructure: "Two Counters", technique: "Track [low, high] open bounds" },
+      description:
+        "Given a string `s` containing only the characters `'('`, `')'`, and `'*'`, determine whether it can be interpreted as a **valid** parenthesis string. Each `'*'` may be treated as a single `'('`, a single `')'`, or an empty string `\"\"`.\n\n" +
+        "A string is valid if every `'('` has a matching later `')'`, every `')'` has a matching earlier `'('`, and matches are properly nested.",
+      constraints: [
+        "`1 <= s.length <= 100`",
+        "`s[i]` is one of `'('`, `')'`, or `'*'`."
+      ],
+      notes: [
+        "A `'*'` is flexible: it can open, close, or vanish — the challenge is choosing consistently.",
+        "The string is valid iff there exists *some* assignment of the stars that balances it.",
+        "At no prefix may the number of ')' forced so far exceed the '(' available."
+      ],
+      examples: [
+        {
+          input: 's = "()"',
+          output: "true",
+          reasoning: "Already balanced with no stars needed."
+        },
+        {
+          input: 's = "(*)"',
+          output: "true",
+          reasoning: "Treat '*' as empty (or as anything harmless); '(' matches ')'.",
+          visual:
+            "```\ns:  (   *   )\nlow: 1  0   -1->0(clamped)   high: 1  2  1\nend: low reaches 0 -> valid (some assignment balances)\n```"
+        },
+        {
+          input: 's = "(*))"',
+          output: "true",
+          reasoning: "Treat '*' as '(' : then we have '(())'... actually '*'='(' gives '(())'? Use '*'='(' -> ( ( ) ) balanced. Valid."
+        },
+        {
+          input: 's = ")("',
+          output: "false",
+          reasoning: "The leading ')' has no '(' before it and no star to supply one, so high goes negative immediately — invalid."
+        }
+      ],
+      approaches: [
+        {
+          name: "Optimized — Greedy Open-Count Range [low, high]",
+          time: "O(n)",
+          space: "O(1)",
+          whenToUse: "The expected answer for wildcard-parenthesis validity in one pass without DP.",
+          logic:
+            "**What it asks.** Decide whether *some* interpretation of each `'*'` (as `'('`, `')'`, or empty) makes the whole string a properly matched parenthesis string.\n\n" +
+            "**Why the naive idea fails.** Brute force tries all `3^k` star assignments — exponential. A DP over (index, open-count) is `O(n^2)` and works, but carries far more state than needed: at each prefix the *set* of reachable open-counts is always a contiguous interval, so two numbers suffice.\n\n" +
+            "**Key Idea.** Track the **range of possible open-parenthesis counts** as `[low, high]` while scanning: `low` = the fewest open brackets we could have (treating stars as favorably-closing), `high` = the most (treating stars as opening). A `'('` bumps both up; a `')'` drops both; a `'*'` widens the range (it could open, so `high++`, or close/vanish, so `low--`). Two rules keep the range meaningful: if `high < 0` at any point, even the most generous reading has more `')'` than `'('` — impossible, return `false`; and clamp `low` at `0`, since the open count can never truly be negative (we would just have used fewer stars as closers). The string is valid iff `low == 0` at the end (a balanced assignment is reachable).\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Initialize `low = 0`, `high = 0`.\n" +
+            "2. For each character: on `'('`, do `low += 1; high += 1`. On `')'`, do `low -= 1; high -= 1`. On `'*'`, do `low -= 1; high += 1`.\n" +
+            "3. If `high < 0`, too many `')'` even in the best case — return `false` immediately.\n" +
+            "4. Clamp `low` to `0` if it went negative (open count can't be below zero).\n" +
+            "5. After the scan, return `true` iff `low == 0`.\n\n" +
+            "**Why it works — greedy-choice safety.** The core invariant is that `[low, high]` is exactly the set of achievable open-bracket counts after the current prefix: it starts as the single value `{0}`, and each character transforms the whole interval consistently (every operation shifts an interval to another interval), so contiguity is preserved and the interval never omits a reachable count. The greedy handling of stars is safe by an exchange argument. Clamping `low` at `0` is justified because a negative `low` would correspond to having designated more stars as closers than there were open brackets — an infeasible reading — and for any such over-close there is an equally-or-more valid reading that instead treats one of those stars as empty, giving open count `0`; so `0` is the true minimum feasible open count and no valid assignment is discarded. Returning `false` on `high < 0` is safe because `high` is the *maximum* possible open count, and if even that is negative then every assignment has a closer with no opener at this prefix — no interpretation can recover. Finally, `low == 0` reachable at the end means some assignment lands at zero unmatched opens with every prefix legal (guaranteed by never letting `high` go negative), which is precisely validity; if `low > 0`, every reading ends with unmatched `'('`. Thus the two-scalar greedy accepts exactly the valid strings.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Check `high < 0` and return `false` *during* the scan, right after updating on each character.\n" +
+            "- Clamp `low` at `0` (`low = max(low, 0)`) each step; letting it go negative corrupts the reachable range.\n" +
+            "- The final test is `low == 0`, not `high == 0` — you want the *minimum* feasible open count to be zero.\n\n" +
+            "**Complexity.** Time `O(n)` — one pass; space `O(1)` — the two scalars `low` and `high`.\n\n" +
+            "**Interview mindset.** Wildcards that can be one of several things, asking 'is any interpretation valid?' → track a contiguous range of the key quantity (here open-count) with a low/high pair instead of exploring every choice.",
+          rcs:
+            "class Solution:\n" +
+            "    def checkValidString(self, s: str) -> bool:\n" +
+            "        low = 0                                 # Fewest possible open '(' so far.\n" +
+            "        high = 0                                # Most possible open '(' so far.\n" +
+            "        for ch in s:\n" +
+            "            if ch == '(':                      # Must open: both bounds rise.\n" +
+            "                low += 1\n" +
+            "                high += 1\n" +
+            "            elif ch == ')':                    # Must close: both bounds fall.\n" +
+            "                low -= 1\n" +
+            "                high -= 1\n" +
+            "            else:                              # '*': could close/vanish (low--) or open (high++).\n" +
+            "                low -= 1\n" +
+            "                high += 1\n" +
+            "            if high < 0:                       # Too many ')' even in the best case.\n" +
+            "                return False\n" +
+            "            if low < 0:                        # Open count can't truly be negative.\n" +
+            "                low = 0\n" +
+            "        return low == 0                         # Some assignment balances exactly.",
+          plain:
+            "class Solution:\n" +
+            "    def checkValidString(self, s: str) -> bool:\n" +
+            "        low = 0\n" +
+            "        high = 0\n" +
+            "        for ch in s:\n" +
+            "            if ch == '(':\n" +
+            "                low += 1\n" +
+            "                high += 1\n" +
+            "            elif ch == ')':\n" +
+            "                low -= 1\n" +
+            "                high -= 1\n" +
+            "            else:\n" +
+            "                low -= 1\n" +
+            "                high += 1\n" +
+            "            if high < 0:\n" +
+            "                return False\n" +
+            "            if low < 0:\n" +
+            "                low = 0\n" +
+            "        return low == 0"
+        }
+      ],
+      patternRecognition: [
+        "Wildcards that can each be one of several things, asking 'is any interpretation valid?' → track a [low, high] range.",
+        "Parenthesis validity with a flexible token → bound the open-count instead of committing to a choice.",
+        "The reachable set of a running quantity is a contiguous interval → two scalars replace a DP table."
+      ],
+      interviewRecall: [
+        "low/high = min/max possible open count; '(' +1/+1, ')' -1/-1, '*' -1/+1.",
+        "Fail if high < 0; clamp low at 0 each step.",
+        "Valid iff low == 0 at the end."
+      ]
     }
   ]);
 })();
