@@ -41,20 +41,20 @@
       <div class="progress-box">
         <div class="progress-head">
           <span id="progressText">0 / 150 solved</span>
-          <span id="progressSub" class="muted">0 learning</span>
+          <button id="reviewDueBtn" class="review-due-chip" disabled title="No cards due for review">🔁 <span class="rd-count">0</span> due</button>
         </div>
         <div class="progress-track"><div id="progressFill" class="progress-fill"></div></div>
-        <div class="progress-foot muted">of <span id="totalCount">150</span> <span id="setLabel">NeetCode 150</span> problems</div>
-        <button id="reviewDueBtn" class="review-due-btn" disabled title="No cards due for review">
-          🔁 Review <span class="rd-count">0</span> due
-        </button>
+        <div class="progress-foot muted"><span id="progressSub">0 learning</span> · of <span id="totalCount">150</span> <span id="setLabel">NeetCode 150</span></div>
       </div>
 
       <div class="search-box">
-        <input id="search" type="text" placeholder="Search title, pattern, DS, technique…  ( / )" autocomplete="off" />
+        <input id="search" type="text" placeholder="Search…  ( / )" autocomplete="off" />
+        <button id="filterToggle" class="filter-toggle" title="Show filters" aria-expanded="false" aria-controls="filterPanel">
+          <span class="ft-icon">⚙</span><span id="filterDot" class="filter-dot" hidden></span>
+        </button>
       </div>
 
-      <div class="filters">
+      <div id="filterPanel" class="filters collapsed">
         <select id="filterDifficulty" title="Filter by difficulty">
           <option value="all">All difficulty</option>
           <option value="Easy">Easy</option>
@@ -82,8 +82,9 @@
       </div>
 
       <div class="nav-tools">
-        <button id="expandAll" class="nav-tool-btn" title="Expand all categories">▾ Expand all</button>
-        <button id="collapseAll" class="nav-tool-btn" title="Collapse all categories">▸ Collapse all</button>
+        <span class="nav-tools-label">Categories</span>
+        <button id="expandAll" class="nav-tool-icon" title="Expand all categories" aria-label="Expand all categories">▾</button>
+        <button id="collapseAll" class="nav-tool-icon" title="Collapse all categories" aria-label="Collapse all categories">▸</button>
       </div>
 
       <nav id="nav" class="nav"></nav>

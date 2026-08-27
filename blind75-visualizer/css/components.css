@@ -203,17 +203,21 @@
 }
 
 /* ============================================================= SPACED REPETITION */
-.review-due-btn {
-  width: 100%; margin-top: 12px; background: var(--bg-2); border: 1px solid var(--border);
-  color: var(--muted); font-size: 12.5px; font-weight: 700; padding: 9px 12px;
-  border-radius: var(--radius-sm); cursor: pointer; transition: all .15s ease;
+/* compact review-due chip (sits inline in the progress head) */
+.review-due-chip {
+  flex: 0 0 auto; background: var(--bg-3); border: 1px solid var(--border);
+  color: var(--muted); font-size: 11.5px; font-weight: 700; padding: 3px 9px;
+  border-radius: 999px; cursor: pointer; white-space: nowrap;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease),
+              border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
 }
-.review-due-btn:disabled { opacity: .55; cursor: default; }
-.review-due-btn.has-due {
-  color: #06111f; background: linear-gradient(90deg, var(--brand), var(--brand-2));
-  border-color: transparent; box-shadow: 0 4px 14px var(--brand-glow);
+.review-due-chip:disabled { opacity: 0; pointer-events: none; }  /* hidden entirely when nothing is due */
+.review-due-chip.has-due {
+  opacity: 1; color: #06111f; background: linear-gradient(90deg, var(--brand), var(--brand-2));
+  border-color: transparent; box-shadow: 0 3px 12px var(--brand-glow);
 }
-.review-due-btn.has-due .rd-count { font-family: var(--mono); }
+.review-due-chip.has-due:hover { transform: translateY(-1px); }
+.review-due-chip .rd-count { font-family: var(--mono); }
 
 .srs-wrap { padding: 4px 2px; }
 .srs-status { font-size: 13.5px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

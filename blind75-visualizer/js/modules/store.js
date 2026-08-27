@@ -19,6 +19,7 @@
       blur: false,           // blur logic + code until revealed
       setFilter: "all",      // "all" (NeetCode 150) | "blind75"
       lastProblem: null,
+      filtersOpen: false,      // sidebar filter panel expanded?
       sidebarCollapsed: false, // desktop: sidebar hidden to give the reader full width
       collapsedCats: {}      // category -> true if collapsed in sidebar
     }
