@@ -474,15 +474,18 @@
   function buildLinksSection(p) {
     var linksWrap = h("div", { class: "links-wrap" });
     linksWrap.appendChild(h("div", { class: "links-hint" },
-      "Paste up to two links to external animations/visualizations of this problem (e.g. VisuAlgo, YouTube, a blog). Saved to this browser; click Open to launch in a new tab."));
+      "Two animation/visualization links come pre-filled (CodeDive and AlgoMaster). Edit either field to save your own link to this browser instead; click Open to launch in a new tab."));
     var savedLinks = store.getLinks(p.id);
+    var defaultLinks = (window.BLIND75.REF_LINKS && window.BLIND75.REF_LINKS[p.lc]) || [];
     for (var li = 0; li < 2; li++) {
       (function (idx) {
         var row = h("div", { class: "link-row" });
         var nameIn = h("input", { class: "link-name", type: "text", placeholder: "Label (optional)" });
         var urlIn = h("input", { class: "link-url", type: "url", placeholder: "https://…  animation link" });
         var open = h("a", { class: "link-open", target: "_blank", rel: "noopener" }, "Open ↗");
-        var cur = savedLinks[idx] || { name: "", url: "" };
+        var saved = savedLinks[idx];
+        var hasSaved = saved && (saved.url || saved.name);
+        var cur = hasSaved ? saved : (defaultLinks[idx] || { name: "", url: "" });
         nameIn.value = cur.name || "";
         urlIn.value = cur.url || "";
 
