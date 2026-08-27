@@ -86,6 +86,55 @@
     return m[p && p.lc] || "common";
   }
 
+  // Base labels for the filter dropdowns (counts get appended per option).
+  var DIFF_LABELS = { all: "All difficulty", Easy: "Easy", Medium: "Medium", Hard: "Hard" };
+  var STATUS_LABELS = { all: "Any status", "not-started": "Not started", learning: "Learning", solved: "Solved", review: "★ Review queue", due: "🔁 Due for review" };
+  var IMP_LABELS = { all: "Any importance", essential: "★★★ Essential", common: "★★ Common", occasional: "★ Occasional" };
+
+  // Rewrite each option label as "Base (n)". Counts are scoped to the active
+  // study set (All 150 / Blind 75), NOT cross-filtered by the other dropdowns —
+  // so they stay stable and answer "how many X are in this set?".
+  function setOptionCounts(id, labels, counts) {
+    var sel = el(id);
+    if (!sel) return;
+    for (var i = 0; i < sel.options.length; i++) {
+      var opt = sel.options[i];
+      var base = labels[opt.value] != null ? labels[opt.value] : opt.value;
+      opt.textContent = base + " (" + (counts[opt.value] || 0) + ")";
+    }
+  }
+  function updateFilterCounts() {
+    var set = activeProblems();
+    var total = set.length;
+    var diff = { Easy: 0, Medium: 0, Hard: 0 };
+    var imp = { essential: 0, common: 0, occasional: 0 };
+    var stat = { "not-started": 0, learning: 0, solved: 0, review: 0, due: 0 };
+    var pat = {};
+    set.forEach(function (p) {
+      if (diff[p.difficulty] != null) diff[p.difficulty]++;
+      imp[impOf(p)]++;
+      var s = store.getStatus(p.id);
+      if (stat[s] != null) stat[s]++;
+      if (store.isReview(p.id)) stat.review++;
+      if (store.isDue(p.id)) stat.due++;
+      var pp = p.meta && p.meta.pattern;
+      if (pp) pat[pp] = (pat[pp] || 0) + 1;
+    });
+    setOptionCounts("filterDifficulty", DIFF_LABELS, { all: total, Easy: diff.Easy, Medium: diff.Medium, Hard: diff.Hard });
+    setOptionCounts("filterImportance", IMP_LABELS, { all: total, essential: imp.essential, common: imp.common, occasional: imp.occasional });
+    setOptionCounts("filterStatus", STATUS_LABELS, {
+      all: total, "not-started": stat["not-started"], learning: stat.learning,
+      solved: stat.solved, review: stat.review, due: stat.due
+    });
+    var pf = el("filterPattern");
+    if (pf) for (var j = 0; j < pf.options.length; j++) {
+      var o = pf.options[j];
+      var base = o.value === "all" ? "All patterns" : o.value;
+      var n = o.value === "all" ? total : (pat[o.value] || 0);
+      o.textContent = base + " (" + n + ")";
+    }
+  }
+
   var STATUS_GLYPH = { "not-started": "○", "learning": "◐", "solved": "✓" };
   var STATUS_LABEL = { "not-started": "Not Started", "learning": "Learning", "solved": "Solved" };
   var DIFF_ORDER = { "Easy": 0, "Medium": 1, "Hard": 2 };
@@ -218,6 +267,8 @@
     if (tc) tc.textContent = total;
     var lbl = el("setLabel");
     if (lbl) lbl.textContent = state.setFilter === "blind75" ? "Blind 75" : "NeetCode 150";
+
+    updateFilterCounts();
 
     // spaced-repetition due count (within the active set)
     var due = store.countDue(set.map(function (p) { return p.id; }));
