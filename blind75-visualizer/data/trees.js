@@ -1399,6 +1399,686 @@
         "max(gain(child), 0) is the trick: never extend into a harmful subtree.",
         "Initialize best to -inf (values can be negative); a single node may be the answer."
       ]
+    },
+
+    {
+      id: "diameter-of-binary-tree",
+      lc: 543,
+      title: "Diameter of Binary Tree",
+      difficulty: "Easy",
+      category: "Trees",
+      link: "https://leetcode.com/problems/diameter-of-binary-tree/",
+      meta: { pattern: "Tree DP (height + global)", dataStructure: "Binary Tree", technique: "Height DFS, update best at each node" },
+      description:
+        "Given the `root` of a binary tree, return the length of its **diameter** — the number of **edges** on the longest path between **any** two nodes in the tree.\n\n" +
+        "This path may or may not pass through the root, and its length is measured in edges (so two nodes directly connected have a path length of 1).",
+      constraints: [
+        "The number of nodes is in the range `[1, 10^4]`.",
+        "`-100 <= Node.val <= 100`"
+      ],
+      notes: [
+        "The diameter is counted in **edges**, not nodes: a path visiting 3 nodes has length 2.",
+        "The longest path need not go through the root — it can lie entirely inside a subtree.",
+        "A single node has diameter 0."
+      ],
+      examples: [
+        {
+          input: "root = [1,2,3,4,5]",
+          output: "3",
+          reasoning: "The longest path is 4 → 2 → 1 → 3 (or 5 → 2 → 1 → 3), which crosses 4 nodes and so has 3 edges.",
+          visual:
+            "```\n" +
+            "        1\n" +
+            "       / \\\n" +
+            "      2   3      longest: 4-2-1-3\n" +
+            "     / \\         = 3 edges\n" +
+            "    4   5\n" +
+            "```"
+        },
+        {
+          input: "root = [1,2]",
+          output: "1",
+          reasoning: "The only path is 2 → 1, one edge long."
+        },
+        {
+          input: "root = [1]",
+          output: "0",
+          reasoning: "A single node has no edges, so the diameter is 0."
+        },
+        {
+          input: "root = [4,-7,-3,null,null,-9,-3,9,-7,-4,null,6,null,-6,-6,null,null,0,6]",
+          output: "8",
+          reasoning: "The longest path is buried deep in the subtrees and never touches the root — showing why the diameter must be tracked globally, not just at the root."
+        }
+      ],
+      approaches: [
+        {
+          name: "Height DFS with a global best",
+          time: "O(n)",
+          space: "O(h)",
+          whenToUse: "Any 'longest path between two nodes' tree question — compute height bottom-up and combine both sides at each node.",
+          logic:
+            "**What it asks.** Return the diameter — the number of edges on the longest path between any two nodes, wherever that path lies in the tree.\n\n" +
+            "**Why the naive idea fails.** Assuming the longest path runs through the root is wrong: it can sit entirely inside one subtree. And computing, for every node, the height of its two subtrees from scratch to combine them would recompute heights over and over, giving `O(n^2)`. You need each height computed once and the diameter checked at every node along the way.\n\n" +
+            "**Key Idea.** The longest path that **bends** at a given node uses its deepest left reach plus its deepest right reach: `left_height + right_height` edges. If you run a single bottom-up DFS that **returns** each node's height, you can, at every node, update a running global best with `left_height + right_height`. The true diameter is the maximum such 'bend here' value over all nodes — this is the classic split between a value returned to the parent (height) and a value recorded globally (diameter).\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Keep a global `best = 0` for the largest diameter seen.\n" +
+            "2. Define `height(node)` that returns the number of edges on the longest downward path from `node`.\n" +
+            "3. If `node` is `None`, return `-1` (so a single leaf gets height 0: `1 + max(-1, -1)`), or return 0 counting in nodes — either is fine as long as it is consistent.\n" +
+            "4. Recurse to get `left = height(node.left)` and `right = height(node.right)`.\n" +
+            "5. Update `best = max(best, left + right + 2)` if using the `-1` base (the `+2` restores the two edges to the children), then return `1 + max(left, right)`.\n\n" +
+            "**Why it works.** Every simple path in a tree has a single highest node where it bends; at that node the path is exactly its deepest left descent plus its deepest right descent. By checking `left + right` at *every* node, we consider the bend point of every possible path, so the maximum is the diameter. Each height is computed once as the DFS unwinds, keeping it linear.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Diameter is in **edges**; be consistent with your height convention (using `-1` for the empty node makes a leaf's height 0 and the edge count fall out cleanly).\n" +
+            "- The answer is a *global* max updated at each node — do not just return the value at the root.\n" +
+            "- A node returns only `1 + max(left, right)` upward (one branch), even though it *records* `left + right` (both branches) — mixing these up is the classic bug.\n\n" +
+            "**Complexity.** Time `O(n)` — each node is visited once. Space `O(h)` for the recursion stack, where `h` is the tree height.\n\n" +
+            "**Interview mindset.** 'Longest path between two nodes' → bottom-up height DFS plus a global max combining both children at each node; the same 'return one thing, record another' shape recurs across tree-DP problems.",
+          rcs:
+`class Solution:
+    def diameterOfBinaryTree(self, root: Optional[TreeNode]) -> int:
+        self.best = 0                      # Largest left+right edge count seen.
+        def height(node: Optional[TreeNode]) -> int:
+            if not node:                   # Empty -> -1 so a leaf's height is 0.
+                return -1
+            left = height(node.left)       # Deepest downward reach on the left.
+            right = height(node.right)     # Deepest downward reach on the right.
+            # Path bending HERE spans both sides: +2 restores edges to the children.
+            self.best = max(self.best, left + right + 2)
+            return 1 + max(left, right)    # Upward we can extend only ONE branch.
+        height(root)
+        return self.best`,
+          plain:
+`class Solution:
+    def diameterOfBinaryTree(self, root: Optional[TreeNode]) -> int:
+        self.best = 0
+        def height(node: Optional[TreeNode]) -> int:
+            if not node:
+                return -1
+            left = height(node.left)
+            right = height(node.right)
+            self.best = max(self.best, left + right + 2)
+            return 1 + max(left, right)
+        height(root)
+        return self.best`
+        }
+      ],
+      patternRecognition: [
+        "'Longest path between any two nodes' → height DFS + global best of left+right.",
+        "The path bends at one node; check that bend at every node.",
+        "Return one branch upward, record both branches globally — the tree-DP split."
+      ],
+      interviewRecall: [
+        "best = max(best, left_h + right_h) at each node; return 1 + max(left_h, right_h).",
+        "Count edges, not nodes — use -1 for the empty base so a leaf is height 0.",
+        "The diameter may not touch the root, so track it globally, O(n)/O(h)."
+      ]
+    },
+
+    {
+      id: "balanced-binary-tree",
+      lc: 110,
+      title: "Balanced Binary Tree",
+      difficulty: "Easy",
+      category: "Trees",
+      link: "https://leetcode.com/problems/balanced-binary-tree/",
+      meta: { pattern: "Tree DP (height + flag)", dataStructure: "Binary Tree", technique: "Height DFS with -1 short-circuit" },
+      description:
+        "Given the `root` of a binary tree, determine whether it is **height-balanced** — a tree in which, for **every** node, the heights of its left and right subtrees differ by **at most 1**.",
+      constraints: [
+        "The number of nodes is in the range `[0, 5000]`.",
+        "`-10^4 <= Node.val <= 10^4`"
+      ],
+      notes: [
+        "The balance condition must hold at **every** node, not just the root.",
+        "An empty tree is balanced.",
+        "Being balanced at the root does not imply balance deeper down — a subtree can be skewed."
+      ],
+      examples: [
+        {
+          input: "root = [3,9,20,null,null,15,7]",
+          output: "true",
+          reasoning: "At every node the two subtree heights differ by at most 1.",
+          visual:
+            "```\n" +
+            "        3          left height 1, right height 2\n" +
+            "       / \\         |1 - 2| = 1  OK everywhere\n" +
+            "      9  20\n" +
+            "        /  \\\n" +
+            "       15   7\n" +
+            "```"
+        },
+        {
+          input: "root = [1,2,2,3,3,null,null,4,4]",
+          output: "false",
+          reasoning: "The left subtree grows two levels deeper than the right at the root, so heights differ by more than 1.",
+          visual:
+            "```\n" +
+            "         1        left height 3, right height 1\n" +
+            "        / \\       |3 - 1| = 2  -> NOT balanced\n" +
+            "       2   2\n" +
+            "      / \\\n" +
+            "     3   3\n" +
+            "    / \\\n" +
+            "   4   4\n" +
+            "```"
+        },
+        {
+          input: "root = []",
+          output: "true",
+          reasoning: "An empty tree is trivially balanced."
+        },
+        {
+          input: "root = [1,2,null,3]",
+          output: "false",
+          reasoning: "The left chain 1 → 2 → 3 has height 2 on the left and 0 on the right at the root: difference 2."
+        }
+      ],
+      approaches: [
+        {
+          name: "Bottom-up height with -1 sentinel",
+          time: "O(n)",
+          space: "O(h)",
+          whenToUse: "The optimal single-pass check — compute height and detect imbalance together, short-circuiting as soon as any node fails.",
+          logic:
+            "**What it asks.** Decide whether the tree is height-balanced: at every node the left and right subtree heights differ by at most 1.\n\n" +
+            "**Why the naive idea fails.** The obvious approach — for each node, call a separate `height()` on its two subtrees and compare — recomputes heights repeatedly from the top down, giving `O(n^2)` on a skewed tree. It also checks balance top-down when the information (heights) is most naturally produced bottom-up. We want to compute each height exactly once and check balance on the way up.\n\n" +
+            "**Key Idea.** Fold the balance check **into** the height computation. Write a DFS that returns a node's height, but the moment it discovers any subtree is unbalanced it returns a sentinel **`-1`** instead. That sentinel propagates all the way up, short-circuiting the rest of the work: if either child returns `-1`, or the two child heights differ by more than 1, this node is unbalanced too and returns `-1`. The tree is balanced iff the root's call is not `-1`.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Define `check(node)` returning the height of `node`, or `-1` if any subtree under it is unbalanced.\n" +
+            "2. Base case: an empty node has height 0 — return 0.\n" +
+            "3. Recurse `left = check(node.left)`; if `left == -1`, return `-1` immediately.\n" +
+            "4. Recurse `right = check(node.right)`; if `right == -1`, return `-1` immediately.\n" +
+            "5. If `abs(left - right) > 1`, return `-1`; otherwise return `1 + max(left, right)`.\n" +
+            "6. The whole tree is balanced iff `check(root) != -1`.\n\n" +
+            "**Why it works.** Because the recursion is bottom-up, by the time a node compares its children's heights those heights are already final and correct. The `-1` sentinel is a truthful 'unbalanced somewhere below' signal that can never be confused with a real height (heights are non-negative), so once any node fails, every ancestor also returns `-1` without doing extra comparisons. A single post-order pass therefore both measures and validates.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Check `left == -1` (and `right == -1`) *before* comparing heights, so imbalance short-circuits and you never treat `-1` as a valid height.\n" +
+            "- Balance must hold at every node — a root-only check is wrong; the recursion guarantees all nodes are tested.\n" +
+            "- An empty tree returns height 0 and counts as balanced.\n\n" +
+            "**Complexity.** Time `O(n)` — each node is visited once thanks to the merged check. Space `O(h)` for the recursion stack.\n\n" +
+            "**Interview mindset.** When a naive solution calls a helper (`height`) inside the traversal and looks quadratic, ask 'can the helper's result be returned as part of the same pass?' — merging the measurement with the check plus a sentinel is the standard fix.",
+          rcs:
+`class Solution:
+    def isBalanced(self, root: Optional[TreeNode]) -> bool:
+        def check(node: Optional[TreeNode]) -> int:
+            if not node:                   # Empty subtree: height 0, balanced.
+                return 0
+            left = check(node.left)        # Height of left, or -1 if unbalanced.
+            if left == -1:                 # Short-circuit: failure bubbles up.
+                return -1
+            right = check(node.right)      # Height of right, or -1 if unbalanced.
+            if right == -1:
+                return -1
+            if abs(left - right) > 1:      # Imbalance HERE -> signal with -1.
+                return -1
+            return 1 + max(left, right)    # Balanced: report this node's height.
+        return check(root) != -1`,
+          plain:
+`class Solution:
+    def isBalanced(self, root: Optional[TreeNode]) -> bool:
+        def check(node: Optional[TreeNode]) -> int:
+            if not node:
+                return 0
+            left = check(node.left)
+            if left == -1:
+                return -1
+            right = check(node.right)
+            if right == -1:
+                return -1
+            if abs(left - right) > 1:
+                return -1
+            return 1 + max(left, right)
+        return check(root) != -1`
+        }
+      ],
+      patternRecognition: [
+        "'Balanced tree' / 'subtree heights differ by <= 1' → bottom-up height DFS.",
+        "Return a sentinel (-1) to fuse the height calc with the balance check in one pass.",
+        "Naive per-node height() calls are O(n^2); the merged pass is O(n)."
+      ],
+      interviewRecall: [
+        "check(node) returns height, or -1 if any subtree is unbalanced.",
+        "Test left == -1 and right == -1 before comparing, to short-circuit.",
+        "Tree is balanced iff check(root) != -1; empty tree is balanced."
+      ]
+    },
+
+    {
+      id: "binary-tree-right-side-view",
+      lc: 199,
+      title: "Binary Tree Right Side View",
+      difficulty: "Medium",
+      category: "Trees",
+      link: "https://leetcode.com/problems/binary-tree-right-side-view/",
+      meta: { pattern: "BFS / DFS by level", dataStructure: "Binary Tree", technique: "Last node per level (or first on right-first DFS)" },
+      description:
+        "Given the `root` of a binary tree, imagine standing on its **right** side. Return the values of the nodes you can see, ordered from **top to bottom**.\n\n" +
+        "The visible node at each depth is the **rightmost** node on that level.",
+      constraints: [
+        "The number of nodes is in the range `[0, 100]`.",
+        "`-100 <= Node.val <= 100`"
+      ],
+      notes: [
+        "You see exactly **one** node per level — the rightmost one.",
+        "A node can be visible even if it is a left child, as long as it is the rightmost node on its level.",
+        "An empty tree returns an empty list."
+      ],
+      examples: [
+        {
+          input: "root = [1,2,3,null,5,null,4]",
+          output: "[1,3,4]",
+          reasoning: "Level 0 shows 1, level 1's rightmost is 3, level 2's rightmost is 4.",
+          visual:
+            "```\n" +
+            "        1        <- see 1\n" +
+            "       / \\\n" +
+            "      2   3      <- see 3 (rightmost)\n" +
+            "       \\   \\\n" +
+            "        5   4    <- see 4 (rightmost)\n" +
+            "```"
+        },
+        {
+          input: "root = [1,null,3]",
+          output: "[1,3]",
+          reasoning: "Only a right child on level 1, so 3 is visible."
+        },
+        {
+          input: "root = [1,2,3,4]",
+          output: "[1,3,4]",
+          reasoning: "On level 2 only node 4 (a left child of 2) exists, so it is the rightmost and is visible.",
+          visual:
+            "```\n" +
+            "        1        <- see 1\n" +
+            "       / \\\n" +
+            "      2   3      <- see 3\n" +
+            "     /\n" +
+            "    4            <- see 4 (only node on this level)\n" +
+            "```"
+        },
+        {
+          input: "root = []",
+          output: "[]",
+          reasoning: "No nodes, nothing to see."
+        }
+      ],
+      approaches: [
+        {
+          name: "BFS taking the last node per level",
+          time: "O(n)",
+          space: "O(n)",
+          whenToUse: "The most intuitive framing — do a level-order traversal and keep the last value drained from each level.",
+          logic:
+            "**What it asks.** Return, top to bottom, the rightmost node value on each level — what you would see looking at the tree from the right.\n\n" +
+            "**Why the naive idea fails.** Simply following right children from the root fails: when a node has no right child, the rightmost node on that level may be reached via a left child instead (see example 3). You cannot decide visibility node by node — you must know the full contents of each level.\n\n" +
+            "**Key Idea.** 'Rightmost per level' is a level-order (BFS) question. Process the tree level by level; the **last** node drained from each level is precisely the one visible from the right. Using the queue-size snapshot to bound each level (the same trick as level-order traversal), you record the final node of every round.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. If the tree is empty, return `[]`.\n" +
+            "2. Seed a FIFO queue (`deque`) with the root.\n" +
+            "3. While the queue is non-empty, snapshot `size = len(queue)` — the count of nodes on this level.\n" +
+            "4. Loop `size` times, popping from the front and enqueuing each node's left then right children.\n" +
+            "5. When the popped node is the **last** of the round (index `size - 1`), append its value to the result.\n" +
+            "6. Return the result after the queue empties.\n\n" +
+            "**Why it works.** The size snapshot isolates exactly one level per round. Because children are pushed left-then-right, the queue holds each level in left-to-right order, so the final node popped in a round is the rightmost node on that level — exactly what is visible.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Snapshot `len(queue)` before the inner loop, or newly pushed children merge into the level.\n" +
+            "- Take the node at index `size - 1` (the last drained), not the first.\n" +
+            "- Push left before right so the last item really is the rightmost.\n\n" +
+            "**Complexity.** Time `O(n)` — each node is enqueued and dequeued once. Space `O(n)` — the queue can hold a full level.\n\n" +
+            "**Interview mindset.** 'One value per level' / 'seen from the side' signals level-order BFS; decide up front which node in the level you keep (here, the last).",
+          rcs:
+`class Solution:
+    def rightSideView(self, root: Optional[TreeNode]) -> List[int]:
+        from collections import deque
+        if not root:                       # Empty tree -> nothing visible.
+            return []
+        result = []
+        queue = deque([root])
+        while queue:
+            size = len(queue)              # Nodes on the current level.
+            for i in range(size):          # Drain exactly this level.
+                node = queue.popleft()
+                if i == size - 1:          # Last node of the level = rightmost.
+                    result.append(node.val)
+                if node.left:              # Enqueue left before right...
+                    queue.append(node.left)
+                if node.right:             # ...so the last popped is rightmost.
+                    queue.append(node.right)
+        return result`,
+          plain:
+`class Solution:
+    def rightSideView(self, root: Optional[TreeNode]) -> List[int]:
+        from collections import deque
+        if not root:
+            return []
+        result = []
+        queue = deque([root])
+        while queue:
+            size = len(queue)
+            for i in range(size):
+                node = queue.popleft()
+                if i == size - 1:
+                    result.append(node.val)
+                if node.left:
+                    queue.append(node.left)
+                if node.right:
+                    queue.append(node.right)
+        return result`
+        },
+        {
+          name: "DFS visiting right first",
+          time: "O(n)",
+          space: "O(h)",
+          whenToUse: "When you prefer recursion or a smaller stack footprint — record the first node seen at each new depth while exploring right before left.",
+          logic:
+            "**What it asks.** The same result — the rightmost value at each depth — built with recursion instead of a queue.\n\n" +
+            "**Why the naive idea fails.** A standard left-first DFS reaches many nodes at each depth; you would have to keep overwriting to find the rightmost. Flipping the visit order removes that ambiguity entirely.\n\n" +
+            "**Key Idea.** Do a DFS that visits the **right** child **before** the left, carrying the current `depth`. The **first** node you encounter at any given depth is, by construction, the rightmost one on that level. So whenever `depth == len(result)` — meaning you are seeing this depth for the very first time — record the node's value.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Start with an empty `result` and call `dfs(root, 0)`.\n" +
+            "2. In `dfs(node, depth)`, return immediately if `node` is `None`.\n" +
+            "3. If `depth == len(result)`, this depth has not been recorded yet — append `node.val` (this is the rightmost node at that depth).\n" +
+            "4. Recurse into the **right** child at `depth + 1` first.\n" +
+            "5. Then recurse into the **left** child at `depth + 1`.\n\n" +
+            "**Why it works.** Because the right subtree is fully explored before the left at every level, the first node visited at each new depth is the one furthest to the right. The `depth == len(result)` guard fires exactly once per depth — on that rightmost node — so each level contributes precisely its visible value, top to bottom.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Recurse right **before** left; the natural left-first order records the wrong node.\n" +
+            "- The `depth == len(result)` check must gate the append, so only the first (rightmost) node per depth is stored.\n" +
+            "- Pass `depth + 1` to children, not a mutated shared counter.\n\n" +
+            "**Complexity.** Time `O(n)` — one visit per node. Space `O(h)` for the recursion stack, better than BFS's `O(n)` queue on wide trees.",
+          rcs:
+`class Solution:
+    def rightSideView(self, root: Optional[TreeNode]) -> List[int]:
+        result = []
+        def dfs(node: Optional[TreeNode], depth: int) -> None:
+            if not node:
+                return
+            if depth == len(result):       # First node seen at this depth...
+                result.append(node.val)    # ...is the rightmost one.
+            dfs(node.right, depth + 1)     # Visit RIGHT before left.
+            dfs(node.left, depth + 1)
+        dfs(root, 0)
+        return result`,
+          plain:
+`class Solution:
+    def rightSideView(self, root: Optional[TreeNode]) -> List[int]:
+        result = []
+        def dfs(node: Optional[TreeNode], depth: int) -> None:
+            if not node:
+                return
+            if depth == len(result):
+                result.append(node.val)
+            dfs(node.right, depth + 1)
+            dfs(node.left, depth + 1)
+        dfs(root, 0)
+        return result`
+        }
+      ],
+      patternRecognition: [
+        "'Seen from the right / left side' / 'one node per level' → level-order BFS.",
+        "BFS: keep the last node drained from each level.",
+        "DFS alternative: visit right first and record the first node at each new depth."
+      ],
+      interviewRecall: [
+        "BFS: for i in range(size), append when i == size - 1.",
+        "DFS: recurse right before left, append when depth == len(result).",
+        "A left child can be visible if it is the only/rightmost node on its level."
+      ]
+    },
+
+    {
+      id: "count-good-nodes-in-binary-tree",
+      lc: 1448,
+      title: "Count Good Nodes in Binary Tree",
+      difficulty: "Medium",
+      category: "Trees",
+      link: "https://leetcode.com/problems/count-good-nodes-in-binary-tree/",
+      meta: { pattern: "DFS carrying path state", dataStructure: "Binary Tree", technique: "Thread max-so-far down the path" },
+      description:
+        "Given the `root` of a binary tree, a node **X** is called **good** if, on the path from the root down to **X**, there is **no** node with a value **greater than** X's value.\n\n" +
+        "Return the number of good nodes in the tree.",
+      constraints: [
+        "The number of nodes is in the range `[1, 10^5]`.",
+        "`-10^4 <= Node.val <= 10^4`"
+      ],
+      notes: [
+        "The **root** is always good — its root-to-node path is just itself.",
+        "A node is good when its value is **>=** the maximum value seen so far on the path (ties count as good, since 'greater than' is strict).",
+        "'Good' depends only on the ancestors on the path, not on siblings or descendants."
+      ],
+      examples: [
+        {
+          input: "root = [3,1,4,3,null,1,5]",
+          output: "4",
+          reasoning: "The good nodes are 3 (root), 4, 5, and the left-subtree 3. Nodes 1 and 1 have a larger ancestor (3) on their path, so they are not good.",
+          visual:
+            "```\n" +
+            "        3        good (root)\n" +
+            "       / \\\n" +
+            "      1   4      1 bad (3>1), 4 good\n" +
+            "     /   / \\\n" +
+            "    3   1   5    3 good (>= max 3), 1 bad, 5 good\n" +
+            "```"
+        },
+        {
+          input: "root = [3,3,null,4,2]",
+          output: "3",
+          reasoning: "3 (root), 3, and 4 are good; the 2 has ancestor 4 on its path (4 > 2), so it is not good.",
+          visual:
+            "```\n" +
+            "        3        good (root)\n" +
+            "       /\n" +
+            "      3          good (3 >= 3)\n" +
+            "     / \\\n" +
+            "    4   2         4 good, 2 bad (4 > 2)\n" +
+            "```"
+        },
+        {
+          input: "root = [1]",
+          output: "1",
+          reasoning: "A single node is always good."
+        },
+        {
+          input: "root = [2,4,4]",
+          output: "3",
+          reasoning: "Both children equal the root (4 >= 2), so all three nodes are good."
+        }
+      ],
+      approaches: [
+        {
+          name: "DFS threading the path maximum",
+          time: "O(n)",
+          space: "O(h)",
+          whenToUse: "Whenever 'goodness' of a node depends on the ancestors along its root-to-node path — carry that path summary as a DFS argument.",
+          logic:
+            "**What it asks.** Count the good nodes: a node is good when no ancestor on its root-to-node path has a strictly greater value.\n\n" +
+            "**Why the naive idea fails.** Re-deriving, for each node, the maximum along its path by walking back up to the root would be `O(n * h)` and awkward. The observation that saves work is that the path maximum for a child is trivially derivable from the parent's path maximum — so it should be passed *down*, not recomputed.\n\n" +
+            "**Key Idea.** Do a top-down DFS that carries `max_so_far`, the largest value seen on the path from the root to (and including) the current node's parent. A node is good exactly when `node.val >= max_so_far`. When you descend, update the running max to `max(max_so_far, node.val)` and pass it to both children. Sum the good-node counts from the two subtrees plus 1 (or 0) for the current node.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Define `dfs(node, max_so_far)` returning the number of good nodes in `node`'s subtree.\n" +
+            "2. If `node` is `None`, return 0.\n" +
+            "3. Set `good = 1 if node.val >= max_so_far else 0` — this node is good iff it is at least the path max.\n" +
+            "4. Compute the updated maximum `new_max = max(max_so_far, node.val)`.\n" +
+            "5. Return `good + dfs(node.left, new_max) + dfs(node.right, new_max)`.\n" +
+            "6. Start the whole traversal with `dfs(root, float('-inf'))` (or `root.val`) so the root always counts.\n\n" +
+            "**Why it works.** `max_so_far` is an exact summary of every ancestor's values (only the maximum matters, since a node is bad iff *any* ancestor exceeds it). Passing it down means each node checks against the correct path maximum in `O(1)`, and updating it before recursing keeps the invariant true for the children. Summing subtree counts tallies every good node exactly once.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- The comparison is `>=`: a node equal to the path maximum is still good, because 'greater than' in the definition is strict.\n" +
+            "- Start with `-inf` (or the root's own value) so the root is always counted as good.\n" +
+            "- Update the max on the way *down* and pass copies to each child — do not share a single mutable max across siblings.\n\n" +
+            "**Complexity.** Time `O(n)` — one visit per node. Space `O(h)` for the recursion stack.\n\n" +
+            "**Interview mindset.** When whether a node qualifies depends on a summary of its ancestors (max, sum, count along the path), thread that summary down as a DFS parameter rather than recomputing it — the defining move for root-to-node path problems.",
+          rcs:
+`class Solution:
+    def goodNodes(self, root: TreeNode) -> int:
+        def dfs(node: Optional[TreeNode], max_so_far: int) -> int:
+            if not node:                   # Empty subtree contributes no good nodes.
+                return 0
+            good = 1 if node.val >= max_so_far else 0  # Good iff >= path max.
+            new_max = max(max_so_far, node.val)        # Extend the path maximum.
+            # Tally this node plus good nodes found in both subtrees.
+            return good + dfs(node.left, new_max) + dfs(node.right, new_max)
+        return dfs(root, float('-inf'))    # Root has no ancestors -> always good.`,
+          plain:
+`class Solution:
+    def goodNodes(self, root: TreeNode) -> int:
+        def dfs(node: Optional[TreeNode], max_so_far: int) -> int:
+            if not node:
+                return 0
+            good = 1 if node.val >= max_so_far else 0
+            new_max = max(max_so_far, node.val)
+            return good + dfs(node.left, new_max) + dfs(node.right, new_max)
+        return dfs(root, float('-inf'))`
+        }
+      ],
+      patternRecognition: [
+        "'Node qualifies based on its root-to-node path' → thread a path summary down the DFS.",
+        "Here the summary is the running maximum; good iff node.val >= max_so_far.",
+        "Return summed subtree counts; the root always counts."
+      ],
+      interviewRecall: [
+        "Carry max_so_far down; count when node.val >= max_so_far (>= for ties).",
+        "new_max = max(max_so_far, node.val) passed to both children.",
+        "Start at -inf so the root is good; O(n) time, O(h) stack."
+      ]
+    },
+
+    {
+      id: "serialize-and-deserialize-binary-tree",
+      lc: 297,
+      title: "Serialize and Deserialize Binary Tree",
+      difficulty: "Hard",
+      category: "Trees",
+      link: "https://leetcode.com/problems/serialize-and-deserialize-binary-tree/",
+      meta: { pattern: "Preorder with null markers", dataStructure: "Binary Tree", technique: "Encode structure via explicit nulls, rebuild with an iterator" },
+      description:
+        "Design an algorithm to **serialize** a binary tree to a string and **deserialize** that string back into the identical tree.\n\n" +
+        "There is no restriction on the encoding format — you only need `deserialize(serialize(root))` to reproduce the original tree exactly (same structure and values).",
+      constraints: [
+        "The number of nodes is in the range `[0, 10^4]`.",
+        "`-1000 <= Node.val <= 1000`"
+      ],
+      notes: [
+        "The empty tree must round-trip correctly (serialize to something deserialize can read back as an empty tree).",
+        "Explicit **null markers** are what make the encoding unambiguous — without them, many different trees share the same value sequence.",
+        "Preorder pairs naturally with reconstruction because the root always comes first in the stream."
+      ],
+      examples: [
+        {
+          input: "root = [1,2,3,null,null,4,5]",
+          output: "\"1,2,#,#,3,4,#,#,5,#,#\"  (then deserialize returns the same tree)",
+          reasoning: "Preorder visits 1, then the left subtree (2 with two null children), then the right subtree (3 with children 4 and 5), writing '#' for each missing child.",
+          visual:
+            "```\n" +
+            "        1\n" +
+            "       / \\\n" +
+            "      2   3        preorder + nulls:\n" +
+            "         / \\       1,2,#,#,3,4,#,#,5,#,#\n" +
+            "        4   5\n" +
+            "```"
+        },
+        {
+          input: "root = []",
+          output: "\"#\"  (deserializes back to an empty tree)",
+          reasoning: "A lone null marker encodes the empty tree."
+        },
+        {
+          input: "root = [1,2]",
+          output: "\"1,2,#,#,#\"",
+          reasoning: "1 has a left child 2 (with two nulls) and a null right child — the markers distinguish this from a tree where 2 is the right child."
+        },
+        {
+          input: "root = [1,null,2]",
+          output: "\"1,#,2,#,#\"",
+          reasoning: "The '#' right after 1 records its missing left child, so 2 is unambiguously the right child — contrast with the previous example."
+        }
+      ],
+      approaches: [
+        {
+          name: "Preorder DFS with null markers",
+          time: "O(n)",
+          space: "O(n)",
+          whenToUse: "The standard, cleanest encoding — preorder writes the root first, and explicit nulls make the shape recoverable in a single left-to-right pass.",
+          logic:
+            "**What it asks.** Design two functions: `serialize` turns a binary tree into a string, and `deserialize` turns that string back into the exact same tree.\n\n" +
+            "**Why the naive idea fails.** Writing just the node values in preorder (or inorder) is **not** reversible: many different tree shapes produce the same value sequence, because you lose track of where children are missing. Storing an inorder plus a preorder can rebuild a tree only when values are unique — not guaranteed here. The structure itself must be encoded, not just the values.\n\n" +
+            "**Key Idea.** Do a **preorder** traversal (node, left, right) and emit an explicit **null marker** (e.g. `#`) for every missing child. These markers remove all ambiguity: the string now records, for every position, whether a child exists. To rebuild, read the tokens left to right with a single moving **index/iterator** — because preorder writes the root before its subtrees, the first unread token is always the next node to construct, and a `#` means 'this child is empty'.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. **Serialize:** recurse in preorder. If the node is `None`, append `#`; otherwise append `str(node.val)`, then recurse left, then right. Join the tokens with commas.\n" +
+            "2. **Deserialize:** split the string into a list of tokens and use an iterator (or an index) to consume them in order.\n" +
+            "3. Define a `build()` helper: read the next token. If it is `#`, return `None`.\n" +
+            "4. Otherwise create a node from the token's integer value, set `node.left = build()` and `node.right = build()` (in that order), and return the node.\n" +
+            "5. Call `build()` once on the token stream to reconstruct the root.\n\n" +
+            "**Why it works.** Preorder guarantees the root token precedes all of its subtree tokens, so consuming tokens strictly left to right rebuilds nodes in the same order they were written. The null markers tell `build()` exactly when to stop descending a branch, so it recurses left and right the same number of times serialize did — reproducing the original structure node for node. This is why the markers make the encoding unambiguous: each token maps to one decision (make a node, or stop), leaving no room for two trees to share an encoding.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Emit a marker for **every** null, including the children of leaves, or you cannot tell a leaf from a node with children.\n" +
+            "- Deserialize must consume tokens in the **same** preorder order — build the left child before the right, matching serialize.\n" +
+            "- Use a shared iterator/index so each `build()` call advances the same cursor; a fresh copy per call would re-read tokens.\n" +
+            "- Handle the empty tree: serialize emits a single `#`, and `build()` reads it as `None`.\n\n" +
+            "**Complexity.** Time `O(n)` for both directions — each node and each null marker is written/read once. Space `O(n)` for the output string plus `O(h)` recursion depth.\n\n" +
+            "**Interview mindset.** 'Serialize a tree' → preorder plus explicit null markers, rebuilt with a single advancing cursor; BFS with null markers works too, but preorder+iterator is the most compact to code correctly.",
+          rcs:
+`class Codec:
+    def serialize(self, root: Optional[TreeNode]) -> str:
+        out = []
+        def dfs(node: Optional[TreeNode]) -> None:
+            if not node:                   # Record every missing child explicitly.
+                out.append('#')
+                return
+            out.append(str(node.val))      # Root first (preorder)...
+            dfs(node.left)                 # ...then left subtree...
+            dfs(node.right)                # ...then right subtree.
+        dfs(root)
+        return ','.join(out)
+
+    def deserialize(self, data: str) -> Optional[TreeNode]:
+        tokens = iter(data.split(','))     # Single advancing cursor.
+        def build() -> Optional[TreeNode]:
+            val = next(tokens)             # Next token in preorder.
+            if val == '#':                 # Marker -> empty child.
+                return None
+            node = TreeNode(int(val))      # Build node, then its children in order.
+            node.left = build()
+            node.right = build()
+            return node
+        return build()`,
+          plain:
+`class Codec:
+    def serialize(self, root: Optional[TreeNode]) -> str:
+        out = []
+        def dfs(node: Optional[TreeNode]) -> None:
+            if not node:
+                out.append('#')
+                return
+            out.append(str(node.val))
+            dfs(node.left)
+            dfs(node.right)
+        dfs(root)
+        return ','.join(out)
+
+    def deserialize(self, data: str) -> Optional[TreeNode]:
+        tokens = iter(data.split(','))
+        def build() -> Optional[TreeNode]:
+            val = next(tokens)
+            if val == '#':
+                return None
+            node = TreeNode(int(val))
+            node.left = build()
+            node.right = build()
+            return node
+        return build()`
+        }
+      ],
+      patternRecognition: [
+        "'Serialize / deserialize a tree' → preorder traversal with explicit null markers.",
+        "Null markers encode the structure so values alone need not be unique.",
+        "Rebuild with a single advancing iterator/index; root-first order makes it work."
+      ],
+      interviewRecall: [
+        "Serialize: preorder, append '#' for every None, join with commas.",
+        "Deserialize: iter over tokens, '#' -> None, else node with left=build(), right=build().",
+        "Emit markers for ALL nulls (even leaf children) and consume in the same order; O(n)/O(n)."
+      ]
     }
   ]);
 })();
