@@ -59,11 +59,15 @@
   color: var(--text); font-size: 15px; font-weight: 700; text-align: left;
 }
 .sec-head:hover { background: var(--bg-3); }
-.sec-caret { color: var(--muted); font-size: 11px; width: 12px; }
+.sec-caret { color: var(--muted); font-size: 11px; width: 12px; transition: transform var(--dur) var(--ease); transform-origin: 50% 50%; }
+.prob-section.collapsed .sec-caret { transform: rotate(-90deg); }
 .sec-title { flex: 1; }
 .sec-badge { font-family: var(--mono); font-size: 11px; color: var(--muted); background: var(--bg-0); border: 1px solid var(--border); padding: 2px 8px; border-radius: 999px; font-weight: 600; }
-.sec-body { padding: 18px 20px; }
-.prob-section.collapsed .sec-body { display: none; }
+/* animated collapse: grid-rows 1fr → 0fr (content-height agnostic) */
+.sec-body-outer { display: grid; grid-template-rows: 1fr; transition: grid-template-rows var(--dur) var(--ease); }
+.prob-section.collapsed .sec-body-outer { grid-template-rows: 0fr; }
+.sec-body { min-height: 0; overflow: hidden; padding: 18px 20px; transition: padding var(--dur) var(--ease); }
+.prob-section.collapsed .sec-body { padding-top: 0; padding-bottom: 0; }
 
 .subhead { font-size: 11px; text-transform: uppercase; letter-spacing: .7px; color: var(--muted); font-weight: 700; margin: 14px 0 6px; }
 .constraints ul, .notes-block ul { margin-left: 20px; }
@@ -167,9 +171,21 @@
 .nav-btn.disabled { opacity: .4; cursor: default; }
 
 /* ---------- modal / revision grid ---------- */
-.modal { position: fixed; inset: 0; z-index: 100; background: rgba(4,7,13,.7); display: grid; place-items: center; padding: 30px; }
+.modal {
+  position: fixed; inset: 0; z-index: 100; background: rgba(4,7,13,.7);
+  display: grid; place-items: center; padding: 30px;
+  opacity: 0; backdrop-filter: blur(0px);
+  transition: opacity var(--dur) var(--ease), backdrop-filter var(--dur) var(--ease);
+}
 .modal.hidden { display: none; }
-.modal-card { background: var(--bg-1); border: 1px solid var(--border); border-radius: var(--radius); width: 100%; max-width: 1050px; max-height: 88vh; display: flex; flex-direction: column; box-shadow: var(--shadow); }
+.modal.open { opacity: 1; backdrop-filter: blur(3px); }
+.modal-card {
+  background: var(--bg-1); border: 1px solid var(--border); border-radius: var(--radius);
+  width: 100%; max-width: 1050px; max-height: 88vh; display: flex; flex-direction: column; box-shadow: var(--shadow);
+  transform: translateY(10px) scale(.985); opacity: .4;
+  transition: transform var(--dur) var(--ease), opacity var(--dur) var(--ease);
+}
+.modal.open .modal-card { transform: none; opacity: 1; }
 .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
 .modal-head h2 { font-size: 17px; }
 .modal-body { overflow: auto; padding: 4px 0; }
@@ -301,3 +317,46 @@
   .srs-grades { grid-template-columns: repeat(2, 1fr); }
   .db-bar-row { grid-template-columns: 120px 1fr 50px; }
 }
+
+/* ============================================================= MOTION & POLISH */
+/* consistent transitions on all interactive controls */
+.ghost-btn, .chip-btn, .icon-btn, .nav-tool-btn, .set-btn, .ct-btn, .app-tab,
+.copy-btn, .nav-btn, .review-due-btn, .status-btn, .clear-btn, .link-open,
+.reveal-overlay, .cat-header, .nav-item, .sec-head, .pattern-link, .rv-reveal,
+.rv-open, .status-group, .link-name, .link-url, .note-area, .search-box input, .filters select {
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
+              color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease),
+              box-shadow var(--dur-fast) var(--ease), filter var(--dur-fast) var(--ease);
+}
+/* hover lift on the main pill buttons */
+.ghost-btn:hover, .chip-btn:hover, .nav-tool-btn:hover, .review-due-btn.has-due:hover {
+  transform: translateY(-1px); box-shadow: var(--lift);
+}
+/* tactile press feedback */
+.ghost-btn:active, .chip-btn:active, .nav-tool-btn:active, .ct-btn:active, .app-tab:active,
+.set-btn:active, .nav-btn:active, .copy-btn:active, .review-due-btn:active, .status-btn:active,
+.icon-btn:active, .clear-btn:active, .srs-grade:active, .rv-reveal:active, .nav-btn:not(.disabled):active {
+  transform: translateY(1px) scale(.99);
+}
+/* nav items slide slightly toward the reader on hover */
+.nav-item:hover { transform: translateX(3px); }
+.cat-caret { transition: transform var(--dur) var(--ease); transform-origin: 50% 50%; }
+/* status glyph + selection settle smoothly */
+.status-btn.sel { transition: background var(--dur) var(--ease), color var(--dur) var(--ease); }
+
+/* keyboard focus rings (mouse clicks stay clean) */
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 6px; }
+button:focus:not(:focus-visible), a:focus:not(:focus-visible) { outline: none; }
+
+/* reading-pane cross-fade on problem navigation */
+.main.nav-enter { animation: navFade var(--dur-slow) var(--ease); }
+@keyframes navFade { from { opacity: 0; } to { opacity: 1; } }
+
+/* sidebar fade when the study set changes */
+.nav.nav-flip { animation: navFade var(--dur) var(--ease); }
+
+/* copy button confirm pulse */
+.copy-btn:active { filter: brightness(1.1); }
+
+/* icon buttons get a subtle rotate on the menu toggle press */
+#menuBtn:active { transform: scale(.9); }

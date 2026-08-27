@@ -57,6 +57,23 @@
     return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
 
+  // ---- modal open/close with enter + exit transitions ----
+  var MODAL_MS = 200; // keep in sync with --dur
+  function openModal(id) {
+    var m = el(id);
+    if (!m) return;
+    m.classList.remove("hidden");
+    // force a reflow so the .open transition runs from the hidden state
+    void m.offsetWidth;
+    m.classList.add("open");
+  }
+  function closeModal(id) {
+    var m = el(id);
+    if (!m || m.classList.contains("hidden")) return;
+    m.classList.remove("open");
+    setTimeout(function () { m.classList.add("hidden"); }, MODAL_MS);
+  }
+
   var STATUS_GLYPH = { "not-started": "○", "learning": "◐", "solved": "✓" };
   var STATUS_LABEL = { "not-started": "Not Started", "learning": "Learning", "solved": "Solved" };
   var DIFF_ORDER = { "Easy": 0, "Medium": 1, "Hard": 2 };
@@ -222,14 +239,16 @@
     var head = h("button", { class: "sec-head" });
     head.innerHTML = '<span class="sec-caret">▾</span><span class="sec-title">' + esc(title) + "</span>" +
       (opts.badge ? '<span class="sec-badge">' + esc(opts.badge) + "</span>" : "");
+    // outer wrapper enables a smooth grid-rows 1fr↔0fr height animation
+    var outer = h("div", { class: "sec-body-outer" });
     var body = h("div", { class: "sec-body" });
     body.appendChild(bodyNode);
+    outer.appendChild(body);
     head.addEventListener("click", function () {
-      var isCollapsed = sec.classList.toggle("collapsed");
-      head.querySelector(".sec-caret").textContent = isCollapsed ? "▸" : "▾";
+      sec.classList.toggle("collapsed");   // caret rotation handled by CSS
     });
     sec.appendChild(head);
-    sec.appendChild(body);
+    sec.appendChild(outer);
     return sec;
   }
 
@@ -267,7 +286,11 @@
         STATUS_GLYPH[s] + " " + STATUS_LABEL[s]);
       b.addEventListener("click", function () {
         applyStatus(p.id, s);
-        renderProblem(); renderSidebar(); renderProgress();
+        // update the selected state in place — avoids a full re-render (and its flash)
+        var btns = statusSel.querySelectorAll(".status-btn");
+        for (var k = 0; k < btns.length; k++) btns[k].classList.remove("sel");
+        b.classList.add("sel");
+        renderSidebar(); renderProgress();
       });
       statusSel.appendChild(b);
     });
@@ -484,6 +507,13 @@
     main.appendChild(footer);
 
     main.scrollTop = prevScroll;
+
+    // Cross-fade the reading pane only on real navigation (not in-place toggles).
+    if (preserveScroll === false) {
+      main.classList.remove("nav-enter");
+      void main.offsetWidth; // restart the animation
+      main.classList.add("nav-enter");
+    }
   }
 
   // ---- spaced repetition ----
@@ -658,17 +688,16 @@
         "<td><code>" + esc(a0.time || "") + "</code></td>" +
         "<td><code>" + esc(a0.space || "") + "</code></td>" +
         '<td class="st st-' + stt + '">' + STATUS_GLYPH[stt] + "</td>";
-      tr.addEventListener("click", function () { modal.classList.add("hidden"); selectProblem(p.id); });
+      tr.addEventListener("click", function () { closeModal("gridModal"); selectProblem(p.id); });
       tbody.appendChild(tr);
     });
     table.appendChild(tbody);
     body.appendChild(table);
-    modal.classList.remove("hidden");
+    openModal("gridModal");
   }
 
   // ============================================================= REVIEW SESSION
   function openReview() {
-    var modal = el("reviewModal");
     var body = el("reviewBody");
     // due cards in the active set, soonest-due first
     var queue = activeProblems().filter(function (p) { return store.isDue(p.id); })
@@ -685,7 +714,7 @@
           "<p class='muted'>" + (startTotal ? "You reviewed " + startTotal + " card" + (startTotal === 1 ? "" : "s") + "." : "Nothing was due.") +
           " Come back tomorrow for the next batch.</p>";
         var close = h("button", { class: "ghost-btn" }, "Close");
-        close.addEventListener("click", closeReview);
+        close.addEventListener("click", function () { closeModal("reviewModal"); });
         d.appendChild(close);
         body.appendChild(d);
         return;
@@ -721,7 +750,7 @@
       card.appendChild(answer);
 
       var open = h("button", { class: "rv-open" }, "Open full problem ↗");
-      open.addEventListener("click", function () { closeReview(); selectProblem(p.id); });
+      open.addEventListener("click", function () { closeModal("reviewModal"); selectProblem(p.id); });
       card.appendChild(open);
 
       var grades = h("div", { class: "srs-grades rv-grades" });
@@ -741,10 +770,8 @@
       body.appendChild(card);
     }
 
-    function closeReview() { modal.classList.add("hidden"); }
-    modal._close = closeReview;
     renderCard();
-    modal.classList.remove("hidden");
+    openModal("reviewModal");
   }
 
   // ============================================================= DASHBOARD
@@ -759,7 +786,6 @@
   }
 
   function openDashboard() {
-    var modal = el("dashModal");
     var body = el("dashBody");
     body.innerHTML = "";
     var set = activeProblems();
@@ -845,7 +871,7 @@
     heatWrap.appendChild(buildHeatmap());
     body.appendChild(heatWrap);
 
-    modal.classList.remove("hidden");
+    openModal("dashModal");
   }
 
   function buildHeatmap() {
@@ -903,6 +929,8 @@
       if (first) { state.currentId = first.id; store.setPref("lastProblem", first.id); }
     }
     renderAll();
+    var nav = el("nav");
+    if (nav) { nav.classList.remove("nav-flip"); void nav.offsetWidth; nav.classList.add("nav-flip"); }
   }
 
   function wireControls() {
@@ -959,20 +987,20 @@
 
     // grid
     el("gridBtn").addEventListener("click", openGrid);
-    el("gridClose").addEventListener("click", function () { el("gridModal").classList.add("hidden"); });
-    el("gridModal").addEventListener("click", function (e) { if (e.target === el("gridModal")) el("gridModal").classList.add("hidden"); });
+    el("gridClose").addEventListener("click", function () { closeModal("gridModal"); });
+    el("gridModal").addEventListener("click", function (e) { if (e.target === el("gridModal")) closeModal("gridModal"); });
 
     // dashboard
     var dashBtn = el("dashBtn");
     if (dashBtn) dashBtn.addEventListener("click", openDashboard);
-    el("dashClose").addEventListener("click", function () { el("dashModal").classList.add("hidden"); });
-    el("dashModal").addEventListener("click", function (e) { if (e.target === el("dashModal")) el("dashModal").classList.add("hidden"); });
+    el("dashClose").addEventListener("click", function () { closeModal("dashModal"); });
+    el("dashModal").addEventListener("click", function (e) { if (e.target === el("dashModal")) closeModal("dashModal"); });
 
     // review session
     var reviewDueBtn = el("reviewDueBtn");
     if (reviewDueBtn) reviewDueBtn.addEventListener("click", function () { if (!reviewDueBtn.disabled) openReview(); });
-    el("reviewClose").addEventListener("click", function () { el("reviewModal").classList.add("hidden"); });
-    el("reviewModal").addEventListener("click", function (e) { if (e.target === el("reviewModal")) el("reviewModal").classList.add("hidden"); });
+    el("reviewClose").addEventListener("click", function () { closeModal("reviewModal"); });
+    el("reviewModal").addEventListener("click", function (e) { if (e.target === el("reviewModal")) closeModal("reviewModal"); });
 
     // export / import / reset
     el("exportBtn").addEventListener("click", function () {
@@ -1019,9 +1047,9 @@
       }
       if (e.key === "/") { e.preventDefault(); search.focus(); return; }
       if (e.key === "Escape") {
-        el("gridModal").classList.add("hidden");
-        el("dashModal").classList.add("hidden");
-        el("reviewModal").classList.add("hidden");
+        closeModal("gridModal");
+        closeModal("dashModal");
+        closeModal("reviewModal");
         return;
       }
       var idx = ALL.findIndex(function (x) { return x.id === state.currentId; });
