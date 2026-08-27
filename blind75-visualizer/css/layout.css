@@ -122,7 +122,10 @@
 .menu-only { display: inline-flex; }
 @media (min-width: 901px) {
   .shell { transition: grid-template-columns .2s ease; }
-  body.sidebar-collapsed .shell { grid-template-columns: 0 1fr; }
+  /* Single-column grid so the sole remaining item (main) fills the width.
+     (Keeping a "0 1fr" grid while display:none-ing the sidebar would drop
+     main into the 0-width first track and blank the page.) */
+  body.sidebar-collapsed .shell { grid-template-columns: 1fr; }
   body.sidebar-collapsed .sidebar { display: none; }
 }
 
