@@ -1000,9 +1000,15 @@
       }
     });
 
-    // sidebar toggle (mobile)
+    // sidebar toggle — off-canvas drawer on mobile, collapse-to-full-width on desktop
     el("menuBtn").addEventListener("click", function () {
-      document.body.classList.toggle("sidebar-open");
+      if (window.matchMedia("(max-width: 900px)").matches) {
+        document.body.classList.toggle("sidebar-open");
+      } else {
+        var collapsed = !document.body.classList.contains("sidebar-collapsed");
+        document.body.classList.toggle("sidebar-collapsed", collapsed);
+        store.setPref("sidebarCollapsed", collapsed);
+      }
     });
 
     // keyboard nav
@@ -1053,6 +1059,9 @@
   }
 
   function boot() {
+    // restore persisted desktop sidebar-collapse state
+    if (store.getPref("sidebarCollapsed")) document.body.classList.add("sidebar-collapsed");
+
     // deep-link via hash
     if (location.hash) {
       var id = location.hash.slice(1);
