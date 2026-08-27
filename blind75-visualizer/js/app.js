@@ -91,6 +91,8 @@
         var st = store.getStatus(p.id);
         if (state.filterStatus === "review") {
           if (!store.isReview(p.id)) return;
+        } else if (state.filterStatus === "due") {
+          if (!store.isDue(p.id)) return;
         } else if (st !== state.filterStatus) return;
       }
       if (state.filterPattern !== "all" && (!p.meta || p.meta.pattern !== state.filterPattern)) return;
@@ -171,6 +173,16 @@
     if (tc) tc.textContent = total;
     var lbl = el("setLabel");
     if (lbl) lbl.textContent = state.setFilter === "blind75" ? "Blind 75" : "NeetCode 150";
+
+    // spaced-repetition due count (within the active set)
+    var due = store.countDue(set.map(function (p) { return p.id; }));
+    var rb = el("reviewDueBtn");
+    if (rb) {
+      rb.querySelector(".rd-count").textContent = due;
+      rb.classList.toggle("has-due", due > 0);
+      rb.disabled = due === 0;
+      rb.title = due > 0 ? "Start a review session (" + due + " due)" : "No cards due for review";
+    }
   }
 
   // ============================================================= CODE BLOCK
@@ -254,7 +266,7 @@
       var b = h("button", { class: "status-btn st-" + s + (st === s ? " sel" : ""), "data-s": s },
         STATUS_GLYPH[s] + " " + STATUS_LABEL[s]);
       b.addEventListener("click", function () {
-        store.setStatus(p.id, s);
+        applyStatus(p.id, s);
         renderProblem(); renderSidebar(); renderProgress();
       });
       statusSel.appendChild(b);
@@ -310,6 +322,9 @@
       metaBox.appendChild(cell);
     });
     main.appendChild(metaBox);
+
+    // ---- spaced-repetition review ----
+    main.appendChild(buildSrsSection(p));
 
     // ---- animation / visualization links (above the description) ----
     main.appendChild(buildLinksSection(p));
@@ -471,6 +486,85 @@
     main.scrollTop = prevScroll;
   }
 
+  // ---- spaced repetition ----
+  var GRADES = [
+    { key: "again", label: "Again", hint: "Blanked / wrong", cls: "g-again" },
+    { key: "hard", label: "Hard", hint: "Right, but a struggle", cls: "g-hard" },
+    { key: "good", label: "Good", hint: "Recalled with effort", cls: "g-good" },
+    { key: "easy", label: "Easy", hint: "Instant / trivial", cls: "g-easy" }
+  ];
+
+  function humanWhen(dueMs) {
+    var day = 86400000;
+    if (dueMs <= Date.now()) return "today";
+    var start = new Date(); start.setHours(0, 0, 0, 0);
+    var diff = Math.round((dueMs - start.getTime()) / day);
+    if (diff <= 0) return "today";
+    if (diff === 1) return "tomorrow";
+    if (diff < 7) return "in " + diff + " days";
+    if (diff < 30) return "in " + Math.round(diff / 7) + " week" + (diff < 14 ? "" : "s");
+    return "in " + Math.round(diff / 30) + " month" + (diff < 60 ? "" : "s");
+  }
+
+  function buildSrsSection(p) {
+    var wrap = h("div", { class: "srs-wrap" });
+    var rec = store.getSrs(p.id);
+
+    var statusLine = h("div", { class: "srs-status" });
+    if (!rec) {
+      statusLine.innerHTML = '<span class="srs-badge srs-new">New</span> ' +
+        '<span class="muted">Not in your review schedule yet. Grade your recall to start spaced repetition.</span>';
+    } else {
+      var due = store.isDue(p.id);
+      var when = humanWhen(rec.due);
+      statusLine.innerHTML =
+        '<span class="srs-badge ' + (due ? "srs-due" : "srs-ok") + '">' + (due ? "Due now" : "Scheduled") + "</span> " +
+        '<span class="muted">Next review <b class="srs-when">' + when + "</b>" +
+        " · " + rec.reps + " review" + (rec.reps === 1 ? "" : "s") +
+        (rec.lapses ? " · " + rec.lapses + " lapse" + (rec.lapses === 1 ? "" : "s") : "") +
+        "</span>";
+    }
+    wrap.appendChild(statusLine);
+
+    var hint = h("div", { class: "srs-hint muted" },
+      "How well did you recall the full approach? Your rating schedules the next review.");
+    wrap.appendChild(hint);
+
+    var row = h("div", { class: "srs-grades" });
+    GRADES.forEach(function (g) {
+      // preview the interval this grade would produce
+      var btn = h("button", { class: "srs-grade " + g.cls, title: g.hint });
+      btn.innerHTML = '<span class="sg-label">' + g.label + "</span>" +
+        '<span class="sg-hint">' + g.hint + "</span>";
+      btn.addEventListener("click", function () {
+        var nrec = store.reviewCard(p.id, g.key);
+        // grading implies you've studied it — nudge status to at least "learning"
+        if (store.getStatus(p.id) === "not-started") applyStatus(p.id, "learning");
+        renderProblem(); renderSidebar(); renderProgress();
+        toast("Scheduled — next review " + humanWhen(nrec.due) + ".");
+      });
+      row.appendChild(btn);
+    });
+    wrap.appendChild(row);
+
+    return section("srs", "Spaced Repetition Review", wrap,
+      { badge: rec ? (store.isDue(p.id) ? "Due" : humanWhen(rec.due)) : "New" });
+  }
+
+  // small transient toast
+  var toastTimer;
+  function toast(msg) {
+    var t = el("toast");
+    if (!t) {
+      t = h("div", { class: "toast", id: "toast" });
+      document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove("show"); }, 1800);
+  }
+
   function buildLinksSection(p) {
     var linksWrap = h("div", { class: "links-wrap" });
     linksWrap.appendChild(h("div", { class: "links-hint" },
@@ -572,6 +666,227 @@
     modal.classList.remove("hidden");
   }
 
+  // ============================================================= REVIEW SESSION
+  function openReview() {
+    var modal = el("reviewModal");
+    var body = el("reviewBody");
+    // due cards in the active set, soonest-due first
+    var queue = activeProblems().filter(function (p) { return store.isDue(p.id); })
+      .sort(function (a, b) { return store.getSrs(a.id).due - store.getSrs(b.id).due; });
+    var startTotal = queue.length;
+    var done = 0;
+
+    function renderCard() {
+      body.innerHTML = "";
+      if (!queue.length) {
+        var d = h("div", { class: "rv-done" });
+        d.innerHTML = "<div class='rv-done-emoji'>✓</div>" +
+          "<h3>Review complete</h3>" +
+          "<p class='muted'>" + (startTotal ? "You reviewed " + startTotal + " card" + (startTotal === 1 ? "" : "s") + "." : "Nothing was due.") +
+          " Come back tomorrow for the next batch.</p>";
+        var close = h("button", { class: "ghost-btn" }, "Close");
+        close.addEventListener("click", closeReview);
+        d.appendChild(close);
+        body.appendChild(d);
+        return;
+      }
+      var p = queue[0];
+      var a = p.approaches[p.approaches.length - 1] || {};
+      var card = h("div", { class: "rv-card" });
+
+      var prog = h("div", { class: "rv-progress" });
+      prog.innerHTML = "<span>" + (done + 1) + " / " + (done + queue.length) + "</span>" +
+        "<div class='rv-track'><div class='rv-fill' style='width:" +
+        (startTotal ? Math.round((done / startTotal) * 100) : 0) + "%'></div></div>";
+      card.appendChild(prog);
+
+      var q = h("div", { class: "rv-q" });
+      q.innerHTML =
+        "<div class='rv-meta'><span class='ph-lc'>#" + p.lc + "</span>" +
+        "<span class='ph-diff d-" + p.difficulty.toLowerCase() + "'>" + p.difficulty + "</span>" +
+        "<span class='ph-cat'>" + esc(p.category) + "</span></div>" +
+        "<h2 class='rv-title'>" + esc(p.title) + "</h2>" +
+        "<p class='muted'>Recall the approach and its complexity before revealing.</p>";
+      card.appendChild(q);
+
+      var answer = h("div", { class: "rv-answer blurred" });
+      answer.innerHTML =
+        "<div class='rv-a-row'><span class='rv-a-k'>Pattern</span><span class='rv-a-v'>" + esc((p.meta && p.meta.pattern) || "—") + "</span></div>" +
+        "<div class='rv-a-row'><span class='rv-a-k'>Approach</span><span class='rv-a-v'>" + esc(a.name || "—") + "</span></div>" +
+        "<div class='rv-a-row'><span class='rv-a-k'>Time</span><span class='rv-a-v mono'>" + esc(a.time || "—") + "</span></div>" +
+        "<div class='rv-a-row'><span class='rv-a-k'>Space</span><span class='rv-a-v mono'>" + esc(a.space || "—") + "</span></div>";
+      var reveal = h("button", { class: "rv-reveal" }, "👁 Reveal answer");
+      reveal.addEventListener("click", function () { answer.classList.remove("blurred"); reveal.remove(); grades.classList.add("show"); });
+      card.appendChild(reveal);
+      card.appendChild(answer);
+
+      var open = h("button", { class: "rv-open" }, "Open full problem ↗");
+      open.addEventListener("click", function () { closeReview(); selectProblem(p.id); });
+      card.appendChild(open);
+
+      var grades = h("div", { class: "srs-grades rv-grades" });
+      GRADES.forEach(function (g) {
+        var btn = h("button", { class: "srs-grade " + g.cls, title: g.hint });
+        btn.innerHTML = "<span class='sg-label'>" + g.label + "</span><span class='sg-hint'>" + g.hint + "</span>";
+        btn.addEventListener("click", function () {
+          store.reviewCard(p.id, g.key);
+          if (store.getStatus(p.id) === "not-started") applyStatus(p.id, "learning");
+          queue.shift(); done++;
+          renderCard();
+          renderSidebar(); renderProgress();
+        });
+        grades.appendChild(btn);
+      });
+      card.appendChild(grades);
+      body.appendChild(card);
+    }
+
+    function closeReview() { modal.classList.add("hidden"); }
+    modal._close = closeReview;
+    renderCard();
+    modal.classList.remove("hidden");
+  }
+
+  // ============================================================= DASHBOARD
+  function bar(label, value, total, cls) {
+    var pct = total ? Math.round((value / total) * 100) : 0;
+    var row = h("div", { class: "db-bar-row" });
+    row.innerHTML =
+      "<div class='db-bar-label'>" + esc(label) + "</div>" +
+      "<div class='db-bar-track'><div class='db-bar-fill " + (cls || "") + "' style='width:" + pct + "%'></div></div>" +
+      "<div class='db-bar-val'>" + value + "/" + total + "</div>";
+    return row;
+  }
+
+  function openDashboard() {
+    var modal = el("dashModal");
+    var body = el("dashBody");
+    body.innerHTML = "";
+    var set = activeProblems();
+    var ids = set.map(function (p) { return p.id; });
+    var solved = 0, learning = 0, notStarted = 0, reviewFlag = 0;
+    set.forEach(function (p) {
+      var s = store.getStatus(p.id);
+      if (s === "solved") solved++; else if (s === "learning") learning++; else notStarted++;
+      if (store.isReview(p.id)) reviewFlag++;
+    });
+    var due = store.countDue(ids);
+    var scheduled = ids.filter(function (id) { return store.isScheduled(id); }).length;
+    var streak = store.currentStreak();
+
+    // ---- headline stat cards ----
+    var stats = h("div", { class: "db-stats" });
+    [
+      ["Solved", solved + " / " + set.length, "of the " + (state.setFilter === "blind75" ? "Blind 75" : "NeetCode 150")],
+      ["Learning", learning, "in progress"],
+      ["Not started", notStarted, "remaining"],
+      ["Day streak", streak + (streak === 1 ? " day" : " days"), streak ? "keep it going" : "study today to start"],
+      ["Due now", due, scheduled + " scheduled"],
+      ["Flagged", reviewFlag, "starred for review"]
+    ].forEach(function (s) {
+      var c = h("div", { class: "db-stat" });
+      c.innerHTML = "<div class='db-stat-v'>" + esc(String(s[1])) + "</div>" +
+        "<div class='db-stat-k'>" + esc(s[0]) + "</div>" +
+        "<div class='db-stat-sub muted'>" + esc(s[2]) + "</div>";
+      stats.appendChild(c);
+    });
+    body.appendChild(stats);
+
+    // ---- by difficulty ----
+    var diffWrap = h("div", { class: "db-block" });
+    diffWrap.appendChild(h("h3", null, "By difficulty"));
+    ["Easy", "Medium", "Hard"].forEach(function (d) {
+      var inD = set.filter(function (p) { return p.difficulty === d; });
+      var sv = inD.filter(function (p) { return store.getStatus(p.id) === "solved"; }).length;
+      diffWrap.appendChild(bar(d, sv, inD.length, "d-fill-" + d.toLowerCase()));
+    });
+    body.appendChild(diffWrap);
+
+    // ---- by category (weakest first) ----
+    var catWrap = h("div", { class: "db-block" });
+    catWrap.appendChild(h("h3", null, "By category — weakest first"));
+    var cats = B.byCategory().map(function (g) {
+      var inSet = g.problems.filter(inActiveSet);
+      var sv = inSet.filter(function (p) { return store.getStatus(p.id) === "solved"; }).length;
+      return { name: g.category, solved: sv, total: inSet.length };
+    }).filter(function (c) { return c.total > 0; });
+    cats.sort(function (a, b) { return (a.solved / a.total) - (b.solved / b.total); });
+    cats.forEach(function (c) {
+      var row = bar(c.name, c.solved, c.total);
+      if (c.solved / c.total < 0.5) row.classList.add("db-weak");
+      catWrap.appendChild(row);
+    });
+    body.appendChild(catWrap);
+
+    // ---- by pattern (top, weakest first) ----
+    var patMap = {};
+    set.forEach(function (p) {
+      var pat = p.meta && p.meta.pattern; if (!pat) return;
+      if (!patMap[pat]) patMap[pat] = { solved: 0, total: 0 };
+      patMap[pat].total++;
+      if (store.getStatus(p.id) === "solved") patMap[pat].solved++;
+    });
+    var pats = Object.keys(patMap).map(function (k) { return { name: k, solved: patMap[k].solved, total: patMap[k].total }; });
+    if (pats.length) {
+      pats.sort(function (a, b) { return (a.solved / a.total) - (b.solved / b.total) || b.total - a.total; });
+      var patWrap = h("div", { class: "db-block" });
+      patWrap.appendChild(h("h3", null, "By pattern"));
+      pats.slice(0, 12).forEach(function (c) {
+        var row = bar(c.name, c.solved, c.total);
+        if (c.solved / c.total < 0.5) row.classList.add("db-weak");
+        patWrap.appendChild(row);
+      });
+      body.appendChild(patWrap);
+    }
+
+    // ---- activity heatmap (last 26 weeks) ----
+    var heatWrap = h("div", { class: "db-block" });
+    heatWrap.appendChild(h("h3", null, "Activity — last 26 weeks"));
+    heatWrap.appendChild(buildHeatmap());
+    body.appendChild(heatWrap);
+
+    modal.classList.remove("hidden");
+  }
+
+  function buildHeatmap() {
+    var act = store.activityMap();
+    var day = 86400000;
+    var weeks = 26;
+    var today = new Date(); today.setHours(0, 0, 0, 0);
+    // start on the Sunday of the earliest visible week
+    var startBack = weeks * 7 - 1;
+    var start = new Date(today.getTime() - startBack * day);
+    start = new Date(start.getTime() - start.getDay() * day); // back to Sunday
+    var grid = h("div", { class: "heat-grid" });
+    var max = 0;
+    for (var k in act) if (act[k] > max) max = act[k];
+    function ds(dObj) {
+      var m = dObj.getMonth() + 1, dd = dObj.getDate();
+      return dObj.getFullYear() + "-" + (m < 10 ? "0" : "") + m + "-" + (dd < 10 ? "0" : "") + dd;
+    }
+    var cols = h("div", { class: "heat-cols" });
+    var cur = new Date(start.getTime());
+    while (cur.getTime() <= today.getTime()) {
+      var col = h("div", { class: "heat-col" });
+      for (var r = 0; r < 7; r++) {
+        var future = cur.getTime() > today.getTime();
+        var count = act[ds(cur)] || 0;
+        var level = count === 0 ? 0 : (max <= 1 ? 1 : Math.min(4, Math.ceil((count / max) * 4)));
+        var cell = h("div", { class: "heat-cell l" + level + (future ? " heat-future" : "") });
+        if (!future) cell.title = ds(cur) + " · " + count + " action" + (count === 1 ? "" : "s");
+        col.appendChild(cell);
+        cur = new Date(cur.getTime() + day);
+      }
+      cols.appendChild(col);
+    }
+    grid.appendChild(cols);
+    var legend = h("div", { class: "heat-legend muted" });
+    legend.innerHTML = "Less <span class='heat-cell l0'></span><span class='heat-cell l1'></span>" +
+      "<span class='heat-cell l2'></span><span class='heat-cell l3'></span><span class='heat-cell l4'></span> More";
+    grid.appendChild(legend);
+    return grid;
+  }
+
   // ============================================================= CONTROLS
   function applySetFilter(value) {
     state.setFilter = value;
@@ -647,6 +962,18 @@
     el("gridClose").addEventListener("click", function () { el("gridModal").classList.add("hidden"); });
     el("gridModal").addEventListener("click", function (e) { if (e.target === el("gridModal")) el("gridModal").classList.add("hidden"); });
 
+    // dashboard
+    var dashBtn = el("dashBtn");
+    if (dashBtn) dashBtn.addEventListener("click", openDashboard);
+    el("dashClose").addEventListener("click", function () { el("dashModal").classList.add("hidden"); });
+    el("dashModal").addEventListener("click", function (e) { if (e.target === el("dashModal")) el("dashModal").classList.add("hidden"); });
+
+    // review session
+    var reviewDueBtn = el("reviewDueBtn");
+    if (reviewDueBtn) reviewDueBtn.addEventListener("click", function () { if (!reviewDueBtn.disabled) openReview(); });
+    el("reviewClose").addEventListener("click", function () { el("reviewModal").classList.add("hidden"); });
+    el("reviewModal").addEventListener("click", function (e) { if (e.target === el("reviewModal")) el("reviewModal").classList.add("hidden"); });
+
     // export / import / reset
     el("exportBtn").addEventListener("click", function () {
       var blob = new Blob([store.exportJSON()], { type: "application/json" });
@@ -685,7 +1012,12 @@
         return;
       }
       if (e.key === "/") { e.preventDefault(); search.focus(); return; }
-      if (e.key === "Escape") { el("gridModal").classList.add("hidden"); return; }
+      if (e.key === "Escape") {
+        el("gridModal").classList.add("hidden");
+        el("dashModal").classList.add("hidden");
+        el("reviewModal").classList.add("hidden");
+        return;
+      }
       var idx = ALL.findIndex(function (x) { return x.id === state.currentId; });
       if (e.key === "j" || e.key === "ArrowDown") { if (ALL[idx + 1]) { e.preventDefault(); selectProblem(ALL[idx + 1].id); } }
       if (e.key === "k" || e.key === "ArrowUp") { if (ALL[idx - 1]) { e.preventDefault(); selectProblem(ALL[idx - 1].id); } }
@@ -699,8 +1031,15 @@
   }
 
   function setStatusShortcut(s) {
-    store.setStatus(state.currentId, s);
+    applyStatus(state.currentId, s);
     renderProblem(); renderSidebar(); renderProgress();
+  }
+
+  // Set status and, on a fresh transition to "solved", log a day of activity.
+  function applyStatus(id, s) {
+    var prev = store.getStatus(id);
+    store.setStatus(id, s);
+    if (s === "solved" && prev !== "solved") store.logSolve();
   }
 
   function applyTheme(theme) {

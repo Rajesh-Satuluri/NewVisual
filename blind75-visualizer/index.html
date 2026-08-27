@@ -20,6 +20,7 @@
       <span class="brand-text">NeetCode <b>150</b> · DSA Study Lab</span>
     </a>
     <div class="topbar-right">
+      <button id="dashBtn" class="ghost-btn" title="Progress dashboard">📊 Dashboard</button>
       <button id="gridBtn" class="ghost-btn" title="Revision grid">▦ Revision grid</button>
       <button id="exportBtn" class="ghost-btn" title="Download progress as JSON">↓ Export</button>
       <button id="importBtn" class="ghost-btn" title="Import progress JSON">↑ Import</button>
@@ -44,6 +45,9 @@
         </div>
         <div class="progress-track"><div id="progressFill" class="progress-fill"></div></div>
         <div class="progress-foot muted">of <span id="totalCount">150</span> <span id="setLabel">NeetCode 150</span> problems</div>
+        <button id="reviewDueBtn" class="review-due-btn" disabled title="No cards due for review">
+          🔁 Review <span class="rd-count">0</span> due
+        </button>
       </div>
 
       <div class="search-box">
@@ -63,6 +67,7 @@
           <option value="learning">Learning</option>
           <option value="solved">Solved</option>
           <option value="review">★ Review queue</option>
+          <option value="due">🔁 Due for review</option>
         </select>
         <select id="filterPattern" title="Filter by pattern">
           <option value="all">All patterns</option>
@@ -90,6 +95,28 @@
         <button id="gridClose" class="icon-btn">✕</button>
       </div>
       <div id="gridBody" class="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- ============ DASHBOARD MODAL ============ -->
+  <div id="dashModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2>📊 Progress Dashboard</h2>
+        <button id="dashClose" class="icon-btn">✕</button>
+      </div>
+      <div id="dashBody" class="modal-body dash-body"></div>
+    </div>
+  </div>
+
+  <!-- ============ REVIEW SESSION MODAL ============ -->
+  <div id="reviewModal" class="modal hidden">
+    <div class="modal-card modal-card-sm">
+      <div class="modal-head">
+        <h2>🔁 Review Session</h2>
+        <button id="reviewClose" class="icon-btn">✕</button>
+      </div>
+      <div id="reviewBody" class="modal-body review-body"></div>
     </div>
   </div>
 
