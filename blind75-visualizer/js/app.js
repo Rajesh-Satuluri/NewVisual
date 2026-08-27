@@ -110,15 +110,18 @@
       if (!matching.length) return;
 
       var collapsed = store.isCatCollapsed(g.category);
-      var inSet = activeProblems(g.problems);
-      var solvedInCat = inSet.filter(function (p) { return store.getStatus(p.id) === "solved"; }).length;
+      // Badge reflects the CURRENTLY-VISIBLE problems (after search + difficulty +
+      // status + pattern + set filters) — the same list rendered below — so it
+      // stays in sync with what the user is actually looking at. Numerator is the
+      // solved count among those visible.
+      var solvedInCat = matching.filter(function (p) { return store.getStatus(p.id) === "solved"; }).length;
 
       var header = h("button", { class: "cat-header", "data-cat": g.category });
       header.innerHTML =
         '<span class="cat-caret">' + (collapsed ? "▸" : "▾") + "</span>" +
         '<span class="cat-icon">' + (B.CATEGORY_ICON[g.category] || "•") + "</span>" +
         '<span class="cat-name">' + esc(g.category) + "</span>" +
-        '<span class="cat-count">' + solvedInCat + "/" + inSet.length + "</span>";
+        '<span class="cat-count">' + solvedInCat + "/" + matching.length + "</span>";
       header.addEventListener("click", function () {
         store.setCatCollapsed(g.category, !store.isCatCollapsed(g.category));
         renderSidebar();
