@@ -27,6 +27,13 @@
   --mono: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, Menlo, Consolas, monospace;
   --topbar-h: 56px;
   --sidebar-w: 320px;
+  /* motion */
+  --dur-fast: 120ms;
+  --dur: 200ms;
+  --dur-slow: 320ms;
+  --ease: cubic-bezier(.2, .8, .2, 1);   /* smooth deceleration for enters */
+  --ease-in: cubic-bezier(.4, 0, 1, 1);  /* accelerate for exits */
+  --lift: 0 6px 20px rgba(0, 0, 0, .22);
 }
 
 html[data-theme="light"] {
@@ -114,4 +121,15 @@ code {
   background: none; border: none; padding: 0;
   color: #cbd5e1; font-size: 13px; line-height: 1.55;
   white-space: pre;
+}
+
+/* ============================================================= REDUCED MOTION */
+/* Respect the OS "reduce motion" setting — disable all animation/transition. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
