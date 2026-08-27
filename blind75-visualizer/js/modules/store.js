@@ -11,6 +11,8 @@
     review: {},     // problemId -> true (flagged for review)
     notes: {},      // problemId -> string
     links: {},      // problemId -> [{name,url}, {name,url}] (animation/visualization links)
+    srs: {},        // problemId -> { ease, interval(days), reps, lapses, due(ms), last(ms) }
+    activity: {},   // "YYYY-MM-DD" -> count of solves/reviews that day (for the heatmap + streak)
     prefs: {
       theme: "dark",
       codeMode: "rcs",       // "rcs" | "plain"
@@ -31,6 +33,8 @@
       data.review = data.review || {};
       data.notes = data.notes || {};
       data.links = data.links || {};
+      data.srs = data.srs || {};
+      data.activity = data.activity || {};
       data.prefs = Object.assign({}, DEFAULT.prefs, data.prefs || {});
       data.prefs.collapsedCats = data.prefs.collapsedCats || {};
       return data;
@@ -123,6 +127,69 @@
       save();
     },
 
+    // ---- spaced repetition (SM-2 lite) ----
+    // Ratings: "again" | "hard" | "good" | "easy".
+    getSrs: function (id) {
+      return state.srs[id] || null;
+    },
+    // Apply a grade, reschedule the card, log the review as activity.
+    reviewCard: function (id, rating) {
+      var DAY = 86400000;
+      var now = Date.now();
+      var rec = state.srs[id] || { ease: 2.5, interval: 0, reps: 0, lapses: 0, due: now, last: 0 };
+      if (rating === "again") {
+        rec.reps = 0; rec.lapses++; rec.ease = Math.max(1.3, rec.ease - 0.2); rec.interval = 0;
+      } else if (rating === "hard") {
+        rec.ease = Math.max(1.3, rec.ease - 0.15);
+        rec.interval = rec.reps === 0 ? 1 : Math.max(1, Math.round(rec.interval * 1.2));
+        rec.reps++;
+      } else if (rating === "good") {
+        rec.interval = rec.reps === 0 ? 1 : (rec.reps === 1 ? 3 : Math.round(rec.interval * rec.ease));
+        rec.reps++;
+      } else if (rating === "easy") {
+        rec.ease = rec.ease + 0.15;
+        rec.interval = rec.reps === 0 ? 4 : Math.round(rec.interval * rec.ease * 1.3);
+        rec.reps++;
+      }
+      rec.interval = Math.max(0, rec.interval);
+      rec.last = now;
+      rec.due = rating === "again" ? now : (todayStart() + rec.interval * DAY);
+      state.srs[id] = rec;
+      bumpActivity();
+      save();
+      return rec;
+    },
+    isScheduled: function (id) {
+      return !!state.srs[id];
+    },
+    // Due = scheduled and its due date is today or earlier.
+    isDue: function (id) {
+      var rec = state.srs[id];
+      return !!rec && rec.due <= todayEnd();
+    },
+    countDue: function (ids) {
+      var n = 0;
+      for (var i = 0; i < ids.length; i++) {
+        var rec = state.srs[ids[i]];
+        if (rec && rec.due <= todayEnd()) n++;
+      }
+      return n;
+    },
+
+    // ---- activity / heatmap / streak ----
+    // Log a solve as activity (reviews are logged inside reviewCard).
+    logSolve: function () { bumpActivity(); save(); },
+    activityMap: function () { return state.activity; },
+    currentStreak: function () {
+      var DAY = 86400000;
+      var day = todayStart();
+      // allow the streak to still count if nothing done yet *today* but done yesterday
+      if (!state.activity[dateStr(day)]) day -= DAY;
+      var streak = 0;
+      while (state.activity[dateStr(day)]) { streak++; day -= DAY; }
+      return streak;
+    },
+
     // ---- bulk ----
     reset: function () {
       state = JSON.parse(JSON.stringify(DEFAULT));
@@ -137,9 +204,23 @@
       state.review = incoming.review || {};
       state.notes = incoming.notes || {};
       state.links = incoming.links || {};
+      state.srs = incoming.srs || {};
+      state.activity = incoming.activity || {};
       state.prefs = Object.assign({}, DEFAULT.prefs, incoming.prefs || {});
       state.prefs.collapsedCats = state.prefs.collapsedCats || {};
       save();
     }
   };
+
+  // ---- date helpers (local-day granularity) ----
+  function todayStart() { var d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); }
+  function todayEnd() { return todayStart() + 86400000 - 1; }
+  function dateStr(ms) {
+    var d = new Date(ms), m = d.getMonth() + 1, day = d.getDate();
+    return d.getFullYear() + "-" + (m < 10 ? "0" : "") + m + "-" + (day < 10 ? "0" : "") + day;
+  }
+  function bumpActivity() {
+    var k = dateStr(Date.now());
+    state.activity[k] = (state.activity[k] || 0) + 1;
+  }
 })();
