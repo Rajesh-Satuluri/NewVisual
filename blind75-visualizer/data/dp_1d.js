@@ -1376,6 +1376,305 @@
         "Try center (i, i) for odd lengths and (i, i+1) for even lengths.",
         "O(n^2)/O(1) is expected; mention Manacher's O(n) only if pushed."
       ]
+    },
+
+    {
+      id: "min-cost-climbing-stairs",
+      lc: 746,
+      title: "Min Cost Climbing Stairs",
+      difficulty: "Easy",
+      category: "1-D Dynamic Programming",
+      link: "https://leetcode.com/problems/min-cost-climbing-stairs/",
+      meta: { pattern: "Min-Cost Path DP", dataStructure: "Array / Two Variables", technique: "Bottom-up min recurrence" },
+      description:
+        "You are given an integer array `cost`, where `cost[i]` is the cost of standing on the `i`-th stair. Once you pay that cost you may climb either **1** or **2** stairs.\n\n" +
+        "You may start from the stair at index **0** or the stair at index **1**. Return the **minimum total cost** to reach the **top** of the floor (the position just past the last index).",
+      constraints: [
+        "`2 <= cost.length <= 1000`",
+        "`0 <= cost[i] <= 999`"
+      ],
+      notes: [
+        "The 'top' is one step beyond the last stair — you reach it by stepping off stair `n-1` (a 1-step) or stair `n-2` (a 2-step).",
+        "Starting on stair 0 or stair 1 is free to begin at, but you pay `cost[i]` for every stair you actually stand on."
+      ],
+      examples: [
+        {
+          input: "cost = [10, 15, 20]",
+          output: "15",
+          reasoning: "Start on stair 1 (pay 15), then take a 2-step straight to the top. Total 15 — cheaper than 10 + 20.",
+          visual:
+            "```\nstair  :  0    1    2   (top)\ncost   : 10   15   20\n           start@1 (15) --2step--> top\n dp     : 10   15   30 ;  answer = min(dp[2], dp[1]) = min(30,15) = 15\n```"
+        },
+        {
+          input: "cost = [1, 100, 1, 1, 1, 100, 1, 1, 100, 1]",
+          output: "6",
+          reasoning: "Pay at indices 0,2,4,6,7,9 (all the cheap 1s), skipping every 100 → 1+1+1+1+1+1 = 6."
+        },
+        {
+          input: "cost = [0, 1, 2, 2]",
+          output: "2",
+          reasoning: "Start on stair 0 (pay 0), 2-step to stair 2 (pay 2), then 2-step to the top → total 2."
+        },
+        {
+          input: "cost = [10, 15]",
+          output: "10",
+          reasoning: "Start on stair 0 (pay 10) and take a 2-step directly to the top — cheaper than paying 15 on stair 1."
+        }
+      ],
+      approaches: [
+        {
+          name: "Bottom-up DP Array",
+          time: "O(n)",
+          space: "O(n)",
+          whenToUse: "Clearest first version: makes the 'reach stair i' state and the two base cases explicit.",
+          logic:
+            "**What it asks.** Find the minimum total cost to climb past the last stair, paying `cost[i]` whenever you stand on stair `i`, moving 1 or 2 stairs at a time and free to start on stair 0 or 1.\n\n" +
+            "**Why the naive idea fails.** Enumerating every sequence of 1- and 2-steps is exponential — there are Fibonacci-many paths. A greedy 'always step onto the cheaper next stair' also fails, because a slightly pricier stair now can unlock a much cheaper 2-step later. Each stair's best cost depends only on a couple of earlier stairs, so DP collapses the search.\n\n" +
+            "**Key Idea.** Let `dp[i]` be the minimum total cost to **reach and stand on** stair `i`. You can only arrive on stair `i` from stair `i-1` (a 1-step) or stair `i-2` (a 2-step), so `dp[i] = cost[i] + min(dp[i-1], dp[i-2])`. The top sits just past index `n-1`, reachable from stair `n-1` or stair `n-2`, so the answer is `min(dp[n-1], dp[n-2])`.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Base cases: `dp[0] = cost[0]` and `dp[1] = cost[1]` — you may begin on either stair, so reaching it costs only its own price.\n" +
+            "2. Transition in words: for each stair from index 2 onward, its minimum cost is its own price plus the cheaper of the two stairs you could have come from.\n" +
+            "3. Fill `dp` left to right so both predecessors are final when read.\n" +
+            "4. Answer: `min(dp[n-1], dp[n-2])`, since the top is reached by stepping off either of the last two stairs.\n\n" +
+            "**Why it works.** Every path onto stair `i` ends with a 1-step or a 2-step, so its cost is `cost[i]` plus an optimal path onto `i-1` or `i-2`; taking the min over those two exhaustive, mutually exclusive cases is optimal by induction from the base cases.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- The answer is `min(dp[n-1], dp[n-2])`, NOT `dp[n-1]` — you never pay to stand on the top.\n" +
+            "- Base cases are `cost[0]` and `cost[1]`; don't zero them out.\n" +
+            "- Costs can be 0, so never assume a positive-cost shortcut.\n\n" +
+            "**Space optimization.** `dp[i]` reads only `dp[i-1]` and `dp[i-2]`, so the whole array collapses to two rolling scalars for `O(1)` space (the next approach).\n\n" +
+            "**Complexity.** One pass → time `O(n)`; the `dp` array → space `O(n)`.\n\n" +
+            "**Interview mindset.** 'Minimum cost to reach a goal taking limited step sizes' with a per-stair price is a min-cost-path DP: define `dp[i]` as the best cost to reach `i`, then take the cheaper predecessor.",
+          rcs:
+            "class Solution:\n" +
+            "    def minCostClimbingStairs(self, cost: List[int]) -> int:\n" +
+            "        n = len(cost)\n" +
+            "        dp = [0] * n                      # dp[i] = min cost to reach and stand on stair i.\n" +
+            "        dp[0] = cost[0]                   # Base: start on stair 0, pay its cost.\n" +
+            "        dp[1] = cost[1]                   # Base: start on stair 1, pay its cost.\n" +
+            "        for i in range(2, n):            # Fill remaining stairs in dependency order.\n" +
+            "            dp[i] = cost[i] + min(dp[i - 1], dp[i - 2])  # Own cost + cheaper arrival.\n" +
+            "        return min(dp[n - 1], dp[n - 2])  # Top reached from either of the last two stairs.",
+          plain:
+            "class Solution:\n" +
+            "    def minCostClimbingStairs(self, cost: List[int]) -> int:\n" +
+            "        n = len(cost)\n" +
+            "        dp = [0] * n\n" +
+            "        dp[0] = cost[0]\n" +
+            "        dp[1] = cost[1]\n" +
+            "        for i in range(2, n):\n" +
+            "            dp[i] = cost[i] + min(dp[i - 1], dp[i - 2])\n" +
+            "        return min(dp[n - 1], dp[n - 2])"
+        },
+        {
+          name: "Optimized — Two Rolling Variables",
+          time: "O(n)",
+          space: "O(1)",
+          whenToUse: "The polished answer: dp[i] depends only on the two previous states, so two scalars suffice.",
+          logic:
+            "**What it asks.** The same minimum climbing cost, in constant extra space.\n\n" +
+            "**Why the naive idea fails.** Keeping the full `dp` array wastes memory: in `dp[i] = cost[i] + min(dp[i-1], dp[i-2])` only the two most recent states are ever read.\n\n" +
+            "**Key Idea.** Track two scalars that roll forward: `first` holds the best cost to reach the stair two back (`dp[i-2]`) and `second` holds the best to reach the previous stair (`dp[i-1]`). Each stair updates them with the same min recurrence, so the array is never needed. The final answer — the cheaper of the last two reachable stairs — is exactly `min(first, second)` after the loop.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Seed `first = cost[0]` and `second = cost[1]` (the two base cases).\n" +
+            "2. Transition in words: for each stair from index 2 onward, its cost is its own price plus the cheaper of the two carried values; then shift — `first` becomes the old `second`, `second` becomes the new value.\n" +
+            "3. After the loop `first` and `second` hold `dp[n-2]` and `dp[n-1]`; return their minimum.\n\n" +
+            "**Why it works.** It is the identical recurrence and step order as the array version; the simultaneous shift keeps `first`/`second` aligned to `dp[i-2]`/`dp[i-1]` at every step, so `min(first, second)` is `min(dp[n-2], dp[n-1])`.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Do the update as one simultaneous assignment so `first` isn't overwritten before it's used.\n" +
+            "- Return `min(first, second)`, not `second` — the top is reachable from either of the last two stairs.\n" +
+            "- With `n == 2` the loop never runs and the seeds already give the right answer.\n\n" +
+            "**Complexity.** One pass → time `O(n)`; two variables → space `O(1)`.\n\n" +
+            "**Interview mindset.** Whenever `dp[i]` looks back only one or two states, collapse the array to rolling variables — the expected `O(1)`-space finish.",
+          rcs:
+            "class Solution:\n" +
+            "    def minCostClimbingStairs(self, cost: List[int]) -> int:\n" +
+            "        first, second = cost[0], cost[1]  # dp[i-2], dp[i-1]; seeded with the base cases.\n" +
+            "        for i in range(2, len(cost)):    # Roll forward one stair at a time.\n" +
+            "            first, second = second, cost[i] + min(first, second)  # Shift + apply recurrence.\n" +
+            "        return min(first, second)         # Cheaper of the last two reachable stairs.",
+          plain:
+            "class Solution:\n" +
+            "    def minCostClimbingStairs(self, cost: List[int]) -> int:\n" +
+            "        first, second = cost[0], cost[1]\n" +
+            "        for i in range(2, len(cost)):\n" +
+            "            first, second = second, cost[i] + min(first, second)\n" +
+            "        return min(first, second)"
+        }
+      ],
+      patternRecognition: [
+        "'Minimum cost to reach a goal taking 1 or 2 steps' with a per-position price → min-cost-path DP.",
+        "Each state depends only on the previous one or two → Fibonacci-shaped, collapsible to two variables.",
+        "Greedy 'take the cheaper next stair' fails — a pricier stair now can unlock a cheaper 2-step later."
+      ],
+      interviewRecall: [
+        "dp[i] = cost[i] + min(dp[i-1], dp[i-2]); base dp[0]=cost[0], dp[1]=cost[1].",
+        "Answer is min(dp[n-1], dp[n-2]) — you never pay to stand on the top.",
+        "Collapse to two rolling variables for O(1) space."
+      ]
+    },
+
+    {
+      id: "partition-equal-subset-sum",
+      lc: 416,
+      title: "Partition Equal Subset Sum",
+      difficulty: "Medium",
+      category: "1-D Dynamic Programming",
+      link: "https://leetcode.com/problems/partition-equal-subset-sum/",
+      meta: { pattern: "Subset-Sum / 0-1 Knapsack", dataStructure: "Boolean DP Array / Set", technique: "Reachable sums" },
+      description:
+        "Given an integer array `nums`, return `true` if the array can be split into **two subsets whose sums are equal**, and `false` otherwise.\n\n" +
+        "Every element must go into exactly one of the two subsets.",
+      constraints: [
+        "`1 <= nums.length <= 200`",
+        "`1 <= nums[i] <= 100`"
+      ],
+      notes: [
+        "If the total sum is odd it can never split evenly → return false immediately.",
+        "The problem reduces to: can any subset sum to exactly `total / 2`? (a 0/1 knapsack feasibility question)."
+      ],
+      examples: [
+        {
+          input: "nums = [1, 5, 11, 5]",
+          output: "true",
+          reasoning: "Total is 22, half is 11. The subset [1, 5, 5] sums to 11 and [11] sums to 11.",
+          visual:
+            "```\ntotal = 22 -> target = 11\nreachable subset sums include 11 (via 1+5+5)\n {1,5,5} = 11   |   {11} = 11    -> equal split\n```"
+        },
+        {
+          input: "nums = [1, 2, 3, 5]",
+          output: "false",
+          reasoning: "Total is 11, which is odd — no way to split into two equal integer sums."
+        },
+        {
+          input: "nums = [1, 2, 5]",
+          output: "false",
+          reasoning: "Total is 8, target 4, but reachable subset sums are {0,1,2,3,5,6,7,8}; 4 is not among them."
+        },
+        {
+          input: "nums = [2, 2, 2, 2]",
+          output: "true",
+          reasoning: "Total is 8, target 4, reachable via 2+2 → true."
+        }
+      ],
+      approaches: [
+        {
+          name: "Reachable-sums Set",
+          time: "O(n * target)",
+          space: "O(target)",
+          whenToUse: "Cleanest way to express the idea: grow the set of achievable subset sums.",
+          logic:
+            "**What it asks.** Decide whether `nums` can be partitioned into two subsets of equal sum.\n\n" +
+            "**Why the naive idea fails.** Trying every way to assign each element to one of two subsets is `O(2^n)` — infeasible for 200 elements. But the two-subset framing hides a simpler question.\n\n" +
+            "**Key Idea.** If the two subsets are equal, each must sum to exactly `total / 2`. So the whole problem reduces to a **subset-sum feasibility**: is there any subset summing to `target = total / 2`? (If `total` is odd, it's instantly impossible.) Track the *set of all subset sums achievable so far*; each new number either is skipped or added to every existing reachable sum.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Compute `total`; if it's odd, return `false`. Otherwise set `target = total // 2`.\n" +
+            "2. Start with `possible = {0}` — the empty subset sums to 0.\n" +
+            "3. For each `num`, form the new reachable sums by adding `num` to every sum already in the set, and union them in.\n" +
+            "4. If `target` ever appears, return `true` (an early check can stop as soon as it's found).\n\n" +
+            "**Why it works.** After processing the first `k` numbers, `possible` holds exactly the sums reachable by some subset of those `k` numbers. Inductively, adding `num` extends every prior sum by `num` (take it) or leaves it (skip it) — covering all subsets. So `target in possible` at the end is precisely 'some subset sums to target'.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Odd total is an instant `false` — check it first.\n" +
+            "- Iterate over a snapshot of the set (or build a new set) so you don't mutate what you're iterating.\n" +
+            "- Cap sums at `target` (ignore anything larger) to keep the set bounded.\n\n" +
+            "**Complexity.** At most `target + 1` distinct sums, updated for each of `n` numbers → time `O(n * target)`; space `O(target)` for the set.\n\n" +
+            "**Interview mindset.** 'Split into two equal halves' → 'subset summing to total/2' → 0/1 knapsack feasibility. Recognizing that reduction is the whole battle.",
+          rcs:
+            "class Solution:\n" +
+            "    def canPartition(self, nums: List[int]) -> bool:\n" +
+            "        total = sum(nums)\n" +
+            "        if total % 2 != 0:                # Odd total can't split evenly.\n" +
+            "            return False\n" +
+            "        target = total // 2              # Each subset must reach exactly this.\n" +
+            "        possible = {0}                   # Subset sums reachable so far (empty subset = 0).\n" +
+            "        for num in nums:\n" +
+            "            nxt = set(possible)          # Copy so we don't mutate while iterating.\n" +
+            "            for s in possible:\n" +
+            "                if s + num == target:    # Found a subset hitting the target.\n" +
+            "                    return True\n" +
+            "                if s + num < target:     # Keep only useful (bounded) sums.\n" +
+            "                    nxt.add(s + num)\n" +
+            "            possible = nxt\n" +
+            "        return target in possible",
+          plain:
+            "class Solution:\n" +
+            "    def canPartition(self, nums: List[int]) -> bool:\n" +
+            "        total = sum(nums)\n" +
+            "        if total % 2 != 0:\n" +
+            "            return False\n" +
+            "        target = total // 2\n" +
+            "        possible = {0}\n" +
+            "        for num in nums:\n" +
+            "            nxt = set(possible)\n" +
+            "            for s in possible:\n" +
+            "                if s + num == target:\n" +
+            "                    return True\n" +
+            "                if s + num < target:\n" +
+            "                    nxt.add(s + num)\n" +
+            "            possible = nxt\n" +
+            "        return target in possible"
+        },
+        {
+          name: "Optimized — 1-D Boolean Knapsack (iterate sums descending)",
+          time: "O(n * target)",
+          space: "O(target)",
+          whenToUse: "The canonical 0/1-knapsack form; the descending sweep is the key subtlety interviewers probe.",
+          logic:
+            "**What it asks.** Same reduction — is there a subset of `nums` summing to `target = total / 2`? — solved with the classic 0/1-knapsack boolean array.\n\n" +
+            "**Why the naive idea fails.** A 2-D table `dp[i][s]` ('can the first `i` items reach sum `s`?') is `O(n * target)` space. Since each row depends only on the previous row, we can compress to a single 1-D array — but only if we update it in the right direction.\n\n" +
+            "**Key Idea.** Let `dp[s]` be `true` iff some subset seen so far sums to exactly `s`. For each new `num`, a sum `s` becomes reachable if `s - num` was already reachable *without this num*. Crucially, iterate `s` from `target` **down to** `num`: going descending guarantees `dp[s - num]` still reflects the state *before* `num` was considered, so each item is used **at most once** (0/1, not unbounded). Iterating ascending would let the same `num` be reused, solving the wrong (unbounded) problem.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. If `total` is odd, return `false`; else `target = total // 2`.\n" +
+            "2. Create `dp` of size `target + 1`, all `false`, with `dp[0] = true` (empty subset).\n" +
+            "3. Transition in words: for each `num`, walk sums from `target` down to `num`; mark `dp[s]` true if it was already true or if `dp[s - num]` was true.\n" +
+            "4. Return `dp[target]`.\n\n" +
+            "**Why it works.** Descending iteration means when computing `dp[s]` we read `dp[s - num]` from the *previous* item's state, so `num` contributes to a sum only once — exactly the 0/1 constraint. `dp[0] = true` anchors the induction, and each pass correctly extends reachability by one item.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Iterate sums **descending** (`target` → `num`). Ascending order reuses each number (unbounded knapsack) and gives wrong answers.\n" +
+            "- `dp[0] = true` is the anchor — forgetting it makes everything false.\n" +
+            "- Odd total → immediate `false`; also stop the inner loop at `num` to avoid negative indices.\n\n" +
+            "**Space optimization.** This 1-D array *is* the space-optimized form of the 2-D items-vs-sum table, down from `O(n * target)` to `O(target)`.\n\n" +
+            "**Complexity.** `n` items × `target` sums → time `O(n * target)`; space `O(target)` for the boolean array.\n\n" +
+            "**Interview mindset.** Any 'can we hit an exact sum using each item once' is 0/1 knapsack; the tell that you understand it is iterating the sum axis **downward** in the 1-D form.",
+          rcs:
+            "class Solution:\n" +
+            "    def canPartition(self, nums: List[int]) -> bool:\n" +
+            "        total = sum(nums)\n" +
+            "        if total % 2 != 0:                    # Odd total can't split evenly.\n" +
+            "            return False\n" +
+            "        target = total // 2\n" +
+            "        dp = [False] * (target + 1)          # dp[s] = can some subset reach sum s?\n" +
+            "        dp[0] = True                         # Empty subset reaches 0.\n" +
+            "        for num in nums:                     # Consider each item once (0/1 knapsack).\n" +
+            "            for s in range(target, num - 1, -1):  # DESCENDING: read prior-item state.\n" +
+            "                if dp[s - num]:              # s reachable if s-num was (without this num).\n" +
+            "                    dp[s] = True\n" +
+            "        return dp[target]",
+          plain:
+            "class Solution:\n" +
+            "    def canPartition(self, nums: List[int]) -> bool:\n" +
+            "        total = sum(nums)\n" +
+            "        if total % 2 != 0:\n" +
+            "            return False\n" +
+            "        target = total // 2\n" +
+            "        dp = [False] * (target + 1)\n" +
+            "        dp[0] = True\n" +
+            "        for num in nums:\n" +
+            "            for s in range(target, num - 1, -1):\n" +
+            "                if dp[s - num]:\n" +
+            "                    dp[s] = True\n" +
+            "        return dp[target]"
+        }
+      ],
+      patternRecognition: [
+        "'Split into two equal-sum subsets' → subset summing to total/2 → 0/1 knapsack feasibility.",
+        "Odd total is an instant no; that parity check comes first.",
+        "Exact-sum feasibility with each item usable once → boolean DP over reachable sums."
+      ],
+      interviewRecall: [
+        "Reduce to: is there a subset summing to total/2?",
+        "1-D dp[s] over sums; iterate sums DESCENDING so each number is used at most once.",
+        "dp[0]=True anchors it; ascending iteration would (wrongly) reuse numbers."
+      ]
     }
   ]);
 })();

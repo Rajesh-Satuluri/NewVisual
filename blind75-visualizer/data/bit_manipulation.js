@@ -597,6 +597,253 @@
         "The first bit read (LSB) ends up as the MSB \u2014 that is the reversal.",
         "Loop a fixed 32 times so leading zeros are reversed correctly."
       ]
+    },
+
+    {
+      id: "single-number",
+      lc: 136,
+      title: "Single Number",
+      difficulty: "Easy",
+      category: "Bit Manipulation",
+      link: "https://leetcode.com/problems/single-number/",
+      meta: { pattern: "XOR Cancellation", dataStructure: "Integer / Hash Map", technique: "XOR fold" },
+      description:
+        "Given a non-empty array `nums` where **every element appears exactly twice except for one**, find that single element.\n\n" +
+        "You must design a solution with **linear time** and **constant extra space**.",
+      constraints: [
+        "`1 <= nums.length <= 3 * 10^4`",
+        "`-3 * 10^4 <= nums[i] <= 3 * 10^4`",
+        "Every element appears exactly twice except one, which appears once."
+      ],
+      notes: [
+        "The constant-space requirement rules out the obvious hash-set/count solution as the intended answer.",
+        "XOR is the trick: it's associative and commutative, and `x ^ x == 0`, `x ^ 0 == x`."
+      ],
+      examples: [
+        {
+          input: "nums = [2, 2, 1]",
+          output: "1",
+          reasoning: "2 ^ 2 ^ 1 = 0 ^ 1 = 1; the paired 2s cancel, leaving the lone 1.",
+          visual:
+            "```\n 2 ^ 2 ^ 1\n = (2 ^ 2) ^ 1     pairs cancel to 0\n = 0 ^ 1\n = 1              the single number\n```"
+        },
+        {
+          input: "nums = [4, 1, 2, 1, 2]",
+          output: "4",
+          reasoning: "The 1s cancel, the 2s cancel, leaving 4 \u2014 order doesn't matter since XOR is commutative."
+        },
+        {
+          input: "nums = [1]",
+          output: "1",
+          reasoning: "A single element is trivially the unique one."
+        },
+        {
+          input: "nums = [7, 3, 5, 3, 7]",
+          output: "5",
+          reasoning: "7^3^5^3^7 = 5 after the two 7s and two 3s cancel."
+        }
+      ],
+      approaches: [
+        {
+          name: "Hash Map Count",
+          time: "O(n)",
+          space: "O(n)",
+          whenToUse: "The intuitive first pass; correct but uses O(n) extra space, so it misses the stated constraint.",
+          logic:
+            "**What it asks.** In an array where every value is duplicated except one, return the value that appears only once.\n\n" +
+            "**Why the naive idea fails.** Sorting then scanning for the lone element is `O(n log n)`. Counting with a hash map is `O(n)` time but `O(n)` space, which violates the problem's explicit constant-space requirement \u2014 still, it's the obvious baseline to state first.\n\n" +
+            "**Key Idea.** Tally how many times each value occurs, then return the one with a count of 1. A hash map gives `O(1)` updates and lookups.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Build a frequency map from value \u2192 count over one pass of `nums`.\n" +
+            "2. Scan the map for the entry whose count is exactly 1.\n" +
+            "3. Return that value.\n\n" +
+            "**Why it works.** Every duplicated value has count 2 (or any even/repeated tally per the guarantee), and only the unique value has count 1, so the check is unambiguous.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Uses `O(n)` extra memory \u2014 acceptable for correctness but not the intended answer here.\n" +
+            "- A single-element array must return that element (its count is 1).\n\n" +
+            "**Complexity.** Time `O(n)` for the two passes; space `O(n)` for the map.\n\n" +
+            "**Interview mindset.** State this to show you can solve it, then pivot to XOR once you recall the `O(1)`-space constraint.",
+          rcs:
+            "from collections import Counter\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def singleNumber(self, nums: List[int]) -> int:\n" +
+            "        counts = Counter(nums)          # value -> number of occurrences.\n" +
+            "        for num, c in counts.items():   # Find the one with an odd (single) count.\n" +
+            "            if c == 1:\n" +
+            "                return num\n" +
+            "        return -1                       # Unreachable given the guarantee.",
+          plain:
+            "from collections import Counter\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def singleNumber(self, nums: List[int]) -> int:\n" +
+            "        counts = Counter(nums)\n" +
+            "        for num, c in counts.items():\n" +
+            "            if c == 1:\n" +
+            "                return num\n" +
+            "        return -1"
+        },
+        {
+          name: "Optimized \u2014 XOR fold",
+          time: "O(n)",
+          space: "O(1)",
+          whenToUse: "The expected answer: linear time and truly constant space by exploiting XOR's cancellation.",
+          logic:
+            "**What it asks.** Return the single non-duplicated value, in `O(n)` time and `O(1)` space.\n\n" +
+            "**Why the naive idea fails.** The hash-map count is `O(n)` space; the problem explicitly demands constant space, so we need a way to make the duplicates disappear without storing them.\n\n" +
+            "**Key Idea.** XOR (`^`) has three properties that fit perfectly: it's commutative and associative (order doesn't matter), `x ^ x == 0` (a value cancels itself), and `x ^ 0 == x` (0 is the identity). So XOR-ing **every** element together makes each duplicated pair vanish to 0, leaving only the unique value.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Start an accumulator `result = 0`.\n" +
+            "2. Walk the array, folding each `num` into `result` with `result ^= num`.\n" +
+            "3. After the pass, every paired value has cancelled itself out; `result` holds the single number.\n\n" +
+            "**Why it works.** Because XOR is commutative and associative, the total is independent of order and groups into `(a ^ a) ^ (b ^ b) ^ ... ^ unique`. Each `x ^ x` is 0, and XOR-ing with 0 leaves the unique value untouched, so `result` equals exactly that value.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Initialize the accumulator to `0` (the XOR identity), not to `nums[0]` unless you then skip index 0.\n" +
+            "- This trick relies on the 'exactly twice except one' guarantee; it does not generalize to values appearing three times without modification.\n" +
+            "- Works for negatives too \u2014 XOR operates on the bit patterns.\n\n" +
+            "**Complexity.** One pass of `O(1)` XOR operations \u2192 time `O(n)`; a single accumulator \u2192 space `O(1)`.\n\n" +
+            "**Interview mindset.** 'Everything cancels in pairs, find the odd one out' is the canonical XOR signal \u2014 reach for `x ^ x == 0` whenever duplicates must annihilate in constant space.",
+          rcs:
+            "class Solution:\n" +
+            "    def singleNumber(self, nums: List[int]) -> int:\n" +
+            "        result = 0                      # XOR identity: x ^ 0 == x.\n" +
+            "        for num in nums:                # Fold every element in.\n" +
+            "            result ^= num               # Pairs cancel (x ^ x == 0), unique survives.\n" +
+            "        return result                   # Only the single number remains.",
+          plain:
+            "class Solution:\n" +
+            "    def singleNumber(self, nums: List[int]) -> int:\n" +
+            "        result = 0\n" +
+            "        for num in nums:\n" +
+            "            result ^= num\n" +
+            "        return result"
+        }
+      ],
+      patternRecognition: [
+        "'Every element pairs up except one' \u2192 XOR the whole array; pairs cancel.",
+        "A required O(1) space with duplicates that must annihilate \u2192 think XOR.",
+        "XOR facts to recall: x ^ x = 0, x ^ 0 = x, and it's commutative/associative."
+      ],
+      interviewRecall: [
+        "result = 0; result ^= num for every num; return result.",
+        "Duplicated values cancel to 0, leaving the single number.",
+        "Mention the hash-map count as the O(n)-space baseline, then XOR for O(1) space."
+      ]
+    },
+
+    {
+      id: "reverse-integer",
+      lc: 7,
+      title: "Reverse Integer",
+      difficulty: "Medium",
+      category: "Bit Manipulation",
+      link: "https://leetcode.com/problems/reverse-integer/",
+      meta: { pattern: "Digit Manipulation", dataStructure: "Integer", technique: "Pop/push digits + overflow guard" },
+      description:
+        "Given a signed 32-bit integer `x`, return `x` with its **digits reversed**. If reversing `x` causes the value to fall **outside** the signed 32-bit range `[-2^31, 2^31 - 1]`, return `0`.\n\n" +
+        "Assume the environment does not allow storing 64-bit integers (the overflow must be handled explicitly).",
+      constraints: [
+        "`-2^31 <= x <= 2^31 - 1`  (i.e. `-2147483648 <= x <= 2147483647`)"
+      ],
+      notes: [
+        "The sign is preserved: reversing a negative stays negative.",
+        "Trailing zeros disappear on reversal (e.g. 120 \u2192 21).",
+        "Return 0 on overflow \u2014 the reversed value must fit in a signed 32-bit integer."
+      ],
+      examples: [
+        {
+          input: "x = 123",
+          output: "321",
+          reasoning: "Digits 1,2,3 reversed give 3,2,1.",
+          visual:
+            "```\n x = 123\n pop 3 -> result 3\n pop 2 -> result 32\n pop 1 -> result 321\n```"
+        },
+        {
+          input: "x = -123",
+          output: "-321",
+          reasoning: "Reverse the digits and keep the negative sign."
+        },
+        {
+          input: "x = 120",
+          output: "21",
+          reasoning: "Reversing 120 gives 021, and leading zeros are dropped \u2192 21."
+        },
+        {
+          input: "x = 1534236469",
+          output: "0",
+          reasoning: "Its reversal 9646324351 exceeds 2^31 - 1 (2147483647), so the answer is 0."
+        },
+        {
+          input: "x = 0",
+          output: "0",
+          reasoning: "Zero reversed is zero."
+        }
+      ],
+      approaches: [
+        {
+          name: "Pop and push digits with overflow check",
+          time: "O(d)  (d = number of digits)",
+          space: "O(1)",
+          whenToUse: "The standard approach: rebuild the number digit by digit while guarding the 32-bit bounds.",
+          logic:
+            "**What it asks.** Reverse the decimal digits of a signed 32-bit integer, preserving its sign, and return `0` if the reversed value overflows the signed 32-bit range `[-2^31, 2^31 - 1]`.\n\n" +
+            "**Why the naive idea fails.** Converting to a string, reversing, and parsing back seems easy but sidesteps the real challenge \u2014 overflow \u2014 and is awkward with the sign. The intended skill is arithmetic digit extraction plus an explicit range check, since we're told not to rely on a wider 64-bit type to catch the overflow after the fact.\n\n" +
+            "**Key Idea.** Peel digits off the end of the number with `% 10` (pop) and build the reversed number by `result = result * 10 + digit` (push). Handle the sign separately so the digit math works on a non-negative magnitude. Before (or right as) each push, ensure the result stays within the signed 32-bit bounds; if a push would exceed them, bail out to `0`.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Record the sign, then work with the absolute value of `x`.\n" +
+            "2. Loop while the magnitude is non-zero: take `digit = x % 10`, drop it with `x //= 10`, and push it via `result = result * 10 + digit`.\n" +
+            "3. Reapply the sign to `result`.\n" +
+            "4. If `result` falls outside `[-2^31, 2^31 - 1]`, return `0`; otherwise return `result`.\n\n" +
+            "**Why it works.** Popping with `% 10` reads digits from least-significant to most-significant, and pushing with `* 10 + digit` places each read digit into the next-higher slot of `result` \u2014 exactly reversing the order. Splitting off the sign keeps the modulo/division behaving on a clean magnitude. The final range test enforces the 32-bit contract.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Handle the sign explicitly; relying on language-specific behavior of `%` on negatives is error-prone.\n" +
+            "- Overflow is the whole point: check the bounds. In languages without big integers, test BEFORE multiplying (e.g. compare against `INT_MAX // 10`) rather than after, since the overflow itself is undefined; Python's big ints let you build then check.\n" +
+            "- Trailing zeros vanish naturally \u2014 `100` reverses to `1` \u2014 no special handling needed.\n\n" +
+            "**Complexity.** One pass over the `d` digits \u2192 time `O(d)` (at most 10 digits); a couple of scalars \u2192 space `O(1)`.\n\n" +
+            "**Interview mindset.** 'Reverse / rearrange the digits of an integer' \u2192 pop with `% 10`, push with `* 10 + digit`, and never forget the overflow guard when a fixed-width range is specified.",
+          rcs:
+            "class Solution:\n" +
+            "    def reverse(self, x: int) -> int:\n" +
+            "        INT_MIN, INT_MAX = -2**31, 2**31 - 1   # Signed 32-bit bounds.\n" +
+            "        sign = -1 if x < 0 else 1              # Remember the sign separately.\n" +
+            "        x = abs(x)                            # Work on the magnitude.\n" +
+            "        result = 0\n" +
+            "        while x:                              # Peel digits off the end.\n" +
+            "            digit = x % 10                    # Pop least-significant digit.\n" +
+            "            x //= 10                          # Drop it from x.\n" +
+            "            result = result * 10 + digit      # Push it onto the reversed number.\n" +
+            "        result *= sign                        # Restore the sign.\n" +
+            "        if result < INT_MIN or result > INT_MAX:  # Overflow the 32-bit range?\n" +
+            "            return 0\n" +
+            "        return result",
+          plain:
+            "class Solution:\n" +
+            "    def reverse(self, x: int) -> int:\n" +
+            "        INT_MIN, INT_MAX = -2**31, 2**31 - 1\n" +
+            "        sign = -1 if x < 0 else 1\n" +
+            "        x = abs(x)\n" +
+            "        result = 0\n" +
+            "        while x:\n" +
+            "            digit = x % 10\n" +
+            "            x //= 10\n" +
+            "            result = result * 10 + digit\n" +
+            "        result *= sign\n" +
+            "        if result < INT_MIN or result > INT_MAX:\n" +
+            "            return 0\n" +
+            "        return result"
+        }
+      ],
+      patternRecognition: [
+        "'Reverse or rearrange the digits of an integer' \u2192 pop with % 10, push with * 10 + digit.",
+        "A fixed-width (32-bit) range in the statement is a flag to add an explicit overflow guard.",
+        "Handle the sign separately so digit arithmetic runs on a clean magnitude."
+      ],
+      interviewRecall: [
+        "digit = x % 10; x //= 10; result = result * 10 + digit.",
+        "Return 0 if the reversed value leaves [-2^31, 2^31 - 1].",
+        "In fixed-width languages, check overflow BEFORE the multiply (compare vs INT_MAX // 10)."
+      ]
     }
   ]);
 })();
