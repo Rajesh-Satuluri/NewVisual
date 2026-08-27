@@ -24,6 +24,12 @@
     56: "common", 57: "common", 58: "common",
     // Window Functions (Q71, Q73–Q77, Q89, Q90)
     71: "essential", 73: "common", 74: "essential", 75: "common", 76: "common",
-    77: "common", 89: "common", 90: "occasional"
+    77: "common", 89: "common", 90: "occasional",
+    // Ranking & Dedup (Q61–Q65, Q68–Q70)
+    61: "essential", 62: "common", 63: "occasional", 64: "essential", 65: "essential",
+    68: "essential", 69: "common", 70: "common",
+    // Date & Time (Q44, Q78, Q83, Q84, Q92, Q93, Q100, Q119)
+    44: "common", 78: "common", 83: "common", 84: "common", 92: "essential",
+    93: "common", 100: "common", 119: "common"
   };
 })();
