@@ -106,6 +106,16 @@
     return (list || ALL).filter(inActiveSet);
   }
 
+  // Is any dropdown filter active (search excluded — its box is always visible)?
+  function anyFilterActive() {
+    return state.filterDifficulty !== "all" || state.filterStatus !== "all" ||
+           state.filterPattern !== "all" || state.filterImportance !== "all";
+  }
+  function updateFilterDot() {
+    var d = el("filterDot");
+    if (d) d.hidden = !anyFilterActive();
+  }
+
   // Which problems pass the current filters/search? Returns a Set of ids.
   function visibleIds() {
     var base = ALL;
@@ -135,6 +145,7 @@
   function renderSidebar() {
     var nav = el("nav");
     nav.innerHTML = "";
+    updateFilterDot();
     var vis = visibleIds();
 
     GROUPS.forEach(function (g) {
@@ -999,6 +1010,19 @@
     var impf = el("filterImportance");
     if (impf) impf.addEventListener("change", function (e) { state.filterImportance = e.target.value; renderSidebar(); });
 
+    // filter panel show/hide toggle
+    var filterPanel = el("filterPanel");
+    var filterToggle = el("filterToggle");
+    function setFiltersOpen(open) {
+      filterPanel.classList.toggle("collapsed", !open);
+      filterToggle.classList.toggle("active", open);
+      filterToggle.setAttribute("aria-expanded", open ? "true" : "false");
+      store.setPref("filtersOpen", open);
+    }
+    if (filterToggle) filterToggle.addEventListener("click", function () {
+      setFiltersOpen(filterPanel.classList.contains("collapsed"));
+    });
+
     // expand / collapse all categories
     function setAllCollapsed(collapsed) {
       B.byCategory().forEach(function (g) { store.setCatCollapsed(g.category, collapsed); });
@@ -1129,6 +1153,12 @@
   function boot() {
     // restore persisted desktop sidebar-collapse state
     if (store.getPref("sidebarCollapsed")) document.body.classList.add("sidebar-collapsed");
+
+    // restore persisted filter-panel open state
+    var fOpen = !!store.getPref("filtersOpen");
+    var fp = el("filterPanel"), ftg = el("filterToggle");
+    if (fp) fp.classList.toggle("collapsed", !fOpen);
+    if (ftg) { ftg.classList.toggle("active", fOpen); ftg.setAttribute("aria-expanded", fOpen ? "true" : "false"); }
 
     // deep-link via hash
     if (location.hash) {
