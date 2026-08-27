@@ -20,6 +20,7 @@
       <span class="brand-text"><b>SQL</b> · T-SQL Study Lab</span>
     </a>
     <div class="topbar-right">
+      <button id="dashBtn" class="ghost-btn" title="Progress analytics dashboard">📊 Dashboard</button>
       <button id="gridBtn" class="ghost-btn" title="All-problems revision grid">▦ Revision grid</button>
       <button id="exportBtn" class="ghost-btn" title="Download progress as JSON">↓ Export</button>
       <button id="importBtn" class="ghost-btn" title="Import progress JSON">↑ Import</button>
@@ -35,18 +36,19 @@
     <aside class="sidebar">
       <div class="progress-box">
         <div class="progress-head">
-          <span id="progressText">0 solved</span>
-          <span id="progressSub" class="muted">0 learning</span>
+          <span id="progressText">0 / 0 solved</span>
+          <button id="reviewChip" class="review-chip" title="Start a spaced-repetition review session">Review 0 due</button>
         </div>
         <div class="progress-track"><div id="progressFill" class="progress-fill"></div></div>
-        <div class="progress-foot muted">of <span id="totalCount">0</span> SQL problems</div>
+        <div class="progress-foot muted"><span id="progressSub">0 learning</span> · of <span id="totalCount">0</span> problems · <span id="streakText">0-day streak</span></div>
       </div>
 
       <div class="search-box">
-        <input id="search" type="text" placeholder="Search title, pattern, concept, technique…  ( / )" autocomplete="off" />
+        <input id="search" type="text" placeholder="Search title, pattern, concept…  ( / )" autocomplete="off" />
+        <button id="filterToggle" class="filter-toggle" title="Filters" aria-expanded="false">⚙</button>
       </div>
 
-      <div class="filters">
+      <div class="filters" id="filters">
         <select id="filterDifficulty" title="Filter by difficulty">
           <option value="all">All difficulty</option>
           <option value="Easy">Easy</option>
@@ -59,6 +61,13 @@
           <option value="learning">Learning</option>
           <option value="solved">Solved</option>
           <option value="review">★ Review queue</option>
+          <option value="due">⏱ Due for review</option>
+        </select>
+        <select id="filterImportance" title="Filter by interview importance">
+          <option value="all">All importance</option>
+          <option value="essential">★★★ Essential</option>
+          <option value="common">★★ Common</option>
+          <option value="occasional">★ Occasional</option>
         </select>
         <select id="filterPattern" title="Filter by pattern">
           <option value="all">All patterns</option>
@@ -66,7 +75,7 @@
         <select id="filterPlatform" title="Filter by platform">
           <option value="all">All platforms</option>
         </select>
-        <button id="clearFilters" class="clear-btn" title="Clear search & filters">✕</button>
+        <button id="clearFilters" class="clear-btn" title="Clear search & filters">✕ Clear filters</button>
       </div>
 
       <nav id="nav" class="nav"></nav>
@@ -87,6 +96,28 @@
     </div>
   </div>
 
+  <!-- ============ DASHBOARD MODAL ============ -->
+  <div id="dashModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2>Progress Analytics</h2>
+        <button id="dashClose" class="icon-btn">✕</button>
+      </div>
+      <div id="dashBody" class="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- ============ REVIEW SESSION MODAL ============ -->
+  <div id="reviewModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2>Review Session</h2>
+        <button id="reviewClose" class="icon-btn">✕</button>
+      </div>
+      <div id="reviewBody" class="modal-body"></div>
+    </div>
+  </div>
+
   <!-- ============ SCRIPTS ============ -->
   <script src="js/vendor/prism.js"></script>
   <script src="js/vendor/prism-sql.js"></script>
@@ -95,6 +126,9 @@
   <script src="js/core.js"></script>
   <script src="js/modules/markdown.js"></script>
   <script src="js/modules/store.js"></script>
+
+  <!-- central per-problem maps (before data files) -->
+  <script src="data/importance.js"></script>
 
   <!-- data (canonical topic order) -->
   <script src="data/aggregation.js"></script>
