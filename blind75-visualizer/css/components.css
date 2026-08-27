@@ -360,3 +360,28 @@ button:focus:not(:focus-visible), a:focus:not(:focus-visible) { outline: none; }
 
 /* icon buttons get a subtle rotate on the menu toggle press */
 #menuBtn:active { transform: scale(.9); }
+
+/* ============================================================= IMPORTANCE TIERS */
+/* tier colors: essential = gold, common = cyan/brand-2, occasional = muted */
+.imp-essential { color: var(--amber); }
+.imp-common    { color: var(--brand-2); }
+.imp-occasional{ color: var(--muted); }
+
+/* header pill next to difficulty */
+.ph-imp {
+  font-weight: 800; text-transform: uppercase; letter-spacing: .5px; font-size: 11px;
+  padding: 2px 9px; border-radius: 999px; border: 1px solid currentColor;
+}
+/* meta cell value keeps tier color but normal weight sizing */
+.meta-v.imp-essential, .meta-v.imp-common, .meta-v.imp-occasional { font-weight: 700; }
+
+/* sidebar dot */
+.ni-imp { font-size: 8px; line-height: 1; }
+
+/* dashboard bars */
+.db-bar-fill.imp-fill-essential  { background: var(--amber); }
+.db-bar-fill.imp-fill-common     { background: var(--brand-2); }
+.db-bar-fill.imp-fill-occasional { background: var(--muted); }
+
+/* revision-grid importance cell */
+.grid-table td.imp-essential, .grid-table td.imp-common, .grid-table td.imp-occasional { font-weight: 700; letter-spacing: 1px; }

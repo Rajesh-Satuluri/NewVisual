@@ -72,6 +72,12 @@
         <select id="filterPattern" title="Filter by pattern">
           <option value="all">All patterns</option>
         </select>
+        <select id="filterImportance" title="Filter by interview importance">
+          <option value="all">Any importance</option>
+          <option value="essential">★★★ Essential</option>
+          <option value="common">★★ Common</option>
+          <option value="occasional">★ Occasional</option>
+        </select>
         <button id="clearFilters" class="clear-btn" title="Clear search & filters">✕</button>
       </div>
 
@@ -131,6 +137,9 @@
 
   <!-- default reference/animation links (keyed by LeetCode number) -->
   <script src="data/reflinks.js"></script>
+
+  <!-- interview-importance tiers (keyed by LeetCode number) -->
+  <script src="data/importance.js"></script>
 
   <!-- data (canonical order) -->
   <script src="data/arrays_hashing.js"></script>
