@@ -52,6 +52,18 @@ html[data-theme="light"] {
   --shadow: 0 10px 34px rgba(30, 50, 90, .12);
 }
 
+:root {
+  --dur-fast: 120ms; --dur: 200ms; --dur-slow: 320ms;
+  --ease: cubic-bezier(.2, .8, .2, 1); --ease-in: cubic-bezier(.4, 0, 1, 1);
+  --lift: 0 6px 20px rgba(0, 0, 0, .22);
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important; transition-duration: .001ms !important;
+    animation-iteration-count: 1 !important; scroll-behavior: auto !important;
+  }
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body { height: 100%; }
