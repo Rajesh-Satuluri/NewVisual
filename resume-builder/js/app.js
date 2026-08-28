@@ -121,7 +121,7 @@
   function sampleStore() {
     var c = sampleContent();
     var resume = { id: uid(), name: "My Resume", targetRole: "", profile: c.profile, sections: c.sections };
-    return { library: libraryFromSections(c.sections), resumes: [resume], activeResumeId: resume.id, aiAssist: { vault: "", jd: "" } };
+    return { library: libraryFromSections(c.sections), resumes: [resume], activeResumeId: resume.id, aiAssist: { fields: {}, jd: "" } };
   }
 
   /* ---------- migrations ---------- */
@@ -192,9 +192,14 @@
       }
     });
     if (!s.activeResumeId || !byId(s.resumes, s.activeResumeId)) s.activeResumeId = s.resumes[0].id;
-    s.aiAssist = s.aiAssist || { vault: "", jd: "" };
-    if (typeof s.aiAssist.vault !== "string") s.aiAssist.vault = "";
+    s.aiAssist = s.aiAssist || {};
     if (typeof s.aiAssist.jd !== "string") s.aiAssist.jd = "";
+    s.aiAssist.fields = s.aiAssist.fields || {};
+    /* migrate the old single vault textarea into the new per-section fields */
+    if (typeof s.aiAssist.vault === "string" && s.aiAssist.vault.trim()) {
+      s.aiAssist.fields.other = (s.aiAssist.fields.other ? s.aiAssist.fields.other + "\n\n" : "") + s.aiAssist.vault;
+    }
+    delete s.aiAssist.vault;
     return s;
   }
   function persist(s) { try { localStorage.setItem(KEY3, JSON.stringify(s)); } catch (e) {} }
@@ -635,15 +640,38 @@
     "Format the output as plain text using the section headings above, so I can paste it straight into my resume builder."
   ].join("\n");
 
+  /* the per-section data fields the user fills in */
+  var AI_FIELDS = [
+    { key: "header",     label: "Contact / Header", ph: "Name, target job title, email, phone, city + state, LinkedIn / GitHub / portfolio links." },
+    { key: "summary",    label: "Professional Summary", ph: "Rough notes or your current summary — who you are, years of experience, focus areas." },
+    { key: "skills",     label: "Technical Skills", ph: "Every tool, language, framework, cloud, and platform you know. Group them if you like." },
+    { key: "experience", label: "Work Experience", ph: "Each job: company, title, dates, and what you did — responsibilities, achievements, numbers/impact." },
+    { key: "projects",   label: "Projects", ph: "Each project: name, tech stack, what you built, and the outcome/result." },
+    { key: "education",  label: "Education", ph: "Degree, major, institution, dates. Add certifications here too if you like." },
+    { key: "awards",     label: "Awards / Achievements / Certifications", ph: "Awards, recognitions, certifications — with dates and context." },
+    { key: "other",      label: "Anything else", ph: "Extra notes, keywords, publications, languages — anything that could help." }
+  ];
+
+  function buildBackground() {
+    var f = store.aiAssist.fields || {};
+    var parts = [];
+    AI_FIELDS.forEach(function (fld) {
+      var v = (f[fld.key] || "").trim();
+      if (v) parts.push("## " + fld.label.toUpperCase() + "\n" + v);
+    });
+    return parts.join("\n\n");
+  }
+
   function buildFullPrompt() {
     var a = store.aiAssist;
+    var bg = buildBackground();
     return AI_PROMPT +
-      "\n\n=== MY BACKGROUND ===\n" + (a.vault.trim() || "(paste your skills, projects, and experience above in the AI Assist tab)") +
-      "\n\n=== TARGET JOB DESCRIPTION ===\n" + (a.jd.trim() || "(paste the job description above in the AI Assist tab)");
+      "\n\n=== MY BACKGROUND ===\n" + (bg || "(fill in your resume data in the AI Assist tab)") +
+      "\n\n=== TARGET JOB DESCRIPTION ===\n" + (a.jd.trim() || "(paste the job description in the AI Assist tab)");
   }
 
   var AI_STEPS = [
-    "Fill the Skills & Projects vault below with everything about you — skills, tools, every project and job with what you did and any numbers/impact. The more raw material, the better the result.",
+    "Fill in your resume data below, section by section (Header, Summary, Skills, Experience, Projects, Education, Awards) — with everything about you, including numbers/impact. The more raw material, the better the result.",
     "Paste the job description you're applying to into the Job Description box.",
     "Click “Copy full prompt” — it bundles the instructions + your vault + the JD into one block.",
     "Open any AI chat (ChatGPT, Claude, or Gemini) and paste it in one message.",
@@ -665,14 +693,19 @@
       body.appendChild(ol);
     }));
 
-    /* Vault */
-    var vaultCopy = miniBtn("⧉ Copy background", function () { copyText(a.vault, "Background copied."); });
-    panel.appendChild(blockEl("Skills & Projects vault", "ai.vault", function (body) {
-      body.appendChild(elText("p", "hint", "Dump ALL your skills, tools, projects, and experience here in your own words — this is your raw material for the AI. Saved automatically."));
-      var ta = el("textarea", "inp ai-textarea"); ta.value = a.vault;
-      ta.placeholder = "e.g.\nSkills: Python, PySpark, SQL, Azure (ADF, Databricks, Synapse), Airflow, Kafka...\n\nExperience — o9 Solutions, Senior Data Engineer (Jul 2022–Present):\n- Built end-to-end pipelines for supply/demand planning...\n- Processed X million records/day...\n\nProjects:\n- Real-Time Data Pipeline (Kafka, Flink, Iceberg): ...";
-      ta.addEventListener("input", function () { a.vault = ta.value; scheduleSave(); });
-      body.appendChild(ta);
+    /* Data fields — one per resume section */
+    a.fields = a.fields || {};
+    var vaultCopy = miniBtn("⧉ Copy all my data", function () { copyText(buildBackground(), "Your data copied."); });
+    panel.appendChild(blockEl("Your resume data — all sections", "ai.vault", function (body) {
+      body.appendChild(elText("p", "hint", "Put all your material here, section by section, in your own words — this is the raw data the AI tailors from. Fill what you have; leave the rest blank. Saved automatically."));
+      AI_FIELDS.forEach(function (fld) {
+        var f = el("div", "field");
+        f.appendChild(elText("label", null, fld.label));
+        var ta = el("textarea", "inp ai-textarea ai-small"); ta.value = a.fields[fld.key] || ""; ta.placeholder = fld.ph;
+        ta.addEventListener("input", function () { a.fields[fld.key] = ta.value; scheduleSave(); });
+        f.appendChild(ta);
+        body.appendChild(f);
+      });
     }, [vaultCopy]));
 
     /* JD */
