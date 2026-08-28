@@ -182,6 +182,14 @@
       r.profile = r.profile || { name: "", title: "", contacts: [] };
       r.profile.contacts = r.profile.contacts || [];
       r.sections = r.sections || [];
+      /* one-time repair: ensure a Professional Summary section exists
+         (older migrations could drop it). Guarded so an intentional delete
+         is not undone on the next load. */
+      if (!r.ensuredSummary) {
+        var hasText = r.sections.some(function (sec) { return sec.type === "text"; });
+        if (!hasText) r.sections.unshift({ id: uid(), title: "Professional Summary", type: "text", text: "" });
+        r.ensuredSummary = true;
+      }
     });
     if (!s.activeResumeId || !byId(s.resumes, s.activeResumeId)) s.activeResumeId = s.resumes[0].id;
     return s;
@@ -262,6 +270,9 @@
     actions.appendChild(miniBtn("＋ New resume", newResume));
     actions.appendChild(miniBtn("⧉ Duplicate", duplicateResume));
     actions.appendChild(miniBtn("🗑 Delete", function () { deleteResume(activeResume()); }, "btn-danger"));
+    var spacer = el("span"); spacer.style.flex = "1"; actions.appendChild(spacer);
+    actions.appendChild(miniBtn("⊕ Expand all", function () { setAllCollapsed(false); }));
+    actions.appendChild(miniBtn("⊖ Collapse all", function () { setAllCollapsed(true); }));
     panel.appendChild(actions);
     var banner = el("div", "over-banner"); banner.id = "overBanner"; banner.hidden = true;
     banner.innerHTML = "⚠ This resume exceeds one page. Trim or shorten content — <strong>Add</strong> buttons are disabled until it fits.";
@@ -414,6 +425,15 @@
     lw.appendChild(sel);
     holder.appendChild(toggle); holder.appendChild(lw);
     return holder;
+  }
+
+  /* expand / collapse every block of the active resume */
+  function setAllCollapsed(val) {
+    var r = activeResume();
+    collapsed["r.settings"] = val;
+    collapsed["r.header"] = val;
+    r.sections.forEach(function (s) { collapsed["r.sec." + s.id] = val; });
+    renderApp();
   }
 
   /* ---------- resume CRUD ---------- */
