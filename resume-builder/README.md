@@ -10,19 +10,21 @@ Live: `https://rajesh-satuluri.github.io/NewVisual/resume-builder/`
 
 **Two tabs, one shared template.**
 
-- **Library** — your master store of content, each item saved on its own:
-  - Identity (name, role, contact details)
-  - Multiple professional summaries
-  - A pool of work experience, projects, skill categories, education, and awards
-  - Edit an item once and every resume that uses it updates.
+- **Resumes** — create as many resumes as you like, each a self-contained
+  document you edit directly:
+  - Pick a resume from the chips at the top, then edit **all of its content**
+    — header, summary, skills, experience, projects, education, awards, and any
+    custom section — right there. Every wording change is per-resume.
+  - Reorder sections, change a section's layout, add custom sections.
+  - **New / Duplicate / Delete** resumes; name each and tag it with a target
+    role/company.
+  - **Add from Library** to pull saved material into the current resume, or
+    **★ Save to Library** to file a section away for reuse.
 
-- **Resumes** — create as many role-tailored resumes as you like, all using the
-  same template:
-  - Pick which summary to use, and tick which experiences / projects / skills /
-    education / awards to include
-  - Reorder included items and reorder sections
-  - Name each resume and tag it with a target role/company
-  - **New / Duplicate / Delete** resumes
+- **Library** — your personal document store. Keep all your material here
+  (multiple summaries, jobs, projects, skills, education, awards) for reference
+  and reuse. Editing the Library never changes a resume; use **＋ To resume**
+  (or **Add from Library** inside a resume) to copy an item in.
 
 **Shared output for the active resume:**
 
@@ -39,21 +41,21 @@ Live: `https://rajesh-satuluri.github.io/NewVisual/resume-builder/`
 
 ```
 {
-  library: {
-    profile: { name, title, contacts[] },
-    summaries[], skills[], experiences[], projects[], education[], awards[]
-  },
+  library: { summaries[], skills[], experiences[], projects[], education[], awards[] },
   resumes: [
-    { id, name, targetRole, summaryId,
-      picks: { skills[], experiences[], projects[], education[], awards[] },
-      sectionOrder[] }
+    { id, name, targetRole,
+      profile: { name, title, contacts[] },
+      sections: [ { id, title, type, text | items[] } ] }   // self-contained
   ],
   activeResumeId
 }
 ```
 
-An earlier single-resume save (`newvisual.resume.v1`) is migrated automatically:
-its blocks seed the Library and one default resume is created that includes them.
+Each resume owns its full content (`profile` + `sections`), so edits are
+per-resume. The Library is a separate reference pool. Older saves are migrated
+automatically: `newvisual.resume.v1` (single flat resume) and
+`newvisual.resumedata.v2` (library + include-based resumes) both convert into
+self-contained resumes plus a reference Library.
 
 ## Files
 

@@ -113,6 +113,23 @@ body { background: var(--bg); color: var(--text); font-family: var(--font-ui); }
 }
 .order-row .order-name { flex: 1; font-size: 12.5px; }
 
+/* foot actions */
+.foot-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
+.foot-actions .btn { flex: 1; min-width: 160px; padding: 10px; }
+
+/* library-insert modal */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 24px; }
+.modal { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; width: 100%; max-width: 520px; max-height: 80vh; overflow-y: auto; padding: 18px 20px; }
+.modal-title { font-size: 15px; margin-bottom: 12px; color: var(--text); }
+.modal-cat { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--brand); font-weight: 700; margin: 12px 0 5px; }
+.modal-row { display: flex; align-items: center; gap: 10px; padding: 7px 9px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2); margin-bottom: 6px; }
+.modal-row .modal-name { flex: 1; font-size: 12.5px; }
+.modal-close { margin-top: 14px; width: 100%; padding: 9px; }
+
+/* toast */
+.toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(12px); background: var(--brand-ink); color: #fff; font-size: 13px; font-weight: 600; padding: 9px 16px; border-radius: 999px; box-shadow: 0 6px 24px rgba(0,0,0,.4); opacity: 0; transition: opacity .25s, transform .25s; z-index: 120; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
 /* Disabled add buttons when content overflows one page */
 .btn.js-add:disabled { opacity: .4; cursor: not-allowed; }
 .btn.js-add:disabled:hover { border-color: var(--border); background: var(--panel-2); }
