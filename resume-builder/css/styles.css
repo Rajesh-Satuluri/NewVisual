@@ -59,7 +59,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--font-ui); }
   font-size: 13px; font-weight: 600; padding: 10px 22px; text-align: center;
 }
 .over-banner strong { color: #fff; }
-.editor-inner { padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
+.editor-inner { padding: 14px 20px; display: flex; flex-direction: column; gap: 10px; }
 
 /* Disabled add buttons when content overflows one page */
 .btn.js-add:disabled { opacity: .4; cursor: not-allowed; }
@@ -80,43 +80,55 @@ body { background: var(--bg); color: var(--text); font-family: var(--font-ui); }
 
 /* ---------- Editor blocks ---------- */
 .block {
-  background: var(--panel); border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
 }
 .block-head {
-  display: flex; align-items: center; gap: 8px; padding: 10px 12px;
-  background: var(--panel-2); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 6px; padding: 6px 10px;
+  background: var(--panel-2); border-bottom: 1px solid var(--border); cursor: pointer;
 }
+.block-head .caret {
+  color: var(--muted); font-size: 11px; width: 14px; text-align: center; user-select: none;
+  transition: transform .12s ease;
+}
+.block.collapsed .caret { transform: rotate(-90deg); }
+.block.collapsed .block-body { display: none; }
 .block-head .sec-title {
   flex: 1; font-weight: 700; font-size: 13px; letter-spacing: .04em; text-transform: uppercase;
-  color: var(--brand); background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 4px 6px;
+  color: var(--brand); background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 3px 6px;
 }
 .block-head .sec-title:focus { outline: none; border-color: var(--border); background: var(--bg); }
-.block-head .move { color: var(--muted); cursor: pointer; user-select: none; font-size: 14px; padding: 2px 4px; }
+.block-head .move { color: var(--muted); cursor: pointer; user-select: none; font-size: 13px; padding: 1px 3px; }
 .block-head .move:hover { color: var(--text); }
-.block-body { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.block-body { padding: 9px 10px; display: flex; flex-direction: column; gap: 7px; }
 
-.field { display: flex; flex-direction: column; gap: 4px; }
-.field label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.field { display: flex; flex-direction: column; gap: 2px; }
+.field label { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
 input.inp, textarea.inp {
   font-family: inherit; font-size: 13px; color: var(--text); background: var(--bg);
-  border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; width: 100%; resize: vertical;
+  border: 1px solid var(--border); border-radius: 6px; padding: 6px 9px; width: 100%; line-height: 1.4;
 }
 input.inp:focus, textarea.inp:focus { outline: none; border-color: var(--brand); }
-textarea.inp { min-height: 64px; line-height: 1.5; }
-.row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+/* auto-grow textareas: start at one line, grow with content (sized via JS) */
+textarea.inp { resize: none; overflow: hidden; min-height: 32px; }
+.row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
 
 .item {
-  border: 1px solid var(--border); border-radius: 9px; padding: 10px; background: var(--panel-2);
-  display: flex; flex-direction: column; gap: 8px;
+  border: 1px solid var(--border); border-radius: 8px; padding: 7px 8px; background: var(--panel-2);
+  display: flex; flex-direction: column; gap: 6px;
 }
+/* item header: label + tools on ONE line */
 .item-bar { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-.item-bar .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
-.item-tools { display: flex; gap: 4px; }
-.bullets { display: flex; flex-direction: column; gap: 6px; }
-.bullet-row { display: flex; gap: 6px; align-items: flex-start; }
-.bullet-row textarea.inp { min-height: 40px; }
+.item-bar .lbl { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.item-tools { display: flex; gap: 3px; }
+.bullets { display: flex; flex-direction: column; gap: 5px; }
+.bullet-row { display: flex; gap: 5px; align-items: flex-start; }
 .hint { font-size: 11px; color: var(--muted); }
 .hint code { background: var(--bg); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+
+/* layout dropdown tucked behind a toggle */
+.layout-toggle { align-self: flex-start; }
+.layout-wrap { display: none; }
+.layout-wrap.open { display: flex; }
 
 /* ---------- Resume page (preview + print) ---------- */
 .page {

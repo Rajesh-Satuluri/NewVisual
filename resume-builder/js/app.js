@@ -112,6 +112,17 @@
   /* ---------- state ---------- */
   var data;
   var saveTimer = null;
+  var collapsed = {};   // section id -> collapsed?
+
+  /* auto-grow a textarea to fit its content (one line minimum) */
+  function autoGrow(ta) {
+    ta.style.height = "auto";
+    ta.style.height = Math.max(ta.scrollHeight, 32) + "px";
+  }
+  function growAll(root) {
+    var tas = (root || document).querySelectorAll("textarea.inp");
+    for (var i = 0; i < tas.length; i++) autoGrow(tas[i]);
+  }
 
   function load() {
     try {
@@ -151,6 +162,9 @@
     data.sections.forEach(function (sec, idx) {
       host.appendChild(sectionBlock(sec, idx));
     });
+
+    /* size all textareas to their content now they're attached */
+    growAll(host);
   }
 
   function headerBlock() {
@@ -194,8 +208,13 @@
   function sectionBlock(sec, idx) {
     var b = el("div", "block");
 
-    /* head: editable side-heading + move + delete */
+    if (collapsed[sec.id]) b.classList.add("collapsed");
+
+    /* head: caret + editable side-heading + move + delete (click to collapse) */
     var head = el("div", "block-head");
+    head.title = "Click to collapse / expand";
+    var caret = el("span", "caret"); caret.textContent = "▼";
+
     var title = el("input", "sec-title");
     title.value = sec.title;
     title.setAttribute("title", "Edit section heading");
@@ -209,7 +228,14 @@
       if (confirm("Delete section \"" + sec.title + "\"?")) { data.sections.splice(idx, 1); renderEditor(); touch(); }
     }, "btn-danger");
 
-    head.appendChild(title); head.appendChild(up); head.appendChild(down); head.appendChild(del);
+    head.addEventListener("click", function (e) {
+      if (e.target.closest("input, button, .move")) return;
+      collapsed[sec.id] = !collapsed[sec.id];
+      b.classList.toggle("collapsed", collapsed[sec.id]);
+      if (!collapsed[sec.id]) growAll(b);
+    });
+
+    head.appendChild(caret); head.appendChild(title); head.appendChild(up); head.appendChild(down); head.appendChild(del);
     b.appendChild(head);
 
     var body = el("div", "block-body");
@@ -292,7 +318,7 @@
       it.bullets.forEach(function (bt, bi) {
         var row = el("div", "bullet-row");
         var ta = el("textarea", "inp"); ta.value = bt;
-        ta.addEventListener("input", function () { it.bullets[bi] = ta.value; touch(); });
+        ta.addEventListener("input", function () { it.bullets[bi] = ta.value; autoGrow(ta); touch(); });
         var d = miniBtn("✕", function () { it.bullets.splice(bi, 1); renderEditor(); touch(); }, "btn-danger");
         row.appendChild(ta); row.appendChild(d);
         bl.appendChild(row);
@@ -303,7 +329,10 @@
   }
 
   function typeSwitcher(sec) {
-    var wrap = el("div", "field");
+    var holder = el("div");
+    var lw = el("div", "field layout-wrap");
+    var toggle = miniBtn("⚙ Layout", function () { lw.classList.toggle("open"); });
+    toggle.classList.add("layout-toggle");
     var lab = el("label"); lab.textContent = "Section layout";
     var sel = el("select", "inp");
     [["text", "Paragraph"], ["labeled", "Labeled rows (heading : text)"], ["entries", "Entries (title, date, bullets)"]]
@@ -322,8 +351,9 @@
       if ((nt === "labeled" || nt === "entries") && !sec.items) sec.items = [];
       renderEditor(); touch();
     });
-    wrap.appendChild(lab); wrap.appendChild(sel);
-    return wrap;
+    lw.appendChild(lab); lw.appendChild(sel);
+    holder.appendChild(toggle); holder.appendChild(lw);
+    return holder;
   }
 
   /* ---------- small field builders ---------- */
@@ -339,7 +369,7 @@
     var f = el("div", "field");
     var l = el("label"); l.textContent = label;
     var t = el("textarea", "inp"); t.value = val || "";
-    t.addEventListener("input", function () { onInput(t.value); });
+    t.addEventListener("input", function () { onInput(t.value); autoGrow(t); });
     f.appendChild(l); f.appendChild(t);
     return f;
   }
