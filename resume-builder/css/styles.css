@@ -51,7 +51,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--font-ui); }
 /* ---------- Layout ---------- */
 /* Editor is the primary work surface (large); preview is a small,
    scaled-to-fit verification thumbnail on the right. */
-.layout { display: grid; grid-template-columns: 1fr 380px; height: calc(100vh - 55px); }
+.layout { display: grid; grid-template-columns: 1fr 560px; height: calc(100vh - 55px); }
 .editor { overflow-y: auto; border-right: 1px solid var(--border); background: var(--bg); }
 .over-banner {
   position: sticky; top: 0; z-index: 5;
@@ -59,12 +59,12 @@ body { background: var(--bg); color: var(--text); font-family: var(--font-ui); }
   font-size: 13px; font-weight: 600; padding: 10px 22px; text-align: center;
 }
 .over-banner strong { color: #fff; }
-.editor-inner { padding: 20px 22px; display: flex; flex-direction: column; gap: 16px; max-width: 1100px; margin: 0 auto; }
+.editor-inner { padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
 
 /* Disabled add buttons when content overflows one page */
 .btn.js-add:disabled { opacity: .4; cursor: not-allowed; }
 .btn.js-add:disabled:hover { border-color: var(--border); background: var(--panel-2); }
-.editor-foot { padding: 0 22px 28px; max-width: 1100px; margin: 0 auto; }
+.editor-foot { padding: 0 24px 28px; }
 
 .preview-wrap { overflow-y: auto; background: #3f4658; padding: 14px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .preview-head { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 2px 4px; }
