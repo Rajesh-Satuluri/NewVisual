@@ -170,7 +170,7 @@
     var add = miniBtn("＋ Add contact", function () {
       data.contacts.push({ icon: "•", value: "" });
       renderEditor(); touch();
-    });
+    }, "js-add");
     lbl.appendChild(l); lbl.appendChild(add);
     body.appendChild(lbl);
 
@@ -235,7 +235,7 @@
     bar.appendChild(l);
     bar.appendChild(miniBtn("＋ Add row", function () {
       sec.items.push({ id: uid(), label: "", value: "" }); renderEditor(); touch();
-    }));
+    }, "js-add"));
     body.appendChild(bar);
 
     sec.items.forEach(function (it, i) {
@@ -260,7 +260,7 @@
     bar.appendChild(l);
     bar.appendChild(miniBtn("＋ Add entry", function () {
       sec.items.push({ id: uid(), heading: "", date: "", meta: "", bullets: [] }); renderEditor(); touch();
-    }));
+    }, "js-add"));
     body.appendChild(bar);
 
     sec.items.forEach(function (it, i) {
@@ -285,7 +285,7 @@
       bbar.appendChild(elText("span", "lbl", "Bullet points"));
       bbar.appendChild(miniBtn("＋ Add bullet", function () {
         it.bullets.push(""); renderEditor(); touch();
-      }));
+      }, "js-add"));
       wrap.appendChild(bbar);
 
       var bl = el("div", "bullets");
@@ -439,6 +439,12 @@
     page.classList.toggle("over", over);
     badge.textContent = over ? "⚠ Over 1 page" : "1 page";
     badge.className = "page-badge " + (over ? "over" : "ok");
+
+    /* Hard cap: when over one page, block adding more content. */
+    var banner = document.getElementById("overBanner");
+    if (banner) banner.hidden = !over;
+    var adders = document.querySelectorAll(".btn.js-add");
+    for (var i = 0; i < adders.length; i++) adders[i].disabled = over;
   }
 
   /* ============================================================
