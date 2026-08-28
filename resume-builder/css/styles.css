@@ -202,7 +202,9 @@ textarea.inp { resize: none; overflow: hidden; min-height: 32px; }
 
 /* ---------- Print → PDF ---------- */
 @media print {
-  @page { size: A4; margin: 12mm; }
+  /* margin:0 removes the browser's header/footer margin box (date, title,
+     URL, page number). Page padding is applied to .page instead. */
+  @page { size: A4; margin: 0; }
   html, body { background: #fff; }
   .no-print { display: none !important; }
   .layout { display: block; height: auto; }
@@ -210,10 +212,10 @@ textarea.inp { resize: none; overflow: hidden; min-height: 32px; }
   .page-holder { width: auto !important; height: auto !important; }
   .page-scaler { transform: none !important; }
   .page {
-    width: auto; box-shadow: none; padding: 0; margin: 0;
+    width: auto; box-shadow: none; margin: 0;
     font-size: 10.5pt; outline: none !important;
-    /* strict single physical page: A4 usable height (297mm - 24mm margins) */
-    height: 273mm; max-height: 273mm; overflow: hidden;
+    /* strict single physical page: full A4 with internal padding (border-box) */
+    padding: 12mm 13mm; height: 297mm; max-height: 297mm; overflow: hidden;
   }
   .r-name { font-size: 20pt; }
   .r-title { font-size: 12pt; }
