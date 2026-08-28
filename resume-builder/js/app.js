@@ -270,7 +270,11 @@
     else if (activeTab === "ai") renderAi(panel);
     else renderResumes(panel);
     growAll(panel);
-    renderPreview();
+
+    /* right panel: resume preview normally, big field editor on AI tab */
+    document.body.classList.toggle("ai-active", activeTab === "ai");
+    if (activeTab === "ai") renderAiPane();
+    else renderPreview();
   }
 
   /* ============================================================
@@ -680,10 +684,26 @@
     "Check the “1 page” badge, trim if needed, then Download PDF."
   ];
 
+  /* which AI field is open in the big right-hand editor */
+  var editingAiKey = "header";
+  /* the editable items = the section fields plus the job description */
+  function aiItems() {
+    var items = AI_FIELDS.map(function (f) { return { key: f.key, label: f.label, ph: f.ph, jd: false }; });
+    items.push({ key: "__jd", label: "Job Description", ph: "Paste the full job description you're applying to…", jd: true });
+    return items;
+  }
+  function aiGet(item) { return item.jd ? (store.aiAssist.jd || "") : (store.aiAssist.fields[item.key] || ""); }
+  function aiSet(item, v) { if (item.jd) store.aiAssist.jd = v; else store.aiAssist.fields[item.key] = v; }
+  function snippet(s) { s = (s || "").replace(/\s+/g, " ").trim(); return s ? (s.length > 70 ? s.slice(0, 70) + "…" : s) : ""; }
+
   function renderAi(panel) {
     var a = store.aiAssist;
+    a.fields = a.fields || {};
+    var items = aiItems();
+    if (!items.some(function (i) { return i.key === editingAiKey; })) editingAiKey = items[0].key;
+
     var hint = el("p", "panel-hint");
-    hint.innerHTML = "Turn your background + a job description into one paste-ready prompt for any AI chat. Everything stays in your browser — the AI step happens in your own chat tool (ChatGPT, Claude, Gemini). <strong>Always review the AI's output for accuracy before using it.</strong>";
+    hint.innerHTML = "Fill your data section by section (click a section to edit it in the big panel on the right), paste the job description, then copy one prompt into any AI chat. Everything stays in your browser. <strong>Always review the AI's output for accuracy.</strong>";
     panel.appendChild(hint);
 
     /* Steps */
@@ -693,43 +713,56 @@
       body.appendChild(ol);
     }));
 
-    /* Data fields — one per resume section */
-    a.fields = a.fields || {};
-    var vaultCopy = miniBtn("⧉ Copy all my data", function () { copyText(buildBackground(), "Your data copied."); });
-    panel.appendChild(blockEl("Your resume data — all sections", "ai.vault", function (body) {
-      body.appendChild(elText("p", "hint", "Put all your material here, section by section, in your own words — this is the raw data the AI tailors from. Fill what you have; leave the rest blank. Saved automatically."));
-      AI_FIELDS.forEach(function (fld) {
-        var f = el("div", "field");
-        f.appendChild(elText("label", null, fld.label));
-        var ta = el("textarea", "inp ai-textarea ai-small"); ta.value = a.fields[fld.key] || ""; ta.placeholder = fld.ph;
-        ta.addEventListener("input", function () { a.fields[fld.key] = ta.value; scheduleSave(); });
-        f.appendChild(ta);
-        body.appendChild(f);
+    /* Selectable section list */
+    var copyAll = miniBtn("⧉ Copy all my data", function () { copyText(buildBackground(), "Your data copied."); });
+    panel.appendChild(blockEl("Your resume data — click a section to edit", "ai.vault", function (body) {
+      items.forEach(function (item) {
+        var row = el("div", "ai-row" + (item.key === editingAiKey ? " active" : "") + (item.jd ? " ai-row-jd" : ""));
+        row.appendChild(elText("span", "ai-row-label", item.label));
+        var snip = elText("span", "ai-row-snip", snippet(aiGet(item)) || "empty");
+        if (!aiGet(item)) snip.classList.add("empty");
+        row.appendChild(snip);
+        row.addEventListener("click", function () { editingAiKey = item.key; renderApp(); });
+        body.appendChild(row);
       });
-    }, [vaultCopy]));
-
-    /* JD */
-    var jdCopy = miniBtn("⧉ Copy JD", function () { copyText(a.jd, "Job description copied."); });
-    panel.appendChild(blockEl("Job description", "ai.jd", function (body) {
-      body.appendChild(elText("p", "hint", "Paste the full job description you're applying to."));
-      var ta = el("textarea", "inp ai-textarea"); ta.value = a.jd;
-      ta.placeholder = "Paste the job posting here…";
-      ta.addEventListener("input", function () { a.jd = ta.value; scheduleSave(); });
-      body.appendChild(ta);
-    }, [jdCopy]));
+    }, [copyAll]));
 
     /* Prompt */
     var copyFull = miniBtn("⧉ Copy full prompt", function () { copyText(buildFullPrompt(), "Full prompt copied — paste it into your AI chat."); });
     copyFull.classList.remove("btn-mini"); copyFull.classList.add("btn-primary");
     var copyInstr = miniBtn("Copy instructions only", function () { copyText(AI_PROMPT, "Instructions copied."); });
     panel.appendChild(blockEl("The AI prompt", "ai.prompt", function (body) {
-      body.appendChild(elText("p", "hint", "“Copy full prompt” bundles these instructions with your vault and the job description above. Paste the whole thing into one AI chat message."));
+      body.appendChild(elText("p", "hint", "“Copy full prompt” bundles these instructions with all your data and the job description. Paste the whole thing into one AI chat message."));
       var pre = el("div", "prompt-box"); pre.textContent = AI_PROMPT;
       body.appendChild(pre);
       var row = el("div", "prompt-actions");
       row.appendChild(copyFull); row.appendChild(copyInstr);
       body.appendChild(row);
     }));
+  }
+
+  /* the big editor on the right (replaces the resume preview on the AI tab) */
+  function renderAiPane() {
+    var pane = document.getElementById("aiPane");
+    pane.innerHTML = "";
+    var items = aiItems();
+    var item = null;
+    for (var i = 0; i < items.length; i++) if (items[i].key === editingAiKey) item = items[i];
+    if (!item) item = items[0];
+
+    var head = el("div", "ai-pane-head");
+    head.appendChild(elText("span", "ai-pane-title", item.label));
+    head.appendChild(miniBtn("⧉ Copy", function () { copyText(aiGet(item), item.label + " copied."); }));
+    pane.appendChild(head);
+
+    var ta = el("textarea", "ai-pane-ta"); ta.value = aiGet(item); ta.placeholder = item.ph;
+    ta.addEventListener("input", function () {
+      aiSet(item, ta.value); scheduleSave();
+      var snip = document.querySelector(".ai-row.active .ai-row-snip");
+      if (snip) { snip.textContent = snippet(ta.value) || "empty"; snip.classList.toggle("empty", !ta.value.trim()); }
+    });
+    pane.appendChild(ta);
+    ta.focus();
   }
 
   /* ============================================================

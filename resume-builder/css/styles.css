@@ -118,8 +118,6 @@ body { background: var(--bg); color: var(--text); font-family: var(--font-ui); }
 .foot-actions .btn { flex: 1; min-width: 160px; padding: 10px; }
 
 /* AI Assist */
-.ai-textarea { min-height: 160px; resize: vertical; overflow: auto; line-height: 1.5; font-size: 12.5px; }
-.ai-textarea.ai-small { min-height: 74px; }
 .ai-steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 7px; }
 .ai-steps li { font-size: 13px; line-height: 1.5; color: var(--text); }
 .prompt-box {
@@ -130,6 +128,30 @@ body { background: var(--bg); color: var(--text); font-family: var(--font-ui); }
 }
 .prompt-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .prompt-actions .btn { padding: 9px 14px; }
+
+/* selectable section rows */
+.ai-row { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2); cursor: pointer; margin-bottom: 6px; transition: border-color .12s, background .12s; }
+.ai-row:hover { border-color: var(--brand); }
+.ai-row.active { border-color: var(--brand); background: #17303a; box-shadow: 0 0 0 1px var(--brand) inset; }
+.ai-row-jd { border-left: 3px solid var(--brand-ink); }
+.ai-row-label { font-size: 12.5px; font-weight: 600; color: var(--text); }
+.ai-row-snip { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ai-row-snip.empty { font-style: italic; opacity: .6; }
+
+/* big right-hand editor (replaces resume preview on the AI tab) */
+.ai-pane { display: none; flex: 1; min-height: 0; width: 100%; flex-direction: column; gap: 10px; }
+body.ai-active .preview-head { display: none; }
+body.ai-active .page-holder { display: none; }
+body.ai-active .ai-pane { display: flex; }
+body.ai-active .preview-wrap { align-items: stretch; padding: 16px; }
+.ai-pane-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ai-pane-title { font-size: 15px; font-weight: 700; color: #fff; letter-spacing: .01em; }
+.ai-pane-ta {
+  flex: 1; width: 100%; resize: none; font-family: inherit; font-size: 14px; line-height: 1.6;
+  color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  padding: 16px 18px;
+}
+.ai-pane-ta:focus { outline: none; border-color: var(--brand); }
 
 /* ATS guide */
 .ats-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
@@ -297,7 +319,7 @@ textarea.inp { resize: none; overflow: hidden; min-height: 32px; }
   .no-print { display: none !important; }
   .layout { display: block; height: auto; }
   .preview-wrap { padding: 0; background: #fff; display: block; overflow: visible; }
-  .page-holder { width: auto !important; height: auto !important; }
+  .page-holder { width: auto !important; height: auto !important; display: block !important; }
   .page-scaler { transform: none !important; }
   .page {
     width: auto; box-shadow: none; margin: 0;
