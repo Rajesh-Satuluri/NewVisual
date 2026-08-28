@@ -27,15 +27,26 @@
   <main class="layout">
     <!-- EDITOR PANEL -->
     <section class="editor no-print" id="editor" aria-label="Resume editor">
+      <div class="over-banner" id="overBanner" hidden>
+        ⚠ Your resume exceeds one page. Trim or shorten content — <strong>Add</strong> buttons are disabled until it fits.
+      </div>
       <div class="editor-inner" id="editorInner"><!-- built by JS --></div>
       <div class="editor-foot">
-        <button class="btn btn-wide" id="btnAddSection">＋ Add custom section</button>
+        <button class="btn btn-wide js-add" id="btnAddSection">＋ Add custom section</button>
       </div>
     </section>
 
     <!-- PREVIEW PANEL -->
     <section class="preview-wrap" aria-label="Resume preview">
-      <div class="page" id="page"><!-- built by JS --></div>
+      <div class="preview-head no-print">
+        <span class="preview-label">Preview · A4</span>
+        <span class="page-badge ok" id="pageBadge">1 page</span>
+      </div>
+      <div class="page-holder" id="pageHolder">
+        <div class="page-scaler" id="pageScaler">
+          <div class="page" id="page"><!-- built by JS --></div>
+        </div>
+      </div>
     </section>
   </main>
 

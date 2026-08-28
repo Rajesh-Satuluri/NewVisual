@@ -170,7 +170,7 @@
     var add = miniBtn("＋ Add contact", function () {
       data.contacts.push({ icon: "•", value: "" });
       renderEditor(); touch();
-    });
+    }, "js-add");
     lbl.appendChild(l); lbl.appendChild(add);
     body.appendChild(lbl);
 
@@ -235,7 +235,7 @@
     bar.appendChild(l);
     bar.appendChild(miniBtn("＋ Add row", function () {
       sec.items.push({ id: uid(), label: "", value: "" }); renderEditor(); touch();
-    }));
+    }, "js-add"));
     body.appendChild(bar);
 
     sec.items.forEach(function (it, i) {
@@ -260,7 +260,7 @@
     bar.appendChild(l);
     bar.appendChild(miniBtn("＋ Add entry", function () {
       sec.items.push({ id: uid(), heading: "", date: "", meta: "", bullets: [] }); renderEditor(); touch();
-    }));
+    }, "js-add"));
     body.appendChild(bar);
 
     sec.items.forEach(function (it, i) {
@@ -285,7 +285,7 @@
       bbar.appendChild(elText("span", "lbl", "Bullet points"));
       bbar.appendChild(miniBtn("＋ Add bullet", function () {
         it.bullets.push(""); renderEditor(); touch();
-      }));
+      }, "js-add"));
       wrap.appendChild(bbar);
 
       var bl = el("div", "bullets");
@@ -411,6 +411,40 @@
     });
 
     page.innerHTML = h;
+    fitPreview();
+    checkOnePage();
+  }
+
+  /* Scale the A4 page down to fit the (small) preview column so the whole
+     page is visible at once for verification. */
+  function fitPreview() {
+    var wrap = document.querySelector(".preview-wrap");
+    var holder = document.getElementById("pageHolder");
+    var scaler = document.getElementById("pageScaler");
+    if (!wrap || !holder || !scaler) return;
+    var avail = wrap.clientWidth - 4;              // available width in the column
+    var scale = Math.min(avail / 794, 1);          // never upscale past 100%
+    if (!isFinite(scale) || scale <= 0) scale = 0.45;
+    scaler.style.transform = "scale(" + scale + ")";
+    holder.style.width = (794 * scale) + "px";
+    holder.style.height = (1123 * scale) + "px";
+  }
+
+  /* Strict one-page check: flag when content overflows the fixed A4 height. */
+  function checkOnePage() {
+    var page = document.getElementById("page");
+    var badge = document.getElementById("pageBadge");
+    if (!page || !badge) return;
+    var over = page.scrollHeight > page.clientHeight + 1;
+    page.classList.toggle("over", over);
+    badge.textContent = over ? "⚠ Over 1 page" : "1 page";
+    badge.className = "page-badge " + (over ? "over" : "ok");
+
+    /* Hard cap: when over one page, block adding more content. */
+    var banner = document.getElementById("overBanner");
+    if (banner) banner.hidden = !over;
+    var adders = document.querySelectorAll(".btn.js-add");
+    for (var i = 0; i < adders.length; i++) adders[i].disabled = over;
   }
 
   /* ============================================================
@@ -473,6 +507,8 @@
     });
 
     setSaveState("Saved");
+
+    window.addEventListener("resize", fitPreview);
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
