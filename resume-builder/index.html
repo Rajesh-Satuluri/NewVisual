@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Resume Builder — NewVisual</title>
+  <meta name="description" content="Block-based resume builder. Fill in every block, live preview, and download a print-quality PDF. Pure static site, no backend — your data stays in your browser." />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <!-- Top bar -->
+  <header class="topbar no-print">
+    <div class="topbar-left">
+      <a class="home-link" href="../index.html" title="Back to NewVisual">←</a>
+      <span class="brand">Resume Builder</span>
+      <span class="save-state" id="saveState">Saved</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn" id="btnImport" title="Import resume JSON">Import</button>
+      <button class="btn" id="btnExport" title="Export resume JSON">Export</button>
+      <button class="btn" id="btnReset" title="Reset to sample resume">Reset</button>
+      <button class="btn btn-primary" id="btnPdf" title="Download as PDF (print dialog)">⬇ Download PDF</button>
+      <input type="file" id="fileImport" accept="application/json" hidden />
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- EDITOR PANEL -->
+    <section class="editor no-print" id="editor" aria-label="Resume editor">
+      <div class="editor-inner" id="editorInner"><!-- built by JS --></div>
+      <div class="editor-foot">
+        <button class="btn btn-wide" id="btnAddSection">＋ Add custom section</button>
+      </div>
+    </section>
+
+    <!-- PREVIEW PANEL -->
+    <section class="preview-wrap" aria-label="Resume preview">
+      <div class="page" id="page"><!-- built by JS --></div>
+    </section>
+  </main>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
