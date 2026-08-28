@@ -210,7 +210,9 @@
       body.appendChild(row);
     });
 
-    b.appendChild(body);
+    var bodyWrap = el("div", "block-body-wrap");
+    bodyWrap.appendChild(body);
+    b.appendChild(bodyWrap);
     return b;
   }
 
@@ -260,7 +262,9 @@
     /* type switcher for custom sections */
     body.appendChild(typeSwitcher(sec));
 
-    b.appendChild(body);
+    var bodyWrap = el("div", "block-body-wrap");
+    bodyWrap.appendChild(body);
+    b.appendChild(bodyWrap);
     return b;
   }
 
