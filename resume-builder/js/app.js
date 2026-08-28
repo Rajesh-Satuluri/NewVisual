@@ -56,7 +56,7 @@
           id: uid(), title: "Professional Experience", type: "entries",
           items: [
             {
-              id: uid(), heading: "o9 Solutions — Senior Data Engineer", date: "Jul 2022 – Present",
+              id: uid(), heading: "o9 Solutions", role: "Senior Data Engineer", date: "Jul 2022 – Present",
               meta: "Supply chain data integration · o9 Digital Brain platform · Apache NiFi · SQL",
               bullets: [
                 "Built end-to-end data integration pipelines for Supply Planning, Demand Planning, Order Handling, Kitting, and Costing workflows on the o9 Digital Brain platform.",
@@ -313,11 +313,12 @@
       top.appendChild(tools);
       wrap.appendChild(top);
 
-      wrap.appendChild(fieldInput("Title (company / role / project / school)", it.heading, function (v) { it.heading = v; touch(); }));
+      wrap.appendChild(fieldInput("Company / project / school", it.heading, function (v) { it.heading = v; touch(); }));
       var r2 = el("div", "row-2");
+      r2.appendChild(fieldInput("Role / title (optional)", it.role, function (v) { it.role = v; touch(); }));
       r2.appendChild(fieldInput("Date range", it.date, function (v) { it.date = v; touch(); }));
-      r2.appendChild(fieldInput("Meta / tech line", it.meta, function (v) { it.meta = v; touch(); }));
       wrap.appendChild(r2);
+      wrap.appendChild(fieldInput("Meta / tech line", it.meta, function (v) { it.meta = v; touch(); }));
 
       /* bullets */
       var bbar = el("div", "item-bar");
@@ -441,6 +442,7 @@
           h += '<div class="r-entry-head"><span class="r-entry-title">' + esc(it.heading) + "</span>";
           if (it.date) h += '<span class="r-entry-date">' + esc(it.date) + "</span>";
           h += "</div>";
+          if (it.role) h += '<div class="r-entry-role">' + esc(it.role) + "</div>";
           if (it.meta) h += '<div class="r-entry-meta">' + esc(it.meta) + "</div>";
           if (it.bullets && it.bullets.length) {
             h += '<ul class="r-bullets">';

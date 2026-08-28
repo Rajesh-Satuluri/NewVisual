@@ -186,6 +186,7 @@ textarea.inp { resize: none; overflow: hidden; min-height: 32px; }
 .r-entry-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .r-entry-title { font-weight: 700; font-size: 13px; color: #111; }
 .r-entry-date { font-size: 11.5px; color: var(--r-muted); white-space: nowrap; font-weight: 600; }
+.r-entry-role { font-weight: 600; font-size: 12.8px; color: #222; margin: 0 0 1px; }
 .r-entry-meta { font-style: italic; font-size: 12px; color: var(--r-muted); margin: 1px 0 2px; }
 .r-bullets { margin: 0; padding-left: 17px; }
 .r-bullets li { font-size: 12.5px; line-height: 1.38; margin-bottom: 1px; }
