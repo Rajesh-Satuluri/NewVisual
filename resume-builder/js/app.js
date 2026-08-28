@@ -257,12 +257,12 @@
       switcher.appendChild(chip);
     });
     panel.appendChild(switcher);
+    var r = activeResume();
     var actions = el("div", "resume-actions");
     actions.appendChild(miniBtn("＋ New resume", newResume));
     actions.appendChild(miniBtn("⧉ Duplicate", duplicateResume));
+    actions.appendChild(miniBtn("🗑 Delete", function () { deleteResume(activeResume()); }, "btn-danger"));
     panel.appendChild(actions);
-
-    var r = activeResume();
     var banner = el("div", "over-banner"); banner.id = "overBanner"; banner.hidden = true;
     banner.innerHTML = "⚠ This resume exceeds one page. Trim or shorten content — <strong>Add</strong> buttons are disabled until it fits.";
     panel.appendChild(banner);
@@ -418,8 +418,13 @@
 
   /* ---------- resume CRUD ---------- */
   function newResume() {
+    // start from the full standard template (all sections present) so a new
+    // resume has everything ready to tailor, not a blank document
     var c = sampleContent();
-    var r = { id: uid(), name: "New Resume", targetRole: "", profile: { name: c.profile.name, title: c.profile.title, contacts: clone(c.profile.contacts) }, sections: [] };
+    var r = { id: uid(), name: "New Resume", targetRole: "",
+      profile: { name: c.profile.name, title: c.profile.title, contacts: clone(c.profile.contacts) },
+      sections: clone(c.sections) };
+    r.sections.forEach(function (s) { s.id = uid(); (s.items || []).forEach(function (it) { it.id = uid(); }); });
     store.resumes.push(r); store.activeResumeId = r.id; renderApp(); touch();
   }
   function duplicateResume() {
