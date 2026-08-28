@@ -32,7 +32,7 @@
   function byId(arr, id) { for (var i = 0; i < arr.length; i++) if (arr[i].id === id) return arr[i]; return null; }
   function moveIn(arr, idx, dir) { var j = idx + dir; if (j < 0 || j >= arr.length) return false; var t = arr[idx]; arr[idx] = arr[j]; arr[j] = t; return true; }
   function autoGrow(ta) { ta.style.height = "auto"; ta.style.height = Math.max(ta.scrollHeight, 32) + "px"; }
-  function growAll(root) { var t = (root || document).querySelectorAll("textarea.inp"); for (var i = 0; i < t.length; i++) autoGrow(t[i]); }
+  function growAll(root) { var t = (root || document).querySelectorAll("textarea.inp:not(.ai-textarea)"); for (var i = 0; i < t.length; i++) autoGrow(t[i]); }
   function classifyLib(section) {
     var t = (section.title || "").toLowerCase();
     if (section.type === "text") return "summaries";
@@ -121,7 +121,7 @@
   function sampleStore() {
     var c = sampleContent();
     var resume = { id: uid(), name: "My Resume", targetRole: "", profile: c.profile, sections: c.sections };
-    return { library: libraryFromSections(c.sections), resumes: [resume], activeResumeId: resume.id };
+    return { library: libraryFromSections(c.sections), resumes: [resume], activeResumeId: resume.id, aiAssist: { vault: "", jd: "" } };
   }
 
   /* ---------- migrations ---------- */
@@ -192,12 +192,27 @@
       }
     });
     if (!s.activeResumeId || !byId(s.resumes, s.activeResumeId)) s.activeResumeId = s.resumes[0].id;
+    s.aiAssist = s.aiAssist || { vault: "", jd: "" };
+    if (typeof s.aiAssist.vault !== "string") s.aiAssist.vault = "";
+    if (typeof s.aiAssist.jd !== "string") s.aiAssist.jd = "";
     return s;
   }
   function persist(s) { try { localStorage.setItem(KEY3, JSON.stringify(s)); } catch (e) {} }
   function save() { persist(store); setSaveState("Saved"); }
   function setSaveState(txt, dirty) { var s = document.getElementById("saveState"); if (!s) return; s.textContent = txt; s.classList.toggle("dirty", !!dirty); }
   function touch() { setSaveState("Saving…", true); if (saveTimer) clearTimeout(saveTimer); saveTimer = setTimeout(save, 400); renderPreview(); }
+  function scheduleSave() { setSaveState("Saving…", true); if (saveTimer) clearTimeout(saveTimer); saveTimer = setTimeout(save, 400); }
+  function copyText(str, okMsg) {
+    function done() { flash(okMsg || "Copied to clipboard."); }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(str).then(done, function () { fallbackCopy(str); done(); });
+    } else { fallbackCopy(str); done(); }
+  }
+  function fallbackCopy(str) {
+    var ta = document.createElement("textarea"); ta.value = str;
+    ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta);
+    ta.select(); try { document.execCommand("copy"); } catch (e) {} document.body.removeChild(ta);
+  }
   function activeResume() { return byId(store.resumes, store.activeResumeId) || store.resumes[0]; }
 
   /* ============================================================
@@ -247,6 +262,7 @@
     panel.innerHTML = "";
     if (activeTab === "library") renderLibrary(panel);
     else if (activeTab === "ats") renderAts(panel);
+    else if (activeTab === "ai") renderAi(panel);
     else renderResumes(panel);
     growAll(panel);
     renderPreview();
@@ -596,6 +612,91 @@
         body.appendChild(wrap);
       });
     }, [add]));
+  }
+
+  /* ============================================================
+     AI ASSIST TAB — vault + JD -> one paste-ready prompt
+     ============================================================ */
+  var AI_PROMPT = [
+    "You are an expert resume writer and ATS (Applicant Tracking System) optimization specialist.",
+    "",
+    "I will give you (1) MY BACKGROUND — my real skills, projects, and experience — and (2) a TARGET JOB DESCRIPTION. Using ONLY the facts in my background (never invent employers, job titles, dates, metrics, or experience I don't have), rewrite my content to score as highly as possible against the job description in an ATS.",
+    "",
+    "Do the following:",
+    "1. Extract the most important hard skills, tools, and keywords from the job description (keep their exact spelling).",
+    "2. Produce these sections, ready to paste into a one-page resume:",
+    "   - PROFESSIONAL SUMMARY: 3–4 lines, no first-person pronouns, leading with my title + years of experience, packed with the job's top keywords that I genuinely match.",
+    "   - TECHNICAL SKILLS: grouped into clear categories (e.g. Languages, Cloud, Data/ETL, Databases). Each line as \"Category: comma, separated, list\", prioritizing the required skills from the JD that I actually have.",
+    "   - PROFESSIONAL EXPERIENCE: for each role keep my real company, title, and dates; rewrite 3–6 bullets that begin with strong past-tense action verbs, are quantified wherever my background supports it, and naturally weave in the JD's keywords in context.",
+    "   - PROJECTS: same bullet style, with a tech-stack line; include only projects relevant to this JD.",
+    "3. Keep everything truthful, concise, and short enough to fit one page. Prefer the JD's exact wording wherever it honestly matches my experience.",
+    "4. After the resume sections, add a short list titled \"KEYWORDS I'M STILL MISSING\" — important JD keywords not supported by my background — so I know the gaps. Do NOT put these in the resume itself.",
+    "",
+    "Format the output as plain text using the section headings above, so I can paste it straight into my resume builder."
+  ].join("\n");
+
+  function buildFullPrompt() {
+    var a = store.aiAssist;
+    return AI_PROMPT +
+      "\n\n=== MY BACKGROUND ===\n" + (a.vault.trim() || "(paste your skills, projects, and experience above in the AI Assist tab)") +
+      "\n\n=== TARGET JOB DESCRIPTION ===\n" + (a.jd.trim() || "(paste the job description above in the AI Assist tab)");
+  }
+
+  var AI_STEPS = [
+    "Fill the Skills & Projects vault below with everything about you — skills, tools, every project and job with what you did and any numbers/impact. The more raw material, the better the result.",
+    "Paste the job description you're applying to into the Job Description box.",
+    "Click “Copy full prompt” — it bundles the instructions + your vault + the JD into one block.",
+    "Open any AI chat (ChatGPT, Claude, or Gemini) and paste it in one message.",
+    "Review the output carefully for accuracy — make sure nothing was invented or overstated.",
+    "Come to the Resumes tab, create or duplicate a resume, and paste the Summary / Skills / Experience / Projects into the matching sections.",
+    "Check the “1 page” badge, trim if needed, then Download PDF."
+  ];
+
+  function renderAi(panel) {
+    var a = store.aiAssist;
+    var hint = el("p", "panel-hint");
+    hint.innerHTML = "Turn your background + a job description into one paste-ready prompt for any AI chat. Everything stays in your browser — the AI step happens in your own chat tool (ChatGPT, Claude, Gemini). <strong>Always review the AI's output for accuracy before using it.</strong>";
+    panel.appendChild(hint);
+
+    /* Steps */
+    panel.appendChild(blockEl("How to use — steps", "ai.steps", function (body) {
+      var ol = el("ol", "ai-steps");
+      AI_STEPS.forEach(function (s) { ol.appendChild(elText("li", null, s)); });
+      body.appendChild(ol);
+    }));
+
+    /* Vault */
+    var vaultCopy = miniBtn("⧉ Copy background", function () { copyText(a.vault, "Background copied."); });
+    panel.appendChild(blockEl("Skills & Projects vault", "ai.vault", function (body) {
+      body.appendChild(elText("p", "hint", "Dump ALL your skills, tools, projects, and experience here in your own words — this is your raw material for the AI. Saved automatically."));
+      var ta = el("textarea", "inp ai-textarea"); ta.value = a.vault;
+      ta.placeholder = "e.g.\nSkills: Python, PySpark, SQL, Azure (ADF, Databricks, Synapse), Airflow, Kafka...\n\nExperience — o9 Solutions, Senior Data Engineer (Jul 2022–Present):\n- Built end-to-end pipelines for supply/demand planning...\n- Processed X million records/day...\n\nProjects:\n- Real-Time Data Pipeline (Kafka, Flink, Iceberg): ...";
+      ta.addEventListener("input", function () { a.vault = ta.value; scheduleSave(); });
+      body.appendChild(ta);
+    }, [vaultCopy]));
+
+    /* JD */
+    var jdCopy = miniBtn("⧉ Copy JD", function () { copyText(a.jd, "Job description copied."); });
+    panel.appendChild(blockEl("Job description", "ai.jd", function (body) {
+      body.appendChild(elText("p", "hint", "Paste the full job description you're applying to."));
+      var ta = el("textarea", "inp ai-textarea"); ta.value = a.jd;
+      ta.placeholder = "Paste the job posting here…";
+      ta.addEventListener("input", function () { a.jd = ta.value; scheduleSave(); });
+      body.appendChild(ta);
+    }, [jdCopy]));
+
+    /* Prompt */
+    var copyFull = miniBtn("⧉ Copy full prompt", function () { copyText(buildFullPrompt(), "Full prompt copied — paste it into your AI chat."); });
+    copyFull.classList.remove("btn-mini"); copyFull.classList.add("btn-primary");
+    var copyInstr = miniBtn("Copy instructions only", function () { copyText(AI_PROMPT, "Instructions copied."); });
+    panel.appendChild(blockEl("The AI prompt", "ai.prompt", function (body) {
+      body.appendChild(elText("p", "hint", "“Copy full prompt” bundles these instructions with your vault and the job description above. Paste the whole thing into one AI chat message."));
+      var pre = el("div", "prompt-box"); pre.textContent = AI_PROMPT;
+      body.appendChild(pre);
+      var row = el("div", "prompt-actions");
+      row.appendChild(copyFull); row.appendChild(copyInstr);
+      body.appendChild(row);
+    }));
   }
 
   /* ============================================================
