@@ -246,6 +246,7 @@
     var panel = document.getElementById("tabPanel");
     panel.innerHTML = "";
     if (activeTab === "library") renderLibrary(panel);
+    else if (activeTab === "ats") renderAts(panel);
     else renderResumes(panel);
     growAll(panel);
     renderPreview();
@@ -595,6 +596,93 @@
         body.appendChild(wrap);
       });
     }, [add]));
+  }
+
+  /* ============================================================
+     ATS GUIDE TAB — what to consider per section for a good score
+     ============================================================ */
+  var ATS_GUIDE = [
+    { title: "How ATS scoring works (read first)", key: "ats.how", tips: [
+      "An ATS (Applicant Tracking System) parses your resume into plain text, then matches it against the job description's keywords and required skills.",
+      "Score ≈ keyword & skill match + parseable structure + relevant titles/dates. It cannot 'see' design — only extractable text.",
+      "Tailor every resume to ONE job: mirror the exact words from that job posting (skills, tools, titles). This app lets you keep a separate resume per role for exactly this.",
+      "Use the job's own phrasing: if it says “ETL pipelines”, write “ETL pipelines”, not “data flows”.",
+      "Don't keyword-stuff or hide white text — modern ATS and recruiters penalize it."
+    ] },
+    { title: "Formatting & file (whole resume)", key: "ats.format", tips: [
+      "Single column, top-to-bottom — this app already does this. Avoid tables, text boxes, columns, headers/footers, images, icons-as-text, and graphics.",
+      "Use real, selectable text (this app's PDF is text-based, not an image) so the ATS can read every word.",
+      "Standard section headings: “Professional Summary”, “Technical Skills”, “Professional Experience”, “Education”. Avoid creative names like “Where I've Made Impact”.",
+      "Keep it to 1 page (enforced here) for < ~10 yrs experience; 2 pages only if senior.",
+      "Save/submit as PDF unless the posting explicitly asks for .docx. Name the file Firstname_Lastname_Resume.pdf.",
+      "Standard fonts (Calibri, Arial, Garamond). No special Unicode symbols that can garble parsing."
+    ] },
+    { title: "Header / contact", key: "ats.header", tips: [
+      "Put your name, phone, email, city+state, and LinkedIn/GitHub as plain text — not inside a header/footer region (some ATS skip those).",
+      "Use a professional email. Spell out the value next to any icon; if unsure, drop the icon and keep the text (e.g. “Email: …”).",
+      "Add the target job title under your name (e.g. “Senior Data Engineer”) — it's a strong keyword match.",
+      "One phone, one email. Avoid photos, date of birth, and personal details (they can break parsing and aren't needed)."
+    ] },
+    { title: "Professional Summary", key: "ats.summary", tips: [
+      "3–4 lines. Lead with your title + years of experience, then your top skills and domains — using the job's keywords.",
+      "Front-load the most important keywords; ATS and recruiters weight the top of the resume.",
+      "Mirror the role: for a “Data Engineer” posting, name the exact stack (e.g. Spark, Airflow, Azure) they list.",
+      "Quantify where possible (“4+ years”, “pipelines processing 10M+ records/day”).",
+      "Avoid first-person pronouns (“I”, “my”) and vague fluff (“hard-working team player”)."
+    ] },
+    { title: "Technical Skills", key: "ats.skills", tips: [
+      "This is the highest-value keyword section. List the exact tools/technologies named in the job description, spelled the same way.",
+      "Include both the acronym and full form once somewhere (e.g. “ETL (Extract, Transform, Load)”, “AWS (Amazon Web Services)”) — ATS may search either.",
+      "Group into clear categories (Languages, Cloud, ETL, Databases…) as plain “Label: comma, separated, list.”",
+      "Only list skills you can defend in an interview; don't pad.",
+      "No skill bars/ratings/graphics — ATS can't read them and they waste space."
+    ] },
+    { title: "Professional Experience", key: "ats.exp", tips: [
+      "Format each entry as: Company — plain text; Job Title on its own line (ATS scores titles); Location; and dates as “MMM YYYY – MMM YYYY” (or “Present”).",
+      "Keep date format consistent across all entries so the ATS computes tenure correctly.",
+      "Start every bullet with a strong past-tense action verb (Built, Led, Designed, Reduced, Automated).",
+      "Quantify impact: numbers, %, scale, time saved, revenue (“cut runtime 40%”, “processed 5TB/day”).",
+      "Weave in the job's keywords/tools naturally within bullets, not just in the skills list — ATS values context.",
+      "Match the job title language where honest (if they say “Data Engineer” and your title was equivalent, mirror it).",
+      "3–6 bullets per recent role; fewer for older roles. Avoid paragraphs."
+    ] },
+    { title: "Projects", key: "ats.projects", tips: [
+      "Great for showing keyword-rich, hands-on skills when your job titles don't cover them.",
+      "Name the tech stack explicitly on its own line — pure keyword value.",
+      "Use the same action-verb + quantified-outcome bullet style as experience.",
+      "Prefer projects relevant to the target role; drop unrelated ones per application."
+    ] },
+    { title: "Education", key: "ats.edu", tips: [
+      "Plain text: Degree, Major, Institution, and graduation date/range.",
+      "Spell out the degree (“Bachelor of Technology”), and include the field of study — postings often filter on it.",
+      "List relevant certifications (AWS, Azure, Databricks, etc.) — they're strong keyword matches; add a Certifications section if you have several.",
+      "Drop high-school details once you have a degree."
+    ] },
+    { title: "Awards / Achievements", key: "ats.awards", tips: [
+      "Optional and low ATS weight — keep only if it strengthens the story and space allows.",
+      "Quantify and keep to one line each; tie to skills relevant to the role where possible.",
+      "Don't let this crowd out Experience/Skills, which carry far more ATS weight."
+    ] },
+    { title: "Before you submit — checklist", key: "ats.checklist", tips: [
+      "Re-read the job posting; ensure its top ~10 keywords/skills appear somewhere truthful on your resume.",
+      "Copy your PDF's text (Ctrl+A, Ctrl+C) into a plain text editor — if it pastes cleanly and in order, the ATS can read it.",
+      "Consistent dates, consistent tense, no typos (spelling errors can drop keyword matches).",
+      "One page, standard headings, no tables/images — verified by this app's preview and one-page badge.",
+      "Duplicate this resume per application and tailor the summary + skills each time."
+    ] }
+  ];
+
+  function renderAts(panel) {
+    var hint = el("p", "panel-hint");
+    hint.innerHTML = "Guidance for maximizing your ATS (Applicant Tracking System) score, section by section. Tailor each resume to one job posting — keep a separate resume per role on the <strong>Resumes</strong> tab.";
+    panel.appendChild(hint);
+    ATS_GUIDE.forEach(function (g) {
+      panel.appendChild(blockEl(g.title, g.key, function (body) {
+        var ul = el("ul", "ats-list");
+        g.tips.forEach(function (t) { ul.appendChild(elText("li", null, t)); });
+        body.appendChild(ul);
+      }));
+    });
   }
 
   /* ============================================================
