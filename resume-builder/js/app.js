@@ -169,9 +169,18 @@
 
   function headerBlock() {
     var b = el("div", "block");
+    if (collapsed.__header) b.classList.add("collapsed");
     var head = el("div", "block-head");
+    head.title = "Click to collapse / expand";
+    var caret = el("span", "caret"); caret.textContent = "▼";
     var t = el("span", "sec-title"); t.textContent = "Header";
-    head.appendChild(t);
+    head.addEventListener("click", function (e) {
+      if (e.target.closest("input, button, .move")) return;
+      collapsed.__header = !collapsed.__header;
+      b.classList.toggle("collapsed", collapsed.__header);
+      if (!collapsed.__header) growAll(b);
+    });
+    head.appendChild(caret); head.appendChild(t);
     b.appendChild(head);
 
     var body = el("div", "block-body");
