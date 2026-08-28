@@ -411,6 +411,34 @@
     });
 
     page.innerHTML = h;
+    fitPreview();
+    checkOnePage();
+  }
+
+  /* Scale the A4 page down to fit the (small) preview column so the whole
+     page is visible at once for verification. */
+  function fitPreview() {
+    var wrap = document.querySelector(".preview-wrap");
+    var holder = document.getElementById("pageHolder");
+    var scaler = document.getElementById("pageScaler");
+    if (!wrap || !holder || !scaler) return;
+    var avail = wrap.clientWidth - 4;              // available width in the column
+    var scale = Math.min(avail / 794, 1);          // never upscale past 100%
+    if (!isFinite(scale) || scale <= 0) scale = 0.45;
+    scaler.style.transform = "scale(" + scale + ")";
+    holder.style.width = (794 * scale) + "px";
+    holder.style.height = (1123 * scale) + "px";
+  }
+
+  /* Strict one-page check: flag when content overflows the fixed A4 height. */
+  function checkOnePage() {
+    var page = document.getElementById("page");
+    var badge = document.getElementById("pageBadge");
+    if (!page || !badge) return;
+    var over = page.scrollHeight > page.clientHeight + 1;
+    page.classList.toggle("over", over);
+    badge.textContent = over ? "⚠ Over 1 page" : "1 page";
+    badge.className = "page-badge " + (over ? "over" : "ok");
   }
 
   /* ============================================================
@@ -473,6 +501,8 @@
     });
 
     setSaveState("Saved");
+
+    window.addEventListener("resize", fitPreview);
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
