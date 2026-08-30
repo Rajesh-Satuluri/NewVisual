@@ -238,31 +238,46 @@
           space: "O(n)",
           whenToUse: "Default answer whenever you must detect repeats and can spend O(n) extra memory.",
           logic:
-            "**What it asks.** Return `true` if any value in `nums` appears at least twice, and `false` if every element is distinct.\n\n" +
-            "**Why the naive idea fails.** Comparing every pair is `O(n^2)`. Sorting first and checking neighbours is better at `O(n log n)`, but it mutates or copies the array and is still slower than necessary \u2014 the pairwise comparison is more work than the question requires.\n\n" +
-            "**Key Idea.** A duplicate exists the instant we encounter a value we have already seen. We never need to compare all pairs \u2014 we only need a fast membership test on the values encountered so far.\n\n" +
+            "**What it asks.** Return `true` if any value in `nums` appears at least twice, and `false` if every element is distinct. Notice how little the question actually wants: not *how many* repeats, not *which* value repeats, not *where* \u2014 just a single yes/no about whether any collision exists at all. That minimalism is the lever the optimal solution pulls on.\n\n" +
+            "**Why the naive idea fails.** The most literal reading is to compare every element against every other, which is the classic double loop at `O(n^2)`. For `n = 10^5` that is on the order of ten billion comparisons \u2014 hopelessly slow.\n\n" +
+            "A gentler improvement is to sort the array first and then scan adjacent pairs: after sorting, any two equal values sit next to each other, so a single neighbour-compare pass finds a repeat. That is `O(n log n)`, which is fine, but it either mutates the caller's array or pays for a copy, and the `log n` factor is still more work than the problem needs.\n\n" +
+            "**Key Idea.** A duplicate reveals itself the *instant* you meet a value you have already met \u2014 you do not need the whole array in view, only a memory of what has gone by. Replace \u2018compare against everything\u2019 with \u2018ask a fast set whether I have seen this before\u2019. A hash set answers that membership question in average `O(1)`, so the whole scan collapses to linear time and can stop early the moment the first repeat appears.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. Keep a hash **set** `seen` of the values encountered so far (empty at the start).\n" +
-            "2. Scan `nums` left to right.\n" +
-            "3. For each `num`, if it is already in `seen`, return `true`.\n" +
-            "4. Otherwise add it to `seen` and continue.\n" +
-            "5. If the scan finishes with no hit, return `false`.\n\n" +
-            "**Why it works.** At any point the set holds exactly the values to the left of the cursor, so a membership hit means that same value occurred earlier \u2014 a genuine duplicate. Finishing the scan without a hit proves every value was distinct.\n\n" +
+            "1. Create an empty hash **set** `seen`; it will hold exactly the values lying to the left of the cursor.\n" +
+            "2. Walk `nums` once, left to right.\n" +
+            "3. For the current `num`, ask `num in seen`. If it is present, this same value appeared earlier \u2014 return `true` immediately.\n" +
+            "4. Otherwise add `num` to `seen` and continue to the next element.\n" +
+            "5. If the loop drains the whole array without a hit, every value was distinct \u2014 return `false`.\n\n" +
+            "**Why it works.** The loop maintains a simple invariant: when the cursor is at index `i`, `seen` contains precisely the values at indices `0 .. i-1`. So a membership hit on `nums[i]` means that identical value occurred at some strictly earlier index \u2014 a genuine duplicate at two different positions, exactly what we are asked to detect. Conversely, if the scan reaches the end with no hit, no value ever matched an earlier one, so all values are distinct. Checking *before* inserting is what keeps an element from matching itself.\n\n" +
             "**Common Gotchas.**\n" +
-            "- A single-element (or empty) array can never contain a duplicate.\n" +
-            "- Add each value only after checking it, so the current element isn't matched against itself.\n" +
-            "- Early-exit on the first repeat instead of counting all occurrences.\n\n" +
-            "**Complexity.** Time `O(n)` for one pass with `O(1)` set operations; space `O(n)` for the set. (The one-liner `len(set(nums)) != len(nums)` is the same idea but always scans the whole array.)\n\n" +
-            "**Interview mindset.** \u201cAre there any repeats / is everything unique?\u201d is the signal to reach for a hash set built as you scan.",
+            "- A single-element (or empty) array can never contain a duplicate \u2014 the loop simply never fires a hit, so this falls out for free.\n" +
+            "- Insert each value only *after* the membership check; inserting first would let the current element be \u2018found\u2019 as its own duplicate.\n" +
+            "- Return on the first collision rather than tallying every occurrence \u2014 the question is existential, not a count.\n\n" +
+            "**Complexity.** One pass with average-`O(1)` set operations gives time `O(n)`; the set can grow to hold every distinct value, so space is `O(n)`. (The Python one-liner `len(set(nums)) != len(nums)` expresses the same idea but always consumes the entire array, forfeiting the early exit.)\n\n" +
+            "**Interview mindset.** \u201cAre there any repeats / is everything unique?\u201d is the canonical cue for a hash set built as you scan. Mention the sort-and-compare alternative to show you understand the time/space trade-off, then reach for the set because it is linear and can bail out early.",
           rcs:
-            "class Solution:\n" +
-            "    def containsDuplicate(self, nums: List[int]) -> bool:\n" +
-            "        seen = set()                    # Values encountered so far.\n" +
-            "        for num in nums:                # Single left-to-right pass.\n" +
-            "            if num in seen:             # Already met this value earlier?\n" +
-            "                return True             # Then it's a duplicate.\n" +
-            "            seen.add(num)               # First time: remember it.\n" +
-            "        return False                    # No repeats found anywhere.",
+            "from typing import List  # List lets the type hint say we accept a list of ints.\n\n\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls containsDuplicate on it.\n\n" +
+            "    def containsDuplicate(self, nums: List[int]) -> bool:  # Return True if any value repeats, else False.\n\n" +
+            "        # ==================== PHASE 1: PREPARE ====================\n\n" +
+            "        seen = set()  # Hash set of every value we have already walked past.\n" +
+            "                      # Why a set: membership tests (x in seen) run in average O(1), which is what makes one pass enough.\n" +
+            "                      # State: seen starts empty and gains one value per iteration.\n" +
+            "                      # Execution flow: Python enters the scan loop below.\n\n" +
+            "        # ==================== PHASE 2: SCAN AND DETECT ====================\n\n" +
+            "        for num in nums:  # Walk the array once, left to right; num is the current value.\n" +
+            "                          # Loop invariant: seen holds exactly the values at every index strictly before this one.\n" +
+            "                          # Execution flow: after each iteration Python advances num to the next element.\n\n" +
+            "            if num in seen:  # Have we met this exact value at an earlier index?\n" +
+            "                             # Python hashes num and checks the set in average O(1).\n" +
+            "                return True  # Yes: two different positions share this value, so a duplicate exists.\n" +
+            "                             # Execution flow: return ends the function immediately; nothing below runs.\n" +
+            "                             # Why safe: the match came from an EARLIER element, never from num itself (we check before we insert).\n\n" +
+            "            seen.add(num)  # First sighting of this value: remember it for later comparisons.\n" +
+            "                           # State change: seen now also contains num.\n" +
+            "                           # Why after the check: adding first would let num be 'found' as its own duplicate.\n" +
+            "                           # Execution flow: end of iteration; Python returns to the for header for the next value.\n\n" +
+            "        return False  # The whole array was scanned with no repeat, so every value is distinct.",
           plain:
             "class Solution:\n" +
             "    def containsDuplicate(self, nums: List[int]) -> bool:\n" +
@@ -333,33 +348,49 @@
           space: "O(n)",
           whenToUse: "Only to illustrate the naive idea; it violates the required O(n) time.",
           logic:
-            "**What it asks.** Build an array where `answer[i]` is the product of every element of `nums` except `nums[i]`, without using division.\n\n" +
-            "**Why the naive idea fails.** The obvious approach fixes each index `i` and multiplies every other element with a nested inner loop. It's simple and correct, but it's `O(n^2)`, and for `n = 10^5` that's far too slow \u2014 it also violates the required `O(n)` time.\n\n" +
-            "**Key Idea.** For this baseline there's no clever insight beyond directness: each `answer[i]` is just the product of all `j != i`. The point of writing it out is to expose the waste \u2014 the products to the left and right of each index are shared work being recomputed for every `i`, which motivates the prefix/suffix approach.\n\n" +
+            "**What it asks.** Build a new array `answer` where `answer[i]` is the product of every element of `nums` *except* `nums[i]`. The catch that shapes the whole problem: you may not use division.\n\n" +
+            "**Why the naive idea fails.** The most direct reading is: for each output slot `i`, loop over the whole array again and multiply together everything except `nums[i]`. It is correct and easy to trust, but it is a nested loop \u2014 `O(n^2)`. At `n = 10^5` that is around ten billion multiplications, which blows past any reasonable time limit and violates the required `O(n)` bound.\n\n" +
+            "The deeper problem is *repeated work*. When you compute `answer[0]` you multiply `nums[1] * nums[2] * ... ` and then throw that entire product away; computing `answer[1]` you rebuild almost the same product from scratch. The left-of-`i` and right-of-`i` products overlap enormously between neighbouring indices, and the brute force recomputes them every time.\n\n" +
+            "**Key Idea.** There is no clever trick in this baseline \u2014 that is precisely its purpose. Writing it out makes the wasted, overlapping sub-products visible, and *seeing* that waste is what motivates the prefix/suffix method that reuses those running products instead of rebuilding them. Using multiplication (never division) also sidesteps the zero problem for free.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. Initialize `answer` with all `1`s (the multiplicative identity).\n" +
-            "2. For each output index `i`, start a running `product` at `1`.\n" +
-            "3. In an inner loop over every `j`, multiply `product` by `nums[j]` whenever `j != i`.\n" +
-            "4. Store `answer[i] = product`.\n\n" +
-            "**Why it works.** By construction, `answer[i]` accumulates the product of exactly the elements other than `nums[i]`, and using multiplication avoids the banned division entirely.\n\n" +
+            "1. Create `answer` filled with `1`s \u2014 `1` is the multiplicative identity, a safe starting point for a running product.\n" +
+            "2. For each output index `i`, reset a local `product` to `1`.\n" +
+            "3. Loop an inner index `j` across the whole array, and whenever `j != i`, fold `nums[j]` into `product`.\n" +
+            "4. After the inner loop, store `answer[i] = product` \u2014 the product of every element other than `nums[i]`.\n\n" +
+            "**Why it works.** By construction the inner loop multiplies together exactly the elements whose index is not `i`, so `answer[i]` is the product-except-self by definition. Because we only ever multiply, a zero in the data is just another factor \u2014 there is no division to blow up on it.\n\n" +
             "**Common Gotchas.**\n" +
-            "- Skip the element itself (`j != i`) or the answer collapses to the full product.\n" +
-            "- Zeros need no special handling here since we never divide.\n" +
-            "- Starting `product` at `1` (not `0`) is essential.\n\n" +
-            "**Complexity.** Time `O(n^2)` from the nested loops; space `O(n)` for the output array.\n\n" +
-            "**Interview mindset.** Reach for this only to frame the problem \u2014 the moment you notice you're recomputing overlapping left/right products, pivot to prefix/suffix accumulation.",
+            "- The `j != i` guard is essential; drop it and every slot collapses to the full product of the array.\n" +
+            "- Start `product` at `1`, never `0` \u2014 a `0` would annihilate every product.\n" +
+            "- Zeros in `nums` need no special handling here precisely because nothing divides.\n\n" +
+            "**Complexity.** Two nested loops give time `O(n^2)`; the output array is the only extra storage, so space `O(n)`.\n\n" +
+            "**Interview mindset.** State this only to frame the problem and pin down correctness. The instant you articulate that the left and right sub-products are being recomputed for every `i`, you have handed yourself the motivation to pivot to prefix/suffix accumulation.",
           rcs:
-            "class Solution:\n" +
-            "    def productExceptSelf(self, nums: List[int]) -> List[int]:\n" +
-            "        n = len(nums)\n" +
-            "        answer = [1] * n                     # Result slots, start at multiplicative identity.\n" +
-            "        for i in range(n):                   # For each output position...\n" +
-            "            product = 1\n" +
-            "            for j in range(n):               # ...multiply every OTHER element.\n" +
-            "                if j != i:                   # Skip the element itself.\n" +
-            "                    product *= nums[j]\n" +
-            "            answer[i] = product\n" +
-            "        return answer",
+            "from typing import List  # List lets the type hints say we take a list of ints and return a list of ints.\n\n\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls productExceptSelf on it.\n\n" +
+            "    def productExceptSelf(self, nums: List[int]) -> List[int]:  # Return answer where answer[i] = product of all others.\n\n" +
+            "        # ==================== PHASE 1: PREPARE ====================\n\n" +
+            "        n = len(nums)  # Cache the length so we do not recompute len(nums) inside the loops.\n" +
+            "                       # State: n is the number of output slots, indices 0 .. n - 1.\n\n" +
+            "        answer = [1] * n  # One result slot per input element, each primed to 1.\n" +
+            "                          # Why 1: it is the multiplicative identity, the correct seed for a running product.\n" +
+            "                          # State: answer will be overwritten slot by slot below.\n" +
+            "                          # Execution flow: Python enters the outer loop.\n\n" +
+            "        # ==================== PHASE 2: PRODUCT OF ALL OTHERS PER INDEX ====================\n\n" +
+            "        for i in range(n):  # i is the output position we are currently filling.\n" +
+            "                            # Loop invariant: answer[0 .. i-1] already hold their product-except-self.\n" +
+            "                            # Execution flow: after one i finishes, Python assigns the next i.\n\n" +
+            "            product = 1  # Running product of every element except nums[i], reset for this i.\n" +
+            "                         # Why reset each i: the excluded element changes, so the product must be rebuilt.\n\n" +
+            "            for j in range(n):  # Walk every index j to consider nums[j] as a factor.\n" +
+            "                                # Execution flow: after one j finishes, Python assigns the next j.\n\n" +
+            "                if j != i:  # Include nums[j] only when j is not the excluded index i.\n" +
+            "                    product *= nums[j]  # Fold this other element into the running product.\n" +
+            "                                        # State change: product now also carries the factor nums[j].\n" +
+            "                                        # Why safe: skipping j == i is exactly what makes this 'except self'.\n\n" +
+            "            answer[i] = product  # This slot now holds the product of all elements other than nums[i].\n" +
+            "                                 # State change: answer[i] is finalized.\n" +
+            "                                 # Execution flow: end of the i iteration; Python returns to the outer for header.\n\n" +
+            "        return answer  # Every slot filled; hand the finished array to the caller and end the function.",
           plain:
             "class Solution:\n" +
             "    def productExceptSelf(self, nums: List[int]) -> List[int]:\n" +
@@ -379,34 +410,55 @@
           space: "O(1)",
           whenToUse: "The expected solution: any 'combine everything except me' where division is banned or unsafe (zeros).",
           logic:
-            "**What it asks.** For each index `i`, produce the product of all other elements of `nums`, in `O(n)` time and without division.\n\n" +
-            "**Why the naive idea fails.** Brute force multiplies every other element per index in `O(n^2)`. The tempting `O(n)` shortcut \u2014 divide the total product by `nums[i]` \u2014 breaks on zeros (division by zero, and a single zero makes the total zero), and division is banned outright.\n\n" +
-            "**Key Idea.** The product of everything except index `i` equals *(product of all elements to the LEFT of `i`)* \u00d7 *(product of all elements to the RIGHT of `i`)*. If we precompute those two running products, no division is ever needed.\n\n" +
+            "**What it asks.** For each index `i`, produce the product of all *other* elements of `nums`, achieving `O(n)` time and using no division.\n\n" +
+            "**Why the naive idea fails.** Brute force rebuilds the product of every other element for each index, which is `O(n^2)`. The tempting `O(n)` shortcut \u2014 compute the product of the whole array once, then set `answer[i] = total / nums[i]` \u2014 is doubly disqualified: division is banned outright, and even if it were allowed it breaks on zeros (dividing by a `0`, and a single `0` collapses `total` to `0` so you lose the information needed for the one slot that should be non-zero).\n\n" +
+            "**Key Idea.** Split the product around each index. Everything except `nums[i]` factors cleanly into two independent pieces: *(the product of all elements to the LEFT of `i`)* multiplied by *(the product of all elements to the RIGHT of `i`)*. Neither piece includes `nums[i]` itself. Both can be accumulated with a single running scalar swept across the array, so no division and no nested loop is ever needed.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. Initialize `answer` with all `1`s.\n" +
-            "2. Left pass: keep a running `prefix` (product of elements seen so far, starting at `1`). At each `i`, set `answer[i] = prefix` *before* folding `nums[i]` into `prefix`. Now `answer[i]` holds the product of everything to the left of `i`.\n" +
-            "3. Right pass: keep a running `suffix` (starting at `1`), walking from the last index down. At each `i`, multiply `answer[i] *= suffix`, then fold `nums[i]` into `suffix`.\n\n" +
-            "**Why it works.** After both sweeps `answer[i] = prefix_i * suffix_i`, which is precisely the product of all elements other than `nums[i]`. Writing the prefix in *before* multiplying `nums[i]` guarantees index `i` excludes itself. Zeros fall out naturally \u2014 no special casing, no division.\n\n" +
+            "1. Fill `answer` with `1`s so it can absorb running products.\n" +
+            "2. **Left pass.** Keep a running `prefix`, starting at `1` (there is nothing to the left of index 0). Sweeping left to right, at each `i` first store `answer[i] = prefix`, *then* fold `nums[i]` into `prefix`. Writing before folding is what keeps `nums[i]` out of its own slot. After this pass, `answer[i]` holds the product of everything strictly left of `i`.\n" +
+            "3. **Right pass.** Keep a running `suffix`, starting at `1` (nothing to the right of the last index). Sweeping right to left, at each `i` multiply `answer[i] *= suffix`, then fold `nums[i]` into `suffix`. Again the multiply happens before the fold, so `nums[i]` stays excluded.\n\n" +
+            "**Why it works.** After both sweeps, `answer[i]` equals `prefix_i * suffix_i` \u2014 the left product times the right product \u2014 which is exactly the product of every element except `nums[i]`. The \u2018store/multiply before you fold in `nums[i]`\u2019 ordering is the linchpin that guarantees each index excludes itself. Zeros need no special case at all: a single zero simply makes every prefix/suffix that spans it zero, leaving a non-zero value only in the zero's own slot \u2014 which is the correct answer, produced without a single division.\n\n" +
             "**Common Gotchas.**\n" +
-            "- Store the prefix into `answer[i]` *before* including `nums[i]`, or the index won't exclude itself.\n" +
-            "- Start both `prefix` and `suffix` at `1`, not `0`.\n" +
-            "- One or more zeros are handled automatically; don't add division to \"optimize.\"\n\n" +
-            "**Complexity.** Two linear passes give `O(n)` time. The output array isn't counted as extra space and we use only a couple of scalars, so `O(1)` auxiliary space.\n\n" +
-            "**Interview mindset.** When each answer depends on \"everything before\" and \"everything after\" an index \u2014 especially with division banned or unsafe \u2014 reach for prefix/suffix accumulation.",
+            "- Assign to `answer[i]` *before* folding `nums[i]` into the running product, in both passes; do it after and the index stops excluding itself.\n" +
+            "- Seed both `prefix` and `suffix` at `1`, never `0` \u2014 a `0` seed zeroes out every result.\n" +
+            "- Resist \u2018optimizing\u2019 with division; the prefix/suffix method exists precisely so zeros are handled automatically.\n\n" +
+            "**Complexity.** Two independent linear sweeps give `O(n)` time. The output array does not count as extra space (per the follow-up), and we keep only the two scalar accumulators, so auxiliary space is `O(1)`.\n\n" +
+            "**Interview mindset.** Whenever an answer at index `i` depends on \u2018everything before `i`\u2019 and \u2018everything after `i`\u2019 \u2014 especially when division is banned or made unsafe by zeros \u2014 prefix/suffix accumulation is the pattern to reach for.",
           rcs:
-            "class Solution:\n" +
-            "    def productExceptSelf(self, nums: List[int]) -> List[int]:\n" +
-            "        n = len(nums)\n" +
-            "        answer = [1] * n                 # answer[i] will accumulate the product-except-self.\n" +
-            "        prefix = 1                       # Running product of everything to the LEFT of i.\n" +
-            "        for i in range(n):               # Left-to-right pass.\n" +
-            "            answer[i] = prefix           # Store left product BEFORE including nums[i].\n" +
-            "            prefix *= nums[i]            # Now fold nums[i] in for the next index.\n" +
-            "        suffix = 1                       # Running product of everything to the RIGHT of i.\n" +
-            "        for i in range(n - 1, -1, -1):   # Right-to-left pass.\n" +
-            "            answer[i] *= suffix          # Multiply left product by right product.\n" +
-            "            suffix *= nums[i]            # Fold nums[i] into the right product.\n" +
-            "        return answer",
+            "from typing import List  # List lets the type hints say we take a list of ints and return a list of ints.\n\n\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls productExceptSelf on it.\n\n" +
+            "    def productExceptSelf(self, nums: List[int]) -> List[int]:  # Return answer[i] = product of all elements except nums[i].\n\n" +
+            "        # ==================== PHASE 1: PREPARE ====================\n\n" +
+            "        n = len(nums)  # Cache the length; used to size the result and bound both sweeps.\n" +
+            "                       # State: n is the number of elements and of output slots.\n\n" +
+            "        answer = [1] * n  # Result array; each slot starts at 1 so running products can multiply into it.\n" +
+            "                          # Why 1: it is the multiplicative identity, safe to accumulate onto.\n" +
+            "                          # State: answer will first collect LEFT products, then be multiplied by RIGHT products.\n\n" +
+            "        # ==================== PHASE 2: LEFT PASS (PREFIX PRODUCTS) ====================\n\n" +
+            "        prefix = 1  # Running product of every element strictly to the LEFT of i; nothing is left of index 0, so 1.\n" +
+            "                    # State: prefix grows as we move rightward.\n\n" +
+            "        for i in range(n):  # Sweep left to right filling in left-of-i products.\n" +
+            "                            # Loop invariant: prefix equals the product of nums[0 .. i-1] when this iteration begins.\n" +
+            "                            # Execution flow: after one i finishes, Python assigns the next i.\n\n" +
+            "            answer[i] = prefix  # Store the product of everything to the left BEFORE nums[i] is folded in.\n" +
+            "                                # Why before: this is what keeps nums[i] itself out of answer[i].\n" +
+            "                                # State change: answer[i] now holds the left product for index i.\n\n" +
+            "            prefix *= nums[i]  # Now include nums[i] so prefix is ready for the NEXT index.\n" +
+            "                               # State change: prefix becomes the product of nums[0 .. i].\n" +
+            "                               # Execution flow: end of iteration; Python returns to the for header.\n\n" +
+            "        # ==================== PHASE 3: RIGHT PASS (SUFFIX PRODUCTS) ====================\n\n" +
+            "        suffix = 1  # Running product of every element strictly to the RIGHT of i; nothing is right of the last index, so 1.\n" +
+            "                    # State: suffix grows as we move leftward.\n\n" +
+            "        for i in range(n - 1, -1, -1):  # Sweep right to left; range(n-1, -1, -1) yields n-1, n-2, ..., 0.\n" +
+            "                                        # Loop invariant: suffix equals the product of nums[i+1 .. n-1] when this iteration begins.\n" +
+            "                                        # Execution flow: after one i finishes, Python assigns the next (smaller) i.\n\n" +
+            "            answer[i] *= suffix  # Combine the stored left product with the right product: left_i * right_i.\n" +
+            "                                 # State change: answer[i] is now the full product-except-self and is final.\n" +
+            "                                 # Why correct: left product excludes nums[i], right product excludes nums[i], so their product does too.\n\n" +
+            "            suffix *= nums[i]  # Fold nums[i] into suffix for the NEXT (smaller) index.\n" +
+            "                               # State change: suffix becomes the product of nums[i .. n-1].\n" +
+            "                               # Execution flow: end of iteration; Python returns to the for header.\n\n" +
+            "        return answer  # Both sweeps done; every slot is final. Hand it back and end the function.",
           plain:
             "class Solution:\n" +
             "    def productExceptSelf(self, nums: List[int]) -> List[int]:\n" +
@@ -484,40 +536,57 @@
           space: "O(1)",
           whenToUse: "Acceptable when O(n log n) is fine and you want minimal extra memory / simple code.",
           logic:
-            "**What it asks.** Find the length of the longest run of consecutive integers present in an unsorted `nums`, ignoring their positions in the array.\n\n" +
-            "**Why the naive idea fails.** Checking, for each value, how far its run extends by scanning the whole array repeatedly is `O(n^2)`. Sorting is the intuitive fix, but it costs `O(n log n)` and so does not meet the stated `O(n)` requirement \u2014 still, it's a clean, easy-to-reason fallback and often good enough.\n\n" +
-            "**Key Idea.** Once the numbers are sorted, consecutive values sit right next to each other, so a single linear walk can measure every run: extend the current run when the next value is exactly one more, and reset when there's a gap.\n\n" +
+            "**What it asks.** Find the length of the longest run of *consecutive integers* present in an unsorted `nums` \u2014 values like `3,4,5,6` that follow one another by exactly one \u2014 regardless of where they sit in the array.\n\n" +
+            "**Why the naive idea fails.** The literal approach picks each value and asks \u2018how long is the run built on this value?\u2019, re-scanning the array to look for `value+1`, then `value+2`, and so on. Because that inner search restarts from every element, it degrades to `O(n^2)`.\n\n" +
+            "Sorting is the natural fix that most people reach for first. It does not meet the problem's stated `O(n)` requirement, but it is genuinely easy to reason about and is often good enough in practice, which is exactly why it is worth knowing as a fallback.\n\n" +
+            "**Key Idea.** Once the numbers are in sorted order, every consecutive run appears as a contiguous stretch of neighbours that each differ by exactly one. So a single left-to-right walk can measure all runs at once: extend the current run whenever the next value is one greater, ignore an exact repeat, and reset the run to length 1 whenever a gap larger than one appears.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. Handle the empty array up front (answer `0`).\n" +
-            "2. Sort `nums` so equal and consecutive values become adjacent.\n" +
-            "3. Track `current` (length of the run being extended) and `longest` (best seen), both starting at `1`.\n" +
-            "4. Walk from the second element: if it equals the previous value, skip it (a duplicate doesn't extend a run).\n" +
-            "5. If it is exactly one more than the previous, increment `current` and update `longest`.\n" +
-            "6. Otherwise the run is broken \u2014 reset `current` to `1`.\n\n" +
-            "**Why it works.** After sorting, any maximal run of consecutive integers appears as a contiguous block of adjacent values differing by one; the walk measures each such block exactly, and skipping equal neighbours keeps duplicates from inflating a run.\n\n" +
+            "1. Return `0` immediately for an empty array \u2014 there is no run to measure.\n" +
+            "2. Sort `nums` in place so equal and consecutive values become adjacent.\n" +
+            "3. Keep `current` (the length of the run being extended) and `longest` (the best run seen), both seeded at `1` since a non-empty array already contains a run of at least one.\n" +
+            "4. Walk from the second element. If it equals its predecessor, `continue` \u2014 a duplicate must not lengthen a run.\n" +
+            "5. If it is exactly one greater than its predecessor, increment `current` and refresh `longest` with the larger of the two.\n" +
+            "6. Otherwise the gap exceeds one and the run is broken, so reset `current` to `1` \u2014 the current element is itself the start of a fresh run.\n\n" +
+            "**Why it works.** After sorting, every maximal set of consecutive integers is a block of adjacent values that step up by one; the walk measures the length of each such block exactly and remembers the maximum. Skipping equal neighbours ensures a value repeated in the input (like the second `2` in `[1,2,2,3]`) does not inflate the count, so the run length reflects distinct consecutive values only.\n\n" +
             "**Common Gotchas.**\n" +
-            "- Handle the empty array separately, or the initial `longest = 1` returns a wrong answer.\n" +
-            "- Skip duplicates explicitly; `[1,2,2,3]` still has run length 3.\n" +
-            "- Reset `current` to `1` (not `0`) on a gap, since the breaking element itself starts a new run.\n\n" +
-            "**Complexity.** Time `O(n log n)` dominated by the sort; space `O(1)` beyond the sort (in-place).\n\n" +
-            "**Interview mindset.** If the `O(n)` bound weren't required, sorting-then-scanning is the fastest thing to reason about correctly \u2014 offer it as a fallback, then note sorting is why it misses `O(n)`.",
+            "- Handle the empty array before seeding `longest = 1`, otherwise you would return `1` for no elements.\n" +
+            "- Skip duplicates explicitly; `[1,2,2,3]` still has longest run `3`, not `4`.\n" +
+            "- Reset `current` to `1` (not `0`) on a gap, because the value that broke the run is the first member of the next run.\n\n" +
+            "**Complexity.** Time `O(n log n)`, dominated by the sort; the scan itself is `O(n)`. Space is `O(1)` auxiliary beyond sorting in place.\n\n" +
+            "**Interview mindset.** If the `O(n)` bound were not demanded, sort-then-scan is the solution that is fastest to get provably correct \u2014 offer it as a clean fallback, then explicitly name the sort as the reason it misses the required linear bound, which sets up the hash-set optimization.",
           rcs:
-            "class Solution:\n" +
-            "    def longestConsecutive(self, nums: List[int]) -> int:\n" +
-            "        if not nums:\n" +
-            "            return 0\n" +
-            "        nums.sort()                       # Consecutive values become adjacent.\n" +
-            "        longest = 1                       # At least one number => run of 1.\n" +
-            "        current = 1                       # Length of the run we're currently extending.\n" +
-            "        for i in range(1, len(nums)):\n" +
-            "            if nums[i] == nums[i - 1]:    # Duplicate: ignore, run length unchanged.\n" +
-            "                continue\n" +
-            "            if nums[i] == nums[i - 1] + 1:  # Exactly one more: extend the run.\n" +
-            "                current += 1\n" +
-            "                longest = max(longest, current)\n" +
-            "            else:                         # Gap > 1: the run breaks, start over.\n" +
-            "                current = 1\n" +
-            "        return longest",
+            "from typing import List  # List lets the type hint say we accept a list of ints.\n\n\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls longestConsecutive on it.\n\n" +
+            "    def longestConsecutive(self, nums: List[int]) -> int:  # Return the length of the longest consecutive-integer run.\n\n" +
+            "        # ==================== PHASE 1: HANDLE THE EMPTY CASE ====================\n\n" +
+            "        if not nums:  # An empty list is falsy in Python, so 'not nums' is True only when there are no elements.\n" +
+            "            return 0  # No elements means no run; end the function here.\n" +
+            "                      # Execution flow: return exits immediately; nothing below runs.\n" +
+            "                      # Why needed: the code past this seeds longest = 1, which would be wrong for an empty input.\n\n" +
+            "        # ==================== PHASE 2: SORT SO RUNS BECOME ADJACENT ====================\n\n" +
+            "        nums.sort()  # Sort in place; now equal values and consecutive values sit next to each other.\n" +
+            "                     # Why: a run of consecutive integers becomes a contiguous block we can measure in one walk.\n" +
+            "                     # State change: nums is reordered ascending.\n\n" +
+            "        longest = 1  # Best run length seen so far; a non-empty array already contains a run of at least 1.\n" +
+            "        current = 1  # Length of the run we are currently extending.\n" +
+            "                     # State: both start at 1 because the first element alone is a run of length 1.\n\n" +
+            "        # ==================== PHASE 3: WALK AND MEASURE RUNS ====================\n\n" +
+            "        for i in range(1, len(nums)):  # Compare each element with its predecessor; start at 1 so nums[i-1] is valid.\n" +
+            "                                       # Loop invariant: current is the length of the consecutive run ending at nums[i-1].\n" +
+            "                                       # Execution flow: after one i finishes, Python assigns the next i.\n\n" +
+            "            if nums[i] == nums[i - 1]:  # Same value as the previous element: a duplicate.\n" +
+            "                continue  # Skip it; a repeat must not lengthen the run.\n" +
+            "                          # Execution flow: jump straight to the next iteration, leaving current unchanged.\n\n" +
+            "            if nums[i] == nums[i - 1] + 1:  # Exactly one greater: the run continues.\n" +
+            "                current += 1  # Extend the current run by one.\n" +
+            "                              # State change: current grows.\n" +
+            "                longest = max(longest, current)  # Keep longest as the best run length seen so far.\n" +
+            "                                                 # State change: longest may increase to current.\n\n" +
+            "            else:  # Neither equal nor one-greater, so the gap exceeds 1 and the run is broken.\n" +
+            "                current = 1  # Restart: nums[i] itself is the first element of a new run.\n" +
+            "                             # State change: current resets to 1.\n" +
+            "                             # Execution flow: end of iteration; Python returns to the for header.\n\n" +
+            "        return longest  # The longest run measured across the whole array.",
           plain:
             "class Solution:\n" +
             "    def longestConsecutive(self, nums: List[int]) -> int:\n" +
@@ -542,34 +611,51 @@
           space: "O(n)",
           whenToUse: "The required O(n) solution. Use when you must find consecutive runs without sorting.",
           logic:
-            "**What it asks.** Return the length of the longest run of consecutive integers in `nums`, in `O(n)` time and without sorting.\n\n" +
-            "**Why the naive idea fails.** Naively extending a run from every value by repeated membership checks risks re-walking the same run from each of its members, which is `O(n^2)`. Sorting would fix ordering but costs `O(n log n)`, missing the required bound.\n\n" +
-            "**Key Idea.** A number begins a consecutive run **only if `num - 1` is not present**. If we start counting *only* from those true run-starts, each value is visited at most twice overall (once as a candidate start, once while being walked over), so the total work is `O(n)`.\n\n" +
+            "**What it asks.** Return the length of the longest run of consecutive integers in `nums`, achieving `O(n)` time and using no sorting.\n\n" +
+            "**Why the naive idea fails.** Extending a run outward from *every* value with repeated membership checks re-walks the same run once per member: for a run of length `L` you would walk `L`, then `L-1`, then `L-2`, and so on, which is quadratic. Sorting would put runs in order but costs `O(n log n)` and so misses the required linear bound.\n\n" +
+            "**Key Idea.** The trick is to walk each run only from its *start*. A value `num` is the start of a consecutive run **exactly when `num - 1` is not present** \u2014 if its left neighbour existed, `num` would sit in the middle of a longer run and someone else would count it. So dump every value into a hash set (for `O(1)` presence tests), and only launch an upward walk from values that have no left neighbour. Each value is then touched at most twice across the whole algorithm \u2014 once when the outer loop considers it as a candidate start, and at most once more while some run walks over it \u2014 which is what makes the total work linear.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. Put every value into a hash **set** for `O(1)` presence checks; duplicates collapse automatically.\n" +
-            "2. Iterate the distinct values in the set.\n" +
-            "3. For each `num`, if `num - 1` is in the set, skip it \u2014 it sits in the middle of some run and will be counted from that run's start.\n" +
-            "4. If `num - 1` is absent, `num` is a run start: walk `num, num+1, num+2, \u2026` while each next value is in the set, counting the length.\n" +
-            "5. Track the maximum length seen.\n\n" +
-            "**Why it works.** Every maximal run has exactly one start \u2014 the value with no predecessor in the set \u2014 so each run is measured exactly once, from that start. Because inner walks only ever begin at starts, the walks across the whole array sum to `O(n)` rather than `O(n^2)`.\n\n" +
+            "1. Build `num_set = set(nums)`, giving `O(1)` membership checks and collapsing duplicates automatically.\n" +
+            "2. Seed `longest = 0` so an empty input naturally returns `0`.\n" +
+            "3. Iterate over the *distinct* values in the set.\n" +
+            "4. For each `num`, test `num - 1 not in num_set`. If `num - 1` is present, skip `num` \u2014 it is not a run start and will be counted from elsewhere.\n" +
+            "5. If `num - 1` is absent, `num` is a run start: set `length = 1` and keep incrementing while `num + length` is in the set, counting how far the run reaches.\n" +
+            "6. Update `longest` with the best length found.\n\n" +
+            "**Why it works.** Every maximal consecutive run has exactly one value with no predecessor in the set \u2014 its start \u2014 so the guard `num - 1 not in num_set` fires for exactly one member of each run, and that run is therefore measured once and only once. Because the inner `while` loops only ever begin at those starts, and each run's walk visits its own members, the walks summed across all runs touch each value at most once. Combined with the single outer pass, the algorithm is `O(n)` overall despite the nested loop.\n\n" +
             "**Common Gotchas.**\n" +
-            "- Iterate the *set* (distinct values), not the list, to avoid redundant work on duplicates.\n" +
-            "- The empty input must return `0`; initialize `longest` to `0`, not `1`.\n" +
-            "- Only start walking when `num - 1` is absent \u2014 walking from every value reintroduces `O(n^2)`.\n\n" +
-            "**Complexity.** Time `O(n)` amortized (each value entered by an inner walk at most once); space `O(n)` for the set.\n\n" +
-            "**Interview mindset.** Consecutive-integer runs required in `O(n)` where only presence (not order) matters is the signal for a hash set plus the \"count only from run starts\" trick.",
+            "- Iterate the *set* of distinct values, not the original list; iterating the list re-does the walk for every duplicate and can reintroduce quadratic behaviour.\n" +
+            "- Initialize `longest` to `0`, not `1`, so the empty input returns `0`.\n" +
+            "- Only start walking when `num - 1` is absent; walking from every value is exactly the quadratic trap this method avoids.\n\n" +
+            "**Complexity.** Time `O(n)` amortized \u2014 each value is entered by an inner walk at most once. Space `O(n)` for the set.\n\n" +
+            "**Interview mindset.** \u2018Longest run of consecutive integers, in `O(n)`, where only which values are *present* matters (not their order)\u2019 is the signal for a hash set plus the \u2018count only from run starts\u2019 trick. The whole insight to verbalize is why the nested loop is still linear.",
           rcs:
-            "class Solution:\n" +
-            "    def longestConsecutive(self, nums: List[int]) -> int:\n" +
-            "        num_set = set(nums)               # O(1) membership; duplicates removed.\n" +
-            "        longest = 0\n" +
-            "        for num in num_set:               # Iterate the distinct values.\n" +
-            "            if num - 1 not in num_set:    # 'num' starts a run only if it has no left neighbour.\n" +
-            "                length = 1                # The run currently holds just 'num'.\n" +
-            "                while num + length in num_set:  # Extend upward while the next value exists.\n" +
-            "                    length += 1\n" +
-            "                longest = max(longest, length)  # Record the best run so far.\n" +
-            "        return longest",
+            "from typing import List  # List lets the type hint say we accept a list of ints.\n\n\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls longestConsecutive on it.\n\n" +
+            "    def longestConsecutive(self, nums: List[int]) -> int:  # Return the length of the longest consecutive-integer run.\n\n" +
+            "        # ==================== PHASE 1: BUILD THE MEMBERSHIP SET ====================\n\n" +
+            "        num_set = set(nums)  # Put every value in a hash set for average O(1) 'is this value present?' checks.\n" +
+            "                             # Why a set: the whole method rests on constant-time presence tests.\n" +
+            "                             # State: duplicates collapse, so num_set holds only distinct values.\n\n" +
+            "        longest = 0  # Best run length seen so far; 0 so an empty input returns 0 with no special case.\n" +
+            "                     # State: longest only ever increases below.\n\n" +
+            "        # ==================== PHASE 2: COUNT EACH RUN FROM ITS START ====================\n\n" +
+            "        for num in num_set:  # Consider each DISTINCT value as a possible run start.\n" +
+            "                             # Loop invariant: longest holds the longest run among all starts examined before this one.\n" +
+            "                             # Execution flow: after one num finishes, Python assigns the next value from the set.\n\n" +
+            "            if num - 1 not in num_set:  # num is a run START only if its left neighbour is absent.\n" +
+            "                                        # Why: if num - 1 existed, num sits mid-run and gets counted from that run's real start.\n" +
+            "                                        # This guard is what keeps the total work O(n) instead of O(n^2).\n\n" +
+            "                length = 1  # The run currently holds just num itself.\n" +
+            "                            # State: length will grow as we extend upward.\n\n" +
+            "                while num + length in num_set:  # Extend the run upward while the next integer is present.\n" +
+            "                                                # Loop invariant: num, num+1, ..., num+length-1 are all in the set.\n" +
+            "                    length += 1  # One more consecutive value confirmed; grow the run.\n" +
+            "                                 # State change: length increases by 1 each pass.\n" +
+            "                                 # Execution flow: re-test the while condition with the new length.\n\n" +
+            "                longest = max(longest, length)  # Keep the best run length across all starts.\n" +
+            "                                                # State change: longest may rise to this run's length.\n" +
+            "                                                # Execution flow: end of the if; Python returns to the for header.\n\n" +
+            "        return longest  # The length of the longest consecutive run found anywhere.",
           plain:
             "class Solution:\n" +
             "    def longestConsecutive(self, nums: List[int]) -> int:\n" +
@@ -646,41 +732,63 @@
           space: "O(N)",
           whenToUse: "The standard, robust serialization trick whenever payloads can contain your delimiter.",
           logic:
-            "**What it asks.** Turn a list of arbitrary strings into one single string, and later reconstruct the exact original list from it \u2014 losslessly.\n\n" +
-            "**Why the naive idea fails.** The tempting approach is to join the strings with a separator like `,` or `#`. But the strings can contain any character, including your separator. The moment a string contains `#`, the decoder can't tell a real delimiter from data, and the round-trip breaks.\n\n" +
-            "**Key Idea.** To distinguish the separator from the content, we prepend each string with its length followed by a special character (e.g. `#`). For example, `hello` becomes `5#hello`. During decoding we read digits until we hit `#` to get the length, then read exactly that many characters as the payload \u2014 so whatever those characters are (even `#` or digits) they're treated as data, never as structure.\n\n" +
+            "**What it asks.** Design two mirror-image methods: `encode` flattens a list of arbitrary strings into one single string, and `decode` reconstructs the exact original list from that string. The pair must round-trip perfectly \u2014 `decode(encode(x))` must equal `x` for any input.\n\n" +
+            "**Why the naive idea fails.** The obvious approach glues the strings together with a separator such as `,` or `#`, then splits on it. But the strings may contain *any* character \u2014 including whatever you picked as the separator. The instant a payload contains `#`, the decoder can no longer tell a structural delimiter from ordinary data, and the split shatters the original strings. There is no \u2018safe\u2019 single character to reserve, because every character is legal payload; that impossibility is the entire difficulty of the problem.\n\n" +
+            "**Key Idea.** Stop trying to *find* boundaries and instead *declare* them. Prefix each string with its length and a marker, as `length + '#' + payload` \u2014 so `hello` becomes `5#hello`. Now the decoder never searches inside a payload: it reads digits up to the `#` to learn the length, then consumes *exactly* that many characters as the string. Because the count tells it precisely where the payload ends, the payload's own contents \u2014 even `#`, even digits \u2014 are read purely as data and can never be mistaken for structure. This length-prefix framing is the same technique real network protocols use for exactly this reason.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. Encode: for each string `s`, append `len(s) + '#' + s` to a result string; return the concatenation of all frames.\n" +
-            "2. Decode: use a pointer `i` to traverse the encoded string.\n" +
-            "3. Scan from `i` to the next `#` to read the length `n`.\n" +
-            "4. Extract the substring starting just after the `#`, of length `n` \u2014 that's one original string.\n" +
-            "5. Move `i` past that substring and repeat until the string is consumed.\n\n" +
-            "**Why it works.** The length prefix makes every payload self-describing: the decoder always knows precisely where the current string ends before it starts reading it, so it never guesses at delimiters. Each frame is read exactly once.\n\n" +
+            "1. **Encode.** For each string `s`, build the frame `str(len(s)) + '#' + s` and collect the frames; join them into one string. An empty list yields the empty string; an empty string yields the frame `0#`.\n" +
+            "2. **Decode.** Keep a cursor `i` at the start of the current frame.\n" +
+            "3. Advance a second index `j` from `i` until it lands on `#`; the digits in `s[i:j]` are the payload length `n`.\n" +
+            "4. The payload starts just after the `#`, at `j + 1`; slice exactly `n` characters from there to recover one original string.\n" +
+            "5. Jump the cursor past that payload and repeat until the whole encoded string is consumed.\n\n" +
+            "**Why it works.** The length prefix makes every payload *self-describing*: before the decoder reads a single character of content, it already knows exactly how many characters that content occupies. So it never has to guess at or search for a delimiter, which is precisely what made the naive separator fragile. Each frame \u2014 its length digits, its `#`, and its payload \u2014 is scanned a constant number of times, so both directions are linear.\n\n" +
             "**Common Gotchas.**\n" +
-            "- The `#` character (or digits) can appear inside a string \u2014 the length prefix removes the ambiguity; never search for `#` inside a payload.\n" +
-            "- Empty strings must round-trip cleanly (they encode as `0#`), and an empty list encodes to the empty string.\n\n" +
-            "**Complexity.** Time `O(N)` for both encode and decode (N = total characters, each read a constant number of times). Space `O(N)` for the output.\n\n" +
-            "**Interview mindset.** \"A separator won't work because the payload can contain it\" is the exact signal to switch to length-prefixed framing \u2014 the same trick network protocols use.",
+            "- The `#` marker (and digits) can appear inside a payload \u2014 that is fine, because decode counts characters and never searches for `#` inside the payload.\n" +
+            "- Empty strings must round-trip: they encode as `0#` and decode back to `''`; an empty list encodes to `''` and decodes to `[]`.\n" +
+            "- Read the length by scanning digits up to the *first* `#` after the cursor \u2014 that `#` is guaranteed to be the structural one, never a payload character, because the cursor always sits on a length prefix.\n\n" +
+            "**Complexity.** Both encode and decode run in `O(N)` where `N` is the total number of characters, since each character is touched a constant number of times. Space is `O(N)` for the produced output.\n\n" +
+            "**Interview mindset.** \u2018A separator won't work because the payload can contain it\u2019 is the exact trigger to switch to length-prefixed framing. Say that sentence out loud and the length-prefix design follows immediately.",
           rcs:
-            "class Solution:\n" +
-            "    def encode(self, strs: List[str]) -> str:\n" +
-            "        encoded = []\n" +
-            "        for s in strs:                       # Frame every string as length + '#' + payload.\n" +
-            "            encoded.append(str(len(s)) + '#' + s)\n" +
-            "        return ''.join(encoded)              # Concatenate all frames into one string.\n" +
-            "\n" +
-            "    def decode(self, s: str) -> List[str]:\n" +
-            "        result = []\n" +
-            "        i = 0                                # Cursor over the encoded string.\n" +
-            "        while i < len(s):\n" +
-            "            j = i                            # Find the '#' that ends the length digits.\n" +
-            "            while s[j] != '#':\n" +
-            "                j += 1\n" +
-            "            length = int(s[i:j])             # Digits before '#' give the payload length.\n" +
-            "            start = j + 1                    # Payload begins right after '#'.\n" +
-            "            result.append(s[start:start + length])  # Take exactly 'length' chars.\n" +
-            "            i = start + length               # Jump past this payload to the next frame.\n" +
-            "        return result",
+            "from typing import List  # List lets the type hints describe a list of strings in and out.\n\n\n" +
+            "class Solution:  # LeetCode instantiates this class and calls decode(encode(strs)) to check the round-trip.\n\n" +
+            "    # ==================== PHASE 1: ENCODE (LIST -> ONE STRING) ====================\n\n" +
+            "    def encode(self, strs: List[str]) -> str:  # Flatten the list into a single, self-describing string.\n\n" +
+            "        encoded = []  # Collect each framed string here, then join once at the end.\n" +
+            "                      # Why a list + join: repeated string '+' is O(n^2); building a list and joining is O(N).\n" +
+            "                      # State: encoded gains one frame per input string.\n\n" +
+            "        for s in strs:  # Frame every string in the input list.\n" +
+            "                        # Execution flow: after one s finishes, Python assigns the next string.\n\n" +
+            "            encoded.append(str(len(s)) + '#' + s)  # Frame = length digits, then '#', then the raw payload.\n" +
+            "                                                   # Why: the length lets the decoder consume exactly len(s) chars later.\n" +
+            "                                                   # Why safe: even if s contains '#' or digits, decode counts chars and never searches.\n" +
+            "                                                   # State change: one frame is appended to encoded.\n\n" +
+            "        return ''.join(encoded)  # Concatenate all frames into the single encoded string and return it.\n" +
+            "                                 # Execution flow: return ends encode; an empty strs yields '' naturally.\n\n" +
+            "    # ==================== PHASE 2: DECODE (ONE STRING -> LIST) ====================\n\n" +
+            "    def decode(self, s: str) -> List[str]:  # Rebuild the original list from the encoded string.\n\n" +
+            "        result = []  # The reconstructed list of original strings.\n" +
+            "                     # State: result gains one string per frame decoded.\n\n" +
+            "        i = 0  # Cursor sitting at the start of the current frame (on its first length digit).\n" +
+            "               # Loop invariant: i always points at the beginning of an unread frame's length prefix.\n\n" +
+            "        while i < len(s):  # Keep decoding frames until the whole encoded string is consumed.\n" +
+            "                           # Execution flow: each iteration decodes exactly one original string.\n\n" +
+            "            j = i  # Second index used to scan across the length digits.\n" +
+            "                   # State: j will advance to the '#' that ends the length.\n\n" +
+            "            while s[j] != '#':  # Walk j forward over the digits until the structural '#'.\n" +
+            "                                # Why safe: i sits on a length prefix, so the first '#' found is the delimiter, not payload.\n" +
+            "                j += 1  # Move past one digit character.\n" +
+            "                        # State change: j increases until s[j] == '#'.\n\n" +
+            "            length = int(s[i:j])  # The digits from i up to (not including) j give this payload's length.\n" +
+            "                                  # State: length is how many characters the next string occupies.\n\n" +
+            "            start = j + 1  # The payload begins immediately after the '#'.\n" +
+            "                           # State: start indexes the first payload character.\n\n" +
+            "            result.append(s[start:start + length])  # Take EXACTLY length chars as one original string.\n" +
+            "                                                    # Why safe: slicing by count treats '#'/digits inside as plain data.\n" +
+            "                                                    # State change: one recovered string is appended to result.\n\n" +
+            "            i = start + length  # Jump the cursor past this payload to the next frame's length prefix.\n" +
+            "                                # State change: i advances to the start of the next frame (or to len(s) to stop).\n" +
+            "                                # Execution flow: back to the while header; loop ends when i reaches len(s).\n\n" +
+            "        return result  # All frames consumed; return the fully reconstructed list.",
           plain:
             "class Solution:\n" +
             "    def encode(self, strs: List[str]) -> str:\n" +
