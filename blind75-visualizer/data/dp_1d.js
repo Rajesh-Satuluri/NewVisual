@@ -61,15 +61,15 @@
           space: "O(n)",
           whenToUse: "Good first framing: state the recurrence naturally as a recursion, then add a cache to kill the exponential blowup.",
           logic:
-            "**What it asks.** Count the distinct ordered sequences of 1-steps and 2-steps that sum to `n` — the number of different ways to climb to the top.\n\n" +
-            "**Why the naive idea fails.** You could recurse on the last move without a cache, but that re-solves the same subproblems repeatedly: `ways(n-2)` is recomputed by both `ways(n)` and `ways(n-1)`. The call tree has roughly Fibonacci(n) leaves, giving exponential `O(2^n)` time.\n\n" +
-            "**Key Idea.** Let `dp[i]` (written here as `ways(i)`) be the number of distinct ways to reach step `i`. To land on step `i`, your last move was either a 1-step (arriving from `i-1`) or a 2-step (arriving from `i-2`). Those two arrival sets are disjoint and cover every path, so `ways(i) = ways(i-1) + ways(i-2)`. Caching each result once removes the exponential blowup.\n\n" +
+            "**What it asks.** Count the distinct ordered sequences of 1-steps and 2-steps that sum to `n` — the number of different ways to climb to the top. Order matters, so `1+2` and `2+1` are two separate climbs.\n\n" +
+            "**Why the naive idea fails.** You could recurse on the last move without a cache, but that re-solves the same subproblems over and over: `ways(n-2)` is recomputed by both `ways(n)` and `ways(n-1)`. The call tree has roughly Fibonacci(n) leaves, giving exponential `O(2^n)` time.\n\n" +
+            "**Key Idea (the DP state).** Let `dp[i]` — written here as `ways(i)` — be the number of distinct ways to reach step `i`. **Base cases:** `ways(1) = 1` (a single 1-step) and `ways(2) = 2` (`1+1` or one `2`). **Transition:** to land on step `i` your last move was either a 1-step (arriving from `i-1`) or a 2-step (arriving from `i-2`); those two arrival sets are disjoint and together cover every path, so `ways(i) = ways(i-1) + ways(i-2)`. **Iteration order:** the recursion naturally computes each smaller state before the larger one that needs it, and caching every result exactly once collapses the exponential call tree to linear.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. Base cases: `ways(1) = 1` (a single step) and `ways(2) = 2` (1+1 or one 2). The check `i <= 2` returns `i`, which captures both.\n" +
+            "1. Base cases: `ways(1) = 1` and `ways(2) = 2`. The check `i <= 2` returns `i`, which captures both.\n" +
             "2. For any larger `i`, if it is already in the `memo` cache, return the stored value.\n" +
-            "3. Otherwise compute `ways(i-1) + ways(i-2)` — the transition in words: the ways to reach `i` are the ways to reach the step one below plus the ways to reach the step two below.\n" +
+            "3. Otherwise compute `ways(i-1) + ways(i-2)` — the ways to reach `i` are the ways to reach the step one below plus the ways to reach the step two below.\n" +
             "4. Store the result in `memo[i]` before returning, so each state is solved exactly once.\n\n" +
-            "**Why it works.** The last move partitions every path to step `i` into exactly two non-overlapping groups (ended with a 1 or a 2), so adding the two subproblem counts counts each path exactly once. Induction from the base cases proves every `ways(i)` correct.\n\n" +
+            "**Why it works.** The last move partitions every path to step `i` into exactly two non-overlapping groups (ended with a 1 or a 2), so adding the two subproblem counts counts each path exactly once. Formally this is an induction on `i`: the base cases are correct by inspection, and if `ways(i-1)` and `ways(i-2)` are correct then so is their sum, so every `ways(i)` is correct.\n\n" +
             "**Common Gotchas.**\n" +
             "- Forgetting the cache leaves the solution exponential — the memo is what makes it linear.\n" +
             "- Off-by-one in the base cases: `ways(2)` is 2, not 1.\n" +
@@ -77,17 +77,28 @@
             "**Complexity.** `n` distinct states each solved in `O(1)` → time `O(n)`; recursion stack plus memo → space `O(n)`.\n\n" +
             "**Interview mindset.** 'Count paths where each step depends on the previous one or two' is the Fibonacci-DP signal: write the recurrence naturally as recursion, then add a cache.",
           rcs:
-            "class Solution:\n" +
-            "    def climbStairs(self, n: int) -> int:\n" +
-            "        memo = {}                          # Cache: step index -> number of ways.\n" +
-            "        def ways(i):\n" +
-            "            if i <= 2:                     # Base cases: ways(1)=1, ways(2)=2.\n" +
-            "                return i\n" +
-            "            if i in memo:                  # Already solved this subproblem?\n" +
-            "                return memo[i]\n" +
-            "            memo[i] = ways(i - 1) + ways(i - 2)  # Last move was a 1-step or a 2-step.\n" +
-            "            return memo[i]\n" +
-            "        return ways(n)",
+            "class Solution:  # LeetCode creates an object of this class and calls climbStairs on it.\n\n" +
+            "    def climbStairs(self, n: int) -> int:  # Count the distinct ways to climb n stairs taking 1- or 2-steps.\n\n" +
+            "        # ==================== PHASE 1: DEFINE THE DP STATE ====================\n\n" +
+            "        memo = {}  # Cache: step index i -> ways(i), the number of distinct ways to reach step i.\n" +
+            "                   # State: memo[i] plays the role of dp[i]; each entry is computed once, then reused.\n" +
+            "                   # Why a dict: it turns the exponential recursion into O(n) by never re-solving a step.\n" +
+            "                   # Execution flow: Python defines the helper below, then calls it once at the end.\n\n" +
+            "        # ==================== PHASE 2: SOLVE EACH SUBPROBLEM ONCE ====================\n\n" +
+            "        def ways(i):  # Return the number of distinct ways to reach step i.\n\n" +
+            "            if i <= 2:  # Base cases: ways(1)=1 (one single step) and ways(2)=2 (1+1 or one 2-step).\n" +
+            "                return i  # For i in {1, 2} the answer equals i itself, capturing both base cases at once.\n" +
+            "                          # Why-safe: these are the smallest steps and need no sub-results to compute.\n\n" +
+            "            if i in memo:  # Have we already solved this subproblem on an earlier call?\n" +
+            "                return memo[i]  # Reuse the stored count instead of recomputing the whole subtree.\n" +
+            "                                # Why-safe: memo[i] was finalized the first time step i was solved.\n\n" +
+            "            memo[i] = ways(i - 1) + ways(i - 2)  # Transition: last move was a 1-step (from i-1) or a 2-step (from i-2).\n" +
+            "                                                 # WHY correct: those two arrival sets are disjoint and cover every path to i, so ADD.\n" +
+            "                                                 # State change: memo[i] is now final; later calls read it in O(1).\n" +
+            "                                                 # Why-safe: i-1 and i-2 are smaller, so their values exist before i needs them.\n\n" +
+            "            return memo[i]  # Hand this step's count back to whoever asked for it.\n\n" +
+            "        # ==================== PHASE 3: READ THE ANSWER ====================\n\n" +
+            "        return ways(n)  # ways(n) is the number of distinct ways to reach the top step n.",
           plain:
             "class Solution:\n" +
             "    def climbStairs(self, n: int) -> int:\n" +
@@ -109,28 +120,40 @@
           logic:
             "**What it asks.** Count the distinct ordered sequences of 1-steps and 2-steps that sum to `n`.\n\n" +
             "**Why the naive idea fails.** Plain recursion on the last move re-solves the same subproblems, giving exponential `O(2^n)` time. Even memoized top-down recursion, while linear, carries `O(n)` call-stack and cache overhead — building the answer iteratively removes both.\n\n" +
-            "**Key Idea.** Let `dp[i]` be the number of distinct ways to reach step `i`. To land on step `i` your last move was a 1-step (arriving from `i-1`) or a 2-step (arriving from `i-2`), and those two arrival sets are disjoint and cover every path, so `dp[i] = dp[i-1] + dp[i-2]`. Building `dp` bottom-up means every dependency is already known when you need it.\n\n" +
+            "**Key Idea (the DP state).** Let `dp[i]` be the number of distinct ways to reach step `i`. **Base cases:** `dp[1] = 1` (one way — a single step) and `dp[2] = 2` (`1+1` or one `2`). **Transition:** to land on step `i` your last move was a 1-step (arriving from `i-1`) or a 2-step (arriving from `i-2`), and those two arrival sets are disjoint and cover every path, so `dp[i] = dp[i-1] + dp[i-2]`. **Iteration order:** filling `dp` bottom-up (small `i` to large) means both dependencies `dp[i-1]` and `dp[i-2]` are already final when `dp[i]` is computed.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. Base cases: `dp[1] = 1` (one way — a single step) and `dp[2] = 2` (1+1 or one 2-step).\n" +
+            "1. Base cases: `dp[1] = 1` and `dp[2] = 2`.\n" +
             "2. Transition in words: for each step from 3 up to `n`, the number of ways to reach it is the ways to reach the step one below plus the ways to reach the step two below.\n" +
             "3. Fill left to right so each `dp[i]` reads the two already-final cells before it; `dp[n]` is the answer.\n\n" +
-            "**Why it works.** The last-move argument partitions every path to step `i` into exactly two non-overlapping groups (ended with a 1 or a 2), so adding the two subproblem counts counts each path once. Computing states in dependency order (small to large) guarantees each value is final when read; induction from the base cases proves every `dp[i]` correct.\n\n" +
+            "**Why it works.** The last-move argument partitions every path to step `i` into exactly two non-overlapping groups (ended with a 1 or a 2), so adding the two subproblem counts counts each path once. Computing states in dependency order (small to large) guarantees each value is final when read; induction from the base cases proves every `dp[i]` correct. **Loop invariant:** just before computing step `i`, `first` holds `dp[i-2]` and `second` holds `dp[i-1]`.\n\n" +
             "**Common Gotchas.**\n" +
             "- Off-by-one in the base cases: `dp[2]` is 2, not 1.\n" +
             "- Reading a cell before it is filled — always go strictly left to right.\n" +
             "- Remember to handle `n <= 2` before the loop starts.\n\n" +
-            "**Space optimization.** `dp[i]` only ever looks back two cells, so the whole array is unnecessary: keep two scalars `first = dp[i-2]` and `second = dp[i-1]`, roll them forward (`second` becomes the new `dp[i]`), and space drops from `O(n)` to `O(1)`.\n\n" +
+            "**Space optimization.** `dp[i]` only ever looks back two cells, so the whole array is unnecessary: keep two scalars `first = dp[i-2]` and `second = dp[i-1]`, roll them forward (`second` becomes the new `dp[i]`), and space drops from `O(n)` to `O(1)`. That collapse is exactly what this approach codes.\n\n" +
             "**Complexity.** One pass over the steps → time `O(n)`; two rolling variables → space `O(1)`.\n\n" +
             "**Interview mindset.** 'Count paths where each step depends only on the last one or two' is the Fibonacci-DP signal: write the recurrence, fill it bottom-up, then collapse to two variables.",
           rcs:
-            "class Solution:\n" +
-            "    def climbStairs(self, n: int) -> int:\n" +
-            "        if n <= 2:                         # Handle the base cases directly.\n" +
-            "            return n\n" +
-            "        first, second = 1, 2               # dp[1]=1, dp[2]=2 (the two previous states).\n" +
-            "        for _ in range(3, n + 1):          # Build dp[3..n] one step at a time.\n" +
-            "            first, second = second, first + second  # Roll forward: new dp = sum of prev two.\n" +
-            "        return second                      # 'second' now holds dp[n].",
+            "class Solution:  # LeetCode creates an object of this class and calls climbStairs on it.\n\n" +
+            "    def climbStairs(self, n: int) -> int:  # Count the distinct ways to climb n stairs, O(1) space.\n\n" +
+            "        # ==================== PHASE 1: HANDLE THE BASE CASES ====================\n\n" +
+            "        if n <= 2:  # ways(1)=1 and ways(2)=2, so for n in {1, 2} the answer is n itself.\n" +
+            "            return n  # Return immediately; the rolling loop below assumes at least dp[1] and dp[2] exist.\n" +
+            "                      # Why-safe: these are the smallest steps and need no sub-results to compute.\n\n" +
+            "        # ==================== PHASE 2: DEFINE THE ROLLING DP STATE ====================\n\n" +
+            "        first, second = 1, 2  # first = dp[1] = 1, second = dp[2] = 2: the two previous states we carry.\n" +
+            "                              # State: only O(1) memory is needed because dp[i] looks back exactly two cells.\n" +
+            "                              # Loop invariant: before step i, first == dp[i-2] and second == dp[i-1].\n\n" +
+            "        # ==================== PHASE 3: FILL dp[3..n] BOTTOM-UP ====================\n\n" +
+            "        for _ in range(3, n + 1):  # Advance one step at a time from 3 up to n (n-2 iterations).\n" +
+            "                                   # Why increasing order: dp[i] needs dp[i-1] and dp[i-2] to be final first.\n" +
+            "                                   # Execution flow: the loop variable is unused; we only care about the count of steps.\n\n" +
+            "            first, second = second, first + second  # Transition: new dp[i] = dp[i-1] + dp[i-2]; then roll the window forward.\n" +
+            "                                                    # WHY correct: the last move (1 or 2) partitions all paths to i, so ADD the two.\n" +
+            "                                                    # State change: first becomes old dp[i-1], second becomes the new dp[i].\n" +
+            "                                                    # Why-safe: the simultaneous assignment reads both old values before overwriting either.\n\n" +
+            "        # ==================== PHASE 4: READ THE ANSWER ====================\n\n" +
+            "        return second  # After the loop, second holds dp[n]: the number of distinct ways to reach the top.",
           plain:
             "class Solution:\n" +
             "    def climbStairs(self, n: int) -> int:\n" +
@@ -327,13 +350,13 @@
           logic:
             "**What it asks.** Return the length of the longest strictly increasing subsequence (LIS) — elements kept in order but not necessarily contiguous.\n\n" +
             "**Why the naive idea fails.** Enumerating all subsequences to test which are increasing is `O(2^n)`; even the obvious 'for each element, how long a chain ends here?' is wasteful if recomputed from scratch. DP reuses the answers for earlier endpoints.\n\n" +
-            "**Key Idea.** Let `dp[i]` be the length of the longest increasing subsequence that ends *exactly* at index `i` (with `nums[i]` as its final element). Any such subsequence has a second-to-last element at some `j < i` with `nums[j] < nums[i]`, and that prefix is itself an LIS ending at `j` — whose length is already `dp[j]`. So `dp[i]` is one more than the best compatible `dp[j]`.\n\n" +
+            "**Key Idea (the DP state).** Let `dp[i]` be the length of the longest increasing subsequence that ends *exactly* at index `i` (with `nums[i]` as its final element). **Base case:** `dp[i] = 1` for every `i`, since each element alone is a valid increasing subsequence of length 1. **Transition:** any longer subsequence ending at `i` has a second-to-last element at some `j < i` with `nums[j] < nums[i]`, and that prefix is itself an increasing subsequence ending at `j` whose best length is already `dp[j]`; so `dp[i] = 1 + max(dp[j])` over all valid `j`. **Iteration order:** compute `dp` from left to right, so every predecessor `dp[j]` with `j < i` is final before `dp[i]` reads it.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. Base case: every element alone is a subsequence of length 1, so initialize each `dp[i] = 1`.\n" +
+            "1. Base case: initialize each `dp[i] = 1`.\n" +
             "2. Transition in words: for each `i`, look at every earlier `j`; if `nums[j] < nums[i]`, then `nums[i]` can extend the chain ending at `j`, so take the max of the current `dp[i]` and `dp[j] + 1`.\n" +
             "3. Fill `dp` left to right.\n" +
             "4. Answer: `max(dp)` — the LIS can end at any index, not necessarily the last one.\n\n" +
-            "**Why it works.** Every increasing subsequence ends somewhere; defining `dp` by its endpoint makes the choices exhaustive, and taking the best valid predecessor `j` finds the longest chain that can precede `nums[i]`. Induction over increasing `i` proves each `dp[i]` optimal.\n\n" +
+            "**Why it works.** Every increasing subsequence ends somewhere; defining `dp` by its endpoint makes the cases exhaustive, and taking the best valid predecessor `j` finds the longest chain that can precede `nums[i]`. By induction over increasing `i`: assuming every `dp[j]` for `j < i` is optimal, the max over compatible `j` plus one is the true longest subsequence ending at `i`, so each `dp[i]` is optimal too.\n\n" +
             "**Common Gotchas.**\n" +
             "- Return `max(dp)`, not `dp[n-1]` — the longest subsequence rarely ends at the last element.\n" +
             "- 'Strictly' increasing means the comparison is `<`, not `<=`; equal values cannot both be chosen.\n" +
@@ -342,15 +365,30 @@
             "**Complexity.** Nested loops over pairs `(i, j)` → time `O(n^2)`; space `O(n)` for `dp`.\n\n" +
             "**Interview mindset.** 'Longest increasing/decreasing subsequence (not subarray)' with `dp[i]` defined as 'best answer ending at i' is the standard subsequence-DP framing.",
           rcs:
-            "class Solution:\n" +
-            "    def lengthOfLIS(self, nums: List[int]) -> int:\n" +
-            "        n = len(nums)\n" +
-            "        dp = [1] * n                       # dp[i]=longest increasing subseq ENDING at i (>=1).\n" +
-            "        for i in range(n):                 # For each element as a possible endpoint...\n" +
-            "            for j in range(i):             # ...check every earlier element as predecessor.\n" +
-            "                if nums[j] < nums[i]:      # Strictly smaller => can extend that subseq.\n" +
-            "                    dp[i] = max(dp[i], dp[j] + 1)\n" +
-            "        return max(dp)                     # LIS may end at any index.",
+            "from typing import List  # List lets the type hint say we take a list of ints and return an int.\n\n\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls lengthOfLIS on it.\n\n" +
+            "    def lengthOfLIS(self, nums: List[int]) -> int:  # Return the length of the longest strictly increasing subsequence.\n\n" +
+            "        # ==================== PHASE 1: DEFINE THE DP ARRAY ====================\n\n" +
+            "        n = len(nums)  # Number of elements; also the number of dp cells.\n" +
+            "                       # Execution flow: Python continues to build the dp array below.\n\n" +
+            "        dp = [1] * n  # dp[i] = length of the longest increasing subsequence ENDING at index i.\n" +
+            "                      # Base case: every element alone is an increasing subsequence of length 1.\n" +
+            "                      # State: dp starts as all 1s; each cell can only grow as predecessors are found.\n\n" +
+            "        # ==================== PHASE 2: FILL dp BY ENDPOINT ====================\n\n" +
+            "        for i in range(n):  # Treat each index i as the endpoint of a subsequence.\n" +
+            "                            # Loop invariant: dp[0..i-1] already hold their final optimal lengths.\n" +
+            "                            # Execution flow: after i is done, Python advances to i + 1.\n\n" +
+            "            for j in range(i):  # Scan every earlier index j as a possible predecessor of i.\n" +
+            "                                # Why only j < i: a predecessor must come before i in the array order.\n" +
+            "                                # Execution flow: after one j, Python assigns the next j automatically.\n\n" +
+            "                if nums[j] < nums[i]:  # Strictly smaller => nums[i] can extend the subsequence ending at j.\n" +
+            "                                       # Why strict: equal values cannot both sit in a STRICTLY increasing chain.\n\n" +
+            "                    dp[i] = max(dp[i], dp[j] + 1)  # Transition: best so far vs extending j's chain by nums[i].\n" +
+            "                                                   # WHY correct: dp[j] is the longest chain ending at j; +1 appends nums[i].\n" +
+            "                                                   # State change: dp[i] can only increase toward its true optimum here.\n" +
+            "                                                   # Why-safe: j < i, so dp[j] was finalized on an earlier iteration.\n\n" +
+            "        # ==================== PHASE 3: READ THE ANSWER ====================\n\n" +
+            "        return max(dp)  # The LIS may end at ANY index, so the answer is the largest dp value.",
           plain:
             "class Solution:\n" +
             "    def lengthOfLIS(self, nums: List[int]) -> int:\n" +
@@ -370,13 +408,13 @@
           logic:
             "**What it asks.** The length of the longest strictly increasing subsequence, in `O(n log n)` instead of `O(n^2)`.\n\n" +
             "**Why the naive idea fails.** The `O(n^2)` endpoint DP compares each new element against every earlier one. Most of that work is redundant: what actually matters is, for each achievable subsequence length, the smallest value that can end it.\n\n" +
-            "**Key Idea.** Maintain an array `tails` where `tails[k]` is the smallest possible tail value of any increasing subsequence of length `k+1` seen so far. Keeping each length's tail as small as possible leaves the most room to extend later. Crucially, `tails` stays sorted in strictly increasing order, and its length equals the current LIS length — so we can binary-search it.\n\n" +
+            "**Key Idea (the DP state).** Maintain an array `tails` where `tails[k]` is the smallest possible tail value of any strictly increasing subsequence of length `k+1` seen so far. **Base case:** `tails` starts empty (no subsequence yet). **Transition:** for each `num`, either it extends the longest chain (when it exceeds every current tail) and appends, growing the LIS length by one, or it replaces the first tail `>= num`, lowering that length's tail without changing any length. **Order:** process elements left to right; keeping each length's tail as small as possible leaves the most room to extend later, and `tails` stays sorted strictly increasing so its length always equals the current LIS length.\n\n" +
             "**Step-by-Step Approach.**\n" +
             "1. Start with an empty `tails`. The search space each step is the sorted `tails` array.\n" +
             "2. For each `num`, binary-search (`bisect_left`) for the first tail `>= num`.\n" +
             "3. If none exists (`num` is larger than every tail), `num` extends the longest chain → append it, growing the LIS by one.\n" +
             "4. Otherwise overwrite that first tail `>= num` with `num`: this eliminates a larger, less useful tail for that length without changing the LIS length, improving future extensibility.\n\n" +
-            "**Why it works.** Each overwrite keeps `tails[k]` minimal for its length while preserving sortedness, so the length of `tails` always tracks the true LIS length. Using `bisect_left` (first element `>= num`) means an equal value overwrites rather than appends, enforcing *strictly* increasing. Note `tails` is not necessarily a real subsequence — only its length is the answer.\n\n" +
+            "**Why it works.** Each overwrite keeps `tails[k]` minimal for its length while preserving sortedness (an invariant maintained every step), so the length of `tails` always tracks the true LIS length. Using `bisect_left` (first element `>= num`) means an equal value overwrites rather than appends, enforcing *strictly* increasing. Note `tails` is not necessarily a real subsequence — only its length is the answer.\n\n" +
             "**Common Gotchas.**\n" +
             "- `bisect_left` (>=) enforces strict increase; `bisect_right` (>) would allow equal values (non-decreasing) — pick deliberately.\n" +
             "- Don't treat `tails` as the actual subsequence; reconstructing the sequence needs extra bookkeeping.\n" +
@@ -384,17 +422,27 @@
             "**Complexity.** `n` elements × `O(log n)` binary search → time `O(n log n)`; space `O(n)` for `tails`.\n\n" +
             "**Interview mindset.** When an `O(n^2)` subsequence DP is too slow, 'smallest tail per length + binary search' (patience sorting) is the go-to `O(n log n)` upgrade.",
           rcs:
-            "class Solution:\n" +
-            "    def lengthOfLIS(self, nums: List[int]) -> int:\n" +
-            "        import bisect\n" +
-            "        tails = []                         # tails[k] = smallest tail of an LIS of length k+1.\n" +
-            "        for num in nums:\n" +
-            "            i = bisect.bisect_left(tails, num)  # First tail >= num (strict increase).\n" +
-            "            if i == len(tails):            # num beats every tail => extends the LIS.\n" +
-            "                tails.append(num)\n" +
-            "            else:                          # Otherwise shrink that length's tail to num.\n" +
-            "                tails[i] = num\n" +
-            "        return len(tails)                  # LIS length == number of piles/tails.",
+            "from typing import List  # List lets the type hint say we take a list of ints and return an int.\n\n\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls lengthOfLIS on it.\n\n" +
+            "    def lengthOfLIS(self, nums: List[int]) -> int:  # Return the LIS length in O(n log n) via patience sorting.\n\n" +
+            "        # ==================== PHASE 1: DEFINE THE STATE ====================\n\n" +
+            "        import bisect  # Standard-library binary search; bisect_left finds the first index >= a value.\n\n" +
+            "        tails = []  # tails[k] = the SMALLEST possible tail value of a strictly increasing subsequence of length k+1.\n" +
+            "                    # Base case: empty means no subsequence seen yet; len(tails) tracks the current LIS length.\n" +
+            "                    # Invariant: tails stays sorted strictly increasing throughout the scan.\n\n" +
+            "        # ==================== PHASE 2: PLACE EACH NUMBER ====================\n\n" +
+            "        for num in nums:  # Feed elements in array order; each may extend or improve a pile.\n" +
+            "                          # Execution flow: after one num, Python assigns the next automatically.\n\n" +
+            "            i = bisect.bisect_left(tails, num)  # First index whose tail is >= num (>= enforces STRICT increase).\n" +
+            "                                                # Why >=: an equal tail must be overwritten, not appended, to stay strict.\n\n" +
+            "            if i == len(tails):  # num is larger than every current tail => it extends the longest chain.\n" +
+            "                tails.append(num)  # Transition (grow): a new subsequence length becomes achievable, LIS += 1.\n" +
+            "                                   # State change: len(tails) increases by one.\n\n" +
+            "            else:  # Some tail is >= num, so num cannot lengthen the LIS, only improve a length's tail.\n" +
+            "                tails[i] = num  # Transition (improve): lower that length's tail to num for easier future extension.\n" +
+            "                                # Why-safe: replacing a >= value with num keeps tails sorted and the length unchanged.\n\n" +
+            "        # ==================== PHASE 3: READ THE ANSWER ====================\n\n" +
+            "        return len(tails)  # The LIS length equals the number of piles/tails maintained.",
           plain:
             "class Solution:\n" +
             "    def lengthOfLIS(self, nums: List[int]) -> int:\n" +
@@ -476,13 +524,13 @@
           logic:
             "**What it asks.** Decide whether `s` can be cut into a sequence of pieces that are all dictionary words (words may be reused).\n\n" +
             "**The idea, and why it's slow.** Define `can(start)` = 'can the suffix `s[start:]` be fully segmented?'. Try every prefix `s[start:end]`; if it is a dictionary word AND the remainder `can(end)` is segmentable, the answer is true. Without caching this re-explores the same `start` positions through many different prefix choices, giving exponential `O(2^n)` time on strings like `'aaaa...'`.\n\n" +
-            "**Key Idea.** The problem has a clean recursive structure: a suffix is segmentable iff some dictionary word is a prefix of it and the rest of the suffix is also segmentable. That recurrence is the seed for both this brute force and the memoized/bottom-up optimizations.\n\n" +
+            "**Key Idea (the recursive state).** `can(start)` is the sub-answer 'is `s[start:]` segmentable?'. **Base case:** `can(len(s)) = True` — reaching the end of the string means every character was consumed by valid words. **Transition:** `s[start:]` is segmentable iff some prefix `s[start:end]` is a dictionary word and the remaining suffix `can(end)` is also segmentable. **Order:** each call reduces to strictly larger `start` values (closer to the end), so the recursion always bottoms out at the base case. This same recurrence, once cached, becomes the bottom-up prefix DP.\n\n" +
             "**Step-by-Step Approach.**\n" +
             "1. Put the dictionary in a set for `O(1)` membership tests.\n" +
             "2. Base case: `can(len(s))` is true — reaching the end means every character was consumed by valid words.\n" +
             "3. From `start`, try each end position; if `s[start:end]` is a word and `can(end)` returns true, succeed.\n" +
             "4. If no prefix leads to a full segmentation, return false.\n\n" +
-            "**Why it works.** It exhaustively tries every way to place the first word and recurses on the rest, so if any valid segmentation exists it is found. Correctness is by induction on suffix length from the base case.\n\n" +
+            "**Why it works.** It exhaustively tries every way to place the first word and recurses on the rest, so if any valid segmentation exists it is found. Correctness is by induction on the suffix length from the base case: if every `can(end)` for `end > start` is correct, then trying all valid first words decides `can(start)` correctly.\n\n" +
             "**Common Gotchas.**\n" +
             "- Without memoization this is exponential — usable only to frame the recurrence.\n" +
             "- The base case is 'index reached the end', not 'the sliced string is empty' — index bookkeeping matters.\n" +
@@ -490,17 +538,25 @@
             "**Complexity.** Exponential `O(2^n)` time in the worst case; `O(n)` recursion depth for the stack.\n\n" +
             "**Interview mindset.** State the suffix-reachability recurrence first; the moment you see overlapping `start` calls, reach for memoization or a bottom-up prefix DP.",
           rcs:
-            "class Solution:\n" +
-            "    def wordBreak(self, s: str, wordDict: List[str]) -> bool:\n" +
-            "        words = set(wordDict)              # O(1) word lookups.\n" +
-            "        def can(start):                   # Can s[start:] be fully segmented?\n" +
-            "            if start == len(s):           # Consumed the whole string => success.\n" +
-            "                return True\n" +
-            "            for end in range(start + 1, len(s) + 1):  # Try each prefix s[start:end].\n" +
-            "                if s[start:end] in words and can(end):  # Word + rest segmentable?\n" +
-            "                    return True\n" +
-            "            return False                  # No prefix worked from here.\n" +
-            "        return can(0)",
+            "from typing import List  # List lets the type hint say we take a list of str words.\n\n\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls wordBreak on it.\n\n" +
+            "    def wordBreak(self, s: str, wordDict: List[str]) -> bool:  # Can s be split into a sequence of dictionary words?\n\n" +
+            "        # ==================== PHASE 1: PREPARE ====================\n\n" +
+            "        words = set(wordDict)  # Put the dictionary in a set for average O(1) membership tests.\n" +
+            "                               # Why a set: we probe many candidate slices s[start:end] against the dictionary.\n\n" +
+            "        # ==================== PHASE 2: RECURSE ON SUFFIX REACHABILITY ====================\n\n" +
+            "        def can(start):  # Sub-answer: can the suffix s[start:] be fully segmented into dictionary words?\n\n" +
+            "            if start == len(s):  # Base case: we consumed the whole string.\n" +
+            "                return True  # Reaching the end means every character was covered by valid words.\n" +
+            "                             # Why-safe: this is the smallest subproblem and needs no further recursion.\n\n" +
+            "            for end in range(start + 1, len(s) + 1):  # Try every prefix s[start:end] as the FIRST word.\n" +
+            "                                                      # Execution flow: after one end, Python assigns the next.\n\n" +
+            "                if s[start:end] in words and can(end):  # Transition: first chunk is a word AND the rest segments.\n" +
+            "                    return True  # A full segmentation exists starting here, so report success upward.\n" +
+            "                                 # Why-safe: can(end) recurses on a strictly larger start, moving toward the base case.\n\n" +
+            "            return False  # No prefix from this start led to a full segmentation.\n\n" +
+            "        # ==================== PHASE 3: READ THE ANSWER ====================\n\n" +
+            "        return can(0)  # Segmentable iff the whole string s[0:] can be segmented.",
           plain:
             "class Solution:\n" +
             "    def wordBreak(self, s: str, wordDict: List[str]) -> bool:\n" +
@@ -522,13 +578,13 @@
           logic:
             "**What it asks.** Return whether `s` can be segmented into dictionary words, computed efficiently.\n\n" +
             "**Why the naive idea fails.** The plain recursion re-solves the same suffix positions, exponentially. Turning it into a bottom-up scan over prefixes solves each position once.\n\n" +
-            "**Key Idea.** Let `dp[i]` be true iff the prefix `s[:i]` (the first `i` characters) can be segmented into dictionary words. A valid segmentation of `s[:i]` must end with some final word `s[j:i]`; removing it leaves a valid segmentation of `s[:j]`, which is exactly `dp[j]`. So `dp[i]` is true when some split point `j` has `dp[j]` true and `s[j:i]` in the dictionary. The answer is `dp[n]`.\n\n" +
+            "**Key Idea (the DP state).** Let `dp[i]` be true iff the prefix `s[:i]` (the first `i` characters) can be segmented into dictionary words. **Base case:** `dp[0] = True` — the empty prefix is trivially segmentable and anchors the recurrence. **Transition:** a valid segmentation of `s[:i]` must end with some final word `s[j:i]`; removing it leaves a valid segmentation of `s[:j]`, which is exactly `dp[j]`. So `dp[i]` is true when some split point `j < i` has `dp[j]` true and `s[j:i]` in the dictionary. **Iteration order:** fill `i` from 1 to `n`; every `dp[j]` read has `j < i`, so it is already final. The answer is `dp[n]`.\n\n" +
             "**Step-by-Step Approach.**\n" +
             "1. Put the dictionary in a set for `O(1)` lookups.\n" +
             "2. Base case: `dp[0] = True` — the empty prefix is trivially segmentable.\n" +
             "3. Transition in words: for each end position `i` from 1 to `n`, scan split points `j < i`; if the prefix up to `j` is segmentable and the chunk `s[j:i]` is a dictionary word, mark `dp[i]` true and stop scanning (one valid split is enough).\n" +
             "4. Fill `dp[1..n]` left to right; each `dp[i]` reads only smaller, already-final cells. Return `dp[n]`.\n\n" +
-            "**Why it works.** Scanning all `j` covers every possible last word, and every segmentation of `s[:i]` corresponds to exactly one such last word plus a segmentation of the preceding prefix. Induction over increasing `i` from `dp[0]` proves correctness.\n\n" +
+            "**Why it works.** Scanning all `j` covers every possible last word, and every segmentation of `s[:i]` corresponds to exactly one such last word plus a segmentation of the preceding prefix. By induction over increasing `i` from `dp[0] = True`: if every smaller `dp[j]` is correct, then `dp[i]` is set true exactly when a valid last word plus a segmentable prefix exists. **Loop invariant:** when the scan for `i` begins, `dp[0..i-1]` all hold their true values.\n\n" +
             "**Common Gotchas.**\n" +
             "- `dp[0] = True` is the anchor; forgetting it makes everything false.\n" +
             "- Break the inner loop on the first working split — you only need existence, not a count.\n" +
@@ -537,18 +593,31 @@
             "**Complexity.** Two nested position loops → `O(n^2)` combinations, each doing an `O(word length)` slice/lookup; space `O(n)`.\n\n" +
             "**Interview mindset.** 'Can this string be split into valid pieces?' → boolean partition/reachability DP over prefixes with `dp[i]` = 'is the first i characters segmentable'.",
           rcs:
-            "class Solution:\n" +
-            "    def wordBreak(self, s: str, wordDict: List[str]) -> bool:\n" +
-            "        words = set(wordDict)              # Fast membership tests.\n" +
-            "        n = len(s)\n" +
-            "        dp = [False] * (n + 1)            # dp[i] = can s[:i] be segmented?\n" +
-            "        dp[0] = True                     # Empty prefix is segmentable.\n" +
-            "        for i in range(1, n + 1):        # End position of the prefix we're deciding.\n" +
-            "            for j in range(i):           # Split point: last word is s[j:i].\n" +
-            "                if dp[j] and s[j:i] in words:  # Prefix good AND final chunk is a word.\n" +
-            "                    dp[i] = True\n" +
-            "                    break                # One valid split is enough.\n" +
-            "        return dp[n]",
+            "from typing import List  # List lets the type hint say we take a list of str words.\n\n\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls wordBreak on it.\n\n" +
+            "    def wordBreak(self, s: str, wordDict: List[str]) -> bool:  # Can s be split into dictionary words? (bottom-up)\n\n" +
+            "        # ==================== PHASE 1: PREPARE ====================\n\n" +
+            "        words = set(wordDict)  # Dictionary in a set for average O(1) membership tests.\n" +
+            "                               # Why a set: we probe many candidate slices s[j:i] against the dictionary.\n\n" +
+            "        n = len(s)  # Length of the string; dp will have n + 1 cells (prefixes of length 0..n).\n\n" +
+            "        # ==================== PHASE 2: DEFINE THE DP ARRAY ====================\n\n" +
+            "        dp = [False] * (n + 1)  # dp[i] = True iff the prefix s[:i] (first i chars) can be segmented.\n" +
+            "                                # State: all False initially; a cell flips True once a valid split is found.\n\n" +
+            "        dp[0] = True  # Base case: the empty prefix is trivially segmentable and anchors the recurrence.\n" +
+            "                      # State change: dp[0] is now final; every larger dp[i] is built from it.\n\n" +
+            "        # ==================== PHASE 3: FILL dp BOTTOM-UP ====================\n\n" +
+            "        for i in range(1, n + 1):  # End position: we are deciding whether the prefix s[:i] is segmentable.\n" +
+            "                                   # Loop invariant: dp[0..i-1] already hold their true values.\n" +
+            "                                   # Execution flow: after i is done, Python advances to i + 1.\n\n" +
+            "            for j in range(i):  # Split point: the last word would be s[j:i], the prefix before it is s[:j].\n" +
+            "                                # Execution flow: after one j, Python assigns the next j automatically.\n\n" +
+            "                if dp[j] and s[j:i] in words:  # Transition: prefix s[:j] segments AND the final chunk is a word.\n" +
+            "                                               # WHY correct: every segmentation of s[:i] ends in exactly one last word.\n" +
+            "                                               # Why-safe: j < i, so dp[j] was finalized on an earlier iteration.\n" +
+            "                    dp[i] = True  # s[:i] is segmentable via this split.\n" +
+            "                    break  # One valid split is enough; existence, not a count, is all we need.\n\n" +
+            "        # ==================== PHASE 4: READ THE ANSWER ====================\n\n" +
+            "        return dp[n]  # dp[n] answers whether the whole string s[:n] can be segmented.",
           plain:
             "class Solution:\n" +
             "    def wordBreak(self, s: str, wordDict: List[str]) -> bool:\n" +
@@ -628,12 +697,12 @@
           logic:
             "**What it asks.** Maximize the total money robbed from a straight line of houses without robbing two adjacent houses.\n\n" +
             "**Why the naive idea fails.** Trying every valid subset of non-adjacent houses is exponential. But each house poses only a local take/skip choice whose best outcome depends on a couple of earlier answers, so DP collapses the search.\n\n" +
-            "**Key Idea.** Let `dp[i]` be the most money robbable considering houses `0..i` (the best answer for the prefix ending at house `i`). At house `i` you either skip it — keeping `dp[i-1]` — or rob it, adding `nums[i]` to the best total that ended at `i-2` (the adjacent house `i-1` must be skipped). So `dp[i] = max(dp[i-1], dp[i-2] + nums[i])`.\n\n" +
+            "**Key Idea (the DP state).** Let `dp[i]` be the most money robbable considering houses `0..i` (the best answer for the prefix ending at house `i`). **Base cases:** `dp[0] = nums[0]` (only one house available) and `dp[1] = max(nums[0], nums[1])` (the two are adjacent, so take the richer). **Transition:** at house `i` you either skip it — keeping `dp[i-1]` — or rob it, adding `nums[i]` to the best total that ended at `i-2` (the adjacent house `i-1` must be skipped); so `dp[i] = max(dp[i-1], dp[i-2] + nums[i])`. **Iteration order:** fill left to right so both `dp[i-1]` and `dp[i-2]` are final when `dp[i]` reads them.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. Base cases: `dp[0] = nums[0]` (only one house); `dp[1] = max(nums[0], nums[1])` (can't take both adjacent, so take the richer).\n" +
+            "1. Base cases: `dp[0] = nums[0]`; `dp[1] = max(nums[0], nums[1])`.\n" +
             "2. Transition in words: for each house from index 2 onward, the best total is the larger of (skip this house, keep the previous best) and (rob this house plus the best total from two houses back).\n" +
             "3. Fill left to right; `dp[n-1]` is the answer.\n\n" +
-            "**Why it works.** The two options — rob house `i` or not — are exhaustive and mutually exclusive. Robbing forces skipping `i-1`, so the compatible best is `dp[i-2]`; skipping inherits `dp[i-1]`. Taking the max is optimal by induction on the prefix length.\n\n" +
+            "**Why it works.** The two options — rob house `i` or not — are exhaustive and mutually exclusive. Robbing forces skipping `i-1`, so the compatible best is `dp[i-2]`; skipping inherits `dp[i-1]`. Taking the max is optimal by induction on the prefix length: assuming `dp[i-1]` and `dp[i-2]` are the true optima for their prefixes, the max of the two exhaustive choices is the true optimum for the prefix ending at `i`.\n\n" +
             "**Common Gotchas.**\n" +
             "- Handle `n == 1` (and technically empty input) before touching `dp[1]`.\n" +
             "- `dp[1]` is `max(nums[0], nums[1])`, not `nums[1]`.\n" +
@@ -642,17 +711,29 @@
             "**Complexity.** One pass → time `O(n)`; the `dp` array → space `O(n)`.\n\n" +
             "**Interview mindset.** 'Maximum sum where you cannot pick two adjacent items' is the signature House Robber pattern: a per-element take/skip decision resolved by `dp[i-1]` vs `dp[i-2] + value`.",
           rcs:
-            "class Solution:\n" +
-            "    def rob(self, nums: List[int]) -> int:\n" +
-            "        n = len(nums)\n" +
-            "        if n == 1:                        # Only one house => rob it.\n" +
-            "            return nums[0]\n" +
-            "        dp = [0] * n                      # dp[i] = best loot from houses 0..i.\n" +
-            "        dp[0] = nums[0]                   # Base: single house.\n" +
-            "        dp[1] = max(nums[0], nums[1])     # Base: can't take both adjacent.\n" +
-            "        for i in range(2, n):\n" +
-            "            dp[i] = max(dp[i - 1], dp[i - 2] + nums[i])  # Skip i, or rob i + dp[i-2].\n" +
-            "        return dp[n - 1]",
+            "from typing import List  # List lets the type hint say we take a list of int house values.\n\n\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls rob on it.\n\n" +
+            "    def rob(self, nums: List[int]) -> int:  # Max money robbable from a line of houses, no two adjacent.\n\n" +
+            "        # ==================== PHASE 1: HANDLE THE EDGE CASE ====================\n\n" +
+            "        n = len(nums)  # Number of houses.\n\n" +
+            "        if n == 1:  # A single house has no neighbor to conflict with.\n" +
+            "            return nums[0]  # Just rob it; the dp[1] base below would otherwise index out of range.\n" +
+            "                            # Why-safe: with one house the answer is trivially its own value.\n\n" +
+            "        # ==================== PHASE 2: DEFINE THE DP ARRAY + BASE CASES ====================\n\n" +
+            "        dp = [0] * n  # dp[i] = the maximum money robbable considering houses 0..i.\n" +
+            "                      # State: filled left to right; each cell is final once computed.\n\n" +
+            "        dp[0] = nums[0]  # Base: with only house 0 available, the best is to rob it.\n\n" +
+            "        dp[1] = max(nums[0], nums[1])  # Base: houses 0 and 1 are adjacent, so take the richer of the two.\n" +
+            "                                       # Why not nums[1]: skipping house 0 is not forced; we want the maximum.\n\n" +
+            "        # ==================== PHASE 3: FILL dp BOTTOM-UP ====================\n\n" +
+            "        for i in range(2, n):  # Decide each house from index 2 onward in dependency order.\n" +
+            "                               # Loop invariant: dp[0..i-1] already hold their true optima.\n" +
+            "                               # Execution flow: after i is done, Python advances to i + 1.\n\n" +
+            "            dp[i] = max(dp[i - 1], dp[i - 2] + nums[i])  # Transition: SKIP i (keep dp[i-1]) vs ROB i (nums[i] + dp[i-2]).\n" +
+            "                                                         # WHY correct: robbing i forbids i-1, so the compatible best is dp[i-2].\n" +
+            "                                                         # Why-safe: dp[i-1] and dp[i-2] were finalized on earlier iterations.\n\n" +
+            "        # ==================== PHASE 4: READ THE ANSWER ====================\n\n" +
+            "        return dp[n - 1]  # dp[n-1] is the best loot considering the whole street.",
           plain:
             "class Solution:\n" +
             "    def rob(self, nums: List[int]) -> int:\n" +
@@ -687,12 +768,24 @@
             "**Complexity.** One pass → time `O(n)`; two variables → space `O(1)`.\n\n" +
             "**Interview mindset.** Whenever `dp[i]` depends only on the last one or two states, mention the rolling-variable collapse to `O(1)` — it's the polished House Robber answer.",
           rcs:
-            "class Solution:\n" +
-            "    def rob(self, nums: List[int]) -> int:\n" +
-            "        prev, curr = 0, 0                 # prev=dp[i-2], curr=dp[i-1]; zeros = clean base.\n" +
-            "        for num in nums:\n" +
-            "            prev, curr = curr, max(curr, prev + num)  # Skip house, or rob it + prev.\n" +
-            "        return curr                       # curr holds the best for the whole street.",
+            "from typing import List  # List lets the type hint say we take a list of int house values.\n\n\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls rob on it.\n\n" +
+            "    def rob(self, nums: List[int]) -> int:  # Max money robbable from a line of houses, no two adjacent (O(1) space).\n\n" +
+            "        # ==================== PHASE 1: DEFINE THE ROLLING DP STATE ====================\n\n" +
+            "        prev, curr = 0, 0  # prev = dp[i-2] = best loot up to two houses back; curr = dp[i-1] = best up to the previous house.\n" +
+            "                           # State: only O(1) memory is needed because dp[i] looks back exactly two cells.\n" +
+            "                           # Why start at 0: these zeros act as dp[-2] = dp[-1] = 0, so tiny arrays need no special-casing.\n" +
+            "                           # Loop invariant: before processing house i, prev == dp[i-2] and curr == dp[i-1].\n\n" +
+            "        # ==================== PHASE 2: FILL dp LEFT TO RIGHT ====================\n\n" +
+            "        for num in nums:  # Walk the houses in order; num is the money in the current house.\n" +
+            "                          # Why increasing order: the recurrence needs dp[i-1] and dp[i-2] final before dp[i].\n" +
+            "                          # Execution flow: after one num, Python advances to the next house automatically.\n\n" +
+            "            prev, curr = curr, max(curr, prev + num)  # Transition: SKIP house (keep curr = dp[i-1]) vs ROB it (num + prev = dp[i-2]).\n" +
+            "                                                      # WHY correct: robbing this house forbids its neighbor, so the compatible best is dp[i-2].\n" +
+            "                                                      # State change: prev becomes old curr (dp[i-1]); curr becomes the new dp[i].\n" +
+            "                                                      # Why-safe: the simultaneous assignment reads both old values before overwriting either.\n\n" +
+            "        # ==================== PHASE 3: READ THE ANSWER ====================\n\n" +
+            "        return curr  # After the loop, curr holds dp[n-1]: the best loot considering the whole street.",
           plain:
             "class Solution:\n" +
             "    def rob(self, nums: List[int]) -> int:\n" +
@@ -779,17 +872,28 @@
             "**Complexity.** Two linear passes → time `O(n)`; rolling variables → space `O(1)`.\n\n" +
             "**Interview mindset.** A circular/wrap-around constraint on the endpoints → split into cases that each exclude one endpoint and reuse the simpler linear solution as a subroutine.",
           rcs:
-            "class Solution:\n" +
-            "    def rob(self, nums: List[int]) -> int:\n" +
-            "        if len(nums) == 1:                # Single house: no circular conflict.\n" +
-            "            return nums[0]\n" +
-            "        def rob_line(houses):            # Plain (linear) House Robber, O(1) space.\n" +
-            "            prev, curr = 0, 0\n" +
-            "            for num in houses:\n" +
-            "                prev, curr = curr, max(curr, prev + num)\n" +
-            "            return curr\n" +
-            "        # Case 1 drops the first house; Case 2 drops the last house.\n" +
-            "        return max(rob_line(nums[1:]), rob_line(nums[:-1]))",
+            "from typing import List  # List lets the type hint say we take a list of int house values.\n\n\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls rob on it.\n\n" +
+            "    def rob(self, nums: List[int]) -> int:  # Max money robbable from houses arranged in a CIRCLE, no two adjacent.\n\n" +
+            "        # ==================== PHASE 1: HANDLE THE EDGE CASE ====================\n\n" +
+            "        if len(nums) == 1:  # A single house has no neighbor, so the circular adjacency rule is vacuous.\n\n" +
+            "            return nums[0]  # Just rob it; the two sliced windows below would each be empty here.\n" +
+            "                            # Why-safe: with one house the answer is trivially its own value.\n\n" +
+            "        # ==================== PHASE 2: DEFINE THE LINEAR ROBBER SUBROUTINE ====================\n\n" +
+            "        def rob_line(houses):  # Plain (non-circular) House Robber over one list, in O(1) space.\n" +
+            "                               # Why a helper: the circular problem reduces to running this linear solver twice.\n\n" +
+            "            prev, curr = 0, 0  # prev = dp[i-2], curr = dp[i-1]; the zeros act as a clean dp[-2] = dp[-1] = 0 base.\n" +
+            "                               # Loop invariant: before house i, prev == dp[i-2] and curr == dp[i-1].\n\n" +
+            "            for num in houses:  # Scan this window left to right; num is the current house money.\n" +
+            "                                # Execution flow: after one num, Python advances to the next house.\n\n" +
+            "                prev, curr = curr, max(curr, prev + num)  # Transition: SKIP (keep curr) vs ROB (num + prev = dp[i-2]).\n" +
+            "                                                          # WHY correct: robbing a house forbids its neighbor, so add prev, not curr.\n" +
+            "                                                          # Why-safe: the simultaneous assignment reads both old values before overwriting.\n\n" +
+            "            return curr  # curr holds dp[last]: the best loot for this linear window.\n\n" +
+            "        # ==================== PHASE 3: RUN TWO PASSES AND READ THE ANSWER ====================\n\n" +
+            "        return max(rob_line(nums[1:]), rob_line(nums[:-1]))  # Case A drops house 0 (nums[1:]); Case B drops the last house (nums[:-1]).\n" +
+            "                                                             # WHY correct: a circular-legal plan must skip house 0 or the last, so it fits one window.\n" +
+            "                                                             # Why-safe: neither window holds the forbidden first+last pair; the larger of the two is the answer.",
           plain:
             "class Solution:\n" +
             "    def rob(self, nums: List[int]) -> int:\n" +
@@ -881,20 +985,30 @@
             "**Complexity.** One pass → time `O(n)`; the `dp` array → space `O(n)` (or `O(1)` rolled).\n\n" +
             "**Interview mindset.** 'Count the ways to parse a sequence where each unit is 1 or 2 tokens' is a Fibonacci-shaped count DP — but with validity guards (no leading zero, pair in range) gating each branch.",
           rcs:
-            "class Solution:\n" +
-            "    def numDecodings(self, s: str) -> int:\n" +
-            "        n = len(s)\n" +
-            "        dp = [0] * (n + 1)               # dp[i] = ways to decode s[:i].\n" +
-            "        dp[0] = 1                        # Empty string: one way (anchors recurrence).\n" +
-            "        dp[1] = 1 if s[0] != '0' else 0  # A lone '0' cannot be decoded.\n" +
-            "        for i in range(2, n + 1):\n" +
-            "            one = s[i - 1]               # The current single digit.\n" +
-            "            two = s[i - 2:i]             # The current two-digit chunk.\n" +
-            "            if one != '0':               # Valid single digit (1-9)...\n" +
-            "                dp[i] += dp[i - 1]       # ...extends every decoding of s[:i-1].\n" +
-            "            if '10' <= two <= '26':      # Valid two-digit code (10-26)...\n" +
-            "                dp[i] += dp[i - 2]       # ...extends every decoding of s[:i-2].\n" +
-            "        return dp[n]",
+            "class Solution:  # LeetCode creates an object of this class and calls numDecodings on it.\n\n" +
+            "    def numDecodings(self, s: str) -> int:  # Count how many ways the digit string s decodes to letters A=1..Z=26.\n\n" +
+            "        # ==================== PHASE 1: DEFINE THE DP ARRAY + BASE CASES ====================\n\n" +
+            "        n = len(s)  # Length of the string; dp will have n + 1 cells (prefixes of length 0..n).\n\n" +
+            "        dp = [0] * (n + 1)  # dp[i] = number of ways to decode the first i characters, s[:i].\n" +
+            "                            # State: all zero initially; each cell is summed up from the previous one or two.\n\n" +
+            "        dp[0] = 1  # Base case: the empty string has exactly one (empty) decoding; this anchors the recurrence.\n\n" +
+            "        dp[1] = 1 if s[0] != '0' else 0  # Base case: one char decodes one way unless it is a lone 0, which is undecodable.\n" +
+            "                                         # Why: a leading 0 is not a valid code (only 10 and 20 use a zero), so it yields 0 ways.\n\n" +
+            "        # ==================== PHASE 2: FILL dp BOTTOM-UP ====================\n\n" +
+            "        for i in range(2, n + 1):  # Decide dp[i] for each prefix length from 2 up to n, in dependency order.\n" +
+            "                                   # Loop invariant: dp[0..i-1] already hold their true counts.\n" +
+            "                                   # Execution flow: after i is done, Python advances to i + 1.\n\n" +
+            "            one = s[i - 1]  # The current single digit: the candidate one-digit last code.\n\n" +
+            "            two = s[i - 2:i]  # The current two-digit chunk: the candidate two-digit last code.\n\n" +
+            "            if one != '0':  # A single digit 1-9 is a valid one-char code (a lone 0 is not).\n\n" +
+            "                dp[i] += dp[i - 1]  # Transition (1-digit): this code extends every decoding of s[:i-1], so ADD dp[i-1].\n" +
+            "                                    # Why-safe: i-1 < i, so dp[i-1] was finalized on an earlier iteration.\n\n" +
+            "            if '10' <= two <= '26':  # A two-digit code is valid only in 10-26 (string compare orders the same as numeric).\n\n" +
+            "                dp[i] += dp[i - 2]  # Transition (2-digit): this code extends every decoding of s[:i-2], so ADD dp[i-2].\n" +
+            "                                    # WHY ADD both branches: the last code is 1 or 2 digits (disjoint, exhaustive cases).\n" +
+            "                                    # Why-safe: i-2 < i, so dp[i-2] was finalized on an earlier iteration.\n\n" +
+            "        # ==================== PHASE 3: READ THE ANSWER ====================\n\n" +
+            "        return dp[n]  # dp[n] is the number of ways to decode the whole string s[:n].",
           plain:
             "class Solution:\n" +
             "    def numDecodings(self, s: str) -> int:\n" +
@@ -989,16 +1103,25 @@
             "**Complexity.** Two nested loops → time `O(n^2)`; a couple of scalars → space `O(1)`.\n\n" +
             "**Interview mindset.** State this only as the naive baseline; the redundant overlapping sums are exactly the signal to look for a single-pass 'best ending here' recurrence (Kadane).",
           rcs:
-            "class Solution:\n" +
-            "    def maxSubArray(self, nums: List[int]) -> int:\n" +
-            "        n = len(nums)\n" +
-            "        best = nums[0]                   # Best sum found so far.\n" +
-            "        for i in range(n):               # Every possible start index.\n" +
-            "            total = 0\n" +
-            "            for j in range(i, n):        # Extend the subarray to each end index.\n" +
-            "                total += nums[j]         # Running sum of nums[i..j].\n" +
-            "                best = max(best, total)  # Track the maximum.\n" +
-            "        return best",
+            "from typing import List  # List lets the type hint say we take a list of ints and return an int.\n\n\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls maxSubArray on it.\n\n" +
+            "    def maxSubArray(self, nums: List[int]) -> int:  # Largest sum over all contiguous non-empty subarrays (brute force).\n\n" +
+            "        # ==================== PHASE 1: PREPARE ====================\n\n" +
+            "        n = len(nums)  # Number of elements; the valid indices run 0..n-1.\n\n" +
+            "        best = nums[0]  # Best subarray sum found so far.\n" +
+            "                        # Why seed with nums[0], not 0: an all-negative array must still return its least-negative element.\n\n" +
+            "        # ==================== PHASE 2: TRY EVERY CONTIGUOUS SUBARRAY ====================\n\n" +
+            "        for i in range(n):  # Fix the start index i of the subarray.\n" +
+            "                            # Execution flow: after one i finishes, Python assigns the next i automatically.\n\n" +
+            "            total = 0  # Reset the running sum for a fresh subarray beginning at i.\n" +
+            "                       # Why reset: each new start index re-accumulates from scratch.\n\n" +
+            "            for j in range(i, n):  # Extend the subarray to each end index j >= i.\n" +
+            "                                   # Execution flow: after one j, Python assigns the next j automatically.\n\n" +
+            "                total += nums[j]  # total now equals the sum of nums[i..j].\n\n" +
+            "                best = max(best, total)  # Track the maximum: every (i, j) subarray sum is compared against the running best.\n" +
+            "                                         # Why-safe: each contiguous subarray is generated exactly once, so the max cannot be missed.\n\n" +
+            "        # ==================== PHASE 3: READ THE ANSWER ====================\n\n" +
+            "        return best  # best is the largest sum among all contiguous non-empty subarrays.",
           plain:
             "class Solution:\n" +
             "    def maxSubArray(self, nums: List[int]) -> int:\n" +
@@ -1034,14 +1157,26 @@
             "**Complexity.** One pass → time `O(n)`; two scalars → space `O(1)`.\n\n" +
             "**Interview mindset.** 'Largest contiguous sum' is the textbook Kadane trigger: an extend-or-restart decision on a single 'best ending here' variable.",
           rcs:
-            "class Solution:\n" +
-            "    def maxSubArray(self, nums: List[int]) -> int:\n" +
-            "        best = nums[0]                   # Global best subarray sum.\n" +
-            "        current = nums[0]                # Best sum of a subarray ENDING at current index.\n" +
-            "        for num in nums[1:]:\n" +
-            "            current = max(num, current + num)  # Restart at num, or extend the run.\n" +
-            "            best = max(best, current)          # Update the global maximum.\n" +
-            "        return best",
+            "from typing import List  # List lets the type hint say we take a list of ints and return an int.\n\n\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls maxSubArray on it.\n\n" +
+            "    def maxSubArray(self, nums: List[int]) -> int:  # Largest contiguous subarray sum in one pass (Kadane).\n\n" +
+            "        # ==================== PHASE 1: DEFINE THE ROLLING DP STATE ====================\n\n" +
+            "        best = nums[0]  # Global best: the largest subarray sum seen anywhere so far.\n" +
+            "                        # Why seed with nums[0], not 0: an all-negative array must return its least-negative element.\n\n" +
+            "        current = nums[0]  # current = dp[i] = the max sum of a subarray ENDING exactly at the current index.\n" +
+            "                           # State: only the previous value is ever read, so this single scalar replaces the dp array.\n" +
+            "                           # Base case: the subarray ending at index 0 is just nums[0].\n\n" +
+            "        # ==================== PHASE 2: SCAN, EXTEND OR RESTART ====================\n\n" +
+            "        for num in nums[1:]:  # Walk from the second element onward; num is the current value.\n" +
+            "                              # Execution flow: after one num, Python advances to the next element.\n\n" +
+            "            current = max(num, current + num)  # Transition: RESTART at num, or EXTEND the best run ending at i-1 by num.\n" +
+            "                                               # WHY correct: a max-sum run ending at i is nums[i] alone or glued to the best run ending at i-1.\n" +
+            "                                               # Why restart wins when current < 0: a negative prefix can only drag the new sum down.\n" +
+            "                                               # State change: current now holds dp[i], the best sum ending here.\n\n" +
+            "            best = max(best, current)  # Update the high-water mark: every subarray ends somewhere, so the running max of current is global.\n" +
+            "                                       # Why-safe: current is already final for this index before best reads it.\n\n" +
+            "        # ==================== PHASE 3: READ THE ANSWER ====================\n\n" +
+            "        return best  # best is the maximum sum over all contiguous non-empty subarrays.",
           plain:
             "class Solution:\n" +
             "    def maxSubArray(self, nums: List[int]) -> int:\n" +
@@ -1133,17 +1268,29 @@
             "**Complexity.** One pass → time `O(n)`; a few scalars → space `O(1)`.\n\n" +
             "**Interview mindset.** 'Largest product of a contiguous subarray' means sign flips matter, so track BOTH the running min and max — the minimum is a candidate future maximum.",
           rcs:
-            "class Solution:\n" +
-            "    def maxProduct(self, nums: List[int]) -> int:\n" +
-            "        best = nums[0]                   # Global best product.\n" +
-            "        cur_max = nums[0]                # Max product of a subarray ending here.\n" +
-            "        cur_min = nums[0]                # Min (most negative) product ending here.\n" +
-            "        for num in nums[1:]:\n" +
-            "            candidates = (num, cur_max * num, cur_min * num)  # Restart, or extend either extreme.\n" +
-            "            cur_max = max(candidates)    # New max from the three options.\n" +
-            "            cur_min = min(candidates)    # New min (may become max after a future negative).\n" +
-            "            best = max(best, cur_max)    # Update the global best.\n" +
-            "        return best",
+            "from typing import List  # List lets the type hint say we take a list of ints and return an int.\n\n\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls maxProduct on it.\n\n" +
+            "    def maxProduct(self, nums: List[int]) -> int:  # Largest product over all contiguous non-empty subarrays.\n\n" +
+            "        # ==================== PHASE 1: DEFINE THE ROLLING MIN/MAX STATE ====================\n\n" +
+            "        best = nums[0]  # Global best: the largest product seen anywhere so far.\n" +
+            "                        # Why seed with nums[0], not 0 or 1: the answer must be an actual subarray product.\n\n" +
+            "        cur_max = nums[0]  # cur_max = the LARGEST product of a subarray ending at the current index.\n" +
+            "                           # Base case: the subarray ending at index 0 is just nums[0].\n\n" +
+            "        cur_min = nums[0]  # cur_min = the SMALLEST (most negative) product of a subarray ending here.\n" +
+            "                           # Why carry the min: multiplying by a future negative can turn the min into the new max.\n\n" +
+            "        # ==================== PHASE 2: SCAN, TRACKING BOTH EXTREMES ====================\n\n" +
+            "        for num in nums[1:]:  # Walk from the second element onward; num is the current value.\n" +
+            "                              # Execution flow: after one num, Python advances to the next element.\n\n" +
+            "            candidates = (num, cur_max * num, cur_min * num)  # The three ways to end a subarray here: RESTART at num, or extend either old extreme.\n" +
+            "                                                              # WHY all three: a negative num flips signs, so the old min can become the largest product.\n" +
+            "                                                              # Why-safe: both extremes are read from the SAME old values before either is overwritten.\n\n" +
+            "            cur_max = max(candidates)  # New max product ending here is the largest of the three candidates.\n\n" +
+            "            cur_min = min(candidates)  # New min product ending here is the smallest of the three (a future negative may promote it).\n" +
+            "                                       # Why compute both from candidates: using the just-updated cur_max here is the classic bug.\n\n" +
+            "            best = max(best, cur_max)  # Update the global best with the largest product ending at this index.\n" +
+            "                                       # Note: restarting at num also resets cleanly after a zero, since no subarray spans a zero.\n\n" +
+            "        # ==================== PHASE 3: READ THE ANSWER ====================\n\n" +
+            "        return best  # best is the largest product over all contiguous non-empty subarrays.",
           plain:
             "class Solution:\n" +
             "    def maxProduct(self, nums: List[int]) -> int:\n" +
@@ -1236,21 +1383,30 @@
             "**Complexity.** `2n - 1` centers, each expanding up to `O(n)` → time `O(n^2)`; only two pointers and a counter → space `O(1)`. (A 2-D `dp[i][j]` = 'is s[i..j] a palindrome' table also works but costs `O(n^2)` space.)\n\n" +
             "**Interview mindset.** 'Count or find palindromic substrings' → expand around center; symmetry around a center beats brute-force substring checking.",
           rcs:
-            "class Solution:\n" +
-            "    def countSubstrings(self, s: str) -> int:\n" +
-            "        n = len(s)\n" +
-            "        count = 0\n" +
-            "        def expand(left, right):         # Count palindromes centered at (left,right).\n" +
-            "            c = 0\n" +
-            "            while left >= 0 and right < n and s[left] == s[right]:  # Symmetric?\n" +
-            "                c += 1                    # s[left..right] is a palindrome.\n" +
-            "                left -= 1                 # Grow outward on both sides.\n" +
-            "                right += 1\n" +
-            "            return c\n" +
-            "        for center in range(n):\n" +
-            "            count += expand(center, center)      # Odd-length palindromes.\n" +
-            "            count += expand(center, center + 1)  # Even-length palindromes.\n" +
-            "        return count",
+            "class Solution:  # LeetCode creates an object of this class and calls countSubstrings on it.\n\n" +
+            "    def countSubstrings(self, s: str) -> int:  # Count every palindromic substring by expanding around centers.\n\n" +
+            "        # ==================== PHASE 1: PREPARE ====================\n\n" +
+            "        n = len(s)  # Length of the string; every center expansion is bounded by these indices.\n\n" +
+            "        count = 0  # Running total of palindromic substrings found across all centers.\n\n" +
+            "        # ==================== PHASE 2: DEFINE THE CENTER-EXPANSION HELPER ====================\n\n" +
+            "        def expand(left, right):  # Count the palindromes centered at the pair (left, right).\n" +
+            "                                  # Why a helper: both odd and even centers reuse the identical outward-growth logic.\n\n" +
+            "            c = 0  # Palindromes found for this one center.\n\n" +
+            "            while left >= 0 and right < n and s[left] == s[right]:  # Grow while both ends are in bounds AND the mirrored characters still match.\n" +
+            "                                                                    # Why the bounds first: they guard s[left]/s[right] from indexing off the string.\n\n" +
+            "                c += 1  # Each successful step means s[left..right] is itself a palindrome, so count it.\n" +
+            "                        # Why per step: a longer palindrome contains a shorter one with the same center.\n\n" +
+            "                left -= 1  # Step the left end outward by one.\n\n" +
+            "                right += 1  # Step the right end outward by one; the loop re-checks symmetry.\n\n" +
+            "            return c  # Hand back the number of palindromes centered here.\n\n" +
+            "        # ==================== PHASE 3: SUM OVER ALL 2n-1 CENTERS ====================\n\n" +
+            "        for center in range(n):  # Every index is a potential center; there are 2n-1 centers in total.\n" +
+            "                                 # Execution flow: after one center, Python advances to the next.\n\n" +
+            "            count += expand(center, center)  # Odd-length palindromes: a single-character center at index center.\n\n" +
+            "            count += expand(center, center + 1)  # Even-length palindromes: a center sitting between center and center+1.\n" +
+            "                                                 # Why both kinds: missing the even centers would undercount.\n\n" +
+            "        # ==================== PHASE 4: READ THE ANSWER ====================\n\n" +
+            "        return count  # count is the total number of palindromic substrings in s.",
           plain:
             "class Solution:\n" +
             "    def countSubstrings(self, s: str) -> int:\n" +
@@ -1347,24 +1503,35 @@
             "**Complexity.** `2n - 1` centers × up to `O(n)` expansion → time `O(n^2)`; a few index variables → space `O(1)`. (A 2-D `dp[i][j]` palindrome table also solves it but costs `O(n^2)` space; Manacher's reaches `O(n)` time but is rarely required.)\n\n" +
             "**Interview mindset.** 'Longest palindromic substring' → expand around center, handling odd and even centers and tracking `(start, end)`; mention Manacher's `O(n)` only if pushed.",
           rcs:
-            "class Solution:\n" +
-            "    def longestPalindrome(self, s: str) -> str:\n" +
-            "        if len(s) <= 1:                  # Single char (or empty) is its own answer.\n" +
-            "            return s\n" +
-            "        start, end = 0, 0                # Best palindrome bounds so far (inclusive).\n" +
-            "        def expand(left, right):         # Widest palindrome around this center.\n" +
-            "            while left >= 0 and right < len(s) and s[left] == s[right]:\n" +
-            "                left -= 1                # Grow outward while symmetric.\n" +
-            "                right += 1\n" +
-            "            return left + 1, right - 1   # Step back the overshoot to inclusive bounds.\n" +
-            "        for i in range(len(s)):\n" +
-            "            l1, r1 = expand(i, i)        # Odd-length center at i.\n" +
-            "            if r1 - l1 > end - start:    # Longer than current best?\n" +
-            "                start, end = l1, r1\n" +
-            "            l2, r2 = expand(i, i + 1)    # Even-length center between i and i+1.\n" +
-            "            if r2 - l2 > end - start:\n" +
-            "                start, end = l2, r2\n" +
-            "        return s[start:end + 1]",
+            "class Solution:  # LeetCode creates an object of this class and calls longestPalindrome on it.\n\n" +
+            "    def longestPalindrome(self, s: str) -> str:  # Return a longest palindromic substring via center expansion.\n\n" +
+            "        # ==================== PHASE 1: HANDLE THE EDGE CASE ====================\n\n" +
+            "        if len(s) <= 1:  # A single character (or empty string) is trivially its own longest palindrome.\n\n" +
+            "            return s  # Return it directly; the expansion loop below assumes at least two characters.\n" +
+            "                      # Why-safe: nothing longer than s itself can exist here.\n\n" +
+            "        # ==================== PHASE 2: DEFINE THE STATE + EXPANSION HELPER ====================\n\n" +
+            "        start, end = 0, 0  # Best palindrome bounds so far (inclusive); index 0 alone is the initial best.\n" +
+            "                           # Why track bounds: comparing lengths by (end - start) avoids rebuilding strings.\n\n" +
+            "        def expand(left, right):  # Return the widest palindrome bounds around the center (left, right).\n" +
+            "                                  # Why a helper: odd and even centers reuse the same outward-growth logic.\n\n" +
+            "            while left >= 0 and right < len(s) and s[left] == s[right]:  # Grow while both ends are in bounds AND the mirrored characters match.\n" +
+            "                                                                         # Why bounds first: they guard s[left]/s[right] from indexing off the string.\n\n" +
+            "                left -= 1  # Step the left end outward by one.\n\n" +
+            "                right += 1  # Step the right end outward; the loop re-checks symmetry.\n\n" +
+            "            return left + 1, right - 1  # On exit the pointers have overshot by one, so the palindrome is [left+1, right-1].\n" +
+            "                                        # Why the +1/-1: the last step that broke the loop widened past the real bounds.\n\n" +
+            "        # ==================== PHASE 3: TRY EVERY CENTER, KEEP THE LONGEST ====================\n\n" +
+            "        for i in range(len(s)):  # Every index is a potential center; there are 2n-1 centers in total.\n" +
+            "                                 # Execution flow: after one i, Python advances to the next.\n\n" +
+            "            l1, r1 = expand(i, i)  # Odd-length center at i.\n\n" +
+            "            if r1 - l1 > end - start:  # Is this odd palindrome longer than the current best span?\n\n" +
+            "                start, end = l1, r1  # Record the new best bounds.\n\n" +
+            "            l2, r2 = expand(i, i + 1)  # Even-length center between i and i+1.\n\n" +
+            "            if r2 - l2 > end - start:  # Is this even palindrome longer than the current best span?\n" +
+            "                                       # Why both centers: even-length answers like bb are missed otherwise.\n\n" +
+            "                start, end = l2, r2  # Record the new best bounds.\n\n" +
+            "        # ==================== PHASE 4: READ THE ANSWER ====================\n\n" +
+            "        return s[start:end + 1]  # Slice out the longest palindrome; end is inclusive, so add 1.",
           plain:
             "class Solution:\n" +
             "    def longestPalindrome(self, s: str) -> str:\n" +
