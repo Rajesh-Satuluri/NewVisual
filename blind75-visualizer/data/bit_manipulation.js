@@ -81,15 +81,31 @@
             "**Complexity.** Time `O(1)` \u2014 at most ~32 iterations of constant work. Space `O(1)`.\n\n" +
             "**Interview mindset.** \u201cAdd without `+`\u201d should immediately trigger: XOR is the sum, AND-shift is the carry, loop until the carry is gone. Then volunteer the Python masking caveat \u2014 it is the detail interviewers are listening for.",
           rcs:
-            "class Solution:\n" +
-            "    def getSum(self, a: int, b: int) -> int:\n" +
-            "        mask = 0xFFFFFFFF               # Keep only the low 32 bits (simulate a 32-bit int).\n" +
-            "        while b & mask:                # Loop while there is still a carry within 32 bits.\n" +
-            "            carry = (a & b) << 1       # Carry: set where BOTH bits are 1, shifted left.\n" +
-            "            a = (a ^ b) & mask         # Sum without carry (XOR), truncated to 32 bits.\n" +
-            "            b = carry & mask           # The carry becomes the next thing to add.\n" +
-            "        # If a sits in the negative half of the 32-bit range, re-interpret its sign.\n" +
-            "        return a if a <= 0x7FFFFFFF else ~(a ^ mask)",
+            "class Solution:  # LeetCode creates an object of this class and calls getSum on it.\n\n" +
+            "    def getSum(self, a: int, b: int) -> int:  # Return a + b using only bitwise operations, with no + or -.\n\n" +
+            "        # ==================== PHASE 1: PREPARE A 32-BIT MASK ====================\n\n" +
+            "        mask = 0xFFFFFFFF  # Thirty-two 1 bits; ANDing any value with it keeps only that value's low 32 bits.\n" +
+            "                           # Why: Python ints are unbounded, so we clamp to 32 bits to imitate fixed-width overflow.\n" +
+            "                           # State: mask is constant; a holds the running sum, b holds the carry still to add.\n" +
+            "                           # Execution flow: Python enters the addition loop below.\n\n" +
+            "        # ==================== PHASE 2: RIPPLE-CARRY ADDITION ====================\n\n" +
+            "        while b & mask:  # Keep looping while any carry bit still remains inside the low 32 bits.\n" +
+            "                         # Why b & mask, not b: carry bits above bit 31 are noise and must not keep the loop alive.\n" +
+            "                         # Loop invariant: a is the sum so far ignoring b's carry; b is the carry still left to add.\n" +
+            "                         # Execution flow: once no carry survives in 32 bits, the loop exits to the sign fix.\n\n" +
+            "            carry = (a & b) << 1  # AND marks every column where BOTH bits are 1, which is exactly where a carry is generated.\n" +
+            "                                  # Why << 1: a carry belongs to the NEXT column to the left, so shift it up one place.\n" +
+            "                                  # State: carry now holds all carries produced by adding this a and b.\n\n" +
+            "            a = (a ^ b) & mask  # XOR adds each column WITHOUT carrying (0^0=0, 0^1=1, 1^0=1, 1^1=0).\n" +
+            "                                # Why & mask: keep the sum inside 32 bits so it behaves like a fixed-width integer.\n" +
+            "                                # State: a becomes the new sum-without-carry.\n\n" +
+            "            b = carry & mask  # The carries become the next addend to fold in, masked back down to 32 bits.\n" +
+            "                              # State change: b now holds the carry to add on the next pass.\n" +
+            "                              # Execution flow: back to the while header; if no low-32 carry bit is set, the loop ends.\n\n" +
+            "        # ==================== PHASE 3: RE-INTERPRET THE SIGN ====================\n\n" +
+            "        return a if a <= 0x7FFFFFFF else ~(a ^ mask)  # In the low half of the 32-bit range a is already a non-negative answer, so return it.\n" +
+            "                                                      # Else a is a negative two's-complement pattern: a ^ mask flips the low 32 bits and ~ negates it to Python's signed value.\n" +
+            "                                                      # Why safe: 0x7FFFFFFF is the largest positive 32-bit int, so anything above it represents a negative number.",
           plain:
             "class Solution:\n" +
             "    def getSum(self, a: int, b: int) -> int:\n" +
@@ -176,13 +192,23 @@
             "**Complexity.** Time `O(1)` \u2014 at most 32 iterations for a fixed-width integer. Space `O(1)`.\n\n" +
             "**Interview mindset.** \u201cCount the set bits\u201d has this shift-and-mask baseline as the obvious first answer; state it plainly, then reach for the faster `n & (n - 1)` trick.",
           rcs:
-            "class Solution:\n" +
-            "    def hammingWeight(self, n: int) -> int:\n" +
-            "        count = 0                 # Number of 1 bits seen so far.\n" +
-            "        while n:                  # Continue until every bit has been shifted out.\n" +
-            "            count += n & 1        # Add 1 if the current lowest bit is set.\n" +
-            "            n >>= 1               # Drop the lowest bit, expose the next one.\n" +
-            "        return count",
+            "class Solution:  # LeetCode creates an object of this class and calls hammingWeight on it.\n\n" +
+            "    def hammingWeight(self, n: int) -> int:  # Return how many bits of n equal 1 (its Hamming weight).\n\n" +
+            "        # ==================== PHASE 1: PREPARE THE COUNTER ====================\n\n" +
+            "        count = 0  # Running tally of 1 bits seen so far.\n" +
+            "                   # State: count starts at 0 and rises by one for each set bit we find.\n" +
+            "                   # Execution flow: Python enters the shift loop below.\n\n" +
+            "        # ==================== PHASE 2: INSPECT EACH BIT FROM THE BOTTOM ====================\n\n" +
+            "        while n:  # Keep going until every bit has been shifted out and n becomes 0.\n" +
+            "                  # Loop invariant: count holds the number of 1 bits already shifted past.\n" +
+            "                  # Execution flow: when n reaches 0 the loop exits and we return count.\n\n" +
+            "            count += n & 1  # n & 1 isolates the LOWEST bit of n; it is 1 exactly when that bit is set, else 0.\n" +
+            "                            # So adding it bumps count by one only when the current lowest bit is a 1.\n" +
+            "                            # State: count now includes the lowest bit of the current n.\n\n" +
+            "            n >>= 1  # Shift n right by one, discarding the bit just inspected and exposing the next.\n" +
+            "                     # State change: n loses its lowest bit; a fresh bit becomes the new lowest.\n" +
+            "                     # Execution flow: back to the while header to test the next-lowest bit.\n\n" +
+            "        return count  # Every bit of n passed through position 0 exactly once, so count is the exact popcount.",
           plain:
             "class Solution:\n" +
             "    def hammingWeight(self, n: int) -> int:\n" +
@@ -214,13 +240,24 @@
             "**Complexity.** Time `O(k)` where `k` is the number of set bits (at most 32). Space `O(1)`.\n\n" +
             "**Interview mindset.** `n & (n - 1)` is the single most reused bit trick in interviews \u2014 recognizing it also unlocks the power-of-two test and the Counting Bits recurrence.",
           rcs:
-            "class Solution:\n" +
-            "    def hammingWeight(self, n: int) -> int:\n" +
-            "        count = 0                 # Number of set bits removed so far.\n" +
-            "        while n:                  # Repeat until no set bits remain.\n" +
-            "            n &= n - 1            # Clear the LOWEST set bit in one step.\n" +
-            "            count += 1            # We removed exactly one 1 bit.\n" +
-            "        return count",
+            "class Solution:  # LeetCode creates an object of this class and calls hammingWeight on it.\n\n" +
+            "    def hammingWeight(self, n: int) -> int:  # Return the number of 1 bits, looping once per SET bit.\n\n" +
+            "        # ==================== PHASE 1: PREPARE THE COUNTER ====================\n\n" +
+            "        count = 0  # Running tally of set bits removed so far.\n" +
+            "                   # State: count starts at 0 and rises by one each time we clear a set bit.\n" +
+            "                   # Execution flow: Python enters the clearing loop below.\n\n" +
+            "        # ==================== PHASE 2: CLEAR THE LOWEST SET BIT REPEATEDLY ====================\n\n" +
+            "        while n:  # Keep going until no set bits remain, i.e. until n becomes 0.\n" +
+            "                  # Loop invariant: count equals the number of set bits already cleared from n.\n" +
+            "                  # Execution flow: when the last 1 bit is cleared, n is 0 and the loop exits.\n\n" +
+            "            n &= n - 1  # n - 1 flips the lowest 1 bit to 0 and turns every 0 below it into a 1.\n" +
+            "                        # ANDing that with n wipes out only that lowest set bit and leaves all higher bits unchanged.\n" +
+            "                        # Example: n=1100, n-1=1011, n & (n-1)=1000 -- the lowest set bit is gone.\n" +
+            "                        # State change: n now has exactly one fewer set bit than before.\n\n" +
+            "            count += 1  # We just removed exactly one 1 bit, so record it.\n" +
+            "                        # Why one per iteration: each n &= n - 1 clears precisely one set bit, never more.\n" +
+            "                        # Execution flow: back to the while header to clear the next-lowest set bit.\n\n" +
+            "        return count  # The loop ran once per set bit, so count is the exact number of 1 bits in n.",
           plain:
             "class Solution:\n" +
             "    def hammingWeight(self, n: int) -> int:\n" +
@@ -305,15 +342,27 @@
             "**Complexity.** Time `O(n log n)` \u2014 up to `O(log i)` per number. Space `O(1)` beyond the required output.\n\n" +
             "**Interview mindset.** State this per-number baseline first to show you can solve it, then note the wasted, repeated work \u2014 that observation is the natural bridge to the `O(n)` DP.",
           rcs:
-            "class Solution:\n" +
-            "    def countBits(self, n: int) -> List[int]:\n" +
-            "        def popcount(x: int) -> int:\n" +
-            "            c = 0\n" +
-            "            while x:               # Clear one set bit per iteration.\n" +
-            "                x &= x - 1         # Drop the lowest set bit.\n" +
-            "                c += 1\n" +
-            "            return c\n" +
-            "        return [popcount(i) for i in range(n + 1)]  # Count each number independently.",
+            "from typing import List  # List lets the return type say we hand back a list of ints.\n\n\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls countBits on it.\n\n" +
+            "    def countBits(self, n: int) -> List[int]:  # Return a list whose i-th entry is the popcount of i, for i in 0..n.\n\n" +
+            "        # ==================== PHASE 1: A PER-NUMBER POPCOUNT HELPER ====================\n\n" +
+            "        def popcount(x: int) -> int:  # Nested helper that counts the 1 bits of a single integer x.\n" +
+            "                                      # State: this only DEFINES the helper; no counting happens until it is called below.\n" +
+            "                                      # Execution flow: Python skips over the body now and continues to the return line.\n\n" +
+            "            c = 0  # Tally of set bits cleared from x so far.\n" +
+            "                   # State: c starts at 0 on every call to popcount.\n\n" +
+            "            while x:  # Repeat until x has no set bits left.\n" +
+            "                      # Loop invariant: c holds the number of set bits already cleared from x.\n\n" +
+            "                x &= x - 1  # x - 1 flips x's lowest 1 to 0 and the zeros below it to 1; AND then clears that lowest set bit.\n" +
+            "                            # State change: x loses exactly one set bit per iteration.\n\n" +
+            "                c += 1  # One set bit was just cleared, so add it to the tally.\n" +
+            "                        # Execution flow: back to the while header for the next set bit.\n\n" +
+            "            return c  # c now equals the number of 1 bits in the original x.\n" +
+            "                      # Execution flow: control returns to whoever called popcount.\n\n" +
+            "        # ==================== PHASE 2: COUNT EVERY NUMBER FROM 0 TO n ====================\n\n" +
+            "        return [popcount(i) for i in range(n + 1)]  # Build a length n+1 list by calling popcount on each i from 0 through n.\n" +
+            "                                                    # Why n + 1: the answer must cover indices 0..n inclusive.\n" +
+            "                                                    # Why safe: each popcount(i) is independently exact, so the assembled list is correct.",
           plain:
             "class Solution:\n" +
             "    def countBits(self, n: int) -> List[int]:\n" +
@@ -347,12 +396,23 @@
             "**Complexity.** Time `O(n)` \u2014 one constant-time step per index. Space `O(1)` extra beyond the required output array.\n\n" +
             "**Interview mindset.** \u201cCompute a bit property for every number up to n\u201d signals reusing a smaller already-solved subproblem \u2014 relating `i` to `i >> 1` (or to `i & (i - 1)`) is the DP hook that turns `O(n log n)` into `O(n)`.",
           rcs:
-            "class Solution:\n" +
-            "    def countBits(self, n: int) -> List[int]:\n" +
-            "        dp = [0] * (n + 1)             # dp[i] = number of set bits in i; dp[0] = 0.\n" +
-            "        for i in range(1, n + 1):\n" +
-            "            dp[i] = dp[i >> 1] + (i & 1)  # Ones in i//2, plus i's own lowest bit.\n" +
-            "        return dp",
+            "from typing import List  # List lets the return type say we hand back a list of ints.\n\n\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls countBits on it.\n\n" +
+            "    def countBits(self, n: int) -> List[int]:  # Return the popcount of every integer from 0 to n in one O(n) pass.\n\n" +
+            "        # ==================== PHASE 1: SEED THE DP TABLE ====================\n\n" +
+            "        dp = [0] * (n + 1)  # dp[i] will hold the number of set bits in i; length n+1 covers indices 0..n.\n" +
+            "                            # Base case: dp[0] stays 0 because zero has no set bits.\n" +
+            "                            # State: all entries start at 0; entries 1..n get overwritten below.\n" +
+            "                            # Execution flow: Python enters the fill loop.\n\n" +
+            "        # ==================== PHASE 2: FILL LEFT TO RIGHT WITH THE RECURRENCE ====================\n\n" +
+            "        for i in range(1, n + 1):  # Fill each index from 1 up to n; index 0 is already correct.\n" +
+            "                                   # Loop invariant: every dp[j] for j < i is already its final, correct popcount.\n" +
+            "                                   # Execution flow: after each i, Python advances to the next index.\n\n" +
+            "            dp[i] = dp[i >> 1] + (i & 1)  # i >> 1 drops i's lowest bit (it equals i // 2); dp[i >> 1] already counts the surviving higher bits.\n" +
+            "                                          # i & 1 is i's own lowest bit (0 or 1) -- the single bit the shift discarded.\n" +
+            "                                          # So ones(i) = ones(i with its lowest bit removed) + that lowest bit, which is exactly this sum.\n" +
+            "                                          # Why safe: i >> 1 < i, so dp[i >> 1] was finalized on an earlier iteration.\n\n" +
+            "        return dp  # Every index was filled from a strictly smaller, already-correct entry, so dp is exact.",
           plain:
             "class Solution:\n" +
             "    def countBits(self, n: int) -> List[int]:\n" +
@@ -442,11 +502,20 @@
             "**Complexity.** Time `O(n)` \u2014 one pass to sum the array. Space `O(1)`.\n\n" +
             "**Interview mindset.** A contiguous range `0..n` with a single gap should suggest a closed-form total: the expected sum minus the actual sum isolates the missing element without extra space.",
           rcs:
-            "class Solution:\n" +
-            "    def missingNumber(self, nums: List[int]) -> int:\n" +
-            "        n = len(nums)                     # Range is 0..n (n+1 possible values).\n" +
-            "        expected = n * (n + 1) // 2       # Sum of 0..n via Gauss's formula.\n" +
-            "        return expected - sum(nums)       # Present values cancel; the gap is the answer.",
+            "from typing import List  # List lets the type hint say we take a list of ints.\n\n\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls missingNumber on it.\n\n" +
+            "    def missingNumber(self, nums: List[int]) -> int:  # Return the one value from 0..n absent from nums.\n\n" +
+            "        # ==================== PHASE 1: SIZE UP THE RANGE ====================\n\n" +
+            "        n = len(nums)  # n is how many numbers are present; the full range is 0..n, which has n+1 values.\n" +
+            "                       # State: exactly one value in 0..n is missing from the array.\n" +
+            "                       # Execution flow: continue on to compute the expected total.\n\n" +
+            "        # ==================== PHASE 2: EXPECTED TOTAL MINUS ACTUAL TOTAL ====================\n\n" +
+            "        expected = n * (n + 1) // 2  # Gauss's formula for the sum of every integer 0 + 1 + ... + n.\n" +
+            "                                     # Why // (integer division): the product n*(n+1) is always even, so the result is exact.\n" +
+            "                                     # State: expected is the total the array WOULD have if nothing were missing.\n\n" +
+            "        return expected - sum(nums)  # sum(nums) totals the values actually present; subtracting cancels every present value.\n" +
+            "                                     # What remains is precisely the single missing number.\n" +
+            "                                     # Why safe: each present value is counted once in expected and once in sum, so it cancels exactly.",
           plain:
             "class Solution:\n" +
             "    def missingNumber(self, nums: List[int]) -> int:\n" +
@@ -461,27 +530,49 @@
           whenToUse: "Preferred bit-manipulation answer: no overflow risk and pure O(1) space.",
           logic:
             "**What it asks.** Find the single value from `0..n` missing from an array of `n` distinct numbers \u2014 the preferred bit-manipulation answer, with no overflow risk and pure `O(1)` space.\n\n" +
-            "**Why the naive idea is heavier.** Sorting is `O(n log n)`, and a hash set of seen values costs `O(n)` extra space. The Gauss-sum trick is `O(1)` space but can overflow in fixed-width languages. We want the space efficiency without any arithmetic overflow.\n\n" +
-            "**Key Idea.** XOR has three properties that make this work: `x ^ x = 0` (a value XORed with itself cancels), `x ^ 0 = x` (0 is the identity), and XOR is commutative and associative so order does not matter. If we XOR together **all indices `0..n`** and **all values in the array**, every *present* number appears exactly twice \u2014 once as an index (or as the extra top value `n`) and once as an array value \u2014 and cancels to 0. The one missing value appears only once (as an index) and survives.\n\n" +
+            "**Why the naive idea is heavier.** Sorting is `O(n log n)`, and a hash set of seen values costs `O(n)` extra space. The Gauss-sum trick is `O(1)` space but can overflow in fixed-width languages, because `n * (n + 1) / 2` grows quadratically. We want the space efficiency of the sum method without any arithmetic that can overflow.\n\n" +
+            "**Key Idea.** XOR (`^`) has three properties that make this work: `x ^ x = 0` (any value XORed with itself cancels to zero), `x ^ 0 = x` (0 is the identity, so folding it in changes nothing), and XOR is **commutative and associative** so the order and grouping of operands do not matter. Those properties let us treat a long chain of XORs as an unordered multiset in which any value appearing an *even* number of times disappears and any value appearing an *odd* number of times survives.\n\n" +
+            "Now apply that here. The array supplies `n` **values**, all distinct and drawn from `0..n` with exactly one gap. The loop also supplies the `n` **indices** `0..n-1`, and we seed the accumulator with `n` up front \u2014 together the indices-plus-seed form the *complete* set `0..n`. So the final accumulator is algebraically `(0 ^ 1 ^ ... ^ n) ^ (every value present)`. The left group is the XOR of the full range `0..n`; the right group is the XOR of that same range with the missing value removed. Every present number therefore appears once on each side \u2014 an even count \u2014 and cancels, while the missing number appears only on the range side (odd count) and is left standing.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. Initialize `result = len(nums)` \u2014 this seeds the accumulator with `n`, the top index that has no array slot.\n" +
+            "1. Initialize `result = len(nums)` \u2014 this seeds the accumulator with `n`, the one index in `0..n` that has no array slot to be produced by the loop.\n" +
             "2. For each position, fold in both the index `i` and the value `nums[i]` with `result ^= i ^ num`.\n" +
-            "3. After the full pass, return `result`.\n\n" +
-            "Concrete trace on `nums = [3, 0, 1]`, `n = 3`: start `result = 3`; at `i=0`, `result ^= 0 ^ 3` gives `0`; at `i=1`, `result ^= 1 ^ 0` gives `1`; at `i=2`, `result ^= 2 ^ 1` gives `2` \u2014 the missing number.\n\n" +
-            "**Why it works.** Every value in `0..n` except the missing one is XORed an even number of times (once as an index, once as a value) and cancels to 0; the missing value is XORed exactly once \u2014 it has no matching array entry \u2014 so it is precisely what remains.\n\n" +
+            "3. After the full pass, return `result` \u2014 the lone survivor of all the cancellations.\n\n" +
+            "Concrete trace on `nums = [3, 0, 1]`, `n = 3`: start `result = 3`; at `i=0`, `result ^= 0 ^ 3` gives `0`; at `i=1`, `result ^= 1 ^ 0` gives `1`; at `i=2`, `result ^= 2 ^ 1` gives `2` \u2014 the missing number. Notice how the `3` seeded at the start is cancelled by the value `3` found at index 0, and each other present value likewise meets its twin.\n\n" +
+            "**Why it works.** Every value in `0..n` except the missing one is XORed an even number of times \u2014 once as an index (or as the seed `n`) and once as an array value \u2014 and `x ^ x = 0` erases it. The missing value is XORed exactly once, as an index that no array entry matches, so by `x ^ 0 = x` it is precisely what remains. Because XOR is order-independent, we may interleave the index and value XORs in a single pass rather than computing the two groups separately.\n\n" +
             "**Common Gotchas.**\n" +
-            "- Forgetting to seed `result` with `n`: the top index has no array slot, so without it that value is never paired.\n" +
-            "- XOR needs each present value to pair index-with-value, which relies on the values being distinct and within `0..n`.\n" +
-            "- Unlike the sum method, there is no overflow to worry about \u2014 a point worth stating.\n\n" +
-            "**Complexity.** Time `O(n)` \u2014 a single pass. Space `O(1)`, with no sum and thus no overflow.\n\n" +
-            "**Interview mindset.** \u201cEverything appears twice except one\u201d is the flagship XOR signal; here we manufacture that pairing by XORing indices against values to cancel all present numbers.",
+            "- Forgetting to seed `result` with `n`: the top index `n` has no array slot, so without the seed that value is never contributed and the range side is incomplete.\n" +
+            "- The pairing relies on the values being **distinct** and within `0..n`; a duplicate would cancel the wrong element and break the argument.\n" +
+            "- Unlike the sum method, there is no overflow to worry about \u2014 XOR operates bit by bit and never grows a running total \u2014 a point worth stating aloud.\n\n" +
+            "**Complexity.** Time `O(n)` \u2014 a single pass folding two XORs per element. Space `O(1)`, with no sum and thus no overflow.\n\n" +
+            "**Interview mindset.** \u201cEverything appears twice except one\u201d is the flagship XOR signal; here we *manufacture* that pairing by XORing indices against values so all present numbers cancel and only the gap survives.",
           rcs:
-            "class Solution:\n" +
-            "    def missingNumber(self, nums: List[int]) -> int:\n" +
-            "        result = len(nums)               # Seed with n (the index that has no array slot).\n" +
-            "        for i, num in enumerate(nums):   # Fold in each index and its value.\n" +
-            "            result ^= i ^ num            # Present numbers cancel; the missing one survives.\n" +
-            "        return result",
+            "from typing import List  # List lets the type hint say we take a list of ints.\n" +
+            "\n" +
+            "\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls missingNumber on it.\n" +
+            "\n" +
+            "    def missingNumber(self, nums: List[int]) -> int:  # Return the one value from 0..n absent from nums.\n" +
+            "\n" +
+            "        # ==================== PHASE 1: SEED THE ACCUMULATOR WITH n ====================\n" +
+            "\n" +
+            "        result = len(nums)  # Seed with n: the range 0..n holds n+1 values but the array only has indices 0..n-1, so n itself has no slot.\n" +
+            "                            # Why: this injects the one index n that the enumerate loop below can never supply, completing the full set 0..n.\n" +
+            "                            # State: result now holds n; every index and every value will be folded into it next.\n" +
+            "                            # Execution flow: Python enters the XOR loop below.\n" +
+            "\n" +
+            "        # ==================== PHASE 2: XOR EVERY INDEX AND VALUE TOGETHER ====================\n" +
+            "\n" +
+            "        for i, num in enumerate(nums):  # Walk each position, exposing both its index i and the value num stored there.\n" +
+            "                                        # Loop invariant: result is the running XOR of n, all indices seen so far, and all values seen so far.\n" +
+            "                                        # Execution flow: after the final element, result holds the one value that never got cancelled.\n" +
+            "\n" +
+            "            result ^= i ^ num  # Fold both the index i and the value num into result using XOR.\n" +
+            "                               # Why pairs cancel: XOR obeys x ^ x = 0 and x ^ 0 = x, and is commutative/associative, so grouping and order do not matter.\n" +
+            "                               # Every PRESENT number k appears twice across the whole run -- once as some index, once as some value -- so its two copies cancel to 0.\n" +
+            "                               # State: only the missing number, which shows up as an index but never as a value, is XORed an odd number of times.\n" +
+            "\n" +
+            "        return result  # All present values cancelled in pairs, so exactly the single missing number is left behind.\n" +
+            "                       # Why safe: seeding with n completed the index set 0..n, so each present value pairs its index against its value and vanishes.",
           plain:
             "class Solution:\n" +
             "    def missingNumber(self, nums: List[int]) -> int:\n" +
@@ -554,29 +645,49 @@
           space: "O(1)",
           whenToUse: "The standard approach: pull bits off one end of the input and push them onto the other end of the result.",
           logic:
-            "**What it asks.** Given a 32-bit unsigned integer, produce the value whose 32-bit binary pattern is the input's pattern reversed \u2014 the most significant bit becomes the least significant and vice versa.\n\n" +
-            "**Why care about the naive framing.** It is tempting to convert to a bit string, reverse it, and convert back, but that is clumsy and easy to get wrong on width. A direct bit-shuffle over a fixed 32 positions is cleaner and constant space \u2014 the key is to process exactly 32 bits so leading zeros are handled.\n\n" +
-            "**Key Idea.** Pour bits from one end of the input into the other end of the result. Repeatedly take the **lowest** bit of the input (`n & 1`) and append it to the result \u2014 but before each append, shift the result **left** by one. Because the result shifts left every step, each bit lands one position higher than the last, so the first bit read ends up highest and the last bit read stays lowest: the order is mirrored. Small 4-bit trace with `n = 1011` (reading right to left, building left to right): read `1` -> `1`; read `1` -> `11`; read `0` -> `110`; read `1` -> `1101`. So `1011` reverses to `1101`.\n\n" +
+            "**What it asks.** Given a 32-bit unsigned integer, produce the value whose 32-bit binary pattern is the input's pattern reversed \u2014 the most significant bit becomes the least significant and vice versa, the mirror image across the middle of the 32-bit word.\n\n" +
+            "**Why care about the naive framing.** It is tempting to convert to a bit string, reverse the characters, and parse back, but that is clumsy, allocates a string, and is easy to get wrong on width (a short string drops the leading zeros the answer depends on). A direct bit-shuffle over a fixed 32 positions is cleaner, constant space, and never loses a leading zero \u2014 the key is to process **exactly** 32 bits.\n\n" +
+            "**Key Idea.** Pour bits out of one end of the input and into the other end of the result. Each step does two things in one expression, `result = (result << 1) | (n & 1)`: `result << 1` shifts everything already collected **up** by one position, opening a fresh empty slot at bit 0; `n & 1` isolates the input's **current lowest** bit; the `|` drops that bit into the freshly opened slot. Then `n >>= 1` throws away the bit we just read and slides the next bit down into position 0. Because the result is shifted left on *every* iteration, a bit placed early keeps getting pushed higher on each later step, so the very first bit read (the input's LSB) ends up at the top (bit 31) and the very last bit read (the input's MSB) stays at the bottom (bit 0) \u2014 that end-to-end swap is exactly the mirror.\n\n" +
+            "Small 4-bit trace with `n = 1011` (reading right to left, building left to right): read `1` -> `result = 1`; read `1` -> `result = 11`; read `0` -> `result = 110`; read `1` -> `result = 1101`. So `1011` reverses to `1101`. The `1` read first traveled three left-shifts to reach the high end.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. Start `result = 0`; `n` is consumed one bit at a time.\n" +
-            "2. Repeat exactly 32 times: set `result = (result << 1) | (n & 1)` \u2014 make room, then drop in the input's current lowest bit.\n" +
-            "3. Shift `n` right by one (`n >>= 1`) to discard the consumed bit and expose the next.\n" +
+            "1. Start `result = 0`; `n` is consumed one bit at a time from the bottom.\n" +
+            "2. Repeat exactly 32 times: set `result = (result << 1) | (n & 1)` \u2014 make room at bit 0, then drop in the input's current lowest bit.\n" +
+            "3. Shift `n` right by one (`n >>= 1`) to discard the consumed bit and expose the next-lowest.\n" +
             "4. After 32 iterations, return `result`.\n\n" +
-            "**Why it works.** The first bit read is the input's least significant bit; after 31 further left-shifts of the result it lands in the most significant position. The last bit read (the input's MSB) is appended last and stays least significant. That end-to-end swap is exactly a mirror. Running a fixed 32 times is what makes leading zeros of the input become trailing zeros of the result.\n\n" +
+            "**Why it works.** The first bit read is the input's least significant bit; the 31 subsequent left-shifts of `result` carry it up into the most significant position. The last bit read (the input's MSB) is appended on the final step and never gets shifted again, so it stays least significant. Every bit in between lands at position `31 - k` after being read at step `k`, which is precisely the reversal map. Running a fixed 32 times \u2014 not stopping when `n` becomes 0 \u2014 is what turns the input's leading zeros into the result's trailing zeros, keeping the magnitude correct.\n\n" +
             "**Common Gotchas.**\n" +
-            "- Do not stop early when `n` hits 0 \u2014 the remaining leading zeros must still be shifted into the result, or the magnitude comes out wrong.\n" +
-            "- Always loop exactly 32 times, matching the fixed width, regardless of how many bits are set.\n" +
-            "- In fixed-width languages keep the result unsigned so the top bit is not misread as a sign.\n\n" +
-            "**Complexity.** Time `O(1)` \u2014 a fixed 32 iterations. Space `O(1)`.\n\n" +
-            "**Interview mindset.** \u201cReverse or mirror the bits of a fixed-width integer\u201d signals shift-out-of-one, shift-into-the-other over a constant number of positions; emphasize the fixed 32 loops so leading zeros are handled correctly.",
+            "- Do not stop early when `n` hits 0 \u2014 the remaining high-order zeros still owe left-shifts to `result`, and skipping them leaves the collected bits too low, giving a wrong (too small) value.\n" +
+            "- Always loop exactly 32 times, matching the fixed width, regardless of how many bits are actually set.\n" +
+            "- In fixed-width languages keep `result` unsigned so bit 31 is not misread as a sign bit; in Python the int is unbounded and non-negative, so no masking is needed here.\n\n" +
+            "**Complexity.** Time `O(1)` \u2014 a fixed 32 iterations of constant work. Space `O(1)` \u2014 a single accumulator.\n\n" +
+            "**Interview mindset.** \u201cReverse or mirror the bits of a fixed-width integer\u201d signals shift-out-of-one-end, shift-into-the-other over a constant number of positions; emphasize the fixed 32 loops so leading zeros are handled, and mention a per-byte lookup table as the follow-up speedup when the function is called repeatedly.",
           rcs:
-            "class Solution:\n" +
-            "    def reverseBits(self, n: int) -> int:\n" +
-            "        result = 0\n" +
-            "        for _ in range(32):                # Exactly 32 bits, including leading zeros.\n" +
-            "            result = (result << 1) | (n & 1)  # Make room, then append n's lowest bit.\n" +
-            "            n >>= 1                        # Consume that bit; expose the next one.\n" +
-            "        return result",
+            "class Solution:  # LeetCode creates an object of this class and calls reverseBits on it.\n" +
+            "\n" +
+            "    def reverseBits(self, n: int) -> int:  # Return the value whose 32-bit pattern is n's pattern mirrored end to end.\n" +
+            "\n" +
+            "        # ==================== PHASE 1: PREPARE THE RESULT ACCUMULATOR ====================\n" +
+            "\n" +
+            "        result = 0  # Will collect n's bits in reverse order, one bit appended per iteration.\n" +
+            "                    # State: result starts empty at 0; after 32 shifts it holds the fully reversed 32-bit pattern.\n" +
+            "                    # Execution flow: Python enters the fixed 32-iteration loop below.\n" +
+            "\n" +
+            "        # ==================== PHASE 2: PULL n'S LOWEST BIT, PUSH IT HIGH IN result ====================\n" +
+            "\n" +
+            "        for _ in range(32):  # Loop EXACTLY 32 times -- once per bit of a fixed-width 32-bit integer, leading zeros included.\n" +
+            "                             # Why a fixed 32: n's leading zeros must become result's trailing zeros, so we must not stop early once n reaches 0.\n" +
+            "                             # Loop invariant: after k passes, result holds the lowest k bits of the original n in reversed order.\n" +
+            "\n" +
+            "            result = (result << 1) | (n & 1)  # << 1 opens a fresh lowest slot; (n & 1) reads n's current lowest bit; | drops that bit into the slot just opened.\n" +
+            "                                              # How the reversal happens: each pass shoves every earlier bit one place higher, so the FIRST bit read (n's LSB) climbs all the way to bit 31.\n" +
+            "                                              # State: result gains one more of n's bits at the bottom while pushing all previously placed bits up by one.\n" +
+            "\n" +
+            "            n >>= 1  # Discard the bit just consumed and expose the next-lowest bit of n.\n" +
+            "                     # State change: n loses its lowest bit; a fresh bit becomes the new lowest for the following pass.\n" +
+            "                     # Execution flow: back to the for header for the next of the 32 iterations.\n" +
+            "\n" +
+            "        return result  # After 32 passes every bit has been mirrored: n's old LSB is now result's MSB and n's old MSB is now the LSB.\n" +
+            "                       # Why safe: exactly 32 iterations match the fixed width, so n's leading zeros correctly ended up as result's trailing zeros.",
           plain:
             "class Solution:\n" +
             "    def reverseBits(self, n: int) -> int:\n" +
