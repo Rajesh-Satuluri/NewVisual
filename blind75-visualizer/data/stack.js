@@ -223,40 +223,56 @@
           space: "O(n)",
           whenToUse: "Cleanest one-stack version: store the running minimum alongside each value.",
           logic:
-            "**What it asks.** Design a stack with the usual `push`, `pop`, and `top`, plus a `getMin()` that returns the smallest element currently held \u2014 and *every* operation, `getMin` included, must run in `O(1)`.\n\n" +
-            "**Why the naive idea fails.** Storing only the values and scanning for the minimum on each `getMin` is `O(n)`, not `O(1)`. Keeping a single `min` variable seems to fix that, but it breaks on `pop`: the moment you remove the element that was the current minimum, you have no record of what the *previous* minimum was and cannot restore it.\n\n" +
-            "**Key Idea.** The minimum depends only on which elements are present, and elements enter and leave strictly at the top. So at the instant each element is pushed, record **what the minimum is with that element on top**, and store that frozen value right next to the element. It never needs recomputing, and when the element leaves, its frozen min leaves with it.\n\n" +
-            "**What the stack holds.** Each stack entry is a pair `(val, cur_min)`, where `cur_min` is the smallest value among everything at or below that entry. Invariant: the `cur_min` of the **top** pair is always the minimum of the entire stack.\n\n" +
+            "**What it asks.** Design a stack that supports the usual `push`, `pop`, and `top`, plus one extra operation `getMin()` that returns the smallest element currently held. The catch that makes this a real problem is the performance bar: *every* operation, `getMin` included, must run in `O(1)` \u2014 constant time regardless of how many elements are on the stack.\n\n" +
+            "**Why the naive idea fails.** The obvious implementation stores only the values and, whenever `getMin` is called, walks the whole stack to find the smallest. That works but is `O(n)` per `getMin`, which violates the bar. The next instinct is to keep a single `min` variable updated on every `push`. That answers `getMin` in `O(1)`, but it collapses on `pop`: the instant you remove the element that *was* the current minimum, that lone variable has no memory of what the minimum was *before* that element arrived, so it cannot be restored. You would be forced to rescan \u2014 back to `O(n)`. The missing ingredient is history: you need to know the minimum not just now, but as it stood at every earlier level.\n\n" +
+            "**Key Idea.** Notice two facts. First, the minimum depends only on *which* elements are currently present, nothing else. Second, elements enter and leave a stack strictly at the top, in last-in-first-out order. Put those together: at the exact instant an element is pushed, you already know the minimum of everything at or below it \u2014 so *freeze* that value and store it right beside the element. The frozen min never needs recomputing, and because it travels in the same entry as its element, when that element is later popped its frozen min is discarded with it, and the entry now on top already carries the correct minimum for the smaller stack.\n\n" +
+            "**What the stack holds.** Each entry is a pair `(val, cur_min)`, where `cur_min` is the smallest value among `val` and everything beneath it. The governing **invariant** is: the `cur_min` of the **top** pair always equals the minimum of the entire stack. Every method is built to preserve this invariant, and `getMin` simply trusts it.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. `push(val)`: compute the new running minimum as `min(val, previous top's cur_min)`, or just `val` if the stack was empty. Append the pair `(val, that_min)`.\n" +
-            "2. `pop()`: remove the top pair (which discards its frozen min along with it).\n" +
-            "3. `top()`: return the **value** component of the top pair.\n" +
-            "4. `getMin()`: return the **cur_min** component of the top pair \u2014 a direct read, no scanning.\n\n" +
-            "**Why it works.** Every method touches only the top of the list \u2014 append, pop, and index `[-1]` are all constant time. Because each entry froze the minimum that was true when it was pushed, popping automatically restores the earlier minimum: the pair now exposed at the top already carries the correct answer. Duplicated minimums are safe because each copy stored its own `cur_min`, so removing one copy still leaves a valid min on top.\n\n" +
+            "1. `push(val)`: compute the new running minimum as `min(val, cur_min of the current top)`, or just `val` when the stack is empty and there is nothing below to compare against. Append the pair `(val, new_min)` so it becomes the new top.\n" +
+            "2. `pop()`: remove the top pair. Discarding it also discards its frozen min, and the pair beneath \u2014 now the top \u2014 already holds the correct minimum for what remains.\n" +
+            "3. `top()`: return the **value** component (index `0`) of the top pair.\n" +
+            "4. `getMin()`: return the **cur_min** component (index `1`) of the top pair \u2014 a direct read of a precomputed number, with no scanning.\n\n" +
+            "**Why it works.** Every method touches only the top of the list, and `append`, `pop`, and indexing `[-1]` are each `O(1)`, so the time bar is met everywhere. Correctness rests on the invariant: because each entry froze the minimum that was true when it was pushed, a `pop` automatically re-exposes the minimum that was correct one level down \u2014 no recomputation is ever needed. Duplicated minimums are handled for free: each copy of a repeated minimum stored its own `cur_min`, so removing one copy still leaves a pair on top whose `cur_min` is correct. That is exactly the case the single-variable approach could not survive.\n\n" +
             "**Common Gotchas.**\n" +
-            "- The empty-stack case on `push`: with nothing below, the running min is just `val` itself.\n" +
-            "- Duplicate minimum values must both carry their own frozen min \u2014 do not try to track the min with a single counter or variable.\n" +
-            "- `getMin` reads the top pair's min, not the whole-list minimum recomputed; trusting the invariant is what keeps it `O(1)`.\n\n" +
-            "**Complexity.** Time `O(1)` for every operation (only top-of-stack access). Space `O(n)`: one pair stored per element.\n\n" +
-            "**Interview mindset.** When a structure must answer an aggregate (min/max) in `O(1)` while it keeps mutating, the move is to **carry the answer alongside the data** so that a removal restores the previous answer for free.",
+            "- The empty-stack case on `push`: with nothing below to compare against, the running min is simply `val` itself \u2014 guard for it before reading the top.\n" +
+            "- Do not try to track the minimum with a single variable or a duplicate counter; store a frozen min *per element* so every level can be restored independently.\n" +
+            "- `getMin` must read the top pair's stored min, not recompute the whole-list minimum. Trusting the invariant is precisely what keeps it `O(1)`.\n" +
+            "- Remember `append` pushes to the top and `pop()` removes and returns the top; both operate on `stack[-1]`, which is why the whole design stays constant time.\n\n" +
+            "**Complexity.** Time `O(1)` for every operation, since each only reads or mutates the top of the list. Space `O(n)`: one `(value, min)` pair is stored per element, so the auxiliary min data doubles the per-element storage but stays linear.\n\n" +
+            "**Interview mindset.** When a structure must answer an aggregate (min, max, sum, ...) in `O(1)` while it keeps mutating, the reusable move is to **carry the answer alongside the data** \u2014 snapshot it as each element enters, so that a removal automatically restores the previous answer instead of forcing a rescan.",
           rcs:
-            "class MinStack:\n" +
-            "    def __init__(self):\n" +
-            "        self.stack = []                     # Each entry is a pair (value, min-at-or-below).\n" +
-            "\n" +
-            "    def push(self, val: int) -> None:\n" +
-            "        # New running min is val vs. the min currently on top (or val if empty).\n" +
+            "class MinStack:  # LeetCode instantiates this class once and then calls push/pop/top/getMin on the object.\n\n" +
+            "    # ==================== DESIGN: ONE STACK OF (value, running-min) PAIRS ====================\n" +
+            "    # The whole trick: at the instant a value is pushed, freeze the minimum that is true with it on top,\n" +
+            "    # and store that frozen min right beside the value in the SAME entry. It never needs recomputing,\n" +
+            "    # and when the value leaves the stack its frozen min leaves with it, restoring the previous min for free.\n" +
+            "    # INVARIANT: for the top pair (v, m), m equals the minimum of EVERY value currently in the stack.\n\n" +
+            "    # ==================== __init__: set up the single backing list ====================\n\n" +
+            "    def __init__(self):  # Runs once when LeetCode builds the MinStack object.\n" +
+            "        self.stack = []  # Each entry is a pair (value, min-at-or-below-this-entry).\n" +
+            "                         # Why a list: append, pop, and index [-1] are all O(1), which every method relies on.\n" +
+            "                         # State: empty at construction; stack[-1] will always be the current top pair.\n" +
+            "                         # Execution flow: the object is ready; LeetCode now calls the operations below.\n\n" +
+            "    # ==================== push: add a value and freeze the new minimum ====================\n\n" +
+            "    def push(self, val: int) -> None:  # Push val, recording the minimum that holds with val on top.\n" +
+            "        # New running min = val vs. the min already on top (self.stack[-1][1]); if empty, val is the min alone.\n" +
+            "        # Why: the minimum can only change by INCLUDING the just-pushed val, so compare val with the old min.\n" +
             "        cur_min = val if not self.stack else min(val, self.stack[-1][1])\n" +
-            "        self.stack.append((val, cur_min)) # Store value together with the min it sees.\n" +
-            "\n" +
-            "    def pop(self) -> None:\n" +
-            "        self.stack.pop()                    # Removing the top also removes its frozen min.\n" +
-            "\n" +
-            "    def top(self) -> int:\n" +
-            "        return self.stack[-1][0]            # The value part of the top pair.\n" +
-            "\n" +
-            "    def getMin(self) -> int:\n" +
-            "        return self.stack[-1][1]            # The min part of the top pair: O(1) read.",
+            "        self.stack.append((val, cur_min))  # append pushes the pair to the TOP; it becomes the new stack[-1].\n" +
+            "                                           # State change: stack grows by one; (val, cur_min) is now the top.\n" +
+            "                                           # Why safe: cur_min is the min of val and all below, so the invariant holds.\n\n" +
+            "    # ==================== pop: remove the top, restoring the previous minimum ====================\n\n" +
+            "    def pop(self) -> None:  # Remove the top element (constraints guarantee the stack is non-empty).\n" +
+            "        self.stack.pop()  # pop() removes and returns the top pair, discarding its frozen min with it.\n" +
+            "                          # State change: stack shrinks by one; the pair below becomes the new top.\n" +
+            "                          # Why safe: that lower pair already froze the correct min for its level, so getMin stays right.\n\n" +
+            "    # ==================== top: read the current top value ====================\n\n" +
+            "    def top(self) -> int:  # Return the value on top (constraints guarantee non-empty).\n" +
+            "        return self.stack[-1][0]  # [-1] is the top pair; [0] is its VALUE component. O(1) read, no scan.\n\n" +
+            "    # ==================== getMin: read the current minimum in O(1) ====================\n\n" +
+            "    def getMin(self) -> int:  # Return the smallest value currently in the stack.\n" +
+            "        return self.stack[-1][1]  # [-1] is the top pair; [1] is its frozen MIN, which the invariant says is the overall min.\n" +
+            "                                  # Why O(1): the answer was precomputed at push time, so we just read it, never recompute.",
           plain:
             "class MinStack:\n" +
             "    def __init__(self):\n" +
@@ -281,43 +297,58 @@
           space: "O(n)",
           whenToUse: "The classic phrasing; keep a separate stack whose top is always the current minimum.",
           logic:
-            "**What it asks.** The same problem \u2014 a stack whose `push`, `pop`, `top`, and `getMin` all run in `O(1)` \u2014 but solved with the framing some interviewers request explicitly: two parallel stacks instead of pairs.\n\n" +
-            "**Why the naive idea fails.** As before, scanning for the minimum is `O(n)`, and a single `min` variable cannot be recovered after you pop the element that held it. The fix is again to remember the minimum per level, here stored in a dedicated second stack.\n\n" +
-            "**Key Idea.** Keep the values in one stack and the running minimums in a second stack that rises and falls in lockstep with it. Push onto the min stack on **every** push (even when the value is not a new minimum), so the two stacks always have equal height and `pop` can simply remove the top of both.\n\n" +
-            "**What the stacks hold.** `stack` holds the actual values. `min_stack` holds, at each level, the minimum of everything in `stack` up to and including that level \u2014 so its top is the current overall minimum. Invariant: `min_stack[-1]` is always the current minimum, and the two stacks have identical height.\n\n" +
+            "**What it asks.** Exactly the same problem as the pairs version \u2014 a stack whose `push`, `pop`, `top`, and `getMin` all run in `O(1)` \u2014 but solved with the framing many interviewers request by name: two parallel stacks rather than a single stack of pairs. The two approaches are algorithmically equivalent; this one just separates the values and the minimums into their own lists.\n\n" +
+            "**Why the naive idea fails.** The same two traps apply. Scanning the stack for the minimum on each `getMin` is `O(n)`. A single `min` variable answers `getMin` in `O(1)` but cannot be recovered once you pop the very element that held it, because it stores no history of earlier minimums. As before, the cure is to remember the minimum *per level* \u2014 here that history lives in a dedicated second stack instead of inside each entry.\n\n" +
+            "**Key Idea.** Keep the actual values in one stack and the running minimums in a second stack that rises and falls in lockstep with the first. The crucial discipline is to push onto the min stack on **every** `push` \u2014 even when the incoming value is not a new minimum, in which case you re-push the current minimum. Doing so guarantees the two stacks always have equal height, which in turn lets `pop` be trivial: remove the top of both, and the min stack's new top is automatically the minimum for the smaller stack.\n\n" +
+            "**What the stacks hold.** `stack` holds the actual values in LIFO order, so `stack[-1]` is the current top. `min_stack` holds, at each level, the minimum of everything in `stack` up to and including that level, so `min_stack[-1]` is the current overall minimum. The governing **invariant** has two halves: `min_stack[-1]` always equals the minimum of the whole stack, and `len(min_stack) == len(stack)` at all times.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. `push(val)`: append `val` to `stack`; append `min(val, min_stack[-1])` to `min_stack` (or just `val` when `min_stack` is empty).\n" +
-            "2. `pop()`: pop from **both** stacks so they stay the same height.\n" +
-            "3. `top()`: return `stack[-1]`.\n" +
-            "4. `getMin()`: return `min_stack[-1]`.\n\n" +
-            "**Why it works.** Because `min_stack` recorded the minimum as it stood at each level, removing the top of both stacks automatically re-exposes the minimum that was correct one level down \u2014 no recomputation needed. Duplicated minimums are safe: a repeated minimum value gets pushed onto `min_stack` again (one push per value), so popping one copy still leaves a correct min on top. Pushing to `min_stack` unconditionally is exactly what sidesteps the fragile duplicate-count bookkeeping.\n\n" +
+            "1. `push(val)`: `append` `val` to `stack`; then compute `min(val, min_stack[-1])` (or just `val` when `min_stack` is empty) and `append` that to `min_stack`. Both stacks grow by one, staying equal in height.\n" +
+            "2. `pop()`: `pop()` from **both** stacks so they stay the same height; the value leaves `stack` and its level's minimum leaves `min_stack`, re-exposing the previous minimum underneath.\n" +
+            "3. `top()`: return `stack[-1]`, the top of the value stack.\n" +
+            "4. `getMin()`: return `min_stack[-1]`, a direct read of the current minimum with no scan.\n\n" +
+            "**Why it works.** Because `min_stack` recorded the minimum as it stood at each level, popping the top of both stacks automatically re-exposes the minimum that was correct one level down \u2014 no recomputation is ever required, and the heights never drift because every push and every pop touches both lists. Duplicated minimums are safe for free: a repeated minimum value causes the current minimum to be pushed onto `min_stack` again (one push per value, no matter what), so popping one copy still leaves a correct minimum on top. Pushing to `min_stack` unconditionally is precisely what sidesteps the fragile duplicate-counting bookkeeping that trips people up. Note that `append` pushes to the top and `pop()` removes and returns the top, so every method is pure top-of-stack work.\n\n" +
             "**Common Gotchas.**\n" +
-            "- Push to `min_stack` on *every* `push`, not only when a new minimum appears \u2014 otherwise the heights diverge and `pop` cannot stay in sync.\n" +
-            "- Always pop both stacks together; popping only `stack` corrupts the minimum tracking.\n" +
-            "- Handle the empty `min_stack` on the first push, where the running min is simply `val`.\n\n" +
-            "**Complexity.** Time `O(1)` per operation (only top-of-stack access). Space `O(n)`: two stacks of up to `n` entries each.\n\n" +
-            "**Interview mindset.** Two synchronized stacks are the classic way to answer a running aggregate in `O(1)`; keeping them the same height turns `pop` into a mechanical, mistake-proof step.",
+            "- Push to `min_stack` on *every* `push`, not only when a new minimum appears \u2014 otherwise the heights diverge and `pop` can no longer stay in sync.\n" +
+            "- Always pop **both** stacks together; popping only `stack` leaves a stale minimum on top and corrupts `getMin` from then on.\n" +
+            "- Handle the empty `min_stack` on the first push, where there is nothing below and the running min is simply `val`.\n" +
+            "- Read `min_stack[-1]` for the minimum rather than recomputing it; the whole point is to trust the invariant and keep the read `O(1)`.\n\n" +
+            "**Complexity.** Time `O(1)` per operation, since each only reads or mutates the top of a list. Space `O(n)`: two stacks of up to `n` entries each, so linear overall \u2014 the same order as the pairs version, just laid out as two lists.\n\n" +
+            "**Interview mindset.** Two synchronized stacks are the classic textbook way to answer a running aggregate in `O(1)` while the structure keeps mutating. Keeping the two stacks at identical height is the design decision that turns `pop` into a mechanical, mistake-proof step and makes the whole thing easy to reason about out loud.",
           rcs:
-            "class MinStack:\n" +
-            "    def __init__(self):\n" +
-            "        self.stack = []                     # Actual values.\n" +
-            "        self.min_stack = []                 # Its top is the current minimum.\n" +
-            "\n" +
-            "    def push(self, val: int) -> None:\n" +
-            "        self.stack.append(val)\n" +
-            "        # New min is val vs. old min; push on EVERY call to keep heights equal.\n" +
+            "class MinStack:  # LeetCode instantiates this class once and then calls push/pop/top/getMin on the object.\n\n" +
+            "    # ==================== DESIGN: TWO PARALLEL STACKS (values + running minimums) ====================\n" +
+            "    # stack holds the actual values. min_stack holds, at each level, the minimum of everything in stack\n" +
+            "    # up to and including that level. Push onto BOTH on every push (even when val is NOT a new minimum),\n" +
+            "    # so the two stacks always have IDENTICAL height and pop can blindly remove the top of each in lockstep.\n" +
+            "    # INVARIANT: min_stack[-1] is always the current overall minimum, and len(min_stack) == len(stack).\n\n" +
+            "    # ==================== __init__: set up the two backing lists ====================\n\n" +
+            "    def __init__(self):  # Runs once when LeetCode builds the MinStack object.\n" +
+            "        self.stack = []      # The actual values in LIFO order; stack[-1] is the current top value.\n" +
+            "                             # State: empty at construction.\n" +
+            "        self.min_stack = []  # Parallel stack of running minimums; min_stack[-1] is the current minimum.\n" +
+            "                             # Why separate: it lets getMin be a single O(1) read of a precomputed value.\n" +
+            "                             # Execution flow: the object is ready; LeetCode now calls the operations below.\n\n" +
+            "    # ==================== push: add to values, and mirror the new minimum ====================\n\n" +
+            "    def push(self, val: int) -> None:  # Push val onto stack and its running min onto min_stack.\n" +
+            "        self.stack.append(val)  # append pushes val to the TOP of the value stack; it becomes stack[-1].\n" +
+            "                                # State change: stack grows by one.\n" +
+            "        # New min = val vs. the current min (min_stack[-1]); if min_stack is empty, val is the min alone.\n" +
+            "        # Push on EVERY call (not only on a new minimum) so the two stacks stay exactly the same height.\n" +
             "        cur_min = val if not self.min_stack else min(val, self.min_stack[-1])\n" +
-            "        self.min_stack.append(cur_min)\n" +
-            "\n" +
-            "    def pop(self) -> None:\n" +
-            "        self.stack.pop()                    # Pop both so the previous min is restored.\n" +
-            "        self.min_stack.pop()\n" +
-            "\n" +
-            "    def top(self) -> int:\n" +
-            "        return self.stack[-1]              # Top value.\n" +
-            "\n" +
-            "    def getMin(self) -> int:\n" +
-            "        return self.min_stack[-1]          # Current minimum: O(1) read.",
+            "        self.min_stack.append(cur_min)  # Mirror the min onto min_stack; now both tops describe this level.\n" +
+            "                                        # State change: min_stack grows by one; the two heights stay equal.\n" +
+            "                                        # Why safe: cur_min is the min of val and all below, so the invariant holds.\n\n" +
+            "    # ==================== pop: remove the top of BOTH, restoring the previous minimum ====================\n\n" +
+            "    def pop(self) -> None:  # Remove the top element (constraints guarantee the stack is non-empty).\n" +
+            "        self.stack.pop()      # pop() removes and returns the top value.\n" +
+            "        self.min_stack.pop()  # Pop min_stack too so heights stay equal; this re-exposes the previous minimum.\n" +
+            "                              # Why both: popping only stack would desync the heights and corrupt getMin.\n\n" +
+            "    # ==================== top: read the current top value ====================\n\n" +
+            "    def top(self) -> int:  # Return the value on top (constraints guarantee non-empty).\n" +
+            "        return self.stack[-1]  # [-1] is the top of the value stack. O(1) read.\n\n" +
+            "    # ==================== getMin: read the current minimum in O(1) ====================\n\n" +
+            "    def getMin(self) -> int:  # Return the smallest value currently in the stack.\n" +
+            "        return self.min_stack[-1]  # min_stack[-1] is the current minimum by the invariant. O(1) read, no scan.",
           plain:
             "class MinStack:\n" +
             "    def __init__(self):\n" +
