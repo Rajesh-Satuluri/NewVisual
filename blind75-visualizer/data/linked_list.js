@@ -68,32 +68,52 @@
           space: "O(n)",
           whenToUse: "The most intuitive answer; reach for it first if constant space is not required.",
           logic:
-            "**What it asks.** Starting from `head` and following the `next` pointers, determine whether you ever revisit a node \u2014 i.e. whether the chain loops back on itself instead of ending at `null`.\n\n" +
-            "**Why the naive idea fails.** There is nothing wrong with the brute-force intuition here \u2014 it is just memory-hungry. A cycle means you eventually step onto a node you have already stepped on, so the obvious plan is to record every node you pass and flag the first repeat. That works but spends `O(n)` extra memory, which the constant-space version below avoids.\n\n" +
-            "**Key Idea.** The only way to land on the same node twice in a singly linked list is if some node's `next` points backward into the part you have already walked \u2014 that is exactly a cycle. So remembering the nodes you have seen and watching for a repeat is a direct, correct test.\n\n" +
+            "**What it asks.** Starting from `head` and following the `next` pointers, decide whether you ever revisit a node, i.e. whether the chain loops back on itself instead of ending at `null`. You are given only `head`; the hidden `pos` that defines where the tail links back is never handed to you, so the loop must be inferred purely from the pointer structure.\n\n" +
+            "**Why the naive idea fails.** There is nothing logically wrong with the brute-force intuition here, it is simply memory-hungry. A cycle means you eventually step onto a node you have already stepped on, so the obvious plan is to record every node you pass and flag the first repeat. That is correct, but it spends `O(n)` extra memory, which the constant-space Floyd's version below avoids entirely.\n\n" +
+            "**Key Idea.** In a singly linked list each node is reached by following exactly one `next`. The only way to land on the same node twice is for some node's `next` to point backward into the part you have already walked, and that is exactly the definition of a cycle. So remembering the nodes you have already seen and watching for a repeat is a direct and correct test.\n\n" +
             "**Step-by-Step Approach.**\n" +
             "1. Keep a single walking pointer `curr` starting at `head`, and an empty hash `set` of nodes.\n" +
-            "2. At each node, first check whether `curr` is already in the set. If it is, you have looped back \u2014 return `true`.\n" +
-            "3. Otherwise record `curr` in the set (by identity, the object itself, not its value) and move `curr` one node forward along `next`.\n" +
-            "4. If `curr` ever becomes `null`, the chain reached a real end, so return `false`.\n\n" +
-            "**Why it works.** A singly linked list is a simple chain: each node is reached by following one `next`. If the walk terminates at `null`, no node was ever repeated, so there is no cycle. If instead you meet a node already in the set, a `next` pointer led you back into visited territory \u2014 the definition of a cycle. Both outcomes are handled and exactly one must occur.\n\n" +
+            "2. At each node, first check whether `curr` is already in the set. If it is, you have looped back, so return `true`.\n" +
+            "3. Otherwise record `curr` in the set by identity (the object itself, not its value) and move `curr` one node forward along `next`.\n" +
+            "4. If `curr` ever becomes `null`, the chain reached a genuine end, so return `false`.\n\n" +
+            "**Why it works.** The loop maintains the invariant that `seen` holds exactly the nodes strictly before `curr` on the path walked so far. If the walk terminates at `null`, no node was ever repeated, so there is no cycle. If instead `curr` is found in `seen`, some `next` led you back into visited territory, which is a cycle. Exactly one of these two outcomes must occur, and both are handled.\n\n" +
             "**Common Gotchas.**\n" +
-            "- Compare nodes by identity, not by value \u2014 two different nodes can share the same value without any cycle.\n" +
-            "- An empty list (`head` is `null`) must return `false`; the loop simply never runs.\n" +
-            "- Do not confuse a repeated *value* with a repeated *node*; only the object identity signals a cycle.\n\n" +
-            "**Complexity.** Time `O(n)` \u2014 each node is visited once. Space `O(n)` \u2014 the set may hold every node in the worst case.\n\n" +
-            "**Interview mindset.** 'Does this linked structure loop forever?' with no space constraint stated is the cue for the seen-set approach; if the interviewer then demands `O(1)` space, pivot to fast/slow pointers.",
+            "- Compare nodes by identity, not by value; two distinct nodes can share the same value with no cycle at all.\n" +
+            "- An empty list (`head` is `null`) must return `false`, and it does for free because the loop body never runs.\n" +
+            "- Add to the set only after the membership check, and never confuse a repeated *value* with a repeated *node*; only object identity signals a cycle.\n\n" +
+            "**Complexity.** Time `O(n)`, since each node is visited at most once. Space `O(n)`, because the set may hold every node in the worst case of a long acyclic list.\n\n" +
+            "**Interview mindset.** The question 'does this linked structure loop forever?' with no space constraint stated is the cue for the seen-set approach. State it first because it is the most direct correct answer; if the interviewer then demands `O(1)` space, pivot immediately to fast/slow pointers.",
           rcs:
-            "class Solution:\n" +
-            "    def hasCycle(self, head: Optional[ListNode]) -> bool:\n" +
-            "        seen = set()                    # Node OBJECTS we've already stepped on.\n" +
-            "        curr = head                     # Walk from the front.\n" +
-            "        while curr:                     # Stop if we fall off the end (null).\n" +
-            "            if curr in seen:            # Revisiting a node => there is a cycle.\n" +
-            "                return True\n" +
-            "            seen.add(curr)              # Remember this node by identity.\n" +
-            "            curr = curr.next            # Advance one step.\n" +
-            "        return False                    # Reached null: the chain terminates.",
+            "from typing import Optional  # Optional[ListNode] means the parameter is either a ListNode or None (an empty list).\n\n\n" +
+            "# ListNode is the singly-linked-list node LeetCode provides: it has .val (the payload)\n" +
+            "# and .next (a pointer to the next node, or None at the tail). We only READ .next here; nothing is rewired.\n\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls hasCycle on it.\n\n" +
+            "    def hasCycle(self, head: Optional[ListNode]) -> bool:  # Return True if following .next ever loops back onto a node.\n\n" +
+            "        # ==================== PHASE 1: PREPARE THE VISITED SET AND THE WALKING POINTER ====================\n\n" +
+            "        seen = set()  # A set of node OBJECTS (by identity), not values, that we have already stepped on.\n" +
+            "                      # Why identity: two different nodes can share the same .val with no cycle, so only the\n" +
+            "                      # same object reappearing proves that some .next pointed backward into visited ground.\n" +
+            "                      # State: seen starts empty and gains exactly one node per iteration.\n\n" +
+            "        curr = head  # Cursor that walks the chain from the front, one node at a time.\n" +
+            "                     # State: curr always points at the node we are about to test.\n" +
+            "                     # Execution flow: Python continues to the while loop below.\n\n" +
+            "        # ==================== PHASE 2: WALK UNTIL WE REPEAT A NODE OR FALL OFF THE END ====================\n\n" +
+            "        while curr:  # Keep going while curr is a real node; a None curr means we hit a true tail (no cycle).\n" +
+            "                     # Loop invariant: seen holds every node strictly before curr on the path walked so far.\n" +
+            "                     # Execution flow: each pass either returns True, or records curr and advances one node.\n\n" +
+            "            if curr in seen:  # Have we stood on this exact node object before?\n" +
+            "                              # Why this proves a cycle: in a singly linked list the only way to revisit a node is\n" +
+            "                              # for some .next to point back into the part we already walked.\n\n" +
+            "                return True  # Yes: a node repeats, so the list loops. Hand True back and stop.\n" +
+            "                             # Execution flow: return ends hasCycle immediately; nothing below runs.\n\n" +
+            "            seen.add(curr)  # First visit: remember this node by identity so a later step can detect a return to it.\n" +
+            "                            # State change: seen now also contains curr.\n\n" +
+            "            curr = curr.next  # Advance one link forward into the (possibly looping) remainder.\n" +
+            "                              # State change: curr moves to the next node, or becomes None at a real tail.\n" +
+            "                              # Execution flow: end of iteration; Python jumps back to the while header.\n\n" +
+            "        # ==================== PHASE 3: THE CHAIN ENDED WITHOUT REPEATING ====================\n\n" +
+            "        return False  # curr fell off to None, so we reached a terminating tail: there is no cycle.\n" +
+            "                      # Why safe: a genuine cycle has no None to reach, so this line runs only for acyclic lists.",
           plain:
             "class Solution:\n" +
             "    def hasCycle(self, head: Optional[ListNode]) -> bool:\n" +
@@ -112,33 +132,55 @@
           space: "O(1)",
           whenToUse: "The expected answer: cycle detection in constant space.",
           logic:
-            "**What it asks.** Detect whether the list has a cycle, but using only constant extra memory \u2014 no hash set of visited nodes.\n\n" +
-            "**Why the naive idea fails.** The seen-set approach is correct but stores up to `n` nodes, costing `O(n)` space. To hit `O(1)` we need a way to sense the loop without recording where we have been.\n\n" +
-            "**Key Idea.** Run two pointers at different speeds. Picture a `slow` tortoise that hops one node at a time and a `fast` hare that hops two. If the chain ends, the hare falls off into `null` \u2014 no cycle. But if there is a loop, both pointers eventually enter it and can never escape, and since the hare gains ground on the tortoise every step, it must eventually land on the exact same node \u2014 a collision that only a cycle can produce.\n\n" +
+            "**What it asks.** Detect whether the list has a cycle, but using only constant extra memory, with no hash set of visited nodes.\n\n" +
+            "**Why the naive idea fails.** The seen-set approach is correct but stores up to `n` nodes, costing `O(n)` space. To reach `O(1)` we need a way to sense the loop without recording where we have been, so we must exploit motion rather than memory.\n\n" +
+            "**Key Idea.** Run two pointers at different speeds. Picture a `slow` tortoise that hops one node at a time and a `fast` hare that hops two. If the chain ends, the hare falls off into `null`, proving there is no cycle. But if there is a loop, both pointers eventually enter it and can never leave. Because the hare gains exactly one node on the tortoise every step, the forward distance between them shrinks by one each step and must eventually reach zero, forcing them onto the exact same node. That collision is something only a cycle can produce.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. Place both `slow` and `fast` at `head`. Think of them as tortoise and hare on the same track.\n" +
+            "1. Place both `slow` and `fast` at `head`; think of them as tortoise and hare on the same track.\n" +
             "2. Loop only while `fast` and `fast.next` both exist, so the hare can safely take its double hop.\n" +
-            "3. Each iteration move `slow` forward one node and `fast` forward two nodes.\n" +
-            "4. After moving, if `slow` and `fast` point at the very same node, they have collided inside a loop \u2014 return `true`.\n" +
-            "5. If the loop condition fails, the hare reached the end of the chain \u2014 return `false`.\n\n" +
-            "**Why it works.** With no cycle the hare hits `null` and the loop ends with `false`. With a cycle, once both pointers are inside the loop the distance from the hare to the tortoise (measured forward around the loop) shrinks by exactly one every step, because the hare closes the gap at net +1 per move. A gap that decreases by one each step must reach zero, and it can never jump past zero \u2014 so a meeting is guaranteed. Both cases are covered.\n\n" +
+            "3. Each iteration, move `slow` forward one node and `fast` forward two nodes.\n" +
+            "4. After moving, if `slow` and `fast` reference the very same node, they have collided inside a loop, so return `true`.\n" +
+            "5. If the loop condition fails, the hare reached the end of the chain, so return `false`.\n\n" +
+            "**Why it works.** With no cycle the hare eventually hits `null` (or a node whose `next` is `null`) and the loop ends with `false`. With a cycle, once both pointers are inside the loop the gap from hare to tortoise, measured forward around the loop, decreases by exactly one every step because the hare closes at a net rate of `+1` per move. A quantity that decreases by one each step reaches zero and cannot skip over it, so a meeting is guaranteed. Both cases are covered and mutually exclusive.\n\n" +
             "**Common Gotchas.**\n" +
-            "- Guard the loop with `fast` and `fast.next` both non-null, or the double hop `fast.next.next` will crash at the end of an acyclic list.\n" +
-            "- Compare the pointers by identity, not value.\n" +
-            "- Starting both at `head` is fine; the first comparison happens after the first pair of moves, so they do not falsely collide at the start.\n\n" +
-            "**Complexity.** Time `O(n)` \u2014 the tortoise travels at most `n` steps before the meeting. Space `O(1)` \u2014 just the two pointers.\n\n" +
-            "**Interview mindset.** 'Detect a cycle with no extra memory' is the canonical trigger for fast/slow (Floyd's tortoise and hare) pointers; the same two-speed trick also finds the list's middle and the cycle's entry point.",
+            "- Guard the loop with both `fast` and `fast.next` non-null, or the double hop `fast.next.next` will crash at the end of an acyclic list.\n" +
+            "- Compare the pointers by identity (`is`), not by value.\n" +
+            "- Starting both at `head` is fine; the first comparison happens only after the first pair of moves, so they do not falsely register a collision at the very start.\n\n" +
+            "**Complexity.** Time `O(n)`, because the tortoise travels at most `n` steps before the meeting. Space `O(1)`, just the two pointers.\n\n" +
+            "**Interview mindset.** 'Detect a cycle with no extra memory' is the canonical trigger for Floyd's tortoise-and-hare (fast/slow) pointers. The same two-speed trick also finds a list's middle and, with a second phase, the cycle's entry point, so it is worth knowing cold.",
           rcs:
-            "class Solution:\n" +
-            "    def hasCycle(self, head: Optional[ListNode]) -> bool:\n" +
-            "        slow = head                     # Tortoise: one step at a time.\n" +
-            "        fast = head                     # Hare: two steps at a time.\n" +
-            "        while fast and fast.next:       # Need fast.next so the double hop is safe.\n" +
-            "            slow = slow.next            # +1 node.\n" +
-            "            fast = fast.next.next       # +2 nodes.\n" +
-            "            if slow is fast:            # Same node => hare lapped tortoise => cycle.\n" +
-            "                return True\n" +
-            "        return False                    # Hare reached null: no cycle.",
+            "from typing import Optional  # Optional[ListNode] means the parameter is either a ListNode or None (an empty list).\n\n\n" +
+            "# ListNode is the singly-linked-list node LeetCode provides: it has .val (the payload)\n" +
+            "# and .next (a pointer to the next node, or None at the tail). We only READ .next here; nothing is rewired.\n\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls hasCycle on it.\n\n" +
+            "    def hasCycle(self, head: Optional[ListNode]) -> bool:  # Detect a cycle using O(1) memory, no visited set.\n\n" +
+            "        # ==================== PHASE 1: PLACE THE TORTOISE AND THE HARE ON THE SAME NODE ====================\n\n" +
+            "        slow = head  # Tortoise: advances exactly ONE node per iteration.\n" +
+            "                     # State: slow trails behind, covering the track at half the hare's speed.\n\n" +
+            "        fast = head  # Hare: advances TWO nodes per iteration.\n" +
+            "                     # Why two speeds: inside a loop the hare gains a net +1 node on the tortoise every step,\n" +
+            "                     # so the forward gap between them shrinks by one each time and must reach zero.\n" +
+            "                     # State: both start on the same node; the first comparison happens AFTER the first pair of moves,\n" +
+            "                     # so they do not falsely collide at the start.\n" +
+            "                     # Execution flow: Python continues to the while loop below.\n\n" +
+            "        # ==================== PHASE 2: RACE THEM; A COLLISION MEANS A CYCLE ====================\n\n" +
+            "        while fast and fast.next:  # Need BOTH fast and fast.next to exist so the double hop fast.next.next is safe.\n" +
+            "                                   # Why this guard: if either is None the chain has a real end, so no cycle is possible.\n" +
+            "                                   # Loop invariant: if a cycle exists, both pointers are heading toward it or already inside it.\n\n" +
+            "            slow = slow.next  # Tortoise steps forward one node.\n" +
+            "                              # State change: slow moves +1 along the chain.\n\n" +
+            "            fast = fast.next.next  # Hare steps forward two nodes.\n" +
+            "                                   # Why safe: the loop guard just confirmed fast and fast.next are non-None.\n" +
+            "                                   # State change: fast moves +2, closing the gap on slow by one net node this step.\n\n" +
+            "            if slow is fast:  # Identity check: are the two pointers on the very same node object?\n" +
+            "                              # Why is, not ==: we compare node identity; equal .val values do NOT imply a cycle.\n" +
+            "                              # Why guaranteed to happen in a loop: a gap that drops by one each step lands on exactly zero,\n" +
+            "                              # it can never jump past zero, so the hare must eventually coincide with the tortoise.\n\n" +
+            "                return True  # They collided, which can only happen after the hare lapped the tortoise inside a loop.\n" +
+            "                             # Execution flow: return ends hasCycle; nothing below runs.\n\n" +
+            "        # ==================== PHASE 3: THE HARE ESCAPED TO None ====================\n\n" +
+            "        return False  # The guard failed, meaning fast reached the end of an acyclic chain: there is no cycle.\n" +
+            "                      # Why safe: reaching None is impossible once both pointers are trapped in a loop.",
           plain:
             "class Solution:\n" +
             "    def hasCycle(self, head: Optional[ListNode]) -> bool:\n" +
@@ -214,38 +256,60 @@
           space: "O(1)",
           whenToUse: "The clean, standard answer for merging two sorted linked lists.",
           logic:
-            "**What it asks.** Given the heads of two already-sorted singly linked lists, weave them into one sorted list by relinking the existing nodes \u2014 not by allocating new ones.\n\n" +
-            "**Why the naive idea fails.** You could dump every value into an array, sort it, and build a fresh list \u2014 but that ignores the fact that the inputs are already sorted, wastes `O(n + m)` space, and creates new nodes when the problem asks you to splice the given ones. Exploiting the existing order is both faster and cleaner.\n\n" +
-            "**Key Idea.** Because both lists are sorted, the very next node of the merged result is always the smaller of the two current front nodes. Compare the two heads, splice off the smaller, advance only that list, and repeat \u2014 exactly the merge step of merge sort. The one nuisance is the first node of the output, which has no predecessor to attach to; a `dummy` (sentinel) node in front solves that so every append is uniform.\n\n" +
+            "**What it asks.** Given the heads of two already-sorted singly linked lists, weave them into one sorted list by relinking the existing nodes, not by allocating new ones.\n\n" +
+            "**Why the naive idea fails.** You could dump every value into an array, sort it, and build a fresh list, but that throws away the fact that the inputs are already sorted, wastes `O(n + m)` space, and creates new nodes when the problem explicitly asks you to splice the given ones. Exploiting the existing order is both faster and cleaner.\n\n" +
+            "**Key Idea.** Because both lists are sorted, the next node of the merged result is always the smaller of the two current front nodes. Compare the two heads, splice off the smaller, advance only that list, and repeat, which is exactly the merge step of merge sort. The one nuisance is the first output node, which has no predecessor to attach to; a `dummy` (sentinel) node placed in front solves that so every append is uniform.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. Create a `dummy` node and let `tail` point at it. `tail` will always be the last node of the merged list built so far.\n" +
+            "1. Create a `dummy` node and let `tail` point at it; `tail` will always be the last node of the merged list built so far.\n" +
             "2. Keep two cursors `l1` and `l2` at the heads of the two input lists.\n" +
-            "3. While both `l1` and `l2` are non-null, compare their values; attach the smaller one to `tail.next`, advance that list's cursor, then move `tail` onto the node just appended.\n" +
-            "4. When one list runs out, the other is entirely sorted and every value in it is at least as large as everything already appended \u2014 so link the whole remainder onto `tail.next` in a single step.\n" +
+            "3. While both `l1` and `l2` are non-null, compare their values, attach the smaller node to `tail.next`, advance that list's cursor, then move `tail` onto the node just appended.\n" +
+            "4. When one list runs out, the other is entirely sorted and every remaining value is at least as large as everything already appended, so link the whole remainder onto `tail.next` in a single step.\n" +
             "5. Return `dummy.next`, the real head just past the sentinel.\n\n" +
-            "**Why it works.** Loop invariant: `tail` always holds the largest node placed so far, and every node placed is the smallest remaining across both lists at the moment it was chosen. Appending the globally smallest remaining node each time keeps the output sorted, and the leftover tail is already sorted and no smaller than what precedes it, so appending it whole preserves order.\n\n" +
+            "**Why it works.** The loop invariant is that `tail` always heads a correctly sorted merge of every node chosen so far, and the node chosen each round is the globally smallest node not yet placed across both lists. Appending the globally smallest remaining node each time keeps the output sorted, and the leftover tail is already sorted and no smaller than what precedes it, so appending it whole preserves order.\n\n" +
             "**Common Gotchas.**\n" +
-            "- Either or both inputs may be empty \u2014 the `dummy` and the single-step leftover link both handle this without special cases.\n" +
-            "- Use `<=` rather than `<` when comparing so ties are handled without extra branching (and the merge stays stable).\n" +
+            "- Either or both inputs may be empty; the `dummy` and the single-step leftover link both handle this without special cases.\n" +
+            "- Use `<=` rather than `<` when comparing so ties are handled without extra branching and the merge stays stable.\n" +
             "- Return `dummy.next`, never `dummy` itself; forgetting the sentinel offset is a classic slip.\n\n" +
-            "**Complexity.** Time `O(n + m)` \u2014 each node from both lists is visited once. Space `O(1)` \u2014 only existing nodes are relinked; the `dummy` and pointers are constant overhead.\n\n" +
-            "**Interview mindset.** 'Merge sorted sequences' plus 'linked list' should immediately suggest a `dummy` head with a running `tail` you keep appending the smaller front node to.",
+            "**Complexity.** Time `O(n + m)`, since each node from both lists is visited once. Space `O(1)`, because only existing nodes are relinked and the `dummy` plus pointers are constant overhead.\n\n" +
+            "**Interview mindset.** 'Merge sorted sequences' plus 'linked list' should immediately suggest a `dummy` head with a running `tail` onto which you keep appending the smaller front node. This same merge routine is the building block reused inside merge-k-sorted-lists.",
           rcs:
-            "class Solution:\n" +
-            "    def mergeTwoLists(self, list1: Optional[ListNode], list2: Optional[ListNode]) -> Optional[ListNode]:\n" +
-            "        dummy = ListNode()              # Sentinel so the first append needs no special case.\n" +
-            "        tail = dummy                    # Last node of the merged list built so far.\n" +
-            "        l1, l2 = list1, list2           # Cursors over the two inputs.\n" +
-            "        while l1 and l2:                # While both still have nodes to compare.\n" +
-            "            if l1.val <= l2.val:        # Smaller (or tie) head goes next.\n" +
-            "                tail.next = l1          # Splice l1's node onto the tail.\n" +
-            "                l1 = l1.next            # Advance only that list.\n" +
-            "            else:\n" +
-            "                tail.next = l2          # Otherwise splice l2's node.\n" +
-            "                l2 = l2.next\n" +
-            "            tail = tail.next            # The appended node is the new tail.\n" +
-            "        tail.next = l1 if l1 else l2    # One list is empty; attach the sorted leftover.\n" +
-            "        return dummy.next               # Real head is after the sentinel.",
+            "from typing import Optional  # Optional[ListNode] means each argument is either a ListNode or None (an empty list).\n\n\n" +
+            "# ListNode is the singly-linked-list node LeetCode provides: it has .val (the payload) and .next\n" +
+            "# (a pointer to the next node, or None at the tail). We SPLICE the given nodes by rewiring .next; no new nodes.\n\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls mergeTwoLists on it.\n\n" +
+            "    def mergeTwoLists(self, list1: Optional[ListNode], list2: Optional[ListNode]) -> Optional[ListNode]:  # Return one sorted list.\n\n" +
+            "        # ==================== PHASE 1: BUILD A SENTINEL SO THE FIRST APPEND IS UNIFORM ====================\n\n" +
+            "        dummy = ListNode()  # A throwaway head; its .next will end up pointing at the merged list's true head.\n" +
+            "                            # Why: the first merged node has no natural predecessor to attach to; the sentinel gives it one,\n" +
+            "                            # so every append is just tail.next = node with no special first-node case.\n" +
+            "                            # State: dummy.val is never used; only dummy.next matters, and we return it at the end.\n\n" +
+            "        tail = dummy  # The last node of the merged list built so far; we always append just past it.\n" +
+            "                      # State: tail starts on the sentinel and marches forward as nodes are spliced on.\n\n" +
+            "        l1, l2 = list1, list2  # Two cursors, one over each input list, both starting at their heads.\n" +
+            "                               # State: l1 and l2 always point at the smallest UNMERGED node of their own list.\n" +
+            "                               # Execution flow: Python continues to the while loop below.\n\n" +
+            "        # ==================== PHASE 2: REPEATEDLY SPLICE THE SMALLER FRONT NODE ====================\n\n" +
+            "        while l1 and l2:  # Compare only while BOTH lists still have a node; once either empties we stop and attach the rest.\n" +
+            "                          # Loop invariant: tail heads a sorted merge of every node already chosen from both lists.\n\n" +
+            "            if l1.val <= l2.val:  # l1's front is smaller or tied; <= keeps the merge stable and handles ties without extra logic.\n" +
+            "                tail.next = l1  # Splice l1's current node onto the end of the merged list.\n" +
+            "                                # State change: tail.next now points at l1's node, which joins the output chain.\n" +
+            "                l1 = l1.next  # Advance ONLY l1, since we consumed its front node.\n" +
+            "                              # Why safe: we still hold l1's old node via tail.next, so moving l1 forward loses nothing.\n" +
+            "            else:  # l2's front is strictly smaller.\n" +
+            "                tail.next = l2  # Splice l2's current node instead.\n" +
+            "                                # State change: tail.next now points at l2's node.\n" +
+            "                l2 = l2.next  # Advance ONLY l2.\n" +
+            "            tail = tail.next  # The node we just appended becomes the new tail.\n" +
+            "                              # State change: tail moves forward onto the freshly spliced node.\n" +
+            "                              # Execution flow: end of iteration; Python re-tests the while header.\n\n" +
+            "        # ==================== PHASE 3: ATTACH THE LEFTOVER SORTED TAIL IN ONE LINK ====================\n\n" +
+            "        tail.next = l1 if l1 else l2  # Exactly one list may still have nodes; they are all sorted and no smaller than\n" +
+            "                                      # everything already placed, so we link the whole remainder at once in O(1).\n" +
+            "                                      # Note: if both are None this simply sets tail.next = None, which is harmless.\n\n" +
+            "        # ==================== PHASE 4: RETURN THE REAL HEAD ====================\n\n" +
+            "        return dummy.next  # The true merged head sits just past the sentinel; never return dummy itself.\n" +
+            "                           # Execution flow: return ends mergeTwoLists and hands the merged head to the caller.",
           plain:
             "class Solution:\n" +
             "    def mergeTwoLists(self, list1: Optional[ListNode], list2: Optional[ListNode]) -> Optional[ListNode]:\n" +
@@ -329,38 +393,52 @@
           whenToUse: "Simple to reason about, but slow when k is large.",
           logic:
             "**What it asks.** Combine `k` sorted linked lists into a single sorted list. This approach reaches for the simplest correct plan before worrying about speed.\n\n" +
-            "**The idea, and why it's slow.** Reuse the two-list merge from LC 21 and fold the lists in one at a time: merge list 1 with list 2, merge that result with list 3, then with list 4, and so on until every list is absorbed. It is obviously correct because each individual merge is correct. The cost is that the accumulated list keeps growing, and every later merge re-walks all the nodes already merged. By the time you fold in the last list you re-touch nearly all `N` nodes again, and across `k` rounds that repeated walking sums to `O(k * N)` \u2014 for large `k` this is far worse than the heap version.\n\n" +
-            "**Key Idea.** The only insight in play is that merging is associative: merging lists pairwise in sequence yields the same sorted result as any other order. That correctness is what makes the fold valid; the inefficiency comes purely from re-scanning the ever-larger accumulator.\n\n" +
+            "**Why the naive idea fails.** The idea itself is fine; its running time is the problem. Reuse the two-list merge from LC 21 and fold the lists in one at a time: merge list 1 with list 2, merge that result with list 3, then with list 4, and so on until every list is absorbed. It is clearly correct because each individual pairwise merge is correct. The cost is that the accumulated list keeps growing, and every later merge re-walks all the nodes already merged. By the time you fold in the last list you re-touch nearly all `N` nodes again, and across `k` rounds that repeated walking sums to `O(k * N)`, which for large `k` is far worse than the heap version.\n\n" +
+            "**Key Idea.** The only structural insight in play is that merging is associative: merging the lists pairwise in sequence yields the same sorted result as any other grouping. That is what makes the fold valid. The inefficiency comes purely from re-scanning the ever-larger accumulator on each round, not from any error in the logic.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. Keep an `result` accumulator, initially an empty (null) list.\n" +
+            "1. Keep a `result` accumulator, initially an empty (null) list.\n" +
             "2. For each list in `lists`, merge it into `result` using the standard two-pointer, `dummy`-plus-`tail` merge of two sorted lists.\n" +
-            "3. After the last fold, `result` is the fully merged list \u2014 return it.\n\n" +
-            "**Why it works.** Each pairwise merge produces a correctly sorted list from two sorted inputs, and the accumulator is always sorted going into the next round, so by induction the final `result` is sorted and contains every node exactly once.\n\n" +
+            "3. After the last fold, `result` is the fully merged list, so return it.\n\n" +
+            "**Why it works.** Each pairwise merge produces a correctly sorted list from two sorted inputs, and the accumulator is always sorted going into the next round, so by induction the final `result` is sorted and contains every node exactly once. The empty starting accumulator makes the first fold simply return the first list.\n\n" +
             "**Common Gotchas.**\n" +
             "- `lists` may be empty or contain empty (null) lists; merging with a null accumulator or a null list must be a clean no-op, which the two-list merge already handles.\n" +
-            "- Feed the *growing* accumulator back in each round; merging the raw inputs against each other out of order is easy to botch.\n\n" +
-            "**Complexity.** Time `O(k * N)` \u2014 the accumulator is re-walked on every fold. Space `O(1)` extra \u2014 only existing nodes are relinked.\n\n" +
-            "**Interview mindset.** State this as your baseline to show you can solve it, then note the repeated re-walking as the exact weakness that motivates a min-heap or divide-and-conquer.",
+            "- Feed the *growing* accumulator back in each round; merging the raw inputs against each other out of order is easy to botch.\n" +
+            "- Do not forget to reassign `result` to the return value of each merge, or the accumulation is lost.\n\n" +
+            "**Complexity.** Time `O(k * N)`, because the accumulator is re-walked on every fold. Space `O(1)` extra, since only existing nodes are relinked.\n\n" +
+            "**Interview mindset.** State this as your baseline to show you can solve it, then name the repeated re-walking as the exact weakness that motivates a min-heap or a divide-and-conquer pairwise merge.",
           rcs:
-            "class Solution:\n" +
-            "    def mergeKLists(self, lists: List[Optional[ListNode]]) -> Optional[ListNode]:\n" +
-            "        def merge(a, b):                     # Standard merge of two sorted lists.\n" +
-            "            dummy = ListNode()\n" +
-            "            tail = dummy\n" +
-            "            while a and b:\n" +
-            "                if a.val <= b.val:\n" +
-            "                    tail.next = a\n" +
-            "                    a = a.next\n" +
-            "                else:\n" +
-            "                    tail.next = b\n" +
-            "                    b = b.next\n" +
-            "                tail = tail.next\n" +
-            "            tail.next = a if a else b\n" +
-            "            return dummy.next\n" +
-            "        result = None                       # Accumulated merged list.\n" +
-            "        for lst in lists:                   # Fold each list into the accumulator.\n" +
-            "            result = merge(result, lst)\n" +
-            "        return result",
+            "from typing import List, Optional  # List[Optional[ListNode]] is the array of k list heads; each head is a ListNode or None.\n\n\n" +
+            "# ListNode is the singly-linked-list node LeetCode provides: it has .val (the payload) and .next\n" +
+            "# (a pointer to the next node, or None at the tail). We SPLICE existing nodes by rewiring .next; no new nodes.\n\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls mergeKLists on it.\n\n" +
+            "    def mergeKLists(self, lists: List[Optional[ListNode]]) -> Optional[ListNode]:  # Fold k sorted lists into one.\n\n" +
+            "        # ==================== PHASE 1: THE TWO-LIST MERGE HELPER (SAME AS LC 21) ====================\n\n" +
+            "        def merge(a, b):  # Merge two sorted lists a and b into one sorted list, splicing their existing nodes.\n" +
+            "                          # Why nested: we reuse this exact dummy-head merge repeatedly to absorb the inputs one at a time.\n" +
+            "            dummy = ListNode()  # Sentinel so the first append of this pair needs no special case.\n" +
+            "                                # State: dummy.next will end up heading the merged pair.\n" +
+            "            tail = dummy  # Last node of this pair-merge so far.\n" +
+            "            while a and b:  # Compare fronts while BOTH still have nodes to offer.\n" +
+            "                if a.val <= b.val:  # a's front is smaller or tied; <= keeps the merge stable.\n" +
+            "                    tail.next = a  # Splice a's node onto the tail.\n" +
+            "                    a = a.next  # Advance only a; tail.next still holds the node we just took.\n" +
+            "                else:  # b's front is strictly smaller.\n" +
+            "                    tail.next = b  # Splice b's node onto the tail.\n" +
+            "                    b = b.next  # Advance only b.\n" +
+            "                tail = tail.next  # The appended node becomes the new tail.\n" +
+            "            tail.next = a if a else b  # One list is now empty; attach the whole sorted leftover in a single link.\n" +
+            "            return dummy.next  # Hand back the merged pair's real head, past the sentinel.\n\n" +
+            "        # ==================== PHASE 2: FOLD EACH LIST INTO A GROWING ACCUMULATOR ====================\n\n" +
+            "        result = None  # The accumulated merged list; starts empty so the first merge just returns lists[0].\n" +
+            "                       # Why the cost lives here: result grows every round and merge re-walks all of it each time,\n" +
+            "                       # giving O(k * N) total because the same front nodes are re-scanned again and again.\n\n" +
+            "        for lst in lists:  # Absorb the lists one at a time into result.\n" +
+            "                           # Loop invariant: result is a sorted merge of every list processed before this one.\n\n" +
+            "            result = merge(result, lst)  # Merge the current list into the accumulator; a None lst is a clean no-op.\n" +
+            "                                         # State change: result becomes the sorted union of itself and lst.\n" +
+            "                                         # Execution flow: after the final list, result holds every node, fully sorted.\n\n" +
+            "        # ==================== PHASE 3: RETURN THE FULLY MERGED LIST ====================\n\n" +
+            "        return result  # After folding all k lists, result is the complete sorted list (None if every input was empty).",
           plain:
             "class Solution:\n" +
             "    def mergeKLists(self, lists: List[Optional[ListNode]]) -> Optional[ListNode]:\n" +
@@ -389,41 +467,61 @@
           whenToUse: "The expected answer: efficiently pick the global minimum across k lists at each step.",
           logic:
             "**What it asks.** Merge `k` sorted lists into one sorted list efficiently, avoiding the repeated re-walking that makes sequential folding `O(k * N)`.\n\n" +
-            "**Why the naive idea fails.** Sequential merging re-scans the growing accumulator on every fold, so nodes near the front are touched again and again \u2014 `O(k * N)`. The fix is to stop re-walking finished nodes and instead look only at the current front of each list.\n\n" +
-            "**Key Idea.** At any moment the next node of the answer is the smallest among just the *current heads* of the `k` lists \u2014 only `k` candidates, not `N`. If you can find that minimum quickly and, after taking it, immediately consider the `next` node of the list it came from, you perform a true k-way merge. A min-heap gives you exactly that: the smallest of up to `k` frontier nodes in `O(log k)` time. Because each list is sorted, popping a node's only fresh contribution is its own successor, so the heap always holds at most one 'frontier' node per still-active list and its minimum is the global minimum of everything remaining.\n\n" +
+            "**Why the naive idea fails.** Sequential merging re-scans the growing accumulator on every fold, so nodes near the front are touched again and again, giving `O(k * N)`. The fix is to stop re-walking finished nodes and instead look only at the current front of each list.\n\n" +
+            "**Key Idea.** At any moment the next node of the answer is the smallest among just the *current heads* of the `k` lists, which is only `k` candidates rather than `N`. If you can find that minimum quickly and, right after taking it, immediately consider the `next` node of the list it came from, you perform a true k-way merge. A min-heap gives you exactly that: the smallest of up to `k` frontier nodes in `O(log k)` time. Because each list is sorted, a popped node's only fresh contribution is its own successor, so the heap always holds at most one frontier node per still-active list, and its minimum is the global minimum of everything remaining.\n\n" +
             "**Step-by-Step Approach.**\n" +
             "1. Seed a min-heap with the head of every non-empty list. Store each entry as a tuple `(node.val, counter, node)`, where `counter` is a strictly increasing integer.\n" +
-            "2. Set up a `dummy` head with a `tail` pointer, just like the two-list merge.\n" +
+            "2. Set up a `dummy` head with a `tail` pointer, exactly as in the two-list merge.\n" +
             "3. Pop the smallest tuple, take its `node`, attach it to `tail.next`, and advance `tail` onto it.\n" +
-            "4. If that popped node has a `next`, push `next` into the heap (with a fresh counter) \u2014 it is the list's new frontier.\n" +
+            "4. If that popped node has a `next`, push `next` into the heap with a fresh counter, since it is that list's new frontier.\n" +
             "5. Repeat until the heap is empty, then return `dummy.next`.\n\n" +
-            "**Why it works.** Each pop yields the smallest node not yet placed, so the output comes out sorted. Every node is pushed exactly once \u2014 either as an initial head or when its predecessor in the same list is popped \u2014 so nothing is lost or duplicated, and the process ends precisely when all `N` nodes have been emitted.\n\n" +
+            "**Why it works.** Each pop yields the smallest node not yet placed, so the output emerges in sorted order. Every node is pushed exactly once, either as an initial head or when its predecessor in the same list is popped, so nothing is lost or duplicated, and the process ends precisely when all `N` nodes have been emitted.\n\n" +
             "**Common Gotchas.**\n" +
             "- Nodes are not orderable, so if two values tie the heap would try to compare `ListNode` objects and crash. The integer `counter` in the middle of the tuple breaks every tie before that can happen.\n" +
-            "- Skip null lists when seeding, and handle an empty `lists` (the heap starts empty, so you return `dummy.next`, which is null).\n" +
-            "- Push the successor's `(value, counter, node)`, not the node alone, to keep entries consistently comparable.\n\n" +
-            "**Complexity.** Time `O(N log k)` \u2014 `N` pops and pushes, each `O(log k)` on a heap of size at most `k`. Space `O(k)` \u2014 the heap never exceeds one frontier node per list.\n\n" +
-            "**Interview mindset.** 'Merge k sorted things' should light up 'min-heap of the k frontiers.' Divide-and-conquer \u2014 merging the lists pairwise, halving `k` each round \u2014 is the equally optimal alternative, also `O(N log k)` and with `O(1)` extra space.",
+            "- Skip null lists when seeding, and handle an empty `lists` gracefully; the heap simply starts empty and you return `dummy.next`, which is null.\n" +
+            "- Push the successor's full `(value, counter, node)` tuple, not the bare node, to keep every entry consistently comparable.\n\n" +
+            "**Complexity.** Time `O(N log k)`, from `N` pops and pushes, each `O(log k)` on a heap of size at most `k`. Space `O(k)`, since the heap never exceeds one frontier node per list.\n\n" +
+            "**Interview mindset.** 'Merge k sorted things' should light up 'min-heap of the k frontiers.' Divide-and-conquer, merging the lists pairwise and halving `k` each round, is the equally optimal alternative, also `O(N log k)` and with only `O(1)` extra space.",
           rcs:
-            "class Solution:\n" +
-            "    def mergeKLists(self, lists: List[Optional[ListNode]]) -> Optional[ListNode]:\n" +
-            "        import heapq\n" +
-            "        heap = []                           # Min-heap of (value, counter, node).\n" +
-            "        counter = 0                         # Unique tiebreaker: nodes aren't comparable.\n" +
-            "        for node in lists:                  # Seed the heap with each list's head.\n" +
-            "            if node:\n" +
-            "                heapq.heappush(heap, (node.val, counter, node))\n" +
-            "                counter += 1\n" +
-            "        dummy = ListNode()                  # Sentinel head for the output.\n" +
-            "        tail = dummy\n" +
-            "        while heap:                         # Repeatedly extract the global minimum.\n" +
-            "            val, _, node = heapq.heappop(heap)\n" +
-            "            tail.next = node                # Append the smallest frontier node.\n" +
-            "            tail = tail.next\n" +
-            "            if node.next:                   # That list's next node becomes a new frontier.\n" +
-            "                heapq.heappush(heap, (node.next.val, counter, node.next))\n" +
-            "                counter += 1\n" +
-            "        return dummy.next",
+            "from typing import List, Optional  # List[Optional[ListNode]] is the array of k list heads; each head is a ListNode or None.\n\n\n" +
+            "# ListNode is the singly-linked-list node LeetCode provides: it has .val (the payload) and .next\n" +
+            "# (a pointer to the next node, or None at the tail). We SPLICE existing nodes by rewiring .next; no new nodes.\n\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls mergeKLists on it.\n\n" +
+            "    def mergeKLists(self, lists: List[Optional[ListNode]]) -> Optional[ListNode]:  # k-way merge via a min-heap of frontiers.\n\n" +
+            "        # ==================== PHASE 1: SEED A MIN-HEAP WITH EVERY LIST'S HEAD ====================\n\n" +
+            "        import heapq  # Python's binary min-heap; heappush/heappop keep the smallest tuple at heap[0] in O(log size).\n\n" +
+            "        heap = []  # Min-heap of tuples (node.val, counter, node), ordered by node.val so the smallest FRONTIER surfaces first.\n" +
+            "                   # Why frontiers only: the next output node is the min among just the k current heads, not all N nodes,\n" +
+            "                   # so we never re-scan finished nodes the way sequential folding does.\n" +
+            "                   # State: the heap holds at most one live node per still-active list, so its size never exceeds k.\n\n" +
+            "        counter = 0  # A strictly increasing integer used as the tuple's SECOND field.\n" +
+            "                     # Why critical: if two node.val tie, Python compares the next tuple field; ListNode objects are not\n" +
+            "                     # orderable, so a unique counter breaks the tie BEFORE Python ever tries to compare two nodes.\n\n" +
+            "        for node in lists:  # Push each non-empty list's head as that list's initial frontier.\n" +
+            "            if node:  # Skip None (empty) lists; only real nodes go on the heap.\n" +
+            "                heapq.heappush(heap, (node.val, counter, node))  # Insert (value, tiebreaker, node) in O(log k).\n" +
+            "                counter += 1  # Advance the tiebreaker so the next pushed tuple stays unique.\n\n" +
+            "        # ==================== PHASE 2: BUILD THE OUTPUT WITH A DUMMY HEAD ====================\n\n" +
+            "        dummy = ListNode()  # Sentinel head so the first append needs no special case.\n" +
+            "                            # State: dummy.next will point at the merged list's true head.\n\n" +
+            "        tail = dummy  # Last node of the merged list built so far.\n" +
+            "                      # Execution flow: Python continues to the extraction loop below.\n\n" +
+            "        # ==================== PHASE 3: REPEATEDLY EXTRACT THE GLOBAL MINIMUM ====================\n\n" +
+            "        while heap:  # Continue while any frontier node remains; the heap empties exactly when all N nodes are emitted.\n" +
+            "                     # Loop invariant: heap[0] is the smallest node not yet placed across every active list.\n\n" +
+            "            val, _, node = heapq.heappop(heap)  # Remove the smallest frontier; we discard val and the counter (_), keeping node.\n" +
+            "                                                # State change: the heap shrinks by one; node is the next node of the sorted output.\n\n" +
+            "            tail.next = node  # Splice the smallest frontier node onto the merged list.\n" +
+            "                              # State change: node joins the output chain right after the current tail.\n\n" +
+            "            tail = tail.next  # That node becomes the new tail.\n\n" +
+            "            if node.next:  # If the list this node came from has a successor, that successor is the list's NEW frontier.\n" +
+            "                           # Why push it: each list yields its nodes in order, so only the immediate successor can be\n" +
+            "                           # the next candidate from that list.\n" +
+            "                heapq.heappush(heap, (node.next.val, counter, node.next))  # Push the successor with a fresh unique counter.\n" +
+            "                counter += 1  # Keep the tiebreaker strictly increasing.\n" +
+            "                              # Execution flow: end of iteration; Python re-tests while heap.\n\n" +
+            "        # ==================== PHASE 4: RETURN THE MERGED HEAD ====================\n\n" +
+            "        return dummy.next  # The real head sits just past the sentinel (None if the heap started empty).",
           plain:
             "class Solution:\n" +
             "    def mergeKLists(self, lists: List[Optional[ListNode]]) -> Optional[ListNode]:\n" +
@@ -511,35 +609,55 @@
           space: "O(1)",
           whenToUse: "The expected answer: find the node before the target in a single scan.",
           logic:
-            "**What it asks.** Remove the `n`-th node counting from the end of the list and return the new head, ideally in a single pass without first measuring the list's length.\n\n" +
-            "**Why the naive idea fails.** The straightforward plan is to walk the whole list once to count its length `sz`, then walk again `sz - n` steps to reach the node before the target and unlink it. That is correct but takes two passes; with a gap between two pointers you can do it in one.\n\n" +
-            "**Key Idea.** To delete a node you need a handle on the node *before* it. Keep two pointers exactly `n` links apart: a `fast` front-runner and a `slow` trailer. Advance `fast` ahead by `n` first, then move both in lockstep. When `fast` reaches the last node, the fixed gap means `slow` is sitting exactly at the predecessor of the node to remove. A `dummy` node placed before `head` guarantees the target always has a predecessor \u2014 even when the target is the head itself \u2014 so deleting the first node needs no special case.\n\n" +
+            "**What it asks.** Remove the `n`-th node counting from the end of the list and return the new head, ideally in a single pass and without first measuring the list's length.\n\n" +
+            "**Why the naive idea fails.** The straightforward plan is to walk the whole list once to count its length `sz`, then walk again `sz - n` steps to reach the node before the target and unlink it. That is correct but takes two passes. With a fixed gap between two pointers you can achieve the same in one pass.\n\n" +
+            "**Key Idea.** To delete a node you need a handle on the node *before* it. Keep two pointers exactly `n` links apart: a `fast` front-runner and a `slow` trailer. Advance `fast` ahead by `n` first, then move both in lockstep. When `fast` reaches the last node, the fixed gap guarantees `slow` is sitting exactly on the predecessor of the node to remove. A `dummy` node placed before `head` ensures the target always has a predecessor, even when the target is the head itself, so deleting the first node needs no special case.\n\n" +
             "**Step-by-Step Approach.**\n" +
             "1. Create a `dummy` whose `next` is `head`, and start both `fast` and `slow` at `dummy`.\n" +
             "2. Advance `fast` forward `n` times, opening a gap of exactly `n` nodes between `fast` and `slow`.\n" +
-            "3. While `fast.next` is non-null, move `fast` and `slow` forward together \u2014 this preserves the gap and stops with `fast` resting on the last node.\n" +
+            "3. While `fast.next` is non-null, move `fast` and `slow` forward together; this preserves the gap and stops with `fast` resting on the last node.\n" +
             "4. Now `slow.next` is the target; unlink it with `slow.next = slow.next.next`, splicing the trailer's `next` past the removed node.\n" +
             "5. Return `dummy.next`, since the head itself may have been the node removed.\n\n" +
-            "**Why it works.** After step 2 the gap between `slow` and `fast` is `n`. Moving them together keeps that gap constant, so when `fast` is the final node there are exactly `n` nodes from `slow.next` through the end \u2014 making `slow.next` the n-th node from the end. The `dummy` ensures this reasoning holds uniformly even when the target is the original head.\n\n" +
+            "**Why it works.** After step 2 the gap between `slow` and `fast` is exactly `n`. Moving them together keeps that gap constant, so when `fast` is the final node there are exactly `n` nodes from `slow.next` through the end, which makes `slow.next` the n-th node from the end. The `dummy` ensures this reasoning holds uniformly even when the target is the original head.\n\n" +
             "**Common Gotchas.**\n" +
-            "- Start both pointers at the `dummy`, not at `head`; starting at `head` breaks the gap arithmetic when the head must be deleted.\n" +
+            "- Start both pointers at the `dummy`, not at `head`; starting at `head` breaks the gap arithmetic when the head itself must be deleted.\n" +
             "- Stop the second loop on `fast.next` being null (fast on the last node), not on `fast` being null, or `slow` lands one node too far.\n" +
             "- Return `dummy.next`, never the original `head`, since the head may have been removed.\n\n" +
-            "**Complexity.** Time `O(sz)` \u2014 a single pass over the list. Space `O(1)` \u2014 just two pointers and the dummy.\n\n" +
-            "**Interview mindset.** 'The n-th from the end' or 'k-th from the end' is the signal for two pointers held a fixed gap apart; add a `dummy` whenever the head is a candidate for deletion.",
+            "**Complexity.** Time `O(sz)`, a single pass over the list. Space `O(1)`, just two pointers and the dummy.\n\n" +
+            "**Interview mindset.** 'The n-th from the end' or 'k-th from the end' is the signal for two pointers held a fixed gap apart; add a `dummy` whenever the head is itself a candidate for deletion.",
           rcs:
-            "class Solution:\n" +
-            "    def removeNthFromEnd(self, head: Optional[ListNode], n: int) -> Optional[ListNode]:\n" +
-            "        dummy = ListNode(0, head)       # Sentinel so deleting the head is not special.\n" +
-            "        fast = dummy                    # Front runner.\n" +
-            "        slow = dummy                    # Trailer: ends just before the target.\n" +
-            "        for _ in range(n):              # Open a gap of exactly n between them.\n" +
-            "            fast = fast.next\n" +
-            "        while fast.next:                # Advance both until fast is the LAST node.\n" +
-            "            fast = fast.next\n" +
-            "            slow = slow.next\n" +
-            "        slow.next = slow.next.next      # slow.next is the n-th from end: unlink it.\n" +
-            "        return dummy.next               # Head may have changed; return via dummy.",
+            "from typing import Optional  # Optional[ListNode] means head is either a ListNode or None (an empty list).\n\n\n" +
+            "# ListNode is the singly-linked-list node LeetCode provides: it has .val (the payload) and .next\n" +
+            "# (a pointer to the next node, or None at the tail). ListNode(0, head) builds a node whose .next is head.\n\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls removeNthFromEnd on it.\n\n" +
+            "    def removeNthFromEnd(self, head: Optional[ListNode], n: int) -> Optional[ListNode]:  # Delete the n-th node from the end.\n\n" +
+            "        # ==================== PHASE 1: DUMMY SENTINEL + TWO POINTERS AT THE FRONT ====================\n\n" +
+            "        dummy = ListNode(0, head)  # Sentinel placed BEFORE head so even deleting the head has a predecessor to rewire.\n" +
+            "                                   # Why: to unlink a node you need the node before it; if the target is the head, only a sentinel\n" +
+            "                                   # gives it one, so head deletion needs no special branch.\n" +
+            "                                   # State: dummy.next is the real head, and we return dummy.next at the end.\n\n" +
+            "        fast = dummy  # Front runner; it will move n steps ahead of slow, then both advance together.\n" +
+            "                      # State: fast starts on the sentinel.\n\n" +
+            "        slow = dummy  # Trailer; it will come to rest on the node JUST BEFORE the one to delete.\n" +
+            "                      # State: slow starts on the sentinel, exactly n behind fast once the gap is opened.\n" +
+            "                      # Execution flow: Python continues to the gap-opening loop.\n\n" +
+            "        # ==================== PHASE 2: OPEN A GAP OF EXACTLY n BETWEEN slow AND fast ====================\n\n" +
+            "        for _ in range(n):  # Advance fast n times while slow stays put.\n" +
+            "                            # Why n: afterward there are exactly n links between slow and fast, matching n-from-the-end.\n" +
+            "            fast = fast.next  # Step fast forward one node.\n" +
+            "                              # State change: the slow-to-fast gap grows by one each iteration, reaching n.\n\n" +
+            "        # ==================== PHASE 3: MOVE BOTH UNTIL fast IS THE LAST NODE ====================\n\n" +
+            "        while fast.next:  # Stop when fast.next is None, i.e. fast rests on the LAST node (not when fast itself is None).\n" +
+            "                          # Why fast.next: stopping on fast == None would carry slow one node too far past the predecessor.\n" +
+            "                          # Loop invariant: slow stays exactly n nodes behind fast throughout.\n" +
+            "            fast = fast.next  # Advance the front runner.\n" +
+            "            slow = slow.next  # Advance the trailer in lockstep, preserving the gap of n.\n" +
+            "                              # State change: when fast lands on the last node, slow lands on the target's predecessor.\n\n" +
+            "        # ==================== PHASE 4: UNLINK THE TARGET AND RETURN ====================\n\n" +
+            "        slow.next = slow.next.next  # slow.next is the n-th-from-end node; splice past it to drop it from the chain.\n" +
+            "                                    # State change: the predecessor now points at the target's successor, so the target is unlinked.\n" +
+            "                                    # Why safe: the gap math guarantees slow.next exists (it is precisely the node to remove).\n\n" +
+            "        return dummy.next  # The head itself may have been the deleted node, so return via the sentinel, never head.",
           plain:
             "class Solution:\n" +
             "    def removeNthFromEnd(self, head: Optional[ListNode], n: int) -> Optional[ListNode]:\n" +
@@ -621,48 +739,72 @@
           whenToUse: "The expected in-place answer combining three classic linked-list moves.",
           logic:
             "**What it asks.** Rearrange the list in place to `L0 -> Ln -> L1 -> Ln-1 -> L2 -> ...`, interleaving nodes from the front and the back, without changing any values and without allocating a new list.\n\n" +
-            "**Why the naive idea fails.** You could copy every node reference into an array to get `O(1)` indexing, then relink by walking one index inward from each end. It is correct but spends `O(n)` extra space; the pointer-surgery method below achieves the same in `O(1)`.\n\n" +
-            "**Key Idea.** The target ordering is precisely the front half of the list woven together with the *reversed* back half. That decomposes the problem into three staple linked-list operations: (1) find the middle, (2) reverse the second half, (3) merge the two halves by alternating one node from each. Each is a well-known move; the trick is recognizing the composition.\n\n" +
+            "**Why the naive idea fails.** You could copy every node reference into an array to get `O(1)` indexing, then relink by walking one index inward from each end. It is correct but spends `O(n)` extra space; the pointer-surgery method below achieves the same result in `O(1)`.\n\n" +
+            "**Key Idea.** The target ordering is precisely the front half of the list woven together with the *reversed* back half. That decomposes the problem into three staple linked-list operations: find the middle, reverse the second half, and merge the two halves by alternating one node from each. Each move is well known on its own; the real insight is recognizing that this problem is their composition.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. Find the middle with a slow/fast pair: `slow` hops one node, `fast` hops two. When `fast` can no longer advance, `slow` rests at the end of the first half. For even lengths this leaves the first half equal or one longer, and `slow.next` marks the clean split point.\n" +
+            "1. Find the middle with a slow/fast pair: `slow` hops one node, `fast` hops two. When `fast` can no longer advance a full step, `slow` rests at the end of the first half, and `slow.next` marks the clean split point.\n" +
             "2. Detach the second half: set a `second` pointer to `slow.next`, then cut with `slow.next = None` so the two halves are fully independent.\n" +
             "3. Reverse the second half with the classic `prev`/`curr` walk: at each node remember `curr.next`, flip `curr.next` to point back at `prev`, then slide `prev` and `curr` forward. When done, `prev` is the head of the reversed back half.\n" +
-            "4. Interleave using two cursors, `first` over the front half and `second` over the reversed back half. Each round save both continuations, link `first -> second` and then `second -> (old first.next)`, and advance both cursors into their halves. Drive the loop by `second`, which is the shorter-or-equal half, so the front never overruns.\n\n" +
-            "**Why it works.** After the split, the front half holds `L0..Lmid` in order and the reversed back half holds `Ln, Ln-1, ...`. Alternating one node from each therefore emits `L0, Ln, L1, Ln-1, ...` \u2014 exactly the target. Cutting at the middle guarantees the halves share no nodes, so the weave terminates cleanly for both odd and even lengths, and because the back half is never longer than the front, the front cursor always has a node to place before the loop ends.\n\n" +
+            "4. Interleave using two cursors, `first` over the front half and `second` over the reversed back half. Each round save both continuations, link `first -> second` and then `second -> (old first.next)`, and advance both cursors. Drive the loop by `second`, the shorter-or-equal half, so the front never overruns.\n\n" +
+            "**Why it works.** After the split, the front half holds `L0..Lmid` in order and the reversed back half holds `Ln, Ln-1, ...`. Alternating one node from each therefore emits `L0, Ln, L1, Ln-1, ...`, exactly the target. Cutting at the middle guarantees the halves share no nodes, so the weave terminates cleanly for both odd and even lengths, and because the back half is never longer than the front, the front cursor always has a node to place when the loop ends.\n\n" +
             "**Common Gotchas.**\n" +
-            "- Handle the base case of 0 or 1 node up front \u2014 such a list is already reordered and the pointer walks would misbehave.\n" +
-            "- You must cut the list with `slow.next = None`; skipping the cut leaves a cycle and the weave never terminates.\n" +
+            "- Handle the base case of 0 or 1 node up front; such a list is already reordered and the pointer walks would misbehave.\n" +
+            "- You must cut the list with `slow.next = None`; skipping the cut leaves the halves joined and the weave never terminates.\n" +
             "- In the reversal, save `curr.next` before flipping the pointer, or you lose the rest of the half.\n" +
             "- Save both `next` pointers each interleave step before rewiring, or you drop nodes.\n\n" +
-            "**Complexity.** Time `O(n)` \u2014 each of the three phases is a single linear pass. Space `O(1)` \u2014 all work is in-place pointer manipulation.\n\n" +
-            "**Interview mindset.** When a linked-list problem asks you to combine a list with its own reverse, or weave front and back together in place, recognize it as a *composition* of the three staples \u2014 find middle, reverse, merge \u2014 and knowing each cold makes this Medium routine.",
+            "**Complexity.** Time `O(n)`, since each of the three phases is a single linear pass. Space `O(1)`, because all work is in-place pointer manipulation.\n\n" +
+            "**Interview mindset.** When a linked-list problem asks you to combine a list with its own reverse, or to weave front and back together in place, recognize it as a *composition* of the three staples: find middle, reverse, merge. Knowing each of those cold turns this Medium into routine work.",
           rcs:
-            "class Solution:\n" +
-            "    def reorderList(self, head: Optional[ListNode]) -> None:\n" +
-            "        if not head or not head.next:\n" +
-            "            return                      # 0 or 1 node: already reordered.\n" +
-            "        slow, fast = head, head         # Step 1: locate the middle.\n" +
-            "        while fast.next and fast.next.next:\n" +
-            "            slow = slow.next            # slow moves 1...\n" +
-            "            fast = fast.next.next       # ...fast moves 2; slow ends at the middle.\n" +
-            "        second = slow.next              # Head of the second half.\n" +
-            "        slow.next = None                # Cut the list into two independent halves.\n" +
-            "        prev = None                     # Step 2: reverse the second half.\n" +
-            "        curr = second\n" +
-            "        while curr:\n" +
-            "            nxt = curr.next             # Save the next node before rewiring.\n" +
-            "            curr.next = prev            # Flip the pointer backward.\n" +
-            "            prev = curr                 # Advance prev...\n" +
-            "            curr = nxt                  # ...and curr.\n" +
-            "        second = prev                   # prev is now the reversed second half's head.\n" +
-            "        first = head                    # Step 3: interleave the two halves.\n" +
-            "        while second:                   # Second half is shorter or equal, so drive by it.\n" +
-            "            tmp1 = first.next           # Remember where each half continues.\n" +
-            "            tmp2 = second.next\n" +
-            "            first.next = second         # first -> second ...\n" +
-            "            second.next = tmp1          # ... -> old first.next\n" +
-            "            first = tmp1                # Advance both cursors into their halves.\n" +
-            "            second = tmp2",
+            "from typing import Optional  # Optional[ListNode] means head is either a ListNode or None (an empty list).\n\n\n" +
+            "# ListNode is the singly-linked-list node LeetCode provides: it has .val (the payload) and .next\n" +
+            "# (a pointer to the next node, or None at the tail). We rearrange nodes in place by rewiring .next; values never change.\n\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls reorderList on it.\n\n" +
+            "    def reorderList(self, head: Optional[ListNode]) -> None:  # Rewire to L0 -> Ln -> L1 -> Ln-1 -> ... in place; returns nothing.\n\n" +
+            "        # ==================== PHASE 1: BASE CASE (0 OR 1 NODE) ====================\n\n" +
+            "        if not head or not head.next:  # 0 or 1 node: the list is already in reordered form.\n" +
+            "            return  # Nothing to weave; the slow/fast walks below would misbehave on so few nodes.\n" +
+            "                    # Execution flow: return ends reorderList early with the list untouched.\n\n" +
+            "        # ==================== PHASE 2: FIND THE MIDDLE WITH SLOW / FAST ====================\n\n" +
+            "        slow, fast = head, head  # Tortoise and hare from the front; slow moves +1 and fast moves +2 per step.\n" +
+            "                                 # State: when fast can no longer take a full double hop, slow rests at the end of the first half.\n\n" +
+            "        while fast.next and fast.next.next:  # Advance while fast still has two more nodes to hop over.\n" +
+            "                                             # Why this guard: it leaves slow on the last node of the first half, so slow.next is the clean\n" +
+            "                                             # split point for both odd and even lengths.\n" +
+            "            slow = slow.next  # Tortoise moves one node.\n" +
+            "            fast = fast.next.next  # Hare moves two nodes.\n" +
+            "                                   # State change: the hare covers twice the ground, so slow ends near the midpoint.\n\n" +
+            "        # ==================== PHASE 3: SPLIT OFF AND REVERSE THE SECOND HALF ====================\n\n" +
+            "        second = slow.next  # Head of the second half (everything after the middle).\n" +
+            "                            # Why save first: the very next line overwrites slow.next, which would otherwise lose this handle.\n\n" +
+            "        slow.next = None  # Cut the list into two independent halves.\n" +
+            "                          # Why critical: without the cut the two halves stay joined, and the weave below never terminates.\n" +
+            "                          # State change: the first half now ends cleanly at slow.\n\n" +
+            "        prev = None  # Will become the head of the reversed second half; a reversed head's predecessor is None.\n" +
+            "        curr = second  # Cursor to reverse the second half with the classic prev/curr flip.\n\n" +
+            "        while curr:  # Walk the second half, flipping exactly one .next per node.\n" +
+            "            nxt = curr.next  # SAVE FIRST: stash the next node before we overwrite curr.next, or the remainder is lost.\n" +
+            "                             # State: nxt now holds the rest of the second half.\n" +
+            "            curr.next = prev  # THE FLIP: point curr backward at the already-reversed prefix.\n" +
+            "                              # State change: curr is now attached to the reversed side instead of the original side.\n" +
+            "            prev = curr  # Extend the reversed prefix; its new head is the node we just flipped.\n" +
+            "            curr = nxt  # Advance into the saved remainder.\n" +
+            "                        # Execution flow: end of iteration; Python re-tests while curr.\n\n" +
+            "        second = prev  # After the loop, prev heads the fully reversed second half.\n" +
+            "                       # State: second now points at Ln, the original last node.\n\n" +
+            "        # ==================== PHASE 4: INTERLEAVE THE TWO HALVES ====================\n\n" +
+            "        first = head  # Cursor over the first half (L0, L1, L2, ...).\n" +
+            "        while second:  # Drive by the second half, which is shorter-or-equal, so the first cursor never runs out early.\n" +
+            "                       # Loop invariant: nodes before first/second are already woven as L0, Ln, L1, Ln-1, ...\n" +
+            "            tmp1 = first.next  # Save where the FIRST half continues before we overwrite first.next.\n" +
+            "            tmp2 = second.next  # Save where the SECOND half continues before we overwrite second.next.\n" +
+            "                                # Why save both: the next two lines rewire both .next pointers; unsaved, we would drop nodes.\n" +
+            "            first.next = second  # Weave: first -> second, a front node followed by a back node.\n" +
+            "                                 # State change: the back node is spliced in right after the front node.\n" +
+            "            second.next = tmp1  # Then second -> old first.next, continuing the alternation.\n" +
+            "                                # State change: the woven pair now links into the rest of the front half.\n" +
+            "            first = tmp1  # Advance the front cursor into its saved continuation.\n" +
+            "            second = tmp2  # Advance the back cursor into its saved continuation.\n" +
+            "                           # Execution flow: end of iteration; when second becomes None the weave is complete.",
           plain:
             "class Solution:\n" +
             "    def reorderList(self, head: Optional[ListNode]) -> None:\n" +
