@@ -69,35 +69,59 @@
           space: "O(min(n, alphabet))",
           whenToUse: "The baseline you describe first in an interview before optimizing to a window.",
           logic:
-            "**What it asks.** Return the length of the longest contiguous stretch of `s` in which no character repeats.\n\n" +
-            "**The idea (and why it's slow).** The obvious approach is to consider every possible starting index `i`, and from each `i` extend a substring one character at a time using a growing set of seen characters. The instant the next character is already in the set, this starting point can go no further — record how long it got and move to the next `i`. This is slow because there are `O(n)` starting points and each can scan up to `O(n)` characters, so the work is `O(n^2)`. For `n = 5 * 10^4` that is billions of operations. The waste is that when we advance the start from `i` to `i+1`, we throw away everything we just learned and rebuild the `seen` set from scratch.\n\n" +
-            "**Key Idea.** The longest unique run beginning at each starting position can be found independently by extending until the first repeat; the global answer is the maximum of these per-start runs. This is the brute-force baseline you state before collapsing the two nested scans into a single sliding window.\n\n" +
+            "**What it asks.** Return the length of the longest contiguous stretch of `s` in which no character repeats. Two words carry all the weight: *contiguous* (a substring, no gaps — not a subsequence) and *length* (you report a number, never the substring itself). The empty string and a single space are both legal inputs, answering `0` and `1` respectively.\n\n" +
+            "**Why the naive idea fails.** The most direct approach fixes a starting index `i` and, from each `i`, extends a substring one character at a time, keeping a `seen` set of the characters used so far. The instant the next character is already in `seen`, this start can go no further, so you record how long it got and move on to the next `i`. It is correct, but wasteful: there are `O(n)` starting points and each can scan up to `O(n)` characters, giving `O(n^2)` work — on the order of billions of operations at `n = 5 * 10^4`. The concrete waste is that when the start advances from `i` to `i+1`, everything learned about the overlapping prefix is thrown away and the `seen` set is rebuilt from scratch, even though the two attempts share almost all of their characters.\n\n" +
+            "**Key Idea.** The longest unique run *beginning at each start* can be found independently by extending until the first repeat, and the global answer is simply the maximum of these per-start runs. There is no cleverness here — it is the exhaustive correctness baseline you state first, and its overlapping-rescan waste is exactly what motivates collapsing the two nested scans into a single sliding window.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. For each start index `i`, create an empty `seen` set.\n" +
-            "2. Walk `j` from `i` forward.\n" +
-            "3. If `s[j]` is already in `seen`, stop — this start can extend no further.\n" +
-            "4. Otherwise add `s[j]` to `seen` and update the best length as `j - i + 1`.\n" +
-            "5. Move to the next start `i` and repeat.\n\n" +
-            "**Why it works.** Every substring is uniquely characterized by its start and its (exclusive) end. By trying every start and extending maximally until a repeat, we examine the longest unique run beginning at each position, so the maximum over all starts is necessarily the global answer.\n\n" +
+            "1. Keep a running best `longest`, initialised to `0` so the empty string is handled for free.\n" +
+            "2. For each start index `i`, create a *fresh* empty `seen` set — each start is an independent attempt.\n" +
+            "3. Walk `j` from `i` forward, character by character.\n" +
+            "4. If `s[j]` is already in `seen`, `break` — this start can extend no further, and any longer substring from `i` would still contain the same duplicate.\n" +
+            "5. Otherwise add `s[j]` to `seen` and update `longest = max(longest, j - i + 1)`.\n" +
+            "6. Move to the next start `i` and repeat.\n\n" +
+            "**Why it works.** Every substring is uniquely identified by its start and its (inclusive) end. By trying every start and extending maximally until the first repeat, we examine the longest all-unique run beginning at each position; the maximum over all starts is therefore necessarily the global longest. Stopping at the first repeat is safe because once a character has appeared, extending further can never remove it — the run beginning at this `i` is already at its maximum.\n\n" +
             "**Common Gotchas.**\n" +
-            "- The empty string must return `0` — the outer loop simply never runs.\n" +
-            "- The `seen` set must be reset for each new start, or stale characters leak between attempts.\n" +
-            "- The measured length is `j - i + 1` (inclusive of both ends), a classic off-by-one spot.\n\n" +
-            "**Complexity.** Time `O(n^2)` — `O(n)` starts each scanning up to `O(n)` characters. Space `O(min(n, alphabet))` for the per-start set.\n\n" +
-            "**Interview mindset.** State this first to show you understand the problem, then note the redundant re-scanning of overlapping substrings — that waste is the signal to reach for a sliding window.",
+            "- The empty string must return `0` — the outer loop simply never runs, and the initial `longest = 0` is already correct.\n" +
+            "- The `seen` set must be reset for each new start, or stale characters from a previous attempt leak in and cut runs short.\n" +
+            "- The measured width is `j - i + 1` (both ends inclusive), a classic off-by-one spot.\n" +
+            "- Use `break`, not `continue`, on a repeat: `continue` would keep scanning past the duplicate and wrongly count a substring that is no longer unique.\n\n" +
+            "**Complexity.** Time `O(n^2)` — `O(n)` starts, each scanning up to `O(n)` characters, with `O(1)` set operations. Space `O(min(n, alphabet))` for the per-start set, since it never holds more than one of each distinct character.\n\n" +
+            "**Interview mindset.** State this first to show you genuinely understand the problem, then point at the redundant re-scanning of overlapping substrings as the concrete inefficiency. That waste — a nested loop re-examining shared prefixes — is the signal to collapse the two scans into one sliding window.",
           rcs:
-            "class Solution:\n" +
-            "    def lengthOfLongestSubstring(self, s: str) -> int:\n" +
-            "        n = len(s)\n" +
-            "        longest = 0\n" +
-            "        for i in range(n):                     # Try every starting index.\n" +
-            "            seen = set()                       # Characters in the current attempt.\n" +
-            "            for j in range(i, n):              # Extend the substring rightward.\n" +
-            "                if s[j] in seen:               # A repeat ends this attempt.\n" +
-            "                    break\n" +
-            "                seen.add(s[j])                 # Character is new: keep it.\n" +
-            "                longest = max(longest, j - i + 1)  # Update best length seen.\n" +
-            "        return longest",
+            "class Solution:  # LeetCode instantiates this class and calls lengthOfLongestSubstring on the object.\n\n" +
+            "    def lengthOfLongestSubstring(self, s: str) -> int:  # Return the length of the longest substring of s with no repeated character.\n\n" +
+            "        # ==================== PHASE 1: PREPARE ====================\n\n" +
+            "        n = len(s)  # Cache the length so we do not recompute len(s) on every loop step.\n" +
+            "                    # State: n is the number of valid indices, 0 through n - 1.\n" +
+            "                    # Execution flow: Python continues to initialise the running best below.\n\n" +
+            "        longest = 0  # Best all-unique length found so far; 0 already handles the empty string.\n" +
+            "                     # State: longest only ever grows, through the max() update inside the scan.\n" +
+            "                     # Execution flow: Python enters the outer loop over start indices.\n\n" +
+            "        # ==================== PHASE 2: EXTEND FROM EVERY START INDEX ====================\n\n" +
+            "        for i in range(n):  # Fix the start index i of a fresh candidate substring.\n" +
+            "                            # Loop invariant: every start strictly before i has already been extended maximally.\n" +
+            "                            # Execution flow: after one i finishes, Python assigns the next start i.\n\n" +
+            "            seen = set()  # Characters currently inside the substring that starts at i.\n" +
+            "                          # Why reset per start: each start is an independent attempt, so stale chars must not leak in.\n" +
+            "                          # Why a set: membership tests (c in seen) run in average O(1).\n" +
+            "                          # State: seen is rebuilt from empty for every new i.\n\n" +
+            "            for j in range(i, n):  # Extend the substring rightward, one character at a time.\n" +
+            "                                   # Loop invariant: seen holds exactly s[i..j-1], all distinct so far.\n" +
+            "                                   # Execution flow: after one j finishes, Python assigns the next j.\n\n" +
+            "                if s[j] in seen:  # Is the next character already inside this attempt?\n" +
+            "                                  # Python hashes s[j] and checks the set in average O(1).\n" +
+            "                    break  # A repeat ends this start: it cannot extend any further.\n" +
+            "                           # Execution flow: break exits the inner loop; control returns to the outer for.\n" +
+            "                           # Why safe: any longer substring starting at i would still contain this duplicate.\n\n" +
+            "                seen.add(s[j])  # No repeat: admit s[j] into the current attempt.\n" +
+            "                                # State change: seen now also contains s[j].\n" +
+            "                                # Execution flow: fall through to update the running best.\n\n" +
+            "                longest = max(longest, j - i + 1)  # Width of s[i..j] is j - i + 1, inclusive of both ends.\n" +
+            "                                                   # State change: longest grows when this attempt beats the record.\n" +
+            "                                                   # Execution flow: end of iteration; Python advances j.\n\n" +
+            "        # ==================== PHASE 3: RETURN ====================\n\n" +
+            "        return longest  # The maximum over all per-start runs is the global longest unique substring.\n" +
+            "                        # Execution flow: this value is handed to the caller and the function ends.",
           plain:
             "class Solution:\n" +
             "    def lengthOfLongestSubstring(self, s: str) -> int:\n" +
@@ -118,36 +142,60 @@
           space: "O(min(n, alphabet))",
           whenToUse: "The expected answer for any 'longest/shortest contiguous stretch satisfying a constraint' problem.",
           logic:
-            "**What it asks.** Return the length of the longest contiguous substring of `s` that contains no repeated character.\n\n" +
-            "**Why the naive idea fails.** Restarting from every possible start and rebuilding a `seen` set from scratch is `O(n^2)`, because advancing the start by one throws away everything already learned about the overlapping prefix. For `n = 5 * 10^4` that is far too slow.\n\n" +
-            "**Key Idea.** As we extend the substring to the right, the only thing that can break the 'all unique' invariant is the character we just added. When `s[right]` duplicates something already inside the current stretch, we do NOT need to restart — we only need to drop characters from the LEFT until that duplicate is expelled. Because both ends only ever move forward, the whole scan is linear even though it appears to revisit elements.\n\n" +
+            "**What it asks.** Return the length of the longest contiguous substring of `s` that contains no repeated character — the same question as the brute force, now answered in a single linear pass.\n\n" +
+            "**Why the naive idea fails.** Restarting from every possible start and rebuilding a `seen` set from scratch is `O(n^2)`, because advancing the start by one throws away everything already learned about the overlapping prefix. For `n = 5 * 10^4` that is far too slow. The redundancy is the clue: two adjacent starting points share nearly all of their characters, so the work of validating that shared middle should not be repeated.\n\n" +
+            "**Key Idea.** Maintain a **window** `[left, right]` — a contiguous slice — that is kept all-distinct at all times. As we extend it to the right, the *only* thing that can break the 'all unique' property is the single character we just added. When `s[right]` duplicates something already inside the window, we do NOT restart: we only drop characters from the LEFT until that one duplicate is expelled, then admit `s[right]`. Crucially, `left` never has to move backward — a character evicted from the front is gone for good — so both pointers only ever advance, and the whole scan is linear even though it appears to revisit elements.\n\n" +
+            "**What the pointers and set mean.** `left` and `right` are the inclusive boundaries of the current window; `seen` is exactly the multiset-free set of characters inside `[left, right]`. The **loop invariant** is that at the top of each iteration `seen` contains precisely the characters of `s[left..right-1]` and holds no duplicate. The window **grows** (advance `right`) unconditionally once per iteration to consider a new character; it **shrinks** (advance `left`) only while `s[right]` is already present, and only far enough to restore uniqueness.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. The **window** `[left, right]` represents the current candidate substring, which we maintain as all-distinct. `seen` is the set of characters currently inside it; `longest` is the best width found.\n" +
-            "2. The window **expands** by moving `right` one step to admit `s[right]` — this is the outer loop driving the scan.\n" +
-            "3. The window **contracts** whenever admitting `s[right]` would repeat a character: the driving condition is a duplicate. While `s[right]` is already in `seen`, remove `s[left]` and advance `left`, evicting characters from the front until the duplicate is gone.\n" +
-            "4. Once the front has been cleared, add `s[right]` to `seen`.\n" +
-            "5. Measure the now-valid window: `longest = max(longest, right - left + 1)`.\n\n" +
-            "**Why it works.** After the contract step, the window `[left, right]` is guaranteed to hold a substring with no repeats, and it is the longest such substring ending exactly at `right`. Because `left` never moves backward, no longer valid window is ever skipped, so taking the maximum width over all `right` yields the global longest.\n\n" +
+            "1. Initialise `seen = {}` (a set), `left = 0`, and `longest = 0`.\n" +
+            "2. Drive `right` across `s` — the outer loop that admits one new character per step.\n" +
+            "3. **Contract** while the invariant is broken: `while s[right] in seen`, `seen.remove(s[left])` and `left += 1`, evicting from the front until the duplicate of `s[right]` has left the window.\n" +
+            "4. Now that the front is clear, `seen.add(s[right])` — safe because the duplicate is gone.\n" +
+            "5. **Measure** the now-valid window: `longest = max(longest, right - left + 1)`.\n\n" +
+            "**Why it works.** After the contract step, `[left, right]` is guaranteed to hold a substring with no repeats, and it is the *longest* all-unique substring ending exactly at `right`: `left` sits just past the most recent copy of any repeated character, so it cannot be pushed further left without re-admitting a duplicate. Because `left` never moves backward, every candidate 'best window ending at `right`' is measured for some `right`, so taking the maximum width over all `right` yields the global longest.\n\n" +
             "**Common Gotchas.**\n" +
-            "- Add `s[right]` to `seen` only AFTER the contract loop, otherwise you would immediately evict the character you just added.\n" +
-            "- Measure the window after contracting, not before, or you might record an invalid (duplicate-containing) width.\n" +
+            "- Add `s[right]` to `seen` only AFTER the contract loop; adding first would make `s[right] in seen` true and evict the character you just admitted.\n" +
+            "- Measure the window after contracting, not before, or you may record an invalid (duplicate-containing) width.\n" +
+            "- Use `while`, not `if`, to shrink — a single duplicate might require evicting several front characters before it is expelled.\n" +
             "- The empty string returns `0` — the loop never runs, which is correct.\n" +
-            "- A faster variant maps each character to its last seen index so `left` can jump directly to `max(left, last[c] + 1)` instead of stepping one character at a time.\n\n" +
-            "**Complexity.** Time `O(n)` — each character is added once and removed at most once, so both pointers together traverse `s` at most twice. Space `O(min(n, alphabet))`, since the set holds at most one of each distinct character.\n\n" +
-            "**Interview mindset.** 'Longest/shortest contiguous run under a constraint' combined with 'a violation caused by the newest element can be repaired by dropping elements from the front' is the classic sliding-window signal.",
+            "- A faster variant maps each character to its last-seen index so `left` can JUMP directly to `max(left, last[c] + 1)` instead of stepping one character at a time; same `O(n)`, fewer set operations.\n\n" +
+            "**Complexity.** Time `O(n)` — each character is added once and removed at most once, so `left` and `right` together traverse `s` at most twice. Space `O(min(n, alphabet))`, since the set holds at most one of each distinct character.\n\n" +
+            "**Interview mindset.** 'Longest (or shortest) contiguous run under a constraint' combined with 'a violation caused by the newest element can be repaired by dropping elements from the front' is the classic sliding-window signal. Say aloud what `left`/`right` bound and what invariant the window preserves — that framing is what interviewers listen for.",
           rcs:
-            "class Solution:\n" +
-            "    def lengthOfLongestSubstring(self, s: str) -> int:\n" +
-            "        seen = set()                           # Characters currently inside the window.\n" +
-            "        left = 0                               # Left edge of the window.\n" +
-            "        longest = 0\n" +
-            "        for right in range(len(s)):            # Expand the window one char at a time.\n" +
-            "            while s[right] in seen:            # New char duplicates one inside the window...\n" +
-            "                seen.remove(s[left])           # ...so evict from the left...\n" +
-            "                left += 1                      # ...until the duplicate is gone.\n" +
-            "            seen.add(s[right])                 # Now safe to admit s[right].\n" +
-            "            longest = max(longest, right - left + 1)  # Window is valid: measure it.\n" +
-            "        return longest",
+            "class Solution:  # LeetCode instantiates this class and calls lengthOfLongestSubstring on the object.\n\n" +
+            "    def lengthOfLongestSubstring(self, s: str) -> int:  # Return the longest all-unique substring length in a single pass.\n\n" +
+            "        # ==================== PHASE 1: PREPARE ====================\n\n" +
+            "        seen = set()  # The set of characters currently inside the window [left, right].\n" +
+            "                      # Why a set: add, remove, and membership all run in average O(1).\n" +
+            "                      # Invariant we maintain: seen never holds a duplicate, so the window is always all-distinct.\n" +
+            "                      # Execution flow: Python continues to initialise the window's left edge.\n\n" +
+            "        left = 0  # Left boundary of the window; the current candidate is the slice s[left..right] inclusive.\n" +
+            "                  # State: left only ever moves forward, chasing right to restore the no-duplicate invariant.\n" +
+            "                  # Why forward-only: an evicted character never needs to re-enter, which is what makes the scan O(n).\n\n" +
+            "        longest = 0  # Widest valid (all-unique) window seen so far; 0 handles the empty string.\n" +
+            "                     # State: updated via max() only after the window has been made valid again.\n" +
+            "                     # Execution flow: Python enters the loop that drives the right edge.\n\n" +
+            "        # ==================== PHASE 2: EXPAND RIGHT, SHRINK LEFT ON A DUPLICATE ====================\n\n" +
+            "        for right in range(len(s)):  # Advance the right edge to admit s[right] into the window.\n" +
+            "                                     # Loop invariant: before this step, s[left..right-1] is all-distinct.\n" +
+            "                                     # Execution flow: after each right, Python advances to the next index.\n\n" +
+            "            while s[right] in seen:  # The incoming character duplicates one already inside the window...\n" +
+            "                                     # Why a while, not an if: keep evicting until THIS duplicate has left the window.\n" +
+            "                                     # Only the newest character can break the invariant, so the repair is purely on the left.\n" +
+            "                seen.remove(s[left])  # ...so drop the leftmost character out of the window.\n" +
+            "                                      # State change: seen shrinks by one; the window's front content is discarded.\n" +
+            "                left += 1  # ...and advance the left edge past it.\n" +
+            "                           # State change: the window narrows from the front; the while then re-tests s[right].\n" +
+            "                           # Why safe: shrinking from the left is the only way to expel an earlier duplicate.\n\n" +
+            "            seen.add(s[right])  # The front is now clear, so it is safe to admit s[right].\n" +
+            "                                # State change: seen gains s[right]; the window is all-distinct again.\n" +
+            "                                # Why add AFTER the while: adding first would immediately evict the char we just added.\n\n" +
+            "            longest = max(longest, right - left + 1)  # Measure the now-valid window: its width is right - left + 1.\n" +
+            "                                                      # Why measure here: the window is guaranteed duplicate-free at this point.\n" +
+            "                                                      # State change: longest grows if this is the widest valid window yet.\n\n" +
+            "        # ==================== PHASE 3: RETURN ====================\n\n" +
+            "        return longest  # The largest valid window width over the whole scan is the answer.\n" +
+            "                        # Execution flow: this value is handed to the caller and the function ends.",
           plain:
             "class Solution:\n" +
             "    def lengthOfLongestSubstring(self, s: str) -> int:\n" +
@@ -228,39 +276,61 @@
           space: "O(1) (26 letters)",
           whenToUse: "The canonical answer: 'longest window where at most k elements differ from the dominant one'.",
           logic:
-            "**What it asks.** Find the longest substring that can be turned into a single repeated character by replacing at most `k` of its characters.\n\n" +
-            "**Why the naive idea fails.** The obvious approach tries every substring and, for each, counts how many characters are NOT the most common one; if that count is `<= k` the substring is achievable. Enumerating all `O(n^2)` substrings (and counting within each) is far too slow for `n = 10^5`.\n\n" +
-            "**Key Idea.** For any fixed window, the cheapest way to make it uniform is to keep whichever letter already appears most often and replace all the rest. So the number of replacements a window needs is `window_length - maxFreq`, where `maxFreq` is the count of the most frequent character in the window. The window is **feasible** exactly when `window_length - maxFreq <= k`. This single test turns the problem into finding the longest feasible window.\n\n" +
+            "**What it asks.** Find the length of the longest substring that can be turned into a single repeated character by replacing at most `k` of its characters. The replacements are *hypothetical*: you are counting the best achievable length, not building a modified string, and you need not use all `k`.\n\n" +
+            "**Why the naive idea fails.** The obvious approach tries every substring and, for each, counts how many characters are NOT the most common one; if that count is `<= k` the substring is achievable, so track the longest achievable. Enumerating all `O(n^2)` substrings and counting within each is far too slow for `n = 10^5`, and it re-counts the heavily overlapping regions of adjacent substrings over and over.\n\n" +
+            "**Key Idea.** For any fixed window, the cheapest way to make it uniform is to keep whichever letter already appears most often and replace *all the rest*. So the number of replacements a window needs is exactly `window_length - maxFreq`, where `maxFreq` is the count of the most frequent character in the window. The window is **feasible** precisely when `window_length - maxFreq <= k`. That single arithmetic test converts the whole problem into 'find the longest feasible window', which a sliding window solves in one pass.\n\n" +
+            "**What the pointers and counters mean.** `left` and `right` are the inclusive window boundaries; `count[c]` is the frequency of letter `c` inside `[left, right]`; `maxFreq` is the highest single-letter count seen so far. The **loop invariant** is that after each iteration the window `[left, right]` is feasible — `(right - left + 1) - maxFreq <= k`. The window **grows** (advance `right`) every iteration to admit a new letter; it **shrinks** (advance `left` once) only on the step where admitting the new letter would make the window infeasible. Because the shrink is a single `if`, not a `while`, `left` moves at most once per `right`, so the window width is non-decreasing — it only ever grows or stays the same, which is what lets it settle on the maximum feasible length.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. The **window** `[left, right]` represents a candidate substring we intend to make uniform. `count[c]` holds occurrences of letter `c` inside it, `maxFreq` is the largest single-letter count seen, and `longest` is the best width found. A fixed 26-slot frequency table backs the counts.\n" +
-            "2. The window **expands** by moving `right` to admit `s[right]`: increment `count[s[right]]` and refresh `maxFreq`.\n" +
-            "3. The window **contracts** from the LEFT only when the feasibility condition is violated — that condition, `window_length - maxFreq <= k`, is what drives the movement. If `(right - left + 1) - maxFreq > k`, decrement `count[s[left]]` and advance `left` once.\n" +
+            "1. Initialise `count` (a `defaultdict(int)`, or a 26-slot array), `left = 0`, `max_freq = 0`, `longest = 0`.\n" +
+            "2. Drive `right` across `s`. Admit `s[right]`: `count[s[right]] += 1`, then `max_freq = max(max_freq, count[s[right]])` — only the letter that just entered can raise the dominant count.\n" +
+            "3. Test feasibility: if `(right - left + 1) - max_freq > k`, the window needs too many replacements, so evict one from the left — `count[s[left]] -= 1`, `left += 1`.\n" +
             "4. Record `longest = max(longest, right - left + 1)`.\n\n" +
-            "**Why it works.** Whenever the window is measured it satisfies `len - maxFreq <= k`, so it is genuinely achievable. A subtle point: `maxFreq` is never decremented on shrink, so it may be a historical high — but that is fine, because we only care about finding a LONGER window. A stale `maxFreq` can only make the feasibility test stricter, never looser, so it never validates an impossible window; and since `left` advances by at most one per step (a single `if`, not a `while`), the window width is non-decreasing and ends up capturing the maximum feasible length.\n\n" +
+            "**Why it works.** Whenever the window is measured it satisfies `len - maxFreq <= k`, so it is genuinely achievable. The subtle part is that `max_freq` is *never decremented* on a shrink, so it may be a historical high that no longer reflects the current window. This is fine, and in fact deliberate: we only care about finding a window *longer* than the current best. A stale `max_freq` can only make `len - max_freq` smaller, i.e. make the feasibility test *stricter*, never looser — so it can never validate an impossible window; it can only fail to grow the window on a step where a recomputed max might have allowed it, which does not matter because that recomputed larger window would not exceed the length already recorded. Since `left` advances by at most one per `right`, the width never decreases, so the loop captures the maximum feasible length.\n\n" +
             "**Common Gotchas.**\n" +
-            "- Use a single `if` to shrink, not a `while` — the window width should never actually decrease, which is what keeps it `O(n)` and lets the stale-`maxFreq` trick work.\n" +
-            "- Do not bother recomputing the true maximum frequency after shrinking; it is unnecessary and only slows the loop.\n" +
-            "- `k = 0` (no replacements allowed) and an already-uniform string must both work — they fall out naturally.\n" +
-            "- The replacements are hypothetical: you count the best achievable length, you do not build a modified string.\n\n" +
-            "**Complexity.** Time `O(n)` — one pass with a constant-size 26-letter table. Space `O(1)`.\n\n" +
-            "**Interview mindset.** 'At most k changes/removals to make a window satisfy a property' points to a sliding window where the window's cost is compared against `k`; the uppercase-only alphabet hints at a fixed 26-slot frequency table.",
+            "- Use a single `if` to shrink, not a `while` — the window width must never actually decrease. This is what keeps it `O(n)` and what makes the stale-`maxFreq` trick sound.\n" +
+            "- Do not bother recomputing the true maximum frequency after shrinking; it is unnecessary work and, as argued above, never changes the answer.\n" +
+            "- `k = 0` (no replacements allowed) and an already-uniform string both work without special-casing — they fall out of the same feasibility test.\n" +
+            "- Refresh `maxFreq` from the *entering* letter only; scanning all 26 counts every step would still be linear but is wasted effort.\n\n" +
+            "**Complexity.** Time `O(n)` — one pass with `O(1)` work per step over a constant-size (26-letter) count. Space `O(1)`: the count map holds at most 26 distinct uppercase letters regardless of input size.\n\n" +
+            "**Interview mindset.** 'At most `k` changes/removals to make a window satisfy a property' points to a sliding window whose *cost* is compared against `k`; here the cost is `window_length - maxFreq`. The uppercase-only alphabet is a strong hint to back the counts with a fixed 26-slot table, and being able to explain why the never-decremented `maxFreq` is safe is exactly the insight interviewers probe for.",
           rcs:
-            "class Solution:\n" +
-            "    def characterReplacement(self, s: str, k: int) -> int:\n" +
-            "        from collections import defaultdict\n" +
-            "        count = defaultdict(int)               # count[c] = c's frequency in the window.\n" +
-            "        left = 0\n" +
-            "        max_freq = 0                           # Highest single-letter count seen so far.\n" +
-            "        longest = 0\n" +
-            "        for right in range(len(s)):            # Expand the window rightward.\n" +
-            "            count[s[right]] += 1               # Admit the new character.\n" +
-            "            max_freq = max(max_freq, count[s[right]])  # Update the dominant count.\n" +
-            "            # Characters to replace = window size - most common char's count.\n" +
-            "            if (right - left + 1) - max_freq > k:  # Too many replacements needed?\n" +
-            "                count[s[left]] -= 1            # Shrink from the left by one.\n" +
-            "                left += 1\n" +
-            "            longest = max(longest, right - left + 1)  # Window is feasible now.\n" +
-            "        return longest",
+            "class Solution:  # LeetCode instantiates this class and calls characterReplacement on the object.\n\n" +
+            "    def characterReplacement(self, s: str, k: int) -> int:  # Longest substring that becomes one repeated letter after at most k replacements.\n\n" +
+            "        # ==================== PHASE 1: PREPARE ====================\n\n" +
+            "        from collections import defaultdict  # defaultdict(int) returns 0 for a never-seen key, so count[c] needs no manual initialisation.\n" +
+            "                                             # Execution flow: Python continues to build the frequency table below.\n\n" +
+            "        count = defaultdict(int)  # count[c] = how many times letter c currently appears inside the window [left, right].\n" +
+            "                                  # Why a count map: the window's cost depends only on per-letter frequencies, not positions.\n" +
+            "                                  # State: incremented when a letter enters on the right, decremented when one leaves on the left.\n\n" +
+            "        left = 0  # Left boundary of the window; the current candidate is the slice s[left..right] inclusive.\n" +
+            "                  # State: left advances at most once per step, so the window width never actually shrinks.\n" +
+            "                  # Why forward-only: keeping left monotonic is what makes the single pass O(n).\n\n" +
+            "        max_freq = 0  # Highest single-letter count seen in ANY window so far (a running high-water mark).\n" +
+            "                      # Why never decreased: we only care about growing the answer; a stale high can never validate an\n" +
+            "                      # impossible window (it only makes the feasibility test stricter), so leaving it is safe and fast.\n\n" +
+            "        longest = 0  # Widest feasible window found so far; feasible means it needs at most k replacements.\n" +
+            "                     # Execution flow: Python enters the loop that drives the right edge.\n\n" +
+            "        # ==================== PHASE 2: EXPAND RIGHT, SHRINK LEFT IF INFEASIBLE ====================\n\n" +
+            "        for right in range(len(s)):  # Advance the right edge to admit s[right] into the window.\n" +
+            "                                     # Loop invariant: on entry the window [left, right-1] was feasible ((len - max_freq) <= k).\n" +
+            "                                     # Execution flow: after each right, Python advances to the next index.\n\n" +
+            "            count[s[right]] += 1  # Admit the new character: bump its frequency inside the window.\n" +
+            "                                  # State change: count[s[right]] grows by one.\n\n" +
+            "            max_freq = max(max_freq, count[s[right]])  # Refresh the dominant count: only the letter that just entered can push the max up.\n" +
+            "                                                       # State change: max_freq becomes the count of the most frequent letter, if this one now leads.\n\n" +
+            "            if (right - left + 1) - max_freq > k:  # Cost of making the window uniform = window_length - max_freq (replace all but the dominant letter).\n" +
+            "                                                   # If that exceeds k the window is infeasible, so trim exactly one character from the left.\n" +
+            "                                                   # Why an if, not a while: one eviction restores feasibility and keeps the window width non-decreasing.\n" +
+            "                count[s[left]] -= 1  # Evict the leftmost character: drop its frequency as it leaves the window.\n" +
+            "                                     # State change: count[s[left]] shrinks by one.\n" +
+            "                left += 1  # Advance the left edge past the evicted character.\n" +
+            "                           # State change: the window slides right by one; its width stays the same as before this step.\n\n" +
+            "            longest = max(longest, right - left + 1)  # Record the width of the current (now-feasible) window.\n" +
+            "                                                      # Why safe: after the shrink the window satisfies (len - max_freq) <= k, so it is achievable.\n" +
+            "                                                      # State change: longest grows if this feasible window is the widest yet.\n\n" +
+            "        # ==================== PHASE 3: RETURN ====================\n\n" +
+            "        return longest  # The widest feasible window width over the whole scan is the answer.\n" +
+            "                        # Execution flow: this value is handed to the caller and the function ends.",
           plain:
             "class Solution:\n" +
             "    def characterReplacement(self, s: str, k: int) -> int:\n" +
@@ -342,50 +412,83 @@
           space: "O(|s| + |t|)",
           whenToUse: "The standard approach for 'smallest window covering a required multiset of characters'.",
           logic:
-            "**What it asks.** Return the shortest contiguous slice of `s` that contains every character of `t`, respecting how many times each is required (multiplicity), or `\"\"` if none exists.\n\n" +
-            "**Why the naive idea fails.** Enumerating all `O(n^2)` substrings and checking each against `t`'s multiset requirement is far too slow for `n = 10^5`, and re-checks enormous overlap between adjacent substrings.\n\n" +
-            "**Key Idea.** A valid window need only cover `t`. So GROW the window on the right until it first becomes valid (covers `t` with multiplicity), then SHRINK it on the left as far as it stays valid — every such shrink is a chance for a smaller answer. Sweeping `right` across `s` once while `left` chases it visits each character at most twice, giving linear time. The trick that makes this cheap is tracking coverage with a satisfied-counter rather than re-comparing whole maps.\n\n" +
+            "**What it asks.** Return the shortest contiguous slice of `s` that contains every character of `t`, respecting how many times each is required (multiplicity: `t = \"aa\"` needs two `'a'`s in the window), or `\"\"` if no such slice exists. When an answer exists it is guaranteed unique.\n\n" +
+            "**Why the naive idea fails.** Enumerating all `O(n^2)` substrings and checking each against `t`'s multiset requirement is far too slow for `n = 10^5`. Worse, adjacent substrings overlap enormously, so this recomputes coverage for the same shared characters again and again — the exact redundancy a sliding window removes.\n\n" +
+            "**Key Idea.** A valid window need only *cover* `t` (it may contain extra junk characters). So run a two-phase window: GROW on the right until the window first becomes valid — covers every character of `t` with the right multiplicity — then SHRINK on the left as far as it stays valid, because every successful shrink is a chance at a smaller answer. Sweeping `right` across `s` once while `left` chases it visits each character at most twice, giving linear time. The trick that makes each step cheap is tracking coverage with a single satisfied-counter rather than re-comparing whole frequency maps.\n\n" +
+            "**What the pointers and counters mean.** `left`/`right` are the inclusive window boundaries. `need` (a `Counter` of `t`) is the fixed target multiset; `required = len(need)` is the number of DISTINCT characters that must be satisfied. `window[c]` counts copies of `c` currently inside `[left, right]`. `have` is the number of distinct required characters currently *fully* satisfied — i.e. those whose `window[c]` has reached `need[c]`. The **validity test is `have == required`**, an `O(1)` check that replaces comparing the whole `window` map against `need`. The window **grows** (advance `right`) whenever it is not yet valid; it **shrinks** (advance `left`) while it *is* valid, trying to minimise. `best_len`/`best_start` remember the smallest valid window found.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. Set up the counters. `need` maps each required character to its required count (from `t`); `required` is the number of DISTINCT characters to satisfy (`len(need)`); `window[c]` counts characters currently inside `[left, right]`; `have` counts how many DISTINCT required characters are currently fully satisfied (window count equals needed count). The window is valid exactly when `have == required`, an `O(1)` test. `best_len`/`best_start` remember the smallest valid window.\n" +
-            "2. The window **expands** by moving `right` to admit `s[right]`: increment `window[s[right]]`, and if it is a required character whose window count now equals its needed count, increment `have`.\n" +
-            "3. The window **contracts** while it is valid — validity, `have == required`, is the driving condition. While valid: first update the best answer if this window is shorter, then drop `s[left]` (decrement `window[s[left]]`); if that pushes a required character below its needed count, decrement `have`; advance `left`.\n" +
-            "4. Continue until `right` reaches the end, then return the best window (or `\"\"` if none was ever valid).\n\n" +
-            "**Why it works.** The answer is recorded only while the window is valid, and the inner while-loop contracts to the smallest valid window ending at each `right`; taking the minimum over all `right` yields the global shortest. `have == required` captures full multiset coverage exactly, because a character bumps `have` only when its count first reaches the needed amount and drops it only when it falls below.\n\n" +
+            "1. Guard the empty-input edge case, then build `need = Counter(t)`, `required = len(need)`, an empty `window`, `have = 0`, `best_len = inf`, `best_start = 0`, `left = 0`.\n" +
+            "2. Drive `right` across `s`. Admit `c = s[right]`: `window[c] += 1`, and if `c` is required and `window[c]` has just REACHED `need[c]` (use `==`), then `have += 1`.\n" +
+            "3. **Contract while valid** — `while have == required`: first record the answer if `right - left + 1 < best_len` (update `best_len`/`best_start`); then evict `s[left]` — `window[s[left]] -= 1`, and if that pushes a required character strictly BELOW `need`, `have -= 1`; finally `left += 1`.\n" +
+            "4. When `right` reaches the end, return `s[best_start:best_start + best_len]` if a valid window was ever found, else `\"\"`.\n\n" +
+            "**Why it works.** The answer is recorded only while the window is valid, and the inner `while` contracts to the *smallest* valid window whose right edge is `right`; taking the minimum over all `right` therefore yields the global shortest. The satisfied-counter is exact: `have` rises only when a character's count first *reaches* its needed amount and falls only when it first drops *below* it, so `have == required` holds if and only if every required character is present with full multiplicity — no more, no less. Because both pointers only move forward, each character is admitted once and evicted at most once.\n\n" +
             "**Common Gotchas.**\n" +
-            "- Record the answer INSIDE the while-loop, before shrinking, or you will miss the minimal window.\n" +
-            "- Increment `have` only when a count first REACHES its needed value (use `==`, not `>=`), otherwise surplus copies over-count satisfaction.\n" +
-            "- Return `\"\"` when no valid window was ever found, e.g. `t` longer than `s` or a character of `t` absent from `s`.\n" +
+            "- Record the answer INSIDE the while-loop, *before* shrinking, or you will step past and miss the minimal window.\n" +
+            "- Bump `have` only when a count first REACHES its needed value (`==`, never `>=`), otherwise surplus copies over-count satisfaction and validity fires early.\n" +
+            "- Symmetrically, decrement `have` only when a count drops strictly BELOW its need (`<`), so an evicted surplus copy does not falsely break validity.\n" +
+            "- Return `\"\"` when no valid window was ever found — e.g. `t` longer than `s`, or a character of `t` absent from `s`; the `best_len == inf` guard handles this.\n" +
             "- Multiplicity matters: `t = \"aa\"` requires two `'a'`s in the window, not one.\n\n" +
-            "**Complexity.** Time `O(|s| + |t|)` — `right` and `left` each traverse `s` once and `t` is scanned to build `need`. Space `O(|s| + |t|)` for the maps holding distinct characters.\n\n" +
-            "**Interview mindset.** 'Smallest window covering a required set/multiset' is the signal: expand to become valid, contract to minimize, and use a satisfied-counter for `O(1)` validity checks instead of comparing maps each step.",
+            "**Complexity.** Time `O(|s| + |t|)` — `right` and `left` each traverse `s` once, and `t` is scanned once to build `need`. Space `O(|s| + |t|)` for the two maps holding distinct characters (bounded by the alphabet in practice).\n\n" +
+            "**Interview mindset.** 'Smallest window covering a required set/multiset' is the signal: expand to *become* valid, contract to *minimise*, and use a satisfied-counter (`have`/`required`) for `O(1)` validity checks instead of comparing maps every step. Being able to state precisely when `have` goes up and down — and why `==`/`<` are the right comparisons — is what separates a correct implementation from an off-by-one one.",
           rcs:
-            "class Solution:\n" +
-            "    def minWindow(self, s: str, t: str) -> str:\n" +
-            "        if not s or not t:\n" +
-            "            return \"\"\n" +
-            "        from collections import Counter, defaultdict\n" +
-            "        need = Counter(t)                      # Required char -> required count.\n" +
-            "        required = len(need)                   # Distinct chars we must satisfy.\n" +
-            "        window = defaultdict(int)              # Char counts inside the window.\n" +
-            "        have = 0                               # Distinct required chars fully satisfied.\n" +
-            "        best_len = float('inf')                # Smallest valid window width so far.\n" +
-            "        best_start = 0                         # Start index of that best window.\n" +
-            "        left = 0\n" +
-            "        for right in range(len(s)):           # Expand the window rightward.\n" +
-            "            c = s[right]\n" +
-            "            window[c] += 1                     # Admit the new character.\n" +
-            "            if c in need and window[c] == need[c]:  # Just met this char's requirement.\n" +
-            "                have += 1\n" +
-            "            while have == required:            # Window covers all of t: try to shrink.\n" +
-            "                if right - left + 1 < best_len:  # Found a smaller valid window.\n" +
-            "                    best_len = right - left + 1\n" +
-            "                    best_start = left\n" +
-            "                left_char = s[left]\n" +
-            "                window[left_char] -= 1         # Drop the leftmost character...\n" +
-            "                if left_char in need and window[left_char] < need[left_char]:\n" +
-            "                    have -= 1                  # ...it broke a requirement, no longer valid.\n" +
-            "                left += 1                      # Advance the left edge.\n" +
-            "        return s[best_start:best_start + best_len] if best_len != float('inf') else \"\"",
+            "class Solution:  # LeetCode instantiates this class and calls minWindow on the object.\n\n" +
+            "    def minWindow(self, s: str, t: str) -> str:  # Return the shortest substring of s that covers every character of t (with multiplicity).\n\n" +
+            "        # ==================== PHASE 1: EDGE CASE ====================\n\n" +
+            "        if not s or not t:  # An empty s or empty t can have no valid covering window.\n" +
+            "                            # Why safe: with nothing to cover (or nothing to cover it), the answer is the empty string.\n" +
+            "            return \"\"  # Bail out immediately; nothing below needs to run.\n\n" +
+            "        # ==================== PHASE 2: PREPARE COUNTERS ====================\n\n" +
+            "        from collections import Counter, defaultdict  # Counter(t) tallies t's letters in one pass; defaultdict(int) returns 0 for unseen window keys.\n" +
+            "                                                      # Execution flow: Python continues to build the requirement counters below.\n\n" +
+            "        need = Counter(t)  # need[c] = how many copies of character c the window must contain (t's multiset).\n" +
+            "                           # Why multiplicity matters: t = 'aa' requires two 'a's, so counts, not mere presence, decide coverage.\n" +
+            "                           # State: need is fixed for the whole run; it is the target the window must meet.\n\n" +
+            "        required = len(need)  # Number of DISTINCT characters that must each be fully satisfied.\n" +
+            "                              # Why: the window is valid exactly when all `required` distinct requirements are met at once.\n\n" +
+            "        window = defaultdict(int)  # window[c] = how many copies of c are currently inside [left, right].\n" +
+            "                                   # State: incremented as characters enter on the right, decremented as they leave on the left.\n\n" +
+            "        have = 0  # How many DISTINCT required characters are currently fully satisfied (window count == need count).\n" +
+            "                  # Validity test: the window covers t exactly when have == required, an O(1) check.\n" +
+            "                  # State: bumped up when a requirement is first met, bumped down when it is first broken.\n\n" +
+            "        best_len = float('inf')  # Width of the smallest valid window found so far; infinity means none found yet.\n" +
+            "                                 # State: only ever shrinks, and only while the window is valid.\n\n" +
+            "        best_start = 0  # Start index of that smallest valid window, used to slice the answer at the end.\n\n" +
+            "        left = 0  # Left boundary of the window; the candidate is the slice s[left..right] inclusive.\n" +
+            "                  # State: left only moves forward, chasing right to shrink valid windows toward the minimum.\n\n" +
+            "        # ==================== PHASE 3: EXPAND RIGHT, CONTRACT WHILE VALID ====================\n\n" +
+            "        for right in range(len(s)):  # Advance the right edge to admit s[right] into the window.\n" +
+            "                                     # Loop invariant: window holds exact counts for s[left..right-1] before this step.\n" +
+            "                                     # Execution flow: after each right, Python advances to the next index.\n" +
+            "            c = s[right]  # The character entering the window on the right.\n" +
+            "            window[c] += 1  # Admit it: bump its count inside the window.\n" +
+            "                            # State change: window[c] grows by one.\n" +
+            "            if c in need and window[c] == need[c]:  # Is c required, and did its count just REACH the needed amount?\n" +
+            "                                                    # Why == and not >=: only the moment a requirement is first met should raise satisfaction;\n" +
+            "                                                    # surplus copies beyond need[c] must not over-count coverage.\n" +
+            "                have += 1  # One more distinct requirement is now fully satisfied.\n" +
+            "                           # State change: have grows; when it equals required the window becomes valid.\n\n" +
+            "            while have == required:  # The window now covers all of t: try to shrink it from the left to find a smaller answer.\n" +
+            "                                     # Why a while: keep contracting as long as validity holds, seizing every smaller valid window.\n" +
+            "                                     # Execution flow: the loop body records, then evicts, until validity breaks.\n" +
+            "                if right - left + 1 < best_len:  # Is this valid window shorter than the best recorded so far?\n" +
+            "                                                 # Why record here, inside the while and BEFORE evicting: this is where the window is both valid\n" +
+            "                                                 # and at its current shrink minimum; measuring after the eviction would miss the true minimum.\n" +
+            "                    best_len = right - left + 1  # Remember the new smallest width.\n" +
+            "                                                 # State change: best_len shrinks to this window's width.\n" +
+            "                    best_start = left  # Remember where that smallest window begins.\n" +
+            "                left_char = s[left]  # The character about to leave the window on the left.\n" +
+            "                window[left_char] -= 1  # Evict it: drop its count as it leaves the window.\n" +
+            "                                        # State change: window[left_char] shrinks by one.\n" +
+            "                if left_char in need and window[left_char] < need[left_char]:  # Did dropping it push a required character BELOW its needed count?\n" +
+            "                                                                               # If so, this requirement is no longer met and the window has just stopped being valid.\n" +
+            "                    have -= 1  # One fewer distinct requirement is satisfied.\n" +
+            "                               # State change: have drops below required, so the while will exit after left advances.\n" +
+            "                left += 1  # Advance the left edge past the evicted character.\n" +
+            "                           # State change: the window narrows from the front; re-test validity at the while header.\n\n" +
+            "        # ==================== PHASE 4: RETURN ====================\n\n" +
+            "        return s[best_start:best_start + best_len] if best_len != float('inf') else \"\"  # If a valid window was ever found, slice and return it; otherwise no window covers t, so return ''.\n" +
+            "                                                                                        # Why the guard: best_len stays infinity when t cannot be covered (too long, or a char of t absent).\n" +
+            "                                                                                        # Execution flow: this value is handed to the caller and the function ends.",
           plain:
             "class Solution:\n" +
             "    def minWindow(self, s: str, t: str) -> str:\n" +
