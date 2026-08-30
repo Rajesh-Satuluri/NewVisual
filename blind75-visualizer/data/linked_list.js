@@ -754,33 +754,57 @@
           space: "O(1)",
           whenToUse: "The standard, constant-space answer; reach for this first.",
           logic:
-            "**What it asks.** Turn the chain `head -> ... -> tail -> null` into `tail -> ... -> head -> null` by redirecting every `next` pointer, then return the new head (the old tail).\n\n" +
-            "**Why the naive idea fails.** You could collect all values into an array and rebuild a fresh list from the back, but that allocates `O(n)` extra space and creates new nodes when the task is really just to rewire the existing ones. In-place pointer flipping does it with no extra structure.\n\n" +
-            "**Key Idea.** Walk the list once with a `curr` cursor while trailing a `prev` pointer that holds the portion already reversed. At each node, flip `curr.next` to point back at `prev` instead of forward. The only danger is that flipping the pointer destroys the link to the rest of the list, so you must save `curr.next` in a temporary before rewiring. `prev` starts at `null` because the original head must become the new tail, whose `next` is `null`.\n\n" +
+            "**What it asks.** You are handed the `head` of a singly linked list, where each node knows only its own value and a single forward pointer `next` to the node after it. Turn the chain `head -> ... -> tail -> null` into `tail -> ... -> head -> null` by redirecting every `next` pointer to face the opposite way, then return the new head (which is the old tail). Crucially, you are rewiring the *existing* nodes, not producing a copy.\n\n" +
+            "**Why the naive idea fails.** The tempting shortcut is to walk the list once collecting all values into an array, then build a brand-new list by reading that array back to front. It works, but it allocates `O(n)` extra memory for the array and constructs `n` fresh nodes, when the real task is simply to turn the arrows already present. It also side-steps the actual skill the problem is testing — pointer manipulation on the nodes themselves. In-place flipping achieves the same result touching each node once and using only a handful of pointer variables.\n\n" +
+            "**Key Idea.** Sweep the list a single time with a `curr` cursor, while dragging a second pointer `prev` one step behind it. Think of `prev` as the head of the part you have *already* reversed and `curr` as the head of the part still untouched. At each node you perform one local surgery: make `curr.next` point *backward* at `prev` instead of forward at its old successor. But there is a trap unique to linked lists — the moment you overwrite `curr.next`, the link to the rest of the untouched list is gone forever. So before rewiring you must stash `curr.next` in a temporary (`nxt`); that saved reference is your only remaining handle on the remainder. `prev` is seeded with `None` because the original head is destined to become the new tail, and a tail's `next` must be `null`.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. Initialize `prev = None` (the eventual tail's `next`) and `curr = head`.\n" +
-            "2. While `curr` is non-null, first save `nxt = curr.next` so the remainder of the list is not lost.\n" +
-            "3. Flip the link: `curr.next = prev`, pointing the current node backward.\n" +
-            "4. Slide both pointers forward: `prev = curr`, then `curr = nxt`.\n" +
-            "5. When `curr` becomes `null`, `prev` is sitting on the old last node — the new head. Return `prev`.\n\n" +
-            "**Why it works.** Loop invariant: `prev` always heads a correctly-reversed prefix of the nodes seen so far, and `curr` heads the untouched remainder. Each iteration detaches one node from the remainder and prepends it to the reversed prefix, which keeps the invariant true. When the remainder is empty, `prev` heads the fully reversed list.\n\n" +
+            "1. Initialize `prev = None` — nothing precedes the list yet, and this null will become the terminator sitting after the old head. Set `curr = head` to start the cursor at the front.\n" +
+            "2. While `curr` is non-null, first save `nxt = curr.next`. This is the single most important line: it preserves the doorway into the rest of the list before that doorway is bricked over.\n" +
+            "3. Flip the link with `curr.next = prev`, so the current node now points back at the reversed prefix instead of forward.\n" +
+            "4. Slide both pointers one step down the original list: `prev = curr` (the reversed prefix now begins at the node we just flipped), then `curr = nxt` (advance into the saved remainder).\n" +
+            "5. When `curr` finally becomes `null`, the remainder is empty, so `prev` is resting on the old last node — the new head. Return `prev`.\n\n" +
+            "**Why it works.** The engine is a loop invariant: at the top of every iteration, `prev` heads a fully and correctly reversed prefix of the nodes already visited, and `curr` heads the still-original remainder. Each pass detaches exactly one node from the front of the remainder and prepends it to the reversed prefix, which re-establishes the invariant with the boundary moved one node forward. Because the total node count only shrinks on the untouched side, the loop must terminate; and when the remainder is finally empty, the invariant guarantees `prev` heads the entire reversed list.\n\n" +
             "**Common Gotchas.**\n" +
-            "- Save `curr.next` into a temp *before* overwriting `curr.next`, or you lose the rest of the list.\n" +
-            "- Start `prev` at `null`, not at `head`; the original head must end up with `next = null`.\n" +
-            "- Return `prev` (the new head), not `curr`, which is `null` at the end.\n\n" +
-            "**Complexity.** Time `O(n)` — one pass, flipping each pointer once. Space `O(1)` — three pointers, no extra structure.\n\n" +
-            "**Interview mindset.** 'Reverse a linked list' is the canonical `prev`/`curr` walk — memorize the save-flip-advance rhythm; it is a building block inside reorder, k-group reversal, and palindrome checks.",
+            "- Save `curr.next` into a temp *before* overwriting `curr.next`. Reverse the order and you sever the list, stranding every node past `curr`.\n" +
+            "- Start `prev` at `None`, not at `head`. If `prev` began at `head`, the original head would keep a `next` pointing at itself-region and you would form a cycle instead of a null-terminated tail.\n" +
+            "- Return `prev` (the new head), not `curr` — `curr` is `None` once the loop ends.\n" +
+            "- The empty-list case falls out for free: if `head` is `None`, the loop body never runs and `prev` stays `None`, which is the correct answer.\n\n" +
+            "**Complexity.** Time `O(n)` — a single pass that flips each of the `n` pointers exactly once. Space `O(1)` — only three pointer variables (`prev`, `curr`, `nxt`) regardless of list length; no auxiliary arrays or nodes.\n\n" +
+            "**Interview mindset.** 'Reverse a linked list' is the canonical `prev`/`curr` walk — burn the save-flip-advance rhythm into muscle memory. It reappears as a subroutine inside reorder-list, reverse-nodes-in-k-group, and palindrome-linked-list, so the four lines inside this loop are worth being able to write without thinking.",
           rcs:
-            "class Solution:\n" +
-            "    def reverseList(self, head: Optional[ListNode]) -> Optional[ListNode]:\n" +
-            "        prev = None                     # Reversed prefix; also the eventual tail's next.\n" +
-            "        curr = head                     # Cursor over the untouched remainder.\n" +
-            "        while curr:                     # Until every node is flipped.\n" +
-            "            nxt = curr.next             # Save the rest before rewiring.\n" +
-            "            curr.next = prev            # Flip this node's pointer backward.\n" +
-            "            prev = curr                 # Reversed prefix now starts here.\n" +
-            "            curr = nxt                  # Advance into the remainder.\n" +
-            "        return prev                     # prev is the old tail = new head.",
+            "from typing import Optional  # Optional[ListNode] means the value is either a ListNode or None (an empty list).\n\n\n" +
+            "# ListNode is the singly-linked-list node LeetCode provides: it has .val (the payload)\n" +
+            "# and .next (a pointer to the next node, or None at the tail). We only rewire .next here.\n\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls reverseList on it.\n\n" +
+            "    def reverseList(self, head: Optional[ListNode]) -> Optional[ListNode]:  # Return the head of the reversed list.\n\n" +
+            "        # ==================== PHASE 1: SET UP THE TWO WALKING POINTERS ====================\n\n" +
+            "        prev = None  # Head of the reversed part so far; nothing precedes the list yet.\n" +
+            "                     # Why None: the original head becomes the new tail, and a tail's .next must be None.\n" +
+            "                     # State: prev will grow into the fully reversed prefix, one node per iteration.\n\n" +
+            "        curr = head  # Cursor over the still-untouched remainder; starts at the original front.\n" +
+            "                     # State: curr always points at the first node we have NOT reversed yet.\n" +
+            "                     # Execution flow: Python continues to the while loop below.\n\n" +
+            "        # ==================== PHASE 2: WALK THE LIST, FLIPPING ONE POINTER PER STEP ====================\n\n" +
+            "        while curr:  # Keep going until curr falls off the end (curr becomes None).\n" +
+            "                     # Loop invariant: everything from prev backward is already correctly reversed;\n" +
+            "                     #                 everything from curr forward is still in original order.\n" +
+            "                     # Execution flow: each pass moves the boundary between the two parts forward by one node.\n\n" +
+            "            nxt = curr.next  # SAVE FIRST: stash the next node before we destroy the link to it.\n" +
+            "                             # Why critical: the very next line overwrites curr.next, so without this\n" +
+            "                             #               temporary we would lose our only handle on the rest of the list.\n" +
+            "                             # State: nxt now points at the head of the remaining untouched list.\n\n" +
+            "            curr.next = prev  # THE FLIP: point the current node backward at the reversed prefix.\n" +
+            "                              # Before: curr -> nxt (forward).  After: prev <- curr (backward).\n" +
+            "                              # State change: curr is now attached to the reversed side instead of the original side.\n\n" +
+            "            prev = curr  # Extend the reversed prefix: its new head is the node we just flipped.\n" +
+            "                         # State: prev has grown by one node; it heads a longer reversed chain.\n\n" +
+            "            curr = nxt  # Advance the cursor into the remainder we saved earlier.\n" +
+            "                        # State change: curr moves one node forward (or becomes None at the end).\n" +
+            "                        # Execution flow: end of iteration; Python jumps back to the while header to re-test curr.\n\n" +
+            "        # ==================== PHASE 3: HAND BACK THE NEW HEAD ====================\n\n" +
+            "        return prev  # curr is None now, so prev sits on the old last node = the new head.\n" +
+            "                     # Execution flow: return ends reverseList; the reversed list's head goes to the caller.\n" +
+            "                     # Why safe: the loop invariant guarantees prev heads the entire, fully reversed list.",
           plain:
             "class Solution:\n" +
             "    def reverseList(self, head: Optional[ListNode]) -> Optional[ListNode]:\n" +
@@ -799,31 +823,51 @@
           space: "O(n)",
           whenToUse: "When an interviewer asks for a recursive version, or to show you can reason about the call stack.",
           logic:
-            "**What it asks.** Reverse the same list, but expressed recursively — letting the call stack do the trailing-pointer bookkeeping the iterative version does by hand.\n\n" +
-            "**Why the naive idea fails.** The iterative flip is already optimal in time; recursion trades its `O(1)` space for `O(n)` stack frames. It is worth knowing not for efficiency but because it clarifies the structure and is a common follow-up.\n\n" +
-            "**Key Idea.** Recurse to the end of the list first; the deepest call returns the new head (the old last node). As each frame unwinds, the current node's *successor* should now point back at the current node. Concretely, from node `head`, once `head.next` and everything after it is reversed, make `head.next.next = head` (the next node points back to us) and cut `head.next = None` so the old head becomes the tail.\n\n" +
+            "**What it asks.** Reverse the very same singly linked list, but express the solution recursively — letting the call stack keep track of where you are, instead of the hand-maintained trailing `prev` pointer of the iterative version. The output contract is identical: return the head of the reversed list (the old tail).\n\n" +
+            "**Why the naive idea fails.** There is nothing wrong with the iterative flip — it is already optimal at `O(1)` space. Recursion does not beat it; it trades that constant space for `O(n)` stack frames, one per node. So you reach for it not for efficiency but because interviewers frequently ask for it, and because it exposes the underlying structure of the problem beautifully: 'reverse the rest, then fix a single boundary link.'\n\n" +
+            "**Key Idea.** Trust the recursion to reverse everything *after* the current node, then do one small fix-up locally. Concretely, standing at node `head`: first recurse on `head.next`, which dives all the way to the end and hands back `new_head` — the old last node, which is the head of the now-reversed remainder. At this moment `head.next` still points at the node immediately after `head`, and that node is now the *tail* of the reversed remainder. So the one link you must repair is: make that node point back at `head` (`head.next.next = head`), then sever `head`'s own forward link (`head.next = None`) so that `head` becomes a proper tail with a null terminator. Each unwinding frame stitches exactly one node onto the growing reversed chain.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. Base case: if `head` is `null` or `head.next` is `null`, the list of length 0 or 1 is its own reverse — return `head`.\n" +
-            "2. Recurse on `head.next`; it returns `new_head`, the head of the already-reversed remainder.\n" +
-            "3. Rewire the boundary: `head.next.next = head` makes the node after `head` point back at `head`.\n" +
-            "4. Set `head.next = None` so `head` becomes the new tail with a null terminator.\n" +
-            "5. Return `new_head` unchanged up the stack — it stays the head at every level.\n\n" +
-            "**Why it works.** By the time a frame runs its rewiring, everything past `head` is already reversed and `head.next` is that reversed sublist's tail. Pointing that tail back at `head` and nulling `head.next` extends the reversal by exactly one node, and `new_head` — the original last node — is threaded back unchanged so the top-level call returns the correct head.\n\n" +
+            "1. Base case: if `head` is `None` (empty list) or `head.next` is `None` (single node), the list is already its own reverse, so return `head`. This is also the value that becomes `new_head` and rides all the way back up the stack.\n" +
+            "2. Recurse on `head.next`. The current frame pauses here and does not continue until the entire tail has been reversed; the call returns `new_head`, the head of the reversed remainder.\n" +
+            "3. Rewire the boundary: `head.next.next = head`. Read it slowly — `head.next` is the node just after `head` (now the reversed remainder's tail), and we set *its* `next` to point back at `head`.\n" +
+            "4. Set `head.next = None` so `head` stops pointing forward and becomes the new tail.\n" +
+            "5. Return `new_head` unchanged. It is the same object at every level, so the top-level call returns the true head of the fully reversed list.\n\n" +
+            "**Why it works.** Induction on list length. Assume the recursive call correctly reverses the sublist starting at `head.next`. When that call returns, everything past `head` is reversed and `head.next` references its tail. Pointing that tail back at `head` and nulling `head`'s own forward link appends `head` to the end of the reversed sublist — extending a correct reversal of length `k` into a correct reversal of length `k+1`. The base case handles lengths 0 and 1 directly, so by induction every length is handled. `new_head` never changes as frames unwind, so it faithfully names the head all the way up.\n\n" +
             "**Common Gotchas.**\n" +
-            "- Do not forget `head.next = None`; without it the original head keeps its forward link and you create a two-node cycle.\n" +
-            "- Return `new_head` (bubbled up from the base case), never `head`.\n" +
-            "- Deep lists can hit Python's recursion limit; the iterative version avoids that.\n\n" +
-            "**Complexity.** Time `O(n)` — one call per node. Space `O(n)` — the recursion stack holds one frame per node.\n\n" +
-            "**Interview mindset.** The recursive form is the cleanest illustration of 'reverse the rest, then fix the one boundary link'; mention its `O(n)` stack cost as the reason the iterative version is preferred in practice.",
+            "- Do not forget `head.next = None`. Skip it and the original head keeps its old forward pointer while also being pointed *at*, producing a two-node cycle that loops forever.\n" +
+            "- Return `new_head` (bubbled up from the base case), never `head` — `head` ends up as the tail, not the head.\n" +
+            "- `head.next.next = head` is only valid because the base case guaranteed `head.next` exists at this point; the base case is what makes the dereference safe.\n" +
+            "- Deep lists (up to 5000 nodes here) can approach Python's default recursion limit; the iterative version sidesteps that entirely.\n\n" +
+            "**Complexity.** Time `O(n)` — exactly one call per node, each doing constant work. Space `O(n)` — the call stack holds one frame per node until the deepest call returns.\n\n" +
+            "**Interview mindset.** This is the cleanest illustration of 'delegate the rest to recursion, then fix one boundary link.' Say the base case out loud, describe what a single call is responsible for, and flag the `O(n)` stack cost as the exact reason the iterative walk is preferred in production.",
           rcs:
-            "class Solution:\n" +
-            "    def reverseList(self, head: Optional[ListNode]) -> Optional[ListNode]:\n" +
-            "        if not head or not head.next:   # Length 0 or 1: already reversed.\n" +
-            "            return head\n" +
-            "        new_head = self.reverseList(head.next)  # Reverse everything after head.\n" +
-            "        head.next.next = head           # The next node points back at head.\n" +
-            "        head.next = None                # head becomes the new tail.\n" +
-            "        return new_head                 # Old last node stays the head throughout.",
+            "from typing import Optional  # Optional[ListNode] means the value is either a ListNode or None (an empty list).\n\n\n" +
+            "# ListNode is the singly-linked-list node LeetCode provides: it has .val (the payload)\n" +
+            "# and .next (a pointer to the next node, or None at the tail). We rewire .next during unwinding.\n\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls reverseList on it.\n\n" +
+            "    def reverseList(self, head: Optional[ListNode]) -> Optional[ListNode]:  # Return the head of the reversed list.\n\n" +
+            "        # ==================== PHASE 1: BASE CASE (STOP THE RECURSION) ====================\n\n" +
+            "        if not head or not head.next:  # Empty list (head is None) or a single node (head.next is None).\n" +
+            "                                       # Why stop: a list of length 0 or 1 is already its own reverse.\n" +
+            "            return head  # Hand this node (or None) back up; it becomes new_head for the whole chain.\n" +
+            "                         # Execution flow: this return unwinds one level to the caller frame.\n\n" +
+            "        # ==================== PHASE 2: REVERSE THE REST, THEN FIX ONE LINK ====================\n\n" +
+            "        new_head = self.reverseList(head.next)  # Recurse: reverse everything AFTER head first.\n" +
+            "                                                # What one call does: fully reverses the sublist starting at head.next.\n" +
+            "                                                # Pause point: this frame waits here; it resumes only when the\n" +
+            "                                                #              deeper calls finish and hand back new_head.\n" +
+            "                                                # new_head: the old last node, head of the reversed remainder; it is\n" +
+            "                                                #           the same object returned unchanged at every level.\n\n" +
+            "        # -- At this moment: head.next is the node right after head, which is now the TAIL of the reversed remainder. --\n\n" +
+            "        head.next.next = head  # Point that tail node BACK at head, appending head to the reversed chain.\n" +
+            "                               # Read carefully: head.next is the following node; we set ITS .next to head.\n" +
+            "                               # Why safe: the base case guaranteed head.next exists, so this dereference is valid.\n\n" +
+            "        head.next = None  # Cut head's own forward link so head becomes the new tail with a null terminator.\n" +
+            "                          # Why critical: skip this and head still points forward while being pointed at -> a 2-node cycle.\n\n" +
+            "        # ==================== PHASE 3: PASS THE NEW HEAD UPWARD ====================\n\n" +
+            "        return new_head  # Return the unchanged head of the reversed list to the caller one level up.\n" +
+            "                         # Execution flow: this return ends the current frame; when all frames unwind,\n" +
+            "                         #                 the top-level call hands new_head to LeetCode as the final answer.",
           plain:
             "class Solution:\n" +
             "    def reverseList(self, head: Optional[ListNode]) -> Optional[ListNode]:\n" +

@@ -71,42 +71,68 @@
           space: "O(n)",
           whenToUse: "The canonical answer for any 'are these brackets/tags balanced and correctly nested?' question.",
           logic:
-            "**What it asks.** Given a string of only bracket characters, decide whether it is valid: every open bracket is closed by one of the **same type**, and brackets close in the **correct order** \u2014 the most recently opened is the first to be closed.\n\n" +
-            "**Why the naive idea fails.** The tempting shortcut is to just count opens versus closes and check they match. But counting accepts `\"([)]\"`, because the totals balance perfectly even though the pairs interleave instead of nesting. The problem is about *order*, not just quantity, so you must know exactly which bracket is still waiting to be closed at any moment.\n\n" +
-            "**Key Idea.** When a close bracket appears, it must match the **most recently opened** bracket that is still unclosed. \u201cMost recent thing must be resolved first\u201d is precisely **LIFO**, which is exactly what a **stack** gives you. Pair this with a lookup map from each close bracket to its required open (`{ ')': '(', ']': '[', '}': '{' }`) so each match is a single comparison rather than a tangle of `if`s.\n\n" +
-            "**What the stack holds.** The stack holds every open bracket seen so far that has **not yet been closed**, most recent on top. Invariant: read top-to-bottom, the stack is the chain of still-open brackets from innermost to outermost \u2014 so its top is always the next bracket that must be closed.\n\n" +
+            "**What it asks.** You are given a string built only from the six bracket characters `()[]{}`. Decide whether it is *valid*. Validity has three parts that all must hold at once: every open bracket is eventually closed, each close is of the **same type** as the open it resolves, and the brackets close in the **correct order** \u2014 the most recently opened bracket is always the first one to be closed.\n\n" +
+            "The third part is the subtle one. It is what separates cleanly nested strings like `\"{[]}\"` from interleaved ones like `\"([)]\"`, where the pairs cross over each other instead of nesting.\n\n" +
+            "**Why the naive idea fails.** The tempting shortcut is to just count: tally the opens and the closes of each type and check the totals agree. But counting is blind to order. It happily accepts `\"([)]\"` because there is one `(`, one `)`, one `[` and one `]` \u2014 the totals balance perfectly \u2014 even though the pairs interleave instead of nesting.\n\n" +
+            "The lesson is that the problem is about *structure*, not quantity. At every moment you must know **exactly which bracket is still waiting to be closed**, and specifically which one is the most recent, because that is the only one a new closing bracket is allowed to match.\n\n" +
+            "**Key Idea.** When a close bracket appears, it must match the **most recently opened** bracket that is still unclosed. \u201cThe most recent thing must be resolved first\u201d is precisely the definition of **LIFO** (last-in, first-out), and a **stack** is the data structure that gives you LIFO for free: you push onto the top and pop from the top, both in `O(1)`.\n\n" +
+            "Pair the stack with a small lookup map from each close bracket to the open it requires \u2014 `{ ')': '(', ']': '[', '}': '{' }`. That turns every match into a single dictionary lookup and one comparison, instead of a tangle of nested `if`/`elif` branches for each bracket type.\n\n" +
+            "**What the stack holds.** The stack holds every open bracket seen so far that has **not yet been closed**, with the most recent one on top. Read it bottom-to-top and it is the chain of currently open brackets from the outermost down to the innermost \u2014 so its top is always the next bracket that is allowed to close.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. Scan the string left to right one character at a time.\n" +
-            "2. If the character is an open bracket, **push** it onto the stack.\n" +
-            "3. If it is a close bracket, look up its required open. Check the stack: if it is non-empty and its top equals that required open, **pop** (this resolves the pair).\n" +
-            "4. Otherwise \u2014 wrong type on top, or an empty stack (a close with nothing open to match) \u2014 return invalid immediately.\n" +
-            "5. After the whole scan, return valid only if the stack is **empty**.\n\n" +
-            "**Why it works.** Each open grows the stack by one; each correct close shrinks it by one. Because the top is always the most recently opened unclosed bracket, matching against it enforces both correct type and correct nesting order in a single check. The empty-at-end test is essential: anything left over (e.g. `\"(((\"`) is an open bracket that was never closed, so the string is valid iff the stack empties exactly.\n\n" +
+            "1. Create an empty stack and the close-to-open map. Scan the string left to right, one character at a time.\n" +
+            "2. If the character is an **open** bracket, **push** it onto the stack \u2014 it now becomes the top and waits for its own closer.\n" +
+            "3. If the character is a **close** bracket, look up the open it requires. Then check the stack: if it is non-empty **and** its top equals that required open, **pop** the top \u2014 this consumes the matching open and resolves the pair.\n" +
+            "4. Otherwise \u2014 the top is the wrong type, or the stack is empty (a close with nothing open to match) \u2014 the string cannot be valid, so return `false` immediately.\n" +
+            "5. After the scan finishes, return `true` only if the stack is **empty**.\n\n" +
+            "**Why it works.** Every open bracket grows the stack by one; every correct close shrinks it by one. Because the top is always the most recently opened unclosed bracket, comparing a new closer against the top checks **type and nesting order simultaneously** in one step \u2014 the wrong type fails the equality test, and wrong order shows up as the wrong bracket sitting on top.\n\n" +
+            "The final empty check is not optional. A string like `\"(((\"` passes every per-character step \u2014 there are no closes to go wrong \u2014 yet it is invalid because three opens were never closed. The string is valid if and only if the stack fills and drains back to exactly empty.\n\n" +
             "**Common Gotchas.**\n" +
-            "- A close bracket arriving on an **empty** stack must be rejected \u2014 there is nothing to match it to.\n" +
+            "- A close bracket arriving on an **empty** stack must be rejected \u2014 there is nothing to match it to. Check the stack is non-empty *before* you index its top.\n" +
             "- Do not forget the final empty check; a string of only opens passes every per-character step but is still invalid.\n" +
-            "- Matching type matters, not just open-vs-close: `\"(]\"` must fail even though counts balance.\n\n" +
-            "**Complexity.** Time `O(n)`: one pass, each character pushed and popped at most once. Space `O(n)`: an all-open string like `\"((((\"` holds up to `n` brackets on the stack.\n\n" +
-            "**Interview mindset.** \u201cBalanced\u201d or \u201ccorrectly nested\u201d anything \u2014 brackets, HTML tags, nested expressions \u2014 is the signal to reach for a stack of the things still waiting to be closed, matching each new closer against the top.",
+            "- Matching **type** matters, not just open-vs-close: `\"(]\"` must fail even though the counts balance.\n" +
+            "- Order the guard as `stack and stack[-1] == ...` so short-circuit evaluation stops before `stack[-1]` ever touches an empty list.\n\n" +
+            "**Complexity.** Time `O(n)`: a single pass, and each character is pushed and popped at most once. Space `O(n)`: an all-open string like `\"((((\"` holds up to `n` brackets on the stack at once.\n\n" +
+            "**Interview mindset.** \u201cBalanced\u201d or \u201ccorrectly nested\u201d anything \u2014 brackets, HTML tags, nested expressions \u2014 is the signal to reach for a stack of the things still waiting to be closed, matching each new closer against the top. If you catch yourself worrying about *order of resolution*, that is LIFO calling your name.",
           rcs:
-            "class Solution:\n" +
-            "    def isValid(self, s: str) -> bool:\n" +
-            "        stack = []                          # Holds open brackets not yet closed (top = most recent).\n" +
-            "        close_to_open = {                   # Each close bracket -> the open it must match.\n" +
-            "            ')': '(',\n" +
-            "            ']': '[',\n" +
-            "            '}': '{',\n" +
-            "        }\n" +
-            "        for ch in s:                        # Scan the string left to right.\n" +
-            "            if ch in close_to_open:         # It's a CLOSE bracket.\n" +
-            "                # Valid only if the top is exactly the matching open.\n" +
-            "                if stack and stack[-1] == close_to_open[ch]:\n" +
-            "                    stack.pop()             # Matched: resolve that open bracket.\n" +
+            "class Solution:  # LeetCode instantiates this class and calls isValid on the object.\n\n" +
+            "    def isValid(self, s: str) -> bool:  # Return True iff every bracket in s closes with the right type in the right order.\n\n" +
+            "        # ==================== PHASE 1: PREPARE ====================\n\n" +
+            "        stack = []  # Holds every open bracket seen so far that has NOT yet been closed.\n" +
+            "                    # Why a stack: the newest still-open bracket must close first (LIFO), and a list gives O(1) append/pop.\n" +
+            "                    # State: the top, stack[-1], is always the most recently opened, still-unclosed bracket.\n" +
+            "                    # Execution flow: Python continues to build the lookup map below.\n\n" +
+            "        close_to_open = {   # Map each CLOSE bracket to the exact OPEN bracket it is allowed to match.\n" +
+            "            ')': '(',       # A ')' may only close a '('.\n" +
+            "            ']': '[',       # A ']' may only close a '['.\n" +
+            "            '}': '{',       # A '}' may only close a '{'.\n" +
+            "        }                   # Why a dict: one O(1) lookup replaces a chain of if/elif type checks.\n" +
+            "                            # Execution flow: Python enters the scan loop.\n\n" +
+            "        # ==================== PHASE 2: SCAN AND MATCH ====================\n\n" +
+            "        for ch in s:  # Read the string one character at a time, left to right.\n" +
+            "                      # Loop invariant: stack holds, bottom-to-top, every still-open bracket from outermost to innermost.\n" +
+            "                      # Execution flow: after each character Python returns here for the next one.\n\n" +
+            "            if ch in close_to_open:  # Is ch a CLOSE bracket (i.e. a key of the map)?\n" +
+            "                                     # Why: only a close can resolve a pair; open brackets are handled in the else branch.\n\n" +
+            "                # A close is valid ONLY if the stack is non-empty AND its top is exactly ch's required open.\n" +
+            "                # 'stack and ...' short-circuits, so stack[-1] never indexes an empty list.\n" +
+            "                # LIFO: the most recently opened bracket is precisely the one that must close first.\n" +
+            "                if stack and stack[-1] == close_to_open[ch]:  # Does the newest open match ch's partner?\n" +
+            "                    stack.pop()  # Matched: pop removes and returns the top open; the pair is now resolved.\n" +
+            "                                 # State change: stack shrinks by one; the bracket below becomes the new top.\n" +
+            "                                 # Execution flow: skip the else, fall to the loop end, then back to the for header.\n" +
             "                else:\n" +
-            "                    return False            # Wrong type, or nothing open to close.\n" +
-            "            else:                           # It's an OPEN bracket.\n" +
-            "                stack.append(ch)            # Remember it until its close arrives.\n" +
-            "        return not stack                    # Valid iff every open was closed (stack empty).",
+            "                    return False  # Wrong type on top, or an empty stack (a close with nothing to match).\n" +
+            "                                  # Execution flow: return ends isValid at once; no code below runs.\n" +
+            "                                  # Why safe: a type mismatch or an orphan close can never become valid later.\n\n" +
+            "            else:  # ch is not a close bracket, so it must be an OPEN bracket.\n" +
+            "                stack.append(ch)  # Push it: append makes ch the new top, waiting for its own close later.\n" +
+            "                                  # State change: stack grows by one; ch is now stack[-1].\n" +
+            "                                  # Execution flow: end of iteration; Python returns to the for header for the next char.\n\n" +
+            "        # ==================== PHASE 3: FINAL CHECK ====================\n\n" +
+            "        return not stack  # Valid iff the stack is empty: every open bracket found its close.\n" +
+            "                          # Why: leftovers (e.g. '(((') are opens that were never closed, so the string is invalid.\n" +
+            "                          # Note: 'not stack' is True for an empty list and False otherwise (Python truthiness).\n" +
+            "                          # Execution flow: this value is handed to the caller and isValid ends.",
           plain:
             "class Solution:\n" +
             "    def isValid(self, s: str) -> bool:\n" +

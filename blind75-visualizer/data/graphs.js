@@ -645,47 +645,64 @@
           space: "O(m*n)",
           whenToUse: "The default: counting connected regions in a grid; concise recursion that sinks each island as it is found.",
           logic:
-            "**What it asks.** Count the islands in a grid of `'1'` (land) and `'0'` (water), where an island is a maximal group of land cells connected horizontally or vertically.\n\n" +
-            "**Graph modeling.** The grid is an implicit graph: **nodes** are land cells (`'1'`); an **edge** connects two land cells that are vertically or horizontally adjacent. An **island is exactly a connected component**, so the task is *counting connected components*.\n\n" +
-            "**Why the naive idea fails.** You can't just count `'1'`s \u2014 many belong to the same island. And re-scanning the whole grid to test membership of already-counted land wastes work. We need to discover each component once and mark all its cells so they're never recounted.\n\n" +
-            "**Key Idea.** Scan every cell. The first time you hit unvisited land, you've found a new island \u2014 increment the count, then flood-fill (DFS) its entire component so none of its cells triggers another increment. The flood is a connected-component traversal: 'from this land cell, reach all land connected to it'.\n\n" +
-            "**Why DFS fits.** Reaching all land connected to a start cell is precisely a depth-first traversal over the adjacency edges. The `visited` marker prevents recounting \u2014 either a separate set, or (cheaper) overwrite each visited `'1'` with `'0'` to 'sink' it, meaning 'already part of a counted island'.\n\n" +
+            "**What it asks.** Count the islands in an `m x n` grid whose cells are the *characters* `'1'` (land) and `'0'` (water). An island is a maximal group of land cells joined horizontally or vertically \u2014 diagonal touches do not count. The productive way to see this is as an *implicit graph*: each land cell is a **node**, and an **edge** joins two land cells that are 4-directionally adjacent. Under that lens an island is exactly a **connected component**, so the real question is 'how many connected components of land does this grid contain?'\n\n" +
+            "**Why the naive idea fails.** You cannot simply count the `'1'`s \u2014 a single island may be made of hundreds of land cells, and each one would be counted separately. Nor can you re-scan the whole grid to test whether a cell already belongs to a counted island; that repeated membership testing explodes the work. What you need is to discover each component *once* and permanently mark all of its cells, so none of them is ever counted or explored a second time.\n\n" +
+            "**Key Idea.** Sweep the grid cell by cell. The first time you land on a cell that is still `'1'`, you have found a brand-new island: increment the counter once, then *flood-fill* the entire component so every other cell of that same island gets marked and can never trigger another increment. Flood-fill is just 'from this land cell, reach every land cell connected to it' \u2014 a traversal over the adjacency edges, which is a natural fit for depth-first search.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. Iterate over every cell `(r, c)`.\n" +
-            "2. When `grid[r][c] == '1'`, increment the island count and call `dfs(r, c)`.\n" +
-            "3. `dfs` sinks the current cell to `'0'`, then recurses into the four neighbors (up/down/left/right).\n" +
-            "4. Each recursive call stops immediately if it is out of bounds or on water/visited (`!= '1'`).\n" +
-            "5. Return the accumulated count after the full scan.\n\n" +
-            "**Why it works.** Each land cell is flooded exactly once \u2014 by the first scan that reaches its island \u2014 so the count increments once per component, since every other cell of that island is already `'0'` by the time the outer loop reaches it.\n\n" +
+            "1. Handle the empty grid up front, then cache `m` (rows) and `n` (columns) and start `count = 0`.\n" +
+            "2. Define `dfs(r, c)` whose job is to sink one whole component. Its base case returns immediately when `(r, c)` is out of bounds or the cell is not `'1'` (water or already-sunk land).\n" +
+            "3. Otherwise `dfs` sinks the current cell by overwriting `'1'` with `'0'`, then recurses into all four neighbours (down, up, right, left).\n" +
+            "4. In the main double loop, whenever `grid[r][c] == '1'`, do `count += 1` and call `dfs(r, c)` to erase the whole island.\n" +
+            "5. Return `count` once the scan completes.\n\n" +
+            "**Why it works.** Overwriting each visited `'1'` with `'0'` *is* the visited-marker: a sunk cell fails the `'1'` test, so neither the recursion nor the outer scan can revisit it \u2014 that is what prevents infinite loops and double counting. As a result each land cell is flooded exactly once, by the first scan that reaches its island, and every remaining cell of that island is already `'0'` by the time the outer loop arrives at it. So the counter advances exactly once per component.\n\n" +
             "**Common Gotchas.**\n" +
-            "- Cells are the string characters `'1'`/`'0'`, not integers \u2014 compare against `'1'`.\n" +
-            "- Connectivity is 4-directional only; diagonal touches do NOT join islands.\n" +
-            "- On a single giant island the recursion depth reaches `m*n`, which can overflow the stack \u2014 that's the reason BFS exists.\n\n" +
-            "**Complexity.** Time `O(m*n)` \u2014 each cell examined a constant number of times. Space `O(m*n)` worst-case recursion depth (one grid-filling island).\n\n" +
-            "**Interview mindset.** 'Count regions/blobs/clusters in a grid' with 4-directional adjacency is the connected-components-via-flood-fill signal \u2014 DFS or BFS, sinking visited land as you go.",
+            "- The cells are the *string characters* `'1'`/`'0'`, not integers \u2014 compare against `'1'`, never `1`.\n" +
+            "- Connectivity is 4-directional only; diagonal adjacency does not join two islands.\n" +
+            "- Put the bounds checks *before* the `grid[r][c]` access in the base case, so you never index out of range.\n" +
+            "- On a grid that is one giant island the recursion depth can reach `m*n` and overflow the call stack \u2014 precisely the motivation for the iterative BFS variant.\n\n" +
+            "**Complexity.** Time `O(m*n)`: every cell is examined a constant number of times (once by the outer scan, plus a constant number of times as a neighbour during flooding). Space `O(m*n)` in the worst case \u2014 the recursion stack for a single space-filling island.\n\n" +
+            "**Interview mindset.** 'Count regions / blobs / clusters in a grid' with 4-directional adjacency is the textbook signal for connected-components-via-flood-fill. Say you will scan for new land, count once, and sink the component with DFS (or BFS); mention the stack-depth caveat as the reason BFS exists.",
           rcs:
-            "class Solution:\n" +
-            "    def numIslands(self, grid: List[List[str]]) -> int:\n" +
-            "        if not grid or not grid[0]:\n" +
-            "            return 0\n" +
-            "        m, n = len(grid), len(grid[0])\n" +
-            "        count = 0\n" +
-            "\n" +
-            "        def dfs(r, c):\n" +
-            "            if r < 0 or r >= m or c < 0 or c >= n or grid[r][c] != '1':\n" +
-            "                return                        # Out of bounds or water/visited: stop.\n" +
-            "            grid[r][c] = '0'                  # Sink this land so it isn't counted again.\n" +
-            "            dfs(r + 1, c)                     # Flood the four connected neighbors.\n" +
-            "            dfs(r - 1, c)\n" +
-            "            dfs(r, c + 1)\n" +
-            "            dfs(r, c - 1)\n" +
-            "\n" +
-            "        for r in range(m):\n" +
-            "            for c in range(n):\n" +
-            "                if grid[r][c] == '1':         # New unvisited land => a new island.\n" +
-            "                    count += 1\n" +
-            "                    dfs(r, c)                 # Erase the whole island.\n" +
-            "        return count",
+            "from typing import List  # List lets the type hints say the grid is a list of lists of str characters.\n\n\n" +
+            "class Solution:  # LeetCode instantiates this class and calls numIslands on the object.\n\n" +
+            "    def numIslands(self, grid: List[List[str]]) -> int:  # Return how many separate islands of '1' land the grid holds.\n\n" +
+            "        # ==================== PHASE 1: MODEL THE GRID AS A GRAPH ====================\n\n" +
+            "        # Mental model: read the grid as an IMPLICIT graph.\n" +
+            "        #   Node   = one land cell, i.e. a cell holding the character '1'.\n" +
+            "        #   Edge   = joins two land cells that touch up / down / left / right (never diagonally).\n" +
+            "        #   Island = one CONNECTED COMPONENT of that graph, so counting islands == counting components.\n\n" +
+            "        if not grid or not grid[0]:  # Guard the empty grid (no rows) and the empty-first-row case.\n" +
+            "            return 0                 # No cells => no land => zero islands; nothing below runs.\n" +
+            "                                     # Why safe: everything after this assumes grid[0] exists for len(grid[0]).\n\n" +
+            "        m, n = len(grid), len(grid[0])  # m = row count, n = column count; cached for the bounds checks.\n" +
+            "                                        # State: every cell is addressed by 0 <= r < m and 0 <= c < n.\n" +
+            "        count = 0                       # Running island tally; incremented once per NEW component we discover.\n" +
+            "                                        # Loop invariant (Phase 3): count == number of islands fully sunk so far.\n\n" +
+            "        # ==================== PHASE 2: FLOOD-FILL ONE ISLAND (DFS) ====================\n\n" +
+            "        def dfs(r, c):  # One call means 'from cell (r, c), sink every land cell reachable from it'.\n" +
+            "                        # Returns nothing: its whole purpose is the SIDE EFFECT of mutating grid to '0'.\n\n" +
+            "            if r < 0 or r >= m or c < 0 or c >= n or grid[r][c] != '1':  # Base case: off-grid, or water/already-sunk.\n" +
+            "                return  # Stop this branch; do not recurse further.\n" +
+            "                        # Short-circuit order matters: the four bounds tests run BEFORE grid[r][c],\n" +
+            "                        # so a neighbour past the edge is rejected and we never index out of range.\n\n" +
+            "            grid[r][c] = '0'  # Sink this land cell: overwrite '1' -> '0' to mark it visited.\n" +
+            "                              # Why: this IS the visited-marker; a sunk cell fails the '1' test above,\n" +
+            "                              #      so recursion can never revisit it -> no infinite loop, no double count.\n\n" +
+            "            dfs(r + 1, c)  # Recurse DOWN. This call PAUSES the current frame until the neighbour finishes,\n" +
+            "                           #             then execution RESUMES here at the next line.\n" +
+            "            dfs(r - 1, c)  # Recurse UP.\n" +
+            "            dfs(r, c + 1)  # Recurse RIGHT.\n" +
+            "            dfs(r, c - 1)  # Recurse LEFT.\n" +
+            "                           # These four edges together reach the WHOLE component before dfs(r, c) returns.\n\n" +
+            "        # ==================== PHASE 3: SCAN EVERY CELL ====================\n\n" +
+            "        for r in range(m):          # Walk every row, top to bottom...\n" +
+            "            for c in range(n):      # ...and every column, left to right: each cell is visited exactly once.\n" +
+            "                if grid[r][c] == '1':  # Unvisited land the scan has not yet sunk => the first cell of a NEW island.\n" +
+            "                    count += 1         # Count that island ONCE, here, before flooding it.\n" +
+            "                    dfs(r, c)          # Flood-fill sinks the entire component to '0', so every OTHER cell of\n" +
+            "                                       # this island is already '0' when the scan reaches it -> one component,\n" +
+            "                                       # one increment. Water ('0') is simply skipped by the if.\n\n" +
+            "        return count  # Every cell scanned, every island sunk and counted: hand back the total; nothing runs after.",
           plain:
             "class Solution:\n" +
             "    def numIslands(self, grid: List[List[str]]) -> int:\n" +
@@ -716,47 +733,61 @@
           space: "O(min(m, n))",
           whenToUse: "When the grid is huge and deep recursion could overflow the stack; iterative flood fill with a queue.",
           logic:
-            "**What it asks.** The same island count, produced with an explicit queue so there's no deep recursion.\n\n" +
-            "**Graph modeling.** Unchanged: **nodes** are land cells, **edges** are 4-directional adjacency, and an island is a connected component. We still scan for the first cell of each island and count it, but flood the component with a **queue** instead of the call stack.\n\n" +
-            "**Why the naive idea fails.** The recursive DFS is correct but on a huge single island (up to 300x300 land cells) its recursion depth can overflow the stack. An iterative BFS keeps memory to the frontier and avoids that.\n\n" +
-            "**Key Idea.** On finding unvisited land, increment the count, sink the starting cell to `'0'`, and push it onto a queue. Repeatedly pop a cell and enqueue its still-`'1'` neighbors, sinking each *as it is enqueued*. Marking a cell `'0'` at enqueue time is the visited check \u2014 without it, two neighbors could enqueue the same cell and it would be processed twice.\n\n" +
-            "**Why BFS fits.** Flood fill only needs to reach every connected land cell; order is irrelevant, so a queue-driven frontier explores the component just as completely as recursion, with bounded depth.\n\n" +
+            "**What it asks.** Produce the same island count, but flood each component with an explicit *queue* so there is no deep recursion. The graph model is unchanged: land cells are **nodes**, 4-directional adjacency gives the **edges**, and an island is a **connected component**. We still scan for the first cell of each island and count it once \u2014 only the traversal mechanism changes.\n\n" +
+            "**Why the naive idea fails.** The recursive DFS is correct, but on a huge single island \u2014 up to `300 x 300 = 90,000` connected land cells \u2014 its recursion depth can grow to the size of the component and overflow the call stack. Replacing the implicit call stack with an explicit queue keeps the extra memory bounded to the current frontier and removes that failure mode entirely.\n\n" +
+            "**Key Idea.** When the scan finds unvisited land, increment the count, sink that starting cell to `'0'`, and push it onto a queue. Then repeatedly pop a cell from the *front* of the queue and, for each of its four neighbours that is still `'1'`, sink it and enqueue it. Sinking a cell to `'0'` *at the moment it is enqueued* is the visited-check: without it, two different frontier cells could each enqueue the same shared neighbour and it would be processed twice. BFS works because flood-fill only needs to *reach* every connected land cell \u2014 the order is irrelevant, so a queue-driven frontier explores the component just as completely as recursion, but with bounded depth. (The `popleft` gives FIFO order, so cells are visited in expanding rings around the seed.)\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. Iterate over every cell `(r, c)`.\n" +
-            "2. When `grid[r][c] == '1'`, increment the count, sink it to `'0'`, and seed a queue with `(r, c)`.\n" +
-            "3. While the queue is non-empty, pop a cell and look at its four neighbors.\n" +
-            "4. For each in-bounds neighbor still equal to `'1'`, sink it to `'0'` and enqueue it.\n" +
-            "5. When the queue drains, the island is fully consumed; continue the scan and return the count.\n\n" +
-            "**Why it works.** Sinking on enqueue makes each land cell enter the queue exactly once, so a component is flooded completely and counted a single time, identical in outcome to the DFS version.\n\n" +
+            "1. Handle the empty grid, cache `m` and `n`, and start `count = 0`.\n" +
+            "2. Scan every cell `(r, c)`. When `grid[r][c] == '1'`, increment the count, sink it to `'0'`, and seed a `deque` with `(r, c)`.\n" +
+            "3. While the queue is non-empty, `popleft` a cell and examine its four neighbours.\n" +
+            "4. For each in-bounds neighbour still equal to `'1'`, sink it to `'0'` and append it to the queue.\n" +
+            "5. When the queue drains, the island is fully consumed; continue the scan, and return `count` at the end.\n\n" +
+            "**Why it works.** Sinking on enqueue makes each land cell enter the queue exactly once, so a component is flooded completely and counted a single time \u2014 identical in outcome to the DFS version, just with an explicit frontier instead of the call stack.\n\n" +
             "**Common Gotchas.**\n" +
-            "- Sink cells on enqueue, not on dequeue \u2014 otherwise duplicates enter the queue.\n" +
-            "- Cells are string `'1'`/`'0'`; compare against the character.\n" +
-            "- 4-directional only; diagonals don't connect.\n\n" +
-            "**Complexity.** Time `O(m*n)` \u2014 every cell processed once. Space is the queue frontier, `O(min(m, n))` in the usual analysis \u2014 no deep call stack.\n\n" +
-            "**Interview mindset.** When a grid flood-fill is correct recursively but the grid is large, switch to the queue-based BFS to remove stack-overflow risk while keeping linear time.",
+            "- Sink cells *on enqueue*, not on dequeue \u2014 sinking at dequeue lets the same cell be appended by several neighbours before it is popped, so duplicates pile into the queue.\n" +
+            "- The cells are the string characters `'1'`/`'0'`; compare against the character, not the integer `1`.\n" +
+            "- Connectivity is 4-directional only; diagonals do not connect.\n" +
+            "- Check bounds *before* indexing `grid[nr][nc]` so an off-grid neighbour never raises.\n\n" +
+            "**Complexity.** Time `O(m*n)` \u2014 every cell is enqueued and processed at most once. Space is the size of the queue frontier, `O(min(m, n))` in the usual analysis, with no deep call stack to worry about.\n\n" +
+            "**Interview mindset.** When a grid flood-fill is correct recursively but the grid is large, switch to the queue-based BFS to remove the stack-overflow risk while keeping the same linear time. Stress that marking visited at enqueue time is what keeps the traversal linear.",
           rcs:
-            "from collections import deque\n" +
-            "\n" +
-            "class Solution:\n" +
-            "    def numIslands(self, grid: List[List[str]]) -> int:\n" +
-            "        if not grid or not grid[0]:\n" +
-            "            return 0\n" +
-            "        m, n = len(grid), len(grid[0])\n" +
-            "        count = 0\n" +
-            "        for r in range(m):\n" +
-            "            for c in range(n):\n" +
-            "                if grid[r][c] == '1':         # Start of a new island.\n" +
-            "                    count += 1\n" +
-            "                    grid[r][c] = '0'          # Sink immediately (mark visited).\n" +
-            "                    queue = deque([(r, c)])\n" +
-            "                    while queue:\n" +
-            "                        cr, cc = queue.popleft()\n" +
-            "                        for dr, dc in ((1,0),(-1,0),(0,1),(0,-1)):\n" +
-            "                            nr, nc = cr + dr, cc + dc\n" +
-            "                            if 0 <= nr < m and 0 <= nc < n and grid[nr][nc] == '1':\n" +
-            "                                grid[nr][nc] = '0'  # Sink on enqueue to avoid duplicates.\n" +
-            "                                queue.append((nr, nc))\n" +
-            "        return count",
+            "from typing import List  # List types the grid as a list of lists of str characters.\n" +
+            "from collections import deque  # deque is a double-ended queue: O(1) popleft from the front, append to the back.\n\n\n" +
+            "class Solution:  # LeetCode instantiates this class and calls numIslands on the object.\n\n" +
+            "    def numIslands(self, grid: List[List[str]]) -> int:  # Return the number of '1'-land islands, using a queue not recursion.\n\n" +
+            "        # ==================== PHASE 1: MODEL THE GRID AS A GRAPH ====================\n\n" +
+            "        # Same implicit graph as the DFS version:\n" +
+            "        #   Node   = a land cell ('1').\n" +
+            "        #   Edge   = up / down / left / right adjacency between two land cells.\n" +
+            "        #   Island = one connected component; counting islands == counting components.\n" +
+            "        # Only the traversal changes: an explicit QUEUE floods each component, so depth stays\n" +
+            "        # bounded and a 300x300 all-land grid cannot overflow the call stack the way deep recursion would.\n\n" +
+            "        if not grid or not grid[0]:  # Guard the empty grid / empty first row.\n" +
+            "            return 0                 # No cells => zero islands; nothing below runs.\n\n" +
+            "        m, n = len(grid), len(grid[0])  # m = row count, n = column count; cached for the neighbour bounds test.\n" +
+            "                                        # State: every cell is addressed by 0 <= r < m and 0 <= c < n.\n" +
+            "        count = 0                       # Running island tally; incremented once per NEW component.\n\n" +
+            "        # ==================== PHASE 2: SCAN EVERY CELL ====================\n\n" +
+            "        for r in range(m):          # Visit every cell exactly once, top-to-bottom...\n" +
+            "            for c in range(n):      # ...left-to-right.\n" +
+            "                if grid[r][c] == '1':      # Unvisited land => the first cell of a NEW island.\n" +
+            "                    count += 1             # Count the island once, right here.\n" +
+            "                    grid[r][c] = '0'       # Sink the seed cell immediately: mark visited BEFORE it enters the queue.\n\n" +
+            "                    # ==================== PHASE 3: FLOOD-FILL ONE ISLAND (BFS) ====================\n\n" +
+            "                    queue = deque([(r, c)])  # Frontier of cells still to expand; seeded with this island's first cell.\n" +
+            "                                             # Invariant: every cell sitting in the queue is land we have already sunk.\n" +
+            "                    while queue:             # Keep going until the whole component has been drained.\n" +
+            "                        cr, cc = queue.popleft()  # Remove the FRONT (oldest) cell -> FIFO order gives ring-by-ring BFS.\n" +
+            "                        for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):  # The four 4-directional steps: down, up, right, left.\n" +
+            "                            nr, nc = cr + dr, cc + dc  # Coordinates of one neighbour of (cr, cc).\n" +
+            "                            if 0 <= nr < m and 0 <= nc < n and grid[nr][nc] == '1':  # In bounds AND still-unsunk land?\n" +
+            "                                                                                     # Bounds tested first, so grid[nr][nc] is always safe.\n" +
+            "                                grid[nr][nc] = '0'      # Sink it NOW, at enqueue time, not at dequeue.\n" +
+            "                                                        # Why on enqueue: two frontier cells can share a neighbour;\n" +
+            "                                                        #   marking it here stops that cell entering the queue twice.\n" +
+            "                                queue.append((nr, nc))  # Add to the BACK; it will be expanded in a later ring.\n" +
+            "                    # Queue empty => this component is fully sunk; the outer scan moves on to find the next island.\n\n" +
+            "        return count  # All cells scanned, all islands flooded and counted: return the total; nothing runs after.",
           plain:
             "from collections import deque\n" +
             "\n" +
