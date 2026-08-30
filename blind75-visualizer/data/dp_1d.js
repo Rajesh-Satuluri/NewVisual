@@ -205,32 +205,52 @@
           space: "O(amount)",
           whenToUse: "The canonical solution for 'minimum items to reach a target' with unlimited reuse of each item.",
           logic:
-            "**What it asks.** Find the fewest coins that total exactly `amount`, with unlimited copies of each denomination, or `-1` if it cannot be formed.\n\n" +
-            "**Why the naive idea fails.** The tempting greedy 'take the largest coin that fits' can strand you: for coins `[1,3,4]` and amount `6`, greedy gives 4+1+1 = 3 coins but the optimum is 3+3 = 2. Greedy ignores that a smaller coin now can unlock a better total later, so we must consider every denomination at every sub-amount — which is what DP does.\n\n" +
-            "**Key Idea.** Let `dp[a]` be the minimum number of coins needed to make exactly amount `a`. Any optimal way to make `a` ends with *some* last coin `c <= a`; strip that coin and what remains is an optimal way to make `a - c`. So `dp[a]` is one more than the best `dp[a - c]` over all coins that fit. Because coins are reusable, `dp[a - c]` is read from the *same* array (unbounded knapsack), not a previous row.\n\n" +
+            "**What it asks.** You are given a list of coin denominations `coins`, each available in *unlimited* supply, and a target `amount`. Return the **fewest coins** whose values sum to exactly `amount`. If no combination reaches `amount`, return `-1`. The order of coins does not matter and coins may repeat freely.\n\n" +
+            "**Why the naive idea fails.** The instinctive greedy rule — 'always grab the largest coin that still fits' — is wrong on non-canonical coin systems. Take coins `[1, 3, 4]` and amount `6`: greedy grabs `4`, then must fill the remaining `2` with `1 + 1`, spending 3 coins; but the true optimum is `3 + 3`, only 2 coins. Greedy commits to a locally big coin and cannot see that a smaller coin now leaves a remainder that pays off later. The other naive route — pure recursion that tries every coin at every step — is correct but recomputes the same sub-amounts exponentially many times. Both failures point to the same fix: solve each sub-amount once and reuse the answer.\n\n" +
+            "**Key Idea.** Define `dp[a]` = the minimum number of coins needed to make **exactly** amount `a`. This is the whole engine. Any optimal way to build `a` must end by placing *some* last coin `c` with `c <= a`; remove that one coin and what is left is, necessarily, an optimal way to make `a - c` (optimal substructure — if the remainder were suboptimal you could improve the whole). So `dp[a] = 1 + min(dp[a - c])` over every coin `c` that fits. Because each coin can be reused without limit, the sub-answer `dp[a - c]` is read from the **same** array we are filling (this is the *unbounded* knapsack shape), not from a separate 'previous item' row.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. Base case: `dp[0] = 0` — zero coins make amount 0. Initialize every other `dp[a]` to a sentinel 'infinity' (`amount + 1`, larger than any real answer since you never need more than `amount` coins of value >= 1).\n" +
-            "2. Transition in words: for each amount `a` from 1 up to `amount`, try every coin that fits and set `dp[a]` to one plus the smallest `dp[a - coin]` — the best over all choices of last coin.\n" +
-            "3. Fill `a` from small to large so every `dp[a - coin]` is already final when read.\n" +
-            "4. Answer: if `dp[amount]` is still the sentinel, no combination works → return `-1`; otherwise return `dp[amount]`.\n\n" +
-            "**Why it works.** Optimal substructure: an optimal solution for `a` contains an optimal solution for `a - c` for its last coin `c`. Minimizing over all possible last coins finds the global minimum, and filling amounts in increasing order guarantees each subproblem is solved before it is needed. Induction from `dp[0] = 0` proves every cell correct.\n\n" +
+            "1. **Base case.** `dp[0] = 0`: it takes zero coins to make amount `0`. This is the anchor every larger answer is eventually built from.\n" +
+            "2. **Sentinel for unreachable.** Initialize every other `dp[a]` to a large 'infinity' value. `amount + 1` is a perfect sentinel: any *real* answer uses at most `amount` coins (even all-1 coins need only `amount` of them), so `amount + 1` can never be a legitimate count — if it survives, the amount is genuinely unreachable. `float('inf')` works too.\n" +
+            "3. **Transition.** For each amount `a` from `1` up to `amount`, and for each `coin` with `coin <= a`, relax `dp[a] = min(dp[a], dp[a - coin] + 1)` — i.e. consider using one `coin` on top of the best known way to make `a - coin`, and keep whichever is smaller.\n" +
+            "4. **Iteration order.** Fill `a` from small to large. When you read `dp[a - coin]`, note `a - coin < a`, so that cell was completed on an earlier iteration and already holds its final minimum — subproblems are solved strictly before the superproblems that depend on them.\n" +
+            "5. **Read the answer.** If `dp[amount]` is still the sentinel, no combination reached the target → return `-1`; otherwise `dp[amount]` is the fewest coins.\n\n" +
+            "**Why it works.** Correctness is an induction on `a`. Base: `dp[0] = 0` is trivially correct. Inductive step: assume every `dp[a']` for `a' < a` is the true minimum. An optimal solution for `a` uses some final coin `c`, leaving remainder `a - c`; by the hypothesis `dp[a - c]` is the true minimum for that remainder, so `dp[a - c] + 1` is the best total that ends in `c`. Taking the `min` over all valid `c` covers every possible last coin, so `dp[a]` becomes the global minimum for `a`. **Loop invariant:** after the inner loop finishes for amount `a`, `dp[a]` holds the true minimum coin count for `a` (or the sentinel if unreachable).\n\n" +
             "**Common Gotchas.**\n" +
-            "- `amount = 0` must return 0 — the base case handles it.\n" +
-            "- Use a sentinel that can't collide with a real count (`amount + 1`) and check for it before returning, or you'll return a bogus large number instead of `-1`.\n" +
-            "- Skip coins larger than the current amount to avoid a negative index.\n\n" +
-            "**Space optimization.** The 1-D `dp` array of size `amount + 1` is already the space-optimized form of the 2-D coins-vs-amount table; reusing the same row is exactly what models unlimited coin reuse.\n\n" +
-            "**Complexity.** `amount` cells × `len(coins)` choices each → time `O(amount * len(coins))`; space `O(amount)` for the array.\n\n" +
-            "**Interview mindset.** 'Minimum / maximum items to reach a target with unlimited reuse' — especially when greedy visibly breaks on non-canonical coins — is the unbounded-knapsack DP signal.",
+            "- `amount = 0` must return `0`; the base case `dp[0] = 0` handles it directly.\n" +
+            "- Pick a sentinel that cannot collide with a real count (`amount + 1`, or `float('inf')`) and **check for it before returning**, or you will return a nonsense large number instead of `-1`.\n" +
+            "- Guard with `if coin <= a` so you never index `dp[a - coin]` with a negative amount (a coin larger than the current amount simply cannot be the last coin here).\n\n" +
+            "**Complexity.** There are `amount` sub-amounts, and each tries every one of `len(coins)` denominations → time `O(amount * len(coins))`. The single `dp` array of size `amount + 1` gives space `O(amount)` — this 1-D array is already the space-optimized collapse of the 2-D coins-vs-amount table, and reusing the same row is precisely what encodes unlimited coin reuse.\n\n" +
+            "**Interview mindset.** 'Minimum (or maximum) number of items to reach a target with unlimited reuse of each item' is the unbounded-knapsack DP signal — and a greedy solution visibly breaking on non-canonical coins (like `[1, 3, 4]`) is the tell that you must reach for `dp[a] = min over coins of dp[a - coin] + 1`.",
           rcs:
-            "class Solution:\n" +
-            "    def coinChange(self, coins: List[int], amount: int) -> int:\n" +
-            "        dp = [amount + 1] * (amount + 1)   # Sentinel 'infinity' = amount+1 (unreachable).\n" +
-            "        dp[0] = 0                          # Base case: 0 coins make amount 0.\n" +
-            "        for a in range(1, amount + 1):     # Solve every sub-amount from small to large.\n" +
-            "            for coin in coins:             # Consider each coin as the LAST one placed.\n" +
-            "                if coin <= a:              # Coin must fit into the current amount.\n" +
-            "                    dp[a] = min(dp[a], dp[a - coin] + 1)  # Best of current vs using this coin.\n" +
-            "        return dp[amount] if dp[amount] != amount + 1 else -1  # Sentinel => impossible.",
+            "from typing import List  # List lets the type hints say we take a list of int coins and return an int.\n\n\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls coinChange on it.\n\n" +
+            "    def coinChange(self, coins: List[int], amount: int) -> int:  # Fewest coins summing to amount, or -1 if impossible.\n\n" +
+            "        # ==================== PHASE 1: DEFINE THE DP TABLE ====================\n\n" +
+            "        dp = [amount + 1] * (amount + 1)  # dp[a] = fewest coins to make amount a; index runs 0..amount, so length amount+1.\n" +
+            "                                          # State: every cell starts at the sentinel amount+1, meaning 'not yet reachable'.\n" +
+            "                                          # Why amount+1 as infinity: any real answer uses at most 'amount' coins (all 1s),\n" +
+            "                                          #   so amount+1 can never be a legitimate count -> if it survives, a is unreachable.\n" +
+            "                                          # Why safe upper bound: it is strictly larger than every achievable coin count.\n\n" +
+            "        dp[0] = 0  # Base case: it takes zero coins to make amount 0. This anchors the whole induction.\n" +
+            "                   # State change: dp[0] is now final and correct; every larger dp[a] is built up from it.\n\n" +
+            "        # ==================== PHASE 2: FILL BOTTOM-UP ====================\n\n" +
+            "        for a in range(1, amount + 1):  # Solve every sub-amount a from small to large (1, 2, ..., amount).\n" +
+            "                                        # Why increasing order: reading dp[a - coin] needs a - coin < a to be final already.\n" +
+            "                                        # Loop invariant: when this iteration begins, dp[0..a-1] all hold true minima.\n" +
+            "                                        # Execution flow: after amount a is done, Python advances to a + 1.\n\n" +
+            "            for coin in coins:  # Consider each denomination as the LAST coin placed to reach a.\n" +
+            "                                # Why: an optimal way to make a ends in some coin c; stripping it leaves an optimal a - c.\n" +
+            "                                # Execution flow: after one coin, Python assigns the next coin automatically.\n\n" +
+            "                if coin <= a:  # The coin must fit: it cannot be the last coin if it already exceeds a.\n" +
+            "                               # Why-safe: this guard keeps a - coin >= 0, so dp[a - coin] is never a negative index.\n\n" +
+            "                    dp[a] = min(dp[a], dp[a - coin] + 1)  # Relax: best so far vs using one 'coin' atop the best way to make a - coin.\n" +
+            "                                                          # WHY: dp[a - coin] is the fewest coins for the remainder; +1 adds this coin.\n" +
+            "                                                          # State change: dp[a] can only shrink toward its true minimum here.\n" +
+            "                                                          # Why-safe: dp[a - coin] was finalized on an earlier (smaller) iteration.\n\n" +
+            "        # ==================== PHASE 3: READ THE ANSWER ====================\n\n" +
+            "        return dp[amount] if dp[amount] != amount + 1 else -1  # Final read: dp[amount] is the fewest coins for the target.\n" +
+            "                                                               # Loop invariant at the end: dp[amount] holds the true minimum, or the sentinel.\n" +
+            "                                                               # Why != amount+1: sentinel untouched means no combination reached amount -> return -1.",
           plain:
             "class Solution:\n" +
             "    def coinChange(self, coins: List[int], amount: int) -> int:\n" +

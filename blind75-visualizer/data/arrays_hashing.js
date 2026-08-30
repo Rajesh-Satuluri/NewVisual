@@ -96,30 +96,41 @@
           space: "O(1)",
           whenToUse: "Fine for tiny inputs or as the first thing you say in an interview before optimizing.",
           logic:
-            "**What it asks.** Given an unsorted array `nums` and a `target`, return the indices of the two elements whose values add up to `target`.\n\n" +
-            "**Why the naive idea fails.** The brute-force idea is to try every pair `(i, j)`: for each `i`, scan every later `j` and check whether `nums[i] + nums[j] == target`. It's correct, but there are about `n^2 / 2` pairs, so for `n = 10^4` that's ~50 million checks. The waste is re-scanning the whole array for every element instead of remembering what we've already seen.\n\n" +
-            "**Key Idea.** For this approach the insight is simply exhaustiveness: if a valid pair exists, checking every unordered pair once is guaranteed to find it. This is the baseline you state before optimizing.\n\n" +
+            "**What it asks.** You are given an unsorted array `nums` and a number `target`. Return the two *positions* (indices) whose values add up to `target`. Two details drive everything: you return indices (not the values themselves), and you may not use the same element twice.\n\n" +
+            "**Why the naive idea fails.** The most direct idea is to test every possible pair: fix one element, then walk through all the others looking for a partner that completes the sum. It is correct, but it does heavily redundant work — for each of the `n` elements it re-scans much of the array, giving about `n·(n-1)/2` comparisons. At `n = 10^4` that is roughly 50 million checks, and the pattern of re-examining the same values over and over is exactly what the optimized version eliminates.\n\n" +
+            "**Key Idea.** The only property this approach leans on is *exhaustiveness*: if an answer exists, then looking at every unordered pair exactly once must run into it. There is no cleverness here — it is the correctness baseline you state first, and then improve.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. Let the outer loop fix the first index `i`.\n" +
-            "2. Let the inner loop try each later index `j` (starting at `i + 1`), so each unordered pair is considered exactly once.\n" +
-            "3. Check whether `nums[i] + nums[j]` equals `target`.\n" +
-            "4. On the first match, return `[i, j]` immediately.\n\n" +
-            "**Why it works.** Every unordered pair `(i, j)` with `i < j` is examined exactly once, so the guaranteed unique answer cannot be skipped. Returning on the first hit is safe because only one solution exists.\n\n" +
+            "1. Use an outer loop to fix the first index `i`.\n" +
+            "2. Use an inner loop over `j = i + 1 … n-1`, so every unordered pair `(i, j)` is generated once and no element is paired with itself.\n" +
+            "3. For each pair, test whether `nums[i] + nums[j]` equals `target`.\n" +
+            "4. Return `[i, j]` on the first match — because the problem promises exactly one solution, the first hit is the answer.\n\n" +
+            "**Why it works.** Every pair with `i < j` is visited exactly once, so the unique valid pair cannot be missed. Stopping at the first match is safe precisely because a single solution is guaranteed.\n\n" +
             "**Common Gotchas.**\n" +
-            "- Start the inner loop at `i + 1`, not `0`, so an element is never paired with itself.\n" +
-            "- Return the indices, not the values.\n" +
-            "- Duplicate values are fine as long as the two indices differ.\n\n" +
-            "**Complexity.** Time `O(n^2)` from the nested loops; space `O(1)` since no extra structure is used.\n\n" +
-            "**Interview mindset.** State this first to show you understand the problem, then immediately note the redundant re-scanning as the motivation to reach for a hash map.",
+            "- Start the inner loop at `i + 1`, never `0` — otherwise you re-check pairs and may add an element to itself.\n" +
+            "- Return the indices, not the values at those indices.\n" +
+            "- Equal values (e.g. `[3, 3]`) are valid as long as the two indices differ.\n\n" +
+            "**Complexity.** Two nested loops give time `O(n^2)`; no auxiliary storage means space `O(1)`.\n\n" +
+            "**Interview mindset.** Say this approach first to prove you understand the problem, then point at the repeated re-scanning as the concrete inefficiency that motivates reaching for a hash map.",
           rcs:
-            "class Solution:\n" +
-            "    def twoSum(self, nums: List[int], target: int) -> List[int]:\n" +
-            "        n = len(nums)                       # Number of elements to pair up.\n" +
-            "        for i in range(n):                  # Fix the first element of the pair.\n" +
-            "            for j in range(i + 1, n):       # Only look ahead so each pair is tried once.\n" +
-            "                if nums[i] + nums[j] == target:  # Found the two values that add to target.\n" +
-            "                    return [i, j]           # Return their indices immediately.\n" +
-            "        return []                           # Unreachable given the problem guarantee.",
+            "from typing import List  # List lets the type hints say we take a list of ints and return a list of ints.\n\n\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls twoSum on it.\n\n" +
+            "    def twoSum(self, nums: List[int], target: int) -> List[int]:  # Return the indices of the two values summing to target.\n\n" +
+            "        # ==================== PHASE 1: PREPARE ====================\n\n" +
+            "        n = len(nums)  # Cache the element count so we do not recompute len(nums) on every loop.\n" +
+            "                       # State: n is the number of valid indices, 0 through n - 1.\n" +
+            "                       # Execution flow: Python continues to the outer for loop.\n\n" +
+            "        # ==================== PHASE 2: TRY EVERY UNORDERED PAIR ====================\n\n" +
+            "        for i in range(n):  # Fix the first index i of the candidate pair.\n" +
+            "                            # Loop invariant: every pair whose first index is < i has already been tested.\n" +
+            "                            # Execution flow: after one i finishes, Python assigns the next i automatically.\n\n" +
+            "            for j in range(i + 1, n):  # Try every LATER index j, so each unordered pair is seen exactly once.\n" +
+            "                                       # Why i + 1: starting at 0 would retest pairs and let i pair with itself.\n" +
+            "                                       # Execution flow: after one j finishes, Python assigns the next j.\n\n" +
+            "                if nums[i] + nums[j] == target:  # Do these two values add up to target?\n" +
+            "                    return [i, j]  # Yes: hand the two indices to the caller and end the function now.\n" +
+            "                                   # Execution flow: no code after return runs; control leaves twoSum.\n" +
+            "                                   # Why safe: exactly one solution exists, so the first match IS the answer.\n\n" +
+            "        return []  # Unreachable given the one-solution guarantee; kept so every path returns a list.",
           plain:
             "class Solution:\n" +
             "    def twoSum(self, nums: List[int], target: int) -> List[int]:\n" +
@@ -136,31 +147,46 @@
           space: "O(n)",
           whenToUse: "The expected answer. Use whenever you need to find pairs by value in an unsorted array.",
           logic:
-            "**What it asks.** Return the indices of the two numbers in an unsorted `nums` that sum to `target`, in a single pass.\n\n" +
-            "**Why the naive idea fails.** Brute force tries every pair in `O(n^2)`, re-scanning the array for each element's partner. That repeated searching is the wasted work we want to eliminate.\n\n" +
-            "**Key Idea.** For each number `x`, its partner is completely determined: it must be `target - x`, the *complement*. So rather than searching for the partner, we *remember* the numbers we've already passed in a hash map and ask, in `O(1)`, \u201chave I already seen the complement?\u201d\n\n" +
+            "**What it asks.** Return the indices of the two numbers in an unsorted `nums` that add up to `target`, ideally in a single pass over the array.\n\n" +
+            "**Why the naive idea fails.** Brute force re-scans the array to find each element's partner, costing `O(n^2)`. The wasted effort is *searching* for the partner every single time \u2014 information we could instead have remembered from the elements we already walked past.\n\n" +
+            "**Key Idea.** Once you fix a value `x`, its partner is not a mystery: it must be exactly `target - x`, the *complement*. So flip the question around \u2014 as you pass each value, store it in a hash map, and for the current value simply ask the map, in `O(1)`, whether its complement has already gone by. Searching for one *known* value is far cheaper than searching for an unknown pair.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. Keep a hash map `seen` mapping each value we've passed to its index.\n" +
-            "2. Walk left to right; for the current `num` at index `i`, compute `complement = target - num`.\n" +
-            "3. If `complement` is already in `seen`, the pair is complete \u2014 return `[seen[complement], i]` (earlier index first).\n" +
-            "4. Otherwise record `seen[num] = i` and continue.\n\n" +
-            "**Why it works.** We only ever pair the current element with an *earlier* one, so the same index is never reused. If `x` and `y` are the answer and `x` comes first, then by the time we reach `y` its complement `x` is already stored, so the pair is discovered when its second member is processed. Since exactly one solution exists, it's guaranteed to be found.\n\n" +
+            "1. Keep a hash map `seen` that maps each value you have already passed to the index where it appeared.\n" +
+            "2. Scan left to right. For the current value `num` at index `i`, compute `complement = target - num`.\n" +
+            "3. If `complement` is already a key in `seen`, the pair is complete \u2014 return `[seen[complement], i]`, earlier index first.\n" +
+            "4. Otherwise store `seen[num] = i` and move on.\n\n" +
+            "**Why it works.** You only ever match the current element against one that came *strictly before* it, so the same index can never be used twice. If the true pair is `x` then `y` (with `x` earlier), then by the time the scan reaches `y`, `x` is already in the map \u2014 so the answer is detected the moment its second member is processed. With exactly one solution guaranteed, that moment is certain to arrive.\n\n" +
             "**Common Gotchas.**\n" +
-            "- Check for the complement *before* inserting the current number, or an element could match itself.\n" +
-            "- Store value `\u2192` index, not the reverse; you need indices back.\n" +
-            "- Duplicate values are handled correctly because each is checked before it overwrites the map.\n\n" +
-            "**Complexity.** One pass with `O(1)` map operations gives time `O(n)`; space `O(n)` for the map.\n\n" +
-            "**Interview mindset.** \u201cFind two things that combine to a target\u201d in an unsorted array is the canonical signal to reach for a hash map of what you've already seen.",
+            "- Check for the complement *before* inserting the current number; inserting first can let an element pair with itself when `num == complement`.\n" +
+            "- Store `value \u2192 index`, not the reverse; you need the indices back.\n" +
+            "- Duplicates are handled correctly because each occurrence is checked before it overwrites the previous one in the map.\n\n" +
+            "**Complexity.** A single pass with average-`O(1)` map operations gives time `O(n)`; the map holds up to `n` entries, so space `O(n)`. You spend `O(n)` memory to turn an `O(n^2)` search into `O(n)`.\n\n" +
+            "**Interview mindset.** \u201cFind two things that combine to a fixed target\u201d in an unsorted array is the canonical trigger for a hash map of what you have already seen \u2014 remember-as-you-go beats search-again.",
           rcs:
-            "class Solution:\n" +
-            "    def twoSum(self, nums: List[int], target: int) -> List[int]:\n" +
-            "        seen = {}                           # Maps a value we've passed -> its index.\n" +
-            "        for i, num in enumerate(nums):      # Scan once, left to right.\n" +
-            "            complement = target - num       # The exact partner 'num' needs.\n" +
-            "            if complement in seen:          # Have we already passed that partner?\n" +
-            "                return [seen[complement], i]  # Yes: earlier index first, current second.\n" +
-            "            seen[num] = i                   # Otherwise remember num for future lookups.\n" +
-            "        return []                           # Guaranteed unreachable by the constraints.",
+            "from typing import List  # List lets the type hints describe the int list in and the two-index list out.\n\n\n" +
+            "class Solution:  # LeetCode instantiates this class and calls twoSum on the object.\n\n" +
+            "    def twoSum(self, nums: List[int], target: int) -> List[int]:  # Return indices of the two values summing to target, in one pass.\n\n" +
+            "        # ==================== PHASE 1: PREPARE ====================\n\n" +
+            "        seen = {}  # Hash map: a value we have already passed -> the index where it lives.\n" +
+            "                   # Why a dict: average O(1) membership tests and lookups are what make a single pass possible.\n" +
+            "                   # State: seen starts empty and gains one entry per element we pass.\n" +
+            "                   # Execution flow: Python enters the scan loop.\n\n" +
+            "        # ==================== PHASE 2: ONE-PASS COMPLEMENT SEARCH ====================\n\n" +
+            "        for i, num in enumerate(nums):  # Walk left to right; enumerate yields both the index i and the value num.\n" +
+            "                                        # Loop invariant: seen holds every value strictly before index i, mapped to its index.\n" +
+            "                                        # Execution flow: after each iteration Python advances to the next (i, num).\n\n" +
+            "            complement = target - num  # The exact partner num needs, since complement + num == target.\n" +
+            "                                       # Why: fixing num pins its partner to ONE known value, so we search for a value, not a pair.\n\n" +
+            "            if complement in seen:  # Have we already passed that exact partner value?\n" +
+            "                                    # Python hashes complement and checks the dict in average O(1).\n" +
+            "                return [seen[complement], i]  # Yes: earlier index first (seen[complement]), current index second.\n" +
+            "                                              # Execution flow: return ends twoSum; nothing below runs.\n" +
+            "                                              # Why safe: the partner sits at an earlier index, so no index is reused.\n\n" +
+            "            seen[num] = i  # No partner yet: record this value's index so a LATER element can find it.\n" +
+            "                           # State change: seen now also maps num -> i.\n" +
+            "                           # Why check before insert: inserting first could let an element match itself when num == complement.\n" +
+            "                           # Execution flow: end of iteration; Python returns to the for header for the next element.\n\n" +
+            "        return []  # Unreachable under the one-solution guarantee; keeps the function total.",
           plain:
             "class Solution:\n" +
             "    def twoSum(self, nums: List[int], target: int) -> List[int]:\n" +
