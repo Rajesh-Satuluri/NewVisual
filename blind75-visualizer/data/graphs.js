@@ -87,20 +87,50 @@
             "**Complexity.** Time `O(V + E)` \u2014 every node and every edge is processed a constant number of times. Space `O(V)` for the recursion stack and the clone map.\n\n" +
             "**Interview mindset.** 'Deep copy a graph with possible cycles' is the signal for an `old -> new` map that doubles as the visited set \u2014 the same memo pattern any traversal over a cyclic graph needs to terminate.",
           rcs:
-            "class Solution:\n" +
-            "    def cloneGraph(self, node: 'Optional[Node]') -> 'Optional[Node]':\n" +
-            "        clones = {}                          # Maps original node -> its clone (also the visited set).\n" +
+            "from typing import Optional  # Optional[Node] in the hints means the argument is either a Node or None.\n" +
             "\n" +
-            "        def dfs(cur):\n" +
-            "            if cur in clones:                # Already cloned -> return existing copy (handles cycles).\n" +
-            "                return clones[cur]\n" +
-            "            copy = Node(cur.val)             # Make the new node with the same value.\n" +
-            "            clones[cur] = copy               # Register BEFORE recursing so cycles resolve.\n" +
-            "            for nei in cur.neighbors:        # Rebuild edges to point at clones.\n" +
-            "                copy.neighbors.append(dfs(nei))\n" +
-            "            return copy\n" +
             "\n" +
-            "        return dfs(node) if node else None   # Empty graph -> None.",
+            "class Solution:  # LeetCode instantiates this class and calls cloneGraph on the object.\n" +
+            "\n" +
+            "    def cloneGraph(self, node: 'Optional[Node]') -> 'Optional[Node]':  # Return a deep copy of the whole graph reachable from node (or None for an empty graph).\n" +
+            "\n" +
+            "        # ==================== PHASE 1: MODEL THE GRAPH AND MEMO ====================\n" +
+            "\n" +
+            "        # Mental model: read the input as a graph and copy it node by node.\n" +
+            "        #   Node = a Node object; Edge = an entry in some node's neighbors list (stored on BOTH endpoints).\n" +
+            "        #   The graph is connected and may contain CYCLES, so a plain walk of neighbors would loop forever.\n" +
+            "        #   Fix: a memo mapping every ORIGINAL node to its single clone -> it both breaks cycles and\n" +
+            "        #        guarantees exactly one copy per node.\n" +
+            "\n" +
+            "        clones = {}  # Memo: original node -> its clone. This dict IS the visited set.\n" +
+            "                     # State: a node counts as visited the instant its clone is placed here.\n" +
+            "                     # Why a dict: average O(1) membership test is what makes each node cloned once.\n" +
+            "\n" +
+            "        # ==================== PHASE 2: DFS THAT CLONES ONE NODE ====================\n" +
+            "\n" +
+            "        def dfs(cur):  # One call means 'return the clone of cur, building it (and its subtree) if needed'.\n" +
+            "                       # Recursion invariant: on return, cur's clone exists in clones and every edge out of\n" +
+            "                       # cur has been wired to the corresponding clone.\n" +
+            "            if cur in clones:  # Already cloned earlier on this walk (or via a cycle)?\n" +
+            "                               # This is the base case that TERMINATES the recursion on cycles: a node that leads\n" +
+            "                               # back to cur finds cur's in-progress clone here instead of rebuilding it.\n" +
+            "                return clones[cur]  # Hand back the existing clone; do not descend again.\n" +
+            "            copy = Node(cur.val)  # First visit: make the new node carrying the same value.\n" +
+            "                                  # The neighbors list of copy starts empty; Phase 2 fills it below.\n" +
+            "            clones[cur] = copy  # Register the clone BEFORE recursing -- this is what breaks cycles.\n" +
+            "                                # Why before: if a neighbor's subtree leads back to cur, the guard above finds this\n" +
+            "                                # entry and returns copy, so the walk cannot spin forever and no duplicate is made.\n" +
+            "            for nei in cur.neighbors:  # Walk every neighbor of the ORIGINAL node...\n" +
+            "                                       # Loop invariant: copy.neighbors already holds the clones of the neighbors seen so far.\n" +
+            "                copy.neighbors.append(dfs(nei))  # ...clone that neighbor (or fetch its clone) and wire the edge.\n" +
+            "                                                 # dfs(nei) PAUSES here until the neighbor's clone is ready, then execution RESUMES and\n" +
+            "                                                 # the returned clone is appended -- reproducing the undirected edge on this side.\n" +
+            "            return copy  # cur is fully cloned and wired: return its clone up the call stack.\n" +
+            "\n" +
+            "        # ==================== PHASE 3: KICK OFF FROM THE ENTRY NODE ====================\n" +
+            "\n" +
+            "        return dfs(node) if node else None  # Empty graph (node is None) -> None; otherwise clone from the entry node.\n" +
+            "                                            # The single dfs(node) call reaches every node because the graph is connected.",
           plain:
             "class Solution:\n" +
             "    def cloneGraph(self, node: 'Optional[Node]') -> 'Optional[Node]':\n" +
@@ -143,22 +173,46 @@
             "**Complexity.** Time `O(V + E)` and space `O(V)` for the map and queue \u2014 identical asymptotics to DFS, just with no recursion depth.\n\n" +
             "**Interview mindset.** When a graph traversal is correct recursively but the input could be huge, reach for the queue-based BFS variant \u2014 same clone map, no stack-overflow risk.",
           rcs:
-            "from collections import deque\n" +
+            "from collections import deque  # deque is a double-ended queue: O(1) popleft from the front, append to the back.\n" +
+            "from typing import Optional  # Optional[Node] in the hints means the argument is either a Node or None.\n" +
             "\n" +
-            "class Solution:\n" +
-            "    def cloneGraph(self, node: 'Optional[Node]') -> 'Optional[Node]':\n" +
-            "        if not node:\n" +
-            "            return None\n" +
-            "        clones = {node: Node(node.val)}      # Clone the start node up front; map = visited set.\n" +
-            "        queue = deque([node])                # BFS frontier of ORIGINAL nodes to expand.\n" +
-            "        while queue:\n" +
-            "            cur = queue.popleft()\n" +
-            "            for nei in cur.neighbors:        # Look at every neighbor of the current node.\n" +
-            "                if nei not in clones:        # First time seeing this neighbor?\n" +
-            "                    clones[nei] = Node(nei.val)  # Clone it and...\n" +
-            "                    queue.append(nei)        # ...schedule it for expansion.\n" +
-            "                clones[cur].neighbors.append(clones[nei])  # Wire the cloned edge.\n" +
-            "        return clones[node]                  # Return the clone of the entry node.",
+            "\n" +
+            "class Solution:  # LeetCode instantiates this class and calls cloneGraph on the object.\n" +
+            "\n" +
+            "    def cloneGraph(self, node: 'Optional[Node]') -> 'Optional[Node]':  # Deep-copy the graph iteratively with a queue instead of recursion.\n" +
+            "\n" +
+            "        # ==================== PHASE 1: MODEL THE GRAPH AND MEMO ====================\n" +
+            "\n" +
+            "        # Same model as the DFS version: Node = node object, Edge = neighbors entry on both endpoints,\n" +
+            "        # graph is connected and possibly cyclic. The old -> new clone map still doubles as the visited\n" +
+            "        # set; only the traversal changes -- an explicit QUEUE expands the frontier so there is no deep\n" +
+            "        # recursion and no recursion-limit risk on a large graph.\n" +
+            "\n" +
+            "        if not node:  # Guard the empty graph first, before touching the map.\n" +
+            "                      # Why safe: everything below assumes node exists (it seeds both the map and the queue).\n" +
+            "            return None  # No node -> None; nothing below runs.\n" +
+            "        clones = {node: Node(node.val)}  # Clone the START node up front; the map is the visited set.\n" +
+            "                                         # State: an original node is in clones iff its clone has been created.\n" +
+            "        queue = deque([node])  # BFS frontier of ORIGINAL nodes still waiting to have their edges copied.\n" +
+            "                               # Invariant: every node in the queue already has a clone in clones.\n" +
+            "\n" +
+            "        # ==================== PHASE 2: EXPAND THE FRONTIER ====================\n" +
+            "\n" +
+            "        while queue:  # Keep going until every reachable node has been expanded.\n" +
+            "            cur = queue.popleft()  # Remove the FRONT (oldest) original node to copy its edges.\n" +
+            "                                   # FIFO order gives ring-by-ring BFS, though for cloning the order does not matter.\n" +
+            "            for nei in cur.neighbors:  # Look at every neighbor of the current original node.\n" +
+            "                if nei not in clones:  # First time we have seen this neighbor?\n" +
+            "                                       # This guard IS the visited check: it fires once per node across the whole run.\n" +
+            "                    clones[nei] = Node(nei.val)  # Clone the neighbor now...\n" +
+            "                                                 # Marking (cloning) on discovery stops two frontier cells enqueuing the same node twice.\n" +
+            "                    queue.append(nei)  # ...and schedule it for expansion in a later round.\n" +
+            "                clones[cur].neighbors.append(clones[nei])  # Wire the cloned edge cur' -> nei' (runs for EVERY neighbor).\n" +
+            "                                                           # Each undirected edge is wired once from each side, reproducing its symmetry.\n" +
+            "\n" +
+            "        # ==================== PHASE 3: RETURN THE CLONED ENTRY ====================\n" +
+            "\n" +
+            "        return clones[node]  # Queue drained -> whole graph cloned; return the clone of the entry node.",
           plain:
             "from collections import deque\n" +
             "\n" +
@@ -263,25 +317,50 @@
             "**Complexity.** Time `O(V + E)` and space `O(V + E)` \u2014 building and traversing touch every node and edge once.\n\n" +
             "**Interview mindset.** 'Can all tasks finish?' or 'is there a valid build/schedule order?' under pairwise dependencies is the classic signal for topological sort via indegree BFS.",
           rcs:
-            "from collections import deque\n" +
+            "from collections import deque  # deque is a double-ended queue: O(1) popleft from the front, append to the back.\n" +
+            "from typing import List  # List lets the type hints describe prerequisites as a list of int pairs.\n" +
             "\n" +
-            "class Solution:\n" +
-            "    def canFinish(self, numCourses: int, prerequisites: List[List[int]]) -> bool:\n" +
-            "        graph = [[] for _ in range(numCourses)]   # graph[b] = courses that b unlocks.\n" +
-            "        indegree = [0] * numCourses               # indegree[c] = unmet prerequisites of c.\n" +
-            "        for a, b in prerequisites:                # 'b before a' => directed edge b -> a.\n" +
-            "            graph[b].append(a)\n" +
-            "            indegree[a] += 1\n" +
-            "        queue = deque(c for c in range(numCourses) if indegree[c] == 0)  # Ready with no prereqs.\n" +
-            "        processed = 0                             # How many courses we've scheduled.\n" +
-            "        while queue:\n" +
-            "            course = queue.popleft()\n" +
-            "            processed += 1                        # This course is now 'taken'.\n" +
-            "            for nxt in graph[course]:             # Every course this one unlocks...\n" +
-            "                indegree[nxt] -= 1                # ...loses one unmet prerequisite.\n" +
-            "                if indegree[nxt] == 0:            # All prereqs met -> it is ready.\n" +
-            "                    queue.append(nxt)\n" +
-            "        return processed == numCourses            # All scheduled => acyclic => finishable.",
+            "\n" +
+            "class Solution:  # LeetCode instantiates this class and calls canFinish on the object.\n" +
+            "\n" +
+            "    def canFinish(self, numCourses: int, prerequisites: List[List[int]]) -> bool:  # True iff every course can be finished, i.e. the prerequisite graph is acyclic.\n" +
+            "\n" +
+            "        # ==================== PHASE 1: MODEL THE PREREQUISITES AS A GRAPH ====================\n" +
+            "\n" +
+            "        # Mental model: courses are NODES 0..numCourses-1. Each pair [a, b] means 'take b before a',\n" +
+            "        #   which is a DIRECTED edge b -> a (b unlocks a). Finishing all courses is possible exactly\n" +
+            "        #   when this graph is a DAG (no cycle). Kahn's algorithm peels off indegree-0 nodes; if a\n" +
+            "        #   cycle traps some nodes they never reach indegree 0 and cannot be scheduled.\n" +
+            "\n" +
+            "        graph = [[] for _ in range(numCourses)]  # graph[b] = the list of courses that b unlocks.\n" +
+            "                                                 # State: the outgoing adjacency list of the directed prerequisite graph.\n" +
+            "        indegree = [0] * numCourses  # indegree[c] = how many prerequisites course c still needs.\n" +
+            "                                     # State: a course becomes takeable exactly when its indegree hits 0.\n" +
+            "        for a, b in prerequisites:  # Read each pair 'b before a' and record the edge b -> a.\n" +
+            "                                    # Edge direction is the #1 bug here: [a, b] is b -> a, NOT a -> b.\n" +
+            "            graph[b].append(a)  # b now unlocks a.\n" +
+            "            indegree[a] += 1  # a has one more prerequisite to satisfy.\n" +
+            "\n" +
+            "        # ==================== PHASE 2: PEEL OFF READY COURSES (KAHN'S BFS) ====================\n" +
+            "\n" +
+            "        queue = deque(c for c in range(numCourses) if indegree[c] == 0)  # Seed with every course that has no prerequisites.\n" +
+            "                                                                         # These are ready immediately; a disconnected course with no edges starts here too.\n" +
+            "        processed = 0  # How many courses we have successfully scheduled so far.\n" +
+            "                       # Loop invariant: processed == number of courses whose prereqs were all met in order.\n" +
+            "        while queue:  # Keep scheduling as long as some course is ready.\n" +
+            "            course = queue.popleft()  # Take a ready course off the front.\n" +
+            "            processed += 1  # It is now 'taken' -- count it.\n" +
+            "            for nxt in graph[course]:  # Every course this one unlocks...\n" +
+            "                                       # ...loses one unmet prerequisite because 'course' is now done.\n" +
+            "                indegree[nxt] -= 1  # Relax the edge course -> nxt exactly once.\n" +
+            "                                    # Each edge is relaxed a single time, when its source is processed.\n" +
+            "                if indegree[nxt] == 0:  # All of nxt's prerequisites are now met?\n" +
+            "                    queue.append(nxt)  # Then nxt is ready -- schedule it.\n" +
+            "\n" +
+            "        # ==================== PHASE 3: ALL SCHEDULED? ====================\n" +
+            "\n" +
+            "        return processed == numCourses  # Every course scheduled => acyclic => finishable.\n" +
+            "                                        # If a cycle stranded some courses, processed falls short of numCourses -> False.",
           plain:
             "from collections import deque\n" +
             "\n" +
@@ -329,29 +408,52 @@
             "**Complexity.** Time `O(V + E)` \u2014 each node colored a constant number of times, each edge followed once. Space `O(V + E)` for the recursion, color array, and adjacency list.\n\n" +
             "**Interview mindset.** 'Detect a cycle in a directed graph' \u2014 build order, dependency resolution, deadlock detection \u2014 is the trigger for three-color DFS (or, equivalently, Kahn's indegree BFS).",
           rcs:
-            "class Solution:\n" +
-            "    def canFinish(self, numCourses: int, prerequisites: List[List[int]]) -> bool:\n" +
-            "        graph = [[] for _ in range(numCourses)]   # graph[b] = courses b unlocks.\n" +
-            "        for a, b in prerequisites:\n" +
-            "            graph[b].append(a)\n" +
-            "        color = [0] * numCourses                  # 0=unvisited, 1=on current path, 2=done.\n" +
+            "from typing import List  # List lets the type hints describe prerequisites as a list of int pairs.\n" +
             "\n" +
-            "        def dfs(c):\n" +
-            "            if color[c] == 1:                     # Back edge to a node on the active path => cycle.\n" +
-            "                return False\n" +
-            "            if color[c] == 2:                     # Already fully explored and safe.\n" +
-            "                return True\n" +
-            "            color[c] = 1                          # Mark as 'currently visiting'.\n" +
-            "            for nxt in graph[c]:\n" +
-            "                if not dfs(nxt):                  # A cycle found deeper propagates up.\n" +
-            "                    return False\n" +
-            "            color[c] = 2                          # Done: this node leads to no cycle.\n" +
-            "            return True\n" +
             "\n" +
-            "        for c in range(numCourses):               # Graph may be disconnected: start everywhere.\n" +
-            "            if not dfs(c):\n" +
-            "                return False\n" +
-            "        return True",
+            "class Solution:  # LeetCode instantiates this class and calls canFinish on the object.\n" +
+            "\n" +
+            "    def canFinish(self, numCourses: int, prerequisites: List[List[int]]) -> bool:  # True iff the directed prerequisite graph contains no cycle.\n" +
+            "\n" +
+            "        # ==================== PHASE 1: BUILD THE DIRECTED GRAPH ====================\n" +
+            "\n" +
+            "        # Same graph as Kahn's: courses are NODES, each [a, b] is the directed edge b -> a.\n" +
+            "        #   'Finishable' == 'the graph is acyclic' == 'a DFS finds no back edge to a node still\n" +
+            "        #   on the current path'. We detect that by COLORING nodes as we descend and unwind.\n" +
+            "\n" +
+            "        graph = [[] for _ in range(numCourses)]  # graph[b] = courses that b unlocks.\n" +
+            "        for a, b in prerequisites:  # Record edge b -> a for each pair 'b before a'.\n" +
+            "                                    # Keep the direction straight: [a, b] is b -> a.\n" +
+            "            graph[b].append(a)  # b unlocks a.\n" +
+            "        color = [0] * numCourses  # 0 = unvisited, 1 = on the current DFS path, 2 = fully explored/safe.\n" +
+            "                                  # This array IS the traversal's memory; the set of color-1 nodes is the active path.\n" +
+            "\n" +
+            "        # ==================== PHASE 2: DFS THAT DETECTS A BACK EDGE ====================\n" +
+            "\n" +
+            "        def dfs(c):  # Returns False iff a cycle is reachable from course c.\n" +
+            "                     # Recursion invariant: c is color 1 (gray) for the whole time its descendants are explored.\n" +
+            "            if color[c] == 1:  # Reached a node already on the ACTIVE path -> a back edge -> cycle.\n" +
+            "                               # This is the failure base case: gray means an ancestor of the current call.\n" +
+            "                return False  # Report the cycle up the stack.\n" +
+            "            if color[c] == 2:  # Already fully explored on a previous path and proven safe.\n" +
+            "                               # Color 2 lets a later path short-circuit, keeping the whole search linear.\n" +
+            "                return True  # Nothing new below c; no cycle from here.\n" +
+            "            color[c] = 1  # Mark c gray: it is now on the current recursion path.\n" +
+            "            for nxt in graph[c]:  # Descend into every course c unlocks.\n" +
+            "                if not dfs(nxt):  # A cycle found deeper...\n" +
+            "                                  # ...propagates straight up; we stop exploring the rest of c's neighbors.\n" +
+            "                    return False  # Bubble the cycle result to the caller.\n" +
+            "            color[c] = 2  # All descendants clear: mark c black (done, safe).\n" +
+            "                          # Marking black on exit is why each node/edge is examined only a constant number of times.\n" +
+            "            return True  # No cycle reachable from c.\n" +
+            "\n" +
+            "        # ==================== PHASE 3: RUN FROM EVERY COMPONENT ====================\n" +
+            "\n" +
+            "        for c in range(numCourses):  # The graph may be disconnected, so start a DFS from every course.\n" +
+            "                                     # A black node is skipped in O(1), so re-launching everywhere stays linear overall.\n" +
+            "            if not dfs(c):  # Any cycle anywhere means...\n" +
+            "                return False  # ...not all courses can finish.\n" +
+            "        return True  # No cycle in any component => every course is finishable.",
           plain:
             "class Solution:\n" +
             "    def canFinish(self, numCourses: int, prerequisites: List[List[int]]) -> bool:\n" +
@@ -456,30 +558,50 @@
             "**Complexity.** Time `O((m*n)^2)` \u2014 one traversal of up to `m*n` cells per source cell. Space `O(m*n)` for the per-search `seen` set.\n\n" +
             "**Interview mindset.** When 'can each of many sources reach a target?' leads to relaunching a full search per source, that quadratic blowup is the cue to flip the direction and flood once from the targets instead.",
           rcs:
-            "class Solution:\n" +
-            "    def pacificAtlantic(self, heights: List[List[int]]) -> List[List[int]]:\n" +
-            "        m, n = len(heights), len(heights[0])\n" +
+            "from typing import List  # List lets the type hints describe heights as a grid (list of lists of int).\n" +
             "\n" +
-            "        def can_reach(sr, sc):               # From (sr,sc), which oceans are reachable downhill?\n" +
-            "            seen = set()\n" +
-            "            stack = [(sr, sc)]\n" +
-            "            pacific = atlantic = False\n" +
-            "            while stack:\n" +
-            "                r, c = stack.pop()\n" +
-            "                if (r, c) in seen:\n" +
-            "                    continue\n" +
-            "                seen.add((r, c))\n" +
-            "                if r == 0 or c == 0:         # Top or left edge => Pacific.\n" +
-            "                    pacific = True\n" +
-            "                if r == m - 1 or c == n - 1: # Bottom or right edge => Atlantic.\n" +
-            "                    atlantic = True\n" +
-            "                for dr, dc in ((1,0),(-1,0),(0,1),(0,-1)):\n" +
-            "                    nr, nc = r + dr, c + dc\n" +
-            "                    if 0 <= nr < m and 0 <= nc < n and heights[nr][nc] <= heights[r][c]:\n" +
-            "                        stack.append((nr, nc))  # Water flows to lower-or-equal neighbor.\n" +
-            "            return pacific and atlantic\n" +
             "\n" +
-            "        return [[r, c] for r in range(m) for c in range(n) if can_reach(r, c)]",
+            "class Solution:  # LeetCode instantiates this class and calls pacificAtlantic on the object.\n" +
+            "\n" +
+            "    def pacificAtlantic(self, heights: List[List[int]]) -> List[List[int]]:  # Return every cell that can drain to BOTH oceans (naive per-cell search).\n" +
+            "\n" +
+            "        # ==================== PHASE 1: MODEL THE GRID AS A FLOW GRAPH ====================\n" +
+            "\n" +
+            "        # Mental model: the grid is an implicit graph. Node = cell (r, c). There is a DIRECTED edge\n" +
+            "        #   X -> Y when heights[Y] <= heights[X] (water flows downhill/level). Pacific touches the top\n" +
+            "        #   and left edges; Atlantic the bottom and right. The naive plan: from EVERY cell, follow the\n" +
+            "        #   downhill edges and see whether the flow touches each ocean's border -- O((m*n)^2) work.\n" +
+            "\n" +
+            "        m, n = len(heights), len(heights[0])  # m = rows, n = columns; cached for the bounds checks.\n" +
+            "\n" +
+            "        # ==================== PHASE 2: DOWNHILL SEARCH FROM ONE CELL ====================\n" +
+            "\n" +
+            "        def can_reach(sr, sc):  # From source (sr, sc), which oceans can its water reach?\n" +
+            "                                # Returns True iff the downhill flow touches both a Pacific and an Atlantic border.\n" +
+            "            seen = set()  # Cells already visited on THIS search; reset per source.\n" +
+            "                          # Essential: flow uses <=, so equal-height neighbors would loop without it.\n" +
+            "            stack = [(sr, sc)]  # Explicit DFS stack seeded with the source cell.\n" +
+            "            pacific = atlantic = False  # Whether this flow has touched each ocean yet.\n" +
+            "            while stack:  # Drain the stack, exploring the whole downhill-reachable region.\n" +
+            "                r, c = stack.pop()  # Take a cell to process.\n" +
+            "                if (r, c) in seen:  # Skip cells already handled on this search.\n" +
+            "                    continue  # Avoids reprocessing and infinite loops on flat regions.\n" +
+            "                seen.add((r, c))  # Mark this cell visited for this source.\n" +
+            "                if r == 0 or c == 0:  # On the top or left edge => borders the Pacific.\n" +
+            "                    pacific = True  # This flow reaches the Pacific.\n" +
+            "                if r == m - 1 or c == n - 1:  # On the bottom or right edge => borders the Atlantic.\n" +
+            "                    atlantic = True  # This flow reaches the Atlantic.\n" +
+            "                for dr, dc in ((1,0),(-1,0),(0,1),(0,-1)):  # The four 4-directional neighbors: down, up, right, left.\n" +
+            "                    nr, nc = r + dr, c + dc  # Coordinates of one neighbor.\n" +
+            "                    if 0 <= nr < m and 0 <= nc < n and heights[nr][nc] <= heights[r][c]:  # In bounds AND downhill/level?\n" +
+            "                                                                                          # Bounds first, so heights[nr][nc] never indexes out of range; <= is the flow rule.\n" +
+            "                        stack.append((nr, nc))  # Water can flow there -> explore it.\n" +
+            "            return pacific and atlantic  # This cell qualifies iff its water reaches both oceans.\n" +
+            "\n" +
+            "        # ==================== PHASE 3: TEST EVERY CELL ====================\n" +
+            "\n" +
+            "        return [[r, c] for r in range(m) for c in range(n) if can_reach(r, c)]  # Collect all cells that drain to both oceans.\n" +
+            "                                                                                # One full search per cell is what makes this O((m*n)^2) and motivates the reverse flood.",
           plain:
             "class Solution:\n" +
             "    def pacificAtlantic(self, heights: List[List[int]]) -> List[List[int]]:\n" +
@@ -530,30 +652,56 @@
             "**Complexity.** Time `O(m*n)` and space `O(m*n)` \u2014 each cell is visited at most once per ocean, so two floods plus an intersection stay linear.\n\n" +
             "**Interview mindset.** Grid plus 'can many sources reach a border/target' is the signal to reverse the search and flood FROM the target; two targets means two floods and intersect the reachable sets.",
           rcs:
-            "class Solution:\n" +
-            "    def pacificAtlantic(self, heights: List[List[int]]) -> List[List[int]]:\n" +
-            "        if not heights or not heights[0]:\n" +
-            "            return []\n" +
-            "        m, n = len(heights), len(heights[0])\n" +
-            "        pac, atl = set(), set()              # Cells that can reach Pacific / Atlantic.\n" +
+            "from typing import List  # List lets the type hints describe heights as a grid (list of lists of int).\n" +
             "\n" +
-            "        def dfs(r, c, visited):\n" +
-            "            visited.add((r, c))              # Mark reachable-from-this-ocean.\n" +
-            "            for dr, dc in ((1,0),(-1,0),(0,1),(0,-1)):\n" +
-            "                nr, nc = r + dr, c + dc\n" +
-            "                if (0 <= nr < m and 0 <= nc < n\n" +
-            "                        and (nr, nc) not in visited\n" +
-            "                        and heights[nr][nc] >= heights[r][c]):  # Reverse flow: uphill/equal.\n" +
-            "                    dfs(nr, nc, visited)\n" +
             "\n" +
-            "        for c in range(n):                   # Top row + bottom row seeds.\n" +
-            "            dfs(0, c, pac)                   # Top edge touches Pacific.\n" +
-            "            dfs(m - 1, c, atl)               # Bottom edge touches Atlantic.\n" +
-            "        for r in range(m):                   # Left col + right col seeds.\n" +
-            "            dfs(r, 0, pac)                   # Left edge touches Pacific.\n" +
-            "            dfs(r, n - 1, atl)               # Right edge touches Atlantic.\n" +
+            "class Solution:  # LeetCode instantiates this class and calls pacificAtlantic on the object.\n" +
             "\n" +
-            "        return [[r, c] for r, c in (pac & atl)]  # Cells reaching both oceans.",
+            "    def pacificAtlantic(self, heights: List[List[int]]) -> List[List[int]]:  # Return cells draining to both oceans in linear time by flooding FROM the oceans.\n" +
+            "\n" +
+            "        # ==================== PHASE 1: MODEL AND FLIP THE FLOW ====================\n" +
+            "\n" +
+            "        # Same implicit grid graph, but we traverse the REVERSE edge: from a cell we step to a neighbor\n" +
+            "        #   whose height is >= ours (water could have flowed from that neighbor DOWN into us). Starting\n" +
+            "        #   at an ocean's border and walking uphill marks exactly the cells that can drain to that ocean.\n" +
+            "        #   Do it once per ocean and intersect -- O(m*n) instead of O((m*n)^2).\n" +
+            "\n" +
+            "        if not heights or not heights[0]:  # Guard the empty grid before indexing.\n" +
+            "                                           # Why safe: the code below assumes heights[0] exists for len(heights[0]).\n" +
+            "            return []  # No cells => no answer.\n" +
+            "        m, n = len(heights), len(heights[0])  # m = rows, n = columns; cached for bounds checks.\n" +
+            "        pac, atl = set(), set()  # Cells that can reach the Pacific / Atlantic; each set is its own visited marker.\n" +
+            "                                 # A cell is added once per set, which prevents re-processing during a flood.\n" +
+            "\n" +
+            "        # ==================== PHASE 2: REVERSE FLOOD (UPHILL) FROM A BORDER ====================\n" +
+            "\n" +
+            "        def dfs(r, c, visited):  # Mark (r, c) reachable-from-this-ocean, then recurse uphill.\n" +
+            "                                 # Recursion invariant: every cell in 'visited' can drain to the ocean that seeded it.\n" +
+            "            visited.add((r, c))  # Record this cell as reachable from the seeding ocean.\n" +
+            "                                 # Adding here (on entry) is the visited check that keeps the flood linear.\n" +
+            "            for dr, dc in ((1,0),(-1,0),(0,1),(0,-1)):  # The four 4-directional neighbors.\n" +
+            "                nr, nc = r + dr, c + dc  # Coordinates of one neighbor.\n" +
+            "                if (0 <= nr < m and 0 <= nc < n  # In bounds AND...\n" +
+            "                                                 # Bounds tested first so heights[nr][nc] below never indexes out of range.\n" +
+            "                        and (nr, nc) not in visited  # ...not already marked for this ocean AND...\n" +
+            "                        and heights[nr][nc] >= heights[r][c]):  # ...uphill/level (the REVERSED flow rule).\n" +
+            "                                                                # Using <= here would silently compute the wrong set -- the flip to >= is the whole trick.\n" +
+            "                    dfs(nr, nc, visited)  # Water could have flowed from there down to us -> keep flooding.\n" +
+            "\n" +
+            "        # ==================== PHASE 3: SEED EACH OCEAN'S ENTIRE BORDER ====================\n" +
+            "\n" +
+            "        for c in range(n):  # Every column: seed the top and bottom rows.\n" +
+            "                            # Multi-source flood -- all border cells of one ocean are equivalent sources.\n" +
+            "            dfs(0, c, pac)  # Top edge touches the Pacific.\n" +
+            "            dfs(m - 1, c, atl)  # Bottom edge touches the Atlantic.\n" +
+            "        for r in range(m):  # Every row: seed the left and right columns.\n" +
+            "            dfs(r, 0, pac)  # Left edge touches the Pacific.\n" +
+            "            dfs(r, n - 1, atl)  # Right edge touches the Atlantic.\n" +
+            "\n" +
+            "        # ==================== PHASE 4: INTERSECT THE TWO SETS ====================\n" +
+            "\n" +
+            "        return [[r, c] for r, c in (pac & atl)]  # Cells reachable from BOTH oceans drain to both.\n" +
+            "                                                 # Corner cells lie on two borders, so they are always in the answer.",
           plain:
             "class Solution:\n" +
             "    def pacificAtlantic(self, heights: List[List[int]]) -> List[List[int]]:\n" +
@@ -895,37 +1043,60 @@
             "**Complexity.** Let `C` be the total number of characters across all words. Building the graph is `O(C)`; the topological sort is `O(U + E)` where `U` \u2264 26 letters \u2014 so overall `O(C)` time and `O(1)` extra space for the fixed alphabet (`O(U + E)` in general).\n\n" +
             "**Interview mindset.** 'Recover an ordering from pairwise comparisons' is the signal to build a directed graph of the constraints and topologically sort \u2014 and to remember the two failure modes: a cycle (contradiction) and the prefix-comes-after rule.",
           rcs:
-            "from collections import deque, defaultdict\n" +
+            "from collections import deque, defaultdict  # deque = FIFO queue for Kahn's BFS; defaultdict auto-creates empty sets.\n" +
+            "from typing import List  # List lets the type hints describe words as a list of str.\n" +
             "\n" +
-            "class Solution:\n" +
-            "    def alienOrder(self, words: List[str]) -> str:\n" +
-            "        adj = defaultdict(set)                # adj[a] = letters that must come AFTER a.\n" +
-            "        indegree = {ch: 0 for w in words for ch in w}  # Every distinct letter, indegree 0.\n" +
             "\n" +
-            "        for w1, w2 in zip(words, words[1:]):  # Compare each adjacent pair of words.\n" +
-            "            min_len = min(len(w1), len(w2))\n" +
-            "            if len(w1) > len(w2) and w1[:min_len] == w2[:min_len]:\n" +
-            "                return \"\"                    # Prefix rule violated: 'abc' before 'ab'.\n" +
-            "            for i in range(min_len):\n" +
-            "                if w1[i] != w2[i]:           # First difference gives the ordering...\n" +
-            "                    if w2[i] not in adj[w1[i]]:\n" +
-            "                        adj[w1[i]].add(w2[i])    # Edge w1[i] -> w2[i].\n" +
-            "                        indegree[w2[i]] += 1\n" +
-            "                    break                    # Only the first differing char matters.\n" +
+            "class Solution:  # LeetCode instantiates this class and calls alienOrder on the object.\n" +
             "\n" +
-            "        queue = deque(c for c in indegree if indegree[c] == 0)  # Letters with nothing before them.\n" +
-            "        order = []\n" +
-            "        while queue:\n" +
-            "            c = queue.popleft()\n" +
-            "            order.append(c)                  # Safe to place next in the alphabet.\n" +
-            "            for nxt in adj[c]:               # Removing c frees its dependents.\n" +
-            "                indegree[nxt] -= 1\n" +
-            "                if indegree[nxt] == 0:\n" +
-            "                    queue.append(nxt)\n" +
+            "    def alienOrder(self, words: List[str]) -> str:  # Return any letter order consistent with the sorting, or '' if impossible.\n" +
             "\n" +
-            "        if len(order) < len(indegree):       # Some letters stuck in a cycle.\n" +
-            "            return \"\"\n" +
-            "        return \"\".join(order)",
+            "        # ==================== PHASE 1: NODES AND EMPTY GRAPH ====================\n" +
+            "\n" +
+            "        # Mental model: each distinct LETTER is a node. Comparing two ADJACENT words gives one directed\n" +
+            "        #   edge X -> Y ('X before Y') at their first differing character. A valid alphabet is a\n" +
+            "        #   topological order of that graph; a cycle means the sorting is self-contradictory -> ''.\n" +
+            "\n" +
+            "        adj = defaultdict(set)  # adj[a] = the set of letters that must come AFTER a.\n" +
+            "                                # A set (not a list) makes it trivial to skip duplicate edges.\n" +
+            "        indegree = {ch: 0 for w in words for ch in w}  # Every distinct letter registered with indegree 0.\n" +
+            "                                                       # Crucial: this includes letters that appear in no comparison, so none is dropped.\n" +
+            "\n" +
+            "        # ==================== PHASE 2: DERIVE EDGES FROM ADJACENT WORDS ====================\n" +
+            "\n" +
+            "        for w1, w2 in zip(words, words[1:]):  # Compare each adjacent pair of words in sorted order.\n" +
+            "                                              # Only neighboring words are directly comparable in a lexicographic list.\n" +
+            "            min_len = min(len(w1), len(w2))  # Compare only up to the shorter length.\n" +
+            "            if len(w1) > len(w2) and w1[:min_len] == w2[:min_len]:  # The prefix trap: a longer word before its own prefix.\n" +
+            "                                                                    # e.g. 'abc' before 'ab' -- no alphabet can justify this ordering.\n" +
+            "                return \"\"  # Report the impossible sorting immediately.\n" +
+            "            for i in range(min_len):  # Scan characters left to right to find the first difference.\n" +
+            "                if w1[i] != w2[i]:  # First position where the two words differ...\n" +
+            "                                    # ...is the ONLY ordering fact this pair reveals; later characters tell us nothing.\n" +
+            "                    if w2[i] not in adj[w1[i]]:  # Add the edge only if it is new (avoid inflating indegree).\n" +
+            "                        adj[w1[i]].add(w2[i])  # Edge w1[i] -> w2[i]: this letter comes before that one.\n" +
+            "                        indegree[w2[i]] += 1  # The later letter gains one prerequisite.\n" +
+            "                    break  # Stop this pair the moment the first difference is recorded.\n" +
+            "\n" +
+            "        # ==================== PHASE 3: TOPOLOGICAL SORT (KAHN'S BFS) ====================\n" +
+            "\n" +
+            "        queue = deque(c for c in indegree if indegree[c] == 0)  # Seed with letters that have nothing before them.\n" +
+            "                                                                # Loop invariant below: order holds a valid prefix of the alphabet built so far.\n" +
+            "        order = []  # The alphabet under construction, in dependency order.\n" +
+            "        while queue:  # Emit letters as they become free of predecessors.\n" +
+            "            c = queue.popleft()  # Take a letter with no remaining prerequisites.\n" +
+            "            order.append(c)  # It is safe to place next in the alphabet.\n" +
+            "            for nxt in adj[c]:  # Removing c frees the letters that depended on it...\n" +
+            "                indegree[nxt] -= 1  # ...each loses one prerequisite.\n" +
+            "                if indegree[nxt] == 0:  # All predecessors of nxt now placed?\n" +
+            "                    queue.append(nxt)  # Then nxt is ready -- enqueue it.\n" +
+            "\n" +
+            "        # ==================== PHASE 4: CYCLE CHECK ====================\n" +
+            "\n" +
+            "        if len(order) < len(indegree):  # Fewer letters emitted than exist => a cycle stranded some.\n" +
+            "                                        # A cycle (a<b and b<a) means those letters never reach indegree 0.\n" +
+            "            return \"\"  # Contradictory constraints -> no valid order.\n" +
+            "        return \"\".join(order)  # Every letter placed: join them into the alien alphabet.",
           plain:
             "from collections import deque, defaultdict\n" +
             "\n" +
@@ -1044,24 +1215,46 @@
             "**Complexity.** `O(n + E * \u03b1(n))` \u2248 linear time (\u03b1 is the inverse Ackermann function), `O(n)` space for the parent array. A DFS/BFS from node 0 that checks 'visited all n nodes and never revisits a non-parent' is an equivalent alternative.\n\n" +
             "**Interview mindset.** An undirected graph plus 'is it a tree / any cycle / all connected' is the Union-Find signal \u2014 recall the counting shortcut that a tree on `n` nodes has exactly `n - 1` edges.",
           rcs:
-            "class Solution:\n" +
-            "    def validTree(self, n: int, edges: List[List[int]]) -> bool:\n" +
-            "        if len(edges) != n - 1:              # A tree has EXACTLY n-1 edges; fast reject.\n" +
-            "            return False\n" +
-            "        parent = list(range(n))              # Each node starts as its own set root.\n" +
+            "from typing import List  # List lets the type hints describe edges as a list of int pairs.\n" +
             "\n" +
-            "        def find(x):                         # Root of x's set, with path compression.\n" +
-            "            while parent[x] != x:\n" +
-            "                parent[x] = parent[parent[x]]  # Point x at its grandparent (flatten).\n" +
-            "                x = parent[x]\n" +
-            "            return x\n" +
             "\n" +
-            "        for a, b in edges:\n" +
-            "            ra, rb = find(a), find(b)\n" +
-            "            if ra == rb:                     # Endpoints already connected => this edge is a cycle.\n" +
-            "                return False\n" +
-            "            parent[ra] = rb                  # Union the two sets.\n" +
-            "        return True                          # n-1 edges, no cycle => connected acyclic tree.",
+            "class Solution:  # LeetCode instantiates this class and calls validTree on the object.\n" +
+            "\n" +
+            "    def validTree(self, n: int, edges: List[List[int]]) -> bool:  # True iff the edges form a tree: connected AND acyclic.\n" +
+            "\n" +
+            "        # ==================== PHASE 1: THE TREE COUNTING SHORTCUT ====================\n" +
+            "\n" +
+            "        # Mental model: nodes are 0..n-1, edges are undirected pairs. A tree on n nodes has EXACTLY\n" +
+            "        #   n-1 edges, and given that count 'connected' and 'acyclic' are equivalent -- so it is enough\n" +
+            "        #   to confirm n-1 edges AND that no edge links two already-connected nodes (which would be a\n" +
+            "        #   cycle). Union-Find tracks connectivity as each edge arrives.\n" +
+            "\n" +
+            "        if len(edges) != n - 1:  # A tree has exactly n-1 edges; anything else cannot be a tree.\n" +
+            "                                 # This fast reject is also what makes 'no cycle => connected' valid below.\n" +
+            "                                 # n = 1 with no edges passes here (0 == n-1) and is a valid tree.\n" +
+            "            return False  # Wrong edge count -> not a tree.\n" +
+            "        parent = list(range(n))  # Disjoint-set forest: parent[i] = i, so every node starts as its own root.\n" +
+            "                                 # State: two nodes share a component iff find() returns the same root for both.\n" +
+            "\n" +
+            "        # ==================== PHASE 2: FIND WITH PATH COMPRESSION ====================\n" +
+            "\n" +
+            "        def find(x):  # Return the representative root of x's set.\n" +
+            "                      # Path compression flattens the tree so future finds are near O(1).\n" +
+            "            while parent[x] != x:  # Walk up until x points to itself (the root).\n" +
+            "                parent[x] = parent[parent[x]]  # Point x at its grandparent -- halve the path length.\n" +
+            "                x = parent[x]  # Step up and continue.\n" +
+            "            return x  # x is now the root.\n" +
+            "\n" +
+            "        # ==================== PHASE 3: UNION EACH EDGE, REJECT CYCLES ====================\n" +
+            "\n" +
+            "        for a, b in edges:  # Process every undirected edge once.\n" +
+            "                            # Loop invariant: after k successful unions, the forest has n-k components.\n" +
+            "            ra, rb = find(a), find(b)  # Roots of the two endpoints' components.\n" +
+            "            if ra == rb:  # Endpoints ALREADY connected => this edge closes a cycle.\n" +
+            "                          # A cycle in an undirected graph is exactly an edge between two same-root nodes.\n" +
+            "                return False  # Cycle found -> not a tree.\n" +
+            "            parent[ra] = rb  # Different components -> union them into one.\n" +
+            "        return True  # n-1 edges and no cycle => one connected acyclic component => a tree.",
           plain:
             "class Solution:\n" +
             "    def validTree(self, n: int, edges: List[List[int]]) -> bool:\n" +
@@ -1165,23 +1358,42 @@
             "**Complexity.** `O(n + E * \u03b1(n))` \u2248 linear time (\u03b1 = inverse Ackermann), `O(n)` space for the parent array.\n\n" +
             "**Interview mindset.** 'How many separate groups/clusters?' in an undirected graph is the connected-components signal; Union-Find shines when edges stream in and you want a running count.",
           rcs:
-            "class Solution:\n" +
-            "    def countComponents(self, n: int, edges: List[List[int]]) -> int:\n" +
-            "        parent = list(range(n))              # Each node begins in its own component.\n" +
-            "        count = n                            # Start with n separate components.\n" +
+            "from typing import List  # List lets the type hints describe edges as a list of int pairs.\n" +
             "\n" +
-            "        def find(x):                         # Root of x's set, with path compression.\n" +
-            "            while parent[x] != x:\n" +
-            "                parent[x] = parent[parent[x]]  # Flatten the path toward the root.\n" +
-            "                x = parent[x]\n" +
-            "            return x\n" +
             "\n" +
-            "        for a, b in edges:\n" +
-            "            ra, rb = find(a), find(b)\n" +
-            "            if ra != rb:                     # Different components -> a real merge.\n" +
-            "                parent[ra] = rb\n" +
-            "                count -= 1                   # One fewer component.\n" +
-            "        return count",
+            "class Solution:  # LeetCode instantiates this class and calls countComponents on the object.\n" +
+            "\n" +
+            "    def countComponents(self, n: int, edges: List[List[int]]) -> int:  # Count the connected components using a disjoint-set forest.\n" +
+            "\n" +
+            "        # ==================== PHASE 1: EVERY NODE ITS OWN COMPONENT ====================\n" +
+            "\n" +
+            "        # Mental model: nodes are 0..n-1, edges are undirected pairs. Start with n singleton\n" +
+            "        #   components; each edge that links two DIFFERENT components merges them and drops the count\n" +
+            "        #   by one, while an edge inside a component changes nothing. Union-Find maintains the sets.\n" +
+            "\n" +
+            "        parent = list(range(n))  # Disjoint-set forest: parent[i] = i, so each node is its own root.\n" +
+            "                                 # State: two nodes share a component iff find() returns the same root.\n" +
+            "        count = n  # Running component count; starts with every node isolated.\n" +
+            "                   # Loop invariant: count == number of disjoint sets remaining.\n" +
+            "\n" +
+            "        # ==================== PHASE 2: FIND WITH PATH COMPRESSION ====================\n" +
+            "\n" +
+            "        def find(x):  # Return the representative root of x's set.\n" +
+            "                      # Path compression flattens the path so future finds are near O(1).\n" +
+            "            while parent[x] != x:  # Walk up until x points to itself (the root).\n" +
+            "                parent[x] = parent[parent[x]]  # Point x at its grandparent -- halve the path length.\n" +
+            "                x = parent[x]  # Step up and continue.\n" +
+            "            return x  # x is now the root.\n" +
+            "\n" +
+            "        # ==================== PHASE 3: MERGE ON EACH REAL EDGE ====================\n" +
+            "\n" +
+            "        for a, b in edges:  # Process every undirected edge once.\n" +
+            "            ra, rb = find(a), find(b)  # Roots of the two endpoints' components.\n" +
+            "            if ra != rb:  # Endpoints in DIFFERENT components => a genuine merge.\n" +
+            "                          # An edge inside one component (ra == rb) is skipped, so the count is not touched.\n" +
+            "                parent[ra] = rb  # Union the two sets into one.\n" +
+            "                count -= 1  # One fewer component.\n" +
+            "        return count  # After all edges, count is the number of connected components.",
           plain:
             "class Solution:\n" +
             "    def countComponents(self, n: int, edges: List[List[int]]) -> int:\n" +
@@ -1225,30 +1437,50 @@
             "**Complexity.** `O(n + E)` time and space \u2014 building the adjacency list and visiting every node and edge once.\n\n" +
             "**Interview mindset.** DFS/BFS from each unvisited node is the explicit alternative to Union-Find, and it lets you list the members of each group, not just count them.",
           rcs:
-            "class Solution:\n" +
-            "    def countComponents(self, n: int, edges: List[List[int]]) -> int:\n" +
-            "        adj = [[] for _ in range(n)]         # Undirected adjacency list.\n" +
-            "        for a, b in edges:\n" +
-            "            adj[a].append(b)\n" +
-            "            adj[b].append(a)                 # Store both directions.\n" +
-            "        visited = set()\n" +
-            "        count = 0\n" +
+            "from typing import List  # List lets the type hints describe edges as a list of int pairs.\n" +
             "\n" +
-            "        def dfs(node):\n" +
-            "            stack = [node]\n" +
-            "            while stack:\n" +
-            "                cur = stack.pop()\n" +
-            "                for nei in adj[cur]:\n" +
-            "                    if nei not in visited:\n" +
-            "                        visited.add(nei)     # Mark on discovery.\n" +
-            "                        stack.append(nei)\n" +
             "\n" +
-            "        for i in range(n):\n" +
-            "            if i not in visited:             # New, unseen component.\n" +
-            "                count += 1\n" +
-            "                visited.add(i)\n" +
-            "                dfs(i)                       # Mark the whole component.\n" +
-            "        return count",
+            "class Solution:  # LeetCode instantiates this class and calls countComponents on the object.\n" +
+            "\n" +
+            "    def countComponents(self, n: int, edges: List[List[int]]) -> int:  # Count components by flooding each one with an explicit-stack DFS.\n" +
+            "\n" +
+            "        # ==================== PHASE 1: BUILD THE UNDIRECTED ADJACENCY LIST ====================\n" +
+            "\n" +
+            "        # Mental model: nodes are 0..n-1; each undirected edge is stored in BOTH directions. A\n" +
+            "        #   component is one connected blob, so the number of components equals the number of floods\n" +
+            "        #   needed to reach every node. A visited set stops a component being entered twice.\n" +
+            "\n" +
+            "        adj = [[] for _ in range(n)]  # adj[x] = the neighbors of node x.\n" +
+            "        for a, b in edges:  # Store every edge in both directions (undirected).\n" +
+            "            adj[a].append(b)  # a - b\n" +
+            "            adj[b].append(a)  # b - a (or the traversal would miss reachable nodes).\n" +
+            "        visited = set()  # Nodes some flood has already reached.\n" +
+            "                         # State: a node in visited belongs to a component already counted.\n" +
+            "        count = 0  # Number of components discovered so far.\n" +
+            "                   # Loop invariant: count == number of floods launched == components fully marked.\n" +
+            "\n" +
+            "        # ==================== PHASE 2: FLOOD ONE COMPONENT (ITERATIVE DFS) ====================\n" +
+            "\n" +
+            "        def dfs(node):  # Mark every node reachable from 'node' as visited.\n" +
+            "                        # Uses an explicit stack, so a long chain cannot overflow the call stack.\n" +
+            "            stack = [node]  # Frontier of nodes still to expand; the seed is already marked by the caller.\n" +
+            "            while stack:  # Drain the stack until the whole component is marked.\n" +
+            "                cur = stack.pop()  # Take a node to expand.\n" +
+            "                for nei in adj[cur]:  # Look at each of cur's neighbors.\n" +
+            "                    if nei not in visited:  # First time reaching this neighbor?\n" +
+            "                        visited.add(nei)  # Mark on discovery (when pushed), not when popped.\n" +
+            "                                          # Marking here stops the same node being pushed twice by different neighbors.\n" +
+            "                        stack.append(nei)  # Schedule it for expansion.\n" +
+            "\n" +
+            "        # ==================== PHASE 3: LAUNCH ONE FLOOD PER UNSEEN NODE ====================\n" +
+            "\n" +
+            "        for i in range(n):  # Scan every node, including isolated ones.\n" +
+            "            if i not in visited:  # An unseen node starts a component not yet counted.\n" +
+            "                                  # Isolated nodes land here too and launch a one-node flood.\n" +
+            "                count += 1  # Count this new component once, before flooding it.\n" +
+            "                visited.add(i)  # Mark the seed before its flood begins.\n" +
+            "                dfs(i)  # Flood the whole component so none of its nodes starts another count.\n" +
+            "        return count  # One count per component => the total number of components.",
           plain:
             "class Solution:\n" +
             "    def countComponents(self, n: int, edges: List[List[int]]) -> int:\n" +

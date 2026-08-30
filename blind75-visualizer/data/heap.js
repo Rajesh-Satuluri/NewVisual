@@ -115,26 +115,56 @@
             "**Complexity.** `addNum` does a constant number of heap push/pop operations, each `O(log n)`, so `O(log n)` per insert. `findMedian` reads one or two roots, `O(1)`. Space `O(n)` to store every element.\n\n" +
             "**Interview mindset.** 'Running median' or 'running percentile of a stream' is the signature cue for the two-heaps pattern. The reusable idea: a max-heap and a min-heap facing each other keep the middle of a dataset accessible in `O(1)` while inserts stay `O(log n)`.",
           rcs:
-            "import heapq\n" +
+            "import heapq  # heapq is a binary MIN-heap; heappush/heappop keep the smallest element at index 0 (the root).\n" +
+            "             # Why we use it: peeking the most extreme element is O(1), and the median lives at the boundary between two halves.\n" +
             "\n" +
-            "class MedianFinder:\n" +
-            "    def __init__(self):\n" +
-            "        self.low = []        # Max-heap (store negatives): the smaller half of the numbers.\n" +
-            "        self.high = []       # Min-heap: the larger half of the numbers.\n" +
             "\n" +
-            "    def addNum(self, num: int) -> None:\n" +
-            "        heapq.heappush(self.low, -num)              # Tentatively add to the low (max) heap.\n" +
-            "        # Ordering fix: hand low's largest over to high so low's every value <= high's.\n" +
-            "        heapq.heappush(self.high, -heapq.heappop(self.low))\n" +
-            "        # Size fix: keep low >= high in count; if high grew bigger, move its min back.\n" +
-            "        if len(self.high) > len(self.low):\n" +
-            "            heapq.heappush(self.low, -heapq.heappop(self.high))\n" +
+            "class MedianFinder:  # LeetCode creates ONE MedianFinder and calls addNum / findMedian on it many times.\n" +
             "\n" +
-            "    def findMedian(self) -> float:\n" +
-            "        if len(self.low) > len(self.high):          # Odd count: low holds the extra middle.\n" +
-            "            return float(-self.low[0])              # low's root (un-negated) is the median.\n" +
-            "        # Even count: average the two middle roots.\n" +
-            "        return (-self.low[0] + self.high[0]) / 2.0",
+            "    # ==================== PHASE 1: SET UP THE TWO HEAPS ====================\n" +
+            "\n" +
+            "    def __init__(self):  # Runs once at construction; creates the two heaps that face each other.\n" +
+            "\n" +
+            "        self.low = []  # Max-heap of the SMALLER half, stored as NEGATED values because heapq only offers a min-heap.\n" +
+            "                       # Why negate: the min of the negatives is the max of the originals, so -self.low[0] is the lower half's largest.\n" +
+            "                       # State: starts empty; after inserts its root -self.low[0] is the boundary value on the low side.\n" +
+            "\n" +
+            "        self.high = []  # Min-heap of the LARGER half, stored as plain values so self.high[0] is the upper half's smallest.\n" +
+            "                        # State: starts empty; after inserts its root is the boundary value on the high side.\n" +
+            "                        # Invariant kept forever: every value in low <= every value in high, and len(low) - len(high) is 0 or 1.\n" +
+            "\n" +
+            "    # ==================== PHASE 2: INSERT ONE NUMBER AND REBALANCE ====================\n" +
+            "\n" +
+            "    def addNum(self, num: int) -> None:  # Insert num, then restore both invariants; all in O(log n).\n" +
+            "\n" +
+            "        heapq.heappush(self.low, -num)  # Tentatively drop the newcomer into the lower half (push its negation to respect the max-heap trick).\n" +
+            "                                        # Why route through low first: one fixed path keeps the rebalancing below simple and uniform.\n" +
+            "                                        # State: low may now hold a value that really belongs in high, so ordering can be temporarily broken.\n" +
+            "\n" +
+            "        # Ordering fix: move low's current maximum over to high so no low value can exceed any high value.\n" +
+            "        heapq.heappush(self.high, -heapq.heappop(self.low))  # Pop low's largest (heappop yields -largest), un-negate it, and push that value onto high.\n" +
+            "                                                             # Why this restores ordering: the biggest of the low side is exactly the element most likely to belong on high.\n" +
+            "                                                             # State: now -self.low[0] <= self.high[0] holds, but high may be one element larger than low.\n" +
+            "\n" +
+            "        # Size fix: enforce len(low) == len(high) or len(low) == len(high) + 1 (low keeps any odd element).\n" +
+            "        if len(self.high) > len(self.low):  # Did the ordering fix leave high as the bigger heap?\n" +
+            "                                            # Why-safe: only one element ever crossed over, so high can exceed low by at most one here.\n" +
+            "            heapq.heappush(self.low, -heapq.heappop(self.high))  # Move high's smallest back to low (re-negated) so low regains the extra element.\n" +
+            "                                                                 # State: sizes are balanced again and both invariants hold.\n" +
+            "                                                                 # Execution flow: addNum returns to the caller; the structure is ready for the next call.\n" +
+            "\n" +
+            "    # ==================== PHASE 3: READ THE CURRENT MEDIAN ====================\n" +
+            "\n" +
+            "    def findMedian(self) -> float:  # Return the median of all inserted values in O(1) from the two roots.\n" +
+            "\n" +
+            "        if len(self.low) > len(self.high):  # Odd total count: low is the larger heap, so it holds the single middle element.\n" +
+            "                                            # Why: the size fix only ever lets low be the bigger heap, so the lone middle always sits on the low side.\n" +
+            "            return float(-self.low[0])  # The median is low's root, un-negated and cast to float.\n" +
+            "                                        # Execution flow: return ends the call; the even-count branch below is skipped.\n" +
+            "\n" +
+            "        # Even total count: the two middle values are the two roots, one from each heap.\n" +
+            "        return (-self.low[0] + self.high[0]) / 2.0  # Average low's maximum (un-negated) with high's minimum.\n" +
+            "                                                    # Why-safe: equal heap sizes mean these two roots are precisely the middle pair of the ordered data.",
           plain:
             "import heapq\n" +
             "\n" +
@@ -243,18 +273,42 @@
             "**Complexity.** Counting is `O(n)`. Each of the `m` distinct values does an `O(log k)` heap operation and the heap never exceeds size `k`, so `O(m log k) <= O(n log k)` overall. Space `O(n)` for the counts.\n\n" +
             "**Interview mindset.** 'Top-k by some score' with small `k` is the cue for a size-`k` heap keyed on the score. Use a min-heap when you want the k LARGEST — the root is the weakest survivor, the one to evict.",
           rcs:
-            "import heapq\n" +
-            "from collections import Counter\n" +
+            "from typing import List  # List lets the type hints say we take a list of ints and return a list of ints.\n" +
+            "import heapq  # heapq is a binary MIN-heap: its root (index 0) is always the smallest element.\n" +
+            "from collections import Counter  # Counter tallies occurrences in one O(n) pass, giving value -> frequency.\n" +
             "\n" +
-            "class Solution:\n" +
-            "    def topKFrequent(self, nums: List[int], k: int) -> List[int]:\n" +
-            "        count = Counter(nums)                 # value -> frequency, O(n).\n" +
-            "        heap = []                             # Min-heap of (freq, value), kept at size <= k.\n" +
-            "        for value, freq in count.items():     # Consider each distinct value.\n" +
-            "            heapq.heappush(heap, (freq, value))  # Add it as a (freq, value) pair.\n" +
-            "            if len(heap) > k:                 # Too many? Drop the least frequent.\n" +
-            "                heapq.heappop(heap)           # Root is the smallest frequency -> evict it.\n" +
-            "        return [value for freq, value in heap]  # Survivors are the k most frequent.",
+            "\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls topKFrequent on it.\n" +
+            "\n" +
+            "    def topKFrequent(self, nums: List[int], k: int) -> List[int]:  # Return the k most frequent values (any order).\n" +
+            "\n" +
+            "        # ==================== PHASE 1: COUNT FREQUENCIES ====================\n" +
+            "\n" +
+            "        count = Counter(nums)  # Tally how many times each value appears; one linear O(n) pass over nums.\n" +
+            "                               # State: count maps every distinct value to its frequency, e.g. {1: 3, 2: 2, 3: 1}.\n" +
+            "                               # Execution flow: Python continues to build the heap.\n" +
+            "\n" +
+            "        # ==================== PHASE 2: KEEP THE TOP-K IN A MIN-HEAP ====================\n" +
+            "\n" +
+            "        heap = []  # Min-heap of (freq, value) pairs; we cap it at k entries so it holds only the current top-k.\n" +
+            "                   # Why a min-heap: the smallest frequency floats to the root, so it is the cheapest one to evict.\n" +
+            "                   # State: starts empty; grows to at most k pairs.\n" +
+            "\n" +
+            "        for value, freq in count.items():  # Walk every distinct value together with its frequency.\n" +
+            "                                           # Loop invariant: after each step heap holds the k highest-frequency pairs seen so far (fewer while filling).\n" +
+            "                                           # Execution flow: after the body, Python advances to the next (value, freq).\n" +
+            "            heapq.heappush(heap, (freq, value))  # Push the pair with FREQUENCY FIRST so the heap orders by frequency, not by value.\n" +
+            "                                                 # State: heap size just grew by one and may now be k + 1.\n" +
+            "            if len(heap) > k:  # Did the heap overflow past k entries?\n" +
+            "                               # Why strictly greater: at exactly k every entry is still a valid survivor and must be kept.\n" +
+            "                heapq.heappop(heap)  # Evict the root: the smallest frequency, which cannot belong to the top-k.\n" +
+            "                                     # State: heap is back to exactly k entries, still the best k seen so far.\n" +
+            "                                     # Execution flow: end of iteration; Python returns to the for header.\n" +
+            "\n" +
+            "        # ==================== PHASE 3: EXTRACT THE ANSWER ====================\n" +
+            "\n" +
+            "        return [value for freq, value in heap]  # The k survivors are the k most frequent values; strip the frequencies and return the values.\n" +
+            "                                                # Why-safe: order is irrelevant, so returning the heap contents in heap order is acceptable.",
           plain:
             "import heapq\n" +
             "from collections import Counter\n" +
@@ -290,22 +344,49 @@
             "**Complexity.** Counting `O(n)`, filling buckets `O(m)`, scanning buckets `O(n)` in the worst case, so `O(n)` overall. Space `O(n)` for the counts and buckets.\n\n" +
             "**Interview mindset.** When the sort key is a bounded integer (here, frequency <= n), reach for bucket/counting sort to break the `O(n log n)` barrier — index by the key instead of comparing it.",
           rcs:
-            "from collections import Counter\n" +
+            "from typing import List  # List lets the type hints say we take a list of ints and return a list of ints.\n" +
+            "from collections import Counter  # Counter tallies occurrences in one O(n) pass, giving value -> frequency.\n" +
             "\n" +
-            "class Solution:\n" +
-            "    def topKFrequent(self, nums: List[int], k: int) -> List[int]:\n" +
-            "        count = Counter(nums)                     # value -> frequency, O(n).\n" +
-            "        n = len(nums)\n" +
-            "        buckets = [[] for _ in range(n + 1)]      # buckets[f] = values seen exactly f times.\n" +
-            "        for value, freq in count.items():         # Place each value in its frequency slot.\n" +
-            "            buckets[freq].append(value)\n" +
-            "        result = []\n" +
-            "        for freq in range(n, 0, -1):              # Scan from most frequent downward.\n" +
-            "            for value in buckets[freq]:\n" +
-            "                result.append(value)\n" +
-            "                if len(result) == k:             # Collected k values -> done.\n" +
-            "                    return result\n" +
-            "        return result                             # Fallback (guaranteed reached earlier).",
+            "\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls topKFrequent on it.\n" +
+            "\n" +
+            "    def topKFrequent(self, nums: List[int], k: int) -> List[int]:  # Return the k most frequent values in linear time.\n" +
+            "\n" +
+            "        # ==================== PHASE 1: COUNT FREQUENCIES ====================\n" +
+            "\n" +
+            "        count = Counter(nums)  # Tally each value's frequency in one linear pass.\n" +
+            "                               # State: count maps every distinct value to how many times it appears.\n" +
+            "\n" +
+            "        n = len(nums)  # Cache the length; it is the maximum possible frequency (a value cannot appear more than n times).\n" +
+            "                       # Why it matters: because frequency <= n, frequency itself can be used directly as an array index.\n" +
+            "\n" +
+            "        # ==================== PHASE 2: BUCKET VALUES BY FREQUENCY ====================\n" +
+            "\n" +
+            "        buckets = [[] for _ in range(n + 1)]  # buckets[f] will hold every value that occurs exactly f times; n + 1 slots cover frequencies 0..n.\n" +
+            "                                              # Why n + 1: index n must be valid for a value filling the whole array; index 0 stays unused.\n" +
+            "                                              # State: a list of n + 1 empty lists.\n" +
+            "\n" +
+            "        for value, freq in count.items():  # Visit each distinct value with its frequency.\n" +
+            "                                           # Execution flow: after each step Python advances to the next pair.\n" +
+            "            buckets[freq].append(value)  # Drop the value into the bucket for its exact frequency; no comparisons, just indexing.\n" +
+            "                                         # State: every distinct value now sits in exactly one bucket, keyed by frequency.\n" +
+            "\n" +
+            "        # ==================== PHASE 3: COLLECT FROM HIGHEST FREQUENCY DOWN ====================\n" +
+            "\n" +
+            "        result = []  # Accumulates the answer; we stop the moment it holds k values.\n" +
+            "                     # State: starts empty.\n" +
+            "\n" +
+            "        for freq in range(n, 0, -1):  # Scan buckets from the highest frequency n down to 1 (bucket 0 is always empty).\n" +
+            "                                      # Loop invariant: every value already collected is at least as frequent as any value not yet reached.\n" +
+            "                                      # Execution flow: descending order guarantees the most frequent values are taken first.\n" +
+            "            for value in buckets[freq]:  # A single frequency may tie several values; take them all from this bucket.\n" +
+            "                result.append(value)  # Add this value to the answer.\n" +
+            "                                      # State: result just grew by one.\n" +
+            "                if len(result) == k:  # Have we collected exactly k values?\n" +
+            "                    return result  # Yes: the first k values gathered are the top-k, so return immediately.\n" +
+            "                                   # Execution flow: return ends the function; nothing below runs.\n" +
+            "\n" +
+            "        return result  # Fallback for completeness; the constraint 1 <= k <= distinct values guarantees the early return fires first.",
           plain:
             "from collections import Counter\n" +
             "\n" +
@@ -410,16 +491,37 @@
             "**Complexity.** Each of the `n` elements does an `O(log k)` heap operation, so `O(n log k)` time, with `O(k)` space for the bounded heap.\n\n" +
             "**Interview mindset.** 'k-th largest / k-th smallest / top-k' calls for a size-`k` heap of the OPPOSITE polarity: for the k-th largest use a MIN-heap (root = the one to evict); for the k-th smallest use a max-heap.",
           rcs:
-            "import heapq\n" +
+            "from typing import List  # List lets the type hint say we accept a list of ints and return one int.\n" +
+            "import heapq  # heapq is a binary MIN-heap: its root (index 0) is always the smallest stored value.\n" +
             "\n" +
-            "class Solution:\n" +
-            "    def findKthLargest(self, nums: List[int], k: int) -> int:\n" +
-            "        heap = []                         # Min-heap holding the k largest values seen so far.\n" +
-            "        for num in nums:                  # Single pass over the array.\n" +
-            "            heapq.heappush(heap, num)     # Tentatively keep this value.\n" +
-            "            if len(heap) > k:             # More than k? The smallest can't be top-k.\n" +
-            "                heapq.heappop(heap)       # Evict the current minimum.\n" +
-            "        return heap[0]                    # Root = smallest of the top-k = k-th largest.",
+            "\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls findKthLargest on it.\n" +
+            "\n" +
+            "    def findKthLargest(self, nums: List[int], k: int) -> int:  # Return the k-th largest value (duplicates count).\n" +
+            "\n" +
+            "        # ==================== PHASE 1: PREPARE ====================\n" +
+            "\n" +
+            "        heap = []  # Min-heap that will hold only the k LARGEST values seen so far.\n" +
+            "                   # Why a min-heap for the k-th LARGEST: its root is the smallest of the top-k, i.e. the answer we want.\n" +
+            "                   # State: starts empty; grows to at most k elements.\n" +
+            "\n" +
+            "        # ==================== PHASE 2: STREAM THROUGH KEEPING THE TOP-K ====================\n" +
+            "\n" +
+            "        for num in nums:  # One pass over the array; num is the current value.\n" +
+            "                          # Loop invariant: after each step heap holds the k largest values seen so far (fewer while filling).\n" +
+            "                          # Execution flow: after the body Python advances num to the next element.\n" +
+            "            heapq.heappush(heap, num)  # Tentatively keep this value; it may or may not survive.\n" +
+            "                                       # State: heap size just grew by one and may now be k + 1.\n" +
+            "            if len(heap) > k:  # Did the heap exceed k elements?\n" +
+            "                               # Why strictly greater: at exactly k every element is still a candidate for the top-k.\n" +
+            "                heapq.heappop(heap)  # Evict the root, the current minimum, which cannot be among the k largest.\n" +
+            "                                     # State: heap is back to exactly the k largest-so-far values.\n" +
+            "                                     # Execution flow: end of iteration; Python returns to the for header.\n" +
+            "\n" +
+            "        # ==================== PHASE 3: READ THE ANSWER ====================\n" +
+            "\n" +
+            "        return heap[0]  # The root is the smallest of the k largest values, which is exactly the k-th largest overall.\n" +
+            "                        # Why-safe: after the full scan heap holds precisely the top-k, so its minimum is rank k.",
           plain:
             "import heapq\n" +
             "\n" +
@@ -456,33 +558,57 @@
             "**Complexity.** Average `O(n)` time, worst `O(n^2)`; `O(1)` extra space with in-place partitioning and an iterative loop.\n\n" +
             "**Interview mindset.** 'Find the element of a given rank (median, k-th largest) without full sorting' points to Quickselect. State the average is `O(n)`, mention random pivots to dodge the `O(n^2)` worst case, and note the size-`k` heap as the simpler `O(n log k)` alternative.",
           rcs:
-            "import random\n" +
+            "from typing import List  # List lets the type hint say we accept a list of ints and return one int.\n" +
+            "import random  # random.randint picks a pivot uniformly, making the O(n^2) worst case astronomically unlikely.\n" +
             "\n" +
-            "class Solution:\n" +
-            "    def findKthLargest(self, nums: List[int], k: int) -> int:\n" +
-            "        target = len(nums) - k              # k-th largest = index target in ASCENDING order.\n" +
             "\n" +
-            "        def partition(left: int, right: int) -> int:\n" +
-            "            pivot_idx = random.randint(left, right)   # Random pivot avoids worst case.\n" +
-            "            pivot = nums[pivot_idx]\n" +
-            "            nums[pivot_idx], nums[right] = nums[right], nums[pivot_idx]  # Park pivot at the end.\n" +
-            "            store = left                    # Next slot for an element < pivot.\n" +
-            "            for i in range(left, right):     # Sweep the window (pivot sits at 'right').\n" +
-            "                if nums[i] < pivot:          # Smaller elements go to the left region.\n" +
-            "                    nums[store], nums[i] = nums[i], nums[store]\n" +
-            "                    store += 1\n" +
-            "            nums[store], nums[right] = nums[right], nums[store]  # Drop pivot into its final spot.\n" +
-            "            return store                    # Pivot's true sorted index.\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls findKthLargest on it.\n" +
             "\n" +
-            "        left, right = 0, len(nums) - 1\n" +
-            "        while True:                          # Iterative Quickselect on a shrinking window.\n" +
-            "            p = partition(left, right)       # Pivot lands at its final index p.\n" +
-            "            if p == target:                  # Found the element at the target rank.\n" +
-            "                return nums[p]\n" +
-            "            elif p < target:                 # Target is further right.\n" +
-            "                left = p + 1\n" +
-            "            else:                            # Target is further left.\n" +
-            "                right = p - 1",
+            "    def findKthLargest(self, nums: List[int], k: int) -> int:  # Return the k-th largest value via in-place selection.\n" +
+            "\n" +
+            "        # ==================== PHASE 1: CONVERT THE RANK ====================\n" +
+            "\n" +
+            "        target = len(nums) - k  # The k-th LARGEST value sits at ascending-sorted index len(nums) - k (the largest is at index n - 1).\n" +
+            "                                # Why convert: partition places a pivot at its ascending sorted index, so we compare against an ascending target.\n" +
+            "                                # State: target is the fixed 0-based index we are hunting for; it never changes.\n" +
+            "\n" +
+            "        # ==================== PHASE 2: PARTITION HELPER (Lomuto scheme) ====================\n" +
+            "\n" +
+            "        def partition(left: int, right: int) -> int:  # Reorder nums[left..right] around a pivot; return the pivot's final index.\n" +
+            "\n" +
+            "            pivot_idx = random.randint(left, right)  # Choose a random pivot position within the current window.\n" +
+            "                                                     # Why random: a fixed pivot can hit the O(n^2) worst case on adversarial input; randomness avoids it in practice.\n" +
+            "            pivot = nums[pivot_idx]  # Cache the pivot value before we start moving elements around.\n" +
+            "            nums[pivot_idx], nums[right] = nums[right], nums[pivot_idx]  # Park the pivot at the far right so the sweep below can run over a clean window.\n" +
+            "                                                                         # State: the pivot value is temporarily at index right; everything left of it is still unpartitioned.\n" +
+            "            store = left  # store marks the next slot that should receive an element smaller than the pivot.\n" +
+            "                          # Loop invariant to come: nums[left..store-1] are all strictly less than the pivot.\n" +
+            "            for i in range(left, right):  # Sweep every element in the window except the parked pivot at right.\n" +
+            "                                          # Execution flow: after each step Python advances i.\n" +
+            "                if nums[i] < pivot:  # Is this element smaller than the pivot and thus belongs in the left region?\n" +
+            "                    nums[store], nums[i] = nums[i], nums[store]  # Swap it into the small-element region at store.\n" +
+            "                                                                 # State: nums[left..store] are now all less than the pivot.\n" +
+            "                    store += 1  # Advance the boundary so the next small element lands in a fresh slot.\n" +
+            "            nums[store], nums[right] = nums[right], nums[store]  # Drop the pivot from the right into the boundary slot store; that is its final sorted position.\n" +
+            "                                                                 # Why-safe: everything before store is < pivot and everything after is >= pivot, so store is correct.\n" +
+            "            return store  # Hand back the pivot's true sorted index to the caller.\n" +
+            "                          # Execution flow: control returns to the Quickselect loop below.\n" +
+            "\n" +
+            "        # ==================== PHASE 3: QUICKSELECT LOOP ====================\n" +
+            "\n" +
+            "        left, right = 0, len(nums) - 1  # The search window starts as the whole array and shrinks toward target.\n" +
+            "                                        # Loop invariant: index target always stays inside [left, right].\n" +
+            "        while True:  # Repeat until a pivot lands exactly on target; the shrinking window guarantees progress each round.\n" +
+            "            p = partition(left, right)  # Partition the current window; p is the pivot's final sorted index.\n" +
+            "            if p == target:  # Did the pivot land exactly on the rank we want?\n" +
+            "                return nums[p]  # Yes: nums[p] is the k-th largest; return it and end the function.\n" +
+            "                                # Execution flow: return exits both the loop and findKthLargest.\n" +
+            "            elif p < target:  # Pivot sits left of target, so the answer is further right.\n" +
+            "                left = p + 1  # Discard the pivot and everything left of it; search the right sub-window.\n" +
+            "                              # Why-safe: target > p, so it cannot be in the discarded left side.\n" +
+            "            else:  # Pivot sits right of target, so the answer is further left.\n" +
+            "                right = p - 1  # Discard the pivot and everything right of it; search the left sub-window.\n" +
+            "                               # Execution flow: loop repeats with the narrowed window.",
           plain:
             "import random\n" +
             "\n" +
