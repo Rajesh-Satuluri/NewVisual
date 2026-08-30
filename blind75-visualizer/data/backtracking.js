@@ -80,45 +80,87 @@
           space: "O(T/M)",
           whenToUse: "The canonical solution: 'find all combinations that reach a target with unlimited reuse' is a textbook backtracking signal.",
           logic:
-            "**What it asks.** Enumerate *every* multiset of `candidates` (elements may be reused an unlimited number of times) that sums to exactly `target`, reporting each distinct multiset once.\n\n" +
-            "**Why the naive idea fails.** The obvious move is to try picking any candidate at every step and collect the runs that hit `target`. Two things break it: growth is unbounded because numbers can be reused, and it floods the answer with duplicates \u2014 `[2,3]` and `[3,2]` are the same multiset but this generates both. We need a decision tree that terminates *and* produces each combination in exactly one canonical form.\n\n" +
-            "**Key Idea.** Model the search as a decision tree and control it with two levers. (1) *Reuse:* after choosing `candidates[i]`, recurse while still allowing index `i` \u2014 so the same value can be picked again on the next level. (2) *No duplicates:* forbid looking backwards \u2014 each recursive call may only choose candidates at index `>= start`. That forces every combination to be built in non-decreasing index order, so each multiset corresponds to exactly one root-to-leaf path. Pair this with a `remaining` counter that you drive toward `0`, and the whole thing prunes itself.\n\n" +
+            "**What it asks.** Enumerate *every* multiset of `candidates` (each value may be reused an unlimited number of times) whose elements sum to exactly `target`, reporting each distinct multiset once. Order within a combination is irrelevant, so `[2,2,3]` and `[3,2,2]` are the *same* answer and must appear only once.\n\n" +
+            "**Why the naive idea fails.** The obvious move is to try picking any candidate at every step and collect the runs that hit `target`. Two things break it. First, growth is unbounded: because numbers can be reused, a purely free choice at each step never terminates on its own \u2014 you need the sum itself to bound the depth. Second, it floods the answer with duplicates \u2014 `[2,3]` and `[3,2]` are the same multiset but a free choice generates both, once for every ordering. We need a decision tree that both *terminates* and produces each combination in exactly one canonical form.\n\n" +
+            "**Key Idea.** Model the search as a decision tree where each node chooses the *next* element of the combination, and control it with two levers. (1) *Reuse:* after choosing `candidates[i]`, recurse while still allowing index `i` \u2014 so the same value can be picked again on the next level, which is exactly what makes `2 + 2 + 3` reachable. (2) *No duplicates:* forbid looking backwards \u2014 each recursive call may only choose candidates at index `>= start`. That forces every combination to be built in non-decreasing index order, so each distinct multiset corresponds to exactly one root-to-leaf path. Pair this with a `remaining` counter (target minus the running sum) that you drive toward `0`, and the tree prunes itself: a branch dies the instant it overshoots.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. Sort `candidates` first (enables the strongest pruning below).\n" +
+            "1. Sort `candidates` first; this enables the strongest pruning below (a single overshoot ends the level).\n" +
             "2. Carry three pieces of state: `path` (candidates chosen so far on this branch), `remaining` (target minus the sum of `path`), and `start` (smallest index still allowed to pick).\n" +
-            "3. Start the DFS at `(start = 0, remaining = target)`.\n" +
-            "4. **choose:** loop `i` from `start`; append `candidates[i]` to `path` and conceptually subtract it from `remaining`.\n" +
-            "5. **explore:** recurse with `start = i` (not `i + 1`, so the value stays reusable) and `remaining - candidates[i]`.\n" +
-            "6. **un-choose:** pop `candidates[i]` back off `path` so the sibling branch starts from a clean state.\n" +
-            "7. When `remaining` reaches `0`, record a **copy** of `path` \u2014 a copy, because `path` keeps mutating as the search continues.\n\n" +
-            "**Why it works.** Requiring `i >= start` makes every accepted sequence non-decreasing by index, so each distinct multiset maps to exactly one path in the tree \u2014 none duplicated, none missed. Reusing index `i` on recursion is precisely what allows repeats. Driving `remaining` down to `0` guarantees every recorded `path` sums to `target`.\n\n" +
+            "3. Start the DFS at `(start = 0, remaining = target)` \u2014 the root, with nothing chosen.\n" +
+            "4. **Base / goal case:** when `remaining == 0`, `path` sums to `target` exactly; record a **copy** of `path` and return.\n" +
+            "5. **choose:** loop `i` from `start`; append `candidates[i]` to `path`, conceptually subtracting it from `remaining`.\n" +
+            "6. **explore:** recurse with `start = i` (not `i + 1`, so the value stays reusable) and `remaining - candidates[i]`.\n" +
+            "7. **un-choose:** pop `candidates[i]` back off `path` so the sibling branch resumes from the exact state it had before this choice.\n\n" +
+            "**Why it works.** Requiring `i >= start` makes every accepted sequence non-decreasing by index, so each distinct multiset maps to exactly one path in the tree \u2014 none duplicated, none missed. Reusing index `i` on recursion is precisely what allows repeats of a value. Driving `remaining` down to `0` guarantees every recorded `path` sums to `target`, and pruning at `candidates[i] > remaining` discards only branches that can never reach `0`. The un-choose step is what lets one shared `path` object serve every branch: undoing the last append restores the exact partial state the parent had, so sibling branches never see each other's leftovers.\n\n" +
             "**Common Gotchas.**\n" +
-            "- Record a *copy* of `path` at a hit; appending the live list stores a reference that later mutations will corrupt.\n" +
-            "- Pass `i`, not `i + 1`, to the recursive call \u2014 `i + 1` silently forbids reuse and produces wrong answers here.\n" +
-            "- A branch can overshoot: if `remaining < 0` it must be pruned. With a sorted array this is cleaner \u2014 once `candidates[i] > remaining`, every later candidate also overshoots, so `break` the whole loop instead of continuing.\n" +
-            "- All candidates are `>= 2` and `target` is bounded, so depth is finite and the search terminates.\n\n" +
-            "**Complexity.** Let `T` be `target` and `M` the smallest candidate; tree depth is at most `T/M` and branching is bounded by `N`, giving `O(N^(T/M))` time in the worst case. Extra space is `O(T/M)` for the recursion stack plus `path` (the output is not counted).\n\n" +
-            "**Interview mindset.** 'Find ALL combinations / all ways to reach X, with reuse' is the textbook signal for backtracking with a start index. Passing `i` enables reuse; requiring `i >= start` kills duplicates \u2014 those two choices are the entire trick.",
+            "- Record a *copy* of `path` at a hit (`path[:]`); appending the live list stores a reference that later mutations will corrupt.\n" +
+            "- Pass `i`, not `i + 1`, to the recursive call \u2014 `i + 1` silently forbids reuse and produces wrong answers here (it would solve Combination Sum II's no-reuse variant instead).\n" +
+            "- A branch can overshoot: if `remaining < 0` it must be pruned. With a sorted array this is cleaner \u2014 once `candidates[i] > remaining`, every later candidate also overshoots, so `break` the whole loop instead of `continue`-ing.\n" +
+            "- Forgetting the `path.pop()` un-choose leaves stale elements that poison every sibling branch.\n" +
+            "- All candidates are `>= 2` and `target` is bounded, so depth is finite and the search always terminates.\n\n" +
+            "**Complexity.** Let `T` be `target` and `M` the smallest candidate; tree depth is at most `T/M` and branching is bounded by `N`, giving `O(N^(T/M))` time in the worst case. Extra space is `O(T/M)` for the recursion stack plus `path` (the output list itself is not counted).\n\n" +
+            "**Interview mindset.** 'Find ALL combinations / all ways to reach X, with reuse' is the textbook signal for backtracking with a start index. Passing `i` enables reuse; requiring `i >= start` kills duplicates \u2014 those two choices are the entire trick, and naming them explicitly is what an interviewer wants to hear.",
           rcs:
-            "class Solution:\n" +
-            "    def combinationSum(self, candidates: List[int], target: int) -> List[List[int]]:\n" +
-            "        candidates.sort()                     # Sorting lets us break early once a candidate overshoots.\n" +
-            "        result = []                           # Collects every valid combination (as copies).\n" +
-            "        path = []                             # The combination we are currently building.\n" +
+            "from typing import List  # List lets the type hints say we take a list of ints and return a list of lists of ints.\n" +
             "\n" +
-            "        def backtrack(start: int, remaining: int) -> None:\n" +
-            "            if remaining == 0:                # Exact hit: 'path' sums to target.\n" +
-            "                result.append(path[:])        # Store a COPY; 'path' will keep mutating.\n" +
-            "                return\n" +
-            "            for i in range(start, len(candidates)):  # Only look at index >= start (no going back).\n" +
-            "                if candidates[i] > remaining: # Sorted, so this and all later ones overshoot.\n" +
-            "                    break                     # Prune the rest of this level.\n" +
-            "                path.append(candidates[i])    # CHOOSE candidates[i].\n" +
-            "                backtrack(i, remaining - candidates[i])  # EXPLORE; pass i again to allow reuse.\n" +
-            "                path.pop()                    # UN-CHOOSE so siblings start clean.\n" +
             "\n" +
-            "        backtrack(0, target)                  # Begin: nothing chosen, full target remaining.\n" +
-            "        return result",
+            "class Solution:  # LeetCode instantiates this class and calls combinationSum on the object.\n" +
+            "\n" +
+            "    def combinationSum(self, candidates: List[int], target: int) -> List[List[int]]:  # Return every multiset of candidates summing to target.\n" +
+            "\n" +
+            "        # ==================== PHASE 1: PREPARE ====================\n" +
+            "\n" +
+            "        candidates.sort()  # Sort ascending so an overshoot lets us break the whole level at once.\n" +
+            "                           # Why: once candidates[i] > remaining, every LATER candidate is larger and also overshoots.\n" +
+            "                           # State: candidates is now non-decreasing; indices still address the same value pool.\n" +
+            "                           # Execution flow: Python continues to the setup below.\n" +
+            "\n" +
+            "        result = []  # Collects every valid combination, each stored as a COPY of path.\n" +
+            "                     # State: starts empty; one entry appended per exact hit.\n" +
+            "\n" +
+            "        path = []  # The combination currently being built along this root-to-leaf branch of the tree.\n" +
+            "                   # State: mutated in place by CHOOSE (append) and UN-CHOOSE (pop); never stored directly.\n" +
+            "                   # Execution flow: Python defines the recursive helper next.\n" +
+            "\n" +
+            "        # ==================== PHASE 2: DECISION TREE (choose / explore / un-choose) ====================\n" +
+            "\n" +
+            "        # Mental model: each backtrack call decides which candidate to add NEXT to path.\n" +
+            "        #   start     = smallest index still allowed, so combinations are built in non-decreasing index order.\n" +
+            "        #   remaining = target minus the sum of path, i.e. how much is still needed to reach target.\n" +
+            "        # One call fans out into one child branch per allowed candidate; the tree is that fan-out repeated.\n" +
+            "\n" +
+            "        def backtrack(start: int, remaining: int) -> None:  # Explore every combination that continues from index 'start'.\n" +
+            "\n" +
+            "            if remaining == 0:  # GOAL: path sums to target exactly, so nothing more can or should be added.\n" +
+            "                result.append(path[:])  # Record a COPY; path keeps mutating, so store a snapshot, not the live list.\n" +
+            "                                        # Why a copy: appending path itself stores a reference that later pops would corrupt.\n" +
+            "                return  # Branch done; control returns to the caller's loop, which UN-CHOOSES and tries the next sibling.\n" +
+            "\n" +
+            "            for i in range(start, len(candidates)):  # Try each candidate at index >= start (never look backwards).\n" +
+            "                                                     # Why i >= start: forbidding earlier indices makes every combo non-decreasing,\n" +
+            "                                                     #   so each multiset maps to exactly ONE path -> no duplicates, none missed.\n" +
+            "                                                     # Execution flow: after a child returns, Python advances i to the next sibling.\n" +
+            "\n" +
+            "                if candidates[i] > remaining:  # This candidate alone already overshoots what is left to reach.\n" +
+            "                    break  # PRUNE: the array is sorted, so every later candidate overshoots too -> abandon the whole level.\n" +
+            "                           # Why safe: no remaining sibling can reach remaining == 0, so skipping them loses no solution.\n" +
+            "\n" +
+            "                path.append(candidates[i])  # CHOOSE: tentatively add this candidate to the current combination.\n" +
+            "                                            # State: path now represents one deeper partial combination.\n" +
+            "\n" +
+            "                backtrack(i, remaining - candidates[i])  # EXPLORE: recurse to decide the NEXT element.\n" +
+            "                                                         # Why pass i (not i + 1): re-allowing index i lets the SAME value repeat.\n" +
+            "                                                         # Execution flow: this call PAUSES the loop until the child subtree finishes,\n" +
+            "                                                         #   then resumes here at the next line.\n" +
+            "\n" +
+            "                path.pop()  # UN-CHOOSE (backtrack): remove the candidate just tried.\n" +
+            "                            # Why: undoing the choice restores path to its prior state, so the next sibling starts clean.\n" +
+            "                            # Execution flow: the loop continues with the next i, exploring a different choice at this level.\n" +
+            "\n" +
+            "        # ==================== PHASE 3: RUN THE SEARCH ====================\n" +
+            "\n" +
+            "        backtrack(0, target)  # Begin at the root: nothing chosen, full target remaining, all indices allowed.\n" +
+            "        return result  # Every branch explored and every hit recorded: hand back all combinations.",
           plain:
             "class Solution:\n" +
             "    def combinationSum(self, candidates: List[int], target: int) -> List[List[int]]:\n" +
@@ -211,61 +253,92 @@
           space: "O(N^2)",
           whenToUse: "The intuitive first version: build the board, and re-check the three attack lines by scanning whenever you try a square.",
           logic:
-            "**What it asks.** Enumerate every full placement of `n` mutually non-attacking queens on an `n x n` board and render each valid placement as a list of row strings.\n\n" +
-            "**Why the naive idea fails.** Trying all `C(n*n, n)` ways to drop `n` queens on `n*n` squares is astronomically large and wastes almost all of its work on obviously illegal boards. The first real reduction is a structural observation: since no two queens can share a row, **each row holds exactly one queen**. That collapses the problem to a per-row column choice \u2014 for rows `0..n-1`, pick a column that doesn't conflict with any queen already placed.\n\n" +
-            "**Key Idea.** Treat it as a decision tree with one level per row and up to `n` branches (columns) per level, and *prune* the instant a placement is illegal. A partial board that already has a conflict can never become a solution, so we reject that column immediately and never explore its subtree \u2014 that pruning is what makes an otherwise factorial search tractable for `n <= 9`.\n\n" +
+            "**What it asks.** Enumerate every full placement of `n` mutually non-attacking queens on an `n x n` board and render each valid placement as a list of row strings (`'Q'` for a queen, `'.'` for an empty square). A queen attacks along its row, its column, and both diagonals.\n\n" +
+            "**Why the naive idea fails.** Trying all `C(n*n, n)` ways to drop `n` queens on `n*n` squares is astronomically large and wastes almost all of its work on obviously illegal boards. The first real reduction is a structural observation: since no two queens can share a row, **each row holds exactly one queen**. That collapses the problem from choosing `n` squares out of `n*n` to a per-row column choice \u2014 for rows `0..n-1`, pick a column that doesn't conflict with any queen already placed. The row-attack constraint is then satisfied automatically.\n\n" +
+            "**Key Idea.** Treat it as a decision tree with one level per row and up to `n` branches (columns) per level, and *prune* the instant a placement is illegal. A partial board that already contains a conflict can never grow into a solution, so we reject that column immediately and never explore its subtree \u2014 that early pruning is what makes an otherwise factorial search tractable for `n <= 9`. Each node of the tree fixes one more row; a leaf at depth `n` is a complete board.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. Keep a 2-D `board` of `'.'`/`'Q'` and process one `row` at a time.\n" +
-            "2. For the current `row`, loop `col` from `0` to `n-1`.\n" +
-            "3. Test `is_safe(row, col)`: scan upward in the same column and along both upper diagonals for an existing `'Q'`. Rows below `row` are still empty, so they never need checking.\n" +
-            "4. **choose:** if the square is safe, set `board[row][col] = 'Q'`.\n" +
-            "5. **explore:** recurse to `row + 1`.\n" +
-            "6. **un-choose:** reset `board[row][col] = '.'` before trying the next column.\n" +
-            "7. When `row == n`, every row is filled \u2014 render the board (join each row into a string) and record it.\n\n" +
-            "**Why it works.** A queen is only ever added when it conflicts with none already on the board, so any board that reaches row `n` is fully valid by construction. Fixing a top-to-bottom row order gives every solution one canonical generation order, and trying every safe column in every row means all solutions are produced exactly once \u2014 none duplicated, none missed.\n\n" +
+            "1. Keep a 2-D `board` of `'.'`/`'Q'` and process one `row` at a time, top to bottom.\n" +
+            "2. **Base / goal case:** when `row == n`, every row is filled \u2014 render the board (join each row list into a string) and record it, then return.\n" +
+            "3. For the current `row`, loop `col` from `0` to `n-1`.\n" +
+            "4. Test `is_safe(row, col)`: scan *upward* in the same column, and along both upper diagonals, for an existing `'Q'`. Rows below `row` are still empty, so they never need checking.\n" +
+            "5. **choose:** if the square is safe, set `board[row][col] = 'Q'`.\n" +
+            "6. **explore:** recurse to `row + 1` to place the next row's queen.\n" +
+            "7. **un-choose:** reset `board[row][col] = '.'` before trying the next column, so the board returns to the state the parent left it in.\n\n" +
+            "**Why it works.** A queen is only ever added when it conflicts with none already on the board, so any board that reaches row `n` is fully valid by construction. Fixing a top-to-bottom row order gives every solution exactly one canonical generation order, and trying every safe column in every row means all solutions are produced exactly once \u2014 none duplicated, none missed. The un-choose step is what lets a single shared `board` serve every branch: resetting the cell to `'.'` restores the exact partial board the recursion started from, so sibling columns explore independently.\n\n" +
             "**Common Gotchas.**\n" +
-            "- The un-choose step is essential: forgetting to reset the square to `'.'` leaves phantom queens that corrupt sibling branches.\n" +
-            "- `is_safe` only needs to look *upward* (same column and the two upper diagonals); scanning the whole board is wasteful and checking rows below is meaningless since they're empty.\n" +
+            "- The un-choose step is essential: forgetting to reset the square to `'.'` leaves phantom queens that corrupt every sibling branch.\n" +
+            "- `is_safe` only needs to look *upward* (the same column and the two upper diagonals); scanning the whole board is wasteful, and checking rows below is meaningless since they are still empty.\n" +
             "- `n = 2` and `n = 3` have no solutions and must legitimately return an empty list.\n" +
-            "- Record a rendered copy of the board at a solution; storing the live grid would be overwritten as the search backtracks.\n\n" +
-            "**Complexity.** Branching over rows yields roughly `O(N!)` leaves, and each `is_safe` check costs `O(N)` \u2014 fine for `n <= 9`. Space is `O(N^2)` for the board plus `O(N)` recursion depth.\n\n" +
-            "**Interview mindset.** 'Place N items on a grid with no two conflicting, return all configurations' is a backtracking-by-row signal. The one-queen-per-row insight that turns a 2-D placement into a 1-D column choice per row is the move to reach for first.",
+            "- Record a rendered *copy* of the board at a solution; storing the live grid would be overwritten as the search backtracks.\n\n" +
+            "**Complexity.** Branching over rows yields roughly `O(N!)` leaves (row 0 has `n` choices, the next fewer, and so on), and each `is_safe` check costs `O(N)` \u2014 fine for `n <= 9`. Space is `O(N^2)` for the board plus `O(N)` recursion depth.\n\n" +
+            "**Interview mindset.** 'Place N items on a grid with no two conflicting, return all configurations' is a backtracking-by-row signal. The one-queen-per-row insight that turns a 2-D placement into a 1-D column choice per row is the move to reach for first; the `O(N)` scan version is the honest starting point before optimizing the safety check to `O(1)`.",
           rcs:
-            "class Solution:\n" +
-            "    def solveNQueens(self, n: int) -> List[List[str]]:\n" +
-            "        board = [['.'] * n for _ in range(n)]   # n x n grid, all empty to start.\n" +
-            "        result = []\n" +
+            "from typing import List  # List lets the type hints say we return a list of solutions, each a list of row strings.\n" +
             "\n" +
-            "        def is_safe(row: int, col: int) -> bool:\n" +
-            "            for r in range(row):                # Check the column above this square.\n" +
-            "                if board[r][col] == 'Q':\n" +
-            "                    return False\n" +
-            "            r, c = row - 1, col - 1             # Upper-left diagonal.\n" +
-            "            while r >= 0 and c >= 0:\n" +
-            "                if board[r][c] == 'Q':\n" +
-            "                    return False\n" +
-            "                r -= 1\n" +
-            "                c -= 1\n" +
-            "            r, c = row - 1, col + 1             # Upper-right diagonal.\n" +
-            "            while r >= 0 and c < n:\n" +
-            "                if board[r][c] == 'Q':\n" +
-            "                    return False\n" +
-            "                r -= 1\n" +
-            "                c += 1\n" +
-            "            return True                         # No queen attacks (row, col).\n" +
             "\n" +
-            "        def backtrack(row: int) -> None:\n" +
-            "            if row == n:                        # All rows filled: a complete solution.\n" +
-            "                result.append([''.join(r) for r in board])  # Render each row to a string.\n" +
-            "                return\n" +
-            "            for col in range(n):                # Try every column for this row.\n" +
-            "                if is_safe(row, col):\n" +
-            "                    board[row][col] = 'Q'       # CHOOSE.\n" +
-            "                    backtrack(row + 1)          # EXPLORE the next row.\n" +
-            "                    board[row][col] = '.'       # UN-CHOOSE.\n" +
+            "class Solution:  # LeetCode instantiates this class and calls solveNQueens on the object.\n" +
             "\n" +
-            "        backtrack(0)                            # Start from the top row.\n" +
-            "        return result",
+            "    def solveNQueens(self, n: int) -> List[List[str]]:  # Return every board placing n mutually non-attacking queens.\n" +
+            "\n" +
+            "        # ==================== PHASE 1: PREPARE THE BOARD ====================\n" +
+            "\n" +
+            "        # Key structural fact: no two queens may share a row, so every solution has EXACTLY ONE queen per row.\n" +
+            "        # That collapses a 2-D placement into a 1-D choice: for each row, pick a column that is not attacked.\n" +
+            "\n" +
+            "        board = [['.'] * n for _ in range(n)]  # n x n grid of '.' (empty); one cell per row becomes 'Q'.\n" +
+            "                                               # State: starts all empty; mutated by CHOOSE / UN-CHOOSE during the search.\n" +
+            "        result = []  # Collects every completed board, each rendered as a list of row strings.\n" +
+            "                     # Execution flow: Python defines the two helpers below, then launches the search.\n" +
+            "\n" +
+            "        # ==================== PHASE 2: VALIDITY CHECK (scan the three attack lines above) ====================\n" +
+            "\n" +
+            "        def is_safe(row: int, col: int) -> bool:  # Can a queen sit at (row, col) with no already-placed queen attacking it?\n" +
+            "                                                  # Only rows above 'row' hold queens, so we look UPWARD only; rows below are empty.\n" +
+            "\n" +
+            "            for r in range(row):  # Walk every row above and check the SAME column for an existing queen.\n" +
+            "                if board[r][col] == 'Q':  # A queen already occupies this column.\n" +
+            "                    return False  # Attacked vertically: reject (row, col).\n" +
+            "\n" +
+            "            r, c = row - 1, col - 1  # Start one step UP-LEFT along the '\\' diagonal.\n" +
+            "            while r >= 0 and c >= 0:  # Stay on the board.\n" +
+            "                if board[r][c] == 'Q':  # A queen shares this '\\' diagonal.\n" +
+            "                    return False  # Attacked on the up-left diagonal: reject.\n" +
+            "                r -= 1  # Keep moving up...\n" +
+            "                c -= 1  # ...and left.\n" +
+            "\n" +
+            "            r, c = row - 1, col + 1  # Start one step UP-RIGHT along the '/' diagonal.\n" +
+            "            while r >= 0 and c < n:  # Stay on the board.\n" +
+            "                if board[r][c] == 'Q':  # A queen shares this '/' diagonal.\n" +
+            "                    return False  # Attacked on the up-right diagonal: reject.\n" +
+            "                r -= 1  # Keep moving up...\n" +
+            "                c += 1  # ...and right.\n" +
+            "\n" +
+            "            return True  # No queen attacks via the column or either upper diagonal: the square is safe.\n" +
+            "\n" +
+            "        # ==================== PHASE 3: DECISION TREE, ONE ROW PER LEVEL ====================\n" +
+            "\n" +
+            "        # Mental model: each backtrack call decides the column for ONE row; the tree has one level per row,\n" +
+            "        # up to n branches (columns) per level, and prunes any column that is not safe.\n" +
+            "\n" +
+            "        def backtrack(row: int) -> None:  # Place queens in rows 'row', row + 1, ..., n - 1.\n" +
+            "\n" +
+            "            if row == n:  # GOAL: a queen sits in every row -> a complete, valid board.\n" +
+            "                result.append([''.join(r) for r in board])  # Render each row list into a string and store a snapshot.\n" +
+            "                                                            # Why snapshot now: the live board keeps mutating as the search backtracks.\n" +
+            "                return  # Branch done; return so the caller can UN-CHOOSE and try another column.\n" +
+            "\n" +
+            "            for col in range(n):  # Try each column as the queen's position in this row.\n" +
+            "                if is_safe(row, col):  # Descend only into columns that conflict with no placed queen (PRUNE the rest).\n" +
+            "                    board[row][col] = 'Q'  # CHOOSE: place a queen here.\n" +
+            "                    backtrack(row + 1)  # EXPLORE: recurse to place a queen in the NEXT row.\n" +
+            "                                        # Execution flow: pauses the loop until the subtree finishes, then resumes below.\n" +
+            "                    board[row][col] = '.'  # UN-CHOOSE (backtrack): remove the queen so the next column starts clean.\n" +
+            "                                           # Why: undoing the placement restores state, keeping sibling branches independent.\n" +
+            "\n" +
+            "        # ==================== PHASE 4: RUN THE SEARCH ====================\n" +
+            "\n" +
+            "        backtrack(0)  # Start from the top row with an empty board.\n" +
+            "        return result  # Every safe placement explored and every full board recorded: return them all.",
           plain:
             "class Solution:\n" +
             "    def solveNQueens(self, n: int) -> List[List[str]]:\n" +
@@ -309,56 +382,86 @@
           space: "O(N)",
           whenToUse: "The interview-preferred version: replace the O(N) scan with O(1) diagonal/column set lookups.",
           logic:
-            "**What it asks.** Same problem \u2014 all placements of `n` non-attacking queens \u2014 but with the per-square safety check made `O(1)` instead of an `O(N)` scan.\n\n" +
-            "**Why the naive idea fails.** The board-scan version re-walks a column and two diagonals on every attempted placement, an `O(N)` cost paid at every node of a factorial-sized tree. That work is redundant: whether a square is attacked depends only on which lines are already occupied, which we can track incrementally.\n\n" +
-            "**Key Idea.** Diagonals have a closed form. Every square on the same **`\\` (top-left to bottom-right) diagonal** shares the same value of `row - col`; every square on the same **`/` (top-right to bottom-left) diagonal** shares the same value of `row + col`. Combined with the column index, these two numbers uniquely identify the three attack lines a queen controls (the row line is free \u2014 we place one queen per row). So we can keep three hash **sets** of occupied lines and reduce each safety test to three constant-time membership checks.\n\n" +
+            "**What it asks.** Same problem \u2014 all placements of `n` non-attacking queens \u2014 but with the per-square safety check made `O(1)` instead of the `O(N)` scan of the board-scan version.\n\n" +
+            "**Why the naive idea fails.** The board-scan version re-walks a column and two diagonals on every attempted placement, an `O(N)` cost paid at every node of a factorial-sized tree. That work is redundant: whether a square is attacked depends only on *which lines are already occupied*, and that set of occupied lines can be maintained incrementally as queens are placed and removed, rather than rediscovered by scanning each time.\n\n" +
+            "**Key Idea.** Diagonals have a closed form. Every square on the same **`\\` (top-left to bottom-right) diagonal** shares the same value of `row - col` \u2014 moving down-right increases both `row` and `col` by 1, leaving the difference unchanged. Every square on the same **`/` (top-right to bottom-left) diagonal** shares the same value of `row + col` \u2014 moving down-left increases `row` and decreases `col`, leaving the sum unchanged. Combined with the column index, these two numbers uniquely identify the three attack lines a queen controls (the row line is free \u2014 we place one queen per row). So we can keep three hash **sets** of occupied lines and reduce each safety test to three constant-time membership checks.\n\n" +
             "**Step-by-Step Approach.**\n" +
             "1. Maintain three sets \u2014 `cols` (occupied columns), `diag1` (occupied `row - col` diagonals), `diag2` (occupied `row + col` diagonals) \u2014 and a `path` list storing the chosen column for each row so far.\n" +
             "2. Process one `row` at a time; loop `col` from `0` to `n-1`.\n" +
-            "3. Prune: if `col in cols` or `(row - col) in diag1` or `(row + col) in diag2`, this square is attacked \u2014 skip it.\n" +
+            "3. **Prune:** if `col in cols` or `(row - col) in diag1` or `(row + col) in diag2`, this square is attacked \u2014 skip it.\n" +
             "4. **choose:** add `col`, `row - col`, and `row + col` to the three sets and append `col` to `path`.\n" +
-            "5. **explore:** recurse to `row + 1`.\n" +
+            "5. **explore:** recurse to `row + 1` to place the next row's queen.\n" +
             "6. **un-choose:** remove all three set entries and pop `path`, freeing those lines for the next column.\n" +
-            "7. When `row == n`, reconstruct each solution: for each stored column `c` build the row string `'.'*c + 'Q' + '.'*(n-c-1)`, then record the board.\n\n" +
-            "**Why it works.** A queen at `(row, col)` attacks exactly the squares sharing its column, its `row - col` diagonal, or its `row + col` diagonal; excluding those three sets guarantees no two placed queens attack each other. Placing one queen per row means the row line can never conflict. Every safe column in every row is tried, so all solutions are produced exactly once.\n\n" +
+            "7. **Base / goal case:** when `row == n`, reconstruct each solution \u2014 for each stored column `c` build the row string `'.'*c + 'Q' + '.'*(n-c-1)`, then record the board.\n\n" +
+            "**Why it works.** A queen at `(row, col)` attacks exactly the squares sharing its column, its `row - col` diagonal, or its `row + col` diagonal; excluding those three sets guarantees no two placed queens attack each other. Placing one queen per row means the row line can never conflict, so the three tracked lines are sufficient. Every safe column in every row is tried and rows are fixed top-to-bottom, so all solutions are produced exactly once. The symmetry of choose and un-choose (add three keys / remove the same three) keeps the sets an exact record of the queens currently on the board at every node.\n\n" +
             "**Common Gotchas.**\n" +
-            "- `row - col` can be negative \u2014 that is perfectly fine as a set key; no offset is required.\n" +
-            "- The un-choose must remove from *all three* sets and pop `path`; leaving any entry behind poisons later branches.\n" +
+            "- `row - col` can be negative \u2014 that is perfectly fine as a set key; no offset is required (unlike a fixed-size boolean array, where you would add `n - 1`).\n" +
+            "- The un-choose must remove from *all three* sets and pop `path`; leaving any single entry behind poisons later branches with a phantom queen.\n" +
             "- Store the column-per-row in `path` rather than a full board \u2014 it is enough to reconstruct the answer and far cheaper to copy and undo.\n" +
             "- `n = 2` and `n = 3` still legitimately yield an empty list.\n\n" +
-            "**Complexity.** Still `O(N!)` leaves, but each safety check and each choose/un-choose is `O(1)`, so it is meaningfully faster in practice. Space is `O(N)` for the three sets, `path`, and the recursion stack.\n\n" +
+            "**Complexity.** Still `O(N!)` leaves, but each safety check and each choose/un-choose is `O(1)` instead of `O(N)`, so it is meaningfully faster in practice. Space is `O(N)` for the three sets, `path`, and the recursion stack.\n\n" +
             "**Interview mindset.** Encoding diagonals as `row - col` and `row + col` is the move that impresses: it turns constraint checking from a scan into constant-time set lookups \u2014 the standard optimization for N-Queens and grid-constraint backtracking in general.",
           rcs:
-            "class Solution:\n" +
-            "    def solveNQueens(self, n: int) -> List[List[str]]:\n" +
-            "        cols = set()                        # Columns already holding a queen.\n" +
-            "        diag1 = set()                       # Occupied '\\' diagonals, keyed by (row - col).\n" +
-            "        diag2 = set()                       # Occupied '/' diagonals, keyed by (row + col).\n" +
-            "        path = []                           # path[r] = column of the queen in row r.\n" +
-            "        result = []\n" +
+            "from typing import List  # List lets the type hints say we return a list of solutions, each a list of row strings.\n" +
             "\n" +
-            "        def backtrack(row: int) -> None:\n" +
-            "            if row == n:                    # Placed a queen in every row: a full solution.\n" +
-            "                board = []\n" +
-            "                for c in path:              # Turn each stored column into a board row.\n" +
-            "                    board.append('.' * c + 'Q' + '.' * (n - c - 1))\n" +
-            "                result.append(board)\n" +
-            "                return\n" +
-            "            for col in range(n):            # Try each column in the current row.\n" +
-            "                if col in cols or (row - col) in diag1 or (row + col) in diag2:\n" +
-            "                    continue                # Conflict on column or a diagonal: skip (prune).\n" +
-            "                cols.add(col)               # CHOOSE: mark all three attack lines occupied.\n" +
-            "                diag1.add(row - col)\n" +
-            "                diag2.add(row + col)\n" +
-            "                path.append(col)\n" +
-            "                backtrack(row + 1)          # EXPLORE the next row.\n" +
-            "                path.pop()                  # UN-CHOOSE: free the lines for the next column.\n" +
-            "                cols.remove(col)\n" +
-            "                diag1.remove(row - col)\n" +
-            "                diag2.remove(row + col)\n" +
             "\n" +
-            "        backtrack(0)\n" +
-            "        return result",
+            "class Solution:  # LeetCode instantiates this class and calls solveNQueens on the object.\n" +
+            "\n" +
+            "    def solveNQueens(self, n: int) -> List[List[str]]:  # Return every board of n non-attacking queens, with O(1) checks.\n" +
+            "\n" +
+            "        # ==================== PHASE 1: PREPARE THE CONFLICT SETS ====================\n" +
+            "\n" +
+            "        # Key idea: a queen at (row, col) controls three attack lines we must track (the row line is free,\n" +
+            "        # since we place exactly one queen per row):\n" +
+            "        #   - its COLUMN, identified by col.\n" +
+            "        #   - its '\\' diagonal, on which every square shares the SAME value of (row - col).\n" +
+            "        #   - its '/' diagonal, on which every square shares the SAME value of (row + col).\n" +
+            "        # Keeping occupied lines in hash sets turns each safety test into three O(1) membership checks.\n" +
+            "\n" +
+            "        cols = set()  # Columns that already hold a queen.\n" +
+            "        diag1 = set()  # Occupied '\\' diagonals, keyed by (row - col).\n" +
+            "        diag2 = set()  # Occupied '/' diagonals, keyed by (row + col).\n" +
+            "        path = []  # path[r] = the column of the queen in row r; enough to rebuild the board at the end.\n" +
+            "                   # State: grows by CHOOSE (append) and shrinks by UN-CHOOSE (pop).\n" +
+            "        result = []  # Collects every completed board as a list of row strings.\n" +
+            "\n" +
+            "        # ==================== PHASE 2: DECISION TREE, ONE ROW PER LEVEL ====================\n" +
+            "\n" +
+            "        # Each backtrack call decides the column for ONE row: one level per row, up to n branches per level,\n" +
+            "        # pruning any column whose column or either diagonal is already occupied.\n" +
+            "\n" +
+            "        def backtrack(row: int) -> None:  # Place queens in rows 'row', row + 1, ..., n - 1.\n" +
+            "\n" +
+            "            if row == n:  # GOAL: a queen sits in every row -> a complete, valid board.\n" +
+            "                board = []  # Build the row strings for this solution.\n" +
+            "                for c in path:  # For each stored column c, in row order...\n" +
+            "                    board.append('.' * c + 'Q' + '.' * (n - c - 1))  # ...'.'*c, then 'Q', then the trailing dots.\n" +
+            "                result.append(board)  # Store this finished board.\n" +
+            "                return  # Branch done; return so the caller can UN-CHOOSE and try another column.\n" +
+            "\n" +
+            "            for col in range(n):  # Try each column for the queen in this row.\n" +
+            "                if col in cols or (row - col) in diag1 or (row + col) in diag2:  # Column or a diagonal already attacked?\n" +
+            "                    continue  # PRUNE: this square is under attack, so skip it and try the next column.\n" +
+            "                              # Why safe: any board through this square puts two queens in conflict -> never a solution.\n" +
+            "\n" +
+            "                cols.add(col)  # CHOOSE: mark the three attack lines this queen now occupies -- its column...\n" +
+            "                diag1.add(row - col)  # ...its '\\' diagonal...\n" +
+            "                diag2.add(row + col)  # ...and its '/' diagonal.\n" +
+            "                path.append(col)  # Record this row's chosen column.\n" +
+            "\n" +
+            "                backtrack(row + 1)  # EXPLORE: recurse to place a queen in the NEXT row.\n" +
+            "                                    # Execution flow: pauses the loop until the subtree finishes, then resumes below.\n" +
+            "\n" +
+            "                path.pop()  # UN-CHOOSE (backtrack): remove this row's queen...\n" +
+            "                cols.remove(col)  # ...free its column...\n" +
+            "                diag1.remove(row - col)  # ...its '\\' diagonal...\n" +
+            "                diag2.remove(row + col)  # ...and its '/' diagonal, restoring state for the next column.\n" +
+            "                                         # Why: all three sets AND path must be undone, or later branches see phantom queens.\n" +
+            "\n" +
+            "        # ==================== PHASE 3: RUN THE SEARCH ====================\n" +
+            "\n" +
+            "        backtrack(0)  # Start from the top row with every set empty.\n" +
+            "        return result  # Every safe placement explored and every full board recorded: return them all.",
           plain:
             "class Solution:\n" +
             "    def solveNQueens(self, n: int) -> List[List[str]]:\n" +

@@ -61,32 +61,55 @@
           whenToUse: "The go-to approach: intuitive, generalizes to grids with obstacles or weights.",
           logic:
             "**What it asks.** Count the distinct paths a robot can take from the top-left to the bottom-right of an `m x n` grid when it may only move one step **right** or one step **down** at a time.\n\n" +
-            "**Why the naive idea fails.** The obvious recursion is `paths(i,j) = paths(i+1,j) + paths(i,j+1)`, bottoming out at the goal. But it re-explores the same cells over and over — the number of recursive branches blows up to roughly `2^(m+n)`, far too slow even for a 100x100 grid.\n\n" +
-            "**Key Idea.** Let `dp[i][j]` be the number of distinct paths from the start to cell `(i,j)`. The only way to arrive at `(i,j)` is from directly **above** `(i-1,j)` or directly **left** `(i,j-1)`. Those two families of paths are disjoint and together cover every path, so the count at a cell is simply the sum of the counts of its top and left neighbours.\n\n" +
+            "**Why the naive idea fails.** The obvious recursion is `paths(i,j) = paths(i+1,j) + paths(i,j+1)`, bottoming out at the goal. But it re-explores the same cells over and over — the number of recursive branches blows up to roughly `2^(m+n)`, far too slow even for a 100x100 grid. Every overlapping subproblem here is a `(i,j)` cell whose answer never changes, which is exactly the signal to cache it in a table.\n\n" +
+            "**Key Idea.** Let `dp[i][j]` be the number of distinct paths from the start `(0,0)` to cell `(i,j)`. The only way to arrive at `(i,j)` is from directly **above** `(i-1,j)` (a down-move) or directly **left** `(i,j-1)` (a right-move). Those two families of paths are disjoint (a path's final move is either down or right, never both) and together cover every path, so the count at a cell is simply the sum of the counts of its top and left neighbours.\n\n" +
+            "**The DP, stated precisely.**\n" +
+            "- **Meaning:** `dp[i][j]` = number of distinct right/down paths from `(0,0)` to `(i,j)`.\n" +
+            "- **Base cases:** `dp[0][0] = 1` (the single empty path). The entire **first row** `dp[0][j] = 1` and **first column** `dp[i][0] = 1` — along an edge there is exactly one straight-line way to arrive (all rights, or all downs).\n" +
+            "- **Transition:** for every interior cell, `dp[i][j] = dp[i-1][j] + dp[i][j-1]` — the ways from above plus the ways from the left.\n" +
+            "- **Fill order:** row by row, and left to right within a row (or column by column), so both the `dp[i-1][j]` (above) and `dp[i][j-1]` (left) a cell reads are already final.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. Base cases: `dp[0][0] = 1` (the single empty path), and the entire **first row** and **first column** are all `1` — along an edge there is exactly one way to get there (keep going straight).\n" +
-            "2. Transition: for every interior cell, `dp[i][j] = dp[i-1][j] + dp[i][j-1]` — the ways from above plus the ways from the left.\n" +
-            "3. Fill the table row by row (or column by column) so each cell reads neighbours that are already computed.\n" +
-            "4. The answer is `dp[m-1][n-1]`, the count at the bottom-right corner.\n\n" +
-            "**Why it works.** By induction: if `dp[i-1][j]` and `dp[i][j-1]` correctly count the paths to those cells, then since any path to `(i,j)` ends with exactly one final move — from above or from the left — summing the two counts every path to `(i,j)` exactly once. No path is double-counted, because its last move is uniquely 'from above' or 'from the left'.\n\n" +
+            "1. Seed the base cases: the first row and first column are all `1`.\n" +
+            "2. For each interior cell in fill order, apply `dp[i][j] = dp[i-1][j] + dp[i][j-1]`.\n" +
+            "3. The answer is `dp[m-1][n-1]`, the count at the bottom-right corner.\n\n" +
+            "**Why it works.** By induction on the cells in fill order: if `dp[i-1][j]` and `dp[i][j-1]` correctly count the paths to those cells, then since any path to `(i,j)` ends with exactly one final move — from above or from the left — summing the two counts tallies every path to `(i,j)` exactly once. No path is double-counted, because its last move is uniquely 'from above' or 'from the left', and none is missed, because those are the only two ways in.\n\n" +
             "**Common Gotchas.**\n" +
             "- Forgetting to seed the whole first row and first column to `1` — a single missed edge cell corrupts everything downstream.\n" +
-            "- The `1 x 1` grid must return `1` (start already equals finish), which the base case handles.\n" +
+            "- The `1 x 1` grid must return `1` (start already equals finish), which the base case `dp[0][0] = 1` handles.\n" +
             "- Iterating in the wrong order so a cell reads a neighbour that hasn't been filled yet.\n\n" +
-            "**Complexity.** Time `O(m*n)` — each cell is filled once with `O(1)` work. Space `O(m*n)` for the full table, but a cell only ever needs the current and previous rows. **Space optimization:** since `dp[i][j]` depends only on the row above and the cell just written, keep a single 1-D array of length `n`; sweeping left to right, `row[j] += row[j-1]` folds in the left neighbour while `row[j]` still holds the value from the row above — reducing space to `O(n)`.\n\n" +
-            "**Interview mindset.** 'Count the ways to reach a cell while moving in fixed directions' is the textbook grid-DP trigger: define `dp` as ways-to-reach and add the incoming directions.",
+            "**Complexity.** Time `O(m*n)` — each of the `m*n` cells is filled once with `O(1)` work. Space `O(m*n)` for the full table, but a cell only ever needs the current and previous rows. **Space optimization:** since `dp[i][j]` depends only on the row above and the cell just written, keep a single 1-D array of length `n`; sweeping left to right, `row[j] += row[j-1]` folds in the left neighbour while `row[j]` still holds the value from the row above — reducing space to `O(n)` (this is the version implemented here).\n\n" +
+            "**Interview mindset.** 'Count the ways to reach a cell while moving in fixed directions' is the textbook grid-DP trigger: define `dp` as ways-to-reach and add the incoming directions. The same skeleton extends directly to grids with obstacles (set blocked cells to `0`) or weighted/min-cost paths (swap the sum for a min).",
           rcs:
-            "class Solution:\n" +
-            "    def uniquePaths(self, m: int, n: int) -> int:\n" +
-            "        # dp[j] = number of paths to the current row's column j.\n" +
-            "        # Start as the first row: exactly one way to reach any edge cell.\n" +
-            "        dp = [1] * n\n" +
-            "        for i in range(1, m):                # For each subsequent row...\n" +
-            "            for j in range(1, n):            # ...update columns left to right.\n" +
-            "                # dp[j] still holds the value from the row ABOVE (i-1, j);\n" +
-            "                # dp[j-1] already holds the LEFT neighbour (i, j-1).\n" +
-            "                dp[j] += dp[j - 1]           # above + left, stored in place.\n" +
-            "        return dp[n - 1]                     # Bottom-right count.",
+            "class Solution:  # LeetCode creates an object of this class and calls uniquePaths on it.\n" +
+            "\n" +
+            "    def uniquePaths(self, m: int, n: int) -> int:  # Return the count of distinct right/down paths from the top-left to the bottom-right.\n" +
+            "\n" +
+            "        # ==================== PHASE 1: SEED THE FIRST ROW ====================\n" +
+            "\n" +
+            "        dp = [1] * n  # dp[j] = number of distinct paths to column j of the row we are currently filling.\n" +
+            "                      # Represents row 0: exactly one way to reach any top-edge cell, since you can only move straight right.\n" +
+            "                      # State: dp starts as row 0 (all 1s) and is overwritten in place to become each successive row.\n" +
+            "                      # Why safe: the whole first row and first column are base cases equal to 1; dp[0] stays 1 throughout.\n" +
+            "\n" +
+            "        # ==================== PHASE 2: FILL EACH REMAINING ROW ====================\n" +
+            "\n" +
+            "        for i in range(1, m):  # Advance through rows 1..m-1; row 0 is already the seeded base case.\n" +
+            "                               # State: when row i begins, dp[] still holds the fully computed values of row i-1.\n" +
+            "                               # Execution flow: after a row is finished, Python moves on to the next i.\n" +
+            "\n" +
+            "            for j in range(1, n):  # Sweep columns left to right; column 0 is a base case (one way down the left edge) and stays 1.\n" +
+            "                                   # Why start at 1: dp[0] is the left-edge count and must not be modified.\n" +
+            "                                   # Execution flow: after one j, Python assigns the next column.\n" +
+            "\n" +
+            "                dp[j] += dp[j - 1]  # Paths to (i,j) = paths from ABOVE (old dp[j], still row i-1) + paths from the LEFT (dp[j-1], already row i).\n" +
+            "                                    # Why: the only moves that enter (i,j) are one step down or one step right, so their path counts add.\n" +
+            "                                    # State: dp[j] is upgraded in place from its row-i-1 value to its row-i value.\n" +
+            "                                    # Why safe: dp[j-1] was already updated this sweep (left, row i); dp[j] not yet, so it still holds above.\n" +
+            "\n" +
+            "        # ==================== PHASE 3: READ THE ANSWER ====================\n" +
+            "\n" +
+            "        return dp[n - 1]  # Bottom-right cell (m-1, n-1): the total number of distinct paths to the finish.\n" +
+            "                          # Loop invariant at the end: dp[] holds the final row, so dp[n-1] is the answer.",
           plain:
             "class Solution:\n" +
             "    def uniquePaths(self, m: int, n: int) -> int:\n" +
@@ -115,13 +138,18 @@
             "**Complexity.** `O(min(m,n))` multiplications and `O(1)` space — the fastest possible.\n\n" +
             "**Interview mindset.** Offer it as the elegant alternative after the DP: it shows you see the structure (a fixed multiset of moves), but be clear the DP is what generalizes once obstacles appear.",
           rcs:
-            "import math\n" +
+            "import math  # math.comb gives exact binomial coefficients using big-integer arithmetic.\n" +
             "\n" +
-            "class Solution:\n" +
-            "    def uniquePaths(self, m: int, n: int) -> int:\n" +
-            "        # A path is m-1 downs and n-1 rights in some order:\n" +
-            "        # choose which of the (m+n-2) moves are the downs.\n" +
-            "        return math.comb(m + n - 2, m - 1)   # C(m+n-2, m-1).",
+            "\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls uniquePaths on it.\n" +
+            "\n" +
+            "    def uniquePaths(self, m: int, n: int) -> int:  # Return the path count via a closed-form binomial coefficient instead of a table.\n" +
+            "\n" +
+            "        # ==================== PHASE 1: COUNT THE MOVE ARRANGEMENTS ====================\n" +
+            "\n" +
+            "        return math.comb(m + n - 2, m - 1)  # Every path is exactly m-1 downs and n-1 rights in some order: m+n-2 moves in total.\n" +
+            "                                            # A path is fixed by choosing which of the m+n-2 move-slots are the downs -> C(m+n-2, m-1).\n" +
+            "                                            # Why safe: distinct choices of down-positions map one-to-one to distinct paths, counting each once.",
           plain:
             "import math\n" +
             "\n" +
@@ -208,19 +236,39 @@
             "**Complexity.** `m*n` cells with `O(1)` work each → time `O(m*n)`, space `O(m*n)`. **Space optimization:** each row depends only on the row above and the current row, so two rolling 1-D arrays of length `n+1` (or even one array with a saved diagonal value) shrink space to `O(n)`.\n\n" +
             "**Interview mindset.** 'Compare two sequences / an edit-style problem' → reach for a 2-D table indexed by prefixes of each string, with a match-diagonal-versus-skip transition. LCS is the template for edit distance and many variants.",
           rcs:
-            "class Solution:\n" +
-            "    def longestCommonSubsequence(self, text1: str, text2: str) -> int:\n" +
-            "        m, n = len(text1), len(text2)\n" +
-            "        # dp[i][j] = LCS length of text1[:i] and text2[:j].\n" +
-            "        # Extra row/col of zeros handles the empty-prefix base cases.\n" +
-            "        dp = [[0] * (n + 1) for _ in range(m + 1)]\n" +
-            "        for i in range(1, m + 1):\n" +
-            "            for j in range(1, n + 1):\n" +
-            "                if text1[i - 1] == text2[j - 1]:  # Characters match:\n" +
-            "                    dp[i][j] = dp[i - 1][j - 1] + 1  # extend the diagonal LCS.\n" +
-            "                else:                             # Mismatch:\n" +
-            "                    dp[i][j] = max(dp[i - 1][j], dp[i][j - 1])  # drop one char.\n" +
-            "        return dp[m][n]                          # LCS of the full strings.",
+            "class Solution:  # LeetCode creates an object of this class and calls longestCommonSubsequence on it.\n" +
+            "\n" +
+            "    def longestCommonSubsequence(self, text1: str, text2: str) -> int:  # Return the length of the longest common subsequence of text1 and text2.\n" +
+            "\n" +
+            "        # ==================== PHASE 1: BUILD THE DP TABLE ====================\n" +
+            "\n" +
+            "        m, n = len(text1), len(text2)  # Cache both lengths; m indexes prefixes of text1, n indexes prefixes of text2.\n" +
+            "                                       # Execution flow: Python continues to allocate the table.\n" +
+            "\n" +
+            "        dp = [[0] * (n + 1) for _ in range(m + 1)]  # dp[i][j] = length of the LCS of the prefixes text1[:i] and text2[:j].\n" +
+            "                                                    # Base row/col: dp[0][*] = dp[*][0] = 0, since an empty prefix shares nothing (the extra zero row/column).\n" +
+            "                                                    # State: every cell starts at 0; interior cells are filled from their diagonal, up, and left neighbours.\n" +
+            "\n" +
+            "        # ==================== PHASE 2: FILL BY PREFIX LENGTHS ====================\n" +
+            "\n" +
+            "        for i in range(1, m + 1):  # Grow text1's prefix one character at a time; i corresponds to text1[i-1].\n" +
+            "                                   # Execution flow: after a row completes, Python advances to the next i.\n" +
+            "\n" +
+            "            for j in range(1, n + 1):  # Grow text2's prefix one character at a time; j corresponds to text2[j-1].\n" +
+            "                                       # Loop invariant: all cells with a smaller (i,j) are already final when this cell is computed.\n" +
+            "\n" +
+            "                if text1[i - 1] == text2[j - 1]:  # Do the two current last characters match?\n" +
+            "                                                  # Why -1: dp[i][j] reasons about text1[i-1] and text2[j-1] because of the zero-padded row/column.\n" +
+            "                    dp[i][j] = dp[i - 1][j - 1] + 1  # Match: extend the LCS of the two shorter prefixes (the DIAGONAL) by this shared character.\n" +
+            "                                                     # Why diagonal: dropping both matched characters leaves text1[:i-1] vs text2[:j-1] = dp[i-1][j-1].\n" +
+            "                else:  # Mismatch: at least one of the two last characters is not part of the LCS.\n" +
+            "                    dp[i][j] = max(dp[i - 1][j], dp[i][j - 1])  # Drop text1's last char (UP = dp[i-1][j]) or text2's last char (LEFT = dp[i][j-1]); keep the better.\n" +
+            "                                                                # Why: those are the only two ways to shorten the problem, and the LCS must survive one of them.\n" +
+            "\n" +
+            "        # ==================== PHASE 3: READ THE ANSWER ====================\n" +
+            "\n" +
+            "        return dp[m][n]  # Bottom-right cell: the LCS length over both full strings.\n" +
+            "                         # Loop invariant at the end: dp[m][n] holds the true LCS length of text1 and text2.",
           plain:
             "class Solution:\n" +
             "    def longestCommonSubsequence(self, text1: str, text2: str) -> int:\n" +
@@ -315,27 +363,50 @@
             "**Complexity.** Sorting is `O(n log n)`, and each of the `n` jobs does one `O(log n)` binary search → `O(n log n)` total, with `O(n)` space for the `dp` and end-time arrays.\n\n" +
             "**Interview mindset.** Intervals + a value to maximize + a non-overlap constraint → name it 'weighted interval scheduling': sort by end time, run a DP, and binary-search for the last compatible job. The give-away that greedy is wrong is that the intervals are *weighted*.",
           rcs:
-            "import bisect\n" +
+            "import bisect  # bisect gives an O(log n) binary search over the sorted end times.\n" +
             "\n" +
-            "class Solution:\n" +
-            "    def jobScheduling(self, startTime: List[int], endTime: List[int], profit: List[int]) -> int:\n" +
-            "        # Pair the jobs and sort by END time so 'compatible earlier jobs'\n" +
-            "        # always form a prefix we can binary-search.\n" +
-            "        jobs = sorted(zip(endTime, startTime, profit))\n" +
-            "        ends = [e for e, s, p in jobs]        # Sorted end times, for bisect.\n" +
-            "        n = len(jobs)\n" +
-            "        # dp[i] = max profit using the first i jobs (in end-time order).\n" +
-            "        dp = [0] * (n + 1)\n" +
-            "        for i in range(1, n + 1):\n" +
-            "            e, s, p = jobs[i - 1]\n" +
-            "            # k = number of jobs whose end time <= this job's start time.\n" +
-            "            # bisect_right on start s over the sorted ends gives that count,\n" +
-            "            # allowing end == start (jobs touching at a point don't conflict).\n" +
-            "            k = bisect.bisect_right(ends, s)\n" +
-            "            take = p + dp[k]                  # Take job i + best compatible prefix.\n" +
-            "            skip = dp[i - 1]                  # Or ignore job i entirely.\n" +
-            "            dp[i] = max(take, skip)\n" +
-            "        return dp[n]",
+            "\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls jobScheduling on it.\n" +
+            "\n" +
+            "    def jobScheduling(self, startTime: List[int], endTime: List[int], profit: List[int]) -> int:  # Return the maximum total profit from a set of non-overlapping jobs (weighted interval scheduling).\n" +
+            "\n" +
+            "        # ==================== PHASE 1: SORT JOBS BY END TIME ====================\n" +
+            "\n" +
+            "        jobs = sorted(zip(endTime, startTime, profit))  # Pair each job as (end, start, profit) and sort by end time (the tuple's first field).\n" +
+            "                                                        # Why sort by end: it makes the jobs compatible with a later job always form a prefix we can binary-search.\n" +
+            "                                                        # State: jobs is now in nondecreasing end-time order.\n" +
+            "\n" +
+            "        ends = [e for e, s, p in jobs]  # Extract just the sorted end times into their own list for bisect to search.\n" +
+            "                                        # Why separate: bisect needs a plain sorted sequence of the keys we compare a start time against.\n" +
+            "\n" +
+            "        n = len(jobs)  # Total number of jobs.\n" +
+            "\n" +
+            "        dp = [0] * (n + 1)  # dp[i] = maximum profit obtainable using only the first i jobs in end-time order.\n" +
+            "                            # Base case: dp[0] = 0, no jobs means no profit; dp is 1-indexed against the sorted jobs.\n" +
+            "\n" +
+            "        # ==================== PHASE 2: DP WITH BINARY SEARCH ====================\n" +
+            "\n" +
+            "        for i in range(1, n + 1):  # Consider the jobs one at a time in end-time order; job i is jobs[i-1].\n" +
+            "                                   # Loop invariant: dp[0..i-1] already hold the optimal profit for those prefixes.\n" +
+            "\n" +
+            "            e, s, p = jobs[i - 1]  # Unpack this job's end e, start s, and profit p.\n" +
+            "\n" +
+            "            k = bisect.bisect_right(ends, s)  # k = number of jobs whose end time is <= this job's start s (the last compatible earlier job).\n" +
+            "                                              # Why bisect_right on s: end == start does NOT conflict, so a job ending exactly at s stays compatible.\n" +
+            "                                              # Why safe: ends is sorted, so bisect_right returns the count of ends that are <= s in O(log n).\n" +
+            "\n" +
+            "            take = p + dp[k]  # TAKE job i: its profit plus the best profit over the compatible prefix dp[k].\n" +
+            "                              # Why dp[k]: every other chosen job must end by s, and those jobs are exactly the first k.\n" +
+            "\n" +
+            "            skip = dp[i - 1]  # SKIP job i: carry the best profit achievable without it.\n" +
+            "\n" +
+            "            dp[i] = max(take, skip)  # Keep whichever choice yields more profit.\n" +
+            "                                     # Why exhaustive: the optimum over the first i jobs either uses job i or it does not.\n" +
+            "\n" +
+            "        # ==================== PHASE 3: READ THE ANSWER ====================\n" +
+            "\n" +
+            "        return dp[n]  # dp[n]: the maximum profit using all jobs.\n" +
+            "                      # Loop invariant at the end: dp[n] holds the global optimum.",
           plain:
             "import bisect\n" +
             "\n" +
@@ -446,31 +517,47 @@
             "**Complexity.** `(m+1)(n+1)` cells with `O(1)` work each → time `O(m*n)`, space `O(m*n)`. **Space optimization:** row `i` depends only on row `i` itself (via `j-2`) and row `i-1` (via the `*` repeat), so two rolling rows of length `n+1` reduce space to `O(n)`.\n\n" +
             "**Interview mindset.** The whole difficulty is the `*`: treat it as a pair with its preceding token and split into 'zero copies (jump two back)' versus 'one-more copy (stay, move one string char up)'. Seeding the first row for patterns that erase to empty is the classic missed edge case.",
           rcs:
-            "class Solution:\n" +
-            "    def isMatch(self, s: str, p: str) -> bool:\n" +
-            "        m, n = len(s), len(p)\n" +
-            "        # dp[i][j] = does s[:i] match p[:j]?\n" +
-            "        dp = [[False] * (n + 1) for _ in range(m + 1)]\n" +
-            "        dp[0][0] = True                       # Empty pattern matches empty string.\n" +
-            "        # First row: patterns like a*, a*b*, .* can match the empty string\n" +
-            "        # by letting each '*' erase its token (contribute zero copies).\n" +
-            "        for j in range(2, n + 1):\n" +
-            "            if p[j - 1] == '*':\n" +
-            "                dp[0][j] = dp[0][j - 2]       # Skip the '*' and its preceding token.\n" +
-            "        for i in range(1, m + 1):\n" +
-            "            for j in range(1, n + 1):\n" +
-            "                if p[j - 1] == '*':           # '*' quantifies p[j-2].\n" +
-            "                    # Case 1: zero occurrences -> drop the token+'*' pair.\n" +
-            "                    dp[i][j] = dp[i][j - 2]\n" +
-            "                    # Case 2: one-or-more -> the token must match s[i-1],\n" +
-            "                    # then consume that char and stay on the same '*'.\n" +
-            "                    if p[j - 2] == s[i - 1] or p[j - 2] == '.':\n" +
-            "                        dp[i][j] = dp[i][j] or dp[i - 1][j]\n" +
-            "                elif p[j - 1] == s[i - 1] or p[j - 1] == '.':\n" +
-            "                    # Plain char or '.': consume one matching char on each side.\n" +
-            "                    dp[i][j] = dp[i - 1][j - 1]\n" +
-            "                # else: literal mismatch -> dp[i][j] stays False.\n" +
-            "        return dp[m][n]",
+            "class Solution:  # LeetCode creates an object of this class and calls isMatch on it.\n" +
+            "\n" +
+            "    def isMatch(self, s: str, p: str) -> bool:  # Return True iff pattern p matches the ENTIRE string s ('.' any char, '*' zero-or-more of the previous token).\n" +
+            "\n" +
+            "        # ==================== PHASE 1: BUILD AND ANCHOR THE TABLE ====================\n" +
+            "\n" +
+            "        m, n = len(s), len(p)  # Cache both lengths; rows index s, columns index p.\n" +
+            "\n" +
+            "        dp = [[False] * (n + 1) for _ in range(m + 1)]  # dp[i][j] = does the prefix s[:i] match the prefix p[:j]?\n" +
+            "                                                        # State: all cells start False; the zero-padded row/column represent empty prefixes.\n" +
+            "\n" +
+            "        dp[0][0] = True  # Empty pattern matches empty string.\n" +
+            "                         # Why safe: matching nothing against nothing succeeds; this anchors the induction.\n" +
+            "\n" +
+            "        # ==================== PHASE 2: SEED ROW 0 (PATTERNS THAT ERASE TO EMPTY) ====================\n" +
+            "\n" +
+            "        for j in range(2, n + 1):  # Fill dp[0][j]: can the first j pattern chars match the EMPTY string?\n" +
+            "                                   # Why start at 2: a '*' needs a token before it, so the earliest erasable pair ends at column 2.\n" +
+            "            if p[j - 1] == '*':  # Only a '*' can erase its token to contribute zero characters.\n" +
+            "                dp[0][j] = dp[0][j - 2]  # Skip the '*' and its preceding token (zero copies) -> look two columns back.\n" +
+            "                                         # Why -2: dropping the token+'*' pair lets a*, a*b*, .* all match the empty string.\n" +
+            "\n" +
+            "        # ==================== PHASE 3: FILL THE TABLE ====================\n" +
+            "\n" +
+            "        for i in range(1, m + 1):  # Extend s's prefix one character; i corresponds to s[i-1].\n" +
+            "            for j in range(1, n + 1):  # Extend p's prefix one character; j corresponds to p[j-1].\n" +
+            "                                       # Loop invariant: all cells with a smaller (i,j) are already final.\n" +
+            "                if p[j - 1] == '*':  # The current pattern token is '*', which quantifies the preceding token p[j-2].\n" +
+            "                    dp[i][j] = dp[i][j - 2]  # Case 1 (zero occurrences): drop the token+'*' pair and look two columns back.\n" +
+            "                    if p[j - 2] == s[i - 1] or p[j - 2] == '.':  # Case 2 applies only if the quantified token matches s[i-1] ('.' matches any char).\n" +
+            "                        dp[i][j] = dp[i][j] or dp[i - 1][j]  # One-or-more: consume s[i-1] and STAY on this '*' (dp[i-1][j]) so more repeats are allowed.\n" +
+            "                                                             # Why dp[i-1][j]: '*' may repeat, so after eating one char the same '*' still faces the shorter string.\n" +
+            "                elif p[j - 1] == s[i - 1] or p[j - 1] == '.':  # Plain char or '.': this single token matches the current string char s[i-1].\n" +
+            "                    dp[i][j] = dp[i - 1][j - 1]  # Consume one char on each side; inherit the shorter-prefix result (the DIAGONAL).\n" +
+            "                                                 # Why: a one-to-one match reduces both prefixes by exactly one character.\n" +
+            "                # else: a literal mismatch leaves dp[i][j] at its default False.\n" +
+            "\n" +
+            "        # ==================== PHASE 4: READ THE ANSWER ====================\n" +
+            "\n" +
+            "        return dp[m][n]  # Full match over both strings: True iff all of s is matched by all of p.\n" +
+            "                         # Why the corner: the match must cover the ENTIRE string, so the answer is dp[m][n].",
           plain:
             "class Solution:\n" +
             "    def isMatch(self, s: str, p: str) -> bool:\n" +
