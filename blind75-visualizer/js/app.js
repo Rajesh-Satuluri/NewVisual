@@ -203,11 +203,13 @@
     };
     node.addEventListener("transitionend", handler);
   }
-  function setCatOpen(block, open) {
-    var outer = block.querySelector(".cat-list-outer");
+  // Generic smooth collapse used by BOTH the sidebar categories and the main
+  // content sections. `toggleEl` carries the .collapsed class (caret/fade), `outer`
+  // is the element whose pixel height we animate.
+  function animateCollapse(toggleEl, outer, open) {
     if (!outer) return;
     var startH = outer.getBoundingClientRect().height; // current height (handles mid-flight)
-    block.classList.toggle("collapsed", !open);         // drives caret rotation + list fade
+    toggleEl.classList.toggle("collapsed", !open);
     outer.style.height = startH + "px";                 // pin the starting height (auto -> px)
     void outer.offsetHeight;                            // force reflow so the next change animates
     if (open) {
@@ -215,11 +217,14 @@
       onHeightEnd(outer, function () {
         // settle to auto so later content changes don't get clipped — but only if
         // we're still open (a fast re-collapse must not reopen it)
-        if (!block.classList.contains("collapsed")) outer.style.height = "auto";
+        if (!toggleEl.classList.contains("collapsed")) outer.style.height = "auto";
       });
     } else {
       outer.style.height = "0px";                        // shrink to nothing
     }
+  }
+  function setCatOpen(block, open) {
+    animateCollapse(block, block.querySelector(".cat-list-outer"), open);
   }
 
   function renderSidebar() {
@@ -458,7 +463,8 @@
     body.appendChild(bodyNode);
     outer.appendChild(body);
     head.addEventListener("click", function () {
-      sec.classList.toggle("collapsed");   // caret rotation handled by CSS
+      var willOpen = sec.classList.contains("collapsed");
+      animateCollapse(sec, outer, willOpen);   // smooth px-height, same as the sidebar
     });
     sec.appendChild(head);
     sec.appendChild(outer);
@@ -500,12 +506,23 @@
       var b = h("button", { class: "status-btn st-" + s + (st === s ? " sel" : ""), "data-s": s },
         STATUS_GLYPH[s] + " " + STATUS_LABEL[s]);
       b.addEventListener("click", function () {
+        var wasSolved = store.getStatus(p.id) === "solved";
         applyStatus(p.id, s);
         // update the selected state in place — avoids a full re-render (and its flash)
         var btns = statusSel.querySelectorAll(".status-btn");
         for (var k = 0; k < btns.length; k++) btns[k].classList.remove("sel");
         b.classList.add("sel");
         renderSidebar(); renderProgress();
+        if (s === "solved" && !wasSolved) {
+          toast(nextUnsolvedId(p.id) ? "Solved ✓ — press n for the next unsolved" : "Solved ✓ — all done! 🎉");
+        }
+        // refresh the Next CTA target in place (it may have pointed at this problem)
+        var cta = document.querySelector(".cta-next");
+        if (cta) {
+          var nx = nextUnsolvedId(p.id);
+          cta.textContent = nx ? "Next unsolved →" : "🎉 All solved";
+          cta.classList.toggle("disabled", !nx);
+        }
       });
       statusSel.appendChild(b);
     });
@@ -526,6 +543,20 @@
       renderProblem();
     });
     actions.appendChild(blurBtn);
+
+    // ---- smart study-loop CTAs: keep momentum after each problem ----
+    var nextId = nextUnsolvedId(p.id);
+    var nextBtn = h("button", { class: "chip-btn cta-next" + (nextId ? "" : " disabled") },
+      nextId ? "Next unsolved →" : "🎉 All solved");
+    if (nextId) nextBtn.addEventListener("click", function () { selectProblem(nextId); });
+    actions.appendChild(nextBtn);
+
+    var dueCount = store.countDue(activeProblems().map(function (x) { return x.id; }));
+    if (dueCount > 0) {
+      var dueBtn = h("button", { class: "chip-btn cta-due" }, "⟳ Review due (" + dueCount + ")");
+      dueBtn.addEventListener("click", openReview);
+      actions.appendChild(dueBtn);
+    }
 
     header.appendChild(actions);
     main.appendChild(header);
@@ -880,6 +911,20 @@
   }
 
   // ============================================================= SELECT
+  // Next problem (in the active set's order) that isn't solved yet; wraps around.
+  // Returns null when everything in the set is solved.
+  function nextUnsolvedId(fromId) {
+    var list = activeProblems();
+    if (!list.length) return null;
+    var start = list.findIndex(function (p) { return p.id === fromId; });
+    if (start < 0) start = -1;
+    for (var off = 1; off <= list.length; off++) {
+      var p = list[(start + off) % list.length];
+      if (store.getStatus(p.id) !== "solved") return p.id;
+    }
+    return null;
+  }
+
   function selectProblem(id) {
     state.currentId = id;
     if (location.hash !== "#" + id) history.replaceState(null, "", "#" + id);
@@ -1271,6 +1316,13 @@
     el("reviewClose").addEventListener("click", function () { closeModal("reviewModal"); });
     el("reviewModal").addEventListener("click", function (e) { if (e.target === el("reviewModal")) closeModal("reviewModal"); });
 
+    var scClose = el("shortcutsClose");
+    if (scClose) scClose.addEventListener("click", function () { closeModal("shortcutsModal"); });
+    var scModal = el("shortcutsModal");
+    if (scModal) scModal.addEventListener("click", function (e) { if (e.target === scModal) closeModal("shortcutsModal"); });
+    var scBtn = el("shortcutsBtn");
+    if (scBtn) scBtn.addEventListener("click", openShortcuts);
+
     // export / import / reset
     el("exportBtn").addEventListener("click", function () {
       var blob = new Blob([store.exportJSON()], { type: "application/json" });
@@ -1314,19 +1366,23 @@
         if (e.key === "Escape") e.target.blur();
         return;
       }
+      if (e.key === "?" || (e.key === "/" && e.shiftKey)) { e.preventDefault(); openShortcuts(); return; }
       if (e.key === "/") { e.preventDefault(); search.focus(); return; }
       if (e.key === "Escape") {
         closeModal("gridModal");
         closeModal("dashModal");
         closeModal("reviewModal");
+        closeModal("shortcutsModal");
         return;
       }
       var idx = ALL.findIndex(function (x) { return x.id === state.currentId; });
       if (e.key === "j" || e.key === "ArrowDown") { if (ALL[idx + 1]) { e.preventDefault(); selectProblem(ALL[idx + 1].id); } }
       if (e.key === "k" || e.key === "ArrowUp") { if (ALL[idx - 1]) { e.preventDefault(); selectProblem(ALL[idx - 1].id); } }
+      if (e.key === "n") { var nx = nextUnsolvedId(state.currentId); if (nx) { e.preventDefault(); selectProblem(nx); } }
       if (e.key === "r") { store.setPref("codeMode", "rcs"); renderProblem(); }
       if (e.key === "p") { store.setPref("codeMode", "plain"); renderProblem(); }
       if (e.key === "b") { store.setPref("blur", !store.getPref("blur")); renderProblem(); }
+      if (e.key === "d") { openDashboard(); }
       if (e.key === "1") { setStatusShortcut("not-started"); }
       if (e.key === "2") { setStatusShortcut("learning"); }
       if (e.key === "3") { setStatusShortcut("solved"); }
@@ -1334,8 +1390,35 @@
   }
 
   function setStatusShortcut(s) {
+    var wasSolved = store.getStatus(state.currentId) === "solved";
     applyStatus(state.currentId, s);
     renderProblem(); renderSidebar(); renderProgress();
+    if (s === "solved" && !wasSolved) {
+      toast(nextUnsolvedId(state.currentId) ? "Solved ✓ — press n for the next unsolved" : "Solved ✓ — all done! 🎉");
+    }
+  }
+
+  // Keyboard shortcut cheatsheet (opened with ?)
+  function openShortcuts() {
+    var body = el("shortcutsBody");
+    if (body) {
+      var rows = [
+        ["/", "Focus search"],
+        ["j  /  ↓", "Next problem"],
+        ["k  /  ↑", "Previous problem"],
+        ["n", "Jump to next unsolved problem"],
+        ["1  2  3", "Mark not-started / learning / solved"],
+        ["r  /  p", "Show RCS code / Plain code"],
+        ["b", "Toggle recall (blur) mode"],
+        ["d", "Open progress dashboard"],
+        ["?", "Show this help"],
+        ["Esc", "Close dialog / unfocus field"]
+      ];
+      body.innerHTML = '<div class="kbd-list">' + rows.map(function (r) {
+        return '<div class="kbd-row"><kbd>' + esc(r[0]) + "</kbd><span>" + esc(r[1]) + "</span></div>";
+      }).join("") + "</div>";
+    }
+    openModal("shortcutsModal");
   }
 
   // Set status and, on a fresh transition to "solved", log a day of activity.

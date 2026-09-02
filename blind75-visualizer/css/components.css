@@ -37,6 +37,17 @@
 .chip-btn { background: var(--bg-2); border: 1px solid var(--border); color: var(--text-2); font-size: 12.5px; font-weight: 600; padding: 6px 12px; border-radius: 8px; cursor: pointer; }
 .chip-btn:hover { border-color: var(--brand); color: var(--text); }
 .chip-btn.on { background: var(--brand-glow); border-color: var(--brand); color: var(--text); }
+.chip-btn.disabled { opacity: .5; cursor: default; pointer-events: none; }
+/* study-loop CTAs */
+.chip-btn.cta-next { background: color-mix(in srgb, var(--success) 16%, var(--bg-2)); border-color: color-mix(in srgb, var(--success) 45%, var(--border)); color: var(--success-2); font-weight: 700; }
+.chip-btn.cta-next:hover { border-color: var(--success); }
+.chip-btn.cta-due { background: color-mix(in srgb, var(--brand) 15%, var(--bg-2)); border-color: color-mix(in srgb, var(--brand) 45%, var(--border)); color: var(--text); font-weight: 700; }
+/* keyboard cheatsheet */
+.kbd-list { display: flex; flex-direction: column; gap: 2px; }
+.kbd-row { display: flex; align-items: center; gap: 14px; padding: 9px 6px; border-bottom: 1px solid var(--border-soft); }
+.kbd-row:last-child { border-bottom: none; }
+.kbd-row kbd { flex: 0 0 auto; min-width: 84px; text-align: center; font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--text); background: var(--bg-3); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 6px; padding: 4px 8px; }
+.kbd-row span { color: var(--text-2); font-size: 13.5px; }
 
 /* ---------- meta box ---------- */
 .meta-box {
@@ -66,15 +77,14 @@
   color: var(--text); font-size: 15px; font-weight: 700; text-align: left;
 }
 .sec-head:hover { background: var(--bg-3); }
-.sec-caret { color: var(--muted); font-size: 11px; width: 12px; transition: transform var(--dur) var(--ease); transform-origin: 50% 50%; }
+.sec-caret { color: var(--muted); font-size: 11px; width: 12px; transition: transform var(--dur-cat) var(--ease-cat); transform-origin: 50% 50%; display: inline-block; }
 .prob-section.collapsed .sec-caret { transform: rotate(-90deg); }
 .sec-title { flex: 1; }
 .sec-badge { font-family: var(--mono); font-size: 11px; color: var(--muted); background: var(--bg-0); border: 1px solid var(--border); padding: 2px 8px; border-radius: 999px; font-weight: 600; }
-/* animated collapse: grid-rows 1fr → 0fr (content-height agnostic) */
-.sec-body-outer { display: grid; grid-template-rows: 1fr; transition: grid-template-rows var(--dur) var(--ease); }
-.prob-section.collapsed .sec-body-outer { grid-template-rows: 0fr; }
-.sec-body { min-height: 0; overflow: hidden; padding: 18px 20px; transition: padding var(--dur) var(--ease); }
-.prob-section.collapsed .sec-body { padding-top: 0; padding-bottom: 0; }
+/* animated collapse via explicit pixel height (see animateCollapse) — smooth in
+   every browser, unlike a grid-fr transition which Safari snaps. */
+.sec-body-outer { overflow: hidden; transition: height var(--dur-cat) var(--ease-cat); }
+.sec-body { padding: 18px 20px; }
 
 .subhead { font-size: 11px; text-transform: uppercase; letter-spacing: .7px; color: var(--muted); font-weight: 700; margin: 14px 0 6px; }
 .constraints ul, .notes-block ul { margin-left: 20px; }
