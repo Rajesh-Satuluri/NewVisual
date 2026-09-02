@@ -46,6 +46,6 @@
     // Advanced Patterns (synthetic ids 201-208: pivot, regex, SCD2, CDC, retention,
     // broken-pipeline debug, AQE, as-of/point-in-time join)
     201: "common", 202: "common", 203: "essential", 204: "common", 205: "essential",
-    206: "common", 207: "common", 208: "common"
+    206: "common", 207: "common", 208: "common", 209: "common", 210: "common"
   };
 })();

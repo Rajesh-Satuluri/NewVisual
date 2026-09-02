@@ -859,6 +859,257 @@
         "**Say it:** inequality join on `effective_ts <= event_ts` (plus key), then `row_number()` desc, keep rn=1; left join to retain unmatched events.",
         "**Trap:** an equi-join on the timestamp matches nothing; the `<=` is a costly range join (broadcast the small side); order desc + rn=1, add a tiebreaker."
       ]
+    },
+
+    // ------------------------------------------------------------------ Q209
+    {
+      id: "share-of-total-percent-of-whole",
+      lc: 209,
+      title: "Share of total (each row's percent of the grand total)",
+      difficulty: "Medium",
+      category: CAT,
+      meta: { pattern: "Percent of whole (unpartitioned window)", transformation: "Wide (shuffle) — single partition", functions: "sum, Window.partitionBy(), over, round, crossJoin, broadcast" },
+      description:
+        "Given a `sales` DataFrame (`category`, `revenue`), compute each category's revenue **and its percentage of the overall (grand) total** — e.g. `Electronics 4000 (40%)`. The clean way is a window with **no partitionBy**: `_sum('revenue').over(Window.partitionBy())` computes the grand total on every row without collapsing the rows, so you can divide row revenue by it in the same pass. Show the equivalent **cross-join to the scalar total** (with `broadcast`) and explain the single-partition cost of an unpartitioned window.",
+      examples: [
+        {
+          input: "sales: (Electronics, 4000), (Clothing, 3000), (Books, 3000)",
+          output: "grand_total = 10000 on every row; pct_share -> Electronics 40.0, Clothing 30.0, Books 30.0 (percentages sum to 100).",
+          reasoning: "An unpartitioned window sums revenue across the entire DataFrame and writes that single total (10000) onto each row, so revenue/total*100 gives each category's share; the shares add up to 100%."
+        }
+      ],
+      approaches: [
+        {
+          name: "_sum('revenue').over(Window.partitionBy()) for the grand total, then revenue / total; cross-join alternative",
+          whenToUse: "Any 'what fraction of the whole' report — percent of total revenue, share of traffic, contribution to a KPI — where each row must keep its detail and also carry the overall total.",
+          logic:
+            "**What it asks.** Put the grand total of `revenue` next to every row and express each row's revenue as a percentage of it, without collapsing the rows into a single aggregate.\n\n" +
+            "**Key Idea.** A window aggregate with an **empty** `Window.partitionBy()` treats the *entire* DataFrame as one window frame, so `_sum('revenue').over(Window.partitionBy())` returns the grand total on **every** row while preserving all rows (unlike `groupBy().agg()` which would reduce to one row). Then `revenue / grand_total * 100` is a plain per-row division. The alternative is to compute the scalar total once (`sales.agg(_sum('revenue'))`) and `crossJoin` it back, wrapping it in `broadcast` so the one-row total is shipped to every executor instead of shuffled.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Define the unpartitioned window: `w = Window.partitionBy()` (no keys, no ordering — the whole frame).\n" +
+            "2. Attach the grand total to each row: `sales.withColumn('grand_total', _sum('revenue').over(w))`.\n" +
+            "3. Compute the share: `.withColumn('pct_share', _round(col('revenue') / col('grand_total') * 100, 2))`.\n" +
+            "4. (Group-level variant) First `groupBy('category').agg(_sum('revenue'))`, then apply the same unpartitioned window so each category row carries its share of the overall total.\n" +
+            "5. (Cross-join alternative) `total = sales.agg(_sum('revenue').alias('grand_total'))`, then `sales.crossJoin(broadcast(total))` and divide.\n\n" +
+            "**Why it works.** With no partition key, the window's frame is every row, so the aggregate is the global sum, and because a window function adds a column rather than grouping, each original row survives with the total attached — exactly what a percent-of-total needs. The broadcast cross-join is semantically identical: it materializes the single scalar total and joins it to every row cheaply (a one-row broadcast, no shuffle of the big side).\n\n" +
+            "**Common Gotchas.**\n" +
+            "- An unpartitioned window moves **all** rows into a **single partition** to compute the aggregate — Spark even warns 'No Partition Defined for Window operation'. It is fine for a per-row total but does not scale like a partitioned window; for big data prefer the broadcast cross-join.\n" +
+            "- Do not add `orderBy` to this window — an ordered frame becomes a *running* total (cumulative), not the grand total.\n" +
+            "- Guard against divide-by-zero when the total could be 0 (`when(col('grand_total') != 0, ...)`).\n" +
+            "- Use `_sum(...).over(w)` (window), not `groupBy().agg(_sum(...))`, when you must keep every detail row alongside its share.\n" +
+            "- Name the output `pct_share` / `grand_total` — never a digit-leading name; `sum` is imported as `_sum` to avoid shadowing Python's builtin.\n\n" +
+            "**Interview mindset.** Say 'grand total on every row = `sum().over(Window.partitionBy())` with no keys; then divide'. Immediately flag the single-partition cost and offer the `broadcast`-ed cross-join as the scalable equivalent, and note that adding `orderBy` would turn it into a running total.",
+          rcs:
+            "from pyspark.sql.window import Window\n" +
+            "from pyspark.sql.functions import col, sum as _sum, round as _round, broadcast\n" +
+            "\n" +
+            "# --- Percent of grand total via an UNPARTITIONED window ---\n" +
+            "w = Window.partitionBy()                                    # no keys -> whole DataFrame is one frame\n" +
+            "\n" +
+            "share = (sales\n" +
+            "    .withColumn('grand_total', _sum('revenue').over(w))    # global sum on EVERY row\n" +
+            "    .withColumn('pct_share',                               # each row's share of the whole\n" +
+            "                _round(col('revenue') / col('grand_total') * 100, 2)))\n" +
+            "share.show()\n" +
+            "\n" +
+            "# --- Group-level share (per category of overall revenue) ---\n" +
+            "by_cat = sales.groupBy('category').agg(_sum('revenue').alias('revenue'))\n" +
+            "cat_share = (by_cat\n" +
+            "    .withColumn('grand_total', _sum('revenue').over(w))\n" +
+            "    .withColumn('pct_share', _round(col('revenue') / col('grand_total') * 100, 2)))\n" +
+            "cat_share.show()\n" +
+            "\n" +
+            "# --- Scalable alternative: broadcast the scalar total and cross-join ---\n" +
+            "total = sales.agg(_sum('revenue').alias('grand_total'))     # one-row DataFrame\n" +
+            "share2 = (sales\n" +
+            "    .crossJoin(broadcast(total))                           # ship the total, no big shuffle\n" +
+            "    .withColumn('pct_share',\n" +
+            "                _round(col('revenue') / col('grand_total') * 100, 2)))\n" +
+            "share2.show()",
+          plain:
+            "from pyspark.sql.window import Window\n" +
+            "from pyspark.sql.functions import col, sum as _sum, round as _round, broadcast\n" +
+            "\n" +
+            "w = Window.partitionBy()\n" +
+            "\n" +
+            "share = (sales\n" +
+            "    .withColumn('grand_total', _sum('revenue').over(w))\n" +
+            "    .withColumn('pct_share',\n" +
+            "                _round(col('revenue') / col('grand_total') * 100, 2)))\n" +
+            "share.show()\n" +
+            "\n" +
+            "by_cat = sales.groupBy('category').agg(_sum('revenue').alias('revenue'))\n" +
+            "cat_share = (by_cat\n" +
+            "    .withColumn('grand_total', _sum('revenue').over(w))\n" +
+            "    .withColumn('pct_share', _round(col('revenue') / col('grand_total') * 100, 2)))\n" +
+            "cat_share.show()\n" +
+            "\n" +
+            "total = sales.agg(_sum('revenue').alias('grand_total'))\n" +
+            "share2 = (sales\n" +
+            "    .crossJoin(broadcast(total))\n" +
+            "    .withColumn('pct_share',\n" +
+            "                _round(col('revenue') / col('grand_total') * 100, 2)))\n" +
+            "share2.show()"
+        }
+      ],
+      sparkInternals:
+        "An **unpartitioned** window is the key cost story here. With `Window.partitionBy()` and no keys, Spark cannot split the aggregate across partition groups, so the physical plan is a `Window` operator preceded by an `Exchange SinglePartition` — **all rows are shuffled into one partition** and processed by a single task, which is why Spark logs `WARN WindowExec: No Partition Defined for Window operation! Moving all data to a single partition, this can cause serious performance degradation.` For a percent-of-total it is computing just one number, but every row must pass through that lone partition. The **broadcast cross-join** avoids this: `sales.agg(_sum('revenue'))` is a normal partial+final aggregate that produces a one-row DataFrame; `broadcast(total)` ships that single row to every executor, and the `crossJoin` becomes a `BroadcastNestedLoopJoin` that attaches the total with **no shuffle of the large `sales` side** — so it scales while the unpartitioned window does not. Adding `orderBy` to the window would change the frame semantics entirely: an ordered window defaults to a `rows/range between unbounded preceding and current row` frame, turning the grand total into a **running** (cumulative) total — a different query. The division and `round` are narrow, codegen-fused expressions.",
+      sparkSql:
+        "SELECT\n" +
+        "  category,\n" +
+        "  revenue,\n" +
+        "  SUM(revenue) OVER () AS grand_total,\n" +
+        "  ROUND(revenue / SUM(revenue) OVER () * 100, 2) AS pct_share\n" +
+        "FROM sales;",
+      recognizeRecall: [
+        "**Spot it:** 'percent of total', 'share of the whole', 'contribution to overall revenue', 'each row's fraction of the grand total'.",
+        "**Say it:** `SUM(x).over(Window.partitionBy())` (no keys) puts the grand total on every row, then `x / total * 100`; broadcast cross-join scales better.",
+        "**Trap:** an unpartitioned window forces ALL rows into one partition (Spark warns); don't add orderBy (that makes a running total); guard divide-by-zero."
+      ]
+    },
+
+    // ------------------------------------------------------------------ Q210
+    {
+      id: "cumulative-rolling-active-users",
+      lc: 210,
+      title: "Cumulative & rolling 30-day active users",
+      difficulty: "Hard",
+      category: CAT,
+      meta: { pattern: "Cumulative distinct + rolling-window distinct count", transformation: "Wide (shuffle) + range self-join", functions: "min, Window, countDistinct, count, row_number, join (range), datediff" },
+      description:
+        "From an `activity` DataFrame (`user_id`, `activity_date`) of login/activity events, compute, per date, (a) the **cumulative distinct active users** — the number of *distinct* users seen on or before that date (the growth curve of the user base) — and (b) a **rolling 30-day active-users** count — distinct users active in the trailing 30 days ending on that date. The trap: cumulative-distinct is **not** a running `SUM` of daily active counts (a user active on many days would be counted many times). Use each user's **first-seen** date for the cumulative curve, and a **self-join / range** approach for the 30-day rolling distinct count.",
+      examples: [
+        {
+          input: "activity: (u1, 2026-01-01), (u1, 2026-01-05), (u2, 2026-01-05). Daily active counts: 01-01 -> 1, 01-05 -> 2.",
+          output: "Cumulative distinct users: 01-01 -> 1 (u1), 01-05 -> 2 (u1,u2). A naive running SUM of daily counts would give 01-05 -> 1+2 = 3 (WRONG — u1 double-counted). Rolling 30-day distinct on 01-05 -> 2 (u1,u2 both active within the trailing 30 days).",
+          reasoning: "u1 appears on two days, so summing daily active counts over-counts it. Counting each user only at its FIRST-seen date and running-summing those first-appearances gives the true cumulative distinct curve; the trailing-30-day distinct count needs a range join because a user active 3 days ago still counts today."
+        }
+      ],
+      approaches: [
+        {
+          name: "first-seen + running SUM for cumulative distinct; range self-join + countDistinct for the 30-day rolling window",
+          whenToUse: "Growth/engagement dashboards: total distinct users over time, WAU/MAU-style trailing-window active counts, any 'distinct entities seen by / within a period' curve.",
+          logic:
+            "**What it asks.** Per date: (a) how many distinct users have EVER been seen by that date (cumulative), and (b) how many distinct users were active in the trailing 30 days ending that date (rolling).\n\n" +
+            "**Key Idea.** Two different shapes because *distinct* does not sum. (a) **Cumulative distinct** = for each user take their `first_seen` date (`min(activity_date)`), count first-appearances per date, then a **running SUM** over date of those first-appearances — each user contributes exactly once (on the day they first appear), so the running total is the true distinct-user count. A running sum of *daily* active counts is wrong because a returning user is recounted. (b) **Rolling 30-day distinct** cannot use a simple `rowsBetween` window (rows are per-event, and distinct-count is not a windowable aggregate over a range of *values*), so **self-join** the set of report dates to activity where `activity_date` is within `[report_date - 29, report_date]`, then `countDistinct('user_id')` per report date — a range join that gathers every user active in the trailing window.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. First-seen per user: `first_seen = activity.groupBy('user_id').agg(_min('activity_date').alias('first_date'))`.\n" +
+            "2. New users per date: `new_by_date = first_seen.groupBy('first_date').agg(_count('*').alias('new_users'))`.\n" +
+            "3. Cumulative distinct = running sum over date: `wc = Window.orderBy('first_date').rowsBetween(Window.unboundedPreceding, Window.currentRow)`, `cumulative = new_by_date.withColumn('cumulative_users', _sum('new_users').over(wc))`.\n" +
+            "4. Rolling 30-day distinct — build the distinct report dates, then range-join: `dates = activity.select(col('activity_date').alias('report_date')).distinct()`.\n" +
+            "5. `joined = dates.join(activity, (col('activity_date') <= col('report_date')) & (col('activity_date') > date_sub(col('report_date'), 30)))` then `rolling = joined.groupBy('report_date').agg(countDistinct('user_id').alias('rolling_30d_users'))`.\n\n" +
+            "**Why it works.** Attributing each user to a single day (their first) makes the cumulative curve a plain additive quantity, so a running SUM is valid and cheap; no user is ever added twice. For the trailing window, the inequality join re-associates each report date with *all* events in its 30-day lookback regardless of which day they fell on, and `countDistinct` then collapses repeat visits — giving distinct active users per window, which a per-row `rowsBetween` frame cannot express because it would count events, not distinct users, and its frame is over row offsets rather than a date range.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- **Do not** running-SUM daily active counts for a cumulative-distinct curve — multi-day users get double-counted. Sum first-appearances instead.\n" +
+            "- `countDistinct` is **not** a window function you can put `.over(rowsBetween(...))` on; the rolling distinct needs a self-join (or `collect_set` size over a date-range frame).\n" +
+            "- Define the trailing window boundaries explicitly: 30 days usually means `report_date - 29 .. report_date` inclusive (30 calendar days) — decide `> date_sub(d, 30)` vs `>= date_sub(d, 29)` and be consistent.\n" +
+            "- `Window.orderBy('first_date')` with a `rowsBetween(unboundedPreceding, currentRow)` frame is the cumulative frame; an unordered window would give the grand total, not a running curve.\n" +
+            "- The range self-join can fan out large; broadcast the smaller side (the distinct dates) and pre-aggregate activity to `(user_id, activity_date)` distinct first to shrink it.\n" +
+            "- Use safe names (`rolling_30d_users`, `cumulative_users`) — never a digit-leading identifier.\n\n" +
+            "**Interview mindset.** Lead with the trap: 'cumulative distinct is not a running sum of daily counts — attribute each user to their first-seen date and running-sum those'. Then 'rolling 30-day distinct needs a range self-join + countDistinct, because countDistinct isn't a range-window aggregate'.",
+          rcs:
+            "from pyspark.sql.window import Window\n" +
+            "from pyspark.sql.functions import (col, date_sub,\n" +
+            "                                   min as _min, sum as _sum,\n" +
+            "                                   count as _count, countDistinct)\n" +
+            "\n" +
+            "# --- (a) CUMULATIVE DISTINCT users: count each user only at first-seen ---\n" +
+            "first_seen = (activity\n" +
+            "    .groupBy('user_id')\n" +
+            "    .agg(_min('activity_date').alias('first_date')))           # each user -> one day\n" +
+            "\n" +
+            "new_by_date = (first_seen\n" +
+            "    .groupBy('first_date')\n" +
+            "    .agg(_count('*').alias('new_users')))                      # first-appearances per date\n" +
+            "\n" +
+            "wc = Window.orderBy('first_date').rowsBetween(\n" +
+            "        Window.unboundedPreceding, Window.currentRow)          # cumulative frame\n" +
+            "cumulative = (new_by_date\n" +
+            "    .withColumn('cumulative_users', _sum('new_users').over(wc)))  # running SUM of first-appearances\n" +
+            "cumulative.orderBy('first_date').show()\n" +
+            "\n" +
+            "# --- (b) ROLLING 30-DAY distinct active users: range self-join + countDistinct ---\n" +
+            "dates = activity.select(col('activity_date').alias('report_date')).distinct()\n" +
+            "\n" +
+            "joined = dates.join(activity,\n" +
+            "    (col('activity_date') <= col('report_date')) &             # on or before the report date\n" +
+            "    (col('activity_date') > date_sub(col('report_date'), 30))) # within the trailing 30 days\n" +
+            "\n" +
+            "rolling = (joined\n" +
+            "    .groupBy('report_date')\n" +
+            "    .agg(countDistinct('user_id').alias('rolling_30d_users'))) # distinct users in the window\n" +
+            "rolling.orderBy('report_date').show()",
+          plain:
+            "from pyspark.sql.window import Window\n" +
+            "from pyspark.sql.functions import (col, date_sub,\n" +
+            "                                   min as _min, sum as _sum,\n" +
+            "                                   count as _count, countDistinct)\n" +
+            "\n" +
+            "first_seen = (activity\n" +
+            "    .groupBy('user_id')\n" +
+            "    .agg(_min('activity_date').alias('first_date')))\n" +
+            "\n" +
+            "new_by_date = (first_seen\n" +
+            "    .groupBy('first_date')\n" +
+            "    .agg(_count('*').alias('new_users')))\n" +
+            "\n" +
+            "wc = Window.orderBy('first_date').rowsBetween(\n" +
+            "        Window.unboundedPreceding, Window.currentRow)\n" +
+            "cumulative = (new_by_date\n" +
+            "    .withColumn('cumulative_users', _sum('new_users').over(wc)))\n" +
+            "cumulative.orderBy('first_date').show()\n" +
+            "\n" +
+            "dates = activity.select(col('activity_date').alias('report_date')).distinct()\n" +
+            "\n" +
+            "joined = dates.join(activity,\n" +
+            "    (col('activity_date') <= col('report_date')) &\n" +
+            "    (col('activity_date') > date_sub(col('report_date'), 30)))\n" +
+            "\n" +
+            "rolling = (joined\n" +
+            "    .groupBy('report_date')\n" +
+            "    .agg(countDistinct('user_id').alias('rolling_30d_users')))\n" +
+            "rolling.orderBy('report_date').show()"
+        }
+      ],
+      sparkInternals:
+        "Two contrasting cost profiles. **Cumulative distinct** is cheap: `min(activity_date)` per user is a hash aggregate shuffled by `user_id`; counting first-appearances per date is a second small aggregate keyed by date (few keys); the running SUM uses `Window.orderBy('first_date')` with a `rowsBetween(unboundedPreceding, currentRow)` frame — because there is **no partitionBy**, Spark warns and moves the (small, one-row-per-date) result into a **single partition** to compute the running total, which is fine at date-cardinality but is the same single-partition caveat as any unpartitioned window. Crucially, attributing each user to one day makes the metric **additive**, turning an otherwise non-distributable distinct-count-over-time into a plain prefix sum. **Rolling 30-day distinct** is the expensive half: it is a **range (inequality) join** between the report dates and activity on `activity_date > report_date - 30 AND <= report_date`, which has no hash-equality key, so Spark uses a `BroadcastNestedLoopJoin` (if the dates side is broadcast) or a Cartesian-flavored plan, comparing many pairs before the `countDistinct` collapses them; the `countDistinct('user_id')` per report date then adds another shuffle plus a distinct aggregation. This is why `countDistinct` cannot simply be a `.over(rowsBetween(...))` window — distinct-count is not a supported windowed range aggregate — and why the practical optimizations are to pre-`distinct` activity to `(user_id, activity_date)`, broadcast the small report-dates side, and bound the range tightly so the fan-out stays manageable.",
+      sparkSql:
+        "WITH first_seen AS (\n" +
+        "  SELECT user_id, MIN(activity_date) AS first_date\n" +
+        "  FROM activity GROUP BY user_id\n" +
+        "),\n" +
+        "new_by_date AS (\n" +
+        "  SELECT first_date, COUNT(*) AS new_users\n" +
+        "  FROM first_seen GROUP BY first_date\n" +
+        "),\n" +
+        "cumulative AS (\n" +
+        "  SELECT first_date,\n" +
+        "         SUM(new_users) OVER (\n" +
+        "           ORDER BY first_date\n" +
+        "           ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW\n" +
+        "         ) AS cumulative_users\n" +
+        "  FROM new_by_date\n" +
+        "),\n" +
+        "rolling AS (\n" +
+        "  SELECT d.report_date,\n" +
+        "         COUNT(DISTINCT a.user_id) AS rolling_30d_users\n" +
+        "  FROM (SELECT DISTINCT activity_date AS report_date FROM activity) d\n" +
+        "  JOIN activity a\n" +
+        "    ON a.activity_date <= d.report_date\n" +
+        "   AND a.activity_date > date_sub(d.report_date, 30)\n" +
+        "  GROUP BY d.report_date\n" +
+        ")\n" +
+        "SELECT c.first_date AS activity_date,\n" +
+        "       c.cumulative_users,\n" +
+        "       r.rolling_30d_users\n" +
+        "FROM cumulative c\n" +
+        "LEFT JOIN rolling r ON c.first_date = r.report_date\n" +
+        "ORDER BY activity_date;",
+      recognizeRecall: [
+        "**Spot it:** 'cumulative distinct users over time', 'total users to date', 'rolling / trailing 30-day active users', 'WAU/MAU curve'.",
+        "**Say it:** count each user at first-seen and running-SUM those for cumulative distinct; range self-join + `countDistinct` for the trailing-30-day count.",
+        "**Trap:** cumulative distinct is NOT a running sum of daily active counts (returning users double-count); `countDistinct` can't be a `.over(rowsBetween)` window — use a range join."
+      ]
     }
 
   ]);
