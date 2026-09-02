@@ -853,25 +853,34 @@
           time: "O(n log n)", space: "O(n)",
           whenToUse: "Quick to write; fine when n is modest and the sort cost is acceptable.",
           logic:
-            "**What it asks.** Decide if `t` is a reordering of `s` (same letters, same counts).\n\n" +
-            "**Why the naive idea fails.** Comparing character by character in order fails because anagrams are reorderings — position doesn't matter, only the multiset of characters does.\n\n" +
-            "**Key Idea.** Two strings are anagrams iff their **sorted forms are identical** — sorting canonicalizes the multiset so equal multisets become equal strings.\n\n" +
+            "**What it asks.** You are given two strings s and t and must decide whether t is an anagram of s - that is, whether t is exactly s with its characters shuffled into a different order. Same letters, the same number of each, only the arrangement differs.\n\n" +
+            "**Why the naive idea fails.** Comparing the strings position by position does not work at all: anagrams are defined by reordering, so 'anagram' and 'nagaram' disagree at almost every index yet are perfectly valid anagrams. Position carries no information here - only the multiset of characters (which letters, and how many of each) matters.\n\n" +
+            "**Key Idea.** Two strings are anagrams if and only if their sorted forms are identical. Sorting is a canonicalization: it discards the original order and lays the characters out in one fixed sequence. Any two strings built from the same multiset of characters therefore sort to exactly the same string, and strings with different multisets cannot.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. If the lengths differ, return `false` immediately.\n" +
-            "2. Sort both strings.\n" +
-            "3. Return whether the sorted strings are equal.\n\n" +
-            "**Why it works.** Sorting maps every string with the same character counts to the exact same sequence, so equality of sorted forms is equivalent to equality of multisets.\n\n" +
+            "1. If the two lengths differ, return false right away - different lengths guarantee different multisets, and this avoids sorting entirely.\n" +
+            "2. Sort the characters of s and, separately, the characters of t.\n" +
+            "3. Return whether the two sorted sequences are equal.\n\n" +
+            "**Why it works.** Sorting maps every string to a canonical representative of its multiset. Equal multisets produce byte-for-byte identical sorted sequences, and unequal multisets must differ in at least one position after sorting. So equality of the sorted forms is exactly equality of the character multisets, which is the definition of an anagram.\n\n" +
             "**Common Gotchas.**\n" +
-            "- Check lengths first as a fast reject.\n" +
-            "- Sorting is `O(n log n)` — slower than counting for large inputs.\n\n" +
-            "**Complexity.** Time `O(n log n)`; space `O(n)` for the sorted copies.\n\n" +
-            "**Interview mindset.** Offer this one-liner, then propose the O(n) counting approach as the optimization.",
+            "- Check the lengths first; it is a cheap, correct early reject and spares you sorting when the answer is already no.\n" +
+            "- Sorting costs O(n log n) - more than the counting approach - so present it as the simple-but-slower option.\n" +
+            "- The comparison is between the sorted CHARACTERS, not the untouched original strings.\n\n" +
+            "**Complexity.** Sorting dominates at O(n log n) time; the two sorted copies take O(n) space.\n\n" +
+            "**Interview mindset.** Reach for this as the one-line answer you can write without thinking, then immediately offer the O(n) frequency-count version as the optimization - naming the trade-off is what the interviewer wants to hear.",
           rcs:
-            "class Solution:\n" +
-            "    def isAnagram(self, s: str, t: str) -> bool:\n" +
-            "        if len(s) != len(t):        # Different lengths => cannot match.\n" +
-            "            return False\n" +
-            "        return sorted(s) == sorted(t)  # Same multiset => same sorted sequence.",
+            "class Solution:  # LeetCode instantiates this class and calls isAnagram on the object.\n\n" +
+            "    def isAnagram(self, s: str, t: str) -> bool:  # Return True iff t is a reordering of the same characters as s.\n\n" +
+            "        # ==================== PHASE 1: FAST LENGTH REJECT ====================\n\n" +
+            "        if len(s) != len(t):  # Anagrams must use the exact same number of characters.\n" +
+            "                              # Why: two strings with different character counts can never be reorderings of each other.\n" +
+            "                              # Execution flow: when the lengths differ, control drops into the return False just below.\n" +
+            "            return False  # Different lengths => definitely not an anagram; end the function now.\n" +
+            "                          # Execution flow: this return exits isAnagram immediately; nothing after it runs on this path.\n\n" +
+            "        # ==================== PHASE 2: COMPARE SORTED FORMS ====================\n\n" +
+            "        return sorted(s) == sorted(t)  # Sort each string, then compare: equal multisets produce identical sorted lists.\n" +
+            "                                       # Why: sorted() sends every anagram of a string to the SAME character sequence (its canonical form).\n" +
+            "                                       # State: sorted(s) and sorted(t) are lists of characters compared element by element.\n" +
+            "                                       # Execution flow: the boolean result is handed straight back to the caller.",
           plain:
             "class Solution:\n" +
             "    def isAnagram(self, s: str, t: str) -> bool:\n" +
@@ -884,27 +893,35 @@
           time: "O(n)", space: "O(1)",
           whenToUse: "The expected answer; linear time with a bounded-size count map.",
           logic:
-            "**What it asks.** Same as above — equal character multisets.\n\n" +
-            "**Key Idea.** Count how many times each character appears in `s`, then compare against the counts of `t`. Equal count maps mean equal multisets. A hash map (or a 26-slot array for lowercase) gives `O(1)` updates.\n\n" +
+            "**What it asks.** Same question as before: is t a reordering of s, using the same characters with the same frequencies?\n\n" +
+            "**Why the naive idea fails, and how this beats sorting.** Sorting both strings is correct but spends O(n log n) arranging characters we never actually need in order - we only care HOW MANY of each character there are. Counting extracts exactly that information in a single linear pass, replacing the log-n sorting factor with plain O(n) work.\n\n" +
+            "**Key Idea.** Build a frequency map (character -> count) for each string. That map IS the character multiset. Two strings are anagrams if and only if their frequency maps are equal, and Python's Counter both builds the map in O(n) and compares two maps with a single ==.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. If lengths differ, return `false`.\n" +
-            "2. Tally each character of `s` into a count map.\n" +
-            "3. Tally each character of `t` the same way.\n" +
-            "4. Return whether the two maps are equal.\n\n" +
-            "**Why it works.** The count map is exactly the character multiset; two strings are anagrams iff their multisets match, so equal maps are necessary and sufficient.\n\n" +
+            "1. If the lengths differ, return false - a fast reject before any counting.\n" +
+            "2. Build Counter(s): a map from each character of s to how many times it occurs.\n" +
+            "3. Build Counter(t) the same way.\n" +
+            "4. Return whether the two counters are equal.\n\n" +
+            "**Why it works.** A Counter records precisely the multiset of characters: which letters appear and with what multiplicity. Anagrams are defined as having identical multisets, so the two Counters are equal exactly when t is an anagram of s. Equality checks every character's count, so a mismatch anywhere makes the result false.\n\n" +
             "**Common Gotchas.**\n" +
-            "- Length check first is a cheap early exit.\n" +
-            "- For Unicode, use a hash map rather than a fixed 26 array.\n\n" +
-            "**Complexity.** Time `O(n)`; space `O(1)` for lowercase (≤26 keys), `O(k)` for a general alphabet.\n\n" +
-            "**Interview mindset.** 'Compare character frequencies' is the signal — counting beats sorting whenever the alphabet is bounded.",
+            "- Keep the length check as a cheap early exit (Counter equality would also catch it, but the guard is essentially free).\n" +
+            "- For a bounded lowercase alphabet you can swap the Counter for a fixed 26-slot array; for Unicode, keep the hash map because the alphabet is unbounded.\n" +
+            "- Count once per string and compare the maps; do not hand-roll a per-character comparison loop.\n\n" +
+            "**Complexity.** Time O(n) to build and compare the maps; space O(1) for a fixed lowercase alphabet (at most 26 keys), or O(k) for a general alphabet of size k.\n\n" +
+            "**Interview mindset.** 'Compare character frequencies' is the trigger phrase - whenever the alphabet is bounded, counting beats sorting, and saying so out loud is exactly what the interviewer is listening for.",
           rcs:
-            "from collections import Counter\n" +
-            "\n" +
-            "class Solution:\n" +
-            "    def isAnagram(self, s: str, t: str) -> bool:\n" +
-            "        if len(s) != len(t):             # Fast reject on length mismatch.\n" +
-            "            return False\n" +
-            "        return Counter(s) == Counter(t)  # Compare character -> frequency maps.",
+            "from collections import Counter  # Counter builds a character -> frequency map; comparing two Counters compares those maps.\n\n\n" +
+            "class Solution:  # LeetCode instantiates this class and calls isAnagram on the object.\n\n" +
+            "    def isAnagram(self, s: str, t: str) -> bool:  # Return True iff s and t hold the same characters with the same frequencies.\n\n" +
+            "        # ==================== PHASE 1: FAST LENGTH REJECT ====================\n\n" +
+            "        if len(s) != len(t):  # Different lengths can never be anagrams, so reject before counting.\n" +
+            "                              # Why: equal multisets force equal totals, so a length mismatch makes the rest of the work pointless.\n" +
+            "            return False  # Bail out immediately on a length mismatch.\n" +
+            "                          # Execution flow: this return exits the function; the counting below never runs on this path.\n\n" +
+            "        # ==================== PHASE 2: COMPARE FREQUENCY MAPS ====================\n\n" +
+            "        return Counter(s) == Counter(t)  # Tally both strings, then compare the two character -> count maps for equality.\n" +
+            "                                         # Why a Counter: it IS the character multiset; two strings are anagrams exactly when their multisets match.\n" +
+            "                                         # State: Counter(s) maps each char to its count in s; Counter(t) does the same for t.\n" +
+            "                                         # Execution flow: dict-style equality is True iff every char has the same count in both, which is the answer.",
           plain:
             "from collections import Counter\n" +
             "\n" +
@@ -952,29 +969,44 @@
           time: "O(n·k log k)", space: "O(n·k)",
           whenToUse: "Simplest canonical key; k = max word length.",
           logic:
-            "**What it asks.** Bucket strings so every member of a bucket is an anagram of the others.\n\n" +
-            "**Why the naive idea fails.** Comparing every pair for anagram-ness is `O(n^2 · k)` — far too slow for 10^4 strings.\n\n" +
-            "**Key Idea.** Give each string a **canonical signature** that is identical for anagrams and different otherwise, then group by it in a hash map. Sorting a word's letters is such a signature: `\"eat\"`, `\"tea\"`, `\"ate\"` all sort to `\"aet\"`.\n\n" +
+            "**What it asks.** Given a list of strings, partition them into groups where every string in a group is an anagram of the others. The groups, and the order of words within them, may be returned in any order.\n\n" +
+            "**Why the naive idea fails.** The literal approach compares every pair of strings and asks 'are these two anagrams?', which is O(n^2) pairs times the per-comparison cost - hopelessly slow for up to 10^4 strings. Worse, pairwise matching does not naturally yield clean disjoint groups; you would need extra union-find-style bookkeeping to stitch the matches together.\n\n" +
+            "**Key Idea.** Give each string a canonical signature: a value that is identical for all anagrams and different for everything else. Then a single hash map keyed by that signature buckets the strings in one pass. Sorting a word's letters is the simplest such signature - 'eat', 'tea', and 'ate' all sort to 'aet', so they collide in the same bucket while non-anagrams land elsewhere.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. For each word, compute `key = ''.join(sorted(word))`.\n" +
-            "2. Append the ORIGINAL word to `groups[key]` (a dict of key → list).\n" +
-            "3. Return the dict's values.\n\n" +
-            "**Why it works.** Two words are anagrams iff their sorted letters match, so the sorted key partitions the input exactly into anagram classes.\n\n" +
+            "1. Create a dict mapping signature -> list of words, using defaultdict(list) so new keys auto-create an empty list.\n" +
+            "2. For each word, compute key = ''.join(sorted(word)).\n" +
+            "3. Append the ORIGINAL word (not the sorted key) to groups[key].\n" +
+            "4. Return the dict's values - the buckets are exactly the anagram groups.\n\n" +
+            "**Why it works.** Two words are anagrams if and only if they consist of the same multiset of letters, which holds if and only if their sorted letter sequences are identical. So the sorted key induces precisely the anagram equivalence relation, and grouping by equal keys partitions the input exactly into anagram classes.\n\n" +
             "**Common Gotchas.**\n" +
-            "- Store the original word in the bucket, not the sorted key.\n" +
-            "- The empty string is its own valid key.\n\n" +
-            "**Complexity.** Time `O(n·k log k)` (sorting each word); space `O(n·k)`.\n\n" +
-            "**Interview mindset.** 'Group by an equivalence relation' → hash by a canonical form of each item.",
+            "- Store the original word in each bucket, not its sorted form - the answer must contain the real words.\n" +
+            "- Use defaultdict(list) (or setdefault) so you never have to test whether a key already exists.\n" +
+            "- The empty string is a valid word; it sorts to '' and simply forms its own bucket.\n\n" +
+            "**Complexity.** For n words of length up to k, sorting each is O(k log k), so time is O(n * k log k); space is O(n * k) to hold all the words and keys.\n\n" +
+            "**Interview mindset.** 'Group items that are equivalent under some transformation' is the canonical cue to hash by a canonical form of each item - here, the sorted string.",
           rcs:
-            "from collections import defaultdict\n" +
-            "\n" +
-            "class Solution:\n" +
-            "    def groupAnagrams(self, strs: List[str]) -> List[List[str]]:\n" +
-            "        groups = defaultdict(list)          # canonical key -> list of words\n" +
-            "        for word in strs:\n" +
-            "            key = ''.join(sorted(word))     # anagrams share the same sorted letters\n" +
-            "            groups[key].append(word)        # bucket the original word\n" +
-            "        return list(groups.values())",
+            "from collections import defaultdict  # defaultdict(list) auto-creates an empty list the first time a new key is used.\n\n\n" +
+            "class Solution:  # LeetCode instantiates this class and calls groupAnagrams on the object.\n\n" +
+            "    def groupAnagrams(self, strs: List[str]) -> List[List[str]]:  # Return the input words bucketed into anagram groups (any order is fine).\n\n" +
+            "        # ==================== PHASE 1: PREPARE THE BUCKETS ====================\n\n" +
+            "        groups = defaultdict(list)  # Map a canonical key -> the list of original words that share it.\n" +
+            "                                    # Why defaultdict(list): the first append to a missing key auto-creates an empty list, so no key-exists check.\n" +
+            "                                    # State: groups starts empty and gains one bucket per distinct anagram class.\n\n" +
+            "        # ==================== PHASE 2: BUCKET EACH WORD BY ITS SORTED KEY ====================\n\n" +
+            "        for word in strs:  # Walk every input word once.\n" +
+            "                           # Loop invariant: groups holds the correct buckets for all words processed before this one.\n" +
+            "                           # Execution flow: after one word finishes, Python assigns the next word.\n\n" +
+            "            key = ''.join(sorted(word))  # Canonical signature: sort the letters so all anagrams collapse to one key.\n" +
+            "                                         # Why: 'eat', 'tea', and 'ate' all sort to 'aet', so anagrams share an identical key and non-anagrams do not.\n" +
+            "                                         # State: key is the sorted-letters string for this word.\n\n" +
+            "            groups[key].append(word)  # Drop the ORIGINAL word into the bucket named by its sorted key.\n" +
+            "                                      # Why the original, not the key: the answer must contain the real words, not their sorted forms.\n" +
+            "                                      # State change: groups[key] grows by one word (the list is auto-created on first use).\n" +
+            "                                      # Execution flow: end of iteration; Python returns to the for header for the next word.\n\n" +
+            "        # ==================== PHASE 3: RETURN THE GROUPS ====================\n\n" +
+            "        return list(groups.values())  # Hand back just the buckets (the lists of words); the keys were internal bookkeeping.\n" +
+            "                                      # Why values(): the caller wants the groups themselves, in any order.\n" +
+            "                                      # Execution flow: the list of word-lists is returned and the function ends.",
           plain:
             "from collections import defaultdict\n" +
             "\n" +
@@ -991,29 +1023,50 @@
           time: "O(n·k)", space: "O(n·k)",
           whenToUse: "Avoids the per-word sort; best when k is large.",
           logic:
-            "**Key Idea.** Instead of sorting, build the signature from **letter counts**: a length-26 tuple of how many times each letter appears. Anagrams produce identical count tuples, and building one is `O(k)` rather than `O(k log k)`.\n\n" +
+            "**What it asks.** Same task - bucket the strings into anagram groups - but now aiming to avoid the per-word sort so the signature is cheaper to build.\n\n" +
+            "**Why the naive idea fails, and how this improves on the sorted key.** The sorted-key solution is already correct, but sorting each word costs O(k log k). Since the alphabet is a fixed 26 lowercase letters, we can describe a word's multiset directly as a vector of 26 counts, which is built in O(k) - dropping the log-k factor while keeping the exact same grouping behavior.\n\n" +
+            "**Key Idea.** Represent each word by a length-26 count vector: count[i] is how many times the i-th letter appears. Anagrams have identical letter counts, so they produce identical vectors; non-anagrams differ in at least one slot. A tuple of that vector is hashable, so it can serve directly as the dictionary key.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. For each word, build `count[26]`, incrementing `count[ord(c) - ord('a')]`.\n" +
-            "2. Use `tuple(count)` as the hash key and append the word.\n" +
-            "3. Return the buckets.\n\n" +
-            "**Why it works.** The count vector IS the multiset of characters, which is exactly what defines an anagram class.\n\n" +
+            "1. Create a dict mapping signature -> list of words (defaultdict(list)).\n" +
+            "2. For each word, build count = [0] * 26 and, for each character c, increment count[ord(c) - ord('a')].\n" +
+            "3. Convert the list to a tuple (lists are unhashable) and use it as the key, appending the original word.\n" +
+            "4. Return the dict's values.\n\n" +
+            "**Why it works.** The 26-slot count vector IS the multiset of characters, and an anagram class is by definition a set of strings sharing one multiset. Identical vectors therefore correspond exactly to anagrams, so grouping by the tuple key reproduces the anagram partition - the same result as the sorted key, computed faster.\n\n" +
             "**Common Gotchas.**\n" +
-            "- The key must be hashable — convert the list to a tuple.\n" +
-            "- Assumes lowercase a–z; widen the array for other alphabets.\n\n" +
-            "**Complexity.** Time `O(n·k)`; space `O(n·k)`.\n\n" +
-            "**Interview mindset.** When a canonical key must be cheap, counting beats sorting for bounded alphabets.",
+            "- The key must be hashable: convert the count list to a tuple before using it as a dict key.\n" +
+            "- ord(c) - ord('a') assumes lowercase a-z; widen the array (or switch to a hash-map count) for other alphabets.\n" +
+            "- Still append the original word, never the count vector.\n\n" +
+            "**Complexity.** Building each vector is O(k) and there are n words, so time is O(n * k); space is O(n * k) for the stored words and keys.\n\n" +
+            "**Interview mindset.** When the canonical key must be cheap and the alphabet is bounded, counting beats sorting - the same insight as in Valid Anagram, here applied to build a hash key rather than a direct comparison.",
           rcs:
-            "from collections import defaultdict\n" +
-            "\n" +
-            "class Solution:\n" +
-            "    def groupAnagrams(self, strs: List[str]) -> List[List[str]]:\n" +
-            "        groups = defaultdict(list)          # count-signature -> words\n" +
-            "        for word in strs:\n" +
-            "            count = [0] * 26                # counts of 'a'..'z'\n" +
-            "            for c in word:\n" +
-            "                count[ord(c) - ord('a')] += 1\n" +
-            "            groups[tuple(count)].append(word)  # tuple is hashable => usable key\n" +
-            "        return list(groups.values())",
+            "from collections import defaultdict  # defaultdict(list) auto-creates an empty list the first time a new key is used.\n\n\n" +
+            "class Solution:  # LeetCode instantiates this class and calls groupAnagrams on the object.\n\n" +
+            "    def groupAnagrams(self, strs: List[str]) -> List[List[str]]:  # Return the words bucketed into anagram groups using a count-based key.\n\n" +
+            "        # ==================== PHASE 1: PREPARE THE BUCKETS ====================\n\n" +
+            "        groups = defaultdict(list)  # Map a canonical count-signature -> the list of words that share it.\n" +
+            "                                    # Why defaultdict(list): appending to a missing key auto-creates its list, avoiding a key-exists check.\n" +
+            "                                    # State: groups starts empty and grows one bucket per anagram class.\n\n" +
+            "        # ==================== PHASE 2: BUILD EACH WORD'S 26-SLOT COUNT SIGNATURE ====================\n\n" +
+            "        for word in strs:  # Process each input word once.\n" +
+            "                           # Loop invariant: groups holds correct buckets for every word handled before this one.\n" +
+            "                           # Execution flow: after one word finishes, Python moves to the next word.\n\n" +
+            "            count = [0] * 26  # One counter slot per letter a..z, all starting at zero.\n" +
+            "                              # Why 26: the alphabet is lowercase a-z, so 26 fixed slots capture the whole multiset.\n" +
+            "                              # State: count[i] will hold how many times the letter at index i appears in word.\n\n" +
+            "            for c in word:  # Scan each character of the word to tally it.\n" +
+            "                            # Execution flow: after one c finishes, Python assigns the next char; when the word ends, control leaves this inner loop.\n\n" +
+            "                count[ord(c) - ord('a')] += 1  # Convert the letter to an index 0..25 and increment that slot.\n" +
+            "                                               # Why ord(c) - ord('a'): it maps 'a'->0 through 'z'->25, giving each letter its own slot.\n" +
+            "                                               # State change: the counter for character c goes up by one.\n" +
+            "                                               # Execution flow: back to the inner for header for the next character.\n\n" +
+            "            groups[tuple(count)].append(word)  # Use the counts as a hashable key and file the original word under it.\n" +
+            "                                               # Why tuple(count): a list is unhashable and cannot be a dict key; a tuple of the same numbers can.\n" +
+            "                                               # Why anagrams collide: identical letter counts produce identical tuples, so anagrams land in one bucket.\n" +
+            "                                               # State change: the bucket for this signature gains word.\n" +
+            "                                               # Execution flow: end of the outer iteration; Python returns to the outer for header.\n\n" +
+            "        # ==================== PHASE 3: RETURN THE GROUPS ====================\n\n" +
+            "        return list(groups.values())  # Return the buckets themselves (lists of words); the keys were only for grouping.\n" +
+            "                                      # Execution flow: the list of word-lists is returned and the function ends.",
           plain:
             "from collections import defaultdict\n" +
             "\n" +
@@ -1067,41 +1120,63 @@
           time: "O(1) (fixed 81 cells)", space: "O(1)",
           whenToUse: "Standard approach; a single scan tracking three families of sets.",
           logic:
-            "**What it asks.** Check that no row, column, or 3×3 box contains a duplicate digit among the filled cells.\n\n" +
-            "**Why the naive idea fails.** Scanning each row, then each column, then each box separately works but repeats work; a single pass with the right bookkeeping is cleaner and equally correct.\n\n" +
-            "**Key Idea.** Maintain **one set per row, one per column, and one per box** (nine of each). Cell `(r, c)` belongs to box `(r // 3, c // 3)`. As you scan, a digit is invalid the moment it is already present in its row set, column set, or box set.\n\n" +
+            "**What it asks.** Given a 9x9 board that is partially filled (empty cells marked '.'), decide whether the digits already placed are legal: no digit repeats within any single row, any single column, or any of the nine 3x3 sub-boxes. You are validating the current state only - not solving the puzzle, and not checking that it can be completed.\n\n" +
+            "**Why the naive idea fails.** You can validate each of the 9 rows, then each of the 9 columns, then each of the 9 boxes in three separate sweeps, which is correct but re-reads the board three times and duplicates the same logic. A single pass that updates all three kinds of constraint at once is cleaner and touches each cell exactly once.\n\n" +
+            "**Key Idea.** Keep one set of seen digits per row, one per column, and one per box - nine of each. The only non-obvious part is naming the box: the cell at (r, c) lives in box (r // 3, c // 3), because integer-dividing the row and column indices by 3 collapses 0-2 to 0, 3-5 to 1, and 6-8 to 2, giving a 3x3 grid of box coordinates. As you scan, a digit is a violation the instant it already appears in its row set, its column set, or its box set.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. Create `rows`, `cols`, `boxes` as dictionaries of sets.\n" +
-            "2. For each filled cell with digit `d`: if `d` is already in `rows[r]`, `cols[c]`, or `boxes[(r//3, c//3)]`, return `false`.\n" +
-            "3. Otherwise add `d` to all three sets and continue.\n" +
-            "4. If the scan completes, return `true`.\n\n" +
-            "**Why it works.** Each set records exactly the digits seen so far in that unit; a membership hit is precisely a duplicate within a row, column, or box.\n\n" +
+            "1. Create rows, cols, and boxes as dictionaries of sets (defaultdict(set)).\n" +
+            "2. Scan every cell (r, c). If it holds '.', skip it - empty cells constrain nothing.\n" +
+            "3. Compute the box key b = (r // 3, c // 3).\n" +
+            "4. If the digit is already in rows[r], cols[c], or boxes[b], return false - a duplicate exists in that unit.\n" +
+            "5. Otherwise add the digit to all three sets and continue.\n" +
+            "6. If the whole scan finishes with no conflict, return true.\n\n" +
+            "**Why it works.** Each set holds exactly the digits seen so far in its unit, so a membership hit is precisely a repeated digit within that row, column, or box - the exact conditions the rules forbid. Because every cell belongs to exactly one row, one column, and one box, updating all three sets per cell checks all three constraint families in a single pass. Skipping '.' ensures empty cells never create a false conflict.\n\n" +
             "**Common Gotchas.**\n" +
-            "- Skip `'.'` cells.\n" +
-            "- The box key is `(r // 3, c // 3)`, not `r // 3 + c // 3`.\n" +
-            "- Add to all three sets, not just one.\n\n" +
-            "**Complexity.** The board is fixed 9×9 → `O(1)` (81 cells, constant sets).\n\n" +
-            "**Interview mindset.** 'No duplicates within groups' → a set per group and a single membership-then-insert scan.",
+            "- Skip the '.' cells; counting them would immediately and wrongly report duplicates.\n" +
+            "- The box key is (r // 3, c // 3) - a pair - not r // 3 + c // 3, which would merge distinct boxes (for instance (0,3) and (3,0) both give 1).\n" +
+            "- Add the digit to all THREE sets, not just the one that happened to be checked first.\n" +
+            "- Check membership BEFORE inserting, or every digit would appear to duplicate itself.\n\n" +
+            "**Complexity.** The board is a fixed 9x9, so there are always 81 cells and constant-size sets: O(1) time and O(1) space. (For a general n x n variant it would be O(n^2).)\n\n" +
+            "**Interview mindset.** 'No duplicates within each of several overlapping groups' is the signal for one set per group plus a single check-then-insert scan - the box-index formula (r // 3, c // 3) is the one detail worth memorizing.",
           rcs:
-            "from collections import defaultdict\n" +
-            "\n" +
-            "class Solution:\n" +
-            "    def isValidSudoku(self, board: List[List[str]]) -> bool:\n" +
-            "        rows = defaultdict(set)                 # digits seen in each row\n" +
-            "        cols = defaultdict(set)                 # digits seen in each column\n" +
-            "        boxes = defaultdict(set)                # digits seen in each 3x3 box\n" +
-            "        for r in range(9):\n" +
-            "            for c in range(9):\n" +
-            "                d = board[r][c]\n" +
-            "                if d == '.':                    # skip empty cells\n" +
-            "                    continue\n" +
-            "                b = (r // 3, c // 3)            # which 3x3 box this cell is in\n" +
-            "                if d in rows[r] or d in cols[c] or d in boxes[b]:\n" +
-            "                    return False               # duplicate in a row/col/box\n" +
-            "                rows[r].add(d)                  # record the digit in all three units\n" +
-            "                cols[c].add(d)\n" +
-            "                boxes[b].add(d)\n" +
-            "        return True",
+            "from collections import defaultdict  # defaultdict(set) hands back a fresh empty set the first time each row/col/box index is used.\n\n\n" +
+            "class Solution:  # LeetCode instantiates this class and calls isValidSudoku on the object.\n\n" +
+            "    def isValidSudoku(self, board: List[List[str]]) -> bool:  # Return True iff no filled digit repeats within any row, column, or 3x3 box.\n\n" +
+            "        # ==================== PHASE 1: PREPARE THE THREE FAMILIES OF SETS ====================\n\n" +
+            "        rows = defaultdict(set)  # For each row index r, the set of digits already placed in that row.\n" +
+            "                                 # Why a set: 'is this digit already here?' is an average O(1) membership test.\n" +
+            "        cols = defaultdict(set)  # For each column index c, the set of digits already placed in that column.\n" +
+            "        boxes = defaultdict(set)  # For each box key, the set of digits already placed in that 3x3 box.\n" +
+            "                                  # State: all three start empty and gain digits as the scan proceeds.\n\n" +
+            "        # ==================== PHASE 2: SCAN EVERY CELL ONCE ====================\n\n" +
+            "        for r in range(9):  # Walk the 9 rows top to bottom.\n" +
+            "                            # Execution flow: after a row finishes, Python advances r to the next row.\n\n" +
+            "            for c in range(9):  # Walk the 9 columns of the current row left to right.\n" +
+            "                                # Loop invariant: rows/cols/boxes hold exactly the digits of all cells visited before (r, c).\n" +
+            "                                # Execution flow: after one c finishes, Python advances to the next column.\n\n" +
+            "                d = board[r][c]  # The character in this cell: a digit '1'-'9', or '.' for empty.\n" +
+            "                                 # State: d is the value we are about to validate.\n\n" +
+            "                if d == '.':  # Empty cells impose no constraint.\n" +
+            "                    continue  # Skip this cell and move to the next column.\n" +
+            "                              # Execution flow: jump straight to the next inner-loop iteration, touching none of the sets.\n\n" +
+            "                b = (r // 3, c // 3)  # Identify which 3x3 box the cell sits in.\n" +
+            "                                      # Why r // 3, c // 3: integer division maps 0-2 -> 0, 3-5 -> 1, 6-8 -> 2, so (0..2, 0..2) names the nine boxes.\n" +
+            "                                      # State: b is the box key used to index boxes.\n\n" +
+            "                if d in rows[r] or d in cols[c] or d in boxes[b]:  # Has this digit already appeared in this row, column, or box?\n" +
+            "                                                                   # Why: a repeat in ANY of the three units violates Sudoku's rules.\n" +
+            "                                                                   # Execution flow: if any check is true, control drops into the return False below.\n" +
+            "                    return False  # A duplicate was found, so the board is invalid; end now.\n" +
+            "                                  # Execution flow: this return exits the function immediately; no further cells are scanned.\n\n" +
+            "                rows[r].add(d)  # No conflict: record the digit as now present in its row.\n" +
+            "                                # State change: rows[r] gains d.\n" +
+            "                cols[c].add(d)  # Record it as present in its column.\n" +
+            "                                # State change: cols[c] gains d.\n" +
+            "                boxes[b].add(d)  # Record it as present in its 3x3 box.\n" +
+            "                                 # State change: boxes[b] gains d.\n" +
+            "                                 # Execution flow: end of this cell; Python continues to the next column.\n\n" +
+            "        # ==================== PHASE 3: EVERY CELL PASSED ====================\n\n" +
+            "        return True  # Every filled cell was unique within its row, column, and box.\n" +
+            "                     # Execution flow: the scan completed with no conflict, so the board is valid.",
           plain:
             "from collections import defaultdict\n" +
             "\n" +
