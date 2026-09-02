@@ -21,6 +21,21 @@
   --hard: #fb7185;
   --code-bg: #0c1017;
   --indent-guide: rgba(255, 255, 255, .09);
+  /* achievement / progress accent — deliberately distinct from difficulty green */
+  --success: #10b981;
+  --success-2: #2dd4bf;
+  --success-glow: rgba(16, 185, 129, .28);
+  /* streak / fire (warm, unmistakably a reward) */
+  --flame-1: #fbbf24;
+  --flame-2: #fb5a5a;
+  /* section left-edge accent stripes (scannable hierarchy) */
+  --stripe-neutral: #33455f;
+  --stripe-logic: #4f8cff;
+  --stripe-code: #22d3ee;
+  --stripe-complexity: #fbbf24;
+  --stripe-recognize: #a78bfa;
+  --stripe-recall: #f472b6;
+  --stripe-srs: #10b981;
   --shadow: 0 10px 40px rgba(0, 0, 0, .45);
   --radius: 14px;
   --radius-sm: 9px;
@@ -40,17 +55,18 @@
 }
 
 html[data-theme="light"] {
-  --bg-0: #f4f6fb;
+  /* warm-neutral paper grounds — softer and more premium than stark blue-white */
+  --bg-0: #f3f1ec;
   --bg-1: #ffffff;
-  --bg-2: #f7f9fc;
-  --bg-3: #eef2f8;
-  --border: #dce3ee;
-  --border-soft: #e7ecf4;
-  --text: #14203a;
-  --text-2: #35476a;
-  --muted: #6b7a95;
+  --bg-2: #f7f5f0;
+  --bg-3: #edeae2;
+  --border: #e2ded4;
+  --border-soft: #edeae2;
+  --text: #1f2430;
+  --text-2: #46505f;
+  --muted: #78808e;
   --brand: #2f6bff;
-  --brand-2: #0ea5b7;
+  --brand-2: #0e94a6;
   --brand-glow: rgba(47, 107, 255, .16);
   --green: #059669;
   --amber: #b45309;
@@ -58,8 +74,21 @@ html[data-theme="light"] {
   --easy: #059669;
   --medium: #b45309;
   --hard: #e11d48;
-  --code-bg: #0c1017;
-  --shadow: 0 10px 34px rgba(30, 50, 90, .12);
+  --code-bg: #0c1017;                 /* code stays dark — a deliberate, readable panel in light UI */
+  --indent-guide: rgba(255, 255, 255, .09);
+  --success: #059669;
+  --success-2: #0d9488;
+  --success-glow: rgba(5, 150, 105, .18);
+  --flame-1: #f59e0b;
+  --flame-2: #e11d48;
+  --stripe-neutral: #d9d4c8;
+  --stripe-logic: #2f6bff;
+  --stripe-code: #0e94a6;
+  --stripe-complexity: #b45309;
+  --stripe-recognize: #7c3aed;
+  --stripe-recall: #db2777;
+  --stripe-srs: #059669;
+  --shadow: 0 10px 34px rgba(60, 50, 30, .10);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }

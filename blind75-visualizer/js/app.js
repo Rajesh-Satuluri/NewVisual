@@ -1038,14 +1038,14 @@
     // ---- headline stat cards ----
     var stats = h("div", { class: "db-stats" });
     [
-      ["Solved", solved + " / " + set.length, "of the " + (state.setFilter === "blind75" ? "Blind 75" : "NeetCode 150")],
+      ["Solved", solved + " / " + set.length, "of the " + (state.setFilter === "blind75" ? "Blind 75" : "NeetCode 150"), "stat-solved"],
       ["Learning", learning, "in progress"],
       ["Not started", notStarted, "remaining"],
-      ["Day streak", streak + (streak === 1 ? " day" : " days"), streak ? "keep it going" : "study today to start"],
+      ["Day streak", (streak ? "🔥 " : "") + streak + (streak === 1 ? " day" : " days"), streak ? "keep it going" : "study today to start", "stat-streak"],
       ["Due now", due, scheduled + " scheduled"],
       ["Flagged", reviewFlag, "starred for review"]
     ].forEach(function (s) {
-      var c = h("div", { class: "db-stat" });
+      var c = h("div", { class: "db-stat" + (s[3] ? " " + s[3] : "") });
       c.innerHTML = "<div class='db-stat-v'>" + esc(String(s[1])) + "</div>" +
         "<div class='db-stat-k'>" + esc(s[0]) + "</div>" +
         "<div class='db-stat-sub muted'>" + esc(s[2]) + "</div>";
