@@ -26,6 +26,7 @@
       <button id="importBtn" class="ghost-btn" title="Import progress JSON">↑ Import</button>
       <input id="importFile" type="file" accept="application/json" hidden />
       <button id="resetBtn" class="ghost-btn danger" title="Reset all progress">⟳ Reset</button>
+      <button id="shortcutsBtn" class="ghost-btn" title="Keyboard shortcuts (?)">⌨ Shortcuts</button>
       <button id="themeBtn" class="ghost-btn">☀ Light</button>
       <a class="ghost-btn" href="../index.html" title="Back to NewVisual labs">⌂ Labs</a>
     </div>
@@ -124,6 +125,17 @@
         <button id="reviewClose" class="icon-btn">✕</button>
       </div>
       <div id="reviewBody" class="modal-body review-body"></div>
+    </div>
+  </div>
+
+  <!-- ============ KEYBOARD SHORTCUTS MODAL ============ -->
+  <div id="shortcutsModal" class="modal hidden">
+    <div class="modal-card modal-card-sm">
+      <div class="modal-head">
+        <h2>⌨ Keyboard Shortcuts</h2>
+        <button id="shortcutsClose" class="icon-btn">✕</button>
+      </div>
+      <div id="shortcutsBody" class="modal-body"></div>
     </div>
   </div>
 
