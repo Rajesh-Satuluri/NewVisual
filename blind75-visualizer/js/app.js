@@ -208,20 +208,25 @@
       // solved count among those visible.
       var solvedInCat = matching.filter(function (p) { return store.getStatus(p.id) === "solved"; }).length;
 
+      // A self-contained block per category. The list is ALWAYS rendered (even
+      // when collapsed) so collapse/expand can animate purely in CSS — the
+      // header click just toggles a class instead of rebuilding the whole nav.
+      var block = h("div", { class: "cat-block" + (collapsed ? " collapsed" : ""), "data-cat": g.category });
+
       var header = h("button", { class: "cat-header", "data-cat": g.category });
       header.innerHTML =
-        '<span class="cat-caret">' + (collapsed ? "▸" : "▾") + "</span>" +
+        '<span class="cat-caret">▾</span>' +
         '<span class="cat-icon">' + (B.CATEGORY_ICON[g.category] || "•") + "</span>" +
         '<span class="cat-name">' + esc(g.category) + "</span>" +
         '<span class="cat-count">' + solvedInCat + "/" + matching.length + "</span>";
       header.addEventListener("click", function () {
-        store.setCatCollapsed(g.category, !store.isCatCollapsed(g.category));
-        renderSidebar();
+        var nowCollapsed = !block.classList.contains("collapsed");
+        block.classList.toggle("collapsed", nowCollapsed);
+        store.setCatCollapsed(g.category, nowCollapsed);
       });
-      nav.appendChild(header);
+      block.appendChild(header);
 
-      if (collapsed) return;
-
+      var outer = h("div", { class: "cat-list-outer" });
       var list = h("div", { class: "cat-list" });
       matching.forEach(function (p) {
         var st = store.getStatus(p.id);
@@ -241,7 +246,9 @@
         });
         list.appendChild(item);
       });
-      nav.appendChild(list);
+      outer.appendChild(list);
+      block.appendChild(outer);
+      nav.appendChild(block);
     });
 
     if (!nav.children.length) {
@@ -845,7 +852,20 @@
     state.currentId = id;
     if (location.hash !== "#" + id) history.replaceState(null, "", "#" + id);
     renderProblem(false);
-    renderSidebar();
+    // Just move the active highlight instead of rebuilding the whole list — the
+    // active state transitions smoothly and no in-progress collapse animation
+    // or scroll position is thrown away. Fall back to a full render if the newly
+    // selected item isn't in the current filtered list.
+    var nav = el("nav");
+    var next = nav.querySelector('.nav-item[data-id="' + id + '"]');
+    if (next) {
+      var cur = nav.querySelector(".nav-item.active");
+      if (cur && cur !== next) cur.classList.remove("active");
+      next.classList.add("active");
+      next.scrollIntoView({ block: "nearest" });
+    } else {
+      renderSidebar();
+    }
   }
 
   // ============================================================= REVISION GRID
@@ -1172,7 +1192,14 @@
     // expand / collapse all categories
     function setAllCollapsed(collapsed) {
       B.byCategory().forEach(function (g) { store.setCatCollapsed(g.category, collapsed); });
-      renderSidebar();
+      // Animate every currently-rendered block at once rather than rebuilding.
+      var nav = el("nav");
+      var blocks = nav.querySelectorAll(".cat-block");
+      if (blocks.length) {
+        for (var i = 0; i < blocks.length; i++) blocks[i].classList.toggle("collapsed", collapsed);
+      } else {
+        renderSidebar();
+      }
     }
     var expandAllBtn = el("expandAll");
     if (expandAllBtn) expandAllBtn.addEventListener("click", function () { setAllCollapsed(false); });
