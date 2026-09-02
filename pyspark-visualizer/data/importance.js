@@ -33,6 +33,12 @@
     93: "common", 100: "common", 119: "common",
     // Arrays, JSON & Nested (Q111–Q118)
     111: "essential", 112: "common", 113: "common", 114: "common", 115: "essential",
-    116: "common", 117: "common", 118: "occasional"
+    116: "common", 117: "common", 118: "occasional",
+    // Cohort & Time-Series (Q80, Q85, Q86, Q88, Q91, Q96, Q104, Q133)
+    80: "common", 85: "common", 86: "common", 88: "occasional", 91: "common",
+    96: "common", 104: "common", 133: "occasional",
+    // Performance & Optimization (Q141, Q142, Q145, Q146, Q148, Q149, Q150, Q154)
+    141: "essential", 142: "essential", 145: "common", 146: "common", 148: "essential",
+    149: "common", 150: "common", 154: "common"
   };
 })();
