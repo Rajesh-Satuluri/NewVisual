@@ -110,10 +110,19 @@
 .code-lang { font-family: var(--mono); font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .6px; }
 .copy-btn { background: var(--bg-3); border: 1px solid var(--border); color: var(--text-2); font-size: 11.5px; font-weight: 600; padding: 3px 12px; border-radius: 6px; cursor: pointer; }
 .copy-btn:hover { border-color: var(--brand); color: var(--text); }
+/* Code toolbar actions: edited badge, Reset, lock/unlock, Copy */
+.code-actions { display: flex; align-items: center; gap: 8px; }
+.code-mini { background: var(--bg-3); border: 1px solid var(--border); color: var(--text-2); font-size: 11.5px; font-weight: 600; padding: 3px 10px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
+.code-mini:hover { border-color: var(--brand); color: var(--text); }
+.code-mini.lock.on { background: rgba(96,165,250,.16); border-color: var(--brand); color: var(--text); }
+.code-edited { font-family: var(--mono); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--medium); background: rgba(251,191,36,.12); border: 1px solid rgba(251,191,36,.35); padding: 2px 7px; border-radius: 999px; }
 .code-pre { margin: 0; padding: 16px 18px; overflow-x: auto; }
 .code-pre code { font-family: var(--mono); font-size: 13px; line-height: 1.6; background: none; border: none; padding: 0; white-space: pre; }
 /* Vertical indentation guides (VS-Code style). Inset shadow => zero added width, so code stays aligned. */
 .code-pre code .ind-g { display: inline-block; box-shadow: inset 1px 0 0 var(--indent-guide); }
+/* Editable code (unlocked). Matches .code-pre metrics so locked<->unlocked don't jump. */
+.code-edit { display: block; width: 100%; box-sizing: border-box; margin: 0; padding: 16px 18px; border: none; outline: none; resize: none; overflow-x: auto; background: transparent; color: var(--text); font-family: var(--mono); font-size: 13px; line-height: 1.6; white-space: pre; tab-size: 4; -moz-tab-size: 4; box-shadow: inset 0 0 0 2px rgba(96,165,250,.35); }
+.code-edit:focus { box-shadow: inset 0 0 0 2px var(--brand); }
 
 .when-use { margin-top: 12px; font-size: 13px; color: var(--text-2); background: var(--bg-2); border-radius: 8px; padding: 10px 14px; border: 1px solid var(--border-soft); }
 .when-use strong { color: var(--text); }
