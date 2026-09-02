@@ -13,7 +13,8 @@
     "Arrays, JSON & Nested",
     "Cohort & Time-Series",
     "Performance & Optimization",
-    "End-to-End Challenges"
+    "End-to-End Challenges",
+    "Advanced Patterns"
   ];
 
   // Short icon per category (used in the sidebar).
@@ -27,7 +28,8 @@
     "Arrays, JSON & Nested": "[ ]",
     "Cohort & Time-Series": "↗",
     "Performance & Optimization": "⚡",
-    "End-to-End Challenges": "★"
+    "End-to-End Challenges": "★",
+    "Advanced Patterns": "✦"
   };
 
   var registry = {}; // category -> [problems]
