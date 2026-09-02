@@ -302,7 +302,31 @@
     wrap.appendChild(pre);
     // highlight
     if (window.Prism) window.Prism.highlightElement(code);
+    addIndentGuides(code);
     return wrap;
+  }
+
+  // Draw VS-Code-style vertical indentation guides. Runs after Prism, so it
+  // walks the highlighted HTML line by line and wraps each 4-space indent step
+  // in a guide span. Leading indentation is always plain text (Prism never puts
+  // it inside a token span) and none of the solutions use multi-line string
+  // literals, so splitting on "\n" can't cut through a token — the markup stays
+  // valid. Uses an inset box-shadow (see .ind-g) so the guide adds no width and
+  // the code never drifts out of alignment.
+  function addIndentGuides(codeEl) {
+    var TAB = 4;
+    var lines = codeEl.innerHTML.split("\n");
+    for (var i = 0; i < lines.length; i++) {
+      var m = /^( +)/.exec(lines[i]);
+      if (!m) continue;
+      var n = m[1].length, rest = lines[i].slice(n), out = "";
+      for (var c = 0; c < n; c += TAB) {
+        var w = Math.min(TAB, n - c);
+        out += '<span class="ind-g">' + new Array(w + 1).join(" ") + "</span>";
+      }
+      lines[i] = out + rest;
+    }
+    codeEl.innerHTML = lines.join("\n");
   }
   function fallbackCopy(text) {
     var ta = document.createElement("textarea");

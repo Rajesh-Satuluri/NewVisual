@@ -20,6 +20,7 @@
   --medium: #fbbf24;
   --hard: #fb7185;
   --code-bg: #0c1017;
+  --indent-guide: rgba(255, 255, 255, .09);
   --shadow: 0 10px 40px rgba(0, 0, 0, .45);
   --radius: 14px;
   --radius-sm: 9px;
