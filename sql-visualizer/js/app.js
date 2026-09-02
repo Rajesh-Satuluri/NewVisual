@@ -452,6 +452,23 @@
       "</div>" +
       '<h1 class="ph-title">' + esc(p.title) + "</h1>";
 
+    // ---- "Next problem" button in the header's free top-row space ----
+    // (same target as the prev/next footer at the bottom of each problem)
+    var hIdx = ALL.findIndex(function (x) { return x.id === p.id; });
+    var hNext = ALL[hIdx + 1];
+    var topRow = header.querySelector(".ph-top");
+    var srcLink = topRow ? topRow.querySelector(".ph-link") : null;
+    if (topRow) {
+      var nextTop = h("button",
+        { class: "ph-next" + (hNext ? "" : " disabled"),
+          title: hNext ? "Go to next problem: " + hNext.title : "You're at the last problem" },
+        (hNext ? "Next problem →" : "End →"));
+      if (hNext) nextTop.addEventListener("click", function () { selectProblem(hNext.id); });
+      // sit in the free space, before the source link (which stays far right)
+      if (srcLink) topRow.insertBefore(nextTop, srcLink);
+      else topRow.appendChild(nextTop);
+    }
+
     // status + actions row
     var actions = h("div", { class: "ph-actions" });
     var statusSel = h("div", { class: "status-group" });

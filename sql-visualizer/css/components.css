@@ -24,7 +24,18 @@
 .ph-diff { font-weight: 800; text-transform: uppercase; letter-spacing: .5px; font-size: 11px; padding: 2px 9px; border-radius: 999px; border: 1px solid currentColor; }
 .ph-diff.d-easy { color: var(--easy); } .ph-diff.d-medium { color: var(--medium); } .ph-diff.d-hard { color: var(--hard); }
 .ph-cat { color: var(--text-2); font-weight: 600; }
-.ph-link { margin-left: auto; color: var(--brand-2); font-weight: 600; }
+.ph-link { color: var(--brand-2); font-weight: 600; }
+.ph-next {
+  margin-left: auto;
+  padding: 5px 12px;
+  background: var(--brand-glow); border: 1px solid var(--brand);
+  border-radius: 999px; color: var(--text); font-weight: 700; font-size: 12px;
+  cursor: pointer; white-space: nowrap;
+  transition: background var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.ph-next:hover { background: var(--brand); color: #06111f; transform: translateY(-1px); }
+.ph-next:active { transform: translateY(0); }
+.ph-next.disabled { opacity: .4; pointer-events: none; }
 .ph-title { font-size: 27px; font-weight: 750; margin: 8px 0 0; letter-spacing: -.4px; }
 
 .ph-actions { display: flex; align-items: center; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
