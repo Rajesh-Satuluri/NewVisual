@@ -39,6 +39,9 @@
     96: "common", 104: "common", 133: "occasional",
     // Performance & Optimization (Q141, Q142, Q145, Q146, Q148, Q149, Q150, Q154)
     141: "essential", 142: "essential", 145: "common", 146: "common", 148: "essential",
-    149: "common", 150: "common", 154: "common"
+    149: "common", 150: "common", 154: "common",
+    // End-to-End Challenges (Q152, Q153, Q155-Q160)
+    152: "common", 153: "common", 155: "essential", 156: "essential", 157: "common",
+    158: "common", 159: "common", 160: "essential"
   };
 })();
