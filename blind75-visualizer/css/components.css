@@ -112,6 +112,8 @@
 .copy-btn:hover { border-color: var(--brand); color: var(--text); }
 .code-pre { margin: 0; padding: 16px 18px; overflow-x: auto; }
 .code-pre code { font-family: var(--mono); font-size: 13px; line-height: 1.6; background: none; border: none; padding: 0; white-space: pre; }
+/* Vertical indentation guides (VS-Code style). Inset shadow => zero added width, so code stays aligned. */
+.code-pre code .ind-g { display: inline-block; box-shadow: inset 1px 0 0 var(--indent-guide); }
 
 .when-use { margin-top: 12px; font-size: 13px; color: var(--text-2); background: var(--bg-2); border-radius: 8px; padding: 10px 14px; border: 1px solid var(--border-soft); }
 .when-use strong { color: var(--text); }
