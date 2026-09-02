@@ -307,6 +307,67 @@
     document.body.removeChild(ta);
   }
 
+  // ============================================================= APPROACH AREA
+  // Approach switcher + Complete Logic + SQL Solution, rendered as one block
+  // so it can sit directly beneath the Brief Description.
+  function buildApproachArea(p) {
+    var approaches = p.approaches || [];
+    if (state.approachIndex[p.id] == null) state.approachIndex[p.id] = 0; // default: recommended (first)
+    var ai = state.approachIndex[p.id];
+    if (ai >= approaches.length) ai = 0;
+
+    var apWrap = h("div", { class: "approach-area" });
+    if (approaches.length > 1) {
+      var switcher = h("div", { class: "approach-switch" });
+      approaches.forEach(function (a, i) {
+        var b = h("button", { class: "app-tab" + (i === ai ? " active" : "") }, esc(a.name));
+        b.addEventListener("click", function () {
+          state.approachIndex[p.id] = i;
+          renderProblem();
+        });
+        switcher.appendChild(b);
+      });
+      apWrap.appendChild(switcher);
+    }
+
+    var cur = approaches[ai] || {};
+    var blur = store.getPref("blur");
+
+    // Logic
+    var logicNode = h("div", { class: "md logic" + (blur ? " blurred" : "") });
+    logicNode.innerHTML = md(cur.logic);
+    if (blur) logicNode.appendChild(revealOverlay(logicNode));
+    apWrap.appendChild(section("logic", "Complete Logic — " + (cur.name || "Approach"), logicNode));
+
+    // Code (RCS commented / Clean toggle)
+    var codeMode = store.getPref("codeMode") || "rcs";
+    var codeArea = h("div", { class: "code-area" });
+    var toggle = h("div", { class: "code-toggle" });
+    var rcsBtn = h("button", { class: "ct-btn" + (codeMode === "rcs" ? " active" : "") }, "RCS (commented)");
+    var plainBtn = h("button", { class: "ct-btn" + (codeMode === "plain" ? " active" : "") }, "Clean SQL");
+    rcsBtn.addEventListener("click", function () { store.setPref("codeMode", "rcs"); renderProblem(); });
+    plainBtn.addEventListener("click", function () { store.setPref("codeMode", "plain"); renderProblem(); });
+    toggle.appendChild(rcsBtn); toggle.appendChild(plainBtn);
+    var hint = h("span", { class: "code-hint" }, codeMode === "rcs" ? "Commented for revision" : "Clean — try to read it yourself");
+    toggle.appendChild(hint);
+    codeArea.appendChild(toggle);
+
+    var source = codeMode === "rcs" ? cur.tsql : cur.clean;
+    var cb = codeBlock(source || "", blur ? "blurred" : "");
+    if (blur) cb.appendChild(revealOverlay(cb));
+    codeArea.appendChild(cb);
+
+    if (cur.perfNote) {
+      codeArea.appendChild(h("div", { class: "when-use" }, "<strong>Performance:</strong> " + esc(cur.perfNote)));
+    }
+    if (cur.dialectNote) {
+      codeArea.appendChild(h("div", { class: "when-use dialect" }, "<strong>Dialect note:</strong> " + esc(cur.dialectNote)));
+    }
+    apWrap.appendChild(section("code", "SQL Solution — " + (cur.name || "Approach"), codeArea));
+
+    return apWrap;
+  }
+
   // ============================================================= SECTION
   function section(key, title, bodyNode, opts) {
     opts = opts || {};
@@ -463,6 +524,9 @@
     descNode.innerHTML = md(p.descriptionBrief || p.description || "");
     main.appendChild(section("description", "Brief Description", descNode));
 
+    // ---- Approach switcher + Logic + SQL Solution (moved directly under the brief) ----
+    main.appendChild(buildApproachArea(p));
+
     // ---- Schema & Sample Data (tables) ----
     if ((p.schema && p.schema.length) || (p.sampleData && p.sampleData.length)) {
       var sdWrap = h("div", { class: "sql-block" });
@@ -496,64 +560,6 @@
       setupArea.appendChild(setupCb);
       main.appendChild(section("setup", "Setup Script (paste into SSMS)", setupArea));
     }
-
-    // ---- Approach switcher (drives Logic + SQL) ----
-    var approaches = p.approaches || [];
-    if (state.approachIndex[p.id] == null) state.approachIndex[p.id] = 0; // default: recommended (first)
-    var ai = state.approachIndex[p.id];
-    if (ai >= approaches.length) ai = 0;
-
-    var apWrap = h("div", { class: "approach-area" });
-    if (approaches.length > 1) {
-      var switcher = h("div", { class: "approach-switch" });
-      approaches.forEach(function (a, i) {
-        var b = h("button", { class: "app-tab" + (i === ai ? " active" : "") }, esc(a.name));
-        b.addEventListener("click", function () {
-          state.approachIndex[p.id] = i;
-          renderProblem();
-        });
-        switcher.appendChild(b);
-      });
-      apWrap.appendChild(switcher);
-    }
-
-    var cur = approaches[ai] || {};
-    var blur = store.getPref("blur");
-
-    // Logic
-    var logicNode = h("div", { class: "md logic" + (blur ? " blurred" : "") });
-    logicNode.innerHTML = md(cur.logic);
-    if (blur) logicNode.appendChild(revealOverlay(logicNode));
-    var logicSection = section("logic", "Complete Logic — " + (cur.name || "Approach"), logicNode);
-    apWrap.appendChild(logicSection);
-
-    // Code (RCS commented / Clean toggle)
-    var codeMode = store.getPref("codeMode") || "rcs";
-    var codeArea = h("div", { class: "code-area" });
-    var toggle = h("div", { class: "code-toggle" });
-    var rcsBtn = h("button", { class: "ct-btn" + (codeMode === "rcs" ? " active" : "") }, "RCS (commented)");
-    var plainBtn = h("button", { class: "ct-btn" + (codeMode === "plain" ? " active" : "") }, "Clean SQL");
-    rcsBtn.addEventListener("click", function () { store.setPref("codeMode", "rcs"); renderProblem(); });
-    plainBtn.addEventListener("click", function () { store.setPref("codeMode", "plain"); renderProblem(); });
-    toggle.appendChild(rcsBtn); toggle.appendChild(plainBtn);
-    var hint = h("span", { class: "code-hint" }, codeMode === "rcs" ? "Commented for revision" : "Clean — try to read it yourself");
-    toggle.appendChild(hint);
-    codeArea.appendChild(toggle);
-
-    var source = codeMode === "rcs" ? cur.tsql : cur.clean;
-    var cb = codeBlock(source || "", blur ? "blurred" : "");
-    if (blur) cb.appendChild(revealOverlay(cb));
-    codeArea.appendChild(cb);
-
-    if (cur.perfNote) {
-      codeArea.appendChild(h("div", { class: "when-use" }, "<strong>Performance:</strong> " + esc(cur.perfNote)));
-    }
-    if (cur.dialectNote) {
-      codeArea.appendChild(h("div", { class: "when-use dialect" }, "<strong>Dialect note:</strong> " + esc(cur.dialectNote)));
-    }
-    apWrap.appendChild(section("code", "SQL Solution — " + (cur.name || "Approach"), codeArea));
-
-    main.appendChild(apWrap);
 
     // ---- Walkthrough (intermediate result sets as tables) ----
     if (p.walkthrough && p.walkthrough.length) {
