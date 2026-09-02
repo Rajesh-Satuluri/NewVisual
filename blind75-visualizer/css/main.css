@@ -34,6 +34,8 @@
   --dur-slow: 320ms;
   --ease: cubic-bezier(.2, .8, .2, 1);   /* smooth deceleration for enters */
   --ease-in: cubic-bezier(.4, 0, 1, 1);  /* accelerate for exits */
+  --dur-cat: 280ms;                      /* category expand/collapse */
+  --ease-cat: cubic-bezier(.33, 0, .2, 1); /* balanced ease-in-out — motion visible across the whole duration */
   --lift: 0 6px 20px rgba(0, 0, 0, .22);
 }
 

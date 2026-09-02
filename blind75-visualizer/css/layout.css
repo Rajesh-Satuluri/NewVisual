@@ -115,20 +115,20 @@
 .cat-caret {
   width: 12px; color: var(--muted); font-size: 10px;
   display: inline-block; transform-origin: 50% 50%;
-  transition: transform var(--dur) var(--ease);
+  transition: transform var(--dur-cat) var(--ease-cat);
 }
 .cat-block.collapsed .cat-caret { transform: rotate(-90deg); }
 .cat-icon { width: 18px; text-align: center; color: var(--brand-2); }
 .cat-name { flex: 1; }
 .cat-count { font-size: 11px; color: var(--muted); font-weight: 600; background: var(--bg-3); padding: 1px 7px; border-radius: 999px; transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease); }
 
-/* animated category collapse: grid-rows 1fr -> 0fr (height-agnostic, GPU-smooth).
-   The grid item must have NO vertical padding, or its min-content floor keeps the
-   row from reaching 0 — the inter-category gap lives on .cat-block instead. */
+/* Animated category collapse via an explicit pixel height set in JS (see
+   setCatOpen). Animating `height` in px is smooth and works in every browser
+   (unlike grid `fr` transitions, which Safari snaps). The wrapper clips its
+   content; the list fades in tandem for extra polish. */
 .cat-block { margin-bottom: 4px; }
-.cat-list-outer { display: grid; grid-template-rows: 1fr; overflow: hidden; transition: grid-template-rows var(--dur) var(--ease); }
-.cat-block.collapsed .cat-list-outer { grid-template-rows: 0fr; }
-.cat-list { min-height: 0; overflow: hidden; padding: 0 0 0 6px; transition: opacity var(--dur) var(--ease); }
+.cat-list-outer { overflow: hidden; height: auto; transition: height var(--dur-cat) var(--ease-cat); }
+.cat-list { padding: 0 0 0 6px; transition: opacity var(--dur-cat) var(--ease-cat); }
 .cat-block.collapsed .cat-list { opacity: 0; }
 .nav-item {
   display: flex; align-items: center; gap: 8px;

@@ -191,6 +191,37 @@
   }
 
   // ============================================================= SIDEBAR
+  // Smoothly open/close a category by animating an explicit pixel height. Works
+  // in every browser and never reflows-per-frame the way a grid-fr transition
+  // would. Reading getBoundingClientRect first means an interrupted animation
+  // continues from wherever it currently is.
+  function onHeightEnd(node, fn) {
+    var handler = function (e) {
+      if (e.target !== node || e.propertyName !== "height") return;
+      node.removeEventListener("transitionend", handler);
+      fn();
+    };
+    node.addEventListener("transitionend", handler);
+  }
+  function setCatOpen(block, open) {
+    var outer = block.querySelector(".cat-list-outer");
+    if (!outer) return;
+    var startH = outer.getBoundingClientRect().height; // current height (handles mid-flight)
+    block.classList.toggle("collapsed", !open);         // drives caret rotation + list fade
+    outer.style.height = startH + "px";                 // pin the starting height (auto -> px)
+    void outer.offsetHeight;                            // force reflow so the next change animates
+    if (open) {
+      outer.style.height = outer.scrollHeight + "px";   // grow to full content height
+      onHeightEnd(outer, function () {
+        // settle to auto so later content changes don't get clipped — but only if
+        // we're still open (a fast re-collapse must not reopen it)
+        if (!block.classList.contains("collapsed")) outer.style.height = "auto";
+      });
+    } else {
+      outer.style.height = "0px";                        // shrink to nothing
+    }
+  }
+
   function renderSidebar() {
     var nav = el("nav");
     nav.innerHTML = "";
@@ -220,13 +251,14 @@
         '<span class="cat-name">' + esc(g.category) + "</span>" +
         '<span class="cat-count">' + solvedInCat + "/" + matching.length + "</span>";
       header.addEventListener("click", function () {
-        var nowCollapsed = !block.classList.contains("collapsed");
-        block.classList.toggle("collapsed", nowCollapsed);
-        store.setCatCollapsed(g.category, nowCollapsed);
+        var willOpen = block.classList.contains("collapsed"); // currently collapsed -> open it
+        setCatOpen(block, willOpen);
+        store.setCatCollapsed(g.category, !willOpen);
       });
       block.appendChild(header);
 
       var outer = h("div", { class: "cat-list-outer" });
+      if (collapsed) outer.style.height = "0px"; // start closed with no animation
       var list = h("div", { class: "cat-list" });
       matching.forEach(function (p) {
         var st = store.getStatus(p.id);
@@ -1196,7 +1228,7 @@
       var nav = el("nav");
       var blocks = nav.querySelectorAll(".cat-block");
       if (blocks.length) {
-        for (var i = 0; i < blocks.length; i++) blocks[i].classList.toggle("collapsed", collapsed);
+        for (var i = 0; i < blocks.length; i++) setCatOpen(blocks[i], !collapsed);
       } else {
         renderSidebar();
       }
