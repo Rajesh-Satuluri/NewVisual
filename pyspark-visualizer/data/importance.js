@@ -30,6 +30,9 @@
     68: "essential", 69: "common", 70: "common",
     // Date & Time (Q44, Q78, Q83, Q84, Q92, Q93, Q100, Q119)
     44: "common", 78: "common", 83: "common", 84: "common", 92: "essential",
-    93: "common", 100: "common", 119: "common"
+    93: "common", 100: "common", 119: "common",
+    // Arrays, JSON & Nested (Q111–Q118)
+    111: "essential", 112: "common", 113: "common", 114: "common", 115: "essential",
+    116: "common", 117: "common", 118: "occasional"
   };
 })();
