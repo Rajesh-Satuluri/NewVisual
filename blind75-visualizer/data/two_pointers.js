@@ -449,22 +449,38 @@
           time: "O(n)", space: "O(n)",
           whenToUse: "Most readable; fine unless O(1) space is required.",
           logic:
-            "**What it asks.** Ignoring case and non-alphanumeric characters, is `s` a palindrome?\n\n" +
-            "**Key Idea.** Build the cleaned sequence (lowercase alphanumerics only), then check it equals its reverse.\n\n" +
+            "**What it asks.** Look at the string `s` but consider only its **alphanumeric** characters (letters and digits), treating uppercase and lowercase as the same. Return `true` if that filtered, case-folded sequence reads identically forwards and backwards. Spaces, punctuation, and letter case are all noise that must be ignored before you judge symmetry.\n\n" +
+            "**Why the naive idea fails.** The tempting one-liner is to compare `s` directly against `s[::-1]`. That is wrong for this problem: `'A man, a plan, a canal: Panama'` reversed is not equal to itself character-for-character, because the raw string still carries capitals, spaces, commas, and a colon. The comparison would report `false` for a genuine palindrome. The fix is not a smarter comparison but a **normalization step first**: strip everything that does not count and fold case, so that only the meaningful characters are ever compared.\n\n" +
+            "**Key Idea.** Split the job into *canonicalize, then check*. First build a cleaned sequence containing exactly the characters that matter — each alphanumeric character, lowercased. Once the string has been reduced to that canonical form, the palindrome test is the textbook one: a sequence is a palindrome **if and only if it equals its own reverse**. All the problem-specific rules (ignore case, ignore punctuation) live entirely in how the cleaned sequence is built, leaving the comparison trivial.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. Keep only `c.lower()` for each alphanumeric `c`.\n" +
-            "2. Compare the cleaned list to its reverse.\n\n" +
-            "**Why it works.** Filtering canonicalizes the string to exactly the characters that matter; a sequence is a palindrome iff it equals its reverse.\n\n" +
+            "1. Walk the string once and keep only the characters for which `c.isalnum()` is true, applying `c.lower()` to each so case no longer matters. Collect them into a list `cleaned`.\n" +
+            "2. Produce the reverse of that list with `cleaned[::-1]`.\n" +
+            "3. Return whether `cleaned == cleaned[::-1]`; Python compares the two sequences element by element, which is exactly the mirrored-pair check a palindrome requires.\n\n" +
+            "**Why it works.** Filtering canonicalizes the input down to precisely the characters the problem cares about, so every character remaining in `cleaned` is one that must participate in the symmetry test — no more, no less. For any sequence, equalling its own reverse is the definition of a palindrome: position `k` from the front must equal position `k` from the back for all `k`, and `==` against the reversed copy verifies all of those at once. An all-junk input filters down to an empty list, and an empty list equals its own reverse, correctly yielding `true`.\n\n" +
             "**Common Gotchas.**\n" +
-            "- Remember to lowercase.\n" +
-            "- Uses O(n) extra space for the filtered copy.\n\n" +
-            "**Complexity.** Time `O(n)`; space `O(n)`.\n\n" +
-            "**Interview mindset.** State this, then offer the two-pointer O(1)-space version.",
+            "- Lowercase while filtering, not after comparing — otherwise `'A'` and `'a'` are treated as different and a valid palindrome is rejected.\n" +
+            "- Use `isalnum()`, which admits digits as well as letters; palindromes here may legitimately contain numbers.\n" +
+            "- This builds a whole new list, so it costs `O(n)` extra space; if the interviewer asks for constant space, switch to the two-pointer version.\n\n" +
+            "**Complexity.** One pass to build `cleaned` and one comparison against its reverse are each linear, so time is `O(n)`; the filtered copy holds up to `n` characters, so space is `O(n)`.\n\n" +
+            "**Interview mindset.** Reach for this first because it is the clearest correct solution: it cleanly separates *what counts as a character* from *what makes a palindrome*. State it, note the `O(n)` extra space as its one weakness, then offer the two-pointer version that verifies the same symmetry in place with `O(1)` space.",
           rcs:
-            "class Solution:\n" +
-            "    def isPalindrome(self, s: str) -> bool:\n" +
-            "        cleaned = [c.lower() for c in s if c.isalnum()]  # keep letters/digits, lowered\n" +
-            "        return cleaned == cleaned[::-1]                   # palindrome iff equal to reverse",
+            "class Solution:  # LeetCode creates an object of this class and calls isPalindrome on it.\n" +
+            "\n" +
+            "    def isPalindrome(self, s: str) -> bool:  # Return True iff s reads the same forwards and backwards, ignoring case and non-alphanumeric characters.\n" +
+            "\n" +
+            "        # ==================== PHASE 1: BUILD THE CLEANED SEQUENCE ====================\n" +
+            "\n" +
+            "        cleaned = [c.lower() for c in s if c.isalnum()]  # Keep only the alphanumeric characters, each lowered to fold case.\n" +
+            "                                                         # Why filter: the problem counts ONLY letters and digits, so spaces and punctuation are dropped entirely.\n" +
+            "                                                         # Why lower: comparison is case-insensitive, so A and a must be treated as the same character.\n" +
+            "                                                         # State: cleaned is the canonical sequence that actually decides the answer.\n" +
+            "                                                         # Execution flow: Python builds the whole list, then continues to the comparison.\n" +
+            "\n" +
+            "        # ==================== PHASE 2: COMPARE AGAINST THE REVERSE ====================\n" +
+            "\n" +
+            "        return cleaned == cleaned[::-1]  # A sequence is a palindrome exactly when it equals its own reverse.\n" +
+            "                                         # Why: cleaned[::-1] is a reversed copy; the == compares every mirrored position in one shot.\n" +
+            "                                         # Execution flow: return ends isPalindrome; the caller receives True or False.",
           plain:
             "class Solution:\n" +
             "    def isPalindrome(self, s: str) -> bool:\n" +
@@ -476,32 +492,74 @@
           time: "O(n)", space: "O(1)",
           whenToUse: "When you want no extra allocation; the interview-preferred version.",
           logic:
-            "**Key Idea.** Use two pointers, `left` from the start and `right` from the end. Skip any non-alphanumeric character, then compare the two ends case-insensitively and move inward. A mismatch means it is not a palindrome.\n\n" +
+            "**What it asks.** The same question — is `s` a palindrome over its alphanumeric characters, ignoring case — but now with an explicit goal of **constant extra space**, so building a cleaned copy of the string is off the table.\n\n" +
+            "**Why the naive idea fails.** The filter-then-compare approach is correct but allocates a second sequence of size `O(n)`. For a string up to `2 * 10^5` characters that is real memory spent to hold information the original string already contains. The insight we are missing is that a palindrome check never needs the whole reversed copy at once: it only ever compares one mirrored *pair* at a time, so we can verify those pairs directly on `s` and store nothing beyond two indices.\n\n" +
+            "**Key Idea.** Walk inward from both ends with two pointers. `left` starts at the first character and `right` at the last; together they name the mirrored pair currently under test. Before comparing, each pointer skips over any non-alphanumeric character, because those do not count. Then compare `s[left]` and `s[right]` case-insensitively: if they differ, the mirror is broken and the answer is `false`; if they match, step both pointers one place toward the center and test the next mirrored pair. When the pointers meet or cross, every meaningful pair has matched and the answer is `true`. All the filtering happens *on the fly* via the skips, so no copy is ever made.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. `left = 0`, `right = len(s) - 1`.\n" +
-            "2. While `left < right`: advance `left` past non-alnum; retreat `right` past non-alnum.\n" +
-            "3. If `s[left].lower() != s[right].lower()`, return `false`.\n" +
-            "4. Otherwise step both inward. If the pointers cross, return `true`.\n\n" +
-            "**Why it works.** A palindrome mirrors around its center; comparing symmetric alphanumeric characters from both ends verifies every mirrored pair, and skipping junk enforces the 'alphanumeric only' rule without copying.\n\n" +
+            "1. Initialize `left = 0` and `right = len(s) - 1`.\n" +
+            "2. While `left < right`: first advance `left` rightward while `s[left]` is not alphanumeric, and retreat `right` leftward while `s[right]` is not alphanumeric — each skip guarded by `left < right` so a pointer never runs past the other.\n" +
+            "3. Compare `s[left].lower()` with `s[right].lower()`. If they differ, return `false` immediately — one broken pair disqualifies the whole string.\n" +
+            "4. Otherwise the pair matched: do `left += 1` and `right -= 1` to move toward the center, and loop.\n" +
+            "5. If the loop ends without a mismatch, every mirrored pair matched, so return `true`.\n\n" +
+            "**Why it works.** A palindrome is exactly a sequence symmetric about its center: the k-th meaningful character from the left must equal the k-th from the right. The two pointers enumerate precisely those mirrored pairs in order, from the outside in, and the skip loops guarantee that whenever a comparison happens both characters are alphanumeric — so the pairs compared are the same ones the cleaned-string approach would compare, just visited without materializing the copy. Skipping is safe because a non-alphanumeric character is invisible to the definition of the palindrome; passing over it changes nothing about which real characters must mirror. Returning `false` on the first mismatch is safe because symmetry is an all-or-nothing property — a single disagreeing pair means no arrangement of the rest can rescue it. Reaching `left >= right` means the two frontiers have swept past each other having agreed on every pair, including the trivially-true empty and single-character cases.\n\n" +
             "**Common Gotchas.**\n" +
-            "- Guard the skip loops with `left < right` so you don't run off the ends.\n" +
-            "- Lowercase both sides before comparing.\n\n" +
-            "**Complexity.** Time `O(n)`; space `O(1)`.\n\n" +
-            "**Interview mindset.** 'Compare a sequence against itself from both ends' is the canonical two-pointer signal.",
+            "- Guard **each** skip loop with `left < right`; without it, a string that is all punctuation lets a pointer walk off its end and index out of range.\n" +
+            "- Lowercase (or otherwise case-fold) both characters before comparing — forgetting this rejects `'Aa'`.\n" +
+            "- Use `isalnum()` so digits are treated as meaningful, not just letters.\n" +
+            "- Only step both pointers inward *after* a successful match; stepping before you have compared would skip a pair.\n\n" +
+            "**Complexity.** Each pointer moves monotonically toward the center and never backtracks, so the total work is a single linear sweep: time `O(n)`. Only the two index variables are stored, so space is `O(1)` — the whole point of this version.\n\n" +
+            "**Interview mindset.** 'Verify a sequence is symmetric about its center' is the canonical converging-two-pointers signal. Lead with filter-then-compare for clarity, then present this as the `O(1)`-space refinement, calling out the two subtleties that trip people up: guarding the skip loops and case-folding before the compare.",
           rcs:
-            "class Solution:\n" +
-            "    def isPalindrome(self, s: str) -> bool:\n" +
-            "        left, right = 0, len(s) - 1                          # converging pointers\n" +
-            "        while left < right:\n" +
-            "            while left < right and not s[left].isalnum():    # skip junk on the left\n" +
-            "                left += 1\n" +
-            "            while left < right and not s[right].isalnum():   # skip junk on the right\n" +
-            "                right -= 1\n" +
-            "            if s[left].lower() != s[right].lower():          # mirrored chars must match\n" +
-            "                return False\n" +
-            "            left += 1\n" +
-            "            right -= 1\n" +
-            "        return True",
+            "class Solution:  # LeetCode creates an object of this class and calls isPalindrome on it.\n" +
+            "\n" +
+            "    def isPalindrome(self, s: str) -> bool:  # Return True iff s is a palindrome over its alphanumeric characters, using O(1) extra space.\n" +
+            "\n" +
+            "        # ==================== PHASE 1: SET UP TWO POINTERS ====================\n" +
+            "\n" +
+            "        left, right = 0, len(s) - 1  # left starts at the first character, right at the last.\n" +
+            "                                     # Meaning: left scans inward from the front, right scans inward from the back.\n" +
+            "                                     # State: the still-unchecked region is s[left..right]; everything outside is already matched.\n" +
+            "                                     # Execution flow: Python enters the outer while loop.\n" +
+            "\n" +
+            "        # ==================== PHASE 2: CONVERGE FROM BOTH ENDS ====================\n" +
+            "\n" +
+            "        while left < right:  # Keep going while the two pointers still enclose at least two characters.\n" +
+            "                             # Loop invariant: every mirrored pair already passed matched case-insensitively.\n" +
+            "                             # Why left < right ends it: once they meet or cross, every mirrored pair has been verified.\n" +
+            "\n" +
+            "        # ==================== PHASE 3: SKIP NON-ALPHANUMERIC CHARACTERS ====================\n" +
+            "\n" +
+            "            while left < right and not s[left].isalnum():  # Advance left past anything that is not a letter or digit.\n" +
+            "                                                           # Why: only alphanumerics count, so junk on the left must be stepped over before comparing.\n" +
+            "                                                           # Why guard left < right: it stops left from running past right when the tail is all junk.\n" +
+            "                                                           # Execution flow: loop until s[left] is alphanumeric or the pointers meet.\n" +
+            "                left += 1  # Move left one character rightward, skipping the junk.\n" +
+            "                           # State change: the left frontier advances by one.\n" +
+            "            while left < right and not s[right].isalnum():  # Retreat right past anything that is not a letter or digit.\n" +
+            "                                                            # Why: symmetric to the left skip, so both compared characters are guaranteed alphanumeric.\n" +
+            "                                                            # Why guard left < right: it stops right from crossing left when the front is all junk.\n" +
+            "                                                            # Execution flow: loop until s[right] is alphanumeric or the pointers meet.\n" +
+            "                right -= 1  # Move right one character leftward, skipping the junk.\n" +
+            "                            # State change: the right frontier retreats by one.\n" +
+            "\n" +
+            "        # ==================== PHASE 4: COMPARE THE MIRRORED PAIR ====================\n" +
+            "\n" +
+            "            if s[left].lower() != s[right].lower():  # Compare the two ends case-insensitively.\n" +
+            "                                                     # Why lower on both: A and a are the same letter for this check.\n" +
+            "                                                     # Execution flow: a mismatch means the mirror is broken, so we can answer immediately.\n" +
+            "                return False  # Not a palindrome: one mirrored pair disagrees, so end now.\n" +
+            "                              # Execution flow: return leaves isPalindrome; no code below runs.\n" +
+            "                              # Why safe: a single mismatched pair is enough to disqualify the whole string.\n" +
+            "            left += 1  # Characters matched: step left inward toward the center.\n" +
+            "                       # State change: left advances past the character just confirmed.\n" +
+            "            right -= 1  # And step right inward toward the center.\n" +
+            "                        # State change: right retreats past the character just confirmed.\n" +
+            "                        # Execution flow: end of iteration; Python returns to the while header.\n" +
+            "\n" +
+            "        # ==================== PHASE 5: EVERY PAIR MATCHED ====================\n" +
+            "\n" +
+            "        return True  # The pointers met without any mismatch, so s is a palindrome.\n" +
+            "                     # Execution flow: return ends isPalindrome; the caller receives True.",
           plain:
             "class Solution:\n" +
             "    def isPalindrome(self, s: str) -> bool:\n" +
@@ -560,34 +618,68 @@
           time: "O(n)", space: "O(1)",
           whenToUse: "The intended solution; leverages the sorted order for O(1) space.",
           logic:
-            "**What it asks.** In a SORTED array, find the two values summing to `target`; return their 1-based indices.\n\n" +
-            "**Why the naive idea fails.** The hash-map Two Sum works (O(n) time) but uses O(n) space and ignores the gift of sortedness; the follow-up asks for O(1) space.\n\n" +
-            "**Key Idea.** Put one pointer at the smallest value (`left`) and one at the largest (`right`). Their sum is **monotonic** under pointer moves: increasing `left` can only raise the sum, decreasing `right` can only lower it — so the sum tells you which pointer to move.\n\n" +
+            "**What it asks.** You are given an array `numbers` that is **already sorted** in non-decreasing order and a `target`. Find the unique pair of values that add up to `target` and return their **1-based** indices `[i, j]` with `i < j`. Exactly one solution is guaranteed, an element may not be used twice, and the follow-up specifically wants `O(1)` extra space.\n\n" +
+            "**Why the naive idea fails.** The classic hash-map Two Sum solves this in `O(n)` time by remembering each value's complement, and it would work here too — but it spends `O(n)` extra space on the map and completely ignores the fact that the array is sorted. Trying every pair with nested loops is worse still at `O(n^2)`. Both leave the array's most useful property — its order — entirely unused, and neither meets the `O(1)`-space goal.\n\n" +
+            "**Key Idea.** Sortedness turns the sum into a **steerable, monotonic** quantity. Place `left` on the smallest value (index 0) and `right` on the largest (index n-1), and look at `s = numbers[left] + numbers[right]`. Moving `left` one step rightward lands on a value that is `>=` the current one, so it can only **raise** `s`; moving `right` one step leftward lands on a value that is `<=` the current one, so it can only **lower** `s`. That gives an unambiguous control rule: if `s` is too small, the only way to grow it is `left += 1`; if `s` is too big, the only way to shrink it is `right -= 1`; if `s == target`, you have found the pair. Each comparison eliminates one pointer position for good, so the window collapses inward in a single linear pass with no memory beyond two indices.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. `left = 0`, `right = n - 1`.\n" +
-            "2. Compute `s = numbers[left] + numbers[right]`.\n" +
-            "3. If `s == target`, return `[left + 1, right + 1]` (1-based).\n" +
-            "4. If `s < target`, we need a bigger sum → `left += 1`.\n" +
-            "5. If `s > target`, we need a smaller sum → `right -= 1`.\n\n" +
-            "**Why it works.** Because the array is sorted, the discarded pointer position cannot participate in any solution: if `s < target`, `numbers[left]` paired with anything ≤ `numbers[right]` is still too small, so `left` is safely abandoned (symmetric for `right`). No pair is missed.\n\n" +
+            "1. Set `left = 0` and `right = n - 1`, bracketing the smallest and largest values.\n" +
+            "2. While `left < right`, compute `s = numbers[left] + numbers[right]`.\n" +
+            "3. If `s == target`, return `[left + 1, right + 1]` — add one to each index to convert from 0-based to the required 1-based form.\n" +
+            "4. If `s < target`, the sum is too small; do `left += 1` to reach for a larger value.\n" +
+            "5. If `s > target`, the sum is too large; do `right -= 1` to reach for a smaller value.\n" +
+            "6. The guarantee of exactly one solution ensures the loop returns before the pointers cross.\n\n" +
+            "**Why it works.** The correctness rests on showing that each discarded pointer position truly cannot belong to any solution. Suppose `s < target`. Then `numbers[left]`, paired with `numbers[right]` — the **largest** value still in the window — already falls short of `target`; paired with any other in-range value (all `<= numbers[right]`) it would fall short by at least as much. So `numbers[left]` can complete no valid pair within the window and is safely abandoned by `left += 1`. The mirror argument holds when `s > target`: `numbers[right]` paired with the smallest in-range value `numbers[left]` already overshoots, so it overshoots against every in-range value and is safely dropped by `right -= 1`. Because every abandoned position provably participates in no solution, the one guaranteed pair is never skipped, and the pointers must meet it exactly when their sum equals `target`.\n\n" +
             "**Common Gotchas.**\n" +
-            "- Return 1-based indices.\n" +
-            "- Move exactly one pointer per step based on the comparison.\n\n" +
-            "**Complexity.** Time `O(n)`; space `O(1)`.\n\n" +
-            "**Interview mindset.** 'Sorted array + find a pair by value' → converging two pointers, no hash map needed.",
+            "- Return **1-based** indices: `[left + 1, right + 1]`, not `[left, right]`.\n" +
+            "- Move exactly **one** pointer per iteration, chosen by comparing `s` to `target`; moving both, or the wrong one, can step over the answer.\n" +
+            "- The loop condition is `left < right` (strict): a value may not pair with itself.\n" +
+            "- This relies on the input being sorted — if it were not, you would be back to the hash-map approach.\n\n" +
+            "**Complexity.** Each iteration advances exactly one pointer toward the other, so the pointers meet after at most `n` steps: time `O(n)`. Only two indices are stored, so space is `O(1)` — meeting the follow-up's constraint that the hash map cannot.\n\n" +
+            "**Interview mindset.** 'Sorted array' plus 'find a pair by value' is the textbook trigger for converging two pointers. The move you must be able to justify out loud is *why discarding a pointer is safe* — that the eliminated value cannot pair with anything left in the window — because that monotonicity argument is the whole reason the linear sweep is correct.",
           rcs:
-            "class Solution:\n" +
-            "    def twoSum(self, numbers: List[int], target: int) -> List[int]:\n" +
-            "        left, right = 0, len(numbers) - 1        # smallest and largest values\n" +
-            "        while left < right:\n" +
-            "            s = numbers[left] + numbers[right]   # current pair sum\n" +
-            "            if s == target:\n" +
-            "                return [left + 1, right + 1]     # 1-based indices\n" +
-            "            if s < target:\n" +
-            "                left += 1                        # need a larger sum\n" +
-            "            else:\n" +
-            "                right -= 1                       # need a smaller sum\n" +
-            "        return []                                # guaranteed unreachable",
+            "from typing import List  # List lets the type hints say we take a list of ints and return a two-index list.\n" +
+            "\n" +
+            "\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls twoSum on it.\n" +
+            "\n" +
+            "    def twoSum(self, numbers: List[int], target: int) -> List[int]:  # Return the 1-based indices of the two values that sum to target.\n" +
+            "\n" +
+            "        # ==================== PHASE 1: SET UP TWO POINTERS ====================\n" +
+            "\n" +
+            "        left, right = 0, len(numbers) - 1  # left points at the smallest value, right at the largest.\n" +
+            "                                           # Why the ends: the array is sorted ascending, so index 0 holds the minimum and n-1 the maximum.\n" +
+            "                                           # State: the pair (left, right) brackets the whole search window and will converge inward.\n" +
+            "                                           # Execution flow: Python enters the while loop.\n" +
+            "\n" +
+            "        # ==================== PHASE 2: SUM-DIRECTED CONVERGENCE ====================\n" +
+            "\n" +
+            "        while left < right:  # Keep searching while the two pointers still enclose two distinct indices.\n" +
+            "                             # Loop invariant: no pair using an already-discarded position can reach target, so the answer lies in [left, right].\n" +
+            "                             # Why left < right ends it: once they meet, every candidate pair has been ruled in or out.\n" +
+            "\n" +
+            "            s = numbers[left] + numbers[right]  # Sum of the current smallest-and-largest candidate pair.\n" +
+            "                                                # Key property: because the array is sorted, moving left right RAISES this sum and moving right left LOWERS it.\n" +
+            "\n" +
+            "            if s == target:  # Exact hit: this pair sums to target.\n" +
+            "                return [left + 1, right + 1]  # Return the indices, converted from 0-based to the required 1-based form.\n" +
+            "                                              # Execution flow: return ends twoSum; nothing below runs.\n" +
+            "                                              # Why safe: exactly one solution exists, so the first exact hit IS the answer.\n" +
+            "\n" +
+            "            if s < target:  # Sum too small: we must increase it.\n" +
+            "                left += 1  # Move left onto the next-larger value, the only move that can raise the sum.\n" +
+            "                           # Why safe: numbers[left] paired with the largest remaining value (numbers[right]) is still < target,\n" +
+            "                           # so numbers[left] can pair with nothing in range to reach target and is safely abandoned.\n" +
+            "                           # Execution flow: end of iteration; Python returns to the while header.\n" +
+            "            else:  # Otherwise s > target: we must decrease it.\n" +
+            "                right -= 1  # Move right onto the next-smaller value, the only move that can lower the sum.\n" +
+            "                            # Why safe: numbers[right] paired with the smallest remaining value (numbers[left]) is still > target,\n" +
+            "                            # so numbers[right] can pair with nothing in range to reach target and is safely abandoned.\n" +
+            "                            # Execution flow: end of iteration; Python returns to the while header.\n" +
+            "\n" +
+            "        # ==================== PHASE 3: RETURN ====================\n" +
+            "\n" +
+            "        return []  # Unreachable given the one-solution guarantee; kept so every path returns a list.\n" +
+            "                   # Execution flow: only reached if the loop exhausted the window, which the problem promises cannot happen.",
           plain:
             "class Solution:\n" +
             "    def twoSum(self, numbers: List[int], target: int) -> List[int]:\n" +
@@ -607,29 +699,62 @@
           time: "O(n log n)", space: "O(1)",
           whenToUse: "An alternative to name if asked; slower than two pointers.",
           logic:
-            "**Key Idea.** For each index `i`, the partner value is `target - numbers[i]`. Since the array is sorted, **binary search** the portion to the right of `i` for that complement.\n\n" +
+            "**What it asks.** The same sorted-array Two Sum: return the 1-based indices of the unique pair summing to `target`. This approach reaches the answer a different way — by turning it into a series of lookups — which is worth knowing as an alternative even though it is not the optimal one.\n\n" +
+            "**Why the naive idea fails.** Comparing every pair is `O(n^2)`, and the hash map spends `O(n)` space. But there is a second thing to notice: once you **fix** one element, its partner is no longer unknown — it must be exactly `target - numbers[i]`. Searching a sorted array for one specific value is the canonical job of binary search, so we can find that partner in `O(log n)` instead of scanning for it.\n\n" +
+            "**Key Idea.** Sweep a fixed index `i` across the array. For each `i`, the value that would complete the pair is the **complement** `need = target - numbers[i]`. Because the array is sorted, binary-search for `need` — but only in the region **strictly to the right of `i`** (indices `i+1 .. n-1`). Restricting the search rightward does double duty: it prevents `numbers[i]` from pairing with itself, and, since every unordered pair has a smaller-indexed member, fixing that smaller member and looking rightward is guaranteed to encounter the true pair.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. For each `i`, set `need = target - numbers[i]`.\n" +
-            "2. Binary search `numbers[i+1 .. n-1]` for `need`.\n" +
-            "3. If found at `j`, return `[i + 1, j + 1]`.\n\n" +
-            "**Why it works.** Sortedness makes binary search valid; scanning every `i` guarantees the unique pair is found.\n\n" +
+            "1. Let `n = len(numbers)` and loop `i` from `0` to `n - 1`, fixing `numbers[i]` as the first member.\n" +
+            "2. Compute `need = target - numbers[i]`, the exact value the partner must hold.\n" +
+            "3. Binary-search the slice `numbers[i+1 .. n-1]` for `need` — here with `bisect.bisect_left(numbers, need, i + 1, n)`, which returns the leftmost index `j` where `need` could sit.\n" +
+            "4. Confirm the hit: if `j < n` (the search did not fall off the end) **and** `numbers[j] == need` (the position actually holds the value, not just an insertion point), return `[i + 1, j + 1]` in 1-based form.\n" +
+            "5. Otherwise continue to the next `i`.\n\n" +
+            "**Why it works.** Sortedness is exactly the precondition that makes binary search valid, so each lookup correctly reports whether `need` exists to the right of `i`. Because the loop fixes every possible smaller index and the true pair has some smaller-indexed member, that member is eventually chosen as `i`, at which point its partner lies to the right and the binary search finds it. Searching only `i+1 .. n-1` guarantees the two indices are distinct, so an element is never paired with itself. The `j < n and numbers[j] == need` guard is essential: `bisect_left` returns an insertion point, which may be `n` or may point at a value that is merely `>= need` rather than equal, and only an exact-value match is a real solution.\n\n" +
             "**Common Gotchas.**\n" +
-            "- Search only to the right of `i` to avoid reusing an element.\n" +
-            "- It's `O(n log n)` — strictly worse than two pointers here; mention it only as an alternative.\n\n" +
-            "**Complexity.** Time `O(n log n)`; space `O(1)`.\n\n" +
-            "**Interview mindset.** Naming it shows breadth, but lead with the O(n) two-pointer solution.",
+            "- Bound the search to start at `i + 1`; searching from `0` (or including `i`) can pair an element with itself or re-find the mirror pair pointlessly.\n" +
+            "- After `bisect_left`, always verify **both** `j < n` and `numbers[j] == need`; a bare `bisect` result is an insertion index, not a confirmed match.\n" +
+            "- Return 1-based indices `[i + 1, j + 1]`.\n" +
+            "- This is `O(n log n)` — strictly worse than the two-pointer `O(n)` here — so present it only as an alternative, not your lead answer.\n\n" +
+            "**Complexity.** The outer loop runs `n` times and each binary search costs `O(log n)`, giving time `O(n log n)`; only a handful of scalars are stored, so space is `O(1)`.\n\n" +
+            "**Interview mindset.** Naming this shows breadth — it demonstrates you recognize 'fixed element plus sorted array' as a binary-search setup. But say plainly that it is slower than the converging two-pointer sweep, and lead with the `O(n)` solution; reach for binary search only when a two-pointer move is not available.",
           rcs:
-            "import bisect\n" +
+            "import bisect  # bisect gives a fast binary search over the sorted array.\n" +
+            "from typing import List  # List lets the type hints say we take a list of ints and return a two-index list.\n" +
             "\n" +
-            "class Solution:\n" +
-            "    def twoSum(self, numbers: List[int], target: int) -> List[int]:\n" +
-            "        n = len(numbers)\n" +
-            "        for i in range(n):\n" +
-            "            need = target - numbers[i]                     # value to find on the right\n" +
-            "            j = bisect.bisect_left(numbers, need, i + 1, n) # binary search the right part\n" +
-            "            if j < n and numbers[j] == need:\n" +
-            "                return [i + 1, j + 1]                      # 1-based indices\n" +
-            "        return []",
+            "\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls twoSum on it.\n" +
+            "\n" +
+            "    def twoSum(self, numbers: List[int], target: int) -> List[int]:  # Return the 1-based indices of the two values that sum to target.\n" +
+            "\n" +
+            "        # ==================== PHASE 1: PREPARE ====================\n" +
+            "\n" +
+            "        n = len(numbers)  # Cache the length so we do not recompute len(numbers) each iteration.\n" +
+            "                          # State: valid indices are 0 through n - 1.\n" +
+            "                          # Execution flow: Python enters the scan loop.\n" +
+            "\n" +
+            "        # ==================== PHASE 2: FIX ONE INDEX, BINARY-SEARCH ITS COMPLEMENT ====================\n" +
+            "\n" +
+            "        for i in range(n):  # Fix numbers[i] as the first member of the pair.\n" +
+            "                            # Loop invariant: no pair whose first index is < i sums to target, so the answer starts at i or later.\n" +
+            "                            # Execution flow: after one i finishes, Python assigns the next i.\n" +
+            "\n" +
+            "            need = target - numbers[i]  # The exact partner value numbers[i] requires, since need + numbers[i] == target.\n" +
+            "                                        # Why: fixing one value pins its partner to ONE known number, so we can search for it directly.\n" +
+            "            j = bisect.bisect_left(numbers, need, i + 1, n)  # Binary-search the sorted region strictly right of i for the value need.\n" +
+            "                                                             # Why start at i + 1: searching only to the right prevents pairing numbers[i] with itself.\n" +
+            "                                                             # Why sorted matters: binary search is valid only because numbers is in non-decreasing order.\n" +
+            "                                                             # State: j is the leftmost index in [i+1, n) whose value is >= need.\n" +
+            "\n" +
+            "            if j < n and numbers[j] == need:  # Did the search land inside the array on an exact match?\n" +
+            "                                              # Why both checks: j < n guards against need being larger than every value on the right,\n" +
+            "                                              # and numbers[j] == need confirms bisect found the value itself, not just an insertion point.\n" +
+            "                return [i + 1, j + 1]  # Return the pair, converted from 0-based to the required 1-based form.\n" +
+            "                                       # Execution flow: return ends twoSum; nothing below runs.\n" +
+            "                                       # Why safe: exactly one solution exists, so this match IS the answer.\n" +
+            "\n" +
+            "        # ==================== PHASE 3: RETURN ====================\n" +
+            "\n" +
+            "        return []  # Unreachable given the one-solution guarantee; kept so every path returns a list.\n" +
+            "                   # Execution flow: only reached if no i had its complement, which the problem promises cannot happen.",
           plain:
             "import bisect\n" +
             "\n" +
