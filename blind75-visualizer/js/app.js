@@ -282,27 +282,98 @@
   }
 
   // ============================================================= CODE BLOCK
-  function codeBlock(source, extraClass) {
+  // `ident` (optional) = { id, ai, mode } identifies a solution block so edits
+  // can be locked/unlocked and persisted per problem+approach+mode. Blocks
+  // without an ident (e.g. inline snippets) render read-only, exactly as before.
+  function codeBlock(source, extraClass, ident) {
     var wrap = h("div", { class: "code-wrap " + (extraClass || "") });
     var bar = h("div", { class: "code-bar" });
-    var copy = h("button", { class: "copy-btn" }, "Copy");
-    copy.addEventListener("click", function () {
-      var text = source;
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(flash, function () { fallbackCopy(text); flash(); });
-      } else { fallbackCopy(text); flash(); }
-      function flash() { copy.textContent = "Copied!"; setTimeout(function () { copy.textContent = "Copy"; }, 1200); }
-    });
     bar.appendChild(h("span", { class: "code-lang" }, "Python"));
-    bar.appendChild(copy);
-    var pre = h("pre", { class: "code-pre" });
-    var code = h("code", { class: "language-python" }, esc(source));
-    pre.appendChild(code);
+    var actions = h("div", { class: "code-actions" });
+    bar.appendChild(actions);
+    var body = h("div", { class: "code-body" });
     wrap.appendChild(bar);
-    wrap.appendChild(pre);
-    // highlight
-    if (window.Prism) window.Prism.highlightElement(code);
-    addIndentGuides(code);
+    wrap.appendChild(body);
+
+    var editing = false; // lock state is per-block and starts LOCKED every render
+
+    function savedEdit() {
+      return ident ? store.getCodeEdit(ident.id, ident.ai, ident.mode) : null;
+    }
+    function currentSource() {
+      var e = savedEdit();
+      return e != null ? e : source;
+    }
+
+    function render() {
+      body.innerHTML = "";
+      actions.innerHTML = "";
+      var edited = savedEdit() != null;
+
+      if (edited) {
+        actions.appendChild(h("span", { class: "code-edited", title: "This code was edited locally" }, "edited"));
+        var reset = h("button", { class: "code-mini", title: "Restore the original code" }, "Reset");
+        reset.addEventListener("click", function () {
+          store.clearCodeEdit(ident.id, ident.ai, ident.mode);
+          editing = false; render();
+        });
+        actions.appendChild(reset);
+      }
+
+      var ta; // textarea, only created in edit mode; referenced by Copy below
+
+      if (ident) {
+        var lock = h("button", { class: "code-mini lock" + (editing ? " on" : "") },
+          editing ? "🔓 Editing" : "🔒 Locked");
+        lock.title = editing ? "Lock to stop editing (changes are saved)" : "Unlock to edit this code";
+        lock.addEventListener("click", function () { editing = !editing; render(); });
+        actions.appendChild(lock);
+      }
+
+      var copy = h("button", { class: "copy-btn" }, "Copy");
+      copy.addEventListener("click", function () {
+        var text = editing && ta ? ta.value : currentSource();
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(flash, function () { fallbackCopy(text); flash(); });
+        } else { fallbackCopy(text); flash(); }
+        function flash() { copy.textContent = "Copied!"; setTimeout(function () { copy.textContent = "Copy"; }, 1200); }
+      });
+      actions.appendChild(copy);
+
+      if (editing) {
+        ta = h("textarea", { class: "code-edit", spellcheck: "false", wrap: "off", autocomplete: "off" });
+        ta.value = currentSource();
+        var fit = function () { ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px"; };
+        ta.addEventListener("input", function () {
+          fit();
+          if (ta.value === source) store.clearCodeEdit(ident.id, ident.ai, ident.mode); // back to original
+          else store.setCodeEdit(ident.id, ident.ai, ident.mode, ta.value);
+          // (the "edited" badge appears when the block is locked again — a live
+          //  re-render here would rebuild the textarea and drop the caret)
+        });
+        // preserve indentation on Enter / Tab for a real editing feel
+        ta.addEventListener("keydown", function (e) {
+          if (e.key === "Tab") {
+            e.preventDefault();
+            var s = ta.selectionStart, en = ta.selectionEnd;
+            ta.value = ta.value.slice(0, s) + "    " + ta.value.slice(en);
+            ta.selectionStart = ta.selectionEnd = s + 4;
+            ta.dispatchEvent(new Event("input"));
+          }
+        });
+        body.appendChild(ta);
+        setTimeout(function () { fit(); ta.focus(); }, 0);
+      } else {
+        var pre = h("pre", { class: "code-pre" });
+        var code = h("code", { class: "language-python" }, esc(currentSource()));
+        pre.appendChild(code);
+        body.appendChild(pre);
+        if (window.Prism) window.Prism.highlightElement(code);
+        addIndentGuides(code);
+      }
+    }
+
+    render();
     return wrap;
   }
 
@@ -548,7 +619,7 @@
     codeArea.appendChild(toggle);
 
     var source = codeMode === "rcs" ? cur.rcs : cur.plain;
-    var cb = codeBlock(source, blur ? "blurred" : "");
+    var cb = codeBlock(source, blur ? "blurred" : "", { id: p.id, ai: ai, mode: codeMode });
     if (blur) cb.appendChild(revealOverlay(cb));
     codeArea.appendChild(cb);
 

@@ -11,6 +11,7 @@
     review: {},     // problemId -> true (flagged for review)
     notes: {},      // problemId -> string
     links: {},      // problemId -> [{name,url}, {name,url}] (animation/visualization links)
+    codeEdits: {},  // problemId -> { "<approachIndex>:<mode>": editedSource } (user code edits)
     srs: {},        // problemId -> { ease, interval(days), reps, lapses, due(ms), last(ms) }
     activity: {},   // "YYYY-MM-DD" -> count of solves/reviews that day (for the heatmap + streak)
     prefs: {
@@ -35,6 +36,7 @@
       data.review = data.review || {};
       data.notes = data.notes || {};
       data.links = data.links || {};
+      data.codeEdits = data.codeEdits || {};
       data.srs = data.srs || {};
       data.activity = data.activity || {};
       data.prefs = Object.assign({}, DEFAULT.prefs, data.prefs || {});
@@ -129,6 +131,25 @@
       save();
     },
 
+    // ---- code edits (per problem + approach index + mode) ----
+    getCodeEdit: function (id, ai, mode) {
+      var m = state.codeEdits[id];
+      var v = m && m[ai + ":" + mode];
+      return v == null ? null : v;
+    },
+    setCodeEdit: function (id, ai, mode, text) {
+      if (!state.codeEdits[id]) state.codeEdits[id] = {};
+      state.codeEdits[id][ai + ":" + mode] = text;
+      save();
+    },
+    clearCodeEdit: function (id, ai, mode) {
+      var m = state.codeEdits[id];
+      if (!m) return;
+      delete m[ai + ":" + mode];
+      if (!Object.keys(m).length) delete state.codeEdits[id];
+      save();
+    },
+
     // ---- spaced repetition (SM-2 lite) ----
     // Ratings: "again" | "hard" | "good" | "easy".
     getSrs: function (id) {
@@ -206,6 +227,7 @@
       state.review = incoming.review || {};
       state.notes = incoming.notes || {};
       state.links = incoming.links || {};
+      state.codeEdits = incoming.codeEdits || {};
       state.srs = incoming.srs || {};
       state.activity = incoming.activity || {};
       state.prefs = Object.assign({}, DEFAULT.prefs, incoming.prefs || {});
