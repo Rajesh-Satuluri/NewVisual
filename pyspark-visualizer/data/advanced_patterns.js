@@ -577,6 +577,288 @@
         "**Say it:** first-seen per user via `min`, `datediff` offset, `max(when(0 < offset <= N))` per user, then `groupBy(cohort)` sum flags / size for rates.",
         "**Trap:** exclude day-0 (`offset > 0`); 'within N' (<=N) vs 'exactly N'; count distinct users per cohort; no digit-leading names (d1_retained, retention_7d)."
       ]
+    },
+
+    // ------------------------------------------------------------------ Q206
+    {
+      id: "fix-broken-pipeline",
+      lc: 206,
+      title: "Fix the broken PySpark pipeline (debug common bugs)",
+      difficulty: "Medium",
+      category: CAT,
+      meta: { pattern: "Debug / fix common PySpark bugs", transformation: "Narrow + Wide (shuffle)", functions: "col, &, |, withColumnRenamed, isNull, groupBy, agg" },
+      description:
+        "You are handed a short PySpark snippet that runs but returns wrong results (or raises). Find and fix the bugs. The broken code:\n\n```python\n# BROKEN\nres = (orders\n    .filter(col('status') == 'PAID' and col('amount') > 100)      # bug 1\n    .withColumnRenamed('total', 'amount')                          # bug 2\n    .filter(col('coupon') == None)                                 # bug 3\n    .groupBy('region')\n    .agg(_sum('amount').alias('rev'), col('order_id')))            # bug 4\n```\n\nPick out each defect, explain why it fails, and give the corrected version. Bugs: (1) Python `and` between two Column conditions; (2) `withColumnRenamed` arguments swapped (existing name first, new name second); (3) comparing to null with `== None` instead of `isNull()`; (4) an aggregate referencing a non-aggregated column `order_id`.",
+      examples: [
+        {
+          input: "orders: (o1, PAID, amount=150, coupon=null, region=W), (o2, PAID, amount=50, coupon=X, region=W)",
+          output: "Broken: raises/`ValueError: Cannot convert column into bool` at the `and`; even past that, wrong rename and null filter drop everything, and the agg errors on `order_id`. Fixed: region=W -> rev=150 (only o1 qualifies: PAID, amount>100, no coupon).",
+          reasoning: "Each bug either raises or silently drops/miscounts rows; fixing all four yields one correct aggregated row per region over the rows that truly match (PAID, amount>100, coupon is null)."
+        }
+      ],
+      approaches: [
+        {
+          name: "diagnose 4 bugs (and/&, swapped rename, ==None, non-agg col) and rewrite correctly",
+          whenToUse: "Code-review / debugging screens where you must read a snippet, spot the classic PySpark traps, and produce a correct fix fast.",
+          logic:
+            "**What it asks.** Identify why the snippet is wrong and rewrite it so it returns correct per-region revenue over paid, high-value, coupon-free orders.\n\n" +
+            "**Key Idea.** Four independent classic bugs. (1) Python's `and`/`or`/`not` call `__bool__` on a Column, which Spark forbids — you must combine Column conditions with the bitwise `&`/`|`/`~` operators **and parenthesize each side** because `&` binds tighter than `==`. (2) `withColumnRenamed(existing, new)` takes the **current** name first and the **new** name second — passing them swapped renames nothing (silent no-op) or the wrong column. (3) A Column is never equal to Python `None`; SQL NULL comparisons are unknown, so `col('coupon') == None` matches no rows — use `col('coupon').isNull()`. (4) Every column in the `SELECT` of a grouped aggregate must be either a grouping key or wrapped in an aggregate; a bare `col('order_id')` is neither, so drop it or aggregate it (`_count('order_id')`).\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Replace `and` with `&` and wrap each comparison in parentheses: `(col('status') == 'PAID') & (col('amount') > 100)`.\n" +
+            "2. Fix the rename direction: if the real column is `total`, use `withColumnRenamed('total', 'amount')` **only if** `total` exists; here the intent is to expose `amount`, so keep the source name correct (existing first, new second).\n" +
+            "3. Swap the null test to `col('coupon').isNull()`.\n" +
+            "4. Remove the bare `col('order_id')` from `agg`, or replace it with an aggregate like `_count('order_id').alias('n_orders')`.\n" +
+            "5. Re-run and confirm one row per region with correct `rev`.\n\n" +
+            "**Why it works.** Bitwise operators return a Column (a boolean expression Spark can push down) instead of forcing a Python truth value; `isNull()` compiles to SQL `IS NULL` which correctly matches NULLs; and a grouped aggregate is only well-defined when non-key columns are reduced by an aggregate function. Each fix targets one root cause, so together they make the whole pipeline both run and return the intended result.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- `&`/`|` have **higher** precedence than `==`/`>`; forgetting the inner parentheses silently mis-groups the logic (`col('a') == 1 & col('b') == 2` parses as `col('a') == (1 & col('b')) == 2`).\n" +
+            "- `withColumnRenamed` on a non-existent source name is a **silent no-op**, not an error — the bug hides until a later column reference fails.\n" +
+            "- `== None` / `!= None` never match; likewise `col('x') == col('y')` is NULL (not true) when either side is NULL — use `eqNullSafe` for null-safe equality.\n" +
+            "- A non-aggregated column in `agg` raises `AnalysisException` (grouping expression) — either group by it or aggregate it (`first`, `count`, `max`).\n\n" +
+            "**Interview mindset.** Narrate the four traps by name: 'Python `and` on Columns, swapped rename args, `== None` instead of `isNull`, and a non-aggregated column in agg'. Fix each, then state the corrected result to show you traced the data through.",
+          rcs:
+            "from pyspark.sql.functions import col, sum as _sum, count as _count\n" +
+            "\n" +
+            "res = (orders\n" +
+            "    # FIX 1: '&' not 'and'; parenthesize each side ('&' binds tighter than '==').\n" +
+            "    .filter((col('status') == 'PAID') & (col('amount') > 100))\n" +
+            "    # FIX 2: withColumnRenamed(existing_name, new_name) -- existing FIRST.\n" +
+            "    .withColumnRenamed('total', 'amount')\n" +
+            "    # FIX 3: NULL test is isNull(), never '== None' (which matches no rows).\n" +
+            "    .filter(col('coupon').isNull())\n" +
+            "    .groupBy('region')\n" +
+            "    # FIX 4: every non-key column must be aggregated; count instead of bare col.\n" +
+            "    .agg(_sum('amount').alias('rev'),\n" +
+            "         _count('order_id').alias('n_orders')))\n" +
+            "res.show()",
+          plain:
+            "from pyspark.sql.functions import col, sum as _sum, count as _count\n" +
+            "\n" +
+            "res = (orders\n" +
+            "    .filter((col('status') == 'PAID') & (col('amount') > 100))\n" +
+            "    .withColumnRenamed('total', 'amount')\n" +
+            "    .filter(col('coupon').isNull())\n" +
+            "    .groupBy('region')\n" +
+            "    .agg(_sum('amount').alias('rev'),\n" +
+            "         _count('order_id').alias('n_orders')))\n" +
+            "res.show()"
+        }
+      ],
+      sparkInternals:
+        "The bugs split into **analysis-time** and **runtime** failures, which is useful framing for an interview. Bug 1 (`and`) fails in the **Python driver** before any plan is built: `Column.__bool__` raises `ValueError`, so Spark never sees it. Bug 4 (non-aggregated column in `agg`) fails during **Catalyst analysis** — the analyzer checks that every output of an `Aggregate` is a grouping key or an aggregate expression and throws `AnalysisException` before execution. Bugs 2 and 3 are the dangerous ones: they are **silent** and produce a valid plan that simply computes the wrong thing. `withColumnRenamed` with an unknown source name resolves to a no-op projection; `col('coupon') == None` is analyzed as `coupon = NULL`, a predicate whose result is always NULL (never true) under three-valued logic, so the filter drops every row and the job succeeds with an empty/incorrect result. The corrected pipeline is a **narrow** filter chain (fused by codegen, pushed into the scan) followed by one **wide** hash aggregate — a single `Exchange hashpartitioning(region)` with map-side partial `sum`/`count`. The lesson: bitwise ops and `isNull()` keep the predicate as a pushdown-able Column, and correct aggregate shape keeps the analyzer happy.",
+      sparkSql:
+        "SELECT region,\n" +
+        "       SUM(amount) AS rev,\n" +
+        "       COUNT(order_id) AS n_orders\n" +
+        "FROM orders\n" +
+        "WHERE status = 'PAID'\n" +
+        "  AND amount > 100\n" +
+        "  AND coupon IS NULL\n" +
+        "GROUP BY region;",
+      recognizeRecall: [
+        "**Spot it:** 'this snippet returns wrong results / raises', 'fix the bug', a filter with `and`/`==None`, an `agg` with a bare column.",
+        "**Say it:** `&`/`|` with parentheses for Column logic; `withColumnRenamed(existing, new)`; `isNull()` for NULL; every non-key column in `agg` must be aggregated.",
+        "**Trap:** `&` binds tighter than `==` (parenthesize); swapped rename is a silent no-op; `== None` matches nothing; non-agg column raises AnalysisException."
+      ]
+    },
+
+    // ------------------------------------------------------------------ Q207
+    {
+      id: "adaptive-query-execution-aqe",
+      lc: 207,
+      title: "Tune a join/aggregation with Adaptive Query Execution (AQE)",
+      difficulty: "Hard",
+      category: CAT,
+      meta: { pattern: "Adaptive Query Execution (runtime replan)", transformation: "Wide (shuffle) — replanned at runtime", functions: "spark.conf.set, join, groupBy, agg, explain" },
+      description:
+        "A large fact-to-dimension join followed by an aggregation is slow: too many tiny shuffle partitions, one skewed join key, and a dimension that is actually small enough to broadcast but was planned as a sort-merge join. Turn on **Adaptive Query Execution** and let Spark re-optimize at runtime: `spark.sql.adaptive.enabled`, `adaptive.coalescePartitions.enabled` (merge tiny post-shuffle partitions), `adaptive.skewJoin.enabled` (split skewed partitions), and dynamic switch to a broadcast join when a side turns out small after the first shuffle. Then read the executed plan to confirm AQE kicked in (`AdaptiveSparkPlan isFinalPlan=true`, `AQEShuffleRead`).",
+      examples: [
+        {
+          input: "fact ~500M rows, dim ~200K rows; join on region_id (one region holds 60% of rows); spark.sql.shuffle.partitions=2000.",
+          output: "With AQE on: coalesce merges 2000 tiny partitions down to ~a few dozen; skewJoin splits the hot region into sub-partitions; the dim side (small post-filter) is switched to a broadcast join. Executed plan shows `AdaptiveSparkPlan isFinalPlan=true`, `AQEShuffleRead coalesced` and `skewed=true`.",
+          reasoning: "AQE observes real shuffle-map output statistics after the first stage and rewrites the remaining plan: coalescing right-sizes partitions, skew handling splits the hot key, and a small measured side flips SMJ to broadcast — none of which the static optimizer could know from estimates alone."
+        }
+      ],
+      approaches: [
+        {
+          name: "enable AQE confs (coalesce + skewJoin + broadcast switch), run, then confirm via explain",
+          whenToUse: "Skewed keys, wrong static join strategy, or thousands of tiny shuffle partitions — any query where runtime statistics beat compile-time estimates.",
+          logic:
+            "**What it asks.** Configure AQE so Spark re-optimizes the join+aggregation at runtime, and prove from the plan that it did.\n\n" +
+            "**Key Idea.** AQE re-plans **query stages** using real shuffle statistics gathered as each stage finishes, rather than trusting Catalyst's compile-time size estimates. Three features carry the win: **coalesce shuffle partitions** merges the many tiny post-shuffle partitions produced by a high `spark.sql.shuffle.partitions` into right-sized ones (fewer tasks, less overhead); **skew join handling** detects a partition far larger than the median and splits it into sub-partitions joined in parallel; and the **broadcast switch** converts a planned sort-merge join to a broadcast-hash join when a side's *measured* size (e.g. after filtering) falls under `autoBroadcastJoinThreshold`. You enable them via `spark.conf.set(...)`, run the query, then `explain()` and look for `AdaptiveSparkPlan isFinalPlan=true` and `AQEShuffleRead` nodes.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Turn AQE on: `spark.conf.set('spark.sql.adaptive.enabled', 'true')`.\n" +
+            "2. Enable partition coalescing: `spark.conf.set('spark.sql.adaptive.coalescePartitions.enabled', 'true')`.\n" +
+            "3. Enable skew handling: `spark.conf.set('spark.sql.adaptive.skewJoin.enabled', 'true')`.\n" +
+            "4. Keep the broadcast threshold sane so the runtime switch can fire: `spark.conf.set('spark.sql.autoBroadcastJoinThreshold', str(50 * 1024 * 1024))`.\n" +
+            "5. Run the query normally: `result = fact.join(dim, 'region_id').groupBy('region_id').agg(_sum('amount').alias('rev'))`.\n" +
+            "6. Materialize it (`result.count()` / write) so stages actually execute, then inspect: `result.explain(mode='formatted')` and look for `AdaptiveSparkPlan isFinalPlan=true`, `AQEShuffleRead coalesced`, and `skewed=true`.\n\n" +
+            "**Why it works.** After each shuffle-map stage, Spark has the **actual** per-partition byte sizes. Coalescing uses them to pack partitions to a target size (`advisoryPartitionSizeInBytes`) so downstream tasks are neither too many nor too few; skew detection compares each partition to the median and, above `skewedPartitionFactor` and an absolute threshold, splits the outlier so no single task serializes the hot key; and the measured (not estimated) side size lets Spark safely flip to a broadcast join that avoids the big shuffle entirely. Because these decisions use observed data, AQE fixes exactly the mis-estimations a static planner cannot.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- AQE only re-plans at **stage boundaries** (shuffles); a shuffle-free query gets no benefit.\n" +
+            "- The broadcast switch respects `autoBroadcastJoinThreshold` — set it to `-1` and the switch can never happen.\n" +
+            "- Set `spark.sql.shuffle.partitions` **high** (e.g. 2000) and let coalesce shrink it; a low static value leaves nothing to coalesce and can re-introduce skew.\n" +
+            "- Confirm from the **executed** plan (after an action), not the pre-run plan — `isFinalPlan=true` only appears once stages have run.\n" +
+            "- Skew handling triggers only above both the factor and the absolute size threshold; tiny data will not show `skewed=true` even when enabled.\n\n" +
+            "**Interview mindset.** 'AQE re-optimizes using runtime shuffle stats: coalesce tiny partitions, split skewed ones, and switch SMJ to broadcast when a side is measured small'. Name the four confs and say you verify via `AdaptiveSparkPlan isFinalPlan=true` / `AQEShuffleRead` in the plan.",
+          rcs:
+            "from pyspark.sql.functions import sum as _sum\n" +
+            "\n" +
+            "# 1) Enable Adaptive Query Execution and its runtime optimizations.\n" +
+            "spark.conf.set('spark.sql.adaptive.enabled', 'true')                        # master switch\n" +
+            "spark.conf.set('spark.sql.adaptive.coalescePartitions.enabled', 'true')     # merge tiny partitions\n" +
+            "spark.conf.set('spark.sql.adaptive.skewJoin.enabled', 'true')               # split skewed partitions\n" +
+            "spark.conf.set('spark.sql.autoBroadcastJoinThreshold', str(50 * 1024 * 1024))  # allow runtime broadcast switch\n" +
+            "spark.conf.set('spark.sql.shuffle.partitions', '2000')                      # start high; AQE coalesces down\n" +
+            "\n" +
+            "# 2) Ordinary join + aggregation; AQE re-plans it at each shuffle boundary.\n" +
+            "result = (fact\n" +
+            "    .join(dim, 'region_id')                                                 # SMJ -> maybe broadcast at runtime\n" +
+            "    .groupBy('region_id')\n" +
+            "    .agg(_sum('amount').alias('rev')))\n" +
+            "\n" +
+            "# 3) Trigger execution so stats exist, then confirm AQE kicked in.\n" +
+            "result.count()                                                              # force the stages to run\n" +
+            "result.explain(mode='formatted')\n" +
+            "# Look for: AdaptiveSparkPlan isFinalPlan=true\n" +
+            "#           AQEShuffleRead coalesced   (coalesced partitions)\n" +
+            "#           skewed=true                (skew join split the hot key)",
+          plain:
+            "from pyspark.sql.functions import sum as _sum\n" +
+            "\n" +
+            "spark.conf.set('spark.sql.adaptive.enabled', 'true')\n" +
+            "spark.conf.set('spark.sql.adaptive.coalescePartitions.enabled', 'true')\n" +
+            "spark.conf.set('spark.sql.adaptive.skewJoin.enabled', 'true')\n" +
+            "spark.conf.set('spark.sql.autoBroadcastJoinThreshold', str(50 * 1024 * 1024))\n" +
+            "spark.conf.set('spark.sql.shuffle.partitions', '2000')\n" +
+            "\n" +
+            "result = (fact\n" +
+            "    .join(dim, 'region_id')\n" +
+            "    .groupBy('region_id')\n" +
+            "    .agg(_sum('amount').alias('rev')))\n" +
+            "\n" +
+            "result.count()\n" +
+            "result.explain(mode='formatted')"
+        }
+      ],
+      sparkInternals:
+        "AQE changes **when** optimization happens. Without it, Catalyst produces one physical plan from compile-time estimates and runs it blindly. With AQE, the plan is wrapped in an `AdaptiveSparkPlan` node and executed **one query stage at a time**, where a stage ends at a shuffle (or broadcast) boundary. When a shuffle-map stage completes, its `MapOutputStatistics` (exact bytes per partition) become available, and Spark re-optimizes the **not-yet-run** remainder: **OptimizeShuffleReads** inserts an `AQEShuffleRead` that coalesces adjacent small partitions up to `advisoryPartitionSizeInBytes`; **OptimizeSkewedJoin** finds any partition exceeding `skewedPartitionFactor` times the median (and an absolute floor) and splits it into N sub-reads joined in parallel, so the hot key no longer bottlenecks one task; and **DynamicJoinSelection** re-checks the measured side sizes and can demote a sort-merge join to a broadcast-hash join, skipping the second big shuffle. This is why the number of shuffle partitions can start high (2000) yet cost little — coalesce right-sizes it after the fact. The executed plan prints `AdaptiveSparkPlan isFinalPlan=true` only after all stages have materialized, with `AQEShuffleRead coalesced`/`skewed=true` annotations recording exactly which runtime rewrites fired. The trade-off: AQE adds re-planning latency at each boundary and helps only shuffle-bearing queries.",
+      sparkSql:
+        "SET spark.sql.adaptive.enabled = true;\n" +
+        "SET spark.sql.adaptive.coalescePartitions.enabled = true;\n" +
+        "SET spark.sql.adaptive.skewJoin.enabled = true;\n" +
+        "SET spark.sql.autoBroadcastJoinThreshold = 52428800;\n" +
+        "SELECT f.region_id, SUM(f.amount) AS rev\n" +
+        "FROM fact f\n" +
+        "JOIN dim d ON f.region_id = d.region_id\n" +
+        "GROUP BY f.region_id;",
+      recognizeRecall: [
+        "**Spot it:** 'skewed key', 'too many tiny partitions', 'join strategy wrong', 'query slow despite good stats', 'optimize at runtime'.",
+        "**Say it:** enable `spark.sql.adaptive.enabled` + `coalescePartitions` + `skewJoin`, keep a real `autoBroadcastJoinThreshold`; verify via `AdaptiveSparkPlan isFinalPlan=true` / `AQEShuffleRead`.",
+        "**Trap:** AQE only replans at shuffle boundaries; broadcast switch needs threshold > -1; start shuffle.partitions high and let coalesce shrink; check the executed plan after an action."
+      ]
+    },
+
+    // ------------------------------------------------------------------ Q208
+    {
+      id: "as-of-point-in-time-join",
+      lc: 208,
+      title: "As-of / point-in-time join (attach the rule in effect)",
+      difficulty: "Hard",
+      category: CAT,
+      meta: { pattern: "As-of / point-in-time (temporal) join", transformation: "Wide (shuffle) + range join", functions: "join (inequality), Window, row_number, col, desc" },
+      description:
+        "Given `events` (`event_id`, `product_id`, `event_ts`) and a `rules` price table (`product_id`, `effective_ts`, `price`) where each product accumulates rule versions over time, attach to every event the rule that was **in effect at that event's timestamp** — the latest rule for that product with `effective_ts <= event_ts`. Show the correct **as-of join**: an inequality (range) join on `product_id AND rules.effective_ts <= events.event_ts`, then `row_number()` to keep the single most-recent applicable rule per event. Explain why a plain equi-join on timestamp finds nothing.",
+      examples: [
+        {
+          input: "rules for p1: (effective_ts=2026-01-01, price=10), (2026-06-01, price=12). event: (e9, p1, event_ts=2026-07-15).",
+          output: "e9 gets price=12: both rules have effective_ts <= 2026-07-15, and 2026-06-01 is the latest of those, so the rule in effect on 2026-07-15 is price=12.",
+          reasoning: "The range join keeps both candidate rules (each effective on/before the event); row_number ordered by effective_ts desc picks the most recent one (2026-06-01), which is the rule actually in force at the event time."
+        }
+      ],
+      approaches: [
+        {
+          name: "inequality join (effective_ts <= event_ts) then row_number desc to keep the latest applicable rule",
+          whenToUse: "Point-in-time enrichment: price/FX/config/feature-flag as-of an event, temporal dimension lookups, 'what was the value at the time this happened'.",
+          logic:
+            "**What it asks.** For each event, find the rule row whose `effective_ts` is the greatest value still `<= event_ts` for that product — the version live at the event's moment.\n\n" +
+            "**Key Idea.** This is an **as-of join**, and it is fundamentally a **range** (inequality) join, not an equi-join: you match on `product_id` **and** the inequality `rules.effective_ts <= events.event_ts`, which yields *every* rule effective on or before the event. That produces multiple candidates per event, so a `row_number()` window `partitionBy(event_id).orderBy(effective_ts desc)` keeps `rn == 1` — the most recent applicable rule. A plain equi-join `on event_ts == effective_ts` matches only when an event happens to land exactly on a rule's effective instant, so it finds essentially nothing.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Range-join events to all rules effective on/before each event: join on `product_id` and `rules.effective_ts <= events.event_ts`.\n" +
+            "2. Rank candidates per event by recency: `w = Window.partitionBy('event_id').orderBy(col('effective_ts').desc())`.\n" +
+            "3. Keep the latest applicable rule: `withColumn('rn', row_number().over(w)).filter(col('rn') == 1)`.\n" +
+            "4. Project the event columns plus the resolved `price` (and drop `rn`).\n" +
+            "5. Use a **left** range join if events with no prior rule must survive (their `price` stays null) instead of being dropped by the inner join.\n\n" +
+            "**Why it works.** The inequality predicate turns 'the rule in effect' into 'all rules effective on or before the event, then take the newest', which is exactly the temporal semantics. `row_number()` (strict, one winner) over `effective_ts` descending selects that newest rule deterministically per event. An equi-join cannot express 'the latest one at or before' because equality only sees an exact timestamp collision; the correct formulation needs the `<=` plus a max-by, which the window supplies.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- A naive equi-join on the timestamp is the classic wrong answer — it requires an exact instant match and returns almost no rows.\n" +
+            "- The `<=` is a **range join**: without a bucketing/`range_join` hint it can be O(events x rules) per product — pre-filter, and partition/broadcast the smaller `rules` side.\n" +
+            "- Order by `effective_ts` **desc** and take `rn = 1`; ordering asc (or using `rank`) picks the wrong or multiple rules.\n" +
+            "- Add a tiebreaker (e.g. a version/sequence column) if two rules share an `effective_ts`, so exactly one wins.\n" +
+            "- Use a **left** join if unmatched events must be retained; an inner join silently drops events that predate every rule.\n\n" +
+            "**Interview mindset.** 'As-of join = inequality join (`effective_ts <= event_ts`) then `row_number` desc, keep rn=1'. Lead with why the equi-join fails, then mention range-join cost and the left-join-to-keep-unmatched option.",
+          rcs:
+            "from pyspark.sql.window import Window\n" +
+            "from pyspark.sql.functions import col, row_number\n" +
+            "\n" +
+            "# 1) RANGE join: every rule effective on/before the event (per product).\n" +
+            "#    A plain equi-join on event_ts == effective_ts would match almost nothing.\n" +
+            "candidates = (events.alias('e')\n" +
+            "    .join(rules.alias('r'),\n" +
+            "          (col('e.product_id') == col('r.product_id')) &\n" +
+            "          (col('r.effective_ts') <= col('e.event_ts')),          # inequality = as-of\n" +
+            "          'left'))                                               # keep events with no prior rule\n" +
+            "\n" +
+            "# 2) Keep only the LATEST applicable rule per event.\n" +
+            "w = Window.partitionBy('e.event_id').orderBy(col('r.effective_ts').desc())\n" +
+            "asof = (candidates\n" +
+            "    .withColumn('rn', row_number().over(w))                      # newest effective rule = rn 1\n" +
+            "    .filter(col('rn') == 1)\n" +
+            "    .select(col('e.event_id'), col('e.product_id'),\n" +
+            "            col('e.event_ts'), col('r.price'))\n" +
+            "    .drop('rn'))\n" +
+            "asof.show()",
+          plain:
+            "from pyspark.sql.window import Window\n" +
+            "from pyspark.sql.functions import col, row_number\n" +
+            "\n" +
+            "candidates = (events.alias('e')\n" +
+            "    .join(rules.alias('r'),\n" +
+            "          (col('e.product_id') == col('r.product_id')) &\n" +
+            "          (col('r.effective_ts') <= col('e.event_ts')),\n" +
+            "          'left'))\n" +
+            "\n" +
+            "w = Window.partitionBy('e.event_id').orderBy(col('r.effective_ts').desc())\n" +
+            "asof = (candidates\n" +
+            "    .withColumn('rn', row_number().over(w))\n" +
+            "    .filter(col('rn') == 1)\n" +
+            "    .select(col('e.event_id'), col('e.product_id'),\n" +
+            "            col('e.event_ts'), col('r.price'))\n" +
+            "    .drop('rn'))\n" +
+            "asof.show()"
+        }
+      ],
+      sparkInternals:
+        "The cost lives in the **inequality join**. Spark has no hash-equality key for `effective_ts <= event_ts`, so the equi-part (`product_id`) is used to co-partition, but within each product bucket the `<=` degenerates toward a **nested-loop / range** comparison — potentially O(events x rules) per product. The physical operator is typically a `BroadcastNestedLoopJoin` when `rules` is small enough to broadcast (the good case — no shuffle of the big `events` side), or a `SortMergeJoin` on `product_id` with the range predicate evaluated as a residual filter otherwise. Because the fan-out can be large before the `row_number` prunes it, the practical tactics are: **broadcast the smaller `rules` side**, ensure `product_id` is present so the join is not a full cross product, and enable the **range-join optimization** (bucketing on the time dimension) where available so Spark only compares nearby intervals. The `row_number()` step is a standard **wide** window: an `Exchange hashpartitioning(event_id)` and a per-partition sort by `effective_ts` desc to pick `rn = 1`. Deduping to the latest rule after the range join is what makes the result one row per event; doing the same with a correlated max-subquery would re-scan `rules` per event and is strictly worse.",
+      sparkSql:
+        "WITH candidates AS (\n" +
+        "  SELECT e.event_id, e.product_id, e.event_ts, r.effective_ts, r.price,\n" +
+        "         ROW_NUMBER() OVER (\n" +
+        "           PARTITION BY e.event_id ORDER BY r.effective_ts DESC\n" +
+        "         ) AS rn\n" +
+        "  FROM events e\n" +
+        "  LEFT JOIN rules r\n" +
+        "    ON e.product_id = r.product_id\n" +
+        "   AND r.effective_ts <= e.event_ts\n" +
+        ")\n" +
+        "SELECT event_id, product_id, event_ts, price\n" +
+        "FROM candidates\n" +
+        "WHERE rn = 1;",
+      recognizeRecall: [
+        "**Spot it:** 'rule/price in effect at the time', 'as-of join', 'point-in-time', 'latest effective before the event', temporal lookup.",
+        "**Say it:** inequality join on `effective_ts <= event_ts` (plus key), then `row_number()` desc, keep rn=1; left join to retain unmatched events.",
+        "**Trap:** an equi-join on the timestamp matches nothing; the `<=` is a costly range join (broadcast the small side); order desc + rn=1, add a tiebreaker."
+      ]
     }
 
   ]);

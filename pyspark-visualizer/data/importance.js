@@ -43,7 +43,9 @@
     // End-to-End Challenges (Q152, Q153, Q155-Q160)
     152: "common", 153: "common", 155: "essential", 156: "essential", 157: "common",
     158: "common", 159: "common", 160: "essential",
-    // Advanced Patterns (synthetic ids 201-205: pivot, regex, SCD2, CDC, retention)
-    201: "common", 202: "common", 203: "essential", 204: "common", 205: "essential"
+    // Advanced Patterns (synthetic ids 201-208: pivot, regex, SCD2, CDC, retention,
+    // broken-pipeline debug, AQE, as-of/point-in-time join)
+    201: "common", 202: "common", 203: "essential", 204: "common", 205: "essential",
+    206: "common", 207: "common", 208: "common"
   };
 })();
