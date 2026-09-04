@@ -91,3 +91,99 @@
 .welcome-title { font-weight: 700; color: var(--text-primary); margin-bottom: var(--space-3); }
 .welcome-tips { margin: 0 0 var(--space-4); padding-left: var(--space-5); color: var(--text-secondary); font-size: var(--text-sm); display: flex; flex-direction: column; gap: var(--space-2); }
 @media (hover: none) { .welcome-tips li:first-child { display: none; } }
+
+/* ── Collapsible sidebar sections (nav-collapse.js) ─────────── */
+.sidebar-toggle-btn {
+  width: 100%; display: flex; align-items: center; gap: 6px;
+  background: none; border: none; cursor: pointer; font: inherit; text-align: left;
+}
+.sidebar-chevron { font-size: 0.7em; transition: transform var(--ease-base); color: var(--text-muted); }
+.sidebar-section:not(.collapsed) .sidebar-chevron { transform: rotate(90deg); }
+.nav-collapse { display: grid; grid-template-rows: 1fr; transition: grid-template-rows var(--ease-in-out); }
+.sidebar-section.collapsed .nav-collapse { grid-template-rows: 0fr; }
+.nav-collapse-inner { overflow: hidden; min-height: 0; }
+.nav-toolbar { display: flex; gap: 6px; padding: var(--space-2) var(--space-4) var(--space-3); }
+.nav-search {
+  flex: 1; min-width: 0; padding: 6px 10px; background: var(--bg-2);
+  border: 1px solid var(--border-default); border-radius: var(--radius-sm);
+  color: var(--text-primary); font-size: 0.8rem; font-family: inherit;
+}
+.nav-search:focus { outline: none; border-color: var(--airflow); }
+.nav-allbtn { flex: none; }
+
+/* ── Test Yourself (test-yourself.js) ───────────────────────── */
+.ty-section { border-top: 1px solid var(--border-default); margin-top: var(--space-10); padding-top: var(--space-6); }
+.ty-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-4); flex-wrap: wrap; gap: var(--space-2); }
+.ty-badge { font-size: var(--text-sm); font-weight: 700; color: var(--green); background: var(--green-subtle); border-radius: var(--radius-full); padding: 4px 12px; }
+.ty-best { font-size: var(--text-xs); color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.ty-body { max-width: 720px; }
+.ty-progress { font-size: var(--text-xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: var(--space-3); }
+.ty-diff { padding: 1px 8px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.68rem; }
+.ty-easy { color: var(--green); background: var(--green-subtle); }
+.ty-med { color: var(--yellow); background: var(--yellow-subtle); }
+.ty-hard { color: var(--red); background: var(--red-subtle); }
+.ty-q { font-size: 1.02rem; font-weight: 700; color: var(--text-primary); margin-bottom: var(--space-4); line-height: 1.45; }
+.ty-options { display: flex; flex-direction: column; gap: var(--space-2); }
+.ty-option {
+  display: flex; align-items: center; gap: var(--space-3); text-align: left; cursor: pointer;
+  padding: var(--space-3) var(--space-4); border: 1px solid var(--border-default);
+  border-radius: var(--radius-md); background: var(--bg-1); color: var(--text-primary);
+  font-family: inherit; font-size: var(--text-sm); transition: border-color var(--ease-base), background var(--ease-base);
+}
+.ty-option:hover:not(:disabled) { border-color: var(--airflow); background: var(--airflow-subtle); }
+.ty-key { flex: none; width: 24px; height: 24px; display: grid; place-items: center; border-radius: var(--radius-sm); background: var(--bg-3); color: var(--text-muted); font-weight: 700; font-size: var(--text-xs); }
+.ty-option.ty-correct { border-color: var(--green); background: var(--green-subtle); }
+.ty-option.ty-correct .ty-key { background: var(--green); color: var(--text-on-accent); }
+.ty-option.ty-wrong { border-color: var(--red); background: var(--red-subtle); }
+.ty-option.ty-wrong .ty-key { background: var(--red); color: var(--text-on-accent); }
+.ty-fb { margin-top: var(--space-4); padding: var(--space-4); border-radius: var(--radius-md); border: 1px solid var(--border-default); font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.55; }
+.ty-fb-right { border-color: var(--green); background: var(--green-subtle); }
+.ty-fb-wrong { border-color: var(--red); background: var(--red-subtle); }
+.ty-fb b { display: block; margin-bottom: 4px; color: var(--text-primary); }
+.ty-next, .ty-retry { margin-top: var(--space-4); }
+.ty-result { text-align: center; padding: var(--space-4) 0; }
+.ty-score { font-size: 2.4rem; font-weight: 800; }
+.ty-pct { color: var(--text-secondary); margin: var(--space-2) 0 var(--space-4); font-size: var(--text-sm); }
+
+/* ── Study Deck (study.js) ──────────────────────────────────── */
+.study-toolbar { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; margin-bottom: var(--space-5); }
+.study-search { flex: 1; min-width: 220px; padding: var(--space-3) var(--space-4); background: var(--bg-2); border: 1px solid var(--border-default); border-radius: var(--radius-md); color: var(--text-primary); font-size: var(--text-sm); font-family: inherit; }
+.study-search:focus, .study-select:focus { outline: none; border-color: var(--airflow); }
+.study-select { padding: var(--space-3) var(--space-3); background: var(--bg-2); border: 1px solid var(--border-default); border-radius: var(--radius-md); color: var(--text-primary); font-size: var(--text-sm); font-family: inherit; }
+.study-count { font-size: var(--text-xs); color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.study-list { display: flex; flex-direction: column; gap: var(--space-2); }
+.study-card { border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-2); overflow: hidden; }
+.study-card.open { border-color: var(--airflow); }
+.study-q { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-4); background: transparent; border: none; cursor: pointer; text-align: left; color: var(--text-primary); font-family: inherit; font-size: var(--text-sm); font-weight: 600; }
+.study-q:hover { background: var(--bg-3); }
+.study-q-text { flex: 1; }
+.study-tags { display: flex; align-items: center; gap: var(--space-2); flex: none; }
+.study-mod-tag { font-size: 0.68rem; color: var(--text-muted); border: 1px solid var(--border-muted); border-radius: var(--radius-full); padding: 1px 8px; white-space: nowrap; }
+.study-a { padding: 0 var(--space-4) var(--space-4); }
+.study-answer { color: var(--green); font-size: var(--text-sm); margin-bottom: var(--space-2); }
+.study-a p { font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.55; }
+.study-empty { text-align: center; color: var(--text-muted); padding: var(--space-8); font-size: var(--text-sm); }
+
+/* ── Cheat Sheet (cheat-sheet.js) ───────────────────────────── */
+.cheat-print { margin-left: var(--space-3); font-size: var(--text-sm); padding: 6px 14px; }
+.cheat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: var(--space-5); }
+.cheat-card { border: 1px solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-2); padding: var(--space-5); break-inside: avoid; }
+.cheat-card-title { font-size: 1rem; font-weight: 700; color: var(--airflow-bright); margin-bottom: var(--space-3); }
+.cheat-dl { display: grid; grid-template-columns: auto 1fr; gap: var(--space-2) var(--space-3); margin: 0; }
+.cheat-dl dt { margin: 0; }
+.cheat-dl dt code { font-size: 0.74rem; color: var(--text-primary); background: var(--bg-1); white-space: nowrap; }
+.cheat-dl dd { margin: 0; font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.4; }
+
+/* ── Print: strip chrome, show only the sheet ──────────────── */
+@media print {
+  #topbar, #sidebar, .sidebar-backdrop, .module-pager, .lens-section, .ty-section,
+  .anim-controls, .arch-controls, .welcome-pop, .toast-host, #tooltip, .cheat-noprint .btn,
+  .nav-toolbar, .nav-progress { display: none !important; }
+  #app, .app-body, .canvas, .module-container { display: block !important; height: auto !important; max-width: none !important; overflow: visible !important; }
+  body { background: #fff; }
+  .cheat-card { border: 1px solid #bbb; background: #fff; }
+  .cheat-card-title { color: #017CEE; }
+  .cheat-dl dt code { background: #f2f4f8; color: #111; }
+  .cheat-dl dd, .module-subtitle, .module-title { color: #111 !important; }
+  .cheat-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
+}

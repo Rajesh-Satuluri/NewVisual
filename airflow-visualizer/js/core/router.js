@@ -119,6 +119,9 @@
     if (AV.BusinessLens) {
       try { AV.BusinessLens.append(c, mod.id); } catch (e) { console.error("BusinessLens error:", e); }
     }
+    if (AV.TestYourself) {
+      try { AV.TestYourself.append(c, mod.id); } catch (e) { console.error("TestYourself error:", e); }
+    }
     this.current = mod;
     // Fires after render (engine present) so features can restore a deep-linked step.
     try { window.dispatchEvent(new CustomEvent("afviz:mounted", { detail: { id: mod.id } })); } catch (e) {}

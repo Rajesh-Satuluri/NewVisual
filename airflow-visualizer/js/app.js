@@ -49,7 +49,9 @@
     quiz: { title: "Quiz", ready: true },
     glossary: { title: "Glossary", ready: true },
     "event-simulator": { title: "Event Simulator", ready: true },
-    "master-map": { title: "Master Concept Map", ready: true }
+    "master-map": { title: "Master Concept Map", ready: true },
+    study: { title: "Study Deck", ready: true },
+    "cheat-sheet": { title: "Cheat Sheet", ready: true }
   };
   AV.routes = ROUTES;
 
@@ -137,7 +139,10 @@
     syncNav: function (id) {
       var links = document.querySelectorAll("[data-route]");
       links.forEach(function (el) {
-        el.classList.toggle("active", el.getAttribute("data-route") === id);
+        var match = el.getAttribute("data-route") === id;
+        el.classList.toggle("active", match);
+        if (match) el.setAttribute("aria-current", "page");
+        else el.removeAttribute("aria-current");
       });
       var route = ROUTES[id];
       document.title = (route && route.title ? route.title + " · " : "") + "Apache Airflow Visualizer";
