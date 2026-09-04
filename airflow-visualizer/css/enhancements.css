@@ -1,0 +1,93 @@
+/* ============================================================
+   enhancements.css — UX feature styles (loaded last)
+   toast · command palette · progress meter · pager · welcome
+   ============================================================ */
+
+/* ── Toasts ─────────────────────────────────────────────────── */
+.toast-host {
+  position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);
+  display: flex; flex-direction: column; gap: var(--space-2);
+  z-index: var(--z-notification); pointer-events: none;
+}
+.toast {
+  background: var(--bg-4); color: var(--text-primary);
+  border: 1px solid var(--border-emphasis); border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-5); font-size: var(--text-sm);
+  box-shadow: var(--shadow-lg); opacity: 0; transform: translateY(10px);
+  transition: opacity var(--ease-base), transform var(--ease-base); max-width: 90vw;
+}
+.toast.show { opacity: 1; transform: none; }
+
+/* ── Command palette (⌘K) ───────────────────────────────────── */
+.cmdk-overlay {
+  position: fixed; inset: 0; z-index: var(--z-modal);
+  background: rgba(0, 0, 0, 0.55); backdrop-filter: blur(2px);
+  display: flex; align-items: flex-start; justify-content: center; padding-top: 12vh;
+}
+.cmdk-box {
+  width: min(560px, 92vw); background: var(--bg-2);
+  border: 1px solid var(--border-emphasis); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl); overflow: hidden; display: flex; flex-direction: column;
+}
+.cmdk-input {
+  border: none; outline: none; background: transparent; color: var(--text-primary);
+  font-size: 1rem; font-family: inherit; padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border-default);
+}
+.cmdk-list { list-style: none; margin: 0; padding: var(--space-2); max-height: 52vh; overflow-y: auto; }
+.cmdk-item {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
+  padding: var(--space-3) var(--space-3); border-radius: var(--radius-sm); cursor: pointer;
+}
+.cmdk-item.active { background: var(--airflow-subtle); }
+.cmdk-title { color: var(--text-primary); font-size: var(--text-sm); }
+.cmdk-id { color: var(--text-muted); font-family: var(--font-mono); font-size: 0.75rem; }
+.cmdk-empty { padding: var(--space-4); color: var(--text-muted); font-size: var(--text-sm); text-align: center; }
+.cmdk-foot { padding: var(--space-2) var(--space-5); border-top: 1px solid var(--border-default); color: var(--text-muted); font-size: 0.72rem; }
+.cmdk-foot kbd, .welcome-tips kbd {
+  font-family: var(--font-mono); background: var(--bg-4); border: 1px solid var(--border-muted);
+  border-radius: var(--radius-xs); padding: 1px 5px; font-size: 0.7rem;
+}
+
+/* ── Sidebar progress meter + visited checkmarks ────────────── */
+.nav-progress { padding: var(--space-3) var(--space-4) var(--space-2); }
+.nav-progress-top { display: flex; justify-content: space-between; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); font-weight: 700; margin-bottom: 6px; }
+.nav-progress-bar { height: 5px; background: var(--bg-4); border-radius: var(--radius-full); overflow: hidden; }
+.nav-progress-fill { height: 100%; width: 0; background: linear-gradient(90deg, var(--airflow), var(--cyan)); border-radius: var(--radius-full); transition: width var(--ease-slow); }
+.sidebar-link.visited { position: relative; }
+.sidebar-link.visited::after {
+  content: "✓"; margin-left: auto; padding-left: var(--space-2);
+  color: var(--green); font-size: 0.7rem; font-weight: 700;
+}
+.sidebar-link { display: flex; align-items: center; }
+
+/* ── Prev / Next pager ──────────────────────────────────────── */
+.module-pager {
+  display: flex; justify-content: space-between; gap: var(--space-4);
+  margin: var(--space-12) 0 var(--space-6); padding-top: var(--space-5);
+  border-top: 1px solid var(--border-default);
+}
+.pager-btn {
+  display: flex; flex-direction: column; gap: 2px; text-decoration: none;
+  padding: var(--space-3) var(--space-4); border: 1px solid var(--border-default);
+  border-radius: var(--radius-md); background: var(--bg-2); min-width: 0; max-width: 48%;
+  transition: border-color var(--ease-base), transform var(--ease-base);
+}
+.pager-btn.next { text-align: right; margin-left: auto; }
+.pager-btn.empty { border: none; background: none; }
+.pager-btn:hover { border-color: var(--airflow); }
+.pager-dir { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-weight: 700; }
+.pager-name { color: var(--text-primary); font-size: var(--text-sm); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── First-run welcome popover ──────────────────────────────── */
+.welcome-pop {
+  position: fixed; right: 24px; bottom: 24px; z-index: var(--z-notification);
+  width: min(340px, 90vw); background: var(--bg-2);
+  border: 1px solid var(--border-emphasis); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl); padding: var(--space-5);
+  opacity: 0; transform: translateY(12px); transition: opacity var(--ease-base), transform var(--ease-base);
+}
+.welcome-pop.show { opacity: 1; transform: none; }
+.welcome-title { font-weight: 700; color: var(--text-primary); margin-bottom: var(--space-3); }
+.welcome-tips { margin: 0 0 var(--space-4); padding-left: var(--space-5); color: var(--text-secondary); font-size: var(--text-sm); display: flex; flex-direction: column; gap: var(--space-2); }
+@media (hover: none) { .welcome-tips li:first-child { display: none; } }

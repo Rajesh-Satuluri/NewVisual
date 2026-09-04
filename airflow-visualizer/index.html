@@ -2,15 +2,42 @@
 <html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+  <!-- No-flash theme: apply the saved theme before first paint. -->
+  <script>try{var t=localStorage.getItem('afviz-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+
   <title>Apache Airflow Visualizer</title>
   <meta name="description" content="Interactive Apache Airflow internals — architecture, execution, debugging, and interview prep for data engineers." />
+  <meta name="theme-color" content="#0b0f1a" />
 
-  <!-- CSS load order -->
+  <!-- Icons + PWA -->
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon-180.png" />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="AirflowViz" />
+
+  <!-- Social cards -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Apache Airflow Visualizer" />
+  <meta property="og:description" content="Airflow internals from the inside out — architecture, scheduling, execution, failures, and interview prep." />
+  <meta property="og:url" content="https://rajesh-satuluri.github.io/NewVisual/airflow-visualizer/" />
+  <meta property="og:image" content="https://rajesh-satuluri.github.io/NewVisual/airflow-visualizer/assets/og-card.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Apache Airflow Visualizer" />
+  <meta name="twitter:description" content="Airflow internals from the inside out — architecture, scheduling, execution, failures, and interview prep." />
+  <meta name="twitter:image" content="https://rajesh-satuluri.github.io/NewVisual/airflow-visualizer/assets/og-card.png" />
+
+  <!-- CSS load order (responsive + enhancements load last so they win by cascade) -->
   <link rel="stylesheet" href="css/main.css" />
   <link rel="stylesheet" href="css/layout.css" />
   <link rel="stylesheet" href="css/components.css" />
   <link rel="stylesheet" href="css/animations.css" />
+  <link rel="stylesheet" href="css/responsive.css" />
+  <link rel="stylesheet" href="css/enhancements.css" />
 </head>
 <body>
 
@@ -205,8 +232,16 @@
   <!-- Data -->
   <script src="js/data/shopkart-data.js"></script>
   <script src="js/data/airflow-concepts.js"></script>
-  <!-- Upcoming: interview-questions.js, scenarios.js -->
+
+  <!-- Navigation sync loads before app so "resume last route" pre-empts routing -->
+  <script src="js/features/navigation-sync.js"></script>
 
   <script src="js/app.js"></script>
+
+  <!-- UX features (wire through the afviz:navigate / afviz:mounted bus) -->
+  <script src="js/features/responsive.js"></script>
+  <script src="js/features/toast.js"></script>
+  <script src="js/features/command-palette.js"></script>
+  <script src="js/features/ux.js"></script>
 </body>
 </html>

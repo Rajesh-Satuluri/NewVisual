@@ -153,6 +153,7 @@
         defaultRoute: "home",
         onRoute: function (id) { self.syncNav(id); }
       });
+      AV.router = this.router; // exposed for feature modules
       this.router.start();
     },
 

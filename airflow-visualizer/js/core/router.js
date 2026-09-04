@@ -51,7 +51,20 @@
 
   Router.prototype._id = function () {
     var raw = (location.hash || "").replace(/^#/, "").trim();
-    return raw || this.defaultRoute;
+    var base = raw.split("/")[0];
+    return base || this.defaultRoute;
+  };
+
+  // Optional step segment: "#architecture/5" → 5 (else null).
+  Router.prototype._step = function () {
+    var raw = (location.hash || "").replace(/^#/, "").trim();
+    var parts = raw.split("/");
+    if (parts.length > 1) { var n = parseInt(parts[1], 10); return isNaN(n) ? null : n; }
+    return null;
+  };
+
+  Router.prototype._emitNav = function (id) {
+    try { window.dispatchEvent(new CustomEvent("afviz:navigate", { detail: { id: id } })); } catch (e) {}
   };
 
   Router.prototype._teardown = function () {
@@ -66,8 +79,15 @@
   Router.prototype._onHash = function () {
     var self = this;
     var id = this._id();
+
+    // Same route, only the step segment changed → keep the module mounted
+    // (deep-linkable animation step is handled by the navigation-sync feature).
+    if (id === this.currentId && this.current) return;
+
+    this.currentId = id;
     this._teardown();
     this.onRoute(id);
+    this._emitNav(id);
 
     var route = this.routes[id];
 
@@ -100,6 +120,8 @@
       try { AV.BusinessLens.append(c, mod.id); } catch (e) { console.error("BusinessLens error:", e); }
     }
     this.current = mod;
+    // Fires after render (engine present) so features can restore a deep-linked step.
+    try { window.dispatchEvent(new CustomEvent("afviz:mounted", { detail: { id: mod.id } })); } catch (e) {}
   };
 
   // ── Fallback screens ──────────────────────────────────────
