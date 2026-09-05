@@ -287,7 +287,8 @@
   function updateToggleAllIcon() {
     var btn = el("toggleAll"); if (!btn) return;
     var allCollapsed = toggleAllAllCollapsed();
-    btn.textContent = allCollapsed ? "▸" : "▾";
+    btn.textContent = "▾";                                  // single caret; CSS rotates it
+    btn.classList.toggle("collapsed", !!allCollapsed);
     btn.title = allCollapsed ? "Expand all categories" : "Collapse all categories";
     btn.setAttribute("aria-label", btn.title);
   }
@@ -1575,6 +1576,9 @@
         store.setPref("sidebarCollapsed", collapsed);
       }
     });
+    // tapping the scrim (or a nav item) closes the mobile drawer
+    var scrim = el("drawerScrim");
+    if (scrim) scrim.addEventListener("click", function () { document.body.classList.remove("sidebar-open"); });
 
     // keyboard nav
     document.addEventListener("keydown", function (e) {

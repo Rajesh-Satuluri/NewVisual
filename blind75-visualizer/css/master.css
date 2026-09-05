@@ -312,3 +312,25 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 /* Slim per-category progress bar in the sidebar */
 .cat-prog { height: 3px; border-radius: 2px; background: var(--bg-3); margin: 0 12px 6px; overflow: hidden; }
 .cat-prog > i { display: block; height: 100%; background: var(--brand); border-radius: 2px; transition: width var(--dur) var(--ease); }
+
+/* ============================================================= */
+/* Buttery animations — hamburger morph + expand/collapse caret   */
+/* ============================================================= */
+/* 3-bar hamburger that morphs to an X when the mobile drawer is open */
+.ham { display: inline-block; position: relative; width: 18px; height: 14px; vertical-align: middle; }
+.ham i { position: absolute; left: 0; right: 0; height: 2px; border-radius: 2px; background: currentColor;
+  transition: transform var(--dur) var(--ease-cat), opacity var(--dur-fast) var(--ease), top var(--dur) var(--ease-cat); }
+.ham i:nth-child(1) { top: 0; }
+.ham i:nth-child(2) { top: 6px; }
+.ham i:nth-child(3) { top: 12px; }
+body.sidebar-open .ham i:nth-child(1) { top: 6px; transform: rotate(45deg); }
+body.sidebar-open .ham i:nth-child(2) { opacity: 0; transform: scaleX(.4); }
+body.sidebar-open .ham i:nth-child(3) { top: 6px; transform: rotate(-45deg); }
+#menuBtn:active .ham { transform: scale(.9); transition: transform var(--dur-fast) var(--ease); }
+
+/* Expand/collapse-all: rotate a single caret instead of swapping the glyph */
+#toggleAll { transition: transform var(--dur) var(--ease-cat), color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease); }
+#toggleAll.collapsed { transform: rotate(-90deg); }
+
+/* GPU hint so category height animations stay smooth on long sidebars */
+.cat-list-outer { will-change: height; }
