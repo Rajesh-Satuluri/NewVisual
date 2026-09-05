@@ -327,6 +327,8 @@
         updateToggleAllIcon();
       });
       block.appendChild(header);
+      var pctCat = matching.length ? Math.round((solvedInCat / matching.length) * 100) : 0;
+      block.appendChild(h("div", { class: "cat-prog" }, '<i style="width:' + pctCat + '%"></i>'));
 
       var outer = h("div", { class: "cat-list-outer" });
       if (collapsed) outer.style.height = "0px"; // start closed with no animation
@@ -1512,6 +1514,31 @@
     var scBtn = el("shortcutsBtn");
     if (scBtn) scBtn.addEventListener("click", openShortcuts);
 
+    // settings popover (⋯) — declutters the toolbar
+    var settingsBtn = el("settingsBtn"), settingsMenu = el("settingsMenu");
+    function closeSettings() { if (!settingsMenu) return; settingsMenu.classList.add("hidden"); settingsBtn.setAttribute("aria-expanded", "false"); }
+    function toggleSettings() {
+      if (!settingsMenu) return;
+      var open = settingsMenu.classList.toggle("hidden") === false;
+      settingsBtn.setAttribute("aria-expanded", open ? "true" : "false");
+    }
+    if (settingsBtn) settingsBtn.addEventListener("click", function (e) { e.stopPropagation(); toggleSettings(); });
+    if (settingsMenu) {
+      settingsMenu.addEventListener("click", function (e) {
+        // clicks on an actionable item close the menu (import stays open only via file dialog)
+        if (e.target.closest(".menu-item")) closeSettings();
+      });
+    }
+    document.addEventListener("click", function (e) {
+      if (settingsMenu && !settingsMenu.classList.contains("hidden") &&
+          !settingsMenu.contains(e.target) && e.target !== settingsBtn) closeSettings();
+    });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeSettings(); });
+    var scMenuBtn = el("scMenuBtn");
+    if (scMenuBtn) scMenuBtn.addEventListener("click", openShortcuts);
+    var welcomeBtn = el("welcomeBtn");
+    if (welcomeBtn) welcomeBtn.addEventListener("click", function () { if (window.ONBOARD) window.ONBOARD.open(); });
+
     // export / import / reset
     el("exportBtn").addEventListener("click", function () {
       var blob = new Blob([store.exportJSON()], { type: "application/json" });
@@ -1565,6 +1592,17 @@
         return;
       }
       if (e.key === "g" || e.key === "G") { e.preventDefault(); goMode(state.mode === "learn" ? "practice" : "learn"); return; }
+      // [ / ] step through problems in any Practice view
+      if ((e.key === "[" || e.key === "]") && state.mode === "practice") {
+        var d = e.key === "]" ? 1 : -1;
+        if (state.stack !== "python") {
+          if (window.ProblemLab) { e.preventDefault(); d > 0 ? window.ProblemLab.next() : window.ProblemLab.prev(); }
+          return;
+        }
+        var pi = ALL.findIndex(function (x) { return x.id === state.currentId; });
+        if (ALL[pi + d]) { e.preventDefault(); navigate("#" + ALL[pi + d].id); }
+        return;
+      }
       if (!(state.stack === "python" && state.mode === "practice")) return; // remaining shortcuts are DSA-only
       var idx = ALL.findIndex(function (x) { return x.id === state.currentId; });
       if (e.key === "j" || e.key === "ArrowDown") { if (ALL[idx + 1]) { e.preventDefault(); navigate("#" + ALL[idx + 1].id); } }
@@ -1622,7 +1660,7 @@
 
   function applyTheme(theme) {
     document.documentElement.setAttribute("data-theme", theme);
-    el("themeBtn").innerHTML = theme === "dark" ? '☀ <span class="btx">Light</span>' : '☾ <span class="btx">Dark</span>';
+    el("themeBtn").textContent = theme === "dark" ? "☀ Light theme" : "☾ Dark theme";
   }
 
   // ============================================================= WORKSPACE / ROUTER

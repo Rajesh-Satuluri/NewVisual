@@ -39,12 +39,21 @@
       <button id="rosettaBtn" class="ghost-btn" title="Same task in SQL / Pandas / PySpark / Python" aria-label="Rosetta — same task in every dialect">🔀 <span class="btx">Rosetta</span></button>
       <button id="dashBtn" class="ghost-btn" title="Progress dashboard" aria-label="Progress dashboard">📊 <span class="btx">Dashboard</span></button>
       <button id="gridBtn" class="ghost-btn" title="Revision grid" aria-label="Revision grid">▦ <span class="btx">Revision grid</span></button>
-      <button id="exportBtn" class="ghost-btn" title="Download progress as JSON" aria-label="Export progress as JSON">↓ <span class="btx">Export</span></button>
-      <button id="importBtn" class="ghost-btn" title="Import progress JSON" aria-label="Import progress from JSON">↑ <span class="btx">Import</span></button>
-      <input id="importFile" type="file" accept="application/json" hidden />
-      <button id="resetBtn" class="ghost-btn danger" title="Reset all progress" aria-label="Reset all progress">⟳ <span class="btx">Reset</span></button>
-      <button id="themeBtn" class="ghost-btn" title="Toggle light / dark theme" aria-label="Toggle light or dark theme">☀ <span class="btx">Light</span></button>
-      <a class="ghost-btn" href="../index.html" title="Back to NewVisual labs" aria-label="Back to NewVisual labs">⌂ <span class="btx">Labs</span></a>
+      <div class="menu-wrap">
+        <button id="settingsBtn" class="ghost-btn" title="More" aria-label="More options" aria-haspopup="true" aria-expanded="false">⋯</button>
+        <div id="settingsMenu" class="menu-pop hidden" role="menu" aria-label="Settings">
+          <button id="themeBtn" class="menu-item" role="menuitem" title="Toggle light / dark theme">☀ Light theme</button>
+          <button id="scMenuBtn" class="menu-item" role="menuitem">⌨ Keyboard shortcuts</button>
+          <button id="welcomeBtn" class="menu-item" role="menuitem">👋 Replay welcome</button>
+          <div class="menu-sep"></div>
+          <button id="exportBtn" class="menu-item" role="menuitem">↓ Export progress</button>
+          <button id="importBtn" class="menu-item" role="menuitem">↑ Import progress</button>
+          <input id="importFile" type="file" accept="application/json" hidden />
+          <button id="resetBtn" class="menu-item danger" role="menuitem">⟳ Reset progress</button>
+          <div class="menu-sep"></div>
+          <a class="menu-item" href="../index.html" role="menuitem">⌂ Back to Labs</a>
+        </div>
+      </div>
     </div>
   </header>
 

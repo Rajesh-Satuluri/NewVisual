@@ -269,3 +269,46 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .onb-btn:hover { border-color: var(--brand); }
 .onb-primary { background: var(--brand); color: #06111f; border-color: transparent; }
 @media (pointer: coarse) { .onb-btn { min-height: 40px; } }
+
+/* ============================================================= */
+/* Tier-1 UX polish — settings menu, resume card, prev/next, sidebar progress */
+/* ============================================================= */
+/* Settings (⋯) popover */
+.menu-wrap { position: relative; display: inline-flex; }
+.menu-pop { position: absolute; top: calc(100% + 6px); right: 0; z-index: 120; min-width: 214px;
+  background: var(--bg-1); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  box-shadow: var(--shadow); padding: 6px; display: flex; flex-direction: column; }
+.menu-pop.hidden { display: none; }
+.menu-item { display: block; width: 100%; text-align: left; background: transparent; border: none;
+  color: var(--text); font: inherit; font-size: 13.5px; padding: 8px 10px; border-radius: 6px; cursor: pointer; text-decoration: none; }
+.menu-item:hover { background: var(--bg-2); text-decoration: none; }
+.menu-item.danger { color: #ff6b6b; }
+.menu-sep { height: 1px; background: var(--border); margin: 5px 2px; }
+@media (pointer: coarse) { .menu-item { min-height: 40px; } }
+
+/* "Continue where you left off" resume card on Learn landings */
+.resume-card { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; cursor: pointer;
+  background: var(--bg-1); border: 1px solid var(--brand); border-radius: var(--radius); padding: 14px 18px;
+  margin: 0 34px 6px; box-sizing: border-box; width: calc(100% - 68px);
+  box-shadow: 0 0 0 3px var(--brand-glow); transition: transform var(--dur-fast) var(--ease); }
+.resume-card:hover { transform: translateY(-2px); }
+.resume-ic { font-size: 22px; flex: 0 0 auto; }
+.resume-tx { flex: 1 1 auto; min-width: 0; }
+.resume-k { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: var(--brand-2); }
+.resume-v { font-size: 15px; font-weight: 700; color: var(--text); margin-top: 2px; }
+.resume-go { flex: 0 0 auto; color: var(--brand-2); font-weight: 700; font-size: 13px; }
+@media (max-width: 900px) { .resume-card { margin: 0 14px 6px; width: calc(100% - 28px); } }
+
+/* Practice prev / next stepper */
+.prob-nav { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 22px; }
+.prob-nav-btn { flex: 1 1 0; background: var(--bg-2); border: 1px solid var(--border); color: var(--text);
+  border-radius: var(--radius-sm); padding: 10px 14px; cursor: pointer; font: inherit; font-size: 13px; text-align: left; }
+.prob-nav-btn:hover:not(:disabled) { border-color: var(--brand); }
+.prob-nav-btn:disabled { opacity: .4; cursor: default; }
+.prob-nav-btn.next { text-align: right; }
+.prob-nav-k { display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); font-weight: 700; }
+.prob-nav-t { display: block; font-weight: 700; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Slim per-category progress bar in the sidebar */
+.cat-prog { height: 3px; border-radius: 2px; background: var(--bg-3); margin: 0 12px 6px; overflow: hidden; }
+.cat-prog > i { display: block; height: 100%; background: var(--brand); border-radius: 2px; transition: width var(--dur) var(--ease); }

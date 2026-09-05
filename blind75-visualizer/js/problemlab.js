@@ -69,6 +69,7 @@
   // ---- state ----
   var cur = { stack: null, id: null };
   var query = "";
+  var warmed = false;   // Pyodide preloaded once for runnable stacks
   var approachIndex = {};   // nsId -> selected approach index
   var fuseCache = {};       // stack -> Fuse
 
@@ -267,6 +268,8 @@
         '<span class="cat-name">' + esc(g.category) + "</span>" +
         '<span class="cat-count">' + solved + "/" + matching.length + "</span>";
       block.appendChild(header);
+      var pctc = matching.length ? Math.round((solved / matching.length) * 100) : 0;
+      block.appendChild(h("div", { class: "cat-prog" }, '<i style="width:' + pctc + '%"></i>'));
       var outer = h("div", { class: "cat-list-outer" });
       if (collapsed) outer.style.height = "0px";
       var list = h("div", { class: "cat-list" });
@@ -555,7 +558,32 @@
     noteWrap.appendChild(ta); noteWrap.appendChild(saveHint);
     main.appendChild(section("notes", "My Notes", noteWrap, { collapsed: true }));
 
+    // prev / next stepper (also driven by [ and ] keys)
+    var list = all(), idx = -1;
+    for (var li = 0; li < list.length; li++) if (list[li].id === cur.id) idx = li;
+    var prevP = idx > 0 ? list[idx - 1] : null;
+    var nextP = (idx >= 0 && idx < list.length - 1) ? list[idx + 1] : null;
+    var navRow = h("div", { class: "prob-nav" });
+    var pb = h("button", { class: "prob-nav-btn prev" },
+      '<span class="prob-nav-k">← Previous</span><span class="prob-nav-t">' + (prevP ? esc(prevP.title) : "—") + "</span>");
+    pb.disabled = !prevP;
+    if (prevP) pb.addEventListener("click", function () { window.BLIND75.goTo("practice", cur.stack, prevP.id); });
+    var nb = h("button", { class: "prob-nav-btn next" },
+      '<span class="prob-nav-k">Next →</span><span class="prob-nav-t">' + (nextP ? esc(nextP.title) : "—") + "</span>");
+    nb.disabled = !nextP;
+    if (nextP) nb.addEventListener("click", function () { window.BLIND75.goTo("practice", cur.stack, nextP.id); });
+    navRow.appendChild(pb); navRow.appendChild(nb);
+    main.appendChild(navRow);
+
     main.scrollTop = 0;
+  }
+
+  // step to the previous/next problem in the full list (keyboard [ / ])
+  function step(delta) {
+    var list = all(), idx = -1;
+    for (var i = 0; i < list.length; i++) if (list[i].id === cur.id) idx = i;
+    var t = list[idx + delta];
+    if (t) window.BLIND75.goTo("practice", cur.stack, t.id);
   }
 
   function humanWhen(dueMs) {
@@ -611,8 +639,17 @@
       cur.id = (id && byId(id)) ? id : list[0].id;
       store.setPref("lastProblem_" + stack, cur.id);
       renderSidebar(); renderProblem(); renderProgress();
+      // warm the Python runtime once, on idle, for runnable stacks (numpy/pandas)
+      if (cfg().runnable && window.PYRUN && !warmed) {
+        warmed = true;
+        (window.requestIdleCallback || function (f) { setTimeout(f, 1500); })(function () {
+          try { var p = window.PYRUN.preload(); if (p && p.catch) p.catch(function () {}); } catch (e) {}  // ignore offline/CDN-blocked
+        });
+      }
     },
     lastId: function (stack) { return store.getPref("lastProblem_" + stack); },
+    next: function () { step(1); },
+    prev: function () { step(-1); },
     onSearch: function (q) { query = q; renderSidebar(); },
     toggleAll: function () {
       var gs = groups();

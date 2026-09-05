@@ -301,6 +301,19 @@
       '<div class="py-ready-txt"><b>' + all.length + '</b> topics live · your readiness across what\'s authored</div></div>';
     main.appendChild(hero);
 
+    // "Continue where you left off"
+    var lastId = store.getPref("lastTopic_" + cur.stack);
+    var lastT = lastId ? LEARN.byId(cur.stack, lastId) : null;
+    if (lastT) {
+      var rc = h("button", { class: "resume-card" });
+      rc.innerHTML = '<span class="resume-ic">▶</span>' +
+        '<span class="resume-tx"><span class="resume-k">Continue where you left off</span>' +
+        '<span class="resume-v">' + esc(lastT.title) + '</span></span>' +
+        '<span class="resume-go">Resume →</span>';
+      rc.addEventListener("click", function () { window.BLIND75.goTo("learn", cur.stack, lastT.id); });
+      main.appendChild(rc);
+    }
+
     // curriculum map (authored + "soon")
     var grid = h("div", { class: "learn-map" });
     LEARN.outline(cur.stack).forEach(function (sec) {
@@ -345,6 +358,8 @@
       header.innerHTML = '<span class="cat-caret">▾</span><span class="cat-icon">' + LEARN.sectionIcon(cur.stack, sec.section) + "</span>" +
         '<span class="cat-name">' + esc(sec.section) + '</span><span class="cat-count">' + done + "/" + topics.length + "</span>";
       block.appendChild(header);
+      var pctc = topics.length ? Math.round((done / topics.length) * 100) : 0;
+      block.appendChild(h("div", { class: "cat-prog" }, '<i style="width:' + pctc + '%"></i>'));
       var outer = h("div", { class: "cat-list-outer" });
       if (collapsed) outer.style.height = "0px";
       var list = h("div", { class: "cat-list" });
