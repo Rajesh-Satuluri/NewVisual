@@ -700,26 +700,23 @@
   // ========================================================== PUBLIC API
   var current = null;
   window.PYLAB = {
+    // Pure renderer, called by the app.js router. History is managed there.
     mount: function (topicId) {
       pyQuery = ""; var s = el("search"); if (s) { s.value = ""; s.placeholder = "Search Python topics…  ( / )"; }
-      if (topicId && PY.byId(topicId)) current = topicId;
-      else if (topicId === null) current = null;
+      if (topicId && PY.byId(topicId)) { current = topicId; store.setPref("lastTopic", topicId); }
+      else current = null;
       renderSidebar(current);
       renderProgress();
       if (current) renderTopic(PY.byId(current));
       else renderLanding();
     },
+    // User navigations push a history entry via the shared router.
     selectTopic: function (id) {
       if (!PY.byId(id)) return;
-      current = id;
-      store.setPref("lastTopic", id);
-      if (location.hash !== "#py/" + id) history.replaceState(null, "", "#py/" + id);
-      renderSidebar(id); renderProgress(); renderTopic(PY.byId(id));
+      window.BLIND75.navigate("#py/" + id);
     },
     home: function () {
-      current = null;
-      if (location.hash !== "#py") history.replaceState(null, "", "#py");
-      renderSidebar(null); renderProgress(); renderLanding();
+      window.BLIND75.navigate("#py");
     },
     // used by the DSA workspace + merged search
     search: function (q) { return searchTopics(q); },

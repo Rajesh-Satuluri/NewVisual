@@ -291,7 +291,7 @@
           '<span class="ni-diff d-' + p.difficulty.toLowerCase() + '">' + p.difficulty.charAt(0) + "</span>";
         item.addEventListener("click", function (e) {
           e.preventDefault();
-          selectProblem(p.id);
+          navigate("#" + p.id);
         });
         list.appendChild(item);
       });
@@ -577,7 +577,7 @@
     var nextId = nextUnsolvedId(p.id);
     var nextBtn = h("button", { class: "chip-btn cta-next" + (nextId ? "" : " disabled") },
       nextId ? "Next unsolved →" : "🎉 All solved");
-    if (nextId) nextBtn.addEventListener("click", function () { selectProblem(nextId); });
+    if (nextId) nextBtn.addEventListener("click", function () { navigate("#" + nextId); });
     actions.appendChild(nextBtn);
 
     var dueCount = store.countDue(activeProblems().map(function (x) { return x.id; }));
@@ -784,10 +784,10 @@
     var prev = ALL[idx - 1], next = ALL[idx + 1];
     var pbtn = h("button", { class: "nav-btn" + (prev ? "" : " disabled") },
       prev ? "← " + esc(prev.title) : "← Start");
-    if (prev) pbtn.addEventListener("click", function () { selectProblem(prev.id); });
+    if (prev) pbtn.addEventListener("click", function () { navigate("#" + prev.id); });
     var nbtn = h("button", { class: "nav-btn" + (next ? "" : " disabled") },
       next ? esc(next.title) + " →" : "End →");
-    if (next) nbtn.addEventListener("click", function () { selectProblem(next.id); });
+    if (next) nbtn.addEventListener("click", function () { navigate("#" + next.id); });
     footer.appendChild(pbtn); footer.appendChild(nbtn);
     main.appendChild(footer);
 
@@ -958,9 +958,9 @@
     return null;
   }
 
+  // Pure renderer for a problem — history is managed by navigate()/applyRoute().
   function selectProblem(id) {
     state.currentId = id;
-    if (location.hash !== "#" + id) history.replaceState(null, "", "#" + id);
     renderProblem(false);
     // Just move the active highlight instead of rebuilding the whole list — the
     // active state transitions smoothly and no in-progress collapse animation
@@ -1001,7 +1001,7 @@
         "<td><code>" + esc(a0.time || "") + "</code></td>" +
         "<td><code>" + esc(a0.space || "") + "</code></td>" +
         '<td class="st st-' + stt + '">' + STATUS_GLYPH[stt] + "</td>";
-      tr.addEventListener("click", function () { closeModal("gridModal"); selectProblem(p.id); });
+      tr.addEventListener("click", function () { closeModal("gridModal"); navigate("#" + p.id); });
       tbody.appendChild(tr);
     });
     table.appendChild(tbody);
@@ -1063,7 +1063,7 @@
       card.appendChild(answer);
 
       var open = h("button", { class: "rv-open" }, "Open full problem ↗");
-      open.addEventListener("click", function () { closeModal("reviewModal"); selectProblem(p.id); });
+      open.addEventListener("click", function () { closeModal("reviewModal"); navigate("#" + p.id); });
       card.appendChild(open);
 
       var grades = h("div", { class: "srs-grades rv-grades" });
@@ -1340,8 +1340,7 @@
       wsBtns[wi].addEventListener("click", function () {
         var ws = this.getAttribute("data-ws");
         if (ws === state.workspace) return;
-        if (ws === "python") setWorkspace("python");
-        else { setWorkspace("dsa"); if (byId[state.currentId]) history.replaceState(null, "", "#" + state.currentId); }
+        switchWorkspace(ws);
       });
     }
 
@@ -1427,12 +1426,12 @@
         closeModal("shortcutsModal");
         return;
       }
-      if (e.key === "g" || e.key === "G") { e.preventDefault(); setWorkspace(state.workspace === "python" ? "dsa" : "python"); return; }
+      if (e.key === "g" || e.key === "G") { e.preventDefault(); switchWorkspace(state.workspace === "python" ? "dsa" : "python"); return; }
       if (state.workspace === "python") return; // the remaining shortcuts are DSA-only
       var idx = ALL.findIndex(function (x) { return x.id === state.currentId; });
-      if (e.key === "j" || e.key === "ArrowDown") { if (ALL[idx + 1]) { e.preventDefault(); selectProblem(ALL[idx + 1].id); } }
-      if (e.key === "k" || e.key === "ArrowUp") { if (ALL[idx - 1]) { e.preventDefault(); selectProblem(ALL[idx - 1].id); } }
-      if (e.key === "n") { var nx = nextUnsolvedId(state.currentId); if (nx) { e.preventDefault(); selectProblem(nx); } }
+      if (e.key === "j" || e.key === "ArrowDown") { if (ALL[idx + 1]) { e.preventDefault(); navigate("#" + ALL[idx + 1].id); } }
+      if (e.key === "k" || e.key === "ArrowUp") { if (ALL[idx - 1]) { e.preventDefault(); navigate("#" + ALL[idx - 1].id); } }
+      if (e.key === "n") { var nx = nextUnsolvedId(state.currentId); if (nx) { e.preventDefault(); navigate("#" + nx); } }
       if (e.key === "r") { store.setPref("codeMode", "rcs"); renderProblem(); }
       if (e.key === "p") { store.setPref("codeMode", "plain"); renderProblem(); }
       if (e.key === "b") { store.setPref("blur", !store.getPref("blur")); renderProblem(); }
@@ -1488,10 +1487,10 @@
     el("themeBtn").textContent = theme === "dark" ? "☀ Light" : "☾ Dark";
   }
 
-  // ============================================================= WORKSPACE
-  // Swap between the DSA lab and the Python-for-DSA lab. Both share the shell;
-  // only the sidebar (#nav) and main pane (#main) contents change.
-  function setWorkspace(ws, topicId) {
+  // ============================================================= WORKSPACE / ROUTER
+  // Set the workspace "chrome" (state, body attr, switch highlight) WITHOUT
+  // rendering — the router decides what to render.
+  function setWsChrome(ws) {
     ws = ws === "python" ? "python" : "dsa";
     state.workspace = ws;
     store.setPref("workspace", ws);
@@ -1500,23 +1499,54 @@
     for (var i = 0; i < btns.length; i++) {
       btns[i].classList.toggle("active", btns[i].getAttribute("data-ws") === ws);
     }
-    if (ws === "python") {
-      if (window.PYLAB) window.PYLAB.mount(topicId != null ? topicId : (store.getPref("lastTopic") || null));
+  }
+
+  // The single router: render whatever the current location.hash points at.
+  // It NEVER writes history, so it is safe to call on popstate and on load.
+  var lastRenderedHash = null;
+  function applyRoute() {
+    if (location.hash === lastRenderedHash) return; // Back can fire popstate + hashchange
+    lastRenderedHash = location.hash;
+    var hash = location.hash;
+    if (hash.indexOf("#py") === 0) {
+      var tid = hash.indexOf("#py/") === 0 ? hash.slice(4) : null;
+      var okTid = tid && window.PYDSA && window.PYDSA.byId(tid) ? tid : null;
+      setWsChrome("python");
+      if (window.PYLAB) window.PYLAB.mount(okTid);
     } else {
-      renderAll();
+      var id = hash.slice(1);
+      var wasPython = document.body.getAttribute("data-ws") === "python";
+      setWsChrome("dsa");
+      if (byId[id]) state.currentId = id;
+      // Full render on first paint or when returning from Python (the DSA chrome
+      // isn't built yet); otherwise the light active-swap in selectProblem.
+      if (wasPython || !el("nav").querySelector(".nav-item")) renderAll();
+      else selectProblem(state.currentId);
     }
   }
 
-  // Bridge used by the Python lab to jump straight to a DSA problem.
-  B.goToProblem = function (id) {
-    setWorkspace("dsa");
-    if (byId[id]) selectProblem(id);
-  };
+  // All user navigations go through here: push a history entry, then render.
+  // (pushState fires no event, so we render synchronously; Back/Forward fire
+  // popstate — see boot — which calls applyRoute to restore that entry.)
+  function navigate(hash) {
+    if (location.hash !== hash) history.pushState(null, "", hash);
+    applyRoute();
+  }
+  B.navigate = navigate;
 
-  // Bridge used by the DSA reader to jump into a Python topic.
-  B.goToTopic = function (id) {
-    setWorkspace("python", id);
-  };
+  function switchWorkspace(ws) {
+    if (ws === "python") {
+      var lt = store.getPref("lastTopic");
+      navigate(lt && window.PYDSA && window.PYDSA.byId(lt) ? "#py/" + lt : "#py");
+    } else {
+      navigate(state.currentId ? "#" + state.currentId : "#");
+    }
+  }
+
+  // Bridges used to jump across workspaces (each pushes a history entry so Back
+  // returns to exactly where the user was).
+  B.goToProblem = function (id) { navigate("#" + id); };
+  B.goToTopic = function (id) { navigate("#py/" + id); };
 
   // Reverse cross-link: which Python topics does this problem exercise? Asks the
   // Python lab (if loaded) to match the problem's meta against topic tags.
@@ -1569,30 +1599,26 @@
     }
     wireControls();
 
-    // Decide the initial workspace: a #py hash forces Python, a #<problemId>
-    // hash forces DSA, otherwise fall back to the saved preference.
-    var startWs = state.workspace, startTopic = null;
-    if (location.hash.indexOf("#py") === 0) {
-      startWs = "python";
-      if (location.hash.indexOf("#py/") === 0) startTopic = location.hash.slice(4);
-    } else if (location.hash.length > 1) {
-      startWs = "dsa";
+    // Normalize the initial URL to a concrete route (so the first history entry
+    // is restorable), then render it. A #py hash forces Python; a #<problemId>
+    // forces DSA; otherwise fall back to the saved workspace preference.
+    var startHash = location.hash;
+    if (!startHash || startHash === "#") {
+      if ((store.getPref("workspace") || "dsa") === "python") {
+        var lt = store.getPref("lastTopic");
+        startHash = lt && window.PYDSA && window.PYDSA.byId(lt) ? "#py/" + lt : "#py";
+      } else {
+        startHash = state.currentId ? "#" + state.currentId : "";
+      }
+      if (startHash) history.replaceState(null, "", startHash);
     }
-    setWorkspace(startWs, startTopic);
+    applyRoute();
 
-    window.addEventListener("hashchange", function () {
-      var hash = location.hash;
-      if (hash.indexOf("#py") === 0) {
-        var tid = hash.indexOf("#py/") === 0 ? hash.slice(4) : null;
-        setWorkspace("python", tid);
-        return;
-      }
-      var id = hash.slice(1);
-      if (byId[id]) {
-        if (state.workspace !== "dsa") setWorkspace("dsa");
-        if (id !== state.currentId) selectProblem(id);
-      }
-    });
+    // Back / Forward restore the exact previous route (workspace + selection).
+    window.addEventListener("popstate", applyRoute);
+    // Cover manual hash edits too (our own navigations use pushState, which
+    // doesn't fire hashchange, so this only runs for user-typed fragments).
+    window.addEventListener("hashchange", applyRoute);
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
