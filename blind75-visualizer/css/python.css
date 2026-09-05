@@ -15,9 +15,12 @@
 body[data-ws="python"] .progress-box,
 body[data-ws="python"] #filterToggle,
 body[data-ws="python"] #filterPanel,
-body[data-ws="python"] .nav-tools,
 body[data-ws="python"] #gridBtn,
 body[data-ws="python"] #dashBtn { display: none !important; }
+/* The shared "Categories" tools bar (expand/collapse-all) is used by the SQL,
+   PySpark, NumPy and Pandas workspaces too. Hide it only for Python-Learn,
+   which renders its own .py-tools bar with an equivalent toggle. */
+body[data-ws="python"][data-stack="python"] .nav-tools { display: none !important; }
 body:not([data-ws="python"]) #pyProgress { display: none !important; }
 
 /* ---- python sidebar progress + nav ---- */

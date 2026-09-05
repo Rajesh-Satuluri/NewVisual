@@ -400,11 +400,18 @@
     lastId: function (stack) { return store.getPref("lastTopic_" + stack); },
     onSearch: function (q) { query = q; renderSidebar(cur.id); },
     toggleAll: function () {
-      var secs = LEARN.sectionOrder(cur.stack);
+      var secs = LEARN.sectionOrder(cur.stack).filter(function (s) { return LEARN.sectionTopics(cur.stack, s).length; });
       var keys = secs.map(function (s) { return cur.stack + "::learn::" + s; });
-      var allCollapsed = keys.every(function (k) { return store.isCatCollapsed(k); });
+      var allCollapsed = keys.length > 0 && keys.every(function (k) { return store.isCatCollapsed(k); });
       keys.forEach(function (k) { store.setCatCollapsed(k, !allCollapsed); });
       renderSidebar(cur.id);
+    },
+    // Are all authored sections currently collapsed? (drives the shared toggle icon.)
+    allCollapsed: function () {
+      var keys = LEARN.sectionOrder(cur.stack)
+        .filter(function (s) { return LEARN.sectionTopics(cur.stack, s).length; })
+        .map(function (s) { return cur.stack + "::learn::" + s; });
+      return keys.length > 0 && keys.every(function (k) { return store.isCatCollapsed(k); });
     }
   };
 })();
