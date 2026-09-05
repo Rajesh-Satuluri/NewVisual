@@ -63,6 +63,31 @@
     }
   }
 
+  // ---- one-time migration from the retired standalone tools (M6.1) ----
+  // The old sql-visualizer / pyspark-visualizer lived on this same origin and
+  // stored progress under "sql:v1" / "pyspark:v1", keyed by bare problem id.
+  // The unified store namespaces problem ids as "<stack>:<id>", so translate
+  // each legacy entry once. Existing unified progress always wins (no clobber).
+  function migrateLegacy() {
+    if (state.prefs.legacyMigrated) return;
+    [["sql", "sql:v1"], ["spark", "pyspark:v1"]].forEach(function (pair) {
+      var stack = pair[0], raw;
+      try { raw = localStorage.getItem(pair[1]); } catch (e) { return; }
+      if (!raw) return;
+      var old; try { old = JSON.parse(raw); } catch (e) { return; }
+      var ns = function (id) { return stack + ":" + id; };
+      var id;
+      for (id in (old.status || {})) if (state.status[ns(id)] == null) state.status[ns(id)] = old.status[id];
+      for (id in (old.review || {})) if (state.review[ns(id)] == null) state.review[ns(id)] = old.review[id];
+      for (id in (old.notes || {})) if (state.notes[ns(id)] == null) state.notes[ns(id)] = old.notes[id];
+      for (id in (old.srs || {})) if (state.srs[ns(id)] == null) state.srs[ns(id)] = old.srs[id];
+      for (var d in (old.activity || {})) state.activity[d] = (state.activity[d] || 0) + old.activity[d];
+    });
+    state.prefs.legacyMigrated = true;
+    save();
+  }
+  try { migrateLegacy(); } catch (e) { /* never let migration break boot */ }
+
   window.BLIND75.store = {
     // ---- status ----
     getStatus: function (id) {

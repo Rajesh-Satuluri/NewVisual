@@ -1,158 +1,29 @@
-<!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<!doctype html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SQL Study Lab — T-SQL Interview Prep</title>
-  <meta name="description" content="An interactive study tool for SQL Server (T-SQL) interview questions: paraphrased prompts, sample data, expected output, runnable SSMS setup scripts, multiple T-SQL approaches, and progress tracking." />
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%2321a366'/%3E%3Ctext x='50' y='68' font-size='40' font-family='Arial' font-weight='bold' text-anchor='middle' fill='%23071120'%3ESQL%3C/text%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="css/prism-tomorrow.css" />
-  <link rel="stylesheet" href="css/main.css" />
-  <link rel="stylesheet" href="css/layout.css" />
-  <link rel="stylesheet" href="css/components.css" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SQL Lab has moved — Data Engineering Coding Stack</title>
+  <meta http-equiv="refresh" content="0; url=../blind75-visualizer/index.html#solve/sql" />
+  <link rel="canonical" href="../blind75-visualizer/index.html#solve/sql" />
+  <style>
+    :root { color-scheme: dark light; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center;
+      font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0b0f16; color: #e6edf7; text-align: center; padding: 24px; }
+    .card { max-width: 460px; }
+    h1 { font-size: 20px; margin: 0 0 10px; }
+    p { color: #9fb0c3; }
+    a.btn { display: inline-block; margin-top: 16px; padding: 10px 18px; border-radius: 10px;
+      background: linear-gradient(135deg, #0ca678, #38d9a9); color: #06111f; font-weight: 700; text-decoration: none; }
+  </style>
 </head>
 <body>
-  <!-- ============ TOP BAR ============ -->
-  <header class="topbar">
-    <button id="menuBtn" class="icon-btn menu-only" aria-label="Toggle sidebar">☰</button>
-    <a class="brand" href="#">
-      <span class="brand-mark">SQL</span>
-      <span class="brand-text"><b>SQL</b> · T-SQL Study Lab</span>
-    </a>
-    <div class="topbar-right">
-      <button id="dashBtn" class="ghost-btn" title="Progress analytics dashboard">📊 Dashboard</button>
-      <button id="gridBtn" class="ghost-btn" title="All-problems revision grid">▦ Revision grid</button>
-      <button id="exportBtn" class="ghost-btn" title="Download progress as JSON">↓ Export</button>
-      <button id="importBtn" class="ghost-btn" title="Import progress JSON">↑ Import</button>
-      <input id="importFile" type="file" accept="application/json" hidden />
-      <button id="resetBtn" class="ghost-btn danger" title="Reset all progress">⟳ Reset</button>
-      <button id="themeBtn" class="ghost-btn">☀ Light</button>
-      <a class="ghost-btn" href="../index.html" title="Back to NewVisual labs">⌂ Labs</a>
-    </div>
-  </header>
-
-  <div class="shell">
-    <!-- ============ SIDEBAR ============ -->
-    <aside class="sidebar">
-      <div class="progress-box">
-        <div class="progress-head">
-          <span id="progressText">0 / 0 solved</span>
-          <button id="reviewChip" class="review-chip" title="Start a spaced-repetition review session">Review 0 due</button>
-        </div>
-        <div class="progress-track"><div id="progressFill" class="progress-fill"></div></div>
-        <div class="progress-foot muted"><span id="progressSub">0 learning</span> · of <span id="totalCount">0</span> problems · <span id="streakText">0-day streak</span></div>
-      </div>
-
-      <div class="search-box">
-        <input id="search" type="text" placeholder="Search title, pattern, concept…  ( / )" autocomplete="off" />
-        <button id="filterToggle" class="filter-toggle" title="Filters" aria-expanded="false">⚙</button>
-      </div>
-
-      <div class="filters" id="filters">
-        <select id="filterDifficulty" title="Filter by difficulty">
-          <option value="all">All difficulty</option>
-          <option value="Easy">Easy</option>
-          <option value="Medium">Medium</option>
-          <option value="Hard">Hard</option>
-        </select>
-        <select id="filterStatus" title="Filter by status">
-          <option value="all">Any status</option>
-          <option value="not-started">Not started</option>
-          <option value="learning">Learning</option>
-          <option value="solved">Solved</option>
-          <option value="review">★ Review queue</option>
-          <option value="due">⏱ Due for review</option>
-        </select>
-        <select id="filterImportance" title="Filter by interview importance">
-          <option value="all">All importance</option>
-          <option value="essential">★★★ Essential</option>
-          <option value="common">★★ Common</option>
-          <option value="occasional">★ Occasional</option>
-        </select>
-        <select id="filterPattern" title="Filter by pattern">
-          <option value="all">All patterns</option>
-        </select>
-        <button id="clearFilters" class="clear-btn" title="Clear search & filters">✕ Clear filters</button>
-      </div>
-
-      <nav id="nav" class="nav"></nav>
-    </aside>
-
-    <!-- ============ MAIN ============ -->
-    <main id="main" class="main"></main>
+  <div class="card">
+    <h1>SQL Lab is now part of the Data&nbsp;Engineering Coding Stack</h1>
+    <p>The standalone SQL visualizer has moved into the unified study tool — with the same problems plus a full SQL concept curriculum. Redirecting you now…</p>
+    <a class="btn" href="../blind75-visualizer/index.html#solve/sql">Open SQL in the Coding Stack →</a>
   </div>
-
-  <!-- ============ REVISION GRID MODAL ============ -->
-  <div id="gridModal" class="modal hidden">
-    <div class="modal-card">
-      <div class="modal-head">
-        <h2>All Problems — Revision Grid</h2>
-        <button id="gridClose" class="icon-btn">✕</button>
-      </div>
-      <div id="gridBody" class="modal-body"></div>
-    </div>
-  </div>
-
-  <!-- ============ DASHBOARD MODAL ============ -->
-  <div id="dashModal" class="modal hidden">
-    <div class="modal-card">
-      <div class="modal-head">
-        <h2>Progress Analytics</h2>
-        <button id="dashClose" class="icon-btn">✕</button>
-      </div>
-      <div id="dashBody" class="modal-body"></div>
-    </div>
-  </div>
-
-  <!-- ============ REVIEW SESSION MODAL ============ -->
-  <div id="reviewModal" class="modal hidden">
-    <div class="modal-card">
-      <div class="modal-head">
-        <h2>Review Session</h2>
-        <button id="reviewClose" class="icon-btn">✕</button>
-      </div>
-      <div id="reviewBody" class="modal-body"></div>
-    </div>
-  </div>
-
-  <!-- ============ SCRIPTS ============ -->
-  <script src="js/vendor/prism.js"></script>
-  <script src="js/vendor/prism-sql.js"></script>
-  <script src="js/vendor/fuse.js"></script>
-
-  <script src="js/core.js"></script>
-  <script src="js/modules/markdown.js"></script>
-  <script src="js/modules/store.js"></script>
-
-  <!-- central per-problem maps (before data files) -->
-  <script src="data/importance.js"></script>
-
-  <!-- data (canonical topic order) -->
-  <script src="data/aggregation.js"></script>
-  <script src="data/filtering_subqueries.js"></script>
-  <script src="data/ranking.js"></script>
-  <script src="data/joins.js"></script>
-  <script src="data/window_functions.js"></script>
-  <script src="data/cte_joins.js"></script>
-  <script src="data/string_date.js"></script>
-  <script src="data/recursive.js"></script>
-  <script src="data/pivot.js"></script>
-  <script src="data/gaps_islands.js"></script>
-  <script src="data/set_ops.js"></script>
-  <script src="data/dml_ddl.js"></script>
-
-  <!-- additional problem batches (multiple files per topic) -->
-  <script src="data/aggregation2.js"></script>
-  <script src="data/aggregation3.js"></script>
-  <script src="data/filtering2.js"></script>
-  <script src="data/filtering3.js"></script>
-  <script src="data/ranking2.js"></script>
-  <script src="data/joins2.js"></script>
-  <script src="data/window2.js"></script>
-  <script src="data/cte2.js"></script>
-  <script src="data/string_date2.js"></script>
-  <script src="data/misc2.js"></script>
-
-  <script src="js/app.js"></script>
+  <script>location.replace("../blind75-visualizer/index.html#solve/sql");</script>
 </body>
 </html>

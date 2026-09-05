@@ -235,3 +235,37 @@ body.cmdk-lock { overflow: hidden; }
   .ws-switches { margin-left: 0; }
   .topbar-right { margin-left: auto; width: 100%; justify-content: flex-start; }
 }
+
+/* ============================================================= */
+/* M6.2 — accessibility focus ring + first-run onboarding overlay  */
+/* ============================================================= */
+/* Visible keyboard focus everywhere (mouse users unaffected). */
+a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible,
+.ws-btn:focus-visible, .mode-btn:focus-visible, .nav-item:focus-visible, .cmdk-row:focus-visible {
+  outline: 2px solid var(--brand-2);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.onb { position: fixed; inset: 0; z-index: 300; background: rgba(4,7,13,.72);
+  display: grid; place-items: center; padding: 24px;
+  opacity: 0; backdrop-filter: blur(0); transition: opacity .18s ease, backdrop-filter .18s ease; }
+.onb.open { opacity: 1; backdrop-filter: blur(4px); }
+.onb.hidden { display: none; }
+.onb-card { width: 100%; max-width: 520px; max-height: 88vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  background: var(--bg-1); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 26px 26px 22px; transform: translateY(10px) scale(.98); transition: transform .18s ease; }
+.onb.open .onb-card { transform: none; }
+.onb-mark { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center;
+  background: linear-gradient(135deg, var(--brand), var(--brand-2)); color: #06111f; font-weight: 800; letter-spacing: -.5px; margin-bottom: 12px; }
+.onb-card h2 { font-size: 21px; margin: 0 0 6px; }
+.onb-lead { color: var(--text-2); margin: 0 0 14px; }
+.onb-list { list-style: none; margin: 0 0 20px; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.onb-list li { font-size: 13.5px; color: var(--text-2); line-height: 1.55; padding-left: 2px; }
+.onb-list b { color: var(--text); }
+.onb-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.onb-btn { padding: 10px 16px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-2);
+  color: var(--text); font-weight: 700; font-size: 13.5px; cursor: pointer; }
+.onb-btn:hover { border-color: var(--brand); }
+.onb-primary { background: var(--brand); color: #06111f; border-color: transparent; }
+@media (pointer: coarse) { .onb-btn { min-height: 40px; } }
