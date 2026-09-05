@@ -28,6 +28,9 @@ body:not([data-ws="python"]) #pyProgress { display: none !important; }
 .py-home:hover { border-color: var(--brand); color: var(--text); }
 .py-home.active { background: var(--brand-glow); border-color: var(--brand); color: var(--text); }
 .py-nav-head { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .7px; color: var(--muted); padding: 12px 10px 5px; }
+.py-tools { display: flex; align-items: center; gap: 4px; padding: 6px 14px 4px; }
+.py-tools .nav-tools-label { flex: 1; font-size: 10.5px; text-transform: uppercase; letter-spacing: .7px; color: var(--muted); font-weight: 700; }
+.py-tools .nav-tool-icon:disabled { opacity: .4; cursor: default; }
 
 /* status glyph colors (shared with cards) */
 .st-not-started { color: var(--muted); }

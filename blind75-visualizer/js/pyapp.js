@@ -513,6 +513,24 @@
   }
 
   // ========================================================== SIDEBAR + PROGRESS
+  function pySectionsWithTopics() {
+    return PY.SECTION_ORDER.filter(function (s) { return (PY.sectionTopics(s) || []).length; });
+  }
+  function updatePyToggleIcon() {
+    var btn = el("pyToggleAll"); if (!btn) return;
+    var secs = pySectionsWithTopics();
+    var allCollapsed = secs.length && secs.every(function (s) { return store.isCatCollapsed("py:" + s); });
+    btn.textContent = allCollapsed ? "▸" : "▾";
+    btn.title = allCollapsed ? "Expand all sections" : "Collapse all sections";
+    btn.setAttribute("aria-label", btn.title);
+  }
+  function togglePyAll() {
+    var secs = pySectionsWithTopics();
+    var allCollapsed = secs.every(function (s) { return store.isCatCollapsed("py:" + s); });
+    secs.forEach(function (s) { store.setCatCollapsed("py:" + s, !allCollapsed); });
+    renderSidebar(current);
+  }
+
   function renderSidebar(activeId) {
     var nav = el("nav");
     nav.innerHTML = "";
@@ -521,6 +539,15 @@
     nav.appendChild(home);
 
     var q = pyQuery.trim().toLowerCase();
+
+    // sections toolbar with a single expand/collapse-all button
+    var tools = h("div", { class: "py-tools" });
+    tools.appendChild(h("span", { class: "nav-tools-label" }, "Sections"));
+    var toggleBtn = h("button", { class: "nav-tool-icon", id: "pyToggleAll" }, "▾");
+    toggleBtn.addEventListener("click", togglePyAll);
+    tools.appendChild(toggleBtn);
+    nav.appendChild(tools);
+
     var shown = 0;
     PY.SECTION_ORDER.forEach(function (sectionName) {
       var topics = PY.sectionTopics(sectionName);
@@ -530,8 +557,23 @@
         });
       }
       if (!topics.length) return;
-      var block = h("div", { class: "cat-block" });
-      block.appendChild(h("div", { class: "py-nav-head" }, (PY.SECTION_ICON[sectionName] || "•") + "  " + esc(sectionName)));
+      // When searching, force every matching section open; otherwise honor the
+      // persisted collapsed state (namespaced "py:" so it never clashes with DSA).
+      var collapsed = !q && store.isCatCollapsed("py:" + sectionName);
+      var learned = topics.filter(function (t) { var s = store.getPyStatus(t.id); return s === "learned" || s === "mastered"; }).length;
+
+      var block = h("div", { class: "cat-block" + (collapsed ? " collapsed" : "") });
+      var header = h("button", { class: "cat-header" });
+      header.innerHTML =
+        '<span class="cat-caret">▾</span>' +
+        '<span class="cat-icon">' + (PY.SECTION_ICON[sectionName] || "•") + "</span>" +
+        '<span class="cat-name">' + esc(sectionName) + "</span>" +
+        '<span class="cat-count">' + learned + "/" + topics.length + "</span>";
+      block.appendChild(header);
+
+      var outer = h("div", { class: "cat-list-outer" });
+      if (collapsed) outer.style.height = "0px";
+      var list = h("div", { class: "cat-list" });
       topics.forEach(function (t) {
         shown++;
         var st = store.getPyStatus(t.id);
@@ -539,10 +581,29 @@
         item.innerHTML = '<span class="st st-' + st + '">' + STATUS_GLYPH[st] + "</span>" +
           '<span class="ni-title">' + esc(t.title) + "</span>";
         item.addEventListener("click", function (e) { e.preventDefault(); window.PYLAB.selectTopic(t.id); });
-        block.appendChild(item);
+        list.appendChild(item);
       });
+      outer.appendChild(list);
+      block.appendChild(outer);
+
+      header.addEventListener("click", function () {
+        var willOpen = block.classList.contains("collapsed");
+        var startH = outer.getBoundingClientRect().height;
+        outer.style.height = startH + "px";
+        outer.getBoundingClientRect();
+        block.classList.toggle("collapsed", !willOpen);
+        var endH = willOpen ? list.getBoundingClientRect().height : 0;
+        outer.style.height = endH + "px";
+        var done = function (e) { if (e.propertyName !== "height") return; outer.removeEventListener("transitionend", done); if (willOpen) outer.style.height = "auto"; };
+        outer.addEventListener("transitionend", done);
+        store.setCatCollapsed("py:" + sectionName, !willOpen);
+        updatePyToggleIcon();
+      });
+
       nav.appendChild(block);
     });
+    if (q) toggleBtn.disabled = true; // collapsing is meaningless while filtering
+    updatePyToggleIcon();
 
     // Merged search: when searching, surface matching DSA problems too.
     if (q && window.BLIND75.all) {
