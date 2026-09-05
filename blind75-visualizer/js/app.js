@@ -272,11 +272,21 @@
     animateCollapse(block, block.querySelector(".cat-list-outer"), open);
   }
 
+  // Which renderer owns the shared "Categories" tools bar right now?
+  //   python + practice → the DSA app;  other stacks → ProblemLab (practice) /
+  //   ConceptLab (learn).  (Python-Learn hides this bar; it has its own.)
+  function toggleAllAllCollapsed() {
+    if (state.stack === "python" && state.mode === "practice") {
+      var groups = B.byCategory();
+      return groups.length && groups.every(function (g) { return store.isCatCollapsed(g.category); });
+    }
+    if (state.mode === "practice") { return !!(window.ProblemLab && window.ProblemLab.allCollapsed && window.ProblemLab.allCollapsed()); }
+    return !!(window.ConceptLab && window.ConceptLab.allCollapsed && window.ConceptLab.allCollapsed());
+  }
   // Reflect the single expand/collapse-all button's state (caret + tooltip).
   function updateToggleAllIcon() {
     var btn = el("toggleAll"); if (!btn) return;
-    var groups = B.byCategory();
-    var allCollapsed = groups.length && groups.every(function (g) { return store.isCatCollapsed(g.category); });
+    var allCollapsed = toggleAllAllCollapsed();
     btn.textContent = allCollapsed ? "▸" : "▾";
     btn.title = allCollapsed ? "Expand all categories" : "Collapse all categories";
     btn.setAttribute("aria-label", btn.title);
@@ -1430,9 +1440,15 @@
     // one button toggles all categories: collapse them if any is open, else expand
     var toggleAllBtn = el("toggleAll");
     if (toggleAllBtn) toggleAllBtn.addEventListener("click", function () {
-      var groups = B.byCategory();
-      var allCollapsed = groups.every(function (g) { return store.isCatCollapsed(g.category); });
-      setAllCollapsed(!allCollapsed);
+      if (state.stack === "python" && state.mode === "practice") {
+        var groups = B.byCategory();
+        var allCollapsed = groups.every(function (g) { return store.isCatCollapsed(g.category); });
+        setAllCollapsed(!allCollapsed);                                   // DSA (animated)
+      } else if (state.mode === "practice") {
+        if (window.ProblemLab) window.ProblemLab.toggleAll();            // SQL/PySpark/NumPy/Pandas practice
+      } else {
+        if (window.ConceptLab) window.ConceptLab.toggleAll();           // SQL/PySpark/NumPy/Pandas learn
+      }
       updateToggleAllIcon();
     });
 
@@ -1671,6 +1687,8 @@
     } else {
       if (window.ConceptLab) window.ConceptLab.mount(r.stack, r.id);
     }
+    // keep the shared "Categories" expand/collapse-all caret in sync per view
+    updateToggleAllIcon();
   }
 
   // All user navigations go through here: push a history entry, then render.

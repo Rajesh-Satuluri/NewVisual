@@ -619,6 +619,11 @@
       var allCollapsed = gs.every(function (g) { return store.isCatCollapsed(catCollapseKey(g.category)); });
       gs.forEach(function (g) { store.setCatCollapsed(catCollapseKey(g.category), !allCollapsed); });
       renderSidebar();
+    },
+    // Are all categories currently collapsed? (drives the shared toggle icon.)
+    allCollapsed: function () {
+      var gs = groups();
+      return gs.length > 0 && gs.every(function (g) { return store.isCatCollapsed(catCollapseKey(g.category)); });
     }
   };
 })();
