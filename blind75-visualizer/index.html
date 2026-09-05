@@ -11,18 +11,28 @@
   <link rel="stylesheet" href="css/layout.css" />
   <link rel="stylesheet" href="css/components.css" />
   <link rel="stylesheet" href="css/python.css" />
+  <link rel="stylesheet" href="css/master.css" />
 </head>
 <body>
   <!-- ============ TOP BAR ============ -->
   <header class="topbar">
     <button id="menuBtn" class="icon-btn menu-only" aria-label="Toggle sidebar">☰</button>
     <a class="brand" href="#">
-      <span class="brand-mark">150</span>
-      <span class="brand-text">NeetCode <b>150</b> · DSA Study Lab</span>
+      <span class="brand-mark">DE</span>
+      <span class="brand-text">Data Engineering <b>Coding Stack</b></span>
     </a>
-    <div id="wsSwitch" class="ws-switch" role="tablist" aria-label="Workspace">
-      <button class="ws-btn active" data-ws="dsa" role="tab">DSA Lab</button>
-      <button class="ws-btn" data-ws="python" role="tab">🐍 Python for DSA</button>
+    <div class="ws-switches">
+      <div id="stackSwitch" class="ws-switch" role="tablist" aria-label="Stack">
+        <button class="ws-btn active" data-stack="python" role="tab">🐍 Python</button>
+        <button class="ws-btn" data-stack="numpy" role="tab">▦ NumPy</button>
+        <button class="ws-btn" data-stack="pandas" role="tab">🐼 Pandas</button>
+        <button class="ws-btn" data-stack="spark" role="tab">⚡ PySpark</button>
+        <button class="ws-btn" data-stack="sql" role="tab">🗄 SQL</button>
+      </div>
+      <div id="modeSwitch" class="mode-switch" role="tablist" aria-label="Mode">
+        <button class="mode-btn" data-mode="learn" role="tab">📘 Learn</button>
+        <button class="mode-btn active" data-mode="practice" role="tab">💻 Practice</button>
+      </div>
     </div>
     <div class="topbar-right">
       <button id="dashBtn" class="ghost-btn" title="Progress dashboard">📊 Dashboard</button>
@@ -158,10 +168,14 @@
   <!-- ============ SCRIPTS ============ -->
   <script src="js/vendor/prism.js"></script>
   <script src="js/vendor/prism-python.js"></script>
+  <script src="js/vendor/prism-sql.js"></script>
   <script src="js/vendor/fuse.js"></script>
 
   <script src="js/core.js"></script>
   <script src="js/pycore.js"></script>
+  <script src="js/spcore.js"></script>
+  <script src="js/sqlcore.js"></script>
+  <script src="js/learncore.js"></script>
   <script src="js/modules/markdown.js"></script>
   <script src="js/modules/store.js"></script>
   <script src="js/modules/pyviz.js"></script>
@@ -201,8 +215,55 @@
   <script src="data/python/complexity.js"></script>
   <script src="data/python/toolkit.js"></script>
 
+  <!-- PySpark practice problems (window.PYSPARK) -->
+  <script src="data/pyspark/importance.js"></script>
+  <script src="data/pyspark/dataframe_basics.js"></script>
+  <script src="data/pyspark/aggregations_groupby.js"></script>
+  <script src="data/pyspark/joins.js"></script>
+  <script src="data/pyspark/window_functions.js"></script>
+  <script src="data/pyspark/ranking_dedup.js"></script>
+  <script src="data/pyspark/date_time.js"></script>
+  <script src="data/pyspark/arrays_json_nested.js"></script>
+  <script src="data/pyspark/cohort_time_series.js"></script>
+  <script src="data/pyspark/performance_optimization.js"></script>
+  <script src="data/pyspark/end_to_end_challenges.js"></script>
+  <script src="data/pyspark/advanced_patterns.js"></script>
+
+  <!-- SQL practice problems (window.SQLLAB) -->
+  <script src="data/sql/importance.js"></script>
+  <script src="data/sql/aggregation.js"></script>
+  <script src="data/sql/aggregation2.js"></script>
+  <script src="data/sql/aggregation3.js"></script>
+  <script src="data/sql/joins.js"></script>
+  <script src="data/sql/joins2.js"></script>
+  <script src="data/sql/cte_joins.js"></script>
+  <script src="data/sql/cte2.js"></script>
+  <script src="data/sql/window_functions.js"></script>
+  <script src="data/sql/window2.js"></script>
+  <script src="data/sql/ranking.js"></script>
+  <script src="data/sql/ranking2.js"></script>
+  <script src="data/sql/filtering_subqueries.js"></script>
+  <script src="data/sql/filtering2.js"></script>
+  <script src="data/sql/filtering3.js"></script>
+  <script src="data/sql/string_date.js"></script>
+  <script src="data/sql/string_date2.js"></script>
+  <script src="data/sql/set_ops.js"></script>
+  <script src="data/sql/pivot.js"></script>
+  <script src="data/sql/recursive.js"></script>
+  <script src="data/sql/gaps_islands.js"></script>
+  <script src="data/sql/dml_ddl.js"></script>
+  <script src="data/sql/misc2.js"></script>
+
+  <!-- Concept (Learn) curriculum for the other stacks (window.LEARN) -->
+  <script src="data/sql/concepts_window.js"></script>
+  <script src="data/pyspark/concepts_shuffle.js"></script>
+  <script src="data/numpy/concepts_broadcasting.js"></script>
+  <script src="data/pandas/concepts_groupby.js"></script>
+
   <script src="js/app.js"></script>
   <script src="js/pyrun.js"></script>
   <script src="js/pyapp.js"></script>
+  <script src="js/problemlab.js"></script>
+  <script src="js/conceptlab.js"></script>
 </body>
 </html>

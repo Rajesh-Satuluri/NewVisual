@@ -1,0 +1,70 @@
+/* master.css — the multi-stack shell: stack + mode switches, per-stack accent
+ * theming, the generic Practice "lab" tables, and the Learn curriculum map.
+ * Loaded after python.css so it can extend/override the two-workspace styles. */
+
+/* ---- top-bar switches ------------------------------------------------------ */
+.ws-switches { display: flex; align-items: center; gap: 8px; margin-left: 12px; flex-wrap: wrap; }
+.ws-switches .ws-switch { margin-left: 0; }
+.mode-switch { display: inline-flex; gap: 4px; background: var(--bg-2); border: 1px solid var(--border); border-radius: 999px; padding: 3px; }
+.mode-btn { background: transparent; border: none; color: var(--muted); font-size: 12.5px; font-weight: 700; padding: 5px 13px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
+.mode-btn:hover:not(:disabled) { color: var(--text); }
+.mode-btn.active { background: var(--brand); color: #06111f; box-shadow: 0 0 12px var(--brand-glow); }
+.mode-btn.soon, .mode-btn:disabled { opacity: .4; cursor: not-allowed; }
+@media (max-width: 860px) {
+  .mode-btn { padding: 5px 9px; font-size: 11.5px; }
+  .ws-switches { gap: 6px; }
+}
+
+/* ---- per-stack accent theming (the whole UI recolors to the active stack) --- */
+body[data-stack="numpy"]  { --brand: #37b24d; --brand-2: #69db7c; --brand-glow: rgba(55,178,77,.35); }
+body[data-stack="pandas"] { --brand: #845ef7; --brand-2: #b197fc; --brand-glow: rgba(132,94,247,.35); }
+body[data-stack="spark"]  { --brand: #f76707; --brand-2: #ffa94d; --brand-glow: rgba(247,103,7,.35); }
+body[data-stack="sql"]    { --brand: #0ca678; --brand-2: #38d9a9; --brand-glow: rgba(12,166,120,.35); }
+/* python keeps the default blue from main.css */
+
+/* the "All 150 / Blind 75" study-set toggle is DSA-only — hide it everywhere else */
+body[data-ws="python"] #setToggle { display: none !important; }
+
+/* readiness ring on Learn landings */
+.py-ready-ring { width: 76px; height: 76px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 17px; color: var(--text);
+  background: conic-gradient(var(--brand) calc(var(--pct) * 1%), var(--bg-3) 0); position: relative; }
+.py-ready-ring::after { content: ""; position: absolute; inset: 8px; border-radius: 50%; background: var(--bg-1); }
+.py-ready-ring span { position: relative; z-index: 1; }
+.py-readiness { display: flex; align-items: center; gap: 18px; }
+.py-ready-txt { color: var(--text-2); font-size: 13.5px; line-height: 1.5; }
+
+/* lab progress box (shared #pyProgress) */
+.py-prog-head { display: flex; justify-content: space-between; align-items: baseline; font-weight: 700; font-size: 12.5px; color: var(--text-2); margin-bottom: 7px; }
+.py-prog-pct { color: var(--brand-2); font-size: 13px; }
+.py-prog-foot { margin-top: 6px; font-size: 11.5px; }
+
+/* ---- Practice lab: data tables (SQL schema/sample/expected, walkthrough) ---- */
+.lab-table-scroll { overflow-x: auto; margin: 8px 0 4px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.lab-table { border-collapse: collapse; width: 100%; font-size: 12.5px; font-family: var(--mono); }
+.lab-table th { text-align: left; background: var(--bg-2); color: var(--text-2); font-weight: 700; padding: 7px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.lab-table td { padding: 6px 12px; border-bottom: 1px solid var(--border-soft); white-space: nowrap; color: var(--text); }
+.lab-table tr:last-child td { border-bottom: none; }
+.lab-table tbody tr:hover { background: var(--bg-2); }
+.lab-null { color: var(--muted); font-style: italic; }
+.lab-table-cap { font-size: 12px; font-weight: 700; color: var(--text-2); margin: 12px 0 2px; }
+.lab-schema { margin-bottom: 12px; }
+.lab-schema-name { font-size: 12.5px; font-weight: 800; color: var(--brand-2); margin-bottom: 3px; }
+.lab-step { margin-bottom: 16px; }
+.lab-step:last-child { margin-bottom: 0; }
+.lab-step-h { font-size: 13.5px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+.lab-step-note { font-size: 12.5px; margin-bottom: 6px; }
+.when-use.dialect { border-left-color: var(--amber); }
+
+/* ---- Learn curriculum map (landing) ---------------------------------------- */
+.learn-map { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; padding: 22px 34px 40px; }
+.learn-sec { background: var(--bg-1); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+.learn-sec-h { font-size: 13px; font-weight: 800; color: var(--text); margin-bottom: 10px; letter-spacing: .2px; }
+.learn-topic-list { display: flex; flex-direction: column; gap: 2px; }
+.learn-topic { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; background: transparent; border: none; color: var(--text-2); font-size: 13.5px; padding: 7px 8px; border-radius: var(--radius-sm); cursor: pointer; font: inherit; }
+button.learn-topic:hover { background: var(--bg-2); color: var(--text); }
+.learn-topic .st { font-size: 13px; }
+.learn-topic.soon { color: var(--muted); cursor: default; }
+.soon-badge { margin-left: auto; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); background: var(--bg-2); border: 1px solid var(--border-soft); border-radius: 999px; padding: 1px 7px; }
+
+/* narrower brand mark for the DE wordmark */
+.brand-mark { letter-spacing: -.5px; }

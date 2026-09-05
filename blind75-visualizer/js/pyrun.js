@@ -34,6 +34,13 @@
     if (btn) btn.disabled = true;
 
     load().then(function (py) {
+      // Auto-load any bundled package the code imports (numpy, pandas, …) before
+      // running, so NumPy/Pandas concept snippets execute in the browser too.
+      var prep = (py.loadPackagesFromImports ? py.loadPackagesFromImports(code) : Promise.resolve())
+        .catch(function () { /* offline / not bundled — let the import error surface */ });
+      return prep.then(function () { return py; });
+    }).then(function (py) {
+      if (!py) return;
       outEl.textContent = "Running…";
       var out = "", err = null;
       try {
