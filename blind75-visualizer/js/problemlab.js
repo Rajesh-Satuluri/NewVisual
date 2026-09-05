@@ -93,6 +93,26 @@
   function groups() { var r = reg(); return (r && r.byCategory && r.byCategory()) || []; }
   function byId(id) { var found = null; all().forEach(function (p) { if (p.id === id) found = p; }); return found; }
 
+  // ---- cross-link a practice problem back to the Learn concepts that teach it ----
+  // Same stack key drives both workspaces (sql/spark/numpy/pandas), so we match the
+  // problem's descriptive fields against each concept topic's matchTags.
+  function relatedConcepts(p) {
+    var LEARN = window.LEARN;
+    if (!LEARN || !LEARN.hasContent || !LEARN.hasContent(cur.stack)) return [];
+    var m = p.meta || {};
+    var hay = [p.category, p.title, m.pattern, m.technique, m.functions, m.transformation, m.sqlConcept]
+      .join(" ").toLowerCase();
+    var out = [], seen = {};
+    LEARN.all(cur.stack).forEach(function (t) {
+      var tags = t.matchTags || [];
+      for (var i = 0; i < tags.length; i++) {
+        var tag = String(tags[i]).toLowerCase();
+        if (tag && hay.indexOf(tag) !== -1) { if (!seen[t.id]) { out.push(t); seen[t.id] = true; } break; }
+      }
+    });
+    return out.slice(0, 4);
+  }
+
   // ---- search (Fuse per stack) ----
   function fuseFor(stack) {
     if (fuseCache[stack]) return fuseCache[stack];
@@ -374,6 +394,21 @@
       nwrap.appendChild(ul2); descNode.appendChild(nwrap);
     }
     main.appendChild(section("description", "Problem", descNode));
+
+    // cross-links to the Learn concepts behind this problem
+    var rc = relatedConcepts(p);
+    if (rc.length) {
+      var rcBody = h("div", {});
+      rcBody.appendChild(h("p", { class: "py-para muted" }, "New to this? Study the concept first, then come back and solve:"));
+      var rcChips = h("div", { class: "prob-chips" });
+      rc.forEach(function (t) {
+        var c = h("button", { class: "chip-btn prob-chip" }, "📘 " + esc(t.title));
+        c.addEventListener("click", function () { window.BLIND75.goTo("learn", cur.stack, t.id); });
+        rcChips.appendChild(c);
+      });
+      rcBody.appendChild(rcChips);
+      main.appendChild(section("learnlink", "📚 Learn the concepts behind this", rcBody));
+    }
 
     // schema + sample data (SQL)
     if ((p.schema && p.schema.length) || (p.sampleData && p.sampleData.length)) {
