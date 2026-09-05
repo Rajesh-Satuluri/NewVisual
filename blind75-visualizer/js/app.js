@@ -1606,7 +1606,7 @@
 
   function applyTheme(theme) {
     document.documentElement.setAttribute("data-theme", theme);
-    el("themeBtn").textContent = theme === "dark" ? "☀ Light" : "☾ Dark";
+    el("themeBtn").innerHTML = theme === "dark" ? '☀ <span class="btx">Light</span>' : '☾ <span class="btx">Dark</span>';
   }
 
   // ============================================================= WORKSPACE / ROUTER
