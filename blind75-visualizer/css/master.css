@@ -104,3 +104,36 @@ body { overflow-x: hidden; }
 @media (min-width: 768px) and (max-width: 1100px) {
   .ws-switches { flex-wrap: wrap; row-gap: 6px; }
 }
+
+/* ============================================================= */
+/* M5.1 — cross-stack readiness overview (dashboard modal)       */
+/* ============================================================= */
+.db-overview { margin-bottom: 8px; }
+.db-section-label { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px;
+  color: var(--muted); margin: 22px 0 10px; padding-top: 16px; border-top: 1px solid var(--border); }
+
+.xstack-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.xstack-card { text-align: left; background: var(--bg-2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 14px 14px 16px; cursor: pointer; color: var(--text);
+  transition: border-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease); }
+.xstack-card:hover { border-color: var(--brand); transform: translateY(-2px); background: var(--bg-3); }
+.xstack-card[data-stack="python"] { --brand: #4c8dff; }
+.xstack-card[data-stack="numpy"]  { --brand: #37b24d; }
+.xstack-card[data-stack="pandas"] { --brand: #845ef7; }
+.xstack-card[data-stack="spark"]  { --brand: #f76707; }
+.xstack-card[data-stack="sql"]    { --brand: #0ca678; }
+
+.xs-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.xs-name { font-weight: 800; font-size: 15px; }
+.xs-due { font-size: 10.5px; font-weight: 700; color: var(--brand); background: var(--bg-1);
+  border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; }
+.xs-rings { display: flex; gap: 16px; flex-wrap: wrap; }
+.xs-metric { display: flex; align-items: center; gap: 9px; }
+.xs-ring { width: 46px; height: 46px; font-size: 12px; }
+.xs-ring::after { inset: 5px; }
+.xs-metric-k { font-size: 12px; font-weight: 700; }
+.xs-metric-sub { font-size: 10.5px; }
+.xs-overall { margin-top: 14px; font-size: 12.5px; }
+.xs-overall b { color: var(--text); }
+
+@media (pointer: coarse) { .xstack-card { min-height: 96px; } }

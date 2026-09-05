@@ -1143,9 +1143,78 @@
     return row;
   }
 
+  // ---- cross-stack readiness (M5.1) ----
+  function dashPracticeReg(stack) {
+    if (stack === "python") return window.BLIND75;
+    if (stack === "sql") return window.SQLLAB;
+    if (stack === "spark") return window.PYSPARK;
+    if (stack === "numpy") return window.NUMPY;
+    if (stack === "pandas") return window.PANDAS;
+    return null;
+  }
+  function dashLearnStats(stack) {
+    var ids = [];
+    if (stack === "python") {
+      ids = ((window.PYDSA && window.PYDSA.all()) || []).map(function (t) { return t.id; });
+    } else if (window.LEARN && window.LEARN.hasContent && window.LEARN.hasContent(stack)) {
+      ids = window.LEARN.all(stack).map(function (t) { return "learn:" + stack + ":" + t.id; });
+    }
+    return { total: ids.length, done: store.countPy(ids, "learned") + store.countPy(ids, "mastered"), pct: store.pyReadiness(ids) };
+  }
+  function dashPracticeStats(stack) {
+    var reg = dashPracticeReg(stack);
+    if (!reg || !reg.all) return { total: 0, solved: 0, pct: 0, due: 0, has: false };
+    var ids = reg.all().map(function (p) { return stack === "python" ? p.id : stack + ":" + p.id; });
+    var solved = 0;
+    for (var i = 0; i < ids.length; i++) if (store.getStatus(ids[i]) === "solved") solved++;
+    return { total: ids.length, solved: solved, pct: ids.length ? Math.round((solved / ids.length) * 100) : 0, due: store.countDue(ids), has: true };
+  }
+  function miniRing(pct, label, sub) {
+    var wrap = h("div", { class: "xs-metric" });
+    wrap.innerHTML =
+      '<div class="py-ready-ring xs-ring" style="--pct:' + pct + '"><span>' + pct + '%</span></div>' +
+      '<div class="xs-metric-txt"><div class="xs-metric-k">' + esc(label) + '</div><div class="xs-metric-sub muted">' + esc(sub) + '</div></div>';
+    return wrap;
+  }
+  function renderCrossStack(body) {
+    var block = h("div", { class: "db-block db-overview" });
+    block.appendChild(h("h3", null, "Your progress across the stack"));
+    var grid = h("div", { class: "xstack-grid" });
+    var tConceptsDone = 0, tConcepts = 0, tSolved = 0, tProblems = 0, tDue = 0;
+    STACK_KEYS.forEach(function (stack) {
+      var L = dashLearnStats(stack), P = dashPracticeStats(stack);
+      tConceptsDone += L.done; tConcepts += L.total;
+      tSolved += P.solved; tProblems += P.total; tDue += P.due;
+      var card = h("button", { class: "xstack-card", "data-stack": stack, title: "Open " + STACK_LABEL[stack] });
+      var head = h("div", { class: "xs-head" });
+      head.innerHTML = '<span class="xs-name">' + esc(STACK_LABEL[stack]) + '</span>' +
+        (P.due ? '<span class="xs-due">' + P.due + ' due</span>' : '');
+      card.appendChild(head);
+      var rings = h("div", { class: "xs-rings" });
+      if (L.total) rings.appendChild(miniRing(L.pct, "Learn", L.done + "/" + L.total + " topics"));
+      if (P.has) rings.appendChild(miniRing(P.pct, "Practice", P.solved + "/" + P.total + " solved"));
+      if (!L.total && !P.has) rings.appendChild(h("div", { class: "xs-metric muted" }, "coming soon"));
+      card.appendChild(rings);
+      card.addEventListener("click", function () {
+        closeModal("dashModal");
+        var mode = hasPractice(stack) ? "practice" : "learn";
+        B.goTo(mode, stack, null);
+      });
+      grid.appendChild(card);
+    });
+    block.appendChild(grid);
+    var overall = h("div", { class: "xs-overall muted" });
+    overall.innerHTML = "<b>" + tConceptsDone + "</b>/" + tConcepts + " concepts learned · <b>" +
+      tSolved + "</b>/" + tProblems + " problems solved" + (tDue ? " · <b>" + tDue + "</b> due for review" : "");
+    block.appendChild(overall);
+    body.appendChild(block);
+  }
+
   function openDashboard() {
     var body = el("dashBody");
     body.innerHTML = "";
+    renderCrossStack(body);
+    body.appendChild(h("div", { class: "db-section-label" }, "Python · DSA — detailed breakdown"));
     var set = activeProblems();
     var ids = set.map(function (p) { return p.id; });
     var solved = 0, learning = 0, notStarted = 0, reviewFlag = 0;
