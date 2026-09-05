@@ -23,7 +23,12 @@ window.PYDSA.register("Data Structures", [
         "arr = [10, 20, 30]\n" +
         "arr.append(40)     # -> [10, 20, 30, 40]   O(1) amortized\n" +
         "arr[1]             # -> 20                  O(1)\n" +
-        "arr.pop()          # -> 40 (removes last)   O(1)",
+        "arr.pop()          # -> 40 (removes last)   O(1)\n" +
+        "\n" +
+        "# walk it, get index + value, slice it:\n" +
+        "for x in arr: ...              # visit each element    O(n)\n" +
+        "for i, x in enumerate(arr): ...# index AND value\n" +
+        "arr[0:2]           # -> [10, 20]  a NEW list           O(k)",
       viz: { type: "sequence", data: { items: [10, 20, 30], label: "arr" } },
       caption: "Elements sit at contiguous indices. Index access is direct math (base + i) — that's why arr[i] is O(1)."
     },
@@ -71,6 +76,8 @@ window.PYDSA.register("Data Structures", [
       { op: "arr.append(x)", big_o: "O(1) amortized", note: "occasional resize copy" },
       { op: "arr.pop()", big_o: "O(1)", note: "removes from the end" },
       { op: "arr.pop(0) / insert(0,x)", big_o: "O(n)", note: "shifts every element" },
+      { op: "arr[a:b]  (slice)", big_o: "O(k)", note: "builds a NEW list of k items — not free" },
+      { op: "for x in arr", big_o: "O(n)", note: "one full pass" },
       { op: "x in arr", big_o: "O(n)", note: "linear scan — use a set for membership" },
       { op: "arr.sort()", big_o: "O(n log n)", note: "Timsort, in place" }
     ],

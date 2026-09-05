@@ -24,7 +24,12 @@ window.PYDSA.register("Data Structures", [
         "for x in nums:\n" +
         "    freq[x] = freq.get(x, 0) + 1\n" +
         "\n" +
-        "# freq now maps each value -> how many times it appeared",
+        "# the operations you'll actually reach for:\n" +
+        "freq[k]                 # read (KeyError if k is missing)\n" +
+        "freq.get(k, 0)          # read with a fallback\n" +
+        "k in freq               # membership          O(1) avg\n" +
+        "for k, v in freq.items():  ...   # iterate pairs\n" +
+        "{k: v for k, v in pairs}   # dict comprehension",
       viz: { type: "dictHash", data: { pairs: [["cat", 3], ["dog", 1], ["fox", 2]] } },
       caption: "A key is hashed to find its slot, then the value is read/written there \u2014 no scanning of other keys."
     },
@@ -73,6 +78,7 @@ window.PYDSA.register("Data Structures", [
       { op: "d[key] = v  (write)", big_o: "O(1) avg", note: "amortized; may trigger a resize" },
       { op: "key in d", big_o: "O(1) avg", note: "this is why dicts beat lists for membership" },
       { op: "del d[key]", big_o: "O(1) avg", note: "" },
+      { op: "d.keys() / .values() / .items()", big_o: "O(n)", note: "iterating the view; the view object itself is O(1)" },
       { op: "for k in d", big_o: "O(n)", note: "visits every key once, in insertion order" }
     ],
 
