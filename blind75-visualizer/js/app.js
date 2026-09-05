@@ -228,6 +228,16 @@
     animateCollapse(block, block.querySelector(".cat-list-outer"), open);
   }
 
+  // Reflect the single expand/collapse-all button's state (caret + tooltip).
+  function updateToggleAllIcon() {
+    var btn = el("toggleAll"); if (!btn) return;
+    var groups = B.byCategory();
+    var allCollapsed = groups.length && groups.every(function (g) { return store.isCatCollapsed(g.category); });
+    btn.textContent = allCollapsed ? "▸" : "▾";
+    btn.title = allCollapsed ? "Expand all categories" : "Collapse all categories";
+    btn.setAttribute("aria-label", btn.title);
+  }
+
   function renderSidebar() {
     var nav = el("nav");
     nav.innerHTML = "";
@@ -260,6 +270,7 @@
         var willOpen = block.classList.contains("collapsed"); // currently collapsed -> open it
         setCatOpen(block, willOpen);
         store.setCatCollapsed(g.category, !willOpen);
+        updateToggleAllIcon();
       });
       block.appendChild(header);
 
@@ -308,6 +319,7 @@
     if (!nav.children.length) {
       nav.appendChild(h("div", { class: "nav-empty" }, "No problems match your search / filters."));
     }
+    updateToggleAllIcon();
   }
 
   // ============================================================= PROGRESS
@@ -1303,10 +1315,14 @@
         renderSidebar();
       }
     }
-    var expandAllBtn = el("expandAll");
-    if (expandAllBtn) expandAllBtn.addEventListener("click", function () { setAllCollapsed(false); });
-    var collapseAllBtn = el("collapseAll");
-    if (collapseAllBtn) collapseAllBtn.addEventListener("click", function () { setAllCollapsed(true); });
+    // one button toggles all categories: collapse them if any is open, else expand
+    var toggleAllBtn = el("toggleAll");
+    if (toggleAllBtn) toggleAllBtn.addEventListener("click", function () {
+      var groups = B.byCategory();
+      var allCollapsed = groups.every(function (g) { return store.isCatCollapsed(g.category); });
+      setAllCollapsed(!allCollapsed);
+      updateToggleAllIcon();
+    });
 
     el("clearFilters").addEventListener("click", function () {
       state.query = ""; state.filterDifficulty = "all"; state.filterStatus = "all"; state.filterPattern = "all"; state.filterImportance = "all";
