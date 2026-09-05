@@ -11,6 +11,7 @@
     "Foundations",
     "Data Structures",
     "Core Python",
+    "Object-Oriented Python",
     "Complexity",
     "DSA Toolkit"
   ];
@@ -19,6 +20,7 @@
     "Foundations": "◇",
     "Data Structures": "▦",
     "Core Python": "λ",
+    "Object-Oriented Python": "◎",
     "Complexity": "∆",
     "DSA Toolkit": "🧰"
   };
@@ -29,9 +31,14 @@
   var OUTLINE = [
     { section: "Foundations",     topics: ["Variables & Objects", "Numbers & Booleans", "Type Conversion"] },
     { section: "Data Structures", topics: ["Lists", "Strings", "Tuples", "Sets", "Dictionaries"] },
-    { section: "Core Python",     topics: ["Functions", "Recursion", "Comprehensions"] },
+    { section: "Core Python",     topics: ["Functions", "Recursion", "Comprehensions", "Bit Manipulation", "Dynamic Programming"] },
+    { section: "Object-Oriented Python", topics: [
+        "Classes & Objects", "Instance State & __init__", "Methods: instance, class, static",
+        "Encapsulation & Properties", "Inheritance & Polymorphism", "Dunder Methods",
+        "Dataclasses", "Composition & Interfaces"
+    ] },
     { section: "Complexity",      topics: ["Big-O by Example", "Operation Complexity"] },
-    { section: "DSA Toolkit",     topics: ["deque", "Counter", "defaultdict", "heapq", "bisect"] }
+    { section: "DSA Toolkit",     topics: ["deque", "Counter", "defaultdict", "heapq", "bisect", "functools · cache", "itertools", "math", "Custom Sorting"] }
   ];
 
   var registry = {};   // section -> [topic]

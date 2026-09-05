@@ -73,3 +73,34 @@ button.learn-topic:hover { background: var(--bg-2); color: var(--text); }
 .prob-try { margin-top: 14px; border-top: 1px dashed var(--border-soft); padding-top: 12px; }
 .prob-try-h { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--brand-2); margin-bottom: 6px; }
 .prob-try .pyplay { margin-top: 4px; }
+
+/* ============================================================= */
+/* Responsive / touch hardening — 14", 15.6" laptops & iPad 9th gen (Safari) */
+/* ============================================================= */
+
+/* Never let the page scroll sideways; wide content scrolls inside its own box. */
+html, body { max-width: 100%; }
+body { overflow-x: hidden; }
+
+/* Momentum scrolling + contained overflow for every horizontally-scrollable pane
+   (code blocks, data tables, modal bodies) so touch-dragging feels native and
+   long lines never push the layout wider than the screen. */
+.code-body, .code-pre, .lab-table-scroll, .modal-body, .py-rich pre, .why-pre {
+  -webkit-overflow-scrolling: touch;
+  overflow-x: auto;
+  max-width: 100%;
+}
+.pyplay-code { max-width: 100%; box-sizing: border-box; }
+
+/* Comfortable tap targets on touch devices (Apple HIG ~44px; keep chips >=34). */
+@media (pointer: coarse) {
+  .chip-btn, .ws-btn, .mode-btn, .status-btn, .app-tab, .ct-btn, .srs-grade, .nav-item {
+    min-height: 34px;
+  }
+  .prob-chip { min-height: 32px; }
+}
+
+/* iPad-range: keep the two-workspace switch tidy and prevent header crowding. */
+@media (min-width: 768px) and (max-width: 1100px) {
+  .ws-switches { flex-wrap: wrap; row-gap: 6px; }
+}
