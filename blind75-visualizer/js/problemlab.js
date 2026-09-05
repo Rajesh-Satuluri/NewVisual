@@ -45,6 +45,16 @@
       codeSecondary: { key: "plain", label: "Clean" },
       importanceOf: function (p) { return p.importance || "common"; },
       numberOf: function (p) { return p.num != null ? "Q" + p.num : ""; }
+    },
+    pandas: {
+      reg: function () { return window.PANDAS; },
+      lang: "python",
+      langLabel: "Pandas",
+      runnable: true,                              // Pyodide can execute pandas in-browser
+      codePrimary: { key: "rcs", label: "Commented" },
+      codeSecondary: { key: "plain", label: "Clean" },
+      importanceOf: function (p) { return p.importance || "common"; },
+      numberOf: function (p) { return p.num != null ? "Q" + p.num : ""; }
     }
   };
 

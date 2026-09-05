@@ -57,7 +57,8 @@
     if (stack === "sql") return !!(window.SQLLAB && window.SQLLAB.all().length);
     if (stack === "spark") return !!(window.PYSPARK && window.PYSPARK.all().length);
     if (stack === "numpy") return !!(window.NUMPY && window.NUMPY.all().length);
-    return false;                                                          // pandas practice not built yet
+    if (stack === "pandas") return !!(window.PANDAS && window.PANDAS.all().length);
+    return false;
   }
   function modeAvailable(stack, mode) { return mode === "learn" ? hasLearn(stack) : hasPractice(stack); }
 
