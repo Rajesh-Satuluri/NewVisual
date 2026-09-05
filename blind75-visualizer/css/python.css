@@ -13,7 +13,7 @@
 
 /* When in the Python workspace, hide DSA-only sidebar widgets + topbar buttons */
 body[data-ws="python"] .progress-box,
-body[data-ws="python"] .search-box,
+body[data-ws="python"] #filterToggle,
 body[data-ws="python"] #filterPanel,
 body[data-ws="python"] .nav-tools,
 body[data-ws="python"] #gridBtn,
@@ -185,3 +185,62 @@ body:not([data-ws="python"]) #pyProgress { display: none !important; }
 .gr-fill.c2 { background: var(--brand); } .gr-fill.c3 { background: var(--amber); }
 .gr-fill.c4 { background: #fb923c; } .gr-fill.c5 { background: var(--red); }
 .gr-val { font-family: var(--mono); color: var(--muted); text-align: right; }
+
+/* heap tree */
+.hp-tree { display: flex; flex-direction: column; gap: 14px; align-items: center; margin-top: 16px; }
+.hp-level { display: flex; gap: 22px; justify-content: center; }
+.hp-node { width: 40px; height: 40px; border-radius: 50%; background: var(--bg-1); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-weight: 700; font-size: 14px; color: var(--text); }
+.hp-node.root { border-color: var(--success); color: var(--success-2); box-shadow: 0 0 0 2px var(--success-glow); }
+
+/* set operations / venn */
+.vn-venn { position: relative; height: 160px; max-width: 380px; margin: 0 auto 4px; }
+.vn-circle { position: absolute; top: 20px; width: 180px; height: 120px; border-radius: 50%; border: 2px solid; opacity: .8; }
+.vn-a { left: 20px; border-color: var(--brand); background: color-mix(in srgb, var(--brand) 10%, transparent); }
+.vn-b { right: 20px; border-color: var(--brand-2); background: color-mix(in srgb, var(--brand-2) 10%, transparent); }
+.vn-only, .vn-mid { position: absolute; top: 66px; font-family: var(--mono); font-size: 13px; font-weight: 700; text-align: center; transition: color var(--dur) var(--ease), transform var(--dur) var(--ease); }
+.vn-onlya { left: 34px; width: 90px; color: var(--text-2); }
+.vn-onlyb { right: 34px; width: 90px; color: var(--text-2); }
+.vn-mid { left: 50%; transform: translateX(-50%); width: 90px; color: var(--text-2); }
+.vn-only.on, .vn-mid.on { color: var(--amber); transform: scale(1.18); }
+.vn-mid.on { transform: translateX(-50%) scale(1.18); }
+
+/* run / playground output */
+.pyplay { margin: 12px 0 4px; }
+.pyplay-code { width: 100%; box-sizing: border-box; background: var(--code-bg); color: #e6edf7; border: 1px solid var(--border); border-radius: var(--radius-sm); font-family: var(--mono); font-size: 13px; line-height: 1.6; padding: 14px 16px; resize: vertical; }
+.pyplay-code:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand-glow); }
+.run-bar { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+.run-btn { background: var(--success); border-color: var(--success); color: #052015; font-weight: 700; }
+.run-btn:hover { filter: brightness(1.08); }
+.run-btn:disabled { opacity: .6; cursor: default; }
+.run-hint { font-size: 11.5px; }
+.run-out { margin: 10px 0 0; background: var(--bg-2); border: 1px solid var(--border-soft); border-left: 3px solid var(--muted); border-radius: var(--radius-sm); padding: 11px 14px; font-family: var(--mono); font-size: 12.5px; line-height: 1.55; white-space: pre-wrap; overflow-x: auto; color: var(--text); }
+.run-out.loading { border-left-color: var(--amber); color: var(--text-2); }
+.run-out.ok { border-left-color: var(--success); }
+.run-out.error { border-left-color: var(--red); color: var(--red); }
+.py-playground { margin: 30px 34px 44px; background: var(--bg-1); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; box-shadow: inset 3px 0 0 var(--stripe-srs); }
+
+/* python concepts strip on DSA problems */
+.py-xlink-lead { font-size: 13.5px; color: var(--text-2); margin: 0 0 10px; }
+.py-xlink-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.py-xlink-chip { font-weight: 650; }
+
+/* merged-search cross block (both sidebars) */
+.nav-xsearch { margin: 8px 6px 12px; padding: 8px 10px; background: var(--bg-2); border: 1px solid var(--border-soft); border-radius: var(--radius-sm); }
+.nav-xsearch-head { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin-bottom: 5px; }
+.nav-xsearch-item { display: block; width: 100%; text-align: left; background: none; border: none; color: var(--brand-2); font-size: 12.5px; font-weight: 600; padding: 4px 6px; border-radius: 6px; cursor: pointer; }
+.nav-xsearch-item:hover { background: var(--bg-3); color: var(--text); }
+
+/* recognition practice button + review cards */
+.py-rec-btn { width: 100%; margin-top: 10px; background: var(--bg-2); border: 1px solid var(--border); color: var(--text-2); font-weight: 700; font-size: 12.5px; padding: 8px 12px; border-radius: var(--radius-sm); cursor: pointer; }
+.py-rec-btn:hover { border-color: var(--brand); color: var(--text); }
+.py-rec-btn.has-due { background: color-mix(in srgb, var(--brand) 15%, var(--bg-2)); border-color: color-mix(in srgb, var(--brand) 45%, var(--border)); color: var(--text); }
+.rv-card { text-align: center; }
+.rv-progress { font-size: 12px; margin-bottom: 14px; }
+.rv-front { font-size: 18px; font-weight: 700; color: var(--text); line-height: 1.4; margin-bottom: 14px; }
+.rv-back { font-size: 16px; font-weight: 650; color: var(--brand-2); margin-bottom: 16px; transition: filter var(--dur) var(--ease); }
+.rv-back.blurred { filter: blur(7px); user-select: none; }
+.rv-grades { display: flex; gap: 8px; justify-content: center; margin-bottom: 14px; }
+.rv-grade { font-weight: 700; }
+.rv-again { color: var(--red); } .rv-hard { color: var(--amber); } .rv-good { color: var(--brand-2); } .rv-easy { color: var(--success-2); }
+.rv-open { color: var(--muted); }
+.rv-done { font-size: 16px; font-weight: 700; color: var(--success-2); text-align: center; margin-bottom: 14px; }

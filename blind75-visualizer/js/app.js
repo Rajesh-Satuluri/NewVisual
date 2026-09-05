@@ -289,6 +289,22 @@
       nav.appendChild(block);
     });
 
+    // Merged search: when the user is searching, surface matching Python topics
+    // at the top of the nav so a query like "heap" finds both sides.
+    if (state.query && state.query.trim() && window.PYLAB && window.PYLAB.search) {
+      var pyHits = window.PYLAB.search(state.query).slice(0, 4);
+      if (pyHits.length) {
+        var xblock = h("div", { class: "nav-xsearch" });
+        xblock.appendChild(h("div", { class: "nav-xsearch-head" }, "🐍 In Python for DSA"));
+        pyHits.forEach(function (t) {
+          var it = h("button", { class: "nav-xsearch-item" }, esc(t.title));
+          it.addEventListener("click", function () { B.goToTopic(t.id); });
+          xblock.appendChild(it);
+        });
+        nav.insertBefore(xblock, nav.firstChild);
+      }
+    }
+
     if (!nav.children.length) {
       nav.appendChild(h("div", { class: "nav-empty" }, "No problems match your search / filters."));
     }
@@ -598,6 +614,10 @@
       '<div class="meta-v ' + impInfo.cls + '">' + impInfo.stars + " " + impInfo.label + "</div>";
     metaBox.appendChild(impCell);
     main.appendChild(metaBox);
+
+    // ---- Python concepts used (reverse cross-link into the Python lab) ----
+    var pySec = pythonConceptsSection(p);
+    if (pySec) main.appendChild(pySec);
 
     // ---- spaced-repetition review ----
     main.appendChild(buildSrsSection(p));
@@ -1227,6 +1247,10 @@
   function wireControls() {
     var search = el("search");
     search.addEventListener("input", function () {
+      if (state.workspace === "python") {
+        if (window.PYLAB && window.PYLAB.onSearch) window.PYLAB.onSearch(search.value);
+        return;
+      }
       state.query = search.value;
       renderSidebar();
     });
@@ -1472,6 +1496,29 @@
     setWorkspace("dsa");
     if (byId[id]) selectProblem(id);
   };
+
+  // Bridge used by the DSA reader to jump into a Python topic.
+  B.goToTopic = function (id) {
+    setWorkspace("python", id);
+  };
+
+  // Reverse cross-link: which Python topics does this problem exercise? Asks the
+  // Python lab (if loaded) to match the problem's meta against topic tags.
+  function pythonConceptsSection(p) {
+    if (!window.PYLAB || !window.PYLAB.topicsForProblem) return null;
+    var topics = window.PYLAB.topicsForProblem(p);
+    if (!topics || !topics.length) return null;
+    var wrap = h("div", {});
+    wrap.appendChild(h("p", { class: "py-xlink-lead" }, "This problem leans on these Python building blocks — tap to brush up:"));
+    var chips = h("div", { class: "py-xlink-chips" });
+    topics.forEach(function (t) {
+      var c = h("button", { class: "chip-btn py-xlink-chip" }, "🐍 " + t.title);
+      c.addEventListener("click", function () { B.goToTopic(t.id); });
+      chips.appendChild(c);
+    });
+    wrap.appendChild(chips);
+    return section("recall", "Python concepts used", wrap);
+  }
 
   // ============================================================= BOOT
   function renderAll() {

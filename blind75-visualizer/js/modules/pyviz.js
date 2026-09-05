@@ -203,6 +203,87 @@
     return wrap;
   }
 
+  // ---- heap: the same data shown as an array AND as a binary tree ----
+  // opts: { array: [1,3,6,5,9,8] }  (a valid min-heap)
+  function heapTree(opts) {
+    var arr = opts.array || [];
+    var wrap = elh("div", "viz viz-heap");
+    wrap.appendChild(elh("div", "viz-name", "heap = " + JSON.stringify(arr)));
+
+    // array row with indices
+    var row = elh("div", "seq-row");
+    arr.forEach(function (v, i) {
+      var cell = elh("div", "seq-cell");
+      cell.appendChild(elh("div", "seq-ipos", String(i)));
+      cell.appendChild(elh("div", "seq-val", String(v)));
+      row.appendChild(cell);
+    });
+    wrap.appendChild(row);
+
+    // tree: level by level (index i -> children 2i+1, 2i+2)
+    var tree = elh("div", "hp-tree");
+    var level = 0, count = 1, i = 0;
+    while (i < arr.length) {
+      var lvl = elh("div", "hp-level");
+      for (var k = 0; k < count && i < arr.length; k++, i++) {
+        var node = elh("div", "hp-node" + (i === 0 ? " root" : ""), String(arr[i]));
+        lvl.appendChild(node);
+      }
+      tree.appendChild(lvl);
+      level++; count *= 2;
+    }
+    wrap.appendChild(tree);
+    wrap.appendChild(elh("div", "viz-hint", "Parent at i, children at 2i+1 and 2i+2. In a min-heap every parent ≤ its children, so the smallest is always at index 0."));
+    return wrap;
+  }
+
+  // ---- set operations: two overlapping circles, highlight the result set ----
+  // opts: { a: [1,2,3,4], b: [3,4,5,6] }
+  function setOps(opts) {
+    var A = opts.a || [], B = opts.b || [];
+    var setB = {}; B.forEach(function (x) { setB[x] = true; });
+    var setA = {}; A.forEach(function (x) { setA[x] = true; });
+    var onlyA = A.filter(function (x) { return !setB[x]; });
+    var both = A.filter(function (x) { return setB[x]; });
+    var onlyB = B.filter(function (x) { return !setA[x]; });
+
+    var wrap = elh("div", "viz viz-sets");
+    var venn = elh("div", "vn-venn");
+    var cA = elh("div", "vn-circle vn-a");
+    var cB = elh("div", "vn-circle vn-b");
+    var lA = elh("div", "vn-only vn-onlya", onlyA.join(" "));
+    var lMid = elh("div", "vn-mid", both.join(" "));
+    var lB = elh("div", "vn-only vn-onlyb", onlyB.join(" "));
+    venn.appendChild(cA); venn.appendChild(cB);
+    venn.appendChild(lA); venn.appendChild(lMid); venn.appendChild(lB);
+    wrap.appendChild(venn);
+
+    var controls = elh("div", "viz-controls");
+    var status = elh("div", "viz-hint", "a = {" + A.join(", ") + "}   b = {" + B.join(", ") + "}");
+    var ops = [
+      ["a | b  (union)", A.concat(onlyB)],
+      ["a & b  (intersection)", both],
+      ["a - b  (difference)", onlyA]
+    ];
+    ops.forEach(function (o) {
+      var btn = elh("button", "viz-btn ghost", o[0]);
+      btn.addEventListener("click", function () {
+        venn.className = "vn-venn hl";
+        lA.classList.toggle("on", o[1].indexOf(onlyA[0]) !== -1 || o[0].indexOf("union") !== -1 || o[0].indexOf("difference") !== -1);
+        // simpler: recompute highlight per element group
+        var res = {}; o[1].forEach(function (x) { res[x] = true; });
+        lA.classList.toggle("on", onlyA.some(function (x) { return res[x]; }));
+        lMid.classList.toggle("on", both.some(function (x) { return res[x]; }));
+        lB.classList.toggle("on", onlyB.some(function (x) { return res[x]; }));
+        status.innerHTML = "<b>" + o[0] + "</b> = {" + o[1].join(", ") + "}";
+      });
+      controls.appendChild(btn);
+    });
+    wrap.appendChild(controls);
+    wrap.appendChild(status);
+    return wrap;
+  }
+
   window.PYVIZ = {
     build: function (spec) {
       if (!spec || !spec.type) return null;
@@ -210,6 +291,8 @@
       if (spec.type === "dictHash") return dictHash(spec.data || {});
       if (spec.type === "callStack") return callStack(spec.data || {});
       if (spec.type === "growth") return growth(spec.data || {});
+      if (spec.type === "heapTree") return heapTree(spec.data || {});
+      if (spec.type === "setOps") return setOps(spec.data || {});
       return null;
     }
   };
