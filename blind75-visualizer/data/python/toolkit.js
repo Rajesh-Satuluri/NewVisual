@@ -286,8 +286,8 @@ window.PYDSA.register("DSA Toolkit", [
         "# MAX-heap trick: push negatives, negate again on the way out\n" +
         "heapq.heappush(h, -x)\n" +
         "largest = -heapq.heappop(h)",
-      viz: { type: "sequence", data: { items: [1, 2, 3, 5], label: "heap" } },
-      caption: "A heap is stored as a flat list; h[0] is always the minimum. Push/pop bubble one element up or down \u2014 O(log n)."
+      viz: { type: "heapTree", data: { array: [1, 3, 6, 5, 9, 8] } },
+      caption: "A heap is stored as a flat list but behaves like a binary tree; h[0] is always the minimum. Push/pop bubble one element up or down \u2014 O(log n)."
     },
 
     whyDsa:

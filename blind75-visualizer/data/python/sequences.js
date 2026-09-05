@@ -202,7 +202,8 @@ window.PYDSA.register("Data Structures", [
         "# set algebra:\n" +
         "a | b   # union         a & b   # intersection\n" +
         "a - b   # difference",
-      caption: "A set stores only keys \u2014 hashed to slots like a dict \u2014 so membership is a direct O(1) lookup, not a scan."
+      viz: { type: "setOps", data: { a: [1, 2, 3, 4], b: [3, 4, 5, 6] } },
+      caption: "A set stores only keys \u2014 hashed to slots like a dict \u2014 so membership is a direct O(1) lookup, not a scan. Try the union / intersection / difference buttons."
     },
 
     whyDsa:

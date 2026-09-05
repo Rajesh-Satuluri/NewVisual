@@ -9,6 +9,7 @@
 (function () {
   var PY = window.PYDSA;
   var store = window.BLIND75.store;
+  var pyQuery = "";   // active sidebar search query (Python workspace)
 
   var STATUS_GLYPH = { "not-started": "○", "learning": "◐", "learned": "✓", "mastered": "★" };
   var STATUS_LABEL = { "not-started": "Not started", "learning": "Learning", "learned": "Learned", "mastered": "Mastered" };
@@ -56,6 +57,73 @@
       });
     }
     return out.slice(0, 8);
+  }
+
+  // ---- topic search (substring over title, section, tags, tagline) ----
+  function searchTopics(q) {
+    q = (q || "").trim().toLowerCase();
+    if (!q) return [];
+    return PY.all().filter(function (t) {
+      var hay = [t.title, t.section, t.tagline || "", (t.matchTags || []).join(" ")].join(" ").toLowerCase();
+      return hay.indexOf(q) !== -1;
+    });
+  }
+
+  // ---- reverse cross-link: which topics does a DSA problem exercise? ----
+  function topicsForProblem(p) {
+    if (!p) return [];
+    var hay = [p.category, p.meta && p.meta.pattern, p.meta && p.meta.dataStructure, p.meta && p.meta.technique]
+      .join(" ").toLowerCase();
+    var out = [], seen = {};
+    PY.all().forEach(function (t) {
+      var tags = (t.matchTags || []);
+      for (var i = 0; i < tags.length; i++) {
+        if (tags[i] && hay.indexOf(tags[i].toLowerCase()) !== -1) {
+          if (!seen[t.id]) { out.push({ id: t.id, title: t.title }); seen[t.id] = true; }
+          break;
+        }
+      }
+    });
+    return out.slice(0, 5);
+  }
+
+  // ---- SRS "recognize" cards: reuse the shared SM-2 engine, py-namespaced ids ----
+  function recCardId(topicId, idx) { return "py:rec:" + topicId + ":" + idx; }
+  function allRecCards() {
+    var cards = [];
+    PY.all().forEach(function (t) {
+      (t.recognize || []).forEach(function (r, i) {
+        cards.push({ id: recCardId(t.id, i), topicId: t.id, topicTitle: t.title, front: r.q, back: r.think });
+      });
+    });
+    return cards;
+  }
+  function dueRecCards() {
+    return allRecCards().filter(function (c) { return store.isDue(c.id); });
+  }
+
+  // ---- editable, runnable code (lazy Pyodide via window.PYRUN) ----
+  function runnableEditor(initial) {
+    var box = h("div", { class: "pyplay" });
+    var ta = h("textarea", { class: "pyplay-code", spellcheck: "false" });
+    ta.value = initial || "";
+    var lines = (initial || "").split("\n").length;
+    ta.rows = Math.min(Math.max(lines + 1, 4), 18);
+    var bar = h("div", { class: "run-bar" });
+    var btn = h("button", { class: "chip-btn run-btn" }, "▶ Run");
+    var hint = h("span", { class: "run-hint muted" }, "runs in your browser · add print(...) to see output");
+    var out = h("pre", { class: "run-out", hidden: "hidden" });
+    btn.addEventListener("click", function () {
+      if (window.PYRUN) window.PYRUN.run(ta.value, out, btn);
+      else { out.hidden = false; out.textContent = "Python runtime unavailable."; }
+    });
+    // Tab inserts spaces instead of leaving the textarea
+    ta.addEventListener("keydown", function (e) {
+      if (e.key === "Tab") { e.preventDefault(); var s = ta.selectionStart, en = ta.selectionEnd; ta.value = ta.value.slice(0, s) + "    " + ta.value.slice(en); ta.selectionStart = ta.selectionEnd = s + 4; }
+    });
+    bar.appendChild(btn); bar.appendChild(hint);
+    box.appendChild(ta); box.appendChild(bar); box.appendChild(out);
+    return box;
   }
 
   // ---- indent guides (mirrors app.js addIndentGuides) ----
@@ -252,7 +320,7 @@
     if (topic.challenge) {
       var chBody = h("div", {});
       chBody.appendChild(h("p", { class: "py-para" }, esc(topic.challenge.prompt)));
-      if (topic.challenge.starter) chBody.appendChild(codeBlock(topic.challenge.starter));
+      chBody.appendChild(runnableEditor(topic.challenge.starter || ""));
       var revealBtn = h("button", { class: "chip-btn" }, "Reveal solution");
       var solWrap = h("div", { class: "challenge-sol", hidden: "hidden" });
       solWrap.appendChild(codeBlock(topic.challenge.solution));
@@ -349,6 +417,22 @@
 
     // toolkit
     main.appendChild(toolkitNode());
+
+    // playground — real in-browser Python (lazy Pyodide)
+    var play = h("div", { class: "py-playground" });
+    play.appendChild(h("h2", { class: "py-h2" }, "🐍 Python Playground"));
+    play.appendChild(h("p", { class: "py-para muted" }, "Scratch space — write Python and run it right here in your browser. The first run downloads the runtime once."));
+    play.appendChild(runnableEditor(
+      "# Two Sum, the hash-map way\n" +
+      "nums = [2, 7, 11, 15]\n" +
+      "target = 9\n" +
+      "seen = {}\n" +
+      "for i, x in enumerate(nums):\n" +
+      "    if target - x in seen:\n" +
+      "        print('indices:', seen[target - x], i)\n" +
+      "    seen[x] = i\n"));
+    main.appendChild(play);
+
     main.scrollTop = 0;
   }
 
@@ -436,12 +520,20 @@
     home.addEventListener("click", function () { window.PYLAB.home(); });
     nav.appendChild(home);
 
+    var q = pyQuery.trim().toLowerCase();
+    var shown = 0;
     PY.SECTION_ORDER.forEach(function (sectionName) {
       var topics = PY.sectionTopics(sectionName);
+      if (q) {
+        topics = topics.filter(function (t) {
+          return [t.title, (t.matchTags || []).join(" "), t.tagline || ""].join(" ").toLowerCase().indexOf(q) !== -1;
+        });
+      }
       if (!topics.length) return;
       var block = h("div", { class: "cat-block" });
       block.appendChild(h("div", { class: "py-nav-head" }, (PY.SECTION_ICON[sectionName] || "•") + "  " + esc(sectionName)));
       topics.forEach(function (t) {
+        shown++;
         var st = store.getPyStatus(t.id);
         var item = h("a", { class: "nav-item" + (t.id === activeId ? " active" : ""), href: "#py/" + t.id });
         item.innerHTML = '<span class="st st-' + st + '">' + STATUS_GLYPH[st] + "</span>" +
@@ -451,11 +543,31 @@
       });
       nav.appendChild(block);
     });
+
+    // Merged search: when searching, surface matching DSA problems too.
+    if (q && window.BLIND75.all) {
+      var probs = window.BLIND75.all().filter(function (p) {
+        var hay = [p.title, p.category, p.meta && p.meta.pattern, p.meta && p.meta.dataStructure].join(" ").toLowerCase();
+        return hay.indexOf(q) !== -1;
+      }).slice(0, 5);
+      if (probs.length) {
+        var xb = h("div", { class: "nav-xsearch" });
+        xb.appendChild(h("div", { class: "nav-xsearch-head" }, "▦ In DSA problems"));
+        probs.forEach(function (p) {
+          var it = h("button", { class: "nav-xsearch-item" }, esc(p.title));
+          it.addEventListener("click", function () { window.BLIND75.goToProblem(p.id); });
+          xb.appendChild(it);
+        });
+        nav.appendChild(xb);
+      }
+    }
+    if (q && !shown) nav.appendChild(h("div", { class: "nav-empty" }, "No Python topics match “" + esc(pyQuery) + "”."));
   }
 
   function renderProgress() {
     var box = el("pyProgress");
     if (!box) return;
+    box.hidden = false; // CSS still hides it in the DSA workspace via [data-ws]
     var ids = PY.all().map(function (t) { return t.id; });
     var pct = store.pyReadiness(ids);
     box.innerHTML =
@@ -463,12 +575,72 @@
       '<div class="progress-track"><div class="progress-fill" style="width:' + pct + '%"></div></div>' +
       '<div class="progress-foot muted"><span>' + store.countPy(ids, "learned") + " learned</span> · " +
         store.countPy(ids, "mastered") + " mastered · " + ids.length + " topics</div>";
+    var due = dueRecCards().length;
+    var rbtn = h("button", { class: "py-rec-btn" + (due ? " has-due" : "") }, "🔁 Practice recognition" + (due ? " (" + due + " due)" : ""));
+    rbtn.addEventListener("click", function () { openRecognition(); });
+    box.appendChild(rbtn);
+  }
+
+  // ========================================================== RECOGNITION REVIEW
+  var _pyModalWired = false;
+  function pyOpenModal() { var m = el("pyReviewModal"); if (m) m.classList.remove("hidden"); }
+  function pyCloseModal() { var m = el("pyReviewModal"); if (m) m.classList.add("hidden"); }
+  function wirePyModal() {
+    if (_pyModalWired) return; _pyModalWired = true;
+    var m = el("pyReviewModal"), c = el("pyReviewClose");
+    if (c) c.addEventListener("click", pyCloseModal);
+    if (m) m.addEventListener("click", function (e) { if (e.target === m) pyCloseModal(); });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && m && !m.classList.contains("hidden")) pyCloseModal();
+    });
+  }
+
+  function openRecognition() {
+    wirePyModal();
+    var body = el("pyReviewBody"); if (!body) return;
+    var queue = dueRecCards(), practice = false;
+    if (!queue.length) { queue = allRecCards(); practice = true; }
+    if (!queue.length) return;
+    var idx = 0;
+    function renderCard() {
+      body.innerHTML = "";
+      if (idx >= queue.length) {
+        body.appendChild(h("div", { class: "rv-done" }, "✓ Done — " + queue.length + (queue.length === 1 ? " card" : " cards") + " reviewed."));
+        var cl = h("button", { class: "chip-btn" }, "Close");
+        cl.addEventListener("click", pyCloseModal);
+        body.appendChild(cl);
+        renderProgress(); renderSidebar(current);
+        return;
+      }
+      var card = queue[idx];
+      var wrap = h("div", { class: "rv-card" });
+      wrap.appendChild(h("div", { class: "rv-progress muted" }, (practice ? "Practice · " : "") + "Card " + (idx + 1) + " / " + queue.length + " · " + esc(card.topicTitle)));
+      wrap.appendChild(h("div", { class: "rv-front" }, esc(card.front)));
+      var back = h("div", { class: "rv-back blurred" }, "→ " + esc(card.back));
+      wrap.appendChild(back);
+      var reveal = h("button", { class: "chip-btn rv-reveal" }, "Show answer");
+      var grades = h("div", { class: "rv-grades" });
+      [["again", "Again"], ["hard", "Hard"], ["good", "Good"], ["easy", "Easy"]].forEach(function (g) {
+        var b = h("button", { class: "chip-btn rv-grade rv-" + g[0] }, g[1]);
+        b.addEventListener("click", function () { store.reviewCard(card.id, g[0]); idx++; renderCard(); });
+        grades.appendChild(b);
+      });
+      grades.hidden = true;
+      reveal.addEventListener("click", function () { back.classList.remove("blurred"); reveal.remove(); grades.hidden = false; });
+      var open = h("button", { class: "chip-btn rv-open" }, "Open " + card.topicTitle + " →");
+      open.addEventListener("click", function () { pyCloseModal(); window.PYLAB.selectTopic(card.topicId); });
+      wrap.appendChild(reveal); wrap.appendChild(grades); wrap.appendChild(open);
+      body.appendChild(wrap);
+    }
+    renderCard();
+    pyOpenModal();
   }
 
   // ========================================================== PUBLIC API
   var current = null;
   window.PYLAB = {
     mount: function (topicId) {
+      pyQuery = ""; var s = el("search"); if (s) { s.value = ""; s.placeholder = "Search Python topics…  ( / )"; }
       if (topicId && PY.byId(topicId)) current = topicId;
       else if (topicId === null) current = null;
       renderSidebar(current);
@@ -487,6 +659,10 @@
       current = null;
       if (location.hash !== "#py") history.replaceState(null, "", "#py");
       renderSidebar(null); renderProgress(); renderLanding();
-    }
+    },
+    // used by the DSA workspace + merged search
+    search: function (q) { return searchTopics(q); },
+    topicsForProblem: function (p) { return topicsForProblem(p); },
+    onSearch: function (q) { pyQuery = q; renderSidebar(current); }
   };
 })();
