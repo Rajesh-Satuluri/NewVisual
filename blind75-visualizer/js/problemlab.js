@@ -622,6 +622,24 @@
     return section("srs", "Spaced Repetition Review", wrap, { badge: rec ? (store.isDue(nid) ? "Due" : humanWhen(rec.due)) : "New" });
   }
 
+  // Animate one already-rendered category block open/closed (mirrors the DSA app),
+  // so expand/collapse-all glides instead of re-rendering the whole sidebar.
+  function animateBlock(block, open) {
+    var outer = block.querySelector(".cat-list-outer");
+    if (!outer) return;
+    var startH = outer.getBoundingClientRect().height;
+    block.classList.toggle("collapsed", !open);
+    outer.style.height = startH + "px";
+    void outer.offsetHeight;
+    if (open) {
+      outer.style.height = outer.scrollHeight + "px";
+      var done = function (e) { if (e.propertyName !== "height") return; outer.removeEventListener("transitionend", done); if (!block.classList.contains("collapsed")) outer.style.height = "auto"; };
+      outer.addEventListener("transitionend", done);
+    } else {
+      outer.style.height = "0px";
+    }
+  }
+
   // ============================================================ PUBLIC API
   window.ProblemLab = {
     // Render the given stack's practice view; id null => first problem.
@@ -653,9 +671,10 @@
     onSearch: function (q) { query = q; renderSidebar(); },
     toggleAll: function () {
       var gs = groups();
-      var allCollapsed = gs.every(function (g) { return store.isCatCollapsed(catCollapseKey(g.category)); });
-      gs.forEach(function (g) { store.setCatCollapsed(catCollapseKey(g.category), !allCollapsed); });
-      renderSidebar();
+      var willOpen = gs.every(function (g) { return store.isCatCollapsed(catCollapseKey(g.category)); }); // all collapsed → open all
+      gs.forEach(function (g) { store.setCatCollapsed(catCollapseKey(g.category), !willOpen); });
+      var blocks = el("nav").querySelectorAll(".cat-block");
+      for (var i = 0; i < blocks.length; i++) animateBlock(blocks[i], willOpen);
     },
     // Are all categories currently collapsed? (drives the shared toggle icon.)
     allCollapsed: function () {

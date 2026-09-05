@@ -153,12 +153,11 @@
 /* ---------- collapsible sidebar (desktop) ---------- */
 .menu-only { display: inline-flex; }
 @media (min-width: 901px) {
-  .shell { transition: grid-template-columns .2s ease; }
-  /* Single-column grid so the sole remaining item (main) fills the width.
-     (Keeping a "0 1fr" grid while display:none-ing the sidebar would drop
-     main into the 0-width first track and blank the page.) */
-  body.sidebar-collapsed .shell { grid-template-columns: 1fr; }
-  body.sidebar-collapsed .sidebar { display: none; }
+  /* Animate the sidebar track width to 0 (the sidebar clips via overflow:hidden)
+     instead of display:none, so collapse/expand glides rather than snapping. */
+  .shell { transition: grid-template-columns var(--dur-slow) var(--ease-cat); }
+  body.sidebar-collapsed .shell { grid-template-columns: 0 1fr; }
+  body.sidebar-collapsed .sidebar { border-right-color: transparent; }
 }
 
 /* ---------- responsive ---------- */
@@ -166,9 +165,16 @@
   .shell { grid-template-columns: 1fr; }
   .sidebar {
     position: fixed; top: var(--topbar-h); left: 0; bottom: 0; width: 86%; max-width: 340px;
-    z-index: 40; transform: translateX(-100%); transition: transform .25s ease;
+    z-index: 40; transform: translateX(-100%);
+    transition: transform var(--dur-slow) var(--ease-cat);
+    will-change: transform;
   }
   body.sidebar-open .sidebar { transform: translateX(0); box-shadow: var(--shadow); }
   .menu-only { display: inline-flex; }
   .topbar-right .ghost-btn { padding: 6px 8px; font-size: 11px; }
+
+  /* fading scrim behind the drawer */
+  .drawer-scrim { position: fixed; inset: var(--topbar-h) 0 0 0; z-index: 39; background: rgba(4,7,13,.5);
+    opacity: 0; pointer-events: none; transition: opacity var(--dur) var(--ease); }
+  body.sidebar-open .drawer-scrim { opacity: 1; pointer-events: auto; }
 }

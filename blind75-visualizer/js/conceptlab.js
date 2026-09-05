@@ -401,6 +401,24 @@
     box.hidden = false;
   }
 
+  // Animate one already-rendered section block open/closed so expand/collapse-all
+  // glides instead of re-rendering the whole sidebar.
+  function animateBlock(block, open) {
+    var outer = block.querySelector(".cat-list-outer");
+    if (!outer) return;
+    var startH = outer.getBoundingClientRect().height;
+    block.classList.toggle("collapsed", !open);
+    outer.style.height = startH + "px";
+    void outer.offsetHeight;
+    if (open) {
+      outer.style.height = outer.scrollHeight + "px";
+      var done = function (e) { if (e.propertyName !== "height") return; outer.removeEventListener("transitionend", done); if (!block.classList.contains("collapsed")) outer.style.height = "auto"; };
+      outer.addEventListener("transitionend", done);
+    } else {
+      outer.style.height = "0px";
+    }
+  }
+
   // ============================================================ PUBLIC API
   window.ConceptLab = {
     mount: function (stack, id) {
@@ -415,11 +433,13 @@
     lastId: function (stack) { return store.getPref("lastTopic_" + stack); },
     onSearch: function (q) { query = q; renderSidebar(cur.id); },
     toggleAll: function () {
-      var secs = LEARN.sectionOrder(cur.stack).filter(function (s) { return LEARN.sectionTopics(cur.stack, s).length; });
-      var keys = secs.map(function (s) { return cur.stack + "::learn::" + s; });
-      var allCollapsed = keys.length > 0 && keys.every(function (k) { return store.isCatCollapsed(k); });
-      keys.forEach(function (k) { store.setCatCollapsed(k, !allCollapsed); });
-      renderSidebar(cur.id);
+      var keys = LEARN.sectionOrder(cur.stack)
+        .filter(function (s) { return LEARN.sectionTopics(cur.stack, s).length; })
+        .map(function (s) { return cur.stack + "::learn::" + s; });
+      var willOpen = keys.length > 0 && keys.every(function (k) { return store.isCatCollapsed(k); });
+      keys.forEach(function (k) { store.setCatCollapsed(k, !willOpen); });
+      var blocks = el("nav").querySelectorAll(".cat-block");
+      for (var i = 0; i < blocks.length; i++) animateBlock(blocks[i], willOpen);
     },
     // Are all authored sections currently collapsed? (drives the shared toggle icon.)
     allCollapsed: function () {
