@@ -39,9 +39,51 @@
     filterPattern: "all",
     filterImportance: "all",
     setFilter: store.getPref("setFilter") || "all",  // "all" (NeetCode 150) | "blind75"
-    workspace: store.getPref("workspace") || "dsa",  // "dsa" | "python"
+    workspace: store.getPref("workspace") || "dsa",  // "dsa" | "python" (legacy CSS key)
+    stack: "python",                                 // python | sql | spark | numpy | pandas
+    mode: "practice",                                // learn | practice
     approachIndex: {}   // problemId -> selected approach index
   };
+
+  // ---- master stack/mode model ----
+  var STACK_KEYS = ["python", "numpy", "pandas", "spark", "sql"];
+  var STACK_LABEL = { python: "Python", numpy: "NumPy", pandas: "Pandas", spark: "PySpark", sql: "SQL" };
+  function hasLearn(stack) {
+    if (stack === "python") return !!(window.PYDSA && window.PYDSA.all().length);
+    return !!(window.LEARN && window.LEARN.hasContent(stack));
+  }
+  function hasPractice(stack) {
+    if (stack === "python") return true;                                  // DSA problems
+    if (stack === "sql") return !!(window.SQLLAB && window.SQLLAB.all().length);
+    if (stack === "spark") return !!(window.PYSPARK && window.PYSPARK.all().length);
+    return false;                                                          // numpy/pandas practice not built yet
+  }
+  function modeAvailable(stack, mode) { return mode === "learn" ? hasLearn(stack) : hasPractice(stack); }
+
+  // Build the hash for a (mode, stack, id). Python keeps its legacy routes so old
+  // deep links still resolve; every other stack uses "#learn|solve/<stack>/<id>".
+  function routeFor(mode, stack, id) {
+    if (stack === "python" && mode === "practice") return id ? "#" + id : "#";
+    if (stack === "python" && mode === "learn") return id ? "#py/" + id : "#py";
+    return "#" + (mode === "learn" ? "learn" : "solve") + "/" + stack + (id ? "/" + id : "");
+  }
+  function parseRoute(hash) {
+    var raw = (hash || "").replace(/^#/, "");
+    if (raw === "") return { mode: "practice", stack: "python", id: null, empty: true };
+    if (raw === "py" || raw.indexOf("py/") === 0) return { mode: "learn", stack: "python", id: raw.indexOf("py/") === 0 ? raw.slice(3) : null };
+    var parts = raw.split("/");
+    if (parts[0] === "learn" || parts[0] === "solve") {
+      return { mode: parts[0] === "learn" ? "learn" : "practice", stack: parts[1] || "sql", id: parts[2] || null };
+    }
+    return { mode: "practice", stack: "python", id: raw }; // legacy bare problem id
+  }
+  // Remembered/last item id for a (stack, mode) so switches resume where you were.
+  function defaultIdFor(stack, mode) {
+    if (stack === "python" && mode === "practice") return state.currentId;
+    if (stack === "python" && mode === "learn") return store.getPref("lastTopic");
+    if (mode === "practice") return window.ProblemLab && window.ProblemLab.lastId(stack);
+    return window.ConceptLab && window.ConceptLab.lastId(stack);
+  }
 
   // ---- tiny DOM helpers ----
   function el(id) { return document.getElementById(id); }
@@ -1259,12 +1301,10 @@
   function wireControls() {
     var search = el("search");
     search.addEventListener("input", function () {
-      if (state.workspace === "python") {
-        if (window.PYLAB && window.PYLAB.onSearch) window.PYLAB.onSearch(search.value);
-        return;
-      }
-      state.query = search.value;
-      renderSidebar();
+      if (state.stack === "python" && state.mode === "practice") { state.query = search.value; renderSidebar(); }
+      else if (state.stack === "python" && state.mode === "learn") { if (window.PYLAB && window.PYLAB.onSearch) window.PYLAB.onSearch(search.value); }
+      else if (state.mode === "practice") { if (window.ProblemLab) window.ProblemLab.onSearch(search.value); }
+      else { if (window.ConceptLab) window.ConceptLab.onSearch(search.value); }
     });
 
     // set toggle: All 150 vs Blind 75
@@ -1334,13 +1374,22 @@
     // theme
     var themeBtn = el("themeBtn");
     applyTheme(store.getPref("theme"));
-    // workspace switch (DSA lab <-> Python for DSA)
-    var wsBtns = document.querySelectorAll("#wsSwitch .ws-btn");
-    for (var wi = 0; wi < wsBtns.length; wi++) {
-      wsBtns[wi].addEventListener("click", function () {
-        var ws = this.getAttribute("data-ws");
-        if (ws === state.workspace) return;
-        switchWorkspace(ws);
+    // stack switch (Python · NumPy · Pandas · PySpark · SQL)
+    var stackBtns = document.querySelectorAll("#stackSwitch .ws-btn");
+    for (var wi = 0; wi < stackBtns.length; wi++) {
+      stackBtns[wi].addEventListener("click", function () {
+        var stack = this.getAttribute("data-stack");
+        if (stack === state.stack) return;
+        goStack(stack);
+      });
+    }
+    // mode switch (Learn · Practice)
+    var modeBtns = document.querySelectorAll("#modeSwitch .mode-btn");
+    for (var mi = 0; mi < modeBtns.length; mi++) {
+      modeBtns[mi].addEventListener("click", function () {
+        var mode = this.getAttribute("data-mode");
+        if (mode === state.mode || this.disabled) return;
+        goMode(mode);
       });
     }
 
@@ -1426,8 +1475,8 @@
         closeModal("shortcutsModal");
         return;
       }
-      if (e.key === "g" || e.key === "G") { e.preventDefault(); switchWorkspace(state.workspace === "python" ? "dsa" : "python"); return; }
-      if (state.workspace === "python") return; // the remaining shortcuts are DSA-only
+      if (e.key === "g" || e.key === "G") { e.preventDefault(); goMode(state.mode === "learn" ? "practice" : "learn"); return; }
+      if (!(state.stack === "python" && state.mode === "practice")) return; // remaining shortcuts are DSA-only
       var idx = ALL.findIndex(function (x) { return x.id === state.currentId; });
       if (e.key === "j" || e.key === "ArrowDown") { if (ALL[idx + 1]) { e.preventDefault(); navigate("#" + ALL[idx + 1].id); } }
       if (e.key === "k" || e.key === "ArrowUp") { if (ALL[idx - 1]) { e.preventDefault(); navigate("#" + ALL[idx - 1].id); } }
@@ -1488,63 +1537,94 @@
   }
 
   // ============================================================= WORKSPACE / ROUTER
-  // Set the workspace "chrome" (state, body attr, switch highlight) WITHOUT
-  // rendering — the router decides what to render.
-  function setWsChrome(ws) {
-    ws = ws === "python" ? "python" : "dsa";
+  // Set the shell "chrome" (state, body attrs, switch highlights) WITHOUT
+  // rendering — the router decides what to render. `data-ws` is the legacy CSS key
+  // (dsa = full problem chrome; python = everything hidden so a lab paints its
+  // own nav); `data-stack`/`data-mode` drive the new accent + switch styling.
+  function setChrome(stack, mode) {
+    state.stack = stack;
+    state.mode = mode;
+    var ws = (stack === "python" && mode === "practice") ? "dsa" : "python";
     state.workspace = ws;
     store.setPref("workspace", ws);
+    store.setPref("lastStack", stack);
+    store.setPref("lastModeFor_" + stack, mode);
     document.body.setAttribute("data-ws", ws);
-    var btns = document.querySelectorAll("#wsSwitch .ws-btn");
-    for (var i = 0; i < btns.length; i++) {
-      btns[i].classList.toggle("active", btns[i].getAttribute("data-ws") === ws);
+    document.body.setAttribute("data-stack", stack);
+    document.body.setAttribute("data-mode", mode);
+
+    var sb = document.querySelectorAll("#stackSwitch .ws-btn");
+    for (var i = 0; i < sb.length; i++) sb[i].classList.toggle("active", sb[i].getAttribute("data-stack") === stack);
+    var mb = document.querySelectorAll("#modeSwitch .mode-btn");
+    for (var j = 0; j < mb.length; j++) {
+      var mm = mb[j].getAttribute("data-mode");
+      mb[j].classList.toggle("active", mm === mode);
+      var ok = modeAvailable(stack, mm);
+      mb[j].classList.toggle("soon", !ok);
+      mb[j].disabled = !ok;
+      mb[j].title = ok ? "" : (STACK_LABEL[stack] + " " + (mm === "learn" ? "concepts" : "problems") + " — coming soon");
     }
   }
 
   // The single router: render whatever the current location.hash points at.
   // It NEVER writes history, so it is safe to call on popstate and on load.
   var lastRenderedHash = null;
+  var lastView = null; // "stack:mode" of what is currently painted
   function applyRoute() {
     if (location.hash === lastRenderedHash) return; // Back can fire popstate + hashchange
     lastRenderedHash = location.hash;
-    var hash = location.hash;
-    if (hash.indexOf("#py") === 0) {
-      var tid = hash.indexOf("#py/") === 0 ? hash.slice(4) : null;
-      var okTid = tid && window.PYDSA && window.PYDSA.byId(tid) ? tid : null;
-      setWsChrome("python");
-      if (window.PYLAB) window.PYLAB.mount(okTid);
-    } else {
-      var id = hash.slice(1);
-      var wasPython = document.body.getAttribute("data-ws") === "python";
-      setWsChrome("dsa");
-      if (byId[id]) state.currentId = id;
-      // Full render on first paint or when returning from Python (the DSA chrome
-      // isn't built yet); otherwise the light active-swap in selectProblem.
-      if (wasPython || !el("nav").querySelector(".nav-item")) renderAll();
+    var r = parseRoute(location.hash);
+
+    // Fall back gracefully if the requested cell has no content yet.
+    if (!modeAvailable(r.stack, r.mode)) {
+      if (modeAvailable(r.stack, r.mode === "learn" ? "practice" : "learn")) r.mode = (r.mode === "learn" ? "practice" : "learn");
+      else { r.stack = "python"; r.mode = "practice"; }
+    }
+
+    var prevView = lastView;
+    setChrome(r.stack, r.mode);
+    lastView = r.stack + ":" + r.mode;
+
+    if (r.stack === "python" && r.mode === "practice") {
+      if (byId[r.id]) state.currentId = r.id;
+      // Full render on first paint or when arriving from any other view.
+      if (prevView !== "python:practice" || !el("nav").querySelector(".nav-item")) renderAll();
       else selectProblem(state.currentId);
+    } else if (r.stack === "python" && r.mode === "learn") {
+      var okTid = r.id && window.PYDSA && window.PYDSA.byId(r.id) ? r.id : null;
+      if (window.PYLAB) window.PYLAB.mount(okTid);
+    } else if (r.mode === "practice") {
+      if (window.ProblemLab) window.ProblemLab.mount(r.stack, r.id);
+    } else {
+      if (window.ConceptLab) window.ConceptLab.mount(r.stack, r.id);
     }
   }
 
   // All user navigations go through here: push a history entry, then render.
-  // (pushState fires no event, so we render synchronously; Back/Forward fire
-  // popstate — see boot — which calls applyRoute to restore that entry.)
   function navigate(hash) {
     if (location.hash !== hash) history.pushState(null, "", hash);
     applyRoute();
   }
   B.navigate = navigate;
 
-  function switchWorkspace(ws) {
-    if (ws === "python") {
-      var lt = store.getPref("lastTopic");
-      navigate(lt && window.PYDSA && window.PYDSA.byId(lt) ? "#py/" + lt : "#py");
-    } else {
-      navigate(state.currentId ? "#" + state.currentId : "#");
-    }
+  // Master navigation primitive — jump to any (mode, stack, id) cell.
+  B.goTo = function (mode, stack, id) { navigate(routeFor(mode, stack, id)); };
+
+  // Switch to a stack, resuming its last-used (or default) mode + item.
+  function goStack(stack) {
+    var pref = store.getPref("lastModeFor_" + stack);
+    var mode = (pref && modeAvailable(stack, pref)) ? pref
+             : (hasPractice(stack) ? "practice" : "learn");
+    if (!modeAvailable(stack, mode)) mode = (mode === "learn" ? "practice" : "learn");
+    navigate(routeFor(mode, stack, defaultIdFor(stack, mode)));
+  }
+  // Switch mode within the current stack.
+  function goMode(mode) {
+    if (!modeAvailable(state.stack, mode)) return;
+    navigate(routeFor(mode, state.stack, defaultIdFor(state.stack, mode)));
   }
 
-  // Bridges used to jump across workspaces (each pushes a history entry so Back
-  // returns to exactly where the user was).
+  // Legacy bridges (used by cross-links in DSA + Python labs).
   B.goToProblem = function (id) { navigate("#" + id); };
   B.goToTopic = function (id) { navigate("#py/" + id); };
 
@@ -1600,17 +1680,16 @@
     wireControls();
 
     // Normalize the initial URL to a concrete route (so the first history entry
-    // is restorable), then render it. A #py hash forces Python; a #<problemId>
-    // forces DSA; otherwise fall back to the saved workspace preference.
+    // is restorable), then render it. An explicit hash wins; otherwise resume the
+    // last stack + mode the user was in.
     var startHash = location.hash;
     if (!startHash || startHash === "#") {
-      if ((store.getPref("workspace") || "dsa") === "python") {
-        var lt = store.getPref("lastTopic");
-        startHash = lt && window.PYDSA && window.PYDSA.byId(lt) ? "#py/" + lt : "#py";
-      } else {
-        startHash = state.currentId ? "#" + state.currentId : "";
-      }
-      if (startHash) history.replaceState(null, "", startHash);
+      var lastStack = store.getPref("lastStack") || "python";
+      if (STACK_KEYS.indexOf(lastStack) === -1) lastStack = "python";
+      var lastMode = store.getPref("lastModeFor_" + lastStack);
+      if (!lastMode || !modeAvailable(lastStack, lastMode)) lastMode = (hasPractice(lastStack) ? "practice" : "learn");
+      startHash = routeFor(lastMode, lastStack, defaultIdFor(lastStack, lastMode));
+      if (startHash && startHash !== "#") history.replaceState(null, "", startHash);
     }
     applyRoute();
 
