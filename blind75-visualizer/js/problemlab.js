@@ -35,6 +35,16 @@
       codeSecondary: { key: "plain", label: "Clean" },
       importanceOf: function (p) { var m = (window.PYSPARK && window.PYSPARK.IMPORTANCE) || {}; return m[p.lc] || "common"; },
       numberOf: function (p) { return p.lc != null ? "Q" + p.lc : ""; }
+    },
+    numpy: {
+      reg: function () { return window.NUMPY; },
+      lang: "python",
+      langLabel: "NumPy",
+      runnable: true,                              // Pyodide can execute NumPy in-browser
+      codePrimary: { key: "rcs", label: "Commented" },
+      codeSecondary: { key: "plain", label: "Clean" },
+      importanceOf: function (p) { return p.importance || "common"; },
+      numberOf: function (p) { return p.num != null ? "Q" + p.num : ""; }
     }
   };
 
@@ -128,6 +138,28 @@
     if (window.Prism) { try { window.Prism.highlightElement(code); } catch (e) {} }
     if ((lang || cfg().lang) === "python") addIndentGuides(code);
     return wrap;
+  }
+
+  // ---- runnable editor (Pyodide) — used by python-family practice stacks ----
+  function runnableEditor(initial) {
+    var box = h("div", { class: "pyplay" });
+    var ta = h("textarea", { class: "pyplay-code", spellcheck: "false" });
+    ta.value = initial || "";
+    ta.rows = Math.min(Math.max((initial || "").split("\n").length + 1, 4), 22);
+    var bar = h("div", { class: "run-bar" });
+    var btn = h("button", { class: "chip-btn run-btn" }, "▶ Run");
+    var hint = h("span", { class: "run-hint muted" }, "runs in your browser · edit & re-run freely");
+    var out = h("pre", { class: "run-out", hidden: "hidden" });
+    btn.addEventListener("click", function () {
+      if (window.PYRUN) window.PYRUN.run(ta.value, out, btn);
+      else { out.hidden = false; out.textContent = "Python runtime unavailable."; }
+    });
+    ta.addEventListener("keydown", function (e) {
+      if (e.key === "Tab") { e.preventDefault(); var s = ta.selectionStart, en = ta.selectionEnd; ta.value = ta.value.slice(0, s) + "    " + ta.value.slice(en); ta.selectionStart = ta.selectionEnd = s + 4; }
+    });
+    bar.appendChild(btn); bar.appendChild(hint);
+    box.appendChild(ta); box.appendChild(bar); box.appendChild(out);
+    return box;
   }
 
   // ---- collapsible section (matches DSA/py, smooth px-height) ----
@@ -404,6 +436,12 @@
     }
     var source = mode === "secondary" ? a[sk.key] : (a[pk.key] || a[sk.key] || "");
     codeArea.appendChild(codeBlock(source, cfg().lang));
+    if (cfg().runnable) {
+      var tryBox = h("div", { class: "prob-try" });
+      tryBox.appendChild(h("div", { class: "prob-try-h" }, "▶ Try it — run and edit this solution in your browser"));
+      tryBox.appendChild(runnableEditor(a.plain || a[pk.key] || source));
+      codeArea.appendChild(tryBox);
+    }
     if (a.whenToUse) codeArea.appendChild(h("div", { class: "when-use" }, "<strong>When to use:</strong> " + esc(a.whenToUse)));
     if (a.perfNote) codeArea.appendChild(h("div", { class: "when-use" }, "<strong>Performance:</strong> " + esc(a.perfNote)));
     if (a.dialectNote) codeArea.appendChild(h("div", { class: "when-use dialect" }, "<strong>Dialect note:</strong> " + esc(a.dialectNote)));

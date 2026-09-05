@@ -68,3 +68,8 @@ button.learn-topic:hover { background: var(--bg-2); color: var(--text); }
 
 /* narrower brand mark for the DE wordmark */
 .brand-mark { letter-spacing: -.5px; }
+
+/* ---- NumPy Practice: runnable "Try it" box under the reference solution ---- */
+.prob-try { margin-top: 14px; border-top: 1px dashed var(--border-soft); padding-top: 12px; }
+.prob-try-h { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--brand-2); margin-bottom: 6px; }
+.prob-try .pyplay { margin-top: 4px; }
