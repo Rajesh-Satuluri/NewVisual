@@ -39,6 +39,7 @@
     filterPattern: "all",
     filterImportance: "all",
     setFilter: store.getPref("setFilter") || "all",  // "all" (NeetCode 150) | "blind75"
+    workspace: store.getPref("workspace") || "dsa",  // "dsa" | "python"
     approachIndex: {}   // problemId -> selected approach index
   };
 
@@ -1293,6 +1294,17 @@
     // theme
     var themeBtn = el("themeBtn");
     applyTheme(store.getPref("theme"));
+    // workspace switch (DSA lab <-> Python for DSA)
+    var wsBtns = document.querySelectorAll("#wsSwitch .ws-btn");
+    for (var wi = 0; wi < wsBtns.length; wi++) {
+      wsBtns[wi].addEventListener("click", function () {
+        var ws = this.getAttribute("data-ws");
+        if (ws === state.workspace) return;
+        if (ws === "python") setWorkspace("python");
+        else { setWorkspace("dsa"); if (byId[state.currentId]) history.replaceState(null, "", "#" + state.currentId); }
+      });
+    }
+
     themeBtn.addEventListener("click", function () {
       var next = store.getPref("theme") === "dark" ? "light" : "dark";
       store.setPref("theme", next);
@@ -1375,6 +1387,8 @@
         closeModal("shortcutsModal");
         return;
       }
+      if (e.key === "g" || e.key === "G") { e.preventDefault(); setWorkspace(state.workspace === "python" ? "dsa" : "python"); return; }
+      if (state.workspace === "python") return; // the remaining shortcuts are DSA-only
       var idx = ALL.findIndex(function (x) { return x.id === state.currentId; });
       if (e.key === "j" || e.key === "ArrowDown") { if (ALL[idx + 1]) { e.preventDefault(); selectProblem(ALL[idx + 1].id); } }
       if (e.key === "k" || e.key === "ArrowUp") { if (ALL[idx - 1]) { e.preventDefault(); selectProblem(ALL[idx - 1].id); } }
@@ -1411,6 +1425,7 @@
         ["r  /  p", "Show RCS code / Plain code"],
         ["b", "Toggle recall (blur) mode"],
         ["d", "Open progress dashboard"],
+        ["g", "Switch DSA ↔ Python for DSA"],
         ["?", "Show this help"],
         ["Esc", "Close dialog / unfocus field"]
       ];
@@ -1432,6 +1447,31 @@
     document.documentElement.setAttribute("data-theme", theme);
     el("themeBtn").textContent = theme === "dark" ? "☀ Light" : "☾ Dark";
   }
+
+  // ============================================================= WORKSPACE
+  // Swap between the DSA lab and the Python-for-DSA lab. Both share the shell;
+  // only the sidebar (#nav) and main pane (#main) contents change.
+  function setWorkspace(ws, topicId) {
+    ws = ws === "python" ? "python" : "dsa";
+    state.workspace = ws;
+    store.setPref("workspace", ws);
+    document.body.setAttribute("data-ws", ws);
+    var btns = document.querySelectorAll("#wsSwitch .ws-btn");
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].classList.toggle("active", btns[i].getAttribute("data-ws") === ws);
+    }
+    if (ws === "python") {
+      if (window.PYLAB) window.PYLAB.mount(topicId != null ? topicId : (store.getPref("lastTopic") || null));
+    } else {
+      renderAll();
+    }
+  }
+
+  // Bridge used by the Python lab to jump straight to a DSA problem.
+  B.goToProblem = function (id) {
+    setWorkspace("dsa");
+    if (byId[id]) selectProblem(id);
+  };
 
   // ============================================================= BOOT
   function renderAll() {
@@ -1465,11 +1505,30 @@
       if (first) state.currentId = first.id;
     }
     wireControls();
-    renderAll();
+
+    // Decide the initial workspace: a #py hash forces Python, a #<problemId>
+    // hash forces DSA, otherwise fall back to the saved preference.
+    var startWs = state.workspace, startTopic = null;
+    if (location.hash.indexOf("#py") === 0) {
+      startWs = "python";
+      if (location.hash.indexOf("#py/") === 0) startTopic = location.hash.slice(4);
+    } else if (location.hash.length > 1) {
+      startWs = "dsa";
+    }
+    setWorkspace(startWs, startTopic);
 
     window.addEventListener("hashchange", function () {
-      var id = location.hash.slice(1);
-      if (byId[id] && id !== state.currentId) selectProblem(id);
+      var hash = location.hash;
+      if (hash.indexOf("#py") === 0) {
+        var tid = hash.indexOf("#py/") === 0 ? hash.slice(4) : null;
+        setWorkspace("python", tid);
+        return;
+      }
+      var id = hash.slice(1);
+      if (byId[id]) {
+        if (state.workspace !== "dsa") setWorkspace("dsa");
+        if (id !== state.currentId) selectProblem(id);
+      }
     });
   }
 

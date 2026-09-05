@@ -14,11 +14,15 @@
     codeEdits: {},  // problemId -> { "<approachIndex>:<mode>": editedSource } (user code edits)
     srs: {},        // problemId -> { ease, interval(days), reps, lapses, due(ms), last(ms) }
     activity: {},   // "YYYY-MM-DD" -> count of solves/reviews that day (for the heatmap + streak)
+    pyStatus: {},   // pythonTopicId -> "not-started" | "learning" | "learned" | "mastered"
+    pyChallenge: {},// pythonTopicId -> true once the mini-challenge is marked done
     prefs: {
       theme: "dark",
       codeMode: "rcs",       // "rcs" | "plain"
       blur: false,           // blur logic + code until revealed
       setFilter: "all",      // "all" (NeetCode 150) | "blind75"
+      workspace: "dsa",      // "dsa" | "python"
+      lastTopic: null,       // last Python topic viewed
       lastProblem: null,
       filtersOpen: false,      // sidebar filter panel expanded?
       sidebarCollapsed: false, // desktop: sidebar hidden to give the reader full width
@@ -39,6 +43,8 @@
       data.codeEdits = data.codeEdits || {};
       data.srs = data.srs || {};
       data.activity = data.activity || {};
+      data.pyStatus = data.pyStatus || {};
+      data.pyChallenge = data.pyChallenge || {};
       data.prefs = Object.assign({}, DEFAULT.prefs, data.prefs || {});
       data.prefs.collapsedCats = data.prefs.collapsedCats || {};
       return data;
@@ -150,6 +156,38 @@
       save();
     },
 
+    // ---- Python-for-DSA topic progress ----
+    // States: "not-started" | "learning" | "learned" | "mastered".
+    getPyStatus: function (id) {
+      return state.pyStatus[id] || "not-started";
+    },
+    setPyStatus: function (id, value) {
+      if (!value || value === "not-started") delete state.pyStatus[id];
+      else state.pyStatus[id] = value;
+      save();
+    },
+    countPy: function (ids, value) {
+      var n = 0;
+      for (var i = 0; i < ids.length; i++) if ((state.pyStatus[ids[i]] || "not-started") === value) n++;
+      return n;
+    },
+    // Weighted readiness across the given topic ids: learning 0.34, learned 0.75, mastered 1.
+    pyReadiness: function (ids) {
+      if (!ids.length) return 0;
+      var total = 0;
+      for (var i = 0; i < ids.length; i++) {
+        var s = state.pyStatus[ids[i]] || "not-started";
+        total += s === "mastered" ? 1 : s === "learned" ? 0.75 : s === "learning" ? 0.34 : 0;
+      }
+      return Math.round((total / ids.length) * 100);
+    },
+    isPyChallengeDone: function (id) { return !!state.pyChallenge[id]; },
+    setPyChallengeDone: function (id, done) {
+      if (done) state.pyChallenge[id] = true;
+      else delete state.pyChallenge[id];
+      save();
+    },
+
     // ---- spaced repetition (SM-2 lite) ----
     // Ratings: "again" | "hard" | "good" | "easy".
     getSrs: function (id) {
@@ -230,6 +268,8 @@
       state.codeEdits = incoming.codeEdits || {};
       state.srs = incoming.srs || {};
       state.activity = incoming.activity || {};
+      state.pyStatus = incoming.pyStatus || {};
+      state.pyChallenge = incoming.pyChallenge || {};
       state.prefs = Object.assign({}, DEFAULT.prefs, incoming.prefs || {});
       state.prefs.collapsedCats = state.prefs.collapsedCats || {};
       save();

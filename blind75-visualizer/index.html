@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="css/main.css" />
   <link rel="stylesheet" href="css/layout.css" />
   <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/python.css" />
 </head>
 <body>
   <!-- ============ TOP BAR ============ -->
@@ -19,6 +20,10 @@
       <span class="brand-mark">150</span>
       <span class="brand-text">NeetCode <b>150</b> · DSA Study Lab</span>
     </a>
+    <div id="wsSwitch" class="ws-switch" role="tablist" aria-label="Workspace">
+      <button class="ws-btn active" data-ws="dsa" role="tab">DSA Lab</button>
+      <button class="ws-btn" data-ws="python" role="tab">🐍 Python for DSA</button>
+    </div>
     <div class="topbar-right">
       <button id="dashBtn" class="ghost-btn" title="Progress dashboard">📊 Dashboard</button>
       <button id="gridBtn" class="ghost-btn" title="Revision grid">▦ Revision grid</button>
@@ -35,6 +40,7 @@
   <div class="shell">
     <!-- ============ SIDEBAR ============ -->
     <aside class="sidebar">
+      <div id="pyProgress" class="py-progress" hidden></div>
       <div id="setToggle" class="set-toggle" role="tablist" aria-label="Study set">
         <button class="set-btn active" data-set="all" role="tab">All 150</button>
         <button class="set-btn" data-set="blind75" role="tab">Blind 75</button>
@@ -145,8 +151,10 @@
   <script src="js/vendor/fuse.js"></script>
 
   <script src="js/core.js"></script>
+  <script src="js/pycore.js"></script>
   <script src="js/modules/markdown.js"></script>
   <script src="js/modules/store.js"></script>
+  <script src="js/modules/pyviz.js"></script>
 
   <!-- default reference/animation links (keyed by LeetCode number) -->
   <script src="data/reflinks.js"></script>
@@ -174,6 +182,11 @@
   <script src="data/math_geometry.js"></script>
   <script src="data/bit_manipulation.js"></script>
 
+  <!-- Python-for-DSA curriculum -->
+  <script src="data/python/lists.js"></script>
+  <script src="data/python/dictionaries.js"></script>
+
   <script src="js/app.js"></script>
+  <script src="js/pyapp.js"></script>
 </body>
 </html>
