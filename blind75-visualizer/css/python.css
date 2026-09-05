@@ -1,0 +1,159 @@
+/* ============================================================================
+ * python.css — styles for the "Python for DSA" workspace.
+ * Consumes the existing design tokens (main.css) so it inherits dark/light,
+ * radii, shadows and motion. Loaded after components.css.
+ * ==========================================================================*/
+
+/* ---- topbar workspace switch (mirrors the sidebar set-toggle) ---- */
+.ws-switch { display: inline-flex; gap: 4px; margin-left: 14px; background: var(--bg-2); border: 1px solid var(--border); border-radius: 999px; padding: 3px; }
+.ws-btn { background: transparent; border: none; color: var(--muted); font-size: 12.5px; font-weight: 700; padding: 5px 13px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
+.ws-btn:hover { color: var(--text); }
+.ws-btn.active { background: var(--brand); color: #06111f; box-shadow: 0 0 12px var(--brand-glow); }
+@media (max-width: 720px) { .ws-btn { padding: 5px 9px; font-size: 11.5px; } .brand-text { display: none; } }
+
+/* When in the Python workspace, hide DSA-only sidebar widgets + topbar buttons */
+body[data-ws="python"] .progress-box,
+body[data-ws="python"] .search-box,
+body[data-ws="python"] #filterPanel,
+body[data-ws="python"] .nav-tools,
+body[data-ws="python"] #gridBtn,
+body[data-ws="python"] #dashBtn { display: none !important; }
+body:not([data-ws="python"]) #pyProgress { display: none !important; }
+
+/* ---- python sidebar progress + nav ---- */
+.py-progress { padding: 12px 16px; border-bottom: 1px solid var(--border-soft); }
+.py-progress .progress-head { display: flex; justify-content: space-between; font-size: 12.5px; font-weight: 700; color: var(--text-2); margin-bottom: 7px; }
+.py-progress .progress-foot { margin-top: 6px; font-size: 11.5px; }
+.py-home { width: calc(100% - 20px); margin: 10px; text-align: left; background: var(--bg-2); border: 1px solid var(--border); color: var(--text-2); font-weight: 700; font-size: 13px; padding: 9px 12px; border-radius: var(--radius-sm); cursor: pointer; }
+.py-home:hover { border-color: var(--brand); color: var(--text); }
+.py-home.active { background: var(--brand-glow); border-color: var(--brand); color: var(--text); }
+.py-nav-head { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .7px; color: var(--muted); padding: 12px 10px 5px; }
+
+/* status glyph colors (shared with cards) */
+.st-not-started { color: var(--muted); }
+.st-learning { color: var(--amber); }
+.st-learned { color: var(--green); }
+.st-mastered { color: var(--brand-2); }
+
+/* ---- landing ---- */
+.py-hero { padding: 30px 34px 6px; }
+.py-hero-title { font-size: 30px; font-weight: 800; letter-spacing: -.5px; margin: 0; }
+.py-hero-sub { color: var(--text-2); font-size: 15px; max-width: 720px; margin: 8px 0 0; line-height: 1.5; }
+
+.py-readiness { margin: 20px 34px 0; background: var(--bg-1); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; box-shadow: inset 3px 0 0 var(--stripe-srs); }
+.pyr-head { display: flex; justify-content: space-between; align-items: baseline; font-weight: 700; margin-bottom: 9px; }
+.pyr-pct { font-size: 22px; font-weight: 800; color: var(--success-2); }
+.pyr-foot { margin-top: 8px; font-size: 12.5px; }
+
+.py-continue { margin: 16px 34px 0; background: color-mix(in srgb, var(--success) 10%, var(--bg-1)); border: 1px solid color-mix(in srgb, var(--success) 35%, var(--border)); border-radius: var(--radius); padding: 16px 18px; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 6px 14px; }
+.pc-label { font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: var(--success-2); grid-column: 1 / -1; }
+.pc-title { font-size: 17px; font-weight: 750; }
+.pc-meta { font-size: 12.5px; }
+.py-continue .cta-next { grid-row: 2 / 4; grid-column: 2; }
+
+.py-h2 { font-size: 15px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: var(--text-2); margin: 0 0 12px; }
+.py-learn { margin: 28px 34px 0; }
+.py-group { margin-bottom: 18px; }
+.py-group-head { font-size: 13px; font-weight: 800; color: var(--text); margin-bottom: 8px; }
+.py-topic-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
+.py-topic-card { display: flex; align-items: center; gap: 9px; text-align: left; background: var(--bg-1); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 11px 13px; font-size: 13.5px; font-weight: 650; color: var(--text); cursor: pointer; }
+.py-topic-card.live:hover { border-color: var(--brand); transform: translateY(-1px); box-shadow: var(--lift); }
+.py-topic-card.soon { opacity: .55; cursor: default; justify-content: space-between; }
+.ptc-glyph { font-size: 15px; }
+.ptc-title { flex: 1; }
+.ptc-min { font-size: 11.5px; }
+.ptc-soon { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 1px 7px; }
+
+/* ---- toolkit ---- */
+.py-toolkit { margin: 30px 34px 40px; background: var(--bg-1); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; box-shadow: inset 3px 0 0 var(--stripe-complexity); }
+.tk-tabs { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+.tk-tab { background: var(--bg-2); border: 1px solid var(--border); color: var(--text-2); font-size: 12.5px; font-weight: 700; padding: 6px 13px; border-radius: 999px; cursor: pointer; }
+.tk-tab:hover { color: var(--text); }
+.tk-tab.on { background: var(--brand); border-color: var(--brand); color: #06111f; }
+.tk-pick { display: grid; grid-template-columns: 1fr auto 1.2fr auto; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px dashed var(--border-soft); font-size: 13px; }
+.tk-pick:last-child { border-bottom: none; }
+.tk-need { color: var(--text); }
+.tk-arrow { color: var(--brand-2); font-weight: 800; }
+.tk-tool { color: var(--text-2); }
+.tk-link { background: none; border: 1px solid var(--border); border-radius: 7px; color: var(--brand-2); font-size: 11.5px; font-weight: 700; padding: 3px 9px; cursor: pointer; }
+.tk-link:hover { border-color: var(--brand); }
+.tk-cheat { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; }
+.tk-cheat-row { display: flex; align-items: center; gap: 8px; background: var(--bg-2); border: 1px solid var(--border-soft); border-radius: var(--radius-sm); padding: 8px 12px; font-size: 13px; }
+.tk-cheat-row span:first-child { flex: 1; color: var(--text-2); }
+.tk-cheat-arrow { color: var(--muted); }
+.tk-cheat-row code { color: var(--brand-2); font-family: var(--mono); font-size: 12.5px; }
+
+/* ---- topic page bits ---- */
+.py-tagline { font-size: 15px; color: var(--text-2); font-style: italic; margin: 10px 0 0; line-height: 1.5; }
+.py-para { font-size: 14.5px; line-height: 1.65; color: var(--text); margin: 0 0 10px; }
+.py-para:last-child { margin-bottom: 0; }
+.py-para.muted { color: var(--muted); font-size: 13px; }
+.py-rich { font-size: 14.5px; line-height: 1.65; color: var(--text); }
+.py-rich p { margin: 0 0 10px; }
+.py-rich p:last-child { margin-bottom: 0; }
+.why-pre, .py-rich .why-pre { background: var(--bg-2); border: 1px solid var(--border-soft); border-radius: var(--radius-sm); padding: 12px 14px; font-family: var(--mono); font-size: 12.5px; line-height: 1.6; color: var(--text-2); overflow-x: auto; white-space: pre; margin: 8px 0; }
+.dsa-dot { color: var(--border); font-size: 9px; }
+.dsa-dot.on { color: var(--brand-2); }
+.status-btn.py-st-not-started.on { background: var(--bg-3); }
+.status-btn.py-st-learning.on { background: color-mix(in srgb, var(--amber) 22%, var(--bg-2)); border-color: var(--amber); color: var(--text); }
+.status-btn.py-st-learned.on { background: color-mix(in srgb, var(--green) 20%, var(--bg-2)); border-color: var(--green); color: var(--text); }
+.status-btn.py-st-mastered.on { background: color-mix(in srgb, var(--brand-2) 20%, var(--bg-2)); border-color: var(--brand-2); color: var(--text); }
+
+/* recognize */
+.recognize-list { display: grid; gap: 10px; }
+.recognize-row { background: var(--bg-2); border: 1px solid var(--border-soft); border-radius: var(--radius-sm); padding: 11px 14px; }
+.rec-q { font-weight: 700; color: var(--text); font-size: 14px; }
+.rec-arrow { color: var(--stripe-recognize); font-size: 11.5px; font-weight: 700; margin: 3px 0; }
+.rec-think { color: var(--brand-2); font-weight: 650; font-size: 13.5px; }
+
+/* dsa connection chips */
+.prob-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.prob-chip { font-weight: 650; }
+
+/* traps */
+.trap { margin-bottom: 18px; }
+.trap:last-child { margin-bottom: 0; }
+.trap-bad, .trap-good { margin-bottom: 8px; }
+.trap-tag { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 5px; }
+.trap-tag-bad { color: var(--red); }
+.trap-tag-good { color: var(--green); }
+.trap-why { font-size: 13.5px; line-height: 1.6; color: var(--text-2); margin: 6px 0 0; }
+
+/* complexity table */
+.cx-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.cx-table th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); padding: 6px 10px; border-bottom: 1px solid var(--border); }
+.cx-table td { padding: 7px 10px; border-bottom: 1px solid var(--border-soft); vertical-align: top; }
+.cx-table tr:last-child td { border-bottom: none; }
+.cx-table code { font-family: var(--mono); font-size: 12.5px; color: var(--text); }
+.cx-o { font-family: var(--mono); font-weight: 700; color: var(--amber); white-space: nowrap; }
+
+/* challenge */
+.challenge-actions { display: flex; gap: 8px; margin-top: 10px; }
+.challenge-sol { margin-top: 10px; }
+
+/* ---- visualizations ---- */
+.viz { margin: 14px 0 4px; background: var(--bg-2); border: 1px solid var(--border-soft); border-radius: var(--radius-sm); padding: 16px; }
+.viz-name { font-family: var(--mono); font-size: 13px; color: var(--text-2); margin-bottom: 10px; }
+.viz-hint { font-size: 12px; color: var(--muted); margin-top: 10px; }
+.viz-caption { font-size: 13px; color: var(--text-2); line-height: 1.55; margin: 10px 0 0; }
+.viz-controls { display: flex; gap: 8px; margin-top: 12px; }
+.viz-btn { background: var(--brand); border: 1px solid var(--brand); color: #06111f; font-weight: 700; font-size: 12.5px; padding: 6px 14px; border-radius: 8px; cursor: pointer; }
+.viz-btn.ghost { background: var(--bg-3); border-color: var(--border); color: var(--text-2); }
+.viz-btn:hover { filter: brightness(1.08); }
+
+/* indexed sequence */
+.seq-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.seq-cell { display: flex; flex-direction: column; align-items: center; }
+.seq-ipos, .seq-ineg { font-family: var(--mono); font-size: 11px; color: var(--muted); line-height: 1.6; }
+.seq-val { font-family: var(--mono); font-size: 15px; font-weight: 700; color: var(--text); background: var(--bg-1); border: 1px solid var(--border); border-radius: 8px; min-width: 46px; text-align: center; padding: 10px 6px; }
+
+/* dict hashing */
+.dh-stage { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.dh-key, .dh-hash { font-family: var(--mono); font-weight: 700; font-size: 14px; background: var(--bg-1); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; color: var(--brand-2); min-width: 54px; text-align: center; }
+.dh-arrow { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.dh-table { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
+.dh-slot { background: var(--bg-1); border: 1px solid var(--border); border-radius: 8px; padding: 6px 4px; min-height: 58px; transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease); }
+.dh-slot.active { border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand-glow); }
+.dh-slot-i { font-family: var(--mono); font-size: 10px; color: var(--muted); text-align: center; }
+.dh-slot-body { font-family: var(--mono); font-size: 10.5px; color: var(--text); text-align: center; margin-top: 3px; word-break: break-all; line-height: 1.4; }
+@media (max-width: 620px) { .dh-table { grid-template-columns: repeat(4, 1fr); } }
