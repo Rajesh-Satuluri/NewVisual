@@ -56,7 +56,8 @@
     if (stack === "python") return true;                                  // DSA problems
     if (stack === "sql") return !!(window.SQLLAB && window.SQLLAB.all().length);
     if (stack === "spark") return !!(window.PYSPARK && window.PYSPARK.all().length);
-    return false;                                                          // numpy/pandas practice not built yet
+    if (stack === "numpy") return !!(window.NUMPY && window.NUMPY.all().length);
+    return false;                                                          // pandas practice not built yet
   }
   function modeAvailable(stack, mode) { return mode === "learn" ? hasLearn(stack) : hasPractice(stack); }
 
