@@ -1579,6 +1579,9 @@
     // tapping the scrim (or a nav item) closes the mobile drawer
     var scrim = el("drawerScrim");
     if (scrim) scrim.addEventListener("click", function () { document.body.classList.remove("sidebar-open"); });
+    // reading-progress bar tracks scroll within an open Learn topic
+    var mainScroll = el("main");
+    if (mainScroll) mainScroll.addEventListener("scroll", updateReadProgress, { passive: true });
 
     // keyboard nav
     document.addEventListener("keydown", function (e) {
@@ -1697,6 +1700,57 @@
     }
   }
 
+  // ---- motion + polish helpers (route fade, top progress, titles, etc.) ----
+  var _readingTopic = false;
+  function navProgress() {
+    var b = el("navProgress"); if (!b) return;
+    b.classList.remove("done"); b.classList.add("run");
+    b.style.width = "0%"; void b.offsetWidth; b.style.width = "82%";
+    clearTimeout(navProgress._t);
+    navProgress._t = setTimeout(function () {
+      b.style.width = "100%"; b.classList.add("done");
+      setTimeout(function () { b.classList.remove("run", "done"); b.style.width = "0%"; }, 240);
+    }, 170);
+  }
+  function flashMainEnter() {
+    var m = el("main"); if (!m) return;
+    m.classList.remove("main-enter"); void m.offsetWidth; m.classList.add("main-enter");
+  }
+  function updateDocTitle(r) {
+    var t = null, mainEl = el("main");
+    if (mainEl) { var h1 = mainEl.querySelector(".ph-title, .py-hero-title"); if (h1) t = h1.textContent.trim(); }
+    var modeLabel = r.mode === "learn" ? "Learn" : "Practice";
+    document.title = (t ? t + " · " + STACK_LABEL[r.stack] : STACK_LABEL[r.stack] + " · " + modeLabel) +
+      " — Data Engineering Coding Stack";
+  }
+  function scrollActiveIntoView() {
+    var nav = el("nav"), a = nav && nav.querySelector(".nav-item.active");
+    if (a && a.scrollIntoView) { try { a.scrollIntoView({ block: "nearest", behavior: "smooth" }); } catch (e) { a.scrollIntoView(); } }
+  }
+  function addTruncTitles() {
+    var nav = el("nav"); if (!nav) return;
+    var items = nav.querySelectorAll(".ni-title");
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i];
+      if (it.scrollWidth > it.clientWidth + 1) it.title = it.textContent; else it.removeAttribute("title");
+    }
+  }
+  function updateReadProgress() {
+    var bar = el("readProgress"), m = el("main"); if (!bar || !m) return;
+    if (!_readingTopic) { bar.style.width = "0%"; return; }
+    var max = m.scrollHeight - m.clientHeight;
+    bar.style.width = (max > 0 ? Math.min(100, (m.scrollTop / max) * 100) : 0) + "%";
+  }
+  function afterRender(r) {
+    flashMainEnter();
+    updateDocTitle(r);
+    scrollActiveIntoView();
+    addTruncTitles();
+    _readingTopic = (r.mode === "learn" && !!(el("main") && el("main").querySelector(".ph-title")));
+    updateReadProgress();
+    updateToggleAllIcon();
+  }
+
   // The single router: render whatever the current location.hash points at.
   // It NEVER writes history, so it is safe to call on popstate and on load.
   var lastRenderedHash = null;
@@ -1704,6 +1758,7 @@
   function applyRoute() {
     if (location.hash === lastRenderedHash) return; // Back can fire popstate + hashchange
     lastRenderedHash = location.hash;
+    navProgress();
     var r = parseRoute(location.hash);
 
     // Fall back gracefully if the requested cell has no content yet.
@@ -1729,8 +1784,9 @@
     } else {
       if (window.ConceptLab) window.ConceptLab.mount(r.stack, r.id);
     }
-    // keep the shared "Categories" expand/collapse-all caret in sync per view
-    updateToggleAllIcon();
+    // route-fade, dynamic title, active-item reveal, truncation tooltips,
+    // reading-progress flag, and the collapse-all caret — all in one pass
+    afterRender(r);
   }
 
   // All user navigations go through here: push a history entry, then render.

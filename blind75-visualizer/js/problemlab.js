@@ -334,7 +334,12 @@
     var main = el("main");
     var p = byId(cur.id);
     main.innerHTML = "";
-    if (!p) { main.appendChild(h("div", { class: "empty-state" }, "Select a problem from the sidebar to begin.")); return; }
+    if (!p) {
+      main.appendChild(h("div", { class: "empty-state" },
+        '<div class="empty-ic">💻</div><div class="empty-h">Pick a problem to begin</div>' +
+        '<div class="empty-sub">Choose one from the sidebar, or press <kbd>⌘K</kbd> to jump to any problem.</div>'));
+      return;
+    }
     var nid = nsId(p.id);
     var st = store.getStatus(nid);
     var imp = cfg().importanceOf(p);

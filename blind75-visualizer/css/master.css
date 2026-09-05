@@ -334,3 +334,38 @@ body.sidebar-open .ham i:nth-child(3) { top: 6px; transform: rotate(-45deg); }
 
 /* GPU hint so category height animations stay smooth on long sidebars */
 .cat-list-outer { will-change: height; }
+
+/* ============================================================= */
+/* Motion & transitions + polish details                          */
+/* ============================================================= */
+/* Top navigation progress bar (flashes on route change) */
+.nav-progress { position: fixed; top: 0; left: 0; height: 2px; width: 0; z-index: 400;
+  background: linear-gradient(90deg, var(--brand), var(--brand-2)); box-shadow: 0 0 8px var(--brand-glow);
+  opacity: 0; transition: width .18s var(--ease), opacity .24s var(--ease); pointer-events: none; }
+.nav-progress.run { opacity: 1; }
+.nav-progress.done { opacity: 0; }
+
+/* Reading-progress bar for long Learn topics (sits just under the top bar) */
+.read-progress { position: fixed; top: var(--topbar-h); left: 0; height: 2px; width: 0; z-index: 45;
+  background: var(--brand-2); opacity: .9; transition: width .08s linear; pointer-events: none; }
+
+/* Route-change content fade/rise on the main pane */
+@keyframes mainEnter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.main.main-enter { animation: mainEnter 170ms var(--ease); }
+@media (prefers-reduced-motion: reduce) { .main.main-enter { animation: none; } .nav-progress { transition: opacity .1s; } }
+
+/* Active sidebar item — colored left accent bar */
+.nav-item { position: relative; }
+.nav-item.active::before { content: ""; position: absolute; left: 0; top: 6px; bottom: 6px; width: 3px;
+  border-radius: 0 3px 3px 0; background: var(--brand); box-shadow: 0 0 8px var(--brand-glow); }
+
+/* Refined empty state */
+.empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; min-height: 60vh; color: var(--muted); gap: 6px; padding: 24px; }
+.empty-ic { font-size: 40px; opacity: .85; margin-bottom: 4px; }
+.empty-h { font-size: 17px; font-weight: 700; color: var(--text-2); }
+.empty-sub { font-size: 13.5px; max-width: 340px; line-height: 1.6; }
+.empty-sub kbd { font: inherit; font-size: 12px; background: var(--bg-2); border: 1px solid var(--border);
+  border-radius: 5px; padding: 1px 6px; }
+.nav-empty { text-align: center; color: var(--muted); font-size: 13px; padding: 22px 14px; }
+.nav-empty::before { content: "🔍"; display: block; font-size: 22px; margin-bottom: 6px; opacity: .8; }
