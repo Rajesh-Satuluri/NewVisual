@@ -364,6 +364,19 @@
       '<p class="py-hero-sub">Learn the Python that actually helps you solve problems — concept → visualization → complexity → the NeetCode problems that use it.</p>';
     main.appendChild(hero);
 
+    // "Continue where you left off"
+    var lastId = store.getPref("lastTopic");
+    var lastT = lastId ? PY.byId(lastId) : null;
+    if (lastT) {
+      var rc = h("button", { class: "resume-card" });
+      rc.innerHTML = '<span class="resume-ic">▶</span>' +
+        '<span class="resume-tx"><span class="resume-k">Continue where you left off</span>' +
+        '<span class="resume-v">' + esc(lastT.title) + '</span></span>' +
+        '<span class="resume-go">Resume →</span>';
+      rc.addEventListener("click", function () { window.BLIND75.goToTopic(lastT.id); });
+      main.appendChild(rc);
+    }
+
     // readiness
     var rd = h("div", { class: "py-readiness" });
     rd.innerHTML =
