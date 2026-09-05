@@ -1,157 +1,29 @@
-<!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<!doctype html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PySpark Interview Lab — Interactive Study Tool</title>
-  <meta name="description" content="An interactive study tool for PySpark interview coding questions: paraphrased prompts, sample DataFrames, plain-English logic, RCS + clean PySpark, the Spark SQL equivalent, Spark internals & performance notes, spaced-repetition review, a progress dashboard, and recognize-and-recall cues." />
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23e8590c'/%3E%3Ctext x='50' y='68' font-size='46' font-family='Arial' font-weight='bold' text-anchor='middle' fill='%23fff'%3E%E2%9A%A1%3C/text%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="css/prism-tomorrow.css" />
-  <link rel="stylesheet" href="css/main.css" />
-  <link rel="stylesheet" href="css/layout.css" />
-  <link rel="stylesheet" href="css/components.css" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PySpark Lab has moved — Data Engineering Coding Stack</title>
+  <meta http-equiv="refresh" content="0; url=../blind75-visualizer/index.html#solve/spark" />
+  <link rel="canonical" href="../blind75-visualizer/index.html#solve/spark" />
+  <style>
+    :root { color-scheme: dark light; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center;
+      font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0b0f16; color: #e6edf7; text-align: center; padding: 24px; }
+    .card { max-width: 460px; }
+    h1 { font-size: 20px; margin: 0 0 10px; }
+    p { color: #9fb0c3; }
+    a.btn { display: inline-block; margin-top: 16px; padding: 10px 18px; border-radius: 10px;
+      background: linear-gradient(135deg, #f76707, #ffa94d); color: #06111f; font-weight: 700; text-decoration: none; }
+  </style>
 </head>
 <body>
-  <!-- ============ TOP BAR ============ -->
-  <header class="topbar">
-    <button id="menuBtn" class="icon-btn menu-only" aria-label="Toggle sidebar">☰</button>
-    <a class="brand" href="#">
-      <span class="brand-mark">⚡</span>
-      <span class="brand-text">PySpark <b>Interview</b> Lab</span>
-    </a>
-    <div class="topbar-right">
-      <button id="dashBtn" class="ghost-btn" title="Progress analytics">📊 Dashboard</button>
-      <button id="gridBtn" class="ghost-btn" title="Revision grid">▦ Revision grid</button>
-      <button id="exportBtn" class="ghost-btn" title="Download progress as JSON">↓ Export</button>
-      <button id="importBtn" class="ghost-btn" title="Import progress JSON">↑ Import</button>
-      <input id="importFile" type="file" accept="application/json" hidden />
-      <button id="resetBtn" class="ghost-btn danger" title="Reset all progress">⟳ Reset</button>
-      <button id="themeBtn" class="ghost-btn">☀ Light</button>
-      <a class="ghost-btn" href="../index.html" title="Back to NewVisual labs">⌂ Labs</a>
-    </div>
-  </header>
-
-  <div class="shell">
-    <!-- ============ SIDEBAR ============ -->
-    <aside class="sidebar">
-      <div id="setToggle" class="set-toggle" role="tablist" aria-label="Difficulty set">
-        <button class="set-btn active" data-set="all" role="tab">All</button>
-        <button class="set-btn" data-set="Easy" role="tab">Easy</button>
-        <button class="set-btn" data-set="Medium" role="tab">Medium</button>
-        <button class="set-btn" data-set="Hard" role="tab">Hard</button>
-      </div>
-
-      <div class="progress-box">
-        <div class="progress-head">
-          <span id="progressText">0 / 0 solved</span>
-          <button id="reviewDue" class="review-chip" title="Start a spaced-repetition review session" disabled>◔ Review 0 due</button>
-        </div>
-        <div class="progress-track"><div id="progressFill" class="progress-fill"></div></div>
-        <div class="progress-foot muted"><span id="progressSub">0 learning</span> · <span id="totalCount">0</span> <span id="setLabel">all</span> in view</div>
-      </div>
-
-      <div class="search-row">
-        <div class="search-box">
-          <input id="search" type="text" placeholder="Search title, pattern, function…  ( / )" autocomplete="off" />
-        </div>
-        <button id="filterToggle" class="filter-toggle" title="Filters" aria-label="Toggle filters">⚙<span class="filter-dot"></span></button>
-      </div>
-
-      <div id="filtersDrawer" class="filters-drawer">
-        <div class="filters">
-          <select id="filterStatus" title="Filter by status">
-            <option value="all">Any status</option>
-            <option value="not-started">Not started</option>
-            <option value="learning">Learning</option>
-            <option value="solved">Solved</option>
-            <option value="review">★ Review queue</option>
-            <option value="due">◔ Due for review</option>
-          </select>
-          <select id="filterImportance" title="Filter by interview importance">
-            <option value="all">All importance</option>
-            <option value="essential">★★★ Essential</option>
-            <option value="common">★★ Common</option>
-            <option value="occasional">★ Occasional</option>
-          </select>
-          <select id="filterPattern" title="Filter by pattern">
-            <option value="all">All patterns</option>
-          </select>
-          <button id="clearFilters" class="clear-btn" title="Clear search & filters">✕</button>
-        </div>
-      </div>
-
-      <div class="cats-row">
-        <span class="cats-label">Categories</span>
-        <button id="expandAll" class="nav-tool-btn" title="Expand all categories">▾</button>
-        <button id="collapseAll" class="nav-tool-btn" title="Collapse all categories">▸</button>
-      </div>
-
-      <nav id="nav" class="nav"></nav>
-    </aside>
-
-    <!-- ============ MAIN ============ -->
-    <main id="main" class="main"></main>
+  <div class="card">
+    <h1>PySpark Lab is now part of the Data&nbsp;Engineering Coding Stack</h1>
+    <p>The standalone PySpark visualizer has moved into the unified study tool — with the same problems plus a full PySpark concept curriculum. Redirecting you now…</p>
+    <a class="btn" href="../blind75-visualizer/index.html#solve/spark">Open PySpark in the Coding Stack →</a>
   </div>
-
-  <!-- ============ REVISION GRID MODAL ============ -->
-  <div id="gridModal" class="modal hidden">
-    <div class="modal-card">
-      <div class="modal-head">
-        <h2>Revision Grid</h2>
-        <button id="gridClose" class="icon-btn">✕</button>
-      </div>
-      <div id="gridBody" class="modal-body"></div>
-    </div>
-  </div>
-
-  <!-- ============ DASHBOARD MODAL ============ -->
-  <div id="dashModal" class="modal hidden">
-    <div class="modal-card">
-      <div class="modal-head">
-        <h2>Progress Analytics</h2>
-        <button id="dashClose" class="icon-btn">✕</button>
-      </div>
-      <div id="dashBody" class="modal-body"></div>
-    </div>
-  </div>
-
-  <!-- ============ REVIEW SESSION MODAL ============ -->
-  <div id="rsModal" class="modal hidden">
-    <div class="modal-card">
-      <div class="modal-head">
-        <h2>Review Session</h2>
-        <button id="rsClose" class="icon-btn">✕</button>
-      </div>
-      <div id="rsBody" class="rs-body"></div>
-    </div>
-  </div>
-
-  <!-- ============ SCRIPTS ============ -->
-  <script src="js/vendor/prism.js"></script>
-  <script src="js/vendor/prism-python.js"></script>
-  <script src="js/vendor/prism-sql.js"></script>
-  <script src="js/vendor/fuse.js"></script>
-
-  <script src="js/core.js"></script>
-  <script src="js/modules/markdown.js"></script>
-  <script src="js/modules/store.js"></script>
-
-  <!-- central lookup maps (before data) -->
-  <script src="data/importance.js"></script>
-
-  <!-- data (canonical order) -->
-  <script src="data/dataframe_basics.js"></script>
-  <script src="data/aggregations_groupby.js"></script>
-  <script src="data/joins.js"></script>
-  <script src="data/window_functions.js"></script>
-  <script src="data/ranking_dedup.js"></script>
-  <script src="data/date_time.js"></script>
-  <script src="data/arrays_json_nested.js"></script>
-  <script src="data/cohort_time_series.js"></script>
-  <script src="data/performance_optimization.js"></script>
-  <script src="data/end_to_end_challenges.js"></script>
-  <script src="data/advanced_patterns.js"></script>
-
-  <script src="js/app.js"></script>
+  <script>location.replace("../blind75-visualizer/index.html#solve/spark");</script>
 </body>
 </html>
