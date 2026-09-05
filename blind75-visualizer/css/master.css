@@ -179,3 +179,59 @@ body.cmdk-lock { overflow: hidden; }
   font-size: 11px; color: var(--muted); }
 @media (pointer: coarse) { .cmdk-row { min-height: 40px; } }
 @media (max-width: 560px) { .cmdk { padding-top: 8vh; } .cmdk-meta .cmdk-cat { display: none; } }
+
+/* ============================================================= */
+/* M5.3 — Rosetta cross-stack panel + per-stack quick-reference   */
+/* ============================================================= */
+.ros { position: fixed; inset: 0; z-index: 200; background: rgba(4,7,13,.6);
+  display: flex; align-items: flex-start; justify-content: center; padding: 6vh 20px 20px;
+  opacity: 0; backdrop-filter: blur(0); transition: opacity .16s ease, backdrop-filter .16s ease; }
+.ros.open { opacity: 1; backdrop-filter: blur(3px); }
+.ros.hidden { display: none; }
+.ros-box { width: 100%; max-width: 1100px; max-height: 88vh; background: var(--bg-1); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow); display: flex; flex-direction: column; overflow: hidden;
+  transform: translateY(-8px) scale(.99); transition: transform .16s ease; }
+.ros.open .ros-box { transform: none; }
+.ros-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--border); }
+.ros-title { font-size: 16px; font-weight: 800; }
+.ros-sub { font-weight: 400; color: var(--muted); font-size: 13px; }
+.ros-close { background: transparent; border: none; color: var(--muted); font-size: 18px; cursor: pointer; padding: 4px 8px; border-radius: var(--radius-sm); }
+.ros-close:hover { color: var(--text); background: var(--bg-2); }
+.ros-filter { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 18px; border-bottom: 1px solid var(--border); }
+.ros-chip { background: var(--bg-2); border: 1px solid var(--border); color: var(--text-2); font-size: 12.5px; font-weight: 700;
+  padding: 5px 13px; border-radius: 999px; cursor: pointer; }
+.ros-chip:hover { color: var(--text); }
+.ros-chip.active { color: #06111f; background: var(--c, var(--brand)); border-color: transparent; }
+.ros-chip-all.active { background: var(--text); }
+.ros-body { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 8px 18px 22px; }
+.ros-group { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: var(--muted);
+  margin: 18px 0 8px; }
+.ros-card { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 12px; background: var(--bg-1); }
+.ros-card-h { margin-bottom: 10px; }
+.ros-task { font-size: 14.5px; font-weight: 700; }
+.ros-note { display: block; font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.ros-cols { display: grid; gap: 10px; }
+.ros-cols-multi { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.ros-cols-one { grid-template-columns: 1fr; }
+.ros-col { border: 1px solid var(--border-soft); border-radius: var(--radius-sm); overflow: hidden; background: var(--code-bg); }
+.ros-col-h { padding: 6px 10px; border-bottom: 1px solid var(--border-soft); background: var(--bg-2); }
+.ros-col-name { font-size: 11px; font-weight: 800; color: var(--c); }
+.ros-pre { margin: 0; padding: 10px 12px; overflow-x: auto; -webkit-overflow-scrolling: touch; font-size: 12.5px; line-height: 1.55; background: var(--code-bg); }
+@media (pointer: coarse) { .ros-chip { min-height: 34px; } }
+@media (max-width: 620px) { .ros-cols-multi { grid-template-columns: 1fr; } }
+
+/* ============================================================= */
+/* Toolbar responsiveness — keep every control reachable on iPad  */
+/* ============================================================= */
+/* iPad landscape & small laptops: icon-only toolbar buttons (labels hide). */
+@media (max-width: 1100px) {
+  .topbar-right .btx { display: none; }
+  .topbar-right { gap: 6px; min-width: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .topbar-right .ghost-btn { padding: 7px 9px; font-size: 13px; flex: 0 0 auto; }
+}
+/* iPad portrait / phones: let the bar wrap so the switch row drops below. */
+@media (max-width: 900px) {
+  .topbar { flex-wrap: wrap; height: auto; min-height: var(--topbar-h); padding-top: 6px; padding-bottom: 6px; row-gap: 6px; }
+  .ws-switches { margin-left: 0; }
+  .topbar-right { margin-left: auto; width: 100%; justify-content: flex-start; }
+}

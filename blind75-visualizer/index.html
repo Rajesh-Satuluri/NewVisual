@@ -35,15 +35,16 @@
       </div>
     </div>
     <div class="topbar-right">
-      <button id="paletteBtn" class="ghost-btn" title="Jump to anything (Cmd/Ctrl+K)">⌘K Jump to…</button>
-      <button id="dashBtn" class="ghost-btn" title="Progress dashboard">📊 Dashboard</button>
-      <button id="gridBtn" class="ghost-btn" title="Revision grid">▦ Revision grid</button>
-      <button id="exportBtn" class="ghost-btn" title="Download progress as JSON">↓ Export</button>
-      <button id="importBtn" class="ghost-btn" title="Import progress JSON">↑ Import</button>
+      <button id="paletteBtn" class="ghost-btn" title="Jump to anything (Cmd/Ctrl+K)">⌘K <span class="btx">Jump to…</span></button>
+      <button id="rosettaBtn" class="ghost-btn" title="Same task in SQL / Pandas / PySpark / Python">🔀 <span class="btx">Rosetta</span></button>
+      <button id="dashBtn" class="ghost-btn" title="Progress dashboard">📊 <span class="btx">Dashboard</span></button>
+      <button id="gridBtn" class="ghost-btn" title="Revision grid">▦ <span class="btx">Revision grid</span></button>
+      <button id="exportBtn" class="ghost-btn" title="Download progress as JSON">↓ <span class="btx">Export</span></button>
+      <button id="importBtn" class="ghost-btn" title="Import progress JSON">↑ <span class="btx">Import</span></button>
       <input id="importFile" type="file" accept="application/json" hidden />
-      <button id="resetBtn" class="ghost-btn danger" title="Reset all progress">⟳ Reset</button>
-      <button id="themeBtn" class="ghost-btn">☀ Light</button>
-      <a class="ghost-btn" href="../index.html" title="Back to NewVisual labs">⌂ Labs</a>
+      <button id="resetBtn" class="ghost-btn danger" title="Reset all progress">⟳ <span class="btx">Reset</span></button>
+      <button id="themeBtn" class="ghost-btn" title="Toggle theme">☀ <span class="btx">Light</span></button>
+      <a class="ghost-btn" href="../index.html" title="Back to NewVisual labs">⌂ <span class="btx">Labs</span></a>
     </div>
   </header>
 
@@ -313,6 +314,8 @@
   <script src="js/pyapp.js"></script>
   <script src="js/problemlab.js"></script>
   <script src="js/conceptlab.js"></script>
+  <script src="data/rosetta.js"></script>
   <script src="js/palette.js"></script>
+  <script src="js/rosetta.js"></script>
 </body>
 </html>
