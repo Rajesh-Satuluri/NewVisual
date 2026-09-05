@@ -74,12 +74,12 @@ window.PYDSA.register("Data Structures", [
       "<p><b>CPython detail:</b> since 3.7 dicts preserve <i>insertion order</i>. That is a language guarantee now, not just an implementation quirk \u2014 you can rely on iteration order matching insertion order.</p>",
 
     complexity: [
-      { op: "d[key]  (read)", big_o: "O(1) avg", note: "hash \u2192 slot, no scan" },
-      { op: "d[key] = v  (write)", big_o: "O(1) avg", note: "amortized; may trigger a resize" },
-      { op: "key in d", big_o: "O(1) avg", note: "this is why dicts beat lists for membership" },
-      { op: "del d[key]", big_o: "O(1) avg", note: "" },
-      { op: "d.keys() / .values() / .items()", big_o: "O(n)", note: "iterating the view; the view object itself is O(1)" },
-      { op: "for k in d", big_o: "O(n)", note: "visits every key once, in insertion order" }
+      { op: "d[key]  (read)", big_o: "O(1) avg", note: "Hashes the key to compute a slot and reads it directly \u2014 it never looks at the other keys, so size barely matters." },
+      { op: "d[key] = v  (write)", big_o: "O(1) avg", note: "Same hash-to-slot jump. Occasionally the table gets full and is rebuilt at a larger size, but that cost averages out across many writes." },
+      { op: "key in d", big_o: "O(1) avg", note: "One hash-and-check \u2014 no scanning. This is the whole reason a dict/set turns an O(n\u00b2) 'have I seen it?' loop into O(n)." },
+      { op: "del d[key]", big_o: "O(1) avg", note: "Locates the slot by hash and clears it \u2014 constant time, like a read." },
+      { op: "d.keys() / .values() / .items()", big_o: "O(n)", note: "Creating the view is instant (O(1)); the O(n) is only when you actually loop over it. Views stay in sync with the dict live." },
+      { op: "for k in d", big_o: "O(n)", note: "Visits every key exactly once, in insertion order (guaranteed since Python 3.7)." }
     ],
 
     challenge: {
