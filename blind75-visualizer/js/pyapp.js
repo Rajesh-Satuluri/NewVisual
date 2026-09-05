@@ -236,7 +236,7 @@
       tbl.innerHTML = "<thead><tr><th>Operation</th><th>Complexity</th><th>Note</th></tr></thead>";
       var tb = h("tbody", {});
       topic.complexity.forEach(function (r) {
-        tb.appendChild(h("tr", {}, "<td><code>" + esc(r.op) + "</code></td><td class=\"cx-o\">" + esc(r.big_o) + "</td><td class=\"muted\">" + esc(r.note || "") + "</td>"));
+        tb.appendChild(h("tr", {}, "<td><code>" + esc(r.op) + "</code></td><td class=\"cx-o\">" + esc(r.big_o) + "</td><td class=\"cx-note\">" + esc(r.note || "") + "</td>"));
       });
       tbl.appendChild(tb);
       cxBody.appendChild(tbl);
@@ -437,7 +437,7 @@
     nav.appendChild(home);
 
     PY.SECTION_ORDER.forEach(function (sectionName) {
-      var topics = (PY._registry[sectionName] || []);
+      var topics = PY.sectionTopics(sectionName);
       if (!topics.length) return;
       var block = h("div", { class: "cat-block" });
       block.appendChild(h("div", { class: "py-nav-head" }, (PY.SECTION_ICON[sectionName] || "•") + "  " + esc(sectionName)));

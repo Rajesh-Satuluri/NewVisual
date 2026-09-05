@@ -28,7 +28,7 @@
   // live the moment a data file registers it under the same title.
   var OUTLINE = [
     { section: "Foundations",     topics: ["Variables & Objects", "Numbers & Booleans", "Type Conversion"] },
-    { section: "Data Structures", topics: ["Lists", "Tuples", "Sets", "Dictionaries"] },
+    { section: "Data Structures", topics: ["Lists", "Strings", "Tuples", "Sets", "Dictionaries"] },
     { section: "Core Python",     topics: ["Functions", "Recursion", "Comprehensions"] },
     { section: "Complexity",      topics: ["Big-O by Example", "Operation Complexity"] },
     { section: "DSA Toolkit",     topics: ["deque", "Counter", "defaultdict", "heapq", "bisect"] }
@@ -55,11 +55,26 @@
       }
     },
 
+    // Topics for one section, ordered to match the curriculum OUTLINE (so nav
+    // order is stable regardless of which data file loaded first).
+    sectionTopics: function (section) {
+      var list = (registry[section] || []).slice();
+      var order = null;
+      for (var o = 0; o < OUTLINE.length; o++) if (OUTLINE[o].section === section) order = OUTLINE[o].topics;
+      if (order) {
+        list.sort(function (a, b) {
+          var ia = order.indexOf(a.title), ib = order.indexOf(b.title);
+          if (ia === -1) ia = 999; if (ib === -1) ib = 999;
+          return ia - ib;
+        });
+      }
+      return list;
+    },
+
     all: function () {
       var out = [];
       for (var s = 0; s < SECTION_ORDER.length; s++) {
-        var list = registry[SECTION_ORDER[s]] || [];
-        for (var i = 0; i < list.length; i++) out.push(list[i]);
+        out = out.concat(this.sectionTopics(SECTION_ORDER[s]));
       }
       for (var key in registry) {
         if (SECTION_ORDER.indexOf(key) === -1) out = out.concat(registry[key]);

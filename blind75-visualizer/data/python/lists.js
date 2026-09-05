@@ -72,14 +72,14 @@ window.PYDSA.register("Data Structures", [
       "<p>Because it stores <b>pointers</b>, a list can hold mixed types — but for DSA you'll almost always keep one type per list.</p>",
 
     complexity: [
-      { op: "arr[i]", big_o: "O(1)", note: "direct index" },
-      { op: "arr.append(x)", big_o: "O(1) amortized", note: "occasional resize copy" },
-      { op: "arr.pop()", big_o: "O(1)", note: "removes from the end" },
-      { op: "arr.pop(0) / insert(0,x)", big_o: "O(n)", note: "shifts every element" },
-      { op: "arr[a:b]  (slice)", big_o: "O(k)", note: "builds a NEW list of k items — not free" },
-      { op: "for x in arr", big_o: "O(n)", note: "one full pass" },
-      { op: "x in arr", big_o: "O(n)", note: "linear scan — use a set for membership" },
-      { op: "arr.sort()", big_o: "O(n log n)", note: "Timsort, in place" }
+      { op: "arr[i]", big_o: "O(1)", note: "Jumps straight to position i with address arithmetic (base + i) — no scanning, so it costs the same whether the list has 10 or 10 million items." },
+      { op: "arr.append(x)", big_o: "O(1) amortized", note: "Adds to the end. Now and then the backing array fills up and Python copies everything into a bigger one, but spread across many appends that averages out to constant time." },
+      { op: "arr.pop()", big_o: "O(1)", note: "Removes and returns the LAST item — nothing after it, so nothing shifts. This is exactly why a list makes a perfect stack." },
+      { op: "arr.pop(0) / insert(0,x)", big_o: "O(n)", note: "Touching the FRONT forces every other element to slide over by one. Doing this in a loop is a hidden O(n²) — reach for collections.deque instead." },
+      { op: "arr[a:b]  (slice)", big_o: "O(k)", note: "Copies the k selected elements into a brand-new list. Slicing inside a loop (e.g. arr[i:]) is a very common accidental O(n²)." },
+      { op: "for x in arr", big_o: "O(n)", note: "Visits each element exactly once — the baseline cost of looking at every item." },
+      { op: "x in arr", big_o: "O(n)", note: "Walks the list one element at a time until it finds a match; there's no shortcut for a plain list. If you test membership repeatedly, put the items in a set first." },
+      { op: "arr.sort() / sorted(arr)", big_o: "O(n log n)", note: "Python's Timsort. .sort() reorders in place and returns None; sorted() leaves the original alone and returns a new list." }
     ],
 
     challenge: {
