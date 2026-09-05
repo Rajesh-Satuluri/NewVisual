@@ -31,6 +31,7 @@
     if (stack === "sql") return window.SQLLAB;
     if (stack === "spark") return window.PYSPARK;
     if (stack === "numpy") return window.NUMPY;
+    if (stack === "pandas") return window.PANDAS;
     return null;
   }
 
