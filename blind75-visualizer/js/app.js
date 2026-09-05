@@ -651,7 +651,8 @@
       if (it[0] === "Pattern") {
         var tag = h("button", { class: "meta-v pattern-link", title: "Show all with this pattern" }, esc(it[1]));
         tag.addEventListener("click", function () {
-          state.filterPattern = it[1]; el("filterPattern").value = it[1];
+          state.filterPattern = it[1];
+          var pfSel = el("filterPattern"); if (pfSel) pfSel.value = it[1];
           state.query = ""; el("search").value = "";
           renderSidebar();
         });
@@ -1322,10 +1323,10 @@
     el("filterStatus").addEventListener("change", function (e) { state.filterStatus = e.target.value; renderSidebar(); });
 
     var pf = el("filterPattern");
-    allPatterns().forEach(function (pat) {
-      pf.appendChild(h("option", { value: pat }, pat));
-    });
-    pf.addEventListener("change", function (e) { state.filterPattern = e.target.value; renderSidebar(); });
+    if (pf) {
+      allPatterns().forEach(function (pat) { pf.appendChild(h("option", { value: pat }, pat)); });
+      pf.addEventListener("change", function (e) { state.filterPattern = e.target.value; renderSidebar(); });
+    }
 
     var impf = el("filterImportance");
     if (impf) impf.addEventListener("change", function (e) { state.filterImportance = e.target.value; renderSidebar(); });
@@ -1366,7 +1367,8 @@
 
     el("clearFilters").addEventListener("click", function () {
       state.query = ""; state.filterDifficulty = "all"; state.filterStatus = "all"; state.filterPattern = "all"; state.filterImportance = "all";
-      search.value = ""; el("filterDifficulty").value = "all"; el("filterStatus").value = "all"; pf.value = "all";
+      search.value = ""; el("filterDifficulty").value = "all"; el("filterStatus").value = "all";
+      if (pf) pf.value = "all";
       if (impf) impf.value = "all";
       renderSidebar();
     });
