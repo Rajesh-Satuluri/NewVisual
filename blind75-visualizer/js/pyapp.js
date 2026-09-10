@@ -213,7 +213,9 @@
       var b = h("button", { class: "status-btn py-st-" + s + (cur === s ? " on" : "") }, STATUS_GLYPH[s] + " " + STATUS_LABEL[s]);
       b.addEventListener("click", function () {
         store.setPyStatus(topic.id, s);
-        renderTopic(topic); renderSidebar(topic.id); renderProgress();
+        var mainEl = el("main"), y = mainEl ? mainEl.scrollTop : 0;   // keep reading position
+        renderTopic(topic); if (mainEl) mainEl.scrollTop = y;
+        renderSidebar(topic.id); renderProgress();
       });
       grp.appendChild(b);
     });

@@ -22,6 +22,7 @@
       reg: function () { return window.SQLLAB; },
       lang: "sql",
       langLabel: "SQL",
+      focusSolution: true,                         // open straight to Problem + Solution
       codePrimary: { key: "tsql", label: "T-SQL" },
       codeSecondary: { key: "clean", label: "Clean SQL" },
       importanceOf: function (p) { var m = (window.SQLLAB && window.SQLLAB.IMPORTANCE) || {}; return m[p.id] || "common"; },
@@ -31,6 +32,7 @@
       reg: function () { return window.PYSPARK; },
       lang: "python",
       langLabel: "PySpark",
+      focusSolution: true,                         // open straight to Problem + Solution
       codePrimary: { key: "rcs", label: "Commented" },
       codeSecondary: { key: "plain", label: "Clean" },
       importanceOf: function (p) { var m = (window.PYSPARK && window.PYSPARK.IMPORTANCE) || {}; return m[p.lc] || "common"; },
@@ -146,28 +148,72 @@
     }
     codeEl.innerHTML = lines.join("\n");
   }
-  function codeBlock(src, lang) {
+  // `ident` (optional) = { id, ai, mode } identifies a solution block so edits can
+  // be locked/unlocked and persisted per problem+approach+mode (id is already
+  // stack-namespaced via nsId). Blocks without an ident render read-only.
+  function codeBlock(src, lang, ident) {
+    lang = lang || cfg().lang;
     var wrap = h("div", { class: "code-wrap" });
     var bar = h("div", { class: "code-bar" });
     bar.appendChild(h("span", { class: "code-lang" }, cfg().langLabel));
     var actions = h("div", { class: "code-actions" });
-    var copy = h("button", { class: "copy-btn" }, "Copy");
-    copy.addEventListener("click", function () {
-      var text = src;
-      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(flash, flash);
-      else flash();
-      function flash() { copy.textContent = "Copied!"; setTimeout(function () { copy.textContent = "Copy"; }, 1200); }
-    });
-    actions.appendChild(copy);
     bar.appendChild(actions);
     var body = h("div", { class: "code-body" });
-    var pre = h("pre", { class: "code-pre" });
-    var code = h("code", { class: "language-" + (lang || cfg().lang) });
-    code.textContent = src;
-    pre.appendChild(code); body.appendChild(pre);
     wrap.appendChild(bar); wrap.appendChild(body);
-    if (window.Prism) { try { window.Prism.highlightElement(code); } catch (e) {} }
-    if ((lang || cfg().lang) === "python") addIndentGuides(code);
+
+    var editing = false;   // lock state is per-block, starts LOCKED every render
+    function savedEdit() { return ident ? store.getCodeEdit(ident.id, ident.ai, ident.mode) : null; }
+    function currentSource() { var e = savedEdit(); return e != null ? e : src; }
+
+    function render() {
+      body.innerHTML = ""; actions.innerHTML = "";
+      var edited = savedEdit() != null;
+      if (edited) {
+        actions.appendChild(h("span", { class: "code-edited", title: "This code was edited locally" }, "edited"));
+        var reset = h("button", { class: "code-mini", title: "Restore the original code" }, "Reset");
+        reset.addEventListener("click", function () { store.clearCodeEdit(ident.id, ident.ai, ident.mode); editing = false; render(); });
+        actions.appendChild(reset);
+      }
+      var ta;
+      if (ident) {
+        var lock = h("button", { class: "code-mini lock" + (editing ? " on" : "") }, editing ? "🔓 Editing" : "🔒 Locked");
+        lock.title = editing ? "Lock to stop editing (changes are saved)" : "Unlock to edit this code";
+        lock.addEventListener("click", function () { editing = !editing; render(); });
+        actions.appendChild(lock);
+      }
+      var copy = h("button", { class: "copy-btn" }, "Copy");
+      copy.addEventListener("click", function () {
+        var text = editing && ta ? ta.value : currentSource();
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(flash, flash);
+        else flash();
+        function flash() { copy.textContent = "Copied!"; setTimeout(function () { copy.textContent = "Copy"; }, 1200); }
+      });
+      actions.appendChild(copy);
+
+      if (editing) {
+        ta = h("textarea", { class: "code-edit", spellcheck: "false", wrap: "off", autocomplete: "off" });
+        ta.value = currentSource();
+        var fit = function () { ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px"; };
+        ta.addEventListener("input", function () {
+          fit();
+          if (ta.value === src) store.clearCodeEdit(ident.id, ident.ai, ident.mode);
+          else store.setCodeEdit(ident.id, ident.ai, ident.mode, ta.value);
+        });
+        ta.addEventListener("keydown", function (e) {
+          if (e.key === "Tab") { e.preventDefault(); var s = ta.selectionStart, en = ta.selectionEnd; ta.value = ta.value.slice(0, s) + "    " + ta.value.slice(en); ta.selectionStart = ta.selectionEnd = s + 4; ta.dispatchEvent(new Event("input")); }
+        });
+        body.appendChild(ta);
+        setTimeout(function () { fit(); ta.focus(); }, 0);
+      } else {
+        var pre = h("pre", { class: "code-pre" });
+        var code = h("code", { class: "language-" + lang });
+        code.textContent = currentSource();
+        pre.appendChild(code); body.appendChild(pre);
+        if (window.Prism) { try { window.Prism.highlightElement(code); } catch (e) {} }
+        if (lang === "python") addIndentGuides(code);
+      }
+    }
+    render();
     return wrap;
   }
 
@@ -194,9 +240,13 @@
   }
 
   // ---- collapsible section (matches DSA/py, smooth px-height) ----
+  // Sections that stay open on a "focus-solution" stack (SQL / PySpark): the
+  // problem statement and the solution. Everything else opens collapsed so the
+  // page lands on description + code, which is what SQL/Spark users want.
+  var FOCUS_KEEP = { description: 1, code: 1 };
   function section(key, title, bodyNode, opts) {
     opts = opts || {};
-    var collapsed = !!opts.collapsed;
+    var collapsed = !!opts.collapsed || (cfg().focusSolution && !FOCUS_KEEP[key]);
     var sec = h("section", { class: "prob-section" + (collapsed ? " collapsed" : ""), "data-key": key });
     var head = h("button", { class: "sec-head" });
     head.innerHTML = '<span class="sec-caret">▾</span><span class="sec-title">' + esc(title) + "</span>" +
@@ -330,6 +380,57 @@
     { key: "easy", label: "Easy", hint: "Instant / trivial", cls: "g-easy" }
   ];
 
+  // (Re)build the switcher + logic + code sections into `apWrap`, in place.
+  // Preserves the reader's scroll position across the rebuild so switching
+  // approach or code dialect never nudges the viewport.
+  function fillApproaches(apWrap, p, nid, approaches) {
+    var mainEl = el("main"), y = mainEl ? mainEl.scrollTop : null;
+    apWrap.innerHTML = "";
+    var ai = Math.min(approachIndex[nid], approaches.length - 1); if (ai < 0) ai = 0;
+    if (approaches.length > 1) {
+      var switcher = h("div", { class: "approach-switch" });
+      approaches.forEach(function (a, i) {
+        var b = h("button", { class: "app-tab" + (i === ai ? " active" : "") }, esc(a.name));
+        b.addEventListener("click", function () { approachIndex[nid] = i; fillApproaches(apWrap, p, nid, approaches); });
+        switcher.appendChild(b);
+      });
+      apWrap.appendChild(switcher);
+    }
+    var a = approaches[ai] || {};
+    if (a.logic) {
+      var logicNode = h("div", { class: "md logic" }); logicNode.innerHTML = md(a.logic);
+      apWrap.appendChild(section("logic", "Complete Logic — " + (a.name || "Approach"), logicNode));
+    }
+    var codeArea = h("div", { class: "code-area" });
+    var pk = cfg().codePrimary, sk = cfg().codeSecondary;
+    var hasSecondary = sk && a[sk.key] && a[sk.key] !== a[pk.key];
+    var mode = store.getPref("labCodeMode_" + cur.stack) || "primary";
+    if (mode === "secondary" && !hasSecondary) mode = "primary";
+    if (hasSecondary) {
+      var toggle = h("div", { class: "code-toggle" });
+      var pb = h("button", { class: "ct-btn" + (mode === "primary" ? " active" : "") }, pk.label);
+      var sb = h("button", { class: "ct-btn" + (mode === "secondary" ? " active" : "") }, sk.label);
+      // swap only the code area — no full re-render, so the viewport stays put
+      pb.addEventListener("click", function () { store.setPref("labCodeMode_" + cur.stack, "primary"); fillApproaches(apWrap, p, nid, approaches); });
+      sb.addEventListener("click", function () { store.setPref("labCodeMode_" + cur.stack, "secondary"); fillApproaches(apWrap, p, nid, approaches); });
+      toggle.appendChild(pb); toggle.appendChild(sb);
+      codeArea.appendChild(toggle);
+    }
+    var source = mode === "secondary" ? a[sk.key] : (a[pk.key] || a[sk.key] || "");
+    codeArea.appendChild(codeBlock(source, cfg().lang, { id: nid, ai: ai, mode: mode }));
+    if (cfg().runnable) {
+      var tryBox = h("div", { class: "prob-try" });
+      tryBox.appendChild(h("div", { class: "prob-try-h" }, "▶ Try it — run and edit this solution in your browser"));
+      tryBox.appendChild(runnableEditor(a.plain || a[pk.key] || source));
+      codeArea.appendChild(tryBox);
+    }
+    if (a.whenToUse) codeArea.appendChild(h("div", { class: "when-use" }, "<strong>When to use:</strong> " + esc(a.whenToUse)));
+    if (a.perfNote) codeArea.appendChild(h("div", { class: "when-use" }, "<strong>Performance:</strong> " + esc(a.perfNote)));
+    if (a.dialectNote) codeArea.appendChild(h("div", { class: "when-use dialect" }, "<strong>Dialect note:</strong> " + esc(a.dialectNote)));
+    apWrap.appendChild(section("code", cfg().langLabel + " Solution — " + (a.name || "Approach"), codeArea));
+    if (mainEl && y != null) mainEl.scrollTop = y;   // Prism re-highlight can shift layout by a px or two
+  }
+
   function renderProblem() {
     var main = el("main");
     var p = byId(cur.id);
@@ -363,13 +464,13 @@
       b.addEventListener("click", function () {
         store.setStatus(nid, s);
         if (s === "solved") store.logSolve();
-        renderProblem(); renderSidebar(); renderProgress();
+        reRenderKeepScroll(); renderSidebar(); renderProgress();
       });
       grp.appendChild(b);
     });
     actions.appendChild(grp);
     var reviewBtn = h("button", { class: "chip-btn" + (store.isReview(nid) ? " on" : "") }, store.isReview(nid) ? "★ In review queue" : "☆ Mark for review");
-    reviewBtn.addEventListener("click", function () { store.toggleReview(nid); renderProblem(); renderSidebar(); });
+    reviewBtn.addEventListener("click", function () { store.toggleReview(nid); reRenderKeepScroll(); renderSidebar(); });
     actions.appendChild(reviewBtn);
     header.appendChild(actions);
     main.appendChild(header);
@@ -452,53 +553,13 @@
         { badge: (p.expectedOutput.rows || []).length + " row" + ((p.expectedOutput.rows || []).length === 1 ? "" : "s") }));
     }
 
-    // approaches: logic + code toggle
+    // approaches: logic + code toggle.  Both the approach switcher and the
+    // primary/secondary code toggle re-fill this container IN PLACE — never a
+    // full renderProblem() — so the page never rebuilds or jumps to the top.
     var approaches = p.approaches || [];
     if (approachIndex[nid] == null) approachIndex[nid] = approaches.length - 1;
-    var ai = Math.min(approachIndex[nid], approaches.length - 1); if (ai < 0) ai = 0;
     var apWrap = h("div", { class: "approach-area" });
-    if (approaches.length > 1) {
-      var switcher = h("div", { class: "approach-switch" });
-      approaches.forEach(function (a, i) {
-        var b = h("button", { class: "app-tab" + (i === ai ? " active" : "") }, esc(a.name));
-        b.addEventListener("click", function () { approachIndex[nid] = i; renderProblem(); });
-        switcher.appendChild(b);
-      });
-      apWrap.appendChild(switcher);
-    }
-    var a = approaches[ai] || {};
-    if (a.logic) {
-      var logicNode = h("div", { class: "md logic" }); logicNode.innerHTML = md(a.logic);
-      apWrap.appendChild(section("logic", "Complete Logic — " + (a.name || "Approach"), logicNode));
-    }
-
-    // code (primary/secondary toggle)
-    var codeArea = h("div", { class: "code-area" });
-    var pk = cfg().codePrimary, sk = cfg().codeSecondary;
-    var hasSecondary = sk && a[sk.key] && a[sk.key] !== a[pk.key];
-    var mode = store.getPref("labCodeMode_" + cur.stack) || "primary";
-    if (mode === "secondary" && !hasSecondary) mode = "primary";
-    if (hasSecondary) {
-      var toggle = h("div", { class: "code-toggle" });
-      var pb = h("button", { class: "ct-btn" + (mode === "primary" ? " active" : "") }, pk.label);
-      var sb = h("button", { class: "ct-btn" + (mode === "secondary" ? " active" : "") }, sk.label);
-      pb.addEventListener("click", function () { store.setPref("labCodeMode_" + cur.stack, "primary"); renderProblem(); });
-      sb.addEventListener("click", function () { store.setPref("labCodeMode_" + cur.stack, "secondary"); renderProblem(); });
-      toggle.appendChild(pb); toggle.appendChild(sb);
-      codeArea.appendChild(toggle);
-    }
-    var source = mode === "secondary" ? a[sk.key] : (a[pk.key] || a[sk.key] || "");
-    codeArea.appendChild(codeBlock(source, cfg().lang));
-    if (cfg().runnable) {
-      var tryBox = h("div", { class: "prob-try" });
-      tryBox.appendChild(h("div", { class: "prob-try-h" }, "▶ Try it — run and edit this solution in your browser"));
-      tryBox.appendChild(runnableEditor(a.plain || a[pk.key] || source));
-      codeArea.appendChild(tryBox);
-    }
-    if (a.whenToUse) codeArea.appendChild(h("div", { class: "when-use" }, "<strong>When to use:</strong> " + esc(a.whenToUse)));
-    if (a.perfNote) codeArea.appendChild(h("div", { class: "when-use" }, "<strong>Performance:</strong> " + esc(a.perfNote)));
-    if (a.dialectNote) codeArea.appendChild(h("div", { class: "when-use dialect" }, "<strong>Dialect note:</strong> " + esc(a.dialectNote)));
-    apWrap.appendChild(section("code", cfg().langLabel + " Solution — " + (a.name || "Approach"), codeArea));
+    fillApproaches(apWrap, p, nid, approaches);
     main.appendChild(apWrap);
 
     // walkthrough (SQL step tables)
@@ -579,7 +640,33 @@
     if (nextP) nb.addEventListener("click", function () { window.BLIND75.goTo("practice", cur.stack, nextP.id); });
     navRow.appendChild(pb); navRow.appendChild(nb);
     main.appendChild(navRow);
+    // NOTE: scroll position is set by the caller (mount/reRenderKeepScroll), never
+    // here — so in-page re-renders (status, review, code toggle) don't jump to top.
+  }
 
+  // Re-render the current problem but keep the reader where they were (used by
+  // status / review / SRS buttons, which change the header but not the position).
+  function reRenderKeepScroll() {
+    var main = el("main"), y = main ? main.scrollTop : 0;
+    renderProblem();
+    if (main) main.scrollTop = y;
+  }
+
+  // Land the page on Problem + Solution for focus-solution stacks (SQL / PySpark):
+  // scroll the problem statement to the top instead of sitting above the meta row.
+  function applyInitialScroll() {
+    var main = el("main"); if (!main) return;
+    if (cfg() && cfg().focusSolution) {
+      var sec = main.querySelector('.prob-section[data-key="description"]');
+      if (sec) {
+        var hdr = main.querySelector(".prob-header");
+        var pad = (hdr ? hdr.getBoundingClientRect().height : 0) + 8;   // clear the sticky header
+        // rect-based delta works regardless of offsetParent/positioning
+        var delta = sec.getBoundingClientRect().top - main.getBoundingClientRect().top;
+        main.scrollTop = Math.max(0, main.scrollTop + delta - pad);
+        return;
+      }
+    }
     main.scrollTop = 0;
   }
 
@@ -619,7 +706,7 @@
       btn.addEventListener("click", function () {
         var nrec = store.reviewCard(nid, g.key);
         if (store.getStatus(nid) === "not-started") store.setStatus(nid, "learning");
-        renderProblem(); renderSidebar(); renderProgress();
+        reRenderKeepScroll(); renderSidebar(); renderProgress();
       });
       row.appendChild(btn);
     });
@@ -662,6 +749,7 @@
       cur.id = (id && byId(id)) ? id : list[0].id;
       store.setPref("lastProblem_" + stack, cur.id);
       renderSidebar(); renderProblem(); renderProgress();
+      applyInitialScroll();
       // warm the Python runtime once, on idle, for runnable stacks (numpy/pandas)
       if (cfg().runnable && window.PYRUN && !warmed) {
         warmed = true;
