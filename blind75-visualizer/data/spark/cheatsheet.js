@@ -31,7 +31,7 @@ window.PYSPARK_CHEAT = {
       params: [
         { name: "*cols", type: "str | Column | list", desc: "Column names or <code>Column</code> expressions to keep/derive. A single <code>'*'</code> keeps all columns; you may mix <code>'*'</code> with extra derived columns. Passing a Python <code>list</code> is equivalent to unpacking it. Duplicate output names are allowed but ambiguous downstream." }
       ],
-      example: "df.select('id', (F.col('amount') * 1.1).alias('amt'))",
+      example: "df.select('id',\n  (F.col('amount') * 1.1).alias('amt'))",
       output: "DataFrame[id, amt]",
       notes: "Use <code>selectExpr</code> for SQL-string expressions. <code>select</code> cannot reference an alias defined earlier in the same call."
     },
@@ -45,7 +45,7 @@ window.PYSPARK_CHEAT = {
       params: [
         { name: "*expr", type: "str", desc: "One or more SQL projection strings, e.g. <code>'amount * 1.1 AS amt'</code>, <code>'CASE WHEN x>0 THEN 1 ELSE 0 END'</code>. Supports <code>AS</code> aliasing, casts (<code>CAST(x AS int)</code>), and any built-in SQL function. No access to Python <code>Column</code> objects." }
       ],
-      example: "df.selectExpr('id', 'amount * 1.1 AS amt', 'upper(name) AS n')",
+      example: "df.selectExpr('id',\n  'amount * 1.1 AS amt',\n  'upper(name) AS n')",
       output: "DataFrame[id, amt, n]",
       notes: "Handy when porting SQL; identical plan to the equivalent <code>select</code>+<code>F.expr</code>."
     },
@@ -74,7 +74,7 @@ window.PYSPARK_CHEAT = {
         { name: "colName", type: "str", desc: "Output column name. If it already exists, that column is <b>overwritten</b> (schema position preserved); otherwise it is appended." },
         { name: "col", type: "Column", desc: "A <code>Column</code> expression evaluated per row. Must be a Column — a literal must be wrapped in <code>F.lit(...)</code>. Can reference existing columns including the one being replaced." }
       ],
-      example: "df.withColumn('amt_tax', F.col('amount') * F.lit(1.2))",
+      example: "df.withColumn('amt_tax',\n  F.col('amount') * F.lit(1.2))",
       output: "DataFrame[..., amt_tax]",
       notes: "Chaining many <code>withColumn</code> calls builds a deep plan; prefer a single <code>select</code>/<code>withColumns</code> for dozens of columns."
     },
@@ -131,7 +131,7 @@ window.PYSPARK_CHEAT = {
       params: [
         { name: "subset", type: "list[str] | None", desc: "Columns that define a duplicate. When <code>None</code> (default) all columns are used (same as <code>distinct</code>). When given, the <b>first</b> row per key group is kept but which row is arbitrary — order it first (e.g. via a window) if you need a specific one." }
       ],
-      example: "df.orderBy(F.desc('ts')).dropDuplicates(['user_id'])",
+      example: "(df.orderBy(F.desc('ts'))\n  .dropDuplicates(['user_id']))",
       output: "One row per user_id",
       notes: "For deterministic 'latest per key' prefer <code>row_number()</code> over a window; <code>dropDuplicates</code> row choice is not guaranteed by a preceding sort across a shuffle."
     },
@@ -396,7 +396,7 @@ window.PYSPARK_CHEAT = {
         { name: "*names", type: "str", desc: "The output name. Passing multiple names is only valid when the expression returns multiple columns (e.g. <code>posexplode</code>)." },
         { name: "metadata", type: "dict", desc: "Optional column metadata (e.g. ML attribute info) attached to the schema field." }
       ],
-      example: "df.select((F.col('a') + F.col('b')).alias('total'))",
+      example: "df.select(\n  (F.col('a') + F.col('b')).alias('total'))",
       output: "DataFrame[total]",
       notes: "<code>name</code> is an alias of <code>alias</code>."
     },
@@ -410,7 +410,7 @@ window.PYSPARK_CHEAT = {
       params: [
         { name: "dataType", type: "str | DataType", desc: "Target type as a string (<code>'int'</code>, <code>'double'</code>, <code>'string'</code>, <code>'date'</code>, <code>'timestamp'</code>, <code>'decimal(10,2)'</code>) or a <code>DataType</code> object. A value that can't be parsed to the target yields <code>null</code>, silently — validate first if that matters." }
       ],
-      example: "df.withColumn('amount', F.col('amount').cast('decimal(12,2)'))",
+      example: "df.withColumn('amount',\n  F.col('amount').cast('decimal(12,2)'))",
       output: "Column of new type",
       notes: "<code>astype</code> is an alias. String-&gt;number of a non-numeric string gives null, a common silent data-loss bug."
     },
@@ -514,7 +514,7 @@ window.PYSPARK_CHEAT = {
       params: [
         { name: "key", type: "int | str", desc: "An <b>int</b> index for an array column (0-based; out-of-range -&gt; null), or a <b>str</b> key for a map column (missing key -&gt; null). <code>col[key]</code> is shorthand." }
       ],
-      example: "df.select(F.col('tags').getItem(0), F.col('props')['color'])",
+      example: "df.select(F.col('tags').getItem(0),\n  F.col('props')['color'])",
       output: "Element Column",
       notes: "For arrays you can also use <code>F.element_at(col, i)</code> which is <b>1-based</b> and supports negative indexing."
     },
@@ -543,7 +543,7 @@ window.PYSPARK_CHEAT = {
         { name: "startPos", type: "int | Column", desc: "Starting position, <b>1-based</b> (position 1 = first char). Negative counts from the end (Spark 3+)." },
         { name: "length", type: "int | Column", desc: "Number of characters to take. If it runs past the end, the available characters are returned." }
       ],
-      example: "df.select(F.col('code').substr(1, 3).alias('prefix'))",
+      example: "df.select(\n  F.col('code').substr(1, 3).alias('prefix'))",
       output: "3-char prefix Column",
       notes: "Equivalent to <code>F.substring(col, pos, len)</code>. Positions are 1-based, unlike Python slicing."
     },
@@ -559,7 +559,7 @@ window.PYSPARK_CHEAT = {
       params: [
         { name: "*cols", type: "Column", desc: "Two or more string (or array) columns/literals to join. If <b>any</b> argument is <code>null</code>, the whole result is <code>null</code> — use <code>concat_ws</code> to skip nulls. For arrays it merges them into one array." }
       ],
-      example: "df.select(F.concat(F.col('first'), F.lit(' '), F.col('last')))",
+      example: "df.select(\n  F.concat(F.col('first'), F.lit(' '), F.col('last')))",
       output: "Concatenated string Column",
       notes: "Null propagation is the classic gotcha; wrap args in <code>F.coalesce(c, F.lit(''))</code> to be safe."
     },
@@ -574,7 +574,7 @@ window.PYSPARK_CHEAT = {
         { name: "sep", type: "str", desc: "The delimiter placed between values, e.g. <code>','</code> or <code>' - '</code>." },
         { name: "*cols", type: "Column | array", desc: "Columns (or an array column) to join. <code>null</code> values are <b>omitted</b> (no doubled separators). Accepts an array column directly to join its elements." }
       ],
-      example: "df.select(F.concat_ws('-', 'year', 'month', 'day'))",
+      example: "df.select(\n  F.concat_ws('-', 'year', 'month', 'day'))",
       output: "'2026-09-10'",
       notes: "Preferred over <code>concat</code> for building keys/paths because nulls don't nuke the whole value."
     },
@@ -590,7 +590,7 @@ window.PYSPARK_CHEAT = {
         { name: "pos", type: "int", desc: "Start position, <b>1-based</b>; negative counts from the end." },
         { name: "len", type: "int", desc: "Number of characters to extract." }
       ],
-      example: "df.select(F.substring('phone', 1, 3).alias('area'))",
+      example: "df.select(\n  F.substring('phone', 1, 3).alias('area'))",
       output: "3-char Column",
       notes: "<code>F.substring_index(str, delim, count)</code> returns everything before the <code>count</code>-th delimiter — handy for paths/domains."
     },
@@ -638,7 +638,7 @@ window.PYSPARK_CHEAT = {
         { name: "pattern", type: "str", desc: "Java regex with capture groups <code>( )</code>." },
         { name: "idx", type: "int", desc: "Which group to return: <code>0</code> = the whole match, <code>1</code> = first group, etc. If nothing matches, returns an <b>empty string</b> (not null)." }
       ],
-      example: "df.select(F.regexp_extract('email', '@(.+)$', 1).alias('domain'))",
+      example: "df.select(\n  F.regexp_extract('email', '@(.+)$', 1).alias('domain'))",
       output: "'example.com'",
       notes: "No-match returns <code>''</code> — filter or convert to null explicitly if needed. Spark 3.4+ has <code>regexp_extract_all</code>."
     },
@@ -670,7 +670,7 @@ window.PYSPARK_CHEAT = {
         { name: "len", type: "int", desc: "Target total length. If the string is <b>longer</b> than <code>len</code>, it is <b>truncated</b> to <code>len</code>." },
         { name: "pad", type: "str", desc: "The padding string, repeated to fill the gap on the left/right." }
       ],
-      example: "df.select(F.lpad(F.col('id').cast('string'), 6, '0'))",
+      example: "df.select(\n  F.lpad(F.col('id').cast('string'), 6, '0'))",
       output: "'42' -> '000042'",
       notes: "Common for zero-padding IDs or fixed-width exports; remember it truncates overlong inputs."
     },
@@ -698,7 +698,7 @@ window.PYSPARK_CHEAT = {
       params: [
         { name: "*cols", type: "Column", desc: "Two or more columns/literals evaluated left to right; the first that is not <code>null</code> is returned. All must share a common type. A final <code>F.lit(default)</code> supplies a fallback." }
       ],
-      example: "df.withColumn('name', F.coalesce('nickname', 'legal_name', F.lit('N/A')))",
+      example: "df.withColumn('name',\n  F.coalesce('nickname', 'legal_name', F.lit('N/A')))",
       output: "First non-null per row",
       notes: "The DataFrame-level <code>coalesce</code> (partition merge) is a totally different operation."
     },
@@ -728,7 +728,7 @@ window.PYSPARK_CHEAT = {
         { name: "col1", type: "Column", desc: "A float/double column that may contain <code>NaN</code>." },
         { name: "col2", type: "Column", desc: "Returned when <code>col1</code> is <code>NaN</code>; otherwise <code>col1</code> passes through. Only handles NaN, not null — use <code>coalesce</code> for null." }
       ],
-      example: "df.withColumn('ratio', F.nanvl('ratio', F.lit(0.0)))",
+      example: "df.withColumn('ratio',\n  F.nanvl('ratio', F.lit(0.0)))",
       output: "0.0 where ratio is NaN",
       notes: "<code>F.isnan(col)</code> tests for NaN; note NaN != null in Spark."
     },
@@ -743,7 +743,7 @@ window.PYSPARK_CHEAT = {
         { name: "col", type: "Column", desc: "Numeric column to round." },
         { name: "scale", type: "int", desc: "Number of decimal places (default 0). <b>Negative</b> scale rounds to tens/hundreds (<code>-2</code> -&gt; nearest 100). <code>round</code> uses HALF_UP; <code>bround</code> uses HALF_EVEN (banker's rounding)." }
       ],
-      example: "df.select(F.round('price', 2), F.round('big', -3))",
+      example: "df.select(F.round('price', 2),\n  F.round('big', -3))",
       output: "12.346 ; 1234 -> 1000",
       notes: "For money, cast to <code>decimal(p,s)</code> to avoid binary-float drift rather than relying on round."
     },
@@ -759,7 +759,7 @@ window.PYSPARK_CHEAT = {
         { name: "ceil", type: "Column", desc: "Smallest integer &gt;= value." },
         { name: "abs", type: "Column", desc: "Absolute value; preserves the input numeric type." }
       ],
-      example: "df.select(F.floor('x'), F.ceil('x'), F.abs('delta'))",
+      example: "df.select(F.floor('x'),\n  F.ceil('x'),\n  F.abs('delta'))",
       output: "Integer / same-type Columns",
       notes: "Other math: <code>F.sqrt</code>, <code>F.pow</code>, <code>F.exp</code>, <code>F.log</code>, <code>F.pmod</code>."
     },
@@ -773,7 +773,7 @@ window.PYSPARK_CHEAT = {
       params: [
         { name: "*cols", type: "Column", desc: "Two or more columns compared per row. <code>null</code> values are <b>skipped</b>; the result is null only if all inputs are null. Contrast with the <code>max</code>/<code>min</code> aggregates which reduce over rows." }
       ],
-      example: "df.withColumn('peak', F.greatest('q1', 'q2', 'q3', 'q4'))",
+      example: "df.withColumn('peak',\n  F.greatest('q1', 'q2', 'q3', 'q4'))",
       output: "Max of the four per row",
       notes: "Great for comparing sibling columns without unpivoting."
     },
@@ -787,7 +787,7 @@ window.PYSPARK_CHEAT = {
       params: [
         { name: "sqlString", type: "str", desc: "Any Spark SQL expression, e.g. <code>'CASE WHEN a>0 THEN 1 ELSE 0 END'</code>, <code>'stack(2, ...)'</code>, or SQL functions with no Python wrapper. Enables features (like <code>stack</code>, higher-order <code>transform</code>) not exposed in the Python API." }
       ],
-      example: "df.withColumn('flag', F.expr('CASE WHEN amt > 100 THEN 1 ELSE 0 END'))",
+      example: "df.withColumn('flag',\n  F.expr('CASE WHEN amt > 100 THEN 1 ELSE 0 END'))",
       output: "Column",
       notes: "The escape hatch for any SQL not surfaced in <code>pyspark.sql.functions</code>."
     },
@@ -829,7 +829,7 @@ window.PYSPARK_CHEAT = {
       params: [
         { name: "col", type: "Column", desc: "Array/map column. Emits two columns: <code>pos</code> (0-based index) and <code>col</code> (the element). <code>posexplode_outer</code> keeps null/empty arrays as a single null row." }
       ],
-      example: "df.select('id', F.posexplode('items').alias('idx', 'item'))",
+      example: "df.select('id',\n  F.posexplode('items').alias('idx', 'item'))",
       output: "id, idx(0..n-1), item",
       notes: "Name both outputs with <code>.alias('idx','item')</code>."
     },
@@ -872,7 +872,7 @@ window.PYSPARK_CHEAT = {
       params: [
         { name: "col", type: "Column", desc: "Column to gather. <code>collect_list</code> keeps duplicates and is order-<b>non</b>-deterministic; <code>collect_set</code> deduplicates. Both <b>skip nulls</b>. Can blow up memory on large groups." }
       ],
-      example: "df.groupBy('user').agg(F.collect_set('page').alias('pages'))",
+      example: "df.groupBy('user').agg(\n  F.collect_set('page').alias('pages'))",
       output: "One array per user",
       notes: "Order is not guaranteed — sort afterward with <code>F.sort_array</code>, or use <code>F.array_sort</code>/a struct-of-(ts,val) then sort."
     },
@@ -902,7 +902,7 @@ window.PYSPARK_CHEAT = {
         { name: "map_values", type: "Column", desc: "Returns an array of the map's values." },
         { name: "create_map (*cols)", type: "Column", desc: "Builds a map from alternating key, value columns: <code>create_map(k1, v1, k2, v2, ...)</code> — arg count must be even." }
       ],
-      example: "df.select(F.map_keys('props'), F.map_values('props'))",
+      example: "df.select(F.map_keys('props'),\n  F.map_values('props'))",
       output: "array of keys ; array of values",
       notes: "Explode a map to rows with <code>F.explode('map_col')</code> giving <code>key</code>,<code>value</code>."
     },
@@ -918,7 +918,7 @@ window.PYSPARK_CHEAT = {
       params: [
         { name: "*cols", type: "str | Column", desc: "Grouping keys. With no args, aggregates the whole DataFrame as one group. Rows with equal key values (nulls form their own group) are combined; follow with <code>.agg(...)</code> or a shortcut like <code>.count()</code>." }
       ],
-      example: "df.groupBy('dept').agg(F.sum('salary').alias('total'))",
+      example: "df.groupBy('dept').agg(\n  F.sum('salary').alias('total'))",
       output: "One row per dept",
       notes: "<code>groupBy(...).pivot(...)</code> reshapes wide. Partial aggregation runs map-side before the shuffle for algebraic aggregates."
     },
@@ -961,7 +961,7 @@ window.PYSPARK_CHEAT = {
         { name: "*cols (countDistinct)", type: "Column", desc: "One or more columns; multiple columns count distinct <b>tuples</b>. Exact but requires a heavy shuffle/sort." },
         { name: "col, rsd (approx)", type: "Column, float", desc: "<code>approx_count_distinct</code> uses HyperLogLog. <code>rsd</code> is the target relative standard error (default 0.05 = 5%); smaller = more accurate but more memory. Vastly cheaper at scale." }
       ],
-      example: "df.agg(F.approx_count_distinct('user_id', 0.01).alias('users'))",
+      example: "df.agg(\n  F.approx_count_distinct('user_id', 0.01).alias('users'))",
       output: "~unique count",
       notes: "For dashboards on billions of rows, <code>approx_count_distinct</code> is the standard choice."
     },
@@ -989,7 +989,7 @@ window.PYSPARK_CHEAT = {
       params: [
         { name: "col", type: "Column", desc: "Numeric column. <code>null</code>s are excluded from both numerator and denominator (average of non-null values). Result is a double." }
       ],
-      example: "df.groupBy('dept').agg(F.avg('salary').alias('avg_sal'))",
+      example: "df.groupBy('dept').agg(\n  F.avg('salary').alias('avg_sal'))",
       output: "dept, avg_sal",
       notes: "<code>F.mean</code> is identical. Null-skipping means the average ignores missing values, not treats them as 0."
     },
@@ -1004,7 +1004,7 @@ window.PYSPARK_CHEAT = {
         { name: "col", type: "Column", desc: "Column whose min/max is taken; works for numbers, strings (lexicographic), dates. Nulls are ignored." },
         { name: "val, ord (min_by/max_by)", type: "Column, Column", desc: "<code>max_by(val, ord)</code> returns <code>val</code> from the row where <code>ord</code> is maximal (Spark 3.0+) — a clean 'latest value' without a window." }
       ],
-      example: "df.groupBy('user').agg(F.max_by('status', 'ts').alias('last_status'))",
+      example: "df.groupBy('user').agg(\n  F.max_by('status', 'ts').alias('last_status'))",
       output: "user, last_status",
       notes: "<code>max_by</code>/<code>min_by</code> replace the older <code>max(struct(ord,val))</code> trick."
     },
@@ -1047,7 +1047,7 @@ window.PYSPARK_CHEAT = {
       params: [
         { name: "col", type: "Column", desc: "Column to accumulate per group. Nulls are skipped. Order within the array is <b>not</b> guaranteed. Beware memory: a hot key with millions of rows builds one giant array on a single task." }
       ],
-      example: "df.groupBy('order_id').agg(F.collect_list('sku').alias('skus'))",
+      example: "df.groupBy('order_id').agg(\n  F.collect_list('sku').alias('skus'))",
       output: "order_id, [sku,...]",
       notes: "To preserve order, collect a struct of <code>(sort_key, value)</code> then <code>array_sort</code> and project the value."
     },
@@ -1272,7 +1272,7 @@ window.PYSPARK_CHEAT = {
         { name: "col", type: "Column", desc: "String or timestamp to convert." },
         { name: "format", type: "str", desc: "Optional datetime pattern (<code>'yyyy-MM-dd'</code>, <code>'MM/dd/yyyy'</code>). If omitted, expects ISO <code>yyyy-MM-dd</code>. Unparseable values become <code>null</code> (or raise under the strict Spark 3+ time parser depending on <code>spark.sql.legacy.timeParserPolicy</code>)." }
       ],
-      example: "df.withColumn('d', F.to_date('date_str', 'MM/dd/yyyy'))",
+      example: "df.withColumn('d',\n  F.to_date('date_str', 'MM/dd/yyyy'))",
       output: "date Column",
       notes: "Patterns use Java <code>DateTimeFormatter</code> letters (note <code>yyyy</code> vs <code>YYYY</code> week-year gotcha)."
     },
@@ -1287,7 +1287,7 @@ window.PYSPARK_CHEAT = {
         { name: "col", type: "Column", desc: "String to parse." },
         { name: "format", type: "str", desc: "Optional pattern, e.g. <code>'yyyy-MM-dd HH:mm:ss'</code> (note <code>HH</code> = 24-hour, <code>hh</code> = 12-hour needs <code>a</code> for AM/PM). Defaults to ISO. Bad input -&gt; null. Interpreted in the session time zone." }
       ],
-      example: "df.withColumn('ts', F.to_timestamp('raw', 'yyyy-MM-dd HH:mm:ss'))",
+      example: "df.withColumn('ts',\n  F.to_timestamp('raw', 'yyyy-MM-dd HH:mm:ss'))",
       output: "timestamp Column",
       notes: "For epoch seconds use <code>F.timestamp_seconds</code>; for offset-aware strings consider <code>to_timestamp</code> with an <code>XXX</code> pattern."
     },
@@ -1302,7 +1302,7 @@ window.PYSPARK_CHEAT = {
         { name: "col", type: "Column", desc: "Date or timestamp column." },
         { name: "format", type: "str", desc: "Output pattern: <code>'yyyy-MM'</code> (month key), <code>'EEEE'</code> (weekday name), <code>'HH:mm'</code>, <code>'yyyy-'Q'Q'</code> etc. Uses Java pattern letters." }
       ],
-      example: "df.withColumn('ym', F.date_format('ts', 'yyyy-MM'))",
+      example: "df.withColumn('ym',\n  F.date_format('ts', 'yyyy-MM'))",
       output: "'2026-09'",
       notes: "The inverse of <code>to_date</code>/<code>to_timestamp</code>; great for building partition keys."
     },
@@ -1317,7 +1317,7 @@ window.PYSPARK_CHEAT = {
         { name: "end", type: "Column", desc: "The later date." },
         { name: "start", type: "Column", desc: "The earlier date. Result is <code>end - start</code> in whole days (can be negative). Operates on <b>dates</b> — timestamps are truncated to date." }
       ],
-      example: "df.withColumn('tenure', F.datediff(F.current_date(), 'signup_date'))",
+      example: "df.withColumn('tenure',\n  F.datediff(F.current_date(), 'signup_date'))",
       output: "Days as int",
       notes: "For sub-day differences cast to long unix seconds and subtract, or use <code>F.timestampdiff</code> (Spark 3.5+)."
     },
@@ -1333,7 +1333,7 @@ window.PYSPARK_CHEAT = {
         { name: "days (date_add/date_sub)", type: "int | Column", desc: "Days to add (<code>date_add</code>) or subtract (<code>date_sub</code>). Negative flips direction." },
         { name: "n (add_months)", type: "int", desc: "Months to add; clamps to end-of-month (Jan 31 + 1 month -&gt; Feb 28/29)." }
       ],
-      example: "df.withColumn('due', F.date_add('invoice_date', 30))",
+      example: "df.withColumn('due',\n  F.date_add('invoice_date', 30))",
       output: "date + 30 days",
       notes: "<code>add_months</code> handles month-length edge cases correctly, unlike naive day arithmetic."
     },
@@ -1349,7 +1349,7 @@ window.PYSPARK_CHEAT = {
         { name: "start", type: "Column", desc: "Earlier date/timestamp. Assumes 31-day months for the fractional part; whole months when days match." },
         { name: "roundOff", type: "bool", desc: "When <code>True</code> (default) the result is rounded to 8 decimal places; <code>False</code> returns full precision." }
       ],
-      example: "df.withColumn('m', F.months_between(F.current_date(), 'start_date'))",
+      example: "df.withColumn('m',\n  F.months_between(F.current_date(), 'start_date'))",
       output: "e.g. 14.5",
       notes: "Use <code>F.floor</code> for whole completed months."
     },
@@ -1363,7 +1363,7 @@ window.PYSPARK_CHEAT = {
       params: [
         { name: "col", type: "Column", desc: "Date/timestamp source. <code>year</code>/<code>month</code>/<code>dayofmonth</code>/<code>dayofyear</code>/<code>weekofyear</code>/<code>quarter</code> and time parts <code>hour</code>/<code>minute</code>/<code>second</code>. <code>dayofweek</code> is <b>1=Sunday..7=Saturday</b>; <code>weekday</code> is 0=Monday..6=Sunday (mind the convention)." }
       ],
-      example: "df.select(F.year('ts'), F.month('ts'), F.dayofweek('ts'))",
+      example: "df.select(F.year('ts'),\n  F.month('ts'),\n  F.dayofweek('ts'))",
       output: "2026, 9, 5",
       notes: "The Sunday-vs-Monday indexing difference between <code>dayofweek</code> and <code>weekday</code> is a frequent bug."
     },
@@ -1378,7 +1378,7 @@ window.PYSPARK_CHEAT = {
         { name: "format (date_trunc)", type: "str", desc: "Unit to truncate a <b>timestamp</b> to: <code>'year'</code>,<code>'month'</code>,<code>'week'</code>,<code>'day'</code>,<code>'hour'</code>,<code>'minute'</code>,<code>'second'</code>,<code>'quarter'</code>. Note arg order is (format, ts)." },
         { name: "format (trunc)", type: "str", desc: "<code>F.trunc(date, 'month'|'year'|'week')</code> truncates a <b>date</b> (arg order reversed). <code>F.last_day(date)</code> gives the month's last day." }
       ],
-      example: "df.withColumn('month_start', F.date_trunc('month', 'ts'))",
+      example: "df.withColumn('month_start',\n  F.date_trunc('month', 'ts'))",
       output: "2026-09-01 00:00:00",
       notes: "Watch the swapped argument order between <code>date_trunc</code> and <code>trunc</code>."
     },
@@ -1554,7 +1554,7 @@ window.PYSPARK_CHEAT = {
         { name: "name", type: "str", desc: "Table name (<code>'db.table'</code>). <code>saveAsTable</code> matches columns by <b>name</b> and can create the table/schema; <code>insertInto(name)</code> requires an existing table and matches by <b>position</b>." },
         { name: "mode", type: "str", desc: "<code>overwrite</code>/<code>append</code>/etc. as with <code>save</code>. With partitioned tables, <code>overwrite</code> honors <code>spark.sql.sources.partitionOverwriteMode</code> (static replaces all, dynamic only affected partitions)." }
       ],
-      example: "df.write.mode('overwrite').saveAsTable('analytics.events')",
+      example: "(df.write.mode('overwrite')\n  .saveAsTable('analytics.events'))",
       output: "Table registered in catalog",
       notes: "Managed tables store data under the warehouse dir; use <code>.option('path', ...)</code> for an external location."
     },
