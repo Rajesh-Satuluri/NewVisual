@@ -13,10 +13,13 @@
   var DATA = window.ROSETTA || { groups: [], tasks: [] };
   var STACKS = [
     { key: "sql", label: "SQL", lang: "sql", color: "#0ca678" },
-    { key: "pandas", label: "Pandas", lang: "python", color: "#845ef7" },
+    { key: "sparksql", label: "Spark SQL", lang: "sql", color: "#e8590c" },
     { key: "spark", label: "PySpark", lang: "python", color: "#f76707" },
+    { key: "pandas", label: "Pandas", lang: "python", color: "#845ef7" },
     { key: "python", label: "Python", lang: "python", color: "#4c8dff" }
   ];
+  // Column order in "Compare all" — SQL dialects together, then the DataFrame APIs.
+  var ALL_COLS = ["sql", "sparksql", "spark", "pandas", "python"];
   var byKey = {}; STACKS.forEach(function (s) { byKey[s.key] = s; });
 
   var overlay = null, bodyEl = null, active = "all";
@@ -42,7 +45,7 @@
 
   function render() {
     bodyEl.innerHTML = "";
-    var cols = active === "all" ? ["sql", "pandas", "spark", "python"] : [active];
+    var cols = active === "all" ? ALL_COLS : [active];
     DATA.groups.forEach(function (group) {
       var tasks = DATA.tasks.filter(function (t) {
         if (t.group !== group) return false;
