@@ -84,29 +84,9 @@
         </button>
       </div>
 
-      <div id="filterPanel" class="filters collapsed">
-        <select id="filterDifficulty" title="Filter by difficulty">
-          <option value="all">All difficulty</option>
-          <option value="Easy">Easy</option>
-          <option value="Medium">Medium</option>
-          <option value="Hard">Hard</option>
-        </select>
-        <select id="filterStatus" title="Filter by status">
-          <option value="all">Any status</option>
-          <option value="not-started">Not started</option>
-          <option value="learning">Learning</option>
-          <option value="solved">Solved</option>
-          <option value="review">★ Review queue</option>
-          <option value="due">🔁 Due for review</option>
-        </select>
-        <select id="filterImportance" title="Filter by interview importance">
-          <option value="all">Any importance</option>
-          <option value="essential">★★★ Essential</option>
-          <option value="common">★★ Common</option>
-          <option value="occasional">★ Occasional</option>
-        </select>
-        <button id="clearFilters" class="clear-btn" title="Clear search & filters">✕</button>
-      </div>
+      <!-- Chip-based filter panel (difficulty / status / importance + single-or-
+           multiple mode) is rendered into here by filters.js / LABFILTERS. -->
+      <div id="filterPanel" class="filters collapsed"></div>
 
       <div class="nav-tools">
         <span class="nav-tools-label">Categories</span>
@@ -190,6 +170,7 @@
   <script src="js/learncore.js"></script>
   <script src="js/modules/markdown.js"></script>
   <script src="js/modules/store.js"></script>
+  <script src="js/filters.js"></script>
   <script src="js/modules/pyviz.js"></script>
 
   <!-- default reference/animation links (keyed by LeetCode number) -->

@@ -131,6 +131,15 @@
     return m[p && p.lc] || "common";
   }
 
+  // Value-getters that let the shared LABFILTERS model filter DSA problems.
+  var DSA_GETTERS = {
+    difficulty: function (p) { return p.difficulty; },
+    status: function (p) { return store.getStatus(p.id); },
+    importance: function (p) { return impOf(p); },
+    isReview: function (p) { return store.isReview(p.id); },
+    isDue: function (p) { return store.isDue(p.id); }
+  };
+
   // Base labels for the filter dropdowns (counts get appended per option).
   var DIFF_LABELS = { all: "All difficulty", Easy: "Easy", Medium: "Medium", Hard: "Hard" };
   var STATUS_LABELS = { all: "Any status", "not-started": "Not started", learning: "Learning", solved: "Solved", review: "★ Review queue", due: "🔁 Due for review" };
@@ -165,19 +174,11 @@
       var pp = p.meta && p.meta.pattern;
       if (pp) pat[pp] = (pat[pp] || 0) + 1;
     });
-    setOptionCounts("filterDifficulty", DIFF_LABELS, { all: total, Easy: diff.Easy, Medium: diff.Medium, Hard: diff.Hard });
-    setOptionCounts("filterImportance", IMP_LABELS, { all: total, essential: imp.essential, common: imp.common, occasional: imp.occasional });
-    setOptionCounts("filterStatus", STATUS_LABELS, {
-      all: total, "not-started": stat["not-started"], learning: stat.learning,
-      solved: stat.solved, review: stat.review, due: stat.due
+    if (window.LABFILTERS) window.LABFILTERS.setCounts({
+      difficulty: { Easy: diff.Easy, Medium: diff.Medium, Hard: diff.Hard },
+      status: { "not-started": stat["not-started"], learning: stat.learning, solved: stat.solved, review: stat.review, due: stat.due },
+      importance: { essential: imp.essential, common: imp.common, occasional: imp.occasional }
     });
-    var pf = el("filterPattern");
-    if (pf) for (var j = 0; j < pf.options.length; j++) {
-      var o = pf.options[j];
-      var base = o.value === "all" ? "All patterns" : o.value;
-      var n = o.value === "all" ? total : (pat[o.value] || 0);
-      o.textContent = base + " (" + n + ")";
-    }
   }
 
   var STATUS_GLYPH = { "not-started": "○", "learning": "◐", "solved": "✓" };
@@ -200,14 +201,32 @@
     return (list || ALL).filter(inActiveSet);
   }
 
-  // Is any dropdown filter active (search excluded — its box is always visible)?
+  // Is any filter active (search excluded — its box is always visible)?
   function anyFilterActive() {
-    return state.filterDifficulty !== "all" || state.filterStatus !== "all" ||
-           state.filterPattern !== "all" || state.filterImportance !== "all";
+    return (window.LABFILTERS && window.LABFILTERS.anyActive()) || state.filterPattern !== "all";
   }
   function updateFilterDot() {
     var d = el("filterDot");
     if (d) d.hidden = !anyFilterActive();
+  }
+
+  // A filter chip changed: refresh whichever renderer currently owns the sidebar.
+  function refreshActiveView() {
+    if (state.stack === "python" && state.mode === "practice") renderSidebar();
+    else if (state.mode === "practice") { if (window.ProblemLab && window.ProblemLab.onFilter) window.ProblemLab.onFilter(); }
+    else { if (window.ConceptLab && window.ConceptLab.onFilter) window.ConceptLab.onFilter(); }
+    updateFilterDot();
+  }
+
+  // Filters (difficulty / status / importance) apply to PRACTICE only — Learn
+  // topics use different status/difficulty semantics — so hide the toggle and
+  // collapse the panel in any Learn view.
+  function updateFilterContext(stack, mode) {
+    var toggle = el("filterToggle"), panel = el("filterPanel");
+    var supported = (mode === "practice");
+    if (toggle) toggle.hidden = !supported;
+    if (!supported) { if (panel) panel.classList.add("collapsed"); return; }
+    if (window.LABFILTERS) window.LABFILTERS.setContext(["difficulty", "status", "importance"]);
   }
 
   // Which problems pass the current filters/search? Returns a Set of ids.
@@ -219,17 +238,8 @@
     var ids = {};
     base.forEach(function (p) {
       if (!inActiveSet(p)) return;
-      if (state.filterDifficulty !== "all" && p.difficulty !== state.filterDifficulty) return;
-      if (state.filterStatus !== "all") {
-        var st = store.getStatus(p.id);
-        if (state.filterStatus === "review") {
-          if (!store.isReview(p.id)) return;
-        } else if (state.filterStatus === "due") {
-          if (!store.isDue(p.id)) return;
-        } else if (st !== state.filterStatus) return;
-      }
+      if (window.LABFILTERS && !window.LABFILTERS.passes(p, DSA_GETTERS)) return;
       if (state.filterPattern !== "all" && (!p.meta || p.meta.pattern !== state.filterPattern)) return;
-      if (state.filterImportance !== "all" && impOf(p) !== state.filterImportance) return;
       ids[p.id] = true;
     });
     return ids;
@@ -1403,17 +1413,9 @@
       }
     }
 
-    el("filterDifficulty").addEventListener("change", function (e) { state.filterDifficulty = e.target.value; renderSidebar(); });
-    el("filterStatus").addEventListener("change", function (e) { state.filterStatus = e.target.value; renderSidebar(); });
-
-    var pf = el("filterPattern");
-    if (pf) {
-      allPatterns().forEach(function (pat) { pf.appendChild(h("option", { value: pat }, pat)); });
-      pf.addEventListener("change", function (e) { state.filterPattern = e.target.value; renderSidebar(); });
-    }
-
-    var impf = el("filterImportance");
-    if (impf) impf.addEventListener("change", function (e) { state.filterImportance = e.target.value; renderSidebar(); });
+    // Chip-based filters (shared with the Practice renderer) live in #filterPanel;
+    // LABFILTERS renders them and calls refreshActiveView() on every change.
+    if (window.LABFILTERS) window.LABFILTERS.init(el("filterPanel"), refreshActiveView);
 
     // filter panel show/hide toggle
     var filterPanel = el("filterPanel");
@@ -1455,13 +1457,6 @@
       updateToggleAllIcon();
     });
 
-    el("clearFilters").addEventListener("click", function () {
-      state.query = ""; state.filterDifficulty = "all"; state.filterStatus = "all"; state.filterPattern = "all"; state.filterImportance = "all";
-      search.value = ""; el("filterDifficulty").value = "all"; el("filterStatus").value = "all";
-      if (pf) pf.value = "all";
-      if (impf) impf.value = "all";
-      renderSidebar();
-    });
 
     // theme
     var themeBtn = el("themeBtn");
@@ -1769,6 +1764,7 @@
 
     var prevView = lastView;
     setChrome(r.stack, r.mode);
+    updateFilterContext(r.stack, r.mode);
     lastView = r.stack + ":" + r.mode;
 
     if (r.stack === "python" && r.mode === "practice") {
