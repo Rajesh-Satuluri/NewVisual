@@ -38,7 +38,7 @@ window.ROSETTA = {
         sql: "SELECT *\nFROM orders\nWHERE region = 'US' AND amount > 100;",
         sparksql: "SELECT *\nFROM orders\nWHERE region = 'US' AND amount > 100",
         pandas: "df[(df['region'] == 'US') & (df['amount'] > 100)]",
-        spark: "df.filter((F.col('region') == 'US') & (F.col('amount') > 100))",
+        spark: "df.filter(\n  (F.col('region') == 'US') &\n  (F.col('amount') > 100))",
         python: "[r for r in rows if r['region'] == 'US' and r['amount'] > 100]"
       }
     },
@@ -116,7 +116,7 @@ window.ROSETTA = {
         sql: "SELECT region, SUM(amount) AS total\nFROM orders\nGROUP BY region;",
         sparksql: "SELECT region, SUM(amount) AS total\nFROM orders\nGROUP BY region",
         pandas: "df.groupby('region')['amount'].sum()",
-        spark: "df.groupBy('region').agg(F.sum('amount').alias('total'))"
+        spark: "df.groupBy('region').agg(\n  F.sum('amount').alias('total'))"
       }
     },
     {
@@ -197,7 +197,7 @@ window.ROSETTA = {
         sql: "SELECT *\nFROM orders o\nJOIN customers c ON o.customer = c.id;",
         sparksql: "SELECT *\nFROM orders o\nJOIN customers c ON o.customer = c.id",
         pandas: "orders.merge(customers, left_on='customer', right_on='id')",
-        spark: "orders.join(customers, orders.customer == customers.id, 'inner')"
+        spark: "orders.join(customers,\n  orders.customer == customers.id, 'inner')"
       }
     },
     {
@@ -207,7 +207,7 @@ window.ROSETTA = {
         sql: "SELECT *\nFROM orders o\nLEFT JOIN customers c ON o.customer = c.id;",
         sparksql: "SELECT *\nFROM orders o\nLEFT JOIN customers c ON o.customer = c.id",
         pandas: "orders.merge(customers, left_on='customer', right_on='id', how='left')",
-        spark: "orders.join(customers, orders.customer == customers.id, 'left')"
+        spark: "orders.join(customers,\n  orders.customer == customers.id, 'left')"
       }
     },
     {
@@ -217,7 +217,7 @@ window.ROSETTA = {
         sql: "SELECT *\nFROM orders o\nFULL OUTER JOIN customers c ON o.customer = c.id;",
         sparksql: "SELECT *\nFROM orders o\nFULL OUTER JOIN customers c ON o.customer = c.id",
         pandas: "orders.merge(customers, left_on='customer', right_on='id', how='outer')",
-        spark: "orders.join(customers, orders.customer == customers.id, 'outer')"
+        spark: "orders.join(customers,\n  orders.customer == customers.id, 'outer')"
       }
     },
     {
@@ -227,7 +227,7 @@ window.ROSETTA = {
         sql: "SELECT o.*\nFROM orders o\nWHERE NOT EXISTS (\n  SELECT 1 FROM customers c WHERE c.id = o.customer);",
         sparksql: "SELECT o.*\nFROM orders o\nLEFT ANTI JOIN customers c ON o.customer = c.id",
         pandas: "m = orders.merge(customers, left_on='customer', right_on='id',\n                 how='left', indicator=True)\nm[m['_merge'] == 'left_only']",
-        spark: "orders.join(customers, orders.customer == customers.id, 'left_anti')"
+        spark: "orders.join(customers,\n  orders.customer == customers.id, 'left_anti')"
       }
     },
     {
@@ -237,7 +237,7 @@ window.ROSETTA = {
         sql: "SELECT o.*\nFROM orders o\nWHERE EXISTS (\n  SELECT 1 FROM customers c WHERE c.id = o.customer);",
         sparksql: "SELECT o.*\nFROM orders o\nLEFT SEMI JOIN customers c ON o.customer = c.id",
         pandas: "orders[orders['customer'].isin(customers['id'])]",
-        spark: "orders.join(customers, orders.customer == customers.id, 'left_semi')"
+        spark: "orders.join(customers,\n  orders.customer == customers.id, 'left_semi')"
       }
     },
     {
@@ -247,7 +247,7 @@ window.ROSETTA = {
         sql: "-- ANSI SQL has no broadcast hint; the optimizer decides.\nSELECT *\nFROM orders o\nJOIN customers c ON o.customer = c.id;",
         sparksql: "SELECT /*+ BROADCAST(c) */ *\nFROM orders o\nJOIN customers c ON o.customer = c.id",
         pandas: "# pandas always builds the join in memory\norders.merge(customers, left_on='customer', right_on='id')",
-        spark: "orders.join(F.broadcast(customers),\n            orders.customer == customers.id, 'inner')"
+        spark: "orders.join(F.broadcast(customers),\n  orders.customer == customers.id, 'inner')"
       }
     },
     {
@@ -400,7 +400,7 @@ window.ROSETTA = {
         sql: "SELECT COALESCE(region, 'unknown') AS region\nFROM orders;",
         sparksql: "SELECT COALESCE(region, 'unknown') AS region\nFROM orders",
         pandas: "df['region'].fillna('unknown')",
-        spark: "df.withColumn('region', F.coalesce('region', F.lit('unknown')))"
+        spark: "df.withColumn('region',\n  F.coalesce('region', F.lit('unknown')))"
       }
     },
     {
@@ -421,7 +421,7 @@ window.ROSETTA = {
         sql: "SELECT CAST(amount AS INTEGER) AS amount_int\nFROM orders;",
         sparksql: "SELECT CAST(amount AS INT) AS amount_int\nFROM orders",
         pandas: "df['amount'].astype('int64')",
-        spark: "df.withColumn('amount_int', F.col('amount').cast('int'))"
+        spark: "df.withColumn('amount_int',\n  F.col('amount').cast('int'))"
       }
     },
     // -------------------------------------------------- Text & Dates
@@ -512,7 +512,7 @@ window.ROSETTA = {
         sql: "SELECT CAST(order_date AS DATE) AS d\nFROM orders;",
         sparksql: "SELECT TO_DATE(order_date, 'yyyy-MM-dd') AS d\nFROM orders",
         pandas: "pd.to_datetime(df['order_date'], format='%Y-%m-%d')",
-        spark: "df.withColumn('d', F.to_date('order_date', 'yyyy-MM-dd'))"
+        spark: "df.withColumn('d',\n  F.to_date('order_date', 'yyyy-MM-dd'))"
       }
     },
     {
