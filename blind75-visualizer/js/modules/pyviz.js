@@ -284,6 +284,152 @@
     return wrap;
   }
 
+  // ---- execution order: order you WRITE code vs order the engine RUNS it ----
+  // Two stacked panels (SQL, then PySpark). Each has a left column in *written*
+  // order and a right column in *execution* order; wires link each clause to the
+  // stage where it actually runs. SQL wires cross (written != executed); the
+  // PySpark chain's wires are straight (written == executed) — that contrast is
+  // the whole lesson. Hover a chip to highlight its twin + wire; ▶ Trace walks
+  // the pipeline stage by stage on both sides at once.
+  // opts: {
+  //   stages: [{ key, sql, spark, note }],   // in EXECUTION order (step 1..n)
+  //   sqlWritten: [key, ...]                  // SQL clauses in WRITTEN order
+  // }
+  function execOrder(opts) {
+    function esc(s) {
+      return String(s).replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; });
+    }
+    var stages = opts.stages || [];
+    var n = stages.length;
+    var byKey = {}; stages.forEach(function (s, i) { byKey[s.key] = i; }); // key -> exec index
+    var sqlWritten = opts.sqlWritten || stages.map(function (s) { return s.key; });
+    var sparkWritten = stages.map(function (s) { return s.key; }); // written == executed
+
+    var NS = "http://www.w3.org/2000/svg";
+    var W = 560, rowH = 40, top = 44, chipW = 224, chipH = 28, badge = 12;
+    var Lx = 6, Rx = W - chipW - 6;
+
+    function svgEl(name, attrs) {
+      var e = document.createElementNS(NS, name);
+      if (attrs) for (var k in attrs) e.setAttribute(k, String(attrs[k]));
+      return e;
+    }
+    function cy(rowIdx) { return top + rowIdx * rowH + chipH / 2; }
+
+    var wrap = elh("div", "viz viz-eo");
+    var defaultStatus = "Hover a step to see why it runs where it does — or press <b>▶ Trace the flow</b> to watch the data move through the pipeline.";
+    var status = elh("div", "viz-hint eo-status", defaultStatus);
+
+    var panels = [];
+
+    function panel(title, sub, leftOrder, accentClass) {
+      var H = top + n * rowH + 6;
+      var svg = svgEl("svg", { "class": "eo-svg " + accentClass, viewBox: "0 0 " + W + " " + H, width: "100%", role: "img", "aria-label": title });
+      var h1 = svgEl("text", { "class": "eo-col-h", x: Lx + 4, y: 24 }); h1.textContent = "▾ " + title;
+      var h2 = svgEl("text", { "class": "eo-col-h", x: Rx + 4, y: 24 }); h2.textContent = sub;
+      svg.appendChild(h1); svg.appendChild(h2);
+
+      var chips = {};
+      // wires first, so chips paint on top
+      leftOrder.forEach(function (key, li) {
+        var ri = byKey[key];
+        var y1 = cy(li), y2 = cy(ri), x1 = Lx + chipW, x2 = Rx, mx = (x1 + x2) / 2;
+        var wire = svgEl("path", { "class": "eo-wire", d: "M" + x1 + "," + y1 + " C" + mx + "," + y1 + " " + mx + "," + y2 + " " + x2 + "," + y2 });
+        svg.appendChild(wire);
+        chips[key] = { wire: wire };
+      });
+
+      function chip(x, rowIdx, key, label, stepNum) {
+        var y = top + rowIdx * rowH;
+        var g = svgEl("g", { "class": "eo-chip-g", tabindex: "0", role: "button", "aria-label": label + " runs at step " + stepNum });
+        g.appendChild(svgEl("rect", { "class": "eo-chip", x: x, y: y, width: chipW, height: chipH, rx: 7 }));
+        g.appendChild(svgEl("circle", { "class": "eo-badge", cx: x + badge + 5, cy: y + chipH / 2, r: badge }));
+        var bt = svgEl("text", { "class": "eo-badge-t", x: x + badge + 5, y: y + chipH / 2 + 4 }); bt.textContent = String(stepNum);
+        g.appendChild(bt);
+        var t = svgEl("text", { "class": "eo-chip-label", x: x + badge * 2 + 12, y: y + chipH / 2 + 4 }); t.textContent = label;
+        g.appendChild(t);
+        svg.appendChild(g);
+        g.addEventListener("mouseenter", function () { hoverFocus(key); });
+        g.addEventListener("focus", function () { hoverFocus(key); });
+        g.addEventListener("mouseleave", releaseFocus);
+        g.addEventListener("blur", releaseFocus);
+        return { g: g };
+      }
+
+      leftOrder.forEach(function (key, li) {
+        var ri = byKey[key], st = stages[ri];
+        chips[key].left = chip(Lx, li, key, accentClass === "eo-sql" ? st.sql : st.spark, ri + 1);
+      });
+      stages.forEach(function (st, ri) {
+        chips[st.key].right = chip(Rx, ri, st.key, accentClass === "eo-sql" ? st.sql : st.spark, ri + 1);
+      });
+      return { svg: svg, chips: chips };
+    }
+
+    function applyFocus(key) {
+      panels.forEach(function (p) {
+        for (var k in p.chips) {
+          var c = p.chips[k], on = (k === key);
+          if (c.wire) { c.wire.classList.toggle("on", on); c.wire.classList.toggle("dim", !on); }
+          if (c.left) { c.left.g.classList.toggle("on", on); c.left.g.classList.toggle("dim", !on); }
+          if (c.right) { c.right.g.classList.toggle("on", on); c.right.g.classList.toggle("dim", !on); }
+        }
+      });
+    }
+    function clearClasses() {
+      panels.forEach(function (p) {
+        for (var k in p.chips) {
+          var c = p.chips[k];
+          if (c.wire) c.wire.classList.remove("on", "dim");
+          if (c.left) c.left.g.classList.remove("on", "dim");
+          if (c.right) c.right.g.classList.remove("on", "dim");
+        }
+      });
+    }
+    function hoverFocus(key) {
+      if (tracing) return;
+      applyFocus(key);
+      var st = stages[byKey[key]];
+      status.innerHTML = "<b>" + esc(st.sql) + "</b> runs at step " + (byKey[key] + 1) + " — " + esc(st.note);
+    }
+    function releaseFocus() {
+      if (tracing) return;
+      clearClasses();
+      status.innerHTML = defaultStatus;
+    }
+
+    // trace
+    var tracing = false, traceI = 0, traceTimer = null;
+    function traceStep() {
+      if (traceI >= n) { stopTrace(); status.innerHTML = "Done — that is the full run order, <b>1 → " + n + "</b>. Notice the numbers march straight down the PySpark chain, but jump around the SQL you wrote."; return; }
+      var st = stages[traceI];
+      applyFocus(st.key);
+      status.innerHTML = "Step " + (traceI + 1) + " of " + n + ": <b>" + esc(st.sql) + "</b> runs. " + esc(st.note);
+      traceI++;
+      traceTimer = setTimeout(traceStep, 1150);
+    }
+    function stopTrace() { tracing = false; if (traceTimer) { clearTimeout(traceTimer); traceTimer = null; } runBtn.textContent = "▶ Trace the flow"; }
+
+    panels.push(panel("SQL — as you write it", "…but it RUNS in this order", sqlWritten, "eo-sql"));
+    panels.push(panel("PySpark — as you write it", "…and it RUNS in the same order", sparkWritten, "eo-spark"));
+    panels.forEach(function (p) { wrap.appendChild(p.svg); });
+
+    var controls = elh("div", "viz-controls");
+    var runBtn = elh("button", "viz-btn", "▶ Trace the flow");
+    var resetBtn = elh("button", "viz-btn ghost", "↻ Reset");
+    controls.appendChild(runBtn); controls.appendChild(resetBtn);
+    wrap.appendChild(controls);
+    wrap.appendChild(status);
+
+    runBtn.addEventListener("click", function () {
+      if (tracing) { stopTrace(); return; }
+      tracing = true; traceI = 0; runBtn.textContent = "⏸ Pause"; traceStep();
+    });
+    resetBtn.addEventListener("click", function () { stopTrace(); clearClasses(); status.innerHTML = defaultStatus; });
+
+    return wrap;
+  }
+
   window.PYVIZ = {
     build: function (spec) {
       if (!spec || !spec.type) return null;
@@ -293,6 +439,7 @@
       if (spec.type === "growth") return growth(spec.data || {});
       if (spec.type === "heapTree") return heapTree(spec.data || {});
       if (spec.type === "setOps") return setOps(spec.data || {});
+      if (spec.type === "execOrder") return execOrder(spec.data || {});
       return null;
     }
   };
