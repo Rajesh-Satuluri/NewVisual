@@ -131,9 +131,33 @@
     });
     return fuseCache[stack];
   }
+  // Value-getters so the shared LABFILTERS model can filter this stack's problems
+  // (status lives under the stack-namespaced id).
+  var PL_GETTERS = {
+    difficulty: function (p) { return p.difficulty; },
+    status: function (p) { return store.getStatus(nsId(p.id)); },
+    importance: function (p) { return cfg().importanceOf(p); },
+    isReview: function (p) { return store.isReview(nsId(p.id)); },
+    isDue: function (p) { return store.isDue(nsId(p.id)); }
+  };
   function visibleList() {
-    if (!query.trim()) return all();
-    return fuseFor(cur.stack).search(query.trim()).map(function (r) { return r.item; });
+    var base = query.trim() ? fuseFor(cur.stack).search(query.trim()).map(function (r) { return r.item; }) : all();
+    if (window.LABFILTERS) base = base.filter(function (p) { return window.LABFILTERS.passes(p, PL_GETTERS); });
+    return base;
+  }
+  function capDiff(d) { return d ? (String(d).charAt(0).toUpperCase() + String(d).slice(1).toLowerCase()) : ""; }
+  function updateFilterCounts() {
+    if (!window.LABFILTERS) return;
+    var diff = { Easy: 0, Medium: 0, Hard: 0 }, imp = { essential: 0, common: 0, occasional: 0 };
+    var stat = { "not-started": 0, learning: 0, solved: 0, review: 0, due: 0 };
+    all().forEach(function (p) {
+      var d = capDiff(p.difficulty); if (diff[d] != null) diff[d]++;
+      var im = cfg().importanceOf(p); if (imp[im] != null) imp[im]++;
+      var s = store.getStatus(nsId(p.id)); if (stat[s] != null) stat[s]++;
+      if (store.isReview(nsId(p.id))) stat.review++;
+      if (store.isDue(nsId(p.id))) stat.due++;
+    });
+    window.LABFILTERS.setCounts({ difficulty: diff, status: stat, importance: imp });
   }
 
   // ---- indent guides (mirrors app.js) ----
@@ -303,6 +327,7 @@
   function renderSidebar() {
     var nav = el("nav");
     if (!nav) return;
+    updateFilterCounts();
     nav.innerHTML = "";
     var vis = {}; visibleList().forEach(function (p) { vis[p.id] = true; });
     groups().forEach(function (g) {
@@ -350,7 +375,7 @@
       });
       nav.appendChild(block);
     });
-    if (!nav.children.length) nav.appendChild(h("div", { class: "nav-empty" }, "No problems match your search."));
+    if (!nav.children.length) nav.appendChild(h("div", { class: "nav-empty" }, "No problems match your search / filters."));
   }
 
   // ============================================================ PROGRESS
@@ -762,6 +787,7 @@
     next: function () { step(1); },
     prev: function () { step(-1); },
     onSearch: function (q) { query = q; renderSidebar(); },
+    onFilter: function () { renderSidebar(); },
     toggleAll: function () {
       var gs = groups();
       var willOpen = gs.every(function (g) { return store.isCatCollapsed(catCollapseKey(g.category)); }); // all collapsed → open all

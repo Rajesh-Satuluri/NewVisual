@@ -369,3 +369,32 @@ body.sidebar-open .ham i:nth-child(3) { top: 6px; transform: rotate(-45deg); }
   border-radius: 5px; padding: 1px 6px; }
 .nav-empty { text-align: center; color: var(--muted); font-size: 13px; padding: 22px 14px; }
 .nav-empty::before { content: "🔍"; display: block; font-size: 22px; margin-bottom: 6px; opacity: .8; }
+
+/* ============================================================= */
+/* Chip-based sidebar filters (LABFILTERS) — single or multiple  */
+/* ============================================================= */
+.filters { max-height: 480px; }                 /* room for the chip groups */
+.filters:not(.collapsed) { overflow-y: auto; overscroll-behavior: contain; }
+
+.flt-mode { flex: 1 1 100%; display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
+.flt-mode-lbl { font-size: 10.5px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); font-weight: 800; }
+.flt-mode-seg { display: inline-flex; background: var(--bg-2); border: 1px solid var(--border); border-radius: 999px; padding: 2px; }
+.flt-mode-btn { background: transparent; border: none; color: var(--muted); font-size: 11.5px; font-weight: 700; padding: 3px 11px; border-radius: 999px; cursor: pointer; transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease); }
+.flt-mode-btn:hover { color: var(--text); }
+.flt-mode-btn.active { background: var(--brand); color: #06111f; }
+.flt-clear { margin-left: auto; background: var(--bg-2); border: 1px solid var(--border); color: var(--muted); font-size: 11.5px; font-weight: 700; padding: 4px 11px; border-radius: 8px; cursor: pointer; transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease); }
+.flt-clear:hover { color: var(--red); border-color: var(--red); }
+
+.flt-group { flex: 1 1 100%; }
+.flt-group-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); font-weight: 800; margin: 8px 0 5px; }
+.flt-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.flt-chip { display: inline-flex; align-items: center; gap: 5px; background: var(--bg-2); border: 1px solid var(--border); color: var(--text-2); font-size: 12px; font-weight: 700; padding: 4px 11px; border-radius: 999px; cursor: pointer; transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease); }
+.flt-chip:hover { color: var(--text); border-color: var(--brand); transform: translateY(-1px); }
+.flt-chip.on { background: var(--brand-glow); border-color: var(--brand); color: var(--text); }
+.flt-chip-n { font-size: 10px; color: var(--muted); font-family: var(--mono); }
+.flt-chip.on .flt-chip-n { color: var(--brand-2); }
+/* difficulty chips keep their semantic tint on the label */
+.flt-chip.d-easy .flt-chip-t { color: var(--easy); }
+.flt-chip.d-medium .flt-chip-t { color: var(--medium); }
+.flt-chip.d-hard .flt-chip-t { color: var(--hard); }
+@media (pointer: coarse) { .flt-chip, .flt-mode-btn, .flt-clear { min-height: 32px; } }
