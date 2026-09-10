@@ -14,7 +14,8 @@
     "Cohort & Time-Series",
     "Performance & Optimization",
     "End-to-End Challenges",
-    "Advanced Patterns"
+    "Advanced Patterns",
+    "Lakehouse & Streaming"
   ];
 
   // Short icon per category (used in the sidebar).
@@ -29,7 +30,8 @@
     "Cohort & Time-Series": "↗",
     "Performance & Optimization": "⚡",
     "End-to-End Challenges": "★",
-    "Advanced Patterns": "✦"
+    "Advanced Patterns": "✦",
+    "Lakehouse & Streaming": "✷"
   };
 
   var registry = {}; // category -> [problems]
