@@ -11,6 +11,7 @@
     "Foundations",
     "Data Structures",
     "Core Python",
+    "Data Structures (DSA)",
     "Object-Oriented Python",
     "Complexity",
     "DSA Toolkit"
@@ -20,6 +21,7 @@
     "Foundations": "◇",
     "Data Structures": "▦",
     "Core Python": "λ",
+    "Data Structures (DSA)": "🌳",
     "Object-Oriented Python": "◎",
     "Complexity": "∆",
     "DSA Toolkit": "🧰"
@@ -32,6 +34,11 @@
     { section: "Foundations",     topics: ["Variables & Objects", "Numbers & Booleans", "Type Conversion"] },
     { section: "Data Structures", topics: ["Lists", "Strings", "Tuples", "Sets", "Dictionaries"] },
     { section: "Core Python",     topics: ["Functions", "Recursion", "Comprehensions", "Bit Manipulation", "Dynamic Programming"] },
+    { section: "Data Structures (DSA)", topics: [
+        "Linked List", "Stack", "Queue & Deque", "Binary Tree", "Binary Search Tree",
+        "Trie (Prefix Tree)", "Heap / Priority Queue", "Graph Representations",
+        "Graph Traversal (BFS & DFS)", "Union-Find (Disjoint Set)", "Matrix / Grid", "Intervals"
+    ] },
     { section: "Object-Oriented Python", topics: [
         "Classes & Objects", "Instance State & __init__", "Methods: instance, class, static",
         "Encapsulation & Properties", "Inheritance & Polymorphism", "Dunder Methods",
