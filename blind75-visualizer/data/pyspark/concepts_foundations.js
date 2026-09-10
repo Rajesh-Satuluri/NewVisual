@@ -122,6 +122,136 @@ window.LEARN.register("spark", "Foundations", [
   },
 
   {
+    id: "execution-order-sql-vs-pyspark",
+    title: "Order of Execution: SQL vs PySpark",
+    difficulty: "Core",
+    estMinutes: 10,
+    relevance: 3,
+    tagline: "The order you TYPE a query is not the order the engine RUNS it. In SQL the two disagree; in PySpark they line up — which is exactly why the chain feels natural once it clicks.",
+
+    whatIsIt: [
+      "Every relational engine runs a query in a fixed <b>logical order</b>: <code>FROM/JOIN</code> → <code>WHERE</code> → <code>GROUP BY</code> → <code>HAVING</code> → <code>SELECT</code> → <code>ORDER BY</code> → <code>LIMIT</code>. This is the order the <i>data</i> flows, and it never changes.",
+      "But SQL forces you to <b>write</b> the clauses in a different order — <code>SELECT</code> first, even though it runs almost last (5th). That mismatch between what you type and what runs is the single biggest source of \"why won't this work?\" moments in SQL.",
+      "PySpark's DataFrame API removes the mismatch: you <b>write the operations in the order they run</b>. <code>df.filter(...)</code> (WHERE) comes before <code>.groupBy()</code> comes before the post-agg <code>.filter(...)</code> (HAVING) comes before <code>.select(...)</code> comes before <code>.orderBy(...)</code>. The code reads top-to-bottom in execution order.",
+      "So the two are two spellings of the <i>same</i> pipeline. Learn the one true run order once and it powers both — and it tells you, without memorizing rules, where each expression is allowed to appear."
+    ],
+
+    showMe: {
+      code:
+        "-- SQL: written order (numbers = the step where each clause actually RUNS)\n" +
+        "SELECT   dept, AVG(salary) AS avg_sal   -- 5  project columns & aliases\n" +
+        "FROM     employees                      -- 1  source rows\n" +
+        "WHERE    hire_date > '2020-01-01'       -- 2  filter rows (pre-group)\n" +
+        "GROUP BY dept                           -- 3  collapse into groups\n" +
+        "HAVING   AVG(salary) > 50000            -- 4  filter groups (aggregates OK)\n" +
+        "ORDER BY avg_sal DESC                    -- 6  sort (may use the alias!)\n" +
+        "LIMIT 5;                                 -- 7  cut to final rows\n" +
+        "\n" +
+        "# PySpark: written order == run order — read it straight down, 1..7\n" +
+        "from pyspark.sql import functions as F\n" +
+        "\n" +
+        "(employees                                     # 1  source\n" +
+        "   .filter(F.col('hire_date') > '2020-01-01')  # 2  WHERE  (pre-group filter)\n" +
+        "   .groupBy('dept')                            # 3  GROUP BY\n" +
+        "   .agg(F.avg('salary').alias('avg_sal'))      # 4  aggregate\n" +
+        "   .filter(F.col('avg_sal') > 50000)           # 4  HAVING (post-agg filter)\n" +
+        "   .select('dept', 'avg_sal')                  # 5  SELECT / project\n" +
+        "   .orderBy(F.desc('avg_sal'))                 # 6  ORDER BY\n" +
+        "   .limit(5))                                  # 7  LIMIT",
+      viz: {
+        type: "execOrder",
+        data: {
+          stages: [
+            { key: "from",   sql: "FROM / JOIN",  spark: "spark.read / .join()",     note: "Assemble the source rows. Nothing has been filtered or grouped yet." },
+            { key: "where",  sql: "WHERE",        spark: ".filter() / .where()",     note: "Filter individual rows — runs before grouping, so no aggregates and no SELECT aliases are available here." },
+            { key: "group",  sql: "GROUP BY",     spark: ".groupBy().agg()",         note: "Collapse rows into groups and compute the aggregates for each group." },
+            { key: "having", sql: "HAVING",       spark: ".filter() (post-agg)",     note: "Filter whole groups. Aggregates ARE allowed here — this is why HAVING exists and WHERE can't do it." },
+            { key: "select", sql: "SELECT",       spark: ".select() / .withColumn()", note: "Project and compute output columns, assign aliases, and evaluate window functions. This is where names like avg_sal are born." },
+            { key: "order",  sql: "ORDER BY",     spark: ".orderBy()",               note: "Sort the result. It runs AFTER SELECT, so it can reference SELECT aliases (unlike WHERE)." },
+            { key: "limit",  sql: "LIMIT",        spark: ".limit()",                 note: "Cut down to the final N rows — the very last thing the engine does." }
+          ],
+          sqlWritten: ["select", "from", "where", "group", "having", "order", "limit"]
+        }
+      },
+      caption:
+        "Left = the order you type; right = the order it runs (numbered 1–7). The SQL wires cross because SELECT is written first but runs 5th; the PySpark wires stay straight because you write each step where it runs. Hover any step, or press Trace to watch the pipeline execute on both sides at once."
+    },
+
+    whyMatters:
+      "<p>Almost every SQL \"gotcha\" is really a question of <b>which stage you're in</b>. Fix the run order in your head and the rules stop being arbitrary:</p>" +
+      "<ul>" +
+      "<li>An <b>alias in <code>WHERE</code></b> fails, but the same alias in <code>ORDER BY</code> works — because <code>WHERE</code> (step 2) runs before <code>SELECT</code> (step 5), and <code>ORDER BY</code> (step 6) runs after it.</li>" +
+      "<li>An <b>aggregate in <code>WHERE</code></b> fails, but works in <code>HAVING</code> — <code>WHERE</code> is pre-group (step 2), <code>HAVING</code> is post-group (step 4).</li>" +
+      "<li>A <b>window function in <code>WHERE</code></b> fails — windows compute at the <code>SELECT</code> stage (step 5), so you filter on them with a subquery/CTE (or <code>QUALIFY</code>).</li>" +
+      "</ul>" +
+      "<pre class=\"why-pre\">SQL you WRITE      →  runs as       SELECT   FROM   WHERE   GROUP BY  HAVING  ORDER BY  LIMIT\n" +
+      "                                   (5)      (1)    (2)     (3)       (4)     (6)       (7)\n" +
+      "\n" +
+      "PySpark you WRITE  →  runs as       .read  .filter  .groupBy/.agg  .filter  .select  .orderBy  .limit\n" +
+      "                                   (1)     (2)      (3)/(4)        (4)      (5)      (6)       (7)</pre>" +
+      "<p>This is also the clean answer to \"how do I translate SQL to PySpark?\": walk the SQL <i>execution</i> order and emit one method per stage. Because PySpark's writing order already <b>is</b> the execution order, the translation is mechanical — and reading a PySpark chain back tells you the exact query it represents.</p>",
+
+    recognize: [
+      { q: "\"Why can't I use my SELECT alias in WHERE?\"", think: "WHERE runs at step 2; the alias isn't created until SELECT at step 5. Repeat the expression, or wrap in a subquery/CTE. In PySpark the same truth holds: filter before the withColumn that names it." },
+      { q: "\"Alias works fine in ORDER BY though — why?\"", think: "ORDER BY runs at step 6, AFTER SELECT (5). By then the alias exists. Same in PySpark: .orderBy() sits after .select()/.withColumn() in the chain." },
+      { q: "\"COUNT(*) > 5 is rejected in WHERE.\"", think: "Aggregates need groups, and grouping (step 3) hasn't happened at WHERE (step 2). Use HAVING (step 4) — in PySpark, a .filter() placed AFTER .groupBy().agg()." },
+      { q: "\"How do I filter on a ROW_NUMBER()/RANK()?\"", think: "Window functions evaluate at SELECT (step 5), so you can't put them in WHERE. Compute in a subquery/CTE then filter outside — in PySpark, .withColumn(rank, ...over(w)) then a following .filter()." },
+      { q: "\"How do I turn this SQL into PySpark (or read PySpark back as SQL)?\"", think: "Go stage by stage in execution order — FROM→WHERE→GROUP BY→HAVING→SELECT→ORDER BY→LIMIT — one DataFrame method per stage. The chain's order already matches, so it's a direct mapping." }
+    ],
+
+    matchTags: ["order of execution", "logical query processing", "written order", "run order", "where", "having", "group by", "select", "order by", "limit", "alias", "window", "qualify", "sql vs pyspark", "translate"],
+
+    traps: [
+      {
+        bad: "SELECT dept, AVG(salary) AS avg_sal\nFROM employees\nWHERE avg_sal > 50000        -- ✗ alias & aggregate, both illegal in WHERE\nGROUP BY dept",
+        good: "SELECT dept, AVG(salary) AS avg_sal\nFROM employees\nGROUP BY dept\nHAVING AVG(salary) > 50000   -- ✓ post-group filter",
+        why: "WHERE runs at step 2 — before grouping (3) and before SELECT (5). It can see neither the aggregate nor the alias. Group-level conditions belong in HAVING (step 4)."
+      },
+      {
+        bad: "# PySpark: HAVING placed like WHERE — before the aggregate exists\n(employees\n   .filter(F.col('avg_sal') > 50000)   # ✗ avg_sal doesn't exist yet\n   .groupBy('dept')\n   .agg(F.avg('salary').alias('avg_sal')))",
+        good: "(employees\n   .groupBy('dept')\n   .agg(F.avg('salary').alias('avg_sal'))\n   .filter(F.col('avg_sal') > 50000))   # ✓ filter AFTER the agg = HAVING",
+        why: "The chain's order IS the run order. A post-group filter (HAVING) must come after .groupBy().agg(); placing it earlier is the exact same mistake as an aggregate in WHERE."
+      },
+      {
+        bad: "SELECT *, ROW_NUMBER() OVER (PARTITION BY dept ORDER BY salary DESC) AS rn\nFROM employees\nWHERE rn = 1                 -- ✗ window not available in WHERE",
+        good: "WITH ranked AS (\n  SELECT *, ROW_NUMBER() OVER (PARTITION BY dept ORDER BY salary DESC) AS rn\n  FROM employees)\nSELECT * FROM ranked WHERE rn = 1   -- ✓ filter after it's computed",
+        why: "Window functions compute at the SELECT stage (step 5); WHERE (step 2) is too early. Isolate the window in a CTE/subquery (or use QUALIFY), then filter. In PySpark: .withColumn('rn', F.row_number().over(w)) then .filter(F.col('rn') == 1)."
+      }
+    ],
+
+    engineNote:
+      "<p><b>Logical vs physical.</b> The 1–7 sequence is the SQL standard's <i>logical</i> processing order — the semantics every engine must preserve. The <i>physical</i> plan the optimizer actually runs may look different: Spark's Catalyst (and every SQL planner) pushes filters down below joins, prunes columns before scanning, and reorders joins by cost. Those rewrites are legal precisely because they don't change the logical result. So you reason about correctness with the logical order, and trust the optimizer for speed.</p>",
+
+    challenge: {
+      prompt:
+        "This query is rejected with 'column \"avg_sal\" does not exist' at WHERE. Explain which execution step is the problem, then rewrite it two ways: valid SQL, and the equivalent PySpark chain.",
+      starter:
+        "SELECT   dept, AVG(salary) AS avg_sal\n" +
+        "FROM     employees\n" +
+        "WHERE    avg_sal > 50000\n" +
+        "GROUP BY dept\n" +
+        "ORDER BY avg_sal DESC;",
+      solution:
+        "-- Problem: WHERE runs at step 2, before GROUP BY (3) and SELECT (5).\n" +
+        "-- The aggregate/alias don't exist yet. Group-level filters go in HAVING.\n" +
+        "SELECT   dept, AVG(salary) AS avg_sal\n" +
+        "FROM     employees\n" +
+        "GROUP BY dept\n" +
+        "HAVING   AVG(salary) > 50000\n" +
+        "ORDER BY avg_sal DESC;\n" +
+        "\n" +
+        "# Equivalent PySpark — each stage in run order, one method each:\n" +
+        "from pyspark.sql import functions as F\n" +
+        "\n" +
+        "(employees\n" +
+        "   .groupBy('dept')                             # GROUP BY (3)\n" +
+        "   .agg(F.avg('salary').alias('avg_sal'))       # aggregate (4)\n" +
+        "   .filter(F.col('avg_sal') > 50000)            # HAVING (4)\n" +
+        "   .orderBy(F.desc('avg_sal')))                 # ORDER BY (6)"
+    }
+  },
+
+  {
     id: "transformations-vs-actions",
     title: "Transformations vs Actions",
     difficulty: "Core",

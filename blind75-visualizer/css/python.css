@@ -153,6 +153,27 @@ body:not([data-ws="python"]) #pyProgress { display: none !important; }
 .viz-btn.ghost { background: var(--bg-3); border-color: var(--border); color: var(--text-2); }
 .viz-btn:hover { filter: brightness(1.08); }
 
+/* execution-order diagram: written order vs run order (SQL vs PySpark) */
+.viz-eo .eo-svg { display: block; width: 100%; height: auto; }
+.viz-eo .eo-svg + .eo-svg { margin-top: 6px; padding-top: 10px; border-top: 1px dashed var(--border-soft); }
+.eo-sql   { --eo: #0ca678; }   /* SQL teal   */
+.eo-spark { --eo: #f76707; }   /* PySpark orange */
+.eo-col-h { fill: var(--muted); font-family: inherit; font-size: 12px; font-weight: 800; letter-spacing: .3px; }
+.eo-wire { fill: none; stroke: var(--border); stroke-width: 2; transition: stroke .15s ease, stroke-width .15s ease, opacity .15s ease; }
+.eo-wire.on { stroke: var(--eo); stroke-width: 3.4; }
+.eo-wire.dim { opacity: .16; }
+.eo-chip-g { cursor: pointer; transition: opacity .15s ease; }
+.eo-chip-g:focus { outline: none; }
+.eo-chip-g.dim { opacity: .38; }
+.eo-chip { fill: var(--bg-1); stroke: var(--border); stroke-width: 1.2; transition: fill .15s ease, stroke .15s ease; }
+.eo-chip-g.on .eo-chip, .eo-chip-g:focus-visible .eo-chip { stroke: var(--eo); stroke-width: 2; fill: color-mix(in srgb, var(--eo) 15%, var(--bg-1)); }
+.eo-chip-label { fill: var(--text-2); font-family: var(--mono); font-size: 11px; }
+.eo-chip-g.on .eo-chip-label { fill: var(--text); }
+.eo-badge { fill: var(--bg-3); stroke: var(--border); stroke-width: 1; transition: fill .15s ease, stroke .15s ease; }
+.eo-chip-g.on .eo-badge { fill: var(--eo); stroke: var(--eo); }
+.eo-badge-t { fill: var(--text-2); font-family: inherit; font-size: 11px; font-weight: 800; text-anchor: middle; }
+.eo-chip-g.on .eo-badge-t { fill: #06111f; }
+
 /* indexed sequence */
 .seq-row { display: flex; gap: 6px; flex-wrap: wrap; }
 .seq-cell { display: flex; flex-direction: column; align-items: center; }
