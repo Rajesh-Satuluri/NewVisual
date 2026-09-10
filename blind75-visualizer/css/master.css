@@ -398,3 +398,40 @@ body.sidebar-open .ham i:nth-child(3) { top: 6px; transform: rotate(-45deg); }
 .flt-chip.d-medium .flt-chip-t { color: var(--medium); }
 .flt-chip.d-hard .flt-chip-t { color: var(--hard); }
 @media (pointer: coarse) { .flt-chip, .flt-mode-btn, .flt-clear { min-height: 32px; } }
+
+/* ============================================================= */
+/* PySpark cheatsheet panel (.cht-*) — reuses the .ros modal shell */
+/* ============================================================= */
+.cht-search-row { padding: 12px 18px 0; }
+.cht-search { width: 100%; box-sizing: border-box; padding: 10px 14px; background: var(--bg-2);
+  border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-size: 14px; font-family: inherit; }
+.cht-search:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-glow); }
+.cht-search::placeholder { color: var(--muted); }
+
+.cht-card { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 12px;
+  background: var(--bg-1); box-shadow: inset 3px 0 0 var(--stripe-code); }
+.cht-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+.cht-sig { font-family: var(--mono); font-size: 13.5px; font-weight: 700; color: var(--brand-2);
+  background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; word-break: break-word; }
+.cht-ret { font-family: var(--mono); font-size: 12px; color: var(--muted); font-weight: 700; white-space: nowrap; }
+.cht-sum { font-size: 13.5px; color: var(--text-2); margin-bottom: 10px; line-height: 1.55; }
+.cht-sum code { font-size: .9em; }
+
+.cht-params-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); margin-bottom: 10px; }
+.cht-params { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+.cht-params th { text-align: left; background: var(--bg-2); color: var(--text-2); font-weight: 700; padding: 7px 12px;
+  border-bottom: 1px solid var(--border); white-space: nowrap; }
+.cht-params td { padding: 7px 12px; border-bottom: 1px solid var(--border-soft); color: var(--text); vertical-align: top; }
+.cht-params tr:last-child td { border-bottom: none; }
+.cht-p-name { font-family: var(--mono); font-weight: 700; color: var(--brand-2); white-space: nowrap; }
+.cht-p-type { font-family: var(--mono); color: var(--muted); white-space: nowrap; }
+.cht-p-desc { color: var(--text-2); line-height: 1.5; min-width: 220px; }
+.cht-p-desc code { font-size: .88em; }
+
+.cht-ex-wrap { margin-top: 4px; }
+.cht-example { margin: 0; }
+.cht-out { font-family: var(--mono); font-size: 12px; color: var(--green); margin-top: 4px; padding-left: 2px; }
+.cht-notes { margin-top: 10px; font-size: 12.5px; color: var(--text-2); background: var(--bg-2);
+  border-left: 3px solid var(--amber); border-radius: 0 8px 8px 0; padding: 8px 12px; line-height: 1.55; }
+.cht-notes code { font-size: .88em; }
