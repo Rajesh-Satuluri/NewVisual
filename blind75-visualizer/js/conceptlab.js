@@ -165,7 +165,12 @@
     STATUS_ORDER.forEach(function (s) {
       var curSt = store.getPyStatus(nsStatus(topic.id));
       var b = h("button", { class: "status-btn py-st-" + s + (curSt === s ? " on" : "") }, STATUS_GLYPH[s] + " " + STATUS_LABEL[s]);
-      b.addEventListener("click", function () { store.setPyStatus(nsStatus(topic.id), s); renderTopic(topic); renderSidebar(topic.id); renderProgress(); });
+      b.addEventListener("click", function () {
+        store.setPyStatus(nsStatus(topic.id), s);
+        var mainEl = el("main"), y = mainEl ? mainEl.scrollTop : 0;   // keep reading position
+        renderTopic(topic); if (mainEl) mainEl.scrollTop = y;
+        renderSidebar(topic.id); renderProgress();
+      });
       grp.appendChild(b);
     });
     actions.appendChild(grp);
