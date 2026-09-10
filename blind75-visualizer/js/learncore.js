@@ -35,13 +35,15 @@
     spark: {
       label: "PySpark",
       sectionIcon: {
-        "Foundations": "◇", "Transformations": "⚙", "Performance": "⚡", "Advanced": "✦"
+        "Foundations": "◇", "Transformations": "⚙", "Performance": "⚡", "Advanced": "✦",
+        "Modern & Production": "✷"
       },
       outline: [
         { section: "Foundations",     topics: ["DataFrame Model & Lazy Eval", "Transformations vs Actions", "Schemas & Types"] },
         { section: "Transformations", topics: ["Narrow vs Wide (Shuffle)", "GroupBy & Aggregations", "Joins & Broadcast", "Window Functions"] },
         { section: "Performance",     topics: ["Partitioning & Skew", "Caching & Persistence", "AQE & Tuning"] },
-        { section: "Advanced",        topics: ["Spark SQL", "UDFs vs Built-ins"] }
+        { section: "Advanced",        topics: ["Spark SQL", "UDFs vs Built-ins"] },
+        { section: "Modern & Production", topics: ["Delta Lake & the Lakehouse", "Structured Streaming", "Adaptive Query Execution (AQE) Deep-Dive", "File Layout: Partitioning, Bucketing & Compaction", "Production Patterns: CDC, Idempotency & Data Quality"] }
       ]
     },
     numpy: {

@@ -46,6 +46,13 @@
     // Advanced Patterns (synthetic ids 201-208: pivot, regex, SCD2, CDC, retention,
     // broken-pipeline debug, AQE, as-of/point-in-time join)
     201: "common", 202: "common", 203: "essential", 204: "common", 205: "essential",
-    206: "common", 207: "common", 208: "common", 209: "common", 210: "common"
+    206: "common", 207: "common", 208: "common", 209: "common", 210: "common",
+    // Lakehouse & Streaming (Q211-Q222: Delta MERGE/upsert, time travel, OPTIMIZE/
+    // Z-order, streaming watermark agg, streaming dedup, stream-static join,
+    // incremental CDC, small-file compaction, idempotent/exactly-once write, MERGE
+    // schema evolution, streaming foreachBatch upsert, VACUUM/retention)
+    211: "essential", 212: "common", 213: "common", 214: "essential", 215: "common",
+    216: "common", 217: "essential", 218: "common", 219: "essential", 220: "common",
+    221: "common", 222: "occasional"
   };
 })();
