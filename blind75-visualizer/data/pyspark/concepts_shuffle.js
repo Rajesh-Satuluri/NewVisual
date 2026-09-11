@@ -34,6 +34,20 @@ window.LEARN.register("spark", "Transformations", [
         "# +- Exchange hashpartitioning(country)   <- THE SHUFFLE\n" +
         "#    +- *HashAggregate(keys=[country])\n" +
         "#       +- *Filter (amount > 0)",
+      viz: {
+        type: "shuffleStages",
+        data: {
+          ops: [
+            { t: "spark.read.parquet(...)",        kind: "source", note: "Each file split becomes its own partition. No data moves — the read is the start of stage 1." },
+            { t: ".filter(amount > 0)",            kind: "narrow", note: "Narrow: every partition is filtered independently, in place. No network movement." },
+            { t: ".withColumn('tax', amount*0.1)", kind: "narrow", note: "Narrow: a per-row computation. It fuses into the same stage as the filter — one pass over each partition." },
+            { t: ".groupBy('country').agg(sum)",   kind: "wide",   note: "Wide: rows with the same country must land on one executor, so Spark SHUFFLES (Exchange). This ends stage 1 and starts stage 2." },
+            { t: ".withColumn('pct', ...)",        kind: "narrow", note: "Narrow again — runs on the post-shuffle partitions, fused into stage 2." },
+            { t: ".orderBy('total')",              kind: "wide",   note: "Wide: a global sort repartitions by range — another shuffle, another stage boundary." },
+            { t: ".write.parquet(...)",            kind: "action", note: "Action: triggers the job. Executors write their partitions in parallel — this runs in stage 3." }
+          ]
+        }
+      },
       caption:
         "filter/withColumn stay on their own partition (narrow). groupBy inserts an Exchange — the shuffle — where rows with the same country are moved together. Read explain() and count the Exchanges."
     },

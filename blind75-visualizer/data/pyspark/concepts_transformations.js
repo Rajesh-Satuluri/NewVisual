@@ -257,6 +257,25 @@ window.LEARN.register("spark", "Transformations", [
         "wl = Window.partitionBy('customer_id').orderBy('order_date')\n" +
         "delta = df.withColumn('prev', F.lag('amount', 1).over(wl)) \\\n" +
         "          .withColumn('change', F.col('amount') - F.col('prev'))",
+      viz: {
+        type: "windowFrame",
+        data: {
+          partLabel: "customer", ordLabel: "month", valLabel: "amount",
+          rows: [
+            { part: "cust A", ord: "Jan", val: 100 },
+            { part: "cust A", ord: "Feb", val: 60 },
+            { part: "cust A", ord: "Mar", val: 90 },
+            { part: "cust B", ord: "Jan", val: 40 },
+            { part: "cust B", ord: "Feb", val: 80 },
+            { part: "cust B", ord: "Mar", val: 20 }
+          ],
+          frames: [
+            { key: "running", label: "Running total", desc: "rowsBetween(unboundedPreceding, currentRow): from the group's first row up to this one — the cumulative sum.", start: "unboundedPreceding", end: "currentRow" },
+            { key: "moving",  label: "Moving ±1 row", desc: "rowsBetween(-1, 1): the previous, current, and next row — a sliding window that never leaves the group.", start: -1, end: 1 },
+            { key: "whole",   label: "Whole group",   desc: "rowsBetween(unboundedPreceding, unboundedFollowing): every row in the group — the same group total repeated on each row.", start: "unboundedPreceding", end: "unboundedFollowing" }
+          ]
+        }
+      },
       caption:
         "One partitionBy/orderBy window drives ranking, running totals, and lag/lead. For the running total the frame is stated explicitly with rowsBetween — see the trap below for why that matters."
     },
