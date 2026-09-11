@@ -149,6 +149,10 @@ window.LEARN.register("spark", "Transformations", [
         "#  :- FileScan big_events\n" +
         "#  +- BroadcastExchange HashedRelationBroadcastMode(...)  <- small side only\n" +
         "#     +- FileScan country_dim",
+      viz: {
+        type: "joinStrategy",
+        data: { threshold: 10, big: "orders", bigSize: "500 MB", small: "customers", executors: 3, maxSize: 64, startSize: 6 }
+      },
       caption:
         "With F.broadcast the plan becomes a BroadcastHashJoin: only the small dimension gets a BroadcastExchange, and there is no Exchange (shuffle) on the big fact table at all."
     },
