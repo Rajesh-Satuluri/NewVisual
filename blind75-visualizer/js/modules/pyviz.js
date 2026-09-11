@@ -663,6 +663,220 @@
     return wrap;
   }
 
+  // ---- Narrow vs Wide: the shuffle is the stage boundary --------------------
+  // A vertical pipeline of ops grouped into STAGE brackets; a shuffle divider
+  // (with a little all-to-all mesh) sits between stages. The aha: narrow ops
+  // fuse into one stage, every shuffle starts a new one — count shuffles to
+  // count stages. Hover an op; ▶ Run walks the pipeline and counts stages.
+  // opts: { ops: [{ t, kind, note }] }  kind ∈ "source"|"narrow"|"wide"|"action"
+  function shuffleStages(opts) {
+    function esc(s) { return String(s == null ? "" : s).replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }); }
+    var NS = "http://www.w3.org/2000/svg";
+    function svgEl(name, attrs) { var e = document.createElementNS(NS, name); if (attrs) for (var k in attrs) e.setAttribute(k, String(attrs[k])); return e; }
+    var ops = opts.ops || [];
+    var W = 560, X0 = 70, chipW = W - X0 - 10, chipH = 32, rowH = 42, divH = 48;
+
+    // assign stages: a wide op that isn't the first thing starts a new stage
+    var items = [], stageNo = 1, hasOp = false;
+    ops.forEach(function (op) {
+      if (op.kind === "wide" && hasOp) { items.push({ type: "divider" }); stageNo++; hasOp = false; }
+      items.push({ type: "op", op: op, stage: stageNo }); hasOp = true;
+    });
+    var totalStages = stageNo, totalShuffles = stageNo - 1;
+
+    // layout
+    var y = 10, spans = {}, laid = [];
+    items.forEach(function (it) {
+      if (it.type === "divider") { laid.push({ type: "divider", y: y }); y += divH; }
+      else { var s = it.stage; if (!spans[s]) spans[s] = { y0: y }; spans[s].y1 = y + chipH; laid.push({ type: "op", op: it.op, stage: s, y: y }); y += rowH; }
+    });
+    var H = y + 6;
+
+    var svg = svgEl("svg", { "class": "ss-svg", viewBox: "0 0 " + W + " " + H, width: "100%", role: "img", "aria-label": "Stages and shuffles" });
+
+    // stage brackets (behind)
+    Object.keys(spans).forEach(function (s) {
+      var sp = spans[s];
+      svg.appendChild(svgEl("rect", { "class": "ss-stage", x: 8, y: sp.y0 - 5, width: 54, height: (sp.y1 - sp.y0) + 10, rx: 8 }));
+      var cx = 35, cy = (sp.y0 + sp.y1) / 2;
+      var t = svgEl("text", { "class": "ss-stage-t", x: cx, y: cy, transform: "rotate(-90 " + cx + " " + cy + ")" }); t.textContent = "STAGE " + s;
+      svg.appendChild(t);
+    });
+
+    var KIND = { source: "src", narrow: "nar", wide: "wide", action: "act" };
+    var KIND_T = { source: "source", narrow: "narrow", wide: "wide · shuffle", action: "action" };
+    var opEls = [];
+
+    laid.forEach(function (it) {
+      if (it.type === "divider") {
+        var dy = it.y + 8;
+        svg.appendChild(svgEl("line", { "class": "ss-div-line", x1: X0, y1: dy + 14, x2: W - 10, y2: dy + 14 }));
+        var lbl = svgEl("text", { "class": "ss-div-t", x: W - 12, y: dy + 10 }); lbl.textContent = "⇄ shuffle — new stage"; svg.appendChild(lbl);
+        // mini all-to-all mesh
+        var mx = X0 + 6, top = dy + 4, bot = dy + 24, gap = 26;
+        for (var a = 0; a < 3; a++) for (var b = 0; b < 3; b++) svg.appendChild(svgEl("line", { "class": "ss-mesh", x1: mx + a * gap, y1: top, x2: mx + b * gap, y2: bot }));
+        for (var d = 0; d < 3; d++) { svg.appendChild(svgEl("circle", { "class": "ss-dot", cx: mx + d * gap, cy: top, r: 3 })); svg.appendChild(svgEl("circle", { "class": "ss-dot", cx: mx + d * gap, cy: bot, r: 3 })); }
+        return;
+      }
+      var op = it.op, ky = KIND[op.kind] || "nar";
+      var g = svgEl("g", { "class": "ss-op k-" + ky, tabindex: "0", role: "button" });
+      g.appendChild(svgEl("rect", { "class": "ss-box", x: X0, y: it.y, width: chipW, height: chipH, rx: 7 }));
+      var t = svgEl("text", { "class": "ss-op-t", x: X0 + 14, y: it.y + chipH / 2 + 1 }); t.textContent = op.t; g.appendChild(t);
+      var bw = 96, bx = X0 + chipW - bw - 8;
+      g.appendChild(svgEl("rect", { "class": "ss-badge", x: bx, y: it.y + 6, width: bw, height: chipH - 12, rx: 9 }));
+      var bt = svgEl("text", { "class": "ss-badge-t", x: bx + bw / 2, y: it.y + chipH / 2 + 1 }); bt.textContent = KIND_T[op.kind] || op.kind; g.appendChild(bt);
+      svg.appendChild(g);
+      (function (op) {
+        function hi() { if (tracing) return; status.innerHTML = "<b>" + esc(op.t) + "</b> — " + esc(op.note || ""); }
+        function out() { if (tracing) return; status.innerHTML = defaultStatus; }
+        g.addEventListener("mouseenter", hi); g.addEventListener("focus", hi);
+        g.addEventListener("mouseleave", out); g.addEventListener("blur", out);
+      })(op);
+      opEls.push({ g: g, op: op });
+    });
+
+    var wrap = elh("div", "viz viz-ss");
+    wrap.appendChild(svg);
+    var defaultStatus = "Hover an op to see if it shuffles. Narrow ops fuse into <b>one stage</b>; every shuffle starts a new one — this job is <b>" + totalStages + " stage" + (totalStages > 1 ? "s" : "") + "</b> (" + totalShuffles + " shuffle" + (totalShuffles === 1 ? "" : "s") + ").";
+    var status = elh("div", "viz-hint ss-status", defaultStatus);
+
+    var controls = elh("div", "viz-controls");
+    var runBtn = elh("button", "viz-btn", "▶ Run the job");
+    var resetBtn = elh("button", "viz-btn ghost", "↻ Reset");
+    controls.appendChild(runBtn); controls.appendChild(resetBtn);
+    wrap.appendChild(controls); wrap.appendChild(status);
+
+    var tracing = false, ti = 0, timer = null;
+    function step() {
+      if (ti >= opEls.length) { stop(); opEls.forEach(function (o) { o.g.classList.remove("on", "dim"); }); status.innerHTML = "Done — <b>" + totalStages + " stages</b>, split at each of the " + totalShuffles + " shuffle" + (totalShuffles === 1 ? "" : "s") + "."; return; }
+      var cur = opEls[ti];
+      opEls.forEach(function (o, i) { o.g.classList.toggle("on", i === ti); o.g.classList.toggle("dim", i !== ti); });
+      status.innerHTML = (cur.op.kind === "wide" ? "⇄ <b>Shuffle</b> — " : "") + "<b>" + esc(cur.op.t) + "</b> — " + esc(cur.op.note || "");
+      ti++; timer = setTimeout(step, 1300);
+    }
+    function stop() { tracing = false; if (timer) { clearTimeout(timer); timer = null; } runBtn.textContent = "▶ Run the job"; }
+    runBtn.addEventListener("click", function () { if (tracing) { stop(); return; } tracing = true; ti = 0; runBtn.textContent = "⏸ Pause"; step(); });
+    resetBtn.addEventListener("click", function () { stop(); opEls.forEach(function (o) { o.g.classList.remove("on", "dim"); }); status.innerHTML = defaultStatus; });
+
+    return wrap;
+  }
+
+  // ---- Window frame: partitionBy → orderBy → the frame that slides ----------
+  // A table split into partitions (colour bands), ordered within each. Pick a
+  // frame type and step the "current row" — the frame bracket slides and the
+  // result column recomputes, never crossing a partition boundary.
+  // opts: { rows:[{part,ord,val}], partLabel, ordLabel, valLabel, frames:[{key,label,desc,start,end}] }
+  //   start/end: "unboundedPreceding" | "currentRow" | "unboundedFollowing" | integer offset
+  function windowFrame(opts) {
+    function esc(s) { return String(s == null ? "" : s).replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }); }
+    var NS = "http://www.w3.org/2000/svg";
+    function svgEl(name, attrs) { var e = document.createElementNS(NS, name); if (attrs) for (var k in attrs) e.setAttribute(k, String(attrs[k])); return e; }
+    var rows = opts.rows || [];
+    var frames = opts.frames || [];
+    var partLabel = opts.partLabel || "part", ordLabel = opts.ordLabel || "order", valLabel = opts.valLabel || "value";
+    var fi = 0, cur = 0;
+
+    // partition index bounds for each row
+    var partOf = rows.map(function (r) { return r.part; });
+    function partRange(i) {
+      var p = partOf[i], lo = i, hi = i;
+      while (lo - 1 >= 0 && partOf[lo - 1] === p) lo--;
+      while (hi + 1 < rows.length && partOf[hi + 1] === p) hi++;
+      return [lo, hi];
+    }
+    function frameBounds(i, f) {
+      var pr = partRange(i), lo, hi;
+      lo = (f.start === "unboundedPreceding") ? pr[0] : (f.start === "currentRow" ? i : Math.max(pr[0], i + (f.start | 0)));
+      hi = (f.end === "unboundedFollowing") ? pr[1] : (f.end === "currentRow" ? i : Math.min(pr[1], i + (f.end | 0)));
+      lo = Math.max(pr[0], lo); hi = Math.min(pr[1], hi);
+      return [lo, hi];
+    }
+    function frameSum(i, f) { var b = frameBounds(i, f), s = 0; for (var k = b[0]; k <= b[1]; k++) s += rows[k].val; return s; }
+
+    var W = 560, colP = 20, colO = 210, colV = 350, colR = 476;
+    var top = 40, rH = 34, X = 8, tableW = W - 16;
+    var H = top + rows.length * rH + 8;
+    var svg = svgEl("svg", { "class": "wf-svg", viewBox: "0 0 " + W + " " + H, width: "100%", role: "img", "aria-label": "Window frame" });
+
+    // header
+    var hdr = [[colP, partLabel + " (partitionBy)"], [colO, ordLabel + " (orderBy)"], [colV, valLabel], [colR, "→ result"]];
+    hdr.forEach(function (h) { var t = svgEl("text", { "class": "wf-h", x: h[0], y: 24 }); t.textContent = h[1]; svg.appendChild(t); });
+    svg.appendChild(svgEl("line", { "class": "wf-hr", x1: X, y1: 32, x2: W - X, y2: 32 }));
+
+    var rowEls = [];
+    function rowY(i) { return top + i * rH; }
+
+    // partition band backgrounds (alternating tint per partition run)
+    var runStart = 0, bandIdx = 0;
+    for (var i2 = 0; i2 <= rows.length; i2++) {
+      if (i2 === rows.length || partOf[i2] !== partOf[runStart]) {
+        svg.appendChild(svgEl("rect", { "class": "wf-band p" + (bandIdx % 2), x: X, y: rowY(runStart), width: tableW, height: rowY(i2) - rowY(runStart), rx: 6 }));
+        bandIdx++; runStart = i2;
+      }
+    }
+
+    // frame bracket (drawn/updated on render)
+    var bracket = svgEl("rect", { "class": "wf-bracket", x: X + 2, y: 0, width: tableW - 4, height: 0, rx: 6, opacity: 0 });
+    svg.appendChild(bracket);
+
+    // rows
+    rows.forEach(function (r, i) {
+      var y = rowY(i);
+      var g = svgEl("g", { "class": "wf-row", tabindex: "0", role: "button" });
+      var cells = [[colP, r.part], [colO, r.ord], [colV, String(r.val)]];
+      cells.forEach(function (c) { var t = svgEl("text", { "class": "wf-cell", x: c[0], y: y + rH / 2 + 4 }); t.textContent = c[1]; g.appendChild(t); });
+      var res = svgEl("text", { "class": "wf-res", x: colR, y: y + rH / 2 + 4 }); res.textContent = ""; g.appendChild(res);
+      // hit area
+      g.insertBefore(svgEl("rect", { "class": "wf-hit", x: X, y: y, width: tableW, height: rH, rx: 5 }), g.firstChild);
+      svg.appendChild(g);
+      (function (idx) { g.addEventListener("click", function () { cur = idx; render(); }); g.addEventListener("focus", function () { cur = idx; render(); }); })(i);
+      rowEls.push({ g: g, res: res });
+    });
+
+    var wrap = elh("div", "viz viz-wf");
+    // frame toggle
+    var fRow = elh("div", "wf-frames");
+    var fBtns = [];
+    frames.forEach(function (f, idx) {
+      var b = elh("button", "wf-fbtn" + (idx === 0 ? " active" : ""), esc(f.label));
+      b.addEventListener("click", function () { fi = idx; fBtns.forEach(function (x) { x.classList.remove("active"); }); b.classList.add("active"); render(); });
+      fRow.appendChild(b); fBtns.push(b);
+    });
+    wrap.appendChild(fRow);
+    wrap.appendChild(svg);
+
+    var status = elh("div", "viz-hint wf-status", "");
+    var controls = elh("div", "viz-controls");
+    var prevB = elh("button", "viz-btn ghost", "‹ Prev row");
+    var runB = elh("button", "viz-btn", "▶ Slide the frame");
+    var nextB = elh("button", "viz-btn ghost", "Next row ›");
+    controls.appendChild(prevB); controls.appendChild(runB); controls.appendChild(nextB);
+    wrap.appendChild(controls); wrap.appendChild(status);
+
+    function render() {
+      var f = frames[fi];
+      // fill result column for every row under this frame
+      rowEls.forEach(function (re, i) { re.res.textContent = String(frameSum(i, f)); re.g.classList.toggle("cur", i === cur); });
+      // frame bracket over current row's frame
+      var b = frameBounds(cur, f);
+      var y0 = rowY(b[0]), y1 = rowY(b[1]) + rH;
+      bracket.setAttribute("y", y0 + 1); bracket.setAttribute("height", (y1 - y0) - 2); bracket.setAttribute("opacity", 1);
+      rowEls.forEach(function (re, i) { re.g.classList.toggle("inframe", i >= b[0] && i <= b[1]); });
+      var pr = partRange(cur);
+      status.innerHTML = "<b>" + esc(f.label) + "</b> — " + esc(f.desc) + "<br>current row: <b>" + esc(rows[cur].part) + " / " + esc(rows[cur].ord) + "</b> · frame covers rows " + (b[0] - pr[0] + 1) + "–" + (b[1] - pr[0] + 1) + " of this partition · <b>" + valLabel + " = " + frameSum(cur, f) + "</b>";
+    }
+
+    var tracing = false, timer = null;
+    function stop() { tracing = false; if (timer) { clearTimeout(timer); timer = null; } runB.textContent = "▶ Slide the frame"; }
+    function tick() { cur = (cur + 1) % rows.length; render(); if (cur === rows.length - 1) { timer = setTimeout(stop, 1100); } else timer = setTimeout(tick, 1100); }
+    prevB.addEventListener("click", function () { stop(); cur = (cur - 1 + rows.length) % rows.length; render(); });
+    nextB.addEventListener("click", function () { stop(); cur = (cur + 1) % rows.length; render(); });
+    runB.addEventListener("click", function () { if (tracing) { stop(); return; } tracing = true; runB.textContent = "⏸ Pause"; cur = 0; render(); timer = setTimeout(tick, 1100); });
+
+    render();
+    return wrap;
+  }
+
   window.PYVIZ = {
     build: function (spec) {
       if (!spec || !spec.type) return null;
@@ -675,6 +889,8 @@
       if (spec.type === "execOrder") return execOrder(spec.data || {});
       if (spec.type === "catalyst") return catalyst(spec.data || {});
       if (spec.type === "clusterRun") return clusterRun(spec.data || {});
+      if (spec.type === "shuffleStages") return shuffleStages(spec.data || {});
+      if (spec.type === "windowFrame") return windowFrame(spec.data || {});
       return null;
     }
   };
