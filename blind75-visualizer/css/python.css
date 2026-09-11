@@ -11,10 +11,13 @@
 .ws-btn.active { background: var(--brand); color: #06111f; box-shadow: 0 0 12px var(--brand-glow); }
 @media (max-width: 720px) { .ws-btn { padding: 5px 9px; font-size: 11.5px; } .brand-text { display: none; } }
 
-/* When in the Python workspace, hide DSA-only sidebar widgets + topbar buttons */
+/* When in the Python workspace, hide DSA-only sidebar widgets + topbar buttons.
+   The filter gear (#filterToggle) and chip panel (#filterPanel) are deliberately
+   NOT hidden here: they drive Practice filtering in every lab (SQL / PySpark /
+   NumPy / Pandas) through the shared LABFILTERS model, and updateFilterContext()
+   in app.js already shows the gear only in Practice mode (Learn hides it via the
+   `hidden` attribute + a collapsed panel). The rest are genuinely DSA-only. */
 body[data-ws="python"] .progress-box,
-body[data-ws="python"] #filterToggle,
-body[data-ws="python"] #filterPanel,
 body[data-ws="python"] #gridBtn,
 body[data-ws="python"] #dashBtn { display: none !important; }
 /* The shared "Categories" tools bar (expand/collapse-all) is used by the SQL,
