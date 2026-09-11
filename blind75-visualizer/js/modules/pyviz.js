@@ -430,6 +430,239 @@
     return wrap;
   }
 
+  // ---- Catalyst: the plan you WROTE vs the plan Spark RUNS -------------------
+  // Two stacked plan columns. The left is your DataFrame chain as typed; the
+  // right is Spark's optimized plan (filters pushed down, columns pruned). A
+  // "▶ Optimize" trace walks the rewrites; a toggle drops in a Python UDF and
+  // shows pushdown hitting the wall. Same DNA as execOrder: written ≠ run.
+  // opts: {
+  //   written:   [{ t, detail, why }],
+  //   optimized: [{ t, detail, changed, why }],
+  //   udf: { optimized: [...], steps: [...] },   // alternate: UDF blocks pushdown
+  //   steps: [{ title, caption, w:[idx], o:[idx] }],
+  //   hint, done
+  // }
+  function catalyst(opts) {
+    function esc(s) { return String(s == null ? "" : s).replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }); }
+    var NS = "http://www.w3.org/2000/svg";
+    function svgEl(name, attrs) { var e = document.createElementNS(NS, name); if (attrs) for (var k in attrs) e.setAttribute(k, String(attrs[k])); return e; }
+    var W = 560, X = 8, boxW = W - 16, boxH = 34, rowH = 42, top = 46;
+
+    var written = opts.written || [];
+    var wrap = elh("div", "viz viz-cat");
+    var host = elh("div", "cat-host");
+    wrap.appendChild(host);
+    var defaultStatus = opts.hint || "Press <b>▶ Optimize</b> to watch Spark rewrite your plan for speed — then toggle a Python UDF to see what blocks it.";
+    var status = elh("div", "viz-hint cat-status", defaultStatus);
+
+    var udfOn = false, panels = {}, tracing = false, ti = 0, timer = null;
+
+    function buildPanel(title, sub, rows, accentClass) {
+      var H = top + rows.length * rowH + 6;
+      var svg = svgEl("svg", { "class": "cat-svg " + accentClass, viewBox: "0 0 " + W + " " + H, width: "100%", role: "img", "aria-label": title });
+      var h1 = svgEl("text", { "class": "cat-col-h", x: X + 2, y: 20 }); h1.textContent = "▾ " + title;
+      var h2 = svgEl("text", { "class": "cat-col-h cat-col-sub", x: X + 2, y: 38 }); h2.textContent = sub;
+      svg.appendChild(h1); svg.appendChild(h2);
+      var els = [];
+      rows.forEach(function (r, i) {
+        var y = top + i * rowH;
+        var g = svgEl("g", { "class": "cat-row" + (r.changed ? " changed" : "") + (r.wall ? " wall" : ""), tabindex: "0", role: "button" });
+        g.appendChild(svgEl("rect", { "class": "cat-box", x: X, y: y, width: boxW, height: boxH, rx: 7 }));
+        if (r.changed || r.wall) g.appendChild(svgEl("rect", { "class": "cat-stripe", x: X, y: y, width: 4, height: boxH }));
+        var t = svgEl("text", { "class": "cat-op", x: X + 16, y: y + boxH / 2 + 1 }); t.textContent = r.t;
+        g.appendChild(t);
+        if (r.detail) { var d = svgEl("text", { "class": "cat-detail", x: X + boxW - 12, y: y + boxH / 2 + 1 }); d.textContent = r.detail; g.appendChild(d); }
+        svg.appendChild(g);
+        (function (r) {
+          function hi() { if (tracing) return; status.innerHTML = "<b>" + esc(r.t) + "</b>" + (r.why ? " — " + esc(r.why) : ""); }
+          function out() { if (tracing) return; status.innerHTML = defaultStatus; }
+          g.addEventListener("mouseenter", hi); g.addEventListener("focus", hi);
+          g.addEventListener("mouseleave", out); g.addEventListener("blur", out);
+        })(r);
+        els.push(g);
+      });
+      return { svg: svg, els: els };
+    }
+
+    function render() {
+      host.innerHTML = "";
+      var opt = udfOn ? ((opts.udf && opts.udf.optimized) || opts.optimized) : (opts.optimized || []);
+      panels.written = buildPanel("Plan as you WROTE it", "the chain you typed", written, "cat-write");
+      panels.optimized = buildPanel(
+        udfOn ? "How Spark runs it — UDF wall" : "How Spark RUNS it — optimized",
+        udfOn ? "the Python UDF blocks pushdown" : "filters pushed down · columns pruned",
+        opt, "cat-run");
+      host.appendChild(panels.written.svg);
+      host.appendChild(panels.optimized.svg);
+    }
+    function clearHi() { ["written", "optimized"].forEach(function (p) { if (panels[p]) panels[p].els.forEach(function (e) { e.classList.remove("on", "dim"); }); }); }
+    function highlight(wIdx, oIdx) {
+      panels.written.els.forEach(function (e, i) { e.classList.toggle("on", wIdx.indexOf(i) !== -1); e.classList.toggle("dim", wIdx.indexOf(i) === -1); });
+      panels.optimized.els.forEach(function (e, i) { e.classList.toggle("on", oIdx.indexOf(i) !== -1); e.classList.toggle("dim", oIdx.indexOf(i) === -1); });
+    }
+    function curSteps() { return udfOn ? ((opts.udf && opts.udf.steps) || opts.steps || []) : (opts.steps || []); }
+    function step() {
+      var steps = curSteps();
+      if (ti >= steps.length) { stop(); clearHi(); status.innerHTML = opts.done || "That's the rewrite: you wrote it for clarity, Spark ran it for speed."; return; }
+      var s = steps[ti]; highlight(s.w || [], s.o || []);
+      status.innerHTML = "<b>" + esc(s.title) + "</b> — " + esc(s.caption); ti++;
+      timer = setTimeout(step, 1600);
+    }
+    function stop() { tracing = false; if (timer) { clearTimeout(timer); timer = null; } runBtn.textContent = "▶ Optimize"; }
+
+    render();
+    var controls = elh("div", "viz-controls");
+    var runBtn = elh("button", "viz-btn", "▶ Optimize");
+    var resetBtn = elh("button", "viz-btn ghost", "↻ Reset");
+    var udfBtn = elh("button", "viz-btn ghost", "🐍 Add a Python UDF");
+    controls.appendChild(runBtn); controls.appendChild(udfBtn); controls.appendChild(resetBtn);
+    wrap.appendChild(controls); wrap.appendChild(status);
+
+    runBtn.addEventListener("click", function () { if (tracing) { stop(); return; } tracing = true; ti = 0; runBtn.textContent = "⏸ Pause"; step(); });
+    resetBtn.addEventListener("click", function () { stop(); clearHi(); status.innerHTML = defaultStatus; });
+    udfBtn.addEventListener("click", function () {
+      udfOn = !udfOn; stop(); render();
+      udfBtn.classList.toggle("on", udfOn);
+      udfBtn.textContent = udfOn ? "↩ Remove the UDF" : "🐍 Add a Python UDF";
+      status.innerHTML = udfOn
+        ? "With a <b>Python UDF</b> in the chain, Catalyst can't see inside it — the filter is stuck <b>above</b> the UDF and every row is read. Prefer built-in <code>F.*</code> functions."
+        : defaultStatus;
+    });
+    return wrap;
+  }
+
+  // ---- Driver vs Executors: where does each line of my code run? ------------
+  // A cluster diagram: one driver, N executors (each holding partitions), and a
+  // storage bar. Click an operation (or ▶ Run the job) to light up WHERE it runs
+  // and what moves — distributed on executors, shuffled between them, funnelled
+  // into the driver (collect → OOM risk), serialized to Python workers (UDF), or
+  // written straight to storage.
+  // opts: { executors, ops: [{ key, label, where, caption }] }
+  //   where ∈ "executors" | "shuffle" | "driver" | "udf" | "storage"
+  function clusterRun(opts) {
+    function esc(s) { return String(s == null ? "" : s).replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }); }
+    var NS = "http://www.w3.org/2000/svg";
+    function svgEl(name, attrs) { var e = document.createElementNS(NS, name); if (attrs) for (var k in attrs) e.setAttribute(k, String(attrs[k])); return e; }
+    var NE = opts.executors || 3;
+    var ops = opts.ops || [];
+
+    var W = 560, H = 268;
+    var svg = svgEl("svg", { "class": "cr-svg", viewBox: "0 0 " + W + " " + H, width: "100%", role: "img", "aria-label": "Driver and executors" });
+
+    // driver (top center)
+    var dW = 190, dX = (W - dW) / 2, dY = 8, dH = 40;
+    var driver = svgEl("g", { "class": "cr-driver" });
+    driver.appendChild(svgEl("rect", { "class": "cr-drv-box", x: dX, y: dY, width: dW, height: dH, rx: 8 }));
+    var dt = svgEl("text", { "class": "cr-drv-t", x: W / 2, y: dY + dH / 2 + 1 }); dt.textContent = "Driver  ·  1 JVM (your main program)"; driver.appendChild(dt);
+
+    // executors row
+    var exW = 158, exH = 74, exY = 150, gap = (W - NE * exW) / (NE + 1);
+    var execXs = [];
+    var execG = svgEl("g", {});
+    for (var e = 0; e < NE; e++) {
+      var ex = gap + e * (exW + gap); execXs.push(ex);
+      var g = svgEl("g", { "class": "cr-exec" });
+      g.appendChild(svgEl("rect", { "class": "cr-exec-box", x: ex, y: exY, width: exW, height: exH, rx: 8 }));
+      var lt = svgEl("text", { "class": "cr-exec-t", x: ex + 10, y: exY + 16 }); lt.textContent = "Executor " + (e + 1); g.appendChild(lt);
+      for (var p = 0; p < 2; p++) {
+        g.appendChild(svgEl("rect", { "class": "cr-part", x: ex + 10 + p * 72, y: exY + 28, width: 64, height: 32, rx: 5 }));
+        var pt = svgEl("text", { "class": "cr-part-t", x: ex + 10 + p * 72 + 32, y: exY + 28 + 20 }); pt.textContent = "part " + (e * 2 + p); g.appendChild(pt);
+      }
+      execG.appendChild(g);
+    }
+
+    // storage bar (bottom)
+    var stY = H - 30, stX = 60, stW = W - 120;
+    var storage = svgEl("g", { "class": "cr-storage" });
+    storage.appendChild(svgEl("rect", { "class": "cr-store-box", x: stX, y: stY, width: stW, height: 22, rx: 6 }));
+    var stt = svgEl("text", { "class": "cr-store-t", x: W / 2, y: stY + 15 }); stt.textContent = "Storage  ·  Parquet / Delta (S3, HDFS…)"; storage.appendChild(stt);
+
+    // arrow helper
+    function arrow(x1, y1, x2, y2, cls) {
+      var g = svgEl("g", { "class": "cr-arrow " + cls });
+      g.appendChild(svgEl("line", { "class": "cr-line", x1: x1, y1: y1, x2: x2, y2: y2 }));
+      var ang = Math.atan2(y2 - y1, x2 - x1), s = 7;
+      var pts = x2 + "," + y2 + " " +
+        (x2 - s * Math.cos(ang - 0.5)) + "," + (y2 - s * Math.sin(ang - 0.5)) + " " +
+        (x2 - s * Math.cos(ang + 0.5)) + "," + (y2 - s * Math.sin(ang + 0.5));
+      g.appendChild(svgEl("polygon", { "class": "cr-head", points: pts }));
+      return g;
+    }
+    var arrowsG = svgEl("g", {});
+    // funnel: each executor -> driver
+    execXs.forEach(function (ex) { arrowsG.appendChild(arrow(ex + exW / 2, exY, W / 2, dY + dH, "funnel")); });
+    // shuffle: between adjacent executors (both directions, curved via mid dip)
+    for (var i2 = 0; i2 < NE - 1; i2++) {
+      arrowsG.appendChild(arrow(execXs[i2] + exW, exY + exH / 2, execXs[i2 + 1], exY + exH / 2, "shuffle"));
+      arrowsG.appendChild(arrow(execXs[i2 + 1], exY + exH - 10, execXs[i2] + exW, exY + exH - 10, "shuffle"));
+    }
+    // store: each executor -> storage
+    execXs.forEach(function (ex) { arrowsG.appendChild(arrow(ex + exW / 2, exY + exH, ex + exW / 2, stY, "store")); });
+    // udf: a python worker beside each executor + serialize arrows
+    var udfG = svgEl("g", { "class": "cr-arrow udf" });
+    execXs.forEach(function (ex) {
+      var wx = ex + exW - 30, wy = exY - 26;
+      udfG.appendChild(svgEl("rect", { "class": "cr-py", x: wx, y: wy, width: 34, height: 20, rx: 4 }));
+      var wt = svgEl("text", { "class": "cr-py-t", x: wx + 17, y: wy + 14 }); wt.textContent = "py"; udfG.appendChild(wt);
+      udfG.appendChild(svgEl("line", { "class": "cr-line", x1: wx + 17, y1: wy + 20, x2: ex + exW - 20, y2: exY }));
+    });
+    arrowsG.appendChild(udfG);
+
+    svg.appendChild(arrowsG); svg.appendChild(driver); svg.appendChild(execG); svg.appendChild(storage);
+
+    var wrap = elh("div", "viz viz-cr");
+    wrap.appendChild(svg);
+    var defaultStatus = "Click an operation to see <b>where it runs</b> — or press ▶ Run the job to follow a pipeline through the cluster.";
+    var status = elh("div", "viz-hint cr-status", defaultStatus);
+
+    function setActive(op) {
+      svg.setAttribute("data-where", op ? op.where : "");
+      driver.classList.toggle("hot", !!op && op.where === "driver");
+      driver.classList.toggle("warn", !!op && op.where === "driver");
+      execG.classList.toggle("hot", !!op && (op.where === "executors" || op.where === "shuffle" || op.where === "udf" || op.where === "storage"));
+      storage.classList.toggle("hot", !!op && op.where === "storage");
+      ["funnel", "shuffle", "store", "udf"].forEach(function (c) {
+        var show = op && ((c === "funnel" && op.where === "driver") || (c === "shuffle" && op.where === "shuffle") || (c === "store" && op.where === "storage") || (c === "udf" && op.where === "udf"));
+        arrowsG.querySelectorAll(".cr-arrow." + c).forEach(function (a) { a.classList.toggle("show", !!show); });
+      });
+      status.innerHTML = op ? ("<b>" + esc(op.label) + "</b> — " + esc(op.caption)) : defaultStatus;
+    }
+
+    // op buttons
+    var opsRow = elh("div", "cr-ops");
+    var opBtns = [];
+    ops.forEach(function (op) {
+      var b = elh("button", "cr-op-btn" + (op.warn ? " warn" : ""), esc(op.label));
+      b.addEventListener("click", function () {
+        var wasActive = b.classList.contains("active");
+        opBtns.forEach(function (x) { x.classList.remove("active"); });
+        if (wasActive) { setActive(null); } else { b.classList.add("active"); setActive(op); }
+      });
+      opsRow.appendChild(b); opBtns.push(b);
+    });
+    wrap.appendChild(opsRow);
+
+    var controls = elh("div", "viz-controls");
+    var runBtn = elh("button", "viz-btn", "▶ Run the job");
+    var resetBtn = elh("button", "viz-btn ghost", "↻ Reset");
+    controls.appendChild(runBtn); controls.appendChild(resetBtn);
+    wrap.appendChild(controls); wrap.appendChild(status);
+
+    var tracing = false, ti = 0, timer = null;
+    var flow = ops.filter(function (o) { return o.where !== "udf" && o.where !== "storage"; }); // read→filter→shuffle→collect
+    function step() {
+      if (ti >= flow.length) { stop(); opBtns.forEach(function (x) { x.classList.remove("active"); }); setActive(null); return; }
+      var op = flow[ti];
+      opBtns.forEach(function (x) { x.classList.toggle("active", x.textContent === op.label); });
+      setActive(op); ti++; timer = setTimeout(step, 1700);
+    }
+    function stop() { tracing = false; if (timer) { clearTimeout(timer); timer = null; } runBtn.textContent = "▶ Run the job"; }
+    runBtn.addEventListener("click", function () { if (tracing) { stop(); return; } tracing = true; ti = 0; runBtn.textContent = "⏸ Pause"; step(); });
+    resetBtn.addEventListener("click", function () { stop(); opBtns.forEach(function (x) { x.classList.remove("active"); }); setActive(null); });
+
+    return wrap;
+  }
+
   window.PYVIZ = {
     build: function (spec) {
       if (!spec || !spec.type) return null;
@@ -440,6 +673,8 @@
       if (spec.type === "heapTree") return heapTree(spec.data || {});
       if (spec.type === "setOps") return setOps(spec.data || {});
       if (spec.type === "execOrder") return execOrder(spec.data || {});
+      if (spec.type === "catalyst") return catalyst(spec.data || {});
+      if (spec.type === "clusterRun") return clusterRun(spec.data || {});
       return null;
     }
   };

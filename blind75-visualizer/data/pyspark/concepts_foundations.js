@@ -252,6 +252,280 @@ window.LEARN.register("spark", "Foundations", [
   },
 
   {
+    id: "where-code-runs-driver-executors",
+    title: "Where Your Code Runs: Driver vs Executors",
+    difficulty: "Core",
+    estMinutes: 10,
+    relevance: 3,
+    tagline: "Every line you write runs in one of two places: spread across the executors, or funnelled onto the single driver. Knowing which is the difference between a job that scales and one that crashes.",
+
+    whatIsIt: [
+      "A Spark application has <b>one driver</b> (the JVM running your <code>main</code> / notebook, where the SparkSession lives) and <b>many executors</b> (JVMs on the worker machines that actually hold the data, split into <b>partitions</b>, and run tasks).",
+      "The driver's job is to <b>build the plan and hand out tasks</b> — it is a coordinator, not a workhorse. The real computation happens on the executors, <b>in parallel, one task per partition</b>. Transformations like <code>filter</code>, <code>select</code>, <code>groupBy</code> and <code>join</code> all run out there on the cluster.",
+      "A few operations do the opposite: they <b>pull data back to the driver</b>. <code>collect()</code> and <code>toPandas()</code> bring <i>every</i> result row into that one JVM; <code>show(n)</code>/<code>take(n)</code> bring only a handful. Because the driver is a single machine, a big <code>collect()</code> is the classic way to make Spark crash with an out-of-memory error.",
+      "<b>Python UDFs</b> add a third place: each row is shipped from the JVM executor to a separate <b>Python worker</b> process and back. It still runs on the executors, but the row-by-row serialization is slow and opaque to the optimizer — which is why built-in <code>F.*</code> functions (or pandas UDFs) are almost always faster."
+    ],
+
+    showMe: {
+      code:
+        "from pyspark.sql import functions as F\n" +
+        "\n" +
+        "# ── runs on the EXECUTORS, in parallel across partitions ──\n" +
+        "big = (spark.read.parquet('s3://events/')      # each executor reads its slice\n" +
+        "            .filter(F.col('country') == 'US')   # narrow: local to each partition\n" +
+        "            .groupBy('user_id')                 # wide: SHUFFLE across executors\n" +
+        "            .agg(F.sum('amount').alias('spend')))\n" +
+        "\n" +
+        "# ── these stay distributed — good ──\n" +
+        "big.write.parquet('s3://out/')   # executors write their partitions in parallel\n" +
+        "big.show(20)                     # only ~20 rows travel to the driver\n" +
+        "\n" +
+        "# ── these pull EVERYTHING onto the one driver JVM — danger ──\n" +
+        "rows = big.collect()             # every row into the driver → OOM if big\n" +
+        "pdf  = big.toPandas()            # same: whole result must fit in driver RAM\n" +
+        "\n" +
+        "# ── Python UDF: each row serialized JVM → Python worker → JVM ──\n" +
+        "@F.udf('double')\n" +
+        "def bonus(x): return x * 1.1     # opaque to Catalyst, row-by-row\n" +
+        "slow = big.withColumn('b', bonus('spend'))\n" +
+        "fast = big.withColumn('b', F.col('spend') * 1.1)   # built-in: runs in the JVM",
+      viz: {
+        type: "clusterRun",
+        data: {
+          executors: 3,
+          ops: [
+            { key: "read",    label: "spark.read",             where: "executors", caption: "Each executor reads its own slice of the files in parallel — one task per partition. The driver just builds the plan and hands out tasks." },
+            { key: "filter",  label: ".filter() / .select()",  where: "executors", caption: "Narrow transforms run locally on each partition, in parallel, moving no data. The driver isn't involved." },
+            { key: "groupBy", label: ".groupBy().agg()",       where: "shuffle",   caption: "A wide transform: rows are shuffled across executors so each key lands together. Still fully distributed — data never passes through the driver." },
+            { key: "collect", label: ".collect() / .toPandas()", where: "driver", warn: true, caption: "Pulls EVERY result row into the single driver JVM. Fine for small results; on big ones the driver runs out of memory. Prefer show(n)/take(n), or write() to storage." },
+            { key: "write",   label: ".write.parquet()",       where: "storage",   caption: "Executors write their partitions straight to storage in parallel — output scales with the cluster and never funnels through the driver." },
+            { key: "udf",     label: "Python UDF",             where: "udf",       caption: "Each row is serialized from the JVM executor to a separate Python worker and back — slow, and invisible to Catalyst. Prefer built-in F.* functions or a pandas UDF." }
+          ]
+        }
+      },
+      caption:
+        "Click each operation to see where it runs. read/filter/groupBy stay on the executors (green partitions light up; groupBy shuffles between them). collect() funnels every row up into the one driver — the red arrows and OOM risk. write() streams down to storage in parallel. A Python UDF spins up a py worker per executor. Press ▶ Run the job to follow read → filter → groupBy → collect."
+    },
+
+    whyMatters:
+      "<p>\"It worked on a sample but died on the full data\" is almost always a <b>driver vs executor</b> mistake. The fix is to ask, for every line: <i>does this stay on the cluster, or pull to the driver?</i></p>" +
+      "<ul>" +
+      "<li><b>Never <code>collect()</code>/<code>toPandas()</code> a large DataFrame.</b> To inspect, use <code>show(n)</code>/<code>take(n)</code>; to move data, <code>write()</code> it to storage — the executors do that in parallel.</li>" +
+      "<li><b>Don't loop in Python over Spark data.</b> A <code>for</code> loop with <code>collect()</code> drags everything to the driver and throws away all parallelism; express it as DataFrame transforms instead.</li>" +
+      "<li><b>Prefer built-in <code>F.*</code> functions over Python UDFs.</b> Built-ins run inside the JVM and are optimized; a Python UDF pays per-row serialization and blocks optimization.</li>" +
+      "</ul>" +
+      "<pre class=\"why-pre\">DRIVER (1 JVM)                       EXECUTORS (N machines, the data lives here)\n" +
+      "  builds the plan, schedules      -->   read · filter · groupBy · join · write  (parallel)\n" +
+      "  collect()/toPandas()  <== ALL rows funnel back here  ==  OOM risk\n" +
+      "  show(n)/take(n)       <== only n rows  ==  safe</pre>" +
+      "<p>Rule of thumb: the driver should only ever receive <b>small, bounded</b> results — a count, a few sample rows, aggregated metrics. Anything unbounded belongs in storage.</p>",
+
+    recognize: [
+      { q: "\"Works on a sample, OutOfMemory on the driver with full data.\"", think: "Look for collect()/toPandas() on a big DataFrame — it pulls every row onto one JVM. Replace with show/take, or write() to storage." },
+      { q: "\"My job barely uses the cluster — one machine is pinned.\"", think: "You're probably doing work on the driver: a Python loop over collected rows, or building results in plain Python. Push the logic into DataFrame transforms so it runs on executors." },
+      { q: "\"My UDF is 10× slower than the same logic with F.*.\"", think: "Python UDFs serialize every row JVM→Python→JVM and can't be optimized. Rewrite with built-in functions, or use a pandas UDF for vectorized execution." },
+      { q: "\"How do I peek at the data without risking OOM?\"", think: "show(n) or take(n) — they bring only n rows to the driver. Never collect() just to eyeball values." },
+      { q: "\"Where does this line actually execute?\"", think: "If it returns a DataFrame, it's a transformation → runs on executors. If it returns rows/a value/None to your program (collect, toPandas, count, first), the result lands on the driver." }
+    ],
+
+    matchTags: ["driver", "executor", "collect", "toPandas", "show", "take", "out of memory", "oom", "udf", "python worker", "serialization", "partition", "parallel", "cluster", "where does code run"],
+
+    traps: [
+      {
+        bad: "rows = df.collect()            # ALL rows onto the driver\nfor r in rows:\n    process(r)                 # single-threaded Python on one machine",
+        good: "df.withColumn('out', transform_expr).write.parquet(path)   # stays distributed",
+        why: "collect() + a Python loop drags the whole dataset onto the driver and processes it on one core. Express the work as DataFrame transforms so every executor runs it in parallel."
+      },
+      {
+        bad: "pdf = big_df.toPandas()       # whole result must fit in driver RAM",
+        good: "sample = big_df.limit(1000).toPandas()   # bound it first if you must go to pandas",
+        why: "toPandas() materializes every row on the driver. Only convert small, bounded results; otherwise keep it in Spark or write to storage."
+      },
+      {
+        bad: "@F.udf('double')\ndef tax(x): return x * 0.1        # per-row JVM↔Python hop, no optimization",
+        good: "df.withColumn('tax', F.col('amount') * 0.1)   # built-in, runs in the JVM",
+        why: "A Python UDF serializes each row to a Python worker and back and is opaque to Catalyst. Built-in F.* expressions run in the JVM and get optimized (and pushed down)."
+      }
+    ],
+
+    engineNote:
+      "<p><b>Under the hood.</b> When an action fires, the driver's <b>DAGScheduler</b> cuts the plan into <b>stages</b> at shuffle boundaries and submits <b>tasks</b> (one per partition) to executors via the cluster manager (YARN / Kubernetes / standalone). Executors run tasks on their slots, cache blocks, and report results. For <code>collect()</code> the results are streamed back to the driver and assembled in its heap — which is why <code>spark.driver.maxResultSize</code> and driver memory bound how much you can safely pull. Python UDFs run in a companion <b>PySpark worker</b> process next to each executor, with rows exchanged over a socket (Arrow batches for pandas UDFs, pickled rows for plain ones).</p>",
+
+    challenge: {
+      prompt:
+        "A teammate's job reads 500M rows, and 'the last line is super slow and sometimes crashes the driver.' The last lines are below. Explain what's on the driver vs the executors, and rewrite it to stay distributed.",
+      starter:
+        "df = spark.read.parquet('s3://events/').filter(F.col('ok'))\n" +
+        "rows = df.collect()                      # <- crashes here\n" +
+        "total = sum(r['amount'] for r in rows)   # Python sum on the driver\n" +
+        "print(total)",
+      solution:
+        "# read + filter run on the EXECUTORS (fine). collect() then tries to pull\n" +
+        "# all 500M filtered rows into the single driver JVM — that's the crash,\n" +
+        "# and the Python sum() would run single-threaded on the driver anyway.\n" +
+        "# Do the aggregation on the cluster and bring back just ONE number.\n" +
+        "from pyspark.sql import functions as F\n" +
+        "\n" +
+        "total = (spark.read.parquet('s3://events/')\n" +
+        "              .filter(F.col('ok'))\n" +
+        "              .agg(F.sum('amount').alias('total'))   # runs on executors\n" +
+        "              .first()['total'])                     # one row to the driver\n" +
+        "print(total)"
+    }
+  },
+
+  {
+    id: "catalyst-written-vs-run",
+    title: "What You Wrote vs What Spark Runs (Catalyst)",
+    difficulty: "Core",
+    estMinutes: 10,
+    relevance: 3,
+    tagline: "You write a plan for readability; Catalyst rewrites it for speed — pushing filters down, dropping columns you never use. Understanding the rewrite tells you how to write code it can actually optimize.",
+
+    whatIsIt: [
+      "When an action fires, Spark doesn't run your DataFrame chain line-by-line. The <b>Catalyst optimizer</b> takes the whole logical plan and <b>rewrites it</b> into an equivalent, cheaper plan before any data is read. What runs can look quite different from what you typed — while producing the identical result.",
+      "The two rewrites you feel most: <b>predicate pushdown</b> — a <code>filter</code> is moved down <i>into the scan</i> so rows are dropped as they're read (and skipped entirely in Parquet/ORC via row-group stats); and <b>column pruning</b> — columns you never reference are never read off disk. Together they mean less I/O, less shuffled data, faster joins.",
+      "This is the same lesson as <b>execution order</b>, one level down: just as SQL's written order isn't its run order, your DataFrame's written plan isn't the physical plan. You write for clarity; the optimizer handles the reordering.",
+      "But the optimizer can only move what it can <b>see through</b>. A <b>Python UDF</b>, or a non-deterministic expression, is an opaque wall: Catalyst won't push a filter past it or prune around it. That single fact explains most \"why is this slow?\" surprises."
+    ],
+
+    showMe: {
+      code:
+        "from pyspark.sql import functions as F\n" +
+        "\n" +
+        "# You WRITE it in a natural, readable order:\n" +
+        "result = (orders\n" +
+        "            .join(customers, 'customer_id')\n" +
+        "            .select('region', 'amount', 'name')\n" +
+        "            .filter(F.col('amount') > 100))\n" +
+        "\n" +
+        "# Catalyst RUNS an equivalent, cheaper plan:\n" +
+        "#   • filter amount>100 pushed DOWN into the orders scan (fewer rows read)\n" +
+        "#   • only amount/region/customer_id/name read (other columns PRUNED)\n" +
+        "#   • the join now sees far less data\n" +
+        "result.explain()   # inspect the physical plan — see PushedFilters & pruned cols\n" +
+        "\n" +
+        "# A Python UDF is a WALL — Catalyst can't push the filter past it:\n" +
+        "@F.udf('boolean')\n" +
+        "def keep(a): return a > 100\n" +
+        "slow = (orders.join(customers, 'customer_id')\n" +
+        "              .filter(keep('amount')))     # filter stuck ABOVE the join, all rows read\n" +
+        "fast = (orders.join(customers, 'customer_id')\n" +
+        "              .filter(F.col('amount') > 100))   # built-in: pushes down",
+      viz: {
+        type: "catalyst",
+        data: {
+          hint: "Press <b>▶ Optimize</b> to watch Catalyst rewrite the plan — then toggle a Python UDF to see pushdown hit a wall.",
+          written: [
+            { t: "scan orders",              detail: "all columns", why: "As written, the scan reads every column of every row." },
+            { t: "scan customers",           detail: "all columns", why: "Same — nothing has told it which columns matter yet." },
+            { t: "join on customer_id",      detail: "", why: "The join processes every row from both sides." },
+            { t: "select region, amount, name", detail: "", why: "Projection — but it comes after the join, so the join already did extra work." },
+            { t: "filter amount > 100",      detail: "runs last ⤵", why: "As typed, the filter is the last step — every row was read and joined before most got thrown away." }
+          ],
+          optimized: [
+            { t: "scan orders",     detail: "3 cols · amount>100 ⤵", changed: true, why: "Column pruning + predicate pushdown: only needed columns are read, and amount>100 is applied at the scan so most rows never leave disk." },
+            { t: "scan customers",  detail: "customer_id, name, region", changed: true, why: "Column pruning: the other customer columns are never read." },
+            { t: "join on customer_id", detail: "far fewer rows", changed: true, why: "Because the filter ran first, the join now sees a fraction of the rows." },
+            { t: "select region, amount, name", detail: "", why: "The final projection — now cheap." }
+          ],
+          steps: [
+            { title: "Column pruning", caption: "Spark reads only the columns you actually use; the rest are never loaded off disk.", w: [0, 1], o: [0, 1] },
+            { title: "Predicate pushdown", caption: "The filter moves down into the orders scan — rows are dropped as they're read, before the join.", w: [4], o: [0] },
+            { title: "Smaller join", caption: "With rows filtered and columns pruned first, the join processes far less data.", w: [2], o: [2] }
+          ],
+          done: "Same result, cheaper plan: you wrote it for clarity, Catalyst ran it for speed. Call explain() to see the PushedFilters and pruned columns yourself.",
+          udf: {
+            optimized: [
+              { t: "scan orders",    detail: "all columns", why: "Nothing can be pruned or pushed — the UDF downstream is opaque." },
+              { t: "scan customers", detail: "all columns", why: "Same: Catalyst can't tell which columns survive the UDF." },
+              { t: "join on customer_id", detail: "all rows", why: "The join runs on every row because the filter can't move below it." },
+              { t: "🐍 Python UDF keep(amount)", detail: "opaque wall", wall: true, why: "Catalyst can't see inside a Python UDF, so it won't push a filter past it or prune around it." },
+              { t: "filter keep(amount)", detail: "runs last — nothing pushed", wall: true, why: "The filter is stuck above the UDF: every row is read and joined first. This is why a UDF-based filter is so much slower." }
+            ],
+            steps: [
+              { title: "UDF blocks pruning", caption: "Because a Python UDF is opaque, Catalyst can't prove which columns are unused — so nothing is pruned.", w: [0, 1], o: [0, 1] },
+              { title: "Pushdown hits the wall", caption: "The filter can't move below the UDF, so it stays above the join — every row is read and joined first.", w: [4], o: [3, 4] }
+            ],
+            done: "With a Python UDF in the chain, none of the speedups apply. Swap it for a built-in F.* expression and the filter pushes down again."
+          }
+        }
+      },
+      caption:
+        "Left: the plan as you typed it. Right: what Catalyst actually runs — the filter pushed into the scan, columns pruned, the join now cheap. Press ▶ Optimize to watch each rewrite; toggle 🐍 Add a Python UDF to see the filter get stuck above an opaque wall."
+    },
+
+    whyMatters:
+      "<p>You don't hand-optimize Spark the way you might micro-optimize a loop — Catalyst reorders for you. What you <i>do</i> control is whether your code is <b>optimizable</b>. Three habits keep the optimizer working for you:</p>" +
+      "<ul>" +
+      "<li><b>Select only the columns you need</b> (especially before wide ops). Even though pruning is automatic, an explicit narrow projection makes intent clear and helps in chains the optimizer can't fully see through.</li>" +
+      "<li><b>Filter with built-in <code>F.*</code> expressions, not Python UDFs</b>, so predicates can push down to the scan. Reserve UDFs for logic that genuinely can't be expressed with built-ins.</li>" +
+      "<li><b>Use columnar formats (Parquet/Delta)</b> so pushdown and pruning actually skip data via footer stats — on a CSV there's far less to skip.</li>" +
+      "</ul>" +
+      "<pre class=\"why-pre\">You WROTE:   scan(all) -> join -> select -> filter\n" +
+      "Catalyst RUNS: scan(needed cols, amount>100) -> join(fewer rows) -> select\n" +
+      "\n" +
+      "…but a Python UDF is a wall:\n" +
+      "  scan(all) -> join(all rows) -> UDF -> filter    (nothing pushed, nothing pruned)</pre>" +
+      "<p><code>df.explain()</code> is how you check: look for <b>PushedFilters</b> and the reduced column list in the scan. If a filter you expected to push down isn't there, something above it (often a UDF) is blocking it.</p>",
+
+    recognize: [
+      { q: "\"My filter isn't pushing down — explain() shows it above the scan.\"", think: "Something opaque sits below it — usually a Python UDF or a non-deterministic expression. Move deterministic, built-in filters below the UDF, or replace the UDF." },
+      { q: "\"Why is Spark reading columns I never selected?\"", think: "Either you selected * / didn't project, or a downstream UDF/opaque step prevents pruning. Add an explicit select of the needed columns and remove the wall." },
+      { q: "\"Same query is fast on Parquet, slow on CSV.\"", think: "Pushdown and column pruning skip data using columnar footer stats. CSV is row-based with no stats, so there's little to skip — convert to Parquet/Delta." },
+      { q: "\"Do I need to hand-order my transforms for speed?\"", think: "Usually no — Catalyst reorders filters/projections for you. Write for clarity; just keep the plan optimizable (built-ins over UDFs, columnar storage)." },
+      { q: "\"How do I know what Spark will actually run?\"", think: "Call df.explain() (or explain(True) for all phases). Read the physical plan bottom-up and look for PushedFilters, pruned columns, and the join strategy." }
+    ],
+
+    matchTags: ["catalyst", "optimizer", "predicate pushdown", "column pruning", "explain", "physical plan", "logical plan", "pushedfilters", "udf", "parquet", "projection", "written vs run"],
+
+    traps: [
+      {
+        bad: "df.select('*').filter(my_udf('amount'))   # UDF blocks pushdown; reads all cols/rows",
+        good: "df.select('region', 'amount').filter(F.col('amount') > 100)   # pushes down, prunes",
+        why: "A built-in predicate can be pushed into the scan and columns pruned; a Python UDF is opaque, so Spark reads everything and filters late."
+      },
+      {
+        bad: "df.withColumn('x', udf_expr(...)).filter(F.col('amount') > 100)  # filter can't cross the UDF",
+        good: "df.filter(F.col('amount') > 100).withColumn('x', udf_expr(...))  # filter first, UDF on fewer rows",
+        why: "Catalyst won't reorder a deterministic filter below an opaque UDF automatically. Put the cheap, pushable filter first so the UDF runs on fewer rows."
+      },
+      {
+        bad: "spark.read.csv(path).filter(F.col('dt') == '2024-01-01')   # little to skip",
+        good: "spark.read.parquet(path).filter(F.col('dt') == '2024-01-01')  # row-group stats skip data",
+        why: "Pushdown pays off on columnar formats with footer statistics. On CSV there are no stats, so Spark still scans the whole file."
+      }
+    ],
+
+    engineNote:
+      "<p><b>Under the hood.</b> Catalyst runs in phases: <b>analysis</b> (resolve columns/types against the schema) → <b>logical optimization</b> (a rule set: predicate pushdown, column pruning, constant folding, projection collapse, boolean simplification) → <b>physical planning</b> (pick join strategies and produce one or more physical plans, chosen by cost) → <b>code generation</b> (Tungsten whole-stage codegen fuses operators into compiled loops). Pushdown reaches the data source through the <b>DataSource</b> API — Parquet/ORC/Delta accept <code>PushedFilters</code> and required columns and use footer/row-group statistics to skip blocks. UDFs and non-deterministic functions are treated as opaque, so the rule set leaves them in place. <code>explain(True)</code> prints all four phases.</p>",
+
+    challenge: {
+      prompt:
+        "This runs much slower than expected and explain() shows the filter is NOT pushed to the scan. Explain why, and rewrite it so the predicate pushes down.",
+      starter:
+        "from pyspark.sql import functions as F\n" +
+        "\n" +
+        "@F.udf('boolean')\n" +
+        "def is_big(x): return x > 1000\n" +
+        "\n" +
+        "res = (spark.read.parquet('s3://orders/')\n" +
+        "            .filter(is_big('amount'))     # slow: not pushed down\n" +
+        "            .select('region', 'amount'))",
+      solution:
+        "# is_big is a Python UDF — an opaque wall. Catalyst can't push it into the\n" +
+        "# scan, so every row is read before filtering. Use a built-in expression and\n" +
+        "# the predicate pushes down (and Parquet skips whole row groups via stats).\n" +
+        "from pyspark.sql import functions as F\n" +
+        "\n" +
+        "res = (spark.read.parquet('s3://orders/')\n" +
+        "            .select('region', 'amount')       # prune early\n" +
+        "            .filter(F.col('amount') > 1000))  # built-in → PushedFilters\n" +
+        "res.explain()   # confirm: PushedFilters: [GreaterThan(amount,1000)]"
+    }
+  },
+
+  {
     id: "transformations-vs-actions",
     title: "Transformations vs Actions",
     difficulty: "Core",
