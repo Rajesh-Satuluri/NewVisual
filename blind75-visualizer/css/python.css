@@ -177,6 +177,62 @@ body:not([data-ws="python"]) #pyProgress { display: none !important; }
 .eo-badge-t { fill: var(--text-2); font-family: inherit; font-size: 11px; font-weight: 800; text-anchor: middle; }
 .eo-chip-g.on .eo-badge-t { fill: #06111f; }
 
+/* Catalyst: the plan you wrote vs the plan Spark runs */
+.viz-cat .cat-svg { display: block; width: 100%; height: auto; }
+.viz-cat .cat-svg + .cat-svg { margin-top: 6px; padding-top: 10px; border-top: 1px dashed var(--border-soft); }
+.cat-write { --cat: var(--muted); }
+.cat-run   { --cat: #f76707; }
+.cat-col-h { fill: var(--text-2); font-family: inherit; font-size: 12.5px; font-weight: 800; letter-spacing: .3px; }
+.cat-col-sub { fill: var(--muted); font-size: 11px; font-weight: 700; }
+.cat-row { cursor: pointer; transition: opacity .15s ease; }
+.cat-row:focus { outline: none; }
+.cat-row.dim { opacity: .34; }
+.cat-box { fill: var(--bg-1); stroke: var(--border); stroke-width: 1.2; transition: fill .15s ease, stroke .15s ease; }
+.cat-row.changed .cat-box { fill: color-mix(in srgb, var(--cat) 12%, var(--bg-1)); stroke: color-mix(in srgb, var(--cat) 55%, var(--border)); }
+.cat-row.wall .cat-box { fill: color-mix(in srgb, #ff6b6b 13%, var(--bg-1)); stroke: color-mix(in srgb, #ff6b6b 55%, var(--border)); }
+.cat-row.on .cat-box, .cat-row:focus-visible .cat-box { stroke: var(--cat); stroke-width: 2.2; fill: color-mix(in srgb, var(--cat) 16%, var(--bg-1)); }
+.cat-stripe { fill: var(--cat); }
+.cat-row.wall .cat-stripe { fill: #ff6b6b; }
+.cat-op { fill: var(--text); font-family: var(--mono); font-size: 12px; font-weight: 600; }
+.cat-detail { fill: var(--muted); font-family: var(--mono); font-size: 10.5px; text-anchor: end; }
+.cat-row.changed .cat-detail { fill: var(--text-2); }
+
+/* Driver vs Executors cluster diagram */
+.viz-cr .cr-svg { display: block; width: 100%; height: auto; }
+.cr-drv-box { fill: var(--bg-1); stroke: var(--border); stroke-width: 1.4; transition: fill .18s ease, stroke .18s ease; }
+.cr-driver.hot .cr-drv-box { stroke: var(--brand); stroke-width: 2.2; }
+.cr-driver.warn .cr-drv-box { fill: color-mix(in srgb, #ff6b6b 16%, var(--bg-1)); stroke: #ff6b6b; }
+.cr-drv-t { fill: var(--text-2); font-family: inherit; font-size: 12px; font-weight: 700; text-anchor: middle; }
+.cr-driver.warn .cr-drv-t { fill: var(--text); }
+.cr-exec-box { fill: var(--bg-1); stroke: var(--border); stroke-width: 1.2; transition: stroke .18s ease; }
+.cr-exec.hot .cr-exec-box, .cr-exec-box { }
+.cr-exec-t { fill: var(--muted); font-family: inherit; font-size: 11px; font-weight: 800; }
+.cr-part { fill: var(--bg-3); stroke: var(--border-soft); stroke-width: 1; transition: fill .18s ease, stroke .18s ease; }
+.cr-part-t { fill: var(--muted); font-family: var(--mono); font-size: 10px; text-anchor: middle; }
+.cr-svg[data-where="executors"] .cr-part, .cr-svg[data-where="shuffle"] .cr-part,
+.cr-svg[data-where="storage"] .cr-part, .cr-svg[data-where="udf"] .cr-part { fill: color-mix(in srgb, var(--brand) 26%, var(--bg-3)); stroke: var(--brand); }
+.cr-svg[data-where="executors"] .cr-exec-box, .cr-svg[data-where="shuffle"] .cr-exec-box,
+.cr-svg[data-where="storage"] .cr-exec-box, .cr-svg[data-where="udf"] .cr-exec-box { stroke: var(--brand); stroke-width: 1.8; }
+.cr-store-box { fill: var(--bg-1); stroke: var(--border); stroke-width: 1.2; transition: fill .18s ease, stroke .18s ease; }
+.cr-storage.hot .cr-store-box { fill: color-mix(in srgb, #37b24d 16%, var(--bg-1)); stroke: #37b24d; }
+.cr-store-t { fill: var(--muted); font-family: inherit; font-size: 11px; font-weight: 700; text-anchor: middle; }
+.cr-arrow { opacity: 0; transition: opacity .2s ease; }
+.cr-arrow.show { opacity: 1; }
+.cr-line { stroke-width: 2; fill: none; }
+.cr-arrow.funnel .cr-line, .cr-arrow.funnel .cr-head { stroke: #ff6b6b; fill: #ff6b6b; }
+.cr-arrow.shuffle .cr-line, .cr-arrow.shuffle .cr-head { stroke: var(--brand); fill: var(--brand); }
+.cr-arrow.store .cr-line, .cr-arrow.store .cr-head { stroke: #37b24d; fill: #37b24d; }
+.cr-arrow.udf .cr-line { stroke: #b197fc; stroke-dasharray: 3 3; }
+.cr-py { fill: color-mix(in srgb, #b197fc 20%, var(--bg-1)); stroke: #b197fc; stroke-width: 1; }
+.cr-py-t { fill: var(--text-2); font-family: var(--mono); font-size: 10px; font-weight: 700; text-anchor: middle; }
+.cr-ops { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.cr-op-btn { background: var(--bg-2); border: 1px solid var(--border); color: var(--text-2); font-size: 12px; font-weight: 700;
+  font-family: inherit; padding: 5px 11px; border-radius: 999px; cursor: pointer; }
+.cr-op-btn:hover { color: var(--text); border-color: var(--brand); }
+.cr-op-btn.active { color: #06111f; background: var(--brand); border-color: transparent; }
+.cr-op-btn.warn.active { background: #ff6b6b; }
+@media (pointer: coarse) { .cr-op-btn { min-height: 32px; } }
+
 /* indexed sequence */
 .seq-row { display: flex; gap: 6px; flex-wrap: wrap; }
 .seq-cell { display: flex; flex-direction: column; align-items: center; }
