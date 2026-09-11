@@ -158,27 +158,10 @@
     }
   }
   function updateFilterCounts() {
-    var set = activeProblems();
-    var total = set.length;
-    var diff = { Easy: 0, Medium: 0, Hard: 0 };
-    var imp = { essential: 0, common: 0, occasional: 0 };
-    var stat = { "not-started": 0, learning: 0, solved: 0, review: 0, due: 0 };
-    var pat = {};
-    set.forEach(function (p) {
-      if (diff[p.difficulty] != null) diff[p.difficulty]++;
-      imp[impOf(p)]++;
-      var s = store.getStatus(p.id);
-      if (stat[s] != null) stat[s]++;
-      if (store.isReview(p.id)) stat.review++;
-      if (store.isDue(p.id)) stat.due++;
-      var pp = p.meta && p.meta.pattern;
-      if (pp) pat[pp] = (pat[pp] || 0) + 1;
-    });
-    if (window.LABFILTERS) window.LABFILTERS.setCounts({
-      difficulty: { Easy: diff.Easy, Medium: diff.Medium, Hard: diff.Hard },
-      status: { "not-started": stat["not-started"], learning: stat.learning, solved: stat.solved, review: stat.review, due: stat.due },
-      importance: { essential: imp.essential, common: imp.common, occasional: imp.occasional }
-    });
+    // Cross-filtered counts scoped to the active study set (All 150 / Blind 75):
+    // each chip reflects the other active facets so the numbers agree with the
+    // list you actually see when filters are combined.
+    if (window.LABFILTERS) window.LABFILTERS.setCountsFrom(activeProblems(), DSA_GETTERS);
   }
 
   var STATUS_GLYPH = { "not-started": "○", "learning": "◐", "solved": "✓" };

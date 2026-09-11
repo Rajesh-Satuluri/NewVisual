@@ -147,17 +147,9 @@
   }
   function capDiff(d) { return d ? (String(d).charAt(0).toUpperCase() + String(d).slice(1).toLowerCase()) : ""; }
   function updateFilterCounts() {
-    if (!window.LABFILTERS) return;
-    var diff = { Easy: 0, Medium: 0, Hard: 0 }, imp = { essential: 0, common: 0, occasional: 0 };
-    var stat = { "not-started": 0, learning: 0, solved: 0, review: 0, due: 0 };
-    all().forEach(function (p) {
-      var d = capDiff(p.difficulty); if (diff[d] != null) diff[d]++;
-      var im = cfg().importanceOf(p); if (imp[im] != null) imp[im]++;
-      var s = store.getStatus(nsId(p.id)); if (stat[s] != null) stat[s]++;
-      if (store.isReview(nsId(p.id))) stat.review++;
-      if (store.isDue(nsId(p.id))) stat.due++;
-    });
-    window.LABFILTERS.setCounts({ difficulty: diff, status: stat, importance: imp });
+    // Cross-filtered counts: each chip reflects the other active facets, so the
+    // numbers always match the list you see when filters are combined.
+    if (window.LABFILTERS) window.LABFILTERS.setCountsFrom(all(), PL_GETTERS);
   }
 
   // ---- indent guides (mirrors app.js) ----

@@ -93,6 +93,48 @@
     return keys.some(function (k) { return String(k).toLowerCase() === lv; });
   }
 
+  // Does one row match a single chip value within a facet? (the per-chip predicate)
+  function rowMatches(row, facet, value, getters) {
+    if (facet === "status") {
+      if (value === "review") return !!(getters.isReview && getters.isReview(row));
+      if (value === "due") return !!(getters.isDue && getters.isDue(row));
+      return !!(getters.status && getters.status(row) === value);
+    }
+    return matchesCI([value], getters[facet] ? getters[facet](row) : null);
+  }
+  // Passes every ACTIVE visible facet except `exceptFacet` — used so a facet's own
+  // chip counts reflect the OTHER active filters (standard faceted-search counts)
+  // without a facet suppressing its own alternatives.
+  function passesExcept(row, getters, exceptFacet) {
+    for (var i = 0; i < visibleFacets.length; i++) {
+      var f = visibleFacets[i];
+      if (f === exceptFacet) continue;
+      var keys = Object.keys(model[f]);
+      if (!keys.length) continue;
+      var ok = keys.some(function (k) { return rowMatches(row, f, k, getters); });
+      if (!ok) return false;
+    }
+    return true;
+  }
+  // Cross-filtered per-chip counts: for each facet, count rows that pass all the
+  // OTHER active facets and match that chip. This makes the numbers on the chips
+  // agree with the list you actually see when several facets are combined.
+  function computeCounts(rows, getters) {
+    var out = {};
+    FACET_ORDER.forEach(function (f) {
+      out[f] = {};
+      FACETS[f].chips.forEach(function (c) {
+        var n = 0;
+        for (var i = 0; i < rows.length; i++) {
+          var r = rows[i];
+          if (passesExcept(r, getters, f) && rowMatches(r, f, c.v, getters)) n++;
+        }
+        out[f][c.v] = n;
+      });
+    });
+    return out;
+  }
+
   function toggle(facet, value) {
     var sel = model[facet];
     if (model.mode === "single") {
@@ -179,6 +221,10 @@
     },
     // Optional per-chip counts: { difficulty:{Easy:n,…}, status:{…}, importance:{…} }
     setCounts: function (c) { counts = c; render(); },
+    // Preferred: compute cross-filtered counts from the row list + getters so the
+    // chip numbers always agree with the currently-visible list. getters is the
+    // same shape passed to passes(): { difficulty, status, importance, isReview, isDue }.
+    setCountsFrom: function (rows, getters) { counts = computeCounts(rows || [], getters || {}); render(); },
     clear: clearAll,
     reRender: render
   };
