@@ -43,6 +43,10 @@ window.LEARN.register("spark", "Performance", [
         "small_exploded = (small\n" +
         "    .withColumn('salt', F.explode(F.array([F.lit(i) for i in range(N)]))))\n" +
         "joined = big_salted.join(small_exploded, ['key', 'salt'])",
+      viz: {
+        type: "dataSkew",
+        data: { partitions: 6, base: [6, 7, 6, 8, 7, 6], hot: 48, hotPartition: 2, hotKey: "US", maxSalt: 8 }
+      },
       caption:
         "repartition hash-shuffles into a chosen count; coalesce only merges down without a shuffle. spark_partition_id() reveals skew, and salting the join key spreads one hot key across N partitions."
     },

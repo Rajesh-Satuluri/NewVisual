@@ -877,6 +877,201 @@
     return wrap;
   }
 
+  // small shared SVG arrow (line + triangle head), coloured by parent class
+  function svgArrow(NS, x1, y1, x2, y2, cls) {
+    function e(name, a) { var el = document.createElementNS(NS, name); for (var k in a) el.setAttribute(k, String(a[k])); return el; }
+    var g = e("g", { "class": cls });
+    g.appendChild(e("line", { "class": "ar-line", x1: x1, y1: y1, x2: x2, y2: y2 }));
+    var ang = Math.atan2(y2 - y1, x2 - x1), s = 7;
+    g.appendChild(e("polygon", { "class": "ar-head", points: x2 + "," + y2 + " " +
+      (x2 - s * Math.cos(ang - 0.5)) + "," + (y2 - s * Math.sin(ang - 0.5)) + " " +
+      (x2 - s * Math.cos(ang + 0.5)) + "," + (y2 - s * Math.sin(ang + 0.5)) }));
+    return g;
+  }
+
+  // ---- Join strategy: Broadcast Hash Join vs Sort-Merge Join ----------------
+  // Drag the small table's size. Under the threshold Spark broadcasts it to
+  // every executor (the big fact never shuffles); over it, both sides shuffle
+  // by key and sort-merge. The size slider FLIPS the strategy at the threshold
+  // — that's the whole lesson made physical.
+  // opts: { threshold, big, bigSize, small, executors, maxSize, startSize }
+  function joinStrategy(opts) {
+    function esc(s) { return String(s == null ? "" : s).replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }); }
+    var NS = "http://www.w3.org/2000/svg";
+    function E(name, a) { var el = document.createElementNS(NS, name); if (a) for (var k in a) el.setAttribute(k, String(a[k])); return el; }
+    var TH = opts.threshold || 10, MAX = opts.maxSize || 64;
+    var big = opts.big || "orders", bigSize = opts.bigSize || "500 MB", small = opts.small || "customers", NE = opts.executors || 3;
+    var size = opts.startSize || 6;
+
+    var W = 560, H = 292;
+    var svg = E("svg", { "class": "js-svg", viewBox: "0 0 " + W + " " + H, width: "100%", role: "img", "aria-label": "Join strategy" });
+
+    // table cards
+    var bcX = 16, cardY = 8, cardW = 210, cardH = 48, smX = W - cardW - 16;
+    var bigCard = E("g", { "class": "js-card js-big" });
+    bigCard.appendChild(E("rect", { "class": "js-card-box", x: bcX, y: cardY, width: cardW, height: cardH, rx: 8 }));
+    var bt1 = E("text", { "class": "js-card-t", x: bcX + 14, y: cardY + 20 }); bt1.textContent = big + " · " + bigSize; bigCard.appendChild(bt1);
+    var bigTag = E("text", { "class": "js-card-tag", x: bcX + 14, y: cardY + 38 }); bigCard.appendChild(bigTag);
+    var smallCard = E("g", { "class": "js-card js-small" });
+    smallCard.appendChild(E("rect", { "class": "js-card-box", x: smX, y: cardY, width: cardW, height: cardH, rx: 8 }));
+    var st1 = E("text", { "class": "js-card-t", x: smX + 14, y: cardY + 20 }); smallCard.appendChild(st1);
+    // size bar inside small card
+    smallCard.appendChild(E("rect", { "class": "js-size-track", x: smX + 14, y: cardY + 30, width: cardW - 28, height: 8, rx: 4 }));
+    var sizeFill = E("rect", { "class": "js-size-fill", x: smX + 14, y: cardY + 30, width: 10, height: 8, rx: 4 }); smallCard.appendChild(sizeFill);
+
+    // executors
+    var exW = 150, exH = 66, exY = 176, gap = (W - NE * exW) / (NE + 1), execXs = [];
+    var execG = E("g", {});
+    var execLabels = [];
+    for (var i = 0; i < NE; i++) {
+      var ex = gap + i * (exW + gap); execXs.push(ex);
+      var g = E("g", { "class": "js-exec" });
+      g.appendChild(E("rect", { "class": "js-exec-box", x: ex, y: exY, width: exW, height: exH, rx: 8 }));
+      var el = E("text", { "class": "js-exec-t", x: ex + 10, y: exY + 16 }); el.textContent = "Executor " + (i + 1); g.appendChild(el);
+      g.appendChild(E("rect", { "class": "js-chip big", x: ex + 10, y: exY + 24, width: exW - 20, height: 16, rx: 4 }));
+      var ct = E("text", { "class": "js-chip-t", x: ex + 16, y: exY + 36 }); ct.textContent = big + " p" + i + " (resident)"; g.appendChild(ct);
+      var mode = E("text", { "class": "js-exec-mode", x: ex + exW / 2, y: exY + 55 }); g.appendChild(mode);
+      execG.appendChild(g); execLabels.push(mode);
+    }
+
+    // arrow groups
+    var arrows = E("g", {});
+    var bcast = E("g", { "class": "js-arrow bcast" });
+    execXs.forEach(function (ex) { bcast.appendChild(svgArrow(NS, smX + cardW / 2, cardY + cardH, ex + exW / 2, exY)); });
+    var shufS = E("g", { "class": "js-arrow shuf" });
+    var shufB = E("g", { "class": "js-arrow shuf" });
+    execXs.forEach(function (ex) {
+      shufS.appendChild(svgArrow(NS, smX + cardW / 2, cardY + cardH, ex + exW / 2, exY));
+      shufB.appendChild(svgArrow(NS, bcX + cardW / 2, cardY + cardH, ex + exW / 2, exY));
+    });
+    arrows.appendChild(bcast); arrows.appendChild(shufS); arrows.appendChild(shufB);
+
+    svg.appendChild(arrows); svg.appendChild(bigCard); svg.appendChild(smallCard); svg.appendChild(execG);
+
+    var wrap = elh("div", "viz viz-js");
+    // slider row
+    var sRow = elh("div", "viz-range-row");
+    sRow.appendChild(elh("span", "viz-range-lbl", small + " size:"));
+    var slider = document.createElement("input");
+    slider.type = "range"; slider.min = "1"; slider.max = String(MAX); slider.value = String(size); slider.className = "viz-range";
+    var sVal = elh("span", "viz-range-val", size + " MB");
+    sRow.appendChild(slider); sRow.appendChild(sVal);
+    wrap.appendChild(sRow);
+    wrap.appendChild(svg);
+    var status = elh("div", "viz-hint js-status", "");
+    wrap.appendChild(status);
+
+    function render() {
+      var bcastMode = size <= TH;
+      st1.textContent = small + " · " + size + " MB";
+      sizeFill.setAttribute("width", Math.max(6, (cardW - 28) * size / MAX));
+      svg.setAttribute("data-mode", bcastMode ? "bcast" : "smj");
+      bigTag.textContent = bcastMode ? "stays put — no shuffle ✓" : "shuffled by key ⇄";
+      bcast.classList.toggle("show", bcastMode);
+      shufS.classList.toggle("show", !bcastMode);
+      shufB.classList.toggle("show", !bcastMode);
+      execLabels.forEach(function (m) { m.textContent = bcastMode ? "hash join (local)" : "sort + merge"; });
+      status.innerHTML = bcastMode
+        ? "<b>BroadcastHashJoin</b> — " + small + " (" + size + " MB) ≤ " + TH + " MB, so Spark copies it to <b>every executor</b>; " + big + " is never shuffled. Fast: one exchange of a tiny table."
+        : "<b>SortMergeJoin</b> — " + small + " (" + size + " MB) &gt; " + TH + " MB, so <b>both sides shuffle</b> by key and sort before merging. Two large exchanges. Tip: filter/project first, or force it with <code>F.broadcast(" + small + ")</code>.";
+    }
+    slider.addEventListener("input", function () { size = parseInt(slider.value, 10); sVal.textContent = size + " MB"; render(); });
+    render();
+    return wrap;
+  }
+
+  // ---- Data skew & salting: one hot key drags the whole stage --------------
+  // Bars = rows per partition. With no salt, the hot key piles into one giant
+  // partition (a straggler task); drag the salt factor and its rows split
+  // across N partitions, dropping the slowest task and balancing the load.
+  // opts: { partitions, base:[...], hot, hotPartition, hotKey, maxSalt }
+  function dataSkew(opts) {
+    function esc(s) { return String(s == null ? "" : s).replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }); }
+    var NS = "http://www.w3.org/2000/svg";
+    function E(name, a) { var el = document.createElementNS(NS, name); if (a) for (var k in a) el.setAttribute(k, String(a[k])); return el; }
+    var P = opts.partitions || 6;
+    var base = opts.base || [6, 7, 6, 8, 7, 6];
+    var HOT = opts.hot || 48, hotP = opts.hotPartition || 2, hotKey = opts.hotKey || "US", MAXS = opts.maxSalt || 8;
+    var salt = 1;
+
+    function heights(k) {
+      var h = base.slice(0, P);
+      var hotRows = h.map(function () { return 0; });
+      // split HOT into k salted sub-keys, round-robin to k distinct partitions
+      for (var j = 0; j < k; j++) {
+        var per = Math.floor(HOT / k) + (j < (HOT % k) ? 1 : 0);
+        var p = (hotP + j) % P;
+        hotRows[p] += per;
+      }
+      var total = h.map(function (v, i) { return v + hotRows[i]; });
+      return { total: total, hot: hotRows };
+    }
+
+    var W = 560, H = 250, base0 = 196, left = 44, right = W - 16;
+    var bw = (right - left) / P, barW = bw * 0.62;
+    var yMax = 176, scaleMaxRows = Math.max.apply(null, base) + HOT; // fixed scale
+    function yFor(v) { return base0 - (v / scaleMaxRows) * yMax; }
+
+    var svg = E("svg", { "class": "sk-svg", viewBox: "0 0 " + W + " " + H, width: "100%", role: "img", "aria-label": "Data skew" });
+    // axis
+    svg.appendChild(E("line", { "class": "sk-axis", x1: left - 6, y1: base0, x2: right, y2: base0 }));
+    var yLbl = E("text", { "class": "sk-ylbl", x: 6, y: 20 }); yLbl.textContent = "rows/partition"; svg.appendChild(yLbl);
+
+    // slowest-task line + label
+    var slowLine = E("line", { "class": "sk-slow", x1: left - 6, y1: 0, x2: right, y2: 0 });
+    var slowLbl = E("text", { "class": "sk-slow-t", x: right, y: 0 });
+    svg.appendChild(slowLine); svg.appendChild(slowLbl);
+
+    // bars: base part + hot part stacked
+    var bars = [];
+    for (var i = 0; i < P; i++) {
+      var bx = left + i * bw + (bw - barW) / 2;
+      var g = E("g", {});
+      var rBase = E("rect", { "class": "sk-bar-base", x: bx, y: base0, width: barW, height: 0, rx: 3 });
+      var rHot = E("rect", { "class": "sk-bar-hot", x: bx, y: base0, width: barW, height: 0, rx: 3 });
+      var top = E("text", { "class": "sk-bar-t", x: bx + barW / 2, y: base0 - 4 });
+      var plab = E("text", { "class": "sk-plab", x: bx + barW / 2, y: base0 + 16 }); plab.textContent = "p" + i;
+      g.appendChild(rBase); g.appendChild(rHot); g.appendChild(top); g.appendChild(plab);
+      svg.appendChild(g);
+      bars.push({ base: rBase, hot: rHot, top: top, x: bx });
+    }
+
+    var wrap = elh("div", "viz viz-sk");
+    var sRow = elh("div", "viz-range-row");
+    sRow.appendChild(elh("span", "viz-range-lbl", "salt factor:"));
+    var slider = document.createElement("input");
+    slider.type = "range"; slider.min = "1"; slider.max = String(MAXS); slider.value = "1"; slider.className = "viz-range";
+    var sVal = elh("span", "viz-range-val", "×1 (no salt)");
+    sRow.appendChild(slider); sRow.appendChild(sVal);
+    wrap.appendChild(sRow);
+    wrap.appendChild(svg);
+    var status = elh("div", "viz-hint sk-status", "");
+    wrap.appendChild(status);
+
+    function render() {
+      var r = heights(salt), tot = r.total, hot = r.hot;
+      var max = Math.max.apply(null, tot), maxIdx = tot.indexOf(max);
+      for (var i = 0; i < P; i++) {
+        var b = bars[i], baseH = base0 - yFor(base[i]), hotH = (base0 - yFor(tot[i])) - baseH;
+        b.base.setAttribute("y", yFor(base[i])); b.base.setAttribute("height", Math.max(0, baseH));
+        b.hot.setAttribute("y", yFor(tot[i])); b.hot.setAttribute("height", Math.max(0, hotH));
+        b.hot.setAttribute("x", b.x);
+        b.top.setAttribute("y", yFor(tot[i]) - 4); b.top.textContent = tot[i];
+        b.top.classList.toggle("hotmax", i === maxIdx);
+      }
+      var sy = yFor(max);
+      slowLine.setAttribute("y1", sy); slowLine.setAttribute("y2", sy);
+      slowLbl.setAttribute("y", sy - 5); slowLbl.textContent = "slowest task ≈ " + max + " rows";
+      sVal.textContent = salt === 1 ? "×1 (no salt)" : "×" + salt;
+      status.innerHTML = salt === 1
+        ? "<b>Skew.</b> Every '" + esc(hotKey) + "' row hashes to the same partition (p" + hotP + " = <b>" + max + " rows</b>) while the rest hold ~" + base[0] + ". The stage can't finish until that one straggler task does — parallelism wasted."
+        : "<b>Salted ×" + salt + ".</b> '" + esc(hotKey) + "' is split into " + salt + " sub-keys (" + esc(hotKey) + "_0…" + esc(hotKey) + "_" + (salt - 1) + ") that spread across partitions — slowest task down to <b>" + max + " rows</b>. Combine the partial results in a second step.";
+    }
+    slider.addEventListener("input", function () { salt = parseInt(slider.value, 10); render(); });
+    render();
+    return wrap;
+  }
+
   window.PYVIZ = {
     build: function (spec) {
       if (!spec || !spec.type) return null;
@@ -891,6 +1086,8 @@
       if (spec.type === "clusterRun") return clusterRun(spec.data || {});
       if (spec.type === "shuffleStages") return shuffleStages(spec.data || {});
       if (spec.type === "windowFrame") return windowFrame(spec.data || {});
+      if (spec.type === "joinStrategy") return joinStrategy(spec.data || {});
+      if (spec.type === "dataSkew") return dataSkew(spec.data || {});
       return null;
     }
   };
