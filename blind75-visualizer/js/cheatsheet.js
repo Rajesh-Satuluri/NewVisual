@@ -10,7 +10,15 @@
  */
 (function () {
   var DATA = window.PYSPARK_CHEAT || { groups: [], fns: [] };
-  var overlay = null, bodyEl = null, searchEl = null, active = "all", query = "";
+  var overlay = null, bodyEl = null, searchEl = null, active = "all", query = "", sortMode = "used";
+
+  // Usage rank (lower = more used). Drives the default "Most used" sort, the
+  // within-category ordering, and the ★ essential badge on the top tier.
+  var RANK = {}; (DATA.rankOrder || []).forEach(function (id, i) { RANK[id] = i; });
+  function rankOf(f) { var r = RANK[f.id]; return r == null ? 9999 : r; }
+  function byRank(a, b) { var d = rankOf(a) - rankOf(b); return d !== 0 ? d : (a.name || "").localeCompare(b.name || ""); }
+  var ESSENTIAL = DATA.essentialCount || 0;
+  function isEssential(f) { return rankOf(f) < ESSENTIAL; }
 
   function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
 
@@ -32,14 +40,20 @@
     return hay.indexOf(query) !== -1;
   }
 
-  function card(fn) {
+  function card(fn, showPill) {
     var c = document.createElement("div");
-    c.className = "cht-card";
+    c.className = "cht-card" + (isEssential(fn) ? " cht-essential" : "");
     var head = document.createElement("div");
     head.className = "cht-head";
     head.innerHTML =
-      '<code class="cht-sig">' + esc(fn.signature || fn.name) + "</code>" +
-      (fn.returns ? '<span class="cht-ret">→ ' + esc(fn.returns) + "</span>" : "");
+      '<span class="cht-head-l">' +
+        (isEssential(fn) ? '<span class="cht-star" title="Essential — one of the most-used; learn these first">★</span>' : "") +
+        '<code class="cht-sig">' + esc(fn.signature || fn.name) + "</code>" +
+      "</span>" +
+      '<span class="cht-head-r">' +
+        (showPill && fn.group ? '<span class="cht-group-pill">' + esc(fn.group) + "</span>" : "") +
+        (fn.returns ? '<span class="cht-ret">→ ' + esc(fn.returns) + "</span>" : "") +
+      "</span>";
     c.appendChild(head);
     if (fn.summary) { var s = document.createElement("div"); s.className = "cht-sum"; s.innerHTML = fn.summary; c.appendChild(s); }
 
@@ -66,20 +80,40 @@
     return c;
   }
 
+  function groupHeader(text) {
+    var gh = document.createElement("div");
+    gh.className = "ros-group"; gh.textContent = text;
+    return gh;
+  }
+  function emptyMsg() {
+    var e = document.createElement("div");
+    e.className = "cmdk-none"; e.textContent = "No functions match “" + query + "”.";
+    bodyEl.appendChild(e);
+  }
+
   function render() {
     bodyEl.innerHTML = "";
-    var any = false;
-    DATA.groups.forEach(function (group) {
-      if (active !== "all" && active !== group) return;
-      var fns = DATA.fns.filter(function (f) { return f.group === group && matchesQuery(f); });
-      if (!fns.length) return;
-      any = true;
-      var gh = document.createElement("div");
-      gh.className = "ros-group"; gh.textContent = group;
-      bodyEl.appendChild(gh);
-      fns.forEach(function (f) { bodyEl.appendChild(card(f)); });
-    });
-    if (!any) { var e = document.createElement("div"); e.className = "cmdk-none"; e.textContent = "No functions match “" + query + "”."; bodyEl.appendChild(e); }
+    if (sortMode === "used") {
+      // Flat, ranked list — the most-used functions first, regardless of category.
+      var fns = DATA.fns
+        .filter(function (f) { return (active === "all" || f.group === active) && matchesQuery(f); })
+        .slice().sort(byRank);
+      if (!fns.length) { emptyMsg(); return; }
+      bodyEl.appendChild(groupHeader(active === "all" ? "Most used first" : active + " · most used first"));
+      fns.forEach(function (f) { bodyEl.appendChild(card(f, true)); });
+    } else {
+      // Grouped by category (importance order), most-used first within each group.
+      var any = false;
+      DATA.groups.forEach(function (group) {
+        if (active !== "all" && active !== group) return;
+        var g = DATA.fns.filter(function (f) { return f.group === group && matchesQuery(f); }).slice().sort(byRank);
+        if (!g.length) return;
+        any = true;
+        bodyEl.appendChild(groupHeader(group));
+        g.forEach(function (f) { bodyEl.appendChild(card(f, false)); });
+      });
+      if (!any) { emptyMsg(); return; }
+    }
     bodyEl.scrollTop = 0;
   }
 
@@ -95,7 +129,13 @@
       '    <div class="ros-title">⚡ PySpark cheatsheet <span class="ros-sub">— every function, its parameters, and what they do</span></div>' +
       '    <button class="ros-close" aria-label="Close">✕</button>' +
       '  </div>' +
-      '  <div class="cht-search-row"><input class="cht-search" type="text" placeholder="Search functions… (select, join, window, groupBy, when…)" aria-label="Search PySpark functions" /></div>' +
+      '  <div class="cht-search-row">' +
+      '    <input class="cht-search" type="text" placeholder="Search functions… (select, join, window, groupBy, when…)" aria-label="Search PySpark functions" />' +
+      '    <div class="cht-sort" role="group" aria-label="Sort order">' +
+      '      <button class="cht-sort-btn active" data-sort="used" title="Show every function ordered by how often it is used">⭐ Most used</button>' +
+      '      <button class="cht-sort-btn" data-sort="cat" title="Group by category (most used first within each)">🗂 By category</button>' +
+      '    </div>' +
+      '  </div>' +
       '  <div class="ros-filter">' + chips + '</div>' +
       '  <div class="ros-body"></div>' +
       '</div>';
@@ -112,6 +152,13 @@
       });
     });
     searchEl.addEventListener("input", function () { query = searchEl.value.trim().toLowerCase(); render(); });
+    overlay.querySelectorAll(".cht-sort-btn").forEach(function (b) {
+      b.addEventListener("click", function () {
+        sortMode = b.getAttribute("data-sort");
+        overlay.querySelectorAll(".cht-sort-btn").forEach(function (c) { c.classList.toggle("active", c === b); });
+        render();
+      });
+    });
     document.addEventListener("keydown", function (e) {
       if (e.key === "Escape" && overlay.classList.contains("open")) close();
     });

@@ -420,11 +420,27 @@ body.sidebar-open .ham i:nth-child(3) { top: 6px; transform: rotate(-45deg); }
 /* ============================================================= */
 /* PySpark cheatsheet panel (.cht-*) — reuses the .ros modal shell */
 /* ============================================================= */
-.cht-search-row { padding: 12px 18px 0; }
-.cht-search { width: 100%; box-sizing: border-box; padding: 10px 14px; background: var(--bg-2);
+.cht-search-row { padding: 12px 18px 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cht-search { flex: 1 1 240px; min-width: 200px; box-sizing: border-box; padding: 10px 14px; background: var(--bg-2);
   border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-size: 14px; font-family: inherit; }
 .cht-search:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-glow); }
 .cht-search::placeholder { color: var(--muted); }
+
+/* sort toggle: Most used ↔ By category */
+.cht-sort { display: inline-flex; gap: 3px; background: var(--bg-2); border: 1px solid var(--border); border-radius: 999px; padding: 3px; }
+.cht-sort-btn { background: transparent; border: none; color: var(--muted); font-size: 12px; font-weight: 700; font-family: inherit;
+  padding: 6px 12px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
+.cht-sort-btn:hover { color: var(--text); }
+.cht-sort-btn.active { color: #06111f; background: var(--brand); }
+@media (pointer: coarse) { .cht-sort-btn { min-height: 32px; } }
+
+/* essential (top-tier) badge + category pill in the flat "most used" view */
+.cht-head-l { display: inline-flex; align-items: baseline; gap: 8px; min-width: 0; }
+.cht-head-r { display: inline-flex; align-items: baseline; gap: 8px; margin-left: auto; }
+.cht-star { color: var(--brand-2); font-size: 13px; line-height: 1; flex: none; align-self: center; }
+.cht-card.cht-essential { box-shadow: inset 3px 0 0 var(--brand-2); }
+.cht-group-pill { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: var(--muted);
+  background: var(--bg-2); border: 1px solid var(--border-soft); border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
 
 .cht-card { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 12px;
   background: var(--bg-1); box-shadow: inset 3px 0 0 var(--stripe-code); }

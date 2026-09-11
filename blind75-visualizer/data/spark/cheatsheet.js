@@ -10,14 +10,47 @@ window.PYSPARK_CHEAT = {
   groups: [
     "DataFrame",
     "Column",
-    "Functions",
     "Aggregation",
-    "Window",
-    "Dates",
     "Joins",
+    "Window",
+    "Functions",
+    "Dates",
     "I/O",
     "Performance"
   ],
+
+  // Global usage ranking — most-used-in-interviews-and-real-pipelines first.
+  // Drives the cheatsheet's default "Most used" sort, the within-category order,
+  // and the ★ essential badge (top tier). Ordering is deliberate (not
+  // alphabetical); any id not listed here falls to the end. See cheatsheet.js.
+  rankOrder: [
+    // ── Tier 1: the everyday core you reach for in almost every job/problem ──
+    "select", "filter", "withColumn", "col", "lit", "alias-col", "when",
+    "groupBy", "agg", "join", "orderBy", "count-agg", "sum", "avg", "min",
+    "withColumnRenamed", "distinct", "dropDuplicates", "drop", "cast", "isnull",
+    "window-partitionBy", "window-orderBy", "row_number",
+    // ── Tier 2: very common — you hit these on most non-trivial problems ──
+    "countDistinct", "rank", "lag", "coalesce-f", "isin", "expr", "concat_ws",
+    "split", "explode", "regexp_replace", "substring", "to_date", "datediff",
+    "date_add", "date_format", "year", "collect_list-agg", "broadcast", "union",
+    "show", "between", "like", "operators", "round", "count", "selectExpr",
+    "limit", "join-on-conditions", "concat", "regexp_extract", "to_timestamp",
+    "current_date", "read-parquet", "read-csv", "write", "cache",
+    // ── Tier 3: situational / advanced — reach for when the problem calls ──
+    "running-sum", "rowsBetween", "window-sentinels", "rangeBetween", "pivot",
+    "first-agg", "ntile", "greatest", "array", "struct", "array_contains",
+    "size", "upper", "length", "lpad", "nvl", "floor", "months_between",
+    "date_trunc", "unix_timestamp", "collect_list-f", "posexplode", "map_keys",
+    "getitem", "getfield", "substr", "columns", "first", "collect", "toDF",
+    "alias-df", "explain", "cume_dist", "stddev", "percentile_approx", "nanvl",
+    "sample", "repartition", "coalesce-df", "crossJoin", "read-json",
+    "saveAsTable", "createOrReplaceTempView", "window-tumbling",
+    "perf-broadcast", "perf-repartition-coalesce", "perf-cache",
+    "perf-partitionBy", "perf-aqe", "perf-salting"
+  ],
+
+  // Number of top-ranked functions that get the ★ essential badge (Tier 1).
+  essentialCount: 24,
   fns: [
 
     // ============================================================ DataFrame
