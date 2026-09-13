@@ -150,5 +150,38 @@ window.SQLLAB.IMPORTANCE = {
     "percent-of-region-total": "essential",
     "dept-salary-high-low": "essential",
     "days-until-next-login": "essential",
-    "score-quartiles-ntile": "essential"
+    "score-quartiles-ntile": "essential",
+
+    "ndq-not-in-null-trap": "essential",
+    "ndq-three-valued-logic": "essential",
+    "ndq-coalesce-nullif": "common",
+    "ndq-count-star-vs-col": "common",
+    "ndq-dedup-keep-latest": "essential",
+    "ndq-orphan-null-audit": "common",
+
+    "winx-ntile-quartiles": "essential",
+    "winx-percent-rank-cume-dist": "common",
+    "winx-first-last-value": "common",
+    "winx-moving-average": "essential",
+    "winx-topn-per-group-ties": "essential",
+    "winx-median-percentile": "essential",
+
+    "gi2-consecutive-logins": "essential",
+    "gi2-longest-streak": "common",
+    "gi2-merge-intervals": "occasional",
+    "gi2-sessionize": "essential",
+
+    "piv2-funnel-columns": "essential",
+    "piv2-unpivot": "common",
+    "piv2-crosstab-rates": "common",
+    "piv2-conditional-pivot": "essential",
+
+    "ts-daily-active-users": "essential",
+    "ts-day1-retention": "essential",
+    "ts-day7-retention": "common",
+    "ts-cohort-retention-grid": "essential",
+    "ts-mom-growth": "essential",
+    "ts-yoy-growth": "common",
+    "ts-rolling-7day-active": "common",
+    "ts-date-spine-gapfill": "occasional"
 };
