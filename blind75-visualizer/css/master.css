@@ -38,6 +38,24 @@ body[data-ws="python"] #setToggle { display: none !important; }
 .py-prog-pct { color: var(--brand-2); font-size: 13px; }
 .py-prog-foot { margin-top: 6px; font-size: 11.5px; }
 
+/* In-view sub-bar — shown only while a filter/search narrows the list. Uses the
+   per-stack brand accent (not the green "overall" fill) so the two never blur
+   together: green = the whole mountain, brand = the trail you're on now. */
+.py-inview, .in-view-box {
+  margin-top: 10px; padding-top: 9px;
+  border-top: 1px dashed var(--border);
+  animation: inview-in .28s var(--ease, ease);
+}
+@keyframes inview-in { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+.py-inview-head { display: flex; justify-content: space-between; align-items: baseline; font-weight: 700; font-size: 11.5px; color: var(--brand); letter-spacing: .01em; }
+.py-inview-pct { color: var(--brand); font-size: 12.5px; }
+.progress-track.inview-track { height: 5px; margin: 6px 0 4px; background: color-mix(in srgb, var(--brand) 14%, var(--bg-3)); }
+.progress-fill.inview-fill {
+  background: linear-gradient(90deg, var(--brand), var(--brand-2));
+  box-shadow: 0 0 8px color-mix(in srgb, var(--brand) 45%, transparent);
+}
+.py-inview-foot { font-size: 11px; color: var(--text-2); }
+
 /* ---- Practice lab: data tables (SQL schema/sample/expected, walkthrough) ---- */
 .lab-table-scroll { overflow-x: auto; margin: 8px 0 4px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
 .lab-table { border-collapse: collapse; width: 100%; font-size: 12.5px; font-family: var(--mono); }

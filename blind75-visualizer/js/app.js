@@ -195,7 +195,7 @@
 
   // A filter chip changed: refresh whichever renderer currently owns the sidebar.
   function refreshActiveView() {
-    if (state.stack === "python" && state.mode === "practice") renderSidebar();
+    if (state.stack === "python" && state.mode === "practice") { renderSidebar(); renderProgress(); }
     else if (state.mode === "practice") { if (window.ProblemLab && window.ProblemLab.onFilter) window.ProblemLab.onFilter(); }
     else { if (window.ConceptLab && window.ConceptLab.onFilter) window.ConceptLab.onFilter(); }
     updateFilterDot();
@@ -392,6 +392,29 @@
     if (lbl) lbl.textContent = state.setFilter === "blind75" ? "Blind 75" : "NeetCode 150";
 
     updateFilterCounts();
+
+    // IN-VIEW sub-bar — appears only when a filter/search narrows the set, so it
+    // never duplicates the overall bar above. The main bar stays anchored on the
+    // whole study set; this one tracks progress through the current slice.
+    var ivBox = el("inviewBox");
+    if (ivBox) {
+      if (anyFilterActive() || state.query.trim()) {
+        var ids = visibleIds();
+        var vTotal = 0, vSolved = 0;
+        set.forEach(function (p) {
+          if (!ids[p.id]) return;
+          vTotal++;
+          if (store.getStatus(p.id) === "solved") vSolved++;
+        });
+        var vPct = vTotal ? Math.round((vSolved / vTotal) * 100) : 0;
+        el("inviewPct").textContent = vPct + "%";
+        el("inviewFill").style.width = vPct + "%";
+        el("inviewFoot").textContent = vSolved + " / " + vTotal + " solved in this filter";
+        ivBox.hidden = false;
+      } else {
+        ivBox.hidden = true;
+      }
+    }
 
     // spaced-repetition due count (within the active set)
     var due = store.countDue(set.map(function (p) { return p.id; }));
@@ -1379,7 +1402,7 @@
   function wireControls() {
     var search = el("search");
     search.addEventListener("input", function () {
-      if (state.stack === "python" && state.mode === "practice") { state.query = search.value; renderSidebar(); }
+      if (state.stack === "python" && state.mode === "practice") { state.query = search.value; renderSidebar(); renderProgress(); }
       else if (state.stack === "python" && state.mode === "learn") { if (window.PYLAB && window.PYLAB.onSearch) window.PYLAB.onSearch(search.value); }
       else if (state.mode === "practice") { if (window.ProblemLab) window.ProblemLab.onSearch(search.value); }
       else { if (window.ConceptLab) window.ConceptLab.onSearch(search.value); }
