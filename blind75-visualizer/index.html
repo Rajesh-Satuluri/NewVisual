@@ -76,6 +76,12 @@
         </div>
         <div class="progress-track"><div id="progressFill" class="progress-fill"></div></div>
         <div class="progress-foot muted"><span id="progressSub">0 learning</span> · of <span id="totalCount">150</span> <span id="setLabel">NeetCode 150</span></div>
+        <!-- In-view sub-bar: shown only while a filter/search narrows the list. -->
+        <div id="inviewBox" class="in-view-box" hidden>
+          <div class="py-inview-head"><span class="py-inview-title">◐ In view</span><span id="inviewPct" class="py-inview-pct">0%</span></div>
+          <div class="progress-track inview-track"><div id="inviewFill" class="progress-fill inview-fill"></div></div>
+          <div id="inviewFoot" class="py-inview-foot">0 / 0 solved in this filter</div>
+        </div>
       </div>
 
       <div class="search-box">

@@ -374,18 +374,36 @@
   function renderProgress() {
     var box = el("pyProgress");
     if (!box) return;
+    // OVERALL bar — the master goal; always the whole stack, never moves.
     var list = all();
     var ids = list.map(function (p) { return nsId(p.id); });
     var solved = list.filter(function (p) { return store.getStatus(nsId(p.id)) === "solved"; }).length;
     var learning = list.filter(function (p) { return store.getStatus(nsId(p.id)) === "learning"; }).length;
     var pct = list.length ? Math.round((solved / list.length) * 100) : 0;
     var due = store.countDue(ids);
-    box.innerHTML =
+    var html =
       '<div class="py-prog-head"><span class="py-prog-title">' + esc(cfg().langLabel) + ' · Practice</span>' +
       '<span class="py-prog-pct">' + pct + '%</span></div>' +
       '<div class="progress-track"><div class="progress-fill" style="width:' + pct + '%"></div></div>' +
       '<div class="py-prog-foot muted">' + solved + ' solved · ' + learning + ' learning · ' + list.length + ' total' +
       (due ? ' · <b>' + due + ' due</b>' : '') + '</div>';
+
+    // IN-VIEW bar — appears only when a filter or search narrows the list, so it
+    // never duplicates the overall bar. Shows how far you are through THIS slice.
+    var filtered = (query && query.trim()) || (window.LABFILTERS && window.LABFILTERS.anyActive());
+    if (filtered) {
+      var view = visibleList();
+      var vSolved = view.filter(function (p) { return store.getStatus(nsId(p.id)) === "solved"; }).length;
+      var vPct = view.length ? Math.round((vSolved / view.length) * 100) : 0;
+      html +=
+        '<div class="py-inview">' +
+        '<div class="py-inview-head"><span class="py-inview-title">◐ In view</span>' +
+        '<span class="py-inview-pct">' + vPct + '%</span></div>' +
+        '<div class="progress-track inview-track"><div class="progress-fill inview-fill" style="width:' + vPct + '%"></div></div>' +
+        '<div class="py-inview-foot">' + vSolved + ' / ' + view.length + ' solved in this filter</div>' +
+        '</div>';
+    }
+    box.innerHTML = html;
     box.hidden = false;
   }
 
@@ -778,8 +796,8 @@
     lastId: function (stack) { return store.getPref("lastProblem_" + stack); },
     next: function () { step(1); },
     prev: function () { step(-1); },
-    onSearch: function (q) { query = q; renderSidebar(); },
-    onFilter: function () { renderSidebar(); },
+    onSearch: function (q) { query = q; renderSidebar(); renderProgress(); },
+    onFilter: function () { renderSidebar(); renderProgress(); },
     toggleAll: function () {
       var gs = groups();
       var willOpen = gs.every(function (g) { return store.isCatCollapsed(catCollapseKey(g.category)); }); // all collapsed → open all
