@@ -53,6 +53,24 @@
     // schema evolution, streaming foreachBatch upsert, VACUUM/retention)
     211: "essential", 212: "common", 213: "common", 214: "essential", 215: "common",
     216: "common", 217: "essential", 218: "common", 219: "essential", 220: "common",
-    221: "common", 222: "occasional"
+    221: "common", 222: "occasional",
+    // Strings & Regex (Q230-Q237)
+    230: "essential", 231: "common", 232: "common", 233: "common", 234: "essential",
+    235: "essential", 236: "common", 237: "occasional",
+    // UDFs & Functions (Q240-Q246: basic UDF, native rewrite, struct UDF, pandas_udf,
+    // broadcast-dict UDF, higher-order functions, UDF breaks pushdown/nulls)
+    240: "common", 241: "essential", 242: "common", 243: "common", 244: "common",
+    245: "essential", 246: "common",
+    // Nulls & Data Quality (Q250-Q256)
+    250: "common", 251: "essential", 252: "essential", 253: "common", 254: "essential",
+    255: "common", 256: "common",
+    // Percentiles & Distribution Stats — folds into Aggregations & GroupBy (Q260-Q265)
+    260: "essential", 261: "common", 262: "common", 263: "common", 264: "common",
+    265: "common",
+    // Self-Joins & Hierarchies — folds into Joins (Q270-Q275)
+    270: "essential", 271: "common", 272: "common", 273: "common", 274: "common",
+    275: "common",
+    // Sessionization — folds into Cohort & Time-Series (Q280-Q283)
+    280: "essential", 281: "common", 282: "common", 283: "occasional"
   };
 })();
