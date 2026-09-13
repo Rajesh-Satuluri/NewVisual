@@ -1072,6 +1072,235 @@
     return wrap;
   }
 
+  // ---- memorySpill: executor heap regions + spill-to-disk vs OOM -----------
+  // Drag the working-set a task must hold. A spill-friendly workload (sort /
+  // shuffle / aggregate) spills sorted runs to disk once it passes the execution
+  // ceiling — slow but safe. A "must hold whole" workload (a skewed groupBy key,
+  // collect(), a giant explode) can't spill a single group, so it OOMs the moment
+  // it exceeds the ceiling. That contrast is the whole "why did my job die" answer.
+  // opts: { heapGB, reservedGB, execGB, userGB, maxGB }
+  function memorySpill(opts) {
+    function esc(s) { return String(s == null ? "" : s).replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }); }
+    var NS = "http://www.w3.org/2000/svg";
+    function E(name, a) { var el = document.createElementNS(NS, name); if (a) for (var k in a) el.setAttribute(k, String(a[k])); return el; }
+    var HEAP = opts.heapGB || 4, RES = opts.reservedGB || 0.3, EXEC = opts.execGB || 2.2, USER = opts.userGB || 1.5;
+    var MAXG = opts.maxGB || 6;
+    var demand = 1.2, mode = "spill";
+
+    var W = 560, H = 274, base0 = 232, vH = 196;
+    function yFor(gb) { return base0 - (gb / MAXG) * vH; }
+    var svg = E("svg", { "class": "ms-svg", viewBox: "0 0 " + W + " " + H, width: "100%", role: "img", "aria-label": "Executor memory, spill and OOM" });
+
+    // ---- heap column (static reference diagram) ----
+    var hx = 46, hw = 92;
+    function band(gb0, gb1, cls, label, sub) {
+      var y = yFor(gb1), h = yFor(gb0) - yFor(gb1);
+      var g = E("g", {});
+      g.appendChild(E("rect", { "class": "ms-band " + cls, x: hx, y: y, width: hw, height: Math.max(0, h), rx: 3 }));
+      var t = E("text", { "class": "ms-band-t", x: hx + hw / 2, y: y + h / 2 + 3 }); t.textContent = label; g.appendChild(t);
+      if (sub) { var s = E("text", { "class": "ms-band-s", x: hx + hw / 2, y: y + h / 2 + 15 }); s.textContent = sub; g.appendChild(s); }
+      svg.appendChild(g);
+    }
+    band(0, RES, "ms-res", "Reserved", RES + " GB");
+    band(RES, RES + EXEC, "ms-exec", "Execution", EXEC + " GB");
+    band(RES + EXEC, RES + EXEC + USER, "ms-user", "User", USER + " GB");
+    var hcap = E("text", { "class": "ms-cap", x: hx + hw / 2, y: yFor(HEAP) - 8 }); hcap.textContent = HEAP + " GB heap"; svg.appendChild(hcap);
+
+    // ---- demand column (interactive) ----
+    var dx = 214, dw = 84;
+    var ceil = EXEC; // execution memory available to the task
+    var cy = yFor(ceil);
+    var dGreen = E("rect", { "class": "ms-d-green", x: dx, y: base0, width: dw, height: 0, rx: 3 });
+    var dOver = E("rect", { "class": "ms-d-over", x: dx, y: base0, width: dw, height: 0, rx: 3 });
+    svg.appendChild(dGreen); svg.appendChild(dOver);
+    var dTop = E("text", { "class": "ms-d-top", x: dx + dw / 2, y: base0 }); svg.appendChild(dTop);
+    var dLbl = E("text", { "class": "ms-axis", x: dx + dw / 2, y: base0 + 16 }); dLbl.textContent = "task working set"; svg.appendChild(dLbl);
+    // execution ceiling line across the demand + disk area
+    var cLine = E("line", { "class": "ms-ceil", x1: dx - 10, y1: cy, x2: 356, y2: cy });
+    var cTxt = E("text", { "class": "ms-ceil-t", x: 354, y: cy - 6 }); cTxt.textContent = "execution limit ≈ " + EXEC + " GB";
+    svg.appendChild(cLine); svg.appendChild(cTxt);
+
+    // ---- disk box (fills with spill) ----
+    var kx = 372, kw = 150, kTop = base0 - 64, kH = 64;
+    svg.appendChild(E("rect", { "class": "ms-disk-box", x: kx, y: kTop, width: kw, height: kH, rx: 5 }));
+    var dFill = E("rect", { "class": "ms-disk-fill", x: kx, y: kTop + kH, width: kw, height: 0 });
+    svg.appendChild(dFill);
+    var dkT = E("text", { "class": "ms-disk-t", x: kx + kw / 2, y: kTop - 8 }); dkT.textContent = "local disk"; svg.appendChild(dkT);
+    var dkS = E("text", { "class": "ms-disk-s", x: kx + kw / 2, y: kTop + kH / 2 + 4 }); svg.appendChild(dkS);
+
+    var wrap = elh("div", "viz viz-ms");
+    // workload toggle
+    var seg = elh("div", "viz-seg");
+    var bSpill = elh("button", "viz-seg-btn on", "Spillable op (sort / shuffle / agg)");
+    var bHold = elh("button", "viz-seg-btn", "Must hold whole (skew / collect)");
+    seg.appendChild(bSpill); seg.appendChild(bHold); wrap.appendChild(seg);
+    // slider
+    var sRow = elh("div", "viz-range-row");
+    sRow.appendChild(elh("span", "viz-range-lbl", "working set:"));
+    var slider = document.createElement("input");
+    slider.type = "range"; slider.min = "4"; slider.max = String(MAXG * 10); slider.value = "12"; slider.className = "viz-range";
+    var sVal = elh("span", "viz-range-val", "1.2 GB");
+    sRow.appendChild(slider); sRow.appendChild(sVal); wrap.appendChild(sRow);
+    wrap.appendChild(svg);
+    var status = elh("div", "viz-hint ms-status", "");
+    wrap.appendChild(status);
+
+    function render() {
+      sVal.textContent = demand.toFixed(1) + " GB";
+      var inMem = Math.min(demand, ceil), over = Math.max(0, demand - ceil);
+      var oom = (mode === "hold" && over > 0.001);
+      // green (in-memory) portion
+      dGreen.setAttribute("y", yFor(inMem)); dGreen.setAttribute("height", Math.max(0, base0 - yFor(inMem)));
+      dGreen.setAttribute("class", oom ? "ms-d-green ms-dim" : "ms-d-green");
+      // over portion (spill = yellow, oom = red)
+      dOver.setAttribute("y", yFor(demand)); dOver.setAttribute("height", Math.max(0, yFor(inMem) - yFor(demand)));
+      dOver.setAttribute("class", over > 0.001 ? (oom ? "ms-d-oom" : "ms-d-spill") : "ms-d-none");
+      dTop.setAttribute("y", yFor(demand) - 5);
+      dTop.textContent = oom ? "OOM ✗" : demand.toFixed(1) + " GB";
+      dTop.setAttribute("class", oom ? "ms-d-top ms-oomtxt" : (over > 0.001 ? "ms-d-top ms-spilltxt" : "ms-d-top"));
+      // disk fill (only when spilling)
+      var spillGB = (!oom && over > 0.001) ? over : 0;
+      var fillH = Math.min(kH, (spillGB / (MAXG - ceil)) * kH);
+      dFill.setAttribute("y", kTop + kH - fillH); dFill.setAttribute("height", fillH);
+      dkS.textContent = spillGB > 0.001 ? ("spilled " + spillGB.toFixed(1) + " GB") : (oom ? "—" : "no spill");
+      dkS.setAttribute("class", oom ? "ms-disk-s ms-dim" : "ms-disk-s");
+
+      if (over <= 0.001) {
+        status.innerHTML = "<b>In memory.</b> The task's working set (" + demand.toFixed(1) + " GB) fits under the execution limit — processed at full speed, no disk I/O.";
+      } else if (!oom) {
+        status.innerHTML = "<b>Spilling to disk.</b> A sort/shuffle/aggregate spills sorted runs past " + EXEC + " GB and merges them — the job <b>survives</b> but pays " + spillGB.toFixed(1) + " GB of write-then-reread. Fix: more partitions (smaller each), or more executor memory.";
+      } else {
+        status.innerHTML = "<b>OutOfMemoryError.</b> This workload must hold a single unit whole — a skewed groupBy key, <code>collect()</code>, a giant <code>explode</code> — so it <b>can't spill</b>. Past the execution limit the executor dies. Fix: salt the skewed key, avoid <code>collect()</code>, raise partitions, or size up the executor.";
+      }
+    }
+    function setMode(m) { mode = m; bSpill.classList.toggle("on", m === "spill"); bHold.classList.toggle("on", m === "hold"); render(); }
+    slider.addEventListener("input", function () { demand = parseInt(slider.value, 10) / 10; render(); });
+    bSpill.addEventListener("click", function () { setMode("spill"); });
+    bHold.addEventListener("click", function () { setMode("hold"); });
+    render();
+    return wrap;
+  }
+
+  // ---- partitionOps: repartition vs coalesce vs partitionBy ----------------
+  // Toggle the three most-confused partition operations against the SAME uneven
+  // input. repartition = full shuffle to even sizes; coalesce = local merge, no
+  // shuffle, stays uneven, reduce-only; partitionBy = an on-disk directory layout,
+  // a different thing entirely. opts: { input:[...], keys:[...] }
+  function partitionOps(opts) {
+    function esc(s) { return String(s == null ? "" : s).replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }); }
+    var NS = "http://www.w3.org/2000/svg";
+    function E(name, a) { var el = document.createElementNS(NS, name); if (a) for (var k in a) el.setAttribute(k, String(a[k])); return el; }
+    var input = opts.input || [10, 2, 8, 3, 9, 4];
+    var keys = opts.keys || ["US", "IN", "UK"];
+    var total = input.reduce(function (a, b) { return a + b; }, 0);
+    var op = "repartition";
+
+    var W = 560, H = 300;
+    var svg = E("svg", { "class": "po-svg", viewBox: "0 0 " + W + " " + H, width: "100%", role: "img", "aria-label": "repartition vs coalesce vs partitionBy" });
+    var maxV = Math.max.apply(null, input) + 4;
+    var colY = 66, colH = 150, barMaxH = 120;
+    function barH(v) { return (v / maxV) * barMaxH; }
+
+    var leftX = 24, rightX = 312, slotW = 44, gap = 10;
+    function drawSet(x0, vals, cls, labelPrefix) {
+      var nodes = [];
+      for (var i = 0; i < vals.length; i++) {
+        var bx = x0 + i * (slotW + gap);
+        var v = vals[i], h = barH(v), y = colY + colH - h;
+        var g = E("g", {});
+        g.appendChild(E("rect", { "class": "po-slot", x: bx, y: colY, width: slotW, height: colH, rx: 4 }));
+        g.appendChild(E("rect", { "class": "po-bar " + cls, x: bx + 4, y: y, width: slotW - 8, height: Math.max(2, h), rx: 3 }));
+        var t = E("text", { "class": "po-bar-t", x: bx + slotW / 2, y: y - 4 }); t.textContent = v; g.appendChild(t);
+        var pl = E("text", { "class": "po-plab", x: bx + slotW / 2, y: colY + colH + 15 }); pl.textContent = (labelPrefix || "p") + i; g.appendChild(pl);
+        svg.appendChild(g);
+        nodes.push({ x: bx + slotW / 2, topY: y, botY: colY + colH });
+      }
+      return nodes;
+    }
+    var headL = E("text", { "class": "po-head", x: leftX, y: 40 }); headL.textContent = "input: 6 uneven partitions (" + total + " rows)"; svg.appendChild(headL);
+    var headR = E("text", { "class": "po-head", x: rightX, y: 40 });
+    var arrowLayer = E("g", {}); svg.appendChild(arrowLayer);
+    var inNodes = drawSet(leftX, input, "po-in", "p");
+    var outLayer = E("g", {}); svg.appendChild(outLayer);
+
+    var wrap = elh("div", "viz viz-po");
+    var seg = elh("div", "viz-seg");
+    var bR = elh("button", "viz-seg-btn on", "repartition(3)");
+    var bC = elh("button", "viz-seg-btn", "coalesce(3)");
+    var bP = elh("button", "viz-seg-btn", "partitionBy('country')");
+    seg.appendChild(bR); seg.appendChild(bC); seg.appendChild(bP); wrap.appendChild(seg);
+    wrap.appendChild(svg);
+    var status = elh("div", "viz-hint po-status", ""); wrap.appendChild(status);
+
+    function clear(layer) { while (layer.firstChild) layer.removeChild(layer.firstChild); }
+    function arrow(x1, y1, x2, y2, cls) {
+      var g = E("g", {});
+      g.appendChild(E("line", { "class": "po-arr " + (cls || ""), x1: x1, y1: y1, x2: x2, y2: y2 }));
+      return g;
+    }
+
+    function render() {
+      clear(outLayer); clear(arrowLayer);
+      bR.classList.toggle("on", op === "repartition");
+      bC.classList.toggle("on", op === "coalesce");
+      bP.classList.toggle("on", op === "partitionBy");
+
+      if (op === "repartition") {
+        headR.textContent = "3 partitions, balanced";
+        var each = Math.round(total / 3), out = [each, each, total - 2 * each];
+        var outNodes = drawSetInto(outLayer, rightX, out, "po-rep", "p");
+        // full shuffle: every input feeds every output
+        for (var i = 0; i < inNodes.length; i++) for (var j = 0; j < outNodes.length; j++)
+          arrowLayer.appendChild(arrow(inNodes[i].x, inNodes[i].botY + 4, outNodes[j].x, outNodes[j].topY - 4, "po-shuf"));
+        status.innerHTML = "<b>repartition(3) — full shuffle.</b> Every input partition sends rows to every output partition across the network, landing 3 <b>evenly balanced</b> partitions. Use it to fix skew or to <i>increase</i> parallelism. Cost: a full shuffle.";
+      } else if (op === "coalesce") {
+        headR.textContent = "3 partitions, merged (uneven)";
+        var out2 = [input[0] + input[1], input[2] + input[3], input[4] + input[5]];
+        var outNodes2 = drawSetInto(outLayer, rightX, out2, "po-coal", "p");
+        // local merge: adjacent pairs, no crossing
+        var pairs = [[0, 1], [2, 3], [4, 5]];
+        for (var p = 0; p < pairs.length; p++) for (var q = 0; q < pairs[p].length; q++)
+          arrowLayer.appendChild(arrow(inNodes[pairs[p][q]].x, inNodes[pairs[p][q]].botY + 4, outNodes2[p].x, outNodes2[p].topY - 4, "po-merge"));
+        status.innerHTML = "<b>coalesce(3) — no shuffle.</b> Adjacent partitions are merged locally on the executor that already holds them, so there's no network movement — cheap. But sizes stay <b>uneven</b>, and it can only <i>reduce</i> the partition count, never raise it.";
+      } else {
+        headR.textContent = "on-disk: one directory per key";
+        drawFolders(outLayer, rightX);
+        status.innerHTML = "<b>partitionBy('country') — a disk layout, not an in-memory repartition.</b> On <code>write</code>, Spark lays down one directory per key value (<code>country=US/…</code>) so a later filter on <code>country</code> reads only that folder (<b>partition pruning</b>). Watch out: a high-cardinality key makes a flood of tiny files.";
+      }
+    }
+    function drawSetInto(layer, x0, vals, cls, prefix) {
+      var nodes = [];
+      for (var i = 0; i < vals.length; i++) {
+        var bx = x0 + i * (slotW + gap), v = vals[i], h = barH(v), y = colY + colH - h;
+        var g = E("g", {});
+        g.appendChild(E("rect", { "class": "po-slot", x: bx, y: colY, width: slotW, height: colH, rx: 4 }));
+        g.appendChild(E("rect", { "class": "po-bar " + cls, x: bx + 4, y: y, width: slotW - 8, height: Math.max(2, h), rx: 3 }));
+        var t = E("text", { "class": "po-bar-t", x: bx + slotW / 2, y: y - 4 }); t.textContent = v; g.appendChild(t);
+        var pl = E("text", { "class": "po-plab", x: bx + slotW / 2, y: colY + colH + 15 }); pl.textContent = (prefix || "p") + i; g.appendChild(pl);
+        layer.appendChild(g);
+        nodes.push({ x: bx + slotW / 2, topY: y, botY: colY + colH });
+      }
+      return nodes;
+    }
+    function drawFolders(layer, x0) {
+      var start = 356, sp = 62, fw = 50, y = colY + 10, fh = 96;
+      for (var i = 0; i < keys.length; i++) {
+        var bx = start + i * sp;
+        var g = E("g", {});
+        g.appendChild(E("path", { "class": "po-folder", d: "M" + bx + " " + (y + 9) + " h13 l5 -8 h" + (fw - 22) + " v" + (fh - 1) + " h-" + fw + " z" }));
+        var t = E("text", { "class": "po-folder-t", x: bx + fw / 2, y: y + 36 }); t.textContent = "country="; g.appendChild(t);
+        var t2 = E("text", { "class": "po-folder-k", x: bx + fw / 2, y: y + 54 }); t2.textContent = esc(keys[i]); g.appendChild(t2);
+        var pf = E("text", { "class": "po-folder-f", x: bx + fw / 2, y: y + 82 }); pf.textContent = "part-*"; g.appendChild(pf);
+        layer.appendChild(g);
+      }
+    }
+    bR.addEventListener("click", function () { op = "repartition"; render(); });
+    bC.addEventListener("click", function () { op = "coalesce"; render(); });
+    bP.addEventListener("click", function () { op = "partitionBy"; render(); });
+    render();
+    return wrap;
+  }
+
   window.PYVIZ = {
     build: function (spec) {
       if (!spec || !spec.type) return null;
@@ -1088,6 +1317,8 @@
       if (spec.type === "windowFrame") return windowFrame(spec.data || {});
       if (spec.type === "joinStrategy") return joinStrategy(spec.data || {});
       if (spec.type === "dataSkew") return dataSkew(spec.data || {});
+      if (spec.type === "memorySpill") return memorySpill(spec.data || {});
+      if (spec.type === "partitionOps") return partitionOps(spec.data || {});
       return null;
     }
   };

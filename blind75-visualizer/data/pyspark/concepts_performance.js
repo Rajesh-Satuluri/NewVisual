@@ -361,5 +361,234 @@ window.LEARN.register("spark", "Performance", [
         "# ideal count depends on per-query data sizes the planner can't know\n" +
         "# up front; AQE measures the real shuffle and sizes partitions to it."
     }
+  },
+
+  {
+    id: "memory-spill-oom",
+    title: "Memory, Spill & OOM",
+    difficulty: "Core",
+    estMinutes: 13,
+    relevance: 3,
+    tagline: "The interview question you WILL get — \"your job runs out of memory, what do you do?\" — comes down to one distinction: work that can spill to disk survives; work that must hold a chunk whole is what OOMs.",
+
+    whatIsIt: [
+      "Each executor is a JVM with a fixed heap. Spark carves it into regions: a small <b>reserved</b> slice, a <b>unified</b> region (<code>spark.memory.fraction</code>, default 0.6) shared by <b>execution</b> memory (shuffles, sorts, joins, aggregations) and <b>storage</b> memory (cached/persisted blocks), and <b>user</b> memory (0.4) for your own objects and UDF state.",
+      "When an execution task needs more room than the unified region can give, Spark <b>spills</b>: it writes sorted runs to local disk and merges them back. The job is slower (disk I/O + serialization) but it <b>completes</b>. Sort, shuffle, and aggregation are all spill-friendly.",
+      "An <b>OutOfMemoryError</b> happens when something must be held in memory <b>whole</b> and can't spill: a single <b>skewed</b> groupBy key with millions of rows, a <code>collect()</code>/<code>toPandas()</code> pulling the result to the driver, a giant <code>explode</code>, a broadcast that's actually large, or too many concurrent task threads each holding a big buffer.",
+      "So the fix depends on the cause: for spillable pressure, give tasks <b>smaller partitions</b> (more of them) or more executor memory; for OOM, remove the thing that can't spill — <b>salt</b> the skewed key, avoid <code>collect()</code>, raise the partition count, or size up the executor."
+    ],
+
+    showMe: {
+      code:
+        "# --- Spillable: a sort/shuffle/aggregate. Big? It spills, but SURVIVES. ---\n" +
+        "big.groupBy('country').agg(F.sum('amount'))   # partial agg + spill if needed\n" +
+        "\n" +
+        "# Shrink each task's working set so it fits in execution memory:\n" +
+        "spark.conf.set('spark.sql.shuffle.partitions', 800)  # more, smaller partitions\n" +
+        "\n" +
+        "# --- Cannot spill -> OOM risks ---\n" +
+        "rows = df.collect()          # pulls ALL rows to the driver  -> driver OOM\n" +
+        "pdf  = df.toPandas()         # same trap\n" +
+        "big.join(F.broadcast(huge))  # 'huge' copied to every executor -> executor OOM\n" +
+        "df.groupBy('bot_user').agg(F.collect_list('event'))  # one giant group in memory\n" +
+        "\n" +
+        "# Fix skew that can't spill: salt the hot key so it splits across tasks\n" +
+        "N = 32\n" +
+        "salted = df.withColumn('salt', (F.rand() * N).cast('int'))\n" +
+        "salted.groupBy('bot_user', 'salt').agg(F.sum('amt'))  # then re-aggregate",
+      viz: {
+        type: "memorySpill",
+        data: { heapGB: 4, reservedGB: 0.3, execGB: 2.2, userGB: 1.5, maxGB: 6 }
+      },
+      caption:
+        "Drag the working set. A spillable op crosses the execution limit and spills to disk — slow but safe. Flip to \"must hold whole\" and the same size OOMs, because a single skewed group / collect() can't be spilled."
+    },
+
+    whyMatters:
+      "<p>\"Why did my job OOM?\" is asked in almost every Spark interview, and the weak answer is \"add more memory.\" The strong answer names the cause and matches the fix — because more memory doesn't help a <code>collect()</code> of a billion rows, and it doesn't fix skew.</p>" +
+      "<p>The mental split that impresses:</p>" +
+      "<ul>" +
+      "<li><b>Spillable pressure</b> (sort/shuffle/agg too big) — safe but slow. Fix with more, smaller partitions (<code>spark.sql.shuffle.partitions</code>) or more <code>executor.memory</code>.</li>" +
+      "<li><b>Can't-spill OOM</b> (skew, <code>collect()</code>, large broadcast, giant group/explode) — fix by removing the whole-object requirement: salt, avoid driver pulls, cap broadcast size.</li>" +
+      "</ul>" +
+      "<pre class=\"why-pre\">spill:  working set 3.4 GB &gt; 2.2 GB limit  -&gt; 1.2 GB to disk, job finishes (slow)\nOOM:    one bot_user group 3.4 GB, can't split -&gt; executor dies</pre>",
+
+    recognize: [
+      { q: "\"My job OOMs on a groupBy / join of one key.\"", think: "Skew — one key's rows must sit together and can't spill. Salt the key, raise partitions, or enable AQE skew join." },
+      { q: "\"Driver OOM after collect() / toPandas().\"", think: "You pulled the whole result to the driver. Write it out (parquet) or take(n); raise driver memory only as a last resort." },
+      { q: "\"Executor OOM right after a broadcast join.\"", think: "The 'small' side isn't small — it's copied to every executor. Lower autoBroadcastJoinThreshold or don't broadcast it." },
+      { q: "\"Lots of disk spill in the Spark UI, but it finishes.\"", think: "Spillable pressure, not OOM. Give tasks smaller partitions (more shuffle partitions) or more executor memory to cut the spill I/O." },
+      { q: "\"Should I just raise executor memory?\"", think: "Only for spillable pressure. It won't fix skew, collect(), or an oversized broadcast — fix the cause instead." }
+    ],
+
+    matchTags: ["memory", "oom", "outofmemory", "spill", "executor memory", "unified memory",
+                "spark.memory.fraction", "collect", "toPandas", "broadcast", "skew", "driver",
+                "shuffle partitions", "performance", "tuning"],
+
+    traps: [
+      {
+        bad: "result = big_df.collect()          # all rows -> driver heap -> OOM",
+        good: "big_df.write.parquet(path)         # keep it distributed; or take(n)",
+        why: "collect()/toPandas() move the ENTIRE result into the driver JVM, which can't spill. Write the result out or sample it; reserve collect() for tiny, known-small outputs."
+      },
+      {
+        bad: "big.join(F.broadcast(also_big))    # 'also_big' shipped to every executor",
+        good: "big.join(also_big, 'key')          # let it be a sort-merge join (spills)",
+        why: "Broadcasting a table that doesn't comfortably fit in each executor's memory OOMs them. Only broadcast genuinely small dimensions; a sort-merge join can spill and survive."
+      },
+      {
+        bad: "spark.conf.set('spark.executor.memory', '32g')  # 'fix' skew with RAM",
+        good: "salted = df.withColumn('salt', (F.rand()*32).cast('int'))  # split the hot key",
+        why: "Throwing memory at a skewed key just delays the OOM — one partition still holds all its rows. Salting (or AQE skew join) splits the hot key across tasks so no single task must hold it all."
+      }
+    ],
+
+    complexity: [
+      { op: "sort / shuffle / aggregate (spillable)", big_o: "O(n) + spill I/O", note: "When the working set exceeds execution memory, Spark spills sorted runs to local disk and merges them — slower, but the task completes without OOM." },
+      { op: "collect() / toPandas()", big_o: "O(result) on driver", note: "Materializes the whole result in the driver JVM, which cannot spill; large results OOM the driver regardless of executor memory." },
+      { op: "broadcast(t)", big_o: "O(t) per executor", note: "The broadcast table is copied into every executor's heap; safe only when t is small (default threshold ~10MB)." },
+      { op: "skewed groupBy / collect_list", big_o: "O(hot key) in memory", note: "All rows of the hot key must sit in one task's memory to be aggregated into a single group, so a fat key can't spill and OOMs." },
+      { op: "raise shuffle.partitions", big_o: "smaller working set/task", note: "More partitions means each task holds less, so spillable pressure eases — the cheapest first move before adding memory." }
+    ],
+
+    engineNote:
+      "<p><b>Under the hood.</b> Since Spark 1.6 the <b>unified memory manager</b> lets execution and storage borrow from each other within <code>spark.memory.fraction</code> (default 0.6 of the heap after a ~300MB reservation). Execution memory can evict cached (storage) blocks when it needs room, but storage cannot evict execution.</p>" +
+      "<p><b>Spill</b> is Spark working as designed: an <code>ExternalSorter</code>/<code>UnsafeExternalSorter</code> writes sorted runs to disk and merges them, so sort/shuffle/aggregate degrade gracefully instead of failing. The Spark UI's \"Spill (memory)\" and \"Spill (disk)\" columns quantify it.</p>" +
+      "<p><b>OOM</b> is the opposite: a single object exceeds the heap and there's nothing to spill — a driver <code>collect()</code>, an oversized broadcast, or a skewed key's group. That's why the fix is structural (salt, avoid the pull, cap broadcast), not just <code>--executor-memory</code>.</p>",
+
+    challenge: {
+      prompt:
+        "A nightly job aggregates 5 billion events by user_id. It ran fine for months, then started throwing java.lang.OutOfMemoryError on a single task after a marketing campaign. Nothing about the cluster changed. What almost certainly happened, and what's your first fix (not \"add memory\")?",
+      starter:
+        "events.groupBy('user_id').agg(F.collect_list('event_id')) \\\n" +
+        "  .write.parquet(out)\n" +
+        "# one task OOMs; the rest finish. cluster unchanged. why? first fix?",
+      solution:
+        "from pyspark.sql import functions as F\n" +
+        "# Diagnosis: the campaign created a few HOT user_ids (bots / a promo account).\n" +
+        "# collect_list forces every event for a user into ONE task's memory as a single\n" +
+        "# group -> it can't spill -> that one task OOMs while the rest finish. Skew.\n" +
+        "\n" +
+        "# First fix: DON'T add memory (won't help — the group still can't split).\n" +
+        "# If you actually need the list, cap it or reconsider collect_list; if you need\n" +
+        "# a count/sum, salt the hot key so the aggregate splits across tasks:\n" +
+        "N = 64\n" +
+        "salted = events.withColumn('salt', (F.rand() * N).cast('int'))\n" +
+        "part = salted.groupBy('user_id', 'salt').agg(F.count('*').alias('c'))\n" +
+        "final = part.groupBy('user_id').agg(F.sum('c').alias('event_count'))\n" +
+        "# Also: enable AQE skew join (spark.sql.adaptive.skewJoin.enabled) for skewed joins."
+    }
+  },
+
+  {
+    id: "repartition-coalesce-partitionby",
+    title: "repartition vs coalesce vs partitionBy",
+    difficulty: "Core",
+    estMinutes: 11,
+    relevance: 3,
+    tagline: "Three operations that sound interchangeable and are not: one shuffles to rebalance, one merges without a shuffle, and one is a disk layout — mixing them up is a classic interview tell.",
+
+    whatIsIt: [
+      "<b>repartition(n [, cols])</b> does a <b>full shuffle</b>: every input partition sends rows across the network to produce <code>n</code> <b>evenly balanced</b> partitions. It can <b>increase or decrease</b> the count. Use it to fix skew or raise parallelism — at the cost of a shuffle.",
+      "<b>coalesce(n)</b> does <b>no shuffle</b>: it merges existing partitions together on the executors that already hold them. That makes it cheap, but it can only <b>reduce</b> the count and the result can stay <b>uneven</b>.",
+      "<b>partitionBy('col')</b> is a different thing entirely — it's a <code>DataFrameWriter</code> option, not an in-memory operation. On <code>write</code> it lays out <b>one directory per key value</b> (<code>col=US/</code>, <code>col=IN/</code>, …) so a later filter on that column reads only the matching folders (<b>partition pruning</b>).",
+      "The confusion to avoid: <code>repartition</code>/<code>coalesce</code> control how data is split <b>in memory during a job</b>; <code>partitionBy</code> controls how it's organized <b>on disk after the job</b>. They're often used together — <code>df.repartition('country').write.partitionBy('country')</code> writes one tidy file per country."
+    ],
+
+    showMe: {
+      code:
+        "df.rdd.getNumPartitions()          # how many partitions right now?\n" +
+        "\n" +
+        "# repartition — FULL SHUFFLE, even sizes, can grow or shrink\n" +
+        "even = df.repartition(8)           # round-robin into 8 balanced partitions\n" +
+        "byk  = df.repartition(8, 'country')# hash by country (same key -> same partition)\n" +
+        "\n" +
+        "# coalesce — NO SHUFFLE, only reduces, may be uneven\n" +
+        "few = df.coalesce(2)               # merge down to 2 (cheap, before writing)\n" +
+        "\n" +
+        "# partitionBy — ON-DISK directory layout for pruning (a WRITE option)\n" +
+        "(df.write\n" +
+        "   .partitionBy('country')         # creates country=US/, country=IN/, ...\n" +
+        "   .parquet('/data/sales'))\n" +
+        "\n" +
+        "# later: reads ONLY country=US/ thanks to the directory layout\n" +
+        "spark.read.parquet('/data/sales').filter(\"country = 'US'\")",
+      viz: {
+        type: "partitionOps",
+        data: { input: [10, 2, 8, 3, 9, 4], keys: ["US", "IN", "UK"] }
+      },
+      caption:
+        "Same uneven input, three operations. repartition full-shuffles to even sizes; coalesce merges adjacent partitions locally (no shuffle, stays uneven); partitionBy isn't in-memory at all — it writes one directory per key."
+    },
+
+    whyMatters:
+      "<p>These three come up constantly, both as a direct question (\"difference between repartition and coalesce?\") and as a bug in real pipelines. Getting them wrong means either a needless shuffle or an OOM.</p>" +
+      "<ul>" +
+      "<li><b>Only reducing partitions?</b> <code>coalesce(n)</code> — skip the shuffle.</li>" +
+      "<li><b>Increasing partitions, or need even sizes / to fix skew?</b> <code>repartition(n)</code> — worth the shuffle.</li>" +
+      "<li><b>Want fast filtered reads later?</b> <code>write.partitionBy(col)</code> — but only on a <i>low-cardinality</i> column.</li>" +
+      "</ul>" +
+      "<pre class=\"why-pre\">coalesce(1).write   -&gt; one task writes everything (can OOM upstream)\nrepartition(1).write -&gt; keeps upstream parallel, one final file\npartitionBy(high_card) -&gt; millions of tiny files (the small-files problem)</pre>",
+
+    recognize: [
+      { q: "\"repartition or coalesce here?\"", think: "Reducing count only -> coalesce (no shuffle). Increasing count or evening out skew -> repartition (full shuffle)." },
+      { q: "\"I want fewer output files.\"", think: "coalesce(n) before write. But coalesce(1) on big data funnels everything through one task — prefer a small n, or repartition(1) if you truly need one file." },
+      { q: "\"Reads that filter on date are scanning everything.\"", think: "write.partitionBy('date') so each date is its own directory and the reader prunes to just the dates in the filter." },
+      { q: "\"partitionBy('user_id') created millions of tiny files.\"", think: "High-cardinality partition column = one dir per user = the small-files problem. Partition on a low-cardinality column (date, country) instead." },
+      { q: "\"coalesce made my upstream stage slow.\"", think: "coalesce(n) reduces parallelism of the stage that FEEDS it too (no shuffle boundary). If you need the upstream parallel, use repartition." }
+    ],
+
+    matchTags: ["repartition", "coalesce", "partitionby", "partitioning", "shuffle", "small files",
+                "partition pruning", "write", "parquet", "file layout", "performance", "tuning"],
+
+    traps: [
+      {
+        bad: "df.repartition(10)                 # full shuffle just to shrink",
+        good: "df.coalesce(10)                    # merge down locally, no shuffle",
+        why: "If you only need FEWER partitions, coalesce avoids the network shuffle entirely. Reserve repartition for growing the count or evening out skewed sizes."
+      },
+      {
+        bad: "df.coalesce(1).write.parquet(path) # one task does all the work upstream",
+        good: "df.repartition(1).write.parquet(path)  # or write several files",
+        why: "coalesce(1) removes the shuffle boundary and collapses upstream parallelism onto a single task, which can OOM. repartition(1) inserts a shuffle so upstream stages stay parallel; better still, write multiple files."
+      },
+      {
+        bad: "df.write.partitionBy('user_id').parquet(path)  # high cardinality!",
+        good: "df.write.partitionBy('event_date').parquet(path)  # low cardinality",
+        why: "partitionBy makes one directory per distinct value. A high-cardinality column (user_id, timestamp) explodes into millions of tiny files and cripples the metastore and read planning. Partition on low-cardinality columns you actually filter on."
+      }
+    ],
+
+    complexity: [
+      { op: "repartition(n [, cols])", big_o: "O(n) + full shuffle", note: "Redistributes the whole dataset over the network into n balanced partitions; grows or shrinks the count." },
+      { op: "coalesce(n)", big_o: "O(n) local merge", note: "Stitches existing partitions together without a shuffle; reduce-only, and it also lowers the parallelism of the feeding stage." },
+      { op: "write.partitionBy(col)", big_o: "O(n) write + dirs", note: "Not an in-memory repartition — it writes one directory per distinct value of col to enable read-time pruning." },
+      { op: "repartition(col).write.partitionBy(col)", big_o: "O(n) + shuffle + write", note: "The common combo: shuffle so each key's rows are together, then write one tidy file per key instead of one small fragment per input partition." }
+    ],
+
+    engineNote:
+      "<p><b>Under the hood.</b> <code>repartition</code> inserts an <b>Exchange</b> (shuffle) in the physical plan — round-robin partitioning with no columns, hash partitioning when you pass columns. <code>coalesce</code> adds <b>no</b> Exchange; it defines partitions as unions of existing ones, which is why it can't increase the count and why it pushes reduced parallelism <i>upstream</i>.</p>" +
+      "<p><code>partitionBy</code> lives on the <code>DataFrameWriter</code>. It creates Hive-style directories (<code>col=value/</code>) that Spark's <b>partition pruning</b> uses at read time to skip whole folders. It pairs with the file format's own pushdown (Parquet row-group stats) for a second layer of skipping.</p>" +
+      "<p>In Spark 3.x, <b>AQE</b> auto-coalesces small shuffle partitions after a shuffle (<code>spark.sql.adaptive.coalescePartitions.enabled</code>), so you often don't need a manual <code>coalesce</code> purely to clean up tiny post-shuffle partitions.</p>",
+
+    challenge: {
+      prompt:
+        "You write a daily sales DataFrame that downstream teams always query filtered by region and date. Your current write produces 200 files per day and full-table scans on every query. Redesign the write so filtered reads are fast, without creating a small-files mess. Which of repartition / coalesce / partitionBy do you use, and in what combination?",
+      starter:
+        "sales.write.parquet('/data/sales')   # 200 files/day, no pruning\n" +
+        "# make region+date filters fast; avoid tiny files. what do you change?",
+      solution:
+        "# Partition on the LOW-cardinality columns the queries filter on (region, date)\n" +
+        "# so reads prune to just those directories; repartition by the same keys first\n" +
+        "# so each (region, date) writes ONE file instead of a fragment per input part.\n" +
+        "(sales\n" +
+        "   .repartition('region', 'event_date')      # co-locate each key's rows\n" +
+        "   .write\n" +
+        "   .partitionBy('region', 'event_date')      # region=US/event_date=2024-01-01/\n" +
+        "   .parquet('/data/sales'))\n" +
+        "# Result: filtered reads scan only matching folders (pruning), and each folder\n" +
+        "# holds one right-sized file. Do NOT partitionBy a high-cardinality key like\n" +
+        "# order_id -- that recreates the small-files problem."
+    }
   }
 ]);
