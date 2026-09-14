@@ -401,6 +401,326 @@ window.LEARN.register("spark", "Spark Execution Guide", [
       { type: "qa", q: "Why is a shuffle so slow?", a: "It combines the three slowest operations: writing to disk, serializing/deserializing, and moving data over the network between all executors." },
       { type: "qa", q: "One task in a shuffle stage runs 10× longer than the rest — what and why?", a: "Data skew: one key holds most of the rows, so they all land in one partition/task. Fix by salting, AQE skew join, or removing the hot key — not by adding executors." }
     ]
+  },
+
+  /* ===================================================== CHAPTER 10 */
+  {
+    id: "exec-executors-containers",
+    title: "Executors & Containers",
+    tagline: "Where tasks actually run — the worker processes, their cores, and how they're sized.",
+    estMinutes: 10,
+    blocks: [
+      { type: "prose", html: "We've talked about tasks running \"on executors\" — now let's open up the executor itself. Understanding its shape (cores and memory) is what lets you answer the most-asked Spark architecture question: <i>\"how would you size your cluster?\"</i>" },
+
+      { type: "heading", level: 2, text: "What an executor is", id: "what" },
+      { type: "prose", html: "An <b>executor</b> is a JVM process that the cluster manager launches inside a <b>container</b> (a reserved slice of a worker machine's cores and memory). Executors do all the real computation, hold data in memory (including cached DataFrames), and live for the whole application — they're started once and reused across thousands of tasks." },
+      { type: "prose", html: "Two numbers define an executor: its <b>cores</b> (how many tasks it can run at the same time — each core runs one task) and its <b>memory</b> (the heap available for computation and cached data). An executor with 5 cores runs up to 5 tasks concurrently." },
+      { type: "analogy", kind: "analogy", html: "An executor is a workbench with a fixed number of hands (cores) and a fixed-size tabletop (memory). Each hand can work one task at a time; the tabletop holds the materials. More benches (executors) or more hands per bench (cores) means more tasks at once — until you run out of building to put benches in." },
+
+      { type: "heading", level: 2, text: "Cores decide parallelism; total cores cap the cluster", id: "cores" },
+      { type: "prose", html: "Your cluster's total task parallelism is simply <b>executors × cores per executor</b>. Ten executors with 5 cores each = 50 tasks running at once. If a stage has 200 tasks, they run in 4 waves of 50. This is the number that decides how fast a stage clears." },
+
+      { type: "heading", level: 2, text: "Sizing: the two rules that matter", id: "sizing" },
+      { type: "prose", html: "Given a cluster of <i>N nodes × C cores × M GB</i>, how do you choose <code>--num-executors</code>, <code>--executor-cores</code>, and <code>--executor-memory</code>? Two rules of thumb do almost all the work." },
+      { type: "prose", html: "<b>Rule 1: reserve for the OS.</b> Never give the whole machine to Spark — leave about <b>1 core and 1 GB per node</b> for the operating system and the node manager daemon. A 16-core / 64 GB node offers ~15 usable cores and ~63 usable GB." },
+      { type: "prose", html: "<b>Rule 2: about 5 cores per executor.</b> One giant executor with all the cores chokes on I/O throughput and long garbage-collection pauses; many one-core executors waste memory on duplicated overhead and can't share broadcast data. <b>~5 cores per executor</b> is the sweet spot. So 15 usable cores ÷ 5 = <b>3 executors per node</b>." },
+      { type: "prose", html: "Then split the memory: 63 usable GB ÷ 3 executors ≈ <b>21 GB per executor container</b>. But part of that is off-heap overhead (next chapter), so the JVM heap you request is a bit less (~19 GB). Across 6 such nodes that's 18 executors — and you subtract <b>one executor's worth for the driver</b>, giving ~17 executors × 5 cores × ~19 GB." },
+      { type: "keynumbers", items: [
+        { num: "~1 core + 1 GB", label: "reserved per node (OS)" },
+        { num: "~5", label: "cores per executor" },
+        { num: "exec×cores", label: "= total parallel tasks" },
+        { num: "−1 executor", label: "for the driver" }
+      ] },
+      { type: "code", code: "# 6 nodes x (16 cores, 64 GB):\n#   reserve 1/node -> 15 usable cores, 63 usable GB\n#   15 / 5         -> 3 executors per node\n#   63 / 3         -> 21 GB container (~19 GB heap + ~2 GB overhead)\n#   3 x 6 = 18, minus 1 for the driver = 17\nspark-submit --num-executors 17 --executor-cores 5 --executor-memory 19g app.py" },
+
+      { type: "heading", level: 2, text: "Fat vs thin executors", id: "fat-thin" },
+      { type: "prose", html: "The extremes are both wrong. A <b>fat</b> executor (all 16 cores, all 64 GB in one) throttles on HDFS/S3 read throughput past ~5 concurrent threads and suffers huge GC pauses. A <b>thin</b> executor (1 core each) duplicates the per-executor memory overhead many times and can't reuse a broadcast table across cores. The ~5-core middle balances I/O concurrency against overhead." },
+      { type: "trap", kind: "trap", html: "Handing Spark 100% of a node (no OS reserve) or building one giant executor per node are the two classic sizing mistakes — they cause container kills and I/O/GC bottlenecks. Reserve headroom, aim for ~5 cores per executor." },
+
+      { type: "heading", level: 2, text: "Dynamic allocation", id: "dynamic" },
+      { type: "prose", html: "On shared clusters you often don't fix the executor count. With <b>dynamic allocation</b> (<code>spark.dynamicAllocation.enabled</code>) Spark requests more executors when tasks pile up and releases idle ones, between a min and max you set. The sizing math above then defines your <i>max</i>, not a fixed number." },
+      { type: "interview", kind: "interview", html: "For \"size this cluster,\" walk the arithmetic out loud: reserve 1 core/node → divide usable cores by ~5 → multiply by nodes → subtract 1 for the driver → split memory and remember the overhead. Saying the two rules (reserve; ~5 cores) is what interviewers listen for." },
+
+      { type: "heading", level: 2, text: "Check yourself", id: "check" },
+      { type: "qa", q: "What two numbers define an executor, and what does each control?", a: "Cores (how many tasks it runs concurrently) and memory (heap for computation + cached data)." },
+      { type: "qa", q: "Why ~5 cores per executor instead of one huge executor?", a: "Beyond ~5 concurrent threads, HDFS/S3 read throughput plateaus and GC pauses grow; ~5 balances I/O concurrency against per-executor overhead." },
+      { type: "qa", q: "6 nodes of 16 cores / 64 GB — roughly how many executors?", a: "Reserve 1 core → 15 usable → 3 executors/node → 18 total → 17 after leaving one executor's worth for the driver (5 cores, ~19 GB each)." }
+    ]
+  },
+
+  /* ===================================================== CHAPTER 11 */
+  {
+    id: "exec-memory-spill-oom",
+    title: "Memory, Spill & OOM",
+    tagline: "What survives when Spark runs low on memory — and what crashes. The interview question you will get.",
+    estMinutes: 11,
+    blocks: [
+      { type: "prose", html: "\"Your job runs out of memory — what do you do?\" is asked in almost every Spark interview, and the weak answer is \"add more memory.\" The strong answer rests on one distinction: work that can <b>spill to disk</b> survives; work that must hold something <b>whole</b> in memory is what crashes." },
+
+      { type: "heading", level: 2, text: "How an executor divides its memory", id: "regions" },
+      { type: "prose", html: "Each executor's heap is carved into regions. A small <b>reserved</b> slice keeps Spark's own internals alive. The big <b>unified</b> region (<code>spark.memory.fraction</code>, default <b>0.6</b> of the heap) is shared between <b>execution memory</b> (for shuffles, sorts, joins, aggregations) and <b>storage memory</b> (for cached/persisted data) — and they can borrow from each other. The rest (~0.4) is <b>user memory</b> for your own objects and UDF state." },
+      { type: "prose", html: "Separately, every executor container also reserves <b>off-heap overhead</b> — <code>max(384 MB, 7% of executor memory)</code> — for things outside the JVM heap (network buffers, Python workers). The cluster manager enforces the total container size = heap + overhead." },
+      { type: "keynumbers", items: [
+        { num: "0.6", label: "memory.fraction (unified)" },
+        { num: "execution + storage", label: "share the unified region" },
+        { num: "max(384MB, 7%)", label: "off-heap overhead" }
+      ] },
+
+      { type: "heading", level: 2, text: "Spill: slow but safe", id: "spill" },
+      { type: "prose", html: "When an operation like a sort, shuffle, or aggregation needs more room than execution memory can give, Spark <b>spills</b>: it writes the excess (as sorted runs) to local disk and merges it back later. The job is slower — disk I/O plus serialization — but it <b>completes</b>. Spill is Spark working as designed, not a failure. The Spark UI even shows \"Spill (memory)\" and \"Spill (disk)\" columns." },
+      { type: "analogy", kind: "analogy", html: "Spilling is like a chef whose counter is full moving some prep bowls to a shelf and fetching them back as needed. It's slower than keeping everything on the counter, but the meal still gets made. An out-of-memory error is different: it's being handed a single pot too big to fit on the stove at all — there's nowhere to set part of it aside." },
+
+      { type: "heading", level: 2, text: "OOM: when nothing can spill", id: "oom" },
+      { type: "prose", html: "An <b>OutOfMemoryError</b> happens when something must be held in memory <b>whole</b> and cannot be spilled. The usual culprits:" },
+      { type: "steps", items: [
+        "<b>A skewed key</b> — one <code>groupBy</code>/<code>join</code> key with millions of rows: they all sit in one task and can't be split.",
+        "<b>collect() / toPandas()</b> — pulls the entire result into the single driver JVM, which can't spill.",
+        "<b>An oversized broadcast</b> — a table you broadcast that isn't actually small is copied whole into every executor.",
+        "<b>A giant single group</b> — e.g. <code>collect_list</code> on a hot key builds one enormous in-memory list."
+      ] },
+      { type: "prose", html: "The key insight: <b>more memory won't fix these</b>, because the problem is a single indivisible object, not general pressure. Throwing 32 GB at a skewed key just delays the same crash." },
+
+      { type: "heading", level: 2, text: "Matching the fix to the cause", id: "fix" },
+      { type: "table", headers: ["Situation", "Right fix"], rows: [
+        ["Lots of disk spill, but it finishes", "Spillable pressure — give tasks smaller partitions (more shuffle partitions) or more executor memory"],
+        ["OOM on a groupBy/join of one key", "Skew — salt the hot key, raise partitions, or enable AQE skew join"],
+        ["Driver OOM after collect()/toPandas()", "Don't pull to the driver — write() the result, or take(n)"],
+        ["Executor OOM right after a broadcast", "The 'small' side isn't small — lower the broadcast threshold or don't broadcast it"]
+      ] },
+      { type: "trap", kind: "trap", html: "\"Just raise executor memory\" only helps the <i>first</i> row of that table — spillable pressure. It does nothing for skew, <code>collect()</code>, or an oversized broadcast, because those can't spill. Name the cause first, then match the fix." },
+      { type: "interview", kind: "interview", html: "The answer that impresses: <i>\"First I decide whether it's spillable pressure or a can't-spill OOM. Spillable (sort/shuffle/agg too big) → more/smaller partitions or more memory. Can't-spill (skew, collect, big broadcast, giant group) → remove the whole-object requirement: salt, avoid driver pulls, cap broadcast. More memory is not a general fix.\"</i>" },
+
+      { type: "heading", level: 2, text: "Check yourself", id: "check" },
+      { type: "qa", q: "What's the difference between spill and OOM?", a: "Spill writes overflow to disk and the job finishes (slower); OOM is when something indivisible must stay in memory whole and can't spill — the executor/driver dies." },
+      { type: "qa", q: "Why won't more executor memory fix a skewed groupBy?", a: "All of the hot key's rows must sit in one task and can't be split; a bigger heap just delays the same crash. Salt the key or use AQE skew join instead." },
+      { type: "qa", q: "What is the executor memory overhead, and why does it matter?", a: "Off-heap reservation of max(384 MB, 7% of executor memory). If you forget it, the container's heap + overhead exceeds its limit and YARN kills it." }
+    ]
+  },
+
+  /* ===================================================== CHAPTER 12 */
+  {
+    id: "exec-data-locality",
+    title: "Data Locality",
+    tagline: "Moving the computation to the data instead of the data to the computation.",
+    estMinutes: 7,
+    blocks: [
+      { type: "prose", html: "A founding idea of big-data systems: when data is huge, it's far cheaper to send the (small) code to the machine holding the data than to ship the (enormous) data to the code. Spark's scheduler tries hard to honor this — it's called <b>data locality</b>." },
+
+      { type: "heading", level: 2, text: "The principle", id: "principle" },
+      { type: "prose", html: "Moving a gigabyte of data across the network takes far longer than moving a few kilobytes of task code. So when the driver schedules a task, it prefers to place that task on an executor that <i>already has</i> the partition it needs — computation goes to the data, not the other way around." },
+      { type: "analogy", kind: "analogy", html: "It's the difference between mailing a whole library to a reader versus sending the reader to the library. When the \"book\" is a terabyte, you move the reader (the task), not the library (the data)." },
+
+      { type: "heading", level: 2, text: "The locality levels", id: "levels" },
+      { type: "prose", html: "Spark ranks placements from best to worst and tries the best it can get before falling back:" },
+      { type: "table", headers: ["Level", "Meaning"], rows: [
+        ["PROCESS_LOCAL", "The data is already in this executor's memory — the fastest case"],
+        ["NODE_LOCAL", "The data is on the same machine (another process / local disk) — a short hop"],
+        ["RACK_LOCAL", "The data is on another machine in the same rack — one network hop"],
+        ["ANY", "The data is anywhere else — a full network fetch"]
+      ] },
+      { type: "prose", html: "If no local slot is free, Spark waits a short while (<code>spark.locality.wait</code>, ~3s) hoping one frees up, then gives up locality and runs the task remotely rather than stall forever." },
+
+      { type: "heading", level: 2, text: "Locality in the cloud", id: "cloud" },
+      { type: "prose", html: "Data locality is a big deal on HDFS, where data physically lives on the same machines that compute. But most modern Spark reads from <b>cloud object stores</b> (S3, ADLS, GCS), where storage and compute are separate services — there is <i>no</i> data locality, because the data never lived on the executors. You read it over the network regardless. That's an accepted trade for elastic, independently-scaled storage; you tune read partition sizes and minimize I/O calls instead of relying on locality." },
+      { type: "interview", kind: "interview", html: "If asked about locality: <i>\"Spark schedules tasks where the data already is — PROCESS_LOCAL best, then NODE, RACK, ANY. It matters most on HDFS; on cloud object stores there's no locality since compute and storage are decoupled, so you read over the network and tune partitioning instead.\"</i>" },
+
+      { type: "heading", level: 2, text: "Check yourself", id: "check" },
+      { type: "qa", q: "Why move computation to data instead of data to computation?", a: "Because the data is huge and the code is tiny — shipping the task is far cheaper than shipping gigabytes of data across the network." },
+      { type: "qa", q: "What are the locality levels, best to worst?", a: "PROCESS_LOCAL (in-memory) → NODE_LOCAL (same machine) → RACK_LOCAL (same rack) → ANY (anywhere)." },
+      { type: "qa", q: "Does data locality apply when reading from S3?", a: "No — object stores decouple storage from compute, so there's no locality; you read over the network and tune partitioning instead." }
+    ]
+  },
+
+  /* ===================================================== CHAPTER 13 */
+  {
+    id: "exec-results-teardown",
+    title: "Results & Teardown",
+    tagline: "How a job finishes — writing output, returning to the driver, and releasing the cluster.",
+    estMinutes: 7,
+    blocks: [
+      { type: "prose", html: "We've followed a job from submission through tasks and shuffles. Now the ending: how results leave Spark and how the application shuts down cleanly." },
+
+      { type: "heading", level: 2, text: "Two ways results come out", id: "two-ways" },
+      { type: "prose", html: "The final stage of a job produces output in one of two ways, and the difference is everything for scalability." },
+      { type: "prose", html: "<b>Write to storage (the scalable way).</b> With <code>df.write.parquet(path)</code>, each executor writes <i>its own partitions</i> straight to storage in parallel. The output never funnels through the driver, so it scales with the cluster — this is how you handle large results. Typically you get one output file per final partition." },
+      { type: "prose", html: "<b>Return to the driver (only for small results).</b> With <code>collect()</code> or <code>toPandas()</code>, every result row is sent back to the single driver JVM and assembled in its heap. Fine for a small summary; fatal for a large result (driver OOM, as we saw in the Driver chapter). Use <code>take(n)</code>/<code>show(n)</code> to peek." },
+      { type: "trap", kind: "trap", html: "The teardown-time trap is the same as the driver trap: ending a big pipeline with <code>collect()</code>/<code>toPandas()</code> to \"get the results.\" Write them out distributed instead; only pull to the driver when the result is genuinely small." },
+
+      { type: "heading", level: 2, text: "Output partitioning on write", id: "write-layout" },
+      { type: "prose", html: "How the data is laid out on disk matters for the <i>next</i> job that reads it. <code>partitionBy('date')</code> on write creates one folder per value (<code>date=2024-06-01/</code>, …), so a later query filtering on that column reads only the matching folders — <b>partition pruning</b>. Too many small output files (over-partitioned) hurts the next reader, so people often <code>repartition</code>/<code>coalesce</code> to a sensible file count before writing." },
+
+      { type: "heading", level: 2, text: "Teardown", id: "teardown" },
+      { type: "prose", html: "When the application finishes (or you call <code>spark.stop()</code>), the driver tells the cluster manager it's done. Executors are shut down and their containers returned to the pool for other jobs. With <b>dynamic allocation</b>, idle executors are released <i>during</i> the run too, not just at the end — so a job that finishes its heavy stages early frees resources back to the cluster. Anything held only in executor memory (cached DataFrames) is gone once executors stop; only what you wrote to storage persists." },
+      { type: "why", kind: "why", html: "This is the whole point of the modern lakehouse split: the cluster is temporary (spin up, compute, tear down), but the data written to S3/HDFS is permanent. Always land important results in storage — never leave them only in an executor's memory or a driver's variable." },
+
+      { type: "heading", level: 2, text: "Check yourself", id: "check" },
+      { type: "qa", q: "Why does write() scale but collect() doesn't?", a: "write() has each executor write its partitions in parallel (never through the driver); collect() funnels every row into the single driver JVM, which can't spill." },
+      { type: "qa", q: "What does partitionBy('date') on write buy the next job?", a: "One folder per date value, so a query filtering on date reads only the matching folders — partition pruning." },
+      { type: "qa", q: "What happens to a cached DataFrame at teardown?", a: "It's gone — it lived only in executor memory. Only data written to storage survives the cluster." }
+    ]
+  },
+
+  /* ===================================================== CHAPTER 14 */
+  {
+    id: "exec-aqe",
+    title: "Adaptive Query Execution (AQE)",
+    tagline: "How modern Spark re-plans a query mid-flight using the real numbers it discovers while running.",
+    estMinutes: 9,
+    blocks: [
+      { type: "prose", html: "Everything so far described a plan made <i>before</i> the job runs, from estimates. But estimates are often wrong — Spark can't know the true size of intermediate data until it computes it. <b>Adaptive Query Execution</b> (AQE), on by default since Spark 3.2, fixes this by re-optimizing the plan <i>during</i> execution using real runtime statistics." },
+
+      { type: "heading", level: 2, text: "Why static plans go wrong", id: "why" },
+      { type: "prose", html: "Before AQE, Spark chose join strategies and partition counts up front from estimated sizes. If the estimate was off — a filter removed 99% of rows, or one key turned out huge — the plan was stuck with a bad choice: a needless shuffle, 200 tiny partitions, or a skewed task dragging the whole stage. AQE waits until a shuffle actually completes, reads the <i>true</i> sizes, and adjusts the rest of the plan accordingly." },
+      { type: "analogy", kind: "analogy", html: "A static plan is a road trip mapped entirely before leaving, ignoring live traffic. AQE is the same trip with a GPS that re-routes as it sees real congestion — same destination, better road chosen using facts, not guesses." },
+
+      { type: "heading", level: 2, text: "The three things AQE does", id: "three" },
+      { type: "prose", html: "<b>1. Coalesce shuffle partitions.</b> The default 200 shuffle partitions are often far too many for the actual data (leaving tiny, overhead-heavy tasks). After the shuffle, AQE sees the real size and merges the small partitions into a sensible number — so you no longer have to hand-tune <code>spark.sql.shuffle.partitions</code> as carefully." },
+      { type: "prose", html: "<b>2. Switch join strategies.</b> If a side that was <i>estimated</i> large turns out small after filtering, AQE can switch a planned sort-merge join into a <b>broadcast</b> join at runtime — skipping a shuffle of the big side entirely." },
+      { type: "prose", html: "<b>3. Handle skew automatically.</b> AQE detects a shuffle partition that's far larger than the others (a hot key) and <b>splits</b> it into several sub-partitions so the work spreads across tasks — solving the classic skew straggler without you salting by hand." },
+      { type: "keynumbers", items: [
+        { num: "coalesce", label: "merge too-many small partitions" },
+        { num: "switch", label: "sort-merge → broadcast at runtime" },
+        { num: "split", label: "break up skewed partitions" }
+      ] },
+
+      { type: "heading", level: 2, text: "What this means in practice", id: "practice" },
+      { type: "prose", html: "AQE makes a lot of old manual tuning unnecessary — precisely setting shuffle partitions, or salting every skewed join. You enable it (<code>spark.sql.adaptive.enabled=true</code>, plus <code>skewJoin.enabled</code>) and Spark adapts. One consequence: the partition/task counts you see in the Spark UI after a shuffle may differ from the 200 default — that's AQE reshaping stages with real statistics, and the plan <code>explain()</code> printed up front is the <i>pre</i>-AQE version." },
+      { type: "trap", kind: "trap", html: "Because AQE re-plans at runtime, the plan from <code>df.explain()</code> (printed before running) can differ from what actually executed. To see the final adaptive plan, check the SQL tab in the Spark UI — it shows <code>AdaptiveSparkPlan isFinalPlan=true</code> and any AQE partition coalescing." },
+      { type: "interview", kind: "interview", html: "Say: <i>\"AQE re-optimizes at runtime with real stats — it coalesces too-many shuffle partitions, switches sort-merge to broadcast when a side turns out small, and splits skewed partitions. It's on by default in Spark 3.2+ and removes a lot of manual tuning.\"</i>" },
+
+      { type: "heading", level: 2, text: "Check yourself", id: "check" },
+      { type: "qa", q: "Why does AQE beat a static plan?", a: "It waits for real runtime statistics (true intermediate sizes) instead of relying on up-front estimates, then re-optimizes the rest of the plan." },
+      { type: "qa", q: "What are AQE's three main moves?", a: "Coalesce too-many small shuffle partitions, switch sort-merge joins to broadcast when a side is actually small, and split skewed partitions." },
+      { type: "qa", q: "Why might explain() not match what ran?", a: "explain() shows the pre-AQE plan; AQE re-plans at runtime. The SQL tab in the Spark UI shows the final adaptive plan." }
+    ]
+  },
+
+  /* ===================================================== CHAPTER 15 */
+  {
+    id: "exec-spark-ui-explain",
+    title: "Reading the Spark UI & explain()",
+    tagline: "How to actually see everything in this guide happening — and verify your fixes instead of guessing.",
+    estMinutes: 10,
+    blocks: [
+      { type: "prose", html: "Everything in this guide is observable. Two tools show it: <code>explain()</code> prints the plan Spark will run, and the <b>Spark UI</b> shows what happened when it ran. Learning to read them turns tuning from guesswork into verification." },
+
+      { type: "heading", level: 2, text: "explain(): the plan before it runs", id: "explain" },
+      { type: "prose", html: "<code>df.explain()</code> prints the physical plan without executing it; <code>df.explain(True)</code> also shows the logical plans (parsed, analyzed, optimized). You read the physical plan <b>bottom-up</b>: the leaves are the scans, and data flows upward through each operator to the top." },
+      { type: "prose", html: "The operators worth recognizing: <b>Scan / FileScan</b> (with <code>PushedFilters</code> and the pruned column list), <b>Filter</b> and <b>Project</b> (narrow), <b>Exchange</b> (a shuffle), the join operators (<b>BroadcastHashJoin</b> vs <b>SortMergeJoin</b>), and <b>HashAggregate</b>. A <code>*</code> prefix marks operators fused by whole-stage codegen; a <code>BatchEvalPython</code> node marks a Python UDF." },
+      { type: "prose", html: "The two highest-value reads:" },
+      { type: "steps", items: [
+        "<b>Count the Exchanges.</b> Each <code>Exchange</code> is a shuffle and a stage boundary. Fewer is better; a fix that removes one is a real, visible win.",
+        "<b>Check the Scan line.</b> <code>PushedFilters: [...]</code> and a short column list confirm predicate pushdown and column pruning actually happened. Their absence (especially with a <code>BatchEvalPython</code> nearby) flags a UDF blocking optimization."
+      ] },
+      { type: "code", code: "(orders.join(F.broadcast(customers), 'customer_id')\n        .filter(F.col('amount') > 100)).explain()\n\n# *(2) BroadcastHashJoin ...        <- broadcast worked (no Exchange on orders)\n#  +- *(2) Filter (amount > 100)\n#     +- FileScan parquet orders[customer_id,amount]   <- columns pruned\n#        PushedFilters: [GreaterThan(amount,100)]      <- pushdown worked" },
+      { type: "why", kind: "why", html: "This is how you <i>verify a fix rather than hope</i>. Broadcasted a join? The plan should say BroadcastHashJoin, not SortMergeJoin. Added a filter? It should appear as a PushedFilter. If it doesn't, you learned something before wasting a full run." },
+
+      { type: "heading", level: 2, text: "The Spark UI: what happened when it ran", id: "ui" },
+      { type: "prose", html: "The Spark UI (usually on port 4040 while a job runs, or via the history server afterwards) shows the execution using the exact vocabulary of this guide:" },
+      { type: "table", headers: ["Tab", "What it shows"], rows: [
+        ["Jobs", "One row per action; drill in to see its stages"],
+        ["Stages", "Each stage's tasks — durations, shuffle read/write, spill amounts"],
+        ["SQL", "The query plan (including the final AQE plan) with per-operator metrics"],
+        ["Executors", "Each executor's cores, memory, task counts, GC time, and failures"],
+        ["Storage", "Cached/persisted DataFrames and how much memory they use"]
+      ] },
+      { type: "prose", html: "The most useful view is a stage's <b>task duration distribution</b>. If almost all tasks are fast and one runs far longer, that's <b>skew</b>. If every task is slow with heavy shuffle-read, the <b>shuffle itself</b> is the cost. Heavy \"Spill (disk)\" numbers mean memory pressure — give tasks smaller partitions or more memory." },
+
+      { type: "heading", level: 2, text: "A diagnosis workflow", id: "workflow" },
+      { type: "steps", items: [
+        "Job slow? Open the Jobs tab — is it one job or accidentally many (an action in a loop)?",
+        "Find the slowest stage; look at what shuffle starts it.",
+        "Open that stage's task distribution — one straggler = skew; all slow = the shuffle; big spill = memory.",
+        "Match the fix (from earlier chapters) and re-run.",
+        "Confirm with explain(): fewer Exchanges, PushedFilters present, the join type you intended."
+      ] },
+      { type: "interview", kind: "interview", html: "If asked \"how would you debug a slow Spark job?\" — <i>\"Read the Spark UI: find the slowest stage, look at its task-duration distribution — one long task is skew, all-slow-with-shuffle-read is the shuffle, big spill is memory. Then verify the fix with explain(): count Exchanges and check PushedFilters and the join type.\"</i>" },
+
+      { type: "heading", level: 2, text: "Check yourself", id: "check" },
+      { type: "qa", q: "In explain(), what does an Exchange node mean?", a: "A shuffle — and therefore a stage boundary. Counting Exchanges counts your shuffles." },
+      { type: "qa", q: "How do you confirm a broadcast join actually happened?", a: "explain() should show BroadcastHashJoin (not SortMergeJoin) with no Exchange on the big side." },
+      { type: "qa", q: "In the Stages tab, what does one very long task among many fast ones mean?", a: "Data skew — one partition holds most of a key's rows. The task-duration distribution reveals it instantly." }
+    ]
+  },
+
+  /* ===================================================== CHAPTER 16 */
+  {
+    id: "exec-failure-resilience",
+    title: "Failure & Resilience",
+    tagline: "What happens when a task, an executor, or the network fails — and why Spark usually just keeps going.",
+    estMinutes: 8,
+    blocks: [
+      { type: "prose", html: "On a cluster of hundreds of machines, something is always failing — a disk, a node, a flaky network. A big-data engine has to expect this and recover automatically. This chapter is how Spark survives failure without you noticing most of the time." },
+
+      { type: "heading", level: 2, text: "Lineage: recovery without copies", id: "lineage" },
+      { type: "prose", html: "Recall from Chapter 4 that Spark records the <b>lineage</b> — the exact steps that produced each partition from its parents. This is the heart of fault tolerance. If a partition is lost (an executor died holding it), Spark doesn't need a backup copy: it looks at the lineage and <b>recomputes just that partition</b> from its inputs. Resilience through re-computation, not replication." },
+      { type: "analogy", kind: "analogy", html: "Losing a partition is like dropping one dish. Because you kept the recipe (lineage), you just re-cook that one dish from its ingredients — you didn't need a frozen backup of every plate." },
+
+      { type: "heading", level: 2, text: "Task retries", id: "retries" },
+      { type: "prose", html: "The finest-grained recovery is at the task level. If a task fails (an exception, a lost executor, a transient error), the driver simply <b>re-schedules it</b> — by default up to a few attempts (<code>spark.task.maxFailures</code>, default 4). Because a task is one partition's work and partitions are recomputable from lineage, a retry is cheap and usually succeeds. Only if a task fails all its attempts does the stage — and the job — fail." },
+
+      { type: "heading", level: 2, text: "Executor and node failure", id: "executor" },
+      { type: "prose", html: "If an entire <b>executor</b> dies, its running tasks are marked failed and rescheduled on other executors, and any shuffle data it held is regenerated by re-running the map tasks that produced it. The cluster manager may launch a replacement executor. The job slows down but continues. Losing the <b>driver</b>, however, is fatal — there's no coordinator left (which is why cluster mode + its retry matters for production)." },
+      { type: "table", headers: ["What failed", "What Spark does"], rows: [
+        ["A task", "Retries it (up to maxFailures) on any executor"],
+        ["An executor", "Reschedules its tasks elsewhere; regenerates its shuffle data from lineage"],
+        ["Shuffle data lost", "Re-runs the map tasks that produced it"],
+        ["The driver", "Fatal — the whole application ends (cluster mode can retry the app)"]
+      ] },
+
+      { type: "heading", level: 2, text: "Speculative execution", id: "speculation" },
+      { type: "prose", html: "Not all trouble is a clean failure — sometimes a task just runs pathologically slow (a struggling node, a bad disk). With <b>speculative execution</b> (<code>spark.speculation</code>), Spark notices a task running far longer than its peers and launches a <b>duplicate</b> of it on another executor; whichever finishes first wins and the other is killed. This rescues a stage from a single slow straggler." },
+      { type: "trap", kind: "trap", html: "Speculation helps with a slow <i>machine</i>, but it does <b>not</b> fix data <b>skew</b>. If a task is slow because its partition genuinely holds 10× the data, the speculative copy has the same 10× to chew through — it'll be just as slow. Skew needs salting or AQE, not speculation." },
+      { type: "interview", kind: "interview", html: "A clean summary: <i>\"Spark is fault-tolerant through lineage — a lost partition is recomputed from its parents, not from a replica. Tasks retry, executors' work reschedules, and speculative execution duplicates stragglers. The driver is the exception: lose it and the job dies.\"</i>" },
+
+      { type: "heading", level: 2, text: "Check yourself", id: "check" },
+      { type: "qa", q: "How does Spark recover a lost partition without a backup copy?", a: "It recomputes that partition from its parents using the recorded lineage — resilience by re-computation, not replication." },
+      { type: "qa", q: "What happens when a single task fails?", a: "The driver reschedules it (up to spark.task.maxFailures, default 4). Only if all attempts fail does the job fail." },
+      { type: "qa", q: "Does speculative execution fix data skew?", a: "No — a duplicate of a skewed task has the same oversized partition to process. Skew needs salting or AQE; speculation only helps a genuinely slow machine." }
+    ]
+  },
+
+  /* ===================================================== CHAPTER 17 */
+  {
+    id: "exec-end-to-end",
+    title: "End to End — A Job's Complete Journey",
+    tagline: "One job, narrated from spark-submit to results, tying every chapter together.",
+    estMinutes: 11,
+    blocks: [
+      { type: "prose", html: "This is the capstone. We'll take one realistic job and walk it through the entire machine you've now learned — naming each part as it appears. If you can narrate this trace, you can answer \"walk me through what happens when you run a Spark job\" completely." },
+
+      { type: "heading", level: 2, text: "The job", id: "the-job" },
+      { type: "prose", html: "A nightly report: read a large orders dataset, keep this year's paid orders, join a small customers lookup, and write revenue per region." },
+      { type: "code", code: "df = (spark.read.parquet('s3://lake/orders')      # ~1 TB, many Parquet files\n        .filter(F.col('status') == 'PAID')\n        .filter(F.col('year') == 2024)\n        .join(F.broadcast(customers), 'customer_id') # customers is small\n        .groupBy('region').agg(F.sum('amount').alias('revenue')))\ndf.write.parquet('s3://lake/report/revenue_by_region')" },
+
+      { type: "heading", level: 2, text: "The trace, step by step", id: "trace" },
+      { type: "steps", items: [
+        "<b>Submit (Ch 2).</b> <code>spark-submit --deploy-mode cluster</code> registers the app with YARN. The ResourceManager starts the ApplicationMaster; it requests executor containers; NodeManagers launch the executors, which register back with the driver.",
+        "<b>Driver & SparkSession (Ch 3).</b> In cluster mode the driver runs inside the cluster. It creates the SparkSession and begins building the plan.",
+        "<b>Lazy build (Ch 4-5).</b> The two filters, the join, and the groupBy are all lazy — they only extend the plan. Nothing has read a byte yet. The final <code>write</code> is the <b>action</b> that triggers one job.",
+        "<b>Catalyst optimizes (Ch 6).</b> It pushes both filters down into the orders scan (<code>PushedFilters: status=PAID, year=2024</code>) and prunes to just the columns used (customer_id, region, amount). Because <code>customers</code> is broadcast, the plan is a BroadcastHashJoin — the 1 TB side won't shuffle for the join.",
+        "<b>Stages form (Ch 7, 9).</b> The job splits at its one shuffle — the <code>groupBy</code>. Stage 1: read + filter + broadcast-join + a map-side partial aggregate (all narrow, fused). Then an Exchange (the shuffle). Stage 2: the final aggregate. Two stages, one shuffle.",
+        "<b>Read partitions & tasks (Ch 8, 10).</b> 1 TB of splittable Parquet at 128 MB ≈ ~8,000 read partitions → ~8,000 stage-1 tasks, run in waves across the executors' cores (say 17 executors × 5 = 85 cores → ~94 waves).",
+        "<b>Locality (Ch 12).</b> Reading from S3 there's no data locality; executors fetch their partitions over the network. Filters run in place; the broadcast customers table sits in every executor's memory so the join is local.",
+        "<b>Map-side combine + shuffle (Ch 9, 11).</b> Each task pre-aggregates its partition's revenue by region (so only small partials cross the network), writes shuffle files to local disk, and stage 2 fetches the buckets for each region. If a region were huge it might spill — safe — but it wouldn't OOM because a sum is spillable.",
+        "<b>AQE adjusts (Ch 14).</b> After the shuffle, AQE sees there are only a handful of regions and coalesces the 200 shuffle partitions down to a few — no wasted tiny tasks.",
+        "<b>Results & teardown (Ch 13).</b> Stage 2 computes final per-region revenue and each task writes its output straight to S3 in parallel — never through the driver. The driver marks the job complete; executors are released back to the cluster.",
+        "<b>If something failed (Ch 16).</b> A dropped executor mid-run? Its tasks reschedule and its shuffle data regenerates from lineage. A slow node? Speculation may duplicate the straggler. The job still finishes."
+      ] },
+
+      { type: "heading", level: 2, text: "Why this job is well-behaved", id: "why-good" },
+      { type: "prose", html: "Notice how the design avoids every trap in this guide: filters are pushed down (less data read), the small side is broadcast (the 1 TB side never shuffles for the join), the aggregate is a built-in (map-side combine keeps the shuffle tiny), and the result is written distributed (no driver OOM). The only shuffle is the unavoidable one for the final grouping — and even that is small because of the pre-aggregate." },
+      { type: "why", kind: "why", html: "This is the mental model to carry into every Spark job: <i>read less</i> (pushdown, pruning), <i>shuffle less and cheaper</i> (broadcast small sides, built-in aggregates, avoid needless wide ops), <i>keep results distributed</i> (write, don't collect), and <i>know your numbers</i> (partitions, cores, memory). Everything in this guide reduces to those four instincts." },
+
+      { type: "heading", level: 2, text: "The one-paragraph answer", id: "one-para" },
+      { type: "prose", html: "Put it all together for the interview: <i>\"spark-submit asks the cluster manager for resources; the driver starts and builds a lazy plan; an action triggers a job; Catalyst optimizes it (pushdown, pruning, join choice) and splits it into stages at each shuffle; each stage runs as one task per partition on the executors' cores; wide operations shuffle data across the network between stages; AQE re-tunes using real stats; and the final stage writes results to storage while the driver coordinates and retries anything that fails — all recoverable from lineage.\"</i>" },
+
+      { type: "heading", level: 2, text: "Check yourself", id: "check" },
+      { type: "qa", q: "In this job, what is the one action and how many shuffles does it cause?", a: "The write() is the single action (one job). There's one shuffle — the groupBy — because the broadcast join avoids shuffling the big side. So two stages." },
+      { type: "qa", q: "Why won't this job OOM the driver even though it processes 1 TB?", a: "The result is written distributed with write() (each executor writes its own partitions); nothing is collect()ed to the driver, and the aggregate is spillable." },
+      { type: "qa", q: "Give the four instincts this whole guide reduces to.", a: "Read less (pushdown/pruning), shuffle less and cheaper (broadcast, built-in aggregates, avoid needless wide ops), keep results distributed (write, don't collect), and know your numbers (partitions, cores, memory)." },
+      { type: "prose", html: "That's the complete journey. You can now trace any Spark job from <code>spark-submit</code> to results — and, more importantly, reason about <i>why</i> it's fast or slow at every step." }
+    ]
   }
 
 ]);
