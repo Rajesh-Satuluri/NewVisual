@@ -36,9 +36,11 @@
       label: "PySpark",
       sectionIcon: {
         "Foundations": "◇", "Transformations": "⚙", "Performance": "⚡", "Advanced": "✦",
-        "Modern & Production": "✷", "Infrastructure & Deployment": "☷", "Execution & Internals": "▷"
+        "Modern & Production": "✷", "Infrastructure & Deployment": "☷", "Execution & Internals": "▷",
+        "Spark Execution Guide": "📖"
       },
       outline: [
+        { section: "Spark Execution Guide", topics: ["The Big Picture", "Submission & the Cluster Manager", "The Driver", "Lazy Evaluation & Lineage", "Actions vs Transformations"] },
         { section: "Foundations",     topics: ["DataFrame Model & Lazy Eval", "Transformations vs Actions", "Schemas & Types"] },
         { section: "Transformations", topics: ["Narrow vs Wide (Shuffle)", "GroupBy & Aggregations", "Joins & Broadcast", "Window Functions"] },
         { section: "Performance",     topics: ["Partitioning & Skew", "Caching & Persistence", "AQE & Tuning"] },

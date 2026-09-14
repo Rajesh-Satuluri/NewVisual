@@ -141,6 +141,9 @@
 
   // ============================================================ TOPIC PAGE
   function renderTopic(topic) {
+    // Template-free long-form guide chapters carry a `blocks` array and are
+    // rendered by ExecGuide instead of the card schema.
+    if (topic && topic.blocks && window.ExecGuide) { window.ExecGuide.render(topic); return; }
     var main = el("main");
     main.innerHTML = "";
     var M = meta();
