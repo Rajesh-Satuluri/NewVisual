@@ -132,5 +132,123 @@ window.LEARN.register("spark", "Infrastructure & Deployment", [
         "# Note the 1 idle core/node (31 = 6*5 + 1) — sizing rarely divides evenly.\n" +
         "# On a shared cluster, express this as dynamicAllocation.maxExecutors=59 instead."
     }
+  },
+
+  {
+    id: "hdfs-cloud-storage",
+    title: "HDFS & Cloud Storage",
+    difficulty: "Core",
+    estMinutes: 12,
+    relevance: 3,
+    tagline: "Before Spark reads a byte, the data is already split, replicated, and scattered across machines. \"Explain HDFS\" and \"why 128 MB blocks?\" are interview staples — and knowing how object stores differ is what modern DE rounds actually probe.",
+
+    whatIsIt: [
+      "<b>HDFS</b> (Hadoop Distributed File System) stores one logical file as many fixed-size <b>blocks</b> — <b>128 MB</b> by default — scattered across the <b>DataNodes</b> of a cluster. A 640 MB file becomes 5 blocks; a 1 GB file becomes 8. Splitting is what lets a file bigger than any single disk exist, and what lets many machines read different blocks <b>in parallel</b>.",
+      "Each block is <b>replicated</b> (default factor <b>3</b>) onto different DataNodes, placed with <b>rack awareness</b>: one replica on the writer's rack, the other two on a <i>second</i> rack. That survives a single disk, a single node, and even a whole-rack outage, while keeping most replica traffic within a rack.",
+      "The <b>NameNode</b> is the brain: it holds the metadata — which blocks make up each file and which DataNodes hold each replica — entirely in memory. DataNodes send it heartbeats and block reports. If a DataNode dies, the NameNode notices the under-replicated blocks and tells healthy nodes to <b>re-replicate</b> until the factor is restored. (The NameNode is the classic single point of failure, mitigated by a standby NameNode in HA setups.)",
+      "<b>Why 128 MB?</b> Blocks that are too small explode the NameNode's metadata (one entry per block) and spawn too many tiny tasks; blocks too large hurt parallelism and recovery. 128 MB also makes HDFS seek time negligible against transfer time. It's why Spark's default read partition size mirrors the block size — <b>one block ≈ one input partition ≈ one task</b>."
+    ],
+
+    showMe: {
+      code:
+        "# A 640 MB file in HDFS = ceil(640 / 128) = 5 blocks, each replicated 3x.\n" +
+        "hdfs dfs -put sales.csv /data/sales/          # write: split + replicate\n" +
+        "hdfs fsck /data/sales/sales.csv -files -blocks -locations\n" +
+        "#  Total blocks: 5   |  default replication: 3\n" +
+        "#  blk_0  ->  DataNode N1 (rack1), N4 (rack2), N5 (rack2)\n" +
+        "#  blk_1  ->  DataNode N2 (rack1), N5 (rack2), N6 (rack2)   ... etc\n" +
+        "\n" +
+        "# In Spark, that block layout becomes the read parallelism:\n" +
+        "df = spark.read.csv('/data/sales/sales.csv', header=True)\n" +
+        "df.rdd.getNumPartitions()      # ~5  (one input partition per 128MB block)\n" +
+        "\n" +
+        "# --- On the cloud, the same read targets an OBJECT STORE, not HDFS ---\n" +
+        "df = spark.read.parquet('s3://bucket/sales/')   # or abfss:// , gs://\n" +
+        "# No blocks, no DataNodes, no rack awareness, no data locality:\n" +
+        "# storage is a separate service; compute reads over the network.",
+      viz: {
+        type: "hdfsBlocks",
+        data: { fileMB: 640, rf: 3 }
+      },
+      caption:
+        "Step the file size to watch it split into 128 MB blocks. Click a block to see its 3 replicas placed across two racks. Click a DataNode to fail it — the NameNode spawns a fresh replica elsewhere to restore 3× (fault tolerance in action)."
+    },
+
+    whyMatters:
+      "<p>\"Explain HDFS\" and \"why 128 MB?\" are among the most common opening Big-Data questions, and the follow-up — \"how is it different in the cloud?\" — is where modern DE interviews go. The strong answer connects the storage layout to Spark behavior you can see.</p>" +
+      "<ul>" +
+      "<li><b>Block ≈ partition ≈ task.</b> The 128 MB block is why a 1 GB file reads as ~8 partitions — storage layout dictates read parallelism.</li>" +
+      "<li><b>Replication = fault tolerance.</b> 3× across racks is what makes a node or rack failure a non-event; the NameNode re-replicates automatically.</li>" +
+      "<li><b>Cloud object stores are different.</b> S3 / ADLS Gen2 / GCS have no blocks, no rack awareness, and no data locality — compute and storage are decoupled, so you scale them independently but read over the network (and pay for list/get calls). This decoupling is the whole basis of the lakehouse.</li>" +
+      "</ul>" +
+      "<pre class=\"why-pre\">HDFS:  data lives ON the compute nodes -> data locality, blocks, RF=3, rack-aware\nS3:    data lives in a separate service -> elastic, cheap, but no locality; read over network\nSpark read partitions: HDFS ~ block size (128MB) | S3 ~ spark.sql.files.maxPartitionBytes</pre>",
+
+    recognize: [
+      { q: "\"Why 128 MB blocks and not 4 KB like a normal FS?\"", think: "Fewer, larger blocks keep NameNode metadata small and make seek time negligible vs transfer; too small = metadata blowup + too many tasks." },
+      { q: "\"A DataNode died — did we lose data?\"", think: "No. Each block has 3 replicas across racks; the NameNode detects under-replication and re-replicates to a healthy node automatically." },
+      { q: "\"Why does my 1 GB file read as ~8 Spark partitions?\"", think: "1 GB / 128 MB block ≈ 8. One block maps to roughly one input partition and one read task." },
+      { q: "\"What's the NameNode and why is it a bottleneck?\"", think: "It holds all file/block metadata in memory. Millions of tiny files blow up its heap — the 'small files problem'. It's also the classic SPOF (mitigated by HA standby)." },
+      { q: "\"How is S3/ADLS different from HDFS?\"", think: "Object store: no blocks, no rack awareness, no data locality; storage decoupled from compute, read over the network. Great elasticity, but locality-based tuning doesn't apply." }
+    ],
+
+    matchTags: ["hdfs", "block", "128mb", "replication", "rack awareness", "namenode", "datanode",
+                "fault tolerance", "re-replication", "data locality", "s3", "adls", "gcs",
+                "object store", "small files", "distributed storage"],
+
+    traps: [
+      {
+        bad: "millions of 1 KB files written to HDFS   # one block + metadata entry each",
+        good: "compact into fewer large files (~128MB+)  # or use a columnar format",
+        why: "Every file/block is a metadata entry in the NameNode's heap and a separate task on read. Millions of tiny files exhaust NameNode memory and cripple job planning — the classic 'small files problem'."
+      },
+      {
+        bad: "# assuming S3 gives HDFS-style data locality and rack awareness",
+        good: "# treat S3 as remote: tune maxPartitionBytes, minimize list/get, use columnar",
+        why: "Object stores have no data locality — compute reads over the network. Locality-based reasoning (and rack awareness) simply doesn't apply; you tune read partition size and I/O calls instead."
+      },
+      {
+        bad: "hdfs dfs -setrep 1 /critical/data   # 'save space' by dropping replication",
+        good: "keep RF=3 for important data       # replication IS the fault tolerance",
+        why: "Replication factor 1 means a single disk or node failure permanently loses those blocks — there's nothing to re-replicate from. RF is your durability; only lower it for scratch/derived data you can recompute."
+      }
+    ],
+
+    complexity: [
+      { op: "blocks per file", big_o: "ceil(size / 128MB)", note: "Fixed-size split; the last block is partial. Drives read parallelism in Spark." },
+      { op: "storage cost", big_o: "size × RF", note: "Replication factor 3 means 3× raw storage — the price of durability on HDFS." },
+      { op: "NameNode metadata", big_o: "O(files + blocks)", note: "All held in memory; millions of small files exhaust its heap (small-files problem)." },
+      { op: "node failure recovery", big_o: "O(blocks on node)", note: "NameNode re-replicates each under-replicated block from a surviving replica — automatic, no data loss at RF≥2." },
+      { op: "cloud object read", big_o: "O(bytes) over network", note: "No locality; throughput bounded by network + list/get call overhead, not local disk." }
+    ],
+
+    engineNote:
+      "<p><b>Under the hood.</b> On write, the HDFS client asks the NameNode where to put each block; the NameNode returns a rack-aware pipeline of DataNodes, and the client streams the block through that pipeline (node 1 → node 2 → node 3) so replication happens as the data flows. The NameNode never touches file data — only metadata.</p>" +
+      "<p><b>Default placement.</b> Replica 1 goes to the writer's node (or a random node if the writer is off-cluster), replica 2 to a node on a <i>different</i> rack, replica 3 to another node on that same second rack. This balances durability (survive a rack) against cost (only one cross-rack hop).</p>" +
+      "<p><b>Cloud reality.</b> Most production Spark now reads Parquet/Delta from S3/ADLS/GCS, not HDFS. Those are object stores: flat key-value namespaces with no blocks, no NameNode, and strong-read-after-write consistency (since 2020 on S3). You lose data locality but gain independent scaling of storage and compute — the architecture the lakehouse is built on.</p>",
+
+    challenge: {
+      prompt:
+        "A teammate says: \"To save storage cost I set replication factor to 1 on our raw HDFS landing zone, and I also write each incoming event as its own JSON file — about 4 million a day.\" Name the two serious problems and the fix for each.",
+      starter:
+        "hdfs dfs -setrep 1 /landing/raw            # 'saves 3x storage'\n" +
+        "# + 4,000,000 tiny JSON files/day written under /landing/raw/\n" +
+        "# what breaks? how do you fix each?",
+      solution:
+        "# Problem 1 — RF=1 destroys fault tolerance.\n" +
+        "#   With one replica, a single dead disk/node PERMANENTLY loses those blocks;\n" +
+        "#   there is nothing to re-replicate from. Raw landing data is often\n" +
+        "#   irreplaceable. Fix: keep RF=3 (or >=2) on data you can't recompute;\n" +
+        "#   only lower RF for derived/scratch data.\n" +
+        "hdfs dfs -setrep 3 /landing/raw\n" +
+        "\n" +
+        "# Problem 2 — 4M tiny files/day = the small-files problem.\n" +
+        "#   Each file is >=1 block + a NameNode metadata entry (RAM) and becomes a\n" +
+        "#   separate read task -> NameNode heap pressure + terrible Spark planning.\n" +
+        "#   Fix: batch/compact incoming events into fewer large files (~128MB+),\n" +
+        "#   ideally a columnar format (Parquet), e.g. a periodic compaction job:\n" +
+        "spark.read.json('/landing/raw/dt=2024-06-01/') \\\n" +
+        "     .repartition(8) \\\n" +
+        "     .write.mode('overwrite').parquet('/curated/events/dt=2024-06-01/')"
+    }
   }
 ]);
