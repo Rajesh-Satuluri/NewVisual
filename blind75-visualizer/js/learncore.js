@@ -36,12 +36,13 @@
       label: "PySpark",
       sectionIcon: {
         "Foundations": "◇", "Transformations": "⚙", "Performance": "⚡", "Advanced": "✦",
-        "Modern & Production": "✷"
+        "Modern & Production": "✷", "Infrastructure & Deployment": "☷"
       },
       outline: [
         { section: "Foundations",     topics: ["DataFrame Model & Lazy Eval", "Transformations vs Actions", "Schemas & Types"] },
         { section: "Transformations", topics: ["Narrow vs Wide (Shuffle)", "GroupBy & Aggregations", "Joins & Broadcast", "Window Functions"] },
         { section: "Performance",     topics: ["Partitioning & Skew", "Caching & Persistence", "AQE & Tuning"] },
+        { section: "Infrastructure & Deployment", topics: ["Cluster Sizing & Executor Config"] },
         { section: "Advanced",        topics: ["Spark SQL", "UDFs vs Built-ins"] },
         { section: "Modern & Production", topics: ["Delta Lake & the Lakehouse", "Structured Streaming", "Adaptive Query Execution (AQE) Deep-Dive", "File Layout: Partitioning, Bucketing & Compaction", "Production Patterns: CDC, Idempotency & Data Quality"] }
       ]
