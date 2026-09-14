@@ -1582,6 +1582,250 @@
     return wrap;
   }
 
+  // ---- deployMode: client vs cluster — where does the driver run? -----------
+  // Toggle between --deploy-mode client and cluster. The SVG shows a gateway
+  // node and a YARN cluster (ResourceManager + two NodeManager workers holding
+  // containers). The Driver chip moves: client mode keeps it on the gateway
+  // (outside the cluster); cluster mode places it in a container as the
+  // ApplicationMaster. Arrows link driver -> executors. A spark-submit line and
+  // an implications list update on toggle. opts: { mode }
+  function deployMode(opts) {
+    function esc(s) { return String(s == null ? "" : s).replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }); }
+    var NS = "http://www.w3.org/2000/svg";
+    function svgEl(name, attrs) { var e = document.createElementNS(NS, name); if (attrs) for (var k in attrs) e.setAttribute(k, String(attrs[k])); return e; }
+    var st = { mode: opts.mode || "client" };
+
+    var wrap = elh("div", "viz viz-dm");
+    var toggle = elh("div", "dm-toggle");
+    var bC = elh("button", "dm-tab", "client mode");
+    var bK = elh("button", "dm-tab", "cluster mode");
+    toggle.appendChild(bC); toggle.appendChild(bK);
+    var host = elh("div", "dm-host");
+    var code = elh("pre", "cs-code");
+    var status = elh("div", "viz-hint dm-status", "");
+    wrap.appendChild(toggle); wrap.appendChild(host); wrap.appendChild(code); wrap.appendChild(status);
+
+    function box(svg, x, y, w, h, cls, title, sub) {
+      var g = svgEl("g", { "class": "dm-box " + cls });
+      g.appendChild(svgEl("rect", { "class": "dm-rect", x: x, y: y, width: w, height: h, rx: 6 }));
+      if (title) { var t = svgEl("text", { "class": "dm-t", x: x + w / 2, y: y + (sub ? 17 : h / 2 + 4) }); t.textContent = title; g.appendChild(t); }
+      if (sub) { var s = svgEl("text", { "class": "dm-sub", x: x + w / 2, y: y + 32 }); s.textContent = sub; g.appendChild(s); }
+      svg.appendChild(g);
+      return { cx: x + w / 2, cy: y + h / 2, x: x, y: y, w: w, h: h };
+    }
+    function arrow(svg, x1, y1, x2, y2, cls) {
+      var g = svgEl("g", { "class": "dm-arrow " + (cls || "") });
+      g.appendChild(svgEl("line", { "class": "dm-line", x1: x1, y1: y1, x2: x2, y2: y2 }));
+      var ang = Math.atan2(y2 - y1, x2 - x1), s = 6;
+      g.appendChild(svgEl("polygon", { "class": "dm-head", points: x2 + "," + y2 + " " + (x2 - s * Math.cos(ang - 0.5)) + "," + (y2 - s * Math.sin(ang - 0.5)) + " " + (x2 - s * Math.cos(ang + 0.5)) + "," + (y2 - s * Math.sin(ang + 0.5)) }));
+      svg.appendChild(g);
+    }
+
+    function render() {
+      host.innerHTML = "";
+      bC.classList.toggle("on", st.mode === "client");
+      bK.classList.toggle("on", st.mode === "cluster");
+      var cluster = st.mode === "cluster";
+      var W = 560, H = 250;
+      var svg = svgEl("svg", { "class": "dm-svg", viewBox: "0 0 " + W + " " + H, width: "100%", role: "img", "aria-label": "Spark deploy mode" });
+
+      // labels
+      var l1 = svgEl("text", { "class": "dm-lab", x: 12, y: 14 }); l1.textContent = "Edge / Gateway node"; svg.appendChild(l1);
+      var cx = 176, cw = W - cx - 8;
+      var cl = svgEl("text", { "class": "dm-lab", x: cx + 4, y: 14 }); cl.textContent = "YARN cluster"; svg.appendChild(cl);
+      // cluster boundary
+      svg.appendChild(svgEl("rect", { "class": "dm-boundary", x: cx, y: 20, width: cw, height: H - 28, rx: 8 }));
+
+      // gateway
+      box(svg, 12, 20, 150, H - 28, "dm-gw", "", "");
+      var driverPos;
+      if (!cluster) {
+        driverPos = box(svg, 26, 60, 122, 48, "dm-driver hot", "Driver", "your JVM (main)");
+        box(svg, 26, 128, 122, 34, "dm-submit", "spark-submit ⏎", "");
+      } else {
+        box(svg, 26, 84, 122, 44, "dm-submit", "spark-submit ⏎", "then can disconnect");
+      }
+
+      // ResourceManager
+      box(svg, cx + 14, 30, cw - 28, 26, "dm-rm", "ResourceManager", "");
+
+      // workers
+      var wy = 74, wh = H - 92, ww = (cw - 28 - 14) / 2;
+      var w1x = cx + 14, w2x = w1x + ww + 14;
+      var slots = [];
+      [w1x, w2x].forEach(function (wx, wi) {
+        box(svg, wx, wy, ww, wh, "dm-worker", "", "");
+        var nl = svgEl("text", { "class": "dm-worker-lab", x: wx + 8, y: wy + 15 }); nl.textContent = "NodeManager " + (wi + 1); svg.appendChild(nl);
+        for (var s = 0; s < 2; s++) slots.push({ x: wx + 8, y: wy + 24 + s * ((wh - 30) / 2 + 4), w: ww - 16, h: (wh - 30) / 2 });
+      });
+
+      var execCenters = [];
+      slots.forEach(function (sl, i) {
+        var role, cls, sub;
+        if (cluster && i === 0) { role = "AM + Driver"; cls = "dm-driver hot"; sub = "runs in the cluster"; driverPos = { cx: sl.x + sl.w / 2, cy: sl.y + sl.h / 2 }; }
+        else if (!cluster && i === 0) { role = "ApplicationMaster"; cls = "dm-am"; sub = "asks RM for resources"; }
+        else { role = "Executor"; cls = "dm-exec"; sub = "runs tasks"; }
+        box(svg, sl.x, sl.y, sl.w, sl.h, cls, role, sub);
+        if (role === "Executor") execCenters.push({ cx: sl.x + sl.w / 2, cy: sl.y });
+      });
+
+      // driver -> executor control arrows
+      if (driverPos) execCenters.forEach(function (ec) { arrow(svg, driverPos.cx, driverPos.cy, ec.cx, ec.cy, "ctrl"); });
+
+      host.appendChild(svg);
+
+      code.textContent = "spark-submit \\\n  --master yarn \\\n  --deploy-mode " + st.mode + " \\\n  your_app.py";
+      status.innerHTML = cluster
+        ? "<b>cluster mode</b> — the driver runs <b>inside the cluster</b> as the ApplicationMaster. spark-submit can exit / your laptop can disconnect and the job keeps running. Driver logs live in YARN. <b>Use for production &amp; scheduled jobs.</b>"
+        : "<b>client mode</b> — the driver runs on the <b>gateway node where you launched it</b> (outside the cluster); a separate ApplicationMaster only requests containers. Driver logs stream to your terminal, but if that process dies the job dies. <b>Use for spark-shell / notebooks / interactive.</b>";
+    }
+
+    bC.addEventListener("click", function () { st.mode = "client"; render(); });
+    bK.addEventListener("click", function () { st.mode = "cluster"; render(); });
+    render();
+    return wrap;
+  }
+
+  // ---- parquetLayout: columnar file -> row groups -> column chunks ----------
+  // A Parquet file drawn as row groups, each split into per-column chunks with
+  // min/max stats. Pick which columns to SELECT (column pruning) and a WHERE
+  // predicate (row-group skipping via min/max). Read chunks light up; pruned
+  // columns and skipped row groups dim; a "scanned" readout updates. Flip to
+  // row format to see why neither optimization is possible there.
+  // opts: {}
+  function parquetLayout(opts) {
+    function esc(s) { return String(s == null ? "" : s).replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }); }
+    var NS = "http://www.w3.org/2000/svg";
+    function svgEl(name, attrs) { var e = document.createElementNS(NS, name); if (attrs) for (var k in attrs) e.setAttribute(k, String(attrs[k])); return e; }
+    var COLS = ["order_id", "country", "amount", "ts"];
+    var RGS = [
+      { amin: 10, amax: 200, countries: ["US", "IN"] },
+      { amin: 150, amax: 600, countries: ["IN", "UK"] },
+      { amin: 500, amax: 900, countries: ["US", "DE"] }
+    ];
+    var st = { sel: { order_id: false, country: true, amount: true, ts: false }, pred: "amount", columnar: true };
+
+    function survives(rg) {
+      if (st.pred === "amount") return rg.amax > 500;
+      if (st.pred === "country") return rg.countries.indexOf("US") !== -1;
+      return true;
+    }
+
+    var wrap = elh("div", "viz viz-pl");
+    var ctrls = elh("div", "pl-ctrls");
+
+    function chipGroup(label, items, isOn, onClick) {
+      var row = elh("div", "pl-row");
+      row.appendChild(elh("span", "pl-row-lab", label));
+      var box = elh("div", "pl-chips");
+      items.forEach(function (it) {
+        var c = elh("button", "pl-chip" + (isOn(it.key) ? " on" : ""), it.label);
+        c.addEventListener("click", function () { onClick(it.key); render(); });
+        box.appendChild(c);
+      });
+      row.appendChild(box);
+      return row;
+    }
+
+    var host = elh("div", "pl-host");
+    var readout = elh("div", "viz-hint pl-readout", "");
+    var status = elh("div", "viz-hint pl-status", "");
+
+    function buildCtrls() {
+      ctrls.innerHTML = "";
+      ctrls.appendChild(chipGroup("SELECT", COLS.map(function (c) { return { key: c, label: c }; }),
+        function (k) { return st.sel[k]; }, function (k) { st.sel[k] = !st.sel[k]; }));
+      ctrls.appendChild(chipGroup("WHERE", [
+        { key: "none", label: "(no filter)" }, { key: "amount", label: "amount > 500" }, { key: "country", label: "country = 'US'" }
+      ], function (k) { return st.pred === k; }, function (k) { st.pred = k; }));
+      ctrls.appendChild(chipGroup("Format", [
+        { key: "col", label: "Columnar (Parquet)" }, { key: "row", label: "Row format" }
+      ], function (k) { return st.columnar === (k === "col"); }, function (k) { st.columnar = (k === "col"); }));
+    }
+
+    wrap.appendChild(ctrls);
+    wrap.appendChild(host);
+    wrap.appendChild(readout);
+    wrap.appendChild(status);
+
+    function render() {
+      buildCtrls();
+      host.innerHTML = "";
+      var W = 560, gut = 54, x0 = gut, colW = (W - gut - 10) / COLS.length;
+      var headY = 24, bandTop = 34, bandH = 46, bandGap = 10;
+      var H = bandTop + RGS.length * (bandH + bandGap) + 6;
+      var svg = svgEl("svg", { "class": "pl-svg", viewBox: "0 0 " + W + " " + H, width: "100%", role: "img", "aria-label": "Parquet columnar layout" });
+
+      var anySel = COLS.some(function (c) { return st.sel[c]; });
+
+      // column headers (columnar only)
+      if (st.columnar) {
+        COLS.forEach(function (c, j) {
+          var ht = svgEl("text", { "class": "pl-colhead" + (st.sel[c] ? " on" : ""), x: x0 + j * colW + colW / 2, y: headY - 4 }); ht.textContent = c; svg.appendChild(ht);
+        });
+      } else {
+        var rh = svgEl("text", { "class": "pl-colhead", x: x0, y: headY - 4 }); rh.textContent = "row-major bytes (all columns interleaved per row)"; svg.appendChild(rh);
+      }
+
+      RGS.forEach(function (rg, i) {
+        var by = bandTop + i * (bandH + bandGap);
+        var alive = st.columnar ? survives(rg) : true;
+        // row-group label
+        var rl = svgEl("text", { "class": "pl-rglab", x: 8, y: by + bandH / 2 - 4 }); rl.textContent = "RowGrp " + i; svg.appendChild(rl);
+        var rl2 = svgEl("text", { "class": "pl-rglab pl-rgstat", x: 8, y: by + bandH / 2 + 12 }); rl2.textContent = "amt " + rg.amin + "-" + rg.amax; svg.appendChild(rl2);
+
+        if (st.columnar) {
+          COLS.forEach(function (c, j) {
+            var cx = x0 + j * colW, state;
+            if (!alive) state = "skip";
+            else if (!st.sel[c]) state = "prune";
+            else state = "read";
+            var g = svgEl("g", { "class": "pl-cell " + state });
+            g.appendChild(svgEl("rect", { "class": "pl-cell-box", x: cx + 2, y: by, width: colW - 4, height: bandH, rx: 5 }));
+            var badge = c === "amount" ? (rg.amin + "-" + rg.amax) : (c === "country" ? "{" + rg.countries.join(",") + "}" : "chunk");
+            var t1 = svgEl("text", { "class": "pl-cell-t", x: cx + colW / 2, y: by + 20 }); t1.textContent = c; g.appendChild(t1);
+            var t2 = svgEl("text", { "class": "pl-cell-sub", x: cx + colW / 2, y: by + 36 }); t2.textContent = badge; g.appendChild(t2);
+            svg.appendChild(g);
+          });
+          if (!alive) {
+            var sk = svgEl("text", { "class": "pl-skip-lab", x: x0 + (W - gut - 10) / 2, y: by + bandH / 2 + 4 });
+            sk.textContent = "✕ skipped — min/max excludes the filter"; svg.appendChild(sk);
+          }
+        } else {
+          // row format: one solid band, all read, interleaved cells
+          var g2 = svgEl("g", { "class": "pl-cell read" });
+          g2.appendChild(svgEl("rect", { "class": "pl-cell-box", x: x0 + 2, y: by, width: W - gut - 14, height: bandH, rx: 5 }));
+          var seg = (W - gut - 14) / 8;
+          for (var s = 0; s < 8; s++) {
+            g2.appendChild(svgEl("line", { "class": "pl-rowsep", x1: x0 + 2 + s * seg, y1: by, x2: x0 + 2 + s * seg, y2: by + bandH }));
+          }
+          var rt = svgEl("text", { "class": "pl-cell-sub", x: x0 + (W - gut - 14) / 2, y: by + bandH / 2 + 4 }); rt.textContent = "all columns of every row read"; g2.appendChild(rt);
+          svg.appendChild(g2);
+        }
+      });
+      host.appendChild(svg);
+
+      var total = COLS.length * RGS.length;
+      var scanned;
+      if (st.columnar) {
+        var selN = COLS.filter(function (c) { return st.sel[c]; }).length;
+        var aliveN = RGS.filter(survives).length;
+        scanned = selN * aliveN;
+      } else {
+        scanned = total;
+      }
+      var pct = Math.round(scanned / total * 100);
+      readout.innerHTML = "Scanned <b>" + scanned + " / " + total + "</b> column-chunks (<b>" + pct + "%</b> of the file)" + (!anySel && st.columnar ? " — select at least one column" : "");
+
+      status.innerHTML = st.columnar
+        ? "<b>Columnar:</b> each column is stored together, so Spark reads <b>only the selected columns</b> (column pruning) and uses each row group's <b>min/max stats to skip</b> groups that can't match the filter (predicate pushdown / row-group skipping)."
+        : "<b>Row format</b> (CSV/JSON): every row's columns are interleaved, so there's <b>no way to read one column</b> without reading the whole row, and <b>no per-column stats to skip</b> row groups — every query is a full scan. That's why analytics uses Parquet.";
+    }
+
+    render();
+    return wrap;
+  }
+
   window.PYVIZ = {
     build: function (spec) {
       if (!spec || !spec.type) return null;
@@ -1602,6 +1846,8 @@
       if (spec.type === "partitionOps") return partitionOps(spec.data || {});
       if (spec.type === "clusterSizing") return clusterSizing(spec.data || {});
       if (spec.type === "hdfsBlocks") return hdfsBlocks(spec.data || {});
+      if (spec.type === "deployMode") return deployMode(spec.data || {});
+      if (spec.type === "parquetLayout") return parquetLayout(spec.data || {});
       return null;
     }
   };

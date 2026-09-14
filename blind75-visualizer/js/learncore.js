@@ -42,7 +42,7 @@
         { section: "Foundations",     topics: ["DataFrame Model & Lazy Eval", "Transformations vs Actions", "Schemas & Types"] },
         { section: "Transformations", topics: ["Narrow vs Wide (Shuffle)", "GroupBy & Aggregations", "Joins & Broadcast", "Window Functions"] },
         { section: "Performance",     topics: ["Partitioning & Skew", "Caching & Persistence", "AQE & Tuning"] },
-        { section: "Infrastructure & Deployment", topics: ["Cluster Sizing & Executor Config", "HDFS & Cloud Storage"] },
+        { section: "Infrastructure & Deployment", topics: ["Cluster Sizing & Executor Config", "HDFS & Cloud Storage", "Deploy Modes & spark-submit", "File Formats & Compression"] },
         { section: "Advanced",        topics: ["Spark SQL", "UDFs vs Built-ins"] },
         { section: "Modern & Production", topics: ["Delta Lake & the Lakehouse", "Structured Streaming", "Adaptive Query Execution (AQE) Deep-Dive", "File Layout: Partitioning, Bucketing & Compaction", "Production Patterns: CDC, Idempotency & Data Quality"] }
       ]
