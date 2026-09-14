@@ -63,10 +63,13 @@ window.LEARN.register("spark", "Advanced", [
       { q: "\"An analyst wants to query my DataFrame without learning PySpark.\"", think: "df.createOrReplaceTempView('name'), then they run spark.sql('SELECT ... FROM name')." },
       { q: "\"I need this intermediate result usable from SQL later in the pipeline.\"", think: "Register it as a temp view; SQL and the API can both read it from that point on." },
       { q: "\"My temp view disappeared in another notebook / session.\"", think: "createOrReplaceTempView is session-scoped. Use createOrReplaceGlobalTempView and query global_temp.name to share across sessions." },
-      { q: "\"This multi-join with window functions is unreadable in the API.\"", think: "Write it as a SQL string in spark.sql(...) — same plan, far clearer for set-based logic." }
+      { q: "\"This multi-join with window functions is unreadable in the API.\"", think: "Write it as a SQL string in spark.sql(...) — same plan, far clearer for set-based logic." },
+      { q: "\"Temp view vs saveAsTable — what's the difference?\"", think: "A temp view is session-scoped metadata over an existing plan (nothing persisted). saveAsTable writes data and registers it in the metastore so it survives the session." },
+      { q: "\"I dropped a table and the underlying files vanished / didn't vanish.\"", think: "Managed table: DROP deletes metadata AND data files. External table (saveAsTable with a path / CREATE ... LOCATION): DROP removes only the metadata, files stay." }
     ],
 
-    matchTags: ["spark sql", "sql", "temp view", "createorreplacetempview", "spark.sql", "dataframe api"],
+    matchTags: ["spark sql", "sql", "temp view", "createorreplacetempview", "spark.sql", "dataframe api",
+                "managed table", "external table", "saveastable", "metastore", "catalog", "hive", "drop table", "location"],
 
     traps: [
       {
@@ -83,6 +86,11 @@ window.LEARN.register("spark", "Advanced", [
         bad: "spark.sql('SELECT * FROM my_global_view')  # global view, wrong db",
         good: "spark.sql('SELECT * FROM global_temp.my_global_view')",
         why: "Global temp views live in the reserved global_temp database. You must qualify the name with global_temp., or Spark cannot resolve it."
+      },
+      {
+        bad: "df.write.saveAsTable('sales')            # MANAGED: DROP later deletes the data too",
+        good: "df.write.option('path','s3://bucket/sales').saveAsTable('sales')  # EXTERNAL: DROP keeps files",
+        why: "A saveAsTable with no path creates a managed table — Spark owns the files, and DROP TABLE deletes both metadata and data. Give it an explicit path (or CREATE ... LOCATION) to make it external, so DROP removes only the catalog entry and the data survives. Use external for shared/curated data you don't want a DROP to destroy."
       }
     ],
 

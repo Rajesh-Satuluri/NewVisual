@@ -61,10 +61,12 @@ window.LEARN.register("spark", "Transformations", [
       { q: "\"I need the equivalent of SQL HAVING.\"", think: "Aggregate first, then .filter() on the aggregated column — filtering after groupBy is HAVING." },
       { q: "\"Turn rows of (country, month, amount) into a country x month grid.\"", think: "groupBy('country').pivot('month', [values]).agg(F.sum('amount')). List the pivot values to avoid an extra scan." },
       { q: "\"My groupBy job is slow even though the result is tiny.\"", think: "Check for a Python UDF aggregate (no map-side combine) or too-wide input rows; filter/select before the groupBy." },
-      { q: "\"Count of distinct users per group.\"", think: "F.countDistinct('user_id') inside agg, or approx_count_distinct for a fast approximate answer on huge data." }
+      { q: "\"Count of distinct users per group.\"", think: "F.countDistinct('user_id') inside agg, or approx_count_distinct for a fast approximate answer on huge data." },
+      { q: "\"explain() shows HashAggregate then SortAggregate — what decides which?\"", think: "HashAggregate (fast, no sort) is used when the aggregation buffer is a fixed-size mutable type Spark can keep in an in-memory hash map. Non-mutable buffers (e.g. collect_list, or immutable-typed keys) fall back to SortAggregate, which sorts rows by key first — slower. Prefer built-ins that stay hash-aggregable." }
     ],
 
-    matchTags: ["groupby", "agg", "aggregation", "sum", "count", "avg", "pivot"],
+    matchTags: ["groupby", "agg", "aggregation", "sum", "count", "avg", "pivot",
+                "hash aggregate", "sort aggregate", "hashaggregate", "sortaggregate", "map-side combine", "partial aggregation"],
 
     traps: [
       {
