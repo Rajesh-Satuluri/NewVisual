@@ -294,6 +294,54 @@ body:not([data-ws="python"]) #pyProgress { display: none !important; }
 .hb-node.dead .hb-node-t { fill: color-mix(in srgb, #ff6b6b 60%, var(--text)); }
 .hb-node.dead .hb-node-sub { fill: #ff6b6b; }
 
+/* deployMode: client vs cluster driver placement */
+.viz-dm .dm-svg { display: block; width: 100%; height: auto; margin-top: 6px; }
+.dm-toggle { display: flex; gap: 8px; margin-bottom: 4px; }
+.dm-tab { background: var(--bg-3); border: 1px solid var(--border); color: var(--text-2); font-size: 12.5px; font-weight: 700;
+  font-family: inherit; padding: 7px 14px; border-radius: 8px; cursor: pointer; }
+.dm-tab.on { background: var(--brand); border-color: var(--brand); color: #06111f; }
+.dm-lab { fill: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .03em; }
+.dm-boundary { fill: color-mix(in srgb, var(--brand) 5%, var(--bg-1)); stroke: color-mix(in srgb, var(--brand) 35%, var(--border)); stroke-width: 1; stroke-dasharray: 5 3; }
+.dm-rect { fill: var(--bg-1); stroke: var(--border); stroke-width: 1.2; }
+.dm-gw .dm-rect { fill: var(--bg-2); }
+.dm-t { fill: var(--text); font-size: 12px; font-weight: 700; text-anchor: middle; }
+.dm-sub { fill: var(--muted); font-size: 10px; text-anchor: middle; }
+.dm-rm .dm-rect { fill: color-mix(in srgb, var(--brand) 12%, var(--bg-1)); stroke: color-mix(in srgb, var(--brand) 45%, var(--border)); }
+.dm-worker .dm-rect { fill: var(--bg-1); stroke: var(--border); }
+.dm-worker-lab { fill: var(--muted); font-size: 10px; font-weight: 700; }
+.dm-exec .dm-rect { fill: color-mix(in srgb, var(--brand) 16%, var(--bg-1)); stroke: var(--brand); stroke-width: 1.4; }
+.dm-am .dm-rect { fill: color-mix(in srgb, var(--brand) 8%, var(--bg-1)); stroke: color-mix(in srgb, var(--brand) 40%, var(--border)); stroke-dasharray: 3 2; }
+.dm-driver.hot .dm-rect { fill: color-mix(in srgb, var(--warn, #e8a33d) 22%, var(--bg-1)); stroke: color-mix(in srgb, var(--warn, #e8a33d) 80%, var(--bg-1)); stroke-width: 2; }
+.dm-submit .dm-rect { fill: var(--bg-3); stroke: var(--border); stroke-dasharray: 3 2; }
+.dm-line { stroke: color-mix(in srgb, var(--brand) 55%, var(--border)); stroke-width: 1.4; }
+.dm-head { fill: color-mix(in srgb, var(--brand) 60%, var(--border)); }
+
+/* parquetLayout: columnar row groups, pruning & row-group skipping */
+.viz-pl .pl-svg { display: block; width: 100%; height: auto; margin-top: 6px; }
+.pl-ctrls { display: flex; flex-direction: column; gap: 8px; margin-bottom: 4px; }
+.pl-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pl-row-lab { font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--muted); min-width: 52px; }
+.pl-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.pl-chip { background: var(--bg-3); border: 1px solid var(--border); color: var(--text-2); font-size: 12px; font-weight: 600;
+  font-family: var(--mono); padding: 5px 10px; border-radius: 999px; cursor: pointer; }
+.pl-chip.on { background: color-mix(in srgb, var(--brand) 24%, var(--bg-3)); border-color: var(--brand); color: var(--text); }
+.pl-colhead { fill: var(--muted); font-size: 11px; font-weight: 700; font-family: var(--mono); text-anchor: middle; }
+.pl-colhead.on { fill: var(--brand); }
+.pl-rglab { fill: var(--muted); font-size: 10px; font-weight: 700; font-family: var(--mono); }
+.pl-rgstat { fill: var(--muted); opacity: .8; }
+.pl-cell-box { fill: var(--bg-1); stroke: var(--border); stroke-width: 1; transition: fill .15s ease, stroke .15s ease; }
+.pl-cell-t { fill: var(--text-2); font-size: 11px; font-weight: 700; font-family: var(--mono); text-anchor: middle; }
+.pl-cell-sub { fill: var(--muted); font-size: 9.5px; font-family: var(--mono); text-anchor: middle; }
+.pl-cell.read .pl-cell-box { fill: color-mix(in srgb, var(--brand) 22%, var(--bg-1)); stroke: var(--brand); stroke-width: 1.6; }
+.pl-cell.read .pl-cell-t { fill: var(--text); }
+.pl-cell.prune .pl-cell-box { fill: var(--bg-1); stroke: var(--border); stroke-dasharray: 3 2; opacity: .5; }
+.pl-cell.prune .pl-cell-t, .pl-cell.prune .pl-cell-sub { opacity: .45; }
+.pl-cell.skip .pl-cell-box { fill: var(--bg-3); stroke: var(--border); opacity: .35; }
+.pl-cell.skip .pl-cell-t, .pl-cell.skip .pl-cell-sub { opacity: .3; }
+.pl-skip-lab { fill: color-mix(in srgb, #ff6b6b 70%, var(--text)); font-size: 11px; font-weight: 700; font-family: var(--mono); text-anchor: middle; }
+.pl-rowsep { stroke: color-mix(in srgb, var(--brand) 40%, var(--bg-1)); stroke-width: 1; }
+.pl-readout { color: var(--text-2); }
+
 /* Narrow vs Wide: stages & shuffles */
 .viz-ss .ss-svg { display: block; width: 100%; height: auto; }
 .ss-stage { fill: color-mix(in srgb, var(--brand) 9%, var(--bg-1)); stroke: color-mix(in srgb, var(--brand) 35%, var(--border)); stroke-width: 1; }

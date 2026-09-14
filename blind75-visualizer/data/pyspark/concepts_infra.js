@@ -250,5 +250,241 @@ window.LEARN.register("spark", "Infrastructure & Deployment", [
         "     .repartition(8) \\\n" +
         "     .write.mode('overwrite').parquet('/curated/events/dt=2024-06-01/')"
     }
+  },
+
+  {
+    id: "deploy-modes-spark-submit",
+    title: "Deploy Modes & spark-submit",
+    difficulty: "Core",
+    estMinutes: 11,
+    relevance: 3,
+    tagline: "\"What's the difference between client and cluster mode?\" hinges on one thing: WHERE the driver runs. Get that, and the rest — logs, disconnects, which to use — follows.",
+
+    whatIsIt: [
+      "You launch a Spark job with <code>spark-submit</code> from a <b>gateway / edge node</b>. It talks to the cluster manager (YARN's <b>ResourceManager</b>, or Kubernetes) which allocates <b>containers</b> on worker nodes and starts an <b>ApplicationMaster</b> (AM) plus the <b>executors</b>.",
+      "The one thing <code>--deploy-mode</code> decides is <b>where the driver JVM runs</b>. In <b>client mode</b> the driver runs in the spark-submit process <b>on the gateway node</b> (outside the cluster); the AM only negotiates resources. In <b>cluster mode</b> the driver runs <b>inside the cluster</b>, co-located with the AM in a container.",
+      "That placement drives everything else. <b>Client:</b> driver logs stream to your terminal and you can interact — but if that process (or your laptop) dies, the driver dies and the job fails. <b>Cluster:</b> spark-submit can exit and you can disconnect; the driver lives in YARN, its logs go to the cluster's log aggregation, and the job runs to completion on its own.",
+      "So the rule of thumb: <b>client mode</b> for interactive work — <code>spark-shell</code>, notebooks, ad-hoc debugging where you want live output. <b>cluster mode</b> for <b>production and scheduled jobs</b> (Airflow, cron, Oozie) that must survive a disconnected client. (<code>--master local[*]</code> is a third option: everything in one JVM on your machine, for tests.)"
+    ],
+
+    showMe: {
+      code:
+        "# CLIENT mode — driver on the gateway; logs in your terminal; dies if you do.\n" +
+        "spark-submit \\\n" +
+        "  --master yarn \\\n" +
+        "  --deploy-mode client \\\n" +
+        "  --num-executors 10 --executor-cores 5 --executor-memory 19g \\\n" +
+        "  app.py\n" +
+        "\n" +
+        "# CLUSTER mode — driver runs INSIDE YARN; submit can exit; for production.\n" +
+        "spark-submit \\\n" +
+        "  --master yarn \\\n" +
+        "  --deploy-mode cluster \\\n" +
+        "  --driver-memory 19g \\\n" +
+        "  --num-executors 10 --executor-cores 5 --executor-memory 19g \\\n" +
+        "  app.py\n" +
+        "\n" +
+        "# Local — one JVM on your machine, N worker threads. For unit tests.\n" +
+        "spark-submit --master 'local[*]' app.py",
+      viz: {
+        type: "deployMode",
+        data: { mode: "client" }
+      },
+      caption:
+        "Toggle client vs cluster and watch the Driver move. In client mode it sits on the gateway node (outside the cluster); in cluster mode it runs in a container as the ApplicationMaster. The spark-submit line and the implications update with it."
+    },
+
+    whyMatters:
+      "<p>This is a guaranteed interview question and a real operational choice. The crisp answer is one sentence — \"the deploy mode decides where the driver runs\" — followed by the consequences.</p>" +
+      "<ul>" +
+      "<li><b>Client</b> — driver on the gateway, live logs, interactive; the submitting process must stay alive. Great for <code>spark-shell</code>/notebooks, risky for long batch jobs.</li>" +
+      "<li><b>Cluster</b> — driver in the cluster as the AM; survives a disconnected client; logs via YARN aggregation. The default for production and scheduled pipelines.</li>" +
+      "<li><b>Gotcha</b> — in client mode the driver's network must reach every executor; a firewalled laptop or a driver too small for a big <code>collect()</code> is a common failure.</li>" +
+      "</ul>" +
+      "<pre class=\"why-pre\">--deploy-mode client   -> driver on gateway   -> logs in terminal, dies with client\n--deploy-mode cluster  -> driver in cluster   -> survives disconnect, YARN logs\n--master local[*]      -> driver+executors in one JVM on your machine</pre>",
+
+    recognize: [
+      { q: "\"Client vs cluster mode — the difference?\"", think: "Where the driver runs. Client: on the gateway, outside the cluster. Cluster: inside the cluster as the ApplicationMaster." },
+      { q: "\"My scheduled job dies when I close my laptop.\"", think: "You're in client mode — the driver is your laptop's process. Use --deploy-mode cluster so the driver lives in YARN." },
+      { q: "\"Where are my driver logs?\"", think: "Client: streaming to your terminal. Cluster: in YARN log aggregation (yarn logs -applicationId ...) — not on your screen." },
+      { q: "\"Notebook / spark-shell — which mode?\"", think: "Client (it's implicit). You need the driver local to get an interactive REPL and live output." },
+      { q: "\"Airflow triggers a nightly Spark batch — which mode?\"", think: "Cluster. The submitting process shouldn't have to stay attached for hours; the driver belongs in the cluster." }
+    ],
+
+    matchTags: ["deploy mode", "client mode", "cluster mode", "spark-submit", "driver", "yarn",
+                "applicationmaster", "resourcemanager", "gateway", "edge node", "--master",
+                "local", "production", "scheduled"],
+
+    traps: [
+      {
+        bad: "# nightly Airflow job: spark-submit --deploy-mode client ...",
+        good: "spark-submit --deploy-mode cluster ...   # driver survives in YARN",
+        why: "In client mode the driver is the submitting process; if Airflow's worker recycles or the connection drops, the driver — and the whole job — dies. Production/scheduled jobs run in cluster mode."
+      },
+      {
+        bad: "# cluster mode, then tailing your terminal for driver output",
+        good: "yarn logs -applicationId application_XXXX   # fetch aggregated logs",
+        why: "In cluster mode the driver runs on some worker node, not your terminal. Its stdout/stderr go to YARN log aggregation; expecting them on your screen just looks like the job is silent."
+      },
+      {
+        bad: "# client mode from a firewalled laptop to a remote cluster",
+        good: "# use cluster mode (or a gateway node) so the driver is near the executors",
+        why: "In client mode the driver must open connections to every executor. A laptop behind NAT/firewall often can't be reached back by executors, so the job hangs or fails to launch tasks."
+      }
+    ],
+
+    complexity: [
+      { op: "driver location", big_o: "client: gateway | cluster: in-cluster", note: "The single knob --deploy-mode controls; everything else is a consequence." },
+      { op: "survives client disconnect", big_o: "client: no | cluster: yes", note: "Cluster-mode driver lives in YARN and is decoupled from the submitting process." },
+      { op: "log destination", big_o: "client: terminal | cluster: YARN", note: "Cluster-mode logs need yarn logs / the RM UI to retrieve." },
+      { op: "driver<->executor network", big_o: "client: gateway must reach execs", note: "Client mode needs full connectivity from the gateway; firewalls break it." },
+      { op: "startup latency", big_o: "client: lower | cluster: +1 hop", note: "Cluster mode adds the step of shipping and launching the driver in a container." }
+    ],
+
+    engineNote:
+      "<p><b>Under the hood.</b> On YARN, spark-submit registers an application with the ResourceManager, which launches the ApplicationMaster in the first container. In <b>cluster</b> mode that AM container <i>is</i> the driver — it runs your <code>main()</code> and requests executor containers. In <b>client</b> mode the AM is a thin proxy that only negotiates resources; your driver runs back in the spark-submit process and the AM relays container requests to it.</p>" +
+      "<p><b>Kubernetes</b> follows the same idea: cluster mode runs the driver in a driver Pod; the driver Pod then creates executor Pods. There's no true client mode inside the cluster, though you can run the driver outside it.</p>" +
+      "<p><b>Sizing note.</b> Cluster mode makes <code>--driver-memory</code> and driver cores real cluster resources you must budget (the driver takes a container). In client mode the driver uses the gateway's RAM — which is why a big <code>collect()</code> in client mode can OOM the gateway rather than a cluster node.</p>",
+
+    challenge: {
+      prompt:
+        "A data scientist runs a 3-hour training job by opening a terminal on the gateway, launching spark-submit, and leaving it overnight. Twice a week it fails around the 2-hour mark with no useful error, always when they've gone home. What's almost certainly happening, and what's the one-flag fix (plus where to read logs afterward)?",
+      starter:
+        "spark-submit --master yarn --deploy-mode client train.py\n" +
+        "# runs fine when watched; dies overnight ~2h in. why? one-flag fix?",
+      solution:
+        "# Diagnosis: client mode -> the driver IS the spark-submit process on the\n" +
+        "# gateway. Overnight the SSH session / gateway recycles / network drops,\n" +
+        "# the process is killed, and with it the driver and the whole job. It only\n" +
+        "# 'works when watched' because the session stays alive.\n" +
+        "\n" +
+        "# One-flag fix: run the driver inside the cluster so it's decoupled from\n" +
+        "# the client session.\n" +
+        "spark-submit --master yarn --deploy-mode cluster train.py\n" +
+        "\n" +
+        "# Now the driver survives a disconnected client. Read its logs via YARN:\n" +
+        "#   yarn logs -applicationId application_XXXX_YYYY\n" +
+        "# (or the ResourceManager UI). Also budget --driver-memory: in cluster\n" +
+        "# mode the driver takes a real container, not the gateway's RAM.\n" +
+        "# For interactive dev, keep client mode but use tmux/nohup to survive drops."
+    }
+  },
+
+  {
+    id: "file-formats-compression",
+    title: "File Formats & Compression",
+    difficulty: "Core",
+    estMinutes: 12,
+    relevance: 3,
+    tagline: "\"Why Parquet over CSV?\" and \"snappy or gzip?\" are asked constantly. The answers come down to columnar layout + splittability — and both change how much data Spark actually reads.",
+
+    whatIsIt: [
+      "<b>Row formats</b> (CSV, JSON) store every column of a row together, then the next row. To read one column you must read every row in full, and there are no statistics to skip anything — every query is a <b>full scan</b>. They're human-readable and fine for ingestion, bad for analytics.",
+      "<b>Columnar formats</b> (<b>Parquet</b>, ORC) store each column's values together. A Parquet file is a series of <b>row groups</b> (~128 MB); each row group holds one <b>column chunk</b> per column; each chunk is split into <b>pages</b>. Crucially, each column chunk carries <b>min/max statistics</b>.",
+      "That layout unlocks two big wins Spark uses automatically: <b>column pruning</b> — read only the columns your query <code>select</code>s — and <b>predicate pushdown / row-group skipping</b> — use the min/max stats to skip whole row groups that can't match a <code>WHERE</code>. A query touching 2 of 20 columns over data where the filter matches one row group can read a tiny fraction of the file.",
+      "<b>Compression</b> layers on top. <b>Snappy</b> (Parquet's default) is fast to decompress with modest ratio — the right default for query engines. <b>Gzip</b> compresses smaller but is slower and CPU-heavy. Two subtleties: Parquet compresses <i>per column chunk</i> (so columnar + snappy compounds), and <b>splittability</b> matters for row formats — a gzipped CSV is <b>not splittable</b>, so a 10 GB .csv.gz becomes ONE partition and one task. bzip2 is splittable but slow; snappy-in-Parquet stays splittable because the container handles splitting."
+    ],
+
+    showMe: {
+      code:
+        "# Same query, three storage choices — watch how much gets read.\n" +
+        "spark.read.csv('/data/sales.csv', header=True) \\\n" +
+        "  .select('country', 'amount').filter('amount > 500')   # FULL SCAN: reads all cols, all rows\n" +
+        "\n" +
+        "spark.read.parquet('/data/sales_parquet/') \\\n" +
+        "  .select('country', 'amount').filter('amount > 500')\n" +
+        "  # column pruning: reads only country + amount chunks\n" +
+        "  # row-group skipping: skips row groups whose amount max <= 500\n" +
+        "\n" +
+        "# Write Parquet with an explicit codec (snappy is the default):\n" +
+        "df.write.option('compression', 'snappy').parquet('/out/')\n" +
+        "\n" +
+        "# ANTI-PATTERN: a single gzipped CSV is NOT splittable ->\n" +
+        "spark.read.csv('/data/huge.csv.gz')          # 10GB -> 1 partition -> 1 task\n" +
+        "spark.read.parquet('/data/huge_parquet/')    # splittable -> many tasks",
+      viz: {
+        type: "parquetLayout",
+        data: {}
+      },
+      caption:
+        "Pick the columns to SELECT and a WHERE filter. In Columnar mode, unselected columns dim (column pruning) and row groups whose min/max can't match the filter are skipped — watch the \"scanned %\" drop. Flip to Row format and it jumps back to a full scan."
+    },
+
+    whyMatters:
+      "<p>Storage format is the cheapest performance win in data engineering, and interviewers use it to check whether you understand <i>why</i>, not just \"Parquet good.\"</p>" +
+      "<ul>" +
+      "<li><b>Columnar = less I/O</b> — column pruning + row-group skipping mean a query reads a fraction of the bytes. This is the single biggest reason analytics uses Parquet/ORC.</li>" +
+      "<li><b>Snappy is the default for a reason</b> — query engines decompress constantly, so fast decompression beats a smaller file. Use gzip only when storage/transfer cost dominates and reads are rare.</li>" +
+      "<li><b>Splittability decides parallelism</b> — a non-splittable gzipped text file is a single task no matter how big. Parquet stays splittable; that's a common \"why is my job single-threaded?\" answer.</li>" +
+      "</ul>" +
+      "<pre class=\"why-pre\">CSV/JSON  : row-major, no stats            -> full scan, splittable (plain)\nParquet   : columnar + min/max + snappy    -> prune cols, skip row groups, splittable\n.csv.gz   : gzip is NOT splittable          -> 10GB = 1 partition = 1 task (trap)</pre>",
+
+    recognize: [
+      { q: "\"Why Parquet over CSV for analytics?\"", think: "Columnar layout enables column pruning + row-group skipping (min/max stats) + better compression per column — a query reads far fewer bytes." },
+      { q: "\"snappy or gzip?\"", think: "Snappy by default: fast decompression for repeated reads. Gzip only when storage/egress cost dominates and the data is read rarely." },
+      { q: "\"My 8 GB .csv.gz reads as one task — why?\"", think: "Gzip isn't splittable, so the whole file is one partition. Convert to Parquet (or bzip2) so it can be split across tasks." },
+      { q: "\"How does predicate pushdown work on Parquet?\"", think: "Each row group's column chunk stores min/max; Spark skips any row group whose stats can't satisfy the filter without reading its pages." },
+      { q: "\"Does column pruning help a SELECT * ?\"", think: "No — you asked for every column. Pruning only pays off when you select a subset; another reason to avoid SELECT * on wide tables." }
+    ],
+
+    matchTags: ["parquet", "orc", "csv", "json", "columnar", "row format", "compression", "snappy",
+                "gzip", "bzip2", "splittable", "row group", "column chunk", "predicate pushdown",
+                "column pruning", "min max", "file format"],
+
+    traps: [
+      {
+        bad: "df.write.csv('/out/big')                      # analytics table as CSV",
+        good: "df.write.parquet('/out/big')                 # columnar + stats + snappy",
+        why: "CSV forces a full scan on every query (no pruning, no stats) and compresses worse. For anything queried repeatedly, Parquet reads a fraction of the bytes and stores smaller."
+      },
+      {
+        bad: "spark.read.csv('/data/events.csv.gz')         # one 12GB gzip file",
+        good: "spark.read.parquet('/data/events_parquet/')  # splittable, many tasks",
+        why: "Gzip is not splittable, so a single large .csv.gz is read by exactly one task regardless of cluster size. Use Parquet (splittable) or, if you must stay text, bzip2 (splittable but slow)."
+      },
+      {
+        bad: "df.write.option('compression','gzip').parquet('/hot/')   # frequently queried",
+        good: "df.write.parquet('/hot/')                                # snappy default",
+        why: "Gzip's smaller files cost more CPU to decompress on every read. For hot, frequently scanned data, snappy's fast decompression wins overall; save gzip for cold archives."
+      }
+    ],
+
+    complexity: [
+      { op: "read 1 column (columnar)", big_o: "O(1 column)", note: "Column pruning reads only the chunks for selected columns — the rest is never touched." },
+      { op: "read 1 column (row format)", big_o: "O(all columns)", note: "Rows interleave columns, so extracting one still reads the whole row — a full scan." },
+      { op: "filtered scan (Parquet)", big_o: "O(surviving row groups)", note: "min/max stats skip row groups that can't match; only survivors are read." },
+      { op: "snappy decompress", big_o: "fast, modest ratio", note: "Default for query engines: CPU-cheap on every read; slightly larger files than gzip." },
+      { op: "gzip .csv (whole file)", big_o: "1 partition (not splittable)", note: "Non-splittable codecs force the entire file into a single task — a parallelism killer." }
+    ],
+
+    engineNote:
+      "<p><b>Under the hood.</b> A Parquet file ends with a <b>footer</b> holding the schema and, per row group, per-column-chunk metadata including min/max/null counts and page offsets. Spark reads the footer first, prunes columns from the requested schema, and evaluates pushed-down predicates against the stats to decide which row groups (and, with page indexes, which pages) to read — so much of the file is skipped before any data pages are fetched.</p>" +
+      "<p><b>Encodings before compression.</b> Within a column chunk Parquet applies <b>dictionary encoding</b>, <b>run-length / bit-packing</b>, and <b>delta encoding</b> first (columnar data is highly repetitive), then the codec (snappy/gzip/zstd) on top. That's why columnar files compress far better than the same data row-wise.</p>" +
+      "<p><b>Modern default.</b> Parquet + snappy is the de-facto lake format; <b>zstd</b> is increasingly used for a better ratio at snappy-like speed. Delta/Iceberg/Hudi wrap Parquet with a transaction log but keep the same columnar data files underneath.</p>",
+
+    challenge: {
+      prompt:
+        "An hourly pipeline lands data as one large gzipped CSV per hour (~9 GB each) in S3, and a dashboard query does SELECT country, SUM(amount) ... WHERE event_date = '2024-06-01'. Analysts complain the query is slow and 'only uses one core'. Name the two format problems and the target layout that fixes both.",
+      starter:
+        "# landing: s3://bucket/raw/2024-06-01-14.csv.gz   (~9 GB, gzip)\n" +
+        "# query:   SELECT country, SUM(amount) WHERE event_date = '2024-06-01'\n" +
+        "# slow + single-core. why? what layout fixes it?",
+      solution:
+        "# Problem 1 — gzip CSV is NOT splittable: each 9 GB file = 1 partition = 1\n" +
+        "#   task, so the read can't parallelize ('only uses one core').\n" +
+        "# Problem 2 — CSV is row-major with no stats: the query must full-scan every\n" +
+        "#   column of every row even though it needs only country + amount and one date.\n" +
+        "\n" +
+        "# Fix: convert to PARTITIONED PARQUET (snappy). Columnar -> prune to\n" +
+        "# country+amount + skip row groups via min/max; splittable -> many tasks;\n" +
+        "# partitionBy(event_date) -> the WHERE prunes whole directories (partition\n" +
+        "# pruning) before any file is opened.\n" +
+        "(spark.read.csv('s3://bucket/raw/2024-06-01-14.csv.gz', header=True)\n" +
+        "   .write.mode('append')\n" +
+        "   .partitionBy('event_date')\n" +
+        "   .parquet('s3://bucket/curated/events/'))\n" +
+        "# Now: SELECT country, SUM(amount) ... WHERE event_date='2024-06-01'\n" +
+        "#  -> reads only that date's directory, only 2 columns, only matching row groups."
+    }
   }
 ]);
