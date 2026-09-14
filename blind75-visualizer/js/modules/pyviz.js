@@ -1301,6 +1301,145 @@
     return wrap;
   }
 
+  // ---- clusterSizing: interactive executor / cluster sizing calculator ------
+  // Steppers for worker nodes / cores-per-node / RAM-per-node drive a live
+  // recompute using the "5 cores per executor" rule of thumb. The SVG shows one
+  // worker node's cores grouped into executor slots (OS reserve greyed, leftover
+  // cores idle) and its RAM split into per-executor containers (heap + a thin
+  // memoryOverhead sliver). A summary tally and a generated spark-submit line
+  // update on every change — so the arithmetic every DE interview asks about
+  // becomes something you can feel.
+  // opts: { nodes, cores, ram, reserve }
+  function clusterSizing(opts) {
+    var NS = "http://www.w3.org/2000/svg";
+    function svgEl(name, attrs) { var e = document.createElementNS(NS, name); if (attrs) for (var k in attrs) e.setAttribute(k, String(attrs[k])); return e; }
+
+    var st = {
+      nodes: opts.nodes || 6,
+      cores: opts.cores || 16,
+      ram: opts.ram || 64,
+      reserve: opts.reserve !== false
+    };
+    var LIM = { nodes: [1, 20], cores: [2, 32], ram: [8, 256] };
+
+    function compute() {
+      var res = st.reserve ? 1 : 0;
+      var uCores = Math.max(1, st.cores - res);
+      var uRam = Math.max(1, st.ram - res);
+      var cpe = Math.min(5, uCores);
+      var epn = Math.max(1, Math.floor(uCores / cpe));
+      if (uCores < 5) { epn = 1; cpe = uCores; }
+      var idle = uCores - epn * cpe;
+      var memExec = Math.floor(uRam / epn);
+      var overhead = Math.max(0.384, 0.07 * memExec);
+      overhead = Math.ceil(overhead * 100) / 100;
+      var heap = Math.round((memExec - overhead) * 10) / 10;
+      var totalAll = epn * st.nodes;
+      var totalExec = Math.max(1, totalAll - 1); // one slot funds the driver
+      return { res: res, uCores: uCores, uRam: uRam, cpe: cpe, epn: epn, idle: idle,
+               memExec: memExec, overhead: overhead, heap: heap, totalAll: totalAll, totalExec: totalExec };
+    }
+
+    var wrap = elh("div", "viz viz-cs");
+    var host = elh("div", "cs-host");
+
+    var ctrlWrap = elh("div", "cs-steppers");
+    function stepper(key, label, unit) {
+      var box = elh("div", "cs-step");
+      box.appendChild(elh("div", "cs-step-lab", label));
+      var row = elh("div", "cs-step-row");
+      var minus = elh("button", "cs-step-btn", "−");
+      var val = elh("span", "cs-step-val", st[key] + (unit || ""));
+      var plus = elh("button", "cs-step-btn", "+");
+      row.appendChild(minus); row.appendChild(val); row.appendChild(plus);
+      box.appendChild(row);
+      var lim = LIM[key];
+      var stepSize = key === "ram" ? 8 : (key === "cores" ? 2 : 1);
+      minus.addEventListener("click", function () { st[key] = Math.max(lim[0], st[key] - stepSize); val.textContent = st[key] + (unit || ""); render(); });
+      plus.addEventListener("click", function () { st[key] = Math.min(lim[1], st[key] + stepSize); val.textContent = st[key] + (unit || ""); render(); });
+      return box;
+    }
+    ctrlWrap.appendChild(stepper("nodes", "Worker nodes", ""));
+    ctrlWrap.appendChild(stepper("cores", "Cores / node", ""));
+    ctrlWrap.appendChild(stepper("ram", "RAM / node", " GB"));
+    var resBox = elh("div", "cs-step");
+    resBox.appendChild(elh("div", "cs-step-lab", "OS / daemon reserve"));
+    var resBtn = elh("button", "cs-toggle" + (st.reserve ? " on" : ""), st.reserve ? "1 core + 1 GB ✓" : "none");
+    resBtn.addEventListener("click", function () { st.reserve = !st.reserve; resBtn.classList.toggle("on", st.reserve); resBtn.textContent = st.reserve ? "1 core + 1 GB ✓" : "none"; render(); });
+    resBox.appendChild(resBtn);
+    ctrlWrap.appendChild(resBox);
+
+    var status = elh("div", "viz-hint cs-status", "");
+    var codeBox = elh("pre", "cs-code");
+
+    wrap.appendChild(ctrlWrap);
+    wrap.appendChild(host);
+    wrap.appendChild(codeBox);
+    wrap.appendChild(status);
+
+    function drawCore(svg, x, y, sq, cls) {
+      svg.appendChild(svgEl("rect", { "class": "cs-core " + cls, x: x, y: y, width: sq, height: sq, rx: 4 }));
+    }
+
+    function render() {
+      var c = compute();
+      host.innerHTML = "";
+      var W = 560, pad = 12, coreGap = 4, coreTop = 34;
+      var cn = st.cores;
+      var sq = Math.min(30, Math.floor((W - pad * 2 - (cn - 1) * coreGap) / cn));
+      if (sq < 8) sq = 8;
+      var rowW = cn * sq + (cn - 1) * coreGap;
+      var startX = (W - rowW) / 2;
+      var ramTop = coreTop + sq + 54;
+      var barH = 34;
+      var H = ramTop + barH + 26;
+      var svg = svgEl("svg", { "class": "cs-svg", viewBox: "0 0 " + W + " " + H, width: "100%", role: "img", "aria-label": "Executor sizing for one worker node" });
+
+      var title = svgEl("text", { "class": "cs-title", x: pad, y: 20 });
+      title.textContent = "One worker node — " + st.cores + " cores · " + st.ram + " GB";
+      svg.appendChild(title);
+
+      var idx = 0, i;
+      for (i = 0; i < c.res; i++) { drawCore(svg, startX + idx * (sq + coreGap), coreTop, sq, "reserve"); idx++; }
+      for (var e = 0; e < c.epn; e++) {
+        var gx0 = startX + idx * (sq + coreGap);
+        for (var k = 0; k < c.cpe; k++) { drawCore(svg, startX + idx * (sq + coreGap), coreTop, sq, "exec e" + (e % 4)); idx++; }
+        var gw = c.cpe * (sq + coreGap) - coreGap;
+        svg.appendChild(svgEl("rect", { "class": "cs-exec-br", x: gx0 - 2, y: coreTop - 2, width: gw + 4, height: sq + 4, rx: 5 }));
+        var elab = svgEl("text", { "class": "cs-exec-lab", x: gx0 + gw / 2, y: coreTop + sq + 15 }); elab.textContent = "E" + (e + 1); svg.appendChild(elab);
+      }
+      for (i = 0; i < c.idle; i++) { drawCore(svg, startX + idx * (sq + coreGap), coreTop, sq, "idle"); idx++; }
+
+      var ramLabel = svgEl("text", { "class": "cs-title", x: pad, y: ramTop - 10 });
+      ramLabel.textContent = "RAM → " + c.epn + " executor container" + (c.epn > 1 ? "s" : "") + " (heap + overhead)";
+      svg.appendChild(ramLabel);
+      var gbToPx = rowW / st.ram, bx = startX;
+      if (c.res > 0) { var rw = c.res * gbToPx; svg.appendChild(svgEl("rect", { "class": "cs-ram-reserve", x: bx, y: ramTop, width: rw, height: barH })); bx += rw; }
+      for (var e2 = 0; e2 < c.epn; e2++) {
+        var totPx = c.memExec * gbToPx, ovPx = c.overhead * gbToPx, heapPx = totPx - ovPx;
+        svg.appendChild(svgEl("rect", { "class": "cs-ram-heap e" + (e2 % 4), x: bx, y: ramTop, width: heapPx, height: barH }));
+        svg.appendChild(svgEl("rect", { "class": "cs-ram-ov", x: bx + heapPx, y: ramTop, width: ovPx, height: barH }));
+        bx += totPx;
+      }
+      host.appendChild(svg);
+
+      status.innerHTML = "<b>" + c.totalExec + " executors</b> cluster-wide (" + c.epn + "/node × " + st.nodes + " nodes − 1 for the driver) · <b>" + c.cpe + " cores</b> each · <b>~" + c.heap + " GB</b> heap + " + c.overhead.toFixed(2) + " GB overhead per executor."
+        + (c.idle > 0 ? " <span class='cs-warn'>" + c.idle + " core" + (c.idle > 1 ? "s" : "") + "/node idle</span> — too few to form another 5-core executor." : "")
+        + (c.cpe < 5 ? " Fewer than 5 usable cores here, so the node runs one small executor." : "");
+
+      codeBox.textContent =
+        "spark-submit \\\n" +
+        "  --num-executors " + c.totalExec + " \\\n" +
+        "  --executor-cores " + c.cpe + " \\\n" +
+        "  --executor-memory " + Math.max(1, Math.floor(c.heap)) + "g \\\n" +
+        "  --conf spark.executor.memoryOverhead=" + Math.round(c.overhead * 1024) + " \\\n" +
+        "  your_app.py";
+    }
+
+    render();
+    return wrap;
+  }
+
   window.PYVIZ = {
     build: function (spec) {
       if (!spec || !spec.type) return null;
@@ -1319,6 +1458,7 @@
       if (spec.type === "dataSkew") return dataSkew(spec.data || {});
       if (spec.type === "memorySpill") return memorySpill(spec.data || {});
       if (spec.type === "partitionOps") return partitionOps(spec.data || {});
+      if (spec.type === "clusterSizing") return clusterSizing(spec.data || {});
       return null;
     }
   };

@@ -233,6 +233,39 @@ body:not([data-ws="python"]) #pyProgress { display: none !important; }
 .cr-op-btn.warn.active { background: #ff6b6b; }
 @media (pointer: coarse) { .cr-op-btn { min-height: 32px; } }
 
+/* clusterSizing: executor/cluster sizing calculator */
+.viz-cs .cs-svg { display: block; width: 100%; height: auto; margin-top: 6px; }
+.cs-steppers { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 4px; }
+.cs-step { background: var(--bg-1); border: 1px solid var(--border-soft); border-radius: 8px; padding: 7px 10px; min-width: 118px; flex: 1 1 118px; }
+.cs-step-lab { font-size: 11px; color: var(--muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: .03em; }
+.cs-step-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.cs-step-btn { background: var(--bg-3); border: 1px solid var(--border); color: var(--text); font-size: 15px; font-weight: 700;
+  font-family: inherit; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; line-height: 1; }
+.cs-step-btn:hover { border-color: var(--brand); color: var(--brand); }
+.cs-step-val { font-family: var(--mono); font-size: 14px; font-weight: 700; color: var(--text); }
+.cs-toggle { background: var(--bg-3); border: 1px solid var(--border); color: var(--text-2); font-size: 12px; font-weight: 700;
+  font-family: inherit; padding: 6px 10px; border-radius: 6px; cursor: pointer; width: 100%; }
+.cs-toggle.on { background: color-mix(in srgb, var(--brand) 22%, var(--bg-3)); border-color: var(--brand); color: var(--text); }
+.cs-title { fill: var(--text-2); font-size: 12.5px; font-weight: 700; font-family: inherit; }
+.cs-core { fill: color-mix(in srgb, var(--brand) 30%, var(--bg-3)); stroke: var(--brand); stroke-width: 1; }
+.cs-core.e0 { fill: color-mix(in srgb, var(--brand) 42%, var(--bg-3)); }
+.cs-core.e1 { fill: color-mix(in srgb, var(--brand) 30%, var(--bg-3)); }
+.cs-core.e2 { fill: color-mix(in srgb, var(--brand) 54%, var(--bg-3)); }
+.cs-core.e3 { fill: color-mix(in srgb, var(--brand) 20%, var(--bg-3)); }
+.cs-core.reserve { fill: var(--bg-3); stroke: var(--muted); stroke-dasharray: 2 2; }
+.cs-core.idle { fill: transparent; stroke: var(--muted); stroke-dasharray: 3 2; opacity: .6; }
+.cs-exec-br { fill: none; stroke: var(--brand); stroke-width: 1.4; opacity: .55; }
+.cs-exec-lab { fill: var(--brand); font-size: 11px; font-weight: 700; font-family: var(--mono); text-anchor: middle; }
+.cs-ram-heap { fill: color-mix(in srgb, var(--brand) 34%, var(--bg-3)); stroke: var(--brand); stroke-width: 1; }
+.cs-ram-heap.e2 { fill: color-mix(in srgb, var(--brand) 50%, var(--bg-3)); }
+.cs-ram-heap.e0 { fill: color-mix(in srgb, var(--brand) 40%, var(--bg-3)); }
+.cs-ram-ov { fill: color-mix(in srgb, var(--warn, #e8a33d) 55%, var(--bg-3)); stroke: color-mix(in srgb, var(--warn, #e8a33d) 70%, var(--bg-3)); stroke-width: 1; }
+.cs-ram-reserve { fill: var(--bg-3); stroke: var(--muted); stroke-dasharray: 2 2; }
+.cs-code { background: var(--bg-1); border: 1px solid var(--border-soft); border-radius: 8px; padding: 10px 12px; margin-top: 12px;
+  font-family: var(--mono); font-size: 12px; color: var(--text); white-space: pre; overflow-x: auto; }
+.cs-warn { color: color-mix(in srgb, var(--warn, #e8a33d) 90%, var(--text)); font-weight: 700; }
+@media (pointer: coarse) { .cs-step-btn { width: 34px; height: 34px; } }
+
 /* Narrow vs Wide: stages & shuffles */
 .viz-ss .ss-svg { display: block; width: 100%; height: auto; }
 .ss-stage { fill: color-mix(in srgb, var(--brand) 9%, var(--bg-1)); stroke: color-mix(in srgb, var(--brand) 35%, var(--border)); stroke-width: 1; }
