@@ -221,6 +221,186 @@ window.LEARN.register("spark", "Spark Execution Guide", [
       { type: "qa", q: "When does cache() actually store anything?", a: "On the first action after cache() — it's lazy. Later actions then read from the cache. Caching for a single action gains nothing." },
       { type: "prose", html: "You now understand <i>when</i> Spark runs. Next: <i>how</i> it makes that run fast — the Catalyst optimizer that rewrites your plan before a single task starts." }
     ]
+  },
+
+  /* ===================================================== CHAPTER 6 */
+  {
+    id: "exec-catalyst",
+    title: "Catalyst & Tungsten",
+    tagline: "How Spark rewrites the code you wrote into a faster plan you didn't — before any task runs.",
+    estMinutes: 11,
+    blocks: [
+      { type: "prose", html: "When an action fires, Spark doesn't run your DataFrame code line by line. It first hands your plan to <b>Catalyst</b>, its query optimizer, which rewrites it into an equivalent but faster plan. Then <b>Tungsten</b> generates tight low-level code to execute it. This is why you rarely need to hand-optimize DataFrame code — and why one thing (a Python UDF) can quietly switch the optimizer off." },
+
+      { type: "heading", level: 2, text: "You describe what; Catalyst decides how", id: "what-vs-how" },
+      { type: "prose", html: "Your transformations say <i>what</i> result you want. Catalyst decides <i>how</i> to get it efficiently. Because Spark is lazy, Catalyst sees your <b>entire</b> pipeline at once and can rearrange it — something impossible if each line ran immediately." },
+      { type: "analogy", kind: "analogy", html: "Catalyst is a travel agent. You say \"I want to visit these five cities.\" You don't specify the route. The agent reorders the stops, picks the cheapest flights, and drops legs you didn't actually need — delivering the same trip for far less. You stated the destinations (the what); the agent planned the route (the how)." },
+
+      { type: "heading", level: 2, text: "The four stages of Catalyst", id: "four-stages" },
+      { type: "prose", html: "Catalyst turns your code into runnable work in four steps. <code>df.explain(True)</code> prints all of them." },
+      { type: "steps", items: [
+        "<b>Parsed logical plan.</b> Your DataFrame/SQL is turned into a tree of operations — syntactically valid, but not yet checked against real tables/columns.",
+        "<b>Analyzed logical plan.</b> Spark resolves column and table names against the catalog, checks types, and confirms everything exists. (This is where a typo'd column raises AnalysisException.)",
+        "<b>Optimized logical plan.</b> The rule-based optimizer rewrites the tree: push filters down, prune unused columns, fold constants, simplify expressions, reorder joins. This is the big win.",
+        "<b>Physical plan.</b> Spark turns the optimized logical plan into concrete operators (which join algorithm, where the shuffles go), estimates cost, and picks the plan to actually run."
+      ] },
+
+      { type: "heading", level: 2, text: "The two optimizations to know by name", id: "two-opts" },
+      { type: "prose", html: "Two rewrites do most of the work and come up constantly in interviews:" },
+      { type: "prose", html: "<b>Predicate pushdown.</b> A filter written at the end of your pipeline is moved <i>down</i> to the data source, so rows are discarded as they're read — often before they ever leave storage. Reading less data is the cheapest speedup there is." },
+      { type: "prose", html: "<b>Column pruning.</b> If you only <code>select</code> two of thirty columns, Catalyst reads only those two from the file (in a columnar format like Parquet). The other 28 columns are never loaded." },
+      { type: "code", code: "# You wrote the filter last, after the join:\n(orders.join(customers, 'customer_id')\n        .select('region', 'amount', 'name')\n        .filter(F.col('amount') > 100))\n\n# Catalyst runs it as:  read only needed columns  ->  filter amount>100 at\n# the orders scan  ->  join far fewer, thinner rows  ->  select.\n# Same answer, a fraction of the work." },
+      { type: "why", kind: "why", html: "You don't reorder your code for speed — Catalyst does. What you control is whether your code is <i>optimizable</i>. Filters and derivations built from built-in functions are transparent to Catalyst; it can move and prune around them. That's the practical takeaway of this whole chapter." },
+
+      { type: "heading", level: 2, text: "Tungsten: turning the plan into fast code", id: "tungsten" },
+      { type: "prose", html: "Once Catalyst picks a physical plan, <b>Tungsten</b> makes it run fast on the CPU. Its two big moves: <b>whole-stage code generation</b> — Spark generates a single compact Java function for a whole chain of operators instead of interpreting each row through many function calls; and a <b>compact binary memory format</b> that avoids the overhead of Java objects and eases garbage collection. In <code>explain()</code> you'll see operators marked with a <code>*</code> or grouped in a <code>WholeStageCodegen</code> box — those were fused into generated code." },
+
+      { type: "heading", level: 2, text: "The one thing that turns Catalyst off: Python UDFs", id: "udf-wall" },
+      { type: "prose", html: "Catalyst can only optimize what it understands. A plain <b>Python UDF</b> is an opaque black box — Catalyst can't see inside it, so it won't push a filter past it and won't prune columns around it. Worse, each row is serialized from the JVM executor to a separate Python process and back. The result: a full scan and row-by-row overhead exactly where you wanted a fast, pushed-down filter." },
+      { type: "trap", kind: "trap", html: "Filtering or deriving with a Python UDF silently disables pushdown and column pruning — in <code>explain()</code> you'll see a <code>BatchEvalPython</code> node and a scan with no <code>PushedFilters</code>. Prefer built-in <code>F.*</code> functions; if you truly need custom logic, a vectorized <code>pandas_udf</code> is far faster (though still not pushdown-friendly)." },
+      { type: "interview", kind: "interview", html: "Strong one-liner: <i>\"Catalyst is Spark's optimizer — parse, analyze, optimize (pushdown + pruning), physical plan — and Tungsten codegens it. SQL and the DataFrame API compile to the same plan, so they're equally fast; the thing that breaks it is a Python UDF, which is opaque to Catalyst.\"</i>" },
+
+      { type: "heading", level: 2, text: "Check yourself", id: "check" },
+      { type: "qa", q: "What are Catalyst's four stages?", a: "Parsed logical plan → analyzed logical plan (names/types resolved) → optimized logical plan (pushdown, pruning, etc.) → physical plan (concrete operators + chosen join strategies)." },
+      { type: "qa", q: "What do predicate pushdown and column pruning do?", a: "Pushdown moves filters to the data source so rows are dropped as they're read; pruning reads only the columns you actually use. Both mean reading far less data." },
+      { type: "qa", q: "Why is a Python UDF bad for the optimizer?", a: "It's opaque — Catalyst can't push filters through it or prune around it, and each row is serialized to a Python worker. Prefer built-in F.* functions." }
+    ]
+  },
+
+  /* ===================================================== CHAPTER 7 */
+  {
+    id: "exec-jobs-stages-tasks",
+    title: "Jobs, Stages & Tasks",
+    tagline: "How one action becomes a tree of work — and the vocabulary the Spark UI speaks.",
+    estMinutes: 10,
+    blocks: [
+      { type: "prose", html: "When an action fires and Catalyst has produced a physical plan, Spark breaks the work into a three-level hierarchy: <b>job → stages → tasks</b>. This is the exact language of the Spark UI, and mapping your code to it turns \"my job is slow\" into \"stage 3 is the problem.\"" },
+
+      { type: "heading", level: 2, text: "Job: one per action", id: "job" },
+      { type: "prose", html: "A <b>job</b> is the unit triggered by a single action. Call <code>count()</code> — one job. Call <code>write()</code> — one job. All the lazy transformations leading up to it are packaged into that job. So the number of jobs roughly equals the number of actions you call." },
+
+      { type: "heading", level: 2, text: "Stage: split at every shuffle", id: "stage" },
+      { type: "prose", html: "A job is divided into <b>stages</b>, and the dividing line is always a <b>shuffle</b>. A run of operations that each partition can do on its own — <code>filter</code>, <code>select</code>, <code>withColumn</code> — is fused into one stage. The moment an operation needs data moved across the cluster (<code>groupBy</code>, <code>join</code>, <code>distinct</code>, <code>orderBy</code>, <code>repartition</code>), the current stage ends and a new one begins." },
+      { type: "prose", html: "The simplest way to count stages: <b>count the shuffles and add one.</b> Two shuffles → three stages." },
+      { type: "analogy", kind: "analogy", html: "A stage is a leg of a relay race. Within a leg, a runner sprints without interruption (narrow operations, no data movement). The baton handoff between legs — where everyone must regroup — is the shuffle. Each handoff starts a new leg." },
+
+      { type: "heading", level: 2, text: "Task: one stage on one partition", id: "task" },
+      { type: "prose", html: "A <b>task</b> is the smallest unit of execution: one stage's computation applied to <b>one partition</b>. If a stage's data has 200 partitions, that stage runs as 200 tasks. Tasks are what the driver actually schedules onto executor cores — this is where the parallelism happens." },
+      { type: "prose", html: "Tasks in a stage run in parallel up to your total number of executor cores. If there are more tasks than cores, they run in <b>waves</b>: with 200 tasks and 40 cores, that's five waves of 40." },
+      { type: "keynumbers", items: [
+        { num: "1 action", label: "= 1 job" },
+        { num: "shuffles + 1", label: "= number of stages" },
+        { num: "1 partition", label: "= 1 task" },
+        { num: "waves", label: "= tasks ÷ total cores" }
+      ] },
+
+      { type: "heading", level: 2, text: "A worked example", id: "example" },
+      { type: "code", code: "df = (spark.read.parquet('/sales')       # stage 1 begins (read + narrow)\n        .filter(F.col('amount') > 0)      # narrow -> same stage\n        .withColumn('tax', F.col('amount')*0.1)  # narrow -> same stage\n        .groupBy('country').agg(F.sum('amount'))  # SHUFFLE -> stage 2\n        .orderBy('sum(amount)'))          # SHUFFLE -> stage 3\ndf.write.parquet('/out')                  # ACTION -> 1 job, 3 stages" },
+      { type: "prose", html: "One action → one job. Two shuffles (the <code>groupBy</code> and the <code>orderBy</code>) → three stages. Stage 1 runs one task per input file split; stages 2 and 3 run one task per shuffle partition (200 by default). That's the whole tree." },
+
+      { type: "heading", level: 2, text: "Reading the tree to diagnose problems", id: "diagnose" },
+      { type: "prose", html: "Once you can map code to jobs/stages/tasks, the Spark UI becomes a diagnosis instead of noise:" },
+      { type: "table", headers: ["Symptom in the UI", "What it usually means"], rows: [
+        ["Far more jobs than you expected", "More actions than you think — e.g. an action inside a loop; cache or restructure"],
+        ["One stage dominates the runtime", "Look at the shuffle that starts it — that's where the cost is"],
+        ["199 tasks finish fast, 1 runs forever", "Data skew — one partition holds most of a key's rows"],
+        ["Fewer tasks than cores", "Under-parallelized (too few partitions); cores sit idle"]
+      ] },
+      { type: "interview", kind: "interview", html: "If asked \"how does Spark decide stages?\" — <i>\"It cuts a new stage at every shuffle. Narrow operations fuse into one stage; each wide operation starts another. Stages = shuffles + 1, and each stage runs one task per partition.\"</i>" },
+
+      { type: "heading", level: 2, text: "Check yourself", id: "check" },
+      { type: "qa", q: "How many jobs does one action create?", a: "One. One action = one job." },
+      { type: "qa", q: "How do you count the stages in a job?", a: "Count the shuffles and add one. Narrow ops fuse into a stage; each shuffle starts a new one." },
+      { type: "qa", q: "A stage has 200 tasks but the cluster has 50 cores — what happens?", a: "The tasks run in 4 waves of 50. Task count is set by partitions; parallelism is capped by total cores." }
+    ]
+  },
+
+  /* ===================================================== CHAPTER 8 */
+  {
+    id: "exec-partitions-tasks",
+    title: "Partitions & Tasks",
+    tagline: "The atom of parallelism — where partitions come from, and why the count decides your speed.",
+    estMinutes: 10,
+    blocks: [
+      { type: "prose", html: "Partitions are the most important number in Spark that beginners never think about. One task runs per partition, so the partition count directly sets how parallel — or how single-threaded — your job is. This chapter is about where that count comes from and how to reason about it." },
+
+      { type: "heading", level: 2, text: "What a partition is", id: "what" },
+      { type: "prose", html: "A partition is a chunk of your data that lives together and is processed by one task on one core. A DataFrame with 200 partitions is 200 independent chunks that 200 tasks can crunch at once. No partitions, no parallelism — they are the reason Spark scales." },
+
+      { type: "heading", level: 2, text: "Where the READ partition count comes from", id: "read-count" },
+      { type: "prose", html: "When you read a file, Spark decides the initial partition count from the data size, not at random. For a large <b>splittable</b> file it targets chunks of about <code>spark.sql.files.maxPartitionBytes</code> — default <b>128 MB</b> (mirroring the HDFS block size). So a 1 GB Parquet file reads as roughly 8 partitions (1024 ÷ 128), and therefore 8 read tasks." },
+      { type: "prose", html: "Two subtleties shape this. <b>Many small files</b> are <i>bin-packed</i> together (using <code>spark.sql.files.openCostInBytes</code>, default 4 MB, as the per-file cost) so you don't waste a whole task on a tiny file — thousands of small files become far fewer partitions. And a <b>non-splittable</b> file cannot be divided at all." },
+      { type: "keynumbers", items: [
+        { num: "128 MB", label: "maxPartitionBytes (read chunk)" },
+        { num: "4 MB", label: "openCostInBytes (small-file packing)" },
+        { num: "200", label: "shuffle partitions (default)" },
+        { num: "1 : 1", label: "partition : task" }
+      ] },
+
+      { type: "heading", level: 2, text: "The single-core read trap", id: "trap" },
+      { type: "prose", html: "Splittability is the catch that surprises people. Parquet, ORC, and plain (or bzip2) text can be split mid-file, so a big file becomes many partitions. But a single <b>gzipped</b> file — a <code>.csv.gz</code> — cannot be split. The whole file becomes <b>one partition and one task</b>, no matter how large. A 20 GB <code>.csv.gz</code> on a 100-core cluster reads on exactly one core." },
+      { type: "trap", kind: "trap", html: "\"My huge job only uses one core.\" Almost always a single non-splittable file (a big <code>.csv.gz</code>). The fix: store as Parquet (splittable + columnar), or split the input into many files. This is one of the most common real-world Spark performance bugs." },
+
+      { type: "heading", level: 2, text: "The other partition number: 200", id: "shuffle-200" },
+      { type: "prose", html: "The read count is only the <i>start</i>. After any wide transformation, the partition count is reset to <code>spark.sql.shuffle.partitions</code> — default <b>200</b>. So a 1 GB file that read as 8 partitions becomes 200 partitions after a <code>groupBy</code>. Confusing the read count with the shuffle count is a classic misunderstanding — they're two different knobs." },
+      { type: "code", code: "df = spark.read.parquet('/data/sales')   # ~8 partitions (1GB / 128MB)\ndf.rdd.getNumPartitions()                 # 8\ndf.groupBy('country').count().rdd.getNumPartitions()  # 200 (shuffle default)" },
+
+      { type: "heading", level: 2, text: "Too few vs too many partitions", id: "tuning" },
+      { type: "prose", html: "Partition count is a balance. <b>Too few</b> and you under-use the cluster (idle cores) and each task handles too much data (spills, or out-of-memory). <b>Too many</b> and the overhead of scheduling thousands of tiny tasks dominates the actual work. A good rule of thumb is partitions in the ~64–256 MB range, and enough of them to keep all your cores busy (often a small multiple of total cores). You reshape with <code>repartition</code> (a full shuffle, can increase or decrease, evens things out) or <code>coalesce</code> (no shuffle, can only decrease, may stay uneven)." },
+      { type: "why", kind: "why", html: "Because task count equals partition count, tuning partitions <i>is</i> tuning parallelism. Most \"why is this slow / why did it OOM / why is one core busy\" questions are really partition-count questions in disguise." },
+
+      { type: "heading", level: 2, text: "Check yourself", id: "check" },
+      { type: "qa", q: "A splittable 2 GB Parquet file — roughly how many read partitions?", a: "About 16 (2048 MB ÷ 128 MB), so ~16 read tasks." },
+      { type: "qa", q: "Why does a 10 GB .csv.gz read as one task?", a: "Gzip isn't splittable, so the whole file is one partition. Convert to Parquet (or split the file) to parallelize the read." },
+      { type: "qa", q: "Where does the number 200 come from after a groupBy?", a: "That's spark.sql.shuffle.partitions, the post-shuffle default — a different setting from the read partitioning." }
+    ]
+  },
+
+  /* ===================================================== CHAPTER 9 */
+  {
+    id: "exec-shuffle",
+    title: "Narrow vs Wide & the Shuffle",
+    tagline: "The single most expensive thing Spark does — what it is, why it costs so much, and how to do less of it.",
+    estMinutes: 12,
+    blocks: [
+      { type: "prose", html: "If you understand the shuffle, you understand Spark performance. Almost every slow job, every out-of-memory error, and every tuning trick comes back to this one mechanism. It deserves its own chapter." },
+
+      { type: "heading", level: 2, text: "Narrow vs wide transformations", id: "narrow-wide" },
+      { type: "prose", html: "Every transformation is one of two kinds, based on how data must move." },
+      { type: "prose", html: "<b>Narrow</b> transformations: each output partition depends on just <i>one</i> input partition. The work happens in place, on the partition where the data already is — no network movement. Examples: <code>filter</code>, <code>select</code>, <code>withColumn</code>, <code>map</code>. These are cheap and fully parallel, and they fuse together into a single stage." },
+      { type: "prose", html: "<b>Wide</b> transformations: each output partition depends on <i>many</i> input partitions, because rows must be regrouped by a key. Rows with the same key may start out scattered across every partition and must be brought together. That regrouping — moving data across the network so related rows land together — is the <b>shuffle</b>. Examples: <code>groupBy</code>, <code>join</code>, <code>distinct</code>, <code>orderBy</code>, <code>repartition</code>." },
+      { type: "analogy", kind: "analogy", html: "Imagine 50 people each holding a shuffled deck fragment, and you want all the hearts together, all the spades together, etc. Narrow work is \"everyone, discard your red cards\" — each person does it alone. A shuffle is \"everyone, physically walk your cards to the correct table by suit\" — a room-wide reorganization. That walking-around is slow, and it's exactly what Spark's shuffle does with data across machines." },
+
+      { type: "heading", level: 2, text: "Why the shuffle is so expensive", id: "why-costly" },
+      { type: "prose", html: "A shuffle is the costliest operation in Spark because it does the three slowest things a computer can do, all at once:" },
+      { type: "steps", items: [
+        "<b>Disk I/O.</b> Each task writes its data out to local disk as <i>shuffle files</i>, bucketed by destination — this is the \"shuffle write.\"",
+        "<b>Serialization.</b> Data must be converted to bytes to travel, then converted back — CPU-expensive on both ends.",
+        "<b>Network transfer.</b> Every executor fetches the buckets destined for it from every other executor — the \"shuffle read\" — moving data all across the cluster."
+      ] },
+      { type: "prose", html: "A narrow step touches data already in memory on the local partition. A shuffle writes to disk, serializes, ships over the network, and reads back — often 10–100× the cost. That's why the mental question for any Spark job is: <b>which of my operations shuffle, and can I do fewer or cheaper shuffles?</b>" },
+
+      { type: "heading", level: 2, text: "How a shuffle actually works", id: "how" },
+      { type: "prose", html: "Concretely: in the <b>map (write) side</b>, each task partitions its output by the target key (usually <code>hash(key) % numPartitions</code>) and writes one bucket per target partition to local disk. In the <b>reduce (read) side</b>, each task of the next stage fetches, from every map task, the one bucket meant for it — pulling all rows of its keys together — and then does the aggregation or join. The shuffle files on disk are the boundary between the two stages." },
+
+      { type: "heading", level: 2, text: "The shuffle's evil twin: skew", id: "skew" },
+      { type: "prose", html: "A shuffle assumes keys spread out reasonably evenly. When they don't — one key holds a huge share of the rows (a bot user, a null key, one giant customer) — all of that key's rows land in <b>one</b> partition, handled by <b>one</b> task. That task runs far longer than the rest (or runs out of memory), and the whole stage waits for it. This is <b>data skew</b>, and it's the usual cause of \"199 tasks finished, 1 is stuck.\"" },
+      { type: "prose", html: "The common fixes: <b>salting</b> (add a random suffix to the hot key so its rows spread across many tasks, then combine), enabling <b>AQE skew join</b> (Spark splits the hot partition automatically at runtime), or filtering the pathological key out. Adding more executors does <i>not</i> help — the work is trapped in a single task." },
+
+      { type: "heading", level: 2, text: "Doing fewer / cheaper shuffles", id: "reduce" },
+      { type: "prose", html: "The highest-value performance moves all reduce shuffle cost:" },
+      { type: "prose", html: "<b>Filter and select early.</b> Shrink the data <i>before</i> it hits a shuffle — fewer, thinner rows to move. (Catalyst tries to do this for you; don't fight it with UDFs.)" },
+      { type: "prose", html: "<b>Broadcast the small side of a join.</b> If one table is small, Spark can copy it to every executor so the big table never shuffles at all — a <b>broadcast hash join</b> instead of a shuffle. This turns a wide join into a narrow one." },
+      { type: "prose", html: "<b>Use combine-friendly aggregates.</b> Built-in aggregates (<code>sum</code>, <code>count</code>) pre-aggregate each partition <i>before</i> the shuffle (map-side combine), so only small partials cross the network — far cheaper than shuffling every raw row." },
+      { type: "prose", html: "<b>Avoid needless wide steps.</b> Every <code>distinct</code>, <code>orderBy</code>, and <code>repartition</code> is a full shuffle — drop the ones you don't truly need." },
+      { type: "trap", kind: "trap", html: "A common accidental shuffle: calling <code>repartition(n)</code> \"for more parallelism\" right before a small write, or an <code>orderBy</code> you don't actually need in the output. Each is a full shuffle with real cost — add them deliberately, not by habit." },
+      { type: "interview", kind: "interview", html: "The instinct interviewers listen for: <i>\"Narrow stays on its partition; wide shuffles across the network — disk + serialize + network, the expensive part. I minimize shuffles: filter early, broadcast small join sides, use built-in aggregates for map-side combine, and watch for skew, where one key overloads a single task.\"</i>" },
+
+      { type: "heading", level: 2, text: "Check yourself", id: "check" },
+      { type: "qa", q: "What makes a transformation 'wide'?", a: "Its output partitions depend on many input partitions because rows must be regrouped by key — forcing a shuffle (groupBy, join, distinct, orderBy, repartition)." },
+      { type: "qa", q: "Why is a shuffle so slow?", a: "It combines the three slowest operations: writing to disk, serializing/deserializing, and moving data over the network between all executors." },
+      { type: "qa", q: "One task in a shuffle stage runs 10× longer than the rest — what and why?", a: "Data skew: one key holds most of the rows, so they all land in one partition/task. Fix by salting, AQE skew join, or removing the hot key — not by adding executors." }
+    ]
   }
 
 ]);
