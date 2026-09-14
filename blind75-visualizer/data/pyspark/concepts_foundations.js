@@ -699,10 +699,13 @@ window.LEARN.register("spark", "Foundations", [
       { q: "\"My IDs lost their leading zeros / my zip codes are numbers.\"", think: "Inference guessed a numeric type. Pin the column to StringType in an explicit schema." },
       { q: "\"My join returns no matches even though keys look equal.\"", think: "Check dtypes on both sides — a string key won't match an integer key. Cast one side or fix the schema." },
       { q: "\"A column is all nulls after I cast it.\"", think: "An invalid cast produces null, not an error. The source values don't parse into the target type — inspect a few raw values." },
-      { q: "\"What columns and types does this DataFrame actually have?\"", think: "df.printSchema() for the tree view, or df.dtypes for a list of (name, type) tuples." }
+      { q: "\"What columns and types does this DataFrame actually have?\"", think: "df.printSchema() for the tree view, or df.dtypes for a list of (name, type) tuples." },
+      { q: "\"Some rows in my CSV/JSON are malformed — how do I control what happens?\"", think: "The mode option: PERMISSIVE (default — nulls the bad fields, keeps the row, stashes the raw text in _corrupt_record), DROPMALFORMED (silently drops bad rows), or FAILFAST (throws on the first bad row). Pick per how much you trust the source." },
+      { q: "\"I want to keep the bad rows for a data-quality audit.\"", think: "Read PERMISSIVE with a columnNameOfCorruptRecord column in your schema, then filter where it isNotNull to quarantine the rejects instead of losing them." }
     ],
 
-    matchTags: ["schema", "structtype", "printschema", "cast", "dtype", "createdataframe", "dataframe", "select"],
+    matchTags: ["schema", "structtype", "printschema", "cast", "dtype", "createdataframe", "dataframe", "select",
+                "permissive", "dropmalformed", "failfast", "corrupt_record", "bad records", "mode", "data quality"],
 
     traps: [
       {
