@@ -1440,6 +1440,148 @@
     return wrap;
   }
 
+  // ---- hdfsBlocks: file -> 128MB blocks -> rack-aware replication + failover -
+  // A file splits into fixed-size blocks; each block is replicated (default 3x)
+  // across DataNodes placed with rack awareness (1 replica one rack, 2 on a
+  // second rack). Click a block to see its replicas light up; click a node to
+  // fail it and watch HDFS re-replicate to restore the replication factor. A
+  // NameNode line shows the block->node metadata. opts: { fileMB, rf }
+  function hdfsBlocks(opts) {
+    function esc(s) { return String(s == null ? "" : s).replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }); }
+    var NS = "http://www.w3.org/2000/svg";
+    function svgEl(name, attrs) { var e = document.createElementNS(NS, name); if (attrs) for (var k in attrs) e.setAttribute(k, String(attrs[k])); return e; }
+
+    var BLK = 128; // MB
+    var st = { fileMB: opts.fileMB || 640, rf: opts.rf || 3, sel: 0, dead: {} };
+    var LIM = [128, 2048];
+    var NODES = [{ id: "N1", rack: 0 }, { id: "N2", rack: 0 }, { id: "N3", rack: 0 },
+                 { id: "N4", rack: 1 }, { id: "N5", rack: 1 }, { id: "N6", rack: 1 }];
+
+    function nBlocks() { return Math.max(1, Math.ceil(st.fileMB / BLK)); }
+    function basePlacement(i) { return [i % 3, 3 + (i % 3), 3 + ((i + 1) % 3)].slice(0, st.rf); }
+    function effective(i) {
+      var base = basePlacement(i);
+      var healthy = [], lost = [], restored = [], used = {};
+      base.forEach(function (n) { used[n] = 1; if (st.dead[n]) lost.push(n); else healthy.push(n); });
+      lost.forEach(function () {
+        for (var n = 0; n < NODES.length; n++) { if (!used[n] && !st.dead[n]) { restored.push(n); used[n] = 1; break; } }
+      });
+      return { base: base, healthy: healthy, lost: lost, restored: restored };
+    }
+
+    var wrap = elh("div", "viz viz-hb");
+
+    var ctrlWrap = elh("div", "cs-steppers");
+    function stepper(label, get, dec, inc, unit) {
+      var box = elh("div", "cs-step");
+      box.appendChild(elh("div", "cs-step-lab", label));
+      var row = elh("div", "cs-step-row");
+      var minus = elh("button", "cs-step-btn", "−");
+      var val = elh("span", "cs-step-val", get());
+      var plus = elh("button", "cs-step-btn", "+");
+      row.appendChild(minus); row.appendChild(val); row.appendChild(plus);
+      box.appendChild(row);
+      minus.addEventListener("click", function () { dec(); val.textContent = get(); render(); });
+      plus.addEventListener("click", function () { inc(); val.textContent = get(); render(); });
+      return { box: box, refresh: function () { val.textContent = get(); } };
+    }
+    var sizeStep = stepper("File size",
+      function () { return st.fileMB >= 1024 ? (st.fileMB / 1024) + " GB" : st.fileMB + " MB"; },
+      function () { st.fileMB = Math.max(LIM[0], st.fileMB - 128); if (st.sel >= nBlocks()) st.sel = nBlocks() - 1; },
+      function () { st.fileMB = Math.min(LIM[1], st.fileMB + 128); });
+    var rfStep = stepper("Replication",
+      function () { return st.rf + "×"; },
+      function () { st.rf = Math.max(2, st.rf - 1); },
+      function () { st.rf = Math.min(3, st.rf + 1); });
+    ctrlWrap.appendChild(sizeStep.box);
+    ctrlWrap.appendChild(rfStep.box);
+    var resetBox = elh("div", "cs-step");
+    resetBox.appendChild(elh("div", "cs-step-lab", "Failed nodes"));
+    var resetBtn = elh("button", "cs-toggle", "revive all");
+    resetBtn.addEventListener("click", function () { st.dead = {}; render(); });
+    resetBox.appendChild(resetBtn);
+    ctrlWrap.appendChild(resetBox);
+    wrap.appendChild(ctrlWrap);
+
+    var host = elh("div", "hb-host");
+    wrap.appendChild(host);
+    var status = elh("div", "viz-hint hb-status", "");
+    wrap.appendChild(status);
+
+    function render() {
+      host.innerHTML = "";
+      sizeStep.refresh(); rfStep.refresh();
+      var W = 560, pad = 12;
+      var nb = nBlocks();
+      var fileTop = 30, fileH = 30, gap = 4;
+      var bw = Math.min(46, Math.floor((W - pad * 2 - (nb - 1) * gap) / nb));
+      if (bw < 14) bw = 14;
+      var rowW = nb * bw + (nb - 1) * gap;
+      var startX = (W - rowW) / 2;
+      var nnTop = fileTop + fileH + 26;
+      var rackTop = nnTop + 40;
+      var nodeW = 150, nodeH = 46, nodeGap = 16;
+      var rackH = nodeH + 34;
+      var H = rackTop + rackH * 2 + 16;
+      var svg = svgEl("svg", { "class": "hb-svg", viewBox: "0 0 " + W + " " + H, width: "100%", role: "img", "aria-label": "HDFS file blocks and replication" });
+
+      // file -> blocks
+      var ft = svgEl("text", { "class": "hb-title", x: pad, y: 18 });
+      ft.textContent = "File (" + (st.fileMB >= 1024 ? st.fileMB / 1024 + " GB" : st.fileMB + " MB") + ") → " + nb + " block" + (nb > 1 ? "s" : "") + " × " + BLK + " MB";
+      svg.appendChild(ft);
+      for (var i = 0; i < nb; i++) {
+        var x = startX + i * (bw + gap);
+        var g = svgEl("g", { "class": "hb-block" + (i === st.sel ? " sel" : ""), tabindex: "0", role: "button" });
+        g.appendChild(svgEl("rect", { "class": "hb-block-box", x: x, y: fileTop, width: bw, height: fileH, rx: 4 }));
+        var bt = svgEl("text", { "class": "hb-block-t", x: x + bw / 2, y: fileTop + fileH / 2 + 4 }); bt.textContent = "B" + i; g.appendChild(bt);
+        (function (idx) { g.addEventListener("click", function () { st.sel = idx; render(); }); g.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { st.sel = idx; render(); } }); })(i);
+        svg.appendChild(g);
+      }
+
+      var eff = effective(st.sel);
+      var holds = {}; eff.healthy.forEach(function (n) { holds[n] = "holds"; });
+      eff.restored.forEach(function (n) { holds[n] = "restore"; });
+
+      // NameNode metadata line
+      var meta = "B" + st.sel + " → " + eff.healthy.concat(eff.restored).map(function (n) { return NODES[n].id; }).join(", ");
+      if (eff.lost.length) meta += "   (re-replicated after " + eff.lost.map(function (n) { return NODES[n].id; }).join(", ") + " failed)";
+      var nn = svgEl("g", { "class": "hb-nn" });
+      nn.appendChild(svgEl("rect", { "class": "hb-nn-box", x: startX, y: nnTop, width: rowW, height: 26, rx: 6 }));
+      var nnt = svgEl("text", { "class": "hb-nn-t", x: startX + 10, y: nnTop + 17 }); nnt.textContent = "NameNode  " + meta; nn.appendChild(nnt);
+      svg.appendChild(nn);
+
+      // racks
+      for (var rk = 0; rk < 2; rk++) {
+        var ry = rackTop + rk * rackH;
+        var rlab = svgEl("text", { "class": "hb-rack-lab", x: pad, y: ry + 16 }); rlab.textContent = "Rack " + (rk + 1); svg.appendChild(rlab);
+        var rackNodes = NODES.map(function (n, idx) { return { n: n, idx: idx }; }).filter(function (o) { return o.n.rack === rk; });
+        var totalW = rackNodes.length * nodeW + (rackNodes.length - 1) * nodeGap;
+        var rx0 = W - pad - totalW;
+        rackNodes.forEach(function (o, j) {
+          var nx = rx0 + j * (nodeW + nodeGap), ny = ry + 4;
+          var state = st.dead[o.idx] ? "dead" : (holds[o.idx] || "");
+          var gn = svgEl("g", { "class": "hb-node " + state, tabindex: "0", role: "button" });
+          gn.appendChild(svgEl("rect", { "class": "hb-node-box", x: nx, y: ny, width: nodeW, height: nodeH, rx: 7 }));
+          var nt = svgEl("text", { "class": "hb-node-t", x: nx + 12, y: ny + 20 }); nt.textContent = "DataNode " + o.n.id; gn.appendChild(nt);
+          var sub = svgEl("text", { "class": "hb-node-sub", x: nx + 12, y: ny + 37 });
+          sub.textContent = st.dead[o.idx] ? "✕ failed" : (holds[o.idx] === "holds" ? "● replica of B" + st.sel : (holds[o.idx] === "restore" ? "◆ new replica B" + st.sel : "—"));
+          gn.appendChild(sub);
+          (function (idx) { gn.addEventListener("click", function () { st.dead[idx] = !st.dead[idx]; render(); }); gn.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { st.dead[idx] = !st.dead[idx]; render(); } }); })(o.idx);
+          svg.appendChild(gn);
+        });
+      }
+      host.appendChild(svg);
+
+      var msg = "Block <b>B" + st.sel + "</b> is replicated <b>" + st.rf + "×</b> — 1 on Rack 1, " + (st.rf - 1) + " on Rack 2 (rack awareness: survive a whole-rack outage).";
+      if (eff.lost.length) msg += " <span class='cs-warn'>" + eff.lost.map(function (n) { return NODES[n].id; }).join(", ") + " failed</span> → NameNode spawned a fresh replica on " + eff.restored.map(function (n) { return NODES[n].id; }).join(", ") + " to restore " + st.rf + "× (fault tolerance).";
+      else msg += " Click a DataNode to fail it and watch HDFS re-replicate.";
+      status.innerHTML = msg;
+    }
+
+    render();
+    return wrap;
+  }
+
   window.PYVIZ = {
     build: function (spec) {
       if (!spec || !spec.type) return null;
@@ -1459,6 +1601,7 @@
       if (spec.type === "memorySpill") return memorySpill(spec.data || {});
       if (spec.type === "partitionOps") return partitionOps(spec.data || {});
       if (spec.type === "clusterSizing") return clusterSizing(spec.data || {});
+      if (spec.type === "hdfsBlocks") return hdfsBlocks(spec.data || {});
       return null;
     }
   };
