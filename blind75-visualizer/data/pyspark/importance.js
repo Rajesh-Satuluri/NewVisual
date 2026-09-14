@@ -71,6 +71,17 @@
     270: "essential", 271: "common", 272: "common", 273: "common", 274: "common",
     275: "common",
     // Sessionization — folds into Cohort & Time-Series (Q280-Q283)
-    280: "essential", 281: "common", 282: "common", 283: "occasional"
+    280: "essential", 281: "common", 282: "common", 283: "occasional",
+    // Debug & Predict Output (Q284-Q293) — interview simulation
+    284: "essential", 285: "essential", 286: "common", 287: "essential", 288: "common",
+    289: "common", 290: "essential", 291: "common", 292: "essential", 293: "common",
+    // Bad-data & Read-config — folds into Nulls & Data Quality (Q294-Q296)
+    294: "essential", 295: "essential", 296: "common",
+    // RDD & Low-Level API (Q297-Q300)
+    297: "common", 298: "essential", 299: "common", 300: "occasional",
+    // P2 polish: Sessionization (Q301-Q304), Percentiles (Q305-Q307), Self-joins (Q308-Q309)
+    301: "essential", 302: "common", 303: "common", 304: "common",
+    305: "essential", 306: "common", 307: "common",
+    308: "essential", 309: "common"
   };
 })();
