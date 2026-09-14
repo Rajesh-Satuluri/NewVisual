@@ -18,6 +18,8 @@
     "Performance & Optimization",
     "End-to-End Challenges",
     "Advanced Patterns",
+    "RDD & Low-Level API",
+    "Debug & Predict Output",
     "Lakehouse & Streaming"
   ];
 
@@ -37,6 +39,8 @@
     "Performance & Optimization": "⚡",
     "End-to-End Challenges": "★",
     "Advanced Patterns": "✦",
+    "RDD & Low-Level API": "⊙",
+    "Debug & Predict Output": "⁇",
     "Lakehouse & Streaming": "✷"
   };
 
