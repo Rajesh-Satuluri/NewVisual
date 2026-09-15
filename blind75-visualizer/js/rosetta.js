@@ -40,6 +40,32 @@
   var RANK = {}; (DATA.rankOrder || []).forEach(function (id, i) { RANK[id] = i; });
   function rankOf(t) { var r = RANK[t.id]; return r == null ? 9999 : r; }
   function byRank(a, b) { var d = rankOf(a) - rankOf(b); return d !== 0 ? d : (a.task || "").localeCompare(b.task || ""); }
+  // Top tier gets a ★ so the eye lands on the must-know tasks first.
+  var ESSENTIAL = DATA.essentialCount || 0;
+  function isEssential(t) { return rankOf(t) < ESSENTIAL; }
+
+  var SORT_KEY = "blind75_ros_sort";
+  function saveSort() { try { localStorage.setItem(SORT_KEY, sortMode); } catch (e) {} }
+  function restoreSort() { try { var s = localStorage.getItem(SORT_KEY); if (s === "used" || s === "cat") sortMode = s; } catch (e) {} }
+  function syncSortButtons() {
+    if (!overlay) return;
+    overlay.querySelectorAll(".cht-sort-btn").forEach(function (b) { b.classList.toggle("active", b.getAttribute("data-sort") === sortMode); });
+  }
+
+  // Copy an arbitrary string, with a clipboard→textarea fallback.
+  function copyToClipboard(text, cb) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { cb && cb(); }, function () { textareaCopy(text); cb && cb(); });
+    } else { textareaCopy(text); cb && cb(); }
+  }
+  function textareaCopy(text) {
+    try {
+      var ta = document.createElement("textarea");
+      ta.value = text; ta.setAttribute("readonly", "");
+      ta.style.position = "fixed"; ta.style.top = "-1000px"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+    } catch (e) {}
+  }
 
   function isAll() { return selected.length === ALL_COLS.length; }
   function selectedInOrder() {
@@ -79,11 +105,32 @@
 
   function taskCard(t, cols, single) {
     var card = document.createElement("div");
-    card.className = "ros-card";
+    card.className = "ros-card" + (isEssential(t) ? " ros-essential" : "");
     var h = document.createElement("div");
     h.className = "ros-card-h";
-    h.innerHTML = '<span class="ros-task">' + esc(t.task) + "</span>" +
+    var star = isEssential(t) ? '<span class="ros-star" title="Essential — one of the most-used; learn these first">★</span> ' : "";
+    var titleWrap = document.createElement("div");
+    titleWrap.className = "ros-card-title";
+    titleWrap.innerHTML = '<span class="ros-task">' + star + esc(t.task) + "</span>" +
       (t.note ? '<span class="ros-note">' + esc(t.note) + "</span>" : "");
+    h.appendChild(titleWrap);
+    // "Copy all N" — grab every selected-dialect snippet for this task at once.
+    var avail = cols.filter(function (k) { return t.code && t.code[k]; });
+    if (avail.length > 1) {
+      var cbtn = document.createElement("button");
+      cbtn.type = "button";
+      cbtn.className = "ros-copyall";
+      cbtn.textContent = "Copy all " + avail.length;
+      cbtn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var text = avail.map(function (k) { return "# " + byKey[k].label + "\n" + t.code[k]; }).join("\n\n");
+        copyToClipboard(text, function () {
+          cbtn.textContent = "Copied!"; cbtn.classList.add("ok");
+          setTimeout(function () { cbtn.textContent = "Copy all " + avail.length; cbtn.classList.remove("ok"); }, 1300);
+        });
+      });
+      h.appendChild(cbtn);
+    }
     card.appendChild(h);
     var grid = document.createElement("div");
     grid.className = "ros-cols" + (single ? " ros-cols-one" : " ros-cols-multi");
@@ -166,6 +213,7 @@
       b.addEventListener("click", function () {
         sortMode = b.getAttribute("data-sort");
         overlay.querySelectorAll(".cht-sort-btn").forEach(function (c) { c.classList.toggle("active", c === b); });
+        saveSort();
         render();
       });
     });
@@ -202,6 +250,8 @@
 
   function open(stack) {
     if (!overlay) build();
+    restoreSort();
+    syncSortButtons();
     selected = (stack && byKey[stack]) ? [stack] : ALL_COLS.slice();
     updateChips();
     render();

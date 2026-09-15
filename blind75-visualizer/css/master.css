@@ -227,9 +227,18 @@ body.cmdk-lock { overflow: hidden; }
 .ros-group { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: var(--muted);
   margin: 18px 0 8px; }
 .ros-card { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 12px; background: var(--bg-1); }
-.ros-card-h { margin-bottom: 10px; }
+.ros-card.ros-essential { box-shadow: inset 3px 0 0 var(--brand-2); }
+.ros-card-h { margin-bottom: 10px; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.ros-card-title { min-width: 0; }
 .ros-task { font-size: 14.5px; font-weight: 700; }
+.ros-star { color: var(--brand-2); font-size: 13px; }
 .ros-note { display: block; font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.ros-copyall { flex: none; align-self: flex-start; cursor: pointer; font-family: inherit;
+  font-size: 11px; font-weight: 700; line-height: 1.4; padding: 3px 9px; border-radius: 6px;
+  color: var(--text-2); background: var(--bg-2); border: 1px solid var(--border); white-space: nowrap; }
+.ros-copyall:hover { color: var(--text); background: var(--bg-3, var(--bg-2)); }
+.ros-copyall.ok { color: #06111f; background: var(--ok, #37b24d); border-color: transparent; }
+@media (pointer: coarse) { .ros-copyall { min-height: 28px; } }
 .ros-cols { display: grid; gap: 12px; }
 .ros-cols-multi { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
 .ros-cols-one { grid-template-columns: 1fr; }
