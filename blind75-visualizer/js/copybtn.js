@@ -44,19 +44,23 @@
     } catch (e) { /* nothing more we can do */ }
   }
 
+  // A code block that sits directly under a header bar — Rosetta's dialect
+  // label row (.ros-col-h) or any element flagged [data-copy-host] (e.g. the
+  // cheatsheet's "Example" strip) — mounts its Copy button INTO that bar so it
+  // never floats over the first line of code. Everything else keeps the
+  // top-right floating overlay.
+  function headerBarFor(pre) {
+    var prev = pre.previousElementSibling;
+    if (prev && (prev.classList.contains("ros-col-h") || prev.hasAttribute("data-copy-host"))) return prev;
+    return null;
+  }
+
   function decorate(pre) {
     if (pre.getAttribute("data-copy") === "1") return;
     pre.setAttribute("data-copy", "1");
     if (nearHasCopy(pre)) return;
     var code = pre.querySelector("code");
     if (!code || !pre.parentNode) return;
-
-    // Wrap so the button stays anchored to the top-right while long lines scroll
-    // horizontally inside the <pre> (which owns the overflow).
-    var wrap = document.createElement("div");
-    wrap.className = "pre-copy-wrap";
-    pre.parentNode.insertBefore(wrap, pre);
-    wrap.appendChild(pre);
 
     var btn = document.createElement("button");
     btn.type = "button";
@@ -80,7 +84,21 @@
         fallbackCopy(text); flash(true);
       }
     });
-    wrap.appendChild(btn);
+
+    var bar = headerBarFor(pre);
+    if (bar) {
+      // Live in the header bar — static position, right-aligned, no overlap.
+      btn.classList.add("pre-copy--inbar");
+      bar.appendChild(btn);
+    } else {
+      // Wrap so the button stays anchored to the top-right while long lines
+      // scroll horizontally inside the <pre> (which owns the overflow).
+      var wrap = document.createElement("div");
+      wrap.className = "pre-copy-wrap";
+      pre.parentNode.insertBefore(wrap, pre);
+      wrap.appendChild(pre);
+      wrap.appendChild(btn);
+    }
   }
 
   function scan() {

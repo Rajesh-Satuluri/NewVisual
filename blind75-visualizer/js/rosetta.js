@@ -31,6 +31,15 @@
   // selected: which dialects are currently in the comparison, as a set of keys.
   // Kept in ALL_COLS order at render time. Defaults to all (full comparison).
   var selected = ALL_COLS.slice();
+  // sortMode: "used" = one flat list, most-used first (last-minute skim);
+  //           "cat"  = grouped by category, most-used first within each group.
+  var sortMode = "used";
+
+  // Usage rank (lower = more used) — drives both the flat sort and the
+  // within-category order. Ids missing from rankOrder fall to the end.
+  var RANK = {}; (DATA.rankOrder || []).forEach(function (id, i) { RANK[id] = i; });
+  function rankOf(t) { var r = RANK[t.id]; return r == null ? 9999 : r; }
+  function byRank(a, b) { var d = rankOf(a) - rankOf(b); return d !== 0 ? d : (a.task || "").localeCompare(b.task || ""); }
 
   function isAll() { return selected.length === ALL_COLS.length; }
   function selectedInOrder() {
@@ -56,41 +65,69 @@
     return wrap;
   }
 
+  // Does a task have a snippet for at least one of the selected dialects?
+  function hasSnippet(t, cols) {
+    return cols.some(function (k) { return t.code && t.code[k]; });
+  }
+
+  function groupHeader(text) {
+    var gh = document.createElement("div");
+    gh.className = "ros-group";
+    gh.textContent = text;
+    return gh;
+  }
+
+  function taskCard(t, cols, single) {
+    var card = document.createElement("div");
+    card.className = "ros-card";
+    var h = document.createElement("div");
+    h.className = "ros-card-h";
+    h.innerHTML = '<span class="ros-task">' + esc(t.task) + "</span>" +
+      (t.note ? '<span class="ros-note">' + esc(t.note) + "</span>" : "");
+    card.appendChild(h);
+    var grid = document.createElement("div");
+    grid.className = "ros-cols" + (single ? " ros-cols-one" : " ros-cols-multi");
+    var shown = 0;
+    cols.forEach(function (k) {
+      if (!t.code || !t.code[k]) return;
+      var s = byKey[k];
+      grid.appendChild(codeBlock(t.code[k], s.lang, s.label, s.color));
+      shown++;
+    });
+    if (!shown) return null;
+    card.appendChild(grid);
+    return card;
+  }
+
   function render() {
     bodyEl.innerHTML = "";
     var cols = selectedInOrder();
     var single = cols.length === 1;
-    DATA.groups.forEach(function (group) {
-      var tasks = DATA.tasks.filter(function (t) {
-        if (t.group !== group) return false;
-        // keep tasks that have a snippet for at least one selected dialect
-        return cols.some(function (k) { return t.code && t.code[k]; });
-      });
-      if (!tasks.length) return;
-      var gh = document.createElement("div");
-      gh.className = "ros-group";
-      gh.textContent = group;
-      bodyEl.appendChild(gh);
+
+    if (sortMode === "used") {
+      // One flat, rank-ordered list — most-used tasks first, regardless of group.
+      var tasks = DATA.tasks
+        .filter(function (t) { return hasSnippet(t, cols); })
+        .slice().sort(byRank);
+      bodyEl.appendChild(groupHeader("Most used first · " + tasks.length + " tasks"));
       tasks.forEach(function (t) {
-        var card = document.createElement("div");
-        card.className = "ros-card";
-        var h = document.createElement("div");
-        h.className = "ros-card-h";
-        h.innerHTML = '<span class="ros-task">' + esc(t.task) + "</span>" +
-          (t.note ? '<span class="ros-note">' + esc(t.note) + "</span>" : "");
-        card.appendChild(h);
-        var grid = document.createElement("div");
-        grid.className = "ros-cols" + (single ? " ros-cols-one" : " ros-cols-multi");
-        var shown = 0;
-        cols.forEach(function (k) {
-          if (!t.code || !t.code[k]) return;
-          var s = byKey[k];
-          grid.appendChild(codeBlock(t.code[k], s.lang, s.label, s.color));
-          shown++;
-        });
-        if (shown) { card.appendChild(grid); bodyEl.appendChild(card); }
+        var card = taskCard(t, cols, single);
+        if (card) bodyEl.appendChild(card);
       });
-    });
+    } else {
+      // Grouped by category, most-used first within each group, with a live count.
+      DATA.groups.forEach(function (group) {
+        var tasks = DATA.tasks
+          .filter(function (t) { return t.group === group && hasSnippet(t, cols); })
+          .slice().sort(byRank);
+        if (!tasks.length) return;
+        bodyEl.appendChild(groupHeader(group + " · " + tasks.length));
+        tasks.forEach(function (t) {
+          var card = taskCard(t, cols, single);
+          if (card) bodyEl.appendChild(card);
+        });
+      });
+    }
     bodyEl.scrollTop = 0;
   }
 
@@ -107,6 +144,12 @@
       '    <div class="ros-title">🔀 Cross-stack reference <span class="ros-sub">— compare any dialects side by side</span></div>' +
       '    <button class="ros-close" aria-label="Close">✕</button>' +
       '  </div>' +
+      '  <div class="cht-search-row">' +
+      '    <div class="cht-sort" role="group" aria-label="Sort order">' +
+      '      <button class="cht-sort-btn active" data-sort="used" title="Show every task ordered by how often it is used">⭐ Most used</button>' +
+      '      <button class="cht-sort-btn" data-sort="cat" title="Group by category (most used first within each), with a count per category">🗂 By category</button>' +
+      '    </div>' +
+      '  </div>' +
       '  <div class="ros-filter"><button class="ros-chip ros-chip-all" data-stack="all">Compare all</button>' + chips +
       '    <span class="ros-hint">tip: tap dialects to add or remove them from the comparison</span>' +
       '  </div>' +
@@ -118,6 +161,13 @@
     overlay.querySelector(".ros-close").addEventListener("click", close);
     overlay.querySelectorAll(".ros-chip").forEach(function (b) {
       b.addEventListener("click", function () { onChip(b.getAttribute("data-stack")); });
+    });
+    overlay.querySelectorAll(".cht-sort-btn").forEach(function (b) {
+      b.addEventListener("click", function () {
+        sortMode = b.getAttribute("data-sort");
+        overlay.querySelectorAll(".cht-sort-btn").forEach(function (c) { c.classList.toggle("active", c === b); });
+        render();
+      });
     });
     document.addEventListener("keydown", function (e) {
       if (e.key === "Escape" && overlay.classList.contains("open")) close();

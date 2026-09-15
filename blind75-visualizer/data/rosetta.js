@@ -18,6 +18,30 @@
  */
 window.ROSETTA = {
   groups: ["Filtering", "Shaping", "Aggregation", "Joins", "Windows", "Columns", "Text & Dates", "Reshape", "Ranking & Dedup", "Nulls & Types"],
+
+  // Global usage ranking — most-reached-for-in-interviews-and-pipelines first.
+  // Drives the "⭐ Most used" flat sort and the within-category order in
+  // "🗂 By category". Any task id not listed falls to the end. Ordering is
+  // deliberate (not alphabetical); see rosetta.js. essentialCount marks the
+  // top tier for a future ★ badge (Rec 1).
+  rankOrder: [
+    // ── Tier 1: the everyday core you reach for in almost every problem ──
+    "filter-rows", "select-cols", "groupby-sum", "inner-join", "left-join",
+    "sort", "row-number", "add-col", "case-when", "count-per-group",
+    "distinct", "top-n-per-group", "latest-per-key", "rank-dense",
+    // ── Tier 2: very common — most non-trivial problems hit these ──
+    "running-total", "lag-lead", "multi-agg", "having", "distinct-count",
+    "filter-multi", "broadcast-join", "anti-join", "semi-join", "rename",
+    "fillna", "coalesce-multi", "drop-nulls", "cast-type", "dedup-distinct",
+    "moving-avg", "date-diff", "date-part", "date-trunc-month", "date-add",
+    // ── Tier 3: situational / advanced — reach for when the problem calls ──
+    "parse-date", "str-contains", "concat", "str-ops", "regexp-replace",
+    "pivot", "explode", "collect-list", "unpivot", "union", "filter-in",
+    "filter-between", "top-n", "conditional-agg", "median-pct", "first-last",
+    "ntile", "full-join", "self-join", "cross-join", "round"
+  ],
+  essentialCount: 14,
+
   tasks: [
     // -------------------------------------------------- Filtering
     {
