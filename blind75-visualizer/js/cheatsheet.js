@@ -72,6 +72,13 @@
     }
     if (fn.example) {
       var exWrap = document.createElement("div"); exWrap.className = "cht-ex-wrap";
+      // Slim header strip: label on the left, and a host for the Copy button
+      // (copybtn.js mounts into [data-copy-host]) so Copy never covers line 1.
+      var exHead = document.createElement("div");
+      exHead.className = "cht-ex-head";
+      exHead.setAttribute("data-copy-host", "1");
+      exHead.innerHTML = '<span class="cht-ex-label">Example</span>';
+      exWrap.appendChild(exHead);
       exWrap.appendChild(codeBlock(fn.example));
       if (fn.output) { var o = document.createElement("div"); o.className = "cht-out"; o.textContent = "→ " + fn.output; exWrap.appendChild(o); }
       c.appendChild(exWrap);
@@ -91,8 +98,24 @@
     bodyEl.appendChild(e);
   }
 
+  // Count of functions in a category (or "all") that match the current search.
+  function countFor(group) {
+    return DATA.fns.filter(function (f) {
+      return (group === "all" || f.group === group) && matchesQuery(f);
+    }).length;
+  }
+  // Refresh the "(N)" suffix on every filter chip — updates live as you search.
+  function updateChipCounts() {
+    if (!overlay) return;
+    overlay.querySelectorAll(".ros-chip").forEach(function (b) {
+      var g = b.getAttribute("data-g");
+      b.textContent = (g === "all" ? "All" : g) + " (" + countFor(g) + ")";
+    });
+  }
+
   function render() {
     bodyEl.innerHTML = "";
+    updateChipCounts();
     if (sortMode === "used") {
       // Flat, ranked list — the most-used functions first, regardless of category.
       var fns = DATA.fns
@@ -109,7 +132,7 @@
         var g = DATA.fns.filter(function (f) { return f.group === group && matchesQuery(f); }).slice().sort(byRank);
         if (!g.length) return;
         any = true;
-        bodyEl.appendChild(groupHeader(group));
+        bodyEl.appendChild(groupHeader(group + " · " + g.length));
         g.forEach(function (f) { bodyEl.appendChild(card(f, false)); });
       });
       if (!any) { emptyMsg(); return; }
