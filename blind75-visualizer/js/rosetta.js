@@ -34,6 +34,8 @@
   // sortMode: "used" = one flat list, most-used first (last-minute skim);
   //           "cat"  = grouped by category, most-used first within each group.
   var sortMode = "used";
+  // activeCat: which category chip is selected ("all" = every category).
+  var activeCat = "all";
 
   // Usage rank (lower = more used) — drives both the flat sort and the
   // within-category order. Ids missing from rankOrder fall to the end.
@@ -103,6 +105,31 @@
     return gh;
   }
 
+  function emptyMsg() {
+    var e = document.createElement("div");
+    e.className = "cmdk-none";
+    e.textContent = "No tasks match this combination of category and dialects.";
+    bodyEl.appendChild(e);
+  }
+
+  // Count of tasks in a category (or "all") that have a snippet for at least
+  // one of the currently selected dialects.
+  function countForCat(group, cols) {
+    return DATA.tasks.filter(function (t) {
+      return (group === "all" || t.group === group) && hasSnippet(t, cols);
+    }).length;
+  }
+  // Refresh the "(N)" suffix on every category chip — updates as dialects change.
+  function updateCatChips() {
+    if (!overlay) return;
+    var cols = selectedInOrder();
+    overlay.querySelectorAll(".ros-cat-chip").forEach(function (b) {
+      var g = b.getAttribute("data-cat");
+      b.textContent = (g === "all" ? "All" : g) + " (" + countForCat(g, cols) + ")";
+      b.classList.toggle("active", g === activeCat);
+    });
+  }
+
   function taskCard(t, cols, single) {
     var card = document.createElement("div");
     card.className = "ros-card" + (isEssential(t) ? " ros-essential" : "");
@@ -148,32 +175,40 @@
 
   function render() {
     bodyEl.innerHTML = "";
+    updateCatChips();
     var cols = selectedInOrder();
     var single = cols.length === 1;
 
     if (sortMode === "used") {
-      // One flat, rank-ordered list — most-used tasks first, regardless of group.
+      // One flat, rank-ordered list — most-used tasks first (within the picked
+      // category, if any), regardless of group.
       var tasks = DATA.tasks
-        .filter(function (t) { return hasSnippet(t, cols); })
+        .filter(function (t) { return (activeCat === "all" || t.group === activeCat) && hasSnippet(t, cols); })
         .slice().sort(byRank);
-      bodyEl.appendChild(groupHeader("Most used first · " + tasks.length + " tasks"));
+      if (!tasks.length) { emptyMsg(); return; }
+      bodyEl.appendChild(groupHeader(
+        (activeCat === "all" ? "Most used first" : activeCat + " · most used first") + " · " + tasks.length + " task" + (tasks.length === 1 ? "" : "s")));
       tasks.forEach(function (t) {
         var card = taskCard(t, cols, single);
         if (card) bodyEl.appendChild(card);
       });
     } else {
       // Grouped by category, most-used first within each group, with a live count.
+      var any = false;
       DATA.groups.forEach(function (group) {
+        if (activeCat !== "all" && activeCat !== group) return;
         var tasks = DATA.tasks
           .filter(function (t) { return t.group === group && hasSnippet(t, cols); })
           .slice().sort(byRank);
         if (!tasks.length) return;
+        any = true;
         bodyEl.appendChild(groupHeader(group + " · " + tasks.length));
         tasks.forEach(function (t) {
           var card = taskCard(t, cols, single);
           if (card) bodyEl.appendChild(card);
         });
       });
+      if (!any) { emptyMsg(); return; }
     }
     bodyEl.scrollTop = 0;
   }
@@ -185,6 +220,8 @@
     var chips = STACKS.map(function (s) {
       return '<button class="ros-chip" data-stack="' + s.key + '" style="--c:' + s.color + '">' + esc(s.label) + "</button>";
     }).join("");
+    var catChips = '<button class="ros-chip ros-cat-chip ros-cat-all active" data-cat="all">All</button>' +
+      DATA.groups.map(function (g) { return '<button class="ros-chip ros-cat-chip" data-cat="' + esc(g) + '">' + esc(g) + "</button>"; }).join("");
     overlay.innerHTML =
       '<div class="ros-box" role="dialog" aria-label="Cross-stack reference">' +
       '  <div class="ros-head">' +
@@ -200,14 +237,22 @@
       '  <div class="ros-filter"><button class="ros-chip ros-chip-all" data-stack="all">Compare all</button>' + chips +
       '    <span class="ros-hint">tip: tap dialects to add or remove them from the comparison</span>' +
       '  </div>' +
+      '  <div class="ros-filter ros-cat-filter">' + catChips + '</div>' +
       '  <div class="ros-body"></div>' +
       '</div>';
     document.body.appendChild(overlay);
     bodyEl = overlay.querySelector(".ros-body");
     overlay.addEventListener("mousedown", function (e) { if (e.target === overlay) close(); });
     overlay.querySelector(".ros-close").addEventListener("click", close);
-    overlay.querySelectorAll(".ros-chip").forEach(function (b) {
+    overlay.querySelectorAll(".ros-chip[data-stack]").forEach(function (b) {
       b.addEventListener("click", function () { onChip(b.getAttribute("data-stack")); });
+    });
+    overlay.querySelectorAll(".ros-cat-chip").forEach(function (b) {
+      b.addEventListener("click", function () {
+        activeCat = b.getAttribute("data-cat");
+        overlay.querySelectorAll(".ros-cat-chip").forEach(function (c) { c.classList.toggle("active", c === b); });
+        render();
+      });
     });
     overlay.querySelectorAll(".cht-sort-btn").forEach(function (b) {
       b.addEventListener("click", function () {
@@ -241,7 +286,7 @@
 
   function updateChips() {
     var all = isAll();
-    overlay.querySelectorAll(".ros-chip").forEach(function (c) {
+    overlay.querySelectorAll(".ros-chip[data-stack]").forEach(function (c) {
       var k = c.getAttribute("data-stack");
       if (k === "all") c.classList.toggle("active", all);
       else c.classList.toggle("active", !all && selected.indexOf(k) !== -1);
