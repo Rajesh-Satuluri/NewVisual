@@ -20,6 +20,14 @@
   var ESSENTIAL = DATA.essentialCount || 0;
   function isEssential(f) { return rankOf(f) < ESSENTIAL; }
 
+  var SORT_KEY = "blind75_cheat_sort";
+  function saveSort() { try { localStorage.setItem(SORT_KEY, sortMode); } catch (e) {} }
+  function restoreSort() { try { var s = localStorage.getItem(SORT_KEY); if (s === "used" || s === "cat") sortMode = s; } catch (e) {} }
+  function syncSortButtons() {
+    if (!overlay) return;
+    overlay.querySelectorAll(".cht-sort-btn").forEach(function (b) { b.classList.toggle("active", b.getAttribute("data-sort") === sortMode); });
+  }
+
   function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
 
   function codeBlock(src) {
@@ -122,7 +130,9 @@
         .filter(function (f) { return (active === "all" || f.group === active) && matchesQuery(f); })
         .slice().sort(byRank);
       if (!fns.length) { emptyMsg(); return; }
-      bodyEl.appendChild(groupHeader(active === "all" ? "Most used first" : active + " · most used first"));
+      var head = fns.length + " function" + (fns.length === 1 ? "" : "s") + " · most used first";
+      if (active !== "all") head = active + " · " + head;
+      bodyEl.appendChild(groupHeader(head));
       fns.forEach(function (f) { bodyEl.appendChild(card(f, true)); });
     } else {
       // Grouped by category (importance order), most-used first within each group.
@@ -179,6 +189,7 @@
       b.addEventListener("click", function () {
         sortMode = b.getAttribute("data-sort");
         overlay.querySelectorAll(".cht-sort-btn").forEach(function (c) { c.classList.toggle("active", c === b); });
+        saveSort();
         render();
       });
     });
@@ -189,6 +200,8 @@
 
   function open() {
     if (!overlay) build();
+    restoreSort();
+    syncSortButtons();
     render();
     overlay.classList.remove("hidden");
     requestAnimationFrame(function () { overlay.classList.add("open"); if (searchEl) searchEl.focus(); });
