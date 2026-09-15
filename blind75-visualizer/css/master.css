@@ -216,6 +216,10 @@ body.cmdk-lock { overflow: hidden; }
 .ros-close { background: transparent; border: none; color: var(--muted); font-size: 18px; cursor: pointer; padding: 4px 8px; border-radius: var(--radius-sm); }
 .ros-close:hover { color: var(--text); background: var(--bg-2); }
 .ros-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 18px; border-bottom: 1px solid var(--border); }
+/* category filter row (counts per category, cheatsheet-style) sits below the
+   dialect row with a lighter divider so the two filters read as distinct. */
+.ros-cat-filter { padding-top: 10px; padding-bottom: 10px; background: var(--bg-1); }
+.ros-cat-chip.active { color: #06111f; background: var(--brand); border-color: transparent; }
 .ros-hint { color: var(--muted); font-size: 11.5px; font-style: italic; margin-left: auto; }
 @media (max-width: 620px) { .ros-hint { display: none; } }
 .ros-chip { background: var(--bg-2); border: 1px solid var(--border); color: var(--text-2); font-size: 12.5px; font-weight: 700;
