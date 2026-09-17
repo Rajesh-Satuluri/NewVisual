@@ -22,6 +22,14 @@ body[data-stack="spark"]  { --brand: #f76707; --brand-2: #ffa94d; --brand-glow: 
 body[data-stack="sql"]    { --brand: #0ca678; --brand-2: #38d9a9; --brand-glow: rgba(12,166,120,.35); }
 /* python keeps the default blue from main.css */
 
+/* Stack-aware reference buttons: only the ref matching the active stack shows.
+   Rosetta stays visible on every stack (it's cross-dialect). NumPy/Pandas have
+   no dedicated ref yet, so none of the three appears there. */
+.ref-btn { display: none; }
+body[data-stack="spark"]  #cheatBtn,
+body[data-stack="python"] #pyCheatBtn,
+body[data-stack="sql"]    #sqlCheatBtn { display: inline-block; }
+
 /* the "All 150 / Blind 75" study-set toggle is DSA-only — hide it everywhere else */
 body[data-ws="python"] #setToggle { display: none !important; }
 
