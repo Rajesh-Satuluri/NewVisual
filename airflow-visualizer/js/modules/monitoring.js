@@ -54,32 +54,68 @@
     {
       active: null,
       label: "1 · How Airflow emits metrics",
-      desc: "Airflow emits metrics via <b>StatsD</b> (UDP datagrams) or <b>OpenTelemetry</b> (2.7+). A StatsD → Prometheus exporter converts them to a scrape target for Grafana. Key tags (<code>dag_id</code>, <code>task_id</code>) are added automatically."
+      what: "Airflow emits metrics via <b>StatsD</b> (UDP datagrams) or <b>OpenTelemetry</b> (2.7+). A StatsD → Prometheus exporter converts them into a scrape target for Grafana.",
+      why: "You can't operate what you can't see. A metrics pipeline turns Airflow's internal counters and timers into dashboards and alerts you can actually act on.",
+      how: "Airflow pushes metrics to a StatsD server (or emits OTLP directly); an exporter or collector forwards them to Prometheus/your APM. Key tags like <code>dag_id</code>/<code>task_id</code> are added automatically.",
+      when: "In any deployment you intend to run seriously — set it up before you need it.",
+      mistake: "Running production Airflow with no metrics pipeline, so the first sign of trouble is a user complaint instead of an alert.",
+      interview: "“How does Airflow expose metrics?” StatsD or OpenTelemetry, typically into Prometheus/Grafana. Naming both transports (and that OTel is 2.7+) shows current knowledge.",
+      example: "ShopKart pipes Airflow StatsD metrics through an exporter into Prometheus, then visualizes them in a shared Grafana dashboard."
     },
     {
       active: "health",
       label: "2 · Health endpoints",
-      desc: "The <code>/health</code> endpoint returns a JSON summary of component health: scheduler last-heartbeat age, triggerer status, and DB connectivity. Kubernetes liveness probes should check this. <code>/metrics</code> exposes Prometheus-format counters."
+      what: "The <code>/health</code> endpoint returns a JSON summary of component health — scheduler last-heartbeat age, triggerer status, DB connectivity. <code>/metrics</code> exposes Prometheus-format counters.",
+      why: "Health endpoints give orchestrators (Kubernetes) and load balancers a simple, standard signal to decide whether an instance is alive and should receive traffic.",
+      how: "Point Kubernetes liveness/readiness probes at <code>/health</code>; scrape <code>/metrics</code> with Prometheus. An unhealthy component (stale scheduler heartbeat) shows up immediately in the JSON.",
+      when: "Wired into every deployment's probes and scrape config from day one.",
+      mistake: "Not probing <code>/health</code>, so a wedged scheduler keeps “running” to Kubernetes while no tasks actually start.",
+      interview: "“What should a K8s liveness probe check for the scheduler?” The <code>/health</code> endpoint's heartbeat status. A concrete, practical detail interviewers appreciate.",
+      example: "ShopKart's scheduler pod has a liveness probe on <code>/health</code>; when a heartbeat goes stale, Kubernetes restarts the pod automatically."
     },
     {
       active: "scheduler",
       label: "3 · Scheduler metrics",
-      desc: "<b>scheduler.heartbeat</b> is the most critical metric — if it goes stale, no new tasks will start. <b>dag_processing.last_duration</b> tells you how long the parse loop takes; spikes here mean a DAG is expensive to import."
+      what: "<b>scheduler.heartbeat</b> is the most critical metric — if it goes stale, no new tasks start. <b>dag_processing.last_duration</b> tracks how long the parse loop takes.",
+      why: "The scheduler is the heart; a stale heartbeat means scheduling has stopped for the entire cluster. Parse duration is your early warning that a DAG has become expensive to import.",
+      how: "Alert if <code>time() - scheduler.heartbeat &gt; 30s</code>; watch <code>dag_processing.last_duration</code> for spikes that point to a heavy DAG. Both are leading indicators of cluster-wide slowdowns.",
+      when: "Continuously — these are the first two metrics to put on a dashboard and alert.",
+      mistake: "Alerting on task failures but not on scheduler heartbeat — you'd miss the worst outage (nothing scheduling at all) because no task is even failing.",
+      interview: "“What's the single most important Airflow metric?” Scheduler heartbeat — stale means nothing runs. Leading with that shows you know what actually pages you at 3&nbsp;AM.",
+      example: "ShopKart pages on a scheduler heartbeat older than 30&nbsp;s; a spike in <code>dag_processing.last_duration</code> once caught a DAG doing a slow import."
     },
     {
       active: "tasks",
       label: "4 · Task & DAG run metrics",
-      desc: "<b>task.duration</b> (with <code>dag_id</code>/<code>task_id</code> tags) powers p95 latency alerts. <b>task.failed</b> should alert immediately at any non-zero value in a prod pipeline. <b>dagrun.duration.success</b> tracks overall pipeline SLA."
+      what: "<b>task.duration</b> (tagged by <code>dag_id</code>/<code>task_id</code>) powers p95 latency alerts. <b>task.failed</b> should alert immediately on any non-zero value in prod. <b>dagrun.duration.success</b> tracks the overall pipeline SLA.",
+      why: "These connect infrastructure health to business outcomes — is the pipeline finishing on time, and are tasks failing? They're what stakeholders actually care about.",
+      how: "Build p95 latency panels from <code>task.duration</code>, alert on increases in <code>task.failed</code>, and track end-to-end runtime with <code>dagrun.duration.success</code> against your SLA.",
+      when: "On every business-critical pipeline.",
+      mistake: "Alerting on averages instead of p95/p99, so a few very slow tasks hide behind a healthy-looking mean.",
+      interview: "“How would you alert on pipeline latency?” p95 of <code>task.duration</code> and <code>dagrun.duration.success</code> against the SLA. Choosing percentiles over averages is the senior instinct.",
+      example: "ShopKart alerts the moment <code>task.failed</code> goes non-zero on <code>reconcile_payments</code>, and dashboards p95 duration to catch creeping slowdowns."
     },
     {
       active: "pools",
       label: "5 · Pool & executor metrics",
-      desc: "<b>pool.open_slots → 0</b> means your pool is saturated and tasks are queuing. <b>executor.open_slots → 0</b> means all your workers are busy. Both are leading indicators — alerts here let you scale before tasks start failing."
+      what: "<b>pool.open_slots → 0</b> means your pool is saturated and tasks are queuing. <b>executor.open_slots → 0</b> means all workers are busy. Both are leading indicators.",
+      why: "These tell you you're out of capacity <i>before</i> tasks start failing or missing SLAs — they let you scale proactively instead of reactively.",
+      how: "Alert when <code>pool.open_slots</code> for a critical pool stays at 0 for several minutes, and when <code>executor.open_slots</code> hits 0. Both point at where to add capacity.",
+      when: "On clusters where capacity is a real constraint (backfills, peak load).",
+      mistake: "Waiting for tasks to miss SLAs instead of watching slot metrics — by the time tasks fail, you're already behind.",
+      interview: "“How do you know you need more workers before things break?” <code>executor.open_slots</code>/<code>pool.open_slots</code> trending to 0 — capacity alerts that lead failures. That's proactive ops.",
+      example: "ShopKart alerts when the <code>db_pool</code> sits at 0 open slots for 5&nbsp;minutes, catching saturation before the nightly run slips."
     },
     {
       active: null,
       label: "6 · StatsD → OpenTelemetry",
-      desc: "Configure StatsD in <code>airflow.cfg [metrics]</code>: point <code>statsd_host</code> at a StatsD server or sidecar. From Airflow 2.7+, set <code>otel_on=True</code> to emit directly in OTLP format for Grafana Alloy, Datadog, or Honeycomb — no exporter needed."
+      what: "Configure StatsD in <code>airflow.cfg [metrics]</code> (point <code>statsd_host</code> at a server or sidecar). From 2.7+, set <code>otel_on=True</code> to emit OTLP directly for Grafana Alloy, Datadog, or Honeycomb — no exporter needed.",
+      why: "OpenTelemetry is the emerging standard; emitting OTLP natively removes the StatsD-exporter hop and plugs Airflow straight into modern observability stacks.",
+      how: "Keep StatsD for classic Prometheus setups, or switch to <code>otel_on=True</code> with an OTLP endpoint to send metrics directly to a collector/APM. Both live under <code>[metrics]</code>.",
+      when: "StatsD for existing Prometheus pipelines; OTel when standardizing on an OpenTelemetry collector.",
+      mistake: "Enabling both transports at once without intent, doubling metric volume and muddying which pipeline is authoritative.",
+      interview: "“StatsD or OpenTelemetry for Airflow metrics?” StatsD is the classic path; OTel (2.7+) is native and exporter-free. Knowing the trajectory toward OTel is a nice forward-looking note.",
+      example: "ShopKart is migrating from StatsD-to-Prometheus toward <code>otel_on=True</code> so its Airflow metrics flow straight into the same OTel collector as its services."
     }
   ];
 
@@ -179,7 +215,7 @@
         }
         var s = STEPS[idx];
         buildGrid(s.active);
-        detail.innerHTML = '<div class="arch-detail-title">' + s.label + "</div><p>" + s.desc + "</p>";
+        detail.innerHTML = AV.Explain.render(s);
       }
 
       var codes = container.querySelector("#mn-codes");
