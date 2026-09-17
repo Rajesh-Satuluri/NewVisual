@@ -14,13 +14,37 @@
 
   var STEPS = [
     { label: "1 · Task A produces a value", nodes: ["a"], edges: [],
-      desc: "<code>extract_orders</code> finishes and <b>returns</b> a value (or calls <code>xcom_push</code>). Returning from a TaskFlow <code>@task</code> pushes to XCom automatically." },
+      what: "<code>extract_orders</code> finishes and <b>returns</b> a value. In TaskFlow, returning from an <code>@task</code> pushes it to <b>XCom</b> automatically; in the classic API you call <code>ti.xcom_push()</code> explicitly.",
+      why: "Tasks run as separate processes — often on different machines — so they share no memory. XCom is Airflow's built-in channel for handing a <i>small</i> result from one task to the next.",
+      how: "The returned (or pushed) value is serialized and written to an XCom record at task completion, under the default key <code>return_value</code>.",
+      when: "Any time a downstream task needs a small fact a previous task computed — an ID, a count, an S3 key.",
+      mistake: "Returning a big object (a DataFrame, a file's contents) from a task. XCom is for <i>pointers and scalars</i>, not payloads — the metadata DB is not a data lake.",
+      interview: "“Why can't two Airflow tasks just share a Python variable?” They're isolated processes, possibly on different hosts — no shared memory. XCom bridges them through the DB.",
+      example: "ShopKart's <code>extract_orders</code> returns the row count and the S3 key it wrote — small facts the next task needs, not the order data itself." },
     { label: "2 · Push to XCom", nodes: ["a", "xcom"], edges: [["a", "xcom"]],
-      desc: "The value is stored as an <b>XCom</b> row — keyed by dag_id, task_id, run_id, and key (default <code>return_value</code>). By default it lives in the <b>metadata DB</b>." },
+      what: "The value is stored as an <b>XCom row</b>, keyed by <code>dag_id</code>, <code>task_id</code>, <code>run_id</code>, and <code>key</code> (default <code>return_value</code>). By default it lives in the <b>metadata database</b>.",
+      why: "Keying by run_id scopes the value to <i>this</i> DAG run, so today's extract can't accidentally read yesterday's number — each run gets an isolated hand-off.",
+      how: "Airflow serializes the value (JSON by default) and inserts the row. A custom <code>xcom_backend</code> can redirect large values to S3/GCS while keeping a reference in the DB.",
+      when: "On every push — implicit (a TaskFlow return) or explicit (<code>xcom_push</code>).",
+      mistake: "Assuming XCom values are global. They're scoped per run and per key — a pull in a different run won't see them unless you deliberately widen the lookup.",
+      interview: "“Where do XComs live by default, and what's the risk?” The metadata DB — so large XComs bloat it and slow the scheduler. Custom backends spill big values to object storage.",
+      example: "ShopKart's row lands in Postgres keyed to <code>daily_sales_etl / extract_orders / scheduled__2024-01-15</code>, invisible to any other run." },
     { label: "3 · Task B pulls", nodes: ["xcom", "b"], edges: [["xcom", "b"]],
-      desc: "<code>transform_sales</code> pulls the XCom (explicitly via <code>xcom_pull</code>, or implicitly by taking A's output as an argument in TaskFlow)." },
+      what: "<code>transform_sales</code> <b>pulls</b> the XCom — explicitly via <code>xcom_pull(task_ids='extract_orders')</code>, or implicitly by taking A's output as a function argument in TaskFlow.",
+      why: "The pull is how the consumer reads the producer's result. TaskFlow's implicit pull removes the boilerplate — you just call the function with the upstream's return value.",
+      how: "<code>xcom_pull</code> looks up the row by task_ids + key and deserializes it. TaskFlow wires this automatically when you pass one task's output into another.",
+      when: "Whenever a task needs a value an upstream task produced in the same run.",
+      mistake: "Pulling from the wrong <code>task_ids</code> or <code>key</code> and silently getting <code>None</code>. A typo doesn't raise — it returns nothing, and the bug surfaces downstream.",
+      interview: "“How does one task read another's output?” <code>xcom_pull</code> by task_ids/key, or implicitly via TaskFlow arguments. Mention the silent-<code>None</code> footgun.",
+      example: "ShopKart's <code>transform_sales</code> pulls the S3 key from <code>extract_orders</code> and loads exactly the file that run wrote — no hard-coded path." },
     { label: "4 · Dependency + data", nodes: ["a", "xcom", "b"], edges: [["a", "xcom"], ["xcom", "b"]],
-      desc: "Passing the value also <b>creates the dependency</b> A → B. XCom moves <i>small</i> data + wires the graph in one move." }
+      what: "Passing the value also <b>creates the dependency</b> A → B. In TaskFlow, wiring an output into an input sets <i>both</i> the data hand-off and the execution order in one move.",
+      why: "One expression meaning both “B needs A's data” and “B runs after A” is what lets TaskFlow read like ordinary Python while still building a correct DAG.",
+      how: "<code>transform_sales(extract_orders())</code> both pulls the XCom and adds the edge. In the classic API you wire <code>extract &gt;&gt; transform</code> separately and pull by hand.",
+      when: "Every TaskFlow pipeline where one task consumes another's result.",
+      mistake: "In the classic API, pulling a value but forgetting the explicit <code>&gt;&gt;</code> dependency — B may run before A and pull a stale or missing XCom.",
+      interview: "“In TaskFlow, do you still set dependencies manually?” Passing outputs to inputs sets them for you; you add explicit edges only for order-without-data relationships.",
+      example: "ShopKart writes <code>transform_sales(extract_orders())</code> — the extract-then-transform order and the data hand-off are declared together, in one line." }
   ];
 
   var TASKFLOW =
@@ -87,7 +111,7 @@
       }
       function showStep(idx) {
         if (idx < 0) { defaultDetail(); return; }
-        detail.innerHTML = '<div class="arch-detail-title">' + STEPS[idx].label + "</div><p>" + STEPS[idx].desc + "</p>";
+        detail.innerHTML = AV.Explain.render(STEPS[idx]);
       }
 
       var cw = container.querySelector("#xc-code");
