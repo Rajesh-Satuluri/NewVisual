@@ -22,32 +22,68 @@
     {
       nodes: ["worker"], edges: [],
       label: "1 · Task captures logs",
-      desc: "When a task runs, all Python <code>logging</code> output, STDOUT, and STDERR are captured by Airflow's <code>FileTaskHandler</code>. Each log line is timestamped and includes the task's <code>dag_id</code>, <code>task_id</code>, <code>run_id</code>, and <code>try_number</code>."
+      what: "When a task runs, all Python <code>logging</code> output, STDOUT, and STDERR are captured by Airflow's <code>FileTaskHandler</code>. Each line is timestamped and tagged with <code>dag_id</code>, <code>task_id</code>, <code>run_id</code>, and <code>try_number</code>.",
+      why: "Automatic capture with identity metadata means every log line is traceable to exactly which task, run, and attempt produced it — essential for debugging at scale.",
+      how: "Airflow installs a logging handler around task execution that intercepts stdout/stderr and the Python logging framework, attaching context before writing.",
+      when: "For the full duration of every task attempt.",
+      mistake: "Using <code>print()</code> and expecting rich metadata — it's captured, but you lose the levels and structured fields the <code>logging</code> module gives you.",
+      interview: "“How does Airflow know which task a log line belongs to?” The handler tags each line with dag/task/run/try context automatically — simple, but it shows you know the mechanism.",
+      example: "ShopKart's <code>extract_orders</code> logs are stamped with its <code>run_id</code> and <code>try_number</code>, so attempt 2's lines never mix with attempt 1's."
     },
     {
       nodes: ["worker", "local"], edges: [["worker", "local"]],
       label: "2 · Written to local file",
-      desc: "Logs are written to a file at <code>BASE_LOG_FOLDER/dag_id/task_id/run_id/try_number.log</code> on the worker's filesystem. During an active run, the UI tails this file via the worker's log-serve endpoint."
+      what: "Logs are written to <code>BASE_LOG_FOLDER/dag_id/task_id/run_id/try_number.log</code> on the worker's filesystem. During an active run, the UI tails this file via the worker's log-serve endpoint.",
+      why: "A local file is the fast, always-available first destination — it lets you watch a running task live before the log is ever shipped anywhere.",
+      how: "The <code>FileTaskHandler</code> writes to the structured path; while the task runs, the API server proxies to the worker's log endpoint so you see output in near real time.",
+      when: "Throughout the run, and until the log is uploaded or the worker is recycled.",
+      mistake: "Relying on the local file as the permanent store — on Kubernetes the pod is ephemeral and the file vanishes when it dies.",
+      interview: "“How does the UI show live logs mid-run?” It tails the worker's local file via a log-serve endpoint. Knowing it's the worker (not remote storage) during a run is the detail.",
+      example: "ShopKart's on-call watches <code>extract_orders</code> stream live in the UI while it runs, served straight from the worker's local <code>1.log</code>."
     },
     {
       nodes: ["local", "remote"], edges: [["local", "remote"]],
       label: "3 · Remote handler uploads to S3/GCS",
-      desc: "If remote logging is configured, the handler uploads the completed log file to remote storage after the task finishes. The path mirrors the local structure. This is the recommended production pattern — logs survive worker restarts and container termination."
+      what: "If remote logging is configured, the handler uploads the completed log file to remote storage after the task finishes; the remote path mirrors the local structure.",
+      why: "This is the production pattern — logs survive worker restarts and container termination, so you can always read them even after the pod that produced them is gone.",
+      how: "Set <code>remote_logging=True</code>, a <code>remote_log_conn_id</code>, and a <code>remote_base_log_folder</code> (S3/GCS/Azure). On task completion the handler copies the local file to that bucket.",
+      when: "After each task attempt finishes, once the file is complete.",
+      mistake: "Skipping remote logging on Kubernetes, so any post-mortem after a pod dies has no logs to read.",
+      interview: "“What's the recommended prod logging setup?” Remote logging to object storage so logs outlive ephemeral workers. It's the answer that shows production experience.",
+      example: "ShopKart uploads every finished log to <code>s3://shopkart-logs/airflow/</code>, so a failure investigation next week still has the full output."
     },
     {
       nodes: ["remote", "api", "ui"], edges: [["remote", "api"], ["api", "ui"]],
       label: "4 · UI reads from remote",
-      desc: "Once the task is done, the API Server fetches the log from remote storage and returns it to the UI or CLI. If remote storage is not configured, the API falls back to the worker's log endpoint or the local file (if the worker is still alive)."
+      what: "Once the task is done, the API Server fetches the log from remote storage and returns it to the UI or CLI. If remote isn't configured, it falls back to the worker's endpoint or local file.",
+      why: "Reading finished logs from durable storage means they're always available, regardless of whether the worker still exists — the UI doesn't depend on ephemeral infrastructure.",
+      how: "On a log request for a completed task, the API server resolves the remote path, streams the object back, and renders it; the fallback chain covers unconfigured or in-flight cases.",
+      when: "Whenever you open the log of a completed task.",
+      mistake: "Expecting to see logs for a finished K8s task with no remote logging — the pod (and its file) is gone, so the UI shows nothing.",
+      interview: "“Why can't I see logs for an old task run?” Likely no remote logging, and the worker/pod that held the file is gone. A common real-world debugging question.",
+      example: "A week later, ShopKart opens a failed run's log and the API server streams it straight from S3 — the original worker is long gone."
     },
     {
       nodes: ["worker", "local", "remote", "api", "ui"], edges: EDGES,
       label: "5 · Per-try_number files",
-      desc: "Each retry creates its own log file (<code>1.log</code>, <code>2.log</code>, <code>3.log</code>). The UI shows a dropdown to switch between attempts. This means you can always inspect exactly what happened on each try — even for tasks with many retries."
+      what: "Each retry creates its own log file (<code>1.log</code>, <code>2.log</code>, <code>3.log</code>), and the UI shows a dropdown to switch between attempts.",
+      why: "Separate per-attempt logs let you compare exactly what changed between a failing try and a succeeding one — invaluable for diagnosing intermittent failures.",
+      how: "The handler keys the filename on <code>try_number</code>, so every attempt writes independently and the UI exposes an attempt selector to view each.",
+      when: "Any time a task retries.",
+      mistake: "Looking only at the latest attempt's log and missing why the earlier ones failed — the history is right there in the dropdown.",
+      interview: "“A task passed only on retry 3 — where do you look?” The per-attempt logs via <code>try_number</code>. It's the operational habit interviewers like to see.",
+      example: "ShopKart compares <code>extract_orders</code>' attempt-1 timeout log with attempt-3's clean run to confirm it was a transient API issue."
     },
     {
       nodes: ["worker", "local", "remote", "api", "ui"], edges: EDGES,
       label: "6 · Airflow 3: structured JSON logs",
-      desc: "Airflow 3 emits structured JSON log lines by default, with <code>dag_id</code>, <code>task_id</code>, <code>run_id</code>, <code>try_number</code>, and <code>level</code> as top-level fields. This makes logs easily queryable in Elasticsearch, CloudWatch Logs Insights, and Grafana Loki — no regex parsing needed."
+      what: "Airflow 3 emits structured JSON log lines by default, with <code>dag_id</code>, <code>task_id</code>, <code>run_id</code>, <code>try_number</code>, and <code>level</code> as top-level fields.",
+      why: "Structured logs are directly queryable in Elasticsearch, CloudWatch Logs Insights, and Grafana Loki — no brittle regex parsing to extract which task or level a line belongs to.",
+      how: "Airflow 3 ships a JSON logging config by default; each line is a JSON object your log platform can index on those fields for filtering and dashboards.",
+      when: "In Airflow 3+ deployments that ship logs to a searchable backend.",
+      mistake: "Building regex parsers for plaintext logs on 3.x when structured JSON already gives you clean, indexed fields for free.",
+      interview: "“How would you make Airflow logs searchable by task and level?” Structured JSON logging (default in 3.x) into Elasticsearch/Loki. Naming the queryable fields is the senior touch.",
+      example: "ShopKart queries Loki for <code>level=\"ERROR\" AND task_id=\"reconcile_payments\"</code> across all runs, because every line is structured JSON."
     }
   ];
 
@@ -136,7 +172,7 @@
       function showStep(idx) {
         if (idx < 0) { defaultDetail(); return; }
         var s = STEPS[idx];
-        detail.innerHTML = '<div class="arch-detail-title">' + s.label + "</div><p>" + s.desc + "</p>";
+        detail.innerHTML = AV.Explain.render(s);
       }
 
       var codes = container.querySelector("#lg-codes");
