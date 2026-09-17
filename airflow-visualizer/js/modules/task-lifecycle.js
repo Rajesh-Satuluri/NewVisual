@@ -19,19 +19,67 @@
 
   var STEPS = [
     { label: "1 · Scheduler queues it", nodes: ["scheduler"], edges: [["scheduler", "executor"]],
-      desc: "The scheduler has decided this task instance should run and hands the command to the executor. Nothing is executing yet." },
+      what: "The scheduler has decided this task instance should run and hands the command to the <b>executor</b>. Nothing is executing yet — this is pure orchestration.",
+      why: "Separating “decide” from “run” is the whole reason Airflow scales: the scheduler stays lightweight while execution happens elsewhere, on swappable backends.",
+      how: "The scheduler writes the TI to <span class='state-chip queued'>queued</span> and passes the run command to the configured executor (Local, Celery, or Kubernetes). It then moves on to other tasks.",
+      when: "Once a task clears its dependency and concurrency gates.",
+      mistake: "Thinking the scheduler runs the task. It never does — if tasks aren't <i>starting</i>, the executor/workers are the suspect, not the loop.",
+      interview: "“Walk me through what happens after a task is scheduled.” Starting with the scheduler→executor handoff shows you know where the boundary is.",
+      example: "ShopKart's scheduler queues <code>transform_sales</code> and immediately moves on to evaluate the next task — it doesn't wait around." },
+
     { label: "2 · Executor launches the command", nodes: ["executor", "ltj"], edges: [["executor", "ltj"]],
-      desc: "The executor runs <code>airflow tasks run &lt;dag&gt; &lt;task&gt; &lt;run_id&gt;</code>, which starts a <b>LocalTaskJob</b> — a small supervisor process." },
+      what: "The executor runs <code>airflow tasks run &lt;dag&gt; &lt;task&gt; &lt;run_id&gt;</code>, which starts a <b>LocalTaskJob</b> — a small supervisor process.",
+      why: "A supervisor sits between “the executor said go” and your code so someone can enforce timeouts, write heartbeats, and record the final state even if your task misbehaves.",
+      how: "Depending on the executor the command runs as a local subprocess, a Celery task on a worker, or a fresh Kubernetes pod. Either way it launches a LocalTaskJob, not your code directly.",
+      when: "As soon as a worker (or the local machine) accepts the queued task.",
+      mistake: "Picturing the executor running <code>execute()</code> itself. It launches a supervisor process; your operator runs one layer deeper.",
+      interview: "Bonus points for naming <b>LocalTaskJob</b> as the supervisor — most candidates stop at “the worker runs it” and miss this layer.",
+      example: "On ShopKart's Celery setup, a worker receives the command and spins up a LocalTaskJob to babysit the transform task." },
+
     { label: "3 · LocalTaskJob forks the task", nodes: ["ltj", "proc"], edges: [["ltj", "proc"]],
-      desc: "LocalTaskJob spawns the actual task process and watches it. It's the layer between \"the executor said go\" and your operator's code." },
+      what: "LocalTaskJob spawns the <b>actual task process</b> and watches it. This is the layer between “the executor said go” and your operator's code.",
+      why: "Running your code in a separate, supervised process means a crash, hang, or OOM in the task can't take down the worker or the supervisor tracking it.",
+      how: "LocalTaskJob forks a child process that will call your operator's <code>execute()</code>, then monitors that child — ready to record its exit and keep the heartbeat flowing.",
+      when: "Immediately after the LocalTaskJob starts, for a single attempt.",
+      mistake: "Assuming your task and the supervisor share a process. They don't — which is exactly why the supervisor can still report a task that was hard-killed.",
+      interview: "Shows depth: the supervisor/child split is how Airflow can mark an OOM-killed task <b>failed</b> instead of losing it silently.",
+      example: "ShopKart's transform task runs in its own forked process; when it later gets OOM-killed, the LocalTaskJob is still alive to record the failure." },
+
     { label: "4 · The task runs execute()", nodes: ["proc"], edges: [],
-      desc: "Your operator's <code>execute()</code> runs. State is <span class='state-chip running'>running</span> and <b>try_number</b> reflects this attempt." },
+      what: "Your operator's <code>execute()</code> finally runs — this is your real code. State is <span class='state-chip running'>running</span> and <code>try_number</code> reflects the current attempt.",
+      why: "This is the payload the whole machine exists to deliver. Everything upstream was about getting exactly this code to run, once, in the right place, at the right time.",
+      how: "The forked process imports your DAG file, reconstructs the operator, and calls <code>execute(context)</code>, where the task does its I/O and compute. Its return value becomes an XCom.",
+      when: "For the full duration of a single task attempt.",
+      mistake: "Doing non-idempotent work here (appending rows, <code>datetime.now()</code>), which makes a retry corrupt data. Task code should be safe to run twice.",
+      interview: "“What actually runs your DAG code?” The forked task process under LocalTaskJob, on a worker — at execution time, not parse time.",
+      example: "ShopKart's transform reads the extracted orders, computes daily sales, and returns the output path as XCom for the load task downstream." },
+
     { label: "5 · Heartbeats prove it's alive", nodes: ["ltj", "db"], edges: [["ltj", "db"]],
-      desc: "LocalTaskJob writes a <b>heartbeat</b> to the DB every <code>job_heartbeat_sec</code> (default 5&nbsp;s). This is how Airflow knows the task is still alive." },
+      what: "LocalTaskJob writes a <b>heartbeat</b> to the DB every <code>job_heartbeat_sec</code> (default <b>5&nbsp;s</b>). This is how Airflow knows the task is still alive.",
+      why: "The scheduler and worker usually live on different machines, so Airflow can't just “watch the process.” A periodic heartbeat is the liveness signal it trusts instead.",
+      how: "While the child runs, the supervisor updates a timestamp in the DB each interval. The scheduler reads those timestamps to distinguish live tasks from dead ones.",
+      when: "Continuously, every heartbeat interval, for the whole time the task runs.",
+      mistake: "Confusing heartbeat with progress. A heartbeat says “still alive,” not “making progress” — a task can heartbeat happily while stuck in an infinite loop.",
+      interview: "“How does Airflow detect a dead task?” Missed heartbeats past a threshold — which sets up the zombie-detection answer in the next step.",
+      example: "During ShopKart's 8-minute transform, the supervisor beats every 5&nbsp;s; the scheduler sees a fresh timestamp and knows the task is healthy." },
+
     { label: "6 · Finish & record", nodes: ["proc", "ltj", "db"], edges: [["proc", "ltj"], ["ltj", "db"]],
-      desc: "The process exits; LocalTaskJob records the final <span class='state-chip success'>success</span>/<span class='state-chip failed'>failed</span> state and flushes logs." },
-    { label: "7 · Zombie detection", nodes: ["scheduler", "db"], edges: [["scheduler", "db"]],
-      desc: "If heartbeats stop (OOM kill, node death), the scheduler notices the stale heartbeat and marks the task <b>failed</b> as a <b>zombie</b> — then applies retries.", warn: true }
+      what: "The task process exits; LocalTaskJob records the final <span class='state-chip success'>success</span>/<span class='state-chip failed'>failed</span> state and flushes the logs.",
+      why: "The result has to be durable and the logs complete, or downstream scheduling and debugging break. The supervisor owns this bookkeeping so it happens even on failure.",
+      how: "On exit, LocalTaskJob reads the child's exit code, writes the final <code>task_instance</code> state (and any XCom), flushes buffered logs to their destination, and fires success/failure callbacks.",
+      when: "The moment the task process terminates, for that attempt.",
+      mistake: "Assuming logs are written live and always complete. They're flushed at the end — a hard-killed process can leave the last lines missing.",
+      interview: "A neat detail: the <i>supervisor</i>, not your task, records the final state — which is why Airflow can still mark a crashed task failed.",
+      example: "ShopKart's transform exits 0; LocalTaskJob writes <span class='state-chip success'>success</span>, ships the log to S3, and the load task becomes eligible." },
+
+    { label: "7 · Zombie detection", nodes: ["scheduler", "db"], edges: [["scheduler", "db"]], warn: true,
+      what: "If heartbeats stop — an OOM kill, a node death — the scheduler notices the <b>stale heartbeat</b> and marks the task <b>failed</b> as a <b>zombie</b>, then applies retries.",
+      why: "Without this, a task whose machine vanished would sit <span class='state-chip running'>running</span> forever, holding a slot and blocking downstream work. Zombie detection is Airflow's safety net for lost tasks.",
+      how: "Each loop the scheduler scans for TIs whose last heartbeat is older than <code>scheduler_zombie_task_threshold</code>. It force-fails those, runs failure callbacks, and schedules a retry if attempts remain.",
+      when: "Every scheduler loop, catching any task that went silent.",
+      mistake: "Setting the zombie threshold below your longest legitimate task, so a slow-but-healthy task gets killed as a false zombie.",
+      interview: "“What happens if a worker dies mid-task?” Name the stale heartbeat, the zombie reaper, and that retries still apply — a complete, senior-level answer.",
+      example: "A ShopKart worker is OOM-killed mid-transform; heartbeats stop, the scheduler reaps the zombie after the threshold, and retry #2 starts on a healthy worker." }
   ];
 
   var CLI =
@@ -86,7 +134,7 @@
       function showStep(idx) {
         if (idx < 0) { defaultDetail(); return; }
         var s = STEPS[idx];
-        detail.innerHTML = '<div class="arch-detail-title">' + s.label + "</div><p>" + s.desc + "</p>" +
+        detail.innerHTML = AV.Explain.render(s) +
           (s.warn ? '<div class="callout danger" style="margin-top:var(--space-3)"><span class="callout-icon">⚠️</span><div class="callout-body">A hung task holds its slot until the zombie threshold elapses — size it against your longest legitimate task.</div></div>' : "");
       }
 
