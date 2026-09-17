@@ -10,32 +10,68 @@
     {
       from: null, to: null, cb: null, cbCls: null,
       label: "1 · What callbacks are",
-      desc: "Airflow callbacks are plain Python callables attached to a <b>task</b> (or the <b>DAG</b>) that fire automatically at lifecycle events. Each callback receives the same <code>context</code> dict — <code>ti</code>, <code>dag_run</code>, <code>ds</code>, <code>ts</code>, <code>params</code>, <code>conf</code>, and more."
+      what: "Callbacks are plain Python callables you attach to a <b>task</b> (or the <b>DAG</b>) that fire automatically at lifecycle events. Each receives the same <code>context</code> dict — <code>ti</code>, <code>dag_run</code>, <code>ds</code>, <code>params</code>, <code>exception</code>, and more.",
+      why: "They separate <i>what a task does</i> from <i>what happens around it</i>. Alerting, cleanup, and external notifications live in callbacks, so the task body stays focused on its actual work.",
+      how: "Pass a function to <code>on_success_callback</code>, <code>on_failure_callback</code>, and friends. Airflow invokes it with the context at the matching moment in the task's life.",
+      when: "Any cross-cutting reaction to a task's outcome — notify, log, page, clean up.",
+      mistake: "Putting alerting logic <i>inside</i> the task body, so it never fires when the task fails before reaching that line. Callbacks fire on the lifecycle event regardless.",
+      interview: "“Where do you put failure alerting in Airflow?” In <code>on_failure_callback</code> (task- or DAG-level), not the task body — so it fires even when the body raises early.",
+      example: "ShopKart wires every task to the same context-aware callbacks, so alerts carry the run_id and exception with no per-task boilerplate."
     },
     {
       from: "queued", to: "running", cb: "on_execute_callback", cbCls: "airflow",
       label: "2 · on_execute_callback",
-      desc: "Fires <b>before</b> the task body runs — the task has started but the callable hasn't been called yet. Use it to emit a 'task started' event, acquire external locks, or log metadata to an observability platform."
+      what: "Fires <b>before</b> the task body runs — the task has started but your callable hasn't executed yet. Use it to emit a “task started” event, acquire an external lock, or record metadata to an observability platform.",
+      why: "Some side effects must happen at the <i>boundary</i> of execution — claiming a resource, marking a run in-flight — before any work begins, and this is the only hook at that point.",
+      how: "Set <code>on_execute_callback=fn</code> on the operator. Airflow calls <code>fn(context)</code> right as the task transitions into running, before the operator's <code>execute()</code>.",
+      when: "Pre-flight side effects: locks, “started” pings, timing spans.",
+      mistake: "Assuming it fires at <i>queue</i> time. It fires at the start of <i>execution</i>, after the task has left the queue and a worker picks it up.",
+      interview: "“Which callback fires before the task actually does its work?” <code>on_execute_callback</code> — useful for locks and start events. It's newer than the others, so worth naming.",
+      example: "ShopKart's <code>on_execute_callback</code> opens a distributed lock so two runs of the warehouse-load task can never overlap."
     },
     {
       from: "running", to: "success", cb: "on_success_callback", cbCls: "green",
       label: "3 · on_success_callback",
-      desc: "Fires when the task returns without raising. The canonical hook for notifying stakeholders, posting metrics to Datadog, sending Slack messages, or updating a data catalog entry."
+      what: "Fires when the task returns without raising. The canonical hook for notifying stakeholders — posting metrics to Datadog, sending a Slack message, or updating a data-catalog entry.",
+      why: "Success is worth announcing too: downstream teams, dashboards, and catalogs often need to know a dataset is fresh, not just hear when something broke.",
+      how: "Set <code>on_success_callback=fn</code>. Airflow calls it with the context after the operator's <code>execute()</code> returns cleanly.",
+      when: "“Data is ready” notifications, freshness metrics, success audit trails.",
+      mistake: "Doing heavy work in a success callback. It runs on the worker in the task's slot — a slow callback delays freeing that slot and can itself fail the run.",
+      interview: "“How would you notify a team that a dataset finished loading?” <code>on_success_callback</code> posting to Slack/catalog — keep it lightweight so it doesn't hold the slot.",
+      example: "ShopKart's load task fires an <code>on_success_callback</code> that stamps the catalog “orders refreshed at {{ ts }}” so analysts trust the data is current."
     },
     {
       from: "running", to: "up-for-retry", cb: "on_retry_callback", cbCls: "orange",
       label: "4 · on_retry_callback",
-      desc: "Fires each time a task fails <i>with retries remaining</i>. Use it to log attempt counts, annotate an incident, or do partial cleanup before the next attempt. <code>context['exception']</code> carries the caught exception."
+      what: "Fires each time a task fails <i>with retries remaining</i>. Use it to log the attempt count, annotate an incident, or do partial cleanup before the next attempt. <code>context['exception']</code> carries the caught error.",
+      why: "A retry is a soft failure worth observing — repeated retries are an early warning even when the task eventually succeeds. Silent retries hide a degrading dependency.",
+      how: "Set <code>on_retry_callback=fn</code>. Airflow calls it on each failed attempt that still has budget left under the task's <code>retries</code>.",
+      when: "Tracking flakiness, cleaning up partial state between attempts, annotating incidents.",
+      mistake: "Confusing it with <code>on_failure_callback</code>. Retry fires while attempts remain; failure fires only when they're exhausted. Wiring paging here floods on-call.",
+      interview: "“What's the difference between on_retry_callback and on_failure_callback?” Retry fires per failed attempt with budget left; failure fires once, when retries are exhausted.",
+      example: "ShopKart's <code>on_retry_callback</code> bumps a “flaky API” metric each attempt, surfacing a degrading vendor before it fully fails the pipeline."
     },
     {
       from: "running", to: "failed", cb: "on_failure_callback", cbCls: "red",
       label: "5 · on_failure_callback",
-      desc: "Fires when the task fails <b>with no retries left</b>. This is where you page on-call, file JIRA tickets, or roll back partial side effects. Can also be set at the DAG level to catch <i>any</i> task failure in that DAG."
+      what: "Fires when the task fails <b>with no retries left</b>. This is where you page on-call, open a ticket, or roll back partial side effects. It can also be set at the <b>DAG level</b> to catch any task's final failure.",
+      why: "The terminal failure is the moment that demands human attention or compensating action — the one event you never want to miss, so it gets first-class alerting.",
+      how: "Set <code>on_failure_callback</code> on the task, or on the <code>DAG()</code> to cover every task. Airflow calls it once, after the last retry is exhausted.",
+      when: "Paging, incident creation, rollback of partial writes.",
+      mistake: "Setting it per-task everywhere and forgetting the DAG-level fallback — a newly added task without the callback then fails silently.",
+      interview: "“How do you ensure every task in a DAG alerts on final failure?” Set <code>on_failure_callback</code> on the DAG, not just per task — one place covers them all.",
+      example: "ShopKart sets a DAG-level <code>on_failure_callback</code> that pages on-call with the failing task_id and exception, so no failure slips through."
     },
     {
       from: null, to: null, cb: "sla_miss_callback", cbCls: "yellow",
       label: "6 · sla_miss_callback (DAG-level)",
-      desc: "Fires when any task's <code>sla</code> timedelta is exceeded. Defined on the <b>DAG object</b>, not individual tasks. Receives the full list of missed SLAs so you can batch-alert rather than flood your incident channel."
+      what: "Fires when a task's <code>sla</code> timedelta is exceeded. Defined on the <b>DAG object</b>, not individual tasks, and receives the full list of missed SLAs so you can batch-alert instead of flooding the channel.",
+      why: "An SLA miss is about <i>lateness</i>, not failure — a task can succeed but too late to matter. This hook catches the “it finished, but after the deadline” case the others don't.",
+      how: "Set <code>sla_miss_callback</code> on the DAG and <code>sla=timedelta(...)</code> on tasks. When a task blows its SLA, Airflow batches the misses and calls the handler with all of them.",
+      when: "Deadline monitoring — “the report must be ready by 8am” style guarantees.",
+      mistake: "Treating SLA misses like failures. The task may be <span class='state-chip success'>success</span>; it just ran late. Wiring the failure pager here misclassifies the incident.",
+      interview: "“How do you alert when a task runs but misses its deadline?” Task-level <code>sla</code> + DAG-level <code>sla_miss_callback</code> — distinct from failure callbacks, which fire only on error.",
+      example: "ShopKart's revenue report has an 8am <code>sla</code>; if it's late the DAG's <code>sla_miss_callback</code> warns the analytics lead before the stale dashboard is noticed."
     }
   ];
 
@@ -151,7 +187,7 @@
         }
         var s = STEPS[idx];
         renderViz(s);
-        detail.innerHTML = '<div class="arch-detail-title">' + s.label + "</div><p>" + s.desc + "</p>";
+        detail.innerHTML = AV.Explain.render(s);
       }
 
       container.querySelector("#cb-code").appendChild(AV.CodeViewer.create({
