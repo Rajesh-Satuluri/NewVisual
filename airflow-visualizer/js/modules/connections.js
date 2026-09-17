@@ -22,32 +22,68 @@
     {
       nodes: ["secrets", "env_var", "db_conn"], edges: [],
       label: "1 · Three ways to define a connection",
-      desc: "A connection bundles: <code>conn_id</code>, <code>conn_type</code>, <code>host</code>, <code>port</code>, <code>login</code>, <code>password</code>, <code>schema</code>, and <code>extras</code> (JSON). You can store it in the UI/DB, an environment variable, or a secrets backend."
+      what: "A connection bundles <code>conn_id</code>, <code>conn_type</code>, <code>host</code>, <code>port</code>, <code>login</code>, <code>password</code>, <code>schema</code>, and JSON <code>extras</code>. You can store it in the UI/DB, an environment variable, or a secrets backend.",
+      why: "Centralizing credentials behind a named <code>conn_id</code> keeps secrets out of DAG code and lets you swap environments (dev/staging/prod) by changing one record, not editing pipelines.",
+      how: "Define the same <code>conn_id</code> in whichever store you choose. Airflow resolves it at runtime from the highest-priority source that has it — secrets backend, then env var, then DB.",
+      when: "Whenever a task must reach an external system (database, API, cloud service).",
+      mistake: "Hard-coding host/user/password directly in a DAG or operator call, scattering secrets across your codebase.",
+      interview: "“What's in an Airflow connection, and where can it live?” Listing the fields plus the three stores (DB, env var, secrets backend) is a clean, complete answer.",
+      example: "ShopKart defines a <code>warehouse</code> connection once; dev points it at a sandbox Postgres and prod at the real cluster — same DAG code, different record."
     },
     {
       nodes: ["operator"], edges: [],
       label: "2 · Operator stores only conn_id",
-      desc: "Operators (like <code>PostgresOperator</code>) accept a <code>conn_id</code> string — not the raw credentials. This keeps secrets out of your DAG code and lets you swap environments by changing one connection record."
+      what: "Operators (like <code>PostgresOperator</code>) accept a <code>conn_id</code> string — not raw credentials. Your DAG references the <i>name</i> of a connection, never its secret.",
+      why: "Keeping only the <code>conn_id</code> in code means secrets never live in your repo, and rotating a password is a one-place change with zero DAG edits.",
+      how: "You pass <code>postgres_conn_id='warehouse'</code>; the operator holds just that string and defers the actual lookup to its hook at execution time.",
+      when: "In every operator that touches an external system.",
+      mistake: "Passing a full connection URI or password as an operator argument, defeating the whole point of the <code>conn_id</code> indirection.",
+      interview: "“How do you keep DB passwords out of your DAGs?” Operators reference a <code>conn_id</code>; credentials resolve at runtime from a store. Simple, and it's what interviewers want to hear.",
+      example: "ShopKart's <code>aggregate_daily_sales</code> task carries only <code>postgres_conn_id='warehouse'</code> — the password lives in Vault, not the DAG."
     },
     {
       nodes: ["hook", "operator"], edges: [["hook", "operator"]],
       label: "3 · Hook resolves the connection at runtime",
-      desc: "When the task executes, the operator calls its underlying hook (<code>PostgresHook</code>, <code>S3Hook</code>, etc.). The hook calls <code>BaseHook.get_connection(conn_id)</code> to look up the credentials — never earlier."
+      what: "When the task executes, the operator calls its underlying hook (<code>PostgresHook</code>, <code>S3Hook</code>, …), which calls <code>BaseHook.get_connection(conn_id)</code> to fetch the credentials — never earlier.",
+      why: "Resolving at runtime (not parse time) means secrets are fetched only on the worker that needs them, and a missing connection fails the task, not the whole parse.",
+      how: "The hook wraps the resolved connection into a ready-to-use client (a psycopg2 connection, a boto3 session). Operators use hooks internally; you can also call a hook directly in a callable.",
+      when: "At task execution, once per task that needs the connection.",
+      mistake: "Calling <code>BaseHook.get_connection()</code> at the top level of a DAG file — it then runs every parse, hammering your secrets backend.",
+      interview: "“What's the difference between a connection and a hook?” A connection is the stored credentials; a hook resolves them and gives you a usable client. Knowing the split is the point.",
+      example: "ShopKart's <code>export_to_s3</code> callable builds a <code>PostgresHook('warehouse')</code> at runtime to pull a DataFrame — the credential lookup happens right then."
     },
     {
       nodes: ["secrets", "hook"], edges: [["secrets", "hook"]],
       label: "4 · Secrets backend checked first",
-      desc: "If a secrets backend is configured (HashiCorp Vault, AWS SSM, GCP Secret Manager), <code>get_connection</code> tries it first. This is the recommended production pattern — credentials never touch the metadata DB."
+      what: "If a secrets backend is configured (HashiCorp Vault, AWS SSM, GCP Secret Manager), <code>get_connection</code> tries it <b>first</b>. This is the recommended production pattern.",
+      why: "A dedicated secrets store gives you rotation, audit, and access control, and keeps credentials out of the metadata DB entirely — the strongest posture for production.",
+      how: "Configure <code>[secrets] backend</code>; on lookup Airflow queries it by a path convention (e.g. <code>airflow/connections/warehouse</code>). A hit there wins over env vars and the DB.",
+      when: "In any environment where credentials must be centrally managed and rotated.",
+      mistake: "Configuring a secrets backend but leaving a stale copy of the same <code>conn_id</code> in the DB — confusing, since the backend silently wins.",
+      interview: "“Where should production credentials live?” A secrets backend, checked first — never the metadata DB. Naming Vault/SSM/GCP SM shows real-world familiarity.",
+      example: "ShopKart stores the <code>warehouse</code> password in Vault; the hook fetches it at runtime and it never touches Postgres."
     },
     {
       nodes: ["env_var", "hook"], edges: [["env_var", "hook"]],
       label: "5 · Env var fallback",
-      desc: "<code>AIRFLOW_CONN_&lt;CONN_ID_UPPERCASE&gt;</code> is checked next. The value is a URI string (<code>postgres://user:pw@host:5432/db</code>) or a JSON blob. Ideal for CI/CD and container environments."
+      what: "<code>AIRFLOW_CONN_&lt;CONN_ID_UPPERCASE&gt;</code> is checked next. Its value is a URI (<code>postgres://user:pw@host:5432/db</code>) or a JSON blob.",
+      why: "Env vars are ideal for CI/CD and containers — no DB write, no UI click, just an environment variable injected at deploy time. They're also great for ephemeral test runs.",
+      how: "Export <code>AIRFLOW_CONN_WAREHOUSE=postgresql://…</code>; Airflow parses the URI into a connection object when a hook requests that <code>conn_id</code>, if no secrets backend resolved it first.",
+      when: "In containerized/CI environments, or to override a connection for a single deployment.",
+      mistake: "Committing an <code>AIRFLOW_CONN_*</code> value with a real password into a Dockerfile or CI YAML — it's still a secret, even as an env var.",
+      interview: "“How do you inject a connection in CI without a DB or UI?” The <code>AIRFLOW_CONN_*</code> env var in URI form. It's the pattern for reproducible, code-driven config.",
+      example: "ShopKart's CI sets <code>AIRFLOW_CONN_WAREHOUSE</code> to a throwaway Postgres so integration tests run without touching production connections."
     },
     {
       nodes: ["db_conn", "hook"], edges: [["db_conn", "hook"]],
       label: "6 · Metadata DB as last fallback",
-      desc: "If neither a secrets backend nor env var resolves the conn_id, the hook reads from the <code>connection</code> table in the metadata DB. The UI and REST API both write here. Good for development — less so for production credentials."
+      what: "If neither a secrets backend nor an env var resolves the <code>conn_id</code>, the hook reads from the <code>connection</code> table in the metadata DB. The UI and REST API both write here.",
+      why: "The DB store is convenient for development and for connections you manage through the UI, but it's the weakest option for production secrets unless encryption is on.",
+      how: "The hook queries the <code>connection</code> table; the password is encrypted at rest only if a <b>Fernet key</b> is configured. First match across the three sources wins, and the DB is last.",
+      when: "For development, or for non-sensitive connections managed via the UI.",
+      mistake: "Storing production passwords in the DB without a Fernet key — they sit in <i>plaintext</i>, readable by anyone with DB access.",
+      interview: "“What's the resolution order for a connection?” Secrets backend → env var → metadata DB, first match wins. Add “DB needs Fernet to encrypt” for extra credit.",
+      example: "ShopKart keeps a dev-only <code>warehouse</code> connection in the UI/DB for quick local testing, while production resolves the same <code>conn_id</code> from Vault."
     }
   ];
 
@@ -129,7 +165,7 @@
       function showStep(idx) {
         if (idx < 0) { defaultDetail(); return; }
         var s = STEPS[idx];
-        detail.innerHTML = '<div class="arch-detail-title">' + s.label + "</div><p>" + s.desc + "</p>";
+        detail.innerHTML = AV.Explain.render(s);
       }
 
       container.querySelector("#cn-code").appendChild(AV.CodeViewer.create({
