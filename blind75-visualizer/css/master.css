@@ -629,3 +629,6 @@ body.sidebar-open .ham i:nth-child(3) { top: 6px; transform: rotate(-45deg); }
 .pm-fu:first-of-type { border-top: none; }
 .pm-fu-q { font-size: 13px; font-weight: 700; color: var(--text); }
 .pm-fu-a { font-size: 13px; line-height: 1.55; color: var(--text-2); margin-top: 2px; }
+
+/* count suffix on postmortem category chips */
+.ros-cat-n { opacity: .6; font-weight: 700; margin-left: 1px; }

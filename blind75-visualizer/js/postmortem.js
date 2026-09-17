@@ -183,9 +183,11 @@
     overlay = document.createElement("div");
     overlay.id = "postmortem";
     overlay.className = "ros pm hidden";
-    var catChips = '<button class="ros-chip ros-cat-chip active" data-cat="all">All</button>' +
+    var total = (DATA.patterns || []).length;
+    var catChips = '<button class="ros-chip ros-cat-chip active" data-cat="all">All <span class="ros-cat-n">(' + total + ')</span></button>' +
       groupsWithPatterns().map(function (g) {
-        return '<button class="ros-chip ros-cat-chip" data-cat="' + esc(g) + '">' + esc(g) + "</button>";
+        var n = patternsFor(g).length;
+        return '<button class="ros-chip ros-cat-chip" data-cat="' + esc(g) + '">' + esc(g) + ' <span class="ros-cat-n">(' + n + ')</span></button>';
       }).join("");
     overlay.innerHTML =
       '<div class="ros-box" role="dialog" aria-label="Interview postmortem">' +
