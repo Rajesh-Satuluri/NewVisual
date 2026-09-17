@@ -12,43 +12,85 @@
       attempts: [{n:1,state:"idle"},{n:2,state:"idle"},{n:3,state:"idle"}],
       delays: [], sla: false,
       label: "1 · Configured: retries=3, retry_delay=5 min",
-      desc: "ShopKart's <code>extract_orders</code> task is configured with <code>retries=3</code> and <code>retry_delay=timedelta(minutes=5)</code>. If it fails, Airflow will retry up to three times with growing delays (exponential backoff enabled)."
+      what: "ShopKart's <code>extract_orders</code> task is configured with <code>retries=3</code> and <code>retry_delay=timedelta(minutes=5)</code>, with exponential backoff enabled.",
+      why: "External systems fail transiently — an API rate-limits, a network blips. Retries turn a single flake into an automatic recovery instead of a 3&nbsp;AM page.",
+      how: "Set <code>retries</code>, <code>retry_delay</code>, and optionally <code>retry_exponential_backoff=True</code> on the operator. Airflow re-runs the task up to <code>retries</code> times, waiting between attempts.",
+      when: "On any task that touches a flaky external dependency.",
+      mistake: "Leaving <code>retries=0</code> (the default) on a task that hits an API, so one transient blip fails the whole run.",
+      interview: "“How do you make a task resilient to a flaky API?” Retries + delay + exponential backoff, plus idempotent logic. This module walks exactly that scenario.",
+      example: "ShopKart configures its order-extract with 3 retries and a 5-minute base delay because the upstream orders API occasionally rate-limits at peak."
     },
     {
       attempts: [{n:1,state:"running"},{n:2,state:"idle"},{n:3,state:"idle"}],
       delays: [], sla: false,
       label: "2 · Attempt 1 starts",
-      desc: "The first attempt starts running. <code>try_number=1</code>. The task callable is invoked on the worker."
+      what: "The first attempt starts running with <code>try_number=1</code>; the task callable is invoked on the worker.",
+      why: "Every attempt is a full, independent execution — which is exactly why task code must be idempotent, so re-running it is always safe.",
+      how: "The worker runs the operator's <code>execute()</code>; <code>try_number</code> identifies this attempt and gives it its own log file.",
+      when: "The moment a worker picks up the task for its first try.",
+      mistake: "Assuming attempt 1 is somehow special. It isn't — it's just <code>try_number=1</code>, and it can fail and retry like any other.",
+      interview: "Know that <code>try_number</code> increments per attempt and each has its own log — it's how you debug a task that only fails intermittently.",
+      example: "ShopKart's <code>extract_orders</code> begins attempt 1, connecting to the orders API to pull the day's transactions."
     },
     {
       attempts: [{n:1,state:"failed"},{n:2,state:"idle"},{n:3,state:"idle"}],
       delays: [{after:1, label:"5 min (retry_delay)"}], sla: false,
       label: "3 · Attempt 1 fails → up_for_retry",
-      desc: "The callable raises an exception. Since <code>try_number(1) ≤ retries(3)</code>, the task transitions to <span class='state-chip up-for-retry'>up‑for‑retry</span>. <code>on_retry_callback</code> fires. The scheduler waits <code>retry_delay</code> before scheduling attempt 2."
+      what: "The callable raises. Since <code>try_number(1) ≤ retries(3)</code>, the task goes to <span class='state-chip up-for-retry'>up_for_retry</span>, <code>on_retry_callback</code> fires, and the scheduler waits <code>retry_delay</code>.",
+      why: "A transient failure shouldn't be terminal. Moving to up_for_retry (with a callback hook) lets Airflow recover automatically and lets you alert or clean up between tries.",
+      how: "On the exception, Airflow compares attempts used against <code>retries</code>; if attempts remain it sets up_for_retry and records the next-eligible time as <code>now + retry_delay</code>.",
+      when: "Immediately after an attempt raises, when retries remain.",
+      mistake: "Putting heavy cleanup in <code>on_retry_callback</code> that itself fails — a flaky callback can mask the real retry behavior.",
+      interview: "“What state does a task enter between retries?” <span class='state-chip up-for-retry'>up_for_retry</span>, after <code>on_retry_callback</code> — not <code>failed</code>. Precise state names matter here.",
+      example: "ShopKart's attempt 1 hits an API timeout; the task goes up_for_retry and a Slack <code>on_retry_callback</code> notes the transient failure."
     },
     {
       attempts: [{n:1,state:"failed"},{n:2,state:"running"},{n:3,state:"idle"}],
       delays: [{after:1, label:"5 min (retry_delay)"}], sla: false,
       label: "4 · Attempt 2 — after 5 min delay",
-      desc: "After 5 minutes, attempt 2 starts. <code>try_number=2</code>. With <code>retry_exponential_backoff=True</code>, the delay after this attempt will double: 5 × 2¹ = 10 minutes."
+      what: "After 5 minutes, attempt 2 starts with <code>try_number=2</code>. With <code>retry_exponential_backoff=True</code>, the delay after <i>this</i> attempt doubles: 5 × 2¹ = 10 minutes.",
+      why: "Backoff spaces out retries so you don't hammer a struggling dependency — the first retry is quick, later ones give the system more room to recover.",
+      how: "Airflow computes each wait as <code>retry_delay × 2^(try_number-1)</code>, capped by <code>max_retry_delay</code>. Attempt 2 runs after the base 5&nbsp;min; the next wait grows.",
+      when: "After the first retry_delay elapses, for the second attempt.",
+      mistake: "Enabling backoff without <code>max_retry_delay</code>, so a task with many retries eventually waits hours between attempts.",
+      interview: "“How does exponential backoff compute its delays?” <code>retry_delay × 2^(try−1)</code>, capped by <code>max_retry_delay</code>. Reciting the formula shows you've actually used it.",
+      example: "ShopKart's attempt 2 runs 5 minutes after the first failure; because backoff is on, the next wait will be 10 minutes."
     },
     {
       attempts: [{n:1,state:"failed"},{n:2,state:"failed"},{n:3,state:"idle"}],
       delays: [{after:1, label:"5 min"},{after:2, label:"10 min (5 × 2¹, exponential)"}], sla: false,
       label: "5 · Attempt 2 fails — 10 min backoff",
-      desc: "Attempt 2 also fails. <code>try_number(2) ≤ retries(3)</code>, so a third retry is scheduled with a 10-minute wait. Exponential backoff reduces thundering-herd pressure on flaky dependencies like rate-limited APIs."
+      what: "Attempt 2 also fails. Since <code>try_number(2) ≤ retries(3)</code>, a third retry is scheduled with a <b>10-minute</b> wait (5 × 2¹).",
+      why: "Exponential backoff reduces thundering-herd pressure on flaky dependencies like rate-limited APIs — the growing gap gives them time to recover before you try again.",
+      how: "Airflow again checks attempts against <code>retries</code>, sets up_for_retry, and schedules attempt 3 after the doubled delay. Each failure widens the next gap.",
+      when: "After the second attempt raises, with one retry still remaining.",
+      mistake: "Setting <code>retries</code> very high on a genuinely broken dependency, so the task limps through many long backoffs instead of failing fast and paging someone.",
+      interview: "“When is backoff the wrong tool?” When the failure is permanent (a bug, bad credentials) — backoff just delays the inevitable. Knowing when <i>not</i> to retry is senior-level.",
+      example: "ShopKart's attempt 2 fails again; a third attempt is queued for 10 minutes later as the API continues to rate-limit."
     },
     {
       attempts: [{n:1,state:"failed"},{n:2,state:"failed"},{n:3,state:"success"}],
       delays: [{after:1, label:"5 min"},{after:2, label:"10 min (×2)"}], sla: false,
       label: "6 · Attempt 3 succeeds",
-      desc: "The third attempt returns without raising. Task state becomes <span class='state-chip success'>success</span>. <code>on_success_callback</code> fires. Downstream tasks can now start."
+      what: "The third attempt returns without raising. Task state becomes <span class='state-chip success'>success</span>, <code>on_success_callback</code> fires, and downstream tasks can start.",
+      why: "This is the happy path retries exist for: a transient problem cleared, and the pipeline recovered on its own with no human involved.",
+      how: "The worker records <code>success</code>, writes any XCom, and the scheduler re-evaluates downstream trigger rules to unblock the next tasks.",
+      when: "When a retry attempt finally completes cleanly.",
+      mistake: "Not making the task idempotent, so three attempts that each partially wrote data leave duplicates when the third finally succeeds.",
+      interview: "“Why must a retried task be idempotent?” Because attempts 1–2 may have partially run — only idempotent logic guarantees the successful attempt leaves correct state.",
+      example: "ShopKart's attempt 3 connects cleanly, extracts the orders, and the reconcile task downstream becomes eligible — no page was ever sent."
     },
     {
       attempts: [{n:1,state:"failed"},{n:2,state:"failed"},{n:3,state:"failed"}],
       delays: [{after:1, label:"5 min"},{after:2, label:"10 min (×2)"}], sla: true,
       label: "7 · All retries exhausted + SLA miss",
-      desc: "If <code>try_number</code> exceeds <code>retries</code>, the task becomes <span class='state-chip failed'>failed</span> — no more retries. <code>on_failure_callback</code> fires. Separately, if the total elapsed time (from the DAG's <code>logical_date</code>) exceeds the task's <code>sla</code> timedelta, <code>sla_miss_callback</code> fires — even if the task <i>eventually</i> succeeds."
+      what: "If <code>try_number</code> exceeds <code>retries</code>, the task becomes <span class='state-chip failed'>failed</span> and <code>on_failure_callback</code> fires. Separately, if elapsed time from <code>logical_date</code> exceeds the task's <code>sla</code>, <code>sla_miss_callback</code> fires — even if the task <i>eventually</i> succeeds.",
+      why: "Retries handle <i>failure</i>; SLAs handle <i>lateness</i>. They're independent — a task can succeed on retry 3 yet still breach its time contract, and you want to know about both.",
+      how: "On the final failure Airflow marks <code>failed</code> and runs the failure callback. The SLA check compares wall-clock elapsed since <code>logical_date</code> against the <code>sla</code> timedelta and fires <code>sla_miss_callback</code> independently.",
+      when: "When retries run out (failure), and/or when the SLA deadline passes (lateness).",
+      mistake: "Conflating retries and SLAs — thinking a passing task can't miss its SLA. It can: three slow retries can blow the deadline even on eventual success.",
+      interview: "“Retries vs SLAs — how do they differ?” Retries re-run on failure; SLAs alert on lateness, independently. That distinction is a common interview probe.",
+      example: "ShopKart's task succeeds on retry 3 but took 2.5 hours; because its <code>sla</code> is 2 hours, the <code>sla_miss_callback</code> still pages the on-call about the delay."
     }
   ];
 
@@ -180,7 +222,7 @@
           return;
         }
         renderViz(STEPS[idx]);
-        detail.innerHTML = '<div class="arch-detail-title">' + STEPS[idx].label + "</div><p>" + STEPS[idx].desc + "</p>";
+        detail.innerHTML = AV.Explain.render(STEPS[idx]);
       }
 
       container.querySelector("#rt-code").appendChild(AV.CodeViewer.create({
