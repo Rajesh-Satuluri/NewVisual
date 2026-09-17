@@ -23,32 +23,68 @@
     {
       nodes: ["user"], edges: [],
       label: "1 · A request arrives",
-      desc: "Every request — from the web UI, the CLI, or a REST API call — must be authenticated. A ShopKart analyst opening the DAGs page and a CI job triggering a run both hit the same front door."
+      what: "Every request — from the web UI, the CLI, or a REST API call — must be authenticated. An analyst opening the DAGs page and a CI job triggering a run both hit the same front door.",
+      why: "A single authenticated entry point means there's no unguarded side door: UI, CLI, and API all enforce the same identity and permission checks.",
+      how: "All access flows through the API server, which hands the request to the Auth Manager before any resource is touched. No authenticated identity, no access.",
+      when: "On literally every interaction with Airflow.",
+      mistake: "Assuming the REST API or CLI is somehow less guarded than the UI — they aren't; all three authenticate through the same path.",
+      interview: "“What are the entry points to Airflow, and are they all secured?” UI, CLI, REST API — all through one auth front door. Recognizing the unified path is the point.",
+      example: "A ShopKart analyst in the browser and a CI token hitting the REST API both authenticate through the same Auth Manager before anything runs."
     },
     {
       nodes: ["user", "auth"], edges: [["user", "auth"]],
       label: "2 · Auth Manager intercepts",
-      desc: "Airflow 3 introduces the pluggable <b>Auth Manager</b> (replacing the 2.x FAB-only model). It owns both <i>authentication</i> (who are you?) and <i>authorization</i> (what may you do?). The default is <code>FabAuthManager</code>; enterprises can swap in an AWS/GCP identity manager."
+      what: "Airflow 3 introduces the pluggable <b>Auth Manager</b> (replacing the 2.x FAB-only model). It owns both <i>authentication</i> (who are you?) and <i>authorization</i> (what may you do?).",
+      why: "Decoupling auth from Flask AppBuilder lets enterprises delegate identity and permissions to their own cloud IAM instead of Airflow's built-in model.",
+      how: "The default is <code>FabAuthManager</code>; you can swap in an AWS/GCP identity manager or write your own. It intercepts every request and decides both who you are and what you can access.",
+      when: "On every request, before any resource logic runs.",
+      mistake: "Assuming Airflow 3 still hard-codes Flask AppBuilder for auth — it's now pluggable, and that changes how you integrate enterprise SSO.",
+      interview: "“What changed about auth in Airflow 3?” The pluggable Auth Manager replaces the FAB-only model, owning authn <i>and</i> authz. A current answer that signals you follow releases.",
+      example: "ShopKart runs the default <code>FabAuthManager</code> today but is evaluating an AWS auth manager to delegate authorization to IAM."
     },
     {
       nodes: ["auth", "backend"], edges: [["auth", "backend"]],
       label: "3 · Auth backend verifies identity",
-      desc: "The backend proves who you are. Options: database (username/password), <b>OAuth/OIDC</b> (Okta, Google, Azure AD), LDAP, or Kerberos. API clients use JWT tokens. Password auth alone is discouraged in production — federate to your IdP."
+      what: "The backend proves who you are: database (username/password), <b>OAuth/OIDC</b> (Okta, Google, Azure AD), LDAP, or Kerberos. API clients use JWT tokens.",
+      why: "Federating to your identity provider centralizes account lifecycle (joiners/leavers), MFA, and password policy — far stronger than Airflow-local passwords.",
+      how: "Configure <code>auth_type</code> (e.g. <code>AUTH_OAUTH</code>) and the provider block; the backend validates credentials or tokens and establishes the authenticated identity for the request.",
+      when: "At the authentication step of every request.",
+      mistake: "Relying on database username/password in production instead of federating to an IdP with SSO and MFA.",
+      interview: "“How should production Airflow authenticate users?” Federate to an IdP via OAuth/OIDC (Okta, Azure AD), not local passwords. That's the security-aware answer.",
+      example: "ShopKart authenticates staff through Okta OIDC, so leaving the company disables Airflow access automatically with their SSO account."
     },
     {
       nodes: ["auth", "rbac"], edges: [["auth", "rbac"]],
       label: "4 · RBAC role lookup",
-      desc: "Once authenticated, the user's <b>roles</b> are resolved. Airflow ships five: <span class='state-chip success'>Admin</span> <span class='state-chip running'>Op</span> <span class='state-chip queued'>User</span> <span class='state-chip scheduled'>Viewer</span> <span class='state-chip skipped'>Public</span>. Roles are additive — a user gets the union of all their roles' permissions."
+      what: "Once authenticated, the user's <b>roles</b> are resolved. Airflow ships five: <span class='state-chip success'>Admin</span> <span class='state-chip running'>Op</span> <span class='state-chip queued'>User</span> <span class='state-chip scheduled'>Viewer</span> <span class='state-chip skipped'>Public</span>. Roles are additive.",
+      why: "Role-based access lets you grant capability by job function instead of per-user, and additivity means a user simply gets the union of everything their roles allow.",
+      how: "The Auth Manager maps the authenticated identity to one or more roles (often from IdP group claims). The effective permission set is the union across all assigned roles.",
+      when: "Right after authentication, before any permission check.",
+      mistake: "Giving everyone <code>Admin</code> because it's easy, instead of assigning the least-privileged role that fits each function.",
+      interview: "“What are Airflow's built-in roles?” Admin, Op, User, Viewer, Public — additive. Knowing the ladder (and least-privilege) is a standard RBAC question.",
+      example: "ShopKart maps its Okta “data-analysts” group to the <code>Viewer</code> role, so analysts can see runs and logs but not trigger or edit."
     },
     {
       nodes: ["rbac", "perm"], edges: [["rbac", "perm"]],
       label: "5 · Permission check on the resource",
-      desc: "Each role maps to fine-grained permissions like <code>can_read</code> / <code>can_edit</code> on resources (<code>DAG:daily_sales_etl</code>, <code>Connections</code>, <code>Variables</code>). <b>DAG-level access control</b> lets you scope a role to only specific DAGs — the ShopKart finance team sees only finance DAGs."
+      what: "Each role maps to fine-grained permissions like <code>can_read</code>/<code>can_edit</code> on resources (<code>DAG:daily_sales_etl</code>, <code>Connections</code>, <code>Variables</code>). <b>DAG-level access control</b> scopes a role to specific DAGs.",
+      why: "Fine-grained, DAG-scoped permissions let teams see and operate only their own pipelines — essential multi-tenancy for a shared Airflow.",
+      how: "Permissions are (<i>action</i>, <i>resource</i>) pairs attached to roles. DAG-level access control restricts a role to named DAGs, so the finance team's role only exposes finance DAGs.",
+      when: "On every resource access, after roles are resolved.",
+      mistake: "Using one shared Airflow with no DAG-level scoping, so every team can trigger and clear every other team's DAGs.",
+      interview: "“How do you isolate teams on one Airflow?” DAG-level access control scoping roles to specific DAGs. It's the multi-tenancy answer interviewers look for.",
+      example: "ShopKart's finance role has <code>can_read</code>/<code>can_edit</code> only on <code>finance_*</code> DAGs, so finance can't touch the marketing pipelines and vice versa."
     },
     {
       nodes: ["perm", "fernet"], edges: [["perm", "fernet"]],
       label: "6 · Secrets stay encrypted at rest",
-      desc: "Connection passwords and Variables marked sensitive are encrypted in the metadata DB using a <b>Fernet key</b>. Rotate it with <code>airflow rotate-fernet-key</code>. Combined with a secrets backend (Vault, AWS SM), plaintext credentials never touch the database."
+      what: "Connection passwords and sensitive Variables are encrypted in the metadata DB using a <b>Fernet key</b>. Rotate it with <code>airflow rotate-fernet-key</code>.",
+      why: "Even with RBAC, anyone with raw DB access could read plaintext secrets — encryption at rest closes that gap, and a secrets backend removes secrets from the DB entirely.",
+      how: "Set <code>fernet_key</code> (kept in a secret, not the config file); Airflow encrypts/decrypts credentials transparently. Combine with a secrets backend (Vault, AWS SM) so plaintext never touches the DB.",
+      when: "Always in production — encryption at rest is a baseline requirement.",
+      mistake: "Running without a Fernet key (or committing it to git), leaving connection passwords in plaintext or trivially decryptable.",
+      interview: "“How are Airflow credentials protected at rest?” Fernet encryption in the DB, ideally plus a secrets backend; rotate with <code>rotate-fernet-key</code>. Naming rotation shows operational depth.",
+      example: "ShopKart stores its Fernet key in AWS Secrets Manager and rotates it during a maintenance window, re-encrypting every stored connection."
     }
   ];
 
@@ -138,7 +174,7 @@
       function showStep(idx) {
         if (idx < 0) { defaultDetail(); return; }
         var s = STEPS[idx];
-        detail.innerHTML = '<div class="arch-detail-title">' + s.label + "</div><p>" + s.desc + "</p>";
+        detail.innerHTML = AV.Explain.render(s);
       }
 
       var thead = "<thead><tr><th>Role</th><th>What it can do</th></tr></thead>";
