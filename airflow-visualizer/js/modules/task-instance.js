@@ -34,25 +34,94 @@
   // Narrated scenario: run → fail → retry → success.
   var STEPS = [
     { label: "1 · Created", state: "none",
-      desc: "The scheduler has created the task instance but it isn't eligible to run yet — state is <span class='state-chip' style='background:var(--bg-3)'>none</span>." },
+      what: "The scheduler has created the task instance, but it isn't eligible to run yet — its state is <span class='state-chip' style='background:var(--bg-3)'>none</span>.",
+      why: "A task instance must <i>exist</i> before Airflow can track it, but existing isn't the same as being ready. This starting state is the placeholder before any scheduling decision.",
+      how: "When a DAG run is created, Airflow inserts one <code>task_instance</code> row per task in state <code>none</code>. Nothing about dependencies or slots has been evaluated yet.",
+      when: "The instant a DAG run is created, before the scheduler's examine phase looks at it.",
+      mistake: "Confusing “the run exists” with “the tasks are running.” Creating the run only <i>materializes</i> the instances; they still have to earn their way to running.",
+      interview: "Sets up the whole state machine. Naming every state a TI passes through — and why — is a common “do you really know Airflow?” check.",
+      example: "At 00:05 ShopKart's Jan-1 run is created; all 13 task instances briefly exist in <code>none</code> before the scheduler evaluates them." },
+
     { label: "2 · Scheduled", state: "scheduled", from: "none", to: "scheduled",
-      desc: "Dependencies are met and a run is due, so the scheduler marks it <span class='state-chip scheduled'>scheduled</span>. It's now a candidate for the executor." },
+      what: "Dependencies are met and a run is due, so the scheduler marks the task <span class='state-chip scheduled'>scheduled</span> — it's now a candidate for the executor.",
+      why: "<span class='state-chip scheduled'>scheduled</span> means “Airflow has decided this <i>should</i> run.” Separating that decision from actually running is what lets pools and concurrency gate work safely.",
+      how: "In its examine phase the scheduler checks upstream trigger rules and marks eligible TIs <code>scheduled</code>. They wait here until there's capacity to hand them off.",
+      when: "Once a task's dependencies are satisfied and its run is active.",
+      mistake: "Reading <span class='state-chip scheduled'>scheduled</span> as “stuck.” It often just means the task is <i>gated</i> — waiting on a free pool slot or concurrency headroom.",
+      interview: "“What does scheduled mean, exactly?” The scheduler's decision — not yet accepted by the executor. The scheduled-vs-queued distinction is the follow-up.",
+      example: "ShopKart's <code>validate_data</code> flips to <span class='state-chip scheduled'>scheduled</span> the moment its three upstream extracts succeed." },
+
     { label: "3 · Queued", state: "queued", from: "scheduled", to: "queued",
-      desc: "The scheduler hands it to the executor; it sits in the queue as <span class='state-chip queued'>queued</span>. <b>scheduled vs queued</b> is a classic interview question — scheduled = scheduler's decision, queued = executor has accepted it." },
+      what: "The scheduler hands the task to the executor, and it sits in the queue as <span class='state-chip queued'>queued</span>, waiting for a worker.",
+      why: "<span class='state-chip queued'>queued</span> marks the boundary between deciding and doing: the scheduler is done, the executor has taken ownership. That handoff is what lets execution scale independently.",
+      how: "The scheduler enqueues the command; a Celery/K8s executor puts it on a broker or spins a pod. The TI stays <code>queued</code> until a worker actually picks it up.",
+      when: "Immediately after selection, for every runnable TI, each loop.",
+      mistake: "A task stuck in <span class='state-chip queued'>queued</span> usually means <b>no free workers</b> or a broker problem — not a code bug. People debug the DAG when they should check the executor.",
+      interview: "The classic: <b>scheduled vs queued</b>? Scheduled = scheduler's decision; queued = executor has accepted it and it's awaiting a worker. Nail this distinction.",
+      example: "On a busy ShopKart night, extracts queue behind each other because the Celery pool is saturated; they start as workers free up." },
+
     { label: "4 · Running", state: "running", from: "queued", to: "running",
-      desc: "A worker picks it up and starts <code>execute()</code>; it heartbeats as <span class='state-chip running'>running</span>." },
+      what: "A worker picks the task up and starts your operator's <code>execute()</code>; it heartbeats as <span class='state-chip running'>running</span>.",
+      why: "Running is the only state where your actual code executes. Everything before it was orchestration; this is where the real I/O and compute happen.",
+      how: "The worker launches a task process (supervised by LocalTaskJob), sets state to <code>running</code>, and writes a heartbeat every few seconds so Airflow knows it's alive.",
+      when: "As soon as a worker accepts the queued task, for the duration of the attempt.",
+      mistake: "Assuming a missing heartbeat means “still working.” If heartbeats stop past the threshold, Airflow declares the task a <b>zombie</b> and fails it.",
+      interview: "Expect “how does Airflow know a task is still alive?” Heartbeats, not process-watching — because the worker and scheduler are usually on different machines.",
+      example: "ShopKart's <code>transform_sales</code> runs for 8&nbsp;minutes, heartbeating throughout; the scheduler sees those beats and leaves it alone." },
+
     { label: "5 · Fails", state: "failed", from: "running", to: "failed",
-      desc: "The task raises an exception → <span class='state-chip failed'>failed</span>. If <code>retries</code> remain, it won't stay here." },
+      what: "The task raises an exception, so it moves to <span class='state-chip failed'>failed</span>. If <code>retries</code> remain, it won't stay here for long.",
+      why: "Failure is a first-class, expected outcome in data pipelines — networks blip, APIs rate-limit. Modeling it as a state lets Airflow react (retry, alert) instead of just crashing.",
+      how: "When <code>execute()</code> raises, the worker records <code>failed</code> and fires <code>on_failure_callback</code>. The scheduler then checks whether retries are configured before deciding what's next.",
+      when: "The moment an attempt raises an uncaught exception.",
+      mistake: "Treating every failure as terminal. With retries set, <span class='state-chip failed'>failed</span> is transient — the task will get another attempt after a delay.",
+      interview: "“What happens when a task fails?” A senior answer covers the fork: callbacks fire, and if retries remain it goes to up_for_retry rather than staying failed.",
+      example: "ShopKart's <code>extract_payments</code> hits a payment-API timeout and fails; because <code>retries=3</code>, it's headed for a retry, not a page." },
+
     { label: "6 · Up for retry", state: "up_for_retry", from: "failed", to: "up_for_retry",
-      desc: "Because retries are left, it becomes <span class='state-chip up-for-retry'>up_for_retry</span> and waits for <code>retry_delay</code>." },
+      what: "Because retries remain, the task becomes <span class='state-chip up-for-retry'>up_for_retry</span> and waits out its <code>retry_delay</code>.",
+      why: "Most failures are transient, so pausing before another attempt (ideally with backoff) gives the flaky dependency time to recover instead of hammering it.",
+      how: "The scheduler sets <code>up_for_retry</code>, records the next eligible time as <code>now + retry_delay</code>, and increments the attempt counter. With <code>retry_exponential_backoff</code>, the delay grows each time.",
+      when: "After a failure, whenever the used attempts are still below <code>retries</code>.",
+      mistake: "Setting <code>retries</code> high with no backoff on a rate-limited API — you just retry into the same wall faster. Pair retries with exponential backoff.",
+      interview: "“How would you make a flaky API task resilient?” Retries + <code>retry_delay</code> + exponential backoff, plus idempotent task logic so a retry is safe.",
+      example: "ShopKart's payment extract waits 5&nbsp;minutes (then 10, then 20) between attempts, riding out a brief provider outage without manual help." },
+
     { label: "7 · Rescheduled", state: "scheduled", from: "up_for_retry", to: "scheduled",
-      desc: "After the delay it returns to <span class='state-chip scheduled'>scheduled</span> — the cycle begins again." },
+      what: "After the delay elapses, the task returns to <span class='state-chip scheduled'>scheduled</span> — the run/queue cycle begins again for a fresh attempt.",
+      why: "A retry isn't special-cased; it simply re-enters the normal scheduling path. Reusing the same gates keeps the state machine simple and predictable.",
+      how: "When wall-clock time passes the recorded retry time, the scheduler flips <code>up_for_retry</code> back to <code>scheduled</code>. From here it's treated like any other eligible task.",
+      when: "The moment the <code>retry_delay</code> has fully elapsed.",
+      mistake: "Expecting an instant retry. The task won't move until the delay is up and the scheduler's next loop picks it back into <code>scheduled</code>.",
+      interview: "A good place to show you grasp the loop: a retry re-uses scheduled → queued → running, it doesn't jump straight back to running.",
+      example: "At 02:20 ShopKart's payment task returns to <span class='state-chip scheduled'>scheduled</span>, ready to be queued again exactly like the first attempt." },
+
     { label: "8 · Queued again", state: "queued", from: "scheduled", to: "queued",
-      desc: "Back into the executor queue as <span class='state-chip queued'>queued</span>." },
+      what: "The retry is handed to the executor and sits as <span class='state-chip queued'>queued</span> again, awaiting a worker.",
+      why: "Every attempt goes through the same handoff so pools, priorities, and concurrency apply identically — attempt two doesn't get to skip the line.",
+      how: "Just like the first time, the scheduler enqueues the command and the executor places it on compute; the TI waits in <code>queued</code> for a free worker.",
+      when: "Right after the retry re-enters <code>scheduled</code> and is selected.",
+      mistake: "Assuming a retry runs on the <i>same</i> worker or reuses prior state. It's a clean new attempt, possibly on a different worker entirely.",
+      interview: "Reinforces the “retries are just re-runs through the machine” idea — a concrete way to show the state model clicks for you.",
+      example: "ShopKart's second payment attempt queues on the Celery <code>default</code> pool and is picked up by whichever worker frees first." },
+
     { label: "9 · Running again", state: "running", from: "queued", to: "running",
-      desc: "The retry attempt runs. Note the <b>try_number</b> has incremented — each attempt has its own log." },
+      what: "The retry attempt runs; note that <code>try_number</code> has incremented — each attempt gets its <b>own log file</b>.",
+      why: "Separate logs per attempt are essential for debugging: you can compare attempt 1's error with attempt 2's success without them overwriting each other.",
+      how: "The worker runs <code>execute()</code> again with an incremented <code>try_number</code>; Airflow writes a distinct log for this attempt, which the UI exposes via the attempt selector.",
+      when: "When a worker picks up the re-queued retry.",
+      mistake: "Looking at only the latest log and missing why earlier attempts failed. The per-attempt history is right there in the UI's try selector.",
+      interview: "“Where do you look when a task passed only on retry 3?” Point to per-attempt logs and <code>try_number</code> — it shows real operational habits.",
+      example: "ShopKart opens attempt 2 of the payment task and sees it connect cleanly, while attempt 1's log still shows the timeout — both preserved." },
+
     { label: "10 · Success", state: "success", from: "running", to: "success",
-      desc: "It exits cleanly → <span class='state-chip success'>success</span>. Downstream tasks whose deps are now satisfied become eligible." }
+      what: "The attempt exits cleanly, so the task lands in <span class='state-chip success'>success</span>. Downstream tasks whose dependencies are now satisfied become eligible.",
+      why: "Success isn't just an end state — it's a <i>trigger</i>. Completing a task is what unblocks the next layer of the DAG, propagating work forward.",
+      how: "The worker records <code>success</code> and any XCom; on its next loop the scheduler re-evaluates downstream trigger rules and moves newly-eligible tasks to <code>scheduled</code>.",
+      when: "When an attempt returns without raising.",
+      mistake: "Expecting downstream tasks to start the same instant. They wait for the scheduler's next examine phase to notice their deps are met.",
+      interview: "Ties the machine together: success cascades. A strong candidate connects one task's success to the scheduler re-checking trigger rules for the rest.",
+      example: "ShopKart's <code>extract_payments</code> finally succeeds on attempt 2; on the next loop <code>reconcile_payments</code> becomes eligible and the pipeline moves on." }
   ];
 
   var LEGEND = [
@@ -108,8 +177,7 @@
       }
       function showStep(idx) {
         if (idx < 0) { defaultDetail(); return; }
-        var s = STEPS[idx];
-        detail.innerHTML = '<div class="arch-detail-title">' + s.label + "</div><p>" + s.desc + "</p>";
+        detail.innerHTML = AV.Explain.render(STEPS[idx]);
       }
       var NOTES = {
         none: "Created but not yet eligible — no scheduling decision made.",
