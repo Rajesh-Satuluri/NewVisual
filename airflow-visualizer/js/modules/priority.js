@@ -12,37 +12,73 @@
       queue: [{id:"extract_A",pw:1},{id:"extract_C",pw:3},{id:"extract_B",pw:5}],
       slot: null, done: [],
       label: "1 · Three tasks, one pool slot",
-      desc: "extract_A, extract_C, and extract_B are all runnable and assigned to db_pool (cap=1). They became runnable in this order: A → C → B. The slot is free — which task starts first?"
+      what: "Three ShopKart tasks — <code>extract_A</code>, <code>extract_C</code>, <code>extract_B</code> — are all runnable and share <code>db_pool</code> (cap = 1). They became runnable in the order A → C → B. With one free slot, which starts first?",
+      why: "When more tasks are slot-eligible than there are slots, Airflow needs a deterministic tie-breaker. Arrival time is the obvious guess — and it's the wrong one.",
+      how: "Every task carries a <code>priority_weight</code> (default 1). The scheduler uses that integer, not wall-clock arrival, to decide who claims a freed slot.",
+      when: "Whenever demand for a pool exceeds its slots and the scheduler must pick an order.",
+      mistake: "Expecting first-runnable-first-served. Arrival order is only the <i>tiebreaker</i>; weight decides first.",
+      interview: "“Two tasks are ready for one slot — which runs?” The higher <code>priority_weight</code>; equal weights fall back to insertion order. Don't answer “whichever was ready first.”",
+      example: "ShopKart's three extracts queue for one warehouse slot — the order they run is about to be decided by weight, not by who was ready first."
     },
     {
       queue: [{id:"extract_B",pw:5},{id:"extract_C",pw:3},{id:"extract_A",pw:1}],
       slot: null, done: [],
       label: "2 · Scheduler sorts by priority_weight",
-      desc: "The scheduler ranks all slot-eligible tasks by <code>priority_weight</code> descending. B(5) > C(3) > A(1). Arrival order is irrelevant — weight determines position."
+      what: "The scheduler ranks all slot-eligible tasks by <code>priority_weight</code> <b>descending</b>: B(5) &gt; C(3) &gt; A(1). The order they became runnable is irrelevant to the ranking.",
+      why: "Sorting by an explicit integer gives you deliberate control over what matters most when capacity is scarce — revenue jobs ahead of nice-to-haves.",
+      how: "Set <code>priority_weight</code> per task (or a DAG-wide default). Each scheduling pass orders eligible tasks by weight and the top one takes the next slot.",
+      when: "On every scheduling loop where a contended pool has waiters.",
+      mistake: "Setting weights on tasks that never contend — priority only matters when tasks compete for a limited pool. It does nothing on an uncontended queue.",
+      interview: "“Is priority_weight a global, OS-style priority?” No — it orders <i>slot-eligible</i> tasks competing for the same capacity, not everything cluster-wide. That nuance scores points.",
+      example: "ShopKart weights the revenue-critical <code>extract_B</code> at 5 so it always beats the low-value <code>extract_A</code> when the warehouse pool is contended."
     },
     {
       queue: [{id:"extract_C",pw:3},{id:"extract_A",pw:1}],
       slot: {id:"extract_B",pw:5}, done: [],
       label: "3 · extract_B admitted (pw=5)",
-      desc: "B grabs the free slot and moves to <span class='state-chip running'>running</span>. C and A remain queued — the pool is saturated at its cap of 1."
+      what: "B grabs the free slot and moves to <span class='state-chip running'>running</span>. C and A stay <span class='state-chip queued'>queued</span> — the pool is saturated at its cap of 1.",
+      why: "Highest weight goes first so the most important work starts soonest under contention. Everything below it waits, in weight order, for the next opening.",
+      how: "The scheduler admits B, drops the pool's free slots to zero, and leaves C and A eligible-but-waiting for the next freed slot.",
+      when: "The moment the top-ranked waiter is admitted and the pool fills.",
+      mistake: "Thinking a high weight lets B <i>preempt</i> a running task. It doesn't — weight only orders <i>admission</i>; it never evicts something already running.",
+      interview: "“Does priority_weight preempt running tasks?” No — Airflow priority is non-preemptive. It orders who starts next, never who gets killed.",
+      example: "ShopKart's <code>extract_B</code> starts first and holds the single slot; the report it feeds is never delayed by a lower-value extract sneaking ahead."
     },
     {
       queue: [{id:"extract_C",pw:3},{id:"extract_A",pw:1}],
       slot: null, done: ["extract_B"],
       label: "4 · B finishes, slot freed",
-      desc: "B completes and releases its slot. The scheduler re-evaluates the queue immediately and picks the next-highest priority task: C(pw=3)."
+      what: "B completes and <b>releases</b> its slot. The scheduler immediately re-evaluates the queue and picks the next-highest-priority waiter: C (pw = 3).",
+      why: "Re-ranking on every freed slot means priorities are honoured continuously, not just once at the start — the queue is always sorted when a slot opens.",
+      how: "On B's completion the slot returns to <code>db_pool</code>; the scheduler sorts the remaining eligible tasks (C &gt; A) and admits C.",
+      when: "Each time a slot frees while multiple tasks wait.",
+      mistake: "Assuming admission order is frozen after the first pick. New eligible tasks can arrive and re-sort the queue between slot openings.",
+      interview: "“If a higher-priority task becomes ready while others wait, does it jump ahead?” Yes — the queue is re-sorted by weight each pass, so a late arrival can leapfrog.",
+      example: "As soon as ShopKart's <code>extract_B</code> finishes, the freed slot goes to <code>extract_C</code> (pw 3), not to whichever task had waited longest."
     },
     {
       queue: [{id:"extract_A",pw:1}],
       slot: {id:"extract_C",pw:3}, done: ["extract_B"],
       label: "5 · C runs, A still waits",
-      desc: "C starts running. A(pw=1) waits — it has no competition now, but priority_weight already determined its position when the queue had multiple candidates."
+      what: "C starts running. A (pw = 1) still waits — even with no competition left, its position was set by weight back when the queue held several candidates.",
+      why: "Low weight simply means A yields to anything more important; with the slot taken by C it waits its turn, exactly as intended for the least-urgent job.",
+      how: "A stays slot-eligible and queued; it will be admitted when C frees the slot, since it is now the only waiter.",
+      when: "Whenever the lowest-priority task is the last one standing in a contended pool.",
+      mistake: "Reading A's wait as a stall. It's correctly deprioritised — low weight is a choice to run <i>last</i> under contention, not a bug.",
+      interview: "“Can a low-priority task starve forever?” Not on a draining pool — once contention clears it runs. Starvation only risks a <i>permanently</i> saturated pool.",
+      example: "ShopKart's throwaway <code>extract_A</code> patiently waits out the important extracts every evening, then runs once the warehouse frees up."
     },
     {
       queue: [],
       slot: {id:"extract_A",pw:1}, done: ["extract_B","extract_C"],
       label: "6 · All tasks ran in weight order",
-      desc: "A runs last. <code>priority_weight</code> guaranteed the order B→C→A, regardless of when each task became runnable. <b>Higher weight = more urgent.</b>"
+      what: "A runs last. <code>priority_weight</code> guaranteed the execution order B → C → A regardless of when each task became runnable. <b>Higher weight = more urgent.</b>",
+      why: "The payoff is predictable ordering under scarcity: you decide, with one integer per task, what runs first when there isn't capacity for everything.",
+      how: "Pair <code>priority_weight</code> with <code>weight_rule</code> ('downstream' by default, so tasks that unblock many others bubble up) to tune the whole DAG's ordering.",
+      when: "Any pipeline where some outputs matter more than others and capacity is finite.",
+      mistake: "Leaving every task at the default weight 1, then wondering why a critical report waits behind bulk backfills. Weight the things that matter.",
+      interview: "“How do you ensure the revenue pipeline runs before backfills when both are queued?” Higher <code>priority_weight</code> on the revenue tasks — and know <code>weight_rule</code>'s downstream-sum default.",
+      example: "ShopKart tags its revenue DAG's tasks with high weights so month-end backfills never delay the numbers the CFO is waiting on."
     }
   ];
 
@@ -172,7 +208,7 @@
           return;
         }
         renderViz(STEPS[idx]);
-        detail.innerHTML = '<div class="arch-detail-title">' + STEPS[idx].label + "</div><p>" + STEPS[idx].desc + "</p>";
+        detail.innerHTML = AV.Explain.render(STEPS[idx]);
       }
 
       container.querySelector("#pq-code").appendChild(AV.CodeViewer.create({
