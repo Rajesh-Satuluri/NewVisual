@@ -19,10 +19,13 @@
         { id: "task", label: "Task", sub: "execute()", x: 700, y: 70, w: 150, h: 62, color: "airflow" }
       ],
       edges: [["scheduler", "exec"], ["exec", "sub"], ["sub", "task"]],
-      body: "The simplest real executor. The scheduler forks subprocesses on its own machine — no broker, no extra services.",
-      pros: ["Zero extra infrastructure", "Fast, simple, great for small setups"],
-      cons: ["Bounded by one host's CPU/RAM", "Scheduler and task work compete for resources"],
-      bestFor: "Small / single-node deployments, dev, CI.",
+      what: "The simplest real executor. The scheduler runs each task as a <b>subprocess on its own host</b> — no broker, no workers, no extra services to operate.",
+      why: "Zero extra infrastructure makes it fast to stand up and easy to reason about — ideal for dev, CI, and small single-node deployments where a distributed setup is overkill.",
+      how: "Set <code>executor = LocalExecutor</code>; the scheduler forks one subprocess per task. <code>parallelism</code> caps how many run concurrently across the whole install.",
+      when: "Small or single-node deployments, local development, and CI.",
+      mistake: "Running it in production and expecting to scale. You're bounded by one host's CPU/RAM, and task work competes with the scheduler for that machine.",
+      interview: "“When is LocalExecutor the right choice?” Dev, CI, small single-node setups — no broker needed. Its ceiling is one machine, which is exactly why you outgrow it.",
+      example: "ShopKart runs LocalExecutor on a laptop for DAG development and in CI, then switches executor for the real cluster.",
       config: "executor = LocalExecutor\nparallelism = 32   # max running tasks cluster-wide"
     },
     celery: {
@@ -37,10 +40,13 @@
         { id: "result", label: "Result Backend", sub: "task state", x: 660, y: 165, w: 175, h: 56, color: "purple" }
       ],
       edges: [["scheduler", "exec"], ["exec", "broker"], ["broker", "worker"], ["worker", "result"]],
-      body: "Tasks are published to a broker; a fleet of long-running Celery workers pulls and executes them. Scales horizontally by adding workers.",
-      pros: ["Horizontal scaling across many machines", "Battle-tested for large workloads", "Queues route tasks to worker pools"],
-      cons: ["Operate a broker + result backend", "Idle workers still consume resources", "Worker env must have all deps"],
-      bestFor: "Large, steady workloads across a worker fleet.",
+      what: "Tasks are published to a <b>message broker</b> (Redis/RabbitMQ) where a fleet of long-lived <b>Celery workers</b> pulls and runs them. Scale out by adding workers.",
+      why: "Warm, always-on workers give near-zero per-task startup and horizontal scale across many machines — the battle-tested choice for large, steady workloads.",
+      how: "Set <code>executor = CeleryExecutor</code> with a <code>broker_url</code> and <code>result_backend</code>. Named queues route tasks to specific worker pools via <code>-Q</code>.",
+      when: "Large, steady workloads spread across a worker fleet.",
+      mistake: "Forgetting idle workers still cost money and share one image — you operate a broker + result backend, and weaker per-task isolation is the trade vs Kubernetes.",
+      interview: "“Why pick Celery over Kubernetes?” Lower latency and high throughput for many small tasks via warm workers — accept idle-worker cost and weaker isolation as the trade.",
+      example: "ShopKart runs its steady overnight ETL fleet on CeleryExecutor, routing heavy jobs to a <code>high_mem</code> queue.",
       config: "executor = CeleryExecutor\nbroker_url = redis://redis:6379/0\nresult_backend = db+postgresql://..."
     },
     kubernetes: {
@@ -54,10 +60,13 @@
         { id: "pod", label: "Task Pod", sub: "one per task", x: 690, y: 70, w: 165, h: 62, color: "cyan" }
       ],
       edges: [["scheduler", "exec"], ["exec", "api"], ["api", "pod"]],
-      body: "Every task instance gets its own Kubernetes pod, created on demand and destroyed on completion. No idle workers.",
-      pros: ["Per-task isolation & resources", "Scales to zero — no idle cost", "Per-task images / dependencies"],
-      cons: ["Pod startup latency per task", "Needs a Kubernetes cluster", "Chatty for very short tasks"],
-      bestFor: "Bursty or heterogeneous workloads on Kubernetes.",
+      what: "Every task instance gets its <b>own Kubernetes pod</b>, created on demand and destroyed on completion. No long-running workers, no idle fleet.",
+      why: "Per-task pods give full isolation, per-task resources and images, and scale-to-zero — you pay only for pods that are actually running.",
+      how: "Set <code>executor = KubernetesExecutor</code>; tune per-task CPU/memory and image via <code>executor_config</code> / <code>pod_override</code>. The scheduler asks the K8s API to launch each pod.",
+      when: "Bursty or heterogeneous workloads already running on Kubernetes.",
+      mistake: "Using it for thousands of very short tasks — pod-startup latency per task makes it chatty and slow where Celery's warm workers would fly.",
+      interview: "“Trade-off of the Kubernetes executor?” Isolation, per-task resources, and scale-to-zero, paid for with pod-startup latency each task — great for bursty/mixed, poor for tiny high-volume tasks.",
+      example: "ShopKart runs its occasional heavy ML training on KubernetesExecutor so each job gets a right-sized pod and nothing sits idle between runs.",
       config: "executor = KubernetesExecutor\n# per-task resources via executor_config / pod_override"
     }
   };
@@ -135,16 +144,11 @@
       this._diagram = diagram;
       // detail
       var detail = container.querySelector("#exec-detail");
-      detail.innerHTML =
-        '<div class="arch-detail-title">' + ex.label + "</div>" +
-        "<p>" + ex.body + "</p>" +
-        '<div class="pc-list"><div class="pc-col"><div class="pc-h pc-pro">Pros</div><ul>' +
-          ex.pros.map(function (p) { return "<li>" + p + "</li>"; }).join("") +
-        '</ul></div><div class="pc-col"><div class="pc-h pc-con">Cons</div><ul>' +
-          ex.cons.map(function (c) { return "<li>" + c + "</li>"; }).join("") +
-        "</ul></div></div>" +
-        '<div class="callout tip" style="margin-top:var(--space-3)"><span class="callout-icon">✅</span>' +
-        '<div class="callout-body"><b>Best for:</b> ' + ex.bestFor + "</div></div>";
+      detail.innerHTML = AV.Explain.render({
+        label: ex.label,
+        what: ex.what, why: ex.why, how: ex.how,
+        when: ex.when, mistake: ex.mistake, interview: ex.interview, example: ex.example
+      });
       var cv = AV.CodeViewer.create({ title: "airflow.cfg", lang: "ini", code: ex.config });
       cv.style.marginTop = "var(--space-3)";
       detail.appendChild(cv);
