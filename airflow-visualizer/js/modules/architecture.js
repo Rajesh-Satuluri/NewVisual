@@ -68,9 +68,7 @@
         if (idx < 0) { defaultDetail(); return; }
         var step = data.steps[idx];
         if (!step) { defaultDetail(); return; }
-        detail.innerHTML =
-          '<div class="arch-detail-title">' + step.label + "</div>" +
-          "<p>" + step.desc + "</p>";
+        detail.innerHTML = AV.Explain.render(step);
         if (step.code) {
           var cv = AV.CodeViewer.create({
             title: "daily_sales_etl.py",
@@ -121,7 +119,7 @@
 
       // ── Engine + steps ──────────────────────────────────
       var steps = data.steps.map(function (s) {
-        return { label: s.label, description: s.desc, duration: 2600 };
+        return { label: s.label, duration: 2600 };
       });
       var engine = new AV.AnimationEngine({ steps: steps, speed: 1 });
       this._engine = engine;
