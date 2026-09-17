@@ -51,6 +51,7 @@
     "event-simulator": { title: "Event Simulator", ready: true },
     "master-map": { title: "Master Concept Map", ready: true },
     study: { title: "Study Deck", ready: true },
+    "dag-coding": { title: "Reading & Writing DAGs", ready: true },
     "cheat-sheet": { title: "Cheat Sheet", ready: true }
   };
   AV.routes = ROUTES;
