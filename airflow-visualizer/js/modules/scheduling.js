@@ -10,7 +10,13 @@
     daily: {
       label: "@daily",
       cron: "0 0 * * *",
-      body: "Runs once per day. Each run covers a full day and fires at midnight <b>after</b> the day it represents.",
+      what: "<code>@daily</code> (cron <code>0 0 * * *</code>) runs once per day. Each run covers a full day's <b>data interval</b> and fires at midnight <b>after</b> the day it represents.",
+      why: "Airflow schedules on <i>completed</i> intervals: it waits until a period is over before running, so the data for that period is actually complete when the job starts.",
+      how: "The run's <code>logical_date</code> is the start of the interval; it fires at the interval's end. So the Jan 1 run executes just after midnight on Jan 2.",
+      when: "Daily batch ETL — the most common schedule in practice.",
+      mistake: "Expecting the Jan 1 run to fire at the start of Jan 1. It fires at the <i>end</i> — the interval-end trigger trips up nearly every Airflow beginner.",
+      interview: "“Why does a @daily run appear a day ‘late’?” Airflow runs at the end of the data interval, so a full day's data is ready. It's by design, not lag.",
+      example: "ShopKart's daily sales roll-up for Jan 1 fires just after midnight on Jan 2, once every Jan 1 order has landed.",
       code: '@dag(schedule="@daily", start_date=datetime(2024,1,1), catchup=False)',
       span: [0, 3],
       ticks: [{ t: 0, label: "Jan 1" }, { t: 1, label: "Jan 2" }, { t: 2, label: "Jan 3" }, { t: 3, label: "Jan 4" }],
@@ -24,7 +30,13 @@
     hourly: {
       label: "@hourly",
       cron: "0 * * * *",
-      body: "Runs once per hour. Handy for near-real-time pipelines — but watch the run volume it creates.",
+      what: "<code>@hourly</code> (cron <code>0 * * * *</code>) runs once per hour, each run covering the hour just elapsed. Good for near-real-time pipelines.",
+      why: "Hourly cadence trades freshness for volume: you get data updated every hour, at the cost of 24× the runs (and logs, and metadata rows) of a daily DAG.",
+      how: "Each hour boundary triggers a run whose interval is the previous hour — the same interval-end semantics as @daily, just at hour granularity.",
+      when: "Near-real-time needs — hourly rollups, frequent syncs — where daily is too stale.",
+      mistake: "Running hourly “to be safe” when the data only changes daily — you 24× the run volume and metadata bloat for no benefit.",
+      interview: "“What's the cost of an hourly schedule vs daily?” 24× the DAG runs, task instances, and logs — mind metadata-DB growth and scheduler load before choosing it.",
+      example: "ShopKart runs its clickstream aggregation <code>@hourly</code> so dashboards refresh through the day, accepting the extra run volume.",
       code: '@dag(schedule="@hourly", start_date=datetime(2024,1,1), catchup=False)',
       span: [0, 6],
       ticks: [0, 1, 2, 3, 4, 5, 6].map(function (h) { return { t: h, label: (h < 10 ? "0" + h : h) + ":00" }; }),
@@ -36,7 +48,13 @@
     cron: {
       label: "cron · every 6h",
       cron: "0 */6 * * *",
-      body: "A raw <b>cron</b> expression gives full control. <code>0 */6 * * *</code> fires at 00:00, 06:00, 12:00, 18:00.",
+      what: "A raw <b>cron</b> expression gives full control over timing. <code>0 */6 * * *</code> fires at 00:00, 06:00, 12:00, and 18:00 — every six hours.",
+      why: "Presets cover the common cases; cron covers everything else — specific hours, weekdays only, several times a day — without writing custom code.",
+      how: "Pass a 5-field cron string to <code>schedule</code>. Airflow computes intervals from it and applies the same interval-end firing rule as the presets.",
+      when: "Any cadence the <code>@</code> presets can't express — “weekdays at 9am”, “every 6 hours”.",
+      mistake: "Reaching for cron when you need <i>calendar</i> logic (skip holidays, last business day) — cron can't express those; a <b>Timetable</b> can.",
+      interview: "“How do you schedule weekdays at 9am?” <code>schedule='0 9 * * 1-5'</code>. And know the limit: cron can't do “last business day” — that needs a custom Timetable.",
+      example: "ShopKart refreshes inventory every six hours with <code>0 */6 * * *</code>, keeping stock counts current without a full hourly cadence.",
       code: '@dag(schedule="0 */6 * * *", start_date=datetime(2024,1,1), catchup=False)',
       span: [0, 24],
       ticks: [0, 6, 12, 18, 24].map(function (h) { return { t: h, label: (h < 10 ? "0" + h : h) + ":00" }; }),
@@ -123,10 +141,11 @@
       canvas.appendChild(tl.el);
       this._tl = tl;
       var detail = container.querySelector("#sch-detail");
-      detail.innerHTML =
-        '<div class="arch-detail-title">' + s.label + "</div>" +
-        '<p><code>schedule = ' + s.cron + "</code></p>" +
-        "<p style='margin-top:var(--space-2)'>" + s.body + "</p>";
+      detail.innerHTML = AV.Explain.render({
+        label: s.label,
+        what: s.what, why: s.why, how: s.how,
+        when: s.when, mistake: s.mistake, interview: s.interview, example: s.example
+      });
       var cv = AV.CodeViewer.create({ title: "declare it", lang: "python", code: s.code });
       cv.style.marginTop = "var(--space-3)";
       detail.appendChild(cv);
