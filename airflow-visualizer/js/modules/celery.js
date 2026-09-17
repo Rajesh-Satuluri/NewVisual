@@ -27,32 +27,68 @@
     {
       nodes: ["sched", "broker"], edges: [["sched", "broker"]],
       label: "1 · Scheduler enqueues to the broker",
-      desc: "The <b>CeleryExecutor</b> runs inside the scheduler. When a task is ready, it serializes a command and pushes it onto the <b>message broker</b> (Redis or RabbitMQ). Unlike Kubernetes, workers are long-lived and pull work — no pod is created per task."
+      what: "The <b>CeleryExecutor</b> runs inside the scheduler. When a task is ready, it serializes a command and pushes it onto the <b>message broker</b> (Redis or RabbitMQ).",
+      why: "A broker decouples producing work from consuming it. Long-lived workers pull when free, so there's no per-task infrastructure to create — the opposite of Kubernetes' pod-per-task.",
+      how: "The executor publishes the task command to the broker; workers subscribed to that queue pick it up. No pod is created; the work waits in the broker until a worker is available.",
+      when: "On every task launch under the CeleryExecutor.",
+      mistake: "Treating the broker as the source of truth for task state — it isn't; the metadata DB is. The broker only carries the “please run this” message.",
+      interview: "“What sits between the scheduler and workers in Celery?” The message broker (Redis/RabbitMQ). Contrast with K8s (no broker) to show you understand both.",
+      example: "ShopKart's scheduler serializes <code>transform_sales</code> and pushes it to Redis, where a warm worker will grab it — no pod spin-up."
     },
     {
       nodes: ["broker", "queues"], edges: [["broker", "queues"]],
       label: "2 · Tasks land in named queues",
-      desc: "The broker holds tasks in <b>queues</b>. A task's <code>queue</code> attribute routes it: put GPU jobs on a <code>gpu</code> queue, memory-heavy ETL on <code>high_mem</code>, everything else on <code>default</code>. Queues are how you steer work to the right hardware."
+      what: "The broker holds tasks in <b>queues</b>. A task's <code>queue</code> attribute routes it: GPU jobs to a <code>gpu</code> queue, heavy ETL to <code>high_mem</code>, everything else to <code>default</code>.",
+      why: "Queues are your routing layer — they steer work to the right hardware and keep a runaway job on one queue from starving the workers another workload depends on.",
+      how: "Set <code>queue='gpu'</code> on the task; start workers bound to queues with <code>-Q</code>. The broker keeps per-queue ordering, and only workers subscribed to a queue can drain it.",
+      when: "Whenever different tasks need different hardware or isolation within one Celery cluster.",
+      mistake: "Putting everything on <code>default</code>, so a memory-hungry job and your hourly ETL fight for the same workers and the ETL starves.",
+      interview: "“How do you send GPU work to GPU machines in Celery?” Named queues + workers bound with <code>-Q</code>. It's the routing question that separates users from operators.",
+      example: "ShopKart routes <code>transform_sales</code> to <code>high_mem</code> so only big-memory workers run it, while light extracts stay on <code>default</code>."
     },
     {
       nodes: ["queues", "w1", "w2"], edges: [["queues", "w1"], ["queues", "w2"]],
       label: "3 · Workers subscribe and pull",
-      desc: "Each <b>Celery worker</b> subscribes to one or more queues with <code>-Q</code>. Worker A drains <code>default</code>; Worker B drains <code>gpu</code> and <code>high_mem</code>. A worker's <code>worker_concurrency</code> sets how many tasks it runs in parallel (prefork processes)."
+      what: "Each <b>Celery worker</b> subscribes to one or more queues with <code>-Q</code> and pulls tasks from them. A worker's <code>worker_concurrency</code> sets how many it runs in parallel.",
+      why: "Pull-based, long-lived workers are what give Celery near-zero task-startup latency — the workers are already warm and just grab the next message.",
+      how: "Worker A runs <code>-Q default</code>; Worker B runs <code>-Q gpu,high_mem</code>. Each forks <code>worker_concurrency</code> child processes (prefork), so one worker can run many tasks at once.",
+      when: "Continuously — workers long-poll their queues for as long as they're up.",
+      mistake: "Setting <code>worker_concurrency</code> too high for the box, so tasks contend for CPU/memory — or too high for the DB, exhausting connections.",
+      interview: "“What controls how many tasks a Celery worker runs at once?” <code>worker_concurrency</code> (prefork processes). Bonus: note it multiplies DB connection load.",
+      example: "ShopKart runs Worker B with <code>-Q gpu,high_mem</code> and concurrency 4, so it handles up to four heavy jobs while Worker A drains the light queue."
     },
     {
       nodes: ["w1", "w2"], edges: [],
       label: "4 · Tasks execute on the worker",
-      desc: "The worker forks a child process, runs <code>airflow tasks run</code>, and streams logs (uploaded to remote storage on finish). Because workers are already warm, there's <b>no per-task startup latency</b> — Celery's key advantage for high volumes of short tasks."
+      what: "The worker forks a child process, runs <code>airflow tasks run</code>, and streams logs (uploaded to remote storage on finish). Because workers are already warm, there's <b>no per-task startup latency</b>.",
+      why: "Warm workers are Celery's key advantage for high volumes of short tasks — you skip the seconds of pod creation that KubernetesExecutor pays every time.",
+      how: "The prefork child executes the task's operator, heartbeats, and writes results. The worker process persists across tasks, so the next task starts immediately with no cold start.",
+      when: "For each task a worker picks up, back-to-back.",
+      mistake: "Assuming warm workers give per-task isolation. They don't — tasks share the worker's image and resources, so one leaky task can affect its neighbors.",
+      interview: "“Why is Celery faster than the K8s executor for many small tasks?” No per-task pod startup — warm workers execute immediately. The isolation trade-off is the counterpoint.",
+      example: "ShopKart's thousands of tiny hourly API pulls fly through warm Celery workers with no cold-start penalty per task."
     },
     {
       nodes: ["w1", "w2", "result", "sched"], edges: [["w1", "result"], ["w2", "result"], ["result", "sched"]],
       label: "5 · Result backend records state",
-      desc: "When a task finishes, its outcome is written to the <b>result backend</b> (typically the same metadata DB). The scheduler reads it to advance the DAG. In Airflow, the source of truth for task state is the metadata DB, not Celery's own backend."
+      what: "When a task finishes, its outcome is written to the <b>result backend</b> (typically the same metadata DB), and the scheduler reads it to advance the DAG.",
+      why: "The DAG can only move forward once outcomes are durable. Airflow deliberately treats the metadata DB — not Celery's own bookkeeping — as the source of truth for task state.",
+      how: "The worker writes the final task-instance state to the DB; the scheduler polls it and unblocks downstream tasks. Celery's result backend and Airflow's state can be the same Postgres.",
+      when: "At the end of each task, feeding the next scheduler loop.",
+      mistake: "Confusing Celery's result backend with Airflow's source of truth. Task state lives in the metadata DB; don't rely on Celery internals to know what happened.",
+      interview: "“Where does Airflow record Celery task results?” The metadata DB (as the result backend). Clarifying that the DB, not Celery, is authoritative is the precise answer.",
+      example: "ShopKart's worker writes <span class='state-chip success'>success</span> for <code>transform_sales</code> to Postgres, and the next scheduler loop starts the load task."
     },
     {
       nodes: ["w1", "w2", "flower"], edges: [["w2", "flower"]],
       label: "6 · Monitor with Flower + autoscale",
-      desc: "<b>Flower</b> is a web UI for live worker/queue monitoring — task rates, active workers, queue depth. Scale horizontally by adding workers; autoscale on broker queue depth. <b>Trade-off vs Kubernetes:</b> lower latency, but idle workers cost money and lack per-task isolation."
+      what: "<b>Flower</b> is a web UI for live worker/queue monitoring — task rates, active workers, queue depth. You scale horizontally by adding workers and autoscale on queue depth.",
+      why: "Because workers are long-lived, you need visibility into their health and backlog, and a way to add capacity when queues grow — that's Flower plus an autoscaler.",
+      how: "Run <code>airflow celery flower</code> for the dashboard; autoscale worker replicas on broker queue depth. Idle workers still cost money and lack per-task isolation — the trade vs Kubernetes.",
+      when: "In any production Celery deployment, for monitoring and elastic capacity.",
+      mistake: "Provisioning for peak and never scaling down, so a fleet sized for Black Friday burns money idle for the other 364 days.",
+      interview: "“How do you monitor and scale Celery workers?” Flower for visibility, queue-depth autoscaling for capacity — and acknowledge idle-worker cost as the Celery downside.",
+      example: "ShopKart watches queue depth in Flower and autoscales workers up for the evening peak, then back down overnight to save cost."
     }
   ];
 
@@ -126,7 +162,7 @@
       function showStep(idx) {
         if (idx < 0) { defaultDetail(); return; }
         var s = STEPS[idx];
-        detail.innerHTML = '<div class="arch-detail-title">' + s.label + "</div><p>" + s.desc + "</p>";
+        detail.innerHTML = AV.Explain.render(s);
       }
 
       var codes = container.querySelector("#ce-codes");
