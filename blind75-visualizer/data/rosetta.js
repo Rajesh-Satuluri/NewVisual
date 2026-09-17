@@ -611,5 +611,274 @@ window.ROSETTA = {
         spark: "w = Window.partitionBy('customer').orderBy(F.col('ts').desc())\n(df.withColumn('rn', F.row_number().over(w))\n   .filter(F.col('rn') == 1).drop('rn'))"
       }
     }
-  ]
+  ],
+
+  // PySpark call-chain explanations (Iter C). For each task id, a breakdown of
+  // the `spark` snippet so you can see WHAT RUNS ON WHAT — which calls are
+  // DataFrame methods, which are Column methods/operators, which are functions
+  // from `F` (pyspark.sql.functions), and which build a Window. Each step is
+  // [part, kind, desc] with kind ∈ df | col | fn | win | py. Rendered as a
+  // collapsible strip under the PySpark column in js/rosetta.js.
+  explain: {
+    "filter-rows": [
+      ["df.filter(...)", "df", "DataFrame method — keeps rows where the predicate is True; returns a new DataFrame (lazy transformation)."],
+      ["F.col('amount')", "fn", "Function from F — builds a Column that references the 'amount' column."],
+      ["> 100", "col", "Column's overloaded comparison → a boolean Column (the predicate), NOT a Python bool."]
+    ],
+    "filter-multi": [
+      ["df.filter(...)", "df", "DataFrame method — row filter."],
+      ["F.col('region') == 'US'", "col", "Column == returns a boolean Column."],
+      ["&", "col", "Column boolean-AND operator. Use & (not `and`) and parenthesize each side."]
+    ],
+    "filter-in": [
+      ["df.filter(...)", "df", "DataFrame method — row filter."],
+      ["F.col('region')", "fn", "F builds the Column reference."],
+      [".isin('US', 'EU')", "col", "Column method → boolean Column, True when the value is in the list."]
+    ],
+    "filter-between": [
+      ["df.filter(...)", "df", "DataFrame method — row filter."],
+      ["F.col('amount').between(50, 200)", "col", "Column method → inclusive range predicate (a boolean Column)."]
+    ],
+    "select-cols": [
+      ["df.select('customer', 'amount')", "df", "DataFrame method — projects columns to a new DataFrame. Accepts names or Column expressions."]
+    ],
+    "sort": [
+      ["df.orderBy(...)", "df", "DataFrame method — returns rows in sorted order."],
+      ["F.col('amount').desc()", "col", "Column method — builds a descending sort expression."]
+    ],
+    "top-n": [
+      ["df.orderBy(...)", "df", "DataFrame method — sort transformation."],
+      ["F.col('amount').desc()", "col", "Column method — descending sort key."],
+      [".limit(5)", "df", "DataFrame method — keeps the first 5 rows."]
+    ],
+    "distinct": [
+      ["df.select('region')", "df", "DataFrame method — projects the 'region' column into a new DataFrame."],
+      [".distinct()", "df", "DataFrame method — dedups whole rows. Both calls run on the DataFrame, not on a Column."]
+    ],
+    "groupby-sum": [
+      ["df.groupBy('region')", "df", "DataFrame method → a GroupedData object (not a DataFrame yet)."],
+      [".agg(...)", "df", "GroupedData method — applies aggregates and returns a DataFrame."],
+      ["F.sum('amount')", "fn", "Aggregate function from F → a Column."],
+      [".alias('total')", "col", "Column method — names the output column."]
+    ],
+    "count-per-group": [
+      ["df.groupBy('region')", "df", "DataFrame method → GroupedData."],
+      [".count()", "df", "GroupedData shortcut → a DataFrame with a 'count' column."]
+    ],
+    "having": [
+      ["df.groupBy('region')", "df", "DataFrame method → GroupedData."],
+      [".agg(F.sum('amount').alias('total'))", "df", "GroupedData.agg → DataFrame; F.sum is the aggregate Column, .alias names it."],
+      [".filter(F.col('total') > 1000)", "df", "There is no HAVING — you just .filter the aggregated DataFrame on the aggregate column."]
+    ],
+    "distinct-count": [
+      ["df.select(...)", "df", "DataFrame method — projects a single aggregate."],
+      ["F.countDistinct('customer')", "fn", "Aggregate function from F → a Column."],
+      [".show()", "df", "DataFrame ACTION — prints and returns None; don't chain more transformations after it."]
+    ],
+    "multi-agg": [
+      ["df.groupBy('region')", "df", "DataFrame method → GroupedData."],
+      [".agg(...)", "df", "Takes several aggregate Columns at once → DataFrame."],
+      ["F.count('*'), F.sum('amount'), F.avg('amount')", "fn", "Aggregate functions from F, each returning a Column."],
+      [".alias('n' / 'total' / 'avg_amt')", "col", "Column method — names each output."]
+    ],
+    "conditional-agg": [
+      ["df.groupBy('region').agg(...)", "df", "GroupedData.agg → DataFrame."],
+      ["F.when(F.col('region') == 'US', F.col('amount'))", "fn", "F.when starts a CASE expression → a Column."],
+      [".otherwise(0)", "col", "Column method — the ELSE branch."],
+      ["F.sum(...)", "fn", "Aggregate function wrapping the conditional Column."]
+    ],
+    "median-pct": [
+      ["df.groupBy('region').agg(...)", "df", "GroupedData.agg → DataFrame."],
+      ["F.percentile_approx('amount', 0.5)", "fn", "Aggregate function from F → a Column (approximate median)."],
+      [".alias('median_amt')", "col", "Column method — names the output."]
+    ],
+    "first-last": [
+      ["df.groupBy('region').agg(...)", "df", "GroupedData.agg → DataFrame."],
+      ["F.min_by('amount', 'ts') / F.max_by('amount', 'ts')", "fn", "Aggregate functions from F — the amount at the min/max ts → Columns."]
+    ],
+    "inner-join": [
+      ["orders.join(customers, cond, 'inner')", "df", "DataFrame method — combines two DataFrames."],
+      ["orders.customer == customers.id", "col", "Attribute access returns a Column; == → the boolean join-condition Column."],
+      ["'inner'", "py", "Plain string — the join type."]
+    ],
+    "left-join": [
+      ["orders.join(customers, cond, 'left')", "df", "DataFrame method — keeps all left rows."],
+      ["orders.customer == customers.id", "col", "Column == Column → boolean join condition."],
+      ["'left'", "py", "Join type string."]
+    ],
+    "full-join": [
+      ["orders.join(customers, cond, 'outer')", "df", "DataFrame method — keeps unmatched rows from both sides."],
+      ["orders.customer == customers.id", "col", "Column == Column → boolean join condition."],
+      ["'outer'", "py", "Join type string."]
+    ],
+    "anti-join": [
+      ["orders.join(customers, cond, 'left_anti')", "df", "DataFrame method — keeps left rows with NO match; pulls no right columns."],
+      ["orders.customer == customers.id", "col", "Column == Column → join condition."],
+      ["'left_anti'", "py", "Join type string (Spark-native anti-join)."]
+    ],
+    "semi-join": [
+      ["orders.join(customers, cond, 'left_semi')", "df", "DataFrame method — keeps left rows that HAVE a match; pulls no right columns."],
+      ["orders.customer == customers.id", "col", "Column == Column → join condition."],
+      ["'left_semi'", "py", "Join type string."]
+    ],
+    "broadcast-join": [
+      ["orders.join(F.broadcast(customers), cond, 'inner')", "df", "DataFrame method — standard join."],
+      ["F.broadcast(customers)", "fn", "Function from F — marks the small DataFrame to be broadcast (map-side join, no shuffle)."],
+      ["orders.customer == customers.id", "col", "Column == Column → join condition."]
+    ],
+    "self-join": [
+      ["df.alias('a') / df.alias('b')", "df", "DataFrame method — tags each copy so its columns can be addressed as 'a.*' / 'b.*'."],
+      ["a.join(b, cond)", "df", "DataFrame method — joins the two aliased copies."],
+      ["F.col('a.customer') == F.col('b.customer')", "col", "Qualified Column refs compared → boolean Column."],
+      ["&  F.col('a.id') < F.col('b.id')", "col", "Column AND of two predicates → the full join condition."]
+    ],
+    "cross-join": [
+      ["orders.crossJoin(regions)", "df", "DataFrame method — cartesian product (explicit; needs no condition)."]
+    ],
+    "row-number": [
+      ["Window.partitionBy('region')", "win", "Window builder — defines the partitions."],
+      [".orderBy(F.col('amount').desc())", "win", "Window builder — ordering within each partition → a WindowSpec `w`."],
+      ["df.withColumn('rn', ...)", "df", "DataFrame method — adds a column."],
+      ["F.row_number()", "fn", "Window function from F → a Column."],
+      [".over(w)", "col", "Column method — binds the function to the WindowSpec."]
+    ],
+    "rank-dense": [
+      ["Window.partitionBy('region').orderBy(...)", "win", "WindowSpec `w` — partitions + ordering."],
+      ["df.withColumn('rnk'/'drnk', ...)", "df", "DataFrame method — adds each ranking column."],
+      ["F.rank() / F.dense_rank()", "fn", "Window functions from F → Columns."],
+      [".over(w)", "col", "Column method — binds to the window."]
+    ],
+    "running-total": [
+      ["Window.partitionBy('region').orderBy('ts')", "win", "WindowSpec — ordered window makes SUM cumulative."],
+      ["df.withColumn('run_total', ...)", "df", "DataFrame method — adds the column."],
+      ["F.sum('amount')", "fn", "Aggregate function from F → a Column."],
+      [".over(w)", "col", "Column method — cumulative sum over the ordered window."]
+    ],
+    "moving-avg": [
+      ["Window.partitionBy('region').orderBy('ts')", "win", "WindowSpec — partitions + ordering."],
+      [".rowsBetween(-2, 0)", "win", "WindowSpec method — the row frame (2 preceding → current row)."],
+      ["df.withColumn('ma3', ...)", "df", "DataFrame method — adds the column."],
+      ["F.avg('amount').over(w)", "col", "F.avg is the function; .over(w) binds it to the framed window."]
+    ],
+    "lag-lead": [
+      ["Window.partitionBy('region').orderBy('ts')", "win", "WindowSpec `w`."],
+      ["df.withColumn('prev_amt'/'next_amt', ...)", "df", "DataFrame method — adds each column."],
+      ["F.lag('amount') / F.lead('amount')", "fn", "Window functions from F → Columns (prior / next row)."],
+      [".over(w)", "col", "Column method — binds to the window."]
+    ],
+    "ntile": [
+      ["Window.partitionBy('region').orderBy('amount')", "win", "WindowSpec `w`."],
+      ["df.withColumn('quartile', ...)", "df", "DataFrame method — adds the column."],
+      ["F.ntile(4).over(w)", "col", "F.ntile is the function; .over(w) splits each partition into 4 buckets."]
+    ],
+    "top-n-per-group": [
+      ["Window.partitionBy('region').orderBy(F.col('amount').desc())", "win", "WindowSpec `w`."],
+      ["df.withColumn('rn', F.row_number().over(w))", "df", "Adds a per-partition row number."],
+      [".filter(F.col('rn') <= 3)", "df", "DataFrame method — keeps the top 3 (window funcs can't go in filter directly, so number first)."]
+    ],
+    "add-col": [
+      ["df.withColumn('fee', ...)", "df", "DataFrame method — adds/replaces a column."],
+      ["F.col('amount') * 0.1", "col", "Column arithmetic → a new Column."]
+    ],
+    "case-when": [
+      ["df.withColumn('size', ...)", "df", "DataFrame method — adds the column."],
+      ["F.when(F.col('amount') > 100, 'big')", "fn", "F.when starts a CASE expression → a Column."],
+      [".otherwise('small')", "col", "Column method — the ELSE branch."]
+    ],
+    "rename": [
+      ["df.withColumnRenamed('amount', 'total')", "df", "DataFrame method — renames one column (no-op if it is absent)."]
+    ],
+    "round": [
+      ["df.withColumn('amount', ...)", "df", "DataFrame method — replaces the column."],
+      ["F.round('amount', 2)", "fn", "Function from F → a Column rounded to 2 decimals."]
+    ],
+    "fillna": [
+      ["df.fillna({'amount': 0})", "df", "DataFrame method (alias of df.na.fill) — replaces nulls per named column."]
+    ],
+    "coalesce-multi": [
+      ["df.withColumn('region', ...)", "df", "DataFrame method — replaces the column."],
+      ["F.coalesce('region', F.lit('unknown'))", "fn", "Function from F → the first non-null Column."],
+      ["F.lit('unknown')", "fn", "Wraps a Python literal as a Column so it can be an argument."]
+    ],
+    "drop-nulls": [
+      ["df.dropna(subset=['amount'])", "df", "DataFrame method (alias of df.na.drop) — removes rows with nulls in the listed columns."]
+    ],
+    "cast-type": [
+      ["df.withColumn('amount_int', ...)", "df", "DataFrame method — adds the typed column."],
+      ["F.col('amount').cast('int')", "col", "Column method — changes the column's data type."]
+    ],
+    "str-contains": [
+      ["df.filter(...)", "df", "DataFrame method — row filter."],
+      ["F.col('customer').contains('acme')", "col", "Column method → boolean Column (substring test)."]
+    ],
+    "str-ops": [
+      ["df.withColumn('cust', ...).withColumn('prefix', ...)", "df", "Two DataFrame methods chained — each adds a column."],
+      ["F.trim('customer')", "fn", "Function from F → trimmed Column."],
+      ["F.upper(...)", "fn", "Function wrapping the trimmed Column → uppercased Column."],
+      ["F.substring('customer', 1, 3)", "fn", "Function from F → substring Column (1-based start)."]
+    ],
+    "concat": [
+      ["df.withColumn('label', ...)", "df", "DataFrame method — adds the column."],
+      ["F.concat_ws('', ...)", "fn", "Function from F — joins Columns with a separator → a Column."],
+      ["F.col('customer'), F.col('region')", "fn", "Column references."],
+      ["F.lit(' (') , F.lit(')')", "fn", "Literals wrapped as Columns so they can be concatenated."]
+    ],
+    "regexp-replace": [
+      ["df.withColumn('digits', ...)", "df", "DataFrame method — adds the column."],
+      ["F.regexp_replace('customer', '[^0-9]', '')", "fn", "Function from F → a Column with the regex replaced."]
+    ],
+    "date-part": [
+      ["df.withColumn('yr', ...)", "df", "DataFrame method — adds the column."],
+      ["F.year('ts')", "fn", "Function from F → an integer Column (the year)."]
+    ],
+    "date-trunc-month": [
+      ["df.withColumn('month', ...)", "df", "DataFrame method — adds the column."],
+      ["F.date_trunc('month', 'ts')", "fn", "Function from F → a timestamp Column truncated to the month start."]
+    ],
+    "date-diff": [
+      ["df.withColumn('days_ago', ...)", "df", "DataFrame method — adds the column."],
+      ["F.current_date()", "fn", "Function from F → today's date as a Column."],
+      ["F.to_date('ts')", "fn", "Function from F → a date Column."],
+      ["F.datediff(end, start)", "fn", "Function from F → integer day-difference Column."]
+    ],
+    "date-add": [
+      ["df.withColumn('due', ...)", "df", "DataFrame method — adds the column."],
+      ["F.date_add('ts', 7)", "fn", "Function from F → a date Column shifted forward 7 days."]
+    ],
+    "parse-date": [
+      ["df.withColumn('d', ...)", "df", "DataFrame method — adds the column."],
+      ["F.to_date('order_date', 'yyyy-MM-dd')", "fn", "Function from F — parses a string Column to a date using the format."]
+    ],
+    "union": [
+      ["a.unionByName(b)", "df", "DataFrame method — stacks b's rows onto a, matching columns BY NAME (safer than union, which matches by position)."]
+    ],
+    "pivot": [
+      ["df.groupBy('customer')", "df", "DataFrame method → GroupedData."],
+      [".pivot('region', ['US', 'EU'])", "df", "GroupedData method — turns row values into columns (still GroupedData)."],
+      [".agg(F.sum('amount'))", "df", "Aggregates each pivoted cell → a DataFrame."]
+    ],
+    "unpivot": [
+      ["wide.selectExpr('customer', \"stack(2, ...) as (region, amount)\")", "df", "DataFrame method — evaluates SQL-expression STRINGS."],
+      ["stack(2, 'US', US, 'EU', EU)", "py", "A Spark SQL function inside the expr string (not a Python method) — emits multiple rows per input row."]
+    ],
+    "explode": [
+      ["df.select('id', ...)", "df", "DataFrame method — projection."],
+      ["F.explode('tags')", "fn", "Generator function from F → one row per array element."],
+      [".alias('tag')", "col", "Column method — names the exploded column."]
+    ],
+    "collect-list": [
+      ["df.groupBy('region').agg(...)", "df", "GroupedData.agg → DataFrame."],
+      ["F.collect_list('amount')", "fn", "Aggregate function from F → an array Column of all values in the group."],
+      [".alias('amounts')", "col", "Column method — names the output."]
+    ],
+    "dedup-distinct": [
+      ["df.dropDuplicates()", "df", "DataFrame method — drops duplicate rows (optionally by a subset of columns)."]
+    ],
+    "latest-per-key": [
+      ["Window.partitionBy('customer').orderBy(F.col('ts').desc())", "win", "WindowSpec `w` — newest row first per customer."],
+      ["df.withColumn('rn', F.row_number().over(w))", "df", "Numbers rows within each customer; rn == 1 is the latest."],
+      [".filter(F.col('rn') == 1)", "df", "DataFrame method — keeps only the latest per key."],
+      [".drop('rn')", "df", "DataFrame method — removes the helper column."]
+    ]
+  }
 };
