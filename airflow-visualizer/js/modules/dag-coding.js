@@ -210,7 +210,10 @@
       this._engine = engine;
       this._off = engine.on("stepchange", function (idx) { showStep(idx); });
       var controls = AV.AnimationControls.create(engine, { title: "Ready — press play" });
-      container.querySelector("#dc-controls").appendChild(controls.el);
+      var dcControls = container.querySelector("#dc-controls");
+      dcControls.appendChild(controls.el);
+      dcControls.classList.add("docked");   // pin the transport bar to the viewport bottom
+      container.classList.add("dock-pad");  // clearance so content scrolls clear of the bar
       this._controls = controls;
       showStep(-1);
     },

@@ -257,3 +257,45 @@
 @media (prefers-reduced-motion: reduce) {
   .explain-more > summary::before { transition: none; }
 }
+
+/* ============================================================
+   Docked transport bar (opt-in)
+   Pins a module's animation controls to the bottom of the content
+   area so they stay put while the module scrolls, instead of
+   drifting mid-page. Enable per module by adding `docked` to the
+   `.arch-controls` container and `dock-pad` to the module root.
+   No ancestor of the controls sets transform/filter/contain, so
+   position:fixed resolves against the viewport as intended.
+   ============================================================ */
+.arch-controls.docked {
+  position: fixed;
+  left: 260px;                 /* clear the persistent 260px sidebar */
+  right: 0;
+  bottom: 0;
+  margin: 0;
+  z-index: 45;
+  padding: var(--space-3) var(--space-6);
+  background: var(--bg-2);
+  border-top: 1px solid var(--border-default);
+  box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.28);
+}
+.arch-controls.docked .anim-controls {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+/* Clearance so the last content rows scroll clear of the fixed bar. */
+.module-container.dock-pad { padding-bottom: 108px; }
+
+/* Off-canvas sidebar (≤1024px): the bar spans the full content width. */
+@media (max-width: 1024px) {
+  .arch-controls.docked { left: 0; }
+}
+/* The bar can wrap taller on small screens — give it more clearance. */
+@media (max-width: 640px) {
+  .arch-controls.docked { padding: var(--space-2) var(--space-4); }
+  .module-container.dock-pad { padding-bottom: 156px; }
+}
