@@ -27,32 +27,68 @@
     {
       nodes: ["lb", "api"], edges: [["lb", "api"]],
       label: "1 · Front the UI with a load balancer",
-      desc: "API servers (UI + REST) are <b>stateless</b> — run several behind a load balancer with health checks on <code>/health</code>. Any instance can serve any request. Losing one drops zero traffic; the LB routes around it."
+      what: "API servers (UI + REST) are <b>stateless</b>, so you run several behind a load balancer with health checks on <code>/health</code>. Any instance can serve any request.",
+      why: "Statelessness means no session is pinned to a box — losing one instance drops zero traffic. The LB simply stops routing to an unhealthy node.",
+      how: "Deploy N API servers, put an L7 load balancer in front, and health-check <code>/health</code>. Terminate TLS at the LB and spread requests across the pool.",
+      when: "Always, in any production deployment where the UI/API must stay up.",
+      mistake: "Running a single API server and treating it as critical — an unnecessary single point of failure for something trivially replicable.",
+      interview: "“How do you make the Airflow UI highly available?” Stateless API servers behind a health-checked load balancer — an easy win that shows you know which tiers are stateless.",
+      example: "When one of ShopKart's three API pods is recycled during a deploy, analysts notice nothing — the LB routes around it instantly."
     },
     {
       nodes: ["sched"], edges: [],
       label: "2 · Run schedulers active-active",
-      desc: "Since Airflow 2.0 you can run <b>multiple schedulers simultaneously</b>. They coordinate through the metadata DB using <code>SELECT ... FOR UPDATE SKIP LOCKED</code> row-level locking — no leader election, no single point of failure. If one dies, the others keep scheduling with zero downtime."
+      what: "Since Airflow 2.0 you can run <b>multiple schedulers simultaneously</b>, all active. There's no primary/standby and no leader election.",
+      why: "The scheduler is the beating heart — a single one is a single point of failure for <i>all</i> scheduling. Active-active removes that risk and adds throughput at the same time.",
+      how: "They coordinate through the metadata DB using <code>SELECT … FOR UPDATE SKIP LOCKED</code> row locks, so each scheduler grabs different task instances. If one dies, the others keep scheduling with zero downtime.",
+      when: "Any production cluster — run at least two, on different nodes or pods.",
+      mistake: "Assuming HA schedulers need special config or a coordinator (ZooKeeper, etcd). They need none — just run more than one against the same DB.",
+      interview: "A favorite: “how do two schedulers avoid double-scheduling the same task?” Row-level DB locks with <code>SKIP LOCKED</code>, no external coordinator. Nail that and you sound senior.",
+      example: "ShopKart runs two schedulers; a node failure at 02:15 takes one out and the nightly run never even pauses."
     },
     {
       nodes: ["workers", "trig"], edges: [],
       label: "3 · Scale workers and triggerers horizontally",
-      desc: "The <b>worker fleet</b> (Celery or Kubernetes) scales out for throughput and autoscales on queue depth. <b>Triggerers</b> handle deferrable-operator waits on an async event loop — run 2+ so long-polling sensors survive a triggerer restart."
+      what: "The <b>worker fleet</b> (Celery or Kubernetes) scales out for throughput, and <b>triggerers</b> handle deferrable-operator waits on an async event loop.",
+      why: "Workers are where the actual work happens, so throughput scales with worker count. Triggerers must be redundant too, or a triggerer restart drops every long-running sensor wait.",
+      how: "Autoscale workers on queue depth; run <b>2+ triggerers</b> so deferred tasks survive a restart. Both tiers are horizontally scalable and stateless between tasks.",
+      when: "When task volume grows, or when you rely on deferrable sensors/operators that wait for hours.",
+      mistake: "Running a single triggerer — a restart there silently strands every deferred task waiting on it until it comes back.",
+      interview: "It shows depth to mention the triggerer as an HA concern, not just workers. Deferrable waits need redundancy just like scheduling does.",
+      example: "ShopKart autoscales Celery workers on Black Friday and runs two triggerers so its 2–6&nbsp;AM inventory sensors keep waiting through a rolling deploy."
     },
     {
       nodes: ["api", "sched", "trig", "workers", "pgb"], edges: [["api", "pgb"], ["sched", "pgb"], ["trig", "pgb"], ["workers", "pgb"]],
       label: "4 · Pool DB connections through PgBouncer",
-      desc: "Every component opens DB sessions. At scale that overwhelms Postgres's <code>max_connections</code>. <b>PgBouncer</b> multiplexes hundreds of client connections onto a small server pool — the single most important HA component for a busy cluster."
+      what: "Every component opens DB sessions, and at scale that overwhelms Postgres's <code>max_connections</code>. <b>PgBouncer</b> multiplexes hundreds of client connections onto a small server pool.",
+      why: "Postgres connections are expensive; hundreds of direct clients exhaust the server. PgBouncer is the single most important HA component for a busy cluster because it keeps the DB from tipping over.",
+      how: "Point every component's <code>sql_alchemy_conn</code> at PgBouncer (transaction pooling), keep per-component pools small, and let PgBouncer front the real database. Hundreds of clients collapse to a couple dozen server connections.",
+      when: "As soon as combined connections (schedulers × workers × concurrency) approach the DB's limit.",
+      mistake: "Scaling workers and schedulers without pooling, then hitting “FATAL: sorry, too many clients already” at peak load.",
+      interview: "“Your Postgres is out of connections under load — what do you add?” PgBouncer in transaction mode. Knowing why (connection multiplexing) is the senior detail.",
+      example: "ShopKart's 16 workers × 16 concurrency plus schedulers would open ~300 connections; PgBouncer collapses them onto 25 server connections."
     },
     {
       nodes: ["pgb", "db"], edges: [["pgb", "db"]],
       label: "5 · Make the metadata DB itself HA",
-      desc: "The metadata DB is the one true stateful dependency. Use a managed HA Postgres (RDS Multi-AZ, Cloud SQL HA) with a <b>primary + synchronous standby</b> and automatic failover. Everything else can be recreated; this is what you back up and protect."
+      what: "The metadata DB is the <b>one true stateful dependency</b>. Use managed HA Postgres with a <b>primary + synchronous standby</b> and automatic failover.",
+      why: "Everything else — schedulers, workers, API servers — is recreatable and stateless. The database holds all operational state, so it's the thing you must not lose.",
+      how: "Run RDS Multi-AZ, Cloud SQL HA, or Patroni with a synchronous replica and automatic failover. Back it up, test restores, and put your reliability budget here.",
+      when: "Every production deployment — this tier is non-negotiable for HA.",
+      mistake: "Investing in redundant schedulers and workers while running a single, unreplicated Postgres — the one stateful component becomes your single point of failure.",
+      interview: "“If you could only make one tier HA, which?” The metadata DB. Explaining that the rest is stateless and recreatable proves you understand the architecture.",
+      example: "ShopKart runs RDS Multi-AZ; an AZ outage triggers automatic failover to the standby and the cluster resumes against the promoted primary."
     },
     {
       nodes: ["lb", "api", "sched", "trig", "workers", "pgb", "db"], edges: EDGES,
       label: "6 · The full resilient topology",
-      desc: "Put together: LB-fronted stateless API servers, 2+ active-active schedulers, an autoscaled worker fleet, redundant triggerers, PgBouncer, and an HA Postgres. Every tier tolerates the loss of one node with no manual intervention — the reference production deployment."
+      what: "Put together: an LB-fronted stateless API tier, 2+ active-active schedulers, an autoscaled worker fleet, redundant triggerers, PgBouncer, and an HA Postgres.",
+      why: "Each tier independently tolerates losing a node with no manual intervention. Composed, they give you a cluster with no single point of failure — the reference production deployment.",
+      how: "Every tier is either stateless-and-replicated (API, scheduler, worker, triggerer) or explicitly made HA (the DB, fronted by PgBouncer). Failure of any one node is absorbed automatically.",
+      when: "The target architecture for any business-critical Airflow.",
+      mistake: "Making four tiers redundant but forgetting one — a lone triggerer or an unpooled DB quietly reintroduces a single point of failure.",
+      interview: "Being able to sketch this whole topology, and say which parts are stateless vs stateful, is exactly the “design a production Airflow” system-design question.",
+      example: "ShopKart's production diagram matches this exactly, and its quarterly game-day kills one node per tier to prove nothing goes down."
     }
   ];
 
@@ -130,7 +166,7 @@
       function showStep(idx) {
         if (idx < 0) { defaultDetail(); return; }
         var s = STEPS[idx];
-        detail.innerHTML = '<div class="arch-detail-title">' + s.label + "</div><p>" + s.desc + "</p>";
+        detail.innerHTML = AV.Explain.render(s);
       }
 
       var codes = container.querySelector("#ha-codes");
