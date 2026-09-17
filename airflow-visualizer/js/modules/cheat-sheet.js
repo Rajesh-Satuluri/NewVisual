@@ -61,6 +61,24 @@
       ["Param", "Per-run input to a DAG."],
       ["{{ ds }} / {{ ti }} / {{ var.value.x }}", "Templated at runtime."]
     ] },
+    { title: "Important DAG functions", rows: [
+      ["@dag / @task", "TaskFlow decorators — define a DAG / task from a function."],
+      ["DAG(dag_id, schedule, …)", "The DAG object; usually a context manager (with DAG(…))."],
+      [">> / chain()", "Set dependencies; chain() keeps long graphs readable."],
+      [".expand() / .partial()", "Dynamic mapping: fan out at runtime / fix constant args."],
+      ["xcom_pull() / task.output", "Read an upstream task's returned value."],
+      ["trigger_rule=", "Run condition vs upstreams (all_success, all_done, one_failed…)."],
+      ["TaskGroup('name')", "Collapse related tasks into one UI node."]
+    ] },
+    { title: "DAG coding interview", rows: [
+      ["Order two tasks", "a >> b (or b.set_upstream(a)); TaskFlow: b(a())."],
+      ["Pass data between tasks", "Return a small value (→ XCom); read via arg or xcom_pull()."],
+      ["N tasks from a runtime list", ".expand() dynamic mapping — never a parse-time loop."],
+      ["Make a task backfill-safe", "Template dates on {{ ds }}; keep the task idempotent."],
+      ["Run a task only if a parent failed", "trigger_rule='one_failed' (or 'all_failed')."],
+      ["Fan-in after parallel tasks", "[a, b, c] >> d — d sees every upstream output."],
+      ["Keep the scheduler fast", "No top-level I/O in the DAG file; defer work into tasks."]
+    ] },
     { title: "Production checklist", rows: [
       ["HA", "2+ active-active schedulers (DB row locks)."],
       ["PgBouncer", "Pool DB connections at scale."],
