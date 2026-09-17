@@ -23,32 +23,68 @@
     {
       nodes: ["db"], edges: [],
       label: "1 · Single source of truth",
-      desc: "Every piece of Airflow state lives in the metadata DB — DAG definitions, run records, task states, XCom values, Variables, Connections, pool configs. If the scheduler restarts, it reads the DB and picks up exactly where it left off."
+      what: "The metadata DB (Postgres or MySQL) holds <b>every piece of Airflow state</b>: serialized DAGs, run records, task states, XComs, Variables, Connections, and pool configs.",
+      why: "Centralizing state in one durable store is what makes every other component <i>stateless</i> — and therefore restartable, replaceable, and scalable.",
+      how: "Components don't talk to each other directly; they read and write rows in this DB. State lives in tables, not in any process's memory, so a crash loses nothing that was committed.",
+      when: "Constantly — every scheduler loop, task transition, and UI query touches it.",
+      mistake: "Treating the DB as a passive log. It is the live system of record — if it's slow or unavailable, the <i>whole</i> cluster stalls, not just one feature.",
+      interview: "A favorite opener: “what makes Airflow fault-tolerant?” The DB-as-source-of-truth, with stateless components around it, is the answer to lead with.",
+      example: "If ShopKart's scheduler pod dies at 02:15, a fresh scheduler reads the DB and resumes the nightly run — no orders reprocessed, nothing lost."
     },
     {
       nodes: ["proc", "db"], edges: [["proc", "db"]],
       label: "2 · DAG Processor → serialized_dag",
-      desc: "The DAG Processor imports your <code>.py</code>, serializes the DAG structure to JSON, and writes it to the <code>serialized_dag</code> table. The scheduler then reads <i>that JSON</i> — it never imports your file."
+      what: "The DAG processor imports each <code>.py</code>, serializes its structure to JSON, and writes it into the <code>serialized_dag</code> table.",
+      why: "Writing the serialized form to the DB is what lets the scheduler and UI read DAGs <i>without</i> importing user code — the key to speed and isolation.",
+      how: "On each parse the processor upserts one row per DAG, keyed by <code>dag_id</code> and updated only when the file changes. Everyone else reads that row; the file itself is only re-touched by workers.",
+      when: "On every parse cycle where a DAG's content changed.",
+      mistake: "Thinking the scheduler re-reads your file when it schedules. It reads <code>serialized_dag</code> — the file was already turned into JSON by the processor.",
+      interview: "Interviewers connect this table to the “stale DAG” puzzle. Knowing the processor owns writes and the scheduler only reads shows real internals fluency.",
+      example: "When ShopKart adds <code>extract_tiktok_ads</code>, the processor rewrites the serialized row within seconds and the scheduler sees the new task on its next loop."
     },
     {
       nodes: ["sched", "db"], edges: [["sched", "db"], ["db", "sched"]],
       label: "3 · Scheduler reads + writes",
-      desc: "Each scheduler loop reads <code>serialized_dag</code>, decides which runs to create, and writes new <code>dag_run</code> and <code>task_instance</code> rows — then polls <code>task_instance</code> to transition scheduled tasks to queued."
+      what: "The scheduler is the busiest client: each loop it <b>reads</b> serialized DAGs and current states, then <b>writes</b> new <code>dag_run</code> and <code>task_instance</code> rows.",
+      why: "Turning schedules into concrete work means recording that work durably. Writing runs and task instances to the DB is how a decision survives a crash.",
+      how: "It reads <code>serialized_dag</code>, checks timetables, inserts run and TI rows in <span class='state-chip scheduled'>scheduled</span>, then updates them as tasks move to queued and beyond — all under row locks so multiple schedulers don't collide.",
+      when: "Every loop (default heartbeat 5&nbsp;s), continuously.",
+      mistake: "Assuming a single scheduler is a single point of failure. Multiple active schedulers share this DB safely via <code>SELECT … FOR UPDATE SKIP LOCKED</code>.",
+      interview: "Expect “how do multiple schedulers not double-schedule?” The answer is row-level DB locks — no leader election, the database is the arbiter.",
+      example: "ShopKart runs two schedulers against one DB; each grabs different task-instance rows via skip-locked reads, so nothing is scheduled twice."
     },
     {
       nodes: ["worker", "db"], edges: [["worker", "db"], ["db", "worker"]],
       label: "4 · Worker reads params, writes results",
-      desc: "Workers fetch task params from the DB, execute the task, then write the final <code>task_instance</code> state (success/failed), <code>xcom</code> return values, and duration metrics."
+      what: "Workers read what they need to run a task from the DB, execute it, then write back the final <code>task_instance</code> state, any <code>xcom</code> return value, and timing metrics.",
+      why: "A worker's results must outlive the worker. Persisting state and XComs to the DB means a downstream task on a different worker can still find them.",
+      how: "The worker looks up the TI and its params, runs <code>execute()</code>, then writes <span class='state-chip success'>success</span>/<span class='state-chip failed'>failed</span>, the XCom row, and duration. In 3.x this write goes through the API server, not a direct DB connection.",
+      when: "Once per task attempt, at start and finish.",
+      mistake: "Using XCom to move large data. It's stored as a DB row meant for small values (IDs, counts, paths) — not DataFrames or files.",
+      interview: "“How do tasks pass data?” Small values via XCom (a DB row); big data via external storage (S3/GCS) with only the <i>path</i> in XCom.",
+      example: "ShopKart's <code>extract_orders</code> writes the S3 path of a 2&nbsp;GB dump to XCom; <code>transform_sales</code> reads that path — the DB never holds the data itself."
     },
     {
       nodes: ["ui", "db"], edges: [["db", "ui"]],
       label: "5 · API Server / UI is read-only",
-      desc: "The web UI and REST API read from <code>dag_run</code>, <code>task_instance</code>, <code>xcom</code>, <code>log</code>, and friends. They own <i>no state</i> — everything you see in the UI is a query against the metadata DB."
+      what: "The web UI and REST API mostly <b>read</b> from <code>dag_run</code>, <code>task_instance</code>, <code>xcom</code>, <code>log</code>, and friends. Everything you see is a query against the metadata DB.",
+      why: "Keeping the UI a thin reader means it can't corrupt state and can be scaled or restarted freely — the DB, not the webserver, is authoritative.",
+      how: "Rendering the Grid pulls task-instance rows; opening logs resolves a path from the <code>log</code> table. Manual actions (trigger, clear, mark success) are the exception — they write a request the scheduler then acts on.",
+      when: "On every dashboard load and API call.",
+      mistake: "Believing the UI “does” things directly. Clicking <i>clear</i> doesn't rerun a task — it writes state that the <b>scheduler</b> later honors.",
+      interview: "A clean way to show the pattern: the UI reflects state and requests changes; the scheduler enacts them. Read and act are separated.",
+      example: "At 07:00 ShopKart's COO opens the dashboard; the API server answers “did last night succeed?” with a task-instance query — no pipeline is touched."
     },
     {
       nodes: ["db", "proc", "sched", "worker", "ui"], edges: EDGES,
       label: "6 · Why this design matters",
-      desc: "Every component is stateless except the DB, so you can restart any of them without losing progress. Active/passive HA schedulers read the same DB. Workers scale horizontally — they pull from the same task queue and write to the same DB."
+      what: "The payoff of the hub-and-spoke design: <b>every component is stateless except the DB</b>, so any of them can restart, scale out, or be replaced without losing progress.",
+      why: "Statelessness is what makes Airflow operable in production — you can roll pods, add workers, and survive crashes because the truth lives in one durable place.",
+      how: "Schedulers run active-active off the same DB; workers scale horizontally, pulling from a shared queue and writing to shared tables. Restart anything and it rehydrates from the DB.",
+      when: "Always — it's the architectural property everything else depends on.",
+      mistake: "Under-provisioning the DB. Because it's the shared hub, a slow or undersized database becomes the ceiling on the entire cluster's throughput.",
+      interview: "Strong closers mention the trade-off: the DB is both the source of resilience <i>and</i> the central bottleneck, so you protect it (connection pooling, <code>db clean</code>, fast storage).",
+      example: "On Black Friday ShopKart triples its workers to clear the load; the scheduler and DB are untouched, because workers are stateless and just need more hands."
     }
   ];
 
@@ -113,8 +149,7 @@
       }
       function showStep(idx) {
         if (idx < 0) { defaultDetail(); return; }
-        var s = STEPS[idx];
-        detail.innerHTML = '<div class="arch-detail-title">' + s.label + "</div><p>" + s.desc + "</p>";
+        detail.innerHTML = AV.Explain.render(STEPS[idx]);
       }
 
       var head = "<thead><tr><th>Table</th><th>Contents</th></tr></thead>";
