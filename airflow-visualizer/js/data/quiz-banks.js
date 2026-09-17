@@ -332,6 +332,20 @@
       q("Warm Celery workers give you…",
         ["Perfect isolation", "Near-zero per-task startup latency", "Per-task images", "No idle cost"],
         1, "Long-lived workers pick up tasks instantly — Celery's edge over K8s for volume.", "med")
+    ],
+    "dag-coding": [
+      q("The fastest way to understand an unfamiliar DAG is to read…",
+        ["Every import first", "The with DAG(…) header — id, schedule, catchup", "The task logs", "The worker config"],
+        1, "The DAG() header gives identity, cadence, and backfill behaviour before any task detail.", "easy"),
+      q("In TaskFlow, calling one @task function with another's output…",
+        ["Does nothing until wired with >>", "Sets both the XCom data hand-off and the dependency", "Requires an explicit xcom_pull", "Runs the two in parallel"],
+        1, "Passing an output into an input wires the data and the dependency in a single call.", "med"),
+      q("A task templates its path on {{ ds }} instead of datetime.now() so that…",
+        ["It runs faster", "Reruns and backfills process the correct historical day", "It uses less memory", "It skips retries"],
+        1, "Templating on the run's logical date keeps tasks idempotent and backfill-safe.", "med"),
+      q("To create one task per item in a runtime-computed list, use…",
+        ["A top-level for loop", ".expand() dynamic task mapping", "A second DAG", "A sensor"],
+        1, ".expand() fans a task out over a runtime list; a parse-time loop can't size to runtime data.", "hard")
     ]
   };
 })();

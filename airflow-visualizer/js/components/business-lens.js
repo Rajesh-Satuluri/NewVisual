@@ -156,6 +156,11 @@
       task: "extract_* pulled by warm workers", system: "Celery + Redis",
       meaning: "Dispatch the nightly extracts with no cold start.",
       point: "ShopKart's warm Celery worker pool picks up the four extracts from the broker the instant they're queued — no per-task pod startup — so the parallel extraction phase begins immediately at 2 AM."
+    },
+    "dag-coding": {
+      task: "ecommerce_daily_ops.py (the DAG file)", system: "Airflow DAG code",
+      meaning: "Read and extend the pipeline's code with confidence.",
+      point: "Whether reviewing ShopKart's nightly DAG on-call or adding a task, the same skills apply: read the <code>DAG()</code> header and dependency line first to grasp it fast, then write new tasks with TaskFlow, shared <code>default_args</code>, and <code>{{ ds }}</code> templating so they're concise and backfill-safe from day one."
     }
   };
 
