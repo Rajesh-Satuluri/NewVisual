@@ -51,7 +51,46 @@
   function restoreSort() { try { var s = localStorage.getItem(SORT_KEY); if (s === "used" || s === "cat") sortMode = s; } catch (e) {} }
   function syncSortButtons() {
     if (!overlay) return;
-    overlay.querySelectorAll(".cht-sort-btn").forEach(function (b) { b.classList.toggle("active", b.getAttribute("data-sort") === sortMode); });
+    overlay.querySelectorAll(".cht-sort-btn[data-sort]").forEach(function (b) { b.classList.toggle("active", b.getAttribute("data-sort") === sortMode); });
+  }
+
+  // explainOpen: when true, the "🔍 PySpark — how it reads" breakdown under each
+  // card starts expanded. Persisted so the preference sticks across reopens.
+  var explainOpen = false;
+  var EXPLAIN_KEY = "blind75_ros_explain";
+  function saveExplain() { try { localStorage.setItem(EXPLAIN_KEY, explainOpen ? "1" : "0"); } catch (e) {} }
+  function restoreExplain() { try { explainOpen = localStorage.getItem(EXPLAIN_KEY) === "1"; } catch (e) {} }
+  function syncExplainToggle() {
+    if (!overlay) return;
+    var b = overlay.querySelector(".ros-ex-toggle");
+    if (b) b.classList.toggle("active", explainOpen);
+  }
+  // Human labels + order for the call-kind tags in the breakdown.
+  var KIND_LABEL = { df: "DataFrame", col: "Column", fn: "F function", win: "Window", py: "SQL / other" };
+  // Build the collapsible PySpark explanation for one task (or null if none).
+  function explainBlock(id) {
+    var steps = DATA.explain && DATA.explain[id];
+    if (!steps || !steps.length) return null;
+    var d = document.createElement("details");
+    d.className = "ros-explain";
+    if (explainOpen) d.open = true;
+    var sum = document.createElement("summary");
+    sum.className = "ros-explain-sum";
+    sum.innerHTML = '🔍 <b>PySpark — how it reads</b> <span class="ros-explain-hint">what runs on the DataFrame vs a Column</span>';
+    d.appendChild(sum);
+    var list = document.createElement("div");
+    list.className = "ros-esteps";
+    steps.forEach(function (s) {
+      var row = document.createElement("div");
+      row.className = "ros-estep";
+      var kind = s[1] || "py";
+      row.innerHTML = '<code class="ros-epart">' + esc(s[0]) + "</code>" +
+        '<span class="ros-ek ros-ek-' + kind + '">' + esc(KIND_LABEL[kind] || kind) + "</span>" +
+        '<span class="ros-edesc">' + esc(s[2]) + "</span>";
+      list.appendChild(row);
+    });
+    d.appendChild(list);
+    return d;
   }
 
   // Copy an arbitrary string, with a clipboard→textarea fallback.
@@ -170,6 +209,11 @@
     });
     if (!shown) return null;
     card.appendChild(grid);
+    // PySpark call-chain breakdown — only when the PySpark column is on screen.
+    if (cols.indexOf("spark") !== -1) {
+      var ex = explainBlock(t.id);
+      if (ex) card.appendChild(ex);
+    }
     return card;
   }
 
@@ -233,6 +277,7 @@
       '      <button class="cht-sort-btn active" data-sort="used" title="Show every task ordered by how often it is used">⭐ Most used</button>' +
       '      <button class="cht-sort-btn" data-sort="cat" title="Group by category (most used first within each), with a count per category">🗂 By category</button>' +
       '    </div>' +
+      '    <button class="cht-sort-btn ros-ex-toggle" data-extoggle="1" title="Show a plain-English breakdown of each PySpark snippet — which calls run on the DataFrame vs a Column, which come from F, which build a Window">🔍 Explain code</button>' +
       '  </div>' +
       '  <div class="ros-filter"><button class="ros-chip ros-chip-all" data-stack="all">Compare all</button>' + chips +
       '    <span class="ros-hint">tip: tap dialects to add or remove them from the comparison</span>' +
@@ -254,13 +299,20 @@
         render();
       });
     });
-    overlay.querySelectorAll(".cht-sort-btn").forEach(function (b) {
+    overlay.querySelectorAll(".cht-sort-btn[data-sort]").forEach(function (b) {
       b.addEventListener("click", function () {
         sortMode = b.getAttribute("data-sort");
-        overlay.querySelectorAll(".cht-sort-btn").forEach(function (c) { c.classList.toggle("active", c === b); });
+        overlay.querySelectorAll(".cht-sort-btn[data-sort]").forEach(function (c) { c.classList.toggle("active", c === b); });
         saveSort();
         render();
       });
+    });
+    var exBtn = overlay.querySelector(".ros-ex-toggle");
+    if (exBtn) exBtn.addEventListener("click", function () {
+      explainOpen = !explainOpen;
+      saveExplain();
+      syncExplainToggle();
+      render();
     });
     document.addEventListener("keydown", function (e) {
       if (e.key === "Escape" && overlay.classList.contains("open")) close();
@@ -297,6 +349,8 @@
     if (!overlay) build();
     restoreSort();
     syncSortButtons();
+    restoreExplain();
+    syncExplainToggle();
     selected = (stack && byKey[stack]) ? [stack] : ALL_COLS.slice();
     updateChips();
     render();
