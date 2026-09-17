@@ -47,17 +47,58 @@
 
   var STEPS = [
     { active: null,   label: "1 · One CLI, every subsystem",
-      desc: "The <code>airflow</code> CLI is grouped into subcommands: <code>dags</code>, <code>tasks</code>, <code>db</code>, <code>users</code>, <code>connections</code>, <code>variables</code>, plus the component launchers (<code>scheduler</code>, <code>api-server</code>, <code>triggerer</code>). Run <code>airflow --help</code> to see them all." },
+      what: "The <code>airflow</code> CLI is grouped into subcommands: <code>dags</code>, <code>tasks</code>, <code>db</code>, <code>users</code>, <code>connections</code>, <code>variables</code>, plus component launchers (<code>scheduler</code>, <code>api-server</code>, <code>triggerer</code>).",
+      why: "One consistent CLI over every subsystem lets you operate, debug, and launch Airflow from a terminal or a script without clicking through the UI — essential for automation.",
+      how: "Run <code>airflow &lt;group&gt; &lt;command&gt;</code>; <code>airflow --help</code> lists all groups. The same commands work locally and against a deployment (with the DB/API configured).",
+      when: "Everywhere — local dev, CI, cron jobs, and incident response.",
+      mistake: "Reaching for the UI for things the CLI does faster and scriptably (bulk connection import, DB cleanup, task debugging).",
+      interview: "“How do you operate Airflow without the UI?” The <code>airflow</code> CLI, grouped by subsystem. Knowing the groups exist (and the launchers) frames the rest.",
+      example: "A ShopKart runbook scripts <code>airflow</code> CLI calls to trigger, inspect, and clean up runs during an incident — no clicking required." },
+
     { active: "dags", label: "2 · Driving DAGs",
-      desc: "<code>airflow dags trigger</code> kicks off an on-demand run and accepts a <code>--conf</code> JSON payload readable via <code>{{ dag_run.conf }}</code>. <code>airflow dags test</code> executes the entire DAG in-process — no scheduler, no DB writes for the run — perfect for local iteration." },
+      what: "<code>airflow dags trigger</code> kicks off an on-demand run and accepts a <code>--conf</code> JSON payload readable via <code>{{ dag_run.conf }}</code>. <code>airflow dags test</code> executes the whole DAG in-process — no scheduler, no run-state writes.",
+      why: "These cover the two most common needs: launch a real run with parameters, and dry-run a whole DAG locally to iterate fast without touching production state.",
+      how: "<code>trigger</code> creates a real run (optionally with <code>--conf</code>); <code>test</code> runs the DAG end-to-end in your process for a given logical date, ideal for local development.",
+      when: "<code>trigger</code> for ad-hoc/parameterized runs; <code>test</code> for local iteration.",
+      mistake: "Using <code>trigger</code> when you meant <code>test</code> (or vice versa) — one writes real run state, the other is an in-process dry run.",
+      interview: "“How do you run a whole DAG locally without the scheduler?” <code>airflow dags test &lt;id&gt; &lt;date&gt;</code>. Distinguishing it from <code>trigger</code> shows you know the dev loop.",
+      example: "ShopKart devs run <code>airflow dags test daily_sales_etl 2024-01-15</code> to validate a change end-to-end before pushing." },
+
     { active: "tasks", label: "3 · Debugging a single task",
-      desc: "<code>airflow tasks test &lt;dag&gt; &lt;task&gt; &lt;date&gt;</code> is the single most useful command: it runs one task's callable directly with a real templated context, printing logs to your terminal, without touching task state in the DB." },
+      what: "<code>airflow tasks test &lt;dag&gt; &lt;task&gt; &lt;date&gt;</code> is the single most useful command: it runs one task's callable directly with a real templated context, printing logs to your terminal, without touching task state in the DB.",
+      why: "It gives the fastest possible feedback loop for a single task — real context, real logs, zero side effects on run state — which is exactly what you want while debugging.",
+      how: "The command builds the task's context for the given logical date and calls <code>execute()</code> in-process; nothing is written to <code>task_instance</code>, so you can run it repeatedly.",
+      when: "Whenever you're debugging or developing one task in isolation.",
+      mistake: "Debugging by triggering full runs and reading the UI, when <code>tasks test</code> would give you the same answer in seconds locally.",
+      interview: "“What's your go-to command for debugging one task?” <code>airflow tasks test</code> — real context, no state writes. It's the answer every hands-on Airflow dev gives.",
+      example: "ShopKart debugs <code>reconcile_payments</code> with <code>airflow tasks test</code>, tweaking and rerunning against the same date until it's right." },
+
     { active: "db", label: "4 · Keeping the metadata DB healthy",
-      desc: "<code>airflow db migrate</code> applies Alembic migrations on upgrade. <code>airflow db clean</code> is essential ops hygiene — a busy scheduler generates millions of <code>task_instance</code> and <code>log</code> rows; purge them on a schedule or query latency degrades." },
+      what: "<code>airflow db migrate</code> applies Alembic migrations on upgrade. <code>airflow db clean</code> is essential ops hygiene — a busy scheduler generates millions of <code>task_instance</code> and <code>log</code> rows.",
+      why: "The metadata DB is the cluster's shared ceiling; letting it grow unbounded degrades query latency for everything. Regular cleanup keeps scheduling and the UI fast.",
+      how: "Run <code>airflow db migrate</code> as part of upgrades, and schedule <code>airflow db clean --clean-before-timestamp</code> to purge old runs/logs beyond a retention window.",
+      when: "<code>migrate</code> on every version upgrade; <code>clean</code> on a recurring schedule.",
+      mistake: "Never running <code>db clean</code>, so <code>task_instance</code> grows into millions of rows and scheduler queries crawl.",
+      interview: "“How do you keep the metadata DB from degrading?” Scheduled <code>airflow db clean</code> with a retention window. A concrete ops habit that signals production experience.",
+      example: "ShopKart runs <code>airflow db clean</code> nightly to purge rows older than 90 days, keeping scheduler query latency flat as volume grows." },
+
     { active: "admin", label: "5 · Managing config as code",
-      desc: "<code>airflow connections export conns.json</code> and <code>variables export</code> let you snapshot config for GitOps. Re-import into a fresh environment with the matching <code>import</code> command — your connections and variables become reproducible artifacts." },
+      what: "<code>airflow connections export conns.json</code> and <code>variables export</code> snapshot config for GitOps; re-import into a fresh environment with the matching <code>import</code> command.",
+      why: "Treating connections and variables as exportable artifacts makes environments reproducible and auditable — you can rebuild or clone a deployment's config from version control.",
+      how: "Export to JSON/YAML/env, commit (secrets redacted or sourced from a backend), and <code>import</code> into another environment. Config becomes a reproducible artifact, not manual UI clicks.",
+      when: "When bootstrapping environments, migrating, or enforcing GitOps for config.",
+      mistake: "Hand-entering connections/variables in each environment's UI, so dev/staging/prod drift and nobody can reproduce them.",
+      interview: "“How do you make Airflow config reproducible across environments?” Export/import connections and variables as artifacts (GitOps). Shows you think beyond one-off UI setup.",
+      example: "ShopKart exports connections to JSON in CI and imports them into a fresh staging environment so it matches prod exactly." },
+
     { active: null, label: "6 · Airflow 3 CLI changes",
-      desc: "Airflow 3 renames <code>webserver</code> → <code>api-server</code>, and the standalone dev launcher is still <code>airflow standalone</code>. The <code>airflowctl</code> companion CLI (for the remote API) is the recommended way to script against a running deployment without local DB access." }
+      what: "Airflow 3 renames <code>webserver</code> → <code>api-server</code>; the standalone dev launcher is still <code>airflow standalone</code>. The <code>airflowctl</code> companion CLI targets the remote API without local DB access.",
+      why: "The unified FastAPI service and remote-first tooling mean your scripts must target the new command names and can operate a deployment without direct database credentials.",
+      how: "Update launchers from <code>airflow webserver</code> to <code>airflow api-server</code>; use <code>airflowctl</code> to script against a running deployment's API rather than needing a local DB connection.",
+      when: "When upgrading scripts and automation to Airflow 3.",
+      mistake: "Leaving <code>airflow webserver</code> in deploy scripts on 3.x, where it no longer exists — the service is now <code>api-server</code>.",
+      interview: "“What CLI changes land in Airflow 3?” <code>webserver</code> → <code>api-server</code>, plus <code>airflowctl</code> for remote API scripting. A crisp current-events answer.",
+      example: "ShopKart updates its Helm and deploy scripts from <code>airflow webserver</code> to <code>airflow api-server</code> as part of its 3.x upgrade." }
   ];
 
   var CODE_DEBUG =
@@ -144,7 +185,7 @@
         }
         var s = STEPS[idx];
         buildGrid(s.active);
-        detail.innerHTML = '<div class="arch-detail-title">' + s.label + "</div><p>" + s.desc + "</p>";
+        detail.innerHTML = AV.Explain.render(s);
       }
 
       var codes = container.querySelector("#cl-codes");
