@@ -11,14 +11,26 @@
       label: "1 · template_fields",
       expr: "template_fields = ('bucket', 'key_prefix', 'query')",
       rendered: "only listed fields get Jinja rendered",
-      desc: "Airflow doesn't render Jinja in <i>every</i> argument — only those listed in a task's <code>template_fields</code> tuple. Built-in operators already declare which of their args are template fields. For custom operators, you declare them explicitly.",
+      what: "Airflow doesn't render Jinja in <i>every</i> argument — only those a task lists in its <code>template_fields</code> tuple. Built-in operators already declare theirs; for a custom operator you declare them yourself.",
+      why: "Rendering every argument would be slow and unsafe (imagine templating a password by accident). An explicit allow-list keeps templating predictable and opt-in.",
+      how: "Set <code>template_fields = ('bucket', 'key_prefix', 'query')</code> on the operator class. Just before <code>execute()</code>, Airflow walks those attributes and renders any Jinja it finds.",
+      when: "Whenever you write a custom operator whose arguments should accept <code>{{ }}</code> expressions.",
+      mistake: "Putting <code>{{ ds }}</code> in an argument that <i>isn't</i> a template field, then wondering why the literal string <code>{{ ds }}</code> reaches your code un-rendered.",
+      interview: "“Why did my Jinja not render in a custom operator?” The argument wasn't in <code>template_fields</code>. Rendering is opt-in per field, not automatic on every kwarg.",
+      example: "ShopKart's custom <code>S3Operator</code> lists <code>bucket</code>, <code>key_prefix</code>, and <code>query</code> as template fields so each can carry a run-date expression.",
       extras: []
     },
     {
       label: "2 · Date macros",
       expr: "{{ ds }}",
       rendered: "2024-01-15",
-      desc: "The most-used macro. <code>{{ ds }}</code> is the execution date (YYYY-MM-DD) — use it in SQL WHERE clauses, S3 key prefixes, and any date-partitioned path. In Airflow 3 the canonical property is <code>logical_date</code>, but <code>ds</code> still works.",
+      what: "The workhorse macro. <code>{{ ds }}</code> is the run's logical date as <code>YYYY-MM-DD</code> — drop it into SQL <code>WHERE</code> clauses, S3 key prefixes, and any date-partitioned path.",
+      why: "Idempotent, backfillable pipelines key work to the <i>run's</i> date, not <code>today()</code>. <code>{{ ds }}</code> gives each run a stable date, so re-running three weeks back reprocesses that day, not now.",
+      how: "Airflow injects date macros into the render context. Variants like <code>{{ ds_nodash }}</code> (20240115) and <code>{{ prev_ds }}</code> cover common formatting and adjacent intervals.",
+      when: "Every date-partitioned read or write — which is most batch ETL.",
+      mistake: "Calling <code>datetime.now()</code> in task code instead of <code>{{ ds }}</code>. That breaks backfills — every historical run would stamp today's date.",
+      interview: "“How do you make a task process the right day during a backfill?” Template on <code>{{ ds }}</code> (the logical date), never <code>now()</code>. This is <i>the</i> idempotency question.",
+      example: "ShopKart's export writes to <code>orders/{{ ds_nodash }}/</code>, so a backfill of Jan 3 lands in <code>orders/20240103/</code> — not today's folder.",
       extras: [
         ["{{ ds }}", "2024-01-15"],
         ["{{ ds_nodash }}", "20240115"],
@@ -30,7 +42,13 @@
       label: "3 · Timestamp macros",
       expr: "{{ ts }}",
       rendered: "2024-01-15T02:00:00+00:00",
-      desc: "<code>{{ ts }}</code> is the full ISO 8601 timestamp. Use it when you need sub-day precision — e.g. an hourly DAG that writes to a log file keyed by minute. <code>{{ run_id }}</code> is the stable, unique run identifier.",
+      what: "<code>{{ ts }}</code> is the run's full ISO-8601 timestamp. Use it when you need sub-day precision — an hourly DAG keying a file by the minute — while <code>{{ run_id }}</code> gives a stable, unique run identifier.",
+      why: "Some pipelines partition finer than a day. A timestamp (or the run_id) uniquely labels a run, so concurrent or hourly runs never collide on the same output path.",
+      how: "<code>{{ ts }}</code>, <code>{{ ts_nodash }}</code>, and <code>{{ run_id }}</code> all come from the run context. Pick the one whose format matches your storage layout.",
+      when: "Sub-daily schedules, or any output that must be uniquely named per run.",
+      mistake: "Using <code>{{ ds }}</code> (day granularity) as a filename in an hourly DAG — every hour's run overwrites the same file.",
+      interview: "“Your hourly runs keep clobbering each other's output — why?” The path is keyed to <code>{{ ds }}</code>, not <code>{{ ts_nodash }}</code>/<code>run_id</code>. A granularity mismatch.",
+      example: "ShopKart's hourly clickstream job writes <code>events/{{ ts_nodash }}.parquet</code>, so the 02:00 and 03:00 runs land in distinct files.",
       extras: [
         ["{{ ts }}", "2024-01-15T02:00:00+00:00"],
         ["{{ ts_nodash }}", "20240115T020000"],
@@ -42,7 +60,13 @@
       label: "4 · Params",
       expr: "{{ params.period }}",
       rendered: "monthly",
-      desc: "<code>params</code> are per-run overrides defined in the DAG constructor (or passed at trigger time via the API). They're JSON-serializable, can be validated against a Pydantic schema, and are available in every template field.",
+      what: "<code>params</code> are per-run overrides declared in the DAG constructor (or passed at trigger time via the API/UI). They're JSON-serializable and available in every template field as <code>{{ params.KEY }}</code>.",
+      why: "Params let one DAG cover many cases without code changes — the same pipeline runs “monthly” or “weekly”, “prod” or “staging”, chosen at trigger time.",
+      how: "Define <code>params={'period': 'monthly'}</code> on the DAG and override at trigger. In Airflow 2.6+ you can validate them against a schema so a bad trigger is rejected early.",
+      when: "Any DAG a human or system triggers with run-specific options.",
+      mistake: "Reaching for a Variable (global, shared) when you want a <i>per-run</i> input. Params are scoped to the run; Variables are cluster-wide state.",
+      interview: "“How do you pass an argument when manually triggering a DAG?” <code>params</code> (or the run <code>conf</code>), read via <code>{{ params.x }}</code>. Contrast with a Variable's global scope.",
+      example: "ShopKart's report DAG takes <code>params.period</code>; analysts trigger it with <code>monthly</code> at quarter-end without touching the code.",
       extras: [
         ["{{ params.period }}", "monthly"],
         ["{{ params.target_env }}", "prod"],
@@ -54,7 +78,13 @@
       label: "5 · Variables",
       expr: "{{ var.value.s3_bucket }}",
       rendered: "shopkart-data-prod",
-      desc: "<code>var.value.KEY</code> reads an Airflow Variable at task-render time. Use it for environment-specific config that doesn't belong in the DAG code itself. <code>var.json.KEY.field</code> parses a JSON Variable and accesses a nested field.",
+      what: "<code>{{ var.value.KEY }}</code> reads an Airflow <b>Variable</b> at render time; <code>{{ var.json.KEY.field }}</code> parses a JSON Variable and pulls a nested field. Use it for config that shouldn't be hard-coded in the DAG.",
+      why: "Keeping bucket names, row limits, and feature flags in Variables lets you re-point a pipeline between environments (or flip a flag) without editing and redeploying DAG code.",
+      how: "Reference <code>var.value</code>/<code>var.json</code> inside a template field. Airflow fetches the Variable from the metadata DB during rendering, just before the task runs.",
+      when: "Config that changes by environment or over time but not per-run — bucket names, thresholds, flags.",
+      mistake: "Calling <code>Variable.get()</code> at the <i>top level</i> of a DAG file. That hits the DB on every parse; template with <code>{{ var.value.x }}</code> so the read happens at run time.",
+      interview: "“Why is <code>Variable.get()</code> at module top level a problem?” It runs on every DAG-parse, hammering the DB. Read Variables in templates or inside tasks, not at import.",
+      example: "ShopKart templates <code>{{ var.value.s3_bucket }}</code> so the same DAG writes to <code>shopkart-data-prod</code> or <code>-staging</code> depending on the environment's Variable.",
       extras: [
         ["{{ var.value.s3_bucket }}", "shopkart-data-prod"],
         ["{{ var.value.env }}", "production"],
@@ -66,7 +96,13 @@
       label: "6 · Connections",
       expr: "{{ conn.warehouse.host }}",
       rendered: "wh.shopkart.internal",
-      desc: "<code>conn.CONN_ID.ATTR</code> reads a Connection's attributes (host, port, login, password, schema, extras) at render time. Handy for constructing JDBC URLs or API endpoints in templated bash commands or SQL arguments.",
+      what: "<code>{{ conn.CONN_ID.ATTR }}</code> reads a <b>Connection</b>'s attributes — host, port, login, password, schema, extras — at render time. Handy for building JDBC URLs or API endpoints inside templated commands.",
+      why: "Connections centralize (and secret-manage) where and how to reach a system. Templating from <code>conn</code> keeps hostnames and ports out of your DAG code and out of source control.",
+      how: "Reference <code>conn.warehouse.host</code> and friends in a template field; Airflow resolves the Connection (and its secrets backend) during rendering.",
+      when: "Constructing connection strings or endpoints for a templated Bash/SQL argument.",
+      mistake: "Pasting a host, port, or password directly into DAG code instead of a Connection — leaking credentials into git and breaking environment portability.",
+      interview: "“Where should database hosts and credentials live?” In a <b>Connection</b> (ideally a secrets backend), read via hooks or <code>{{ conn.x }}</code> — never hard-coded in the DAG.",
+      example: "ShopKart builds its warehouse URL from <code>{{ conn.warehouse.host }}:{{ conn.warehouse.port }}</code>, so rotating the host is a Connection edit, not a code change.",
       extras: [
         ["{{ conn.warehouse.host }}", "wh.shopkart.internal"],
         ["{{ conn.warehouse.port }}", "5439"],
@@ -183,7 +219,7 @@
         }
         var s = STEPS[idx];
         renderViz(s);
-        detail.innerHTML = '<div class="arch-detail-title">' + s.label + "</div><p>" + s.desc + "</p>";
+        detail.innerHTML = AV.Explain.render(s);
       }
 
       container.querySelector("#tpl-code").appendChild(AV.CodeViewer.create({
