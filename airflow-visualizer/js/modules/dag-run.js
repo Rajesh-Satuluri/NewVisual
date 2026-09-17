@@ -22,15 +22,49 @@
 
   var STEPS = [
     { label: "1 · A data interval", item: "d0",
-      desc: "A scheduled DAG run covers a <b>data interval</b> — a window of time, not an instant. Here: all of <b>Jan 1</b>." },
+      what: "A scheduled DAG run covers a <b>data interval</b> — a window of time, not a single instant. This run represents all of <b>Jan 1</b>.",
+      why: "Batch pipelines process <i>periods</i> of data (“yesterday's orders”), so Airflow's unit of work is an interval, not a clock tick. That's what makes runs precise and backfillable.",
+      how: "The DAG's timetable defines interval boundaries (<code>data_interval_start</code> and <code>_end</code>). A <code>@daily</code> DAG's intervals run midnight-to-midnight; each run is bound to exactly one of them.",
+      when: "Defined the moment the schedule is set; every scheduled run inherits an interval.",
+      mistake: "Picturing a run as “the job at 2&nbsp;AM” instead of “the job <i>for</i> a day.” The interval, not the trigger time, is what your SQL should filter on.",
+      interview: "The #1 Airflow scheduling question. Framing a run as “a completed interval of data” separates people who've operated Airflow from those who've only read about it.",
+      example: "ShopKart's daily sales run for the Jan-1 interval aggregates every order timestamped within Jan&nbsp;1 — the interval bounds <i>are</i> the <code>WHERE</code> clause." },
+
     { label: "2 · The run fires at the END", item: "d0", marker: "r0",
-      desc: "Airflow waits until the interval is <b>complete</b>, then fires the run at <b>data_interval_end</b> (start of Jan 2). This is why a <code>@daily</code> DAG for Jan 1 runs on Jan 2." },
+      what: "Airflow waits until the interval is <b>complete</b>, then fires the run at <code>data_interval_end</code> — the start of Jan&nbsp;2 for the Jan&nbsp;1 interval.",
+      why: "You can't process a day's data until the day is over. Firing at the end guarantees all the data for the interval actually exists before the run touches it.",
+      how: "The timetable computes the interval's end; the scheduler creates the run only once wall-clock time has passed that end. So the Jan-1 run starts just after midnight on Jan&nbsp;2.",
+      when: "At the close of each interval, for every scheduled DAG.",
+      mistake: "Expecting a <code>@daily</code> DAG to run <i>on</i> the date it's “for.” It runs the following period — the classic “my Monday run appeared Tuesday” confusion.",
+      interview: "A guaranteed probe: “when does a daily DAG for Jan 15 run?” The right answer — just after midnight Jan 16 — with the reason: the interval must close first.",
+      example: "ShopKart's Jan-1 sales run appears at 00:05 on Jan&nbsp;2, after the day's final orders have landed — never mid-day on Jan&nbsp;1." },
+
     { label: "3 · logical_date", item: "d0", marker: "r0",
-      desc: "The run's <b>logical_date</b> (formerly <code>execution_date</code>) equals <b>data_interval_start</b> — Jan 1 — even though wall-clock time is Jan 2. Templating uses these, e.g. <code>{{ data_interval_start }}</code>." },
+      what: "The run's <code>logical_date</code> (formerly <code>execution_date</code>) equals <code>data_interval_start</code> — <b>Jan&nbsp;1</b> — even though the wall clock says Jan&nbsp;2.",
+      why: "Your queries need the date the data belongs to, not the date the job happens to run. <code>logical_date</code> gives every run a stable, meaningful stamp you can template against.",
+      how: "Airflow injects <code>logical_date</code>, <code>data_interval_start</code>, and <code>data_interval_end</code> into the task context. Reference them in templates like <code>{{ data_interval_start }}</code> so a rerun for the same date processes the same window.",
+      when: "Fixed for the life of the run; identical on every retry and manual rerun of that run.",
+      mistake: "Using <code>datetime.now()</code> in a task instead of the logical date. That breaks idempotency — a backfill would process “today's” data for every historical run.",
+      interview: "Interviewers test idempotency here: “how do you make a task safe to re-run?” Answer: drive it off <code>logical_date</code>/interval, never wall-clock time.",
+      example: "ShopKart's extract templates <code>WHERE order_date = '{{ ds }}'</code>; rerunning the Jan-1 run months later still pulls exactly Jan-1 orders." },
+
     { label: "4 · The next interval", item: "d1", marker: "r1",
-      desc: "Interval 2 (Jan 2) completes and its run fires on Jan 3. Runs march forward one interval at a time." },
+      what: "Interval 2 (Jan&nbsp;2) completes and its run fires on Jan&nbsp;3. Runs march forward one interval at a time.",
+      why: "Sequential intervals give you a complete, gap-free history — every period gets exactly one run, which is what makes backfills and audits reliable.",
+      how: "After each interval closes the scheduler advances to the next, creating the run at that interval's end. With <code>catchup=True</code> it fills every missed interval in order; with <code>catchup=False</code> it jumps to the latest.",
+      when: "Each time an interval closes, one after another, for as long as the DAG is active.",
+      mistake: "Leaving <code>catchup=True</code> on a DAG with an old <code>start_date</code> — Airflow schedules a run for <i>every</i> missed interval and stampedes your sources.",
+      interview: "Common trap: “what happens if you deploy a DAG with a start_date six months ago?” Name catchup and the flood of backfilled runs it triggers.",
+      example: "ShopKart sets <code>catchup=False</code> on a new DAG so it starts from today, not 180 back-runs hammering the orders API at once." },
+
     { label: "5 · Today is still running", item: "d2", marker: "r2",
-      desc: "Interval 3 (Jan 3) is in flight — its run is <span class='state-chip running'>running</span>. There is no run for the current, not-yet-closed interval." }
+      what: "Interval 3 (Jan&nbsp;3) is in flight — its run is <span class='state-chip running'>running</span>. There is <b>no</b> run yet for the current, not-yet-closed interval.",
+      why: "Since a run needs a <i>completed</i> interval, the period you're living in can't have one until it ends. The “missing” latest run is correct, not a bug.",
+      how: "The scheduler only creates the next run once today's interval closes at midnight. Until then, the most recent run is the previous, already-closed interval.",
+      when: "For the entire duration of the current interval, right up to its boundary.",
+      mistake: "Filing a “today's run is missing!” ticket. There's simply no run for an interval that hasn't finished — you need a manual run or a wait until midnight.",
+      interview: "A subtle check: “why don't I see a run for today?” The interval-must-close rule is the answer, and it catches people who memorized cron instead of the interval model.",
+      example: "At 15:00 on Jan&nbsp;3, ShopKart's latest scheduled run is still the Jan-2 interval; the Jan-3 run won't exist until just after midnight." }
   ];
 
   var RUN_TYPES = [
@@ -86,7 +120,7 @@
       }
       function showStep(idx) {
         if (idx < 0) { defaultDetail(); return; }
-        detail.innerHTML = '<div class="arch-detail-title">' + STEPS[idx].label + "</div><p>" + STEPS[idx].desc + "</p>";
+        detail.innerHTML = AV.Explain.render(STEPS[idx]);
       }
 
       container.querySelector("#dr-types").innerHTML = RUN_TYPES.map(function (r) {
