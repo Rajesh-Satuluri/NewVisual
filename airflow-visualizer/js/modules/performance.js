@@ -43,17 +43,58 @@
 
   var STEPS = [
     { active: null, label: "1 · Where time actually goes",
-      desc: "Airflow throughput is bounded by four things in sequence: how fast DAGs <b>parse</b>, how fast the <b>scheduler</b> loops, how many tasks may run <b>concurrently</b>, and how much the <b>metadata DB</b> can take. Tune them in that order — a slow parser starves everything downstream." },
+      what: "Airflow throughput is bounded by four things <b>in sequence</b>: how fast DAGs <b>parse</b>, how fast the <b>scheduler</b> loops, how many tasks may run <b>concurrently</b>, and how much the <b>metadata DB</b> can take.",
+      why: "These four form a pipeline — the slowest stage caps the rest. Tuning out of order (raising concurrency before fixing parsing) just moves the queue, it doesn't shorten it.",
+      how: "Diagnose which stage is the ceiling, fix it, then re-measure. A slow parser starves the scheduler, which starves the executor, which leaves workers idle no matter how many you add.",
+      when: "Any time throughput feels low or tasks start late — begin the investigation here, not at the workers.",
+      mistake: "Adding workers first. If parsing or the scheduler loop is the bottleneck, extra workers sit idle and cost money while nothing speeds up.",
+      interview: "A great systems answer names the pipeline order and says “I'd find the binding constraint before touching any knob.” That separates tuning from guessing.",
+      example: "ShopKart's nightly run was late; the cause was a 40&nbsp;s parse loop, so adding workers did nothing until parsing was fixed first." },
+
     { active: "parser", label: "2 · Make parsing cheap",
-      desc: "The #1 real-world bottleneck is expensive DAG parsing. Raise <code>min_file_process_interval</code> so files aren't re-parsed constantly, and increase <code>parsing_processes</code> to parallelize. The real fix: keep top-level DAG code trivial — no imports of heavy libraries or network calls at module scope." },
+      what: "The #1 real-world bottleneck is expensive DAG <b>parsing</b>. Because every file is re-imported on a loop, slow top-level code taxes the whole system continuously.",
+      why: "The scheduler can only act on DAGs the processor has parsed. If parsing is slow, freshly-created runs appear late and the entire cluster feels sluggish — no downstream knob fixes it.",
+      how: "Raise <code>min_file_process_interval</code> so files aren't re-parsed constantly, and increase <code>parsing_processes</code> to parallelize. The real fix: keep top-level DAG code trivial — no heavy imports or network calls at module scope.",
+      when: "When <code>dag_processing.last_duration</code> is high, or new DAGs and edits take minutes to appear.",
+      mistake: "Doing I/O at the top level — <code>Variable.get()</code>, an API call, a big import — so it re-runs every parse for every file and compounds across the fleet.",
+      interview: "Interviewers love “my Airflow feels slow, where do you look?” Leading with DAG parsing (and cheap top-level code) signals real production experience.",
+      example: "ShopKart cut its parse loop from 40&nbsp;s to 2&nbsp;s by moving a top-level config fetch into a task and raising the process interval to 60&nbsp;s." },
+
     { active: "scheduler", label: "3 · Widen the scheduler loop",
-      desc: "<code>max_dagruns_to_create_per_loop</code> and <code>max_tis_per_query</code> control how much work each scheduler loop does. On a busy cluster, larger batches mean fewer, fatter DB round-trips. Add <b>more scheduler replicas</b> (active-active) for near-linear throughput gains." },
+      what: "Two knobs set how much the scheduler does per loop: <code>max_dagruns_to_create_per_loop</code> and <code>max_tis_per_query</code> (the batch size when examining task instances).",
+      why: "Bigger batches mean fewer, fatter DB round-trips per loop — more efficient on a busy cluster. And because scheduling is DB-coordinated, you can add scheduler replicas for near-linear throughput.",
+      how: "Raise the batch knobs on high-volume clusters and run <b>multiple active-active schedulers</b>. They coordinate through row locks, so 2–3 schedulers roughly multiply scheduling throughput.",
+      when: "When tasks are eligible but slow to move from <span class='state-chip scheduled'>scheduled</span> to <span class='state-chip queued'>queued</span> despite free workers.",
+      mistake: "Adding schedulers while the metadata DB is already the bottleneck — more schedulers just pound a saturated database harder.",
+      interview: "Know that Airflow scales the scheduler horizontally with no leader election. Naming <code>SKIP LOCKED</code> row locks as the coordination mechanism is a senior signal.",
+      example: "ShopKart added a second scheduler and doubled <code>max_tis_per_query</code>, and its huge fan-out DAG stopped lagging at the top of each hour." },
+
     { active: "concurrency", label: "4 · Set the throttle deliberately",
-      desc: "<code>parallelism</code> is the global ceiling; <code>max_active_tasks_per_dag</code> and <code>max_active_runs_per_dag</code> prevent one greedy DAG from starving the rest. During backfills, cap <code>max_active_runs</code> so you don't stampede a downstream database." },
+      what: "Three caps govern how much runs at once: <code>parallelism</code> (cluster-wide ceiling), <code>max_active_tasks_per_dag</code>, and <code>max_active_runs_per_dag</code>.",
+      why: "Without deliberate caps, one greedy DAG or a backfill can consume every slot and starve everything else — or stampede a downstream database into the ground.",
+      how: "Set <code>parallelism</code> as the global ceiling, then bound per-DAG task and run concurrency. During backfills especially, cap <code>max_active_runs_per_dag</code> so dozens of intervals don't hit a source at once.",
+      when: "When one DAG monopolises capacity, or a backfill overwhelms a downstream system.",
+      mistake: "Leaving <code>max_active_runs</code> high on a catchup/backfill, so 50 historical runs launch together and melt the warehouse.",
+      interview: "Expect “how do you stop one DAG starving the cluster?” The layered caps — global, per-DAG tasks, per-DAG runs — plus pools are the complete answer.",
+      example: "ShopKart caps its reconciliation DAG at <code>max_active_runs=2</code> so a month-long backfill trickles through instead of opening 30 concurrent warehouse connections." },
+
     { active: "db", label: "5 · Protect the metadata DB",
-      desc: "Every component and task opens DB sessions. Size <code>sql_alchemy_pool_size</code> and front Postgres with <b>PgBouncer</b>. For Celery, <code>worker_concurrency</code> multiplies load — 16 workers × 16 concurrency = 256 simultaneous DB clients. Run <code>airflow db clean</code> to keep tables small." },
+      what: "Every component and task opens DB sessions, so the metadata database is the shared ceiling on the whole cluster's throughput.",
+      why: "Because it's the hub, a saturated DB slows scheduling, task starts, and the UI all at once. Protecting it is often the highest-leverage tuning you can do.",
+      how: "Size <code>sql_alchemy_pool_size</code>, front Postgres with <b>PgBouncer</b> to multiplex connections, and remember Celery multiplies load — 16 workers × 16 concurrency = 256 clients. Run <code>airflow db clean</code> to keep tables small.",
+      when: "When DB connections approach <code>max_connections</code>, or query latency climbs as <code>task_instance</code> grows.",
+      mistake: "Raising <code>parallelism</code> without sizing the DB pool or adding PgBouncer — you just relocate the bottleneck onto Postgres.",
+      interview: "A strong answer treats the DB as the crown jewel: connection pooling, PgBouncer, periodic <code>db clean</code>. It shows you've run Airflow at scale, not just written DAGs.",
+      example: "ShopKart put PgBouncer in front of Postgres and its “too many connections” errors during the 2&nbsp;AM peak vanished, with no app changes." },
+
     { active: null, label: "6 · Measure, then tune",
-      desc: "Never tune blind. Watch <code>dag_processing.last_duration</code>, <code>scheduler.tasks.starving</code>, <code>pool.open_slots</code>, and DB connection counts. Change <b>one</b> knob, observe a full day of load, then decide. Most clusters need only 3–4 well-chosen changes." }
+      what: "Never tune blind — change <b>one</b> knob, watch the right metrics for a full load cycle, then decide whether it helped.",
+      why: "Airflow's subsystems interact, so changing several knobs at once makes cause impossible to attribute. Disciplined, single-variable changes are how you actually converge.",
+      how: "Watch <code>dag_processing.last_duration</code>, <code>scheduler.tasks.starving</code>, <code>pool.open_slots</code>, and DB connection counts. Adjust one thing, observe a day of real load, iterate. Most clusters need only 3–4 well-chosen changes.",
+      when: "Continuously, as a discipline — and especially before and after every configuration change.",
+      mistake: "Bulk-editing <code>airflow.cfg</code> with a dozen “best practice” values at once, then being unable to tell which change fixed or broke things.",
+      interview: "Interviewers value method over trivia: “measure, change one variable, observe a full cycle” is the answer that shows engineering maturity.",
+      example: "ShopKart fixed its throughput with exactly three changes — cheaper parsing, a second scheduler, and PgBouncer — each validated over a night before the next." }
   ];
 
   var CODE_CFG =
@@ -142,7 +183,7 @@
         }
         var s = STEPS[idx];
         buildGrid(s.active);
-        detail.innerHTML = '<div class="arch-detail-title">' + s.label + "</div><p>" + s.desc + "</p>";
+        detail.innerHTML = AV.Explain.render(s);
       }
 
       var codes = container.querySelector("#pf-codes");
