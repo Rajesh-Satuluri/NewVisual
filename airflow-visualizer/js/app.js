@@ -46,6 +46,7 @@
     kubernetes: { title: "Kubernetes Executor", ready: true },
     celery: { title: "Celery Executor", ready: true },
     interview: { title: "Interview Q&A", ready: true },
+    "interview-bank": { title: "Interview Question Bank", ready: true },
     quiz: { title: "Quiz", ready: true },
     glossary: { title: "Glossary", ready: true },
     "event-simulator": { title: "Event Simulator", ready: true },
