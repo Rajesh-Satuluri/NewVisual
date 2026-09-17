@@ -120,6 +120,8 @@
           '<p class="module-subtitle">' + QA.length + " senior data-engineering questions across " + (CATS.length - 1) + " topics, probing how Airflow behaves under the hood. " +
           "Filter by topic, then click a question to reveal a complete, precise answer.</p>" +
         "</div>" +
+        '<div class="callout tip"><span class="callout-icon">🎤</span><div class="callout-body">' +
+          "Want <b>scenario</b> and <b>community-sourced</b> questions to rehearse out loud? See the <a href=\"#interview-bank\">Interview Question Bank</a>.</div></div>" +
         '<div class="qa-filters" id="qa-filters">' +
           CATS.map(function (c, i) {
             return '<button class="qa-chip' + (i === 0 ? " active" : "") + '" data-cat="' + c[0] + '">' + c[1] + "</button>";

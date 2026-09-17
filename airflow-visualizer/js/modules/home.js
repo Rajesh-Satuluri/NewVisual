@@ -15,10 +15,19 @@
   ];
 
   var STATS = [
-    { num: "51", label: "Modules" },
-    { num: "80+", label: "Interview Q&As" },
-    { num: "15", label: "Failure scenarios" },
+    { num: "41", label: "Modules" },
+    { num: "150+", label: "Practice questions" },
+    { num: "31", label: "Concept walkthroughs" },
     { num: "3.x", label: "Airflow target" }
+  ];
+
+  // Learning tools surfaced below the core-concept grid so the
+  // practice/reference modules are discoverable from the landing page.
+  var TOOLS = [
+    { id: "dag-coding", icon: "🧑‍💻", title: "Reading & Writing DAGs", desc: "Read a DAG fast; write one without boilerplate.", ready: true },
+    { id: "interview-bank", icon: "🎤", title: "Interview Question Bank", desc: "Scenario & community questions to rehearse.", ready: true },
+    { id: "study", icon: "🎴", title: "Study Deck", desc: "Every quiz question in one searchable place.", ready: true },
+    { id: "cheat-sheet", icon: "📋", title: "Cheat Sheet", desc: "The whole mental model on one printable page.", ready: true }
   ];
 
   function card(t) {
@@ -58,6 +67,10 @@
         '<section class="section" style="margin-top:var(--space-12)">' +
           '<h2 class="section-title">Start here</h2>' +
           '<div class="card-grid stagger">' + TOPICS.map(card).join("") + "</div>" +
+        "</section>" +
+        '<section class="section" style="margin-top:var(--space-10)">' +
+          '<h2 class="section-title">Sharpen your skills</h2>' +
+          '<div class="card-grid stagger">' + TOOLS.map(card).join("") + "</div>" +
         "</section>" +
         '<div class="callout info">' +
           '<span class="callout-icon">🌬️</span>' +
