@@ -114,6 +114,18 @@
     var canvas = document.getElementById("canvas");
     if (canvas) canvas.scrollTop = 0;
     try { mod.render(c); } catch (e) { console.error("Module render error:", e); }
+    // Dock a module's transport bar to the viewport bottom so the play/step
+    // controls stay pinned while the module scrolls, rather than drifting
+    // mid-page. Opt-in styling lives in enhancements.css; this only applies
+    // when the module actually rendered an .anim-controls bar (engine modules;
+    // toggle modules have none and are left untouched).
+    try {
+      var barHost = c.querySelector(".arch-controls");
+      if (barHost && barHost.querySelector(".anim-controls")) {
+        barHost.classList.add("docked");
+        c.classList.add("dock-pad");
+      }
+    } catch (e) { console.error("Dock controls error:", e); }
     // Append the recurring e-commerce business example below concept
     // modules (no-op for modules without a lens entry).
     if (AV.BusinessLens) {
