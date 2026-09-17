@@ -11,37 +11,73 @@
       active: "both",
       varHighlight: null, paramHighlight: null,
       label: "1 · Two tools for runtime config",
-      desc: "Airflow provides two separate mechanisms to pass configuration into tasks at runtime: <b>Variables</b> (global, persistent key-value store) and <b>Params</b> (per-DAG, per-run configuration). They solve similar problems but at different scopes."
+      what: "Airflow offers two separate mechanisms to pass config into tasks at runtime: <b>Variables</b> (a global, persistent key-value store) and <b>Params</b> (per-DAG, per-run configuration).",
+      why: "They solve similar problems at <i>different scopes</i>. Confusing them puts config in the wrong place — a per-run value stored globally, or environment config re-entered on every trigger.",
+      how: "Variables live in the metadata DB and are read anywhere; Params are declared on the DAG and overridden at trigger time. Both resolve at task runtime, not parse time.",
+      when: "Any time a task needs a value that isn't hard-coded — pick the mechanism by scope.",
+      mistake: "Reaching for Variables for everything, including values that really vary per run (a date range, a recipient) — that's what Params are for.",
+      interview: "“Variables vs Params — when would you use each?” Global/persistent vs per-run/overridable. Getting the scope distinction right is the whole question.",
+      example: "ShopKart stores its S3 bucket name as a Variable (same all runs) and its report date-range as a Param (set per trigger)."
     },
     {
       active: "var",
       varHighlight: "scope", paramHighlight: null,
       label: "2 · Variables — global scope",
-      desc: "<b>Variables</b> live in the metadata DB and are accessible from any DAG, any task, any run. Think of them as environment-level config: S3 bucket names, API base URLs, feature flag values — things that change between environments (dev/staging/prod) but not between individual runs."
+      what: "<b>Variables</b> live in the metadata DB and are accessible from any DAG, any task, any run — environment-level config.",
+      why: "Some config is constant across runs but changes between environments: bucket names, API base URLs, feature flags. A global store is the right home for exactly those.",
+      how: "Set them via the UI, CLI, <code>Variable.set()</code>, or a secrets backend, and read them anywhere with <code>Variable.get()</code>. One change propagates to every DAG that reads the key.",
+      when: "For values that differ by environment (dev/staging/prod) but not between individual runs.",
+      mistake: "Putting per-run values in Variables, so two concurrent runs clobber each other by reading/writing the same global key.",
+      interview: "“What kind of config belongs in a Variable?” Environment-level constants shared across DAGs — not anything that changes per run. That distinction is the tell.",
+      example: "ShopKart keeps <code>s3_bucket = shopkart-data-prod</code> as a Variable so every DAG writes to the right bucket without hard-coding it."
     },
     {
       active: "param",
       varHighlight: null, paramHighlight: "scope",
       label: "3 · Params — per-run scope",
-      desc: "<b>Params</b> are declared per-DAG and can be overridden at trigger time via the UI, the REST API, or <code>--conf</code> in the CLI. They're the right tool for: 'run this report for <i>this</i> date range', 'send to <i>this</i> recipient', 'process at <i>this</i> chunk size'."
+      what: "<b>Params</b> are declared per-DAG and can be overridden at trigger time via the UI, REST API, or <code>--conf</code> in the CLI — configuration that varies run to run.",
+      why: "Some values are decided when you launch a run: which date range, which recipient, which chunk size. Params make those first-class and safely overridable per trigger.",
+      how: "Declare <code>params={…}</code> on the DAG with defaults (and optional schema); override at trigger with <code>--conf '{\"period\":\"monthly\"}'</code>. Each run captures its own param values.",
+      when: "For “run this for <i>this</i> input” — dates, targets, sizes chosen at trigger time.",
+      mistake: "Hard-coding what should be a Param, then editing the DAG every time you need a different date range instead of just overriding at trigger.",
+      interview: "“How do you pass per-run input to a DAG?” Params with a trigger-time <code>--conf</code> override (or the UI form). Contrast with Variables' global scope.",
+      example: "ShopKart triggers its sales report with <code>--conf '{\"period\":\"monthly\"}'</code> to override the default <code>daily</code> Param for one run."
     },
     {
       active: "var",
       varHighlight: "access", paramHighlight: null,
       label: "4 · Reading Variables",
-      desc: "In Python: <code>Variable.get('s3_bucket')</code> or <code>Variable.get('limits', deserialize_json=True)</code>. In templates: <code>{{ var.value.s3_bucket }}</code> or <code>{{ var.json.limits.max_rows }}</code>. Variables are read at <b>task runtime</b>, not at parse time — a missing variable raises at execution, not load."
+      what: "In Python: <code>Variable.get('s3_bucket')</code> or <code>Variable.get('limits', deserialize_json=True)</code>. In templates: <code>{{ var.value.s3_bucket }}</code> or <code>{{ var.json.limits.max_rows }}</code>.",
+      why: "Variables are read at <b>task runtime</b>, not parse time — so a missing variable raises when the task runs, not when the DAG loads, keeping parsing fast and resilient.",
+      how: "Call <code>Variable.get()</code> inside a callable, or use a Jinja template so the lookup happens at render time. JSON variables deserialize with <code>deserialize_json=True</code> or <code>var.json</code>.",
+      when: "Inside task callables and templated fields — never at the top level of the DAG file.",
+      mistake: "A top-level <code>Variable.get()</code> in the DAG body — it runs on every parse cycle, one DB query per parse per variable, taxing the scheduler.",
+      interview: "“Why is a top-level <code>Variable.get()</code> a problem?” It executes at parse time, every cycle — a classic performance smell. Say “move it into the task or a template.”",
+      example: "ShopKart reads <code>{{ var.value.s3_bucket }}</code> in a templated path, so the lookup happens per task run, not on every parse."
     },
     {
       active: "param",
       varHighlight: null, paramHighlight: "access",
       label: "5 · Reading Params",
-      desc: "In Python callables: <code>context['params']['period']</code>. In templates: <code>{{ params.period }}</code>. Params can carry a Pydantic JSON schema — Airflow validates values at trigger time, rejecting bad input before the first task ever runs."
+      what: "In Python callables: <code>context['params']['period']</code>. In templates: <code>{{ params.period }}</code>. Params can carry a JSON schema that Airflow validates at trigger time.",
+      why: "Schema validation rejects bad input <i>before</i> the first task runs — no waiting for a task to fail mid-run because someone passed <code>chunk_size = -5</code>.",
+      how: "Declare <code>Param(default, type=…, enum=…, minimum=…)</code>; Airflow validates overrides against the schema at trigger, then exposes values via <code>context['params']</code> and <code>{{ params.* }}</code>.",
+      when: "At trigger time (validation) and task runtime (access).",
+      mistake: "Skipping the schema and accepting free-form <code>--conf</code>, so invalid values slip in and blow up deep inside a task.",
+      interview: "“How do you validate run input in Airflow?” Params with a JSON schema, validated at trigger time. Mentioning early rejection (before any task) is the senior detail.",
+      example: "ShopKart's <code>chunk_size</code> Param has <code>minimum=100</code>, so a fat-fingered <code>--conf '{\"chunk_size\":5}'</code> is rejected at trigger, not mid-load."
     },
     {
       active: "both",
       varHighlight: "secret", paramHighlight: "secret",
       label: "6 · Secrets & encryption",
-      desc: "<b>Variables</b> can be stored via a secrets backend (Vault, SSM, GCP SM) and are encrypted at rest when a Fernet key is configured. <b>Params</b> are stored as part of the DagRun record — mark sensitive params with <code>hide_ui_value=True</code> (3.x) to redact them in the UI."
+      what: "<b>Variables</b> can come from a secrets backend and are encrypted at rest when a Fernet key is set. <b>Params</b> ride in the DagRun record — mark sensitive ones <code>hide_ui_value=True</code> (3.x) to redact them.",
+      why: "Config often includes secrets (tokens, keys). Variables get proper secret handling; Params don't, so anything sensitive passed as a Param needs redaction — or shouldn't be a Param at all.",
+      how: "Store secret Variables in Vault/SSM/GCP SM (or encrypt with Fernet in the DB). For Params, set <code>hide_ui_value=True</code> so the value isn't shown in the UI's run detail.",
+      when: "Whenever config values are sensitive.",
+      mistake: "Passing an API key as a plain Param, so it's stored and displayed in the DagRun's conf in the UI for anyone to read.",
+      interview: "“Where do secret config values go — Variable or Param?” Prefer a secrets-backed Variable; if a Param must carry something sensitive, redact it with <code>hide_ui_value</code>.",
+      example: "ShopKart keeps its export API token as a Vault-backed Variable, and marks a rare sensitive Param <code>hide_ui_value=True</code> so it's not shown in run details."
     }
   ];
 
@@ -169,7 +205,7 @@
           return;
         }
         renderViz(STEPS[idx]);
-        detail.innerHTML = '<div class="arch-detail-title">' + STEPS[idx].label + "</div><p>" + STEPS[idx].desc + "</p>";
+        detail.innerHTML = AV.Explain.render(STEPS[idx]);
       }
 
       var codes = container.querySelector("#vp-codes");
