@@ -71,6 +71,7 @@
   // ---- state ----
   var cur = { stack: null, id: null };
   var query = "";
+  var groupMode = "pattern";   // "pattern" (byCategory) | "domain" (by business subject)
   var warmed = false;   // Pyodide preloaded once for runnable stacks
   var approachIndex = {};   // nsId -> selected approach index
   var fuseCache = {};       // stack -> Fuse
@@ -95,6 +96,36 @@
   function all() { var r = reg(); return (r && r.all && r.all()) || []; }
   function groups() { var r = reg(); return (r && r.byCategory && r.byCategory()) || []; }
   function byId(id) { var found = null; all().forEach(function (p) { if (p.id === id) found = p; }); return found; }
+
+  // ---- grouping lens: Pattern (byCategory) vs Domain (business subject) --------
+  // A stack "supports domains" when its registry ships a DOMAINS map (lc -> domain)
+  // plus a DOMAIN_ORDER. Only PySpark does today; every other stack silently keeps
+  // the single Pattern lens and never shows the Group toggle.
+  function supportsDomains() { var r = reg(); return !!(r && r.DOMAINS && r.DOMAIN_ORDER); }
+  function groupsByDomain() {
+    var r = reg(), map = r.DOMAINS || {}, order = r.DOMAIN_ORDER || [];
+    var buckets = {}; order.forEach(function (d) { buckets[d] = []; });
+    var extra = [];
+    all().forEach(function (p) {
+      var key = p.lc != null ? map[p.lc] : null;
+      if (key && buckets[key]) buckets[key].push(p);
+      else extra.push(p);   // safety net — should never fire (coverage is 100%)
+    });
+    var out = [];
+    order.forEach(function (d) { if (buckets[d].length) out.push({ category: d, problems: buckets[d] }); });
+    if (extra.length) out.push({ category: "Other", problems: extra });
+    return out;
+  }
+  // The group set actually shown, honoring the current lens.
+  function activeGroups() {
+    if (groupMode === "domain" && supportsDomains()) return groupsByDomain();
+    return groups();
+  }
+  function groupIcon(name) {
+    var r = reg();
+    if (groupMode === "domain" && r.DOMAIN_ICON) return r.DOMAIN_ICON[name] || "•";
+    return (r.CATEGORY_ICON && r.CATEGORY_ICON[name]) || "•";
+  }
 
   // ---- cross-link a practice problem back to the Learn concepts that teach it ----
   // Same stack key drives both workspaces (sql/spark/numpy/pandas), so we match the
@@ -315,21 +346,44 @@
   }
 
   // ============================================================ SIDEBAR
-  function catCollapseKey(cat) { return cur.stack + "::" + cat; }
+  // Collapse state is namespaced by lens so Pattern and Domain remember their own
+  // open/closed sections independently (and "Other" can never clash across lenses).
+  function catCollapseKey(cat) { return cur.stack + "::" + (groupMode === "domain" ? "dom::" : "") + cat; }
   function renderSidebar() {
     var nav = el("nav");
     if (!nav) return;
     updateFilterCounts();
     nav.innerHTML = "";
+
+    // Group-by lens toggle (only for stacks that ship a DOMAINS map).
+    if (supportsDomains()) {
+      var gb = h("div", { class: "nav-groupby" });
+      gb.appendChild(h("span", { class: "ngb-label" }, "Group by"));
+      var seg = h("div", { class: "ngb-seg" });
+      [["pattern", "Pattern"], ["domain", "Domain"]].forEach(function (m) {
+        var b = h("button", { class: "ngb-btn" + (groupMode === m[0] ? " on" : ""), "data-mode": m[0] }, m[1]);
+        b.addEventListener("click", function () {
+          if (groupMode === m[0]) return;
+          groupMode = m[0];
+          store.setPref("labGroupMode_" + cur.stack, groupMode);
+          renderSidebar();
+          if (window.BLIND75 && window.BLIND75.updateToggleAllIcon) window.BLIND75.updateToggleAllIcon();
+        });
+        seg.appendChild(b);
+      });
+      gb.appendChild(seg);
+      nav.appendChild(gb);
+    }
+
     var vis = {}; visibleList().forEach(function (p) { vis[p.id] = true; });
-    groups().forEach(function (g) {
+    activeGroups().forEach(function (g) {
       var matching = g.problems.filter(function (p) { return vis[p.id]; });
       if (!matching.length) return;
       var collapsed = store.isCatCollapsed(catCollapseKey(g.category));
       var solved = matching.filter(function (p) { return store.getStatus(nsId(p.id)) === "solved"; }).length;
       var block = h("div", { class: "cat-block" + (collapsed ? " collapsed" : ""), "data-cat": g.category });
       var header = h("button", { class: "cat-header" });
-      var icon = (reg().CATEGORY_ICON && reg().CATEGORY_ICON[g.category]) || "•";
+      var icon = groupIcon(g.category);
       header.innerHTML =
         '<span class="cat-caret">▾</span><span class="cat-icon">' + icon + "</span>" +
         '<span class="cat-name">' + esc(g.category) + "</span>" +
@@ -367,7 +421,7 @@
       });
       nav.appendChild(block);
     });
-    if (!nav.children.length) nav.appendChild(h("div", { class: "nav-empty" }, "No problems match your search / filters."));
+    if (!nav.querySelector(".cat-block")) nav.appendChild(h("div", { class: "nav-empty" }, "No problems match your search / filters."));
   }
 
   // ============================================================ PROGRESS
@@ -773,6 +827,8 @@
     mount: function (stack, id) {
       if (!STACKS[stack]) return;
       cur.stack = stack;
+      // Restore this stack's saved grouping lens; stacks without domains stay on Pattern.
+      groupMode = (supportsDomains() && store.getPref("labGroupMode_" + stack) === "domain") ? "domain" : "pattern";
       var list = all();
       if (!list.length) {
         cur.id = null;
@@ -799,7 +855,7 @@
     onSearch: function (q) { query = q; renderSidebar(); renderProgress(); },
     onFilter: function () { renderSidebar(); renderProgress(); },
     toggleAll: function () {
-      var gs = groups();
+      var gs = activeGroups();
       var willOpen = gs.every(function (g) { return store.isCatCollapsed(catCollapseKey(g.category)); }); // all collapsed → open all
       gs.forEach(function (g) { store.setCatCollapsed(catCollapseKey(g.category), !willOpen); });
       var blocks = el("nav").querySelectorAll(".cat-block");
@@ -807,7 +863,7 @@
     },
     // Are all categories currently collapsed? (drives the shared toggle icon.)
     allCollapsed: function () {
-      var gs = groups();
+      var gs = activeGroups();
       return gs.length > 0 && gs.every(function (g) { return store.isCatCollapsed(catCollapseKey(g.category)); });
     }
   };

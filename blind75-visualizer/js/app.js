@@ -1797,6 +1797,9 @@
     applyRoute();
   }
   B.navigate = navigate;
+  // Let the practice lab refresh the header collapse-all icon after it changes
+  // its own group set (e.g. flipping Pattern ⇄ Domain grouping).
+  B.updateToggleAllIcon = updateToggleAllIcon;
 
   // Master navigation primitive — jump to any (mode, stack, id) cell.
   B.goTo = function (mode, stack, id) { navigate(routeFor(mode, stack, id)); };
