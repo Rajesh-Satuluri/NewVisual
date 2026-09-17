@@ -570,3 +570,62 @@ body.sidebar-open .ham i:nth-child(3) { top: 6px; transform: rotate(-45deg); }
   font-weight: 700; padding: 3px 12px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
 .ngb-btn:hover { color: var(--text); }
 .ngb-btn.on { background: var(--brand); color: #fff; }
+
+/* ---- Interview Postmortem modal ------------------------------------------- */
+/* Reuses the Rosetta overlay shell (.ros/.ros-box/.ros-head/.ros-body); these
+ * are the postmortem-specific card internals. */
+.pm-body { padding-top: 12px; }
+.pm-card { border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 16px 18px; margin-bottom: 16px; background: var(--bg-1); box-shadow: inset 3px 0 0 var(--brand-2); }
+.pm-card-h { margin-bottom: 12px; }
+.pm-crumb { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.pm-diff { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px;
+  border-radius: 999px; padding: 1px 9px; border: 1px solid var(--border); color: var(--text-2); background: var(--bg-2); }
+.pm-diff.d-hard { color: var(--red, #e03131); border-color: color-mix(in srgb, var(--red, #e03131) 45%, transparent); }
+.pm-diff.d-medium { color: var(--amber, #f08c00); border-color: color-mix(in srgb, var(--amber, #f08c00) 45%, transparent); }
+.pm-diff.d-easy { color: var(--green, #2f9e44); border-color: color-mix(in srgb, var(--green, #2f9e44) 45%, transparent); }
+.pm-group { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+.pm-title { font-size: 17px; font-weight: 800; margin: 0; line-height: 1.3; }
+.pm-aka { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+.pm-aka code { font-size: .9em; }
+
+.pm-sec { margin-top: 14px; }
+.pm-sec-h { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px;
+  color: var(--text-2); margin-bottom: 7px; }
+.pm-list { margin: 0; padding-left: 18px; }
+.pm-list li { font-size: 13.5px; line-height: 1.6; color: var(--text); margin: 3px 0; }
+.pm-list li code, .pm-steps li code, .pm-keyidea code, .pm-cost code, .pm-fu-a code { font-size: .88em; }
+
+.pm-keyidea { margin-top: 14px; font-size: 13.5px; line-height: 1.6; color: var(--text);
+  background: color-mix(in srgb, var(--brand) 8%, var(--bg-2)); border-left: 3px solid var(--brand);
+  border-radius: 0 8px 8px 0; padding: 10px 14px; }
+
+.pm-steps { margin: 0; padding-left: 20px; }
+.pm-steps li { font-size: 13.5px; line-height: 1.6; color: var(--text); margin: 5px 0; }
+
+.pm-cols { margin-top: 2px; }
+.pm-copy { margin-left: auto; cursor: pointer; font-family: inherit; font-size: 11px; font-weight: 700;
+  color: var(--muted); background: var(--bg-2); border: 1px solid var(--border); border-radius: 6px; padding: 2px 9px; }
+.pm-copy:hover { color: var(--text); }
+.pm-copy.ok { color: #06111f; background: var(--ok, #37b24d); border-color: transparent; }
+.ros-col-h { display: flex; align-items: center; }
+
+.pm-cost { margin-top: 14px; font-size: 13px; line-height: 1.6; color: var(--text-2);
+  background: var(--bg-2); border-left: 3px solid var(--amber, #f08c00); border-radius: 0 8px 8px 0; padding: 9px 13px; }
+
+.pm-dd { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+.pm-do, .pm-dont { border: 1px solid var(--border-soft); border-radius: var(--radius-sm); padding: 10px 12px; }
+.pm-do { background: color-mix(in srgb, var(--green, #2f9e44) 7%, var(--bg-1)); }
+.pm-dont { background: color-mix(in srgb, var(--red, #e03131) 7%, var(--bg-1)); }
+.pm-dd-h { font-size: 12px; font-weight: 800; margin-bottom: 6px; }
+.pm-do .pm-dd-h { color: var(--green, #2f9e44); }
+.pm-dont .pm-dd-h { color: var(--red, #e03131); }
+.pm-dd .pm-list { padding-left: 16px; }
+.pm-dd .pm-list li { font-size: 13px; }
+@media (max-width: 680px) { .pm-dd { grid-template-columns: 1fr; } }
+
+.pm-fu-sec { margin-top: 16px; }
+.pm-fu { border-top: 1px dashed var(--border-soft); padding: 8px 0; }
+.pm-fu:first-of-type { border-top: none; }
+.pm-fu-q { font-size: 13px; font-weight: 700; color: var(--text); }
+.pm-fu-a { font-size: 13px; line-height: 1.55; color: var(--text-2); margin-top: 2px; }
