@@ -235,6 +235,277 @@ window.PYSPARK_QA = {
         "<li>For very long lineages or streaming, Spark adds <b>checkpointing</b> (persist to reliable storage) and a <b>Write-Ahead Log</b> so recovery doesn't replay from the very beginning.</li>" +
         "<li>The driver/cluster manager also reschedules failed tasks and can use <b>speculative execution</b> for stragglers.</li>" +
         "</ul>"
+    },
+
+    // ─────────────────────── G2 · Architecture & Execution ───────────────────────
+    {
+      id: "pyspark-architecture",
+      group: "Architecture & Execution",
+      q: "Explain the Spark / PySpark architecture.",
+      difficulty: "Core",
+      tags: ["architecture", "driver", "executor", "master-slave"],
+      a:
+        "<p>Spark runs a <b>master-slave</b> architecture with four moving parts:</p>" +
+        "<ul>" +
+        "<li><b>Driver</b> (master) — runs your <code>main()</code>, creates the SparkSession, builds the DAG and schedules work.</li>" +
+        "<li><b>Cluster Manager</b> — allocates resources (YARN, Standalone, Mesos, K8s).</li>" +
+        "<li><b>Executors</b> (on worker nodes) — JVM processes that actually run tasks and cache data in memory/disk.</li>" +
+        "<li><b>Task</b> — the smallest unit of work, one per partition, sent to an executor.</li>" +
+        "</ul>" +
+        "<p>Flow: driver asks the cluster manager for executors, ships them your code, then sends tasks to run in parallel and collects results.</p>",
+      tip: "Say the chain out loud: <b>Driver → Cluster Manager → Executors → Tasks (one per partition)</b>. That single sentence shows you understand how a job actually runs."
+    },
+    {
+      id: "spark-driver",
+      group: "Architecture & Execution",
+      q: "What is the Spark Driver and what does it do?",
+      difficulty: "Core",
+      tags: ["driver", "scheduling", "dag"],
+      a:
+        "<p><b>The Driver is the master process that runs your application's <code>main()</code> and orchestrates everything.</b></p>" +
+        "<ul>" +
+        "<li>Creates the <b>SparkSession/SparkContext</b> — the entry point to the cluster.</li>" +
+        "<li>Converts your code into a <b>DAG → stages → tasks</b> and schedules those tasks on executors.</li>" +
+        "<li>Tracks metadata and cluster state, and <b>collects results</b> back.</li>" +
+        "</ul>" +
+        "<p>It's a single point of coordination — if the driver dies, the whole application dies, which is why in production it runs inside the cluster (cluster mode).</p>"
+    },
+    {
+      id: "worker-node",
+      group: "Architecture & Execution",
+      q: "What is a worker node vs an executor?",
+      difficulty: "Common",
+      tags: ["worker", "executor", "slave", "task"],
+      a:
+        "<ul>" +
+        "<li><b>Worker node</b> — a machine in the cluster that provides CPU/RAM (a.k.a. “slave node” — the terms are used interchangeably).</li>" +
+        "<li><b>Executor</b> — a JVM process launched <i>on</i> a worker for your specific application. It runs the actual tasks and keeps cached/shuffle data in memory or disk.</li>" +
+        "</ul>" +
+        "<p>One worker can host several executors, and each application gets its own executors (they aren't shared across apps). Executors live for the lifetime of the app.</p>"
+    },
+    {
+      id: "sparkcontext",
+      group: "Architecture & Execution",
+      q: "What is SparkContext?",
+      difficulty: "Core",
+      tags: ["sparkcontext", "rdd", "entry-point"],
+      a:
+        "<p><b>SparkContext is the original entry point to Spark (since 1.x)</b> — it's your connection to the cluster and is used to create RDDs, accumulators and broadcast variables.</p>" +
+        "<ul>" +
+        "<li>You can have <b>only one SparkContext per JVM</b>; call <code>stop()</code> before creating another.</li>" +
+        "<li>In modern code it lives <i>inside</i> SparkSession — reach it via <code>spark.sparkContext</code>.</li>" +
+        "</ul>",
+      code:
+        "from pyspark import SparkContext\n" +
+        "sc = SparkContext('local', 'MyApp')\n" +
+        "rdd = sc.parallelize([1, 2, 3])\n" +
+        "sc.stop()   # must stop before making another",
+      lang: "python"
+    },
+    {
+      id: "sparksession",
+      group: "Architecture & Execution",
+      q: "What is SparkSession?",
+      difficulty: "Core",
+      tags: ["sparksession", "dataframe", "entry-point"],
+      a:
+        "<p><b>SparkSession is the unified entry point introduced in Spark 2.0.</b> It merged the older <code>SQLContext</code>, <code>HiveContext</code> and <code>SparkContext</code> into one object so you have a single door to DataFrames, Datasets and SQL.</p>" +
+        "<ul>" +
+        "<li>Built with the <b>builder</b> pattern; <code>getOrCreate()</code> reuses an existing session or makes a new one.</li>" +
+        "<li>Use it to read data, create DataFrames, and run <code>spark.sql(...)</code>.</li>" +
+        "</ul>",
+      code:
+        "from pyspark.sql import SparkSession\n" +
+        "spark = (SparkSession.builder\n" +
+        "         .appName('MyApp')\n" +
+        "         .master('local[*]')\n" +
+        "         .getOrCreate())",
+      lang: "python"
+    },
+    {
+      id: "sparkcontext-vs-sparksession",
+      group: "Architecture & Execution",
+      q: "SparkContext vs SparkSession — what's the difference?",
+      difficulty: "Common",
+      tags: ["sparkcontext", "sparksession", "comparison"],
+      a:
+        "<ul>" +
+        "<li><b>SparkContext</b> (Spark 1.x) — the low-level connection to the cluster, centered on <b>RDDs</b>, accumulators and broadcast variables.</li>" +
+        "<li><b>SparkSession</b> (Spark 2.0+) — the <b>unified</b> entry point for DataFrames, Datasets and SQL; it wraps SparkContext plus the old SQL/Hive contexts.</li>" +
+        "</ul>" +
+        "<p>Practically: <b>use SparkSession</b> for everything today, and if you need the RDD-level context, grab it via <code>spark.sparkContext</code>.</p>"
+    },
+    {
+      id: "cluster-managers",
+      group: "Architecture & Execution",
+      q: "Which cluster managers does Spark support?",
+      difficulty: "Common",
+      tags: ["yarn", "kubernetes", "mesos", "standalone"],
+      a:
+        "<p>The cluster manager's job is to <b>allocate resources (CPU/RAM) across applications</b>. Spark supports:</p>" +
+        "<ul>" +
+        "<li><b>Standalone</b> — Spark's built-in manager, quick to set up.</li>" +
+        "<li><b>YARN</b> — Hadoop's resource manager; the most common in production.</li>" +
+        "<li><b>Mesos</b> — a general-purpose cluster manager (now less common).</li>" +
+        "<li><b>Kubernetes</b> — container-orchestrated Spark, increasingly the modern default.</li>" +
+        "<li><b>local</b> — not really a cluster; runs Spark on your laptop for dev/testing.</li>" +
+        "</ul>"
+    },
+    {
+      id: "deploy-modes",
+      group: "Architecture & Execution",
+      q: "Cluster mode vs Client mode — what's the difference?",
+      difficulty: "Common",
+      tags: ["deploy-mode", "cluster", "client", "driver"],
+      a:
+        "<p>The difference is simply <b>where the Driver runs</b>:</p>" +
+        "<ul>" +
+        "<li><b>Cluster mode</b> — the driver runs <i>inside</i> the cluster (in an application master). The client can disconnect after submitting. This is the <b>production</b> choice.</li>" +
+        "<li><b>Client mode</b> — the driver runs on the <i>machine you submit from</i>; executors still run in the cluster. Great for <b>interactive work and debugging</b> (notebooks, spark-shell).</li>" +
+        "</ul>",
+      code:
+        "spark-submit --deploy-mode cluster app.py   # driver in cluster (prod)\n" +
+        "spark-submit --deploy-mode client  app.py   # driver on your box (debug)",
+      lang: "bash"
+    },
+    {
+      id: "spark-submit",
+      group: "Architecture & Execution",
+      q: "What is spark-submit?",
+      difficulty: "Common",
+      tags: ["spark-submit", "deployment", "cli"],
+      a:
+        "<p><b><code>spark-submit</code> is the command-line tool that launches a Spark application on a cluster.</b> You point it at your code and tell it how much resource to use.</p>" +
+        "<ul>" +
+        "<li><b><code>--master</code></b> — where to run (yarn, k8s, spark://host:7077, local[*]).</li>" +
+        "<li><b><code>--deploy-mode</code></b> — cluster or client.</li>" +
+        "<li><b>Resources</b> — <code>--driver-memory</code>, <code>--executor-memory</code>, <code>--executor-cores</code>, <code>--num-executors</code>.</li>" +
+        "</ul>",
+      code:
+        "spark-submit \\\n" +
+        "  --master yarn \\\n" +
+        "  --deploy-mode cluster \\\n" +
+        "  --executor-memory 4G --num-executors 10 \\\n" +
+        "  my_job.py",
+      lang: "bash"
+    },
+    {
+      id: "spark-components",
+      group: "Architecture & Execution",
+      q: "What are the components of the Spark ecosystem?",
+      difficulty: "Core",
+      tags: ["components", "spark-sql", "mllib", "graphx", "streaming"],
+      a:
+        "<p>Spark is one engine with specialized libraries on top of a shared core:</p>" +
+        "<ul>" +
+        "<li><b>Spark Core</b> — the heart: task scheduling, memory management, fault recovery, and the RDD API.</li>" +
+        "<li><b>Spark SQL</b> — structured data via DataFrames + SQL (with Catalyst).</li>" +
+        "<li><b>Spark Streaming / Structured Streaming</b> — near-real-time processing.</li>" +
+        "<li><b>MLlib</b> — scalable machine learning.</li>" +
+        "<li><b>GraphX</b> — graph and graph-parallel computation.</li>" +
+        "</ul>" +
+        "<p>In PySpark these map to modules like <code>pyspark.sql</code>, <code>pyspark.streaming</code> and <code>pyspark.ml</code>.</p>"
+    },
+
+    // ─────────────────────────── G3 · RDD Deep-Dive ───────────────────────────
+    {
+      id: "what-is-rdd",
+      group: "RDD Deep-Dive",
+      q: "What is an RDD?",
+      difficulty: "Core",
+      tags: ["rdd", "abstraction", "fault-tolerance"],
+      a:
+        "<p><b>RDD = Resilient Distributed Dataset</b> — Spark's original low-level abstraction: an <b>immutable, fault-tolerant, distributed</b> collection of elements partitioned across the cluster and operated on in parallel.</p>" +
+        "<ul>" +
+        "<li><b>Resilient</b> — rebuilds lost partitions from lineage.</li>" +
+        "<li><b>Distributed</b> — split into partitions across nodes.</li>" +
+        "<li><b>Dataset</b> — the records themselves.</li>" +
+        "</ul>" +
+        "<p>Key traits: in-memory, immutable, lazily evaluated, fault-tolerant. Downside: <b>no schema and no Catalyst optimizer</b>, so it's more verbose and slower than DataFrames for structured work.</p>"
+    },
+    {
+      id: "rdd-immutable",
+      group: "RDD Deep-Dive",
+      q: "Why are RDDs immutable?",
+      difficulty: "Common",
+      tags: ["rdd", "immutability", "lineage"],
+      a:
+        "<p>Immutability is what makes RDDs safe and recoverable:</p>" +
+        "<ul>" +
+        "<li><b>Fault tolerance</b> — because inputs never change, Spark can deterministically <b>recompute</b> a lost partition from its lineage.</li>" +
+        "<li><b>Safe parallelism</b> — many tasks can read the same data with no locks or race conditions.</li>" +
+        "<li><b>Functional model</b> — every transformation returns a <i>new</i> RDD instead of mutating the old one.</li>" +
+        "</ul>"
+    },
+    {
+      id: "create-rdd",
+      group: "RDD Deep-Dive",
+      q: "How do you create an RDD?",
+      difficulty: "Common",
+      tags: ["rdd", "parallelize", "textfile"],
+      a:
+        "<p>There are <b>three</b> ways:</p>" +
+        "<ul>" +
+        "<li><b>Parallelize</b> an existing in-memory collection.</li>" +
+        "<li><b>Reference external storage</b> — read a file from HDFS, S3, local disk, etc.</li>" +
+        "<li><b>Transform</b> an existing RDD (map, filter…) into a new one.</li>" +
+        "</ul>",
+      code:
+        "rdd1 = sc.parallelize([1, 2, 3, 4])        # from a collection\n" +
+        "rdd2 = sc.textFile('/data/file.txt')       # from storage\n" +
+        "rdd3 = rdd1.map(lambda x: x * 2)           # from another RDD",
+      lang: "python"
+    },
+    {
+      id: "rdd-types",
+      group: "RDD Deep-Dive",
+      q: "What are the types of RDD?",
+      difficulty: "Deep",
+      tags: ["rdd", "pairrdd", "types"],
+      a:
+        "<p>The one that matters in interviews is the <b>Pair RDD</b> (key-value RDD) — it unlocks all the by-key operations (<code>reduceByKey</code>, <code>groupByKey</code>, <code>join</code>, <code>aggregateByKey</code>).</p>" +
+        "<p>Under the hood Spark also has internal specializations created as you work:</p>" +
+        "<ul>" +
+        "<li><b>HadoopRDD</b> — reading from HDFS.</li>" +
+        "<li><b>ShuffledRDD</b> — produced by a shuffle.</li>" +
+        "<li><b>ParallelCollectionRDD</b> — from <code>parallelize</code>.</li>" +
+        "</ul>" +
+        "<p>You rarely name these directly; know <b>Pair RDD</b> and that shuffles create ShuffledRDDs.</p>"
+    },
+    {
+      id: "paired-rdd",
+      group: "RDD Deep-Dive",
+      q: "What is a Paired RDD?",
+      difficulty: "Common",
+      tags: ["pairrdd", "key-value", "aggregation"],
+      a:
+        "<p><b>A Paired RDD is an RDD whose elements are (key, value) tuples.</b> This key-value shape is what enables Spark's most useful distributed operations.</p>" +
+        "<ul>" +
+        "<li>By-key aggregation: <code>reduceByKey</code>, <code>aggregateByKey</code>, <code>groupByKey</code>.</li>" +
+        "<li>Key-based joins: <code>join</code>, <code>leftOuterJoin</code>, <code>cogroup</code>.</li>" +
+        "<li>Key ordering: <code>sortByKey</code>.</li>" +
+        "</ul>" +
+        "<p>Any of these that move data by key can trigger a <b>shuffle</b>.</p>",
+      code:
+        "pairs = sc.parallelize([('a', 1), ('b', 2), ('a', 3)])\n" +
+        "pairs.reduceByKey(lambda x, y: x + y).collect()\n" +
+        "# [('a', 4), ('b', 2)]",
+      lang: "python"
+    },
+    {
+      id: "when-use-rdd",
+      group: "RDD Deep-Dive",
+      q: "When should you use RDDs instead of DataFrames?",
+      difficulty: "Common",
+      tags: ["rdd", "dataframe", "when-to-use"],
+      a:
+        "<p><b>Default to DataFrames</b> — they get Catalyst optimization and are faster and shorter for structured data. Reach for RDDs only when you genuinely need low-level control:</p>" +
+        "<ul>" +
+        "<li>Truly <b>unstructured</b> data with no fixed schema.</li>" +
+        "<li><b>Fine-grained control</b> over physical execution or <b>custom partitioning</b>.</li>" +
+        "<li>Complex, non-tabular transformations that don't map to SQL/DataFrame ops.</li>" +
+        "</ul>" +
+        "<p>The cost of RDDs: no schema, <b>no Catalyst optimizer</b>, and more boilerplate.</p>"
     }
   ]
 };
