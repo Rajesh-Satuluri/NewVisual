@@ -506,6 +506,273 @@ window.PYSPARK_QA = {
         "<li>Complex, non-tabular transformations that don't map to SQL/DataFrame ops.</li>" +
         "</ul>" +
         "<p>The cost of RDDs: no schema, <b>no Catalyst optimizer</b>, and more boilerplate.</p>"
+    },
+
+    // ─────────────── G4 · Transformations, Actions & RDD API ───────────────
+    {
+      id: "transformations-vs-actions",
+      group: "Transformations, Actions & RDD API",
+      q: "What is the difference between a transformation and an action?",
+      difficulty: "Core",
+      tags: ["transformation", "action", "lazy"],
+      a:
+        "<ul>" +
+        "<li><b>Transformations</b> are <b>lazy</b> — they define a new RDD/DataFrame from an existing one but don't run. They just extend the DAG. Examples: <code>map</code>, <code>filter</code>, <code>flatMap</code>, <code>reduceByKey</code>, <code>join</code>.</li>" +
+        "<li><b>Actions</b> <b>trigger execution</b> and return a value to the driver (or write to storage). Examples: <code>collect</code>, <code>count</code>, <code>first</code>, <code>take</code>, <code>saveAsTextFile</code>.</li>" +
+        "</ul>" +
+        "<p>Simple test: <b>if it returns another RDD/DataFrame it's a transformation; if it returns a concrete value or writes output, it's an action.</b> Nothing runs until an action fires.</p>"
+    },
+    {
+      id: "narrow-vs-wide",
+      group: "Transformations, Actions & RDD API",
+      q: "Narrow vs wide transformations?",
+      difficulty: "Core",
+      tags: ["narrow", "wide", "shuffle", "stages"],
+      a:
+        "<ul>" +
+        "<li><b>Narrow</b> — each input partition contributes to <b>exactly one</b> output partition; no data moves across the network. Examples: <code>map</code>, <code>filter</code>, <code>flatMap</code>, <code>union</code>. Fast, pipelined within a stage.</li>" +
+        "<li><b>Wide</b> — output partitions depend on <b>many</b> input partitions, so Spark must <b>shuffle</b> data across executors. Examples: <code>groupByKey</code>, <code>reduceByKey</code>, <code>join</code>, <code>repartition</code>.</li>" +
+        "</ul>" +
+        "<p>This matters because <b>wide transformations create stage boundaries and are the expensive part</b> of a job — minimizing shuffles is most of Spark tuning.</p>"
+    },
+    {
+      id: "spot-transformation-action",
+      group: "Transformations, Actions & RDD API",
+      q: "How do you tell if an operation is a transformation or an action in your code?",
+      difficulty: "Common",
+      tags: ["transformation", "action", "return-type"],
+      a:
+        "<p><b>Look at the return type.</b></p>" +
+        "<ul>" +
+        "<li>Returns another <b>RDD/DataFrame</b> → <b>transformation</b> (lazy). e.g. <code>df.filter(...)</code> gives a DataFrame.</li>" +
+        "<li>Returns a <b>value</b> (int, list, row) or performs a <b>write</b> → <b>action</b> (eager). e.g. <code>df.count()</code> returns a number, <code>df.write...</code> produces output.</li>" +
+        "</ul>" +
+        "<p>Another tell: if calling it kicks off a job in the Spark UI, it was an action.</p>"
+    },
+    {
+      id: "map-flatmap-filter",
+      group: "Transformations, Actions & RDD API",
+      q: "map vs flatMap vs filter?",
+      difficulty: "Core",
+      tags: ["map", "flatmap", "filter"],
+      a:
+        "<ul>" +
+        "<li><b>map</b> — one-to-one: applies a function to each element, returns exactly one output per input.</li>" +
+        "<li><b>flatMap</b> — one-to-many: returns an iterable per element and <b>flattens</b> the results into a single collection (great for tokenizing/splitting).</li>" +
+        "<li><b>filter</b> — keeps only elements where the predicate is true.</li>" +
+        "</ul>" +
+        "<p>All three are <b>narrow transformations</b>.</p>",
+      code:
+        "rdd = sc.parallelize(['a b', 'c'])\n" +
+        "rdd.map(lambda s: s.split())      # [['a','b'], ['c']]\n" +
+        "rdd.flatMap(lambda s: s.split())  # ['a', 'b', 'c']  <- flattened\n" +
+        "rdd.filter(lambda s: 'a' in s)    # ['a b']",
+      lang: "python"
+    },
+    {
+      id: "mappartitions",
+      group: "Transformations, Actions & RDD API",
+      q: "What is mapPartitions and when would you use it?",
+      difficulty: "Common",
+      tags: ["mappartitions", "performance", "initialization"],
+      a:
+        "<p><b><code>mapPartitions</code> is like <code>map</code>, but your function runs once per <i>partition</i> instead of once per <i>row</i></b> — it receives an iterator of the partition's rows.</p>" +
+        "<p>Use it when you have <b>heavy per-call setup</b> that you don't want to repeat for every row — e.g. opening a DB connection, loading a model, or creating an API client <b>once per partition</b> and reusing it across all rows in that partition.</p>" +
+        "<p><code>mapPartitionsWithIndex</code> is the same but also gives you the partition index.</p>"
+    },
+    {
+      id: "bykey-ops",
+      group: "Transformations, Actions & RDD API",
+      q: "groupByKey vs reduceByKey vs aggregateByKey?",
+      difficulty: "Core",
+      tags: ["reducebykey", "groupbykey", "aggregatebykey", "shuffle"],
+      a:
+        "<p>All work on Pair RDDs, but they shuffle very differently:</p>" +
+        "<ul>" +
+        "<li><b>groupByKey</b> — shuffles <b>all</b> values for each key across the network, then groups. Expensive; risks OOM on hot keys.</li>" +
+        "<li><b>reduceByKey</b> — combines values <b>locally first</b> (map-side combine) and only then shuffles partial results. Far less network traffic — prefer it.</li>" +
+        "<li><b>aggregateByKey</b> — like reduceByKey but lets the <b>output type differ</b> from the input (e.g. build a (sum, count) tuple for an average).</li>" +
+        "</ul>",
+      tip: "The classic answer: <b>\"prefer reduceByKey over groupByKey\"</b> because reduceByKey combines on the map side and shuffles less. Interviewers wait for exactly that line."
+    },
+    {
+      id: "rdd-set-ops",
+      group: "Transformations, Actions & RDD API",
+      q: "Explain distinct, union, intersection and subtract.",
+      difficulty: "Common",
+      tags: ["distinct", "union", "intersection", "subtract"],
+      a:
+        "<ul>" +
+        "<li><b>distinct()</b> — removes duplicate elements (needs a shuffle).</li>" +
+        "<li><b>union()</b> — concatenates two RDDs into one (does <b>not</b> dedupe; narrow).</li>" +
+        "<li><b>intersection()</b> — elements present in <b>both</b> RDDs (shuffle).</li>" +
+        "<li><b>subtract()</b> — elements in the first RDD but <b>not</b> in the second (shuffle).</li>" +
+        "</ul>" +
+        "<p>Note: <code>union</code> keeps duplicates — chain <code>.distinct()</code> if you need a true set union.</p>"
+    },
+    {
+      id: "rdd-joins",
+      group: "Transformations, Actions & RDD API",
+      q: "What join operations do Pair RDDs support?",
+      difficulty: "Common",
+      tags: ["join", "outer-join", "cogroup"],
+      a:
+        "<p>On Pair RDDs (matched by key):</p>" +
+        "<ul>" +
+        "<li><b>join</b> — inner join: only keys present in both.</li>" +
+        "<li><b>leftOuterJoin</b> — all keys from the left, <code>None</code> where the right has no match.</li>" +
+        "<li><b>rightOuterJoin</b> — all keys from the right.</li>" +
+        "<li><b>fullOuterJoin</b> — all keys from both sides.</li>" +
+        "<li><b>cogroup</b> — groups values from two (or more) RDDs by key into iterables — the primitive the joins are built on.</li>" +
+        "</ul>" +
+        "<p>All are wide transformations (they shuffle) unless a side is broadcast.</p>"
+    },
+    {
+      id: "rdd-actions",
+      group: "Transformations, Actions & RDD API",
+      q: "Name the common RDD actions and what they return.",
+      difficulty: "Common",
+      tags: ["actions", "collect", "reduce", "count"],
+      a:
+        "<ul>" +
+        "<li><b>collect()</b> — brings the whole RDD to the driver (careful: OOM on big data).</li>" +
+        "<li><b>count()</b> / <b>first()</b> / <b>take(n)</b> — size, first element, first n.</li>" +
+        "<li><b>top(n)</b> / <b>takeOrdered(n)</b> — largest / smallest n.</li>" +
+        "<li><b>reduce()</b> / <b>fold()</b> — aggregate with an associative function (fold takes a zero value).</li>" +
+        "<li><b>countByKey()</b> / <b>countByValue()</b> / <b>lookup(key)</b> — key-based counts and value lookup.</li>" +
+        "<li><b>saveAsTextFile()</b> — write output; <b>foreach()</b> — run a side effect per element.</li>" +
+        "</ul>",
+      tip: "The one they probe: <b>avoid <code>collect()</code> on large data</b> — it pulls everything to the driver and OOMs. Use <code>take()</code> / <code>show()</code> to peek."
+    },
+
+    // ─────────────── G5 · DataFrames, Datasets & Spark SQL ───────────────
+    {
+      id: "what-is-dataframe",
+      group: "DataFrames, Datasets & Spark SQL",
+      q: "What is a DataFrame and why use it?",
+      difficulty: "Core",
+      tags: ["dataframe", "schema", "catalyst"],
+      a:
+        "<p><b>A DataFrame is a distributed collection of rows organized into named, typed columns</b> — like a table in a relational database, but spread across the cluster and immutable.</p>" +
+        "<p>Why prefer it over RDDs:</p>" +
+        "<ul>" +
+        "<li><b>Catalyst optimizer</b> — Spark rewrites your query for you (predicate pushdown, column pruning).</li>" +
+        "<li><b>Schema-aware</b> — named columns and types enable SQL and validation.</li>" +
+        "<li><b>Less code, more speed</b> — concise API plus Tungsten's efficient memory layout.</li>" +
+        "</ul>"
+    },
+    {
+      id: "what-is-dataset",
+      group: "DataFrames, Datasets & Spark SQL",
+      q: "What is a Dataset and what are its advantages?",
+      difficulty: "Common",
+      tags: ["dataset", "type-safety", "tungsten"],
+      a:
+        "<p><b>A Dataset is a strongly-typed, object-oriented extension of the DataFrame</b> — you get compile-time type safety <i>and</i> Catalyst optimization. (A DataFrame is really <code>Dataset[Row]</code>.)</p>" +
+        "<ul>" +
+        "<li><b>Compile-time type safety</b> — catch column/type errors before running.</li>" +
+        "<li><b>Catalyst + Tungsten</b> — still optimized and efficiently serialized.</li>" +
+        "</ul>" +
+        "<p><b>PySpark caveat:</b> the typed Dataset API is a <b>Scala/Java feature</b> — Python only has the DataFrame API (Python is dynamically typed), so in interviews say Datasets shine in Scala.</p>"
+    },
+    {
+      id: "rdd-vs-df-vs-ds",
+      group: "DataFrames, Datasets & Spark SQL",
+      q: "RDD vs DataFrame vs Dataset — how do they differ?",
+      difficulty: "Core",
+      tags: ["rdd", "dataframe", "dataset", "comparison"],
+      a:
+        "<ul>" +
+        "<li><b>RDD</b> — low-level, <b>no schema</b>, no optimizer; full control but verbose and slower for structured data.</li>" +
+        "<li><b>DataFrame</b> — schema + named columns; <b>Catalyst-optimized</b>; the everyday choice. No compile-time type safety.</li>" +
+        "<li><b>Dataset</b> — DataFrame + <b>compile-time type safety</b> (Scala/Java only); slightly slower than DataFrame but safest.</li>" +
+        "</ul>" +
+        "<p>Rule of thumb: <b>DataFrames for almost everything</b>, RDDs for low-level control, Datasets when you're in Scala and want type safety.</p>"
+    },
+    {
+      id: "why-df-faster",
+      group: "DataFrames, Datasets & Spark SQL",
+      q: "Why is a DataFrame faster than an RDD?",
+      difficulty: "Common",
+      tags: ["performance", "catalyst", "tungsten"],
+      a:
+        "<p>Because Spark understands the <b>structure and intent</b> of a DataFrame, it can optimize; with an RDD it only sees opaque Python/JVM functions.</p>" +
+        "<ul>" +
+        "<li><b>Catalyst optimizer</b> rewrites the query — predicate pushdown, column pruning, join reordering.</li>" +
+        "<li><b>Tungsten</b> uses compact off-heap binary memory and whole-stage code generation.</li>" +
+        "<li>In PySpark, DataFrame ops run in the <b>JVM</b> and avoid the Python-per-row serialization that RDDs/UDFs pay.</li>" +
+        "</ul>"
+    },
+    {
+      id: "spark-schema",
+      group: "DataFrames, Datasets & Spark SQL",
+      q: "What is a schema in Spark and how do you define one?",
+      difficulty: "Common",
+      tags: ["schema", "structtype", "structfield"],
+      a:
+        "<p><b>A schema is the structure of a DataFrame — the column names, types, and nullability.</b> You can let Spark <b>infer</b> it or define it explicitly with <code>StructType</code> / <code>StructField</code>.</p>" +
+        "<p><b>Define it explicitly in production</b> — inference scans data (slow) and can guess wrong types; an explicit schema is faster and safe.</p>",
+      code:
+        "from pyspark.sql.types import StructType, StructField, StringType, IntegerType\n" +
+        "schema = StructType([\n" +
+        "    StructField('name', StringType(), True),\n" +
+        "    StructField('age',  IntegerType(), True),\n" +
+        "])\n" +
+        "df = spark.read.schema(schema).csv('/data/people.csv')",
+      lang: "python"
+    },
+    {
+      id: "spark-sql",
+      group: "DataFrames, Datasets & Spark SQL",
+      q: "What is Spark SQL, and how do temp views and caching fit in?",
+      difficulty: "Core",
+      tags: ["spark-sql", "tempview", "cache"],
+      a:
+        "<p><b>Spark SQL is the module for structured data</b> — it powers the DataFrame API and lets you run actual SQL over your data, all through Catalyst.</p>" +
+        "<ul>" +
+        "<li><b>createOrReplaceTempView('t')</b> registers a DataFrame as a temporary table so you can query it with <code>spark.sql('SELECT ... FROM t')</code>.</li>" +
+        "<li><b>Caching</b> — <code>spark.catalog.cacheTable('t')</code> (or <code>df.cache()</code>) keeps results in memory for reuse; <b>uncache</b> to free it.</li>" +
+        "</ul>",
+      code:
+        "df.createOrReplaceTempView('sales')\n" +
+        "top = spark.sql('''SELECT region, SUM(amt) AS total\n" +
+        "                   FROM sales GROUP BY region''')",
+      lang: "python"
+    },
+    {
+      id: "groupby-agg",
+      group: "DataFrames, Datasets & Spark SQL",
+      q: "How does groupBy work on a DataFrame?",
+      difficulty: "Common",
+      tags: ["groupby", "aggregation", "agg"],
+      a:
+        "<p><b><code>groupBy</code> buckets rows by one or more columns, then you apply aggregate functions</b> to each group — <code>count</code>, <code>sum</code>, <code>avg</code>, <code>min</code>, <code>max</code>, or several at once via <code>agg</code>.</p>" +
+        "<p>It's a <b>wide transformation</b> (it shuffles), but on DataFrames Spark does a map-side partial aggregation first, so it's efficient — no need to drop to <code>reduceByKey</code>.</p>",
+      code:
+        "from pyspark.sql import functions as F\n" +
+        "(df.groupBy('region')\n" +
+        "   .agg(F.sum('amt').alias('total'),\n" +
+        "        F.countDistinct('cust').alias('customers')))",
+      lang: "python"
+    },
+    {
+      id: "pivot-unpivot",
+      group: "DataFrames, Datasets & Spark SQL",
+      q: "How do you pivot and unpivot a DataFrame?",
+      difficulty: "Common",
+      tags: ["pivot", "unpivot", "reshape"],
+      a:
+        "<ul>" +
+        "<li><b>Pivot</b> — rotate <b>row values into columns</b>: <code>groupBy(...).pivot('col').agg(...)</code>. Great for turning months/categories into columns.</li>" +
+        "<li><b>Unpivot</b> — the reverse, <b>columns back into rows</b>. There's no single method; use <code>stack(...)</code> in a <code>selectExpr</code> (or <code>melt</code> in newer versions).</li>" +
+        "</ul>" +
+        "<p><b>Tip:</b> always pass the explicit list of pivot values (<code>.pivot('month', ['Jan','Feb'])</code>) — it skips a scan to discover them and runs much faster.</p>",
+      code:
+        "# pivot\n" +
+        "df.groupBy('product').pivot('month', ['Jan','Feb']).sum('amt')\n" +
+        "# unpivot\n" +
+        "df.selectExpr('product', \"stack(2, 'Jan', Jan, 'Feb', Feb) as (month, amt)\")",
+      lang: "python"
     }
   ]
 };
