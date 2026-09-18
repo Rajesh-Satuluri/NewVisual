@@ -990,6 +990,244 @@ window.PYSPARK_QA = {
         "<li><b>Accumulators</b> — safely <b>aggregate</b> values (sums, counts) from all tasks back to the driver.</li>" +
         "</ul>" +
         "<p>They exist precisely because ordinary closures can't share state across executors.</p>"
+    },
+
+    // ─────────────── G9 · I/O, Formats & Data Quality ───────────────
+    {
+      id: "file-formats",
+      group: "I/O, Formats & Data Quality",
+      q: "Compare CSV, JSON, Parquet, ORC and Avro. Which do you pick?",
+      difficulty: "Core",
+      tags: ["parquet", "orc", "avro", "csv", "json"],
+      a:
+        "<ul>" +
+        "<li><b>CSV</b> — simple, human-readable, <b>row</b>-based; no schema/types, bulky, weak on nested data.</li>" +
+        "<li><b>JSON</b> — supports nesting, but verbose (repeats keys) and not very splittable.</li>" +
+        "<li><b>Parquet</b> — <b>columnar</b>, compressed, stores schema + stats; enables column pruning &amp; predicate pushdown. The analytics default.</li>" +
+        "<li><b>ORC</b> — columnar like Parquet, strong in the Hive/Hadoop world.</li>" +
+        "<li><b>Avro</b> — <b>row</b>-based binary with rich schema evolution; great for streaming/write-heavy and Kafka.</li>" +
+        "</ul>" +
+        "<p><b>Rule:</b> Parquet/ORC for read-heavy analytics; Avro for row-by-row/streaming ingestion.</p>",
+      tip: "The line they want: <b>\"Parquet is columnar, so Spark reads only the columns and row-groups it needs\"</b> — that's column pruning + predicate pushdown, the reason it's the analytics standard."
+    },
+    {
+      id: "parquet-benefits",
+      group: "I/O, Formats & Data Quality",
+      q: "Why is Parquet so widely used with Spark?",
+      difficulty: "Common",
+      tags: ["parquet", "columnar", "compression"],
+      a:
+        "<p>Parquet fits how Spark reads analytical data:</p>" +
+        "<ul>" +
+        "<li><b>Columnar</b> — reads only the columns a query touches (column pruning), skipping the rest entirely.</li>" +
+        "<li><b>Compression &amp; encoding</b> — similar values sit together, so it compresses far better than row formats.</li>" +
+        "<li><b>Embedded schema + statistics</b> — min/max per row-group enable <b>predicate pushdown</b> (skip whole blocks).</li>" +
+        "<li><b>Schema evolution</b> — add/rename columns over time.</li>" +
+        "</ul>" +
+        "<p>Net effect: less I/O, less network, faster jobs vs CSV/JSON.</p>"
+    },
+    {
+      id: "read-files",
+      group: "I/O, Formats & Data Quality",
+      q: "How do you read different file formats in PySpark?",
+      difficulty: "Common",
+      tags: ["read", "csv", "json", "parquet"],
+      a:
+        "<p>All reads go through <code>spark.read</code> with a format method (<code>csv</code>, <code>json</code>, <code>parquet</code>, <code>load</code>) plus options like <code>header</code> and <code>delimiter</code>.</p>" +
+        "<p>In production, pass an explicit <b>schema</b> rather than <code>inferSchema=True</code>: inference triggers an extra pass over the data and can guess types wrong, whereas Parquet/ORC carry their schema for free.</p>",
+      code:
+        "df = spark.read.csv('f.csv', header=True, inferSchema=True)\n" +
+        "df = spark.read.option('delimiter', '|').csv('f.txt')\n" +
+        "df = spark.read.json('f.json')          # multiLine=True for pretty JSON\n" +
+        "df = spark.read.parquet('f.parquet')    # schema comes for free\n" +
+        "df = spark.read.format('avro').load('f.avro')",
+      lang: "python"
+    },
+    {
+      id: "bad-data",
+      group: "I/O, Formats & Data Quality",
+      q: "How do you handle bad / corrupt records when reading data?",
+      difficulty: "Core",
+      tags: ["corrupt", "permissive", "dropmalformed", "failfast"],
+      a:
+        "<p>When a row doesn't match the schema, the reader's <b>mode</b> decides what happens:</p>" +
+        "<ul>" +
+        "<li><b>PERMISSIVE</b> (default) — keep going; nulls the bad fields and stashes the raw row in a <code>_corrupt_record</code> column.</li>" +
+        "<li><b>DROPMALFORMED</b> — silently drop bad rows.</li>" +
+        "<li><b>FAILFAST</b> — throw immediately on the first bad record.</li>" +
+        "</ul>" +
+        "<p>Best practice: read <b>PERMISSIVE</b> with a corrupt-record column, then <b>quarantine</b> the bad rows (write them elsewhere) and continue with the clean ones.</p>",
+      code:
+        "df = (spark.read.schema(schema)\n" +
+        "      .option('mode', 'PERMISSIVE')\n" +
+        "      .option('columnNameOfCorruptRecord', '_corrupt_record')\n" +
+        "      .csv('data.csv'))\n" +
+        "bad  = df.filter('_corrupt_record IS NOT NULL')   # quarantine\n" +
+        "good = df.filter('_corrupt_record IS NULL')",
+      lang: "python"
+    },
+    {
+      id: "remove-duplicates",
+      group: "I/O, Formats & Data Quality",
+      q: "How do you remove duplicate rows? distinct vs dropDuplicates?",
+      difficulty: "Common",
+      tags: ["distinct", "dropduplicates", "dedup"],
+      a:
+        "<ul>" +
+        "<li><b>distinct()</b> — removes rows that are duplicates across <b>all</b> columns.</li>" +
+        "<li><b>dropDuplicates([cols])</b> — removes duplicates based on a <b>subset</b> of columns (and with no args, behaves like distinct).</li>" +
+        "</ul>" +
+        "<p>Both shuffle. To keep a <b>specific</b> row per key (e.g. the latest), don't rely on dropDuplicates' arbitrary pick — use a window: <code>row_number()</code> over a partition ordered by timestamp, then filter <code>rn = 1</code>.</p>",
+      code:
+        "df.distinct()\n" +
+        "df.dropDuplicates(['user_id'])          # arbitrary row per user\n" +
+        "# keep latest deterministically:\n" +
+        "w = Window.partitionBy('user_id').orderBy(F.col('ts').desc())\n" +
+        "df.withColumn('rn', F.row_number().over(w)).filter('rn = 1')",
+      lang: "python"
+    },
+    {
+      id: "withcolumn-transforms",
+      group: "I/O, Formats & Data Quality",
+      q: "What do withColumn, cast, withColumnRenamed and drop do?",
+      difficulty: "Common",
+      tags: ["withcolumn", "cast", "rename", "drop"],
+      a:
+        "<p>The everyday column-shaping toolkit (all return new DataFrames — immutability):</p>" +
+        "<ul>" +
+        "<li><b>withColumn(name, expr)</b> — add a new column or replace an existing one.</li>" +
+        "<li><b>cast(type)</b> — change a column's data type (usually inside withColumn).</li>" +
+        "<li><b>withColumnRenamed(old, new)</b> — rename a column.</li>" +
+        "<li><b>drop(*cols)</b> — remove one or more columns.</li>" +
+        "</ul>",
+      code:
+        "from pyspark.sql import functions as F\n" +
+        "df = (df.withColumn('salary', F.col('salary').cast('int'))\n" +
+        "        .withColumn('bonus', F.col('salary') * 0.1)\n" +
+        "        .withColumnRenamed('dob', 'date_of_birth')\n" +
+        "        .drop('temp_col'))",
+      lang: "python"
+    },
+    {
+      id: "null-filtering",
+      group: "I/O, Formats & Data Quality",
+      q: "How do you filter or handle NULL values in a DataFrame?",
+      difficulty: "Common",
+      tags: ["null", "isnull", "fillna", "dropna"],
+      a:
+        "<p>Nulls need explicit handling — comparisons with <code>=</code> never match null:</p>" +
+        "<ul>" +
+        "<li><b>Filter</b> — <code>df.filter(F.col('c').isNull())</code> / <code>isNotNull()</code>.</li>" +
+        "<li><b>Drop</b> — <code>df.dropna(how='any', subset=[...])</code>.</li>" +
+        "<li><b>Fill</b> — <code>df.fillna(0)</code> or <code>df.fillna({'city': 'NA'})</code>.</li>" +
+        "<li><b>Replace-if-null</b> — <code>F.coalesce(c1, c2, lit(0))</code>.</li>" +
+        "</ul>",
+      tip: "Interview gotcha: <b>NULL is unknown, not a value</b>, so <code>col = NULL</code> is never true — you must use <code>isNull()</code> / <code>isNotNull()</code>. Same three-valued logic as SQL."
+    },
+    {
+      id: "star-snowflake",
+      group: "I/O, Formats & Data Quality",
+      q: "Star schema vs Snowflake schema?",
+      difficulty: "Common",
+      tags: ["star-schema", "snowflake-schema", "modeling"],
+      a:
+        "<ul>" +
+        "<li><b>Star schema</b> — one central <b>fact</b> table joined to <b>denormalized</b> dimension tables. Fewer joins, faster reads, some redundancy. (Bonus: dimensions are usually small → broadcast joins.)</li>" +
+        "<li><b>Snowflake schema</b> — dimensions are <b>normalized</b> into sub-dimensions, so less redundancy but <b>more joins</b> and slower queries.</li>" +
+        "</ul>" +
+        "<p>Analytics/warehousing usually favors <b>star</b> for query performance; snowflake when storage and strict normalization matter more.</p>"
+    },
+
+    // ─────────────── G10 · Streaming, MLlib & Graph ───────────────
+    {
+      id: "spark-streaming",
+      group: "Streaming, MLlib & Graph",
+      q: "What is Spark Streaming (and Structured Streaming)?",
+      difficulty: "Core",
+      tags: ["streaming", "structured-streaming", "real-time"],
+      a:
+        "<p><b>Spark Streaming processes real-time data streams</b> using the same engine as batch.</p>" +
+        "<ul>" +
+        "<li><b>Legacy (DStreams)</b> — micro-batches the stream into a sequence of small RDDs processed on an interval.</li>" +
+        "<li><b>Structured Streaming</b> (modern) — treats the stream as an <b>unbounded DataFrame</b> that grows; you write normal DataFrame/SQL code and Spark runs it incrementally, with <b>event-time windows</b>, <b>watermarks</b> for late data, and exactly-once sinks.</li>" +
+        "</ul>" +
+        "<p>Say you'd use <b>Structured Streaming</b> today — DStreams are legacy.</p>"
+    },
+    {
+      id: "dstream",
+      group: "Streaming, MLlib & Graph",
+      q: "What is a DStream?",
+      difficulty: "Common",
+      tags: ["dstream", "streaming", "micro-batch"],
+      a:
+        "<p><b>A DStream (Discretized Stream) is the core abstraction of legacy Spark Streaming — a continuous stream represented as a sequence of RDDs</b>, one per micro-batch interval.</p>" +
+        "<p>Any operation on a DStream applies to each underlying RDD, so it inherits RDD semantics (transformations, fault tolerance via lineage). It's been largely superseded by Structured Streaming, but interviewers still ask the definition.</p>"
+    },
+    {
+      id: "dstream-transformations",
+      group: "Streaming, MLlib & Graph",
+      q: "What transformations are available on a DStream?",
+      difficulty: "Deep",
+      tags: ["dstream", "window", "updatestatebykey"],
+      a:
+        "<p>Two families:</p>" +
+        "<ul>" +
+        "<li><b>Stateless</b> — apply per micro-batch, no memory across batches: <code>map</code>, <code>flatMap</code>, <code>filter</code>, <code>reduceByKey</code>.</li>" +
+        "<li><b>Stateful</b> — carry state across batches: <b>window ops</b> (<code>window</code>, <code>countByWindow</code>, <code>reduceByKeyAndWindow</code>) and <b>updateStateByKey</b> (running aggregates like a live total).</li>" +
+        "</ul>" +
+        "<p>Windowing is the key idea — computing over the last N seconds of data as it slides forward.</p>"
+    },
+    {
+      id: "streaming-sources",
+      group: "Streaming, MLlib & Graph",
+      q: "What are the input sources for Spark Streaming?",
+      difficulty: "Common",
+      tags: ["kafka", "sources", "socket"],
+      a:
+        "<p>Spark Streaming ingests from:</p>" +
+        "<ul>" +
+        "<li><b>Kafka</b> — by far the most common in production.</li>" +
+        "<li><b>Kinesis</b>, <b>Flume</b> — other message/event systems.</li>" +
+        "<li><b>Files</b> on HDFS/S3 — new files dropped into a directory.</li>" +
+        "<li><b>Socket</b> (<code>socketTextStream</code>) — TCP text, mainly for demos/testing.</li>" +
+        "</ul>" +
+        "<p>Structured Streaming exposes the same via <code>spark.readStream.format('kafka')</code> etc.</p>"
+    },
+    {
+      id: "wal-streaming",
+      group: "Streaming, MLlib & Graph",
+      q: "What is the Write-Ahead Log (WAL) in Spark Streaming?",
+      difficulty: "Deep",
+      tags: ["wal", "fault-tolerance", "checkpoint"],
+      a:
+        "<p><b>The WAL is a fault-tolerance mechanism: received data is written to a durable log (e.g. HDFS) <i>before</i> it's processed.</b></p>" +
+        "<p>If the driver or a receiver crashes, Spark replays the log on recovery so <b>no in-flight data is lost</b>. Combined with <b>checkpointing</b> (which saves streaming metadata and state), it gives streaming jobs their reliability guarantees.</p>"
+    },
+    {
+      id: "mllib",
+      group: "Streaming, MLlib & Graph",
+      q: "What is MLlib?",
+      difficulty: "Common",
+      tags: ["mllib", "machine-learning", "pipeline"],
+      a:
+        "<p><b>MLlib is Spark's scalable machine-learning library</b> — distributed algorithms that train on data too big for one machine.</p>" +
+        "<ul>" +
+        "<li>Algorithms: linear/logistic regression, decision trees, random forests, gradient-boosted trees, k-means, ALS (recommendations).</li>" +
+        "<li>The modern <b>DataFrame-based API</b> (<code>pyspark.ml</code>) offers <b>Pipelines</b> — chain feature transformers + an estimator into one reusable flow.</li>" +
+        "</ul>" +
+        "<p>Note the split: <code>pyspark.ml</code> (DataFrame, current) vs <code>pyspark.mllib</code> (RDD, legacy).</p>"
+    },
+    {
+      id: "graphx-pagerank",
+      group: "Streaming, MLlib & Graph",
+      q: "What are GraphX and PageRank in Spark?",
+      difficulty: "Deep",
+      tags: ["graphx", "pagerank", "graphframes"],
+      a:
+        "<ul>" +
+        "<li><b>GraphX</b> — Spark's API for graphs and graph-parallel computation (vertices + edges), with built-in algorithms. In PySpark, the DataFrame-based <b>GraphFrames</b> package is the usual choice.</li>" +
+        "<li><b>PageRank</b> — a classic graph algorithm that ranks nodes by the number and importance of links pointing to them (originally Google's page ranking). It's the standard example of an <b>iterative</b> graph computation Spark runs well because it keeps data in memory across iterations.</li>" +
+        "</ul>"
     }
   ]
 };
