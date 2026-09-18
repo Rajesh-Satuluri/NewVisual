@@ -773,6 +773,223 @@ window.PYSPARK_QA = {
         "# unpivot\n" +
         "df.selectExpr('product', \"stack(2, 'Jan', Jan, 'Feb', Feb) as (month, amt)\")",
       lang: "python"
+    },
+
+    // ─────────────── G7 · Partitions, Shuffle & Performance ───────────────
+    {
+      id: "partitions-partitioners",
+      group: "Partitions, Shuffle & Performance",
+      q: "What are partitions and partitioners in Spark?",
+      difficulty: "Common",
+      tags: ["partition", "partitioner", "parallelism"],
+      a:
+        "<ul>" +
+        "<li><b>Partition</b> — a logical chunk of the data. Partitions are the <b>unit of parallelism</b>: one task processes one partition, so more partitions = more parallel tasks (up to your core count).</li>" +
+        "<li><b>Partitioner</b> — the rule that decides <i>which</i> key goes to <i>which</i> partition during a shuffle. The two built-ins are <b>HashPartitioner</b> (default, <code>hash(key) % n</code>) and <b>RangePartitioner</b> (for sorted/ranged data).</li>" +
+        "</ul>" +
+        "<p>Good partitioning keeps data balanced and co-locates keys, which minimizes shuffle and skew.</p>"
+    },
+    {
+      id: "default-partitions",
+      group: "Partitions, Shuffle & Performance",
+      q: "How many partitions does Spark create by default?",
+      difficulty: "Common",
+      tags: ["partition", "defaults", "shuffle-partitions"],
+      a:
+        "<ul>" +
+        "<li><b>Reading files</b> — driven by the input: roughly one partition per <b>HDFS block</b> (~128 MB), or by the number of available cores for a parallelized collection.</li>" +
+        "<li><b>After a shuffle</b> — controlled by <b><code>spark.sql.shuffle.partitions</code></b>, which defaults to <b>200</b>.</li>" +
+        "</ul>" +
+        "<p>That 200 default is a classic tuning trap: too high for small data (tiny wasteful tasks), too low for huge data. Set it to match your data size and cluster.</p>",
+      tip: "A very common interview line: <i>\"the default 200 shuffle partitions is rarely right\"</i> — tune <code>spark.sql.shuffle.partitions</code> to your data. (AQE can auto-coalesce them in Spark 3.x.)"
+    },
+    {
+      id: "repartition-vs-coalesce",
+      group: "Partitions, Shuffle & Performance",
+      q: "Repartition vs Coalesce — what's the difference?",
+      difficulty: "Core",
+      tags: ["repartition", "coalesce", "shuffle"],
+      a:
+        "<ul>" +
+        "<li><b>repartition(n)</b> — can <b>increase or decrease</b> partitions; does a <b>full shuffle</b> to produce evenly balanced partitions. Wide transformation.</li>" +
+        "<li><b>coalesce(n)</b> — only <b>decreases</b> partitions; avoids a full shuffle by <b>merging</b> existing partitions on the same node. Narrow, cheaper — but can leave partitions uneven.</li>" +
+        "</ul>" +
+        "<p>Rule: use <b>coalesce</b> to cut partitions cheaply (e.g. before writing fewer output files); use <b>repartition</b> when you need more partitions or evenly balanced ones (e.g. to fix skew).</p>",
+      tip: "The trap they set: <i>\"how do you go from 200 to 10 output files cheaply?\"</i> → <b>coalesce(10)</b>, not repartition — coalesce skips the full shuffle."
+    },
+    {
+      id: "shuffling",
+      group: "Partitions, Shuffle & Performance",
+      q: "What is shuffling in Spark and why is it expensive?",
+      difficulty: "Core",
+      tags: ["shuffle", "performance", "network"],
+      a:
+        "<p><b>A shuffle is Spark redistributing data across partitions/executors</b> so that related records (e.g. the same key) end up together. It's triggered by wide transformations: <code>groupByKey</code>, <code>reduceByKey</code>, <code>join</code>, <code>distinct</code>, <code>repartition</code>.</p>" +
+        "<p>It's the most expensive thing Spark does because it involves <b>disk I/O, data serialization, and network transfer</b> between executors, plus it creates a <b>stage boundary</b>.</p>" +
+        "<p>Tuning Spark is largely about <b>reducing shuffles</b>: prefer reduceByKey over groupByKey, use broadcast joins, filter early, and partition wisely.</p>"
+    },
+    {
+      id: "cache-vs-persist",
+      group: "Partitions, Shuffle & Performance",
+      q: "Cache vs Persist (and unpersist)?",
+      difficulty: "Core",
+      tags: ["cache", "persist", "storage-level"],
+      a:
+        "<p>Both store a DataFrame/RDD so it isn't recomputed on every action — the difference is control over <i>where</i>:</p>" +
+        "<ul>" +
+        "<li><b>cache()</b> — shorthand for the default storage level (<code>MEMORY_AND_DISK</code> for DataFrames).</li>" +
+        "<li><b>persist(level)</b> — you pick the <b>storage level</b>: MEMORY_ONLY, MEMORY_AND_DISK, DISK_ONLY, and _SER (serialized) variants.</li>" +
+        "<li><b>unpersist()</b> — evict it when you're done to free memory.</li>" +
+        "</ul>" +
+        "<p>Cache when a DataFrame is <b>reused across multiple actions</b>; caching something used once just wastes memory.</p>",
+      tip: "Remember: caching is lazy too — it only materializes on the <b>next action</b>. And <code>cache()</code> == <code>persist()</code> with the default level."
+    },
+    {
+      id: "serialization",
+      group: "Partitions, Shuffle & Performance",
+      q: "Explain serialization in Spark — Java vs Kryo (and PySpark serializers).",
+      difficulty: "Common",
+      tags: ["serialization", "kryo", "tuning"],
+      a:
+        "<p><b>Serialization = turning objects into bytes</b> to send across the network (shuffles) or store them. It's a big performance lever because Spark moves a lot of data.</p>" +
+        "<ul>" +
+        "<li><b>Java serialization</b> — the default on the JVM: easy but slow and bulky.</li>" +
+        "<li><b>Kryo</b> — up to ~10x faster and more compact; enable via <code>spark.serializer</code>. Preferred for RDD-heavy jobs.</li>" +
+        "</ul>" +
+        "<p>In <b>PySpark</b> specifically, data crossing to Python is serialized with <b>Pickle</b> (default) or <b>Marshal</b> (faster, limited types).</p>"
+    },
+    {
+      id: "speculative-execution",
+      group: "Partitions, Shuffle & Performance",
+      q: "What is speculative execution?",
+      difficulty: "Deep",
+      tags: ["speculation", "stragglers", "tuning"],
+      a:
+        "<p><b>Speculative execution is Spark's defense against stragglers</b> — a few slow tasks (usually from a bad node or skew) that hold up a whole stage.</p>" +
+        "<p>When enabled (<code>spark.speculation=true</code>), Spark detects tasks running much slower than their peers and <b>launches duplicate copies on other executors</b>. Whichever finishes first wins; the other is killed.</p>" +
+        "<p>It helps with <b>hardware slowness</b>, but it does <b>not</b> fix data skew (both copies process the same huge partition) and it costs extra resources — so it's off by default in many setups.</p>"
+    },
+    {
+      id: "oom",
+      group: "Partitions, Shuffle & Performance",
+      q: "Why do Out-Of-Memory (OOM) errors happen and how do you fix them?",
+      difficulty: "Common",
+      tags: ["oom", "memory", "skew", "collect"],
+      a:
+        "<p>OOM usually means too much data landed in one place. Common causes:</p>" +
+        "<ul>" +
+        "<li><b>collect()</b> pulling a large result to the driver — use <code>take</code>/<code>write</code> instead.</li>" +
+        "<li><b>Data skew</b> — one huge partition on an executor (fix with salting).</li>" +
+        "<li><b>groupByKey</b> / wide shuffles piling values on one key.</li>" +
+        "<li><b>Under-provisioned memory</b> or too few partitions.</li>" +
+        "</ul>" +
+        "<p>Fixes: raise <code>--driver-memory</code>/<code>--executor-memory</code>, increase partitions, prefer reduceByKey, broadcast small tables, and avoid collect.</p>"
+    },
+    {
+      id: "optimization-techniques",
+      group: "Partitions, Shuffle & Performance",
+      q: "What are the main optimization techniques in Spark?",
+      difficulty: "Core",
+      tags: ["optimization", "tuning", "performance"],
+      a:
+        "<p>A quick checklist interviewers love:</p>" +
+        "<ul>" +
+        "<li><b>Cut shuffles</b> — reduceByKey over groupByKey; filter and select early (pushdown/pruning).</li>" +
+        "<li><b>Broadcast joins</b> for small dimension tables.</li>" +
+        "<li><b>Right partitioning</b> — tune <code>spark.sql.shuffle.partitions</code>; repartition to fix skew; coalesce before writing.</li>" +
+        "<li><b>Cache</b> reused DataFrames; <b>Kryo</b> serialization.</li>" +
+        "<li><b>Columnar formats</b> (Parquet) for compression + pushdown.</li>" +
+        "<li><b>Handle skew</b> (salting) and enable <b>AQE</b> in Spark 3.x.</li>" +
+        "</ul>"
+    },
+    {
+      id: "track-failed-jobs",
+      group: "Partitions, Shuffle & Performance",
+      q: "How do you debug or track a failed Spark job?",
+      difficulty: "Deep",
+      tags: ["debugging", "spark-ui", "logs"],
+      a:
+        "<p>Start from the <b>Spark UI</b> (or History Server) and drill down:</p>" +
+        "<ul>" +
+        "<li><b>Jobs → Stages → Tasks</b> — find the failed stage and read the exception on the failed task.</li>" +
+        "<li>Look for <b>skew</b> (one task far slower/bigger than the rest) and <b>spills</b> to disk in stage metrics.</li>" +
+        "<li>Check <b>executor logs</b> (and YARN/K8s logs) for the real stack trace — OOM, lost executor, serialization error.</li>" +
+        "</ul>" +
+        "<p><code>df.explain()</code> helps confirm the physical plan (join type, exchanges) matches what you expect.</p>"
+    },
+
+    // ─────────────────────────── G8 · Skew & Broadcast ───────────────────────────
+    {
+      id: "data-skew",
+      group: "Skew & Broadcast",
+      q: "What is data skew and why is it a problem?",
+      difficulty: "Core",
+      tags: ["skew", "partition", "performance"],
+      a:
+        "<p><b>Data skew is when data is unevenly distributed across partitions</b> — a few keys have far more rows than the rest, so one or two partitions become huge.</p>" +
+        "<p>It's a problem because Spark's parallelism is per-partition: the whole stage waits on the one overloaded task (a <b>straggler</b>), while other executors sit idle. Severe skew also causes <b>spills and OOM</b> on the hot executor.</p>" +
+        "<p>It usually shows up after a <b>shuffle</b> (join/groupBy) on a skewed key like a null, a default value, or a mega-customer.</p>"
+    },
+    {
+      id: "salting",
+      group: "Skew & Broadcast",
+      q: "How do you mitigate skewed data (salting)?",
+      difficulty: "Common",
+      tags: ["salting", "skew", "join"],
+      a:
+        "<p><b>Salting spreads a hot key across many partitions by adding a random suffix to it.</b> Instead of every row for <code>key=X</code> landing in one partition, they split across <code>X_0 … X_n</code>, so the load is shared.</p>" +
+        "<ul>" +
+        "<li>Add a random salt (0..N) to the skewed key on the large side.</li>" +
+        "<li><b>Explode</b> the small side across all salt values so matches still line up.</li>" +
+        "<li>Join on the salted key, then drop the salt.</li>" +
+        "</ul>" +
+        "<p>Other options: a <b>broadcast join</b> (if one side is small) or Spark 3.x <b>AQE skew-join handling</b>, which splits skewed partitions automatically.</p>"
+    },
+    {
+      id: "broadcast-join",
+      group: "Skew & Broadcast",
+      q: "What is a broadcast join and when should you use it?",
+      difficulty: "Core",
+      tags: ["broadcast-join", "join", "shuffle"],
+      a:
+        "<p><b>A broadcast (map-side) join ships a small table to every executor so the join happens locally — with no shuffle of the big table.</b></p>" +
+        "<p>Use it when one side is <b>small enough to fit in memory</b> (default auto-broadcast threshold is 10 MB). It turns an expensive shuffle join into a cheap local lookup — one of the biggest wins for star-schema fact/dimension joins.</p>",
+      code:
+        "from pyspark.sql import functions as F\n" +
+        "big.join(F.broadcast(small_dim), 'dim_id')   # no shuffle of `big`",
+      lang: "python",
+      tip: "Name the mechanism: broadcast join <b>avoids shuffling the large table</b> and also <b>sidesteps skew</b> on the join key. Threshold: <code>spark.sql.autoBroadcastJoinThreshold</code>."
+    },
+    {
+      id: "broadcast-vs-accumulator",
+      group: "Skew & Broadcast",
+      q: "Broadcast variable vs Accumulator?",
+      difficulty: "Core",
+      tags: ["broadcast-variable", "accumulator", "shared-variables"],
+      a:
+        "<p>Two kinds of <b>shared variables</b>, opposite directions:</p>" +
+        "<ul>" +
+        "<li><b>Broadcast variable</b> — <b>read-only</b>, sent <b>driver → executors</b> once and cached on each node. Use it to share a large lookup/config efficiently (avoids re-shipping it per task).</li>" +
+        "<li><b>Accumulator</b> — <b>write-only</b> from executors, aggregated back <b>executors → driver</b>. Use it for counters/sums (like MapReduce counters), e.g. counting bad records.</li>" +
+        "</ul>",
+      code:
+        "b = spark.sparkContext.broadcast({'US': 1, 'IN': 2})   # read-only\n" +
+        "acc = spark.sparkContext.accumulator(0)                # write-only counter",
+      lang: "python"
+    },
+    {
+      id: "shared-variables",
+      group: "Skew & Broadcast",
+      q: "What are shared variables in Spark?",
+      difficulty: "Common",
+      tags: ["shared-variables", "broadcast", "accumulator"],
+      a:
+        "<p>Normally each task gets its <i>own copy</i> of the variables it uses, and updates don't propagate back. <b>Shared variables solve the two cases where you need something cluster-wide:</b></p>" +
+        "<ul>" +
+        "<li><b>Broadcast variables</b> — efficiently give every node a <b>read-only</b> copy of a large value (e.g. a lookup table).</li>" +
+        "<li><b>Accumulators</b> — safely <b>aggregate</b> values (sums, counts) from all tasks back to the driver.</li>" +
+        "</ul>" +
+        "<p>They exist precisely because ordinary closures can't share state across executors.</p>"
     }
   ]
 };
