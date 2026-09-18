@@ -632,3 +632,64 @@ body.sidebar-open .ham i:nth-child(3) { top: 6px; transform: rotate(-45deg); }
 
 /* count suffix on postmortem category chips */
 .ros-cat-n { opacity: .6; font-weight: 700; margin-left: 1px; }
+
+/* ─────────────────────── Interview Q&A panel (iqa) ─────────────────────── */
+/* toolbar button: PySpark Learn only */
+.iqa-btn { display: none; }
+body[data-stack="spark"][data-mode="learn"] #interviewBtn { display: inline-block; }
+
+.iqa-tools { gap: 10px; }
+.iqa-search { flex: 1 1 240px; min-width: 160px; background: var(--bg-2); border: 1px solid var(--border);
+  color: var(--text); font: inherit; font-size: 13px; padding: 7px 11px; border-radius: var(--radius-sm); }
+.iqa-search:focus { outline: none; border-color: var(--brand); }
+.iqa-search::placeholder { color: var(--muted); }
+.iqa-reveal { cursor: pointer; }
+.iqa-reveal.on { color: #06111f; background: var(--brand); border-color: transparent; }
+
+.iqa-body { padding-top: 10px; }
+
+.iqa-card { border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 10px;
+  background: var(--bg-1); overflow: hidden; transition: border-color .12s; }
+.iqa-card:hover { border-color: var(--border-soft); }
+.iqa-card.open { border-color: color-mix(in srgb, var(--brand) 40%, var(--border)); }
+.iqa-card.got { box-shadow: inset 3px 0 0 var(--green, #2f9e44); }
+
+.iqa-q { display: flex; align-items: center; gap: 10px; padding: 12px 14px; cursor: pointer; }
+.iqa-num { flex: none; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center;
+  justify-content: center; font-size: 11px; font-weight: 800; color: var(--muted);
+  background: var(--bg-2); border: 1px solid var(--border-soft); }
+.iqa-card.got .iqa-num { color: #06111f; background: var(--green, #2f9e44); border-color: transparent; }
+.iqa-qtext { flex: 1 1 auto; font-size: 14.5px; font-weight: 700; line-height: 1.35; }
+.iqa-badges { flex: none; display: flex; align-items: center; gap: 8px; }
+.iqa-lvl { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px;
+  padding: 2px 7px; border-radius: 999px; border: 1px solid var(--border-soft); color: var(--muted); }
+.iqa-lvl-core { color: var(--brand-2); border-color: color-mix(in srgb, var(--brand-2) 45%, transparent); }
+.iqa-lvl-common { color: #4c8dff; border-color: rgba(76,141,255,.45); }
+.iqa-lvl-deep { color: #b197fc; border-color: rgba(132,94,247,.45); }
+.iqa-caret { font-size: 12px; color: var(--muted); width: 12px; text-align: center; }
+
+.iqa-a { padding: 2px 14px 14px 46px; border-top: 1px solid var(--border-soft); }
+.iqa-a-body { font-size: 13.5px; line-height: 1.6; color: var(--text); }
+.iqa-a-body p { margin: 8px 0; }
+.iqa-a-body ul { margin: 8px 0; padding-left: 18px; }
+.iqa-a-body li { margin: 4px 0; }
+.iqa-a-body code { font-size: 12.5px; }
+.iqa-code { margin-top: 12px; }
+.iqa-tip { margin-top: 12px; font-size: 12.5px; line-height: 1.55; color: var(--text-2);
+  background: color-mix(in srgb, var(--amber, #f08c00) 8%, var(--bg-1));
+  border: 1px solid color-mix(in srgb, var(--amber, #f08c00) 30%, transparent);
+  border-radius: var(--radius-sm); padding: 9px 11px; }
+
+.iqa-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin-top: 12px; }
+.iqa-got-btn { cursor: pointer; font: inherit; font-size: 12px; font-weight: 700; color: var(--text-2);
+  background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 5px 11px; }
+.iqa-got-btn:hover { color: var(--text); }
+.iqa-got-btn.on { color: #06111f; background: var(--green, #2f9e44); border-color: transparent; }
+.iqa-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.iqa-tag { font-size: 10.5px; font-weight: 700; color: var(--muted); background: var(--bg-2);
+  border: 1px solid var(--border-soft); border-radius: 999px; padding: 2px 8px; }
+
+@media (max-width: 680px) {
+  .iqa-a { padding-left: 14px; }
+  .iqa-qtext { font-size: 13.5px; }
+}
