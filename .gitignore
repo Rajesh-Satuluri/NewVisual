@@ -3,3 +3,7 @@ Thumbs.db
 *.log
 node_modules/
 .env
+
+# Backup archives are built fresh by the deploy workflow (CI-only),
+# never committed — see .github/workflows/deploy.yml.
+*.zip

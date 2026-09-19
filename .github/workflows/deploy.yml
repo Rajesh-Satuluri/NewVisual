@@ -31,6 +31,27 @@ jobs:
           # Auto-enable Pages (build type: GitHub Actions) if not already on
           enablement: true
 
+      - name: Build per-project backup zips
+        run: |
+          set -euo pipefail
+          # Build a fresh .zip snapshot of every top-level app (any folder
+          # containing an index.html) into that folder, so each project ships
+          # a one-click "download this tool" offline backup. Built here in CI
+          # only — never committed to git (.gitignore ignores *.zip), so there
+          # is no repo bloat and every download is current as of this deploy.
+          for dir in */ ; do
+            name="${dir%/}"
+            [ -f "${name}/index.html" ] || continue
+            ( cd "${name}" && zip -rqX "${RUNNER_TEMP}/${name}.zip" . -x '*.zip' )
+            cp "${RUNNER_TEMP}/${name}.zip" "${name}/${name}.zip"
+            echo "backup: ${name}/${name}.zip ($(du -h "${name}/${name}.zip" | cut -f1))"
+          done
+          # Whole-repo snapshot for the landing page "download all" button.
+          zip -rqX "${RUNNER_TEMP}/newvisual-all.zip" . \
+            -x '.git/*' -x '*/.git/*' -x '*.zip' -x 'node_modules/*' -x '*/node_modules/*'
+          cp "${RUNNER_TEMP}/newvisual-all.zip" newvisual-all.zip
+          echo "backup: newvisual-all.zip ($(du -h newvisual-all.zip | cut -f1))"
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
