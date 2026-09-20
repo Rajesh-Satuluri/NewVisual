@@ -16,7 +16,8 @@ window.PYSPARK_CHEAT = {
     "Functions",
     "Dates",
     "I/O",
-    "Performance"
+    "Performance",
+    "Regex"
   ],
 
   // Global usage ranking — most-used-in-interviews-and-real-pipelines first.
@@ -46,7 +47,9 @@ window.PYSPARK_CHEAT = {
     "sample", "repartition", "coalesce-df", "crossJoin", "read-json",
     "saveAsTable", "createOrReplaceTempView", "window-tumbling",
     "perf-broadcast", "perf-repartition-coalesce", "perf-cache",
-    "perf-partitionBy", "perf-aqe", "perf-salting"
+    "perf-partitionBy", "perf-aqe", "perf-salting",
+    // ── Regex A2Z (pilot: recipe + log-parser; rest appended here on rollout) ──
+    "rx-english", "rx-log"
   ],
 
   // Number of top-ranked functions that get the ★ essential badge (Tier 1).
@@ -2053,6 +2056,87 @@ window.PYSPARK_CHEAT = {
       example: "N = 16\nbig = df.withColumn('salt', (F.rand()*N).cast('int'))\nsmall2 = small.withColumn('salt', F.explode(F.array(*[F.lit(i) for i in range(N)])))\nbig.join(small2, ['key', 'salt'])",
       output: "Skewed key spread over N tasks",
       notes: "Prefer AQE skew handling or a broadcast join first; salt only when those aren't enough."
+    },
+
+    // ================================================================== REGEX
+    // A2Z regex reference. PILOT: the English→regex recipe + the log-parser
+    // showcase. Full A-Z construct + interview-archetype set appended on rollout.
+
+    {
+      id: "rx-english",
+      group: "Regex",
+      name: "English → regex, step by step",
+      signature: "English → regex, step by step",
+      category: "🧭 Method · turn a problem statement into a pattern",
+      summary: "The reliable way from a sentence to a working pattern: don't try to <i>recall</i> the regex — <b>build</b> it. Anchor the boundaries, chunk the target left-to-right, classify each chunk's character type, count it, and capture only what you must extract.",
+      works:
+        "<table><thead><tr><th>Step</th><th>Ask yourself</th><th>Regex piece it produces</th></tr></thead><tbody>" +
+        "<tr><td><b>1 · Anchor</b></td><td>Must the match cover the <i>whole</i> value, or just appear somewhere in it?</td><td>Whole → wrap in <code>^…$</code>. Anywhere → no anchors.</td></tr>" +
+        "<tr><td><b>2 · Chunk</b></td><td>Break the target into left-to-right pieces (\"3 letters, a dash, then digits\").</td><td>One sub-pattern per chunk, in order.</td></tr>" +
+        "<tr><td><b>3 · Classify</b></td><td>What <i>kind</i> of character is each chunk?</td><td><code>\\d</code> digit · <code>\\w</code> word · <code>\\s</code> space · <code>[abc]</code> set · <code>[^…]</code> not-set · <code>.</code> any</td></tr>" +
+        "<tr><td><b>4 · Count</b></td><td>How many of that character?</td><td><code>+</code> 1+ · <code>*</code> 0+ · <code>?</code> 0-or-1 · <code>{n}</code> exactly · <code>{n,m}</code> range</td></tr>" +
+        "<tr><td><b>5 · Capture</b></td><td>Pull this piece out, or just match it?</td><td>Pull → wrap in <code>( )</code>, read with <code>regexp_extract(col, pat, <b>idx</b>)</code>. Just match → leave bare or <code>(?:…)</code>.</td></tr>" +
+        "</tbody></table>",
+      patterns: [
+        { label: "\"the part after the @\"", code: "# appears anywhere -> no ^  ·  @ then capture the rest to end\nF.regexp_extract('email', r'@(.+)$', 1)     # asha@acme.com -> acme.com" },
+        { label: "\"mask all but the last 4 digits\"", code: "# a digit that still has >=4 digits after it (lookahead), replace it\nF.regexp_replace('card', r'\\d(?=\\d{4})', 'X')   # ...111234 -> XXXX...1234" },
+        { label: "\"collapse runs of whitespace into one space\"", code: "# \\s = any space/tab/newline · + = one-or-more · replace the whole run\nF.regexp_replace('text', r'\\s+', ' ')" },
+        { label: "\"is the WHOLE value a valid email?\"", code: "# ^...$ forces a full-string match · rlike returns a boolean\nF.col('email').rlike(r'^[\\w.+-]+@[\\w-]+\\.[\\w.-]+$')" }
+      ],
+      gotchas: [
+        "<b>Order matters.</b> Regex reads strictly left-to-right — write your chunks in the exact order they appear in the text.",
+        "<b>Match vs capture is the #1 mistake.</b> Only wrap a chunk in <code>( )</code> if you need to pull it out. Every extra group shifts the index the later fields land at.",
+        "<b>Escape literal metacharacters.</b> A literal dot, plus or bracket in the text must be escaped: <code>\\.</code> <code>\\+</code> <code>\\[</code>. An un-escaped <code>.</code> means 'any character'.",
+        "<b>Anchor on purpose.</b> Without <code>^…$</code>, a validation <code>rlike</code> returns true for any value that merely <i>contains</i> a match, not one that <i>is</i> the match."
+      ],
+      interview: [
+        { q: "An interviewer gives you a spec in plain English. Walk me through turning it into a regex.", a: "Five steps: <b>anchor</b> (whole-string match → <code>^…$</code>), <b>chunk</b> the target left-to-right, <b>classify</b> each chunk's character type (<code>\\d \\w \\s</code> or a <code>[...]</code> set), <b>count</b> it (<code>+ * ? {n}</code>), and <b>capture</b> only the pieces you must extract. Finally escape any literal metacharacters for Spark's Java engine." }
+      ],
+      memory: "Anchor → Chunk → Classify → Count → Capture. Read the sentence, not the symbols."
+    },
+
+    {
+      id: "rx-log",
+      group: "Regex",
+      name: "Apache / nginx log-line parser",
+      signature: "^(\\S+) \\S+ \\S+ \\[([^\\]]+)\\] \"(\\S+) (\\S+) [^\"]*\" (\\d+)",
+      returns: "5 fields",
+      category: "📑 Interview pattern · log / structured-text parsing",
+      summary: "The canonical \"parse this raw log line into columns\" question. One <code>regexp_extract</code> per capture group pulls out IP, timestamp, method, path and status. Master this and most structured-text prompts fall out the same way.",
+      example: "127.0.0.1 - - [10/Oct/2026:13:55:36 +0000] \"GET /index.html HTTP/1.1\" 200 512",
+      output: "ip=127.0.0.1 · ts=10/Oct/2026:13:55:36 +0000 · method=GET · path=/index.html · status=200",
+      works:
+        "<table><thead><tr><th>Piece</th><th>Matches</th><th>Reads as</th></tr></thead><tbody>" +
+        "<tr><td><code>^</code></td><td>start of line</td><td>\"begin at the very start\"</td></tr>" +
+        "<tr><td><code>(\\S+)</code> <b>①</b></td><td>the client IP</td><td>\"one-or-more non-space chars — capture it\"</td></tr>" +
+        "<tr><td><code>\\S+ \\S+</code></td><td>the two <code>-</code> (identd, user)</td><td>\"skip two space-separated tokens\"</td></tr>" +
+        "<tr><td><code>\\[([^\\]]+)\\]</code> <b>②</b></td><td>the <code>[timestamp]</code></td><td>\"literal <code>[</code>, then everything that isn't <code>]</code> — capture — then <code>]</code>\"</td></tr>" +
+        "<tr><td><code>\"(\\S+) (\\S+) [^\"]*\"</code> <b>③④</b></td><td>the <code>\"METHOD path proto\"</code></td><td>\"inside the quotes: capture method, capture path, skip the rest\"</td></tr>" +
+        "<tr><td><code>(\\d+)</code> <b>⑤</b></td><td>the HTTP status</td><td>\"one-or-more digits — capture it\"</td></tr>" +
+        "</tbody></table>",
+      patterns: [
+        { label: "Extract every field in one select", code: "LOG = r'^(\\S+) \\S+ \\S+ \\[([^\\]]+)\\] \"(\\S+) (\\S+) [^\"]*\" (\\d+)'\nlogs.select(\n    F.regexp_extract('line', LOG, 1).alias('ip'),\n    F.regexp_extract('line', LOG, 2).alias('ts'),\n    F.regexp_extract('line', LOG, 3).alias('method'),\n    F.regexp_extract('line', LOG, 4).alias('path'),\n    F.regexp_extract('line', LOG, 5).cast('int').alias('status'),\n)" },
+        { label: "Guard: keep only real log lines (non-matches extract to '')", code: "# regexp_extract returns '' (not null) on no match, so filter first\nlogs.filter(F.col('line').rlike(LOG)) \\\n    .select(F.regexp_extract('line', LOG, 1).alias('ip'))" }
+      ],
+      gotchas: [
+        "<b>Group index is 1-based; index 0 is the whole match.</b> <code>regexp_extract(col, pat, 0)</code> returns the entire matched line, not the first group.",
+        "<b>No match → empty string, never null.</b> A malformed line yields <code>''</code> for every field — guard with <code>rlike</code> up front or drop rows where <code>ip = ''</code>.",
+        "<b>Double-escape or use a raw string.</b> Spark compiles a <b>Java</b> regex, so in a plain Python string every backslash doubles — <code>\\S+</code> becomes <code>\\\\S+</code>. The <code>r'…'</code> raw prefix lets you write it once.",
+        "<b>Use <code>[^\\]]+</code>, not <code>.+</code>, inside the brackets.</b> <code>.+</code> is greedy and runs past the closing <code>]</code>; <code>[^\\]]+</code> stops exactly at the bracket that closes the timestamp."
+      ],
+      related:
+        "<table><thead><tr><th>Reach for</th><th>When</th></tr></thead><tbody>" +
+        "<tr><td><code>regexp_extract</code></td><td>pull ONE capture group into a column (this pattern)</td></tr>" +
+        "<tr><td><code>rlike</code> / <code>regexp_like</code></td><td>boolean — does the line match at all? (filter / validate)</td></tr>" +
+        "<tr><td><code>split</code></td><td>delimiter is simple &amp; fixed (CSV, <code>@</code>, space) — no groups needed</td></tr>" +
+        "<tr><td><code>regexp_extract_all</code></td><td>the pattern repeats — grab <i>every</i> hit as an array (Spark 3.1+)</td></tr>" +
+        "</tbody></table>",
+      interview: [
+        { q: "Parse an Apache access-log line into ip, timestamp, method, path, status.", a: "Anchor at <code>^</code>, capture the IP with <code>(\\S+)</code>, skip the two dashes with two bare <code>\\S+</code>, capture the bracketed timestamp with <code>\\[([^\\]]+)\\]</code>, capture method and path inside the quotes with <code>\"(\\S+) (\\S+) [^\"]*\"</code>, and capture the status with <code>(\\d+)</code>. Then one <code>regexp_extract(col, pat, i)</code> per field, casting status to int." },
+        { q: "Some rows are junk, not log lines. What do those columns contain, and how do you handle it?", a: "<code>regexp_extract</code> returns an empty string <code>''</code> (never null) when the pattern doesn't match, so every field is <code>''</code>. Filter with <code>rlike(pat)</code> first, or drop rows where a required field like <code>ip = ''</code>." },
+        { q: "Why <code>[^\\]]+</code> for the timestamp instead of <code>.+</code>?", a: "<code>.+</code> is greedy and would run past the closing <code>]</code> to the last one on the line. <code>[^\\]]+</code> means 'anything except <code>]</code>', so it stops exactly at the bracket that closes the timestamp." }
+      ],
+      memory: "One capture group per column — index them 1..N with regexp_extract. Group 0 is the whole match; a non-match is '' not null."
     }
 
   ]
