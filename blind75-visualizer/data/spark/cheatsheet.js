@@ -16,7 +16,8 @@ window.PYSPARK_CHEAT = {
     "Functions",
     "Dates",
     "I/O",
-    "Performance"
+    "Performance",
+    "Regex"
   ],
 
   // Global usage ranking — most-used-in-interviews-and-real-pipelines first.
@@ -46,7 +47,15 @@ window.PYSPARK_CHEAT = {
     "sample", "repartition", "coalesce-df", "crossJoin", "read-json",
     "saveAsTable", "createOrReplaceTempView", "window-tumbling",
     "perf-broadcast", "perf-repartition-coalesce", "perf-cache",
-    "perf-partitionBy", "perf-aqe", "perf-salting"
+    "perf-partitionBy", "perf-aqe", "perf-salting",
+    // ── Regex A2Z — Foundations · Constructs A–Z · Interview patterns · PySpark ──
+    "rx-read", "rx-english",
+    "rx-literals", "rx-charclass", "rx-shorthand", "rx-anchors", "rx-quant",
+    "rx-groups", "rx-backref", "rx-lookaround",
+    "rx-log", "rx-email", "rx-phone", "rx-url", "rx-ipv4", "rx-date", "rx-num",
+    "rx-pii", "rx-whitespace", "rx-words", "rx-social", "rx-html", "rx-reshape",
+    "rx-dupword", "rx-case",
+    "rx-funcs", "rx-flavor", "rx-perf"
   ],
 
   // Number of top-ranked functions that get the ★ essential badge (Tier 1).
@@ -2053,6 +2062,727 @@ window.PYSPARK_CHEAT = {
       example: "N = 16\nbig = df.withColumn('salt', (F.rand()*N).cast('int'))\nsmall2 = small.withColumn('salt', F.explode(F.array(*[F.lit(i) for i in range(N)])))\nbig.join(small2, ['key', 'salt'])",
       output: "Skewed key spread over N tasks",
       notes: "Prefer AQE skew handling or a broadcast join first; salt only when those aren't enough."
+    },
+
+    // ================================================================== REGEX
+    // A2Z regex reference. PILOT: the English→regex recipe + the log-parser
+    // showcase. Full A-Z construct + interview-archetype set appended on rollout.
+
+    {
+      id: "rx-english",
+      group: "Regex",
+      name: "English → regex, step by step",
+      signature: "English → regex, step by step",
+      category: "🧭 Method · turn a problem statement into a pattern",
+      summary: "The reliable way from a sentence to a working pattern: don't try to <i>recall</i> the regex — <b>build</b> it. Anchor the boundaries, chunk the target left-to-right, classify each chunk's character type, count it, and capture only what you must extract.",
+      works:
+        "<table><thead><tr><th>Step</th><th>Ask yourself</th><th>Regex piece it produces</th></tr></thead><tbody>" +
+        "<tr><td><b>1 · Anchor</b></td><td>Must the match cover the <i>whole</i> value, or just appear somewhere in it?</td><td>Whole → wrap in <code>^…$</code>. Anywhere → no anchors.</td></tr>" +
+        "<tr><td><b>2 · Chunk</b></td><td>Break the target into left-to-right pieces (\"3 letters, a dash, then digits\").</td><td>One sub-pattern per chunk, in order.</td></tr>" +
+        "<tr><td><b>3 · Classify</b></td><td>What <i>kind</i> of character is each chunk?</td><td><code>\\d</code> digit · <code>\\w</code> word · <code>\\s</code> space · <code>[abc]</code> set · <code>[^…]</code> not-set · <code>.</code> any</td></tr>" +
+        "<tr><td><b>4 · Count</b></td><td>How many of that character?</td><td><code>+</code> 1+ · <code>*</code> 0+ · <code>?</code> 0-or-1 · <code>{n}</code> exactly · <code>{n,m}</code> range</td></tr>" +
+        "<tr><td><b>5 · Capture</b></td><td>Pull this piece out, or just match it?</td><td>Pull → wrap in <code>( )</code>, read with <code>regexp_extract(col, pat, <b>idx</b>)</code>. Just match → leave bare or <code>(?:…)</code>.</td></tr>" +
+        "</tbody></table>",
+      patterns: [
+        { label: "\"the part after the @\"", code: "# appears anywhere -> no ^  ·  @ then capture the rest to end\nF.regexp_extract('email', r'@(.+)$', 1)     # asha@acme.com -> acme.com" },
+        { label: "\"mask all but the last 4 digits\"", code: "# a digit that still has >=4 digits after it (lookahead), replace it\nF.regexp_replace('card', r'\\d(?=\\d{4})', 'X')   # ...111234 -> XXXX...1234" },
+        { label: "\"collapse runs of whitespace into one space\"", code: "# \\s = any space/tab/newline · + = one-or-more · replace the whole run\nF.regexp_replace('text', r'\\s+', ' ')" },
+        { label: "\"is the WHOLE value a valid email?\"", code: "# ^...$ forces a full-string match · rlike returns a boolean\nF.col('email').rlike(r'^[\\w.+-]+@[\\w-]+\\.[\\w.-]+$')" }
+      ],
+      gotchas: [
+        "<b>Order matters.</b> Regex reads strictly left-to-right — write your chunks in the exact order they appear in the text.",
+        "<b>Match vs capture is the #1 mistake.</b> Only wrap a chunk in <code>( )</code> if you need to pull it out. Every extra group shifts the index the later fields land at.",
+        "<b>Escape literal metacharacters.</b> A literal dot, plus or bracket in the text must be escaped: <code>\\.</code> <code>\\+</code> <code>\\[</code>. An un-escaped <code>.</code> means 'any character'.",
+        "<b>Anchor on purpose.</b> Without <code>^…$</code>, a validation <code>rlike</code> returns true for any value that merely <i>contains</i> a match, not one that <i>is</i> the match."
+      ],
+      interview: [
+        { q: "An interviewer gives you a spec in plain English. Walk me through turning it into a regex.", a: "Five steps: <b>anchor</b> (whole-string match → <code>^…$</code>), <b>chunk</b> the target left-to-right, <b>classify</b> each chunk's character type (<code>\\d \\w \\s</code> or a <code>[...]</code> set), <b>count</b> it (<code>+ * ? {n}</code>), and <b>capture</b> only the pieces you must extract. Finally escape any literal metacharacters for Spark's Java engine." }
+      ],
+      memory: "Anchor → Chunk → Classify → Count → Capture. Read the sentence, not the symbols."
+    },
+
+    {
+      id: "rx-log",
+      group: "Regex",
+      divider: "Interview patterns · the ones you'll actually be asked",
+      name: "Apache / nginx log-line parser",
+      signature: "^(\\S+) \\S+ \\S+ \\[([^\\]]+)\\] \"(\\S+) (\\S+) [^\"]*\" (\\d+)",
+      returns: "5 fields",
+      category: "📑 Interview pattern · log / structured-text parsing",
+      summary: "The canonical \"parse this raw log line into columns\" question. One <code>regexp_extract</code> per capture group pulls out IP, timestamp, method, path and status. Master this and most structured-text prompts fall out the same way.",
+      example: "127.0.0.1 - - [10/Oct/2026:13:55:36 +0000] \"GET /index.html HTTP/1.1\" 200 512",
+      output: "ip=127.0.0.1 · ts=10/Oct/2026:13:55:36 +0000 · method=GET · path=/index.html · status=200",
+      works:
+        "<table><thead><tr><th>Piece</th><th>Matches</th><th>Reads as</th></tr></thead><tbody>" +
+        "<tr><td><code>^</code></td><td>start of line</td><td>\"begin at the very start\"</td></tr>" +
+        "<tr><td><code>(\\S+)</code> <b>①</b></td><td>the client IP</td><td>\"one-or-more non-space chars — capture it\"</td></tr>" +
+        "<tr><td><code>\\S+ \\S+</code></td><td>the two <code>-</code> (identd, user)</td><td>\"skip two space-separated tokens\"</td></tr>" +
+        "<tr><td><code>\\[([^\\]]+)\\]</code> <b>②</b></td><td>the <code>[timestamp]</code></td><td>\"literal <code>[</code>, then everything that isn't <code>]</code> — capture — then <code>]</code>\"</td></tr>" +
+        "<tr><td><code>\"(\\S+) (\\S+) [^\"]*\"</code> <b>③④</b></td><td>the <code>\"METHOD path proto\"</code></td><td>\"inside the quotes: capture method, capture path, skip the rest\"</td></tr>" +
+        "<tr><td><code>(\\d+)</code> <b>⑤</b></td><td>the HTTP status</td><td>\"one-or-more digits — capture it\"</td></tr>" +
+        "</tbody></table>",
+      patterns: [
+        { label: "Extract every field in one select", code: "LOG = r'^(\\S+) \\S+ \\S+ \\[([^\\]]+)\\] \"(\\S+) (\\S+) [^\"]*\" (\\d+)'\nlogs.select(\n    F.regexp_extract('line', LOG, 1).alias('ip'),\n    F.regexp_extract('line', LOG, 2).alias('ts'),\n    F.regexp_extract('line', LOG, 3).alias('method'),\n    F.regexp_extract('line', LOG, 4).alias('path'),\n    F.regexp_extract('line', LOG, 5).cast('int').alias('status'),\n)" },
+        { label: "Guard: keep only real log lines (non-matches extract to '')", code: "# regexp_extract returns '' (not null) on no match, so filter first\nlogs.filter(F.col('line').rlike(LOG)) \\\n    .select(F.regexp_extract('line', LOG, 1).alias('ip'))" }
+      ],
+      gotchas: [
+        "<b>Group index is 1-based; index 0 is the whole match.</b> <code>regexp_extract(col, pat, 0)</code> returns the entire matched line, not the first group.",
+        "<b>No match → empty string, never null.</b> A malformed line yields <code>''</code> for every field — guard with <code>rlike</code> up front or drop rows where <code>ip = ''</code>.",
+        "<b>Double-escape or use a raw string.</b> Spark compiles a <b>Java</b> regex, so in a plain Python string every backslash doubles — <code>\\S+</code> becomes <code>\\\\S+</code>. The <code>r'…'</code> raw prefix lets you write it once.",
+        "<b>Use <code>[^\\]]+</code>, not <code>.+</code>, inside the brackets.</b> <code>.+</code> is greedy and runs past the closing <code>]</code>; <code>[^\\]]+</code> stops exactly at the bracket that closes the timestamp."
+      ],
+      related:
+        "<table><thead><tr><th>Reach for</th><th>When</th></tr></thead><tbody>" +
+        "<tr><td><code>regexp_extract</code></td><td>pull ONE capture group into a column (this pattern)</td></tr>" +
+        "<tr><td><code>rlike</code> / <code>regexp_like</code></td><td>boolean — does the line match at all? (filter / validate)</td></tr>" +
+        "<tr><td><code>split</code></td><td>delimiter is simple &amp; fixed (CSV, <code>@</code>, space) — no groups needed</td></tr>" +
+        "<tr><td><code>regexp_extract_all</code></td><td>the pattern repeats — grab <i>every</i> hit as an array (Spark 3.1+)</td></tr>" +
+        "</tbody></table>",
+      interview: [
+        { q: "Parse an Apache access-log line into ip, timestamp, method, path, status.", a: "Anchor at <code>^</code>, capture the IP with <code>(\\S+)</code>, skip the two dashes with two bare <code>\\S+</code>, capture the bracketed timestamp with <code>\\[([^\\]]+)\\]</code>, capture method and path inside the quotes with <code>\"(\\S+) (\\S+) [^\"]*\"</code>, and capture the status with <code>(\\d+)</code>. Then one <code>regexp_extract(col, pat, i)</code> per field, casting status to int." },
+        { q: "Some rows are junk, not log lines. What do those columns contain, and how do you handle it?", a: "<code>regexp_extract</code> returns an empty string <code>''</code> (never null) when the pattern doesn't match, so every field is <code>''</code>. Filter with <code>rlike(pat)</code> first, or drop rows where a required field like <code>ip = ''</code>." },
+        { q: "Why <code>[^\\]]+</code> for the timestamp instead of <code>.+</code>?", a: "<code>.+</code> is greedy and would run past the closing <code>]</code> to the last one on the line. <code>[^\\]]+</code> means 'anything except <code>]</code>', so it stops exactly at the bracket that closes the timestamp." }
+      ],
+      memory: "One capture group per column — index them 1..N with regexp_extract. Group 0 is the whole match; a non-match is '' not null."
+    },
+
+    // ---------------------------------------------------- Foundations ---------
+    {
+      id: "rx-read",
+      group: "Regex",
+      divider: "Foundations · how to think in regex",
+      name: "How to read any regex",
+      signature: "How to read any regex",
+      category: "🧭 Method · interpret a pattern you're handed",
+      summary: "Given a wall of symbols, don't panic — <b>narrate it left to right</b>, one token at a time, in plain English. Every regex is just a sequence of 'match THIS, then THIS'. Bucket the symbols into the six building blocks below and the meaning falls out.",
+      works:
+        "<table><thead><tr><th>Building block</th><th>Looks like</th><th>Say out loud</th></tr></thead><tbody>" +
+        "<tr><td>Literal</td><td><code>a</code> <code>@</code> <code>-</code></td><td>\"this exact character\"</td></tr>" +
+        "<tr><td>Character class</td><td><code>[a-z]</code> <code>[^0-9]</code> <code>\\d</code> <code>.</code></td><td>\"any ONE character from this set\"</td></tr>" +
+        "<tr><td>Quantifier</td><td><code>+</code> <code>*</code> <code>?</code> <code>{2,4}</code></td><td>\"…repeated this many times\"</td></tr>" +
+        "<tr><td>Anchor</td><td><code>^</code> <code>$</code> <code>\\b</code></td><td>\"at this position\" (matches no char — asserts where)</td></tr>" +
+        "<tr><td>Group</td><td><code>( )</code> <code>(?:)</code> <code>|</code></td><td>\"one unit\" / \"capture it\" / \"or\"</td></tr>" +
+        "<tr><td>Escape</td><td><code>\\.</code> <code>\\(</code> <code>\\\\</code></td><td>\"the literal metacharacter, not its power\"</td></tr>" +
+        "</tbody></table>",
+      patterns: [
+        { label: "Read this aloud:  r'^\\d{3}-\\d{4}$'", code: "^        start of string\n\\d{3}    exactly three digits\n-        a literal dash\n\\d{4}    exactly four digits\n$        end of string\n# => 'a 3-then-4 digit code like 555-1234, and NOTHING else'" }
+      ],
+      gotchas: [
+        "<b>Anchors match a position, not a character.</b> <code>^</code> and <code>$</code> consume nothing — they assert 'we're at the start/end here'.",
+        "<b>A quantifier binds to the token just before it.</b> <code>ab+</code> is 'a then one-or-more b', not '(ab) repeated'. Group it — <code>(ab)+</code> — to repeat a sequence.",
+        "<b>Inside <code>[ ]</code> the rules change.</b> Most metacharacters are literal there: <code>[.+]</code> means 'a dot or a plus', not 'any char then one-or-more'."
+      ],
+      memory: "Narrate it left to right. Six blocks: literal, class, quantifier, anchor, group, escape."
+    },
+
+    // ---------------------------------------------------- Constructs A–Z ------
+    {
+      id: "rx-literals",
+      group: "Regex",
+      divider: "Constructs A–Z · the building blocks",
+      name: "Literals & escaping",
+      signature: "literal chars · \\ escapes a special",
+      category: "🔤 Construct · the 12 metacharacters",
+      summary: "Most characters match themselves. Twelve are 'special' and must be <b>escaped with a backslash</b> to match literally: <code>. ^ $ * + ? ( ) [ ] { } \\ |</code>. Everything else is a plain literal.",
+      works:
+        "<table><thead><tr><th>Write</th><th>To match the literal</th></tr></thead><tbody>" +
+        "<tr><td><code>\\.</code></td><td>a dot (un-escaped <code>.</code> = any char)</td></tr>" +
+        "<tr><td><code>\\(</code> <code>\\)</code></td><td>parentheses</td></tr>" +
+        "<tr><td><code>\\[</code> <code>\\]</code></td><td>square brackets</td></tr>" +
+        "<tr><td><code>\\+</code> <code>\\*</code> <code>\\?</code></td><td>plus / star / question mark</td></tr>" +
+        "<tr><td><code>\\\\</code></td><td>a single backslash</td></tr>" +
+        "</tbody></table>",
+      patterns: [
+        { label: "Match a dotted version like '3.1.4'", code: "F.col('v').rlike(r'^\\d+\\.\\d+\\.\\d+$')   # escape each dot" }
+      ],
+      gotchas: [
+        "<b>The un-escaped dot is the classic bug.</b> <code>split(col, '.')</code> splits on EVERY character, because <code>.</code> is 'any char' — you want <code>split(col, r'\\.')</code>.",
+        "<b>Inside <code>[ ]</code> you don't escape most of these</b> — <code>[.+*]</code> already means a literal dot, plus, star. Only <code>] \\ ^ -</code> need care in a class."
+      ],
+      memory: "12 specials: . ^ $ * + ? ( ) [ ] { } \\ | — backslash any of them to mean it literally."
+    },
+    {
+      id: "rx-charclass",
+      group: "Regex",
+      name: "Character classes  [ ]",
+      signature: "[abc] · [a-z] · [^…]",
+      category: "🔤 Construct · match one char from a set",
+      summary: "<code>[ ]</code> matches exactly <b>one</b> character from the set inside. Ranges with <code>-</code>, negate with a leading <code>^</code>, combine freely.",
+      works:
+        "<table><thead><tr><th>Class</th><th>Matches one…</th></tr></thead><tbody>" +
+        "<tr><td><code>[abc]</code></td><td>a, b, or c</td></tr>" +
+        "<tr><td><code>[a-z]</code></td><td>lowercase letter (range)</td></tr>" +
+        "<tr><td><code>[a-zA-Z0-9_]</code></td><td>letter, digit or underscore (= <code>\\w</code>)</td></tr>" +
+        "<tr><td><code>[^0-9]</code></td><td>anything EXCEPT a digit (negated)</td></tr>" +
+        "<tr><td><code>[.+*]</code></td><td>a literal dot, plus or star (specials are tame inside)</td></tr>" +
+        "<tr><td><code>[[:alpha:]]</code></td><td>POSIX class — any letter (Java flavor)</td></tr>" +
+        "</tbody></table>",
+      patterns: [
+        { label: "Strip everything that isn't a lowercase letter, digit or space", code: "F.regexp_replace(F.lower('text'), r'[^a-z0-9\\s]', '')" }
+      ],
+      gotchas: [
+        "<b><code>^</code> only negates as the FIRST char.</b> <code>[^a]</code> = 'not a'; <code>[a^]</code> = 'a or a literal caret'.",
+        "<b>Put <code>-</code> first or last for a literal dash</b>: <code>[-a-z]</code> or <code>[a-z-]</code>, else it forms a range.",
+        "<b>A class matches ONE char.</b> To match many, add a quantifier: <code>[a-z]+</code>."
+      ],
+      memory: "[set] = one char from the set · leading ^ negates · - makes a range."
+    },
+    {
+      id: "rx-shorthand",
+      group: "Regex",
+      name: "Shorthand classes  \\d \\w \\s",
+      signature: "\\d \\w \\s . (caps = negation)",
+      category: "🔤 Construct · common class shortcuts",
+      summary: "One-letter shortcuts for the classes you reach for constantly. The capital is the negation.",
+      works:
+        "<table><thead><tr><th>Token</th><th>Matches</th><th>Same as</th></tr></thead><tbody>" +
+        "<tr><td><code>\\d</code> / <code>\\D</code></td><td>digit / non-digit</td><td><code>[0-9]</code> / <code>[^0-9]</code></td></tr>" +
+        "<tr><td><code>\\w</code> / <code>\\W</code></td><td>word char / non-word</td><td><code>[a-zA-Z0-9_]</code> / <code>[^…]</code></td></tr>" +
+        "<tr><td><code>\\s</code> / <code>\\S</code></td><td>whitespace / non-whitespace</td><td>space, tab, newline …</td></tr>" +
+        "<tr><td><code>.</code></td><td>ANY char except newline</td><td>(the wildcard)</td></tr>" +
+        "</tbody></table>",
+      patterns: [
+        { label: "Keep only digits (strip everything else)", code: "F.regexp_replace('phone', r'\\D', '')   # (555) 123 -> 555123" }
+      ],
+      gotchas: [
+        "<b>Capitals negate.</b> <code>\\D</code> = 'not a digit', <code>\\S</code> = 'not whitespace' — handy for 'strip the non-X'.",
+        "<b><code>.</code> skips newlines by default.</b> For a literal dot use <code>\\.</code>; to let <code>.</code> match newlines add the dot-all flag <code>(?s)</code>.",
+        "<b><code>\\w</code> includes the underscore</b> (and, in Java/Spark with Unicode flags, more than <code>[a-z]</code>)."
+      ],
+      memory: "\\d digit · \\w word · \\s space · . anything. Capital = NOT."
+    },
+    {
+      id: "rx-anchors",
+      group: "Regex",
+      name: "Anchors & boundaries  ^ $ \\b",
+      signature: "^ $ \\b \\B \\A \\z",
+      category: "🔤 Construct · assert a position (matches no char)",
+      summary: "Anchors don't match characters — they assert <i>where</i> you are. Essential for whole-string validation and whole-word matching.",
+      works:
+        "<table><thead><tr><th>Anchor</th><th>Asserts</th></tr></thead><tbody>" +
+        "<tr><td><code>^</code></td><td>start of string (or line, in multiline)</td></tr>" +
+        "<tr><td><code>$</code></td><td>end of string (or line)</td></tr>" +
+        "<tr><td><code>\\b</code></td><td>a word boundary (edge between <code>\\w</code> and non-<code>\\w</code>)</td></tr>" +
+        "<tr><td><code>\\B</code></td><td>NOT a word boundary</td></tr>" +
+        "<tr><td><code>\\A</code> / <code>\\z</code></td><td>absolute start / end of input</td></tr>" +
+        "</tbody></table>",
+      patterns: [
+        { label: "Validate the WHOLE value (not merely 'contains')", code: "F.col('code').rlike(r'^[A-Z]{2}\\d{4}$')   # exactly AB1234" }
+      ],
+      gotchas: [
+        "<b>Forgetting <code>^…$</code> is the #1 validation bug.</b> <code>rlike(r'\\d{4}')</code> is true for 'abc1234xyz' — it only needs to CONTAIN four digits.",
+        "<b><code>\\b</code> is a boundary, not a space.</b> <code>\\bthe\\b</code> matches 'the' in 'the cat' but not in 'theory', and consumes no characters."
+      ],
+      memory: "^ start · $ end · \\b word-edge. Anchors match a place, not a character."
+    },
+    {
+      id: "rx-quant",
+      group: "Regex",
+      name: "Quantifiers  * + ? {n} (greedy/lazy)",
+      signature: "* + ? {n} {n,m} · +? *? (lazy)",
+      category: "🔤 Construct · how many times to repeat",
+      summary: "A quantifier says how many of the <b>preceding token</b> to match. They're <b>greedy</b> by default (grab as much as possible); add <code>?</code> to make them <b>lazy</b> (as little as possible).",
+      works:
+        "<table><thead><tr><th>Quantifier</th><th>Repeats the previous token…</th></tr></thead><tbody>" +
+        "<tr><td><code>*</code></td><td>0 or more times</td></tr>" +
+        "<tr><td><code>+</code></td><td>1 or more times</td></tr>" +
+        "<tr><td><code>?</code></td><td>0 or 1 time (optional)</td></tr>" +
+        "<tr><td><code>{3}</code></td><td>exactly 3</td></tr>" +
+        "<tr><td><code>{2,5}</code> · <code>{2,}</code></td><td>between 2 and 5 · 2 or more</td></tr>" +
+        "<tr><td><code>.*?</code> <code>.+?</code></td><td>lazy — the fewest that still lets the match succeed</td></tr>" +
+        "</tbody></table>",
+      patterns: [
+        { label: "Greedy vs lazy on '<a><b>'", code: "'<.*>'    on '<a><b>'  ->  matches '<a><b>'   # greedy: to the LAST >\n'<.*?>'   on '<a><b>'  ->  matches '<a>'      # lazy: to the FIRST >" }
+      ],
+      gotchas: [
+        "<b>Greedy <code>.*</code> over-matches.</b> <code>\".*\"</code> across 'a \"x\" and \"y\"' grabs from the first quote to the LAST — use <code>[^\"]*</code> or lazy <code>.*?</code>.",
+        "<b>A quantifier binds to ONE token.</b> <code>ab+</code> = a then many b. Repeat a sequence with a group: <code>(ab)+</code>.",
+        "<b><code>{n,m}</code> takes no spaces.</b> <code>{2, 5}</code> is often treated as a literal, not a quantifier."
+      ],
+      memory: "* 0+ · + 1+ · ? optional · {n,m} range. Greedy by default; add ? to go lazy."
+    },
+    {
+      id: "rx-groups",
+      group: "Regex",
+      name: "Groups & alternation  ( ) (?:) |",
+      signature: "(capture) (?:non-cap) a|b",
+      category: "🔤 Construct · bundle, capture, either/or",
+      summary: "Parentheses bundle tokens into a unit. A plain <code>( )</code> also <b>captures</b> (numbered 1,2,3…); <code>(?:…)</code> groups WITHOUT capturing; <code>|</code> means 'either / or'.",
+      works:
+        "<table><thead><tr><th>Group</th><th>Does</th></tr></thead><tbody>" +
+        "<tr><td><code>(abc)</code></td><td>match abc AND capture it → group 1</td></tr>" +
+        "<tr><td><code>(?:abc)</code></td><td>match abc as a unit, do NOT capture (no index)</td></tr>" +
+        "<tr><td><code>(?&lt;yr&gt;\\d{4})</code></td><td>named capture group 'yr' (Java/Spark)</td></tr>" +
+        "<tr><td><code>cat|dog|fish</code></td><td>match any one alternative</td></tr>" +
+        "<tr><td><code>gr(a|e)y</code></td><td>'gray' or 'grey' — alternation scoped by the group</td></tr>" +
+        "</tbody></table>",
+      patterns: [
+        { label: "Categorize with alternation + regexp_extract", code: "F.regexp_extract('msg', r'(error|warn|info)', 1)   # -> the matched level" }
+      ],
+      gotchas: [
+        "<b>Every capturing <code>( )</code> shifts later indices.</b> Wrapping something 'just to group it' bumps the numbers — use <code>(?:…)</code> to group without capturing.",
+        "<b><code>|</code> has the lowest precedence.</b> <code>^cat|dog$</code> means '<code>^cat</code>' OR '<code>dog$</code>', not '^(cat|dog)$'. Wrap it: <code>^(cat|dog)$</code>."
+      ],
+      memory: "( ) captures (1,2,3…) · (?:…) groups only · | is or. Wrap alternation or precedence bites."
+    },
+    {
+      id: "rx-backref",
+      group: "Regex",
+      name: "Backreferences  \\1  $1",
+      signature: "\\1 (in pattern) · $1 (in replacement)",
+      category: "🔤 Construct · reuse a captured group",
+      summary: "A backreference reuses what a group already captured — <code>\\1</code> inside the pattern (match the same text again) and <code>$1</code> in a <b>replacement</b> string (reinsert it). The engine behind 'reformat X into Y'.",
+      works:
+        "<table><thead><tr><th>Form</th><th>Means</th></tr></thead><tbody>" +
+        "<tr><td><code>$1</code> <code>$2</code></td><td>in a replacement string: the text captured by group 1, 2…</td></tr>" +
+        "<tr><td><code>\\1</code></td><td>in the PATTERN: 'the same text group 1 just matched'</td></tr>" +
+        "</tbody></table>",
+      patterns: [
+        { label: "Reformat a 9-digit SSN into ###-##-####", code: "F.regexp_replace('ssn', r'(\\d{3})(\\d{2})(\\d{4})', '$1-$2-$3')\n# 123456789 -> 123-45-6789" }
+      ],
+      gotchas: [
+        "<b>Replacement uses <code>$1</code>, pattern uses <code>\\1</code></b> — two syntaxes for the same captured group.",
+        "<b>A literal <code>$</code> in the replacement must be escaped</b> as <code>\\$</code>, else it's read as a group reference."
+      ],
+      memory: "$1/$2 rebuild the string in regexp_replace; \\1 re-matches the same text inside the pattern."
+    },
+    {
+      id: "rx-lookaround",
+      group: "Regex",
+      name: "Lookaround  (?=) (?!) (?<=) (?<!)",
+      signature: "(?=…) (?!…) (?<=…) (?<!…)",
+      category: "🔤 Construct · assert without consuming",
+      summary: "Lookarounds check that something does (or doesn't) come next/before, <b>without consuming</b> those characters. Perfect for 'match X only if followed/preceded by Y' — like masking all but the last N.",
+      works:
+        "<table><thead><tr><th>Lookaround</th><th>Matches a position where…</th></tr></thead><tbody>" +
+        "<tr><td><code>(?=abc)</code></td><td>lookahead — 'abc' comes next</td></tr>" +
+        "<tr><td><code>(?!abc)</code></td><td>negative lookahead — 'abc' does NOT come next</td></tr>" +
+        "<tr><td><code>(?&lt;=abc)</code></td><td>lookbehind — 'abc' comes just before</td></tr>" +
+        "<tr><td><code>(?&lt;!abc)</code></td><td>negative lookbehind — 'abc' does NOT precede</td></tr>" +
+        "</tbody></table>",
+      patterns: [
+        { label: "Mask every digit that still has ≥4 digits after it", code: "F.regexp_replace('card', r'\\d(?=\\d{4})', '*')\n# 4111111111111234 -> ************1234" }
+      ],
+      gotchas: [
+        "<b>Lookarounds consume nothing.</b> They assert, then the cursor stays put — which is exactly why overlapping masks work.",
+        "<b>Java/Spark lookbehind must be bounded length.</b> <code>(?&lt;=\\d{3})</code> is fine; <code>(?&lt;=\\d+)</code> may be rejected."
+      ],
+      memory: "(?=)/(?!) look ahead, (?&lt;=)/(?&lt;!) look behind — check neighbors without eating them."
+    },
+
+    // ------------------------------------------ Interview patterns (cont.) ----
+    {
+      id: "rx-email",
+      group: "Regex",
+      name: "Email — validate & extract",
+      signature: "^[\\w.+-]+@[\\w-]+\\.[\\w.-]+$",
+      returns: "bool / domain",
+      category: "📑 Interview pattern · email",
+      summary: "Two jobs: (1) <b>validate</b> a whole address with an anchored <code>rlike</code>; (2) <b>extract</b> the local part or domain. A pragmatic pattern beats a spec-perfect monster — say so in the interview.",
+      example: "asha@acme.com · ravi@corp.co.uk · bad@@x",
+      output: "valid → acme.com, corp.co.uk · bad@@x rejected",
+      works:
+        "<table><thead><tr><th>Piece</th><th>Matches</th></tr></thead><tbody>" +
+        "<tr><td><code>^[\\w.+-]+</code></td><td>local part: word chars, dots, plus, dash</td></tr>" +
+        "<tr><td><code>@</code></td><td>the literal at-sign</td></tr>" +
+        "<tr><td><code>[\\w-]+</code></td><td>domain name</td></tr>" +
+        "<tr><td><code>\\.[\\w.-]+$</code></td><td>a dot then the TLD, to end of string</td></tr>" +
+        "</tbody></table>",
+      patterns: [
+        { label: "Validate (boolean)", code: "F.col('email').rlike(r'^[\\w.+-]+@[\\w-]+\\.[\\w.-]+$')" },
+        { label: "Extract the domain (after @) — two ways", code: "F.regexp_extract('email', r'@([\\w.-]+)$', 1)     # -> acme.com\nF.split('email', '@').getItem(1)                  # simpler when data is clean" }
+      ],
+      gotchas: [
+        "<b>Anchor it.</b> Without <code>^…$</code>, 'x@y.z junk' validates as true.",
+        "<b>Don't chase an RFC-perfect email regex.</b> It's famously enormous; a sensible pattern plus 'real validation is a confirmation email' is the senior answer.",
+        "<b><code>split(email,'@')</code> is cleaner than regex</b> when you only need the parts and trust the data."
+      ],
+      interview: [
+        { q: "Validate an email column in Spark.", a: "Anchored <code>rlike</code>: <code>rlike(r'^[\\w.+-]+@[\\w-]+\\.[\\w.-]+$')</code>. Add that email validation is best-effort — a truly valid address is confirmed by delivery, not regex — and keep the pattern pragmatic." },
+        { q: "Extract the domain two different ways.", a: "<code>regexp_extract('email', r'@([\\w.-]+)$', 1)</code>, or <code>split('email','@').getItem(1)</code>. split is simpler/faster on clean data; regex adds shape validation." }
+      ],
+      memory: "local @ domain . tld — anchor it or 'contains' sneaks through. Domain = split on '@' or capture after it."
+    },
+    {
+      id: "rx-phone",
+      group: "Regex",
+      name: "Phone — clean, mask, format",
+      signature: "\\D  ·  (\\d{3})(\\d{3})(\\d{4})",
+      category: "📑 Interview pattern · phone numbers",
+      summary: "Real phone data is messy: <code>(555) 123-4567</code>, <code>555.123.4567</code>, <code>+1 555 123 4567</code>. The robust play: <b>normalize first</b> (strip non-digits), then format or mask the clean digit string.",
+      example: "(555) 123-4567 · 555.123.4567",
+      output: "digits 5551234567 · formatted 555-123-4567",
+      works:
+        "<table><thead><tr><th>Step</th><th>Pattern → replacement</th></tr></thead><tbody>" +
+        "<tr><td>strip to digits</td><td><code>\\D</code> → '' (remove every non-digit)</td></tr>" +
+        "<tr><td>format 10 digits</td><td><code>(\\d{3})(\\d{3})(\\d{4})</code> → <code>$1-$2-$3</code></td></tr>" +
+        "<tr><td>mask all but last 4</td><td><code>\\d(?=\\d{4})</code> → <code>*</code></td></tr>" +
+        "</tbody></table>",
+      patterns: [
+        { label: "Normalize then format", code: "digits = F.regexp_replace('phone', r'\\D', '')\nfmt = F.regexp_replace(digits, r'(\\d{3})(\\d{3})(\\d{4})', '$1-$2-$3')" }
+      ],
+      gotchas: [
+        "<b>Normalize before you validate or format.</b> Matching every punctuation variant in one pattern is brittle — strip <code>\\D</code> first, then reason about pure digits.",
+        "<b>Country codes bite length checks.</b> '+1…' gives 11 digits; decide whether to drop a leading '1' before assuming 10."
+      ],
+      memory: "Strip \\D to pure digits FIRST, then format/mask/validate. Never regex the punctuation directly."
+    },
+    {
+      id: "rx-url",
+      group: "Regex",
+      name: "URL / domain extraction",
+      signature: "https?://([^/]+)(/\\S*)?",
+      category: "📑 Interview pattern · URLs",
+      summary: "Pull the host (and optionally path) out of a URL. Capture the piece between <code>//</code> and the first <code>/</code> for the domain.",
+      example: "https://www.acme.com/pricing?ref=x",
+      output: "host=www.acme.com · path=/pricing?ref=x",
+      works:
+        "<table><thead><tr><th>Piece</th><th>Matches</th></tr></thead><tbody>" +
+        "<tr><td><code>https?</code></td><td>http or https (the <code>?</code> makes 's' optional)</td></tr>" +
+        "<tr><td><code>://</code></td><td>literal separator</td></tr>" +
+        "<tr><td><code>([^/]+)</code></td><td>the host — everything up to the first slash</td></tr>" +
+        "<tr><td><code>(/\\S*)?</code></td><td>optional path (a non-space run)</td></tr>" +
+        "</tbody></table>",
+      patterns: [
+        { label: "Extract host, then strip 'www.'", code: "host = F.regexp_extract('url', r'https?://([^/]+)', 1)\nbare = F.regexp_replace(host, r'^www\\.', '')   # www.acme.com -> acme.com" }
+      ],
+      gotchas: [
+        "<b>Use <code>[^/]+</code> for the host, not <code>.*</code></b> — stop at the first slash, don't run to the end.",
+        "<b>Ports & auth sneak in.</b> 'host:8080' or 'user@host' land inside <code>[^/]+</code>; add sub-captures if you must split them out."
+      ],
+      memory: "https?:// then capture [^/]+ = the host. Path is the optional (/…)? after it."
+    },
+    {
+      id: "rx-ipv4",
+      group: "Regex",
+      name: "IPv4 address",
+      signature: "(\\d{1,3}\\.){3}\\d{1,3}",
+      category: "📑 Interview pattern · IP addresses",
+      summary: "Four dot-separated numbers. A quick pattern uses <code>\\d{1,3}</code>; a strict one bounds each octet to 0–255 (worth naming, rarely worth writing under time pressure).",
+      example: "10.0.0.5 · 127.0.0.1 · 999.1.1.1",
+      output: "valid → 10.0.0.5, 127.0.0.1 · strict rejects 999.*",
+      works:
+        "<table><thead><tr><th>Piece</th><th>Matches</th></tr></thead><tbody>" +
+        "<tr><td><code>\\d{1,3}</code></td><td>one octet (1–3 digits)</td></tr>" +
+        "<tr><td><code>(\\d{1,3}\\.){3}</code></td><td>three 'octet-dot' groups</td></tr>" +
+        "<tr><td><code>\\d{1,3}$</code></td><td>the final octet</td></tr>" +
+        "</tbody></table>",
+      patterns: [
+        { label: "Quick validate + extract first octet", code: "ok   = F.col('ip').rlike(r'^(\\d{1,3}\\.){3}\\d{1,3}$')\noct1 = F.regexp_extract('ip', r'^(\\d{1,3})\\.', 1)" }
+      ],
+      gotchas: [
+        "<b><code>\\d{1,3}</code> allows 0–999.</b> A strict octet is <code>(25[0-5]|2[0-4]\\d|1?\\d?\\d)</code> — say you know it, but you'd usually range-check in code unless asked.",
+        "<b>Escape the dots.</b> Un-escaped <code>.</code> matches any char, so '1x2x3x4' would pass."
+      ],
+      memory: "(\\d{1,3}\\.){3}\\d{1,3} — four octets. Escape the dots; strict range is 25[0-5]|2[0-4]\\d|1?\\d?\\d."
+    },
+    {
+      id: "rx-date",
+      group: "Regex",
+      name: "Dates  YYYY-MM-DD / MM-DD-YYYY",
+      signature: "(\\d{4})-(\\d{2})-(\\d{2})",
+      category: "📑 Interview pattern · dates",
+      summary: "Extract or validate date parts from text. For real parsing prefer <code>to_date</code> with a format; use regex when the date is embedded in a larger string or the format is irregular.",
+      example: "2026-09-20 · 09/20/2026",
+      output: "y=2026 m=09 d=20",
+      works:
+        "<table><thead><tr><th>Format</th><th>Pattern</th></tr></thead><tbody>" +
+        "<tr><td>ISO <code>YYYY-MM-DD</code></td><td><code>(\\d{4})-(\\d{2})-(\\d{2})</code></td></tr>" +
+        "<tr><td>US <code>MM/DD/YYYY</code></td><td><code>(\\d{2})/(\\d{2})/(\\d{4})</code></td></tr>" +
+        "<tr><td>find a date in text</td><td><code>\\d{4}-\\d{2}-\\d{2}</code> (no anchors)</td></tr>" +
+        "</tbody></table>",
+      patterns: [
+        { label: "Pull an embedded ISO date, then parse it properly", code: "d = F.regexp_extract('log', r'(\\d{4}-\\d{2}-\\d{2})', 1)\nreal = F.to_date('d')   # -> DateType; prefer this once isolated" }
+      ],
+      gotchas: [
+        "<b>Regex validates SHAPE, not validity.</b> <code>2026-13-45</code> matches <code>\\d{4}-\\d{2}-\\d{2}</code>. <code>to_date</code> returns null on a bad date — that's real validation.",
+        "<b>Prefer <code>to_date</code>/<code>to_timestamp</code> for parsing</b> — reserve regex for finding a date inside other text."
+      ],
+      memory: "Regex finds the date's SHAPE; to_date confirms it's REAL (null if not). Capture y/m/d as groups 1/2/3."
+    },
+    {
+      id: "rx-num",
+      group: "Regex",
+      name: "Numbers, currency & separators",
+      signature: "-?\\d+(\\.\\d+)? · \\d{1,3}(,\\d{3})*",
+      category: "📑 Interview pattern · numbers & money",
+      summary: "Extract numbers from text, handle thousands separators and currency symbols. Usually: strip the noise, then cast.",
+      example: "$1,234.50 · -42 · 3.14",
+      output: "1234.50 · -42 · 3.14",
+      works:
+        "<table><thead><tr><th>Goal</th><th>Pattern</th></tr></thead><tbody>" +
+        "<tr><td>signed decimal</td><td><code>-?\\d+(\\.\\d+)?</code></td></tr>" +
+        "<tr><td>with thousands commas</td><td><code>\\d{1,3}(,\\d{3})*(\\.\\d+)?</code></td></tr>" +
+        "<tr><td>every number in text</td><td><code>\\d+</code> with <code>regexp_extract_all</code></td></tr>" +
+        "</tbody></table>",
+      patterns: [
+        { label: "Clean '$1,234.50' into a number", code: "F.regexp_replace('price', r'[^0-9.]', '').cast('double')\n# strips $ and commas -> 1234.50" }
+      ],
+      gotchas: [
+        "<b>Strip-then-cast beats one clever pattern.</b> <code>regexp_replace(col, r'[^0-9.]', '')</code> then <code>.cast('double')</code> handles $, commas and spaces at once.",
+        "<b>Watch the minus & decimal.</b> If negatives or decimals matter, keep them in the set: <code>[^0-9.-]</code>."
+      ],
+      memory: "Strip everything but [0-9.] (add - if signed), then cast. \\d+ + extract_all grabs every number."
+    },
+    {
+      id: "rx-pii",
+      group: "Regex",
+      name: "PII masking (keep last 4)",
+      signature: "\\d(?=\\d{4})  ·  (\\d{3})\\d{2}(\\d{4})",
+      category: "📑 Interview pattern · masking / redaction",
+      summary: "Redact sensitive numbers while keeping a suffix for reference — the classic 'show only the last 4 of the card/SSN'. A lookahead does it in one pass.",
+      example: "4111111111111234 · 123-45-6789",
+      output: "************1234 · ***-**-6789",
+      works:
+        "<table><thead><tr><th>Task</th><th>Pattern → replacement</th></tr></thead><tbody>" +
+        "<tr><td>mask all but last 4</td><td><code>\\d(?=\\d{4})</code> → <code>*</code></td></tr>" +
+        "<tr><td>keep first 3 + last 4</td><td><code>(\\d{3})\\d{2}(\\d{4})</code> → <code>$1**$2</code></td></tr>" +
+        "<tr><td>redact a whole token</td><td><code>\\b\\d{16}\\b</code> → <code>[REDACTED]</code></td></tr>" +
+        "</tbody></table>",
+      patterns: [
+        { label: "Mask all but the last four digits", code: "F.regexp_replace('card', r'\\d(?=\\d{4})', '*')\n# 4111111111111234 -> ************1234" }
+      ],
+      gotchas: [
+        "<b>Lookahead is the trick.</b> <code>\\d(?=\\d{4})</code> matches every digit that still has 4 digits after it — so the last four are never touched.",
+        "<b>Normalize first if formatted.</b> Strip <code>\\D</code> before masking, or the mask drifts around dashes/spaces."
+      ],
+      memory: "\\d(?=\\d{4}) → * masks all but the last 4 in one pass. Lookahead never consumes the kept digits."
+    },
+    {
+      id: "rx-whitespace",
+      group: "Regex",
+      name: "Whitespace: trim & collapse",
+      signature: "\\s+  ·  ^\\s+|\\s+$",
+      category: "📑 Interview pattern · text cleanup",
+      summary: "The most common cleaning step: squeeze runs of spaces/tabs/newlines to one, and/or trim the ends. Bread-and-butter before joins and grouping.",
+      example: "'  hello   world \\t'",
+      output: "'hello world'",
+      works:
+        "<table><thead><tr><th>Goal</th><th>Pattern → replacement</th></tr></thead><tbody>" +
+        "<tr><td>collapse runs → one space</td><td><code>\\s+</code> → <code>' '</code></td></tr>" +
+        "<tr><td>trim both ends</td><td><code>^\\s+|\\s+$</code> → <code>''</code></td></tr>" +
+        "<tr><td>split on comma+space</td><td><code>split(col, r',\\s*')</code></td></tr>" +
+        "</tbody></table>",
+      patterns: [
+        { label: "Collapse interior runs, then trim the ends", code: "clean = F.trim(F.regexp_replace('text', r'\\s+', ' '))" }
+      ],
+      gotchas: [
+        "<b><code>F.trim</code> only strips the ENDS.</b> Interior double-spaces need <code>regexp_replace(col, r'\\s+', ' ')</code>.",
+        "<b><code>\\s</code> covers tabs & newlines too</b>, not just the space character — usually what you want for messy free text."
+      ],
+      memory: "\\s+ → ' ' collapses interior runs; F.trim does the ends. Combine both for tidy text."
+    },
+    {
+      id: "rx-words",
+      group: "Regex",
+      name: "Whole words & word count",
+      signature: "\\bword\\b  ·  split on \\s+",
+      category: "📑 Interview pattern · tokens & counting",
+      summary: "Match a term as a <b>whole word</b> (not a substring), or split text into tokens to count. Word boundaries <code>\\b</code> are the key.",
+      example: "'the theory of the cat'",
+      output: "whole-word 'the' count = 2, not 3",
+      works:
+        "<table><thead><tr><th>Goal</th><th>Pattern</th></tr></thead><tbody>" +
+        "<tr><td>whole word 'the'</td><td><code>\\bthe\\b</code> (misses 'theory')</td></tr>" +
+        "<tr><td>tokens for counting</td><td><code>split(col, r'\\s+')</code> then <code>explode</code></td></tr>" +
+        "<tr><td>count a term's hits</td><td><code>regexp_count</code> / size of <code>regexp_extract_all</code></td></tr>" +
+        "</tbody></table>",
+      patterns: [
+        { label: "Word count per row (split → explode → group)", code: "words = F.split(F.trim(F.lower('text')), r'\\s+')\ndf.select(F.explode(words).alias('w')).groupBy('w').count()" }
+      ],
+      gotchas: [
+        "<b>Without <code>\\b</code> you match substrings.</b> 'the' hits inside 'theory', 'bathe' — <code>\\bthe\\b</code> fixes it.",
+        "<b>Lowercase & trim before splitting</b> so 'The' and 'the' count together and empty tokens don't appear."
+      ],
+      memory: "\\bword\\b = whole word only. Count = split on \\s+, explode, groupBy."
+    },
+    {
+      id: "rx-social",
+      group: "Regex",
+      name: "Hashtags & @mentions",
+      signature: "(#\\w+)  ·  (@\\w+)",
+      category: "📑 Interview pattern · social text",
+      summary: "Extract every hashtag or mention from a post — a repeating pattern, so grab them ALL into an array and explode.",
+      example: "'love #spark and #python, thx @asha'",
+      output: "['#spark','#python'] · ['@asha']",
+      works:
+        "<table><thead><tr><th>Target</th><th>Pattern</th></tr></thead><tbody>" +
+        "<tr><td>a hashtag</td><td><code>#\\w+</code></td></tr>" +
+        "<tr><td>a mention</td><td><code>@\\w+</code></td></tr>" +
+        "<tr><td>ALL of them</td><td><code>regexp_extract_all(col, r'(#\\w+)', 1)</code></td></tr>" +
+        "</tbody></table>",
+      patterns: [
+        { label: "All hashtags → explode → top N", code: "tags = F.regexp_extract_all('post', r'(#\\w+)', 1)   # Spark 3.1+\ndf.select(F.explode(tags).alias('tag')).groupBy('tag').count()" }
+      ],
+      gotchas: [
+        "<b><code>regexp_extract</code> gets only the FIRST hit.</b> For every hashtag use <code>regexp_extract_all</code> (3.1+), or <code>split</code>/UDF on older Spark.",
+        "<b><code>\\w</code> stops at punctuation</b> — '#spark!' captures '#spark', which is usually correct."
+      ],
+      memory: "#\\w+ / @\\w+ · use regexp_extract_all to get EVERY one, then explode."
+    },
+    {
+      id: "rx-html",
+      group: "Regex",
+      name: "Strip HTML / XML tags",
+      signature: "<[^>]+>",
+      category: "📑 Interview pattern · markup cleanup",
+      summary: "Remove tags to get plain text. <code>&lt;[^&gt;]+&gt;</code> matches a tag safely by stopping at the first <code>&gt;</code>.",
+      example: "'<p>Hi <b>there</b></p>'",
+      output: "'Hi there'",
+      works:
+        "<table><thead><tr><th>Goal</th><th>Pattern → replacement</th></tr></thead><tbody>" +
+        "<tr><td>remove all tags</td><td><code>&lt;[^&gt;]+&gt;</code> → <code>''</code></td></tr>" +
+        "<tr><td>keep the tag NAME</td><td><code>&lt;(\\w+)[^&gt;]*&gt;</code> → capture group 1</td></tr>" +
+        "</tbody></table>",
+      patterns: [
+        { label: "Strip tags to plain text", code: "F.regexp_replace('html', r'<[^>]+>', '')   # <p>Hi</p> -> Hi" }
+      ],
+      gotchas: [
+        "<b>Use <code>[^&gt;]+</code>, never <code>.*</code>.</b> Greedy <code>&lt;.*&gt;</code> eats '&lt;a&gt;x&lt;/a&gt;' whole; <code>&lt;[^&gt;]+&gt;</code> removes each tag individually.",
+        "<b>Regex can't truly PARSE HTML</b> — fine for stripping tags, not for nested-structure extraction. Say so; use a parser for anything structural."
+      ],
+      memory: "&lt;[^&gt;]+&gt; → '' strips tags. Never &lt;.*&gt; (greedy eats content). Regex strips HTML, doesn't parse it."
+    },
+    {
+      id: "rx-reshape",
+      group: "Regex",
+      name: "Reshape via capture groups",
+      signature: "(\\d{4})(\\d{2})(\\d{2}) → $1-$2-$3",
+      category: "📑 Interview pattern · reformat in place",
+      summary: "Capture the pieces you want to keep, then rebuild the string in the replacement with <code>$1 $2 …</code>. The general 'turn format A into format B' tool.",
+      example: "'20260920' · 'Doe, Jane'",
+      output: "'2026-09-20' · 'Jane Doe'",
+      works:
+        "<table><thead><tr><th>From → To</th><th>Pattern → replacement</th></tr></thead><tbody>" +
+        "<tr><td>YYYYMMDD → dashed</td><td><code>(\\d{4})(\\d{2})(\\d{2})</code> → <code>$1-$2-$3</code></td></tr>" +
+        "<tr><td>swap 'Last, First'</td><td><code>(\\w+),\\s*(\\w+)</code> → <code>$2 $1</code></td></tr>" +
+        "</tbody></table>",
+      patterns: [
+        { label: "'Doe, Jane' -> 'Jane Doe'", code: "F.regexp_replace('name', r'(\\w+),\\s*(\\w+)', '$2 $1')" }
+      ],
+      gotchas: [
+        "<b>Capture ONLY what you re-emit.</b> Anything not in a group (and not re-referenced) is dropped from the output.",
+        "<b>Group order = <code>$</code> number.</b> Reorder freely — <code>$2 $1</code> swaps them."
+      ],
+      memory: "Capture the keep-pieces, reassemble with $1 $2 in the replacement. Reformat = capture + rebuild."
+    },
+    {
+      id: "rx-dupword",
+      group: "Regex",
+      name: "Duplicate-word detection",
+      signature: "\\b(\\w+)\\s+\\1\\b",
+      category: "📑 Interview pattern · backreference trick",
+      summary: "Find a repeated word ('the the') with a <b>backreference</b>: capture a word, then require the same text again. A classic 'aha' interview question.",
+      example: "'this is is a test the the end'",
+      output: "matches 'is is', 'the the'",
+      works:
+        "<table><thead><tr><th>Piece</th><th>Matches</th></tr></thead><tbody>" +
+        "<tr><td><code>\\b(\\w+)</code></td><td>a word, captured as group 1</td></tr>" +
+        "<tr><td><code>\\s+</code></td><td>the space(s) between</td></tr>" +
+        "<tr><td><code>\\1\\b</code></td><td>the SAME word again (backreference)</td></tr>" +
+        "</tbody></table>",
+      patterns: [
+        { label: "Flag doubled words / squash them", code: "has_dup = F.col('text').rlike(r'\\b(\\w+)\\s+\\1\\b')\nfixed   = F.regexp_replace('text', r'\\b(\\w+)\\s+\\1\\b', '$1')" }
+      ],
+      gotchas: [
+        "<b><code>\\1</code> is a PATTERN backreference</b> — 'match the same characters group 1 captured' — different from <code>$1</code> (replacement).",
+        "<b>Add <code>(?i)</code> for case-insensitive</b> if 'The the' should count."
+      ],
+      memory: "\\b(\\w+)\\s+\\1\\b finds a word repeated. \\1 = 'the same text again'."
+    },
+    {
+      id: "rx-case",
+      group: "Regex",
+      name: "camelCase ↔ snake_case",
+      signature: "([a-z0-9])([A-Z]) → $1_$2",
+      category: "📑 Interview pattern · identifier casing",
+      summary: "Convert column/identifier styles. camelCase→snake inserts an underscore at each lower→upper boundary, then lowercases.",
+      example: "'firstName' · 'user_id'",
+      output: "'first_name' · 'userId'",
+      works:
+        "<table><thead><tr><th>Direction</th><th>Pattern → replacement</th></tr></thead><tbody>" +
+        "<tr><td>camel → snake</td><td><code>([a-z0-9])([A-Z])</code> → <code>$1_$2</code>, then lower</td></tr>" +
+        "<tr><td>snake → camel</td><td><code>_(\\w)</code> → uppercased group (needs a UDF)</td></tr>" +
+        "</tbody></table>",
+      patterns: [
+        { label: "camelCase -> snake_case", code: "F.lower(F.regexp_replace('col', r'([a-z0-9])([A-Z])', '$1_$2'))\n# firstName -> first_name" }
+      ],
+      gotchas: [
+        "<b>Insert-at-boundary with a capture is simplest in Spark</b>: <code>([a-z0-9])([A-Z])</code> → <code>$1_$2</code> sidesteps variable-length lookbehind limits.",
+        "<b>snake→camel needs case-changing</b>, which pure regex replacement can't do — reach for <code>initcap</code>/split-join or a UDF."
+      ],
+      memory: "camel→snake: split each lower→UPPER edge with $1_$2, then lower(). Reverse needs a UDF."
+    },
+
+    // ---------------------------------------------------- PySpark specifics ---
+    {
+      id: "rx-funcs",
+      group: "Regex",
+      divider: "PySpark specifics · functions, flavor & performance",
+      name: "The Spark regex functions",
+      signature: "regexp_replace · regexp_extract · rlike · split",
+      category: "⚙️ PySpark · which function does what",
+      summary: "Spark's regex surface. Pick by the shape of answer you need: a boolean, one piece, all pieces, or a rewrite.",
+      works:
+        "<table><thead><tr><th>Function</th><th>Use it to</th><th>Returns</th></tr></thead><tbody>" +
+        "<tr><td><code>rlike</code> / <code>regexp_like</code></td><td>test if a pattern matches</td><td>boolean (filter)</td></tr>" +
+        "<tr><td><code>regexp_extract(c,p,i)</code></td><td>pull capture group <code>i</code></td><td>string ('' if none)</td></tr>" +
+        "<tr><td><code>regexp_extract_all(c,p,i)</code></td><td>pull EVERY match (3.1+)</td><td>array&lt;string&gt;</td></tr>" +
+        "<tr><td><code>regexp_replace(c,p,r)</code></td><td>replace matches (<code>$1</code> in <code>r</code>)</td><td>string</td></tr>" +
+        "<tr><td><code>split(c,p[,lim])</code></td><td>break on a regex delimiter</td><td>array&lt;string&gt;</td></tr>" +
+        "<tr><td><code>regexp_count</code> / <code>regexp_substr</code></td><td>count hits / first match (3.5+)</td><td>int / string</td></tr>" +
+        "</tbody></table>",
+      gotchas: [
+        "<b><code>split</code>'s delimiter is a REGEX.</b> <code>split(x,'.')</code> splits on every char — use <code>split(x, r'\\.')</code> for a literal dot.",
+        "<b><code>regexp_extract</code> returns '' (not null) on no match</b>, and group 0 is the whole match.",
+        "<b><code>regexp_extract_all</code>/<code>regexp_count</code>/<code>regexp_substr</code> are newer</b> (3.1 / 3.5). On older clusters, fall back to <code>split</code> + higher-order functions or a UDF."
+      ],
+      memory: "rlike=bool · extract=one · extract_all=array · replace=rewrite · split=break. split's arg is a regex!"
+    },
+    {
+      id: "rx-flavor",
+      group: "Regex",
+      name: "Java/ICU flavor & double-escaping",
+      signature: "'\\\\d' vs r'\\d'  ·  (?i) flags",
+      category: "⚙️ PySpark · the escaping gotcha",
+      summary: "Spark compiles patterns with <b>Java's</b> regex engine (java.util.regex), not Python's <code>re</code>. Two practical consequences: how you escape backslashes, and which flags/syntax exist.",
+      works:
+        "<table><thead><tr><th>Concern</th><th>What to know</th></tr></thead><tbody>" +
+        "<tr><td>backslashes</td><td>plain string doubles them (<code>'\\\\d'</code>); raw string is clean (<code>r'\\d'</code>)</td></tr>" +
+        "<tr><td>flags</td><td>inline only: <code>(?i)</code> ignore-case, <code>(?s)</code> dot-all, <code>(?m)</code> multiline — put at the pattern start</td></tr>" +
+        "<tr><td>named groups</td><td>Java syntax <code>(?&lt;name&gt;…)</code>, not Python's <code>(?P&lt;name&gt;…)</code></td></tr>" +
+        "<tr><td>extras</td><td>possessive quantifiers <code>a++</code>, <code>\\p{…}</code> Unicode classes</td></tr>" +
+        "</tbody></table>",
+      patterns: [
+        { label: "Same pattern, three ways to write it", code: "F.col('x').rlike('\\\\d+')       # plain string: double every backslash\nF.col('x').rlike(r'\\d+')        # raw string: reads like re (preferred)\nF.col('x').rlike(r'(?i)error')  # inline flag: case-insensitive" }
+      ],
+      gotchas: [
+        "<b>Always prefer <code>r'…'</code> raw strings.</b> The pattern then reads exactly like the regex; plain strings force you to double every backslash and invite bugs.",
+        "<b>Flags are inline, at the front.</b> Spark has no <code>flags=</code> argument — write <code>(?i)</code> etc. inside the pattern.",
+        "<b>It's Java regex, not Python.</b> Skip Python-only syntax like <code>(?P&lt;name&gt;)</code>; use <code>(?&lt;name&gt;)</code>."
+      ],
+      memory: "Java engine: raw strings (r'\\d'), flags inline ((?i) at the front), named groups are (?&lt;name&gt;)."
+    },
+    {
+      id: "rx-perf",
+      group: "Regex",
+      name: "Regex performance & when NOT to use it",
+      signature: "contains / startswith > regex",
+      category: "⚙️ PySpark · cost & alternatives",
+      summary: "Regex is powerful but per-row and CPU-heavy. For plain substrings or prefixes, cheaper column functions win — and predicate pushdown behaves better.",
+      works:
+        "<table><thead><tr><th>Instead of…</th><th>Prefer…</th></tr></thead><tbody>" +
+        "<tr><td><code>rlike(r'^abc')</code></td><td><code>startswith('abc')</code></td></tr>" +
+        "<tr><td><code>rlike(r'abc')</code> (contains)</td><td><code>contains('abc')</code> / <code>like('%abc%')</code></td></tr>" +
+        "<tr><td>regex to grab one delimited piece</td><td><code>substring_index(col, ',', 1)</code></td></tr>" +
+        "<tr><td>re-typing the same pattern</td><td>hoist to a constant (<code>LOG = r'…'</code>) — compiled once</td></tr>" +
+        "</tbody></table>",
+      gotchas: [
+        "<b>Catastrophic backtracking is real.</b> Nested quantifiers like <code>(a+)+</code> on long non-matching input can hang a task. Keep patterns linear; avoid overlapping <code>.*</code>.",
+        "<b>Regex blocks some optimizations.</b> A literal <code>startswith</code>/<code>contains</code> is clearer to the optimizer than an equivalent <code>rlike</code>.",
+        "<b>Don't regex what you can parse.</b> Dates → <code>to_date</code>; JSON → <code>from_json</code>/<code>get_json_object</code> — not hand-rolled patterns."
+      ],
+      memory: "Literal match? Use contains/startswith/like, not regex. Watch nested quantifiers. Parse dates & JSON, don't regex them."
     }
 
   ]

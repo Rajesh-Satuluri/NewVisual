@@ -585,6 +585,14 @@ body.sidebar-open .ham i:nth-child(3) { top: 6px; transform: rotate(-45deg); }
 .cht-xall-btn:hover { color: var(--text); border-color: var(--brand); }
 @media (pointer: coarse) { .cht-xall-btn { min-height: 32px; } }
 
+/* ---- sub-section dividers within a group (e.g. the Regex chip) ------------- */
+.cht-subdiv { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .7px;
+  color: var(--brand-2); margin: 18px 0 10px; padding: 8px 12px;
+  border-left: 3px solid var(--brand);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--brand) 12%, transparent), transparent);
+  border-radius: 0 6px 6px 0; }
+.cht-subdiv:first-child { margin-top: 4px; }
+
 /* ---- enhanced-content sections (deepened functions only) ------------------- */
 .cht-cat { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px;
   color: var(--brand-2); margin-bottom: 7px; }
