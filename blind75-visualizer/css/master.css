@@ -30,6 +30,13 @@ body[data-stack="spark"]  #cheatBtn,
 body[data-stack="python"] #pyCheatBtn,
 body[data-stack="sql"]    #sqlCheatBtn { display: inline-block; }
 
+/* Postmortem dissects SQL & PySpark questions, so it only earns toolbar space on
+   those two stacks (Learn *and* Practice — data-stack is set for both). Hidden on
+   Python / NumPy / Pandas and the home grid so it never clutters their UI. */
+#postmortemBtn { display: none; }
+body[data-stack="spark"] #postmortemBtn,
+body[data-stack="sql"]   #postmortemBtn { display: inline-block; }
+
 /* the "All 150 / Blind 75" study-set toggle is DSA-only — hide it everywhere else */
 body[data-ws="python"] #setToggle { display: none !important; }
 

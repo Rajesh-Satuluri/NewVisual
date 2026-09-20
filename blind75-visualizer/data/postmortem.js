@@ -33,7 +33,9 @@ window.POSTMORTEM = {
     "Time-Series & Sessionization",
     "Gaps, Islands & Streaks",
     "Reshaping & Pivots",
-    "Data Quality & Nulls"
+    "Data Quality & Nulls",
+    "Text, JSON & Arrays",
+    "UDFs & Custom Logic"
   ],
 
   patterns: [
@@ -1480,6 +1482,337 @@ window.POSTMORTEM = {
           a: "Add validation columns (or a checks library) and route failures to quarantine." },
         { q: "'Then apply changes to the current table.'",
           a: "<code>MERGE</code> the cleaned, deduped batch into the target (upsert)." }
+      ]
+    },
+
+    // ============================================ Text, JSON & Arrays ========
+    {
+      id: "string-toolkit",
+      title: "String cleaning & construction",
+      group: "Text, JSON & Arrays",
+      difficulty: "Easy",
+      aka: [
+        "'clean up the text column'", "'split the full name'", "'build a key by concatenating'",
+        "'normalize casing / trim whitespace'", "'pad the id to 6 digits'"
+      ],
+      tells: [
+        "A column holds free text that must be <b>parsed, normalized, or assembled</b> — names, emails, codes, addresses.",
+        "Words: <b>split</b>, <b>concatenate</b>, <b>trim</b>, <b>upper/lower</b>, <b>substring</b>, <b>pad</b>, <b>format</b>.",
+        "A dedup or join that keeps failing because the same value is stored with different casing/whitespace."
+      ],
+      keyIdea:
+        "Reach for the <b>native string functions</b> before a UDF: <code>split</code> returns an array (index it), <code>concat_ws</code> joins with a separator and <b>skips nulls</b>, and <code>trim</code>+<code>lower</code> is the standard normalize-before-you-compare move. Never hand-roll these in Python.",
+      approach: [
+        "Normalize first: <code>trim</code> then <code>lower</code>/<code>upper</code>/<code>initcap</code> so joins and dedups compare apples to apples.",
+        "Split a delimited field with <code>split(col, sep)</code> and pick a piece with <code>getItem(i)</code> / <code>[i]</code>.",
+        "Assemble keys with <code>concat_ws(sep, ...)</code> (null-safe) rather than <code>concat</code> (which nulls the whole result).",
+        "Fixed-width output: <code>lpad</code>/<code>rpad</code>; substrings via <code>substring</code>/<code>substr</code>; templated text via <code>format_string</code>."
+      ],
+      code: {
+        sql:
+          "SELECT\n" +
+          "  LOWER(TRIM(email))                       AS email_norm,   -- normalize\n" +
+          "  SPLIT(full_name, ' ')[0]                 AS first_name,   -- split + index\n" +
+          "  CONCAT_WS('-', country, LPAD(id, 6, '0')) AS surrogate_key -- null-safe join\n" +
+          "FROM users;",
+        spark:
+          "from pyspark.sql import functions as F\n" +
+          "\n" +
+          "out = users.select(\n" +
+          "    F.lower(F.trim('email')).alias('email_norm'),           # normalize\n" +
+          "    F.split('full_name', ' ').getItem(0).alias('first_name'),# split + index\n" +
+          "    # concat_ws skips nulls; concat would null the whole key\n" +
+          "    F.concat_ws('-', 'country', F.lpad(F.col('id').cast('string'), 6, '0'))\n" +
+          "     .alias('surrogate_key'),\n" +
+          "    F.initcap('city').alias('city'),                        # Title Case\n" +
+          "    F.length('email').alias('email_len'))"
+      },
+      cost:
+        "All narrow, per-row transforms — <b>no shuffle</b>, fully codegen-fused. The only real cost is correctness: forgetting to normalize before a join/dedup silently under-matches, and <code>concat</code> vs <code>concat_ws</code> is a common null bug.",
+      dos: [
+        "Normalize (<code>trim</code>+<code>lower</code>) <b>before</b> joining or deduping on a text key.",
+        "Use <code>concat_ws</code> when any input can be null — it drops nulls instead of nulling the row.",
+        "Prefer native funcs (<code>split</code>, <code>substring</code>, <code>translate</code>) over a Python UDF."
+      ],
+      donts: [
+        "Don't assume <code>split</code> gives a fixed count — index safely (<code>element_at</code> / bounds-check).",
+        "Don't use <code>concat</code> across nullable columns — one null blanks the whole result.",
+        "Don't loop character-by-character in a UDF for something <code>regexp_replace</code>/<code>translate</code> does natively."
+      ],
+      followUps: [
+        { q: "'Only the last piece after the delimiter.'",
+          a: "<code>element_at(split(col, sep), -1)</code> — negative index from the end." },
+        { q: "'Replace a set of characters.'",
+          a: "<code>translate(col, 'abc', 'xyz')</code> for 1:1 char maps; <code>regexp_replace</code> for patterns." },
+        { q: "'Position of a substring.'",
+          a: "<code>instr</code> / <code>locate</code> (1-based; 0 means not found)." }
+      ]
+    },
+
+    {
+      id: "regexp-toolkit",
+      title: "Regex — extract, replace & match",
+      group: "Text, JSON & Arrays",
+      difficulty: "Medium",
+      aka: [
+        "'pull the number/domain out of the string'", "'strip non-numeric characters'",
+        "'validate the format'", "'find rows that look like ...'", "'parse the log line'"
+      ],
+      tells: [
+        "A messy string where the structure is <b>a pattern, not a fixed delimiter</b> — log lines, phone numbers, emails, order codes.",
+        "Words: <b>extract</b>, <b>match</b>, <b>pattern</b>, <b>strip</b>, <b>validate</b>, <b>looks like</b>, <b>contains (with wildcards)</b>.",
+        "Cleaning that a plain <code>split</code> can't do because separators vary."
+      ],
+      keyIdea:
+        "Three tools cover almost everything: <code>regexp_extract(col, pattern, groupIdx)</code> pulls a <b>capture group</b> (returns '' when no match), <code>regexp_replace</code> rewrites/strips matches, and <code>rlike</code> (SQL <code>RLIKE</code>/<code>REGEXP</code>) is a boolean filter. Use capture groups, not string surgery.",
+      approach: [
+        "Extraction: <code>regexp_extract(col, '(\\\\d+)', 1)</code> — group 1 is the first <code>()</code>; group 0 is the whole match.",
+        "Cleaning: <code>regexp_replace(col, '[^0-9]', '')</code> to strip everything but digits.",
+        "Filtering / validation: <code>col.rlike('^[\\\\w.]+@[\\\\w.]+$')</code> as a boolean predicate.",
+        "Anchor patterns (<code>^</code>…<code>$</code>) for validation; keep them non-greedy to avoid over-matching."
+      ],
+      code: {
+        sql:
+          "SELECT\n" +
+          "  REGEXP_EXTRACT(url, 'https?://([^/]+)', 1) AS host,        -- capture group\n" +
+          "  REGEXP_REPLACE(phone, '[^0-9]', '')        AS phone_digits -- strip non-digits\n" +
+          "FROM events\n" +
+          "WHERE email RLIKE '^[\\\\w.+-]+@[\\\\w-]+\\\\.[\\\\w.]+$';       -- validate format",
+        spark:
+          "from pyspark.sql import functions as F\n" +
+          "\n" +
+          "clean = (events\n" +
+          "    # group 1 of the pattern; returns '' (not null) when there is no match\n" +
+          "    .withColumn('host', F.regexp_extract('url', r'https?://([^/]+)', 1))\n" +
+          "    .withColumn('phone_digits', F.regexp_replace('phone', r'[^0-9]', ''))\n" +
+          "    # rlike is a boolean column -> use it in filter()\n" +
+          "    .filter(F.col('email').rlike(r'^[\\w.+-]+@[\\w-]+\\.[\\w.]+$')))"
+      },
+      cost:
+        "Narrow, per-row, codegen-fused — <b>no shuffle</b>. Regex is CPU-heavier than plain string ops, but still native (JVM), so it beats a Python UDF by a wide margin. Watch for <b>catastrophic backtracking</b> on pathological patterns over long strings.",
+      dos: [
+        "Use <b>capture groups</b> and pass the right group index to <code>regexp_extract</code>.",
+        "Remember a no-match returns <code>''</code> (empty string), not null — guard downstream logic.",
+        "Anchor validation patterns with <code>^</code> and <code>$</code> so partial matches don't slip through."
+      ],
+      donts: [
+        "Don't use <code>rlike</code>/regex for a plain substring test — <code>contains</code>/<code>LIKE</code> is cheaper.",
+        "Don't parse JSON with regex — use <code>from_json</code>/<code>get_json_object</code>.",
+        "Don't forget to double-escape in strings (<code>\\\\d</code>) unless you use a raw string (<code>r'\\d'</code>)."
+      ],
+      followUps: [
+        { q: "'Extract every match, not just the first.'",
+          a: "<code>regexp_extract_all(col, pattern, group)</code> returns an array (Spark 3.1+)." },
+        { q: "'Case-insensitive match.'",
+          a: "Prefix the pattern with <code>(?i)</code>, e.g. <code>(?i)error</code>." },
+        { q: "'Count how many rows match.'",
+          a: "<code>.filter(col.rlike(p)).count()</code>, or sum a <code>rlike</code> cast to int." }
+      ]
+    },
+
+    {
+      id: "json-navigate",
+      title: "Parse & navigate JSON columns",
+      group: "Text, JSON & Arrays",
+      difficulty: "Medium",
+      aka: [
+        "'the column is a JSON string'", "'pull a field out of the payload'",
+        "'read the nested attribute'", "'serialize the struct back to JSON'", "'the schema keeps changing'"
+      ],
+      tells: [
+        "A string column holds a <b>JSON object/array</b> and they want specific fields as columns.",
+        "Words: <b>payload</b>, <b>attributes</b>, <b>nested</b>, <b>parse the JSON</b>, <b>flatten the struct</b>.",
+        "Semi-structured events (Kafka, API dumps, logs) where each row is a JSON blob."
+      ],
+      keyIdea:
+        "Two routes. For <b>known, stable</b> schemas: <code>from_json(col, schema)</code> once → dot-select typed fields (fast, reusable). For <b>ad-hoc / one field</b>: <code>get_json_object(col, '$.a.b')</code> or <code>json_tuple</code> (returns strings, no schema needed). Go the other way with <code>to_json</code>.",
+      approach: [
+        "Stable shape → define a <code>StructType</code>, <code>from_json</code> into a struct column, then dot-select <code>j.field</code>.",
+        "One or two fields, no schema → <code>get_json_object(col, '$.path')</code> (JSONPath) or <code>json_tuple(col, 'a', 'b')</code>.",
+        "Discover a shape once with <code>schema_of_json</code> on a sample, then reuse that schema.",
+        "Round-trip: build a struct/map and <code>to_json</code> it back to a string column for output."
+      ],
+      code: {
+        sql:
+          "-- one-off field extraction (no schema needed)\n" +
+          "SELECT\n" +
+          "  GET_JSON_OBJECT(payload, '$.user.id')    AS user_id,\n" +
+          "  GET_JSON_OBJECT(payload, '$.items[0].sku') AS first_sku\n" +
+          "FROM raw_events;",
+        spark:
+          "from pyspark.sql import functions as F\n" +
+          "from pyspark.sql.types import StructType, StructField, StringType, LongType\n" +
+          "\n" +
+          "# A) stable schema: parse once, dot-select typed columns\n" +
+          "schema = StructType([StructField('user', StructType([\n" +
+          "            StructField('id', LongType())])),\n" +
+          "         StructField('event', StringType())])\n" +
+          "typed = (raw.withColumn('j', F.from_json('payload', schema))\n" +
+          "            .select('id', 'j.user.id', 'j.event'))\n" +
+          "\n" +
+          "# B) ad-hoc single field (returns a string, no schema)\n" +
+          "quick = raw.withColumn('uid', F.get_json_object('payload', '$.user.id'))\n" +
+          "\n" +
+          "# round-trip back to a JSON string\n" +
+          "out = typed.withColumn('json', F.to_json(F.struct('id', 'event')))"
+      },
+      cost:
+        "<code>from_json</code> with an explicit schema is a codegen-fused parse — cheap and reusable across many fields. <code>get_json_object</code> <b>re-parses the string on every call</b>, so pulling ten fields that way is ten parses; parse once with <code>from_json</code> instead. Schema <b>inference</b> costs an extra scan.",
+      dos: [
+        "Use <code>from_json</code> + explicit schema when you need <b>several fields</b> or typed values.",
+        "Use <code>get_json_object</code>/<code>json_tuple</code> for a quick <b>one-field</b> grab with no schema.",
+        "Give a <b>superset schema</b> when fields come and go — absent fields become null, not errors."
+      ],
+      donts: [
+        "Don't call <code>get_json_object</code> once per field — that re-parses the blob each time.",
+        "Don't infer JSON schema in production; pin it (discover once with <code>schema_of_json</code>).",
+        "Don't regex JSON — nesting and escaping will bite you."
+      ],
+      followUps: [
+        { q: "'The JSON is an array of objects.'",
+          a: "Parse with an <code>ArrayType(StructType(...))</code>, then <code>explode</code> — see the Explode/Flatten pattern." },
+        { q: "'Field types are unpredictable.'",
+          a: "Parse the branch as a string (or use the <code>variant</code>/map type on newer engines) and cast later." },
+        { q: "'I only need to know if a key exists.'",
+          a: "<code>get_json_object(...)</code> IS NOT NULL, or check the parsed struct field for null." }
+      ]
+    },
+
+    {
+      id: "array-toolkit",
+      title: "Array functions & higher-order transforms",
+      group: "Text, JSON & Arrays",
+      difficulty: "Medium",
+      aka: [
+        "'the column is a list/array'", "'does the array contain X'", "'dedupe the array'",
+        "'transform each element'", "'sum the array without exploding'", "'zip two arrays together'"
+      ],
+      tells: [
+        "A column is an <b>array</b> (tags, item ids, scores) and you must test, reshape, or aggregate it <b>in place</b>.",
+        "Words: <b>contains</b>, <b>distinct</b>, <b>size/length</b>, <b>nth element</b>, <b>each element</b>, <b>combine</b>.",
+        "You reached for <code>explode</code> + group-back — but you never needed to leave the row."
+      ],
+      keyIdea:
+        "Most array work needs <b>no explode</b>. Scalar helpers (<code>size</code>, <code>array_contains</code>, <code>array_distinct</code>, <code>element_at</code>) and <b>higher-order functions</b> (<code>transform</code>, <code>filter</code>, <code>aggregate</code>) operate per-element inside the row — native, no shuffle, and they replace a Python UDF over a list.",
+      approach: [
+        "Test/measure: <code>size(arr)</code>, <code>array_contains(arr, x)</code>, <code>element_at(arr, i)</code> (1-based, negative from end).",
+        "Reshape the array itself: <code>array_distinct</code>, <code>sort_array</code>, <code>array_union/intersect/except</code>, <code>slice</code>.",
+        "Per-element compute without exploding: <code>transform(arr, x -> x * 2)</code>, <code>filter(arr, x -> x > 0)</code>.",
+        "Reduce an array to a scalar: <code>aggregate(arr, 0, (acc, x) -> acc + x)</code>. Only <code>explode</code> when you truly need one row per element."
+      ],
+      code: {
+        sql:
+          "SELECT\n" +
+          "  SIZE(tags)                              AS n_tags,\n" +
+          "  ARRAY_CONTAINS(tags, 'vip')             AS is_vip,\n" +
+          "  ARRAY_DISTINCT(tags)                    AS tags_dedup,\n" +
+          "  TRANSFORM(scores, x -> x * 100)         AS pct,          -- higher-order\n" +
+          "  AGGREGATE(scores, 0D, (acc, x) -> acc + x) AS total       -- reduce, no explode\n" +
+          "FROM users;",
+        spark:
+          "from pyspark.sql import functions as F\n" +
+          "\n" +
+          "out = users.select(\n" +
+          "    F.size('tags').alias('n_tags'),\n" +
+          "    F.array_contains('tags', 'vip').alias('is_vip'),\n" +
+          "    F.array_distinct('tags').alias('tags_dedup'),\n" +
+          "    F.element_at('tags', -1).alias('last_tag'),             # 1-based; -1 = last\n" +
+          "    # higher-order functions: per-element, no explode, no UDF\n" +
+          "    F.transform('scores', lambda x: x * 100).alias('pct'),\n" +
+          "    F.filter('scores', lambda x: x > 0).alias('positives'),\n" +
+          "    F.aggregate('scores', F.lit(0.0), lambda acc, x: acc + x).alias('total'))"
+      },
+      cost:
+        "All narrow, per-row, codegen-fused — <b>no shuffle</b>. Higher-order functions run in the JVM, so they beat <code>explode</code> → <code>groupBy</code> → collect (which shuffles) <b>and</b> beat a Python UDF over the list (no serde). <code>explode</code> only earns its keep when downstream truly needs one-row-per-element.",
+      dos: [
+        "Stay in-row with <code>transform</code>/<code>filter</code>/<code>aggregate</code> instead of <code>explode</code>+regroup.",
+        "Use <code>element_at</code> (1-based, negative-from-end) for safe indexing; <code>size</code> to guard.",
+        "Reach for <code>array_union/intersect/except</code> for set logic between two arrays."
+      ],
+      donts: [
+        "Don't <code>explode</code> just to sum/filter — that adds a needless shuffle on regroup.",
+        "Don't write a Python UDF to loop a list — higher-order functions are native and faster.",
+        "Don't assume 0-based indexing: <code>element_at</code> is 1-based (and <code>col[i]</code> is 0-based — don't mix them)."
+      ],
+      followUps: [
+        { q: "'One row per element after all.'",
+          a: "<code>explode</code>/<code>posexplode</code> — see the Explode arrays & parse JSON pattern." },
+        { q: "'Pair two parallel arrays element-wise.'",
+          a: "<code>arrays_zip(a, b)</code> → array of structs, then <code>transform</code> or explode." },
+        { q: "'Collect a group back into an array.'",
+          a: "<code>collect_list</code>/<code>collect_set</code> in a groupBy (that side does shuffle)." }
+      ]
+    },
+
+    // ============================================ UDFs & Custom Logic =======
+    {
+      id: "python-udf-vs-native",
+      title: "Python UDF vs native vs pandas_udf",
+      group: "UDFs & Custom Logic",
+      difficulty: "Hard",
+      aka: [
+        "'write a UDF for this'", "'my UDF is slow'", "'custom function per row'",
+        "'vectorized UDF'", "'why is Python so much slower than Scala here'"
+      ],
+      tells: [
+        "The transform feels like custom Python — a lookup, a model call, bespoke parsing — and a UDF is the obvious reach.",
+        "Words: <b>UDF</b>, <b>custom function</b>, <b>apply my Python logic</b>, <b>call a library per row</b>.",
+        "A performance question: 'the job got 10x slower after we added a UDF.'"
+      ],
+      keyIdea:
+        "A plain Python <code>@udf</code> is a <b>black box</b>: Spark serializes each row to a Python worker, runs your function, serializes back — no codegen, no Catalyst pushdown, GIL-bound. Order of preference: <b>native / SQL functions → <code>pandas_udf</code> (vectorized, Arrow batches) → row-at-a-time <code>@udf</code></b>, only when nothing else fits.",
+      approach: [
+        "First ask: does a native function (or a combo) already do this? If yes, use it — always fastest.",
+        "Need real Python? Prefer a <code>pandas_udf</code>: it ships <b>Arrow batches</b> of columns, so it's vectorized and ~10–100x faster than row-at-a-time.",
+        "Row-at-a-time <code>@udf(returnType)</code> only for genuinely scalar, non-vectorizable logic — and always declare the return type.",
+        "Whatever you pick, keep it deterministic and null-safe; a UDF blocks predicate/column pushdown, so filter <b>before</b> it."
+      ],
+      code: {
+        sql:
+          "-- SQL has no row-level Python; do it with native functions (preferred)\n" +
+          "SELECT id, UPPER(TRIM(name)) AS name_clean\n" +
+          "FROM users;\n" +
+          "-- (registered UDFs exist via spark.udf.register, but carry the same\n" +
+          "--  serialization cost as the DataFrame API below.)",
+        spark:
+          "from pyspark.sql import functions as F\n" +
+          "from pyspark.sql.types import DoubleType\n" +
+          "import pandas as pd\n" +
+          "\n" +
+          "# 1) BEST: native — no Python hop at all\n" +
+          "native = df.withColumn('name_clean', F.upper(F.trim('name')))\n" +
+          "\n" +
+          "# 2) GOOD: pandas_udf — vectorized over Arrow batches (a whole column)\n" +
+          "@F.pandas_udf(DoubleType())\n" +
+          "def norm(s: pd.Series) -> pd.Series:\n" +
+          "    return (s - s.mean()) / s.std()\n" +
+          "vec = df.withColumn('z', norm('score'))\n" +
+          "\n" +
+          "# 3) LAST RESORT: row-at-a-time udf (declare returnType!)\n" +
+          "@F.udf(returnType=DoubleType())\n" +
+          "def slow_norm(x):\n" +
+          "    return None if x is None else float(x) / 100.0\n" +
+          "row = df.withColumn('r', slow_norm('score'))   # serialization per row"
+      },
+      cost:
+        "Native = codegen-fused, zero Python. <code>pandas_udf</code> = one Arrow batch per partition, vectorized — the sweet spot for custom logic. Plain <code>@udf</code> = <b>per-row (de)serialization</b> to a Python worker, no codegen, no pushdown, GIL-bound — often the single biggest slowdown in a job.",
+      dos: [
+        "Exhaust native/SQL functions before writing any UDF.",
+        "When you must go custom, use a <b>vectorized <code>pandas_udf</code></b> and type its Series in/out.",
+        "Filter and select down <b>before</b> a UDF so it processes fewer rows/columns."
+      ],
+      donts: [
+        "Don't use a row-at-a-time <code>@udf</code> for something a native function does.",
+        "Don't forget <code>returnType</code> — an untyped UDF defaults to string and silently corrupts numbers.",
+        "Don't expect Catalyst to optimize through a UDF — it can't see inside; pushdown stops at it."
+      ],
+      followUps: [
+        { q: "'My pandas_udf runs out of memory.'",
+          a: "Batches are per-partition; shrink them with <code>spark.sql.execution.arrow.maxRecordsPerBatch</code>." },
+        { q: "'I need a whole-group custom aggregation.'",
+          a: "Use a grouped-map <code>applyInPandas</code> (group → pandas DataFrame → pandas DataFrame)." },
+        { q: "'The UDF calls a heavy model — startup is costly.'",
+          a: "Init the model once per worker (module-level / lazy singleton), not per row." }
       ]
     }
   ]
