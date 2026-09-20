@@ -587,100 +587,199 @@ window.PYSPARK_CHEAT = {
       group: "Functions",
       name: "F.concat",
       signature: "F.concat(*cols)",
-      summary: "Concatenate strings (or arrays) end-to-end.",
+      category: "Column function · string / array",
+      summary: "Concatenate strings (or arrays) end-to-end. <b>Null-propagating</b>: if any argument is null, the whole result is null.",
       returns: "Column",
       params: [
-        { name: "*cols", type: "Column", desc: "Two or more string (or array) columns/literals to join. If <b>any</b> argument is <code>null</code>, the whole result is <code>null</code> — use <code>concat_ws</code> to skip nulls. For arrays it merges them into one array." }
+        { name: "*cols", type: "Column | str", desc: "Two or more string (or array) columns/literals to join. If <b>any</b> argument is <code>null</code>, the whole result is <code>null</code> — use <code>concat_ws</code> to skip nulls. For array columns it merges them into one array." }
       ],
       example: "df.select(\n  F.concat(F.col('first'), F.lit(' '), F.col('last')))",
       output: "Concatenated string Column",
-      notes: "Null propagation is the classic gotcha; wrap args in <code>F.coalesce(c, F.lit(''))</code> to be safe."
+      works: "Any null anywhere in the list nukes the entire row." +
+        "<table><thead><tr><th>first</th><th>last</th><th>concat</th></tr></thead><tbody>" +
+        "<tr><td>'Ann'</td><td>'Lee'</td><td>'Ann Lee'</td></tr>" +
+        "<tr><td>'Ann'</td><td>null</td><td>null</td></tr></tbody></table>",
+      patterns: [
+        { label: "Null-safe full name (guard each arg)", code: "df.withColumn('full_name',\n  F.concat(\n    F.coalesce('first', F.lit('')),\n    F.lit(' '),\n    F.coalesce('last', F.lit(''))))" },
+        { label: "Merge two array columns", code: "df.withColumn('all_tags',\n  F.concat('sys_tags', 'user_tags'))" }
+      ],
+      gotchas: [
+        "<b>Null propagation</b> is the classic trap — one null argument makes the whole result null. Wrap each arg in <code>F.coalesce(c, F.lit(''))</code>, or use <code>concat_ws</code>.",
+        "String literals must be <code>F.lit(' ')</code>, not a bare Python <code>' '</code> in most positions."
+      ],
+      related: "<table><thead><tr><th>Function</th><th>Null behavior</th></tr></thead><tbody>" +
+        "<tr><td><code>F.concat</code></td><td>Any null → whole result <b>null</b>.</td></tr>" +
+        "<tr><td><code>F.concat_ws(sep, ...)</code></td><td><b>Skips</b> nulls, inserts a separator. Preferred for keys/paths.</td></tr></tbody></table>",
+      interview: [
+        { q: "What happens if one column in <code>F.concat</code> is null?", a: "The entire result is null (null-propagating). Use <code>F.concat_ws</code> (skips nulls) or <code>F.coalesce</code> each argument first." }
+      ],
+      notes: "For building delimited keys/paths, reach for <code>concat_ws</code> instead — nulls won't nuke the value.",
+      memory: "<b>concat = null poisons the whole thing; concat_ws = null skipped.</b>"
     },
     {
       id: "concat_ws",
       group: "Functions",
       name: "F.concat_ws",
       signature: "F.concat_ws(sep, *cols)",
-      summary: "Concatenate with a separator, <b>skipping nulls</b>.",
+      category: "Column function · string",
+      summary: "Concatenate with a separator, <b>skipping nulls</b> (no doubled delimiters).",
       returns: "Column",
       params: [
-        { name: "sep", type: "str", desc: "The delimiter placed between values, e.g. <code>','</code> or <code>' - '</code>." },
-        { name: "*cols", type: "Column | array", desc: "Columns (or an array column) to join. <code>null</code> values are <b>omitted</b> (no doubled separators). Accepts an array column directly to join its elements." }
+        { name: "sep", type: "str", desc: "The delimiter placed between values, e.g. <code>','</code> or <code>' - '</code>. A plain Python string is fine here (it is not a Column argument)." },
+        { name: "*cols", type: "Column | str | array", desc: "Columns (or a single array column) to join. <code>null</code> values are <b>omitted</b> — no doubled separators. Pass an array column directly to join its elements." }
       ],
       example: "df.select(\n  F.concat_ws('-', 'year', 'month', 'day'))",
       output: "'2026-09-10'",
-      notes: "Preferred over <code>concat</code> for building keys/paths because nulls don't nuke the whole value."
+      works: "Nulls are dropped, so the separator count adapts:" +
+        "<table><thead><tr><th>city</th><th>state</th><th>zip</th><th>concat_ws(', ')</th></tr></thead><tbody>" +
+        "<tr><td>'Austin'</td><td>'TX'</td><td>'73301'</td><td>'Austin, TX, 73301'</td></tr>" +
+        "<tr><td>'Austin'</td><td>null</td><td>'73301'</td><td>'Austin, 73301'</td></tr></tbody></table>",
+      patterns: [
+        { label: "Build a natural key from columns", code: "df.withColumn('nk',\n  F.concat_ws('|', 'country', 'store_id', 'sku'))" },
+        { label: "Flatten an array column to a string", code: "df.withColumn('tags_csv',\n  F.concat_ws(',', F.col('tags')))" }
+      ],
+      gotchas: [
+        "Skips nulls but <b>not empty strings</b> — <code>''</code> still produces a doubled separator. Convert <code>''</code> to null first if that matters.",
+        "All non-null values are cast to string; numeric columns join fine without an explicit cast."
+      ],
+      related: "See <code>F.concat</code> (null-propagating, no separator) — <code>concat_ws</code> is almost always the safer choice for keys and paths.",
+      interview: [
+        { q: "Why prefer <code>concat_ws</code> over <code>concat</code> for a composite key?", a: "It skips nulls instead of returning null for the whole row, and it inserts the separator automatically — so a missing middle field doesn't poison or malform the key." }
+      ],
+      notes: "The go-to for keys/paths/CSV lines because nulls don't nuke the whole value.",
+      memory: "<b>concat_ws = separator + skips nulls — the safe join.</b>"
     },
     {
       id: "substring",
       group: "Functions",
       name: "F.substring / substring_index",
       signature: "F.substring(str, pos, len)",
-      summary: "Fixed substring by position (function form of <code>Column.substr</code>).",
+      category: "Column function · string",
+      summary: "Fixed-length substring by position (function form of <code>Column.substr</code>). Positions are <b>1-based</b>.",
       returns: "Column",
       params: [
-        { name: "str", type: "Column", desc: "The source string column." },
-        { name: "pos", type: "int", desc: "Start position, <b>1-based</b>; negative counts from the end." },
-        { name: "len", type: "int", desc: "Number of characters to extract." }
+        { name: "str", type: "Column | str", desc: "The source string column." },
+        { name: "pos", type: "int", desc: "Start position, <b>1-based</b> (position 1 = first char, unlike Python's 0-based slicing). Negative counts from the end." },
+        { name: "len", type: "int", desc: "Number of characters to extract; if it runs past the end, the available characters are returned." }
       ],
       example: "df.select(\n  F.substring('phone', 1, 3).alias('area'))",
       output: "3-char Column",
-      notes: "<code>F.substring_index(str, delim, count)</code> returns everything before the <code>count</code>-th delimiter — handy for paths/domains."
+      patterns: [
+        { label: "Fixed-width field slice (mainframe extract)", code: "df.select(\n  F.substring('record', 1, 8).alias('acct'),\n  F.substring('record', 9, 2).alias('type'))" },
+        { label: "Domain from an email (delimiter-based)", code: "df.withColumn('domain',\n  F.substring_index('email', '@', -1))" }
+      ],
+      gotchas: [
+        "Positions are <b>1-based</b>, not 0-based — <code>substring(s, 1, 3)</code> takes the first three chars.",
+        "For variable-length extraction driven by content, use <code>regexp_extract</code> or <code>substring_index</code> instead of hard-coded positions."
+      ],
+      related: "<code>F.substring_index(str, delim, count)</code> returns everything before the <code>count</code>-th delimiter (negative = from the right) — handy for paths, domains, and file extensions. <code>Column.substr</code> is the method form.",
+      memory: "<b>substring = 1-based fixed slice; substring_index = split-by-delimiter slice.</b>"
     },
     {
       id: "split",
       group: "Functions",
       name: "F.split",
       signature: "F.split(str, pattern, limit=-1)",
-      summary: "Split a string by a regex into an array of substrings.",
+      category: "Column function · string → array",
+      summary: "Split a string by a <b>regex</b> into an <code>array&lt;string&gt;</code>.",
       returns: "Column (array<string>)",
       params: [
-        { name: "str", type: "Column", desc: "Source string column." },
-        { name: "pattern", type: "str", desc: "A <b>regular expression</b> delimiter (not a literal) — escape regex metachars like <code>.</code> or <code>|</code>." },
-        { name: "limit", type: "int", desc: "Max number of pieces. <code>&lt;= 0</code> (default) splits with no limit and trailing empty strings are removed. <code>&gt; 0</code> caps the array at that many elements, putting the unsplit remainder in the last one." }
+        { name: "str", type: "Column | str", desc: "Source string column." },
+        { name: "pattern", type: "str", desc: "A <b>regular expression</b> delimiter — <b>not a literal</b>. Escape regex metacharacters like <code>.</code> <code>|</code> <code>(</code> — splitting on a dot needs <code>'\\\\.'</code>." },
+        { name: "limit", type: "int", desc: "Max number of pieces. <code>&lt;= 0</code> (default) splits with no limit and trailing empty strings are removed. <code>&gt; 0</code> caps the array at that many elements, leaving the unsplit remainder in the last one." }
       ],
       example: "df.select(F.split('csv', ',', 3))",
       output: "['a','b','c,d,e']  (limit=3)",
-      notes: "Pair with <code>getItem(i)</code> or <code>explode</code>. Because <code>pattern</code> is regex, splitting on <code>'.'</code> needs <code>'\\\\.'</code>."
+      patterns: [
+        { label: "Take the first token", code: "df.withColumn('area_code',\n  F.split('phone', '-').getItem(0))" },
+        { label: "Split then explode to rows", code: "df.select('id',\n  F.explode(F.split('csv_tags', ',')).alias('tag'))" },
+        { label: "Split on a literal dot (escaped)", code: "df.withColumn('parts',\n  F.split('filename', '\\\\.'))" }
+      ],
+      gotchas: [
+        "<code>pattern</code> is a <b>regex</b>, not a literal string — <code>F.split(s, '.')</code> splits on every character (dot matches all). Use <code>'\\\\.'</code>.",
+        "Indexing past the end via <code>getItem(i)</code> returns <code>null</code>, not an error.",
+        "Default <code>limit=-1</code> drops trailing empty strings; pass a positive limit to keep them."
+      ],
+      related: "Pairs with <code>getItem(i)</code> / <code>[i]</code> to pick a token, or <code>explode</code> to fan out to rows. Inverse of <code>concat_ws</code>.",
+      interview: [
+        { q: "<code>F.split('ip', '.')</code> returns an array of empty strings — why?", a: "The second argument is a regex and <code>.</code> matches any character, so every position is a delimiter. Escape it: <code>F.split('ip', '\\\\.')</code>." }
+      ],
+      memory: "<b>split = regex delimiter → array; escape your dots.</b>"
     },
     {
       id: "regexp_replace",
       group: "Functions",
       name: "F.regexp_replace",
       signature: "F.regexp_replace(str, pattern, replacement)",
-      summary: "Replace all regex matches in a string.",
+      category: "Column function · string / regex",
+      summary: "Replace <b>all</b> regex matches in a string (global).",
       returns: "Column",
       params: [
-        { name: "str", type: "Column", desc: "Source string column." },
-        { name: "pattern", type: "str", desc: "Java regex to match. Matches <b>all</b> occurrences (global)." },
-        { name: "replacement", type: "str", desc: "Replacement text. Supports capture-group backreferences like <code>$1</code> from groups in <code>pattern</code>." }
+        { name: "str", type: "Column | str", desc: "Source string column." },
+        { name: "pattern", type: "str", desc: "Java regex to match — matches <b>all</b> occurrences. Backslashes need double-escaping in a Python string (<code>'\\\\d'</code> for a digit)." },
+        { name: "replacement", type: "str", desc: "Replacement text. Supports capture-group backreferences like <code>$1</code> from groups defined in <code>pattern</code>." }
       ],
       example: "df.select(F.regexp_replace('phone', '[^0-9]', ''))",
       output: "Digits-only string",
-      notes: "For a single match use <code>regexp_extract</code>; for literal replacement escape regex metachars in <code>pattern</code>."
+      patterns: [
+        { label: "Strip everything but digits", code: "df.withColumn('digits',\n  F.regexp_replace('phone', '[^0-9]', ''))" },
+        { label: "Collapse repeated whitespace", code: "df.withColumn('clean',\n  F.regexp_replace('desc', '\\\\s+', ' '))" },
+        { label: "Reformat with a backreference", code: "df.withColumn('masked',\n  F.regexp_replace('ssn', '(\\\\d{3})\\\\d{2}(\\\\d{4})', '$1-**-$2'))" }
+      ],
+      gotchas: [
+        "Backslashes double up in Python strings: a digit is <code>'\\\\d'</code>, not <code>'\\d'</code>. Or use an <code>r'...'</code> raw string.",
+        "It is <b>global</b> — replaces every match. There is no first-match-only variant here.",
+        "For a literal replacement (not regex), escape metacharacters in <code>pattern</code> or the match won't behave literally."
+      ],
+      related: "<table><thead><tr><th>Function</th><th>Use for</th></tr></thead><tbody>" +
+        "<tr><td><code>regexp_replace</code></td><td>Rewrite / scrub text (all matches).</td></tr>" +
+        "<tr><td><code>regexp_extract</code></td><td>Pull one capture group out.</td></tr>" +
+        "<tr><td><code>rlike</code> / <code>like</code></td><td>Boolean match test in a filter.</td></tr></tbody></table>",
+      perf: "Row-wise, no shuffle. Complex or backtracking-prone patterns can be CPU-heavy over billions of rows — keep the regex tight and anchored.",
+      interview: [
+        { q: "How do you keep only digits from a phone column?", a: "<code>F.regexp_replace('phone', '[^0-9]', '')</code> — replace every non-digit with empty." },
+        { q: "Why does <code>'\\d'</code> not work in the pattern?", a: "Python consumes the backslash before Spark sees it. Double-escape (<code>'\\\\d'</code>) or use a raw string <code>r'\\d'</code>." }
+      ],
+      memory: "<b>regexp_replace = scrub/rewrite all matches; double-escape backslashes.</b>"
     },
     {
       id: "regexp_extract",
       group: "Functions",
       name: "F.regexp_extract",
       signature: "F.regexp_extract(str, pattern, idx)",
-      summary: "Extract one capture group from the first regex match.",
+      category: "Column function · string / regex",
+      summary: "Extract one capture group from the <b>first</b> regex match. No match → <b>empty string</b> (not null).",
       returns: "Column",
       params: [
-        { name: "str", type: "Column", desc: "Source string column." },
-        { name: "pattern", type: "str", desc: "Java regex with capture groups <code>( )</code>." },
-        { name: "idx", type: "int", desc: "Which group to return: <code>0</code> = the whole match, <code>1</code> = first group, etc. If nothing matches, returns an <b>empty string</b> (not null)." }
+        { name: "str", type: "Column | str", desc: "Source string column." },
+        { name: "pattern", type: "str", desc: "Java regex with capture groups <code>( )</code>. Double-escape backslashes (<code>'\\\\d'</code>) or use a raw string." },
+        { name: "idx", type: "int", desc: "Which group to return: <code>0</code> = the whole match, <code>1</code> = first group, etc. If nothing matches, returns an <b>empty string</b> — not null." }
       ],
       example: "df.select(\n  F.regexp_extract('email', '@(.+)$', 1).alias('domain'))",
       output: "'example.com'",
-      notes: "No-match returns <code>''</code> — filter or convert to null explicitly if needed. Spark 3.4+ has <code>regexp_extract_all</code>."
+      patterns: [
+        { label: "Domain from an email", code: "df.withColumn('domain',\n  F.regexp_extract('email', '@(.+)$', 1))" },
+        { label: "Extract + null-out non-matches", code: "domain = F.regexp_extract('email', '@(.+)$', 1)\ndf.withColumn('domain',\n  F.when(domain == '', None).otherwise(domain))" }
+      ],
+      gotchas: [
+        "<b>No match returns <code>''</code>, not null.</b> Convert with a <code>when(x=='', None)</code> guard if you need proper nulls (e.g. for counting matches).",
+        "Only the <b>first</b> match is returned. For every match use <code>regexp_extract_all</code> (Spark 3.4+).",
+        "<code>idx=0</code> is the full match; group indices start at 1."
+      ],
+      related: "<code>regexp_replace</code> rewrites matches; <code>rlike</code> tests for a match in a filter; <code>regexp_extract_all</code> (3.4+) returns an array of all matches.",
+      interview: [
+        { q: "What does <code>regexp_extract</code> return when the pattern doesn't match?", a: "An empty string <code>''</code>, never null. This trips up match-counting — guard with a <code>when(x=='', None)</code> to get real nulls." },
+        { q: "How do you get every match, not just the first?", a: "<code>F.regexp_extract_all(str, pattern, idx)</code> (Spark 3.4+) returns an array of all matches." }
+      ],
+      memory: "<b>regexp_extract = first match, group idx; no match = '' not null.</b>"
     },
     {
       id: "upper",
       group: "Functions",
       name: "F.upper / lower / trim / initcap",
       signature: "F.upper(col) | F.lower(col) | F.trim(col) | F.ltrim/rtrim | F.initcap(col)",
-      summary: "Case and whitespace normalization for strings.",
+      category: "Column function · string",
+      summary: "Case and whitespace normalization for strings — the standard cleanup before joins/dedup.",
       returns: "Column",
       params: [
         { name: "upper / lower", type: "Column", desc: "Uppercase / lowercase the string." },
@@ -689,255 +788,512 @@ window.PYSPARK_CHEAT = {
       ],
       example: "df.select(F.initcap(F.trim(F.col('name'))))",
       output: "'  john  ' -> 'John'",
-      notes: "<code>F.trim(col, trimStr)</code> (Spark 3.4+) trims custom characters."
+      patterns: [
+        { label: "Normalize a join/dedup key", code: "df.withColumn('email_key',\n  F.lower(F.trim('email')))" }
+      ],
+      gotchas: [
+        "Case-fold columns <b>before</b> joining or deduping — <code>'Ann'</code> and <code>'ann'</code> are different keys otherwise.",
+        "<code>trim</code> only strips whitespace by default; <code>F.trim(col, trimStr)</code> (Spark 3.4+) trims custom characters."
+      ],
+      memory: "<b>lower(trim(col)) = the standard key-cleanup combo.</b>"
     },
     {
       id: "lpad",
       group: "Functions",
       name: "F.lpad / rpad",
       signature: "F.lpad(col, len, pad)",
-      summary: "Pad a string to a fixed width on the left (<code>lpad</code>) or right (<code>rpad</code>).",
+      category: "Column function · string",
+      summary: "Pad a string to a fixed width on the left (<code>lpad</code>) or right (<code>rpad</code>). <b>Truncates</b> if already longer.",
       returns: "Column",
       params: [
-        { name: "col", type: "Column", desc: "Source string." },
+        { name: "col", type: "Column | str", desc: "Source string. Cast numbers to string first." },
         { name: "len", type: "int", desc: "Target total length. If the string is <b>longer</b> than <code>len</code>, it is <b>truncated</b> to <code>len</code>." },
-        { name: "pad", type: "str", desc: "The padding string, repeated to fill the gap on the left/right." }
+        { name: "pad", type: "str", desc: "The padding string, repeated to fill the gap on the left (<code>lpad</code>) or right (<code>rpad</code>)." }
       ],
       example: "df.select(\n  F.lpad(F.col('id').cast('string'), 6, '0'))",
       output: "'42' -> '000042'",
-      notes: "Common for zero-padding IDs or fixed-width exports; remember it truncates overlong inputs."
+      patterns: [
+        { label: "Zero-pad an integer ID", code: "df.withColumn('id6',\n  F.lpad(F.col('id').cast('string'), 6, '0'))" }
+      ],
+      gotchas: [
+        "It <b>truncates</b> inputs longer than <code>len</code> — an 8-char value with <code>len=6</code> loses two chars. Size <code>len</code> to your widest value.",
+        "Pad a numeric column? Cast to string first, or you'll pad a number's default string form."
+      ],
+      memory: "<b>lpad = left-pad to width; longer inputs get truncated.</b>"
     },
     {
       id: "length",
       group: "Functions",
       name: "F.length",
       signature: "F.length(col)",
-      summary: "Number of characters in a string (or bytes for binary).",
+      category: "Column function · string",
+      summary: "Number of characters in a string (or bytes for binary). <code>null</code> in → <code>null</code> out.",
       returns: "Column (int)",
       params: [
-        { name: "col", type: "Column", desc: "String or binary column. Returns character count for strings; <code>null</code> input gives <code>null</code>. Trailing spaces are counted (use <code>trim</code> first if unwanted)." }
+        { name: "col", type: "Column | str", desc: "String or binary column. Returns character count for strings; <code>null</code> input gives <code>null</code>. Trailing spaces <b>are</b> counted — <code>trim</code> first if that's unwanted." }
       ],
       example: "df.filter(F.length('name') > 0)",
       output: "int length Column",
-      notes: "Distinct from <code>size</code> which counts array/map elements."
+      gotchas: [
+        "Trailing spaces count toward the length — <code>length('ab  ')</code> is 4. <code>trim</code> first for a 'real content' check.",
+        "Don't confuse with <code>F.size</code> (array/map element count) — different data types entirely."
+      ],
+      related: "<table><thead><tr><th>Function</th><th>Counts</th></tr></thead><tbody>" +
+        "<tr><td><code>F.length</code></td><td>Characters in a string / bytes in binary.</td></tr>" +
+        "<tr><td><code>F.size</code></td><td>Elements in an array / map.</td></tr></tbody></table>",
+      memory: "<b>length = chars in a string; size = elements in an array.</b>"
     },
     {
       id: "coalesce-f",
       group: "Functions",
       name: "F.coalesce",
       signature: "F.coalesce(*cols)",
-      summary: "Return the first non-null value across the given columns per row.",
+      category: "Column function · null-handling",
+      summary: "Return the first <b>non-null</b> value across the given columns, evaluated left to right, per row.",
       returns: "Column",
       params: [
-        { name: "*cols", type: "Column", desc: "Two or more columns/literals evaluated left to right; the first that is not <code>null</code> is returned. All must share a common type. A final <code>F.lit(default)</code> supplies a fallback." }
+        { name: "*cols", type: "Column | str", desc: "Two or more columns/literals evaluated left to right; the first that is not <code>null</code> is returned. All arguments must share a common (or castable) type. A trailing <code>F.lit(default)</code> guarantees a non-null result." }
       ],
       example: "df.withColumn('name',\n  F.coalesce('nickname', 'legal_name', F.lit('N/A')))",
       output: "First non-null per row",
-      notes: "The DataFrame-level <code>coalesce</code> (partition merge) is a totally different operation."
+      works: "Row-wise; short-circuits at the first non-null argument, else falls through to the last." +
+        "<table><thead><tr><th>nickname</th><th>legal_name</th><th>→ result</th></tr></thead><tbody>" +
+        "<tr><td>null</td><td>'Ann Lee'</td><td>'Ann Lee'</td></tr>" +
+        "<tr><td>'AJ'</td><td>'Ann Lee'</td><td>'AJ'</td></tr>" +
+        "<tr><td>null</td><td>null</td><td>'N/A' <i>(lit fallback)</i></td></tr></tbody></table>",
+      patterns: [
+        { label: "Fallback chain for a display name", code: "df.withColumn('display',\n  F.coalesce('preferred_name', 'first_name', F.lit('Unknown')))" },
+        { label: "Fill a metric with 0 before aggregating", code: "df.withColumn('revenue',\n  F.coalesce(F.col('revenue'), F.lit(0)))" },
+        { label: "Pick the first populated source (CDC merge)", code: "df.withColumn('email',\n  F.coalesce('crm_email', 'signup_email', 'legacy_email'))" }
+      ],
+      gotchas: [
+        "Every argument is a <b>Column</b> — wrap Python scalars in <code>F.lit(...)</code>: use <code>F.coalesce('a', F.lit(0))</code>, not <code>F.coalesce('a', 0)</code>.",
+        "It tests <b>null only</b>. An empty string <code>''</code> or a <code>NaN</code> is <i>not</i> null and is returned as-is — use <code>F.nanvl</code> for NaN, or a <code>nullif</code>/<code>when</code> guard for <code>''</code>.",
+        "Arguments must be a common type; mixing e.g. a string and an int column errors unless castable — <code>cast</code> first.",
+        "Not the same as <code>df.coalesce(n)</code> (partition merge) — see below."
+      ],
+      related: "<table><thead><tr><th>Expression</th><th>What it does</th></tr></thead><tbody>" +
+        "<tr><td><code>F.coalesce(*cols)</code></td><td><b>Column</b> op — first non-null value per row.</td></tr>" +
+        "<tr><td><code>df.coalesce(n)</code></td><td><b>DataFrame</b> op — merge to <code>n</code> partitions (no shuffle). Unrelated.</td></tr>" +
+        "<tr><td><code>F.nvl(a, b)</code> / <code>ifnull</code></td><td>Two-argument coalesce (Spark 3.5+ SQL funcs).</td></tr>" +
+        "<tr><td><code>F.nanvl(a, b)</code></td><td>Replaces <b>NaN</b> (not null) in float/double columns.</td></tr></tbody></table>",
+      interview: [
+        { q: "Difference between <code>F.coalesce()</code> and <code>df.coalesce()</code>?", a: "<code>F.coalesce(*cols)</code> is a <b>column expression</b> returning the first non-null value per row. <code>df.coalesce(n)</code> is a <b>DataFrame transformation</b> that reduces the partition count by merging (narrow, no shuffle). Same name, unrelated operations — a classic trap." },
+        { q: "Does it treat empty string or NaN as null?", a: "No — only SQL <code>NULL</code>. <code>''</code> and <code>NaN</code> are non-null and returned as-is; use <code>F.nanvl</code> for NaN or a guard for empty strings." },
+        { q: "How do you guarantee a non-null result?", a: "End the argument list with a literal fallback, e.g. <code>F.coalesce(a, b, F.lit(0))</code>." }
+      ],
+      notes: "Prefer <code>coalesce</code> over chained <code>when(col.isNull(), ...)</code> — cleaner to read and a tidier plan.",
+      memory: "<b>F.coalesce = first non-NULL value; df.coalesce = fewer partitions.</b>"
     },
     {
       id: "nvl",
       group: "Functions",
       name: "F.nvl / ifnull / nvl2 / nullif",
       signature: "F.nvl(col, default)  |  F.ifnull(col, default)",
-      summary: "Two-argument null replacement (subset of <code>coalesce</code>).",
+      category: "Column function · null-handling",
+      summary: "Two-argument null replacement — a readable subset of <code>coalesce</code>. Plus the <code>nvl2</code>/<code>nullif</code> siblings.",
       returns: "Column",
       params: [
-        { name: "col", type: "Column", desc: "Value to test for null." },
-        { name: "default", type: "Column | scalar", desc: "Returned when <code>col</code> is null. <code>nvl</code> and <code>ifnull</code> are synonyms. Related: <code>nvl2(a,b,c)</code> returns <code>b</code> if a not null else <code>c</code>; <code>nullif(a,b)</code> returns null when a==b." }
+        { name: "col", type: "Column | str", desc: "Value to test for null." },
+        { name: "default", type: "Column | scalar", desc: "Returned when <code>col</code> is null. <code>nvl</code> and <code>ifnull</code> are synonyms." }
       ],
       example: "df.select(F.nvl('discount', F.lit(0)))",
       output: "0 where discount is null",
-      notes: "Available as functions in Spark 3.5+; otherwise use <code>F.coalesce</code> or <code>F.expr('nvl(a, b)')</code>."
+      works: "<table><thead><tr><th>Expression</th><th>Returns</th></tr></thead><tbody>" +
+        "<tr><td><code>nvl(a, b)</code></td><td><code>a</code> if not null, else <code>b</code>.</td></tr>" +
+        "<tr><td><code>nvl2(a, b, c)</code></td><td><code>b</code> if <code>a</code> not null, else <code>c</code>.</td></tr>" +
+        "<tr><td><code>nullif(a, b)</code></td><td>null when <code>a == b</code>, else <code>a</code>.</td></tr></tbody></table>",
+      patterns: [
+        { label: "Default a nullable metric", code: "df.withColumn('discount',\n  F.nvl('discount', F.lit(0)))" },
+        { label: "Turn a sentinel into null (nullif)", code: "df.withColumn('code',\n  F.expr(\"nullif(code, 'UNKNOWN')\"))" }
+      ],
+      gotchas: [
+        "These are Spark <b>3.5+</b> Python functions; on older versions use <code>F.coalesce</code> or <code>F.expr('nvl(a, b)')</code>.",
+        "<code>nvl</code> only checks null — not <code>''</code> or <code>NaN</code>.",
+        "<code>nullif</code> is the clean way to convert a sentinel value (like <code>'UNKNOWN'</code>, <code>-1</code>) back to null."
+      ],
+      related: "<code>F.coalesce</code> generalizes <code>nvl</code> to N arguments and is available everywhere. Prefer <code>coalesce</code> for portability; <code>nvl</code>/<code>nullif</code> read a bit cleaner when porting SQL.",
+      memory: "<b>nvl = 2-arg coalesce; nullif = value → null; nvl2 = present/absent picker.</b>"
     },
     {
       id: "nanvl",
       group: "Functions",
       name: "F.nanvl / isnan",
       signature: "F.nanvl(col1, col2)",
-      summary: "Replace <b>NaN</b> (not null) floats with a fallback value.",
+      category: "Column function · null / NaN-handling",
+      summary: "Replace <b>NaN</b> (not null) in float/double columns with a fallback. NaN and null are different in Spark.",
       returns: "Column",
       params: [
-        { name: "col1", type: "Column", desc: "A float/double column that may contain <code>NaN</code>." },
-        { name: "col2", type: "Column", desc: "Returned when <code>col1</code> is <code>NaN</code>; otherwise <code>col1</code> passes through. Only handles NaN, not null — use <code>coalesce</code> for null." }
+        { name: "col1", type: "Column | str", desc: "A float/double column that may contain <code>NaN</code>." },
+        { name: "col2", type: "Column | scalar", desc: "Returned when <code>col1</code> is <code>NaN</code>; otherwise <code>col1</code> passes through. Handles NaN only — use <code>coalesce</code> for null." }
       ],
       example: "df.withColumn('ratio',\n  F.nanvl('ratio', F.lit(0.0)))",
       output: "0.0 where ratio is NaN",
-      notes: "<code>F.isnan(col)</code> tests for NaN; note NaN != null in Spark."
+      gotchas: [
+        "<b>NaN ≠ null</b> in Spark. <code>coalesce</code> won't catch NaN and <code>nanvl</code> won't catch null — you often need both.",
+        "NaN only arises from float/double math (e.g. <code>0.0/0.0</code>); integer columns never hold NaN.",
+        "Test with <code>F.isnan(col)</code>, not <code>col.isNull()</code>."
+      ],
+      patterns: [
+        { label: "Clean both NaN and null in one pass", code: "df.withColumn('ratio',\n  F.coalesce(F.nanvl('ratio', F.lit(0.0)), F.lit(0.0)))" }
+      ],
+      related: "<table><thead><tr><th>Function</th><th>Catches</th></tr></thead><tbody>" +
+        "<tr><td><code>F.nanvl</code> / <code>F.isnan</code></td><td>NaN (float/double).</td></tr>" +
+        "<tr><td><code>F.coalesce</code> / <code>col.isNull()</code></td><td>SQL NULL.</td></tr></tbody></table>",
+      interview: [
+        { q: "In Spark, is NaN the same as null?", a: "No. NaN is a valid float value; null is absence. <code>coalesce</code>/<code>isNull</code> handle null, <code>nanvl</code>/<code>isnan</code> handle NaN. A robust float cleanup handles both." }
+      ],
+      memory: "<b>nanvl = fix NaN; coalesce = fix null; they're different things.</b>"
     },
     {
       id: "round",
       group: "Functions",
       name: "F.round / bround",
       signature: "F.round(col, scale=0)",
-      summary: "Round a numeric column to <code>scale</code> decimal places (HALF_UP).",
+      category: "Column function · math",
+      summary: "Round a numeric column to <code>scale</code> decimal places. <code>round</code> = HALF_UP, <code>bround</code> = HALF_EVEN (banker's).",
       returns: "Column",
       params: [
-        { name: "col", type: "Column", desc: "Numeric column to round." },
-        { name: "scale", type: "int", desc: "Number of decimal places (default 0). <b>Negative</b> scale rounds to tens/hundreds (<code>-2</code> -&gt; nearest 100). <code>round</code> uses HALF_UP; <code>bround</code> uses HALF_EVEN (banker's rounding)." }
+        { name: "col", type: "Column | str", desc: "Numeric column to round." },
+        { name: "scale", type: "int", desc: "Number of decimal places (default 0). <b>Negative</b> scale rounds to tens/hundreds (<code>-2</code> → nearest 100)." }
       ],
       example: "df.select(F.round('price', 2),\n  F.round('big', -3))",
       output: "12.346 ; 1234 -> 1000",
-      notes: "For money, cast to <code>decimal(p,s)</code> to avoid binary-float drift rather than relying on round."
+      works: "<table><thead><tr><th>value</th><th>round(v,0)</th><th>bround(v,0)</th></tr></thead><tbody>" +
+        "<tr><td>2.5</td><td>3</td><td>2</td></tr>" +
+        "<tr><td>3.5</td><td>4</td><td>4</td></tr></tbody></table>",
+      patterns: [
+        { label: "Round money to cents", code: "df.withColumn('price',\n  F.round('price', 2))" },
+        { label: "Bucket to nearest thousand", code: "df.withColumn('band',\n  F.round('salary', -3))" }
+      ],
+      gotchas: [
+        "For <b>money</b>, cast to <code>decimal(p,s)</code> instead of relying on <code>round</code> over a double — binary floats drift (0.1 + 0.2 ≠ 0.3).",
+        "<code>bround</code> (banker's rounding) reduces cumulative bias when summing many rounded values — used in finance."
+      ],
+      related: "<code>F.floor</code> / <code>F.ceil</code> for directional rounding; <code>cast('decimal(p,s)')</code> for exact monetary values.",
+      interview: [
+        { q: "Difference between <code>round</code> and <code>bround</code>?", a: "<code>round</code> rounds halves <b>up</b> (2.5→3); <code>bround</code> rounds halves to the <b>nearest even</b> (2.5→2, 3.5→4). Banker's rounding avoids systematic upward bias across large sums." }
+      ],
+      memory: "<b>round = half-up; bround = half-even (banker's). Money → decimal, not double.</b>"
     },
     {
       id: "floor",
       group: "Functions",
       name: "F.floor / ceil / abs",
       signature: "F.floor(col) | F.ceil(col) | F.abs(col)",
+      category: "Column function · math",
       summary: "Elementary math: round down, round up, absolute value.",
       returns: "Column",
       params: [
-        { name: "floor", type: "Column", desc: "Largest integer &lt;= value." },
-        { name: "ceil", type: "Column", desc: "Smallest integer &gt;= value." },
-        { name: "abs", type: "Column", desc: "Absolute value; preserves the input numeric type." }
+        { name: "floor", type: "Column | str", desc: "Largest integer &lt;= value." },
+        { name: "ceil", type: "Column | str", desc: "Smallest integer &gt;= value." },
+        { name: "abs", type: "Column | str", desc: "Absolute value; preserves the input numeric type." }
       ],
       example: "df.select(F.floor('x'),\n  F.ceil('x'),\n  F.abs('delta'))",
       output: "Integer / same-type Columns",
-      notes: "Other math: <code>F.sqrt</code>, <code>F.pow</code>, <code>F.exp</code>, <code>F.log</code>, <code>F.pmod</code>."
+      gotchas: [
+        "<code>floor</code>/<code>ceil</code> return an integer type; <code>round(col, 0)</code> keeps the input's numeric type — pick per your downstream schema.",
+        "For negatives, <code>floor(-2.1) = -3</code> and <code>ceil(-2.1) = -2</code> — they round toward −∞ / +∞, not toward zero."
+      ],
+      related: "<code>F.round</code>/<code>bround</code> for nearest-value rounding. Other math: <code>F.sqrt</code>, <code>F.pow</code>, <code>F.exp</code>, <code>F.log</code>, <code>F.pmod</code>.",
+      memory: "<b>floor = down, ceil = up, round = nearest.</b>"
     },
     {
       id: "greatest",
       group: "Functions",
       name: "F.greatest / least",
       signature: "F.greatest(*cols)  |  F.least(*cols)",
-      summary: "Row-wise max / min <b>across columns</b> (not down a column — that's an aggregate).",
+      category: "Column function · row-wise comparison",
+      summary: "Row-wise max / min <b>across columns</b> — not down a column (that's the <code>max</code>/<code>min</code> aggregate).",
       returns: "Column",
       params: [
-        { name: "*cols", type: "Column", desc: "Two or more columns compared per row. <code>null</code> values are <b>skipped</b>; the result is null only if all inputs are null. Contrast with the <code>max</code>/<code>min</code> aggregates which reduce over rows." }
+        { name: "*cols", type: "Column | str", desc: "Two or more columns compared per row. <code>null</code> values are <b>skipped</b>; the result is null only if <b>all</b> inputs are null." }
       ],
       example: "df.withColumn('peak',\n  F.greatest('q1', 'q2', 'q3', 'q4'))",
       output: "Max of the four per row",
-      notes: "Great for comparing sibling columns without unpivoting."
+      works: "Compares <b>across columns within a row</b> (horizontal), unlike the aggregate which reduces down rows (vertical):" +
+        "<table><thead><tr><th>q1</th><th>q2</th><th>q3</th><th>greatest</th></tr></thead><tbody>" +
+        "<tr><td>10</td><td>null</td><td>40</td><td>40</td></tr></tbody></table>",
+      patterns: [
+        { label: "Latest of several date columns", code: "df.withColumn('last_seen',\n  F.greatest('web_ts', 'app_ts', 'email_ts'))" },
+        { label: "Clamp a value to a floor", code: "df.withColumn('non_neg',\n  F.greatest('delta', F.lit(0)))" }
+      ],
+      gotchas: [
+        "<b>Row-wise, not an aggregate.</b> <code>F.max(col)</code> reduces down a column to one value; <code>F.greatest(a,b,c)</code> compares columns within each row.",
+        "Nulls are skipped (result is null only if every argument is null) — contrast with arithmetic where a null propagates."
+      ],
+      related: "<table><thead><tr><th>Function</th><th>Direction</th></tr></thead><tbody>" +
+        "<tr><td><code>F.greatest</code> / <code>F.least</code></td><td>Across columns, per row (horizontal).</td></tr>" +
+        "<tr><td><code>F.max</code> / <code>F.min</code> (agg)</td><td>Down rows, per group (vertical).</td></tr></tbody></table>",
+      interview: [
+        { q: "Row has columns q1..q4; how do you get the max of the four per row?", a: "<code>F.greatest('q1','q2','q3','q4')</code>. Using <code>F.max</code> would instead collapse a single column across all rows — wrong axis." }
+      ],
+      memory: "<b>greatest/least = max/min across columns (per row); max/min agg = down rows.</b>"
     },
     {
       id: "expr",
       group: "Functions",
       name: "F.expr",
       signature: "F.expr(sqlString)",
-      summary: "Parse a SQL expression string into a <code>Column</code>.",
+      category: "Column function · SQL escape hatch",
+      summary: "Parse a Spark SQL expression string into a <code>Column</code> — the escape hatch for SQL not surfaced in the Python API.",
       returns: "Column",
       params: [
-        { name: "sqlString", type: "str", desc: "Any Spark SQL expression, e.g. <code>'CASE WHEN a>0 THEN 1 ELSE 0 END'</code>, <code>'stack(2, ...)'</code>, or SQL functions with no Python wrapper. Enables features (like <code>stack</code>, higher-order <code>transform</code>) not exposed in the Python API." }
+        { name: "sqlString", type: "str", desc: "Any Spark SQL expression, e.g. <code>'CASE WHEN a>0 THEN 1 ELSE 0 END'</code>, <code>'stack(2, ...)'</code>, or higher-order functions like <code>'transform(arr, x -> x*2)'</code> that have no clean Python wrapper." }
       ],
       example: "df.withColumn('flag',\n  F.expr('CASE WHEN amt > 100 THEN 1 ELSE 0 END'))",
       output: "Column",
-      notes: "The escape hatch for any SQL not surfaced in <code>pyspark.sql.functions</code>."
+      patterns: [
+        { label: "Higher-order function on an array", code: "df.withColumn('doubled',\n  F.expr('transform(nums, x -> x * 2)'))" },
+        { label: "Filter an array inline", code: "df.withColumn('big',\n  F.expr('filter(amounts, a -> a > 100)'))" },
+        { label: "INTERVAL date math", code: "df.withColumn('due',\n  F.expr(\"order_date + INTERVAL 30 DAYS\"))" }
+      ],
+      gotchas: [
+        "Column/table names inside the string are <b>not</b> escaped or validated at build time — a typo surfaces only at analysis. Keep expressions short.",
+        "You lose Python-side static checks and IDE help; use native functions when one exists, reserve <code>expr</code> for what the API doesn't expose.",
+        "The plan is identical to the equivalent native expression — no performance penalty, it's purely an authoring choice."
+      ],
+      related: "<code>df.selectExpr('...')</code> is <code>select</code> + <code>expr</code>. <code>F.expr</code> unlocks <code>stack</code>, <code>transform</code>, <code>filter</code>, <code>aggregate</code>, <code>INTERVAL</code> math, and other SQL-only constructs.",
+      interview: [
+        { q: "When would you use <code>F.expr</code> over native functions?", a: "When the operation isn't cleanly exposed in <code>pyspark.sql.functions</code> — higher-order array functions (<code>transform</code>/<code>filter</code>/<code>aggregate</code>), <code>stack</code>, or <code>INTERVAL</code> arithmetic. Same physical plan, so it's an authoring convenience, not a perf trade-off." }
+      ],
+      memory: "<b>expr = write SQL where the Python API falls short; same plan.</b>"
     },
     {
       id: "array",
       group: "Functions",
       name: "F.array",
       signature: "F.array(*cols)",
-      summary: "Build an array column from several columns/literals.",
+      category: "Column function · array builder",
+      summary: "Build an <code>array</code> column from several columns/literals, in order.",
       returns: "Column (array)",
       params: [
-        { name: "*cols", type: "Column", desc: "Columns/literals combined into one array per row, in order. They should share a common type (Spark up-casts). Nulls are kept as array elements." }
+        { name: "*cols", type: "Column | str", desc: "Columns/literals combined into one array per row, in order. They should share a common type (Spark up-casts to the widest). Nulls are <b>kept</b> as array elements." }
       ],
       example: "df.select(F.array('a', 'b', 'c').alias('vals'))",
       output: "[a, b, c] per row",
-      notes: "Related builders: <code>F.array_distinct</code>, <code>F.array_union</code>, <code>F.sort_array</code>, <code>F.flatten</code>."
+      patterns: [
+        { label: "Bundle sibling columns then explode", code: "df.select('id',\n  F.explode(F.array('q1', 'q2', 'q3')).alias('q'))" },
+        { label: "Distinct, sorted array from columns", code: "df.withColumn('vals',\n  F.array_sort(F.array_distinct(F.array('a', 'b', 'c'))))" }
+      ],
+      gotchas: [
+        "All elements are coerced to a <b>single common type</b> — mixing string and int columns up-casts everything to string.",
+        "Nulls are preserved as elements (unlike <code>concat_ws</code> which skips them)."
+      ],
+      related: "Companion array functions: <code>F.array_distinct</code>, <code>F.array_union</code>, <code>F.array_sort</code>/<code>sort_array</code>, <code>F.flatten</code>, <code>F.array_contains</code>, <code>F.size</code>.",
+      memory: "<b>array = pack columns into one array (common type, nulls kept).</b>"
     },
     {
       id: "explode",
       group: "Functions",
       name: "F.explode / explode_outer",
       signature: "F.explode(col)  |  F.explode_outer(col)",
-      summary: "Turn each element of an array (or key/value of a map) into its own <b>row</b>.",
+      category: "Generator function · array/map → rows",
+      summary: "Turn each element of an array (or key/value of a map) into its own <b>row</b>. The workhorse for flattening nested data.",
       returns: "Column (generator)",
       params: [
-        { name: "col", type: "Column", desc: "An array or map column. <code>explode</code> <b>drops</b> rows whose array is null or empty; <code>explode_outer</code> <b>keeps</b> them, emitting a single row with <code>null</code>. For a map it yields two columns <code>key</code>, <code>value</code>." }
+        { name: "col", type: "Column | str", desc: "An array or map column. <code>explode</code> <b>drops</b> rows whose array is null or empty; <code>explode_outer</code> <b>keeps</b> them, emitting one row with <code>null</code>. For a map it yields two columns <code>key</code>, <code>value</code>." }
       ],
       example: "df.select('id', F.explode('items').alias('item'))",
       output: "One row per (id, item)",
-      notes: "A generator: use inside <code>select</code> and at most one per <code>select</code>. Use <code>explode_outer</code> to avoid losing rows with empty arrays."
+      works: "One input row fans out to N output rows (N = array length); other columns are repeated:" +
+        "<table><thead><tr><th>id</th><th>items</th><th>→ id</th><th>→ item</th></tr></thead><tbody>" +
+        "<tr><td>1</td><td>[a, b]</td><td>1</td><td>a</td></tr>" +
+        "<tr><td></td><td></td><td>1</td><td>b</td></tr>" +
+        "<tr><td>2</td><td>[] / null</td><td colspan='2'>explode: dropped · explode_outer: (2, null)</td></tr></tbody></table>",
+      patterns: [
+        { label: "Flatten a CSV column to rows", code: "df.select('order_id',\n  F.explode(F.split('sku_csv', ',')).alias('sku'))" },
+        { label: "Keep empty/null arrays (LEFT-join semantics)", code: "df.select('id',\n  F.explode_outer('items').alias('item'))" },
+        { label: "Explode a map to key/value rows", code: "df.select('id',\n  F.explode('props').alias('k', 'v'))" }
+      ],
+      gotchas: [
+        "Plain <code>explode</code> <b>drops</b> rows with null or empty arrays — use <code>explode_outer</code> to preserve them (the LEFT-join analogue).",
+        "It's a <b>generator</b>: at most one per <code>select</code>, and it can't sit in the same projection as most other generators. Explode first, derive after.",
+        "It <b>multiplies row count</b> — a 1M-row df with 100-element arrays becomes 100M rows. Filter/aggregate deliberately."
+      ],
+      related: "<table><thead><tr><th>Function</th><th>Adds</th></tr></thead><tbody>" +
+        "<tr><td><code>explode</code></td><td>Element only; drops empty/null.</td></tr>" +
+        "<tr><td><code>explode_outer</code></td><td>Element only; keeps empty/null as a null row.</td></tr>" +
+        "<tr><td><code>posexplode</code> / <code>posexplode_outer</code></td><td>Element + its <code>pos</code> index.</td></tr>" +
+        "<tr><td><code>inline</code></td><td>Explode an array of structs into columns.</td></tr></tbody></table>",
+      perf: "Explosion is narrow (no shuffle by itself) but multiplies data volume — the shuffle/memory cost lands on the aggregation or join that follows. Project only needed columns before exploding.",
+      interview: [
+        { q: "<code>explode</code> vs <code>explode_outer</code>?", a: "<code>explode</code> emits nothing for a null or empty array (the row disappears). <code>explode_outer</code> emits a single row with null — like a LEFT join, preserving the parent row." },
+        { q: "Why can't you put two <code>explode</code> calls in one <code>select</code>?", a: "They're generator functions; Spark allows only one generator per projection. Chain them: explode the first, then explode the second in a following select." }
+      ],
+      notes: "The canonical way to flatten arrays/maps of nested JSON, tags, or line items into a tidy row-per-element shape.",
+      memory: "<b>explode = 1 row → N rows; _outer keeps the empties (LEFT-join style).</b>"
     },
     {
       id: "posexplode",
       group: "Functions",
       name: "F.posexplode / posexplode_outer",
       signature: "F.posexplode(col)",
-      summary: "Explode an array to rows <b>plus</b> each element's index.",
+      category: "Generator function · array → rows + index",
+      summary: "Explode an array to rows <b>plus</b> each element's 0-based index — use when position matters.",
       returns: "Column (generator, two outputs)",
       params: [
-        { name: "col", type: "Column", desc: "Array/map column. Emits two columns: <code>pos</code> (0-based index) and <code>col</code> (the element). <code>posexplode_outer</code> keeps null/empty arrays as a single null row." }
+        { name: "col", type: "Column | str", desc: "Array/map column. Emits <b>two</b> columns: <code>pos</code> (0-based index) and <code>col</code> (the element). <code>posexplode_outer</code> keeps null/empty arrays as a single null row." }
       ],
       example: "df.select('id',\n  F.posexplode('items').alias('idx', 'item'))",
       output: "id, idx(0..n-1), item",
-      notes: "Name both outputs with <code>.alias('idx','item')</code>."
+      patterns: [
+        { label: "Preserve line-item ordering", code: "df.select('order_id',\n  F.posexplode('line_items').alias('line_no', 'item'))" }
+      ],
+      gotchas: [
+        "You must name <b>both</b> outputs: <code>.alias('idx', 'item')</code> — a single alias won't capture <code>pos</code>.",
+        "Index is <b>0-based</b>; add 1 if you want human line numbers.",
+        "Same generator rules as <code>explode</code> (one per select, multiplies rows)."
+      ],
+      related: "Use plain <code>explode</code> when you don't need the index; <code>posexplode_outer</code> to keep null/empty arrays.",
+      memory: "<b>posexplode = explode + position; name both outputs.</b>"
     },
     {
       id: "array_contains",
       group: "Functions",
       name: "F.array_contains",
       signature: "F.array_contains(col, value)",
-      summary: "True if the array column contains the given value.",
+      category: "Column function · array predicate",
+      summary: "True if the array column contains the given value — array membership test without exploding.",
       returns: "Column (bool)",
       params: [
-        { name: "col", type: "Column", desc: "Array column to search." },
-        { name: "value", type: "scalar", desc: "The value to look for (a literal, not a Column in most versions). Returns <code>null</code> if the array itself is null; <code>false</code> if present-but-absent." }
+        { name: "col", type: "Column | str", desc: "Array column to search." },
+        { name: "value", type: "scalar", desc: "The value to look for — a <b>literal</b>, not a Column, in most versions. Returns <code>null</code> if the array itself is null; <code>false</code> if the array is present but lacks the value." }
       ],
       example: "df.filter(F.array_contains('tags', 'vip'))",
       output: "Boolean Column",
-      notes: "For membership of another column use <code>F.exists</code>/<code>F.arrays_overlap</code> or <code>F.expr('array_contains(tags, col)')</code>."
+      patterns: [
+        { label: "Filter rows whose array holds a value", code: "df.filter(F.array_contains('tags', 'vip'))" },
+        { label: "Membership against another column (expr)", code: "df.filter(F.expr('array_contains(tags, required_tag)'))" }
+      ],
+      gotchas: [
+        "The value is a <b>literal</b> in the Python signature — to test membership of <b>another column</b>, use <code>F.expr('array_contains(arr, other_col)')</code> or <code>F.exists</code>.",
+        "Null array → null result (not false); guard in filters if you need false."
+      ],
+      related: "<code>F.arrays_overlap(a, b)</code> for any-common-element; <code>F.exists(arr, x -> ...)</code> for a predicate; <code>F.size</code> + explode when you need the matching elements.",
+      memory: "<b>array_contains = does this array hold X? (X is a literal).</b>"
     },
     {
       id: "size",
       group: "Functions",
       name: "F.size / array_size",
       signature: "F.size(col)",
-      summary: "Number of elements in an array or map.",
+      category: "Column function · array/map length",
+      summary: "Number of elements in an array or map. <b>Watch the −1-on-null trap.</b>",
       returns: "Column (int)",
       params: [
-        { name: "col", type: "Column", desc: "Array or map column. Returns the element count; for a <code>null</code> input <code>size</code> returns <code>-1</code> (gotcha!), whereas <code>F.array_size</code> (Spark 3.4+) returns null. Empty gives 0." }
+        { name: "col", type: "Column | str", desc: "Array or map column. Returns the element count. For a <b>null</b> input <code>size</code> returns <code>-1</code> (gotcha!), whereas <code>F.array_size</code> (Spark 3.4+) returns null. Empty gives 0." }
       ],
       example: "df.filter(F.size('items') > 0)",
       output: "int count Column",
-      notes: "Guard the <code>-1</code>-on-null behavior: <code>F.when(col.isNull(), 0).otherwise(F.size(col))</code>."
+      works: "<table><thead><tr><th>items</th><th>size</th><th>array_size (3.4+)</th></tr></thead><tbody>" +
+        "<tr><td>[a, b, c]</td><td>3</td><td>3</td></tr>" +
+        "<tr><td>[]</td><td>0</td><td>0</td></tr>" +
+        "<tr><td>null</td><td><b>-1</b></td><td>null</td></tr></tbody></table>",
+      patterns: [
+        { label: "Null-safe element count", code: "df.withColumn('n',\n  F.when(F.col('items').isNull(), 0)\n   .otherwise(F.size('items')))" },
+        { label: "Keep only non-empty arrays", code: "df.filter(F.size('items') > 0)" }
+      ],
+      gotchas: [
+        "<b><code>size(null) = -1</code>, not 0 or null.</b> A filter like <code>size(col) > 0</code> silently excludes nulls; <code>size(col) >= 0</code> would <i>include</i> them. Guard explicitly.",
+        "Use <code>F.array_size</code> (Spark 3.4+) for null-returns-null semantics.",
+        "Don't confuse with <code>F.length</code> (string characters)."
+      ],
+      related: "<code>F.length</code> counts string chars; <code>F.array_size</code> is the null-safe variant; <code>F.cardinality</code> is a SQL synonym for <code>size</code>.",
+      interview: [
+        { q: "What does <code>F.size</code> return for a null array, and why does it matter?", a: "<code>-1</code>. It quietly breaks range filters (<code>size > 0</code> drops nulls, <code>size >= 0</code> keeps them). Wrap with a null check or use <code>array_size</code> (3.4+), which returns null." }
+      ],
+      memory: "<b>size(null) = -1 (the trap); array_size(null) = null.</b>"
     },
     {
       id: "collect_list-f",
       group: "Functions",
       name: "F.collect_list / collect_set",
       signature: "F.collect_list(col)  |  F.collect_set(col)",
-      summary: "Aggregate values from a group into an array (as a function, used in <code>agg</code>/window).",
+      category: "Aggregate function · rows → array",
+      summary: "Gather a group's values into an array. <code>collect_list</code> keeps dups; <code>collect_set</code> deduplicates. Both used in <code>agg</code>/window.",
       returns: "Column (array)",
       params: [
-        { name: "col", type: "Column", desc: "Column to gather. <code>collect_list</code> keeps duplicates and is order-<b>non</b>-deterministic; <code>collect_set</code> deduplicates. Both <b>skip nulls</b>. Can blow up memory on large groups." }
+        { name: "col", type: "Column | str", desc: "Column to gather. <code>collect_list</code> keeps duplicates; <code>collect_set</code> deduplicates. Both <b>skip nulls</b>. Order is <b>not</b> guaranteed and memory scales with group size." }
       ],
       example: "df.groupBy('user').agg(\n  F.collect_set('page').alias('pages'))",
       output: "One array per user",
-      notes: "Order is not guaranteed — sort afterward with <code>F.sort_array</code>, or use <code>F.array_sort</code>/a struct-of-(ts,val) then sort."
+      patterns: [
+        { label: "Distinct pages per user", code: "df.groupBy('user').agg(\n  F.collect_set('page').alias('pages'))" },
+        { label: "Ordered event trail (sort by attaching key)", code: "trail = F.array_sort(\n  F.collect_list(F.struct('ts', 'event')))\ndf.groupBy('user').agg(trail.alias('events'))" }
+      ],
+      gotchas: [
+        "<b>Order is not guaranteed.</b> To get a deterministic order, collect <code>struct(sort_key, value)</code> then <code>array_sort</code>, rather than trusting input order.",
+        "Both <b>skip nulls</b> — a group of all-nulls yields an empty array.",
+        "Materializes the whole group in memory on one executor — a skewed 'hot' key can OOM. Consider a top-N or approx approach for huge groups."
+      ],
+      related: "<table><thead><tr><th>Function</th><th>Duplicates</th></tr></thead><tbody>" +
+        "<tr><td><code>collect_list</code></td><td>Kept.</td></tr>" +
+        "<tr><td><code>collect_set</code></td><td>Removed (distinct).</td></tr></tbody></table>",
+      perf: "A wide aggregate — shuffles by the group key and buffers each group. Skewed keys are the classic failure mode; salt or pre-aggregate if one key dominates.",
+      interview: [
+        { q: "Is <code>collect_list</code> order-preserving?", a: "No. Element order is non-deterministic across runs. If order matters, collect <code>struct(ts, value)</code> and <code>array_sort</code>, or apply a windowed ordering before collecting." },
+        { q: "Risk of <code>collect_set</code> on a huge group?", a: "It buffers all distinct values for a key in executor memory — a hot/skewed key can OOM. Bound the group, pre-aggregate, or use an approximate structure." }
+      ],
+      memory: "<b>collect_list = keep dups; collect_set = distinct; neither guarantees order.</b>"
     },
     {
       id: "struct",
       group: "Functions",
       name: "F.struct",
       signature: "F.struct(*cols)",
-      summary: "Bundle several columns into a single nested <code>struct</code> column.",
+      category: "Column function · struct builder",
+      summary: "Bundle several columns into one nested <code>struct</code> — the key to the <code>max(struct(...))</code> 'latest value' idiom.",
       returns: "Column (struct)",
       params: [
-        { name: "*cols", type: "str | Column", desc: "Columns to nest; each becomes a named field (use <code>.alias</code> to set field names). Useful to pass a composite value through <code>collect_list</code>, or to keep a tie-break key attached to a value for later sort." }
+        { name: "*cols", type: "str | Column", desc: "Columns to nest; each becomes a named field (use <code>.alias</code> to set field names). Lets you carry a composite value through <code>collect_list</code>, or keep a sort key attached to a value." }
       ],
       example: "df.groupBy('user').agg(\n  F.max(F.struct('ts', 'status')).alias('latest'))",
       output: "struct<ts, status>",
-      notes: "<code>max(struct(ts, val))</code> is the idiomatic 'value at the latest ts' — the struct sorts by its first field."
+      works: "A struct compares <b>field by field, left to right</b> — so <code>max(struct(ts, status))</code> picks the row with the greatest <code>ts</code> and returns its <code>status</code>:" +
+        "<table><thead><tr><th>rows (ts, status)</th><th>max(struct)</th><th>.status</th></tr></thead><tbody>" +
+        "<tr><td>(9:00,'A'), (9:05,'B')</td><td>{9:05, 'B'}</td><td>'B'</td></tr></tbody></table>",
+      patterns: [
+        { label: "Value at the latest timestamp (no window)", code: "latest = F.max(F.struct('ts', 'status'))\ndf.groupBy('user').agg(\n  latest.status.alias('last_status'))" },
+        { label: "Carry a payload through collect_list", code: "df.groupBy('user').agg(\n  F.collect_list(F.struct('ts', 'amount')).alias('txns'))" }
+      ],
+      gotchas: [
+        "Put the <b>sort key first</b> in the struct — comparison is left-to-right by field. <code>struct(ts, status)</code> orders by <code>ts</code>, not <code>status</code>.",
+        "Access a field with <code>col.field</code> or <code>col['field']</code> after aggregating."
+      ],
+      related: "<code>max(struct(ts, val)).val</code> is a shuffle-lighter alternative to a <code>row_number()</code> window for 'latest per group'. Pairs with <code>collect_list</code> to keep payloads together.",
+      interview: [
+        { q: "How do you get the status at each user's latest event without a window?", a: "<code>F.max(F.struct('ts','status'))</code> per group, then read <code>.status</code>. The struct compares by <code>ts</code> first, so max returns the latest event's fields — often cheaper than a <code>row_number()=1</code> window." }
+      ],
+      memory: "<b>struct sorts by first field → max(struct(ts, val)).val = latest value per group.</b>"
     },
     {
       id: "map_keys",
       group: "Functions",
       name: "F.map_keys / map_values / create_map",
       signature: "F.map_keys(col) | F.map_values(col) | F.create_map(*cols)",
-      summary: "Work with map-typed columns.",
+      category: "Column function · map type",
+      summary: "Build and inspect map-typed columns — keys array, values array, and map construction.",
       returns: "Column",
       params: [
         { name: "map_keys", type: "Column", desc: "Returns an array of the map's keys." },
         { name: "map_values", type: "Column", desc: "Returns an array of the map's values." },
-        { name: "create_map (*cols)", type: "Column", desc: "Builds a map from alternating key, value columns: <code>create_map(k1, v1, k2, v2, ...)</code> — arg count must be even." }
+        { name: "create_map (*cols)", type: "Column", desc: "Builds a map from alternating key, value columns: <code>create_map(k1, v1, k2, v2, ...)</code> — the argument count must be <b>even</b>." }
       ],
       example: "df.select(F.map_keys('props'),\n  F.map_values('props'))",
       output: "array of keys ; array of values",
-      notes: "Explode a map to rows with <code>F.explode('map_col')</code> giving <code>key</code>,<code>value</code>."
+      patterns: [
+        { label: "Explode a map to key/value rows", code: "df.select('id',\n  F.explode('props').alias('k', 'v'))" },
+        { label: "Look up one key", code: "df.withColumn('color',\n  F.col('props')['color'])" },
+        { label: "Build a map from columns", code: "df.withColumn('m',\n  F.create_map(F.lit('k'), F.col('v')))" }
+      ],
+      gotchas: [
+        "<code>create_map</code> needs an <b>even</b> number of arguments (key, value, key, value…) — an odd count errors.",
+        "Access a value with <code>col['key']</code>; a missing key returns null, not an error.",
+        "Map key ordering isn't guaranteed — use <code>map_keys</code>/<code>map_values</code> together, or explode, rather than assuming order."
+      ],
+      related: "<code>F.explode('map_col')</code> fans a map to <code>key</code>,<code>value</code> rows. <code>F.map_from_arrays(keys, vals)</code> builds a map from two array columns; <code>F.map_entries</code> returns an array of key/value structs.",
+      memory: "<b>create_map = build (even args); map_keys/map_values = inspect; explode = to rows.</b>"
     },
 
     // ============================================================ Aggregation

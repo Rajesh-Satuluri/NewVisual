@@ -565,6 +565,55 @@ body.sidebar-open .ham i:nth-child(3) { top: 6px; transform: rotate(-45deg); }
   border-left: 3px solid var(--amber); border-radius: 0 8px 8px 0; padding: 8px 12px; line-height: 1.55; }
 .cht-notes code { font-size: .88em; }
 
+/* ---- wider (landscape) popup — scoped to panels that opt in via cfg.wide ---- */
+.ros-wide .ros-box { max-width: 1480px; }
+
+/* ---- collapsible cards: only the signature shows until the head is clicked -- */
+.cht-collapsible .cht-head { cursor: pointer; margin-bottom: 0; user-select: none; }
+.cht-collapsible.collapsed { padding-top: 11px; padding-bottom: 11px; }
+.cht-collapsible.collapsed .cht-body { display: none; }
+.cht-collapsible .cht-body { margin-top: 9px; }
+.cht-chevron { color: var(--muted); font-size: 11px; line-height: 1; flex: none; align-self: center;
+  transition: transform .15s ease; }
+.cht-collapsible:not(.collapsed) .cht-chevron { transform: rotate(90deg); }
+.cht-collapsible .cht-head:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; border-radius: 6px; }
+
+/* expand-all / collapse-all control (sits in the search row) */
+.cht-xall { display: inline-flex; gap: 4px; }
+.cht-xall-btn { background: var(--bg-2); border: 1px solid var(--border); color: var(--muted); font-size: 11.5px;
+  font-weight: 700; font-family: inherit; padding: 6px 11px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+.cht-xall-btn:hover { color: var(--text); border-color: var(--brand); }
+@media (pointer: coarse) { .cht-xall-btn { min-height: 32px; } }
+
+/* ---- enhanced-content sections (deepened functions only) ------------------- */
+.cht-cat { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px;
+  color: var(--brand-2); margin-bottom: 7px; }
+.cht-sec-h { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: var(--muted);
+  margin: 15px 0 7px; padding-bottom: 4px; border-bottom: 1px solid var(--border-soft); }
+.cht-works { font-size: 12.5px; color: var(--text-2); line-height: 1.6; }
+.cht-works table, .cht-related table { border-collapse: collapse; width: 100%; font-size: 12px; margin: 7px 0 2px; }
+.cht-works th, .cht-works td, .cht-related th, .cht-related td { border: 1px solid var(--border-soft);
+  padding: 6px 10px; text-align: left; vertical-align: top; }
+.cht-works th, .cht-related th { background: var(--bg-2); font-weight: 700; color: var(--text-2); }
+.cht-works code, .cht-related code { font-size: .88em; }
+.cht-gotchas { margin: 2px 0 0; padding-left: 18px; }
+.cht-gotchas li { font-size: 12.5px; color: var(--text-2); line-height: 1.55; margin-bottom: 6px; }
+.cht-gotchas code { font-size: .88em; }
+.cht-related { font-size: 12.5px; color: var(--text-2); line-height: 1.6; }
+.cht-related th { white-space: nowrap; }
+.cht-perf { font-size: 12.5px; color: var(--text-2); line-height: 1.6; background: var(--bg-2);
+  border-left: 3px solid var(--brand); border-radius: 0 8px 8px 0; padding: 8px 12px; }
+.cht-perf code { font-size: .88em; }
+.cht-qa { display: flex; flex-direction: column; gap: 9px; }
+.cht-q { font-size: 12.5px; font-weight: 700; color: var(--text); line-height: 1.5; }
+.cht-q::before { content: "Q "; color: var(--brand-2); font-weight: 800; }
+.cht-a { font-size: 12.5px; color: var(--text-2); line-height: 1.55; }
+.cht-a::before { content: "A "; color: var(--green); font-weight: 800; }
+.cht-q code, .cht-a code { font-size: .88em; }
+.cht-memory { margin-top: 12px; font-size: 12.5px; font-weight: 700; color: var(--text);
+  background: linear-gradient(90deg, var(--brand-glow), transparent); border-radius: 8px; padding: 8px 12px; }
+.cht-memory code { font-size: .9em; }
+
 /* ---- practice sidebar: Group-by lens toggle (Pattern | Domain) ------------- */
 /* Shown only for stacks that ship a DOMAINS map (PySpark today). Sits above the
  * category list and mirrors the pill styling of the top-bar mode switch. */
