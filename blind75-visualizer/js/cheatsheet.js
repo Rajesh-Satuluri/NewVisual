@@ -23,6 +23,7 @@
   function makeCheatsheet(cfg) {
     var DATA = cfg.data || { groups: [], fns: [] };
     var LANG = cfg.lang || "python";
+    var COLLAPSIBLE = !!cfg.collapsible;   // cards collapse to just their signature
     var overlay = null, bodyEl = null, searchEl = null, active = "all", query = "", sortMode = "used";
 
     // Usage rank (lower = more used). Drives the default "Most used" sort, the
@@ -61,13 +62,30 @@
       return hay.indexOf(query) !== -1;
     }
 
-    function card(fn, showPill) {
+    // Section sub-heading inside an expanded card (How it works, Gotchas, …).
+    function secHead(txt) { var h = document.createElement("div"); h.className = "cht-sec-h"; h.innerHTML = txt; return h; }
+
+    // A labelled code block with a Copy-button host strip (reused for patterns).
+    function labeledCode(label, src) {
+      var w = document.createElement("div"); w.className = "cht-ex-wrap";
+      var head = document.createElement("div"); head.className = "cht-ex-head"; head.setAttribute("data-copy-host", "1");
+      head.innerHTML = '<span class="cht-ex-label">' + esc(label) + "</span>";
+      w.appendChild(head); w.appendChild(codeBlock(src));
+      return w;
+    }
+
+    // forceOpen: keep the card expanded even in collapsible mode (used on search).
+    function card(fn, showPill, forceOpen) {
+      var collapsed = COLLAPSIBLE && !forceOpen;
       var c = document.createElement("div");
-      c.className = "cht-card" + (isEssential(fn) ? " cht-essential" : "");
+      c.className = "cht-card" + (isEssential(fn) ? " cht-essential" : "") +
+        (COLLAPSIBLE ? " cht-collapsible" : "") + (collapsed ? " collapsed" : "");
+
       var head = document.createElement("div");
       head.className = "cht-head";
       head.innerHTML =
         '<span class="cht-head-l">' +
+          (COLLAPSIBLE ? '<span class="cht-chevron" aria-hidden="true">▸</span>' : "") +
           (isEssential(fn) ? '<span class="cht-star" title="Essential — one of the most-used; learn these first">★</span>' : "") +
           '<code class="cht-sig">' + esc(fn.signature || fn.name) + "</code>" +
         "</span>" +
@@ -76,7 +94,13 @@
           (fn.returns ? '<span class="cht-ret">→ ' + esc(fn.returns) + "</span>" : "") +
         "</span>";
       c.appendChild(head);
-      if (fn.summary) { var s = document.createElement("div"); s.className = "cht-sum"; s.innerHTML = fn.summary; c.appendChild(s); }
+
+      // In collapsible mode everything below the head lives in a togglable body.
+      var body = COLLAPSIBLE ? document.createElement("div") : c;
+      if (COLLAPSIBLE) body.className = "cht-body";
+
+      if (fn.category) { var cat = document.createElement("div"); cat.className = "cht-cat"; cat.innerHTML = fn.category; body.appendChild(cat); }
+      if (fn.summary) { var s = document.createElement("div"); s.className = "cht-sum"; s.innerHTML = fn.summary; body.appendChild(s); }
 
       if (fn.params && fn.params.length) {
         var tbl = document.createElement("table");
@@ -89,7 +113,7 @@
         });
         tbl.innerHTML = rows + "</tbody>";
         var scr = document.createElement("div"); scr.className = "cht-params-scroll"; scr.appendChild(tbl);
-        c.appendChild(scr);
+        body.appendChild(scr);
       }
       if (fn.example) {
         var exWrap = document.createElement("div"); exWrap.className = "cht-ex-wrap";
@@ -102,9 +126,50 @@
         exWrap.appendChild(exHead);
         exWrap.appendChild(codeBlock(fn.example));
         if (fn.output) { var o = document.createElement("div"); o.className = "cht-out"; o.textContent = "→ " + fn.output; exWrap.appendChild(o); }
-        c.appendChild(exWrap);
+        body.appendChild(exWrap);
       }
-      if (fn.notes) { var n = document.createElement("div"); n.className = "cht-notes"; n.innerHTML = fn.notes; c.appendChild(n); }
+
+      // ---- enhanced sections (all optional; only present on deepened fns) ----
+      if (fn.works) { body.appendChild(secHead("How it works")); var wk = document.createElement("div"); wk.className = "cht-works"; wk.innerHTML = fn.works; body.appendChild(wk); }
+      if (fn.patterns && fn.patterns.length) {
+        body.appendChild(secHead("Common patterns"));
+        fn.patterns.forEach(function (p) { body.appendChild(labeledCode(p.label || "Pattern", p.code)); });
+      }
+      if (fn.gotchas && fn.gotchas.length) {
+        body.appendChild(secHead("⚠️ Gotchas"));
+        var ul = document.createElement("ul"); ul.className = "cht-gotchas";
+        fn.gotchas.forEach(function (g) { var li = document.createElement("li"); li.innerHTML = g; ul.appendChild(li); });
+        body.appendChild(ul);
+      }
+      if (fn.related) { body.appendChild(secHead("Related / confused")); var rel = document.createElement("div"); rel.className = "cht-related"; rel.innerHTML = fn.related; body.appendChild(rel); }
+      if (fn.perf) { body.appendChild(secHead("Performance")); var pf = document.createElement("div"); pf.className = "cht-perf"; pf.innerHTML = fn.perf; body.appendChild(pf); }
+      if (fn.interview && fn.interview.length) {
+        body.appendChild(secHead("Interview questions"));
+        var qa = document.createElement("div"); qa.className = "cht-qa";
+        fn.interview.forEach(function (it) {
+          var q = document.createElement("div"); q.className = "cht-q"; q.innerHTML = it.q;
+          var a = document.createElement("div"); a.className = "cht-a"; a.innerHTML = it.a;
+          qa.appendChild(q); qa.appendChild(a);
+        });
+        body.appendChild(qa);
+      }
+      if (fn.notes) { var n = document.createElement("div"); n.className = "cht-notes"; n.innerHTML = fn.notes; body.appendChild(n); }
+      if (fn.memory) { var m = document.createElement("div"); m.className = "cht-memory"; m.innerHTML = "🧠 " + fn.memory; body.appendChild(m); }
+
+      if (COLLAPSIBLE) {
+        c.appendChild(body);
+        head.setAttribute("role", "button");
+        head.setAttribute("tabindex", "0");
+        head.setAttribute("aria-expanded", collapsed ? "false" : "true");
+        var toggle = function () {
+          c.classList.toggle("collapsed");
+          head.setAttribute("aria-expanded", c.classList.contains("collapsed") ? "false" : "true");
+        };
+        head.addEventListener("click", toggle);
+        head.addEventListener("keydown", function (e) {
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); }
+        });
+      }
       return c;
     }
 
@@ -146,7 +211,7 @@
         var head = fns.length + " function" + (fns.length === 1 ? "" : "s") + " · most used first";
         if (active !== "all") head = active + " · " + head;
         bodyEl.appendChild(groupHeader(head));
-        fns.forEach(function (f) { bodyEl.appendChild(card(f, true)); });
+        fns.forEach(function (f) { bodyEl.appendChild(card(f, true, !!query)); });
       } else {
         // Grouped by category (importance order), most-used first within each group.
         var any = false;
@@ -156,7 +221,7 @@
           if (!g.length) return;
           any = true;
           bodyEl.appendChild(groupHeader(group + " · " + g.length));
-          g.forEach(function (f) { bodyEl.appendChild(card(f, false)); });
+          g.forEach(function (f) { bodyEl.appendChild(card(f, false, !!query)); });
         });
         if (!any) { emptyMsg(); return; }
       }
@@ -166,7 +231,7 @@
     function build() {
       overlay = document.createElement("div");
       overlay.id = cfg.overlayId;
-      overlay.className = "ros hidden";
+      overlay.className = "ros hidden" + (cfg.wide ? " ros-wide" : "");
       var chips = '<button class="ros-chip ros-chip-all active" data-g="all">All</button>' +
         DATA.groups.map(function (g) { return '<button class="ros-chip" data-g="' + esc(g) + '">' + esc(g) + "</button>"; }).join("");
       overlay.innerHTML =
@@ -181,6 +246,11 @@
         '      <button class="cht-sort-btn active" data-sort="used" title="Show every function ordered by how often it is used">⭐ Most used</button>' +
         '      <button class="cht-sort-btn" data-sort="cat" title="Group by category (most used first within each)">🗂 By category</button>' +
         '    </div>' +
+        (COLLAPSIBLE ?
+        '    <div class="cht-xall" role="group" aria-label="Expand or collapse all functions">' +
+        '      <button class="cht-xall-btn" data-x="open" title="Expand every function">Expand all</button>' +
+        '      <button class="cht-xall-btn" data-x="close" title="Collapse to just names">Collapse all</button>' +
+        '    </div>' : "") +
         '  </div>' +
         '  <div class="ros-filter">' + chips + '</div>' +
         '  <div class="ros-body"></div>' +
@@ -204,6 +274,16 @@
           overlay.querySelectorAll(".cht-sort-btn").forEach(function (c) { c.classList.toggle("active", c === b); });
           saveSort();
           render();
+        });
+      });
+      overlay.querySelectorAll(".cht-xall-btn").forEach(function (b) {
+        b.addEventListener("click", function () {
+          var collapse = b.getAttribute("data-x") === "close";
+          overlay.querySelectorAll(".cht-card.cht-collapsible").forEach(function (c) {
+            c.classList.toggle("collapsed", collapse);
+            var h = c.querySelector(".cht-head");
+            if (h) h.setAttribute("aria-expanded", collapse ? "false" : "true");
+          });
         });
       });
       document.addEventListener("keydown", function (e) {
@@ -247,7 +327,9 @@
     ariaLabel: "PySpark function cheatsheet",
     title: "⚡ PySpark cheatsheet",
     sub: "every function, its parameters, and what they do",
-    placeholder: "Search functions… (select, join, window, groupBy, when…)"
+    placeholder: "Search functions… (select, join, window, groupBy, when…)",
+    collapsible: true,   // cards collapse to just their signature; click to expand
+    wide: true           // landscape aspect — roomier for comparison tables
   });
 
   window.PYCHEATSHEET = makeCheatsheet({
