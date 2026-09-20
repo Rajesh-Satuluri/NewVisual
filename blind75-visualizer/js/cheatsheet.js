@@ -65,6 +65,10 @@
     // Section sub-heading inside an expanded card (How it works, Gotchas, …).
     function secHead(txt) { var h = document.createElement("div"); h.className = "cht-sec-h"; h.innerHTML = txt; return h; }
 
+    // Full-width divider between sub-blocks within a group (e.g. the Regex chip).
+    // Rendered before any card that carries a `divider` label.
+    function subDivider(txt) { var d = document.createElement("div"); d.className = "cht-subdiv"; d.textContent = txt; return d; }
+
     // A labelled code block with a Copy-button host strip (reused for patterns).
     function labeledCode(label, src) {
       var w = document.createElement("div"); w.className = "cht-ex-wrap";
@@ -211,7 +215,7 @@
         var head = fns.length + " function" + (fns.length === 1 ? "" : "s") + " · most used first";
         if (active !== "all") head = active + " · " + head;
         bodyEl.appendChild(groupHeader(head));
-        fns.forEach(function (f) { bodyEl.appendChild(card(f, true, !!query)); });
+        fns.forEach(function (f) { if (f.divider) bodyEl.appendChild(subDivider(f.divider)); bodyEl.appendChild(card(f, true, !!query)); });
       } else {
         // Grouped by category (importance order), most-used first within each group.
         var any = false;
@@ -221,7 +225,7 @@
           if (!g.length) return;
           any = true;
           bodyEl.appendChild(groupHeader(group + " · " + g.length));
-          g.forEach(function (f) { bodyEl.appendChild(card(f, false, !!query)); });
+          g.forEach(function (f) { if (f.divider) bodyEl.appendChild(subDivider(f.divider)); bodyEl.appendChild(card(f, false, !!query)); });
         });
         if (!any) { emptyMsg(); return; }
       }
