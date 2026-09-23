@@ -12,6 +12,7 @@
     notes: {},      // problemId -> string
     links: {},      // problemId -> [{name,url}, {name,url}] (animation/visualization links)
     codeEdits: {},  // problemId -> { "<approachIndex>:<mode>": editedSource } (user code edits)
+    logicEdits: {}, // problemId -> { "<approachIndex>": editedMarkdown } (user logic edits)
     srs: {},        // problemId -> { ease, interval(days), reps, lapses, due(ms), last(ms) }
     activity: {},   // "YYYY-MM-DD" -> count of solves/reviews that day (for the heatmap + streak)
     pyStatus: {},   // pythonTopicId -> "not-started" | "learning" | "learned" | "mastered"
@@ -41,6 +42,7 @@
       data.notes = data.notes || {};
       data.links = data.links || {};
       data.codeEdits = data.codeEdits || {};
+      data.logicEdits = data.logicEdits || {};
       data.srs = data.srs || {};
       data.activity = data.activity || {};
       data.pyStatus = data.pyStatus || {};
@@ -181,6 +183,25 @@
       save();
     },
 
+    // ---- logic edits (per problem + approach index) ----
+    getLogicEdit: function (id, ai) {
+      var m = state.logicEdits[id];
+      var v = m && m["" + ai];
+      return v == null ? null : v;
+    },
+    setLogicEdit: function (id, ai, text) {
+      if (!state.logicEdits[id]) state.logicEdits[id] = {};
+      state.logicEdits[id]["" + ai] = text;
+      save();
+    },
+    clearLogicEdit: function (id, ai) {
+      var m = state.logicEdits[id];
+      if (!m) return;
+      delete m["" + ai];
+      if (!Object.keys(m).length) delete state.logicEdits[id];
+      save();
+    },
+
     // ---- Python-for-DSA topic progress ----
     // States: "not-started" | "learning" | "learned" | "mastered".
     getPyStatus: function (id) {
@@ -291,6 +312,7 @@
       state.notes = incoming.notes || {};
       state.links = incoming.links || {};
       state.codeEdits = incoming.codeEdits || {};
+      state.logicEdits = incoming.logicEdits || {};
       state.srs = incoming.srs || {};
       state.activity = incoming.activity || {};
       state.pyStatus = incoming.pyStatus || {};

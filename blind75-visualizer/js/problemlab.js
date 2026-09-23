@@ -264,6 +264,62 @@
     return wrap;
   }
 
+  // ---- editable logic block (mirrors codeBlock) ------------------------------
+  // The "Complete Logic" write-up renders as Markdown, but the reader can unlock
+  // it and rewrite it in their own words for active recall. Edits are saved per
+  // problem + approach (id is already stack-namespaced via nsId) and can be
+  // reset back to the original at any time. `ident` = { id, ai }.
+  function logicBlock(srcMd, ident) {
+    var wrap = h("div", { class: "logic-wrap" });
+    var bar = h("div", { class: "logic-bar" });
+    bar.appendChild(h("span", { class: "logic-tag" }, "Logic"));
+    var actions = h("div", { class: "code-actions" });
+    bar.appendChild(actions);
+    var body = h("div", { class: "logic-body" });
+    wrap.appendChild(bar); wrap.appendChild(body);
+
+    var editing = false;   // starts LOCKED every render
+    function savedEdit() { return store.getLogicEdit(ident.id, ident.ai); }
+    function currentSource() { var e = savedEdit(); return e != null ? e : srcMd; }
+
+    function render() {
+      body.innerHTML = ""; actions.innerHTML = "";
+      var edited = savedEdit() != null;
+      if (edited) {
+        actions.appendChild(h("span", { class: "code-edited", title: "This logic was edited locally" }, "edited"));
+        var reset = h("button", { class: "code-mini", title: "Restore the original logic" }, "Reset");
+        reset.addEventListener("click", function () { store.clearLogicEdit(ident.id, ident.ai); editing = false; render(); });
+        actions.appendChild(reset);
+      }
+      var lock = h("button", { class: "code-mini lock" + (editing ? " on" : "") }, editing ? "🔓 Editing" : "✏️ Edit");
+      lock.title = editing ? "Lock to stop editing (changes are saved)" : "Unlock to rewrite this logic in Markdown";
+      lock.addEventListener("click", function () { editing = !editing; render(); });
+      actions.appendChild(lock);
+
+      if (editing) {
+        var ta = h("textarea", { class: "logic-edit", spellcheck: "false", autocomplete: "off" });
+        ta.value = currentSource();
+        var fit = function () { ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px"; };
+        ta.addEventListener("input", function () {
+          fit();
+          if (ta.value === srcMd) store.clearLogicEdit(ident.id, ident.ai);
+          else store.setLogicEdit(ident.id, ident.ai, ta.value);
+        });
+        ta.addEventListener("keydown", function (e) {
+          if (e.key === "Tab") { e.preventDefault(); var s = ta.selectionStart, en = ta.selectionEnd; ta.value = ta.value.slice(0, s) + "  " + ta.value.slice(en); ta.selectionStart = ta.selectionEnd = s + 2; ta.dispatchEvent(new Event("input")); }
+        });
+        body.appendChild(ta);
+        setTimeout(function () { fit(); ta.focus(); }, 0);
+      } else {
+        var node = h("div", { class: "md logic" });
+        node.innerHTML = md(currentSource());
+        body.appendChild(node);
+      }
+    }
+    render();
+    return wrap;
+  }
+
   // ---- runnable editor (Pyodide) — used by python-family practice stacks ----
   function runnableEditor(initial) {
     var box = h("div", { class: "pyplay" });
@@ -487,8 +543,7 @@
     }
     var a = approaches[ai] || {};
     if (a.logic) {
-      var logicNode = h("div", { class: "md logic" }); logicNode.innerHTML = md(a.logic);
-      apWrap.appendChild(section("logic", "Complete Logic — " + (a.name || "Approach"), logicNode));
+      apWrap.appendChild(section("logic", "Complete Logic — " + (a.name || "Approach"), logicBlock(a.logic, { id: nid, ai: ai })));
     }
     var codeArea = h("div", { class: "code-area" });
     var pk = cfg().codePrimary, sk = cfg().codeSecondary;
