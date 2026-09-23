@@ -142,6 +142,16 @@ html[data-theme="light"] .code-wrap { box-shadow: 0 2px 12px rgba(40, 35, 25, .1
 .code-edit { display: block; width: 100%; box-sizing: border-box; margin: 0; padding: 16px 18px; border: none; outline: none; resize: none; overflow-x: auto; background: transparent; color: var(--text); font-family: var(--mono); font-size: 13px; line-height: 1.6; white-space: pre; tab-size: 4; -moz-tab-size: 4; box-shadow: inset 0 0 0 2px rgba(96,165,250,.35); }
 .code-edit:focus { box-shadow: inset 0 0 0 2px var(--brand); }
 
+/* Editable "Complete Logic" block — mirrors the code block's lock/unlock UX. */
+.logic-wrap { border: 1px solid var(--border-soft); border-radius: var(--radius-sm); overflow: hidden; background: var(--bg-2); }
+.logic-bar { display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; background: rgba(255,255,255,.03); border-bottom: 1px solid var(--border-soft); }
+.logic-tag { font-family: var(--mono); font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .6px; }
+.logic-body { padding: 4px 14px; }
+.logic-body > .md.logic { margin: 0; }
+/* Markdown source editor (unlocked). Monospace so raw Markdown is easy to edit. */
+.logic-edit { display: block; width: 100%; box-sizing: border-box; margin: 8px 0; padding: 12px 14px; min-height: 140px; border: none; outline: none; resize: vertical; background: transparent; color: var(--text); font-family: var(--mono); font-size: 13px; line-height: 1.65; white-space: pre-wrap; tab-size: 2; -moz-tab-size: 2; border-radius: 8px; box-shadow: inset 0 0 0 2px rgba(96,165,250,.35); }
+.logic-edit:focus { box-shadow: inset 0 0 0 2px var(--brand); }
+
 .when-use { margin-top: 12px; font-size: 13px; color: var(--text-2); background: var(--bg-2); border-radius: 8px; padding: 10px 14px; border: 1px solid var(--border-soft); }
 .when-use strong { color: var(--text); }
 
