@@ -3,7 +3,7 @@
  * Loaded after python.css so it can extend/override the two-workspace styles. */
 
 /* ---- top-bar switches ------------------------------------------------------ */
-.ws-switches { display: flex; align-items: center; gap: 8px; margin-left: 12px; flex-wrap: wrap; }
+.ws-switches { display: flex; align-items: center; gap: 8px; margin-left: 12px; flex-wrap: nowrap; }
 .ws-switches .ws-switch { margin-left: 0; }
 .mode-switch { display: inline-flex; gap: 4px; background: var(--bg-2); border: 1px solid var(--border); border-radius: 999px; padding: 3px; }
 .mode-btn { background: transparent; border: none; color: var(--muted); font-size: 12.5px; font-weight: 700; padding: 5px 13px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
@@ -133,8 +133,9 @@ body { overflow-x: hidden; }
   .prob-chip { min-height: 32px; }
 }
 
-/* iPad-range: keep the two-workspace switch tidy and prevent header crowding. */
-@media (min-width: 768px) and (max-width: 1100px) {
+/* Below the phone breakpoint the whole topbar wraps (see ~900px rule); only
+   there do we let the stack/mode switch reflow onto its own line. */
+@media (min-width: 768px) and (max-width: 900px) {
   .ws-switches { flex-wrap: wrap; row-gap: 6px; }
 }
 
@@ -334,13 +335,28 @@ body.cmdk-lock { overflow: hidden; }
 .cht-ex-label { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
 
 /* ============================================================= */
-/* Toolbar responsiveness — keep every control reachable on iPad  */
+/* Toolbar responsiveness — one tidy row that compacts gracefully */
 /* ============================================================= */
-/* iPad landscape & small laptops: icon-only toolbar buttons (labels hide). */
-@media (max-width: 1100px) {
+/* The topbar is a fixed-height single row (.topbar-right / .ws-switches are
+   nowrap), so as width tightens we shed chrome in stages instead of letting
+   controls wrap out of the bar: first the wordmark text, then the button
+   labels (icons + tooltips remain), and finally a scroll fallback. */
+/* Laptops: drop the "Data Engineering Coding Stack" wordmark, keep the DE mark.
+   Above this, the full wordmark + full button labels (busiest bar ~1655px) fit. */
+@media (max-width: 1680px) {
+  .brand-text { display: none; }
+}
+/* Small laptops / iPad landscape: collapse toolbar buttons to icon-only.
+   Covers the busiest bar (PySpark Learn: Rosetta, Postmortem, Interview Q&A and
+   the ref button), which needs ~1475px once the wordmark is already gone. */
+@media (max-width: 1480px) {
   .topbar-right .btx { display: none; }
-  .topbar-right { gap: 6px; min-width: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .topbar-right .ghost-btn { padding: 7px 9px; font-size: 13px; flex: 0 0 auto; }
+}
+/* Last resort before the phone wrap: let the icon strip scroll horizontally
+   (icon-only busiest bar needs ~1044px). */
+@media (max-width: 1080px) {
+  .topbar-right { gap: 6px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 }
 /* iPad portrait / phones: let the bar wrap so the switch row drops below. */
 @media (max-width: 900px) {

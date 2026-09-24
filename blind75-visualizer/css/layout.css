@@ -19,7 +19,7 @@
 }
 .brand-text { font-size: 15px; font-weight: 600; letter-spacing: .2px; }
 .brand-text b { color: var(--brand-2); }
-.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; min-width: 0; }
 
 /* ---------- shell ---------- */
 .shell {
