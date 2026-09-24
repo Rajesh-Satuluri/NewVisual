@@ -340,22 +340,21 @@ body.cmdk-lock { overflow: hidden; }
 /* The topbar is a fixed-height single row (.topbar-right / .ws-switches are
    nowrap), so as width tightens we shed chrome in stages instead of letting
    controls wrap out of the bar: first the wordmark text, then the button
-   labels (icons + tooltips remain), and finally a scroll fallback. */
-/* Laptops: drop the "Data Engineering Coding Stack" wordmark, keep the DE mark.
-   Above this, the full wordmark + full button labels (busiest bar ~1655px) fit. */
-@media (max-width: 1680px) {
+   labels (icons + tooltips remain), and finally a scroll fallback.
+   Thresholds are sized to the busiest bar (PySpark Learn) INCLUDING the shared
+   "Backup" button injected into .topbar-right: full wordmark + labels ~1761px,
+   labels only ~1522px, icon-only ~1150px. */
+/* Laptops: drop the "Data Engineering Coding Stack" wordmark, keep the DE mark. */
+@media (max-width: 1780px) {
   .brand-text { display: none; }
 }
-/* Small laptops / iPad landscape: collapse toolbar buttons to icon-only.
-   Covers the busiest bar (PySpark Learn: Rosetta, Postmortem, Interview Q&A and
-   the ref button), which needs ~1475px once the wordmark is already gone. */
-@media (max-width: 1480px) {
+/* Small laptops / iPad landscape: collapse toolbar buttons to icon-only. */
+@media (max-width: 1540px) {
   .topbar-right .btx { display: none; }
   .topbar-right .ghost-btn { padding: 7px 9px; font-size: 13px; flex: 0 0 auto; }
 }
-/* Last resort before the phone wrap: let the icon strip scroll horizontally
-   (icon-only busiest bar needs ~1044px). */
-@media (max-width: 1080px) {
+/* Last resort before the phone wrap: let the icon strip scroll horizontally. */
+@media (max-width: 1180px) {
   .topbar-right { gap: 6px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 }
 /* iPad portrait / phones: let the bar wrap so the switch row drops below. */
