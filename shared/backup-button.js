@@ -121,6 +121,14 @@
     if (host) {
       a.className += " nv-backup--inbar";
       host.insertBefore(a, host.firstChild); // just left of the existing icons
+      // On a narrow screen a crowded toolbar can overflow the viewport,
+      // leaving the in-bar button off-screen and unreachable. If that
+      // happened, lift it out into a fixed top-right pill instead.
+      var box = a.getBoundingClientRect();
+      if (box.width === 0 || box.right > window.innerWidth + 2 || box.left < -2) {
+        a.className = a.className.replace("nv-backup--inbar", "nv-backup--fixed");
+        (document.body || document.documentElement).appendChild(a);
+      }
     } else {
       a.className += " nv-backup--fixed";
       (document.body || document.documentElement).appendChild(a);
