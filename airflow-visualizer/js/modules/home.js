@@ -15,8 +15,8 @@
   ];
 
   var STATS = [
-    { num: "47", label: "Modules" },
-    { num: "150+", label: "Practice questions" },
+    { num: "54", label: "Modules" },
+    { num: "300+", label: "Practice questions" },
     { num: "31", label: "Concept walkthroughs" },
     { num: "3.x", label: "Airflow target" }
   ];

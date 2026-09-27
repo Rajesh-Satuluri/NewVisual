@@ -59,7 +59,14 @@
     "interview-chains": { title: "Follow-up Interview Chains", ready: true },
     incidents: { title: "Production Incident Bank", ready: true },
     "choose-primitive": { title: "Choose the Right Primitive", ready: true },
-    "senior-scenarios": { title: "Senior Scenario Mode", ready: true }
+    "senior-scenarios": { title: "Senior Scenario Mode", ready: true },
+    "pipeline-design": { title: "Design an Airflow Pipeline", ready: true },
+    "answer-levels": { title: "Improve Your Answer", ready: true },
+    "timed-answers": { title: "30s / 90s / 3-min Answers", ready: true },
+    traps: { title: "Interview Traps", ready: true },
+    "de-scenarios": { title: "Airflow + Data Engineering", ready: true },
+    predict: { title: "Predict What Airflow Does", ready: true },
+    "version-trap": { title: "Airflow 2.x → 3.x", ready: true }
   };
   AV.routes = ROUTES;
 

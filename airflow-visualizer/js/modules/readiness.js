@@ -44,6 +44,12 @@
     var seDone = 0;
     for (var e in seItems) if (seItems.hasOwnProperty(e) && seItems[e].done) seDone++;
 
+    // Pipeline design: how many designed end to end.
+    var pdData = (AV.data && AV.data.pipelineDesign) || [];
+    var pdItems = P ? P.items("design") : {};
+    var pdDone = 0;
+    for (var f in pdItems) if (pdItems.hasOwnProperty(f) && pdItems[f].done) pdDone++;
+
     // Concept quizzes: existing per-module best scores.
     var lq = P ? P.legacyQuiz() : {};
     var qBest = 0, qTotal = 0, qBanks = 0, qAttempted = 0;
@@ -76,6 +82,9 @@
         { key: "senior", name: "Senior scenarios (L3)", val: seDone + " / " + seData.length + " reviewed",
           pct: pctOf(seDone, seData.length), href: "#senior-scenarios",
           sub: "Production reasoning and trade-offs.", mastery: false },
+        { key: "design", name: "Pipeline design", val: pdDone + " / " + pdData.length + " designed",
+          pct: pctOf(pdDone, pdData.length), href: "#pipeline-design",
+          sub: "Whiteboard a pipeline end to end.", mastery: false },
         { key: "quizzes", name: "Concept quizzes", val: qAttempted + " / " + qBanks + " banks tried",
           pct: pctOf(qBest, qTotal), href: "#study", sub: "Per-module Test Yourself best scores.", mastery: true },
         { key: "coverage", name: "Module coverage", val: visited + " / " + totalRoutes + " modules",
