@@ -15,7 +15,7 @@
   ];
 
   var STATS = [
-    { num: "44", label: "Modules" },
+    { num: "47", label: "Modules" },
     { num: "150+", label: "Practice questions" },
     { num: "31", label: "Concept walkthroughs" },
     { num: "3.x", label: "Airflow target" }
@@ -27,6 +27,9 @@
     { id: "readiness", icon: "🎯", title: "Interview Readiness", desc: "Your prep dashboard — spot weak areas, jump to practice.", ready: true },
     { id: "troubleshooting", icon: "🔧", title: "Troubleshooting Lab", desc: "Diagnose real production symptoms step by step.", ready: true },
     { id: "interview-chains", icon: "🎤", title: "Follow-up Chains", desc: "Survive the interviewer's deeper follow-ups.", ready: true },
+    { id: "choose-primitive", icon: "⚖️", title: "Choose the Right Primitive", desc: "Pick the right tool for a requirement — and know why.", ready: true },
+    { id: "incidents", icon: "📟", title: "Incident Bank", desc: "The full production incident playbook, for revision.", ready: true },
+    { id: "senior-scenarios", icon: "🧠", title: "Senior Scenarios", desc: "Level-3 production reasoning and trade-offs.", ready: true },
     { id: "dag-coding", icon: "🧑‍💻", title: "Reading & Writing DAGs", desc: "Read a DAG fast; write one without boilerplate.", ready: true },
     { id: "interview-bank", icon: "🎤", title: "Interview Question Bank", desc: "Scenario & community questions to rehearse.", ready: true },
     { id: "study", icon: "🎴", title: "Study Deck", desc: "Every quiz question in one searchable place.", ready: true },

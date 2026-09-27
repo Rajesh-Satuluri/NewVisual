@@ -19,6 +19,8 @@
     var P = AV.Progress;
     var tsData = (AV.data && AV.data.troubleshooting) || [];
     var chData = (AV.data && AV.data.chains) || [];
+    var coData = (AV.data && AV.data.choose) || [];
+    var seData = (AV.data && AV.data.senior) || [];
 
     // Troubleshooting: scenarios solved / total.
     var tsItems = P ? P.items("troubleshooting") : {};
@@ -31,6 +33,16 @@
     for (var b in chItems) if (chItems.hasOwnProperty(b) && chItems[b].done) {
       chDone++; chGot += (chItems[b].got || 0); chTotal += (chItems[b].total || 0);
     }
+
+    // Choose the right primitive: decisions tried + how many best answers.
+    var coItems = P ? P.items("choose") : {};
+    var coTried = 0, coCorrect = 0;
+    for (var d in coItems) if (coItems.hasOwnProperty(d)) { coTried++; if (coItems[d].correct) coCorrect++; }
+
+    // Senior scenarios: how many reviewed.
+    var seItems = P ? P.items("senior") : {};
+    var seDone = 0;
+    for (var e in seItems) if (seItems.hasOwnProperty(e) && seItems[e].done) seDone++;
 
     // Concept quizzes: existing per-module best scores.
     var lq = P ? P.legacyQuiz() : {};
@@ -47,17 +59,23 @@
     return {
       tiles: [
         { num: tsSolved + "/" + tsData.length, label: "Scenarios solved" },
+        { num: coCorrect + "/" + coData.length, label: "Decisions nailed" },
         { num: chDone + "/" + chData.length, label: "Chains completed" },
-        { num: pctOf(qBest, qTotal) + "%", label: "Quiz accuracy" },
-        { num: visited + "/" + totalRoutes, label: "Modules explored" }
+        { num: seDone + "/" + seData.length, label: "Senior scenarios" }
       ],
       rows: [
         { key: "troubleshooting", name: "Troubleshooting", val: tsSolved + " / " + tsData.length + " scenarios",
           pct: pctOf(tsSolved, tsData.length), href: "#troubleshooting",
           sub: "Diagnose production symptoms step by step.", mastery: true },
+        { key: "choose", name: "Choose the right primitive", val: coCorrect + " / " + coData.length + " decisions",
+          pct: pctOf(coCorrect, coData.length), href: "#choose-primitive",
+          sub: "Pick the right tool — and justify it.", mastery: true },
         { key: "chains", name: "Follow-up chains", val: chDone + " / " + chData.length + " chains",
           pct: chDone ? pctOf(chGot, chTotal) : 0, href: "#interview-chains",
           sub: chDone ? "Accuracy across completed chains." : "Handle the interviewer's deeper follow-ups.", mastery: true },
+        { key: "senior", name: "Senior scenarios (L3)", val: seDone + " / " + seData.length + " reviewed",
+          pct: pctOf(seDone, seData.length), href: "#senior-scenarios",
+          sub: "Production reasoning and trade-offs.", mastery: false },
         { key: "quizzes", name: "Concept quizzes", val: qAttempted + " / " + qBanks + " banks tried",
           pct: pctOf(qBest, qTotal), href: "#study", sub: "Per-module Test Yourself best scores.", mastery: true },
         { key: "coverage", name: "Module coverage", val: visited + " / " + totalRoutes + " modules",

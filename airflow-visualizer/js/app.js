@@ -56,7 +56,10 @@
     "cheat-sheet": { title: "Cheat Sheet", ready: true },
     readiness: { title: "Interview Readiness", ready: true },
     troubleshooting: { title: "Troubleshooting Lab", ready: true },
-    "interview-chains": { title: "Follow-up Interview Chains", ready: true }
+    "interview-chains": { title: "Follow-up Interview Chains", ready: true },
+    incidents: { title: "Production Incident Bank", ready: true },
+    "choose-primitive": { title: "Choose the Right Primitive", ready: true },
+    "senior-scenarios": { title: "Senior Scenario Mode", ready: true }
   };
   AV.routes = ROUTES;
 
