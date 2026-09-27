@@ -38,6 +38,7 @@
   <link rel="stylesheet" href="css/animations.css" />
   <link rel="stylesheet" href="css/responsive.css" />
   <link rel="stylesheet" href="css/enhancements.css" />
+  <link rel="stylesheet" href="css/prep.css" />
 </head>
 <body>
 
@@ -94,6 +95,15 @@
           <div class="sidebar-label">Real-World Scenario</div>
           <ul class="sidebar-list" role="list">
             <li><a href="#business-scenario" class="sidebar-link" data-route="business-scenario">🛒 E-commerce Pipeline</a></li>
+          </ul>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="sidebar-label">Interview Prep</div>
+          <ul class="sidebar-list" role="list">
+            <li><a href="#readiness" class="sidebar-link" data-route="readiness">🎯 Readiness Dashboard</a></li>
+            <li><a href="#troubleshooting" class="sidebar-link" data-route="troubleshooting">🔧 Troubleshooting Lab</a></li>
+            <li><a href="#interview-chains" class="sidebar-link" data-route="interview-chains">🎤 Follow-up Chains</a></li>
           </ul>
         </div>
 
@@ -224,6 +234,7 @@
   <script src="js/core/router.js"></script>
   <script src="js/core/tooltip.js"></script>
   <script src="js/core/keyboard.js"></script>
+  <script src="js/core/progress.js"></script>
 
   <!-- Shared components -->
   <script src="js/components/animation-controls.js"></script>
@@ -234,11 +245,15 @@
   <script src="js/components/timeline.js"></script>
   <script src="js/components/business-lens.js"></script>
   <script src="js/components/test-yourself.js"></script>
+  <script src="js/components/investigation-flow.js"></script>
+  <script src="js/components/follow-up-chain.js"></script>
 
   <!-- Data -->
   <script src="js/data/shopkart-data.js"></script>
   <script src="js/data/airflow-concepts.js"></script>
   <script src="js/data/quiz-banks.js"></script>
+  <script src="js/data/prep/troubleshooting.js"></script>
+  <script src="js/data/prep/chains.js"></script>
 
   <!-- Navigation sync loads before app so "resume last route" pre-empts routing -->
   <script src="js/features/navigation-sync.js"></script>

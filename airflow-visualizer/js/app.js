@@ -53,7 +53,10 @@
     "master-map": { title: "Master Concept Map", ready: true },
     study: { title: "Study Deck", ready: true },
     "dag-coding": { title: "Reading & Writing DAGs", ready: true },
-    "cheat-sheet": { title: "Cheat Sheet", ready: true }
+    "cheat-sheet": { title: "Cheat Sheet", ready: true },
+    readiness: { title: "Interview Readiness", ready: true },
+    troubleshooting: { title: "Troubleshooting Lab", ready: true },
+    "interview-chains": { title: "Follow-up Interview Chains", ready: true }
   };
   AV.routes = ROUTES;
 

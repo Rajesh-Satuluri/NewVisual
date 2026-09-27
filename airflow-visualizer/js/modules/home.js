@@ -15,7 +15,7 @@
   ];
 
   var STATS = [
-    { num: "41", label: "Modules" },
+    { num: "44", label: "Modules" },
     { num: "150+", label: "Practice questions" },
     { num: "31", label: "Concept walkthroughs" },
     { num: "3.x", label: "Airflow target" }
@@ -24,6 +24,9 @@
   // Learning tools surfaced below the core-concept grid so the
   // practice/reference modules are discoverable from the landing page.
   var TOOLS = [
+    { id: "readiness", icon: "🎯", title: "Interview Readiness", desc: "Your prep dashboard — spot weak areas, jump to practice.", ready: true },
+    { id: "troubleshooting", icon: "🔧", title: "Troubleshooting Lab", desc: "Diagnose real production symptoms step by step.", ready: true },
+    { id: "interview-chains", icon: "🎤", title: "Follow-up Chains", desc: "Survive the interviewer's deeper follow-ups.", ready: true },
     { id: "dag-coding", icon: "🧑‍💻", title: "Reading & Writing DAGs", desc: "Read a DAG fast; write one without boilerplate.", ready: true },
     { id: "interview-bank", icon: "🎤", title: "Interview Question Bank", desc: "Scenario & community questions to rehearse.", ready: true },
     { id: "study", icon: "🎴", title: "Study Deck", desc: "Every quiz question in one searchable place.", ready: true },
