@@ -18,10 +18,10 @@ in **one pure, typed package** (`@dms/modeling-core`) and never diverges.
 
 | Layer | Responsibility | Tech |
 |-------|----------------|------|
-| **modeling-core** | Schema IR, serializers, validators, grader — pure, no DOM | TypeScript ✅ *(this phase)* |
+| **modeling-core** | Schema IR, serializers, validators, grader — pure, no DOM | TypeScript ✅ |
+| **state + canvas** | The ER/schema builder (the hero feature) | React Flow, Zustand + zundo ✅ |
+| **surfaces** | Build (canvas + live panels) done; Learn (MDX lessons), Practice (quiz / challenges / scripted mock interview) next | React + Vite (static output) |
 | **persistence/runtime** | Saved schemas + progress; run real SQL on the model in-browser | IndexedDB (Dexie), PGlite (Postgres WASM) |
-| **state + canvas** | The ER/schema builder (the hero feature) | React Flow, Zustand + zundo |
-| **surfaces** | Learn (MDX lessons), Build (canvas + live panels), Practice (quiz / challenges / scripted mock interview) | React + Vite (static output) |
 | **content** | Scenarios, lessons, concept graph — all data, grows without code changes | JSON + MDX |
 
 Fully static: the mock interviewer is rule/rubric-driven (no AI server), and PGlite runs
@@ -32,8 +32,9 @@ Postgres entirely in the browser.
 ```
 data-modeling-studio/
   packages/
-    modeling-core/     ← the engine (implemented in Phase 1)
-  apps/                ← the web app (Phase 2+)
+    modeling-core/     ← the engine (Phase 1)
+  apps/
+    web/               ← the interactive canvas app (Phase 2)
 ```
 
 ## The core data contracts
@@ -57,19 +58,34 @@ Two JSON-serializable shapes carry the whole design:
   (fact grain, measures, SCD strategy).
 - **Grader** — scores a model against a scenario rubric, weighted, with per-rule hints.
 
+## The canvas app (`@dms/web`)
+
+The Build surface: an ER/schema canvas (React Flow) where the nodes **are** the
+`SchemaIR`. Drag tables around, select one to edit it in the inspector (role, grain,
+SCD type, columns), and the DDL/DBML/Mermaid output, the validator findings, and the
+interview grade all recompute live from that single model. Undo/redo (zundo) tracks
+schema edits. Three sample schemas load in (star / OLTP / unnormalized), and the star
+sample is graded against a scenario. Fully static build.
+
 ## Develop
 
 ```bash
 pnpm install
-pnpm --filter @dms/modeling-core test       # 30 tests
+pnpm --filter @dms/modeling-core build       # build the engine first (the app consumes its dist)
+
+# engine
+pnpm --filter @dms/modeling-core test        # 30 tests
 pnpm --filter @dms/modeling-core typecheck
-pnpm --filter @dms/modeling-core build
+
+# app
+pnpm --filter @dms/web dev                    # Vite dev server
+pnpm --filter @dms/web build                  # static production build -> apps/web/dist
 ```
 
 ## Roadmap
 
 1. **`modeling-core`** — engine + tests. ✅ *(done)*
-2. **Build canvas** — React Flow ↔ IR, live DDL/ER/findings panels.
+2. **Build canvas** — React Flow ↔ IR, live DDL/ER/findings/grade panels, inspector, undo/redo. ✅ *(done)*
 3. **PGlite SQL runner** — materialize the schema, run real queries.
 4. **Content** — port the data-modeling curriculum into MDX lessons + scenarios; mastery/roadmap.
 5. **Practice** — quiz + challenge cards graded by the engine.
