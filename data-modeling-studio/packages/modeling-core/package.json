@@ -1,0 +1,25 @@
+{
+  "name": "@dms/modeling-core",
+  "version": "0.0.0",
+  "description": "Pure, framework-agnostic engine for data modeling: the Schema IR, serializers (DDL/DBML/Mermaid/JSON), validators (structural/normalization/dimensional), and a declarative scenario grader. No DOM, no dependencies.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "src"],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "data-modeling-studio",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A fully-static, local-first tool for learning and practicing data modeling: build schemas on an interactive canvas, get them validated, and defend them in scripted mock interviews.",
+  "type": "module",
+  "scripts": {
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "build": "pnpm -r build"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@10.33.0"
+}
