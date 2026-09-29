@@ -7,6 +7,7 @@ import { Inspector } from './panels/Inspector';
 import { FindingsPanel } from './panels/FindingsPanel';
 import { GradePanel } from './panels/GradePanel';
 import { OutputPanel } from './panels/OutputPanel';
+import { Learn } from './panels/Learn';
 
 function toggleTheme() {
   const r = document.documentElement;
@@ -16,7 +17,7 @@ function toggleTheme() {
   r.setAttribute('data-theme', next);
 }
 
-export function App() {
+function Studio() {
   const sample = useStore((s) => s.sample);
   const loadSample = useStore((s) => s.loadSample);
   const addEntity = useStore((s) => s.addEntity);
@@ -27,16 +28,8 @@ export function App() {
   const futureCount = useRawStore(useStore.temporal, (s) => s.futureStates.length);
 
   return (
-    <div className="app">
-      <header className="top">
-        <div className="brand">
-          <div className="logo">◧</div>
-          <div>
-            <h1>Data Modeling Studio</h1>
-            <div className="sub">interactive canvas · Phase 2</div>
-          </div>
-        </div>
-        <div className="spacer" />
+    <>
+      <div className="subbar">
         <select
           className="mini-sel"
           value={sample}
@@ -50,9 +43,7 @@ export function App() {
         <button className="ghost" onClick={addEntity}>+ Table</button>
         <button className="ghost" onClick={() => undo()} disabled={pastCount === 0} title="Undo">↶</button>
         <button className="ghost" onClick={() => redo()} disabled={futureCount === 0} title="Redo">↷</button>
-        <button className="ghost" onClick={toggleTheme} title="Toggle theme">◐</button>
-      </header>
-
+      </div>
       <div className="studio">
         <div className="canvas-wrap">
           <SchemaCanvas />
@@ -66,6 +57,33 @@ export function App() {
           <OutputPanel />
         </div>
       </div>
+    </>
+  );
+}
+
+export function App() {
+  const mode = useStore((s) => s.mode);
+  const setMode = useStore((s) => s.setMode);
+
+  return (
+    <div className="app">
+      <header className="top">
+        <div className="brand">
+          <div className="logo">◧</div>
+          <div>
+            <h1>Data Modeling Studio</h1>
+            <div className="sub">learn the concepts · build & get graded</div>
+          </div>
+        </div>
+        <nav className="mode-switch" role="tablist">
+          <button role="tab" aria-selected={mode === 'learn'} className={mode === 'learn' ? 'on' : ''} onClick={() => setMode('learn')}>Learn</button>
+          <button role="tab" aria-selected={mode === 'build'} className={mode === 'build' ? 'on' : ''} onClick={() => setMode('build')}>Studio</button>
+        </nav>
+        <div className="spacer" />
+        <button className="ghost" onClick={toggleTheme} title="Toggle theme">◐</button>
+      </header>
+
+      {mode === 'learn' ? <Learn /> : <Studio />}
     </div>
   );
 }

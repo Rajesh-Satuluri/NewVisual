@@ -11,9 +11,35 @@ import { loadSample, type SampleId } from './data/samples';
 export type XY = { x: number; y: number };
 export type CodeFmt = 'ddl' | 'dbml' | 'mermaid';
 export type Dialect = 'postgres' | 'mysql' | 'snowflake';
+export type Mode = 'learn' | 'build';
 
 interface Tracked {
   ir: SchemaIR;
+}
+
+const READ_KEY = 'dms.readLessons.v1';
+function loadRead(): Record<string, true> {
+  try {
+    const raw = localStorage.getItem(READ_KEY);
+    return raw ? (JSON.parse(raw) as Record<string, true>) : {};
+  } catch {
+    return {};
+  }
+}
+function saveRead(map: Record<string, true>): void {
+  try {
+    localStorage.setItem(READ_KEY, JSON.stringify(map));
+  } catch {
+    /* ignore: private mode / blocked storage */
+  }
+}
+
+function gridLayout(ir: SchemaIR): Record<string, XY> {
+  const layout: Record<string, XY> = {};
+  ir.entities.forEach((e, i) => {
+    layout[e.id] = { x: 60 + (i % 3) * 300, y: 60 + Math.floor(i / 3) * 280 };
+  });
+  return layout;
 }
 
 interface AppState extends Tracked {
@@ -23,6 +49,15 @@ interface AppState extends Tracked {
   scenario: Scenario | undefined;
   dialect: Dialect;
   fmt: CodeFmt;
+
+  mode: Mode;
+  lessonId: string | null;
+  readLessons: Record<string, true>;
+
+  setMode: (m: Mode) => void;
+  openLesson: (id: string) => void;
+  markRead: (id: string) => void;
+  loadCustomIR: (ir: SchemaIR) => void;
 
   loadSample: (id: SampleId) => void;
   setPosition: (id: string, xy: XY) => void;
@@ -68,6 +103,24 @@ export const useStore = create<AppState>()(
       scenario: initial.scenario,
       dialect: 'postgres',
       fmt: 'ddl',
+
+      mode: 'learn',
+      lessonId: null,
+      readLessons: loadRead(),
+
+      setMode: (mode) => set({ mode }),
+      openLesson: (lessonId) => set({ lessonId, mode: 'learn' }),
+      markRead: (id) =>
+        set((st) => {
+          if (st.readLessons[id]) return {};
+          const readLessons = { ...st.readLessons, [id]: true as const };
+          saveRead(readLessons);
+          return { readLessons };
+        }),
+      loadCustomIR: (ir) => {
+        const clone = structuredClone(ir);
+        set({ ir: clone, positions: gridLayout(clone), scenario: undefined, selectedId: null, mode: 'build' });
+      },
 
       loadSample: (id) => {
         const s = loadSample(id);
