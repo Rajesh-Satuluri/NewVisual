@@ -1,6 +1,7 @@
 import { MODULES, renderNav, updateProgress } from './components/nav.js';
 import { initTabs, initIQ } from './components/module-shell.js';
 import { initCommandPalette } from './components/command-palette.js';
+import { initKeyboard } from './components/keyboard.js';
 import { renderPager } from './components/pager.js';
 import { toast } from './components/toast.js';
 import { maybeRunTour } from './components/tour.js';
@@ -220,4 +221,5 @@ renderNav(null, done);
 updateProgress(done);
 navigate(getHash());
 initCommandPalette();
+initKeyboard();
 setTimeout(() => maybeRunTour(), 1000);

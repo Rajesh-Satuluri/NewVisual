@@ -129,7 +129,7 @@ export function mount(container) {
         </a>
       </div>
 
-      <p class="home-tip">Tip: press <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>K</kbd> anywhere to jump to any module.</p>
+      <p class="home-tip">Tips: <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>K</kbd> to jump anywhere · <kbd>←</kbd><kbd>→</kbd> to move between modules · <kbd>P</kbd> to play · <kbd>?</kbd> for all shortcuts.</p>
     </div>`;
 
   // Fill the interview-question count lazily so it never blocks first paint.
