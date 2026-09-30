@@ -1,6 +1,6 @@
 import { createModuleShell, createIQSection } from '../components/module-shell.js';
 
-const IQ = [
+export const IQ = [
   {
     q: 'What is the difference between a Kafka topic and a partition?',
     a: 'A topic is a logical channel — a named category of related events. A partition is the physical unit of storage and parallelism. Amazon analogy: the <code>orders</code> topic is the concept of "every order ever placed on Amazon". The 3 partitions (P0, P1, P2) are the actual storage bins on disk — each is a separate ordered log on a separate broker. You write to and read from the <code>orders</code> topic as a logical address, but Kafka physically routes you to exactly one partition. Partition count sets max parallelism: 3 partitions → max 3 consumers in a group can work in parallel.',

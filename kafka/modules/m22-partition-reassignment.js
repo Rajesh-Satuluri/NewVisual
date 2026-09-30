@@ -1,7 +1,7 @@
 import { createModuleShell, createIQSection } from '../components/module-shell.js';
 import { GlowNode, PulseRing } from '../components/canvas-primitives.js';
 
-const IQ = [
+export const IQ = [
   {
     q: 'What triggers a partition reassignment and how do you execute one safely?',
     a: 'Triggers: (1) Adding brokers — partitions do not auto-move to new brokers; you must manually reassign. (2) Decommissioning a broker — move its partitions to remaining brokers first. (3) Rebalancing uneven load — some brokers have more leader partitions than others. Execution: (1) Generate reassignment plan: kafka-reassign-partitions.sh --generate --topics-to-move-json-file topics.json --broker-list "1,2,3,4" (new broker). (2) Review the plan JSON — check it distributes leaders evenly. (3) Execute: --execute --reassignment-json-file plan.json --throttle 50MB/s. (4) Verify: --verify --reassignment-json-file plan.json (poll until all partitions show "completed"). Safety: always throttle (--throttle) to limit replication bandwidth so production traffic is not starved. Without throttle, rebalancing 1TB can saturate the network for hours.',

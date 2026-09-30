@@ -1,7 +1,7 @@
 import { createModuleShell, createIQSection } from '../components/module-shell.js';
 import { EventPacket, GlowNode, PulseRing } from '../components/canvas-primitives.js';
 
-const IQ = [
+export const IQ = [
   {
     q: 'What is MirrorMaker 2 and how does it differ from MirrorMaker 1?',
     a: 'MirrorMaker 2 (MM2) is built on Kafka Connect and replicates topics between Kafka clusters. MM2 improvements over MM1: (1) Offset translation — MM2 maps source offsets to target offsets via the __consumer_offsets.sync topic, allowing consumers to resume on failover without data loss. MM1 had no offset sync. (2) Topology awareness — MM2 detects and avoids replication cycles in active-active setups using a replication prefix (e.g., us-east.topic-name). MM1 would loop indefinitely. (3) Configuration-driven — MM2 uses Connect worker config, REST API for management; MM1 needed manual process management. (4) Consumer group offset sync — MM2 syncs consumer group offsets so downstream consumers can failover. MM1 did not. (5) Heartbeat topics — MM2 writes heartbeat records so you can measure replication lag precisely.',

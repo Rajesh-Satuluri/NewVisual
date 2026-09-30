@@ -1,6 +1,6 @@
 import { createModuleShell, createIQSection } from '../components/module-shell.js';
 
-const IQ = [
+export const IQ = [
   {
     q: 'When would you choose Amazon Kinesis over Kafka?',
     a: 'Kinesis is the right call when: (1) You are 100% AWS and want zero operational overhead — Kinesis is fully managed, no clusters to run. (2) You need deep native AWS integration (Lambda triggers, Firehose to S3/Redshift, native CloudWatch metrics). (3) Your retention needs are short (max 7 days on Kinesis, vs configurable-forever on Kafka). (4) Message size is under 1MB per record. Choose Kafka when: throughput exceeds 1GB/s per shard limit, you need replay beyond 7 days, cross-cloud portability, or Kafka Streams / Schema Registry are required.',

@@ -30,7 +30,7 @@ const TIMELINE = [
     body: 'Over 80% of Fortune 100 companies run Kafka. 7+ million active users. Confluent Cloud spans all major clouds. Apache Flink + Kafka becomes the dominant real-time analytics stack, powering everything from fraud detection to LLM pipelines.' },
 ];
 
-const IQ = [
+export const IQ = [
   {
     q: 'Why did LinkedIn build Kafka instead of using existing message queues like ActiveMQ or RabbitMQ?',
     a: 'Existing queues delete messages after delivery, which prevents replay and auditing. LinkedIn needed durable, replayable, high-throughput event storage. Kafka treats the log as a first-class citizen — messages persist for days/weeks, consumers maintain their own offset, and throughput scales linearly with brokers. ActiveMQ at LinkedIn could handle ~10k msgs/sec; Kafka hit 2M+/sec on the same hardware.',

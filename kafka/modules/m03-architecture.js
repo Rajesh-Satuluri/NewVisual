@@ -1,6 +1,6 @@
 import { createModuleShell, createIQSection } from '../components/module-shell.js';
 
-const IQ = [
+export const IQ = [
   {
     q: 'How does KRaft replace ZooKeeper in Kafka?',
     a: 'KRaft uses a Raft-based consensus protocol built into Kafka itself. A small quorum of controller brokers (typically 3) maintain the cluster metadata log — topic/partition state, ISR lists, broker registrations. The active controller is the Raft leader. On controller failure, Raft elects a new leader in under 1 second. No ZooKeeper process, no separate cluster to operate. Metadata is stored as Kafka records in the __cluster_metadata topic, enabling snapshots and fast recovery.',

@@ -2,8 +2,8 @@
 // grid (auto-built from the nav MODULES so it never drifts), and reference
 // links. Registered as the default route in script.js.
 import { MODULES } from '../components/nav.js';
-import { IQ_BANK } from '../data/iq-bank.js';
 import { QUIZ_BANK } from '../data/quiz-bank.js';
+import { loadAllIQ } from '../data/iq-aggregate.js';
 
 const GROUP_ORDER = ['Foundation', 'Core Internals', 'Consumer Side', 'Delivery', 'Ecosystem', 'Operations', 'Advanced'];
 
@@ -14,7 +14,6 @@ export function mount(container) {
   const done = new Set(JSON.parse(localStorage.getItem('kafka-done') || '[]'));
   const doneCount = MODULES.filter(m => done.has(m.id)).length;
 
-  const totalIQ = Object.values(IQ_BANK).reduce((n, arr) => n + (arr ? arr.length : 0), 0);
   const totalQuiz = Object.values(QUIZ_BANK).reduce((n, arr) => n + (arr ? arr.length : 0), 0);
 
   const groups = {};
@@ -77,7 +76,7 @@ export function mount(container) {
         </div>
         <div class="stats-row home-stats">
           ${stat(MODULES.length, 'Modules')}
-          ${stat(totalIQ || '—', 'Interview Q&amp;As')}
+          <div class="stat-box"><span class="stat-val" id="home-iq">…</span><span class="stat-label">Interview Q&amp;As</span></div>
           ${stat(totalQuiz || '—', 'Quiz questions')}
           ${stat(`${doneCount}/${MODULES.length}`, 'Your progress')}
         </div>
@@ -133,5 +132,14 @@ export function mount(container) {
       <p class="home-tip">Tip: press <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>K</kbd> anywhere to jump to any module.</p>
     </div>`;
 
-  return () => {};
+  // Fill the interview-question count lazily so it never blocks first paint.
+  let alive = true;
+  const fill = () => loadAllIQ().then(list => {
+    if (!alive) return;
+    const el = container.querySelector('#home-iq');
+    if (el) el.textContent = list.length;
+  });
+  if ('requestIdleCallback' in window) requestIdleCallback(fill); else setTimeout(fill, 400);
+
+  return () => { alive = false; };
 }
