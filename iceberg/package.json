@@ -1,0 +1,14 @@
+{
+  "name": "iceberg-visualizer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Interactive Apache Iceberg learning tool (static HTML/CSS/JS, no build step).",
+  "scripts": {
+    "check": "node scripts/check-syntax.mjs",
+    "verify": "node scripts/verify.mjs",
+    "verify:anim": "node scripts/verify-animations.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.62.1"
+  }
+}

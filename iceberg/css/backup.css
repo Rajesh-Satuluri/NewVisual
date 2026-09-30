@@ -1,0 +1,153 @@
+/* ============================================================
+   Backup & Restore — namespaced (.bk-*) additive styles.
+   Loaded last. Edits no existing selector. Reuses the shared
+   .modal-backdrop / .modal-box, .btn*, and .badge tokens.
+   Dark + light via design tokens; works down to 390px.
+   ============================================================ */
+
+/* Modal box: a touch wider than the shortcuts modal for the
+   two-button action rows, but never past the viewport. */
+.bk-box {
+  width: 560px;
+}
+
+/* Sections */
+.bk-section {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.bk-section:first-of-type { padding-top: 4px; }
+.bk-section:last-of-type { border-bottom: none; }
+
+.bk-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.bk-desc {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  margin: 0 0 12px;
+}
+.bk-desc strong { color: var(--text-primary); font-weight: 600; }
+.bk-code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--bg-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 0 4px;
+}
+
+/* One-line reassurance under the export actions */
+.bk-hint {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  margin: 10px 0 0;
+}
+
+/* Action rows */
+.bk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Restore mode radios */
+.bk-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+.bk-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+  user-select: none;
+}
+.bk-mode input { accent-color: var(--blue); cursor: pointer; }
+.bk-mode-hint { color: var(--text-muted); font-size: 12px; }
+
+/* Paste-to-restore disclosure */
+.bk-paste-wrap { margin-top: 12px; }
+.bk-paste-wrap summary {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+  padding: 2px 0;
+}
+.bk-paste-wrap summary:hover { color: var(--text-primary); }
+.bk-paste {
+  width: 100%;
+  margin: 10px 0;
+  padding: 10px;
+  background: var(--bg-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.bk-paste:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 2px rgba(74, 174, 255, 0.25);
+}
+
+/* Reset (danger) */
+.bk-confirm-q {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--red);
+  margin: 0 0 10px;
+}
+
+/* Footer */
+.bk-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-subtle);
+}
+.bk-summary {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  flex: 1 1 260px;
+  min-width: 0;
+}
+.bk-last { flex-shrink: 0; }
+
+/* Visible keyboard focus for all interactive controls in the modal */
+.bk-box button:focus-visible,
+.bk-box summary:focus-visible,
+.bk-box textarea:focus-visible,
+.bk-box input:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+/* ── Narrow viewport (≤ 480px): stack actions full-width ─────── */
+@media (max-width: 480px) {
+  .bk-box { width: 100%; padding: 22px 18px; }
+  .bk-actions .btn { flex: 1 1 100%; justify-content: center; }
+  .bk-footer { flex-direction: column; align-items: flex-start; }
+}

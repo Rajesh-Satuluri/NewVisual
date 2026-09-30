@@ -1,0 +1,56 @@
+// Per-module interview question bank (content/rendering split).
+// The Study Hub aggregates every key here. Seeded from the modules'
+// real interview content; add more `mXX: [...]` entries over time.
+
+export const IQ_BANK = {
+  m01: [
+    { difficulty: 'easy',   q: `Why did LinkedIn build Kafka instead of using existing message queues like ActiveMQ or RabbitMQ?`,
+      a: `Existing queues delete messages after delivery, which prevents replay and auditing. LinkedIn needed durable, replayable, high-throughput event storage. Kafka treats the log as a first-class citizen — messages persist for days/weeks, consumers maintain their own offset, and throughput scales linearly with brokers. ActiveMQ at LinkedIn could handle ~10k msgs/sec; Kafka hit 2M+/sec on the same hardware.`,
+      tip: `Frame Kafka as a distributed commit log, not a traditional queue. That framing explains why replay, retention, and ordering matter.` },
+    { difficulty: 'easy',   q: `What is the difference between Kafka and a traditional message queue in terms of consumer semantics?`,
+      a: `A traditional queue is destructive — once a message is consumed, it is gone. Kafka retains messages for a configurable period. Multiple independent consumer groups can each read the same topic from any offset, enabling fan-out without message loss. A queue scales consumer parallelism by adding consumers (which share messages); Kafka scales by adding partitions (each consumer in a group owns one or more partitions exclusively).`,
+      tip: `Say "Kafka is a pull-based, log-structured commit log" — then explain why pull is better for backpressure than push.` },
+    { difficulty: 'hard',   q: `What problem does KRaft solve and why does it matter at scale?`,
+      a: `ZooKeeper was an external dependency for cluster metadata (broker registration, topic/partition state, leader election). It had a hard scaling limit of ~200k partitions per cluster and required separate operational expertise. KRaft moves metadata management into Kafka itself using a Raft-based quorum. Benefits: sub-second controller failover (vs 30–60s), support for millions of partitions, simpler deployment (no separate ZK cluster), and the ability to take metadata snapshots for fast recovery.`,
+      tip: `Mention the KRaft controller quorum: 3-node quorum of controllers, each with a full copy of the metadata log — just like Raft in etcd.` },
+    { difficulty: 'medium', q: `How does Kafka achieve 2M+ writes per second on commodity hardware?`,
+      a: `Four key techniques: (1) Sequential disk I/O — Kafka only appends to log segments, which is 6× faster than random writes. (2) Zero-copy transfer — sendfile() syscall skips user-space buffer, sending data from page cache directly to NIC. (3) Batching — producers batch messages before sending; brokers batch before writing; consumers batch before processing. (4) Compression — LZ4/Snappy reduces network bandwidth per message by 3–5×. Together these make the bottleneck network bandwidth, not CPU or disk.`,
+      tip: `The "sequential I/O + zero-copy + batching" triple is a classic interview answer for Kafka throughput questions.` },
+    { difficulty: 'medium', q: `What is the role of the Schema Registry and why is it essential in a Kafka-based data platform?`,
+      a: `Without a Schema Registry, consumers must negotiate data format out-of-band. As schemas evolve, broken consumers are a production incident. The Schema Registry stores Avro/Protobuf/JSON Schema definitions and enforces compatibility modes (BACKWARD, FORWARD, FULL). Producers register schemas before writing; consumers fetch the schema by ID embedded in each message header. This decouples schema evolution from deployment, enables data lineage, and powers CDC pipelines safely.`,
+      tip: `Mention that the magic byte (0x00) + 4-byte schema ID prefix is the Confluent wire format — shows you understand the actual encoding.` },
+  ],
+  m06: [
+    { difficulty: 'medium', q: `How do you choose the right number of partitions for a topic?`,
+      a: `Target throughput / (partition throughput). Partition throughput: ~10MB/s write, ~50MB/s read per partition (disk I/O bound). Rule of thumb: partition count = max(T/10, desired consumer parallelism). Over-partitioning increases file handles, leader election cost, and end-to-end latency. Under-partitioning limits consumer parallelism. For Amazon orders at 1GB/s: ~100 partitions. Cannot reduce partition count after creation (only increase).`,
+      tip: `Mention: more partitions = more files, more replication traffic, higher minimum latency (each extra partition adds ~1ms to a broker's produce loop).` },
+    { difficulty: 'medium', q: `What is a hot partition and how do you fix it?`,
+      a: `A hot partition receives disproportionate traffic because many records share the same partition key. E.g., if key=country and 80% of orders are US, partition 0 gets 80% of load. Fix options: (1) Better key — use customer_id or order_id for even distribution. (2) Key salting — append random suffix to key, then strip in consumer. (3) Custom partitioner — route based on business logic. (4) More partitions — doesn't help if key cardinality is low.`,
+      tip: `Amazon fraud detection story: keying by payment_method caused a hot partition for "credit card". Switched to hash(customer_id) for even distribution.` },
+    { difficulty: 'easy',   q: `Why does Kafka only guarantee ordering within a partition, not across partitions?`,
+      a: `Each partition is a single ordered log maintained by one leader broker. Ordering across partitions would require a distributed transaction log — prohibitively expensive at scale. For entities that require ordering (e.g., all events for order #12345 in sequence), use the order ID as the partition key: all events route to the same partition and are consumed in order. If you need total ordering across all events, use a single-partition topic (forfeiting parallelism).`,
+      tip: `State the tradeoff explicitly: ordering guarantees come at the cost of parallelism. Single-partition = total order but 1 consumer max.` },
+  ],
+  m08: [
+    { difficulty: 'medium', q: `What triggers a consumer group rebalance and what is its impact?`,
+      a: `Rebalance triggers: (1) Consumer joins group, (2) Consumer leaves/crashes (detected after session.timeout.ms), (3) Topic partition count changes, (4) Consumer calls subscribe() with new topics. During a stop-the-world rebalance (eager protocol), ALL consumers stop consuming while partitions are reassigned. For a group consuming 100 partitions with 10 consumers, a single consumer crash pauses all 10 consumers for 1–30 seconds. Cooperative (incremental) rebalancing (default since Kafka 3.1) only revokes partitions that need to move.`,
+      tip: `Tuning: increase heartbeat.interval.ms to reduce false disconnects, decrease session.timeout.ms to speed up failure detection. There is a tradeoff.` },
+    { difficulty: 'medium', q: `What is the difference between range and round-robin partition assignment strategies?`,
+      a: `Range (default): assigns partitions consecutively per topic. Consumer 0 gets P0-P2, Consumer 1 gets P3-P5. If consuming multiple topics, C0 always gets the low partitions — uneven if topic partition counts differ. Round-robin: interleaves partitions from all topics across consumers — typically more balanced for multi-topic subscriptions. Sticky: like round-robin but minimizes partition movement on rebalance (consumers keep their current partitions when possible).`,
+      tip: `CooperativeStickyAssignor (Kafka 2.4+) combines sticky assignment with cooperative rebalancing — best of both worlds for production.` },
+    { difficulty: 'hard',   q: `How does Kafka detect a consumer failure vs. a slow consumer?`,
+      a: `Kafka uses two timeouts: (1) session.timeout.ms (default 45s) — if no heartbeat received within this window, the consumer is declared dead and a rebalance starts. (2) max.poll.interval.ms (default 5 min) — if poll() is not called within this window, the consumer is also declared dead. A slow consumer (processing each batch slowly) will violate max.poll.interval.ms without missing heartbeats. Fix: reduce batch size (max.poll.records), increase max.poll.interval.ms, or move processing to async threads.`,
+      tip: `Separate heartbeat thread from poll thread — heartbeat runs in background, poll triggers processing. Distinguish the two timeout types in interviews.` },
+  ],
+  m11: [
+    { difficulty: 'hard',   q: `How does Kafka achieve exactly-once semantics (EOS)?`,
+      a: `EOS requires two components: (1) Idempotent producer: each producer gets a PID (producer ID) and sends a monotonic sequence number per partition. The broker deduplicates retries using (PID, partition, sequence). (2) Transactions: group produce + consumer offset commit into an atomic transaction using beginTransaction() / commitTransaction(). Consumers must use isolation.level=read_committed to skip uncommitted records. Together: consume-transform-produce is atomic — either all succeeds or none is visible.`,
+      tip: `EOS is only "exactly-once within Kafka." If the consumer writes to an external system (e.g., DynamoDB), that write must also be idempotent. The Kafka guarantee ends at the Kafka sink.` },
+    { difficulty: 'easy',   q: `What is the difference between at-least-once and at-most-once delivery?`,
+      a: `At-most-once: commit offset before processing. If the consumer crashes, records are lost (never reprocessed). Zero duplicates, possible data loss. At-least-once: commit offset after processing. If the consumer crashes before commit, records are reprocessed. Possible duplicates, no data loss. Which is worse depends on the domain: for financial transactions, data loss is unacceptable → at-least-once. For sensor data where loss is acceptable but duplicates cause double-billing → at-most-once.`,
+      tip: `Amazon: payment events use EOS (financial). Clickstream events use at-least-once (duplicates deduped in Redshift UPSERT). Sensor telemetry uses at-most-once (latest value overwrites).` },
+    { difficulty: 'hard',   q: `What is the transaction coordinator in Kafka and what is its role?`,
+      a: `The transaction coordinator is a broker-side component that manages transaction state. Each transactional producer is assigned a coordinator based on its transactional.id hash. The coordinator maintains a transaction log (__transaction_state, 50 partitions). State machine: ONGOING → PREPARE_COMMIT → COMMIT (or PREPARE_ABORT → ABORT). On producer failure, the coordinator waits transaction.timeout.ms and then aborts. Consumers filter uncommitted records by checking the transaction markers (COMMIT/ABORT records written to the log).`,
+      tip: `Mention the two-phase commit: first the coordinator writes prepare, then writes the transaction marker to each involved partition. Consumers see the marker and skip or include records.` },
+  ],
+};

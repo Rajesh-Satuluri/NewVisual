@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- No-flash theme + format: resolve saved || system BEFORE first paint -->
+  <script>
+    (function () {
+      var root = document.documentElement;
+      try {
+        var t = localStorage.getItem('tv-theme') || localStorage.getItem('iv-theme');
+        if (t !== 'light' && t !== 'dark') {
+          t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        }
+        root.dataset.theme = t;
+      } catch (e) {
+        root.dataset.theme = 'dark';
+      }
+      try {
+        var f = localStorage.getItem('tv-format');
+        root.dataset.format = (f === 'delta' || f === 'compare' || f === 'iceberg') ? f : 'iceberg';
+      } catch (e) {
+        root.dataset.format = 'iceberg';
+      }
+    })();
+  </script>
+
+  <title>Apache Iceberg Visualizer — ShopKart Engineering Handbook</title>
+  <meta name="description" content="Interactive Apache Iceberg learning tool. Animation-driven visualizations of Iceberg's metadata hierarchy, write operations, query planning, and more. Based on the ShopKart Global E-Commerce Lakehouse handbook." />
+
+  <!-- ── Icons / PWA ── -->
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png" />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+
+  <!-- ── Social cards ── -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Apache Iceberg Visualizer" />
+  <meta property="og:description" content="Interactive, animation-driven Apache Iceberg learning tool — metadata hierarchy, write ops, query planning, time travel, and more." />
+  <meta property="og:url" content="https://rajesh-satuluri.github.io/NewVisual/" />
+  <meta property="og:image" content="https://rajesh-satuluri.github.io/NewVisual/assets/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Apache Iceberg Visualizer" />
+  <meta name="twitter:description" content="Interactive, animation-driven Apache Iceberg learning tool — metadata, writes, query planning, and more." />
+  <meta name="twitter:image" content="https://rajesh-satuluri.github.io/NewVisual/assets/og-image.png" />
+
+  <!-- ── Design system ── -->
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/layout.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/animations.css" />
+  <link rel="stylesheet" href="css/responsive.css" />
+  <link rel="stylesheet" href="css/enhancements.css" />
+  <link rel="stylesheet" href="css/multiformat.css" />
+  <link rel="stylesheet" href="css/backup.css" />
+  <link rel="stylesheet" href="css/print.css" media="print" />
+
+  <style>
+    /* ── Bridge styles: IDs used by JS that layout.css doesn't cover ── */
+
+    /* Module container (app.js navigates into this) */
+    #module-container {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 0;
+    }
+
+    /* Nav item links (app.js builds these as <a class="nav-item">) */
+    a.nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 7px 16px 7px 20px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      white-space: nowrap;
+      overflow: hidden;
+      position: relative;
+      transition: background .12s, color .12s;
+      cursor: pointer;
+      user-select: none;
+    }
+    a.nav-item:hover { background: var(--bg-3); color: var(--text-primary); text-decoration: none; }
+    a.nav-item.active { background: rgba(74,174,255,.1); color: var(--blue); }
+    a.nav-item.active::before {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+      width: 3px; background: var(--blue); border-radius: 0 2px 2px 0;
+    }
+    a.nav-item.coming-soon { opacity: .45; cursor: default; }
+    a.nav-item.coming-soon:hover { background: transparent; color: var(--text-secondary); }
+    .nav-item .nav-icon { width: 16px; height: 16px; flex-shrink: 0; opacity: .75; display: flex; align-items: center; }
+    a.nav-item.active .nav-icon { opacity: 1; }
+    .nav-item .nav-label { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+    .sidebar.collapsed a.nav-item { justify-content: center; padding: 8px; }
+    .sidebar.collapsed a.nav-item .nav-label,
+    .sidebar.collapsed a.nav-item .nav-badge { display: none; }
+
+    /* Nav soon badge */
+    .nav-badge {
+      font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+      background: var(--bg-4); color: var(--text-muted); border-radius: 3px;
+      padding: 1px 4px; flex-shrink: 0;
+    }
+    a.nav-item.active .nav-badge { display: none; }
+
+    /* Nav group items container — animate open/close with grid rows */
+    .nav-group-items {
+      display: grid;
+      grid-template-rows: 1fr;
+      transition: grid-template-rows var(--ease-slow);
+    }
+    .nav-group.collapsed .nav-group-items { grid-template-rows: 0fr; }
+    .nav-group-inner { overflow: hidden; min-height: 0; }
+    .nav-group-chevron { color: var(--text-muted); transition: transform .15s; flex-shrink: 0; display: flex; align-items: center; }
+    .nav-group.collapsed .nav-group-chevron { transform: rotate(-90deg); }
+
+    /* Group header as a full-width button */
+    .nav-group-header {
+      width: 100%; background: none; border: none; text-align: left;
+      font: inherit; color: inherit; cursor: pointer;
+    }
+
+    /* Collapse-all / expand-all toolbar */
+    .nav-tools { display: flex; justify-content: flex-end; padding: 2px 12px 6px; }
+    .nav-tools-btn {
+      background: none; border: none; cursor: pointer; color: var(--text-muted);
+      font-size: 11px; padding: 3px 6px; border-radius: 4px;
+    }
+    .nav-tools-btn:hover { background: var(--bg-3); color: var(--text-secondary); }
+    .sidebar.collapsed .nav-tools { display: none; }
+    .sidebar.collapsed .nav-group-label,
+    .sidebar.collapsed .nav-group-chevron { display: none; }
+
+    /* Sidebar footer toggle button */
+    .sidebar-toggle-btn {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-muted); border-radius: 6px; padding: 5px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .sidebar-toggle-btn:hover { background: var(--bg-3); color: var(--text-primary); }
+    .sidebar-footer {
+      display: flex; align-items: center; gap: 8px;
+    }
+    .sidebar-footer-hint {
+      font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden;
+    }
+    .sidebar.collapsed .sidebar-footer-hint { display: none; }
+
+    /* Sidebar brand */
+    .sidebar-brand {
+      display: flex; align-items: center; gap: 10px;
+      padding: 0 16px; height: 52px; border-bottom: 1px solid var(--border-default);
+      flex-shrink: 0; overflow: hidden;
+    }
+    .sidebar-logo { flex-shrink: 0; display: flex; align-items: center; }
+    .sidebar-brand-text { overflow: hidden; white-space: nowrap; }
+    .sidebar-name { display: block; font-size: 15px; font-weight: 700; color: var(--text-primary); letter-spacing: -.02em; }
+    .sidebar-tagline { display: block; font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+    .sidebar.collapsed .sidebar-brand-text { display: none; }
+
+    /* Sidebar search wrapper */
+    .sidebar-search-wrap {
+      padding: 10px 12px; border-bottom: 1px solid var(--border-subtle); flex-shrink: 0;
+    }
+    .sidebar-search {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--bg-3); border: 1px solid var(--border-default);
+      border-radius: 6px; padding: 5px 10px;
+    }
+    .sidebar-search-icon { color: var(--text-muted); flex-shrink: 0; }
+    .sidebar-search input {
+      background: none; border: none; outline: none; color: var(--text-primary);
+      font-size: 13px; width: 100%;
+    }
+    .sidebar-search input::placeholder { color: var(--text-muted); }
+    .sidebar.collapsed .sidebar-search-wrap { display: none; }
+
+    /* Sidebar nav scroll area */
+    .sidebar-nav-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 8px 0; }
+
+    /* Placeholder / error module states */
+    .placeholder-module {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; min-height: 60vh; text-align: center;
+      gap: 16px; color: var(--text-muted); padding: 32px;
+    }
+    .placeholder-icon { font-size: 64px; }
+    .placeholder-module h2 { color: var(--text-secondary); font-size: 24px; margin: 0; }
+    .placeholder-module p { color: var(--text-muted); max-width: 400px; }
+    .error-module {
+      padding: 32px; background: rgba(248,81,73,.08); border: 1px solid rgba(248,81,73,.3);
+      border-radius: 12px; margin: 24px;
+    }
+    .error-module h3 { color: var(--red); margin-bottom: 12px; }
+    .error-module pre { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); white-space: pre-wrap; }
+
+    /* Coming-soon toast */
+    .coming-soon-toast {
+      position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(12px);
+      background: var(--bg-3); border: 1px solid var(--border-default); border-radius: 8px;
+      padding: 10px 20px; font-size: 13px; color: var(--text-secondary);
+      box-shadow: 0 4px 24px rgba(0,0,0,.4); z-index: 9000;
+      opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none;
+      white-space: nowrap;
+    }
+    .coming-soon-toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* Keyboard shortcuts modal */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,.65);
+      backdrop-filter: blur(4px); z-index: 8000;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity .2s;
+    }
+    .modal-backdrop.visible { opacity: 1; pointer-events: all; }
+    .modal-box {
+      background: var(--bg-2); border: 1px solid var(--border-default); border-radius: 14px;
+      padding: 28px; width: 520px; max-width: 95vw; max-height: 80vh;
+      overflow-y: auto; position: relative;
+    }
+    .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 20px; color: var(--text-primary); }
+    .modal-close {
+      position: absolute; top: 18px; right: 18px; background: none; border: none;
+      color: var(--text-muted); cursor: pointer; font-size: 18px; line-height: 1;
+      padding: 4px 8px; border-radius: 6px;
+    }
+    .modal-close:hover { background: var(--bg-3); color: var(--text-primary); }
+    .shortcut-group { margin-bottom: 18px; }
+    .shortcut-group-title {
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+      color: var(--text-muted); margin-bottom: 8px;
+    }
+    .shortcut-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 5px 0; font-size: 13px; border-bottom: 1px solid var(--border-subtle);
+    }
+    .shortcut-row:last-child { border-bottom: none; }
+    .shortcut-desc { color: var(--text-secondary); }
+    .shortcut-keys { display: flex; gap: 4px; }
+
+    /* Breadcrumb */
+    .bc-root, .bc-sep { color: var(--text-muted); }
+    .bc-group { color: var(--text-muted); }
+    .bc-current { color: var(--text-secondary); font-weight: 500; }
+
+    /* Main wrap (body-level flex) */
+    #app {
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+    .main-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    /* Anim controls: use layout.css structure */
+    .anim-progress-track { width: 160px; cursor: pointer; }
+    @media (max-width: 768px) { .anim-progress-track { width: 80px; } }
+
+    /* Module header (used by metadata-explorer and future modules) */
+    .module-header {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: 16px; margin-bottom: 20px; flex-wrap: wrap;
+    }
+    .module-header h1 { margin: 0 0 4px; font-size: 24px; font-weight: 700; }
+    .module-subtitle { color: var(--text-muted); font-size: 13.5px; line-height: 1.6; margin: 4px 0 0; max-width: 600px; }
+    .module-header-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; flex-wrap: wrap; }
+
+    /* Module container scrollable padding */
+    #module-container > .home-page,
+    #module-container > .page-enter { height: 100%; overflow-y: auto; }
+  </style>
+</head>
+<body>
+
+<!-- Route progress bar (perceptual; driven by app.js on navigation) -->
+<div id="nav-progress" class="nav-progress" aria-hidden="true"></div>
+
+<!-- ══════════════════════════════════════════════════════════
+     APP SHELL
+══════════════════════════════════════════════════════════ -->
+<div id="app">
+
+  <!-- ── Sidebar ── -->
+  <aside id="sidebar" class="sidebar">
+
+    <!-- Brand -->
+    <div class="sidebar-brand">
+      <div class="sidebar-logo" id="sidebar-logo">
+        <svg viewBox="0 0 32 32" width="26" height="26" fill="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="brand-grad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#4aaeff"/>
+              <stop offset="100%" stop-color="#a371f7"/>
+            </linearGradient>
+          </defs>
+          <polygon points="16,2 28,12 4,12" fill="url(#brand-grad)" opacity=".9"/>
+          <polygon points="13,14 19,14 22,26 10,26" fill="url(#brand-grad)" opacity=".35"/>
+          <line x1="4" y1="12" x2="28" y2="12" stroke="url(#brand-grad)" stroke-width="1.5" opacity=".5"/>
+        </svg>
+      </div>
+      <div class="sidebar-brand-text">
+        <span class="sidebar-name" id="sidebar-name">IcebergViz</span>
+        <span class="sidebar-tagline" id="sidebar-tagline">ShopKart Handbook</span>
+      </div>
+    </div>
+
+    <!-- Format switcher (registry-driven; collapses to a static label when one format) -->
+    <div id="format-switcher" class="format-switcher" role="group" aria-label="Table format"></div>
+
+    <!-- Search -->
+    <div class="sidebar-search-wrap">
+      <div class="sidebar-search">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13" class="sidebar-search-icon" aria-hidden="true">
+          <circle cx="7" cy="7" r="4.5"/><path d="M11 11l2.5 2.5"/>
+        </svg>
+        <input id="sidebar-search" type="text" placeholder="Search modules…" autocomplete="off" spellcheck="false" aria-label="Search modules" />
+      </div>
+    </div>
+
+    <!-- Nav -->
+    <div class="sidebar-nav-scroll">
+      <nav aria-label="Module navigation">
+        <div id="sidebar-nav"></div>
+      </nav>
+    </div>
+
+    <!-- Footer -->
+    <div class="sidebar-footer">
+      <button id="sidebar-toggle" class="sidebar-toggle-btn" title="Collapse sidebar" aria-label="Toggle sidebar">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14" aria-hidden="true">
+          <path d="M11 2H5a1 1 0 00-1 1v10a1 1 0 001 1h6a1 1 0 001-1V3a1 1 0 00-1-1zM8 2v12"/>
+        </svg>
+      </button>
+      <span class="sidebar-footer-hint">? for shortcuts</span>
+    </div>
+
+  </aside><!-- /sidebar -->
+
+  <!-- Drawer backdrop (visible only when the mobile drawer is open) -->
+  <div id="nav-backdrop" class="nav-backdrop"></div>
+
+  <!-- ── Main area ── -->
+  <div class="main-area">
+
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button id="nav-toggle" class="btn-icon" title="Menu" data-tooltip="Open navigation" aria-label="Open navigation menu" aria-expanded="false" aria-controls="sidebar">
+          <span class="ham" aria-hidden="true"><i></i><i></i><i></i></span>
+        </button>
+        <div id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb">
+          <span class="bc-root">IcebergViz</span>
+        </div>
+        <div id="xformat-jump" class="xformat-jump" aria-label="Same topic in other formats" hidden></div>
+      </div>
+      <div class="topbar-right">
+        <button id="quiz-toggle" class="btn-icon" title="Test yourself on this topic" data-tooltip="Test yourself" aria-label="Test yourself on this topic" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="16" height="16" aria-hidden="true">
+            <path d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+          </svg>
+        </button>
+        <button id="theme-toggle" class="btn-icon" title="Toggle light/dark theme" data-tooltip="Toggle theme" aria-label="Toggle theme">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="16" height="16" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"/>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+          </svg>
+        </button>
+        <button class="btn-icon" title="Keyboard shortcuts (?)" data-tooltip="Keyboard shortcuts (?)" aria-label="Show keyboard shortcuts"
+          onclick="if(window.IcebergViz && window.IcebergViz._showShortcutsModal) window.IcebergViz._showShortcutsModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="16" height="16" aria-hidden="true">
+            <rect x="2" y="6" width="20" height="14" rx="2"/>
+            <path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h.01M12 14h.01M16 14h.01M6 18h12"/>
+          </svg>
+        </button>
+        <a href="https://iceberg.apache.org/docs/latest/" target="_blank" rel="noopener" class="btn-icon" id="docs-link"
+          title="Apache Iceberg Docs" data-tooltip="Open official Iceberg docs" aria-label="Documentation">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="16" height="16" aria-hidden="true">
+            <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/>
+            <polyline points="15 3 21 3 21 9"/>
+            <line x1="10" y1="14" x2="21" y2="3"/>
+          </svg>
+        </a>
+      </div>
+    </header>
+
+    <!-- Module content -->
+    <div id="module-container" tabindex="-1"></div>
+
+    <!-- Animation controls bar -->
+    <div id="anim-controls-bar" class="anim-controls-bar" role="toolbar" aria-label="Animation controls">
+
+      <!-- Left: playback buttons -->
+      <div class="anim-controls-left">
+        <button id="anim-btn-reset" class="anim-btn" title="Reset (R)" data-tooltip="Reset animation (R)" aria-label="Reset animation">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" aria-hidden="true">
+            <polyline points="1 4 1 10 7 10"/>
+            <path d="M3.51 15a9 9 0 102.13-9.36L1 10"/>
+          </svg>
+        </button>
+        <button id="anim-btn-prev" class="anim-btn" title="Previous step (←)" data-tooltip="Previous step (←)" aria-label="Previous step">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14" aria-hidden="true">
+            <polygon points="19,20 9,12 19,4"/>
+            <rect x="5" y="4" width="3" height="16" rx="1"/>
+          </svg>
+        </button>
+        <button id="anim-btn-play" class="anim-btn" title="Play / Pause (Space)" data-tooltip="Play / Pause (Space)" aria-label="Play or pause animation">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16" aria-hidden="true">
+            <polygon points="5,3 19,12 5,21"/>
+          </svg>
+        </button>
+        <button id="anim-btn-next" class="anim-btn" title="Next step (→)" data-tooltip="Next step (→)" aria-label="Next step">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14" aria-hidden="true">
+            <polygon points="5,4 15,12 5,20"/>
+            <rect x="16" y="4" width="3" height="16" rx="1"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Center: label + progress -->
+      <div class="anim-controls-center">
+        <span id="anim-step-label" class="anim-step-label">Press Play to start</span>
+        <div id="anim-progress-track" class="anim-progress-track" title="Click to jump" data-tooltip="Click to jump to step" role="progressbar">
+          <div id="anim-progress-fill" class="anim-progress-fill"></div>
+        </div>
+      </div>
+
+      <!-- Right: counter + speed -->
+      <div class="anim-controls-right">
+        <span id="anim-step-counter" class="anim-step-counter" aria-live="polite">0 / 0</span>
+        <select id="anim-speed" class="anim-speed-select" aria-label="Playback speed">
+          <option value="0.5">0.5×</option>
+          <option value="1" selected>1×</option>
+          <option value="1.5">1.5×</option>
+          <option value="2">2×</option>
+          <option value="3">3×</option>
+        </select>
+      </div>
+
+    </div><!-- /anim-controls-bar -->
+
+  </div><!-- /main-area -->
+
+</div><!-- /app -->
+
+<!-- Keyboard shortcuts modal -->
+<div id="shortcuts-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
+  <div class="modal-box">
+    <div class="modal-title">Keyboard Shortcuts</div>
+    <button class="modal-close" aria-label="Close shortcuts modal">✕</button>
+
+    <div class="shortcut-group">
+      <div class="shortcut-group-title">Navigation</div>
+      <div class="shortcut-row">
+        <span class="shortcut-desc">Go to Home</span>
+        <span class="shortcut-keys"><kbd>g</kbd> <kbd>h</kbd></span>
+      </div>
+      <div class="shortcut-row">
+        <span class="shortcut-desc">Go to Why Iceberg?</span>
+        <span class="shortcut-keys"><kbd>g</kbd> <kbd>w</kbd></span>
+      </div>
+      <div class="shortcut-row">
+        <span class="shortcut-desc">Go to Architecture</span>
+        <span class="shortcut-keys"><kbd>g</kbd> <kbd>a</kbd></span>
+      </div>
+      <div class="shortcut-row">
+        <span class="shortcut-desc">Go to Metadata Explorer</span>
+        <span class="shortcut-keys"><kbd>g</kbd> <kbd>m</kbd></span>
+      </div>
+    </div>
+
+    <div class="shortcut-group">
+      <div class="shortcut-group-title">Animation Controls</div>
+      <div class="shortcut-row">
+        <span class="shortcut-desc">Play / Pause animation</span>
+        <span class="shortcut-keys"><kbd>Space</kbd></span>
+      </div>
+      <div class="shortcut-row">
+        <span class="shortcut-desc">Next step</span>
+        <span class="shortcut-keys"><kbd>→</kbd></span>
+      </div>
+      <div class="shortcut-row">
+        <span class="shortcut-desc">Previous step</span>
+        <span class="shortcut-keys"><kbd>←</kbd></span>
+      </div>
+      <div class="shortcut-row">
+        <span class="shortcut-desc">Reset animation</span>
+        <span class="shortcut-keys"><kbd>R</kbd></span>
+      </div>
+    </div>
+
+    <div class="shortcut-group">
+      <div class="shortcut-group-title">General</div>
+      <div class="shortcut-row">
+        <span class="shortcut-desc">Show this modal</span>
+        <span class="shortcut-keys"><kbd>?</kbd></span>
+      </div>
+      <div class="shortcut-row">
+        <span class="shortcut-desc">Close modal / overlay</span>
+        <span class="shortcut-keys"><kbd>Esc</kbd></span>
+      </div>
+      <div class="shortcut-row">
+        <span class="shortcut-desc">Open command palette</span>
+        <span class="shortcut-keys"><kbd>Ctrl</kbd> <kbd>K</kbd></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     SCRIPTS — dependency order:
+     data → core → components → modules → app
+══════════════════════════════════════════════════════════ -->
+
+<!-- Neutral core namespace (must load first) -->
+<script src="js/core/namespace.js"></script>
+
+<!-- Data layer -->
+<script src="js/data/shopkart-data.js"></script>
+<script src="js/data/iceberg-concepts.js"></script>
+<script src="js/data/question-bank.js"></script>
+<script src="js/data/delta-concepts.js"></script>
+<script src="js/data/delta-question-bank.js"></script>
+<script src="js/data/compare-data.js"></script>
+<script src="js/data/hudi-concepts.js"></script>
+<script src="js/data/hudi-question-bank.js"></script>
+
+<!-- Core engine / services -->
+<script src="js/core/animation-engine.js"></script>
+<script src="js/core/tooltip.js"></script>
+<script src="js/core/keyboard.js"></script>
+<script src="js/core/toast.js"></script>
+<script src="js/core/split-pane.js"></script>
+<script src="js/core/json-annotations.js"></script>
+
+<!-- UI Components -->
+<script src="js/components/code-viewer.js"></script>
+<script src="js/components/animation-controls.js"></script>
+
+<!-- Modules (Iteration 1) -->
+<script src="js/modules/home.js"></script>
+<script src="js/modules/why-iceberg.js"></script>
+<script src="js/modules/architecture.js"></script>
+<script src="js/modules/metadata-explorer.js"></script>
+
+<!-- Modules (Iteration 2) -->
+<script src="js/modules/create-table.js"></script>
+<script src="js/modules/insert.js"></script>
+<script src="js/modules/snapshot-explorer.js"></script>
+<script src="js/modules/manifest-explorer.js"></script>
+<script src="js/modules/schema-evolution.js"></script>
+<script src="js/modules/hidden-partitioning.js"></script>
+
+<!-- Modules (Iteration 3) -->
+<script src="js/modules/read-path.js"></script>
+<script src="js/modules/time-travel.js"></script>
+<script src="js/modules/delete.js"></script>
+<script src="js/modules/update.js"></script>
+<script src="js/modules/merge.js"></script>
+<script src="js/modules/maintenance.js"></script>
+
+<!-- Modules (Iteration 4) -->
+<script src="js/modules/write-path.js"></script>
+<script src="js/modules/query-planner.js"></script>
+<script src="js/modules/partition-evolution.js"></script>
+<script src="js/modules/concurrency.js"></script>
+<script src="js/modules/engine-integrations.js"></script>
+<script src="js/modules/overwrite.js"></script>
+
+<!-- Modules (Iteration 5) -->
+<script src="js/modules/append.js"></script>
+<script src="js/modules/catalog-explorer.js"></script>
+<script src="js/modules/performance.js"></script>
+<script src="js/modules/migrate-to-iceberg.js"></script>
+<script src="js/modules/incremental-reads.js"></script>
+<script src="js/modules/format-v3.js"></script>
+<script src="js/modules/write-tuning.js"></script>
+<script src="js/modules/interview.js"></script>
+<script src="js/modules/quiz.js"></script>
+<script src="js/modules/study.js"></script>
+<script src="js/modules/cheatsheet.js"></script>
+
+<!-- Delta Lake — kit + modules (Phase B1 + B2) -->
+<script src="js/formats/delta-kit.js"></script>
+<script src="js/modules/delta/home.js"></script>
+<script src="js/modules/delta/why-delta.js"></script>
+<script src="js/modules/delta/architecture.js"></script>
+<script src="js/modules/delta/log-explorer.js"></script>
+<script src="js/modules/delta/create-table.js"></script>
+<script src="js/modules/delta/insert.js"></script>
+<script src="js/modules/delta/update.js"></script>
+<script src="js/modules/delta/delete.js"></script>
+<script src="js/modules/delta/merge.js"></script>
+<script src="js/modules/delta/overwrite.js"></script>
+<!-- Delta Read & Query (B3) -->
+<script src="js/modules/delta/read-path.js"></script>
+<script src="js/modules/delta/write-path.js"></script>
+<script src="js/modules/delta/query-planner.js"></script>
+<script src="js/modules/delta/time-travel.js"></script>
+<!-- Delta Log & Schema (B4) -->
+<script src="js/modules/delta/version-explorer.js"></script>
+<script src="js/modules/delta/commit-explorer.js"></script>
+<script src="js/modules/delta/checkpoint.js"></script>
+<script src="js/modules/delta/schema-evolution.js"></script>
+<script src="js/modules/delta/partitioning.js"></script>
+<script src="js/modules/delta/liquid-clustering.js"></script>
+<!-- Delta Advanced (B5) -->
+<script src="js/modules/delta/concurrency.js"></script>
+<script src="js/modules/delta/deletion-vectors.js"></script>
+<script src="js/modules/delta/optimize.js"></script>
+<script src="js/modules/delta/vacuum.js"></script>
+<script src="js/modules/delta/change-data-feed.js"></script>
+<script src="js/modules/delta/engine-integrations.js"></script>
+
+<!-- Delta Learn & Practice (B6) -->
+<script src="js/modules/delta/interview.js"></script>
+<script src="js/modules/delta/quiz.js"></script>
+<script src="js/modules/delta/study.js"></script>
+<script src="js/modules/delta/cheatsheet.js"></script>
+
+<!-- Compare mode (Phase C) — reads from both formats -->
+<script src="js/modules/compare/compare-kit.js"></script>
+<script src="js/modules/compare/overview.js"></script>
+<script src="js/modules/compare/concepts.js"></script>
+<script src="js/modules/compare/delete-compare.js"></script>
+
+<!-- Apache Hudi (Phase F) — hidden until reveal -->
+<script src="js/modules/hudi/hudi-kit.js"></script>
+<script src="js/modules/hudi/home.js"></script>
+<script src="js/modules/hudi/why-hudi.js"></script>
+<script src="js/modules/hudi/architecture.js"></script>
+<script src="js/modules/hudi/table-types.js"></script>
+<script src="js/modules/hudi/timeline-explorer.js"></script>
+<script src="js/modules/hudi/upsert.js"></script>
+<script src="js/modules/hudi/insert.js"></script>
+<script src="js/modules/hudi/bulk-insert.js"></script>
+<script src="js/modules/hudi/insert-overwrite.js"></script>
+<script src="js/modules/hudi/delete.js"></script>
+<script src="js/modules/hudi/record-keys.js"></script>
+<!-- Hudi Read & Query (F3) -->
+<script src="js/modules/hudi/file-layout.js"></script>
+<script src="js/modules/hudi/indexing.js"></script>
+<script src="js/modules/hudi/query-types.js"></script>
+<script src="js/modules/hudi/incremental-query.js"></script>
+<script src="js/modules/hudi/query-planner.js"></script>
+<!-- Hudi Table Services (F4) -->
+<script src="js/modules/hudi/compaction.js"></script>
+<script src="js/modules/hudi/clustering.js"></script>
+<script src="js/modules/hudi/cleaning.js"></script>
+<script src="js/modules/hudi/metadata-table.js"></script>
+<script src="js/modules/hudi/concurrency.js"></script>
+<script src="js/modules/hudi/savepoint-restore.js"></script>
+<!-- Hudi Learn & Practice (F5) -->
+<script src="js/modules/hudi/interview.js"></script>
+<script src="js/modules/hudi/quiz.js"></script>
+<script src="js/modules/hudi/study.js"></script>
+<script src="js/modules/hudi/cheatsheet.js"></script>
+
+<!-- Format descriptors (registered before app boot) -->
+<script src="js/formats/iceberg.js"></script>
+<script src="js/formats/delta.js"></script>
+<script src="js/formats/compare.js"></script>
+<script src="js/formats/hudi.js"></script>
+
+<!-- App bootstrap (registers navigate + nav registry) -->
+<script src="js/app.js"></script>
+
+<!-- Features (decoupled; wire via app:navigate + IV accessors) -->
+<script src="js/features/command-palette.js"></script>
+<script src="js/features/progress.js"></script>
+<script src="js/features/backup.js"></script>
+<script src="js/features/test-yourself.js"></script>
+<script src="js/features/cross-format.js"></script>
+<script src="js/features/gestures.js"></script>
+<script src="js/features/tour.js"></script>
+
+</body>
+</html>

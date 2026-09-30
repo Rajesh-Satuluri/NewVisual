@@ -1,0 +1,162 @@
+/* ============================================================
+   Apache Iceberg Visualizer — Responsive & Touch
+   responsive.css: loaded LAST so it overrides by cascade order.
+   Targets: desktop (mouse+keyboard) and iPad (touch, portrait +
+   landscape). Additive only — no base files edited.
+   ============================================================ */
+
+/* ── Reduced motion: honor the OS setting globally ──────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── Dynamic viewport height ─────────────────────────────────
+   iPadOS Safari's collapsing toolbar changes the visual viewport;
+   100dvh tracks it so the shell never clips or jumps. Falls back
+   to the 100vh already set in layout.css when dvh is unsupported. */
+@supports (height: 100dvh) {
+  #app { height: 100dvh; }
+  .sidebar { height: 100dvh; }
+}
+
+/* ── Nav toggle: a universal top-left control on every device ──
+   Visible at all widths. On desktop it collapses/expands the
+   persistent sidebar; at ≤1024px it opens/closes the drawer
+   (see app.js _initDrawer). */
+#nav-toggle { display: inline-flex; margin-right: 4px; }
+
+.nav-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  z-index: var(--z-overlay);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--ease-base);
+}
+.nav-backdrop.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   TABLET & BELOW — off-canvas sidebar drawer (≤1024px)
+   Below this width the persistent sidebar becomes a slide-in
+   drawer with a hamburger trigger and tap-to-dismiss backdrop.
+══════════════════════════════════════════════════════════════ */
+@media (max-width: 1024px) {
+  /* Show the hamburger in the topbar */
+  #nav-toggle {
+    display: inline-flex;
+    margin-right: 4px;
+  }
+
+  /* Sidebar → fixed drawer, hidden off the left edge by default */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    height: 100vh;
+    height: 100dvh;
+    width: 272px;
+    min-width: 272px;
+    transform: translateX(-100%);
+    transition: transform var(--ease-slow);
+    box-shadow: var(--shadow-xl);
+    z-index: var(--z-modal);
+  }
+  .sidebar.drawer-open {
+    transform: translateX(0);
+  }
+
+  /* In drawer mode the desktop "collapsed" rail doesn't apply — JS
+     also strips the class, but pin the width defensively so a stale
+     class can never produce a 52px drawer. */
+  .sidebar.collapsed {
+    width: 272px;
+    min-width: 272px;
+  }
+
+  /* The main area now spans the full width */
+  .main-area {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   TOUCH — coarse pointers (Apple HIG 44px minimum targets)
+══════════════════════════════════════════════════════════════ */
+@media (pointer: coarse) {
+  .btn-icon,
+  #nav-toggle,
+  .anim-btn,
+  .sidebar-toggle-btn,
+  .modal-close {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  a.nav-item,
+  .nav-item,
+  .nav-group-header {
+    min-height: 44px;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    min-height: 44px;
+  }
+
+  /* Fatter, easier-to-grab animation scrubber */
+  .anim-progress-track {
+    min-height: 22px;
+    display: flex;
+    align-items: center;
+  }
+
+  select.anim-speed-select {
+    min-height: 40px;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   HOVER GATING — kill "sticky hover" on touch devices
+   A tapped card must not stay visually lifted. Neutralize the
+   transform lifts where there's no real hover, and give a brief
+   press state instead.
+══════════════════════════════════════════════════════════════ */
+@media (hover: none) {
+  .feature-card:hover,
+  .path-card:hover {
+    transform: none;
+  }
+  .feature-card:active,
+  .path-card:active {
+    transform: scale(0.99);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   NARROW LAYOUT SAFETY — stack shared multi-column shells
+══════════════════════════════════════════════════════════════ */
+@media (max-width: 640px) {
+  .module-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .module-header-actions {
+    width: 100%;
+  }
+  .topbar {
+    gap: 8px;
+  }
+}

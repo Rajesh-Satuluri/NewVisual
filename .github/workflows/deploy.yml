@@ -31,35 +31,61 @@ jobs:
           # Auto-enable Pages (build type: GitHub Actions) if not already on
           enablement: true
 
-      - name: Build per-project backup zips
+      - name: Prepare site
+        # Housekeeping only — must never fail the deploy for the whole site.
+        continue-on-error: true
         run: |
-          set -euo pipefail
+          set -uo pipefail
+          echo "== Tools published (folders with index.html) =="
+          count=0
+          for dir in */ ; do
+            name="${dir%/}"
+            [ "$name" = "shared" ] && continue
+            if [ -f "${name}/index.html" ]; then
+              echo "  - ${name}"
+              count=$((count+1))
+            fi
+          done
+          echo "== Total tools: ${count} =="
+          # Keep large source-only files out of the PUBLISHED site (they stay
+          # in git — this only trims the ephemeral CI checkout before upload).
+          find . -maxdepth 1 -type f \( -name '*.pdf' -o -name '*.ipynb' \) -print -delete || true
+          # Not part of the site — never publish the migration kit if present.
+          rm -rf migration || true
+          # Ensure Pages serves underscore paths (e.g. _next/) verbatim.
+          touch .nojekyll
+
+      - name: Build per-project backup zips
+        # A zip failure for one tool must never take down the whole deploy.
+        continue-on-error: true
+        run: |
+          set -uo pipefail
           # Build a fresh .zip snapshot of every top-level app (any folder
           # containing an index.html) into that folder, so each project ships
           # a one-click "download this tool" offline backup. Built here in CI
-          # only — never committed to git (.gitignore ignores *.zip), so there
-          # is no repo bloat and every download is current as of this deploy.
+          # only — never committed to git (.gitignore ignores *.zip).
           for dir in */ ; do
             name="${dir%/}"
             [ -f "${name}/index.html" ] || continue
-            ( cd "${name}" && zip -rqX "${RUNNER_TEMP}/${name}.zip" . -x '*.zip' )
-            cp "${RUNNER_TEMP}/${name}.zip" "${name}/${name}.zip"
-            echo "backup: ${name}/${name}.zip ($(du -h "${name}/${name}.zip" | cut -f1))"
+            ( cd "${name}" && zip -rqX "${RUNNER_TEMP}/${name}.zip" . -x '*.zip' ) \
+              && cp "${RUNNER_TEMP}/${name}.zip" "${name}/${name}.zip" \
+              && echo "backup: ${name}/${name}.zip ($(du -h "${name}/${name}.zip" | cut -f1))" \
+              || echo "warn: backup zip failed for ${name} (skipped)"
           done
           # Whole-repo snapshot for the landing page "download all" button.
           zip -rqX "${RUNNER_TEMP}/newvisual-all.zip" . \
-            -x '.git/*' -x '*/.git/*' -x '*.zip' -x 'node_modules/*' -x '*/node_modules/*'
-          cp "${RUNNER_TEMP}/newvisual-all.zip" newvisual-all.zip
-          echo "backup: newvisual-all.zip ($(du -h newvisual-all.zip | cut -f1))"
+            -x '.git/*' -x '*/.git/*' -x '*.zip' -x 'node_modules/*' -x '*/node_modules/*' \
+            && cp "${RUNNER_TEMP}/newvisual-all.zip" newvisual-all.zip \
+            && echo "backup: newvisual-all.zip ($(du -h newvisual-all.zip | cut -f1))" \
+            || echo "warn: whole-repo backup zip failed (skipped)"
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Option A — multi-site: publish the repo root so the landing
-          # page plus both visualizers are served:
-          #   /                                → landing page
-          #   /airflow-visualizer/             → Airflow lab (unchanged files)
-          #   /data-engineering-cicd-visualizer/ → CI/CD lab
+          # Publish the repo root: the hub landing page at / plus every tool
+          # at its own sub-path, e.g. /airflow-visualizer/, /kafka/, /snowflake/.
+          # Each tool is a self-contained static folder, so publishing one
+          # never alters another.
           path: .
 
       - name: Deploy to GitHub Pages

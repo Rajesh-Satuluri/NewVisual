@@ -1,0 +1,399 @@
+// Module 15 — Flink SQL & Table API
+// Interactive query explorer: pick a SQL query category, see the query,
+// the underlying Table/DataStream plan, and live "result rows" for Uber GPS data.
+
+const QUERIES = [
+  {
+    id: 'select',
+    label: 'SELECT / Filter',
+    icon: '🔎',
+    category: 'Basic',
+    desc: 'The simplest Flink SQL query — filter and project GPS events. Translates to filter() + map() in the DataStream API.',
+    uber: 'Select only speeding events for the real-time dashboard. Flink pushes the WHERE predicate into the source connector as a "partition pruning" hint when supported.',
+    sql: `-- Real-time GPS event filtering
+SELECT
+  driver_id,
+  speed_kmh,
+  lat,
+  lon,
+  event_time
+FROM gps_events
+WHERE speed_kmh > 80
+  AND speed_kmh < 200  -- sanity bound`,
+    plan: `// Table API equivalent:
+tableEnv.from("gps_events")
+  .filter($("speed_kmh").isGreater(80)
+      .and($("speed_kmh").isLess(200)))
+  .select($("driver_id"), $("speed_kmh"),
+          $("lat"), $("lon"), $("event_time"));
+
+// DataStream equivalent:
+stream.filter(e -> e.speed > 80 && e.speed < 200)
+      .map(e -> new DashboardEvent(e));`,
+    results: [
+      { driver_id:'D-001', speed_kmh:91,  lat:37.774, lon:-122.432, event_time:'10:00:03' },
+      { driver_id:'D-003', speed_kmh:88,  lat:37.765, lon:-122.418, event_time:'10:00:07' },
+      { driver_id:'D-002', speed_kmh:105, lat:37.781, lon:-122.445, event_time:'10:00:11' },
+    ],
+  },
+  {
+    id: 'tumble',
+    label: 'TUMBLE Window',
+    icon: '⬜',
+    category: 'Windowing',
+    desc: 'TUMBLE() is Flink SQL\'s built-in tumbling window function. Results emit at the end of each window when the watermark passes the window end.',
+    uber: 'Count GPS pings and avg speed per driver per 10-minute window — drives surge pricing calculation.',
+    sql: `-- Average speed per driver per 10-minute window
+SELECT
+  driver_id,
+  TUMBLE_START(event_time, INTERVAL '10' MINUTE) AS window_start,
+  TUMBLE_END(event_time, INTERVAL '10' MINUTE)   AS window_end,
+  COUNT(*)                                        AS ping_count,
+  AVG(speed_kmh)                                  AS avg_speed,
+  MAX(speed_kmh)                                  AS max_speed
+FROM gps_events
+GROUP BY
+  driver_id,
+  TUMBLE(event_time, INTERVAL '10' MINUTE)`,
+    plan: `// Table API equivalent:
+table.window(Tumble.over(lit(10).minutes())
+              .on($("event_time"))
+              .as("w"))
+     .groupBy($("driver_id"), $("w"))
+     .select(
+         $("driver_id"),
+         $("w").start().as("window_start"),
+         $("w").end().as("window_end"),
+         $("speed_kmh").count().as("ping_count"),
+         $("speed_kmh").avg().as("avg_speed"),
+         $("speed_kmh").max().as("max_speed"));`,
+    results: [
+      { driver_id:'D-001', window_start:'10:00', window_end:'10:10', ping_count:4, avg_speed:44, max_speed:91 },
+      { driver_id:'D-002', window_start:'10:00', window_end:'10:10', ping_count:3, avg_speed:50, max_speed:105 },
+      { driver_id:'D-003', window_start:'10:00', window_end:'10:10', ping_count:2, avg_speed:38, max_speed:88 },
+    ],
+  },
+  {
+    id: 'hop',
+    label: 'HOP (Sliding) Window',
+    icon: '🔲',
+    category: 'Windowing',
+    desc: 'HOP() creates sliding windows. Each event appears in multiple windows. HOP(event_time, slide, size) emits every slide interval.',
+    uber: 'Rolling 15-min average speed, updated every 5 min — used by the speeding alert model to smooth out brief spikes.',
+    sql: `-- Rolling 15-min avg speed, refreshed every 5 min
+SELECT
+  driver_id,
+  HOP_START(event_time, INTERVAL '5' MINUTE,
+                        INTERVAL '15' MINUTE) AS window_start,
+  AVG(speed_kmh)                              AS avg_speed_15m,
+  MAX(speed_kmh)                              AS max_speed_15m
+FROM gps_events
+GROUP BY
+  driver_id,
+  HOP(event_time, INTERVAL '5' MINUTE, INTERVAL '15' MINUTE)`,
+    plan: `// Table API equivalent:
+table.window(Slide.over(lit(15).minutes())
+              .every(lit(5).minutes())
+              .on($("event_time"))
+              .as("w"))
+     .groupBy($("driver_id"), $("w"))
+     .select($("driver_id"),
+             $("w").start(),
+             $("speed_kmh").avg().as("avg_speed_15m"),
+             $("speed_kmh").max().as("max_speed_15m"));`,
+    results: [
+      { driver_id:'D-001', window_start:'09:45', avg_speed_15m:40, max_speed_15m:91 },
+      { driver_id:'D-001', window_start:'09:50', avg_speed_15m:43, max_speed_15m:91 },
+      { driver_id:'D-002', window_start:'09:45', avg_speed_15m:48, max_speed_15m:105 },
+    ],
+  },
+  {
+    id: 'join',
+    label: 'Temporal Join',
+    icon: '🔗',
+    category: 'Joins',
+    desc: 'Flink SQL\'s temporal join enriches a fact stream with dimension table data at the event\'s specific point in time. Uses the FOR SYSTEM_TIME AS OF syntax.',
+    uber: 'Enrich each GPS ping with the driver\'s current tier (Gold/Silver) from the driver_profiles lookup table — tier changes over time, so the join must be point-in-time.',
+    sql: `-- Enrich GPS events with driver tier at event time
+SELECT
+  g.driver_id,
+  g.speed_kmh,
+  g.event_time,
+  p.tier,          -- Gold / Silver / Standard
+  p.max_speed_limit
+FROM gps_events AS g
+JOIN driver_profiles FOR SYSTEM_TIME AS OF g.event_time AS p
+  ON g.driver_id = p.driver_id
+WHERE g.speed_kmh > p.max_speed_limit`,
+    plan: `// Temporal join uses versioned lookup table:
+// driver_profiles must have a primary key
+// and be backed by a changelog source (Kafka CDC)
+// or a JDBC lookup connector.
+
+tableEnv.executeSql("""
+  CREATE TABLE driver_profiles (
+    driver_id STRING,
+    tier STRING,
+    max_speed_limit INT,
+    PRIMARY KEY (driver_id) NOT ENFORCED
+  ) WITH ('connector' = 'jdbc', ...)
+""");
+// Flink uses async lookup by default for JDBC`,
+    results: [
+      { driver_id:'D-001', speed_kmh:91,  event_time:'10:00:03', tier:'Gold',     max_speed_limit:85 },
+      { driver_id:'D-002', speed_kmh:105, event_time:'10:00:11', tier:'Standard', max_speed_limit:90 },
+    ],
+  },
+  {
+    id: 'dedup',
+    label: 'Deduplication',
+    icon: '♻️',
+    category: 'Advanced',
+    desc: 'Flink SQL\'s ROW_NUMBER() OVER (PARTITION BY … ORDER BY … ) pattern efficiently deduplicates a stream, keeping only the first (or last) record per key.',
+    uber: 'GPS events can be duplicated by mobile SDK retries. Deduplicate by (driver_id, event_time) to prevent double-counting trips.',
+    sql: `-- Keep only the first GPS ping per (driver, second)
+SELECT driver_id, speed_kmh, lat, lon, event_time
+FROM (
+  SELECT *,
+    ROW_NUMBER() OVER (
+      PARTITION BY driver_id, event_time
+      ORDER BY proc_time  -- processing time tie-break
+    ) AS row_num
+  FROM gps_events
+)
+WHERE row_num = 1`,
+    plan: `// Translated to a stateful KeyedProcessFunction:
+// Flink keeps a minibatch of (driver_id, event_time) keys
+// in state with TTL, checking duplicates on arrival.
+// State TTL must cover the max expected duplicate delay.
+
+// Config hint:
+// table.exec.mini-batch.enabled: true
+// table.exec.mini-batch.allow-latency: 5s
+// table.exec.mini-batch.size: 5000`,
+    results: [
+      { driver_id:'D-001', speed_kmh:91, lat:37.774, lon:-122.432, event_time:'10:00:03', row_num:1 },
+      { driver_id:'D-002', speed_kmh:35, lat:37.781, lon:-122.445, event_time:'10:00:05', row_num:1 },
+    ],
+  },
+];
+
+const IQS = [
+  { q:'How does Flink SQL relate to the DataStream API?', a:'Flink SQL is compiled by the Table planner (Blink planner since 1.11) into a logical plan, then an optimized physical plan, and finally into DataStream API operators. Every SQL query ultimately becomes a graph of map/filter/keyBy/window/process operators under the hood. The Table API is a type-safe programmatic layer over the same planner. You can mix Table and DataStream: tableEnv.toDataStream(table) and tableEnv.fromDataStream(stream). SQL is preferred for ad-hoc analytics; DataStream for complex stateful logic.' },
+  { q:'What is the difference between processing-time and event-time in Flink SQL?', a:'In Flink SQL, you declare the time attribute in the table DDL: WATERMARK FOR event_time AS event_time - INTERVAL \'5\' SECOND for event time, or PROCTIME() for processing time. Window functions (TUMBLE, HOP, SESSION) then use whichever time attribute the table is partitioned on. Event time windows produce deterministic results regardless of processing delays; processing-time windows are simpler but not repeatable. Uber always uses event-time in SQL pipelines for correct aggregations, even at the cost of latency.' },
+  { q:'How does Flink handle late data in SQL windowed queries?', a:'In Flink SQL, the WATERMARK definition implicitly sets the allowed out-of-orderness. If WATERMARK FOR event_time AS event_time - INTERVAL \'5\' SECOND, events up to 5s late are included in their correct window. Events later than 5s after the watermark passes are silently dropped (there\'s no sideOutputLateData equivalent in SQL — you\'d need to use the Table API or DataStream for late data side outputs). For Uber\'s GPS pipeline, a 10s watermark delay is set to absorb cellular buffer jitter.' },
+  { q:'What is a dynamic table in Flink SQL?', a:'A dynamic table is Flink\'s abstraction over a continuous stream as if it were an ever-updating database table. As new events arrive, the table is conceptually updated. SQL queries over dynamic tables produce dynamic result tables. Flink then either materializes these as a changelog stream (INSERT/UPDATE/DELETE rows) for a mutable sink (JDBC, Cassandra) or as an append-only stream for immutable sinks (Kafka, filesystem). The dual view — stream as table, table as stream — is the foundation of Flink\'s unified batch/streaming semantics.' },
+  { q:'When would you choose Flink SQL over the DataStream API?', a:'Choose Flink SQL when: (1) the logic is expressible as set-based transformations (aggregations, joins, filters) — SQL is far more concise and benefits from query optimization. (2) You need ad-hoc analytics without redeploying a JAR. (3) Your team is more SQL-fluent than Java/Scala. Choose DataStream when: (1) the logic requires fine-grained per-event control (complex state machines, custom triggers). (2) You need side outputs, low-level timers, or RPC calls per event. (3) You need to embed ML inference inside processing logic. Uber uses SQL for aggregations and DataStream for the core FraudDetector KeyedProcessFunction.' },
+];
+
+export function mount(container) {
+  let selected = QUERIES[0];
+
+  container.innerHTML = `
+    <div class="module-hero">
+      <div class="module-hero-content">
+        <span class="module-badge">Module 15</span>
+        <h1 class="module-title">Flink SQL &amp; Table API</h1>
+        <p class="module-subtitle">Pick a query pattern, see the SQL, its Table API equivalent, and live result rows from Uber's GPS event stream.</p>
+      </div>
+    </div>
+    <div class="module-tabs">
+      <button class="tab-btn active" data-tab="explorer">Query Explorer</button>
+      <button class="tab-btn" data-tab="setup">DDL &amp; Setup</button>
+      <button class="tab-btn" data-tab="iq">Interview Q&amp;A</button>
+    </div>
+
+    <div class="tab-content active" data-tab="explorer">
+      <div class="sql-picker" id="sql-picker"></div>
+      <div id="sql-detail"></div>
+    </div>
+
+    <div class="tab-content" data-tab="setup">
+      <div class="grid-2 gap-20">
+        <div class="card p-24">
+          <h3 class="mb-12">Table DDL — GPS Events Source</h3>
+          <div class="code-block fs-11"><pre>CREATE TABLE gps_events (
+  driver_id   STRING,
+  lat         DOUBLE,
+  lon         DOUBLE,
+  speed_kmh   INT,
+  event_time  TIMESTAMP(3),
+  proc_time   AS PROCTIME(),
+  WATERMARK FOR event_time
+    AS event_time - INTERVAL '5' SECOND
+) WITH (
+  'connector'   = 'kafka',
+  'topic'       = 'driver-locations',
+  'properties.bootstrap.servers' = 'kafka:9092',
+  'format'      = 'json',
+  'scan.startup.mode' = 'latest-offset'
+);</pre></div>
+        </div>
+        <div class="card p-24">
+          <h3 class="mb-12">Table DDL — Fraud Alerts Sink</h3>
+          <div class="code-block fs-11"><pre>CREATE TABLE fraud_alerts (
+  driver_id   STRING,
+  alert_type  STRING,
+  speed_kmh   INT,
+  alert_time  TIMESTAMP(3)
+) WITH (
+  'connector' = 'kafka',
+  'topic'     = 'fraud-alerts',
+  'properties.bootstrap.servers' = 'kafka:9092',
+  'format'    = 'json'
+);
+
+-- Insert result of SQL query into sink:
+INSERT INTO fraud_alerts
+SELECT driver_id, 'SPEEDING', speed_kmh, event_time
+FROM gps_events
+WHERE speed_kmh > 80;</pre></div>
+        </div>
+        <div class="card p-24">
+          <h3 class="mb-12">TableEnvironment Setup</h3>
+          <div class="code-block fs-11"><pre>StreamExecutionEnvironment env =
+    StreamExecutionEnvironment.getExecutionEnvironment();
+env.setParallelism(4);
+
+StreamTableEnvironment tableEnv =
+    StreamTableEnvironment.create(env);
+
+// Register table from DataStream:
+DataStream&lt;GPSEvent&gt; stream = env.fromSource(...);
+tableEnv.createTemporaryView("gps_events", stream,
+    Schema.newBuilder()
+        .columnByExpression("proc_time","PROCTIME()")
+        .watermark("event_time",
+                   "event_time - INTERVAL '5' SECOND")
+        .build());
+
+// Run SQL:
+Table result = tableEnv.sqlQuery(
+    "SELECT ... FROM gps_events WHERE ...");
+
+// Convert back to DataStream:
+DataStream&lt;Row&gt; out = tableEnv.toDataStream(result);
+env.execute("Uber GPS SQL Pipeline");</pre></div>
+        </div>
+        <div class="card p-24">
+          <h3 class="mb-12">Table API vs DataStream Comparison</h3>
+          ${[
+            ['Abstraction level','High (declarative)','Low (imperative)'],
+            ['Optimization','Query planner (Blink)','Manual'],
+            ['State management','Automatic','Manual'],
+            ['Flexibility','Moderate','Full'],
+            ['Custom logic','Limited','Anything'],
+            ['Best for','Aggregations, joins','Complex state machines'],
+            ['Uber use','Aggregations, ETL','FraudDetector core'],
+          ].map(([f,ta,ds]) => `
+            <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr;padding:6px 0;border-bottom:1px solid var(--border);font-size:11.5px">
+              <span class="t-sec">${f}</span>
+              <span style="color:#6366f1">${ta}</span>
+              <span style="color:#FF6B35">${ds}</span>
+            </div>
+          `).join('')}
+          <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr;padding:4px 0;font-size:10px;font-weight:700;color:var(--text-secondary)"><span></span><span>TABLE API</span><span>DATASTREAM</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-content" data-tab="iq">
+      <div class="iq-section" id="iq15-section"></div>
+    </div>
+  `;
+
+  // Tabs
+  container.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      container.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      container.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      container.querySelector(`.tab-content[data-tab="${btn.dataset.tab}"]`).classList.add('active');
+    });
+  });
+
+  // IQ
+  const iqSec = container.querySelector('#iq15-section');
+  iqSec.innerHTML = IQS.map((item, i) => `
+    <div class="iq-item" id="iq15-${i}">
+      <div class="iq-question" data-idx="${i}"><span>${item.q}</span><span class="iq-chevron">›</span></div>
+      <div class="iq-answer">${item.a}</div>
+    </div>
+  `).join('');
+  iqSec.querySelectorAll('.iq-question').forEach(q => {
+    q.addEventListener('click', () => {
+      const item = iqSec.querySelector(`#iq15-${q.dataset.idx}`);
+      const open = item.classList.contains('open');
+      iqSec.querySelectorAll('.iq-item').forEach(i => i.classList.remove('open'));
+      if (!open) item.classList.add('open');
+    });
+  });
+
+  // Query picker
+  const picker = container.querySelector('#sql-picker');
+  picker.innerHTML = QUERIES.map(q => `
+    <button class="op-pill${q.id === selected.id ? ' active' : ''}" data-qid="${q.id}">
+      ${q.icon} ${q.label}
+      <span class="op-pill-cat">${q.category}</span>
+    </button>
+  `).join('');
+
+  function renderDetail(q) {
+    const detail = container.querySelector('#sql-detail');
+    const cols = q.results.length ? Object.keys(q.results[0]) : [];
+    detail.innerHTML = `
+      <div class="sql-detail-grid">
+        <div class="card p-24">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+            <span class="fs-28">${q.icon}</span>
+            <div>
+              <div style="font-size:17px;font-weight:700;color:var(--text)">${q.label}</div>
+              <span class="badge" style="font-size:10px">${q.category}</span>
+            </div>
+          </div>
+          <p style="color:var(--text-secondary);font-size:13.5px;line-height:1.7;margin:0 0 12px">${q.desc}</p>
+          <div class="lc-uber-box">
+            <div class="lc-uber-label">🚗 Uber Use Case</div>
+            <p class="fs-125">${q.uber}</p>
+          </div>
+        </div>
+        <div>
+          <div class="eyebrow-flow">SQL Query</div>
+          <div class="code-block" style="font-size:11.5px;max-height:280px;overflow-y:auto"><pre>${q.sql}</pre></div>
+        </div>
+        <div>
+          <div class="eyebrow-flow">Table API / DataStream Plan</div>
+          <div class="code-block" style="font-size:11px;max-height:280px;overflow-y:auto"><pre>${q.plan}</pre></div>
+        </div>
+        <div>
+          <div class="eyebrow-flow">Result Rows (sample)</div>
+          <div class="scroll-x">
+            <table style="width:100%;border-collapse:collapse;font-size:12px">
+              <thead>
+                <tr>${cols.map(c => `<th style="padding:8px 12px;text-align:left;border-bottom:1px solid var(--border);color:var(--text-secondary);white-space:nowrap">${c}</th>`).join('')}</tr>
+              </thead>
+              <tbody>
+                ${q.results.map(row => `
+                  <tr style="border-bottom:1px solid var(--border)">
+                    ${cols.map(c => `<td style="padding:7px 12px;color:var(--text);font-family:var(--font-mono,monospace);font-size:11.5px;white-space:nowrap">${row[c]}</td>`).join('')}
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  picker.querySelectorAll('.op-pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      selected = QUERIES.find(q => q.id === btn.dataset.qid);
+      picker.querySelectorAll('.op-pill').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderDetail(selected);
+    });
+  });
+
+  renderDetail(selected);
+}

@@ -1,0 +1,542 @@
+/* ============================================================
+   deepdives.css — shared visualization kit for authored,
+   "airflow-grade" concept deep dives (js/deepdives/*.js).
+
+   Generalizes the MVCC aesthetic (lab.css) into reusable
+   primitives so every deep-dive viz reads as one system:
+     .dd-viz / .dd-section / .dd-row  → layout
+     .dd-actor                        → a transaction / process card
+     .dd-card                         → a record / state / version card
+     .dd-chip / .dd-badge             → status pills
+   plus per-concept blocks (ACID flags, WAL log, lock table,
+   wait-for graph, isolation matrix, recovery timeline).
+
+   Renders inside .arch-canvas (background: --bg-2), so cards
+   sit on --bg-1 for contrast, matching the MVCC flagship.
+   ============================================================ */
+
+/* ── Container & shared scaffolding ───────────────────────── */
+.dd-viz { display: flex; flex-direction: column; gap: 18px; padding: 8px 2px; min-height: 360px; }
+.dd-empty {
+  color: var(--text-muted); font-size: 14px; padding: 48px 16px; text-align: center;
+  border: 1px dashed var(--border-muted); border-radius: 12px; line-height: 1.6;
+}
+.dd-section { display: flex; flex-direction: column; gap: 10px; }
+.dd-section-label {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--text-muted); font-weight: 700;
+}
+.dd-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: stretch; }
+.dd-note { font-size: 12px; color: var(--text-muted); font-style: italic; }
+.dd-viz code {
+  color: var(--text-primary); background: var(--bg-3);
+  padding: 0 4px; border-radius: 4px; font-size: 11px; font-family: var(--font-mono);
+}
+
+/* ── Actor card (a transaction / session / process) ───────── */
+.dd-actor {
+  flex: 1 1 200px; min-width: 190px; border-radius: 12px; padding: 12px 14px;
+  background: var(--bg-1); border: 1px solid var(--border-default); border-left-width: 3px;
+  transition: border-color .2s, opacity .2s, box-shadow .2s, transform .2s;
+}
+.dd-actor--a { border-left-color: var(--cyan); }
+.dd-actor--b { border-left-color: var(--airflow); }
+.dd-actor--c { border-left-color: var(--purple); }
+.dd-actor.is-committed { border-left-color: var(--green); }
+.dd-actor.is-aborted { border-left-color: var(--red); opacity: .72; }
+.dd-actor.is-aborted .dd-actor-id { text-decoration: line-through; }
+.dd-actor.is-waiting { border-left-color: var(--orange); border-left-style: dashed; }
+.dd-actor.hot { box-shadow: 0 6px 20px rgba(0,0,0,.18); transform: translateY(-2px); }
+.dd-actor-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.dd-actor-id { font-weight: 800; font-size: 15px; color: var(--text-primary); }
+.dd-actor-tag { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); font-weight: 700; }
+.dd-actor--a .dd-actor-tag { color: var(--cyan); }
+.dd-actor--b .dd-actor-tag { color: var(--airflow-bright); }
+.dd-actor--c .dd-actor-tag { color: var(--purple); }
+.dd-actor-body { margin-top: 6px; font-size: 13px; color: var(--text-primary); line-height: 1.5; }
+.dd-actor-sub { margin-top: 4px; font-size: 12px; color: var(--text-secondary); }
+
+/* ── Generic state / record card ──────────────────────────── */
+.dd-card {
+  flex: 0 1 172px; min-width: 150px; border-radius: 12px; padding: 12px 14px;
+  background: var(--bg-1); border: 1.5px solid var(--border-default);
+  transition: border-color .2s, transform .2s, opacity .2s, box-shadow .2s;
+}
+.dd-card.hot { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.18); }
+.dd-card--ok { border-color: var(--green); }
+.dd-card--ok.hot { box-shadow: 0 0 0 1px var(--green), 0 6px 20px rgba(0,0,0,.2); }
+.dd-card--pending { border-color: var(--orange); border-style: dashed; }
+.dd-card--bad { border-color: var(--red); opacity: .78; }
+.dd-card--muted { border-color: var(--border-muted); opacity: .7; }
+.dd-card--ghost { border-color: var(--border-subtle); opacity: .4; }
+.dd-card--ghost .dd-card-val { text-decoration: line-through; }
+.dd-card-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.dd-card-name { font-weight: 800; font-size: 14px; color: var(--text-primary); }
+.dd-card-state { font-size: 9.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); font-weight: 700; }
+.dd-card--ok .dd-card-state { color: var(--green); }
+.dd-card--pending .dd-card-state { color: var(--orange); }
+.dd-card--bad .dd-card-state { color: var(--red); }
+.dd-card-val { margin: 8px 0 6px; font-size: 15px; color: var(--text-secondary); }
+.dd-card-val b { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.dd-card-meta { display: flex; flex-wrap: wrap; gap: 10px; font-size: 11px; color: var(--text-muted); }
+
+/* ── Chips, badges, arrows ────────────────────────────────── */
+.dd-chip {
+  display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; padding: 2px 8px; border-radius: 999px;
+  color: var(--text-secondary); background: var(--bg-3); border: 1px solid var(--border-muted);
+}
+.dd-chip--ok { color: var(--green); background: rgba(16,185,129,.12); border-color: transparent; }
+.dd-chip--warn { color: var(--orange); background: rgba(245,158,11,.12); border-color: transparent; }
+.dd-chip--bad { color: var(--red); background: rgba(239,68,68,.12); border-color: transparent; }
+.dd-chip--info { color: var(--cyan); background: rgba(34,211,238,.12); border-color: transparent; }
+.dd-chip--accent { color: var(--airflow-bright); background: var(--airflow-subtle); border-color: transparent; }
+.dd-badge {
+  display: inline-block; margin-top: 8px; font-size: 10px; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--green); background: rgba(16,185,129,.12);
+  padding: 2px 8px; border-radius: 999px;
+}
+.dd-arrow { align-self: center; color: var(--text-muted); font-size: 18px; }
+
+/* ============================================================
+   ACID Transactions — operation ledger + ACID flags
+   ============================================================ */
+.dd-txn-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.dd-txn-state {
+  font-family: var(--font-mono); font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 8px;
+  color: var(--text-secondary); background: var(--bg-1); border: 1px solid var(--border-default);
+}
+.dd-txn-state.is-open { color: var(--cyan); border-color: var(--cyan); }
+.dd-txn-state.is-committed { color: var(--green); border-color: var(--green); }
+.dd-txn-state.is-aborted { color: var(--red); border-color: var(--red); }
+.dd-oplist { display: flex; flex-direction: column; gap: 8px; }
+.dd-op {
+  display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 10px;
+  background: var(--bg-1); border: 1px solid var(--border-default); border-left-width: 3px;
+  border-left-color: var(--border-muted); transition: all .2s;
+}
+.dd-op.is-applied { border-left-color: var(--cyan); }
+.dd-op.is-committed { border-left-color: var(--green); }
+.dd-op.is-undone { border-left-color: var(--red); opacity: .6; }
+.dd-op.is-undone .dd-op-sql { text-decoration: line-through; }
+.dd-op.hot { box-shadow: 0 4px 16px rgba(0,0,0,.18); transform: translateX(2px); }
+.dd-op-icon { font-size: 16px; width: 22px; text-align: center; flex: none; }
+.dd-op-sql { font-family: var(--font-mono); font-size: 12.5px; color: var(--text-primary); flex: 1 1 auto; }
+.dd-op-status { flex: none; }
+.dd-flags { display: flex; flex-wrap: wrap; gap: 10px; }
+.dd-flag {
+  flex: 1 1 120px; min-width: 110px; display: flex; flex-direction: column; gap: 2px;
+  padding: 10px 12px; border-radius: 10px; background: var(--bg-1);
+  border: 1px solid var(--border-default); opacity: .5; transition: all .25s;
+}
+.dd-flag.on { opacity: 1; border-color: var(--green); box-shadow: 0 0 0 1px var(--green); }
+.dd-flag-letter { font-size: 16px; font-weight: 800; color: var(--text-primary); }
+.dd-flag.on .dd-flag-letter { color: var(--green); }
+.dd-flag-name { font-size: 11px; font-weight: 700; color: var(--text-secondary); }
+.dd-flag-note { font-size: 10.5px; color: var(--text-muted); line-height: 1.4; }
+
+/* ============================================================
+   WAL — append-only log tape + data page / disk state
+   ============================================================ */
+.dd-wal-log { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; }
+.dd-logrec {
+  flex: 0 1 120px; min-width: 104px; border-radius: 9px; padding: 8px 10px;
+  background: var(--bg-1); border: 1px solid var(--border-default); border-top-width: 3px;
+  border-top-color: var(--airflow); transition: all .2s;
+}
+.dd-logrec.is-commit { border-top-color: var(--green); }
+.dd-logrec.is-checkpoint { border-top-color: var(--purple); }
+.dd-logrec.is-fsynced { box-shadow: 0 0 0 1px var(--green); }
+.dd-logrec.hot { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,.2); }
+.dd-logrec-lsn { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); font-weight: 700; }
+.dd-logrec-type { font-size: 12px; font-weight: 700; color: var(--text-primary); margin-top: 2px; }
+.dd-logrec-detail { font-size: 11px; color: var(--text-secondary); margin-top: 2px; font-family: var(--font-mono); }
+.dd-storage { display: flex; flex-wrap: wrap; gap: 12px; }
+.dd-store {
+  flex: 1 1 200px; min-width: 180px; border-radius: 12px; padding: 12px 14px;
+  background: var(--bg-1); border: 1px solid var(--border-default);
+}
+.dd-store-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); font-weight: 700; }
+.dd-store-val { margin-top: 8px; font-size: 20px; font-weight: 800; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.dd-store-val small { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+.dd-store-flag { margin-top: 8px; }
+.dd-store.is-dirty { border-color: var(--orange); }
+.dd-store.is-durable { border-color: var(--green); }
+.dd-store.is-lost { border-color: var(--red); }
+
+/* ============================================================
+   Locking & Deadlocks — lock table + wait-for graph
+   ============================================================ */
+.dd-locktable { display: flex; flex-direction: column; gap: 8px; }
+.dd-lockrow {
+  display: grid; grid-template-columns: 92px 1fr auto; gap: 12px; align-items: center;
+  padding: 10px 14px; border-radius: 10px; background: var(--bg-1);
+  border: 1px solid var(--border-default); transition: all .2s;
+}
+.dd-lockrow.hot { box-shadow: 0 4px 16px rgba(0,0,0,.18); }
+.dd-lockrow.is-contended { border-color: var(--orange); }
+.dd-lock-res { font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: var(--text-primary); }
+.dd-lock-holder { font-size: 12.5px; color: var(--text-secondary); }
+.dd-lock-holder b { color: var(--text-primary); }
+.dd-lock-wait { font-size: 11px; color: var(--orange); margin-top: 2px; }
+.dd-wfg {
+  display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap;
+  padding: 14px; border-radius: 12px; background: var(--bg-1); border: 1px solid var(--border-default);
+}
+.dd-wfg.is-deadlock { border-color: var(--red); box-shadow: 0 0 0 1px var(--red); }
+.dd-wfg-node {
+  font-weight: 800; font-size: 14px; color: var(--text-primary); padding: 10px 16px;
+  border-radius: 10px; background: var(--bg-3); border: 1.5px solid var(--border-default);
+}
+.dd-wfg-node.is-victim { border-color: var(--red); color: var(--red); text-decoration: line-through; opacity: .7; }
+.dd-wfg-node.is-survivor { border-color: var(--green); color: var(--green); }
+.dd-wfg-edge { color: var(--text-muted); font-size: 13px; font-weight: 700; letter-spacing: -.02em; }
+.dd-wfg.is-deadlock .dd-wfg-edge { color: var(--red); }
+.dd-wfg-label { width: 100%; text-align: center; font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.dd-wfg.is-deadlock .dd-wfg-label { color: var(--red); font-weight: 700; }
+
+/* ============================================================
+   Isolation Levels — anomaly matrix + scenario strip
+   ============================================================ */
+.dd-matrix-wrap { overflow-x: auto; border-radius: 12px; border: 1px solid var(--border-default); }
+.dd-matrix { width: 100%; border-collapse: collapse; font-size: 12.5px; background: var(--bg-1); }
+.dd-matrix th, .dd-matrix td { padding: 10px 12px; text-align: center; border-bottom: 1px solid var(--border-subtle); }
+.dd-matrix thead th { font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); font-weight: 700; }
+.dd-matrix tbody th { text-align: left; font-weight: 700; color: var(--text-primary); white-space: nowrap; }
+.dd-matrix tr.is-current { background: var(--airflow-subtle); }
+.dd-matrix tr.is-current th { color: var(--airflow-bright); }
+.dd-matrix .cell-prevented { color: var(--green); font-weight: 800; }
+.dd-matrix .cell-allowed { color: var(--red); font-weight: 800; }
+.dd-scenario {
+  border-radius: 12px; padding: 12px 14px; background: var(--bg-1); border: 1px solid var(--border-default);
+}
+.dd-scenario-title { font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
+.dd-scenario-seq { display: flex; flex-direction: column; gap: 6px; }
+.dd-seq-line { display: flex; gap: 10px; align-items: baseline; font-size: 12.5px; }
+.dd-seq-who { font-weight: 800; flex: none; width: 34px; }
+.dd-seq-who.a { color: var(--cyan); }
+.dd-seq-who.b { color: var(--airflow-bright); }
+.dd-seq-act { font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); }
+.dd-seq-act b { color: var(--text-primary); }
+.dd-scenario-verdict { margin-top: 10px; }
+
+/* ============================================================
+   Crash Recovery — WAL timeline + phase bar + txn outcomes
+   ============================================================ */
+.dd-phasebar { display: flex; gap: 8px; flex-wrap: wrap; }
+.dd-phase {
+  flex: 1 1 100px; text-align: center; padding: 8px 10px; border-radius: 10px;
+  font-size: 12px; font-weight: 700; color: var(--text-muted);
+  background: var(--bg-1); border: 1px solid var(--border-default); transition: all .2s;
+}
+.dd-phase.on { color: var(--airflow-bright); border-color: var(--airflow); background: var(--airflow-subtle); box-shadow: 0 0 0 1px var(--airflow); }
+.dd-phase.done { color: var(--green); border-color: var(--green); }
+.dd-timeline { display: flex; flex-wrap: wrap; gap: 6px; align-items: stretch; }
+.dd-tl-rec {
+  flex: 0 1 96px; min-width: 84px; border-radius: 8px; padding: 7px 9px;
+  background: var(--bg-1); border: 1px solid var(--border-default); position: relative; transition: all .2s;
+}
+.dd-tl-rec.is-checkpoint { border-color: var(--purple); }
+.dd-tl-rec.is-crash { border: 1.5px dashed var(--red); background: rgba(239,68,68,.06); }
+.dd-tl-rec.scan { box-shadow: 0 0 0 2px var(--airflow); transform: translateY(-2px); }
+.dd-tl-rec.redo { box-shadow: 0 0 0 2px var(--cyan); }
+.dd-tl-rec.undo { box-shadow: 0 0 0 2px var(--orange); }
+.dd-tl-lsn { font-family: var(--font-mono); font-size: 9.5px; color: var(--text-muted); font-weight: 700; }
+.dd-tl-body { font-size: 11px; color: var(--text-primary); margin-top: 2px; font-family: var(--font-mono); }
+.dd-txntable { display: flex; flex-wrap: wrap; gap: 10px; }
+.dd-txnrow {
+  flex: 1 1 160px; min-width: 150px; display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; padding: 10px 12px; border-radius: 10px; background: var(--bg-1);
+  border: 1px solid var(--border-default); border-left-width: 3px; border-left-color: var(--border-muted);
+}
+.dd-txnrow.is-winner { border-left-color: var(--green); }
+.dd-txnrow.is-loser { border-left-color: var(--red); }
+.dd-txnrow-id { font-weight: 800; font-size: 13px; color: var(--text-primary); }
+.dd-txnrow-fate { font-size: 11px; color: var(--text-muted); }
+
+/* ============================================================
+   Buffer Pool — frames (memory) + disk strip + hit/miss stats
+   ============================================================ */
+.dd-bp-stats { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.dd-bp-req { font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: var(--text-primary); }
+.dd-frame { position: relative; }
+.dd-frame.pinned { border-color: var(--cyan); }
+.dd-frame-badges { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.dd-disk-strip { display: flex; flex-wrap: wrap; gap: 6px; }
+.dd-disk-page {
+  font-family: var(--font-mono); font-size: 11px; padding: 4px 9px; border-radius: 6px;
+  background: var(--bg-1); border: 1px solid var(--border-subtle); color: var(--text-muted);
+}
+.dd-disk-page.cached { border-color: var(--airflow); color: var(--airflow-bright); }
+
+/* ============================================================
+   Slotted Pages — page anatomy: slot directory + tuples + free
+   ============================================================ */
+.dd-page { border: 1px solid var(--border-default); border-radius: 12px; background: var(--bg-1); overflow: hidden; }
+.dd-page-hd {
+  padding: 7px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--text-muted); background: var(--bg-3); border-bottom: 1px solid var(--border-subtle);
+  display: flex; justify-content: space-between; gap: 8px;
+}
+.dd-page-body { padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+.dd-sub-label { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); font-weight: 700; margin-bottom: 6px; }
+.dd-slotdir { display: flex; flex-wrap: wrap; gap: 8px; }
+.dd-slot {
+  font-family: var(--font-mono); font-size: 11.5px; padding: 6px 10px; border-radius: 8px;
+  background: var(--bg-2); border: 1px solid var(--border-default); border-left: 3px solid var(--cyan);
+}
+.dd-slot.dead { border-left-color: var(--red); opacity: .6; text-decoration: line-through; }
+.dd-slot.hot { box-shadow: 0 3px 12px rgba(0,0,0,.18); }
+.dd-tuples { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; }
+.dd-tuple {
+  padding: 8px 12px; border-radius: 8px; background: var(--bg-2); border: 1.5px solid var(--border-default);
+  font-size: 12px; color: var(--text-primary); transition: all .2s;
+}
+.dd-tuple b { font-weight: 800; }
+.dd-tuple small { color: var(--text-muted); font-family: var(--font-mono); }
+.dd-tuple.hot { border-color: var(--airflow); box-shadow: 0 3px 12px rgba(0,0,0,.18); }
+.dd-tuple.hole { border-style: dashed; border-color: var(--red); color: var(--text-muted); background: transparent; }
+.dd-freespace {
+  flex: 1 1 90px; min-width: 90px; border: 1px dashed var(--border-muted); border-radius: 8px;
+  display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 11px; padding: 8px;
+}
+
+/* ============================================================
+   B+ Tree — levels of key-packed nodes + linked leaves
+   ============================================================ */
+.dd-tree { display: flex; flex-direction: column; gap: 16px; align-items: center; padding: 4px 0; }
+.dd-tree-level { display: flex; justify-content: center; align-items: center; gap: 12px; flex-wrap: wrap; }
+.dd-node {
+  display: inline-flex; gap: 3px; padding: 6px; border-radius: 9px;
+  background: var(--bg-1); border: 1.5px solid var(--border-default); transition: all .2s;
+}
+.dd-node.on-path { border-color: var(--cyan); box-shadow: 0 0 0 1px var(--cyan); }
+.dd-node.split { border-color: var(--orange); border-style: dashed; }
+.dd-node.is-new { border-color: var(--green); box-shadow: 0 0 0 1px var(--green); }
+.dd-node-key {
+  font-family: var(--font-mono); font-size: 12px; font-weight: 700; padding: 4px 8px; border-radius: 5px;
+  background: var(--bg-3); color: var(--text-secondary); min-width: 22px; text-align: center;
+}
+.dd-node-key.hit { background: var(--green); color: var(--text-on, #05231a); }
+.dd-node-key.scan { background: var(--cyan); color: var(--text-on, #04212a); }
+.dd-leaflink { align-self: center; color: var(--text-muted); font-size: 15px; }
+.dd-leaflink.scan { color: var(--cyan); }
+
+/* ============================================================
+   LSM-Tree — memtable (memory) + leveled SSTables (disk)
+   ============================================================ */
+.dd-kv-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.dd-kv-item { font-family: var(--font-mono); font-size: 11px; padding: 3px 8px; border-radius: 6px; background: var(--bg-3); color: var(--text-primary); }
+.dd-kv-item.tomb { color: var(--red); text-decoration: line-through; }
+.dd-level-label { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); font-weight: 700; margin-right: 4px; align-self: center; }
+.dd-sst {
+  flex: 0 1 148px; min-width: 128px; border-radius: 10px; padding: 9px 12px;
+  background: var(--bg-1); border: 1px solid var(--border-default); border-left: 3px solid var(--airflow); transition: all .2s;
+}
+.dd-sst.hot { transform: translateY(-2px); box-shadow: 0 5px 16px rgba(0,0,0,.2); }
+.dd-sst.merging { border-left-color: var(--orange); border-style: dashed; }
+.dd-sst.is-new { border-left-color: var(--green); box-shadow: 0 0 0 1px var(--green); }
+.dd-sst.skipped { opacity: .4; }
+.dd-sst-name { font-size: 11px; font-weight: 800; color: var(--text-primary); }
+.dd-sst-range { font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); margin-top: 3px; }
+.dd-sst-bloom { margin-top: 6px; }
+.dd-lsm-levelrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+/* ============================================================
+   Bloom Filter — bit array + hash probes
+   ============================================================ */
+.dd-bits { display: flex; flex-wrap: wrap; gap: 6px; }
+.dd-bit {
+  width: 36px; height: 40px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 0; line-height: 1.1; border-radius: 7px;
+  font-family: var(--font-mono); font-weight: 700; font-size: 14px; background: var(--bg-1);
+  border: 1.5px solid var(--border-default); color: var(--text-muted); transition: all .18s;
+}
+.dd-bit.set { background: var(--airflow-subtle); border-color: var(--airflow); color: var(--airflow-bright); }
+.dd-bit.probe { box-shadow: 0 0 0 2px var(--cyan); transform: translateY(-2px); }
+.dd-bit.probe-bad { box-shadow: 0 0 0 2px var(--red); transform: translateY(-2px); }
+.dd-bit-idx { font-size: 8px; color: var(--text-muted); }
+.dd-bloom-members { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* ============================================================
+   Query Processing — cost bars, candidate plans, access-path pages
+   (shared by query-optimization, cost-based-optimization,
+    index-scan, hash-join, query-execution)
+   ============================================================ */
+.dd-plan {
+  display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 10px;
+  background: var(--bg-1); border: 1px solid var(--border-default); transition: all .2s;
+}
+.dd-plan.win { border-color: var(--green); box-shadow: 0 0 0 1px var(--green); }
+.dd-plan.lose { opacity: .8; }
+.dd-plan-name { font-size: 12.5px; font-weight: 700; color: var(--text-primary); flex: 0 0 138px; }
+.dd-plan-name small { display: block; font-weight: 500; color: var(--text-muted); font-size: 10.5px; }
+.dd-costbar { position: relative; flex: 1 1 auto; height: 24px; border-radius: 6px; background: var(--bg-3); overflow: hidden; min-width: 90px; }
+.dd-costbar-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px; background: var(--airflow); opacity: .55; transition: width .3s; }
+.dd-costbar-fill.win { background: var(--green); opacity: .8; }
+.dd-costbar-fill.lose { background: var(--orange); opacity: .7; }
+.dd-costbar-label { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: var(--text-primary); }
+
+.dd-scanpages { display: flex; flex-wrap: wrap; gap: 5px; }
+.dd-pg {
+  width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 6px;
+  font-family: var(--font-mono); font-size: 10px; background: var(--bg-1); border: 1px solid var(--border-subtle);
+  color: var(--text-muted); transition: all .18s;
+}
+.dd-pg.seq { border-color: var(--cyan); color: var(--cyan); background: rgba(34,211,238,.10); }
+.dd-pg.fetch { border-color: var(--airflow); color: var(--airflow-bright); background: var(--airflow-subtle); }
+.dd-pg.match { box-shadow: 0 0 0 2px var(--green); }
+.dd-pathcol { display: flex; flex-direction: column; gap: 8px; }
+
+/* ============================================================
+   Distributed Systems — node clusters, replication streams,
+   partition shards, CAP triangle + link, quorum overlap,
+   Raft replicated log
+   (shared by replication, partitioning, cap-theorem, quorum,
+    raft-consensus)
+   ============================================================ */
+.dd-cluster { display: flex; flex-wrap: wrap; gap: 12px; align-items: stretch; justify-content: center; }
+.dd-cluster--left { justify-content: flex-start; }
+.dd-dnode {
+  flex: 1 1 150px; min-width: 138px; max-width: 240px; border-radius: 12px; padding: 11px 13px;
+  background: var(--bg-1); border: 1px solid var(--border-default); border-top-width: 3px;
+  border-top-color: var(--border-muted); transition: all .22s; display: flex; flex-direction: column; gap: 7px;
+}
+.dd-dnode.leader { border-top-color: var(--airflow); }
+.dd-dnode.follower { border-top-color: var(--cyan); }
+.dd-dnode.candidate { border-top-color: var(--orange); }
+.dd-dnode.new-leader { border-top-color: var(--green); box-shadow: 0 0 0 1px var(--green); }
+.dd-dnode.down { border-top-color: var(--red); border-style: dashed; opacity: .5; }
+.dd-dnode.stale { border-top-color: var(--orange); }
+.dd-dnode.hot { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.2); }
+.dd-dnode.overlap { box-shadow: 0 0 0 2px var(--green); }
+.dd-dnode-hd { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.dd-dnode-id { font-weight: 800; font-size: 14px; color: var(--text-primary); }
+.dd-dnode-role { font-size: 9.5px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; color: var(--text-muted); }
+.dd-dnode.leader .dd-dnode-role { color: var(--airflow-bright); }
+.dd-dnode.follower .dd-dnode-role { color: var(--cyan); }
+.dd-dnode.candidate .dd-dnode-role { color: var(--orange); }
+.dd-dnode.new-leader .dd-dnode-role { color: var(--green); }
+.dd-dnode.down .dd-dnode-role { color: var(--red); }
+.dd-dnode-val { font-size: 13px; color: var(--text-secondary); line-height: 1.45; }
+.dd-dnode-val b { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.dd-dnode-foot { display: flex; flex-wrap: wrap; gap: 5px; margin-top: auto; }
+.dd-dnode-keys { display: flex; flex-wrap: wrap; gap: 4px; }
+
+/* labeled flow connector (replication stream, routing) */
+.dd-flow {
+  align-self: center; display: inline-flex; flex-direction: column; align-items: center; gap: 2px;
+  color: var(--text-muted); font-size: 10px; font-weight: 700; letter-spacing: .04em; min-width: 58px; text-align: center;
+}
+.dd-flow-arrow { font-size: 18px; line-height: 1; color: var(--airflow); }
+.dd-flow.lag .dd-flow-arrow { color: var(--orange); }
+
+/* connection link (CAP partition) */
+.dd-linkrow { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
+.dd-link {
+  flex: 0 0 auto; min-width: 96px; text-align: center; font-size: 10.5px; font-weight: 700; letter-spacing: .04em;
+  padding: 6px 12px; border-radius: 999px; color: var(--green); background: rgba(16,185,129,.12); border: 1px solid transparent;
+}
+.dd-link.cut { color: var(--red); background: rgba(239,68,68,.10); border: 1px dashed var(--red); }
+
+/* CAP triangle */
+.dd-cap-tri { display: block; margin: 0 auto; max-width: 260px; }
+.dd-cap-tri .edge { stroke: var(--border-muted); stroke-width: 2; fill: none; transition: all .25s; }
+.dd-cap-tri .edge.keep { stroke: var(--green); stroke-width: 3.5; }
+.dd-cap-tri .edge.drop { stroke: var(--red); stroke-dasharray: 5 5; opacity: .5; }
+.dd-cap-tri .vtx { fill: var(--bg-3); stroke: var(--border-default); stroke-width: 1.5; transition: all .25s; }
+.dd-cap-tri .vtx.keep { fill: var(--airflow-subtle); stroke: var(--airflow); }
+.dd-cap-tri .vtx.drop { opacity: .35; }
+.dd-cap-tri .vletter { fill: var(--text-primary); font-size: 15px; font-weight: 800; text-anchor: middle; }
+.dd-cap-tri .vname { fill: var(--text-muted); font-size: 8px; font-weight: 700; text-anchor: middle; text-transform: uppercase; letter-spacing: .04em; }
+
+/* replicated log (Raft) */
+.dd-rlog { display: flex; gap: 4px; flex-wrap: wrap; }
+.dd-rlog-cell {
+  min-width: 32px; padding: 4px 6px; border-radius: 6px; font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+  text-align: center; background: var(--bg-3); color: var(--text-muted); border: 1px solid var(--border-subtle); transition: all .2s;
+}
+.dd-rlog-cell.filled { color: var(--text-primary); border-color: var(--border-default); background: var(--bg-1); }
+.dd-rlog-cell.committed { color: var(--green); border-color: var(--green); background: rgba(16,185,129,.10); }
+.dd-rlog-cell.uncommitted { color: var(--orange); border-color: var(--orange); border-style: dashed; }
+.dd-rlog-cell.hot { box-shadow: 0 0 0 2px var(--cyan); transform: translateY(-2px); }
+
+/* metric chips (W / R / N, term, lag) */
+.dd-metrics { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.dd-metric {
+  display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 5px 12px; border-radius: 10px;
+  background: var(--bg-1); border: 1px solid var(--border-default); min-width: 44px;
+}
+.dd-metric-val { font-size: 16px; font-weight: 800; color: var(--text-primary); font-family: var(--font-mono); line-height: 1.1; }
+.dd-metric-lbl { font-size: 8.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); font-weight: 700; }
+.dd-metric.good { border-color: var(--green); }
+.dd-metric.good .dd-metric-val { color: var(--green); }
+.dd-metric.bad { border-color: var(--red); }
+.dd-metric.bad .dd-metric-val { color: var(--red); }
+
+/* verdict banner (CAP / quorum outcome) */
+.dd-verdict {
+  display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 10px 14px; border-radius: 10px;
+  background: var(--bg-1); border: 1px solid var(--border-default); font-size: 12.5px; color: var(--text-secondary); line-height: 1.5;
+}
+.dd-verdict.ok { border-color: var(--green); }
+.dd-verdict.bad { border-color: var(--red); }
+.dd-verdict.warn { border-color: var(--orange); }
+.dd-verdict b { color: var(--text-primary); }
+
+/* ============================================================
+   Distributed Systems II (B5) — hash ring, saga chain,
+   election timer, version-vector rows
+   (shared by consistent-hashing, leader-election,
+    two-phase-commit, distributed-transactions, eventual-consistency)
+   ============================================================ */
+/* Consistent-hashing ring (SVG) */
+.dd-ring-wrap { display: flex; flex-wrap: wrap; gap: 18px; align-items: center; justify-content: center; }
+.dd-ring { display: block; flex: 0 0 auto; }
+.dd-ring .ring-base { fill: none; stroke: var(--border-default); stroke-width: 2; }
+.dd-ring .arc { fill: none; stroke-width: 7; opacity: .45; transition: opacity .2s; }
+.dd-ring .arc.moved { opacity: .95; }
+.dd-ring .node-dot { stroke: var(--bg-0); stroke-width: 2; }
+.dd-ring .node-dot.vnode { stroke-width: 1; }
+.dd-ring .node-lbl { fill: var(--text-primary); font-size: 11px; font-weight: 800; text-anchor: middle; }
+.dd-ring .key-dot { stroke: var(--bg-0); stroke-width: 1; transition: all .2s; }
+.dd-ring .key-dot.moved { stroke: var(--green); stroke-width: 2.5; }
+.dd-ring-legend { display: flex; flex-direction: column; gap: 7px; min-width: 130px; }
+.dd-ring-leg { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-secondary); }
+.dd-ring-swatch { width: 13px; height: 13px; border-radius: 4px; flex: none; }
+
+/* Saga chain (distributed transactions) */
+.dd-saga { display: flex; flex-wrap: wrap; gap: 5px; align-items: stretch; }
+.dd-saga-step {
+  flex: 1 1 116px; min-width: 104px; border-radius: 10px; padding: 9px 11px; background: var(--bg-1);
+  border: 1px solid var(--border-default); border-top: 3px solid var(--border-muted); transition: all .2s;
+}
+.dd-saga-step.done { border-top-color: var(--green); }
+.dd-saga-step.active { border-top-color: var(--cyan); box-shadow: 0 0 0 1px var(--cyan); transform: translateY(-2px); }
+.dd-saga-step.failed { border-top-color: var(--red); }
+.dd-saga-step.comp { border-top-color: var(--orange); border-style: dashed; }
+.dd-saga-step.undone { border-top-color: var(--orange); opacity: .85; }
+.dd-saga-step.pending { opacity: .45; }
+.dd-saga-name { font-size: 12.5px; font-weight: 700; color: var(--text-primary); }
+.dd-saga-sub { font-size: 11px; color: var(--text-muted); margin-top: 3px; line-height: 1.4; }
+.dd-saga-arrow { align-self: center; color: var(--text-muted); font-size: 15px; }
+.dd-saga-arrow.back { color: var(--orange); }
+
+/* Election countdown timer bar */
+.dd-timer { height: 5px; border-radius: 3px; background: var(--bg-3); overflow: hidden; margin-top: 4px; }
+.dd-timer-fill { height: 100%; background: var(--orange); border-radius: 3px; transition: width .3s; }
+.dd-timer-fill.fired { background: var(--airflow); }
+
+/* ── Responsive ───────────────────────────────────────────── */
+@media (max-width: 720px) {
+  .dd-card, .dd-logrec, .dd-tl-rec, .dd-sst { flex-basis: 100%; }
+  .dd-arrow { transform: rotate(90deg); }
+  .dd-lockrow { grid-template-columns: 1fr; gap: 4px; }
+  .dd-bit { width: 30px; height: 30px; font-size: 12px; }
+  .dd-node-key { font-size: 11px; padding: 3px 6px; }
+  .dd-plan-name { flex-basis: 100px; }
+  .dd-dnode { flex-basis: 100%; max-width: none; }
+  .dd-flow { transform: rotate(90deg); min-width: 0; }
+  .dd-saga-step { flex-basis: 100%; }
+  .dd-saga-arrow { transform: rotate(90deg); }
+}
