@@ -127,6 +127,13 @@ export function mount(container) {
             <span class="home-card-desc">Make the trade-off call on real scenarios, then see why each option wins or loses.</span>
           </span>
         </a>
+        <a href="#troubleshoot" class="home-card">
+          <span class="home-card-icon">🔍</span>
+          <span class="home-card-text">
+            <span class="home-card-title">Troubleshooting Lab</span>
+            <span class="home-card-desc">Work real production incidents step by step — choose what to check, follow the evidence to root cause.</span>
+          </span>
+        </a>
         <a href="#study" class="home-card">
           <span class="home-card-icon">📚</span>
           <span class="home-card-text">

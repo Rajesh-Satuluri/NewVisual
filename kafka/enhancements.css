@@ -550,3 +550,64 @@ body.cmdk-open { overflow: hidden; }
   .ca-list { padding-left: 16px; padding-right: 16px; }
   .ca-card-head { flex-wrap: wrap; }
 }
+
+/* ── Troubleshooting Lab / Incident Bank ───────────────────────────────────── */
+.inv-list, .ib-list { display: flex; flex-direction: column; gap: 12px; }
+.ca-card-icon { font-size: 18px; flex-shrink: 0; }
+
+.inv-symptom {
+  border: 1px solid var(--border); border-left: 3px solid var(--red); border-radius: 8px;
+  background: color-mix(in srgb, var(--red) 7%, var(--bg2)); padding: 13px 15px; margin-bottom: 16px;
+}
+.inv-symptom-head { font-weight: 700; color: var(--red); margin-bottom: 6px; }
+.inv-symptom-body { color: var(--text); line-height: 1.55; }
+
+.inv-progress { margin-bottom: 10px; }
+.inv-step-count { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text3); }
+
+.inv-prompt { font-weight: 600; color: var(--text); margin-bottom: 12px; font-size: 15px; }
+.inv-checks { display: flex; flex-direction: column; gap: 10px; }
+.inv-check {
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--bg); padding: 13px 15px;
+  color: var(--text); transition: border-color .15s, background .15s;
+}
+.inv-check:hover:not(:disabled):not(.resolved) { border-color: var(--accent); background: var(--bg3); }
+.inv-check:disabled { cursor: default; }
+.inv-check-label { font-weight: 600; display: block; }
+.inv-check.correct { border-color: var(--green); background: color-mix(in srgb, var(--green) 10%, var(--bg)); }
+.inv-check.wrong   { border-color: var(--red);   background: color-mix(in srgb, var(--red) 10%, var(--bg)); opacity: .9; }
+.inv-check-feedback { display: block; margin-top: 10px; font-weight: 400; line-height: 1.6; }
+.inv-check-feedback > span { display: block; color: var(--text2); }
+.inv-check-feedback > span + span { margin-top: 7px; }
+.inv-evidence { color: var(--text) !important; }
+.inv-wrongwhy { color: var(--text2); }
+
+.inv-solved { padding: 18px; text-align: center; font-weight: 700; color: var(--green);
+  border: 1px dashed var(--green); border-radius: 10px; background: color-mix(in srgb, var(--green) 7%, var(--bg)); }
+
+.inv-outcome { margin-top: 16px; display: flex; flex-direction: column; gap: 12px; }
+.inv-block { border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; padding: 13px 15px; background: var(--bg2); }
+.inv-block.inv-root { border-left-color: var(--amber); }
+.inv-block.inv-res  { border-left-color: var(--green); }
+.inv-block.inv-prev { border-left-color: var(--blue); }
+.inv-block.inv-say  { border-left-color: var(--accent2, var(--accent)); }
+.inv-block-head { font-weight: 700; margin-bottom: 6px; color: var(--text); }
+.inv-block-body { color: var(--text2); line-height: 1.6; }
+
+.inv code, .ib-list code, .inv-symptom code { background: var(--bg3); padding: 1px 6px; border-radius: 5px; font-size: .92em; }
+
+/* Incident Bank ordered checklist */
+.ib-section-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text3); margin: 4px 0 10px; }
+.ib-steps { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.ib-step { display: flex; gap: 12px; }
+.ib-step-n { flex-shrink: 0; width: 24px; height: 24px; border-radius: 50%; background: var(--accent-lo); color: var(--accent);
+  font-weight: 800; font-size: 12px; display: flex; align-items: center; justify-content: center; margin-top: 2px; }
+.ib-step-body { flex: 1; }
+.ib-step-q { font-weight: 600; color: var(--text); }
+.ib-step-do { color: var(--text); margin-top: 3px; }
+.ib-step-ev { color: var(--text2); margin-top: 3px; line-height: 1.55; }
+
+@media (max-width: 768px) {
+  .inv-list, .ib-list { padding-left: 16px; padding-right: 16px; }
+}

@@ -32,12 +32,14 @@ export const MODULES = [
 
 const GROUP_ORDER = ['Foundation','Core Internals','Consumer Side','Delivery','Ecosystem','Operations','Advanced'];
 const REFERENCE = [
-  { id:'master-map', label:'Master Map', icon:'🗺️' },
-  { id:'glossary',   label:'Glossary',   icon:'📖' },
-  { id:'cheatsheet', label:'Cheat Sheet', icon:'📋' },
+  { id:'master-map',   label:'Master Map',   icon:'🗺️' },
+  { id:'glossary',     label:'Glossary',     icon:'📖' },
+  { id:'cheatsheet',   label:'Cheat Sheet',  icon:'📋' },
+  { id:'incident-bank', label:'Incident Bank', icon:'🚑' },
 ];
 const PRACTICE = [
-  { id:'decisions', label:'Choose the Approach', icon:'🧭' },
+  { id:'decisions',    label:'Choose the Approach', icon:'🧭' },
+  { id:'troubleshoot', label:'Troubleshooting Lab', icon:'🔍' },
 ];
 const REVIEW = { id:'study', label:'Study Hub', icon:'📚' };
 

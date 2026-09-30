@@ -17,6 +17,8 @@ const PAGES = {
   cheatsheet: `Reference &rsaquo; <strong>📋 Cheat Sheet</strong>`,
   'master-map': `Reference &rsaquo; <strong>🗺️ Master Map</strong>`,
   decisions: `Practice &rsaquo; <strong>🧭 Choose the Approach</strong>`,
+  troubleshoot: `Practice &rsaquo; <strong>🔍 Troubleshooting Lab</strong>`,
+  'incident-bank': `Reference &rsaquo; <strong>🚑 Incident Bank</strong>`,
   study: `Review &rsaquo; <strong>📚 Study Hub</strong>`,
 };
 
@@ -32,6 +34,8 @@ const LOADERS = {
   cheatsheet: () => import('./modules/cheatsheet.js'),
   'master-map': () => import('./modules/master-map.js'),
   decisions: () => import('./modules/decisions.js'),
+  troubleshoot: () => import('./modules/troubleshoot.js'),
+  'incident-bank': () => import('./modules/incident-bank.js'),
   study: () => import('./modules/study.js'),
   m01: () => import('./modules/m01-intro.js'),
   m02: () => import('./modules/m02-messaging.js'),

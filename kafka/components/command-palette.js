@@ -18,7 +18,9 @@ const EXTRA = [
   { id: 'master-map', label: 'Master Map', icon: '🗺️', group: 'Reference' },
   { id: 'glossary', label: 'Glossary', icon: '📖', group: 'Reference' },
   { id: 'cheatsheet', label: 'Cheat Sheet', icon: '📋', group: 'Reference' },
+  { id: 'incident-bank', label: 'Incident Bank', icon: '🚑', group: 'Reference' },
   { id: 'decisions', label: 'Choose the Approach', icon: '🧭', group: 'Practice' },
+  { id: 'troubleshoot', label: 'Troubleshooting Lab', icon: '🔍', group: 'Practice' },
   { id: 'study', label: 'Study Hub', icon: '📚', group: 'Review' },
 ];
 
