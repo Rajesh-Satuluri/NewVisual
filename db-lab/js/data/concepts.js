@@ -12,15 +12,28 @@
     "group": "Foundations",
     "domain": "Foundations",
     "simFile": "sims/modules/m01-what-is-dbms.js",
-    "authored": false,
-    "why": "",
-    "intuition": "",
-    "internals": "",
+    "authored": true,
+    "why": "Every non-trivial application needs concurrent access, crash safety, flexible queries, and enforced data rules. A DBMS owns these hard, universal problems once — behind one interface — so apps don't re-solve them badly.",
+    "intuition": "Software that sits between your app and the data, managing storage, retrieval, and integrity — and giving you SQL, transactions, durability, and access control as managed services.",
+    "internals": "A stack of services: a storage engine (pages, buffer pool, access methods), a query processor (parse → plan → execute), and cross-cutting transaction/lock/log managers for ACID. Declarative access lets the optimizer choose and re-choose execution plans as data changes.",
     "prerequisites": [],
-    "related": [],
+    "related": [
+      "m02",
+      "m03",
+      "m05"
+    ],
     "engineeringApp": null,
-    "failureModes": "",
-    "interviewQs": []
+    "failureModes": "Re-implementing a database inside the app (files + ad-hoc locking). Integrity enforced only in app code, bypassed by other writers. Choosing the wrong class of DBMS for the workload.",
+    "interviewQs": [
+      {
+        "q": "What does a DBMS provide that raw file storage doesn't?",
+        "a": "A declarative query language, concurrency control (transactions + locking/MVCC), crash-safe durability (WAL + recovery), and enforced integrity/access control — all behind one interface, solved once instead of re-built (badly) in every app."
+      },
+      {
+        "q": "Why enforce constraints in the database rather than the application?",
+        "a": "The database is the single gate every writer passes through. App-only rules are bypassed by the next app, migration, or manual fix; a constraint in the schema holds for all of them."
+      }
+    ]
   },
   {
     "id": "m02",
@@ -30,15 +43,30 @@
     "group": "Foundations",
     "domain": "Foundations",
     "simFile": "sims/modules/m02-why-databases.js",
-    "authored": false,
-    "why": "",
-    "intuition": "",
-    "internals": "",
-    "prerequisites": [],
-    "related": [],
+    "authored": true,
+    "why": "Raw files break under concurrency (lost updates), crashes (corruption), ad-hoc questions (no query language), integrity needs, and redundancy (inconsistency). Each wall is a specific database guarantee.",
+    "intuition": "Files work for one user and small data. The second writer, the first crash, and the first ad-hoc question are the walls that make a database necessary.",
+    "internals": "The reasons map to subsystems: concurrency → transaction manager (locks/MVCC); crashes → WAL + recovery; queries → query processor + indexes; integrity → constraints; redundancy → normalization/single source of truth; scale → a shared, secured managed service.",
+    "prerequisites": [
+      "m01"
+    ],
+    "related": [
+      "m03",
+      "m01",
+      "m46"
+    ],
     "engineeringApp": null,
-    "failureModes": "",
-    "interviewQs": []
+    "failureModes": "Silent lost updates under concurrent file writes. Corruption on a crash mid-write. Query sprawl of bespoke scan-and-filter scripts. Garbage and inconsistent data from no enforced integrity.",
+    "interviewQs": [
+      {
+        "q": "Why do databases exist — what can't files do?",
+        "a": "Files can't coordinate concurrent writers (lost updates), recover atomically from crashes, answer ad-hoc queries efficiently, enforce integrity across writers, or avoid inconsistency from duplicated facts. Databases solve each with a guarantee: transactions, WAL/recovery, SQL+indexes, constraints, and normalization."
+      },
+      {
+        "q": "When is it fine to just use files?",
+        "a": "When data isn't shared/concurrent, needn't survive crashes, isn't queried in varied ways, and needs no enforced rules — config, logs, caches, one-off scripts. Move to a database once data becomes shared, concurrent, valuable, or growing."
+      }
+    ]
   },
   {
     "id": "m03",
@@ -48,15 +76,30 @@
     "group": "Foundations",
     "domain": "Foundations",
     "simFile": "sims/modules/m03-dbms-architecture.js",
-    "authored": false,
-    "why": "",
-    "intuition": "",
-    "internals": "",
-    "prerequisites": [],
-    "related": [],
+    "authored": true,
+    "why": "Almost every database concept is a place in this stack — EXPLAIN from the optimizer, cache hits from the buffer pool, isolation from the lock manager, durability from the WAL. Knowing the shape locates every problem and tuning knob.",
+    "intuition": "A request descends: connection → parser → optimizer → executor → storage engine (buffer pool + access methods), wrapped by transaction/lock/log managers. Rows flow back up.",
+    "internals": "Query processing turns SQL into a plan (touching no user data); execution runs the plan as an operator tree (iterator model); the storage engine serves pages via access methods + the buffer pool; transaction/lock/log managers wrap every page touch for ACID.",
+    "prerequisites": [
+      "m01"
+    ],
+    "related": [
+      "m04",
+      "m47",
+      "m30"
+    ],
     "engineeringApp": null,
-    "failureModes": "",
-    "interviewQs": []
+    "failureModes": "Connection exhaustion from no pooling. Bad plans from stale statistics. Cold-cache latency in the storage engine. Lock contention from long transactions.",
+    "interviewQs": [
+      {
+        "q": "Walk me through a database's architecture.",
+        "a": "Connection/session manager (auth + pooled backend) → parser & rewriter (SQL → validated tree) → planner/optimizer (cost plans, pick cheapest) → execution engine (operator tree, iterator model) → storage engine (access methods + buffer pool) → cross-cutting transaction/lock/log managers for ACID. Rows flow back up to the client."
+      },
+      {
+        "q": "The same query is fast sometimes, slow others, with the same plan. Which layer?",
+        "a": "The storage engine's buffer pool: a warm cache serves pages from memory, a cold cache pays disk I/O. Confirm with EXPLAIN (ANALYZE, BUFFERS) — shared hit vs read."
+      }
+    ]
   },
   {
     "id": "m04",
@@ -66,15 +109,30 @@
     "group": "Foundations",
     "domain": "Foundations",
     "simFile": "sims/modules/m04-data-models.js",
-    "authored": false,
-    "why": "",
-    "intuition": "",
-    "internals": "",
-    "prerequisites": [],
-    "related": [],
+    "authored": true,
+    "why": "The model you pick shapes queries, integrity, and scale. The same order is easy to query one way and painful another — so the model is matched to access patterns, not fashion.",
+    "intuition": "Relational (tables), document (nested JSON aggregates), key-value (opaque blobs by key), wide-column (partitioned column families), graph (nodes + edges). Real systems mix several (polyglot persistence).",
+    "internals": "Relational normalizes and joins (integrity + ad-hoc queries); document embeds an aggregate for one-read access (weaker cross-doc integrity); key-value and wide-column trade query power for speed/scale; graph makes relationship traversal a local hop rather than a join.",
+    "prerequisites": [
+      "m01"
+    ],
+    "related": [
+      "m05",
+      "m03",
+      "m01"
+    ],
     "engineeringApp": null,
-    "failureModes": "",
-    "interviewQs": []
+    "failureModes": "Wrong model for the access pattern. Over-embedding shared, independently-updated data in documents. Relational-thinking a wide-column store. Polyglot sprawl kept in sync by fragile dual-writes/CDC.",
+    "interviewQs": [
+      {
+        "q": "Compare the major data models and when you'd choose each.",
+        "a": "Relational for transactions/integrity/ad-hoc queries (the default); document for self-contained aggregates with flexible schema; key-value for known-key lookups at extreme speed (cache/sessions); wide-column for massive write scale with query-first design; graph for deep relationship traversal. The selector is the access pattern plus integrity/scale needs."
+      },
+      {
+        "q": "What is polyglot persistence and its trade-off?",
+        "a": "Using several stores/models, each for the workload its strengths fit. The benefit is fit; the cost is operational and consistency overhead — every store must be secured, backed up, monitored, and kept in sync (often via CDC/dual writes). Minimize the number of stores."
+      }
+    ]
   },
   {
     "id": "m05",
@@ -84,15 +142,31 @@
     "group": "Foundations",
     "domain": "Foundations",
     "simFile": "sims/modules/m05-relational-model.js",
-    "authored": false,
-    "why": "",
-    "intuition": "",
-    "internals": "",
-    "prerequisites": [],
-    "related": [],
+    "authored": true,
+    "why": "Relational endures because it combines declarative set-based queries, provable integrity (keys + constraints), and physical data independence — the formal foundation SQL is built on.",
+    "intuition": "Data as relations (sets of tuples over typed attributes). Keys give identity; entity + referential integrity keep it sound; every operation returns a relation, so queries compose.",
+    "internals": "A relation is a set (no duplicates, no order) → keys identify tuples. Primary key = unique + NOT NULL (entity integrity); foreign key references a PK (referential integrity). Closure: select/project/join return relations, so SQL composes. The logical schema is independent of physical storage.",
+    "prerequisites": [
+      "m04",
+      "m01"
+    ],
+    "related": [
+      "m01",
+      "m04",
+      "m46"
+    ],
     "engineeringApp": null,
-    "failureModes": "",
-    "interviewQs": []
+    "failureModes": "Keyless tables (no reliable row identity). Orphan rows from omitted foreign keys. Domain-less text columns that accept impossible values. Code relying on unspecified row order.",
+    "interviewQs": [
+      {
+        "q": "Explain the relational model and its integrity rules.",
+        "a": "Data as relations — sets of tuples over named, typed attributes. Because a relation is a set (no dupes/order), tuples are identified by value, so keys are central: primary key = unique + NOT NULL (entity integrity); foreign key references another relation's PK (referential integrity, no orphans). Closure means every operation returns a relation, so SQL composes."
+      },
+      {
+        "q": "What is physical data independence?",
+        "a": "The logical schema (relations, keys, constraints) is separated from physical storage (files, pages, indexes, plans). You can add an index or repartition and the same application SQL keeps working — just faster. It's a big reason relational systems stay correct and tunable over decades."
+      }
+    ]
   },
   {
     "id": "m06",
@@ -978,15 +1052,30 @@
     "group": "Transactions",
     "domain": "Transactions & Concurrency",
     "simFile": "sims/modules/m50-vacuum.js",
-    "authored": false,
-    "why": "",
-    "intuition": "",
-    "internals": "",
-    "prerequisites": [],
-    "related": [],
+    "authored": true,
+    "why": "MVCC never overwrites a row — it leaves the old version behind as a dead tuple. VACUUM reclaims that space and freezes old transaction IDs; without it, tables bloat without bound and the database can eventually refuse writes.",
+    "intuition": "Every UPDATE/DELETE leaves a corpse on the page. VACUUM is the janitor that clears the corpses no open snapshot still needs — but a single long-running transaction pins the horizon and blocks it everywhere.",
+    "internals": "A dead tuple is removable only when its deleting XID is committed and below the xmin horizon (the oldest snapshot any live txn needs). VACUUM frees that space into the free-space map for reuse (it does NOT shrink the file), removes matching index entries, updates the visibility map, and freezes aged tuples to dodge 32-bit XID wraparound. Autovacuum runs it per table when n_dead_tup crosses a threshold.",
+    "prerequisites": [
+      "m48"
+    ],
+    "related": [
+      "m67",
+      "m48",
+      "m54"
+    ],
     "engineeringApp": null,
-    "failureModes": "",
-    "interviewQs": []
+    "failureModes": "A long-open or idle-in-transaction session pins the xmin horizon so VACUUM reclaims nothing → runaway bloat. Autovacuum throttled or behind on hot tables. XID wraparound emergency if freezing falls behind → forced non-cancelable anti-wraparound vacuum, then write refusal at the limit.",
+    "interviewQs": [
+      {
+        "q": "Why can one idle transaction bloat every table in the database?",
+        "a": "VACUUM can only remove tuples older than the xmin horizon — the oldest snapshot any live transaction still needs. One long-open (even idle-in-transaction) session pins that horizon globally, so dead tuples can't be reclaimed in any table until it ends."
+      },
+      {
+        "q": "Does plain VACUUM return disk space to the OS?",
+        "a": "No. Plain VACUUM frees dead-tuple space for reuse within the table (via the free-space map); the file stays the same size. VACUUM FULL (or pg_repack) rewrites and shrinks the file, but takes an AccessExclusiveLock."
+      }
+    ]
   },
   {
     "id": "m51",
@@ -1050,15 +1139,30 @@
     "group": "Transactions",
     "domain": "Transactions & Concurrency",
     "simFile": "sims/modules/m54-checkpoints.js",
-    "authored": false,
-    "why": "",
-    "intuition": "",
-    "internals": "",
-    "prerequisites": [],
-    "related": [],
+    "authored": true,
+    "why": "Between checkpoints, committed changes live only in the WAL while their data pages sit dirty in memory. A checkpoint flushes those pages and marks a safe redo point — bounding how much WAL a crash must replay, which is your restart time.",
+    "intuition": "A checkpoint is what lets recovery start in the middle of the log instead of the beginning. Checkpoint often for a fast restart (more I/O), rarely for cheaper steady state (slower recovery).",
+    "internals": "Triggered by time (checkpoint_timeout) or WAL volume (max_wal_size), the checkpointer flushes all dirty buffers, fsyncs the data files, then writes a checkpoint record with the new redo LSN. WAL before that point becomes recyclable. checkpoint_completion_target spreads the flush to avoid an I/O spike; frequent checkpoints inflate WAL via full-page writes.",
+    "prerequisites": [
+      "m47"
+    ],
+    "related": [
+      "m50",
+      "m53",
+      "m67"
+    ],
     "engineeringApp": null,
-    "failureModes": "",
-    "interviewQs": []
+    "failureModes": "Sparse checkpoints + high WAL rate → long recovery (RTO blowout). Low completion target → periodic I/O spikes that stall queries. Undersized max_wal_size → volume-triggered checkpoint thrash and full-page-write churn. WAL disk fills if archiving or a replication slot pins old segments.",
+    "interviewQs": [
+      {
+        "q": "What bounds how long crash recovery takes, and how do you tune it?",
+        "a": "The volume of WAL written since the last checkpoint — recovery replays from the redo point forward. Checkpoint more often (smaller max_wal_size / timeout) for a faster restart at the cost of more steady-state flush and full-page-write I/O; balance it against your RTO and test it."
+      },
+      {
+        "q": "Why can very frequent checkpoints increase WAL volume?",
+        "a": "Full-page writes: the first change to each page after a checkpoint logs the whole 8 KB page for torn-page safety. More checkpoints mean more of these first-touches, so more full-page images — inflating WAL rather than reducing it."
+      }
+    ]
   },
   {
     "id": "m55",
@@ -1280,19 +1384,34 @@
     "id": "m67",
     "slug": "wal-internals",
     "title": "WAL Internals",
-    "icon": "📝",
+    "icon": "🔬",
     "group": "Transactions",
     "domain": "Transactions & Concurrency",
     "simFile": "sims/modules/m67-wal-internals.js",
-    "authored": false,
-    "why": "",
-    "intuition": "",
-    "internals": "",
-    "prerequisites": [],
-    "related": [],
+    "authored": true,
+    "why": "Knowing WAL exists is the concept; the internals — LSNs, record layout, the write-vs-fsync boundary, full-page writes, page LSN — are what let you reason about commit latency, torn-page safety, and why a lagging replica can fill the WAL disk.",
+    "intuition": "The WAL is one giant byte stream and an LSN is a position in it. A commit is durable only once the stream is fsynced past its commit record — not merely written to the OS cache.",
+    "internals": "insertLSN (memory) ≥ writtenLSN (OS) ≥ flushedLSN (stable storage); COMMIT waits for flushedLSN to pass its commit record. Records are header + payload, CRC-checked, chained by prev-LSN. Full-page writes log a whole 8 KB page on its first change after a checkpoint (torn-page safety). Each page stores its page LSN so redo skips already-applied records (idempotent). The stream is stored as 16 MB segments, recycled after the redo point.",
+    "prerequisites": [
+      "m47"
+    ],
+    "related": [
+      "m54",
+      "m53",
+      "m48"
+    ],
     "engineeringApp": null,
-    "failureModes": "",
-    "interviewQs": []
+    "failureModes": "fsync lies / fsync=off → silent durability loss; full_page_writes=off → torn pages. Slow WAL storage → commit-latency spikes. Over-frequent checkpoints → full-page-write volume explosion. Stalled archive_command or a lagging replication slot → WAL disk fills and writes stop.",
+    "interviewQs": [
+      {
+        "q": "What exactly does COMMIT wait for?",
+        "a": "For the WAL to be flushed (fsynced) up to its commit record's LSN — flushedLSN ≥ commit LSN. Not merely written to the OS page cache (that's writtenLSN), and not the data pages. Group commit lets one fsync satisfy many concurrent commits."
+      },
+      {
+        "q": "How is redo made idempotent so recovery can restart safely?",
+        "a": "Each data page stores the LSN of the last change applied to it (page LSN). During redo, recovery skips any WAL record whose LSN is ≤ the page LSN, so replaying the log twice is a no-op — which lets recovery re-run after a crash during recovery."
+      }
+    ]
   },
   {
     "id": "m68",
