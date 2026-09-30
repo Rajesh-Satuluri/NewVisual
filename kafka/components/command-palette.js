@@ -13,7 +13,10 @@ function fuzzyScore(query, text) {
   return qi === query.length ? score : null;
 }
 
-const EXTRA = [{ id: 'study', label: 'Study Hub', icon: '📚', group: 'Review' }];
+const EXTRA = [
+  { id: 'home', label: 'Home', icon: '🏠', group: 'Start' },
+  { id: 'study', label: 'Study Hub', icon: '📚', group: 'Review' },
+];
 
 export function initCommandPalette() {
   const ITEMS = [...MODULES, ...EXTRA];

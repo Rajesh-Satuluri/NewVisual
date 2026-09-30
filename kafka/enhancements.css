@@ -267,3 +267,116 @@ body.cmdk-open { overflow: hidden; }
   .pager { padding-left: 16px; padding-right: 16px; }
   .pager-name { max-width: 60vw; }
 }
+
+/* ── Home / landing page ───────────────────────────────────────────────────── */
+.home-hero {
+  padding: 48px 40px 8px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+.home-title {
+  font-size: clamp(30px, 5vw, 46px);
+  font-weight: 850;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  margin: 14px 0 0;
+  color: var(--text);
+}
+.home-title-grad {
+  background: linear-gradient(90deg, var(--accent), var(--accent2, var(--accent)));
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+.home-sub {
+  max-width: 720px;
+  margin: 16px 0 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text2);
+}
+.home-cta { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 22px; }
+.home-btn {
+  display: inline-flex; align-items: center;
+  padding: 11px 20px;
+  border-radius: 10px;
+  font-size: 14px; font-weight: 650;
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: transform .12s ease, background .15s ease, border-color .15s ease;
+}
+.home-btn-primary { background: var(--accent); color: #fff; }
+.home-btn-primary:hover { transform: translateY(-1px); filter: brightness(1.05); }
+.home-btn-ghost { background: transparent; color: var(--text); border-color: var(--border); }
+.home-btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+.home-stats { padding: 26px 0 4px; }
+
+.home-section-head { padding-top: 30px; }
+
+/* Start-here numbered path */
+.home-steps { display: flex; flex-direction: column; gap: 10px; padding: 4px 40px 0; }
+.home-step {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 16px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  text-decoration: none;
+  transition: transform .12s ease, border-color .15s ease, background .15s ease;
+}
+.home-step:hover { transform: translateX(3px); border-color: var(--accent); }
+.home-step.done { border-color: color-mix(in srgb, var(--green) 45%, var(--border)); }
+.home-step-num {
+  flex: none; width: 30px; height: 30px;
+  display: grid; place-items: center;
+  border-radius: 8px;
+  background: var(--bg3); color: var(--accent);
+  font-weight: 800; font-size: 13px;
+}
+.home-step-body { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.home-step-title { font-weight: 650; font-size: 14px; color: var(--text); }
+.home-step-desc { font-size: 12px; color: var(--text2); line-height: 1.45; }
+.home-step-arrow, .home-step-check { flex: none; font-size: 16px; color: var(--text3); }
+.home-step-check { color: var(--green); }
+
+/* Curriculum groups + cards */
+.home-group { padding: 0 40px; margin-top: 8px; }
+.home-group-head {
+  display: flex; align-items: baseline; gap: 10px;
+  margin: 22px 0 12px;
+}
+.home-group-name { font-size: 13px; font-weight: 750; letter-spacing: .04em; text-transform: uppercase; color: var(--text); }
+.home-group-count { font-size: 11px; color: var(--text3); }
+.home-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+.home-ref-grid { padding: 4px 40px 0; }
+.home-card {
+  display: flex; gap: 12px; align-items: flex-start;
+  padding: 14px 16px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  text-decoration: none;
+  transition: transform .12s ease, border-color .15s ease;
+}
+.home-card:hover { transform: translateY(-2px); border-color: var(--accent); }
+.home-card.done { border-color: color-mix(in srgb, var(--green) 45%, var(--border)); }
+.home-card-icon { font-size: 22px; line-height: 1; flex: none; }
+.home-card-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.home-card-title { font-size: 14px; font-weight: 650; color: var(--text); }
+.home-card-num { color: var(--accent); font-weight: 800; margin-right: 2px; }
+.home-card-desc { font-size: 12px; color: var(--text2); line-height: 1.45; }
+
+.home-tip { padding: 30px 40px 40px; font-size: 12.5px; color: var(--text3); text-align: center; }
+.home-tip kbd {
+  background: var(--bg3); border: 1px solid var(--border); border-radius: 5px;
+  padding: 1px 6px; font-size: 11px; font-family: inherit; color: var(--text2);
+}
+
+@media (max-width: 768px) {
+  .home-hero { padding: 32px 16px 8px; }
+  .home-steps, .home-group, .home-ref-grid, .home-tip { padding-left: 16px; padding-right: 16px; }
+  .home-stats { padding-left: 16px; padding-right: 16px; }
+}
