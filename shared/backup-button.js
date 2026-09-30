@@ -94,6 +94,14 @@
     '<polyline points="7 10 12 15 17 10"/>' +
     '<line x1="12" y1="15" x2="12" y2="3"/></svg>';
 
+  var HOME_ICON =
+    '<svg class="nv-backup-ic" width="15" height="15" viewBox="0 0 24 24"' +
+    ' fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"' +
+    ' stroke-linejoin="round" aria-hidden="true" focusable="false">' +
+    '<path d="M3 10.5 12 3l9 7.5"/>' +
+    '<path d="M5 9.5V21h14V9.5"/>' +
+    '<path d="M9.5 21v-6h5v6"/></svg>';
+
   var CSS = [
     ".nv-backup{",
     "  display:inline-flex;align-items:center;gap:7px;",
@@ -108,14 +116,25 @@
     ".nv-backup:active{transform:translateY(1px);}",
     ".nv-backup:focus-visible{outline:2px solid #7cc0ff;outline-offset:2px;}",
     ".nv-backup-ic{display:block;flex:0 0 auto;}",
+    // Home button: a quieter, secondary pill so Backup stays the accent.
+    ".nv-home{background:rgba(120,130,150,.16);color:inherit;",
+    "  border:1px solid rgba(130,140,160,.34);}",
+    ".nv-home:hover{background:rgba(120,130,150,.28);color:inherit;}",
+    ".nv-actions{display:inline-flex;align-items:center;gap:8px;}",
     ".nv-backup--inbar{align-self:center;padding:8px 12px;",
     "  box-shadow:0 1px 2px rgba(0,0,0,.15);}",
+    ".nv-home.nv-backup--inbar{box-shadow:none;}",
     ".nv-backup--fixed{position:fixed;top:12px;right:14px;z-index:9999;",
     "  padding:9px 13px;box-shadow:0 4px 16px rgba(0,0,0,.28);}",
+    ".nv-actions--fixed{position:fixed;top:12px;right:14px;z-index:9999;}",
+    ".nv-actions--fixed .nv-backup{position:static;padding:9px 13px;",
+    "  box-shadow:0 4px 16px rgba(0,0,0,.28);}",
     "@media (max-width:560px){",
     "  .nv-backup-txt{display:none;}",
     "  .nv-backup--inbar{padding:8px;}",
     "  .nv-backup--fixed{padding:9px;top:10px;right:10px;}",
+    "  .nv-actions--fixed{top:10px;right:10px;gap:6px;}",
+    "  .nv-actions--fixed .nv-backup{padding:9px;}",
     "}",
     "@media (prefers-reduced-motion:reduce){.nv-backup{transition:none;}}"
   ].join("\n");
@@ -128,18 +147,11 @@
     (document.head || document.documentElement).appendChild(st);
   }
 
-  function init() {
-    if (document.getElementById("nv-backup-link")) return; // idempotent
-
-    var self = findSelf();
-    var ds = (self && self.dataset) || {};
-    var rootURL = siteRootURL(self);
+  // --- build the download/backup pill ---
+  function makeBackup(ds, rootURL) {
     var zip = resolveZipHref(ds, rootURL);
     var label = ds.label || "Backup";
     var title = ds.title || "Download this project as a .zip backup";
-
-    injectStyleOnce();
-
     var a = document.createElement("a");
     a.id = "nv-backup-link";
     a.className = "nv-backup";
@@ -149,27 +161,81 @@
     a.title = title;
     a.setAttribute("aria-label", title);
     a.innerHTML = ICON + '<span class="nv-backup-txt"></span>';
-    a.querySelector(".nv-backup-txt").textContent = label; // safe text set
+    a.querySelector(".nv-backup-txt").textContent = label;
+    return a;
+  }
+
+  // --- build the "back to the hub" pill ---
+  // Skipped with data-home="off"; hidden automatically on the hub page itself
+  // (when the current folder IS the site root, there is nowhere higher to go).
+  function makeHome(ds, rootURL) {
+    if (ds.home === "off") return null;
+    var href = ds.homeHref || rootURL || "/";
+    // On the landing page the tool folder is empty → don't show a self-link.
+    if (!ds.homeHref && !toolFolder(rootURL)) return null;
+    var label = ds.homeLabel || "Home";
+    var title = ds.homeTitle || "Back to all labs (home)";
+    var a = document.createElement("a");
+    a.id = "nv-home-link";
+    a.className = "nv-backup nv-home";
+    a.href = href;
+    a.title = title;
+    a.setAttribute("aria-label", title);
+    a.innerHTML = HOME_ICON + '<span class="nv-backup-txt"></span>';
+    a.querySelector(".nv-backup-txt").textContent = label;
+    return a;
+  }
+
+  function init() {
+    if (document.getElementById("nv-backup-link")) return; // idempotent
+
+    var self = findSelf();
+    var ds = (self && self.dataset) || {};
+    var rootURL = siteRootURL(self);
+
+    injectStyleOnce();
+
+    var backup = makeBackup(ds, rootURL);
+    var home = makeHome(ds, rootURL);
 
     var host =
       document.querySelector(".topbar-actions") ||
       document.querySelector(".topbar-right");
 
     if (host) {
-      a.className += " nv-backup--inbar";
-      host.insertBefore(a, host.firstChild); // just left of the existing icons
+      // Slot both into the app's own actions bar: Home left of Backup, both
+      // left of any existing icons, for a native in-header look.
+      backup.className += " nv-backup--inbar";
+      host.insertBefore(backup, host.firstChild);
+      if (home) {
+        home.className += " nv-backup--inbar";
+        host.insertBefore(home, backup);
+      }
       // On a narrow screen a crowded toolbar can overflow the viewport,
-      // leaving the in-bar button off-screen and unreachable. If that
-      // happened, lift it out into a fixed top-right pill instead.
-      var box = a.getBoundingClientRect();
+      // leaving the in-bar buttons off-screen and unreachable. If that
+      // happened, lift them out into a fixed top-right group instead.
+      var box = backup.getBoundingClientRect();
       if (box.width === 0 || box.right > window.innerWidth + 2 || box.left < -2) {
-        a.className = a.className.replace("nv-backup--inbar", "nv-backup--fixed");
-        (document.body || document.documentElement).appendChild(a);
+        mountFixed(home, backup);
       }
     } else {
-      a.className += " nv-backup--fixed";
-      (document.body || document.documentElement).appendChild(a);
+      mountFixed(home, backup);
     }
+  }
+
+  // --- fixed top-right group holding [Home] [Backup] ---
+  function mountFixed(home, backup) {
+    backup.className = backup.className
+      .replace(" nv-backup--inbar", "")
+      .replace(" nv-backup--fixed", "");
+    var wrap = document.createElement("div");
+    wrap.className = "nv-actions nv-actions--fixed";
+    if (home) {
+      home.className = home.className.replace(" nv-backup--inbar", "");
+      wrap.appendChild(home);
+    }
+    wrap.appendChild(backup);
+    (document.body || document.documentElement).appendChild(wrap);
   }
 
   if (document.readyState === "loading") {
