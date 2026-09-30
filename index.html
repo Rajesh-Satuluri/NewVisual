@@ -3,102 +3,217 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NewVisual — Interactive Data Engineering Visualizers</title>
-  <meta name="description" content="Interactive learning labs for data engineers: Apache Airflow internals and Data Engineering CI/CD." />
+  <title>Rajesh Satuluri — Interactive Learning Labs</title>
+  <meta name="description" content="One home for every interactive learning lab — data engineering, databases, streaming, coding interviews, supply-chain planning and career tools. Each tool is its own site." />
   <style>
-    :root {
-      --bg-0: #07090f; --bg-2: #111827; --border: #1e2d42;
-      --text: #e2e8f4; --muted: #8a9ab8; --brand: #3B82F6; --brand2: #22D3EE;
-      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    :root{
+      --bg-0:#07090f; --bg-1:#0d1524; --bg-2:#111827; --bg-3:#1E293B;
+      --border:#1e2d42; --text:#e2e8f4; --muted:#8a9ab8; --muted-2:#64748B;
+      --brand:#3B82F6; --brand2:#22D3EE;
+      --orange:#FF6900; --blue:#3B82F6; --cyan:#06B6D4; --green:#10B981;
+      --yellow:#F59E0B; --indigo:#6366F1; --pink:#EC4899; --violet:#8B5CF6;
+      --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: radial-gradient(1200px 600px at 50% -10%, #0d1524, var(--bg-0)); color: var(--text); font-family: var(--font); min-height: 100vh; display: flex; flex-direction: column; }
-    .wrap { max-width: 960px; margin: 0 auto; padding: 6vh 24px 8vh; width: 100%; }
-    .eyebrow { text-transform: uppercase; letter-spacing: .18em; font-size: 12px; color: var(--brand2); font-weight: 700; }
-    h1 { font-size: clamp(28px, 5vw, 46px); line-height: 1.1; margin: 12px 0 14px; }
-    h1 .grad { background: linear-gradient(90deg, var(--brand), var(--brand2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
-    .lead { color: var(--muted); font-size: 17px; max-width: 640px; margin-bottom: 40px; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
-    .card { display: block; text-decoration: none; color: inherit; background: linear-gradient(180deg, rgba(17,24,39,.9), rgba(11,15,26,.9)); border: 1px solid var(--border); border-radius: 16px; padding: 26px; transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease; }
-    .card:hover { transform: translateY(-4px); border-color: var(--brand); box-shadow: 0 12px 40px rgba(0,0,0,.5); }
-    .card .icon { font-size: 30px; }
-    .card h2 { font-size: 20px; margin: 14px 0 8px; }
-    .card p { color: var(--muted); font-size: 14px; line-height: 1.5; }
-    .card .go { display: inline-block; margin-top: 16px; color: var(--brand2); font-weight: 600; font-size: 14px; }
-    .tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); margin-left: 8px; vertical-align: middle; }
-    footer { color: var(--muted); font-size: 13px; text-align: center; padding: 24px; border-top: 1px solid var(--border); }
-    a.plain { color: var(--brand2); text-decoration: none; }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:radial-gradient(1200px 600px at 50% -10%,var(--bg-1),var(--bg-0));color:var(--text);font-family:var(--font);min-height:100vh;display:flex;flex-direction:column}
+    a{color:inherit;text-decoration:none}
+    .wrap{max-width:1180px;margin:0 auto;padding:6vh 24px 8vh;width:100%}
+    header{text-align:center;margin-bottom:44px}
+    .eyebrow{text-transform:uppercase;letter-spacing:.18em;font-size:12px;color:var(--brand2);font-weight:700}
+    h1{font-size:clamp(30px,5.5vw,52px);line-height:1.08;margin:14px 0 16px;letter-spacing:-.02em}
+    h1 .grad{background:linear-gradient(90deg,var(--brand),var(--brand2));-webkit-background-clip:text;background-clip:text;color:transparent}
+    .lead{color:var(--muted);font-size:17px;max-width:680px;margin:0 auto;line-height:1.6}
+    .stats{display:flex;justify-content:center;gap:36px;margin-top:30px;flex-wrap:wrap}
+    .stat-num{font-size:26px;font-weight:800}
+    .stat-label{font-size:11px;color:var(--muted-2);text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
+    .section-label{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted-2);margin:44px 0 18px;display:flex;align-items:center;gap:12px}
+    .section-label::after{content:"";flex:1;height:1px;background:var(--border)}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px}
+    .card{background:linear-gradient(180deg,rgba(17,24,39,.92),rgba(11,15,26,.92));border:1px solid var(--border);border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:12px;transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease;position:relative;overflow:hidden;--accent:var(--brand)}
+    .card::before{content:"";position:absolute;inset:0;border-radius:16px;opacity:0;transition:opacity .18s;background:radial-gradient(420px circle at 50% 0%,var(--accent),transparent 70%)}
+    .card:hover{transform:translateY(-4px);border-color:var(--accent);box-shadow:0 14px 44px rgba(0,0,0,.5)}
+    .card:hover::before{opacity:.07}
+    .card .top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .card .icon{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;background:var(--bg-3);flex-shrink:0}
+    .card .tag{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent);border-radius:6px;padding:4px 9px}
+    .card h2{font-size:18px;font-weight:700;letter-spacing:-.01em;margin-top:2px}
+    .card .sub{font-size:12px;color:var(--accent);font-weight:600;margin-top:-6px}
+    .card p{color:var(--muted);font-size:13px;line-height:1.6;flex:1}
+    .card .go{color:var(--accent);font-weight:700;font-size:13px;display:inline-flex;align-items:center;gap:6px;margin-top:4px}
+    .card:hover .go .arrow{transform:translateX(3px)}
+    .go .arrow{transition:transform .15s}
+    .c-orange{--accent:var(--orange)}.c-blue{--accent:var(--blue)}.c-cyan{--accent:var(--cyan)}
+    .c-green{--accent:var(--green)}.c-yellow{--accent:var(--yellow)}.c-indigo{--accent:var(--indigo)}
+    .c-pink{--accent:var(--pink)}.c-violet{--accent:var(--violet)}
+    footer{color:var(--muted-2);font-size:13px;text-align:center;padding:28px 24px;border-top:1px solid var(--border);margin-top:auto}
+    footer a{color:var(--brand2)}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="eyebrow">NewVisual · Interactive Learning Labs</div>
-    <h1>Data Engineering, <span class="grad">visualized from the inside out.</span></h1>
-    <p class="lead">Hands-on, animated learning labs for data engineers and supply-chain planners — pure static sites, no framework, no backend. Pick a lab to start.</p>
+    <header>
+      <div class="eyebrow">Rajesh Satuluri · Interactive Learning Labs</div>
+      <h1>Every tool, <span class="grad">one home.</span></h1>
+      <p class="lead">Hands-on, animated learning labs for data engineering, databases, streaming, coding interviews and supply-chain planning — pure static sites, no framework, no backend. Pick a lab to start.</p>
+      <div class="stats">
+        <div><div class="stat-num">22</div><div class="stat-label">Tools</div></div>
+        <div><div class="stat-num">4</div><div class="stat-label">Domains</div></div>
+        <div><div class="stat-num">100%</div><div class="stat-label">Static · no backend</div></div>
+      </div>
+    </header>
 
+    <div class="section-label">Data Engineering &amp; Streaming</div>
     <div class="grid">
-      <a class="card" href="gs-visualizer/index.html">
-        <div class="icon">🎓</div>
-        <h2>GS Airflow — SSC PYQ Map<span class="tag">New</span></h2>
-        <p>A frequency-first study map for SSC General Studies. Every previous-year question parsed from the Pinnacle 6500+ bank, ranked by <b>how often</b> and <b>how recently</b> each topic is asked. Priority board (P1/P2/P3), an Airflow-style topic map, an exam×year heatmap, and a real-PYQ quiz. History live; more subjects rolling out.</p>
-        <span class="go">Open the GS lab →</span>
-      </a>
-
-      <a class="card" href="airflow-visualizer/index.html">
-        <div class="icon">🌀</div>
+      <a class="card c-cyan" href="airflow-visualizer/">
+        <div class="top"><div class="icon">🌀</div><span class="tag">Orchestration</span></div>
         <h2>Apache Airflow Visualizer</h2>
         <p>Airflow internals — architecture, DAG parsing, scheduler, executors, task lifecycle, failure scenarios, and interview prep.</p>
-        <span class="go">Open the Airflow lab →</span>
+        <span class="go">Open lab <span class="arrow">→</span></span>
       </a>
-
-      <a class="card" href="data-engineering-cicd-visualizer/index.html">
-        <div class="icon">🚀</div>
-        <h2>Data Engineering CI/CD<span class="tag">New</span></h2>
-        <p>From <code>git push</code> to production data — Git, GitHub Actions, Terraform, Docker, Databricks, dbt, Kubernetes, taught through the RetailFlow story.</p>
-        <span class="go">Open the CI/CD lab →</span>
+      <a class="card c-orange" href="pyspark-visualizer/">
+        <div class="top"><div class="icon">⚡</div><span class="tag">Big Data</span></div>
+        <h2>PySpark Visualizer</h2>
+        <p>Spark execution model, transformations vs. actions, shuffles, partitioning and the DataFrame API — visualized step by step.</p>
+        <span class="go">Open lab <span class="arrow">→</span></span>
       </a>
-
-      <a class="card" href="o9-solver-visualizer/index.html">
-        <div class="icon">📦</div>
-        <h2>o9 Supply Chain Solver<span class="tag">New</span></h2>
-        <p>The o9 Distribution Planning Solver (CATMPN) — DRP, inputs, constraints, net-requirement logic, shortage &amp; allocation, taught through the CAT Aftermarket Parts Network and Widget-A.</p>
-        <span class="go">Open the o9 Solver lab →</span>
+      <a class="card c-green" href="spotify-azure-de-visualizer/">
+        <div class="top"><div class="icon">🎧</div><span class="tag">Project</span></div>
+        <h2>Spotify Azure DE</h2>
+        <p>The Spotify Azure Data Engineering project — architecture visualizer, implementation lab, production-debugging simulator and interview coach across 9 layers.</p>
+        <span class="go">Open lab <span class="arrow">→</span></span>
       </a>
-
-      <a class="card" href="supply-demand-qa/index.html">
-        <div class="icon">🎯</div>
-        <h2>Supply &amp; Demand Planning Q&amp;A<span class="tag">New</span></h2>
-        <p>A master interview question bank — 45 topic groups spanning forecasting, S&amp;OP, MRP/DRP, inventory, o9, SSIS and SQL. Every question with a plain-English answer and a business-case example.</p>
-        <span class="go">Open the interview Q&amp;A →</span>
+      <a class="card c-blue" href="data-engineering-cicd-visualizer/">
+        <div class="top"><div class="icon">🚀</div><span class="tag">CI/CD</span></div>
+        <h2>Data Engineering CI/CD</h2>
+        <p>From <code>git push</code> to production data — Git, GitHub Actions, Terraform, Docker, Databricks, dbt and Kubernetes, told through the RetailFlow story.</p>
+        <span class="go">Open lab <span class="arrow">→</span></span>
       </a>
-
-      <a class="card" href="blind75-visualizer/index.html">
-        <div class="icon">🧩</div>
-        <h2>Data Engineering Coding Stack<span class="tag">New</span></h2>
-        <p>One tool for the whole interview stack — <b>Python, SQL, PySpark, NumPy &amp; Pandas</b>, each with a <b>Learn</b> concept curriculum and a <b>Practice</b> problem set (500+ problems). Runnable Python/NumPy/Pandas in the browser, worked SQL &amp; PySpark solutions, plain-English logic, spaced-repetition review, and a cross-stack readiness dashboard. Plus a ⌘K command palette with guided study paths and a Rosetta panel showing the same task in every dialect. Includes the former standalone <b>SQL Server</b> and <b>PySpark</b> labs — your old progress carries over automatically.</p>
-        <span class="go">Open the Coding Stack →</span>
+      <a class="card c-green" href="dbt/">
+        <div class="top"><div class="icon">🔧</div><span class="tag">Transformation</span></div>
+        <h2>dbt</h2><div class="sub">Amazon Edition</div>
+        <p>Models, tests, snapshots, macros, sources and the dbt DAG — from raw S3 data to production-ready dimensional models.</p>
+        <span class="go">Open lab <span class="arrow">→</span></span>
       </a>
-
-      <a class="card" href="spotify-azure-de-visualizer/index.html">
-        <div class="icon">🎧</div>
-        <h2>Spotify Azure DE Visualizer<span class="tag">New</span></h2>
-        <p>The Spotify Azure Data Engineering project — an interactive architecture visualizer, implementation lab, production-debugging simulator and senior-interview coach. Every component explained across 9 layers (simple → technical → internals → implementation → why → trade-offs → failure → interview), grounded in the project handbook. Complete Architecture mode live; more modes rolling out.</p>
-        <span class="go">Open the Spotify DE lab →</span>
+      <a class="card c-blue" href="flink/">
+        <div class="top"><div class="icon">🌊</div><span class="tag">Stream Processing</span></div>
+        <h2>Apache Flink</h2><div class="sub">Uber Edition</div>
+        <p>Stateful stream processing — DataStream API, checkpointing, watermarks, windowing and Uber's real-time analytics pipeline.</p>
+        <span class="go">Open lab <span class="arrow">→</span></span>
       </a>
+      <a class="card c-orange" href="kafka/">
+        <div class="top"><div class="icon">🪣</div><span class="tag">Streaming</span></div>
+        <h2>Apache Kafka</h2><div class="sub">Amazon Edition</div>
+        <p>22 modules — producers, brokers, consumers, Kafka Streams, Connect, MirrorMaker 2, partition reassignment and the full Amazon order pipeline.</p>
+        <span class="go">Open lab <span class="arrow">→</span></span>
+      </a>
+      <a class="card c-cyan" href="iceberg/">
+        <div class="top"><div class="icon">🧊</div><span class="tag">Table Format</span></div>
+        <h2>Apache Iceberg</h2><div class="sub">ShopKart Handbook</div>
+        <p>Metadata hierarchy, snapshot isolation, hidden partitioning, schema evolution and time travel — the complete Iceberg story.</p>
+        <span class="go">Open lab <span class="arrow">→</span></span>
+      </a>
+      <a class="card c-orange" href="databricks/">
+        <div class="top"><div class="icon">🧱</div><span class="tag">Lakehouse</span></div>
+        <h2>Databricks</h2><div class="sub">Amazon Edition</div>
+        <p>Delta Lake, Unity Catalog, Photon, clusters, jobs and Structured Streaming — the Lakehouse architecture through Amazon's data platform.</p>
+        <span class="go">Open lab <span class="arrow">→</span></span>
+      </a>
+    </div>
 
-      <a class="card" href="resume-builder/index.html">
-        <div class="icon">📄</div>
-        <h2>Resume Builder<span class="tag">New</span></h2>
-        <p>A block-based résumé builder — fill in every block (header, summary, skills, experience, projects, education, awards, or custom sections), edit section headings and items, and watch a live A4 preview. Download a print-quality, text-selectable PDF. Pure static site; your data stays in your browser.</p>
-        <span class="go">Open the Resume Builder →</span>
+    <div class="section-label">Databases &amp; Warehousing</div>
+    <div class="grid">
+      <a class="card c-blue" href="sql-visualizer/">
+        <div class="top"><div class="icon">🗃️</div><span class="tag">SQL</span></div>
+        <h2>SQL Server Visualizer</h2>
+        <p>Query execution, joins, indexing and set-based thinking — SQL taught visually with worked examples.</p>
+        <span class="go">Open lab <span class="arrow">→</span></span>
+      </a>
+      <a class="card c-blue" href="db-engineering/">
+        <div class="top"><div class="icon">🗄️</div><span class="tag">DB Fundamentals</span></div>
+        <h2>DB Engineering</h2><div class="sub">ShopFlow Platform</div>
+        <p>Normalization, keys, relationships, transactions, ACID, data-warehouse design and the Medallion architecture — through the ShopFlow lens.</p>
+        <span class="go">Open lab <span class="arrow">→</span></span>
+      </a>
+      <a class="card c-indigo" href="db-internals/">
+        <div class="top"><div class="icon">🗂️</div><span class="tag">DB Internals</span></div>
+        <h2>DB Internals</h2><div class="sub">Amazon Prime Day Edition</div>
+        <p>133 animated modules — storage pages, B+ trees, WAL, MVCC, distributed consensus and more — told through the Amazon "Buy Now" journey.</p>
+        <span class="go">Open lab <span class="arrow">→</span></span>
+      </a>
+      <a class="card c-indigo" href="db-lab/">
+        <div class="top"><div class="icon">🧪</div><span class="tag">Hands-on</span></div>
+        <h2>DB Lab</h2>
+        <p>An interactive database playground — experiment with schemas, queries and engine behavior in the browser.</p>
+        <span class="go">Open lab <span class="arrow">→</span></span>
+      </a>
+      <a class="card c-cyan" href="snowflake/">
+        <div class="top"><div class="icon">❄️</div><span class="tag">Cloud DWH</span></div>
+        <h2>Snowflake</h2><div class="sub">Netflix Architecture Handbook</div>
+        <p>Virtual warehouses, micro-partitioning, clustering, time travel, data sharing and Netflix's content-analytics pipelines.</p>
+        <span class="go">Open lab <span class="arrow">→</span></span>
+      </a>
+      <a class="card c-violet" href="data-modeling-studio-app/">
+        <div class="top"><div class="icon">📐</div><span class="tag">Modeling</span></div>
+        <h2>Data Modeling Studio</h2>
+        <p>Design dimensional and normalized data models interactively — entities, relationships, facts and dimensions.</p>
+        <span class="go">Open lab <span class="arrow">→</span></span>
+      </a>
+    </div>
+
+    <div class="section-label">Coding &amp; Interview Prep</div>
+    <div class="grid">
+      <a class="card c-pink" href="blind75-visualizer/">
+        <div class="top"><div class="icon">🧩</div><span class="tag">Coding Stack</span></div>
+        <h2>Data Engineering Coding Stack</h2>
+        <p>Python, SQL, PySpark, NumPy &amp; Pandas — each with a Learn curriculum and a 500+ problem Practice set. Runnable in the browser, spaced-repetition review, and a cross-stack readiness dashboard.</p>
+        <span class="go">Open lab <span class="arrow">→</span></span>
+      </a>
+      <a class="card c-yellow" href="python/">
+        <div class="top"><div class="icon">🐍</div><span class="tag">Language</span></div>
+        <h2>Python &amp; PySpark</h2><div class="sub">Coding Companion</div>
+        <p>Python fundamentals, data structures, comprehensions, decorators, async and PySpark — interview patterns for data-engineering roles.</p>
+        <span class="go">Open lab <span class="arrow">→</span></span>
+      </a>
+      <a class="card c-green" href="interview-prep/">
+        <div class="top"><div class="icon">🎯</div><span class="tag">Interview</span></div>
+        <h2>Interview Prep</h2>
+        <p>A structured interview-preparation hub spanning the data-engineering stack — concepts, questions and worked answers.</p>
+        <span class="go">Open lab <span class="arrow">→</span></span>
+      </a>
+    </div>
+
+    <div class="section-label">Planning &amp; Career</div>
+    <div class="grid">
+      <a class="card c-orange" href="o9-solver-visualizer/">
+        <div class="top"><div class="icon">📦</div><span class="tag">Supply Chain</span></div>
+        <h2>o9 Supply Chain Solver</h2>
+        <p>The o9 Distribution Planning Solver (CATMPN) — DRP, inputs, constraints, net-requirement logic, shortage &amp; allocation, via the CAT Aftermarket Parts Network.</p>
+        <span class="go">Open lab <span class="arrow">→</span></span>
+      </a>
+      <a class="card c-yellow" href="supply-demand-qa/">
+        <div class="top"><div class="icon">📊</div><span class="tag">Planning Q&amp;A</span></div>
+        <h2>Supply &amp; Demand Planning Q&amp;A</h2>
+        <p>A master interview question bank — 45 topic groups across forecasting, S&amp;OP, MRP/DRP, inventory, o9, SSIS and SQL, each with a plain-English answer and a business case.</p>
+        <span class="go">Open lab <span class="arrow">→</span></span>
+      </a>
+      <a class="card c-violet" href="resume-builder/">
+        <div class="top"><div class="icon">📄</div><span class="tag">Tool</span></div>
+        <h2>Resume Builder</h2>
+        <p>A block-based résumé builder with a live A4 preview and print-quality, text-selectable PDF export. Your data stays in your browser.</p>
+        <span class="go">Open lab <span class="arrow">→</span></span>
+      </a>
+      <a class="card c-pink" href="gs-visualizer/">
+        <div class="top"><div class="icon">🎓</div><span class="tag">Study Map</span></div>
+        <h2>GS — SSC PYQ Map</h2>
+        <p>A frequency-first study map for SSC General Studies — every previous-year question from the Pinnacle 6500+ bank, ranked by how often and how recently each topic is asked.</p>
+        <span class="go">Open lab <span class="arrow">→</span></span>
       </a>
     </div>
   </div>
 
   <footer>
-    Built as pure HTML + CSS + vanilla JS · <a class="plain" href="https://github.com/rajesh-satuluri/newvisual">source on GitHub</a>
+    22 interactive labs · pure HTML + CSS + vanilla JS ·
+    <a href="https://github.com/rajesh-satuluri/NewVisual">source on GitHub</a>
   </footer>
-  <!-- Offline backup: one-click .zip of the whole site (top-right) -->
-  <script src="shared/backup-button.js" data-zip="newvisual-all.zip" data-label="Download all" defer></script>
 </body>
 </html>

@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DB Engineering Visualizer — ShopFlow E-Commerce Platform</title>
+  <meta name="description" content="Interactive Database Engineering learning platform. Animation-driven visualizations of database design, internals, transactions, data warehousing, and the modern Lakehouse stack — through the lens of ShopFlow, a 50M-customer e-commerce platform." />
+
+  <!-- ── Design system ── -->
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/layout.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/animations.css" />
+
+  <style>
+    /* ── Bridge styles ── */
+    #module-container {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 0;
+    }
+
+    a.nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 7px 16px 7px 20px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      white-space: nowrap;
+      overflow: hidden;
+      position: relative;
+      transition: background .12s, color .12s;
+      cursor: pointer;
+      user-select: none;
+    }
+    a.nav-item:hover { background: var(--bg-3); color: var(--text-primary); text-decoration: none; }
+    a.nav-item.active { background: rgba(59,130,246,.1); color: var(--delta); }
+    a.nav-item.active::before {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+      width: 3px; background: var(--delta); border-radius: 0 2px 2px 0;
+    }
+    a.nav-item.coming-soon { opacity: .45; cursor: default; }
+    a.nav-item.coming-soon:hover { background: transparent; color: var(--text-secondary); }
+    .nav-item .nav-icon { width: 16px; height: 16px; flex-shrink: 0; opacity: .75; display: flex; align-items: center; }
+    a.nav-item.active .nav-icon { opacity: 1; }
+    .nav-item .nav-label { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+    .sidebar.collapsed a.nav-item { justify-content: center; padding: 8px; }
+    .sidebar.collapsed a.nav-item .nav-label,
+    .sidebar.collapsed a.nav-item .nav-badge { display: none; }
+
+    .nav-badge {
+      font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+      background: var(--bg-4); color: var(--text-muted); border-radius: 3px;
+      padding: 1px 4px; flex-shrink: 0;
+    }
+    a.nav-item.active .nav-badge { display: none; }
+
+    .nav-group-items { display: block; }
+    .nav-group.collapsed .nav-group-items { display: none; }
+    .nav-group-chevron { color: var(--text-muted); transition: transform .15s; flex-shrink: 0; display: flex; align-items: center; }
+    .nav-group.collapsed .nav-group-chevron { transform: rotate(-90deg); }
+    .sidebar.collapsed .nav-group-label,
+    .sidebar.collapsed .nav-group-chevron { display: none; }
+
+    .sidebar-toggle-btn {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-muted); border-radius: 6px; padding: 5px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .sidebar-toggle-btn:hover { background: var(--bg-3); color: var(--text-primary); }
+    .sidebar-footer { display: flex; align-items: center; gap: 8px; }
+    .sidebar-footer-hint { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; }
+    .sidebar.collapsed .sidebar-footer-hint { display: none; }
+
+    .sidebar-brand {
+      display: flex; align-items: center; gap: 10px;
+      padding: 0 16px; height: 52px; border-bottom: 1px solid var(--border-default);
+      flex-shrink: 0; overflow: hidden;
+    }
+    .sidebar-logo { flex-shrink: 0; display: flex; align-items: center; }
+    .sidebar-brand-text { overflow: hidden; white-space: nowrap; }
+    .sidebar-name { display: block; font-size: 15px; font-weight: 700; color: var(--text-primary); letter-spacing: -.02em; }
+    .sidebar-tagline { display: block; font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+    .sidebar.collapsed .sidebar-brand-text { display: none; }
+
+    .sidebar-search-wrap { padding: 10px 12px; border-bottom: 1px solid var(--border-subtle); flex-shrink: 0; }
+    .sidebar-search {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--bg-3); border: 1px solid var(--border-default);
+      border-radius: 6px; padding: 5px 10px;
+    }
+    .sidebar-search-icon { color: var(--text-muted); flex-shrink: 0; }
+    .sidebar-search input {
+      background: none; border: none; outline: none; color: var(--text-primary);
+      font-size: 13px; width: 100%;
+    }
+    .sidebar-search input::placeholder { color: var(--text-muted); }
+    .sidebar.collapsed .sidebar-search-wrap { display: none; }
+
+    .sidebar-nav-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 8px 0; }
+
+    .placeholder-module {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; min-height: 60vh; text-align: center;
+      gap: 16px; color: var(--text-muted); padding: 32px;
+    }
+    .placeholder-icon { font-size: 64px; }
+    .placeholder-module h2 { color: var(--text-secondary); font-size: 24px; margin: 0; }
+    .placeholder-module p { color: var(--text-muted); max-width: 400px; }
+    .error-module {
+      padding: 32px; background: rgba(248,81,73,.08); border: 1px solid rgba(248,81,73,.3);
+      border-radius: 12px; margin: 24px;
+    }
+    .error-module h3 { color: var(--red); margin-bottom: 12px; }
+    .error-module pre { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); white-space: pre-wrap; }
+
+    .coming-soon-toast {
+      position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(12px);
+      background: var(--bg-3); border: 1px solid var(--border-default); border-radius: 8px;
+      padding: 10px 20px; font-size: 13px; color: var(--text-secondary);
+      box-shadow: 0 4px 24px rgba(0,0,0,.4); z-index: 9000;
+      opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none;
+      white-space: nowrap;
+    }
+    .coming-soon-toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,.65);
+      backdrop-filter: blur(4px); z-index: 8000;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity .2s;
+    }
+    .modal-backdrop.visible { opacity: 1; pointer-events: all; }
+    .modal-box {
+      background: var(--bg-2); border: 1px solid var(--border-default); border-radius: 14px;
+      padding: 28px; width: 520px; max-width: 95vw; max-height: 80vh;
+      overflow-y: auto; position: relative;
+    }
+    .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 20px; color: var(--text-primary); }
+    .modal-close {
+      position: absolute; top: 18px; right: 18px; background: none; border: none;
+      color: var(--text-muted); cursor: pointer; font-size: 18px; line-height: 1;
+      padding: 4px 8px; border-radius: 6px;
+    }
+    .modal-close:hover { background: var(--bg-3); color: var(--text-primary); }
+    .shortcut-group { margin-bottom: 18px; }
+    .shortcut-group-title {
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+      color: var(--text-muted); margin-bottom: 8px;
+    }
+    .shortcut-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 5px 0; font-size: 13px; border-bottom: 1px solid var(--border-subtle);
+    }
+    .shortcut-row:last-child { border-bottom: none; }
+    .shortcut-desc { color: var(--text-secondary); }
+    .shortcut-keys { display: flex; gap: 4px; }
+
+    .bc-root, .bc-sep { color: var(--text-muted); }
+    .bc-group { color: var(--text-muted); }
+    .bc-current { color: var(--text-secondary); font-weight: 500; }
+
+    #app { display: flex; height: 100vh; overflow: hidden; }
+    .main-area { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+
+    .anim-progress-track { width: 160px; cursor: pointer; }
+    @media (max-width: 768px) { .anim-progress-track { width: 80px; } }
+
+    .module-header {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: 16px; margin-bottom: 20px; flex-wrap: wrap;
+    }
+    .module-header h1 { margin: 0 0 4px; font-size: 24px; font-weight: 700; }
+    .module-subtitle { color: var(--text-muted); font-size: 13.5px; line-height: 1.6; margin: 4px 0 0; max-width: 600px; }
+    .module-header-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; flex-wrap: wrap; }
+
+    #module-container > .home-page,
+    #module-container > .page-enter { height: 100%; overflow-y: auto; }
+  </style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ── Sidebar ── -->
+  <aside id="sidebar" class="sidebar">
+
+    <!-- Brand -->
+    <div class="sidebar-brand">
+      <div class="sidebar-logo">
+        <svg viewBox="0 0 32 32" width="26" height="26" fill="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="brand-grad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#3b82f6"/>
+              <stop offset="100%" stop-color="#06b6d4"/>
+            </linearGradient>
+          </defs>
+          <ellipse cx="16" cy="9" rx="10" ry="3" fill="none" stroke="url(#brand-grad)" stroke-width="1.8"/>
+          <path d="M6 9 L6 23" stroke="url(#brand-grad)" stroke-width="1.8"/>
+          <path d="M26 9 L26 23" stroke="url(#brand-grad)" stroke-width="1.8"/>
+          <ellipse cx="16" cy="23" rx="10" ry="3" fill="rgba(59,130,246,.15)" stroke="url(#brand-grad)" stroke-width="1.8"/>
+          <ellipse cx="16" cy="9" rx="10" ry="3" fill="rgba(6,182,212,.2)"/>
+        </svg>
+      </div>
+      <div class="sidebar-brand-text">
+        <span class="sidebar-name">DBViz</span>
+        <span class="sidebar-tagline">ShopFlow E-Commerce Platform</span>
+      </div>
+    </div>
+
+    <!-- Search -->
+    <div class="sidebar-search-wrap">
+      <div class="sidebar-search">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13" class="sidebar-search-icon" aria-hidden="true">
+          <circle cx="7" cy="7" r="4.5"/><path d="M11 11l2.5 2.5"/>
+        </svg>
+        <input id="sidebar-search" type="text" placeholder="Search modules…" autocomplete="off" spellcheck="false" aria-label="Search modules" />
+      </div>
+    </div>
+
+    <!-- Nav -->
+    <div class="sidebar-nav-scroll">
+      <nav aria-label="Module navigation">
+        <div id="sidebar-nav"></div>
+      </nav>
+    </div>
+
+    <!-- Footer -->
+    <div class="sidebar-footer">
+      <button id="sidebar-toggle" class="sidebar-toggle-btn" title="Collapse sidebar" aria-label="Toggle sidebar">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14" aria-hidden="true">
+          <path d="M11 2H5a1 1 0 00-1 1v10a1 1 0 001 1h6a1 1 0 001-1V3a1 1 0 00-1-1zM8 2v12"/>
+        </svg>
+      </button>
+      <span class="sidebar-footer-hint">? for shortcuts</span>
+    </div>
+
+  </aside>
+
+  <!-- ── Main area ── -->
+  <div class="main-area">
+
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <div id="breadcrumb" class="breadcrumb" aria-label="Breadcrumb">
+          <span class="bc-root">DBViz</span>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <button id="theme-toggle" class="btn-icon" title="Toggle light/dark theme" aria-label="Toggle theme">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="16" height="16" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"/>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+          </svg>
+        </button>
+        <button class="btn-icon" title="Keyboard shortcuts (?)" aria-label="Show keyboard shortcuts"
+          onclick="if(window.IcebergViz && window.IcebergViz._showShortcutsModal) window.IcebergViz._showShortcutsModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="16" height="16" aria-hidden="true">
+            <rect x="2" y="6" width="20" height="14" rx="2"/>
+            <path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h.01M12 14h.01M16 14h.01M6 18h12"/>
+          </svg>
+        </button>
+        <a href="https://www.postgresql.org/docs/" target="_blank" rel="noopener" class="btn-icon"
+          title="PostgreSQL Docs" aria-label="PostgreSQL documentation">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="16" height="16" aria-hidden="true">
+            <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/>
+            <polyline points="15 3 21 3 21 9"/>
+            <line x1="10" y1="14" x2="21" y2="3"/>
+          </svg>
+        </a>
+      </div>
+    </header>
+
+    <!-- Module content -->
+    <div id="module-container" tabindex="-1"></div>
+
+    <!-- Animation controls bar -->
+    <div id="anim-controls-bar" class="anim-controls-bar" role="toolbar" aria-label="Animation controls">
+      <div class="anim-controls-left">
+        <button id="anim-btn-reset" class="anim-btn" title="Reset (R)" aria-label="Reset animation">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" aria-hidden="true">
+            <polyline points="1 4 1 10 7 10"/>
+            <path d="M3.51 15a9 9 0 102.13-9.36L1 10"/>
+          </svg>
+        </button>
+        <button id="anim-btn-prev" class="anim-btn" title="Previous step (←)" aria-label="Previous step">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14" aria-hidden="true">
+            <polygon points="19,20 9,12 19,4"/>
+            <rect x="5" y="4" width="3" height="16" rx="1"/>
+          </svg>
+        </button>
+        <button id="anim-btn-play" class="anim-btn" title="Play / Pause (Space)" aria-label="Play or pause animation">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16" aria-hidden="true">
+            <polygon points="5,3 19,12 5,21"/>
+          </svg>
+        </button>
+        <button id="anim-btn-next" class="anim-btn" title="Next step (→)" aria-label="Next step">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14" aria-hidden="true">
+            <polygon points="5,4 15,12 5,20"/>
+            <rect x="16" y="4" width="3" height="16" rx="1"/>
+          </svg>
+        </button>
+      </div>
+      <div class="anim-controls-center">
+        <span id="anim-step-label" class="anim-step-label">Press Play to start</span>
+        <div id="anim-progress-track" class="anim-progress-track" title="Click to jump" role="progressbar">
+          <div id="anim-progress-fill" class="anim-progress-fill"></div>
+        </div>
+      </div>
+      <div class="anim-controls-right">
+        <span id="anim-step-counter" class="anim-step-counter" aria-live="polite">0 / 0</span>
+        <select id="anim-speed" class="anim-speed-select" aria-label="Playback speed">
+          <option value="0.5">0.5×</option>
+          <option value="1" selected>1×</option>
+          <option value="1.5">1.5×</option>
+          <option value="2">2×</option>
+          <option value="3">3×</option>
+        </select>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- Keyboard shortcuts modal -->
+<div id="shortcuts-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
+  <div class="modal-box">
+    <div class="modal-title">Keyboard Shortcuts</div>
+    <button class="modal-close" aria-label="Close shortcuts modal">✕</button>
+    <div class="shortcut-group">
+      <div class="shortcut-group-title">Navigation</div>
+      <div class="shortcut-row">
+        <span class="shortcut-desc">Go to Home</span>
+        <span class="shortcut-keys"><kbd>g</kbd> <kbd>h</kbd></span>
+      </div>
+      <div class="shortcut-row">
+        <span class="shortcut-desc">Go to Why Databases Exist</span>
+        <span class="shortcut-keys"><kbd>g</kbd> <kbd>d</kbd></span>
+      </div>
+      <div class="shortcut-row">
+        <span class="shortcut-desc">Go to Normalization</span>
+        <span class="shortcut-keys"><kbd>g</kbd> <kbd>n</kbd></span>
+      </div>
+      <div class="shortcut-row">
+        <span class="shortcut-desc">Go to Indexes</span>
+        <span class="shortcut-keys"><kbd>g</kbd> <kbd>i</kbd></span>
+      </div>
+      <div class="shortcut-row">
+        <span class="shortcut-desc">Go to Transactions</span>
+        <span class="shortcut-keys"><kbd>g</kbd> <kbd>t</kbd></span>
+      </div>
+      <div class="shortcut-row">
+        <span class="shortcut-desc">Go to Data Warehouse</span>
+        <span class="shortcut-keys"><kbd>g</kbd> <kbd>w</kbd></span>
+      </div>
+      <div class="shortcut-row">
+        <span class="shortcut-desc">Go to Medallion Architecture</span>
+        <span class="shortcut-keys"><kbd>g</kbd> <kbd>m</kbd></span>
+      </div>
+    </div>
+    <div class="shortcut-group">
+      <div class="shortcut-group-title">Animation Controls</div>
+      <div class="shortcut-row">
+        <span class="shortcut-desc">Play / Pause animation</span>
+        <span class="shortcut-keys"><kbd>Space</kbd></span>
+      </div>
+      <div class="shortcut-row">
+        <span class="shortcut-desc">Next step</span>
+        <span class="shortcut-keys"><kbd>→</kbd></span>
+      </div>
+      <div class="shortcut-row">
+        <span class="shortcut-desc">Previous step</span>
+        <span class="shortcut-keys"><kbd>←</kbd></span>
+      </div>
+      <div class="shortcut-row">
+        <span class="shortcut-desc">Reset animation</span>
+        <span class="shortcut-keys"><kbd>R</kbd></span>
+      </div>
+    </div>
+    <div class="shortcut-group">
+      <div class="shortcut-group-title">General</div>
+      <div class="shortcut-row">
+        <span class="shortcut-desc">Show this modal</span>
+        <span class="shortcut-keys"><kbd>?</kbd></span>
+      </div>
+      <div class="shortcut-row">
+        <span class="shortcut-desc">Close modal / overlay</span>
+        <span class="shortcut-keys"><kbd>Esc</kbd></span>
+      </div>
+      <div class="shortcut-row">
+        <span class="shortcut-desc">Focus search</span>
+        <span class="shortcut-keys"><kbd>Ctrl</kbd> <kbd>K</kbd></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Scripts: data → core → components → modules → app ── -->
+
+<!-- Data layer -->
+<script src="js/data/shopflow-data.js"></script>
+
+<!-- Core engine / services -->
+<script src="js/core/svg.js"></script>
+<script src="js/core/progress.js"></script>
+<script src="js/core/animation-engine.js"></script>
+<script src="js/core/tooltip.js"></script>
+<script src="js/core/keyboard.js"></script>
+
+<!-- UI Components -->
+<script src="js/components/code-viewer.js"></script>
+<script src="js/components/animation-controls.js"></script>
+
+<!-- Modules -->
+<script src="js/modules/home.js"></script>
+<script src="js/modules/database-introduction.js"></script>
+<script src="js/modules/keys.js"></script>
+<script src="js/modules/relationships.js"></script>
+<script src="js/modules/normalization.js"></script>
+
+<!-- App bootstrap (must be last) -->
+<script src="js/app.js"></script>
+
+</body>
+</html>

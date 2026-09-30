@@ -1,0 +1,321 @@
+/* ============================================================
+   ENHANCEMENTS — Phases 4 & 5 (UX power features + content)
+   Command palette · pager · toast · quiz · study hub · tour
+   Loaded after responsive.css. Uses existing design tokens.
+   ============================================================ */
+
+/* The [hidden] attribute must always win over component display rules below. */
+[hidden] { display: none !important; }
+
+/* ── Collapsible sidebar navigation (Phase 6) ──────────────────────────────── */
+.nav-tools { display: flex; gap: 6px; align-items: center; padding: 6px 12px 2px; }
+.nav-filter {
+  flex: 1; min-width: 0;
+  padding: 7px 10px;
+  font-size: 12.5px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+}
+.nav-filter::placeholder { color: var(--text-muted); }
+.nav-filter:focus { outline: none; border-color: var(--accent); }
+.nav-collapse-all { width: 30px; height: 30px; flex-shrink: 0; font-size: 13px; }
+
+/* Turn the group header into a full-width disclosure button (keeps styles.css typography). */
+.nav-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+.nav-group-header:hover { color: var(--text-secondary); }
+.nav-chevron { font-size: 9px; color: var(--text-muted); transition: transform var(--transition); }
+.nav-group.collapsed .nav-chevron { transform: rotate(-90deg); }
+
+/* Animate expand/collapse with grid-template-rows (no JS height measuring). */
+.nav-group-items {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows var(--transition-slow);
+}
+.nav-group.collapsed .nav-group-items { grid-template-rows: 0fr; }
+.nav-group-inner { overflow: hidden; min-height: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-group-items { transition: none; }
+}
+
+kbd {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  padding: 1px 6px;
+  color: var(--text-secondary);
+}
+
+/* ── Command palette ───────────────────────────────────────────────────────── */
+body.cmdk-open { overflow: hidden; }
+.cmdk-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(3px);
+  z-index: 200;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 12vh;
+}
+.cmdk-box {
+  width: min(560px, 92vw);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-hover);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  animation: cmdk-in 0.14s ease;
+}
+@keyframes cmdk-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+.cmdk-input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 16px;
+  padding: 18px 20px;
+  outline: none;
+  border-bottom: 1px solid var(--border);
+}
+.cmdk-list { list-style: none; margin: 0; padding: 6px; max-height: 52vh; overflow-y: auto; }
+.cmdk-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.cmdk-item.sel, .cmdk-item:hover { background: var(--accent-dim); }
+.cmdk-icon { font-size: 16px; width: 22px; text-align: center; }
+.cmdk-title { flex: 1; font-size: 14px; color: var(--text-primary); }
+.cmdk-group { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.cmdk-empty { padding: 22px; text-align: center; color: var(--text-muted); font-size: 13px; }
+.cmdk-foot {
+  padding: 9px 16px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex; gap: 4px; align-items: center;
+}
+
+/* ── Prev / Next pager ─────────────────────────────────────────────────────── */
+.pager {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 28px 40px 44px;
+  border-top: 1px solid var(--border);
+  margin-top: 24px;
+}
+.pager-btn {
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 12px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  min-width: 0;
+  transition: border-color var(--transition), transform var(--transition);
+}
+.pager-btn:hover { border-color: var(--accent); transform: translateY(-1px); }
+.pager-next { text-align: right; align-items: flex-end; }
+.pager-dir { font-size: 11px; color: var(--accent-text); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+.pager-name { font-size: 13.5px; color: var(--text-primary); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 40vw; }
+
+/* ── Toasts ────────────────────────────────────────────────────────────────── */
+.toast-wrap {
+  position: fixed;
+  left: 50%;
+  bottom: 26px;
+  transform: translateX(-50%);
+  z-index: 260;
+  display: flex; flex-direction: column; gap: 10px; align-items: center;
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  display: flex; align-items: center; gap: 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-hover);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-primary);
+  font-size: 13.5px;
+  padding: 12px 18px;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.24s ease, transform 0.24s ease;
+  cursor: pointer;
+  max-width: 90vw;
+}
+.toast.show { opacity: 1; transform: none; }
+.toast-icon { font-size: 16px; }
+
+/* ── Quiz ("Test Yourself") ────────────────────────────────────────────────── */
+.quiz-section { padding: 28px 40px; border-top: 1px solid var(--border); margin-top: 24px; }
+.quiz-best { color: var(--accent-text); font-weight: 600; }
+.quiz-body { display: flex; flex-direction: column; gap: 18px; max-width: 760px; }
+.quiz-q {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+}
+.quiz-prompt { display: flex; gap: 12px; font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 14px; }
+.quiz-qnum {
+  flex-shrink: 0;
+  width: 24px; height: 24px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--accent-dim); color: var(--accent-text);
+  border-radius: 7px; font-size: 12px; font-weight: 800; font-family: var(--font-mono);
+}
+.quiz-opts { display: flex; flex-direction: column; gap: 8px; }
+.quiz-opt {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; text-align: left;
+  padding: 11px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: 13.5px;
+  transition: border-color var(--transition), background var(--transition);
+}
+.quiz-opt:not(:disabled):hover { border-color: var(--border-hover); color: var(--text-primary); }
+.quiz-marker {
+  flex-shrink: 0;
+  width: 22px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); border-radius: 6px;
+  font-size: 11px; font-weight: 700; color: var(--text-muted);
+}
+.quiz-opt.selected { border-color: var(--accent); background: var(--accent-dim); color: var(--text-primary); }
+.quiz-opt.selected .quiz-marker { border-color: var(--accent); color: var(--accent-text); }
+.quiz-opt.is-correct { border-color: var(--green); background: var(--green-dim); color: var(--text-primary); }
+.quiz-opt.is-correct .quiz-marker { border-color: var(--green); color: var(--green); }
+.quiz-opt.is-wrong { border-color: var(--red); background: var(--red-dim); color: var(--text-primary); }
+.quiz-opt.is-wrong .quiz-marker { border-color: var(--red); color: var(--red); }
+.quiz-explain {
+  margin-top: 12px;
+  font-size: 12.5px; color: var(--text-secondary); line-height: 1.7;
+  border-left: 3px solid var(--accent);
+  background: var(--accent-dim);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  padding: 10px 14px;
+}
+.quiz-actions { display: flex; align-items: center; gap: 14px; margin-top: 20px; max-width: 760px; }
+.quiz-score { font-size: 14px; font-weight: 700; color: var(--accent-text); }
+
+/* ── Study Hub ─────────────────────────────────────────────────────────────── */
+.study-stats { display: flex; gap: 14px; padding: 22px 40px 0; flex-wrap: wrap; }
+.study-stats .stat-box {
+  flex: 1; min-width: 130px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px 18px;
+  text-align: center;
+}
+.study-stats .stat-val { display: block; font-size: 26px; font-weight: 800; color: var(--accent-text); }
+.study-stats .stat-label { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
+
+.study-controls {
+  display: flex; gap: 12px; flex-wrap: wrap; align-items: center;
+  padding: 22px 40px 8px;
+}
+.study-search {
+  flex: 1; min-width: 200px;
+  padding: 10px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  font-size: 13.5px;
+}
+.study-search:focus { outline: none; border-color: var(--accent); }
+.study-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.study-chip {
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 12.5px; font-weight: 600;
+  transition: all var(--transition);
+}
+.study-chip:hover { color: var(--text-primary); border-color: var(--border-hover); }
+.study-chip.active { background: var(--accent); border-color: var(--accent); color: #1a1005; }
+.study-select {
+  padding: 9px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+.study-results { padding: 8px 40px 44px; }
+.study-count { font-size: 12px; color: var(--text-muted); margin: 10px 0 14px; }
+.study-empty {
+  padding: 40px; text-align: center; color: var(--text-muted); font-size: 14px;
+  background: var(--bg-card); border: 1px dashed var(--border); border-radius: var(--radius-lg);
+}
+.study-src { margin-bottom: 10px; font-size: 12px; }
+.study-src a { color: var(--accent-text); font-weight: 600; }
+.diff-badge {
+  flex-shrink: 0;
+  font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;
+  padding: 2px 8px; border-radius: 999px; align-self: center;
+}
+.diff-easy   { color: var(--green);  background: var(--green-dim); }
+.diff-medium { color: var(--yellow); background: var(--yellow-dim); }
+.diff-hard   { color: var(--red);    background: var(--red-dim); }
+
+/* ── First-run tour ────────────────────────────────────────────────────────── */
+.tour-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); z-index: 240; }
+.tour-ring {
+  position: fixed;
+  border: 2px solid var(--accent);
+  border-radius: var(--radius);
+  box-shadow: 0 0 0 4px var(--accent-glow), 0 0 0 9999px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  transition: all 0.2s ease;
+}
+.tour-pop {
+  position: fixed;
+  width: min(320px, 90vw);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-hover);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 18px 20px;
+  z-index: 241;
+}
+.tour-title { font-size: 15px; font-weight: 800; color: var(--text-primary); margin-bottom: 6px; }
+.tour-body { font-size: 13px; color: var(--text-secondary); line-height: 1.65; }
+.tour-body kbd { margin: 0 1px; }
+.tour-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 16px; }
+.tour-progress { font-size: 12px; color: var(--text-muted); }
+.tour-btns { display: flex; gap: 8px; }
+.tour-btns .btn { padding: 7px 14px; font-size: 12.5px; }
+
+/* ── Narrow-screen padding parity for new sections ─────────────────────────── */
+@media (max-width: 768px) {
+  .quiz-section, .study-controls, .study-results, .study-stats { padding-left: 16px; padding-right: 16px; }
+  .pager { padding-left: 16px; padding-right: 16px; }
+  .pager-name { max-width: 60vw; }
+}

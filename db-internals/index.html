@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DB Internals — Amazon Prime Day Edition</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div id="app">
+  <!-- ── Sidebar ─────────────────────────────────────────────────────────── -->
+  <aside id="sidebar">
+    <div class="sidebar-header">
+      <div class="brand">
+        <span class="brand-icon">🗄️</span>
+        <div>
+          <div class="brand-title">DB Internals</div>
+          <div class="brand-sub">Prime Day Edition</div>
+        </div>
+      </div>
+      <button class="icon-btn" id="sidebar-close" title="Close sidebar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <div class="sidebar-progress">
+      <div class="progress-label">
+        <span>Progress</span>
+        <span id="progress-text">0 / 133</span>
+      </div>
+      <div class="progress-bar"><div id="progress-fill"></div></div>
+    </div>
+
+    <nav id="nav-list" role="navigation" aria-label="Modules"></nav>
+  </aside>
+
+  <!-- ── Content ────────────────────────────────────────────────────────── -->
+  <div id="content">
+    <header id="module-header">
+      <div id="breadcrumb">
+        <span id="breadcrumb-group">DB Internals</span>
+        <span style="margin:0 6px;opacity:.4">›</span>
+        <strong id="breadcrumb-title">Select a module</strong>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" id="mark-done" title="Mark done" style="display:none">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+        </button>
+        <button class="icon-btn" id="theme-btn" title="Toggle theme">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        </button>
+        <button class="icon-btn" id="sidebar-toggle" title="Toggle sidebar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <main id="module-canvas">
+      <div id="module-root"></div>
+    </main>
+  </div>
+</div>
+
+<script type="module" src="script.js"></script>
+</body>
+</html>

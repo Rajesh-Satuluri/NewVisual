@@ -1,0 +1,44 @@
+/* ============================================================
+   Print — content-only output for Save-as-PDF / printing.
+   Linked with media="print" so it applies only when printing.
+   ============================================================ */
+:root { color-scheme: light; }
+
+#sidebar,
+.nav-backdrop,
+.topbar,
+.anim-controls-bar,
+.iv-toast-stack,
+.cp-backdrop,
+.iv-tour,
+.ty-modal,
+#nav-toggle {
+  display: none !important;
+}
+
+#app, .main-area, #module-container {
+  display: block !important;
+  height: auto !important;
+  overflow: visible !important;
+}
+
+/* Force a clean light print surface regardless of theme */
+body, #app, #module-container, .cs-page {
+  background: #fff !important;
+  color: #111 !important;
+}
+
+/* Let internal scroll areas expand and code wrap on paper */
+.cs-page, .page-enter, .home-page {
+  height: auto !important;
+  overflow: visible !important;
+}
+pre, code {
+  white-space: pre-wrap !important;
+  overflow-wrap: anywhere !important;
+}
+
+/* Avoid awkward breaks inside cards/tables */
+.cs-card, .study-card, table, tr { break-inside: avoid; }
+
+a[href]::after { content: ''; } /* don't append URLs */

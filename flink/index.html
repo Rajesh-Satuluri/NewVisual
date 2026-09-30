@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Apache Flink Visualizer — Uber Edition</title>
+  <meta name="description" content="Interactive Apache Flink learning platform built around Uber's real-time data platform. Go from zero to interview-ready." />
+  <meta name="theme-color" content="#FF6B35" />
+
+  <!-- Icons & PWA -->
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <link rel="manifest" href="manifest.json" />
+
+  <!-- Social cards -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Apache Flink Visualizer — Uber Edition" />
+  <meta property="og:description" content="Interactive Apache Flink learning platform. Go from zero to interview-ready." />
+  <meta property="og:image" content="og.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Apache Flink Visualizer — Uber Edition" />
+  <meta name="twitter:description" content="Interactive Apache Flink learning platform. Go from zero to interview-ready." />
+  <meta name="twitter:image" content="og.png" />
+
+  <!-- No-flash theme: apply saved theme before first paint -->
+  <script>
+    try {
+      var t = localStorage.getItem('flink_theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+    } catch (e) {}
+  </script>
+
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="responsive.css" />
+  <link rel="stylesheet" href="enhancements.css" />
+</head>
+<body>
+  <div id="app">
+
+    <aside id="sidebar">
+      <div class="sidebar-header">
+        <div class="brand">
+          <span class="brand-icon">⚡</span>
+          <div>
+            <div class="brand-title">Flink Visualizer</div>
+            <div class="brand-sub">Uber Edition</div>
+          </div>
+        </div>
+        <button id="sidebar-toggle" class="icon-btn" title="Toggle sidebar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="sidebar-progress">
+        <div class="progress-label">
+          <span>Progress</span>
+          <span id="progress-count">0 / 19</span>
+        </div>
+        <div class="progress-bar"><div id="progress-fill"></div></div>
+      </div>
+      <nav id="nav-list"></nav>
+    </aside>
+
+    <main id="content">
+      <div id="module-header">
+        <button id="nav-open" class="icon-btn" aria-label="Open navigation menu" title="Menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div id="breadcrumb"></div>
+        <div class="header-actions">
+          <button id="theme-toggle" class="icon-btn" title="Toggle theme">
+            <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div id="module-canvas"></div>
+    </main>
+
+    <div id="nav-backdrop"></div>
+  </div>
+
+  <div id="tooltip" class="tooltip hidden"></div>
+
+  <script type="module" src="script.js"></script>
+</body>
+</html>

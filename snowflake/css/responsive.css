@@ -1,0 +1,157 @@
+/* ============================================================
+   SnowflakeViz — Responsive & Touch Layer
+   Loaded LAST so it cascades over base styles + inline <style>.
+   Targets: desktop (mouse+keyboard) and iPad 9th gen (touch).
+   ============================================================ */
+
+/* ── Dynamic viewport height (fixes iPadOS Safari toolbar jump) ─
+   If 100dvh is unsupported the declaration is ignored and the
+   earlier 100vh rule remains in effect. */
+body,
+#app,
+#sidebar.sidebar {
+  height: 100dvh;
+}
+
+/* ── Mobile nav toggle (hamburger) — hidden on desktop ───────── */
+.nav-toggle { display: none; }
+
+/* ── Off-canvas backdrop element (inert until a drawer opens) ── */
+.nav-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--ease-base);
+  z-index: var(--z-overlay);
+}
+.nav-backdrop.visible { opacity: 1; pointer-events: auto; }
+
+/* ============================================================
+   TABLET & BELOW  (iPad 9th gen: 1080 landscape / 810 portrait)
+   Sidebar becomes an off-canvas drawer.
+   ============================================================ */
+@media (max-width: 1024px) {
+  .nav-toggle {
+    display: flex;
+    margin-right: var(--space-2);
+  }
+
+  #sidebar.sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    height: 100dvh;
+    width: 288px;
+    min-width: 288px;
+    transform: translateX(-100%);
+    transition: transform var(--ease-slow);
+    box-shadow: var(--shadow-xl);
+    z-index: var(--z-modal);
+  }
+  #sidebar.sidebar.open { transform: translateX(0); }
+
+  /* Main area reclaims full width once the sidebar leaves flow. */
+  #main-area.main { width: 100%; }
+}
+
+/* ============================================================
+   NARROW LAYOUTS — stack multi-panel module layouts
+   (split / three-panel use fixed grid columns + calc heights)
+   ============================================================ */
+@media (max-width: 900px) {
+  .split-layout,
+  .split-layout.wide-left,
+  .three-panel-layout {
+    grid-template-columns: 1fr;
+    height: auto;
+    overflow: visible;
+  }
+
+  .split-panel-left,
+  .panel-left,
+  .panel-right {
+    border-left: none;
+    border-right: none;
+    border-bottom: 1px solid var(--border-default);
+    overflow: visible;
+  }
+
+  .split-panel-right,
+  .panel-center { overflow: visible; }
+
+  .module-page { padding: var(--space-5); }
+  .module-hero { padding: var(--space-8) var(--space-4); }
+}
+
+/* Phones / very narrow */
+@media (max-width: 560px) {
+  .home-hero-title { font-size: clamp(1.5rem, 7vw, 2rem); }
+  .module-page { padding: var(--space-4); }
+  h1 { font-size: var(--text-4xl); }
+  h2 { font-size: var(--text-3xl); }
+
+  /* Animation controls: keep the essentials, let it wrap cleanly */
+  .anim-controls-bar { flex-wrap: wrap; gap: var(--space-2); }
+  .anim-step-counter { order: 3; }
+}
+
+/* ============================================================
+   TOUCH INPUT — 44px minimum hit targets (Apple HIG)
+   ============================================================ */
+@media (pointer: coarse) {
+  .btn-icon {
+    width: 44px;
+    height: 44px;
+  }
+  .anim-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .nav-item {
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+  .tab-btn {
+    padding-top: 14px;
+    padding-bottom: 14px;
+  }
+  .anim-speed-select { padding: 8px 10px; }
+
+  /* Fatter, easier-to-drag scrubber */
+  .anim-progress-track { height: 10px; }
+
+  .code-block-copy { min-height: 38px; padding: 6px 12px; }
+
+  .sidebar-search input { padding-top: 10px; padding-bottom: 10px; }
+}
+
+/* ============================================================
+   NO-HOVER DEVICES — kill "sticky hover" lift after a tap
+   ============================================================ */
+@media (hover: none) {
+  .home-module-card:hover,
+  .home-layer-card:hover,
+  .home-wh-card:hover,
+  .home-module-card:focus,
+  .nav-item:hover,
+  .btn-icon:hover,
+  .anim-btn:hover,
+  .tab-btn:hover {
+    transform: none;
+  }
+
+  /* Provide real pressed feedback instead */
+  .home-module-card:active,
+  .home-layer-card:active,
+  .btn:active,
+  .btn-icon:active,
+  .nav-item:active {
+    opacity: 0.85;
+    transform: scale(0.99);
+  }
+}

@@ -1,0 +1,92 @@
+/* ============================================================
+   responsive.css — tablet + touch pass (loaded after base CSS)
+   Additive only: overrides base rules by cascade order.
+   Targets: desktop (mouse) and iPad-class tablets (touch).
+   ============================================================ */
+
+/* Use dynamic viewport height so the iPadOS Safari toolbar doesn't
+   cause height jump/clipping. Falls back to 100vh where unsupported. */
+#app { height: 100vh; height: 100dvh; }
+
+/* ── Off-canvas sidebar drawer below 1024px ─────────────────
+   Desktop (>1024) keeps the persistent sidebar untouched. */
+@media (max-width: 1024px) {
+  .topbar-nav { display: none; }
+
+  .sidebar {
+    position: fixed;
+    top: 56px;                 /* below the topbar */
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    max-width: 82vw;
+    transform: translateX(-100%);
+    transition: transform var(--ease-in-out);
+    z-index: var(--z-modal);
+    box-shadow: var(--shadow-xl);
+    overflow-y: auto;
+  }
+  .sidebar.open { transform: translateX(0); }
+
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 56px 0 0 0;
+    background: rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity var(--ease-base), visibility var(--ease-base);
+    z-index: var(--z-overlay);
+  }
+  .sidebar-backdrop.visible { opacity: 1; visibility: visible; }
+
+  .hamburger { display: inline-flex !important; }
+}
+
+/* Hamburger hidden on desktop (shown only in the drawer breakpoint). */
+.hamburger { display: none; }
+
+/* ── Touch: 44px minimum targets (Apple HIG) ────────────────── */
+@media (pointer: coarse) {
+  .icon-btn,
+  .hamburger { min-width: 44px; min-height: 44px; }
+  .sidebar-link { min-height: 44px; display: flex; align-items: center; }
+  .nav-pill { min-height: 40px; display: inline-flex; align-items: center; }
+  /* Transport + generic control buttons */
+  .anim-play, .qa-chip, .biz-view-btn, .biz-mode-btn,
+  .sim-scenario, .quiz-option { min-height: 40px; }
+  .anim-scrub { height: 24px; }
+}
+
+/* ── Kill "sticky hover" on touch; give an :active press instead ─ */
+@media (hover: none) {
+  .card-hover:hover, .topic-card:hover, .map-node:hover,
+  .quiz-option:hover, .sim-scenario:hover, .qa-chip:hover {
+    transform: none;
+  }
+  .card-hover:active, .topic-card:active, .map-node:active {
+    transform: scale(0.99);
+  }
+}
+
+/* ── Stack multi-column module layouts on narrow/portrait ───── */
+@media (max-width: 860px) {
+  .arch-layout,
+  .two-col-code,
+  .var-compare,
+  .metrics-grid,
+  .biz-controls-row { grid-template-columns: 1fr; }
+  .biz-controls-row { display: flex; flex-direction: column; align-items: stretch; gap: var(--space-3); }
+  .gloss-list { grid-template-columns: 1fr; }
+  /* Detail panels stop being sticky so they don't overlap when stacked. */
+  .arch-detail { position: static; }
+}
+
+/* ── Global reduced-motion honor ────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

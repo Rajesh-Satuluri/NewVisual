@@ -1,0 +1,188 @@
+/* ============================================================
+   router.js — hash router with lazy module loading + lifecycle
+   Modules self-register via DBLab.registerModule({...}).
+   Each module: { id, title, fullWidth?, render(container), destroy() }
+   ============================================================ */
+(function () {
+  "use strict";
+  var AV = (window.DBLab = window.DBLab || {});
+  AV.modules = AV.modules || {};
+
+  AV.registerModule = function (mod) {
+    if (mod && mod.id) AV.modules[mod.id] = mod;
+  };
+
+  // ── Lazy <script> loader (one fetch per file, coalesced) ──
+  var scriptState = {}; // src -> 'loading' | 'loaded' | 'error'
+  var scriptWaiters = {}; // src -> [cb]
+
+  function loadScript(src, cb) {
+    if (scriptState[src] === "loaded") { cb(true); return; }
+    if (scriptState[src] === "error") { cb(false); return; }
+    (scriptWaiters[src] = scriptWaiters[src] || []).push(cb);
+    if (scriptState[src] === "loading") return;
+    scriptState[src] = "loading";
+    var s = document.createElement("script");
+    s.src = src;
+    s.onload = function () { scriptState[src] = "loaded"; flush(src, true); };
+    s.onerror = function () { scriptState[src] = "error"; flush(src, false); };
+    document.body.appendChild(s);
+  }
+  function flush(src, ok) {
+    var list = scriptWaiters[src] || [];
+    scriptWaiters[src] = [];
+    list.forEach(function (cb) { cb(ok); });
+  }
+
+  function Router(opts) {
+    opts = opts || {};
+    this.routes = opts.routes || {};
+    this.container = opts.container;
+    this.defaultRoute = opts.defaultRoute || "home";
+    this.onRoute = opts.onRoute || function () {};
+    this.current = null;
+    this._bound = this._onHash.bind(this);
+  }
+
+  Router.prototype.start = function () {
+    window.addEventListener("hashchange", this._bound);
+    this._onHash();
+  };
+
+  Router.prototype._id = function () {
+    var raw = (location.hash || "").replace(/^#/, "").trim();
+    var base = raw.split("/")[0];
+    return base || this.defaultRoute;
+  };
+
+  // Optional step segment: "#architecture/5" → 5 (else null).
+  Router.prototype._step = function () {
+    var raw = (location.hash || "").replace(/^#/, "").trim();
+    var parts = raw.split("/");
+    if (parts.length > 1) { var n = parseInt(parts[1], 10); return isNaN(n) ? null : n; }
+    return null;
+  };
+
+  Router.prototype._emitNav = function (id) {
+    try { window.dispatchEvent(new CustomEvent("dblab:navigate", { detail: { id: id } })); } catch (e) {}
+  };
+
+  Router.prototype._teardown = function () {
+    if (this.current && typeof this.current.destroy === "function") {
+      try { this.current.destroy(); } catch (e) { console.error("Module destroy error:", e); }
+    }
+    this.current = null;
+    // Any active animation controls belong to the outgoing module.
+    AV.activeControls = null;
+  };
+
+  Router.prototype._onHash = function () {
+    var self = this;
+    var id = this._id();
+
+    // Same route, only the step segment changed → keep the module mounted
+    // (deep-linkable animation step is handled by the navigation-sync feature).
+    if (id === this.currentId && this.current) return;
+
+    this.currentId = id;
+    this._teardown();
+    this.onRoute(id);
+    this._emitNav(id);
+
+    var route = this.routes[id];
+
+    if (AV.modules[id]) { this._mount(AV.modules[id]); return; }
+
+    if (route && route.ready) {
+      this._renderLoading(route.title || id);
+      loadScript("js/modules/" + id + ".js", function (ok) {
+        if (self._id() !== id) return; // user navigated away while loading
+        if (ok && AV.modules[id]) self._mount(AV.modules[id]);
+        else self._renderError(id);
+      });
+      return;
+    }
+
+    this._renderComingSoon(id, route ? route.title : null);
+  };
+
+  Router.prototype._mount = function (mod) {
+    var c = this.container;
+    if (!c) return;
+    c.innerHTML = "";
+    c.className = "module-container" + (mod.fullWidth ? " full-width" : "");
+    var canvas = document.getElementById("canvas");
+    if (canvas) canvas.scrollTop = 0;
+    try { mod.render(c); } catch (e) { console.error("Module render error:", e); }
+    // Dock a module's transport bar to the viewport bottom so the play/step
+    // controls stay pinned while the module scrolls, rather than drifting
+    // mid-page. Opt-in styling lives in enhancements.css; this only applies
+    // when the module actually rendered an .anim-controls bar (engine modules;
+    // toggle modules have none and are left untouched).
+    try {
+      var barHost = c.querySelector(".arch-controls");
+      if (barHost && barHost.querySelector(".anim-controls")) {
+        barHost.classList.add("docked");
+        c.classList.add("dock-pad");
+      }
+    } catch (e) { console.error("Dock controls error:", e); }
+    // Append the recurring e-commerce business example below concept
+    // modules (no-op for modules without a lens entry).
+    // Concept deep dives render their own business lens + Quick Check inline
+    // (see modules/concept.js), so these router-level auto-appends only fire
+    // for legacy modules that expose an append() helper.
+    if (AV.BusinessLens && typeof AV.BusinessLens.append === "function") {
+      try { AV.BusinessLens.append(c, mod.id); } catch (e) { console.error("BusinessLens error:", e); }
+    }
+    if (AV.TestYourself && typeof AV.TestYourself.append === "function") {
+      try { AV.TestYourself.append(c, mod.id); } catch (e) { console.error("TestYourself error:", e); }
+    }
+    this.current = mod;
+    // Fires after render (engine present) so features can restore a deep-linked step.
+    try { window.dispatchEvent(new CustomEvent("dblab:mounted", { detail: { id: mod.id } })); } catch (e) {}
+  };
+
+  // ── Fallback screens ──────────────────────────────────────
+  Router.prototype._title = function (id, title) {
+    if (title) return title;
+    return id.replace(/-/g, " ").replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+  };
+
+  Router.prototype._renderLoading = function (title) {
+    if (!this.container) return;
+    this.container.className = "module-container";
+    this.container.innerHTML =
+      '<div class="placeholder"><div class="spinner"></div>' +
+      '<div>Loading ' + this._title("", title) + "…</div></div>";
+  };
+
+  Router.prototype._renderComingSoon = function (id, title) {
+    if (!this.container) return;
+    var t = this._title(id, title);
+    this.container.className = "module-container";
+    this.container.innerHTML =
+      '<div class="module-header animate-fade-in-up">' +
+        '<div class="module-eyebrow">Database Engineering & Internals Lab</div>' +
+        '<h1 class="module-title gradient-text">' + t + "</h1>" +
+        '<p class="module-subtitle">This module is on the build roadmap. The core ' +
+        "engine, routing, and design system are live — interactive content for this " +
+        "topic lands in an upcoming phase.</p>" +
+      "</div>" +
+      '<div class="callout tip animate-fade-in">' +
+        '<span class="callout-icon">🚧</span>' +
+        '<div class="callout-body">Under construction. ' +
+        'Try <a href="#home">Dashboard</a> or the <a href="#master-map">Master Map</a> — both are fully interactive.</div>' +
+      "</div>";
+  };
+
+  Router.prototype._renderError = function (id) {
+    if (!this.container) return;
+    this.container.className = "module-container";
+    this.container.innerHTML =
+      '<div class="placeholder"><div class="placeholder-icon">⚠️</div>' +
+      "<div>Couldn't load module <code>" + id + "</code>.</div>" +
+      '<a class="btn btn-secondary" href="#home">Back to Home</a></div>';
+  };
+
+  AV.Router = Router;
+})();
