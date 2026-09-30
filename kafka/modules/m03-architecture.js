@@ -1,4 +1,5 @@
 import { createModuleShell, createIQSection } from '../components/module-shell.js';
+import { ARCH_NODES } from '../data/arch-nodes.js';
 
 export const IQ = [
   {
@@ -41,6 +42,7 @@ export function mount(container) {
 function buildDiagram(container) {
   const tab = container.querySelector('#tab-diagram');
   tab.innerHTML = `
+    <div class="arch-layout">
     <div class="svg-wrap">
       <svg viewBox="0 0 860 480" width="860" height="480" style="font-family:system-ui">
         <defs>
@@ -137,7 +139,23 @@ function buildDiagram(container) {
         <text x="757" y="392" text-anchor="middle" fill="#06B6D4" font-size="10" font-weight="700">Schema Registry</text>
         <text x="757" y="410" text-anchor="middle" fill="#94A3B8" font-size="9">Avro · Protobuf · JSON Schema</text>
         <line x1="680" y1="395" x2="603" y2="395" stroke="#06B6D4" stroke-width="1" stroke-dasharray="4,3"/>
+
+        <!-- Clickable hit-layer (transparent). Draws a selection ring on the chosen component. -->
+        <g id="arch-hits">
+          ${Object.entries(ARCH_NODES).map(([id, n]) => {
+            const [x, y, w, h] = n.box;
+            return `<rect class="arch-hit" data-node="${id}" x="${x}" y="${y}" width="${w}" height="${h}" rx="8"
+                      tabindex="0" role="button" aria-label="${n.title.replace(/"/g, '&quot;')}"></rect>`;
+          }).join('')}
+        </g>
       </svg>
+    </div>
+    <aside class="arch-detail" id="arch-detail">
+      <div class="arch-detail-hint">
+        <div class="arch-detail-hint-icon">👆</div>
+        <p>Click any component in the diagram to see what it is, its role in the order flow, and where to learn more.</p>
+      </div>
+    </aside>
     </div>
     <div class="scroll-content">
       <div class="prose">
@@ -148,6 +166,39 @@ function buildDiagram(container) {
         <p>Switch to the <strong>📦 Amazon Order Flow</strong> tab for the full step-by-step story.</p>
       </div>
     </div>`;
+
+  initArchDiagram(tab);
+}
+
+// Wire the clickable architecture: selecting a component highlights it and
+// renders its explanation (from ARCH_NODES) into the detail panel.
+function initArchDiagram(tab) {
+  const detail = tab.querySelector('#arch-detail');
+  const hits = [...tab.querySelectorAll('.arch-hit')];
+  if (!detail || !hits.length) return;
+
+  function select(id) {
+    const n = ARCH_NODES[id];
+    if (!n) return;
+    hits.forEach(h => h.classList.toggle('selected', h.dataset.node === id));
+    detail.innerHTML = `
+      <div class="arch-card">
+        <div class="arch-card-title">${n.title}</div>
+        <div class="arch-card-role">${n.role}</div>
+        <div class="arch-card-detail">${n.detail}</div>
+        ${n.keyPoints && n.keyPoints.length ? `
+          <ul class="arch-card-points">${n.keyPoints.map(p => `<li>${p}</li>`).join('')}</ul>` : ''}
+        ${n.link ? `<a class="arch-card-link" href="#${n.link}">${n.linkLabel || 'Learn more'} →</a>` : ''}
+      </div>`;
+    detail.scrollTop = 0;
+  }
+
+  hits.forEach(h => {
+    h.addEventListener('click', () => select(h.dataset.node));
+    h.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(h.dataset.node); }
+    });
+  });
 }
 
 function buildAmazon(container) {

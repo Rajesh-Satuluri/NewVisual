@@ -643,3 +643,33 @@ body.cmdk-open { overflow: hidden; }
 .ta code { background: var(--bg3); padding: 1px 6px; border-radius: 5px; font-size: .92em; }
 
 @media (max-width: 768px) { .ta-list { padding-left: 16px; padding-right: 16px; } }
+
+/* ── m03 clickable architecture diagram ────────────────────────────────────── */
+.arch-layout { display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap; }
+.arch-layout .svg-wrap { flex: 1 1 520px; min-width: 0; }
+
+.arch-hit { fill: transparent; stroke: transparent; stroke-width: 2.5; cursor: pointer;
+  transition: stroke .12s, fill .12s; pointer-events: all; }
+.arch-hit:hover { fill: color-mix(in srgb, var(--accent) 10%, transparent); stroke: color-mix(in srgb, var(--accent) 55%, transparent); }
+.arch-hit:focus-visible { outline: none; stroke: var(--accent); }
+.arch-hit.selected { stroke: var(--accent); fill: color-mix(in srgb, var(--accent) 8%, transparent); }
+
+.arch-detail { flex: 1 1 300px; min-width: 260px; align-self: stretch;
+  border: 1px solid var(--border); border-radius: 12px; background: var(--bg2); padding: 18px 20px; }
+.arch-detail-hint { color: var(--text3); text-align: center; padding: 24px 8px; }
+.arch-detail-hint-icon { font-size: 28px; margin-bottom: 10px; }
+.arch-detail-hint p { line-height: 1.55; margin: 0; }
+
+.arch-card-title { font-size: 17px; font-weight: 800; color: var(--text); margin-bottom: 4px; }
+.arch-card-role { color: var(--accent); font-weight: 600; line-height: 1.5; margin-bottom: 12px; }
+.arch-card-detail { color: var(--text2); line-height: 1.65; }
+.arch-card-points { margin: 12px 0 0; padding-left: 18px; color: var(--text2); line-height: 1.6; }
+.arch-card-points li { margin-bottom: 6px; }
+.arch-card-link { display: inline-block; margin-top: 14px; color: var(--accent); font-weight: 600; text-decoration: none; }
+.arch-card-link:hover { text-decoration: underline; }
+.arch-detail code, .arch-card code { background: var(--bg3); padding: 1px 6px; border-radius: 5px; font-size: .92em; }
+
+@media (max-width: 820px) {
+  .arch-layout { flex-direction: column; }
+  .arch-detail { width: 100%; }
+}
