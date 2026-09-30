@@ -36,6 +36,9 @@ const REFERENCE = [
   { id:'glossary',   label:'Glossary',   icon:'📖' },
   { id:'cheatsheet', label:'Cheat Sheet', icon:'📋' },
 ];
+const PRACTICE = [
+  { id:'decisions', label:'Choose the Approach', icon:'🧭' },
+];
 const REVIEW = { id:'study', label:'Study Hub', icon:'📚' };
 
 const COLLAPSE_KEY = 'kafka_nav_collapsed';
@@ -81,6 +84,7 @@ export function renderNav(activeId, done) {
     </div>
     ${GROUP_ORDER.map(g => section(g, groups[g] || [])).join('')}
     ${section('Reference', REFERENCE)}
+    ${section('Practice', PRACTICE)}
     ${section('Review', [{ ...REVIEW }])}
   `;
 

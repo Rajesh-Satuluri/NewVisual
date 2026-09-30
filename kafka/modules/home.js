@@ -120,6 +120,13 @@ export function mount(container) {
             <span class="home-card-desc">CLI, key configs, and delivery semantics on one printable page.</span>
           </span>
         </a>
+        <a href="#decisions" class="home-card">
+          <span class="home-card-icon">🧭</span>
+          <span class="home-card-text">
+            <span class="home-card-title">Choose the Approach</span>
+            <span class="home-card-desc">Make the trade-off call on real scenarios, then see why each option wins or loses.</span>
+          </span>
+        </a>
         <a href="#study" class="home-card">
           <span class="home-card-icon">📚</span>
           <span class="home-card-text">

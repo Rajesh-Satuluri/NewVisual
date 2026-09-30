@@ -484,3 +484,69 @@ body.cmdk-open { overflow: hidden; }
   .glossary-results, .cheat-grid, .mm-flow, .mm-groups { padding-left: 16px; padding-right: 16px; }
   .mm-arrow { display: none; }
 }
+
+/* ── Choose the Approach (decision drills) ─────────────────────────────────── */
+.ca-progress { color: var(--text3); font-size: 13px; align-self: center; }
+
+.ca-list { display: flex; flex-direction: column; gap: 12px; }
+
+.ca-card { border: 1px solid var(--border); border-radius: 12px; background: var(--bg2); overflow: hidden; }
+.ca-card-head {
+  width: 100%; display: flex; align-items: center; gap: 12px; padding: 16px 18px;
+  background: none; border: none; cursor: pointer; text-align: left; color: var(--text);
+}
+.ca-card-head:hover { background: var(--bg3); }
+.ca-card-topic {
+  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--accent); background: var(--accent-lo); padding: 3px 8px; border-radius: 6px; white-space: nowrap;
+}
+.ca-card-title { flex: 1; font-weight: 600; }
+.ca-card-head .q-chevron { color: var(--text3); transition: transform .2s; }
+.ca-card-head[aria-expanded="true"] .q-chevron { transform: rotate(180deg); }
+.ca-card-body { padding: 0 18px 18px; }
+
+.ca-requirement {
+  background: var(--bg3); border: 1px solid var(--border); border-radius: 10px;
+  padding: 14px 16px; margin-bottom: 16px;
+}
+.ca-req-label {
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--text3); margin-bottom: 6px;
+}
+.ca-req-body { color: var(--text); line-height: 1.55; }
+
+.ca-prompt { font-weight: 600; color: var(--text2); margin-bottom: 10px; }
+
+.ca-options { display: flex; flex-direction: column; gap: 10px; }
+.ca-opt {
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--bg);
+  padding: 13px 15px; color: var(--text); transition: border-color .15s, background .15s;
+}
+.ca-opt:hover:not(.revealed) { border-color: var(--accent); background: var(--bg3); }
+.ca-opt-label { font-weight: 600; display: block; }
+.ca-opt-verdict {
+  display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .04em; margin-top: 10px; padding: 3px 9px; border-radius: 6px;
+}
+.ca-opt-why { display: block; margin-top: 8px; color: var(--text2); line-height: 1.6; font-weight: 400; }
+.ca-opt.revealed { cursor: default; }
+.ca-opt.v-best   { border-color: var(--green); background: color-mix(in srgb, var(--green) 9%, var(--bg)); }
+.ca-opt.v-best   .ca-opt-verdict { background: color-mix(in srgb, var(--green) 20%, transparent); color: var(--green); }
+.ca-opt.v-viable { border-color: var(--amber); background: color-mix(in srgb, var(--amber) 9%, var(--bg)); }
+.ca-opt.v-viable .ca-opt-verdict { background: color-mix(in srgb, var(--amber) 20%, transparent); color: var(--amber); }
+.ca-opt.v-wrong  { border-color: var(--red); background: color-mix(in srgb, var(--red) 9%, var(--bg)); }
+.ca-opt.v-wrong  .ca-opt-verdict { background: color-mix(in srgb, var(--red) 20%, transparent); color: var(--red); }
+
+.ca-followups { margin-top: 18px; display: flex; flex-direction: column; gap: 12px; }
+.ca-block { border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; padding: 13px 15px; background: var(--bg2); }
+.ca-block.ca-interview { border-left-color: var(--blue); }
+.ca-block-head { font-weight: 700; margin-bottom: 6px; color: var(--text); }
+.ca-block-body { color: var(--text2); line-height: 1.6; }
+
+.ca code { background: var(--bg3); padding: 1px 6px; border-radius: 5px; font-size: .92em; }
+
+@media (max-width: 768px) {
+  .ca-list { padding-left: 16px; padding-right: 16px; }
+  .ca-card-head { flex-wrap: wrap; }
+}
