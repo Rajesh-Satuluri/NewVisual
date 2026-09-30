@@ -47,6 +47,22 @@
     .c-pink{--accent:var(--pink)}.c-violet{--accent:var(--violet)}
     footer{color:var(--muted-2);font-size:13px;text-align:center;padding:28px 24px;border-top:1px solid var(--border);margin-top:auto}
     footer a{color:var(--brand2)}
+    /* per-card download + stretched nav link (card is a <div>, no nested <a>) */
+    .card .top-r{display:flex;align-items:center;gap:8px}
+    .card .go{position:static}
+    .card .go::after{content:"";position:absolute;inset:0;z-index:1;border-radius:16px}
+    .card .dl{position:relative;z-index:2;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;color:var(--muted-2);background:color-mix(in srgb,var(--accent) 10%,transparent);border:1px solid var(--border);transition:color .15s,background .15s,border-color .15s;flex-shrink:0}
+    .card .dl svg{display:block}
+    .card .dl:hover{color:var(--accent);border-color:var(--accent);background:color-mix(in srgb,var(--accent) 18%,transparent)}
+    .card .dl:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+    /* master "download everything" button in the hero */
+    .hero-actions{display:flex;justify-content:center;margin-top:26px}
+    .dl-all{display:inline-flex;align-items:center;gap:9px;font-size:14px;font-weight:700;color:#fff;background:linear-gradient(90deg,var(--brand),var(--brand2));border:none;border-radius:10px;padding:12px 20px;box-shadow:0 8px 24px rgba(59,130,246,.28);transition:transform .12s ease,box-shadow .15s ease}
+    .dl-all:hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(59,130,246,.4)}
+    .dl-all:active{transform:translateY(0)}
+    .dl-all:focus-visible{outline:2px solid var(--brand2);outline-offset:3px}
+    .dl-all svg{display:block}
+    .dl-all .sz{font-weight:600;opacity:.85;font-size:12px}
   </style>
 </head>
 <body>
@@ -60,154 +76,160 @@
         <div><div class="stat-num">4</div><div class="stat-label">Domains</div></div>
         <div><div class="stat-num">100%</div><div class="stat-label">Static · no backend</div></div>
       </div>
+      <div class="hero-actions">
+        <a class="dl-all" href="newvisual-all.zip" download title="Download all 22 tools as one .zip" aria-label="Download every tool as one .zip backup">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download everything <span class="sz">· one .zip</span>
+        </a>
+      </div>
     </header>
 
     <div class="section-label">Data Engineering &amp; Streaming</div>
     <div class="grid">
-      <a class="card c-cyan" href="airflow-visualizer/">
-        <div class="top"><div class="icon">🌀</div><span class="tag">Orchestration</span></div>
+      <div class="card c-cyan">
+        <div class="top"><div class="icon">🌀</div><div class="top-r"><span class="tag">Orchestration</span><a class="dl" href="airflow-visualizer/airflow-visualizer.zip" download title="Download Apache Airflow Visualizer (.zip)" aria-label="Download Apache Airflow Visualizer as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>Apache Airflow Visualizer</h2>
         <p>Airflow internals — architecture, DAG parsing, scheduler, executors, task lifecycle, failure scenarios, and interview prep.</p>
-        <span class="go">Open lab <span class="arrow">→</span></span>
-      </a>
-      <a class="card c-orange" href="pyspark-visualizer/">
-        <div class="top"><div class="icon">⚡</div><span class="tag">Big Data</span></div>
+        <a class="go" href="airflow-visualizer/">Open lab <span class="arrow">→</span></a>
+      </div>
+      <div class="card c-orange">
+        <div class="top"><div class="icon">⚡</div><div class="top-r"><span class="tag">Big Data</span><a class="dl" href="pyspark-visualizer/pyspark-visualizer.zip" download title="Download PySpark Visualizer (.zip)" aria-label="Download PySpark Visualizer as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>PySpark Visualizer</h2>
         <p>Spark execution model, transformations vs. actions, shuffles, partitioning and the DataFrame API — visualized step by step.</p>
-        <span class="go">Open lab <span class="arrow">→</span></span>
-      </a>
-      <a class="card c-green" href="spotify-azure-de-visualizer/">
-        <div class="top"><div class="icon">🎧</div><span class="tag">Project</span></div>
+        <a class="go" href="pyspark-visualizer/">Open lab <span class="arrow">→</span></a>
+      </div>
+      <div class="card c-green">
+        <div class="top"><div class="icon">🎧</div><div class="top-r"><span class="tag">Project</span><a class="dl" href="spotify-azure-de-visualizer/spotify-azure-de-visualizer.zip" download title="Download Spotify Azure DE (.zip)" aria-label="Download Spotify Azure DE as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>Spotify Azure DE</h2>
         <p>The Spotify Azure Data Engineering project — architecture visualizer, implementation lab, production-debugging simulator and interview coach across 9 layers.</p>
-        <span class="go">Open lab <span class="arrow">→</span></span>
-      </a>
-      <a class="card c-blue" href="data-engineering-cicd-visualizer/">
-        <div class="top"><div class="icon">🚀</div><span class="tag">CI/CD</span></div>
+        <a class="go" href="spotify-azure-de-visualizer/">Open lab <span class="arrow">→</span></a>
+      </div>
+      <div class="card c-blue">
+        <div class="top"><div class="icon">🚀</div><div class="top-r"><span class="tag">CI/CD</span><a class="dl" href="data-engineering-cicd-visualizer/data-engineering-cicd-visualizer.zip" download title="Download Data Engineering CI/CD (.zip)" aria-label="Download Data Engineering CI/CD as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>Data Engineering CI/CD</h2>
         <p>From <code>git push</code> to production data — Git, GitHub Actions, Terraform, Docker, Databricks, dbt and Kubernetes, told through the RetailFlow story.</p>
-        <span class="go">Open lab <span class="arrow">→</span></span>
-      </a>
-      <a class="card c-green" href="dbt/">
-        <div class="top"><div class="icon">🔧</div><span class="tag">Transformation</span></div>
+        <a class="go" href="data-engineering-cicd-visualizer/">Open lab <span class="arrow">→</span></a>
+      </div>
+      <div class="card c-green">
+        <div class="top"><div class="icon">🔧</div><div class="top-r"><span class="tag">Transformation</span><a class="dl" href="dbt/dbt.zip" download title="Download dbt (.zip)" aria-label="Download dbt as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>dbt</h2><div class="sub">Amazon Edition</div>
         <p>Models, tests, snapshots, macros, sources and the dbt DAG — from raw S3 data to production-ready dimensional models.</p>
-        <span class="go">Open lab <span class="arrow">→</span></span>
-      </a>
-      <a class="card c-blue" href="flink/">
-        <div class="top"><div class="icon">🌊</div><span class="tag">Stream Processing</span></div>
+        <a class="go" href="dbt/">Open lab <span class="arrow">→</span></a>
+      </div>
+      <div class="card c-blue">
+        <div class="top"><div class="icon">🌊</div><div class="top-r"><span class="tag">Stream Processing</span><a class="dl" href="flink/flink.zip" download title="Download Apache Flink (.zip)" aria-label="Download Apache Flink as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>Apache Flink</h2><div class="sub">Uber Edition</div>
         <p>Stateful stream processing — DataStream API, checkpointing, watermarks, windowing and Uber's real-time analytics pipeline.</p>
-        <span class="go">Open lab <span class="arrow">→</span></span>
-      </a>
-      <a class="card c-orange" href="kafka/">
-        <div class="top"><div class="icon">🪣</div><span class="tag">Streaming</span></div>
+        <a class="go" href="flink/">Open lab <span class="arrow">→</span></a>
+      </div>
+      <div class="card c-orange">
+        <div class="top"><div class="icon">🪣</div><div class="top-r"><span class="tag">Streaming</span><a class="dl" href="kafka/kafka.zip" download title="Download Apache Kafka (.zip)" aria-label="Download Apache Kafka as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>Apache Kafka</h2><div class="sub">Amazon Edition</div>
         <p>22 modules — producers, brokers, consumers, Kafka Streams, Connect, MirrorMaker 2, partition reassignment and the full Amazon order pipeline.</p>
-        <span class="go">Open lab <span class="arrow">→</span></span>
-      </a>
-      <a class="card c-cyan" href="iceberg/">
-        <div class="top"><div class="icon">🧊</div><span class="tag">Table Format</span></div>
+        <a class="go" href="kafka/">Open lab <span class="arrow">→</span></a>
+      </div>
+      <div class="card c-cyan">
+        <div class="top"><div class="icon">🧊</div><div class="top-r"><span class="tag">Table Format</span><a class="dl" href="iceberg/iceberg.zip" download title="Download Apache Iceberg (.zip)" aria-label="Download Apache Iceberg as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>Apache Iceberg</h2><div class="sub">ShopKart Handbook</div>
         <p>Metadata hierarchy, snapshot isolation, hidden partitioning, schema evolution and time travel — the complete Iceberg story.</p>
-        <span class="go">Open lab <span class="arrow">→</span></span>
-      </a>
-      <a class="card c-orange" href="databricks/">
-        <div class="top"><div class="icon">🧱</div><span class="tag">Lakehouse</span></div>
+        <a class="go" href="iceberg/">Open lab <span class="arrow">→</span></a>
+      </div>
+      <div class="card c-orange">
+        <div class="top"><div class="icon">🧱</div><div class="top-r"><span class="tag">Lakehouse</span><a class="dl" href="databricks/databricks.zip" download title="Download Databricks (.zip)" aria-label="Download Databricks as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>Databricks</h2><div class="sub">Amazon Edition</div>
         <p>Delta Lake, Unity Catalog, Photon, clusters, jobs and Structured Streaming — the Lakehouse architecture through Amazon's data platform.</p>
-        <span class="go">Open lab <span class="arrow">→</span></span>
-      </a>
+        <a class="go" href="databricks/">Open lab <span class="arrow">→</span></a>
+      </div>
     </div>
 
     <div class="section-label">Databases &amp; Warehousing</div>
     <div class="grid">
-      <a class="card c-blue" href="sql-visualizer/">
-        <div class="top"><div class="icon">🗃️</div><span class="tag">SQL</span></div>
+      <div class="card c-blue">
+        <div class="top"><div class="icon">🗃️</div><div class="top-r"><span class="tag">SQL</span><a class="dl" href="sql-visualizer/sql-visualizer.zip" download title="Download SQL Server Visualizer (.zip)" aria-label="Download SQL Server Visualizer as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>SQL Server Visualizer</h2>
         <p>Query execution, joins, indexing and set-based thinking — SQL taught visually with worked examples.</p>
-        <span class="go">Open lab <span class="arrow">→</span></span>
-      </a>
-      <a class="card c-blue" href="db-engineering/">
-        <div class="top"><div class="icon">🗄️</div><span class="tag">DB Fundamentals</span></div>
+        <a class="go" href="sql-visualizer/">Open lab <span class="arrow">→</span></a>
+      </div>
+      <div class="card c-blue">
+        <div class="top"><div class="icon">🗄️</div><div class="top-r"><span class="tag">DB Fundamentals</span><a class="dl" href="db-engineering/db-engineering.zip" download title="Download DB Engineering (.zip)" aria-label="Download DB Engineering as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>DB Engineering</h2><div class="sub">ShopFlow Platform</div>
         <p>Normalization, keys, relationships, transactions, ACID, data-warehouse design and the Medallion architecture — through the ShopFlow lens.</p>
-        <span class="go">Open lab <span class="arrow">→</span></span>
-      </a>
-      <a class="card c-indigo" href="db-internals/">
-        <div class="top"><div class="icon">🗂️</div><span class="tag">DB Internals</span></div>
+        <a class="go" href="db-engineering/">Open lab <span class="arrow">→</span></a>
+      </div>
+      <div class="card c-indigo">
+        <div class="top"><div class="icon">🗂️</div><div class="top-r"><span class="tag">DB Internals</span><a class="dl" href="db-internals/db-internals.zip" download title="Download DB Internals (.zip)" aria-label="Download DB Internals as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>DB Internals</h2><div class="sub">Amazon Prime Day Edition</div>
         <p>133 animated modules — storage pages, B+ trees, WAL, MVCC, distributed consensus and more — told through the Amazon "Buy Now" journey.</p>
-        <span class="go">Open lab <span class="arrow">→</span></span>
-      </a>
-      <a class="card c-indigo" href="db-lab/">
-        <div class="top"><div class="icon">🧪</div><span class="tag">Hands-on</span></div>
+        <a class="go" href="db-internals/">Open lab <span class="arrow">→</span></a>
+      </div>
+      <div class="card c-indigo">
+        <div class="top"><div class="icon">🧪</div><div class="top-r"><span class="tag">Hands-on</span><a class="dl" href="db-lab/db-lab.zip" download title="Download DB Lab (.zip)" aria-label="Download DB Lab as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>DB Lab</h2>
         <p>An interactive database playground — experiment with schemas, queries and engine behavior in the browser.</p>
-        <span class="go">Open lab <span class="arrow">→</span></span>
-      </a>
-      <a class="card c-cyan" href="snowflake/">
-        <div class="top"><div class="icon">❄️</div><span class="tag">Cloud DWH</span></div>
+        <a class="go" href="db-lab/">Open lab <span class="arrow">→</span></a>
+      </div>
+      <div class="card c-cyan">
+        <div class="top"><div class="icon">❄️</div><div class="top-r"><span class="tag">Cloud DWH</span><a class="dl" href="snowflake/snowflake.zip" download title="Download Snowflake (.zip)" aria-label="Download Snowflake as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>Snowflake</h2><div class="sub">Netflix Architecture Handbook</div>
         <p>Virtual warehouses, micro-partitioning, clustering, time travel, data sharing and Netflix's content-analytics pipelines.</p>
-        <span class="go">Open lab <span class="arrow">→</span></span>
-      </a>
-      <a class="card c-violet" href="data-modeling-studio-app/">
-        <div class="top"><div class="icon">📐</div><span class="tag">Modeling</span></div>
+        <a class="go" href="snowflake/">Open lab <span class="arrow">→</span></a>
+      </div>
+      <div class="card c-violet">
+        <div class="top"><div class="icon">📐</div><div class="top-r"><span class="tag">Modeling</span><a class="dl" href="data-modeling-studio-app/data-modeling-studio-app.zip" download title="Download Data Modeling Studio (.zip)" aria-label="Download Data Modeling Studio as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>Data Modeling Studio</h2>
         <p>Design dimensional and normalized data models interactively — entities, relationships, facts and dimensions.</p>
-        <span class="go">Open lab <span class="arrow">→</span></span>
-      </a>
+        <a class="go" href="data-modeling-studio-app/">Open lab <span class="arrow">→</span></a>
+      </div>
     </div>
 
     <div class="section-label">Coding &amp; Interview Prep</div>
     <div class="grid">
-      <a class="card c-pink" href="blind75-visualizer/">
-        <div class="top"><div class="icon">🧩</div><span class="tag">Coding Stack</span></div>
+      <div class="card c-pink">
+        <div class="top"><div class="icon">🧩</div><div class="top-r"><span class="tag">Coding Stack</span><a class="dl" href="blind75-visualizer/blind75-visualizer.zip" download title="Download Data Engineering Coding Stack (.zip)" aria-label="Download Data Engineering Coding Stack as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>Data Engineering Coding Stack</h2>
         <p>Python, SQL, PySpark, NumPy &amp; Pandas — each with a Learn curriculum and a 500+ problem Practice set. Runnable in the browser, spaced-repetition review, and a cross-stack readiness dashboard.</p>
-        <span class="go">Open lab <span class="arrow">→</span></span>
-      </a>
-      <a class="card c-yellow" href="python/">
-        <div class="top"><div class="icon">🐍</div><span class="tag">Language</span></div>
+        <a class="go" href="blind75-visualizer/">Open lab <span class="arrow">→</span></a>
+      </div>
+      <div class="card c-yellow">
+        <div class="top"><div class="icon">🐍</div><div class="top-r"><span class="tag">Language</span><a class="dl" href="python/python.zip" download title="Download Python &amp; PySpark (.zip)" aria-label="Download Python &amp; PySpark as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>Python &amp; PySpark</h2><div class="sub">Coding Companion</div>
         <p>Python fundamentals, data structures, comprehensions, decorators, async and PySpark — interview patterns for data-engineering roles.</p>
-        <span class="go">Open lab <span class="arrow">→</span></span>
-      </a>
-      <a class="card c-green" href="interview-prep/">
-        <div class="top"><div class="icon">🎯</div><span class="tag">Interview</span></div>
+        <a class="go" href="python/">Open lab <span class="arrow">→</span></a>
+      </div>
+      <div class="card c-green">
+        <div class="top"><div class="icon">🎯</div><div class="top-r"><span class="tag">Interview</span><a class="dl" href="interview-prep/interview-prep.zip" download title="Download Interview Prep (.zip)" aria-label="Download Interview Prep as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>Interview Prep</h2>
         <p>A structured interview-preparation hub spanning the data-engineering stack — concepts, questions and worked answers.</p>
-        <span class="go">Open lab <span class="arrow">→</span></span>
-      </a>
+        <a class="go" href="interview-prep/">Open lab <span class="arrow">→</span></a>
+      </div>
     </div>
 
     <div class="section-label">Planning &amp; Career</div>
     <div class="grid">
-      <a class="card c-orange" href="o9-solver-visualizer/">
-        <div class="top"><div class="icon">📦</div><span class="tag">Supply Chain</span></div>
+      <div class="card c-orange">
+        <div class="top"><div class="icon">📦</div><div class="top-r"><span class="tag">Supply Chain</span><a class="dl" href="o9-solver-visualizer/o9-solver-visualizer.zip" download title="Download o9 Supply Chain Solver (.zip)" aria-label="Download o9 Supply Chain Solver as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>o9 Supply Chain Solver</h2>
         <p>The o9 Distribution Planning Solver (CATMPN) — DRP, inputs, constraints, net-requirement logic, shortage &amp; allocation, via the CAT Aftermarket Parts Network.</p>
-        <span class="go">Open lab <span class="arrow">→</span></span>
-      </a>
-      <a class="card c-yellow" href="supply-demand-qa/">
-        <div class="top"><div class="icon">📊</div><span class="tag">Planning Q&amp;A</span></div>
+        <a class="go" href="o9-solver-visualizer/">Open lab <span class="arrow">→</span></a>
+      </div>
+      <div class="card c-yellow">
+        <div class="top"><div class="icon">📊</div><div class="top-r"><span class="tag">Planning Q&amp;A</span><a class="dl" href="supply-demand-qa/supply-demand-qa.zip" download title="Download Supply &amp; Demand Planning Q&amp;A (.zip)" aria-label="Download Supply &amp; Demand Planning Q&amp;A as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>Supply &amp; Demand Planning Q&amp;A</h2>
         <p>A master interview question bank — 45 topic groups across forecasting, S&amp;OP, MRP/DRP, inventory, o9, SSIS and SQL, each with a plain-English answer and a business case.</p>
-        <span class="go">Open lab <span class="arrow">→</span></span>
-      </a>
-      <a class="card c-violet" href="resume-builder/">
-        <div class="top"><div class="icon">📄</div><span class="tag">Tool</span></div>
+        <a class="go" href="supply-demand-qa/">Open lab <span class="arrow">→</span></a>
+      </div>
+      <div class="card c-violet">
+        <div class="top"><div class="icon">📄</div><div class="top-r"><span class="tag">Tool</span><a class="dl" href="resume-builder/resume-builder.zip" download title="Download Resume Builder (.zip)" aria-label="Download Resume Builder as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>Resume Builder</h2>
         <p>A block-based résumé builder with a live A4 preview and print-quality, text-selectable PDF export. Your data stays in your browser.</p>
-        <span class="go">Open lab <span class="arrow">→</span></span>
-      </a>
-      <a class="card c-pink" href="gs-visualizer/">
-        <div class="top"><div class="icon">🎓</div><span class="tag">Study Map</span></div>
+        <a class="go" href="resume-builder/">Open lab <span class="arrow">→</span></a>
+      </div>
+      <div class="card c-pink">
+        <div class="top"><div class="icon">🎓</div><div class="top-r"><span class="tag">Study Map</span><a class="dl" href="gs-visualizer/gs-visualizer.zip" download title="Download GS — SSC PYQ Map (.zip)" aria-label="Download GS — SSC PYQ Map as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>GS — SSC PYQ Map</h2>
         <p>A frequency-first study map for SSC General Studies — every previous-year question from the Pinnacle 6500+ bank, ranked by how often and how recently each topic is asked.</p>
-        <span class="go">Open lab <span class="arrow">→</span></span>
-      </a>
+        <a class="go" href="gs-visualizer/">Open lab <span class="arrow">→</span></a>
+      </div>
     </div>
   </div>
 

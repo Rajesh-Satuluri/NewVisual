@@ -14,10 +14,13 @@
      workflow (see .github/workflows/deploy.yml) — it is never
      committed to git, so there is no repo bloat and the download is
      always current as of the last deploy.
-   • The zip name is derived from the current folder (e.g.
-     /airflow-visualizer/ -> airflow-visualizer.zip). Override with
-     data-zip="whatever.zip" (the landing page uses this for the
-     whole-repo "download all" archive).
+   • The zip URL is derived from THIS script's own src: the site root
+     is the part before "shared/backup-button.js", and the tool is the
+     first path segment below it, so the link always points at
+     <root>/<tool>/<tool>.zip — correct on the tool's home page AND on
+     any deeper sub-page (e.g. a routed Next.js page). Override the file
+     with data-zip="whatever.zip" (resolved at the site root; the
+     landing page uses this for the whole-repo "download all" archive).
    • Placement: slots into the app's existing top-right actions bar
      (.topbar-actions / .topbar-right) when one exists, for a native
      look; otherwise renders as a fixed pill in the top-right corner.
@@ -47,6 +50,40 @@
     // drop a trailing file segment like "index.html"
     if (segs.length && /\.[a-z0-9]+$/i.test(segs[segs.length - 1])) segs.pop();
     return segs.length ? segs[segs.length - 1] : "";
+  }
+
+  // --- absolute URL of the site root, derived from THIS script's own src ---
+  // The script is always included as ".../shared/backup-button.js"; the part
+  // before "shared/backup-button.js" is the site root (e.g. ".../NewVisual/").
+  // Because currentScript.src resolves to an absolute URL, this is correct no
+  // matter how many "../" the include used or how deep the current page is.
+  function siteRootURL(self) {
+    var src = (self && self.src) || "";
+    src = src.replace(/[?#].*$/, "");
+    var idx = src.indexOf("shared/backup-button.js");
+    return idx >= 0 ? src.slice(0, idx) : null; // ends in "/", or null
+  }
+
+  // --- the tool folder = first path segment below the site root ---
+  function toolFolder(rootURL) {
+    var basePath = "/";
+    if (rootURL) {
+      try { basePath = new URL(rootURL).pathname; } catch (e) { basePath = "/"; }
+    }
+    var path = location.pathname || "/";
+    var rel = path.indexOf(basePath) === 0 ? path.slice(basePath.length) : path;
+    var seg = rel.split("/").filter(Boolean)[0];
+    return seg || currentDirName();
+  }
+
+  // --- resolve the final href for the download link ---
+  // Priority: explicit data-zip (resolved at the site root so it works from any
+  // depth) → else the tool's own <root>/<tool>/<tool>.zip.
+  function resolveZipHref(ds, rootURL) {
+    if (ds.zip) return rootURL ? rootURL + ds.zip : ds.zip;
+    var tool = toolFolder(rootURL);
+    var name = (tool || "project") + ".zip";
+    return rootURL ? rootURL + tool + "/" + name : name;
   }
 
   var ICON =
@@ -96,8 +133,8 @@
 
     var self = findSelf();
     var ds = (self && self.dataset) || {};
-    var dir = currentDirName();
-    var zip = ds.zip || ((dir || "project") + ".zip");
+    var rootURL = siteRootURL(self);
+    var zip = resolveZipHref(ds, rootURL);
     var label = ds.label || "Backup";
     var title = ds.title || "Download this project as a .zip backup";
 
