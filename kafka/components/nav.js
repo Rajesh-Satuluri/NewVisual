@@ -31,6 +31,11 @@ export const MODULES = [
 ];
 
 const GROUP_ORDER = ['Foundation','Core Internals','Consumer Side','Delivery','Ecosystem','Operations','Advanced'];
+const REFERENCE = [
+  { id:'master-map', label:'Master Map', icon:'🗺️' },
+  { id:'glossary',   label:'Glossary',   icon:'📖' },
+  { id:'cheatsheet', label:'Cheat Sheet', icon:'📋' },
+];
 const REVIEW = { id:'study', label:'Study Hub', icon:'📚' };
 
 const COLLAPSE_KEY = 'kafka_nav_collapsed';
@@ -75,6 +80,7 @@ export function renderNav(activeId, done) {
       <button class="icon-btn nav-collapse-all" title="Collapse / expand all" aria-label="Collapse or expand all sections">⇕</button>
     </div>
     ${GROUP_ORDER.map(g => section(g, groups[g] || [])).join('')}
+    ${section('Reference', REFERENCE)}
     ${section('Review', [{ ...REVIEW }])}
   `;
 

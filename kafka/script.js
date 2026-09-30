@@ -9,6 +9,15 @@ import { createSelfExplain, initSelfExplain } from './components/self-explain.js
 import { QUIZ_BANK } from './data/quiz-bank.js';
 import { SELF_EXPLAIN } from './data/self-explain.js';
 
+// Non-module pages (not tracked in progress). Value = breadcrumb HTML.
+const PAGES = {
+  home: `<strong>🏠 Home</strong>`,
+  glossary: `Reference &rsaquo; <strong>📖 Glossary</strong>`,
+  cheatsheet: `Reference &rsaquo; <strong>📋 Cheat Sheet</strong>`,
+  'master-map': `Reference &rsaquo; <strong>🗺️ Master Map</strong>`,
+  study: `Review &rsaquo; <strong>📚 Study Hub</strong>`,
+};
+
 // ── State ──────────────────────────────────────────────────────────────────
 const done = new Set(JSON.parse(localStorage.getItem('kafka-done') || '[]'));
 let currentId = null;
@@ -17,6 +26,9 @@ let cleanupFn = null;
 // ── Module loaders ─────────────────────────────────────────────────────────
 const LOADERS = {
   home: () => import('./modules/home.js'),
+  glossary: () => import('./modules/glossary.js'),
+  cheatsheet: () => import('./modules/cheatsheet.js'),
+  'master-map': () => import('./modules/master-map.js'),
   study: () => import('./modules/study.js'),
   m01: () => import('./modules/m01-intro.js'),
   m02: () => import('./modules/m02-messaging.js'),
@@ -45,7 +57,7 @@ const LOADERS = {
 // ── Navigate ───────────────────────────────────────────────────────────────
 async function navigate(id) {
   let mod = MODULES.find(m => m.id === id);
-  if (!mod && id !== 'study' && id !== 'home') { id = 'home'; }
+  if (!mod && !PAGES[id]) { id = 'home'; }
 
   if (currentId === id) return;
 
@@ -56,11 +68,7 @@ async function navigate(id) {
 
   const breadcrumb = document.getElementById('breadcrumb');
   if (breadcrumb) {
-    breadcrumb.innerHTML = id === 'home'
-      ? `<strong>🏠 Home</strong>`
-      : id === 'study'
-      ? `Review &rsaquo; <strong>📚 Study Hub</strong>`
-      : `${mod.group} &rsaquo; <strong>${mod.label}</strong>`;
+    breadcrumb.innerHTML = PAGES[id] || `${mod.group} &rsaquo; <strong>${mod.label}</strong>`;
   }
 
   const canvas = document.getElementById('module-canvas');
@@ -73,8 +81,7 @@ async function navigate(id) {
     const m = await loader();
     canvas.innerHTML = '';
     cleanupFn = m.mount(canvas) || null;
-    if (id !== 'study' && id !== 'home') { initTabs(canvas); initIQ(canvas); }
-    if (id !== 'home') enhanceModule(id);
+    if (mod) { initTabs(canvas); initIQ(canvas); enhanceModule(id); }
     if (mod) markDone(id); // Study Hub is not a trackable module
   } catch (e) {
     console.error('Module load error', e);
@@ -121,7 +128,7 @@ function markDone(id) {
 // ── Router ─────────────────────────────────────────────────────────────────
 function getHash() {
   const h = location.hash.slice(1);
-  if (h === 'study' || h === 'home') return h;
+  if (PAGES[h]) return h;
   return MODULES.find(m => m.id === h) ? h : 'home';
 }
 

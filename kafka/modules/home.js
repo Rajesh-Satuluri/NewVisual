@@ -100,6 +100,27 @@ export function mount(container) {
         <div class="section-desc">Jump to review tools any time.</div>
       </div>
       <div class="home-grid home-ref-grid">
+        <a href="#master-map" class="home-card">
+          <span class="home-card-icon">🗺️</span>
+          <span class="home-card-text">
+            <span class="home-card-title">Master Map</span>
+            <span class="home-card-desc">Follow one event end to end, then jump into any stage.</span>
+          </span>
+        </a>
+        <a href="#glossary" class="home-card">
+          <span class="home-card-icon">📖</span>
+          <span class="home-card-text">
+            <span class="home-card-title">Glossary</span>
+            <span class="home-card-desc">Every term defined in one line and linked to its module.</span>
+          </span>
+        </a>
+        <a href="#cheatsheet" class="home-card">
+          <span class="home-card-icon">📋</span>
+          <span class="home-card-text">
+            <span class="home-card-title">Cheat Sheet</span>
+            <span class="home-card-desc">CLI, key configs, and delivery semantics on one printable page.</span>
+          </span>
+        </a>
         <a href="#study" class="home-card">
           <span class="home-card-icon">📚</span>
           <span class="home-card-text">

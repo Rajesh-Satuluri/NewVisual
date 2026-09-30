@@ -15,6 +15,9 @@ function fuzzyScore(query, text) {
 
 const EXTRA = [
   { id: 'home', label: 'Home', icon: '🏠', group: 'Start' },
+  { id: 'master-map', label: 'Master Map', icon: '🗺️', group: 'Reference' },
+  { id: 'glossary', label: 'Glossary', icon: '📖', group: 'Reference' },
+  { id: 'cheatsheet', label: 'Cheat Sheet', icon: '📋', group: 'Reference' },
   { id: 'study', label: 'Study Hub', icon: '📚', group: 'Review' },
 ];
 
