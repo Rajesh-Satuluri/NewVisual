@@ -77,7 +77,8 @@ function buildVisual(container) {
   wrap.className = 'canvas-wrap';
 
   const cv = document.createElement('canvas');
-  cv.width = 820; cv.height = 420;
+  const DPR = Math.min(window.devicePixelRatio || 1, 2);
+  cv.width = 820 * DPR; cv.height = 420 * DPR;
   cv.style.cssText = 'width:100%;max-width:820px';
   wrap.appendChild(cv);
 
@@ -92,6 +93,7 @@ function buildVisual(container) {
   tab.appendChild(wrap);
 
   const ctx = cv.getContext('2d');
+  ctx.scale(DPR, DPR);
   const W = 820, H = 420;
 
   const GATE_X = 400;

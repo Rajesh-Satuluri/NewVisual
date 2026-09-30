@@ -70,7 +70,8 @@ function buildVisual(container) {
   wrap.className = 'canvas-wrap';
 
   const cv = document.createElement('canvas');
-  cv.width = 820; cv.height = 420;
+  const DPR = Math.min(window.devicePixelRatio || 1, 2);
+  cv.width = 820 * DPR; cv.height = 420 * DPR;
   cv.style.cssText = 'width:100%;max-width:820px;cursor:pointer';
   wrap.appendChild(cv);
 
@@ -83,6 +84,7 @@ function buildVisual(container) {
   tab.appendChild(wrap);
 
   const ctx = cv.getContext('2d');
+  ctx.scale(DPR, DPR);
   const W = 820, H = 420;
 
   // Nodes: id, x, y, label, color, layer
@@ -145,8 +147,8 @@ function buildVisual(container) {
   let hovered = null;
 
   function nodeAt(mx, my) {
-    const scaleX = cv.width / cv.getBoundingClientRect().width;
-    const scaleY = cv.height / cv.getBoundingClientRect().height;
+    const scaleX = W / cv.getBoundingClientRect().width;
+    const scaleY = H / cv.getBoundingClientRect().height;
     const cx = mx * scaleX, cy = my * scaleY;
     return NODES.find(n => Math.hypot(cx - n.x, cy - n.y) < 32) || null;
   }
