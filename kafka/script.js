@@ -18,6 +18,7 @@ const PAGES = {
   'master-map': `Reference &rsaquo; <strong>🗺️ Master Map</strong>`,
   decisions: `Practice &rsaquo; <strong>🧭 Choose the Approach</strong>`,
   troubleshoot: `Practice &rsaquo; <strong>🔍 Troubleshooting Lab</strong>`,
+  answers: `Practice &rsaquo; <strong>🎯 Level Up Your Answer</strong>`,
   'incident-bank': `Reference &rsaquo; <strong>🚑 Incident Bank</strong>`,
   study: `Review &rsaquo; <strong>📚 Study Hub</strong>`,
 };
@@ -35,6 +36,7 @@ const LOADERS = {
   'master-map': () => import('./modules/master-map.js'),
   decisions: () => import('./modules/decisions.js'),
   troubleshoot: () => import('./modules/troubleshoot.js'),
+  answers: () => import('./modules/answers.js'),
   'incident-bank': () => import('./modules/incident-bank.js'),
   study: () => import('./modules/study.js'),
   m01: () => import('./modules/m01-intro.js'),

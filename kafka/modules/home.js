@@ -134,6 +134,13 @@ export function mount(container) {
             <span class="home-card-desc">Work real production incidents step by step — choose what to check, follow the evidence to root cause.</span>
           </span>
         </a>
+        <a href="#answers" class="home-card">
+          <span class="home-card-icon">🎯</span>
+          <span class="home-card-text">
+            <span class="home-card-title">Level Up Your Answer</span>
+            <span class="home-card-desc">The same question answered Weak / Good / Senior — and why the senior version wins.</span>
+          </span>
+        </a>
         <a href="#study" class="home-card">
           <span class="home-card-icon">📚</span>
           <span class="home-card-text">

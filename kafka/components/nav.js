@@ -40,6 +40,7 @@ const REFERENCE = [
 const PRACTICE = [
   { id:'decisions',    label:'Choose the Approach', icon:'🧭' },
   { id:'troubleshoot', label:'Troubleshooting Lab', icon:'🔍' },
+  { id:'answers',      label:'Level Up Your Answer', icon:'🎯' },
 ];
 const REVIEW = { id:'study', label:'Study Hub', icon:'📚' };
 

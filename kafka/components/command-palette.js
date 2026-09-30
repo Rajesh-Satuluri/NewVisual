@@ -21,6 +21,7 @@ const EXTRA = [
   { id: 'incident-bank', label: 'Incident Bank', icon: '🚑', group: 'Reference' },
   { id: 'decisions', label: 'Choose the Approach', icon: '🧭', group: 'Practice' },
   { id: 'troubleshoot', label: 'Troubleshooting Lab', icon: '🔍', group: 'Practice' },
+  { id: 'answers', label: 'Level Up Your Answer', icon: '🎯', group: 'Practice' },
   { id: 'study', label: 'Study Hub', icon: '📚', group: 'Review' },
 ];
 
