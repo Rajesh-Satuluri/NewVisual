@@ -1,11 +1,19 @@
-import { MODULES, renderNav, updateProgress } from './components/nav.js';
-import { initTabs, initIQ } from './components/module-shell.js';
+import { MODULES, EXTRAS, getNavItem, renderNav, updateProgress } from './components/nav.js';
+import { initTabs, initIQ, injectCodeEnhancements } from './components/module-shell.js';
+import { initCommandPalette } from './components/command-palette.js';
+import { renderPager } from './components/pager.js';
+import { toast } from './components/toast.js';
+import { maybeRunTour } from './components/tour.js';
+import { createQuiz, initQuiz } from './components/quiz.js';
+import { QUIZ_BANK } from './data/quiz-bank.js';
 
 const done = new Set(JSON.parse(localStorage.getItem('dbt-done') || '[]'));
 let currentId = null;
 let cleanupFn = null;
+let completeTimer = null;
 
 const LOADERS = {
+  home:         () => import('./modules/home.js'),
   m01: () => import('./modules/m01-data-chaos.js'),
   m02: () => import('./modules/m02-revenue-disagreement.js'),
   m03: () => import('./modules/m03-duplication-trap.js'),
@@ -22,35 +30,67 @@ const LOADERS = {
   m14: () => import('./modules/m14-macros.js'),
   m15: () => import('./modules/m15-lineage-dag.js'),
   m16: () => import('./modules/m16-when-not-to-use.js'),
+  // Reference & review
+  'master-map': () => import('./modules/master-map.js'),
+  comparison:   () => import('./modules/comparison.js'),
+  glossary:     () => import('./modules/glossary.js'),
+  cheatsheet:   () => import('./modules/cheatsheet.js'),
+  study:        () => import('./modules/study.js'),
 };
 
 async function navigate(id) {
-  const mod = MODULES.find(m => m.id === id);
-  if (!mod) { id = MODULES[0].id; }
+  if (!LOADERS[id]) id = 'home';
   if (currentId === id) return;
-  if (cleanupFn) { cleanupFn(); cleanupFn = null; }
+  if (cleanupFn) { try { cleanupFn(); } catch (e) {} cleanupFn = null; }
+  if (completeTimer) { clearTimeout(completeTimer); completeTimer = null; }
   currentId = id;
   renderNav(id, done);
 
+  const nav = getNavItem(id);
   const breadcrumb = document.getElementById('breadcrumb');
-  if (breadcrumb) breadcrumb.innerHTML = `${mod.group} &rsaquo; <strong>${mod.label}</strong>`;
+  if (breadcrumb && nav) {
+    breadcrumb.innerHTML = id === 'home'
+      ? `<strong>${nav.title}</strong>`
+      : `${nav.group} &rsaquo; <strong>${nav.title}</strong>`;
+  }
 
   const canvas = document.getElementById('module-canvas');
   canvas.innerHTML = '<div class="coming-soon"><div class="coming-soon-icon">⏳</div><h3>Loading…</h3></div>';
   canvas.scrollTop = 0;
 
   try {
-    const loader = LOADERS[id];
-    if (!loader) throw new Error('No loader for ' + id);
-    const m = await loader();
+    const m = await LOADERS[id]();
+    if (currentId !== id) return;
     canvas.innerHTML = '';
     cleanupFn = m.mount(canvas) || null;
     initTabs(canvas);
     initIQ(canvas);
-    markDone(id);
+
+    // Auto-inject "Test Yourself" (numbered modules with a bank) + pager.
+    const isModule = MODULES.some(mm => mm.id === id);
+    if (isModule && QUIZ_BANK[id]) {
+      canvas.insertAdjacentHTML('beforeend', createQuiz(id, QUIZ_BANK[id]));
+      initQuiz(canvas);
+    }
+    injectCodeEnhancements(canvas);
+    renderPager(id);
+
+    // Mark real modules complete after 25s of viewing.
+    if (isModule && !done.has(id)) {
+      completeTimer = setTimeout(() => {
+        if (currentId !== id) return;
+        markDone(id);
+        const mod = MODULES.find(mm => mm.id === id);
+        toast(`Module complete — ${mod.title}`, { icon: '✅' });
+        if ([...done].filter(x => MODULES.some(mm => mm.id === x)).length === MODULES.length) {
+          toast('All 16 modules complete! 🏆', { icon: '🏆', duration: 4200 });
+        }
+      }, 25000);
+    }
   } catch (e) {
     console.error('Module load error', e);
-    canvas.innerHTML = `<div class="coming-soon"><div class="coming-soon-icon">🚧</div><h3>Coming Soon</h3><p>${mod.desc}</p></div>`;
+    const nv = getNavItem(id);
+    canvas.innerHTML = `<div class="coming-soon"><div class="coming-soon-icon">🚧</div><h3>Coming Soon</h3><p>${nv ? nv.desc || '' : ''}</p></div>`;
   }
 }
 
@@ -63,15 +103,31 @@ function markDone(id) {
 
 function getHash() {
   const h = location.hash.slice(1);
-  return MODULES.find(m => m.id === h) ? h : MODULES[0].id;
+  return LOADERS[h] ? h : 'home';
 }
 
 window.addEventListener('hashchange', () => navigate(getHash()));
 
+// Nav item click / keyboard (delegated).
 document.getElementById('nav-list').addEventListener('click', e => {
   const item = e.target.closest('.nav-item[data-id]');
   if (item) { e.preventDefault(); location.hash = item.dataset.id; }
 });
+document.getElementById('nav-list').addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const item = e.target.closest('.nav-item[data-id]');
+  if (item) { e.preventDefault(); location.hash = item.dataset.id; }
+});
+
+// Brand → home.
+const brand = document.querySelector('.brand');
+if (brand) {
+  brand.style.cursor = 'pointer';
+  brand.setAttribute('role', 'button');
+  brand.setAttribute('tabindex', '0');
+  brand.addEventListener('click', () => { location.hash = 'home'; });
+  brand.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); location.hash = 'home'; } });
+}
 
 document.getElementById('sidebar-toggle').addEventListener('click', () => {
   document.getElementById('sidebar').classList.toggle('collapsed');
@@ -81,7 +137,6 @@ const themeToggle = document.getElementById('theme-toggle');
 const root = document.documentElement;
 const savedTheme = localStorage.getItem('dbt-theme') || 'dark';
 root.setAttribute('data-theme', savedTheme);
-
 themeToggle.addEventListener('click', () => {
   const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
   root.setAttribute('data-theme', next);
@@ -90,4 +145,5 @@ themeToggle.addEventListener('click', () => {
 
 renderNav(null, done);
 updateProgress(done);
-navigate(getHash());
+initCommandPalette();
+navigate(getHash()).then(() => { try { maybeRunTour(); } catch (e) {} });

@@ -59,6 +59,38 @@
   --shadow: rgba(0,0,0,0.3);
 }
 
+/* ── Alias tokens ─────────────────────────────────────────────────────────────
+   Bridges the naming used by the shared enhancement layer (command palette,
+   pager, quiz, home/reference pages) to dbt's own design tokens. Each alias
+   points at a dbt token that already flips per theme, so they need defining
+   only once. This is the playbook's "add aliases, don't rename everything". */
+:root {
+  --bg-card: var(--surface);
+  --bg-card-hover: var(--surface-2);
+  --bg-surface: var(--bg-raised);
+  --bg-elevated: var(--surface-2);
+  --surface2: var(--surface-2);
+  --text-primary: var(--text);
+  --text-secondary: var(--text-2);
+  --text-muted: var(--text-3);
+  --border-hover: var(--text-3);
+  --accent-text: var(--accent);
+  --green: var(--success);
+  --green-dim: rgba(16,185,129,0.14);
+  --red: var(--error);
+  --red-dim: rgba(239,68,68,0.14);
+  --yellow: var(--warn);
+  --yellow-dim: rgba(245,158,11,0.14);
+  --radius-sm: 6px;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --shadow-lg: 0 12px 40px var(--shadow);
+  --transition: 0.15s ease;
+  --transition-slow: 0.3s ease;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
 /* ── Reset ───────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
