@@ -35,6 +35,8 @@ const LOADERS = {
   m19: () => import('./modules/m19-manifest-explorer.js'),
   m20: () => import('./modules/m20-state-selection.js'),
   m21: () => import('./modules/m21-incremental-strategies.js'),
+  m22: () => import('./modules/m22-testing-lab.js'),
+  m23: () => import('./modules/m23-source-freshness.js'),
   m24: () => import('./modules/m24-failure-simulator.js'),
   // Reference & review
   'master-map': () => import('./modules/master-map.js'),

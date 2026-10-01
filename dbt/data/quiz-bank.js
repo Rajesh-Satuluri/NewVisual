@@ -247,6 +247,34 @@ export const QUIZ_BANK = {
       explanation: 'A lookback re-scans a trailing period; the unique_key ensures re-processed rows upsert instead of duplicating.',
     },
   ],
+  m22: [
+    {
+      q: 'What does a dbt data test (e.g. not_null) assert, vs a unit test?',
+      options: ['Both test logic on mock data', 'A data test asserts properties of real materialized data; a unit test checks model logic on mocked inputs', 'Both scan the whole warehouse', 'Nothing — they are the same'],
+      answer: 1,
+      explanation: 'Data tests check the live data; unit tests (1.8+) check transformation logic against mocked inputs with an expected output, at CI time.',
+    },
+    {
+      q: 'A dbt build reports 1 failed test (severity error). What happens to that model\'s downstream children?',
+      options: ['They build anyway', 'They are skipped — blast radius contained', 'The whole warehouse is dropped', 'They run with a warning'],
+      answer: 1,
+      explanation: 'An errored model marks itself failed and dbt skips its downstream children, so bad data cannot cascade to dashboards.',
+    },
+  ],
+  m23: [
+    {
+      q: 'A source table is fresh (recent loaded_at) but has 0 rows. Does source freshness catch it?',
+      options: ['Yes, freshness fails', 'No — freshness checks recency, not volume; add a row-count test', 'Only on Snowflake', 'Only with contracts'],
+      answer: 1,
+      explanation: 'Freshness measures how recent the newest row is, not how many rows exist. A fresh-but-empty load needs a separate not-empty/volume test.',
+    },
+    {
+      q: 'Why run `dbt source freshness` before `dbt build`?',
+      options: ['It compiles faster', 'So a stale/missing source fails fast with a clear signal instead of a confusing mid-pipeline error', 'It is required by dbt', 'To generate docs'],
+      answer: 1,
+      explanation: 'Freshness as a gate stops the run early on bad sources — fail fast, fail cheap, and point the blame upstream.',
+    },
+  ],
   m24: [
     {
       q: 'A staging model errors with "object does not exist" and everything downstream is skipped. What kind of failure is this, first to check?',

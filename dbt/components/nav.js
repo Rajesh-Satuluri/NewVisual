@@ -30,6 +30,9 @@ export const MODULES = [
   // ── Selection & Incrementals ─────────────────────────────────────────────
   { id:'m20', title:'State & Selection',      icon:'🎯', group:'Selection & Incrementals', num:'20', desc:'Pick a changed model, apply selectors, see what builds (Slim CI)' },
   { id:'m21', title:'Incremental Strategies', icon:'⏩', group:'Selection & Incrementals', num:'21', desc:'append/merge/delete+insert/insert_overwrite/microbatch + pitfalls' },
+  // ── Data Quality ─────────────────────────────────────────────────────────
+  { id:'m22', title:'Testing & Data Quality', icon:'🧪', group:'Data Quality', num:'22', desc:'Generic, singular, custom, unit tests + contracts; run rollup' },
+  { id:'m23', title:'Source & Freshness',     icon:'📥', group:'Data Quality', num:'23', desc:'Freshness gates + the five source failures + classification' },
   // ── Production & Debugging ───────────────────────────────────────────────
   { id:'m24', title:'Failure Simulator',     icon:'🚨', group:'Production & Debugging', num:'24', desc:'Ten real dbt incidents: symptom → root cause → fix → prevent' },
 ];
