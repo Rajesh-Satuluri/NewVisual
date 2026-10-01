@@ -317,4 +317,74 @@ export const QUIZ_BANK = {
       explanation: 'Incremental materializations use a predicate to process only new/changed rows — bounded compute vs a full rebuild.',
     },
   ],
+  m27: [
+    {
+      q: 'What makes dbt CI cost scale with the change rather than the project size?',
+      options: ['Bigger warehouses', 'Building only state:modified+ and deferring unchanged refs to prod', 'Running fewer tests', 'Caching SQL'],
+      answer: 1,
+      explanation: 'Slim CI builds the modified models + downstream and defers everything else to production — cost tracks the delta, not the project.',
+    },
+    {
+      q: 'A change passed all CI tests but still broke prod. The fix includes:',
+      options: ['Removing the tests', 'Reverting + adding the missing test that would have caught it (a coverage gap)', 'Upsizing the warehouse', 'Disabling CI'],
+      answer: 1,
+      explanation: 'Tests passing but prod breaking means a coverage gap; the post-incident deliverable is the new guardrail, not just the fix.',
+    },
+  ],
+  m28: [
+    {
+      q: 'How does one dbt project build into dev vs prod without code changes?',
+      options: ['Separate repos', 'Targets in profiles.yml + env vars resolve the connection/schema/role', 'Manual edits each run', 'A different warehouse only'],
+      answer: 1,
+      explanation: 'The model code is identical; --target resolves where it lands and as whom. Secrets come from env vars.',
+    },
+    {
+      q: 'How do 10 developers avoid overwriting each other in dev?',
+      options: ['They take turns', 'Each builds into their own schema (e.g. dbt_<user>) via generate_schema_name', 'Everyone uses prod', 'One shared dev table'],
+      answer: 1,
+      explanation: 'Per-developer schemas isolate work; combined with --defer a dev can build one model and defer unchanged upstreams to prod.',
+    },
+  ],
+  m29: [
+    {
+      q: 'Why can the same dbt model run on Snowflake and BigQuery?',
+      options: ['dbt rewrites your SQL by hand', 'The adapter translates materialization + config into each warehouse\'s dialect/DDL', 'They use identical SQL', 'A converter tool'],
+      answer: 1,
+      explanation: 'The adapter wraps compiled SQL in warehouse-specific DDL (MERGE vs insert_overwrite, clustering vs partitioning), keeping models portable.',
+    },
+    {
+      q: 'On BigQuery, the cheapest incremental pattern for a large date-partitioned table is usually:',
+      options: ['append', 'merge', 'insert_overwrite by partition', 'full-refresh'],
+      answer: 2,
+      explanation: 'BigQuery bills by bytes scanned; overwriting only the touched date partitions minimizes the scan.',
+    },
+  ],
+  m30: [
+    {
+      q: 'In a pipeline using both, what does Airflow own vs dbt?',
+      options: ['Airflow transforms, dbt schedules', 'Airflow orchestrates (when/order/retries across systems); dbt transforms + tests in the warehouse', 'They do the same thing', 'dbt orchestrates everything'],
+      answer: 1,
+      explanation: 'Airflow is the cross-system orchestrator; dbt owns the in-warehouse T. Airflow triggers dbt build, often after a freshness gate.',
+    },
+    {
+      q: 'A dbt TEST fails inside an Airflow run. Airflow should:',
+      options: ['Retry the task repeatedly', 'Surface/alert and stop — a failing test means bad data, not a transient error', 'Ignore it', 'Full-refresh everything'],
+      answer: 1,
+      explanation: 'Retry infra failures, alert on data failures. Retrying bad data just reruns the same bad data.',
+    },
+  ],
+  m31: [
+    {
+      q: 'Across e-commerce, banking, retail, customer and marketing stacks, where do most incidents originate?',
+      options: ['The BI tool', 'The source boundary (missing/late/empty/schema-changed/duplicated loads)', 'The dbt compiler', 'The git repo'],
+      answer: 1,
+      explanation: 'Every case-study incident was a source-boundary failure mode; defenses are freshness + volume tests, thin staging, contracts, and reconciliation.',
+    },
+    {
+      q: 'Freshness passes but a supplier feed arrived with zero rows, breaking a forecast. What was missing?',
+      options: ['A bigger warehouse', 'A row-count/not-empty test — freshness checks recency, not volume', 'More threads', 'A new adapter'],
+      answer: 1,
+      explanation: 'A fresh-but-empty load sails through freshness; a volume/not-empty test catches it before downstream consumes it.',
+    },
+  ],
 };

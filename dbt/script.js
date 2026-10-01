@@ -40,6 +40,11 @@ const LOADERS = {
   m24: () => import('./modules/m24-failure-simulator.js'),
   m25: () => import('./modules/m25-debugging-tree.js'),
   m26: () => import('./modules/m26-performance-lab.js'),
+  m27: () => import('./modules/m27-cicd-lab.js'),
+  m28: () => import('./modules/m28-environments.js'),
+  m29: () => import('./modules/m29-adapters-warehouses.js'),
+  m30: () => import('./modules/m30-dbt-airflow.js'),
+  m31: () => import('./modules/m31-case-studies.js'),
   // Reference & review
   'master-map': () => import('./modules/master-map.js'),
   comparison:   () => import('./modules/comparison.js'),
