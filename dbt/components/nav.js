@@ -27,6 +27,9 @@ export const MODULES = [
   { id:'m17', title:'Internals Visualizer',  icon:'🔬', group:'dbt Internals',  num:'17', desc:'What happens between dbt run and SQL hitting the warehouse' },
   { id:'m18', title:'Compile vs Execute',    icon:'⚙️', group:'dbt Internals',  num:'18', desc:'One templated model → compiled SQL → execution, step by step' },
   { id:'m19', title:'Manifest & Artifacts',  icon:'🗂️', group:'dbt Internals',  num:'19', desc:'Browse manifest/run_results/catalog; trace any node' },
+  // ── Selection & Incrementals ─────────────────────────────────────────────
+  { id:'m20', title:'State & Selection',      icon:'🎯', group:'Selection & Incrementals', num:'20', desc:'Pick a changed model, apply selectors, see what builds (Slim CI)' },
+  { id:'m21', title:'Incremental Strategies', icon:'⏩', group:'Selection & Incrementals', num:'21', desc:'append/merge/delete+insert/insert_overwrite/microbatch + pitfalls' },
   // ── Production & Debugging ───────────────────────────────────────────────
   { id:'m24', title:'Failure Simulator',     icon:'🚨', group:'Production & Debugging', num:'24', desc:'Ten real dbt incidents: symptom → root cause → fix → prevent' },
 ];

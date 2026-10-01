@@ -568,3 +568,21 @@ body.cmdk-open { overflow: hidden; }
 .mx-err { color: var(--error); font-weight: 700; }
 .mx-compiled { margin-top: 14px; }
 .mx-compiled .mx-k { margin-bottom: 7px; }
+
+/* ── Selection DAG (m20) ───────────────────────────────────────────────────── */
+.dag-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 16px; overflow-x: auto; }
+.dag-node text { pointer-events: none; }
+.dag-readout { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: var(--radius-lg); padding: 14px 18px; }
+.dag-ro-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+.dag-ro-sel { font-family: var(--font-mono); font-size: 13.5px; font-weight: 700; color: var(--accent); }
+.dag-ro-count { font-size: 12px; color: var(--text-3); }
+.dag-ro-desc { font-size: 13px; color: var(--text-2); line-height: 1.6; margin-bottom: 10px; }
+.dag-ro-nodes { display: flex; flex-wrap: wrap; gap: 4px; }
+
+/* ── Full vs incremental bars (m21) ────────────────────────────────────────── */
+.cmp-bars { display: flex; flex-direction: column; gap: 16px; margin: 6px 0 18px; }
+.cmp-bar-label { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.cmp-bar-track { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; height: 30px; }
+.cmp-bar-fill { height: 100%; display: flex; align-items: center; padding: 0 12px; color: #fff; font-size: 12px; font-weight: 700; font-family: var(--font-mono); white-space: nowrap; min-width: fit-content; }
+.cmp-bar-sub { font-size: 11.5px; color: var(--text-3); margin-top: 4px; }
+.cmp-bar-sub em { color: var(--text-2); }

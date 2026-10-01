@@ -3,8 +3,8 @@
 import { MODULES, EXTRAS } from '../components/nav.js';
 
 const STATS = [
-  { val: '20', label: 'Modules', sub: 'Pain era → Internals → Prod' },
-  { val: '60+', label: 'Interview Qs', sub: 'Senior analytics-eng level' },
+  { val: '22', label: 'Modules', sub: 'Pain era → Internals → Prod' },
+  { val: '66+', label: 'Interview Qs', sub: 'Senior analytics-eng level' },
   { val: '10', label: 'Prod Incidents', sub: 'Failure simulator' },
   { val: '1', label: 'Real Company', sub: "Amazon-scale analytics" },
 ];
