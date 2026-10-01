@@ -23,6 +23,12 @@ export const MODULES = [
   { id:'m15', title:'Lineage & DAG',         icon:'🕸️', group:'Core Features',  num:'15', desc:'Know exactly what depends on what' },
   // ── Advanced ────────────────────────────────────────────────────────────
   { id:'m16', title:'When NOT to Use dbt',   icon:'🚫', group:'Advanced',       num:'16', desc:'Where dbt fits and where it does not belong' },
+  // ── dbt Internals ───────────────────────────────────────────────────────
+  { id:'m17', title:'Internals Visualizer',  icon:'🔬', group:'dbt Internals',  num:'17', desc:'What happens between dbt run and SQL hitting the warehouse' },
+  { id:'m18', title:'Compile vs Execute',    icon:'⚙️', group:'dbt Internals',  num:'18', desc:'One templated model → compiled SQL → execution, step by step' },
+  { id:'m19', title:'Manifest & Artifacts',  icon:'🗂️', group:'dbt Internals',  num:'19', desc:'Browse manifest/run_results/catalog; trace any node' },
+  // ── Production & Debugging ───────────────────────────────────────────────
+  { id:'m24', title:'Failure Simulator',     icon:'🚨', group:'Production & Debugging', num:'24', desc:'Ten real dbt incidents: symptom → root cause → fix → prevent' },
 ];
 
 // Synthetic entries: reference & review pages. They live in the sidebar but
