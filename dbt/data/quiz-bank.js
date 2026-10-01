@@ -177,4 +177,60 @@ export const QUIZ_BANK = {
       explanation: 'dbt is batch, in-warehouse SQL. Low-latency streaming (Flink/Kafka Streams) and the E/L steps are outside its job.',
     },
   ],
+  m17: [
+    {
+      q: 'Which stage of a dbt run is the first to spend warehouse compute credits?',
+      options: ['Parse', 'Compile', 'Execute', 'Manifest generation'],
+      answer: 2,
+      explanation: 'Everything up to and including compile is planning done by dbt locally. Only Execute sends DDL/DML to the warehouse.',
+    },
+    {
+      q: 'A ref() pointing to a model that does not exist fails at which stage?',
+      options: ['Execute (warehouse error)', 'Parse (before any SQL runs)', 'Artifacts', 'It silently succeeds'],
+      answer: 1,
+      explanation: 'refs are resolved to edges at parse time, so an unknown target is a parse/compilation error — caught cheaply, before the warehouse is touched.',
+    },
+  ],
+  m18: [
+    {
+      q: 'What does `dbt compile` actually do?',
+      options: ['Runs models on the warehouse', 'Renders Jinja to SQL in target/compiled/ without executing', 'Only checks syntax', 'Runs tests'],
+      answer: 1,
+      explanation: 'compile renders Jinja (ref()/macros/config) to pure SQL on disk. Nothing executes — it is how you inspect exactly what would run.',
+    },
+    {
+      q: 'On an incremental model, what makes the compiled SQL differ between a normal run and --full-refresh?',
+      options: ['The warehouse size', 'Whether the is_incremental() branch renders (filter + MERGE vs CREATE OR REPLACE)', 'The thread count', 'Nothing — they compile identically'],
+      answer: 1,
+      explanation: 'is_incremental() is TRUE on a normal run (filter + MERGE) and FALSE on --full-refresh (full CREATE OR REPLACE TABLE).',
+    },
+  ],
+  m19: [
+    {
+      q: 'Which artifact do `state:modified` and `defer` both read?',
+      options: ['catalog.json', 'run_results.json', 'manifest.json', 'profiles.yml'],
+      answer: 2,
+      explanation: 'The manifest is the serialized project graph; state comparison diffs two manifests and defer resolves refs from a prior manifest.',
+    },
+    {
+      q: 'You want your slowest models without re-running. Where do you look?',
+      options: ['catalog.json columns', 'run_results.json execution_time per node', 'manifest parent_map', 'the docs site only'],
+      answer: 1,
+      explanation: 'run_results.json records status + execution_time for every node from the last run — sort it to find slow/expensive models at zero cost.',
+    },
+  ],
+  m24: [
+    {
+      q: 'A staging model errors with "object does not exist" and everything downstream is skipped. What kind of failure is this, first to check?',
+      options: ['A transformation bug in your SQL', 'A source/upstream-load failure', 'A warehouse timeout', 'A unique test failure'],
+      answer: 1,
+      explanation: 'A missing source object is a source failure — check the loader and source freshness before touching your models. dbt refuses to build on missing data by design.',
+    },
+    {
+      q: 'An incremental model silently misses some of yesterday\'s rows. The most likely cause and fix?',
+      options: ['Warehouse too small; upsize it', 'Strict high-watermark skips late-arriving rows; add a lookback window + unique_key', 'A failing test; disable it', 'Wrong target; switch to prod'],
+      answer: 1,
+      explanation: 'Late-arriving records fall below a strict max(updated_at) watermark. A lookback window re-scans a trailing period and unique_key upserts them idempotently.',
+    },
+  ],
 };

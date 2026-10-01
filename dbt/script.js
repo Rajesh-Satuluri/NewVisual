@@ -30,6 +30,10 @@ const LOADERS = {
   m14: () => import('./modules/m14-macros.js'),
   m15: () => import('./modules/m15-lineage-dag.js'),
   m16: () => import('./modules/m16-when-not-to-use.js'),
+  m17: () => import('./modules/m17-dbt-internals.js'),
+  m18: () => import('./modules/m18-compile-vs-execute.js'),
+  m19: () => import('./modules/m19-manifest-explorer.js'),
+  m24: () => import('./modules/m24-failure-simulator.js'),
   // Reference & review
   'master-map': () => import('./modules/master-map.js'),
   comparison:   () => import('./modules/comparison.js'),

@@ -3,9 +3,9 @@
 import { MODULES, EXTRAS } from '../components/nav.js';
 
 const STATS = [
-  { val: '16', label: 'Modules', sub: 'Pain era → Advanced' },
-  { val: '48+', label: 'Interview Qs', sub: 'Senior analytics-eng level' },
-  { val: '6', label: 'Core Features', sub: 'Models, tests, snapshots…' },
+  { val: '20', label: 'Modules', sub: 'Pain era → Internals → Prod' },
+  { val: '60+', label: 'Interview Qs', sub: 'Senior analytics-eng level' },
+  { val: '10', label: 'Prod Incidents', sub: 'Failure simulator' },
   { val: '1', label: 'Real Company', sub: "Amazon-scale analytics" },
 ];
 
@@ -27,8 +27,9 @@ export function mount(container) {
         <h1 class="home-title">Learn dbt the way it actually clicks — one story at a time</h1>
         <p class="home-sub">
           A hands-on tour of analytics engineering with dbt: start from the data
-          chaos every company hits, watch ELT change the game, then master models,
-          tests, snapshots, incrementals, macros and lineage — interview-ready.
+          chaos every company hits, watch ELT change the game, master models,
+          tests, snapshots, incrementals, macros and lineage — then go deep on
+          dbt internals and production failure debugging. Interview-ready.
         </p>
         <div class="home-cta">
           <button class="btn btn-primary" data-goto="${nextId}">
