@@ -33,6 +33,8 @@ const LOADERS = {
   m17: () => import('./modules/m17-dbt-internals.js'),
   m18: () => import('./modules/m18-compile-vs-execute.js'),
   m19: () => import('./modules/m19-manifest-explorer.js'),
+  m20: () => import('./modules/m20-state-selection.js'),
+  m21: () => import('./modules/m21-incremental-strategies.js'),
   m24: () => import('./modules/m24-failure-simulator.js'),
   // Reference & review
   'master-map': () => import('./modules/master-map.js'),

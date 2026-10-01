@@ -219,6 +219,34 @@ export const QUIZ_BANK = {
       explanation: 'run_results.json records status + execution_time for every node from the last run — sort it to find slow/expensive models at zero cost.',
     },
   ],
+  m20: [
+    {
+      q: 'In CI, `dbt build --select state:modified+` builds which nodes?',
+      options: ['Every model in the project', 'Only the changed models and everything downstream of them', 'Only upstream parents', 'A random sample'],
+      answer: 1,
+      explanation: 'state:modified (a manifest diff) finds changed nodes; the + expands to their downstream children — the core of Slim CI.',
+    },
+    {
+      q: 'What does `--defer` do in a Slim CI run?',
+      options: ['Delays the run', 'Resolves ref()s to models not built in this run to a prior (prod) version', 'Skips tests', 'Runs models twice'],
+      answer: 1,
+      explanation: 'defer lets unbuilt upstream refs resolve to the deferred/production tables, so you build only state:modified+ and still get a correct run.',
+    },
+  ],
+  m21: [
+    {
+      q: 'You have a large date-partitioned BigQuery table and reprocess whole days. Best incremental strategy?',
+      options: ['append', 'merge', 'insert_overwrite', 'none — use a view'],
+      answer: 2,
+      explanation: 'insert_overwrite replaces whole partitions, the cheapest option for partition-level reprocessing on BigQuery/Spark.',
+    },
+    {
+      q: 'An incremental model keeps missing late-arriving rows. The correct fix is:',
+      options: ['Switch to a view', 'Add a lookback window to the predicate AND a unique_key for idempotent upserts', 'Remove the unique_key', 'Always --full-refresh'],
+      answer: 1,
+      explanation: 'A lookback re-scans a trailing period; the unique_key ensures re-processed rows upsert instead of duplicating.',
+    },
+  ],
   m24: [
     {
       q: 'A staging model errors with "object does not exist" and everything downstream is skipped. What kind of failure is this, first to check?',
