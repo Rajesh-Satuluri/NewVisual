@@ -387,4 +387,18 @@ export const QUIZ_BANK = {
       explanation: 'A fresh-but-empty load sails through freshness; a volume/not-empty test catches it before downstream consumes it.',
     },
   ],
+  m32: [
+    {
+      q: 'Which commands run entirely locally without touching the warehouse?',
+      options: ['run / build / test', 'parse / compile / ls / clean', 'snapshot / seed', 'source freshness / docs generate'],
+      answer: 1,
+      explanation: 'parse, compile, ls and clean are local-only — validate structure and inspect generated SQL with zero warehouse cost.',
+    },
+    {
+      q: 'What does `dbt build` do that `dbt run` does not?',
+      options: ['Nothing different', 'Runs tests, seeds and snapshots in DAG order and gates downstream on test results', 'Only compiles', 'Skips models'],
+      answer: 1,
+      explanation: 'build = run + test + seed + snapshot with test gating, so a failed test skips downstream models. It is the production-safe command.',
+    },
+  ],
 };

@@ -3,10 +3,10 @@
 import { MODULES, EXTRAS } from '../components/nav.js';
 
 const STATS = [
-  { val: '31', label: 'Modules', sub: 'Pain era → Internals → Prod → Arch' },
-  { val: '90+', label: 'Interview Qs', sub: 'Senior analytics-eng level' },
+  { val: '32', label: 'Modules', sub: 'Pain era → Internals → Prod → Arch' },
+  { val: '140+', label: 'Interview Qs', sub: 'Tiered bank + per-module' },
   { val: '10', label: 'Prod Incidents', sub: 'Failure simulator' },
-  { val: '1', label: 'Real Company', sub: "Amazon-scale analytics" },
+  { val: '5', label: 'Case Studies', sub: 'E-com → banking → retail' },
 ];
 
 export function mount(container) {

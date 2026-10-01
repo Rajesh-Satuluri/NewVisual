@@ -43,6 +43,8 @@ export const MODULES = [
   { id:'m29', title:'Adapters & Warehouses',  icon:'🔌', group:'Platform & Architecture', num:'29', desc:'Snowflake/BigQuery/Databricks/Redshift/Postgres differences' },
   { id:'m30', title:'dbt + Airflow',          icon:'🔗', group:'Platform & Architecture', num:'30', desc:'Orchestration vs transformation; integration & interview scenarios' },
   { id:'m31', title:'Case Studies',           icon:'🏢', group:'Platform & Architecture', num:'31', desc:'Five production stacks across industries, each with an incident' },
+  // ── Mastery ──────────────────────────────────────────────────────────────
+  { id:'m32', title:'Command Playground',     icon:'⌨️', group:'Mastery', num:'32', desc:'Every dbt command: purpose, example, internals, prod use, mistake' },
 ];
 
 // Synthetic entries: reference & review pages. They live in the sidebar but
@@ -52,6 +54,8 @@ export const EXTRAS = [
   { id:'comparison', title:'ETL vs ELT vs dbt', icon:'⚖️', group:'Reference', num:'', desc:'Feature matrix, when-to-use, interview Q&A.' },
   { id:'glossary',   title:'Glossary',          icon:'📖', group:'Reference', num:'', desc:'Every dbt term, searchable and defined.' },
   { id:'cheatsheet', title:'Cheat Sheet',       icon:'📋', group:'Reference', num:'', desc:'CLI, Jinja, config and test quick reference.' },
+  { id:'interview-bank', title:'Interview Master Bank', icon:'🎯', group:'Interview Prep', num:'', desc:'Tiered interview questions with full-schema answers.' },
+  { id:'interview-sim',  title:'Interview Simulator',   icon:'🎤', group:'Interview Prep', num:'', desc:'Interviewer mode: escalating questions, self-assessed.' },
   { id:'study',      title:'Study Hub',         icon:'📚', group:'Review',    num:'★', desc:'All interview questions in one filterable place.' },
 ];
 
