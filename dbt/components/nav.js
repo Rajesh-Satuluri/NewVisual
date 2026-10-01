@@ -37,6 +37,12 @@ export const MODULES = [
   { id:'m24', title:'Failure Simulator',     icon:'🚨', group:'Production & Debugging', num:'24', desc:'Ten real dbt incidents: symptom → root cause → fix → prevent' },
   { id:'m25', title:'Debugging Decision Tree',icon:'🌳', group:'Production & Debugging', num:'25', desc:'Guided triage from symptom to root-cause class and fix' },
   { id:'m26', title:'Performance Lab',        icon:'🚀', group:'Production & Debugging', num:'26', desc:'Before/after optimizations and why each one helps' },
+  // ── Platform & Architecture ──────────────────────────────────────────────
+  { id:'m27', title:'CI/CD Lab',              icon:'🔁', group:'Platform & Architecture', num:'27', desc:'PR → Slim-CI build → review → merge → deploy, and each outcome' },
+  { id:'m28', title:'Environments',           icon:'🌐', group:'Platform & Architecture', num:'28', desc:'dev/CI/staging/prod via targets, profiles, isolation' },
+  { id:'m29', title:'Adapters & Warehouses',  icon:'🔌', group:'Platform & Architecture', num:'29', desc:'Snowflake/BigQuery/Databricks/Redshift/Postgres differences' },
+  { id:'m30', title:'dbt + Airflow',          icon:'🔗', group:'Platform & Architecture', num:'30', desc:'Orchestration vs transformation; integration & interview scenarios' },
+  { id:'m31', title:'Case Studies',           icon:'🏢', group:'Platform & Architecture', num:'31', desc:'Five production stacks across industries, each with an incident' },
 ];
 
 // Synthetic entries: reference & review pages. They live in the sidebar but
