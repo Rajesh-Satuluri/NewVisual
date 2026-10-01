@@ -10,7 +10,7 @@ import {
   BUSINESS, CONCERNS, ARCH_NODES, ARCH_EDGES, DBT_SCOPE, BOUNDARIES,
   SOURCES, RAW_ORDERS_SAMPLE, PROJECT_TREE, DAG_NODES, DAG_EDGES, DAG_KIND_COLOR,
   STAGES, GRAIN_EXERCISE, RUN_SUMMARY, MATERIALIZATIONS, SCHEDULE, DASHBOARD,
-  RUN_STEPS, INCIDENTS,
+  RUN_STEPS, INCIDENTS, DECISIONS, INTERVIEW, ZERO_TO_PROD,
 } from '../data/ecommerce-project.js';
 
 let runTimer = null;
@@ -39,17 +39,12 @@ export function mount(container) {
   buildPipeline(container);
   buildRun(container);
   buildIncidents(container);
-  buildPlaceholder(container, 'decisions','🧭 Decisions', 'Architecture decision points land in the next wave.');
-  buildPlaceholder(container, 'flow',     '🔎 Data Flow', 'Trace a single order end-to-end — lands in the next wave.');
-  buildPlaceholder(container, 'iq',       '🎯 Interview', 'Fifteen project-specific interview questions land in the next wave.');
+  buildDecisions(container);
+  buildFlow(container);
+  buildInterview(container);
 
   // Clean up the playback timer when navigating away.
   return () => { if (runTimer) { clearInterval(runTimer); runTimer = null; } };
-}
-
-function buildPlaceholder(container, id, title, msg) {
-  const tab = container.querySelector(`#tab-${id}`);
-  if (tab) tab.innerHTML = `<div class="detail-section"><h3>${title}</h3><p>${msg}</p></div>`;
 }
 
 // ── Pipeline tab: architecture diagram + scope panel + 14-stage rail ─────────
@@ -552,6 +547,143 @@ function bindIncident(body, inc) {
       import('../components/module-shell.js').then(m => m.injectCodeEnhancements(writeup));
     }
   });
+}
+
+// ── Decisions — architecture decision points ─────────────────────────────────
+function buildDecisions(container) {
+  const tab = container.querySelector('#tab-decisions');
+  tab.innerHTML = `
+    <p class="lab-intro">Real design calls on this project. Pick an answer, then see <strong>why</strong>, the
+    <strong>production consideration</strong>, a sensible <strong>alternative</strong>, and the <strong>interview answer</strong>.
+    There is usually a best choice, not an only choice — the reasoning is the point.</p>
+    <div class="prod-dec-list">
+      ${DECISIONS.map((d, i) => `
+        <div class="prod-dec" data-dec="${d.id}">
+          <div class="prod-dec-q"><span class="prod-dec-n">Decision ${i + 1}</span>${d.q}</div>
+          <div class="prod-dec-opts">
+            ${d.options.map(o => `<button class="prod-dec-opt" data-correct="${!!o.correct}" data-id="${o.id}">${o.label}</button>`).join('')}
+          </div>
+          <div class="prod-dec-reveal" hidden></div>
+        </div>`).join('')}
+    </div>`;
+
+  tab.addEventListener('click', e => {
+    const opt = e.target.closest('.prod-dec-opt');
+    if (opt) {
+      const card = opt.closest('.prod-dec');
+      const d = DECISIONS.find(x => x.id === card.dataset.dec);
+      card.querySelectorAll('.prod-dec-opt').forEach(o => {
+        o.classList.remove('chosen', 'is-correct');
+        if (o.dataset.correct === 'true') o.classList.add('is-correct');
+      });
+      opt.classList.add('chosen');
+      const ok = opt.dataset.correct === 'true';
+      const rev = card.querySelector('.prod-dec-reveal');
+      rev.hidden = false;
+      rev.innerHTML = `
+        <div class="prod-dec-verdict ${ok ? 'ok' : 'bad'}">${ok ? '✅ Recommended choice.' : '↪ Workable, but not the best call here.'}</div>
+        <div class="prod-dec-grid">
+          <div class="prod-inc-cell"><div class="prod-inc-cell-k">Why</div><div class="prod-inc-cell-v">${d.why}</div></div>
+          <div class="prod-inc-cell"><div class="prod-inc-cell-k">Production consideration</div><div class="prod-inc-cell-v">${d.prod}</div></div>
+          <div class="prod-inc-cell"><div class="prod-inc-cell-k">Alternative</div><div class="prod-inc-cell-v">${d.alt}</div></div>
+          <div class="prod-inc-cell prod-dec-iv"><div class="prod-inc-cell-k">Interview answer</div><div class="prod-inc-cell-v">${d.interview}</div></div>
+        </div>`;
+      return;
+    }
+    const link = e.target.closest('[data-goto]');
+    if (link) location.hash = link.dataset.goto;
+  });
+}
+
+// ── Data Flow — trace one order end to end ───────────────────────────────────
+function buildFlow(container) {
+  const tab = container.querySelector('#tab-flow');
+  // The lineage path a single order travels (DAG node ids), with a label per hop.
+  const PATH = [
+    { node: 'src_orders', label: 'Orders app → raw.orders', note: 'The order is written by the app and ingested into the RAW schema as-is.' },
+    { node: 'stg_orders', label: 'stg_orders', note: 'Cleaned & recast: country standardized, status lower-cased, types fixed.' },
+    { node: 'int_orders', label: 'int_orders_enriched', note: 'Joined to customer, product and payment — one enriched row for this order.' },
+    { node: 'fct_orders', label: 'fct_orders', note: 'Merged into the order-grain fact (incremental, unique_key order_id).' },
+    { node: 'fct_daily_revenue', label: 'fct_daily_revenue', note: 'Aggregated into its day × country × category × channel bucket.' },
+    { node: 'dashboard', label: 'BI dashboard', note: 'Its revenue contributes to the tile the business sees at 9am.' },
+  ];
+  tab.innerHTML = `
+    <p class="lab-intro">Lineage made tangible. Trace a single order — <strong>order_id 10001</strong> — from the moment it is
+    placed to the dashboard tile it feeds. Step through the hops; the DAG highlights the exact path the row travels.</p>
+    <div class="prod-run-ctrl">
+      <button class="btn btn-primary" id="flow-step">Trace next hop ▸</button>
+      <button class="btn btn-ghost" id="flow-all">Show full path</button>
+      <button class="btn btn-ghost" id="flow-reset">↻ Reset</button>
+      <span class="prod-flow-id">order_id = 10001</span>
+    </div>
+    <div class="prod-run-body">
+      <div class="prod-flow-steps" id="flow-steps">
+        ${PATH.map((p, i) => `
+          <div class="prod-flow-step" data-i="${i}">
+            <span class="prod-flow-step-n">${i + 1}</span>
+            <span class="prod-flow-step-tx"><span class="prod-flow-step-l">${p.label}</span>
+              <span class="prod-flow-step-note">${p.note}</span></span>
+          </div>`).join('')}
+      </div>
+      <div class="prod-run-stage">
+        <div class="dag-wrap" id="flow-dag">${renderDag('flow-dag-svg', 'flowarr', new Set(), { dimOthers: true })}</div>
+      </div>
+    </div>`;
+
+  const steps = [...tab.querySelectorAll('.prod-flow-step')];
+  const dagWrap = tab.querySelector('#flow-dag');
+  let cursor = -1;
+  const lit = new Set();
+  const paint = () => { dagWrap.innerHTML = renderDag('flow-dag-svg', 'flowarr', new Set(lit), { dimOthers: true }); };
+  const applyTo = (i) => {
+    lit.clear();
+    for (let k = 0; k <= i; k++) lit.add(PATH[k].node);
+    steps.forEach((s, idx) => s.classList.toggle('on', idx <= i));
+    cursor = i; paint();
+  };
+  tab.querySelector('#flow-step').addEventListener('click', () => { if (cursor < PATH.length - 1) applyTo(cursor + 1); });
+  tab.querySelector('#flow-all').addEventListener('click', () => applyTo(PATH.length - 1));
+  tab.querySelector('#flow-reset').addEventListener('click', () => { cursor = -1; lit.clear(); steps.forEach(s => s.classList.remove('on')); paint(); });
+  // Click a step to jump to it.
+  tab.querySelector('#flow-steps').addEventListener('click', e => {
+    const s = e.target.closest('.prod-flow-step');
+    if (s) applyTo(Number(s.dataset.i));
+  });
+}
+
+// ── Interview — 15 project-specific Q&A + the zero-to-production summary ──────
+function buildInterview(container) {
+  const tab = container.querySelector('#tab-iq');
+  const IQ = INTERVIEW.map(x => ({
+    q: x.q,
+    a: `<div class="prod-iv-expected"><span class="prod-iv-k">Expected</span>${x.expected}</div>
+        <div class="prod-iv-row"><span class="prod-iv-k">In depth</span>${x.detailed}</div>
+        <div class="prod-iv-row"><span class="prod-iv-k">Follow-up</span>${x.followup}</div>
+        <div class="prod-iv-row prod-iv-senior"><span class="prod-iv-k">Senior angle</span>${x.senior}</div>`,
+  }));
+  tab.innerHTML = `
+    <p class="lab-intro">Fifteen questions grounded in <em>this</em> project — the exact answers you would give after walking the
+    pipeline. Each has the expected one-liner, the in-depth answer, a follow-up, and the senior-level angle.</p>
+    ${createIQSection(IQ)}
+    ${zeroToProd()}`;
+  // IQ accordion is wired by the module-shell initIQ() in script.js after mount.
+}
+
+function zeroToProd() {
+  return `
+    <div class="detail-section prod-ztp">
+      <h3>🏁 From zero to production — the whole journey on one screen</h3>
+      <p>Every stage, who owns it, what tech, what can fail, how it is monitored. This is the answer to
+      "walk me through how dbt is used in production from data generated to business dashboard."</p>
+      <div class="compare-table-wrap"><table class="compare-table">
+        <thead><tr><th>Stage</th><th>Who owns it</th><th>Tech</th><th>What can fail</th><th>How it's monitored</th></tr></thead>
+        <tbody>${ZERO_TO_PROD.map((r, i) => `
+          <tr><td><span class="prod-ztp-n">${i + 1}</span><strong>${r.stage}</strong></td>
+            <td>${r.who}</td><td class="code-inline">${r.tech}</td>
+            <td>${r.fails}</td><td>${r.monitor}</td></tr>`).join('')}</tbody>
+      </table></div>
+      <div class="prod-ztp-foot">BUSINESS REQUIREMENT → SOURCES → INGESTION → RAW → dbt SOURCES → STAGING → INTERMEDIATE → MARTS → TESTS → ORCHESTRATION → CI/CD → PRODUCTION → MONITORING → BI → <strong>BUSINESS DECISION</strong></div>
+    </div>`;
 }
 
 // ── Stage interactions (grain exercise + dashboard KPI hover already CSS) ─────
