@@ -45,7 +45,10 @@ const LOADERS = {
   m29: () => import('./modules/m29-adapters-warehouses.js'),
   m30: () => import('./modules/m30-dbt-airflow.js'),
   m31: () => import('./modules/m31-case-studies.js'),
+  m32: () => import('./modules/m32-command-playground.js'),
   // Reference & review
+  'interview-bank': () => import('./modules/interview-bank.js'),
+  'interview-sim':  () => import('./modules/interview-sim.js'),
   'master-map': () => import('./modules/master-map.js'),
   comparison:   () => import('./modules/comparison.js'),
   glossary:     () => import('./modules/glossary.js'),
