@@ -50,6 +50,8 @@ export const MODULES = [
 // Synthetic entries: reference & review pages. They live in the sidebar but
 // don't count toward course progress or the prev/next pager.
 export const EXTRAS = [
+  { id:'modes',     title:'Learning Modes',    icon:'🧭', group:'Guide', num:'', desc:'Six goal-based paths through the modules.' },
+  { id:'readiness', title:'Readiness Dashboard',icon:'📊', group:'Guide', num:'', desc:'Your learning progress by area, from views + quiz scores.' },
   { id:'master-map', title:'Master Map',       icon:'🗺️', group:'Reference', num:'', desc:'The whole dbt project on one page — sources to marts.' },
   { id:'comparison', title:'ETL vs ELT vs dbt', icon:'⚖️', group:'Reference', num:'', desc:'Feature matrix, when-to-use, interview Q&A.' },
   { id:'glossary',   title:'Glossary',          icon:'📖', group:'Reference', num:'', desc:'Every dbt term, searchable and defined.' },

@@ -47,6 +47,8 @@ const LOADERS = {
   m31: () => import('./modules/m31-case-studies.js'),
   m32: () => import('./modules/m32-command-playground.js'),
   // Reference & review
+  'modes':     () => import('./modules/modes.js'),
+  'readiness': () => import('./modules/readiness.js'),
   'interview-bank': () => import('./modules/interview-bank.js'),
   'interview-sim':  () => import('./modules/interview-sim.js'),
   'master-map': () => import('./modules/master-map.js'),

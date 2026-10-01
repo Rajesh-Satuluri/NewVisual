@@ -636,3 +636,37 @@ body.cmdk-open { overflow: hidden; }
 .sim-summary-body h3 { font-size: 18px; margin-bottom: 10px; color: var(--text); }
 .sim-tally { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 12px; font-size: 13px; font-weight: 700; }
 .sim-summary-body p { font-size: 13.5px; color: var(--text-2); line-height: 1.6; margin-bottom: 8px; }
+
+/* ── Readiness Dashboard ───────────────────────────────────────────────────── */
+.rd-top { display: flex; gap: 26px; align-items: center; flex-wrap: wrap; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-xl); padding: 26px; margin-bottom: 22px; max-width: 900px; }
+.rd-top-body { flex: 1; min-width: 240px; }
+.rd-top-body h3 { font-size: 18px; color: var(--text); margin-bottom: 8px; }
+.rd-top-body p { font-size: 13.5px; color: var(--text-2); line-height: 1.6; margin-bottom: 8px; }
+.rd-disclaimer { font-size: 12px !important; color: var(--text-3) !important; }
+.rd-areas { display: flex; flex-direction: column; gap: 14px; max-width: 900px; }
+.rd-area-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
+.rd-area-name { font-size: 13.5px; font-weight: 600; color: var(--text); }
+.rd-area-pct { font-size: 13.5px; font-weight: 800; font-family: var(--font-mono); }
+.rd-track { height: 10px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 99px; overflow: hidden; }
+.rd-fill { height: 100%; border-radius: 99px; transition: width var(--transition-slow); }
+.rd-actions { display: flex; gap: 12px; margin: 22px 0 10px; }
+.rd-weak { font-size: 13px; color: var(--text-2); max-width: 900px; line-height: 1.6; }
+.rd-weak strong { color: var(--text); }
+
+/* ── Learning Modes ────────────────────────────────────────────────────────── */
+.modes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+.mode-card { background: var(--surface); border: 1px solid var(--border); border-top: 3px solid var(--modeC, var(--accent)); border-radius: var(--radius-lg); padding: 18px 20px; display: flex; flex-direction: column; }
+.mode-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.mode-ic { font-size: 22px; }
+.mode-name { font-size: 16px; font-weight: 800; color: var(--text); }
+.mode-count { margin-left: auto; font-size: 11px; color: var(--text-3); font-family: var(--font-mono); }
+.mode-blurb { font-size: 13px; color: var(--text-2); line-height: 1.55; margin-bottom: 14px; }
+.mode-steps { display: flex; flex-direction: column; gap: 5px; margin-bottom: 16px; }
+.mode-step { display: flex; align-items: center; gap: 9px; width: 100%; text-align: left; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-raised); cursor: pointer; font-family: inherit; transition: border-color var(--transition), background var(--transition); }
+.mode-step:hover { border-color: var(--modeC, var(--accent)); background: var(--surface-2); }
+.mode-step-n { width: 18px; height: 18px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; font-family: var(--font-mono); background: var(--surface-2); border-radius: 5px; color: var(--text-3); }
+.mode-step-ic { font-size: 14px; }
+.mode-step-t { flex: 1; font-size: 12.5px; color: var(--text); }
+.mode-step-chk { color: var(--success); font-weight: 800; }
+.mode-step.done .mode-step-t { color: var(--text-2); }
+.mode-start { margin-top: auto; justify-content: center; }

@@ -35,8 +35,8 @@ export function mount(container) {
           <button class="btn btn-primary" data-goto="${nextId}">
             ${realDone ? 'Continue' : 'Start'} — ${nextMod ? nextMod.icon + ' ' + nextMod.title : 'Begin'} <span>→</span>
           </button>
-          <button class="btn btn-secondary" data-goto="master-map">🗺️ See the big picture</button>
-          <button class="btn btn-ghost" data-goto="comparison">⚖️ ETL vs ELT vs dbt</button>
+          <button class="btn btn-secondary" data-goto="modes">🧭 Learning Modes</button>
+          <button class="btn btn-ghost" data-goto="readiness">📊 Readiness</button>
         </div>
       </div>
 
