@@ -613,6 +613,119 @@ export const DASHBOARD = {
   note: 'Numbers are simulated for the walkthrough.',
 };
 
+// ── Run Production Day — the animated pipeline (Wave B) ──────────────────────
+// Each step has a time, a stage label, the actor, a one-line status, and the
+// DAG nodes that become "built" at that step (drives the live DAG highlight).
+export const RUN_STEPS = [
+  { time: '01:00', label: 'Ingestion starts', who: 'Fivetran', detail: 'Connectors begin syncing orders, customers, products, payments, refunds from the app DBs.', nodes: [] },
+  { time: '02:00', label: 'Raw data available', who: 'Snowflake RAW', detail: 'All five source tables landed in the RAW schema. Row counts look normal.', nodes: ['src_orders','src_customers','src_products','src_payments'] },
+  { time: '02:05', label: 'Source freshness check', who: 'dbt', detail: 'dbt source freshness: orders PASS, customers PASS, payments PASS. Safe to build.', nodes: ['src_orders','src_customers','src_products','src_payments'] },
+  { time: '02:10', label: 'dbt parse', who: 'dbt', detail: 'Project parses: manifest built, 24 nodes, DAG resolved from ref()/source(). No compile errors.', nodes: ['src_orders','src_customers','src_products','src_payments'] },
+  { time: '02:15', label: 'dbt staging', who: 'dbt', detail: 'stg_* models build as views — clean, recast, standardize. One model per source.', nodes: ['stg_orders','stg_customers','stg_products','stg_payments'] },
+  { time: '02:30', label: 'dbt intermediate', who: 'dbt', detail: 'int_orders_enriched joins staged orders to customers, products and aggregated payments.', nodes: ['int_orders'] },
+  { time: '02:40', label: 'dbt marts', who: 'dbt', detail: 'dim_customer, dim_product build as tables; fct_orders MERGEs new rows (incremental); fct_daily_revenue aggregates.', nodes: ['dim_customer','dim_product','fct_orders','fct_daily_revenue'] },
+  { time: '02:55', label: 'dbt tests', who: 'dbt', detail: '105 tests run in DAG order — unique, not_null, relationships, accepted_values. 2 warnings, 0 blocking failures.', nodes: ['dim_customer','dim_product','fct_orders','fct_daily_revenue'] },
+  { time: '03:00', label: 'Write artifacts', who: 'dbt', detail: 'manifest.json, run_results.json, catalog.json written — the record of what ran and how it went.', nodes: ['dim_customer','dim_product','fct_orders','fct_daily_revenue'] },
+  { time: '03:15', label: 'BI refresh', who: 'Power BI', detail: 'Dashboards refresh from fct_daily_revenue + dims. The business opens green dashboards at 9am.', nodes: ['dashboard'] },
+];
+
+// ── Three interactive production incidents (Wave B) ──────────────────────────
+// Each incident: a symptom, an investigation path down the lineage, a set of
+// hypotheses the user picks from, the true root cause, and the 5-part writeup.
+export const INCIDENTS = [
+  {
+    id: 'revenue-drop', icon: '📉', title: 'Daily revenue is 18% lower than yesterday',
+    severity: 'High', paged: '08:05 — BI lead pings on-call',
+    symptom: 'The daily-revenue dashboard opened 18% below yesterday. No code was deployed overnight. Tests were green. Where do you look?',
+    // Investigation: walk down the lineage; at each layer show what you\'d check.
+    trace: [
+      { node: 'BI dashboard', check: 'Confirm it is real, not a BI cache. Revenue tile = $1.16M vs $1.42M. Refresh time 03:15 — normal. The drop is in the data, not the dashboard.' },
+      { node: 'fct_daily_revenue', check: 'Sum by country/category. Every slice is down proportionally — not one category. Suggests fewer rows upstream, not a logic bug.' },
+      { node: 'fct_orders', check: 'Row count: 15,120 vs ~18,200 expected. ~3,000 orders missing. The fact is thin, not wrong.' },
+      { node: 'int_orders_enriched', check: 'Same shortfall. Joins look fine (no fan-out, no dropped rows). The gap is already present before any transformation.' },
+      { node: 'stg_orders', check: 'Same shortfall — staging is faithful. So the rows never arrived in raw.' },
+      { node: 'raw.orders', check: 'MAX(created_at) = 23:10 yesterday. Orders after 23:10 are missing. Ingestion stopped early.' },
+    ],
+    hypotheses: [
+      { id: 'a', label: 'A bug in fct_daily_revenue aggregation', correct: false, why: 'Every slice dropped proportionally and row counts are low all the way up — a logic bug would skew specific slices, not uniformly thin every layer.' },
+      { id: 'b', label: 'Incremental filter dropped rows', correct: false, why: 'Plausible, and worth ruling out — but fct_orders is low because its INPUT is low. stg_orders and raw.orders are already short, upstream of any incremental logic.' },
+      { id: 'c', label: 'Source arrived late / incomplete — ingestion stopped at 23:10', correct: true, why: 'Correct. raw.orders has no rows after 23:10. The connector failed late last night and only partial data loaded. dbt faithfully transformed exactly what it was given.' },
+      { id: 'd', label: 'A relationships test dropped orphaned orders', correct: false, why: 'Tests do not delete rows — they pass/fail. And tests were green. This cannot thin the fact.' },
+    ],
+    root: 'The Fivetran orders connector errored at 23:10 and loaded only partial data. dbt ran on schedule and transformed exactly what was in raw — correctly — so ~3,000 late-evening orders were simply absent.',
+    writeup: {
+      cause: 'Upstream ingestion failure: the orders connector stopped at 23:10, so raw.orders was incomplete when dbt ran at 02:15.',
+      impact: 'Daily revenue understated ~18% for one day; every downstream slice thin but internally consistent.',
+      detection: 'A source freshness check that errors when raw.orders is older than expected, plus a row-count/volume anomaly test on fct_orders, would have caught it before the build.',
+      resolution: 'Re-run the connector to backfill, then `dbt build --select +fct_daily_revenue` to reprocess the day. With a lookback window the incremental fact picks up the backfilled rows automatically.',
+      prevention: 'Gate the dbt run on source freshness (fail, not warn), add a volume/anomaly test, and alert on connector failure so the pipeline halts instead of publishing a thin dashboard.',
+    },
+    deeper: { id: 'm23', label: 'Source & Freshness →' },
+  },
+  {
+    id: 'schema-change', icon: '🔀', title: 'customer_id changed from INTEGER to STRING',
+    severity: 'Critical', paged: '02:18 — dbt build failed, pipeline halted',
+    symptom: 'Overnight the Customer service shipped a change: customer_id is now a STRING (e.g. "C1001") instead of an INTEGER. The 02:15 dbt build failed. What broke, and is a hard failure good or bad here?',
+    trace: [
+      { node: 'raw.customers', check: 'customer_id now arrives as text. Ingestion happily loaded it — connectors rarely enforce types.' },
+      { node: 'stg_customers', check: 'If staging casts customer_id to integer, the cast fails on "C1001" → model errors. If it does not cast, the type now mismatches orders downstream.' },
+      { node: 'relationships / join', check: 'fct_orders joins orders.customer_id (still INTEGER) to dim_customer.customer_id (now STRING). The join type-mismatches or silently matches nothing.' },
+      { node: 'contract', check: 'If fct_orders has a model contract declaring customer_id as INTEGER, dbt fails the build immediately at compile — the earliest, cheapest place to catch it.' },
+    ],
+    hypotheses: [
+      { id: 'a', label: 'The hard failure is bad — we should coerce and keep going', correct: false, why: 'Silently coercing a key type is how you get wrong joins and a dashboard that looks fine but matches the wrong customers. A loud failure is the safe outcome here.' },
+      { id: 'b', label: 'The hard failure is correct — it stopped bad data before the dashboard', correct: true, why: 'Exactly. A contract/test failure halted the build the moment the key type changed, so no mis-joined data reached BI. Now you fix it deliberately.' },
+      { id: 'c', label: 'dbt should auto-migrate the type', correct: false, why: 'dbt does not guess type migrations for you — that is a schema decision with real consequences (key semantics, joins). It surfaces the break and lets you decide.' },
+    ],
+    root: 'An upstream schema change altered the type of a join key. A model contract (or a type-sensitive cast/test) on customer_id turned a silent, dangerous mismatch into an immediate, named build failure.',
+    writeup: {
+      cause: 'The source team changed customer_id from INTEGER to STRING without a coordinated contract change downstream.',
+      impact: 'Build halted at staging/marts. Nothing wrong reached BI — the cost was a failed run, not bad data.',
+      detection: 'A model contract on fct_orders / dim_customer (enforced column types) and/or a cast in staging that fails loudly on non-numeric input.',
+      resolution: 'Decide the canonical type (STRING is the new reality), update staging casts and the contract to STRING, align the join on both sides, and re-build the affected subtree.',
+      prevention: 'Contracts on public models, a source schema test, and a data-contract / change-notification process with the upstream team so schema changes are coordinated, not discovered at 02:18.',
+    },
+    deeper: { id: 'm22', label: 'Testing & Data Quality →' },
+  },
+  {
+    id: 'incremental-bug', icon: '⏰', title: 'A late-arriving order never shows up',
+    severity: 'Medium', paged: '11:40 — finance: "an order is missing from the fact"',
+    symptom: 'Order 20456 was placed Sept 29 but only landed in raw on Oct 1 (a mobile sync delay). It exists in raw.orders and stg_orders — but it is missing from fct_orders. Tests are green. Why?',
+    trace: [
+      { node: 'raw.orders', check: 'Order 20456 is present. order_date = Sept 29, created_at/_loaded_at = Oct 1. The data is there.' },
+      { node: 'stg_orders', check: 'Present too — staging is a faithful view over raw. So the row survives to the staging layer.' },
+      { node: 'fct_orders (incremental)', check: 'MISSING. Look at the incremental filter: `where order_date > (select max(order_date) from {{ this }})`. max(order_date) is Oct 1, so an order dated Sept 29 is filtered OUT — it is "older" than the high-water mark.' },
+      { node: 'the filter', check: 'The naive high-water-mark on order_date assumes data arrives in order of order_date. Late-arriving rows (dated in the past, loaded today) fall below the watermark and are skipped forever.' },
+    ],
+    hypotheses: [
+      { id: 'a', label: 'The order is genuinely missing from the source', correct: false, why: 'It is in raw.orders and stg_orders. The data arrived — the incremental model chose not to process it.' },
+      { id: 'b', label: 'A test deleted it', correct: false, why: 'Tests never delete rows, and they are green. This is a selection problem, not a quality gate.' },
+      { id: 'c', label: 'The incremental high-water-mark on order_date skips late-arriving rows', correct: true, why: 'Correct. `order_date > max(order_date)` filters by the business date. An order dated Sept 29 loaded on Oct 1 is below the Oct 1 watermark, so it is never picked up. This is the classic late-arriving-data trap.' },
+    ],
+    root: 'A naive incremental filter keyed on the business date (order_date) with a strict high-water-mark permanently skips rows that arrive late (dated in the past). The fix is a lookback window on a load timestamp plus a MERGE on the unique key.',
+    fixCode:
+`{{ config(materialized='incremental', unique_key='order_id',
+          incremental_strategy='merge') }}
+
+select * from {{ ref('int_orders_enriched') }}
+
+{% if is_incremental() %}
+  -- Reprocess a 3-day window by LOAD time, not business date,
+  -- then MERGE on order_id. Late-arriving Sept 29 rows loaded
+  -- on Oct 1 fall inside the window and get merged in.
+  where _loaded_at >= (select dateadd(day, -3, max(_loaded_at)) from {{ this }})
+{% endif %}`,
+    writeup: {
+      cause: 'Incremental high-water-mark used the business date (order_date) with a strict `>`; late-arriving rows dated in the past never cross the watermark.',
+      impact: 'Silent, ongoing under-count — any order that syncs late is permanently absent from the fact. No error, green tests.',
+      detection: 'A reconciliation test comparing stg_orders count to fct_orders count for recent dates would flag the gap.',
+      resolution: 'Switch the filter to a lookback window on _loaded_at (or updated_at) and MERGE on order_id so reprocessed rows upsert instead of duplicate; backfill the window once.',
+      prevention: 'Default to lookback + merge for any source with late-arriving data; never assume rows arrive in business-date order.',
+    },
+    deeper: { id: 'm21', label: 'Incremental Strategies →' },
+  },
+];
+
 // End-to-end "zero to production" summary (Wave C uses the full version).
 export const ZERO_TO_PROD = [
   { stage: 'Business requirement', who: 'Product', tech: '—', fails: 'Wrong grain designed', monitor: 'Review' },
