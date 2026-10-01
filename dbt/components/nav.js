@@ -45,6 +45,8 @@ export const MODULES = [
   { id:'m31', title:'Case Studies',           icon:'🏢', group:'Platform & Architecture', num:'31', desc:'Five production stacks across industries, each with an incident' },
   // ── Mastery ──────────────────────────────────────────────────────────────
   { id:'m32', title:'Command Playground',     icon:'⌨️', group:'Mastery', num:'32', desc:'Every dbt command: purpose, example, internals, prod use, mistake' },
+  // ── Real-World Production Lab (capstone) ──────────────────────────────────
+  { id:'m33', title:'Real-World Production',   icon:'🏭', group:'Real-World Production Lab', num:'33', desc:'One e-commerce project from raw source to BI dashboard — the capstone' },
 ];
 
 // Synthetic entries: reference & review pages. They live in the sidebar but

@@ -3,7 +3,7 @@
 import { MODULES, EXTRAS } from '../components/nav.js';
 
 const STATS = [
-  { val: '32', label: 'Modules', sub: 'Pain era → Internals → Prod → Arch' },
+  { val: '33', label: 'Modules', sub: 'Pain era → Internals → Prod → Capstone' },
   { val: '140+', label: 'Interview Qs', sub: 'Tiered bank + per-module' },
   { val: '10', label: 'Prod Incidents', sub: 'Failure simulator' },
   { val: '5', label: 'Case Studies', sub: 'E-com → banking → retail' },
@@ -35,8 +35,21 @@ export function mount(container) {
           <button class="btn btn-primary" data-goto="${nextId}">
             ${realDone ? 'Continue' : 'Start'} — ${nextMod ? nextMod.icon + ' ' + nextMod.title : 'Begin'} <span>→</span>
           </button>
-          <button class="btn btn-secondary" data-goto="modes">🧭 Learning Modes</button>
-          <button class="btn btn-ghost" data-goto="readiness">📊 Readiness</button>
+          <button class="btn btn-secondary" data-goto="m33">🏭 Production Lab</button>
+          <button class="btn btn-ghost" data-goto="modes">🧭 Learning Modes</button>
+        </div>
+      </div>
+
+      <div class="story-banner" style="border-color:var(--accent)">
+        <div class="story-label" style="color:var(--accent)">🏭 Flagship capstone</div>
+        <h3>Real-World Production Lab</h3>
+        <p>
+          One e-commerce company, one dataset, traced from the moment an order is placed all the way to the
+          daily-revenue dashboard. Walk the production pipeline stage by stage, run a simulated production day,
+          debug real incidents, and see exactly where dbt fits — ingestion vs transformation vs orchestration vs BI.
+        </p>
+        <div class="home-cta" style="margin-top:14px">
+          <button class="btn btn-primary" data-goto="m33">Open the Production Lab <span>→</span></button>
         </div>
       </div>
 
