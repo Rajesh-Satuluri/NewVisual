@@ -781,7 +781,7 @@
     var logicNode = h("div", { class: "md logic" + (blur ? " blurred" : "") });
     logicNode.innerHTML = md(cur.logic);
     if (blur) logicNode.appendChild(revealOverlay(logicNode));
-    var logicSection = section("logic", "Complete Logic — " + (cur.name || "Approach"), logicNode);
+    var logicSection = section("logic", "Complete Logic — " + (cur.name || "Approach"), logicNode, { collapsed: true });
     apWrap.appendChild(logicSection);
 
     // Code (RCS / Plain toggle)
