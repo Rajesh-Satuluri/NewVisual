@@ -586,3 +586,9 @@ body.cmdk-open { overflow: hidden; }
 .cmp-bar-fill { height: 100%; display: flex; align-items: center; padding: 0 12px; color: #fff; font-size: 12px; font-weight: 700; font-family: var(--font-mono); white-space: nowrap; min-width: fit-content; }
 .cmp-bar-sub { font-size: 11.5px; color: var(--text-3); margin-top: 4px; }
 .cmp-bar-sub em { color: var(--text-2); }
+
+/* ── Debugging decision tree breadcrumb (m25) ──────────────────────────────── */
+.dtree-path { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-bottom: 14px; font-size: 12px; }
+.dtree-crumb { padding: 4px 10px; border-radius: 99px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-2); }
+.dtree-crumb.current { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); font-weight: 700; }
+.dtree-sep { color: var(--text-3); }

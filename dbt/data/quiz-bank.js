@@ -289,4 +289,32 @@ export const QUIZ_BANK = {
       explanation: 'Late-arriving records fall below a strict max(updated_at) watermark. A lookback window re-scans a trailing period and unique_key upserts them idempotently.',
     },
   ],
+  m25: [
+    {
+      q: 'A dbt run failed with a Compilation Error before any SQL executed. Did it cost warehouse credits, and what class is it?',
+      options: ['Yes; a warehouse error', 'No; a dbt-side parse/compile error', 'Yes; a data-quality error', 'No; a permission error'],
+      answer: 1,
+      explanation: 'Parse/compile happen locally in dbt before execution — zero credits. The fix is in your project files, not the warehouse.',
+    },
+    {
+      q: 'When triaging a failed run with many skipped models, what do you look at first?',
+      options: ['The last skipped model', 'The first errored node (skips are downstream consequences)', 'The warehouse size', 'A random model'],
+      answer: 1,
+      explanation: 'Skips are caused by an upstream error; find the first errored node, classify it, then fix at that layer.',
+    },
+  ],
+  m26: [
+    {
+      q: 'A model times out after a 40-minute full scan. What is the FIRST optimization to try?',
+      options: ['Upsize the warehouse', 'Fix the architecture: view→incremental, add partition/cluster keys, bound the scan', 'Add more threads', 'Disable the model'],
+      answer: 1,
+      explanation: 'Reduce the work (rows scanned, recompute) before buying compute. A bigger warehouse hides the problem; better materialization removes it.',
+    },
+    {
+      q: 'Which materialization processes only new/changed rows instead of rebuilding the whole table each run?',
+      options: ['view', 'table', 'incremental', 'ephemeral'],
+      answer: 2,
+      explanation: 'Incremental materializations use a predicate to process only new/changed rows — bounded compute vs a full rebuild.',
+    },
+  ],
 };

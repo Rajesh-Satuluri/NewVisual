@@ -38,6 +38,8 @@ const LOADERS = {
   m22: () => import('./modules/m22-testing-lab.js'),
   m23: () => import('./modules/m23-source-freshness.js'),
   m24: () => import('./modules/m24-failure-simulator.js'),
+  m25: () => import('./modules/m25-debugging-tree.js'),
+  m26: () => import('./modules/m26-performance-lab.js'),
   // Reference & review
   'master-map': () => import('./modules/master-map.js'),
   comparison:   () => import('./modules/comparison.js'),
