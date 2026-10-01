@@ -64,9 +64,16 @@ function highlightCode(raw) {
   s = s.replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"/g, m => keep('str', m));
   s = s.replace(/\{\{[^]*?\}\}|\{%[^]*?%\}/g, m => keep('fn', m));
   s = s.replace(SQL_KW, m => keep('kw', m));
-  s = s.replace(/\b\d+\.?\d*\b/g, m => keep('num', m));
+  // Number pass must not match the digits inside existing \x00<index>\x00
+  // placeholders, or it re-stashes them and corrupts the restore below.
+  s = s.replace(/(?<!\x00)\b\d+\.?\d*\b(?!\x00)/g, m => keep('num', m));
 
-  s = s.replace(/\x00(\d+)\x00/g, (_, i) => stash[Number(i)]);
+  // Restore iteratively: a stashed span (e.g. a Jinja block) can itself contain
+  // placeholders for tokens nested inside it (strings/numbers), so one pass is
+  // not enough. Loop until no placeholders remain.
+  let prev;
+  do { prev = s; s = s.replace(/\x00(\d+)\x00/g, (_, i) => stash[Number(i)]); }
+  while (s !== prev);
   return s;
 }
 

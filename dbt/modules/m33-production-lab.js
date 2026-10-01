@@ -10,8 +10,10 @@ import {
   BUSINESS, CONCERNS, ARCH_NODES, ARCH_EDGES, DBT_SCOPE, BOUNDARIES,
   SOURCES, RAW_ORDERS_SAMPLE, PROJECT_TREE, DAG_NODES, DAG_EDGES, DAG_KIND_COLOR,
   STAGES, GRAIN_EXERCISE, RUN_SUMMARY, MATERIALIZATIONS, SCHEDULE, DASHBOARD,
+  RUN_STEPS, INCIDENTS,
 } from '../data/ecommerce-project.js';
 
+let runTimer = null;
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const codeBlock = (lang, title, text) => `
   <div class="prod-code">
@@ -35,11 +37,14 @@ export function mount(container) {
   });
 
   buildPipeline(container);
-  buildPlaceholder(container, 'run',      '▶️ Run Production Day', 'An animated 01:00→03:15 production run lands in the next wave.');
-  buildPlaceholder(container, 'incidents','🚨 Incidents', 'Three interactive production incidents land in the next wave.');
+  buildRun(container);
+  buildIncidents(container);
   buildPlaceholder(container, 'decisions','🧭 Decisions', 'Architecture decision points land in the next wave.');
   buildPlaceholder(container, 'flow',     '🔎 Data Flow', 'Trace a single order end-to-end — lands in the next wave.');
   buildPlaceholder(container, 'iq',       '🎯 Interview', 'Fifteen project-specific interview questions land in the next wave.');
+
+  // Clean up the playback timer when navigating away.
+  return () => { if (runTimer) { clearInterval(runTimer); runTimer = null; } };
 }
 
 function buildPlaceholder(container, id, title, msg) {
@@ -311,34 +316,40 @@ function archSvg() {
     </svg>`;
 }
 
-// ── Project DAG SVG (reused in the marts stage + Data Flow) ──────────────────
-function dagSvg(highlight) {
-  const hi = highlight || new Set();
+// ── Project DAG SVG (reused in marts stage, Run playback, Data Flow) ─────────
+// `activeMode`: when a highlight set is supplied, non-highlighted nodes dim;
+// when empty, all nodes show at full strength.
+function renderDag(svgId, markerId, hi, { dimOthers = false } = {}) {
+  const on = (id) => (dimOthers ? hi.has(id) : (hi.size === 0 || hi.has(id)));
   const W = 150, H = 40;
   const node = (id) => {
     const n = DAG_NODES[id];
     const c = DAG_KIND_COLOR[n.kind];
-    const on = hi.size === 0 || hi.has(id);
+    const lit = on(id);
     return `<g class="dag-node" data-dag="${id}" style="cursor:pointer">
       <rect x="${n.x}" y="${n.y}" width="${W}" height="${H}" rx="7"
-        fill="${on ? c + '26' : 'var(--surface)'}" stroke="${on ? c : 'var(--border)'}" stroke-width="${on ? 2.2 : 1.1}" opacity="${on ? 1 : 0.4}"/>
+        fill="${lit ? c + '26' : 'var(--surface)'}" stroke="${lit ? c : 'var(--border)'}" stroke-width="${lit ? 2.2 : 1.1}" opacity="${lit ? 1 : 0.35}"/>
       <text x="${n.x + W / 2}" y="${n.y + H / 2 + 4}" text-anchor="middle" font-family="JetBrains Mono,monospace"
-        font-size="10.5" fill="${on ? c : 'var(--text-3)'}" font-weight="${on ? 700 : 400}">${n.label}</text></g>`;
+        font-size="10.5" fill="${lit ? c : 'var(--text-3)'}" font-weight="${lit ? 700 : 400}">${n.label}</text></g>`;
   };
   const edge = ([a, b]) => {
     const A = DAG_NODES[a], B = DAG_NODES[b];
     const x1 = A.x + W, y1 = A.y + H / 2, x2 = B.x, y2 = B.y + H / 2;
-    const on = hi.size === 0 || (hi.has(a) && hi.has(b));
+    const lit = on(a) && on(b);
     const mx = (x1 + x2) / 2;
     return `<path d="M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}" fill="none"
-      stroke="${on ? 'var(--accent)' : 'var(--border)'}" stroke-width="${on ? 2 : 1.1}" opacity="${on ? 0.9 : 0.35}" marker-end="url(#dagarr)"/>`;
+      stroke="${lit ? 'var(--accent)' : 'var(--border)'}" stroke-width="${lit ? 2 : 1.1}" opacity="${lit ? 0.9 : 0.3}" marker-end="url(#${markerId})"/>`;
   };
-  return `<div class="detail-section"><h3>The project DAG</h3>
-    <div class="dag-wrap"><svg id="prod-dag-svg" viewBox="0 0 790 350" width="100%" style="max-width:790px">
-      <defs><marker id="dagarr" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+  return `<svg id="${svgId}" viewBox="0 0 790 350" width="100%" style="max-width:790px">
+      <defs><marker id="${markerId}" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
         <path d="M0,0 L8,4 L0,8 z" fill="var(--text-3)"/></marker></defs>
       ${DAG_EDGES.map(edge).join('')}${Object.keys(DAG_NODES).map(node).join('')}
-    </svg></div>
+    </svg>`;
+}
+
+function dagSvg() {
+  return `<div class="detail-section"><h3>The project DAG</h3>
+    <div class="dag-wrap">${renderDag('prod-dag-svg', 'dagarr', new Set())}</div>
     <p style="color:var(--text-3)">sources → staging → intermediate → dims & facts → the mart the dashboard reads.</p></div>`;
 }
 
@@ -355,6 +366,192 @@ function scopePanel() {
         <ul>${DBT_SCOPE.doesnt.map(x => `<li>${x}</li>`).join('')}</ul>
       </div>
     </div>`;
+}
+
+// ── Run Production Day — animated pipeline ───────────────────────────────────
+function buildRun(container) {
+  const tab = container.querySelector('#tab-run');
+  tab.innerHTML = `
+    <p class="lab-intro">Press <strong>Run Production Day</strong> to watch the nightly pipeline execute from 01:00 to 03:15 —
+    ingestion, freshness, parse, the dbt DAG building layer by layer, tests, artifacts, then the BI refresh.
+    The graph lights up as each layer lands. This is a simulation of the sequence, not a live warehouse.</p>
+    <div class="prod-run-ctrl">
+      <button class="btn btn-primary" id="run-play">▶ Run Production Day</button>
+      <button class="btn btn-ghost" id="run-step">Step ▸</button>
+      <button class="btn btn-ghost" id="run-reset">↻ Reset</button>
+      <span class="prod-run-clock" id="run-clock">—:—</span>
+    </div>
+    <div class="prod-run-body">
+      <div class="prod-run-timeline" id="run-timeline">
+        ${RUN_STEPS.map((s, i) => `
+          <div class="prod-run-row" data-i="${i}">
+            <span class="prod-run-time">${s.time}</span>
+            <span class="prod-run-dot"></span>
+            <span class="prod-run-tx"><span class="prod-run-label">${s.label}</span>
+              <span class="prod-run-who">${s.who}</span></span>
+            <span class="prod-run-status" aria-hidden="true"></span>
+          </div>`).join('')}
+      </div>
+      <div class="prod-run-stage">
+        <div class="dag-wrap" id="run-dag">${renderDag('run-dag-svg', 'runarr', new Set(), { dimOthers: true })}</div>
+        <div class="prod-run-detail" id="run-detail">Idle — press ▶ to start the 01:00 run.</div>
+      </div>
+    </div>`;
+
+  const rows = [...tab.querySelectorAll('.prod-run-row')];
+  const clock = tab.querySelector('#run-clock');
+  const detail = tab.querySelector('#run-detail');
+  const dagWrap = tab.querySelector('#run-dag');
+  let cursor = -1;
+  const built = new Set();
+
+  const paint = () => {
+    dagWrap.innerHTML = renderDag('run-dag-svg', 'runarr', new Set(built), { dimOthers: true });
+  };
+  const applyStep = (i) => {
+    const s = RUN_STEPS[i];
+    rows.forEach((r, idx) => {
+      r.classList.toggle('done', idx < i);
+      r.classList.toggle('current', idx === i);
+      r.querySelector('.prod-run-status').textContent = idx <= i ? '✓' : '';
+    });
+    s.nodes.forEach(n => built.add(n));
+    clock.textContent = s.time;
+    detail.innerHTML = `<span class="prod-run-detail-t">${s.time} · ${s.label}</span>${s.detail}`;
+    paint();
+  };
+  const step = () => {
+    if (cursor >= RUN_STEPS.length - 1) return false;
+    cursor += 1; applyStep(cursor); return true;
+  };
+  const reset = () => {
+    if (runTimer) { clearInterval(runTimer); runTimer = null; }
+    cursor = -1; built.clear();
+    rows.forEach(r => { r.classList.remove('done', 'current'); r.querySelector('.prod-run-status').textContent = ''; });
+    clock.textContent = '—:—';
+    detail.textContent = 'Idle — press ▶ to start the 01:00 run.';
+    tab.querySelector('#run-play').textContent = '▶ Run Production Day';
+    paint();
+  };
+  const play = () => {
+    if (runTimer) { clearInterval(runTimer); runTimer = null; tab.querySelector('#run-play').textContent = '▶ Resume'; return; }
+    if (cursor >= RUN_STEPS.length - 1) reset();
+    tab.querySelector('#run-play').textContent = '⏸ Pause';
+    runTimer = setInterval(() => {
+      if (!step()) {
+        clearInterval(runTimer); runTimer = null;
+        tab.querySelector('#run-play').textContent = '✓ Day complete';
+        detail.innerHTML += ' <strong style="color:var(--success)">— run green, dashboards fresh.</strong>';
+      }
+    }, 900);
+  };
+
+  tab.querySelector('#run-play').addEventListener('click', play);
+  tab.querySelector('#run-step').addEventListener('click', () => { if (runTimer) { clearInterval(runTimer); runTimer = null; tab.querySelector('#run-play').textContent = '▶ Resume'; } step(); });
+  tab.querySelector('#run-reset').addEventListener('click', reset);
+}
+
+// ── Incidents — guided investigations ────────────────────────────────────────
+function buildIncidents(container) {
+  const tab = container.querySelector('#tab-incidents');
+  tab.innerHTML = `
+    <p class="lab-intro">Three real production incidents on this exact pipeline. For each: read the symptom, walk the lineage,
+    pick the root cause, then see the full root-cause / impact / detection / resolution / prevention writeup. Diagnose before you reveal.</p>
+    <div class="lab-picker" id="inc-picker">
+      ${INCIDENTS.map((inc, i) => `<button class="lab-chip ${i === 0 ? 'active' : ''}" data-inc="${inc.id}">${inc.icon} ${inc.title}</button>`).join('')}
+    </div>
+    <div id="inc-body"></div>`;
+
+  const body = tab.querySelector('#inc-body');
+  const show = (id) => {
+    const inc = INCIDENTS.find(x => x.id === id);
+    body.innerHTML = renderIncident(inc);
+    import('../components/module-shell.js').then(m => m.injectCodeEnhancements(body));
+    bindIncident(body, inc);
+  };
+  tab.querySelector('#inc-picker').addEventListener('click', e => {
+    const c = e.target.closest('.lab-chip');
+    if (!c) return;
+    tab.querySelectorAll('#inc-picker .lab-chip').forEach(x => x.classList.toggle('active', x === c));
+    show(c.dataset.inc);
+  });
+  body.addEventListener('click', e => {
+    const link = e.target.closest('[data-goto]');
+    if (link) location.hash = link.dataset.goto;
+  });
+  show(INCIDENTS[0].id);
+}
+
+function renderIncident(inc) {
+  const sevCls = inc.severity.toLowerCase();
+  return `
+    <div class="prod-inc">
+      <div class="prod-inc-head">
+        <span class="prod-inc-sev ${sevCls}">${inc.severity}</span>
+        <span class="prod-inc-paged">🔔 ${inc.paged}</span>
+        ${inc.deeper ? `<button class="prod-deeper" data-goto="${inc.deeper.id}">${inc.deeper.label}</button>` : ''}
+      </div>
+      <h3 class="prod-inc-title">${inc.icon} ${inc.title}</h3>
+      <div class="prod-inc-symptom"><span class="prod-inc-k">Symptom</span>${inc.symptom}</div>
+
+      <h4 class="prod-inc-h">1 · Walk the lineage</h4>
+      <p class="prod-inc-note">Click each node to see what you'd check there — top (dashboard) down to the source.</p>
+      <div class="prod-inc-trace">
+        ${inc.trace.map((t, i) => `
+          <button class="prod-inc-node" data-ti="${i}">
+            <span class="prod-inc-node-name">${t.node}</span>
+            <span class="prod-inc-node-arr">▾</span>
+          </button>
+          <div class="prod-inc-check" data-ci="${i}" hidden>${t.check}</div>`).join('')}
+      </div>
+
+      <h4 class="prod-inc-h">2 · What is the root cause?</h4>
+      <div class="prod-choices" data-inc-hyp>
+        ${inc.hypotheses.map(h => `<button class="prod-choice" data-correct="${h.correct}" data-why="${esc(h.why)}">${h.label}</button>`).join('')}
+      </div>
+      <div class="prod-grain-reveal" data-inc-reveal hidden></div>
+
+      <div class="prod-inc-resolved" data-inc-writeup hidden>
+        <h4 class="prod-inc-h">3 · The writeup</h4>
+        <div class="prod-inc-root">🎯 <strong>Root cause:</strong> ${inc.root}</div>
+        ${inc.fixCode ? `<div class="prod-code"><div class="prod-code-title">The fix</div><div class="code-block" data-lang="sql">${esc(inc.fixCode)}</div></div>` : ''}
+        <div class="prod-inc-grid">
+          ${[['Root cause', inc.writeup.cause], ['Impact', inc.writeup.impact], ['Detection', inc.writeup.detection], ['Resolution', inc.writeup.resolution], ['Prevention', inc.writeup.prevention]]
+            .map(([k, v]) => `<div class="prod-inc-cell"><div class="prod-inc-cell-k">${k}</div><div class="prod-inc-cell-v">${v}</div></div>`).join('')}
+        </div>
+      </div>
+    </div>`;
+}
+
+function bindIncident(body, inc) {
+  // Lineage node toggles.
+  body.querySelectorAll('.prod-inc-node').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const i = btn.dataset.ti;
+      const check = body.querySelector(`.prod-inc-check[data-ci="${i}"]`);
+      const open = check.hidden;
+      check.hidden = !open;
+      btn.classList.toggle('open', open);
+    });
+  });
+  // Hypothesis selection → reveal + writeup on correct.
+  const hyp = body.querySelector('[data-inc-hyp]');
+  const reveal = body.querySelector('[data-inc-reveal]');
+  const writeup = body.querySelector('[data-inc-writeup]');
+  hyp.addEventListener('click', e => {
+    const b = e.target.closest('.prod-choice');
+    if (!b) return;
+    hyp.querySelectorAll('.prod-choice').forEach(c => c.classList.remove('chosen'));
+    b.classList.add('chosen');
+    const ok = b.dataset.correct === 'true';
+    reveal.hidden = false;
+    reveal.className = `prod-grain-reveal ${ok ? 'ok' : 'bad'}`;
+    reveal.innerHTML = `<strong>${ok ? '✅ Correct.' : '❌ Not the root cause.'}</strong> ${b.dataset.why}`;
+    if (ok) {
+      writeup.hidden = false;
+      import('../components/module-shell.js').then(m => m.injectCodeEnhancements(writeup));
+    }
+  });
 }
 
 // ── Stage interactions (grain exercise + dashboard KPI hover already CSS) ─────
