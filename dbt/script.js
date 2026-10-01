@@ -46,6 +46,7 @@ const LOADERS = {
   m30: () => import('./modules/m30-dbt-airflow.js'),
   m31: () => import('./modules/m31-case-studies.js'),
   m32: () => import('./modules/m32-command-playground.js'),
+  m33: () => import('./modules/m33-production-lab.js'),
   // Reference & review
   'modes':     () => import('./modules/modes.js'),
   'readiness': () => import('./modules/readiness.js'),

@@ -401,4 +401,18 @@ export const QUIZ_BANK = {
       explanation: 'build = run + test + seed + snapshot with test gating, so a failed test skips downstream models. It is the production-safe command.',
     },
   ],
+  m33: [
+    {
+      q: 'In the e-commerce platform, which tool is responsible for getting raw orders INTO the warehouse?',
+      options: ['dbt', 'Fivetran / CDC / Airbyte (ingestion)', 'Airflow', 'Power BI'],
+      answer: 1,
+      explanation: 'Ingestion (Fivetran/CDC) does the extract + load. dbt only transforms data already landed in the warehouse — it never extracts from the source app.',
+    },
+    {
+      q: 'fct_orders is "one row per order". A left join to a payments table with 2 rows per order is added. What happens?',
+      options: ['The build errors out', 'Nothing changes', 'The grain silently changes and revenue double-counts those orders', 'dbt auto-deduplicates'],
+      answer: 2,
+      explanation: 'The SQL is valid, so nothing errors — but the grain quietly becomes one row per order-payment and sums double-count. A unique test on order_id catches it.',
+    },
+  ],
 };
