@@ -570,6 +570,8 @@
     });
     sec.appendChild(head);
     sec.appendChild(outer);
+    // start collapsed (no animation) when requested — user opens on demand
+    if (opts.collapsed) { sec.classList.add("collapsed"); outer.style.height = "0px"; }
     return sec;
   }
 
@@ -750,7 +752,7 @@
       }
       exWrap.appendChild(card);
     });
-    main.appendChild(section("examples", "Examples", exWrap, { badge: (p.examples || []).length + "" }));
+    main.appendChild(section("examples", "Examples", exWrap, { badge: (p.examples || []).length + "", collapsed: true }));
 
     // ---- Approach switcher (drives Logic + Code) ----
     var approaches = p.approaches || [];
@@ -937,7 +939,7 @@
     wrap.appendChild(row);
 
     return section("srs", "Spaced Repetition Review", wrap,
-      { badge: rec ? (store.isDue(p.id) ? "Due" : humanWhen(rec.due)) : "New" });
+      { badge: rec ? (store.isDue(p.id) ? "Due" : humanWhen(rec.due)) : "New", collapsed: true });
   }
 
   // small transient toast
@@ -1004,7 +1006,7 @@
         linksWrap.appendChild(row);
       })(li);
     }
-    return section("links", "Animation / Visualization Links", linksWrap);
+    return section("links", "Animation / Visualization Links", linksWrap, { collapsed: true });
   }
 
   function revealOverlay(target) {
@@ -1837,7 +1839,7 @@
       chips.appendChild(c);
     });
     wrap.appendChild(chips);
-    return section("recall", "Python concepts used", wrap);
+    return section("recall", "Python concepts used", wrap, { collapsed: true });
   }
 
   // ============================================================= BOOT
