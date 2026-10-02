@@ -31,6 +31,7 @@ function buildBalance(container) {
   const tab = container.querySelector('#tab-balance');
   tab.innerHTML = `
     <div class="canvas-wrap">
+      <div class="canvas-caption">Each live sparkline is the per-second message rate landing on one partition (P0–P4), driven by how the producer <b>keys</b> its records. Toggle <b>Uniform Keys</b> (high-cardinality <code>order_id</code> → even spread) vs <b>Hot Keys</b> (low-cardinality <code>country</code> → one partition dominates). Watch which consumer thread gets overwhelmed and which starve.</div>
       <canvas id="part-canvas" width="820" height="360" style="width:100%;max-width:820px"></canvas>
       <div class="canvas-controls">
         <button class="ctrl-btn" id="part-uniform">✅ Uniform Keys (order_id)</button>
@@ -43,6 +44,7 @@ function buildBalance(container) {
       <p>Each sparkline shows the per-second message rate arriving at one partition (P0–P4). In <strong>Uniform Keys</strong> mode, the producer keys every record with a high-cardinality value like <code>order_id</code> — a UUID. Kafka's murmur2 hash distributes UUIDs nearly uniformly, so all five charts show similar heights and each consumer thread carries an equal share of the work.</p>
       <p>Switch to <strong>Hot Keys</strong> mode to simulate a producer using <code>country</code> as the partition key. If 80% of Amazon orders originate from US customers, 80% of records hash to whichever partition "US" maps to — one sparkline dominates while the rest starve. This is a <strong>hot partition</strong>: one consumer thread is overwhelmed, the others are idle, and you can't fix it by adding more consumers since each partition has at most one owner per group.</p>
       <p>The fix is a key with higher cardinality. <code>customer_id</code> or <code>order_id</code> distribute evenly because there are millions of distinct values. For cases where the key is inherently low-cardinality but ordering must be preserved per key, <strong>key salting</strong> appends a random suffix (e.g., <code>US-3</code>) to spread load, then strips it in the consumer before processing. Note: you cannot reduce the partition count of an existing topic — only increase it, which breaks per-key ordering for existing consumers until they restart.</p>
+      <p><strong>Interview angle:</strong> partition count is a one-way door — you can add partitions but never remove them, and adding them re-hashes keys so existing per-key ordering breaks. So size it for <em>2× future peak</em>, not today's load: <code>partitions = ceil(target_throughput / per-partition_throughput)</code> (~10 MB/s write per partition is the usual planning figure), then round up for head-room. The key choice is the other half of the decision: ordering is guaranteed only <em>within</em> a partition, so the key <em>is</em> your ordering boundary (all of one customer's events, or one order's lifecycle, must share a key). More partitions never fix a hot key — only a higher-cardinality key or salting does.</p>
     </div>`;
 
   const canvas = tab.querySelector('#part-canvas');

@@ -31,6 +31,7 @@ function buildSegments(container) {
   const tab = container.querySelector('#tab-segments');
   tab.innerHTML = `
     <div class="canvas-wrap">
+      <div class="canvas-caption">A partition is physically a directory of <b>segment files</b> on disk. Grey segments are <b>sealed</b> (full, immutable); the orange one is <b>active</b> — the only file being written to right now. Press <b>Write Records</b> to fill it, then <b>Roll Segment</b> to seal it and open a new active segment. Each <code>.log</code> ships with a sparse <code>.index</code> and <code>.timeindex</code> sibling.</div>
       <canvas id="seg-canvas" width="820" height="320" style="width:100%;max-width:820px"></canvas>
       <div class="canvas-controls">
         <button class="ctrl-btn" id="seg-write">✍️ Write Records</button>
@@ -43,6 +44,7 @@ function buildSegments(container) {
       <p>Each colored bar is a log segment — a fixed-size file on disk that holds a sequential slice of a partition's records. <strong>Sealed segments</strong> (grey) are full and immutable — no records will ever be appended to them again. The <strong>active segment</strong> (orange) is the only file Kafka writes to right now, with all new records appended sequentially to its end.</p>
       <p>When the active segment reaches <code>log.segment.bytes</code> (default 1 GB) or <code>log.roll.ms</code> time passes, it is sealed and a new active segment opens — click "Roll Segment" to trigger this. Alongside each <code>.log</code> data file, Kafka maintains a sparse <code>.index</code> file mapping offsets to byte positions. This index lets Kafka locate any offset in O(log n) via binary search, rather than scanning the entire log file sequentially.</p>
       <p>Sealed segments are eligible for retention cleanup: time-based retention deletes segments older than <code>log.retention.ms</code>; size-based deletes the oldest when total log size exceeds <code>log.retention.bytes</code>. Because records are only ever appended and never modified, Kafka's disk I/O pattern is entirely sequential — which is why a commodity spinning disk can sustain 200k+ records/sec and why the OS page cache almost never needs to seek.</p>
+      <p><strong>Interview angle:</strong> be ready to explain the <em>offset lookup</em> — Kafka finds any record in O(log n) by binary-searching the sparse <code>.index</code> to the nearest indexed offset, then scanning forward at most one index interval (~4 KB). And be ready to connect segments to throughput: sequential appends plus <strong>zero-copy</strong> reads (<code>sendfile()</code> sends bytes straight from the page cache to the socket, skipping user space) are why one broker serves 2M+ messages/sec — the broker does almost no per-message work. The active segment is never eligible for retention or compaction, so the newest data is always safe regardless of policy.</p>
     </div>`;
 
   const canvas = tab.querySelector('#seg-canvas');

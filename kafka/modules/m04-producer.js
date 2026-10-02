@@ -31,6 +31,7 @@ function buildPipeline(container) {
   const tab = container.querySelector('#tab-pipeline');
   tab.innerHTML = `
     <div class="canvas-wrap">
+      <div class="canvas-caption">Each orange pill is one record travelling the producer's four internal stages before it ever touches the network: <b>Application → Serializer → Partitioner → per-partition Batch → Broker</b>. Press <b>Send Order Event</b> for one record, or <b>Burst</b> to see how records pool into batches. The broker box flashes green on each <b>ack</b>.</div>
       <canvas id="producer-canvas" width="820" height="360" style="width:100%;max-width:820px"></canvas>
       <div class="canvas-controls">
         <button class="ctrl-btn" id="prod-send">📤 Send Order Event</button>
@@ -43,6 +44,7 @@ function buildPipeline(container) {
       <p>The animation shows a single record's journey from application code through four internal pipeline stages before it reaches a broker. The <strong>Serializer</strong> converts Java objects to bytes using Avro or JSON schema. The <strong>Partitioner</strong> runs a murmur2 hash on the record key to deterministically pick a partition — the same key always lands on the same partition, which is how per-key ordering is guaranteed across all producers.</p>
       <p>The <strong>Accumulator</strong> is the stage most engineers overlook. Records don't send immediately — they pool in a per-partition deque until <code>batch.size</code> bytes are reached or <code>linger.ms</code> milliseconds pass, whichever comes first. This batching is the primary reason Kafka achieves millions of records per second: the network overhead of one TCP segment carrying 1,000 records is nearly identical to carrying 1.</p>
       <p>The <strong>acks</strong> setting controls what "sent" means at the broker end. With <code>acks=0</code> the producer fires and forgets — no broker response is waited for, and data loss is possible. With <code>acks=1</code> the leader writes to its log and replies immediately, but followers may not have replicated yet. With <code>acks=all</code> the leader waits until every ISR member confirms before replying — the production-safe default at Amazon for financial events.</p>
+      <p><strong>Interview angle:</strong> <code>acks=all</code> alone is <em>not</em> enough for durability — pair it with <code>min.insync.replicas=2</code> and <code>replication.factor=3</code>, or "all" could mean "just the leader" if the ISR has shrunk to one. For no-duplicates-on-retry, set <code>enable.idempotence=true</code>: the broker tags each record with a producer-id + sequence number and silently drops a retried duplicate (this also lets you keep <code>max.in.flight.requests=5</code> without reordering). And know the <strong>sticky partitioner</strong> (default since 2.4) for keyless records — it fills one partition's batch before moving on, producing fewer, larger, better-compressed batches than round-robin while still spreading load evenly over time.</p>
     </div>`;
 
   const canvas = tab.querySelector('#producer-canvas');
