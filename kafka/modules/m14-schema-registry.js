@@ -94,9 +94,34 @@ function buildCompat(container) {
     { name: 'FULL', color: '#FF6900', icon: '↔️', desc: 'Both BACKWARD and FORWARD. Most restrictive. Either producer or consumer can upgrade first. Amazon payment schema standard.', allowed: ['Add optional field with default'], forbidden: ['Remove any field', 'Add required field', 'Change type'] },
     { name: 'NONE', color: '#EF4444', icon: '🚫', desc: 'No compatibility checking. Any schema change accepted. Risky — consumer may break on incompatible change. Only for development topics.', allowed: ['Anything'], forbidden: [] },
   ];
+  const dirs = [
+    { name: 'BACKWARD', color: '#3B82F6', who: 'Consumer upgrades first', reader: 'New consumer (v2)', data: 'reads v1 + v2 data', rule: 'new code can read old data' },
+    { name: 'FORWARD',  color: '#10B981', who: 'Producer upgrades first', reader: 'Old consumer (v1)', data: 'reads v2 data', rule: 'old code can read new data' },
+    { name: 'FULL',     color: '#FF6900', who: 'Either side, any order', reader: 'v1 ⇄ v2', data: 'read each other', rule: 'both directions hold' },
+  ];
   tab.innerHTML = `
     <div class="scroll-content">
       <div class="section-header"><div class="section-title">Schema Compatibility Modes</div><div class="section-desc">Configure per subject: PUT /config/{subject} {"compatibility": "FULL"}</div></div>
+
+      <div class="canvas-explainer" style="border-top:none;border-radius:10px;margin-bottom:16px">
+        <p>Compatibility mode answers one operational question: <strong>can I change a schema without breaking the services already running?</strong> The Registry enforces the rule at registration time — if your new schema would violate it, the producer fails fast instead of writing records that consumers can't read. The direction of the rule decides <strong>who you can safely deploy first</strong>, which is the whole point.</p>
+        <p>Read the arrows below as "this reader can read that data." <strong>BACKWARD</strong> (the default) means <em>new code reads old data</em>, so you upgrade <strong>consumers first</strong>, then producers. <strong>FORWARD</strong> means <em>old code reads new data</em>, so you can upgrade <strong>producers first</strong> and let consumers catch up. <strong>FULL</strong> is both at once — either side can deploy in any order, which is why Amazon uses <code>FULL_TRANSITIVE</code> for payment schemas (any version interoperates with any other, not just the adjacent one).</p>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px">
+        ${dirs.map(d => `
+          <div style="background:var(--bg2);border:1px solid ${d.color};border-radius:10px;padding:14px">
+            <div style="font-size:12px;font-weight:800;color:${d.color};font-family:monospace;margin-bottom:4px">${d.name}</div>
+            <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:12px">${d.who}</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="flex:1;text-align:center;background:${d.color}22;border:1.5px solid ${d.color};color:${d.color};border-radius:7px;padding:8px 4px;font-size:10px;font-weight:700">${d.reader}</span>
+              <span style="color:${d.color};font-size:16px;font-weight:700">→</span>
+              <span style="flex:1;text-align:center;background:var(--bg);border:1px solid var(--border);color:var(--text2);border-radius:7px;padding:8px 4px;font-size:10px">${d.data}</span>
+            </div>
+            <div style="margin-top:10px;font-size:10.5px;color:var(--text3);line-height:1.5">${d.rule}</div>
+          </div>`).join('')}
+      </div>
+
       <div class="info-grid">
         ${modes.map(m => `
           <div class="info-card" style="border-left:3px solid ${m.color}">
