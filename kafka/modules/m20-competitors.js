@@ -65,7 +65,39 @@ function buildMatrix(container) {
     { key: 'rabbit', label: '🔴 RabbitMQ',       color: '#EF4444' },
   ];
 
+  // Positioning map — xVal: 0 self-managed … 100 fully managed; yVal: 0 task queue … 100 streaming platform
+  const dots = [
+    { name: 'Kafka',      x: 20, y: 92, color: '#FF6900' },
+    { name: 'Pulsar',     x: 10, y: 84, color: '#8B5CF6' },
+    { name: 'Kinesis',    x: 88, y: 70, color: '#FF9900' },
+    { name: 'Pub/Sub',    x: 90, y: 48, color: '#4285F4' },
+    { name: 'RabbitMQ',   x: 32, y: 18, color: '#EF4444' },
+  ];
+  const PX = v => 90 + (v / 100) * 600;   // plot x: 90..690
+  const PY = v => 300 - (v / 100) * 250;  // plot y: 300..50
+
   tab.innerHTML = `
+    <div class="canvas-caption">Before the feature-by-feature grid, here's the mental map: the horizontal axis is <b>how much you operate it</b> (self-managed → fully managed), the vertical axis is <b>what it's for</b> (a task queue → a full streaming platform). Kafka and Pulsar sit top-left (powerful, you run them); Kinesis and Pub/Sub top-right (managed, less flexible); RabbitMQ bottom-left (a routing/task broker, not a log).</div>
+    <div class="svg-wrap">
+      <svg viewBox="0 0 760 340" width="760" height="340" style="font-family:system-ui">
+        <!-- axes -->
+        <line x1="90" y1="300" x2="690" y2="300" stroke="#334155" stroke-width="1.5"/>
+        <line x1="90" y1="50"  x2="90"  y2="300" stroke="#334155" stroke-width="1.5"/>
+        <!-- axis labels -->
+        <text x="390" y="330" text-anchor="middle" fill="#64748B" font-size="11">Self-managed  ———→  Fully managed</text>
+        <text x="30" y="175" text-anchor="middle" fill="#64748B" font-size="11" transform="rotate(-90 30 175)">Task queue  ———→  Streaming platform</text>
+        <!-- quadrant guides -->
+        <line x1="390" y1="50" x2="390" y2="300" stroke="#1E293B" stroke-width="1" stroke-dasharray="4,4"/>
+        <line x1="90" y1="175" x2="690" y2="175" stroke="#1E293B" stroke-width="1" stroke-dasharray="4,4"/>
+        ${dots.map(d => `
+          <circle cx="${PX(d.x)}" cy="${PY(d.y)}" r="9" fill="${d.color}" stroke="#0A0E1A" stroke-width="2"/>
+          <text x="${PX(d.x) + 14}" y="${PY(d.y) + 4}" fill="${d.color}" font-size="12" font-weight="700">${d.name}</text>
+        `).join('')}
+      </svg>
+    </div>
+    <div class="canvas-explainer" style="margin-bottom:4px">
+      <p>The map explains most "when would you pick X?" answers in one glance. <strong>Kafka vs Pulsar</strong> (both top-left): same streaming power, but Pulsar separates storage from compute for elastic broker scaling while Kafka has the far larger ecosystem — you pick Pulsar for multi-tenant elasticity, Kafka for maturity and connectors. <strong>Kinesis vs Pub/Sub</strong> (both top-right): choose by cloud — Kinesis on AWS, Pub/Sub on GCP — trading flexibility for zero ops. <strong>RabbitMQ</strong> sits apart (bottom-left) because it's a different tool: content-based routing, per-message TTL, priority, and task queues — not a replayable log. The feature grid below quantifies each of these trade-offs.</p>
+    </div>
     <div class="compare-table-wrap">
       <div class="section-header">
         <div class="section-title">Head-to-Head Feature Matrix</div>

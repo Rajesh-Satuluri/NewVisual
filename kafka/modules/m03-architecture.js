@@ -442,6 +442,26 @@ function buildKraft(container) {
         <div style="font-size:13px;font-weight:700;color:#F1F5F9;margin-bottom:8px">🏭 Amazon-scale context</div>
         <p style="font-size:13px;color:#94A3B8;line-height:1.7;margin:0">Amazon's Kafka clusters handle millions of partitions across thousands of topics (orders, payments, inventory-updates, click-events, etc.). Under ZooKeeper, hitting the ~200k partition limit was a real scaling wall. KRaft removes that ceiling and cuts controller failover from a 30–60 second operational nightmare — during which no new partitions can be created — to under 1 second. During Prime Day, when a controller broker dies, KRaft means your "Buy Now" flow keeps working within a second instead of going dark for a minute.</p>
       </div>
+      <div style="margin-bottom:24px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748B;margin-bottom:12px">Controller failover — the number that matters at Prime Day</div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:center;gap:14px">
+            <div style="width:140px;flex-shrink:0;font-size:12px;font-weight:600;color:#94A3B8;text-align:right">ZooKeeper mode</div>
+            <div style="flex:1;background:#1E293B;border-radius:7px;height:30px;position:relative;overflow:hidden">
+              <div style="position:absolute;inset:0 auto 0 0;width:100%;background:linear-gradient(90deg,#EF4444cc,#EF4444);border-radius:7px"></div>
+              <div style="position:absolute;inset:0;display:flex;align-items:center;padding-left:12px;font-size:11px;font-weight:800;color:#fff;font-family:monospace">30–60 s  (no new partitions, "Buy Now" can stall)</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px">
+            <div style="width:140px;flex-shrink:0;font-size:12px;font-weight:600;color:#94A3B8;text-align:right">KRaft mode</div>
+            <div style="flex:1;background:#1E293B;border-radius:7px;height:30px;position:relative;overflow:hidden">
+              <div style="position:absolute;inset:0 auto 0 0;width:3%;min-width:40px;background:linear-gradient(90deg,#10B981cc,#10B981);border-radius:7px"></div>
+              <div style="position:absolute;inset:0;display:flex;align-items:center;padding-left:52px;font-size:11px;font-weight:800;color:#10B981;font-family:monospace">&lt;1 s</div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:10px;font-size:12px;color:#94A3B8;line-height:1.7">Bar width is drawn to scale: KRaft's sub-second failover is a thin sliver next to ZooKeeper's 30–60 s. KRaft keeps metadata in a built-in Raft quorum, so a dead controller is replaced by a standby that already holds the full metadata log — no external ZooKeeper round-trip, no cold reload. That same design removes the ~200k-partition ceiling.</div>
+      </div>
       <div class="compare-table-wrap">
         <div class="section-header">
           <div class="section-title">KRaft vs ZooKeeper</div>

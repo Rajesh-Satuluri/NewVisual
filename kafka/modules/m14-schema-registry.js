@@ -27,6 +27,7 @@ export function mount(container) {
 function buildWire(container) {
   const tab = container.querySelector('#tab-wire');
   tab.innerHTML = `
+    <div class="canvas-caption">Every record written through the Confluent serializer carries a <b>5-byte header</b> before the payload: a <b>magic byte</b> (<code>0x00</code>) + a 4-byte <b>schema ID</b>. The diagram traces how a consumer uses that ID to fetch the right schema and decode the bytes — so the schema travels <i>once</i> to the Registry, not with every message.</div>
     <div class="svg-wrap">
       <svg viewBox="0 0 800 400" width="800" height="400" style="font-family:system-ui">
 
@@ -83,6 +84,12 @@ function buildWire(container) {
         <text x="50" y="358" fill="#79c0ff" font-size="9">   {"name":"total","type":"double"},</text>
         <text x="50" y="373" fill="#79c0ff" font-size="9">   {"name":"primeFlag","type":["null","boolean"],"default":null}</text>
       </svg>
+    </div>
+    <div class="canvas-explainer">
+      <h3>What you're watching</h3>
+      <p>Serializing a record with the Confluent Avro/Protobuf/JSON serializer never embeds the schema in the message. Instead it writes <code>0x00</code> (the <strong>magic byte</strong>, so Kafka can tell a Registry-encoded payload from raw bytes), then a <strong>4-byte big-endian schema ID</strong>, then the compact binary payload. The schema itself was registered once and lives in the Registry under a <em>subject</em> (usually <code>&lt;topic&gt;-value</code>); the record just points at it by ID.</p>
+      <p>On the read side, the consumer's deserializer reads the magic byte, reads the schema ID, and does a <code>GET /schemas/ids/{id}</code> against the Registry to fetch the writer's schema — then <strong>caches it</strong>, so every subsequent record with that ID skips the network entirely. This is <strong>schema-on-read</strong> without per-record overhead: millions of records share one cached schema lookup, and the payload stays small because field names and types aren't repeated in every message.</p>
+      <p><strong>Interview angle:</strong> the "5-byte prefix = 1 magic byte + 4-byte schema ID" is a classic question — knowing it signals you understand the actual wire encoding, not just the concept. The follow-up is <em>why it enables zero-downtime schema evolution</em>: because records are self-describing by ID and the Registry enforces a compatibility mode (see the next tab), a producer can start writing a new schema version while old consumers keep decoding — the ID tells each consumer exactly which schema to pull, and Avro field defaults fill anything an older reader doesn't know about.</p>
     </div>`;
 }
 
