@@ -31,6 +31,7 @@ function buildAssign(container) {
   const tab = container.querySelector('#tab-assign');
   tab.innerHTML = `
     <div class="canvas-wrap">
+      <div class="canvas-caption">The top row is a topic's <b>partitions</b> (P0–P5); the boxes below are <b>consumers</b> in one group. Dashed lines show who owns what. Press <b>Add</b> / <b>Remove Consumer</b> and watch Kafka rebalance ownership — the rule you're testing: <b>each partition goes to exactly one consumer, and a group can never run more useful consumers than it has partitions.</b></div>
       <canvas id="cg-canvas" width="820" height="380" style="width:100%;max-width:820px"></canvas>
       <div class="canvas-controls">
         <button class="ctrl-btn" id="cg-add">➕ Add Consumer</button>
@@ -44,6 +45,7 @@ function buildAssign(container) {
       <p>The colored boxes are topic partitions (P0–P5). The circles are consumer instances in a single consumer group. Lines show the current assignment — each partition is owned by exactly one consumer at a time. <strong>No two consumers in the same group ever read the same partition simultaneously</strong> — that is the core guarantee of the consumer group protocol, and it's what prevents double-processing without requiring locks or coordination between consumer instances.</p>
       <p>Click "Add Consumer" to trigger a <strong>rebalance</strong>. During the default eager (stop-the-world) rebalance, the group coordinator broker temporarily halts all consumption across every consumer while it recalculates and redistributes partition assignments. For a 200-consumer group handling Amazon Prime Day traffic, this pause can last 30–60 seconds — during which consumer lag climbs and downstream systems stop receiving events.</p>
       <p>Notice the assignment math: with 6 partitions and 3 consumers, each consumer owns exactly 2. Add a 4th consumer and one sits idle — partitions can't be split. This means the <strong>maximum parallelism for a topic is always equal to its partition count</strong>. Increase consumers beyond partition count and the extras wait. Remove consumers below partition count and each survivor absorbs the orphaned partitions — which is why partition count is the most important topic sizing decision you make at creation time.</p>
+      <p><strong>Interview angle:</strong> keep three facts straight. (1) <em>Consumer group</em> ≠ <em>consumer</em> — different groups (e.g. fulfillment vs analytics) each get their own full copy of every partition; the "one owner" rule is only <em>within</em> a group. (2) Failure detection is two timeouts: <code>session.timeout.ms</code> (missed heartbeats → dead) and <code>max.poll.interval.ms</code> (processing too slow between polls → dead) — a slow consumer trips the second without ever missing a heartbeat. (3) Prefer <code>CooperativeStickyAssignor</code> in production so adding one consumer only moves the partitions that must move, instead of stopping the whole group — see the Rebalance Types tab.</p>
     </div>`;
 
   const canvas = tab.querySelector('#cg-canvas');
@@ -143,6 +145,21 @@ function buildAssign(container) {
           ctx.setLineDash([]);
         });
       });
+    }
+
+    // On-canvas legend / teaching line
+    ctx.textAlign = 'left';
+    ctx.font = '11px system-ui';
+    ctx.fillStyle = '#64748B';
+    ctx.fillText('Dashed line = current partition ownership (recomputed on every join/leave). Each colour is one partition.', 40, 330);
+    const idle = Math.max(0, consumers.length - PARTITION_COUNT);
+    if (idle > 0) {
+      ctx.fillStyle = '#EF4444';
+      ctx.font = 'bold 11px system-ui';
+      ctx.fillText(`⚠ ${idle} consumer${idle>1?'s':''} idle — more consumers than partitions, so the extras get nothing.`, 40, 350);
+    } else {
+      ctx.fillStyle = '#10B981';
+      ctx.fillText('✓ Every consumer owns at least one partition — full parallelism.', 40, 350);
     }
 
     const statusEl = tab.querySelector('#cg-status');

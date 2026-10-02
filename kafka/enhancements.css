@@ -673,3 +673,15 @@ body.cmdk-open { overflow: hidden; }
   .arch-layout { flex-direction: column; }
   .arch-detail { width: 100%; }
 }
+
+/* ── Canvas caption (teaching lead-in above an interactive canvas) ──────────── */
+.canvas-caption {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 20px 0;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--text2);
+  max-width: 860px;
+}
+.canvas-caption b { color: var(--text); font-weight: 650; }
