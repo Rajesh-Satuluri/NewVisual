@@ -31,6 +31,7 @@ function buildAssign(container) {
   const tab = container.querySelector('#tab-assign');
   tab.innerHTML = `
     <div class="canvas-wrap">
+      <div class="canvas-caption">The top row is a topic's <b>partitions</b> (P0–P5); the boxes below are <b>consumers</b> in one group. Dashed lines show who owns what. Press <b>Add</b> / <b>Remove Consumer</b> and watch Kafka rebalance ownership — the rule you're testing: <b>each partition goes to exactly one consumer, and a group can never run more useful consumers than it has partitions.</b></div>
       <canvas id="cg-canvas" width="820" height="380" style="width:100%;max-width:820px"></canvas>
       <div class="canvas-controls">
         <button class="ctrl-btn" id="cg-add">➕ Add Consumer</button>
@@ -44,6 +45,7 @@ function buildAssign(container) {
       <p>The colored boxes are topic partitions (P0–P5). The circles are consumer instances in a single consumer group. Lines show the current assignment — each partition is owned by exactly one consumer at a time. <strong>No two consumers in the same group ever read the same partition simultaneously</strong> — that is the core guarantee of the consumer group protocol, and it's what prevents double-processing without requiring locks or coordination between consumer instances.</p>
       <p>Click "Add Consumer" to trigger a <strong>rebalance</strong>. During the default eager (stop-the-world) rebalance, the group coordinator broker temporarily halts all consumption across every consumer while it recalculates and redistributes partition assignments. For a 200-consumer group handling Amazon Prime Day traffic, this pause can last 30–60 seconds — during which consumer lag climbs and downstream systems stop receiving events.</p>
       <p>Notice the assignment math: with 6 partitions and 3 consumers, each consumer owns exactly 2. Add a 4th consumer and one sits idle — partitions can't be split. This means the <strong>maximum parallelism for a topic is always equal to its partition count</strong>. Increase consumers beyond partition count and the extras wait. Remove consumers below partition count and each survivor absorbs the orphaned partitions — which is why partition count is the most important topic sizing decision you make at creation time.</p>
+      <p><strong>Interview angle:</strong> keep three facts straight. (1) <em>Consumer group</em> ≠ <em>consumer</em> — different groups (e.g. fulfillment vs analytics) each get their own full copy of every partition; the "one owner" rule is only <em>within</em> a group. (2) Failure detection is two timeouts: <code>session.timeout.ms</code> (missed heartbeats → dead) and <code>max.poll.interval.ms</code> (processing too slow between polls → dead) — a slow consumer trips the second without ever missing a heartbeat. (3) Prefer <code>CooperativeStickyAssignor</code> in production so adding one consumer only moves the partitions that must move, instead of stopping the whole group — see the Rebalance Types tab.</p>
     </div>`;
 
   const canvas = tab.querySelector('#cg-canvas');
@@ -78,7 +80,7 @@ function buildAssign(container) {
 
     // Partitions row
     ctx.font = 'bold 11px system-ui';
-    ctx.fillStyle = '#64748B';
+    ctx.fillStyle = '#94A3B8';
     ctx.textAlign = 'left';
     ctx.fillText(`Topic: orders (${PARTITION_COUNT} partitions)`, 40, 40);
 
@@ -145,6 +147,21 @@ function buildAssign(container) {
       });
     }
 
+    // On-canvas legend / teaching line
+    ctx.textAlign = 'left';
+    ctx.font = '11px system-ui';
+    ctx.fillStyle = '#94A3B8';
+    ctx.fillText('Dashed line = current partition ownership (recomputed on every join/leave). Each colour is one partition.', 40, 330);
+    const idle = Math.max(0, consumers.length - PARTITION_COUNT);
+    if (idle > 0) {
+      ctx.fillStyle = '#EF4444';
+      ctx.font = 'bold 11px system-ui';
+      ctx.fillText(`⚠ ${idle} consumer${idle>1?'s':''} idle — more consumers than partitions, so the extras get nothing.`, 40, 350);
+    } else {
+      ctx.fillStyle = '#10B981';
+      ctx.fillText('✓ Every consumer owns at least one partition — full parallelism.', 40, 350);
+    }
+
     const statusEl = tab.querySelector('#cg-status');
     if (statusEl) statusEl.textContent = `${consumers.length} consumer${consumers.length!==1?'s':''}, ${PARTITION_COUNT} partitions — round-robin assignment`;
 
@@ -199,21 +216,21 @@ function buildAmazon(container) {
 
       <!-- Hero -->
       <div style="background:#111827;border:1px solid #FF6900;border-radius:14px;padding:20px 24px;margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#64748B;margin-bottom:8px">Consumer group design</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#94A3B8;margin-bottom:8px">Consumer group design</div>
         <div style="font-size:18px;font-weight:800;color:#F1F5F9;margin-bottom:4px">Amazon runs 4 consumer groups on the orders topic — each with different rules</div>
         <div style="font-size:13px;color:#94A3B8">Same 6 partitions. Same records. Four completely independent consumer groups — each reading at its own speed with its own lag SLA, consumer count, and failure budget.</div>
       </div>
 
       <!-- 4 consumer groups table -->
       <div style="margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748B;margin-bottom:14px">The 4 groups on orders-topic (6 partitions)</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">The 4 groups on orders-topic (6 partitions)</div>
         <div style="overflow-x:auto;border-radius:10px;border:1px solid #1E293B">
           <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:720px">
             <thead><tr style="background:#0F172A;border-bottom:1px solid #1E293B">
-              <th style="padding:10px 14px;text-align:left;color:#64748B;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Group</th>
-              <th style="padding:10px 14px;text-align:left;color:#64748B;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Consumers</th>
-              <th style="padding:10px 14px;text-align:left;color:#64748B;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Lag SLA</th>
-              <th style="padding:10px 14px;text-align:left;color:#64748B;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Why This Count</th>
+              <th style="padding:10px 14px;text-align:left;color:#94A3B8;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Group</th>
+              <th style="padding:10px 14px;text-align:left;color:#94A3B8;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Consumers</th>
+              <th style="padding:10px 14px;text-align:left;color:#94A3B8;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Lag SLA</th>
+              <th style="padding:10px 14px;text-align:left;color:#94A3B8;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Why This Count</th>
             </tr></thead>
             <tbody>
               ${
@@ -240,7 +257,7 @@ function buildAmazon(container) {
 
       <!-- Rebalance cost -->
       <div style="margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748B;margin-bottom:14px">Prime Day auto-scale — why rebalance protocol matters</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">Prime Day auto-scale — why rebalance protocol matters</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
           <div style="background:#EF444412;border:1.5px solid #EF444444;border-radius:12px;padding:16px 20px">
             <div style="font-size:12px;font-weight:700;color:#EF4444;margin-bottom:8px">Eager rebalance (stop-the-world)</div>

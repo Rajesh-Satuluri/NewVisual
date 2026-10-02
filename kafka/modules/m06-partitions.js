@@ -31,6 +31,7 @@ function buildBalance(container) {
   const tab = container.querySelector('#tab-balance');
   tab.innerHTML = `
     <div class="canvas-wrap">
+      <div class="canvas-caption">Each live sparkline is the per-second message rate landing on one partition (P0–P4), driven by how the producer <b>keys</b> its records. Toggle <b>Uniform Keys</b> (high-cardinality <code>order_id</code> → even spread) vs <b>Hot Keys</b> (low-cardinality <code>country</code> → one partition dominates). Watch which consumer thread gets overwhelmed and which starve.</div>
       <canvas id="part-canvas" width="820" height="360" style="width:100%;max-width:820px"></canvas>
       <div class="canvas-controls">
         <button class="ctrl-btn" id="part-uniform">✅ Uniform Keys (order_id)</button>
@@ -43,6 +44,7 @@ function buildBalance(container) {
       <p>Each sparkline shows the per-second message rate arriving at one partition (P0–P4). In <strong>Uniform Keys</strong> mode, the producer keys every record with a high-cardinality value like <code>order_id</code> — a UUID. Kafka's murmur2 hash distributes UUIDs nearly uniformly, so all five charts show similar heights and each consumer thread carries an equal share of the work.</p>
       <p>Switch to <strong>Hot Keys</strong> mode to simulate a producer using <code>country</code> as the partition key. If 80% of Amazon orders originate from US customers, 80% of records hash to whichever partition "US" maps to — one sparkline dominates while the rest starve. This is a <strong>hot partition</strong>: one consumer thread is overwhelmed, the others are idle, and you can't fix it by adding more consumers since each partition has at most one owner per group.</p>
       <p>The fix is a key with higher cardinality. <code>customer_id</code> or <code>order_id</code> distribute evenly because there are millions of distinct values. For cases where the key is inherently low-cardinality but ordering must be preserved per key, <strong>key salting</strong> appends a random suffix (e.g., <code>US-3</code>) to spread load, then strips it in the consumer before processing. Note: you cannot reduce the partition count of an existing topic — only increase it, which breaks per-key ordering for existing consumers until they restart.</p>
+      <p><strong>Interview angle:</strong> partition count is a one-way door — you can add partitions but never remove them, and adding them re-hashes keys so existing per-key ordering breaks. So size it for <em>2× future peak</em>, not today's load: <code>partitions = ceil(target_throughput / per-partition_throughput)</code> (~10 MB/s write per partition is the usual planning figure), then round up for head-room. The key choice is the other half of the decision: ordering is guaranteed only <em>within</em> a partition, so the key <em>is</em> your ordering boundary (all of one customer's events, or one order's lifecycle, must share a key). More partitions never fix a hot key — only a higher-cardinality key or salting does.</p>
     </div>`;
 
   const canvas = tab.querySelector('#part-canvas');
@@ -105,7 +107,7 @@ function buildBalance(container) {
     // Labels
     for (let i = 0; i < P_COUNT; i++) {
       ctx.font = '11px system-ui';
-      ctx.fillStyle = '#64748B';
+      ctx.fillStyle = '#94A3B8';
       ctx.textAlign = 'center';
       ctx.fillText(`msgs/s: ${Math.round(counters[i])}`, 40 + i * 150 + 65, 175);
       if (isHot && i === 0) {
@@ -116,7 +118,7 @@ function buildBalance(container) {
 
     // Key routing legend
     ctx.font = '10px system-ui';
-    ctx.fillStyle = '#475569';
+    ctx.fillStyle = '#8A98AE';
     ctx.textAlign = 'left';
     ctx.fillText(isHot
       ? 'Key: country → 80% traffic has key="US" → all land in P0'
@@ -149,28 +151,28 @@ function buildAmazon(container) {
 
       <!-- Hero -->
       <div style="background:#111827;border:1px solid #FF6900;border-radius:14px;padding:20px 24px;margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#64748B;margin-bottom:8px">Design decisions</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#94A3B8;margin-bottom:8px">Design decisions</div>
         <div style="font-size:18px;font-weight:800;color:#F1F5F9;margin-bottom:4px">How Amazon engineers decide partition count and keys for every topic</div>
         <div style="font-size:13px;color:#94A3B8">Two decisions made once at topic creation that can never be cleanly undone — get them right the first time.</div>
       </div>
 
       <!-- Partition count decision -->
       <div style="margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748B;margin-bottom:14px">Step 1: How many partitions? — The orders topic</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">Step 1: How many partitions? — The orders topic</div>
         <div style="background:#111827;border:1px solid #1E293B;border-radius:12px;padding:18px 22px;margin-bottom:12px">
           <div style="font-size:13px;font-weight:700;color:#F1F5F9;margin-bottom:12px">The calculation</div>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;font-size:12px;margin-bottom:14px">
             <div style="background:#0A0E1A;border-radius:8px;padding:12px;text-align:center">
               <div style="font-size:20px;font-weight:800;color:#FF6900">50,000</div>
-              <div style="color:#64748B;margin-top:4px">events/sec peak<br>(Prime Day orders)</div>
+              <div style="color:#94A3B8;margin-top:4px">events/sec peak<br>(Prime Day orders)</div>
             </div>
             <div style="background:#0A0E1A;border-radius:8px;padding:12px;text-align:center">
               <div style="font-size:20px;font-weight:800;color:#3B82F6">20,000</div>
-              <div style="color:#64748B;margin-top:4px">events/sec per<br>Fulfillment consumer</div>
+              <div style="color:#94A3B8;margin-top:4px">events/sec per<br>Fulfillment consumer</div>
             </div>
             <div style="background:#0A0E1A;border-radius:8px;padding:12px;text-align:center">
               <div style="font-size:20px;font-weight:800;color:#10B981">3</div>
-              <div style="color:#64748B;margin-top:4px">partitions needed<br>(50k ÷ 20k = 2.5 → 3)</div>
+              <div style="color:#94A3B8;margin-top:4px">partitions needed<br>(50k ÷ 20k = 2.5 → 3)</div>
             </div>
           </div>
           <div style="background:#F59E0B12;border:1px solid #F59E0B33;border-radius:8px;padding:12px 14px;font-size:12px;color:#94A3B8;line-height:1.7">
@@ -184,14 +186,14 @@ function buildAmazon(container) {
 
       <!-- Key strategy per topic -->
       <div style="margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748B;margin-bottom:14px">Step 2: What key to use — different answer for every topic</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">Step 2: What key to use — different answer for every topic</div>
         <div style="overflow-x:auto;border-radius:10px;border:1px solid #1E293B">
           <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:700px">
             <thead><tr style="background:#0F172A;border-bottom:1px solid #1E293B">
-              <th style="padding:10px 14px;text-align:left;color:#64748B;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Topic</th>
-              <th style="padding:10px 14px;text-align:left;color:#64748B;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Key Used</th>
-              <th style="padding:10px 14px;text-align:left;color:#64748B;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Why This Key</th>
-              <th style="padding:10px 14px;text-align:left;color:#64748B;font-size:10px;text-transform:uppercase;letter-spacing:.06em">What Would Break With Wrong Key</th>
+              <th style="padding:10px 14px;text-align:left;color:#94A3B8;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Topic</th>
+              <th style="padding:10px 14px;text-align:left;color:#94A3B8;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Key Used</th>
+              <th style="padding:10px 14px;text-align:left;color:#94A3B8;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Why This Key</th>
+              <th style="padding:10px 14px;text-align:left;color:#94A3B8;font-size:10px;text-transform:uppercase;letter-spacing:.06em">What Would Break With Wrong Key</th>
             </tr></thead>
             <tbody>
               ${
@@ -223,8 +225,8 @@ function buildAmazon(container) {
               P0 (US) &nbsp;&nbsp;&nbsp; → <span style="color:#EF4444">████████████████ 65%</span><br>
               P1 (EU) &nbsp;&nbsp;&nbsp; → <span style="color:#F59E0B">█████ 20%</span><br>
               P2 (APAC) → <span style="color:#94A3B8">███ 10%</span><br>
-              P3 (LATAM) → <span style="color:#475569">█ 5%</span><br>
-              <span style="color:#64748B;font-size:10px;display:block;margin-top:6px">P0 consumer handles 13× more work than P3 consumer.<br>Fulfillment for US orders backs up. US customers wait 10 minutes for order confirmation during Prime Day.</span>
+              P3 (LATAM) → <span style="color:#8A98AE">█ 5%</span><br>
+              <span style="color:#94A3B8;font-size:10px;display:block;margin-top:6px">P0 consumer handles 13× more work than P3 consumer.<br>Fulfillment for US orders backs up. US customers wait 10 minutes for order confirmation during Prime Day.</span>
             </div>
           </div>
           <div>
@@ -234,7 +236,7 @@ function buildAmazon(container) {
               P1 → <span style="color:#10B981">████ 25%</span><br>
               P2 → <span style="color:#10B981">████ 25%</span><br>
               P3 → <span style="color:#10B981">████ 25%</span><br>
-              <span style="color:#64748B;font-size:10px;display:block;margin-top:6px">300M+ unique customer IDs → perfect hash distribution.<br>Each Fulfillment consumer handles exactly the same load. No lag on any partition.</span>
+              <span style="color:#94A3B8;font-size:10px;display:block;margin-top:6px">300M+ unique customer IDs → perfect hash distribution.<br>Each Fulfillment consumer handles exactly the same load. No lag on any partition.</span>
             </div>
           </div>
         </div>

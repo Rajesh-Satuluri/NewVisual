@@ -31,6 +31,7 @@ function buildSim(container) {
   const tab = container.querySelector('#tab-sim');
   tab.innerHTML = `
     <div class="canvas-wrap">
+      <div class="canvas-caption">Three brokers hold one partition: the orange <b>leader</b> takes every write, the blue <b>followers</b> continuously fetch to stay in the <b>ISR</b> (in-sync replica set). Press <b>Kill Leader</b> and watch the controller elect a new leader from the surviving ISR; <b>Restore</b> brings the old broker back as a follower that must catch up. The <code>ISR</code> and <code>Leader</code> lines at the bottom track live state.</div>
       <canvas id="repl-canvas" width="820" height="400" style="width:100%;max-width:820px"></canvas>
       <div class="canvas-controls">
         <button class="ctrl-btn" id="repl-kill">💀 Kill Leader (Broker 1)</button>
@@ -43,6 +44,7 @@ function buildSim(container) {
       <p>The three broker nodes form a replication group for one topic partition. <strong>Broker 1</strong> starts as the leader — it accepts all writes from producers and serves reads. Brokers 2 and 3 are followers — they continuously fetch from the leader and replicate every record. The set of followers currently caught up within <code>replica.lag.time.max.ms</code> (default 30s) is called the <strong>In-Sync Replica set (ISR)</strong>. With <code>acks=all</code>, a record is only acknowledged after all ISR members have written it.</p>
       <p>When you kill the leader, the <strong>controller</strong> (a special broker role managed by KRaft) detects the failure via missed heartbeats, then elects a new leader from the remaining ISR members — the surviving broker with the highest committed offset wins. This election takes 1–30 seconds. During this window, producers with <code>acks=all</code> receive temporary errors and retry. Consumers pause at the last committed High-Water Mark and resume once the new leader is confirmed.</p>
       <p>After the new leader is elected, metadata propagates to all clients and replication resumes normally. When the old leader returns, it rejoins as a follower and must catch up before the ISR accepts it back. Until it does, <strong>UnderReplicatedPartitions</strong> stays above zero — a durability warning meaning you are one additional failure away from potential data loss. With <code>RF=3, min.insync.replicas=2</code>, you can survive this entire sequence without losing a single committed record.</p>
+      <p><strong>Interview angle:</strong> keep <strong>RF</strong> (static, set at creation) distinct from <strong>ISR</strong> (dynamic, the subset currently caught up within <code>replica.lag.time.max.ms</code>). The durability contract is: a record is "committed" only once every ISR member has it, and consumers can read only up to the <strong>High-Water Mark</strong> (the highest offset all ISR members hold). If ISR shrinks below <code>min.insync.replicas</code>, <code>acks=all</code> writes start failing with <code>NotEnoughReplicas</code> — the partition goes read-only rather than risk data loss. The sharpest question is <strong>unclean leader election</strong>: leaving it <code>false</code> (default) keeps a partition offline rather than promote a lagging replica that would lose committed records — the availability-vs-durability tradeoff, and for orders/payments you always choose durability.</p>
     </div>`;
 
   const canvas = tab.querySelector('#repl-canvas');
@@ -105,13 +107,13 @@ function buildSim(container) {
 
     // Controller → leader arrow
     ctx.font = '10px system-ui';
-    ctx.fillStyle = '#475569';
+    ctx.fillStyle = '#8A98AE';
     ctx.textAlign = 'center';
     ctx.fillText('Controller', 650, 180);
     ctx.fillText('assigns leader', 650, 194);
     ctx.beginPath();
     ctx.moveTo(620, 186); ctx.lineTo(BROKERS[1].x + 40, BROKERS[1].y);
-    ctx.strokeStyle = '#475569';
+    ctx.strokeStyle = '#8A98AE';
     ctx.lineWidth = 1;
     ctx.setLineDash([3, 3]);
     ctx.stroke();
@@ -121,13 +123,13 @@ function buildSim(container) {
     nodes.forEach((n, i) => {
       n.active = BROKERS[i].alive;
       n.color = BROKERS[i].role === 'leader' ? '#FF6900' : '#3B82F6';
-      if (!BROKERS[i].alive) n.color = '#475569';
+      if (!BROKERS[i].alive) n.color = '#8A98AE';
       n.update(dt);
       n.draw(ctx);
 
       // Role label
       ctx.font = 'bold 10px system-ui';
-      ctx.fillStyle = BROKERS[i].alive ? (BROKERS[i].role === 'leader' ? '#FF6900' : '#3B82F6') : '#475569';
+      ctx.fillStyle = BROKERS[i].alive ? (BROKERS[i].role === 'leader' ? '#FF6900' : '#3B82F6') : '#8A98AE';
       ctx.textAlign = 'center';
       ctx.fillText(BROKERS[i].role.toUpperCase(), BROKERS[i].x, BROKERS[i].y + 58);
 
@@ -188,14 +190,14 @@ function buildAmazon(container) {
 
       <!-- Hero -->
       <div style="background:#111827;border:1px solid #FF6900;border-radius:14px;padding:20px 24px;margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#64748B;margin-bottom:8px">Durability under fire</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#94A3B8;margin-bottom:8px">Durability under fire</div>
         <div style="font-size:18px;font-weight:800;color:#F1F5F9;margin-bottom:4px">Prime Day, 2:17 PM PST — Broker 1 dies mid-traffic</div>
         <div style="font-size:13px;color:#94A3B8">1.2 million orders per hour. 20,000 events/sec on <code style="background:#0A0E1A;color:#FF6900;padding:1px 5px;border-radius:3px">orders-P0</code>. Broker 1 (the leader) has a hardware failure. Here is exactly what Kafka does — and why zero orders are lost.</div>
       </div>
 
       <!-- Config choices first -->
       <div style="margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748B;margin-bottom:14px">Amazon's durability settings — and why each one</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">Amazon's durability settings — and why each one</div>
         <div style="display:flex;flex-direction:column;gap:10px">
           ${
             [
@@ -216,7 +218,7 @@ function buildAmazon(container) {
 
       <!-- Prime Day failure timeline -->
       <div style="margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748B;margin-bottom:14px">The failure timeline — second by second</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">The failure timeline — second by second</div>
         <div style="display:flex;flex-direction:column;gap:8px">
           ${
             [
@@ -232,7 +234,7 @@ function buildAmazon(container) {
             ].map((e,i) => `
             <div style="display:flex;gap:12px;align-items:flex-start">
               <div style="flex-shrink:0;min-width:96px;text-align:right;padding-top:13px">
-                <span style="font-size:9px;font-weight:700;color:#475569;font-family:monospace">${e.t}</span>
+                <span style="font-size:9px;font-weight:700;color:#8A98AE;font-family:monospace">${e.t}</span>
               </div>
               <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center">
                 <div style="width:10px;height:10px;border-radius:50%;background:${e.color};margin-top:15px;flex-shrink:0"></div>
@@ -289,7 +291,7 @@ function buildFlow(container) {
         <text x="260" y="170" text-anchor="middle" fill="#94A3B8" font-size="9">LEADER</text>
         <rect x="215" y="177" width="90" height="20" rx="4" fill="#0A0E1A" stroke="#334155"/>
         <text x="260" y="191" text-anchor="middle" fill="#FF6900" font-size="9">off:142 ▼ append</text>
-        <text x="260" y="218" text-anchor="middle" fill="#64748B" font-size="8">writes local log</text>
+        <text x="260" y="218" text-anchor="middle" fill="#94A3B8" font-size="8">writes local log</text>
 
         <!-- Follower 1 -->
         <rect x="420" y="80" width="120" height="80" rx="8" fill="#1E293B" stroke="#3B82F6" stroke-width="1.5"/>

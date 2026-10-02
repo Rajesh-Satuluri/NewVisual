@@ -107,7 +107,7 @@ function buildLanes(container) {
       const xs = [60, 280, 500, 720];
       stages.forEach((s, i) => {
         ctx.font = '9px system-ui';
-        ctx.fillStyle = '#475569';
+        ctx.fillStyle = '#8A98AE';
         ctx.textAlign = 'center';
         ctx.fillText(s, xs[i], lane.y + 55);
         ctx.beginPath();
@@ -164,7 +164,7 @@ function buildEOS(container) {
         <text x="130" y="96" text-anchor="middle" fill="#94A3B8" font-size="9">PID: 12345</text>
         <text x="130" y="112" text-anchor="middle" fill="#94A3B8" font-size="9">Sequence: 0, 1, 2, 3…</text>
         <text x="130" y="128" text-anchor="middle" fill="#94A3B8" font-size="9">enable.idempotence=true</text>
-        <text x="130" y="144" text-anchor="middle" fill="#64748B" font-size="8">Broker deduplicates retries</text>
+        <text x="130" y="144" text-anchor="middle" fill="#94A3B8" font-size="8">Broker deduplicates retries</text>
 
         <!-- Transaction Coordinator -->
         <rect x="300" y="50" width="200" height="100" rx="10" fill="#1E293B" stroke="#8B5CF6" stroke-width="2"/>
@@ -172,7 +172,7 @@ function buildEOS(container) {
         <text x="400" y="96" text-anchor="middle" fill="#94A3B8" font-size="9">transactional.id = "order-proc"</text>
         <text x="400" y="112" text-anchor="middle" fill="#94A3B8" font-size="9">ONGOING → COMMIT</text>
         <text x="400" y="128" text-anchor="middle" fill="#94A3B8" font-size="9">__transaction_state</text>
-        <text x="400" y="144" text-anchor="middle" fill="#64748B" font-size="8">2-phase commit protocol</text>
+        <text x="400" y="144" text-anchor="middle" fill="#94A3B8" font-size="8">2-phase commit protocol</text>
 
         <!-- Consumer -->
         <rect x="570" y="50" width="200" height="100" rx="10" fill="#1E293B" stroke="#10B981" stroke-width="2"/>
@@ -180,7 +180,7 @@ function buildEOS(container) {
         <text x="670" y="96" text-anchor="middle" fill="#94A3B8" font-size="9">isolation.level=</text>
         <text x="670" y="112" text-anchor="middle" fill="#94A3B8" font-size="9">read_committed</text>
         <text x="670" y="128" text-anchor="middle" fill="#94A3B8" font-size="9">Skips ABORT records</text>
-        <text x="670" y="144" text-anchor="middle" fill="#64748B" font-size="8">Only sees committed txns</text>
+        <text x="670" y="144" text-anchor="middle" fill="#94A3B8" font-size="8">Only sees committed txns</text>
 
         <!-- Flow -->
         <text x="30" y="195" fill="#94A3B8" font-size="11" font-weight="700">Transaction Flow</text>
@@ -269,10 +269,10 @@ function buildZombie(container) {
         <text x="30" y="260" fill="#10B981" font-size="11" font-weight="700">✅ WITH Fencing — Epoch bumped, zombie rejected</text>
 
         <!-- Producer v1 (zombie, fenced) -->
-        <rect x="30" y="275" width="150" height="60" rx="8" fill="#47556911" stroke="#475569" stroke-width="1.5" stroke-dasharray="4,3"/>
-        <text x="105" y="298" text-anchor="middle" fill="#475569" font-size="11" font-weight="700">Producer v1 🧟</text>
-        <text x="105" y="314" text-anchor="middle" fill="#475569" font-size="9">epoch=0 (old)</text>
-        <text x="105" y="326" text-anchor="middle" fill="#475569" font-size="9">transactional.id=…</text>
+        <rect x="30" y="275" width="150" height="60" rx="8" fill="#8A98AE11" stroke="#8A98AE" stroke-width="1.5" stroke-dasharray="4,3"/>
+        <text x="105" y="298" text-anchor="middle" fill="#8A98AE" font-size="11" font-weight="700">Producer v1 🧟</text>
+        <text x="105" y="314" text-anchor="middle" fill="#8A98AE" font-size="9">epoch=0 (old)</text>
+        <text x="105" y="326" text-anchor="middle" fill="#8A98AE" font-size="9">transactional.id=…</text>
 
         <!-- Producer v2 (new, higher epoch) -->
         <rect x="30" y="355" width="150" height="60" rx="8" fill="#10B98122" stroke="#10B981" stroke-width="2"/>
@@ -289,7 +289,7 @@ function buildZombie(container) {
         <rect x="275" y="356" width="130" height="22" rx="4" fill="#10B98133" stroke="#10B981" stroke-width="1"/>
         <text x="340" y="371" text-anchor="middle" fill="#10B981" font-size="9">epoch=1 = 1 → ACCEPT ✓</text>
         <rect x="275" y="384" width="130" height="20" rx="4" fill="#1E293B" stroke="#334155"/>
-        <text x="340" y="398" text-anchor="middle" fill="#64748B" font-size="8">ProducerFencedException</text>
+        <text x="340" y="398" text-anchor="middle" fill="#94A3B8" font-size="8">ProducerFencedException</text>
 
         <line x1="180" y1="305" x2="258" y2="330" stroke="#EF4444" stroke-width="1.5" marker-end="url(#aZR)" stroke-dasharray="4,3"/>
         <line x1="180" y1="385" x2="258" y2="370" stroke="#10B981" stroke-width="1.5" marker-end="url(#aZG)"/>
@@ -342,14 +342,14 @@ function buildAmazon(container) {
 
       <!-- Hero -->
       <div style="background:#111827;border:1px solid #FF6900;border-radius:14px;padding:20px 24px;margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#64748B;margin-bottom:8px">Delivery semantics in practice</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#94A3B8;margin-bottom:8px">Delivery semantics in practice</div>
         <div style="font-size:18px;font-weight:800;color:#F1F5F9;margin-bottom:4px">Amazon chose a different delivery guarantee for every pipeline — here's why</div>
         <div style="font-size:13px;color:#94A3B8">At-most-once, at-least-once, and exactly-once aren't interchangeable. The wrong choice either loses data or causes double-charges. Each pipeline's tolerance for loss vs. duplicates drives the decision.</div>
       </div>
 
       <!-- Decision table -->
       <div style="margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748B;margin-bottom:14px">Which guarantee — and what breaks with the wrong choice</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">Which guarantee — and what breaks with the wrong choice</div>
         <div style="display:flex;flex-direction:column;gap:10px">
           ${
             [

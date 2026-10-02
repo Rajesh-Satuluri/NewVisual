@@ -128,7 +128,7 @@ function buildSim(container) {
 
     // Title
     ctx.font = 'bold 12px system-ui';
-    ctx.fillStyle = '#64748B';
+    ctx.fillStyle = '#94A3B8';
     ctx.textAlign = 'left';
     ctx.fillText('Partition Distribution across Brokers', 30, 30);
 

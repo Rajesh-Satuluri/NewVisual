@@ -31,6 +31,7 @@ function buildLag(container) {
   const tab = container.querySelector('#tab-lag');
   tab.innerHTML = `
     <div class="canvas-wrap">
+      <div class="canvas-caption">Each bar is one consumer group's <b>lag</b> on a partition — records produced but not yet processed. Green = caught up, amber = slipping, red = critically behind. The three boxes below name the offsets that define lag: <b>committed</b> (safe restart point) → <b>current</b> (being fetched) → <b>log-end</b> (newest write). Press the buttons to create a producer burst or a slow consumer and watch where lag appears.</div>
       <canvas id="lag-canvas" width="820" height="380" style="width:100%;max-width:820px"></canvas>
       <div class="canvas-controls">
         <button class="ctrl-btn" id="lag-spike">📈 Producer Spike</button>
@@ -44,6 +45,7 @@ function buildLag(container) {
       <p>Each horizontal bar represents one consumer group's lag for a partition — how many records have been produced but not yet committed as processed. The bar fills left to right: <strong>green</strong> means nearly caught up, <strong>amber</strong> means falling behind, <strong>red</strong> means critically behind. Lag is measured in records, not seconds — but at a known production rate you can convert: 10,000 records of lag at 1,000 records/sec equals 10 seconds behind.</p>
       <p>Hit "Producer Spike" to simulate a burst — all bars jump because records arrive faster than consumers process them. Hit "Slow Consumer" to simulate a consumer spending too long per record (e.g., a slow external API call). Notice that <strong>fraud-group lag growing is far more alarming than analytics-group lag growing</strong> — a fraud system that's 5 minutes behind is approving payments it should block, while an analytics dashboard 5 minutes stale is a non-event. One metric, two completely different SLAs.</p>
       <p>The three offset positions shown on the canvas tell the full story: <strong>Log-End Offset (LEO)</strong> is where the next produced record will land. <strong>Current Offset</strong> is what the consumer is actively fetching. <strong>Committed Offset</strong> is the last position durably saved to <code>__consumer_offsets</code> — if the consumer crashes and restarts, it resumes from here. Lag = LEO − Committed Offset. A large gap between Current and Committed means the consumer will reprocess all that work on the next crash restart.</p>
+      <p><strong>Interview angle:</strong> <em>when</em> you commit decides your delivery semantics. Commit <em>before</em> processing → at-most-once (crash loses the in-flight records). Commit <em>after</em> processing → at-least-once (crash reprocesses them — safe only if your writes are idempotent). The gap between committed and current <em>is</em> your reprocessing window, so smaller <code>max.poll.records</code> and more frequent commits shrink duplicate risk at the cost of throughput. And remember lag is bounded by retention: a consumer that falls behind the retention window doesn't just lag — it silently <em>skips</em> records that were deleted before it reached them. Replay uses the same offset machinery in reverse: <code>seek()</code>, <code>offsetsForTimes()</code>, or <code>--reset-offsets</code> move the committed pointer backward (see the Amazon tab).</p>
     </div>`;
 
   const canvas = tab.querySelector('#lag-canvas');
@@ -94,7 +96,7 @@ function buildLag(container) {
     // Offset diagram at bottom
     const y = 320;
     ctx.font = '10px system-ui';
-    ctx.fillStyle = '#475569';
+    ctx.fillStyle = '#8A98AE';
     ctx.fillText('Offset anatomy for P0:', 60, y);
 
     const boxes = [
@@ -117,7 +119,7 @@ function buildLag(container) {
     });
 
     ctx.font = '10px system-ui';
-    ctx.fillStyle = '#64748B';
+    ctx.fillStyle = '#94A3B8';
     ctx.textAlign = 'left';
     ctx.fillText('← lag (current−committed) →', 220, y + 60);
     ctx.fillText('← lag (LEO−committed, monitored externally) →', 220, y + 74);
@@ -181,14 +183,14 @@ function buildAmazon(container) {
 
       <!-- Hero -->
       <div style="background:#111827;border:1px solid #FF6900;border-radius:14px;padding:20px 24px;margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#64748B;margin-bottom:8px">Offset anatomy</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#94A3B8;margin-bottom:8px">Offset anatomy</div>
         <div style="font-size:18px;font-weight:800;color:#F1F5F9;margin-bottom:4px">Where exactly is Fulfillment Service in the orders-P0 log right now?</div>
         <div style="font-size:13px;color:#94A3B8">Your iPhone 15 Pro order landed at offset 847,231. Here's what the three offset positions mean for the Fulfillment consumer that will process it.</div>
       </div>
 
       <!-- 3 offset positions -->
       <div style="margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748B;margin-bottom:14px">The three offsets — fulfillment-group on orders-P0</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">The three offsets — fulfillment-group on orders-P0</div>
         <div style="background:#111827;border:1px solid #1E293B;border-radius:12px;padding:18px 22px">
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
             ${
@@ -200,7 +202,7 @@ function buildAmazon(container) {
               <div style="background:#0A0E1A;border:1.5px solid ${o.color}44;border-radius:10px;padding:14px;text-align:center">
                 <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${o.color};margin-bottom:6px">${o.label}</div>
                 <div style="font-size:24px;font-weight:800;color:${o.color};font-family:monospace;margin-bottom:8px">${o.val}</div>
-                <div style="font-size:11px;color:#64748B;line-height:1.55">${o.desc}</div>
+                <div style="font-size:11px;color:#94A3B8;line-height:1.55">${o.desc}</div>
               </div>`).join('')
             }
           </div>
@@ -210,14 +212,14 @@ function buildAmazon(container) {
             <span style="color:#F59E0B;font-family:monospace;flex-shrink:0">847,195</span>
             <div style="flex:1;height:3px;background:linear-gradient(to right,#F59E0B,#EF4444);border-radius:2px"></div>
             <span style="color:#EF4444;font-family:monospace;flex-shrink:0">847,231</span>
-            <span style="margin-left:10px;color:#64748B;flex-shrink:0">lag = 181 records ≈ 9ms at 20k/sec</span>
+            <span style="margin-left:10px;color:#94A3B8;flex-shrink:0">lag = 181 records ≈ 9ms at 20k/sec</span>
           </div>
         </div>
       </div>
 
       <!-- Crash scenario -->
       <div style="margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748B;margin-bottom:14px">What happens if Fulfillment crashes right now</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">What happens if Fulfillment crashes right now</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
           <div style="background:#EF444412;border:1.5px solid #EF444444;border-radius:12px;padding:16px 20px">
             <div style="font-size:12px;font-weight:700;color:#EF4444;margin-bottom:8px">Without idempotent processing</div>
@@ -246,7 +248,7 @@ function buildAmazon(container) {
 
       <!-- Commit code -->
       <div style="margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748B;margin-bottom:14px">How fulfillment-group commits offsets in production</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">How fulfillment-group commits offsets in production</div>
         <div style="background:#111827;border:1px solid #1E293B;border-radius:12px;padding:18px 22px">
           <code style="display:block;background:#0A0E1A;padding:14px;border-radius:8px;font-size:11px;color:#94A3B8;line-height:1.9;white-space:pre">enable.auto.commit = false
 max.poll.records    = 100     // 100 orders per poll at most

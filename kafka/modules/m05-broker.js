@@ -31,6 +31,7 @@ function buildSegments(container) {
   const tab = container.querySelector('#tab-segments');
   tab.innerHTML = `
     <div class="canvas-wrap">
+      <div class="canvas-caption">A partition is physically a directory of <b>segment files</b> on disk. Grey segments are <b>sealed</b> (full, immutable); the orange one is <b>active</b> — the only file being written to right now. Press <b>Write Records</b> to fill it, then <b>Roll Segment</b> to seal it and open a new active segment. Each <code>.log</code> ships with a sparse <code>.index</code> and <code>.timeindex</code> sibling.</div>
       <canvas id="seg-canvas" width="820" height="320" style="width:100%;max-width:820px"></canvas>
       <div class="canvas-controls">
         <button class="ctrl-btn" id="seg-write">✍️ Write Records</button>
@@ -43,6 +44,7 @@ function buildSegments(container) {
       <p>Each colored bar is a log segment — a fixed-size file on disk that holds a sequential slice of a partition's records. <strong>Sealed segments</strong> (grey) are full and immutable — no records will ever be appended to them again. The <strong>active segment</strong> (orange) is the only file Kafka writes to right now, with all new records appended sequentially to its end.</p>
       <p>When the active segment reaches <code>log.segment.bytes</code> (default 1 GB) or <code>log.roll.ms</code> time passes, it is sealed and a new active segment opens — click "Roll Segment" to trigger this. Alongside each <code>.log</code> data file, Kafka maintains a sparse <code>.index</code> file mapping offsets to byte positions. This index lets Kafka locate any offset in O(log n) via binary search, rather than scanning the entire log file sequentially.</p>
       <p>Sealed segments are eligible for retention cleanup: time-based retention deletes segments older than <code>log.retention.ms</code>; size-based deletes the oldest when total log size exceeds <code>log.retention.bytes</code>. Because records are only ever appended and never modified, Kafka's disk I/O pattern is entirely sequential — which is why a commodity spinning disk can sustain 200k+ records/sec and why the OS page cache almost never needs to seek.</p>
+      <p><strong>Interview angle:</strong> be ready to explain the <em>offset lookup</em> — Kafka finds any record in O(log n) by binary-searching the sparse <code>.index</code> to the nearest indexed offset, then scanning forward at most one index interval (~4 KB). And be ready to connect segments to throughput: sequential appends plus <strong>zero-copy</strong> reads (<code>sendfile()</code> sends bytes straight from the page cache to the socket, skipping user space) are why one broker serves 2M+ messages/sec — the broker does almost no per-message work. The active segment is never eligible for retention or compaction, so the newest data is always safe regardless of policy.</p>
     </div>`;
 
   const canvas = tab.querySelector('#seg-canvas');
@@ -78,7 +80,7 @@ function buildSegments(container) {
 
     // Index files
     ctx.font = '9px system-ui';
-    ctx.fillStyle = '#475569';
+    ctx.fillStyle = '#8A98AE';
     [40, 220, 400].forEach((x, i) => {
       ctx.fillText(`${['seg-0', 'seg-1', 'seg-2'][i]}.log`, x, 170);
       ctx.fillText(`${['seg-0', 'seg-1', 'seg-2'][i]}.index`, x, 183);
@@ -93,7 +95,7 @@ function buildSegments(container) {
 
     // Legend
     ctx.font = '11px system-ui';
-    ctx.fillStyle = '#64748B';
+    ctx.fillStyle = '#94A3B8';
     ctx.textAlign = 'left';
     ctx.fillText('New records always appended to active segment. Sealed segments are immutable.', 40, 230);
     ctx.fillText('Segment rolls at log.segment.bytes (1GB) or log.roll.ms (7 days).', 40, 248);
@@ -130,25 +132,25 @@ function buildAmazon(container) {
 
       <!-- Hero -->
       <div style="background:#111827;border:1px solid #FF6900;border-radius:14px;padding:20px 24px;margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#64748B;margin-bottom:8px">Inside Broker 1</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#94A3B8;margin-bottom:8px">Inside Broker 1</div>
         <div style="font-size:18px;font-weight:800;color:#F1F5F9;margin-bottom:4px">What's actually on disk when your order hits Kafka</div>
         <div style="font-size:13px;color:#94A3B8">Broker 1 is the leader for <code style="background:#0A0E1A;color:#FF6900;padding:1px 5px;border-radius:3px">orders-P0</code>. Every Buy Now from US-West customers lands here. Here's what the broker does with your order event.</div>
       </div>
 
       <!-- Physical disk layout -->
       <div style="margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748B;margin-bottom:14px">What's on disk — /var/kafka/orders-0/</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">What's on disk — /var/kafka/orders-0/</div>
         <div style="background:#111827;border:1px solid #1E293B;border-radius:12px;padding:18px 22px">
           <div style="font-family:monospace;font-size:12px;color:#94A3B8;line-height:2">
-            <div style="color:#475569;margin-bottom:8px"># Sealed segments (immutable, eligible for retention cleanup after 7 days)</div>
-            <div><span style="color:#3B82F6">00000000000000000000.log</span>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#475569">1.0 GB</span>&nbsp;&nbsp;&nbsp;<span style="color:#64748B">offsets 0 – 11,999,999 &nbsp; (first 12M orders ever)</span></div>
-            <div><span style="color:#3B82F6">00000000000000000000.index</span>&nbsp;&nbsp;<span style="color:#475569">2.1 MB</span>&nbsp;&nbsp;&nbsp;<span style="color:#64748B">sparse offset→byte map, one entry per ~4KB</span></div>
-            <div><span style="color:#3B82F6">00000000000000000000.timeindex</span>&nbsp;<span style="color:#475569">1.8 MB</span>&nbsp;&nbsp;&nbsp;<span style="color:#64748B">timestamp→offset map for time-based seeks</span></div>
-            <div style="margin-top:6px"><span style="color:#3B82F6">00000000012000000000.log</span>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#475569">1.0 GB</span>&nbsp;&nbsp;&nbsp;<span style="color:#64748B">offsets 12,000,000 – 23,999,999 &nbsp; (sealed)</span></div>
-            <div><span style="color:#3B82F6">00000000024000000000.log</span>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#475569">1.0 GB</span>&nbsp;&nbsp;&nbsp;<span style="color:#64748B">offsets 24,000,000 – 35,999,999 &nbsp; (sealed)</span></div>
-            <div style="color:#475569;margin-top:10px;margin-bottom:6px"># 70 more sealed segments…</div>
-            <div style="margin-top:6px"><span style="color:#FF6900">00000000840000000000.log</span>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#475569">384 MB</span>&nbsp;&nbsp;&nbsp;<span style="color:#FF6900">← ACTIVE &nbsp; offsets 840,000,000 – 847,231+ &nbsp; growing now</span></div>
-            <div><span style="color:#FF6900">00000000840000000000.index</span>&nbsp;&nbsp;<span style="color:#475569">798 KB</span>&nbsp;&nbsp;&nbsp;<span style="color:#64748B">your order at offset 847,231 is indexed here</span></div>
+            <div style="color:#8A98AE;margin-bottom:8px"># Sealed segments (immutable, eligible for retention cleanup after 7 days)</div>
+            <div><span style="color:#3B82F6">00000000000000000000.log</span>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#8A98AE">1.0 GB</span>&nbsp;&nbsp;&nbsp;<span style="color:#94A3B8">offsets 0 – 11,999,999 &nbsp; (first 12M orders ever)</span></div>
+            <div><span style="color:#3B82F6">00000000000000000000.index</span>&nbsp;&nbsp;<span style="color:#8A98AE">2.1 MB</span>&nbsp;&nbsp;&nbsp;<span style="color:#94A3B8">sparse offset→byte map, one entry per ~4KB</span></div>
+            <div><span style="color:#3B82F6">00000000000000000000.timeindex</span>&nbsp;<span style="color:#8A98AE">1.8 MB</span>&nbsp;&nbsp;&nbsp;<span style="color:#94A3B8">timestamp→offset map for time-based seeks</span></div>
+            <div style="margin-top:6px"><span style="color:#3B82F6">00000000012000000000.log</span>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#8A98AE">1.0 GB</span>&nbsp;&nbsp;&nbsp;<span style="color:#94A3B8">offsets 12,000,000 – 23,999,999 &nbsp; (sealed)</span></div>
+            <div><span style="color:#3B82F6">00000000024000000000.log</span>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#8A98AE">1.0 GB</span>&nbsp;&nbsp;&nbsp;<span style="color:#94A3B8">offsets 24,000,000 – 35,999,999 &nbsp; (sealed)</span></div>
+            <div style="color:#8A98AE;margin-top:10px;margin-bottom:6px"># 70 more sealed segments…</div>
+            <div style="margin-top:6px"><span style="color:#FF6900">00000000840000000000.log</span>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#8A98AE">384 MB</span>&nbsp;&nbsp;&nbsp;<span style="color:#FF6900">← ACTIVE &nbsp; offsets 840,000,000 – 847,231+ &nbsp; growing now</span></div>
+            <div><span style="color:#FF6900">00000000840000000000.index</span>&nbsp;&nbsp;<span style="color:#8A98AE">798 KB</span>&nbsp;&nbsp;&nbsp;<span style="color:#94A3B8">your order at offset 847,231 is indexed here</span></div>
           </div>
           <div style="margin-top:14px;padding:10px 14px;background:#0A0E1A;border-radius:8px;font-size:12px;color:#94A3B8;line-height:1.7">
             <strong style="color:#F59E0B">Segment rolling:</strong> At normal Amazon load (~800k orders/day through P0), a 1GB segment fills in <strong style="color:#F1F5F9">~8 hours</strong>. During Prime Day (3× traffic), the same segment fills in <strong style="color:#EF4444">~2.7 hours</strong>. The 7-day retention window means Broker 1 keeps ~21 GB of order history on disk per partition at all times.
@@ -158,7 +160,7 @@ function buildAmazon(container) {
 
       <!-- Offset lookup -->
       <div style="margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748B;margin-bottom:14px">How Kafka finds your order in O(log n)</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">How Kafka finds your order in O(log n)</div>
         <div style="background:#111827;border:1px solid #1E293B;border-radius:12px;padding:18px 22px">
           <p style="font-size:13px;color:#94A3B8;line-height:1.7;margin-bottom:16px">Fulfillment Service asks: "give me the record at offset 847,231." Kafka doesn't scan the entire 384MB active segment. Here's the lookup:</p>
           <div style="display:flex;flex-direction:column;gap:10px">
@@ -181,7 +183,7 @@ function buildAmazon(container) {
 
       <!-- Page cache hit rate -->
       <div style="margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748B;margin-bottom:14px">Why the Fulfillment consumer almost never touches disk</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">Why the Fulfillment consumer almost never touches disk</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
           <div style="background:#111827;border:1px solid #1E293B;border-radius:12px;padding:16px 20px">
             <div style="font-size:13px;font-weight:700;color:#10B981;margin-bottom:8px">Page cache hit rate: ~99.7%</div>
@@ -220,10 +222,10 @@ function buildPageCache(container) {
         <text x="445" y="73" text-anchor="middle" fill="#94A3B8" font-size="10">Socket Buffer</text>
         <rect x="520" y="50" width="100" height="36" rx="6" fill="#1E293B" stroke="#334155"/>
         <text x="570" y="73" text-anchor="middle" fill="#94A3B8" font-size="10">NIC</text>
-        <line x1="120" y1="68" x2="143" y2="68" stroke="#475569" stroke-width="1.5" marker-end="url(#aG)"/>
+        <line x1="120" y1="68" x2="143" y2="68" stroke="#8A98AE" stroke-width="1.5" marker-end="url(#aG)"/>
         <line x1="245" y1="68" x2="268" y2="68" stroke="#EF4444" stroke-width="1.5" marker-end="url(#aG)"/>
         <line x1="370" y1="68" x2="393" y2="68" stroke="#EF4444" stroke-width="1.5" marker-end="url(#aG)"/>
-        <line x1="495" y1="68" x2="518" y2="68" stroke="#475569" stroke-width="1.5" marker-end="url(#aG)"/>
+        <line x1="495" y1="68" x2="518" y2="68" stroke="#8A98AE" stroke-width="1.5" marker-end="url(#aG)"/>
         <text x="257" y="44" fill="#EF4444" font-size="9">copy</text>
         <text x="382" y="44" fill="#EF4444" font-size="9">copy</text>
 
@@ -237,9 +239,9 @@ function buildPageCache(container) {
         <text x="320" y="193" text-anchor="middle" fill="#94A3B8" font-size="10">Socket Buffer</text>
         <rect x="395" y="170" width="100" height="36" rx="6" fill="#1E293B" stroke="#334155"/>
         <text x="445" y="193" text-anchor="middle" fill="#94A3B8" font-size="10">NIC</text>
-        <line x1="120" y1="188" x2="143" y2="188" stroke="#475569" stroke-width="1.5" marker-end="url(#aG)"/>
+        <line x1="120" y1="188" x2="143" y2="188" stroke="#8A98AE" stroke-width="1.5" marker-end="url(#aG)"/>
         <line x1="245" y1="188" x2="268" y2="188" stroke="#10B981" stroke-width="2" marker-end="url(#aG)"/>
-        <line x1="370" y1="188" x2="393" y2="188" stroke="#475569" stroke-width="1.5" marker-end="url(#aG)"/>
+        <line x1="370" y1="188" x2="393" y2="188" stroke="#8A98AE" stroke-width="1.5" marker-end="url(#aG)"/>
         <text x="250" y="163" fill="#10B981" font-size="9">DMA copy</text>
         <text x="680" y="188" fill="#10B981" font-size="10">✓ Skip</text>
         <text x="680" y="200" fill="#10B981" font-size="9">user space</text>
@@ -265,7 +267,7 @@ function buildPageCache(container) {
 
         <defs>
           <marker id="aG" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-            <path d="M0,0 L0,6 L8,3 z" fill="#475569"/>
+            <path d="M0,0 L0,6 L8,3 z" fill="#8A98AE"/>
           </marker>
         </defs>
       </svg>

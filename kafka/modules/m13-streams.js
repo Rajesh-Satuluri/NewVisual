@@ -36,15 +36,46 @@ function buildDSL(container) {
     { op: 'join', color: '#10B981', icon: '🔗', desc: 'Stream-stream or stream-table join', code: '.join(customerTable, (order, profile) -> enrich(order, profile))' },
     { op: 'to', color: '#94A3B8', icon: '📤', desc: 'Write result to output Kafka topic', code: '.to("enriched-orders", Produced.with(Serdes.String(), orderSerde))' },
   ];
+  const stateful = new Set(['groupByKey', 'aggregate', 'windowedBy', 'join']);
+  const flow = [
+    { t: 'orders', kind: 'source' },
+    { t: '.filter', kind: 'stateless' },
+    { t: '.map', kind: 'stateless' },
+    { t: '.groupByKey', kind: 'stateful' },
+    { t: '.aggregate', kind: 'stateful' },
+    { t: '.to(output)', kind: 'sink' },
+  ];
+  const kindColor = { source: '#FF6900', stateless: '#3B82F6', stateful: '#F59E0B', sink: '#10B981' };
   tab.innerHTML = `
     <div class="scroll-content">
       <div class="section-header"><div class="section-title">Kafka Streams DSL Operations</div><div class="section-desc">Functional pipeline for stateless and stateful stream processing</div></div>
+
+      <div class="canvas-explainer" style="border-top:none;border-radius:10px;margin-bottom:16px">
+        <p>Kafka Streams lets you build a processing <strong>topology</strong> by chaining operators onto a stream — a <code>KStream</code> (an append-only sequence of events, like a log) or a <code>KTable</code> (a changelog where only the latest value per key matters, like a materialized table). The DSL reads like a functional pipeline: each operator takes a stream and returns a new one, so records flow left-to-right from a <strong>source</strong> topic through transforms to a <strong>sink</strong> topic.</p>
+        <p>The line that matters most is <strong>stateless vs stateful</strong>. Stateless operators (<code>filter</code>, <code>map</code>, <code>flatMap</code>) look at one record at a time and need no memory. Stateful operators (<code>groupByKey</code>, <code>aggregate</code>, <code>windowedBy</code>, <code>join</code>) must remember past records, so Kafka Streams keeps a <strong>local RocksDB state store</strong> backed by a compacted changelog topic — that's what makes running totals, windows, and joins possible, and what has to be restored on restart.</p>
+      </div>
+
+      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:10px">
+        ${flow.map((f, i) => `
+          <span style="background:${kindColor[f.kind]}22;border:1.5px solid ${kindColor[f.kind]};color:${kindColor[f.kind]};font-family:monospace;font-size:11px;font-weight:700;padding:6px 10px;border-radius:7px;white-space:nowrap">${f.t}</span>
+          ${i < flow.length - 1 ? `<span style="color:var(--text3);font-size:14px">→</span>` : ''}`).join('')}
+      </div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:18px;font-size:11px;color:var(--text3)">
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#FF6900;vertical-align:middle;margin-right:5px"></span>source topic</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#3B82F6;vertical-align:middle;margin-right:5px"></span>stateless (no memory)</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#F59E0B;vertical-align:middle;margin-right:5px"></span>stateful (RocksDB state store)</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#10B981;vertical-align:middle;margin-right:5px"></span>sink topic</span>
+      </div>
+
       <div style="display:flex;flex-direction:column;gap:10px">
         ${ops.map(o => `
           <div style="display:flex;gap:12px;background:var(--bg2);border:1px solid var(--border);border-left:3px solid ${o.color};border-radius:10px;padding:14px;align-items:flex-start">
             <div style="font-size:20px;flex-shrink:0;margin-top:2px">${o.icon}</div>
             <div style="flex:1">
-              <div style="font-size:12px;font-weight:700;color:${o.color};font-family:monospace;margin-bottom:4px">.${o.op}()</div>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                <span style="font-size:12px;font-weight:700;color:${o.color};font-family:monospace">.${o.op}()</span>
+                <span style="font-size:9px;font-weight:700;letter-spacing:.04em;padding:1px 6px;border-radius:4px;background:${stateful.has(o.op)?'#F59E0B22':'#3B82F622'};color:${stateful.has(o.op)?'#F59E0B':'#3B82F6'}">${stateful.has(o.op)?'STATEFUL':'STATELESS'}</span>
+              </div>
               <div style="font-size:12px;color:var(--text2);margin-bottom:6px">${o.desc}</div>
               <code style="font-size:11px;color:var(--accent);background:var(--bg);padding:4px 8px;border-radius:4px;display:block;font-family:monospace">${o.code}</code>
             </div>
@@ -79,7 +110,7 @@ function buildTopology(container) {
         ].map(b => `
           <rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" rx="8" fill="#1E293B" stroke="${b.color}" stroke-width="1.5"/>
           <text x="${b.x + b.w/2}" y="${b.y + 22}" text-anchor="middle" fill="${b.color}" font-size="10" font-weight="700">${b.label}</text>
-          <text x="${b.x + b.w/2}" y="${b.y + 38}" text-anchor="middle" fill="#64748B" font-size="9">${b.sub}</text>
+          <text x="${b.x + b.w/2}" y="${b.y + 38}" text-anchor="middle" fill="#94A3B8" font-size="9">${b.sub}</text>
         `).join('')}
 
         <!-- Arrows -->
@@ -97,12 +128,12 @@ function buildTopology(container) {
         <rect x="30" y="300" width="340" height="60" rx="8" fill="#1E293B" stroke="#8B5CF6" stroke-width="1"/>
         <text x="200" y="322" text-anchor="middle" fill="#8B5CF6" font-size="11" font-weight="700">Local State Store (RocksDB)</text>
         <text x="200" y="340" text-anchor="middle" fill="#94A3B8" font-size="9">Backed by Kafka changelog topic (compacted)</text>
-        <text x="200" y="354" text-anchor="middle" fill="#64748B" font-size="9">Restored on restart by replaying changelog</text>
+        <text x="200" y="354" text-anchor="middle" fill="#94A3B8" font-size="9">Restored on restart by replaying changelog</text>
 
         <rect x="400" y="300" width="360" height="60" rx="8" fill="#1E293B" stroke="#F59E0B" stroke-width="1"/>
         <text x="580" y="322" text-anchor="middle" fill="#F59E0B" font-size="11" font-weight="700">Example Output</text>
         <text x="580" y="340" text-anchor="middle" fill="#94A3B8" font-size="9">Key: electronics|2024-01-15T14:05</text>
-        <text x="580" y="354" text-anchor="middle" fill="#64748B" font-size="9">Value: $2,847,332 revenue</text>
+        <text x="580" y="354" text-anchor="middle" fill="#94A3B8" font-size="9">Value: $2,847,332 revenue</text>
       </svg>
     </div>`;
 }

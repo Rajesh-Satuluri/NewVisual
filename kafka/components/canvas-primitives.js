@@ -180,7 +180,7 @@ export class GlowNode {
     ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
     ctx.fillStyle = this.active ? this.color : '#334155';
     ctx.fill();
-    ctx.strokeStyle = this.active ? '#fff3' : '#475569';
+    ctx.strokeStyle = this.active ? '#fff3' : '#8A98AE';
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
@@ -361,7 +361,7 @@ export class LagBar {
 }
 
 // ── drawArrow ─────────────────────────────────────────────────────────────
-export function drawArrow(ctx, x1, y1, x2, y2, color = '#475569', width = 1.5) {
+export function drawArrow(ctx, x1, y1, x2, y2, color = '#8A98AE', width = 1.5) {
   const angle = Math.atan2(y2 - y1, x2 - x1);
   const headLen = 8;
 

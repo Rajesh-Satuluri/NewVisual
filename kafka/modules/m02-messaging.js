@@ -219,8 +219,8 @@ function buildFlow(container) {
         <rect x="10" y="110" width="130" height="80" rx="10" fill="#1E293B" stroke="#FF6900" stroke-width="1.5"/>
         <text x="75" y="140" text-anchor="middle" fill="#FF6900" font-weight="700" font-size="11">Producer</text>
         <text x="75" y="156" text-anchor="middle" fill="#94A3B8" font-size="9">Order Service</text>
-        <text x="75" y="170" text-anchor="middle" fill="#64748B" font-size="8">key = customer_id</text>
-        <text x="75" y="182" text-anchor="middle" fill="#64748B" font-size="8">acks = all</text>
+        <text x="75" y="170" text-anchor="middle" fill="#94A3B8" font-size="8">key = customer_id</text>
+        <text x="75" y="182" text-anchor="middle" fill="#94A3B8" font-size="8">acks = all</text>
 
         <!-- Arrow producer → broker -->
         <line x1="140" y1="150" x2="200" y2="135" stroke="#FF6900" stroke-width="1.5" marker-end="url(#arr)"/>
@@ -228,7 +228,7 @@ function buildFlow(container) {
 
         <!-- Broker box -->
         <rect x="200" y="60" width="380" height="210" rx="10" fill="#0F172A" stroke="#334155" stroke-width="1.5"/>
-        <text x="390" y="82" text-anchor="middle" fill="#475569" font-size="10" font-weight="700">BROKER  ·  Topic: orders  (RF = 3)</text>
+        <text x="390" y="82" text-anchor="middle" fill="#8A98AE" font-size="10" font-weight="700">BROKER  ·  Topic: orders  (RF = 3)</text>
 
         <!-- Partition 0 -->
         <rect x="218" y="92" width="344" height="38" rx="6" fill="#1E293B" stroke="#334155"/>
@@ -239,7 +239,7 @@ function buildFlow(container) {
         <text x="305" y="115" text-anchor="middle" fill="#FF6900" font-size="8">847,230</text>
         <rect x="326" y="97" width="34" height="28" rx="3" fill="#FF6900" stroke="#FF6900"/>
         <text x="343" y="115" text-anchor="middle" fill="#fff" font-size="8">847,231</text>
-        <text x="368" y="112" fill="#64748B" font-size="8">← U-00123's order</text>
+        <text x="368" y="112" fill="#94A3B8" font-size="8">← U-00123's order</text>
 
         <!-- Partition 1 -->
         <rect x="218" y="136" width="344" height="38" rx="6" fill="#1E293B" stroke="#334155"/>
@@ -254,13 +254,13 @@ function buildFlow(container) {
         <text x="230" y="202" fill="#94A3B8" font-size="9" font-weight="700">P2</text>
         <rect x="250" y="185" width="34" height="28" rx="3" fill="#10B98122" stroke="#10B981" stroke-width="1"/>
         <text x="267" y="203" text-anchor="middle" fill="#10B981" font-size="8">623,450</text>
-        <text x="310" y="202" fill="#64748B" font-size="8">← U-88234's orders (your iPhone)</text>
+        <text x="310" y="202" fill="#94A3B8" font-size="8">← U-88234's orders (your iPhone)</text>
 
         <!-- Consumer A - fulfillment -->
         <rect x="640" y="60" width="150" height="65" rx="8" fill="#1E293B" stroke="#FF6900" stroke-width="1.5"/>
         <text x="715" y="83" text-anchor="middle" fill="#FF6900" font-weight="700" font-size="10">Fulfillment</text>
         <text x="715" y="98" text-anchor="middle" fill="#94A3B8" font-size="9">group: fulfillment</text>
-        <text x="715" y="112" text-anchor="middle" fill="#64748B" font-size="8">offset 847,231 on P0</text>
+        <text x="715" y="112" text-anchor="middle" fill="#94A3B8" font-size="8">offset 847,231 on P0</text>
 
         <!-- Consumer B - fraud -->
         <rect x="640" y="140" width="150" height="65" rx="8" fill="#1E293B" stroke="#8B5CF6" stroke-width="1.5"/>
@@ -272,7 +272,7 @@ function buildFlow(container) {
         <rect x="640" y="220" width="150" height="65" rx="8" fill="#1E293B" stroke="#10B981" stroke-width="1.5"/>
         <text x="715" y="243" text-anchor="middle" fill="#10B981" font-weight="700" font-size="10">Notifications</text>
         <text x="715" y="258" text-anchor="middle" fill="#94A3B8" font-size="9">group: notifications</text>
-        <text x="715" y="272" text-anchor="middle" fill="#64748B" font-size="8">offset 847,231 on P0</text>
+        <text x="715" y="272" text-anchor="middle" fill="#94A3B8" font-size="8">offset 847,231 on P0</text>
 
         <!-- Arrows broker → consumers -->
         <line x1="562" y1="115" x2="638" y2="95"  stroke="#FF6900" stroke-width="1.5" marker-end="url(#arr)"/>
@@ -288,7 +288,7 @@ function buildFlow(container) {
     <div class="scroll-content">
       <!-- Journey header -->
       <div style="background:#111827;border:1px solid #1E293B;border-radius:14px;padding:20px 24px;margin-bottom:24px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#64748B;margin-bottom:8px">Tracing one event end-to-end</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#94A3B8;margin-bottom:8px">Tracing one event end-to-end</div>
         <div style="font-size:17px;font-weight:800;color:#F1F5F9;margin-bottom:4px">Order AMZ-24601 — iPhone 15 Pro, $999</div>
         <div style="font-size:13px;color:#94A3B8">Customer U-00123 clicks Buy Now. Here is what each Kafka concept does, in sequence.</div>
       </div>
@@ -328,7 +328,7 @@ function buildFlow(container) {
 
         <div style="display:flex;gap:16px;align-items:flex-start">
           <div style="flex-shrink:0;min-width:90px;text-align:right">
-            <span style="background:#475569;color:#fff;font-size:9px;font-weight:800;padding:2px 8px;border-radius:20px">BROKER</span>
+            <span style="background:#8A98AE;color:#fff;font-size:9px;font-weight:800;padding:2px 8px;border-radius:20px">BROKER</span>
           </div>
           <div style="flex:1;background:#111827;border:1px solid #1E293B;border-radius:10px;padding:14px 16px">
             <div style="font-size:13px;font-weight:600;color:#F1F5F9;margin-bottom:4px">Broker 1 writes it, Brokers 2 & 3 replicate</div>
@@ -365,14 +365,14 @@ function buildFlow(container) {
 
       <!-- Kafka ↔ Amazon cheat sheet -->
       <div style="background:#111827;border:1px solid #1E293B;border-radius:14px;padding:20px 24px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#64748B;margin-bottom:14px">Kafka concept → Amazon analog</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">Kafka concept → Amazon analog</div>
         <div style="overflow-x:auto">
           <table style="width:100%;border-collapse:collapse;font-size:12px">
             <thead>
               <tr style="border-bottom:1px solid #1E293B">
-                <th style="text-align:left;color:#64748B;padding:8px 12px;font-size:10px;letter-spacing:.06em;text-transform:uppercase">Kafka Term</th>
-                <th style="text-align:left;color:#64748B;padding:8px 12px;font-size:10px;letter-spacing:.06em;text-transform:uppercase">Amazon Analog</th>
-                <th style="text-align:left;color:#64748B;padding:8px 12px;font-size:10px;letter-spacing:.06em;text-transform:uppercase">What it does in the order flow</th>
+                <th style="text-align:left;color:#94A3B8;padding:8px 12px;font-size:10px;letter-spacing:.06em;text-transform:uppercase">Kafka Term</th>
+                <th style="text-align:left;color:#94A3B8;padding:8px 12px;font-size:10px;letter-spacing:.06em;text-transform:uppercase">Amazon Analog</th>
+                <th style="text-align:left;color:#94A3B8;padding:8px 12px;font-size:10px;letter-spacing:.06em;text-transform:uppercase">What it does in the order flow</th>
               </tr>
             </thead>
             <tbody>
@@ -439,7 +439,7 @@ function buildDesign(container) {
         { id: 'C1', color: '#FF6900', partitions: ['P0'] },
         { id: 'C2', color: '#3B82F6', partitions: ['P1'] },
         { id: 'C3', color: '#10B981', partitions: ['P2'] },
-        { id: 'C4', color: '#475569', partitions: [], idle: true },
+        { id: 'C4', color: '#8A98AE', partitions: [], idle: true },
       ],
     },
   ];
@@ -458,15 +458,15 @@ function buildDesign(container) {
         <div style="flex:1;height:2px;background:${c ? c.color : '#334155'}22;position:relative">
           <div style="position:absolute;top:50%;left:0;right:0;height:1.5px;background:${c ? c.color : '#334155'};transform:translateY(-50%)"></div>
         </div>
-        <div style="width:32px;height:26px;border-radius:5px;border:1.5px solid ${c ? c.color : '#334155'};background:${c ? c.color : '#334155'}18;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:${c ? c.color : '#475569'}">${c ? c.id : '—'}</div>
+        <div style="width:32px;height:26px;border-radius:5px;border:1.5px solid ${c ? c.color : '#334155'};background:${c ? c.color : '#334155'}18;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:${c ? c.color : '#8A98AE'}">${c ? c.id : '—'}</div>
       </div>`;
     }).join('');
 
     const idleRow = s.consumers.find(c => c.idle) ? `
       <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
-        <div style="width:32px;height:26px;border-radius:5px;border:1.5px dashed #475569;display:flex;align-items:center;justify-content:center;font-size:9px;color:#475569">—</div>
+        <div style="width:32px;height:26px;border-radius:5px;border:1.5px dashed #8A98AE;display:flex;align-items:center;justify-content:center;font-size:9px;color:#8A98AE">—</div>
         <div style="flex:1;height:1.5px;background:#334155;border-top:1.5px dashed #334155"></div>
-        <div style="width:32px;height:26px;border-radius:5px;border:1.5px dashed #475569;background:#47556918;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#475569">C4</div>
+        <div style="width:32px;height:26px;border-radius:5px;border:1.5px dashed #8A98AE;background:#8A98AE18;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#8A98AE">C4</div>
       </div>
       <div style="margin-top:4px;font-size:10px;color:#EF4444;text-align:right">↑ IDLE — no partition</div>` : '';
 
@@ -477,7 +477,7 @@ function buildDesign(container) {
           <span style="background:${s.badgeColor}22;color:${s.badgeColor};font-size:9px;font-weight:800;padding:2px 8px;border-radius:20px;letter-spacing:.06em">${s.badge}</span>
         </div>
         <div style="margin-bottom:12px">
-          <div style="font-size:10px;font-weight:600;color:#475569;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">Partition → Consumer</div>
+          <div style="font-size:10px;font-weight:600;color:#8A98AE;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">Partition → Consumer</div>
           ${pRows}${idleRow}
         </div>
         <div style="font-size:11px;color:#94A3B8;line-height:1.6;border-top:1px solid #1E293B;padding-top:10px;margin-top:4px">${s.desc}</div>
@@ -494,7 +494,7 @@ function buildDesign(container) {
           <div style="width:36px;height:36px;border-radius:10px;background:#FF690022;border:1.5px solid #FF6900;display:flex;align-items:center;justify-content:center;font-size:18px">📋</div>
           <div>
             <div style="font-size:16px;font-weight:800;color:#F1F5F9">How Topics are decided</div>
-            <div style="font-size:12px;color:#64748B">One topic per event type — never mix different facts in one stream</div>
+            <div style="font-size:12px;color:#94A3B8">One topic per event type — never mix different facts in one stream</div>
           </div>
         </div>
 
@@ -522,15 +522,15 @@ function buildDesign(container) {
           </div>
         </div>
 
-        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748B;margin-bottom:10px">Amazon's topic landscape</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:10px">Amazon's topic landscape</div>
         <div style="overflow-x:auto;border-radius:10px;border:1px solid #1E293B">
           <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:620px">
             <thead><tr style="background:#0F172A;border-bottom:1px solid #1E293B">
-              <th style="padding:10px 14px;text-align:left;color:#64748B;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Topic</th>
-              <th style="padding:10px 14px;text-align:left;color:#64748B;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Event</th>
-              <th style="padding:10px 14px;text-align:left;color:#64748B;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Producer</th>
-              <th style="padding:10px 14px;text-align:left;color:#64748B;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Key Consumers</th>
-              <th style="padding:10px 14px;text-align:left;color:#64748B;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Retention</th>
+              <th style="padding:10px 14px;text-align:left;color:#94A3B8;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Topic</th>
+              <th style="padding:10px 14px;text-align:left;color:#94A3B8;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Event</th>
+              <th style="padding:10px 14px;text-align:left;color:#94A3B8;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Producer</th>
+              <th style="padding:10px 14px;text-align:left;color:#94A3B8;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Key Consumers</th>
+              <th style="padding:10px 14px;text-align:left;color:#94A3B8;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Retention</th>
             </tr></thead>
             <tbody>
               ${[
@@ -546,7 +546,7 @@ function buildDesign(container) {
                   <td style="padding:10px 14px;color:#F1F5F9">${e}</td>
                   <td style="padding:10px 14px;color:#94A3B8">${p}</td>
                   <td style="padding:10px 14px;color:#94A3B8">${c}</td>
-                  <td style="padding:10px 14px;color:#64748B">${r}</td>
+                  <td style="padding:10px 14px;color:#94A3B8">${r}</td>
                 </tr>`).join('')}
             </tbody>
           </table>
@@ -559,7 +559,7 @@ function buildDesign(container) {
           <div style="width:36px;height:36px;border-radius:10px;background:#3B82F622;border:1.5px solid #3B82F6;display:flex;align-items:center;justify-content:center;font-size:18px">🗂️</div>
           <div>
             <div style="font-size:16px;font-weight:800;color:#F1F5F9">How Partitions are decided</div>
-            <div style="font-size:12px;color:#64748B">Partition count = the maximum consumers you'll ever want in one group</div>
+            <div style="font-size:12px;color:#94A3B8">Partition count = the maximum consumers you'll ever want in one group</div>
           </div>
         </div>
 
@@ -573,7 +573,7 @@ function buildDesign(container) {
           </div>
         </div>
 
-        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748B;margin-bottom:12px">The 4 scenarios — always 3 partitions, varying consumer count</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:12px">The 4 scenarios — always 3 partitions, varying consumer count</div>
         <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:16px">
           ${scenarioCards}
         </div>
@@ -589,7 +589,7 @@ function buildDesign(container) {
           <div style="width:36px;height:36px;border-radius:10px;background:#06B6D422;border:1.5px solid #06B6D4;display:flex;align-items:center;justify-content:center;font-size:18px">🔑</div>
           <div>
             <div style="font-size:16px;font-weight:800;color:#F1F5F9">How the Partition Key is chosen</div>
-            <div style="font-size:12px;color:#64748B">Key = the entity for which event order matters</div>
+            <div style="font-size:12px;color:#94A3B8">Key = the entity for which event order matters</div>
           </div>
         </div>
 
@@ -600,10 +600,10 @@ function buildDesign(container) {
         <div style="overflow-x:auto;border-radius:10px;border:1px solid #1E293B;margin-bottom:14px">
           <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:600px">
             <thead><tr style="background:#0F172A;border-bottom:1px solid #1E293B">
-              <th style="padding:10px 14px;text-align:left;color:#64748B;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Key Choice</th>
-              <th style="padding:10px 14px;text-align:left;color:#64748B;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Ordering Guarantee</th>
-              <th style="padding:10px 14px;text-align:left;color:#64748B;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Amazon Use Case</th>
-              <th style="padding:10px 14px;text-align:left;color:#64748B;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Watch Out</th>
+              <th style="padding:10px 14px;text-align:left;color:#94A3B8;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Key Choice</th>
+              <th style="padding:10px 14px;text-align:left;color:#94A3B8;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Ordering Guarantee</th>
+              <th style="padding:10px 14px;text-align:left;color:#94A3B8;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Amazon Use Case</th>
+              <th style="padding:10px 14px;text-align:left;color:#94A3B8;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Watch Out</th>
             </tr></thead>
             <tbody>
               ${[
@@ -632,7 +632,7 @@ function buildDesign(container) {
                 P0 (US) &nbsp; → <span style="color:#EF4444">████████████ 60%</span> of traffic<br>
                 P1 (EU) &nbsp; → <span style="color:#F59E0B">████ 25%</span> of traffic<br>
                 P2 (APAC) → <span style="color:#94A3B8">███ 15%</span> of traffic<br>
-                <span style="color:#64748B;font-size:10px">Consumer on P0 is 4× busier than P2 — unbalanced</span>
+                <span style="color:#94A3B8;font-size:10px">Consumer on P0 is 4× busier than P2 — unbalanced</span>
               </div>
             </div>
             <div>
@@ -641,7 +641,7 @@ function buildDesign(container) {
                 P0 → <span style="color:#10B981">████ 34%</span> of traffic<br>
                 P1 → <span style="color:#10B981">████ 33%</span> of traffic<br>
                 P2 → <span style="color:#10B981">████ 33%</span> of traffic<br>
-                <span style="color:#64748B;font-size:10px">High cardinality → even hash spread → balanced</span>
+                <span style="color:#94A3B8;font-size:10px">High cardinality → even hash spread → balanced</span>
               </div>
             </div>
           </div>
@@ -654,7 +654,7 @@ function buildDesign(container) {
           <div style="width:36px;height:36px;border-radius:10px;background:#10B98122;border:1.5px solid #10B981;display:flex;align-items:center;justify-content:center;font-size:18px">👥</div>
           <div>
             <div style="font-size:16px;font-weight:800;color:#F1F5F9">How Consumer Groups are decided</div>
-            <div style="font-size:12px;color:#64748B">One group per independent downstream use case</div>
+            <div style="font-size:12px;color:#94A3B8">One group per independent downstream use case</div>
           </div>
         </div>
 
@@ -701,9 +701,9 @@ function buildDesign(container) {
                   <span style="font-size:16px">${g.icon}</span>
                   <div>
                     <div style="font-size:11px;font-weight:700;color:${g.color}">${g.name}</div>
-                    <div style="font-size:10px;color:#475569">${g.size}</div>
+                    <div style="font-size:10px;color:#8A98AE">${g.size}</div>
                   </div>
-                  <div style="margin-left:auto;font-size:10px;color:#64748B">offset: <span style="color:${g.color}">${g.offset}</span></div>
+                  <div style="margin-left:auto;font-size:10px;color:#94A3B8">offset: <span style="color:${g.color}">${g.offset}</span></div>
                 </div>
                 <div style="font-size:11px;color:#94A3B8;line-height:1.6">${g.action}</div>
               </div>`).join('')}
@@ -721,20 +721,20 @@ function buildDesign(container) {
           <div style="width:36px;height:36px;border-radius:10px;background:#F59E0B22;border:1.5px solid #F59E0B;display:flex;align-items:center;justify-content:center;font-size:18px">⚖️</div>
           <div>
             <div style="font-size:16px;font-weight:800;color:#F1F5F9">How many Consumers per Group?</div>
-            <div style="font-size:12px;color:#64748B">Scale up to the partition count — then stop</div>
+            <div style="font-size:12px;color:#94A3B8">Scale up to the partition count — then stop</div>
           </div>
         </div>
 
         <div style="background:#111827;border:1px solid #1E293B;border-radius:12px;padding:18px 22px;margin-bottom:14px">
           <p style="font-size:13px;color:#94A3B8;line-height:1.7;margin-bottom:12px">The constraint is simple: <strong style="color:#F1F5F9">consumers ≤ partitions</strong>. Beyond the partition count, additional consumers sit idle with no partition to own. Scale the consumer count based on your current lag and throughput needs — you can always add or remove consumers and Kafka rebalances automatically.</p>
 
-          <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748B;margin-bottom:10px">Scaling ladder for the fulfillment group (3 partitions)</div>
+          <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:10px">Scaling ladder for the fulfillment group (3 partitions)</div>
           <div style="display:flex;flex-direction:column;gap:8px">
             ${[
               { c:1, throughput:'~20k events/sec', lag:'Growing — 1 worker can\'t keep up with Prime Day traffic', color:'#EF4444', status:'Falling behind' },
               { c:2, throughput:'~40k events/sec', lag:'C2 owns 2 partitions — slight bottleneck, but catching up', color:'#F59E0B', status:'Recovering' },
               { c:3, throughput:'~60k events/sec', lag:'Each consumer owns 1 partition — fully caught up', color:'#10B981', status:'✓ Ideal' },
-              { c:4, throughput:'~60k events/sec', lag:'C4 sits idle — no partition to own. Zero benefit.', color:'#475569', status:'Wasteful' },
+              { c:4, throughput:'~60k events/sec', lag:'C4 sits idle — no partition to own. Zero benefit.', color:'#8A98AE', status:'Wasteful' },
             ].map(r => `
               <div style="display:flex;align-items:center;gap:12px;background:#0A0E1A;border-radius:8px;padding:10px 14px">
                 <div style="flex-shrink:0;width:80px;font-size:11px">

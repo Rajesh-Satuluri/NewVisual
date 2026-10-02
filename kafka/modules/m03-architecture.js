@@ -47,7 +47,7 @@ function buildDiagram(container) {
       <svg viewBox="0 0 860 480" width="860" height="480" style="font-family:system-ui">
         <defs>
           <marker id="a3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-            <path d="M0,0 L0,6 L8,3 z" fill="#475569"/>
+            <path d="M0,0 L0,6 L8,3 z" fill="#8A98AE"/>
           </marker>
           <marker id="a3r" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
             <path d="M0,0 L0,6 L8,3 z" fill="#FF6900"/>
@@ -58,12 +58,12 @@ function buildDiagram(container) {
         <rect x="10" y="60" width="120" height="56" rx="8" fill="#1E293B" stroke="#FF6900" stroke-width="1.5"/>
         <text x="70" y="80" text-anchor="middle" fill="#FF6900" font-size="11" font-weight="700">Producer</text>
         <text x="70" y="95" text-anchor="middle" fill="#94A3B8" font-size="9">Order Service</text>
-        <text x="70" y="108" text-anchor="middle" fill="#64748B" font-size="8">publishes on Buy Now</text>
+        <text x="70" y="108" text-anchor="middle" fill="#94A3B8" font-size="8">publishes on Buy Now</text>
 
         <rect x="10" y="135" width="120" height="56" rx="8" fill="#1E293B" stroke="#FF6900" stroke-width="1.5"/>
         <text x="70" y="155" text-anchor="middle" fill="#FF6900" font-size="11" font-weight="700">Producer</text>
         <text x="70" y="170" text-anchor="middle" fill="#94A3B8" font-size="9">Payment Service</text>
-        <text x="70" y="183" text-anchor="middle" fill="#64748B" font-size="8">publishes on charge</text>
+        <text x="70" y="183" text-anchor="middle" fill="#94A3B8" font-size="8">publishes on charge</text>
 
         <!-- Arrows to cluster -->
         <line x1="130" y1="88"  x2="205" y2="130" stroke="#FF6900" stroke-width="1.5" marker-end="url(#a3r)"/>
@@ -71,7 +71,7 @@ function buildDiagram(container) {
 
         <!-- Cluster box -->
         <rect x="200" y="60" width="400" height="350" rx="12" fill="#0F172A" stroke="#334155" stroke-width="2"/>
-        <text x="400" y="85" text-anchor="middle" fill="#475569" font-size="11" font-weight="700" letter-spacing="1">KAFKA CLUSTER  (RF = 3)</text>
+        <text x="400" y="85" text-anchor="middle" fill="#8A98AE" font-size="11" font-weight="700" letter-spacing="1">KAFKA CLUSTER  (RF = 3)</text>
 
         <!-- Broker 1 (controller + leader) -->
         <rect x="220" y="100" width="110" height="140" rx="8" fill="#1E293B" stroke="#FF6900" stroke-width="2"/>
@@ -80,59 +80,59 @@ function buildDiagram(container) {
         <text x="275" y="138" text-anchor="middle" fill="#FF6900" font-size="9">★ Controller</text>
         <text x="275" y="158" text-anchor="middle" fill="#94A3B8" font-size="9">orders P0 (Leader)</text>
         <text x="275" y="173" text-anchor="middle" fill="#94A3B8" font-size="9">payments P0 (Leader)</text>
-        <text x="275" y="188" text-anchor="middle" fill="#64748B" font-size="9">orders P1 (Follower)</text>
-        <text x="275" y="215" text-anchor="middle" fill="#475569" font-size="8">L = leader  F = follower</text>
-        <text x="275" y="230" text-anchor="middle" fill="#475569" font-size="8">elect new leader if dies</text>
+        <text x="275" y="188" text-anchor="middle" fill="#94A3B8" font-size="9">orders P1 (Follower)</text>
+        <text x="275" y="215" text-anchor="middle" fill="#8A98AE" font-size="8">L = leader  F = follower</text>
+        <text x="275" y="230" text-anchor="middle" fill="#8A98AE" font-size="8">elect new leader if dies</text>
 
         <!-- Broker 2 -->
         <rect x="345" y="100" width="110" height="140" rx="8" fill="#1E293B" stroke="#334155" stroke-width="1.5"/>
         <text x="400" y="120" text-anchor="middle" fill="#E2E8F0" font-size="10" font-weight="800">Broker 2</text>
         <text x="400" y="145" text-anchor="middle" fill="#94A3B8" font-size="9">orders P1 (Leader)</text>
-        <text x="400" y="160" text-anchor="middle" fill="#64748B" font-size="9">orders P0 (Follower)</text>
-        <text x="400" y="175" text-anchor="middle" fill="#64748B" font-size="9">payments P0 (Flwr)</text>
-        <text x="400" y="220" text-anchor="middle" fill="#475569" font-size="8">safe copy of every record</text>
+        <text x="400" y="160" text-anchor="middle" fill="#94A3B8" font-size="9">orders P0 (Follower)</text>
+        <text x="400" y="175" text-anchor="middle" fill="#94A3B8" font-size="9">payments P0 (Flwr)</text>
+        <text x="400" y="220" text-anchor="middle" fill="#8A98AE" font-size="8">safe copy of every record</text>
 
         <!-- Broker 3 -->
         <rect x="470" y="100" width="110" height="140" rx="8" fill="#1E293B" stroke="#334155" stroke-width="1.5"/>
         <text x="525" y="120" text-anchor="middle" fill="#E2E8F0" font-size="10" font-weight="800">Broker 3</text>
         <text x="525" y="145" text-anchor="middle" fill="#94A3B8" font-size="9">orders P2 (Leader)</text>
-        <text x="525" y="160" text-anchor="middle" fill="#64748B" font-size="9">orders P1 (Follower)</text>
-        <text x="525" y="220" text-anchor="middle" fill="#475569" font-size="8">safe copy of every record</text>
+        <text x="525" y="160" text-anchor="middle" fill="#94A3B8" font-size="9">orders P1 (Follower)</text>
+        <text x="525" y="220" text-anchor="middle" fill="#8A98AE" font-size="8">safe copy of every record</text>
 
         <!-- Topics -->
         <rect x="220" y="265" width="360" height="55" rx="8" fill="#0A0E1A" stroke="#334155"/>
         <text x="255" y="286" fill="#FF6900" font-size="10" font-weight="700">Topic: orders</text>
-        <text x="255" y="301" fill="#64748B" font-size="9">3 partitions · RF=3 · 7-day retention</text>
-        <text x="255" y="313" fill="#475569" font-size="8">key = orderId → deterministic partition routing</text>
+        <text x="255" y="301" fill="#94A3B8" font-size="9">3 partitions · RF=3 · 7-day retention</text>
+        <text x="255" y="313" fill="#8A98AE" font-size="8">key = orderId → deterministic partition routing</text>
 
         <rect x="220" y="330" width="360" height="55" rx="8" fill="#0A0E1A" stroke="#334155"/>
         <text x="255" y="351" fill="#3B82F6" font-size="10" font-weight="700">Topic: payments</text>
-        <text x="255" y="366" fill="#64748B" font-size="9">1 partition · RF=3 · 30-day retention</text>
-        <text x="255" y="378" fill="#475569" font-size="8">key = orderId → joins with orders downstream</text>
+        <text x="255" y="366" fill="#94A3B8" font-size="9">1 partition · RF=3 · 30-day retention</text>
+        <text x="255" y="378" fill="#8A98AE" font-size="8">key = orderId → joins with orders downstream</text>
 
         <!-- Arrows to consumers -->
-        <line x1="600" y1="160" x2="680" y2="110" stroke="#475569" stroke-width="1.5" marker-end="url(#a3)"/>
-        <line x1="600" y1="190" x2="680" y2="210" stroke="#475569" stroke-width="1.5" marker-end="url(#a3)"/>
-        <line x1="600" y1="215" x2="680" y2="310" stroke="#475569" stroke-width="1.5" marker-end="url(#a3)"/>
+        <line x1="600" y1="160" x2="680" y2="110" stroke="#8A98AE" stroke-width="1.5" marker-end="url(#a3)"/>
+        <line x1="600" y1="190" x2="680" y2="210" stroke="#8A98AE" stroke-width="1.5" marker-end="url(#a3)"/>
+        <line x1="600" y1="215" x2="680" y2="310" stroke="#8A98AE" stroke-width="1.5" marker-end="url(#a3)"/>
 
         <!-- Consumer Groups -->
         <rect x="680" y="68" width="155" height="76" rx="8" fill="#1E293B" stroke="#10B981" stroke-width="1.5"/>
         <text x="757" y="88"  text-anchor="middle" fill="#10B981" font-size="10" font-weight="700">Consumer Group</text>
         <text x="757" y="103" text-anchor="middle" fill="#94A3B8" font-size="9">fulfillment</text>
-        <text x="757" y="118" text-anchor="middle" fill="#64748B" font-size="9">3 consumers · 1 per partition</text>
-        <text x="757" y="135" text-anchor="middle" fill="#475569" font-size="8">Packs &amp; ships your order</text>
+        <text x="757" y="118" text-anchor="middle" fill="#94A3B8" font-size="9">3 consumers · 1 per partition</text>
+        <text x="757" y="135" text-anchor="middle" fill="#8A98AE" font-size="8">Packs &amp; ships your order</text>
 
         <rect x="680" y="170" width="155" height="76" rx="8" fill="#1E293B" stroke="#8B5CF6" stroke-width="1.5"/>
         <text x="757" y="190" text-anchor="middle" fill="#8B5CF6" font-size="10" font-weight="700">Consumer Group</text>
         <text x="757" y="205" text-anchor="middle" fill="#94A3B8" font-size="9">fraud-detection</text>
-        <text x="757" y="220" text-anchor="middle" fill="#64748B" font-size="9">1 consumer · reads all partitions</text>
-        <text x="757" y="237" text-anchor="middle" fill="#475569" font-size="8">Scores every order for fraud</text>
+        <text x="757" y="220" text-anchor="middle" fill="#94A3B8" font-size="9">1 consumer · reads all partitions</text>
+        <text x="757" y="237" text-anchor="middle" fill="#8A98AE" font-size="8">Scores every order for fraud</text>
 
         <rect x="680" y="272" width="155" height="76" rx="8" fill="#1E293B" stroke="#F59E0B" stroke-width="1.5"/>
         <text x="757" y="292" text-anchor="middle" fill="#F59E0B" font-size="10" font-weight="700">Consumer Group</text>
         <text x="757" y="307" text-anchor="middle" fill="#94A3B8" font-size="9">notifications</text>
-        <text x="757" y="322" text-anchor="middle" fill="#64748B" font-size="9">1 consumer · reads all partitions</text>
-        <text x="757" y="339" text-anchor="middle" fill="#475569" font-size="8">Sends "Order Confirmed" email</text>
+        <text x="757" y="322" text-anchor="middle" fill="#94A3B8" font-size="9">1 consumer · reads all partitions</text>
+        <text x="757" y="339" text-anchor="middle" fill="#8A98AE" font-size="8">Sends "Order Confirmed" email</text>
 
         <!-- Schema Registry -->
         <rect x="680" y="370" width="155" height="52" rx="8" fill="#1E293B" stroke="#06B6D4" stroke-width="1.5"/>
@@ -208,7 +208,7 @@ function buildAmazon(container) {
 
       <!-- Scenario header -->
       <div style="background:#111827;border:1px solid #1E293B;border-radius:16px;padding:24px 28px;margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#64748B;margin-bottom:8px">Real-World Scenario</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#94A3B8;margin-bottom:8px">Real-World Scenario</div>
         <div style="font-size:20px;font-weight:800;color:#F1F5F9;margin-bottom:6px">You click "Buy Now" on an iPhone 15 Pro — $999</div>
         <div style="font-size:14px;color:#94A3B8;line-height:1.6">What happens inside Amazon's systems in the next 200 milliseconds? Everything you see below is powered by Kafka.</div>
       </div>
@@ -223,7 +223,7 @@ function buildAmazon(container) {
           </div>
           <p style="font-size:13px;color:#94A3B8;line-height:1.7;margin-bottom:12px">The moment you click Buy Now, the Order Service microservice creates one structured event. It does <em>not</em> call any other service. It publishes this single event to Kafka and returns "Order Confirmed" to your browser in ~2ms.</p>
           <div style="background:#0A0E1A;border:1px solid #334155;border-radius:8px;padding:14px 16px;font-family:monospace;font-size:12px;color:#94A3B8;line-height:1.8">
-            <span style="color:#64748B">// Published to Kafka topic: <span style="color:#FF6900">orders</span></span><br>
+            <span style="color:#94A3B8">// Published to Kafka topic: <span style="color:#FF6900">orders</span></span><br>
             {<br>
             &nbsp;&nbsp;<span style="color:#06B6D4">"orderId"</span>: <span style="color:#10B981">"AMZ-24601-2024"</span>,<br>
             &nbsp;&nbsp;<span style="color:#06B6D4">"userId"</span>: <span style="color:#10B981">"U-88234"</span>,<br>
@@ -253,19 +253,19 @@ function buildAmazon(container) {
               <div style="font-size:11px;font-weight:700;color:#FF6900;margin-bottom:4px">Broker 3</div>
               <div style="font-size:10px;color:#94A3B8">orders-P2</div>
               <div style="font-size:10px;color:#10B981;font-weight:700;margin-top:4px">★ LEADER</div>
-              <div style="font-size:9px;color:#64748B;margin-top:2px">Receives write first</div>
+              <div style="font-size:9px;color:#94A3B8;margin-top:2px">Receives write first</div>
             </div>
             <div style="background:#0A0E1A;border:1px solid #334155;border-radius:8px;padding:12px;text-align:center">
               <div style="font-size:11px;font-weight:700;color:#E2E8F0;margin-bottom:4px">Broker 1</div>
               <div style="font-size:10px;color:#94A3B8">orders-P2</div>
-              <div style="font-size:10px;color:#64748B;font-weight:700;margin-top:4px">FOLLOWER</div>
-              <div style="font-size:9px;color:#64748B;margin-top:2px">Replicates from leader</div>
+              <div style="font-size:10px;color:#94A3B8;font-weight:700;margin-top:4px">FOLLOWER</div>
+              <div style="font-size:9px;color:#94A3B8;margin-top:2px">Replicates from leader</div>
             </div>
             <div style="background:#0A0E1A;border:1px solid #334155;border-radius:8px;padding:12px;text-align:center">
               <div style="font-size:11px;font-weight:700;color:#E2E8F0;margin-bottom:4px">Broker 2</div>
               <div style="font-size:10px;color:#94A3B8">orders-P2</div>
-              <div style="font-size:10px;color:#64748B;font-weight:700;margin-top:4px">FOLLOWER</div>
-              <div style="font-size:9px;color:#64748B;margin-top:2px">Replicates from leader</div>
+              <div style="font-size:10px;color:#94A3B8;font-weight:700;margin-top:4px">FOLLOWER</div>
+              <div style="font-size:9px;color:#94A3B8;margin-top:2px">Replicates from leader</div>
             </div>
           </div>
           <div style="margin-top:12px;background:#10B98112;border:1px solid #10B98133;border-radius:8px;padding:10px 14px;font-size:12px;color:#10B981">
@@ -294,7 +294,7 @@ function buildAmazon(container) {
                 <span style="font-size:18px">📦</span>
                 <div>
                   <div style="font-size:12px;font-weight:700;color:#06B6D4">Inventory Service</div>
-                  <div style="font-size:10px;color:#64748B">group: inventory-check</div>
+                  <div style="font-size:10px;color:#94A3B8">group: inventory-check</div>
                 </div>
               </div>
               <ul style="font-size:12px;color:#94A3B8;line-height:1.8;padding-left:16px;margin:0">
@@ -311,7 +311,7 @@ function buildAmazon(container) {
                 <span style="font-size:18px">🚚</span>
                 <div>
                   <div style="font-size:12px;font-weight:700;color:#10B981">Fulfillment Service</div>
-                  <div style="font-size:10px;color:#64748B">group: fulfillment</div>
+                  <div style="font-size:10px;color:#94A3B8">group: fulfillment</div>
                 </div>
               </div>
               <ul style="font-size:12px;color:#94A3B8;line-height:1.8;padding-left:16px;margin:0">
@@ -328,7 +328,7 @@ function buildAmazon(container) {
                 <span style="font-size:18px">🛡️</span>
                 <div>
                   <div style="font-size:12px;font-weight:700;color:#8B5CF6">Fraud Detection</div>
-                  <div style="font-size:10px;color:#64748B">group: fraud-detection</div>
+                  <div style="font-size:10px;color:#94A3B8">group: fraud-detection</div>
                 </div>
               </div>
               <ul style="font-size:12px;color:#94A3B8;line-height:1.8;padding-left:16px;margin:0">
@@ -345,7 +345,7 @@ function buildAmazon(container) {
                 <span style="font-size:18px">🔔</span>
                 <div>
                   <div style="font-size:12px;font-weight:700;color:#F59E0B">Notification Service</div>
-                  <div style="font-size:10px;color:#64748B">group: notifications</div>
+                  <div style="font-size:10px;color:#94A3B8">group: notifications</div>
                 </div>
               </div>
               <ul style="font-size:12px;color:#94A3B8;line-height:1.8;padding-left:16px;margin:0">
@@ -364,7 +364,7 @@ function buildAmazon(container) {
 
       <!-- Key Insight -->
       <div style="background:linear-gradient(135deg,#0F172A,#111827);border:1.5px solid #334155;border-radius:16px;padding:24px 28px;margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#64748B;margin-bottom:12px">💡 Why Kafka? The Core Insight</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#94A3B8;margin-bottom:12px">💡 Why Kafka? The Core Insight</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
           <div>
             <div style="font-size:12px;font-weight:700;color:#EF4444;margin-bottom:8px">❌ Without Kafka</div>
@@ -400,12 +400,12 @@ function buildAmazon(container) {
           <div style="background:#0A0E1A;border-radius:8px;padding:10px;text-align:center">
             <div style="color:#06B6D4;font-weight:700;margin-bottom:4px">inventory-check</div>
             <div style="color:#10B981;font-size:14px;font-weight:800">847,232</div>
-            <div style="color:#64748B;margin-top:2px">1 ahead — fast</div>
+            <div style="color:#94A3B8;margin-top:2px">1 ahead — fast</div>
           </div>
           <div style="background:#0A0E1A;border-radius:8px;padding:10px;text-align:center">
             <div style="color:#10B981;font-weight:700;margin-bottom:4px">fulfillment</div>
             <div style="color:#10B981;font-size:14px;font-weight:800">847,231</div>
-            <div style="color:#64748B;margin-top:2px">processing now</div>
+            <div style="color:#94A3B8;margin-top:2px">processing now</div>
           </div>
           <div style="background:#0A0E1A;border-radius:8px;padding:10px;text-align:center">
             <div style="color:#8B5CF6;font-weight:700;margin-bottom:4px">fraud-detection</div>
@@ -415,10 +415,10 @@ function buildAmazon(container) {
           <div style="background:#0A0E1A;border-radius:8px;padding:10px;text-align:center">
             <div style="color:#F59E0B;font-weight:700;margin-bottom:4px">notifications</div>
             <div style="color:#10B981;font-size:14px;font-weight:800">847,231</div>
-            <div style="color:#64748B;margin-top:2px">on time</div>
+            <div style="color:#94A3B8;margin-top:2px">on time</div>
           </div>
         </div>
-        <p style="font-size:12px;color:#64748B;margin-top:12px;line-height:1.6">Fraud detection is 33 events behind — maybe it had a GC pause. That's fine. Kafka doesn't care. Fraud detection will catch up. And if Kafka deletes old events after 7 days, fraud detection still has 7 days to process everything. The other consumer groups are completely unaffected.</p>
+        <p style="font-size:12px;color:#94A3B8;margin-top:12px;line-height:1.6">Fraud detection is 33 events behind — maybe it had a GC pause. That's fine. Kafka doesn't care. Fraud detection will catch up. And if Kafka deletes old events after 7 days, fraud detection still has 7 days to process everything. The other consumer groups are completely unaffected.</p>
       </div>
 
     </div>`;
@@ -441,6 +441,26 @@ function buildKraft(container) {
       <div style="background:#111827;border:1px solid #1E293B;border-radius:12px;padding:20px 22px;margin-bottom:24px">
         <div style="font-size:13px;font-weight:700;color:#F1F5F9;margin-bottom:8px">🏭 Amazon-scale context</div>
         <p style="font-size:13px;color:#94A3B8;line-height:1.7;margin:0">Amazon's Kafka clusters handle millions of partitions across thousands of topics (orders, payments, inventory-updates, click-events, etc.). Under ZooKeeper, hitting the ~200k partition limit was a real scaling wall. KRaft removes that ceiling and cuts controller failover from a 30–60 second operational nightmare — during which no new partitions can be created — to under 1 second. During Prime Day, when a controller broker dies, KRaft means your "Buy Now" flow keeps working within a second instead of going dark for a minute.</p>
+      </div>
+      <div style="margin-bottom:24px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:12px">Controller failover — the number that matters at Prime Day</div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:center;gap:14px">
+            <div style="width:140px;flex-shrink:0;font-size:12px;font-weight:600;color:#94A3B8;text-align:right">ZooKeeper mode</div>
+            <div style="flex:1;background:#1E293B;border-radius:7px;height:30px;position:relative;overflow:hidden">
+              <div style="position:absolute;inset:0 auto 0 0;width:100%;background:linear-gradient(90deg,#EF4444cc,#EF4444);border-radius:7px"></div>
+              <div style="position:absolute;inset:0;display:flex;align-items:center;padding-left:12px;font-size:11px;font-weight:800;color:#fff;font-family:monospace">30–60 s  (no new partitions, "Buy Now" can stall)</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px">
+            <div style="width:140px;flex-shrink:0;font-size:12px;font-weight:600;color:#94A3B8;text-align:right">KRaft mode</div>
+            <div style="flex:1;background:#1E293B;border-radius:7px;height:30px;position:relative;overflow:hidden">
+              <div style="position:absolute;inset:0 auto 0 0;width:3%;min-width:40px;background:linear-gradient(90deg,#10B981cc,#10B981);border-radius:7px"></div>
+              <div style="position:absolute;inset:0;display:flex;align-items:center;padding-left:52px;font-size:11px;font-weight:800;color:#10B981;font-family:monospace">&lt;1 s</div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:10px;font-size:12px;color:#94A3B8;line-height:1.7">Bar width is drawn to scale: KRaft's sub-second failover is a thin sliver next to ZooKeeper's 30–60 s. KRaft keeps metadata in a built-in Raft quorum, so a dead controller is replaced by a standby that already holds the full metadata log — no external ZooKeeper round-trip, no cold reload. That same design removes the ~200k-partition ceiling.</div>
       </div>
       <div class="compare-table-wrap">
         <div class="section-header">
