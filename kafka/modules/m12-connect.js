@@ -86,7 +86,7 @@ function buildFlow(container) {
       });
       if (b.sub) {
         ctx.font = '8px system-ui';
-        ctx.fillStyle = '#475569';
+        ctx.fillStyle = '#8A98AE';
         ctx.fillText(b.sub, b.x + b.w/2, b.y + b.h - 6);
       }
     });

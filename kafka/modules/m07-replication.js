@@ -107,13 +107,13 @@ function buildSim(container) {
 
     // Controller → leader arrow
     ctx.font = '10px system-ui';
-    ctx.fillStyle = '#475569';
+    ctx.fillStyle = '#8A98AE';
     ctx.textAlign = 'center';
     ctx.fillText('Controller', 650, 180);
     ctx.fillText('assigns leader', 650, 194);
     ctx.beginPath();
     ctx.moveTo(620, 186); ctx.lineTo(BROKERS[1].x + 40, BROKERS[1].y);
-    ctx.strokeStyle = '#475569';
+    ctx.strokeStyle = '#8A98AE';
     ctx.lineWidth = 1;
     ctx.setLineDash([3, 3]);
     ctx.stroke();
@@ -123,13 +123,13 @@ function buildSim(container) {
     nodes.forEach((n, i) => {
       n.active = BROKERS[i].alive;
       n.color = BROKERS[i].role === 'leader' ? '#FF6900' : '#3B82F6';
-      if (!BROKERS[i].alive) n.color = '#475569';
+      if (!BROKERS[i].alive) n.color = '#8A98AE';
       n.update(dt);
       n.draw(ctx);
 
       // Role label
       ctx.font = 'bold 10px system-ui';
-      ctx.fillStyle = BROKERS[i].alive ? (BROKERS[i].role === 'leader' ? '#FF6900' : '#3B82F6') : '#475569';
+      ctx.fillStyle = BROKERS[i].alive ? (BROKERS[i].role === 'leader' ? '#FF6900' : '#3B82F6') : '#8A98AE';
       ctx.textAlign = 'center';
       ctx.fillText(BROKERS[i].role.toUpperCase(), BROKERS[i].x, BROKERS[i].y + 58);
 
@@ -190,14 +190,14 @@ function buildAmazon(container) {
 
       <!-- Hero -->
       <div style="background:#111827;border:1px solid #FF6900;border-radius:14px;padding:20px 24px;margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#64748B;margin-bottom:8px">Durability under fire</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#94A3B8;margin-bottom:8px">Durability under fire</div>
         <div style="font-size:18px;font-weight:800;color:#F1F5F9;margin-bottom:4px">Prime Day, 2:17 PM PST — Broker 1 dies mid-traffic</div>
         <div style="font-size:13px;color:#94A3B8">1.2 million orders per hour. 20,000 events/sec on <code style="background:#0A0E1A;color:#FF6900;padding:1px 5px;border-radius:3px">orders-P0</code>. Broker 1 (the leader) has a hardware failure. Here is exactly what Kafka does — and why zero orders are lost.</div>
       </div>
 
       <!-- Config choices first -->
       <div style="margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748B;margin-bottom:14px">Amazon's durability settings — and why each one</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">Amazon's durability settings — and why each one</div>
         <div style="display:flex;flex-direction:column;gap:10px">
           ${
             [
@@ -218,7 +218,7 @@ function buildAmazon(container) {
 
       <!-- Prime Day failure timeline -->
       <div style="margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748B;margin-bottom:14px">The failure timeline — second by second</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">The failure timeline — second by second</div>
         <div style="display:flex;flex-direction:column;gap:8px">
           ${
             [
@@ -234,7 +234,7 @@ function buildAmazon(container) {
             ].map((e,i) => `
             <div style="display:flex;gap:12px;align-items:flex-start">
               <div style="flex-shrink:0;min-width:96px;text-align:right;padding-top:13px">
-                <span style="font-size:9px;font-weight:700;color:#475569;font-family:monospace">${e.t}</span>
+                <span style="font-size:9px;font-weight:700;color:#8A98AE;font-family:monospace">${e.t}</span>
               </div>
               <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center">
                 <div style="width:10px;height:10px;border-radius:50%;background:${e.color};margin-top:15px;flex-shrink:0"></div>
@@ -291,7 +291,7 @@ function buildFlow(container) {
         <text x="260" y="170" text-anchor="middle" fill="#94A3B8" font-size="9">LEADER</text>
         <rect x="215" y="177" width="90" height="20" rx="4" fill="#0A0E1A" stroke="#334155"/>
         <text x="260" y="191" text-anchor="middle" fill="#FF6900" font-size="9">off:142 ▼ append</text>
-        <text x="260" y="218" text-anchor="middle" fill="#64748B" font-size="8">writes local log</text>
+        <text x="260" y="218" text-anchor="middle" fill="#94A3B8" font-size="8">writes local log</text>
 
         <!-- Follower 1 -->
         <rect x="420" y="80" width="120" height="80" rx="8" fill="#1E293B" stroke="#3B82F6" stroke-width="1.5"/>

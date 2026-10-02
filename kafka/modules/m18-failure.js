@@ -107,12 +107,12 @@ function buildSim(container) {
 
     NODES.forEach((n, i) => {
       glowNodes[i].active = n.alive;
-      glowNodes[i].color = n.alive ? n.color : '#475569';
+      glowNodes[i].color = n.alive ? n.color : '#8A98AE';
       glowNodes[i].update(dt);
       glowNodes[i].draw(ctx);
 
       ctx.font = '9px system-ui';
-      ctx.fillStyle = n.alive ? n.color : '#475569';
+      ctx.fillStyle = n.alive ? n.color : '#8A98AE';
       ctx.textAlign = 'center';
       n.label.split('\n').forEach((line, li) => {
         ctx.fillText(line, n.x, n.y + n.r + 14 + li * 12);

@@ -96,7 +96,7 @@ function buildLag(container) {
     // Offset diagram at bottom
     const y = 320;
     ctx.font = '10px system-ui';
-    ctx.fillStyle = '#475569';
+    ctx.fillStyle = '#8A98AE';
     ctx.fillText('Offset anatomy for P0:', 60, y);
 
     const boxes = [
@@ -119,7 +119,7 @@ function buildLag(container) {
     });
 
     ctx.font = '10px system-ui';
-    ctx.fillStyle = '#64748B';
+    ctx.fillStyle = '#94A3B8';
     ctx.textAlign = 'left';
     ctx.fillText('← lag (current−committed) →', 220, y + 60);
     ctx.fillText('← lag (LEO−committed, monitored externally) →', 220, y + 74);
@@ -183,14 +183,14 @@ function buildAmazon(container) {
 
       <!-- Hero -->
       <div style="background:#111827;border:1px solid #FF6900;border-radius:14px;padding:20px 24px;margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#64748B;margin-bottom:8px">Offset anatomy</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#94A3B8;margin-bottom:8px">Offset anatomy</div>
         <div style="font-size:18px;font-weight:800;color:#F1F5F9;margin-bottom:4px">Where exactly is Fulfillment Service in the orders-P0 log right now?</div>
         <div style="font-size:13px;color:#94A3B8">Your iPhone 15 Pro order landed at offset 847,231. Here's what the three offset positions mean for the Fulfillment consumer that will process it.</div>
       </div>
 
       <!-- 3 offset positions -->
       <div style="margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748B;margin-bottom:14px">The three offsets — fulfillment-group on orders-P0</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">The three offsets — fulfillment-group on orders-P0</div>
         <div style="background:#111827;border:1px solid #1E293B;border-radius:12px;padding:18px 22px">
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
             ${
@@ -202,7 +202,7 @@ function buildAmazon(container) {
               <div style="background:#0A0E1A;border:1.5px solid ${o.color}44;border-radius:10px;padding:14px;text-align:center">
                 <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${o.color};margin-bottom:6px">${o.label}</div>
                 <div style="font-size:24px;font-weight:800;color:${o.color};font-family:monospace;margin-bottom:8px">${o.val}</div>
-                <div style="font-size:11px;color:#64748B;line-height:1.55">${o.desc}</div>
+                <div style="font-size:11px;color:#94A3B8;line-height:1.55">${o.desc}</div>
               </div>`).join('')
             }
           </div>
@@ -212,14 +212,14 @@ function buildAmazon(container) {
             <span style="color:#F59E0B;font-family:monospace;flex-shrink:0">847,195</span>
             <div style="flex:1;height:3px;background:linear-gradient(to right,#F59E0B,#EF4444);border-radius:2px"></div>
             <span style="color:#EF4444;font-family:monospace;flex-shrink:0">847,231</span>
-            <span style="margin-left:10px;color:#64748B;flex-shrink:0">lag = 181 records ≈ 9ms at 20k/sec</span>
+            <span style="margin-left:10px;color:#94A3B8;flex-shrink:0">lag = 181 records ≈ 9ms at 20k/sec</span>
           </div>
         </div>
       </div>
 
       <!-- Crash scenario -->
       <div style="margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748B;margin-bottom:14px">What happens if Fulfillment crashes right now</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">What happens if Fulfillment crashes right now</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
           <div style="background:#EF444412;border:1.5px solid #EF444444;border-radius:12px;padding:16px 20px">
             <div style="font-size:12px;font-weight:700;color:#EF4444;margin-bottom:8px">Without idempotent processing</div>
@@ -248,7 +248,7 @@ function buildAmazon(container) {
 
       <!-- Commit code -->
       <div style="margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748B;margin-bottom:14px">How fulfillment-group commits offsets in production</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">How fulfillment-group commits offsets in production</div>
         <div style="background:#111827;border:1px solid #1E293B;border-radius:12px;padding:18px 22px">
           <code style="display:block;background:#0A0E1A;padding:14px;border-radius:8px;font-size:11px;color:#94A3B8;line-height:1.9;white-space:pre">enable.auto.commit = false
 max.poll.records    = 100     // 100 orders per poll at most

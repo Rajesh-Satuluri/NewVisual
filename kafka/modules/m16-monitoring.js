@@ -147,7 +147,7 @@ function buildDashboard(container) {
       ctx.textAlign = 'center';
       ctx.fillText(`Broker ${b+1}`, bx + 55, by + 22);
       ctx.font = '9px system-ui';
-      ctx.fillStyle = '#64748B';
+      ctx.fillStyle = '#94A3B8';
       ctx.fillText(alive ? 'healthy' : 'DOWN', bx + 55, by + 36);
     });
 

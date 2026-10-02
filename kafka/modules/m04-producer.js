@@ -130,7 +130,7 @@ function buildPipeline(container) {
     const stageDescs = ['Order Event', 'key→bytes\nvalue→Avro', 'murmur2(key)\n% partitions', 'partition 0', 'partition 1', 'partition 2', 'Leader\n+ ISR ack'];
     stages.forEach((s, i) => {
       ctx.font = '9px system-ui';
-      ctx.fillStyle = '#475569';
+      ctx.fillStyle = '#8A98AE';
       ctx.textAlign = 'center';
       stageDescs[i].split('\n').forEach((line, li) => {
         ctx.fillText(line, s.x + s.w/2, s.y + s.h + 14 + li * 12);
@@ -165,14 +165,14 @@ function buildAmazon(container) {
 
       <!-- Hero card -->
       <div style="background:#111827;border:1px solid #FF6900;border-radius:14px;padding:20px 24px;margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#64748B;margin-bottom:8px">The producer in action</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#94A3B8;margin-bottom:8px">The producer in action</div>
         <div style="font-size:18px;font-weight:800;color:#F1F5F9;margin-bottom:4px">You click Buy Now on iPhone 15 Pro — $999</div>
         <div style="font-size:13px;color:#94A3B8">Here is exactly what the Order Service (a Kafka producer) does in the next 11 milliseconds.</div>
       </div>
 
       <!-- Timeline -->
       <div style="margin-bottom:32px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748B;margin-bottom:14px">Producer timeline — 11ms from click to "Order Confirmed"</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">Producer timeline — 11ms from click to "Order Confirmed"</div>
         ${
           [
             { ms:'0ms',   color:'#3B82F6', stage:'Your click',        desc:'Browser sends POST /orders to Order Service. The handler creates a Java OrderEvent object: {orderId:"AMZ-24601", product:"iPhone 15 Pro", price:999, userId:"U-00123", warehouseId:"SEA-2"}' },
@@ -200,7 +200,7 @@ function buildAmazon(container) {
 
       <!-- Config explained in plain English -->
       <div style="margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748B;margin-bottom:14px">Why Amazon chose these producer settings — in plain English</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">Why Amazon chose these producer settings — in plain English</div>
         <div style="display:flex;flex-direction:column;gap:10px">
           ${
             [

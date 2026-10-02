@@ -167,7 +167,7 @@ function buildLayers(container) {
     }
 
     // caption line
-    ctx.textAlign = 'left'; ctx.font = '11px system-ui'; ctx.fillStyle = '#64748B';
+    ctx.textAlign = 'left'; ctx.font = '11px system-ui'; ctx.fillStyle = '#94A3B8';
     ctx.fillText('Each gate is independent: encryption ≠ identity, and authenticated ≠ authorized.', CLIENT_X - 10, 210);
     if (result === 'fail' && !moving) {
       ctx.fillStyle = '#EF4444'; ctx.font = 'bold 11px system-ui';

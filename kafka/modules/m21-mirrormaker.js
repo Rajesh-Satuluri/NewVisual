@@ -136,7 +136,7 @@ function buildFlow(container) {
 
     // Producer label
     ctx.font = 'bold 10px system-ui';
-    ctx.fillStyle = '#64748B';
+    ctx.fillStyle = '#94A3B8';
     ctx.textAlign = 'center';
     ctx.fillText('Producer', 60, 185);
     ctx.fillText('Consumer', 60, 230);
@@ -189,7 +189,7 @@ function buildFlow(container) {
     ctx.fillText('offset checkpoints', MID_X, 250);
 
     glowL.active = !failedOver;
-    glowL.color = failedOver ? '#475569' : '#FF6900';
+    glowL.color = failedOver ? '#8A98AE' : '#FF6900';
     glowR.active = true;
     glowM.active = true;
 
@@ -205,7 +205,7 @@ function buildFlow(container) {
     }
 
     ctx.font = '9px system-ui';
-    ctx.fillStyle = '#475569';
+    ctx.fillStyle = '#8A98AE';
     ctx.textAlign = 'center';
     ctx.fillText(CLUSTERS[0].label.split('\n')[1], LEFT_X, 260);
     ctx.fillText(CLUSTERS[1].label.split('\n')[1], RIGHT_X, 260);

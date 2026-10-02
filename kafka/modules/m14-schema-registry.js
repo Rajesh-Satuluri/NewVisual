@@ -37,17 +37,17 @@ function buildWire(container) {
         <rect x="30" y="50" width="60" height="60" rx="6" fill="#EF444433" stroke="#EF4444" stroke-width="2"/>
         <text x="60" y="75" text-anchor="middle" fill="#EF4444" font-size="11" font-weight="700">0x00</text>
         <text x="60" y="92" text-anchor="middle" fill="#EF4444" font-size="9">Magic</text>
-        <text x="60" y="104" text-anchor="middle" fill="#475569" font-size="8">1 byte</text>
+        <text x="60" y="104" text-anchor="middle" fill="#8A98AE" font-size="8">1 byte</text>
 
         <rect x="100" y="50" width="120" height="60" rx="6" fill="#FF690033" stroke="#FF6900" stroke-width="2"/>
         <text x="160" y="75" text-anchor="middle" fill="#FF6900" font-size="11" font-weight="700">Schema ID</text>
         <text x="160" y="92" text-anchor="middle" fill="#FF6900" font-size="9">(int32 BE)</text>
-        <text x="160" y="104" text-anchor="middle" fill="#475569" font-size="8">4 bytes</text>
+        <text x="160" y="104" text-anchor="middle" fill="#8A98AE" font-size="8">4 bytes</text>
 
         <rect x="230" y="50" width="540" height="60" rx="6" fill="#3B82F633" stroke="#3B82F6" stroke-width="2"/>
         <text x="500" y="75" text-anchor="middle" fill="#3B82F6" font-size="11" font-weight="700">Serialized Payload</text>
         <text x="500" y="92" text-anchor="middle" fill="#3B82F6" font-size="9">Avro / Protobuf / JSON Schema encoded bytes</text>
-        <text x="500" y="104" text-anchor="middle" fill="#475569" font-size="8">N bytes</text>
+        <text x="500" y="104" text-anchor="middle" fill="#8A98AE" font-size="8">N bytes</text>
 
         <!-- Lookup flow -->
         <text x="30" y="150" fill="#94A3B8" font-size="11" font-weight="700">Consumer Deserialization Flow</text>
@@ -61,7 +61,7 @@ function buildWire(container) {
         ].map((s, i) => `
           <rect x="${s.x}" y="170" width="130" height="50" rx="8" fill="#1E293B" stroke="${s.color}" stroke-width="1.5"/>
           <text x="${s.x + 65}" y="192" text-anchor="middle" fill="${s.color}" font-size="9" font-weight="700">${s.label.split('(')[0]}</text>
-          ${s.label.includes('(') ? `<text x="${s.x + 65}" y="207" text-anchor="middle" fill="#64748B" font-size="8">(${s.label.split('(')[1].replace(')','')}</text>` : ''}
+          ${s.label.includes('(') ? `<text x="${s.x + 65}" y="207" text-anchor="middle" fill="#94A3B8" font-size="8">(${s.label.split('(')[1].replace(')','')}</text>` : ''}
           ${i < 4 ? `<line x1="${s.x + 130}" y1="195" x2="${s.x + 138}" y2="195" stroke="${s.color}" stroke-width="1.5"/>` : ''}
         `).join('')}
 
@@ -69,8 +69,8 @@ function buildWire(container) {
         <rect x="420" y="260" width="200" height="80" rx="10" fill="#1E293B" stroke="#8B5CF6" stroke-width="2"/>
         <text x="520" y="284" text-anchor="middle" fill="#8B5CF6" font-size="12" font-weight="800">Schema Registry</text>
         <text x="520" y="302" text-anchor="middle" fill="#94A3B8" font-size="9">GET /schemas/ids/{id}</text>
-        <text x="520" y="318" text-anchor="middle" fill="#64748B" font-size="9">Returns: Avro schema JSON</text>
-        <text x="520" y="334" text-anchor="middle" fill="#475569" font-size="8">Cached after first fetch</text>
+        <text x="520" y="318" text-anchor="middle" fill="#94A3B8" font-size="9">Returns: Avro schema JSON</text>
+        <text x="520" y="334" text-anchor="middle" fill="#8A98AE" font-size="8">Cached after first fetch</text>
 
         <line x1="555" y1="220" x2="520" y2="258" stroke="#8B5CF6" stroke-width="1.5" stroke-dasharray="4,3"/>
 

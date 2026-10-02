@@ -80,7 +80,7 @@ function buildAssign(container) {
 
     // Partitions row
     ctx.font = 'bold 11px system-ui';
-    ctx.fillStyle = '#64748B';
+    ctx.fillStyle = '#94A3B8';
     ctx.textAlign = 'left';
     ctx.fillText(`Topic: orders (${PARTITION_COUNT} partitions)`, 40, 40);
 
@@ -150,7 +150,7 @@ function buildAssign(container) {
     // On-canvas legend / teaching line
     ctx.textAlign = 'left';
     ctx.font = '11px system-ui';
-    ctx.fillStyle = '#64748B';
+    ctx.fillStyle = '#94A3B8';
     ctx.fillText('Dashed line = current partition ownership (recomputed on every join/leave). Each colour is one partition.', 40, 330);
     const idle = Math.max(0, consumers.length - PARTITION_COUNT);
     if (idle > 0) {
@@ -216,21 +216,21 @@ function buildAmazon(container) {
 
       <!-- Hero -->
       <div style="background:#111827;border:1px solid #FF6900;border-radius:14px;padding:20px 24px;margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#64748B;margin-bottom:8px">Consumer group design</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#94A3B8;margin-bottom:8px">Consumer group design</div>
         <div style="font-size:18px;font-weight:800;color:#F1F5F9;margin-bottom:4px">Amazon runs 4 consumer groups on the orders topic — each with different rules</div>
         <div style="font-size:13px;color:#94A3B8">Same 6 partitions. Same records. Four completely independent consumer groups — each reading at its own speed with its own lag SLA, consumer count, and failure budget.</div>
       </div>
 
       <!-- 4 consumer groups table -->
       <div style="margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748B;margin-bottom:14px">The 4 groups on orders-topic (6 partitions)</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">The 4 groups on orders-topic (6 partitions)</div>
         <div style="overflow-x:auto;border-radius:10px;border:1px solid #1E293B">
           <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:720px">
             <thead><tr style="background:#0F172A;border-bottom:1px solid #1E293B">
-              <th style="padding:10px 14px;text-align:left;color:#64748B;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Group</th>
-              <th style="padding:10px 14px;text-align:left;color:#64748B;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Consumers</th>
-              <th style="padding:10px 14px;text-align:left;color:#64748B;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Lag SLA</th>
-              <th style="padding:10px 14px;text-align:left;color:#64748B;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Why This Count</th>
+              <th style="padding:10px 14px;text-align:left;color:#94A3B8;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Group</th>
+              <th style="padding:10px 14px;text-align:left;color:#94A3B8;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Consumers</th>
+              <th style="padding:10px 14px;text-align:left;color:#94A3B8;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Lag SLA</th>
+              <th style="padding:10px 14px;text-align:left;color:#94A3B8;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Why This Count</th>
             </tr></thead>
             <tbody>
               ${
@@ -257,7 +257,7 @@ function buildAmazon(container) {
 
       <!-- Rebalance cost -->
       <div style="margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748B;margin-bottom:14px">Prime Day auto-scale — why rebalance protocol matters</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">Prime Day auto-scale — why rebalance protocol matters</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
           <div style="background:#EF444412;border:1.5px solid #EF444444;border-radius:12px;padding:16px 20px">
             <div style="font-size:12px;font-weight:700;color:#EF4444;margin-bottom:8px">Eager rebalance (stop-the-world)</div>

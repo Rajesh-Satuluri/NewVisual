@@ -110,7 +110,7 @@ function buildRetention(container) {
     const policyTxt = mode === 'time'
       ? `policy: retention.ms = ${RET_DAYS} days  ·  delete when a sealed segment's age > ${RET_DAYS}d`
       : `policy: retention.bytes = ${SIZE_CAP.toFixed(1)} GB/partition  ·  delete oldest when total > ${SIZE_CAP.toFixed(1)} GB`;
-    ctx.fillStyle = '#64748B';
+    ctx.fillStyle = '#94A3B8';
     ctx.fillText(policyTxt, 30, 52);
     ctx.fillStyle = (mode === 'size' && total > SIZE_CAP) ? '#EF4444' : '#10B981';
     ctx.fillText(`Total on disk: ${total.toFixed(1)} GB`, 640, 52);
@@ -140,7 +140,7 @@ function buildRetention(container) {
       ctx.font = 'bold 10px system-ui';
       if (s.dying) { ctx.fillStyle = '#EF4444'; ctx.fillText('✖ EVICTED', x + BW / 2, Y + 68); }
       else if (!s.sealed) { ctx.fillStyle = '#FF6900'; ctx.fillText('▲ ACTIVE (writing)', x + BW / 2, Y + 68); }
-      else { ctx.fillStyle = '#64748B'; ctx.fillText('sealed · immutable', x + BW / 2, Y + 68); }
+      else { ctx.fillStyle = '#94A3B8'; ctx.fillText('sealed · immutable', x + BW / 2, Y + 68); }
       ctx.globalAlpha = 1;
     });
 
@@ -154,7 +154,7 @@ function buildRetention(container) {
       ctx.fillStyle = '#94A3B8'; ctx.fillText(t, lx + 18, 206);
       lx += ctx.measureText(t).width + 54;
     });
-    ctx.fillStyle = '#475569';
+    ctx.fillStyle = '#8A98AE';
     ctx.font = '10px system-ui';
     ctx.fillText('Deletion is per-segment, never per-record: a segment is evicted only once its whole span is past the boundary.', 30, 236);
     ctx.fillText('Each .log file ships with a sparse .index and .timeindex sibling (shown as the segment box).', 30, 252);
@@ -258,7 +258,7 @@ function buildCompaction(container) {
       ctx.fillStyle = r.tomb ? '#EF4444' : '#E2E8F0';
       ctx.fillText(r.tomb ? 'null 🪦' : r.val, x + BW / 2, Y + 50);
       ctx.font = '10px system-ui';
-      ctx.fillStyle = '#64748B';
+      ctx.fillStyle = '#94A3B8';
       ctx.fillText(`offset ${r.off}`, x + BW / 2, Y + 72);
       if (r.dying) { ctx.fillStyle = '#EF4444'; ctx.font = 'bold 10px system-ui'; ctx.fillText('stale ✖', x + BW / 2, Y + 90); }
       else if (r.tomb) { ctx.fillStyle = '#EF4444'; ctx.font = 'bold 10px system-ui'; ctx.fillText('tombstone', x + BW / 2, Y + 90); }
@@ -268,15 +268,15 @@ function buildCompaction(container) {
 
     ctx.textAlign = 'left';
     ctx.font = '11px system-ui';
-    ctx.fillStyle = '#64748B';
+    ctx.fillStyle = '#94A3B8';
     if (compacted) {
       ctx.fillStyle = '#10B981';
       ctx.fillText('✅ 3 superseded versions removed. user:1 keeps only "Ali" (offset 5); user:2 reduced to its tombstone.', 30, 206);
-      ctx.fillStyle = '#64748B';
+      ctx.fillStyle = '#94A3B8';
       ctx.fillText('Any new consumer reading from offset 0 now gets current state directly — no database bootstrap needed.', 30, 224);
     } else {
       ctx.fillText('user:1 appears 3× (Alice → Alicia → Ali). user:2 appears 3× ending in a tombstone. Only the latest per key survives.', 30, 206);
-      ctx.fillStyle = '#475569';
+      ctx.fillStyle = '#8A98AE';
       ctx.fillText('Compaction runs on sealed segments only, when dirty-ratio crosses min.cleanable.dirty.ratio (default 0.5).', 30, 224);
     }
 
@@ -302,21 +302,21 @@ function buildAmazon(container) {
 
       <!-- Hero -->
       <div style="background:#111827;border:1px solid #FF6900;border-radius:14px;padding:20px 24px;margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#64748B;margin-bottom:8px">Retention decisions</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#94A3B8;margin-bottom:8px">Retention decisions</div>
         <div style="font-size:18px;font-weight:800;color:#F1F5F9;margin-bottom:4px">One size does not fit all — Amazon's 5 topics, 5 different retention policies</div>
         <div style="font-size:13px;color:#94A3B8">Retention and compaction are per-topic settings. Getting them wrong means paying for storage you don't need — or permanently losing data you can never recover.</div>
       </div>
 
       <!-- Retention table -->
       <div style="margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748B;margin-bottom:14px">Retention policy per topic — and why</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">Retention policy per topic — and why</div>
         <div style="overflow-x:auto;border-radius:10px;border:1px solid #1E293B">
           <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:700px">
             <thead><tr style="background:#0F172A;border-bottom:1px solid #1E293B">
-              <th style="padding:10px 14px;text-align:left;color:#64748B;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Topic</th>
-              <th style="padding:10px 14px;text-align:left;color:#64748B;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Policy</th>
-              <th style="padding:10px 14px;text-align:left;color:#64748B;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Retention</th>
-              <th style="padding:10px 14px;text-align:left;color:#64748B;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Why</th>
+              <th style="padding:10px 14px;text-align:left;color:#94A3B8;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Topic</th>
+              <th style="padding:10px 14px;text-align:left;color:#94A3B8;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Policy</th>
+              <th style="padding:10px 14px;text-align:left;color:#94A3B8;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Retention</th>
+              <th style="padding:10px 14px;text-align:left;color:#94A3B8;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Why</th>
             </tr></thead>
             <tbody>
               ${
@@ -341,14 +341,14 @@ function buildAmazon(container) {
 
       <!-- Compaction example -->
       <div style="margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748B;margin-bottom:14px">Compaction in action — iPhone 15 Pro on product-catalog</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">Compaction in action — iPhone 15 Pro on product-catalog</div>
         <div style="background:#111827;border:1px solid #1E293B;border-radius:12px;padding:18px 22px">
           <div style="font-size:13px;color:#94A3B8;line-height:1.7;margin-bottom:14px">Key: <code style="background:#0A0E1A;color:#3B82F6;padding:2px 6px;border-radius:3px">B08N5WRWNW</code> (iPhone 15 Pro ASIN). Over 6 months, 47 price and stock updates were written to product-catalog. Before compaction, the partition holds all 47:</div>
-          <div style="font-family:monospace;font-size:11px;color:#64748B;line-height:2;background:#0A0E1A;border-radius:8px;padding:14px;margin-bottom:14px">
+          <div style="font-family:monospace;font-size:11px;color:#94A3B8;line-height:2;background:#0A0E1A;border-radius:8px;padding:14px;margin-bottom:14px">
             <div>off:0 &nbsp;&nbsp; key:B08N5WRWNW → {price:$1,199, stock:0, status:pre-order}</div>
             <div>off:1 &nbsp;&nbsp; key:B08N5WRWNW → {price:$1,199, stock:5000, status:available}</div>
-            <div>off:18 &nbsp; key:B08N5WRWNW → {price:$1,099, stock:2300, status:available} &nbsp;<span style="color:#475569">← Prime Day discount</span></div>
-            <div style="color:#475569">…43 more updates…</div>
+            <div>off:18 &nbsp; key:B08N5WRWNW → {price:$1,099, stock:2300, status:available} &nbsp;<span style="color:#8A98AE">← Prime Day discount</span></div>
+            <div style="color:#8A98AE">…43 more updates…</div>
             <div style="color:#3B82F6">off:46 &nbsp; key:B08N5WRWNW → {price:$999, stock:847, status:available} &nbsp;<span style="color:#3B82F6">← LATEST — kept after compaction</span></div>
           </div>
           <div style="padding:10px 14px;background:#3B82F611;border:1px solid #3B82F633;border-radius:8px;font-size:12px;color:#94A3B8;line-height:1.7">

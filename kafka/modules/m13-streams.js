@@ -110,7 +110,7 @@ function buildTopology(container) {
         ].map(b => `
           <rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" rx="8" fill="#1E293B" stroke="${b.color}" stroke-width="1.5"/>
           <text x="${b.x + b.w/2}" y="${b.y + 22}" text-anchor="middle" fill="${b.color}" font-size="10" font-weight="700">${b.label}</text>
-          <text x="${b.x + b.w/2}" y="${b.y + 38}" text-anchor="middle" fill="#64748B" font-size="9">${b.sub}</text>
+          <text x="${b.x + b.w/2}" y="${b.y + 38}" text-anchor="middle" fill="#94A3B8" font-size="9">${b.sub}</text>
         `).join('')}
 
         <!-- Arrows -->
@@ -128,12 +128,12 @@ function buildTopology(container) {
         <rect x="30" y="300" width="340" height="60" rx="8" fill="#1E293B" stroke="#8B5CF6" stroke-width="1"/>
         <text x="200" y="322" text-anchor="middle" fill="#8B5CF6" font-size="11" font-weight="700">Local State Store (RocksDB)</text>
         <text x="200" y="340" text-anchor="middle" fill="#94A3B8" font-size="9">Backed by Kafka changelog topic (compacted)</text>
-        <text x="200" y="354" text-anchor="middle" fill="#64748B" font-size="9">Restored on restart by replaying changelog</text>
+        <text x="200" y="354" text-anchor="middle" fill="#94A3B8" font-size="9">Restored on restart by replaying changelog</text>
 
         <rect x="400" y="300" width="360" height="60" rx="8" fill="#1E293B" stroke="#F59E0B" stroke-width="1"/>
         <text x="580" y="322" text-anchor="middle" fill="#F59E0B" font-size="11" font-weight="700">Example Output</text>
         <text x="580" y="340" text-anchor="middle" fill="#94A3B8" font-size="9">Key: electronics|2024-01-15T14:05</text>
-        <text x="580" y="354" text-anchor="middle" fill="#64748B" font-size="9">Value: $2,847,332 revenue</text>
+        <text x="580" y="354" text-anchor="middle" fill="#94A3B8" font-size="9">Value: $2,847,332 revenue</text>
       </svg>
     </div>`;
 }

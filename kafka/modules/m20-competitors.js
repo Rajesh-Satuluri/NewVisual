@@ -84,8 +84,8 @@ function buildMatrix(container) {
         <line x1="90" y1="300" x2="690" y2="300" stroke="#334155" stroke-width="1.5"/>
         <line x1="90" y1="50"  x2="90"  y2="300" stroke="#334155" stroke-width="1.5"/>
         <!-- axis labels -->
-        <text x="390" y="330" text-anchor="middle" fill="#64748B" font-size="11">Self-managed  ———→  Fully managed</text>
-        <text x="30" y="175" text-anchor="middle" fill="#64748B" font-size="11" transform="rotate(-90 30 175)">Task queue  ———→  Streaming platform</text>
+        <text x="390" y="330" text-anchor="middle" fill="#94A3B8" font-size="11">Self-managed  ———→  Fully managed</text>
+        <text x="30" y="175" text-anchor="middle" fill="#94A3B8" font-size="11" transform="rotate(-90 30 175)">Task queue  ———→  Streaming platform</text>
         <!-- quadrant guides -->
         <line x1="390" y1="50" x2="390" y2="300" stroke="#1E293B" stroke-width="1" stroke-dasharray="4,4"/>
         <line x1="90" y1="175" x2="690" y2="175" stroke="#1E293B" stroke-width="1" stroke-dasharray="4,4"/>

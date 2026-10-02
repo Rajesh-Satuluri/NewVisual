@@ -151,7 +151,7 @@ function buildPipeline(container) {
       g.draw(ctx);
       const s = SERVICES[i];
       ctx.font = '8px system-ui';
-      ctx.fillStyle = '#475569';
+      ctx.fillStyle = '#8A98AE';
       ctx.textAlign = 'center';
       if (s.label.includes('\n')) {
         ctx.fillText(s.label.split('\n')[1], s.x, s.y + 44);
@@ -164,7 +164,7 @@ function buildPipeline(container) {
 
     // Label
     ctx.font = 'bold 11px system-ui';
-    ctx.fillStyle = '#64748B';
+    ctx.fillStyle = '#94A3B8';
     ctx.textAlign = 'left';
     ctx.fillText('Orders placed: ' + orderCount, 40, 430);
     ctx.fillText('All services receive every order event independently', 40, 448);

@@ -107,7 +107,7 @@ function buildBalance(container) {
     // Labels
     for (let i = 0; i < P_COUNT; i++) {
       ctx.font = '11px system-ui';
-      ctx.fillStyle = '#64748B';
+      ctx.fillStyle = '#94A3B8';
       ctx.textAlign = 'center';
       ctx.fillText(`msgs/s: ${Math.round(counters[i])}`, 40 + i * 150 + 65, 175);
       if (isHot && i === 0) {
@@ -118,7 +118,7 @@ function buildBalance(container) {
 
     // Key routing legend
     ctx.font = '10px system-ui';
-    ctx.fillStyle = '#475569';
+    ctx.fillStyle = '#8A98AE';
     ctx.textAlign = 'left';
     ctx.fillText(isHot
       ? 'Key: country → 80% traffic has key="US" → all land in P0'
@@ -151,28 +151,28 @@ function buildAmazon(container) {
 
       <!-- Hero -->
       <div style="background:#111827;border:1px solid #FF6900;border-radius:14px;padding:20px 24px;margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#64748B;margin-bottom:8px">Design decisions</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#94A3B8;margin-bottom:8px">Design decisions</div>
         <div style="font-size:18px;font-weight:800;color:#F1F5F9;margin-bottom:4px">How Amazon engineers decide partition count and keys for every topic</div>
         <div style="font-size:13px;color:#94A3B8">Two decisions made once at topic creation that can never be cleanly undone — get them right the first time.</div>
       </div>
 
       <!-- Partition count decision -->
       <div style="margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748B;margin-bottom:14px">Step 1: How many partitions? — The orders topic</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">Step 1: How many partitions? — The orders topic</div>
         <div style="background:#111827;border:1px solid #1E293B;border-radius:12px;padding:18px 22px;margin-bottom:12px">
           <div style="font-size:13px;font-weight:700;color:#F1F5F9;margin-bottom:12px">The calculation</div>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;font-size:12px;margin-bottom:14px">
             <div style="background:#0A0E1A;border-radius:8px;padding:12px;text-align:center">
               <div style="font-size:20px;font-weight:800;color:#FF6900">50,000</div>
-              <div style="color:#64748B;margin-top:4px">events/sec peak<br>(Prime Day orders)</div>
+              <div style="color:#94A3B8;margin-top:4px">events/sec peak<br>(Prime Day orders)</div>
             </div>
             <div style="background:#0A0E1A;border-radius:8px;padding:12px;text-align:center">
               <div style="font-size:20px;font-weight:800;color:#3B82F6">20,000</div>
-              <div style="color:#64748B;margin-top:4px">events/sec per<br>Fulfillment consumer</div>
+              <div style="color:#94A3B8;margin-top:4px">events/sec per<br>Fulfillment consumer</div>
             </div>
             <div style="background:#0A0E1A;border-radius:8px;padding:12px;text-align:center">
               <div style="font-size:20px;font-weight:800;color:#10B981">3</div>
-              <div style="color:#64748B;margin-top:4px">partitions needed<br>(50k ÷ 20k = 2.5 → 3)</div>
+              <div style="color:#94A3B8;margin-top:4px">partitions needed<br>(50k ÷ 20k = 2.5 → 3)</div>
             </div>
           </div>
           <div style="background:#F59E0B12;border:1px solid #F59E0B33;border-radius:8px;padding:12px 14px;font-size:12px;color:#94A3B8;line-height:1.7">
@@ -186,14 +186,14 @@ function buildAmazon(container) {
 
       <!-- Key strategy per topic -->
       <div style="margin-bottom:28px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748B;margin-bottom:14px">Step 2: What key to use — different answer for every topic</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">Step 2: What key to use — different answer for every topic</div>
         <div style="overflow-x:auto;border-radius:10px;border:1px solid #1E293B">
           <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:700px">
             <thead><tr style="background:#0F172A;border-bottom:1px solid #1E293B">
-              <th style="padding:10px 14px;text-align:left;color:#64748B;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Topic</th>
-              <th style="padding:10px 14px;text-align:left;color:#64748B;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Key Used</th>
-              <th style="padding:10px 14px;text-align:left;color:#64748B;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Why This Key</th>
-              <th style="padding:10px 14px;text-align:left;color:#64748B;font-size:10px;text-transform:uppercase;letter-spacing:.06em">What Would Break With Wrong Key</th>
+              <th style="padding:10px 14px;text-align:left;color:#94A3B8;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Topic</th>
+              <th style="padding:10px 14px;text-align:left;color:#94A3B8;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Key Used</th>
+              <th style="padding:10px 14px;text-align:left;color:#94A3B8;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Why This Key</th>
+              <th style="padding:10px 14px;text-align:left;color:#94A3B8;font-size:10px;text-transform:uppercase;letter-spacing:.06em">What Would Break With Wrong Key</th>
             </tr></thead>
             <tbody>
               ${
@@ -225,8 +225,8 @@ function buildAmazon(container) {
               P0 (US) &nbsp;&nbsp;&nbsp; → <span style="color:#EF4444">████████████████ 65%</span><br>
               P1 (EU) &nbsp;&nbsp;&nbsp; → <span style="color:#F59E0B">█████ 20%</span><br>
               P2 (APAC) → <span style="color:#94A3B8">███ 10%</span><br>
-              P3 (LATAM) → <span style="color:#475569">█ 5%</span><br>
-              <span style="color:#64748B;font-size:10px;display:block;margin-top:6px">P0 consumer handles 13× more work than P3 consumer.<br>Fulfillment for US orders backs up. US customers wait 10 minutes for order confirmation during Prime Day.</span>
+              P3 (LATAM) → <span style="color:#8A98AE">█ 5%</span><br>
+              <span style="color:#94A3B8;font-size:10px;display:block;margin-top:6px">P0 consumer handles 13× more work than P3 consumer.<br>Fulfillment for US orders backs up. US customers wait 10 minutes for order confirmation during Prime Day.</span>
             </div>
           </div>
           <div>
@@ -236,7 +236,7 @@ function buildAmazon(container) {
               P1 → <span style="color:#10B981">████ 25%</span><br>
               P2 → <span style="color:#10B981">████ 25%</span><br>
               P3 → <span style="color:#10B981">████ 25%</span><br>
-              <span style="color:#64748B;font-size:10px;display:block;margin-top:6px">300M+ unique customer IDs → perfect hash distribution.<br>Each Fulfillment consumer handles exactly the same load. No lag on any partition.</span>
+              <span style="color:#94A3B8;font-size:10px;display:block;margin-top:6px">300M+ unique customer IDs → perfect hash distribution.<br>Each Fulfillment consumer handles exactly the same load. No lag on any partition.</span>
             </div>
           </div>
         </div>
