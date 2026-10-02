@@ -204,8 +204,31 @@ function buildImpact(container) {
     { name: 'Cloudflare', role: 'DNS query processing, threat intel', color: '#F38020' },
   ];
 
+  const bars = [
+    { label: 'RabbitMQ',          disp: '~50k msg/s',   pct: 2.5, color: '#FF6600' },
+    { label: 'ActiveMQ',          disp: '~100k msg/s',  pct: 5,   color: '#D22128' },
+    { label: 'Kafka · 1 broker',  disp: '2,000k msg/s', pct: 100, color: '#FF6900' },
+  ];
+
   tab.innerHTML = `
-    <div class="stats-row" style="padding:32px 40px 0;">
+    <div class="scroll-content" style="padding-bottom:4px">
+      <div class="section-header"><div class="section-title">The number that changed data engineering</div><div class="section-desc">Sustained writes per second on one commodity broker — same hardware LinkedIn benchmarked in 2011</div></div>
+      <div style="display:flex;flex-direction:column;gap:12px;max-width:780px">
+        ${bars.map(b => `
+          <div style="display:flex;align-items:center;gap:14px">
+            <div style="width:120px;flex-shrink:0;font-size:12px;font-weight:600;color:var(--text2);text-align:right">${b.label}</div>
+            <div style="flex:1;background:var(--bg3);border-radius:7px;height:30px;position:relative;overflow:hidden">
+              <div style="position:absolute;inset:0 auto 0 0;width:${b.pct}%;min-width:46px;background:linear-gradient(90deg,${b.color}cc,${b.color});border-radius:7px"></div>
+              <div style="position:absolute;inset:0;display:flex;align-items:center;padding-left:12px;font-size:11px;font-weight:800;color:#fff;font-family:monospace;z-index:1">${b.disp}</div>
+            </div>
+          </div>`).join('')}
+      </div>
+      <div class="canvas-explainer" style="border-top:none;border-radius:10px;margin-top:16px">
+        <p>That bar is the whole reason Kafka exists. On the <em>same commodity server</em>, Kafka sustained <strong>~20–40× the throughput</strong> of the message brokers LinkedIn was using — not by clever tricks, but by <strong>refusing to do unnecessary work</strong>: it only ever <em>appends</em> to a file (sequential disk I/O, ~6× faster than the random writes a traditional queue's per-message index forces), it ships bytes straight from the OS page cache to the network with <strong>zero-copy</strong> <code>sendfile()</code>, and it <strong>batches + compresses</strong> so one network round-trip carries thousands of records.</p>
+        <p>And 2M/broker is just the <em>unit</em>. Because partitions are independent and brokers share nothing, throughput <strong>scales linearly</strong>: add brokers and partitions and you add millions of messages per second — which is how Netflix reaches 700B+ events/day and LinkedIn passes a trillion messages/day. The quick-facts below are the industry footprint that scale produced.</p>
+      </div>
+    </div>
+    <div class="stats-row" style="padding:12px 40px 0;">
       ${stats.map(s => `
         <div class="stat-box">
           <div class="stat-val">${s.val}</div>
