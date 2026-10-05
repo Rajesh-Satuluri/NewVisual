@@ -55,6 +55,14 @@
         continue;
       }
 
+      // standalone image -> figure (e.g. the inline pattern diagrams)
+      var img = line.match(/^!\[([^\]]*)\]\(([^)]+)\)\s*$/);
+      if (img) {
+        html.push('<figure class="md-fig"><img src="' + img[2] + '" alt="' + img[1] + '" loading="lazy"></figure>');
+        i++;
+        continue;
+      }
+
       // headings
       var h = line.match(/^(#{1,6})\s+(.*)$/);
       if (h) {
@@ -111,6 +119,7 @@
         !/^```/.test(lines[i]) &&
         !/^#{1,6}\s/.test(lines[i]) &&
         !/^>\s?/.test(lines[i]) &&
+        !/^!\[[^\]]*\]\([^)]+\)\s*$/.test(lines[i]) &&
         !/^\s*[-*]\s+/.test(lines[i]) &&
         !/^\s*\d+\.\s+/.test(lines[i])
       ) {

@@ -186,6 +186,15 @@
 @media (max-width: 900px) {
   .intro-page, .intro-cta { margin-left: 14px; margin-right: 14px; }
 }
+
+/* inline pattern diagrams (exact book figures) — the SVGs carry a white
+   background, so present them on a clean padded card that reads in both themes */
+.md-fig {
+  margin: 18px 0; padding: 14px; border: 1px solid var(--border);
+  border-radius: var(--radius); background: #fff; text-align: center;
+  overflow-x: auto;
+}
+.md-fig img { max-width: 100%; height: auto; display: inline-block; vertical-align: middle; }
 .st { font-size: 13px; width: 14px; text-align: center; }
 .st-solved { color: var(--green); }
 .st-learning { color: var(--amber); }
