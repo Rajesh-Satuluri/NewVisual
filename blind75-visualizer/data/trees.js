@@ -2226,6 +2226,199 @@
         "Deserialize: iter over tokens, '#' -> None, else node with left=build(), right=build().",
         "Emit markers for ALL nulls (even leaf children) and consume in the same order; O(n)/O(n)."
       ]
+    },
+    {
+      "id": "maximum-width-of-binary-tree",
+      "lc": 662,
+      "title": "Maximum Width of Binary Tree",
+      "difficulty": "Medium",
+      "category": "Trees",
+      "link": "https://leetcode.com/problems/maximum-width-of-binary-tree/",
+      "meta": {
+        "pattern": "BFS + Indexing",
+        "dataStructure": "Queue",
+        "technique": "Heap-style node indices"
+      },
+      "description": "Given the `root` of a binary tree, return the **width of its widest level**. The width of a level is the distance between its leftmost and rightmost non-null nodes — counting the `null` gaps **between** them, as if the level were a full array.\n\nThe trick is to give each node an array-style index, then each level's width is `rightmost_index - leftmost_index + 1`.",
+      "constraints": [
+        "`1 <= number of nodes <= 3000`",
+        "`-100 <= Node.val <= 100`",
+        "Width counts the null slots between the end nodes."
+      ],
+      "notes": [
+        "Width != node count: the null gaps between the outermost nodes are included.",
+        "Index a node i -> left child 2*i + 1, right child 2*i + 2 (like a heap)."
+      ],
+      "examples": [
+        {
+          "input": "root = [1, 3, 2, 5, 3, null, 9]",
+          "output": "4",
+          "reasoning": "The bottom level has nodes at indices 3,4,6 -> width 6-3+1 = 4."
+        },
+        {
+          "input": "root = [1, 3, 2, 5, null, null, 9, 6, null, 7]",
+          "output": "7",
+          "reasoning": "The deepest level spans a wide index range with nulls in between."
+        },
+        {
+          "input": "indexing picture",
+          "output": "",
+          "reasoning": "Array indices make width a subtraction.",
+          "visual": "```\nindex root 0; child of i -> 2i+1 (left), 2i+2 (right)\nlevel indices:  3 . . 6   -> width = 6 - 3 + 1 = 4\n```"
+        }
+      ],
+      "approaches": [
+        {
+          "name": "BFS with node indices",
+          "time": "O(n)",
+          "space": "O(n)",
+          "whenToUse": "The standard solution: level-order traversal carrying an array index per node.",
+          "logic": "**What it asks.** The widest level's span, counting internal null gaps.\n\n**Key Idea.** Imagine the tree embedded in an array like a binary heap: the root is index `0`, and a node at index `i` has children at `2*i + 1` and `2*i + 2`. Then a level's width is simply `last_index - first_index + 1`, and the null gaps are counted automatically because missing nodes still consume index slots.\n\n**Step-by-Step Approach.**\n1. BFS level by level with a queue of `(node, index)` pairs.\n2. For each level, record `leftmost` = index of the first node and `rightmost` = index of the last node processed.\n3. Update `max_width = max(max_width, rightmost - leftmost + 1)`.\n4. Enqueue children with indices `2*i + 1` and `2*i + 2`.\n\n**Why it works.** The heap-style indexing preserves horizontal position across a level, so the index difference equals the real width including gaps. Python's big integers mean the indices never overflow (in other languages you'd subtract the level's first index to keep them small).\n\n**Common Gotchas.**\n- Read `leftmost` from the first node *before* the level loop; keep updating `rightmost` as you pop.\n- Pair each node with its index in the queue.\n- `+1` in the width formula (it's inclusive).\n\n**Complexity.** Each node is processed once -> `O(n)` time, `O(n)` queue space.\n\n**Interview mindset.** 'Width with gaps' is the cue to index nodes like a heap rather than count them.",
+          "rcs": "from collections import deque\nfrom typing import Optional\n\n\nclass Solution:\n    def widthOfBinaryTree(self, root: Optional[TreeNode]) -> int:\n        if not root:\n            return 0\n        max_width = 0\n        queue = deque([(root, 0)])  # (node, array-style index).\n        while queue:\n            level_size = len(queue)\n            leftmost = queue[0][1]  # Index of the first node on this level.\n            rightmost = leftmost\n            for _ in range(level_size):\n                node, i = queue.popleft()\n                rightmost = i  # Ends as the last index on this level.\n                if node.left:\n                    queue.append((node.left, 2 * i + 1))  # Heap-style child index.\n                if node.right:\n                    queue.append((node.right, 2 * i + 2))\n            max_width = max(max_width, rightmost - leftmost + 1)  # Inclusive width.\n        return max_width",
+          "plain": "from collections import deque\nfrom typing import Optional\n\n\nclass Solution:\n    def widthOfBinaryTree(self, root: Optional[TreeNode]) -> int:\n        if not root:\n            return 0\n        max_width = 0\n        queue = deque([(root, 0)])\n        while queue:\n            level_size = len(queue)\n            leftmost = queue[0][1]\n            rightmost = leftmost\n            for _ in range(level_size):\n                node, i = queue.popleft()\n                rightmost = i\n                if node.left:\n                    queue.append((node.left, 2 * i + 1))\n                if node.right:\n                    queue.append((node.right, 2 * i + 2))\n            max_width = max(max_width, rightmost - leftmost + 1)\n        return max_width"
+        }
+      ],
+      "patternRecognition": [
+        "'Width including null gaps' -> index nodes like a binary heap.",
+        "child(i) = 2i+1, 2i+2; width = last - first + 1 per level.",
+        "Level-order BFS carries (node, index) pairs."
+      ],
+      "interviewRecall": [
+        "Queue of (node, index); children at 2i+1, 2i+2.",
+        "Per level: width = rightmost_index - leftmost_index + 1.",
+        "Big ints in Python avoid overflow; else offset by the level's first index."
+      ]
+    },
+    {
+      "id": "symmetric-tree",
+      "lc": 101,
+      "title": "Symmetric Tree",
+      "difficulty": "Easy",
+      "category": "Trees",
+      "link": "https://leetcode.com/problems/symmetric-tree/",
+      "meta": {
+        "pattern": "Tree DFS (mirror)",
+        "dataStructure": "Binary Tree",
+        "technique": "Paired comparison"
+      },
+      "description": "Given the `root` of a binary tree, return whether it is **mirror-symmetric** around its center — i.e. the left subtree is a mirror image of the right subtree.",
+      "constraints": [
+        "`1 <= number of nodes <= 1000`",
+        "`-100 <= Node.val <= 100`"
+      ],
+      "notes": [
+        "Compare the left subtree against the MIRROR of the right subtree.",
+        "Mirror means: left.left pairs with right.right, and left.right pairs with right.left."
+      ],
+      "examples": [
+        {
+          "input": "root = [1, 2, 2, 3, 4, 4, 3]",
+          "output": "true",
+          "reasoning": "The two halves mirror each other."
+        },
+        {
+          "input": "root = [1, 2, 2, null, 3, null, 3]",
+          "output": "false",
+          "reasoning": "The 3's sit on the same side, breaking the mirror."
+        },
+        {
+          "input": "mirror pairing",
+          "output": "",
+          "reasoning": "Which nodes are compared.",
+          "visual": "```\n        1\n      2   2\n     3 4 4 3\ncompare (left.left=3, right.right=3) and (left.right=4, right.left=4)\n```"
+        }
+      ],
+      "approaches": [
+        {
+          "name": "Recursive DFS — mirror compare",
+          "time": "O(n)",
+          "space": "O(h)",
+          "whenToUse": "The cleanest solution: recursively compare mirrored node pairs.",
+          "logic": "**What it asks.** Is the tree a mirror of itself?\n\n**Key Idea.** The root doesn't affect symmetry; compare its **two subtrees as mirror images**. Two trees are mirrors when their roots are equal and, crucially, the left's left mirrors the right's right, and the left's right mirrors the right's left (the cross-pairing).\n\n**Step-by-Step Approach.**\n1. If `root` is `None`, it's symmetric.\n2. Call `mirror(root.left, root.right)`.\n3. `mirror(a, b)`: if both `None` -> True; if exactly one `None` -> False; if `a.val != b.val` -> False.\n4. Otherwise return `mirror(a.left, b.right) and mirror(a.right, b.left)`.\n\n**Why it works.** Symmetry is defined recursively: each mirrored pair must have equal values and mirrored children, exactly what the cross-recursion checks.\n\n**Common Gotchas.**\n- Handle the null cases before reading `.val` (both-null True, one-null False).\n- Cross the recursion: `(a.left, b.right)` and `(a.right, b.left)`, not the same sides.\n\n**Complexity.** Visits each node once -> `O(n)` time; recursion depth `O(h)` (tree height).\n\n**Interview mindset.** 'Mirror' problems reduce to comparing cross-paired children.",
+          "rcs": "from typing import Optional\n\n\nclass Solution:\n    def isSymmetric(self, root: Optional[TreeNode]) -> bool:\n        def mirror(a, b):\n            if not a and not b:  # Both empty -> symmetric here.\n                return True\n            if not a or not b:  # Exactly one empty -> not symmetric.\n                return False\n            if a.val != b.val:  # Values must match.\n                return False\n            # Cross-compare: a's left with b's right, a's right with b's left.\n            return mirror(a.left, b.right) and mirror(a.right, b.left)\n        return not root or mirror(root.left, root.right)",
+          "plain": "from typing import Optional\n\n\nclass Solution:\n    def isSymmetric(self, root: Optional[TreeNode]) -> bool:\n        def mirror(a, b):\n            if not a and not b:\n                return True\n            if not a or not b:\n                return False\n            if a.val != b.val:\n                return False\n            return mirror(a.left, b.right) and mirror(a.right, b.left)\n        return not root or mirror(root.left, root.right)"
+        },
+        {
+          "name": "Iterative — queue of pairs",
+          "time": "O(n)",
+          "space": "O(n)",
+          "whenToUse": "When recursion depth is a concern; process mirrored pairs with an explicit queue.",
+          "logic": "**Key Idea.** The same mirror check, but driven by a queue holding **pairs** of nodes that should mirror each other.\n\n**Step-by-Step Approach.**\n1. Seed the queue with `(root.left, root.right)`.\n2. Pop a pair `(a, b)`: if both `None`, continue; if one `None` or values differ, return False.\n3. Push the cross pairs `(a.left, b.right)` and `(a.right, b.left)`.\n4. If the queue empties without a mismatch, return True.\n\n**Why it works.** It enumerates exactly the mirrored pairs the recursion would, just level-ordered.\n\n**Common Gotchas.**\n- Enqueue the cross pairs in a consistent order.\n- A both-null pair is fine (`continue`), not a failure.\n\n**Complexity.** `O(n)` time, `O(n)` queue space.\n\n**Interview mindset.** Mention this if asked to avoid recursion / deep stacks.",
+          "rcs": "from collections import deque\nfrom typing import Optional\n\n\nclass Solution:\n    def isSymmetric(self, root: Optional[TreeNode]) -> bool:\n        if not root:\n            return True\n        queue = deque([(root.left, root.right)])  # Pairs to compare as mirrors.\n        while queue:\n            a, b = queue.popleft()\n            if not a and not b:\n                continue  # Both empty -> fine.\n            if not a or not b or a.val != b.val:\n                return False  # Shape or value mismatch.\n            queue.append((a.left, b.right))  # Cross pair.\n            queue.append((a.right, b.left))  # Cross pair.\n        return True",
+          "plain": "from collections import deque\nfrom typing import Optional\n\n\nclass Solution:\n    def isSymmetric(self, root: Optional[TreeNode]) -> bool:\n        if not root:\n            return True\n        queue = deque([(root.left, root.right)])\n        while queue:\n            a, b = queue.popleft()\n            if not a and not b:\n                continue\n            if not a or not b or a.val != b.val:\n                return False\n            queue.append((a.left, b.right))\n            queue.append((a.right, b.left))\n        return True"
+        }
+      ],
+      "patternRecognition": [
+        "'Mirror / symmetric tree' -> compare cross-paired children.",
+        "left.left mirrors right.right; left.right mirrors right.left.",
+        "Null handling first, then value, then recurse/enqueue."
+      ],
+      "interviewRecall": [
+        "mirror(a,b): both null True; one null False; val mismatch False.",
+        "Recurse mirror(a.left,b.right) and mirror(a.right,b.left).",
+        "Iterative version uses a queue of node pairs."
+      ]
+    },
+    {
+      "id": "binary-tree-vertical-order-traversal",
+      "lc": 314,
+      "title": "Binary Tree Vertical Order Traversal",
+      "difficulty": "Medium",
+      "category": "Trees",
+      "link": "https://leetcode.com/problems/binary-tree-vertical-order-traversal/",
+      "meta": {
+        "pattern": "BFS + Column IDs",
+        "dataStructure": "Hash map + Queue",
+        "technique": "Column bucketing"
+      },
+      "description": "Given the `root` of a binary tree, return its nodes grouped by **vertical column**, ordered left column to right column. Within a column, nodes go top to bottom; nodes in the same row and column go left to right.\n\nAssign the root column `0`, decrement when going left and increment when going right, then bucket by column.",
+      "constraints": [
+        "`0 <= number of nodes <= 100`",
+        "`-100 <= Node.val <= 100`"
+      ],
+      "notes": [
+        "Column id: root = 0; left child = col - 1; right child = col + 1.",
+        "Use BFS so same-column nodes come out top-to-bottom and left-to-right automatically."
+      ],
+      "examples": [
+        {
+          "input": "root = [3, 9, 20, null, null, 15, 7]",
+          "output": "[[9], [3, 15], [20], [7]]",
+          "reasoning": "Columns -1, 0, 1, 2 from left to right."
+        },
+        {
+          "input": "root = []",
+          "output": "[]",
+          "reasoning": "Empty tree."
+        },
+        {
+          "input": "column ids",
+          "output": "",
+          "reasoning": "How columns are numbered.",
+          "visual": "```\n        3(0)\n      9(-1) 20(+1)\n          15(0) 7(+2)\ncols: -1:[9]  0:[3,15]  1:[20]  2:[7]\n```"
+        }
+      ],
+      "approaches": [
+        {
+          "name": "BFS with column buckets",
+          "time": "O(n)",
+          "space": "O(n)",
+          "whenToUse": "The standard solution: level-order traversal tagging each node with a column id.",
+          "logic": "**What it asks.** Group node values by vertical column, left to right, each column top-to-bottom and left-to-right.\n\n**Key Idea.** Give each node a **column id**: root is `0`, moving left subtracts 1, moving right adds 1. Bucket values into a hash map keyed by column. Traverse with **BFS** so within each column the values land in the required top-to-bottom, left-to-right order automatically.\n\n**Step-by-Step Approach.**\n1. If `root` is `None`, return `[]`.\n2. BFS a queue of `(node, column)`; append `node.val` to `column_map[column]`.\n3. Track `leftmost` and `rightmost` column ids seen.\n4. Enqueue `(left, column - 1)` and `(right, column + 1)`.\n5. Build the output by reading `column_map[c]` for `c` from `leftmost` to `rightmost`.\n\n**Why BFS, not DFS.** BFS visits strictly top-to-bottom and, within a level, left-to-right — precisely the tie-breaking the problem demands. A DFS could place a lower-left node before a higher-right one in the same column.\n\n**Common Gotchas.**\n- Use BFS (a queue), not DFS, to satisfy the ordering rules.\n- Track min/max column so you can emit columns in order (hash maps aren't ordered).\n- Left = `col - 1`, right = `col + 1`.\n\n**Complexity.** Each node processed once -> `O(n)` time; map + queue -> `O(n)` space.\n\n**Interview mindset.** 'Vertical / column order' = coordinate-tag each node, then bucket.",
+          "rcs": "from collections import defaultdict, deque\nfrom typing import Optional, List\n\n\nclass Solution:\n    def verticalOrder(self, root: Optional[TreeNode]) -> List[List[int]]:\n        if not root:\n            return []\n        column_map = defaultdict(list)  # column id -> values (in BFS order).\n        leftmost = rightmost = 0  # Range of column ids seen.\n        queue = deque([(root, 0)])  # (node, column id).\n        while queue:\n            node, column = queue.popleft()\n            column_map[column].append(node.val)  # Bucket by column.\n            leftmost = min(leftmost, column)\n            rightmost = max(rightmost, column)\n            if node.left:\n                queue.append((node.left, column - 1))  # Left -> column - 1.\n            if node.right:\n                queue.append((node.right, column + 1))  # Right -> column + 1.\n        # Emit columns left to right.\n        return [column_map[c] for c in range(leftmost, rightmost + 1)]",
+          "plain": "from collections import defaultdict, deque\nfrom typing import Optional, List\n\n\nclass Solution:\n    def verticalOrder(self, root: Optional[TreeNode]) -> List[List[int]]:\n        if not root:\n            return []\n        column_map = defaultdict(list)\n        leftmost = rightmost = 0\n        queue = deque([(root, 0)])\n        while queue:\n            node, column = queue.popleft()\n            column_map[column].append(node.val)\n            leftmost = min(leftmost, column)\n            rightmost = max(rightmost, column)\n            if node.left:\n                queue.append((node.left, column - 1))\n            if node.right:\n                queue.append((node.right, column + 1))\n        return [column_map[c] for c in range(leftmost, rightmost + 1)]"
+        }
+      ],
+      "patternRecognition": [
+        "'Vertical / column order' -> tag each node with a column id and bucket.",
+        "root=0, left=col-1, right=col+1.",
+        "BFS gives the top-to-bottom, left-to-right ordering for free."
+      ],
+      "interviewRecall": [
+        "Queue of (node, column); column_map[column].append(val).",
+        "Track leftmost/rightmost to emit columns in order.",
+        "Use BFS (not DFS) for correct tie-breaking."
+      ]
     }
   ]);
 })();

@@ -2654,6 +2654,68 @@
         "BFS gives the shortest ladder; return 0 immediately if endWord is not in the list.",
         "Answer counts WORDS: beginWord is level 1, so a single transform to endWord returns 2."
       ]
+    },
+    {
+      "id": "is-graph-bipartite",
+      "lc": 785,
+      "title": "Is Graph Bipartite?",
+      "difficulty": "Medium",
+      "category": "Graphs",
+      "link": "https://leetcode.com/problems/is-graph-bipartite/",
+      "meta": {
+        "pattern": "Graph Coloring (DFS)",
+        "dataStructure": "Adjacency list",
+        "technique": "Two-coloring"
+      },
+      "description": "Given an undirected graph as an adjacency list (`graph[i]` lists the neighbors of node `i`), determine whether it is **bipartite** — i.e. whether the nodes can be split into two sets so that **every edge connects nodes from different sets**.\n\nEquivalently: can you 2-color the graph so no edge joins two same-colored nodes? The graph may be disconnected.",
+      "constraints": [
+        "`1 <= graph.length <= 100`",
+        "`0 <= graph[i].length < graph.length`",
+        "The graph may have multiple components; no self-loops; undirected (edges listed both ways)."
+      ],
+      "notes": [
+        "Bipartite == 2-colorable == no odd-length cycle.",
+        "Must check EVERY component — iterate over all nodes and start a search from each uncolored one."
+      ],
+      "examples": [
+        {
+          "input": "graph = [[1,3],[0,2],[1,3],[0,2]]",
+          "output": "true",
+          "reasoning": "Color {0,2} one color and {1,3} the other; every edge crosses."
+        },
+        {
+          "input": "graph = [[1,2,3],[0,2],[0,1,3],[0,2]]",
+          "output": "false",
+          "reasoning": "The triangle 0-1-2 is an odd cycle and can't be 2-colored."
+        },
+        {
+          "input": "two-coloring",
+          "output": "",
+          "reasoning": "Color neighbors oppositely; a clash means not bipartite.",
+          "visual": "```\ncolor node 0 = +1\nall neighbors must be -1, their neighbors +1, ...\nif a neighbor already has the SAME color -> not bipartite\n```"
+        }
+      ],
+      "approaches": [
+        {
+          "name": "DFS two-coloring",
+          "time": "O(V + E)",
+          "space": "O(V)",
+          "whenToUse": "The standard solution: DFS coloring neighbors with the opposite color.",
+          "logic": "**What it asks.** Can the graph be 2-colored with no same-colored edge?\n\n**Key Idea.** Do a DFS, coloring each node and forcing every neighbor to the **opposite** color. If you ever reach a neighbor that already has the **same** color as the current node, two-coloring is impossible -> not bipartite.\n\n**Colors as +1 / -1.** Keep a `colors` array initialized to `0` (uncolored). Color a start node `1`; neighbors get `-1`, theirs `1`, and so on — negating the color on each step.\n\n**Handle all components.** The graph may be disconnected, so loop over every node and launch a DFS from each still-uncolored one.\n\n**Step-by-Step Approach.**\n1. `colors = [0] * n`.\n2. For each node `i`: if uncolored, run `dfs(i, 1)`; if it returns False, the graph isn't bipartite.\n3. `dfs(node, color)`: set `colors[node] = color`; for each neighbor: if same color -> return False; if uncolored -> recurse with `-color` (return False on failure).\n4. If all components color cleanly, return True.\n\n**Why it works.** Alternating colors along every edge is exactly the bipartite condition; a same-color clash means an odd cycle, which no 2-coloring can satisfy.\n\n**Common Gotchas.**\n- Iterate over ALL nodes to cover disconnected components.\n- Distinguish 'same color' (fail) from 'uncolored' (recurse) — don't re-recurse into already-correctly-colored nodes.\n- Use `-color` to flip; `0` must mean uncolored.\n\n**Complexity.** Each node and edge visited once -> `O(V + E)` time, `O(V)` for colors + recursion.\n\n**Interview mindset.** 'Two groups, edges only across' = bipartite = 2-coloring (BFS or union-find also work).",
+          "rcs": "from typing import List\n\n\nclass Solution:\n    def isBipartite(self, graph: List[List[int]]) -> bool:\n        colors = [0] * len(graph)  # 0 = uncolored, 1 / -1 = the two colors.\n\n        def dfs(node: int, color: int) -> bool:\n            colors[node] = color\n            for neighbor in graph[node]:\n                if colors[neighbor] == color:  # Same color across an edge -> not bipartite.\n                    return False\n                # Uncolored neighbor -> color it the opposite and continue.\n                if colors[neighbor] == 0 and not dfs(neighbor, -color):\n                    return False\n            return True\n\n        # Cover every component (the graph may be disconnected).\n        for i in range(len(graph)):\n            if colors[i] == 0 and not dfs(i, 1):\n                return False\n        return True",
+          "plain": "from typing import List\n\n\nclass Solution:\n    def isBipartite(self, graph: List[List[int]]) -> bool:\n        colors = [0] * len(graph)\n\n        def dfs(node, color):\n            colors[node] = color\n            for neighbor in graph[node]:\n                if colors[neighbor] == color:\n                    return False\n                if colors[neighbor] == 0 and not dfs(neighbor, -color):\n                    return False\n            return True\n\n        for i in range(len(graph)):\n            if colors[i] == 0 and not dfs(i, 1):\n                return False\n        return True"
+        }
+      ],
+      "patternRecognition": [
+        "'Split into two sets with edges only across' -> bipartite -> 2-coloring.",
+        "Color neighbors with the opposite color; a same-color clash fails.",
+        "Loop over all nodes to handle disconnected components."
+      ],
+      "interviewRecall": [
+        "colors array: 0 uncolored, +1/-1 the two colors.",
+        "dfs: same color -> False; uncolored -> recurse with -color.",
+        "Start a DFS from every uncolored node; O(V + E)."
+      ]
     }
   ]);
 })();
