@@ -125,6 +125,12 @@
 }
 .sidebar.meta-collapsed .sidebar-meta { max-height: 0; opacity: 0; pointer-events: none; }
 
+/* pattern explanation (chapter intro) — attribution line under the prose */
+.pattern-intro-src {
+  margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border);
+  color: var(--muted); font-size: 12px; font-style: italic;
+}
+
 .nav { flex: 1; overflow-y: auto; padding: 6px 8px 40px; scroll-behavior: smooth; overscroll-behavior: contain; }
 .nav-empty { padding: 24px 16px; color: var(--muted); font-size: 13px; text-align: center; }
 
