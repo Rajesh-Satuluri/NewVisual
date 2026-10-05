@@ -1390,6 +1390,77 @@
         "Seed the heap with each person's newest tweet, pop 10 times, pushing each owner's next-newest.",
         "postTweet/follow/unfollow are O(1); getNewsFeed is O(F + 10 log F). heapq is a MIN-heap — use a decreasing counter or negate for a max-heap."
       ]
+    },
+    {
+      "id": "sort-a-k-sorted-array",
+      "lc": null,
+      "title": "Sort a K-Sorted Array",
+      "difficulty": "Medium",
+      "category": "Heap / Priority Queue",
+      "link": null,
+      "meta": {
+        "pattern": "Min-Heap (sliding)",
+        "dataStructure": "Min-Heap",
+        "technique": "Windowed extraction"
+      },
+      "description": "You're given an array where every element is at most `k` positions away from its final sorted position (a **k-sorted** / nearly-sorted array). Sort it in non-decreasing order, faster than a general `O(n log n)` sort by exploiting the `k` bound.",
+      "constraints": [
+        "Every element is within `k` indices of its sorted position.",
+        "`0 <= k < n`",
+        "`1 <= n <= 10^5`"
+      ],
+      "notes": [
+        "The value belonging at index i lies within [i, i + k] of the current array.",
+        "A min-heap of size k+1 yields each next-smallest element in O(log k)."
+      ],
+      "examples": [
+        {
+          "input": "nums = [5, 1, 9, 4, 7, 10], k = 2",
+          "output": "[1, 4, 5, 7, 9, 10]",
+          "reasoning": "No element is more than 2 positions from its sorted spot; a size-3 min-heap extracts them in order."
+        },
+        {
+          "input": "nums = [2, 1, 3], k = 1",
+          "output": "[1, 2, 3]",
+          "reasoning": "Each element is at most 1 away."
+        },
+        {
+          "input": "sliding heap",
+          "output": "",
+          "reasoning": "Why a size-(k+1) heap suffices.",
+          "visual": "```\nheap holds the current candidate window [i .. i+k]\npop min -> the value for index i\npush nums[i+k+1] -> window slides forward\n```"
+        }
+      ],
+      "approaches": [
+        {
+          "name": "Baseline — full sort",
+          "time": "O(n log n)",
+          "space": "O(n) or O(log n)",
+          "whenToUse": "Correct but ignores the k structure; the comparison point.",
+          "logic": "**What it asks.** Sort a nearly-sorted array.\n\n**Idea.** Call a standard comparison sort and return.\n\n**Why we can do better.** A general sort is `O(n log n)` regardless of structure, but because each element is only `k` away from home, we can sort in `O(n log k)` — a win when `k` is much smaller than `n`.\n\n**Complexity.** `O(n log n)` time.\n\n**Interview mindset.** The 'at most k away' phrasing is the hint to use a size-`k` heap instead of a full sort.",
+          "rcs": "from typing import List\n\n\nclass Solution:\n    def sortKSortedArray(self, nums: List[int], k: int) -> List[int]:\n        nums.sort()  # Ignores the k-sorted structure.\n        return nums",
+          "plain": "from typing import List\n\n\nclass Solution:\n    def sortKSortedArray(self, nums: List[int], k: int) -> List[int]:\n        nums.sort()\n        return nums"
+        },
+        {
+          "name": "Optimized — Sliding min-heap",
+          "time": "O(n log k)",
+          "space": "O(k)",
+          "whenToUse": "The intended solution: a min-heap of size k+1 slides across the array.",
+          "logic": "**Key Idea.** The element that belongs at index `i` is the **smallest value within `[i, i + k]`** of the current array (nothing further can reach index `i` under the `k` bound). A **min-heap** of that window gives the minimum in `O(log k)`.\n\n**Window of size k+1.** Seed the heap with the first `k + 1` elements. The top is the overall minimum -> it belongs at index 0. Pop it, then push the next array element to slide the window, and repeat; each pop fixes the next output position.\n\n**Step-by-Step Approach.**\n1. Heapify the first `k + 1` elements into `min_heap`.\n2. For each remaining element `nums[i]` (`i` from `k+1`): append `heappushpop(min_heap, nums[i])` to the result — that pop is the next sorted value.\n3. After the array is exhausted, drain the heap in order to finish.\n\n**Why it works.** Maintaining a heap over the live `[i, i+k]` window guarantees the current minimum is the correct value for the current output index; sliding preserves this invariant.\n\n**Common Gotchas.**\n- The window is `k + 1` elements (indices `i` through `i + k`), not `k`.\n- Don't forget to drain the heap after the main loop.\n- `heappushpop` (push then pop) keeps the heap size steady and is one efficient step.\n\n**Complexity.** `n` heap operations on a size-`(k+1)` heap -> `O(n log k)` time, `O(k)` space.\n\n**Interview mindset.** 'Each element at most k from its place' is the classic size-`k` heap signal (also how you'd merge k sorted lists).",
+          "rcs": "import heapq\nfrom typing import List\n\n\nclass Solution:\n    def sortKSortedArray(self, nums: List[int], k: int) -> List[int]:\n        # The value for index i is the smallest within [i, i + k] -> keep that window in a heap.\n        min_heap = nums[:k + 1]  # First k+1 candidates.\n        heapq.heapify(min_heap)\n        result = []\n        for i in range(k + 1, len(nums)):\n            # Pop the current minimum (next sorted value) and push the next element in one step.\n            result.append(heapq.heappushpop(min_heap, nums[i]))\n        while min_heap:  # Drain the remaining values in sorted order.\n            result.append(heapq.heappop(min_heap))\n        return result",
+          "plain": "import heapq\nfrom typing import List\n\n\nclass Solution:\n    def sortKSortedArray(self, nums: List[int], k: int) -> List[int]:\n        min_heap = nums[:k + 1]\n        heapq.heapify(min_heap)\n        result = []\n        for i in range(k + 1, len(nums)):\n            result.append(heapq.heappushpop(min_heap, nums[i]))\n        while min_heap:\n            result.append(heapq.heappop(min_heap))\n        return result"
+        }
+      ],
+      "patternRecognition": [
+        "'Each element at most k from its sorted spot' -> size-(k+1) min-heap.",
+        "The value for index i is the min of the window [i, i+k].",
+        "Slide the heap: pop min, push next -> O(n log k)."
+      ],
+      "interviewRecall": [
+        "Heapify first k+1; then heappushpop for each remaining element.",
+        "Drain the heap at the end.",
+        "O(n log k) beats a full O(n log n) sort when k << n."
+      ]
     }
   ]);
 })();
