@@ -1208,6 +1208,292 @@
         "Box key = (r // 3, c // 3).",
         "Check-then-insert; skip '.'."
       ]
+    },
+    {
+      "id": "range-sum-query-immutable",
+      "lc": 303,
+      "title": "Range Sum Query - Immutable",
+      "difficulty": "Easy",
+      "category": "Arrays & Hashing",
+      "link": "https://leetcode.com/problems/range-sum-query-immutable/",
+      "meta": {
+        "pattern": "Prefix Sums",
+        "dataStructure": "Prefix-sum array",
+        "technique": "Preprocessing"
+      },
+      "description": "Given an integer array `nums`, design a data structure that answers many **range-sum queries**. Each query gives two indices `left` and `right` and asks for the sum `nums[left] + nums[left+1] + ... + nums[right]` (inclusive).\n\nThe array never changes after construction (it is *immutable*), and `sumRange` may be called many times — so the work should go into **preprocessing once**, making each query cheap.",
+      "constraints": [
+        "`1 <= nums.length <= 10^4`",
+        "`-10^5 <= nums[i] <= 10^5`",
+        "`0 <= left <= right < nums.length`",
+        "Up to `10^4` calls to `sumRange`."
+      ],
+      "notes": [
+        "The range is **inclusive** of both `left` and `right`.",
+        "Because the array is immutable, you can precompute everything in the constructor."
+      ],
+      "examples": [
+        {
+          "input": "NumArray([-2, 0, 3, -5, 2, -1]); sumRange(0, 2)",
+          "output": "1",
+          "reasoning": "-2 + 0 + 3 = 1."
+        },
+        {
+          "input": "sumRange(2, 5)",
+          "output": "-1",
+          "reasoning": "3 + (-5) + 2 + (-1) = -1."
+        },
+        {
+          "input": "sumRange(0, 5)",
+          "output": "-3",
+          "reasoning": "The sum of the whole array.",
+          "visual": "```\nindex :   0   1   2   3   4   5\nvalue :  -2   0   3  -5   2  -1\nprefix: 0  -2  -2   1  -4  -2  -3   <- prefix[i] = sum of first i values\nsumRange(2,5) = prefix[6] - prefix[2] = -3 - (-2) = -1\n```"
+        }
+      ],
+      "approaches": [
+        {
+          "name": "Brute Force — sum per query",
+          "time": "O(n) per query",
+          "space": "O(1)",
+          "whenToUse": "Fine if sumRange is called only a handful of times; the baseline you mention before preprocessing.",
+          "logic": "**What it asks.** Answer repeated inclusive range-sum queries on a fixed array.\n\n**Why the naive idea is slow.** The direct approach stores the array and, on each `sumRange(i, j)`, loops from `i` to `j` adding values. One query is `O(n)`; with up to `10^4` queries on a length-`10^4` array that is `~10^8` additions, and all of it is re-done work — the same prefixes are summed again and again.\n\n**Key Idea.** Correct but wasteful: it does no preprocessing, so every query pays full price.\n\n**Step-by-Step Approach.**\n1. Store a reference to `nums` in the constructor.\n2. On each query, slice `nums[i..j]` and return its sum.\n\n**Complexity.** Construction `O(1)`; each query `O(n)`; space `O(1)` beyond the input.\n\n**Interview mindset.** State this first, then note that *the array never changes* — a strong hint that preprocessing can make queries `O(1)`.",
+          "rcs": "from typing import List  # Type hints: the constructor takes a list of ints.\n\n\nclass NumArray:  # LeetCode constructs this once, then calls sumRange many times.\n\n    def __init__(self, nums: List[int]):  # Preprocessing step (here: just keep the array).\n        self.nums = nums  # Keep a reference so sumRange can read the values later.\n\n    def sumRange(self, left: int, right: int) -> int:  # Inclusive sum over [left, right].\n        # Slice copies the inclusive window [left .. right] and sum() adds it up.\n        # This re-scans the window on EVERY call -> O(n) per query.\n        return sum(self.nums[left:right + 1])",
+          "plain": "from typing import List\n\n\nclass NumArray:\n    def __init__(self, nums: List[int]):\n        self.nums = nums\n\n    def sumRange(self, left: int, right: int) -> int:\n        return sum(self.nums[left:right + 1])"
+        },
+        {
+          "name": "Optimized — Prefix Sums",
+          "time": "O(n) build, O(1) per query",
+          "space": "O(n)",
+          "whenToUse": "The standard answer: many queries on an immutable array. Preprocess once, answer each query with one subtraction.",
+          "logic": "**What it asks.** Same inclusive range-sum queries, but now we exploit that the array is fixed.\n\n**Key Idea — prefix sums.** Build an array `prefix` where `prefix[i]` is the sum of the first `i` elements (`nums[0] + ... + nums[i-1]`), with `prefix[0] = 0`. Then the sum of any range `[left, right]` is just the difference of two prefixes:\n\n`sumRange(left, right) = prefix[right + 1] - prefix[left]`\n\nIntuitively, `prefix[right+1]` is the total up to and including `right`, and subtracting `prefix[left]` removes everything before `left` — leaving exactly the window we want.\n\n**Why the `+1` / leading zero.** Prepending a `0` (so `prefix` has length `n + 1`) makes the formula uniform: it works even when `left == 0`, with no special case, because `prefix[0] = 0` represents the empty prefix.\n\n**Step-by-Step Approach.**\n1. In the constructor, allocate `prefix = [0]` and walk `nums`, appending the running total each step.\n2. For a query, return `prefix[right + 1] - prefix[left]`.\n\n**Why it works.** `prefix[j] - prefix[i]` telescopes to `nums[i] + ... + nums[j-1]`; substituting `j = right + 1` and `i = left` gives the inclusive window.\n\n**Common Gotchas.**\n- Index the prefix array with `right + 1`, not `right` — off-by-one here is the classic bug.\n- The leading `0` is what removes the `left == 0` special case; don't drop it.\n\n**Complexity.** Building `prefix` is `O(n)` once; every query is a single subtraction, `O(1)`; the prefix array costs `O(n)` space.\n\n**Interview mindset.** 'Subarray sum' + 'repeated queries' + 'immutable' is the textbook prefix-sum signal.",
+          "rcs": "from typing import List  # Type hints for the constructor's list argument.\n\n\nclass NumArray:\n\n    def __init__(self, nums: List[int]):  # Preprocess: build the prefix-sum array ONCE.\n        self.prefix = [0]  # prefix[0] = 0 represents the empty prefix (sum of zero elements).\n        for x in nums:  # Walk the array left to right.\n            self.prefix.append(self.prefix[-1] + x)  # Running total: prefix[i+1] = prefix[i] + nums[i].\n        # Now prefix[i] holds the sum of the first i elements (nums[0..i-1]).\n\n    def sumRange(self, left: int, right: int) -> int:  # Answer one inclusive query in O(1).\n        # Total up to and INCLUDING 'right' is prefix[right + 1];\n        # subtract everything before 'left' (prefix[left]) to isolate the window.\n        return self.prefix[right + 1] - self.prefix[left]",
+          "plain": "from typing import List\n\n\nclass NumArray:\n    def __init__(self, nums: List[int]):\n        self.prefix = [0]\n        for x in nums:\n            self.prefix.append(self.prefix[-1] + x)\n\n    def sumRange(self, left: int, right: int) -> int:\n        return self.prefix[right + 1] - self.prefix[left]"
+        }
+      ],
+      "patternRecognition": [
+        "Repeated range-sum / subarray-sum queries on a fixed array -> prefix sums.",
+        "A leading 0 in the prefix array removes the left==0 edge case.",
+        "Trade O(n) preprocessing + O(n) space for O(1) queries."
+      ],
+      "interviewRecall": [
+        "prefix[i] = sum of first i elements, prefix[0] = 0.",
+        "sumRange(l, r) = prefix[r + 1] - prefix[l].",
+        "Build once in the constructor; each query is one subtraction."
+      ]
+    },
+    {
+      "id": "subarray-sum-equals-k",
+      "lc": 560,
+      "title": "Subarray Sum Equals K",
+      "difficulty": "Medium",
+      "category": "Arrays & Hashing",
+      "link": "https://leetcode.com/problems/subarray-sum-equals-k/",
+      "meta": {
+        "pattern": "Prefix Sums + Hash Map",
+        "dataStructure": "Hash Map",
+        "technique": "Running prefix + complement"
+      },
+      "description": "Given an integer array `nums` and an integer `k`, return the **total number of contiguous subarrays** whose elements sum to exactly `k`.\n\nThe array may contain negative numbers, so a sliding window does **not** work here — shrinking/growing a window can't rely on the sum being monotonic.",
+      "constraints": [
+        "`1 <= nums.length <= 2 * 10^4`",
+        "`-1000 <= nums[i] <= 1000`",
+        "`-10^7 <= k <= 10^7`"
+      ],
+      "notes": [
+        "Count subarrays, not elements — overlapping subarrays each count.",
+        "Negatives rule out the two-pointer sliding window; reach for prefix sums instead."
+      ],
+      "examples": [
+        {
+          "input": "nums = [1, 1, 1], k = 2",
+          "output": "2",
+          "reasoning": "The subarrays [1,1] at indices (0,1) and (1,2) both sum to 2."
+        },
+        {
+          "input": "nums = [1, 2, 3], k = 3",
+          "output": "2",
+          "reasoning": "[1,2] and [3] each sum to 3."
+        },
+        {
+          "input": "nums = [1, 2, -1, 1, 2], k = 3",
+          "output": "3",
+          "reasoning": "[1,2], [2,-1,1,2] ... counting all contiguous runs that total 3.",
+          "visual": "```\nrunning prefix sums (with leading 0):\n0  1  3  2  3  5\n      ↑     ↑\nfor each prefix p, how many earlier prefixes equal p - k?\nthat count is the number of subarrays ending here that sum to k\n```"
+        }
+      ],
+      "approaches": [
+        {
+          "name": "Brute Force — prefix sums, all pairs",
+          "time": "O(n^2)",
+          "space": "O(n)",
+          "whenToUse": "A clear stepping stone: shows the prefix-sum formula before the hash-map leap.",
+          "logic": "**What it asks.** Count contiguous subarrays summing to `k`.\n\n**Why the most naive idea is slow.** Trying every subarray and re-summing it is `O(n^3)`. A first improvement uses prefix sums so a subarray's sum is a subtraction: with `prefix[0] = 0` and `prefix[i]` the sum of the first `i` elements, the sum of `nums[i..j-1]` is `prefix[j] - prefix[i]`.\n\n**Step-by-Step Approach.**\n1. Build the prefix-sum array with a leading `0`.\n2. For every pair `i < j`, check whether `prefix[j] - prefix[i] == k`; count the hits.\n\n**Why it works.** Every contiguous subarray corresponds to exactly one prefix pair `(i, j)`, so checking all pairs counts each once.\n\n**Complexity.** The double loop is `O(n^2)`; the prefix array is `O(n)` space.\n\n**Interview mindset.** Notice we scan backward for 'how many earlier prefixes equal `prefix[j] - k`' — that count is exactly what a hash map can give in `O(1)`.",
+          "rcs": "from typing import List  # Type hint for the nums argument.\n\n\nclass Solution:\n    def subarraySum(self, nums: List[int], k: int) -> int:\n        n = len(nums)\n        count = 0  # Number of subarrays found so far.\n        prefix = [0]  # prefix[0] = 0 handles subarrays starting at index 0.\n        for x in nums:  # Build running totals.\n            prefix.append(prefix[-1] + x)\n        # Every subarray = a pair of prefix indices (i, j) with i < j.\n        for j in range(1, n + 1):  # Right boundary (exclusive end).\n            for i in range(0, j):  # Left boundary.\n                if prefix[j] - prefix[i] == k:  # Window sum equals k?\n                    count += 1  # Count this subarray.\n        return count",
+          "plain": "from typing import List\n\n\nclass Solution:\n    def subarraySum(self, nums: List[int], k: int) -> int:\n        n = len(nums)\n        count = 0\n        prefix = [0]\n        for x in nums:\n            prefix.append(prefix[-1] + x)\n        for j in range(1, n + 1):\n            for i in range(0, j):\n                if prefix[j] - prefix[i] == k:\n                    count += 1\n        return count"
+        },
+        {
+          "name": "Optimized — Running prefix + Hash Map",
+          "time": "O(n)",
+          "space": "O(n)",
+          "whenToUse": "The intended solution; works with negatives where sliding windows fail.",
+          "logic": "**Key Idea.** Rearrange the formula. For a subarray ending at the current position with running prefix sum `curr`, it sums to `k` exactly when some earlier prefix equalled `curr - k` (because `curr - earlier = k`). So instead of searching, we **remember how often each prefix sum has occurred** in a hash map and look up `curr - k` in `O(1)`.\n\n**Why a frequency map, not a set.** The same prefix sum can occur multiple times (especially with negatives/zeros), and *each* occurrence starts a distinct valid subarray — so we add the **count**, not just +1.\n\n**The seed `{0: 1}`.** Initializing the map with prefix sum `0` seen once accounts for subarrays that start at index 0 (where `curr` itself equals `k`, so `curr - k == 0`).\n\n**Step-by-Step Approach.**\n1. `count = 0`, `curr = 0`, `seen = {0: 1}`.\n2. For each `num`: add it to `curr`; add `seen.get(curr - k, 0)` to `count`; then increment `seen[curr]`.\n3. Return `count`.\n\n**Why it works.** When we reach index `j`, `seen` holds the frequencies of all prefix sums for indices `< j`. Every earlier prefix equal to `curr - k` marks a subarray `(i, j]` summing to `k`, so adding its frequency counts them all at once.\n\n**Common Gotchas.**\n- Seed the map with `{0: 1}`, or you miss subarrays beginning at index 0.\n- Look up `curr - k` **before** inserting `curr`, so a zero-length match can't be counted.\n- Store frequencies, not a boolean set.\n\n**Complexity.** One pass with `O(1)` map operations is `O(n)` time; the map holds up to `n` distinct prefixes, `O(n)` space.\n\n**Interview mindset.** This is the same 'complement in a hash map' trick as Two Sum, applied to prefix sums.",
+          "rcs": "from typing import List  # Type hint for nums.\n\n\nclass Solution:\n    def subarraySum(self, nums: List[int], k: int) -> int:\n        count = 0  # Total subarrays summing to k.\n        curr = 0  # Running prefix sum up to the current index.\n        seen = {0: 1}  # prefix-sum -> frequency; seed 0 handles subarrays starting at index 0.\n        for num in nums:  # Single left-to-right pass.\n            curr += num  # Extend the prefix sum to include this element.\n            # Any earlier prefix equal to (curr - k) begins a subarray ending here that sums to k.\n            count += seen.get(curr - k, 0)  # Add ALL such occurrences at once.\n            # Record this prefix sum (increment its frequency) for future lookups.\n            seen[curr] = seen.get(curr, 0) + 1\n        return count",
+          "plain": "from typing import List\n\n\nclass Solution:\n    def subarraySum(self, nums: List[int], k: int) -> int:\n        count = 0\n        curr = 0\n        seen = {0: 1}\n        for num in nums:\n            curr += num\n            count += seen.get(curr - k, 0)\n            seen[curr] = seen.get(curr, 0) + 1\n        return count"
+        }
+      ],
+      "patternRecognition": [
+        "'Number of subarrays that sum to k' with possible negatives -> prefix sum + hash map.",
+        "curr - k in the map is the Two Sum complement idea applied to prefixes.",
+        "Store frequencies because a prefix sum can repeat."
+      ],
+      "interviewRecall": [
+        "Seed seen = {0: 1}.",
+        "Per element: curr += num; count += seen.get(curr - k, 0); seen[curr] += 1.",
+        "Negatives break sliding windows -> that's why prefix sums are needed."
+      ]
+    },
+    {
+      "id": "sort-an-array",
+      "lc": 912,
+      "title": "Sort an Array",
+      "difficulty": "Medium",
+      "category": "Arrays & Hashing",
+      "link": "https://leetcode.com/problems/sort-an-array/",
+      "meta": {
+        "pattern": "Sort & Search",
+        "dataStructure": "Array",
+        "technique": "Quicksort / divide & conquer"
+      },
+      "description": "Given an integer array `nums`, return it **sorted in ascending order** — without using any built-in sort.\n\nThe classic answer is **quicksort**: repeatedly pick a pivot, *partition* the array so smaller elements sit left of it and larger elements sit right, then recursively sort each side. Each partition locks one element into its final position.",
+      "constraints": [
+        "`1 <= nums.length <= 5 * 10^4`",
+        "`-5 * 10^4 <= nums[i] <= 5 * 10^4`",
+        "Solve it without the language's built-in sort."
+      ],
+      "notes": [
+        "Quicksort is in-place; its average time is O(n log n) but a bad pivot gives O(n^2).",
+        "Randomizing the pivot makes the worst case astronomically unlikely — important because the online judge includes adversarial (already-sorted) inputs."
+      ],
+      "examples": [
+        {
+          "input": "nums = [5, 2, 3, 1]",
+          "output": "[1, 2, 3, 5]",
+          "reasoning": "Ascending order."
+        },
+        {
+          "input": "nums = [5, 1, 1, 2, 0, 0]",
+          "output": "[0, 0, 1, 1, 2, 5]",
+          "reasoning": "Duplicates are preserved; order among equal values doesn't matter."
+        },
+        {
+          "input": "nums = [6, 8, 4, 2, 7, 3, 1, 5]",
+          "output": "[1, 2, 3, 4, 5, 6, 7, 8]",
+          "reasoning": "A full shuffle sorted via repeated partitioning.",
+          "visual": "```\npartition around pivot p:\n [ ... < p ... ] p [ ... >= p ... ]\n         ^pivot now in final place^\nthen recurse on the left part and the right part\n```"
+        }
+      ],
+      "approaches": [
+        {
+          "name": "Quicksort — rightmost pivot (Lomuto)",
+          "time": "O(n log n) avg, O(n^2) worst",
+          "space": "O(log n) avg (recursion)",
+          "whenToUse": "The clean teaching version: shows partitioning with a fixed pivot. Vulnerable to sorted inputs.",
+          "logic": "**What it asks.** Sort the array yourself. We use quicksort, a **divide-and-conquer** method.\n\n**Key Idea — partitioning.** Pick a `pivot`. Rearrange the current range so every element `< pivot` ends up left of it and everything `>= pivot` ends up right. After this, the pivot is in its **final sorted position**, and we recurse on the two sides.\n\n**Lomuto partition (two pointers).** Choose the rightmost element as pivot. Keep a boundary pointer `lo` for 'where the next smaller element goes'. Scan `i` across the range; whenever `nums[i] < pivot`, swap it to `nums[lo]` and advance `lo`. Finally swap the pivot into `nums[lo]` — now everything left of `lo` is smaller and everything right is `>=`.\n\n**Step-by-Step Approach.**\n1. `quicksort(left, right)`: if `left >= right`, the range has 0 or 1 element and is already sorted — return.\n2. `p = partition(left, right)` places the pivot and returns its index.\n3. Recurse `quicksort(left, p - 1)` and `quicksort(p + 1, right)`.\n\n**Why it works.** Each partition correctly fixes one element; the ranges shrink and the recursion bottoms out at size-1 ranges, so the whole array ends sorted.\n\n**Common Gotchas.**\n- Base case `left >= right` (not `==`) — ranges can cross.\n- Scan the inner loop over `[left, right)` and swap the pivot in at the end.\n\n**Complexity.** Average `O(n log n)` (balanced splits, `log n` depth x `O(n)` partition). Worst case `O(n^2)` when the pivot is always the min/max — e.g. an already-sorted array. Space `O(log n)` for the call stack on average.\n\n**Interview mindset.** Explain partitioning with the two-pointer picture, then immediately flag the sorted-input worst case — which motivates the randomized pivot.",
+          "rcs": "from typing import List  # Type hint for the array.\n\n\nclass Solution:\n    def sortArray(self, nums: List[int]) -> List[int]:\n        def partition(left: int, right: int) -> int:\n            pivot = nums[right]  # Choose the rightmost element as the pivot.\n            lo = left  # Boundary: everything in [left, lo) is < pivot.\n            for i in range(left, right):  # Scan the range excluding the pivot slot.\n                if nums[i] < pivot:  # Found a value that belongs on the left.\n                    nums[lo], nums[i] = nums[i], nums[lo]  # Swap it to the boundary.\n                    lo += 1  # Grow the 'smaller' region.\n            nums[lo], nums[right] = nums[right], nums[lo]  # Drop the pivot into its final place.\n            return lo  # Pivot's sorted index.\n\n        def quicksort(left: int, right: int) -> None:\n            if left >= right:  # 0 or 1 element -> already sorted.\n                return\n            p = partition(left, right)  # Fix one element, split into two parts.\n            quicksort(left, p - 1)  # Sort the left part.\n            quicksort(p + 1, right)  # Sort the right part.\n\n        quicksort(0, len(nums) - 1)  # Sort the whole array in place.\n        return nums",
+          "plain": "from typing import List\n\n\nclass Solution:\n    def sortArray(self, nums: List[int]) -> List[int]:\n        def partition(left, right):\n            pivot = nums[right]\n            lo = left\n            for i in range(left, right):\n                if nums[i] < pivot:\n                    nums[lo], nums[i] = nums[i], nums[lo]\n                    lo += 1\n            nums[lo], nums[right] = nums[right], nums[lo]\n            return lo\n\n        def quicksort(left, right):\n            if left >= right:\n                return\n            p = partition(left, right)\n            quicksort(left, p - 1)\n            quicksort(p + 1, right)\n\n        quicksort(0, len(nums) - 1)\n        return nums"
+        },
+        {
+          "name": "Optimized — Randomized pivot",
+          "time": "O(n log n) expected",
+          "space": "O(log n) expected",
+          "whenToUse": "The robust version to submit: randomizing the pivot makes the O(n^2) worst case practically impossible, even on sorted input.",
+          "logic": "**Why randomize.** The fixed-pivot version degrades to `O(n^2)` on already-sorted (or reverse-sorted) arrays, which online judges deliberately test. If instead we pick the pivot **uniformly at random** and swap it to the end before partitioning, no specific input can reliably trigger unbalanced splits — the expected time becomes `O(n log n)` regardless of input order.\n\n**Key Idea.** Identical partitioning; the only change is one random swap at the top of `partition` that chooses the pivot.\n\n**Step-by-Step Approach.**\n1. In `partition`, pick `r = random index in [left, right]` and swap `nums[r]` with `nums[right]`.\n2. Proceed with the same Lomuto scan as before.\n\n**Why it works.** Randomization decouples the split quality from the input's existing order, so the expected recursion depth is `O(log n)`.\n\n**Common Gotchas.**\n- Swap the random pivot to `right` first, then run the unchanged partition — keeps the code simple.\n- Deep recursion on huge inputs can still hit Python's recursion limit; recursing into the smaller side first (or raising the limit) avoids it.\n\n**Complexity.** Expected `O(n log n)` time, `O(log n)` expected stack space.\n\n**Interview mindset.** 'I'd randomize the pivot to avoid the sorted-input worst case' is exactly the follow-up interviewers want after you describe basic quicksort.",
+          "rcs": "import random  # For choosing a random pivot.\nfrom typing import List\n\n\nclass Solution:\n    def sortArray(self, nums: List[int]) -> List[int]:\n        def partition(left: int, right: int) -> int:\n            r = random.randint(left, right)  # Pick a random pivot index...\n            nums[r], nums[right] = nums[right], nums[r]  # ...and move it to the end.\n            pivot = nums[right]  # Same Lomuto scheme from here on.\n            lo = left\n            for i in range(left, right):\n                if nums[i] < pivot:\n                    nums[lo], nums[i] = nums[i], nums[lo]\n                    lo += 1\n            nums[lo], nums[right] = nums[right], nums[lo]\n            return lo\n\n        def quicksort(left: int, right: int) -> None:\n            if left >= right:\n                return\n            p = partition(left, right)\n            quicksort(left, p - 1)\n            quicksort(p + 1, right)\n\n        quicksort(0, len(nums) - 1)\n        return nums",
+          "plain": "import random\nfrom typing import List\n\n\nclass Solution:\n    def sortArray(self, nums: List[int]) -> List[int]:\n        def partition(left, right):\n            r = random.randint(left, right)\n            nums[r], nums[right] = nums[right], nums[r]\n            pivot = nums[right]\n            lo = left\n            for i in range(left, right):\n                if nums[i] < pivot:\n                    nums[lo], nums[i] = nums[i], nums[lo]\n                    lo += 1\n            nums[lo], nums[right] = nums[right], nums[lo]\n            return lo\n\n        def quicksort(left, right):\n            if left >= right:\n                return\n            p = partition(left, right)\n            quicksort(left, p - 1)\n            quicksort(p + 1, right)\n\n        quicksort(0, len(nums) - 1)\n        return nums"
+        }
+      ],
+      "patternRecognition": [
+        "'Sort without built-ins' -> implement quicksort / mergesort / heapsort.",
+        "Partitioning places one element in its final spot and splits the rest.",
+        "Randomize the pivot to dodge the sorted-input O(n^2) case."
+      ],
+      "interviewRecall": [
+        "quicksort: if left >= right return; p = partition; recurse both sides.",
+        "Lomuto: boundary lo, swap smaller-than-pivot elements left, then swap pivot into lo.",
+        "Average O(n log n); worst O(n^2) on bad pivots -> randomize."
+      ]
+    },
+    {
+      "id": "geometric-sequence-triplets",
+      "lc": null,
+      "title": "Geometric Sequence Triplets",
+      "difficulty": "Medium",
+      "category": "Arrays & Hashing",
+      "link": null,
+      "meta": {
+        "pattern": "Hash Map (two-sided)",
+        "dataStructure": "Hash Map",
+        "technique": "Middle-element counting"
+      },
+      "description": "A **geometric sequence triplet** is three numbers where each is the previous one times a fixed **common ratio** `r` — e.g. `(1, 2, 4)` with `r = 2`, or `(5, 15, 45)` with `r = 3`.\n\nGiven an integer array `nums` and a ratio `r`, count all index triplets `(i, j, k)` with `i < j < k` such that `nums[i], nums[j], nums[k]` form a geometric sequence (`nums[j] = nums[i] * r` and `nums[k] = nums[j] * r`). The array may contain duplicates, so the **same values can form many triplets** at different index positions.",
+      "constraints": [
+        "`1 <= nums.length <= 10^5`",
+        "`-10^9 <= nums[i] <= 10^9`",
+        "`1 <= r <= 10^6`",
+        "Count every valid index triplet, including duplicates."
+      ],
+      "notes": [
+        "Count index triplets, not distinct value triplets.",
+        "Anchor on the MIDDLE element x: its partners are x/r (to the left) and x*r (to the right)."
+      ],
+      "examples": [
+        {
+          "input": "nums = [2, 1, 2, 4, 8, 8], r = 2",
+          "output": "5",
+          "reasoning": "[2,4,8] occurs at (0,3,4), (0,3,5), (2,3,4), (2,3,5); [1,2,4] at (1,2,3). Total 5."
+        },
+        {
+          "input": "nums = [1, 1, 1, 1], r = 1",
+          "output": "4",
+          "reasoning": "With r = 1 every value equals its neighbors; any 3 of the 4 indices work: C(4,3) = 4."
+        },
+        {
+          "input": "nums = [1, 5, 5, 25], r = 5",
+          "output": "2",
+          "reasoning": "[1,5,25] via the 5 at index 1 -> (0,1,3), and via the 5 at index 2 -> (0,2,3).",
+          "visual": "```\nanchor each element as the MIDDLE value x:\n  left_map  counts values seen to the LEFT  (candidates for x / r)\n  right_map counts values still to the RIGHT (candidates for x * r)\n  triplets through x = left_map[x/r] * right_map[x*r]\n```"
+        }
+      ],
+      "approaches": [
+        {
+          "name": "Brute Force — three nested loops",
+          "time": "O(n^3)",
+          "space": "O(1)",
+          "whenToUse": "Baseline to state the definition precisely before optimizing.",
+          "logic": "**What it asks.** Count ordered index triplets `i < j < k` forming a geometric sequence with ratio `r`.\n\n**Why it's slow.** The direct approach tries every triplet with three nested loops and checks the ratio relationship, costing `O(n^3)` — far too slow at `n = 10^5`.\n\n**Step-by-Step Approach.**\n1. Loop `i`, then `j > i`, then `k > j`.\n2. Count the triplet when `nums[j] == nums[i] * r` and `nums[k] == nums[j] * r`.\n\n**Key observation that unlocks the optimum.** If you know the middle value `x = nums[j]`, the other two are forced: the left one must be `x / r` and the right one `x * r`. So you don't need to search pairs — you just need *how many* `x/r` lie to the left and *how many* `x*r` lie to the right.\n\n**Complexity.** `O(n^3)` time, `O(1)` space.\n\n**Interview mindset.** Representing the triplet as `(x/r, x, x*r)` and anchoring on the middle is the leap to an `O(n)` solution.",
+          "rcs": "from typing import List  # Type hint for nums.\n\n\nclass Solution:\n    def geometricTriplets(self, nums: List[int], r: int) -> int:\n        n = len(nums)\n        count = 0\n        for i in range(n):  # First element of the triplet.\n            for j in range(i + 1, n):  # Middle element, to the right of i.\n                for k in range(j + 1, n):  # Last element, to the right of j.\n                    # Check the geometric relationship in order.\n                    if nums[j] == nums[i] * r and nums[k] == nums[j] * r:\n                        count += 1\n        return count",
+          "plain": "from typing import List\n\n\nclass Solution:\n    def geometricTriplets(self, nums: List[int], r: int) -> int:\n        n = len(nums)\n        count = 0\n        for i in range(n):\n            for j in range(i + 1, n):\n                for k in range(j + 1, n):\n                    if nums[j] == nums[i] * r and nums[k] == nums[j] * r:\n                        count += 1\n        return count"
+        },
+        {
+          "name": "Optimized — Two hash maps (left & right)",
+          "time": "O(n)",
+          "space": "O(n)",
+          "whenToUse": "The intended solution: anchor on the middle element and count partners in O(1) each.",
+          "logic": "**Key Idea.** Treat every element `x` as the **middle** of a triplet `(x/r, x, x*r)`. The number of triplets centered on this `x` is `(# of x/r to its left) * (# of x*r to its right)`. Two frequency maps give both counts in `O(1)`.\n\n**Setup.** `right_map` starts with the frequency of **every** value (all are initially to the right). `left_map` starts empty. We then sweep left to right; at each element `x` we move it out of 'right' and, after processing, into 'left'.\n\n**Step-by-Step Approach.**\n1. Fill `right_map` with the count of each value in `nums`.\n2. For each `x` in order: first `right_map[x] -= 1` (x is no longer to the right of itself).\n3. If `x` is divisible by `r` (so `x/r` is an integer), add `left_map[x // r] * right_map[x * r]` to the answer.\n4. Then `left_map[x] += 1` (x is now a left-candidate for later elements).\n\n**Why it works.** When `x` is the middle, every earlier `x/r` can be the left end and every later `x*r` the right end; multiplying their frequencies counts all combinations — including duplicates — in one shot, and the `i < j < k` ordering is guaranteed by the left/right split.\n\n**Common Gotchas.**\n- Decrement `right_map[x]` **before** counting, or `x` would count itself as a partner.\n- Guard the `x / r` lookup with `x % r == 0`; otherwise `x/r` isn't a real array value.\n- Use frequency maps (not sets) so duplicates are counted correctly; missing keys default to frequency 0.\n\n**Complexity.** One pass with `O(1)` map work per element is `O(n)` time; the maps hold up to `n` values, `O(n)` space.\n\n**Interview mindset.** 'Fix the middle, multiply the left/right frequencies' generalizes to many 'count triplets/pairs with a relationship' problems.",
+          "rcs": "from collections import defaultdict  # defaultdict(int) gives missing keys a frequency of 0.\nfrom typing import List\n\n\nclass Solution:\n    def geometricTriplets(self, nums: List[int], r: int) -> int:\n        left_map = defaultdict(int)  # Frequencies of values seen to the LEFT of the current element.\n        right_map = defaultdict(int)  # Frequencies of values still to the RIGHT.\n        for x in nums:  # Initially every element is to the right.\n            right_map[x] += 1\n        count = 0\n        for x in nums:  # Treat each x as the MIDDLE of a triplet.\n            right_map[x] -= 1  # x is no longer to the right of itself.\n            if x % r == 0:  # Only then is x / r a valid integer partner.\n                # (# of x/r on the left) * (# of x*r on the right) = triplets centered on this x.\n                count += left_map[x // r] * right_map[x * r]\n            left_map[x] += 1  # x becomes a left-candidate for later middles.\n        return count",
+          "plain": "from collections import defaultdict\nfrom typing import List\n\n\nclass Solution:\n    def geometricTriplets(self, nums: List[int], r: int) -> int:\n        left_map = defaultdict(int)\n        right_map = defaultdict(int)\n        for x in nums:\n            right_map[x] += 1\n        count = 0\n        for x in nums:\n            right_map[x] -= 1\n            if x % r == 0:\n                count += left_map[x // r] * right_map[x * r]\n            left_map[x] += 1\n        return count"
+        }
+      ],
+      "patternRecognition": [
+        "'Count triplets with a fixed relationship' -> anchor on the middle element.",
+        "Two frequency maps (left + right) turn partner-finding into O(1) lookups.",
+        "Multiply left and right frequencies to count all duplicate combinations at once."
+      ],
+      "interviewRecall": [
+        "Represent the triplet as (x/r, x, x*r) and sweep with left_map / right_map.",
+        "Decrement right_map[x] before counting; guard x % r == 0.",
+        "count += left_map[x//r] * right_map[x*r]; then left_map[x] += 1."
+      ]
     }
   ]);
 })();

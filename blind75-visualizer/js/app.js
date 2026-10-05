@@ -670,12 +670,14 @@
     var header = h("div", { class: "prob-header" });
     header.innerHTML =
       '<div class="ph-top">' +
-        '<span class="ph-lc">#' + p.lc + "</span>" +
+        (p.lc ? '<span class="ph-lc">#' + p.lc + "</span>" : "") +
         '<span class="ph-diff d-' + p.difficulty.toLowerCase() + '">' + p.difficulty + "</span>" +
         '<span class="ph-imp ' + IMP_META[impOf(p)].cls + '" title="Interview importance (curated estimate)">' +
           IMP_META[impOf(p)].stars + " " + IMP_META[impOf(p)].label + "</span>" +
         '<span class="ph-cat">' + esc(p.category) + "</span>" +
-        '<a class="ph-link" href="' + p.link + '" target="_blank" rel="noopener">LeetCode ↗</a>' +
+        (p.link
+          ? '<a class="ph-link" href="' + p.link + '" target="_blank" rel="noopener">LeetCode ↗</a>'
+          : '<span class="ph-link ph-src" title="From the Coding Interview Patterns book">Coding Interview Patterns</span>') +
       "</div>" +
       '<h1 class="ph-title">' + esc(p.title) + "</h1>";
 
@@ -1144,7 +1146,7 @@
       var stt = store.getStatus(p.id);
       var tr = h("tr", { class: "grid-row" });
       tr.innerHTML =
-        "<td>" + p.lc + "</td>" +
+        "<td>" + (p.lc || "—") + "</td>" +
         '<td class="g-title">' + esc(p.title) + "</td>" +
         "<td>" + esc(p.category) + "</td>" +
         '<td class="d-' + p.difficulty.toLowerCase() + '">' + p.difficulty + "</td>" +

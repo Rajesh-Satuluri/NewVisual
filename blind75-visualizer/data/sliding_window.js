@@ -838,6 +838,68 @@
         "Pop smaller-or-equal values off the back before appending; pop the front when its index == right - k.",
         "Amortized O(n): every index is pushed once and popped once. Mention the O(n log n) lazy-deletion max-heap as the simpler alternative."
       ]
+    },
+    {
+      "id": "find-all-anagrams-in-a-string",
+      "lc": 438,
+      "title": "Find All Anagrams in a String",
+      "difficulty": "Medium",
+      "category": "Sliding Window",
+      "link": "https://leetcode.com/problems/find-all-anagrams-in-a-string/",
+      "meta": {
+        "pattern": "Fixed Sliding Window",
+        "dataStructure": "Frequency array (26)",
+        "technique": "Window frequency match"
+      },
+      "description": "Given two strings `s` and `p` (lowercase English letters), return the **start indices** of every substring of `s` that is an **anagram** of `p`.\n\nAn anagram uses exactly the same letters with the same counts, in any order — so a substring is an anagram of `p` precisely when it has length `len(p)` and its letter frequencies match `p`'s.",
+      "constraints": [
+        "`1 <= s.length, p.length <= 3 * 10^4`",
+        "`s` and `p` consist of lowercase English letters.",
+        "Return the start indices in ascending order."
+      ],
+      "notes": [
+        "All anagrams of p have the same length as p -> use a FIXED-size window.",
+        "Order doesn't matter, only letter counts -> compare 26-length frequency arrays."
+      ],
+      "examples": [
+        {
+          "input": "s = \"cbaebabacd\", p = \"abc\"",
+          "output": "[0, 6]",
+          "reasoning": "\"cba\" (index 0) and \"bac\" (index 6) are anagrams of \"abc\"."
+        },
+        {
+          "input": "s = \"abab\", p = \"ab\"",
+          "output": "[0, 1, 2]",
+          "reasoning": "\"ab\", \"ba\", \"ab\" at indices 0, 1, 2 all match."
+        },
+        {
+          "input": "s = \"aa\", p = \"bb\"",
+          "output": "[]",
+          "reasoning": "No window of \"aa\" matches \"bb\".",
+          "visual": "```\ns = c b a e b a b a c d   p = a b c  (need: a1 b1 c1)\n    [c b a]                  window counts a1 b1 c1  -> match -> index 0\n              [b a b] ...     a1 b2 c0        -> no\n                    [b a c]   a1 b1 c1        -> match -> index 6\n```"
+        }
+      ],
+      "approaches": [
+        {
+          "name": "Fixed Sliding Window — frequency arrays",
+          "time": "O(n)",
+          "space": "O(1)",
+          "whenToUse": "The canonical solution: slide a window of length len(p) and compare letter counts.",
+          "logic": "**What it asks.** Find where every length-`len(p)` window of `s` is an anagram of `p`.\n\n**Why the naive idea is slow.** Checking every substring and sorting it to compare is `O(n * m log m)`. But two facts simplify things: an anagram must have the **same length** as `p`, and only **letter frequencies** matter — so we only inspect windows of length `len(p)` and compare counts.\n\n**Key Idea — fixed window + two count arrays.** Build `need`, a size-26 array of `p`'s letter counts. Slide a window of width `len(p)` across `s`, maintaining `window`, the size-26 counts of the current window. The window is an anagram of `p` exactly when `window == need` (a constant 26-element comparison).\n\n**Step-by-Step Approach.**\n1. If `len(p) > len(s)`, return `[]`.\n2. Fill `need` from `p`.\n3. Walk `i` over `s`, adding `s[i]` to `window`. Once the window is too wide (`i >= len(p)`), remove the leftmost char `s[i - len(p)]`.\n4. When the window has width `len(p)` and `window == need`, record the start index `i - len(p) + 1`.\n\n**Why it works.** Every length-`len(p)` window is visited exactly once; adding the incoming char and dropping the outgoing char keeps `window` accurate in `O(1)` per step, and frequency equality is the exact definition of an anagram.\n\n**Common Gotchas.**\n- The start index is `i - len(p) + 1`, where `i` is the right edge.\n- Map letters to indices with `ord(c) - ord('a')`.\n- Begin removing the left char only once the window has reached full width.\n\n**Complexity.** One pass over `s` with `O(26) = O(1)` work per step is `O(n)` time; the two fixed 26-element arrays are `O(1)` space.\n\n**Interview mindset.** 'Anagram' + 'substring' + 'fixed length' is the fixed-sliding-window-with-frequency-array signal. (The same scan counts matches if the problem asks 'how many' instead of 'where'.)",
+          "rcs": "from typing import List  # Return type: list of start indices.\n\n\nclass Solution:\n    def findAnagrams(self, s: str, p: str) -> List[int]:\n        ns, np = len(s), len(p)\n        if np > ns:  # p can't fit in s -> no anagrams.\n            return []\n        need = [0] * 26  # Target letter counts from p.\n        window = [0] * 26  # Letter counts of the current window.\n        for c in p:  # Build p's frequency fingerprint.\n            need[ord(c) - ord('a')] += 1\n        res = []\n        for i in range(ns):  # i is the window's right edge.\n            window[ord(s[i]) - ord('a')] += 1  # Add the incoming character.\n            if i >= np:  # Window grew past width np -> drop the char leaving on the left.\n                window[ord(s[i - np]) - ord('a')] -= 1\n            if window == need:  # 26-element compare: is this window an anagram of p?\n                res.append(i - np + 1)  # Record the window's start index.\n        return res",
+          "plain": "from typing import List\n\n\nclass Solution:\n    def findAnagrams(self, s: str, p: str) -> List[int]:\n        ns, np = len(s), len(p)\n        if np > ns:\n            return []\n        need = [0] * 26\n        window = [0] * 26\n        for c in p:\n            need[ord(c) - ord('a')] += 1\n        res = []\n        for i in range(ns):\n            window[ord(s[i]) - ord('a')] += 1\n            if i >= np:\n                window[ord(s[i - np]) - ord('a')] -= 1\n            if window == need:\n                res.append(i - np + 1)\n        return res"
+        }
+      ],
+      "patternRecognition": [
+        "'Anagram substrings of a fixed length' -> fixed-size sliding window.",
+        "Compare size-26 frequency arrays (O(1)) instead of sorting windows.",
+        "Add the entering char, remove the leaving char each step."
+      ],
+      "interviewRecall": [
+        "need[] from p; slide window of width len(p) over s.",
+        "Start index = right_edge - len(p) + 1.",
+        "window == need is an O(26) = O(1) anagram check."
+      ]
     }
   ]);
 })();
