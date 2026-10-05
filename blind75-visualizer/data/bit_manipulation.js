@@ -955,6 +955,67 @@
         "Return 0 if the reversed value leaves [-2^31, 2^31 - 1].",
         "In fixed-width languages, check overflow BEFORE the multiply (compare vs INT_MAX // 10)."
       ]
+    },
+    {
+      "id": "swap-odd-and-even-bits",
+      "lc": null,
+      "title": "Swap Odd and Even Bits",
+      "difficulty": "Easy",
+      "category": "Bit Manipulation",
+      "link": null,
+      "meta": {
+        "pattern": "Bit Masking",
+        "dataStructure": "Bits",
+        "technique": "Mask, shift, merge"
+      },
+      "description": "Given an unsigned 32-bit integer `n`, swap each **even-position** bit with its adjacent **odd-position** bit (positions count from 0 at the least-significant bit) and return the result.",
+      "constraints": [
+        "`n` is an unsigned 32-bit integer.",
+        "Bit positions start at 0 (the least-significant bit)."
+      ],
+      "notes": [
+        "Even bits shift left by 1; odd bits shift right by 1; OR them together.",
+        "Masks: even positions 0x55555555, odd positions 0xAAAAAAAA."
+      ],
+      "examples": [
+        {
+          "input": "n = 41",
+          "output": "22",
+          "reasoning": "41 = 101001 -> swapping adjacent even/odd bits gives 010110 = 22."
+        },
+        {
+          "input": "n = 23",
+          "output": "43",
+          "reasoning": "23 = 10111 -> 101011 = 43."
+        },
+        {
+          "input": "mask & shift",
+          "output": "",
+          "reasoning": "How the two halves move.",
+          "visual": "```\neven_bits = n & 0x55555555   (bits at positions 0,2,4,...)\nodd_bits  = n & 0xAAAAAAAA   (bits at positions 1,3,5,...)\nresult = (even_bits << 1) | (odd_bits >> 1)\n```"
+        }
+      ],
+      "approaches": [
+        {
+          "name": "Bit masks — shift and merge",
+          "time": "O(1)",
+          "space": "O(1)",
+          "whenToUse": "The standard constant-time bit trick.",
+          "logic": "**What it asks.** Swap every even-position bit with the odd bit just above it.\n\n**Key Idea.** Isolate the even-position bits and the odd-position bits with two masks, shift each group into the other's positions, then OR them back together:\n\n- `even_mask = 0x55555555` = `0101...0101` selects positions `0, 2, 4, ...`.\n- `odd_mask = 0xAAAAAAAA` = `1010...1010` selects positions `1, 3, 5, ...`.\n- Even bits move up one (`<< 1`); odd bits move down one (`>> 1`); OR merges them.\n\n**Step-by-Step Approach.**\n1. `even_bits = n & 0x55555555`.\n2. `odd_bits = n & 0xAAAAAAAA`.\n3. Return `(even_bits << 1) | (odd_bits >> 1)`.\n\n**Why it works.** Masking cleanly separates the two interleaved groups; shifting each by one lands even bits in odd slots and vice versa, and OR recombines them with no overlap.\n\n**Common Gotchas.**\n- Shift even bits **left** and odd bits **right** (not the reverse).\n- The hex masks encode the alternating bit pattern — memorize `0x55555555` / `0xAAAAAAAA`.\n\n**Complexity.** A handful of bit operations -> `O(1)` time and space.\n\n**Interview mindset.** 'Rearrange bits by position' = mask the groups, shift, OR together.",
+          "rcs": "class Solution:\n    def swapOddAndEvenBits(self, n: int) -> int:\n        even_bits = n & 0x55555555  # Keep bits at even positions (0,2,4,...).\n        odd_bits = n & 0xAAAAAAAA   # Keep bits at odd positions (1,3,5,...).\n        # Shift evens up, odds down, then merge.\n        return (even_bits << 1) | (odd_bits >> 1)",
+          "plain": "class Solution:\n    def swapOddAndEvenBits(self, n: int) -> int:\n        even_bits = n & 0x55555555\n        odd_bits = n & 0xAAAAAAAA\n        return (even_bits << 1) | (odd_bits >> 1)"
+        }
+      ],
+      "patternRecognition": [
+        "'Rearrange bits by position' -> mask groups, shift, OR.",
+        "0x55555555 selects even positions; 0xAAAAAAAA selects odd positions.",
+        "Even bits << 1, odd bits >> 1."
+      ],
+      "interviewRecall": [
+        "even = n & 0x55555555; odd = n & 0xAAAAAAAA.",
+        "return (even << 1) | (odd >> 1).",
+        "O(1) masks-and-shifts."
+      ]
     }
   ]);
 })();

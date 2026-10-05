@@ -840,6 +840,68 @@
         "Per query: push all intervals with start <= q, lazily pop heap tops with end < q, then read heap[0].",
         "Size is r - l + 1 (inclusive); map answers back to the original query order via a value->answer dict."
       ]
+    },
+    {
+      "id": "interval-list-intersections",
+      "lc": 986,
+      "title": "Interval List Intersections",
+      "difficulty": "Medium",
+      "category": "Intervals",
+      "link": "https://leetcode.com/problems/interval-list-intersections/",
+      "meta": {
+        "pattern": "Two Pointers",
+        "dataStructure": "Sorted intervals",
+        "technique": "Overlap extraction"
+      },
+      "description": "Given two lists of **closed** intervals, each sorted by start and internally non-overlapping, return the list of their **intersections**.\n\nTwo intervals overlap when the later start is <= the earlier end; their intersection is `[max(starts), min(ends)]`.",
+      "constraints": [
+        "`0 <= len(firstList), len(secondList) <= 1000`",
+        "Each list is sorted by start and has no internal overlaps.",
+        "Intervals are closed: endpoints are included."
+      ],
+      "notes": [
+        "Intersection = [max(a.start, b.start), min(a.end, b.end)] when they overlap.",
+        "Advance the pointer of whichever interval ends first."
+      ],
+      "examples": [
+        {
+          "input": "A = [[1,4],[5,6],[9,10]], B = [[2,7],[8,9]]",
+          "output": "[[2,4],[5,6],[9,9]]",
+          "reasoning": "Overlaps extracted pair by pair."
+        },
+        {
+          "input": "A = [[1,3],[5,9]], B = []",
+          "output": "[]",
+          "reasoning": "Nothing to intersect."
+        },
+        {
+          "input": "two-pointer sweep",
+          "output": "",
+          "reasoning": "Which pointer advances.",
+          "visual": "```\nlo = max(a.start, b.start); hi = min(a.end, b.end)\nif lo <= hi: record [lo, hi]\nadvance whichever interval has the smaller end\n```"
+        }
+      ],
+      "approaches": [
+        {
+          "name": "Two pointers",
+          "time": "O(n + m)",
+          "space": "O(1) extra",
+          "whenToUse": "The standard solution: sweep both sorted lists together.",
+          "logic": "**What it asks.** All overlapping segments between two sorted interval lists.\n\n**Key Idea.** Walk both lists with pointers `i` and `j`. For the current pair, the overlap (if any) is `[max(starts), min(ends)]`; it's non-empty when `max(starts) <= min(ends)`. Then advance the interval that **ends first**, since it can't overlap anything further.\n\n**Step-by-Step Approach.**\n1. `i = j = 0`, `res = []`.\n2. While both pointers are in range: compute `lo = max(A[i][0], B[j][0])` and `hi = min(A[i][1], B[j][1])`; if `lo <= hi`, append `[lo, hi]`.\n3. Advance the pointer whose interval has the smaller end (`A[i][1] < B[j][1]` -> `i += 1`, else `j += 1`).\n4. Return `res`.\n\n**Why it works.** Both lists are sorted and internally disjoint, so a single forward sweep considers every overlapping pair exactly once; the interval ending first is fully processed and safely skipped.\n\n**Common Gotchas.**\n- Overlap test is `lo <= hi` (closed intervals include the touching endpoint, e.g. `[9,9]`).\n- Advance by **end**, not start.\n\n**Complexity.** `O(n + m)` time; `O(1)` beyond the output.\n\n**Interview mindset.** Two sorted lists + 'find overlaps' = merge-style two-pointer sweep.",
+          "rcs": "from typing import List\n\n\nclass Solution:\n    def intervalIntersection(self, firstList: List[List[int]], secondList: List[List[int]]) -> List[List[int]]:\n        i = j = 0\n        res = []\n        while i < len(firstList) and j < len(secondList):\n            lo = max(firstList[i][0], secondList[j][0])  # Latest start.\n            hi = min(firstList[i][1], secondList[j][1])  # Earliest end.\n            if lo <= hi:  # Non-empty overlap (closed intervals).\n                res.append([lo, hi])\n            # Drop whichever interval ends first.\n            if firstList[i][1] < secondList[j][1]:\n                i += 1\n            else:\n                j += 1\n        return res",
+          "plain": "from typing import List\n\n\nclass Solution:\n    def intervalIntersection(self, firstList: List[List[int]], secondList: List[List[int]]) -> List[List[int]]:\n        i = j = 0\n        res = []\n        while i < len(firstList) and j < len(secondList):\n            lo = max(firstList[i][0], secondList[j][0])\n            hi = min(firstList[i][1], secondList[j][1])\n            if lo <= hi:\n                res.append([lo, hi])\n            if firstList[i][1] < secondList[j][1]:\n                i += 1\n            else:\n                j += 1\n        return res"
+        }
+      ],
+      "patternRecognition": [
+        "'Intersect two sorted interval lists' -> two-pointer sweep.",
+        "Overlap = [max(starts), min(ends)] when max(starts) <= min(ends).",
+        "Advance the interval with the smaller end."
+      ],
+      "interviewRecall": [
+        "lo = max starts, hi = min ends; record if lo <= hi.",
+        "Move the pointer of whichever ends first.",
+        "O(n + m), closed intervals use <=."
+      ]
     }
   ]);
 })();

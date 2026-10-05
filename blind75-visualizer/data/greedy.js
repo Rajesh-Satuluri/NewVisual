@@ -1137,6 +1137,67 @@
         "Fail if high < 0; clamp low at 0 each step.",
         "Valid iff low == 0 at the end."
       ]
+    },
+    {
+      "id": "candy",
+      "lc": 135,
+      "title": "Candy",
+      "difficulty": "Hard",
+      "category": "Greedy",
+      "link": "https://leetcode.com/problems/candy/",
+      "meta": {
+        "pattern": "Greedy (two passes)",
+        "dataStructure": "Array",
+        "technique": "Left-to-right then right-to-left"
+      },
+      "description": "Children stand in a row, each with a `rating`. Give candies so that (1) every child gets at least one, and (2) a child with a higher rating than an adjacent neighbour gets more candies than that neighbour. Return the **minimum** total candies.",
+      "constraints": [
+        "`1 <= ratings.length <= 2 * 10^4`",
+        "`0 <= ratings[i] <= 2 * 10^4`"
+      ],
+      "notes": [
+        "Only ADJACENT comparisons matter (left neighbour and right neighbour).",
+        "Two greedy passes satisfy both directions; take the max per child."
+      ],
+      "examples": [
+        {
+          "input": "ratings = [1, 0, 2]",
+          "output": "5",
+          "reasoning": "Candies [2, 1, 2] = 5."
+        },
+        {
+          "input": "ratings = [1, 2, 2]",
+          "output": "4",
+          "reasoning": "Candies [1, 2, 1] = 4; equal ratings need no extra."
+        },
+        {
+          "input": "ratings = [4, 3, 2, 4, 5, 1]",
+          "output": "12",
+          "reasoning": "[3,2,1,2,3,1] = 12.",
+          "visual": "```\nleft pass  (satisfy left neighbour):  1 1 1 2 3 1\nright pass (satisfy right neighbour): 3 2 1 1 2 1  (take max each)\nfinal:                                3 2 1 2 3 1 -> sum 12\n```"
+        }
+      ],
+      "approaches": [
+        {
+          "name": "Greedy — two passes",
+          "time": "O(n)",
+          "space": "O(n)",
+          "whenToUse": "The standard solution: one left-to-right pass, one right-to-left pass.",
+          "logic": "**What it asks.** Minimum candies so higher-rated children out-candy their neighbours, everyone >= 1.\n\n**Key Idea.** The two neighbour constraints are independent directions, so handle them in **two passes**:\n\n- Start everyone at 1 candy.\n- **Left-to-right:** if `ratings[i] > ratings[i-1]`, set `candies[i] = candies[i-1] + 1` (satisfies the left neighbour).\n- **Right-to-left:** if `ratings[i] > ratings[i+1]`, set `candies[i] = max(candies[i], candies[i+1] + 1)` (satisfies the right neighbour **without breaking** the first pass, thanks to the `max`).\n\n**Step-by-Step Approach.**\n1. `candies = [1] * n`.\n2. Forward pass applying the left rule.\n3. Backward pass applying the right rule with `max`.\n4. Return `sum(candies)`.\n\n**Why it works.** After the forward pass every left constraint holds. The backward pass only ever **increases** values (via `max`), so it fixes right constraints while preserving left ones — giving the minimal assignment satisfying both.\n\n**Common Gotchas.**\n- Use `max` in the second pass; plain assignment would break the forward pass.\n- Equal adjacent ratings impose no constraint (strictly greater only).\n\n**Complexity.** Two linear passes -> `O(n)` time, `O(n)` space.\n\n**Interview mindset.** When a constraint has two directions, satisfy each in its own greedy sweep and combine.",
+          "rcs": "from typing import List\n\n\nclass Solution:\n    def candy(self, ratings: List[int]) -> int:\n        n = len(ratings)\n        candies = [1] * n  # Rule 1: everyone gets at least one.\n        # Left-to-right: a higher rating than the LEFT neighbour gets more.\n        for i in range(1, n):\n            if ratings[i] > ratings[i - 1]:\n                candies[i] = candies[i - 1] + 1\n        # Right-to-left: a higher rating than the RIGHT neighbour gets more,\n        # taking max so we don't undo the first pass.\n        for i in range(n - 2, -1, -1):\n            if ratings[i] > ratings[i + 1]:\n                candies[i] = max(candies[i], candies[i + 1] + 1)\n        return sum(candies)",
+          "plain": "from typing import List\n\n\nclass Solution:\n    def candy(self, ratings: List[int]) -> int:\n        n = len(ratings)\n        candies = [1] * n\n        for i in range(1, n):\n            if ratings[i] > ratings[i - 1]:\n                candies[i] = candies[i - 1] + 1\n        for i in range(n - 2, -1, -1):\n            if ratings[i] > ratings[i + 1]:\n                candies[i] = max(candies[i], candies[i + 1] + 1)\n        return sum(candies)"
+        }
+      ],
+      "patternRecognition": [
+        "'Satisfy both neighbours' -> two greedy passes (one per direction).",
+        "Second pass uses max() to preserve the first pass's guarantees.",
+        "Only strictly-greater ratings force more candy."
+      ],
+      "interviewRecall": [
+        "Start all at 1; forward pass for left neighbour.",
+        "Backward pass with max for right neighbour.",
+        "Answer = sum(candies); O(n)."
+      ]
     }
   ]);
 })();

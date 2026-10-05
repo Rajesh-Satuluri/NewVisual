@@ -1363,6 +1363,288 @@
         "Add counts[(qx,py)] * counts[(other_x,qy)] * counts[(other_x,py)] per side.",
         "Skip py == qy (zero side); check both left and right; multiply (don't just test presence)."
       ]
+    },
+    {
+      "id": "max-points-on-a-line",
+      "lc": 149,
+      "title": "Max Points on a Line",
+      "difficulty": "Hard",
+      "category": "Math & Geometry",
+      "link": "https://leetcode.com/problems/max-points-on-a-line/",
+      "meta": {
+        "pattern": "Geometry + Hash Map",
+        "dataStructure": "Hash Map",
+        "technique": "Slope counting per focal point"
+      },
+      "description": "Given distinct 2-D `points`, return the maximum number that lie on a single straight line.\n\nFor each **focal point**, count how many other points share each slope to it; collinear points share a slope. Represent slope as a reduced `(dy, dx)` pair to avoid floating-point error.",
+      "constraints": [
+        "`1 <= points.length <= 300`",
+        "No duplicate points.",
+        "`-10^4 <= xi, yi <= 10^4`"
+      ],
+      "notes": [
+        "Slope as a float loses precision -> store a reduced integer pair (dy // g, dx // g).",
+        "Normalize the sign so (1,2) and (-1,-2) count as the same slope; vertical lines use a fixed key."
+      ],
+      "examples": [
+        {
+          "input": "points = [[1,1],[2,2],[3,3]]",
+          "output": "3",
+          "reasoning": "All on y = x."
+        },
+        {
+          "input": "points = [[1,1],[3,2],[5,3],[4,1],[2,3],[1,4]]",
+          "output": "4",
+          "reasoning": "Four points share one line."
+        },
+        {
+          "input": "slope counting",
+          "output": "",
+          "reasoning": "Per focal point, tally slopes.",
+          "visual": "```\nfix focal point P; for every other point Q:\n  slope key = reduce(dy, dx) by gcd, sign-normalized\n  count[key] += 1\nbest for P = max(count) + 1   (+1 for P itself)\n```"
+        }
+      ],
+      "approaches": [
+        {
+          "name": "Brute Force — check all triples",
+          "time": "O(n^3)",
+          "space": "O(1)",
+          "whenToUse": "Baseline; clarifies collinearity before the slope-hashing speedup.",
+          "logic": "**What it asks.** The most points on one line.\n\n**Idea.** For every pair, count how many other points are collinear with it (via the cross-product test `(y2-y1)(x3-x1) == (y3-y1)(x2-x1)`), tracking the max.\n\n**Why it's slow.** Three nested loops over points -> `O(n^3)`.\n\n**The speedup.** Fix one point and bucket all others by slope; the largest bucket (plus the focal point) is the best line through it. That's `O(n^2)`.\n\n**Complexity.** `O(n^3)` time, `O(1)` space.\n\n**Interview mindset.** Use the integer cross-product to avoid division entirely in the check.",
+          "rcs": "from typing import List\n\n\nclass Solution:\n    def maxPoints(self, points: List[List[int]]) -> int:\n        n = len(points)\n        if n <= 2:\n            return n\n        best = 2\n        for i in range(n):\n            for j in range(i + 1, n):\n                count = 2  # The pair (i, j) itself.\n                for k in range(j + 1, n):\n                    (x1, y1), (x2, y2), (x3, y3) = points[i], points[j], points[k]\n                    # Collinear iff the cross product is zero (no division).\n                    if (y2 - y1) * (x3 - x1) == (y3 - y1) * (x2 - x1):\n                        count += 1\n                best = max(best, count)\n        return best",
+          "plain": "from typing import List\n\n\nclass Solution:\n    def maxPoints(self, points: List[List[int]]) -> int:\n        n = len(points)\n        if n <= 2:\n            return n\n        best = 2\n        for i in range(n):\n            for j in range(i + 1, n):\n                count = 2\n                for k in range(j + 1, n):\n                    (x1, y1), (x2, y2), (x3, y3) = points[i], points[j], points[k]\n                    if (y2 - y1) * (x3 - x1) == (y3 - y1) * (x2 - x1):\n                        count += 1\n                best = max(best, count)\n        return best"
+        },
+        {
+          "name": "Optimized — Slope hash per focal point",
+          "time": "O(n^2)",
+          "space": "O(n)",
+          "whenToUse": "The intended solution: for each focal point, count points by reduced slope.",
+          "logic": "**Key Idea.** Collinear points share the same slope relative to a common **focal point**. Fix each point `P`; for every other point `Q`, compute the slope and tally it in a hash map. The largest tally (plus `P` itself) is the most points on a line through `P`; the answer is the max over all focal points.\n\n**Exact slope keys.** Floating-point slopes collide (e.g. `1/3` vs `2/6` rounding). Instead store the slope as the integer pair `(dy, dx)` **reduced by their gcd**, with a normalized sign so `(1, 2)` and `(-1, -2)` match. Vertical and horizontal lines get fixed keys (`dx = 0` or `dy = 0`).\n\n**Step-by-Step Approach.**\n1. If `n <= 2`, return `n`.\n2. For each focal `i`: build a fresh `slopes` map; for each other `j`, compute `dx, dy`, divide both by `gcd(dx, dy)`, normalize the sign, and increment `slopes[(dy, dx)]`.\n3. Track `best = max(best, slopes[key] + 1)` (the `+1` is the focal point).\n\n**Why it works.** Equal reduced slope pairs correspond exactly to collinearity through the focal point; gcd reduction + sign normalization give every line through `P` one canonical key.\n\n**Common Gotchas.**\n- Reduce by gcd and normalize sign, or equivalent slopes split across keys.\n- Add `+1` for the focal point itself.\n- `math.gcd` returns a non-negative value; still normalize the pair's sign for consistency.\n\n**Complexity.** `O(n^2)` time (each focal point scans the rest), `O(n)` map space.\n\n**Interview mindset.** 'Most collinear points' = per-focal slope counting with exact rational slope keys.",
+          "rcs": "from math import gcd\nfrom typing import List\n\n\nclass Solution:\n    def maxPoints(self, points: List[List[int]]) -> int:\n        n = len(points)\n        if n <= 2:\n            return n\n        best = 1\n        for i in range(n):\n            slopes = {}  # reduced (dy, dx) -> count of points at that slope from i.\n            for j in range(n):\n                if i == j:\n                    continue\n                dx = points[j][0] - points[i][0]\n                dy = points[j][1] - points[i][1]\n                g = gcd(dx, dy)  # Reduce the slope to lowest terms.\n                if g:\n                    dx //= g\n                    dy //= g\n                # Normalize sign so (1,2) and (-1,-2) are the same slope.\n                if dx < 0 or (dx == 0 and dy < 0):\n                    dx, dy = -dx, -dy\n                slopes[(dy, dx)] = slopes.get((dy, dx), 0) + 1\n                best = max(best, slopes[(dy, dx)] + 1)  # +1 for the focal point.\n        return best",
+          "plain": "from math import gcd\nfrom typing import List\n\n\nclass Solution:\n    def maxPoints(self, points: List[List[int]]) -> int:\n        n = len(points)\n        if n <= 2:\n            return n\n        best = 1\n        for i in range(n):\n            slopes = {}\n            for j in range(n):\n                if i == j:\n                    continue\n                dx = points[j][0] - points[i][0]\n                dy = points[j][1] - points[i][1]\n                g = gcd(dx, dy)\n                if g:\n                    dx //= g\n                    dy //= g\n                if dx < 0 or (dx == 0 and dy < 0):\n                    dx, dy = -dx, -dy\n                slopes[(dy, dx)] = slopes.get((dy, dx), 0) + 1\n                best = max(best, slopes[(dy, dx)] + 1)\n        return best"
+        }
+      ],
+      "patternRecognition": [
+        "'Most collinear points' -> per-focal-point slope counting.",
+        "Use reduced integer (dy, dx) slope keys, never floats.",
+        "Answer per focal = largest slope bucket + 1."
+      ],
+      "interviewRecall": [
+        "For each focal point, hash slopes of all others.",
+        "Reduce (dy,dx) by gcd and normalize sign.",
+        "best = max bucket + 1; O(n^2)."
+      ]
+    },
+    {
+      "id": "sort-colors",
+      "lc": 75,
+      "title": "Sort Colors",
+      "difficulty": "Medium",
+      "category": "Math & Geometry",
+      "link": "https://leetcode.com/problems/sort-colors/",
+      "meta": {
+        "pattern": "Dutch National Flag",
+        "dataStructure": "Array",
+        "technique": "Three pointers"
+      },
+      "description": "Given an array of `0`s, `1`s, and `2`s (red, white, blue), sort it **in place** so all 0s come first, then 1s, then 2s. Solve it in one pass without a library sort.",
+      "constraints": [
+        "`1 <= nums.length <= 300`",
+        "`nums[i]` is `0`, `1`, or `2`.",
+        "One-pass, constant-space solution expected."
+      ],
+      "notes": [
+        "Place 0s and 2s; the 1s fall into the middle automatically.",
+        "On a swap with the RIGHT pointer, don't advance i (the swapped-in value is unchecked)."
+      ],
+      "examples": [
+        {
+          "input": "nums = [2, 0, 2, 1, 1, 0]",
+          "output": "[0, 0, 1, 1, 2, 2]",
+          "reasoning": "Sorted in place."
+        },
+        {
+          "input": "nums = [2, 0, 1]",
+          "output": "[0, 1, 2]",
+          "reasoning": "Three distinct values ordered."
+        },
+        {
+          "input": "three regions",
+          "output": "",
+          "reasoning": "How the pointers partition the array.",
+          "visual": "```\n[ 0s | 1s | unknown | 2s ]\n  left    i          right\n0 -> swap to left, left++, i++\n2 -> swap to right, right--  (don't move i)\n1 -> i++\n```"
+        }
+      ],
+      "approaches": [
+        {
+          "name": "Counting sort — two passes",
+          "time": "O(n)",
+          "space": "O(1)",
+          "whenToUse": "Simple and correct; makes two passes over the array.",
+          "logic": "**What it asks.** Sort an array of only 0/1/2 in place.\n\n**Idea.** Count how many 0s, 1s, and 2s there are, then overwrite the array with that many of each in order.\n\n**Complexity.** Two passes, `O(n)` time, `O(1)` space.\n\n**Interview mindset.** Fine, but the follow-up asks for a single pass -> Dutch National Flag.",
+          "rcs": "from typing import List\n\n\nclass Solution:\n    def sortColors(self, nums: List[int]) -> None:\n        counts = [0, 0, 0]  # Tally of 0s, 1s, 2s.\n        for x in nums:\n            counts[x] += 1\n        i = 0\n        for color in range(3):  # Write back that many of each color.\n            for _ in range(counts[color]):\n                nums[i] = color\n                i += 1",
+          "plain": "from typing import List\n\n\nclass Solution:\n    def sortColors(self, nums: List[int]) -> None:\n        counts = [0, 0, 0]\n        for x in nums:\n            counts[x] += 1\n        i = 0\n        for color in range(3):\n            for _ in range(counts[color]):\n                nums[i] = color\n                i += 1"
+        },
+        {
+          "name": "Optimized — Dutch National Flag (one pass)",
+          "time": "O(n)",
+          "space": "O(1)",
+          "whenToUse": "The intended solution: three pointers partition the array in a single sweep.",
+          "logic": "**Key Idea.** Maintain three regions with pointers: everything left of `left` is `0`, everything right of `right` is `2`, and `i` scans the unknown middle. Placing all 0s and 2s correctly leaves the 1s in the middle automatically.\n\n**The three cases at `nums[i]`.**\n- `0`: swap with `nums[left]`, then `left += 1` and `i += 1` (the value swapped in from `left` is already processed, so advancing `i` is safe).\n- `2`: swap with `nums[right]`, then `right -= 1` — but **do not** advance `i`, since the value swapped in from `right` is unexamined.\n- `1`: just `i += 1`.\n\n**Loop while `i <= right`.** Keep going until `i` passes `right`; stopping at `i == right` could leave a final 0 unplaced.\n\n**Step-by-Step Approach.**\n1. `left = i = 0`, `right = len(nums) - 1`.\n2. While `i <= right`, handle the three cases above.\n\n**Why it works.** The invariant (`[0 .. left)` all 0, `(right .. end]` all 2, `[left .. i)` all 1) is preserved by every case, so when `i` passes `right` the array is fully partitioned.\n\n**Common Gotchas.**\n- After a `2`-swap, don't advance `i` (the incoming value is unchecked).\n- Loop condition is `i <= right`, not `i < right`.\n\n**Complexity.** Single pass, `O(n)` time, `O(1)` space.\n\n**Interview mindset.** Three-way partitioning is the Dutch National Flag pattern (also quicksort's 3-way split).",
+          "rcs": "from typing import List\n\n\nclass Solution:\n    def sortColors(self, nums: List[int]) -> None:\n        left, i = 0, 0  # left: next slot for a 0; i: scanner.\n        right = len(nums) - 1  # right: next slot for a 2.\n        while i <= right:\n            if nums[i] == 0:  # Send 0 to the left region.\n                nums[left], nums[i] = nums[i], nums[left]\n                left += 1\n                i += 1  # Value swapped in from 'left' is already processed.\n            elif nums[i] == 2:  # Send 2 to the right region.\n                nums[right], nums[i] = nums[i], nums[right]\n                right -= 1  # Don't advance i: incoming value is unchecked.\n            else:  # A 1 stays in the middle.\n                i += 1",
+          "plain": "from typing import List\n\n\nclass Solution:\n    def sortColors(self, nums: List[int]) -> None:\n        left, i = 0, 0\n        right = len(nums) - 1\n        while i <= right:\n            if nums[i] == 0:\n                nums[left], nums[i] = nums[i], nums[left]\n                left += 1\n                i += 1\n            elif nums[i] == 2:\n                nums[right], nums[i] = nums[i], nums[right]\n                right -= 1\n            else:\n                i += 1"
+        }
+      ],
+      "patternRecognition": [
+        "'Sort an array of 3 distinct values in one pass' -> Dutch National Flag.",
+        "Three pointers: left (0s), i (scan), right (2s).",
+        "On a 2-swap don't advance i; loop while i <= right."
+      ],
+      "interviewRecall": [
+        "0 -> swap left, left++, i++.",
+        "2 -> swap right, right-- (i stays).",
+        "1 -> i++; one pass, O(1) space."
+      ]
+    },
+    {
+      "id": "josephus-problem",
+      "lc": null,
+      "title": "The Josephus Problem",
+      "difficulty": "Medium",
+      "category": "Math & Geometry",
+      "link": null,
+      "meta": {
+        "pattern": "Recurrence",
+        "dataStructure": "Math",
+        "technique": "Shrinking-circle recursion"
+      },
+      "description": "`n` people stand in a circle numbered `0 .. n-1`. Starting at person 0, count `k` clockwise and remove that person; resume counting from the next survivor. Repeat until one remains — return their original position.",
+      "constraints": [
+        "`1 <= n`",
+        "`1 <= k`"
+      ],
+      "notes": [
+        "Simulating with a circular list is O(n*k); the recurrence is O(n).",
+        "josephus(n, k) = (josephus(n-1, k) + k) % n, base josephus(1, k) = 0."
+      ],
+      "examples": [
+        {
+          "input": "n = 5, k = 2",
+          "output": "2",
+          "reasoning": "Remove 1, 3, 0, 4; person 2 survives."
+        },
+        {
+          "input": "n = 1, k = 3",
+          "output": "0",
+          "reasoning": "The lone person is the survivor."
+        },
+        {
+          "input": "recurrence",
+          "output": "",
+          "reasoning": "How a smaller circle gives the answer.",
+          "visual": "```\nafter the first removal, n-1 remain and counting restarts k ahead\njosephus(n, k) = (josephus(n-1, k) + k) % n\nbase: josephus(1, k) = 0\n```"
+        }
+      ],
+      "approaches": [
+        {
+          "name": "Brute Force — simulate the circle",
+          "time": "O(n * k)",
+          "space": "O(n)",
+          "whenToUse": "Intuitive but slow; good to describe the process.",
+          "logic": "**What it asks.** The last survivor's original index.\n\n**Idea.** Model the circle with a deque: rotate `k-1` forward and pop the `k`-th repeatedly until one remains.\n\n**Why it's slow.** Each removal costs up to `O(k)` steps for `n` removals -> `O(n * k)`.\n\n**Complexity.** `O(n * k)` time, `O(n)` space.\n\n**Interview mindset.** Simulation sets up the key recurrence that removes the `k` factor.",
+          "rcs": "from collections import deque\n\n\nclass Solution:\n    def josephus(self, n: int, k: int) -> int:\n        circle = deque(range(n))  # Original positions.\n        while len(circle) > 1:\n            circle.rotate(-(k - 1))  # Bring the k-th person to the front.\n            circle.popleft()  # Remove them.\n        return circle[0]",
+          "plain": "from collections import deque\n\n\nclass Solution:\n    def josephus(self, n: int, k: int) -> int:\n        circle = deque(range(n))\n        while len(circle) > 1:\n            circle.rotate(-(k - 1))\n            circle.popleft()\n        return circle[0]"
+        },
+        {
+          "name": "Optimized — Recurrence",
+          "time": "O(n)",
+          "space": "O(n)",
+          "whenToUse": "The elegant solution: reduce to a one-smaller circle.",
+          "logic": "**Key Idea.** After the first removal, `n - 1` people remain and counting restarts `k` positions ahead. If `josephus(n-1, k)` is the survivor's index in the smaller circle (counting from 0), then in the full circle that position is shifted by `k` and wrapped: \n\n`josephus(n, k) = (josephus(n-1, k) + k) % n`\n\n**Base case.** `josephus(1, k) = 0` — a single person is the survivor.\n\n**Step-by-Step Approach.**\n1. If `n == 1`, return `0`.\n2. Otherwise return `(josephus(n-1, k) + k) % n`.\n\n**Why it works.** Removing the first victim maps the problem onto an identical problem of size `n-1`; re-adding the `k` offset (mod `n`) translates the smaller circle's answer back to the original numbering.\n\n**Common Gotchas.**\n- Apply `% n` so the shifted index wraps within the circle.\n- Deep recursion can be rewritten as a bottom-up loop to avoid stack limits.\n\n**Complexity.** `O(n)` time; `O(n)` recursion stack (or `O(1)` iterative).\n\n**Interview mindset.** Spotting 'solve a one-smaller version and adjust' is the recurrence insight.",
+          "rcs": "class Solution:\n    def josephus(self, n: int, k: int) -> int:\n        if n == 1:  # Base case: the only person survives.\n            return 0\n        # Survivor of the n-1 circle, shifted by k and wrapped.\n        return (self.josephus(n - 1, k) + k) % n",
+          "plain": "class Solution:\n    def josephus(self, n: int, k: int) -> int:\n        result = 0  # josephus(1, k)\n        for size in range(2, n + 1):  # Build up to n iteratively.\n            result = (result + k) % size\n        return result"
+        }
+      ],
+      "patternRecognition": [
+        "'Last survivor in a circle' -> Josephus recurrence.",
+        "josephus(n,k) = (josephus(n-1,k) + k) % n.",
+        "Base case josephus(1,k) = 0."
+      ],
+      "interviewRecall": [
+        "Reduce to a one-smaller circle, add k, mod n.",
+        "Iterative: result = (result + k) % size for size 2..n.",
+        "O(n) beats O(n*k) simulation."
+      ]
+    },
+    {
+      "id": "triangle-numbers",
+      "lc": null,
+      "title": "Triangle Numbers",
+      "difficulty": "Easy",
+      "category": "Math & Geometry",
+      "link": null,
+      "meta": {
+        "pattern": "Pattern / Parity",
+        "dataStructure": "Math",
+        "technique": "Cyclic parity rule"
+      },
+      "description": "Build a number triangle: the top is `1`, and every other entry is the **sum of the up-to-three numbers above it** (top-left, top, top-right; missing ones count as 0). Given a row number `n` (>= 3), return the **1-indexed position of the first even number** in that row.",
+      "constraints": [
+        "`n >= 3`",
+        "Positions are 1-indexed."
+      ],
+      "notes": [
+        "You never need to build the triangle: the first-even position follows a cycle in n.",
+        "Only parity matters, and the parity pattern repeats every 4 rows from row 3."
+      ],
+      "examples": [
+        {
+          "input": "n = 4",
+          "output": "3",
+          "reasoning": "Row 4 is [1, 3, 6, 7, 6, 3, 1]; the first even (6) is at position 3."
+        },
+        {
+          "input": "n = 3",
+          "output": "2",
+          "reasoning": "Row 3 is [1, 2, 3, 2, 1]; first even (2) at position 2."
+        },
+        {
+          "input": "n = 6",
+          "output": "4",
+          "reasoning": "Even row not divisible by 4.",
+          "visual": "```\nrow (n):   3  4  5  6  7  8  9 10 ...\nfirst even:2  3  2  4  2  3  2  4  (cycle of 4 from row 3)\n```"
+        }
+      ],
+      "approaches": [
+        {
+          "name": "Brute Force — build the triangle",
+          "time": "O(n^2)",
+          "space": "O(n)",
+          "whenToUse": "Verifies the pattern; too slow/large for big n.",
+          "logic": "**What it asks.** The position of the first even number in row `n`.\n\n**Idea.** Generate rows one at a time (each entry = sum of up to three above), then scan row `n` for the first even value.\n\n**Why it's wasteful.** Building the whole triangle is `O(n^2)` time and `O(n)` space when only a parity pattern is needed.\n\n**Complexity.** `O(n^2)` time, `O(n)` space.\n\n**Interview mindset.** Compute a few rows, reduce to parity (odd/even), and look for the cycle.",
+          "rcs": "class Solution:\n    def triangleNumbers(self, n: int) -> int:\n        row = [1]  # Row 1.\n        for _ in range(n - 1):  # Build down to row n.\n            padded = [0] + row + [0]\n            row = [padded[i - 1] + padded[i] + padded[i + 1]\n                   for i in range(1, len(padded))]\n        for pos, value in enumerate(row, start=1):  # First even (1-indexed).\n            if value % 2 == 0:\n                return pos\n        return -1",
+          "plain": "class Solution:\n    def triangleNumbers(self, n: int) -> int:\n        row = [1]\n        for _ in range(n - 1):\n            padded = [0] + row + [0]\n            row = [padded[i - 1] + padded[i] + padded[i + 1]\n                   for i in range(1, len(padded))]\n        for pos, value in enumerate(row, start=1):\n            if value % 2 == 0:\n                return pos\n        return -1"
+        },
+        {
+          "name": "Optimized — Cyclic parity rule",
+          "time": "O(1)",
+          "space": "O(1)",
+          "whenToUse": "The intended solution: a constant-time rule from the repeating parity pattern.",
+          "logic": "**Key Idea.** Reduce every entry to its parity (odd = 1, even = 0). A row's first four parities fully determine the next row's first four, so the pattern of 'first even position' **repeats every 4 rows** starting at row 3:\n\n`row 3,4,5,6 -> 2,3,2,4` and it cycles (`7,8,9,10 -> 2,3,2,4`, ...).\n\n**The rule.**\n- If `n` is **odd** -> `2`.\n- Else if `n` is a **multiple of 4** -> `3`.\n- Else (`n % 4 == 2`) -> `4`.\n\n**Why it works.** The triangle is symmetric and parity-only, so the left half's first-even position depends only on `n`'s residue; empirically (and provably from the 4-row recurrence) it follows the cycle above.\n\n**Common Gotchas.**\n- Check odd first, then the two even sub-cases via `n % 4`.\n- Valid for `n >= 3` (even numbers first appear in row 3).\n\n**Complexity.** `O(1)` time and space.\n\n**Interview mindset.** When brute force is costly, compute small cases, switch to parity, and hunt for a cycle.",
+          "rcs": "class Solution:\n    def triangleNumbers(self, n: int) -> int:\n        if n % 2 != 0:  # Odd rows: first even at position 2.\n            return 2\n        if n % 4 == 0:  # Even rows divisible by 4: position 3.\n            return 3\n        return 4  # Remaining even rows (n % 4 == 2): position 4.",
+          "plain": "class Solution:\n    def triangleNumbers(self, n: int) -> int:\n        if n % 2 != 0:\n            return 2\n        if n % 4 == 0:\n            return 3\n        return 4"
+        }
+      ],
+      "patternRecognition": [
+        "Costly simulation + only parity matters -> reduce to odd/even and find a cycle.",
+        "First-even position repeats every 4 rows from row 3: 2, 3, 2, 4.",
+        "Answer depends only on n's residue mod 4 (and oddness)."
+      ],
+      "interviewRecall": [
+        "Odd n -> 2; n % 4 == 0 -> 3; else -> 4.",
+        "Pattern cycles 2,3,2,4 from row 3.",
+        "O(1) after spotting the parity cycle."
+      ]
     }
   ]);
 })();
