@@ -14,6 +14,25 @@
   var byId = {};
   ALL.forEach(function (p) { byId[p.id] = p; });
 
+  // ---- pattern-intro pseudo-entries ----
+  // Each category that has a chapter explanation gets a standalone "Introduction
+  // to X" entry that sits atop its sidebar group. It is NOT a real problem (not
+  // in ALL, not counted, not part of the study/review/search loop) — just a
+  // readable page that presents the exact pattern explanation once per pattern.
+  function introId(cat) {
+    return "intro-" + String(cat).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  }
+  var INTROS = {}; // category -> pseudo-record
+  GROUPS.forEach(function (g) {
+    var intro = B.getIntro ? B.getIntro(g.category) : null;
+    if (intro && intro.md) {
+      var rec = { id: introId(g.category), isIntro: true, category: g.category,
+                  title: "Introduction to " + g.category, intro: intro };
+      INTROS[g.category] = rec;
+      byId[rec.id] = rec;
+    }
+  });
+
   // ---- Fuse search index ----
   var fuse = new Fuse(ALL, {
     includeScore: true,
@@ -327,6 +346,24 @@
       var outer = h("div", { class: "cat-list-outer" });
       if (collapsed) outer.style.height = "0px"; // start closed with no animation
       var list = h("div", { class: "cat-list" });
+
+      // Standalone "Introduction to <pattern>" entry at the top of the group.
+      var introRec = INTROS[g.category];
+      if (introRec) {
+        var introItem = h("a", {
+          class: "nav-item nav-intro" + (introRec.id === state.currentId ? " active" : ""),
+          href: "#" + introRec.id, "data-id": introRec.id
+        });
+        introItem.innerHTML =
+          '<span class="st ni-intro-ic" title="Pattern explanation">📖</span>' +
+          '<span class="ni-title">Introduction to ' + esc(g.category) + "</span>";
+        introItem.addEventListener("click", function (e) {
+          e.preventDefault();
+          navigate("#" + introRec.id);
+        });
+        list.appendChild(introItem);
+      }
+
       matching.forEach(function (p) {
         var st = store.getStatus(p.id);
         var item = h("a", { class: "nav-item" + (p.id === state.currentId ? " active" : ""), href: "#" + p.id, "data-id": p.id });
@@ -576,6 +613,38 @@
   }
 
   // ============================================================= MAIN VIEW
+  // Standalone pattern-explanation page (the exact chapter intro from the book),
+  // shown when an "Introduction to <pattern>" sidebar entry is selected.
+  function renderIntroPage(p, main) {
+    var intro = p.intro || {};
+
+    var header = h("div", { class: "prob-header intro-header" });
+    header.innerHTML =
+      '<div class="ph-top">' +
+        '<span class="ph-cat">' + (B.CATEGORY_ICON[p.category] || "•") + " " + esc(p.category) + "</span>" +
+        '<span class="ph-imp imp-common">📖 Pattern explanation</span>' +
+      "</div>" +
+      '<h1 class="ph-title">Introduction to ' + esc(p.category) + "</h1>";
+    main.appendChild(header);
+
+    var body = h("div", { class: "md pattern-intro intro-page" });
+    body.innerHTML = md(intro.md || "") +
+      (intro.source
+        ? '<p class="pattern-intro-src">From the <em>Coding Interview Patterns</em> chapter: ' + esc(intro.source) + "</p>"
+        : "");
+    main.appendChild(body);
+
+    // Quick jump into the first problem of this pattern.
+    var catList = (B._registry && B._registry[p.category]) || [];
+    if (catList.length) {
+      var cta = h("div", { class: "intro-cta" });
+      var btn = h("button", { class: "chip-btn cta-next" }, "Start the problems →");
+      btn.addEventListener("click", function () { navigate("#" + catList[0].id); });
+      cta.appendChild(btn);
+      main.appendChild(cta);
+    }
+  }
+
   function renderProblem(preserveScroll) {
     var p = byId[state.currentId];
     var main = el("main");
@@ -588,6 +657,13 @@
       return;
     }
     store.setPref("lastProblem", p.id);
+
+    // ---- pattern-intro page (standalone chapter explanation) ----
+    if (p.isIntro) {
+      renderIntroPage(p, main);
+      main.scrollTop = 0;
+      return;
+    }
 
     // ---- sticky header ----
     var st = store.getStatus(p.id);
@@ -702,19 +778,6 @@
       '<div class="meta-v ' + impInfo.cls + '">' + impInfo.stars + " " + impInfo.label + "</div>";
     metaBox.appendChild(impCell);
     main.appendChild(metaBox);
-
-    // ---- pattern explanation (exact chapter intro from Coding Interview Patterns) ----
-    // Show it only once per pattern — on the first problem of the category — so
-    // it introduces the pattern rather than repeating on every problem.
-    var intro = B.getIntro ? B.getIntro(p.category) : null;
-    var catList = (B._registry && B._registry[p.category]) || [];
-    var isFirstInCategory = catList.length > 0 && catList[0].id === p.id;
-    if (intro && intro.md && isFirstInCategory) {
-      var introNode = h("div", { class: "md pattern-intro" });
-      introNode.innerHTML = md(intro.md) +
-        (intro.source ? '<p class="pattern-intro-src">From the <em>Coding Interview Patterns</em> chapter: ' + esc(intro.source) + "</p>" : "");
-      main.appendChild(section("pattern", "Pattern — " + p.category, introNode, { collapsed: true }));
-    }
 
     // ---- Python concepts used (reverse cross-link into the Python lab) ----
     var pySec = pythonConceptsSection(p);
@@ -1405,7 +1468,7 @@
     }
     // if the current problem falls outside the new set, jump to the first in-set one
     var cur = byId[state.currentId];
-    if (cur && !inActiveSet(cur)) {
+    if (cur && !cur.isIntro && !inActiveSet(cur)) {
       var first = activeProblems()[0];
       if (first) { state.currentId = first.id; store.setPref("lastProblem", first.id); }
     }
@@ -1904,7 +1967,7 @@
     }
     // ensure the current problem is inside the active set
     var cur = byId[state.currentId];
-    if (cur && !inActiveSet(cur)) {
+    if (cur && !cur.isIntro && !inActiveSet(cur)) {
       var first = activeProblems()[0];
       if (first) state.currentId = first.id;
     }
