@@ -1078,6 +1078,148 @@
         "Carry the popped start index into the bar you push (it can extend back).",
         "Flush leftovers at the end with width n - start (or use a height-0 sentinel)."
       ]
+    },
+    {
+      "id": "remove-all-adjacent-duplicates-in-string",
+      "lc": 1047,
+      "title": "Remove All Adjacent Duplicates In String",
+      "difficulty": "Easy",
+      "category": "Stack",
+      "link": "https://leetcode.com/problems/remove-all-adjacent-duplicates-in-string/",
+      "meta": {
+        "pattern": "Stack",
+        "dataStructure": "Stack",
+        "technique": "Match-and-cancel"
+      },
+      "description": "Given a string `s` of lowercase letters, repeatedly **remove any two adjacent equal characters**. Keep doing this until no adjacent duplicates remain, then return the final string.\n\nRemovals can cascade: after deleting a pair, the characters that were on either side become neighbours and may themselves form a new pair (e.g. `abba` -> remove `bb` -> `aa` -> remove `aa` -> empty).",
+      "constraints": [
+        "`1 <= s.length <= 10^5`",
+        "`s` consists of lowercase English letters.",
+        "The final answer is unique regardless of removal order."
+      ],
+      "notes": [
+        "Only pairs of IDENTICAL adjacent characters are removed.",
+        "Removals cascade — build the result incrementally so new pairs are caught."
+      ],
+      "examples": [
+        {
+          "input": "s = \"abbaca\"",
+          "output": "\"ca\"",
+          "reasoning": "Remove \"bb\" -> \"aaca\", then \"aa\" -> \"ca\". No more pairs."
+        },
+        {
+          "input": "s = \"azxxzy\"",
+          "output": "\"ay\"",
+          "reasoning": "Remove \"xx\" -> \"azzy\", then \"zz\" -> \"ay\"."
+        },
+        {
+          "input": "s = \"aacabba\"",
+          "output": "\"c\"",
+          "reasoning": "aa cancel, then bb cancel, then the exposed aa cancel, leaving c.",
+          "visual": "```\nbuild left-to-right on a stack; cancel when top == current:\na -> [a]\na -> top is a -> pop -> []\nc -> [c]\na -> [c,a]\nb -> [c,a,b]\nb -> top is b -> pop -> [c,a]\na -> top is a -> pop -> [c]   => \"c\"\n```"
+        }
+      ],
+      "approaches": [
+        {
+          "name": "Brute Force — repeated scans",
+          "time": "O(n^2)",
+          "space": "O(n)",
+          "whenToUse": "Only to illustrate the cascade; too slow for large inputs.",
+          "logic": "**What it asks.** Collapse the string by deleting adjacent equal pairs until none remain.\n\n**Why it's slow.** The literal reading is: scan for a pair, delete it, and start over — because a deletion can create a new pair elsewhere. Each scan is `O(n)` and we may need up to `O(n)` scans, giving `O(n^2)`.\n\n**Step-by-Step Approach.**\n1. Scan the string for the first adjacent equal pair.\n2. If found, remove it and restart the scan.\n3. Stop when a full scan finds no pair; return what's left.\n\n**Complexity.** `O(n^2)` time, `O(n)` space for the rebuilt strings.\n\n**Interview mindset.** The restart-after-every-deletion is the waste; a stack lets each character settle in one pass.",
+          "rcs": "class Solution:\n    def removeDuplicates(self, s: str) -> str:\n        changed = True\n        while changed:  # Keep scanning until a full pass makes no change.\n            changed = False\n            for i in range(len(s) - 1):  # Look for the first adjacent equal pair.\n                if s[i] == s[i + 1]:\n                    s = s[:i] + s[i + 2:]  # Delete the pair and rebuild the string.\n                    changed = True\n                    break  # Restart from the beginning (a new pair may have formed).\n        return s",
+          "plain": "class Solution:\n    def removeDuplicates(self, s: str) -> str:\n        changed = True\n        while changed:\n            changed = False\n            for i in range(len(s) - 1):\n                if s[i] == s[i + 1]:\n                    s = s[:i] + s[i + 2:]\n                    changed = True\n                    break\n        return s"
+        },
+        {
+          "name": "Optimized — Stack",
+          "time": "O(n)",
+          "space": "O(n)",
+          "whenToUse": "The intended solution: build the result on a stack, cancelling pairs as they form.",
+          "logic": "**Key Idea.** Build the answer one character at a time on a **stack**. The top of the stack is always the most recent surviving character, so to detect a pair we only compare the incoming character with the top.\n\n**Why a stack handles cascades for free.** When we pop a pair, the new top is whatever preceded it — exactly the character that becomes adjacent to the next incoming one. So a chain like `abba` resolves naturally: `b` cancels `b`, exposing `a`, which then cancels the next `a`.\n\n**Step-by-Step Approach.**\n1. For each character `c` in `s`: if the stack is non-empty and its top equals `c`, pop (the pair cancels).\n2. Otherwise push `c`.\n3. After the pass, join the stack into a string.\n\n**Why it works.** Every surviving character is on the stack in order; a pair is removed the instant its second half appears, and cascades are caught because the exposed top is re-compared with the next character.\n\n**Common Gotchas.**\n- Check `stack` is non-empty before reading `stack[-1]`.\n- Compare with the top *before* pushing; don't push then look back two.\n- Return `''.join(stack)`, not the stack itself.\n\n**Complexity.** Each character is pushed and popped at most once -> `O(n)` time; the stack holds up to `n` characters -> `O(n)` space.\n\n**Interview mindset.** 'Remove/cancel adjacent matches' is a canonical stack signal — same shape as Valid Parentheses.",
+          "rcs": "class Solution:\n    def removeDuplicates(self, s: str) -> str:\n        stack = []  # Holds the characters that have survived so far, in order.\n        for c in s:  # Build the result one character at a time.\n            # If c matches the most recent survivor, the two cancel out.\n            if stack and stack[-1] == c:\n                stack.pop()  # Remove the pair; the new top may cancel with the NEXT char.\n            else:\n                stack.append(c)  # No pair -> c survives (for now).\n        return ''.join(stack)  # Remaining characters, in order, are the answer.",
+          "plain": "class Solution:\n    def removeDuplicates(self, s: str) -> str:\n        stack = []\n        for c in s:\n            if stack and stack[-1] == c:\n                stack.pop()\n            else:\n                stack.append(c)\n        return ''.join(stack)"
+        }
+      ],
+      "patternRecognition": [
+        "'Remove/cancel adjacent matching elements' -> stack.",
+        "The stack top is the most recent survivor; compare before pushing.",
+        "Popping exposes a new top, which handles cascading removals automatically."
+      ],
+      "interviewRecall": [
+        "For each c: if stack and stack[-1]==c pop else push.",
+        "Answer is ''.join(stack).",
+        "Each char pushed/popped once -> O(n)."
+      ]
+    },
+    {
+      "id": "implement-queue-using-stacks",
+      "lc": 232,
+      "title": "Implement Queue using Stacks",
+      "difficulty": "Easy",
+      "category": "Stack",
+      "link": "https://leetcode.com/problems/implement-queue-using-stacks/",
+      "meta": {
+        "pattern": "Stack",
+        "dataStructure": "Two stacks",
+        "technique": "Amortized transfer"
+      },
+      "description": "Implement a first-in-first-out (FIFO) **queue** using only stack operations (push/pop/peek/empty on a LIFO stack). Support:\n\n- `push(x)` — add `x` to the back of the queue\n- `pop()` — remove and return the front element\n- `peek()` — return the front element\n- `empty()` — whether the queue is empty\n\nA single stack reverses order, so the trick is to use **two stacks** to reverse it back.",
+      "constraints": [
+        "`1 <= x <= 9`",
+        "At most `100` calls to push, pop, peek, and empty.",
+        "pop and peek are only called on a non-empty queue."
+      ],
+      "notes": [
+        "A stack is LIFO; a queue is FIFO — one stack alone evicts in the wrong order.",
+        "Two stacks (an 'in' stack and an 'out' stack) give amortized O(1) per operation."
+      ],
+      "examples": [
+        {
+          "input": "push(1), push(2), peek(), pop(), empty()",
+          "output": "1, 1, false",
+          "reasoning": "peek and pop both return the front (1); the queue still holds 2, so empty() is false."
+        },
+        {
+          "input": "push(1), push(2), pop(), push(3), pop()",
+          "output": "1, 2",
+          "reasoning": "FIFO order: 1 leaves first, then 2 (3 is still queued)."
+        },
+        {
+          "input": "two-stack model",
+          "output": "",
+          "reasoning": "How the transfer reverses order.",
+          "visual": "```\npush 1,2,3 -> in=[1,2,3] out=[]\npop(): out empty -> pour in into out\n   out=[3,2,1]  (now front 1 is on top)\n   pop out -> 1\npush 4 -> in=[4] out=[3,2]\npop() -> out top 2\n```"
+        }
+      ],
+      "approaches": [
+        {
+          "name": "Naive — transfer back every time",
+          "time": "O(n) per pop/peek",
+          "space": "O(n)",
+          "whenToUse": "Illustrates the idea before the amortized optimization.",
+          "logic": "**What it asks.** Behave like a queue using stacks.\n\n**Why the simple version is slow.** With one stack, `push` is easy but the front element is at the *bottom*. To reach it you pop everything into a temporary stack, remove the bottom, then pour it all back — `O(n)` on every `pop`/`peek`.\n\n**Step-by-Step Approach.**\n1. `push`: append to the main stack.\n2. `pop`/`peek`: move all elements to a temp stack, take/read the last one, move them back.\n\n**Complexity.** `O(1)` push, `O(n)` pop/peek.\n\n**Interview mindset.** Notice that after pouring into the temp stack, the elements are already in the *correct* dequeue order — so pouring them back is wasted work. That observation leads to the two-stack solution.",
+          "rcs": "class MyQueue:\n    def __init__(self):\n        self.stack = []  # Single stack; front of the queue sits at the BOTTOM.\n\n    def push(self, x: int) -> None:\n        self.stack.append(x)  # O(1): add to the top.\n\n    def pop(self) -> int:\n        temp = []\n        while len(self.stack) > 1:  # Move everything except the bottom aside.\n            temp.append(self.stack.pop())\n        front = self.stack.pop()  # The bottom element is the queue's front.\n        while temp:  # Restore the remaining elements.\n            self.stack.append(temp.pop())\n        return front\n\n    def peek(self) -> int:\n        front = self.pop()  # Reuse pop...\n        self.stack.append(front)  # ...then put the front back (it belongs at the bottom; fine for small inputs).\n        return front\n\n    def empty(self) -> bool:\n        return not self.stack",
+          "plain": "class MyQueue:\n    def __init__(self):\n        self.stack = []\n\n    def push(self, x: int) -> None:\n        self.stack.append(x)\n\n    def pop(self) -> int:\n        temp = []\n        while len(self.stack) > 1:\n            temp.append(self.stack.pop())\n        front = self.stack.pop()\n        while temp:\n            self.stack.append(temp.pop())\n        return front\n\n    def peek(self) -> int:\n        front = self.pop()\n        self.stack.append(front)\n        return front\n\n    def empty(self) -> bool:\n        return not self.stack"
+        },
+        {
+          "name": "Optimized — Two stacks (amortized O(1))",
+          "time": "O(1) amortized per op",
+          "space": "O(n)",
+          "whenToUse": "The intended solution: an 'in' stack for pushes and an 'out' stack for pops.",
+          "logic": "**Key Idea.** Keep two stacks: `in_stack` receives every `push`; `out_stack` serves every `pop`/`peek`. When `out_stack` is empty, pour the entire `in_stack` into it — this single reversal puts the oldest element on top, in correct FIFO order.\n\n**Why it's amortized O(1).** Each element is moved from `in` to `out` **at most once**. A `pop` may occasionally trigger an `O(n)` transfer, but that cost is spread across the `n` cheap pops that follow — so the average per operation is `O(1)`.\n\n**Step-by-Step Approach.**\n1. `push(x)`: append to `in_stack`.\n2. `_transfer()`: if `out_stack` is empty, pop everything from `in_stack` onto `out_stack`.\n3. `pop()`: `_transfer()`, then pop `out_stack`.\n4. `peek()`: `_transfer()`, then read `out_stack[-1]`.\n5. `empty()`: both stacks empty.\n\n**Why it works.** Pouring one stack into another reverses it; doing that once turns LIFO insertion order into FIFO removal order, and only refilling when `out` is empty preserves the ordering of later pushes.\n\n**Common Gotchas.**\n- Only transfer when `out_stack` is **empty** — transferring early scrambles the order.\n- `empty()` must check **both** stacks.\n\n**Complexity.** Amortized `O(1)` per operation; `O(n)` space across the two stacks.\n\n**Interview mindset.** 'Queue from stacks' (and its mirror, 'stack from queues') is a classic — lead with the two-stack amortized argument.",
+          "rcs": "class MyQueue:\n    def __init__(self):\n        self.in_stack = []   # Receives pushes (newest on top).\n        self.out_stack = []  # Serves pops (oldest on top after a transfer).\n\n    def push(self, x: int) -> None:\n        self.in_stack.append(x)  # Always O(1).\n\n    def _transfer(self) -> None:\n        # Only refill the out stack when it is empty, to keep FIFO order intact.\n        if not self.out_stack:\n            while self.in_stack:\n                self.out_stack.append(self.in_stack.pop())  # Reverses order -> oldest ends on top.\n\n    def pop(self) -> int:\n        self._transfer()  # Make sure the front element is on top of out_stack.\n        return self.out_stack.pop()\n\n    def peek(self) -> int:\n        self._transfer()\n        return self.out_stack[-1]  # Front element without removing it.\n\n    def empty(self) -> bool:\n        return not self.in_stack and not self.out_stack  # Empty only if BOTH are empty.",
+          "plain": "class MyQueue:\n    def __init__(self):\n        self.in_stack = []\n        self.out_stack = []\n\n    def push(self, x: int) -> None:\n        self.in_stack.append(x)\n\n    def _transfer(self) -> None:\n        if not self.out_stack:\n            while self.in_stack:\n                self.out_stack.append(self.in_stack.pop())\n\n    def pop(self) -> int:\n        self._transfer()\n        return self.out_stack.pop()\n\n    def peek(self) -> int:\n        self._transfer()\n        return self.out_stack[-1]\n\n    def empty(self) -> bool:\n        return not self.in_stack and not self.out_stack"
+        }
+      ],
+      "patternRecognition": [
+        "'Build a queue from stacks' -> two stacks (in + out).",
+        "Reversing a stack once converts LIFO insertion into FIFO removal.",
+        "Transfer only when the out stack is empty -> amortized O(1)."
+      ],
+      "interviewRecall": [
+        "in_stack for push; out_stack for pop/peek.",
+        "Refill out_stack from in_stack ONLY when out_stack is empty.",
+        "empty() checks both stacks; amortized O(1) because each item moves once."
+      ]
     }
   ]);
 })();
