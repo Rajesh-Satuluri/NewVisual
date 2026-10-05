@@ -1,0 +1,405 @@
+/* ============================================================
+   Apache Iceberg Visualizer — Animations
+   animations.css: keyframes, SVG animations, transitions
+   ============================================================ */
+
+/* ── Page Transitions ────────────────────────────────────────── */
+.page-enter {
+  animation: page-fade-in 0.25s ease forwards;
+}
+
+@keyframes page-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Hero Section ────────────────────────────────────────────── */
+.hero-enter > * {
+  animation: hero-stagger 0.5s ease both;
+}
+
+.hero-enter > *:nth-child(1) { animation-delay: 0.05s; }
+.hero-enter > *:nth-child(2) { animation-delay: 0.1s; }
+.hero-enter > *:nth-child(3) { animation-delay: 0.15s; }
+.hero-enter > *:nth-child(4) { animation-delay: 0.2s; }
+.hero-enter > *:nth-child(5) { animation-delay: 0.25s; }
+
+@keyframes hero-stagger {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Card Grid ───────────────────────────────────────────────── */
+.cards-enter .card,
+.cards-enter .feature-card,
+.cards-enter .stat-card {
+  animation: card-pop 0.4s var(--ease-bounce) both;
+}
+
+.cards-enter *:nth-child(1) { animation-delay: 0.0s; }
+.cards-enter *:nth-child(2) { animation-delay: 0.05s; }
+.cards-enter *:nth-child(3) { animation-delay: 0.1s; }
+.cards-enter *:nth-child(4) { animation-delay: 0.15s; }
+.cards-enter *:nth-child(5) { animation-delay: 0.2s; }
+.cards-enter *:nth-child(6) { animation-delay: 0.25s; }
+
+@keyframes card-pop {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* ── Float Animation (hero iceberg icon) ─────────────────────── */
+.float-anim {
+  animation: float 4s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+/* ── Pulse Ring ──────────────────────────────────────────────── */
+.pulse-ring {
+  position: relative;
+}
+
+.pulse-ring::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: inherit;
+  border: 2px solid currentColor;
+  animation: pulse-ring-anim 2s ease infinite;
+  opacity: 0;
+}
+
+@keyframes pulse-ring-anim {
+  0% { opacity: 0.8; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.5); }
+}
+
+/* ── Typing Cursor ───────────────────────────────────────────── */
+.typing-cursor::after {
+  content: '|';
+  animation: blink 0.8s step-end infinite;
+  color: var(--blue);
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* ── SVG Arrow Flow ──────────────────────────────────────────── */
+.flow-arrow {
+  stroke-dasharray: 8 4;
+  animation: flow-dash 1s linear infinite;
+}
+
+@keyframes flow-dash {
+  to { stroke-dashoffset: -48; }
+}
+
+/* ── SVG Node Highlight ──────────────────────────────────────── */
+.node-highlight-enter {
+  animation: node-highlight 0.3s ease forwards;
+}
+
+@keyframes node-highlight {
+  0% { opacity: 0.4; }
+  50% { opacity: 1; filter: brightness(1.4); }
+  100% { opacity: 1; }
+}
+
+/* ── Data Flow Particle ──────────────────────────────────────── */
+.data-particle {
+  animation: data-particle-move linear forwards;
+}
+
+@keyframes data-particle-move {
+  from { offset-distance: 0%; opacity: 1; }
+  to { offset-distance: 100%; opacity: 0.3; }
+}
+
+/* ── Reveal ──────────────────────────────────────────────────── */
+.reveal-up {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.reveal-up.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.reveal-right {
+  opacity: 0;
+  transform: translateX(-20px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.reveal-right.revealed {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* ── Step Transition ─────────────────────────────────────────── */
+.step-highlight {
+  background-color: rgba(74, 174, 255, 0.08) !important;
+  border-color: rgba(74, 174, 255, 0.3) !important;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+/* ── Counter Up Animation ────────────────────────────────────── */
+.count-up {
+  animation: count-up-anim 1s ease-out forwards;
+}
+
+@keyframes count-up-anim {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Shimmer (loading) ───────────────────────────────────────── */
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255,255,255,0.05) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer-slide 1.5s infinite;
+}
+
+@keyframes shimmer-slide {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── SVG Connection Line Draw ────────────────────────────────── */
+.path-draw {
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  animation: path-draw-in 0.8s ease forwards;
+}
+
+@keyframes path-draw-in {
+  to { stroke-dashoffset: 0; }
+}
+
+/* ── File Write Animation ────────────────────────────────────── */
+.file-write-anim {
+  animation: file-write 0.4s var(--ease-bounce) forwards;
+}
+
+@keyframes file-write {
+  0% { opacity: 0; transform: scale(0.5); }
+  60% { transform: scale(1.1); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* ── File Delete Animation ───────────────────────────────────── */
+.file-delete-anim {
+  animation: file-delete 0.3s ease forwards;
+}
+
+@keyframes file-delete {
+  0% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.5); filter: blur(4px); }
+}
+
+/* ── Prune Animation (partition pruning) ─────────────────────── */
+.prune-anim {
+  animation: prune 0.4s ease forwards;
+}
+
+@keyframes prune {
+  0% { opacity: 1; }
+  50% { background: rgba(248, 81, 73, 0.2); }
+  100% { opacity: 0.2; filter: grayscale(0.8); }
+}
+
+/* ── Success Flash ───────────────────────────────────────────── */
+.success-flash {
+  animation: success-flash 0.5s ease forwards;
+}
+
+@keyframes success-flash {
+  0% { box-shadow: 0 0 0 0 rgba(63, 185, 80, 0.8); }
+  100% { box-shadow: 0 0 20px 6px rgba(63, 185, 80, 0); }
+}
+
+/* ── Error Flash ─────────────────────────────────────────────── */
+.error-flash {
+  animation: error-flash 0.5s ease forwards;
+}
+
+@keyframes error-flash {
+  0% { box-shadow: 0 0 0 0 rgba(248, 81, 73, 0.8); }
+  100% { box-shadow: 0 0 20px 6px rgba(248, 81, 73, 0); }
+}
+
+/* ── Gradient Border Rotate ──────────────────────────────────── */
+.gradient-border-animate {
+  position: relative;
+}
+
+.gradient-border-animate::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: var(--iceberg-gradient);
+  z-index: -1;
+  animation: gradient-rotate 3s linear infinite;
+  opacity: 0;
+  transition: opacity var(--ease-base);
+}
+
+.gradient-border-animate:hover::before { opacity: 1; }
+
+@keyframes gradient-rotate {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* ── Iceberg Logo Glow ───────────────────────────────────────── */
+.logo-glow {
+  filter: drop-shadow(0 0 8px rgba(74, 174, 255, 0.5));
+  animation: logo-glow-pulse 3s ease-in-out infinite;
+}
+
+@keyframes logo-glow-pulse {
+  0%, 100% { filter: drop-shadow(0 0 6px rgba(74, 174, 255, 0.4)); }
+  50% { filter: drop-shadow(0 0 16px rgba(74, 174, 255, 0.7)); }
+}
+
+/* ── Architecture Diagram ────────────────────────────────────── */
+.arch-node rect,
+.arch-node path {
+  transition: fill 0.2s ease, stroke 0.2s ease, filter 0.2s ease;
+}
+
+.arch-node.highlighted rect,
+.arch-node.highlighted path {
+  stroke: var(--blue) !important;
+  filter: drop-shadow(0 0 8px rgba(74,174,255,0.6));
+}
+
+.arch-node.active rect {
+  fill: rgba(74, 174, 255, 0.15) !important;
+  stroke: var(--blue) !important;
+}
+
+.arch-node.dimmed {
+  opacity: 0.25;
+  pointer-events: none;
+}
+
+.arch-connector {
+  transition: stroke 0.2s ease, opacity 0.2s ease;
+}
+
+.arch-connector.active {
+  stroke: var(--blue) !important;
+  opacity: 1;
+}
+
+.arch-connector.flowing {
+  stroke: var(--blue);
+  stroke-dasharray: 6 4;
+  animation: flow-dash 0.8s linear infinite;
+}
+
+/* ── Metadata Tree ───────────────────────────────────────────── */
+.meta-layer {
+  transition: opacity 0.3s ease;
+}
+
+.meta-layer.active { opacity: 1; }
+.meta-layer.inactive { opacity: 0.4; }
+
+/* ── Why Iceberg Module ──────────────────────────────────────── */
+.problem-card {
+  animation: none;
+  transition: all 0.3s ease;
+}
+
+.problem-card.expanded {
+  border-color: var(--red) !important;
+  box-shadow: 0 0 0 1px var(--red-dim), var(--shadow-md);
+}
+
+.innovation-card.revealed {
+  animation: innovation-reveal 0.5s var(--ease-bounce) both;
+}
+
+@keyframes innovation-reveal {
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* ── Query Path Animation ────────────────────────────────────── */
+.query-pointer {
+  transition: transform 0.4s var(--ease-in-out);
+}
+
+.query-highlight {
+  stroke-width: 2.5 !important;
+  filter: drop-shadow(0 0 6px rgba(74,174,255,0.8));
+}
+
+/* ── Particle Trail ──────────────────────────────────────────── */
+.particle {
+  pointer-events: none;
+  animation: particle-fade 1s ease forwards;
+}
+
+@keyframes particle-fade {
+  0% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0); }
+}
+
+/* ── Comparison Table ────────────────────────────────────────── */
+.compare-cell {
+  transition: background 0.2s ease;
+}
+
+.compare-cell.winner {
+  background: var(--green-subtle) !important;
+  color: var(--green) !important;
+}
+
+.compare-cell.loser {
+  background: var(--red-subtle) !important;
+  color: var(--red) !important;
+}
+
+/* ── Timeline ────────────────────────────────────────────────── */
+.timeline-dot {
+  transition: transform 0.2s var(--ease-bounce), box-shadow 0.2s ease;
+}
+
+.timeline-dot:hover {
+  transform: scale(1.3);
+  box-shadow: 0 0 12px currentColor;
+}
+
+/* ── Module Loading Overlay ──────────────────────────────────── */
+.module-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-1);
+  z-index: 10;
+  animation: fade-out 0.3s ease 0.2s forwards;
+}
+
+@keyframes fade-out {
+  to { opacity: 0; pointer-events: none; }
+}

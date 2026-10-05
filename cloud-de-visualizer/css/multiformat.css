@@ -1,0 +1,280 @@
+/* ============================================================
+   Multi-format layer — per-format brand recoloring, premium
+   motion tokens, format switcher, route progress bar, and the
+   universal interaction polish from UIUX-POLISH-SPEC.md.
+   Loaded AFTER main.css so the [data-format] blocks win the
+   cascade over the base/light token blocks.
+   ============================================================ */
+
+/* ── Premium motion tokens (additive; existing --ease-* kept) ── */
+:root {
+  --dur-fast: 120ms;
+  --dur: 200ms;
+  --dur-slow: 320ms;
+  --dur-cat: 280ms;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  --ease-accel: cubic-bezier(.4, 0, 1, 1);
+  --ease-cat: cubic-bezier(.33, 0, .2, 1);
+  --lift: 0 6px 20px rgba(0, 0, 0, .22);
+
+  /* Section left-edge accent stripes (scannability) */
+  --stripe-neutral: #33455f;
+  --stripe-a: #4f8cff;
+  --stripe-b: #22d3ee;
+  --stripe-c: #fbbf24;
+  --stripe-d: #a78bfa;
+
+  /* Achievement / streak accents (learning surfaces, Phase D) */
+  --success: #10b981; --success-2: #2dd4bf; --success-glow: rgba(16, 185, 129, .28);
+  --flame-1: #fbbf24; --flame-2: #fb5a5a;
+}
+
+/* ── Per-format brand recoloring ──────────────────────────────
+   Sets --brand* (used by the new premium CSS) and aliases the
+   legacy --iceberg* tokens so every existing component recolors
+   per active format, in both light and dark themes. */
+:root,
+:root[data-format="iceberg"] {
+  --brand: #4aaeff; --brand-2: #a371f7; --brand-strong: #1a7fd4;
+  --brand-glow: rgba(74, 174, 255, .30);
+  --brand-gradient: linear-gradient(135deg, #4aaeff 0%, #a371f7 100%);
+  --brand-gradient-warm: linear-gradient(135deg, #f97316 0%, #e3b341 100%);
+}
+:root[data-format="delta"] {
+  --brand: #ff5a3c; --brand-2: #ffb020; --brand-strong: #d23b1f;
+  --brand-glow: rgba(255, 90, 60, .30);
+  --brand-gradient: linear-gradient(135deg, #ff5a3c 0%, #ffb020 100%);
+  --brand-gradient-warm: linear-gradient(135deg, #ff5a3c 0%, #ffb020 100%);
+}
+:root[data-format="compare"] {
+  --brand: #8b94a3; --brand-2: #4aaeff; --brand-strong: #6b7280;
+  --brand-glow: rgba(139, 148, 163, .30);
+  --brand-gradient: linear-gradient(135deg, #4aaeff 0%, #ff5a3c 100%);
+  --brand-gradient-warm: linear-gradient(135deg, #4aaeff 0%, #ff5a3c 100%);
+}
+:root[data-format="hudi"] {
+  --brand: #14b8a6; --brand-2: #34d399; --brand-strong: #0f9488;
+  --brand-glow: rgba(20, 184, 166, .30);
+  --brand-gradient: linear-gradient(135deg, #14b8a6 0%, #34d399 100%);
+  --brand-gradient-warm: linear-gradient(135deg, #14b8a6 0%, #34d399 100%);
+}
+/* Cloud DE Visualizer formats */
+:root[data-format="azure"] {
+  --brand: #2f9bff; --brand-2: #38bdf8; --brand-strong: #0f6cbd;
+  --brand-glow: rgba(47, 155, 255, .30);
+  --brand-gradient: linear-gradient(135deg, #0f6cbd 0%, #38bdf8 100%);
+  --brand-gradient-warm: linear-gradient(135deg, #2f9bff 0%, #38bdf8 100%);
+}
+:root[data-format="databricks"] {
+  --brand: #ff5f46; --brand-2: #ff8f6b; --brand-strong: #e8431f;
+  --brand-glow: rgba(255, 95, 70, .30);
+  --brand-gradient: linear-gradient(135deg, #e8431f 0%, #ff8f6b 100%);
+  --brand-gradient-warm: linear-gradient(135deg, #ff5f46 0%, #ff8f6b 100%);
+}
+:root[data-format="aws"] {
+  --brand: #ff9900; --brand-2: #ffbf66; --brand-strong: #ec7211;
+  --brand-glow: rgba(255, 153, 0, .30);
+  --brand-gradient: linear-gradient(135deg, #ec7211 0%, #ffbf66 100%);
+  --brand-gradient-warm: linear-gradient(135deg, #ff9900 0%, #ffbf66 100%);
+}
+:root[data-format="multi-cloud"] {
+  --brand: #8b94a3; --brand-2: #2f9bff; --brand-strong: #6b7280;
+  --brand-glow: rgba(139, 148, 163, .30);
+  --brand-gradient: linear-gradient(135deg, #2f9bff 0%, #ff5f46 100%);
+  --brand-gradient-warm: linear-gradient(135deg, #2f9bff 0%, #ff9900 100%);
+}
+/* Alias legacy tokens → brand (recolors all existing components).
+   Uses [data-format] (specificity 0,1,1) placed after main.css's
+   light-theme block so it wins in both light and dark themes. */
+:root[data-format] {
+  --iceberg: var(--brand);
+  --iceberg-dark: var(--brand-strong);
+  --iceberg-glow: var(--brand-glow);
+  --iceberg-gradient: var(--brand-gradient);
+  --iceberg-gradient-warm: var(--brand-gradient-warm);
+}
+
+/* ── Route progress bar (top; perceptual) ─────────────────────── */
+.nav-progress {
+  position: fixed; top: 0; left: 0; height: 2px; width: 0;
+  z-index: 600;
+  background: linear-gradient(90deg, var(--brand), var(--brand-2));
+  box-shadow: 0 0 8px var(--brand-glow);
+  opacity: 0; pointer-events: none;
+  transition: width .18s var(--ease), opacity .24s var(--ease);
+}
+.nav-progress.run { opacity: 1; }
+.nav-progress.done { opacity: 0; }
+
+/* ── Content rise-in on each route change ─────────────────────── */
+@keyframes tvMainEnter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+#module-container.main-enter { animation: tvMainEnter 170ms var(--ease); }
+
+/* ── Universal interaction polish (hover-lift + press-settle) ─── */
+.btn-primary, .btn-secondary, .nav-tools-btn, .fmt-seg {
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease), filter var(--dur-fast) var(--ease);
+}
+.btn-primary:hover, .btn-secondary:hover { transform: translateY(-1px); box-shadow: var(--lift); }
+.btn-primary:active, .btn-secondary:active, .btn-icon:active, .fmt-seg:active { transform: translateY(1px) scale(.99); }
+a.nav-item { transition: background .12s, color .12s, transform var(--dur-fast) var(--ease); }
+a.nav-item:hover { transform: translateX(3px); }
+
+/* Glowing active-nav accent bar (upgrade the existing ::before) */
+a.nav-item.active { background: var(--brand-glow); color: var(--brand); }
+a.nav-item.active::before { background: var(--brand); box-shadow: 0 0 8px var(--brand-glow); }
+
+/* Focus-visible rings adopt the brand accent */
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 6px; }
+button:focus:not(:focus-visible), a:focus:not(:focus-visible) { outline: none; }
+
+/* ── Format switcher ──────────────────────────────────────────── */
+.format-switcher { padding: 10px 12px 4px; }
+.format-switcher.single .fmt-static {
+  display: block;
+  font-size: 10.5px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase;
+  color: var(--brand);
+}
+.sidebar.collapsed .format-switcher { display: none; }
+.fmt-track {
+  display: flex; flex-wrap: wrap; gap: 3px; padding: 3px;
+  background: var(--bg-3); border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
+}
+.fmt-seg { min-width: max-content; }
+.fmt-seg {
+  flex: 1; padding: 5px 8px; border-radius: var(--radius-full);
+  font-size: 11.5px; font-weight: 700; color: var(--text-secondary);
+  background: transparent; border: none; cursor: pointer; white-space: nowrap;
+}
+.fmt-seg:hover { color: var(--text-primary); }
+.fmt-seg.active {
+  background: var(--brand); color: var(--text-on-accent, #06111f);
+  box-shadow: 0 0 12px var(--brand-glow);
+}
+.fmt-seg--compare.active { background: var(--brand-gradient); }
+
+/* ── Reduced motion (belt-and-suspenders over main.css) ───────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important; animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important; scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================================
+   IT-4b — visual-deepening additions
+   ============================================================ */
+
+/* Light-theme brand tuning: darker accents read better on warm paper.
+   Higher specificity ([data-theme][data-format]) beats the format block. */
+:root[data-theme="light"][data-format="iceberg"] { --brand: #1a7fd4; --brand-strong: #0a5fbf; }
+:root[data-theme="light"][data-format="delta"]   { --brand: #e0431f; --brand-strong: #b8320f; }
+:root[data-theme="light"][data-format="compare"] { --brand: #5a6472; --brand-strong: #434b57; }
+:root[data-theme="light"][data-format="hudi"]    { --brand: #0d9488; --brand-strong: #0a7267; }
+
+/* Hamburger → X morph (mobile/tablet nav toggle) */
+#nav-toggle .ham { position: relative; display: inline-block; width: 18px; height: 14px; }
+#nav-toggle .ham i {
+  position: absolute; left: 0; right: 0; height: 2px; border-radius: 2px; background: currentColor;
+  transition: transform var(--dur) var(--ease-cat), opacity var(--dur-fast) var(--ease), top var(--dur) var(--ease-cat);
+}
+#nav-toggle .ham i:nth-child(1) { top: 0; }
+#nav-toggle .ham i:nth-child(2) { top: 6px; }
+#nav-toggle .ham i:nth-child(3) { top: 12px; }
+#nav-toggle:active .ham { transform: scale(.9); }
+body.sidebar-open #nav-toggle .ham i:nth-child(1) { top: 6px; transform: rotate(45deg); }
+body.sidebar-open #nav-toggle .ham i:nth-child(2) { opacity: 0; transform: scaleX(.4); }
+body.sidebar-open #nav-toggle .ham i:nth-child(3) { top: 6px; transform: rotate(-45deg); }
+
+/* Copy-button brightness pulse (premium micro-feedback) */
+.code-block-copy { transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), filter var(--dur-fast) var(--ease); }
+.code-block-copy:active { filter: brightness(1.4); }
+.code-block-copy.copied { color: var(--green); }
+
+/* Home / nav cards lift on hover (only elements that opt in via [data-nav]) */
+[data-nav] { transition: transform var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease); }
+[data-nav]:hover { transform: translateY(-2px); box-shadow: var(--lift); }
+
+/* Left-edge accent stripe utility (scannability; opt-in via [data-key]) */
+.section, .tv-stripe { box-shadow: inset 3px 0 0 var(--stripe-neutral); }
+.section[data-key="logic"], [data-key="logic"] { box-shadow: inset 3px 0 0 var(--stripe-a); }
+.section[data-key="code"], [data-key="code"] { box-shadow: inset 3px 0 0 var(--stripe-b); }
+.section[data-key="complexity"], [data-key="complexity"] { box-shadow: inset 3px 0 0 var(--stripe-c); }
+.section[data-key="recall"], [data-key="recall"] { box-shadow: inset 3px 0 0 var(--stripe-d); }
+
+/* Uppercase micro-label utility (the premium tell) */
+.tv-micro {
+  font-size: 10.5px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* ── Cross-format concept jump (topbar; Phase D) ──────────────── */
+.xformat-jump { display:flex; align-items:center; gap:6px; margin-left:14px; padding-left:14px; border-left:1px solid var(--border-default); flex-wrap:wrap; }
+.xformat-jump[hidden] { display:none; }
+.xfj-label { font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; font-weight:700; color:var(--text-muted); }
+.xfj-chip {
+  display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:var(--radius-full);
+  font-size:11.5px; font-weight:700; text-decoration:none; white-space:nowrap;
+  color:var(--text-secondary); background:var(--bg-2); border:1px solid var(--border-default);
+  transition:border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+.xfj-chip:hover { color:var(--text-primary); transform:translateY(-1px); box-shadow:var(--lift); }
+.xfj-chip svg { display:block; }
+.xfj-chip--iceberg:hover { border-color:#4aaeff; }
+.xfj-chip--delta:hover   { border-color:#ff5a3c; }
+.xfj-chip--hudi:hover    { border-color:#14b8a6; }
+.xfj-chip--compare:hover { border-color:var(--brand-2); }
+.xfj-chip--anim { background:var(--brand-glow); border-color:transparent; color:var(--brand-2); }
+.xfj-chip--anim:hover { border-color:var(--brand-2); color:var(--brand-2); }
+
+/* Fold the cross-format chips away on narrow widths to protect the topbar. */
+@media (max-width: 720px) {
+  .xformat-jump { display:none !important; }
+}
+
+/* ============================================================
+   Animation canvas — fill the space (was capped at native px)
+   Vector SVGs scale losslessly, so filling the canvas only makes
+   diagrams larger and crisper. One rule overrides every module's
+   inline max-width/height cap (iceberg *-canvas, dk/hk/cmpa alike).
+   Upper guard keeps proportions sane on ultra-wide / 4K.
+   ============================================================ */
+#module-container [class$="-canvas"] > svg {
+  width: 100%;
+  height: 100%;
+  max-width: min(100%, 1500px) !important;
+  max-height: 100% !important;
+}
+/* Trim the canvas padding a touch so the diagram claims more room. */
+#module-container [class$="-canvas"] { padding: 10px !important; }
+/* Reclaim width from the step sidebar (landscape diagrams fill taller). */
+#module-container [class$="-outer"]:has(> [class$="-canvas"]) > [class$="-sidebar"],
+#module-container [class$="-outer"]:has(> [class$="-canvas"]) > [class$="-side"] {
+  width: 300px;
+}
+
+/* Adaptive step-sidebar placement — decided by the ACTUAL canvas area's
+   shape, not the viewport (which ignores the nav width). Each animation
+   module wraps in a *-page; make that the query container and stack the
+   step sidebar UNDER the canvas whenever the area is portrait-ish, so
+   the diagram always gets whichever layout renders it larger. This is
+   device-agnostic: iPad portrait and cramped landscape tablets stack;
+   wide laptops/desktops stay side-by-side. Keeps the
+   height:100%/overflow:hidden contract (no page scroll). */
+#module-container [class*="-page"]:has([class$="-canvas"]) {
+  container-type: size;
+}
+@container (max-aspect-ratio: 13 / 10) {
+  [class$="-outer"]:has(> [class$="-canvas"]) {
+    flex-direction: column;
+  }
+  [class$="-outer"]:has(> [class$="-canvas"]) > [class$="-sidebar"],
+  [class$="-outer"]:has(> [class$="-canvas"]) > [class$="-side"] {
+    width: auto;
+    max-height: 46%;
+    border-left: none;
+    border-top: 1px solid var(--border-default);
+  }
+}
