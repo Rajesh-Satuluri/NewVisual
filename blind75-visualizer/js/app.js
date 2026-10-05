@@ -704,8 +704,12 @@
     main.appendChild(metaBox);
 
     // ---- pattern explanation (exact chapter intro from Coding Interview Patterns) ----
+    // Show it only once per pattern — on the first problem of the category — so
+    // it introduces the pattern rather than repeating on every problem.
     var intro = B.getIntro ? B.getIntro(p.category) : null;
-    if (intro && intro.md) {
+    var catList = (B._registry && B._registry[p.category]) || [];
+    var isFirstInCategory = catList.length > 0 && catList[0].id === p.id;
+    if (intro && intro.md && isFirstInCategory) {
       var introNode = h("div", { class: "md pattern-intro" });
       introNode.innerHTML = md(intro.md) +
         (intro.source ? '<p class="pattern-intro-src">From the <em>Coding Interview Patterns</em> chapter: ' + esc(intro.source) + "</p>" : "");
