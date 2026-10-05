@@ -919,6 +919,304 @@
         "Two pointers: move the smaller-height side, update its running max first.",
         "Prefix/suffix arrays are the O(n)-space stepping stone."
       ]
+    },
+
+    {
+      id: "shift-zeros-to-the-end",
+      lc: 283,
+      title: "Shift Zeros to the End",
+      difficulty: "Easy",
+      category: "Two Pointers",
+      link: "https://leetcode.com/problems/move-zeroes/",
+      meta: { pattern: "Slow write / fast scan pointers", dataStructure: "Array", technique: "In-place partition by swap" },
+      description:
+        "Given an integer array `nums`, move **all zeros to the end** while keeping the **relative order** of the non-zero elements. You must modify the array **in place** and should aim for O(1) extra space.\n\n" +
+        "(This is the book's *Shift Zeros to the End*; it is the same problem as **LeetCode 283 — Move Zeroes**.)",
+      constraints: [
+        "`1 <= nums.length <= 10^4`",
+        "`-2^31 <= nums[i] <= 2^31 - 1`",
+        "Must modify `nums` in place; aim for O(1) extra space."
+      ],
+      notes: [
+        "The relative order of the non-zero elements must be preserved.",
+        "\"In place\" rules out building a separate result array and copying it back.",
+        "The reframe that unlocks the trick: instead of moving zeros right, move non-zeros left — the zeros then fall to the right for free."
+      ],
+      examples: [
+        {
+          input: "nums = [0, 1, 0, 3, 2]",
+          output: "[1, 3, 2, 0, 0]",
+          reasoning: "Non-zeros 1, 3, 2 keep their order at the front; the two zeros are pushed to the back.",
+          visual:
+            "```\nstart:  [0, 1, 0, 3, 2]   left = 0\nR=0  nums[0]=0  -> skip (left stays)\nR=1  nums[1]=1  -> swap(left=0, 1) -> [1, 0, 0, 3, 2]  left=1\nR=2  nums[2]=0  -> skip\nR=3  nums[3]=3  -> swap(left=1, 3) -> [1, 3, 0, 0, 2]  left=2\nR=4  nums[4]=2  -> swap(left=2, 4) -> [1, 3, 2, 0, 0]  left=3\nresult: [1, 3, 2, 0, 0]\n```"
+        },
+        { input: "nums = [0, 0, 0]", output: "[0, 0, 0]", reasoning: "No non-zero elements: nothing moves." },
+        { input: "nums = [1, 3, 2]", output: "[1, 3, 2]", reasoning: "No zeros: the array is already correct and every swap is a no-op." },
+        { input: "nums = [1, 1, 1, 0, 0]", output: "[1, 1, 1, 0, 0]", reasoning: "Non-zeros already lead; zeros already trail." }
+      ],
+      approaches: [
+        {
+          name: "Brute Force — copy non-zeros into a temp array",
+          time: "O(n)",
+          space: "O(n)",
+          whenToUse: "Useful only to surface the key insight (focus on non-zeros); it violates the in-place requirement, so it is not the accepted answer.",
+          logic:
+            "**What it asks.** Rearrange `nums` so every zero sits after every non-zero, the non-zeros stay in their original relative order, and the change happens in the array itself.\n\n" +
+            "**Why the naive idea fails.** The most direct approach allocates a second array `temp` of the same length (all zeros), copies the non-zero values of `nums` into the front of `temp` in order, then copies `temp` back over `nums`. It is linear and correct on values — but it spends `O(n)` auxiliary space and leans on a whole second array, which breaks the in-place requirement the problem (and the follow-up) insists on.\n\n" +
+            "**Key Idea.** Even though we discard this solution, it hands us the insight that makes the real one work: the output is defined entirely by **where the non-zero elements go**. If we place the non-zeros, the zeros are whatever is left over. So we can stop thinking about moving zeros and instead think about compacting non-zeros to the front.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Create `temp = [0] * len(nums)` and a write index `i = 0`.\n" +
+            "2. Scan `nums`; for each non-zero value, write it to `temp[i]` and increment `i`.\n" +
+            "3. Copy `temp` back into `nums` position by position.\n\n" +
+            "**Why it works.** Scanning left to right and appending only non-zeros preserves their relative order, and the untouched tail of `temp` is already zeros, so the layout is exactly what is required.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- This does not satisfy the in-place constraint — state it only as a stepping stone.\n" +
+            "- Remember to copy `temp` back into `nums`; reassigning a new object to the local parameter would not change the caller's array.\n\n" +
+            "**Complexity.** Two linear passes give time `O(n)`; the extra array makes space `O(n)`.\n\n" +
+            "**Interview mindset.** Say this out loud to extract the pivot idea — *place the non-zeros, not the zeros* — then immediately convert it to the swap-based version that needs no second array.",
+          rcs:
+            "from typing import List  # List lets the type hint say we take a list of ints and return nothing.\n\n\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls moveZeroes on it.\n\n" +
+            "    def moveZeroes(self, nums: List[int]) -> None:  # Modify nums in place; there is no return value.\n\n" +
+            "        # ==================== PHASE 1: COLLECT NON-ZEROS INTO A TEMP ARRAY ====================\n\n" +
+            "        temp = [0] * len(nums)  # A same-size buffer pre-filled with zeros, so the tail is already correct.\n" +
+            "                                # State: temp will hold the non-zeros at the front and zeros after them.\n" +
+            "        i = 0  # Write index: the next slot in temp to fill with a non-zero value.\n\n" +
+            "        for num in nums:  # Walk the input left to right so relative order is preserved.\n" +
+            "            if num != 0:  # Only non-zero values are placed explicitly.\n" +
+            "                temp[i] = num  # Append this non-zero at the current write position.\n" +
+            "                i += 1  # Advance the write index for the next non-zero.\n\n" +
+            "        # ==================== PHASE 2: COPY BACK IN PLACE ====================\n\n" +
+            "        for j in range(len(nums)):  # Overwrite nums element by element so the caller sees the change.\n" +
+            "            nums[j] = temp[j]  # Mutating nums[j] edits the original list object in place.",
+          plain:
+            "class Solution:\n" +
+            "    def moveZeroes(self, nums: List[int]) -> None:\n" +
+            "        temp = [0] * len(nums)\n" +
+            "        i = 0\n" +
+            "        for num in nums:\n" +
+            "            if num != 0:\n" +
+            "                temp[i] = num\n" +
+            "                i += 1\n" +
+            "        for j in range(len(nums)):\n" +
+            "            nums[j] = temp[j]"
+        },
+        {
+          name: "Optimized — Two pointers (write pointer + scanner)",
+          time: "O(n)",
+          space: "O(1)",
+          whenToUse: "The expected answer: one slow 'write' pointer marks where the next non-zero belongs, one fast pointer scans for non-zeros and swaps them in.",
+          logic:
+            "**What it asks.** Compact all non-zeros to the front in their original order and leave the zeros at the back, mutating `nums` directly with no auxiliary array.\n\n" +
+            "**Why the naive idea fails.** The temp-array version is correct but allocates `O(n)` extra space; the whole point of the follow-up is to achieve the same layout with constant extra space.\n\n" +
+            "**Key Idea.** Keep two pointers over the same array. `left` is a **write pointer**: it always marks the slot where the *next* non-zero value should land, so everything strictly left of `left` is a correctly-placed non-zero. `right` is a **scanner** that sweeps the whole array looking for non-zeros. When `right` finds a non-zero, swap it into `nums[left]` and advance `left`; when `right` sees a zero, it simply moves on, leaving `left` parked on the zero so a later non-zero can overwrite it. Because non-zeros are swapped forward in the exact order they are encountered, their relative order is preserved, and every zero ends up shuffled toward the back.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Set `left = 0`.\n" +
+            "2. Sweep `right` from `0` to `n-1`.\n" +
+            "3. When `nums[right] != 0`, swap `nums[left]` and `nums[right]` (skip the swap when `left == right`, it is a no-op), then do `left += 1`.\n" +
+            "4. When `nums[right] == 0`, do nothing — `left` stays on the zero, waiting.\n\n" +
+            "**Why it works.** Loop invariant: at every step, `nums[0..left-1]` are the non-zeros seen so far, in order, and `nums[left..right-1]` are zeros. A non-zero at `right` is swapped into the first waiting zero slot (`left`), which both preserves order and pushes a zero rightward; a zero at `right` keeps the invariant by extending the zero region. When `right` reaches the end, `left` is exactly the count of non-zeros and the tail is all zeros.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- Advance `left` **only** when you place a non-zero; advancing it on a zero would leave gaps.\n" +
+            "- The `left == right` no-op guard is optional for correctness but avoids a pointless self-swap when there have been no zeros yet.\n" +
+            "- Swap, do not just copy `nums[right]` into `nums[left]` — a plain copy would duplicate a value and drop the zero that was at `left`.\n\n" +
+            "**Complexity.** A single sweep of `right` with O(1) work per step gives time `O(n)`; only two indices are stored, so space `O(1)`.\n\n" +
+            "**Interview mindset.** 'Compact / partition an array in place while keeping order' is the signal for a slow write pointer trailing a fast scanner — the same shape powers remove-duplicates and remove-element. Be ready to state the invariant: everything left of the write pointer is already final.",
+          rcs:
+            "from typing import List  # List lets the type hint say we take a list of ints and return nothing.\n\n\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls moveZeroes on it.\n\n" +
+            "    def moveZeroes(self, nums: List[int]) -> None:  # Modify nums in place; there is no return value.\n\n" +
+            "        # ==================== PHASE 1: SET UP THE WRITE POINTER ====================\n\n" +
+            "        left = 0  # Write pointer: the slot where the NEXT non-zero value should be placed.\n" +
+            "                  # Invariant: nums[0 .. left-1] are the non-zeros found so far, in original order.\n\n" +
+            "        # ==================== PHASE 2: SCAN FOR NON-ZEROS AND SWAP THEM FORWARD ====================\n\n" +
+            "        for right in range(len(nums)):  # Fast scanner: visits every index once, left to right.\n" +
+            "            if nums[right] != 0:  # Found a value that belongs in the compacted front region.\n" +
+            "                if right != left:  # Skip a pointless self-swap when no zeros have been passed yet.\n" +
+            "                    nums[left], nums[right] = nums[right], nums[left]  # Swap the non-zero into its final slot; a zero (if any) goes to 'right'.\n" +
+            "                left += 1  # Advance the write pointer: this slot now holds a finalized non-zero.\n" +
+            "                           # Why only here: left must move exactly once per non-zero, never on a zero.\n" +
+            "            # else: nums[right] == 0 -> do nothing, leaving 'left' parked on a zero to be overwritten later.",
+          plain:
+            "class Solution:\n" +
+            "    def moveZeroes(self, nums: List[int]) -> None:\n" +
+            "        left = 0\n" +
+            "        for right in range(len(nums)):\n" +
+            "            if nums[right] != 0:\n" +
+            "                if right != left:\n" +
+            "                    nums[left], nums[right] = nums[right], nums[left]\n" +
+            "                left += 1"
+        }
+      ],
+      patternRecognition: [
+        "'Move/partition some elements to one side in place, keep the rest in order' -> slow write pointer + fast scanner.",
+        "In-place + O(1) space requirement rules out a temp array and points at swapping.",
+        "Reframe 'push zeros right' as 'pull non-zeros left' — place the kept elements, the rest fall out for free.",
+        "Same template as Remove Element / Remove Duplicates from Sorted Array."
+      ],
+      interviewRecall: [
+        "left = write slot for the next non-zero; right scans everything.",
+        "On a non-zero: swap into nums[left], then left += 1. On a zero: do nothing.",
+        "Invariant: everything left of the write pointer is already final and in order.",
+        "O(n) time, O(1) space, single pass."
+      ]
+    },
+
+    {
+      id: "next-lexicographical-sequence",
+      lc: 31,
+      title: "Next Lexicographical Sequence",
+      difficulty: "Medium",
+      category: "Two Pointers",
+      link: "https://leetcode.com/problems/next-permutation/",
+      meta: { pattern: "Pivot + successor swap + reverse suffix", dataStructure: "String / Array", technique: "Scan from the right" },
+      description:
+        "Given a string `s`, return the **next** string in lexicographical order that uses the **same characters** — the smallest arrangement that is strictly larger than `s`. If `s` is already the **largest** permutation of its characters, wrap around and return the **smallest** one (its characters in ascending order).\n\n" +
+        "(This is the book's *Next Lexicographical Sequence*; it is the string form of **LeetCode 31 — Next Permutation**, which does the same rearrangement in place on a list.)",
+      constraints: [
+        "`1 <= s.length`",
+        "`s` consists of lowercase English letters.",
+        "The rearrangement must use exactly the same multiset of characters as `s`."
+      ],
+      notes: [
+        "'Next lexicographical sequence' = the smallest string strictly greater than `s` built from the same letters.",
+        "A string that is already in non-increasing order is the last permutation; the answer then wraps to the first (ascending) permutation.",
+        "This is the canonical 'next permutation' algorithm; the two scans from the right are what make it a two-pointer problem."
+      ],
+      examples: [
+        {
+          input: "s = 'abcd'",
+          output: "'abdc'",
+          reasoning: "The smallest bump: the suffix 'd' cannot grow, 'c' is the pivot, its rightmost successor is 'd'; swapping gives 'abdc' with the suffix already minimal.",
+          visual:
+            "```\ns = a b c d\n        pivot scan (right -> left, first drop):\n    ... d is last; c < d  -> pivot = 'c' (index 2)\nrightmost successor of 'c' in suffix 'd': 'd' (index 3)\nswap pivot & successor:  a b d c\nreverse suffix after pivot (single char): a b d | c  -> 'abdc'\n```"
+        },
+        {
+          input: "s = 'abdc'",
+          output: "'acbd'",
+          reasoning: "Pivot is 'b' (since 'd' >= 'c' is non-increasing, but 'b' < 'd' breaks it). Rightmost char > 'b' in suffix 'dc' is 'c'. Swap -> 'acdb', reverse suffix 'db' -> 'bd' -> 'acbd'.",
+          visual:
+            "```\ns = a b d c\n    scan right->left: d>=c (keep), b<d  -> pivot = 'b' (index 1)\nrightmost successor > 'b' in 'd c': 'c' (index 3)\nswap:            a c d b\nreverse suffix:  a c | b d   -> 'acbd'\n```"
+        },
+        {
+          input: "s = 'dcba'",
+          output: "'abcd'",
+          reasoning: "'dcba' is strictly decreasing — the largest permutation, so there is no pivot. Reverse the whole string to wrap around to the smallest permutation.",
+          visual:
+            "```\ns = d c b a   (strictly decreasing = largest permutation)\nno pivot found  ->  reverse the whole string  ->  a b c d\n```"
+        }
+      ],
+      approaches: [
+        {
+          name: "Brute Force — generate, sort, pick the next",
+          time: "O(n! * n)",
+          space: "O(n! * n)",
+          whenToUse: "Baseline only, to pin down the definition; the factorial blow-up makes it unusable beyond a handful of characters.",
+          logic:
+            "**What it asks.** Produce the permutation of `s` that comes immediately after `s` in dictionary order, wrapping to the first permutation if `s` is already last.\n\n" +
+            "**Why the naive idea fails.** The most literal reading is: list **every** permutation of the characters, sort them, find `s`, and return the one after it (or the first, wrapping around). There are up to `n!` permutations, each of length `n` to build and compare, so this explodes well before `n` is large and wastes enormous time and memory computing arrangements we never needed.\n\n" +
+            "**Key Idea.** The value here is purely definitional: it makes 'next in lexicographical order' concrete and gives a reference the optimized version must match. It performs no clever reasoning about *which* characters to move.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Generate all distinct permutations of `s` and sort them.\n" +
+            "2. Find the index of `s` in that sorted list.\n" +
+            "3. Return the next entry, or the first entry when `s` is the last (modular wrap).\n\n" +
+            "**Why it works.** By construction the sorted list is exactly the dictionary ordering of every arrangement, so the neighbor of `s` is the answer, and wrapping handles the largest-permutation case.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- De-duplicate permutations when `s` has repeated letters, or the 'next' neighbor can be an identical string.\n" +
+            "- The factorial cost is the whole reason to move on — state it and pivot.\n\n" +
+            "**Complexity.** Time `O(n! * n)` to build and sort all permutations; space `O(n! * n)` to hold them.\n\n" +
+            "**Interview mindset.** Use it to anchor the definition, then ask the real question: can we compute the next permutation by editing only a small **suffix** of `s`, without enumerating anything?",
+          rcs:
+            "from itertools import permutations  # permutations(s) yields every ordering of the characters of s.\n\n\n" +
+            "class Solution:  # LeetCode creates an object of this class and calls nextLexicographicalSequence on it.\n\n" +
+            "    def nextLexicographicalSequence(self, s: str) -> str:  # Return the next arrangement of s in dictionary order.\n\n" +
+            "        # ==================== PHASE 1: ENUMERATE AND SORT EVERY PERMUTATION ====================\n\n" +
+            "        perms = sorted(set(''.join(p) for p in permutations(s)))  # All distinct arrangements, in dictionary order.\n" +
+            "                                                                  # Why set: collapse duplicates when s has repeated letters.\n\n" +
+            "        # ==================== PHASE 2: RETURN THE NEIGHBOR AFTER s (WRAPPING) ====================\n\n" +
+            "        i = perms.index(s)  # Locate s within the sorted list of permutations.\n" +
+            "        return perms[(i + 1) % len(perms)]  # The next permutation; % wraps the largest back to the smallest.",
+          plain:
+            "from itertools import permutations\n\n" +
+            "class Solution:\n" +
+            "    def nextLexicographicalSequence(self, s: str) -> str:\n" +
+            "        perms = sorted(set(''.join(p) for p in permutations(s)))\n" +
+            "        i = perms.index(s)\n" +
+            "        return perms[(i + 1) % len(perms)]"
+        },
+        {
+          name: "Optimized — Pivot, successor swap, reverse suffix",
+          time: "O(n)",
+          space: "O(n)",
+          whenToUse: "The expected answer: find the shortest rearrangeable suffix from the right, make the smallest possible increase, then minimize the rest.",
+          logic:
+            "**What it asks.** Make the **smallest** increase to `s` using the same characters — and wrap to the smallest permutation if no increase is possible.\n\n" +
+            "**Why the naive idea fails.** Enumerating all `n!` permutations is hopeless. The structure of lexicographical order lets us edit only a short suffix instead.\n\n" +
+            "**Key Idea.** To increase a string as little as possible, change characters as far to the **right** as you can — a bump in the rightmost positions moves the string less than a bump further left. The largest permutation of any multiset is its **non-increasing** arrangement, so scanning from the right, the longest non-increasing run at the tail is already maxed out and cannot be made larger by rearranging within itself. The first character (from the right) that **breaks** that non-increasing run is the **pivot**: it is the leftmost position we must touch. To make the smallest legal increase, swap the pivot with the **rightmost character in the suffix that is still strictly greater than it** (its smallest available 'successor'). After that swap the suffix is still in non-increasing order, i.e. at its *maximum*; since everything after the pivot should now be as *small* as possible, we **reverse** the suffix to flip it to its minimum. If no pivot exists, `s` is already the largest permutation, so we reverse the whole string to wrap to the smallest.\n\n" +
+            "**Step-by-Step Approach.**\n" +
+            "1. Copy `s` into a list `letters` (strings are immutable).\n" +
+            "2. Find the pivot: start at `len-2` and move left while `letters[pivot] >= letters[pivot+1]`. It stops at the first character that is smaller than its right neighbor.\n" +
+            "3. If `pivot == -1`, there is no such character — return the reversed string (smallest permutation).\n" +
+            "4. Find the rightmost index whose value is `> letters[pivot]`; call it the successor.\n" +
+            "5. Swap `letters[pivot]` and `letters[successor]`.\n" +
+            "6. Reverse the suffix `letters[pivot+1:]` to minimize it, then join and return.\n\n" +
+            "**Why it works.** The tail past the pivot is non-increasing, so it is the largest it can be — no internal rearrangement raises it, which is exactly why the pivot (the first break) is the leftmost position that *can* rise. Swapping in the smallest suffix value still larger than the pivot makes the minimal possible increase at that position; because that successor is the rightmost such value, the suffix stays non-increasing after the swap, so reversing it yields the smallest tail and therefore the smallest overall string that still exceeds `s`. When no pivot exists the input is the maximal arrangement, and reversing produces the minimal one, satisfying the wrap-around rule.\n\n" +
+            "**Common Gotchas.**\n" +
+            "- The pivot test uses `>=` (non-increasing), so runs of equal characters are skipped correctly.\n" +
+            "- The successor scan uses `<=` to stop at the **rightmost** character strictly greater than the pivot — using `<` can land on the wrong one with duplicates.\n" +
+            "- After the swap you **reverse** the suffix; sorting it ascending also works but reversing is O(n) because the suffix is already non-increasing.\n" +
+            "- Handle the no-pivot case explicitly, or the suffix reversal indexes will be wrong.\n\n" +
+            "**Complexity.** Two right-to-left scans plus one reversal are each linear, so time `O(n)`; converting the immutable string to a list costs `O(n)` space.\n\n" +
+            "**Interview mindset.** 'Next permutation / next arrangement' is a memorized template: scan from the right for the pivot, swap with its rightmost successor, reverse the suffix. Being able to explain *why the suffix is already maximal and why reversing minimizes it* is what separates recall from understanding.",
+          rcs:
+            "class Solution:  # LeetCode creates an object of this class and calls nextLexicographicalSequence on it.\n\n" +
+            "    def nextLexicographicalSequence(self, s: str) -> str:  # Return the next arrangement of s in dictionary order.\n\n" +
+            "        # ==================== PHASE 1: PREPARE A MUTABLE COPY ====================\n\n" +
+            "        letters = list(s)  # Strings are immutable in Python, so edit a list of characters instead.\n\n" +
+            "        # ==================== PHASE 2: FIND THE PIVOT (first drop from the right) ====================\n\n" +
+            "        pivot = len(letters) - 2  # Start one before the last character; the last char has no right neighbor to compare.\n" +
+            "        while pivot >= 0 and letters[pivot] >= letters[pivot + 1]:  # Walk left across the non-increasing tail.\n" +
+            "            pivot -= 1  # This suffix is already maximal, so keep looking for the first character that can rise.\n\n" +
+            "        # ==================== PHASE 3: NO PIVOT -> s IS THE LARGEST, WRAP AROUND ====================\n\n" +
+            "        if pivot == -1:  # Entire string is non-increasing: it is the last permutation.\n" +
+            "            return ''.join(reversed(letters))  # Reverse to the smallest (ascending) permutation.\n\n" +
+            "        # ==================== PHASE 4: FIND THE RIGHTMOST SUCCESSOR OF THE PIVOT ====================\n\n" +
+            "        rightmost_successor = len(letters) - 1  # Scan from the end for the smallest suffix value still > pivot.\n" +
+            "        while letters[rightmost_successor] <= letters[pivot]:  # Skip anything not strictly greater than the pivot.\n" +
+            "            rightmost_successor -= 1  # Because the suffix is non-increasing, the first value > pivot from the right is the smallest such.\n\n" +
+            "        # ==================== PHASE 5: SWAP, THEN MINIMIZE THE SUFFIX ====================\n\n" +
+            "        letters[pivot], letters[rightmost_successor] = letters[rightmost_successor], letters[pivot]  # Smallest legal bump at the pivot.\n" +
+            "        letters[pivot + 1:] = reversed(letters[pivot + 1:])  # Suffix was non-increasing; reversing makes it the smallest tail.\n" +
+            "        return ''.join(letters)  # Re-join the characters into the resulting string.",
+          plain:
+            "class Solution:\n" +
+            "    def nextLexicographicalSequence(self, s: str) -> str:\n" +
+            "        letters = list(s)\n" +
+            "        pivot = len(letters) - 2\n" +
+            "        while pivot >= 0 and letters[pivot] >= letters[pivot + 1]:\n" +
+            "            pivot -= 1\n" +
+            "        if pivot == -1:\n" +
+            "            return ''.join(reversed(letters))\n" +
+            "        rightmost_successor = len(letters) - 1\n" +
+            "        while letters[rightmost_successor] <= letters[pivot]:\n" +
+            "            rightmost_successor -= 1\n" +
+            "        letters[pivot], letters[rightmost_successor] = letters[rightmost_successor], letters[pivot]\n" +
+            "        letters[pivot + 1:] = reversed(letters[pivot + 1:])\n" +
+            "        return ''.join(letters)"
+        }
+      ],
+      patternRecognition: [
+        "'Next permutation / next arrangement in dictionary order' -> pivot + successor swap + reverse suffix.",
+        "Scanning from the RIGHT for the first value that breaks a non-increasing run signals the pivot technique.",
+        "'Smallest increase using the same elements' -> change the shortest possible suffix.",
+        "A fully non-increasing input means 'already largest' -> wrap around by reversing."
+      ],
+      interviewRecall: [
+        "Pivot = first index from the right with letters[i] < letters[i+1] (scan while >=).",
+        "No pivot -> input is largest -> reverse whole string for the smallest.",
+        "Swap pivot with its rightmost strictly-greater successor, then reverse the suffix after the pivot.",
+        "O(n) time; O(n) space only because the string is copied to a list."
+      ]
     }
   ]);
 })();
