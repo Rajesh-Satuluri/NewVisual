@@ -1220,6 +1220,260 @@
         "Refill out_stack from in_stack ONLY when out_stack is empty.",
         "empty() checks both stacks; amortized O(1) because each item moves once."
       ]
+    },
+
+    {
+      id: "next-greater-element-i",
+      lc: 496,
+      title: "Next Greater Element I",
+      difficulty: "Easy",
+      category: "Stack",
+      link: "https://leetcode.com/problems/next-greater-element-i/",
+      meta: { pattern: "Monotonic Stack", dataStructure: "Monotonic decreasing stack + hash map", technique: "Precompute next greater, then look up" },
+      description:
+        "`nums1` is a **subset** of `nums2` (both with distinct values). For each value `x` in `nums1`, find its **next greater element** in `nums2`: the first value to the right of `x`'s position in `nums2` that is strictly larger. If none exists, the answer is `-1`.\n\n" +
+        "Return an array `ans` where `ans[i]` is the next greater element for `nums1[i]`.",
+      constraints: [
+        "`1 <= nums1.length <= nums2.length <= 1000`",
+        "`0 <= nums1[i], nums2[j] <= 10^4`",
+        "All integers in each array are **unique**, and every `nums1[i]` also appears in `nums2`."
+      ],
+      notes: [
+        "Precompute next-greater for EVERY value of nums2 in one pass with a monotonic stack, then answer each nums1 query by lookup.",
+        "Because values are unique, a value -> next-greater hash map is unambiguous."
+      ],
+      examples: [
+        {
+          input: "nums1 = [4,1,2], nums2 = [1,3,4,2]",
+          output: "[-1,3,-1]",
+          reasoning: "4 has nothing larger to its right -> -1; 1's next greater is 3; 2 has nothing larger to its right -> -1.",
+          visual: "```\nnums2: 1 3 4 2\n       1->3, 3->4, 4->-1, 2->-1\n```"
+        },
+        { input: "nums1 = [2,4], nums2 = [1,2,3,4]", output: "[3,-1]", reasoning: "2's next greater is 3; 4 is the max -> -1." }
+      ],
+      approaches: [
+        {
+          name: "Monotonic stack over nums2 + hash map",
+          time: "O(n + m)",
+          space: "O(n)",
+          whenToUse: "The canonical 'next greater element' precomputation; reuse whenever you need the nearest larger value to the right.",
+          logic:
+            "**What it asks.** For each queried value, the first strictly-greater value to its right in `nums2`.\n\n" +
+            "**Brute force.** For each `nums1` value, find it in `nums2` and scan rightward \u2014 `O(n*m)`.\n\n" +
+            "**Key Idea.** Sweep `nums2` left to right keeping a stack of values that are **still waiting** for their next greater element, in decreasing order. When the current value `x` is larger than the stack top, `x` IS that top's next greater \u2014 pop and record it in a map. Then push `x`. Anything left on the stack at the end has no greater element.\n\n" +
+            "**What each variable holds.** `stack` holds values seen but not yet resolved (monotonically decreasing); `nge[v]` maps a value to its next greater element.\n\n" +
+            "**Step-by-Step.**\n" +
+            "1. For each `x` in `nums2`: while the stack is non-empty and `stack[-1] < x`, set `nge[stack.pop()] = x`.\n" +
+            "2. Push `x`.\n" +
+            "3. Build the answer: `nge.get(x, -1)` for each `x` in `nums1`.\n\n" +
+            "**Why it works.** A value is resolved by the very first larger value that appears after it, which is exactly when it gets popped. Each value is pushed and popped at most once, so the sweep is linear.\n\n" +
+            "**Complexity.** Time `O(n + m)`, space `O(n)` for the stack and map.\n\n" +
+            "**Interview mindset.** 'Nearest greater/smaller to one side' = monotonic stack; store results in a map when queries are by value.",
+          rcs:
+            "class Solution:\n" +
+            "    def nextGreaterElement(self, nums1: List[int], nums2: List[int]) -> List[int]:\n" +
+            "        nge = {}                              # value -> its next greater element.\n" +
+            "        stack = []                            # values waiting for a bigger one (decreasing).\n" +
+            "        for x in nums2:\n" +
+            "            while stack and stack[-1] < x:\n" +
+            "                nge[stack.pop()] = x          # x resolves everything smaller on top.\n" +
+            "            stack.append(x)\n" +
+            "        return [nge.get(x, -1) for x in nums1]  # Unresolved -> -1.",
+          plain:
+            "class Solution:\n" +
+            "    def nextGreaterElement(self, nums1: List[int], nums2: List[int]) -> List[int]:\n" +
+            "        nge = {}\n" +
+            "        stack = []\n" +
+            "        for x in nums2:\n" +
+            "            while stack and stack[-1] < x:\n" +
+            "                nge[stack.pop()] = x\n" +
+            "            stack.append(x)\n" +
+            "        return [nge.get(x, -1) for x in nums1]"
+        }
+      ],
+      patternRecognition: [
+        "'Next greater element to the right' -> monotonic decreasing stack, resolve on a larger value.",
+        "Queries by value on distinct numbers -> store results in a hash map and look up.",
+        "Anything left on the stack has no greater element (answer -1)."
+      ],
+      interviewRecall: [
+        "Sweep nums2; while top < current, pop and map top -> current; push current.",
+        "Answer nums1 by nge.get(x, -1).",
+        "Each element pushed/popped once -> O(n+m)."
+      ]
+    },
+
+    {
+      id: "next-greater-element-ii",
+      lc: 503,
+      title: "Next Greater Element II",
+      difficulty: "Medium",
+      category: "Stack",
+      link: "https://leetcode.com/problems/next-greater-element-ii/",
+      meta: { pattern: "Monotonic Stack (circular)", dataStructure: "Monotonic stack over a doubled array", technique: "Iterate 2n with modulo indexing" },
+      description:
+        "Given a **circular** integer array `nums` (the element after the last is the first again), return an array where each position holds the **next greater element** of `nums[i]` \u2014 the first strictly-greater value encountered by moving right and wrapping around. If none exists, use `-1`.",
+      constraints: [
+        "`1 <= nums.length <= 10^4`",
+        "`-10^9 <= nums[i] <= 10^9`",
+        "Values may repeat (unlike part I)."
+      ],
+      notes: [
+        "Circularity is handled by iterating indices 0..2n-1 and using `i % n`, which simulates a second pass around the array.",
+        "The stack holds INDICES (not values) because values can repeat and we must write into the correct result slot.",
+        "Only push indices during the first pass (`i < n`); the second pass only resolves leftovers."
+      ],
+      examples: [
+        {
+          input: "nums = [1,2,1]",
+          output: "[2,-1,2]",
+          reasoning: "1 -> 2; 2 is the max -> -1; the last 1 wraps around to the first 2.",
+          visual: "```\nidx: 0 1 2\nval: 1 2 1\n 0->2, 1->-1, 2 wraps ->2\n```"
+        },
+        { input: "nums = [1,2,3,4,3]", output: "[2,3,4,-1,4]", reasoning: "The trailing 3 wraps to the 4 on the left; 4 stays -1." },
+        { input: "nums = [5,4,3,2,1]", output: "[-1,5,5,5,5]", reasoning: "Everyone but 5 finds 5 after wrapping; 5 is the global max." }
+      ],
+      approaches: [
+        {
+          name: "Monotonic stack of indices over a doubled range",
+          time: "O(n)",
+          space: "O(n)",
+          whenToUse: "Any 'next greater/smaller in a circular array' problem.",
+          logic:
+            "**What it asks.** Next greater element with wraparound, for every index.\n\n" +
+            "**Key Idea.** Pretend the array is traversed twice. Loop `i` from `0` to `2n-1` and read `cur = nums[i % n]`; maintain a stack of **indices** whose next greater is still unknown. While the current value exceeds the value at the stack-top index, that top is resolved \u2014 pop it and write `cur` into `res[top]`. Push the current index only on the first lap (`i < n`), since the second lap exists only to satisfy indices that wrap.\n\n" +
+            "**What each variable holds.** `res[i]` starts at `-1`; `stack` holds unresolved indices in decreasing value order.\n\n" +
+            "**Step-by-Step.**\n" +
+            "1. `res = [-1]*n`, empty `stack`.\n" +
+            "2. For `i` in `range(2*n)`: `cur = nums[i % n]`; while `stack and nums[stack[-1]] < cur`: `res[stack.pop()] = cur`.\n" +
+            "3. If `i < n`: `stack.append(i)`.\n\n" +
+            "**Why it works.** Two laps guarantee every index sees all other elements once in the circular order. Using `i % n` maps the virtual second lap back to real positions. Indices resolved in lap one are never re-pushed, so the stack still admits each index at most once \u2014 linear overall.\n\n" +
+            "**Complexity.** Time `O(n)` (`2n` iterations), space `O(n)`.\n\n" +
+            "**Interview mindset.** 'Circular + next greater' = double the loop with modulo, stack holds indices.",
+          rcs:
+            "class Solution:\n" +
+            "    def nextGreaterElements(self, nums: List[int]) -> List[int]:\n" +
+            "        n = len(nums)\n" +
+            "        res = [-1] * n\n" +
+            "        stack = []                            # indices awaiting their next greater.\n" +
+            "        for i in range(2 * n):                # two laps around the array.\n" +
+            "            cur = nums[i % n]\n" +
+            "            while stack and nums[stack[-1]] < cur:\n" +
+            "                res[stack.pop()] = cur        # cur resolves that earlier index.\n" +
+            "            if i < n:\n" +
+            "                stack.append(i)               # push only on the first lap.\n" +
+            "        return res",
+          plain:
+            "class Solution:\n" +
+            "    def nextGreaterElements(self, nums: List[int]) -> List[int]:\n" +
+            "        n = len(nums)\n" +
+            "        res = [-1] * n\n" +
+            "        stack = []\n" +
+            "        for i in range(2 * n):\n" +
+            "            cur = nums[i % n]\n" +
+            "            while stack and nums[stack[-1]] < cur:\n" +
+            "                res[stack.pop()] = cur\n" +
+            "            if i < n:\n" +
+            "                stack.append(i)\n" +
+            "        return res"
+        }
+      ],
+      patternRecognition: [
+        "'Circular array' + 'next greater' -> iterate 2n with i % n.",
+        "Repeated values -> store indices on the stack, not values.",
+        "Push indices only during the first lap; the second lap only resolves wrap-arounds."
+      ],
+      interviewRecall: [
+        "res defaults to -1; stack of indices decreasing by value.",
+        "While nums[top] < cur: res[pop] = cur; push i only when i < n.",
+        "2n iterations, each index pushed/popped once -> O(n)."
+      ]
+    },
+
+    {
+      id: "remove-k-digits",
+      lc: 402,
+      title: "Remove K Digits",
+      difficulty: "Medium",
+      category: "Stack",
+      link: "https://leetcode.com/problems/remove-k-digits/",
+      meta: { pattern: "Monotonic Stack (greedy)", dataStructure: "Monotonic increasing stack of digits", technique: "Pop larger leading digits" },
+      description:
+        "Given a non-negative integer as a string `num` and an integer `k`, remove exactly `k` digits so that the **remaining number is as small as possible**. Return that smallest number as a string (without leading zeros, and `\"0\"` if everything is removed).",
+      constraints: [
+        "`1 <= k <= num.length <= 10^5`",
+        "`num` consists of digits only and has no leading zeros except the number `0` itself."
+      ],
+      notes: [
+        "Greedy: scan left to right and remove a digit whenever it is larger than the digit following it \u2014 a larger digit in a higher place value hurts most.",
+        "If budget `k` remains after the scan (digits are non-decreasing), drop from the END.",
+        "Strip leading zeros at the very end; return '0' for an empty result."
+      ],
+      examples: [
+        {
+          input: "num = \"1432219\", k = 3",
+          output: "\"1219\"",
+          reasoning: "Remove 4, 3, and one 2: 1432219 -> 1219.",
+          visual: "```\n1 4 3 2 2 1 9\npop 4 (>3? push logic), 3, 2 -> stack 1 2 1 9\n```"
+        },
+        { input: "num = \"10200\", k = 1", output: "\"200\"", reasoning: "Remove the 1 to get 0200, then strip the leading zero -> 200." },
+        { input: "num = \"10\", k = 2", output: "\"0\"", reasoning: "Removing both digits leaves nothing -> return '0'." }
+      ],
+      approaches: [
+        {
+          name: "Monotonic increasing stack (greedy)",
+          time: "O(n)",
+          space: "O(n)",
+          whenToUse: "Building the lexicographically smallest/largest sequence under a removal budget.",
+          logic:
+            "**What it asks.** Delete exactly `k` digits to minimize the resulting number.\n\n" +
+            "**Key Idea.** A digit that is larger than the one right after it is making the number bigger in a high place value, so remove it. Keep a stack of kept digits that is **non-decreasing**: before pushing the current digit `d`, pop the top while it is greater than `d` and budget remains (`k > 0`), each pop spending one removal.\n\n" +
+            "**What each variable holds.** `stack` is the best prefix of kept digits so far (monotonically non-decreasing); `k` is the remaining removal budget.\n\n" +
+            "**Step-by-Step.**\n" +
+            "1. For each digit `d`: while `k > 0` and `stack` and `stack[-1] > d`: pop and `k -= 1`. Then push `d`.\n" +
+            "2. If `k > 0` after the scan, drop the last `k` digits (`stack[:len(stack)-k]`).\n" +
+            "3. Join, strip leading zeros, and return `\"0\"` if empty.\n\n" +
+            "**Why it works.** Removing an earlier larger digit always yields a smaller number than removing a later one, so greedily flattening descents is optimal. Leftover budget on a non-decreasing stack is best spent on the largest (rightmost) digits.\n\n" +
+            "**Complexity.** Time `O(n)` (each digit pushed/popped once), space `O(n)`.\n\n" +
+            "**Interview mindset.** 'Smallest number after removing k digits' = monotonic stack with a pop budget.",
+          rcs:
+            "class Solution:\n" +
+            "    def removeKdigits(self, num: str, k: int) -> str:\n" +
+            "        stack = []\n" +
+            "        for d in num:\n" +
+            "            while k > 0 and stack and stack[-1] > d:\n" +
+            "                stack.pop()                   # Drop a bigger leading digit.\n" +
+            "                k -= 1\n" +
+            "            stack.append(d)\n" +
+            "        if k > 0:\n" +
+            "            stack = stack[:len(stack) - k]    # Still removing: trim the tail.\n" +
+            "        result = \"\".join(stack).lstrip(\"0\")  # Remove leading zeros.\n" +
+            "        return result if result else \"0\"",
+          plain:
+            "class Solution:\n" +
+            "    def removeKdigits(self, num: str, k: int) -> str:\n" +
+            "        stack = []\n" +
+            "        for d in num:\n" +
+            "            while k > 0 and stack and stack[-1] > d:\n" +
+            "                stack.pop()\n" +
+            "                k -= 1\n" +
+            "            stack.append(d)\n" +
+            "        if k > 0:\n" +
+            "            stack = stack[:len(stack) - k]\n" +
+            "        result = \"\".join(stack).lstrip(\"0\")\n" +
+            "        return result if result else \"0\""
+        }
+      ],
+      patternRecognition: [
+        "'Smallest/largest number after removing k digits' -> monotonic stack with a removal budget.",
+        "Pop while the top violates the desired monotonic order and budget remains.",
+        "Leftover budget -> trim from the end; remember leading-zero and empty-string edge cases."
+      ],
+      interviewRecall: [
+        "Keep a non-decreasing stack; pop top>d while k>0, then push d.",
+        "If k>0 after the scan, drop the last k; then lstrip('0').",
+        "Return '0' when the result is empty; O(n) overall."
+      ]
     }
   ]);
 })();

@@ -1412,6 +1412,206 @@
         "target = randint(1, total); return bisect_left(prefix, target).",
         "O(n) build, O(log n) per pick."
       ]
+    },
+
+    {
+      id: "capacity-to-ship-packages-within-d-days",
+      lc: 1011,
+      title: "Capacity To Ship Packages Within D Days",
+      difficulty: "Medium",
+      category: "Binary Search",
+      link: "https://leetcode.com/problems/capacity-to-ship-packages-within-d-days/",
+      meta: { pattern: "Binary Search on the Answer", dataStructure: "Sorted search range of capacities", technique: "Feasibility check by greedy packing" },
+      description:
+        "A conveyor belt has packages with `weights[i]`, which must be shipped **in order** within `days` days. Each day you load the ship with consecutive packages whose total weight does not exceed the ship's capacity.\n\n" +
+        "Return the **least** ship capacity that still lets all packages ship within `days` days.",
+      constraints: [
+        "`1 <= days <= weights.length <= 5 * 10^4`",
+        "`1 <= weights[i] <= 500`"
+      ],
+      notes: [
+        "The answer is monotonic: if capacity C works, every capacity > C works too \u2014 so binary search the capacity.",
+        "Lower bound is `max(weights)` (a single package must fit); upper bound is `sum(weights)` (ship everything in one day).",
+        "Packages ship IN ORDER \u2014 you cannot reorder to pack tighter."
+      ],
+      examples: [
+        {
+          input: "weights = [1,2,3,4,5,6,7,8,9,10], days = 5",
+          output: "15",
+          reasoning: "Capacity 15 splits into [1..5]=15, [6,7]=13, [8]=8? Actually: (1,2,3,4,5)(6,7,8)? -> 5 days of totals \u2264 15.",
+          visual: "```\ncap 15: [1 2 3 4 5][6 7][8][9][10] -> 5 days\ncap 14 would need 6 days -> too many\n```"
+        },
+        { input: "weights = [3,2,2,4,1,4], days = 3", output: "6", reasoning: "[3,2],[2,4],[1,4] each \u2264 6 over 3 days." },
+        { input: "weights = [1,2,3,1,1], days = 4", output: "3", reasoning: "[1,2],[3],[1,1] fits; capacity 3 is minimal." }
+      ],
+      approaches: [
+        {
+          name: "Binary search on capacity + greedy feasibility",
+          time: "O(n log(sum - max))",
+          space: "O(1)",
+          whenToUse: "'Minimize the maximum' (or maximize the minimum) with a monotonic feasibility test \u2014 binary search the answer.",
+          logic:
+            "**What it asks.** Smallest capacity that ships all packages, in order, within `days` days.\n\n" +
+            "**Key observation.** Feasibility is monotonic in capacity: a bigger ship can always do what a smaller one can. So the set of workable capacities is a suffix `[answer, sum]` \u2014 perfect for binary search.\n\n" +
+            "**Feasibility test.** For a candidate capacity `cap`, greedily fill each day: add packages until the next would overflow, then start a new day. Count the days used; `cap` is feasible iff that count `<= days`. Greedy is optimal here because packages are fixed in order \u2014 packing each day as full as possible never increases the day count.\n\n" +
+            "**Search bounds.** `lo = max(weights)` (every package must fit alone), `hi = sum(weights)` (one day for everything).\n\n" +
+            "**Step-by-Step.**\n" +
+            "1. While `lo < hi`: `mid = (lo+hi)//2`.\n" +
+            "2. If `needed(mid) <= days`, the answer is `mid` or smaller -> `hi = mid`; else `lo = mid + 1`.\n" +
+            "3. Return `lo` (the least feasible capacity).\n\n" +
+            "**Why it works.** The loop collapses the range to the boundary between infeasible and feasible, which is exactly the minimal capacity.\n\n" +
+            "**Complexity.** Time `O(n log(sum-max))` \u2014 each feasibility check is `O(n)`; space `O(1)`.\n\n" +
+            "**Interview mindset.** 'Minimize the largest load / maximum anything' with an easy yes/no check = binary search on the answer.",
+          rcs:
+            "class Solution:\n" +
+            "    def shipWithinDays(self, weights: List[int], days: int) -> int:\n" +
+            "        def needed(cap):\n" +
+            "            d, cur = 1, 0                      # Start on day 1 with an empty load.\n" +
+            "            for w in weights:\n" +
+            "                if cur + w > cap:             # Won't fit today -> open a new day.\n" +
+            "                    d += 1\n" +
+            "                    cur = 0\n" +
+            "                cur += w\n" +
+            "            return d\n" +
+            "        lo, hi = max(weights), sum(weights)   # Min feasible .. max needed.\n" +
+            "        while lo < hi:\n" +
+            "            mid = (lo + hi) // 2\n" +
+            "            if needed(mid) <= days:\n" +
+            "                hi = mid                      # Feasible -> try smaller.\n" +
+            "            else:\n" +
+            "                lo = mid + 1                  # Too small -> go bigger.\n" +
+            "        return lo",
+          plain:
+            "class Solution:\n" +
+            "    def shipWithinDays(self, weights: List[int], days: int) -> int:\n" +
+            "        def needed(cap):\n" +
+            "            d, cur = 1, 0\n" +
+            "            for w in weights:\n" +
+            "                if cur + w > cap:\n" +
+            "                    d += 1\n" +
+            "                    cur = 0\n" +
+            "                cur += w\n" +
+            "            return d\n" +
+            "        lo, hi = max(weights), sum(weights)\n" +
+            "        while lo < hi:\n" +
+            "            mid = (lo + hi) // 2\n" +
+            "            if needed(mid) <= days:\n" +
+            "                hi = mid\n" +
+            "            else:\n" +
+            "                lo = mid + 1\n" +
+            "        return lo"
+        }
+      ],
+      patternRecognition: [
+        "'Minimize the maximum load subject to a day/group budget' -> binary search the answer.",
+        "Feasibility is a monotonic yes/no check -> search the smallest capacity that passes.",
+        "Bounds: lo = max(element), hi = sum(elements)."
+      ],
+      interviewRecall: [
+        "greedy needed(cap): open a new day when the next item overflows; count days.",
+        "lo=max, hi=sum; if needed(mid) <= days then hi=mid else lo=mid+1; return lo.",
+        "Same template as Split Array Largest Sum and Koko Eating Bananas."
+      ]
+    },
+
+    {
+      id: "split-array-largest-sum",
+      lc: 410,
+      title: "Split Array Largest Sum",
+      difficulty: "Hard",
+      category: "Binary Search",
+      link: "https://leetcode.com/problems/split-array-largest-sum/",
+      meta: { pattern: "Binary Search on the Answer", dataStructure: "Sorted range over subarray-sum values", technique: "Greedy count of splits \u2264 m" },
+      description:
+        "Given an integer array `nums` and an integer `k`, split `nums` into `k` **non-empty contiguous** subarrays so as to **minimize the largest subarray sum** among them. Return that minimized largest sum.",
+      constraints: [
+        "`1 <= nums.length <= 1000`",
+        "`0 <= nums[i] <= 10^6`",
+        "`1 <= k <= min(50, nums.length)`"
+      ],
+      notes: [
+        "Identical shape to Capacity To Ship Packages: 'capacity' is the largest allowed subarray sum, 'days' is k.",
+        "Feasibility: with a cap on subarray sum, greedily cut a new piece whenever adding the next element overflows; feasible iff pieces <= k.",
+        "Bounds: lo = max(nums) (each element must fit in some piece), hi = sum(nums) (one piece)."
+      ],
+      examples: [
+        {
+          input: "nums = [7,2,5,10,8], k = 2",
+          output: "18",
+          reasoning: "Best split is [7,2,5] (=14) and [10,8] (=18); the largest sum 18 is minimized.",
+          visual: "```\ncap 18: [7 2 5][10 8] -> 2 pieces, max 18\ncap 17: would need 3 pieces -> too many\n```"
+        },
+        { input: "nums = [1,2,3,4,5], k = 2", output: "9", reasoning: "[1,2,3,4]=10 vs [1,2,3][4,5]? best is [1,2,3,4](10)? Actually [1,2,3][4,5]=9 -> 9." },
+        { input: "nums = [1,4,4], k = 3", output: "4", reasoning: "Each element its own piece; largest is 4." }
+      ],
+      approaches: [
+        {
+          name: "Binary search on the largest-sum value + greedy count",
+          time: "O(n log(sum - max))",
+          space: "O(1)",
+          whenToUse: "The 'minimize the maximum piece' partition problem; binary search the answer instead of DP when k is incidental.",
+          logic:
+            "**What it asks.** Partition into `k` contiguous pieces minimizing the biggest piece sum.\n\n" +
+            "**Key observation.** For a candidate cap `C` on the largest allowed subarray sum, the minimum number of pieces needed is monotonic: a larger `C` needs the same or fewer pieces. So binary search `C`.\n\n" +
+            "**Feasibility (pieces).** Greedily walk `nums`, keeping a running sum; whenever adding the next value would exceed `C`, close the current piece and start a new one. The resulting count is the fewest pieces achievable at cap `C`; it is feasible iff `count <= k`.\n\n" +
+            "**Bounds.** `lo = max(nums)` (some piece must hold the largest element), `hi = sum(nums)` (a single piece).\n\n" +
+            "**Step-by-Step.**\n" +
+            "1. While `lo < hi`: `mid = (lo+hi)//2`.\n" +
+            "2. If `pieces(mid) <= k`: `hi = mid` (cap is enough, try smaller); else `lo = mid + 1`.\n" +
+            "3. Return `lo`.\n\n" +
+            "**Why it works.** Fewer pieces are always achievable by raising the cap, so the smallest cap needing `<= k` pieces is exactly the minimized largest sum. Binary search finds that boundary.\n\n" +
+            "**Complexity.** Time `O(n log(sum-max))`; space `O(1)`. (A DP solution in `O(n^2 * k)` also exists but is slower.)\n\n" +
+            "**Interview mindset.** 'Minimize the maximum partition sum' is the textbook binary-search-on-answer problem.",
+          rcs:
+            "class Solution:\n" +
+            "    def splitArray(self, nums: List[int], k: int) -> int:\n" +
+            "        def pieces(cap):\n" +
+            "            count, cur = 1, 0                  # One piece open to start.\n" +
+            "            for x in nums:\n" +
+            "                if cur + x > cap:             # Would overflow -> cut a new piece.\n" +
+            "                    count += 1\n" +
+            "                    cur = 0\n" +
+            "                cur += x\n" +
+            "            return count\n" +
+            "        lo, hi = max(nums), sum(nums)         # Largest single .. everything in one.\n" +
+            "        while lo < hi:\n" +
+            "            mid = (lo + hi) // 2\n" +
+            "            if pieces(mid) <= k:\n" +
+            "                hi = mid                      # Enough capacity -> shrink.\n" +
+            "            else:\n" +
+            "                lo = mid + 1                  # Need a bigger cap.\n" +
+            "        return lo",
+          plain:
+            "class Solution:\n" +
+            "    def splitArray(self, nums: List[int], k: int) -> int:\n" +
+            "        def pieces(cap):\n" +
+            "            count, cur = 1, 0\n" +
+            "            for x in nums:\n" +
+            "                if cur + x > cap:\n" +
+            "                    count += 1\n" +
+            "                    cur = 0\n" +
+            "                cur += x\n" +
+            "            return count\n" +
+            "        lo, hi = max(nums), sum(nums)\n" +
+            "        while lo < hi:\n" +
+            "            mid = (lo + hi) // 2\n" +
+            "            if pieces(mid) <= k:\n" +
+            "                hi = mid\n" +
+            "            else:\n" +
+            "                lo = mid + 1\n" +
+            "        return lo"
+        }
+      ],
+      patternRecognition: [
+        "'Split into k contiguous groups, minimize the largest group sum' -> binary search the answer.",
+        "Feasibility = greedy piece count at a candidate cap; feasible iff count <= k.",
+        "Same template as Capacity To Ship Packages (cap <-> largest sum, days <-> k)."
+      ],
+      interviewRecall: [
+        "pieces(cap): cut a new piece when the running sum would exceed cap.",
+        "lo=max(nums), hi=sum(nums); if pieces(mid) <= k then hi=mid else lo=mid+1.",
+        "O(n log(sum)) beats the O(n^2 k) DP."
+      ]
     }
   ]);
 })();

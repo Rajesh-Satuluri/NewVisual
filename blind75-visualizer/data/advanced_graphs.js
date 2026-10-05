@@ -808,6 +808,425 @@
         "Use a temp/snapshot copy each round so an edge can't be reused within the same round (that's what enforces the stop limit).",
         "Return prices[dst] if finite else -1."
       ]
+    },
+
+    {
+      id: "path-with-minimum-effort",
+      lc: 1631,
+      title: "Path With Minimum Effort",
+      difficulty: "Medium",
+      category: "Advanced Graphs",
+      link: "https://leetcode.com/problems/path-with-minimum-effort/",
+      meta: { pattern: "Dijkstra on a grid (minimax path)", dataStructure: "Weighted grid as a graph", technique: "Minimize the maximum edge on a path" },
+      description:
+        "You are given a `rows x cols` grid `heights`. Starting at the top-left cell, you want to reach the bottom-right cell, moving up/down/left/right. The **effort** of a path is the **maximum absolute height difference** between any two consecutive cells along it.\n\n" +
+        "Return the minimum effort required to travel from top-left to bottom-right.",
+      constraints: [
+        "`rows == heights.length`, `cols == heights[0].length`",
+        "`1 <= rows, cols <= 100`",
+        "`1 <= heights[i][j] <= 10^6`"
+      ],
+      notes: [
+        "This is a 'minimax path' / widest-path problem: minimize the largest single step, not the total.",
+        "Dijkstra works if the cost of reaching a cell is defined as `max(effort so far, |height difference|)` instead of a sum.",
+        "Alternatives: binary search on the effort value + BFS/DFS reachability, or Union-Find adding edges by increasing weight until start and end connect."
+      ],
+      examples: [
+        {
+          input: "heights = [[1,2,2],[3,8,2],[5,3,5]]",
+          output: "2",
+          reasoning: "The route 1->2->2->2->5 (right then down) has a maximum step of 2, better than going through 8.",
+          visual: "```\n1 2 2\n3 8 2\n5 3 5\npath 1>2>2>2>5 max-step = 2\n```"
+        },
+        { input: "heights = [[1,2,3],[3,8,4],[5,3,5]]", output: "1", reasoning: "A path exists where every step differs by at most 1." },
+        { input: "heights = [[1,2,1,1,1],[1,2,1,2,1],[1,2,1,2,1],[1,2,1,2,1],[1,1,1,2,1]]", output: "0", reasoning: "A path of all equal heights exists -> effort 0." }
+      ],
+      approaches: [
+        {
+          name: "Dijkstra with a minimax relaxation",
+          time: "O(rows * cols * log(rows * cols))",
+          space: "O(rows * cols)",
+          whenToUse: "Shortest-path variants where a path's cost is the MAX edge (bottleneck) rather than the sum.",
+          logic:
+            "**What it asks.** Minimize the largest single height jump on a top-left to bottom-right path.\n\n" +
+            "**Why it is Dijkstra-shaped.** Define the cost of a cell as the smallest possible 'maximum step' to reach it. Relaxing an edge uses `max(current_effort, |height diff|)` instead of a sum. This cost is still monotonic along a path, so Dijkstra's greedy 'always expand the smallest-cost frontier cell' remains correct.\n\n" +
+            "**Key Idea.** Keep an `effort` grid (best known bottleneck to each cell) and a priority queue ordered by effort. Pop the smallest; if it is the target, return it; otherwise relax its four neighbors with the minimax rule and push improvements.\n\n" +
+            "**What each structure holds.** `effort[r][c]` = best minimax cost found to that cell; the priority queue holds `(effort, r, c)` candidates.\n\n" +
+            "**Step-by-Step.**\n" +
+            "1. `effort` all infinity except `effort[0][0] = 0`; push `(0, 0, 0)`.\n" +
+            "2. Pop `(e, r, c)`; if it is the bottom-right, return `e`; skip if `e` is stale (`> effort[r][c]`).\n" +
+            "3. For each neighbor, `ne = max(e, |heights[nr][nc] - heights[r][c]|)`; if `ne < effort[nr][nc]`, update and push.\n\n" +
+            "**Why it works.** The first time the target is popped, its recorded effort is optimal \u2014 the same argument as standard Dijkstra, with `max` as the path-combination operator in place of `+` (both are monotonic non-decreasing).\n\n" +
+            "**Complexity.** Time `O(RC log(RC))`; space `O(RC)`.\n\n" +
+            "**Interview mindset.** 'Minimize the maximum edge on a path' -> Dijkstra with a max-relaxation, or binary search + connectivity, or Union-Find by increasing weight.",
+          rcs:
+            "import heapq\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def minimumEffortPath(self, heights: List[List[int]]) -> int:\n" +
+            "        rows, cols = len(heights), len(heights[0])\n" +
+            "        effort = [[float('inf')] * cols for _ in range(rows)]\n" +
+            "        effort[0][0] = 0\n" +
+            "        pq = [(0, 0, 0)]                       # (effort so far, row, col)\n" +
+            "        while pq:\n" +
+            "            e, r, c = heapq.heappop(pq)\n" +
+            "            if r == rows - 1 and c == cols - 1:\n" +
+            "                return e                      # First pop of target is optimal.\n" +
+            "            if e > effort[r][c]:\n" +
+            "                continue                      # Stale queue entry.\n" +
+            "            for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n" +
+            "                nr, nc = r + dr, c + dc\n" +
+            "                if 0 <= nr < rows and 0 <= nc < cols:\n" +
+            "                    ne = max(e, abs(heights[nr][nc] - heights[r][c]))  # Minimax relax.\n" +
+            "                    if ne < effort[nr][nc]:\n" +
+            "                        effort[nr][nc] = ne\n" +
+            "                        heapq.heappush(pq, (ne, nr, nc))\n" +
+            "        return 0",
+          plain:
+            "import heapq\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def minimumEffortPath(self, heights: List[List[int]]) -> int:\n" +
+            "        rows, cols = len(heights), len(heights[0])\n" +
+            "        effort = [[float('inf')] * cols for _ in range(rows)]\n" +
+            "        effort[0][0] = 0\n" +
+            "        pq = [(0, 0, 0)]\n" +
+            "        while pq:\n" +
+            "            e, r, c = heapq.heappop(pq)\n" +
+            "            if r == rows - 1 and c == cols - 1:\n" +
+            "                return e\n" +
+            "            if e > effort[r][c]:\n" +
+            "                continue\n" +
+            "            for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n" +
+            "                nr, nc = r + dr, c + dc\n" +
+            "                if 0 <= nr < rows and 0 <= nc < cols:\n" +
+            "                    ne = max(e, abs(heights[nr][nc] - heights[r][c]))\n" +
+            "                    if ne < effort[nr][nc]:\n" +
+            "                        effort[nr][nc] = ne\n" +
+            "                        heapq.heappush(pq, (ne, nr, nc))\n" +
+            "        return 0"
+        }
+      ],
+      patternRecognition: [
+        "'Minimize the maximum step/edge on a path' (bottleneck path) -> Dijkstra with a max-relaxation.",
+        "Alternative: binary search the effort threshold + BFS/DFS reachability check.",
+        "Alternative: Union-Find adding edges in increasing weight until source and target connect."
+      ],
+      interviewRecall: [
+        "Relax with ne = max(e, |height diff|) instead of a sum.",
+        "Return effort the first time the target is popped.",
+        "Skip stale entries where e > effort[r][c]."
+      ]
+    },
+
+    {
+      id: "zero-one-bfs",
+      lc: null,
+      title: "0-1 BFS (Deque Shortest Path)",
+      difficulty: "Medium",
+      category: "Advanced Graphs",
+      link: null,
+      meta: { pattern: "0-1 BFS (deque)", dataStructure: "0/1-weighted graph traversed with a deque", technique: "push-front for 0, push-back for 1" },
+      description:
+        "When every edge weight is `0` or `1`, you can compute single-source shortest paths in `O(V + E)` \u2014 faster than Dijkstra's `O(E log V)` \u2014 using a **double-ended queue**: relax a 0-weight edge by pushing to the **front** and a 1-weight edge by pushing to the **back**.\n\n" +
+        "This is a technique explainer (no single LeetCode number); it powers grid problems where some moves are free and others cost 1 (e.g. *Minimum Obstacle Removal*, *Making A Large Island*-style costs, *Modify Graph Edge Weights*).",
+      constraints: [
+        "All edge weights are exactly `0` or `1`.",
+        "Graph given as adjacency `adj[u] = [(v, w), ...]` with `w in {0, 1}`.",
+        "Returns the distance array from `src`; unreachable nodes stay infinite."
+      ],
+      notes: [
+        "The deque mimics a bucket queue with only two buckets (distance d and d+1), so nodes are always processed in non-decreasing distance order.",
+        "A node may be pushed more than once; guard with a distance check (or a popped-finalized flag) so stale entries are skipped.",
+        "0-1 BFS is the sweet spot between plain BFS (all weights 1) and Dijkstra (arbitrary weights)."
+      ],
+      examples: [
+        {
+          input: "Line graph 0 =0= 1 =1= 2 =0= 3, src = 0",
+          output: "[0, 0, 1, 1]",
+          reasoning: "Edges with weight 0 cost nothing; only the 1->2 edge adds 1.",
+          visual: "```\n0 --0--> 1 --1--> 2 --0--> 3\ndist:  0     0       1       1\n```"
+        },
+        { input: "Grid where straight moves cost 0 and turns cost 1, src = start", output: "min turns to each cell", reasoning: "Classic 'minimum turns' / 'minimum obstacle removal' reduction to 0/1 weights." },
+        { input: "src with no outgoing edges", output: "[0, inf, inf, ...]", reasoning: "Only the source is reachable." }
+      ],
+      approaches: [
+        {
+          name: "Deque relaxation (0 to front, 1 to back)",
+          time: "O(V + E)",
+          space: "O(V)",
+          whenToUse: "Shortest path when weights are only 0 or 1; replaces Dijkstra's heap with a deque.",
+          logic:
+            "**What it asks.** Single-source shortest paths on a 0/1-weighted graph in linear time.\n\n" +
+            "**Why not plain BFS.** BFS assumes uniform edge cost; with 0-weight edges a neighbor can be at the SAME distance, so it must be processed before any distance-`d+1` node \u2014 which a plain FIFO queue cannot guarantee.\n\n" +
+            "**Key Idea.** Use a deque as a two-bucket priority queue. When relaxing edge `(u, v, w)` improves `dist[v]`: if `w == 0`, push `v` to the FRONT (same distance, handle next); if `w == 1`, push to the BACK (distance + 1, handle later). This keeps the deque ordered by distance, so each node is finalized at its true shortest distance.\n\n" +
+            "**What each structure holds.** `dist[v]` = best known distance; the deque holds frontier nodes in non-decreasing distance order.\n\n" +
+            "**Step-by-Step.**\n" +
+            "1. `dist[src] = 0`; deque = `[src]`.\n" +
+            "2. Pop from the front `u`; for each `(v, w)`: if `dist[u] + w < dist[v]`, update and push `v` to front (w=0) or back (w=1).\n" +
+            "3. Continue until the deque empties.\n\n" +
+            "**Why it works.** The front-push for 0-weight edges preserves the invariant that the deque's front has the smallest distance, giving the same correctness as Dijkstra but with O(1) queue operations.\n\n" +
+            "**Complexity.** Time `O(V + E)`, space `O(V)`.\n\n" +
+            "**Interview mindset.** 'Weights are 0 or 1' (free vs costly moves) -> 0-1 BFS with a deque, not Dijkstra.",
+          rcs:
+            "from collections import deque\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def zero_one_bfs(self, n: int, adj: List[List[tuple]], src: int) -> List[int]:\n" +
+            "        dist = [float('inf')] * n\n" +
+            "        dist[src] = 0\n" +
+            "        dq = deque([src])\n" +
+            "        while dq:\n" +
+            "            u = dq.popleft()\n" +
+            "            for v, w in adj[u]:               # w is 0 or 1.\n" +
+            "                if dist[u] + w < dist[v]:\n" +
+            "                    dist[v] = dist[u] + w\n" +
+            "                    if w == 0:\n" +
+            "                        dq.appendleft(v)     # Same distance -> process first.\n" +
+            "                    else:\n" +
+            "                        dq.append(v)         # Distance + 1 -> process later.\n" +
+            "        return dist",
+          plain:
+            "from collections import deque\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def zero_one_bfs(self, n: int, adj: List[List[tuple]], src: int) -> List[int]:\n" +
+            "        dist = [float('inf')] * n\n" +
+            "        dist[src] = 0\n" +
+            "        dq = deque([src])\n" +
+            "        while dq:\n" +
+            "            u = dq.popleft()\n" +
+            "            for v, w in adj[u]:\n" +
+            "                if dist[u] + w < dist[v]:\n" +
+            "                    dist[v] = dist[u] + w\n" +
+            "                    if w == 0:\n" +
+            "                        dq.appendleft(v)\n" +
+            "                    else:\n" +
+            "                        dq.append(v)\n" +
+            "        return dist"
+        }
+      ],
+      patternRecognition: [
+        "'Edges weighted only 0 or 1' (free vs costly move) -> 0-1 BFS with a deque.",
+        "Grid 'minimum turns' / 'minimum obstacles removed' reduces to 0/1 edge weights.",
+        "Faster than Dijkstra: O(V+E) via a two-bucket deque instead of a heap."
+      ],
+      interviewRecall: [
+        "Relax: push to FRONT on weight 0, BACK on weight 1.",
+        "Deque stays ordered by distance -> correct like Dijkstra.",
+        "Guard with a distance check to skip stale deque entries."
+      ]
+    },
+
+    {
+      id: "floyd-warshall",
+      lc: null,
+      title: "Floyd\u2013Warshall (All-Pairs Shortest Path)",
+      difficulty: "Hard",
+      category: "Advanced Graphs",
+      link: null,
+      meta: { pattern: "All-Pairs Shortest Path (Floyd\u2013Warshall)", dataStructure: "All-pairs distance matrix over the graph", technique: "DP over intermediate vertices" },
+      description:
+        "**Floyd\u2013Warshall** computes the shortest distance between **every pair** of vertices in a weighted graph (edges may be negative, but no negative cycles) in `O(V^3)` time via dynamic programming.\n\n" +
+        "This is a technique explainer (no single LeetCode number); it underlies problems like *Find the City With the Smallest Number of Neighbors at a Threshold Distance* and any 'all-pairs' distance query.",
+      constraints: [
+        "`n` vertices labeled `0..n-1`; `edges` as `(u, v, w)` directed (mirror for undirected).",
+        "No negative-weight cycles (distances would be undefined).",
+        "Returns an `n x n` distance matrix; unreachable pairs stay infinite."
+      ],
+      notes: [
+        "The DP is: allow one more intermediate vertex `k` at a time; `dist[i][j] = min(dist[i][j], dist[i][k] + dist[k][j])`.",
+        "The `k` loop MUST be outermost \u2014 it represents 'paths using intermediates from the set {0..k}'.",
+        "Initialize `dist[i][i] = 0` and `dist[u][v] = w` for edges; everything else infinity.",
+        "Best when the graph is dense or you need many pairwise queries; for single-source use Dijkstra/Bellman-Ford."
+      ],
+      examples: [
+        {
+          input: "n = 3, edges = [(0,1,4),(0,2,1),(2,1,2)]",
+          output: "dist[0][1] = 3",
+          reasoning: "0->2->1 (1+2=3) beats the direct 0->1 edge of weight 4.",
+          visual: "```\n0 --4--> 1\n|        ^\n1        2\nv        |\n2 -------+\nbest 0->1 = 0->2->1 = 3\n```"
+        },
+        { input: "n = 2, edges = [(0,1,5)]  (directed)", output: "dist[1][0] = inf", reasoning: "No edge back from 1 to 0, so that pair is unreachable." },
+        { input: "n = 1, edges = []", output: "dist = [[0]]", reasoning: "A vertex's distance to itself is 0." }
+      ],
+      approaches: [
+        {
+          name: "Triple loop DP over intermediate vertices",
+          time: "O(V^3)",
+          space: "O(V^2)",
+          whenToUse: "All-pairs shortest paths, dense graphs, or repeated pairwise distance queries; also handles negative edges (no negative cycles).",
+          logic:
+            "**What it asks.** The shortest distance for every ordered pair `(i, j)`.\n\n" +
+            "**DP formulation.** Let `dist_k[i][j]` be the shortest path from `i` to `j` using only intermediate vertices drawn from `{0, 1, ..., k}`. Adding vertex `k` either helps or it doesn't: `dist_k[i][j] = min(dist_{k-1}[i][j], dist_{k-1}[i][k] + dist_{k-1}[k][j])`. Done in place over a single matrix, the `k` loop on the outside is correct.\n\n" +
+            "**Base case.** `dist[i][i] = 0`, `dist[u][v] = w(u,v)` for edges, infinity otherwise.\n\n" +
+            "**Step-by-Step.**\n" +
+            "1. Initialize the `n x n` matrix (zeros on the diagonal, edge weights, else infinity).\n" +
+            "2. For `k` in `range(n)`: for `i`: for `j`: relax `dist[i][j]` through `k`.\n" +
+            "3. The matrix now holds all-pairs shortest distances.\n\n" +
+            "**Why it works.** Any shortest path's highest-indexed intermediate vertex is some `k`; by the time the outer loop reaches that `k`, the sub-paths `i..k` and `k..j` (using only smaller intermediates) are already optimal, so the relaxation captures the full path.\n\n" +
+            "**Negative cycles.** If any `dist[i][i]` becomes negative after the run, a negative cycle exists.\n\n" +
+            "**Complexity.** Time `O(V^3)`, space `O(V^2)`.\n\n" +
+            "**Interview mindset.** 'All-pairs shortest path' (small/dense V) -> Floyd\u2013Warshall; keep the k loop outermost.",
+          rcs:
+            "class Solution:\n" +
+            "    def floyd_warshall(self, n: int, edges: List[tuple]) -> List[List[float]]:\n" +
+            "        INF = float('inf')\n" +
+            "        dist = [[INF] * n for _ in range(n)]\n" +
+            "        for i in range(n):\n" +
+            "            dist[i][i] = 0                    # Distance to self is 0.\n" +
+            "        for u, v, w in edges:\n" +
+            "            dist[u][v] = min(dist[u][v], w)  # Edge weights (keep the smallest parallel edge).\n" +
+            "        for k in range(n):                   # Intermediate vertex \u2014 MUST be outermost.\n" +
+            "            for i in range(n):\n" +
+            "                for j in range(n):\n" +
+            "                    if dist[i][k] + dist[k][j] < dist[i][j]:\n" +
+            "                        dist[i][j] = dist[i][k] + dist[k][j]  # Relax through k.\n" +
+            "        return dist",
+          plain:
+            "class Solution:\n" +
+            "    def floyd_warshall(self, n: int, edges: List[tuple]) -> List[List[float]]:\n" +
+            "        INF = float('inf')\n" +
+            "        dist = [[INF] * n for _ in range(n)]\n" +
+            "        for i in range(n):\n" +
+            "            dist[i][i] = 0\n" +
+            "        for u, v, w in edges:\n" +
+            "            dist[u][v] = min(dist[u][v], w)\n" +
+            "        for k in range(n):\n" +
+            "            for i in range(n):\n" +
+            "                for j in range(n):\n" +
+            "                    if dist[i][k] + dist[k][j] < dist[i][j]:\n" +
+            "                        dist[i][j] = dist[i][k] + dist[k][j]\n" +
+            "        return dist"
+        }
+      ],
+      patternRecognition: [
+        "'Shortest path between ALL pairs' -> Floyd\u2013Warshall (O(V^3)).",
+        "Small or dense graph, or many pairwise queries -> prefer it over running Dijkstra n times.",
+        "Handles negative edges (no negative cycles); negative dist[i][i] flags a negative cycle."
+      ],
+      interviewRecall: [
+        "dist[i][j] = min(dist[i][j], dist[i][k] + dist[k][j]); k loop OUTERMOST.",
+        "Init: 0 on the diagonal, edge weights, else infinity.",
+        "O(V^3) time, O(V^2) space."
+      ]
+    },
+
+    {
+      id: "dsu-implementation",
+      lc: null,
+      title: "Disjoint Set Union (Union-Find) Implementation",
+      difficulty: "Medium",
+      category: "Advanced Graphs",
+      link: null,
+      meta: { pattern: "Disjoint Set Union (template)", dataStructure: "Disjoint Set Union (parent + rank arrays)", technique: "Path compression + union by rank" },
+      description:
+        "**Disjoint Set Union (DSU / Union-Find)** maintains a partition of `n` elements into disjoint sets and supports near-constant-time `find` (which set an element is in) and `union` (merge two sets). With **path compression** and **union by rank**, each operation runs in `O(\u03b1(n))` amortized (\u03b1 = inverse Ackermann, effectively \u2264 4).\n\n" +
+        "This is the reusable template (no single LeetCode number) behind problems like *Number of Provinces*, *Accounts Merge*, *Redundant Connection*, *Graph Valid Tree*, and Kruskal's MST.",
+      constraints: [
+        "Elements are integers `0..n-1`.",
+        "`find` returns a canonical representative (root); `union` merges two sets.",
+        "Keep a `count` of components to answer 'how many groups' in O(1)."
+      ],
+      notes: [
+        "Path compression: during find, repoint nodes closer to the root (here via path halving `parent[x] = parent[parent[x]]`).",
+        "Union by rank/size: attach the shorter tree under the taller to keep trees flat.",
+        "union returns False when the two elements were already in the same set \u2014 useful for cycle detection."
+      ],
+      examples: [
+        {
+          input: "n = 5; union(0,1); union(2,3); union(1,3)",
+          output: "count = 2",
+          reasoning: "Sets become {0,1,2,3} and {4} -> 2 components.",
+          visual: "```\nstart: {0}{1}{2}{3}{4}  count 5\nunion 0,1 -> {0,1}      count 4\nunion 2,3 -> {2,3}      count 3\nunion 1,3 -> {0,1,2,3}  count 2\n```"
+        },
+        { input: "connected(0, 3) after the unions above", output: "True", reasoning: "0 and 3 share a root." },
+        { input: "union(0, 1) when already merged", output: "False", reasoning: "Same set -> no merge happens (signals a cycle in graph contexts)." }
+      ],
+      approaches: [
+        {
+          name: "parent + rank with path compression",
+          time: "O(\u03b1(n)) amortized per op",
+          space: "O(n)",
+          whenToUse: "Dynamic connectivity, grouping/merging, cycle detection, and Kruskal's MST.",
+          logic:
+            "**What it provides.** A structure where each element points toward a representative; two elements are in the same set iff they share a root.\n\n" +
+            "**find.** Follow parent pointers to the root. Apply **path halving** along the way (`parent[x] = parent[parent[x]]`) so future finds are faster \u2014 this flattens the tree without a second pass.\n\n" +
+            "**union.** Find both roots; if equal, the elements are already together (return False). Otherwise attach the lower-rank root under the higher-rank root (**union by rank**); if ranks tie, pick one and increment its rank. Decrement the component `count`.\n\n" +
+            "**Why the optimizations matter.** Either heuristic alone gives `O(log n)`; together they yield the inverse-Ackermann bound, effectively constant for any practical `n`.\n\n" +
+            "**Step-by-Step (usage).**\n" +
+            "1. Build `DisjointSet(n)`.\n" +
+            "2. `union(a, b)` for each relation; it returns whether a real merge happened.\n" +
+            "3. Query `connected(a, b)` or read `count` for the number of groups.\n\n" +
+            "**Why it works.** `find` always resolves to a unique root per set, so set membership is well defined; union by rank keeps trees shallow and path compression amortizes away repeated traversals.\n\n" +
+            "**Complexity.** `O(\u03b1(n))` amortized per operation, `O(n)` space.\n\n" +
+            "**Interview mindset.** 'Dynamic grouping / are these connected / detect a cycle while adding edges' -> DSU; memorize this template cold.",
+          rcs:
+            "class DisjointSet:\n" +
+            "    def __init__(self, n: int):\n" +
+            "        self.parent = list(range(n))         # Each element is its own root.\n" +
+            "        self.rank = [0] * n                  # Upper bound on tree height.\n" +
+            "        self.count = n                       # Number of disjoint components.\n" +
+            "\n" +
+            "    def find(self, x: int) -> int:\n" +
+            "        while self.parent[x] != x:\n" +
+            "            self.parent[x] = self.parent[self.parent[x]]  # Path halving.\n" +
+            "            x = self.parent[x]\n" +
+            "        return x\n" +
+            "\n" +
+            "    def union(self, a: int, b: int) -> bool:\n" +
+            "        ra, rb = self.find(a), self.find(b)\n" +
+            "        if ra == rb:\n" +
+            "            return False                     # Already in the same set.\n" +
+            "        if self.rank[ra] < self.rank[rb]:\n" +
+            "            ra, rb = rb, ra                  # Attach shorter under taller.\n" +
+            "        self.parent[rb] = ra\n" +
+            "        if self.rank[ra] == self.rank[rb]:\n" +
+            "            self.rank[ra] += 1\n" +
+            "        self.count -= 1                      # One fewer component.\n" +
+            "        return True\n" +
+            "\n" +
+            "    def connected(self, a: int, b: int) -> bool:\n" +
+            "        return self.find(a) == self.find(b)",
+          plain:
+            "class DisjointSet:\n" +
+            "    def __init__(self, n: int):\n" +
+            "        self.parent = list(range(n))\n" +
+            "        self.rank = [0] * n\n" +
+            "        self.count = n\n" +
+            "\n" +
+            "    def find(self, x: int) -> int:\n" +
+            "        while self.parent[x] != x:\n" +
+            "            self.parent[x] = self.parent[self.parent[x]]\n" +
+            "            x = self.parent[x]\n" +
+            "        return x\n" +
+            "\n" +
+            "    def union(self, a: int, b: int) -> bool:\n" +
+            "        ra, rb = self.find(a), self.find(b)\n" +
+            "        if ra == rb:\n" +
+            "            return False\n" +
+            "        if self.rank[ra] < self.rank[rb]:\n" +
+            "            ra, rb = rb, ra\n" +
+            "        self.parent[rb] = ra\n" +
+            "        if self.rank[ra] == self.rank[rb]:\n" +
+            "            self.rank[ra] += 1\n" +
+            "        self.count -= 1\n" +
+            "        return True\n" +
+            "\n" +
+            "    def connected(self, a: int, b: int) -> bool:\n" +
+            "        return self.find(a) == self.find(b)"
+        }
+      ],
+      patternRecognition: [
+        "Dynamic connectivity / grouping / merging -> Disjoint Set Union.",
+        "union returning False while adding edges detects a cycle (Redundant Connection, Graph Valid Tree).",
+        "Kruskal's MST uses DSU to reject edges that would form a cycle."
+      ],
+      interviewRecall: [
+        "find with path compression (halving); union by rank; maintain a component count.",
+        "union returns False when roots already match.",
+        "Amortized O(\u03b1(n)) per op \u2014 effectively constant."
+      ]
     }
   ]);
 })();

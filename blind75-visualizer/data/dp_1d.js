@@ -1862,6 +1862,89 @@
         "1-D dp[s] over sums; iterate sums DESCENDING so each number is used at most once.",
         "dp[0]=True anchors it; ascending iteration would (wrongly) reuse numbers."
       ]
+    },
+
+    {
+      id: "combination-sum-iv",
+      lc: 377,
+      title: "Combination Sum IV",
+      difficulty: "Medium",
+      category: "1-D Dynamic Programming",
+      link: "https://leetcode.com/problems/combination-sum-iv/",
+      meta: { pattern: "1-D DP (ordered combinations)", dataStructure: "1-D DP array indexed by target", technique: "Count ordered ways (permutations)" },
+      description:
+        "Given an array of **distinct** positive integers `nums` and a `target`, return the number of combinations that add up to `target`. **Different orderings are counted as different** sequences (so this really counts ordered combinations \u2014 permutations), and numbers may be reused without limit.",
+      constraints: [
+        "`1 <= nums.length <= 200`, `1 <= nums[i] <= 1000`, all distinct",
+        "`1 <= target <= 1000`",
+        "The answer fits in a 32-bit integer."
+      ],
+      notes: [
+        "Despite the name, order MATTERS here \u2014 (1,3) and (3,1) are two different sequences. This flips the loop structure vs Coin Change II.",
+        "dp[t] = number of ordered ways to reach sum t; dp[0] = 1 (the empty sequence).",
+        "Loop the TARGET on the outside and nums on the inside \u2014 that is what lets each number appear in any position, counting permutations."
+      ],
+      examples: [
+        {
+          input: "nums = [1,2,3], target = 4",
+          output: "7",
+          reasoning: "Sequences: (1,1,1,1),(1,1,2),(1,2,1),(2,1,1),(2,2),(1,3),(3,1) = 7.",
+          visual: "```\ntarget 4 from {1,2,3}, order matters:\n1111, 112, 121, 211, 22, 13, 31  -> 7\n```"
+        },
+        { input: "nums = [9], target = 3", output: "0", reasoning: "9 cannot build 3." },
+        { input: "nums = [1,2,3], target = 1", output: "1", reasoning: "Only the sequence (1)." }
+      ],
+      approaches: [
+        {
+          name: "1-D DP, target loop outer (counts orderings)",
+          time: "O(target * len(nums))",
+          space: "O(target)",
+          whenToUse: "Counting ORDERED ways to reach a sum with unlimited reuse (the permutation variant of coin change).",
+          logic:
+            "**What it asks.** Number of ordered sequences of `nums` values summing to `target`.\n\n" +
+            "**State.** `dp[t]` = number of ordered sequences that sum to exactly `t`.\n\n" +
+            "**Transition.** A sequence summing to `t` ends in some `num <= t`; removing that last element leaves an ordered sequence summing to `t - num`. Summing over every possible last element: `dp[t] = sum(dp[t - num] for num in nums if num <= t)`.\n\n" +
+            "**Base case.** `dp[0] = 1` \u2014 exactly one way (pick nothing) to make sum 0.\n\n" +
+            "**Loop order is the key.** The TARGET loop is outer and `nums` is inner. This considers, for each total, every number as the LAST one added, so different orders of the same multiset are counted separately. (Swapping the loops \u2014 nums outer, target inner \u2014 would count each multiset once, which is Coin Change II, where order does NOT matter.)\n\n" +
+            "**Step-by-Step.**\n" +
+            "1. `dp = [0]*(target+1)`, `dp[0] = 1`.\n" +
+            "2. For `t` in `1..target`: for each `num`, if `num <= t`, `dp[t] += dp[t-num]`.\n" +
+            "3. Return `dp[target]`.\n\n" +
+            "**Why it works.** Every ordered sequence has a unique last element, so classifying by that last element partitions the count with no double-counting and no omissions.\n\n" +
+            "**Complexity.** Time `O(target * len(nums))`, space `O(target)`.\n\n" +
+            "**Interview mindset.** 'Order matters' -> target-outer/nums-inner. 'Order does not matter' -> nums-outer/target-inner. Memorize the contrast.",
+          rcs:
+            "class Solution:\n" +
+            "    def combinationSum4(self, nums: List[int], target: int) -> int:\n" +
+            "        dp = [0] * (target + 1)\n" +
+            "        dp[0] = 1                             # Empty sequence sums to 0.\n" +
+            "        for t in range(1, target + 1):        # TARGET outer -> counts orderings.\n" +
+            "            for num in nums:\n" +
+            "                if num <= t:\n" +
+            "                    dp[t] += dp[t - num]      # num used as the LAST element.\n" +
+            "        return dp[target]",
+          plain:
+            "class Solution:\n" +
+            "    def combinationSum4(self, nums: List[int], target: int) -> int:\n" +
+            "        dp = [0] * (target + 1)\n" +
+            "        dp[0] = 1\n" +
+            "        for t in range(1, target + 1):\n" +
+            "            for num in nums:\n" +
+            "                if num <= t:\n" +
+            "                    dp[t] += dp[t - num]\n" +
+            "        return dp[target]"
+        }
+      ],
+      patternRecognition: [
+        "'Count ways to reach a sum, order matters, unlimited reuse' -> 1-D DP with the target loop outer.",
+        "Contrast Coin Change II (order doesn't matter): swap the loops.",
+        "dp[t] sums dp[t-num] over each num that can be the last element."
+      ],
+      interviewRecall: [
+        "dp[0]=1; dp[t] += dp[t-num] for each num <= t.",
+        "Target loop OUTER, nums loop INNER -> permutations (ordered).",
+        "O(target * n) time, O(target) space."
+      ]
     }
   ]);
 })();

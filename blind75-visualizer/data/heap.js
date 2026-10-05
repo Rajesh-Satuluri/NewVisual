@@ -1461,6 +1461,182 @@
         "Drain the heap at the end.",
         "O(n log k) beats a full O(n log n) sort when k << n."
       ]
+    },
+
+    {
+      id: "kth-smallest-element-in-a-sorted-matrix",
+      lc: 378,
+      title: "Kth Smallest Element in a Sorted Matrix",
+      difficulty: "Medium",
+      category: "Heap / Priority Queue",
+      link: "https://leetcode.com/problems/kth-smallest-element-in-a-sorted-matrix/",
+      meta: { pattern: "Min-Heap over sorted rows", dataStructure: "Min-heap of (value,row,col) over the matrix", technique: "Pop k-1, peek the kth" },
+      description:
+        "Given an `n x n` matrix where **each row and each column is sorted** in ascending order, return the `k`-th **smallest** element in the matrix (in the overall sorted order, counting duplicates).",
+      constraints: [
+        "`n == matrix.length == matrix[i].length`",
+        "`1 <= n <= 300`",
+        "`1 <= k <= n^2`",
+        "Each row and each column is sorted ascending."
+      ],
+      notes: [
+        "This is a k-way merge of n sorted rows \u2014 the same machinery as Merge K Sorted Lists.",
+        "Seed the heap with the first element of each row; after popping a cell, push its right neighbor.",
+        "Only the first min(n, k) rows can ever contribute to the k-th smallest, so seeding can stop there.",
+        "An O(n log(max-min)) binary-search-on-value solution also exists and is faster for large n."
+      ],
+      examples: [
+        {
+          input: "matrix = [[1,5,9],[10,11,13],[12,13,15]], k = 8",
+          output: "13",
+          reasoning: "Sorted order: 1,5,9,10,11,12,13,13,15; the 8th is 13.",
+          visual: "```\n 1  5  9\n10 11 13\n12 13 15\nsorted: 1 5 9 10 11 12 [13] 13 15 -> k=8 -> 13\n```"
+        },
+        { input: "matrix = [[-5]], k = 1", output: "-5", reasoning: "Single element." },
+        { input: "matrix = [[1,2],[1,3]], k = 2", output: "1", reasoning: "Sorted: 1,1,2,3; the 2nd is 1 (duplicates count)." }
+      ],
+      approaches: [
+        {
+          name: "Min-heap k-way merge",
+          time: "O(k log n)",
+          space: "O(n)",
+          whenToUse: "Finding the k-th smallest across several sorted sequences; generalizes Merge K Sorted Lists.",
+          logic:
+            "**What it asks.** The k-th smallest value when all cells are merged into sorted order.\n\n" +
+            "**Key Idea.** Treat each row as a sorted list and do a k-way merge with a min-heap of `(value, row, col)`. Seed it with the first cell of each row. Pop the smallest `k` times; after popping `(val, r, c)`, push the next cell in that row `(matrix[r][c+1], r, c+1)` if it exists. The k-th pop is the answer.\n\n" +
+            "**What each heap entry holds.** A candidate cell's value plus its coordinates, so we know which neighbor to push next.\n\n" +
+            "**Step-by-Step.**\n" +
+            "1. Push `(matrix[r][0], r, 0)` for `r` in `range(min(n, k))`; heapify.\n" +
+            "2. Repeat `k` times: pop `(val, r, c)`; if `c+1 < n`, push `(matrix[r][c+1], r, c+1)`.\n" +
+            "3. The last popped `val` is the k-th smallest.\n\n" +
+            "**Why it works.** The heap always holds the smallest not-yet-emitted cell of each active row, so repeated pops emit the global ascending order; the k-th emission is the k-th smallest. Column sortedness is not even needed \u2014 row sortedness suffices.\n\n" +
+            "**Complexity.** Time `O(k log n)` (heap of size \u2264 n), space `O(n)`.\n\n" +
+            "**Interview mindset.** 'k-th smallest across sorted rows/lists' = min-heap k-way merge; for huge n mention binary search on the value range with a counting predicate.",
+          rcs:
+            "import heapq\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def kthSmallest(self, matrix: List[List[int]], k: int) -> int:\n" +
+            "        n = len(matrix)\n" +
+            "        heap = [(matrix[r][0], r, 0) for r in range(min(n, k))]  # First cell of each row.\n" +
+            "        heapq.heapify(heap)\n" +
+            "        val = None\n" +
+            "        for _ in range(k):\n" +
+            "            val, r, c = heapq.heappop(heap)   # Next smallest overall.\n" +
+            "            if c + 1 < n:\n" +
+            "                heapq.heappush(heap, (matrix[r][c + 1], r, c + 1))  # Advance in that row.\n" +
+            "        return val                            # k-th pop.",
+          plain:
+            "import heapq\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def kthSmallest(self, matrix: List[List[int]], k: int) -> int:\n" +
+            "        n = len(matrix)\n" +
+            "        heap = [(matrix[r][0], r, 0) for r in range(min(n, k))]\n" +
+            "        heapq.heapify(heap)\n" +
+            "        val = None\n" +
+            "        for _ in range(k):\n" +
+            "            val, r, c = heapq.heappop(heap)\n" +
+            "            if c + 1 < n:\n" +
+            "                heapq.heappush(heap, (matrix[r][c + 1], r, c + 1))\n" +
+            "        return val"
+        }
+      ],
+      patternRecognition: [
+        "'k-th smallest across sorted rows/lists' -> min-heap k-way merge of (value, coords).",
+        "Seed with each sequence's head; after a pop, push that sequence's next element.",
+        "Large n and a wide value range -> consider binary search on the value with a counting check."
+      ],
+      interviewRecall: [
+        "Heap of (val, r, c); pop k times, pushing the right neighbor each time.",
+        "Only row-sortedness is needed for the heap merge.",
+        "O(k log n); the binary-search-on-value alternative is O(n log(max-min))."
+      ]
+    },
+
+    {
+      id: "top-k-frequent-words",
+      lc: 692,
+      title: "Top K Frequent Words",
+      difficulty: "Medium",
+      category: "Heap / Priority Queue",
+      link: "https://leetcode.com/problems/top-k-frequent-words/",
+      meta: { pattern: "Top-K with a Heap", dataStructure: "Min-heap of size k + frequency map", technique: "Custom order: count desc, word asc" },
+      description:
+        "Given an array of strings `words` and an integer `k`, return the `k` most frequent words. Sort the result by **frequency, highest first**; words with the **same frequency** are ordered **lexicographically (ascending)**.",
+      constraints: [
+        "`1 <= words.length <= 500`",
+        "`1 <= words[i].length <= 10`, lowercase English letters",
+        "`k` is in the range `[1, number of unique words]`"
+      ],
+      notes: [
+        "The tie-break is the subtle part: higher count first, but alphabetical order among equal counts.",
+        "Pushing `(-count, word)` into a heap makes both orders agree: smaller -count means larger count, and for equal counts the lexicographically smaller word compares first.",
+        "A true size-k heap needs a custom comparator because the two keys sort in opposite directions; the all-items heap keeps the code simple."
+      ],
+      examples: [
+        {
+          input: "words = [\"i\",\"love\",\"leetcode\",\"i\",\"love\",\"coding\"], k = 2",
+          output: "[\"i\",\"love\"]",
+          reasoning: "'i' and 'love' both appear twice; all others once. Two most frequent are 'i','love' (alphabetical among the twos)."
+        },
+        {
+          input: "words = [\"the\",\"day\",\"is\",\"sunny\",\"the\",\"the\",\"the\",\"sunny\",\"is\",\"is\"], k = 4",
+          output: "[\"the\",\"is\",\"sunny\",\"day\"]",
+          reasoning: "Counts: the=4, is=3, sunny=2, day=1 -> ordered by count then word.",
+          visual: "```\nthe:4  is:3  sunny:2  day:1\norder by (-count, word) -> the, is, sunny, day\n```"
+        },
+        { input: "words = [\"a\",\"aa\",\"aaa\"], k = 1", output: "[\"a\"]", reasoning: "All count 1; ties broken alphabetically, so 'a' wins." }
+      ],
+      approaches: [
+        {
+          name: "Frequency map + heap on (-count, word)",
+          time: "O(n + u log u)  (u = unique words)",
+          space: "O(u)",
+          whenToUse: "Top-K with a compound sort key, especially when ties need a secondary order.",
+          logic:
+            "**What it asks.** The k most frequent words, ties broken alphabetically.\n\n" +
+            "**Key Idea.** Count occurrences with a hash map, then order unique words by the compound key `(-count, word)`: negating the count turns 'highest count first' into a normal min-heap order, while the raw word string gives ascending alphabetical order for ties. Pop `k` times.\n\n" +
+            "**What each piece holds.** `counts` maps word -> frequency; the heap holds `(-count, word)` so the smallest tuple is the 'best' word.\n\n" +
+            "**Step-by-Step.**\n" +
+            "1. `counts = Counter(words)`.\n" +
+            "2. Build `heap = [(-freq, word) for word, freq in counts.items()]`; heapify.\n" +
+            "3. Pop `k` times, collecting the `word` component.\n\n" +
+            "**Why it works.** Python compares tuples lexicographically: first by `-count` (so larger counts come first), then by `word` (ascending), exactly the required ordering. Heapifying all unique words then popping k gives the top k in order.\n\n" +
+            "**Complexity.** Time `O(n + u log u)` to count and heapify; space `O(u)`. (A strict size-k min-heap with a custom comparator achieves `O(n + u log k)` but needs a wrapper class because count and word sort in opposite directions.)\n\n" +
+            "**Interview mindset.** Compound ranking with a tie-break -> encode it in the sort/heap key; negate the field whose direction is reversed.",
+          rcs:
+            "import heapq\n" +
+            "from collections import Counter\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def topKFrequent(self, words: List[str], k: int) -> List[str]:\n" +
+            "        counts = Counter(words)                       # word -> frequency.\n" +
+            "        heap = [(-freq, word) for word, freq in counts.items()]  # Negate count for order.\n" +
+            "        heapq.heapify(heap)\n" +
+            "        return [heapq.heappop(heap)[1] for _ in range(k)]  # Pop k best words.",
+          plain:
+            "import heapq\n" +
+            "from collections import Counter\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def topKFrequent(self, words: List[str], k: int) -> List[str]:\n" +
+            "        counts = Counter(words)\n" +
+            "        heap = [(-freq, word) for word, freq in counts.items()]\n" +
+            "        heapq.heapify(heap)\n" +
+            "        return [heapq.heappop(heap)[1] for _ in range(k)]"
+        }
+      ],
+      patternRecognition: [
+        "'Top K by frequency with alphabetical tie-break' -> heap/sort on (-count, word).",
+        "Opposite sort directions on two keys -> negate one key or write a custom comparator.",
+        "Counter + heap is the generic Top-K-with-ordering recipe."
+      ],
+      interviewRecall: [
+        "Count with Counter; heap of (-freq, word); pop k and take the word.",
+        "Negating freq makes the min-heap emit highest-count, alphabetical-first.",
+        "Size-k heap needs a custom comparator because the keys sort oppositely."
+      ]
     }
   ]);
 })();

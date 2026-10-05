@@ -900,6 +900,184 @@
         "Start index = right_edge - len(p) + 1.",
         "window == need is an O(26) = O(1) anagram check."
       ]
+    },
+
+    {
+      id: "max-consecutive-ones-iii",
+      lc: 1004,
+      title: "Max Consecutive Ones III",
+      difficulty: "Medium",
+      category: "Sliding Window",
+      link: "https://leetcode.com/problems/max-consecutive-ones-iii/",
+      meta: { pattern: "Variable Sliding Window", dataStructure: "Sliding window over a binary array", technique: "Shrink when zeros exceed k" },
+      description:
+        "Given a binary array `nums` and an integer `k`, return the length of the **longest contiguous subarray** that contains only `1`s **after flipping at most `k` zeros** to `1`.",
+      constraints: [
+        "`1 <= nums.length <= 10^5`",
+        "`nums[i]` is `0` or `1`",
+        "`0 <= k <= nums.length`"
+      ],
+      notes: [
+        "Reframe it: find the longest window containing at most `k` zeros \u2014 those zeros are exactly the ones you would flip.",
+        "The window never needs to shrink by more than one step per expansion, so left and right each advance at most n times total."
+      ],
+      examples: [
+        {
+          input: "nums = [1,1,1,0,0,0,1,1,1,1,0], k = 2",
+          output: "6",
+          reasoning: "Flip the two zeros at indices 4 and 5 to get [...0,1,1,1,1,1,1...] -> window [1,1,1,1,1,1] of length 6.",
+          visual: "```\nidx: 5 6 7 8 9 10\nval: 0 1 1 1 1 0   window with <=2 zeros\n     ^flip        length 6\n```"
+        },
+        { input: "nums = [0,0,1,1,0,0,1,1,1,0,1,1,0,0,0,1,1,1,1], k = 3", output: "10", reasoning: "Best window uses its 3 flips on three zeros to span 10 ones." },
+        { input: "nums = [0,0,0], k = 0", output: "0", reasoning: "No flips allowed and no 1s present." }
+      ],
+      approaches: [
+        {
+          name: "Variable window with a zero counter",
+          time: "O(n)",
+          space: "O(1)",
+          whenToUse: "The 'at most k of something' window template \u2014 here 'at most k zeros'.",
+          logic:
+            "**What it asks.** Longest run achievable if up to `k` zeros may become ones.\n\n" +
+            "**Key reframing.** A valid window is simply one with **at most `k` zeros** in it; its length is the run you could create by flipping those zeros.\n\n" +
+            "**Key Idea.** Expand `right` one step at a time, counting zeros entering the window. Whenever the zero count exceeds `k`, shrink from `left` (decrementing the count when a zero leaves) until it is valid again. Track the maximum window length seen.\n\n" +
+            "**What each variable holds.** `zeros` = number of 0s currently inside `[left, right]`; `best` = longest valid window so far.\n\n" +
+            "**Step-by-Step.**\n" +
+            "1. `left = zeros = best = 0`.\n" +
+            "2. For each `right`: if `nums[right] == 0`, `zeros += 1`.\n" +
+            "3. While `zeros > k`: if `nums[left] == 0`, `zeros -= 1`; then `left += 1`.\n" +
+            "4. `best = max(best, right - left + 1)`.\n\n" +
+            "**Why it works.** The window invariant 'zeros <= k' is restored before measuring, so every measured window is achievable with the budget. Both pointers only move forward, giving a single linear sweep.\n\n" +
+            "**Complexity.** Time `O(n)`, space `O(1)`.\n\n" +
+            "**Interview mindset.** 'Longest window with at most k violations' = variable window keyed on a violation counter.",
+          rcs:
+            "class Solution:\n" +
+            "    def longestOnes(self, nums: List[int], k: int) -> int:\n" +
+            "        left = zeros = best = 0\n" +
+            "        for right in range(len(nums)):\n" +
+            "            if nums[right] == 0:\n" +
+            "                zeros += 1                    # A zero entered the window.\n" +
+            "            while zeros > k:                  # Too many to flip -> shrink.\n" +
+            "                if nums[left] == 0:\n" +
+            "                    zeros -= 1               # Zero leaving reduces the count.\n" +
+            "                left += 1\n" +
+            "            best = max(best, right - left + 1)\n" +
+            "        return best",
+          plain:
+            "class Solution:\n" +
+            "    def longestOnes(self, nums: List[int], k: int) -> int:\n" +
+            "        left = zeros = best = 0\n" +
+            "        for right in range(len(nums)):\n" +
+            "            if nums[right] == 0:\n" +
+            "                zeros += 1\n" +
+            "            while zeros > k:\n" +
+            "                if nums[left] == 0:\n" +
+            "                    zeros -= 1\n" +
+            "                left += 1\n" +
+            "            best = max(best, right - left + 1)\n" +
+            "        return best"
+        }
+      ],
+      patternRecognition: [
+        "'Flip at most k zeros, longest run of ones' -> longest window with at most k zeros.",
+        "Any 'at most k exceptions' maximum-length problem is a variable window keyed on a counter.",
+        "Both pointers move forward only -> O(n)."
+      ],
+      interviewRecall: [
+        "Expand right, count zeros; while zeros > k shrink left; measure window each step.",
+        "Decrement the counter only when the element leaving is a zero.",
+        "Length is right - left + 1; this is the 'at most k' template."
+      ]
+    },
+
+    {
+      id: "fruit-into-baskets",
+      lc: 904,
+      title: "Fruit Into Baskets",
+      difficulty: "Medium",
+      category: "Sliding Window",
+      link: "https://leetcode.com/problems/fruit-into-baskets/",
+      meta: { pattern: "Variable Sliding Window", dataStructure: "Hash map of at most 2 fruit types", technique: "Longest window with \u22642 distinct" },
+      description:
+        "You are given `fruits`, where `fruits[i]` is the type of fruit on the `i`-th tree in a row. You have **two baskets**, and each basket holds only a single type of fruit (unlimited quantity).\n\n" +
+        "Starting at any tree, you pick exactly one fruit from every tree moving right and must stop when you reach a fruit that would require a third basket. Return the **maximum number of fruits** you can collect \u2014 i.e. the length of the longest contiguous subarray containing **at most 2 distinct values**.",
+      constraints: [
+        "`1 <= fruits.length <= 10^5`",
+        "`0 <= fruits[i] < fruits.length`"
+      ],
+      notes: [
+        "This is the classic 'longest subarray with at most K distinct elements' with `K = 2`.",
+        "A hash map of type -> count tracks how many distinct types the window holds; shrink when it exceeds 2.",
+        "Delete a key when its count drops to 0 so `len(count)` truly reflects distinct types."
+      ],
+      examples: [
+        { input: "fruits = [1,2,1]", output: "3", reasoning: "Only two types across the whole row, so all three fruits fit." },
+        { input: "fruits = [0,1,2,2]", output: "3", reasoning: "Pick [1,2,2]; starting at 0 would need three baskets." },
+        {
+          input: "fruits = [1,2,3,2,2]",
+          output: "4",
+          reasoning: "Window [2,3,2,2] has two types (2 and 3) and length 4.",
+          visual: "```\nidx: 1 2 3 4\nval: 2 3 2 2   types {2,3} -> length 4\n```"
+        }
+      ],
+      approaches: [
+        {
+          name: "Variable window with a type->count map",
+          time: "O(n)",
+          space: "O(1)  (map holds at most 3 keys)",
+          whenToUse: "The 'at most K distinct' window template, specialized to K = 2.",
+          logic:
+            "**What it asks.** Longest contiguous stretch using at most two distinct fruit types.\n\n" +
+            "**Key Idea.** Maintain a window `[left, right]` and a map of each contained type's count. Expand `right`, adding the new fruit; if the window now holds more than two distinct types, shrink from `left` \u2014 decrementing counts and removing a key when its count hits zero \u2014 until only two types remain. Track the longest valid window.\n\n" +
+            "**What each variable holds.** `count` maps fruit type -> occurrences in the window; `len(count)` is the number of distinct types; `best` is the answer so far.\n\n" +
+            "**Step-by-Step.**\n" +
+            "1. `left = best = 0`, empty `count`.\n" +
+            "2. For each `right`: add `fruits[right]` to `count`.\n" +
+            "3. While `len(count) > 2`: decrement `count[fruits[left]]`, delete the key if it reaches 0, `left += 1`.\n" +
+            "4. `best = max(best, right - left + 1)`.\n\n" +
+            "**Why it works.** The invariant 'at most 2 distinct types' is restored before each measurement, so every measured window is pickable with two baskets. Both pointers advance monotonically -> linear time. The map never exceeds three keys, so space is `O(1)`.\n\n" +
+            "**Complexity.** Time `O(n)`, space `O(1)`.\n\n" +
+            "**Interview mindset.** 'Two baskets / at most 2 kinds' is a thin disguise over 'longest window with \u2264K distinct'.",
+          rcs:
+            "class Solution:\n" +
+            "    def totalFruit(self, fruits: List[int]) -> int:\n" +
+            "        count = {}                               # fruit type -> count in window.\n" +
+            "        left = best = 0\n" +
+            "        for right in range(len(fruits)):\n" +
+            "            count[fruits[right]] = count.get(fruits[right], 0) + 1\n" +
+            "            while len(count) > 2:                # A third type appeared -> shrink.\n" +
+            "                count[fruits[left]] -= 1\n" +
+            "                if count[fruits[left]] == 0:\n" +
+            "                    del count[fruits[left]]     # Type fully left the window.\n" +
+            "                left += 1\n" +
+            "            best = max(best, right - left + 1)\n" +
+            "        return best",
+          plain:
+            "class Solution:\n" +
+            "    def totalFruit(self, fruits: List[int]) -> int:\n" +
+            "        count = {}\n" +
+            "        left = best = 0\n" +
+            "        for right in range(len(fruits)):\n" +
+            "            count[fruits[right]] = count.get(fruits[right], 0) + 1\n" +
+            "            while len(count) > 2:\n" +
+            "                count[fruits[left]] -= 1\n" +
+            "                if count[fruits[left]] == 0:\n" +
+            "                    del count[fruits[left]]\n" +
+            "                left += 1\n" +
+            "            best = max(best, right - left + 1)\n" +
+            "        return best"
+        }
+      ],
+      patternRecognition: [
+        "'Two baskets, one type each' -> longest subarray with at most 2 distinct values.",
+        "Generalizes to 'longest subarray with at most K distinct' by changing the shrink threshold.",
+        "Track distinctness with a type->count map and delete keys at count 0."
+      ],
+      interviewRecall: [
+        "Expand right adding to a count map; while len(map) > 2 shrink left and delete zero-count keys.",
+        "Answer is the max of right - left + 1 over valid windows.",
+        "Map holds at most 3 keys -> O(1) space, O(n) time."
+      ]
     }
   ]);
 })();
