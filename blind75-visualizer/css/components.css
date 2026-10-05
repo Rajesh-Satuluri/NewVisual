@@ -25,6 +25,7 @@
 .ph-diff.d-easy { color: var(--easy); } .ph-diff.d-medium { color: var(--medium); } .ph-diff.d-hard { color: var(--hard); }
 .ph-cat { color: var(--text-2); font-weight: 600; }
 .ph-link { margin-left: auto; color: var(--brand-2); font-weight: 600; }
+.ph-src { color: var(--muted); font-style: italic; cursor: default; }
 .ph-title { font-size: 27px; font-weight: 750; margin: 8px 0 0; letter-spacing: -.4px; }
 
 .ph-actions { display: flex; align-items: center; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
