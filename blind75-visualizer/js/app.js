@@ -61,6 +61,7 @@
     workspace: store.getPref("workspace") || "dsa",  // "dsa" | "python" (legacy CSS key)
     stack: "python",                                 // python | sql | spark | numpy | pandas
     mode: "practice",                                // learn | practice
+    pyGroupMode: store.getPref("pyGroupMode") || "pattern", // pattern | ds | difficulty
     approachIndex: {}   // problemId -> selected approach index
   };
 
@@ -289,8 +290,8 @@
   //   ConceptLab (learn).  (Python-Learn hides this bar; it has its own.)
   function toggleAllAllCollapsed() {
     if (state.stack === "python" && state.mode === "practice") {
-      var groups = B.byCategory();
-      return groups.length && groups.every(function (g) { return store.isCatCollapsed(g.category); });
+      var groups = activeGroups();
+      return groups.length && groups.every(function (g) { return store.isCatCollapsed(catKey(g.category)); });
     }
     if (state.mode === "practice") { return !!(window.ProblemLab && window.ProblemLab.allCollapsed && window.ProblemLab.allCollapsed()); }
     return !!(window.ConceptLab && window.ConceptLab.allCollapsed && window.ConceptLab.allCollapsed());
@@ -305,17 +306,59 @@
     btn.setAttribute("aria-label", btn.title);
   }
 
+  // ---- grouping lens: Pattern (default) vs Data Structure vs Difficulty -------
+  // Pattern reproduces the canonical chapter order (and is the only lens that
+  // shows the "Introduction to X" entries). Data Structure and Difficulty
+  // re-bucket the exact same problems via helpers shipped in data/ds_groups.js.
+  var GROUP_MODES = [["pattern", "Pattern"], ["ds", "Data Structure"], ["difficulty", "Difficulty"]];
+  function activeGroups() {
+    if (state.pyGroupMode === "ds" && B.byDataStructure) return B.byDataStructure();
+    if (state.pyGroupMode === "difficulty" && B.byDifficulty) return B.byDifficulty();
+    return GROUPS;
+  }
+  // Collapse state is namespaced per lens so each remembers its own open sections
+  // (Pattern keeps the bare category key for backward-compatible saved state).
+  function catKey(name) {
+    if (state.pyGroupMode === "ds") return "ds::" + name;
+    if (state.pyGroupMode === "difficulty") return "diff::" + name;
+    return name;
+  }
+  function groupIcon(name) {
+    if (state.pyGroupMode === "ds") return (B.DS_ICON && B.DS_ICON[name]) || "•";
+    if (state.pyGroupMode === "difficulty") return (B.DIFF_ICON && B.DIFF_ICON[name]) || "•";
+    return B.CATEGORY_ICON[name] || "•";
+  }
+
   function renderSidebar() {
     var nav = el("nav");
     nav.innerHTML = "";
     updateFilterDot();
     var vis = visibleIds();
 
-    GROUPS.forEach(function (g) {
+    // Group-by lens toggle (mirrors the PySpark practice lab's Pattern/Domain).
+    var gb = h("div", { class: "nav-groupby gb-wrap" });
+    gb.appendChild(h("span", { class: "ngb-label" }, "Group by"));
+    var seg = h("div", { class: "ngb-seg" });
+    GROUP_MODES.forEach(function (m) {
+      var b = h("button", { class: "ngb-btn" + (state.pyGroupMode === m[0] ? " on" : ""), "data-mode": m[0] }, m[1]);
+      b.addEventListener("click", function () {
+        if (state.pyGroupMode === m[0]) return;
+        state.pyGroupMode = m[0];
+        store.setPref("pyGroupMode", m[0]);
+        renderSidebar();
+        updateToggleAllIcon();
+      });
+      seg.appendChild(b);
+    });
+    gb.appendChild(seg);
+    nav.appendChild(gb);
+
+    activeGroups().forEach(function (g) {
       var matching = g.problems.filter(function (p) { return vis[p.id]; });
       if (!matching.length) return;
 
-      var collapsed = store.isCatCollapsed(g.category);
+      var ckey = catKey(g.category);
+      var collapsed = store.isCatCollapsed(ckey);
       // Badge reflects the CURRENTLY-VISIBLE problems (after search + difficulty +
       // status + pattern + set filters) — the same list rendered below — so it
       // stays in sync with what the user is actually looking at. Numerator is the
@@ -330,13 +373,13 @@
       var header = h("button", { class: "cat-header", "data-cat": g.category });
       header.innerHTML =
         '<span class="cat-caret">▾</span>' +
-        '<span class="cat-icon">' + (B.CATEGORY_ICON[g.category] || "•") + "</span>" +
+        '<span class="cat-icon">' + groupIcon(g.category) + "</span>" +
         '<span class="cat-name">' + esc(g.category) + "</span>" +
         '<span class="cat-count">' + solvedInCat + "/" + matching.length + "</span>";
       header.addEventListener("click", function () {
         var willOpen = block.classList.contains("collapsed"); // currently collapsed -> open it
         setCatOpen(block, willOpen);
-        store.setCatCollapsed(g.category, !willOpen);
+        store.setCatCollapsed(ckey, !willOpen);
         updateToggleAllIcon();
       });
       block.appendChild(header);
@@ -347,8 +390,9 @@
       if (collapsed) outer.style.height = "0px"; // start closed with no animation
       var list = h("div", { class: "cat-list" });
 
-      // Standalone "Introduction to <pattern>" entry at the top of the group.
-      var introRec = INTROS[g.category];
+      // Standalone "Introduction to <pattern>" entry at the top of the group —
+      // only meaningful in the Pattern lens (the chapters it explains).
+      var introRec = state.pyGroupMode === "pattern" ? INTROS[g.category] : null;
       if (introRec) {
         var introItem = h("a", {
           class: "nav-item nav-intro" + (introRec.id === state.currentId ? " active" : ""),
@@ -1518,7 +1562,7 @@
 
     // expand / collapse all categories
     function setAllCollapsed(collapsed) {
-      B.byCategory().forEach(function (g) { store.setCatCollapsed(g.category, collapsed); });
+      activeGroups().forEach(function (g) { store.setCatCollapsed(catKey(g.category), collapsed); });
       // Animate every currently-rendered block at once rather than rebuilding.
       var nav = el("nav");
       var blocks = nav.querySelectorAll(".cat-block");
@@ -1532,8 +1576,8 @@
     var toggleAllBtn = el("toggleAll");
     if (toggleAllBtn) toggleAllBtn.addEventListener("click", function () {
       if (state.stack === "python" && state.mode === "practice") {
-        var groups = B.byCategory();
-        var allCollapsed = groups.every(function (g) { return store.isCatCollapsed(g.category); });
+        var groups = activeGroups();
+        var allCollapsed = groups.every(function (g) { return store.isCatCollapsed(catKey(g.category)); });
         setAllCollapsed(!allCollapsed);                                   // DSA (animated)
       } else if (state.mode === "practice") {
         if (window.ProblemLab) window.ProblemLab.toggleAll();            // SQL/PySpark/NumPy/Pandas practice
