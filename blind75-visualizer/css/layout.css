@@ -170,6 +170,16 @@
 .ni-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ni-review { color: var(--amber); font-size: 11px; }
 .ni-diff { font-size: 10px; font-weight: 800; width: 16px; text-align: center; border-radius: 4px; }
+
+/* "Introduction to <pattern>" entry — a standalone pattern-explanation page */
+.nav-intro { font-weight: 600; color: var(--brand-2); }
+.nav-intro .ni-title { font-style: italic; }
+.nav-intro.active { color: var(--text); }
+.ni-intro-ic { font-size: 12px; width: 14px; text-align: center; }
+
+/* standalone pattern-explanation page in the reading pane */
+.intro-page { margin-top: 14px; }
+.intro-cta { margin-top: 22px; }
 .st { font-size: 13px; width: 14px; text-align: center; }
 .st-solved { color: var(--green); }
 .st-learning { color: var(--amber); }
