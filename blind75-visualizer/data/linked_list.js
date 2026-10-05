@@ -1869,6 +1869,351 @@
         "Init the group flip's `prev` to `group_next` so the group's tail auto-links to the next group.",
         "Reconnect: `group_prev.next = kth`, then advance `group_prev` to the old first node (the new tail)."
       ]
+    },
+    {
+      "id": "middle-of-the-linked-list",
+      "lc": 876,
+      "title": "Middle of the Linked List",
+      "difficulty": "Easy",
+      "category": "Linked List",
+      "link": "https://leetcode.com/problems/middle-of-the-linked-list/",
+      "meta": {
+        "pattern": "Fast & Slow Pointers",
+        "dataStructure": "Linked List",
+        "technique": "Two-speed traversal"
+      },
+      "description": "Given the `head` of a singly linked list, return its **middle node**. If the list has an even number of nodes, return the **second** of the two middles.\n\nThe elegant one-pass solution uses two pointers moving at different speeds.",
+      "constraints": [
+        "The list has at least one node.",
+        "`1 <= number of nodes <= 100`"
+      ],
+      "notes": [
+        "For even length, return the SECOND middle (LeetCode's convention).",
+        "Fast/slow pointers find the middle in a single pass."
+      ],
+      "examples": [
+        {
+          "input": "head = [1, 2, 3, 4, 5]",
+          "output": "node 3",
+          "reasoning": "Odd length; the middle is 3."
+        },
+        {
+          "input": "head = [1, 2, 3, 4, 5, 6]",
+          "output": "node 4",
+          "reasoning": "Even length; return the second middle (4)."
+        },
+        {
+          "input": "fast/slow picture",
+          "output": "",
+          "reasoning": "How one pass finds the middle.",
+          "visual": "```\nslow +1, fast +2 each step:\n1 2 3 4 5 6\nS       F          (start)\n    S       F\n        S         F=None -> stop, slow at 4 (second middle)\n```"
+        }
+      ],
+      "approaches": [
+        {
+          "name": "Brute Force — count then walk",
+          "time": "O(n)",
+          "space": "O(1)",
+          "whenToUse": "Simple and correct; two passes instead of one.",
+          "logic": "**What it asks.** Return the middle node (second middle if even).\n\n**Idea.** First pass counts the length `n`; second pass walks `n // 2` steps to the middle.\n\n**Step-by-Step Approach.**\n1. Traverse once to get `n`.\n2. Traverse again `n // 2` steps and return that node.\n\n**Why `n // 2`.** For `n = 5`, `5 // 2 = 2` steps reach index 2 (the middle); for `n = 6`, `3` steps reach index 3 (the second middle).\n\n**Complexity.** Two passes, `O(n)` time, `O(1)` space.\n\n**Interview mindset.** Works, but the fast/slow trick does it in one pass.",
+          "rcs": "from typing import Optional\n\n\nclass Solution:\n    def middleNode(self, head: Optional[ListNode]) -> Optional[ListNode]:\n        n = 0\n        node = head\n        while node:  # Pass 1: count nodes.\n            n += 1\n            node = node.next\n        node = head\n        for _ in range(n // 2):  # Pass 2: walk to the middle (second middle if even).\n            node = node.next\n        return node",
+          "plain": "from typing import Optional\n\n\nclass Solution:\n    def middleNode(self, head: Optional[ListNode]) -> Optional[ListNode]:\n        n = 0\n        node = head\n        while node:\n            n += 1\n            node = node.next\n        node = head\n        for _ in range(n // 2):\n            node = node.next\n        return node"
+        },
+        {
+          "name": "Optimized — Fast & Slow pointers",
+          "time": "O(n)",
+          "space": "O(1)",
+          "whenToUse": "The one-pass solution: slow moves 1, fast moves 2.",
+          "logic": "**Key Idea.** Move `slow` one node per step and `fast` two. When `fast` runs off the end, `slow` has covered exactly half the distance — so it sits on the middle.\n\n**Why the loop condition gives the SECOND middle.** Looping while `fast and fast.next` stops `fast` at the end (or just past it) in a way that lands `slow` on the second middle for even lengths — exactly LeetCode's convention.\n\n**Step-by-Step Approach.**\n1. `slow = fast = head`.\n2. While `fast` and `fast.next`: advance `slow` by 1, `fast` by 2.\n3. Return `slow`.\n\n**Why it works.** `fast` travels twice as far as `slow`; when `fast` has gone the full length, `slow` has gone half.\n\n**Common Gotchas.**\n- Guard both `fast` and `fast.next` before stepping `fast` twice, or you dereference `None`.\n- For the *first* middle on even lengths, stop while `fast.next and fast.next.next`.\n\n**Complexity.** One pass, `O(n)` time, `O(1)` space.\n\n**Interview mindset.** Fast/slow is the workhorse for midpoint, cycle detection, and palindrome checks.",
+          "rcs": "from typing import Optional\n\n\nclass Solution:\n    def middleNode(self, head: Optional[ListNode]) -> Optional[ListNode]:\n        slow = fast = head  # Both start at the head.\n        # Fast moves twice as fast; when it reaches the end, slow is at the middle.\n        while fast and fast.next:\n            slow = slow.next  # +1\n            fast = fast.next.next  # +2\n        return slow  # Second middle for even length (LeetCode's convention).",
+          "plain": "from typing import Optional\n\n\nclass Solution:\n    def middleNode(self, head: Optional[ListNode]) -> Optional[ListNode]:\n        slow = fast = head\n        while fast and fast.next:\n            slow = slow.next\n            fast = fast.next.next\n        return slow"
+        }
+      ],
+      "patternRecognition": [
+        "'Find the middle in one pass' -> fast & slow pointers.",
+        "while fast and fast.next -> slow lands on the second middle.",
+        "Stop at fast.next.next for the first middle instead."
+      ],
+      "interviewRecall": [
+        "slow += 1, fast += 2; return slow when fast reaches the end.",
+        "Guard fast and fast.next before stepping.",
+        "This midpoint step powers palindrome and sort-list solutions."
+      ]
+    },
+    {
+      "id": "intersection-of-two-linked-lists",
+      "lc": 160,
+      "title": "Intersection of Two Linked Lists",
+      "difficulty": "Easy",
+      "category": "Linked List",
+      "link": "https://leetcode.com/problems/intersection-of-two-linked-lists/",
+      "meta": {
+        "pattern": "Two Pointers",
+        "dataStructure": "Linked List",
+        "technique": "Length equalization"
+      },
+      "description": "Given the heads of two singly linked lists `headA` and `headB`, return the **node where they intersect** (the first node they share, after which all nodes are common). Return `None` if they never intersect.\n\nIntersection is by **node identity**, not value. Aim for `O(1)` extra space.",
+      "constraints": [
+        "The lists keep their original structure after the function returns.",
+        "There are no cycles anywhere in the lists.",
+        "Intersection is by reference (same node object), not equal values."
+      ],
+      "notes": [
+        "Intersection is identity-based: compare nodes with `is`, not `==` on values.",
+        "After the shared node, the two lists are the same tail."
+      ],
+      "examples": [
+        {
+          "input": "A = [4,1,8,4,5], B = [5,6,1,8,4,5], shared tail starts at 8",
+          "output": "node 8",
+          "reasoning": "Both lists converge at the node with value 8 and share everything after."
+        },
+        {
+          "input": "A = [1,2], B = [3,4] (disjoint)",
+          "output": "None",
+          "reasoning": "No shared node."
+        },
+        {
+          "input": "two-pointer switch",
+          "output": "",
+          "reasoning": "Why A->B and B->A align.",
+          "visual": "```\nlen(A)=a, len(B)=b; after switching lists once,\nboth pointers travel a+b nodes total ->\nthey arrive at the intersection at the SAME step\n(or both reach None together if disjoint)\n```"
+        }
+      ],
+      "approaches": [
+        {
+          "name": "Brute Force — hash set of nodes",
+          "time": "O(n + m)",
+          "space": "O(n)",
+          "whenToUse": "Simple and fast; uses linear extra space.",
+          "logic": "**What it asks.** The first node shared by both lists (by identity).\n\n**Idea.** Put every node of list A into a set, then walk list B; the first node already in the set is the intersection.\n\n**Step-by-Step Approach.**\n1. Traverse A, adding each node object to a set.\n2. Traverse B; return the first node found in the set.\n3. If none, return `None`.\n\n**Complexity.** `O(n + m)` time, `O(n)` space.\n\n**Interview mindset.** Correct, but the follow-up asks for `O(1)` space — that's the two-pointer switch.",
+          "rcs": "from typing import Optional\n\n\nclass Solution:\n    def getIntersectionNode(self, headA: ListNode, headB: ListNode) -> Optional[ListNode]:\n        seen = set()  # Node OBJECTS from list A.\n        node = headA\n        while node:\n            seen.add(node)\n            node = node.next\n        node = headB\n        while node:  # First B-node already in the set is the intersection.\n            if node in seen:\n                return node\n            node = node.next\n        return None",
+          "plain": "from typing import Optional\n\n\nclass Solution:\n    def getIntersectionNode(self, headA: ListNode, headB: ListNode) -> Optional[ListNode]:\n        seen = set()\n        node = headA\n        while node:\n            seen.add(node)\n            node = node.next\n        node = headB\n        while node:\n            if node in seen:\n                return node\n            node = node.next\n        return None"
+        },
+        {
+          "name": "Optimized — Two pointers (switch lists)",
+          "time": "O(n + m)",
+          "space": "O(1)",
+          "whenToUse": "The O(1)-space solution: swap each pointer to the other list's head at its end.",
+          "logic": "**Key Idea.** The problem is trivial if both lists are the same length — the intersection sits at the same offset from both heads. We fake equal length: traverse `A` then continue into `B`, and traverse `B` then continue into `A`. Both combined paths have length `a + b`, so two pointers that switch lists at their ends arrive at the intersection **simultaneously**.\n\n**Why it also handles no-intersection.** If the lists are disjoint, both pointers reach the end of the second list (`None`) at the same step, the loop condition `ptrA != ptrB` becomes false with both `None`, and we return `None`.\n\n**Step-by-Step Approach.**\n1. `ptrA = headA`, `ptrB = headB`.\n2. While `ptrA != ptrB`: advance `ptrA` to `ptrA.next` if it exists, else to `headB`; symmetrically for `ptrB`.\n3. Return `ptrA` (the intersection node, or `None`).\n\n**Why it works.** After at most one switch each, both pointers have walked the same total distance `a + b`, cancelling the length difference and aligning them on the shared node.\n\n**Common Gotchas.**\n- On reaching the end, jump to the **other** list's head (not your own).\n- Compare nodes by identity (`!=`/`is`), not by value.\n- The loop is guaranteed to terminate: either they meet, or both become `None` together.\n\n**Complexity.** `O(n + m)` time, `O(1)` space.\n\n**Interview mindset.** 'Equalize the lengths without measuring them' is the clever insight interviewers look for.",
+          "rcs": "from typing import Optional\n\n\nclass Solution:\n    def getIntersectionNode(self, headA: ListNode, headB: ListNode) -> Optional[ListNode]:\n        ptrA, ptrB = headA, headB  # Two walkers.\n        # Each walks A->B and B->A; both paths are length a+b, so they align.\n        while ptrA != ptrB:\n            # At the end of a list, jump to the OTHER list's head.\n            ptrA = ptrA.next if ptrA else headB\n            ptrB = ptrB.next if ptrB else headA\n        # Either the shared node, or None if the lists are disjoint.\n        return ptrA",
+          "plain": "from typing import Optional\n\n\nclass Solution:\n    def getIntersectionNode(self, headA: ListNode, headB: ListNode) -> Optional[ListNode]:\n        ptrA, ptrB = headA, headB\n        while ptrA != ptrB:\n            ptrA = ptrA.next if ptrA else headB\n            ptrB = ptrB.next if ptrB else headA\n        return ptrA"
+        }
+      ],
+      "patternRecognition": [
+        "'Where do two lists intersect, O(1) space' -> two-pointer list switch.",
+        "A->B and B->A are both length a+b, cancelling the offset.",
+        "Disjoint lists make both pointers hit None together."
+      ],
+      "interviewRecall": [
+        "ptrA = ptrA.next if ptrA else headB (and mirror for ptrB).",
+        "Loop while ptrA != ptrB; return ptrA.",
+        "Compare by identity, not value."
+      ]
+    },
+    {
+      "id": "palindrome-linked-list",
+      "lc": 234,
+      "title": "Palindrome Linked List",
+      "difficulty": "Easy",
+      "category": "Linked List",
+      "link": "https://leetcode.com/problems/palindrome-linked-list/",
+      "meta": {
+        "pattern": "Fast & Slow + Reverse",
+        "dataStructure": "Linked List",
+        "technique": "Reverse second half"
+      },
+      "description": "Given the `head` of a singly linked list, return whether its values read the **same forwards and backwards** (a palindrome). Aim for `O(n)` time and `O(1)` extra space.",
+      "constraints": [
+        "`1 <= number of nodes <= 10^5`",
+        "`0 <= Node.val <= 9`"
+      ],
+      "notes": [
+        "O(1) space means you can't copy values into an array.",
+        "Reversing the second half mutates the list — mention this to the interviewer (and optionally restore it)."
+      ],
+      "examples": [
+        {
+          "input": "head = [1, 2, 2, 1]",
+          "output": "true",
+          "reasoning": "Reads the same both ways."
+        },
+        {
+          "input": "head = [1, 2, 3]",
+          "output": "false",
+          "reasoning": "Reversed is [3,2,1], not equal."
+        },
+        {
+          "input": "head = [1, 0, 1]",
+          "output": "true",
+          "reasoning": "Odd length; the middle 0 is shared by both halves.",
+          "visual": "```\n[1 2 | 2 1]  find middle, reverse 2nd half:\n first half:  1 -> 2\n rev 2nd:     1 -> 2\n compare node by node -> all equal -> palindrome\n```"
+        }
+      ],
+      "approaches": [
+        {
+          "name": "Brute Force — copy to array",
+          "time": "O(n)",
+          "space": "O(n)",
+          "whenToUse": "Trivial; uses linear extra space.",
+          "logic": "**What it asks.** Is the list a palindrome?\n\n**Idea.** Copy all values into an array, then check the array with two pointers (or compare it to its reverse).\n\n**Step-by-Step Approach.**\n1. Walk the list, appending each value to `vals`.\n2. Two-pointer check from both ends of `vals`.\n\n**Complexity.** `O(n)` time, `O(n)` space.\n\n**Interview mindset.** Fine to state, but the `O(1)`-space follow-up wants the reverse-half trick.",
+          "rcs": "from typing import Optional\n\n\nclass Solution:\n    def isPalindrome(self, head: Optional[ListNode]) -> bool:\n        vals = []\n        node = head\n        while node:  # Dump values into an array for random access.\n            vals.append(node.val)\n            node = node.next\n        # A list is a palindrome iff the array equals its reverse.\n        return vals == vals[::-1]",
+          "plain": "from typing import Optional\n\n\nclass Solution:\n    def isPalindrome(self, head: Optional[ListNode]) -> bool:\n        vals = []\n        node = head\n        while node:\n            vals.append(node.val)\n            node = node.next\n        return vals == vals[::-1]"
+        },
+        {
+          "name": "Optimized — Reverse second half",
+          "time": "O(n)",
+          "space": "O(1)",
+          "whenToUse": "The O(1)-space solution: compare the first half against the reversed second half.",
+          "logic": "**Key Idea.** A palindrome's first half mirrors its (reversed) second half. So: find the middle with fast/slow, reverse the list from the middle onward, then walk the first half and the reversed second half in lockstep comparing values.\n\n**Why comparing to `None` on the short pointer is enough.** The reversed second half is the same length or one shorter (odd length shares the middle). Looping while the second-half pointer is non-`None` compares every needed pair; a mismatch anywhere means it's not a palindrome.\n\n**Step-by-Step Approach.**\n1. `mid = find_middle(head)` via fast/slow.\n2. `second = reverse_list(mid)`.\n3. Walk `p1 = head`, `p2 = second`; if any `p1.val != p2.val`, return `False`.\n4. Return `True`.\n\n**Why it works.** After reversal, `second` yields the original tail-to-middle order; matching it against the head-to-middle order verifies the mirror property.\n\n**Common Gotchas.**\n- Reuse the standard fast/slow midpoint and the iterative reverse — don't reinvent them.\n- This mutates the list; note it (restoring the half is an optional extra step).\n- Drive the loop off the second-half pointer so odd-length middles are handled.\n\n**Complexity.** Three linear passes -> `O(n)` time; only pointers -> `O(1)` space.\n\n**Interview mindset.** This cleanly composes two building blocks (midpoint + reverse) you already know.",
+          "rcs": "from typing import Optional\n\n\nclass Solution:\n    def isPalindrome(self, head: Optional[ListNode]) -> bool:\n        mid = self.find_middle(head)  # Fast/slow midpoint.\n        second = self.reverse_list(mid)  # Reverse from the middle onward.\n        p1, p2 = head, second\n        result = True\n        while p2:  # The reversed second half is the shorter/equal one.\n            if p1.val != p2.val:  # Any mismatch -> not a palindrome.\n                result = False\n            p1, p2 = p1.next, p2.next\n        return result\n\n    def find_middle(self, head):  # Second middle for even length.\n        slow = fast = head\n        while fast and fast.next:\n            slow = slow.next\n            fast = fast.next.next\n        return slow\n\n    def reverse_list(self, head):  # Standard iterative reversal.\n        prev, curr = None, head\n        while curr:\n            nxt = curr.next\n            curr.next = prev\n            prev = curr\n            curr = nxt\n        return prev",
+          "plain": "from typing import Optional\n\n\nclass Solution:\n    def isPalindrome(self, head: Optional[ListNode]) -> bool:\n        mid = self.find_middle(head)\n        second = self.reverse_list(mid)\n        p1, p2 = head, second\n        while p2:\n            if p1.val != p2.val:\n                return False\n            p1, p2 = p1.next, p2.next\n        return True\n\n    def find_middle(self, head):\n        slow = fast = head\n        while fast and fast.next:\n            slow = slow.next\n            fast = fast.next.next\n        return slow\n\n    def reverse_list(self, head):\n        prev, curr = None, head\n        while curr:\n            nxt = curr.next\n            curr.next = prev\n            prev = curr\n            curr = nxt\n        return prev"
+        }
+      ],
+      "patternRecognition": [
+        "'Palindrome check, O(1) space' -> reverse the second half and compare.",
+        "Compose fast/slow midpoint + iterative reverse.",
+        "Odd length: the middle belongs to both halves, so drive the loop off the shorter pointer."
+      ],
+      "interviewRecall": [
+        "mid = find_middle; second = reverse_list(mid).",
+        "Walk head and second together comparing vals.",
+        "Note that it mutates the list (restore if asked)."
+      ]
+    },
+    {
+      "id": "sort-list",
+      "lc": 148,
+      "title": "Sort List",
+      "difficulty": "Medium",
+      "category": "Linked List",
+      "link": "https://leetcode.com/problems/sort-list/",
+      "meta": {
+        "pattern": "Merge Sort",
+        "dataStructure": "Linked List",
+        "technique": "Divide & conquer"
+      },
+      "description": "Given the `head` of a linked list, return it **sorted in ascending order**. The ideal solution runs in `O(n log n)` time.\n\n**Merge sort** is the natural fit: unlike quicksort it needs no random access, so it works smoothly on linked lists.",
+      "constraints": [
+        "`0 <= number of nodes <= 5 * 10^4`",
+        "`-10^5 <= Node.val <= 10^5`",
+        "Target: `O(n log n)` time."
+      ],
+      "notes": [
+        "Quicksort needs random access by index -> awkward on lists; merge sort doesn't.",
+        "Split with fast/slow stopping at the FIRST middle so the two halves are balanced."
+      ],
+      "examples": [
+        {
+          "input": "head = [4, 2, 1, 3]",
+          "output": "[1, 2, 3, 4]",
+          "reasoning": "Standard ascending sort."
+        },
+        {
+          "input": "head = [-1, 5, 3, 4, 0]",
+          "output": "[-1, 0, 3, 4, 5]",
+          "reasoning": "Negatives sort normally."
+        },
+        {
+          "input": "merge sort shape",
+          "output": "",
+          "reasoning": "Divide, sort, merge.",
+          "visual": "```\n[4 2 1 3]\n split -> [4 2] [1 3]\n split -> [4][2] [1][3]\n merge -> [2 4] [1 3]\n merge -> [1 2 3 4]\n```"
+        }
+      ],
+      "approaches": [
+        {
+          "name": "Brute Force — dump, sort, rebuild",
+          "time": "O(n log n)",
+          "space": "O(n)",
+          "whenToUse": "Easy to get right; uses O(n) extra space for the array.",
+          "logic": "**What it asks.** Return the list sorted.\n\n**Idea.** Copy the values into an array, sort the array, then overwrite the list's values in order.\n\n**Step-by-Step Approach.**\n1. Collect all node values into `vals`.\n2. Sort `vals`.\n3. Walk the list again writing the sorted values back.\n\n**Complexity.** `O(n log n)` time, `O(n)` space.\n\n**Interview mindset.** Works, but the expected answer sorts the nodes in place with merge sort (`O(1)` auxiliary besides recursion).",
+          "rcs": "from typing import Optional\n\n\nclass Solution:\n    def sortList(self, head: Optional[ListNode]) -> Optional[ListNode]:\n        vals = []\n        node = head\n        while node:  # Collect values.\n            vals.append(node.val)\n            node = node.next\n        vals.sort()  # Sort in the array world.\n        node = head\n        for v in vals:  # Write sorted values back into the same nodes.\n            node.val = v\n            node = node.next\n        return head",
+          "plain": "from typing import Optional\n\n\nclass Solution:\n    def sortList(self, head: Optional[ListNode]) -> Optional[ListNode]:\n        vals = []\n        node = head\n        while node:\n            vals.append(node.val)\n            node = node.next\n        vals.sort()\n        node = head\n        for v in vals:\n            node.val = v\n            node = node.next\n        return head"
+        },
+        {
+          "name": "Optimized — Merge sort in place",
+          "time": "O(n log n)",
+          "space": "O(log n)",
+          "whenToUse": "The intended solution: split with fast/slow, recurse, merge two sorted lists.",
+          "logic": "**Key Idea.** Merge sort via divide & conquer: **split** the list into two halves, **recursively sort** each, then **merge** the two sorted halves.\n\n**Splitting.** Use fast/slow to find the midpoint, but stop at the **first** middle (loop while `fast.next and fast.next.next`) so the halves are balanced; cut the list by setting `slow.next = None` and returning the second head.\n\n**Merging.** With a dummy head, repeatedly attach the smaller of the two front nodes and advance that pointer; when one list empties, append the rest of the other.\n\n**Step-by-Step Approach.**\n1. Base case: empty or single node -> already sorted, return `head`.\n2. `second = split(head)`.\n3. Recursively sort `head` and `second`.\n4. Return `merge(left, right)`.\n\n**Why it works.** Splitting halves the problem each level (`log n` depth); merging two sorted lists is linear; combined that's `O(n log n)`, and lists never need indexed access.\n\n**Common Gotchas.**\n- Stop the split at the first middle (`fast.next and fast.next.next`), or a 2-node list never splits and recursion loops forever.\n- Always sever the halves with `slow.next = None`.\n- Use a dummy node in `merge` to simplify the head handling.\n\n**Complexity.** `O(n log n)` time; `O(log n)` recursion-stack space.\n\n**Interview mindset.** 'Sort a linked list in O(n log n)' almost always means merge sort — lead with why quicksort is a poor fit here.",
+          "rcs": "from typing import Optional\n\n\nclass Solution:\n    def sortList(self, head: Optional[ListNode]) -> Optional[ListNode]:\n        if not head or not head.next:  # 0 or 1 node -> already sorted.\n            return head\n        second = self.split(head)  # Cut into two balanced halves.\n        left = self.sortList(head)  # Recursively sort each half.\n        right = self.sortList(second)\n        return self.merge(left, right)  # Merge the sorted halves.\n\n    def split(self, head):\n        slow = fast = head\n        # Stop at the FIRST middle so a 2-node list still splits.\n        while fast.next and fast.next.next:\n            slow = slow.next\n            fast = fast.next.next\n        second = slow.next\n        slow.next = None  # Sever the first half from the second.\n        return second\n\n    def merge(self, l1, l2):\n        dummy = ListNode(0)  # Dummy head simplifies the merge.\n        tail = dummy\n        while l1 and l2:  # Attach the smaller front node each step.\n            if l1.val <= l2.val:\n                tail.next = l1\n                l1 = l1.next\n            else:\n                tail.next = l2\n                l2 = l2.next\n            tail = tail.next\n        tail.next = l1 if l1 else l2  # Append whatever remains.\n        return dummy.next",
+          "plain": "from typing import Optional\n\n\nclass Solution:\n    def sortList(self, head: Optional[ListNode]) -> Optional[ListNode]:\n        if not head or not head.next:\n            return head\n        second = self.split(head)\n        left = self.sortList(head)\n        right = self.sortList(second)\n        return self.merge(left, right)\n\n    def split(self, head):\n        slow = fast = head\n        while fast.next and fast.next.next:\n            slow = slow.next\n            fast = fast.next.next\n        second = slow.next\n        slow.next = None\n        return second\n\n    def merge(self, l1, l2):\n        dummy = ListNode(0)\n        tail = dummy\n        while l1 and l2:\n            if l1.val <= l2.val:\n                tail.next = l1\n                l1 = l1.next\n            else:\n                tail.next = l2\n                l2 = l2.next\n            tail = tail.next\n        tail.next = l1 if l1 else l2\n        return dummy.next"
+        }
+      ],
+      "patternRecognition": [
+        "'Sort a linked list in O(n log n)' -> merge sort (no random access needed).",
+        "Split with fast/slow (first middle); merge two sorted lists with a dummy head.",
+        "Quicksort is a poor fit for lists."
+      ],
+      "interviewRecall": [
+        "Base case: empty/single node returns head.",
+        "split: fast.next and fast.next.next; sever with slow.next = None.",
+        "merge: dummy head, attach smaller front node, append remainder."
+      ]
+    },
+    {
+      "id": "flatten-multilevel-doubly-linked-list",
+      "lc": 430,
+      "title": "Flatten a Multilevel Doubly Linked List",
+      "difficulty": "Medium",
+      "category": "Linked List",
+      "link": "https://leetcode.com/problems/flatten-a-multilevel-doubly-linked-list/",
+      "meta": {
+        "pattern": "DFS / Stack",
+        "dataStructure": "Doubly Linked List",
+        "technique": "Depth-first inline insertion"
+      },
+      "description": "A doubly linked list where each node has `prev`, `next`, and a `child` pointer to a separate doubly linked list (which may have its own children). **Flatten** it into a single-level doubly linked list.\n\nWhen a node has a child, that child list must be inserted **between the node and its next** (depth-first), with all `prev`/`next` pointers fixed and every `child` set to `None`.",
+      "constraints": [
+        "Number of nodes `<= 1000`.",
+        "`1 <= Node.val <= 10^5`",
+        "All `child` pointers must be `None` in the result; `prev`/`next` must be consistent."
+      ],
+      "notes": [
+        "This is the DOUBLY-linked variant: fix prev pointers too, and insert children depth-first (not appended at a level's tail).",
+        "A stack remembers each node's 'next' to resume after its child subtree is spliced in."
+      ],
+      "examples": [
+        {
+          "input": "1-2-3-4-5-6, with 3.child = 7-8-9-10 and 8.child = 11-12",
+          "output": "1-2-3-7-8-11-12-9-10-4-5-6",
+          "reasoning": "At 3, splice in its child (7..10) before 4; within that, at 8 splice in 11-12 before 9."
+        },
+        {
+          "input": "head = [] ",
+          "output": "[]",
+          "reasoning": "Empty list stays empty."
+        },
+        {
+          "input": "depth-first splice",
+          "output": "",
+          "reasoning": "How a child is inserted inline.",
+          "visual": "```\n... A -> B ...   A.child = C -> D\nbecomes:\n... A -> C -> D -> B ...   (A.child = None; prev links fixed)\nstack holds B so we resume after D\n```"
+        }
+      ],
+      "approaches": [
+        {
+          "name": "Depth-first with a stack",
+          "time": "O(n)",
+          "space": "O(n)",
+          "whenToUse": "The standard iterative solution: splice each child list inline, using a stack to resume.",
+          "logic": "**What it asks.** Flatten a multilevel *doubly* linked list so children are inserted depth-first between a node and its `next`, with `prev`/`next` consistent and all `child` cleared.\n\n**Key Idea.** Walk the list. When the current node has a `child`, that child subtree must come **before** the current node's `next`. So we: remember `curr.next` on a **stack**, splice the child in as `curr.next` (fixing `prev` and clearing `child`), and keep walking — naturally descending into the child first (depth-first). When we hit a node with no `next`, we pop the stack to reconnect the saved continuation.\n\n**Step-by-Step Approach.**\n1. If `head` is `None`, return it.\n2. `curr = head`.\n3. If `curr.child`: push `curr.next` (when non-`None`) onto the stack; set `curr.next = curr.child`, `curr.child.prev = curr`, and `curr.child = None`.\n4. If `curr.next` is `None` and the stack is non-empty: pop a node, link it as `curr.next` and set its `prev = curr`.\n5. Advance `curr = curr.next`; repeat. Return `head`.\n\n**Why it works.** Splicing a child in as `next` forces the traversal through the entire child subtree before the saved continuation; the stack restores each level's `next` in the correct (LIFO) order, yielding the depth-first flattening with valid `prev` links.\n\n**Common Gotchas.**\n- Fix **both** directions: set the child's `prev` and the popped node's `prev`.\n- Clear `curr.child = None` after splicing, or the result still has child links.\n- Only push `curr.next` when it isn't `None`.\n\n**Complexity.** Each node is visited once -> `O(n)` time; the stack can hold up to `O(n)` saved continuations.\n\n**Interview mindset.** Recognize it as a DFS over a tree-shaped list; the explicit stack mirrors the recursion.",
+          "rcs": "from typing import Optional\n\n\n# Node has: val, prev, next, child\nclass Solution:\n    def flatten(self, head: 'Optional[Node]') -> 'Optional[Node]':\n        if not head:\n            return head\n        stack = []  # Saved 'next' continuations to resume after child subtrees.\n        curr = head\n        while curr:\n            if curr.child:  # Descend into the child list first (depth-first).\n                if curr.next:\n                    stack.append(curr.next)  # Remember where to resume later.\n                curr.next = curr.child  # Splice the child in as the next node.\n                curr.child.prev = curr  # Fix the backward link.\n                curr.child = None  # Flatten: clear the child pointer.\n            if not curr.next and stack:  # End of a branch -> reconnect a saved tail.\n                nxt = stack.pop()\n                curr.next = nxt\n                nxt.prev = curr  # Fix the backward link.\n            curr = curr.next  # Advance.\n        return head",
+          "plain": "from typing import Optional\n\n\nclass Solution:\n    def flatten(self, head: 'Optional[Node]') -> 'Optional[Node]':\n        if not head:\n            return head\n        stack = []\n        curr = head\n        while curr:\n            if curr.child:\n                if curr.next:\n                    stack.append(curr.next)\n                curr.next = curr.child\n                curr.child.prev = curr\n                curr.child = None\n            if not curr.next and stack:\n                nxt = stack.pop()\n                curr.next = nxt\n                nxt.prev = curr\n            curr = curr.next\n        return head"
+        }
+      ],
+      "patternRecognition": [
+        "'Flatten nested/child lists depth-first' -> DFS with an explicit stack.",
+        "Splice a child in as 'next'; stack the old 'next' to resume.",
+        "Doubly linked -> remember to fix prev pointers and clear child."
+      ],
+      "interviewRecall": [
+        "On a child: push curr.next, curr.next = child, child.prev = curr, child = None.",
+        "At a dead end with a non-empty stack: pop and relink (set prev).",
+        "Every node visited once -> O(n)."
+      ]
     }
+
   ]);
 })();
