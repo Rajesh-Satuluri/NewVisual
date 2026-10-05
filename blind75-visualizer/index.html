@@ -68,6 +68,15 @@
   <div class="shell">
     <!-- ============ SIDEBAR ============ -->
     <aside class="sidebar">
+      <!-- Collapse the whole controls block (progress/search/filters/categories)
+           so the problem list can use the full column height. Persisted. -->
+      <div class="meta-bar">
+        <button id="metaToggle" class="meta-toggle" title="Hide filters, search & progress" aria-expanded="true" aria-controls="sidebarMeta">
+          <span class="meta-toggle-caret" aria-hidden="true">▾</span>
+          <span class="meta-toggle-label">Filters, search &amp; progress</span>
+        </button>
+      </div>
+      <div id="sidebarMeta" class="sidebar-meta">
       <div id="pyProgress" class="py-progress" hidden></div>
       <div id="setToggle" class="set-toggle" role="tablist" aria-label="Study set">
         <button class="set-btn active" data-set="all" role="tab">All 150</button>
@@ -103,6 +112,7 @@
         <span class="nav-tools-label">Categories</span>
         <button id="toggleAll" class="nav-tool-icon" title="Collapse all categories" aria-label="Collapse all categories">▾</button>
       </div>
+      </div><!-- /#sidebarMeta -->
 
       <nav id="nav" class="nav"></nav>
     </aside>

@@ -101,6 +101,30 @@
 }
 .nav-tool-icon:hover { color: var(--text); border-color: var(--brand); }
 
+/* ---------- collapsible sidebar controls block ----------
+   Wraps progress + set-toggle + search + filters + category tools so the whole
+   block can fold away, handing the full column height to the problem list. The
+   toggle bar stays visible so it can be reopened. */
+.meta-bar { display: flex; padding: 8px 10px 4px; }
+.meta-toggle {
+  flex: 1; display: flex; align-items: center; gap: 7px;
+  padding: 6px 10px; cursor: pointer; text-align: left;
+  background: var(--bg-2); border: 1px solid var(--border); border-radius: 8px;
+  color: var(--muted); font-size: 10.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .6px;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+.meta-toggle:hover { color: var(--text); border-color: var(--brand); }
+.meta-toggle-caret { font-size: 10px; display: inline-block; transform-origin: 50% 50%; transition: transform var(--dur-cat) var(--ease-cat); }
+.sidebar.meta-collapsed .meta-toggle-caret { transform: rotate(-90deg); }
+.meta-toggle-label { flex: 1; }
+
+.sidebar-meta {
+  max-height: 1200px; overflow: hidden;
+  transition: max-height var(--dur-slow) var(--ease-cat), opacity var(--dur) var(--ease);
+}
+.sidebar.meta-collapsed .sidebar-meta { max-height: 0; opacity: 0; pointer-events: none; }
+
 .nav { flex: 1; overflow-y: auto; padding: 6px 8px 40px; scroll-behavior: smooth; overscroll-behavior: contain; }
 .nav-empty { padding: 24px 16px; color: var(--muted); font-size: 13px; text-align: center; }
 
