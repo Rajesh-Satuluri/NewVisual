@@ -1279,6 +1279,139 @@
         "mid = (left+right)//2 + 1; True -> left = mid, False -> right = mid - 1.",
         "Return left; same template as Koko Eating Bananas."
       ]
+    },
+    {
+      "id": "find-peak-element",
+      "lc": 162,
+      "title": "Find Peak Element",
+      "difficulty": "Medium",
+      "category": "Binary Search",
+      "link": "https://leetcode.com/problems/find-peak-element/",
+      "meta": {
+        "pattern": "Binary Search (slope)",
+        "dataStructure": "Array",
+        "technique": "Follow the ascending slope"
+      },
+      "description": "A **peak** is an element strictly greater than its neighbors. Given `nums` where no two adjacent elements are equal and `nums[-1] = nums[n] = -infinity` (out-of-bounds treated as smaller), return the index of **any** peak in `O(log n)`.",
+      "constraints": [
+        "`1 <= nums.length <= 1000`",
+        "No two adjacent elements are equal.",
+        "Out-of-bounds neighbors count as -infinity; required time `O(log n)`."
+      ],
+      "notes": [
+        "Any peak is acceptable, which is what makes binary search possible.",
+        "If nums[mid] < nums[mid+1], a peak must exist to the RIGHT (follow the rising slope)."
+      ],
+      "examples": [
+        {
+          "input": "nums = [1, 2, 3, 1]",
+          "output": "2",
+          "reasoning": "3 at index 2 is greater than both neighbors."
+        },
+        {
+          "input": "nums = [1, 2, 1, 3, 5, 6, 4]",
+          "output": "5",
+          "reasoning": "6 at index 5 is a peak (index 1 is also valid)."
+        },
+        {
+          "input": "slope reasoning",
+          "output": "",
+          "reasoning": "Why you climb toward a peak.",
+          "visual": "```\nif nums[mid] < nums[mid+1]: rising -> a peak is to the right -> left = mid+1\nelse:                         falling -> mid may be the peak -> right = mid\n```"
+        }
+      ],
+      "approaches": [
+        {
+          "name": "Brute Force — linear scan",
+          "time": "O(n)",
+          "space": "O(1)",
+          "whenToUse": "Trivial baseline; misses the O(log n) requirement.",
+          "logic": "**What it asks.** Return any index that is greater than both neighbors.\n\n**Idea.** Scan left to right and return the first index whose next element is smaller (or the last index). Because there are no equal adjacent elements, such an index is always a peak.\n\n**Complexity.** `O(n)` time, `O(1)` space.\n\n**Interview mindset.** Works, but 'any peak' + sorted-ish slope structure lets binary search hit `O(log n)`.",
+          "rcs": "from typing import List\n\n\nclass Solution:\n    def findPeakElement(self, nums: List[int]) -> int:\n        for i in range(len(nums)):  # First element bigger than its right neighbor is a peak.\n            if i == len(nums) - 1 or nums[i] > nums[i + 1]:\n                return i\n        return 0",
+          "plain": "from typing import List\n\n\nclass Solution:\n    def findPeakElement(self, nums: List[int]) -> int:\n        for i in range(len(nums)):\n            if i == len(nums) - 1 or nums[i] > nums[i + 1]:\n                return i\n        return 0"
+        },
+        {
+          "name": "Optimized — Binary search on the slope",
+          "time": "O(log n)",
+          "space": "O(1)",
+          "whenToUse": "The required solution: move toward the rising side each step.",
+          "logic": "**Key Idea.** Compare `nums[mid]` with `nums[mid + 1]`. If `nums[mid] < nums[mid + 1]`, the slope rises to the right, so a peak must exist somewhere to the **right** -> `left = mid + 1`. Otherwise the slope falls (or `mid` is itself a peak), so a peak exists at `mid` or to the **left** -> `right = mid`.\n\n**Why a peak is guaranteed in the chosen half.** Since boundaries are `-infinity`, climbing in the direction of increase can never walk off a cliff without hitting a peak — the array must turn down eventually.\n\n**Step-by-Step Approach.**\n1. `left, right = 0, len(nums) - 1`.\n2. While `left < right`: `mid = (left + right) // 2`; if `nums[mid] < nums[mid + 1]` -> `left = mid + 1`, else `right = mid`.\n3. Return `left`.\n\n**Why it works.** Each step keeps a peak inside `[left, right]`; the range halves until it collapses onto one.\n\n**Common Gotchas.**\n- `mid + 1` is always valid because the loop runs only while `left < right`.\n- Use `right = mid` (inclusive) on the falling side; `mid` could be the peak.\n\n**Complexity.** `O(log n)` time, `O(1)` space.\n\n**Interview mindset.** 'Any peak' is the clue that a local decision (which way is up) suffices — no full scan needed.",
+          "rcs": "from typing import List\n\n\nclass Solution:\n    def findPeakElement(self, nums: List[int]) -> int:\n        left, right = 0, len(nums) - 1\n        while left < right:\n            mid = (left + right) // 2\n            if nums[mid] < nums[mid + 1]:  # Rising slope -> a peak is to the right.\n                left = mid + 1\n            else:  # Falling slope (or mid is a peak) -> search left, keep mid.\n                right = mid\n        return left  # left == right: a peak.",
+          "plain": "from typing import List\n\n\nclass Solution:\n    def findPeakElement(self, nums: List[int]) -> int:\n        left, right = 0, len(nums) - 1\n        while left < right:\n            mid = (left + right) // 2\n            if nums[mid] < nums[mid + 1]:\n                left = mid + 1\n            else:\n                right = mid\n        return left"
+        }
+      ],
+      "patternRecognition": [
+        "'Find ANY peak in O(log n)' -> binary search toward the rising slope.",
+        "nums[mid] < nums[mid+1] -> go right; else go left (keep mid).",
+        "-infinity boundaries guarantee a peak in the chosen half."
+      ],
+      "interviewRecall": [
+        "Compare mid to mid+1; move toward the larger side.",
+        "left = mid + 1 on rising; right = mid on falling.",
+        "Return left when the range collapses."
+      ]
+    },
+    {
+      "id": "random-pick-with-weight",
+      "lc": 528,
+      "title": "Random Pick with Weight",
+      "difficulty": "Medium",
+      "category": "Binary Search",
+      "link": "https://leetcode.com/problems/random-pick-with-weight/",
+      "meta": {
+        "pattern": "Prefix Sums + Binary Search",
+        "dataStructure": "Prefix-sum array",
+        "technique": "Weighted sampling"
+      },
+      "description": "Given an array `w` of positive weights, implement `pickIndex()` that returns index `i` with probability `w[i] / sum(w)`.\n\nLay the weights end-to-end on a number line: index `i` owns a segment of length `w[i]`. Pick a uniform random point on the line, then binary-search which segment it lands in.",
+      "constraints": [
+        "`1 <= w.length <= 10^4`",
+        "`1 <= w[i] <= 10^5`",
+        "`pickIndex` may be called up to `10^4` times."
+      ],
+      "notes": [
+        "Build prefix sums once in the constructor; each pick is O(log n).",
+        "A random integer in [1, total] maps to the first prefix sum >= it (lower bound)."
+      ],
+      "examples": [
+        {
+          "input": "w = [1, 3]; many pickIndex() calls",
+          "output": "index 0 ~25%, index 1 ~75%",
+          "reasoning": "Segments of length 1 and 3 on a line of length 4."
+        },
+        {
+          "input": "w = [1]",
+          "output": "always 0",
+          "reasoning": "Only one index."
+        },
+        {
+          "input": "number line",
+          "output": "",
+          "reasoning": "How weights become segments.",
+          "visual": "```\nw = [3,1,2,4]  prefix = [3,4,6,10]\nline: |---0---|1|--2--|----3----|\ntarget = random 1..10 -> first prefix >= target gives the index\n```"
+        }
+      ],
+      "approaches": [
+        {
+          "name": "Prefix sums + binary search",
+          "time": "O(n) build, O(log n) pick",
+          "space": "O(n)",
+          "whenToUse": "The standard solution: cumulative weights + lower-bound search per pick.",
+          "logic": "**What it asks.** Sample an index with probability proportional to its weight.\n\n**Key Idea.** Build cumulative sums `prefix`, where `prefix[i]` is the total weight through index `i`. These are the **right endpoints** of each index's segment on a line of length `total = prefix[-1]`. A uniform random integer `target` in `[1, total]` falls in index `i`'s segment exactly when `prefix[i-1] < target <= prefix[i]` — i.e. `i` is the **first** index with `prefix[i] >= target` (a lower-bound binary search).\n\n**Step-by-Step Approach.**\n1. Constructor: build `prefix` (running totals) and store `total`.\n2. `pickIndex`: draw `target = randint(1, total)`; binary-search the first `prefix[i] >= target`; return `i`.\n\n**Why it works.** Segment lengths equal the weights, so a uniform point lands in each segment with probability `w[i] / total` — exactly the required distribution.\n\n**Common Gotchas.**\n- Draw the target in `[1, total]` (inclusive on both ends) to match segment boundaries.\n- Use lower-bound (`bisect_left`) so a target on a boundary maps to the correct index.\n- Build prefix sums once in `__init__`, not per pick.\n\n**Complexity.** `O(n)` build + `O(n)` space; each pick is `O(log n)`.\n\n**Interview mindset.** 'Weighted random' = prefix sums turn weights into a searchable cumulative line.",
+          "rcs": "import random\nimport bisect\nfrom typing import List\n\n\nclass Solution:\n    def __init__(self, w: List[int]):\n        self.prefix = []  # prefix[i] = running total of weights through index i.\n        running = 0\n        for weight in w:\n            running += weight\n            self.prefix.append(running)\n        self.total = running  # Total length of the number line.\n\n    def pickIndex(self) -> int:\n        target = random.randint(1, self.total)  # Uniform point on [1, total].\n        # First segment endpoint >= target is the index that owns this point.\n        return bisect.bisect_left(self.prefix, target)",
+          "plain": "import random\nimport bisect\nfrom typing import List\n\n\nclass Solution:\n    def __init__(self, w: List[int]):\n        self.prefix = []\n        running = 0\n        for weight in w:\n            running += weight\n            self.prefix.append(running)\n        self.total = running\n\n    def pickIndex(self) -> int:\n        target = random.randint(1, self.total)\n        return bisect.bisect_left(self.prefix, target)"
+        }
+      ],
+      "patternRecognition": [
+        "'Weighted random selection' -> cumulative weights + binary search.",
+        "Each index owns a segment; a random point selects it with the right probability.",
+        "Lower-bound search maps target -> owning index."
+      ],
+      "interviewRecall": [
+        "Build prefix sums; total = prefix[-1].",
+        "target = randint(1, total); return bisect_left(prefix, target).",
+        "O(n) build, O(log n) per pick."
+      ]
     }
   ]);
 })();

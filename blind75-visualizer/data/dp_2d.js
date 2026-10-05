@@ -1631,6 +1631,77 @@
         "k burst last: coins = vals[i-1]*vals[k]*vals[j+1] + dp[i][k-1] + dp[k+1][j].",
         "Fill by increasing interval length; O(n^3) time, O(n^2) space."
       ]
+    },
+    {
+      "id": "maximal-square",
+      "lc": 221,
+      "title": "Maximal Square",
+      "difficulty": "Medium",
+      "category": "2-D Dynamic Programming",
+      "link": "https://leetcode.com/problems/maximal-square/",
+      "meta": {
+        "pattern": "2-D DP",
+        "dataStructure": "DP grid",
+        "technique": "Min-of-3 neighbours"
+      },
+      "description": "Given an `m x n` binary matrix of `'0'` and `'1'`, return the **area** of the largest square containing only `1`s.\n\nThe key DP insight: a square ending at a cell is limited by the smallest square ending at its left, top, and top-left neighbours.",
+      "constraints": [
+        "`1 <= m, n <= 300`",
+        "Each cell is `'0'` or `'1'` (characters).",
+        "Return the area (side squared), not the side length."
+      ],
+      "notes": [
+        "dp[i][j] = side length of the largest all-1 square whose bottom-right corner is (i, j).",
+        "Transition: if cell is '1', dp[i][j] = 1 + min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1])."
+      ],
+      "examples": [
+        {
+          "input": "matrix = [[1,0,1,0,0],[1,0,1,1,1],[1,1,1,1,1],[1,0,0,1,0]]",
+          "output": "4",
+          "reasoning": "The largest all-1 square has side 2 -> area 4."
+        },
+        {
+          "input": "matrix = [[0,1],[1,0]]",
+          "output": "1",
+          "reasoning": "No 2x2 square; a single 1 gives area 1."
+        },
+        {
+          "input": "min-of-3 picture",
+          "output": "",
+          "reasoning": "Why the three neighbours bound the square.",
+          "visual": "```\na square ending at (i,j) needs squares ending at:\n (i-1,j-1) (i-1,j)\n (i,j-1)   (i,j)\n dp[i][j] = 1 + min(those three)  (only if cell == '1')\n```"
+        }
+      ],
+      "approaches": [
+        {
+          "name": "Brute Force — expand every square",
+          "time": "O((m*n) * min(m,n)^2)",
+          "space": "O(1)",
+          "whenToUse": "Baseline that reveals the overlapping-subproblem structure.",
+          "logic": "**What it asks.** Area of the largest all-1 square.\n\n**Idea.** Treat each cell as a top-left corner and grow squares outward, checking all cells are `1`, tracking the largest.\n\n**Why it's slow.** Verifying each candidate square re-scans many cells -> roughly `O((m*n) * min(m,n)^2)`.\n\n**The DP insight.** A big square contains smaller squares; the square ending at a cell is capped by the smallest of the three squares ending at its left, top, and top-left — an optimal substructure.\n\n**Complexity.** Polynomial but much slower than the DP.\n\n**Interview mindset.** Spotting the three-neighbour dependency turns this into a clean 2-D DP.",
+          "rcs": "from typing import List\n\n\nclass Solution:\n    def maximalSquare(self, matrix: List[List[str]]) -> int:\n        m, n = len(matrix), len(matrix[0])\n        best = 0\n        for i in range(m):\n            for j in range(n):\n                if matrix[i][j] == '1':\n                    side = 1\n                    # Grow the square while it stays in bounds and all-1.\n                    while i + side < m and j + side < n and self.all_ones(matrix, i, j, side):\n                        side += 1\n                    best = max(best, side)\n        return best * best\n\n    def all_ones(self, matrix, i, j, side):\n        for r in range(i, i + side + 1):\n            for c in range(j, j + side + 1):\n                if matrix[r][c] != '1':\n                    return False\n        return True",
+          "plain": "from typing import List\n\n\nclass Solution:\n    def maximalSquare(self, matrix: List[List[str]]) -> int:\n        m, n = len(matrix), len(matrix[0])\n        best = 0\n        for i in range(m):\n            for j in range(n):\n                if matrix[i][j] == '1':\n                    side = 1\n                    while i + side < m and j + side < n and self.all_ones(matrix, i, j, side):\n                        side += 1\n                    best = max(best, side)\n        return best * best\n\n    def all_ones(self, matrix, i, j, side):\n        for r in range(i, i + side + 1):\n            for c in range(j, j + side + 1):\n                if matrix[r][c] != '1':\n                    return False\n        return True"
+        },
+        {
+          "name": "Optimized — 2-D DP",
+          "time": "O(m*n)",
+          "space": "O(m*n)",
+          "whenToUse": "The intended solution: fill a DP grid of best square sides.",
+          "logic": "**Key Idea.** Let `dp[i][j]` be the side length of the largest all-1 square whose **bottom-right corner** is `(i, j)`. If the cell is `'1'`, it can extend the three squares meeting at its upper-left, limited by the smallest of them:\n\n`dp[i][j] = 1 + min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1])`\n\n**Base cases.** Cells in row 0 or column 0 can only form a square of side 1 when they're `'1'` (no room to extend up or left).\n\n**Step-by-Step Approach.**\n1. Allocate `dp` the size of the matrix, zero-filled.\n2. For each cell that is `'1'`: if on the top row/left column, `dp[i][j] = 1`; else apply the transition.\n3. Track the maximum side seen.\n4. Return `max_side * max_side`.\n\n**Why it works.** A square of side `s` ending at `(i, j)` exists iff squares of side `s-1` end at all three neighbours; taking `1 + min` of them enforces exactly that.\n\n**Common Gotchas.**\n- Return the **area** (side squared), a common slip.\n- The cells are **characters** `'1'`/`'0'`, not ints.\n- Only update `dp` for `'1'` cells; `'0'` stays 0.\n\n**Complexity.** `O(m*n)` time; `O(m*n)` space (reducible to `O(n)` with a rolling row).\n\n**Interview mindset.** 'Largest square of 1s' is the archetypal min-of-three-neighbours 2-D DP.",
+          "rcs": "from typing import List\n\n\nclass Solution:\n    def maximalSquare(self, matrix: List[List[str]]) -> int:\n        m, n = len(matrix), len(matrix[0])\n        dp = [[0] * n for _ in range(m)]  # dp[i][j] = largest square side ending at (i, j).\n        max_side = 0\n        for i in range(m):\n            for j in range(n):\n                if matrix[i][j] == '1':\n                    if i == 0 or j == 0:  # Edge cells can only be side 1.\n                        dp[i][j] = 1\n                    else:  # Limited by the smallest neighbouring square.\n                        dp[i][j] = 1 + min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1])\n                    max_side = max(max_side, dp[i][j])\n        return max_side * max_side  # Area, not side length.",
+          "plain": "from typing import List\n\n\nclass Solution:\n    def maximalSquare(self, matrix: List[List[str]]) -> int:\n        m, n = len(matrix), len(matrix[0])\n        dp = [[0] * n for _ in range(m)]\n        max_side = 0\n        for i in range(m):\n            for j in range(n):\n                if matrix[i][j] == '1':\n                    if i == 0 or j == 0:\n                        dp[i][j] = 1\n                    else:\n                        dp[i][j] = 1 + min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1])\n                    max_side = max(max_side, dp[i][j])\n        return max_side * max_side"
+        }
+      ],
+      "patternRecognition": [
+        "'Largest square of 1s' -> 2-D DP on square sides.",
+        "dp[i][j] = 1 + min(top, left, top-left) when the cell is 1.",
+        "Answer is max_side squared (area)."
+      ],
+      "interviewRecall": [
+        "dp[i][j] = side of the largest square ending at (i,j).",
+        "Row 0 / col 0 are base cases of side 1.",
+        "Return max_side * max_side; cells are chars."
+      ]
     }
   ]);
 })();
