@@ -902,6 +902,95 @@
         "Move the pointer of whichever ends first.",
         "O(n + m), closed intervals use <=."
       ]
+    },
+
+    {
+      id: "minimum-number-of-arrows-to-burst-balloons",
+      lc: 452,
+      title: "Minimum Number of Arrows to Burst Balloons",
+      difficulty: "Medium",
+      category: "Intervals",
+      link: "https://leetcode.com/problems/minimum-number-of-arrows-to-burst-balloons/",
+      meta: { pattern: "Greedy Interval Scheduling", dataStructure: "Sorted intervals swept left to right", technique: "Shoot at the earliest end" },
+      description:
+        "Balloons are given as intervals `points[i] = [start, end]` on a horizontal axis. An arrow shot straight up at position `x` bursts every balloon whose interval **contains** `x` (`start <= x <= end`).\n\n" +
+        "Return the **minimum number of arrows** needed to burst all balloons.",
+      constraints: [
+        "`1 <= points.length <= 10^5`",
+        "`points[i].length == 2`, `-2^31 <= start <= end <= 2^31 - 1`",
+        "Intervals are closed; touching endpoints count as overlapping."
+      ],
+      notes: [
+        "Greedy: sort by END coordinate, shoot at the first balloon's end, and that arrow also pops every later balloon that starts at or before it.",
+        "A new arrow is needed only when a balloon starts strictly after the current arrow's position.",
+        "Sorting by end (not start) is what makes the greedy optimal — it maximizes how many later balloons each arrow can catch."
+      ],
+      examples: [
+        {
+          input: "points = [[10,16],[2,8],[1,6],[7,12]]",
+          output: "2",
+          reasoning: "Sort by end: [1,6],[2,8],[7,12],[10,16]. Arrow at 6 bursts [1,6],[2,8]; arrow at 12 bursts [7,12],[10,16].",
+          visual: "```\nsorted by end: [1,6][2,8][7,12][10,16]\narrow@6 -> bursts [1,6],[2,8]\narrow@12 -> bursts [7,12],[10,16]\ntotal = 2\n```"
+        },
+        { input: "points = [[1,2],[3,4],[5,6],[7,8]]", output: "4", reasoning: "No two balloons overlap -> one arrow each." },
+        { input: "points = [[1,2],[2,3],[3,4],[4,5]]", output: "2", reasoning: "Arrow at 2 hits [1,2],[2,3]; arrow at 4 hits [3,4],[4,5]." }
+      ],
+      approaches: [
+        {
+          name: "Sort by end + greedy sweep",
+          time: "O(n log n)",
+          space: "O(1)  (besides the sort)",
+          whenToUse: "'Minimum points/arrows to stab all intervals' and interval-scheduling greedy problems.",
+          logic:
+            "**What it asks.** Fewest vertical shots so every interval is hit.\n\n" +
+            "**Key Idea.** Sort balloons by their END. Fire the first arrow at the smallest end; it bursts that balloon and any other whose start is `<=` that end. Keep extending coverage until a balloon starts beyond the current arrow — then a new arrow is required, placed at that balloon's end.\n\n" +
+            "**Why sort by end.** Placing the arrow at the earliest end leaves the most room to also catch later-starting balloons; this exchange argument shows the greedy never uses more arrows than optimal.\n\n" +
+            "**What each variable holds.** `arrows` = shots used so far; `end` = x-position of the most recent arrow (the current end we are covering up to).\n\n" +
+            "**Step-by-Step.**\n" +
+            "1. Sort by `p[1]`. `arrows = 1`, `end = points[0][1]`.\n" +
+            "2. For each later `[start, finish]`: if `start > end`, it is uncovered -> `arrows += 1`, `end = finish`.\n" +
+            "3. Return `arrows`.\n\n" +
+            "**Why it works.** Every balloon with `start <= end` is burst by the current arrow for free; only a strictly-later start forces a new arrow, and sorting by end guarantees each arrow bursts a maximal run — hence minimal arrows.\n\n" +
+            "**Complexity.** Time `O(n log n)` for the sort, space `O(1)` extra.\n\n" +
+            "**Interview mindset.** 'Minimum arrows/points to cover all intervals' = sort by end + greedy; the sibling of 'max non-overlapping intervals'.",
+          rcs:
+            "class Solution:\n" +
+            "    def findMinArrowShots(self, points: List[List[int]]) -> int:\n" +
+            "        if not points:\n" +
+            "            return 0\n" +
+            "        points.sort(key=lambda p: p[1])      # Sort by END coordinate.\n" +
+            "        arrows = 1\n" +
+            "        end = points[0][1]                    # First arrow at the earliest end.\n" +
+            "        for start, finish in points[1:]:\n" +
+            "            if start > end:                   # This balloon starts after the arrow.\n" +
+            "                arrows += 1                   # Need a new arrow.\n" +
+            "                end = finish                  # Place it at this balloon's end.\n" +
+            "        return arrows",
+          plain:
+            "class Solution:\n" +
+            "    def findMinArrowShots(self, points: List[List[int]]) -> int:\n" +
+            "        if not points:\n" +
+            "            return 0\n" +
+            "        points.sort(key=lambda p: p[1])\n" +
+            "        arrows = 1\n" +
+            "        end = points[0][1]\n" +
+            "        for start, finish in points[1:]:\n" +
+            "            if start > end:\n" +
+            "                arrows += 1\n" +
+            "                end = finish\n" +
+            "        return arrows"
+        }
+      ],
+      patternRecognition: [
+        "'Minimum arrows/points to stab all intervals' -> sort by end, greedy sweep.",
+        "A new arrow only when the next interval starts strictly after the current end.",
+        "Mirror of 'maximum non-overlapping intervals' (Non-overlapping Intervals)."
+      ],
+      interviewRecall: [
+        "Sort by end; arrows=1, end=first end.",
+        "If start > end: new arrow, move end to this interval's end.",
+        "Closed intervals -> overlap uses start <= end (strictly-greater triggers a new arrow)."
+      ]
     }
   ]);
 })();

@@ -1217,6 +1217,205 @@
         "Swap pivot with its rightmost strictly-greater successor, then reverse the suffix after the pivot.",
         "O(n) time; O(n) space only because the string is copied to a list."
       ]
+    },
+
+    {
+      id: "merge-sorted-array",
+      lc: 88,
+      title: "Merge Sorted Array",
+      difficulty: "Easy",
+      category: "Two Pointers",
+      link: "https://leetcode.com/problems/merge-sorted-array/",
+      meta: { pattern: "Two Pointers (merge from the back)", dataStructure: "Sorted array filled in place from the end", technique: "Two pointers walking backward" },
+      description:
+        "You are given two integer arrays `nums1` and `nums2`, each sorted in **non-decreasing** order, and two integers `m` and `n` giving the number of real elements in each.\n\n" +
+        "`nums1` has length `m + n`: its first `m` slots hold its elements and the final `n` slots are `0` placeholders reserved for the merge. Merge `nums2` into `nums1` so that `nums1` becomes one sorted array — **in place**, returning nothing.",
+      constraints: [
+        "`nums1.length == m + n`, `nums2.length == n`",
+        "`0 <= m, n <= 200`, `1 <= m + n <= 200`",
+        "`-10^9 <= nums1[i], nums2[j] <= 10^9`"
+      ],
+      notes: [
+        "Merging front-to-front would overwrite unmerged `nums1` values before they are placed — the trick is to fill from the BACK, where the slots are free.",
+        "When `nums2` is exhausted the remaining `nums1` values are already in their correct spots, so the loop can stop as soon as `j < 0`."
+      ],
+      examples: [
+        {
+          input: "nums1 = [1,2,3,0,0,0], m = 3, nums2 = [2,5,6], n = 3",
+          output: "[1,2,2,3,5,6]",
+          reasoning: "Fill from the back: 6,5,3,2,2,1 are written into positions 5..0.",
+          visual: "```\n[1,2,3|0,0,0]  write 6 -> pos5\n[1,2,3|0,0,6]  write 5 -> pos4\n[1,2,3|0,5,6]  write 3 -> pos3\n... -> [1,2,2,3,5,6]\n```"
+        },
+        { input: "nums1 = [1], m = 1, nums2 = [], n = 0", output: "[1]", reasoning: "Nothing to merge; nums1 is unchanged." },
+        { input: "nums1 = [0], m = 0, nums2 = [1], n = 1", output: "[1]", reasoning: "nums1 has no real elements; nums2 fills its single slot." }
+      ],
+      approaches: [
+        {
+          name: "Two pointers, merge from the back",
+          time: "O(m + n)",
+          space: "O(1)",
+          whenToUse: "The canonical in-place merge; any time you must merge into an array that already has room at the end.",
+          logic:
+            "**What it asks.** Combine two sorted arrays into `nums1` in place, using its trailing free slots.\n\n" +
+            "**Why front-to-back fails.** Writing the smallest element to `nums1[0]` would clobber `nums1`'s own first value before it has been compared — forcing extra space.\n\n" +
+            "**Key Idea.** The largest remaining element goes to the **last** free slot. Walk three pointers from the right: `i = m-1` over real `nums1`, `j = n-1` over `nums2`, and `k = m+n-1` over the write position. Place the larger of `nums1[i]`/`nums2[j]` at `k`, stepping that source pointer and `k` left.\n\n" +
+            "**What each variable holds.** `i`/`j` are the next-largest unmerged candidates; `k` is the next slot to fill, always at or ahead of `i` so nothing useful is overwritten.\n\n" +
+            "**Step-by-Step.**\n" +
+            "1. `i, j, k = m-1, n-1, m+n-1`.\n" +
+            "2. While `j >= 0`: if `i >= 0 and nums1[i] > nums2[j]`, copy `nums1[i]` down and `i -= 1`; else copy `nums2[j]` and `j -= 1`; then `k -= 1`.\n" +
+            "3. Stop when `j < 0` — leftover `nums1` values are already in place.\n\n" +
+            "**Why it works.** `k` starts `n` slots ahead of `i`, and each step advances `k` whenever it advances `i`, so the write pointer never catches an unread `nums1` element. Looping on `j` suffices because once `nums2` is drained the rest of `nums1` is already sorted and positioned.\n\n" +
+            "**Complexity.** Time `O(m+n)`, space `O(1)`.\n\n" +
+            "**Interview mindset.** 'Merge into existing space' -> fill from the back to avoid an auxiliary array.",
+          rcs:
+            "class Solution:\n" +
+            "    def merge(self, nums1: List[int], m: int, nums2: List[int], n: int) -> None:\n" +
+            "        i, j, k = m - 1, n - 1, m + n - 1    # Read ends of each array; write end of nums1.\n" +
+            "        while j >= 0:                         # Done once nums2 is fully placed.\n" +
+            "            if i >= 0 and nums1[i] > nums2[j]:\n" +
+            "                nums1[k] = nums1[i]          # nums1's value is larger -> it goes last.\n" +
+            "                i -= 1\n" +
+            "            else:\n" +
+            "                nums1[k] = nums2[j]          # Otherwise take from nums2.\n" +
+            "                j -= 1\n" +
+            "            k -= 1                           # Next slot to fill is one to the left.",
+          plain:
+            "class Solution:\n" +
+            "    def merge(self, nums1: List[int], m: int, nums2: List[int], n: int) -> None:\n" +
+            "        i, j, k = m - 1, n - 1, m + n - 1\n" +
+            "        while j >= 0:\n" +
+            "            if i >= 0 and nums1[i] > nums2[j]:\n" +
+            "                nums1[k] = nums1[i]\n" +
+            "                i -= 1\n" +
+            "            else:\n" +
+            "                nums1[k] = nums2[j]\n" +
+            "                j -= 1\n" +
+            "            k -= 1"
+        }
+      ],
+      patternRecognition: [
+        "Merging into an array that already has trailing space -> fill from the back with two read pointers.",
+        "The merge step of merge sort, specialized to reuse the destination buffer.",
+        "Looping while the SECOND array still has elements is enough; the first array's leftovers are already positioned."
+      ],
+      interviewRecall: [
+        "Three pointers from the right: i (nums1), j (nums2), k (write); compare and write the larger.",
+        "Loop condition is `while j >= 0`; guard `i >= 0` before reading nums1[i].",
+        "O(1) space because the free slots live at the end of nums1."
+      ]
+    },
+
+    {
+      id: "4sum",
+      lc: 18,
+      title: "4Sum",
+      difficulty: "Medium",
+      category: "Two Pointers",
+      link: "https://leetcode.com/problems/4sum/",
+      meta: { pattern: "Sorted + Two Pointers (nested)", dataStructure: "Sorted array with two-pointer scan", technique: "Fix two, two-pointer the rest" },
+      description:
+        "Given an array `nums` of `n` integers and a `target`, return **all unique quadruplets** `[nums[a], nums[b], nums[c], nums[d]]` such that the four indices are distinct and the four values sum to `target`.\n\n" +
+        "The solution set must not contain duplicate quadruplets, in any order.",
+      constraints: [
+        "`1 <= nums.length <= 200`",
+        "`-10^9 <= nums[i] <= 10^9`",
+        "`-10^9 <= target <= 10^9`"
+      ],
+      notes: [
+        "This is 3Sum with one more fixed index: sort, fix the outer two with loops, two-pointer the inner pair.",
+        "Skipping duplicates at EVERY level (both fixed indices and both moving pointers) is what keeps the output unique.",
+        "Sums can exceed 32-bit ranges; Python integers handle this, but note it in languages with fixed-width ints."
+      ],
+      examples: [
+        { input: "nums = [1,0,-1,0,-2,2], target = 0", output: "[[-2,-1,1,2],[-2,0,0,2],[-1,0,0,1]]", reasoning: "The three distinct quadruplets that sum to 0." },
+        { input: "nums = [2,2,2,2,2], target = 8", output: "[[2,2,2,2]]", reasoning: "Only one unique quadruplet despite many index choices." },
+        { input: "nums = [1,2,3,4], target = 100", output: "[]", reasoning: "No four values reach the target." }
+      ],
+      approaches: [
+        {
+          name: "Sort + fix two + two pointers",
+          time: "O(n^3)",
+          space: "O(1) extra (besides the output and the sort)",
+          whenToUse: "The general k-Sum template: each added dimension is one more outer loop around a two-pointer core.",
+          logic:
+            "**What it asks.** Enumerate every distinct 4-tuple summing to `target`.\n\n" +
+            "**Brute force.** Four nested loops over indices — `O(n^4)` — plus a de-duplication step.\n\n" +
+            "**Key Idea.** Sort the array. Fix the first index `a` and the second index `b` with two loops; the remaining problem is 'find two values summing to `target - nums[a] - nums[b]`' in the sorted suffix, which a classic `lo`/`hi` two-pointer solves in linear time.\n\n" +
+            "**Why sorting helps.** In a sorted array the two-pointer sum moves monotonically: advancing `lo` only increases the sum, retreating `hi` only decreases it, so one pass finds all matching pairs. Sorting also puts duplicates adjacent, so they are easy to skip.\n\n" +
+            "**Step-by-Step.**\n" +
+            "1. Sort `nums`.\n" +
+            "2. Loop `a` from `0`; skip if `nums[a] == nums[a-1]` (duplicate first value).\n" +
+            "3. Loop `b` from `a+1`; skip if `nums[b] == nums[b-1]` within this `a`.\n" +
+            "4. `lo, hi = b+1, n-1`; move them by comparing the 4-sum to `target`; on a hit, record it and skip duplicate `lo`/`hi` values.\n\n" +
+            "**Why it works.** Every quadruplet has a unique sorted order `a<b<lo<hi`; the nested fixes enumerate each exactly once, and the duplicate-skips collapse equal-valued tuples.\n\n" +
+            "**Complexity.** Time `O(n^3)` (two nested loops × linear two-pointer); space `O(1)` beyond the output.\n\n" +
+            "**Interview mindset.** k-Sum = sort once, then `(k-2)` nested loops wrapping a two-pointer; generalize with recursion if asked.",
+          rcs:
+            "class Solution:\n" +
+            "    def fourSum(self, nums: List[int], target: int) -> List[List[int]]:\n" +
+            "        nums.sort()                               # Enables two pointers + adjacent dupes.\n" +
+            "        n, res = len(nums), []\n" +
+            "        for a in range(n - 3):\n" +
+            "            if a > 0 and nums[a] == nums[a - 1]:\n" +
+            "                continue                          # Skip duplicate first value.\n" +
+            "            for b in range(a + 1, n - 2):\n" +
+            "                if b > a + 1 and nums[b] == nums[b - 1]:\n" +
+            "                    continue                      # Skip duplicate second value.\n" +
+            "                lo, hi = b + 1, n - 1\n" +
+            "                while lo < hi:\n" +
+            "                    s = nums[a] + nums[b] + nums[lo] + nums[hi]\n" +
+            "                    if s < target:\n" +
+            "                        lo += 1                   # Too small -> need a bigger value.\n" +
+            "                    elif s > target:\n" +
+            "                        hi -= 1                   # Too big -> need a smaller value.\n" +
+            "                    else:\n" +
+            "                        res.append([nums[a], nums[b], nums[lo], nums[hi]])\n" +
+            "                        lo += 1\n" +
+            "                        hi -= 1\n" +
+            "                        while lo < hi and nums[lo] == nums[lo - 1]:\n" +
+            "                            lo += 1               # Skip duplicate third value.\n" +
+            "                        while lo < hi and nums[hi] == nums[hi + 1]:\n" +
+            "                            hi -= 1               # Skip duplicate fourth value.\n" +
+            "        return res",
+          plain:
+            "class Solution:\n" +
+            "    def fourSum(self, nums: List[int], target: int) -> List[List[int]]:\n" +
+            "        nums.sort()\n" +
+            "        n, res = len(nums), []\n" +
+            "        for a in range(n - 3):\n" +
+            "            if a > 0 and nums[a] == nums[a - 1]:\n" +
+            "                continue\n" +
+            "            for b in range(a + 1, n - 2):\n" +
+            "                if b > a + 1 and nums[b] == nums[b - 1]:\n" +
+            "                    continue\n" +
+            "                lo, hi = b + 1, n - 1\n" +
+            "                while lo < hi:\n" +
+            "                    s = nums[a] + nums[b] + nums[lo] + nums[hi]\n" +
+            "                    if s < target:\n" +
+            "                        lo += 1\n" +
+            "                    elif s > target:\n" +
+            "                        hi -= 1\n" +
+            "                    else:\n" +
+            "                        res.append([nums[a], nums[b], nums[lo], nums[hi]])\n" +
+            "                        lo += 1\n" +
+            "                        hi -= 1\n" +
+            "                        while lo < hi and nums[lo] == nums[lo - 1]:\n" +
+            "                            lo += 1\n" +
+            "                        while lo < hi and nums[hi] == nums[hi + 1]:\n" +
+            "                            hi -= 1\n" +
+            "        return res"
+        }
+      ],
+      patternRecognition: [
+        "'All unique k-tuples summing to target' -> sort, then fix (k-2) indices around a two-pointer core.",
+        "Duplicate-free output on a sorted array -> skip equal neighbors at every level.",
+        "4Sum is 3Sum plus one outer loop; the structure scales to any fixed k."
+      ],
+      interviewRecall: [
+        "Sort; outer loops for a and b (skip dupes); inner lo/hi two-pointer on target - nums[a] - nums[b].",
+        "On a hit, advance both pointers and skip equal values to avoid duplicate quadruplets.",
+        "O(n^3) time; mention the recursive kSum generalization."
+      ]
     }
   ]);
 })();

@@ -1702,6 +1702,200 @@
         "Row 0 / col 0 are base cases of side 1.",
         "Return max_side * max_side; cells are chars."
       ]
+    },
+
+    {
+      id: "minimum-path-sum",
+      lc: 64,
+      title: "Minimum Path Sum",
+      difficulty: "Medium",
+      category: "2-D Dynamic Programming",
+      link: "https://leetcode.com/problems/minimum-path-sum/",
+      meta: { pattern: "Grid DP (min path)", dataStructure: "DP over the grid, updated in place", technique: "Best of top/left neighbor" },
+      description:
+        "Given an `m x n` grid of non-negative numbers, find a path from the **top-left** to the **bottom-right** that minimizes the sum of the numbers along it. You may only move **right** or **down** at each step. Return that minimum sum.",
+      constraints: [
+        "`m == grid.length`, `n == grid[0].length`",
+        "`1 <= m, n <= 200`",
+        "`0 <= grid[i][j] <= 200`"
+      ],
+      notes: [
+        "Each cell can only be entered from directly above or directly to the left, so its best cost is its own value plus the cheaper of those two.",
+        "The first row and first column have a single way in (straight along the edge), so they are running prefix sums.",
+        "Can be solved in place by overwriting the grid, or with an O(n) rolling row."
+      ],
+      examples: [
+        {
+          input: "grid = [[1,3,1],[1,5,1],[4,2,1]]",
+          output: "7",
+          reasoning: "Path 1->3->1->1->1 (right, right, down, down) sums to 7, the minimum.",
+          visual: "```\n1 3 1        dp:\n1 5 1    ->  1 4 5\n4 2 1        2 7 6\n             6 8 7  -> 7\n```"
+        },
+        { input: "grid = [[1,2,3],[4,5,6]]", output: "12", reasoning: "1->2->3->6 = 12 (right, right, down)." },
+        { input: "grid = [[5]]", output: "5", reasoning: "Single cell." }
+      ],
+      approaches: [
+        {
+          name: "In-place grid DP",
+          time: "O(m * n)",
+          space: "O(1) extra (overwrites grid)",
+          whenToUse: "Any 'count/optimize monotone paths on a grid moving right/down' problem.",
+          logic:
+            "**What it asks.** Cheapest right/down path from corner to corner.\n\n" +
+            "**State.** `dp[r][c]` = minimum sum to reach cell `(r, c)` from the start. Here we store it directly in `grid[r][c]`.\n\n" +
+            "**Transition.** `grid[r][c] += min(grid[r-1][c], grid[r][c-1])` \u2014 the cell plus the cheaper of the only two ways to arrive.\n\n" +
+            "**Base cases.** `(0,0)` stays as is; the first row can only come from the left (`grid[r][c] += grid[r][c-1]`); the first column only from above (`grid[r][c] += grid[r-1][c]`).\n\n" +
+            "**Step-by-Step.**\n" +
+            "1. Iterate rows then columns.\n" +
+            "2. Skip `(0,0)`; handle row 0 and col 0 as edge prefixes; otherwise add the min of top/left.\n" +
+            "3. Return `grid[m-1][n-1]`.\n\n" +
+            "**Why it works.** Because moves are only right/down, the subproblems form a DAG with no cycles; each cell's optimum depends solely on cells computed earlier in row-major order, so a single forward pass is correct.\n\n" +
+            "**Complexity.** Time `O(m*n)`, space `O(1)` if overwriting the grid (or `O(n)` with a rolling row to avoid mutation).\n\n" +
+            "**Interview mindset.** Grid path optimization with right/down moves -> 2-D DP where each cell combines its top and left neighbors.",
+          rcs:
+            "class Solution:\n" +
+            "    def minPathSum(self, grid: List[List[int]]) -> int:\n" +
+            "        m, n = len(grid), len(grid[0])\n" +
+            "        for r in range(m):\n" +
+            "            for c in range(n):\n" +
+            "                if r == 0 and c == 0:\n" +
+            "                    continue                  # Start cell: cost is itself.\n" +
+            "                elif r == 0:\n" +
+            "                    grid[r][c] += grid[r][c - 1]      # First row: only from the left.\n" +
+            "                elif c == 0:\n" +
+            "                    grid[r][c] += grid[r - 1][c]      # First col: only from above.\n" +
+            "                else:\n" +
+            "                    grid[r][c] += min(grid[r - 1][c], grid[r][c - 1])  # Cheaper neighbor.\n" +
+            "        return grid[m - 1][n - 1]",
+          plain:
+            "class Solution:\n" +
+            "    def minPathSum(self, grid: List[List[int]]) -> int:\n" +
+            "        m, n = len(grid), len(grid[0])\n" +
+            "        for r in range(m):\n" +
+            "            for c in range(n):\n" +
+            "                if r == 0 and c == 0:\n" +
+            "                    continue\n" +
+            "                elif r == 0:\n" +
+            "                    grid[r][c] += grid[r][c - 1]\n" +
+            "                elif c == 0:\n" +
+            "                    grid[r][c] += grid[r - 1][c]\n" +
+            "                else:\n" +
+            "                    grid[r][c] += min(grid[r - 1][c], grid[r][c - 1])\n" +
+            "        return grid[m - 1][n - 1]"
+        }
+      ],
+      patternRecognition: [
+        "'Min/max/count paths on a grid, moving only right/down' -> 2-D DP combining top and left.",
+        "First row/column are prefix sums (single way in).",
+        "Can overwrite the grid for O(1) extra space, or roll one row for O(n)."
+      ],
+      interviewRecall: [
+        "grid[r][c] += min(top, left); edges add their single predecessor.",
+        "Answer is grid[m-1][n-1].",
+        "O(m*n) time; in-place or rolling-row space."
+      ]
+    },
+
+    {
+      id: "zero-one-knapsack",
+      lc: null,
+      title: "0/1 Knapsack",
+      difficulty: "Medium",
+      category: "2-D Dynamic Programming",
+      link: null,
+      meta: { pattern: "0/1 Knapsack (classic DP)", dataStructure: "2-D DP table (items \u00d7 capacity)", technique: "Take vs skip each item" },
+      description:
+        "The **0/1 Knapsack** problem: given `n` items with `weights[i]` and `values[i]`, and a knapsack of weight `capacity`, choose a subset that maximizes total value without exceeding the capacity. Each item may be taken **at most once** (hence 0/1).\n\n" +
+        "This is the template DP (no single LeetCode number) behind *Partition Equal Subset Sum*, *Target Sum*, *Last Stone Weight II*, and many 'choose a subset under a budget' problems.",
+      constraints: [
+        "`n == len(weights) == len(values)`",
+        "Weights and capacity are non-negative integers.",
+        "Each item is used 0 or 1 times (contrast unbounded knapsack / coin change, where reuse is allowed)."
+      ],
+      notes: [
+        "2-D state: dp[i][w] = best value using the first i items within capacity w.",
+        "Transition is the 'take vs skip' choice: skip -> dp[i-1][w]; take (if it fits) -> values[i-1] + dp[i-1][w - weights[i-1]].",
+        "The 1-D space optimization iterates capacity DESCENDING so each item is used at most once (ascending would allow reuse = unbounded knapsack)."
+      ],
+      examples: [
+        {
+          input: "weights = [1,3,4,5], values = [1,4,5,7], capacity = 7",
+          output: "9",
+          reasoning: "Take items with weights 3 and 4 (values 4 + 5 = 9), total weight 7.",
+          visual: "```\ncap 7: pick w3(v4)+w4(v5) = weight 7, value 9\n(beats w5+w1 = value 8)\n```"
+        },
+        { input: "weights = [2,2,3], values = [3,3,5], capacity = 4", output: "6", reasoning: "Two weight-2 items (3+3) fill capacity 4 for value 6." },
+        { input: "weights = [5], values = [10], capacity = 3", output: "0", reasoning: "The only item does not fit." }
+      ],
+      approaches: [
+        {
+          name: "2-D table (items x capacity)",
+          time: "O(n * capacity)",
+          space: "O(n * capacity)",
+          whenToUse: "Any 'pick a subset maximizing value within a budget, each item once' problem; the clearest form to reason about.",
+          logic:
+            "**What it asks.** Maximum value subset whose total weight fits the capacity, each item used at most once.\n\n" +
+            "**State.** `dp[i][w]` = the best value achievable considering the first `i` items with a weight budget of `w`.\n\n" +
+            "**Transition.** For item `i` (1-indexed into `weights`/`values`):\n" +
+            "- **Skip it:** `dp[i][w] = dp[i-1][w]`.\n" +
+            "- **Take it** (only if `weights[i-1] <= w`): `values[i-1] + dp[i-1][w - weights[i-1]]`.\n" +
+            "Take the max of the two.\n\n" +
+            "**Base case.** `dp[0][w] = 0` (no items -> no value).\n\n" +
+            "**Answer.** `dp[n][capacity]`.\n\n" +
+            "**Why it works.** Every subset either includes item `i` or not; both branches reduce to a strictly smaller item set, and taking the better branch at each `(i, w)` yields the global optimum by induction.\n\n" +
+            "**1-D optimization.** Since `dp[i]` depends only on `dp[i-1]`, collapse to a single array and iterate `w` from `capacity` DOWN to `weights[i]`; descending order ensures each item contributes at most once (ascending would reuse it \u2014 that is the unbounded knapsack).\n\n" +
+            "**Complexity.** Time `O(n * capacity)`; space `O(n * capacity)` for the table, or `O(capacity)` with the 1-D rollback. (Pseudo-polynomial \u2014 it scales with the numeric capacity.)\n\n" +
+            "**Interview mindset.** 'Choose a subset to maximize value under a weight budget, each item once' = 0/1 knapsack; descending 1-D loop is the once-only trick.",
+          rcs:
+            "class Solution:\n" +
+            "    def knapsack(self, weights: List[int], values: List[int], capacity: int) -> int:\n" +
+            "        n = len(weights)\n" +
+            "        dp = [[0] * (capacity + 1) for _ in range(n + 1)]\n" +
+            "        for i in range(1, n + 1):\n" +
+            "            for w in range(capacity + 1):\n" +
+            "                dp[i][w] = dp[i - 1][w]              # Skip item i.\n" +
+            "                if weights[i - 1] <= w:             # Item fits -> consider taking it.\n" +
+            "                    dp[i][w] = max(dp[i][w],\n" +
+            "                                   values[i - 1] + dp[i - 1][w - weights[i - 1]])\n" +
+            "        return dp[n][capacity]\n" +
+            "\n" +
+            "    def knapsack_1d(self, weights: List[int], values: List[int], capacity: int) -> int:\n" +
+            "        dp = [0] * (capacity + 1)\n" +
+            "        for i in range(len(weights)):\n" +
+            "            for w in range(capacity, weights[i] - 1, -1):  # DESCENDING -> use item once.\n" +
+            "                dp[w] = max(dp[w], values[i] + dp[w - weights[i]])\n" +
+            "        return dp[capacity]",
+          plain:
+            "class Solution:\n" +
+            "    def knapsack(self, weights: List[int], values: List[int], capacity: int) -> int:\n" +
+            "        n = len(weights)\n" +
+            "        dp = [[0] * (capacity + 1) for _ in range(n + 1)]\n" +
+            "        for i in range(1, n + 1):\n" +
+            "            for w in range(capacity + 1):\n" +
+            "                dp[i][w] = dp[i - 1][w]\n" +
+            "                if weights[i - 1] <= w:\n" +
+            "                    dp[i][w] = max(dp[i][w],\n" +
+            "                                   values[i - 1] + dp[i - 1][w - weights[i - 1]])\n" +
+            "        return dp[n][capacity]\n" +
+            "\n" +
+            "    def knapsack_1d(self, weights: List[int], values: List[int], capacity: int) -> int:\n" +
+            "        dp = [0] * (capacity + 1)\n" +
+            "        for i in range(len(weights)):\n" +
+            "            for w in range(capacity, weights[i] - 1, -1):\n" +
+            "                dp[w] = max(dp[w], values[i] + dp[w - weights[i]])\n" +
+            "        return dp[capacity]"
+        }
+      ],
+      patternRecognition: [
+        "'Pick a subset to maximize value under a weight/budget cap, each item once' -> 0/1 knapsack.",
+        "Subset-sum feasibility (Partition Equal Subset Sum, Target Sum) is 0/1 knapsack with boolean/count DP.",
+        "1-D array iterated DESCENDING = each item once; ASCENDING = unlimited reuse (unbounded)."
+      ],
+      interviewRecall: [
+        "dp[i][w] = max(skip dp[i-1][w], take values[i-1] + dp[i-1][w-weights[i-1]]).",
+        "1-D: iterate w from capacity down to weights[i] to avoid reusing an item.",
+        "O(n * capacity) pseudo-polynomial time."
+      ]
     }
   ]);
 })();

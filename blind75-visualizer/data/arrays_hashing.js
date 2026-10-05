@@ -1494,6 +1494,250 @@
         "Decrement right_map[x] before counting; guard x % r == 0.",
         "count += left_map[x//r] * right_map[x*r]; then left_map[x] += 1."
       ]
+    },
+
+    {
+      id: "majority-element",
+      lc: 169,
+      title: "Majority Element",
+      difficulty: "Easy",
+      category: "Arrays & Hashing",
+      link: "https://leetcode.com/problems/majority-element/",
+      meta: { pattern: "Boyer–Moore Majority Vote", dataStructure: "Two running counters (candidate + count)", technique: "Cancel out opposing votes" },
+      description:
+        "Given an array `nums` of size `n`, return the **majority element** — the element that appears **more than** `⌊n/2⌋` times.\n\n" +
+        "You may assume the majority element **always exists**, so there is exactly one answer.",
+      constraints: [
+        "`n == nums.length`",
+        "`1 <= n <= 5 * 10^4`",
+        "`-10^9 <= nums[i] <= 10^9`",
+        "Follow-up: can you solve it in `O(n)` time and `O(1)` space?"
+      ],
+      notes: [
+        "'More than n/2' is strict — the majority element strictly dominates, so it survives pairing each of its occurrences against a different value.",
+        "The problem guarantees a majority exists; without that guarantee you would need a second pass to verify the candidate."
+      ],
+      examples: [
+        { input: "nums = [3,2,3]", output: "3", reasoning: "3 appears twice out of three elements (> 3/2 = 1.5)." },
+        { input: "nums = [2,2,1,1,1,2,2]", output: "2", reasoning: "2 appears four times out of seven (> 3.5)." },
+        {
+          input: "nums = [6,5,5]",
+          output: "5",
+          reasoning: "Boyer–Moore: candidate=6 (count 1), then 5 cancels it to 0, then 5 becomes the new candidate and wins.",
+          visual: "```\nn=6: count 0->1, cand=6\nn=5: 5!=6 -> count 1->0\nn=5: count 0 -> cand=5, count 0->1\nresult: 5\n```"
+        }
+      ],
+      approaches: [
+        {
+          name: "Hash Map Counting",
+          time: "O(n)",
+          space: "O(n)",
+          whenToUse: "The obvious first answer; also the template when a majority is NOT guaranteed or you need every element's count.",
+          logic:
+            "**What it asks.** Find the value that occurs more than `n/2` times.\n\n" +
+            "**Brute force.** For each value, scan the array and count its occurrences — `O(n^2)`.\n\n" +
+            "**Key Idea.** One pass that tallies counts in a hash map is enough: increment `counts[x]`, and the moment any count exceeds `n//2` you have the answer.\n\n" +
+            "**Why it works.** A value with more than `n/2` occurrences must cross the `n//2` threshold at some point during the scan, so returning as soon as it does is correct.\n\n" +
+            "**Complexity.** Time `O(n)`; space `O(n)` for the map — which is exactly what Boyer–Moore removes.",
+          rcs:
+            "class Solution:\n" +
+            "    def majorityElement(self, nums: List[int]) -> int:\n" +
+            "        counts = {}\n" +
+            "        for n in nums:\n" +
+            "            counts[n] = counts.get(n, 0) + 1   # Tally each value.\n" +
+            "            if counts[n] > len(nums) // 2:      # Crossed the majority threshold?\n" +
+            "                return n                        # It can only be this value.\n" +
+            "        return nums[0]                          # Unreachable when a majority is guaranteed.",
+          plain:
+            "class Solution:\n" +
+            "    def majorityElement(self, nums: List[int]) -> int:\n" +
+            "        counts = {}\n" +
+            "        for n in nums:\n" +
+            "            counts[n] = counts.get(n, 0) + 1\n" +
+            "            if counts[n] > len(nums) // 2:\n" +
+            "                return n\n" +
+            "        return nums[0]"
+        },
+        {
+          name: "Boyer–Moore Majority Vote",
+          time: "O(n)",
+          space: "O(1)",
+          whenToUse: "The optimal answer and the whole point of the problem: constant space by cancelling opposing votes.",
+          logic:
+            "**Key Idea.** Keep a single `candidate` and a `count`. Walking left to right, when `count` is `0` adopt the current value as the new candidate; then add `1` to `count` when the value equals the candidate and subtract `1` otherwise.\n\n" +
+            "**Why it works.** Think of each non-candidate value as cancelling one candidate vote. Because the majority element appears more than `n/2` times, there are strictly more votes for it than for everything else combined — so no matter how the cancellations interleave, its net count can never be driven to zero permanently, and it is whatever `candidate` holds at the end.\n\n" +
+            "**What each variable holds.** `candidate` is the value currently 'winning' the running duel; `count` is how far ahead it is among the elements seen so far.\n\n" +
+            "**Step-by-Step.**\n" +
+            "1. `count = 0`, `candidate = None`.\n" +
+            "2. For each `n`: if `count == 0`, set `candidate = n`; then `count += 1 if n == candidate else -1`.\n" +
+            "3. Return `candidate`.\n\n" +
+            "**Gotcha.** This returns a value even if no true majority exists; when the guarantee is absent, add a verification pass that counts the candidate.\n\n" +
+            "**Complexity.** Time `O(n)`, space `O(1)`.\n\n" +
+            "**Interview mindset.** 'Appears more than half the time' + 'O(1) space' is the Boyer–Moore signal.",
+          rcs:
+            "class Solution:\n" +
+            "    def majorityElement(self, nums: List[int]) -> int:\n" +
+            "        count = 0\n" +
+            "        candidate = None\n" +
+            "        for n in nums:\n" +
+            "            if count == 0:\n" +
+            "                candidate = n                   # No one is winning -> back this value.\n" +
+            "            count += 1 if n == candidate else -1 # Same value supports it; different cancels.\n" +
+            "        return candidate                        # Majority survives all cancellations.",
+          plain:
+            "class Solution:\n" +
+            "    def majorityElement(self, nums: List[int]) -> int:\n" +
+            "        count = 0\n" +
+            "        candidate = None\n" +
+            "        for n in nums:\n" +
+            "            if count == 0:\n" +
+            "                candidate = n\n" +
+            "            count += 1 if n == candidate else -1\n" +
+            "        return candidate"
+        }
+      ],
+      patternRecognition: [
+        "'Element appearing more than n/2 times' is the canonical Boyer–Moore Majority Vote problem.",
+        "A follow-up demanding O(1) space rules out the hash map and points straight at the vote-cancelling trick.",
+        "'Cancel each opposing value against one candidate' generalizes to 'more than n/3' with two candidates."
+      ],
+      interviewRecall: [
+        "candidate + count; reset candidate when count hits 0; +1 on match, -1 otherwise.",
+        "Works because the majority has more votes than everything else combined, so its net count never dies.",
+        "Mention the verification pass needed when a majority is not guaranteed."
+      ]
+    },
+
+    {
+      id: "kmp-string-matching",
+      lc: null,
+      title: "Knuth–Morris–Pratt (KMP) String Matching",
+      difficulty: "Hard",
+      category: "Arrays & Hashing",
+      link: null,
+      meta: { pattern: "String Matching (KMP)", dataStructure: "Prefix-function LPS array over the string", technique: "Reuse the longest proper prefix-suffix" },
+      description:
+        "Find every starting index where a `pattern` occurs inside a `text`, in **linear** `O(n + m)` time (`n = len(text)`, `m = len(pattern)`).\n\n" +
+        "The naive approach re-compares the pattern from scratch after every mismatch, costing `O(n*m)`. **KMP** precomputes a table — the **LPS** (Longest proper Prefix which is also a Suffix) array for the pattern — so that after a mismatch it can skip ahead without ever moving the text pointer backward.\n\n" +
+        "This is a technique explainer (no single LeetCode number); the same machinery powers problems like *Implement strStr()*, *Shortest Palindrome*, and *Repeated String Pattern*.",
+      constraints: [
+        "`0 <= len(text), len(pattern)`",
+        "Characters can be any comparable symbols (letters, digits, bytes).",
+        "Return all match start indices (overlapping matches included)."
+      ],
+      notes: [
+        "`lps[i]` = length of the longest proper prefix of `pattern[0..i]` that is also a suffix of `pattern[0..i]`. 'Proper' means it cannot be the whole substring.",
+        "On a mismatch at pattern index `j`, KMP falls back to `j = lps[j-1]` instead of `0` — that is the entire speedup.",
+        "The text index `i` never decreases, which is why the scan is linear."
+      ],
+      examples: [
+        {
+          input: "text = \"ababcababa\", pattern = \"ababa\"",
+          output: "[5]",
+          reasoning: "The only occurrence of 'ababa' starts at index 5.",
+          visual: "```\nindex: 0123456789\ntext:  ababcababa\nmatch:      ababa  (starts at 5)\n```"
+        },
+        {
+          input: "pattern = \"aabaa\"  (LPS table)",
+          output: "[0,1,0,1,2]",
+          reasoning: "At each position, the longest proper prefix that is also a suffix: 'a'->0, 'aa'->1, 'aab'->0, 'aaba'->1, 'aabaa'->2.",
+          visual: "```\np:   a a b a a\nlps: 0 1 0 1 2\n```"
+        },
+        {
+          input: "text = \"aaaaa\", pattern = \"aa\"",
+          output: "[0,1,2,3]",
+          reasoning: "Overlapping matches are reported; after a full match KMP resets j = lps[j-1] to keep finding them."
+        }
+      ],
+      approaches: [
+        {
+          name: "LPS prefix function + linear scan",
+          time: "O(n + m)",
+          space: "O(m)",
+          whenToUse: "Any exact substring search where O(n*m) is too slow, or when a problem secretly reduces to 'match a string against a shifted copy of itself'.",
+          logic:
+            "**What it asks.** Locate the pattern inside the text without the quadratic blow-up of restarting the comparison on every mismatch.\n\n" +
+            "**Why naive is slow.** After matching `j` characters and then hitting a mismatch, the naive method slides the pattern by one and recompares everything — re-examining text characters it already saw, giving `O(n*m)`.\n\n" +
+            "**Key Idea.** The already-matched prefix `pattern[0..j-1]` equals the text window that just matched. If that prefix has its own prefix that is also its suffix (length `lps[j-1]`), those characters are **already aligned** after the shift — so we can resume comparing at `j = lps[j-1]` and never re-read text.\n\n" +
+            "**Building LPS.** Compute it with the same self-matching idea: compare `pattern[i]` against `pattern[length]`; on a match extend `length` and record it, on a mismatch fall back to `length = lps[length-1]` until it matches or `length` hits 0.\n\n" +
+            "**Scanning.** Walk `i` over the text with a pattern cursor `j`; on mismatch fall back `j = lps[j-1]`; on match advance `j`; when `j == m` record a hit at `i - m + 1` and fall back `j = lps[j-1]` to allow overlaps.\n\n" +
+            "**Why it works.** `lps` guarantees the fallback never skips a real occurrence, because any shorter overlap would have been captured by a smaller prefix-suffix. Each text character is visited once and `j` only moves backward via fallbacks whose total is bounded by its forward moves — amortized `O(n)`.\n\n" +
+            "**Complexity.** Time `O(n + m)`; space `O(m)` for the LPS table.\n\n" +
+            "**Interview mindset.** 'Linear substring search' or 'find the longest prefix that is also a suffix' = KMP prefix function.",
+          rcs:
+            "class Solution:\n" +
+            "    def kmp_search(self, text: str, pattern: str) -> List[int]:\n" +
+            "        if not pattern:\n" +
+            "            return []\n" +
+            "        lps = self._build_lps(pattern)      # Precompute fallback table.\n" +
+            "        res, j = [], 0                      # j = chars of pattern currently matched.\n" +
+            "        for i in range(len(text)):\n" +
+            "            while j > 0 and text[i] != pattern[j]:\n" +
+            "                j = lps[j - 1]              # Mismatch: fall back, DON'T move i.\n" +
+            "            if text[i] == pattern[j]:\n" +
+            "                j += 1                      # Matched one more pattern char.\n" +
+            "            if j == len(pattern):\n" +
+            "                res.append(i - j + 1)       # Full match ends at i.\n" +
+            "                j = lps[j - 1]              # Reset to allow overlapping matches.\n" +
+            "        return res\n" +
+            "\n" +
+            "    def _build_lps(self, pattern: str) -> List[int]:\n" +
+            "        lps = [0] * len(pattern)\n" +
+            "        length, i = 0, 1                    # length = current prefix-suffix size.\n" +
+            "        while i < len(pattern):\n" +
+            "            if pattern[i] == pattern[length]:\n" +
+            "                length += 1\n" +
+            "                lps[i] = length\n" +
+            "                i += 1\n" +
+            "            elif length > 0:\n" +
+            "                length = lps[length - 1]   # Fall back within the pattern itself.\n" +
+            "            else:\n" +
+            "                lps[i] = 0\n" +
+            "                i += 1\n" +
+            "        return lps",
+          plain:
+            "class Solution:\n" +
+            "    def kmp_search(self, text: str, pattern: str) -> List[int]:\n" +
+            "        if not pattern:\n" +
+            "            return []\n" +
+            "        lps = self._build_lps(pattern)\n" +
+            "        res, j = [], 0\n" +
+            "        for i in range(len(text)):\n" +
+            "            while j > 0 and text[i] != pattern[j]:\n" +
+            "                j = lps[j - 1]\n" +
+            "            if text[i] == pattern[j]:\n" +
+            "                j += 1\n" +
+            "            if j == len(pattern):\n" +
+            "                res.append(i - j + 1)\n" +
+            "                j = lps[j - 1]\n" +
+            "        return res\n" +
+            "\n" +
+            "    def _build_lps(self, pattern: str) -> List[int]:\n" +
+            "        lps = [0] * len(pattern)\n" +
+            "        length, i = 0, 1\n" +
+            "        while i < len(pattern):\n" +
+            "            if pattern[i] == pattern[length]:\n" +
+            "                length += 1\n" +
+            "                lps[i] = length\n" +
+            "                i += 1\n" +
+            "            elif length > 0:\n" +
+            "                length = lps[length - 1]\n" +
+            "            else:\n" +
+            "                lps[i] = 0\n" +
+            "                i += 1\n" +
+            "        return lps"
+        }
+      ],
+      patternRecognition: [
+        "Exact substring search where O(n*m) is too slow -> KMP with the LPS prefix function.",
+        "'Longest proper prefix that is also a suffix' is literally the LPS array — many string puzzles reduce to one LPS computation.",
+        "Problems that match a string against a shifted copy of itself (shortest palindrome, repeated pattern) are KMP in disguise."
+      ],
+      interviewRecall: [
+        "lps[i] = longest proper prefix == suffix of pattern[0..i]; on mismatch fall back j = lps[j-1].",
+        "The text pointer i never moves backward -> O(n+m) total.",
+        "After a full match, set j = lps[j-1] to catch overlapping occurrences."
+      ]
     }
   ]);
 })();

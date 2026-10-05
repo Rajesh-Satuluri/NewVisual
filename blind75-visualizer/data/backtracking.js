@@ -1505,6 +1505,231 @@
         "Empty digits -> return [] (NOT ['']).",
         "Up to 4^n combinations \u2014 this is the Cartesian product of the digits' letter sets."
       ]
+    },
+
+    {
+      id: "sudoku-solver",
+      lc: 37,
+      title: "Sudoku Solver",
+      difficulty: "Hard",
+      category: "Backtracking",
+      link: "https://leetcode.com/problems/sudoku-solver/",
+      meta: { pattern: "Backtracking (constraint fill)", dataStructure: "9\u00d79 board with row/col/box sets", technique: "Try digits, backtrack on conflict" },
+      description:
+        "Fill a partially-completed `9 x 9` Sudoku board **in place** so that every row, every column, and each of the nine `3 x 3` sub-boxes contains the digits `1-9` exactly once. Empty cells are marked `'.'`, and the puzzle is guaranteed to have a unique solution.",
+      constraints: [
+        "`board.length == board[i].length == 9`",
+        "`board[i][j]` is a digit `'1'-'9'` or `'.'`",
+        "The given board is valid and has exactly one solution."
+      ],
+      notes: [
+        "Maintain a used-digit set for each row, each column, and each 3\u00d73 box so validity checks are O(1).",
+        "The box index for cell (r, c) is `(r // 3) * 3 + c // 3`.",
+        "Collect the empty cells once, then recurse cell by cell; undo (set back to '.') when a branch fails."
+      ],
+      examples: [
+        {
+          input: "A board with a single empty cell '.' whose only valid digit is 3",
+          output: "The board with that cell filled as '3'",
+          reasoning: "Row/col/box sets leave only 3 available; it is placed and recursion ends."
+        },
+        {
+          input: "board = classic 9x9 with ~51 empties (the LeetCode sample)",
+          output: "The unique completed grid",
+          reasoning: "Backtracking tries digits in each empty cell, retreating whenever no digit fits.",
+          visual: "```\n5 3 . | . 7 . | . . .      5 3 4 | 6 7 8 | 9 1 2\n6 . . | 1 9 5 | . . .  ->  6 7 2 | 1 9 5 | 3 4 8\n. 9 8 | . . . | . 6 .      1 9 8 | 3 4 2 | 5 6 7\n...                         ...\n```"
+        },
+        { input: "An already-complete valid board", output: "Unchanged board", reasoning: "No empty cells -> recursion returns True immediately." }
+      ],
+      approaches: [
+        {
+          name: "Backtracking with row/col/box constraint sets",
+          time: "O(9^(empty cells)) worst case (heavily pruned in practice)",
+          space: "O(81)",
+          whenToUse: "Constraint-satisfaction fills where each choice must respect several simultaneous rules.",
+          logic:
+            "**What it asks.** Complete the grid so all Sudoku constraints hold.\n\n" +
+            "**Key Idea.** Pre-index the constraints: a set per row, per column, and per 3\u00d73 box of the digits already present. Then recurse over the list of empty cells; for the current empty cell try each digit `1-9` that is absent from its row, column, and box set, place it (updating all three sets), and recurse. If the recursion fails, undo the placement and try the next digit.\n\n" +
+            "**What each structure holds.** `rows[r]`, `cols[c]`, `boxes[b]` hold the digits used; `empties` lists the coordinates to fill in order.\n\n" +
+            "**Step-by-Step.**\n" +
+            "1. Scan the board: record givens into the three set arrays and collect empty cells.\n" +
+            "2. `backtrack(idx)`: if `idx == len(empties)`, the board is solved -> return True.\n" +
+            "3. For the cell at `empties[idx]`, try each valid digit, place + recurse; on success return True; else undo.\n" +
+            "4. If no digit works, return False (triggers backtracking in the caller).\n\n" +
+            "**Why it works.** The sets guarantee every placement is locally valid; exhaustively trying valid digits with undo explores the whole constraint space, and the unique-solution guarantee means the first full assignment found is THE solution.\n\n" +
+            "**Complexity.** Exponential in the number of empties in the worst case, but the constraint pruning makes it fast on real puzzles; space `O(81)` for the sets and recursion.\n\n" +
+            "**Interview mindset.** Sudoku = backtracking + incremental validity via row/col/box sets; the big win is O(1) conflict checks instead of rescanning the grid.",
+          rcs:
+            "class Solution:\n" +
+            "    def solveSudoku(self, board: List[List[str]]) -> None:\n" +
+            "        rows = [set() for _ in range(9)]\n" +
+            "        cols = [set() for _ in range(9)]\n" +
+            "        boxes = [set() for _ in range(9)]\n" +
+            "        empties = []\n" +
+            "        for r in range(9):\n" +
+            "            for c in range(9):\n" +
+            "                v = board[r][c]\n" +
+            "                if v == \".\":\n" +
+            "                    empties.append((r, c))       # Remember cells to fill.\n" +
+            "                else:\n" +
+            "                    rows[r].add(v); cols[c].add(v)\n" +
+            "                    boxes[(r // 3) * 3 + c // 3].add(v)\n" +
+            "\n" +
+            "        def backtrack(idx):\n" +
+            "            if idx == len(empties):\n" +
+            "                return True                      # All cells filled -> solved.\n" +
+            "            r, c = empties[idx]\n" +
+            "            b = (r // 3) * 3 + c // 3\n" +
+            "            for d in \"123456789\":\n" +
+            "                if d not in rows[r] and d not in cols[c] and d not in boxes[b]:\n" +
+            "                    board[r][c] = d              # Place.\n" +
+            "                    rows[r].add(d); cols[c].add(d); boxes[b].add(d)\n" +
+            "                    if backtrack(idx + 1):\n" +
+            "                        return True\n" +
+            "                    board[r][c] = \".\"            # Undo on failure.\n" +
+            "                    rows[r].remove(d); cols[c].remove(d); boxes[b].remove(d)\n" +
+            "            return False                         # No digit fits -> backtrack.\n" +
+            "\n" +
+            "        backtrack(0)",
+          plain:
+            "class Solution:\n" +
+            "    def solveSudoku(self, board: List[List[str]]) -> None:\n" +
+            "        rows = [set() for _ in range(9)]\n" +
+            "        cols = [set() for _ in range(9)]\n" +
+            "        boxes = [set() for _ in range(9)]\n" +
+            "        empties = []\n" +
+            "        for r in range(9):\n" +
+            "            for c in range(9):\n" +
+            "                v = board[r][c]\n" +
+            "                if v == \".\":\n" +
+            "                    empties.append((r, c))\n" +
+            "                else:\n" +
+            "                    rows[r].add(v); cols[c].add(v)\n" +
+            "                    boxes[(r // 3) * 3 + c // 3].add(v)\n" +
+            "\n" +
+            "        def backtrack(idx):\n" +
+            "            if idx == len(empties):\n" +
+            "                return True\n" +
+            "            r, c = empties[idx]\n" +
+            "            b = (r // 3) * 3 + c // 3\n" +
+            "            for d in \"123456789\":\n" +
+            "                if d not in rows[r] and d not in cols[c] and d not in boxes[b]:\n" +
+            "                    board[r][c] = d\n" +
+            "                    rows[r].add(d); cols[c].add(d); boxes[b].add(d)\n" +
+            "                    if backtrack(idx + 1):\n" +
+            "                        return True\n" +
+            "                    board[r][c] = \".\"\n" +
+            "                    rows[r].remove(d); cols[c].remove(d); boxes[b].remove(d)\n" +
+            "            return False\n" +
+            "\n" +
+            "        backtrack(0)"
+        }
+      ],
+      patternRecognition: [
+        "Fill a grid under row/column/box rules -> backtracking with per-constraint used-sets.",
+        "Box index = (r // 3) * 3 + c // 3.",
+        "Place -> recurse -> undo is the backtracking skeleton; O(1) validity via sets is the optimization."
+      ],
+      interviewRecall: [
+        "Keep rows/cols/boxes sets; collect empties; recurse cell by cell.",
+        "Try '1'-'9' not in any of the three sets; add on place, remove on undo.",
+        "Return True at the end of empties; False when no digit fits."
+      ]
+    },
+
+    {
+      id: "combination-sum-iii",
+      lc: 216,
+      title: "Combination Sum III",
+      difficulty: "Medium",
+      category: "Backtracking",
+      link: "https://leetcode.com/problems/combination-sum-iii/",
+      meta: { pattern: "Backtracking (k numbers)", dataStructure: "Backtracking building a combination array", technique: "Prune by remaining sum/count" },
+      description:
+        "Find all valid combinations of **`k` distinct numbers** chosen from `1` to `9` that sum to `n`. Each number may be used **at most once**, and each combination must be unique (order within a combination does not matter).",
+      constraints: [
+        "`2 <= k <= 9`",
+        "`1 <= n <= 60`",
+        "Numbers are drawn from `1..9`, each used at most once per combination."
+      ],
+      notes: [
+        "Backtrack with a `start` index so numbers strictly increase \u2014 this makes each combination unique and avoids permutations.",
+        "Two pruning rules: stop when a candidate exceeds the remaining sum, and only record when both `len(path) == k` AND `remaining == 0`.",
+        "Because numbers are 1..9 and distinct, the search tree is tiny."
+      ],
+      examples: [
+        { input: "k = 3, n = 7", output: "[[1,2,4]]", reasoning: "Only 1+2+4 = 7 uses three distinct digits from 1..9." },
+        {
+          input: "k = 3, n = 9",
+          output: "[[1,2,6],[1,3,5],[2,3,4]]",
+          reasoning: "All increasing triples of distinct 1..9 digits summing to 9.",
+          visual: "```\n1+2+6=9\n1+3+5=9\n2+3+4=9\n```"
+        },
+        { input: "k = 4, n = 1", output: "[]", reasoning: "Impossible: the smallest 4 distinct digits already sum to 1+2+3+4=10 > 1." }
+      ],
+      approaches: [
+        {
+          name: "Backtracking with start index and pruning",
+          time: "O(C(9, k)) combinations explored",
+          space: "O(k)",
+          whenToUse: "Fixed-size subset enumeration from a small universe with a sum target.",
+          logic:
+            "**What it asks.** All size-`k` subsets of `1..9` summing to `n`.\n\n" +
+            "**Key Idea.** Grow a combination with increasing values: a recursive helper takes a `start` digit, the `remaining` sum, and the current `path`. Loop `num` from `start` to `9`; because larger `num` only overshoots, break as soon as `num > remaining`. Add `num`, recurse from `num + 1` with `remaining - num`, then pop to undo.\n\n" +
+            "**What each variable holds.** `path` is the partial combination; `remaining` is `n` minus the chosen numbers; `start` enforces strictly increasing picks (uniqueness + distinctness).\n\n" +
+            "**Step-by-Step.**\n" +
+            "1. When `len(path) == k`: record a copy if `remaining == 0`; return.\n" +
+            "2. For `num` in `range(start, 10)`: if `num > remaining`, break (prune).\n" +
+            "3. Append `num`, recurse `backtrack(num+1, remaining-num, path)`, then pop.\n\n" +
+            "**Why it works.** The increasing-`start` rule generates every combination exactly once (never a reordering), and the two guards ensure only complete, exactly-summing combinations are recorded. The `break` prunes branches that can no longer reach the target.\n\n" +
+            "**Complexity.** Time proportional to the number of valid/partial combinations (at most `C(9, k)`); space `O(k)` for the path and recursion.\n\n" +
+            "**Interview mindset.** 'k distinct numbers summing to n' = subset backtracking with a start index; prune on remaining sum.",
+          rcs:
+            "class Solution:\n" +
+            "    def combinationSum3(self, k: int, n: int) -> List[List[int]]:\n" +
+            "        res = []\n" +
+            "        def backtrack(start, remaining, path):\n" +
+            "            if len(path) == k:\n" +
+            "                if remaining == 0:\n" +
+            "                    res.append(path[:])          # Exactly k numbers hitting the target.\n" +
+            "                return\n" +
+            "            for num in range(start, 10):\n" +
+            "                if num > remaining:\n" +
+            "                    break                        # Larger digits only overshoot -> prune.\n" +
+            "                path.append(num)\n" +
+            "                backtrack(num + 1, remaining - num, path)  # Strictly increasing.\n" +
+            "                path.pop()                       # Undo.\n" +
+            "        backtrack(1, n, [])\n" +
+            "        return res",
+          plain:
+            "class Solution:\n" +
+            "    def combinationSum3(self, k: int, n: int) -> List[List[int]]:\n" +
+            "        res = []\n" +
+            "        def backtrack(start, remaining, path):\n" +
+            "            if len(path) == k:\n" +
+            "                if remaining == 0:\n" +
+            "                    res.append(path[:])\n" +
+            "                return\n" +
+            "            for num in range(start, 10):\n" +
+            "                if num > remaining:\n" +
+            "                    break\n" +
+            "                path.append(num)\n" +
+            "                backtrack(num + 1, remaining - num, path)\n" +
+            "                path.pop()\n" +
+            "        backtrack(1, n, [])\n" +
+            "        return res"
+        }
+      ],
+      patternRecognition: [
+        "'k distinct numbers from a small set summing to n' -> subset backtracking with a start index.",
+        "Strictly increasing picks (start index) avoid duplicate/permuted combinations.",
+        "Prune when the next candidate exceeds the remaining sum."
+      ],
+      interviewRecall: [
+        "Record only when len(path)==k AND remaining==0.",
+        "Loop num from start to 9; break when num > remaining.",
+        "Recurse with num+1 to keep numbers distinct and increasing."
+      ]
     }
   ]);
 })();

@@ -2716,6 +2716,239 @@
         "dfs: same color -> False; uncolored -> recurse with -color.",
         "Start a DFS from every uncolored node; O(V + E)."
       ]
+    },
+
+    {
+      id: "number-of-provinces",
+      lc: 547,
+      title: "Number of Provinces",
+      difficulty: "Medium",
+      category: "Graphs",
+      link: "https://leetcode.com/problems/number-of-provinces/",
+      meta: { pattern: "Union-Find (connected components)", dataStructure: "Union-Find (DSU) over the friend matrix", technique: "Union friends, count roots" },
+      description:
+        "There are `n` cities. `isConnected` is an `n x n` matrix where `isConnected[i][j] == 1` means cities `i` and `j` are **directly** connected, and `0` means they are not. A **province** is a group of cities that are connected directly or indirectly, with no connection to any city outside the group.\n\n" +
+        "Return the total number of provinces.",
+      constraints: [
+        "`1 <= n <= 200`",
+        "`isConnected[i][i] == 1` and `isConnected[i][j] == isConnected[j][i]` (symmetric).",
+        "`isConnected[i][j]` is `0` or `1`."
+      ],
+      notes: [
+        "This is just 'count connected components' on an adjacency MATRIX.",
+        "Union-Find: start with n components and decrement each time a union actually merges two different sets.",
+        "A DFS/BFS flood-fill from each unvisited city is an equally valid O(n^2) alternative."
+      ],
+      examples: [
+        {
+          input: "isConnected = [[1,1,0],[1,1,0],[0,0,1]]",
+          output: "2",
+          reasoning: "Cities 0 and 1 are connected; city 2 is alone -> 2 provinces.",
+          visual: "```\n0 - 1      2\nprovince {0,1} and province {2} -> 2\n```"
+        },
+        { input: "isConnected = [[1,0,0],[0,1,0],[0,0,1]]", output: "3", reasoning: "No city connects to another -> 3 provinces." },
+        { input: "isConnected = [[1,1,1],[1,1,1],[1,1,1]]", output: "1", reasoning: "All cities mutually connected -> a single province." }
+      ],
+      approaches: [
+        {
+          name: "Union-Find (path compression + union by rank)",
+          time: "O(n^2 * \u03b1(n))",
+          space: "O(n)",
+          whenToUse: "Counting connected components, or any incremental 'merge these two groups' problem.",
+          logic:
+            "**What it asks.** Number of connected components among `n` cities given a symmetric adjacency matrix.\n\n" +
+            "**Key Idea.** Maintain a disjoint-set structure over the cities. Scan the upper triangle of the matrix; whenever `isConnected[i][j]` is 1, `union(i, j)`. Track a running `components` count starting at `n` and decrement it each time a union actually links two previously-separate sets. The leftover count is the number of provinces.\n\n" +
+            "**DSU internals.** `find` returns a set's root with path compression (point nodes closer to the root); `union` attaches the shorter tree under the taller using `rank`, keeping trees shallow for near-constant operations.\n\n" +
+            "**Step-by-Step.**\n" +
+            "1. `parent = list(range(n))`, `rank = [0]*n`, `components = n`.\n" +
+            "2. For `i < j`: if connected and `union(i, j)` merged two sets, `components -= 1`.\n" +
+            "3. Return `components`.\n\n" +
+            "**Why it works.** Each real merge reduces the component count by exactly one; unions between already-joined cities change nothing. After processing all edges, `components` equals the number of maximal connected groups.\n\n" +
+            "**Complexity.** Time `O(n^2 * \u03b1(n))` (scan the matrix, near-constant DSU ops), space `O(n)`.\n\n" +
+            "**Interview mindset.** 'Count groups' or 'are these connected' -> Union-Find; decrement a counter on each successful union.",
+          rcs:
+            "class Solution:\n" +
+            "    def findCircleNum(self, isConnected: List[List[int]]) -> int:\n" +
+            "        n = len(isConnected)\n" +
+            "        parent = list(range(n))\n" +
+            "        rank = [0] * n\n" +
+            "        def find(x):\n" +
+            "            while parent[x] != x:\n" +
+            "                parent[x] = parent[parent[x]]   # Path compression (halving).\n" +
+            "                x = parent[x]\n" +
+            "            return x\n" +
+            "        def union(a, b):\n" +
+            "            ra, rb = find(a), find(b)\n" +
+            "            if ra == rb:\n" +
+            "                return False                    # Already together.\n" +
+            "            if rank[ra] < rank[rb]:\n" +
+            "                ra, rb = rb, ra                 # Attach shorter under taller.\n" +
+            "            parent[rb] = ra\n" +
+            "            if rank[ra] == rank[rb]:\n" +
+            "                rank[ra] += 1\n" +
+            "            return True\n" +
+            "        components = n\n" +
+            "        for i in range(n):\n" +
+            "            for j in range(i + 1, n):\n" +
+            "                if isConnected[i][j] and union(i, j):\n" +
+            "                    components -= 1             # A real merge drops the count.\n" +
+            "        return components",
+          plain:
+            "class Solution:\n" +
+            "    def findCircleNum(self, isConnected: List[List[int]]) -> int:\n" +
+            "        n = len(isConnected)\n" +
+            "        parent = list(range(n))\n" +
+            "        rank = [0] * n\n" +
+            "        def find(x):\n" +
+            "            while parent[x] != x:\n" +
+            "                parent[x] = parent[parent[x]]\n" +
+            "                x = parent[x]\n" +
+            "            return x\n" +
+            "        def union(a, b):\n" +
+            "            ra, rb = find(a), find(b)\n" +
+            "            if ra == rb:\n" +
+            "                return False\n" +
+            "            if rank[ra] < rank[rb]:\n" +
+            "                ra, rb = rb, ra\n" +
+            "            parent[rb] = ra\n" +
+            "            if rank[ra] == rank[rb]:\n" +
+            "                rank[ra] += 1\n" +
+            "            return True\n" +
+            "        components = n\n" +
+            "        for i in range(n):\n" +
+            "            for j in range(i + 1, n):\n" +
+            "                if isConnected[i][j] and union(i, j):\n" +
+            "                    components -= 1\n" +
+            "        return components"
+        }
+      ],
+      patternRecognition: [
+        "'Count groups of connected items' on an adjacency matrix -> Union-Find or flood fill.",
+        "Start components at n and decrement on each successful union.",
+        "Symmetric matrix -> only scan the upper triangle (i < j)."
+      ],
+      interviewRecall: [
+        "DSU with find (path compression) + union by rank.",
+        "components = n; subtract 1 whenever union merges two distinct sets.",
+        "O(n^2) to scan the matrix; DSU ops are near O(1)."
+      ]
+    },
+
+    {
+      id: "accounts-merge",
+      lc: 721,
+      title: "Accounts Merge",
+      difficulty: "Medium",
+      category: "Graphs",
+      link: "https://leetcode.com/problems/accounts-merge/",
+      meta: { pattern: "Union-Find (merge by email)", dataStructure: "Union-Find (DSU) over account indices", technique: "Union accounts sharing an email" },
+      description:
+        "Each element of `accounts` is `[name, email1, email2, ...]`. Two accounts belong to the **same person** if they share **at least one common email** (names can repeat across different people, but a shared email always means the same person).\n\n" +
+        "Merge the accounts: return a list where each element is `[name, ...sorted unique emails...]`. The order of the returned accounts does not matter, but within each account the emails must be sorted.",
+      constraints: [
+        "`1 <= accounts.length <= 1000`",
+        "`2 <= accounts[i].length <= 10`; `accounts[i][0]` is the name, the rest are emails.",
+        "A shared email implies the same owner; the same name alone does not."
+      ],
+      notes: [
+        "Union-Find over ACCOUNT INDICES: map each email to the first account index that owns it; if seen again, union the two account indices.",
+        "After unioning, gather each root's emails, dedupe, sort, and prefix the name.",
+        "Use a set per root while gathering so duplicate emails collapse."
+      ],
+      examples: [
+        {
+          input: "accounts = [[\"John\",\"a@x\",\"b@x\"],[\"John\",\"b@x\",\"c@x\"],[\"Mary\",\"m@x\"]]",
+          output: "[[\"John\",\"a@x\",\"b@x\",\"c@x\"],[\"Mary\",\"m@x\"]]",
+          reasoning: "The two John accounts share 'b@x' -> merged; Mary stays separate.",
+          visual: "```\nJohn#0 {a@x,b@x}  John#1 {b@x,c@x}  share b@x -> union\n-> John {a@x,b@x,c@x}\nMary#2 {m@x} -> alone\n```"
+        },
+        { input: "accounts = [[\"A\",\"e1\"],[\"A\",\"e2\"]]", output: "[[\"A\",\"e1\"],[\"A\",\"e2\"]]", reasoning: "Same name but no shared email -> two different people." },
+        { input: "accounts = [[\"X\",\"p@x\"],[\"Y\",\"p@x\"]]", output: "[[\"X\",\"p@x\"]] or [[\"Y\",\"p@x\"]]", reasoning: "A shared email merges them; the surviving root's name is used." }
+      ],
+      approaches: [
+        {
+          name: "Union-Find over account indices, then group emails",
+          time: "O(A * L * log(A*L))  (dominated by sorting emails)",
+          space: "O(A * L)",
+          whenToUse: "Merging records that are 'the same' whenever they share any key; the canonical DSU-by-attribute problem.",
+          logic:
+            "**What it asks.** Cluster accounts that transitively share emails, then output sorted email lists.\n\n" +
+            "**Key Idea.** Give each account an index and a DSU. Walk every account's emails: the first account to claim an email registers `email -> index` in a map; any later account seeing that email `union`s its index with the registered one. Shared emails therefore stitch all of one person's accounts into a single set.\n\n" +
+            "**Collecting output.** For each email, attach it to the set root `find(owner_index)` (using a set to dedupe). Then for each root, sort its emails and prepend the name `accounts[root][0]`.\n\n" +
+            "**Step-by-Step.**\n" +
+            "1. `parent = list(range(len(accounts)))` with `find`/`union`.\n" +
+            "2. For each account `i` and email `e`: if `e` in `email_to_id`, `union(i, email_to_id[e])`; else `email_to_id[e] = i`.\n" +
+            "3. Bucket emails by `find(i)` into a map of root -> set of emails.\n" +
+            "4. Build each result as `[name] + sorted(emails)`.\n\n" +
+            "**Why it works.** Union-Find computes the transitive closure of 'shares an email', so two accounts end in the same set iff a chain of shared emails links them. Grouping by root reconstructs each person exactly once.\n\n" +
+            "**Complexity.** Time `O(A*L log(A*L))` dominated by sorting the emails; space `O(A*L)`.\n\n" +
+            "**Interview mindset.** 'Merge records sharing any attribute' -> DSU keyed by that attribute (email -> first owner), then group by root.",
+          rcs:
+            "from collections import defaultdict\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def accountsMerge(self, accounts: List[List[str]]) -> List[List[str]]:\n" +
+            "        parent = list(range(len(accounts)))\n" +
+            "        def find(x):\n" +
+            "            while parent[x] != x:\n" +
+            "                parent[x] = parent[parent[x]]\n" +
+            "                x = parent[x]\n" +
+            "            return x\n" +
+            "        def union(a, b):\n" +
+            "            parent[find(a)] = find(b)            # Same person -> join their sets.\n" +
+            "        email_to_id = {}\n" +
+            "        for i, acc in enumerate(accounts):\n" +
+            "            for email in acc[1:]:                # Skip the name at index 0.\n" +
+            "                if email in email_to_id:\n" +
+            "                    union(i, email_to_id[email]) # Shared email -> merge accounts.\n" +
+            "                else:\n" +
+            "                    email_to_id[email] = i\n" +
+            "        groups = defaultdict(set)\n" +
+            "        for email, i in email_to_id.items():\n" +
+            "            groups[find(i)].add(email)          # Bucket emails under the set root.\n" +
+            "        res = []\n" +
+            "        for root, emails in groups.items():\n" +
+            "            res.append([accounts[root][0]] + sorted(emails))  # Name + sorted emails.\n" +
+            "        return res",
+          plain:
+            "from collections import defaultdict\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def accountsMerge(self, accounts: List[List[str]]) -> List[List[str]]:\n" +
+            "        parent = list(range(len(accounts)))\n" +
+            "        def find(x):\n" +
+            "            while parent[x] != x:\n" +
+            "                parent[x] = parent[parent[x]]\n" +
+            "                x = parent[x]\n" +
+            "            return x\n" +
+            "        def union(a, b):\n" +
+            "            parent[find(a)] = find(b)\n" +
+            "        email_to_id = {}\n" +
+            "        for i, acc in enumerate(accounts):\n" +
+            "            for email in acc[1:]:\n" +
+            "                if email in email_to_id:\n" +
+            "                    union(i, email_to_id[email])\n" +
+            "                else:\n" +
+            "                    email_to_id[email] = i\n" +
+            "        groups = defaultdict(set)\n" +
+            "        for email, i in email_to_id.items():\n" +
+            "            groups[find(i)].add(email)\n" +
+            "        res = []\n" +
+            "        for root, emails in groups.items():\n" +
+            "            res.append([accounts[root][0]] + sorted(emails))\n" +
+            "        return res"
+        }
+      ],
+      patternRecognition: [
+        "'Merge records that share any common key' -> Union-Find keyed by that attribute.",
+        "Map email -> first owning account index; union on a repeat sighting.",
+        "Group by set root, dedupe with a set, then sort each group."
+      ],
+      interviewRecall: [
+        "DSU over account indices; email_to_id registers the first owner.",
+        "Union i with the stored owner when an email repeats.",
+        "Output = [name] + sorted(emails) per root; sorting dominates the cost."
+      ]
     }
   ]);
 })();

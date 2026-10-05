@@ -2419,6 +2419,594 @@
         "Track leftmost/rightmost to emit columns in order.",
         "Use BFS (not DFS) for correct tie-breaking."
       ]
+    },
+
+    {
+      id: "lowest-common-ancestor-of-a-binary-tree",
+      lc: 236,
+      title: "Lowest Common Ancestor of a Binary Tree",
+      difficulty: "Medium",
+      category: "Trees",
+      link: "https://leetcode.com/problems/lowest-common-ancestor-of-a-binary-tree/",
+      meta: { pattern: "Binary Tree DFS (LCA)", dataStructure: "Binary tree, post-order recursion", technique: "Bubble up found nodes" },
+      description:
+        "Given the root of a **binary tree** (NOT a BST) and two nodes `p` and `q` that are guaranteed to exist in it, return their **lowest common ancestor** \u2014 the deepest node that has both `p` and `q` as descendants (a node may be a descendant of itself).",
+      constraints: [
+        "The number of nodes is in `[2, 10^5]`.",
+        "All `Node.val` are unique; `p != q`; both `p` and `q` exist in the tree.",
+        "There is **no BST ordering** to exploit \u2014 values give no left/right hint."
+      ],
+      notes: [
+        "Because it is a general binary tree, you must search both subtrees; you cannot prune by value like in the BST version (LC 235).",
+        "A node is the LCA if p and q are found in its two different subtrees, OR the node itself is p or q with the other below it.",
+        "Post-order (process children, then decide) is the natural fit."
+      ],
+      examples: [
+        {
+          input: "root = [3,5,1,6,2,0,8,null,null,7,4], p = 5, q = 1",
+          output: "3",
+          reasoning: "5 is in the left subtree of 3 and 1 is in the right, so 3 is their lowest common ancestor.",
+          visual: "```\n        3\n      /   \\\n     5     1   <- p in left, q in right => LCA = 3\n```"
+        },
+        { input: "root = [3,5,1,6,2,0,8,null,null,7,4], p = 5, q = 4", output: "5", reasoning: "4 is a descendant of 5, and a node can be its own ancestor." },
+        { input: "root = [1,2], p = 1, q = 2", output: "1", reasoning: "2 sits under 1, so 1 is the LCA." }
+      ],
+      approaches: [
+        {
+          name: "Post-order DFS, bubble up matches",
+          time: "O(n)",
+          space: "O(h)  (recursion stack, h = height)",
+          whenToUse: "LCA in a general binary tree, or any 'where do two search results meet' tree question.",
+          logic:
+            "**What it asks.** Deepest node whose subtree contains both `p` and `q`.\n\n" +
+            "**Key Idea.** Recurse. The base case returns the node itself when it is `None`, `p`, or `q` \u2014 signalling 'I found one of the targets (or hit the bottom)'. For an internal node, recurse into both children: if **both** sides return non-`None`, the two targets were found in different subtrees, so THIS node is the LCA; otherwise propagate up whichever side found something.\n\n" +
+            "**What each call returns.** For a subtree it returns `p`/`q` if exactly one target lives there, the LCA if both do, or `None` if neither.\n\n" +
+            "**Step-by-Step.**\n" +
+            "1. If `root` is `None`/`p`/`q`, return `root`.\n" +
+            "2. `left = dfs(root.left)`, `right = dfs(root.right)`.\n" +
+            "3. If `left and right`, return `root` (split point).\n" +
+            "4. Else return `left or right`.\n\n" +
+            "**Why it works.** The first node (deepest-up) that sees both targets reported from distinct subtrees is by definition their lowest common ancestor; the 'is p or q' base case correctly handles the ancestor-of-itself case, because the other target will be found below and bubble up to meet it.\n\n" +
+            "**Complexity.** Time `O(n)` (each node visited once), space `O(h)` for recursion.\n\n" +
+            "**Interview mindset.** General-tree LCA = post-order that returns found targets and declares the split node.",
+          rcs:
+            "class Solution:\n" +
+            "    def lowestCommonAncestor(self, root: 'TreeNode', p: 'TreeNode', q: 'TreeNode') -> 'TreeNode':\n" +
+            "        if root is None or root is p or root is q:\n" +
+            "            return root                       # Found a target (or hit the bottom).\n" +
+            "        left = self.lowestCommonAncestor(root.left, p, q)\n" +
+            "        right = self.lowestCommonAncestor(root.right, p, q)\n" +
+            "        if left and right:\n" +
+            "            return root                       # Targets split here -> this is the LCA.\n" +
+            "        return left or right                  # Otherwise pass up the side that found one.",
+          plain:
+            "class Solution:\n" +
+            "    def lowestCommonAncestor(self, root: 'TreeNode', p: 'TreeNode', q: 'TreeNode') -> 'TreeNode':\n" +
+            "        if root is None or root is p or root is q:\n" +
+            "            return root\n" +
+            "        left = self.lowestCommonAncestor(root.left, p, q)\n" +
+            "        right = self.lowestCommonAncestor(root.right, p, q)\n" +
+            "        if left and right:\n" +
+            "            return root\n" +
+            "        return left or right"
+        }
+      ],
+      patternRecognition: [
+        "General binary tree LCA -> post-order DFS returning p/q/None and declaring the split node.",
+        "No BST ordering means you must explore both subtrees (contrast LC 235).",
+        "'Both children report a find' is the signal that the current node is the answer."
+      ],
+      interviewRecall: [
+        "Base case: return root if it's None, p, or q.",
+        "If both recursive calls return non-None, current node is the LCA.",
+        "Else bubble up whichever side is non-None; O(n) time, O(h) stack."
+      ]
+    },
+
+    {
+      id: "binary-tree-zigzag-level-order-traversal",
+      lc: 103,
+      title: "Binary Tree Zigzag Level Order Traversal",
+      difficulty: "Medium",
+      category: "Trees",
+      link: "https://leetcode.com/problems/binary-tree-zigzag-level-order-traversal/",
+      meta: { pattern: "BFS Level-Order (alternating)", dataStructure: "Binary tree traversed with a queue", technique: "Reverse every other level" },
+      description:
+        "Given the root of a binary tree, return the **zigzag level order** traversal of its node values: left-to-right for the first level, right-to-left for the next, alternating thereafter.",
+      constraints: [
+        "The number of nodes is in `[0, 2000]`.",
+        "`-100 <= Node.val <= 100`"
+      ],
+      notes: [
+        "It is ordinary level-order BFS; only the emission direction per level alternates.",
+        "Use a deque for the current level and append to its front on right-to-left levels \u2014 cleaner than building then reversing.",
+        "Children are always enqueued left child then right child, regardless of the level's direction."
+      ],
+      examples: [
+        {
+          input: "root = [3,9,20,null,null,15,7]",
+          output: "[[3],[20,9],[15,7]]",
+          reasoning: "Level 0 L->R: [3]; level 1 R->L: [20,9]; level 2 L->R: [15,7].",
+          visual: "```\n    3          [3]        -> L->R\n   / \\\n  9  20        [20,9]     -> R->L\n     / \\\n   15   7       [15,7]     -> L->R\n```"
+        },
+        { input: "root = [1]", output: "[[1]]", reasoning: "Single node." },
+        { input: "root = []", output: "[]", reasoning: "Empty tree yields no levels." }
+      ],
+      approaches: [
+        {
+          name: "BFS with alternating insertion direction",
+          time: "O(n)",
+          space: "O(n)",
+          whenToUse: "Any level-order variant where output direction or grouping changes per level.",
+          logic:
+            "**What it asks.** Level-order values, flipping direction each level.\n\n" +
+            "**Key Idea.** Do standard BFS with a queue, processing one full level per outer iteration (snapshot `len(queue)`). Keep a boolean `left_to_right`; collect the level's values into a deque, appending to the back when going left-to-right and to the front when going right-to-left. Flip the boolean after each level.\n\n" +
+            "**What each variable holds.** `q` is the BFS frontier; `level` accumulates one level's values in the correct order; `left_to_right` tracks the current direction.\n\n" +
+            "**Step-by-Step.**\n" +
+            "1. If no root, return `[]`. Seed `q = deque([root])`, `left_to_right = True`.\n" +
+            "2. While `q`: for each of the `len(q)` nodes, pop from the front, insert its value to the back or front of `level` by direction, and enqueue its left then right children.\n" +
+            "3. Append `list(level)` to the result and flip `left_to_right`.\n\n" +
+            "**Why it works.** BFS already visits nodes level by level in left-to-right order; choosing which end of `level` to insert into reverses only the output, not the traversal, so children are still enqueued consistently.\n\n" +
+            "**Complexity.** Time `O(n)`, space `O(n)` for the queue/output.\n\n" +
+            "**Interview mindset.** Zigzag = plain BFS + a direction flag; prefer front/back insertion over post-hoc reversing.",
+          rcs:
+            "from collections import deque\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def zigzagLevelOrder(self, root: 'TreeNode') -> List[List[int]]:\n" +
+            "        if not root:\n" +
+            "            return []\n" +
+            "        res, q = [], deque([root])\n" +
+            "        left_to_right = True\n" +
+            "        while q:\n" +
+            "            level = deque()\n" +
+            "            for _ in range(len(q)):           # Process exactly this level.\n" +
+            "                node = q.popleft()\n" +
+            "                if left_to_right:\n" +
+            "                    level.append(node.val)    # Normal order.\n" +
+            "                else:\n" +
+            "                    level.appendleft(node.val) # Reversed for this level.\n" +
+            "                if node.left:\n" +
+            "                    q.append(node.left)       # Always enqueue left then right.\n" +
+            "                if node.right:\n" +
+            "                    q.append(node.right)\n" +
+            "            res.append(list(level))\n" +
+            "            left_to_right = not left_to_right # Flip direction.\n" +
+            "        return res",
+          plain:
+            "from collections import deque\n" +
+            "\n" +
+            "class Solution:\n" +
+            "    def zigzagLevelOrder(self, root: 'TreeNode') -> List[List[int]]:\n" +
+            "        if not root:\n" +
+            "            return []\n" +
+            "        res, q = [], deque([root])\n" +
+            "        left_to_right = True\n" +
+            "        while q:\n" +
+            "            level = deque()\n" +
+            "            for _ in range(len(q)):\n" +
+            "                node = q.popleft()\n" +
+            "                if left_to_right:\n" +
+            "                    level.append(node.val)\n" +
+            "                else:\n" +
+            "                    level.appendleft(node.val)\n" +
+            "                if node.left:\n" +
+            "                    q.append(node.left)\n" +
+            "                if node.right:\n" +
+            "                    q.append(node.right)\n" +
+            "            res.append(list(level))\n" +
+            "            left_to_right = not left_to_right\n" +
+            "        return res"
+        }
+      ],
+      patternRecognition: [
+        "'Level order' + 'zigzag/alternating' -> BFS with a direction flag.",
+        "Insert to front/back of a deque instead of reversing finished levels.",
+        "Enqueue children left-then-right regardless of emission direction."
+      ],
+      interviewRecall: [
+        "Process len(queue) nodes per level; flip direction after each.",
+        "appendleft on right-to-left levels keeps it O(1) per node.",
+        "Empty root -> []; O(n) time and space."
+      ]
+    },
+
+    {
+      id: "flatten-binary-tree-to-linked-list",
+      lc: 114,
+      title: "Flatten Binary Tree to Linked List",
+      difficulty: "Medium",
+      category: "Trees",
+      link: "https://leetcode.com/problems/flatten-binary-tree-to-linked-list/",
+      meta: { pattern: "Binary Tree Pointer Rewiring", dataStructure: "Binary tree flattened in pre-order", technique: "Rewire right pointers" },
+      description:
+        "Flatten a binary tree into a 'linked list' **in place**: the list follows the tree's **pre-order** traversal, every node's `left` becomes `None`, and each node's `right` points to the next node in pre-order. The structure should still use the same `TreeNode` objects.",
+      constraints: [
+        "The number of nodes is in `[0, 2000]`.",
+        "`-100 <= Node.val <= 100`",
+        "Modify the tree in place; an `O(1)`-extra-space solution exists."
+      ],
+      notes: [
+        "Pre-order is root, then left subtree, then right subtree \u2014 so a node's flattened successor is its left subtree (if any) followed by its original right subtree.",
+        "The Morris-like O(1) method: for each node with a left child, splice the right subtree onto the rightmost node of the left subtree, move left up to right, and clear left.",
+        "Do not allocate a new tree; rewire existing pointers."
+      ],
+      examples: [
+        {
+          input: "root = [1,2,5,3,4,null,6]",
+          output: "[1,null,2,null,3,null,4,null,5,null,6]",
+          reasoning: "Pre-order is 1,2,3,4,5,6; each becomes the right child of the previous, lefts cleared.",
+          visual: "```\n    1              1\n   / \\              \\\n  2   5    ->        2\n / \\   \\              \\\n3  4    6             3 -> 4 -> 5 -> 6\n```"
+        },
+        { input: "root = []", output: "[]", reasoning: "Empty tree stays empty." },
+        { input: "root = [0]", output: "[0]", reasoning: "Single node is already flattened." }
+      ],
+      approaches: [
+        {
+          name: "O(1) in-place rewiring (Morris-style)",
+          time: "O(n)",
+          space: "O(1)",
+          whenToUse: "In-place tree-to-list flattening without recursion or a stack.",
+          logic:
+            "**What it asks.** Rewire the tree so pre-order becomes a right-only chain, in place.\n\n" +
+            "**Key insight.** In pre-order, after a node come its left subtree then its right subtree. So if a node has a left child, its right subtree must be attached **after** the last (rightmost) node of that left subtree, and the left subtree moves into the right position.\n\n" +
+            "**Key Idea.** Walk `cur` down the (evolving) right spine. Whenever `cur.left` exists: find `prev`, the rightmost node of `cur.left`; hang `cur.right` off `prev.right`; move `cur.left` to `cur.right`; set `cur.left = None`. Then advance `cur = cur.right`. When `cur.left` is `None`, just advance.\n\n" +
+            "**What each variable holds.** `cur` is the node being flattened; `prev` is where the detached right subtree gets reattached.\n\n" +
+            "**Step-by-Step.**\n" +
+            "1. `cur = root`.\n" +
+            "2. While `cur`: if it has a left child, splice as above; then `cur = cur.right`.\n\n" +
+            "**Why it works.** Each splice places the entire left subtree before the original right subtree on the right spine \u2014 exactly pre-order order \u2014 and clearing `left` enforces the list shape. Every node is threaded onto the spine exactly once.\n\n" +
+            "**Complexity.** Time `O(n)` (each edge traversed a constant number of times), space `O(1)`.\n\n" +
+            "**Interview mindset.** 'Flatten in place, O(1) space' -> Morris-style right-spine rewiring; the recursive/stack version is `O(h)` space.",
+          rcs:
+            "class Solution:\n" +
+            "    def flatten(self, root: 'TreeNode') -> None:\n" +
+            "        cur = root\n" +
+            "        while cur:\n" +
+            "            if cur.left:\n" +
+            "                prev = cur.left\n" +
+            "                while prev.right:\n" +
+            "                    prev = prev.right         # Rightmost node of the left subtree.\n" +
+            "                prev.right = cur.right        # Original right subtree goes after it.\n" +
+            "                cur.right = cur.left          # Left subtree moves to the right.\n" +
+            "                cur.left = None               # Enforce the list shape.\n" +
+            "            cur = cur.right                   # Advance down the new right spine.",
+          plain:
+            "class Solution:\n" +
+            "    def flatten(self, root: 'TreeNode') -> None:\n" +
+            "        cur = root\n" +
+            "        while cur:\n" +
+            "            if cur.left:\n" +
+            "                prev = cur.left\n" +
+            "                while prev.right:\n" +
+            "                    prev = prev.right\n" +
+            "                prev.right = cur.right\n" +
+            "                cur.right = cur.left\n" +
+            "                cur.left = None\n" +
+            "            cur = cur.right"
+        }
+      ],
+      patternRecognition: [
+        "'Flatten to pre-order right chain in place' -> splice right subtree onto the left subtree's rightmost node.",
+        "O(1) space requirement rules out recursion/stack -> Morris-style rewiring.",
+        "Set left = None as you go to produce the list shape."
+      ],
+      interviewRecall: [
+        "For each cur with a left child: prev = rightmost of left; prev.right = cur.right; cur.right = cur.left; cur.left = None.",
+        "Advance cur along the right spine; O(1) space.",
+        "Recursive alternative returns the tail of each flattened subtree."
+      ]
+    },
+
+    {
+      id: "house-robber-iii",
+      lc: 337,
+      title: "House Robber III",
+      difficulty: "Medium",
+      category: "Trees",
+      link: "https://leetcode.com/problems/house-robber-iii/",
+      meta: { pattern: "Tree DP (post-order)", dataStructure: "Binary tree returning a (rob, skip) pair", technique: "Choose max at each node" },
+      description:
+        "Houses are arranged as a binary tree; `root.val` is the money at that house. The thief cannot rob **two directly-connected** houses (a parent and its child) on the same night, or the alarm triggers.\n\n" +
+        "Return the **maximum amount** the thief can rob without alerting the police.",
+      constraints: [
+        "The number of nodes is in `[1, 10^4]`.",
+        "`0 <= Node.val <= 10^4`"
+      ],
+      notes: [
+        "This is House Robber on a tree: the 'adjacent' constraint is parent-child instead of neighbors in a line.",
+        "Each node returns two values: the best if we ROB this node, and the best if we SKIP it. The parent combines children's values.",
+        "A naive memoized recursion also works, but the pair-return post-order is O(n) with no hash map."
+      ],
+      examples: [
+        {
+          input: "root = [3,2,3,null,3,null,1]",
+          output: "7",
+          reasoning: "Rob 3 (root) + 3 + 1 = 7; robbing the middle 2 and 3 would total only 2+3+... less.",
+          visual: "```\n    3*          rob root(3) + grandchildren(3,1)\n   / \\         = 7\n  2   3\n   \\   \\\n    3   1\n```"
+        },
+        { input: "root = [3,4,5,1,3,null,1]", output: "9", reasoning: "Rob the children 4 and 5 (=9) rather than the root 3." },
+        { input: "root = [0]", output: "0", reasoning: "A single empty-value house." }
+      ],
+      approaches: [
+        {
+          name: "Post-order DP returning (rob, skip)",
+          time: "O(n)",
+          space: "O(h)",
+          whenToUse: "Tree problems with a 'can't use adjacent nodes' or include/exclude choice.",
+          logic:
+            "**What it asks.** Maximum sum of node values with no parent-child pair both chosen.\n\n" +
+            "**State per node.** Return a pair: `rob` = best total for this subtree **if we rob this node** (so both children must be skipped), and `skip` = best **if we skip this node** (each child may independently be robbed or skipped, take the better).\n\n" +
+            "**Transition.** For a node with children results `l` and `r`:\n" +
+            "- `rob = node.val + l.skip + r.skip`\n" +
+            "- `skip = max(l.rob, l.skip) + max(r.rob, r.skip)`\n\n" +
+            "**Base case.** An empty node returns `(0, 0)`.\n\n" +
+            "**Answer.** `max(rob, skip)` at the root.\n\n" +
+            "**Why it works.** The pair captures both scenarios a parent might need, so each node is solved once using only its children's already-computed pairs \u2014 a clean post-order DP with no recomputation.\n\n" +
+            "**Complexity.** Time `O(n)`, space `O(h)` for recursion.\n\n" +
+            "**Interview mindset.** 'No two adjacent' on a tree -> return (take, leave) bottom-up; parent adds children's 'leave' when it takes.",
+          rcs:
+            "class Solution:\n" +
+            "    def rob(self, root: 'TreeNode') -> int:\n" +
+            "        def dfs(node):\n" +
+            "            if not node:\n" +
+            "                return (0, 0)                 # (rob_this, skip_this) for an empty node.\n" +
+            "            l = dfs(node.left)\n" +
+            "            r = dfs(node.right)\n" +
+            "            rob = node.val + l[1] + r[1]      # Rob here -> children must be skipped.\n" +
+            "            skip = max(l) + max(r)            # Skip here -> children free to choose best.\n" +
+            "            return (rob, skip)\n" +
+            "        return max(dfs(root))                 # Best of robbing or skipping the root.",
+          plain:
+            "class Solution:\n" +
+            "    def rob(self, root: 'TreeNode') -> int:\n" +
+            "        def dfs(node):\n" +
+            "            if not node:\n" +
+            "                return (0, 0)\n" +
+            "            l = dfs(node.left)\n" +
+            "            r = dfs(node.right)\n" +
+            "            rob = node.val + l[1] + r[1]\n" +
+            "            skip = max(l) + max(r)\n" +
+            "            return (rob, skip)\n" +
+            "        return max(dfs(root))"
+        }
+      ],
+      patternRecognition: [
+        "'No two adjacent (parent-child) nodes' -> tree DP returning (rob, skip).",
+        "House Robber generalized from a line to a tree.",
+        "Parent's rob uses children's skip; parent's skip uses each child's max."
+      ],
+      interviewRecall: [
+        "dfs returns (rob, skip); rob = val + l.skip + r.skip; skip = max(l) + max(r).",
+        "Answer is max of the root's pair.",
+        "O(n) with no memo table because each node is visited once."
+      ]
+    },
+
+    {
+      id: "fenwick-tree-bit",
+      lc: null,
+      title: "Fenwick Tree (Binary Indexed Tree)",
+      difficulty: "Medium",
+      category: "Trees",
+      link: null,
+      meta: { pattern: "Fenwick Tree (Binary Indexed Tree)", dataStructure: "Fenwick tree (BIT) over an index array", technique: "Low-bit jumps for prefix sums" },
+      description:
+        "A **Fenwick tree** (Binary Indexed Tree, BIT) supports two operations on an array in `O(log n)` each: **point update** (add a delta at an index) and **prefix-sum query** (sum of the first `i` elements). Range sums come from the difference of two prefix sums.\n\n" +
+        "This is a technique explainer (no single LeetCode number); it powers problems like *Range Sum Query - Mutable*, *Count of Smaller Numbers After Self*, and inversion counting.",
+      constraints: [
+        "Indices here are exposed as 0-based; the tree is stored 1-indexed internally.",
+        "Values may be added incrementally (`update(i, delta)`), not just set.",
+        "All operations are `O(log n)`; building from an array is `O(n log n)` (or `O(n)` with a specialized build)."
+      ],
+      notes: [
+        "The trick is the low bit `i & (-i)`: it isolates the least-significant set bit, which is the size of the range a tree node covers.",
+        "update climbs by `i += i & (-i)`; prefix query descends by `i -= i & (-i)`.",
+        "A Fenwick tree is more compact and has smaller constants than a segment tree, but only supports invertible, associative operations (sums, XOR \u2014 not range min/max)."
+      ],
+      examples: [
+        {
+          input: "nums = [0,0,0,0,0]; update(2, 5); prefix_sum(3)",
+          output: "5",
+          reasoning: "After adding 5 at index 2, the prefix sum of indices 0..3 is 5.",
+          visual: "```\nindex:  0 1 2 3 4\nvalue:  0 0 5 0 0\nprefix_sum(3) = 0+0+5+0 = 5\n```"
+        },
+        { input: "update(0, 3); update(4, 2); range_sum(1, 4)", output: "7", reasoning: "Sum of indices 1..4 after the two updates (0 at 1,2,3 plus 2 at 4)? -> with the earlier 5 at index 2: 0+5+0+2 = 7." },
+        { input: "i = 6 -> low bit 6 & -6", output: "2", reasoning: "6 = 110b; the least-significant set bit is 010b = 2, so node 6 covers 2 slots." }
+      ],
+      approaches: [
+        {
+          name: "Low-bit climb/descend",
+          time: "O(log n) per op",
+          space: "O(n)",
+          whenToUse: "Many point updates interleaved with prefix/range-sum queries on a mutable array.",
+          logic:
+            "**What it asks.** Support `update` and prefix-sum `query` faster than the `O(n)` rebuild a plain prefix-sum array would need per update.\n\n" +
+            "**Key Idea.** Store, at each 1-based index `i`, the sum of a block of elements ending at `i` whose length is `i & (-i)` (the lowest set bit). This lets a prefix sum be assembled from `O(log n)` such blocks, and an update to touch the `O(log n)` blocks that contain the changed index.\n\n" +
+            "**Query (prefix sum of first i).** Start at `i` (1-based) and repeatedly add `tree[i]`, then strip the lowest set bit `i -= i & (-i)`, until `i` is 0.\n\n" +
+            "**Update (add delta at i).** Start at `i` (1-based) and repeatedly add `delta` to `tree[i]`, then climb `i += i & (-i)` until past `n`.\n\n" +
+            "**Why it works.** Each index belongs to exactly `O(log n)` responsible blocks along the low-bit chain, so both walks are logarithmic; the block decomposition of `[1..i]` is unique and disjoint, so the prefix sum is exact.\n\n" +
+            "**Range sum.** `range_sum(l, r) = prefix_sum(r) - prefix_sum(l-1)`.\n\n" +
+            "**Complexity.** `O(log n)` per operation, `O(n)` space.\n\n" +
+            "**Interview mindset.** 'Mutable array + prefix/range sums' and only sum-like queries -> Fenwick tree; need range min/max or lazy range updates -> segment tree.",
+          rcs:
+            "class FenwickTree:\n" +
+            "    def __init__(self, n: int):\n" +
+            "        self.n = n\n" +
+            "        self.tree = [0] * (n + 1)             # 1-indexed; tree[0] unused.\n" +
+            "\n" +
+            "    def update(self, i: int, delta: int) -> None:\n" +
+            "        i += 1                                # To 1-based.\n" +
+            "        while i <= self.n:\n" +
+            "            self.tree[i] += delta\n" +
+            "            i += i & (-i)                    # Climb to the next responsible block.\n" +
+            "\n" +
+            "    def prefix_sum(self, i: int) -> int:\n" +
+            "        i += 1                                # To 1-based.\n" +
+            "        s = 0\n" +
+            "        while i > 0:\n" +
+            "            s += self.tree[i]\n" +
+            "            i -= i & (-i)                    # Strip the low bit to the previous block.\n" +
+            "        return s\n" +
+            "\n" +
+            "    def range_sum(self, l: int, r: int) -> int:\n" +
+            "        return self.prefix_sum(r) - (self.prefix_sum(l - 1) if l > 0 else 0)",
+          plain:
+            "class FenwickTree:\n" +
+            "    def __init__(self, n: int):\n" +
+            "        self.n = n\n" +
+            "        self.tree = [0] * (n + 1)\n" +
+            "\n" +
+            "    def update(self, i: int, delta: int) -> None:\n" +
+            "        i += 1\n" +
+            "        while i <= self.n:\n" +
+            "            self.tree[i] += delta\n" +
+            "            i += i & (-i)\n" +
+            "\n" +
+            "    def prefix_sum(self, i: int) -> int:\n" +
+            "        i += 1\n" +
+            "        s = 0\n" +
+            "        while i > 0:\n" +
+            "            s += self.tree[i]\n" +
+            "            i -= i & (-i)\n" +
+            "        return s\n" +
+            "\n" +
+            "    def range_sum(self, l: int, r: int) -> int:\n" +
+            "        return self.prefix_sum(r) - (self.prefix_sum(l - 1) if l > 0 else 0)"
+        }
+      ],
+      patternRecognition: [
+        "'Point update + prefix/range sum on a mutable array' -> Fenwick tree (BIT).",
+        "Counting inversions / smaller-to-the-right -> BIT over compressed values.",
+        "Only invertible, associative aggregates (sum, XOR); for min/max use a segment tree."
+      ],
+      interviewRecall: [
+        "Low bit i & (-i) is the block size; update climbs (+=), query descends (-=).",
+        "Store 1-indexed; prefix_sum(r) - prefix_sum(l-1) gives a range sum.",
+        "O(log n) per op, O(n) space; smaller constants than a segment tree."
+      ]
+    },
+
+    {
+      id: "segment-tree",
+      lc: null,
+      title: "Segment Tree",
+      difficulty: "Hard",
+      category: "Trees",
+      link: null,
+      meta: { pattern: "Segment Tree (range query)", dataStructure: "Segment tree of range nodes", technique: "Recursive range decomposition" },
+      description:
+        "A **segment tree** answers range queries (sum, min, max, gcd, ...) and point updates on an array in `O(log n)` each, by storing an aggregate for each segment of a balanced binary partition of the array.\n\n" +
+        "This explainer uses the compact **iterative** array form (size `2n`) for range-sum + point-update; the same structure extends to other associative merges and, with lazy propagation, to range updates. No single LeetCode number \u2014 it powers *Range Sum Query - Mutable*, *Range Minimum Query*, and many interval problems.",
+      constraints: [
+        "Leaves live at indices `n .. 2n-1`; internal node `i` aggregates children `2i` and `2i+1`.",
+        "Query range is half-open `[l, r)` in this iterative formulation.",
+        "The merge operation must be associative (sum, min, max, gcd, ...)."
+      ],
+      notes: [
+        "A segment tree is more general than a Fenwick tree: it handles range min/max and, with lazy propagation, range updates \u2014 at the cost of ~2x memory and larger constants.",
+        "The iterative build fills leaves, then sets each parent from its two children going from n-1 down to 1.",
+        "Point update fixes a leaf and walks up recomputing ancestors; range query walks the two borders inward."
+      ],
+      examples: [
+        {
+          input: "nums = [1,3,5,7,9,11]; query(1, 4)",
+          output: "15",
+          reasoning: "Sum of indices 1,2,3 = 3+5+7 = 15 (half-open [1,4)).",
+          visual: "```\nidx:  0 1 2 3 4  5\nval:  1 3 5 7 9 11\nquery[1,4) = 3+5+7 = 15\n```"
+        },
+        { input: "update(1, 10); query(1, 4)", output: "22", reasoning: "After setting index 1 to 10: 10+5+7 = 22." },
+        { input: "query(0, 6)", output: "36", reasoning: "Whole-array sum 1+3+5+7+9+11 = 36." }
+      ],
+      approaches: [
+        {
+          name: "Iterative segment tree (size 2n)",
+          time: "O(n) build, O(log n) update/query",
+          space: "O(n)",
+          whenToUse: "Range aggregate queries with updates, especially range min/max where a Fenwick tree cannot help.",
+          logic:
+            "**What it asks.** Fast range aggregates with point updates.\n\n" +
+            "**Layout.** Use an array `tree` of length `2n`. The original values occupy the second half (`tree[n + i] = nums[i]`). Each internal node `tree[i]` holds the merge of its children `tree[2i]` and `tree[2i+1]`.\n\n" +
+            "**Build.** Copy leaves, then for `i` from `n-1` down to `1` set `tree[i] = tree[2i] + tree[2i+1]`.\n\n" +
+            "**Point update.** Set the leaf `tree[i+n] = value`, then climb `i //= 2` recomputing each parent from its two children until the root.\n\n" +
+            "**Range query `[l, r)`.** Map to leaves `l += n`, `r += n`. Move both inward: if `l` is a right child (`l & 1`), it is a standalone segment \u2014 add `tree[l]` and `l += 1`; if `r` is a right child, decrement `r` and add `tree[r]`. Halve both and repeat while `l < r`.\n\n" +
+            "**Why it works.** Any range decomposes into `O(log n)` maximal aligned segments; the border-walk collects exactly those, and the parent-recompute on update keeps every covering segment consistent.\n\n" +
+            "**Complexity.** Build `O(n)`, update/query `O(log n)`, space `O(n)`.\n\n" +
+            "**Interview mindset.** Range min/max/sum with updates -> segment tree; swap the `+` merge for `min`/`max`/`gcd` as needed; add lazy propagation for range updates.",
+          rcs:
+            "class SegmentTree:\n" +
+            "    def __init__(self, nums: List[int]):\n" +
+            "        self.n = len(nums)\n" +
+            "        self.tree = [0] * (2 * self.n)        # Leaves in [n, 2n), internals in [1, n).\n" +
+            "        for i in range(self.n):\n" +
+            "            self.tree[self.n + i] = nums[i]   # Fill leaves.\n" +
+            "        for i in range(self.n - 1, 0, -1):\n" +
+            "            self.tree[i] = self.tree[2 * i] + self.tree[2 * i + 1]  # Parents bottom-up.\n" +
+            "\n" +
+            "    def update(self, i: int, value: int) -> None:\n" +
+            "        i += self.n\n" +
+            "        self.tree[i] = value                  # Set the leaf.\n" +
+            "        while i > 1:\n" +
+            "            i //= 2\n" +
+            "            self.tree[i] = self.tree[2 * i] + self.tree[2 * i + 1]  # Recompute ancestors.\n" +
+            "\n" +
+            "    def query(self, l: int, r: int) -> int:   # sum over [l, r)\n" +
+            "        res = 0\n" +
+            "        l += self.n\n" +
+            "        r += self.n\n" +
+            "        while l < r:\n" +
+            "            if l & 1:                         # l is a right child -> standalone segment.\n" +
+            "                res += self.tree[l]\n" +
+            "                l += 1\n" +
+            "            if r & 1:                         # r is a right child -> take r-1.\n" +
+            "                r -= 1\n" +
+            "                res += self.tree[r]\n" +
+            "            l //= 2\n" +
+            "            r //= 2\n" +
+            "        return res",
+          plain:
+            "class SegmentTree:\n" +
+            "    def __init__(self, nums: List[int]):\n" +
+            "        self.n = len(nums)\n" +
+            "        self.tree = [0] * (2 * self.n)\n" +
+            "        for i in range(self.n):\n" +
+            "            self.tree[self.n + i] = nums[i]\n" +
+            "        for i in range(self.n - 1, 0, -1):\n" +
+            "            self.tree[i] = self.tree[2 * i] + self.tree[2 * i + 1]\n" +
+            "\n" +
+            "    def update(self, i: int, value: int) -> None:\n" +
+            "        i += self.n\n" +
+            "        self.tree[i] = value\n" +
+            "        while i > 1:\n" +
+            "            i //= 2\n" +
+            "            self.tree[i] = self.tree[2 * i] + self.tree[2 * i + 1]\n" +
+            "\n" +
+            "    def query(self, l: int, r: int) -> int:\n" +
+            "        res = 0\n" +
+            "        l += self.n\n" +
+            "        r += self.n\n" +
+            "        while l < r:\n" +
+            "            if l & 1:\n" +
+            "                res += self.tree[l]\n" +
+            "                l += 1\n" +
+            "            if r & 1:\n" +
+            "                r -= 1\n" +
+            "                res += self.tree[r]\n" +
+            "            l //= 2\n" +
+            "            r //= 2\n" +
+            "        return res"
+        }
+      ],
+      patternRecognition: [
+        "Range sum/min/max/gcd with point updates -> segment tree.",
+        "Range min/max rules out a Fenwick tree -> reach for a segment tree.",
+        "Range UPDATES (not just point) -> segment tree with lazy propagation."
+      ],
+      interviewRecall: [
+        "Iterative: leaves at [n, 2n); parent i = merge(2i, 2i+1).",
+        "Query [l,r): if l odd take and l+=1; if r odd r-=1 and take; halve both.",
+        "Swap + for min/max to change the aggregate; O(log n) per op."
+      ]
     }
   ]);
 })();
