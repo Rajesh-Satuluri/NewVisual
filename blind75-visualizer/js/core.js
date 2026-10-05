@@ -60,12 +60,23 @@
   for (var _b = 0; _b < BLIND75_LC.length; _b++) BLIND75_SET[BLIND75_LC[_b]] = true;
 
   var registry = {}; // category -> [problems]
+  var intros = {};   // category -> { md, source }  (pattern explanations)
 
   window.BLIND75 = {
     CATEGORY_ORDER: CATEGORY_ORDER,
     CATEGORY_ICON: CATEGORY_ICON,
     BLIND75_SET: BLIND75_SET,
     _registry: registry,
+    _intros: intros,
+
+    // Register a pattern explanation for a category (see data/pattern_intros.js).
+    registerIntro: function (category, intro) {
+      intros[category] = intro;
+    },
+    // Look up the pattern explanation for a category, if any.
+    getIntro: function (category) {
+      return intros[category] || null;
+    },
 
     // A problem is Blind 75 if flagged explicitly, else by its LeetCode number.
     isBlind75: function (p) {

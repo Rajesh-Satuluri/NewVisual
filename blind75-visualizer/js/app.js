@@ -703,6 +703,15 @@
     metaBox.appendChild(impCell);
     main.appendChild(metaBox);
 
+    // ---- pattern explanation (exact chapter intro from Coding Interview Patterns) ----
+    var intro = B.getIntro ? B.getIntro(p.category) : null;
+    if (intro && intro.md) {
+      var introNode = h("div", { class: "md pattern-intro" });
+      introNode.innerHTML = md(intro.md) +
+        (intro.source ? '<p class="pattern-intro-src">From the <em>Coding Interview Patterns</em> chapter: ' + esc(intro.source) + "</p>" : "");
+      main.appendChild(section("pattern", "Pattern — " + p.category, introNode, { collapsed: true }));
+    }
+
     // ---- Python concepts used (reverse cross-link into the Python lab) ----
     var pySec = pythonConceptsSection(p);
     if (pySec) main.appendChild(pySec);
