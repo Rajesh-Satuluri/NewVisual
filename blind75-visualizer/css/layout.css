@@ -177,9 +177,15 @@
 .nav-intro.active { color: var(--text); }
 .ni-intro-ic { font-size: 12px; width: 14px; text-align: center; }
 
-/* standalone pattern-explanation page in the reading pane */
-.intro-page { margin-top: 14px; }
-.intro-cta { margin-top: 22px; }
+/* standalone pattern-explanation page in the reading pane — match the
+   horizontal insets of .meta-box / .prob-section so the prose doesn't span the
+   full width and collide with the sidebar. */
+.intro-page { margin: 22px 34px 0; max-width: 860px; }
+.intro-cta  { margin: 24px 34px 0; }
+.intro-page pre { max-width: 100%; overflow-x: auto; }
+@media (max-width: 900px) {
+  .intro-page, .intro-cta { margin-left: 14px; margin-right: 14px; }
+}
 .st { font-size: 13px; width: 14px; text-align: center; }
 .st-solved { color: var(--green); }
 .st-learning { color: var(--amber); }
