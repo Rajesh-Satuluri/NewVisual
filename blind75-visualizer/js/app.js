@@ -1579,6 +1579,20 @@
         store.setPref("sidebarCollapsed", collapsed);
       }
     });
+    // collapse the whole controls block (progress/search/filters/categories) so
+    // the problem list gets the full column height — persisted across reloads.
+    var sidebarEl = document.querySelector(".sidebar");
+    var metaToggle = el("metaToggle");
+    if (metaToggle && sidebarEl) {
+      metaToggle.addEventListener("click", function () {
+        var collapsed = !sidebarEl.classList.contains("meta-collapsed");
+        sidebarEl.classList.toggle("meta-collapsed", collapsed);
+        metaToggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+        metaToggle.title = collapsed ? "Show filters, search & progress" : "Hide filters, search & progress";
+        store.setPref("sidebarMetaCollapsed", collapsed);
+      });
+    }
+
     // tapping the scrim (or a nav item) closes the mobile drawer
     var scrim = el("drawerScrim");
     if (scrim) scrim.addEventListener("click", function () { document.body.classList.remove("sidebar-open"); });
@@ -1850,6 +1864,14 @@
   function boot() {
     // restore persisted desktop sidebar-collapse state
     if (store.getPref("sidebarCollapsed")) document.body.classList.add("sidebar-collapsed");
+
+    // restore persisted sidebar meta-block (controls) collapse state
+    if (store.getPref("sidebarMetaCollapsed")) {
+      var sbMeta = document.querySelector(".sidebar");
+      if (sbMeta) sbMeta.classList.add("meta-collapsed");
+      var mtBtn = el("metaToggle");
+      if (mtBtn) { mtBtn.setAttribute("aria-expanded", "false"); mtBtn.title = "Show filters, search & progress"; }
+    }
 
     // restore persisted filter-panel open state
     var fOpen = !!store.getPref("filtersOpen");
