@@ -453,6 +453,64 @@
     }
   }
 
+  /* ── Drag-to-resize the persistent sidebar ───────────────────
+     Drag the handle between the sidebar and the content to widen or
+     narrow the rail; the width is clamped, persisted, and applied on
+     load. Disabled while collapsed or in the mobile drawer. Arrow keys
+     nudge it (a11y); double-click resets to the default. */
+  const _SIDEBAR_MIN = 200, _SIDEBAR_MAX = 460, _SIDEBAR_DEFAULT = 256;
+  const _SIDEBAR_KEY = 'cde-sidebar-width';
+  function _clampSidebar(w) { return Math.max(_SIDEBAR_MIN, Math.min(_SIDEBAR_MAX, Math.round(w))); }
+  function _setSidebarWidth(w, persist) {
+    const app = document.getElementById('app');
+    if (!app) return;
+    const v = _clampSidebar(w);
+    app.style.setProperty('--sidebar-w', v + 'px');
+    if (persist) _lsSet(_SIDEBAR_KEY, String(v));
+  }
+  function _initSidebarResizer() {
+    const resizer = document.getElementById('sidebar-resizer');
+    const sidebar = document.getElementById('sidebar');
+    if (!resizer || !sidebar) return;
+
+    // Apply any saved width on load.
+    const saved = parseInt(_lsGet(_SIDEBAR_KEY), 10);
+    if (!isNaN(saved)) _setSidebarWidth(saved, false);
+
+    const locked = () => _drawerMQ.matches || sidebar.classList.contains('collapsed');
+    let startX = 0, startW = 0, dragging = false;
+
+    function onMove(e) {
+      if (!dragging) return;
+      _setSidebarWidth(startW + (e.clientX - startX), false);
+    }
+    function onUp() {
+      if (!dragging) return;
+      dragging = false;
+      document.body.classList.remove('sidebar-resizing');
+      _setSidebarWidth(parseInt(getComputedStyle(sidebar).width, 10), true);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    }
+    resizer.addEventListener('pointerdown', (e) => {
+      if (locked()) return;
+      dragging = true;
+      startX = e.clientX;
+      startW = parseInt(getComputedStyle(sidebar).width, 10);
+      document.body.classList.add('sidebar-resizing');
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+      e.preventDefault();
+    });
+    resizer.addEventListener('keydown', (e) => {
+      if (locked()) return;
+      const cur = parseInt(getComputedStyle(sidebar).width, 10);
+      if (e.key === 'ArrowLeft') { _setSidebarWidth(cur - 16, true); e.preventDefault(); }
+      else if (e.key === 'ArrowRight') { _setSidebarWidth(cur + 16, true); e.preventDefault(); }
+    });
+    resizer.addEventListener('dblclick', () => { if (!locked()) _setSidebarWidth(_SIDEBAR_DEFAULT, true); });
+  }
+
   /* ── Off-canvas nav drawer (tablet / touch) ──────────────── */
   const _drawerMQ = window.matchMedia('(max-width: 1024px)');
   function _openDrawer() {
@@ -558,6 +616,7 @@
     _buildNav();
     _initSidebarSearch();
     _initSidebarToggle();
+    _initSidebarResizer();
     _initDrawer();
     _initThemeToggle();
     _initShortcutsModal();

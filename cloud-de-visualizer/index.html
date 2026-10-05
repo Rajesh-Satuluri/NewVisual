@@ -256,6 +256,7 @@
       display: flex;
       height: 100vh;
       overflow: hidden;
+      --sidebar-w: 256px; /* driven by the drag-to-resize handle (app.js) */
     }
     .main-area {
       flex: 1;
@@ -264,6 +265,36 @@
       min-width: 0;
       overflow: hidden;
     }
+
+    /* Drag-to-resize handle between the sidebar and the content pane */
+    .sidebar-resizer {
+      flex: 0 0 6px;
+      align-self: stretch;
+      margin: 0 -3px;               /* straddle the sidebar border; no permanent gap */
+      cursor: col-resize;
+      position: relative;
+      z-index: 20;
+      background: transparent;
+      touch-action: none;
+    }
+    .sidebar-resizer::before {
+      content: '';
+      position: absolute;
+      top: 0; bottom: 0; left: 50%;
+      width: 2px;
+      transform: translateX(-50%);
+      background: transparent;
+      transition: background .15s;
+    }
+    .sidebar-resizer:hover::before,
+    .sidebar-resizer:focus-visible::before,
+    body.sidebar-resizing .sidebar-resizer::before { background: var(--blue); }
+    .sidebar-resizer:focus-visible { outline: none; }
+    body.sidebar-resizing { cursor: col-resize; user-select: none; }
+    body.sidebar-resizing .sidebar { transition: none; } /* no lag while dragging */
+    /* No rail to resize when collapsed or in the mobile drawer */
+    body.sidebar-collapsed .sidebar-resizer { display: none; }
+    @media (max-width: 1024px) { .sidebar-resizer { display: none; } }
 
     /* Anim controls: use layout.css structure */
     .anim-progress-track { width: 160px; cursor: pointer; }
@@ -348,6 +379,10 @@
     </div>
 
   </aside><!-- /sidebar -->
+
+  <!-- Drag handle to resize the sidebar (desktop rail only) -->
+  <div id="sidebar-resizer" class="sidebar-resizer" role="separator" aria-orientation="vertical"
+       aria-label="Resize sidebar — drag, or arrow keys; double-click to reset" tabindex="0"></div>
 
   <!-- Drawer backdrop (visible only when the mobile drawer is open) -->
   <div id="nav-backdrop" class="nav-backdrop"></div>

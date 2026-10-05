@@ -13,8 +13,8 @@
 
 /* ── Sidebar ────────────────────────────────────────────────── */
 .sidebar {
-  width: 256px;
-  min-width: 256px;
+  width: var(--sidebar-w, 256px);
+  min-width: var(--sidebar-w, 256px);
   height: 100vh;
   display: flex;
   flex-direction: column;
