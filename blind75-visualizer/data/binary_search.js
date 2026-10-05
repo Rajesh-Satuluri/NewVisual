@@ -1073,6 +1073,212 @@
         "Use -inf/+inf sentinels at edges; valid when aLeft<=bRight and bLeft<=aRight.",
         "Odd -> min(aRight,bRight); even -> (max(aLeft,bLeft)+min(aRight,bRight))/2; else move i left/right."
       ]
+    },
+    {
+      "id": "search-insert-position",
+      "lc": 35,
+      "title": "Search Insert Position",
+      "difficulty": "Easy",
+      "category": "Binary Search",
+      "link": "https://leetcode.com/problems/search-insert-position/",
+      "meta": {
+        "pattern": "Binary Search (lower bound)",
+        "dataStructure": "Sorted array",
+        "technique": "Lower-bound search"
+      },
+      "description": "Given a **sorted** array of distinct integers `nums` and a `target`, return the index of `target` if present; otherwise return the index where it **would be inserted** to keep the array sorted.\n\nBoth cases unify into one goal: find the **first index whose value is >= target** (the *lower bound*). You must do it in `O(log n)`.",
+      "constraints": [
+        "`1 <= nums.length <= 10^4`",
+        "`-10^4 <= nums[i], target <= 10^4`",
+        "`nums` is sorted in ascending order with distinct values.",
+        "Required time: `O(log n)`."
+      ],
+      "notes": [
+        "If target is larger than every element, the insertion index is n (one past the end).",
+        "'Index of target, else where it would go' == first index with value >= target."
+      ],
+      "examples": [
+        {
+          "input": "nums = [1, 3, 5, 6], target = 5",
+          "output": "2",
+          "reasoning": "5 is present at index 2."
+        },
+        {
+          "input": "nums = [1, 3, 5, 6], target = 2",
+          "output": "1",
+          "reasoning": "2 would sit between 1 and 3, at index 1."
+        },
+        {
+          "input": "nums = [1, 3, 5, 6], target = 7",
+          "output": "4",
+          "reasoning": "7 is larger than all; it goes at the end, index 4.",
+          "visual": "```\nnums:  1   3   5   6\nidx:   0   1   2   3  (4)\ntarget=2 -> first value >= 2 is 3 at index 1 -> answer 1\n```"
+        }
+      ],
+      "approaches": [
+        {
+          "name": "Binary Search — lower bound",
+          "time": "O(log n)",
+          "space": "O(1)",
+          "whenToUse": "The required solution: logarithmic lower-bound search on a sorted array.",
+          "logic": "**What it asks.** Return `target`'s index, or where it would be inserted — which is the **first position with value >= target**.\n\n**Why a plain linear scan isn't enough.** Walking left to right until `nums[i] >= target` is `O(n)`; the sorted order lets us do it in `O(log n)` with binary search.\n\n**Key Idea — search the boundary [0, n].** The answer can be any index `0..n-1`, or `n` if `target` exceeds everything. So the search space includes `n`: start `left = 0`, `right = len(nums)`. We hunt for the leftmost index satisfying the condition `nums[mid] >= target`.\n\n**Step-by-Step Approach.**\n1. While `left < right`, compute `mid = (left + right) // 2`.\n2. If `nums[mid] >= target`, the boundary is at `mid` or to its left -> `right = mid` (keep mid).\n3. Else `nums[mid] < target`, so the boundary is to the right -> `left = mid + 1` (exclude mid).\n4. When `left == right`, that index is the answer.\n\n**Why it works.** The invariant is that the answer always lies in `[left, right]`. Each step halves the range while preserving it, and the loop ends when the range collapses to the single lower-bound index.\n\n**Common Gotchas.**\n- Initialize `right = len(nums)`, not `len(nums) - 1` — the insertion point can be `n`.\n- Use `right = mid` (inclusive) for the `>=` case and `left = mid + 1` for the `<` case; mismatching these loops forever or overshoots.\n\n**Complexity.** Halving the range each step is `O(log n)` time, `O(1)` space.\n\n**Interview mindset.** 'First index satisfying a monotonic condition' is the lower-bound template — reuse it for many sorted-array problems.",
+          "rcs": "from typing import List\n\n\nclass Solution:\n    def searchInsert(self, nums: List[int], target: int) -> int:\n        left, right = 0, len(nums)  # right = n so the insertion point can be the end.\n        while left < right:  # Shrink until the range holds exactly the boundary.\n            mid = (left + right) // 2  # Midpoint (floored).\n            if nums[mid] >= target:  # Boundary is here or to the left...\n                right = mid  # ...keep mid as a candidate.\n            else:  # nums[mid] < target: boundary is strictly to the right.\n                left = mid + 1  # Exclude mid.\n        return left  # First index with value >= target (the insertion position).",
+          "plain": "from typing import List\n\n\nclass Solution:\n    def searchInsert(self, nums: List[int], target: int) -> int:\n        left, right = 0, len(nums)\n        while left < right:\n            mid = (left + right) // 2\n            if nums[mid] >= target:\n                right = mid\n            else:\n                left = mid + 1\n        return left"
+        }
+      ],
+      "patternRecognition": [
+        "'Index of target, else insertion point' == lower bound (first value >= target).",
+        "Search space [0, n] so the answer can be one past the end.",
+        ">= case keeps mid (right = mid); < case excludes it (left = mid + 1)."
+      ],
+      "interviewRecall": [
+        "left=0, right=len(nums); loop while left<right.",
+        "nums[mid] >= target -> right = mid, else left = mid + 1.",
+        "Return left."
+      ]
+    },
+    {
+      "id": "find-first-and-last-position",
+      "lc": 34,
+      "title": "Find First and Last Position of Element in Sorted Array",
+      "difficulty": "Medium",
+      "category": "Binary Search",
+      "link": "https://leetcode.com/problems/find-first-and-last-position-of-element-in-sorted-array/",
+      "meta": {
+        "pattern": "Binary Search (bounds)",
+        "dataStructure": "Sorted array",
+        "technique": "Lower + upper bound"
+      },
+      "description": "Given an array `nums` sorted in non-decreasing order and a `target`, return `[first, last]` — the first and last indices where `target` appears. Return `[-1, -1]` if it isn't present. Must run in `O(log n)`.\n\nBecause duplicates may exist, a single binary search isn't enough; we find the two **bounds** of the target's run.",
+      "constraints": [
+        "`0 <= nums.length <= 10^5`",
+        "`-10^9 <= nums[i], target <= 10^9`",
+        "`nums` is sorted in non-decreasing order.",
+        "Required time: `O(log n)`."
+      ],
+      "notes": [
+        "first occurrence = lower bound of target; last occurrence = (lower bound of target+1) - 1.",
+        "Handle the empty array and the not-found case -> [-1, -1]."
+      ],
+      "examples": [
+        {
+          "input": "nums = [5, 7, 7, 8, 8, 10], target = 8",
+          "output": "[3, 4]",
+          "reasoning": "8 spans indices 3 and 4."
+        },
+        {
+          "input": "nums = [5, 7, 7, 8, 8, 10], target = 6",
+          "output": "[-1, -1]",
+          "reasoning": "6 is absent."
+        },
+        {
+          "input": "nums = [], target = 0",
+          "output": "[-1, -1]",
+          "reasoning": "Empty array.",
+          "visual": "```\nnums:  5  7  7  8  8  10\nidx:   0  1  2  3  4   5\nlower_bound(8)   = 3   (first 8)\nlower_bound(9)-1 = 5-1 = 4   (last 8)\n```"
+        }
+      ],
+      "approaches": [
+        {
+          "name": "Brute Force — linear scan",
+          "time": "O(n)",
+          "space": "O(1)",
+          "whenToUse": "Trivial baseline; violates the required O(log n) but clarifies the target.",
+          "logic": "**What it asks.** The first and last indices of `target`.\n\n**Why it's not enough.** Scanning for the first and last match is `O(n)`, but the problem demands `O(log n)`, which the sorted order makes possible via binary search.\n\n**Step-by-Step Approach.**\n1. Walk left to right; record the first index equal to `target`.\n2. Walk right to left (or continue) to record the last.\n\n**Complexity.** `O(n)` time, `O(1)` space.\n\n**Interview mindset.** Mention it, then pivot to two bound-searches for the log-time requirement.",
+          "rcs": "from typing import List\n\n\nclass Solution:\n    def searchRange(self, nums: List[int], target: int) -> List[int]:\n        first = last = -1\n        for i, x in enumerate(nums):  # Single scan recording both ends.\n            if x == target:\n                if first == -1:\n                    first = i  # First match seen.\n                last = i  # Keep updating -> ends as the last match.\n        return [first, last]",
+          "plain": "from typing import List\n\n\nclass Solution:\n    def searchRange(self, nums: List[int], target: int) -> List[int]:\n        first = last = -1\n        for i, x in enumerate(nums):\n            if x == target:\n                if first == -1:\n                    first = i\n                last = i\n        return [first, last]"
+        },
+        {
+          "name": "Optimized — Two bound searches",
+          "time": "O(log n)",
+          "space": "O(1)",
+          "whenToUse": "The required solution: locate the target's run with two lower-bound searches.",
+          "logic": "**Key Idea.** Reduce 'first and last occurrence' to two **lower-bound** searches (the same template as Search Insert Position):\n\n- `first` = lower bound of `target` = first index with value `>= target`.\n- `last`  = (lower bound of `target + 1`) `- 1` = last index with value `<= target`.\n\nThe second trick works because the first index `>= target + 1` is exactly one past the last `target`, so subtracting 1 lands on the final occurrence.\n\n**Step-by-Step Approach.**\n1. Write a helper `lower_bound(x)` returning the first index with `nums[i] >= x` (search space `[0, n]`).\n2. `first = lower_bound(target)`.\n3. If `first == n` or `nums[first] != target`, the target is absent -> return `[-1, -1]`.\n4. `last = lower_bound(target + 1) - 1`; return `[first, last]`.\n\n**Why it works.** Lower bound is monotone: everything before it is `< x`, everything from it on is `>= x`. Applying it at `target` and `target + 1` brackets the target's contiguous run exactly.\n\n**Common Gotchas.**\n- Validate `first` before trusting it — a lower bound exists even when the target doesn't.\n- Use search space `[0, n]` in the helper so `target + 1` beyond the array still resolves.\n- (Alternative upper-bound search uses a right-biased mid `(left+right)//2 + 1` with `left = mid` to avoid an infinite loop — the `lower_bound(target+1)-1` trick sidesteps that entirely.)\n\n**Complexity.** Two `O(log n)` searches -> `O(log n)` time, `O(1)` space.\n\n**Interview mindset.** Expressing both ends via one reusable lower-bound helper is cleaner than hand-writing separate left/right searches.",
+          "rcs": "from typing import List\n\n\nclass Solution:\n    def searchRange(self, nums: List[int], target: int) -> List[int]:\n        def lower_bound(x: int) -> int:\n            # First index i with nums[i] >= x (or len(nums) if none).\n            left, right = 0, len(nums)\n            while left < right:\n                mid = (left + right) // 2\n                if nums[mid] >= x:\n                    right = mid  # Boundary at mid or left.\n                else:\n                    left = mid + 1  # Boundary to the right.\n            return left\n\n        first = lower_bound(target)  # Leftmost index that could hold target.\n        # If nothing is >= target, or that slot isn't target, it's absent.\n        if first == len(nums) or nums[first] != target:\n            return [-1, -1]\n        # First index > target, minus one, is the last occurrence of target.\n        last = lower_bound(target + 1) - 1\n        return [first, last]",
+          "plain": "from typing import List\n\n\nclass Solution:\n    def searchRange(self, nums: List[int], target: int) -> List[int]:\n        def lower_bound(x):\n            left, right = 0, len(nums)\n            while left < right:\n                mid = (left + right) // 2\n                if nums[mid] >= x:\n                    right = mid\n                else:\n                    left = mid + 1\n            return left\n\n        first = lower_bound(target)\n        if first == len(nums) or nums[first] != target:\n            return [-1, -1]\n        last = lower_bound(target + 1) - 1\n        return [first, last]"
+        }
+      ],
+      "patternRecognition": [
+        "'First and last position with duplicates' -> two bound searches.",
+        "last occurrence = lower_bound(target+1) - 1.",
+        "Always validate the lower bound before trusting it (target may be absent)."
+      ],
+      "interviewRecall": [
+        "Reuse a single lower_bound(x) helper over search space [0, n].",
+        "first = lower_bound(target); check nums[first]==target.",
+        "last = lower_bound(target+1) - 1."
+      ]
+    },
+    {
+      "id": "cutting-wood",
+      "lc": null,
+      "title": "Cutting Wood",
+      "difficulty": "Medium",
+      "category": "Binary Search",
+      "link": null,
+      "meta": {
+        "pattern": "Binary Search on Answer",
+        "dataStructure": "Array",
+        "technique": "Monotonic predicate"
+      },
+      "description": "You're given tree `heights` and an integer `k`. A woodcutter set to height `H` shaves the part of every tree **taller than `H`** (trees at or below `H` are untouched), collecting `sum(height - H)` over all taller trees.\n\nReturn the **highest** `H` such that the machine still cuts **at least `k`** meters of wood. (`H` can't exceed the tallest tree.)",
+      "constraints": [
+        "At least one tree is given.",
+        "It's always possible to obtain at least `k` meters of wood.",
+        "`0 <= H <= max(heights)`."
+      ],
+      "notes": [
+        "The input array is NOT sorted — the binary search is over the ANSWER (possible H values), not the array.",
+        "As H increases, wood collected only decreases: the 'cuts enough wood?' predicate is monotonic -> binary search applies."
+      ],
+      "examples": [
+        {
+          "input": "heights = [2, 6, 3, 8], k = 7",
+          "output": "3",
+          "reasoning": "At H = 3 the machine cuts (6-3)+(8-3) = 8 >= 7. At H = 4 it cuts (6-4)+(8-4) = 6 < 7. So 3 is the highest valid setting."
+        },
+        {
+          "input": "heights = [10], k = 5",
+          "output": "5",
+          "reasoning": "One tree of height 10; H = 5 cuts exactly 5."
+        },
+        {
+          "input": "monotonic predicate",
+          "output": "",
+          "reasoning": "Why binary search works.",
+          "visual": "```\nH:        0   1   2   3 | 4   5   6   7   8\nenough?   T   T   T   T | F   F   F   F   F\n                     ^ highest H that is still True = answer\n```"
+        }
+      ],
+      "approaches": [
+        {
+          "name": "Brute Force — try every height",
+          "time": "O(n * max_h)",
+          "space": "O(1)",
+          "whenToUse": "Baseline that reveals the monotonic true/false structure.",
+          "logic": "**What it asks.** The highest cutter height `H` that still yields `>= k` meters.\n\n**Why it's slow.** Try `H` from `max(heights)` downward; for each, sum the wood (`O(n)`) and stop at the first `H` with enough. That's `O(n * max_h)` — fine for tiny inputs, slow when heights are large.\n\n**The key structure.** If height `H` yields enough wood, every smaller height yields even more (cutting lower only adds wood). So the 'enough?' answers form a block of `True` (low `H`) followed by `False` (high `H`) — a sorted boolean sequence. We want the **last True**.\n\n**Complexity.** `O(n * max_h)` time, `O(1)` space.\n\n**Interview mindset.** A monotonic predicate over a numeric range is the tell for 'binary search on the answer'.",
+          "rcs": "from typing import List\n\n\nclass Solution:\n    def cuttingWood(self, heights: List[int], k: int) -> int:\n        def cuts_enough(H: int) -> bool:\n            # Total wood from all trees taller than H.\n            return sum(h - H for h in heights if h > H) >= k\n        # Try the highest settings first; return the first that still cuts >= k.\n        for H in range(max(heights), -1, -1):\n            if cuts_enough(H):\n                return H\n        return 0",
+          "plain": "from typing import List\n\n\nclass Solution:\n    def cuttingWood(self, heights: List[int], k: int) -> int:\n        def cuts_enough(H):\n            return sum(h - H for h in heights if h > H) >= k\n        for H in range(max(heights), -1, -1):\n            if cuts_enough(H):\n                return H\n        return 0"
+        },
+        {
+          "name": "Optimized — Binary search on the answer",
+          "time": "O(n log(max_h))",
+          "space": "O(1)",
+          "whenToUse": "The intended solution: binary-search the height range using the monotonic predicate.",
+          "logic": "**Key Idea.** The predicate `cuts_enough(H)` is monotonic (True for small `H`, False once `H` is too high), so we binary-search the **value range** `[0, max(heights)]` for the largest `H` that is still True — an **upper-bound** search.\n\n**Right-biased midpoint.** Because the update for a True midpoint keeps the midpoint (`left = mid`), a normal floored `mid` can get stuck when `left` and `right` are adjacent. Computing `mid = (left + right) // 2 + 1` biases it rightward and guarantees progress.\n\n**Step-by-Step Approach.**\n1. `left, right = 0, max(heights)`.\n2. While `left < right`: `mid = (left + right) // 2 + 1`.\n3. If `cuts_enough(mid)`, the answer is `mid` or higher -> `left = mid`.\n4. Else `mid` is too high -> `right = mid - 1`.\n5. Return `left` — the highest height that still cuts `>= k`.\n\n**Why it works.** The invariant keeps the answer in `[left, right]`; each step halves the range while preserving it, converging on the last True height.\n\n**Common Gotchas.**\n- Use the right-biased `mid` for this upper-bound pattern, or you loop forever when `right = left + 1`.\n- `cuts_enough` must only count trees strictly taller than `H` (`h > H`).\n- Search the height range, not array indices.\n\n**Complexity.** `O(log(max_h))` iterations, each an `O(n)` wood sum -> `O(n log(max_h))` time, `O(1)` space.\n\n**Interview mindset.** 'Maximize/minimize a value subject to a monotonic feasibility check' = binary search on the answer (Koko Eating Bananas is the same shape).",
+          "rcs": "from typing import List\n\n\nclass Solution:\n    def cuttingWood(self, heights: List[int], k: int) -> int:\n        def cuts_enough(H: int) -> bool:\n            # Wood collected at setting H = sum of (height - H) over taller trees.\n            return sum(h - H for h in heights if h > H) >= k\n\n        left, right = 0, max(heights)  # Search the ANSWER range, not the array.\n        while left < right:\n            mid = (left + right) // 2 + 1  # Right-biased: needed for upper-bound (left = mid) updates.\n            if cuts_enough(mid):  # Enough wood -> we can try an even higher setting.\n                left = mid  # Keep mid as a candidate.\n            else:  # Too high, not enough wood.\n                right = mid - 1  # Exclude mid.\n        return left  # Highest H that still cuts at least k meters.",
+          "plain": "from typing import List\n\n\nclass Solution:\n    def cuttingWood(self, heights: List[int], k: int) -> int:\n        def cuts_enough(H):\n            return sum(h - H for h in heights if h > H) >= k\n\n        left, right = 0, max(heights)\n        while left < right:\n            mid = (left + right) // 2 + 1\n            if cuts_enough(mid):\n                left = mid\n            else:\n                right = mid - 1\n        return left"
+        }
+      ],
+      "patternRecognition": [
+        "'Maximize/minimize a value with a monotonic feasibility check' -> binary search on the answer.",
+        "Input array need not be sorted; the sorted thing is the true/false predicate over the value range.",
+        "Upper-bound search (last True) uses a right-biased midpoint."
+      ],
+      "interviewRecall": [
+        "Search range [0, max(heights)]; predicate cuts_enough(H).",
+        "mid = (left+right)//2 + 1; True -> left = mid, False -> right = mid - 1.",
+        "Return left; same template as Koko Eating Bananas."
+      ]
     }
   ]);
 })();
