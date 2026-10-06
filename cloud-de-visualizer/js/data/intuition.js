@@ -56,6 +56,26 @@
       aha: 'Lake Formation layers fine-grained, central permissions over the Glue Catalog — database / table / column / row and tag-based grants, enforced consistently across Athena, Redshift Spectrum and EMR.',
       when: 'Use it the moment multiple teams share a governed lake. It is about least-privilege access and audit, not storage or performance.',
     },
+    'iam': {
+      pain: 'With no central permission model, every service is all-or-nothing: a pipeline either has god-mode keys hard-coded in it or cannot run at all — a leak waiting to happen and an audit you cannot pass.',
+      aha: 'IAM is the deny-by-default identity layer: pipelines assume short-lived roles scoped to exactly the actions and resources they need, so a compromised job can only touch its own data.',
+      when: 'Every AWS pipeline runs under an IAM role. Use roles (not access keys) for Glue/EMR/Lambda, and layer Lake Formation on top for fine-grained table/column grants.',
+    },
+    'kms': {
+      pain: 'Encrypting data is easy; proving that only the right people can decrypt it — and revoking that instantly — is the hard, audited part that bucket permissions alone cannot give you.',
+      aha: 'KMS makes the encryption key a separate, policy-controlled gate: holding the data in S3 is useless without kms:Decrypt on its key, and every use is logged.',
+      when: 'For encryption at rest with real separation of duties and PII control. Remember reads need both the S3 action and kms:Decrypt — the classic AccessDenied trap.',
+    },
+    'cloudwatch': {
+      pain: 'Pipelines fail quietly — a job slows, a stream backs up, a Lambda errors — and you find out only when a downstream dashboard is already wrong.',
+      aha: 'CloudWatch is the pipeline\'s nervous system: metrics + logs + alarms that detect failures and latency and page you (SNS) or auto-remediate (EventBridge) before the data is bad.',
+      when: 'Operational health and alerting — job failures, streaming lag (iterator age), slow Glue/EMR jobs. Use CloudTrail instead when the question is "who did it?".',
+    },
+    'cloudtrail': {
+      pain: 'After an incident, "who read or changed this dataset, and when?" is unanswerable unless something recorded every API call — and metrics dashboards do not.',
+      aha: 'CloudTrail is the account\'s audit log: every API call with identity, action, time and source IP, delivered to S3 and queryable in Athena.',
+      when: 'Audit, compliance and forensics. It is the governance counterpart to CloudWatch\'s operational monitoring — not a real-time alerting tool.',
+    },
     'emr': {
       pain: 'Hand-building and tuning a Hadoop/Spark cluster — versions, scaling, Spot bidding — is slow, fragile work that distracts from the actual pipeline.',
       aha: 'EMR is managed big-data clusters (Spark, Hadoop, Presto, Hive) with full control of versions and tuning, plus Spot fleets for big cost savings on heavy jobs.',
@@ -261,6 +281,11 @@
       pain: 'Dashboards and anomaly detection over huge volumes of live telemetry need sub-second answers that batch SQL/Spark cannot give.',
       aha: 'An Eventhouse is a KQL engine purpose-built for time-series/log data — fast ingestion and seconds-fresh analytics, with data also available in OneLake.',
       when: 'For high-volume real-time analytics (IoT, logs, live dashboards) via KQL. Pair it with Eventstream for ingestion; use the Lakehouse/Warehouse for batch analytics.',
+    },
+    'fabric-mirroring': {
+      pain: 'Getting operational-database data into analytics meant building and babysitting a CDC pipeline (DMS/ADF + MERGE) — fragile plumbing that competes with production for resources.',
+      aha: 'Mirroring is managed, near-real-time replication: point it at Azure SQL/Cosmos/Snowflake/PostgreSQL and Fabric keeps a fresh Delta copy in OneLake for you — no pipeline to author.',
+      when: 'When you need a continuously-synced copy of an operational DB in the lake with zero ETL. Use a shortcut to reference lake data in place; use a pipeline when you need custom movement or transforms.',
     },
 
     /* ── Interview concepts (drill pages, keyed by iq-<id>) ── */

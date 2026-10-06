@@ -123,6 +123,10 @@
     'mwaa':             {                   difficulty: 'intermediate', skills: ['production'], prereqs: [] },
     'lambda':           {                   difficulty: 'intro',    prereqs: [] },
     'dms':              {                   difficulty: 'intermediate', prereqs: [] },
+    'iam':              {                   difficulty: 'intermediate', skills: ['governance', 'production'], prereqs: [], importance: { interview: 74, production: 86, architecture: 64 } },
+    'kms':              {                   difficulty: 'intermediate', skills: ['governance'], prereqs: [], importance: { interview: 70, production: 80, architecture: 58 } },
+    'cloudwatch':       {                   difficulty: 'intermediate', skills: ['production', 'troubleshooting'], prereqs: [], importance: { interview: 70, production: 86, architecture: 56 } },
+    'cloudtrail':       {                   difficulty: 'intermediate', skills: ['governance', 'production'], prereqs: [], importance: { interview: 66, production: 80, architecture: 56 } },
 
     /* — Azure services — */
     'adls-gen2':        { foundation: true, difficulty: 'intro',    prereqs: [], importance: { interview: 86, production: 78, architecture: 76 } },
@@ -174,6 +178,7 @@
     'fabric-spark':        { difficulty: 'intermediate', skills: ['pyspark', 'spark'], prereqs: ['onelake'] },
     'eventstream':         { difficulty: 'intermediate', skills: ['streaming'], prereqs: [] },
     'eventhouse':          { difficulty: 'advanced', skills: ['streaming', 'sql'], prereqs: ['eventstream'] },
+    'fabric-mirroring':    { difficulty: 'intermediate', skills: ['production'], prereqs: ['onelake'], importance: { interview: 74, production: 78, architecture: 62 } },
   };
 
   /* ── Build the flat topic list from registered catalogs ────── */
