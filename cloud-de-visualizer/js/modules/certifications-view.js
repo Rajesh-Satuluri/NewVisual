@@ -18,7 +18,7 @@
   if (!TV || !TV.CertEngine) return;
 
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
-  let _selected = null, _wired = false, _onProgress = null, _container = null;
+  let _selected = null, _prevSelected = null, _wired = false, _onProgress = null, _container = null;
   const _labOpen = {}, _domOpen = {};
   let _planDays = 30;
 
@@ -72,6 +72,7 @@
 .ct-pf-tier { font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; color:var(--text-muted,#8b949e); width:92px; text-align:right; }
 .ct-pf-insight { margin-top:12px; font-size:12.5px; color:var(--text-secondary,#adbac7); background:var(--bg-1,#0d1117); border-left:3px solid var(--brand,#58a6ff); border-radius:8px; padding:10px 13px; }
 .ct-pf-insight b { color:var(--text-primary,#e6edf3); }
+.ct-empty { background:var(--bg-2,#161b22); border:1px dashed var(--border-default,#30363d); border-radius:12px; padding:22px; font-size:13px; color:var(--text-muted,#8b949e); text-align:center; }
 .ct-retired .ct-card { opacity:.75; }
 .ct-retired-tag { font-size:10px; font-weight:800; text-transform:uppercase; color:#f85149; border:1px solid #f85149; border-radius:5px; padding:1px 6px; }
 /* detail */
@@ -158,6 +159,15 @@
 
   function lvlClass(p) { return p < 45 ? 'lvl-lo' : p < 70 ? 'lvl-mid' : 'lvl-hi'; }
 
+  /* Current tab → which certs to show. Cross-Cloud (multi-cloud) shows all;
+     each cloud tab keeps only its own certs (cert.accent aligns with the
+     format id: azure / databricks / aws / fabric). */
+  function matchesFormat(accent) {
+    const f = TV.activeFormat;
+    return !f || f === 'multi-cloud' || (accent || '') === f;
+  }
+  function accentOf(certId) { const c = TV.Certifications.byId(certId); return c ? (c.accent || '') : ''; }
+
   function ring(pct, r) {
     r = r || 26; const c = 2 * Math.PI * r, off = c * (1 - pct / 100);
     return `<svg width="${(r + 6) * 2}" height="${(r + 6) * 2}" viewBox="0 0 ${(r + 6) * 2} ${(r + 6) * 2}"><circle class="ct-ring-track" cx="${r + 6}" cy="${r + 6}" r="${r}" fill="none" stroke-width="6"/><circle class="ct-ring-val" cx="${r + 6}" cy="${r + 6}" r="${r}" fill="none" stroke-width="6" stroke-dasharray="${c}" stroke-dashoffset="${off}"/></svg>`;
@@ -212,7 +222,8 @@
   }
 
   function portfolioHTML() {
-    const sums = TV.CertEngine.certSummaries();
+    const sums = TV.CertEngine.certSummaries().filter(s => matchesFormat(accentOf(s.certificationId)));
+    if (!sums.length) return '';
     const rows = sums.map(s => `
       <div class="ct-pf-row" data-open="${esc(s.certificationId)}">
         <span class="ct-pf-name">${esc(s.name)}</span>
@@ -237,24 +248,37 @@
 
   function centerHTML() {
     const C = TV.Certifications;
+    const f = TV.activeFormat;
+    const fmtLabel = (TV.formats && TV.formats[f] && TV.formats[f].label) || '';
+    const scoped = f && f !== 'multi-cloud';
+    const activeCerts = C.active().filter(c => matchesFormat(c.accent));
+    const retiredCerts = C.retired.filter(c => matchesFormat(c.accent));
     const next = TV.CertEngine.recommendNextCert();
-    const nextHTML = next ? `
+    const nextHTML = next && matchesFormat(next.cert.accent) ? `
       <div class="ct-next">
         <h3>✨ Recommended next: ${esc(next.cert.name)}</h3>
         <p>${esc(next.reason)}</p>
       </div>` : '';
+    const lead = scoped
+      ? `Official ${esc(fmtLabel)} Data Engineering certifications — each mapped to the content you already study here, with readiness built from your real progress.`
+      : 'Prepare for the current, official Data Engineering certifications — each mapped to the content you already study here, with readiness built from your real progress.';
+    const activeHTML = activeCerts.length
+      ? `<div class="ct-grid">${activeCerts.map(cardHTML).join('')}</div>`
+      : `<div class="ct-empty">No active ${esc(fmtLabel)} certification track yet.${retiredCerts.length ? ' See retired/legacy below.' : ''}</div>`;
+    const retiredHTML = retiredCerts.length
+      ? `<div class="ct-section-h">Retired / Legacy</div><div class="ct-grid ct-retired">${retiredCerts.map(retiredCardHTML).join('')}</div>`
+      : '';
     return `
 <div class="ct-wrap page-enter">
   <div class="ct-head">
-    <h1>Certification Center</h1>
-    <p>Prepare for the current, official Data Engineering certifications — each mapped to the content you already study here, with readiness built from your real progress.</p>
+    <h1>Certification Center${scoped ? ' · ' + esc(fmtLabel) : ''}</h1>
+    <p>${lead}</p>
     <div class="ct-verified">Exam facts verified <b>${esc(C.lastVerified)}</b> · ${esc(C.source)}</div>
   </div>
   ${portfolioHTML()}
   ${nextHTML}
-  <div class="ct-grid">${C.active().map(cardHTML).join('')}</div>
-  <div class="ct-section-h">Retired / Legacy</div>
-  <div class="ct-grid ct-retired">${C.retired.map(retiredCardHTML).join('')}</div>
+  ${activeHTML}
+  ${retiredHTML}
 </div>`;
   }
 
@@ -414,15 +438,33 @@
     _container = container;
     const scroll = container.scrollTop;
     container.className = '';
-    const cert = _selected && TV.Certifications.byId(_selected);
+    let cert = _selected && TV.Certifications.byId(_selected);
+    // If the open detail belongs to another cloud tab, fall back to the center.
+    if (cert && !matchesFormat(cert.accent)) { _selected = null; cert = null; }
+    // Only jump to the top when the selection actually changes (center↔detail).
+    // In-place re-renders (progress updates, plan-day switch) keep scroll position.
+    const selectionChanged = _selected !== _prevSelected;
     container.innerHTML = cert ? detailHTML(cert) : centerHTML();
-    container.scrollTop = _selected ? 0 : scroll;
+    container.scrollTop = selectionChanged ? 0 : scroll;
+    _prevSelected = _selected;
     if (!_wired) {
       _wired = true;
       container.addEventListener('click', onClick);
       _onProgress = () => { if (TV.currentScreenId && TV.currentScreenId() === 'certifications') render(container); };
       document.addEventListener('progress:change', _onProgress);
     }
+  }
+
+  // Keep the Expand all / Collapse all button in sync with current state,
+  // without re-rendering the whole detail view.
+  function syncExpandAllBtn() {
+    if (!_container) return;
+    const btn = _container.querySelector('[data-dom-expand]');
+    if (!btn) return;
+    const doms = _container.querySelectorAll('.ct-dom');
+    const allOpen = doms.length > 0 && [...doms].every(el => el.classList.contains('open'));
+    btn.setAttribute('data-dom-expand', allOpen ? 'collapse' : 'expand');
+    btn.textContent = allOpen ? 'Collapse all' : 'Expand all';
   }
 
   function onClick(e) {
@@ -434,15 +476,33 @@
     const labDone = e.target.closest('[data-lab-done]');
     if (labDone) { e.stopPropagation(); const id = labDone.getAttribute('data-lab-done'); TV.Progress.setLabDone(id, !TV.Progress.isLabDone(id)); return; }
     const labTog = e.target.closest('[data-lab-toggle]');
-    if (labTog) { const id = labTog.getAttribute('data-lab-toggle'); _labOpen[id] = !_labOpen[id]; render(_container); return; }
+    if (labTog) {
+      // Toggle in place — no re-render, so the page does not jump to the top.
+      const id = labTog.getAttribute('data-lab-toggle');
+      _labOpen[id] = !_labOpen[id];
+      const lab = labTog.closest('.ct-lab');
+      if (lab) lab.classList.toggle('open', _labOpen[id]);
+      return;
+    }
     const domTog = e.target.closest('[data-dom-toggle]');
-    if (domTog) { const id = domTog.getAttribute('data-dom-toggle'); _domOpen[id] = !_domOpen[id]; render(_container); return; }
+    if (domTog) {
+      const id = domTog.getAttribute('data-dom-toggle');
+      _domOpen[id] = !_domOpen[id];
+      const dom = domTog.closest('.ct-dom');
+      if (dom) dom.classList.toggle('open', _domOpen[id]);
+      domTog.setAttribute('aria-expanded', String(!!_domOpen[id]));
+      syncExpandAllBtn();
+      return;
+    }
     const domExp = e.target.closest('[data-dom-expand]');
     if (domExp) {
       const cert = _selected && TV.Certifications.byId(_selected);
       const want = domExp.getAttribute('data-dom-expand') === 'expand';
       if (cert) (cert.domains || []).forEach(d => { _domOpen[d.id] = want; });
-      render(_container); return;
+      _container.querySelectorAll('.ct-dom').forEach(el => el.classList.toggle('open', want));
+      _container.querySelectorAll('.ct-dom-top').forEach(el => el.setAttribute('aria-expanded', String(want)));
+      syncExpandAllBtn();
+      return;
     }
     const planDay = e.target.closest('[data-plan-day]');
     if (planDay) { _planDays = parseInt(planDay.getAttribute('data-plan-day'), 10) || 30; render(_container); return; }
