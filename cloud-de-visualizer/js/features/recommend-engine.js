@@ -366,6 +366,55 @@
              personalized: TV.Progress ? TV.Progress.hasAnyProgress() : false };
   }
 
+  /* ── Learning paths (adaptive sequences) ─────────────────────────
+     Annotates a curated path's steps with the user's current state so
+     the path adapts instead of being a static checklist:
+       done     — mastered (skipped going forward)
+       active   — the next thing to do (first non-done step)
+       upcoming — later steps
+     plus per-step: started, score, weak (started but <60), and
+     `reinforce` (weak/missing prerequisites worth shoring up first). */
+  function generateLearningPath(pathId) {
+    const defs = TV.LearningPaths || [];
+    const def = typeof pathId === 'object' ? pathId : defs.find(p => p.id === pathId);
+    if (!def) return null;
+
+    let activeAssigned = false;
+    const steps = (def.steps || []).map(id => {
+      const t = TV.Taxonomy.byId(id);
+      if (!t) return null;
+      const sig = (TV.Progress ? TV.Progress.topicSignals(t) : {}) || {};
+      const ks = calculateTopicScore(t, sig);
+      const done = _isMastered(sig, ks);
+      const weak = ks.started && ks.score < WEAK_SCORE;
+      let state = done ? 'done' : 'upcoming';
+      if (!done && !activeAssigned) { state = 'active'; activeAssigned = true; }
+      // Prereqs worth reinforcing that aren't already earlier in this path.
+      const earlier = new Set((def.steps || []).slice(0, (def.steps || []).indexOf(id)));
+      const reinforce = getPrerequisites(t)
+        .filter(p => p.weak && !earlier.has(p.topic.id))
+        .map(p => ({ id: p.topic.id, title: p.topic.label, route: p.topic.route, score: p.score, started: p.started }));
+      return {
+        id: t.id, title: t.label, route: t.route, cloud: t.cloud, kind: t.kind,
+        difficulty: t.difficulty, score: ks.score, started: ks.started,
+        done: done, weak: weak, state: state, reinforce: reinforce,
+      };
+    }).filter(Boolean);
+
+    const doneCount = steps.filter(s => s.done).length;
+    const active = steps.find(s => s.state === 'active') || null;
+    return {
+      id: def.id, title: def.title, goal: def.goal, icon: def.icon, cloud: def.cloud,
+      steps: steps,
+      progress: { done: doneCount, total: steps.length, pct: steps.length ? _round((doneCount / steps.length) * 100) : 0 },
+      nextStep: active,
+    };
+  }
+
+  function getLearningPaths() {
+    return (TV.LearningPaths || []).map(p => generateLearningPath(p)).filter(Boolean);
+  }
+
   /* ── Public API ──────────────────────────────────────────────── */
   TV.Recommend = {
     DEFAULT_WEIGHTS, TYPE_LABEL,
@@ -373,5 +422,6 @@
     getPrerequisites, buildRecommendation,
     getNextBestTopics, getReviewTopics, getWeakAreas,
     getInterviewReadiness, getOverview,
+    generateLearningPath, getLearningPaths,
   };
 })();
