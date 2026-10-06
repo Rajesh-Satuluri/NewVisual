@@ -150,6 +150,18 @@
     var m = B.IMPORTANCE || {};
     return m[p && p.lc] || "common";
   }
+  // Interview-frequency rank: lower number = asked more often. Drives the
+  // high-frequency-first ordering of problems within every sidebar group.
+  var IMP_RANK = { essential: 0, common: 1, occasional: 2 };
+  function impRank(p) { var r = IMP_RANK[impOf(p)]; return r == null ? 1 : r; }
+  // Order a group's problems by interview frequency (high -> low), keeping the
+  // original (curated) order as a stable tiebreak within the same tier.
+  function byFrequency(list) {
+    return list
+      .map(function (p, i) { return { p: p, i: i }; })
+      .sort(function (a, b) { return (impRank(a.p) - impRank(b.p)) || (a.i - b.i); })
+      .map(function (x) { return x.p; });
+  }
 
   // Value-getters that let the shared LABFILTERS model filter DSA problems.
   var DSA_GETTERS = {
@@ -354,7 +366,7 @@
     nav.appendChild(gb);
 
     activeGroups().forEach(function (g) {
-      var matching = g.problems.filter(function (p) { return vis[p.id]; });
+      var matching = byFrequency(g.problems.filter(function (p) { return vis[p.id]; }));
       if (!matching.length) return;
 
       var ckey = catKey(g.category);
