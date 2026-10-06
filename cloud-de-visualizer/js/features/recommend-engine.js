@@ -415,6 +415,51 @@
     return (TV.LearningPaths || []).map(p => generateLearningPath(p)).filter(Boolean);
   }
 
+  /* ── Today's study plan (time-boxed session from current gaps) ────
+     Fills a minute budget with: top next-best topics to study, a
+     spaced-review item, and a closing quiz on the cloud you're working.
+     Deterministic — same gaps produce the same plan. */
+  function generateDailyPlan(minutes) {
+    const budget = [30, 60, 120].indexOf(minutes) !== -1 ? minutes : 60;
+    let remaining = budget;
+    const blocks = [];
+    const used = new Set();
+
+    // Reserve room so a longer session still ends with review + a quiz.
+    const reserve = budget >= 60 ? 20 : 10;
+
+    const next = getNextBestTopics(6);
+    for (const rec of next) {
+      if (remaining - reserve < 15 && blocks.length) break; // keep room, but guarantee ≥1 study
+      if (remaining < 15) break;
+      const m = Math.min(rec.estimatedMinutes || 30, remaining);
+      blocks.push({ type: 'study', minutes: m, title: rec.title, route: rec.route,
+        cloud: rec.cloud, detail: rec.typeLabel, reason: rec.reason[0] || '' });
+      used.add(rec.cloud);
+      remaining -= m;
+    }
+
+    const rev = getReviewTopics(1);
+    if (rev.length && remaining >= 10) {
+      blocks.push({ type: 'review', minutes: 10, title: rev[0].title, route: rev[0].route,
+        cloud: rev[0].cloud, detail: 'Spaced review', reason: (rev[0].signals.daysSinceStudied || '') + 'd since last study' });
+      remaining -= 10;
+    }
+
+    // Close with a quiz on a cloud in the plan that actually has a bank.
+    if (remaining >= 10) {
+      const cloud = [...used].find(c => TV.QuizBank && TV.QuizBank[c]) ||
+        (TV.QuizBank ? Object.keys(TV.QuizBank)[0] : null);
+      if (cloud) {
+        blocks.push({ type: 'quiz', minutes: 10, title: 'Test yourself — ' + cloud, cloud: cloud,
+          detail: 'Quiz', reason: 'Lock in recall on what you studied' });
+        remaining -= 10;
+      }
+    }
+
+    return { budget: budget, used: budget - remaining, blocks: blocks };
+  }
+
   /* ── Public API ──────────────────────────────────────────────── */
   TV.Recommend = {
     DEFAULT_WEIGHTS, TYPE_LABEL,
@@ -422,6 +467,6 @@
     getPrerequisites, buildRecommendation,
     getNextBestTopics, getReviewTopics, getWeakAreas,
     getInterviewReadiness, getOverview,
-    generateLearningPath, getLearningPaths,
+    generateLearningPath, getLearningPaths, generateDailyPlan,
   };
 })();

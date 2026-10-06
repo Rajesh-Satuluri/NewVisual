@@ -25,6 +25,7 @@
 
   const _expanded = {};   // topicId → bool (persist expand across re-renders)
   let _wired = false;
+  let _planMinutes = 60;  // study-plan budget
 
   function injectStyles() {
     if (document.getElementById('rec-styles')) return;
@@ -137,6 +138,25 @@
 .rec-list a:hover { color:var(--brand,#58a6ff); }
 .rec-list .rec-mini { font-size:11px; color:var(--text-muted,#8b949e); }
 .rec-empty { font-size:12.5px; color:var(--text-muted,#8b949e); font-style:italic; padding:10px 0; }
+/* study plan */
+.rec-plan { background:var(--bg-2,#161b22); border:1px solid var(--border-default,#30363d); border-radius:14px; padding:16px 18px; }
+.rec-plan-head { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
+.rec-plan-budget { display:inline-flex; gap:4px; background:var(--bg-1,#0d1117); border:1px solid var(--border-default,#30363d); border-radius:9px; padding:3px; }
+.rec-plan-min { background:none; border:none; color:var(--text-secondary,#adbac7); font:inherit; font-size:12px; font-weight:700; padding:5px 11px; border-radius:7px; cursor:pointer; }
+.rec-plan-min.on { background:var(--brand,#58a6ff); color:#fff; }
+.rec-plan-list { display:flex; flex-direction:column; gap:9px; }
+.rec-plan-block { display:flex; align-items:center; gap:13px; background:var(--bg-1,#0d1117); border:1px solid var(--border-default,#30363d); border-radius:10px; padding:11px 14px; cursor:pointer; transition:border-color .12s; }
+.rec-plan-block:hover { border-color:var(--brand,#58a6ff); }
+.rec-plan-min-badge { flex-shrink:0; width:52px; text-align:center; font-size:13px; font-weight:800; color:var(--text-primary,#e6edf3); }
+.rec-plan-min-badge span { display:block; font-size:9.5px; font-weight:700; color:var(--text-muted,#8b949e); text-transform:uppercase; }
+.rec-plan-type { flex-shrink:0; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; padding:3px 8px; border-radius:20px; }
+.rec-plan-type.study { background:color-mix(in srgb,var(--brand,#58a6ff) 18%,transparent); color:var(--brand,#58a6ff); }
+.rec-plan-type.review { background:rgba(210,153,34,.18); color:#d29922; }
+.rec-plan-type.quiz { background:rgba(63,185,80,.16); color:var(--green,#3fb950); }
+.rec-plan-body { flex:1; min-width:0; }
+.rec-plan-title { font-size:13.5px; font-weight:700; color:var(--text-primary,#e6edf3); }
+.rec-plan-reason { font-size:11.5px; color:var(--text-muted,#8b949e); margin-top:2px; }
+.rec-plan-total { font-size:12px; color:var(--text-muted,#8b949e); }
 .rec-scored-note { font-size:11.5px; color:var(--text-muted,#8b949e); margin-top:26px; line-height:1.6; }
 .rec-scored-note summary { cursor:pointer; color:var(--text-secondary,#adbac7); }
 @media (max-width:720px){ .rec-cols{ grid-template-columns:1fr; gap:4px; } .rec-skill{ grid-template-columns:110px 1fr 36px; } }
@@ -200,6 +220,37 @@
     if (!t) return '';
     const rating = TV.Progress.getRating(topicId);
     return `<div class="rec-cal-item"><div class="rec-cal-name">${esc(t.label)}</div>${starRow(topicId, rating)}</div>`;
+  }
+
+  function planBlockHTML(b) {
+    const attr = b.type === 'quiz' ? `data-quiz-cloud="${esc(b.cloud)}"` : `data-go="${esc(b.route)}"`;
+    return `
+      <div class="rec-plan-block" ${attr}>
+        <div class="rec-plan-min-badge">${b.minutes}<span>min</span></div>
+        <span class="rec-plan-type ${b.type}">${b.type}</span>
+        <div class="rec-plan-body">
+          <div class="rec-plan-title">${esc(b.title)}</div>
+          <div class="rec-plan-reason">${esc(b.reason || '')}</div>
+        </div>
+      </div>`;
+  }
+
+  function planHTML() {
+    const plan = TV.Recommend.generateDailyPlan(_planMinutes);
+    const mins = [30, 60, 120].map(m => `<button class="rec-plan-min ${m === _planMinutes ? 'on' : ''}" data-plan-min="${m}">${m}m</button>`).join('');
+    const body = plan.blocks.length
+      ? plan.blocks.map(planBlockHTML).join('')
+      : '<p class="rec-empty">Rate a few topics or take a quiz and a tailored session plan appears here.</p>';
+    return `
+<div class="rec-section">
+  <div class="rec-plan">
+    <div class="rec-plan-head">
+      <div><h2 style="margin:0">Today's study plan</h2><p class="rec-plan-total" style="margin:3px 0 0">A focused ${plan.used}-minute session built from your current gaps.</p></div>
+      <div class="rec-plan-budget">${mins}</div>
+    </div>
+    <div class="rec-plan-list">${body}</div>
+  </div>
+</div>`;
   }
 
   function ring(pct) {
@@ -277,6 +328,8 @@
     <div class="rec-cards">${next.map((r, i) => card(r, i + 1)).join('')}</div>
   </div>
 
+  ${planHTML()}
+
   <div class="rec-section">
     <h2>Interview readiness</h2>
     <p class="rec-sub">Coverage-weighted by interview importance, weakest first.</p>
@@ -320,6 +373,17 @@
   let _onProgress = null;
 
   function onClick(e) {
+    const minBtn = e.target.closest('[data-plan-min]');
+    if (minBtn) { _planMinutes = parseInt(minBtn.getAttribute('data-plan-min'), 10) || 60; render(document.getElementById('module-container')); return; }
+
+    const quizBlock = e.target.closest('[data-quiz-cloud]');
+    if (quizBlock) {
+      const cloud = quizBlock.getAttribute('data-quiz-cloud');
+      if (cloud) location.hash = cloud + '/recommend'; // switches active format (and quiz bank), stays on dashboard
+      if (TV._openQuiz) setTimeout(() => TV._openQuiz(), 80);
+      return;
+    }
+
     const goEl = e.target.closest('[data-go]');
     if (goEl) { e.preventDefault(); go(goEl.getAttribute('data-go')); return; }
 
