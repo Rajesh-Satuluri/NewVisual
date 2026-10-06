@@ -268,7 +268,11 @@
   function getNextBestTopics(n, ctx) {
     ctx = ctx || {};
     n = _clamp(n || 5, 3, 8);
-    const topics = TV.Taxonomy.topics();
+    let topics = TV.Taxonomy.topics();
+    if (ctx.restrictTo && ctx.restrictTo.length) {
+      const set = new Set(ctx.restrictTo);
+      topics = topics.filter(t => set.has(t.id));
+    }
 
     const scored = topics.map(t => {
       const sig = (TV.Progress ? TV.Progress.topicSignals(t) : {}) || {};
@@ -426,7 +430,7 @@
      Fills a minute budget with: top next-best topics to study, a
      spaced-review item, and a closing quiz on the cloud you're working.
      Deterministic — same gaps produce the same plan. */
-  function generateDailyPlan(minutes) {
+  function generateDailyPlan(minutes, ctx) {
     const budget = [30, 60, 120].indexOf(minutes) !== -1 ? minutes : 60;
     let remaining = budget;
     const blocks = [];
@@ -435,7 +439,7 @@
     // Reserve room so a longer session still ends with review + a quiz.
     const reserve = budget >= 60 ? 20 : 10;
 
-    const next = getNextBestTopics(6);
+    const next = getNextBestTopics(6, ctx || {});
     for (const rec of next) {
       if (remaining - reserve < 15 && blocks.length) break; // keep room, but guarantee ≥1 study
       if (remaining < 15) break;

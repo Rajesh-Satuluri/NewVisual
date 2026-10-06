@@ -44,6 +44,9 @@
   border-radius:8px; padding:6px 10px; font:inherit; font-size:12.5px; cursor:pointer; }
 .rec-reset { background:none; border:none; color:var(--text-muted,#8b949e); font:inherit; font-size:11.5px; cursor:pointer; text-decoration:underline; padding:4px; }
 .rec-reset:hover { color:var(--text-secondary,#adbac7); }
+.rec-goal { display:inline-flex; gap:3px; background:var(--bg-1,#0d1117); border:1px solid var(--border-default,#30363d); border-radius:9px; padding:3px; }
+.rec-goal-seg { background:none; border:none; color:var(--text-secondary,#adbac7); font:inherit; font-size:12px; font-weight:700; padding:5px 12px; border-radius:7px; cursor:pointer; }
+.rec-goal-seg.on { background:var(--brand,#58a6ff); color:#fff; }
 
 /* readiness ring */
 .rec-ring { display:flex; align-items:center; gap:16px; }
@@ -250,8 +253,8 @@
       </div>`;
   }
 
-  function planHTML() {
-    const plan = TV.Recommend.generateDailyPlan(_planMinutes);
+  function planHTML(ctx) {
+    const plan = TV.Recommend.generateDailyPlan(_planMinutes, ctx || {});
     const mins = [30, 60, 120].map(m => `<button class="rec-plan-min ${m === _planMinutes ? 'on' : ''}" data-plan-min="${m}">${m}m</button>`).join('');
     const body = plan.blocks.length
       ? plan.blocks.map(planBlockHTML).join('')
@@ -281,13 +284,27 @@
     const role = TV.Progress.getRole();
     const roles = TV.Taxonomy.roles();
     const ir = TV.Recommend.getInterviewReadiness();
-    const next = TV.Recommend.getNextBestTopics(5);
+
+    // Study goal: interview (default) vs certification (filters to a cert's topics).
+    const goal = (TV.Progress.getGoal && TV.Progress.getGoal()) || 'interview';
+    const certMode = goal === 'certification' && TV.Certifications && TV.CertEngine;
+    let cert = null, certRd = null, restrictTo = null;
+    if (certMode) {
+      const tid = TV.Progress.getTargetCert() || (TV.Certifications.active()[0] || {}).certificationId;
+      cert = TV.Certifications.byId(tid);
+      if (cert) { certRd = TV.CertEngine.certReadiness(cert); restrictTo = TV.CertEngine.certTopicIds(cert); }
+    }
+    const nextCtx = restrictTo ? { restrictTo: restrictTo } : {};
+
+    const next = TV.Recommend.getNextBestTopics(5, nextCtx);
     const weak = TV.Recommend.getWeakAreas(6);
     const review = TV.Recommend.getReviewTopics(6);
     const paths = TV.Recommend.getLearningPaths();
     const pathAvg = paths.length ? Math.round(paths.reduce((a, p) => a + p.progress.pct, 0) / paths.length) : 0;
 
     const roleOpts = roles.map(r => '<option value="' + esc(r.id) + '"' + (r.id === role ? ' selected' : '') + '>' + esc(r.label) + '</option>').join('');
+    const certOpts = (certMode ? TV.Certifications.active() : []).map(c => '<option value="' + esc(c.certificationId) + '"' + (cert && c.certificationId === cert.certificationId ? ' selected' : '') + '>' + esc(c.name) + '</option>').join('');
+    const goalSeg = (g, label) => '<button class="rec-goal-seg ' + (goal === g ? 'on' : '') + '" data-goal-mode="' + g + '">' + label + '</button>';
 
     const skillsHtml = ir.skills.map(s => `
       <div class="rec-skill">
@@ -316,24 +333,28 @@
   <div class="rec-hero">
     <div class="rec-hero-left">
       <h1>What should I study next?</h1>
-      <p>Your personal Cloud DE mentor — recommendations built from your actual quiz accuracy, self-ratings and what you've opened, weighed by interview and production importance and prerequisite order.</p>
+      <p>${certMode && cert
+        ? 'Certification mode — recommendations, readiness and today\'s plan are focused on <b>' + esc(cert.name) + '</b> and its official exam objectives.'
+        : 'Your personal Cloud DE mentor — recommendations built from your actual quiz accuracy, self-ratings and what you\'ve opened, weighed by interview and production importance and prerequisite order.'}</p>
       <div class="rec-ctrls">
-        <label class="rec-role">Target role
-          <select id="rec-role-select" aria-label="Target role">${roleOpts}</select>
-        </label>
+        <span class="rec-goal" role="group" aria-label="Study goal">${goalSeg('interview', 'Interview')}${goalSeg('certification', 'Certification')}</span>
+        ${certMode
+          ? '<label class="rec-role">Target cert <select id="rec-cert-select" aria-label="Target certification">' + certOpts + '</select></label>'
+          : '<label class="rec-role">Target role <select id="rec-role-select" aria-label="Target role">' + roleOpts + '</select></label>'}
         <button class="rec-reset" id="rec-reset" title="Clear all saved progress signals">Reset my progress</button>
       </div>
     </div>
     <div class="rec-ring">
-      ${ring(ov.interviewReadiness)}
+      ${certMode && certRd ? ring(certRd.overall) : ring(ov.interviewReadiness)}
       <div>
-        <div class="rec-ring-center"><b>${ov.interviewReadiness}%</b>interview-ready</div>
+        <div class="rec-ring-center">${certMode && certRd
+          ? '<b>' + certRd.overall + '%</b>' + esc(certRd.tier.toLowerCase())
+          : '<b>' + ov.interviewReadiness + '%</b>interview-ready'}</div>
       </div>
       <div class="rec-ring-meta">
-        <div><b>${ov.started}</b> / ${ov.total} topics opened</div>
-        <div><b>${ov.strong}</b> strong</div>
-        ${ov.weakestSkill ? '<div>Biggest gap: <b>' + esc(ov.weakestSkill.label) + '</b></div>' : ''}
-        <div>Paths: <b>${pathAvg}% avg</b></div>
+        ${certMode && certRd
+          ? '<div><b>' + certRd.topicsDone + '</b> / ' + certRd.topicsTotal + ' topics ready</div><div>Practice: <b>' + (certRd.practiceExam == null ? '—' : certRd.practiceExam + '%') + '</b></div><div><a data-go="#aws/certifications" style="color:var(--brand,#58a6ff);text-decoration:none">Open Certification Center →</a></div>'
+          : '<div><b>' + ov.started + '</b> / ' + ov.total + ' topics opened</div><div><b>' + ov.strong + '</b> strong</div>' + (ov.weakestSkill ? '<div>Biggest gap: <b>' + esc(ov.weakestSkill.label) + '</b></div>' : '') + '<div>Paths: <b>' + pathAvg + '% avg</b></div>'}
       </div>
     </div>
   </div>
@@ -341,19 +362,33 @@
   ${calibrate}
 
   <div class="rec-section">
-    <h2>Top next actions</h2>
-    <p class="rec-sub">The 5 highest-value moves right now — strong topics are skipped, and a topic is held back until its prerequisites are solid.</p>
+    <h2>Top next actions${certMode && cert ? ' — ' + esc(cert.examCode || cert.name) : ''}</h2>
+    <p class="rec-sub">${certMode
+      ? 'The highest-value moves for this certification — scoped to its exam objectives, weakest first.'
+      : 'The 5 highest-value moves right now — strong topics are skipped, and a topic is held back until its prerequisites are solid.'}</p>
     <div class="rec-cards">${next.map((r, i) => card(r, i + 1)).join('')}</div>
   </div>
 
-  ${planHTML()}
+  ${planHTML(nextCtx)}
 
+  ${certMode && certRd ? `
+  <div class="rec-section">
+    <h2>Domain readiness — ${esc(cert.examCode || cert.name)}</h2>
+    <p class="rec-sub">Official exam weightings. Lowest readiness first.</p>
+    <div class="rec-skills">${certRd.domains.slice().sort((a, b) => a.score - b.score).map(d => `
+      <div class="rec-skill">
+        <span class="rec-skill-label" title="${esc(d.name)}">${esc(d.name)} · ${esc(String(d.weight))}%</span>
+        <div class="rec-bar"><div class="rec-bar-fill ${lvlClass(d.score)}" style="width:${d.score}%"></div></div>
+        <span class="rec-pct">${d.score}%</span>
+      </div>`).join('')}</div>
+    <div class="rec-weakest-note">Tier: <b>${esc(certRd.tier)}</b> · overall ${certRd.overall}%. Open the <a data-go="#aws/certifications" style="color:var(--brand,#58a6ff)">Certification Center</a> for full objectives, exam focus and official resources.</div>
+  </div>` : `
   <div class="rec-section">
     <h2>Interview readiness</h2>
     <p class="rec-sub">Coverage-weighted by interview importance, weakest first.</p>
     <div class="rec-skills">${skillsHtml}</div>
     ${ir.weakest ? '<div class="rec-weakest-note"><b>' + esc(ir.weakest.label) + '</b> is currently your largest interview gap at ' + ir.weakest.pct + '%. The actions above prioritize it.</div>' : ''}
-  </div>
+  </div>`}
 
   <div class="rec-section">
     <div class="rec-cols">
@@ -404,6 +439,13 @@
   let _onProgress = null;
 
   function onClick(e) {
+    const goalBtn = e.target.closest('[data-goal-mode]');
+    if (goalBtn) {
+      TV.Progress.setGoal(goalBtn.getAttribute('data-goal-mode'));
+      render(document.getElementById('module-container'));
+      return;
+    }
+
     const minBtn = e.target.closest('[data-plan-min]');
     if (minBtn) { _planMinutes = parseInt(minBtn.getAttribute('data-plan-min'), 10) || 60; render(document.getElementById('module-container')); return; }
 
@@ -451,6 +493,9 @@
   function onChange(e) {
     if (e.target && e.target.id === 'rec-role-select') {
       TV.Progress.setRole(e.target.value);
+    } else if (e.target && e.target.id === 'rec-cert-select') {
+      TV.Progress.setTargetCert(e.target.value);
+      render(document.getElementById('module-container'));
     }
   }
 
