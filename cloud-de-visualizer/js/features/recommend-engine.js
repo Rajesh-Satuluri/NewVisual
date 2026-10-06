@@ -415,6 +415,13 @@
     return (TV.LearningPaths || []).map(p => generateLearningPath(p)).filter(Boolean);
   }
 
+  /* Which curated paths contain a given topic (for cross-linking recs). */
+  function pathsForTopic(topicId) {
+    return (TV.LearningPaths || [])
+      .filter(p => (p.steps || []).indexOf(topicId) !== -1)
+      .map(p => ({ id: p.id, title: p.title, cloud: p.cloud, route: '#' + p.cloud + '/paths' }));
+  }
+
   /* ── Today's study plan (time-boxed session from current gaps) ────
      Fills a minute budget with: top next-best topics to study, a
      spaced-review item, and a closing quiz on the cloud you're working.
@@ -467,6 +474,6 @@
     getPrerequisites, buildRecommendation,
     getNextBestTopics, getReviewTopics, getWeakAreas,
     getInterviewReadiness, getOverview,
-    generateLearningPath, getLearningPaths, generateDailyPlan,
+    generateLearningPath, getLearningPaths, generateDailyPlan, pathsForTopic,
   };
 })();

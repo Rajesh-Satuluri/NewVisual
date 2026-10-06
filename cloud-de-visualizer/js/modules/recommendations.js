@@ -157,6 +157,19 @@
 .rec-plan-title { font-size:13.5px; font-weight:700; color:var(--text-primary,#e6edf3); }
 .rec-plan-reason { font-size:11.5px; color:var(--text-muted,#8b949e); margin-top:2px; }
 .rec-plan-total { font-size:12px; color:var(--text-muted,#8b949e); }
+/* path cross-link on cards + mini path list */
+.rec-onpath { display:inline-flex; align-items:center; gap:5px; font-size:11.5px; color:var(--text-muted,#8b949e); margin-top:9px; cursor:pointer; background:none; border:none; font:inherit; padding:0; }
+.rec-onpath b { color:var(--brand,#58a6ff); font-weight:700; }
+.rec-onpath:hover b { text-decoration:underline; }
+.rec-paths-mini { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:10px; }
+.rec-pathm { background:var(--bg-2,#161b22); border:1px solid var(--border-default,#30363d); border-radius:11px; padding:12px 14px; cursor:pointer; transition:border-color .12s; }
+.rec-pathm:hover { border-color:var(--brand,#58a6ff); }
+.rec-pathm-title { font-size:13px; font-weight:700; color:var(--text-primary,#e6edf3); display:flex; justify-content:space-between; gap:8px; }
+.rec-pathm-pct { color:var(--text-muted,#8b949e); font-weight:700; }
+.rec-pathm-bar { height:6px; background:var(--bg-4,#2d333b); border-radius:4px; overflow:hidden; margin-top:8px; }
+.rec-pathm-fill { height:100%; background:var(--green,#3fb950); border-radius:4px; }
+.rec-pathm-next { font-size:11px; color:var(--text-muted,#8b949e); margin-top:7px; }
+.rec-pathm-next b { color:var(--text-secondary,#adbac7); }
 .rec-scored-note { font-size:11.5px; color:var(--text-muted,#8b949e); margin-top:26px; line-height:1.6; }
 .rec-scored-note summary { cursor:pointer; color:var(--text-secondary,#adbac7); }
 @media (max-width:720px){ .rec-cols{ grid-template-columns:1fr; gap:4px; } .rec-skill{ grid-template-columns:110px 1fr 36px; } }
@@ -175,6 +188,7 @@
 
   function card(rec, rank) {
     const open = _expanded[rec.topicId];
+    const onPath = TV.Recommend.pathsForTopic(rec.topicId)[0];
     const prereqs = rec.prerequisites.map(p =>
       '<span class="rec-prereq ' + (p.weak ? 'weak' : 'ok') + '" data-go="' + esc(p.route) + '">' + esc(p.title) + (p.started ? ' ' + p.score + '%' : ' ·new') + '</span>'
     ).join('');
@@ -205,6 +219,7 @@
     <span style="flex:1"></span>
     <span class="rec-rate-lbl">Your confidence</span>${starRow(rec.topicId, rating)}
   </div>
+  ${onPath ? `<button class="rec-onpath" data-go="${esc(onPath.route)}">◆ On path: <b>${esc(onPath.title)} →</b></button>` : ''}
   <div class="rec-why ${open ? 'show' : ''}" data-whybox="${esc(rec.topicId)}">
     <h4>Why this is #${rank} for you</h4>
     <ul>${rec.reason.map(r => '<li>' + esc(r) + '</li>').join('')}</ul>
@@ -269,6 +284,8 @@
     const next = TV.Recommend.getNextBestTopics(5);
     const weak = TV.Recommend.getWeakAreas(6);
     const review = TV.Recommend.getReviewTopics(6);
+    const paths = TV.Recommend.getLearningPaths();
+    const pathAvg = paths.length ? Math.round(paths.reduce((a, p) => a + p.progress.pct, 0) / paths.length) : 0;
 
     const roleOpts = roles.map(r => '<option value="' + esc(r.id) + '"' + (r.id === role ? ' selected' : '') + '>' + esc(r.label) + '</option>').join('');
 
@@ -316,6 +333,7 @@
         <div><b>${ov.started}</b> / ${ov.total} topics opened</div>
         <div><b>${ov.strong}</b> strong</div>
         ${ov.weakestSkill ? '<div>Biggest gap: <b>' + esc(ov.weakestSkill.label) + '</b></div>' : ''}
+        <div>Paths: <b>${pathAvg}% avg</b></div>
       </div>
     </div>
   </div>
@@ -341,6 +359,19 @@
     <div class="rec-cols">
       <div><h2>Weak areas</h2><p class="rec-sub">Started, but below 60%.</p>${weakList}</div>
       <div><h2>Review due</h2><p class="rec-sub">Spaced repetition.</p>${reviewList}</div>
+    </div>
+  </div>
+
+  <div class="rec-section">
+    <h2>Your learning paths</h2>
+    <p class="rec-sub">Guided journeys — jump back in where you left off.</p>
+    <div class="rec-paths-mini">
+      ${paths.map(p => `
+        <div class="rec-pathm" data-go="#${esc(p.cloud)}/paths">
+          <div class="rec-pathm-title">${esc(p.title)} <span class="rec-pathm-pct">${p.progress.pct}%</span></div>
+          <div class="rec-pathm-bar"><div class="rec-pathm-fill" style="width:${p.progress.pct}%"></div></div>
+          <div class="rec-pathm-next">${p.nextStep ? 'Next: <b>' + esc(p.nextStep.title) + '</b>' : 'Complete ✓'}</div>
+        </div>`).join('')}
     </div>
   </div>
 
