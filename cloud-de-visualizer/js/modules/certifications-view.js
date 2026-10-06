@@ -19,7 +19,7 @@
 
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
   let _selected = null, _wired = false, _onProgress = null, _container = null;
-  const _labOpen = {};
+  const _labOpen = {}, _domOpen = {};
   let _planDays = 30;
 
   function injectStyles() {
@@ -88,10 +88,16 @@
 .ct-read-k { font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--text-muted,#8b949e); font-weight:800; }
 .ct-read-v { font-size:22px; font-weight:820; color:var(--text-primary,#e6edf3); margin-top:3px; }
 .ct-dom { background:var(--bg-2,#161b22); border:1px solid var(--border-default,#30363d); border-radius:12px; padding:16px 18px; margin-bottom:12px; }
-.ct-dom-top { display:flex; align-items:center; justify-content:space-between; gap:10px; }
-.ct-dom-name { font-size:14.5px; font-weight:800; color:var(--text-primary,#e6edf3); }
+.ct-dom-top { display:flex; align-items:center; justify-content:space-between; gap:10px; cursor:pointer; user-select:none; }
+.ct-dom-name { font-size:14.5px; font-weight:800; color:var(--text-primary,#e6edf3); display:flex; align-items:center; gap:7px; }
+.ct-dom-chev { display:inline-block; font-size:11px; color:var(--text-muted,#8b949e); transform:rotate(-90deg); transition:transform .15s; }
+.ct-dom.open .ct-dom-chev { transform:rotate(0); }
 .ct-dom-w { font-size:11.5px; font-weight:700; color:var(--brand,#58a6ff); }
-.ct-dom-bar { height:7px; background:var(--bg-4,#2d333b); border-radius:5px; overflow:hidden; margin:9px 0 14px; }
+.ct-dom-bar { height:7px; background:var(--bg-4,#2d333b); border-radius:5px; overflow:hidden; margin:9px 0 0; }
+.ct-dom-body { display:none; margin-top:5px; }
+.ct-dom.open .ct-dom-body { display:block; }
+.ct-dom-expand { background:none; border:1px solid var(--border-default,#30363d); color:var(--text-secondary,#adbac7); font:inherit; font-size:11px; font-weight:700; padding:4px 11px; border-radius:7px; cursor:pointer; text-transform:none; letter-spacing:0; }
+.ct-dom-expand:hover { border-color:var(--brand,#58a6ff); color:var(--brand,#58a6ff); }
 .ct-dom-fill { height:100%; border-radius:5px; }
 .lvl-lo{background:var(--red,#f85149);} .lvl-mid{background:#d29922;} .lvl-hi{background:var(--green,#3fb950);}
 .ct-obj { border-top:1px solid var(--border-subtle,#21262d); padding:12px 0 4px; }
@@ -338,12 +344,19 @@
     const betaNote = cert.betaNote ? `<div class="ct-note beta"><b>Beta:</b> ${esc(cert.betaNote)}</div>` : '';
     const updateNote = cert.contentUpdate ? `<div class="ct-note beta">⚠ <b>Content update review:</b> some weightings/objectives for this track are provisional — re-verify against the official guide (last verified ${esc(cert.lastVerified)}).</div>` : '';
     const read = (k, v) => `<div class="ct-read"><div class="ct-read-k">${k}</div><div class="ct-read-v">${v == null ? '—' : v + '%'}</div></div>`;
-    const domains = rd.domains.map(d => `
-      <div class="ct-dom">
-        <div class="ct-dom-top"><span class="ct-dom-name">${esc(d.name)}</span><span class="ct-dom-w">${esc(String(d.weight))}% of exam · ${d.score}% ready</span></div>
+    const domains = rd.domains.map(d => {
+      const open = !!_domOpen[d.id];
+      return `
+      <div class="ct-dom ${open ? 'open' : ''}">
+        <div class="ct-dom-top" data-dom-toggle="${esc(d.id)}" role="button" aria-expanded="${open}">
+          <span class="ct-dom-name"><span class="ct-dom-chev">▾</span>${esc(d.name)}</span>
+          <span class="ct-dom-w">${esc(String(d.weight))}% of exam · ${d.score}% ready</span>
+        </div>
         <div class="ct-dom-bar"><div class="ct-dom-fill ${lvlClass(d.score)}" style="width:${d.score}%"></div></div>
-        ${d.objectives.map(objHTML).join('')}
-      </div>`).join('');
+        <div class="ct-dom-body">${d.objectives.map(objHTML).join('')}</div>
+      </div>`;
+    }).join('');
+    const allOpen = rd.domains.length > 0 && rd.domains.every(d => _domOpen[d.id]);
     const cap = cert.capstone ? `
       <div class="ct-capstone">
         <div class="ct-dom-name">🏗 Capstone — ${esc(cert.capstone.title)}</div>
@@ -385,7 +398,7 @@
   <div class="ct-readbar">
     ${read('Theory', rd.theory)}${read('Practice exam', rd.practiceExam)}${read('Hands-on', rd.handsOn)}${read('Troubleshooting', rd.troubleshooting)}
   </div>
-  <div class="ct-section-h">Exam domains &amp; objectives (official weightings)</div>
+  <div class="ct-section-h" style="display:flex;align-items:center;justify-content:space-between;gap:10px">Exam domains &amp; objectives (official weightings)<button class="ct-dom-expand" data-dom-expand="${allOpen ? 'collapse' : 'expand'}">${allOpen ? 'Collapse all' : 'Expand all'}</button></div>
   ${domains}
   ${planHTML(cert)}
   ${labsHTML(cert)}
@@ -422,6 +435,15 @@
     if (labDone) { e.stopPropagation(); const id = labDone.getAttribute('data-lab-done'); TV.Progress.setLabDone(id, !TV.Progress.isLabDone(id)); return; }
     const labTog = e.target.closest('[data-lab-toggle]');
     if (labTog) { const id = labTog.getAttribute('data-lab-toggle'); _labOpen[id] = !_labOpen[id]; render(_container); return; }
+    const domTog = e.target.closest('[data-dom-toggle]');
+    if (domTog) { const id = domTog.getAttribute('data-dom-toggle'); _domOpen[id] = !_domOpen[id]; render(_container); return; }
+    const domExp = e.target.closest('[data-dom-expand]');
+    if (domExp) {
+      const cert = _selected && TV.Certifications.byId(_selected);
+      const want = domExp.getAttribute('data-dom-expand') === 'expand';
+      if (cert) (cert.domains || []).forEach(d => { _domOpen[d.id] = want; });
+      render(_container); return;
+    }
     const planDay = e.target.closest('[data-plan-day]');
     if (planDay) { _planDays = parseInt(planDay.getAttribute('data-plan-day'), 10) || 30; render(_container); return; }
     const goal = e.target.closest('[data-goal]');
