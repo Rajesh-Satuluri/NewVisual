@@ -19,6 +19,7 @@
 
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
   let _selected = null, _wired = false, _onProgress = null, _container = null;
+  const _labOpen = {};
 
   function injectStyles() {
     if (document.getElementById('cert-styles')) return;
@@ -99,6 +100,20 @@
 .ct-flow span { font-size:11.5px; background:var(--bg-1,#0d1117); border:1px solid var(--border-default,#30363d); border-radius:6px; padding:3px 8px; color:var(--text-secondary,#adbac7); }
 .ct-flow i { color:var(--text-muted,#8b949e); font-style:normal; }
 .ct-change { font-size:11.5px; color:var(--text-muted,#8b949e); margin-top:16px; line-height:1.6; }
+.ct-lab { background:var(--bg-2,#161b22); border:1px solid var(--border-default,#30363d); border-radius:11px; margin-bottom:9px; overflow:hidden; }
+.ct-lab-top { display:flex; align-items:center; gap:12px; padding:12px 14px; cursor:pointer; }
+.ct-lab-check { flex-shrink:0; width:22px; height:22px; border-radius:6px; border:2px solid var(--border-default,#30363d); background:var(--bg-1,#0d1117); color:transparent; font-size:13px; font-weight:800; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+.ct-lab-check.done { background:var(--green,#3fb950); border-color:var(--green,#3fb950); color:#fff; }
+.ct-lab-main { flex:1; min-width:0; }
+.ct-lab-title { font-size:13.5px; font-weight:700; color:var(--text-primary,#e6edf3); }
+.ct-lab-meta { font-size:11px; color:var(--text-muted,#8b949e); margin-top:2px; }
+.ct-lab-chev { color:var(--text-muted,#8b949e); transition:transform .15s; }
+.ct-lab.open .ct-lab-chev { transform:rotate(180deg); }
+.ct-lab-body { display:none; padding:0 14px 14px 48px; font-size:12.5px; color:var(--text-secondary,#adbac7); line-height:1.6; }
+.ct-lab.open .ct-lab-body { display:block; }
+.ct-lab-body h5 { margin:12px 0 5px; font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--text-muted,#8b949e); }
+.ct-lab-body ol, .ct-lab-body ul { margin:0; padding-left:18px; }
+.ct-lab-body li { margin:2px 0; }
 `;
     document.head.appendChild(s);
   }
@@ -198,6 +213,34 @@
 </div>`;
   }
 
+  function labsHTML(cert) {
+    const labs = (TV.CertLabs && TV.CertLabs.byCert(cert.certificationId)) || [];
+    if (!labs.length) return '';
+    const done = labs.filter(l => TV.Progress.isLabDone(l.id)).length;
+    const rows = labs.map(l => {
+      const isDone = TV.Progress.isLabDone(l.id);
+      const open = _labOpen[l.id];
+      return `
+      <div class="ct-lab ${open ? 'open' : ''}">
+        <div class="ct-lab-top" data-lab-toggle="${esc(l.id)}">
+          <div class="ct-lab-check ${isDone ? 'done' : ''}" data-lab-done="${esc(l.id)}" role="checkbox" aria-checked="${isDone}" title="Mark complete">✓</div>
+          <div class="ct-lab-main"><div class="ct-lab-title">${esc(l.title)}</div><div class="ct-lab-meta">~${l.estMinutes} min · ${esc(l.objective)}</div></div>
+          <span class="ct-lab-chev">▾</span>
+        </div>
+        <div class="ct-lab-body">
+          ${l.prerequisites && l.prerequisites.length ? '<h5>Prerequisites</h5><ul>' + l.prerequisites.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>' : ''}
+          <h5>Steps</h5><ol>${l.steps.map(x => '<li>' + esc(x) + '</li>').join('')}</ol>
+          <h5>Verify</h5><ul>${l.verify.map(x => '<li>' + esc(x) + '</li>').join('')}</ul>
+          ${l.officialRef ? '<h5>Follow along</h5><a class="ct-link" href="' + esc(l.officialRef.url) + '" target="_blank" rel="noopener">' + esc(l.officialRef.label) + ' ↗</a>' : ''}
+        </div>
+      </div>`;
+    }).join('');
+    return `
+      <div class="ct-section-h">Hands-on labs — ${done}/${labs.length} complete</div>
+      <p class="ct-change" style="margin:-6px 0 12px">Guided playbooks to run in your own account. Tick a lab when done — it feeds the hands-on readiness above.</p>
+      ${rows}`;
+  }
+
   function detailHTML(cert) {
     const rd = TV.CertEngine.certReadiness(cert);
     const beta = cert.beta ? '<span class="ct-badge beta">Beta</span>' : '';
@@ -253,6 +296,7 @@
   </div>
   <div class="ct-section-h">Exam domains &amp; objectives (official weightings)</div>
   ${domains}
+  ${labsHTML(cert)}
   ${cap}
   <div class="ct-change">Exam version: <b>${esc(cert.version || cert.examCode || '—')}</b> · Status: <b>${esc(cert.status)}</b> · Last verified: <b>${esc(cert.lastVerified)}</b> · Source: official vendor exam guide.</div>
 </div>`;
@@ -281,6 +325,10 @@
     if (e.target.closest('[data-back]')) { _selected = null; render(_container); return; }
     const exam = e.target.closest('[data-exam]');
     if (exam) { if (TV.CertExam) TV.CertExam.open(exam.getAttribute('data-exam')); return; }
+    const labDone = e.target.closest('[data-lab-done]');
+    if (labDone) { e.stopPropagation(); const id = labDone.getAttribute('data-lab-done'); TV.Progress.setLabDone(id, !TV.Progress.isLabDone(id)); return; }
+    const labTog = e.target.closest('[data-lab-toggle]');
+    if (labTog) { const id = labTog.getAttribute('data-lab-toggle'); _labOpen[id] = !_labOpen[id]; render(_container); return; }
     const goal = e.target.closest('[data-goal]');
     if (goal) {
       const id = goal.getAttribute('data-goal');
