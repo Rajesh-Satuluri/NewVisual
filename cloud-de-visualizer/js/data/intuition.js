@@ -221,6 +221,48 @@
       when: 'For sharing data with external partners or across orgs/clouds without duplication. It is governed through Unity Catalog.',
     },
 
+    /* ── Microsoft Fabric (DP-700) ── */
+    'onelake': {
+      pain: 'Every analytics tool kept its own copy of the data, so the same table existed five times, drifted out of sync, and nobody trusted which was current.',
+      aha: 'OneLake is one tenant-wide logical lake in open Delta format that every Fabric engine shares; shortcuts reference external data in place instead of copying it.',
+      when: 'The default storage under all of Fabric. Use shortcuts to bring ADLS/S3 data in without moving it; reach for a copy only when you truly need a physical duplicate.',
+    },
+    'fabric-lakehouse': {
+      pain: 'Teams had to choose between Spark flexibility and SQL serving, and copy data between the two worlds to get both.',
+      aha: 'The Lakehouse gives you a Files area and Delta Tables on OneLake, worked with Spark notebooks and queried by a built-in SQL endpoint — plus Power BI Direct Lake, all over one copy.',
+      when: 'The Spark/open-files home for data engineering. Choose it when you want code + open Delta; use the Warehouse when you need full T-SQL DML.',
+    },
+    'fabric-warehouse': {
+      pain: 'SQL-first teams wanted a familiar T-SQL warehouse with real UPDATE/DELETE and transactions, but not at the cost of locking data into a proprietary store.',
+      aha: 'The Fabric Warehouse is a full T-SQL engine whose tables persist as open Delta on OneLake — so SQL teams get DML and transactions while Spark can still read the same data.',
+      when: 'For T-SQL DML, stored procedures and high-concurrency BI. The Lakehouse SQL endpoint is read-only; the Warehouse is the writable SQL surface.',
+    },
+    'dataflow-gen2': {
+      pain: 'Not everyone writes Spark or SQL, yet analysts still need to clean and shape data into the lake.',
+      aha: 'Dataflow Gen2 is low-code ETL built on Power Query — the same visual transforms as Excel/Power BI — that lands results in OneLake.',
+      when: 'For low-code cleansing/shaping by analysts. For heavy orchestration use pipelines; for complex/code-first logic use notebooks.',
+    },
+    'fabric-data-pipelines': {
+      pain: 'Ingestion, transformation and serving are separate steps that need scheduling, triggers, parameters and error handling to run reliably.',
+      aha: 'Fabric Data Pipelines are ADF-style orchestration inside Fabric: copy activities + control flow that run notebooks and dataflows on schedules or event triggers.',
+      when: 'The glue that wires an end-to-end flow with retries and incremental (watermark) patterns. It orchestrates and moves data; notebooks/dataflows do the transforming.',
+    },
+    'fabric-spark': {
+      pain: 'Low-code tools cannot express complex joins, SCD logic, ML or streaming — and standing up your own Spark cluster is heavy.',
+      aha: 'Fabric Spark notebooks are managed Apache Spark over OneLake with fast-starting pools — PySpark/SQL against Lakehouse Delta without cluster ops.',
+      when: 'The code-first surface for heavy transforms, MERGE/SCD and Structured Streaming. Use Dataflow Gen2 instead for simple low-code shaping.',
+    },
+    'eventstream': {
+      pain: 'Getting real-time events from a broker into analytics usually meant writing and operating a streaming application.',
+      aha: 'Eventstream is a low-code real-time on-ramp: visually capture events from Event Hubs/Kafka/IoT, optionally transform, and route them to Eventhouse or the Lakehouse.',
+      when: 'The easy hot-path for real-time ingestion/routing. For rich, stateful stream processing, use Spark Structured Streaming instead.',
+    },
+    'eventhouse': {
+      pain: 'Dashboards and anomaly detection over huge volumes of live telemetry need sub-second answers that batch SQL/Spark cannot give.',
+      aha: 'An Eventhouse is a KQL engine purpose-built for time-series/log data — fast ingestion and seconds-fresh analytics, with data also available in OneLake.',
+      when: 'For high-volume real-time analytics (IoT, logs, live dashboards) via KQL. Pair it with Eventstream for ingestion; use the Lakehouse/Warehouse for batch analytics.',
+    },
+
     /* ── Interview concepts (drill pages, keyed by iq-<id>) ── */
     'iq-spark-arch': {
       pain: 'A Spark cluster is just a pile of machines; without a model of how work is split across them, you cannot reason about why a job is slow or runs out of memory.',

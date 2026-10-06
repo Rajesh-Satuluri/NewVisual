@@ -445,7 +445,7 @@
   const MODULE = { id: 'certifications', title: 'Certification Center', group: 'Certifications', render, destroy };
 
   function register() {
-    ['azure', 'databricks', 'aws', 'multi-cloud'].forEach(fmt => {
+    ['azure', 'databricks', 'aws', 'fabric', 'multi-cloud'].forEach(fmt => {
       TV.registerModule(fmt, Object.assign({}, MODULE, { format: fmt }));
       const desc = TV.formats && TV.formats[fmt];
       if (!desc || !Array.isArray(desc.navGroups)) return;

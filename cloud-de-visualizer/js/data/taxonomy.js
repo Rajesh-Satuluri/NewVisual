@@ -62,7 +62,7 @@
   const FALLBACK_IMPORTANCE   = { interview: 65, production: 60, architecture: 55 };
 
   /* ── Base skills from cloud + category ────────────────────── */
-  const CLOUD_SKILL = { aws: 'aws', azure: 'azure', databricks: 'databricks' };
+  const CLOUD_SKILL = { aws: 'aws', azure: 'azure', databricks: 'databricks', fabric: 'azure' };
   const CAT_SKILLS = {
     streaming: ['streaming'],
     governance: ['governance'],
@@ -72,7 +72,8 @@
   };
   // SQL-engine services get the SQL bucket regardless of category.
   const SQL_SERVICES = new Set(['athena', 'redshift', 'redshift-spectrum',
-    'azure-sql', 'synapse-analytics', 'synapse-serverless', 'databricks-sql', 'cosmos-db']);
+    'azure-sql', 'synapse-analytics', 'synapse-serverless', 'databricks-sql', 'cosmos-db',
+    'fabric-warehouse', 'fabric-lakehouse']);
 
   /* ── Per-topic overrides (high-value topics only) ────────────
      Everything not listed falls back to category/cloud defaults.
@@ -163,6 +164,16 @@
     'iq-storage':       { difficulty: 'intro', foundation: true },
     'iq-synapse':       { difficulty: 'intermediate', skills: ['sql'] },
     'iq-streaming-aws': { difficulty: 'intermediate', skills: ['streaming'] },
+
+    /* — Microsoft Fabric (DP-700) — */
+    'onelake':             { foundation: true, difficulty: 'intro', prereqs: [], importance: { interview: 84, production: 76, architecture: 76 } },
+    'fabric-lakehouse':    { difficulty: 'intermediate', skills: ['sql', 'pyspark'], prereqs: ['onelake'], importance: { interview: 84, production: 78, architecture: 70 } },
+    'fabric-warehouse':    { difficulty: 'intermediate', skills: ['sql'], prereqs: ['onelake'] },
+    'dataflow-gen2':       { difficulty: 'intro', prereqs: [] },
+    'fabric-data-pipelines': { difficulty: 'intro', skills: ['production'], prereqs: [], importance: { interview: 82, production: 80, architecture: 64 } },
+    'fabric-spark':        { difficulty: 'intermediate', skills: ['pyspark', 'spark'], prereqs: ['onelake'] },
+    'eventstream':         { difficulty: 'intermediate', skills: ['streaming'], prereqs: [] },
+    'eventhouse':          { difficulty: 'advanced', skills: ['streaming', 'sql'], prereqs: ['eventstream'] },
   };
 
   /* ── Build the flat topic list from registered catalogs ────── */
@@ -228,6 +239,7 @@
     push(svc(TV.AwsServices, 'aws'));
     push(svc(TV.AzureServices, 'azure'));
     push(svc(TV.DatabricksServices, 'databricks'));
+    push(svc(TV.FabricServices, 'fabric'));
 
     const iq = (list, cloud) => (list || [])
       .filter(t => t && t.questions && t.questions.length) // only live drills
