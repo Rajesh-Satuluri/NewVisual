@@ -92,6 +92,24 @@
       </section>`;
   }
 
+  /* Intuition callout: business-first mental model. Accepts a string
+     or { pain, aha, when }. Sourced from svc.intuition or TV.Intuition. */
+  function intuitionHTML(intu) {
+    if (!intu) return '';
+    let body;
+    if (typeof intu === 'string') {
+      body = `<p class="sd-intu-line">${esc(intu)}</p>`;
+    } else {
+      const row = (lbl, v) => v ? `<div class="sd-intu-row"><span class="sd-intu-lbl">${lbl}</span><span class="sd-intu-val">${esc(v)}</span></div>` : '';
+      body = row('The pain', intu.pain) + row('The “aha”', intu.aha) + row('When to use', intu.when);
+    }
+    return `
+      <section class="sd-intu" aria-label="Intuition">
+        <div class="sd-intu-head"><span class="sd-intu-bulb">💡</span>Intuition — why this exists</div>
+        ${body}
+      </section>`;
+  }
+
   function keyFactsHTML(facts) {
     if (!facts || !facts.length) return '';
     return `<div class="sd-facts">` + facts.map(f =>
@@ -127,6 +145,15 @@
 .sd-h1 { font-size:28px; font-weight:800; letter-spacing:-.02em; color:var(--text-primary); margin:0 0 6px; }
 .sd-aka { font-size:12.5px; color:var(--text-muted); margin:0 0 10px; font-style:italic; }
 .sd-tagline { font-size:15.5px; color:var(--text-secondary); line-height:1.7; margin:0 0 20px; max-width:760px; }
+.sd-intu { background:linear-gradient(135deg, var(--brand-glow), transparent 70%); border:1px solid var(--border-default); border-left:3px solid var(--brand); border-radius:var(--radius-lg,12px); padding:16px 18px; margin:0 0 18px; }
+.sd-intu-head { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--brand); margin-bottom:11px; display:flex; align-items:center; gap:7px; }
+.sd-intu-bulb { font-size:14px; }
+.sd-intu-line { font-size:14px; color:var(--text-secondary); line-height:1.7; margin:0; }
+.sd-intu-row { display:grid; grid-template-columns:96px 1fr; gap:12px; padding:5px 0; }
+.sd-intu-row + .sd-intu-row { border-top:1px solid var(--border-subtle); }
+.sd-intu-lbl { font-size:11.5px; font-weight:800; color:var(--text-muted); padding-top:2px; }
+.sd-intu-val { font-size:13.5px; color:var(--text-secondary); line-height:1.65; }
+@media (max-width:620px){ .sd-intu-row { grid-template-columns:1fr; gap:2px; } }
 .sd-facts { display:flex; flex-wrap:wrap; gap:10px; margin:0 0 28px; }
 .sd-fact { background:var(--bg-2); border:1px solid var(--border-default); border-radius:10px; padding:9px 14px; min-width:120px; }
 .sd-fact-k { font-size:9.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted); font-weight:800; margin-bottom:3px; }
@@ -212,6 +239,7 @@
     ${aka}
     <p class="sd-tagline">${esc(svc.tagline || '')}</p>
     ${keyFactsHTML(svc.keyFacts)}
+    ${intuitionHTML(svc.intuition || (TV.Intuition && TV.Intuition[svc.id]))}
     ${sectionHTML('What it is', 'what', svc.what)}
     ${sectionHTML('Why it exists', 'why', svc.why)}
     ${sectionHTML('How it works', 'how', svc.how)}
