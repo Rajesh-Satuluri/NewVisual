@@ -10,7 +10,7 @@
   const TV = window.TableViz;
   if (!TV) return;
 
-  const LABEL = { azure: 'Azure', databricks: 'Databricks', 'multi-cloud': 'Cross-Cloud' };
+  const LABEL = { azure: 'Azure', databricks: 'Databricks', aws: 'AWS', 'multi-cloud': 'Cross-Cloud' };
 
   function bank() {
     const f = TV.currentFormat && TV.currentFormat();
@@ -148,6 +148,10 @@
       if (idx === k && k !== q.answer) b.classList.add('wrong');
     });
     if (k === q.answer) state.correct++;
+    // Feed per-topic accuracy into the recommendation engine's signal store.
+    if (q.topic && TV.Progress && TV.Progress.recordQuizAnswer) {
+      try { TV.Progress.recordQuizAnswer(q.topic, k === q.answer); } catch (e) {}
+    }
     const why = root.querySelector('.quiz-why');
     root.querySelector('.quiz-why-text').textContent = q.why;
     why.classList.add('show');
