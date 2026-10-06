@@ -160,8 +160,60 @@
       reason: 'Your readiness here (' + top.overall + '%) is the closest to exam-ready — finishing it needs the least new study.' };
   }
 
+  function _vendorKey(cert) {
+    const v = String(cert.vendor || '').toLowerCase();
+    if (v.indexOf('aws') !== -1) return 'aws';
+    if (v.indexOf('databricks') !== -1) return 'databricks';
+    return 'azure'; // Microsoft / Fabric
+  }
+
+  /* ── Adaptive study plan (7 / 14 / 30 / 60 days) ─────────────── */
+  function certStudyPlan(cert, days) {
+    days = [7, 14, 30, 60].indexOf(days) !== -1 ? days : 30;
+    // weakest topics first (unstudied/low score), excluding mastered
+    const weakTopics = certTopicIds(cert).map(_score).filter(Boolean)
+      .filter(t => t.score < DONE_SCORE).sort((a, b) => a.score - b.score);
+    const labs = ((TV.CertLabs && TV.CertLabs.byCert(cert.certificationId)) || [])
+      .filter(l => !(TV.Progress && TV.Progress.isLabDone(l.id)));
+
+    const learnDays = Math.max(1, Math.round(days * 0.6));
+    const practiceDays = Math.max(1, Math.round(days * 0.25));
+    const examStart = learnDays + practiceDays + 1;
+    const phases = [];
+
+    phases.push({ title: 'Learn the weak domains', range: 'Days 1–' + learnDays,
+      items: weakTopics.slice(0, Math.max(4, Math.round(days / 2))).map(t => ({ kind: 'study', label: t.label, route: t.route, done: false })) });
+
+    if (labs.length) {
+      phases.push({ title: 'Hands-on labs', range: 'Days ' + (learnDays + 1) + '–' + (learnDays + practiceDays),
+        items: labs.slice(0, Math.max(3, Math.round(days / 5))).map(l => ({ kind: 'lab', label: l.title, done: false })) });
+    }
+
+    const hasExam = TV.CertQuestions && TV.CertQuestions.has(cert.certificationId);
+    const examItems = [];
+    if (hasExam) examItems.push({ kind: 'exam', label: 'Take a full practice exam, then review every miss', done: false });
+    const weakDomains = certReadiness(cert).domains.slice().sort((a, b) => a.score - b.score).slice(0, 2);
+    weakDomains.forEach(d => examItems.push({ kind: 'review', label: 'Review ' + d.name + ' (' + d.score + '%)', done: false }));
+    phases.push({ title: 'Practice exams & final review', range: 'Days ' + examStart + '–' + days, items: examItems });
+
+    return { days: days, phases: phases };
+  }
+
+  /* ── Cram sheet: weak topics + comparisons + traps ───────────── */
+  function certCram(cert) {
+    const vk = _vendorKey(cert);
+    const weakTopics = certTopicIds(cert).map(_score).filter(Boolean)
+      .filter(t => t.score < 70).sort((a, b) => a.score - b.score).slice(0, 8);
+    return {
+      weakTopics: weakTopics,
+      comparisons: (TV.CertCompare && TV.CertCompare[vk]) || [],
+      traps: (TV.CertTrapsFor && TV.CertTrapsFor(vk)) || [],
+    };
+  }
+
   TV.CertEngine = {
     weightNum, objectiveReadiness, domainReadiness, certReadiness, readinessTier,
     certTopicIds, certGaps, certsForTopic, certSummaries, recommendNextCert,
+    certStudyPlan, certCram,
   };
 })();

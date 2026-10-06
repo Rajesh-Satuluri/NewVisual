@@ -20,6 +20,7 @@
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
   let _selected = null, _wired = false, _onProgress = null, _container = null;
   const _labOpen = {};
+  let _planDays = 30;
 
   function injectStyles() {
     if (document.getElementById('cert-styles')) return;
@@ -114,6 +115,26 @@
 .ct-lab-body h5 { margin:12px 0 5px; font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--text-muted,#8b949e); }
 .ct-lab-body ol, .ct-lab-body ul { margin:0; padding-left:18px; }
 .ct-lab-body li { margin:2px 0; }
+.ct-plan-toggle { display:inline-flex; gap:3px; background:var(--bg-1,#0d1117); border:1px solid var(--border-default,#30363d); border-radius:9px; padding:3px; margin-left:10px; }
+.ct-plan-day { background:none; border:none; color:var(--text-secondary,#adbac7); font:inherit; font-size:11.5px; font-weight:700; padding:4px 10px; border-radius:7px; cursor:pointer; }
+.ct-plan-day.on { background:var(--brand,#58a6ff); color:#fff; }
+.ct-phase { background:var(--bg-2,#161b22); border:1px solid var(--border-default,#30363d); border-radius:11px; padding:12px 14px; margin-bottom:9px; }
+.ct-phase-h { display:flex; justify-content:space-between; gap:10px; font-size:13px; font-weight:800; color:var(--text-primary,#e6edf3); }
+.ct-phase-range { font-size:11px; color:var(--text-muted,#8b949e); font-weight:700; }
+.ct-phase ul { margin:8px 0 0; padding-left:0; list-style:none; }
+.ct-phase li { font-size:12.5px; color:var(--text-secondary,#adbac7); padding:3px 0; display:flex; gap:8px; align-items:baseline; }
+.ct-kind { font-size:9px; font-weight:800; text-transform:uppercase; padding:1px 6px; border-radius:9px; background:var(--bg-4,#2d333b); color:var(--text-muted,#8b949e); flex-shrink:0; }
+.ct-kind.study { background:color-mix(in srgb,var(--brand,#58a6ff) 18%,transparent); color:var(--brand,#58a6ff); }
+.ct-kind.lab { background:rgba(63,185,80,.16); color:var(--green,#3fb950); }
+.ct-kind.exam { background:rgba(210,153,34,.18); color:#d29922; }
+.ct-link-plain { color:var(--text-primary,#e6edf3); text-decoration:none; cursor:pointer; } .ct-link-plain:hover { color:var(--brand,#58a6ff); }
+.ct-cmp { width:100%; border-collapse:collapse; font-size:12px; margin:6px 0 14px; }
+.ct-cmp td { border:1px solid var(--border-default,#30363d); padding:7px 9px; vertical-align:top; color:var(--text-secondary,#adbac7); }
+.ct-cmp .ct-cmp-a { font-weight:700; color:var(--text-primary,#e6edf3); white-space:nowrap; }
+.ct-cmp-note { font-size:11px; color:var(--text-muted,#8b949e); font-style:italic; }
+.ct-trap { background:var(--bg-2,#161b22); border:1px solid var(--border-default,#30363d); border-left:3px solid #d29922; border-radius:9px; padding:9px 12px; margin-bottom:7px; }
+.ct-trap-t { font-size:12.5px; font-weight:700; color:var(--text-primary,#e6edf3); }
+.ct-trap-r { font-size:12px; color:var(--text-secondary,#adbac7); margin-top:3px; line-height:1.5; }
 `;
     document.head.appendChild(s);
   }
@@ -241,6 +262,40 @@
       ${rows}`;
   }
 
+  function planHTML(cert) {
+    const plan = TV.CertEngine.certStudyPlan(cert, _planDays);
+    const toggle = [7, 14, 30, 60].map(d => `<button class="ct-plan-day ${d === _planDays ? 'on' : ''}" data-plan-day="${d}">${d}-day</button>`).join('');
+    const phases = plan.phases.map(ph => `
+      <div class="ct-phase">
+        <div class="ct-phase-h"><span>${esc(ph.title)}</span><span class="ct-phase-range">${esc(ph.range)}</span></div>
+        <ul>${ph.items.length ? ph.items.map(it => `<li><span class="ct-kind ${it.kind}">${esc(it.kind)}</span>${it.route ? '<a class="ct-link-plain" data-go="' + esc(it.route) + '">' + esc(it.label) + '</a>' : esc(it.label)}</li>`).join('') : '<li>Nothing outstanding — you\'re on track here.</li>'}</ul>
+      </div>`).join('');
+    return `
+      <div class="ct-section-h" style="display:flex;align-items:center">Study plan <span class="ct-plan-toggle">${toggle}</span></div>
+      <p class="ct-change" style="margin:-6px 0 12px">Adapts to your progress — mastered topics and completed labs drop off automatically.</p>
+      ${phases}`;
+  }
+
+  function cramHTML(cert) {
+    const cram = TV.CertEngine.certCram(cert);
+    const weak = cram.weakTopics.length
+      ? '<div class="ct-chips">' + cram.weakTopics.map(t => '<a class="ct-chip" data-go="' + esc(t.route) + '">' + esc(t.label) + ' ' + t.score + '%</a>').join('') + '</div>'
+      : '<p class="ct-change" style="margin:4px 0">No weak topics flagged yet — take a practice exam or rate topics to populate this.</p>';
+    const cmp = cram.comparisons.length ? '<table class="ct-cmp">' + cram.comparisons.map(c => `
+      <tr><td class="ct-cmp-a">${esc(c.a)}</td><td>${esc(c.whenA)}</td></tr>
+      <tr><td class="ct-cmp-a">${esc(c.b)}</td><td>${esc(c.whenB)}</td></tr>
+      <tr><td></td><td class="ct-cmp-note">${esc(c.note)}${c.supplementary ? ' (supplementary)' : ''}</td></tr>`).join('') + '</table>' : '';
+    const traps = cram.traps.map(t => `<div class="ct-trap"><div class="ct-trap-t">⚠ ${esc(t.trap)}</div><div class="ct-trap-r">${esc(t.reality)}</div></div>`).join('');
+    return `
+      <div class="ct-section-h">Cram sheet</div>
+      <p class="ct-change" style="margin:-6px 0 10px">Last-mile essentials: your weak topics, the comparisons the exam leans on, and the classic traps.</p>
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted,#8b949e);margin-bottom:6px">Weak topics to revise</div>
+      ${weak}
+      ${cmp ? '<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted,#8b949e);margin:14px 0 2px">Know when to use which</div>' + cmp : ''}
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted,#8b949e);margin:10px 0 6px">Common exam traps</div>
+      ${traps}`;
+  }
+
   function detailHTML(cert) {
     const rd = TV.CertEngine.certReadiness(cert);
     const beta = cert.beta ? '<span class="ct-badge beta">Beta</span>' : '';
@@ -296,7 +351,9 @@
   </div>
   <div class="ct-section-h">Exam domains &amp; objectives (official weightings)</div>
   ${domains}
+  ${planHTML(cert)}
   ${labsHTML(cert)}
+  ${cramHTML(cert)}
   ${cap}
   <div class="ct-change">Exam version: <b>${esc(cert.version || cert.examCode || '—')}</b> · Status: <b>${esc(cert.status)}</b> · Last verified: <b>${esc(cert.lastVerified)}</b> · Source: official vendor exam guide.</div>
 </div>`;
@@ -329,6 +386,8 @@
     if (labDone) { e.stopPropagation(); const id = labDone.getAttribute('data-lab-done'); TV.Progress.setLabDone(id, !TV.Progress.isLabDone(id)); return; }
     const labTog = e.target.closest('[data-lab-toggle]');
     if (labTog) { const id = labTog.getAttribute('data-lab-toggle'); _labOpen[id] = !_labOpen[id]; render(_container); return; }
+    const planDay = e.target.closest('[data-plan-day]');
+    if (planDay) { _planDays = parseInt(planDay.getAttribute('data-plan-day'), 10) || 30; render(_container); return; }
     const goal = e.target.closest('[data-goal]');
     if (goal) {
       const id = goal.getAttribute('data-goal');
