@@ -58,7 +58,25 @@
 .iq-a > div { overflow:hidden; min-height:0; }
 .iq-a p { margin:0; padding:0 15px 14px 48px; font-size:13.5px; color:var(--text-secondary); line-height:1.72; }
 .iq-a .iq-ans-mark { display:inline-block; font-weight:800; color:var(--green); margin-right:6px; }
+.iq-intu { background:linear-gradient(135deg, var(--brand-glow), transparent 70%); border:1px solid var(--border-default); border-left:3px solid var(--brand); border-radius:12px; padding:15px 17px; margin:0 0 18px; }
+.iq-intu-head { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--brand); margin-bottom:10px; display:flex; align-items:center; gap:7px; }
+.iq-intu-row { display:grid; grid-template-columns:96px 1fr; gap:12px; padding:5px 0; }
+.iq-intu-row + .iq-intu-row { border-top:1px solid var(--border-subtle); }
+.iq-intu-lbl { font-size:11.5px; font-weight:800; color:var(--text-muted); padding-top:2px; }
+.iq-intu-val { font-size:13.5px; color:var(--text-secondary); line-height:1.65; }
+@media (max-width:620px){ .iq-intu-row { grid-template-columns:1fr; gap:2px; } }
 </style>`;
+  }
+
+  function intuitionHTML(topicId) {
+    const intu = TV.Intuition && TV.Intuition['iq-' + topicId];
+    if (!intu) return '';
+    const row = (lbl, v) => v ? `<div class="iq-intu-row"><span class="iq-intu-lbl">${lbl}</span><span class="iq-intu-val">${esc(v)}</span></div>` : '';
+    return `
+      <section class="iq-intu" aria-label="Intuition">
+        <div class="iq-intu-head"><span>💡</span>Intuition — why this matters</div>
+        ${row('The pain', intu.pain)}${row('The “aha”', intu.aha)}${row('When it matters', intu.when)}
+      </section>`;
   }
 
   function render(container, format, topic) {
@@ -85,6 +103,7 @@
     <div class="iq-eyebrow">Interview Questions</div>
     <h1 class="iq-h1">${esc(topic.label)}</h1>
     ${topic.blurb ? `<p class="iq-sub">${esc(topic.blurb)}</p>` : ''}
+    ${intuitionHTML(topic.id)}
     <div class="iq-bar">
       <div class="iq-count"><b>${qs.length}</b> question${qs.length === 1 ? '' : 's'} — tap to reveal a model answer</div>
       <button class="iq-toggle" type="button">Expand all</button>

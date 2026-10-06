@@ -220,5 +220,37 @@
       aha: 'Delta Sharing is an open protocol to share live Delta tables in place via short-lived signed URLs — no copy, cross-platform (even non-Databricks recipients), centrally governed and revocable.',
       when: 'For sharing data with external partners or across orgs/clouds without duplication. It is governed through Unity Catalog.',
     },
+
+    /* ── Interview concepts (drill pages, keyed by iq-<id>) ── */
+    'iq-spark-arch': {
+      pain: 'A Spark cluster is just a pile of machines; without a model of how work is split across them, you cannot reason about why a job is slow or runs out of memory.',
+      aha: 'One driver plans a DAG of stages; each stage becomes tasks that executors run over data partitions, and a shuffle is what separates one stage from the next.',
+      when: 'This is the mental model behind every tuning decision — learn it before shuffle, joins and performance tuning.',
+    },
+    'iq-partitioning': {
+      pain: 'Too few partitions leave the cluster idle; too many drown it in scheduling overhead; a skewed key makes one task run forever while the rest finish.',
+      aha: 'Partitions are Spark\'s unit of parallelism — right-sizing them (and spreading skew) is the first and biggest lever on throughput.',
+      when: 'Whenever a job is slow or uneven. It is the prerequisite for understanding joins and shuffle tuning.',
+    },
+    'iq-joins': {
+      pain: 'Joining two large datasets silently shuffles huge amounts of data across the network — the single most common reason a Spark job crawls.',
+      aha: 'The trick is matching the join strategy to the data: broadcast the small side to eliminate the shuffle entirely; otherwise co-partition both sides on the join key.',
+      when: 'Any time two big datasets meet. Broadcast joins and data-skew handling are the headline interview topics here.',
+    },
+    'iq-optimization': {
+      pain: '"The job is slow and expensive" with no systematic way to find out why turns tuning into guesswork.',
+      aha: 'Optimization is a repeatable loop: read the Spark UI, find the skewed or spilling stage, fix partitions / joins / caching, and let AQE adapt at runtime.',
+      when: 'Performance tuning and senior-level interviews. It builds directly on partitioning, joins and caching.',
+    },
+    'iq-delta': {
+      pain: 'A plain Parquet lake has no transactions, so concurrent writers corrupt each other and a failed job leaves half-written files behind.',
+      aha: 'The Delta transaction log turns a folder of files into a real table — ACID commits, time travel, MERGE and schema enforcement.',
+      when: 'The foundation of the lakehouse: Change Data Feed, streaming and governance all build on top of it.',
+    },
+    'iq-unity': {
+      pain: 'As data spreads across workspaces, "who can see which table, column and row?" becomes unanswerable and audits start to fail.',
+      aha: 'Unity Catalog centralizes identity, fine-grained grants (incl. row/column security), lineage and storage access — all enforced inside the query plan.',
+      when: 'Lakehouse governance. It is the enforcement counterpart to Purview\'s estate-wide cataloging.',
+    },
   };
 })();
