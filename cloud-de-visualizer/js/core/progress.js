@@ -41,7 +41,8 @@
   function _now() { return Date.now(); }
 
   function _blank() {
-    return { v: VERSION, role: DEFAULT_ROLE, viewed: {}, quiz: {}, ratings: {}, weights: null, updated: 0 };
+    return { v: VERSION, role: DEFAULT_ROLE, goal: 'interview', targetCert: null,
+             viewed: {}, quiz: {}, ratings: {}, certExam: {}, labs: {}, weights: null, updated: 0 };
   }
 
   /* ── Load / persist ──────────────────────────────────────── */
@@ -58,6 +59,10 @@
     data.viewed = data.viewed || {};
     data.quiz = data.quiz || {};
     data.ratings = data.ratings || {};
+    data.certExam = data.certExam || {};
+    data.labs = data.labs || {};
+    data.goal = data.goal || 'interview';
+    if (!('targetCert' in data)) data.targetCert = null;
     if (!('weights' in data)) data.weights = null;
     _cache = data;
     return _cache;
@@ -130,6 +135,39 @@
   function setRole(role) { const d = load(); d.role = role || DEFAULT_ROLE; save(); }
   function getRole() { return load().role || DEFAULT_ROLE; }
 
+  /* ── Study goal (interview | certification) + target cert ──── */
+  function setGoal(goal) { const d = load(); d.goal = (goal === 'certification') ? 'certification' : 'interview'; save(); }
+  function getGoal() { return load().goal || 'interview'; }
+  function setTargetCert(id) { const d = load(); d.targetCert = id || null; save(); }
+  function getTargetCert() { return load().targetCert || null; }
+
+  /* ── Certification practice-exam accuracy (per cert, per domain) ─
+     Cumulative correct/total so cert readiness has a real exam signal.
+     Keyed cert-level and cert+domain level. */
+  function recordCertAnswer(certId, domainId, correct) {
+    if (!certId) return;
+    const d = load();
+    const c = d.certExam[certId] || { correct: 0, total: 0, domains: {}, last: 0 };
+    c.total += 1; if (correct) c.correct += 1; c.last = _now();
+    if (domainId) {
+      const dm = c.domains[domainId] || { correct: 0, total: 0 };
+      dm.total += 1; if (correct) dm.correct += 1; c.domains[domainId] = dm;
+    }
+    d.certExam[certId] = c;
+    save();
+  }
+  function certExamInfo(certId) { return load().certExam[certId] || null; }
+
+  /* ── Hands-on lab completion (self-marked) ──────────────────── */
+  function setLabDone(labId, done) {
+    if (!labId) return;
+    const d = load();
+    if (done) d.labs[labId] = _now(); else delete d.labs[labId];
+    save();
+  }
+  function isLabDone(labId) { return !!load().labs[labId]; }
+  function labsDoneCount() { return Object.keys(load().labs).length; }
+
   /* ── Configurable engine weights (optional personalization) ─ */
   function setWeights(w) { const d = load(); d.weights = w || null; save(); }
   function getWeights() { return load().weights; }
@@ -201,6 +239,9 @@
     recordQuizAnswer, quizInfo,
     setRating, getRating, clearRating,
     setRole, getRole,
+    setGoal, getGoal, setTargetCert, getTargetCert,
+    recordCertAnswer, certExamInfo,
+    setLabDone, isLabDone, labsDoneCount,
     setWeights, getWeights,
     topicSignals,
   };

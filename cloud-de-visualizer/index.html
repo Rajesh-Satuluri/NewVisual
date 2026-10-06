@@ -590,6 +590,9 @@
 <!-- Curated learning paths (ordered taxonomy topic ids) -->
 <script src="js/data/learning-paths.js"></script>
 
+<!-- Certification overlay (official domains/weightings -> existing topic ids) -->
+<script src="js/data/certifications.js"></script>
+
 <!-- Format descriptors (register services + nav before app boot) -->
 <script src="js/formats/azure.js"></script>
 <script src="js/formats/databricks.js"></script>
@@ -599,8 +602,10 @@
 <!-- Recommendation engine (pure) + "For You" dashboard. Loads AFTER the
      format descriptors (so it can add the nav item) and BEFORE app boot. -->
 <script src="js/features/recommend-engine.js"></script>
+<script src="js/features/cert-engine.js"></script>
 <script src="js/modules/recommendations.js"></script>
 <script src="js/modules/learning-paths-view.js"></script>
+<script src="js/modules/certifications-view.js"></script>
 
 <!-- App bootstrap (registers navigate + nav registry) -->
 <script src="js/app.js"></script>
