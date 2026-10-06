@@ -183,6 +183,7 @@
     'fabric-sql-db':       { difficulty: 'intermediate', skills: ['sql', 'production'], prereqs: ['onelake'], importance: { interview: 70, production: 78, architecture: 64 } },
     'fabric-mlv':          { difficulty: 'intermediate', skills: ['sql'], prereqs: ['fabric-lakehouse'], importance: { interview: 72, production: 78, architecture: 66 } },
     'fabric-monitoring-hub': { difficulty: 'intro', skills: ['production', 'troubleshooting'], prereqs: [], importance: { interview: 66, production: 82, architecture: 54 } },
+    'fabric-deployment-pipelines': { difficulty: 'intermediate', skills: ['production'], prereqs: [], importance: { interview: 70, production: 80, architecture: 62 } },
   };
 
   /* ── Build the flat topic list from registered catalogs ────── */

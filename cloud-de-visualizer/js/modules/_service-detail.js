@@ -211,6 +211,12 @@
 .sd-home-stats { display:flex; gap:22px; margin-top:18px; flex-wrap:wrap; }
 .sd-home-stat b { display:block; font-size:22px; font-weight:800; color:var(--brand); }
 .sd-home-stat span { font-size:11.5px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em; }
+.sd-home-cta { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-top:20px; padding:14px 18px; border:1px solid var(--brand); border-radius:12px; background:color-mix(in srgb, var(--brand) 8%, transparent); }
+.sd-home-cta-txt { display:flex; flex-direction:column; gap:3px; }
+.sd-home-cta-txt b { font-size:14.5px; font-weight:800; color:var(--text-primary); }
+.sd-home-cta-txt span { font-size:12.5px; color:var(--text-secondary); line-height:1.5; }
+.sd-home-cta-btn { flex:0 0 auto; cursor:pointer; border:0; border-radius:9px; padding:10px 16px; font-size:13px; font-weight:700; color:#07171a; background:var(--brand); }
+.sd-home-cta-btn:hover { filter:brightness(1.08); }
 </style>`;
   }
 
@@ -265,6 +271,18 @@
     let styles = document.getElementById('sd-styles') ? '' : styleTag();
     const cats = categoriesFor(format);
     const total = cats.reduce((n, c) => n + c.items.length, 0);
+    // Optional certification practice-exam launcher (e.g., Fabric → DP-700).
+    const examId = meta.certExam;
+    const examN = (examId && TV.CertQuestions && TV.CertQuestions.has(examId))
+      ? TV.CertQuestions.byCert(examId).length : 0;
+    const ctaHtml = examN ? `
+      <div class="sd-home-cta">
+        <div class="sd-home-cta-txt">
+          <b>${esc(meta.certExamLabel || 'Practice exam')}</b>
+          <span>${examN} model questions with worked explanations, mapped to the official exam domains.</span>
+        </div>
+        <button class="sd-home-cta-btn" data-action="cert-exam" data-exam="${esc(examId)}">Start model questions →</button>
+      </div>` : '';
     const catBlocks = cats.map(c => `
       <div class="sd-home-cat">
         <h2 class="sd-home-cat-h">${esc(c.label)}</h2>
@@ -285,10 +303,16 @@
         <div class="sd-home-stat"><b>${cats.length}</b><span>categories</span></div>
         <div class="sd-home-stat"><b>6</b><span>depth levels each</span></div>
       </div>
+      ${ctaHtml}
     </div>
     ${catBlocks}
   </div>
 </div>`;
+    const examBtn = container.querySelector('[data-action="cert-exam"]');
+    if (examBtn) examBtn.addEventListener('click', () => {
+      const id = examBtn.getAttribute('data-exam');
+      if (TV.CertExam && TV.CertExam.open) TV.CertExam.open(id, { count: 20 });
+    });
   }
 
   /* ── Registration ────────────────────────────────────────── */

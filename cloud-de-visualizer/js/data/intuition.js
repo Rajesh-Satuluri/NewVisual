@@ -307,6 +307,11 @@
       aha: 'The Monitoring hub is one pane for all Fabric runs: filter to the failed run, drill into the activity-level error, fix and re-run — and set an Activator alert so next time it finds you.',
       when: 'First stop whenever something failed or a report went stale (check the semantic model refresh). Route to Azure Monitor/Log Analytics when you need long-term retention or custom metrics.',
     },
+    'fabric-deployment-pipelines': {
+      pain: 'Moving a report, warehouse or pipeline from Dev to Prod meant hand-copying items and re-wiring connections — error-prone, unreviewable, and easy to ship a Dev endpoint into production.',
+      aha: 'A deployment pipeline pairs items by name and promotes their DEFINITIONS across stages (data, credentials and refresh settings stay per-stage), while Git integration versions the same definitions — promotion + history without manual copying.',
+      when: 'Whenever content must travel Dev → Test → Prod or be source-controlled. Use deployment rules to repoint connections per stage, and a service principal to automate it from Azure DevOps/GitHub.',
+    },
 
     /* ── Interview concepts (drill pages, keyed by iq-<id>) ── */
     'iq-spark-arch': {

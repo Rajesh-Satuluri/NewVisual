@@ -12,6 +12,8 @@
   TV.ServiceDetail.registerHome('fabric', {
     title: 'Microsoft Fabric',
     subtitle: 'The Fabric data-engineering stack behind DP-700 — OneLake, Lakehouse, Warehouse, Dataflow Gen2, Pipelines, Spark notebooks, Eventstream and Eventhouse/KQL — each broken down six ways with interview Q&A, and cross-linked to the Azure and Databricks services they relate to.',
+    certExam: 'ms-dp700',
+    certExamLabel: 'DP-700 model questions',
   });
 
   const LOGO = `
