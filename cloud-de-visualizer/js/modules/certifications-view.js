@@ -242,6 +242,9 @@
       <div class="ct-ring-pct">${rd.overall}%</div>
       <div class="ct-ring-tier">${esc(rd.tier)}</div>
       <button class="ct-btn" style="margin-top:8px" data-goal="${esc(cert.certificationId)}">Set as my goal</button>
+      ${TV.CertExam && TV.CertExam.available(cert.certificationId)
+        ? `<button class="ct-btn ct-btn--ghost" style="margin-top:6px" data-exam="${esc(cert.certificationId)}">Take practice exam</button>`
+        : `<div style="margin-top:6px;font-size:11px;color:var(--text-muted,#8b949e)">Practice exam: coming soon</div>`}
     </div>
   </div>
   ${betaNote}${updateNote}
@@ -276,6 +279,8 @@
     const open = e.target.closest('[data-open]');
     if (open) { _selected = open.getAttribute('data-open'); render(_container); return; }
     if (e.target.closest('[data-back]')) { _selected = null; render(_container); return; }
+    const exam = e.target.closest('[data-exam]');
+    if (exam) { if (TV.CertExam) TV.CertExam.open(exam.getAttribute('data-exam')); return; }
     const goal = e.target.closest('[data-goal]');
     if (goal) {
       const id = goal.getAttribute('data-goal');
