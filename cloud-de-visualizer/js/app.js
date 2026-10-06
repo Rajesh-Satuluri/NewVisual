@@ -203,11 +203,19 @@
       const inner = document.createElement('div');
       inner.className = 'nav-group-inner';
 
+      const svcById = {};
+      ((TV._services && TV._services[fmt()]) || []).forEach(s => { svcById[s.id] = s; });
       group.items.forEach(item => {
         const a = document.createElement('a');
         a.href = item.available ? '#' + fmt() + '/' + item.id : 'javascript:void(0)';
         a.className = 'nav-item' + (item.available ? '' : ' coming-soon');
         a.dataset.navId = item.id;
+        // Searchable text: label + service aka/aliases + tagline, so the
+        // sidebar filter matches "ADF" → Azure Data Factory, etc.
+        const svc = svcById[item.id];
+        const searchBits = [item.label, svc && svc.aka, svc && svc.name, svc && svc.tagline]
+          .filter(Boolean).join(' ').toLowerCase();
+        a.dataset.search = searchBits;
         a.innerHTML = `
           <span class="nav-icon">${_navIcon(item.icon)}</span>
           <span class="nav-label">${item.label}</span>
@@ -369,8 +377,13 @@
       console.error('Module render error [' + id + ']:', err);
       container.innerHTML = `
         <div class="error-module">
-          <h3>Error rendering module: ${id}</h3>
-          <pre>${err.message}\n\n${err.stack || ''}</pre>
+          <div class="error-module-icon">⚠️</div>
+          <h3>This section didn't load</h3>
+          <p>Something went wrong rendering this page. Technical details are in the browser console.</p>
+          <div class="error-module-actions">
+            <button class="btn-primary" onclick="location.hash='${fmt()}/${homeScreen()}'">← Back to Home</button>
+            <button class="btn-secondary" onclick="location.reload()">Reload</button>
+          </div>
         </div>`;
     }
 
@@ -411,29 +424,65 @@
   }
 
   /* ── Sidebar search ──────────────────────────────────────── */
+  function _navMatches(a, q) {
+    // match label + aliases/tagline, and tolerate multi-word queries (all terms must hit)
+    const hay = (a.dataset.search || a.querySelector('.nav-label')?.textContent.toLowerCase() || '');
+    return q.split(/\s+/).every(term => hay.includes(term));
+  }
+  function _applySidebarSearch(q) {
+    let shown = 0;
+    document.querySelectorAll('a.nav-item[data-nav-id]').forEach(a => {
+      const hit = !q || _navMatches(a, q);
+      a.style.display = hit ? '' : 'none';
+      if (hit && q) shown++;
+    });
+    if (q) {
+      document.querySelectorAll('.nav-group').forEach(g => {
+        g.classList.remove('collapsed');
+        g.querySelector('.nav-group-header')?.setAttribute('aria-expanded', 'true');
+        // hide whole groups that have no visible item
+        const any = [...g.querySelectorAll('a.nav-item[data-nav-id]')].some(a => a.style.display !== 'none');
+        g.style.display = any ? '' : 'none';
+      });
+    } else {
+      document.querySelectorAll('.nav-group').forEach(g => { g.style.display = ''; });
+      const saved = _getCollapsedGroups();
+      document.querySelectorAll('.nav-group').forEach(g => {
+        const c = saved.has(g.dataset.group);
+        g.classList.toggle('collapsed', c);
+        g.querySelector('.nav-group-header')?.setAttribute('aria-expanded', String(!c));
+      });
+    }
+    // "no results" state
+    let empty = document.getElementById('sidebar-search-empty');
+    if (q && shown === 0) {
+      if (!empty) {
+        empty = document.createElement('div');
+        empty.id = 'sidebar-search-empty';
+        empty.className = 'nav-search-empty';
+        (document.getElementById('sidebar-nav') || document.body).appendChild(empty);
+      }
+      empty.textContent = `No modules match “${q}”.`;
+      empty.style.display = '';
+    } else if (empty) {
+      empty.style.display = 'none';
+    }
+    _updateCollapseAllBtn();
+  }
+  function _firstVisibleNav() {
+    return [...document.querySelectorAll('a.nav-item[data-nav-id]')].find(a => a.style.display !== 'none' && !a.classList.contains('coming-soon'));
+  }
   function _initSidebarSearch() {
     const input = document.getElementById('sidebar-search');
     if (!input) return;
-    input.addEventListener('input', () => {
-      const q = input.value.toLowerCase().trim();
-      document.querySelectorAll('a.nav-item[data-nav-id]').forEach(a => {
-        const label = a.querySelector('.nav-label')?.textContent.toLowerCase() || '';
-        a.style.display = !q || label.includes(q) ? '' : 'none';
-      });
-      if (q) {
-        document.querySelectorAll('.nav-group').forEach(g => {
-          g.classList.remove('collapsed');
-          g.querySelector('.nav-group-header')?.setAttribute('aria-expanded', 'true');
-        });
-      } else {
-        const saved = _getCollapsedGroups();
-        document.querySelectorAll('.nav-group').forEach(g => {
-          const c = saved.has(g.dataset.group);
-          g.classList.toggle('collapsed', c);
-          g.querySelector('.nav-group-header')?.setAttribute('aria-expanded', String(!c));
-        });
+    input.addEventListener('input', () => _applySidebarSearch(input.value.toLowerCase().trim()));
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const first = _firstVisibleNav();
+        if (first) { e.preventDefault(); first.click(); input.blur(); }
+      } else if (e.key === 'Escape') {
+        if (input.value) { e.preventDefault(); input.value = ''; _applySidebarSearch(''); }
       }
-      _updateCollapseAllBtn();
     });
   }
 
@@ -586,10 +635,33 @@
   function _initShortcutsModal() {
     const modal = document.getElementById('shortcuts-modal');
     if (!modal) return;
-    const close = () => modal.classList.remove('visible');
+    let lastFocus = null;
+    const close = () => {
+      modal.classList.remove('visible');
+      document.body.classList.remove('modal-open');
+      if (lastFocus && lastFocus.focus) { try { lastFocus.focus(); } catch (e) {} }
+      lastFocus = null;
+    };
+    const open = () => {
+      lastFocus = document.activeElement;
+      modal.classList.add('visible');
+      document.body.classList.add('modal-open');
+      (modal.querySelector('.modal-close') || modal).focus();
+    };
     modal.querySelector('.modal-close')?.addEventListener('click', close);
     modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
-    TV._showShortcutsModal = () => modal.classList.add('visible');
+    document.addEventListener('keydown', (e) => {
+      if (!modal.classList.contains('visible')) return;
+      if (e.key === 'Escape') { close(); return; }
+      if (e.key === 'Tab') {
+        const f = modal.querySelectorAll('button:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])');
+        if (!f.length) return;
+        const first = f[0], last = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    });
+    TV._showShortcutsModal = open;
   }
 
   /* ── Wire [data-nav] click delegation ───────────────────── */

@@ -911,6 +911,49 @@
   line-height: var(--leading-relaxed);
 }
 
+/* ── Placeholder / Error / Empty states ──────────────────────── */
+.placeholder-module,
+.error-module {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  text-align: center;
+  padding: var(--space-12);
+  gap: var(--space-3);
+  max-width: 520px;
+  margin: 0 auto;
+}
+.placeholder-icon,
+.error-module-icon { font-size: 48px; margin-bottom: var(--space-2); opacity: .9; }
+.placeholder-module h2,
+.error-module h3 {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.placeholder-module p,
+.error-module p {
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  line-height: var(--leading-relaxed);
+  max-width: 420px;
+}
+.error-module-actions { display: flex; gap: var(--space-3); flex-wrap: wrap; justify-content: center; margin-top: var(--space-3); }
+
+.nav-search-empty {
+  padding: var(--space-4) var(--space-4);
+  margin: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  text-align: center;
+  background: var(--bg-2);
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-sm);
+  line-height: var(--leading-normal);
+}
+
 /* ── SVG Node Styles ─────────────────────────────────────────── */
 .svg-node {
   cursor: pointer;

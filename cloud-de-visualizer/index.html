@@ -8,7 +8,7 @@
   <script>
     (function () {
       var root = document.documentElement;
-      var FORMATS = { azure: 1, databricks: 1, aws: 1, 'multi-cloud': 1 };
+      var FORMATS = { azure: 1, databricks: 1, aws: 1, fabric: 1, 'multi-cloud': 1 };
       try {
         var t = localStorage.getItem('cde-theme');
         if (t !== 'light' && t !== 'dark') {
@@ -50,6 +50,11 @@
   <meta name="twitter:title" content="Cloud Data Engineering Visualizer" />
   <meta name="twitter:description" content="Azure & Databricks data services, each explained six ways with interview Q&A." />
   <meta name="twitter:image" content="https://rajesh-satuluri.github.io/NewVisual/cloud-de-visualizer/assets/og-image.png" />
+
+  <!-- ── Web fonts (self-hosted) ── -->
+  <link rel="preload" href="assets/fonts/inter-400.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="assets/fonts/inter-600.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="css/fonts.css" />
 
   <!-- ── Design system ── -->
   <link rel="stylesheet" href="css/main.css" />
@@ -306,7 +311,7 @@
       gap: 16px; margin-bottom: 20px; flex-wrap: wrap;
     }
     .module-header h1 { margin: 0 0 4px; font-size: 24px; font-weight: 700; }
-    .module-subtitle { color: var(--text-muted); font-size: 13.5px; line-height: 1.6; margin: 4px 0 0; max-width: 600px; }
+    .module-subtitle { color: var(--text-muted); font-size: 14px; line-height: 1.6; margin: 4px 0 0; max-width: 600px; }
     .module-header-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; flex-wrap: wrap; }
 
     /* Module container scrollable padding */

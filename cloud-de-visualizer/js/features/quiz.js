@@ -30,11 +30,11 @@
 .quiz-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.6); backdrop-filter:blur(4px); z-index:9000;
   display:flex; align-items:center; justify-content:center; padding:20px; opacity:0; pointer-events:none; transition:opacity .2s; }
 .quiz-backdrop.visible { opacity:1; pointer-events:all; }
-.quiz-box { background:var(--bg-2); border:1px solid var(--border-default); border-radius:16px; width:640px; max-width:100%;
-  max-height:88vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,.5); }
+.quiz-box { background:var(--bg-2); border:1px solid var(--border-default); border-radius:var(--radius-lg,16px); width:640px; max-width:100%;
+  max-height:88vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:var(--shadow-xl,0 16px 48px rgba(0,0,0,.7)); }
 .quiz-head { padding:18px 22px; border-bottom:1px solid var(--border-default); display:flex; align-items:center; justify-content:space-between; gap:12px; flex-shrink:0; }
 .quiz-head h2 { font-size:16px; font-weight:800; margin:0; color:var(--text-primary); }
-.quiz-head .quiz-sub { font-size:11.5px; color:var(--text-muted); margin-top:2px; }
+.quiz-head .quiz-sub { font-size:12px; color:var(--text-muted); margin-top:2px; }
 .quiz-close { background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:20px; line-height:1; padding:4px 8px; border-radius:6px; }
 .quiz-close:hover { background:var(--bg-3); color:var(--text-primary); }
 .quiz-body { padding:20px 22px; overflow-y:auto; }
@@ -45,7 +45,7 @@
 .quiz-opts { display:grid; gap:9px; }
 .quiz-opt { display:flex; align-items:flex-start; gap:11px; text-align:left; padding:12px 14px; background:var(--bg-1);
   border:1px solid var(--border-default); border-radius:10px; cursor:pointer; font:inherit; color:var(--text-secondary);
-  font-size:13.5px; line-height:1.5; transition:border-color .12s, background .12s; width:100%; }
+  font-size:14px; line-height:1.5; transition:border-color .12s, background .12s; width:100%; }
 .quiz-opt:hover:not(:disabled) { border-color:var(--brand); }
 .quiz-opt:disabled { cursor:default; }
 .quiz-opt .quiz-letter { flex-shrink:0; width:22px; height:22px; border-radius:6px; background:var(--bg-4); color:var(--text-muted);
@@ -55,11 +55,11 @@
 .quiz-opt.wrong { border-color:var(--red); background:var(--red-subtle); color:var(--text-primary); }
 .quiz-opt.wrong .quiz-letter { background:var(--red); color:#fff; }
 .quiz-why { margin-top:14px; background:var(--bg-1); border-left:3px solid var(--brand); border-radius:8px; padding:11px 13px;
-  font-size:12.5px; color:var(--text-secondary); line-height:1.6; display:none; }
+  font-size:13px; color:var(--text-secondary); line-height:1.6; display:none; }
 .quiz-why.show { display:block; }
 .quiz-why b { color:var(--text-primary); }
 .quiz-foot { padding:14px 22px; border-top:1px solid var(--border-default); display:flex; align-items:center; justify-content:space-between; gap:12px; flex-shrink:0; }
-.quiz-score { font-size:12.5px; color:var(--text-muted); }
+.quiz-score { font-size:13px; color:var(--text-muted); }
 .quiz-btn { background:var(--brand-gradient); color:#fff; border:none; border-radius:9px; padding:9px 18px; font-size:13px; font-weight:700; cursor:pointer; }
 .quiz-btn:disabled { opacity:.4; cursor:default; }
 .quiz-btn--ghost { background:none; border:1px solid var(--border-default); color:var(--text-secondary); }
@@ -73,7 +73,16 @@
     document.head.appendChild(s);
   }
 
-  let root, state;
+  let root, state, _lastFocus = null;
+
+  function trapFocus(e) {
+    if (e.key !== 'Tab' || !root || !root.classList.contains('visible')) return;
+    const f = root.querySelectorAll('button:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])');
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
 
   function ensureRoot() {
     if (root) return root;
@@ -86,6 +95,7 @@
     document.body.appendChild(root);
     root.addEventListener('click', (e) => { if (e.target === root) close(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && root.classList.contains('visible')) close(); });
+    document.addEventListener('keydown', trapFocus);
     return root;
   }
 
@@ -94,17 +104,27 @@
   function open() {
     const b = bank();
     if (!b) return;
+    _lastFocus = document.activeElement;
     ensureRoot();
     state = { fmt: b.fmt, qs: b.questions, i: 0, correct: 0, answered: false };
     renderQuestion();
     root.classList.add('visible');
+    document.body.classList.add('modal-open');
+    const first = root.querySelector('.quiz-opt') || root.querySelector('.quiz-close');
+    if (first) first.focus();
   }
 
-  function close() { if (root) root.classList.remove('visible'); }
+  function close() {
+    if (root) root.classList.remove('visible');
+    document.body.classList.remove('modal-open');
+    if (_lastFocus && typeof _lastFocus.focus === 'function') { try { _lastFocus.focus(); } catch (e) {} }
+    _lastFocus = null;
+  }
 
   function renderQuestion() {
     const q = state.qs[state.i];
-    const pct = Math.round((state.i / state.qs.length) * 100);
+    const pct = Math.round(((state.i + 1) / state.qs.length) * 100);
+    const scoreLine = state.i === 0 ? 'Not answered yet' : `${state.correct} / ${state.i} correct so far`;
     root.innerHTML = `
       <div class="quiz-box">
         <div class="quiz-head">
@@ -115,20 +135,20 @@
           <button class="quiz-close" aria-label="Close quiz">✕</button>
         </div>
         <div class="quiz-body">
-          <div class="quiz-progress"><div class="quiz-progress-fill" style="width:${pct}%"></div></div>
+          <div class="quiz-progress" role="progressbar" aria-valuenow="${state.i + 1}" aria-valuemin="1" aria-valuemax="${state.qs.length}" aria-label="Quiz progress"><div class="quiz-progress-fill" style="width:${pct}%"></div></div>
           <div class="quiz-qnum">Question ${state.i + 1}</div>
-          <div class="quiz-q">${esc(q.q)}</div>
-          <div class="quiz-opts">
+          <div class="quiz-q" tabindex="-1">${esc(q.q)}</div>
+          <div class="quiz-opts" role="group" aria-label="Answer options">
             ${q.options.map((o, k) => `
               <button class="quiz-opt" data-opt="${k}">
                 <span class="quiz-letter">${String.fromCharCode(65 + k)}</span>
                 <span>${esc(o)}</span>
               </button>`).join('')}
           </div>
-          <div class="quiz-why"><b>Why:</b> <span class="quiz-why-text"></span></div>
+          <div class="quiz-why" role="status" aria-live="polite"><b>Why:</b> <span class="quiz-why-text"></span></div>
         </div>
         <div class="quiz-foot">
-          <span class="quiz-score">Score: ${state.correct} / ${state.i + (state.answered ? 1 : 0)}</span>
+          <span class="quiz-score">${scoreLine}</span>
           <button class="quiz-btn quiz-next" disabled>${state.i === state.qs.length - 1 ? 'See result' : 'Next →'}</button>
         </div>
       </div>`;
@@ -144,8 +164,9 @@
     const opts = root.querySelectorAll('.quiz-opt');
     opts.forEach((b, idx) => {
       b.disabled = true;
-      if (idx === q.answer) b.classList.add('correct');
-      if (idx === k && k !== q.answer) b.classList.add('wrong');
+      const letter = b.querySelector('.quiz-letter');
+      if (idx === q.answer) { b.classList.add('correct'); if (letter) letter.textContent = '✓'; }
+      if (idx === k && k !== q.answer) { b.classList.add('wrong'); if (letter) letter.textContent = '✗'; }
     });
     if (k === q.answer) state.correct++;
     // Feed per-topic accuracy into the recommendation engine's signal store.
@@ -155,8 +176,10 @@
     const why = root.querySelector('.quiz-why');
     root.querySelector('.quiz-why-text').textContent = q.why;
     why.classList.add('show');
-    root.querySelector('.quiz-score').textContent = `Score: ${state.correct} / ${state.i + 1}`;
-    root.querySelector('.quiz-next').disabled = false;
+    root.querySelector('.quiz-score').textContent = `${state.correct} / ${state.i + 1} correct`;
+    const nextBtn = root.querySelector('.quiz-next');
+    nextBtn.disabled = false;
+    nextBtn.focus();
   }
 
   function next() {
@@ -197,7 +220,9 @@
       </div>`;
     root.querySelector('.quiz-close').addEventListener('click', close);
     root.querySelector('.quiz-close2').addEventListener('click', close);
-    root.querySelector('.quiz-retry').addEventListener('click', open);
+    const rt = root.querySelector('.quiz-retry');
+    rt.addEventListener('click', open);
+    rt.focus();
   }
 
   /* Wire the topbar quiz button: show it when the active format has a

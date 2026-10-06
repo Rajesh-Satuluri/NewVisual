@@ -133,7 +133,7 @@ button:focus:not(:focus-visible), a:focus:not(:focus-visible) { outline: none; }
 .format-switcher { padding: 10px 12px 4px; }
 .format-switcher.single .fmt-static {
   display: block;
-  font-size: 10.5px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase;
+  font-size: 11px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase;
   color: var(--brand);
 }
 .sidebar.collapsed .format-switcher { display: none; }
@@ -145,7 +145,7 @@ button:focus:not(:focus-visible), a:focus:not(:focus-visible) { outline: none; }
 .fmt-seg { min-width: max-content; }
 .fmt-seg {
   flex: 1; padding: 5px 8px; border-radius: var(--radius-full);
-  font-size: 11.5px; font-weight: 700; color: var(--text-secondary);
+  font-size: 12px; font-weight: 700; color: var(--text-secondary);
   background: transparent; border: none; cursor: pointer; white-space: nowrap;
 }
 .fmt-seg:hover { color: var(--text-primary); }
@@ -206,17 +206,17 @@ body.sidebar-open #nav-toggle .ham i:nth-child(3) { top: 6px; transform: rotate(
 
 /* Uppercase micro-label utility (the premium tell) */
 .tv-micro {
-  font-size: 10.5px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase;
+  font-size: 11px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase;
   color: var(--text-muted);
 }
 
 /* ── Cross-format concept jump (topbar; Phase D) ──────────────── */
 .xformat-jump { display:flex; align-items:center; gap:6px; margin-left:14px; padding-left:14px; border-left:1px solid var(--border-default); flex-wrap:wrap; }
 .xformat-jump[hidden] { display:none; }
-.xfj-label { font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; font-weight:700; color:var(--text-muted); }
+.xfj-label { font-size:11px; text-transform:uppercase; letter-spacing:.05em; font-weight:700; color:var(--text-muted); }
 .xfj-chip {
   display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:var(--radius-full);
-  font-size:11.5px; font-weight:700; text-decoration:none; white-space:nowrap;
+  font-size:12px; font-weight:700; text-decoration:none; white-space:nowrap;
   color:var(--text-secondary); background:var(--bg-2); border:1px solid var(--border-default);
   transition:border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
 }

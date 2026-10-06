@@ -136,13 +136,21 @@
 ══════════════════════════════════════════════════════════════ */
 @media (hover: none) {
   .feature-card:hover,
-  .path-card:hover {
+  .path-card:hover,
+  .sd-card:hover,
+  .ct-card:hover,
+  .ct-dom:hover,
+  .cx-opt:hover,
+  .quiz-opt:hover {
     transform: none;
   }
   .feature-card:active,
   .path-card:active {
     transform: scale(0.99);
   }
+  /* chips/options: don't keep a stuck brand border after tap */
+  .sd-chip:hover,
+  .ct-chip:hover { border-color: var(--border-default); color: var(--text-secondary); }
 }
 
 /* ══════════════════════════════════════════════════════════════

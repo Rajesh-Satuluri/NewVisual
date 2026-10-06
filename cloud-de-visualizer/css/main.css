@@ -75,13 +75,13 @@
   --shadow-glow: 0 0 20px rgba(74, 174, 255, 0.25);
   --shadow-glow-orange: 0 0 20px rgba(249, 115, 22, 0.3);
 
-  /* Radius */
+  /* Radius — clean 4px step scale (no visually-identical duplicates) */
   --radius-xs: 4px;
-  --radius-sm: 9px;
+  --radius-sm: 8px;
   --radius: 12px;
-  --radius-md: 13px;
-  --radius-lg: 14px;
-  --radius-xl: 18px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
   --radius-2xl: 24px;
   --radius-full: 9999px;
 
@@ -98,11 +98,13 @@
   --space-16: 64px;
   --space-20: 80px;
 
-  /* Fonts */
-  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue",
-    Arial, sans-serif;
-  --font-mono: "SF Mono", "Cascadia Code", "Fira Code", "JetBrains Mono",
+  /* Fonts — self-hosted Inter + JetBrains Mono, with system fallbacks */
+  --font-ui: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", "Cascadia Code", "Fira Code",
     Consolas, "Courier New", monospace;
+  /* Inter benefits from a touch of negative tracking + optical features */
+  --font-feature: "cv02" 1, "cv03" 1, "cv04" 1, "cv11" 1;
 
   /* Font sizes */
   --text-xs: 11px;
@@ -244,6 +246,10 @@ body {
   overflow: hidden;
   height: 100vh;
   user-select: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: var(--font-feature);
+  text-rendering: optimizeLegibility;
 }
 
 /* Allow text selection in content areas */
