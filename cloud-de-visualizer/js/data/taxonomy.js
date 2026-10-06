@@ -179,6 +179,10 @@
     'eventstream':         { difficulty: 'intermediate', skills: ['streaming'], prereqs: [] },
     'eventhouse':          { difficulty: 'advanced', skills: ['streaming', 'sql'], prereqs: ['eventstream'] },
     'fabric-mirroring':    { difficulty: 'intermediate', skills: ['production'], prereqs: ['onelake'], importance: { interview: 74, production: 78, architecture: 62 } },
+    'fabric-copy-job':     { difficulty: 'intro', skills: ['production'], prereqs: [], importance: { interview: 68, production: 80, architecture: 56 } },
+    'fabric-sql-db':       { difficulty: 'intermediate', skills: ['sql', 'production'], prereqs: ['onelake'], importance: { interview: 70, production: 78, architecture: 64 } },
+    'fabric-mlv':          { difficulty: 'intermediate', skills: ['sql'], prereqs: ['fabric-lakehouse'], importance: { interview: 72, production: 78, architecture: 66 } },
+    'fabric-monitoring-hub': { difficulty: 'intro', skills: ['production', 'troubleshooting'], prereqs: [], importance: { interview: 66, production: 82, architecture: 54 } },
   };
 
   /* ── Build the flat topic list from registered catalogs ────── */

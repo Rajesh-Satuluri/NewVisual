@@ -287,6 +287,26 @@
       aha: 'Mirroring is managed, near-real-time replication: point it at Azure SQL/Cosmos/Snowflake/PostgreSQL and Fabric keeps a fresh Delta copy in OneLake for you — no pipeline to author.',
       when: 'When you need a continuously-synced copy of an operational DB in the lake with zero ETL. Use a shortcut to reference lake data in place; use a pipeline when you need custom movement or transforms.',
     },
+    'fabric-copy-job': {
+      pain: 'Even "just copy these tables and keep them fresh" meant authoring a whole pipeline around a Copy activity — control flow and expressions for a task that is mostly mechanical.',
+      aha: 'Copy Job is the wizard path: pick source, destination and mode (bulk, watermark-incremental, or CDC) and it runs on a schedule — no pipeline to build, and reusable as an activity when you later need orchestration.',
+      when: 'For straightforward movement/sync. Watermark incremental when a monotonic column exists; CDC when you must replicate deletes too. Step up to a pipeline only when you need retries, branching or chaining.',
+    },
+    'fabric-sql-db': {
+      pain: 'Application data lived in an operational database, and getting it into analytics meant a replication pipeline — operational and analytical worlds bridged by fragile plumbing.',
+      aha: 'Fabric SQL Database is the Azure SQL OLTP engine living inside Fabric: write with your app, and Fabric auto-mirrors every change into OneLake Delta in near real-time, so analytics reads it with no pipeline.',
+      when: 'When you want a transactional app backend whose rows are instantly analyzable in Fabric. Pick Warehouse instead for analytics-only serving (large scans, modeled marts); SQL Database is for OLTP.',
+    },
+    'fabric-mlv': {
+      pain: 'A medallion layer is mostly a transformation, yet it came wrapped in hand-built notebooks, scheduling glue and separate data-quality scripts to keep gold fresh and clean.',
+      aha: 'A Materialized Lake View is that layer as a SELECT: declare the result (and quality constraints inline) and Fabric owns execution, storage, refresh ordering and DQ — "when your medallion fits in a SELECT".',
+      when: 'For silver/gold layers expressible in SQL where you want managed refresh and built-in quality. Stay in notebooks for imperative or complex logic (ML, custom Python, stateful streaming).',
+    },
+    'fabric-monitoring-hub': {
+      pain: 'Operational health was scattered across every item type — you hunted through pipelines, dataflows, notebooks and refreshes separately to find which step failed and why.',
+      aha: 'The Monitoring hub is one pane for all Fabric runs: filter to the failed run, drill into the activity-level error, fix and re-run — and set an Activator alert so next time it finds you.',
+      when: 'First stop whenever something failed or a report went stale (check the semantic model refresh). Route to Azure Monitor/Log Analytics when you need long-term retention or custom metrics.',
+    },
 
     /* ── Interview concepts (drill pages, keyed by iq-<id>) ── */
     'iq-spark-arch': {

@@ -160,5 +160,111 @@
         { q: 'When would you use Mirroring instead of a pipeline or a shortcut?', a: 'Use Mirroring when you need a continuously-synced copy of an operational database (Azure SQL, Cosmos DB, Snowflake, PostgreSQL) inside Fabric with no ETL to build — Fabric snapshots then CDC-streams changes into OneLake Delta. A shortcut only references existing lake/DB data in place (no copy, no CDC of an OLTP source); a pipeline is when you need to author custom movement, transforms or orchestration. Mirroring is the managed, low-config path for "get my database into the lake, fresh".' },
       ],
     },
+    {
+      id: 'fabric-copy-job', name: 'Copy Job', category: 'ingest-etl', aka: 'Simplified data movement (bulk / incremental / CDC)',
+      tagline: 'A wizard-driven Data Factory item that moves data between a source and destination — bulk load, watermark-based incremental, or CDC replication — with no pipeline to author.',
+      keyFacts: [{ k: 'Style', v: 'Low-config, wizard-driven' }, { k: 'Modes', v: 'Bulk · incremental · CDC' }, { k: 'Behavior', v: 'Append / upsert / overwrite' }],
+      what: { lead: 'Copy Job is the fast path for the most common movement task — get data from A to B and keep it current — without building a pipeline around a Copy activity.', bullets: [
+        { h: 'Three delivery styles', d: 'Bulk (full load), incremental (watermark column), and CDC replication (captures inserts/updates/deletes).' },
+        { h: 'Copy behavior', d: 'Choose append, upsert (merge on key), or overwrite at the destination.' },
+      ] },
+      why: { lead: 'Most ingestion is "copy these tables and keep them fresh." Authoring a full pipeline for that is overkill; Copy Job gets it running in minutes and still supports scheduling and column/table management.', bullets: [
+        { h: 'Less plumbing', d: 'No control-flow, no expressions — just source, destination, mode.' },
+      ] },
+      how: { lead: 'Pick a source and destination, choose bulk or incremental, map tables/columns, and set a schedule; for incremental you name a monotonic watermark column, or enable CDC if the source supports it.', bullets: [
+        { h: 'Watermark vs CDC', d: 'Watermark suits sources with a reliably increasing column; CDC is required when you must also replicate deletes.' },
+        { h: 'Reusable in pipelines', d: 'The Copy job activity drops the same logic inside a pipeline when you need retries, conditions or chaining.' },
+      ], code: { lang: 'text (shape)', text: 'source: Azure SQL (tables) → destination: Lakehouse\nmode: incremental (watermark = ModifiedDate)\nbehavior: upsert on [id]  ·  schedule: hourly' } },
+      deUseCase: { lead: 'A DP-700 loading-pattern choice: Copy Job for fast bulk/incremental/CDC movement; Dataflow Gen2 when you must transform; a pipeline when you need orchestration; Mirroring for a fully-managed continuous DB replica.', bullets: [
+        { h: 'Copy Job vs Copy activity', d: 'Copy Job is the simplified standalone item; the Copy activity is the pipeline building block. Copy Job adds built-in incremental/CDC without pipeline authoring.' },
+        { h: 'Copy Job vs Mirroring', d: 'Copy Job is scheduled/triggered movement you configure; Mirroring is always-on managed replication of a whole operational database.' },
+      ] },
+      integrations: [{ id: 'fabric-lakehouse', label: 'Lakehouse', note: 'Destination', format: 'fabric' }, { id: 'fabric-warehouse', label: 'Warehouse', note: 'Destination', format: 'fabric' }, { id: 'fabric-data-pipelines', label: 'Pipelines', note: 'Copy job activity', format: 'fabric' }, { id: 'onelake', label: 'OneLake', note: 'Lands Delta', format: 'fabric' }],
+      runtime: { lead: 'Managed compute; scheduled or triggered; run history and errors in the monitoring hub.', bullets: [{ h: 'Monitor', d: 'Per-run status + row counts; failures surface in the monitoring hub like any Data Factory item.' }] },
+      interview: [
+        { q: 'Copy Job vs the pipeline Copy activity — when each?', a: 'Reach for Copy Job when the task is just "move these tables and keep them in sync": it gives bulk, watermark-incremental and CDC out of the box with no pipeline to build. Use the Copy activity (inside a pipeline) when you need orchestration around the copy — control flow, retries, conditional branches, chaining with notebooks. The Copy job activity bridges them by letting you reuse Copy Job logic inside a pipeline.' },
+        { q: 'Incremental: watermark vs CDC?', a: 'Watermark-based incremental copies rows where a monotonic column (e.g. ModifiedDate) exceeds the last run — simple, but it cannot see deletes. CDC reads the source change feed and replicates inserts, updates and deletes, keeping the destination truly in sync; use it when the source has CDC enabled and deletes matter.' },
+      ],
+    },
+    {
+      id: 'fabric-sql-db', name: 'Fabric SQL Database', category: 'databases', aka: 'Transactional SQL (OLTP) inside Fabric',
+      tagline: 'A fully-managed transactional database built on the Azure SQL engine, living inside Fabric and auto-mirrored to OneLake as Delta in near real-time — OLTP and analytics in one place.',
+      keyFacts: [{ k: 'Engine', v: 'Azure SQL Database' }, { k: 'Workload', v: 'OLTP (transactional)' }, { k: 'Analytics', v: 'Auto-mirrors to OneLake' }],
+      what: { lead: 'Fabric SQL Database is an operational, read-write SQL database provisioned as a Fabric item. It runs the same Azure SQL engine, and Fabric continuously replicates it into OneLake so the data is query-ready for analytics with no pipeline.', bullets: [
+        { h: 'Real OLTP', d: 'Full T-SQL DML, transactions, indexes, stored procedures — an application backend, not a warehouse.' },
+        { h: 'Auto-mirror to OneLake', d: 'Every change lands in OneLake Delta in near real-time via built-in mirroring — no ETL to author.' },
+      ] },
+      why: { lead: 'Application (operational) data and analytics data normally live apart, bridged by fragile pipelines. Fabric SQL Database puts the transactional store inside the analytics platform so app data is instantly available to notebooks, warehouses and Power BI.', bullets: [
+        { h: 'OLTP + OLAP meet', d: 'Write with your app; read the same data in Lakehouse/Warehouse/Power BI seconds later.' },
+        { h: 'No pipeline', d: 'The mirror replaces the classic "replicate the app DB into the lake" plumbing.' },
+      ] },
+      how: { lead: 'Create a SQL Database item; apps connect over the usual SQL endpoint for reads/writes; Fabric mirrors committed changes into OneLake Delta, exposed through a SQL analytics endpoint for cross-item queries.', bullets: [
+        { h: 'Two endpoints', d: 'The transactional endpoint for OLTP; the read-only SQL analytics endpoint over the OneLake mirror for analytics.' },
+        { h: 'Delta in OneLake', d: 'Mirrored tables are open Delta — Spark, Warehouse and Direct Lake read them, and other items can shortcut to them.' },
+      ], code: { lang: 'sql', text: '-- OLTP write (transactional endpoint)\nINSERT INTO dbo.orders (id, amount) VALUES (@id, @amt);\n-- seconds later, analytics reads the OneLake mirror (no ETL)' } },
+      deUseCase: { lead: 'Back a data-driven app with a SQL store whose rows are immediately analyzable in Fabric. In DP-700 terms it is an OLTP source already inside the lake — contrast with Warehouse (analytics-only, full DML on modeled marts).', bullets: [
+        { h: 'SQL Database vs Warehouse', d: 'SQL Database = OLTP app backend (small reads/writes, point transactions); Warehouse = OLAP analytics store (large scans, modeled marts). Both store Delta in OneLake, but serve opposite workloads.' },
+        { h: 'How analytics gets the data', d: 'Automatically — the built-in mirror, not a pipeline you build.' },
+      ] },
+      integrations: [{ id: 'onelake', label: 'OneLake', note: 'Mirror target', format: 'fabric' }, { id: 'fabric-mirroring', label: 'Mirroring', note: 'Built-in mechanism', format: 'fabric' }, { id: 'fabric-warehouse', label: 'Warehouse', note: 'Cross-query', format: 'fabric' }, { id: 'azure-sql', label: 'Azure SQL DB', note: 'Same engine', format: 'azure' }],
+      runtime: { lead: 'Fully managed; compute autoscales; the OneLake mirror runs continuously with near-real-time latency.', bullets: [{ h: 'Watch', d: 'Mirror replication status/latency alongside normal SQL health; large transactions are the usual lag cause.' }] },
+      interview: [
+        { q: 'Fabric SQL Database vs Fabric Warehouse?', a: 'SQL Database is a transactional OLTP store — the Azure SQL engine for an application backend, optimized for point reads/writes and transactions. Warehouse is an analytical OLAP engine for large scans and modeled marts. Both persist Delta in OneLake, but you pick SQL Database when you need an operational app database and Warehouse when you need analytics serving.' },
+        { q: 'How does Fabric SQL Database data become available for analytics?', a: 'Automatically. Fabric mirrors committed changes into OneLake as Delta in near real-time, exposed through a read-only SQL analytics endpoint. Notebooks, Warehouse and Power BI Direct Lake query that copy with no pipeline — operational data is analytics-ready by default.' },
+      ],
+    },
+    {
+      id: 'fabric-mlv', name: 'Materialized Lake Views', category: 'analytics', aka: 'Declarative medallion in a SELECT',
+      tagline: 'Persisted, auto-refreshed Lakehouse views defined by a SQL SELECT — Fabric manages execution, storage, refresh, dependency tracking and built-in data-quality enforcement.',
+      keyFacts: [{ k: 'Define with', v: 'SQL SELECT' }, { k: 'Builds', v: 'Medallion (bronze→gold)' }, { k: 'Built-in', v: 'Data quality + lineage' }],
+      what: { lead: 'A Materialized Lake View (MLV) is a persisted, continuously-updated view: you write the SELECT that describes a transformation and Fabric handles running it, storing the result as Delta, refreshing it, and tracking its dependencies.', bullets: [
+        { h: 'Declarative medallion', d: 'Chain MLVs bronze→silver→gold; each layer is a SELECT over the previous, with the dependency graph managed for you.' },
+        { h: 'Data quality inline', d: 'Define constraints in SQL; invalid rows are dropped or the refresh fails — no separate validation scripts.' },
+      ] },
+      why: { lead: 'Medallion pipelines are mostly transformation logic wrapped in hand-built orchestration and quality checks. MLVs collapse that: when a layer fits in a SELECT, you skip the notebooks, the scheduling glue and the custom DQ code.', bullets: [
+        { h: 'Less ETL code', d: '"When your medallion fits in a SELECT" — declare the result, not the job.' },
+        { h: 'Auto-refresh + lineage', d: 'Fabric recomputes dependents when upstream changes and shows the lineage graph.' },
+      ] },
+      how: { lead: 'Create an MLV from a SELECT in the Lakehouse; add CONSTRAINT clauses for data quality; Fabric materializes it to Delta and refreshes it on its dependency graph.', bullets: [
+        { h: 'Dependency graph', d: 'Fabric knows which MLVs depend on which, and refreshes in order so gold reflects fresh bronze/silver.' },
+        { h: 'Quality actions', d: 'A failing constraint can drop the offending rows or fail the refresh, so bad data never silently propagates.' },
+      ], code: { lang: 'sql', text: 'CREATE MATERIALIZED LAKE VIEW silver.orders_clean AS\nSELECT id, amount, region\nFROM bronze.orders\nWHERE amount >= 0\n-- data-quality constraint: drop rows missing a region\nCONSTRAINT valid_region CHECK (region IS NOT NULL) ON MISMATCH DROP;' } },
+      deUseCase: { lead: 'Build the silver/gold layers of a Lakehouse declaratively, with quality gates, instead of maintaining notebook jobs. DP-700 pairs it with Lakehouse/Delta as a dimensional/medallion transformation path.', bullets: [
+        { h: 'MLV vs notebook medallion', d: 'Use MLVs when the transformation is expressible as SQL and you want managed refresh + DQ; keep notebooks for complex, imperative logic (ML, custom Python, stateful streaming).' },
+        { h: 'Built-in governance', d: 'Lineage + quality are part of the view, not bolted on.' },
+      ] },
+      integrations: [{ id: 'fabric-lakehouse', label: 'Lakehouse', note: 'Home', format: 'fabric' }, { id: 'onelake', label: 'OneLake', note: 'Delta storage', format: 'fabric' }, { id: 'fabric-spark', label: 'Spark notebooks', note: 'Imperative alt', format: 'fabric' }, { id: 'delta-lake', label: 'Delta Lake', note: 'Underlying format', format: 'databricks' }],
+      runtime: { lead: 'Managed refresh on the dependency graph; data-quality enforcement at refresh; lineage view for the chain.', bullets: [{ h: 'Monitor', d: 'Refresh status and DQ results per view; a failed constraint shows exactly where data broke.' }] },
+      interview: [
+        { q: 'When would you choose a Materialized Lake View over a notebook?', a: 'When the transformation for a medallion layer is expressible as a SQL SELECT and you want Fabric to own execution, storage, refresh ordering and data quality. MLVs remove the hand-built orchestration and validation around a silver/gold layer. You still drop to notebooks for imperative or complex logic — ML, custom Python, stateful streaming — that does not fit a SELECT.' },
+        { q: 'How do MLVs handle data quality?', a: 'You declare constraints directly in the view definition. On refresh, rows that violate a constraint are either dropped or the refresh fails, depending on the action you set — so invalid data is caught at the layer boundary instead of silently flowing to gold, with no separate validation job to maintain.' },
+      ],
+    },
+    {
+      id: 'fabric-monitoring-hub', name: 'Fabric Monitoring Hub', category: 'ops', aka: 'One pane for all Fabric item runs',
+      tagline: 'The single place to watch and troubleshoot activity across Fabric — pipeline, Dataflow Gen2 and notebook runs, Eventstream, and semantic model refresh — with drill-down into errors and alerting.',
+      keyFacts: [{ k: 'Scope', v: 'All Fabric items' }, { k: 'Shows', v: 'Runs · status · errors' }, { k: 'Alerts', v: 'via Activator' }],
+      what: { lead: 'The Monitoring hub lists recent activity for every monitorable Fabric item in one view, so you can see what ran, what succeeded or failed, and open a run to diagnose it.', bullets: [
+        { h: 'Cross-item', d: 'Pipelines, Dataflow Gen2, notebooks/Spark, Eventstream and semantic model refresh in one list.' },
+        { h: 'Drill to error', d: 'Open a failed run to see activity-level errors, durations and inputs.' },
+      ] },
+      why: { lead: 'Operational health is spread across many item types. The Monitoring hub consolidates it so you find the failing step and its cause without hunting through each item — the core of the DP-700 monitoring objective.', bullets: [
+        { h: 'One pane', d: 'No per-item hunting; filter by item type, status or time.' },
+      ] },
+      how: { lead: 'The hub aggregates run history; filter and sort by item, type, status or submitter, open a run for its detail, and re-run or investigate from there. Pair with Data Activator for threshold alerts.', bullets: [
+        { h: 'Semantic model refresh', d: 'Watch dataset/semantic model refreshes here — a failed or slow refresh is a common "stale report" root cause.' },
+        { h: 'Streaming health', d: 'Eventstream/Eventhouse throughput and errors surface alongside batch runs.' },
+        { h: 'Alerting', d: 'Use Data Activator (Activator) to fire alerts/actions on conditions instead of watching the hub manually.' },
+      ] },
+      deUseCase: { lead: 'Triage a failed nightly load: find the red pipeline run in the hub, open it to the failing activity, read the error, fix and re-run — then set an Activator alert so you are notified next time. Also where you confirm a semantic model refreshed before stakeholders open reports.', bullets: [
+        { h: 'Monitor vs optimize', d: 'The hub tells you what failed and when; optimization (V-Order/OPTIMIZE, Spark/query tuning) is the separate DP-700 objective for making green runs faster.' },
+      ] },
+      integrations: [{ id: 'fabric-data-pipelines', label: 'Pipelines', format: 'fabric' }, { id: 'dataflow-gen2', label: 'Dataflow Gen2', format: 'fabric' }, { id: 'fabric-spark', label: 'Notebooks', format: 'fabric' }, { id: 'eventstream', label: 'Eventstream', format: 'fabric' }, { id: 'azure-monitor', label: 'Azure Monitor', note: 'Deeper telemetry', format: 'azure' }],
+      runtime: { lead: 'Near-real-time run history across items; Activator for condition-based alerts; Azure Monitor/Log Analytics for deeper, retained telemetry.', bullets: [{ h: 'Beyond the hub', d: 'For long-term retention and custom metrics, route to Azure Monitor/Log Analytics; the hub is the operational front door.' }] },
+      interview: [
+        { q: 'Where do you go to find out why a Fabric pipeline failed?', a: 'The Monitoring hub — it lists runs across all item types; filter to the pipeline, open the failed run, and drill into the failing activity for its error message, inputs and duration. From there you fix and re-run. For recurring issues, set a Data Activator alert so you are notified rather than polling the hub.' },
+        { q: 'How do you catch a stale Power BI report caused by Fabric?', a: 'Monitor the semantic model refresh in the Monitoring hub — a failed or long-running refresh is the usual cause. Confirm the upstream load (pipeline/Dataflow/notebook) succeeded, check the refresh status, and alert on refresh failures via Activator so stale data is caught before stakeholders see it.' },
+      ],
+    },
   ];
 })();
