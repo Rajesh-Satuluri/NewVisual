@@ -61,6 +61,17 @@
 .ct-next h3 { margin:0 0 4px; font-size:13px; font-weight:800; color:var(--text-primary,#e6edf3); }
 .ct-next p { margin:0; font-size:12px; color:var(--text-secondary,#adbac7); line-height:1.55; }
 .ct-section-h { font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted,#8b949e); margin:26px 0 12px; }
+.ct-portfolio { background:var(--bg-2,#161b22); border:1px solid var(--border-default,#30363d); border-radius:14px; padding:18px 20px; margin-bottom:18px; }
+.ct-portfolio h2 { font-size:14px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted,#8b949e); margin:0 0 14px; }
+.ct-pf-row { display:grid; grid-template-columns:1fr 2fr auto auto; align-items:center; gap:12px; padding:7px 0; cursor:pointer; }
+.ct-pf-row:hover .ct-pf-name { color:var(--brand,#58a6ff); }
+.ct-pf-name { font-size:13px; font-weight:700; color:var(--text-primary,#e6edf3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ct-pf-bar { height:9px; background:var(--bg-4,#2d333b); border-radius:5px; overflow:hidden; }
+.ct-pf-fill { height:100%; border-radius:5px; }
+.ct-pf-pct { font-size:12.5px; font-weight:800; color:var(--text-primary,#e6edf3); width:40px; text-align:right; }
+.ct-pf-tier { font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; color:var(--text-muted,#8b949e); width:92px; text-align:right; }
+.ct-pf-insight { margin-top:12px; font-size:12.5px; color:var(--text-secondary,#adbac7); background:var(--bg-1,#0d1117); border-left:3px solid var(--brand,#58a6ff); border-radius:8px; padding:10px 13px; }
+.ct-pf-insight b { color:var(--text-primary,#e6edf3); }
 .ct-retired .ct-card { opacity:.75; }
 .ct-retired-tag { font-size:10px; font-weight:800; text-transform:uppercase; color:#f85149; border:1px solid #f85149; border-radius:5px; padding:1px 6px; }
 /* detail */
@@ -194,6 +205,30 @@
 </div>`;
   }
 
+  function portfolioHTML() {
+    const sums = TV.CertEngine.certSummaries();
+    const rows = sums.map(s => `
+      <div class="ct-pf-row" data-open="${esc(s.certificationId)}">
+        <span class="ct-pf-name">${esc(s.name)}</span>
+        <div class="ct-pf-bar"><div class="ct-pf-fill ${lvlClass(s.overall)}" style="width:${s.overall}%"></div></div>
+        <span class="ct-pf-pct">${s.overall}%</span>
+        <span class="ct-pf-tier">${esc(s.tier)}</span>
+      </div>`).join('');
+    // shared-skill insight: a topic common to the most certs that is still weak
+    const candidates = ['iq-spark-arch', 'delta-lake', 'structured-streaming', 'auto-loader', 'unity-catalog', 'change-data-feed'];
+    let best = null;
+    candidates.forEach(id => {
+      const t = TV.Taxonomy.byId(id); if (!t) return;
+      const certs = TV.CertEngine.certsForTopic(id);
+      const score = TV.Recommend.calculateTopicScore(t).score;
+      if (certs.length >= 2 && score < 80 && (!best || certs.length > best.certs.length)) best = { t, certs, score };
+    });
+    const insight = best
+      ? `<div class="ct-pf-insight">💡 Studying <b>${esc(best.t.label)}</b> now improves readiness for <b>${best.certs.length} certification tracks</b> at once — a high-leverage next move.</div>`
+      : '';
+    return `<div class="ct-portfolio"><h2>My certification portfolio</h2>${rows}${insight}</div>`;
+  }
+
   function centerHTML() {
     const C = TV.Certifications;
     const next = TV.CertEngine.recommendNextCert();
@@ -209,6 +244,7 @@
     <p>Prepare for the current, official Data Engineering certifications — each mapped to the content you already study here, with readiness built from your real progress.</p>
     <div class="ct-verified">Exam facts verified <b>${esc(C.lastVerified)}</b> · ${esc(C.source)}</div>
   </div>
+  ${portfolioHTML()}
   ${nextHTML}
   <div class="ct-grid">${C.active().map(cardHTML).join('')}</div>
   <div class="ct-section-h">Retired / Legacy</div>
