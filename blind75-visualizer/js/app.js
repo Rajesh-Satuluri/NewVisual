@@ -595,7 +595,8 @@
           }
         });
         body.appendChild(ta);
-        setTimeout(function () { fit(); ta.focus(); }, 0);
+        // preventScroll: focusing the fresh textarea must not jump the page down
+        setTimeout(function () { fit(); ta.focus({ preventScroll: true }); }, 0);
       } else {
         var pre = h("pre", { class: "code-pre" });
         var code = h("code", { class: "language-python" }, esc(currentSource()));
