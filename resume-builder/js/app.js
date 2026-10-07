@@ -887,7 +887,37 @@
       h += "</div>";
     });
     page.innerHTML = h;
-    fitPreview(); checkOnePage();
+    distributeFill(); fitPreview(); checkOnePage();
+  }
+
+  /* Fill the page: when the resume is shorter than one A4 page, spread the
+     leftover vertical space evenly between sections so there is no blank band
+     at the bottom. The same #page is what the PDF prints, so preview and PDF
+     stay identical. Does nothing when content already fills/overflows a page. */
+  function distributeFill() {
+    var page = document.getElementById("page");
+    if (!page) return;
+    page.style.setProperty("--r-fill", "0px");
+    var secs = page.querySelectorAll(".r-section").length;
+    if (!secs || !page.children.length) return;
+    var cs = getComputedStyle(page);
+    var padT = parseFloat(cs.paddingTop), padB = parseFloat(cs.paddingBottom);
+    var usable = page.clientHeight - padT - padB;   /* inner content height of one page */
+    /* NOTE: scrollHeight is clamped to the fixed page height, so measure the
+       true content height from the last child's offset box instead (unaffected
+       by the preview's CSS zoom transform). Iterate because adding the fill
+       gaps shifts the offsets. */
+    var FILL_CAP = 32;                              /* max extra gap per section, so sparse resumes don't get cavernous gaps */
+    var fill = 0;
+    for (var pass = 0; pass < 4; pass++) {
+      var last = page.children[page.children.length - 1];
+      var contentH = (last.offsetTop + last.offsetHeight) - padT;
+      var slack = usable - contentH;
+      if (slack <= 2) break;                        /* already fills / overflows */
+      fill = Math.min(FILL_CAP, fill + slack / secs);
+      page.style.setProperty("--r-fill", fill + "px");
+      if (fill >= FILL_CAP) break;
+    }
   }
 
   function fitPreview() {
@@ -1013,8 +1043,9 @@
 
   /* Build the <w:body> paragraphs at a given typographic scale, and return
      both the XML and an estimated total content height (points). */
-  function buildBody(r, scale) {
+  function buildBody(r, scale, fillTwips) {
     var p = r.profile || {}, body = [], hPt = 0;
+    fillTwips = fillTwips || 0;                                                    /* extra space spread before each section to fill the page */
     function sz(base) { return Math.max(15, Math.round(base * scale)); }           /* half-points, floor 7.5pt */
     function sp(base) { return Math.max(0, Math.round(base * scale)); }            /* twips */
     function add(xml, sizeHalfPt, text, widthTwips, before, after, extraPt) {
@@ -1023,18 +1054,21 @@
         (before + after) / 20 + (extraPt || 0) + PARA_OVERHEAD_PT;
     }
 
+    /* Base sizes (half-points) mirror the on-screen preview exactly: px * 1.5
+       (96dpi -> pt -> half-pt). Name 24px->18pt, title 16px->12pt, body ~12.8px
+       ->9.5pt, etc., so the .docx matches what the preview and PDF show. */
     /* name */
-    var nSize = sz(32);
+    var nSize = sz(36);
     add(para(runXml({ t: p.name || "Your Name", b: true }, { size: nSize, bold: true }),
       pPr('<w:jc w:val="center"/>' + spacing(0, sp(40)))), nSize, p.name || "Your Name", USABLE_W, 0, sp(40));
     /* title */
-    if (p.title) { var tSize = sz(20);
+    if (p.title) { var tSize = sz(24);
       add(para(runXml({ t: p.title }, { size: tSize, color: "444444" }),
         pPr('<w:jc w:val="center"/>' + spacing(0, sp(30)))), tSize, p.title, USABLE_W, 0, sp(30)); }
     /* contacts */
     var contacts = (p.contacts || []).filter(function (c) { return c.value; });
     if (contacts.length) {
-      var joined = contacts.map(function (c) { return c.value; }).join("   |   "), cSize = sz(18);
+      var joined = contacts.map(function (c) { return c.value; }).join("   |   "), cSize = sz(19);
       add(para(runXml({ t: joined }, { size: cSize, color: "555555" }),
         pPr('<w:jc w:val="center"/>' + spacing(0, sp(110)))), cSize, joined, USABLE_W, 0, sp(110));
     }
@@ -1042,17 +1076,18 @@
     /* sections */
     (r.sections || []).forEach(function (sec) {
       var hdBdr = '<w:pBdr><w:bottom w:val="single" w:sz="6" w:space="2" w:color="999999"/></w:pBdr>';
-      var hSize = sz(20);
+      var hSize = sz(19);
+      var hBefore = sp(110) + fillTwips;
       add(para(runXml({ t: sec.title || "Section" }, { bold: true, size: hSize, caps: true, color: "222222" }),
-        pPr(hdBdr + spacing(sp(110), sp(44)))), hSize, sec.title || "Section", USABLE_W, sp(110), sp(44), 2.5);
+        pPr(hdBdr + spacing(hBefore, sp(44)))), hSize, sec.title || "Section", USABLE_W, hBefore, sp(44), 2.5);
 
       if (sec.type === "text") {
-        var bSize = sz(20);
+        var bSize = sz(19);
         var inner = runs(sec.text || "").map(function (x) { return runXml(x, { size: bSize }); }).join("");
         add(para(inner, pPr('<w:jc w:val="both"/>' + spacing(0, sp(70)))), bSize, sec.text || "", USABLE_W, 0, sp(70));
       } else if (sec.type === "labeled") {
         (sec.items || []).forEach(function (it) {
-          var lSize = sz(20);
+          var lSize = sz(19);
           var lab = it.label ? runXml({ t: it.label + ": ", b: true }, { bold: true, size: lSize }) : "";
           var val = runs(it.value || "").map(function (x) { return runXml(x, { size: lSize }); }).join("");
           add(para(lab + val, pPr(spacing(0, sp(40)))), lSize,
@@ -1062,11 +1097,11 @@
         (sec.items || []).forEach(function (it) {
           var tabPos = USABLE_W; /* right tab at content edge */
           var tabs = '<w:tabs><w:tab w:val="right" w:pos="' + tabPos + '"/></w:tabs>';
-          var ehSize = sz(21);
+          var ehSize = sz(20);
           var headInner = runXml({ t: it.heading || "", b: true }, { bold: true, size: ehSize });
-          if (it.date) headInner += '<w:r><w:tab/></w:r>' + runXml({ t: it.date }, { size: sz(19), color: "555555" });
+          if (it.date) headInner += '<w:r><w:tab/></w:r>' + runXml({ t: it.date }, { size: sz(17), color: "555555" });
           add(para(headInner, pPr(tabs + spacing(sp(44), sp(10)))), ehSize, it.heading || "", USABLE_W, sp(44), sp(10));
-          if (it.role) { var roSize = sz(20);
+          if (it.role) { var roSize = sz(19);
             add(para(runXml({ t: it.role }, { italic: true, size: roSize, color: "333333" }),
               pPr(spacing(0, sp(10)))), roSize, it.role, USABLE_W, 0, sp(10)); }
           if (it.meta) { var mSize = sz(18);
@@ -1074,7 +1109,7 @@
               pPr(spacing(0, sp(20)))), mSize, it.meta, USABLE_W, 0, sp(20)); }
           (it.bullets || []).forEach(function (bt) {
             if (!bt) return;
-            var buSize = sz(20), indent = 260;
+            var buSize = sz(19), indent = 260;
             var bInner = runXml({ t: "•  " }, { size: buSize }) + runs(bt).map(function (x) { return runXml(x, { size: buSize }); }).join("");
             add(para(bInner, pPr('<w:ind w:left="' + indent + '" w:hanging="' + indent + '"/>' + spacing(0, sp(22)))),
               buSize, "•  " + bt, USABLE_W - indent, 0, sp(22));
@@ -1083,7 +1118,7 @@
       }
     });
 
-    var sectPr = '<w:sectPr><w:pgSz w:w="' + PAGE_W + '" w:h="' + PAGE_H + '"/>' +
+    var sectPr = '<w:sectPr><w:pgSz w:w="' + PAGE_W + '" w:h="' + PAGE_H + '" w:orient="portrait" w:code="9"/>' +
       '<w:pgMar w:top="' + MARGIN_TB + '" w:right="' + MARGIN_LR + '" w:bottom="' + MARGIN_TB +
       '" w:left="' + MARGIN_LR + '" w:header="0" w:footer="0" w:gutter="0"/></w:sectPr>';
 
@@ -1091,19 +1126,29 @@
   }
 
   function buildDocumentXml(r) {
-    /* auto-fit: start at full size, shrink typography until the (conservative)
-       estimate clears one page with a safety margin. Font sizes are already
-       floored at 7.5pt inside sz(), so we can scale well down and stay readable
-       while spacing keeps tightening. */
-    var target = USABLE_H_PT * 0.96;                 /* headroom that absorbs estimation error without crushing type */
+    /* Auto-fit to exactly one page, matching the preview:
+       - if the resume OVERFLOWS, shrink typography until it clears the page
+         (font sizes floor at 7.5pt inside sz(), so it stays readable);
+       - if it UNDERFLOWS, spread the leftover height evenly before each section
+         so the content fills the page with no blank band at the bottom — the
+         same thing the preview/PDF do. */
+    var over = USABLE_H_PT * 0.96;                   /* shrink target (safety headroom) */
+    var fillTarget = USABLE_H_PT * 0.96;             /* fill most of the page; small cushion keeps it safely on one page */
     var FLOOR = 0.55;
-    /* Step down gradually (not one ratio jump): font sizes floor at 7.5pt, so a
-       linear jump overshoots and shrinks more than needed. Small 3% steps stop
-       at the LARGEST scale that still clears the page — readable and one page. */
-    var scale = 1, built = buildBody(r, scale);
-    for (var pass = 0; pass < 24 && built.hPt > target && scale > FLOOR; pass++) {
-      scale = Math.max(FLOOR, scale * 0.97);
-      built = buildBody(r, scale);
+    var scale = 1, built = buildBody(r, scale, 0);
+    if (built.hPt > over) {
+      /* overflow: step down gradually to the largest scale that still fits */
+      for (var pass = 0; pass < 24 && built.hPt > over && scale > FLOOR; pass++) {
+        scale = Math.max(FLOOR, scale * 0.97);
+        built = buildBody(r, scale, 0);
+      }
+    } else {
+      /* underflow: distribute the slack as extra space before each section */
+      var secs = (r.sections || []).length || 1;
+      var slackPt = fillTarget - built.hPt;
+      var FILL_CAP_TWIPS = 480;                      /* ~24pt, mirrors the preview's per-section fill cap */
+      var fillTwips = Math.min(FILL_CAP_TWIPS, Math.max(0, Math.round((slackPt / secs) * 20)));
+      built = buildBody(r, 1, fillTwips);
     }
     return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
       '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +

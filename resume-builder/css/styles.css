@@ -266,6 +266,7 @@ textarea.inp { resize: none; overflow: hidden; min-height: 32px; }
 
 /* ---------- Resume page (preview + print) ---------- */
 .page {
+  position: relative;      /* so content offsets are measured against the page */
   width: 794px;            /* ~ A4 @96dpi */
   height: 1123px;          /* fixed A4 height — strict one page */
   overflow: hidden;        /* content beyond one page is clipped */
@@ -280,7 +281,7 @@ textarea.inp { resize: none; overflow: hidden; min-height: 32px; }
 .r-contacts .sep { color: #aaa; margin: 0 8px; }
 .r-contacts .ico { color: var(--r-accent); margin-right: 3px; }
 
-.r-section { margin-top: 10px; }
+.r-section { margin-top: calc(10px + var(--r-fill, 0px)); }
 .r-sec-title {
   font-size: 12.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
   color: var(--r-accent); border-bottom: 1.5px solid var(--r-rule); padding-bottom: 2px; margin-bottom: 5px;
@@ -321,14 +322,14 @@ textarea.inp { resize: none; overflow: hidden; min-height: 32px; }
   .preview-wrap { padding: 0; background: #fff; display: block; overflow: visible; }
   .page-holder { width: auto !important; height: auto !important; display: block !important; }
   .page-scaler { transform: none !important; }
+  /* The PDF must look EXACTLY like the on-screen preview: keep the same
+     794x1123px A4 geometry and the same type sizes the preview uses (no
+     separate print font sizes), so what you see is what you download. The
+     vertical-fill var set on #page carries over here automatically. */
   .page {
-    width: auto; box-shadow: none; margin: 0;
-    font-size: 10.5pt; outline: none !important;
-    /* strict single physical page: full A4 with internal padding (border-box) */
-    padding: 12mm 13mm; height: 297mm; max-height: 297mm; overflow: hidden;
+    width: 794px; box-shadow: none; margin: 0; outline: none !important;
+    padding: 34px 46px; height: 1123px; max-height: 1123px; overflow: hidden;
   }
-  .r-name { font-size: 20pt; }
-  .r-title { font-size: 12pt; }
   .r-entry, .r-section { page-break-inside: avoid; }
   .r-bullets li { page-break-inside: avoid; }
 }
