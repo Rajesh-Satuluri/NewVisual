@@ -13,6 +13,6 @@
  */
 window.BLIND75 = window.BLIND75 || {};
 window.BLIND75.SUPABASE = {
-  url: "",      // e.g. "https://abcdefghijklmno.supabase.co"
-  anonKey: ""   // the "anon public" API key
+  url: "https://zkqbgjttjrljikeylchu.supabase.co",
+  anonKey: "sb_publishable_5vWJiCbxESEkKqLtXK_UKA_e1Bw_okx" // publishable key — safe to ship
 };
