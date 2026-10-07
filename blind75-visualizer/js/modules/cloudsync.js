@@ -63,13 +63,15 @@
   function rpc(fn, args) {
     var c = cfg();
     var base = c.url.replace(/\/+$/, "");
+    var headers = { "Content-Type": "application/json", "apikey": c.anonKey };
+    // Legacy anon keys are JWTs and expect an "Authorization: Bearer <jwt>"
+    // header. The newer sb_publishable_/sb_secret_ keys are NOT JWTs — they go
+    // ONLY in the apikey header; sending them as a Bearer token makes Supabase
+    // try (and fail) to verify them as a JWT, so every request errors out.
+    if (/^ey/.test(c.anonKey)) headers["Authorization"] = "Bearer " + c.anonKey;
     return fetch(base + "/rest/v1/rpc/" + fn, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "apikey": c.anonKey,
-        "Authorization": "Bearer " + c.anonKey
-      },
+      headers: headers,
       body: JSON.stringify(args || {})
     }).then(function (r) {
       if (!r.ok) {
@@ -203,7 +205,6 @@
     generateCode: function () {
       var alpha = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // no ambiguous 0/O/1/I/L
       var raw = "";
-      var rnd;
       if (window.crypto && window.crypto.getRandomValues) {
         var buf = new Uint8Array(20);
         window.crypto.getRandomValues(buf);
