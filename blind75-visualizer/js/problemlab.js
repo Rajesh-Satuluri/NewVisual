@@ -217,9 +217,6 @@
       var edited = savedEdit() != null;
       if (edited) {
         actions.appendChild(h("span", { class: "code-edited", title: "This code was edited locally" }, "edited"));
-        var reset = h("button", { class: "code-mini", title: "Restore the original code" }, "Reset");
-        reset.addEventListener("click", function () { store.clearCodeEdit(ident.id, ident.ai, ident.mode); editing = false; render(); });
-        actions.appendChild(reset);
       }
       var ta;
       if (ident) {
@@ -287,9 +284,6 @@
       var edited = savedEdit() != null;
       if (edited) {
         actions.appendChild(h("span", { class: "code-edited", title: "This logic was edited locally" }, "edited"));
-        var reset = h("button", { class: "code-mini", title: "Restore the original logic" }, "Reset");
-        reset.addEventListener("click", function () { store.clearLogicEdit(ident.id, ident.ai); editing = false; render(); });
-        actions.appendChild(reset);
       }
       var lock = h("button", { class: "code-mini lock" + (editing ? " on" : "") }, editing ? "🔓 Editing" : "✏️ Edit");
       lock.title = editing ? "Lock to stop editing (changes are saved)" : "Unlock to rewrite this logic in Markdown";
