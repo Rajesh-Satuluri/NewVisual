@@ -244,6 +244,14 @@
     if (document.visibilityState === "visible" && enabled() && !editingNow()) pull();
   });
 
+  // Automatic background refresh: while the tab is visible and you're not
+  // mid-edit, quietly check the cloud every 15s so an already-open device
+  // picks up edits from another device without any manual "Sync now".
+  // pull() no-ops if a request is already in flight or nothing changed.
+  setInterval(function () {
+    if (enabled() && document.visibilityState === "visible" && !editingNow()) pull();
+  }, 15000);
+
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();
 })();
