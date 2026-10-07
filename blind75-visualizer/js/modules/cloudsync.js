@@ -34,6 +34,10 @@
   var lastSyncAt = 0;       // ms of last successful push/pull
   var lastSyncKind = "";    // "push" | "pull"
   var syncListeners = [];
+  // Snapshot of the three buckets as of the last successful sync. Used as the
+  // common ancestor for a 3-way merge so a push applies only THIS device's
+  // changes over the latest cloud copy, instead of overwriting it wholesale.
+  var base = null;
 
   // ---- config -------------------------------------------------------------
   function cfg() { return B.SUPABASE || { url: "", anonKey: "" }; }
@@ -115,6 +119,53 @@
     };
   }
 
+  // ---- 3-way merge --------------------------------------------------------
+  function snapshot(b) {
+    return JSON.parse(JSON.stringify({
+      notes: (b && b.notes) || {},
+      codeEdits: (b && b.codeEdits) || {},
+      logicEdits: (b && b.logicEdits) || {}
+    }));
+  }
+  function eq(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
+
+  // Merge one bucket (keyed by problem id) using base as the common ancestor:
+  // start from the latest remote copy, then replay only the adds/changes and
+  // deletions this device made relative to base. Different keys never clash;
+  // the same key edited on two devices resolves to this device's value.
+  function mergeBucket(baseB, localB, remoteB) {
+    baseB = baseB || {}; localB = localB || {}; remoteB = remoteB || {};
+    var out = {}, k;
+    for (k in remoteB) if (remoteB.hasOwnProperty(k)) out[k] = remoteB[k];
+    // local adds / changes vs base
+    for (k in localB) if (localB.hasOwnProperty(k)) {
+      if (!eq(localB[k], baseB[k])) out[k] = localB[k];
+    }
+    // local deletions vs base
+    for (k in baseB) if (baseB.hasOwnProperty(k)) {
+      if (!localB.hasOwnProperty(k)) delete out[k];
+    }
+    return out;
+  }
+  function mergeAll(baseS, localB, remoteB) {
+    baseS = baseS || {};
+    return {
+      notes: mergeBucket(baseS.notes, localB.notes, remoteB.notes),
+      codeEdits: mergeBucket(baseS.codeEdits, localB.codeEdits, remoteB.codeEdits),
+      logicEdits: mergeBucket(baseS.logicEdits, localB.logicEdits, remoteB.logicEdits)
+    };
+  }
+
+  // Re-render the current view so synced notes/code show immediately.
+  function fireRefresh() {
+    try { window.dispatchEvent(new Event("blind75:cloud-refresh")); }
+    catch (e) {
+      var ev = document.createEvent("Event");
+      ev.initEvent("blind75:cloud-refresh", false, false);
+      window.dispatchEvent(ev);
+    }
+  }
+
   // ---- editing guard ------------------------------------------------------
   // Don't clobber the view (or someone's half-typed note) while they type.
   function editingNow() {
@@ -132,28 +183,46 @@
     pushTimer = setTimeout(doPush, 900);
   }
 
+  var pushErrored = false;
   function doPush() {
     pushTimer = null;
-    if (!enabled() || busy) { if (busy) { if (pushTimer) clearTimeout(pushTimer); pushTimer = setTimeout(doPush, 900); } return; }
+    if (!enabled() || busy) { if (busy) { pushTimer = setTimeout(doPush, 900); } return; }
     if (!B.store) return;
-    var buckets = B.store.cloudBuckets();
     busy = true;
+    // Clear the dirty flag now: any edit that lands DURING this upload will
+    // re-set it, so it gets picked up by a follow-up push instead of lost.
+    dirty = false;
     setStatus("Saving…");
-    rpc("study_put", {
-      p_code: getCode(),
-      p_notes: buckets.notes,
-      p_code_edits: buckets.codeEdits,
-      p_logic_edits: buckets.logicEdits
-    }).then(function () {
-      dirty = false;
-      markSynced("push");
-      setStatus("Saved to cloud ✓");
+    // Fetch the latest cloud copy first, merge this device's changes over it,
+    // then write the merged result back — so a concurrent edit on another
+    // device (to a different problem) is preserved rather than clobbered.
+    rpc("study_get", { p_code: getCode() }).then(function (rows) {
+      var remote = rowToBuckets(rows && rows.length ? rows[0] : null) || snapshot(null);
+      var local = B.store.cloudBuckets();
+      var merged = mergeAll(base, local, remote);
+      return rpc("study_put", {
+        p_code: getCode(),
+        p_notes: merged.notes,
+        p_code_edits: merged.codeEdits,
+        p_logic_edits: merged.logicEdits
+      }).then(function () {
+        pushErrored = false;
+        base = snapshot(merged);
+        // Adopt the merged result locally (picks up the other device's edits);
+        // re-render if it changed what's on screen.
+        var changed = B.store.applyCloudBuckets(merged);
+        markSynced("push");
+        setStatus("Saved to cloud ✓");
+        if (changed) fireRefresh();
+      });
     })["catch"](function (err) {
+      pushErrored = true;
+      dirty = true; // nothing was uploaded — keep trying
       setStatus("Sync error: " + err.message);
     }).then(function () {
       busy = false;
-      // If more edits landed while uploading, schedule another push.
-      if (dirty && !pushTimer) pushTimer = setTimeout(doPush, 900);
+      // Re-push if edits landed mid-upload, or retry (backed off) after a fail.
+      if (dirty && !pushTimer) pushTimer = setTimeout(doPush, pushErrored ? 8000 : 900);
     });
   }
 
@@ -194,19 +263,11 @@
       }
 
       var changed = B.store ? B.store.applyCloudBuckets(buckets) : false;
+      base = snapshot(buckets); // local now matches cloud — new merge ancestor
       markSynced("pull");
       setStatus(changed ? "Synced from cloud ✓" : "Up to date ✓");
       busy = false;
-      if (changed) {
-        // Re-render the current view so new notes/code show immediately.
-        try { window.dispatchEvent(new Event("blind75:cloud-refresh")); }
-        catch (e) {
-          // Old browsers without the Event constructor: hard refresh fallback.
-          var ev = document.createEvent("Event");
-          ev.initEvent("blind75:cloud-refresh", false, false);
-          window.dispatchEvent(ev);
-        }
-      }
+      if (changed) fireRefresh();
       return changed;
     })["catch"](function (err) {
       setStatus("Sync error: " + err.message);
@@ -246,16 +307,23 @@
     link: function (code) {
       setCode((code || "").trim());
       dirty = false;
+      base = null; // fresh merge ancestor for the new code
       if (!enabled()) { setStatus(configured() ? "Enter a sync code to start" : "Not configured"); return Promise.resolve(false); }
       return pull({ force: true });
     },
     unlink: function () {
       setCode("");
+      base = null;
       setStatus("Disconnected from cloud");
     }
   };
 
   // ---- lifecycle ----------------------------------------------------------
+  // Seed the merge ancestor from what's already stored on this device, so an
+  // edit made before the first pull is counted as a single change rather than
+  // overwriting the whole cloud copy with this device's (possibly stale) data.
+  if (B.store) base = snapshot(B.store.cloudBuckets());
+
   function boot() {
     if (!enabled()) {
       setStatus(configured() ? "Enter a sync code to start" : "Not configured");
