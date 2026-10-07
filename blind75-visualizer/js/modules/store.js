@@ -57,11 +57,22 @@
 
   var state = load();
 
+  // True only while we are applying buckets pulled FROM the cloud, so the
+  // resulting save() does not immediately echo the same data back up again.
+  var cloudApplying = false;
+
   function save() {
     try {
       localStorage.setItem(KEY, JSON.stringify(state));
     } catch (e) {
       /* private mode / quota — fail silently, app still works in-memory */
+    }
+    // Let the (optional) cloud-sync layer push changes to other devices.
+    // It only ships notes/codeEdits/logicEdits and debounces internally, so
+    // firing on every save is harmless when sync is off or idle.
+    if (!cloudApplying && window.BLIND75 && window.BLIND75.cloud &&
+        typeof window.BLIND75.cloud.onLocalChange === "function") {
+      try { window.BLIND75.cloud.onLocalChange(); } catch (e) { /* never break a save */ }
     }
   }
 
@@ -320,6 +331,31 @@
       state.prefs = Object.assign({}, DEFAULT.prefs, incoming.prefs || {});
       state.prefs.collapsedCats = state.prefs.collapsedCats || {};
       save();
+    },
+
+    // ---- cloud sync (notes + code edits + logic edits only) ----
+    // Snapshot the three synced buckets for upload.
+    cloudBuckets: function () {
+      return {
+        notes: JSON.parse(JSON.stringify(state.notes || {})),
+        codeEdits: JSON.parse(JSON.stringify(state.codeEdits || {})),
+        logicEdits: JSON.parse(JSON.stringify(state.logicEdits || {}))
+      };
+    },
+    // Adopt buckets pulled from the cloud. Returns true if anything actually
+    // changed (so the UI can re-render), false if local already matched.
+    applyCloudBuckets: function (b) {
+      if (!b) return false;
+      var before = JSON.stringify([state.notes || {}, state.codeEdits || {}, state.logicEdits || {}]);
+      var after = JSON.stringify([b.notes || {}, b.codeEdits || {}, b.logicEdits || {}]);
+      if (before === after) return false;
+      cloudApplying = true;
+      state.notes = b.notes || {};
+      state.codeEdits = b.codeEdits || {};
+      state.logicEdits = b.logicEdits || {};
+      save();
+      cloudApplying = false;
+      return true;
     }
   };
 
