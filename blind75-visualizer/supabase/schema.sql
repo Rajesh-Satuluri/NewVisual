@@ -22,7 +22,10 @@
 --   • Because of that, the anon key is safe to ship in the static site.
 -- ============================================================================
 
-create extension if not exists pgcrypto;
+-- Supabase ships pgcrypto in the "extensions" schema (not public). Make sure
+-- it's present there; the functions below add "extensions" to their
+-- search_path so digest() resolves.
+create extension if not exists pgcrypto with schema extensions;
 
 create table if not exists public.study_state (
   code_hash   text primary key,
@@ -42,7 +45,7 @@ create or replace function public.study_get(p_code text)
 returns table (notes jsonb, code_edits jsonb, logic_edits jsonb, updated_at timestamptz)
 language sql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
   select s.notes, s.code_edits, s.logic_edits, s.updated_at
   from public.study_state s
@@ -61,7 +64,7 @@ create or replace function public.study_put(
 ) returns timestamptz
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   h  text        := encode(digest(p_code, 'sha256'), 'hex');
