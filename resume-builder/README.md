@@ -31,8 +31,12 @@ Live: `https://rajesh-satuluri.github.io/NewVisual/resume-builder/`
 - Live A4 preview that matches the template exactly
 - Strict **one page**: a live "1 page / over 1 page" badge, and when a resume
   overflows the *Add to resume* checkboxes are disabled until it fits
-- **Download PDF** via the browser print dialog — vector, text-selectable,
-  ATS-friendly, with no browser header/footer (`@page { margin: 0 }`)
+- **Download in two formats:**
+  - **PDF** via the browser print dialog — vector, text-selectable,
+    ATS-friendly, with no browser header/footer (`@page { margin: 0 }`)
+  - **DOCX** — an editable Microsoft Word file, generated entirely in the
+    browser (no server, no library) by assembling a valid OOXML package;
+    single-column plain text so it stays ATS-friendly
 - Distinct company + role lines per entry (ATS scores role titles)
 - **Import / Export** all data (library + every resume) as one JSON file
 - **Auto-save** to `localStorage` — your data never leaves your browser
