@@ -1067,7 +1067,7 @@
     var zipped = zipStore(files);
     var blob = new Blob([zipped], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
     var url = URL.createObjectURL(blob), a = el("a"); a.href = url;
-    a.download = ((r.profile && r.profile.name) || "resume").replace(/\s+/g, "_").toLowerCase() + "_resume.docx";
+    a.download = "Satuluri_Rajesh_Resume.docx";
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(function () { URL.revokeObjectURL(url); }, 500);
     flash("Word .docx downloaded.");
@@ -1100,7 +1100,17 @@
     store = load(); renderApp();
     var tabs = document.querySelectorAll("#tabs .tab");
     for (var i = 0; i < tabs.length; i++) tabs[i].addEventListener("click", function () { activeTab = this.getAttribute("data-tab"); renderApp(); });
-    document.getElementById("btnPdf").addEventListener("click", function () { window.print(); });
+    document.getElementById("btnPdf").addEventListener("click", function () {
+      /* the browser's "Save as PDF" uses document.title as the filename —
+         swap it to the desired resume name, print, then restore it. */
+      var prev = document.title;
+      document.title = "Satuluri_Rajesh_Resume";
+      var restore = function () { document.title = prev; window.removeEventListener("afterprint", restore); };
+      window.addEventListener("afterprint", restore);
+      window.print();
+      /* fallback restore in case afterprint doesn't fire */
+      setTimeout(restore, 1000);
+    });
     document.getElementById("btnDocx").addEventListener("click", exportDocx);
     document.getElementById("btnExport").addEventListener("click", exportJson);
     document.getElementById("btnReset").addEventListener("click", resetAll);
