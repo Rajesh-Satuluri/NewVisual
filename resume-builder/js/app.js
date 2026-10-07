@@ -912,6 +912,168 @@
   }
 
   /* ============================================================
+     DOCX EXPORT  (pure JS — builds a valid OOXML .docx with no deps)
+     ============================================================ */
+  /* --- minimal ZIP writer (stored / no compression) --- */
+  var CRC_TABLE = (function () {
+    var t = [], c, n, k;
+    for (n = 0; n < 256; n++) { c = n; for (k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); t[n] = c >>> 0; }
+    return t;
+  })();
+  function crc32(bytes) {
+    var c = 0xFFFFFFFF;
+    for (var i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+    return (c ^ 0xFFFFFFFF) >>> 0;
+  }
+  function strBytes(s) {
+    if (typeof TextEncoder !== "undefined") return new TextEncoder().encode(s);
+    var u = unescape(encodeURIComponent(s)), a = new Uint8Array(u.length);
+    for (var i = 0; i < u.length; i++) a[i] = u.charCodeAt(i) & 0xFF;
+    return a;
+  }
+  function u16(n) { return [n & 0xFF, (n >>> 8) & 0xFF]; }
+  function u32(n) { return [n & 0xFF, (n >>> 8) & 0xFF, (n >>> 16) & 0xFF, (n >>> 24) & 0xFF]; }
+  function zipStore(files) {
+    // files: [{ name, bytes }] -> Uint8Array of a .zip with all entries STORED
+    var local = [], central = [], offset = 0, chunks = [];
+    files.forEach(function (f) {
+      var nameB = strBytes(f.name), crc = crc32(f.bytes), sz = f.bytes.length;
+      var lh = [].concat(u32(0x04034b50), u16(20), u16(0), u16(0), u16(0), u16(0),
+        u32(crc), u32(sz), u32(sz), u16(nameB.length), u16(0));
+      chunks.push(new Uint8Array(lh), nameB, f.bytes);
+      central.push({ nameB: nameB, crc: crc, sz: sz, offset: offset });
+      offset += lh.length + nameB.length + sz;
+    });
+    var cstart = offset, cbytes = [];
+    central.forEach(function (c) {
+      var ch = [].concat(u32(0x02014b50), u16(20), u16(20), u16(0), u16(0), u16(0), u16(0),
+        u32(c.crc), u32(c.sz), u32(c.sz), u16(c.nameB.length), u16(0), u16(0), u16(0), u16(0),
+        u32(0), u32(c.offset));
+      cbytes.push(new Uint8Array(ch), c.nameB); offset += ch.length + c.nameB.length;
+    });
+    var csize = offset - cstart;
+    var end = [].concat(u32(0x06054b50), u16(0), u16(0), u16(files.length), u16(files.length),
+      u32(csize), u32(cstart), u16(0));
+    var all = chunks.concat(cbytes).concat([new Uint8Array(end)]);
+    var total = 0; all.forEach(function (a) { total += a.length; });
+    var out = new Uint8Array(total), pos = 0;
+    all.forEach(function (a) { out.set(a, pos); pos += a.length; });
+    return out;
+  }
+
+  /* --- OOXML builders --- */
+  function xmlEsc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+  function runs(text) {
+    // split on **bold** -> [{t, b}]
+    var out = [], re = /\*\*(.+?)\*\*/g, last = 0, m;
+    while ((m = re.exec(text)) !== null) {
+      if (m.index > last) out.push({ t: text.slice(last, m.index), b: false });
+      out.push({ t: m[1], b: true }); last = re.lastIndex;
+    }
+    if (last < text.length) out.push({ t: text.slice(last), b: false });
+    if (!out.length) out.push({ t: text || "", b: false });
+    return out;
+  }
+  function runXml(r, opt) {
+    opt = opt || {};
+    var rpr = "";
+    if (r.b || opt.bold) rpr += "<w:b/>";
+    if (opt.italic) rpr += "<w:i/>";
+    if (opt.size) rpr += '<w:sz w:val="' + opt.size + '"/>';
+    if (opt.color) rpr += '<w:color w:val="' + opt.color + '"/>';
+    if (opt.caps) rpr += "<w:caps/>";
+    return "<w:r>" + (rpr ? "<w:rPr>" + rpr + "</w:rPr>" : "") +
+      '<w:t xml:space="preserve">' + xmlEsc(r.t) + "</w:t></w:r>";
+  }
+  function para(inner, ppr) { return "<w:p>" + (ppr || "") + inner + "</w:p>"; }
+  function pPr(parts) { return parts ? "<w:pPr>" + parts + "</w:pPr>" : ""; }
+  function spacing(before, after) { return '<w:spacing w:before="' + (before || 0) + '" w:after="' + (after || 0) + '"/>'; }
+
+  function buildDocumentXml(r) {
+    var p = r.profile || {}, body = [];
+
+    /* name */
+    body.push(para(runXml({ t: p.name || "Your Name", b: true }, { size: 40, bold: true }),
+      pPr('<w:jc w:val="center"/>' + spacing(0, 40))));
+    /* title */
+    if (p.title) body.push(para(runXml({ t: p.title }, { size: 24, color: "444444" }),
+      pPr('<w:jc w:val="center"/>' + spacing(0, 40))));
+    /* contacts */
+    var contacts = (p.contacts || []).filter(function (c) { return c.value; });
+    if (contacts.length) {
+      var cInner = "", joined = contacts.map(function (c) { return c.value; }).join("   |   ");
+      cInner = runXml({ t: joined }, { size: 18, color: "555555" });
+      body.push(para(cInner, pPr('<w:jc w:val="center"/>' + spacing(0, 160))));
+    }
+
+    /* sections */
+    (r.sections || []).forEach(function (sec) {
+      var hdBdr = '<w:pBdr><w:bottom w:val="single" w:sz="6" w:space="2" w:color="999999"/></w:pBdr>';
+      body.push(para(runXml({ t: sec.title || "Section" }, { bold: true, size: 22, caps: true, color: "222222" }),
+        pPr(hdBdr + spacing(160, 60))));
+
+      if (sec.type === "text") {
+        var inner = runs(sec.text || "").map(function (x) { return runXml(x, { size: 20 }); }).join("");
+        body.push(para(inner, pPr(spacing(0, 100))));
+      } else if (sec.type === "labeled") {
+        (sec.items || []).forEach(function (it) {
+          var lab = it.label ? runXml({ t: it.label + ": ", b: true }, { bold: true, size: 20 }) : "";
+          var val = runs(it.value || "").map(function (x) { return runXml(x, { size: 20 }); }).join("");
+          body.push(para(lab + val, pPr(spacing(0, 40))));
+        });
+      } else {
+        (sec.items || []).forEach(function (it) {
+          /* heading line: company (bold left) + date (right via tab) */
+          var tabs = '<w:tabs><w:tab w:val="right" w:pos="10800"/></w:tabs>';
+          var headInner = runXml({ t: it.heading || "", b: true }, { bold: true, size: 21 });
+          if (it.date) headInner += '<w:r><w:tab/></w:r>' + runXml({ t: it.date }, { size: 19, color: "555555" });
+          body.push(para(headInner, pPr(tabs + spacing(40, 10))));
+          if (it.role) body.push(para(runXml({ t: it.role }, { italic: true, size: 20, color: "333333" }), pPr(spacing(0, 10))));
+          if (it.meta) body.push(para(runXml({ t: it.meta }, { italic: true, size: 18, color: "666666" }), pPr(spacing(0, 20))));
+          (it.bullets || []).forEach(function (bt) {
+            if (!bt) return;
+            var bInner = runXml({ t: "•  " }, { size: 20 }) + runs(bt).map(function (x) { return runXml(x, { size: 20 }); }).join("");
+            body.push(para(bInner, pPr('<w:ind w:left="288" w:hanging="288"/>' + spacing(0, 30))));
+          });
+        });
+      }
+    });
+
+    var sectPr = '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/>' +
+      '<w:pgMar w:top="720" w:right="720" w:bottom="720" w:left="720" w:header="0" w:footer="0" w:gutter="0"/></w:sectPr>';
+
+    return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
+      '<w:body>' + body.join("") + sectPr + '</w:body></w:document>';
+  }
+
+  function exportDocx() {
+    var r = activeResume();
+    var contentTypes = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+      '<Default Extension="xml" ContentType="application/xml"/>' +
+      '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' +
+      '</Types>';
+    var rels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>' +
+      '</Relationships>';
+    var files = [
+      { name: "[Content_Types].xml", bytes: strBytes(contentTypes) },
+      { name: "_rels/.rels", bytes: strBytes(rels) },
+      { name: "word/document.xml", bytes: strBytes(buildDocumentXml(r)) }
+    ];
+    var zipped = zipStore(files);
+    var blob = new Blob([zipped], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+    var url = URL.createObjectURL(blob), a = el("a"); a.href = url;
+    a.download = ((r.profile && r.profile.name) || "resume").replace(/\s+/g, "_").toLowerCase() + "_resume.docx";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 500);
+    flash("Word .docx downloaded.");
+  }
+
+  /* ============================================================
      TOOLBAR
      ============================================================ */
   function exportJson() {
@@ -939,6 +1101,7 @@
     var tabs = document.querySelectorAll("#tabs .tab");
     for (var i = 0; i < tabs.length; i++) tabs[i].addEventListener("click", function () { activeTab = this.getAttribute("data-tab"); renderApp(); });
     document.getElementById("btnPdf").addEventListener("click", function () { window.print(); });
+    document.getElementById("btnDocx").addEventListener("click", exportDocx);
     document.getElementById("btnExport").addEventListener("click", exportJson);
     document.getElementById("btnReset").addEventListener("click", resetAll);
     var fileInput = document.getElementById("fileImport");
