@@ -766,6 +766,8 @@
       timer = setTimeout(function () { store.setNote(nid, ta.value); saveHint.textContent = "Saved ✓"; setTimeout(function () { saveHint.textContent = ""; }, 1000); }, 350);
     });
     noteWrap.appendChild(ta); noteWrap.appendChild(saveHint);
+    var cloud = window.BLIND75 && window.BLIND75.cloud;
+    noteWrap.appendChild(h("span", { class: "note-sync-time" }, cloud && cloud.syncLabel ? cloud.syncLabel() : ""));
     main.appendChild(section("notes", "My Notes", noteWrap, { collapsed: true }));
 
     // prev / next stepper (also driven by [ and ] keys)
