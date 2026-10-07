@@ -999,17 +999,17 @@
      Deliberately CONSERVATIVE: every constant over-estimates real Word
      layout, so the auto-fit never thinks content fits when it doesn't. */
   function charsPerLine(sizeHalfPt, widthTwips) {
-    var avgCharPt = 0.54 * (sizeHalfPt / 2);         /* Calibri avg glyph width, over-estimated so lines wrap sooner */
+    var avgCharPt = 0.48 * (sizeHalfPt / 2);         /* Calibri avg glyph advance ≈ 0.48·fontPt (calibrated to real layout) */
     var widthPt = widthTwips / 20;
     return Math.max(1, Math.floor(widthPt / avgCharPt));
   }
-  function lineHeightPt(sizeHalfPt) { return (sizeHalfPt / 2) * 1.26; }   /* single-spaced Calibri line, rounded up */
+  function lineHeightPt(sizeHalfPt) { return (sizeHalfPt / 2) * 1.20; }   /* single-spaced Calibri line height */
   function estLines(text, sizeHalfPt, widthTwips) {
     var len = (text || "").length;
     if (!len) return 1;
     return Math.max(1, Math.ceil(len / charsPerLine(sizeHalfPt, widthTwips)));
   }
-  var PARA_OVERHEAD_PT = 1.2;    /* flat per-paragraph cushion for rounding Word adds that we can't see */
+  var PARA_OVERHEAD_PT = 0.4;    /* small flat per-paragraph cushion for layout rounding */
 
   /* Build the <w:body> paragraphs at a given typographic scale, and return
      both the XML and an estimated total content height (points). */
@@ -1095,14 +1095,14 @@
        estimate clears one page with a safety margin. Font sizes are already
        floored at 7.5pt inside sz(), so we can scale well down and stay readable
        while spacing keeps tightening. */
-    var target = USABLE_H_PT * 0.90;                 /* 10% headroom absorbs any estimation error */
-    var FLOOR = 0.50;
+    var target = USABLE_H_PT * 0.96;                 /* headroom that absorbs estimation error without crushing type */
+    var FLOOR = 0.55;
     /* Step down gradually (not one ratio jump): font sizes floor at 7.5pt, so a
-       linear jump overshoots and shrinks more than needed. Small 4% steps stop
+       linear jump overshoots and shrinks more than needed. Small 3% steps stop
        at the LARGEST scale that still clears the page — readable and one page. */
     var scale = 1, built = buildBody(r, scale);
     for (var pass = 0; pass < 24 && built.hPt > target && scale > FLOOR; pass++) {
-      scale = Math.max(FLOOR, scale * 0.96);
+      scale = Math.max(FLOOR, scale * 0.97);
       built = buildBody(r, scale);
     }
     return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
