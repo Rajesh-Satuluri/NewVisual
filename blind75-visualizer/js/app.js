@@ -551,12 +551,6 @@
 
       if (edited) {
         actions.appendChild(h("span", { class: "code-edited", title: "This code was edited locally" }, "edited"));
-        var reset = h("button", { class: "code-mini", title: "Restore the original code" }, "Reset");
-        reset.addEventListener("click", function () {
-          store.clearCodeEdit(ident.id, ident.ai, ident.mode);
-          editing = false; render();
-        });
-        actions.appendChild(reset);
       }
 
       var ta; // textarea, only created in edit mode; referenced by Copy below
