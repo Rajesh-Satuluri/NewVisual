@@ -986,6 +986,9 @@
     });
     noteWrap.appendChild(ta);
     noteWrap.appendChild(saveHint);
+    var cloud = window.BLIND75 && window.BLIND75.cloud;
+    var syncTime = h("span", { class: "note-sync-time" }, cloud && cloud.syncLabel ? cloud.syncLabel() : "");
+    noteWrap.appendChild(syncTime);
     main.appendChild(section("notes", "My Notes", noteWrap));
 
     // ---- prev/next nav ----

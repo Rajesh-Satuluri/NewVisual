@@ -11,6 +11,32 @@
 
   var B = window.BLIND75 || (window.BLIND75 = {});
 
+  // ---- "Last synced …" label shown near My Notes --------------------------
+  // The notes sections (app.js + problemlab.js) drop in a <span
+  // class="note-sync-time">; a single listener keeps whichever one is on
+  // screen up to date, so there are no per-render listener leaks.
+  function injectSyncLabelStyle() {
+    if (document.getElementById("cs-label-style")) return;
+    var st = document.createElement("style");
+    st.id = "cs-label-style";
+    st.textContent =
+      ".note-sync-time{display:block;margin-top:6px;font-size:11.5px;opacity:.6;" +
+      "font-variant-numeric:tabular-nums;letter-spacing:.2px;}";
+    (document.head || document.documentElement).appendChild(st);
+  }
+  function refreshSyncLabels() {
+    var txt = (B.cloud && B.cloud.syncLabel) ? B.cloud.syncLabel() : "";
+    var els = document.querySelectorAll(".note-sync-time");
+    for (var i = 0; i < els.length; i++) els[i].textContent = txt;
+  }
+  injectSyncLabelStyle();
+  if (B.cloud) {
+    if (B.cloud.onSync) B.cloud.onSync(refreshSyncLabels);
+    if (B.cloud.onStatus) B.cloud.onStatus(refreshSyncLabels); // catch link/unlink
+  }
+  // Let the notes renderers fill a freshly created label immediately.
+  B.refreshSyncLabels = refreshSyncLabels;
+
   var CSS = [
     ".cs-overlay{position:fixed;inset:0;z-index:10000;display:flex;",
     "  align-items:center;justify-content:center;padding:16px;",

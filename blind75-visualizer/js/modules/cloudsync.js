@@ -31,6 +31,9 @@
   var busy = false;         // a push/pull is in flight
   var statusText = "";
   var statusListeners = [];
+  var lastSyncAt = 0;       // ms of last successful push/pull
+  var lastSyncKind = "";    // "push" | "pull"
+  var syncListeners = [];
 
   // ---- config -------------------------------------------------------------
   function cfg() { return B.SUPABASE || { url: "", anonKey: "" }; }
@@ -55,6 +58,25 @@
     for (var i = 0; i < statusListeners.length; i++) {
       try { statusListeners[i](statusText); } catch (e) { /* ignore */ }
     }
+  }
+
+  // Record a successful sync and notify listeners (drives the "Last synced …"
+  // label shown near the notes).
+  function markSynced(kind) {
+    lastSyncAt = Date.now();
+    lastSyncKind = kind || "";
+    for (var i = 0; i < syncListeners.length; i++) {
+      try { syncListeners[i](lastSyncAt, lastSyncKind); } catch (e) { /* ignore */ }
+    }
+  }
+
+  function two(n) { return (n < 10 ? "0" : "") + n; }
+  function syncLabel() {
+    if (!enabled()) return "Cloud sync off";
+    if (!lastSyncAt) return "Not synced yet";
+    var d = new Date(lastSyncAt);
+    var t = two(d.getHours()) + ":" + two(d.getMinutes()) + ":" + two(d.getSeconds());
+    return "Last synced " + t + (lastSyncKind === "push" ? " (saved)" : "");
   }
 
   // ---- REST / RPC ---------------------------------------------------------
@@ -124,6 +146,7 @@
       p_logic_edits: buckets.logicEdits
     }).then(function () {
       dirty = false;
+      markSynced("push");
       setStatus("Saved to cloud ✓");
     })["catch"](function (err) {
       setStatus("Sync error: " + err.message);
@@ -171,6 +194,7 @@
       }
 
       var changed = B.store ? B.store.applyCloudBuckets(buckets) : false;
+      markSynced("pull");
       setStatus(changed ? "Synced from cloud ✓" : "Up to date ✓");
       busy = false;
       if (changed) {
@@ -201,6 +225,9 @@
     pull: pull,
     status: function () { return statusText; },
     onStatus: function (cb) { if (typeof cb === "function") statusListeners.push(cb); },
+    lastSync: function () { return { at: lastSyncAt, kind: lastSyncKind }; },
+    onSync: function (cb) { if (typeof cb === "function") syncListeners.push(cb); },
+    syncLabel: syncLabel,
     // Generate a strong, readable random sync code (grouped for legibility).
     generateCode: function () {
       var alpha = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // no ambiguous 0/O/1/I/L
