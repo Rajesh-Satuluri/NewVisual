@@ -989,62 +989,117 @@
   function pPr(parts) { return parts ? "<w:pPr>" + parts + "</w:pPr>" : ""; }
   function spacing(before, after) { return '<w:spacing w:before="' + (before || 0) + '" w:after="' + (after || 0) + '"/>'; }
 
-  function buildDocumentXml(r) {
-    var p = r.profile || {}, body = [];
+  /* A4 page geometry (twips). 1 inch = 1440 twips; 1 pt = 20 twips. */
+  var PAGE_W = 11906, PAGE_H = 16838;
+  var MARGIN_TB = 680, MARGIN_LR = 737;              /* ~12mm / ~13mm, matching the print PDF */
+  var USABLE_W = PAGE_W - MARGIN_LR * 2;             /* content width in twips */
+  var USABLE_H_PT = (PAGE_H - MARGIN_TB * 2) / 20;   /* content height in points */
+
+  /* --- rough height estimation so we can shrink to fit one page --- */
+  function charsPerLine(sizeHalfPt, widthTwips) {
+    var avgCharPt = 0.50 * (sizeHalfPt / 2);         /* Calibri avg glyph width (conservative ≈ 0.50·fontPt) */
+    var widthPt = widthTwips / 20;
+    return Math.max(1, Math.floor(widthPt / avgCharPt));
+  }
+  function lineHeightPt(sizeHalfPt) { return (sizeHalfPt / 2) * 1.18; }
+  function estLines(text, sizeHalfPt, widthTwips) {
+    var len = (text || "").length;
+    if (!len) return 1;
+    return Math.max(1, Math.ceil(len / charsPerLine(sizeHalfPt, widthTwips)));
+  }
+
+  /* Build the <w:body> paragraphs at a given typographic scale, and return
+     both the XML and an estimated total content height (points). */
+  function buildBody(r, scale) {
+    var p = r.profile || {}, body = [], hPt = 0;
+    function sz(base) { return Math.max(15, Math.round(base * scale)); }           /* half-points, floor 7.5pt */
+    function sp(base) { return Math.max(0, Math.round(base * scale)); }            /* twips */
+    function add(xml, sizeHalfPt, text, widthTwips, before, after, extraPt) {
+      body.push(xml);
+      hPt += estLines(text, sizeHalfPt, widthTwips) * lineHeightPt(sizeHalfPt) +
+        (before + after) / 20 + (extraPt || 0);
+    }
 
     /* name */
-    body.push(para(runXml({ t: p.name || "Your Name", b: true }, { size: 40, bold: true }),
-      pPr('<w:jc w:val="center"/>' + spacing(0, 40))));
+    var nSize = sz(32);
+    add(para(runXml({ t: p.name || "Your Name", b: true }, { size: nSize, bold: true }),
+      pPr('<w:jc w:val="center"/>' + spacing(0, sp(40)))), nSize, p.name || "Your Name", USABLE_W, 0, sp(40));
     /* title */
-    if (p.title) body.push(para(runXml({ t: p.title }, { size: 24, color: "444444" }),
-      pPr('<w:jc w:val="center"/>' + spacing(0, 40))));
+    if (p.title) { var tSize = sz(20);
+      add(para(runXml({ t: p.title }, { size: tSize, color: "444444" }),
+        pPr('<w:jc w:val="center"/>' + spacing(0, sp(30)))), tSize, p.title, USABLE_W, 0, sp(30)); }
     /* contacts */
     var contacts = (p.contacts || []).filter(function (c) { return c.value; });
     if (contacts.length) {
-      var cInner = "", joined = contacts.map(function (c) { return c.value; }).join("   |   ");
-      cInner = runXml({ t: joined }, { size: 18, color: "555555" });
-      body.push(para(cInner, pPr('<w:jc w:val="center"/>' + spacing(0, 160))));
+      var joined = contacts.map(function (c) { return c.value; }).join("   |   "), cSize = sz(18);
+      add(para(runXml({ t: joined }, { size: cSize, color: "555555" }),
+        pPr('<w:jc w:val="center"/>' + spacing(0, sp(110)))), cSize, joined, USABLE_W, 0, sp(110));
     }
 
     /* sections */
     (r.sections || []).forEach(function (sec) {
       var hdBdr = '<w:pBdr><w:bottom w:val="single" w:sz="6" w:space="2" w:color="999999"/></w:pBdr>';
-      body.push(para(runXml({ t: sec.title || "Section" }, { bold: true, size: 22, caps: true, color: "222222" }),
-        pPr(hdBdr + spacing(160, 60))));
+      var hSize = sz(20);
+      add(para(runXml({ t: sec.title || "Section" }, { bold: true, size: hSize, caps: true, color: "222222" }),
+        pPr(hdBdr + spacing(sp(110), sp(44)))), hSize, sec.title || "Section", USABLE_W, sp(110), sp(44), 2.5);
 
       if (sec.type === "text") {
-        var inner = runs(sec.text || "").map(function (x) { return runXml(x, { size: 20 }); }).join("");
-        body.push(para(inner, pPr(spacing(0, 100))));
+        var bSize = sz(20);
+        var inner = runs(sec.text || "").map(function (x) { return runXml(x, { size: bSize }); }).join("");
+        add(para(inner, pPr('<w:jc w:val="both"/>' + spacing(0, sp(70)))), bSize, sec.text || "", USABLE_W, 0, sp(70));
       } else if (sec.type === "labeled") {
         (sec.items || []).forEach(function (it) {
-          var lab = it.label ? runXml({ t: it.label + ": ", b: true }, { bold: true, size: 20 }) : "";
-          var val = runs(it.value || "").map(function (x) { return runXml(x, { size: 20 }); }).join("");
-          body.push(para(lab + val, pPr(spacing(0, 40))));
+          var lSize = sz(20);
+          var lab = it.label ? runXml({ t: it.label + ": ", b: true }, { bold: true, size: lSize }) : "";
+          var val = runs(it.value || "").map(function (x) { return runXml(x, { size: lSize }); }).join("");
+          add(para(lab + val, pPr(spacing(0, sp(40)))), lSize,
+            (it.label ? it.label + ": " : "") + (it.value || ""), USABLE_W, 0, sp(40));
         });
       } else {
         (sec.items || []).forEach(function (it) {
-          /* heading line: company (bold left) + date (right via tab) */
-          var tabs = '<w:tabs><w:tab w:val="right" w:pos="10800"/></w:tabs>';
-          var headInner = runXml({ t: it.heading || "", b: true }, { bold: true, size: 21 });
-          if (it.date) headInner += '<w:r><w:tab/></w:r>' + runXml({ t: it.date }, { size: 19, color: "555555" });
-          body.push(para(headInner, pPr(tabs + spacing(40, 10))));
-          if (it.role) body.push(para(runXml({ t: it.role }, { italic: true, size: 20, color: "333333" }), pPr(spacing(0, 10))));
-          if (it.meta) body.push(para(runXml({ t: it.meta }, { italic: true, size: 18, color: "666666" }), pPr(spacing(0, 20))));
+          var tabPos = USABLE_W; /* right tab at content edge */
+          var tabs = '<w:tabs><w:tab w:val="right" w:pos="' + tabPos + '"/></w:tabs>';
+          var ehSize = sz(21);
+          var headInner = runXml({ t: it.heading || "", b: true }, { bold: true, size: ehSize });
+          if (it.date) headInner += '<w:r><w:tab/></w:r>' + runXml({ t: it.date }, { size: sz(19), color: "555555" });
+          add(para(headInner, pPr(tabs + spacing(sp(44), sp(10)))), ehSize, it.heading || "", USABLE_W, sp(44), sp(10));
+          if (it.role) { var roSize = sz(20);
+            add(para(runXml({ t: it.role }, { italic: true, size: roSize, color: "333333" }),
+              pPr(spacing(0, sp(10)))), roSize, it.role, USABLE_W, 0, sp(10)); }
+          if (it.meta) { var mSize = sz(18);
+            add(para(runXml({ t: it.meta }, { italic: true, size: mSize, color: "666666" }),
+              pPr(spacing(0, sp(20)))), mSize, it.meta, USABLE_W, 0, sp(20)); }
           (it.bullets || []).forEach(function (bt) {
             if (!bt) return;
-            var bInner = runXml({ t: "•  " }, { size: 20 }) + runs(bt).map(function (x) { return runXml(x, { size: 20 }); }).join("");
-            body.push(para(bInner, pPr('<w:ind w:left="288" w:hanging="288"/>' + spacing(0, 30))));
+            var buSize = sz(20), indent = 260;
+            var bInner = runXml({ t: "•  " }, { size: buSize }) + runs(bt).map(function (x) { return runXml(x, { size: buSize }); }).join("");
+            add(para(bInner, pPr('<w:ind w:left="' + indent + '" w:hanging="' + indent + '"/>' + spacing(0, sp(22)))),
+              buSize, "•  " + bt, USABLE_W - indent, 0, sp(22));
           });
         });
       }
     });
 
-    var sectPr = '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/>' +
-      '<w:pgMar w:top="720" w:right="720" w:bottom="720" w:left="720" w:header="0" w:footer="0" w:gutter="0"/></w:sectPr>';
+    var sectPr = '<w:sectPr><w:pgSz w:w="' + PAGE_W + '" w:h="' + PAGE_H + '"/>' +
+      '<w:pgMar w:top="' + MARGIN_TB + '" w:right="' + MARGIN_LR + '" w:bottom="' + MARGIN_TB +
+      '" w:left="' + MARGIN_LR + '" w:header="0" w:footer="0" w:gutter="0"/></w:sectPr>';
 
+    return { xml: body.join("") + sectPr, hPt: hPt };
+  }
+
+  function buildDocumentXml(r) {
+    /* auto-fit: start at full size, shrink typography if the estimate
+       overflows one page (floor at 0.74 so it stays readable). */
+    var target = USABLE_H_PT * 0.96;                 /* leave a safety margin for estimation error */
+    var scale = 1, built = buildBody(r, scale);
+    for (var pass = 0; pass < 5 && built.hPt > target; pass++) {
+      scale = Math.max(0.72, scale * (target / built.hPt) * 0.99);
+      built = buildBody(r, scale);
+      if (scale <= 0.72) break;
+    }
     return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
       '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
-      '<w:body>' + body.join("") + sectPr + '</w:body></w:document>';
+      '<w:body>' + built.xml + '</w:body></w:document>';
   }
 
   function exportDocx() {
@@ -1054,15 +1109,33 @@
       '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
       '<Default Extension="xml" ContentType="application/xml"/>' +
       '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' +
+      '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>' +
       '</Types>';
     var rels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
       '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
       '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>' +
       '</Relationships>';
+    /* compact defaults: Calibri 10pt, single line spacing, no space-after —
+       this (not Word's looser Normal style) is what keeps the resume to one page */
+    var docRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' +
+      '</Relationships>';
+    var styles = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
+      '<w:docDefaults><w:rPrDefault><w:rPr>' +
+      '<w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:sz w:val="20"/><w:szCs w:val="20"/>' +
+      '</w:rPr></w:rPrDefault><w:pPrDefault><w:pPr>' +
+      '<w:spacing w:after="0" w:line="240" w:lineRule="auto"/>' +
+      '</w:pPr></w:pPrDefault></w:docDefaults>' +
+      '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style>' +
+      '</w:styles>';
     var files = [
       { name: "[Content_Types].xml", bytes: strBytes(contentTypes) },
       { name: "_rels/.rels", bytes: strBytes(rels) },
-      { name: "word/document.xml", bytes: strBytes(buildDocumentXml(r)) }
+      { name: "word/document.xml", bytes: strBytes(buildDocumentXml(r)) },
+      { name: "word/_rels/document.xml.rels", bytes: strBytes(docRels) },
+      { name: "word/styles.xml", bytes: strBytes(styles) }
     ];
     var zipped = zipStore(files);
     var blob = new Blob([zipped], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });

@@ -36,7 +36,9 @@ Live: `https://rajesh-satuluri.github.io/NewVisual/resume-builder/`
     ATS-friendly, with no browser header/footer (`@page { margin: 0 }`)
   - **DOCX** — an editable Microsoft Word file, generated entirely in the
     browser (no server, no library) by assembling a valid OOXML package;
-    single-column plain text so it stays ATS-friendly
+    single-column plain text so it stays ATS-friendly. Ships a compact
+    `styles.xml` (single line spacing) and an **auto-fit** pass that scales
+    typography down just enough to keep the resume to **one page**
 - Distinct company + role lines per entry (ATS scores role titles)
 - **Import / Export** all data (library + every resume) as one JSON file
 - **Auto-save** to `localStorage` — your data never leaves your browser
