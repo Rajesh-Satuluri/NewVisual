@@ -2050,6 +2050,9 @@
     // Cover manual hash edits too (our own navigations use pushState, which
     // doesn't fire hashchange, so this only runs for user-typed fragments).
     window.addEventListener("hashchange", applyRoute);
+    // Cloud sync pulled newer notes/code from another device — re-render the
+    // current view so the updated content shows without a manual reload.
+    window.addEventListener("blind75:cloud-refresh", applyRoute);
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
