@@ -249,7 +249,7 @@
           if (e.key === "Tab") { e.preventDefault(); var s = ta.selectionStart, en = ta.selectionEnd; ta.value = ta.value.slice(0, s) + "    " + ta.value.slice(en); ta.selectionStart = ta.selectionEnd = s + 4; ta.dispatchEvent(new Event("input")); }
         });
         body.appendChild(ta);
-        setTimeout(function () { fit(); ta.focus(); }, 0);
+        setTimeout(function () { fit(); ta.focus({ preventScroll: true }); }, 0);
       } else {
         var pre = h("pre", { class: "code-pre" });
         var code = h("code", { class: "language-" + lang });
@@ -305,7 +305,7 @@
           if (e.key === "Tab") { e.preventDefault(); var s = ta.selectionStart, en = ta.selectionEnd; ta.value = ta.value.slice(0, s) + "  " + ta.value.slice(en); ta.selectionStart = ta.selectionEnd = s + 2; ta.dispatchEvent(new Event("input")); }
         });
         body.appendChild(ta);
-        setTimeout(function () { fit(); ta.focus(); }, 0);
+        setTimeout(function () { fit(); ta.focus({ preventScroll: true }); }, 0);
       } else {
         var node = h("div", { class: "md logic" });
         node.innerHTML = md(currentSource());
