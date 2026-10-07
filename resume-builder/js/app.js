@@ -995,18 +995,21 @@
   var USABLE_W = PAGE_W - MARGIN_LR * 2;             /* content width in twips */
   var USABLE_H_PT = (PAGE_H - MARGIN_TB * 2) / 20;   /* content height in points */
 
-  /* --- rough height estimation so we can shrink to fit one page --- */
+  /* --- height estimation so we can shrink to fit one page ---
+     Deliberately CONSERVATIVE: every constant over-estimates real Word
+     layout, so the auto-fit never thinks content fits when it doesn't. */
   function charsPerLine(sizeHalfPt, widthTwips) {
-    var avgCharPt = 0.50 * (sizeHalfPt / 2);         /* Calibri avg glyph width (conservative ≈ 0.50·fontPt) */
+    var avgCharPt = 0.54 * (sizeHalfPt / 2);         /* Calibri avg glyph width, over-estimated so lines wrap sooner */
     var widthPt = widthTwips / 20;
     return Math.max(1, Math.floor(widthPt / avgCharPt));
   }
-  function lineHeightPt(sizeHalfPt) { return (sizeHalfPt / 2) * 1.18; }
+  function lineHeightPt(sizeHalfPt) { return (sizeHalfPt / 2) * 1.26; }   /* single-spaced Calibri line, rounded up */
   function estLines(text, sizeHalfPt, widthTwips) {
     var len = (text || "").length;
     if (!len) return 1;
     return Math.max(1, Math.ceil(len / charsPerLine(sizeHalfPt, widthTwips)));
   }
+  var PARA_OVERHEAD_PT = 1.2;    /* flat per-paragraph cushion for rounding Word adds that we can't see */
 
   /* Build the <w:body> paragraphs at a given typographic scale, and return
      both the XML and an estimated total content height (points). */
@@ -1017,7 +1020,7 @@
     function add(xml, sizeHalfPt, text, widthTwips, before, after, extraPt) {
       body.push(xml);
       hPt += estLines(text, sizeHalfPt, widthTwips) * lineHeightPt(sizeHalfPt) +
-        (before + after) / 20 + (extraPt || 0);
+        (before + after) / 20 + (extraPt || 0) + PARA_OVERHEAD_PT;
     }
 
     /* name */
@@ -1088,14 +1091,19 @@
   }
 
   function buildDocumentXml(r) {
-    /* auto-fit: start at full size, shrink typography if the estimate
-       overflows one page (floor at 0.74 so it stays readable). */
-    var target = USABLE_H_PT * 0.96;                 /* leave a safety margin for estimation error */
+    /* auto-fit: start at full size, shrink typography until the (conservative)
+       estimate clears one page with a safety margin. Font sizes are already
+       floored at 7.5pt inside sz(), so we can scale well down and stay readable
+       while spacing keeps tightening. */
+    var target = USABLE_H_PT * 0.90;                 /* 10% headroom absorbs any estimation error */
+    var FLOOR = 0.50;
+    /* Step down gradually (not one ratio jump): font sizes floor at 7.5pt, so a
+       linear jump overshoots and shrinks more than needed. Small 4% steps stop
+       at the LARGEST scale that still clears the page — readable and one page. */
     var scale = 1, built = buildBody(r, scale);
-    for (var pass = 0; pass < 5 && built.hPt > target; pass++) {
-      scale = Math.max(0.72, scale * (target / built.hPt) * 0.99);
+    for (var pass = 0; pass < 24 && built.hPt > target && scale > FLOOR; pass++) {
+      scale = Math.max(FLOOR, scale * 0.96);
       built = buildBody(r, scale);
-      if (scale <= 0.72) break;
     }
     return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
       '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
