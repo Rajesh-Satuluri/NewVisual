@@ -107,7 +107,9 @@
     var buckets = {}; order.forEach(function (d) { buckets[d] = []; });
     var extra = [];
     all().forEach(function (p) {
-      var key = p.lc != null ? map[p.lc] : null;
+      // PySpark keys its domain map by question number (lc); SQL has no lc, so it
+      // keys by the problem id. Pick whichever this stack ships.
+      var key = map[p.lc != null ? p.lc : p.id];
       if (key && buckets[key]) buckets[key].push(p);
       else extra.push(p);   // safety net — should never fire (coverage is 100%)
     });
