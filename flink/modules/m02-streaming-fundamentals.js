@@ -1,4 +1,5 @@
 import { createModuleShell, initTabs, createIQSection, initIQ } from '../components/module-shell.js';
+import { rideSpine, initRideSpine } from '../components/story-ui.js';
 
 // ── Mode definitions ──────────────────────────────────────────────────────
 const MODES = {
@@ -61,12 +62,11 @@ const IQS = [
   {
     q: 'In a Flink pipeline processing Uber GPS events, what does "true streaming" mean at the code level?',
     a: `At the operator level, Flink's runtime calls <strong>processElement()</strong> for every arriving event. There is no buffer, no accumulation — the method fires immediately.<br><br>
-    <code>public class GPSMapper extends MapFunction&lt;GPSEvent, DriverLocation&gt; {<br>
-    &nbsp;&nbsp;public DriverLocation map(GPSEvent e) {<br>
-    &nbsp;&nbsp;&nbsp;&nbsp;// Called once per GPS ping, immediately on arrival<br>
-    &nbsp;&nbsp;&nbsp;&nbsp;return new DriverLocation(e.driverId, e.lat, e.lon, e.timestamp);<br>
-    &nbsp;&nbsp;}<br>
-    }</code><br><br>
+    <code>class GPSMapper(MapFunction):<br>
+    &nbsp;&nbsp;def map(self, e):<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;# Called once per GPS ping, immediately on arrival<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;return {"driver_id": e["driver_id"], "lat": e["lat"],<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"lon": e["lon"], "ts": e["event_time"]}</code><br><br>
     The Flink runtime wraps this in a network buffer (default 32KB) for efficiency, but conceptually each event triggers an immediate call. The buffer fills in microseconds at high throughput, so effective latency stays < 10ms.`,
     tip: 'Mention network buffers — shows you know Flink optimizes throughput without sacrificing streaming semantics.',
   },
@@ -84,7 +84,7 @@ const IQS = [
 
 // ── Mount ─────────────────────────────────────────────────────────────────
 export function mount(container) {
-  container.innerHTML = createModuleShell({
+  container.innerHTML = rideSpine({ active: ['LOCATION_UPDATED'] }) + createModuleShell({
     tag: '02 · Foundation · Uber Edition',
     title: 'Streaming Fundamentals',
     subtitle: 'Visualize the difference between batch, micro-batch, and true streaming — by watching 1M Uber GPS events per second flow through each processing model in real time.',
@@ -97,6 +97,7 @@ export function mount(container) {
   });
 
   initTabs(container);
+  initRideSpine(container);
 
   container.querySelector('#tab-sim').innerHTML      = buildSimTab();
   container.querySelector('#tab-concept').innerHTML  = buildConceptTab();
@@ -294,21 +295,20 @@ result.writeStream.trigger(<span class="cf">Trigger.ProcessingTime</span>(<span 
     <div>
       <div style="font-size:13px;font-weight:700;color:var(--green);margin-bottom:10px">🌊 True Streaming (Apache Flink)</div>
       <div class="code-block">
-        <span class="lang-tag">Java</span>
-<span class="ct">StreamExecutionEnvironment</span> env = <span class="ct">StreamExecutionEnvironment</span>.getExecutionEnvironment();
+        <span class="lang-tag">PyFlink</span>
+<span class="ct">env</span> = StreamExecutionEnvironment.get_execution_environment()
 
-<span class="ct">DataStream</span>&lt;<span class="ct">GPSEvent</span>&gt; gpsStream = env
-  .<span class="cf">fromSource</span>(kafkaSource, <span class="ct">WatermarkStrategy</span>.noWatermarks(), <span class="cs">"Kafka GPS"</span>);
+gps = env.<span class="cf">from_source</span>(kafka_source, ride_watermarks, <span class="cs">"Kafka GPS"</span>)
 
-<span class="cc">// Each GPS ping processed IMMEDIATELY on arrival — no buffering</span>
-<span class="ct">DataStream</span>&lt;<span class="ct">DriverUpdate</span>&gt; result = gpsStream
-  .<span class="cf">map</span>(event -> <span class="ck">new</span> <span class="ct">DriverUpdate</span>(event.driverId, event.lat, event.lon))
-  .<span class="cf">keyBy</span>(<span class="ct">DriverUpdate</span>::getDriverId)
-  .<span class="cf">process</span>(<span class="ck">new</span> <span class="ct">FraudDetectionFunction</span>());  <span class="cc">// stateful, per-event</span>
+<span class="cc"># Each GPS ping processed IMMEDIATELY on arrival — no buffering</span>
+result = (gps
+  .<span class="cf">map</span>(<span class="ck">lambda</span> e: {<span class="cs">"driver_id"</span>: e[<span class="cs">"driver_id"</span>], <span class="cs">"lat"</span>: e[<span class="cs">"lat"</span>], <span class="cs">"lon"</span>: e[<span class="cs">"lon"</span>]})
+  .<span class="cf">key_by</span>(<span class="ck">lambda</span> e: e[<span class="cs">"driver_id"</span>])
+  .<span class="cf">process</span>(FraudDetection()))  <span class="cc"># stateful, per-event</span>
 
-result.<span class="cf">sinkTo</span>(icebergSink);
-env.<span class="cf">execute</span>(<span class="cs">"Uber GPS Real-Time Pipeline"</span>);
-<span class="cc">// Latency: &lt; 10ms. Fraud detected before next trip starts.</span>
+result.<span class="cf">sink_to</span>(iceberg_sink)
+env.<span class="cf">execute</span>(<span class="cs">"Uber GPS Real-Time Pipeline"</span>)
+<span class="cc"># Latency: &lt; 10ms. Fraud detected before next trip starts.</span>
       </div>
     </div>
   `;

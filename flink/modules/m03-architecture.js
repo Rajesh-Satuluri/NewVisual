@@ -1,4 +1,5 @@
 import { createModuleShell, initTabs, createIQSection, initIQ } from '../components/module-shell.js';
+import { rideSpine, initRideSpine } from '../components/story-ui.js';
 
 // ── Component definitions ─────────────────────────────────────────────────
 const COMPONENTS = {
@@ -187,7 +188,7 @@ const IQS = [
 
 // ── Mount ─────────────────────────────────────────────────────────────────
 export function mount(container) {
-  container.innerHTML = createModuleShell({
+  container.innerHTML = rideSpine({ active: ['DRIVER_SEARCHING', 'RIDE_STARTED'] }) + createModuleShell({
     tag: '03 · Architecture · Uber Edition',
     title: 'Flink Architecture',
     subtitle: 'Click any component to explore its role, internal mechanics, and how it handles Uber\'s 1M GPS events per second. Every interview starts here.',
@@ -199,6 +200,7 @@ export function mount(container) {
   });
 
   initTabs(container);
+  initRideSpine(container);
   container.querySelector('#tab-diagram').innerHTML   = buildDiagramTab();
   container.querySelector('#tab-concept').innerHTML   = buildConceptTab();
   container.querySelector('#tab-interview').innerHTML = createIQSection(IQS);

@@ -1,5 +1,6 @@
 import { createModuleShell, initTabs, createIQSection, initIQ } from '../components/module-shell.js';
 import { IQ_BANK } from '../data/iq-bank.js';
+import { rideSpine, initRideSpine } from '../components/story-ui.js';
 
 // ── Timeline data ─────────────────────────────────────────────────────────
 const TIMELINE = [
@@ -121,7 +122,7 @@ const WINS = [
 
 // ── Render ────────────────────────────────────────────────────────────────
 export function mount(container) {
-  container.innerHTML = createModuleShell({
+  container.innerHTML = rideSpine({ active: ['RIDE_REQUESTED'] }) + createModuleShell({
     tag: '01 · Foundation · Uber Edition',
     title: 'Why Apache Flink?',
     subtitle: "The evolution of stream processing — from Hadoop's 45-minute batch jobs to Flink's sub-10ms real-time pipelines powering Uber at 1M+ events per second.",
@@ -134,7 +135,7 @@ export function mount(container) {
   });
 
   initTabs(container);
-  initTabs(container);
+  initRideSpine(container);
 
   // ── Tab: Uber Story ──
   document.getElementById('tab-story').innerHTML = buildStoryTab();

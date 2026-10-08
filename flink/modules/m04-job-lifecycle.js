@@ -1,3 +1,5 @@
+import { rideSpine, initRideSpine } from '../components/story-ui.js';
+
 const STEPS = [
   {
     id: 'submit',
@@ -6,7 +8,7 @@ const STEPS = [
     actor: 'client',
     desc: 'Uber engineer submits the GPS fraud-detection job via the Flink CLI / REST API. The Client compiles your DataStream code into a <strong>JobGraph</strong> — a DAG of operators and edges.',
     uber: 'The fraud pipeline is packaged as a JAR containing SourceOperator (Kafka GPS topic), FraudDetector (KeyedProcess), and SinkOperator (Kafka alerts).',
-    code: `// Uber submits the job\nenv.fromSource(kafkaSource, WatermarkStrategy.noWatermarks(), "GPS Events")\n   .keyBy(event -> event.driverId)\n   .process(new FraudDetector())\n   .sinkTo(kafkaSink);\nenv.execute("Uber Fraud Detection");`,
+    code: `# Uber submits the job (PyFlink)\n(env.from_source(kafka_source, ride_watermarks, "GPS Events")\n    .key_by(lambda e: e["driver_id"])\n    .process(FraudDetector())\n    .sink_to(kafka_sink))\nenv.execute("Uber Fraud Detection")`,
   },
   {
     id: 'dispatcher',
@@ -99,6 +101,7 @@ const IQS = [
 
 export function mount(container) {
   container.innerHTML = `
+    ${rideSpine({ active: ['JOB_UPGRADE', 'RIDE_STARTED'] })}
     <div class="module-hero">
       <div class="module-hero-content">
         <span class="module-badge">Module 4</span>
@@ -127,6 +130,8 @@ export function mount(container) {
       <div class="iq-section" id="iq-section"></div>
     </div>
   `;
+
+  initRideSpine(container);
 
   // Tabs
   container.querySelectorAll('.tab-btn').forEach(btn => {
@@ -192,7 +197,7 @@ export function mount(container) {
           <div class="lc-uber-label">🚗 Uber Example</div>
           <p>${s.uber}</p>
         </div>
-        <div class="code-block"><pre>${s.code}</pre></div>
+        <div class="code-block"><span class="lang-tag">PyFlink</span><pre>${s.code}</pre></div>
         <div class="lc-nav-row">
           ${idx > 0 ? `<button class="btn btn-secondary lc-prev" data-idx="${idx - 1}">← Prev</button>` : '<span></span>'}
           ${idx < STEPS.length - 1 ? `<button class="btn btn-primary lc-next" data-idx="${idx + 1}">Next →</button>` : '<span class="badge" style="background:#10b981;color:#fff;padding:8px 16px">✓ Job is RUNNING!</span>'}
