@@ -202,6 +202,7 @@
     delete s.aiAssist.vault;
     if (!Array.isArray(s.snippets)) s.snippets = [];
     if (!Array.isArray(s.applications)) s.applications = [];
+    if (!s.coverLetter || typeof s.coverLetter !== "object") s.coverLetter = { company: "", manager: "", role: "", body: "" };
     return s;
   }
   function persist(s) { try { localStorage.setItem(KEY3, JSON.stringify(s)); } catch (e) {} }
@@ -292,6 +293,7 @@
     else if (activeTab === "jd") renderJdMatch(panel);
     else if (activeTab === "health") renderHealth(panel);
     else if (activeTab === "tracker") renderTracker(panel);
+    else if (activeTab === "cover") renderCover(panel);
     else renderResumes(panel);
     growAll(panel);
 
@@ -1593,6 +1595,113 @@
     if (s < 3600) return Math.floor(s / 60) + "m ago";
     if (s < 86400) return Math.floor(s / 3600) + "h ago";
     return Math.floor(s / 86400) + "d ago";
+  }
+
+  /* ============================================================
+     COVER LETTER — composed from resume + (optional) JD, offline
+     ============================================================ */
+  function coverSkills(r) {
+    if (jdAnalysis && jdAnalysis.matched && jdAnalysis.matched.length)
+      return jdAnalysis.matched.slice(0, 6).map(function (m) { return titleCase(m.term); });
+    var out = [];
+    (r.sections || []).forEach(function (sec) {
+      if (sec.type === "labeled") (sec.items || []).forEach(function (it) {
+        (it.value || "").split(/[,;]/).forEach(function (t) { t = t.trim().replace(/\.$/, ""); if (t && out.length < 6 && out.indexOf(t) < 0) out.push(t); });
+      });
+    });
+    return out;
+  }
+  function topHighlightBullet(r) {
+    var best = "";
+    (r.sections || []).forEach(function (sec) {
+      if (sec.type === "entries") (sec.items || []).forEach(function (it) {
+        (it.bullets || []).forEach(function (b) { if (!best && b && /\d/.test(b)) best = stripMd(b).trim(); });
+      });
+    });
+    if (!best) { var bs = collectBullets(r); if (bs.length) best = stripMd(bs[0].text); }
+    return best;
+  }
+  function buildCoverLetter(r, opts) {
+    var name = (r.profile && r.profile.name) || "";
+    var title = (r.profile && r.profile.title) || "";
+    var role = (opts.role || title || "the role").trim();
+    var company = (opts.company || "").trim();
+    var companyRef = company || "your organization";
+    var greeting = opts.manager && opts.manager.trim() ? "Dear " + opts.manager.trim() + "," : "Dear Hiring Manager,";
+    var skills = coverSkills(r);
+    var skillLine = skills.length
+      ? "My core strengths span " + (skills.slice(0, -1).join(", ") + (skills.length > 1 ? ", and " : "") + skills[skills.length - 1]) + "."
+      : "";
+    var highlight = topHighlightBullet(r);
+    var sumFirst = (stripMd(findSummary(r)).split(/(?<=[.!?])\s+/)[0] || "").trim();
+
+    var p1 = "I'm excited to apply for the " + role + " position" + (company ? " at " + company : "") + ". "
+      + (sumFirst ? sumFirst + (/[.!?]$/.test(sumFirst) ? "" : ".") : (title ? "As a " + title + ", I bring directly relevant experience." : ""));
+    var p2 = (skillLine ? skillLine + " " : "")
+      + (highlight ? "For example, I " + lowerFirst(highlight) + (/[.!?]$/.test(highlight) ? "" : ".") : "")
+      + " I'm confident this background maps closely to what " + companyRef + " needs for this role.";
+    var p3 = "I'd welcome the chance to discuss how I can contribute to " + companyRef + ". Thank you for your time and consideration.";
+
+    return greeting + "\n\n" + p1 + "\n\n" + p2.trim() + "\n\n" + p3 + "\n\nSincerely,\n" + (name || "");
+  }
+  function lowerFirst(s) { return s ? s.charAt(0).toLowerCase() + s.slice(1) : s; }
+  function downloadText(filename, text) {
+    try {
+      var blob = new Blob([text], { type: "text/plain" });
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob); a.download = filename;
+      document.body.appendChild(a); a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); if (a.parentNode) a.parentNode.removeChild(a); }, 100);
+    } catch (e) { copyText(text, "Copied — paste into a document to save."); }
+  }
+
+  function renderCover(panel) {
+    store.coverLetter = store.coverLetter || { company: "", manager: "", role: "", body: "" };
+    var cl = store.coverLetter;
+    var r = activeResume();
+
+    var hint = el("p", "panel-hint");
+    hint.innerHTML = "Generate a cover-letter draft from <strong>" + esc(r ? (r.name || "this resume") : "your resume") + "</strong>" + (jdAnalysis ? " and your analyzed JD" : "") + " — then edit freely. <strong>Offline; nothing uploaded.</strong>";
+    panel.appendChild(hint);
+    if (!r) { panel.appendChild(elText("div", "jd-empty", "Create a resume first.")); return; }
+
+    panel.appendChild(blockEl("Target role", "cover.meta", function (body) {
+      var r2 = el("div", "row-2");
+      r2.appendChild(fieldInput("Company", cl.company, function (v) { cl.company = v; scheduleSave(); }));
+      r2.appendChild(fieldInput("Role / title", cl.role, function (v) { cl.role = v; scheduleSave(); }));
+      body.appendChild(r2);
+      body.appendChild(fieldInput("Hiring manager (optional)", cl.manager, function (v) { cl.manager = v; scheduleSave(); }));
+      if (jdAnalysis && (store.aiAssist.jd || "").trim()) {
+        body.appendChild(elText("p", "hint", "Using " + jdAnalysis.matched.length + " matched keywords from your analyzed JD to pick strengths."));
+      }
+      var row = el("div", "prompt-actions");
+      var gen = miniBtn("⚡ Generate draft", function () {
+        cl.body = buildCoverLetter(activeResume(), cl); touch(); renderApp();
+      });
+      gen.classList.remove("btn-mini"); gen.classList.add("btn-primary");
+      row.appendChild(gen);
+      body.appendChild(row);
+    }));
+
+    panel.appendChild(blockEl("Cover letter", "cover.body", function (body) {
+      var ta = el("textarea", "inp cover-body");
+      ta.placeholder = "Your cover letter will appear here — or write your own. Click “Generate draft” above to start.";
+      ta.value = cl.body || "";
+      ta.addEventListener("input", function () { cl.body = ta.value; scheduleSave(); });
+      body.appendChild(ta);
+      var row = el("div", "prompt-actions");
+      row.appendChild(miniBtn("⧉ Copy", function () { if ((cl.body || "").trim()) copyText(cl.body, "Cover letter copied."); else flash("Generate or write the letter first."); }));
+      row.appendChild(miniBtn("⬇ Download .txt", function () {
+        if (!(cl.body || "").trim()) { flash("Generate or write the letter first."); return; }
+        downloadText("cover-letter" + (cl.company ? "-" + cl.company.replace(/\s+/g, "-").toLowerCase() : "") + ".txt", cl.body);
+      }));
+      row.appendChild(miniBtn("⧉ Copy AI polish prompt", function () {
+        var p = "Polish this cover letter: keep it truthful and specific, 3 short paragraphs, confident but not arrogant, no clichés. Tailor it to the role" + (cl.company ? " at " + cl.company : "") + ".\n\n--- DRAFT ---\n" + (cl.body || buildCoverLetter(activeResume(), cl));
+        copyText(p, "AI polish prompt copied — paste into any free AI chat.");
+      }, "btn-primary"));
+      body.appendChild(row);
+      body.appendChild(elText("p", "hint", "The draft is a starting point — always add a specific, genuine reason you want this company."));
+    }));
   }
 
   function renderAts(panel) {
