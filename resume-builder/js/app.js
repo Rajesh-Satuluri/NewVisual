@@ -200,6 +200,7 @@
       s.aiAssist.fields.other = (s.aiAssist.fields.other ? s.aiAssist.fields.other + "\n\n" : "") + s.aiAssist.vault;
     }
     delete s.aiAssist.vault;
+    if (!Array.isArray(s.snippets)) s.snippets = [];
     return s;
   }
   function persist(s) { try { localStorage.setItem(KEY3, JSON.stringify(s)); } catch (e) {} }
@@ -416,6 +417,45 @@
     });
   }
 
+  /* ---------- Snippet / bullet bank ----------
+     A reusable library of your best bullet phrasings, stored with your data
+     (so it exports/imports and syncs through the same JSON). Save any bullet,
+     then drop it into any entry when tailoring a resume to a new role. */
+  function saveSnippet(text) {
+    text = (text || "").trim();
+    if (!text) return false;
+    store.snippets = store.snippets || [];
+    if (store.snippets.some(function (s) { return s.text.trim() === text; })) return false;
+    store.snippets.unshift({ id: uid(), text: text });
+    return true;
+  }
+  function removeSnippet(id) {
+    store.snippets = (store.snippets || []).filter(function (s) { return s.id !== id; });
+  }
+  /* Inline, toggleable picker that inserts a saved bullet into `it`. */
+  function bankPicker(it) {
+    var pop = el("div", "bank-pop");
+    function build() {
+      pop.innerHTML = "";
+      var snips = store.snippets || [];
+      if (!snips.length) { pop.appendChild(elText("p", "bank-empty", "No saved bullets yet. Use ☆ on any bullet to save it here.")); return; }
+      pop.appendChild(elText("p", "bank-head", "Click to insert into this entry:"));
+      snips.forEach(function (s) {
+        var row = el("div", "bank-item");
+        var pick = el("button", "bank-pick"); pick.type = "button"; pick.textContent = s.text;
+        pick.title = "Insert this bullet";
+        pick.addEventListener("click", function () { it.bullets.push(s.text); renderApp(); touch(); });
+        row.appendChild(pick);
+        var del = el("button", "bank-del"); del.type = "button"; del.textContent = "✕"; del.title = "Remove from bank";
+        del.addEventListener("click", function () { removeSnippet(s.id); build(); touch(); });
+        row.appendChild(del);
+        pop.appendChild(row);
+      });
+    }
+    build();
+    return pop;
+  }
+
   function renderEntriesEditor(body, sec, allowSave) {
     sec.items = sec.items || [];
     var bar = el("div", "item-bar");
@@ -439,14 +479,24 @@
       wrap.appendChild(fieldInput("Meta / tech line", it.meta, function (v) { it.meta = v; touch(); }));
       var bbar = el("div", "item-bar");
       bbar.appendChild(elText("span", "lbl", "Bullet points"));
-      bbar.appendChild(miniBtn("＋ Add bullet", function () { it.bullets.push(""); renderApp(); touch(); }, "js-add"));
+      var bbtns = el("div", "item-tools");
+      bbtns.appendChild(miniBtn("＋ Add bullet", function () { it.bullets.push(""); renderApp(); touch(); }, "js-add"));
+      var pop = bankPicker(it);
+      var bankCount = (store.snippets || []).length;
+      bbtns.appendChild(miniBtn("⇭ From bank" + (bankCount ? " (" + bankCount + ")" : ""), function () { pop.classList.toggle("open"); }, "js-bank"));
+      bbar.appendChild(bbtns);
       wrap.appendChild(bbar);
+      wrap.appendChild(pop);
       var bl = el("div", "bullets");
       (it.bullets || []).forEach(function (bt, bi) {
         var row = el("div", "bullet-row");
         var ta = el("textarea", "inp"); ta.value = bt;
         ta.addEventListener("input", function () { it.bullets[bi] = ta.value; autoGrow(ta); touch(); });
         row.appendChild(ta);
+        row.appendChild(miniBtn("☆", function () {
+          if (saveSnippet(it.bullets[bi])) { flash("Saved to bullet bank."); touch(); renderApp(); }
+          else flash((it.bullets[bi] || "").trim() ? "Already in your bank." : "Write the bullet first.");
+        }, "js-star"));
         row.appendChild(miniBtn("✕", function () { it.bullets.splice(bi, 1); renderApp(); touch(); }, "btn-danger"));
         bl.appendChild(row);
       });
