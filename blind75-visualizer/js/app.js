@@ -1701,9 +1701,14 @@
       }
     });
 
-    // sidebar toggle — off-canvas drawer on mobile, collapse-to-full-width on desktop
+    // sidebar toggle — off-canvas drawer on phones, collapse-to-full-width on
+    // desktop AND on portrait touch tablets (768–900px, coarse pointer), which
+    // keep the sidebar persistent (see css/ipad.css) rather than as a drawer.
+    var persistentSidebar = function () {
+      return window.matchMedia("(min-width: 768px) and (max-width: 900px) and (pointer: coarse)").matches;
+    };
     el("menuBtn").addEventListener("click", function () {
-      if (window.matchMedia("(max-width: 900px)").matches) {
+      if (window.matchMedia("(max-width: 900px)").matches && !persistentSidebar()) {
         document.body.classList.toggle("sidebar-open");
       } else {
         var collapsed = !document.body.classList.contains("sidebar-collapsed");

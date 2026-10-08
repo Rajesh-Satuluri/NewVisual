@@ -6,6 +6,12 @@
 (function () {
   var KEY = "blind75:v1";
 
+  // Preferences that are safe + useful to carry across devices. Device-local
+  // UI state (sidebar collapse, open panels, collapsed categories, last-viewed
+  // problem, the one-time legacy-migration flag) is deliberately NOT synced, so
+  // collapsing the sidebar on a laptop never rearranges the phone.
+  var SYNC_PREFS = ["theme", "codeMode", "blur", "setFilter", "workspace"];
+
   var DEFAULT = {
     status: {},     // problemId -> "not-started" | "learning" | "solved"
     review: {},     // problemId -> true (flagged for review)
@@ -164,6 +170,9 @@
     },
     setPref: function (key, value) {
       state.prefs[key] = value;
+      // Changing a *syncable* preference bumps the prefs clock so the cloud
+      // merge (last-write-wins across devices) knows this device is newer.
+      if (SYNC_PREFS.indexOf(key) !== -1) state.prefs._syncAt = Date.now();
       save();
     },
     isCatCollapsed: function (cat) {
@@ -333,31 +342,77 @@
       save();
     },
 
-    // ---- cloud sync (notes + code edits + logic edits only) ----
-    // Snapshot the three synced buckets for upload.
+    // ---- cloud sync (FULL coverage: all learning state) ----
+    // The list of preference keys that participate in sync (read by the merge
+    // layer so it knows exactly which pref keys to carry).
+    syncPrefKeys: function () { return SYNC_PREFS.slice(); },
+
+    // Snapshot every synced bucket for upload. Progress, SRS, activity, review
+    // flags, challenge flags, links, notes and code/logic edits all travel; so
+    // does the safe pref subset, tagged with its last-change clock for LWW.
     cloudBuckets: function () {
       return {
-        notes: JSON.parse(JSON.stringify(state.notes || {})),
-        codeEdits: JSON.parse(JSON.stringify(state.codeEdits || {})),
-        logicEdits: JSON.parse(JSON.stringify(state.logicEdits || {}))
+        notes:       deep(state.notes),
+        links:       deep(state.links),
+        codeEdits:   deep(state.codeEdits),
+        logicEdits:  deep(state.logicEdits),
+        status:      deep(state.status),
+        pyStatus:    deep(state.pyStatus),
+        srs:         deep(state.srs),
+        review:      deep(state.review),
+        activity:    deep(state.activity),
+        pyChallenge: deep(state.pyChallenge),
+        prefs:       pickSyncPrefs(),
+        prefsAt:     state.prefs._syncAt || 0
       };
     },
-    // Adopt buckets pulled from the cloud. Returns true if anything actually
-    // changed (so the UI can re-render), false if local already matched.
+    // Adopt a fully-merged bundle pulled from / produced by the cloud layer.
+    // Returns true if anything actually changed (so the UI can re-render).
     applyCloudBuckets: function (b) {
       if (!b) return false;
-      var before = JSON.stringify([state.notes || {}, state.codeEdits || {}, state.logicEdits || {}]);
-      var after = JSON.stringify([b.notes || {}, b.codeEdits || {}, b.logicEdits || {}]);
-      if (before === after) return false;
+      var before = syncSig();
       cloudApplying = true;
-      state.notes = b.notes || {};
-      state.codeEdits = b.codeEdits || {};
-      state.logicEdits = b.logicEdits || {};
+      if (b.notes)       state.notes = b.notes;
+      if (b.links)       state.links = b.links;
+      if (b.codeEdits)   state.codeEdits = b.codeEdits;
+      if (b.logicEdits)  state.logicEdits = b.logicEdits;
+      if (b.status)      state.status = b.status;
+      if (b.pyStatus)    state.pyStatus = b.pyStatus;
+      if (b.srs)         state.srs = b.srs;
+      if (b.review)      state.review = b.review;
+      if (b.activity)    state.activity = b.activity;
+      if (b.pyChallenge) state.pyChallenge = b.pyChallenge;
+      if (b.prefs) {
+        for (var i = 0; i < SYNC_PREFS.length; i++) {
+          var k = SYNC_PREFS[i];
+          if (b.prefs[k] !== undefined) state.prefs[k] = b.prefs[k];
+        }
+      }
+      if (b.prefsAt) state.prefs._syncAt = b.prefsAt;
       save();
       cloudApplying = false;
-      return true;
+      return before !== syncSig();
     }
   };
+
+  // ---- cloud-sync helpers ----
+  function deep(o) { return JSON.parse(JSON.stringify(o || {})); }
+  function pickSyncPrefs() {
+    var out = {};
+    for (var i = 0; i < SYNC_PREFS.length; i++) {
+      var k = SYNC_PREFS[i];
+      if (state.prefs[k] !== undefined) out[k] = state.prefs[k];
+    }
+    return out;
+  }
+  // A stable signature of everything that syncs, used to detect real changes.
+  function syncSig() {
+    return JSON.stringify([
+      state.status, state.pyStatus, state.srs, state.review, state.activity,
+      state.pyChallenge, state.notes, state.links, state.codeEdits,
+      state.logicEdits, pickSyncPrefs()
+    ]);
+  }
 
   // ---- date helpers (local-day granularity) ----
   function todayStart() { var d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); }

@@ -102,7 +102,7 @@
 
     var sub = document.createElement("p");
     sub.className = "cs-sub";
-    sub.textContent = "Sync your notes and code edits across devices. Type the same sync code on every device and they share the same data.";
+    sub.textContent = "Sync everything across devices — progress, review schedule, streak, notes and code edits. Type the same sync code on every device and they share the same data.";
     card.appendChild(sub);
 
     if (!B.cloud || !B.cloud.configured()) {
@@ -186,7 +186,7 @@
 
     var note = document.createElement("p");
     note.className = "cs-note";
-    note.textContent = "Keep your sync code private — anyone who has it can read and change your synced notes and code.";
+    note.textContent = "Keep your sync code private — anyone who has it can read and change all of your synced study data.";
     card.appendChild(note);
 
     overlay.addEventListener("click", function (e) { if (e.target === overlay) close(); });
