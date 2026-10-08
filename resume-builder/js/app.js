@@ -201,6 +201,7 @@
     }
     delete s.aiAssist.vault;
     if (!Array.isArray(s.snippets)) s.snippets = [];
+    if (!Array.isArray(s.applications)) s.applications = [];
     return s;
   }
   function persist(s) { try { localStorage.setItem(KEY3, JSON.stringify(s)); } catch (e) {} }
@@ -290,6 +291,7 @@
     else if (activeTab === "ai") renderAi(panel);
     else if (activeTab === "jd") renderJdMatch(panel);
     else if (activeTab === "health") renderHealth(panel);
+    else if (activeTab === "tracker") renderTracker(panel);
     else renderResumes(panel);
     growAll(panel);
 
@@ -1464,6 +1466,133 @@
     });
 
     panel.appendChild(elText("p", "hint", "Tip: the score rewards specific, truthful, active writing — not keyword stuffing. Pair it with JD Match to tailor to a role."));
+  }
+
+  /* ============================================================
+     JOB TRACKER — application pipeline (localStorage, exports with data)
+     ============================================================ */
+  var APP_STATUSES = ["Saved", "Applied", "Interview", "Offer", "Rejected"];
+  var APP_STATUS_CLASS = { Saved: "st-saved", Applied: "st-applied", Interview: "st-interview", Offer: "st-offer", Rejected: "st-rejected" };
+
+  function newApplication(prefill) {
+    store.applications = store.applications || [];
+    var a = {
+      id: uid(), company: "", role: "", link: "", status: "Saved", notes: "",
+      jd: "", resumeId: "", resumeName: "", score: null,
+      createdAt: Date.now(), updatedAt: Date.now()
+    };
+    if (prefill) for (var k in prefill) a[k] = prefill[k];
+    store.applications.unshift(a);
+    return a;
+  }
+
+  function renderTracker(panel) {
+    store.applications = store.applications || [];
+    var apps = store.applications;
+
+    var hint = el("p", "panel-hint");
+    hint.innerHTML = "Track every role in one place — the job description, the resume you tailored, its match score, and where you are in the pipeline. <strong>All in your browser; exports with your data.</strong>";
+    panel.appendChild(hint);
+
+    /* summary counts */
+    var counts = {}; APP_STATUSES.forEach(function (s) { counts[s] = 0; });
+    apps.forEach(function (a) { counts[a.status] = (counts[a.status] || 0) + 1; });
+    var sum = el("div", "track-summary");
+    APP_STATUSES.forEach(function (s) {
+      var chip = el("div", "track-count " + APP_STATUS_CLASS[s]);
+      chip.appendChild(elText("span", "tc-num", String(counts[s] || 0)));
+      chip.appendChild(elText("span", "tc-lbl", s));
+      sum.appendChild(chip);
+    });
+    panel.appendChild(sum);
+
+    /* add actions */
+    var addRow = el("div", "prompt-actions");
+    addRow.appendChild(miniBtn("＋ Add application", function () { newApplication(); touch(); renderApp(); }, "btn-primary"));
+    if ((store.aiAssist && store.aiAssist.jd || "").trim()) {
+      var r = activeResume();
+      var lbl = "＋ From JD Match" + (jdAnalysis ? " (" + jdAnalysis.score + "%)" : "");
+      addRow.appendChild(miniBtn(lbl, function () {
+        newApplication({
+          jd: store.aiAssist.jd, resumeId: r ? r.id : "", resumeName: r ? (r.name || "Resume") : "",
+          score: jdAnalysis ? jdAnalysis.score : null,
+          company: guessCompanyFromJd(store.aiAssist.jd), role: guessJdTitle ? (guessJdTitle(store.aiAssist.jd) || "") : ""
+        });
+        touch(); renderApp();
+      }));
+    }
+    panel.appendChild(addRow);
+
+    if (!apps.length) {
+      var empty = el("div", "jd-empty");
+      empty.innerHTML = "🗂<br>No applications yet. Click <b>Add application</b>, or paste a JD in <b>JD Match</b> and use <b>＋ From JD Match</b> to start a tracked, tailored application.";
+      panel.appendChild(empty);
+      return;
+    }
+
+    /* one block per application */
+    apps.forEach(function (a) {
+      var title = (a.company || "Untitled") + (a.role ? " — " + a.role : "");
+      panel.appendChild(blockEl(title, "track." + a.id, function (body) {
+        var r2 = el("div", "row-2");
+        r2.appendChild(fieldInput("Company", a.company, function (v) { a.company = v; a.updatedAt = Date.now(); touch(); }));
+        r2.appendChild(fieldInput("Role / title", a.role, function (v) { a.role = v; a.updatedAt = Date.now(); touch(); }));
+        body.appendChild(r2);
+        body.appendChild(fieldInput("Job posting link (optional)", a.link, function (v) { a.link = v; a.updatedAt = Date.now(); touch(); }));
+
+        /* status selector */
+        var sf = el("div", "field");
+        sf.appendChild(elText("label", null, "Status"));
+        var sel = el("select", "inp");
+        APP_STATUSES.forEach(function (s) { var o = el("option"); o.value = s; o.textContent = s; if (a.status === s) o.selected = true; sel.appendChild(o); });
+        sel.addEventListener("change", function () { a.status = sel.value; a.updatedAt = Date.now(); touch(); renderApp(); });
+        sf.appendChild(sel); body.appendChild(sf);
+
+        /* linked resume + score */
+        var meta = el("div", "track-meta");
+        if (a.resumeName) {
+          meta.appendChild(elText("span", "track-tag", "📄 " + a.resumeName));
+          if (a.score != null) meta.appendChild(elText("span", "track-tag track-score", a.score + "% match"));
+        } else {
+          meta.appendChild(elText("span", "hint", "No resume linked. "));
+        }
+        var active = activeResume();
+        meta.appendChild(miniBtn(a.resumeId === (active && active.id) ? "✓ Active resume linked" : "Link active resume", function () {
+          a.resumeId = active ? active.id : ""; a.resumeName = active ? (active.name || "Resume") : "";
+          if (jdAnalysis && (a.jd || store.aiAssist.jd)) a.score = a.score; // keep existing score
+          a.updatedAt = Date.now(); touch(); renderApp();
+        }));
+        if (a.jd) meta.appendChild(miniBtn("Load JD into JD Match", function () {
+          store.aiAssist.jd = a.jd; jdAnalysis = analyzeJd(a.jd, activeResume()); jdAnalysis._jd = a.jd;
+          a.score = jdAnalysis.score; a.updatedAt = Date.now(); touch();
+          activeTab = "jd"; renderApp();
+        }));
+        body.appendChild(meta);
+
+        body.appendChild(fieldTextarea("Notes (recruiter, referral, follow-ups…)", a.notes, function (v) { a.notes = v; a.updatedAt = Date.now(); touch(); }));
+
+        var footer = el("div", "track-footer");
+        footer.appendChild(elText("span", "hint", "Updated " + relTime(a.updatedAt)));
+        footer.appendChild(miniBtn("🗑 Delete", function () {
+          store.applications = store.applications.filter(function (x) { return x.id !== a.id; });
+          touch(); renderApp();
+        }, "btn-danger"));
+        body.appendChild(footer);
+      }, [elText("span", "hl-pill " + APP_STATUS_CLASS[a.status], a.status)]));
+    });
+  }
+
+  function guessCompanyFromJd(jd) {
+    var m = (jd || "").match(/\b(?:at|join|with)\s+([A-Z][A-Za-z0-9&.\- ]{2,30})/);
+    return m ? m[1].trim().replace(/\s+(is|are|we|to|and|the)$/i, "") : "";
+  }
+  function relTime(ts) {
+    if (!ts) return "just now";
+    var s = Math.floor((Date.now() - ts) / 1000);
+    if (s < 60) return "just now";
+    if (s < 3600) return Math.floor(s / 60) + "m ago";
+    if (s < 86400) return Math.floor(s / 3600) + "h ago";
+    return Math.floor(s / 86400) + "d ago";
   }
 
   function renderAts(panel) {
