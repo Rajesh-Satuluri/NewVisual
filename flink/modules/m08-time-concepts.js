@@ -1,4 +1,6 @@
 import { createModuleShell, initTabs, createIQSection, initIQ } from '../components/module-shell.js';
+import { rideSpine, initRideSpine, rideCallout, scenarioList, pyCode } from '../components/story-ui.js';
+import { casesByModule } from '../data/interview-cases.js';
 
 const IQS = [
   {
@@ -50,7 +52,7 @@ const IQS = [
 ];
 
 export function mount(container) {
-  container.innerHTML = createModuleShell({
+  container.innerHTML = rideSpine({ active: ['DRIVER_ACCEPTED', 'RIDE_COMPLETED'] }) + createModuleShell({
     tag: '08 · Time & Windows · Uber Edition',
     title: 'Time Concepts in Flink',
     subtitle: 'Why does it matter WHEN a GPS ping happened vs when Flink saw it? Understand Event Time, Processing Time, and Ingestion Time — and why getting this wrong breaks Uber\'s fraud detection.',
@@ -63,10 +65,15 @@ export function mount(container) {
   });
 
   initTabs(container);
+  initRideSpine(container);
   container.querySelector('#tab-sim').innerHTML      = buildSimTab();
-  container.querySelector('#tab-concept').innerHTML  = buildConceptTab();
+  container.querySelector('#tab-concept').innerHTML  = rideCallout('DRIVER_ACCEPTED', { openEvent: false }) + buildConceptTab();
   container.querySelector('#tab-code').innerHTML     = buildCodeTab();
-  container.querySelector('#tab-interview').innerHTML = createIQSection(IQS);
+  container.querySelector('#tab-interview').innerHTML =
+    '<div class="section-header" style="margin-bottom:8px"><div class="section-title">Interview corner cases — on ride R-4471</div><div class="section-desc">Scenario-style questions answered against a real moment in the ride.</div></div>'
+    + scenarioList(casesByModule('m08'))
+    + '<div class="section-header" style="margin:22px 0 8px"><div class="section-title">More time Q&amp;A</div></div>'
+    + createIQSection(IQS);
   initIQ(container);
 
   initDemo(container);
@@ -397,56 +404,18 @@ function buildCodeTab() {
     </div>
 
     <div class="mb-20">
-      <div style="font-size:13px;font-weight:700;color:var(--green);margin-bottom:10px">📡 Event Time (recommended for Uber GPS)</div>
-      <div class="code-block"><span class="lang-tag">Java</span>
-<span class="ct">DataStream</span>&lt;<span class="ct">GPSEvent</span>&gt; gpsStream = env
-  .<span class="cf">fromSource</span>(
-    kafkaSource,
-    <span class="ct">WatermarkStrategy</span>
-      .<span class="cf">&lt;GPSEvent&gt;forBoundedOutOfOrderness</span>(<span class="ct">Duration</span>.<span class="cf">ofSeconds</span>(<span class="cn">60</span>))
-      .<span class="cf">withTimestampAssigner</span>(
-        (<span class="ct">GPSEvent</span> event, <span class="ck">long</span> recordTimestamp) ->
-          event.<span class="cf">getEventTimestamp</span>()  <span class="cc">// use embedded timestamp</span>
-      ),
-    <span class="cs">"Kafka GPS Source"</span>
-  );
-<span class="cc">// Window closes when watermark passes window_end + 60s of lag tolerance</span>
-<span class="cc">// Late events within 60s are still included correctly</span>
-</div>
+      <div style="font-size:13px;font-weight:700;color:var(--green);margin-bottom:10px">📡 Event Time (recommended for Uber GPS / billing)</div>
+      ${pyCode('watermark_strategy')}
     </div>
 
     <div class="mb-20">
-      <div style="font-size:13px;font-weight:700;color:var(--yellow);margin-bottom:10px">⏰ Processing Time (internal metrics only)</div>
-      <div class="code-block"><span class="lang-tag">Java</span>
-<span class="ct">DataStream</span>&lt;<span class="ct">GPSEvent</span>&gt; gpsStream = env
-  .<span class="cf">fromSource</span>(
-    kafkaSource,
-    <span class="ct">WatermarkStrategy</span>.<span class="cf">noWatermarks</span>(), <span class="cc">// no watermarks needed</span>
-    <span class="cs">"Kafka GPS Source"</span>
-  );
-
-<span class="cc">// Use processing time windows — windows close by wall clock</span>
-stream
-  .<span class="cf">keyBy</span>(<span class="ct">GPSEvent</span>::<span class="cf">getDriverId</span>)
-  .<span class="cf">window</span>(<span class="ct">TumblingProcessingTimeWindows</span>.<span class="cf">of</span>(<span class="ct">Time</span>.<span class="cf">minutes</span>(<span class="cn">5</span>)))
-  .<span class="cf">aggregate</span>(<span class="ck">new</span> <span class="ct">SpeedAggregator</span>());
-</div>
+      <div style="font-size:13px;font-weight:700;color:var(--yellow);margin-bottom:10px">⏰ Processing Time (internal liveness metrics only)</div>
+      ${pyCode('processing_time_window')}
     </div>
 
     <div>
       <div style="font-size:13px;font-weight:700;color:var(--purple);margin-bottom:10px">📥 Ingestion Time</div>
-      <div class="code-block"><span class="lang-tag">Java</span>
-<span class="ct">DataStream</span>&lt;<span class="ct">GPSEvent</span>&gt; gpsStream = env
-  .<span class="cf">fromSource</span>(
-    kafkaSource,
-    <span class="cc">// Ingestion time: assign wall clock at source, auto-advance watermark</span>
-    <span class="ct">WatermarkStrategy</span>.<span class="cf">forMonotonousTimestamps</span>()
-      .<span class="cf">withIngestionTimeAssigner</span>(),
-    <span class="cs">"Kafka GPS Source"</span>
-  );
-<span class="cc">// Events get the timestamp from when the Kafka consumer read them</span>
-<span class="cc">// Better than processing time but wrong if Kafka has backlog</span>
-</div>
+      ${pyCode('ingestion_time')}
     </div>
 
     <div style="margin-top:20px;padding:16px;background:var(--green-dim);border-radius:10px;border:1px solid rgba(52,211,153,0.2)">

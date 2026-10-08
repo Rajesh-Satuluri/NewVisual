@@ -1,6 +1,6 @@
 // AUTO-GENERATED from data/pyflink-snippets.py by scratchpad/build_snippets.py
 // Do NOT edit by hand. Edit the .py (single verified source) and re-run.
-// Snippets: 19  |  deep API check: syntax-only (pyflink not installed)
+// Snippets: 23  |  deep API check: syntax-only (pyflink not installed)
 
 export const PYFLINK_TIERS = {
   "datastream": "PyFlink \u00b7 DataStream",
@@ -317,4 +317,61 @@ t_env.execute_sql("""
     )
 """)
 # PK upsert makes a replayed PAYMENT_COMPLETED overwrite, not duplicate.` },
+  processing_time_window: { tier: "datastream", code: `from pyflink.datastream.window import TumblingProcessingTimeWindows
+from pyflink.common import Time
+from pyflink.common.watermark_strategy import WatermarkStrategy
+
+# Processing-time windows close by WALL CLOCK, not event_time. Use ONLY for
+# internal liveness metrics where determinism across replays doesn't matter —
+# never for billing (a replay would land events in different windows).
+gps = env.from_source(ride_source, WatermarkStrategy.no_watermarks(), "gps")
+proc_metrics = (
+    gps
+    .key_by(lambda e: e["driver_id"])
+    .window(TumblingProcessingTimeWindows.of(Time.minutes(5)))
+    .aggregate(SpeedAggregate())
+)` },
+  ingestion_time: { tier: "datastream", code: `from pyflink.common.watermark_strategy import WatermarkStrategy, TimestampAssigner
+
+
+# "Ingestion time" = stamp each event with when the source READ it, then treat
+# that as event time. Use when producers lack reliable clocks. We read the
+# Kafka record timestamp instead of a field in the payload.
+class IngestionTimestamp(TimestampAssigner):
+    def extract_timestamp(self, value, record_timestamp):
+        return record_timestamp      # broker/consumer-assigned, not the phone clock
+
+
+ingestion_strategy = (
+    WatermarkStrategy
+    .for_monotonous_timestamps()
+    .with_timestamp_assigner(IngestionTimestamp())
+)
+# Better than processing time (stable once read) but still wrong if Kafka has
+# a backlog — the read time then lags far behind when the ride actually happened.` },
+  sliding_window: { tier: "datastream", code: `from pyflink.datastream.window import SlidingEventTimeWindows
+from pyflink.common import Time
+
+# Rolling 15-min max speed per driver, recomputed every 5 min -> feeds the
+# speeding-alert model. slide < size, so each ping lands in 3 overlapping windows.
+rolling_speed = (
+    clean
+    .key_by(lambda e: e["driver_id"])
+    .window(SlidingEventTimeWindows.of(Time.minutes(15), Time.minutes(5)))
+    .aggregate(MaxSpeedAggregate())
+)
+# Windows: [0,15), [5,20), [10,25) ...  (cost: every event processed 3x)` },
+  session_window: { tier: "datastream", code: `from pyflink.datastream.window import EventTimeSessionWindows
+from pyflink.common import Time
+
+# R-4471's pre-trip phase (search -> assigned -> accepted -> arriving -> arrived)
+# is irregular. A session window has no fixed boundaries: it grows per driver
+# until a gap of inactivity, then fires. Flink creates a window per event and
+# MERGES overlapping ones, so the whole burst becomes one session.
+pre_trip = (
+    clean
+    .key_by(lambda e: e["driver_id"])
+    .window(EventTimeSessionWindows.with_gap(Time.seconds(90)))
+    .aggregate(TripStatsAggregate())
+)` },
 };

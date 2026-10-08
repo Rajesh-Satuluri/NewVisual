@@ -2,6 +2,9 @@
 // Interactive window builder: choose Tumbling / Sliding / Session,
 // tweak parameters, watch GPS events fall into windows and fire.
 
+import { rideSpine, initRideSpine, rideCallout, scenarioList, pyCode } from '../components/story-ui.js';
+import { casesByModule } from '../data/interview-cases.js';
+
 const RAW_EVENTS = [
   { id:1,  et:2,  driverId:'D-001', speed:28 },
   { id:2,  et:5,  driverId:'D-002', speed:35 },
@@ -77,6 +80,7 @@ export function mount(container) {
   let filterDriver = 'ALL';
 
   container.innerHTML = `
+    ${rideSpine({ active: ['RIDE_STARTED', 'LOCATION_UPDATED', 'DRIVER_ARRIVED'], incidents: ['DEFECT-2'] })}
     <div class="module-hero">
       <div class="module-hero-content">
         <span class="module-badge">Module 10</span>
@@ -111,15 +115,12 @@ export function mount(container) {
     </div>
 
     <div class="tab-content" data-tab="concept">
+      ${rideCallout('LOCATION_UPDATED', { openEvent: false })}
       <div class="grid-2 gap-20">
         <div class="card p-24">
           <h3 class="mb-12">⬜ Tumbling Window</h3>
           <p class="prose">Fixed size, no overlap. Each event falls in exactly one window. Simple, deterministic. Use for period aggregates.</p>
-          <div class="code-block" style="margin-top:12px;font-size:11px"><pre>stream.keyBy(e -> e.driverId)
-  .window(TumblingEventTimeWindows
-      .of(Time.seconds(10)))
-  .aggregate(new SpeedAvgAgg());
-// Windows: [0,10), [10,20), [20,30)...</pre></div>
+          ${pyCode('keyby_window_agg')}
           <div class="lc-uber-box mt-12">
             <div class="lc-uber-label">🚗 Uber</div>
             <p class="fs-12">Count trips completed per driver per 10-minute window for surge pricing calculation.</p>
@@ -128,12 +129,7 @@ export function mount(container) {
         <div class="card p-24">
           <h3 class="mb-12">🔲 Sliding Window</h3>
           <p class="prose">Fixed size, overlapping. Slide interval &lt; window size means events appear in multiple windows. Good for rolling metrics.</p>
-          <div class="code-block" style="margin-top:12px;font-size:11px"><pre>stream.keyBy(e -> e.driverId)
-  .window(SlidingEventTimeWindows.of(
-      Time.seconds(15), // size
-      Time.seconds(5))) // slide
-  .aggregate(new MaxSpeedAgg());
-// [0,15), [5,20), [10,25)...</pre></div>
+          ${pyCode('sliding_window')}
           <div class="lc-uber-box mt-12">
             <div class="lc-uber-label">🚗 Uber</div>
             <p class="fs-12">Rolling 15-min max speed per driver, updated every 5 min — feeds the speeding alert model.</p>
@@ -142,11 +138,7 @@ export function mount(container) {
         <div class="card p-24">
           <h3 class="mb-12">💬 Session Window</h3>
           <p class="prose">Opens on first event; closes after a gap of inactivity. Variable length. Perfect for user sessions or trip boundaries.</p>
-          <div class="code-block" style="margin-top:12px;font-size:11px"><pre>stream.keyBy(e -> e.driverId)
-  .window(EventTimeSessionWindows
-      .withGap(Time.minutes(2)))
-  .aggregate(new TripStatsAgg());
-// Each continuous GPS burst = 1 session</pre></div>
+          ${pyCode('session_window')}
           <div class="lc-uber-box mt-12">
             <div class="lc-uber-label">🚗 Uber</div>
             <p class="fs-12">A trip session: window opens on trip-start GPS, closes 2 min after last ping. Computes per-trip distance, duration, avg speed.</p>
@@ -161,9 +153,21 @@ export function mount(container) {
     </div>
 
     <div class="tab-content" data-tab="iq">
+      <div class="section-header" style="margin-bottom:8px">
+        <div class="section-title">Interview corner cases — on ride R-4471</div>
+        <div class="section-desc">Window gotchas asked in interviews, anchored to real moments in the ride.</div>
+      </div>
+      <div id="win-scenarios"></div>
+      <div class="section-header" style="margin:22px 0 8px"><div class="section-title">More window Q&amp;A</div></div>
       <div class="iq-section" id="iq10-section"></div>
     </div>
   `;
+
+  initRideSpine(container);
+
+  // Interview corner-case scenario cards
+  const winScen = container.querySelector('#win-scenarios');
+  if (winScen) winScen.innerHTML = scenarioList(casesByModule('m10'));
 
   // Tabs
   container.querySelectorAll('.tab-btn').forEach(btn => {
