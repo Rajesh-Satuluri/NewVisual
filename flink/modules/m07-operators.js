@@ -2,6 +2,8 @@
 // Interactive Kafka source deep-dive: partition assignment, offset tracking,
 // exactly-once semantics, and Uber GPS pipeline wiring.
 
+import { rideSpine, initRideSpine, rideCallout } from '../components/story-ui.js';
+
 const KAFKA_PARTITIONS = [0, 1, 2, 3];
 const DRIVER_GROUPS = ['D-001..D-250K', 'D-250K..D-500K', 'D-500K..D-750K', 'D-750K..D-1M'];
 const TM_COLORS = ['#6366f1', '#f59e0b', '#10b981', '#3b82f6'];
@@ -22,21 +24,19 @@ const CONNECTORS = [
       { k: 'startingOffsets', v: 'COMMITTED / EARLIEST' },
       { k: 'boundedness', v: 'CONTINUOUS_UNBOUNDED' },
     ],
-    code: `KafkaSource<GPSEvent> source = KafkaSource.<GPSEvent>builder()
-    .setBootstrapServers("kafka-prod:9092")
-    .setTopics("driver-locations")
-    .setGroupId("flink-fraud-consumer")
-    .setStartingOffsets(
-        OffsetsInitializer.committedOffsets(
-            OffsetResetStrategy.EARLIEST))
-    .setValueOnlyDeserializer(new GPSEventSchema())
-    .build();
+    code: `from pyflink.datastream.connectors.kafka import (
+    KafkaSource, KafkaOffsetsInitializer)
+from pyflink.common.serialization import SimpleStringSchema
 
-env.fromSource(source,
-    WatermarkStrategy
-        .<GPSEvent>forBoundedOutOfOrderness(Duration.ofSeconds(5))
-        .withTimestampAssigner((e, ts) -> e.eventTime),
-    "GPS Source");`,
+source = (KafkaSource.builder()
+    .set_bootstrap_servers("kafka-prod:9092")
+    .set_topics("driver-locations")
+    .set_group_id("flink-fraud-consumer")
+    .set_starting_offsets(KafkaOffsetsInitializer.committed_offsets())
+    .set_value_only_deserializer(SimpleStringSchema())
+    .build())
+
+env.from_source(source, ride_watermarks, "GPS Source")`,
     exactly: [
       'On each checkpoint, Flink snapshots Kafka offsets as part of operator state.',
       'Offsets are committed to Kafka only after the checkpoint completes (two-phase).',
@@ -58,20 +58,22 @@ env.fromSource(source,
       { k: 'transactional.id.prefix', v: 'flink-fraud-sink' },
       { k: 'delivery.guarantee', v: 'EXACTLY_ONCE' },
     ],
-    code: `KafkaSink<Alert> sink = KafkaSink.<Alert>builder()
-    .setBootstrapServers("kafka-prod:9092")
-    .setRecordSerializer(KafkaRecordSerializationSchema
-        .builder()
-        .setTopic("fraud-alerts")
-        .setValueSerializationSchema(new AlertSchema())
-        .setKeySerializationSchema(
-            new DriverIdKeySchema()) // partition by driverId
-        .build())
-    .setDeliveryGuarantee(DeliveryGuarantee.EXACTLY_ONCE)
-    .setTransactionalIdPrefix("flink-fraud-sink")
-    .build();
+    code: `from pyflink.datastream.connectors.kafka import (
+    KafkaSink, KafkaRecordSerializationSchema, DeliveryGuarantee)
 
-stream.sinkTo(sink);`,
+sink = (KafkaSink.builder()
+    .set_bootstrap_servers("kafka-prod:9092")
+    .set_record_serializer(
+        KafkaRecordSerializationSchema.builder()
+            .set_topic("fraud-alerts")
+            .set_value_serialization_schema(SimpleStringSchema())
+            .build())
+    .set_delivery_guarantee(DeliveryGuarantee.EXACTLY_ONCE)
+    .set_transactional_id_prefix("flink-fraud-sink")
+    .set_property("transaction.timeout.ms", "900000")
+    .build())
+
+stream.sink_to(sink)`,
     exactly: [
       'KafkaSink opens a Kafka transaction at checkpoint start.',
       'Records are written inside the transaction (pre-committed).',
@@ -93,16 +95,18 @@ stream.sinkTo(sink);`,
       { k: 'rollingPolicy', v: 'OnCheckpointRollingPolicy' },
       { k: 'bucketAssigner', v: 'DateTimeBucketAssigner (hourly)' },
     ],
-    code: `FileSink<GPSEvent> fileSink = FileSink
-    .forBulkFormat(
-        new Path("s3://uber-datalake/gps-events/"),
-        ParquetAvroWriters.forReflectRecord(GPSEvent.class))
-    .withBucketAssigner(
-        new DateTimeBucketAssigner<>("yyyy-MM-dd/HH"))
-    .withRollingPolicy(OnCheckpointRollingPolicy.build())
-    .build();
+    code: `from pyflink.datastream.connectors.file_system import (
+    FileSink, RollingPolicy)
+from pyflink.common.serialization import Encoder
 
-stream.sinkTo(fileSink);`,
+file_sink = (FileSink
+    .for_row_format("s3://uber-datalake/gps-events/",
+                    Encoder.simple_string_encoder())
+    .with_rolling_policy(RollingPolicy.on_checkpoint_rolling_policy())
+    .build())
+
+stream.sink_to(file_sink)
+# Bulk/Parquet: FileSink.for_bulk_format(path, writer_factory)`,
     exactly: [
       'In-Progress files live in a .inprogress/ prefix, invisible to readers.',
       'On checkpoint → file becomes Pending (.pending/).',
@@ -124,21 +128,22 @@ stream.sinkTo(fileSink);`,
       { k: 'statement', v: 'INSERT ... ON CONFLICT DO UPDATE' },
       { k: 'batchSize', v: '1000' },
     ],
-    code: `SinkFunction<DriverStats> jdbcSink = JdbcSink.sink(
-    "INSERT INTO driver_stats(driver_id, trip_count, updated_at)" +
-    " VALUES (?, ?, ?) ON CONFLICT (driver_id)" +
-    " DO UPDATE SET trip_count=EXCLUDED.trip_count," +
-    " updated_at=EXCLUDED.updated_at",
-    (stmt, stats) -> {
-        stmt.setString(1, stats.driverId);
-        stmt.setLong(2, stats.tripCount);
-        stmt.setTimestamp(3, Timestamp.from(Instant.now()));
-    },
-    JdbcExecutionOptions.builder().withBatchSize(1000).build(),
-    new JdbcConnectionOptions.JdbcConnectionOptionsBuilder()
-        .withUrl("jdbc:postgresql://pg-ops:5432/trips")
-        .withDriverName("org.postgresql.Driver")
-        .build());`,
+    code: `from pyflink.datastream.connectors.jdbc import (
+    JdbcSink, JdbcConnectionOptions, JdbcExecutionOptions)
+
+jdbc_sink = JdbcSink.sink(
+    "INSERT INTO driver_stats(driver_id, trip_count, updated_at) "
+    "VALUES (?, ?, ?) ON CONFLICT (driver_id) "
+    "DO UPDATE SET trip_count = EXCLUDED.trip_count, "
+    "updated_at = EXCLUDED.updated_at",
+    row_type_info,                       # Types.ROW_NAMED([...])
+    JdbcExecutionOptions.builder().with_batch_size(1000).build(),
+    JdbcConnectionOptions.JdbcConnectionOptionsBuilder()
+        .with_url("jdbc:postgresql://pg-ops:5432/trips")
+        .with_driver_name("org.postgresql.Driver")
+        .build())
+
+stream.add_sink(jdbc_sink)`,
     exactly: [
       'JdbcSink is at-least-once by default — retry on failure may duplicate inserts.',
       'Use ON CONFLICT DO UPDATE (upsert) with a natural key for idempotent exactly-once.',
@@ -163,6 +168,7 @@ export function mount(container) {
   let animRaf = null;
 
   container.innerHTML = `
+    ${rideSpine({ active: ['RIDE_REQUESTED', 'RIDE_COMPLETED', 'PAYMENT_COMPLETED'] })}
     <div class="module-hero">
       <div class="module-hero-content">
         <span class="module-badge">Module 7</span>
@@ -177,6 +183,7 @@ export function mount(container) {
     </div>
 
     <div class="tab-content active" data-tab="connectors">
+      ${rideCallout('RIDE_REQUESTED', { openEvent: false })}
       <div class="conn-picker" id="conn-picker"></div>
       <div id="conn-detail"></div>
     </div>
@@ -201,6 +208,8 @@ export function mount(container) {
       <div class="iq-section" id="iq7-section"></div>
     </div>
   `;
+
+  initRideSpine(container);
 
   // Tabs
   container.querySelectorAll('.tab-btn').forEach(btn => {
@@ -271,7 +280,7 @@ export function mount(container) {
                 </div>
               `).join('')}
             </div>
-            <div class="code-block" style="margin-top:16px;font-size:11px;max-height:260px;overflow-y:auto"><pre>${c.code}</pre></div>
+            <div class="code-block" style="margin-top:16px;font-size:11px;max-height:300px;overflow-y:auto"><span class="lang-tag">PyFlink</span><pre>${c.code}</pre></div>
           </div>
         </div>
       </div>

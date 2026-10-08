@@ -2,6 +2,9 @@
 // Pick an operator category, see Uber GPS event flow through it,
 // with live input→output animation and code snippets.
 
+import { rideSpine, initRideSpine, rideCallout, scenarioList } from '../components/story-ui.js';
+import { casesByModule } from '../data/interview-cases.js';
+
 const GPS_EVENTS = [
   { driverId: 'D-001', lat: 37.773, lon: -122.431, speed: 28, ts: 1000 },
   { driverId: 'D-002', lat: 37.781, lon: -122.445, speed:  0, ts: 1010 },
@@ -22,10 +25,10 @@ const OPS = [
     tagline: '1-to-1 transformation — every record in, every record out (transformed)',
     desc: '<strong>map()</strong> applies a function to each element and emits exactly one output per input. It\'s a stateless, embarrassingly parallel operator — perfect for field extraction, type conversion, or enrichment.',
     uber: 'Extract just the fields needed for fraud scoring: <code>{driverId, speed, lat, lon}</code> → <code>{driverId, isSpeeding: speed>80}</code>',
-    code: `stream.map(event -> new SpeedRecord(
-    event.driverId,
-    event.speed > 80 // isSpeeding
-));`,
+    code: `stream.map(
+    lambda e: {"driver_id": e["driver_id"],
+               "is_speeding": e["speed"] > 80},
+    output_type=Types.MAP(Types.STRING(), Types.STRING()))`,
     transform: events => events.map(e => ({
       ...e,
       isSpeeding: e.speed > 80,
@@ -43,10 +46,8 @@ const OPS = [
     tagline: 'Conditional pass-through — only records matching the predicate flow downstream',
     desc: '<strong>filter()</strong> passes only events that satisfy a boolean predicate. Non-matching records are dropped entirely. Stateless. Think of it as a gate: open for matching events, closed for others.',
     uber: 'Drop GPS pings from idle drivers (speed == 0) before feeding the fraud model — reduces load by ~30%.',
-    code: `stream.filter(event -> event.speed > 0)
-     // drops idle pings
-     .filter(event -> event.speed < 200);
-     // sanity bound (GPS glitch)`,
+    code: `(stream.filter(lambda e: e["speed"] > 0)      # drop idle pings
+       .filter(lambda e: e["speed"] < 200))   # sanity bound (GPS glitch)`,
     transform: events => events.filter(e => e.speed > 0),
     inputLabel: e => `{driverId:${e.driverId}, speed:${e.speed}}`,
     outputLabel: e => `{driverId:${e.driverId}, speed:${e.speed}} ✓`,
@@ -62,12 +63,12 @@ const OPS = [
     tagline: '1-to-N: each input can emit zero, one, or many output records',
     desc: '<strong>flatMap()</strong> is like map + flatten. Each input element produces a collection (or nothing). Useful for exploding nested data or emitting multiple derived events from one source event.',
     uber: 'From each GPS ping, emit one "location update" record AND (if speed > 80) an additional "speed alert" record. One ping → two downstream events.',
-    code: `stream.flatMap((event, out) -> {
-    out.collect(new LocationUpdate(event));
-    if (event.speed > 80) {
-        out.collect(new SpeedAlert(event));
-    }
-});`,
+    code: `def expand(e):
+    yield ("LocationUpdate", e)
+    if e["speed"] > 80:
+        yield ("SpeedAlert", e)
+
+stream.flat_map(expand)   # one ping -> 1 or 2 records`,
     transform: events => events.flatMap(e => {
       const out = [{ ...e, _type: 'LocationUpdate', _label: `LocationUpdate{${e.driverId}}` }];
       if (e.speed > 80) out.push({ ...e, _type: 'SpeedAlert', _label: `SpeedAlert{${e.driverId}, speed:${e.speed}}` });
@@ -85,12 +86,11 @@ const OPS = [
     tagline: 'Hash-routes each event to the same subtask by key — enabling per-key state',
     desc: '<strong>keyBy()</strong> is not a transformation — it\'s a <strong>shuffle</strong>. Records are hash-routed so all events with the same key always arrive at the same operator subtask. This is what makes per-driver stateful processing possible.',
     uber: 'keyBy(driverId) ensures all GPS pings for driver D-001 go to FraudDetector[0] — which holds that driver\'s history in ValueState. No cross-subtask coordination needed.',
-    code: `stream
-  .keyBy(event -> event.driverId)
-  // ↑ hash(driverId) % parallelism
-  // D-001 always → subtask[1]
-  // D-002 always → subtask[0]
-  .process(new FraudDetector());`,
+    code: `(stream
+   .key_by(lambda e: e["driver_id"])   # hash(driver_id) % parallelism
+   # D-001 always -> subtask[1]
+   # D-002 always -> subtask[0]
+   .process(FraudDetector()))`,
     transform: events => {
       const keys = [...new Set(events.map(e => e.driverId))];
       return events.map(e => ({ ...e, _bucket: keys.indexOf(e.driverId) % 3 }));
@@ -107,13 +107,9 @@ const OPS = [
     tagline: 'Fold incoming records into running state — e.g. running max, sum, or count',
     desc: '<strong>reduce()</strong> combines two consecutive values into one using an associative function. <strong>aggregate()</strong> is more flexible: separate accumulator type, add/merge/getResult phases. Both are <strong>stateful</strong> — the accumulator lives in the operator\'s managed state.',
     uber: 'Track the max speed seen so far per driver. When a new GPS ping arrives, compare to stored max — emit an alert if a new record speed is detected.',
-    code: `keyedStream
-  .reduce((prev, curr) -> {
-      return curr.speed > prev.speed
-          ? curr   // new speed record
-          : prev;  // keep existing max
-  });
-// Output: running max speed per driver`,
+    code: `keyed_stream.reduce(
+    lambda prev, curr: curr if curr["speed"] > prev["speed"] else prev)
+# Output: running max speed per driver`,
     transform: events => {
       const maxSpeed = {};
       return events.map(e => {
@@ -133,23 +129,21 @@ const OPS = [
     tagline: 'Full access to state, timers, and side outputs — the most powerful operator',
     desc: '<strong>KeyedProcessFunction</strong> gives you: (1) arbitrary <code>ValueState/ListState/MapState</code>, (2) event-time and processing-time timers you can set per key, (3) side outputs for routing events to different streams. The Swiss Army knife of Flink operators.',
     uber: 'FraudDetector uses KeyedProcessFunction: state stores last 5 trip timestamps per driver. On each GPS ping, check if ≥3 trips in 10 min → fraud. Register a cleanup timer for 10 min after the last event to clear stale state.',
-    code: `class FraudDetector extends KeyedProcessFunction<...> {
-    ValueState<List<Long>> tripTimes;
+    code: `class FraudDetector(KeyedProcessFunction):
+    def open(self, ctx):
+        self.trip_times = ctx.get_state(
+            ListStateDescriptor("trip_times", Types.LONG()))
 
-    public void processElement(GPSEvent e, Context ctx,
-                               Collector<Alert> out) {
-        List<Long> times = tripTimes.value();
-        times.add(e.timestamp);
-        // keep only last 10 min
-        long cutoff = ctx.timestamp() - 600_000;
-        times.removeIf(t -> t < cutoff);
-        tripTimes.update(times);
-        if (times.size() >= 3) out.collect(new Alert(e));
-        // timer to clear state after inactivity
-        ctx.timerService().registerEventTimeTimer(
-            ctx.timestamp() + 600_000);
-    }
-}`,
+    def process_element(self, e, ctx):
+        times = [t for t in self.trip_times.get()] + [e["event_time"]]
+        cutoff = ctx.timestamp() - 600_000          # last 10 min
+        times = [t for t in times if t >= cutoff]
+        self.trip_times.update(times)
+        if len(times) >= 3:
+            yield {"driver_id": e["driver_id"], "alert": "FRAUD"}
+        # timer to clear state after inactivity
+        ctx.timer_service().register_event_time_timer(
+            ctx.timestamp() + 600_000)`,
     transform: events => {
       const history = {};
       return events.map(e => {
@@ -180,6 +174,7 @@ export function mount(container) {
   let animTimer = null;
 
   container.innerHTML = `
+    ${rideSpine({ active: ['RIDE_REQUESTED', 'DRIVER_SEARCHING'] })}
     <div class="module-hero">
       <div class="module-hero-content">
         <span class="module-badge">Module 6</span>
@@ -193,14 +188,25 @@ export function mount(container) {
     </div>
 
     <div class="tab-content active" data-tab="sim">
+      ${rideCallout('RIDE_REQUESTED', { openEvent: false })}
       <div class="op-picker" id="op-picker"></div>
       <div class="op-arena" id="op-arena"></div>
     </div>
 
     <div class="tab-content" data-tab="iq">
+      <div class="section-header" style="margin-bottom:8px">
+        <div class="section-title">Interview corner cases — on ride R-4471</div>
+        <div class="section-desc">Operator-level questions (async enrichment, dedup) anchored to the ride.</div>
+      </div>
+      <div id="op-scenarios"></div>
+      <div class="section-header" style="margin:22px 0 8px"><div class="section-title">More operator Q&amp;A</div></div>
       <div class="iq-section" id="iq6-section"></div>
     </div>
   `;
+
+  initRideSpine(container);
+  const opScen = container.querySelector('#op-scenarios');
+  if (opScen) opScen.innerHTML = scenarioList(casesByModule('m06'));
 
   // Tabs
   container.querySelectorAll('.tab-btn').forEach(btn => {
@@ -278,7 +284,7 @@ export function mount(container) {
             <div class="op-box-name">${op.icon} ${op.label}</div>
             <div class="op-box-desc">${op.desc}</div>
           </div>
-          <div class="code-block" style="margin-top:12px;font-size:11px;max-height:180px;overflow-y:auto"><pre>${op.code}</pre></div>
+          <div class="code-block" style="margin-top:12px;font-size:11px;max-height:220px;overflow-y:auto"><span class="lang-tag">PyFlink</span><pre>${op.code}</pre></div>
           <div class="lc-uber-box mt-12">
             <div class="lc-uber-label">🚗 Uber</div>
             <p class="fs-12">${op.uber}</p>

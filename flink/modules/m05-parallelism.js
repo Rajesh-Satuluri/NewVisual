@@ -2,6 +2,9 @@
 // Canvas-based visualizer: drag parallelism slider, watch subtask tiles
 // redistribute across TaskManagers and slots in real time.
 
+import { rideSpine, initRideSpine, rideCallout, scenarioList } from '../components/story-ui.js';
+import { casesByModule } from '../data/interview-cases.js';
+
 const OPERATORS = [
   { id: 'source',   label: 'KafkaSource',    color: '#6366f1', icon: '📥' },
   { id: 'keyby',    label: 'keyBy(driverId)',  color: '#f59e0b', icon: '🔑' },
@@ -25,6 +28,7 @@ export function mount(container) {
   let selectedOp = null;
 
   container.innerHTML = `
+    ${rideSpine({ active: ['DRIVER_SEARCHING', 'LOCATION_UPDATED'], incidents: ['DEFECT-6'] })}
     <div class="module-hero">
       <div class="module-hero-content">
         <span class="module-badge">Module 5</span>
@@ -59,6 +63,7 @@ export function mount(container) {
     </div>
 
     <div class="tab-content" data-tab="concept">
+      ${rideCallout('DRIVER_SEARCHING', { openEvent: false })}
       <div class="grid-2 gap-20">
         <div class="card p-24">
           <h3 class="mb-12">What is Parallelism?</h3>
@@ -87,20 +92,28 @@ source → map(parseGPS) → filter(speed > 0)
         <div class="card p-24">
           <h3 class="mb-12">Heterogeneous Parallelism</h3>
           <p class="prose">Different operators can run at different parallelisms. Flink inserts a <strong>data redistribution</strong> (shuffle or keyBy) at the boundary.</p>
-          <div class="code-block mt-12"><pre>source.setParallelism(4)         // 4 Kafka partitions
-  .keyBy(e -> e.driverId)        // shuffle → hash
-  .process(fraudDetector)
-    .setParallelism(8)           // 8× parallel detection
-  .addSink(kafkaSink)
-    .setParallelism(4)</pre></div>
+          <div class="code-block mt-12"><span class="lang-tag">PyFlink</span><pre>(source.set_parallelism(4)              # 4 Kafka partitions
+   .key_by(lambda e: e["driver_id"])    # shuffle -> hash
+   .process(FraudDetector()).set_parallelism(8)   # 8x detection
+   .sink_to(kafka_sink).set_parallelism(4))</pre></div>
         </div>
       </div>
     </div>
 
     <div class="tab-content" data-tab="iq">
+      <div class="section-header" style="margin-bottom:8px">
+        <div class="section-title">Interview corner cases — on ride R-4471</div>
+        <div class="section-desc">Hot-key skew and key-group/rescaling questions, anchored to the airport surge.</div>
+      </div>
+      <div id="par-scenarios"></div>
+      <div class="section-header" style="margin:22px 0 8px"><div class="section-title">More parallelism Q&amp;A</div></div>
       <div class="iq-section" id="iq-section"></div>
     </div>
   `;
+
+  initRideSpine(container);
+  const parScen = container.querySelector('#par-scenarios');
+  if (parScen) parScen.innerHTML = scenarioList(casesByModule('m05'));
 
   // Tabs
   container.querySelectorAll('.tab-btn').forEach(btn => {
