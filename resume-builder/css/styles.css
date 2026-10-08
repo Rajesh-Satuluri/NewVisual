@@ -380,6 +380,16 @@ textarea.inp { resize: none; overflow: hidden; min-height: 32px; }
   border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2); cursor: pointer;
 }
 .bank-del:hover { border-color: #7a3a3a; color: #ffb3b3; background: #241515; }
+.quant-nudge { font-size: 10.5px; color: #c9a24a; margin: -1px 0 2px 2px; letter-spacing: .01em; }
+
+/* resume health */
+.hl-pill { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; letter-spacing: .03em; text-transform: uppercase; margin-left: auto; }
+.hl-pill.hl-good { color: #a9e6c4; background: #16271e; border: 1px solid #2e5a42; }
+.hl-pill.hl-warn { color: #ffd79a; background: #2a2212; border: 1px solid #5a4a26; }
+.hl-pill.hl-bad { color: #ffb3b3; background: #2a1515; border: 1px solid #5a2e2e; }
+.hl-items-label { margin: 8px 0 3px; font-weight: 600; }
+.hl-items { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.hl-items li { font-size: 12px; color: var(--muted); line-height: 1.45; }
 .hint { font-size: 11px; color: var(--muted); }
 .hint code { background: var(--bg); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
 
