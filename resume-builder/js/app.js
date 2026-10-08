@@ -287,6 +287,7 @@
     if (activeTab === "library") renderLibrary(panel);
     else if (activeTab === "ats") renderAts(panel);
     else if (activeTab === "ai") renderAi(panel);
+    else if (activeTab === "jd") renderJdMatch(panel);
     else renderResumes(panel);
     growAll(panel);
 
@@ -860,6 +861,294 @@
       "Duplicate this resume per application and tailor the summary + skills each time."
     ] }
   ];
+
+  /* ============================================================
+     JD MATCH — analyze a job description against the active resume,
+     entirely in the browser (free, no API, nothing leaves the page).
+     ============================================================ */
+  /* curated skill / keyword dictionary, grouped so recommendations can say
+     WHERE to put each missing term. Lowercase; phrases matched whole-word. */
+  var JD_SKILL_DB = {
+    "Languages": ["python","java","scala","sql","pl/sql","t-sql","javascript","typescript","c++","c#",".net","golang","ruby","php","swift","kotlin","bash","shell scripting","powershell","vba","matlab","sas"],
+    "Cloud": ["aws","amazon web services","azure","gcp","google cloud","s3","ec2","lambda","redshift","glue","athena","emr","kinesis","adls","adf","azure data factory","synapse","databricks","snowflake","bigquery","dataproc","cloud functions","data lake","delta lake","lakehouse"],
+    "Data & ETL": ["etl","elt","spark","pyspark","apache spark","hadoop","hive","kafka","airflow","dbt","apache nifi","nifi","informatica","talend","ssis","data pipeline","data pipelines","data warehouse","data warehousing","data modeling","dimensional modeling","star schema","data governance","data quality","data integration","streaming","real-time","batch processing","cdc","orchestration"],
+    "Databases": ["mysql","postgresql","postgres","sql server","oracle","mongodb","cassandra","dynamodb","redis","teradata","nosql","rdbms","graph database"],
+    "BI & Analytics": ["power bi","tableau","looker","qlik","excel","pandas","numpy","data visualization","reporting","dashboards","kpi","a/b testing","statistics"],
+    "ML & AI": ["machine learning","deep learning","tensorflow","pytorch","scikit-learn","nlp","mlops","feature engineering","model deployment","llm","generative ai","genai","forecasting","predictive modeling"],
+    "DevOps & Tools": ["docker","kubernetes","terraform","jenkins","ci/cd","git","github","gitlab","bitbucket","ansible","linux","unix","rest api","graphql","microservices","api integration"],
+    "Ways of working": ["agile","scrum","kanban","waterfall","jira","confluence","sdlc","tdd","code review","unit testing"],
+    "Domain": ["supply chain","demand planning","supply planning","o9","sap","erp","salesforce","finance","healthcare","retail","e-commerce","manufacturing","logistics","inventory"],
+    "Soft skills": ["communication","leadership","stakeholder management","problem solving","collaboration","mentoring","cross-functional","analytical","attention to detail","time management","presentation"]
+  };
+  var JD_STOP = (function () {
+    var w = "a an the and or but of to in on for with at by from as is are was were be been being this that these those you your we our they their it its will shall should would can could may might must have has had do does did not no nor so than then once here there all any both each few more most other some such only own same too very s t just also into over under about above below up down out off again further who whom which what when where why how able across within without including include ability role work working experience years year team teams strong excellent good required require requirements responsibilities responsible preferred plus etc using use used help ensure support provide build develop drive deliver manage lead create design implement new across using per via amp".split(" ");
+    var m = {}; w.forEach(function (x) { m[x] = 1; }); return m;
+  })();
+  function jdNorm(t) { return (" " + (t || "").toLowerCase().replace(/[‘’]/g, "'") + " "); }
+  function reBound(phrase) {
+    var e = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\\s|\s+/g, "\\s+");
+    return new RegExp("(^|[^a-z0-9+#/.])" + e + "([^a-z0-9+#/.]|$)", "i");
+  }
+  function countPhrase(norm, phrase) {
+    var re = new RegExp("(^|[^a-z0-9+#/.])" + phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+") + "([^a-z0-9+#/.]|$)", "ig");
+    var n = 0; while (re.exec(norm) !== null) { n++; if (n > 50) break; } return n;
+  }
+  function hasPhrase(norm, phrase) { return reBound(phrase).test(norm); }
+
+  /* flatten the whole active resume into one searchable string */
+  function resumePlainText(r) {
+    if (!r) return "";
+    var parts = [];
+    var p = r.profile || {};
+    if (p.title) parts.push(p.title);
+    (p.contacts || []).forEach(function (c) { if (c.value) parts.push(c.value); });
+    (r.sections || []).forEach(function (sec) {
+      if (sec.title) parts.push(sec.title);
+      if (sec.type === "text") { if (sec.text) parts.push(sec.text); }
+      else if (sec.type === "labeled") { (sec.items || []).forEach(function (it) { parts.push((it.label || "") + " " + (it.value || "")); }); }
+      else { (sec.items || []).forEach(function (it) { parts.push([it.heading, it.role, it.meta].filter(Boolean).join(" ")); (it.bullets || []).forEach(function (b) { if (b) parts.push(b); }); }); }
+    });
+    return parts.join("  ").replace(/[*_`]/g, "");
+  }
+
+  function analyzeJd(jd, r) {
+    var JN = jdNorm(jd), RN = jdNorm(resumePlainText(r));
+    var keys = [], seen = {};
+    /* 1) dictionary skills that appear in the JD */
+    Object.keys(JD_SKILL_DB).forEach(function (cat) {
+      JD_SKILL_DB[cat].forEach(function (ph) {
+        if (hasPhrase(JN, ph) && !seen[ph]) {
+          seen[ph] = 1;
+          keys.push({ term: ph, cat: cat, skill: true, freq: countPhrase(JN, ph), inResume: hasPhrase(RN, ph) });
+        }
+      });
+    });
+    /* 2) other frequent meaningful terms (so non-tech roles get value too) */
+    var toks = JN.replace(/[^a-z0-9+#./ -]/g, " ").split(/\s+/)
+      .map(function (t) { return t.replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, ""); }).filter(Boolean);
+    var uni = {}, bi = {};
+    for (var i = 0; i < toks.length; i++) {
+      var a = toks[i];
+      if (a.length >= 4 && !JD_STOP[a] && !/^\d+$/.test(a)) uni[a] = (uni[a] || 0) + 1;
+      if (i + 1 < toks.length) {
+        var b = toks[i + 1];
+        if (a.length >= 3 && b.length >= 3 && !JD_STOP[a] && !JD_STOP[b]) { var bg = a + " " + b; bi[bg] = (bi[bg] || 0) + 1; }
+      }
+    }
+    function pushExtra(obj, min, cap) {
+      Object.keys(obj).sort(function (x, y) { return obj[y] - obj[x]; }).forEach(function (term) {
+        if (keys.length >= cap || obj[term] < min) return;
+        if (seen[term]) return;
+        /* skip terms already contained in a matched skill phrase */
+        for (var k = 0; k < keys.length; k++) { if (keys[k].term.indexOf(term) !== -1 || term.indexOf(keys[k].term) !== -1) return; }
+        seen[term] = 1;
+        keys.push({ term: term, cat: "Keyword", skill: false, freq: obj[term], inResume: hasPhrase(RN, term) });
+      });
+    }
+    pushExtra(bi, 2, 999);           // meaningful 2-word phrases first
+    pushExtra(uni, 2, keys.length + 14);
+
+    /* 3) score (weighted keyword coverage) */
+    var covered = 0, total = 0, matched = [], missing = [];
+    keys.forEach(function (k) {
+      var w = (k.skill ? 2 : 1) * (1 + Math.min(k.freq - 1, 3) * 0.4);
+      k.weight = w; total += w; if (k.inResume) { covered += w; matched.push(k); } else missing.push(k);
+    });
+    missing.sort(function (a, b) { return b.weight - a.weight; });
+    matched.sort(function (a, b) { return b.weight - a.weight; });
+    var score = total > 0 ? Math.round((covered / total) * 100) : 0;
+
+    return { score: score, matched: matched, missing: missing, keys: keys, recs: buildJdRecs(jd, r, missing, matched, score) };
+  }
+
+  function titleCase(s) { return s.replace(/\b([a-z])/g, function (m) { return m.toUpperCase(); }); }
+  function buildJdRecs(jd, r, missing, matched, score) {
+    var recs = [], RN = jdNorm(resumePlainText(r));
+    /* a) missing skills grouped by category -> concrete "add to X" actions */
+    var byCat = {};
+    missing.filter(function (m) { return m.skill; }).forEach(function (m) { (byCat[m.cat] = byCat[m.cat] || []).push(m.term); });
+    var sectionFor = { "Languages": "Technical Skills", "Cloud": "Technical Skills", "Data & ETL": "Technical Skills", "Databases": "Technical Skills", "BI & Analytics": "Technical Skills", "ML & AI": "Technical Skills", "DevOps & Tools": "Technical Skills", "Ways of working": "Experience bullets", "Domain": "Summary & Experience", "Soft skills": "Summary & Experience" };
+    Object.keys(byCat).forEach(function (cat) {
+      var list = byCat[cat].slice(0, 8).map(titleCase).join(", ");
+      recs.push({ icon: "➕", title: "Add to " + (sectionFor[cat] || "your resume") + " — " + cat, body: "The JD calls for <b>" + list + "</b>, which isn't on your resume. Add any you genuinely have (and back the important ones with a bullet)." });
+    });
+    /* b) high-emphasis missing keywords */
+    missing.filter(function (m) { return !m.skill && m.freq >= 3; }).slice(0, 4).forEach(function (m) {
+      recs.push({ icon: "🎯", title: "Emphasize “" + titleCase(m.term) + "”", body: "This appears <b>" + m.freq + "×</b> in the job description but is missing from your resume — add a bullet or phrase that shows it in action." });
+    });
+    /* c) headline / title alignment */
+    var jdTitle = guessJdTitle(jd);
+    if (jdTitle && r && r.profile) {
+      var cur = (r.profile.title || "").toLowerCase();
+      if (cur && jdTitle.toLowerCase() !== cur && !hasPhrase(jdNorm(cur), jdTitle.toLowerCase().split(" ")[0])) {
+        recs.push({ icon: "🏷️", title: "Match your headline to the role", body: "The posting is for <b>" + esc(jdTitle) + "</b>. Consider aligning your title/headline so an ATS and recruiter see an instant match." });
+      }
+    }
+    /* d) summary coverage of top terms */
+    var summ = findSummaryText(r);
+    if (summ !== null) {
+      var topMiss = missing.slice(0, 3).map(function (m) { return titleCase(m.term); });
+      if (topMiss.length) recs.push({ icon: "📝", title: "Tune your Professional Summary", body: "Work your strongest JD-relevant themes into the summary (e.g. " + esc(topMiss.join(", ")) + ") so the top of page 1 mirrors the role." });
+    }
+    /* e) verdict-based closing note */
+    if (score >= 85) recs.unshift({ icon: "✅", title: "Strong alignment (" + score + "%)", body: "You already cover most of the role's keywords. Fold in the few below and you're essentially tailored." });
+    else if (score >= 60) recs.unshift({ icon: "⚡", title: "Good base, needs tailoring (" + score + "%)", body: "Solid overlap. Addressing the missing keywords below will push this toward a top match." });
+    else recs.unshift({ icon: "🛠️", title: "Needs tailoring (" + score + "%)", body: "There's a real gap between this resume and the role. Work through the recommendations below, adding only what's truthful." });
+    return recs;
+  }
+  function guessJdTitle(jd) {
+    var lines = (jd || "").split(/\n/).map(function (l) { return l.trim(); }).filter(Boolean);
+    for (var i = 0; i < lines.length; i++) {
+      var m = lines[i].match(/^(?:job\s*title|position|role)\s*[:\-]\s*(.+)$/i);
+      if (m) return m[1].trim().slice(0, 60);
+    }
+    if (lines.length && lines[0].length <= 60 && /[a-z]/i.test(lines[0]) && lines[0].split(" ").length <= 8) return lines[0];
+    return "";
+  }
+  function findSummaryText(r) {
+    if (!r) return null;
+    var s = (r.sections || []).filter(function (sec) { return /summary|profile|objective|about/i.test(sec.title || ""); })[0];
+    if (!s) return null; return (s.text || "");
+  }
+
+  function buildTailorPrompt(r, a) {
+    var miss = a.missing.map(function (m) { return titleCase(m.term); });
+    return [
+      "You are an expert resume writer and ATS optimization specialist.",
+      "Rewrite and tailor my resume below so it aligns as closely as possible with the target job description, WITHOUT inventing experience I don't have.",
+      "",
+      "Priorities:",
+      "1. Naturally incorporate these missing-but-relevant keywords wherever they are truthful: " + (miss.slice(0, 25).join(", ") || "(none — already well aligned)") + ".",
+      "2. Rewrite Summary, Skills, and Experience bullets to mirror the JD's language; start bullets with strong action verbs and quantify where my background supports it.",
+      "3. Keep it truthful and concise enough for one page.",
+      "4. End with a short list 'STILL MISSING' of any important JD keywords my background genuinely can't support.",
+      "",
+      "=== MY CURRENT RESUME ===",
+      resumePlainText(r) || "(empty)",
+      "",
+      "=== TARGET JOB DESCRIPTION ===",
+      (a._jd || store.aiAssist.jd || "").trim() || "(paste the JD)"
+    ].join("\n");
+  }
+
+  var jdAnalysis = null;   // last computed analysis (module-scoped)
+  function renderJdMatch(panel) {
+    store.aiAssist = store.aiAssist || { fields: {}, jd: "" };
+    var r = activeResume();
+
+    var hint = el("p", "panel-hint");
+    hint.innerHTML = "Paste a job description and get an instant alignment score for <strong>" + esc(r ? (r.name || "this resume") : "your resume") + "</strong>, the exact keywords you're missing, and what to change — all in your browser, nothing uploaded. <strong>100% free, no sign-in.</strong>";
+    panel.appendChild(hint);
+
+    /* JD input */
+    panel.appendChild(blockEl("Job description", "jd.input", function (body) {
+      var ta = el("textarea", "inp jd-input");
+      ta.placeholder = "Paste the full job description here…";
+      ta.value = store.aiAssist.jd || "";
+      ta.addEventListener("input", function () { store.aiAssist.jd = ta.value; scheduleSave(); });
+      body.appendChild(ta);
+
+      var row = el("div", "prompt-actions");
+      var analyze = miniBtn("⚡ Analyze match", function () {
+        if (!(store.aiAssist.jd || "").trim()) { flash("Paste a job description first."); return; }
+        jdAnalysis = analyzeJd(store.aiAssist.jd, activeResume());
+        jdAnalysis._jd = store.aiAssist.jd;
+        renderApp();
+      });
+      analyze.classList.remove("btn-mini"); analyze.classList.add("btn-primary");
+      row.appendChild(analyze);
+
+      var fileWrap = el("label", "btn btn-mini jd-file");
+      fileWrap.textContent = "⬆ Upload .txt";
+      var file = el("input"); file.type = "file"; file.accept = ".txt,text/plain"; file.style.display = "none";
+      file.addEventListener("change", function () {
+        var f = file.files && file.files[0]; if (!f) return;
+        var fr = new FileReader();
+        fr.onload = function () { store.aiAssist.jd = String(fr.result || ""); jdAnalysis = analyzeJd(store.aiAssist.jd, activeResume()); jdAnalysis._jd = store.aiAssist.jd; touch(); renderApp(); };
+        fr.readAsText(f); file.value = "";
+      });
+      fileWrap.appendChild(file);
+      row.appendChild(fileWrap);
+
+      if (store.aiAssist.jd) row.appendChild(miniBtn("Clear", function () { store.aiAssist.jd = ""; jdAnalysis = null; touch(); renderApp(); }));
+      body.appendChild(row);
+      body.appendChild(elText("p", "hint", "Tip: for a PDF/Word JD, open it, select all (Ctrl+A), copy, and paste here."));
+    }));
+
+    if (!jdAnalysis) {
+      var empty = el("div", "jd-empty");
+      empty.innerHTML = "⚡<br>Paste a job description above and hit <b>Analyze match</b> to see your alignment score and a tailoring checklist.";
+      panel.appendChild(empty);
+      return;
+    }
+
+    var a = jdAnalysis;
+    /* Score card */
+    panel.appendChild(scoreCard(a));
+
+    /* Missing keywords */
+    panel.appendChild(blockEl("Add these — missing from your resume (" + a.missing.length + ")", "jd.missing", function (body) {
+      if (!a.missing.length) { body.appendChild(elText("p", "hint", "Nothing important is missing — great alignment!")); return; }
+      body.appendChild(elText("p", "hint", "Found in the job description, not in your resume. Click a keyword to copy it. Add only what's truthful."));
+      var wrap = el("div", "chip-wrap");
+      a.missing.forEach(function (m) {
+        var c = el("button", "kw-chip miss" + (m.freq >= 3 ? " hot" : "")); c.type = "button";
+        c.textContent = titleCase(m.term) + (m.freq >= 3 ? " ·" + m.freq : "");
+        c.title = "Appears " + m.freq + "× in the JD — click to copy";
+        c.addEventListener("click", function () { copyText(m.term, "“" + titleCase(m.term) + "” copied."); });
+        wrap.appendChild(c);
+      });
+      body.appendChild(wrap);
+      var copyAll = miniBtn("⧉ Copy all missing keywords", function () { copyText(a.missing.map(function (m) { return titleCase(m.term); }).join(", "), "Missing keywords copied."); });
+      var w = el("div", "prompt-actions"); w.appendChild(copyAll); body.appendChild(w);
+    }));
+
+    /* Recommendations */
+    panel.appendChild(blockEl("What to change — recommendations", "jd.recs", function (body) {
+      a.recs.forEach(function (rec) {
+        var card = el("div", "rec-card");
+        card.appendChild(elText("span", "rec-ico", rec.icon));
+        var tx = el("div", "rec-tx");
+        tx.appendChild(elText("div", "rec-title", rec.title));
+        var p = el("div", "rec-body"); p.innerHTML = rec.body; tx.appendChild(p);
+        card.appendChild(tx); body.appendChild(card);
+      });
+      var tailor = miniBtn("⧉ Copy tailoring prompt for AI", function () { copyText(buildTailorPrompt(activeResume(), a), "Tailoring prompt copied — paste into ChatGPT, Claude or Gemini (free)."); });
+      tailor.classList.remove("btn-mini"); tailor.classList.add("btn-primary");
+      var w = el("div", "prompt-actions"); w.appendChild(tailor); body.appendChild(w);
+      body.appendChild(elText("p", "hint", "Want the AI to do the rewriting for you? Copy this prompt into any free AI chat — it already includes your resume, the JD, and the exact gaps."));
+    }));
+
+    /* Already covered */
+    panel.appendChild(blockEl("You already cover (" + a.matched.length + ")", "jd.matched", function (body) {
+      if (!a.matched.length) { body.appendChild(elText("p", "hint", "No overlap yet — start with the recommendations above.")); return; }
+      var wrap = el("div", "chip-wrap");
+      a.matched.forEach(function (m) { wrap.appendChild(elText("span", "kw-chip have", titleCase(m.term))); });
+      body.appendChild(wrap);
+    }));
+  }
+
+  function scoreCard(a) {
+    var band = a.score >= 85 ? "high" : (a.score >= 60 ? "mid" : "low");
+    var card = el("div", "score-card " + band);
+    var C = 2 * Math.PI * 52, off = C * (1 - a.score / 100);
+    var ring = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    ring.setAttribute("class", "score-ring"); ring.setAttribute("viewBox", "0 0 120 120");
+    ring.innerHTML =
+      '<circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="12"/>' +
+      '<circle cx="60" cy="60" r="52" fill="none" stroke="currentColor" stroke-width="12" stroke-linecap="round" ' +
+      'stroke-dasharray="' + C.toFixed(1) + '" stroke-dashoffset="' + off.toFixed(1) + '" transform="rotate(-90 60 60)"/>' +
+      '<text x="60" y="58" text-anchor="middle" class="score-num">' + a.score + '%</text>' +
+      '<text x="60" y="78" text-anchor="middle" class="score-sub">match</text>';
+    card.appendChild(ring);
+    var side = el("div", "score-side");
+    var label = a.score >= 85 ? "Strong match" : (a.score >= 60 ? "Good — tailor it" : "Needs tailoring");
+    side.appendChild(elText("div", "score-label", label));
+    side.appendChild(elText("div", "score-meta", a.matched.length + " keywords covered · " + a.missing.length + " to add"));
+    var bar = el("div", "score-track"); var fill = el("div", "score-fill"); fill.style.width = a.score + "%"; bar.appendChild(fill); side.appendChild(bar);
+    card.appendChild(side);
+    return card;
+  }
 
   function renderAts(panel) {
     var hint = el("p", "panel-hint");
