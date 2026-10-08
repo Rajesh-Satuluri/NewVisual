@@ -149,7 +149,7 @@ export const INTERVIEW_CASES = [
 
   // ---------------- Fault tolerance / exactly-once sink (m14) ----------------
   {
-    id: 'eos-duplicate-charge', module: 'm14', concept: 'exactly-once', difficulty: 'hard',
+    id: 'eos-duplicate-charge', module: 'm16', concept: 'exactly-once', difficulty: 'hard',
     scenario: 'The billing DB times out writing R-4471’s ₹523.50 charge; the job restarts from checkpoint and re-emits PAYMENT_COMPLETED.',
     breaks: 'At-least-once + non-idempotent sink = the rider is charged twice. Checkpointing alone does NOT prevent duplicate external side effects.',
     answer: `Exactly-once <em>end-to-end</em> needs a transactional or idempotent sink. Two real options: (1) <strong>Kafka transactional sink</strong> (<code>DeliveryGuarantee.EXACTLY_ONCE</code>) — Flink’s 2-phase commit: pre-commit on checkpoint, commit on checkpoint-complete; a replay aborts the uncommitted txn. (2) <strong>Upsert sink keyed by ride_id</strong> — a replayed charge overwrites instead of inserting. For payments, prefer the idempotent PK upsert; it’s simpler and robust to partial failures.`,
@@ -157,7 +157,7 @@ export const INTERVIEW_CASES = [
     snippet: 'kafka_sink_eos', anchor: { incident: 'DEFECT-5' },
   },
   {
-    id: 'eos-txn-timeout-trap', module: 'm14', concept: 'exactly-once', difficulty: 'hard',
+    id: 'eos-txn-timeout-trap', module: 'm16', concept: 'exactly-once', difficulty: 'hard',
     scenario: 'Under load, checkpoints for R-4471 occasionally take 11 minutes; the Kafka EOS sink uses default transaction timeout.',
     breaks: 'If a Kafka transaction outlives transaction.timeout.ms, the broker aborts it → committed-but-rolled-back data = data loss; if the prefix/timeout is misconfigured you get duplicates on restart.',
     answer: `The subtle EOS pitfall: Flink commits the sink transaction only when a checkpoint completes, so <code>transaction.timeout.ms</code> must be <strong>larger than your worst-case checkpoint interval</strong> (here &gt; 11 min) — but also <strong>≤ the broker’s</strong> <code>transaction.max.timeout.ms</code> (default 15 min) or the producer is rejected. Set it to 15 min on both. Also keep a unique <code>transactionalIdPrefix</code> per sink so recovering jobs fence zombie producers.`,
@@ -165,7 +165,7 @@ export const INTERVIEW_CASES = [
     snippet: 'kafka_sink_eos', anchor: { incident: 'DEFECT-5' },
   },
   {
-    id: 'eos-twophase-pyflink', module: 'm14', concept: 'exactly-once', difficulty: 'medium',
+    id: 'eos-twophase-pyflink', module: 'm16', concept: 'exactly-once', difficulty: 'medium',
     scenario: 'You want a custom 2-phase-commit sink to a service that isn’t Kafka or JDBC, in PyFlink.',
     breaks: 'Reaching for TwoPhaseCommitSinkFunction in Python — it doesn’t exist there.',
     answer: `A custom <code>TwoPhaseCommitSinkFunction</code> is <strong>Java/Scala only</strong>. In PyFlink the honest paths are: compose built-in transactional/idempotent sinks (KafkaSink EXACTLY_ONCE, JDBC upsert by PK), or make the downstream write idempotent (dedupe by ride_id/payment_id). If you genuinely need bespoke 2PC semantics, implement that sink in Java and call it, or push idempotency to the external system. Stating this trade-off is itself a senior-level answer.`,
@@ -175,7 +175,7 @@ export const INTERVIEW_CASES = [
 
   // ---------------- Backpressure (m15) ----------------
   {
-    id: 'bp-detect', module: 'm15', concept: 'backpressure', difficulty: 'medium',
+    id: 'bp-detect', module: 'm14', concept: 'backpressure', difficulty: 'medium',
     scenario: 'R-4471’s pipeline lags; consumer offset grows and latency climbs.',
     breaks: 'Guessing the bottleneck instead of reading the metrics; "add parallelism" blindly often doesn’t help if the sink is the choke.',
     answer: `Diagnose with metrics, don’t guess. Flink’s web UI colors backpressured tasks; programmatically read <code>busyTimeMsPerSecond</code> (≈1000 = saturated) and <code>backPressuredTimeMsPerSecond</code> per subtask. Walk the DAG from the sink upstream: the <strong>first</strong> task that is busy≈1000 while its downstream is backpressured is the bottleneck. Flink’s credit-based flow control propagates backpressure upstream to the source so nothing is dropped — the source just reads slower.`,
@@ -183,7 +183,7 @@ export const INTERVIEW_CASES = [
     anchor: { incident: 'DEFECT-6' },
   },
   {
-    id: 'bp-skew-vs-sink', module: 'm15', concept: 'backpressure', difficulty: 'hard',
+    id: 'bp-skew-vs-sink', module: 'm14', concept: 'backpressure', difficulty: 'hard',
     scenario: 'One subtask is at busy≈1000 during the airport surge while its siblings idle.',
     breaks: 'Treating data skew like a slow sink: scaling parallelism won’t fix a hot key — the hot key still lands on one subtask.',
     answer: `Two different root causes, two different fixes. <strong>Slow sink</strong> (all subtasks backpressured evenly) → speed up or batch the sink, or increase sink parallelism. <strong>Data skew</strong> (one subtask hot, rest idle — the airport cell) → the fix is key redesign, not more slots: two-phase (local/global) aggregation that salts the hot key across N buckets, pre-aggregates, then strips the salt and combines. Diagnose by comparing per-subtask records-in before changing anything.`,
@@ -211,7 +211,7 @@ export const INTERVIEW_CASES = [
 
   // ---------------- Operators / data flow (m06/m07) ----------------
   {
-    id: 'op-enrich-async', module: 'm07', concept: 'operators', difficulty: 'hard',
+    id: 'op-enrich-async', module: 'm06', concept: 'operators', difficulty: 'hard',
     scenario: 'Each R-4471 event must be enriched with the driver’s rating/vehicle from a profile store.',
     breaks: 'A synchronous per-event lookup serializes on network latency and tanks throughput; and PyFlink has no async-I/O operator.',
     answer: `In Java you’d use <strong>Async I/O</strong> (RichAsyncFunction) to overlap many in-flight lookups. In PyFlink that operator doesn’t exist — the idiomatic path is a <strong>Table API lookup join</strong> against the driver-profile table, which the planner batches and caches (<code>lookup.cache=PARTIAL</code>). For point-in-time correctness use a temporal join (<code>FOR SYSTEM_TIME AS OF</code>). Naming this Java/PyFlink gap is the senior move.`,

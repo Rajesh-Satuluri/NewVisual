@@ -3,6 +3,9 @@
 // upstream stalls. Drag a "processing speed" slider to control the consumer
 // and watch backpressure propagate from sink all the way to the source.
 
+import { rideSpine, initRideSpine, rideCallout, scenarioList } from '../components/story-ui.js';
+import { casesByModule } from '../data/interview-cases.js';
+
 const STAGES = [
   { id:'source',  label:'KafkaSource',  icon:'📥', color:'#6366f1' },
   { id:'keyby',   label:'keyBy',        icon:'🔑', color:'#f59e0b' },
@@ -28,6 +31,7 @@ export function mount(container) {
   let tick = 0;
 
   container.innerHTML = `
+    ${rideSpine({ active: ['LOCATION_UPDATED'], incidents: ['DEFECT-6'] })}
     <div class="module-hero">
       <div class="module-hero-content">
         <span class="module-badge">Module 14</span>
@@ -60,6 +64,7 @@ export function mount(container) {
     </div>
 
     <div class="tab-content" data-tab="concept">
+      ${rideCallout('LOCATION_UPDATED', { openEvent: false })}
       <div class="grid-2 gap-20">
         <div class="card p-24">
           <h3 class="mb-12">Credit-Based Flow Control</h3>
@@ -133,9 +138,19 @@ flink_taskmanager_job_task_backPressuredTimeMsPerSecond
     </div>
 
     <div class="tab-content" data-tab="iq">
+      <div class="section-header" style="margin-bottom:8px">
+        <div class="section-title">Interview corner cases — on ride R-4471</div>
+        <div class="section-desc">Backpressure diagnosis vs data skew, anchored to the airport surge (DEFECT-6).</div>
+      </div>
+      <div id="bp-scenarios"></div>
+      <div class="section-header" style="margin:22px 0 8px"><div class="section-title">More backpressure Q&amp;A</div></div>
       <div class="iq-section" id="iq14-section"></div>
     </div>
   `;
+
+  initRideSpine(container);
+  const bpScen = container.querySelector('#bp-scenarios');
+  if (bpScen) bpScen.innerHTML = scenarioList(casesByModule('m14'));
 
   // Tabs
   container.querySelectorAll('.tab-btn').forEach(btn => {

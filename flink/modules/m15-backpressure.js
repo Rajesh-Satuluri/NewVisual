@@ -2,6 +2,8 @@
 // Interactive query explorer: pick a SQL query category, see the query,
 // the underlying Table/DataStream plan, and live "result rows" for Uber GPS data.
 
+import { rideSpine, initRideSpine, rideCallout } from '../components/story-ui.js';
+
 const QUERIES = [
   {
     id: 'select',
@@ -20,16 +22,17 @@ SELECT
 FROM gps_events
 WHERE speed_kmh > 80
   AND speed_kmh < 200  -- sanity bound`,
-    plan: `// Table API equivalent:
-tableEnv.from("gps_events")
-  .filter($("speed_kmh").isGreater(80)
-      .and($("speed_kmh").isLess(200)))
-  .select($("driver_id"), $("speed_kmh"),
-          $("lat"), $("lon"), $("event_time"));
+    plan: `# PyFlink Table API equivalent:
+from pyflink.table.expressions import col
 
-// DataStream equivalent:
-stream.filter(e -> e.speed > 80 && e.speed < 200)
-      .map(e -> new DashboardEvent(e));`,
+(t_env.from_path("gps_events")
+   .filter((col("speed_kmh") > 80) & (col("speed_kmh") < 200))
+   .select(col("driver_id"), col("speed_kmh"),
+           col("lat"), col("lon"), col("event_time")))
+
+# PyFlink DataStream equivalent:
+stream.filter(lambda e: 80 < e["speed_kmh"] < 200) \\
+      .map(lambda e: to_dashboard_event(e))`,
     results: [
       { driver_id:'D-001', speed_kmh:91,  lat:37.774, lon:-122.432, event_time:'10:00:03' },
       { driver_id:'D-003', speed_kmh:88,  lat:37.765, lon:-122.418, event_time:'10:00:07' },
@@ -55,18 +58,20 @@ FROM gps_events
 GROUP BY
   driver_id,
   TUMBLE(event_time, INTERVAL '10' MINUTE)`,
-    plan: `// Table API equivalent:
-table.window(Tumble.over(lit(10).minutes())
-              .on($("event_time"))
-              .as("w"))
-     .groupBy($("driver_id"), $("w"))
-     .select(
-         $("driver_id"),
-         $("w").start().as("window_start"),
-         $("w").end().as("window_end"),
-         $("speed_kmh").count().as("ping_count"),
-         $("speed_kmh").avg().as("avg_speed"),
-         $("speed_kmh").max().as("max_speed"));`,
+    plan: `# PyFlink Table API equivalent:
+from pyflink.table.expressions import col, lit
+from pyflink.table.window import Tumble
+
+(table.window(Tumble.over(lit(10).minutes)
+                    .on(col("event_time")).alias("w"))
+      .group_by(col("driver_id"), col("w"))
+      .select(
+          col("driver_id"),
+          col("w").start.alias("window_start"),
+          col("w").end.alias("window_end"),
+          col("speed_kmh").count.alias("ping_count"),
+          col("speed_kmh").avg.alias("avg_speed"),
+          col("speed_kmh").max.alias("max_speed")))`,
     results: [
       { driver_id:'D-001', window_start:'10:00', window_end:'10:10', ping_count:4, avg_speed:44, max_speed:91 },
       { driver_id:'D-002', window_start:'10:00', window_end:'10:10', ping_count:3, avg_speed:50, max_speed:105 },
@@ -91,16 +96,18 @@ FROM gps_events
 GROUP BY
   driver_id,
   HOP(event_time, INTERVAL '5' MINUTE, INTERVAL '15' MINUTE)`,
-    plan: `// Table API equivalent:
-table.window(Slide.over(lit(15).minutes())
-              .every(lit(5).minutes())
-              .on($("event_time"))
-              .as("w"))
-     .groupBy($("driver_id"), $("w"))
-     .select($("driver_id"),
-             $("w").start(),
-             $("speed_kmh").avg().as("avg_speed_15m"),
-             $("speed_kmh").max().as("max_speed_15m"));`,
+    plan: `# PyFlink Table API equivalent:
+from pyflink.table.expressions import col, lit
+from pyflink.table.window import Slide
+
+(table.window(Slide.over(lit(15).minutes)
+                   .every(lit(5).minutes)
+                   .on(col("event_time")).alias("w"))
+      .group_by(col("driver_id"), col("w"))
+      .select(col("driver_id"),
+              col("w").start,
+              col("speed_kmh").avg.alias("avg_speed_15m"),
+              col("speed_kmh").max.alias("max_speed_15m")))`,
     results: [
       { driver_id:'D-001', window_start:'09:45', avg_speed_15m:40, max_speed_15m:91 },
       { driver_id:'D-001', window_start:'09:50', avg_speed_15m:43, max_speed_15m:91 },
@@ -125,20 +132,19 @@ FROM gps_events AS g
 JOIN driver_profiles FOR SYSTEM_TIME AS OF g.event_time AS p
   ON g.driver_id = p.driver_id
 WHERE g.speed_kmh > p.max_speed_limit`,
-    plan: `// Temporal join uses versioned lookup table:
-// driver_profiles must have a primary key
-// and be backed by a changelog source (Kafka CDC)
-// or a JDBC lookup connector.
+    plan: `# Temporal join uses a versioned lookup table:
+# driver_profiles must have a primary key and be backed by
+# a changelog source (Kafka CDC) or a JDBC lookup connector.
 
-tableEnv.executeSql("""
+t_env.execute_sql("""
   CREATE TABLE driver_profiles (
     driver_id STRING,
     tier STRING,
     max_speed_limit INT,
     PRIMARY KEY (driver_id) NOT ENFORCED
   ) WITH ('connector' = 'jdbc', ...)
-""");
-// Flink uses async lookup by default for JDBC`,
+""")
+# Flink uses async lookup by default for JDBC`,
     results: [
       { driver_id:'D-001', speed_kmh:91,  event_time:'10:00:03', tier:'Gold',     max_speed_limit:85 },
       { driver_id:'D-002', speed_kmh:105, event_time:'10:00:11', tier:'Standard', max_speed_limit:90 },
@@ -162,15 +168,15 @@ FROM (
   FROM gps_events
 )
 WHERE row_num = 1`,
-    plan: `// Translated to a stateful KeyedProcessFunction:
-// Flink keeps a minibatch of (driver_id, event_time) keys
-// in state with TTL, checking duplicates on arrival.
-// State TTL must cover the max expected duplicate delay.
+    plan: `# Translated to a stateful KeyedProcessFunction:
+# Flink keeps a minibatch of (driver_id, event_time) keys
+# in state with TTL, checking duplicates on arrival.
+# State TTL must cover the max expected duplicate delay.
 
-// Config hint:
-// table.exec.mini-batch.enabled: true
-// table.exec.mini-batch.allow-latency: 5s
-// table.exec.mini-batch.size: 5000`,
+# Config hint (set on t_env.get_config().get_configuration()):
+# table.exec.mini-batch.enabled: true
+# table.exec.mini-batch.allow-latency: 5s
+# table.exec.mini-batch.size: 5000`,
     results: [
       { driver_id:'D-001', speed_kmh:91, lat:37.774, lon:-122.432, event_time:'10:00:03', row_num:1 },
       { driver_id:'D-002', speed_kmh:35, lat:37.781, lon:-122.445, event_time:'10:00:05', row_num:1 },
@@ -190,6 +196,7 @@ export function mount(container) {
   let selected = QUERIES[0];
 
   container.innerHTML = `
+    ${rideSpine({ active: ['LOCATION_UPDATED', 'RIDE_COMPLETED'] })}
     <div class="module-hero">
       <div class="module-hero-content">
         <span class="module-badge">Module 15</span>
@@ -209,6 +216,7 @@ export function mount(container) {
     </div>
 
     <div class="tab-content" data-tab="setup">
+      ${rideCallout('LOCATION_UPDATED', { openEvent: false })}
       <div class="grid-2 gap-20">
         <div class="card p-24">
           <h3 class="mb-12">Table DDL — GPS Events Source</h3>
@@ -251,29 +259,29 @@ WHERE speed_kmh > 80;</pre></div>
         </div>
         <div class="card p-24">
           <h3 class="mb-12">TableEnvironment Setup</h3>
-          <div class="code-block fs-11"><pre>StreamExecutionEnvironment env =
-    StreamExecutionEnvironment.getExecutionEnvironment();
-env.setParallelism(4);
+          <div class="code-block fs-11"><span class="lang-tag">PyFlink · Table API</span><pre>from pyflink.datastream import StreamExecutionEnvironment
+from pyflink.table import StreamTableEnvironment, Schema
 
-StreamTableEnvironment tableEnv =
-    StreamTableEnvironment.create(env);
+env = StreamExecutionEnvironment.get_execution_environment()
+env.set_parallelism(4)
+t_env = StreamTableEnvironment.create(env)
 
-// Register table from DataStream:
-DataStream&lt;GPSEvent&gt; stream = env.fromSource(...);
-tableEnv.createTemporaryView("gps_events", stream,
-    Schema.newBuilder()
-        .columnByExpression("proc_time","PROCTIME()")
+# Register a table from a DataStream:
+stream = env.from_source(ride_source, ride_watermarks, "gps")
+t_env.create_temporary_view(
+    "gps_events", stream,
+    Schema.new_builder()
+        .column_by_expression("proc_time", "PROCTIME()")
         .watermark("event_time",
                    "event_time - INTERVAL '5' SECOND")
-        .build());
+        .build())
 
-// Run SQL:
-Table result = tableEnv.sqlQuery(
-    "SELECT ... FROM gps_events WHERE ...");
+# Run SQL:
+result = t_env.sql_query("SELECT ... FROM gps_events WHERE ...")
 
-// Convert back to DataStream:
-DataStream&lt;Row&gt; out = tableEnv.toDataStream(result);
-env.execute("Uber GPS SQL Pipeline");</pre></div>
+# Convert back to a DataStream:
+out = t_env.to_data_stream(result)
+env.execute("Uber GPS SQL Pipeline")</pre></div>
         </div>
         <div class="card p-24">
           <h3 class="mb-12">Table API vs DataStream Comparison</h3>
@@ -301,6 +309,8 @@ env.execute("Uber GPS SQL Pipeline");</pre></div>
       <div class="iq-section" id="iq15-section"></div>
     </div>
   `;
+
+  initRideSpine(container);
 
   // Tabs
   container.querySelectorAll('.tab-btn').forEach(btn => {
