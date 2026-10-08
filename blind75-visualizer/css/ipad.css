@@ -1,0 +1,117 @@
+/* ============================================================================
+ * ipad.css — iPad / touch-tablet optimizations.
+ *
+ * EVERY rule here is scoped behind a touch-only media query:
+ *   • (hover: none) and (pointer: coarse)  → finger input (iPad, phones)
+ *   • a 768–900px tablet band + pointer:coarse → portrait iPad layout
+ *
+ * A laptop/desktop with a mouse reports (hover: hover) and (pointer: fine),
+ * so it matches NONE of these rules — the existing desktop UI is untouched.
+ * This file is loaded last so it wins cascade ties within its media scope.
+ * ========================================================================== */
+
+/* ---------------------------------------------------------------------------
+ * A. Persistent (collapsible) sidebar on PORTRAIT TABLETS (768–900px, touch)
+ *    Replaces the phone off-canvas drawer so rotating an iPad no longer swaps
+ *    the whole layout. Mirrors the desktop grid + collapse behaviour.
+ * ------------------------------------------------------------------------- */
+@media (min-width: 768px) and (max-width: 900px) and (pointer: coarse) {
+  .shell {
+    grid-template-columns: var(--sidebar-w) 1fr;
+    transition: grid-template-columns var(--dur-slow) var(--ease-cat);
+  }
+  .sidebar {
+    position: static;
+    inset: auto;
+    transform: none;
+    width: auto;
+    max-width: none;
+    z-index: auto;
+    box-shadow: none;
+    border-right: 1px solid var(--border);
+  }
+  /* hamburger now collapses the sidebar (as on desktop), not a drawer */
+  body.sidebar-collapsed .shell { grid-template-columns: 0 1fr; }
+  body.sidebar-collapsed .sidebar { border-right-color: transparent; }
+  /* the drawer scrim + drawer-open shadow are irrelevant with a static sidebar */
+  .drawer-scrim { display: none !important; }
+  body.sidebar-open .sidebar { box-shadow: none; }
+}
+
+/* ---------------------------------------------------------------------------
+ * B. One-row, icon-first top bar on portrait tablets (kills the 2-row wrap)
+ *    At 768–834px the labelled bar wrapped to ~103px. Drop the brand wordmark
+ *    and the secondary button labels, keep the bar to a single row, and let
+ *    the action cluster scroll horizontally if it still overflows.
+ * ------------------------------------------------------------------------- */
+@media (min-width: 768px) and (max-width: 900px) and (pointer: coarse) {
+  /* the 44px touch targets make the bar a touch taller than the desktop 56px;
+     redefine the token so the sticky bar height AND the .shell/dvh offset
+     below it stay in lockstep (no gap / no clipped bottom). */
+  :root { --topbar-h: 64px; }
+  .topbar { flex-wrap: nowrap; gap: 10px; height: auto; min-height: var(--topbar-h); }
+  .brand-text { display: none; }               /* keep the "DE" mark only */
+  .ws-switches { flex-wrap: nowrap; flex-shrink: 0; }
+  .topbar-right {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .topbar-right::-webkit-scrollbar { display: none; }
+  .topbar-right .btx { display: none; }        /* icon-only ghost buttons */
+}
+
+/* ---------------------------------------------------------------------------
+ * C. Viewport height under Safari's dynamic toolbars (touch devices)
+ *    100vh overshoots behind the address/tab bars; dvh tracks the real area.
+ * ------------------------------------------------------------------------- */
+@media (pointer: coarse) {
+  .shell { height: calc(100dvh - var(--topbar-h)); }
+}
+
+/* ---------------------------------------------------------------------------
+ * D. Touch ergonomics — any finger input (iPad + phones)
+ *    ≥44px targets (Apple HIG), no 300ms delay / grey tap flash, and no
+ *    "stuck hover" after a tap (hover motion neutralised; :active still fires).
+ * ------------------------------------------------------------------------- */
+@media (hover: none) and (pointer: coarse) {
+  /* kill tap delay + the grey highlight flash */
+  a, button, .nav-item, [role="button"], [role="tab"] {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* comfortable ≥44px hit areas */
+  .ghost-btn, .icon-btn, #menuBtn,
+  .ws-btn, .mode-btn, .set-btn,
+  .chip-btn, .nav-tool-btn, .status-btn, .review-due-btn,
+  .menu-item, .srs-grade, .app-tab {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .icon-btn, #menuBtn { min-width: 44px; }
+  .menu-item { justify-content: flex-start; }  /* menu rows stay left-aligned */
+
+  /* roomier nav rows in the sidebar list */
+  .nav-item { min-height: 44px; padding-top: 9px; padding-bottom: 9px; }
+  .cat-header { min-height: 44px; }
+
+  /* don't let a tap leave an element stuck in its hover transform */
+  .ghost-btn:hover, .chip-btn:hover, .nav-tool-btn:hover,
+  .review-due-btn.has-due:hover, .nav-item:hover, .icon-btn:hover {
+    transform: none;
+    box-shadow: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * E. Smooth momentum scrolling for wide code / tables on touch
+ * ------------------------------------------------------------------------- */
+@media (pointer: coarse) {
+  pre, .code-area pre, .md-fig, .table-wrap, .sample-table-wrap {
+    -webkit-overflow-scrolling: touch;
+  }
+}
