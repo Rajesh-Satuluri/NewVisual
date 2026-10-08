@@ -3,6 +3,9 @@
 // source → keyBy → process → sink pipeline. Each operator lights up
 // when it aligns barriers and snapshots state to S3.
 
+import { rideSpine, initRideSpine, rideCallout, scenarioList, pyCode } from '../components/story-ui.js';
+import { casesByModule } from '../data/interview-cases.js';
+
 const PIPELINE = [
   { id:'source',  label:'KafkaSource',  icon:'📥', x:80,  y:180, color:'#6366f1' },
   { id:'keyby',   label:'keyBy',        icon:'🔑', x:240, y:180, color:'#f59e0b' },
@@ -43,6 +46,7 @@ export function mount(container) {
   let phase = 'idle';
 
   container.innerHTML = `
+    ${rideSpine({ active: ['RIDE_STARTED'], incidents: ['DEFECT-4'] })}
     <div class="module-hero">
       <div class="module-hero-content">
         <span class="module-badge">Module 12</span>
@@ -94,6 +98,7 @@ export function mount(container) {
     </div>
 
     <div class="tab-content" data-tab="concept">
+      ${rideCallout('RIDE_STARTED', { openEvent: false })}
       <div class="grid-2 gap-20">
         <div class="card p-24">
           <h3 class="mb-12">Aligned vs Unaligned Checkpoints</h3>
@@ -105,36 +110,14 @@ export function mount(container) {
             <div style="font-size:12px;font-weight:700;color:var(--accent);text-transform:uppercase;margin-bottom:6px">Unaligned (Flink 1.11+)</div>
             <p style="color:var(--text-secondary);font-size:13px;line-height:1.6">Barrier passes immediately; in-flight records captured in checkpoint. No buffering delay. Larger checkpoint. Best under backpressure where aligned barriers stall.</p>
           </div>
-          <div class="code-block" style="margin-top:14px;font-size:11px"><pre>// Enable unaligned checkpoints:
-env.getCheckpointConfig()
-   .enableUnalignedCheckpoints();
-// Or per-job config:
-// execution.checkpointing.unaligned: true</pre></div>
+          <div class="code-block fs-11"><span class="lang-tag">PyFlink</span><pre># Enable unaligned checkpoints (barriers overtake buffered data):
+env.get_checkpoint_config().enable_unaligned_checkpoints()
+# Or in flink-conf.yaml:
+#   execution.checkpointing.unaligned: true</pre></div>
         </div>
         <div class="card p-24">
           <h3 class="mb-12">Checkpoint Configuration</h3>
-          <div class="code-block fs-11"><pre>CheckpointConfig cfg =
-    env.getCheckpointConfig();
-
-// Interval between checkpoint starts
-cfg.setCheckpointInterval(30_000); // 30s
-
-// Max time a checkpoint may take
-cfg.setCheckpointTimeout(60_000);  // 60s
-
-// Min time between checkpoint end and next start
-cfg.setMinPauseBetweenCheckpoints(5_000);
-
-// Keep last 2 checkpoints on failure
-cfg.setTolerableCheckpointFailureNumber(2);
-
-// Retain checkpoint on cancel (for restore)
-cfg.setExternalizedCheckpointCleanup(
-    RETAIN_ON_CANCELLATION);
-
-// Storage
-cfg.setCheckpointStorage(
-    "s3://uber-checkpoints/fraud/ckpt");</pre></div>
+          ${pyCode('checkpoint_config')}
         </div>
         <div class="card p-24">
           <h3 class="mb-12">Savepoints vs Checkpoints</h3>
@@ -157,25 +140,25 @@ cfg.setCheckpointStorage(
         </div>
         <div class="card p-24">
           <h3 class="mb-12">Restoring from a Savepoint</h3>
-          <div class="code-block fs-11"><pre># Trigger savepoint before upgrade:
-flink savepoint &lt;jobId&gt; s3://uber/savepoints/
-
-# Deploy new version, restore from savepoint:
-flink run -s s3://uber/savepoints/sp-42 \
-  uber-fraud-v4.jar
-
-# Flink matches operator state by UID:
-# Set stable UIDs to survive restores:
-stream.keyBy(...).process(new FraudDetector())
-      .uid("fraud-detector-v1");</pre></div>
+          ${pyCode('savepoint_uid')}
         </div>
       </div>
     </div>
 
     <div class="tab-content" data-tab="iq">
+      <div class="section-header" style="margin-bottom:8px">
+        <div class="section-title">Interview corner cases — on ride R-4471</div>
+        <div class="section-desc">Checkpoint questions interviewers dig into, anchored to the mid-trip crash (DEFECT-4).</div>
+      </div>
+      <div id="ckpt-scenarios"></div>
+      <div class="section-header" style="margin:22px 0 8px"><div class="section-title">More checkpoint Q&amp;A</div></div>
       <div class="iq-section" id="iq12-section"></div>
     </div>
   `;
+
+  initRideSpine(container);
+  const ckptScen = container.querySelector('#ckpt-scenarios');
+  if (ckptScen) ckptScen.innerHTML = scenarioList(casesByModule('m12'));
 
   // Tabs
   container.querySelectorAll('.tab-btn').forEach(btn => {

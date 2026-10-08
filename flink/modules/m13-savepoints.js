@@ -2,6 +2,9 @@
 // Interactive failure simulator: pick a restart strategy, click "Inject Failure",
 // watch the job fail and recover step-by-step with timeline visualization.
 
+import { rideSpine, initRideSpine, rideCallout, scenarioList, pyCode } from '../components/story-ui.js';
+import { casesByModule } from '../data/interview-cases.js';
+
 const STRATEGIES = [
   {
     id: 'none',
@@ -10,8 +13,9 @@ const STRATEGIES = [
     color: '#ef4444',
     desc: 'Job fails immediately and is not restarted. Use only for batch jobs where you\'d rather know about failures immediately.',
     uber: 'Not used in Uber\'s streaming pipelines — any failure would drop GPS events. Only used in one-off batch analytics jobs where idempotent reruns are trivial.',
-    config: `env.setRestartStrategy(
-    RestartStrategies.noRestart());`,
+    config: `from pyflink.common import RestartStrategies
+env.set_restart_strategy(
+    RestartStrategies.no_restart())`,
     recovery: null,
     steps: [
       { t:0,   label:'TaskManager crash detected',    color:'#ef4444' },
@@ -26,10 +30,10 @@ const STRATEGIES = [
     color: '#f59e0b',
     desc: 'Restart up to N times, with a fixed delay between attempts. Simple and predictable. Default strategy in many Flink deployments.',
     uber: 'Used for non-critical aggregation jobs with a 10-attempt cap and 10s delay — enough to survive transient Kafka broker restarts without hammering the cluster.',
-    config: `env.setRestartStrategy(
-    RestartStrategies.fixedDelayRestart(
-        10,          // max attempts
-        Time.seconds(10))); // delay between`,
+    config: `env.set_restart_strategy(
+    RestartStrategies.fixed_delay_restart(
+        10,       # max attempts
+        10_000))  # delay between attempts (ms)`,
     recovery: { attempts:3, delay:10, window:null },
     steps: [
       { t:0,    label:'TaskManager crash detected',       color:'#ef4444' },
@@ -48,13 +52,13 @@ const STRATEGIES = [
     color: '#6366f1',
     desc: 'Delay doubles on each attempt (with optional jitter), capping at a maximum. Prevents thundering herd when many jobs fail simultaneously.',
     uber: 'Uber\'s primary strategy for production fraud pipeline. Starts at 1s, doubles to 2s, 4s, 8s…, cap at 60s. Jitter ±20% avoids all jobs hammering ResourceManager simultaneously.',
-    config: `env.setRestartStrategy(
-    RestartStrategies.exponentialDelayRestart(
-        Time.seconds(1),   // initial delay
-        Time.seconds(60),  // max delay
-        2.0,               // multiplier
-        Time.minutes(5),   // reset threshold
-        0.2));             // jitter factor`,
+    config: `env.set_restart_strategy(
+    RestartStrategies.exponential_delay_restart(
+        1_000,     # initial backoff (ms)
+        60_000,    # max backoff (ms)
+        2.0,       # multiplier
+        300_000,   # reset threshold (ms)
+        0.2))      # jitter factor`,
     recovery: { attempts:null, delay:'1s→2s→4s…→60s', window:null },
     steps: [
       { t:0,    label:'TaskManager crash detected',        color:'#ef4444' },
@@ -72,11 +76,11 @@ const STRATEGIES = [
     color: '#10b981',
     desc: 'Restart as long as the failure rate stays below a threshold. If failures exceed N per time window, the job fails permanently.',
     uber: 'ETA prediction pipeline: allows up to 5 failures per 10 minutes. Occasional Kafka rebalances trigger restarts; sustained failures (bad deploy) are caught by the rate cap.',
-    config: `env.setRestartStrategy(
-    RestartStrategies.failureRateRestart(
-        5,                   // max failures per window
-        Time.minutes(10),    // measurement window
-        Time.seconds(5)));   // delay between attempts`,
+    config: `env.set_restart_strategy(
+    RestartStrategies.failure_rate_restart(
+        5,          # max failures per window
+        600_000,    # measurement window (ms)
+        5_000))     # delay between attempts (ms)`,
     recovery: { attempts:null, delay:'5s fixed', window:'5 per 10min' },
     steps: [
       { t:0,    label:'Failure #1 in window',              color:'#ef4444' },
@@ -102,6 +106,7 @@ export function mount(container) {
   let animRaf = null;
 
   container.innerHTML = `
+    ${rideSpine({ active: ['JOB_UPGRADE', 'RIDE_STARTED'], incidents: ['DEFECT-4'] })}
     <div class="module-hero">
       <div class="module-hero-content">
         <span class="module-badge">Module 13</span>
@@ -128,6 +133,7 @@ export function mount(container) {
     </div>
 
     <div class="tab-content" data-tab="concept">
+      ${rideCallout('RIDE_STARTED', { openEvent: false })}
       <div class="grid-2 gap-20">
         <div class="card p-24">
           <h3 class="mb-12">Recovery Steps (Full Restart)</h3>
@@ -150,14 +156,13 @@ export function mount(container) {
         <div class="card p-24">
           <h3 class="mb-12">Region Failover (Partial Restart)</h3>
           <p style="color:var(--text-secondary);font-size:13px;line-height:1.7;margin-bottom:12px">With <code>RegionFailoverStrategy</code>, only the pipelined region containing the failed task restarts. Regions are sets of operators connected by pipelined (non-blocking) data exchanges.</p>
-          <div class="code-block fs-11"><pre>// Enable region failover in flink-conf.yaml:
+          <div class="code-block fs-11"><span class="lang-tag">flink-conf.yaml</span><pre># Enable region failover:
 jobmanager.execution.failover-strategy: region
 
-// Or programmatically:
-env.setRestartStrategy(...)
-// The failover strategy is set in config,
-// not per-job. Region failover + exponential
-// backoff = Uber's production setup.</pre></div>
+# The failover strategy is cluster config, not
+# per-job. Region failover + exponential backoff
+# (env.set_restart_strategy in PyFlink) = Uber's
+# production setup.</pre></div>
           <div class="lc-uber-box mt-12">
             <div class="lc-uber-label">🚗 Uber Impact</div>
             <p class="fs-12">If sink TM fails, only the sink region restarts — source and FraudDetector keep running, buffering output. Recovery time: 3s vs 12s for full restart.</p>
@@ -192,9 +197,19 @@ state.backend.local-recovery: true
     </div>
 
     <div class="tab-content" data-tab="iq">
+      <div class="section-header" style="margin-bottom:8px">
+        <div class="section-title">Interview corner cases — on ride R-4471</div>
+        <div class="section-desc">Savepoint &amp; recovery questions, anchored to the planned upgrade and the mid-trip crash.</div>
+      </div>
+      <div id="sp-scenarios"></div>
+      <div class="section-header" style="margin:22px 0 8px"><div class="section-title">More recovery Q&amp;A</div></div>
       <div class="iq-section" id="iq13-section"></div>
     </div>
   `;
+
+  initRideSpine(container);
+  const spScen = container.querySelector('#sp-scenarios');
+  if (spScen) spScen.innerHTML = scenarioList(casesByModule('m13'));
 
   // Tabs
   container.querySelectorAll('.tab-btn').forEach(btn => {
@@ -248,7 +263,7 @@ state.backend.local-recovery: true
             <div class="lc-uber-label">🚗 Uber Use Case</div>
             <p class="fs-125">${s.uber}</p>
           </div>
-          <div class="code-block fs-11"><pre>${s.config}</pre></div>
+          <div class="code-block fs-11"><span class="lang-tag">PyFlink</span><pre>${s.config}</pre></div>
         </div>
         ${s.recovery ? `
         <div style="display:flex;gap:20px;margin-top:14px;flex-wrap:wrap">

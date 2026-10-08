@@ -474,3 +474,14 @@ pre_trip = (
     .aggregate(TripStatsAggregate())
 )
 # === end ===
+
+
+# === snippet: hashmap_backend | tier: datastream ===
+from pyflink.datastream import HashMapStateBackend, CheckpointStorage
+
+# On-heap state: ~0.01 ms reads, but bounded by JVM heap and pays full-snapshot
+# checkpoints. Good for small, latency-critical state (low-cardinality scoring).
+env.set_state_backend(HashMapStateBackend())
+env.get_checkpoint_config().set_checkpoint_storage(
+    CheckpointStorage("s3://uber-flink-checkpoints/fraud"))
+# === end ===

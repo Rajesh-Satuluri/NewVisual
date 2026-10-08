@@ -1,6 +1,6 @@
 // AUTO-GENERATED from data/pyflink-snippets.py by scratchpad/build_snippets.py
 // Do NOT edit by hand. Edit the .py (single verified source) and re-run.
-// Snippets: 23  |  deep API check: syntax-only (pyflink not installed)
+// Snippets: 24  |  deep API check: syntax-only (pyflink not installed)
 
 export const PYFLINK_TIERS = {
   "datastream": "PyFlink \u00b7 DataStream",
@@ -374,4 +374,11 @@ pre_trip = (
     .window(EventTimeSessionWindows.with_gap(Time.seconds(90)))
     .aggregate(TripStatsAggregate())
 )` },
+  hashmap_backend: { tier: "datastream", code: `from pyflink.datastream import HashMapStateBackend, CheckpointStorage
+
+# On-heap state: ~0.01 ms reads, but bounded by JVM heap and pays full-snapshot
+# checkpoints. Good for small, latency-critical state (low-cardinality scoring).
+env.set_state_backend(HashMapStateBackend())
+env.get_checkpoint_config().set_checkpoint_storage(
+    CheckpointStorage("s3://uber-flink-checkpoints/fraud"))` },
 };

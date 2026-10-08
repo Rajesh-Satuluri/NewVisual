@@ -3,6 +3,9 @@
 // Simulate read/write latency, checkpoint size, and GC pressure
 // at different state sizes. Uber fraud detection as the running example.
 
+import { rideSpine, initRideSpine, rideCallout, scenarioList, pyCode } from '../components/story-ui.js';
+import { casesByModule } from '../data/interview-cases.js';
+
 const METRICS = {
   hashmap: {
     readLatency:   (stateSize) => 0.01 + stateSize * 0.0001,  // ms
@@ -54,6 +57,7 @@ export function mount(container) {
   let selectedType = STATE_TYPES[0];
 
   container.innerHTML = `
+    ${rideSpine({ active: ['DRIVER_SEARCHING', 'DRIVER_ASSIGNED', 'DRIVER_ACCEPTED'] })}
     <div class="module-hero">
       <div class="module-hero-content">
         <span class="module-badge">Module 11</span>
@@ -98,25 +102,11 @@ export function mount(container) {
       <div class="grid-2" style="gap:20px;margin-top:20px">
         <div class="card p-24">
           <h4 style="margin:0 0 12px;color:#6366f1">HashMap Backend — Config</h4>
-          <div class="code-block fs-11"><pre>// Default since Flink 1.13
-env.setStateBackend(
-    new HashMapStateBackend());
-// Checkpoint storage separate:
-env.getCheckpointConfig()
-   .setCheckpointStorage(
-       "s3://uber-checkpoints/fraud/");</pre></div>
+          ${pyCode('hashmap_backend')}
         </div>
         <div class="card p-24">
           <h4 style="margin:0 0 12px;color:#FF6B35">RocksDB Backend — Config</h4>
-          <div class="code-block fs-11"><pre>EmbeddedRocksDBStateBackend rdb =
-    new EmbeddedRocksDBStateBackend(
-        true); // incremental=true
-env.setStateBackend(rdb);
-env.getCheckpointConfig()
-   .setCheckpointStorage(
-       "s3://uber-checkpoints/fraud/");
-// Also tune RocksDB block cache:
-// state.backend.rocksdb.block.cache-size: 256mb</pre></div>
+          ${pyCode('rocksdb_backend')}
         </div>
       </div>
     </div>
@@ -127,6 +117,12 @@ env.getCheckpointConfig()
     </div>
 
     <div class="tab-content" data-tab="iq">
+      <div class="section-header" style="margin-bottom:8px">
+        <div class="section-title">Interview corner cases — on ride R-4471</div>
+        <div class="section-desc">State questions interviewers push on, answered against the ride.</div>
+      </div>
+      <div id="state-scenarios"></div>
+      <div class="section-header" style="margin:22px 0 8px"><div class="section-title">More state Q&amp;A</div></div>
       <div class="iq-section" id="iq11-section"></div>
     </div>
   `;
@@ -157,6 +153,10 @@ env.getCheckpointConfig()
       if (!open) item.classList.add('open');
     });
   });
+
+  initRideSpine(container);
+  const stateScen = container.querySelector('#state-scenarios');
+  if (stateScen) stateScen.innerHTML = scenarioList(casesByModule('m11'));
 
   // State type picker
   const typePicker = container.querySelector('#state-type-picker');
@@ -189,61 +189,50 @@ env.getCheckpointConfig()
         </div>
         <div class="mt-16">
           <div class="section-eyebrow">Usage Pattern</div>
-          <div class="code-block fs-11"><pre>${stateCodeFor(t.id)}</pre></div>
+          <div class="code-block fs-11"><span class="lang-tag">PyFlink</span><pre>${stateCodeFor(t.id)}</pre></div>
         </div>
         <div style="margin-top:16px;padding:14px;background:var(--surface2);border-radius:8px">
           <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text-secondary);margin-bottom:8px">State TTL (auto-expiry)</div>
-          <div class="code-block fs-11"><pre>StateTtlConfig ttl = StateTtlConfig
-    .newBuilder(Time.hours(24))
-    .setUpdateType(UpdateType.OnCreateAndWrite)
-    .setStateVisibility(
-        StateVisibility.NeverReturnExpired)
-    .cleanupInRocksdbCompactFilter(1000)
-    .build();
-
-descriptor.enableTimeToLive(ttl);
-// Driver state auto-expires after 24h inactivity</pre></div>
+          ${pyCode('state_ttl')}
         </div>
       </div>
     `;
   }
 
+  // PyFlink usage patterns per state type (verified-shape; mirrors the
+  // pyflink.datastream.state API used inside a KeyedProcessFunction).
   function stateCodeFor(id) {
     const snippets = {
-      value: `// Declare in open():
-ValueStateDescriptor<Long> desc =
-    new ValueStateDescriptor<>("lastTripTime", Long.class);
-ValueState<Long> lastTripTime = getRuntimeContext().getState(desc);
+      value: `# In open(self, ctx: RuntimeContext):
+desc = ValueStateDescriptor("last_trip_ts", Types.LONG())
+self.last_trip_ts = ctx.get_state(desc)
 
-// Read / Write in processElement():
-Long last = lastTripTime.value(); // null if first event
-lastTripTime.update(event.timestamp);`,
-      list: `ListStateDescriptor<GPSEvent> desc =
-    new ListStateDescriptor<>("recentPings", GPSEvent.class);
-ListState<GPSEvent> recentPings = getRuntimeContext().getListState(desc);
+# In process_element():
+last = self.last_trip_ts.value()      # None on first event
+self.last_trip_ts.update(event["event_time"])`,
+      list: `desc = ListStateDescriptor("recent_pings", Types.PICKLED_BYTE_ARRAY())
+self.recent_pings = ctx.get_list_state(desc)
 
-recentPings.add(event);  // append
-Iterable<GPSEvent> pings = recentPings.get();  // read all`,
-      map: `MapStateDescriptor<Integer, Long> desc =
-    new MapStateDescriptor<>("tripsByHour", Integer.class, Long.class);
-MapState<Integer, Long> tripsByHour = getRuntimeContext().getMapState(desc);
+self.recent_pings.add(event)          # append
+pings = list(self.recent_pings.get()) # read all`,
+      map: `desc = MapStateDescriptor("trips_by_hour", Types.INT(), Types.LONG())
+self.trips_by_hour = ctx.get_map_state(desc)
 
-int hour = LocalDateTime.now().getHour();
-tripsByHour.put(hour, tripsByHour.getOrDefault(hour, 0L) + 1);`,
-      reducing: `ReducingStateDescriptor<Double> desc =
-    new ReducingStateDescriptor<>("totalDist", Double::sum, Double.class);
-ReducingState<Double> totalDist = getRuntimeContext().getReducingState(desc);
+hour = (event["event_time"] // 3_600_000) % 24
+prev = self.trips_by_hour.get(hour) or 0
+self.trips_by_hour.put(hour, prev + 1)`,
+      reducing: `desc = ReducingStateDescriptor(
+    "total_dist", lambda a, b: a + b, Types.DOUBLE())
+self.total_dist = ctx.get_reducing_state(desc)
 
-totalDist.add(event.distanceDelta);  // auto-reduces with sum
-Double total = totalDist.get();`,
-      aggregating: `AggregatingStateDescriptor<GPSEvent, SpeedAcc, Double> desc =
-    new AggregatingStateDescriptor<>("avgSpeed",
-        new SpeedAggFunction(), SpeedAcc.class);
-AggregatingState<GPSEvent, Double> avgSpeed =
-    getRuntimeContext().getAggregatingState(desc);
+self.total_dist.add(event["distance_delta"])  # auto-reduces with sum
+total = self.total_dist.get()`,
+      aggregating: `desc = AggregatingStateDescriptor(
+    "avg_speed", SpeedAggregate(), Types.PICKLED_BYTE_ARRAY())
+self.avg_speed = ctx.get_aggregating_state(desc)
 
-avgSpeed.add(event);        // accumulate
-Double avg = avgSpeed.get(); // get output`,
+self.avg_speed.add(event)   # accumulate (count, sum)
+avg = self.avg_speed.get()  # -> output`,
     };
     return snippets[id] || '';
   }
