@@ -1032,6 +1032,38 @@
   }
 
   var jdAnalysis = null;   // last computed analysis (module-scoped)
+  /* Add a missing skill into the active resume's skills section (truthful-by-choice). */
+  function addSkillToResume(r, term) {
+    term = (term || "").trim();
+    if (!r || !term) return false;
+    var sec = null;
+    (r.sections || []).forEach(function (s) { if (!sec && s.type === "labeled" && /skill/i.test(s.title || "")) sec = s; });
+    if (!sec) (r.sections || []).forEach(function (s) { if (!sec && s.type === "labeled") sec = s; });
+    if (!sec) { sec = { id: uid(), title: "Technical Skills", type: "labeled", items: [] }; r.sections.push(sec); }
+    sec.items = sec.items || [];
+    /* already present anywhere in the section? skip */
+    var bound = new RegExp("(^|[^a-z0-9+#/.])" + term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "([^a-z0-9+#/.]|$)", "i");
+    var dup = false;
+    sec.items.forEach(function (it) { if (bound.test(it.value || "")) dup = true; });
+    if (dup) return false;
+    var bucket = null;
+    sec.items.forEach(function (it) { if (!bucket && /^(additional|other|core)\s+skills?$/i.test((it.label || "").trim())) bucket = it; });
+    if (!bucket) { bucket = { id: uid(), label: "Additional Skills", value: "" }; sec.items.push(bucket); }
+    var base = (bucket.value || "").replace(/\s*\.\s*$/, "");
+    bucket.value = (base ? base + ", " : "") + titleCase(term) + ".";
+    return true;
+  }
+
+  /* Re-run the analysis after an edit, remembering the previous score for a +/- delta. */
+  function reanalyzeAfterEdit() {
+    var prev = jdAnalysis ? jdAnalysis.score : null;
+    jdAnalysis = analyzeJd(store.aiAssist.jd, activeResume());
+    jdAnalysis._jd = store.aiAssist.jd;
+    if (prev != null) jdAnalysis._prevScore = prev;
+    touch();
+    renderApp();
+  }
+
   function renderJdMatch(panel) {
     store.aiAssist = store.aiAssist || { fields: {}, jd: "" };
     var r = activeResume();
@@ -1089,18 +1121,38 @@
     /* Missing keywords */
     panel.appendChild(blockEl("Add these — missing from your resume (" + a.missing.length + ")", "jd.missing", function (body) {
       if (!a.missing.length) { body.appendChild(elText("p", "hint", "Nothing important is missing — great alignment!")); return; }
-      body.appendChild(elText("p", "hint", "Found in the job description, not in your resume. Click a keyword to copy it. Add only what's truthful."));
+      body.appendChild(elText("p", "hint", "Found in the job description, not in your resume. Click a keyword to copy it; use ＋ to add a skill straight into your resume. Add only what's truthful."));
       var wrap = el("div", "chip-wrap");
       a.missing.forEach(function (m) {
+        var group = el("span", "kw-group");
         var c = el("button", "kw-chip miss" + (m.freq >= 3 ? " hot" : "")); c.type = "button";
         c.textContent = titleCase(m.term) + (m.freq >= 3 ? " ·" + m.freq : "");
         c.title = "Appears " + m.freq + "× in the JD — click to copy";
         c.addEventListener("click", function () { copyText(m.term, "“" + titleCase(m.term) + "” copied."); });
-        wrap.appendChild(c);
+        group.appendChild(c);
+        if (m.skill) {
+          var add = el("button", "kw-add"); add.type = "button"; add.textContent = "＋";
+          add.title = "Add “" + titleCase(m.term) + "” to your Technical Skills";
+          add.addEventListener("click", function () {
+            if (addSkillToResume(activeResume(), m.term)) { flash("Added “" + titleCase(m.term) + "” to Technical Skills."); reanalyzeAfterEdit(); }
+            else flash("“" + titleCase(m.term) + "” is already in your skills.");
+          });
+          group.appendChild(add);
+        }
+        wrap.appendChild(group);
       });
       body.appendChild(wrap);
-      var copyAll = miniBtn("⧉ Copy all missing keywords", function () { copyText(a.missing.map(function (m) { return titleCase(m.term); }).join(", "), "Missing keywords copied."); });
-      var w = el("div", "prompt-actions"); w.appendChild(copyAll); body.appendChild(w);
+      var w = el("div", "prompt-actions");
+      var addableMissing = a.missing.filter(function (m) { return m.skill; });
+      if (addableMissing.length) {
+        w.appendChild(miniBtn("＋ Add all " + addableMissing.length + " missing skills", function () {
+          var n = 0; addableMissing.forEach(function (m) { if (addSkillToResume(activeResume(), m.term)) n++; });
+          if (n) { flash("Added " + n + " skill" + (n > 1 ? "s" : "") + " to Technical Skills."); reanalyzeAfterEdit(); }
+          else flash("Those skills are already in your resume.");
+        }, "btn-primary"));
+      }
+      w.appendChild(miniBtn("⧉ Copy all missing keywords", function () { copyText(a.missing.map(function (m) { return titleCase(m.term); }).join(", "), "Missing keywords copied."); }));
+      body.appendChild(w);
     }));
 
     /* Recommendations */
@@ -1143,7 +1195,13 @@
     card.appendChild(ring);
     var side = el("div", "score-side");
     var label = a.score >= 85 ? "Strong match" : (a.score >= 60 ? "Good — tailor it" : "Needs tailoring");
-    side.appendChild(elText("div", "score-label", label));
+    var labelRow = el("div", "score-label-row");
+    labelRow.appendChild(elText("span", "score-label", label));
+    if (a._prevScore != null && a.score !== a._prevScore) {
+      var diff = a.score - a._prevScore;
+      labelRow.appendChild(elText("span", "score-delta " + (diff > 0 ? "up" : "down"), (diff > 0 ? "▲ +" : "▼ ") + diff + " pts"));
+    }
+    side.appendChild(labelRow);
     side.appendChild(elText("div", "score-meta", a.matched.length + " keywords covered · " + a.missing.length + " to add"));
     var bar = el("div", "score-track"); var fill = el("div", "score-fill"); fill.style.width = a.score + "%"; bar.appendChild(fill); side.appendChild(bar);
     card.appendChild(side);
