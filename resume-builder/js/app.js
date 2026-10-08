@@ -1116,6 +1116,50 @@
     renderApp();
   }
 
+  /* Lazy-load pdf.js only when a PDF is actually chosen (keeps the page
+     offline until then). Parsing runs entirely in the browser. */
+  var _pdfjsPromise = null;
+  var PDFJS_VER = "3.11.174";
+  function loadPdfJs() {
+    if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+    if (_pdfjsPromise) return _pdfjsPromise;
+    _pdfjsPromise = new Promise(function (resolve, reject) {
+      var s = document.createElement("script");
+      s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/" + PDFJS_VER + "/pdf.min.js";
+      s.onload = function () {
+        try {
+          if (window.pdfjsLib && window.pdfjsLib.GlobalWorkerOptions)
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/" + PDFJS_VER + "/pdf.worker.min.js";
+          resolve(window.pdfjsLib);
+        } catch (e) { reject(e); }
+      };
+      s.onerror = function () { _pdfjsPromise = null; reject(new Error("pdfjs load failed")); };
+      document.head.appendChild(s);
+    });
+    return _pdfjsPromise;
+  }
+  function extractPdfText(file) {
+    return loadPdfJs().then(function (pdfjs) {
+      return file.arrayBuffer().then(function (buf) {
+        return pdfjs.getDocument({ data: buf }).promise.then(function (pdf) {
+          var chain = Promise.resolve("");
+          for (var i = 1; i <= pdf.numPages; i++) {
+            (function (n) {
+              chain = chain.then(function (txt) {
+                return pdf.getPage(n).then(function (page) {
+                  return page.getTextContent().then(function (tc) {
+                    return txt + tc.items.map(function (it) { return it.str; }).join(" ") + "\n";
+                  });
+                });
+              });
+            })(i);
+          }
+          return chain;
+        });
+      });
+    });
+  }
+
   function renderJdMatch(panel) {
     store.aiAssist = store.aiAssist || { fields: {}, jd: "" };
     var r = activeResume();
@@ -1143,20 +1187,37 @@
       row.appendChild(analyze);
 
       var fileWrap = el("label", "btn btn-mini jd-file");
-      fileWrap.textContent = "⬆ Upload .txt";
-      var file = el("input"); file.type = "file"; file.accept = ".txt,text/plain"; file.style.display = "none";
+      fileWrap.textContent = "⬆ Upload .txt / .pdf";
+      var file = el("input"); file.type = "file"; file.accept = ".txt,text/plain,.pdf,application/pdf"; file.style.display = "none";
+      function applyJdText(text) {
+        store.aiAssist.jd = String(text || "");
+        jdAnalysis = analyzeJd(store.aiAssist.jd, activeResume());
+        jdAnalysis._jd = store.aiAssist.jd;
+        touch(); renderApp();
+      }
       file.addEventListener("change", function () {
-        var f = file.files && file.files[0]; if (!f) return;
-        var fr = new FileReader();
-        fr.onload = function () { store.aiAssist.jd = String(fr.result || ""); jdAnalysis = analyzeJd(store.aiAssist.jd, activeResume()); jdAnalysis._jd = store.aiAssist.jd; touch(); renderApp(); };
-        fr.readAsText(f); file.value = "";
+        var f = file.files && file.files[0]; file.value = ""; if (!f) return;
+        var isPdf = /\.pdf$/i.test(f.name) || f.type === "application/pdf";
+        if (isPdf) {
+          flash("Reading PDF…");
+          extractPdfText(f).then(function (text) {
+            if (text && text.trim()) applyJdText(text);
+            else flash("Couldn't read text from that PDF — it may be scanned. Paste the text instead.");
+          }).catch(function () {
+            flash("PDF reader unavailable offline — paste the job description instead.");
+          });
+        } else {
+          var fr = new FileReader();
+          fr.onload = function () { applyJdText(fr.result); };
+          fr.readAsText(f);
+        }
       });
       fileWrap.appendChild(file);
       row.appendChild(fileWrap);
 
       if (store.aiAssist.jd) row.appendChild(miniBtn("Clear", function () { store.aiAssist.jd = ""; jdAnalysis = null; touch(); renderApp(); }));
       body.appendChild(row);
-      body.appendChild(elText("p", "hint", "Tip: for a PDF/Word JD, open it, select all (Ctrl+A), copy, and paste here."));
+      body.appendChild(elText("p", "hint", "Paste the text, upload a .txt, or upload a .pdf (read in your browser — nothing is uploaded). Scanned/image PDFs can't be read; paste those."));
     }));
 
     if (!jdAnalysis) {
