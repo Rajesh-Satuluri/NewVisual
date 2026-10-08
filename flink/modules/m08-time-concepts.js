@@ -43,7 +43,7 @@ const IQS = [
     a: `With event time and watermarks, Flink has a configured <strong>allowed lateness</strong> or <strong>watermark lag</strong>:<br><br>
     1. The GPS event has an embedded timestamp of T=12:00:00 (when phone captured it).<br>
     2. It arrives at Flink at T=12:00:45 (45s late due to tunnel).<br>
-    3. If the watermark is configured with a 60s lag: <code>WatermarkStrategy.forBoundedOutOfOrderness(Duration.ofSeconds(60))</code><br>
+    3. If the watermark is configured with a 60s lag: <code>WatermarkStrategy.for_bounded_out_of_orderness(Duration.of_seconds(60))</code><br>
     4. The current watermark might be 11:59:30 (60s behind the latest event time seen). The event at 12:00:00 is still within the allowed lag — it's accepted into the correct 12:00 window.<br>
     5. The 12:00–12:05 window won't close (fire) until the watermark advances past 12:05. This happens when Flink sees events with timestamps ≥ 12:06:00.<br><br>
     If the event arrived 90 seconds late with a 60s watermark, it would be a "late element." You can either drop it, route it to a side output, or configure <code>allowedLateness()</code> to re-trigger the window.`,
