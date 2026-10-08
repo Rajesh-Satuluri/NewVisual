@@ -1518,6 +1518,7 @@
         newApplication({
           jd: store.aiAssist.jd, resumeId: r ? r.id : "", resumeName: r ? (r.name || "Resume") : "",
           score: jdAnalysis ? jdAnalysis.score : null,
+          snapshot: r ? clone(r) : null, snapshotAt: Date.now(),
           company: guessCompanyFromJd(store.aiAssist.jd), role: guessJdTitle ? (guessJdTitle(store.aiAssist.jd) || "") : ""
         });
         touch(); renderApp();
@@ -1559,10 +1560,19 @@
           meta.appendChild(elText("span", "hint", "No resume linked. "));
         }
         var active = activeResume();
-        meta.appendChild(miniBtn(a.resumeId === (active && active.id) ? "✓ Active resume linked" : "Link active resume", function () {
+        if (a.snapshot) meta.appendChild(elText("span", "track-tag track-snap", "📎 version saved " + relTime(a.snapshotAt)));
+        meta.appendChild(miniBtn(a.snapshot ? "📸 Update sent version" : "📎 Link & snapshot active resume", function () {
           a.resumeId = active ? active.id : ""; a.resumeName = active ? (active.name || "Resume") : "";
-          if (jdAnalysis && (a.jd || store.aiAssist.jd)) a.score = a.score; // keep existing score
+          a.snapshot = active ? clone(active) : null; a.snapshotAt = Date.now();
           a.updatedAt = Date.now(); touch(); renderApp();
+          flash("Saved the exact resume you sent to this role.");
+        }));
+        if (a.snapshot) meta.appendChild(miniBtn("⟲ Restore as new resume", function () {
+          var copy = clone(a.snapshot); copy.id = uid();
+          copy.name = (a.company ? a.company : (copy.name || "Resume")) + " — sent " + new Date(a.snapshotAt || Date.now()).toLocaleDateString();
+          store.resumes.push(copy); store.activeResumeId = copy.id;
+          a.updatedAt = Date.now(); touch(); activeTab = "resumes"; renderApp();
+          flash("Restored as a new resume — your current one is untouched.");
         }));
         if (a.jd) meta.appendChild(miniBtn("Load JD into JD Match", function () {
           store.aiAssist.jd = a.jd; jdAnalysis = analyzeJd(a.jd, activeResume()); jdAnalysis._jd = a.jd;
