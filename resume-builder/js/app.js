@@ -289,6 +289,7 @@
     else if (activeTab === "ats") renderAts(panel);
     else if (activeTab === "ai") renderAi(panel);
     else if (activeTab === "jd") renderJdMatch(panel);
+    else if (activeTab === "health") renderHealth(panel);
     else renderResumes(panel);
     growAll(panel);
 
@@ -499,6 +500,7 @@
         }, "js-star"));
         row.appendChild(miniBtn("✕", function () { it.bullets.splice(bi, 1); renderApp(); touch(); }, "btn-danger"));
         bl.appendChild(row);
+        if (bt && bt.trim() && !/\d/.test(bt)) bl.appendChild(elText("div", "quant-nudge", "＋ add a metric (%, $, #, time) to strengthen this"));
       });
       wrap.appendChild(bl);
       body.appendChild(wrap);
@@ -1256,6 +1258,151 @@
     var bar = el("div", "score-track"); var fill = el("div", "score-fill"); fill.style.width = a.score + "%"; bar.appendChild(fill); side.appendChild(bar);
     card.appendChild(side);
     return card;
+  }
+
+  /* ============================================================
+     RESUME HEALTH — offline content quality analysis
+     ============================================================ */
+  var HEALTH_BUZZWORDS = ["team player", "hard worker", "hardworking", "detail-oriented", "detail oriented",
+    "results-driven", "results driven", "self-starter", "self starter", "go-getter", "go getter",
+    "think outside the box", "synergy", "proactive", "dynamic", "go-to person", "proven track record",
+    "best of breed", "value add", "value-add", "fast-paced", "fast paced", "wear many hats", "ninja", "rockstar", "guru"];
+  var HEALTH_WEAK_STARTS = ["responsible for", "worked on", "helped", "assisted", "involved in", "participated in",
+    "tasked with", "duties included", "in charge of", "handled", "contributed to", "supported"];
+  var STRONG_VERBS_HINT = "Led, Built, Designed, Delivered, Shipped, Drove, Reduced, Increased, Automated, Launched, Owned, Scaled, Migrated, Optimized";
+
+  function collectBullets(r) {
+    var out = [];
+    (r.sections || []).forEach(function (sec) {
+      if (sec.type === "entries") (sec.items || []).forEach(function (it) {
+        (it.bullets || []).forEach(function (b) { if (b && b.trim()) out.push({ text: b.trim(), where: it.heading || sec.title }); });
+      });
+    });
+    return out;
+  }
+  function wordCount(s) { return (s || "").trim() ? s.trim().split(/\s+/).length : 0; }
+  function findSummary(r) {
+    var s = (r.sections || []).filter(function (x) { return x.type === "text"; })[0];
+    return s ? (s.text || "") : "";
+  }
+  function stripMd(s) { return (s || "").replace(/[*_`]/g, ""); }
+
+  function analyzeHealth(r) {
+    var checks = [], score = 100;
+    var bullets = collectBullets(r);
+    var totalB = bullets.length;
+
+    /* 1. Quantified bullets */
+    var noNum = bullets.filter(function (b) { return !/\d/.test(b.text); });
+    if (totalB) {
+      var quantRatio = (totalB - noNum.length) / totalB;
+      score -= Math.round((1 - quantRatio) * 25);
+      checks.push({ level: quantRatio >= 0.6 ? "good" : (quantRatio >= 0.35 ? "warn" : "bad"),
+        label: "Quantified impact", detail: Math.round(quantRatio * 100) + "% of bullets include a number. Metrics (%, $, time, scale) make impact concrete.",
+        items: noNum.slice(0, 6).map(function (b) { return b.text; }), itemsLabel: "Add a number to:" });
+    }
+
+    /* 2. Strong opening verbs */
+    var weak = bullets.filter(function (b) { return HEALTH_WEAK_STARTS.some(function (w) { return new RegExp("^" + w + "\\b", "i").test(stripMd(b.text)); }); });
+    score -= Math.min(weak.length * 4, 16);
+    checks.push({ level: weak.length === 0 ? "good" : (weak.length <= 2 ? "warn" : "bad"),
+      label: "Strong action verbs", detail: weak.length ? weak.length + " bullet(s) start with a weak phrase. Open with a strong verb (" + STRONG_VERBS_HINT + ")." : "Bullets open with strong verbs.",
+      items: weak.slice(0, 6).map(function (b) { return b.text; }), itemsLabel: "Rewrite the opening of:" });
+
+    /* 3. Buzzwords / clichés (across whole resume) */
+    var full = stripMd(resumePlainText(r)).toLowerCase();
+    var hits = HEALTH_BUZZWORDS.filter(function (w) { return new RegExp("(^|[^a-z])" + w.replace(/[.*+?^${}()|[\]\\-]/g, "\\$&") + "([^a-z]|$)").test(full); });
+    score -= Math.min(hits.length * 5, 15);
+    checks.push({ level: hits.length === 0 ? "good" : (hits.length <= 2 ? "warn" : "bad"),
+      label: "No empty buzzwords", detail: hits.length ? "Found cliché(s): " + hits.map(titleCase).join(", ") + ". Replace with specific, provable achievements." : "No tired clichés — good.",
+      items: [] });
+
+    /* 4. Passive voice (rough heuristic) */
+    var passive = bullets.filter(function (b) { return /\b(was|were|been|being|is|are)\s+\w+ed\b/i.test(stripMd(b.text)); });
+    score -= Math.min(passive.length * 2, 10);
+    checks.push({ level: passive.length === 0 ? "good" : (passive.length <= 2 ? "warn" : "bad"),
+      label: "Active voice", detail: passive.length ? passive.length + " bullet(s) look passive. Prefer \"Built X\" over \"X was built\"." : "Reads as active voice.",
+      items: passive.slice(0, 5).map(function (b) { return b.text; }), itemsLabel: "Make active:" });
+
+    /* 5. Bullet length */
+    var longB = bullets.filter(function (b) { return wordCount(b.text) > 42; });
+    score -= Math.min(longB.length * 3, 9);
+    checks.push({ level: longB.length === 0 ? "good" : (longB.length <= 2 ? "warn" : "bad"),
+      label: "Concise bullets", detail: longB.length ? longB.length + " bullet(s) run long (>42 words). Tighten to one idea each." : "Bullets are a readable length.",
+      items: longB.slice(0, 4).map(function (b) { return b.text; }), itemsLabel: "Shorten:" });
+
+    /* 6. Summary */
+    var sumW = wordCount(stripMd(findSummary(r)));
+    if (sumW === 0) { score -= 8; checks.push({ level: "bad", label: "Professional summary", detail: "No summary found. A 2–3 line summary up top frames your fit fast.", items: [] }); }
+    else if (sumW < 25) { score -= 5; checks.push({ level: "warn", label: "Professional summary", detail: "Summary is very short (" + sumW + " words). Aim for ~30–60 words.", items: [] }); }
+    else if (sumW > 90) { score -= 3; checks.push({ level: "warn", label: "Professional summary", detail: "Summary is long (" + sumW + " words). Trim to ~30–60 words.", items: [] }); }
+    else checks.push({ level: "good", label: "Professional summary", detail: "Summary length is on target (" + sumW + " words).", items: [] });
+
+    /* 7. Overall length */
+    var totalW = wordCount(full);
+    if (totalW > 900) { score -= 8; checks.push({ level: "warn", label: "Overall length", detail: "~" + totalW + " words — likely over one page. Trim older/less-relevant detail.", items: [] }); }
+    else if (totalW < 220) { score -= 6; checks.push({ level: "warn", label: "Overall length", detail: "~" + totalW + " words — looks thin. Add impact and detail to recent roles.", items: [] }); }
+    else checks.push({ level: "good", label: "Overall length", detail: "~" + totalW + " words — good one-page density.", items: [] });
+
+    /* 8. Contact essentials */
+    var contacts = ((r.profile || {}).contacts || []).map(function (c) { return c.value || ""; }).join(" ");
+    var hasEmail = /@/.test(contacts);
+    if (!hasEmail) { score -= 6; checks.push({ level: "bad", label: "Contact details", detail: "No email detected in your header. Add a professional email.", items: [] }); }
+    else checks.push({ level: "good", label: "Contact details", detail: "Email present in header.", items: [] });
+
+    score = Math.max(0, Math.min(100, score));
+    /* order: problems first */
+    var rank = { bad: 0, warn: 1, good: 2 };
+    checks.sort(function (a, b) { return rank[a.level] - rank[b.level]; });
+    return { score: score, checks: checks, totalBullets: totalB };
+  }
+
+  function healthCard(h) {
+    var band = h.score >= 85 ? "high" : (h.score >= 60 ? "mid" : "low");
+    var card = el("div", "score-card " + band);
+    var C = 2 * Math.PI * 52, off = C * (1 - h.score / 100);
+    var ring = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    ring.setAttribute("class", "score-ring"); ring.setAttribute("viewBox", "0 0 120 120");
+    ring.innerHTML =
+      '<circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="12"/>' +
+      '<circle cx="60" cy="60" r="52" fill="none" stroke="currentColor" stroke-width="12" stroke-linecap="round" ' +
+      'stroke-dasharray="' + C.toFixed(1) + '" stroke-dashoffset="' + off.toFixed(1) + '" transform="rotate(-90 60 60)"/>' +
+      '<text x="60" y="58" text-anchor="middle" class="score-num">' + h.score + '</text>' +
+      '<text x="60" y="78" text-anchor="middle" class="score-sub">/ 100</text>';
+    card.appendChild(ring);
+    var side = el("div", "score-side");
+    var label = h.score >= 85 ? "Strong resume" : (h.score >= 60 ? "Good — a few fixes" : "Needs work");
+    side.appendChild(elText("div", "score-label", label));
+    var good = h.checks.filter(function (c) { return c.level === "good"; }).length;
+    side.appendChild(elText("div", "score-meta", good + " of " + h.checks.length + " checks passing"));
+    var bar = el("div", "score-track"); var fill = el("div", "score-fill"); fill.style.width = h.score + "%"; bar.appendChild(fill); side.appendChild(bar);
+    card.appendChild(side);
+    return card;
+  }
+
+  function renderHealth(panel) {
+    var r = activeResume();
+    var hint = el("p", "panel-hint");
+    hint.innerHTML = "An instant quality read on <strong>" + esc(r ? (r.name || "this resume") : "your resume") + "</strong> — quantified impact, strong verbs, clichés, passive voice, length. All in your browser. <strong>Fix the flags, not fake keywords.</strong>";
+    panel.appendChild(hint);
+    if (!r) { panel.appendChild(elText("div", "jd-empty", "Create a resume first.")); return; }
+
+    var h = analyzeHealth(r);
+    panel.appendChild(healthCard(h));
+
+    h.checks.forEach(function (c) {
+      panel.appendChild(blockEl((c.level === "good" ? "✓ " : (c.level === "warn" ? "▲ " : "✕ ")) + c.label, "health." + c.label, function (body) {
+        var p = el("div", "rec-body"); p.innerHTML = esc(c.detail); body.appendChild(p);
+        if (c.items && c.items.length) {
+          body.appendChild(elText("p", "hint hl-items-label", c.itemsLabel || "Examples:"));
+          var ul = el("ul", "hl-items");
+          c.items.forEach(function (t) { ul.appendChild(elText("li", null, t.length > 160 ? t.slice(0, 157) + "…" : t)); });
+          body.appendChild(ul);
+        }
+      }, [elText("span", "hl-pill hl-" + c.level, c.level === "good" ? "Pass" : (c.level === "warn" ? "Review" : "Fix"))]));
+    });
+
+    panel.appendChild(elText("p", "hint", "Tip: the score rewards specific, truthful, active writing — not keyword stuffing. Pair it with JD Match to tailor to a role."));
   }
 
   function renderAts(panel) {
