@@ -238,11 +238,30 @@
     f.appendChild(t); return f;
   }
   function miniBtn(txt, onClick, extra) { var b = el("button", "btn btn-mini" + (extra ? " " + extra : "")); b.type = "button"; b.textContent = txt; b.addEventListener("click", onClick); return b; }
+  /* pick a glyph for a section so the stack of blocks is scannable, not uniform */
+  function iconFor(title) {
+    var t = (title || "").toLowerCase();
+    if (/setting|config/.test(t)) return "⚙️";
+    if (/header|identity|personal|detail/.test(t)) return "👤";
+    if (/summary|profile|objective|about|overview/.test(t)) return "📝";
+    if (/experience|employ|work history|career/.test(t)) return "💼";
+    if (/project/.test(t)) return "🚀";
+    if (/skill|competenc|technolog|tool|tech stack/.test(t)) return "🛠️";
+    if (/education|academ|degree|school|college/.test(t)) return "🎓";
+    if (/certif|licen|course|training/.test(t)) return "📜";
+    if (/achiev|award|honor|accomplish/.test(t)) return "🏆";
+    if (/contact|reach/.test(t)) return "✉️";
+    if (/language/.test(t)) return "🌐";
+    if (/publication|research|paper/.test(t)) return "📚";
+    if (/volunteer|interest|hobb|activit/.test(t)) return "🌟";
+    return "📄";
+  }
   function blockEl(titleText, collapseKey, buildBody, headRight, headInput) {
     var b = el("div", "block");
     if (collapsed[collapseKey]) b.classList.add("collapsed");
     var head = el("div", "block-head"); head.title = "Click to collapse / expand";
     head.appendChild(elText("span", "caret", "▼"));
+    head.appendChild(elText("span", "sec-icon", iconFor(titleText || (headInput && headInput.value))));
     if (headInput) head.appendChild(headInput); else head.appendChild(elText("span", "sec-title", titleText));
     if (headRight) { for (var i = 0; i < headRight.length; i++) head.appendChild(headRight[i]); }
     head.addEventListener("click", function (e) {
@@ -282,9 +301,12 @@
      ============================================================ */
   function renderResumes(panel) {
     /* switcher */
+    panel.appendChild(elText("div", "group-label", "Your resumes — click to edit"));
     var switcher = el("div", "resume-switcher");
     store.resumes.forEach(function (r) {
-      var chip = el("button", "resume-chip" + (r.id === store.activeResumeId ? " active" : "")); chip.type = "button";
+      var isActive = r.id === store.activeResumeId;
+      var chip = el("button", "resume-chip" + (isActive ? " active" : "")); chip.type = "button";
+      if (isActive) chip.appendChild(elText("span", "rc-check", "✓ Editing"));
       chip.appendChild(elText("span", "rc-name", r.name || "Untitled"));
       if (r.targetRole) chip.appendChild(elText("span", "rc-role", r.targetRole));
       chip.addEventListener("click", function () { store.activeResumeId = r.id; renderApp(); });
@@ -293,7 +315,7 @@
     panel.appendChild(switcher);
     var r = activeResume();
     var actions = el("div", "resume-actions");
-    actions.appendChild(miniBtn("＋ New resume", newResume));
+    actions.appendChild(miniBtn("＋ New resume", newResume, "btn-primary"));
     actions.appendChild(miniBtn("⧉ Duplicate", duplicateResume));
     actions.appendChild(miniBtn("🗑 Delete", function () { deleteResume(activeResume()); }, "btn-danger"));
     var spacer = el("span"); spacer.style.flex = "1"; actions.appendChild(spacer);
