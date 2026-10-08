@@ -319,3 +319,107 @@ body.cmdk-open { overflow: hidden; }
   .pager { padding-left: 16px; padding-right: 16px; }
   .pager-name { max-width: 60vw; }
 }
+
+/* ============================================================
+   RIDE-STORY UI  (Iteration 1)  — spine, PyFlink blocks,
+   "in this ride" callouts, interview scenario cards.
+   Theme-token based; works in light + dark.
+   ============================================================ */
+
+/* --- Ride lifecycle spine --- */
+.ride-spine {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin: 0 0 22px;
+}
+.spine-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+.spine-title { font-weight: 700; color: var(--text-primary); font-size: 14px; letter-spacing: .3px; }
+.spine-sub { color: var(--text-muted); font-size: 12px; }
+.spine-track { display: flex; align-items: stretch; gap: 4px; overflow-x: auto; padding-bottom: 4px; }
+.spine-arrow { color: var(--text-muted); align-self: center; font-size: 12px; flex: 0 0 auto; }
+.spine-stage {
+  flex: 0 0 auto;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  min-width: 78px; padding: 8px 10px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); cursor: pointer;
+  color: var(--text-secondary); transition: var(--transition);
+  position: relative;
+}
+.spine-stage:hover { border-color: var(--accent); color: var(--text-primary); transform: translateY(-1px); }
+.spine-stage.active {
+  border-color: var(--accent); color: var(--text-primary);
+  background: var(--accent-dim); box-shadow: var(--shadow-accent);
+}
+.spine-stage.incident { border-color: var(--yellow); }
+.spine-ic { font-size: 17px; line-height: 1; }
+.spine-lbl { font-size: 10px; font-weight: 600; text-align: center; line-height: 1.2; }
+.spine-flag { position: absolute; top: -6px; right: -6px; font-size: 11px;
+  background: var(--yellow); color: #1a1205; border-radius: 50%;
+  width: 16px; height: 16px; display: grid; place-items: center; }
+
+/* --- PyFlink tiered code block --- */
+.code-block.pyflink { padding-top: 30px; }
+.code-block .py-tier {
+  position: absolute; top: 8px; left: 12px;
+  font-size: 10px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase;
+  padding: 2px 8px; border-radius: 999px;
+}
+.code-block.tier-datastream .py-tier { color: var(--green); background: var(--green-dim); }
+.code-block.tier-table-sql .py-tier { color: var(--blue); background: var(--blue-dim); }
+.code-block.tier-java-workaround .py-tier { color: var(--yellow); background: var(--yellow-dim); }
+.code-caption { color: var(--text-secondary); font-size: 13px; margin: 6px 0 8px; line-height: 1.6; }
+
+/* --- "In this ride" callout --- */
+.ride-callout {
+  border: 1px solid var(--border); border-left: 3px solid var(--accent);
+  border-radius: var(--radius); background: var(--surface);
+  padding: 16px 18px; margin: 18px 0;
+}
+.rc-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.rc-ic { font-size: 20px; }
+.rc-stage { font-weight: 700; color: var(--text-primary); font-size: 15px; }
+.rc-tag { margin-left: auto; font-size: 10px; font-weight: 700; letter-spacing: .5px;
+  text-transform: uppercase; color: var(--accent-text, var(--accent)); background: var(--accent-dim);
+  padding: 3px 9px; border-radius: 999px; }
+.rc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.rc-cell.rc-wide { grid-column: 1 / -1; }
+.rc-k { font-size: 10px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
+  color: var(--text-muted); margin-bottom: 3px; }
+.rc-v { color: var(--text-secondary); font-size: 13.5px; line-height: 1.6; }
+.rc-v.rc-why { color: var(--text-primary); }
+.rc-json { margin-top: 12px; }
+.rc-json summary { cursor: pointer; color: var(--accent); font-size: 12px; font-weight: 600; }
+.rc-json .code-block { margin-top: 8px; }
+.rc-json .jk { color: #FCD34D; } .rc-json .jv { color: #34D399; } .rc-json .jc { color: #8896AE; font-style: italic; }
+
+/* --- Interview scenario card --- */
+.scenario-card {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface); padding: 16px 18px; margin: 14px 0;
+}
+.sc-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.sc-badge { font-size: 10px; font-weight: 700; letter-spacing: .5px; padding: 3px 9px;
+  border-radius: 999px; color: #fff; }
+.diff-easy .sc-badge { background: var(--green); }
+.diff-medium .sc-badge { background: var(--blue); }
+.diff-hard .sc-badge { background: var(--red); }
+.sc-anchor { font-size: 11px; color: var(--text-muted); font-weight: 600; }
+.sc-row { display: grid; grid-template-columns: 140px 1fr; gap: 12px; padding: 8px 0;
+  border-top: 1px solid var(--border); }
+.sc-row:first-of-type { border-top: none; }
+.sc-k { font-size: 10px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
+  color: var(--text-muted); padding-top: 2px; }
+.sc-v { color: var(--text-secondary); font-size: 13.5px; line-height: 1.65; }
+.sc-break .sc-v { color: var(--text-primary); }
+.sc-config { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+.sc-config code { font-size: 11px; background: var(--bg-elevated); border: 1px solid var(--border);
+  padding: 2px 7px; border-radius: 6px; color: var(--cyan); }
+.scenario-card .code-block { margin-top: 12px; }
+
+@media (max-width: 640px) {
+  .rc-grid { grid-template-columns: 1fr; }
+  .sc-row { grid-template-columns: 1fr; gap: 4px; }
+}

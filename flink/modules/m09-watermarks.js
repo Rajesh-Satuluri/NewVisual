@@ -3,6 +3,8 @@
 // lateness / out-of-orderness bound, watch the watermark advance,
 // and see which events trigger windows vs. are flagged as late.
 
+import { rideSpine, initRideSpine } from '../components/story-ui.js';
+
 const WINDOW_SIZE = 10; // seconds
 
 const IQS = [
@@ -29,6 +31,7 @@ export function mount(container) {
   let nextId = 9;
 
   container.innerHTML = `
+    ${rideSpine({ active: ['DRIVER_ARRIVING', 'LOCATION_UPDATED'], incidents: ['DEFECT-1', 'DEFECT-3'] })}
     <div class="module-hero">
       <div class="module-hero-content">
         <span class="module-badge">Module 9</span>
@@ -115,6 +118,9 @@ WatermarkStrategy
       <div class="iq-section" id="iq9-section"></div>
     </div>
   `;
+
+  // Ride lifecycle spine (click a stage to jump to the module that teaches it)
+  initRideSpine(container);
 
   // Tabs
   container.querySelectorAll('.tab-btn').forEach(btn => {
