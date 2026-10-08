@@ -3,7 +3,8 @@
 // lateness / out-of-orderness bound, watch the watermark advance,
 // and see which events trigger windows vs. are flagged as late.
 
-import { rideSpine, initRideSpine } from '../components/story-ui.js';
+import { rideSpine, initRideSpine, rideCallout, scenarioList, pyCode } from '../components/story-ui.js';
+import { casesByModule } from '../data/interview-cases.js';
 
 const WINDOW_SIZE = 10; // seconds
 
@@ -18,15 +19,18 @@ const IQS = [
 export function mount(container) {
   let allowedLateness = 5; // seconds — the out-of-orderness bound
   let sideOutputEnabled = false;
+  // R-4471's GPS pings (seconds into the ride). Arrival order = array order;
+  // event time = et. The tunnel ping (#5, et=21) and the stuck ping (#7, et=19)
+  // arrive out of order — this is DEFECT-1 and DEFECT-2 from the ride story.
   let events = [
-    { id: 1, et: 5,  label: 'D-001 GPS t=5'  },
-    { id: 2, et: 8,  label: 'D-002 GPS t=8'  },
-    { id: 3, et: 3,  label: 'D-003 GPS t=3 (late)' },
-    { id: 4, et: 15, label: 'D-001 GPS t=15' },
-    { id: 5, et: 12, label: 'D-002 GPS t=12' },
-    { id: 6, et: 22, label: 'D-003 GPS t=22' },
-    { id: 7, et: 7,  label: 'D-002 GPS t=7 (very late)' },
-    { id: 8, et: 28, label: 'D-001 GPS t=28' },
+    { id: 1, et: 15, label: 'R-4471 GPS t=15 (arriving)' },
+    { id: 2, et: 19, label: 'R-4471 GPS t=19' },
+    { id: 3, et: 23, label: 'R-4471 GPS t=23' },
+    { id: 4, et: 27, label: 'R-4471 GPS t=27' },
+    { id: 5, et: 21, label: 'R-4471 GPS t=21 ⚠ tunnel (DEFECT-1)' },
+    { id: 6, et: 31, label: 'R-4471 GPS t=31' },
+    { id: 7, et: 19, label: 'R-4471 GPS t=19 ⚠ stuck 3m+ (DEFECT-2)' },
+    { id: 8, et: 35, label: 'R-4471 GPS t=35' },
   ];
   let nextId = 9;
 
@@ -76,45 +80,40 @@ export function mount(container) {
     </div>
 
     <div class="tab-content" data-tab="concept">
+      ${rideCallout('DRIVER_ARRIVING', { openEvent: false })}
       <div class="grid-2 gap-20">
         <div class="card p-24">
           <h3 class="mb-12">The Watermark Formula</h3>
           <div style="text-align:center;padding:20px;background:var(--surface2);border-radius:8px;font-size:18px;font-weight:700;color:var(--accent);font-family:var(--font-mono,monospace)">W(t) = max(eventTime) − Δ</div>
-          <p style="color:var(--text-secondary);margin-top:16px;line-height:1.7">The watermark at any point is the maximum event time seen so far, minus the out-of-orderness bound Δ. A window <code>[a, b)</code> closes when the watermark exceeds <code>b</code>, meaning Flink is confident no event with event time in <code>[a, b)</code> will arrive anymore.</p>
+          <p style="color:var(--text-secondary);margin-top:16px;line-height:1.7">The watermark at any point is the maximum event time seen so far, minus the out-of-orderness bound Δ. A window <code>[a, b)</code> closes when the watermark exceeds <code>b</code>, meaning Flink is confident no event with event time in <code>[a, b)</code> will arrive anymore. For R-4471 this is how Flink decides whether a tunnel-delayed GPS ping still counts toward the trip’s distance.</p>
         </div>
         <div class="card p-24">
-          <h3 class="mb-12">Late Event Options</h3>
-          <div class="code-block fs-11"><pre>stream
-  .keyBy(e -> e.driverId)
-  .window(TumblingEventTimeWindows.of(Time.seconds(10)))
-  // Option 1: keep window alive for 5 more seconds
-  .allowedLateness(Time.seconds(5))
-  // Option 2: side output beyond allowed lateness
-  .sideOutputLateData(lateTag)
-  .aggregate(new FraudAggregator());
-
-// Handle very late events separately:
-DataStream&lt;GPSEvent&gt; lateStream =
-    mainStream.getSideOutput(lateTag);</pre></div>
+          <h3 class="mb-12">Watermark strategy for R-4471’s GPS</h3>
+          <p style="color:var(--text-secondary);line-height:1.7;margin:0 0 10px">The strategy that reads <code>event_time</code> off each ping, tolerates 10s of tunnel reordering, and — critically — marks a quiet city partition idle so it can’t freeze every window (DEFECT-3).</p>
+          ${pyCode('watermark_strategy')}
         </div>
         <div class="card p-24">
-          <h3 class="mb-12">Watermark Propagation (Multi-Source)</h3>
-          <p style="color:var(--text-secondary);line-height:1.7;margin:0 0 12px">When multiple source partitions feed one operator, the downstream watermark is the <strong>minimum</strong> across all inputs. One idle partition blocks the watermark for all keys.</p>
-          <div class="code-block fs-11"><pre>// Fix idle sources:
-WatermarkStrategy
-  .&lt;GPSEvent&gt;forBoundedOutOfOrderness(Duration.ofSeconds(5))
-  .withIdleness(Duration.ofSeconds(10));
-// After 10s idle, source is excluded from min-watermark</pre></div>
+          <h3 class="mb-12">Late ping → re-fire, then side output</h3>
+          <p style="color:var(--text-secondary);line-height:1.7;margin:0 0 10px">The tunnel ping (et=21) arrives after the watermark but inside <code>allowedLateness</code> → the window re-fires. The ping stuck 3m+ (DEFECT-2) is past that → diverted to a side stream, never silently dropped.</p>
+          ${pyCode('late_data_side_output')}
         </div>
         <div class="card p-24">
-          <h3 class="mb-12">Uber Tunnel Problem (Recap)</h3>
-          <p class="prose">A driver enters a tunnel at event time 10s. Their GPS buffers events. They exit at processing time 45s. The event arrives 35s late.</p>
-          <p style="color:var(--text-secondary);line-height:1.7;margin-top:8px">With Δ=5s, watermark when event arrives = max_seen − 5 = (say) 50−5 = 45s. The window [10s, 20s) closed at watermark=20s → event is <strong>late</strong>. With <code>allowedLateness(40s)</code>, the window stays open and the event is included — at the cost of 40s of result latency.</p>
+          <h3 class="mb-12">Idle partition stalls everything (DEFECT-3)</h3>
+          <p style="color:var(--text-secondary);line-height:1.7;margin:0 0 10px">An operator’s watermark is the <strong>minimum</strong> across its input partitions. At 03:10 a silent partition pins that minimum in the past, so <em>no</em> window fires though data is flowing. <code>withIdleness(15s)</code> excludes the quiet partition from the min.</p>
+          <p style="color:var(--text-secondary);line-height:1.7;margin:0">See the <code>.with_idleness(Duration.of_seconds(15))</code> line in the strategy above — that single call is the fix for the classic “my windows stopped firing” incident.</p>
         </div>
       </div>
     </div>
 
     <div class="tab-content" data-tab="iq">
+      <div class="section-header" style="margin-bottom:8px">
+        <div class="section-title">Interview corner cases — on ride R-4471</div>
+        <div class="section-desc">The hard, scenario-style watermark questions, each answered against a real moment in the ride.</div>
+      </div>
+      <div id="wm-scenarios"></div>
+      <div class="section-header" style="margin:22px 0 8px">
+        <div class="section-title">More watermark Q&amp;A</div>
+      </div>
       <div class="iq-section" id="iq9-section"></div>
     </div>
   `;
@@ -131,6 +130,10 @@ WatermarkStrategy
       container.querySelector(`.tab-content[data-tab="${btn.dataset.tab}"]`).classList.add('active');
     });
   });
+
+  // Interview corner-case scenario cards (R-4471 anchored)
+  const scen = container.querySelector('#wm-scenarios');
+  if (scen) scen.innerHTML = scenarioList(casesByModule('m09'));
 
   // IQ
   const iqSection = container.querySelector('#iq9-section');
