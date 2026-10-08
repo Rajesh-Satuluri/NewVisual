@@ -400,6 +400,7 @@ textarea.inp { resize: none; overflow: hidden; min-height: 32px; }
 .track-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0; }
 .track-tag { font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
 .track-tag.track-score { color: #a9e6c4; border-color: #2e5a42; background: #16271e; }
+.track-tag.track-snap { color: #c9b3ff; border-color: #463a6b; background: #1b1630; }
 .track-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
 
 /* status colors shared by summary chips and header pills */
