@@ -1244,7 +1244,61 @@
     document.getElementById("btnImport").addEventListener("click", function () { fileInput.click(); });
     fileInput.addEventListener("change", function () { if (fileInput.files && fileInput.files[0]) importJson(fileInput.files[0]); fileInput.value = ""; });
     window.addEventListener("resize", fitPreview);
+    setupResizer();
     setSaveState("Saved");
+  }
+
+  /* Draggable divider: lets the user resize the editor / preview split.
+     Width is clamped so neither pane collapses, and remembered across visits. */
+  var PREVIEW_W_KEY = "newvisual.resume.previewW";
+  function clampPreviewW(w) {
+    var vw = document.documentElement.clientWidth || window.innerWidth || 1200;
+    var max = Math.max(400, vw - 420);   /* keep the editor usable */
+    return Math.max(380, Math.min(w, max, 900));
+  }
+  function applyPreviewW(w) {
+    document.querySelector(".layout").style.setProperty("--preview-w", clampPreviewW(w) + "px");
+    fitPreview();
+  }
+  function setupResizer() {
+    var rz = document.getElementById("resizer");
+    if (!rz) return;
+    var saved = parseFloat(localStorage.getItem(PREVIEW_W_KEY));
+    if (isFinite(saved) && saved > 0) applyPreviewW(saved);
+    var dragging = false;
+    function onMove(e) {
+      if (!dragging) return;
+      var x = (e.touches ? e.touches[0].clientX : e.clientX);
+      var vw = document.documentElement.clientWidth;
+      applyPreviewW(vw - x);     /* preview sits on the right edge */
+      if (e.cancelable) e.preventDefault();
+    }
+    function onUp() {
+      if (!dragging) return;
+      dragging = false;
+      rz.classList.remove("dragging");
+      document.body.classList.remove("resizing");
+      var w = parseFloat(getComputedStyle(document.querySelector(".layout")).getPropertyValue("--preview-w"));
+      if (isFinite(w)) { try { localStorage.setItem(PREVIEW_W_KEY, Math.round(w)); } catch (_) {} }
+    }
+    function onDown(e) {
+      dragging = true;
+      rz.classList.add("dragging");
+      document.body.classList.add("resizing");
+      if (e.cancelable) e.preventDefault();
+    }
+    rz.addEventListener("mousedown", onDown);
+    rz.addEventListener("touchstart", onDown, { passive: false });
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("touchmove", onMove, { passive: false });
+    window.addEventListener("mouseup", onUp);
+    window.addEventListener("touchend", onUp);
+    /* double-click resets to the default width */
+    rz.addEventListener("dblclick", function () {
+      document.querySelector(".layout").style.setProperty("--preview-w", "560px");
+      fitPreview();
+      try { localStorage.removeItem(PREVIEW_W_KEY); } catch (_) {}
+    });
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
 })();

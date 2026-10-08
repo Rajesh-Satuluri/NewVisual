@@ -61,8 +61,23 @@ body { background: var(--bg); color: var(--text); font-family: var(--font-ui); }
 /* ---------- Layout ---------- */
 /* Editor is the primary work surface (large); preview is a small,
    scaled-to-fit verification thumbnail on the right. */
-.layout { display: grid; grid-template-columns: 1fr 560px; height: calc(100vh - 55px); }
+.layout { display: grid; grid-template-columns: minmax(360px, 1fr) 6px var(--preview-w, 560px); height: calc(100vh - 55px); }
 .editor { overflow-y: auto; border-right: 1px solid var(--border); background: var(--bg); }
+
+/* Draggable divider between editor and preview */
+.resizer {
+  cursor: col-resize; background: var(--border);
+  position: relative; user-select: none; touch-action: none;
+  transition: background .15s;
+}
+.resizer::before {
+  content: ""; position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px; height: 30px; border-radius: 2px; background: #6b7488;
+}
+.resizer:hover, .resizer.dragging { background: var(--brand, #2f9bb3); }
+.resizer:hover::before, .resizer.dragging::before { background: #fff; }
+body.resizing { cursor: col-resize; user-select: none; }
 .over-banner {
   position: sticky; top: 0; z-index: 5;
   background: #4a1f24; border-bottom: 1px solid #7a3a40; color: #ffd0d0;
@@ -306,6 +321,7 @@ textarea.inp { resize: none; overflow: hidden; min-height: 32px; }
 /* ---------- Responsive ---------- */
 @media (max-width: 900px) {
   .layout { grid-template-columns: 1fr; height: auto; }
+  .resizer { display: none; }
   .editor { border-right: none; border-bottom: 1px solid var(--border); max-height: 60vh; }
   .preview-wrap { padding: 14px; }
   .page { width: 100%; padding: 28px 24px; }
