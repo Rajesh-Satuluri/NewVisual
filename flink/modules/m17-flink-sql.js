@@ -2,6 +2,9 @@
 // Focuses on production SQL patterns: CEP with MATCH_RECOGNIZE,
 // CDC ingestion, EXPLAIN plan reading, and multi-sink INSERT INTO.
 
+import { rideSpine, initRideSpine, rideCallout, scenarioList } from '../components/story-ui.js';
+import { casesByModule } from '../data/interview-cases.js';
+
 const PATTERNS = [
   {
     id:'cep',    label:'CEP / MATCH_RECOGNIZE', icon:'🔍', category:'Advanced',
@@ -60,24 +63,24 @@ JOIN driver_profiles_cdc FOR SYSTEM_TIME AS OF g.event_time AS p
     id:'multisink', label:'Multi-Sink (Statement Set)', icon:'📤', category:'Streaming ETL',
     desc:'A StatementSet lets you run multiple INSERT INTO statements in a single Flink job, sharing the source parsing cost and checkpoint overhead.',
     uber:'From one GPS event stream: write speeding alerts to Kafka, write raw GPS to S3, and write hourly driver stats to PostgreSQL — three sinks, one job, one checkpoint.',
-    sql:`-- One source, three sinks — single job
-StatementSet stmts = tableEnv.createStatementSet();
+    sql:`# One source, three sinks — single job (PyFlink Table API)
+stmts = t_env.create_statement_set()
 
-// Sink 1: Kafka fraud alerts
-stmts.addInsertSql("""
+# Sink 1: Kafka fraud alerts
+stmts.add_insert_sql("""
   INSERT INTO fraud_alerts_kafka
   SELECT driver_id, speed_kmh, event_time
   FROM gps_events WHERE speed_kmh > 80
-""");
+""")
 
-// Sink 2: S3 raw events (Parquet)
-stmts.addInsertSql("""
+# Sink 2: S3 raw events (Parquet)
+stmts.add_insert_sql("""
   INSERT INTO gps_raw_s3
   SELECT * FROM gps_events
-""");
+""")
 
-// Sink 3: PostgreSQL hourly aggregates
-stmts.addInsertSql("""
+# Sink 3: PostgreSQL hourly aggregates
+stmts.add_insert_sql("""
   INSERT INTO driver_stats_pg
   SELECT driver_id,
     TUMBLE_START(event_time, INTERVAL '1' HOUR),
@@ -85,9 +88,9 @@ stmts.addInsertSql("""
   FROM gps_events
   GROUP BY driver_id,
     TUMBLE(event_time, INTERVAL '1' HOUR)
-""");
+""")
 
-stmts.execute(); // one Flink job`,
+stmts.execute()   # one Flink job`,
     notes:'Without StatementSet, each INSERT INTO would be a separate job with its own Kafka source — tripling ingest cost. StatementSet DAG-fuses sources automatically.',
   },
   {
@@ -151,6 +154,7 @@ export function mount(container) {
   let selected = PATTERNS[0];
 
   container.innerHTML = `
+    ${rideSpine({ active: ['LOCATION_UPDATED', 'RIDE_COMPLETED'], incidents: ['DEFECT-6'] })}
     <div class="module-hero">
       <div class="module-hero-content">
         <span class="module-badge">Module 17</span>
@@ -164,14 +168,25 @@ export function mount(container) {
     </div>
 
     <div class="tab-content active" data-tab="patterns">
+      ${rideCallout('LOCATION_UPDATED', { openEvent: false })}
       <div class="sql-picker" id="sql17-picker"></div>
       <div id="sql17-detail" style="padding:20px 28px 28px"></div>
     </div>
 
     <div class="tab-content" data-tab="iq">
+      <div class="section-header" style="margin-bottom:8px">
+        <div class="section-title">Interview corner cases — on ride R-4471</div>
+        <div class="section-desc">CEP/MATCH_RECOGNIZE for surge detection — the PyFlink-vs-Java-CEP gap.</div>
+      </div>
+      <div id="sql-scenarios"></div>
+      <div class="section-header" style="margin:22px 0 8px"><div class="section-title">More SQL Q&amp;A</div></div>
       <div class="iq-section" id="iq17-section"></div>
     </div>
   `;
+
+  initRideSpine(container);
+  const sqlScen = container.querySelector('#sql-scenarios');
+  if (sqlScen) sqlScen.innerHTML = scenarioList(casesByModule('m17'));
 
   container.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {

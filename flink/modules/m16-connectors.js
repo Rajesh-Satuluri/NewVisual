@@ -2,6 +2,9 @@
 // Connector ecosystem explorer: click a connector card to see
 // config, code, delivery guarantee, and Uber use case.
 
+import { rideSpine, initRideSpine, rideCallout, scenarioList } from '../components/story-ui.js';
+import { casesByModule } from '../data/interview-cases.js';
+
 const CONNECTORS = [
   {
     id:'kafka',     label:'Apache Kafka',   icon:'📨', badge:'Source + Sink', color:'#6366f1',
@@ -13,15 +16,17 @@ const CONNECTORS = [
 'properties.bootstrap.servers' = 'kafka:9092'
 'format'      = 'json'
 'scan.startup.mode' = 'latest-offset'`,
-    code:`KafkaSource<GPSEvent> source = KafkaSource
-  .<GPSEvent>builder()
-  .setBootstrapServers("kafka:9092")
-  .setTopics("driver-locations")
-  .setGroupId("flink-fraud")
-  .setStartingOffsets(
-      OffsetsInitializer.committedOffsets())
-  .setValueOnlyDeserializer(new GPSSchema())
-  .build();`,
+    code:`from pyflink.datastream.connectors.kafka import (
+    KafkaSource, KafkaOffsetsInitializer)
+from pyflink.common.serialization import SimpleStringSchema
+
+source = (KafkaSource.builder()
+    .set_bootstrap_servers("kafka:9092")
+    .set_topics("driver-locations")
+    .set_group_id("flink-fraud")
+    .set_starting_offsets(KafkaOffsetsInitializer.committed_offsets())
+    .set_value_only_deserializer(SimpleStringSchema())
+    .build())`,
   },
   {
     id:'filesystem', label:'FileSystem / S3', icon:'🗂️', badge:'Source + Sink', color:'#10b981',
@@ -32,16 +37,17 @@ const CONNECTORS = [
 'path'       = 's3://uber-datalake/gps/'
 'format'     = 'parquet'
 'sink.rolling-policy.rollover-interval' = '1h'`,
-    code:`FileSink<GPSEvent> sink = FileSink
-  .forBulkFormat(
-      new Path("s3://uber-datalake/gps/"),
-      ParquetAvroWriters
-          .forReflectRecord(GPSEvent.class))
-  .withBucketAssigner(
-      new DateTimeBucketAssigner<>("yyyy-MM-dd/HH"))
-  .withRollingPolicy(
-      OnCheckpointRollingPolicy.build())
-  .build();`,
+    code:`from pyflink.datastream.connectors.file_system import (
+    FileSink, RollingPolicy)
+from pyflink.common.serialization import Encoder
+
+sink = (FileSink
+    .for_row_format("s3://uber-datalake/gps/",
+                    Encoder.simple_string_encoder())
+    .with_rolling_policy(RollingPolicy.on_checkpoint_rolling_policy())
+    .build())
+stream.sink_to(sink)
+# Parquet bulk: FileSink.for_bulk_format(path, writer_factory)`,
   },
   {
     id:'jdbc',       label:'JDBC (PostgreSQL)', icon:'🗄️', badge:'Source + Sink', color:'#8b5cf6',
@@ -53,22 +59,21 @@ driver   = 'org.postgresql.Driver'
 username = 'flink'
 password = '***'
 table-name = 'driver_stats'`,
-    code:`SinkFunction<DriverStats> sink = JdbcSink.sink(
-  "INSERT INTO driver_stats(driver_id,trips,updated_at)"
-  + " VALUES(?,?,?) ON CONFLICT(driver_id)"
-  + " DO UPDATE SET trips=EXCLUDED.trips,"
-  + " updated_at=EXCLUDED.updated_at",
-  (stmt, s) -> {
-      stmt.setString(1, s.driverId);
-      stmt.setLong(2, s.trips);
-      stmt.setTimestamp(3, Timestamp.from(now()));
-  },
-  JdbcExecutionOptions.builder()
-      .withBatchSize(1000).build(),
-  new JdbcConnectionOptionsBuilder()
-      .withUrl("jdbc:postgresql://pg:5432/trips")
-      .withDriverName("org.postgresql.Driver")
-      .build());`,
+    code:`from pyflink.datastream.connectors.jdbc import (
+    JdbcSink, JdbcConnectionOptions, JdbcExecutionOptions)
+
+sink = JdbcSink.sink(
+    "INSERT INTO driver_stats(driver_id, trips, updated_at) "
+    "VALUES (?, ?, ?) ON CONFLICT (driver_id) "
+    "DO UPDATE SET trips = EXCLUDED.trips, "
+    "updated_at = EXCLUDED.updated_at",
+    row_type_info,                       # Types.ROW_NAMED([...])
+    JdbcExecutionOptions.builder().with_batch_size(1000).build(),
+    JdbcConnectionOptions.JdbcConnectionOptionsBuilder()
+        .with_url("jdbc:postgresql://pg:5432/trips")
+        .with_driver_name("org.postgresql.Driver")
+        .build())
+stream.add_sink(sink)`,
   },
   {
     id:'hudi',       label:'Apache Hudi (S3)', icon:'🏔️', badge:'Sink',         color:'#f59e0b',
@@ -104,19 +109,18 @@ SELECT driver_id, tier, NOW() FROM cdc_stream;`,
 'catalog-type'   = 'hadoop'
 'warehouse'      = 's3://uber-iceberg/'
 'format-version' = '2'`,
-    code:`// Using Flink-Iceberg catalog integration:
-tableEnv.executeSql("""
+    code:`# PyFlink Table API — Flink-Iceberg catalog integration:
+t_env.execute_sql("""
   CREATE CATALOG uber_catalog WITH (
-    'type'      = 'iceberg',
+    'type'         = 'iceberg',
     'catalog-type' = 'hadoop',
-    'warehouse' = 's3://uber-iceberg/'
+    'warehouse'    = 's3://uber-iceberg/'
   )
-""");
-tableEnv.executeSql(
-  "INSERT INTO uber_catalog.gps_db.gps_agg "
-  + "SELECT driver_id, window_start, avg_speed "
-  + "FROM ..."
-);`,
+""")
+t_env.execute_sql("""
+  INSERT INTO uber_catalog.gps_db.gps_agg
+  SELECT driver_id, window_start, avg_speed FROM ...
+""")`,
   },
   {
     id:'datagen',    label:'DataGen (Testing)', icon:'🎲', badge:'Source',       color:'#ec4899',
@@ -159,6 +163,7 @@ export function mount(container) {
   let selected = CONNECTORS[0];
 
   container.innerHTML = `
+    ${rideSpine({ active: ['RIDE_REQUESTED', 'PAYMENT_COMPLETED'], incidents: ['DEFECT-5'] })}
     <div class="module-hero">
       <div class="module-hero-content">
         <span class="module-badge">Module 16</span>
@@ -172,14 +177,25 @@ export function mount(container) {
     </div>
 
     <div class="tab-content active" data-tab="explorer">
+      ${rideCallout('PAYMENT_COMPLETED', { openEvent: false })}
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;padding:20px 28px 0" id="conn16-picker"></div>
       <div id="conn16-detail" style="padding:20px 28px 28px"></div>
     </div>
 
     <div class="tab-content" data-tab="iq">
+      <div class="section-header" style="margin-bottom:8px">
+        <div class="section-title">Interview corner cases — on ride R-4471</div>
+        <div class="section-desc">Exactly-once sink &amp; offset-commit questions, anchored to the payment retry (DEFECT-5).</div>
+      </div>
+      <div id="conn-scenarios"></div>
+      <div class="section-header" style="margin:22px 0 8px"><div class="section-title">More connector Q&amp;A</div></div>
       <div class="iq-section" id="iq16-section"></div>
     </div>
   `;
+
+  initRideSpine(container);
+  const connScen = container.querySelector('#conn-scenarios');
+  if (connScen) connScen.innerHTML = scenarioList(casesByModule('m16'));
 
   container.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
