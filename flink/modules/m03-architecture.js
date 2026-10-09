@@ -186,6 +186,116 @@ const IQS = [
   },
 ];
 
+// ── "What & Why" foundations (additive) ──────────────────────────
+const WHY_REASONS = [
+  { icon: '🌐', title: 'Distribute the compute', body: 'One machine can\'t process 1M GPS events/sec. The architecture spreads operators across many <b>TaskManagers</b> running in parallel.' },
+  { icon: '🧠', title: 'Coordinate one job', body: 'A per-job <b>JobManager</b> turns your logical plan into parallel tasks, schedules them, and drives checkpoints — the single brain of the job.' },
+  { icon: '🎛️', title: 'Allocate resources', body: 'The <b>ResourceManager</b> hands out task slots and (on K8s/YARN) spins up new TaskManagers when load rises.' },
+  { icon: '🧱', title: 'Isolate jobs', body: 'One <b>Dispatcher</b> fronts the cluster but each job gets its own JobManager, so one job\'s failure never takes down another.' },
+  { icon: '✅', title: 'Coordinate checkpoints', body: 'The <b>CheckpointCoordinator</b> injects barriers and collects ACKs so hundreds of tasks snapshot a consistent global state.' },
+  { icon: '📈', title: 'Scale elastically', body: 'Reactive/adaptive modes let the ResourceManager rescale parallelism to match the TaskManagers available — no redeploy.' },
+];
+
+const PROBLEMS = [
+  { naive: 'Run the whole pipeline in one process on one box.', fail: 'It <b>can\'t keep up</b> with 1M events/sec and a single crash loses everything.', fix: 'Control-plane/data-plane split distributes work across many TaskManagers with coordinated recovery.' },
+  { naive: 'Let every job share one coordinator.', fail: 'One job\'s failure or restart <b>stalls all the others</b> on the cluster.', fix: 'One JobManager per job gives each an isolated failure domain behind a shared Dispatcher.' },
+  { naive: 'Give each operator instance its own slot.', fail: 'A 6-operator × 32-parallelism pipeline needs <b>192 slots</b> — wildly inefficient.', fix: 'Slot sharing runs a whole pipeline chain per slot — only 32 slots needed.' },
+  { naive: 'Fix parallelism and provision for peak forever.', fail: 'You either <b>over-pay</b> off-peak or fall over on New Year\'s Eve.', fix: 'The ResourceManager requests/releases TaskManagers so capacity tracks load.' },
+];
+
+const WHY_HTML = `
+  <div class="sm-wrap">
+    <div class="sm-def card">
+      <div class="sm-def-ic">🏛️</div>
+      <div>
+        <div class="sm-def-eyebrow">What is Flink's architecture?</div>
+        <p class="sm-def-lead">Flink's architecture is a set of cooperating processes — <b>Client, Dispatcher, JobManager, ResourceManager, TaskManagers</b> — that turn your DataStream code into a distributed, fault-tolerant running job. Its backbone is the <b>control-plane / data-plane split</b>: coordination components process zero user data, while TaskManagers do all the actual stream processing. On ride <b>R-4471</b>, this is the machinery that runs the fraud pipeline across 50 machines at 1M events/sec.</p>
+      </div>
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">Control plane vs. data plane</div>
+      <div class="section-desc">The split that makes the whole architecture legible.</div>
+    </div>
+    <div class="sm-vs">
+      <div class="sm-vs-card stateless">
+        <div class="sm-vs-head">🧠 Control plane</div>
+        <p class="sm-vs-sub">Coordinates; touches no user data.</p>
+        <ul>
+          <li>Client builds the JobGraph</li>
+          <li>Dispatcher + JobManager schedule</li>
+          <li>ResourceManager hands out slots</li>
+        </ul>
+        <div class="sm-vs-note">A JobManager crash loses no checkpointed data.</div>
+      </div>
+      <div class="sm-vs-card stateful">
+        <div class="sm-vs-head">⚙️ Data plane</div>
+        <p class="sm-vs-sub">Does all the actual processing.</p>
+        <ul>
+          <li>TaskManagers run operator tasks</li>
+          <li>Hold state (RocksDB/heap)</li>
+          <li>Exchange data with backpressure</li>
+        </ul>
+        <div class="sm-vs-note">Scales horizontally — add TaskManagers, add throughput.</div>
+      </div>
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">Why it takes a cluster of roles</div>
+      <div class="section-desc">Six jobs the architecture must do that one process can't.</div>
+    </div>
+    <div class="sm-why-grid">
+      ${WHY_REASONS.map(r => `
+        <div class="sm-why">
+          <div class="sm-why-ic">${r.icon}</div>
+          <div class="sm-why-title">${r.title}</div>
+          <p>${r.body}</p>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">The problem the architecture solves</div>
+      <div class="section-desc">Four ways a single-process design breaks at scale — and the fix.</div>
+    </div>
+    <div class="sm-prob-list">
+      ${PROBLEMS.map((p, i) => `
+        <div class="sm-prob">
+          <div class="sm-prob-no">${i + 1}</div>
+          <div class="sm-prob-body">
+            <div class="sm-prob-naive"><span class="sm-tag naive">Naïve</span>${p.naive}</div>
+            <div class="sm-prob-fail"><span class="sm-tag fail">Breaks</span>${p.fail}</div>
+            <div class="sm-prob-fix"><span class="sm-tag fix">Flink</span>${p.fix}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">From submit to data flowing</div>
+    </div>
+    <div class="sm-keyed card">
+      <p>Every role earns its place in one sequence — the lifecycle of a submitted job.</p>
+      <ul>
+        <li><b>Client</b> runs <code>main()</code> → builds the JobGraph (logical DAG) → submits to the Dispatcher.</li>
+        <li><b>Dispatcher</b> spawns a <b>JobManager</b>, which expands the JobGraph into a parallel ExecutionGraph.</li>
+        <li><b>ResourceManager</b> hands slots from <b>TaskManagers</b>; tasks deploy, connect to Kafka, and data flows.</li>
+      </ul>
+      <div class="sm-keyed-flow">
+        <code>main()</code> <span class="sm-arrow">→</span> <b>JobGraph</b> <span class="sm-arrow">→</span> Dispatcher <span class="sm-arrow">→</span> <b>JobManager</b> → ExecutionGraph <span class="sm-arrow">→</span> slots from RM <span class="sm-arrow">→</span> <b>TaskManagers</b> run → data flows
+      </div>
+    </div>
+
+    <div class="sm-bridge" style="margin-top:26px">
+      <div class="sm-bridge-txt">
+        <div class="sm-bridge-k">Now explore every component</div>
+        <p>You know <b>why</b> each role exists — click through the live architecture diagram to see each component's responsibilities and mechanics.</p>
+      </div>
+      <button class="sm-bridge-btn" data-jump="diagram">Open the Architecture Diagram →</button>
+    </div>
+  </div>
+`;
+
 // ── Mount ─────────────────────────────────────────────────────────────────
 export function mount(container) {
   container.innerHTML = rideSpine({ active: ['DRIVER_SEARCHING', 'RIDE_STARTED'] }) + createModuleShell({
@@ -193,6 +303,7 @@ export function mount(container) {
     title: 'Flink Architecture',
     subtitle: 'Click any component to explore its role, internal mechanics, and how it handles Uber\'s 1M GPS events per second. Every interview starts here.',
     tabs: [
+      { id: 'why',       label: '📖 What & Why', content: WHY_HTML },
       { id: 'diagram',   label: '🏛️ Architecture Diagram' },
       { id: 'concept',   label: '📖 Deep Dive' },
       { id: 'interview', label: '🎤 Interview Q&A' },
@@ -201,6 +312,17 @@ export function mount(container) {
 
   initTabs(container);
   initRideSpine(container);
+
+  // Bridge button: jump from "What & Why" into the Architecture Diagram tab.
+  const jumpBtn = container.querySelector('[data-jump]');
+  if (jumpBtn) {
+    jumpBtn.addEventListener('click', () => {
+      const target = jumpBtn.dataset.jump;
+      container.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === target));
+      container.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === `tab-${target}`));
+      container.querySelector('.module-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
   container.querySelector('#tab-diagram').innerHTML   = buildDiagramTab();
   container.querySelector('#tab-concept').innerHTML   = buildConceptTab();
   container.querySelector('#tab-interview').innerHTML = createIQSection(IQS);
