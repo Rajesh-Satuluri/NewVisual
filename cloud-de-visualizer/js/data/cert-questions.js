@@ -769,6 +769,8 @@
   TV.CertQuestions = {
     byCert(certId) { return Q[certId] || []; },
     has(certId) { return !!(Q[certId] && Q[certId].length); },
+    certIds() { return Object.keys(Q); },          // every bank key (incl. orphans) — used by the content validator
+    all() { return Object.keys(Q).reduce((a, k) => a.concat(Q[k]), []); },
     LEVEL_LABEL: LEVEL_LABEL,
   };
 })();

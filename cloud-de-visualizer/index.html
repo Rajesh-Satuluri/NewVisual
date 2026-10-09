@@ -569,6 +569,7 @@
 <!-- UI Components -->
 <script src="js/components/code-viewer.js"></script>
 <script src="js/components/animation-controls.js"></script>
+<script src="js/components/verified-chip.js"></script>
 
 <!-- Renderers (generic service-detail + stub home + cross-cloud matrix) -->
 <script src="js/modules/_service-detail.js"></script>
@@ -577,6 +578,7 @@
 <script src="js/modules/multi-cloud.js"></script>
 
 <!-- Data layer (must load before the format that reads it) -->
+<script src="js/data/_meta.js"></script>
 <script src="js/data/azure-services.js"></script>
 <script src="js/data/databricks-services.js"></script>
 <script src="js/data/aws-services.js"></script>
@@ -618,6 +620,7 @@
 
 <!-- Recommendation engine (pure) + "For You" dashboard. Loads AFTER the
      format descriptors (so it can add the nav item) and BEFORE app boot. -->
+<script src="js/features/question-engine.js"></script>
 <script src="js/features/recommend-engine.js"></script>
 <script src="js/features/cert-engine.js"></script>
 <script src="js/features/cert-exam.js"></script>

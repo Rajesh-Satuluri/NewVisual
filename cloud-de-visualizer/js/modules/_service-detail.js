@@ -144,7 +144,8 @@
 .sd-eyebrow { font-size:11px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--brand); margin-bottom:8px; }
 .sd-h1 { font-size:28px; font-weight:800; letter-spacing:-.02em; color:var(--text-primary); margin:0 0 6px; }
 .sd-aka { font-size:13px; color:var(--text-muted); margin:0 0 10px; font-style:italic; }
-.sd-tagline { font-size:16px; color:var(--text-secondary); line-height:1.7; margin:0 0 20px; max-width:760px; }
+.sd-tagline { font-size:16px; color:var(--text-secondary); line-height:1.7; margin:0 0 14px; max-width:760px; }
+.sd-verified { margin:0 0 20px; }
 .sd-intu { background:linear-gradient(135deg, var(--brand-glow), transparent 70%); border:1px solid var(--border-default); border-left:3px solid var(--brand); border-radius:var(--radius-lg,12px); padding:16px 18px; margin:0 0 18px; }
 .sd-intu-head { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--brand); margin-bottom:11px; display:flex; align-items:center; gap:7px; }
 .sd-intu-bulb { font-size:14px; }
@@ -237,6 +238,7 @@
     let styles = document.getElementById('sd-styles') ? '' : styleTag();
     const aka = svc.aka ? `<p class="sd-aka">${esc(svc.aka)}</p>` : '';
     const catLabel = (CATEGORIES[svc.category] || {}).label || svc.category || '';
+    const vchip = (TV.VerifiedChip ? TV.VerifiedChip.html(format + '-services', svc) : '');
     container.innerHTML = `${styles}
 <div class="sd page-enter">
   <div class="sd-wrap">
@@ -244,6 +246,7 @@
     <h1 class="sd-h1">${esc(svc.name)}</h1>
     ${aka}
     <p class="sd-tagline">${esc(svc.tagline || '')}</p>
+    ${vchip ? `<div class="sd-verified">${vchip}</div>` : ''}
     ${keyFactsHTML(svc.keyFacts)}
     ${intuitionHTML(svc.intuition || (TV.Intuition && TV.Intuition[svc.id]))}
     ${sectionHTML('What it is', 'what', svc.what)}
