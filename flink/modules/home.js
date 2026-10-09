@@ -52,10 +52,11 @@ export function mount(container) {
           Uber's production data platform — from your first watermark to interview-ready.
         </p>
         <div class="home-cta">
-          <button class="btn btn-primary" data-goto="${nextId}">
+          <button class="btn btn-primary" data-goto="learning-path">🧭 Follow the guided path <span>→</span></button>
+          <button class="btn btn-secondary" data-goto="${nextId}">
             ${done.size ? 'Continue' : 'Start'} — ${nextMod ? nextMod.icon + ' ' + nextMod.title : 'Begin'} <span>→</span>
           </button>
-          <button class="btn btn-secondary" data-goto="master-map">🗺️ See the big picture</button>
+          <button class="btn btn-ghost" data-goto="master-map">🗺️ See the big picture</button>
           <button class="btn btn-ghost" data-goto="comparison">⚖️ Flink vs Spark vs Kafka Streams</button>
         </div>
       </div>

@@ -28,6 +28,7 @@ export const MODULES = [
 // Synthetic entries that live in the sidebar but aren't numbered modules.
 // They don't count toward course progress or the prev/next pager.
 export const EXTRAS = [
+  { id: 'learning-path', title: 'Learning Path', icon: '🧭', group: 'Start', num: '▶' },
   { id: 'master-map', title: 'Master Map',       icon: '🗺️', group: 'Reference', num: '' },
   { id: 'comparison', title: 'Engine Comparison', icon: '⚖️', group: 'Reference', num: '' },
   { id: 'glossary',   title: 'Glossary',          icon: '📖', group: 'Reference', num: '' },
@@ -62,6 +63,9 @@ function buildGroups() {
   [...new Set(EXTRAS.map(e => e.group))].forEach(name => {
     groups.push({ name, items: EXTRAS.filter(e => e.group === name) });
   });
+  // Float the "Start" synthetic group to the very top so the guided path is
+  // the first thing in the sidebar (purely a display reorder).
+  groups.sort((a, b) => (a.name === 'Start' ? -1 : b.name === 'Start' ? 1 : 0));
   return groups;
 }
 

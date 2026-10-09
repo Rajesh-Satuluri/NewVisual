@@ -9,6 +9,7 @@ import { QUIZ_BANK } from './data/quiz-bank.js';
 // ── Module loaders (lazy) ─────────────────────────────────────────────────
 const LOADERS = {
   home:  () => import('./modules/home.js'),
+  'learning-path': () => import('./modules/learning-path.js'),
   m01: () => import('./modules/m01-intro.js'),
   m02: () => import('./modules/m02-streaming-fundamentals.js'),
   m03: () => import('./modules/m03-architecture.js'),

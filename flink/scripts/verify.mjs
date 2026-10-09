@@ -32,7 +32,7 @@ await new Promise((r) => server.listen(PORT, r));
 // routes to test (keys from LOADERS)
 const ROUTES = process.argv[2]
   ? process.argv[2].split(',')
-  : ['home','m01','m02','m03','m04','m05','m06','m07','m08','m09','m10','m11','m12','m13','m14','m15','m16','m17','m18','m19','comparison','glossary','cheatsheet','master-map','study'];
+  : ['home','learning-path','m01','m02','m03','m04','m05','m06','m07','m08','m09','m10','m11','m12','m13','m14','m15','m16','m17','m18','m19','comparison','glossary','cheatsheet','master-map','study'];
 
 const browser = await chromium.launch({ executablePath: CHROME });
 let failures = 0;
