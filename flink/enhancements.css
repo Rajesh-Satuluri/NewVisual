@@ -567,3 +567,75 @@ body.cmdk-open { overflow: hidden; }
   cursor: pointer; font-size: 13px; white-space: nowrap; transition: var(--transition);
 }
 .lp-reset:hover { border-color: var(--red); color: var(--red); }
+
+/* Learning Path — narrative upgrade: cast list, scene set-up, scene cards, payoff */
+.lp-cast {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px;
+  margin: 0 0 20px; padding: 12px 16px; background: var(--bg-surface);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  font-size: 13px; color: var(--text-secondary);
+}
+.lp-cast-k { font-weight: 700; color: var(--text-primary); }
+.lp-cast-item { display: inline-flex; align-items: center; gap: 5px; }
+.lp-cast-item b { color: var(--text-primary); }
+.lp-cast code, .lp-scene-id code {
+  font-family: var(--font-mono); font-size: 12px; color: var(--accent);
+  background: var(--accent-dim); padding: 1px 6px; border-radius: var(--radius-sm);
+}
+
+.lp-scene-set {
+  font-size: 15px; line-height: 1.65; color: var(--text-secondary);
+  font-style: italic; margin: 0 0 16px; padding-left: 14px;
+  border-left: 3px solid var(--accent);
+}
+
+.lp-scenes { margin: 18px 0 4px; }
+.lp-scenes-k {
+  font-size: 13px; font-weight: 700; color: var(--text-primary);
+  margin-bottom: 10px;
+}
+.lp-scene {
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px 16px; margin-bottom: 12px;
+}
+.lp-scene-head {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.lp-scene-no {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .05em; color: var(--accent-text); background: var(--accent);
+  padding: 2px 8px; border-radius: 99px;
+}
+.lp-scene-title { font-size: 15px; font-weight: 700; color: var(--text-primary); flex: 1; min-width: 0; }
+.lp-scene-id { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+.lp-scene-beat { margin: 8px 0; }
+.lp-scene-beat p { margin: 2px 0 0; font-size: 13px; line-height: 1.6; color: var(--text-secondary); }
+.lp-scene-k { font-size: 12px; font-weight: 700; color: var(--text-primary); }
+.lp-scene-beat.break .lp-scene-k { color: var(--red); }
+.lp-scene-beat.fix .lp-scene-k { color: var(--green); }
+.lp-scene-nums {
+  display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 4px;
+}
+.lp-scene-num {
+  font-size: 12px; color: var(--text-secondary); background: var(--bg-card);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 3px 9px; font-family: var(--font-mono);
+}
+.lp-scene-num b { color: var(--text-primary); }
+.lp-scene-go {
+  margin-top: 10px; display: inline-flex; align-items: center; gap: 6px;
+  background: var(--accent-dim); border: 1px solid var(--accent);
+  color: var(--accent-text); border-radius: var(--radius);
+  padding: 7px 13px; font-size: 12px; font-weight: 600; cursor: pointer;
+  transition: var(--transition);
+}
+.lp-scene-go:hover { background: var(--accent); color: var(--accent-text); filter: brightness(1.05); }
+
+.lp-payoff {
+  display: flex; gap: 10px; align-items: flex-start; margin: 12px 0 0;
+  padding: 10px 14px; background: var(--green-dim);
+  border: 1px solid var(--green); border-radius: var(--radius);
+  color: var(--text-secondary); font-size: 13px; line-height: 1.55; font-style: italic;
+}
+.lp-payoff-ic { font-style: normal; }

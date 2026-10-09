@@ -25,84 +25,119 @@ const ACTS = [
   {
     n: 0, key: 'orient', icon: '🧭', title: 'Orientation — why streaming at all',
     time: '~25 min', tag: 'Foundation',
-    problem: `Uber ingests ~1,000,000 GPS pings a second. The old batch stack caught payment fraud ~45 minutes after the trip — long after the driver was paid and gone. "Run it again tonight" is not an answer when money moves in milliseconds.`,
-    batch: 'A nightly/periodic batch job can only ever tell you what happened hours ago. The window of action has already closed.',
-    need: 'A mindset shift: unbounded streams processed continuously, with results that update as events arrive — not tables recomputed on a cron.',
+    scene: `It's 19:42 on a Thursday in Hyderabad. Somewhere in Hi-Tech City a rider opens the app, and a ride we'll follow for the rest of this course — R-4471 — is about to begin. But before we trace a single ping, we have to answer the question Uber had to answer first: why build any of this as a *stream* at all?`,
+    problem: `Uber ingests roughly a million GPS pings every second. The old batch stack caught payment fraud about 45 minutes after a trip ended — long after the driver had been paid and had driven away. "We'll re-run the report tonight" is no answer when the money has already moved.`,
+    batch: 'A nightly or hourly batch job can only ever tell you what happened hours ago. By the time it answers, the window to act has already closed.',
+    need: 'A genuine shift in mindset: data as an unbounded stream processed continuously, with answers that update the instant events arrive — not tables recomputed on a cron schedule.',
     mods: ['m01', 'm02'],
     ride: ['RIDE_REQUESTED'],
-    milestone: 'You can explain, to a skeptic, why batch cannot catch sub-second fraud and what "unbounded stream" actually means.',
+    payoff: `By the end of this act you should feel the itch — batch simply cannot see "now", and "now" is where fraud, surge, and safety all live.`,
+    milestone: 'You can explain, to a skeptic, why batch cannot catch sub-second fraud and what an "unbounded stream" actually is.',
     fast: false,
   },
   {
     n: 1, key: 'engine', icon: '🏛️', title: 'The engine — how one ping gets processed',
     time: '~50 min', tag: 'Architecture',
-    problem: `R-4471's first ping lands on Kafka partition 7. Something has to pull it, route it to the right worker, run your logic in parallel across a cluster, and do that a million times a second — without you provisioning a server per event.`,
-    batch: 'Hand-sharding events across machines yourself is how you get hotspots, lost records, and un-debuggable pipelines.',
-    need: 'The cluster execution model: JobManager + TaskManagers + slots, how a job is scheduled, how parallel subtasks split the load, and how records flow between operators.',
+    scene: `R-4471's very first event lands on Kafka partition 7. Right now it's just one JSON blob among a million others this second. For it to become anything useful, an engine has to pick it up, carry it to the right worker, and run your logic on it — then do that a million more times before the second is out.`,
+    problem: `Something has to pull that event off Kafka, route it to the correct worker, run your code in parallel across a whole cluster, and keep doing it a million times a second — all without you hand-provisioning a server for every event.`,
+    batch: 'Trying to hand-shard events across machines yourself is exactly how you end up with hotspots, silently lost records, and a pipeline nobody can debug.',
+    need: 'The cluster execution model: the JobManager and TaskManagers and their slots, how a job is scheduled onto them, how parallel subtasks split the load, and how records actually flow from one operator to the next.',
     mods: ['m03', 'm04', 'm05', 'm06', 'm07'],
     ride: ['DRIVER_SEARCHING'],
-    milestone: 'You can trace a single record from Kafka source → keyBy → operator subtask, and say why keyBy guarantees per-key correctness.',
+    payoff: `Once this clicks, R-4471 stops being "a record" and becomes a record with a *route* — you can point to the exact subtask that will handle it and say why.`,
+    milestone: 'You can trace one record from Kafka source → keyBy → operator subtask, and explain why keyBy guarantees per-key correctness.',
     fast: false,
   },
   {
     n: 2, key: 'time', icon: '⏱️', title: 'Getting time right — the keystone',
     time: '~45 min · do not rush', tag: 'Time & Windows',
-    problem: `The driver dips under the Durgam Cheruvu underpass. A GPS ping stamped +21s is buffered on the phone and arrives at +34s (DEFECT-1) — after the system already "moved past" +21s. Which clock decides when it happened: the phone's, or Flink's?`,
-    batch: 'Using arrival ("processing") time puts the tunnel ping in the wrong window and corrupts every distance & speed metric for the trip.',
-    need: 'Event time vs processing vs ingestion time; watermarks to reason about completeness under out-of-order delivery; windows to bucket the stream. This is the conceptual spine everything downstream rests on.',
+    scene: `Rahul, our driver, noses the white Dzire under the Durgam Cheruvu underpass on his way to the pickup. For thirteen seconds his phone has no signal. The GPS reading it took at +21 seconds sits trapped in the handset — and when the tunnel ends, it finally arrives at +34 seconds, long after the system had already moved on. This is the single most important act in the course.`,
+    problem: `Which clock decides when something happened — the phone's clock, or Flink's? Get this wrong and the tunnel ping lands in the wrong window and quietly corrupts every distance and speed number for the whole trip.`,
+    batch: 'Using arrival ("processing") time drops the tunnel ping into the wrong bucket and poisons the metrics downstream — and you may never notice.',
+    need: 'Event time vs processing vs ingestion time; watermarks to reason about how "complete" the past is under out-of-order delivery; and windows to slice an endless stream into answerable questions. Everything downstream rests on this.',
     mods: ['m08', 'm09', 'm10'],
     ride: ['DRIVER_ARRIVING', 'DRIVER_ARRIVED'],
     incidents: ['DEFECT-1', 'DEFECT-2', 'DEFECT-3'],
-    milestone: 'You can explain watermarks, bounded-out-of-orderness, allowed lateness, side-output for late data, and why an idle partition can freeze every window.',
+    payoff: `When you finish here, late data stops being scary. You'll know exactly when a window fires, what happens to a straggler, and why a silent partition can freeze the entire job.`,
+    milestone: 'You can explain watermarks, bounded-out-of-orderness, allowed lateness, side-outputs for late data, and why one idle partition can freeze every window.',
     fast: true,
   },
   {
     n: 3, key: 'state', icon: '🗄️', title: 'Remembering context — keyed state',
     time: '~35 min', tag: 'State',
-    problem: `To flag an impossibly fast trip, or compute accept-latency for R-4471, Flink must remember each driver's last position and each ride's requested_at — across millions of concurrent keys, surviving for the whole trip.`,
-    batch: 'A stateless function can compare two events it holds at once; it cannot "remember" one driver among millions over 22 minutes.',
-    need: 'Keyed vs operator state, ValueState/ListState, and heap vs RocksDB backends with TTL — Flink remembering R-4471 across events.',
+    scene: `To know that Rahul accepted R-4471 eleven seconds after it was requested, Flink has to remember when it was requested — and hold that memory for one ride among millions, for the full twenty-two minutes of the trip. A function that only sees the event in front of it can't do that.`,
+    problem: `To flag an impossibly fast trip, or compute accept-latency for R-4471, Flink must remember each driver's last position and each ride's requested-at time — across millions of concurrent keys, surviving for the whole trip.`,
+    batch: 'A stateless function can compare two events it happens to hold at the same instant; it cannot *remember* one driver out of millions across twenty-two minutes.',
+    need: 'Keyed vs operator state, ValueState and ListState, and heap vs RocksDB backends with TTL — this is Flink remembering R-4471 as events flow past.',
     mods: ['m11'],
     ride: ['DRIVER_ASSIGNED', 'DRIVER_ACCEPTED'],
+    payoff: `State is where a stream processor earns its keep. After this you'll pick a backend and a TTL on purpose, not by guesswork.`,
     milestone: 'You can choose between heap and RocksDB, scope state correctly with keyBy, and justify a TTL.',
     fast: true,
   },
   {
     n: 4, key: 'recover', icon: '🛡️', title: 'Never losing money or state',
     time: '~55 min', tag: 'Fault tolerance',
-    problem: `Mid-trip, a spot node running one TaskManager is reclaimed (DEFECT-4) — its in-memory trip state vanishes. Later the billing DB times out, the job restarts, and PAYMENT_COMPLETED for R-4471 is re-emitted (DEFECT-5). The rider must not be charged ₹523.50 twice.`,
-    batch: 'At-least-once + a non-idempotent sink double-charges a real customer. Lost state bills the wrong distance.',
-    need: 'Chandy-Lamport checkpoints for recoverable state, savepoints for planned upgrades/rescaling, restart strategies, and end-to-end exactly-once via 2PC / idempotent upsert sinks.',
+    scene: `Nine minutes into the trip, the cloud reclaims a spot node — and with it, one TaskManager and everything it was holding in memory for R-4471. Then, as the ride ends, the billing database times out, the job restarts, and the payment event fires a second time. Two ways this trip could silently go wrong; a real rider's ₹523.50 on the line.`,
+    problem: `A TaskManager vanishes mid-trip, taking live trip state with it. Later a sink failure makes the job replay and re-emit the payment for R-4471. The rider must never be charged ₹523.50 twice, and the trip's distance must survive the crash.`,
+    batch: 'At-least-once delivery plus a non-idempotent sink double-charges a real customer. Lost state bills the wrong distance. Both are unacceptable.',
+    need: 'Chandy–Lamport checkpoints for recoverable state, savepoints for planned upgrades and rescaling, restart strategies, and end-to-end exactly-once via two-phase commit or idempotent upsert sinks.',
     mods: ['m12', 'm13', 'm14'],
     ride: ['RIDE_STARTED', 'PAYMENT_COMPLETED', 'JOB_UPGRADE'],
     incidents: ['DEFECT-4', 'DEFECT-5'],
+    payoff: `This is the act that lets you say "exactly-once" and mean it — you'll be able to walk a crash and a retry end to end and show the money stays correct.`,
     milestone: 'You can walk through a TaskManager-loss recovery and explain how exactly-once survives a sink retry.',
     fast: true,
   },
   {
     n: 5, key: 'scale', icon: '🌡️', title: 'Surviving scale — skew, backpressure, I/O',
     time: '~50 min', tag: 'Scale & I/O',
-    problem: `A flight lands and the RGIA airport cell suddenly carries 40× the events of any other (DEFECT-6) — one subtask backpressures the whole job while others idle. Meanwhile a sink slows down and pressure cascades upstream.`,
-    batch: 'Ignore skew and your p99 latency is hostage to one hot partition; ignore backpressure and the job silently falls behind forever.',
-    need: 'Detecting & relieving backpressure, two-phase (salted) aggregation for hot keys, connectors (Kafka/JDBC/filesystem) and performance tuning (serialization, network, memory).',
+    scene: `A flight touches down at Rajiv Gandhi International. In seconds, the airport's map cell is carrying forty times the traffic of any other cell in the city — and every one of those events hashes to the same single subtask. It chokes; the rest of the cluster sits idle. Meanwhile a slow sink starts pushing back, and the pressure creeps upstream.`,
+    problem: `One geo cell suddenly carries 40× the load, so a single subtask backpressures the entire job while its peers idle. At the same time a slowing sink makes pressure cascade upstream until the whole pipeline falls behind.`,
+    batch: 'Ignore skew and your p99 latency is held hostage by one hot partition; ignore backpressure and the job quietly falls further behind forever.',
+    need: 'Detecting and relieving backpressure, two-phase (salted) aggregation for hot keys, the connectors that feed and drain the job (Kafka, JDBC, filesystem), and the performance knobs that matter — serialization, network, and memory.',
     mods: ['m15', 'm16', 'm18'],
     ride: ['LOCATION_UPDATED', 'RIDE_COMPLETED'],
     incidents: ['DEFECT-6'],
-    milestone: 'You can locate backpressure in the UI, salt a hot key, and name the tuning knobs that matter.',
+    payoff: `After this you can open the Flink UI, find the one operator that's the bottleneck, and know the move — salt the key, tune the sink, or add parallelism.`,
+    milestone: 'You can locate backpressure in the UI, salt a hot key, and name the tuning knobs that actually matter.',
     fast: true,
   },
   {
     n: 6, key: 'capstone', icon: '🗺️', title: 'Declarative power + the full platform',
     time: '~40 min', tag: 'APIs & End-to-end',
-    problem: `Analysts want to express surge rules without writing Java/PyFlink DataStream code. And you need to see every piece — source, time, state, recovery, scale — assembled into one coherent Uber pipeline.`,
+    scene: `R-4471 is complete and paid. But the analysts who write surge rules don't want to write Java — they want to write SQL. And you're now ready to step back and see the whole machine at once: source, time, state, recovery, scale, all wired into one pipeline you can narrate top to bottom.`,
+    problem: `Analysts need to express surge and aggregation rules without touching DataStream code — and you need to assemble every piece you've learned into one coherent, end-to-end Uber pipeline.`,
     batch: null,
-    need: 'Flink SQL & the Table API for declarative streaming, then the end-to-end capstone that wires the whole ride platform together.',
+    need: 'Flink SQL and the Table API for declarative streaming, then the end-to-end capstone that wires the entire ride platform together.',
     mods: ['m17', 'm19'],
     ride: ['RIDE_COMPLETED'],
+    payoff: `This is graduation: you can rebuild a windowed aggregation in SQL and then tell the whole story of R-4471 — from the first ping to the final receipt — without notes.`,
     milestone: 'You can rebuild a windowed aggregation in SQL and narrate the whole R-4471 pipeline end to end.',
     fast: false,
   },
 ];
+
+// Human-friendly headlines for each embedded incident, so a scene reads as a
+// story beat ("The tunnel swallows a ping") rather than an opaque code. The
+// narrative body itself comes straight from INCIDENTS in ride-story.js.
+const SCENE_HEADLINE = {
+  'DEFECT-1': 'The tunnel swallows a GPS ping',
+  'DEFECT-2': 'A ping arrives too late to count',
+  'DEFECT-3': 'A silent partition freezes the clock',
+  'DEFECT-4': 'A worker dies mid-trip',
+  'DEFECT-5': 'The payment fires twice',
+  'DEFECT-6': 'The airport becomes a hot key',
+};
+
+// Turn an incident's `numbers` object into a compact, readable fact strip.
+function numbersStrip(nums) {
+  if (!nums) return '';
+  const pretty = (k) => k.replace(/_/g, ' ').replace(/\bsec\b/, 's');
+  return Object.entries(nums)
+    .map(([k, v]) => `<span class="lp-scene-num"><b>${esc(String(v))}</b> ${esc(pretty(k))}</span>`)
+    .join('');
+}
 
 // The single-ping journey thread — one GPS ping from R-4471, hop by hop.
 const PING_HOPS = [
@@ -139,10 +174,22 @@ export function mount(container) {
       .map(k => STAGES.find(s => s.key === k))
       .filter(Boolean)
       .map(s => `${s.icon} ${esc(s.label)}`);
-    const defectChips = (a.incidents || [])
+    const sceneCards = (a.incidents || [])
       .map(id => incidentById[id])
       .filter(Boolean)
-      .map(i => `<span class="lp-defect" title="${esc(i.title)}">⚠ ${esc(i.id)}</span>`)
+      .map((i, idx) => `
+        <div class="lp-scene">
+          <div class="lp-scene-head">
+            <span class="lp-scene-no">Scene ${idx + 1}</span>
+            <span class="lp-scene-title">${esc(SCENE_HEADLINE[i.id] || i.title)}</span>
+            <span class="lp-scene-id">${esc(i.id)}</span>
+          </div>
+          <div class="lp-scene-beat"><span class="lp-scene-k">📖 What happens</span><p>${esc(i.story)}</p></div>
+          <div class="lp-scene-beat break"><span class="lp-scene-k">💥 Why it breaks</span><p>${esc(i.breaks)}</p></div>
+          <div class="lp-scene-beat fix"><span class="lp-scene-k">✅ How Flink saves it</span><p>${esc(i.flink)}</p></div>
+          ${i.numbers ? `<div class="lp-scene-nums">${numbersStrip(i.numbers)}</div>` : ''}
+          ${i.modules && i.modules[0] && MOD[i.modules[0]] ? `<button class="lp-scene-go" data-goto="${i.modules[0]}">Learn the fix → ${MOD[i.modules[0]].num} · ${esc(MOD[i.modules[0]].title)}</button>` : ''}
+        </div>`)
       .join('');
     const modSteps = a.mods.map((id, i) => {
       const m = MOD[id];
@@ -171,6 +218,8 @@ export function mount(container) {
             <h3 class="lp-act-title">${esc(a.title)}</h3>
           </div>
 
+          ${a.scene ? `<p class="lp-scene-set">${esc(a.scene)}</p>` : ''}
+
           <div class="lp-prob">
             <div class="lp-prob-k">🧩 The business problem</div>
             <p>${esc(a.problem)}</p>
@@ -187,10 +236,15 @@ export function mount(container) {
             <p>${esc(a.need)}</p>
           </div>
 
-          ${stageLabels.length || defectChips ? `
+          ${stageLabels.length ? `
           <div class="lp-anchors">
-            ${stageLabels.length ? `<span class="lp-anchor-k">In R-4471:</span>${stageLabels.map(l => `<span class="lp-stage">${l}</span>`).join('')}` : ''}
-            ${defectChips}
+            <span class="lp-anchor-k">In R-4471:</span>${stageLabels.map(l => `<span class="lp-stage">${l}</span>`).join('')}
+          </div>` : ''}
+
+          ${sceneCards ? `
+          <div class="lp-scenes">
+            <div class="lp-scenes-k">⚠️ What goes wrong in this act — and how Flink handles it</div>
+            ${sceneCards}
           </div>` : ''}
 
           <div class="lp-steps-k">Walk these modules, in order:</div>
@@ -200,6 +254,8 @@ export function mount(container) {
             <span class="lp-ms-ic">🎯</span>
             <div><strong>Milestone —</strong> ${esc(a.milestone)}</div>
           </div>
+
+          ${a.payoff ? `<p class="lp-payoff"><span class="lp-payoff-ic">🎬</span> ${esc(a.payoff)}</p>` : ''}
         </div>
       </section>`;
   }
@@ -221,6 +277,15 @@ export function mount(container) {
           at the exact moment the business needs it. Seven Acts, each a real problem, each
           pointing you to the right modules in the right order.
         </p>
+      </div>
+
+      <div class="lp-cast">
+        <span class="lp-cast-k">Meet the cast:</span>
+        <span class="lp-cast-item">🚕 <b>R-4471</b> the ride we follow end to end</span>
+        <span class="lp-cast-item">🧑‍✈️ <b>Rahul</b> the driver <code>${esc(RIDE.driver_id)}</code></span>
+        <span class="lp-cast-item">🧍 the rider <code>${esc(RIDE.rider_id)}</code></span>
+        <span class="lp-cast-item">📍 ${esc(RIDE.city_id)} · Hyderabad</span>
+        <span class="lp-cast-item">🔢 Kafka topic <code>${esc(RIDE.topic)}</code>, partition ${esc(String(RIDE.partition))}</span>
       </div>
 
       <div class="lp-progress-bar">
