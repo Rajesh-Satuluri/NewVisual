@@ -335,13 +335,14 @@ export function mount(container) {
 // ── Diagram Tab ───────────────────────────────────────────────────────────
 function buildDiagramTab() {
   return `
-    <div style="display:flex;gap:24px;align-items:flex-start">
-      <div style="flex:1;min-width:0">
+    <div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap">
+      <div style="flex:1 1 520px;min-width:0">
         <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">
           💡 Click any component to see its definition, responsibilities, and interview questions
         </div>
         <div id="arch-diagram" style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;overflow:hidden;padding:20px">
           ${buildArchSVG()}
+          ${buildStatStrip()}
         </div>
         <div style="display:flex;gap:16px;margin-top:12px;flex-wrap:wrap">
           ${[
@@ -357,12 +358,61 @@ function buildDiagramTab() {
           `).join('')}
         </div>
       </div>
-      <div id="comp-detail" style="width:340px;flex-shrink:0;display:none">
+      <div id="comp-detail" style="flex:0 1 380px;min-width:300px">
         <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;overflow:hidden;position:sticky;top:16px">
-          <div id="comp-detail-inner" style="padding:20px;max-height:calc(100vh - 180px);overflow-y:auto"></div>
+          <div id="comp-detail-inner" style="padding:20px;max-height:calc(100vh - 180px);overflow-y:auto">${buildDefaultPanel()}</div>
         </div>
       </div>
     </div>
+  `;
+}
+
+// Compact "cluster at a glance" stat strip — fills the band below the SVG
+// using the real Uber-scale numbers already cited across this module.
+function buildStatStrip() {
+  const stats = [
+    { v: '1M',    u: 'GPS events / sec',  c: '#38BDF8' },
+    { v: '200',   u: 'TaskManagers',      c: '#FB923C' },
+    { v: '1,600', u: 'task slots',        c: '#22D3EE' },
+    { v: '~2GB',  u: 'checkpoint / 30s',  c: '#34D399' },
+  ];
+  return `
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:18px;padding-top:18px;border-top:1px solid var(--border)">
+      ${stats.map(s => `
+        <div style="text-align:center;padding:6px 4px">
+          <div style="font-size:22px;font-weight:800;color:${s.c};line-height:1.1">${s.v}</div>
+          <div style="font-size:10.5px;color:var(--text-muted);margin-top:3px;letter-spacing:0.3px">${s.u}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+// Default detail-panel content so the right column is never blank before a
+// component is selected (and during the brief pre-auto-open moment).
+function buildDefaultPanel() {
+  return `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)">
+      <span style="font-size:32px">🗺️</span>
+      <div>
+        <div style="font-size:16px;font-weight:800;color:var(--text)">How to read this diagram</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Apache Flink runtime topology</div>
+      </div>
+    </div>
+    <div style="font-size:13px;color:var(--text-secondary);line-height:1.65;margin-bottom:16px">
+      Flink splits a running job into a <strong>control plane</strong> that coordinates and a <strong>data plane</strong> that moves data. Click any box to see its role, internal mechanics, and interview questions.
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="padding:12px;background:var(--bg-elevated);border-radius:8px">
+        <div style="font-size:12px;font-weight:700;color:#FF6B35;margin-bottom:4px">🧠 Control plane</div>
+        <div style="font-size:12px;color:var(--text-secondary);line-height:1.55">Client, Dispatcher, JobManager, ResourceManager — schedule, checkpoint, recover. They process <b>zero</b> user data.</div>
+      </div>
+      <div style="padding:12px;background:var(--bg-elevated);border-radius:8px">
+        <div style="font-size:12px;font-weight:700;color:#FB923C;margin-bottom:4px">⚙️ Data plane</div>
+        <div style="font-size:12px;color:var(--text-secondary);line-height:1.55">TaskManagers run operator tasks, hold state, and exchange records with backpressure. Add more to add throughput.</div>
+      </div>
+    </div>
+    <div style="margin-top:14px;font-size:11px;color:var(--text-muted);text-align:center">👆 Click a component to begin</div>
   `;
 }
 
@@ -496,11 +546,11 @@ function buildArchSVG() {
   // External storage row
   const EXT = [
     { x:30,  label:'Kafka',     icon:'🔗' },
-    { x:124, label:'Iceberg',   icon:'🧊' },
-    { x:218, label:'S3',        icon:'☁️' },
-    { x:296, label:'Snowflake', icon:'❄️' },
-    { x:397, label:'Delta',     icon:'Δ' },
-    { x:480, label:'JDBC',      icon:'🗃️' },
+    { x:138, label:'Iceberg',   icon:'🧊' },
+    { x:246, label:'S3',        icon:'☁️' },
+    { x:354, label:'Snowflake', icon:'❄️' },
+    { x:462, label:'Delta',     icon:'Δ' },
+    { x:570, label:'JDBC',      icon:'🗃️' },
   ];
   compSVG.push(`<text x="${W/2}" y="485" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.2)" font-weight="700">EXTERNAL STORAGE &amp; CONNECTORS</text>`);
   EXT.forEach(e => {
