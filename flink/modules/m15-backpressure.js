@@ -192,6 +192,116 @@ const IQS = [
   { q:'When would you choose Flink SQL over the DataStream API?', a:'Choose Flink SQL when: (1) the logic is expressible as set-based transformations (aggregations, joins, filters) — SQL is far more concise and benefits from query optimization. (2) You need ad-hoc analytics without redeploying a JAR. (3) Your team is more SQL-fluent than Java/Scala. Choose DataStream when: (1) the logic requires fine-grained per-event control (complex state machines, custom triggers). (2) You need side outputs, low-level timers, or RPC calls per event. (3) You need to embed ML inference inside processing logic. Uber uses SQL for aggregations and DataStream for the core FraudDetector KeyedProcessFunction.' },
 ];
 
+// ── "What & Why" foundations (additive) ──────────────────────────
+const WHY_REASONS = [
+  { icon: '✍️', title: 'Say what, not how', body: 'A windowed average is a few lines of SQL instead of a keyed <code>AggregateFunction</code> with manual state — declarative, not imperative.' },
+  { icon: '🧠', title: 'Free optimization', body: 'The Blink planner reorders filters, pushes predicates into sources, and picks join strategies — optimizations you\'d hand-code in DataStream.' },
+  { icon: '🔄', title: 'Stream = table', body: 'A stream is modeled as a <b>dynamic table</b> that updates as events arrive; a query over it produces another continuously-updating table.' },
+  { icon: '🔀', title: 'Unified batch & stream', body: 'The same SQL runs over a bounded table (batch) or an unbounded stream — one query, two execution modes.' },
+  { icon: '⚡', title: 'Ad-hoc, no redeploy', body: 'Submit a new SQL query to a running SQL gateway — no recompiling and shipping a JAR for every analytics question.' },
+  { icon: '🤝', title: 'Mix with DataStream', body: '<code>toDataStream()</code> / <code>fromDataStream()</code> let you drop into low-level code exactly where SQL isn\'t expressive enough.' },
+];
+
+const PROBLEMS = [
+  { naive: 'Hand-code a windowed AVG as a keyed AggregateFunction.', fail: 'Dozens of lines of accumulator, merge, and state wiring — <b>verbose and bug-prone</b> for what is one GROUP BY.', fix: 'Flink SQL\'s <code>TUMBLE</code> + <code>AVG</code> expresses it in a few declarative lines.' },
+  { naive: 'Manually order filters and joins in DataStream.', fail: 'A sub-optimal plan does <b>needless work</b> — filtering after a join instead of before it.', fix: 'The query planner reorders and pushes down predicates automatically.' },
+  { naive: 'Write a new JAR and redeploy for each new metric.', fail: 'Every ad-hoc question means a <b>code change, build, and deploy</b> cycle.', fix: 'Submit SQL to a running job/gateway — no redeploy for a new query.' },
+  { naive: 'Treat the stream as a one-off sequence of events.', fail: 'Joins and updates (a driver changing tier) are <b>awkward</b> without a table abstraction.', fix: 'Dynamic tables model the stream as an updating table, so JOINs and upserts just work.' },
+];
+
+const WHY_HTML = `
+  <div class="sm-wrap">
+    <div class="sm-def card">
+      <div class="sm-def-ic">🗃️</div>
+      <div>
+        <div class="sm-def-eyebrow">What is Flink SQL &amp; the Table API?</div>
+        <p class="sm-def-lead"><b>Flink SQL</b> (and its type-safe sibling, the <b>Table API</b>) is a declarative layer over the DataStream API: you write <em>what</em> you want, and the planner compiles it into the same map/keyBy/window operators. Its core idea is the <b>dynamic table</b> — a stream treated as an ever-updating table, and a table read back as a changelog stream. On ride <b>R-4471</b>, it's how aggregations and enrichment joins over <code>gps_events</code> are expressed without hand-writing stateful operators.</p>
+      </div>
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">SQL vs. DataStream</div>
+      <div class="section-desc">Two ways to express the same pipeline — pick per problem.</div>
+    </div>
+    <div class="sm-vs">
+      <div class="sm-vs-card stateless">
+        <div class="sm-vs-head">🧮 Flink SQL / Table API</div>
+        <p class="sm-vs-sub">Declarative, optimized, concise.</p>
+        <ul>
+          <li>Aggregations, joins, filters</li>
+          <li>Automatic state &amp; optimization</li>
+          <li>Ad-hoc, no redeploy</li>
+        </ul>
+        <div class="sm-vs-note">Best for set-based logic and analytics.</div>
+      </div>
+      <div class="sm-vs-card stateful">
+        <div class="sm-vs-head">⚙️ DataStream API</div>
+        <p class="sm-vs-sub">Imperative, full control.</p>
+        <ul>
+          <li>Custom state machines &amp; timers</li>
+          <li>Side outputs, per-event RPC</li>
+          <li>Anything the planner can't express</li>
+        </ul>
+        <div class="sm-vs-note">Best for the FraudDetector core logic.</div>
+      </div>
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">Why use SQL over hand-written operators</div>
+      <div class="section-desc">Six wins the declarative layer gives you for free.</div>
+    </div>
+    <div class="sm-why-grid">
+      ${WHY_REASONS.map(r => `
+        <div class="sm-why">
+          <div class="sm-why-ic">${r.icon}</div>
+          <div class="sm-why-title">${r.title}</div>
+          <p>${r.body}</p>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">The problem Flink SQL solves</div>
+      <div class="section-desc">Four ways raw DataStream code is painful for analytics — and the fix.</div>
+    </div>
+    <div class="sm-prob-list">
+      ${PROBLEMS.map((p, i) => `
+        <div class="sm-prob">
+          <div class="sm-prob-no">${i + 1}</div>
+          <div class="sm-prob-body">
+            <div class="sm-prob-naive"><span class="sm-tag naive">Naïve</span>${p.naive}</div>
+            <div class="sm-prob-fail"><span class="sm-tag fail">Breaks</span>${p.fail}</div>
+            <div class="sm-prob-fix"><span class="sm-tag fix">Flink SQL</span>${p.fix}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">The key idea: dynamic tables</div>
+    </div>
+    <div class="sm-keyed card">
+      <p>Flink SQL rests on the <b>stream ↔ table duality</b> — the insight that makes SQL work on unbounded data.</p>
+      <ul>
+        <li><b>Stream → table</b> — each arriving event conceptually updates an ever-growing dynamic table.</li>
+        <li><b>Query → query</b> — a SQL query over a dynamic table produces another dynamic (continuously updating) result table.</li>
+        <li><b>Table → stream</b> — the result is emitted as a changelog (INSERT/UPDATE/DELETE) for mutable sinks, or append-only for Kafka.</li>
+      </ul>
+      <div class="sm-keyed-flow">
+        <code>gps_events</code> stream <span class="sm-arrow">→</span> <b>dynamic table</b> <span class="sm-arrow">→</span> <code>SELECT … GROUP BY</code> <span class="sm-arrow">→</span> <b>result table</b> <span class="sm-arrow">→</span> changelog stream → sink
+      </div>
+    </div>
+
+    <div class="sm-bridge" style="margin-top:26px">
+      <div class="sm-bridge-txt">
+        <div class="sm-bridge-k">Now run the queries</div>
+        <p>You know <b>what</b> Flink SQL is and <b>why</b> — explore SELECT, TUMBLE, HOP, temporal joins, and dedup with their Table API plan and live result rows.</p>
+      </div>
+      <button class="sm-bridge-btn" data-jump="explorer">Open the Query Explorer →</button>
+    </div>
+  </div>
+`;
+
 export function mount(container) {
   let selected = QUERIES[0];
 
@@ -205,12 +315,17 @@ export function mount(container) {
       </div>
     </div>
     <div class="module-tabs">
-      <button class="tab-btn active" data-tab="explorer">Query Explorer</button>
+      <button class="tab-btn active" data-tab="why">What &amp; Why</button>
+      <button class="tab-btn" data-tab="explorer">Query Explorer</button>
       <button class="tab-btn" data-tab="setup">DDL &amp; Setup</button>
       <button class="tab-btn" data-tab="iq">Interview Q&amp;A</button>
     </div>
 
-    <div class="tab-content active" data-tab="explorer">
+    <div class="tab-content active" data-tab="why">
+      ${WHY_HTML}
+    </div>
+
+    <div class="tab-content" data-tab="explorer">
       <div class="sql-picker" id="sql-picker"></div>
       <div id="sql-detail"></div>
     </div>
@@ -321,6 +436,17 @@ env.execute("Uber GPS SQL Pipeline")</pre></div>
       container.querySelector(`.tab-content[data-tab="${btn.dataset.tab}"]`).classList.add('active');
     });
   });
+
+  // Bridge button: jump from "What & Why" into the Query Explorer tab.
+  const jumpBtn = container.querySelector('[data-jump]');
+  if (jumpBtn) {
+    jumpBtn.addEventListener('click', () => {
+      const target = jumpBtn.dataset.jump;
+      container.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === target));
+      container.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.dataset.tab === target));
+      container.querySelector('.module-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
 
   // IQ
   const iqSec = container.querySelector('#iq15-section');
