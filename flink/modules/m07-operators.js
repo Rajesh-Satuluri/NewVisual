@@ -161,6 +161,116 @@ const IQS = [
   { q: 'What happens to open Kafka transactions if the job is cancelled?', a: 'Cancelled jobs trigger the Flink shutdown sequence: operators receive a finish() signal. KafkaSink\'s abort() method is called, which invokes kafkaProducer.abortTransaction(). This releases the Kafka transaction without committing, so no partial data is visible to downstream read_committed consumers. If the JVM is killed without graceful shutdown (kill -9), the Kafka transaction remains open until the transactional.timeout.ms expires (default 1 min) and Kafka auto-aborts it.' },
 ];
 
+// ── "What & Why" foundations (additive) ──────────────────────────
+const WHY_REASONS = [
+  { icon: '🔌', title: 'Bridge two worlds', body: 'Flink computes in-memory, but data lives in Kafka, S3, databases. Connectors translate between Flink records and each system\'s wire format and API.' },
+  { icon: '🧩', title: 'Split work in parallel', body: 'A <code>SplitEnumerator</code> divides Kafka\'s 1024 partitions into splits so 256 source subtasks each read ~4 — ingestion scales with parallelism.' },
+  { icon: '🔖', title: 'Track position', body: 'A source remembers <em>where it stopped</em> (Kafka offsets) as part of checkpoint state, so a restart resumes exactly there — not from zero, not re-reading.' },
+  { icon: '🔁', title: 'Replay on failure', body: 'Because the source can seek back to a checkpointed offset, Flink can re-process events after a crash — the foundation of fault tolerance.' },
+  { icon: '🤝', title: 'Commit atomically', body: 'Sinks join the checkpoint via two-phase commit (Kafka) or a file state-machine (S3), so output is finalized only when the checkpoint does.' },
+  { icon: '⏮️', title: 'Backpressure-aware', body: 'A slow sink naturally slows its source through Flink\'s credit-based flow — the connector never silently drops events to keep up.' },
+];
+
+const PROBLEMS = [
+  { naive: 'Commit the Kafka offset as soon as an event is read.', fail: 'If the job crashes after committing but before the result is produced, that event is <b>lost</b> forever — the offset already moved past it.', fix: 'Commit offsets only <em>after</em> the checkpoint completes, so a restart rewinds to un-finalized events.' },
+  { naive: 'Write each result straight to the output topic as it\'s computed.', fail: 'A replay after failure re-writes the same alerts — downstream sees <b>duplicates</b>.', fix: '<code>KafkaSink</code> writes inside a transaction committed with the checkpoint (exactly-once).' },
+  { naive: 'Let readers see files the moment the sink opens them.', fail: 'Consumers read <b>half-written</b> part-files; a crash leaves corrupt partial data in the lake.', fix: '<code>FileSink</code> keeps files In-Progress → Pending → Finished; only checkpoint-committed files become visible.' },
+  { naive: 'Insert every row into Postgres with a plain INSERT.', fail: 'At-least-once replay inserts the same row twice — <b>double-counted</b> dashboards.', fix: 'Upsert with <code>ON CONFLICT DO UPDATE</code> on a natural key makes writes idempotent.' },
+];
+
+const WHY_HTML = `
+  <div class="sm-wrap">
+    <div class="sm-def card">
+      <div class="sm-def-ic">🔗</div>
+      <div>
+        <div class="sm-def-eyebrow">What are sources &amp; sinks?</div>
+        <p class="sm-def-lead">A <b>source</b> reads events <em>into</em> a Flink job from the outside world; a <b>sink</b> writes results <em>out</em>. Together they're the <b>connectors</b> at the job's edges — and they're exactly where end-to-end <b>exactly-once</b> is won or lost. On ride <b>R-4471</b>, the source is Kafka topic <code>ride-events</code> and the sink is <code>fraud-alerts</code>.</p>
+      </div>
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">Source vs. Sink</div>
+      <div class="section-desc">Two ends of the job, with mirror-image guarantees.</div>
+    </div>
+    <div class="sm-vs">
+      <div class="sm-vs-card stateless">
+        <div class="sm-vs-head">📥 Source</div>
+        <p class="sm-vs-sub">Ingests an unbounded stream and tracks its read position.</p>
+        <ul>
+          <li>Splits partitions across subtasks</li>
+          <li>Snapshots offsets into checkpoints</li>
+          <li>On restart, <b>seeks back</b> and replays</li>
+        </ul>
+        <div class="sm-vs-note">Guarantee: no event is skipped — the source can always rewind.</div>
+      </div>
+      <div class="sm-vs-card stateful">
+        <div class="sm-vs-head">📤 Sink</div>
+        <p class="sm-vs-sub">Emits results and finalizes them atomically with the checkpoint.</p>
+        <ul>
+          <li>Two-phase commit (Kafka transactions)</li>
+          <li>File state-machine (S3/HDFS)</li>
+          <li>Idempotent upserts (JDBC)</li>
+        </ul>
+        <div class="sm-vs-note">Guarantee: output appears once — committed only when the checkpoint does.</div>
+      </div>
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">Why connectors are the hard part</div>
+      <div class="section-desc">Six jobs a connector must do that a plain read/write loop can't.</div>
+    </div>
+    <div class="sm-why-grid">
+      ${WHY_REASONS.map(r => `
+        <div class="sm-why">
+          <div class="sm-why-ic">${r.icon}</div>
+          <div class="sm-why-title">${r.title}</div>
+          <p>${r.body}</p>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">The problem connectors solve</div>
+      <div class="section-desc">Four ways a naïve read/write loop loses or duplicates data — and the connector fix.</div>
+    </div>
+    <div class="sm-prob-list">
+      ${PROBLEMS.map((p, i) => `
+        <div class="sm-prob">
+          <div class="sm-prob-no">${i + 1}</div>
+          <div class="sm-prob-body">
+            <div class="sm-prob-naive"><span class="sm-tag naive">Naïve</span>${p.naive}</div>
+            <div class="sm-prob-fail"><span class="sm-tag fail">Breaks</span>${p.fail}</div>
+            <div class="sm-prob-fix"><span class="sm-tag fix">Connector</span>${p.fix}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">Exactly-once = source rewind + sink commit</div>
+    </div>
+    <div class="sm-keyed card">
+      <p>Exactly-once isn't one feature — it's the source and sink <b>cooperating around the checkpoint</b>. Neither alone is enough.</p>
+      <ul>
+        <li><b>Source side</b> — offsets live in checkpoint state, so a restart rewinds Kafka to the last consistent point.</li>
+        <li><b>Sink side</b> — results sit in an open transaction (or .pending file) until the checkpoint confirms, then commit atomically.</li>
+        <li><b>Together</b> — replayed events either replace or dedupe at the sink, so downstream sees each result once.</li>
+      </ul>
+      <div class="sm-keyed-flow">
+        <b>checkpoint start</b> <span class="sm-arrow">→</span> source snapshots offsets + sink opens txn <span class="sm-arrow">→</span> <code>barriers align</code> <span class="sm-arrow">→</span> <b>checkpoint complete</b> <span class="sm-arrow">→</span> commit offsets + commit txn
+      </div>
+    </div>
+
+    <div class="sm-bridge" style="margin-top:26px">
+      <div class="sm-bridge-txt">
+        <div class="sm-bridge-k">Now wire up the real connectors</div>
+        <p>You know <b>why</b> connectors are special — explore Kafka, FileSink, and JDBC with their config, PyFlink code, and the exactly-once protocol.</p>
+      </div>
+      <button class="sm-bridge-btn" data-jump="connectors">Open the Connector Explorer →</button>
+    </div>
+  </div>
+`;
+
 export function mount(container) {
   let selectedConnector = CONNECTORS[0];
   let animRunning = false;
@@ -177,12 +287,17 @@ export function mount(container) {
       </div>
     </div>
     <div class="module-tabs">
-      <button class="tab-btn active" data-tab="connectors">Connector Explorer</button>
+      <button class="tab-btn active" data-tab="why">What &amp; Why</button>
+      <button class="tab-btn" data-tab="connectors">Connector Explorer</button>
       <button class="tab-btn" data-tab="kafka-anim">Kafka Source Animation</button>
       <button class="tab-btn" data-tab="iq">Interview Q&amp;A</button>
     </div>
 
-    <div class="tab-content active" data-tab="connectors">
+    <div class="tab-content active" data-tab="why">
+      ${WHY_HTML}
+    </div>
+
+    <div class="tab-content" data-tab="connectors">
       ${rideCallout('RIDE_REQUESTED', { openEvent: false })}
       <div class="conn-picker" id="conn-picker"></div>
       <div id="conn-detail"></div>
@@ -221,6 +336,17 @@ export function mount(container) {
       if (btn.dataset.tab === 'kafka-anim') buildKafkaAnim(container);
     });
   });
+
+  // Bridge button: jump from "What & Why" into the Connector Explorer tab.
+  const jumpBtn = container.querySelector('[data-jump]');
+  if (jumpBtn) {
+    jumpBtn.addEventListener('click', () => {
+      const target = jumpBtn.dataset.jump;
+      container.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === target));
+      container.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.dataset.tab === target));
+      container.querySelector('.module-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
 
   // IQ
   const iqSection = container.querySelector('#iq7-section');
