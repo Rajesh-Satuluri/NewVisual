@@ -36,6 +36,12 @@
   .ws-dd-trigger { padding: 6px 10px; font-size: 11.5px; }
   .brand-text { display: none; }
 }
+/* Touch (iPad / phones): comfortable tap targets + a wider menu for big fingers. */
+@media (pointer: coarse) {
+  .ws-dd-trigger { min-height: 40px; }
+  .ws-dd-menu { min-width: 190px; padding: 6px; gap: 3px; }
+  .ws-btn { min-height: 44px; display: flex; align-items: center; font-size: 14px; }
+}
 
 /* When in the Python workspace, hide DSA-only sidebar widgets + topbar buttons.
    The filter gear (#filterToggle) and chip panel (#filterPanel) are deliberately
