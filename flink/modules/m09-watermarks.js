@@ -16,6 +16,116 @@ const IQS = [
   { q: 'What is the difference between a periodic watermark and a punctuated watermark?', a: 'A periodic watermark is generated at a fixed wall-clock interval (e.g., every 200ms) by calling getCurrentWatermark() on the WatermarkGenerator. Flink\'s built-in BoundedOutOfOrdernessWatermarks is periodic. A punctuated watermark is emitted on specific events — you call ctx.emitWatermark() from onEvent() when a sentinel event (e.g., a "flush" message) appears. Periodic is simpler and common; punctuated is used when the stream itself carries reliable timestamp signals (e.g., Kafka end-of-partition markers).' },
 ];
 
+// ── "What & Why" foundations (additive) ──────────────────────────
+const WHY_REASONS = [
+  { icon: '🔀', title: 'Events arrive out of order', body: 'A tunnel delays R-4471\'s <code>t=21</code> ping so it lands <em>after</em> <code>t=27</code>. Real streams are never perfectly ordered — processing can\'t assume arrival order equals event order.' },
+  { icon: '✅', title: 'Decide "I\'m done"', body: 'A watermark is Flink\'s declaration: "I believe I\'ve now seen everything up to time T." That belief is what lets a window close and emit a result.' },
+  { icon: '⏱️', title: 'Fire windows on event time', body: 'Without watermarks, a window would either wait forever or fire on wall-clock time (wrong). The watermark passing a window\'s end is the trigger to compute it.' },
+  { icon: '🏷️', title: 'Classify late data', body: 'Any event with <code>event_time &lt; watermark</code> is "late." The watermark is the dividing line that lets Flink drop, re-fire, or side-output it — deliberately, not by accident.' },
+  { icon: '📉', title: 'Bound the wait', body: 'Out-of-orderness Δ trades latency for completeness: <code>W = max(eventTime) − Δ</code>. Bigger Δ catches more stragglers but delays results.' },
+  { icon: '🧊', title: 'Survive idle sources', body: 'A watermark at an operator is the <em>minimum</em> across inputs, so one silent partition freezes everything. <code>withIdleness()</code> excludes it — a classic incident fix.' },
+];
+
+const PROBLEMS = [
+  { naive: 'Close a window only once "all" events have arrived.', fail: 'In an unbounded stream there is no "all" — the window <b>never fires</b> and results never come.', fix: 'A watermark asserts completeness up to time T, so the window fires when T passes its end.' },
+  { naive: 'Trigger windows on processing (arrival) time.', fail: 'A tunnel-delayed ping lands in the <b>wrong window</b> — trip distance and fraud counts are computed on the wrong minutes.', fix: 'Event-time windows keyed on the embedded timestamp put each ping in its true window regardless of arrival.' },
+  { naive: 'Fire the moment the latest timestamp reaches the window end.', fail: 'Slightly out-of-order pings arrive <b>after</b> the window closed and are silently dropped — undercounted results.', fix: '<code>W = max(eventTime) − Δ</code> holds the window open by Δ to absorb normal reordering.' },
+  { naive: 'Take the max watermark across input partitions.', fail: 'One partition racing ahead closes windows before slow partitions deliver — <b>mass data loss</b>.', fix: 'Flink takes the <b>minimum</b> watermark across inputs; <code>withIdleness()</code> drops only truly silent ones.' },
+];
+
+const WHY_HTML = `
+  <div class="sm-wrap">
+    <div class="sm-def card">
+      <div class="sm-def-ic">🌊</div>
+      <div>
+        <div class="sm-def-eyebrow">What is a watermark?</div>
+        <p class="sm-def-lead">A <b>watermark</b> is a timestamp marker flowing in the stream that asserts <em>"no event with event time earlier than this will arrive anymore."</em> It's how Flink reconciles <b>event time</b> (when something happened) with the need to make <b>forward progress</b> in real time — the signal that says a time window is complete and safe to emit. On ride <b>R-4471</b>, it's what decides whether a tunnel-delayed GPS ping still counts toward the trip.</p>
+      </div>
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">Processing time vs. event time</div>
+      <div class="section-desc">Watermarks exist only because these two clocks disagree.</div>
+    </div>
+    <div class="sm-vs">
+      <div class="sm-vs-card stateless">
+        <div class="sm-vs-head">⏰ Processing time</div>
+        <p class="sm-vs-sub">When the event <em>arrives</em> at the operator (wall clock).</p>
+        <ul>
+          <li>Simple, low latency</li>
+          <li>No watermarks needed</li>
+          <li>Results depend on network speed</li>
+        </ul>
+        <div class="sm-vs-note">A tunnel-delayed ping lands in whatever window is open now — wrong answer.</div>
+      </div>
+      <div class="sm-vs-card stateful">
+        <div class="sm-vs-head">🕐 Event time</div>
+        <p class="sm-vs-sub">When the event actually <em>happened</em> (embedded timestamp).</p>
+        <ul>
+          <li>Correct, reproducible results</li>
+          <li>Needs watermarks to make progress</li>
+          <li>Tolerates out-of-order arrival</li>
+        </ul>
+        <div class="sm-vs-note">The ping counts toward its real minute — the watermark just delays firing to catch it.</div>
+      </div>
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">Why a stream needs watermarks</div>
+      <div class="section-desc">Six jobs the watermark does that a plain timestamp can't.</div>
+    </div>
+    <div class="sm-why-grid">
+      ${WHY_REASONS.map(r => `
+        <div class="sm-why">
+          <div class="sm-why-ic">${r.icon}</div>
+          <div class="sm-why-title">${r.title}</div>
+          <p>${r.body}</p>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">The problem watermarks solve</div>
+      <div class="section-desc">Four ways time-based processing breaks without them — and the fix.</div>
+    </div>
+    <div class="sm-prob-list">
+      ${PROBLEMS.map((p, i) => `
+        <div class="sm-prob">
+          <div class="sm-prob-no">${i + 1}</div>
+          <div class="sm-prob-body">
+            <div class="sm-prob-naive"><span class="sm-tag naive">Naïve</span>${p.naive}</div>
+            <div class="sm-prob-fail"><span class="sm-tag fail">Breaks</span>${p.fail}</div>
+            <div class="sm-prob-fix"><span class="sm-tag fix">Watermark</span>${p.fix}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">The one formula to remember</div>
+    </div>
+    <div class="sm-keyed card">
+      <p>Every watermark is just this: the latest event time seen, minus the lateness you're willing to tolerate.</p>
+      <div class="sm-keyed-flow" style="justify-content:center;font-size:15px">
+        <b>W(t)</b> <span class="sm-arrow">=</span> <code>max(eventTime)</code> <span class="sm-arrow">−</span> <b>Δ</b> <span style="color:var(--text-muted)">(out-of-orderness bound)</span>
+      </div>
+      <ul style="margin-top:14px">
+        <li><b>Δ = 0</b> — fire the instant the window end is reached; any reordering is lost.</li>
+        <li><b>Δ larger</b> — hold windows open longer, catch more stragglers, add latency.</li>
+        <li>A window <code>[a, b)</code> fires when <b>W ≥ b</b>; events after that are "late."</li>
+      </ul>
+    </div>
+
+    <div class="sm-bridge" style="margin-top:26px">
+      <div class="sm-bridge-txt">
+        <div class="sm-bridge-k">Now tune it yourself</div>
+        <p>You know <b>what</b> a watermark is and <b>why</b> — drag the Δ slider, add out-of-order pings, and watch which window gets each event and what happens to late ones.</p>
+      </div>
+      <button class="sm-bridge-btn" data-jump="sim">Open the Simulator →</button>
+    </div>
+  </div>
+`;
+
 export function mount(container) {
   let allowedLateness = 5; // seconds — the out-of-orderness bound
   let sideOutputEnabled = false;
@@ -44,12 +154,17 @@ export function mount(container) {
       </div>
     </div>
     <div class="module-tabs">
-      <button class="tab-btn active" data-tab="sim">Simulator</button>
+      <button class="tab-btn active" data-tab="why">What &amp; Why</button>
+      <button class="tab-btn" data-tab="sim">Simulator</button>
       <button class="tab-btn" data-tab="concept">Concepts</button>
       <button class="tab-btn" data-tab="iq">Interview Q&amp;A</button>
     </div>
 
-    <div class="tab-content active" data-tab="sim">
+    <div class="tab-content active" data-tab="why">
+      ${WHY_HTML}
+    </div>
+
+    <div class="tab-content" data-tab="sim">
       <div class="wm-controls card">
         <div class="wm-ctrl-row">
           <div class="wm-ctrl-group">
@@ -130,6 +245,17 @@ export function mount(container) {
       container.querySelector(`.tab-content[data-tab="${btn.dataset.tab}"]`).classList.add('active');
     });
   });
+
+  // Bridge button: jump from "What & Why" into the Simulator tab.
+  const jumpBtn = container.querySelector('[data-jump]');
+  if (jumpBtn) {
+    jumpBtn.addEventListener('click', () => {
+      const target = jumpBtn.dataset.jump;
+      container.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === target));
+      container.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.dataset.tab === target));
+      container.querySelector('.module-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
 
   // Interview corner-case scenario cards (R-4471 anchored)
   const scen = container.querySelector('#wm-scenarios');
