@@ -24,12 +24,18 @@
       <span class="brand-text">Data Engineering <b>Coding Stack</b></span>
     </a>
     <div class="ws-switches">
-      <div id="stackSwitch" class="ws-switch" role="tablist" aria-label="Stack">
-        <button class="ws-btn active" data-stack="python" role="tab">🐍 Python</button>
-        <button class="ws-btn" data-stack="numpy" role="tab">▦ NumPy</button>
-        <button class="ws-btn" data-stack="pandas" role="tab">🐼 Pandas</button>
-        <button class="ws-btn" data-stack="spark" role="tab">⚡ PySpark</button>
-        <button class="ws-btn" data-stack="sql" role="tab">🗄 SQL</button>
+      <div id="stackSwitch" class="ws-dd" aria-label="Stack">
+        <button id="stackTrigger" class="ws-dd-trigger" aria-haspopup="listbox" aria-expanded="false" title="Switch stack">
+          <span class="ws-dd-cur">🐍 Python</span>
+          <span class="ws-dd-caret" aria-hidden="true">▾</span>
+        </button>
+        <div id="stackMenu" class="ws-dd-menu hidden" role="listbox" aria-label="Stack">
+          <button class="ws-btn active" data-stack="python" role="option">🐍 Python</button>
+          <button class="ws-btn" data-stack="numpy" role="option">▦ NumPy</button>
+          <button class="ws-btn" data-stack="pandas" role="option">🐼 Pandas</button>
+          <button class="ws-btn" data-stack="spark" role="option">⚡ PySpark</button>
+          <button class="ws-btn" data-stack="sql" role="option">🗄 SQL</button>
+        </div>
       </div>
       <div id="modeSwitch" class="mode-switch" role="tablist" aria-label="Mode">
         <button class="mode-btn" data-mode="learn" role="tab">📘 Learn</button>
