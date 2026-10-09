@@ -309,6 +309,22 @@
       '<div class="py-ready-txt"><b>' + all.length + '</b> topics live · your readiness across what\'s authored</div></div>';
     main.appendChild(hero);
 
+    // SQL Interview Q&A flashcard sub-mode (theory / telephonic round).
+    if (cur.stack === "sql" && window.SQL_QA && window.INTERVIEW_QA_UI) {
+      var n = (window.SQL_QA.items || []).length;
+      var due = (store.countDue && window.SQL_QA.items)
+        ? store.countDue(window.SQL_QA.items.map(function (p) { return "sqlqa:" + p.id; })) : 0;
+      var qa = h("button", { class: "qa-launch" });
+      qa.innerHTML =
+        '<span class="qa-launch-ic">🎤</span>' +
+        '<span class="qa-launch-tx"><span class="qa-launch-k">Interview Q&amp;A — rapid-fire theory</span>' +
+        '<span class="qa-launch-v">' + n + ' flashcards across fundamentals, joins, indexes, normalization, transactions &amp; more · spaced-repetition recall' +
+        (due ? ' · <b>' + due + ' due</b>' : '') + '</span></span>' +
+        '<span class="qa-launch-go">Open →</span>';
+      qa.addEventListener("click", function () { window.INTERVIEW_QA_UI.open("sql"); });
+      main.appendChild(qa);
+    }
+
     // "Continue where you left off"
     var lastId = store.getPref("lastTopic_" + cur.stack);
     var lastT = lastId ? LEARN.byId(cur.stack, lastId) : null;
