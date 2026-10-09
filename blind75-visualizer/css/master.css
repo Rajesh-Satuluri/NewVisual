@@ -719,9 +719,10 @@ body.sidebar-open .ham i:nth-child(3) { top: 6px; transform: rotate(-45deg); }
 .ros-cat-n { opacity: .6; font-weight: 700; margin-left: 1px; }
 
 /* ─────────────────────── Interview Q&A panel (iqa) ─────────────────────── */
-/* toolbar button: PySpark Learn only */
+/* toolbar button: Learn mode of stacks that have a Q&A bank (PySpark, SQL) */
 .iqa-btn { display: none; }
-body[data-stack="spark"][data-mode="learn"] #interviewBtn { display: inline-block; }
+body[data-stack="spark"][data-mode="learn"] #interviewBtn,
+body[data-stack="sql"][data-mode="learn"] #interviewBtn { display: inline-block; }
 
 .iqa-tools { gap: 10px; }
 .iqa-search { flex: 1 1 240px; min-width: 160px; background: var(--bg-2); border: 1px solid var(--border);
@@ -778,3 +779,36 @@ body[data-stack="spark"][data-mode="learn"] #interviewBtn { display: inline-bloc
   .iqa-a { padding-left: 14px; }
   .iqa-qtext { font-size: 13.5px; }
 }
+
+/* due indicators on the SQL bank */
+.iqa-due-chip.active, .iqa-due-chip { font-weight: 700; }
+.iqa-due-dot { color: var(--amber, #f0a020); font-size: 9px; }
+.iqa-card.due { box-shadow: inset 3px 0 0 var(--amber, #f0a020); }
+.iqa-card.due.got { box-shadow: inset 3px 0 0 var(--green, #2f9e44); }
+.iqa-due-tag { color: var(--amber, #f0a020); }
+
+/* spaced-repetition grade row inside a flipped SQL card */
+.iqa-srs { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
+.iqa-srs-status { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+.iqa-srs-when b { color: var(--text-2); }
+.iqa-grades { display: flex; flex-wrap: wrap; gap: 8px; }
+.iqa-grade { cursor: pointer; font: inherit; font-size: 12px; font-weight: 700; color: var(--text);
+  background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 14px; }
+.iqa-grade:hover { border-color: var(--border-soft); }
+.iqa-grade-again:hover { border-color: #e03131; color: #ff8787; }
+.iqa-grade-hard:hover  { border-color: #f0a020; color: #ffc078; }
+.iqa-grade-good:hover  { border-color: #4c8dff; color: #74a9ff; }
+.iqa-grade-easy:hover  { border-color: var(--green, #2f9e44); color: #69db7c; }
+
+/* SQL Learn landing launcher card for the Q&A sub-mode (mirrors .resume-card) */
+.qa-launch { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left;
+  cursor: pointer; margin: 14px 0 4px; padding: 14px 16px; border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--brand) 32%, var(--border));
+  background: color-mix(in srgb, var(--brand) 8%, var(--panel, transparent)); color: var(--text);
+  transition: border-color var(--dur, .18s), transform var(--dur, .18s); }
+.qa-launch:hover { border-color: var(--brand); transform: translateY(-1px); }
+.qa-launch-ic { flex: none; font-size: 22px; line-height: 1; }
+.qa-launch-tx { flex: 1 1 auto; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.qa-launch-k { font-size: 13px; font-weight: 800; letter-spacing: .2px; }
+.qa-launch-v { font-size: 12.5px; color: var(--text-2); line-height: 1.45; }
+.qa-launch-go { flex: none; font-size: 12.5px; font-weight: 800; color: var(--brand); }
