@@ -21,6 +21,116 @@ const IQS = [
   { q:'What are your options when you detect sustained backpressure in production?', a:'In priority order: (1) Profile the bottleneck operator — is it CPU-bound, GC, blocking I/O, or hot-key skew? Fix the root cause first. (2) Increase parallelism of the bottleneck operator — scale horizontally. (3) Switch to async I/O (AsyncDataStream) if the bottleneck is external calls (DB, REST). (4) Enable RocksDB for large state if GC from heap state is the cause. (5) Enable operator chaining to eliminate network hops between co-located operators. (6) At Uber, they use Flink\'s Adaptive Scheduler which auto-rescales based on backpressure metrics.' },
 ];
 
+// ── "What & Why" foundations (additive) ──────────────────────────
+const WHY_REASONS = [
+  { icon: '⚖️', title: 'Match speeds automatically', body: 'When FraudDetector can\'t keep up, backpressure throttles the Kafka source to the exact rate the pipeline can process — no manual tuning.' },
+  { icon: '🧯', title: 'Bound memory use', body: 'Credit-based flow control caps in-flight buffers. Without it, a slow consumer lets queues grow until the TaskManager <b>OOMs</b>.' },
+  { icon: '🚫', title: 'Never drop data', body: 'Instead of shedding events to keep up (like a UDP firehose), Flink slows down. Throughput dips, correctness holds.' },
+  { icon: '🎯', title: 'Per-channel precision', body: 'Credits are per input channel, so one hot key\'s subtask backpressures only its own upstream — healthy keys keep flowing.' },
+  { icon: '📈', title: 'Make the bottleneck visible', body: 'Backpressure metrics (<code>backPressuredTimeMsPerSecond</code>) point straight at the slowest operator — the one to scale or fix.' },
+  { icon: '🤖', title: 'Drive auto-scaling', body: 'Sustained backpressure is the signal the Adaptive Scheduler uses to rescale an operator up to meet demand.' },
+];
+
+const PROBLEMS = [
+  { naive: 'Let the source read Kafka as fast as it can.', fail: 'A slow FraudDetector can\'t keep up; in-flight buffers grow unbounded until the TaskManager <b>runs out of memory</b> and crashes.', fix: 'Credit-based flow control blocks the sender when downstream buffers are full.' },
+  { naive: 'Drop events when the consumer falls behind.', fail: 'Shedding load <b>loses GPS pings</b> — trip distance and fraud counts come out wrong.', fix: 'Backpressure slows ingestion instead of dropping — throughput falls, data stays complete.' },
+  { naive: 'Slow the entire job when one key is hot.', fail: 'An airport-surge hot key <b>stalls every driver</b>, not just the busy subtask.', fix: 'Per-channel credits backpressure only the affected subtask; other keys flow freely.' },
+  { naive: 'Guess which operator is the bottleneck.', fail: 'Without a signal you scale the <b>wrong</b> operator and the stall persists.', fix: 'Backpressure ratio per subtask points directly at the true bottleneck to fix or scale.' },
+];
+
+const WHY_HTML = `
+  <div class="sm-wrap">
+    <div class="sm-def card">
+      <div class="sm-def-ic">🌊</div>
+      <div>
+        <div class="sm-def-eyebrow">What is backpressure?</div>
+        <p class="sm-def-lead"><b>Backpressure</b> is the mechanism by which a slow downstream operator tells upstream operators to <em>slow down</em>, so a fast producer can't overwhelm a slow consumer. In Flink it's automatic, via <b>credit-based flow control</b>: a receiver only grants buffer "credits" when it has room, and a sender blocks when credits hit zero. On ride <b>R-4471</b>, it's what keeps the pipeline stable when the airport surge (DEFECT-6) floods FraudDetector.</p>
+      </div>
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">Fast producer, slow consumer</div>
+      <div class="section-desc">What happens when ingestion outruns processing.</div>
+    </div>
+    <div class="sm-vs">
+      <div class="sm-vs-card stateless">
+        <div class="sm-vs-head">❌ No flow control</div>
+        <p class="sm-vs-sub">Producer keeps pushing regardless.</p>
+        <ul>
+          <li>Buffers grow without limit</li>
+          <li>TaskManager eventually OOMs</li>
+          <li>…or events get dropped</li>
+        </ul>
+        <div class="sm-vs-note">Either a crash or silent data loss — both bad.</div>
+      </div>
+      <div class="sm-vs-card stateful">
+        <div class="sm-vs-head">✅ Credit-based backpressure</div>
+        <p class="sm-vs-sub">Consumer sets the pace.</p>
+        <ul>
+          <li>Sender blocks when credits hit 0</li>
+          <li>Slowdown ripples back to the source</li>
+          <li>Source throttles its Kafka poll</li>
+        </ul>
+        <div class="sm-vs-note">Throughput dips to a safe rate; nothing is lost.</div>
+      </div>
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">Why a pipeline needs backpressure</div>
+      <div class="section-desc">Six jobs it does that a plain produce-as-fast-as-you-can loop can't.</div>
+    </div>
+    <div class="sm-why-grid">
+      ${WHY_REASONS.map(r => `
+        <div class="sm-why">
+          <div class="sm-why-ic">${r.icon}</div>
+          <div class="sm-why-title">${r.title}</div>
+          <p>${r.body}</p>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">The problem backpressure solves</div>
+      <div class="section-desc">Four ways an unthrottled pipeline breaks — and the fix.</div>
+    </div>
+    <div class="sm-prob-list">
+      ${PROBLEMS.map((p, i) => `
+        <div class="sm-prob">
+          <div class="sm-prob-no">${i + 1}</div>
+          <div class="sm-prob-body">
+            <div class="sm-prob-naive"><span class="sm-tag naive">Naïve</span>${p.naive}</div>
+            <div class="sm-prob-fail"><span class="sm-tag fail">Breaks</span>${p.fail}</div>
+            <div class="sm-prob-fix"><span class="sm-tag fix">Backpressure</span>${p.fix}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">How the slowdown ripples upstream</div>
+    </div>
+    <div class="sm-keyed card">
+      <p>Backpressure isn't a global throttle — it <b>propagates one hop at a time</b>, from the slow operator all the way back to the source.</p>
+      <ul>
+        <li><b>Credits</b> — each receiver announces free buffer slots; the sender transmits only while credits remain.</li>
+        <li><b>Block</b> — when a slow operator's input fills, it stops granting credits and the upstream sender blocks.</li>
+        <li><b>Ripple</b> — each blocked operator fills its own input, blocking the one before it, until the source slows its Kafka poll.</li>
+      </ul>
+      <div class="sm-keyed-flow">
+        <b>FraudDetect slow</b> <span class="sm-arrow">→</span> credits → 0 <span class="sm-arrow">→</span> <b>keyBy blocks</b> <span class="sm-arrow">→</span> credits → 0 <span class="sm-arrow">→</span> <b>source poll slows</b> <span class="sm-arrow">→</span> stable, no loss
+      </div>
+    </div>
+
+    <div class="sm-bridge" style="margin-top:26px">
+      <div class="sm-bridge-txt">
+        <div class="sm-bridge-k">Now feel it propagate</div>
+        <p>You know <b>why</b> backpressure exists — drag the FraudDetector speed slider and watch credits drain and the stall ripple back to the source.</p>
+      </div>
+      <button class="sm-bridge-btn" data-jump="sim">Open the Flow Visualizer →</button>
+    </div>
+  </div>
+`;
+
 export function mount(container) {
   let consumerSpeed = 80; // % of source speed
   let raf = null;
@@ -40,12 +150,17 @@ export function mount(container) {
       </div>
     </div>
     <div class="module-tabs">
-      <button class="tab-btn active" data-tab="sim">Flow Visualizer</button>
+      <button class="tab-btn active" data-tab="why">What &amp; Why</button>
+      <button class="tab-btn" data-tab="sim">Flow Visualizer</button>
       <button class="tab-btn" data-tab="concept">Concepts</button>
       <button class="tab-btn" data-tab="iq">Interview Q&amp;A</button>
     </div>
 
-    <div class="tab-content active" data-tab="sim">
+    <div class="tab-content active" data-tab="why">
+      ${WHY_HTML}
+    </div>
+
+    <div class="tab-content" data-tab="sim">
       <div class="bp-controls card">
         <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
           <div>
@@ -161,6 +276,17 @@ flink_taskmanager_job_task_backPressuredTimeMsPerSecond
       container.querySelector(`.tab-content[data-tab="${btn.dataset.tab}"]`).classList.add('active');
     });
   });
+
+  // Bridge button: jump from "What & Why" into the Flow Visualizer tab.
+  const jumpBtn = container.querySelector('[data-jump]');
+  if (jumpBtn) {
+    jumpBtn.addEventListener('click', () => {
+      const target = jumpBtn.dataset.jump;
+      container.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === target));
+      container.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.dataset.tab === target));
+      container.querySelector('.module-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
 
   // IQ
   const iqSec = container.querySelector('#iq14-section');
