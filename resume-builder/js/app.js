@@ -542,11 +542,21 @@
   }
 
   /* ---------- resume CRUD ---------- */
+  // Build the download/file base name for a resume: the resume name, plus the
+  // target company (from targetRole) appended with an underscore, e.g.
+  // "Satuluri_Rajesh_Resume_FISGlobal". Falls back to a sensible default.
+  function resumeFileBase(r) {
+    r = r || activeResume();
+    var base = ((r && r.name) || "Satuluri_Rajesh_Resume").trim().replace(/\s+/g, "_");
+    if (!base) base = "Satuluri_Rajesh_Resume";
+    var company = ((r && r.targetRole) || "").trim().replace(/[^A-Za-z0-9]+/g, "");
+    return company ? base + "_" + company : base;
+  }
   function newResume() {
     // start from the full standard template (all sections present) so a new
     // resume has everything ready to tailor, not a blank document
     var c = sampleContent();
-    var r = { id: uid(), name: "New Resume", targetRole: "",
+    var r = { id: uid(), name: "Satuluri_Rajesh_Resume", targetRole: "",
       profile: { name: c.profile.name, title: c.profile.title, contacts: clone(c.profile.contacts) },
       sections: clone(c.sections) };
     r.sections.forEach(function (s) { s.id = uid(); (s.items || []).forEach(function (it) { it.id = uid(); }); });
@@ -2068,7 +2078,7 @@
     var zipped = zipStore(files);
     var blob = new Blob([zipped], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
     var url = URL.createObjectURL(blob), a = el("a"); a.href = url;
-    a.download = "Satuluri_Rajesh_Resume.docx";
+    a.download = resumeFileBase(activeResume()) + ".docx";
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(function () { URL.revokeObjectURL(url); }, 500);
     flash("Word .docx downloaded.");
@@ -2105,7 +2115,7 @@
       /* the browser's "Save as PDF" uses document.title as the filename —
          swap it to the desired resume name, print, then restore it. */
       var prev = document.title;
-      document.title = "Satuluri_Rajesh_Resume";
+      document.title = resumeFileBase(activeResume());
       var restore = function () { document.title = prev; window.removeEventListener("afterprint", restore); };
       window.addEventListener("afterprint", restore);
       window.print();
