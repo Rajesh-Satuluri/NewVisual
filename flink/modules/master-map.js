@@ -22,6 +22,7 @@ const STAGES = [
     ['m11', '🗄️', 'State Management', 'Per-driver state in RocksDB'],
     ['m12', '✅', 'Checkpointing', 'Snapshot state for exactly-once'],
     ['m13', '🛡️', 'Fault Tolerance', 'Recover a dead TaskManager'],
+    ['m13b', '💾', 'Savepoints', 'Upgrade the fraud model safely'],
     ['m14', '🌡️', 'Backpressure', 'Absorb the Friday-night surge'],
   ]},
   { name: 'Deliver & optimise', color: '#FCD34D', nodes: [

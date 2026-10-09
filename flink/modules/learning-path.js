@@ -82,7 +82,7 @@ const ACTS = [
     problem: `A TaskManager vanishes mid-trip, taking live trip state with it. Later a sink failure makes the job replay and re-emit the payment for R-4471. The rider must never be charged ₹523.50 twice, and the trip's distance must survive the crash.`,
     batch: 'At-least-once delivery plus a non-idempotent sink double-charges a real customer. Lost state bills the wrong distance. Both are unacceptable.',
     need: 'Chandy–Lamport checkpoints for recoverable state, savepoints for planned upgrades and rescaling, restart strategies, and end-to-end exactly-once via two-phase commit or idempotent upsert sinks.',
-    mods: ['m12', 'm13', 'm14'],
+    mods: ['m12', 'm13', 'm13b', 'm14'],
     ride: ['RIDE_STARTED', 'PAYMENT_COMPLETED', 'JOB_UPGRADE'],
     incidents: ['DEFECT-4', 'DEFECT-5'],
     payoff: `This is the act that lets you say "exactly-once" and mean it — you'll be able to walk a crash and a retry end to end and show the money stays correct.`,

@@ -17,6 +17,7 @@ const BLURB = {
   m11: 'Keyed vs operator state; heap vs RocksDB backends.',
   m12: 'Chandy-Lamport checkpoints for exactly-once state.',
   m13: 'Recovery, restart strategies, and end-to-end guarantees.',
+  m13b: 'Savepoints: safe upgrades, rescaling, and state migration.',
   m14: 'Detect and relieve backpressure before it cascades.',
   m15: 'Streaming SQL and the Table API over unbounded data.',
   m16: 'Kafka, filesystem, JDBC — sources & sinks with 2PC.',

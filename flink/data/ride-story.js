@@ -235,18 +235,18 @@ export const INCIDENTS = [
 // concept id -> which stages/incidents demonstrate it (for the spine + cross-links)
 export const CONCEPT_INDEX = {
   'kafka': { stages: ['RIDE_REQUESTED'], module: 'm16' },
-  'source': { stages: ['RIDE_REQUESTED'], module: 'm06' },
-  'keyby': { stages: ['DRIVER_SEARCHING'], module: 'm07' },
+  'source': { stages: ['RIDE_REQUESTED'], module: 'm07' },
+  'keyby': { stages: ['DRIVER_SEARCHING'], module: 'm06' },
   'keyed-state': { stages: ['DRIVER_ASSIGNED', 'DRIVER_ACCEPTED'], module: 'm11' },
   'event-time': { stages: ['DRIVER_ACCEPTED', 'RIDE_COMPLETED'], module: 'm08' },
   'watermark': { stages: ['DRIVER_ARRIVING', 'LOCATION_UPDATED'], module: 'm09', incidents: ['DEFECT-1', 'DEFECT-3'] },
   'window': { stages: ['RIDE_STARTED', 'LOCATION_UPDATED'], module: 'm10' },
   'session-window': { stages: ['DRIVER_ARRIVED'], module: 'm10' },
   'checkpoint': { stages: ['RIDE_STARTED'], module: 'm12', incidents: ['DEFECT-4'] },
-  'savepoint': { stages: ['JOB_UPGRADE'], module: 'm13' },
-  'backpressure': { stages: ['LOCATION_UPDATED'], module: 'm15', incidents: ['DEFECT-6'] },
+  'savepoint': { stages: ['JOB_UPGRADE'], module: 'm13b' },
+  'backpressure': { stages: ['LOCATION_UPDATED'], module: 'm14', incidents: ['DEFECT-6'] },
   'parallelism': { stages: ['DRIVER_SEARCHING'], module: 'm05', incidents: ['DEFECT-6'] },
-  'exactly-once': { stages: ['PAYMENT_COMPLETED'], module: 'm14', incidents: ['DEFECT-5'] },
+  'exactly-once': { stages: ['PAYMENT_COMPLETED'], module: 'm07', incidents: ['DEFECT-5'] },
   'sink': { stages: ['RIDE_COMPLETED', 'PAYMENT_COMPLETED'], module: 'm16' },
 };
 

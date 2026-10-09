@@ -16,6 +16,7 @@ export const MODULES = [
   { id: 'm11', title: 'State Management',        icon: '🗄️', group: 'State & Fault',  num: '11' },
   { id: 'm12', title: 'Checkpointing',           icon: '✅', group: 'State & Fault',  num: '12' },
   { id: 'm13', title: 'Fault Tolerance',         icon: '🛡️', group: 'State & Fault',  num: '13' },
+  { id: 'm13b', title: 'Savepoints',             icon: '💾', group: 'State & Fault',  num: '13b' },
   { id: 'm14', title: 'Backpressure',            icon: '🌡️', group: 'State & Fault',  num: '14' },
   // Group: APIs & Connectors
   { id: 'm15', title: 'Flink SQL & Table API',   icon: '📊', group: 'APIs & Connectors', num: '15' },

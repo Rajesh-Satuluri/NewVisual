@@ -11,7 +11,7 @@ import { QUIZ_BANK } from './data/quiz-bank.js';
 // fresh deploy is fetched immediately instead of served from the browser/CDN
 // cache (a hard-reload does not reliably re-fetch dynamic import() subresources).
 // Bump this on each deploy that changes module code.
-const BUILD = '20261009d';
+const BUILD = '20261009e';
 const imp = (p) => import(`${p}?v=${BUILD}`);
 const LOADERS = {
   home:  () => imp('./modules/home.js'),
@@ -29,6 +29,7 @@ const LOADERS = {
   m11: () => imp('./modules/m11-state-management.js'),
   m12: () => imp('./modules/m12-checkpointing.js'),
   m13: () => imp('./modules/m13-savepoints.js'),
+  m13b: () => imp('./modules/m13b-savepoints.js'),
   m14: () => imp('./modules/m14-fault-tolerance.js'),
   m15: () => imp('./modules/m15-backpressure.js'),
   m16: () => imp('./modules/m16-connectors.js'),
@@ -83,7 +84,7 @@ async function navigate(id) {
           renderNav(id, done);
           updateProgress(done);
           toast(`Module complete — ${mod.title}`, { icon: '✅' });
-          if (done.size === MODULES.length) toast('All 19 modules complete!', { icon: '🏆', duration: 4200 });
+          if (done.size === MODULES.length) toast(`All ${MODULES.length} modules complete!`, { icon: '🏆', duration: 4200 });
         }
       }, 30000);
     }
