@@ -167,6 +167,118 @@ const IQS = [
   { q: 'What is an operator chain and when does Flink break it?', a: 'Flink chains consecutive operators with the same parallelism and a FORWARD data exchange into a single task thread — data passes as Java objects, no serialization or network. A chain breaks when: (1) parallelism changes (forcing a data exchange), (2) the exchange strategy is not FORWARD (e.g., keyBy introduces a hash shuffle), (3) you call .startNewChain() or .disableChaining() explicitly, or (4) you set a different slot-sharing group. Breaking a chain adds a network hop but also isolates operator resources.' },
 ];
 
+// ── "What & Why" foundations (additive) ──────────────────────────
+// Grounds the reader before the Operator Explorer: what an operator IS,
+// why a raw stream is useless without them, and the problems they solve.
+const WHY_REASONS = [
+  { icon: '✂️', title: 'Reshape every record', body: 'A raw GPS ping carries ~20 fields; the fraud model needs 3. <code>map()</code> trims and derives fields so downstream stages stay cheap.' },
+  { icon: '🚫', title: 'Drop the noise', body: 'Idle drivers (<code>speed == 0</code>) emit pings too. <code>filter()</code> gates them out before they ever reach the model — ~30% less load.' },
+  { icon: '📋', title: 'Fan one event into many', body: '<code>flatMap()</code> lets one ping emit a location update <em>and</em> a speed alert — 1 input, 0..N outputs.' },
+  { icon: '🔑', title: 'Route by key', body: '<code>keyBy(driverId)</code> hash-routes every event for a driver to the same subtask — the prerequisite for per-driver state.' },
+  { icon: '📊', title: 'Fold into a running result', body: '<code>reduce()</code>/<code>aggregate()</code> turn a stream of pings into one evolving answer per driver (max speed, trip count).' },
+  { icon: '⚙️', title: 'Arbitrary logic + timers', body: '<code>KeyedProcessFunction</code> adds state, per-key timers, and side outputs — the general case behind every other operator.' },
+];
+
+const PROBLEMS = [
+  { naive: 'Push the raw Kafka stream straight into the fraud model.', fail: 'Idle pings, GPS glitches and 20 unused fields flood the model — cost and latency explode.', fix: 'Compose <code>filter()</code> + <code>map()</code> to clean and trim before the expensive stage.' },
+  { naive: 'Process all drivers in one operator instance with a shared dict.', fail: 'Subtasks see an interleaved mix of every driver — per-driver counts are wrong and un-parallelizable.', fix: '<code>keyBy(driverId)</code> guarantees one driver → one subtask, so state is correct and scales.' },
+  { naive: 'Use <code>map()</code> when one event must become several.', fail: 'map() is strictly 1-to-1 — you can\'t split a ping into "update + alert" or skip a bad record.', fix: '<code>flatMap()</code> emits 0, 1, or many records per input via a Collector.' },
+  { naive: 'Recompute the max speed by re-reading history every event.', fail: 'Re-scanning the stream per ping is O(n²) and needs unbounded memory.', fix: '<code>reduce()</code>/<code>aggregate()</code> keep a tiny running accumulator in managed state.' },
+];
+
+const WHY_HTML = `
+  <div class="sm-wrap">
+    <div class="sm-def card">
+      <div class="sm-def-ic">🔀</div>
+      <div>
+        <div class="sm-def-eyebrow">What is an operator?</div>
+        <p class="sm-def-lead">An <b>operator</b> is a single processing step that takes a stream in and emits a stream out. <b>Transformations</b> are how you chain operators to reshape, filter, route, and aggregate an unbounded stream — turning a firehose of raw GPS pings into decisions. On ride <b>R-4471</b>, operators are everything that happens between Kafka and the fraud alert.</p>
+      </div>
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">Stateless vs. stateful operators</div>
+      <div class="section-desc">The single distinction that decides how an operator behaves, scales, and recovers.</div>
+    </div>
+    <div class="sm-vs">
+      <div class="sm-vs-card stateless">
+        <div class="sm-vs-head">Stateless</div>
+        <p class="sm-vs-sub">Output depends only on the current record. No memory between events.</p>
+        <ul>
+          <li><code>map()</code> — 1-to-1 reshape</li>
+          <li><code>filter()</code> — conditional pass-through</li>
+          <li><code>flatMap()</code> — 1-to-N expand</li>
+        </ul>
+        <div class="sm-vs-note">Embarrassingly parallel — any subtask can process any record.</div>
+      </div>
+      <div class="sm-vs-card stateful">
+        <div class="sm-vs-head">Stateful</div>
+        <p class="sm-vs-sub">Output depends on past records too — the operator remembers something per key.</p>
+        <ul>
+          <li><code>reduce()</code> / <code>aggregate()</code> — running fold</li>
+          <li><code>KeyedProcessFunction</code> — state + timers</li>
+          <li>windows, joins, dedup</li>
+        </ul>
+        <div class="sm-vs-note">Requires <code>keyBy()</code> first so each key's history lands on one subtask.</div>
+      </div>
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">Why a stream needs operators</div>
+      <div class="section-desc">A raw event stream is just noise — six jobs operators do to make it useful.</div>
+    </div>
+    <div class="sm-why-grid">
+      ${WHY_REASONS.map(r => `
+        <div class="sm-why">
+          <div class="sm-why-ic">${r.icon}</div>
+          <div class="sm-why-title">${r.title}</div>
+          <p>${r.body}</p>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">The problem operators solve</div>
+      <div class="section-desc">Four ways a pipeline breaks when you reach for the wrong operator — and the fix.</div>
+    </div>
+    <div class="sm-prob-list">
+      ${PROBLEMS.map((p, i) => `
+        <div class="sm-prob">
+          <div class="sm-prob-no">${i + 1}</div>
+          <div class="sm-prob-body">
+            <div class="sm-prob-naive"><span class="sm-tag naive">Naïve</span>${p.naive}</div>
+            <div class="sm-prob-fail"><span class="sm-tag fail">Breaks</span>${p.fail}</div>
+            <div class="sm-prob-fix"><span class="sm-tag fix">Operator</span>${p.fix}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">keyBy() — the shuffle that enables everything stateful</div>
+    </div>
+    <div class="sm-keyed card">
+      <p><code>keyBy()</code> is not a transformation — it's a <b>partitioning</b> step. Records are hash-routed so that every event for a key always arrives at the same operator subtask, in order.</p>
+      <ul>
+        <li><b>Isolation</b> — driver D-001's state is never touched by D-002's events.</li>
+        <li><b>Distribution</b> — keys spread across subtasks, so throughput scales with parallelism.</li>
+        <li><b>Correctness</b> — <code>ValueState</code>/<code>ListState</code> is implicitly scoped to the current key; without keyBy() it throws.</li>
+      </ul>
+      <div class="sm-keyed-flow">
+        <code>ride-events</code> <span class="sm-arrow">→</span> <b>keyBy(driver_id)</b> <span class="sm-arrow">→</span> <code>hash % parallelism</code> <span class="sm-arrow">→</span> D-001 → subtask[1], D-002 → subtask[0] <span class="sm-arrow">→</span> stateful process()
+      </div>
+    </div>
+
+    <div class="sm-bridge" style="margin-top:26px">
+      <div class="sm-bridge-txt">
+        <div class="sm-bridge-k">Now watch the records flow</div>
+        <p>You know <b>what</b> each operator does and <b>why</b> — see Uber GPS events transform live, input → output, with the PyFlink code.</p>
+      </div>
+      <button class="sm-bridge-btn" data-jump="sim">Open the Operator Explorer →</button>
+    </div>
+  </div>
+`;
+
 export function mount(container) {
   let selectedOp = OPS[0];
   let animFrame = null;
@@ -183,11 +295,16 @@ export function mount(container) {
       </div>
     </div>
     <div class="module-tabs">
-      <button class="tab-btn active" data-tab="sim">Operator Explorer</button>
+      <button class="tab-btn active" data-tab="why">What &amp; Why</button>
+      <button class="tab-btn" data-tab="sim">Operator Explorer</button>
       <button class="tab-btn" data-tab="iq">Interview Q&amp;A</button>
     </div>
 
-    <div class="tab-content active" data-tab="sim">
+    <div class="tab-content active" data-tab="why">
+      ${WHY_HTML}
+    </div>
+
+    <div class="tab-content" data-tab="sim">
       ${rideCallout('RIDE_REQUESTED', { openEvent: false })}
       <div class="op-picker" id="op-picker"></div>
       <div class="op-arena" id="op-arena"></div>
@@ -217,6 +334,17 @@ export function mount(container) {
       container.querySelector(`.tab-content[data-tab="${btn.dataset.tab}"]`).classList.add('active');
     });
   });
+
+  // Bridge button: jump from "What & Why" into the Operator Explorer tab.
+  const jumpBtn = container.querySelector('[data-jump]');
+  if (jumpBtn) {
+    jumpBtn.addEventListener('click', () => {
+      const target = jumpBtn.dataset.jump;
+      container.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === target));
+      container.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.dataset.tab === target));
+      container.querySelector('.module-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
 
   // IQ
   const iqSection = container.querySelector('#iq6-section');
