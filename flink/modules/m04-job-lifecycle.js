@@ -99,6 +99,111 @@ const IQS = [
   { q: 'How does Uber achieve <10ms fraud detection latency with Flink?', a: 'Several factors: (1) True streaming — no micro-batching delay, each event triggers the operator immediately. (2) State is in TaskManager JVM heap (HashMap backend) for sub-millisecond lookup. (3) keyBy(driverId) co-locates all events for a driver on one subtask, eliminating cross-network state lookups. (4) Slot-sharing pipelines source→detector→sink in one JVM, removing network serialization for hand-offs.' },
 ];
 
+// ── "What & Why" foundations (additive) ──────────────────────────
+const WHY_REASONS = [
+  { icon: '🧩', title: 'Compile code to a plan', body: 'Your <code>env.execute()</code> doesn\'t run locally — the Client turns it into a <b>JobGraph</b>, a logical DAG of operators, and ships it to the cluster.' },
+  { icon: '🗺️', title: 'Expand to parallel tasks', body: 'The JobManager converts the JobGraph into an <b>ExecutionGraph</b>, splitting each operator into N parallel subtasks per the parallelism setting.' },
+  { icon: '🎰', title: 'Acquire resources', body: 'The Scheduler requests <b>task slots</b> from the ResourceManager, which leases them from TaskManagers (or launches new ones on K8s).' },
+  { icon: '🚀', title: 'Deploy and run', body: 'Each subtask is deployed onto a slot, the operator class loads, source tasks connect to Kafka, and data starts flowing.' },
+  { icon: '📸', title: 'Snapshot while running', body: 'Once RUNNING, the CheckpointCoordinator periodically snapshots state so the job can recover from exactly where it was.' },
+  { icon: '🏁', title: 'Handle the end states', body: 'Streaming jobs run forever; the lifecycle also defines what happens on failure (restart + restore) and cancel (clean shutdown).' },
+];
+
+const PROBLEMS = [
+  { naive: 'Assume <code>env.execute()</code> runs your code on the spot.', fail: 'You can\'t reason about <b>where</b> an operator runs or <b>why</b> it\'s slow, because the mental model is wrong.', fix: 'The lifecycle shows the code becomes a JobGraph, then an ExecutionGraph, then tasks on slots.' },
+  { naive: 'Think of the job as one program on one machine.', fail: 'Parallelism, slot sharing, and per-subtask state make <b>no sense</b> without the logical→physical expansion.', fix: 'The ExecutionGraph step makes parallel subtasks and data channels explicit.' },
+  { naive: 'Treat a failure as a total restart from scratch.', fail: 'You\'d expect <b>minutes of downtime</b> and data loss on every crash.', fix: 'The lifecycle\'s checkpoint + restart phases restore state and rewind sources in seconds.' },
+  { naive: 'Ignore where submission actually lands.', fail: 'You can\'t tell whether a hang is in the Client, Dispatcher, scheduling, or a stuck task.', fix: 'Knowing the eight phases lets you locate exactly which stage is stalled.' },
+];
+
+const WHY_HTML = `
+  <div class="sm-wrap">
+    <div class="sm-def card">
+      <div class="sm-def-ic">🔄</div>
+      <div>
+        <div class="sm-def-eyebrow">What is the job lifecycle?</div>
+        <p class="sm-def-lead">The <b>job lifecycle</b> is the sequence of steps Flink runs to turn your submitted code into a distributed, fault-tolerant job — from <code>env.execute()</code> through planning, scheduling, deployment, running, checkpointing, and finally completion, failure, or cancel. It's the story of <em>how logical code becomes physical tasks</em>. On ride <b>R-4471</b>, it's every step between an engineer hitting submit and 1M GPS events/sec flowing through the fraud pipeline.</p>
+      </div>
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">Logical plan vs. physical plan</div>
+      <div class="section-desc">The central transformation the lifecycle performs.</div>
+    </div>
+    <div class="sm-vs">
+      <div class="sm-vs-card stateless">
+        <div class="sm-vs-head">📋 JobGraph (logical)</div>
+        <p class="sm-vs-sub">What the Client builds from your code.</p>
+        <ul>
+          <li>Operators &amp; edges, no parallelism</li>
+          <li>Topology only</li>
+          <li>Serialized &amp; submitted to cluster</li>
+        </ul>
+        <div class="sm-vs-note">"Source → keyBy → FraudDetector → Sink."</div>
+      </div>
+      <div class="sm-vs-card stateful">
+        <div class="sm-vs-head">🗺️ ExecutionGraph (physical)</div>
+        <p class="sm-vs-sub">What the JobManager expands it into.</p>
+        <ul>
+          <li>Each operator → N parallel subtasks</li>
+          <li>Edges → typed data channels</li>
+          <li>Mapped onto task slots</li>
+        </ul>
+        <div class="sm-vs-note">FraudDetector(p=4) → 4 subtasks, each owning 25% of drivers.</div>
+      </div>
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">Why the lifecycle has distinct phases</div>
+      <div class="section-desc">Six jobs each stage performs on the way to RUNNING.</div>
+    </div>
+    <div class="sm-why-grid">
+      ${WHY_REASONS.map(r => `
+        <div class="sm-why">
+          <div class="sm-why-ic">${r.icon}</div>
+          <div class="sm-why-title">${r.title}</div>
+          <p>${r.body}</p>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">The problem understanding it solves</div>
+      <div class="section-desc">Four wrong mental models — and what the lifecycle corrects.</div>
+    </div>
+    <div class="sm-prob-list">
+      ${PROBLEMS.map((p, i) => `
+        <div class="sm-prob">
+          <div class="sm-prob-no">${i + 1}</div>
+          <div class="sm-prob-body">
+            <div class="sm-prob-naive"><span class="sm-tag naive">Assumes</span>${p.naive}</div>
+            <div class="sm-prob-fail"><span class="sm-tag fail">Breaks</span>${p.fail}</div>
+            <div class="sm-prob-fix"><span class="sm-tag fix">Lifecycle</span>${p.fix}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">The eight phases at a glance</div>
+    </div>
+    <div class="sm-keyed card">
+      <p>Every Flink job walks the same path from code to data flowing — and keeps looping through checkpoints until it ends.</p>
+      <div class="sm-keyed-flow">
+        <b>Submit</b> <span class="sm-arrow">→</span> Dispatcher <span class="sm-arrow">→</span> <b>ExecutionGraph</b> <span class="sm-arrow">→</span> request slots <span class="sm-arrow">→</span> <b>deploy</b> <span class="sm-arrow">→</span> RUNNING <span class="sm-arrow">→</span> <b>checkpoint</b> (repeat) <span class="sm-arrow">→</span> complete / fail / cancel
+      </div>
+    </div>
+
+    <div class="sm-bridge" style="margin-top:26px">
+      <div class="sm-bridge-txt">
+        <div class="sm-bridge-k">Now walk each step</div>
+        <p>You know <b>why</b> each phase exists — step through all eight with the PyFlink code and Uber example for each.</p>
+      </div>
+      <button class="sm-bridge-btn" data-jump="lifecycle">Open the Job Lifecycle walkthrough →</button>
+    </div>
+  </div>
+`;
+
 export function mount(container) {
   container.innerHTML = `
     ${rideSpine({ active: ['JOB_UPGRADE', 'RIDE_STARTED'] })}
@@ -110,11 +215,15 @@ export function mount(container) {
       </div>
     </div>
     <div class="module-tabs">
-      <button class="tab-btn active" data-tab="lifecycle">Job Lifecycle</button>
+      <button class="tab-btn active" data-tab="why">What &amp; Why</button>
+      <button class="tab-btn" data-tab="lifecycle">Job Lifecycle</button>
       <button class="tab-btn" data-tab="diagram">Flow Diagram</button>
       <button class="tab-btn" data-tab="iq">Interview Q&amp;A</button>
     </div>
-    <div class="tab-content active" data-tab="lifecycle">
+    <div class="tab-content active" data-tab="why">
+      ${WHY_HTML}
+    </div>
+    <div class="tab-content" data-tab="lifecycle">
       <div class="lifecycle-layout">
         <div class="lifecycle-stepper" id="lifecycle-stepper"></div>
         <div class="lifecycle-detail" id="lifecycle-detail"></div>
@@ -142,6 +251,17 @@ export function mount(container) {
       container.querySelector(`.tab-content[data-tab="${btn.dataset.tab}"]`).classList.add('active');
     });
   });
+
+  // Bridge button: jump from "What & Why" into the Job Lifecycle tab.
+  const jumpBtn = container.querySelector('[data-jump]');
+  if (jumpBtn) {
+    jumpBtn.addEventListener('click', () => {
+      const target = jumpBtn.dataset.jump;
+      container.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === target));
+      container.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.dataset.tab === target));
+      container.querySelector('.module-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
 
   // IQ accordion
   const iqSection = container.querySelector('#iq-section');
