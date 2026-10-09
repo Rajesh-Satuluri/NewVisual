@@ -101,6 +101,31 @@
 .ct-dom-expand:hover { border-color:var(--brand,#58a6ff); color:var(--brand,#58a6ff); }
 .ct-dom-fill { height:100%; border-radius:5px; }
 .lvl-lo{background:var(--red,#f85149);} .lvl-mid{background:#d29922;} .lvl-hi{background:var(--green,#3fb950);}
+/* Coverage matrix (C1.2) */
+.ct-cov { background:var(--bg-2,#131b2b); border:1px solid var(--border-default,#223047); border-radius:12px; padding:16px 18px; margin-bottom:12px; }
+.ct-cov-empty { font-size:13px; color:var(--text-secondary,#b3c0d6); line-height:1.6; }
+.ct-cov-summary { font-size:13px; color:var(--text-secondary,#b3c0d6); margin-bottom:10px; }
+.ct-cov-summary b { color:var(--text-primary,#e6edf7); }
+.ct-cov-legend { display:flex; flex-wrap:wrap; gap:14px; margin-bottom:14px; }
+.ct-cov-key { display:inline-flex; align-items:center; gap:6px; font-size:11px; color:var(--text-muted,#7e8da8); font-weight:700; }
+.ct-cov-key i { width:11px; height:11px; border-radius:3px; display:inline-block; }
+.cov-adequate { background:var(--green,#3fb950); } .cov-thin { background:var(--yellow,#d29922); } .cov-none { background:var(--red,#f85149); }
+.ct-cov-row { display:flex; gap:12px; align-items:flex-start; padding:9px 0; border-top:1px solid var(--border-subtle,#1a2334); }
+.ct-cov-row:first-child { border-top:none; }
+.ct-cov-dom { flex:0 0 190px; font-size:12px; font-weight:700; color:var(--text-secondary,#b3c0d6); display:flex; justify-content:space-between; gap:8px; }
+.ct-cov-domw { color:var(--brand,#58a6ff); font-weight:800; }
+.ct-cov-cells { display:flex; flex-wrap:wrap; gap:6px; flex:1; }
+.ct-cov-cell { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; color:#fff; padding:3px 8px; border-radius:6px; }
+.ct-cov-cell b { font-weight:800; }
+.ct-cov-cell.cov-adequate { background:var(--green-dim,#238636); }
+.ct-cov-cell.cov-thin { background:#9e7410; }
+.ct-cov-cell.cov-none { background:#8f2d28; }
+.ct-cov-gaps { margin-top:14px; font-size:12px; color:var(--text-secondary,#b3c0d6); line-height:1.9; }
+.ct-cov-gaps b { color:var(--text-primary,#e6edf7); }
+.ct-cov-gaptag { display:inline-block; background:var(--bg-3,#1a2334); border:1px solid var(--border-default,#223047); border-radius:20px; padding:2px 10px; margin:0 4px; font-weight:600; }
+.ct-cov-gaptag.cov-none { border-color:#8f2d28; } .ct-cov-gaptag.cov-thin { border-color:#9e7410; }
+.ct-cov-gaptag i { color:var(--text-muted,#7e8da8); font-style:normal; }
+@media (max-width:640px){ .ct-cov-dom{ flex-basis:100%; } .ct-cov-row{ flex-direction:column; gap:6px; } }
 .ct-obj { border-top:1px solid var(--border-subtle,#1a2334); padding:12px 0 4px; }
 .ct-obj:first-child { border-top:none; }
 .ct-obj-top { display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
@@ -300,6 +325,58 @@
 </div>`;
   }
 
+  /* ── Practice-question coverage matrix (C1.2) ─────────────────────
+     Reads TV.CertCoverage — honest per-objective question counts, not
+     the learner's score. Shows which objectives have enough practice,
+     which are thin, which have none. */
+  const COV_LABEL = { adequate: 'adequate', thin: 'thin', none: 'none' };
+  function coverageHTML(cert) {
+    if (!TV.CertCoverage) return '';
+    const cov = TV.CertCoverage.forCert(cert.certificationId);
+    if (!cov) return '';
+    const chip = TV.VerifiedChip ? TV.VerifiedChip.html('cert-questions') : '';
+    const c = cov.counts;
+    const T = cov.thresholds;
+
+    if (!cov.total) {
+      return `
+  <div class="ct-section-h">Practice-question coverage</div>
+  <div class="ct-cov">
+    <div class="ct-cov-empty">No practice questions are seeded for this track yet — all <b>${c.objectivesTotal}</b> objectives are uncovered. This is tracked honestly here and is on the build plan; it is never faked.</div>
+  </div>`;
+    }
+
+    const legend = `<div class="ct-cov-legend">
+      <span class="ct-cov-key"><i class="cov-adequate"></i> adequate (≥${T.adequateMin})</span>
+      <span class="ct-cov-key"><i class="cov-thin"></i> thin (1–${T.thinMax})</span>
+      <span class="ct-cov-key"><i class="cov-none"></i> none (0)</span>
+    </div>`;
+
+    const rows = cov.domains.map(d => {
+      const cells = d.objectives.map(o =>
+        `<span class="ct-cov-cell cov-${o.status}" title="${esc(o.statement)} — ${o.count} question(s), ${COV_LABEL[o.status]}">${esc(o.id)}<b>${o.count}</b></span>`
+      ).join('');
+      return `<div class="ct-cov-row">
+        <div class="ct-cov-dom"><span>${esc(d.name)}</span><span class="ct-cov-domw">${esc(String(d.weight))}%</span></div>
+        <div class="ct-cov-cells">${cells}</div>
+      </div>`;
+    }).join('');
+
+    const topGaps = cov.gaps.filter(g => g.status !== 'adequate').slice(0, 5);
+    const gapList = topGaps.length ? `<div class="ct-cov-gaps"><b>Priority to expand</b> (weakest objectives, weighted by exam %): ${topGaps.map(g => `<span class="ct-cov-gaptag cov-${g.status}">${esc(g.statement)} <i>(${g.count})</i></span>`).join('')}</div>` : '';
+
+    return `
+  <div class="ct-section-h" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+    <span>Practice-question coverage</span>${chip}
+  </div>
+  <div class="ct-cov">
+    <div class="ct-cov-summary"><b>${cov.total}</b> questions · <b>${c.adequate}</b> adequate · <b>${c.thin}</b> thin · <b>${c.none}</b> none objectives (of ${c.objectivesTotal})${c.domainOnly ? ` · ${c.domainOnly} domain-only` : ''}</div>
+    ${legend}
+    <div class="ct-cov-grid">${rows}</div>
+    ${gapList}
+  </div>`;
+  }
+
   function labsHTML(cert) {
     const labs = (TV.CertLabs && TV.CertLabs.byCert(cert.certificationId)) || [];
     if (!labs.length) return '';
@@ -414,8 +491,11 @@
       <div class="ct-ring-tier">${esc(rd.tier)}</div>
       <button class="ct-btn" style="margin-top:8px" data-goal="${esc(cert.certificationId)}">Set as my goal</button>
       ${TV.CertExam && TV.CertExam.available(cert.certificationId)
-        ? `<button class="ct-btn ct-btn--ghost" style="margin-top:6px" data-exam="${esc(cert.certificationId)}">Take practice exam</button>`
+        ? `<button class="ct-btn ct-btn--ghost" style="margin-top:6px" data-exam="${esc(cert.certificationId)}">Practice (learn mode)</button>`
         : `<div style="margin-top:6px;font-size:11px;color:var(--text-muted,#7e8da8)">Practice exam: coming soon</div>`}
+      ${TV.ExamSim && TV.ExamSim.available(cert.certificationId)
+        ? `<button class="ct-btn ct-btn--ghost" style="margin-top:6px" data-sim="${esc(cert.certificationId)}">⏱ Exam simulation (timed)</button>`
+        : ''}
     </div>
   </div>
   ${betaNote}${updateNote}
@@ -424,6 +504,7 @@
   </div>
   <div class="ct-section-h" style="display:flex;align-items:center;justify-content:space-between;gap:10px">Exam domains &amp; objectives (official weightings)<button class="ct-dom-expand" data-dom-expand="${allOpen ? 'collapse' : 'expand'}">${allOpen ? 'Collapse all' : 'Expand all'}</button></div>
   ${domains}
+  ${coverageHTML(cert)}
   ${planHTML(cert)}
   ${labsHTML(cert)}
   ${cramHTML(cert)}
@@ -473,6 +554,8 @@
     if (e.target.closest('[data-back]')) { _selected = null; render(_container); return; }
     const exam = e.target.closest('[data-exam]');
     if (exam) { if (TV.CertExam) TV.CertExam.open(exam.getAttribute('data-exam')); return; }
+    const sim = e.target.closest('[data-sim]');
+    if (sim) { if (TV.ExamSim) TV.ExamSim.open(sim.getAttribute('data-sim')); return; }
     const labDone = e.target.closest('[data-lab-done]');
     if (labDone) { e.stopPropagation(); const id = labDone.getAttribute('data-lab-done'); TV.Progress.setLabDone(id, !TV.Progress.isLabDone(id)); return; }
     const labTog = e.target.closest('[data-lab-toggle]');
