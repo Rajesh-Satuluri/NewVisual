@@ -6,8 +6,8 @@ export const MODULES = [
   { id: 'm03', title: 'Flink Architecture',      icon: '🏛️', group: 'Architecture',  num: '03' },
   { id: 'm04', title: 'Job Lifecycle',           icon: '🔄', group: 'Architecture',  num: '04' },
   { id: 'm05', title: 'Parallelism',             icon: '⚙️', group: 'Architecture',  num: '05' },
-  { id: 'm06', title: 'Data Flow',               icon: '➡️', group: 'Architecture',  num: '06' },
-  { id: 'm07', title: 'Operators',               icon: '🔧', group: 'Architecture',  num: '07' },
+  { id: 'm06', title: 'Operators',               icon: '🔧', group: 'Architecture',  num: '06' },
+  { id: 'm07', title: 'Sources & Sinks',         icon: '🔗', group: 'Architecture',  num: '07' },
   // Group: Time & Windows
   { id: 'm08', title: 'Time Concepts',           icon: '⏱️', group: 'Time & Windows', num: '08' },
   { id: 'm09', title: 'Watermarks',              icon: '💧', group: 'Time & Windows', num: '09' },
@@ -15,10 +15,10 @@ export const MODULES = [
   // Group: State & Fault Tolerance
   { id: 'm11', title: 'State Management',        icon: '🗄️', group: 'State & Fault',  num: '11' },
   { id: 'm12', title: 'Checkpointing',           icon: '✅', group: 'State & Fault',  num: '12' },
-  { id: 'm13', title: 'Savepoints',              icon: '💾', group: 'State & Fault',  num: '13' },
-  { id: 'm14', title: 'Fault Tolerance',         icon: '🛡️', group: 'State & Fault',  num: '14' },
-  { id: 'm15', title: 'Backpressure',            icon: '🌡️', group: 'State & Fault',  num: '15' },
+  { id: 'm13', title: 'Fault Tolerance',         icon: '🛡️', group: 'State & Fault',  num: '13' },
+  { id: 'm14', title: 'Backpressure',            icon: '🌡️', group: 'State & Fault',  num: '14' },
   // Group: APIs & Connectors
+  { id: 'm15', title: 'Flink SQL & Table API',   icon: '📊', group: 'APIs & Connectors', num: '15' },
   { id: 'm16', title: 'Connectors',              icon: '🔌', group: 'APIs & Connectors', num: '16' },
   { id: 'm17', title: 'Flink SQL',               icon: '📊', group: 'APIs & Connectors', num: '17' },
   { id: 'm18', title: 'Performance',             icon: '🚀', group: 'APIs & Connectors', num: '18' },

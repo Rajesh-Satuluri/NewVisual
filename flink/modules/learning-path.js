@@ -142,13 +142,13 @@ function numbersStrip(nums) {
 // The single-ping journey thread — one GPS ping from R-4471, hop by hop.
 const PING_HOPS = [
   { ic: '📲', label: 'Produced', note: 'Phone emits the event to Kafka topic ride-events, partition 7.', mod: 'm16' },
-  { ic: '📥', label: 'Sourced', note: 'KafkaSource reads it at a checkpointed offset (replayable).', mod: 'm06' },
+  { ic: '📥', label: 'Sourced', note: 'KafkaSource reads it at a checkpointed offset (replayable).', mod: 'm07' },
   { ic: '⏱️', label: 'Timestamped', note: 'Event-time extracted; watermark decides completeness.', mod: 'm09' },
-  { ic: '🔑', label: 'Keyed', note: 'keyBy(driver_id) routes it to exactly one subtask.', mod: 'm07' },
+  { ic: '🔑', label: 'Keyed', note: 'keyBy(driver_id) routes it to exactly one subtask.', mod: 'm06' },
   { ic: '🪟', label: 'Windowed', note: 'Bucketed into its event-time window.', mod: 'm10' },
   { ic: '🗄️', label: 'State', note: 'Updates that driver/ride keyed state.', mod: 'm11' },
   { ic: '✅', label: 'Checkpointed', note: 'Its effect is made recoverable.', mod: 'm12' },
-  { ic: '💳', label: 'Sunk once', note: 'Written exactly-once to the billing/DB sink.', mod: 'm14' },
+  { ic: '💳', label: 'Sunk once', note: 'Written exactly-once to the billing/DB sink.', mod: 'm07' },
 ];
 
 // Fast-path order (interview prep): the high-signal modules first.

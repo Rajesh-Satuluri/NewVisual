@@ -9,20 +9,20 @@ const STAGES = [
   { name: 'Distribute', color: '#A78BFA', nodes: [
     ['m03', '🏛️', 'Architecture', 'JobManager schedules, TMs execute'],
     ['m05', '⚙️', 'Parallelism', '256 subtasks share the load'],
-    ['m06', '➡️', 'Data Flow', 'keyBy(driverId) hash-partitions'],
-    ['m07', '🔧', 'Operators', 'map / filter / process the records'],
+    ['m06', '🔧', 'Operators', 'map / filter / process the records'],
+    ['m07', '🔗', 'Sources & Sinks', 'Kafka source & sink, exactly-once'],
   ]},
   { name: 'Reason about time', color: '#FF6B35', nodes: [
     ['m09', '💧', 'Watermarks', 'Handle drivers in tunnels (late GPS)'],
     ['m10', '🪟', 'Windows', 'Aggregate trips per 10s window'],
+    ['m15', '📊', 'Flink SQL & Table API', 'SQL & Table API over streams'],
     ['m17', '📊', 'Flink SQL', 'Surge pricing as a continuous query'],
   ]},
   { name: 'Remember & survive', color: '#34D399', nodes: [
     ['m11', '🗄️', 'State Management', 'Per-driver state in RocksDB'],
     ['m12', '✅', 'Checkpointing', 'Snapshot state for exactly-once'],
-    ['m13', '💾', 'Savepoints', 'Upgrade the fraud model safely'],
-    ['m14', '🛡️', 'Fault Tolerance', 'Recover a dead TaskManager'],
-    ['m15', '🌡️', 'Backpressure', 'Absorb the Friday-night surge'],
+    ['m13', '🛡️', 'Fault Tolerance', 'Recover a dead TaskManager'],
+    ['m14', '🌡️', 'Backpressure', 'Absorb the Friday-night surge'],
   ]},
   { name: 'Deliver & optimise', color: '#FCD34D', nodes: [
     ['m18', '🚀', 'Performance', 'Tune serialization, state, network'],
