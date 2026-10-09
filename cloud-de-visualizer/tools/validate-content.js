@@ -71,6 +71,11 @@ const LOAD_ORDER = [
   'aws-interview-qa.js',
   'azure-interview-qa.js',
   'databricks-interview-qa.js',
+  'incidents.js',
+  'incidents-databricks.js',
+  'incidents-aws.js',
+  'incidents-azure.js',
+  'incidents-fabric.js',
 ];
 
 /* ── Findings ─────────────────────────────────────────────── */
@@ -202,6 +207,7 @@ function validate(TV) {
       'quiz-bank', 'learning-paths', 'taxonomy', 'intuition', 'equivalences',
       'aws-services', 'azure-services', 'databricks-services', 'fabric-services',
       'aws-interview-qa', 'azure-interview-qa', 'databricks-interview-qa',
+      'incidents',
     ]) checkBankMeta('_meta.js', bankId);
   }
 
@@ -378,6 +384,48 @@ function validate(TV) {
         for (const iq of s.interview) if (!iq.q || !iq.a) err(file, `${where}: interview item missing q/a`);
       }
       checkRecordMetaOverride(file, s, where);
+    }
+  }
+
+  /* ---- incidents ---- */
+  const INC = TV.Incidents;
+  if (!INC) warn('incidents.js', 'TV.Incidents not defined');
+  else {
+    const incIds = new Set();
+    const clouds = new Set(INC.CLOUDS || []);
+    for (const inc of INC.list()) {
+      const where = inc.id || '??';
+      if (!inc.id) err('incidents.js', 'incident with no id');
+      else if (incIds.has(inc.id)) err('incidents.js', `duplicate incident id "${inc.id}"`);
+      else incIds.add(inc.id);
+      if (!clouds.has(inc.cloud)) err('incidents.js', `${where}: cloud "${inc.cloud}" not in ${[...clouds].join('/')}`);
+      for (const f of ['title', 'context', 'expected']) if (!inc[f]) err('incidents.js', `${where}: missing "${f}"`);
+      if (!Array.isArray(inc.symptoms) || !inc.symptoms.length) err('incidents.js', `${where}: needs symptoms[]`);
+      if (!Array.isArray(inc.investigations) || inc.investigations.length < 2) err('incidents.js', `${where}: needs ≥2 investigations`);
+      else {
+        const invIds = new Set();
+        let keyCount = 0;
+        inc.investigations.forEach(iv => {
+          if (!iv.id || !iv.label) err('incidents.js', `${where}: investigation missing id/label`);
+          if (invIds.has(iv.id)) err('incidents.js', `${where}: duplicate investigation id "${iv.id}"`);
+          invIds.add(iv.id);
+          if (iv.key) keyCount++;
+          if (!(inc.evidence || {})[iv.id]) err('incidents.js', `${where}: no evidence for investigation "${iv.id}"`);
+        });
+        if (!keyCount) err('incidents.js', `${where}: at least one investigation must be key:true`);
+      }
+      ['rootCauses', 'remediations'].forEach(fld => {
+        const arr = inc[fld];
+        if (!Array.isArray(arr) || arr.length < 2) { err('incidents.js', `${where}: ${fld} needs ≥2 options`); return; }
+        const correct = arr.filter(x => x.correct).length;
+        if (correct !== 1) err('incidents.js', `${where}: ${fld} must have exactly one correct (has ${correct})`);
+        arr.forEach(x => { if (!x.text) err('incidents.js', `${where}: ${fld} option missing text`); });
+      });
+      for (const f of ['validation', 'prevention', 'followUps']) {
+        if (inc[f] != null && !Array.isArray(inc[f])) err('incidents.js', `${where}: ${f} must be an array`);
+      }
+      if (inc.officialRef) checkRef('incidents.js', inc.officialRef, where);
+      checkRecordMetaOverride('incidents.js', inc, where);
     }
   }
 

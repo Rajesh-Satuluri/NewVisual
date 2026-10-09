@@ -34,6 +34,7 @@
   const BANKS = {
     'certifications':   { lastReviewed: '2026-10-06', source: 'Official vendor exam guides (AWS / Microsoft Learn / Databricks)' },
     'cert-questions':   { lastReviewed: '2026-10-06', source: 'Authored against official exam guides; distractors original' },
+    'incidents':        { lastReviewed: '2026-10-09', source: 'Authored production-incident scenarios citing official docs' },
     'cert-labs':        { lastReviewed: '2026-10-06', source: 'Authored playbooks citing official service docs' },
     'cert-traps':       { lastReviewed: '2026-10-06', source: 'Authored from official exam guides + service docs' },
     'cert-compare':     { lastReviewed: '2026-10-06', source: 'Authored from official service docs' },
