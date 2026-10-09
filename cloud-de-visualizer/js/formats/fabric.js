@@ -9,6 +9,8 @@
   const TV = window.TableViz;
 
   TV.ServiceDetail.registerAll('fabric', TV.FabricServices);
+  // Topic-wise interview-question drill pages (I2.9)
+  if (TV.InterviewQA && TV.FabricInterviewQA) TV.InterviewQA.register('fabric', TV.FabricInterviewQA);
   TV.ServiceDetail.registerHome('fabric', {
     title: 'Microsoft Fabric',
     subtitle: 'The Fabric data-engineering stack behind DP-700 — OneLake, Lakehouse, Warehouse, Dataflow Gen2, Pipelines, Spark notebooks, Eventstream and Eventhouse/KQL — each broken down six ways with interview Q&A, and cross-linked to the Azure and Databricks services they relate to.',

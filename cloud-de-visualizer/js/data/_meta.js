@@ -50,6 +50,7 @@
     'aws-interview-qa': { lastReviewed: '2026-10-06', source: 'Authored from AWS official docs + engineering practice' },
     'azure-interview-qa': { lastReviewed: '2026-10-06', source: 'Authored from Microsoft Learn + engineering practice' },
     'databricks-interview-qa': { lastReviewed: '2026-10-06', source: 'Authored from Databricks docs + engineering practice' },
+    'fabric-interview-qa': { lastReviewed: '2026-10-09', source: 'Authored from Microsoft Learn (Fabric) + engineering practice' },
   };
 
   function daysSince(iso) {

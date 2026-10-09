@@ -71,6 +71,7 @@ const LOAD_ORDER = [
   'aws-interview-qa.js',
   'azure-interview-qa.js',
   'databricks-interview-qa.js',
+  'fabric-interview-qa.js',
   'incidents.js',
   'incidents-databricks.js',
   'incidents-aws.js',
@@ -206,7 +207,7 @@ function validate(TV) {
       'certifications', 'cert-questions', 'cert-labs', 'cert-traps', 'cert-compare',
       'quiz-bank', 'learning-paths', 'taxonomy', 'intuition', 'equivalences',
       'aws-services', 'azure-services', 'databricks-services', 'fabric-services',
-      'aws-interview-qa', 'azure-interview-qa', 'databricks-interview-qa',
+      'aws-interview-qa', 'azure-interview-qa', 'databricks-interview-qa', 'fabric-interview-qa',
       'incidents',
     ]) checkBankMeta('_meta.js', bankId);
   }
@@ -434,6 +435,7 @@ function validate(TV) {
     'aws-interview-qa.js': TV.AwsInterviewQA,
     'azure-interview-qa.js': TV.AzureInterviewQA,
     'databricks-interview-qa.js': TV.DatabricksInterviewQA,
+    'fabric-interview-qa.js': TV.FabricInterviewQA,
   };
   for (const [file, topicsArr] of Object.entries(IQ_BANKS)) {
     if (!Array.isArray(topicsArr)) { err(file, 'interview bank not an array / not defined'); continue; }

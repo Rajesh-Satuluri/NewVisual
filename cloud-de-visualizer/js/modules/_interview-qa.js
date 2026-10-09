@@ -65,6 +65,20 @@
 .iq-intu-lbl { font-size:12px; font-weight:800; color:var(--text-muted); padding-top:2px; }
 .iq-intu-val { font-size:14px; color:var(--text-secondary); line-height:1.65; }
 @media (max-width:620px){ .iq-intu-row { grid-template-columns:1fr; gap:2px; } }
+.iq-tag--senior, .iq-tag--architecture, .iq-tag--staff { color:var(--brand); border-color:var(--brand); }
+.iq-tag--troubleshooting { color:var(--yellow,#d29922); border-color:var(--yellow,#d29922); }
+.iq-extra-h { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted); margin:0 0 6px; }
+.iq-rubric, .iq-follow { margin:0 15px 12px 48px; background:var(--bg-2); border:1px solid var(--border-subtle); border-radius:9px; padding:11px 13px; }
+.iq-follow { border-left:3px solid var(--brand); }
+.iq-rubric ul, .iq-follow ul { margin:0; padding-left:18px; }
+.iq-rubric li, .iq-follow li { font-size:13px; color:var(--text-secondary); line-height:1.6; margin-bottom:3px; }
+.iq-rate { display:flex; align-items:center; gap:8px; margin:0 15px 14px 48px; flex-wrap:wrap; }
+.iq-rate-lbl { font-size:12px; font-weight:700; color:var(--text-muted); }
+.iq-rate-btn { font:inherit; font-size:12px; font-weight:700; border:1px solid var(--border-default); background:none; color:var(--text-secondary); border-radius:20px; padding:4px 12px; cursor:pointer; }
+.iq-rate-btn:hover { border-color:var(--brand); color:var(--brand); }
+.iq-rate-btn.sel[data-rate="strong"] { background:var(--green,#3fb950); border-color:var(--green,#3fb950); color:#fff; }
+.iq-rate-btn.sel[data-rate="partial"] { background:var(--yellow,#d29922); border-color:var(--yellow,#d29922); color:#fff; }
+.iq-rate-btn.sel[data-rate="review"] { background:var(--red,#f85149); border-color:var(--red,#f85149); color:#fff; }
 </style>`;
   }
 
@@ -84,8 +98,25 @@
     const styles = document.getElementById('iq-styles') ? '' : styleTag();
     const qs = topic.questions || [];
     const items = qs.map((x, i) => {
-      const tags = (x.tags && x.tags.length)
-        ? `<span class="iq-tags">${x.tags.map(t => `<span class="iq-tag">${esc(t)}</span>`).join('')}</span>`
+      const tagList = (x.tags || []).slice();
+      if (x.level) tagList.unshift(x.level);
+      const tags = tagList.length
+        ? `<span class="iq-tags">${tagList.map(t => `<span class="iq-tag iq-tag--${esc(String(t).toLowerCase().replace(/[^a-z]/g, ''))}">${esc(t)}</span>`).join('')}</span>`
+        : '';
+      // Rubric: what a strong answer covers (self-assessment, not auto-graded)
+      const rubric = (x.rubric && x.rubric.length)
+        ? `<div class="iq-rubric"><div class="iq-extra-h">A strong answer covers</div><ul>${x.rubric.map(r => '<li>' + esc(r) + '</li>').join('')}</ul></div>`
+        : '';
+      // Adaptive follow-ups the interviewer will likely push on
+      const follow = (x.followUps && x.followUps.length)
+        ? `<div class="iq-follow"><div class="iq-extra-h">Interviewer follow-ups</div><ul>${x.followUps.map(f => '<li>' + esc(f) + '</li>').join('')}</ul></div>`
+        : '';
+      // Self-rating (persisted) — honest learner self-assessment, feeds the signal
+      const rate = (x.rubric && x.rubric.length)
+        ? `<div class="iq-rate" data-qi="${i}"><span class="iq-rate-lbl">Rate yourself:</span>
+            <button class="iq-rate-btn" data-rate="strong">Nailed it</button>
+            <button class="iq-rate-btn" data-rate="partial">Partly</button>
+            <button class="iq-rate-btn" data-rate="review">Need review</button></div>`
         : '';
       return `
       <div class="iq-item" data-i="${i}">
@@ -94,7 +125,7 @@
           <span class="iq-qtext">${esc(x.q)}${tags}</span>
           <span class="iq-chev">▾</span>
         </button>
-        <div class="iq-a"><div><p><span class="iq-ans-mark">A</span>${esc(x.a)}</p></div></div>
+        <div class="iq-a"><div><p><span class="iq-ans-mark">A</span>${esc(x.a)}</p>${rubric}${follow}${rate}</div></div>
       </div>`;
     }).join('');
     container.innerHTML = `${styles}
@@ -117,6 +148,26 @@
         const row = btn.closest('.iq-item');
         const open = row.classList.toggle('open');
         btn.setAttribute('aria-expanded', String(open));
+      });
+    });
+
+    // Self-rating: persist per topic+question, restore on render, feed signal.
+    const rateKey = (qi) => 'cde-iq-rate-' + format + '-' + topic.id + '-' + qi;
+    container.querySelectorAll('.iq-rate').forEach(row => {
+      const qi = row.getAttribute('data-qi');
+      let saved = null;
+      try { saved = TV.ls && TV.ls.get ? TV.ls.get(rateKey(qi)) : localStorage.getItem(rateKey(qi)); } catch (e) {}
+      if (saved) { const b = row.querySelector('[data-rate="' + saved + '"]'); if (b) b.classList.add('sel'); }
+      row.querySelectorAll('.iq-rate-btn').forEach(b => {
+        b.addEventListener('click', () => {
+          const val = b.getAttribute('data-rate');
+          row.querySelectorAll('.iq-rate-btn').forEach(x => x.classList.remove('sel'));
+          b.classList.add('sel');
+          try { if (TV.ls && TV.ls.set) TV.ls.set(rateKey(qi), val); else localStorage.setItem(rateKey(qi), val); } catch (e) {}
+          if (TV.Progress && TV.Progress.recordInterviewSelfRate) {
+            try { TV.Progress.recordInterviewSelfRate(format, topic.id, qi, val); } catch (e) {}
+          }
+        });
       });
     });
     const toggle = container.querySelector('.iq-toggle');

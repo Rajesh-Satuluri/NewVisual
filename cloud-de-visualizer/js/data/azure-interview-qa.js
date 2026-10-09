@@ -552,6 +552,32 @@
           a: 'Idempotency first — a rerun produces the same result with no duplicates, so failures are safe to retry. Prefer incremental processing over full reloads to control cost and time. Separate concerns into layers (medallion: raw / clean / curated) so each stage has one responsibility and is independently debuggable. Build in data-quality checks and schema enforcement, and make it observable with logging, lineage and failure alerting. Keep it modular and parameterised so one pipeline serves many tables, and design for scale and cost (right-sized compute, sensible partitioning, auto-termination). In one line: reliable, incremental, layered, observable, and cost-efficient.' },
       ],
     },
+    {
+      id: 'senior-architecture', label: 'Senior & Architecture', icon: 'layers',
+      blurb: 'Senior-level design, trade-off and troubleshooting rounds. Reveal the model answer, check it against the rubric, rate yourself, and prepare for the follow-ups.',
+      questions: [
+        { q: 'Design an end-to-end Azure + Databricks batch platform: daily ingestion, incremental loads, data quality, curated serving, security and monitoring.', level: 'senior', tags: ['architecture'],
+          a: 'ADF (or Fabric pipelines) orchestrates: Copy on-prem/cloud sources (Self-hosted IR for on-prem) into ADLS Gen2 Bronze; trigger Databricks notebooks for Silver (clean/conform/dedup, MERGE for upserts, data-quality checks) and Gold. Use watermark/CDC for incremental and staging+MERGE for idempotency. Serve via Synapse/Databricks SQL or Fabric. Security: managed identities + Key Vault (no secrets in code), RBAC + ADLS ACLs, SSE/private endpoints. Monitor with Azure Monitor/Log Analytics + alerts; CI/CD via parameterized deployment (ADF Git + ARM / DABs).',
+          rubric: ['Orchestration + ingestion (ADF/IR) into ADLS Bronze', 'Incremental (watermark/CDC) + idempotent load (staging+MERGE)', 'Databricks transforms + data quality', 'Security: managed identity, Key Vault, RBAC+ACL, private networking', 'Monitoring + CI/CD (parameterized dev→prod)'],
+          followUps: ['Volume grows 10× — what changes?', 'A duplicate file arrives after load — how do you stay idempotent?', 'How do you lock down storage to private-only access?'] },
+        { q: 'Explain the Azure security layers for a data pipeline and the traps between them (RBAC vs ACL, identity vs secret).', level: 'senior', tags: ['security'],
+          a: 'Microsoft Entra ID is identity. RBAC grants coarse control-plane/data roles at account/container scope; ADLS POSIX ACLs grant fine-grained file/folder read/write/execute — you often need both (RBAC to reach the account, ACLs to read specific files; default ACLs apply only to new files). Managed identities let services authenticate with no stored secrets; service principals are app identities; Key Vault stores any remaining secrets with Get-secret grants. Trap: an RBAC role may let you list a container while ACLs still deny reading the files. Grant least privilege to groups.',
+          rubric: ['Entra ID as identity; RBAC (coarse) vs ACL (fine) and needing both', 'Default ACLs apply only to new files', 'Managed identity vs service principal vs secret/Key Vault', 'The RBAC-list-but-ACL-deny trap', 'Least privilege to groups'],
+          followUps: ['Why can a principal list a folder but not read files?', 'Managed identity vs service principal — when each?', 'Access policies vs Azure RBAC for Key Vault?'] },
+        { q: 'Synapse: dedicated SQL pool vs serverless SQL vs Spark — how do you choose, and how do you fix a slow dedicated-pool join?', level: 'senior', tags: ['trade-offs', 'troubleshooting'],
+          a: 'Dedicated SQL pool for predictable, high-concurrency relational warehousing (provisioned MPP); serverless SQL for pay-per-query ad-hoc over the lake; Spark for code-first big-data/ML transforms. For a slow dedicated-pool join, check the distributed plan for ShuffleMove: HASH-distribute large tables on the join key, replicate small dimensions, keep statistics current, and pick a suitable resource class — minimizing data movement across distributions.',
+          rubric: ['Correct role of dedicated vs serverless vs Spark', 'Diagnose data movement (ShuffleMove) in the plan', 'Hash-distribute on join key + replicate small dims', 'Statistics freshness', 'Decision tied to workload'],
+          followUps: ['Hash vs round-robin vs replicated distribution?', 'When is serverless cheaper than dedicated?', 'How do resource classes affect concurrency?'] },
+        { q: 'An ADF pipeline misses its morning SLA intermittently. Diagnose and fix.', level: 'senior', tags: ['troubleshooting'],
+          a: 'Check run history for queued vs running time: activities queuing points to Integration Runtime concurrency contention from many pipelines sharing one IR at peak. Fix by isolating the SLA-critical pipeline on a dedicated IR (or scheduling heavy jobs off its window), raising concurrency, and parallelizing independent activities; add proactive SLA alerting on queue time. Rule out data-volume growth and genuine step slowness first.',
+          rubric: ['Evidence-led (queue vs run time in history)', 'IR concurrency contention as root cause', 'Isolation/scaling + parallelization', 'Proactive SLA alerting', 'Ruling out alternative causes'],
+          followUps: ['How does IR concurrency affect scheduling?', 'How would you design for a hard morning SLA?', 'What do you monitor to predict a breach?'] },
+        { q: 'How do you implement idempotent incremental loads into Azure SQL / a warehouse from ADF?', level: 'senior', tags: ['architecture'],
+          a: 'Track a high-water-mark (max modified id/timestamp) per table in a control table; each run reads only rows beyond the watermark, loads to a staging table, then MERGEs on the key into the target (insert new / update changed), and advances the watermark only after a committed load. This makes retries safe (no duplicates) and supports backfill. For heavy change volumes use CDC on the source.',
+          rubric: ['Watermark/control table for incremental window', 'Staging + MERGE on key (idempotent upsert)', 'Advance watermark only after committed load', 'Retry-safety / no duplicates', 'CDC option for high change volume'],
+          followUps: ['Where should the watermark be committed relative to the load?', 'How do you backfill a date range safely?', 'When is CDC better than a watermark?'] },
+      ],
+    },
   ];
 
   TV.AzureInterviewQA = TOPICS;
