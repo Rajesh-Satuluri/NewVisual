@@ -1605,9 +1605,29 @@
     var stackBtns = document.querySelectorAll("#stackSwitch .ws-btn");
     for (var wi = 0; wi < stackBtns.length; wi++) {
       stackBtns[wi].addEventListener("click", function () {
+        closeStackMenu();
         var stack = this.getAttribute("data-stack");
         if (stack === state.stack) return;
         goStack(stack);
+      });
+    }
+    // stack dropdown: trigger toggles the menu; outside-click / Esc close it.
+    var stackTrigger = el("stackTrigger");
+    if (stackTrigger) {
+      stackTrigger.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var menu = el("stackMenu");
+        if (!menu) return;
+        var open = menu.classList.contains("hidden");
+        if (open) { menu.classList.remove("hidden"); stackTrigger.setAttribute("aria-expanded", "true"); }
+        else closeStackMenu();
+      });
+      document.addEventListener("click", function (e) {
+        var menu = el("stackMenu");
+        if (menu && !menu.classList.contains("hidden") && !el("stackSwitch").contains(e.target)) closeStackMenu();
+      });
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") closeStackMenu();
       });
     }
     // mode switch (Learn · Practice)
@@ -1825,6 +1845,13 @@
   }
 
   // ============================================================= WORKSPACE / ROUTER
+  function closeStackMenu() {
+    var menu = el("stackMenu");
+    if (menu) menu.classList.add("hidden");
+    var t = el("stackTrigger");
+    if (t) t.setAttribute("aria-expanded", "false");
+  }
+
   // Set the shell "chrome" (state, body attrs, switch highlights) WITHOUT
   // rendering — the router decides what to render. `data-ws` is the legacy CSS key
   // (dsa = full problem chrome; python = everything hidden so a lab paints its
@@ -1842,7 +1869,14 @@
     document.body.setAttribute("data-mode", mode);
 
     var sb = document.querySelectorAll("#stackSwitch .ws-btn");
-    for (var i = 0; i < sb.length; i++) sb[i].classList.toggle("active", sb[i].getAttribute("data-stack") === stack);
+    var curLabel = "";
+    for (var i = 0; i < sb.length; i++) {
+      var on = sb[i].getAttribute("data-stack") === stack;
+      sb[i].classList.toggle("active", on);
+      if (on) curLabel = sb[i].innerHTML;
+    }
+    var ddCur = document.querySelector("#stackTrigger .ws-dd-cur");
+    if (ddCur && curLabel) ddCur.innerHTML = curLabel;
     var mb = document.querySelectorAll("#modeSwitch .mode-btn");
     for (var j = 0; j < mb.length; j++) {
       var mm = mb[j].getAttribute("data-mode");
