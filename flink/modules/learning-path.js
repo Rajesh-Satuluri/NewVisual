@@ -229,6 +229,7 @@ export function mount(container) {
         <button class="btn btn-primary lp-resume" data-goto="${nextId}">
           ${doneCount ? 'Resume' : 'Begin'} — ${MOD[nextId] ? MOD[nextId].icon + ' ' + esc(MOD[nextId].title) : 'Start'} <span>→</span>
         </button>
+        ${doneCount ? '<button class="lp-reset" type="button" title="Clear all completed-module progress">↺ Reset progress</button>' : ''}
       </div>
 
       <div class="lp-mode">
@@ -296,6 +297,13 @@ export function mount(container) {
   const onClick = (e) => {
     const btn = e.target.closest('[data-goto]');
     if (btn) { window.location.hash = btn.dataset.goto; return; }
+    if (e.target.closest('.lp-reset')) {
+      if (window.confirm('Reset your learning progress? This clears every module you’ve marked complete across the whole tool. This cannot be undone.')) {
+        try { localStorage.removeItem('flink_done'); } catch (err) {}
+        window.location.reload();
+      }
+      return;
+    }
     const mode = e.target.closest('.lp-mode-btn');
     if (mode) {
       container.querySelectorAll('.lp-mode-btn').forEach(b => b.classList.toggle('active', b === mode));

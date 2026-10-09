@@ -559,3 +559,11 @@ body.cmdk-open { overflow: hidden; }
   .lp-act { grid-template-columns: 1fr; }
   .lp-act-rail { flex-direction: row; justify-content: flex-start; }
 }
+
+/* Learning Path — reset progress control */
+.lp-reset {
+  border: 1px solid var(--border); background: transparent;
+  color: var(--text-muted); border-radius: 99px; padding: 7px 14px;
+  cursor: pointer; font-size: 13px; white-space: nowrap; transition: var(--transition);
+}
+.lp-reset:hover { border-color: var(--red); color: var(--red); }
