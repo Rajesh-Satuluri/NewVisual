@@ -159,6 +159,116 @@ const IQS = [
   { q:'What is a CDC (Change Data Capture) source and how does Flink use it?', a:'CDC sources (Debezium, Maxwell) capture every INSERT/UPDATE/DELETE from a database changelog (MySQL binlog, PostgreSQL WAL) as a Flink ChangelogStream. Flink SQL treats this as a dynamic table with full changelog semantics. Flink-CDC (open source project) provides native Flink source connectors for MySQL, PostgreSQL, MongoDB, Oracle. Uber uses MySQL CDC to stream driver profile changes into Flink for enriching GPS events with up-to-date driver metadata.' },
 ];
 
+// ── "What & Why" foundations (additive) ──────────────────────────
+const WHY_REASONS = [
+  { icon: '🔌', title: 'Flink stores nothing', body: 'Flink is a compute engine — all data lives elsewhere. Connectors are the <em>only</em> way events get in and results get out.' },
+  { icon: '🧩', title: 'One API, many systems', body: 'The unified Source/Sink API means Kafka, S3, JDBC, Hudi, and Iceberg all plug in the same way — learn once, swap freely.' },
+  { icon: '🎖️', title: 'Delivery guarantees', body: 'Each connector declares exactly-once, at-least-once, or at-most-once — the guarantee is a property of the connector, not a wish.' },
+  { icon: '🧬', title: 'Format & schema handling', body: 'Connectors (de)serialize JSON, Avro, Parquet, Protobuf and apply schema-evolution rules so the stream stays readable as fields change.' },
+  { icon: '🪝', title: 'CDC & lookups', body: 'CDC connectors turn a database binlog into a changelog stream; lookup connectors enrich events against a table — no custom glue code.' },
+  { icon: '🧪', title: 'Test without infra', body: 'The DataGen connector synthesizes a stream so you can load-test FraudDetector at 1M/s with no real Kafka.' },
+];
+
+const PROBLEMS = [
+  { naive: 'Hand-write a Kafka consumer loop inside an operator.', fail: 'You re-implement offset tracking, parallelism, and failure replay — <b>badly</b>, and break exactly-once.', fix: 'The Kafka connector snapshots offsets into checkpoints and rewinds on restart, for free.' },
+  { naive: 'Pick any sink and assume output is correct.', fail: 'A non-transactional sink <b>duplicates</b> rows on replay — silent data corruption downstream.', fix: 'Choose a connector whose declared guarantee (2PC, upsert) matches your correctness need.' },
+  { naive: 'Parse the raw bytes yourself in a map().', fail: 'A schema change (new field) <b>breaks parsing</b> across the whole job at once.', fix: 'Format-aware connectors apply compatibility rules (Avro/Protobuf, Iceberg evolution).' },
+  { naive: 'Poll a database per event for enrichment.', fail: 'Synchronous per-event lookups <b>throttle throughput</b> to the DB\'s latency.', fix: 'Lookup/CDC connectors batch, cache, or stream the dimension data efficiently.' },
+];
+
+const WHY_HTML = `
+  <div class="sm-wrap">
+    <div class="sm-def card">
+      <div class="sm-def-ic">🔗</div>
+      <div>
+        <div class="sm-def-eyebrow">What is a connector?</div>
+        <p class="sm-def-lead">A <b>connector</b> is a pluggable integration that lets Flink read from or write to an external system — Kafka, S3, a database, a lake table. Because Flink <em>stores nothing itself</em>, connectors are the whole boundary between the compute engine and the data. Each one carries a <b>delivery guarantee</b> and knows how to (de)serialize a format. On ride <b>R-4471</b>, connectors move GPS events in from Kafka and push results out to alerts, dashboards, and the data lake.</p>
+      </div>
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">Why the ecosystem matters</div>
+      <div class="section-desc">A compute engine is only as useful as the systems it can reach.</div>
+    </div>
+    <div class="sm-vs">
+      <div class="sm-vs-card stateless">
+        <div class="sm-vs-head">❌ Custom glue per system</div>
+        <p class="sm-vs-sub">Hand-roll each integration.</p>
+        <ul>
+          <li>Re-implement offsets, replay, batching</li>
+          <li>Guarantees are accidental</li>
+          <li>Every system is a new project</li>
+        </ul>
+        <div class="sm-vs-note">Most bugs live in the hand-written glue.</div>
+      </div>
+      <div class="sm-vs-card stateful">
+        <div class="sm-vs-head">✅ Pluggable connectors</div>
+        <p class="sm-vs-sub">One API, many battle-tested plugins.</p>
+        <ul>
+          <li>Offsets &amp; replay handled for you</li>
+          <li>Declared delivery guarantee</li>
+          <li>Swap Kafka↔Iceberg with config</li>
+        </ul>
+        <div class="sm-vs-note">Integration becomes configuration, not code.</div>
+      </div>
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">What connectors give you</div>
+      <div class="section-desc">Six jobs the connector layer handles so your job doesn't.</div>
+    </div>
+    <div class="sm-why-grid">
+      ${WHY_REASONS.map(r => `
+        <div class="sm-why">
+          <div class="sm-why-ic">${r.icon}</div>
+          <div class="sm-why-title">${r.title}</div>
+          <p>${r.body}</p>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">The problem connectors solve</div>
+      <div class="section-desc">Four ways rolling your own integration breaks — and the fix.</div>
+    </div>
+    <div class="sm-prob-list">
+      ${PROBLEMS.map((p, i) => `
+        <div class="sm-prob">
+          <div class="sm-prob-no">${i + 1}</div>
+          <div class="sm-prob-body">
+            <div class="sm-prob-naive"><span class="sm-tag naive">Naïve</span>${p.naive}</div>
+            <div class="sm-prob-fail"><span class="sm-tag fail">Breaks</span>${p.fail}</div>
+            <div class="sm-prob-fix"><span class="sm-tag fix">Connector</span>${p.fix}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">How to pick one: delivery guarantee</div>
+    </div>
+    <div class="sm-keyed card">
+      <p>The first question for any connector is <b>what guarantee does it give</b> — it decides whether your output can be trusted after a failure.</p>
+      <ul>
+        <li><b>Exactly-once</b> — Kafka (2PC), FileSink, Hudi, Iceberg: each result appears once even through replay.</li>
+        <li><b>At-least-once</b> — JDBC by default: results may duplicate unless you add an idempotent upsert.</li>
+        <li><b>At-most-once</b> — Print/Blackhole and most custom sinks: fine for debugging, never for money.</li>
+      </ul>
+      <div class="sm-keyed-flow">
+        need correctness? <span class="sm-arrow">→</span> <b>exactly-once</b> connector <span class="sm-arrow">→</span> or at-least-once <b>+ idempotent upsert</b> <span class="sm-arrow">→</span> match format &amp; schema rules <span class="sm-arrow">→</span> configure, don't code
+      </div>
+    </div>
+
+    <div class="sm-bridge" style="margin-top:26px">
+      <div class="sm-bridge-txt">
+        <div class="sm-bridge-k">Now browse the ecosystem</div>
+        <p>You know <b>why</b> connectors exist and how to pick one — explore Kafka, S3, JDBC, Hudi, Iceberg, and DataGen with their config, code, and guarantee.</p>
+      </div>
+      <button class="sm-bridge-btn" data-jump="explorer">Open the Connector Explorer →</button>
+    </div>
+  </div>
+`;
+
 export function mount(container) {
   let selected = CONNECTORS[0];
 
@@ -172,11 +282,16 @@ export function mount(container) {
       </div>
     </div>
     <div class="module-tabs">
-      <button class="tab-btn active" data-tab="explorer">Connector Explorer</button>
+      <button class="tab-btn active" data-tab="why">What &amp; Why</button>
+      <button class="tab-btn" data-tab="explorer">Connector Explorer</button>
       <button class="tab-btn" data-tab="iq">Interview Q&amp;A</button>
     </div>
 
-    <div class="tab-content active" data-tab="explorer">
+    <div class="tab-content active" data-tab="why">
+      ${WHY_HTML}
+    </div>
+
+    <div class="tab-content" data-tab="explorer">
       ${rideCallout('PAYMENT_COMPLETED', { openEvent: false })}
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;padding:20px 28px 0" id="conn16-picker"></div>
       <div id="conn16-detail" style="padding:20px 28px 28px"></div>
@@ -205,6 +320,17 @@ export function mount(container) {
       container.querySelector(`.tab-content[data-tab="${btn.dataset.tab}"]`).classList.add('active');
     });
   });
+
+  // Bridge button: jump from "What & Why" into the Connector Explorer tab.
+  const jumpBtn = container.querySelector('[data-jump]');
+  if (jumpBtn) {
+    jumpBtn.addEventListener('click', () => {
+      const target = jumpBtn.dataset.jump;
+      container.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === target));
+      container.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.dataset.tab === target));
+      container.querySelector('.module-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
 
   const iqSec = container.querySelector('#iq16-section');
   iqSec.innerHTML = IQS.map((item, i) => `
