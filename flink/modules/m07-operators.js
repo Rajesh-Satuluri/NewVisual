@@ -188,6 +188,14 @@ const WHY_HTML = `
       </div>
     </div>
 
+    <div class="sm-def card" style="margin:18px 0 6px;border-left:3px solid #6366f1">
+      <div class="sm-def-ic">🧭</div>
+      <div>
+        <div class="sm-def-eyebrow">Scope &amp; related module</div>
+        <p class="sm-def-lead" style="font-size:0.95rem">This module is the <b>source/sink contract</b> — how a source rewinds, how a sink commits, and how the two cooperate for exactly-once. For the full <b>connector catalog</b> (Kafka, S3/FileSystem, JDBC, Elasticsearch…) and how to <b>choose one by delivery guarantee</b>, see <a href="#m16" style="color:#6366f1;font-weight:600">Module 16 — Connectors →</a>.</p>
+      </div>
+    </div>
+
     <div class="section-header" style="margin:26px 0 12px">
       <div class="section-title">Source vs. Sink</div>
       <div class="section-desc">Two ends of the job, with mirror-image guarantees.</div>
@@ -266,7 +274,7 @@ const WHY_HTML = `
         <div class="sm-bridge-k">Now wire up the real connectors</div>
         <p>You know <b>why</b> connectors are special — explore Kafka, FileSink, and JDBC with their config, PyFlink code, and the exactly-once protocol.</p>
       </div>
-      <button class="sm-bridge-btn" data-jump="connectors">Open the Connector Explorer →</button>
+      <button class="sm-bridge-btn" data-jump="connectors">Open the Source/Sink Explorer →</button>
     </div>
   </div>
 `;
@@ -288,7 +296,7 @@ export function mount(container) {
     </div>
     <div class="module-tabs">
       <button class="tab-btn active" data-tab="why">What &amp; Why</button>
-      <button class="tab-btn" data-tab="connectors">Connector Explorer</button>
+      <button class="tab-btn" data-tab="connectors">Source/Sink Explorer</button>
       <button class="tab-btn" data-tab="kafka-anim">Kafka Source Animation</button>
       <button class="tab-btn" data-tab="iq">Interview Q&amp;A</button>
     </div>

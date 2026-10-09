@@ -219,6 +219,14 @@ const WHY_HTML = `
       </div>
     </div>
 
+    <div class="sm-def card" style="margin:18px 0 6px;border-left:3px solid #10b981">
+      <div class="sm-def-ic">🧭</div>
+      <div>
+        <div class="sm-def-eyebrow">Scope &amp; related module</div>
+        <p class="sm-def-lead" style="font-size:0.95rem">This module covers <b>Flink SQL &amp; Table API fundamentals</b> — dynamic tables, DDL, and the core query patterns. For <b>production patterns</b> (CEP with <code>MATCH_RECOGNIZE</code>, CDC ingestion, StatementSets, async lookup joins), continue to <a href="#m17" style="color:#10b981;font-weight:600">Module 17 — Flink SQL: Advanced Patterns →</a>.</p>
+      </div>
+    </div>
+
     <div class="section-header" style="margin:26px 0 12px">
       <div class="section-title">SQL vs. DataStream</div>
       <div class="section-desc">Two ways to express the same pipeline — pick per problem.</div>

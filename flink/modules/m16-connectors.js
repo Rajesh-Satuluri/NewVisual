@@ -186,6 +186,14 @@ const WHY_HTML = `
       </div>
     </div>
 
+    <div class="sm-def card" style="margin:18px 0 6px;border-left:3px solid #FF6B35">
+      <div class="sm-def-ic">🧭</div>
+      <div>
+        <div class="sm-def-eyebrow">Scope &amp; related module</div>
+        <p class="sm-def-lead" style="font-size:0.95rem">This module is the <b>connector catalog</b> — the ecosystem of systems Flink reaches and how to <b>pick one by delivery guarantee</b>. For the deep <b>source/sink contract</b> (offset rewind, two-phase sink commit) and the Kafka source internals with a live animation, see <a href="#m07" style="color:#FF6B35;font-weight:600">Module 7 — Sources &amp; Sinks →</a>.</p>
+      </div>
+    </div>
+
     <div class="section-header" style="margin:26px 0 12px">
       <div class="section-title">Why the ecosystem matters</div>
       <div class="section-desc">A compute engine is only as useful as the systems it can reach.</div>
