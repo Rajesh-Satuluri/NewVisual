@@ -20,7 +20,7 @@
       sectionIcon: {
         "Foundations": "◇", "Aggregation": "Σ", "Joins": "⋈",
         "Window Functions": "⊞", "CTEs & Subqueries": "❨❩", "Dates & Text": "◷",
-        "Advanced": "✦"
+        "Advanced": "✦", "Design & Theory": "⚑"
       },
       outline: [
         { section: "Foundations",       topics: ["SELECT & Filtering", "Sorting & Limiting", "CASE & NULLs"] },
@@ -29,7 +29,8 @@
         { section: "Window Functions",  topics: ["Window Functions", "Ranking", "Running Totals & Moving Averages"] },
         { section: "CTEs & Subqueries", topics: ["CTEs", "Recursive CTEs", "Subqueries"] },
         { section: "Dates & Text",      topics: ["Dates & Intervals", "String Functions"] },
-        { section: "Advanced",          topics: ["Pivoting", "Set Operations", "Performance & Indexes"] }
+        { section: "Advanced",          topics: ["Pivoting", "Set Operations", "Performance & Indexes"] },
+        { section: "Design & Theory",   topics: ["Constraints & Keys", "Index Types", "Normalization", "Transactions & ACID", "Procedures, Functions & Triggers", "Data Types & Storage", "OLTP vs OLAP"] }
       ]
     },
     spark: {
