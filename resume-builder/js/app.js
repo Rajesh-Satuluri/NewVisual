@@ -865,6 +865,14 @@
       "Use the job's own phrasing: if it says “ETL pipelines”, write “ETL pipelines”, not “data flows”.",
       "Don't keyword-stuff or hide white text — modern ATS and recruiters penalize it."
     ] },
+    { title: "What actually happens (recruiter field data)", key: "ats.reality", tips: [
+      "You're more likely INVISIBLE than rejected. In a survey of 630 recruiters, ~92% said their ATS does NOT auto-reject on content — recruiters search the ATS like a database (keywords, job titles, experience ranges). If you don't match what they type, you simply never surface. The fix is matching, not luck.",
+      "The “75% get auto-rejected” stat is misleading — the real problem is quieter: your resume is there but never shown. That's why applicants hear silence, not “no”.",
+      "Biggest single lever: put the EXACT job title from the posting in your header/summary. Resumes matching the exact title saw ~10.6× the callback rate of those that didn't.",
+      "Use the literal title, not a synonym or a fancier version. If the posting says “Senior Product Manager”, write “Senior Product Manager” — not “Product Lead” or “Head of Product Strategy”. Keyword filters are largely literal.",
+      "This is free and takes ~30 seconds per application — set the resume's title line to the role you're applying for. Almost nobody does it, which is the opportunity.",
+      "The “pretty resume” tax is real: heavily designed, multi-column, graphic-heavy resumes (common for designers/creatives) parse worst — not because the person is less qualified, but because the machine can't read them. Clean, single-column text wins. This app already outputs machine-readable text."
+    ] },
     { title: "Formatting & file (whole resume)", key: "ats.format", tips: [
       "Single column, top-to-bottom — this app already does this. Avoid tables, text boxes, columns, headers/footers, images, icons-as-text, and graphics.",
       "Use real, selectable text (this app's PDF is text-based, not an image) so the ATS can read every word.",
@@ -876,7 +884,7 @@
     { title: "Header / contact", key: "ats.header", tips: [
       "Put your name, phone, email, city+state, and LinkedIn/GitHub as plain text — not inside a header/footer region (some ATS skip those).",
       "Use a professional email. Spell out the value next to any icon; if unsure, drop the icon and keep the text (e.g. “Email: …”).",
-      "Add the target job title under your name (e.g. “Senior Data Engineer”) — it's a strong keyword match.",
+      "Add the target job title under your name, copied EXACTLY from the posting (e.g. “Senior Data Engineer”, not a synonym) — matching the literal title is the single highest-impact change (recruiter data: ~10.6× callbacks).",
       "One phone, one email. Avoid photos, date of birth, and personal details (they can break parsing and aren't needed)."
     ] },
     { title: "Professional Summary", key: "ats.summary", tips: [
