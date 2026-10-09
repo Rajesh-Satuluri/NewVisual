@@ -639,3 +639,124 @@ body.cmdk-open { overflow: hidden; }
   color: var(--text-secondary); font-size: 13px; line-height: 1.55; font-style: italic;
 }
 .lp-payoff-ic { font-style: normal; }
+
+/* ───────────────────────────────────────────────────────────
+   Module 11 — State Management "What & Why" foundations tab
+   (additive; uses design tokens; light + dark safe)
+   ─────────────────────────────────────────────────────────── */
+.sm-wrap { padding: 20px 28px 28px; }
+
+/* one-sentence definition */
+.sm-def {
+  display: flex; gap: 18px; align-items: flex-start;
+  padding: 22px 24px; margin-bottom: 8px;
+  border-left: 4px solid var(--accent);
+}
+.sm-def-ic { font-size: 34px; line-height: 1; flex-shrink: 0; }
+.sm-def-eyebrow {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .7px; color: var(--accent); margin-bottom: 6px;
+}
+.sm-def-lead { margin: 0; font-size: 15px; line-height: 1.65; color: var(--text-primary); }
+
+/* stateless vs stateful */
+.sm-vs { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.sm-vs-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 20px 22px;
+}
+.sm-vs-card.stateless { border-top: 3px solid var(--text-muted); }
+.sm-vs-card.stateful  { border-top: 3px solid var(--accent); }
+.sm-vs-head { font-size: 17px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+.sm-vs-sub { margin: 0 0 12px; font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+.sm-vs-card ul { margin: 0 0 14px; padding-left: 18px; }
+.sm-vs-card li { font-size: 13px; color: var(--text-secondary); line-height: 1.7; }
+.sm-vs-card code { font-family: var(--font-mono); font-size: 12px; color: var(--text-primary); }
+.sm-vs-note {
+  font-size: 12.5px; line-height: 1.55; color: var(--text-secondary);
+  padding: 10px 12px; background: var(--surface2); border-radius: var(--radius-sm);
+}
+.sm-vs-card.stateful .sm-vs-note { color: var(--text-primary); }
+
+/* why streaming needs state */
+.sm-why-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.sm-why {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 18px 18px 16px;
+  transition: var(--transition, border-color .2s);
+}
+.sm-why:hover { border-color: var(--border-hover); }
+.sm-why-ic { font-size: 24px; margin-bottom: 8px; }
+.sm-why-title { font-size: 14px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; }
+.sm-why p { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--text-secondary); }
+.sm-why code { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-primary); }
+
+/* the four failure modes */
+.sm-prob-list { display: flex; flex-direction: column; gap: 14px; }
+.sm-prob {
+  display: flex; gap: 16px; align-items: flex-start;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 18px 20px;
+}
+.sm-prob-no {
+  flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%;
+  background: var(--accent-dim); color: var(--accent-text, var(--accent));
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 14px;
+}
+.sm-prob-body { flex: 1; display: flex; flex-direction: column; gap: 9px; }
+.sm-prob-naive, .sm-prob-fail, .sm-prob-fix {
+  font-size: 13px; line-height: 1.55; color: var(--text-secondary);
+}
+.sm-prob-fix { color: var(--text-primary); }
+.sm-prob code { font-family: var(--font-mono); font-size: 12px; color: var(--text-primary); }
+.sm-prob b { color: var(--text-primary); }
+.sm-tag {
+  display: inline-block; font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .5px; padding: 2px 8px; border-radius: 999px; margin-right: 9px;
+  vertical-align: middle;
+}
+.sm-tag.naive { background: var(--surface2); color: var(--text-secondary); }
+.sm-tag.fail  { background: var(--red-dim); color: var(--red); }
+.sm-tag.fix   { background: var(--green-dim); color: var(--green); }
+
+/* keyed state */
+.sm-keyed { padding: 22px 24px; }
+.sm-keyed p { margin: 0 0 12px; font-size: 14px; line-height: 1.65; color: var(--text-primary); }
+.sm-keyed ul { margin: 0 0 16px; padding-left: 20px; }
+.sm-keyed li { font-size: 13.5px; line-height: 1.7; color: var(--text-secondary); margin-bottom: 6px; }
+.sm-keyed b { color: var(--text-primary); }
+.sm-keyed code { font-family: var(--font-mono); font-size: 12.5px; color: var(--text-primary); }
+.sm-keyed-flow {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  padding: 14px 16px; background: var(--surface2); border-radius: var(--radius-sm);
+  font-size: 12.5px; color: var(--text-secondary);
+}
+.sm-keyed-flow b { color: var(--accent); }
+.sm-keyed-flow code { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-primary); }
+.sm-arrow { color: var(--accent); font-weight: 700; }
+
+/* bridge to comparison tab */
+.sm-bridge {
+  display: flex; align-items: center; justify-content: space-between; gap: 20px;
+  flex-wrap: wrap; margin-top: 8px;
+  padding: 20px 24px; border-radius: var(--radius);
+  background: var(--accent-dim); border: 1px solid var(--accent);
+}
+.sm-bridge-txt { flex: 1; min-width: 260px; }
+.sm-bridge-k { font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; }
+.sm-bridge-txt p { margin: 0; font-size: 13px; line-height: 1.6; color: var(--text-secondary); }
+.sm-bridge-txt b { color: var(--text-primary); }
+.sm-bridge-btn {
+  flex-shrink: 0; cursor: pointer; white-space: nowrap;
+  padding: 11px 20px; border-radius: var(--radius-sm);
+  background: var(--accent); color: var(--accent-text, #fff);
+  border: none; font-size: 13px; font-weight: 700;
+  font-family: inherit; transition: var(--transition, transform .15s, filter .15s);
+}
+.sm-bridge-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+
+@media (max-width: 760px) {
+  .sm-vs, .sm-why-grid { grid-template-columns: 1fr; }
+  .sm-wrap { padding: 16px; }
+}

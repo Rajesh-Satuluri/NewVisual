@@ -52,6 +52,114 @@ const IQS = [
   { q:'Can different operators in the same job use different state backends?', a:'Yes — state backend is configured per-operator using env.set_state_backend() globally or stateBackend annotation per transform. You might use HashMap for a latency-sensitive scoring operator and RocksDB for a large windowed aggregation in the same pipeline. Checkpoints still coordinate across all operators through the barrier protocol; each operator serializes its state to its configured backend\'s target path.' },
 ];
 
+// ── Foundations: what state is, why streaming needs it, what problem the
+// managed-state model solves. Rendered as the first tab, before the
+// HashMap-vs-RocksDB comparison (which is a "where does it live" question
+// that only makes sense once "why do we keep state at all" is clear).
+const WHY_REASONS = [
+  { icon:'🔢', title:'Counting & aggregating', body:'“How many trips has Rahul done in the last hour?” needs a running count that survives from one event to the next. The answer lives nowhere in a single event — only in what you remembered from the previous ones.' },
+  { icon:'🪟', title:'Windows', body:'A 5-minute average speed window has to hold every ping that fell inside the window until the window fires. Those buffered pings are state.' },
+  { icon:'🔁', title:'Deduplication', body:'“Is this the second time ride R-4471 tried to charge?” You can only answer by remembering the charges you have already seen for that ride.' },
+  { icon:'🔗', title:'Joins & enrichment', body:'Matching a GPS ping to the driver profile, or a payment to its ride, means holding one side of the join in memory until the other side arrives.' },
+  { icon:'🧠', title:'Pattern / fraud detection', body:'“Flag a driver whose speed jumped impossibly between two pings” compares this event to the last one — so the last one must be stored per driver.' },
+  { icon:'⏱️', title:'Timers & timeouts', body:'“Cancel the ride if no driver accepts within 30 s” requires remembering that a request is pending and when it started.' },
+];
+
+const PROBLEMS = [
+  { naive:'Keep a plain <code>HashMap</code> inside your function.', fail:'Fits in memory — until Uber has millions of active drivers. Then the heap overflows and the job dies.', flink:'Flink can spill keyed state to disk (RocksDB), so total state can reach terabytes, far beyond heap.' },
+  { naive:'The map lives only in the worker process.', fail:'The TaskManager crashes (a worker dies mid-trip). Everything it remembered is gone — every running count, every window, reset to zero.', flink:'Managed state is <b>checkpointed</b> to durable storage (S3/HDFS). After a crash Flink restores the exact state from the last checkpoint and replays the source from the matching offset — <b>exactly-once</b>.' },
+  { naive:'One map per parallel task, keyed however you like.', fail:'Scale the job from 4 to 8 workers and the keys are now in the wrong places — a driver’s history is split across tasks that can’t see each other.', flink:'Flink scopes state <b>per key</b> and groups keys into <b>key groups</b>. On rescale it redistributes whole key groups, so each driver’s state follows its key to exactly one task.' },
+  { naive:'Clear old entries… whenever you remember to.', fail:'State grows forever. Drivers who went offline weeks ago still occupy memory, and the job slowly bloats until it stalls.', flink:'<b>State TTL</b> expires entries automatically (e.g. drop driver state idle for 24 h), keeping state bounded without manual bookkeeping.' },
+];
+
+const WHY_HTML = `
+  <div class="sm-wrap">
+
+    <div class="sm-def card">
+      <div class="sm-def-ic">🧠</div>
+      <div>
+        <div class="sm-def-eyebrow">The one-sentence definition</div>
+        <p class="sm-def-lead"><b>State</b> is everything a streaming job <b>remembers between events</b> — the running counts, the buffered windows, the “last value I saw for this key.” <b>State management</b> is how Flink stores that memory, keeps it correct when workers crash, and lets it grow past the size of RAM.</p>
+      </div>
+    </div>
+
+    <div class="section-header"><div class="section-title">Stateless vs. stateful — the core distinction</div>
+      <div class="section-desc">Every operator is one or the other. The difference is whether it needs to look at the past.</div></div>
+    <div class="sm-vs">
+      <div class="sm-vs-card stateless">
+        <div class="sm-vs-head">⚡ Stateless</div>
+        <p class="sm-vs-sub">Each event is handled in isolation. Nothing is remembered.</p>
+        <ul>
+          <li><code>map</code>, <code>filter</code>, <code>flatMap</code></li>
+          <li>“Convert this ping’s speed from m/s to km/h.”</li>
+          <li>“Drop pings with no GPS fix.”</li>
+        </ul>
+        <div class="sm-vs-note">A crash loses nothing — replay the event and get the same answer.</div>
+      </div>
+      <div class="sm-vs-card stateful">
+        <div class="sm-vs-head">🧠 Stateful</div>
+        <p class="sm-vs-sub">The answer depends on earlier events, so something must be stored per key.</p>
+        <ul>
+          <li>counts, sums, averages, windows, joins, dedup</li>
+          <li>“Average speed of R-4471 over the last 5 min.”</li>
+          <li>“Has this driver been flagged before?”</li>
+        </ul>
+        <div class="sm-vs-note">A crash loses the memory — unless the engine manages and checkpoints it. <b>This is the whole topic.</b></div>
+      </div>
+    </div>
+
+    <div class="section-header"><div class="section-title">Why streaming <em>needs</em> state</div>
+      <div class="section-desc">A batch job can re-read the whole history from a table. A stream is infinite and arrives one event at a time — the only “history” it has is what it chose to remember.</div></div>
+    <div class="sm-why-grid">
+      ${WHY_REASONS.map(r => `
+        <div class="sm-why">
+          <div class="sm-why-ic">${r.icon}</div>
+          <div class="sm-why-title">${r.title}</div>
+          <p>${r.body}</p>
+        </div>`).join('')}
+    </div>
+
+    <div class="section-header"><div class="section-title">The problem it solves: “just use a HashMap” breaks four ways</div>
+      <div class="section-desc">You could keep your own map inside the function. It works on your laptop and fails in production. Here is exactly how — and what Flink’s <b>managed state</b> does instead.</div></div>
+    <div class="sm-prob-list">
+      ${PROBLEMS.map((p,i) => `
+        <div class="sm-prob">
+          <div class="sm-prob-no">${i+1}</div>
+          <div class="sm-prob-body">
+            <div class="sm-prob-naive"><span class="sm-tag naive">Naïve</span>${p.naive}</div>
+            <div class="sm-prob-fail"><span class="sm-tag fail">Breaks</span>${p.fail}</div>
+            <div class="sm-prob-fix"><span class="sm-tag fix">Managed state</span>${p.flink}</div>
+          </div>
+        </div>`).join('')}
+    </div>
+
+    <div class="section-header"><div class="section-title">How Flink makes it scale: keyed state</div></div>
+    <div class="sm-keyed card">
+      <p>Almost all state in Flink is <b>keyed</b> — it is partitioned by the same key you called <code>keyBy()</code> on (here, <code>driver_id</code>). That single design choice is what makes state both correct and horizontally scalable:</p>
+      <ul>
+        <li><b>Isolation.</b> When you read state inside a <code>KeyedProcessFunction</code>, you automatically see <em>only the current key’s</em> value. Rahul’s last-trip timestamp can never leak into another driver’s calculation.</li>
+        <li><b>Distribution.</b> Keys are hashed into a fixed number of <b>key groups</b>. Each parallel task owns a contiguous range of key groups, so every key lives on exactly one task — no coordination needed on the hot path.</li>
+        <li><b>Rescaling.</b> Grow from 4 workers to 8 and Flink simply reassigns whole key groups to the new tasks and loads their state from the checkpoint. Each driver’s history follows its key to its new owner — nothing is lost or duplicated.</li>
+      </ul>
+      <div class="sm-keyed-flow">
+        <span>events keyed by <code>driver_id</code></span><span class="sm-arrow">→</span>
+        <span>hashed into <b>key groups</b></span><span class="sm-arrow">→</span>
+        <span>groups assigned to <b>tasks</b></span><span class="sm-arrow">→</span>
+        <span>each task owns its keys’ state</span>
+      </div>
+    </div>
+
+    <div class="sm-bridge">
+      <div class="sm-bridge-txt">
+        <div class="sm-bridge-k">So where does all this remembered state physically live?</div>
+        <p>Now that you know <em>why</em> Flink keeps state and <em>how</em> it keys it, the remaining question is <b>where it is stored</b> — on the JVM heap for speed, or on local disk for size. That is exactly the choice between the two <b>state backends</b>.</p>
+      </div>
+      <button class="sm-bridge-btn" data-jump="compare">Compare HashMap vs RocksDB →</button>
+    </div>
+
+  </div>
+`;
+
 export function mount(container) {
   let stateSize = 10; // thousands of keys
   let selectedType = STATE_TYPES[0];
@@ -66,12 +174,17 @@ export function mount(container) {
       </div>
     </div>
     <div class="module-tabs">
-      <button class="tab-btn active" data-tab="compare">Comparison</button>
+      <button class="tab-btn active" data-tab="why">What &amp; Why</button>
+      <button class="tab-btn" data-tab="compare">Comparison</button>
       <button class="tab-btn" data-tab="types">State Types</button>
       <button class="tab-btn" data-tab="iq">Interview Q&amp;A</button>
     </div>
 
-    <div class="tab-content active" data-tab="compare">
+    <div class="tab-content active" data-tab="why">
+      ${WHY_HTML}
+    </div>
+
+    <div class="tab-content" data-tab="compare">
       <div class="sb-controls card">
         <label class="ctrl-label">Keyed state entries: <strong id="ss-val">${stateSize}K drivers</strong></label>
         <input type="range" id="ss-slider" min="1" max="100" value="${stateSize}" style="width:200px">
@@ -136,6 +249,17 @@ export function mount(container) {
       container.querySelector(`.tab-content[data-tab="${btn.dataset.tab}"]`).classList.add('active');
     });
   });
+
+  // "Compare the backends →" bridge button jumps to the Comparison tab.
+  const jumpBtn = container.querySelector('[data-jump]');
+  if (jumpBtn) {
+    jumpBtn.addEventListener('click', () => {
+      const target = jumpBtn.dataset.jump;
+      container.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === target));
+      container.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.dataset.tab === target));
+      container.querySelector('.module-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
 
   // IQ
   const iqSection = container.querySelector('#iq11-section');
