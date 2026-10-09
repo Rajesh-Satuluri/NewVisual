@@ -124,6 +124,116 @@ const IQS = [
   { q:'What tuning changes give the biggest performance gain in practice?', a:'In rough impact order: (1) Correct parallelism — 4× speedup from 1 to 4 subtasks. (2) RocksDB + incremental checkpoints — eliminates GC and cuts checkpoint time 10×. (3) State TTL — prevents state from growing unbounded (stability, not raw throughput). (4) Mini-batch for SQL aggregations — 50× reduction in state access frequency. (5) POJO/Avro over Kryo — 3× serialization speedup. (6) Operator chaining (usually on by default). Buffer tuning and JVM flags are marginal — rarely > 10% gain.' },
 ];
 
+// ── "What & Why" foundations (additive) ──────────────────────────
+const WHY_REASONS = [
+  { icon: '⚙️', title: 'Parallelism & slots', body: 'Right-sizing parallelism is the single biggest lever — too little starves throughput, too much wastes scheduling. Slot sharing keeps the cluster small.' },
+  { icon: '🗄️', title: 'State & memory', body: 'RocksDB + incremental checkpoints and State TTL are what keep memory flat and GC quiet as state grows to GBs.' },
+  { icon: '✅', title: 'Checkpointing', body: 'Min-pause and unaligned checkpoints stop snapshots from eating the processing budget under load.' },
+  { icon: '🌐', title: 'Network & serialization', body: 'POJO/Avro over reflective serializers and tuned buffers raise the throughput ceiling without more machines.' },
+  { icon: '📊', title: 'SQL optimization', body: 'Mini-batch, two-phase aggregation, and predicate pushdown close the gap between SQL and hand-tuned DataStream.' },
+  { icon: '☕', title: 'JVM & GC', body: 'G1GC tuning and managed-memory sizing prevent stop-the-world pauses that spike latency and miss checkpoints.' },
+];
+
+const PROBLEMS = [
+  { naive: 'Run everything at the default parallelism of 1.', fail: 'A single-threaded operator <b>caps throughput</b> far below the hardware\'s capacity.', fix: 'Size parallelism per operator to the bottleneck; let slot sharing keep the slot count low.' },
+  { naive: 'Keep all state on the JVM heap.', fail: 'Large heap state causes <b>multi-second GC pauses</b> and 600 MB full checkpoints every interval.', fix: 'RocksDB + incremental checkpoints cut checkpoints to MBs and eliminate GC pauses.' },
+  { naive: 'Guess at the cause and tune blindly.', fail: 'Hours tuning RocksDB when the real cost was <b>Kryo deserialization</b> — no improvement.', fix: 'Profile first (backpressure tab, async-profiler) so you tune the actual bottleneck.' },
+  { naive: 'Let state accumulate with no TTL.', fail: 'State grows unbounded — <b>50 GB of stale keys</b> after a week and eventual OOM.', fix: 'State TTL expires idle keys, keeping RocksDB size stable regardless of cardinality.' },
+];
+
+const WHY_HTML = `
+  <div class="sm-wrap">
+    <div class="sm-def card">
+      <div class="sm-def-ic">🚀</div>
+      <div>
+        <div class="sm-def-eyebrow">What is performance tuning?</div>
+        <p class="sm-def-lead"><b>Performance tuning</b> is making a <em>correct</em> Flink job also <em>fast, stable, and cheap</em> — hitting its throughput and latency targets without GC pauses, checkpoint lag, or unbounded state. It spans six lever categories (parallelism, state, checkpoints, network, SQL, JVM), but its first rule is <b>measure before you tune</b>. On ride <b>R-4471</b>, it's what keeps the fraud pipeline at 1M events/sec with &lt;10ms latency through the airport surge (DEFECT-6).</p>
+      </div>
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">Guess-based vs. measure-first</div>
+      <div class="section-desc">The methodology matters more than any single flag.</div>
+    </div>
+    <div class="sm-vs">
+      <div class="sm-vs-card stateless">
+        <div class="sm-vs-head">❌ Guess-based tuning</div>
+        <p class="sm-vs-sub">Change flags and hope.</p>
+        <ul>
+          <li>"Maybe it's the state backend?"</li>
+          <li>Tune RocksDB, no change</li>
+          <li>Hours wasted on the wrong lever</li>
+        </ul>
+        <div class="sm-vs-note">The bottleneck was Kryo deserialization all along.</div>
+      </div>
+      <div class="sm-vs-card stateful">
+        <div class="sm-vs-head">✅ Measure, then tune</div>
+        <p class="sm-vs-sub">Find the bottleneck first.</p>
+        <ul>
+          <li>Backpressure tab names the slow operator</li>
+          <li>busy vs idle time → CPU or downstream</li>
+          <li>async-profiler flamegraph pinpoints it</li>
+        </ul>
+        <div class="sm-vs-note">Fix the one thing that actually costs time.</div>
+      </div>
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">The six categories of levers</div>
+      <div class="section-desc">Where Flink performance is won or lost.</div>
+    </div>
+    <div class="sm-why-grid">
+      ${WHY_REASONS.map(r => `
+        <div class="sm-why">
+          <div class="sm-why-ic">${r.icon}</div>
+          <div class="sm-why-title">${r.title}</div>
+          <p>${r.body}</p>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">The problem tuning solves</div>
+      <div class="section-desc">Four ways an untuned job underperforms — and the fix.</div>
+    </div>
+    <div class="sm-prob-list">
+      ${PROBLEMS.map((p, i) => `
+        <div class="sm-prob">
+          <div class="sm-prob-no">${i + 1}</div>
+          <div class="sm-prob-body">
+            <div class="sm-prob-naive"><span class="sm-tag naive">Naïve</span>${p.naive}</div>
+            <div class="sm-prob-fail"><span class="sm-tag fail">Breaks</span>${p.fail}</div>
+            <div class="sm-prob-fix"><span class="sm-tag fix">Tuning</span>${p.fix}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">The tuning loop</div>
+    </div>
+    <div class="sm-keyed card">
+      <p>Effective tuning is a loop, always anchored on a measurement — never a guess.</p>
+      <ul>
+        <li><b>Measure</b> — the Flink UI backpressure tab finds the bottleneck operator for free.</li>
+        <li><b>Diagnose</b> — busy vs idle time, GC logs, or an async-profiler flamegraph say <em>why</em>.</li>
+        <li><b>Tune one lever</b> — change the single thing that matters, then re-measure to confirm.</li>
+      </ul>
+      <div class="sm-keyed-flow">
+        <b>measure</b> (backpressure) <span class="sm-arrow">→</span> <b>diagnose</b> (profile) <span class="sm-arrow">→</span> tune one lever <span class="sm-arrow">→</span> <b>re-measure</b> <span class="sm-arrow">→</span> repeat
+      </div>
+    </div>
+
+    <div class="sm-bridge" style="margin-top:26px">
+      <div class="sm-bridge-txt">
+        <div class="sm-bridge-k">Now work the checklist</div>
+        <p>You know <b>why</b> tuning is measure-first — browse all six categories with before/after config and real Uber impact numbers.</p>
+      </div>
+      <button class="sm-bridge-btn" data-jump="checklist">Open the Tuning Checklist →</button>
+    </div>
+  </div>
+`;
+
 export function mount(container) {
   let openCat = CATEGORIES[0].id;
   let openItem = null;
@@ -138,11 +248,16 @@ export function mount(container) {
       </div>
     </div>
     <div class="module-tabs">
-      <button class="tab-btn active" data-tab="checklist">Tuning Checklist</button>
+      <button class="tab-btn active" data-tab="why">What &amp; Why</button>
+      <button class="tab-btn" data-tab="checklist">Tuning Checklist</button>
       <button class="tab-btn" data-tab="iq">Interview Q&amp;A</button>
     </div>
 
-    <div class="tab-content active" data-tab="checklist">
+    <div class="tab-content active" data-tab="why">
+      ${WHY_HTML}
+    </div>
+
+    <div class="tab-content" data-tab="checklist">
       <div class="perf-layout">
         <div class="perf-cat-list" id="perf-cats"></div>
         <div class="perf-items" id="perf-items"></div>
@@ -164,6 +279,17 @@ export function mount(container) {
       container.querySelector(`.tab-content[data-tab="${btn.dataset.tab}"]`).classList.add('active');
     });
   });
+
+  // Bridge button: jump from "What & Why" into the Tuning Checklist tab.
+  const jumpBtn = container.querySelector('[data-jump]');
+  if (jumpBtn) {
+    jumpBtn.addEventListener('click', () => {
+      const target = jumpBtn.dataset.jump;
+      container.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === target));
+      container.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.dataset.tab === target));
+      container.querySelector('.module-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
 
   const iqSec = container.querySelector('#iq18-section');
   iqSec.innerHTML = IQS.map((item, i) => `
