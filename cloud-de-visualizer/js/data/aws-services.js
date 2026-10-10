@@ -1041,6 +1041,102 @@
           { h: 'Express = volume', d: 'Very high event rates and short durations at low cost, with at-least-once semantics and less history.' },
         ],
       },
+      architecture: {
+        lead: 'A Step Functions workflow is a state machine defined in Amazon States Language (JSON). The service durably tracks each execution’s current state and the JSON passed between states, applying retries/catches declaratively. Two workflow types trade durability for throughput.',
+        bullets: [
+          { h: 'States & data flow', d: 'Task, Choice, Wait, Parallel, Map, Pass, Succeed/Fail states form a directed graph; each state receives JSON input and emits JSON output, filtered by InputPath/ResultPath/OutputPath.' },
+          { h: 'Service integration patterns', d: 'Request-response (fire and continue), .sync (start a Glue/EMR job and block until it completes), and waitForTaskToken (pause until an external system calls back with the token) — the three ways a Task waits (or not) on work.' },
+          { h: 'Standard vs Express', d: 'Standard persists full execution history with exactly-once state transitions (up to a year) — for critical, auditable orchestration. Express is for very high-volume, short (≤5 min) workflows with at-least-once semantics and minimal history.' },
+          { h: 'Scale with Map', d: 'Inline Map fans out over an array in-execution; Distributed Map processes massive datasets (e.g. millions of S3 objects) as child executions with high concurrency.' },
+        ],
+      },
+      security: {
+        lead: 'Step Functions executes under an IAM execution role; what the workflow can do is exactly what that role allows, including passing roles to the services it starts. Encryption and VPC reach come from the integrated services and optional logging config.',
+        bullets: [
+          { h: 'Execution role + PassRole', d: 'The state machine assumes an IAM role to call services; to start a Glue/EMR job under a job role it needs iam:PassRole for that role — a common source of "not authorized" failures.' },
+          { h: 'Least privilege per integration', d: 'Grant only the specific actions each Task needs (e.g. glue:StartJobRun + glue:GetJobRun for .sync), not broad wildcards.' },
+          { h: 'Data protection', d: 'State data can be large JSON — avoid putting secrets in it; pull secrets from Secrets Manager/SSM in the task. CloudWatch Logs for Express/Standard can be encrypted with KMS.' },
+          { h: 'Auditability', d: 'Standard workflows’ full execution history plus CloudTrail give a tamper-evident record of what ran and with what input/output.' },
+        ],
+      },
+      operations: {
+        lead: 'Operations is mostly observability and the retry/catch policy: Step Functions removes the scheduler to run, so day-2 is watching executions, handling failures gracefully, and respecting service/state limits.',
+        bullets: [
+          { h: 'Declarative resilience', d: 'Per-Task Retry (interval/backoff/maxAttempts) and Catch (route to a handler) mean failures are handled in the definition, not re-coded per function.' },
+          { h: 'Observability', d: 'The visual execution view shows each state’s input/output and failure point; CloudWatch metrics/alarms and X-Ray tracing cover latency and errors.' },
+          { h: 'Long-running work', d: '.sync waits on Glue/EMR completion; waitForTaskToken pauses for arbitrary async/human steps until a callback — both avoid polling loops.' },
+          { h: 'Limits to design around', d: 'State output payload size is capped (offload large data to S3 and pass a pointer); Standard has execution-history limits — keep per-execution state lean.' },
+        ],
+      },
+      cost: {
+        lead: 'Standard workflows bill per state transition; Express bill per request plus duration/memory. The cost model is the main reason to pick the right type: chatty, high-frequency workflows get expensive on Standard’s per-transition pricing, while Express is cheap at volume. (Rates vary by region — price against the official Step Functions pricing page.)',
+        bullets: [
+          { h: 'Standard = per transition', d: 'Every state transition is billed, so very high-volume or many-state workflows add up — great for durable, lower-frequency orchestration.' },
+          { h: 'Express = per request + duration', d: 'Optimized for high event rates and short runs; far cheaper for per-event processing at scale.' },
+          { h: 'Design levers', d: 'Collapse unnecessary states, use Map/Parallel instead of many sequential executions, and pick Express for high-frequency short flows.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'How an event-driven ETL state machine executes, including retry/catch.',
+        steps: [
+          { h: 'Start execution', d: 'An S3 object-created event (via EventBridge) starts a Standard execution, passing the object key as input JSON.' },
+          { h: 'Validate (Task → Lambda)', d: 'A Task state invokes a validation Lambda; a Retry block retries transient errors with backoff, a Catch routes hard failures to a notify-and-fail state.' },
+          { h: 'Transform (.sync)', d: 'A Task uses glue:startJobRun.sync to start the Glue job and block until it finishes — the next state runs only on success.' },
+          { h: 'Branch (Choice)', d: 'A Choice state inspects the job’s output (e.g. quality metric) and routes to load vs quarantine.' },
+          { h: 'Fan out (Map/Parallel)', d: 'A Map state loads partitions in parallel with a concurrency limit; a Parallel state could run independent loads at once.' },
+          { h: 'Finish & notify', d: 'On success it reaches a Succeed state; any uncaught failure hits a Catch that publishes to SNS. The full state-by-state history is retained for debugging.' },
+        ],
+        note: 'Simplified orchestration; exact states and integration patterns depend on the pipeline.',
+      },
+      examples: [{
+        title: 'Event-driven ETL orchestration with .sync Glue and catch-to-SNS',
+        requirement: 'When a file lands in S3, validate it, run a Glue transform, branch on data quality, and alert on any failure — with no scheduler to operate.',
+        input: 'S3 object-created events for new files in a landing prefix.',
+        architecture: 'S3 → EventBridge → Step Functions (Standard): Validate(Lambda) → Refine(Glue .sync) → Choice(quality) → Load / Quarantine; Catch → SNS.',
+        code: {
+          lang: 'json (asl, illustrative)',
+          text: "\"Refine\": {\n  \"Type\": \"Task\",\n  \"Resource\": \"arn:aws:states:::glue:startJobRun.sync\",\n  \"Parameters\": { \"JobName\": \"refine_orders\" },\n  \"Retry\": [{\"ErrorEquals\":[\"States.ALL\"],\"IntervalSeconds\":30,\"BackoffRate\":2,\"MaxAttempts\":2}],\n  \"Catch\": [{\"ErrorEquals\":[\"States.ALL\"],\"Next\":\"NotifyFailure\"}],\n  \"Next\": \"QualityCheck\"\n}",
+        },
+        steps: [
+          'Route S3 events through EventBridge to start the execution.',
+          'Validate with a Lambda Task (retry transient errors).',
+          'Run Glue via .sync so the workflow waits for completion.',
+          'Branch on quality; catch failures to an SNS notification.',
+        ],
+        output: 'Files are validated, transformed, and loaded (or quarantined) automatically, with alerts on failure and a full execution trace.',
+        validation: 'Trigger with a good and a bad file; confirm the good one loads and the bad one quarantines + alerts; inspect the execution graph for the path taken.',
+        errorHandling: 'Retry handles transient errors with backoff; Catch guarantees failures notify rather than disappear; .sync ensures downstream runs only after the job truly succeeds.',
+        production: 'Grant least-privilege + iam:PassRole for the Glue job role; alarm on execution failures; offload large payloads to S3 and pass pointers to stay under state-size limits.',
+        cleanup: 'Delete the state machine, the EventBridge rule, and the SNS topic if decommissioning.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'A Task that starts a Glue/EMR job via .sync fails immediately with an authorization error, or never progresses past the job step.',
+          evidence: 'The execution errors with "not authorized to perform iam:PassRole" or lacks glue:GetJobRun; the state stays in-progress while the job actually runs/fails independently.',
+          causes: ['Execution role missing iam:PassRole for the job role', 'Missing the monitoring action (.sync needs GetJobRun/DescribeStep) so it cannot track completion', 'Job role itself lacks permissions, so the job fails while the state waits'],
+          investigation: ['Read the execution error and the state input/output', 'Check the execution role for StartJobRun + GetJobRun + iam:PassRole on the job role', 'Check the Glue/EMR job’s own run status independently'],
+          rootCause: 'The .sync pattern needs permission both to start the job and to pass/monitor its role; a missing PassRole or monitoring action breaks start or completion tracking.',
+          remediation: ['Add iam:PassRole for the specific job role and the start+monitor actions to the execution role', 'Fix the job role’s own permissions', 'Scope permissions to the specific resources, not wildcards'],
+          validation: 'The Task starts the job and blocks until it completes, then transitions on success; no authorization errors.',
+          prevention: 'Template execution roles with the exact start/monitor/PassRole actions each integration needs; test with least privilege.',
+        },
+        {
+          symptom: 'A workflow switched to Express for cost/scale now occasionally produces duplicate side effects (double writes, duplicate notifications).',
+          evidence: 'The same input appears processed twice; Express workflow chosen for a flow with non-idempotent side effects.',
+          causes: ['Express at-least-once semantics replaying a step', 'Non-idempotent task side effects', 'Assuming Express has Standard’s exactly-once transitions'],
+          investigation: ['Confirm the workflow type (Express vs Standard)', 'Identify non-idempotent steps (writes, notifications)', 'Check whether duplicates align with retries/replays'],
+          rootCause: 'Express workflows are at-least-once, so a step can run more than once; non-idempotent side effects then duplicate.',
+          remediation: ['Make side effects idempotent (dedup keys, conditional writes)', 'Or use Standard for exactly-once state transitions where duplicates are unacceptable', 'Isolate non-idempotent work behind idempotency guards'],
+          validation: 'Replays no longer cause duplicate effects; outputs are consistent under retry.',
+          prevention: 'Match workflow type to semantics: Express for idempotent high-volume flows, Standard when exactly-once matters.',
+        },
+      ],
+      certMapping: {
+        lead: 'Step Functions is the serverless orchestration option in the AWS Data Engineer exam’s pipeline/orchestration domain.',
+        items: [
+          { label: 'AWS DEA-C01 (Data Engineer Associate)', certId: 'aws-dea-c01', objectives: ['Orchestration service selection (Step Functions vs MWAA)', 'Error handling, retries & .sync job control', 'Event-driven pipeline design'] },
+        ],
+      },
       interview: [
         { q: 'When would you use Step Functions versus MWAA (Airflow)?', a: 'Step Functions is serverless, event-driven, and excels at coordinating AWS services with built-in retries/error handling and no infrastructure — ideal for AWS-native, event-triggered pipelines. MWAA (managed Airflow) is better when you want Python-defined DAGs, a rich operator/connector ecosystem, complex scheduling and backfills, cross-cloud/hybrid tasks, or your team already knows Airflow. Rule of thumb: Step Functions for lightweight, AWS-centric, event-driven orchestration; Airflow for complex, code-first, schedule-heavy data pipelines.' },
         { q: 'How does Step Functions handle errors and long-running jobs?', a: 'Error handling is declarative per task: Retry blocks specify which errors to retry, with interval, backoff rate, and max attempts, and Catch blocks route failures to a handler state instead of failing the whole workflow. For long-running work it uses the .sync integration pattern — it starts a Glue/EMR job (or waits on a task token for arbitrary async work) and blocks that state until the job completes, so the next state only runs on success.' },
@@ -1105,6 +1201,102 @@
         bullets: [
           { h: 'Push work down', d: 'Best practice is that operators trigger AWS jobs (Glue/EMR) and sensors wait — the worker orchestrates, it does not crunch the data itself.' },
           { h: 'Scaling & concurrency', d: 'Worker count, DAG/task concurrency, and pool settings control throughput; too many heavy concurrent tasks starve the environment.' },
+        ],
+      },
+      architecture: {
+        lead: 'MWAA runs the standard Apache Airflow components as a managed, VPC-deployed service: a scheduler, a web server (UI), auto-scaling workers (Celery executor on Fargate), and a managed metadata database (Aurora PostgreSQL). DAGs and dependencies live in S3; AWS patches and scales the rest.',
+        bullets: [
+          { h: 'Components', d: 'The scheduler evaluates DAG schedules/dependencies and queues tasks; workers execute them; the metadata DB holds DAG/task state; the web server serves the UI. MWAA runs all of these for you.' },
+          { h: 'DAGs & deps from S3', d: 'DAG .py files, a requirements.txt (extra PyPI packages), and plugins.zip (custom operators) are read from an S3 bucket — pushing a file is the deploy.' },
+          { h: 'VPC-native', d: 'The environment runs in your VPC; the web server can be private (VPC-only) or public, and tasks reach data sources over VPC networking.' },
+          { h: 'Autoscaling workers', d: 'You pick an environment class and min/max workers; MWAA scales workers between those bounds with queue load, within the class’s task concurrency.' },
+        ],
+      },
+      security: {
+        lead: 'MWAA security combines an IAM execution role (what DAG tasks can do in AWS), VPC isolation, encryption, and a secrets backend for Airflow connections/variables so credentials are not stored in the metadata DB.',
+        bullets: [
+          { h: 'Execution role', d: 'Tasks assume the environment’s IAM execution role to call AWS services; least-privilege it and add iam:PassRole where operators launch jobs under other roles.' },
+          { h: 'Secrets backend', d: 'Configure Secrets Manager (or SSM Parameter Store) as the Airflow secrets backend so connections/variables resolve at runtime instead of living in plaintext in the metadata DB.' },
+          { h: 'Network isolation', d: 'Run in private subnets with a private web-server access mode; control egress with security groups and reach S3/services via VPC endpoints.' },
+          { h: 'Encryption & audit', d: 'KMS encrypts the metadata DB, S3 and logs; CloudWatch Logs per component (scheduler/worker/web/DAG-processing) plus CloudTrail give audit and debugging.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating MWAA is Airflow operations minus the infrastructure: manage DAG health, concurrency/sizing, dependency installs, and version upgrades, while watching the per-component CloudWatch logs.',
+        bullets: [
+          { h: 'Sizing & concurrency', d: 'Environment class + min/max workers + Airflow concurrency settings (parallelism, dag_concurrency, pools) govern throughput; undersizing leaves tasks queued, oversizing wastes cost.' },
+          { h: 'Dependency management', d: 'requirements.txt installs PyPI packages — pin versions and test, since a bad/conflicting requirement can break the whole environment’s DAG parsing.' },
+          { h: 'DAG hygiene', d: 'Keep top-level DAG code cheap (it runs on every parse); push heavy work to services; use sensors with timeouts to avoid stuck tasks.' },
+          { h: 'Monitoring & upgrades', d: 'Watch scheduler/worker/DAG-processing logs and queue depth; plan Airflow version upgrades (MWAA offers specific versions) and test DAG compatibility.' },
+        ],
+      },
+      cost: {
+        lead: 'MWAA bills for the environment (by class) running continuously, plus per-worker costs as it autoscales, plus the metadata DB and storage. Unlike Step Functions it is not pay-per-execution — an idle environment still costs — so sizing and consolidation are the levers. (Rates vary by region/class — price against the official MWAA pricing page.)',
+        bullets: [
+          { h: 'Always-on base', d: 'The scheduler/web/metadata run continuously; a lightly-used environment still incurs the base class cost — consolidate low-volume DAGs rather than running many environments.' },
+          { h: 'Worker autoscaling', d: 'Additional workers cost while scaled out; tune min/max and concurrency so bursts scale but idle shrinks to the minimum.' },
+          { h: 'Right class', d: 'Pick the smallest environment class that holds your DAG count/parse load and task concurrency; scale up only when the scheduler/workers are the bottleneck.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'How a scheduled DAG goes from an S3 upload to executed tasks.',
+        steps: [
+          { h: 'Deploy the DAG', d: 'You upload the DAG .py (and any requirements.txt/plugins.zip) to the environment’s S3 bucket; MWAA syncs it and the DAG-processor parses it.' },
+          { h: 'Schedule evaluation', d: 'The scheduler evaluates the DAG’s schedule and upstream dependencies, creating a DAG run for the due interval (catchup/backfill if enabled).' },
+          { h: 'Queue tasks', d: 'As each task’s dependencies are met, the scheduler queues it to the Celery executor; MWAA scales workers up if the queue grows.' },
+          { h: 'Execute via operators', d: 'A worker runs the task — typically an operator that triggers a Glue/EMR/Redshift job; a sensor then waits for completion rather than crunching data on the worker.' },
+          { h: 'Record state & retry', d: 'Task results/state are written to the metadata DB; failures retry per the task’s retry policy, and logs stream to CloudWatch.' },
+          { h: 'Complete the run', d: 'When all tasks finish, the DAG run is marked success/failed; SLAs/alerts fire as configured.' },
+        ],
+        note: 'Simplified; exact executor/scaling behavior depends on environment class and Airflow version.',
+      },
+      examples: [{
+        title: 'Daily medallion DAG orchestrating Glue with dependencies and backfill',
+        requirement: 'Run a multi-stage daily pipeline (ingest → refine → publish) on AWS services, with dependencies, retries, and the ability to backfill missed days — code-first.',
+        input: 'Source data arriving daily; Glue jobs for each stage; a schedule of 02:00 UTC.',
+        architecture: 'S3 (DAGs) → MWAA scheduler → workers → GlueJobOperator tasks (ingest >> refine >> publish) → CloudWatch logs; catchup for backfill.',
+        code: {
+          lang: 'python (airflow dag, illustrative)',
+          text: "with DAG('daily_orders', schedule='0 2 * * *',\n         start_date=datetime(2026,1,1), catchup=True,\n         default_args={'retries':2,'retry_delay':timedelta(minutes=5)}) as dag:\n    ingest  = GlueJobOperator(task_id='ingest',  job_name='ingest_orders')\n    refine  = GlueJobOperator(task_id='refine',  job_name='refine_orders')\n    publish = GlueJobOperator(task_id='publish', job_name='publish_gold')\n    ingest >> refine >> publish",
+        },
+        steps: [
+          'Upload the DAG to the MWAA S3 DAGs folder.',
+          'Let the scheduler create runs on the 02:00 schedule.',
+          'Operators trigger each Glue job in dependency order with retries.',
+          'Use catchup/backfill to reprocess missed or corrected days.',
+        ],
+        output: 'A daily, dependency-ordered pipeline with automatic retries and the ability to backfill historical intervals cleanly.',
+        validation: 'Confirm the DAG appears in the UI without import errors; trigger a manual run; backfill a past date and verify it reprocesses that interval only.',
+        errorHandling: 'Task retries handle transient failures; sensors with timeouts avoid stuck waits; keep tasks idempotent so backfills/retries do not duplicate.',
+        production: 'Least-privilege the execution role (+PassRole for Glue roles); pin requirements; size workers/concurrency to the DAG; alert on failed runs and SLA misses.',
+        cleanup: 'Remove the DAG file from S3, and delete the MWAA environment if decommissioning (it bills while running).',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'DAG tasks sit in the "queued" state and do not run, or runs fall behind their schedule.',
+          evidence: 'The Airflow UI shows many queued tasks and few running; worker utilization is pegged; parallelism/dag_concurrency limits are low or the environment is at max workers.',
+          causes: ['Worker capacity or concurrency limits too low for the task volume', 'Max workers set too low to scale into the burst', 'Too many heavy concurrent tasks (or work done on the worker) saturating capacity'],
+          investigation: ['Check queued vs running counts and worker CPU in CloudWatch', 'Review parallelism / dag_concurrency / pool settings and min/max workers', 'Confirm tasks push work to services rather than computing on the worker'],
+          rootCause: 'The scheduler can queue more tasks than the workers/concurrency settings can execute, so tasks wait — a sizing/concurrency mismatch, not a scheduler fault.',
+          remediation: ['Raise max workers and/or the concurrency settings (parallelism, dag_concurrency, pools)', 'Move heavy computation off the worker to Glue/EMR', 'Size the environment class up if the scheduler/DB is the bottleneck'],
+          validation: 'Queued tasks drain promptly and runs keep to schedule under the same load.',
+          prevention: 'Size workers/concurrency to peak DAG load, keep tasks orchestration-only, and alert on growing queue depth.',
+        },
+        {
+          symptom: 'A newly-uploaded DAG does not appear in the UI, or the whole environment’s DAGs break after a dependency change.',
+          evidence: 'DAG-processing logs show an ImportError or dependency conflict; a bad requirements.txt was deployed; heavy top-level imports slow parsing.',
+          causes: ['requirements.txt with a conflicting/unavailable package version', 'Import error or exception in top-level DAG code', 'Expensive top-level code slowing or failing DAG parsing'],
+          investigation: ['Read the DAG-processing/scheduler CloudWatch logs for the import error', 'Diff the recent requirements.txt change', 'Check for heavy work or failing imports at module top level'],
+          rootCause: 'DAGs are parsed on every cycle; a failing import or a broken dependency install prevents parsing, so the DAG never registers (and can affect others).',
+          remediation: ['Pin and test requirements before deploying; roll back a bad requirements.txt', 'Fix the import/top-level error; move heavy imports/work inside task functions', 'Validate DAGs locally against the MWAA Airflow version before upload'],
+          validation: 'The DAG parses and appears in the UI; other DAGs are unaffected; parse time is healthy.',
+          prevention: 'Pin dependencies, keep top-level code cheap, and test DAGs against the target Airflow version in CI before pushing to S3.',
+        },
+      ],
+      certMapping: {
+        lead: 'MWAA is the code-first (Airflow) orchestration option in the AWS Data Engineer exam’s orchestration domain.',
+        items: [
+          { label: 'AWS DEA-C01 (Data Engineer Associate)', certId: 'aws-dea-c01', objectives: ['Orchestration selection (MWAA vs Step Functions)', 'DAG scheduling, dependencies, backfills', 'Operational sizing & secure connections'] },
         ],
       },
       interview: [
