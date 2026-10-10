@@ -78,6 +78,7 @@ const LOAD_ORDER = [
   'incidents-azure.js',
   'incidents-fabric.js',
   'design-challenges.js',
+  'project-tracks.js',
 ];
 
 /* ── Findings ─────────────────────────────────────────────── */
@@ -209,7 +210,7 @@ function validate(TV) {
       'quiz-bank', 'learning-paths', 'taxonomy', 'intuition', 'equivalences',
       'aws-services', 'azure-services', 'databricks-services', 'fabric-services',
       'aws-interview-qa', 'azure-interview-qa', 'databricks-interview-qa', 'fabric-interview-qa',
-      'incidents', 'design-challenges',
+      'incidents', 'design-challenges', 'project-tracks',
     ]) checkBankMeta('_meta.js', bankId);
   }
 
@@ -470,6 +471,36 @@ function validate(TV) {
         if (ch[f] != null && !Array.isArray(ch[f])) err('design-challenges.js', `${where}: ${f} must be an array`);
       }
       (ch.refs || []).forEach((r, i) => checkRef('design-challenges.js', r, `${where} ref[${i}]`));
+    }
+  }
+
+  /* ---- project tracks ---- */
+  const PT = TV.ProjectTracks;
+  if (!PT) warn('project-tracks.js', 'TV.ProjectTracks not defined');
+  else {
+    const ptIds = new Set();
+    for (const t of PT.all()) {
+      const where = t.id || '??';
+      if (!t.id) err('project-tracks.js', 'track with no id');
+      else if (ptIds.has(t.id)) err('project-tracks.js', `duplicate track id "${t.id}"`);
+      else ptIds.add(t.id);
+      for (const f of ['title', 'cloud', 'level', 'summary', 'outcome']) if (!t[f]) err('project-tracks.js', `${where}: missing "${f}"`);
+      for (const f of ['architecture', 'skills']) if (!Array.isArray(t[f]) || !t[f].length) err('project-tracks.js', `${where}: needs ${f}[]`);
+      if (!Array.isArray(t.stages) || t.stages.length < 2) err('project-tracks.js', `${where}: needs ≥2 stages`);
+      else {
+        const stIds = new Set();
+        t.stages.forEach(s => {
+          const sw = `${where}/${s.id || '??'}`;
+          if (!s.id) err('project-tracks.js', `${where}: stage missing id`);
+          else if (stIds.has(s.id)) err('project-tracks.js', `${where}: duplicate stage id "${s.id}"`);
+          else stIds.add(s.id);
+          for (const f of ['title', 'objective', 'deliverable']) if (!s[f]) err('project-tracks.js', `${sw}: missing "${f}"`);
+          if (!Array.isArray(s.steps) || !s.steps.length) err('project-tracks.js', `${sw}: needs steps[]`);
+          if (!Array.isArray(s.verify) || !s.verify.length) err('project-tracks.js', `${sw}: needs verify[]`);
+          if (s.services != null && !Array.isArray(s.services)) err('project-tracks.js', `${sw}: services must be an array`);
+        });
+      }
+      (t.refs || []).forEach((r, i) => checkRef('project-tracks.js', r, `${where} ref[${i}]`));
     }
   }
 
