@@ -892,6 +892,103 @@
           { h: 'Startup amortization', d: 'A shared job cluster across tasks avoids paying cold-start per task.' },
         ],
       },
+      architecture: {
+        lead: 'A Workflow (Job) is a DAG of tasks orchestrated natively by Databricks. The job scheduler resolves task dependencies, provisions compute (ephemeral job clusters or serverless), runs tasks in order, passes values between them, and records a repairable run history — no external scheduler.',
+        bullets: [
+          { h: 'Task DAG & types', d: 'Tasks (notebook, DLT pipeline, SQL, Python wheel/script, dbt, run-job) declare upstream edges; the scheduler runs them in dependency order and in parallel where possible.' },
+          { h: 'Compute model', d: 'Tasks run on ephemeral job clusters (optionally a shared job cluster across tasks to avoid repeated cold starts) or on serverless jobs compute — right-sized and torn down per run.' },
+          { h: 'Parameters & task values', d: 'Job/task parameters parameterize runs; taskValues pass small outputs from one task to a downstream task.' },
+          { h: 'Triggers & definition-as-code', d: 'Cron schedules, file-arrival, table-update, continuous, or API/CI triggers; jobs are defined as code via Databricks Asset Bundles (YAML) for versioned CI/CD.' },
+        ],
+      },
+      security: {
+        lead: 'A job runs under a run-as identity; its tasks can only touch what that identity is granted in Unity Catalog and the workspace. Secrets and cluster policies bound what tasks can do.',
+        bullets: [
+          { h: 'Run-as identity + UC', d: 'The job’s run-as principal (a user or, better, a service principal) needs explicit UC grants on the catalogs/schemas/tables its tasks read and write; a common failure is the run-as identity lacking a grant a developer had interactively.' },
+          { h: 'Secrets', d: 'Tasks read credentials from Databricks secret scopes (optionally Key Vault-backed) rather than hardcoding them in notebooks.' },
+          { h: 'Cluster policies', d: 'Policies constrain the job clusters a job can spin up (instance types, access mode), enforcing governance and cost guardrails.' },
+          { h: 'Isolation', d: 'Ephemeral job clusters isolate each job’s execution from others; access to storage flows through UC external locations.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating Workflows is about recovery (repair runs), compute efficiency (shared clusters, serverless), concurrency, and alerting — with a clear run history for each job.',
+        bullets: [
+          { h: 'Repair over rerun', d: 'A repair run re-executes only failed tasks and their downstream, reusing successful task results — the standard recovery for a partially-failed DAG.' },
+          { h: 'Compute efficiency', d: 'Share a job cluster across tasks to amortize startup; serverless removes sizing; avoid a fresh cluster per task for chatty DAGs.' },
+          { h: 'Concurrency & queueing', d: 'Max concurrent runs and queueing control overlap; set per-task retries/timeouts so transient failures recover and hung tasks do not run forever.' },
+          { h: 'Alerting & history', d: 'Email/webhook notifications on failure/SLA; the run history shows per-task duration/status for debugging and repair.' },
+        ],
+      },
+      cost: {
+        lead: 'Workflows itself adds no separate charge beyond the job compute it runs; cost is the job-cluster/serverless DBUs the tasks consume. The levers are shared clusters (avoid per-task cold starts), repair runs (don’t recompute successful tasks), and right-sized job compute. (DBU rates vary — price against the official pricing page.)',
+        bullets: [
+          { h: 'Cold-start tax', d: 'A new job cluster per task pays startup repeatedly; a shared job cluster across tasks (or serverless) removes most of that overhead.' },
+          { h: 'Repair saves recompute', d: 'Repairing recomputes only failed/downstream tasks — far cheaper than rerunning the whole job after a late-stage failure.' },
+          { h: 'Right-size job clusters', d: 'Size per-task compute to the work; use cluster policies to cap waste.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'Lifecycle of a scheduled multi-task job run, including recovery.',
+        steps: [
+          { h: 'Trigger', d: 'A schedule (or file-arrival/API) starts a job run; concurrency/queue settings decide whether it runs now or queues.' },
+          { h: 'Provision compute', d: 'The job provisions its job cluster(s) — a shared cluster for the DAG or per-task clusters — or uses serverless jobs compute.' },
+          { h: 'Run tasks in order', d: 'The scheduler runs tasks as their upstream dependencies complete, in parallel where the DAG allows, passing parameters/taskValues downstream.' },
+          { h: 'Handle failures', d: 'A failing task retries per its retry policy; if it still fails, downstream tasks are skipped and the run is marked failed with the failure point recorded.' },
+          { h: 'Recover with repair', d: 'You (or automation) launch a repair run that re-executes only the failed task and its downstream, reusing successful results.' },
+          { h: 'Finish & notify', d: 'On success the run completes and compute tears down; notifications fire on failure/SLA and the run history is retained for audit.' },
+        ],
+        note: 'Simplified; exact compute/queueing behavior depends on cluster config and job settings.',
+      },
+      examples: [{
+        title: 'End-to-end medallion job with shared cluster and repair-run recovery',
+        requirement: 'Run ingest → transform → quality-check → publish as one scheduled, monitored Databricks-native job that recovers cheaply from a mid-DAG failure.',
+        input: 'Raw files for Auto Loader ingest; a DLT pipeline for Silver/Gold; a SQL quality check.',
+        architecture: 'Workflow DAG: ingest(notebook, Auto Loader) → transform(DLT task) → quality(SQL task) → publish(notebook); shared job cluster; failure alerts.',
+        code: {
+          lang: 'yaml (databricks asset bundle, illustrative)',
+          text: "resources:\n  jobs:\n    medallion:\n      name: medallion_daily\n      schedule: { quartz_cron_expression: '0 0 2 * * ?', timezone_id: UTC }\n      job_clusters:\n        - job_cluster_key: shared\n          new_cluster: { spark_version: '15.x', num_workers: 4 }\n      tasks:\n        - task_key: ingest\n          notebook_task: { notebook_path: ./ingest.py }\n          job_cluster_key: shared\n        - task_key: transform\n          depends_on: [{ task_key: ingest }]\n          pipeline_task: { pipeline_id: ${var.dlt_id} }\n        - task_key: quality\n          depends_on: [{ task_key: transform }]\n          sql_task: { query: { query_id: ${var.q_id} } }",
+        },
+        steps: [
+          'Define the job as an Asset Bundle (versioned in git).',
+          'Use a shared job cluster across notebook/SQL tasks to cut startup.',
+          'Chain tasks with depends_on; orchestrate the DLT pipeline as a task.',
+          'On failure, launch a repair run to re-execute only failed/downstream tasks.',
+        ],
+        output: 'A scheduled, alerting, Databricks-native pipeline with one run history and cheap recovery.',
+        validation: 'Confirm the DAG runs in order; force a task failure and verify a repair run reprocesses only it + downstream; check the run-as identity’s UC grants.',
+        errorHandling: 'Per-task retries/timeouts handle transient failures; repair runs recover partial failures; idempotent tasks make reruns safe.',
+        production: 'Run as a least-privileged service principal with explicit UC grants; apply cluster policies; alert on failure/SLA; deploy via CI using Asset Bundles.',
+        cleanup: 'Delete the job (bundle destroy) and any dedicated clusters/pipelines if decommissioning.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'A multi-task job is far slower and more expensive than the work implies, with most time spent before tasks actually run.',
+          evidence: 'The run timeline shows repeated cluster-startup gaps between tasks; each task provisions its own job cluster.',
+          causes: ['Per-task job clusters paying cold start repeatedly', 'No shared job cluster across tasks', 'Oversized clusters for small tasks'],
+          investigation: ['Inspect the run timeline for startup gaps vs task execution', 'Check whether tasks share a job cluster or each define their own', 'Review cluster sizes against task work'],
+          rootCause: 'Each task spins up and tears down its own cluster, so the DAG pays cluster startup many times — a compute-config issue, not slow task logic.',
+          remediation: ['Use a shared job cluster across tasks (or serverless jobs compute)', 'Right-size the shared cluster to the heaviest task', 'Reserve per-task clusters for genuinely different compute needs'],
+          validation: 'Startup gaps collapse, total run time and DBU-hours drop for the same DAG.',
+          prevention: 'Default to a shared job cluster/serverless for multi-task jobs; use cluster policies to prevent oversizing.',
+        },
+        {
+          symptom: 'A job task fails with permission/access errors even though the same code runs fine interactively for the developer.',
+          evidence: 'The task errors on a UC table/path access; the job run-as identity differs from the developer; the run-as has no grant on that object.',
+          causes: ['Run-as service principal lacking UC grants the developer has', 'Secrets/connection not accessible to the run-as identity', 'Storage access (external location) not granted to run-as'],
+          investigation: ['Check the job’s run-as identity vs the developer’s', 'Compare UC grants on the failing object for both identities', 'Verify secret-scope and external-location access for run-as'],
+          rootCause: 'The job executes as a different principal than the interactive developer, and that principal was never granted the access the code needs.',
+          remediation: ['Grant the run-as identity explicit UC privileges on the tables/schemas/external locations it uses', 'Give it access to the required secret scopes', 'Standardize on a least-privileged service principal with documented grants'],
+          validation: 'The job task succeeds under its run-as identity with no interactive dependency.',
+          prevention: 'Provision run-as service principals with explicit grants as part of deployment; never rely on a developer’s personal access for scheduled jobs.',
+        },
+      ],
+      certMapping: {
+        lead: 'Workflows is the native-orchestration surface Databricks certifications test for productionizing pipelines.',
+        items: [
+          { label: 'Databricks Data Engineer Associate', certId: 'dbx-de-associate', objectives: ['Build multi-task Jobs (DAGs)', 'Scheduling, retries, alerts', 'Orchestrate DLT + notebooks'] },
+          { label: 'Databricks Data Engineer Professional', certId: 'dbx-de-professional', objectives: ['Repair runs & recovery', 'Run-as identity & UC permissions', 'CI/CD with Asset Bundles; cost-efficient compute'] },
+        ],
+      },
       interview: [
         { q: 'What are Databricks Workflows and when would you use them over Azure Data Factory?', a: 'Workflows (Jobs) are Databricks’ native orchestrator — multi-task DAGs of notebooks, DLT pipelines, SQL, Python and dbt with dependencies, scheduling, retries and alerts, running on isolated job compute. Use Workflows when the pipeline is Databricks-centric (it avoids standing up a separate scheduler and passes values between tasks natively). Use ADF when you need to orchestrate across many non-Databricks Azure services and connectors; a common hybrid is ADF orchestrating overall and triggering Databricks Workflows/notebooks for the transformation.' },
         { q: 'What is a repair run?', a: 'When a multi-task job fails partway, a repair run re-executes only the failed tasks and their downstream dependencies, reusing the successful tasks’ results — instead of rerunning the entire DAG. It saves time and compute and is the standard way to recover a partially-failed pipeline.' },
