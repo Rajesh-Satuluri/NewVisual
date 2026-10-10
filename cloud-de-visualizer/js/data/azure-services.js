@@ -625,6 +625,101 @@
           { h: 'Late & out-of-order', d: 'Configurable tolerance decides when a window is finalized — larger tolerance = more correct but higher latency.' },
         ],
       },
+      architecture: {
+        lead: 'Stream Analytics is a serverless streaming-SQL engine: you declare inputs, a windowed query (with event-time semantics), and outputs, and ASA runs it 24/7, checkpointing internally. Capacity is Streaming Units; throughput scales when the query is partition-aligned with the input.',
+        bullets: [
+          { h: 'Event-time + windows', d: 'TIMESTAMP BY sets event time; tumbling/hopping/sliding/session windows aggregate over time, with late-arrival and out-of-order tolerance deciding when a window finalizes.' },
+          { h: 'Partition-aligned parallelism', d: 'A query that PARTITIONs BY the input’s partition key runs embarrassingly parallel and scales linearly with SUs; cross-partition shuffles bottleneck.' },
+          { h: 'Inputs/outputs + reference data', d: 'Inputs: Event Hubs/IoT Hub/Blob; outputs: SQL, ADLS, Power BI, Event Hub, Cosmos, Synapse; reference data joins a slowly-changing lookup to the stream.' },
+          { h: 'Checkpointing & restart', d: 'ASA checkpoints internally for fault tolerance and can deliver exactly-once to selected sinks; on restart you choose now / last-stopped / custom start time.' },
+        ],
+      },
+      security: {
+        lead: 'ASA uses managed identity to reach inputs/outputs, supports VNet isolation (dedicated cluster), and is governed by Entra — no keys in the query.',
+        bullets: [
+          { h: 'Managed identity', d: 'Authenticate to Event Hubs/ADLS/SQL via managed identity rather than connection strings where supported.' },
+          { h: 'Network isolation', d: 'A Stream Analytics cluster can run in a VNet for private access to sources/sinks.' },
+          { h: 'Least privilege', d: 'Scope the identity to the specific input/output resources.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating ASA is watching SU utilization and input backlog, tuning parallelism and watermark tolerance, and choosing the right restart mode.',
+        bullets: [
+          { h: 'SU utilization', d: 'The SU% (and watermark-delay / backlogged-input-events) metrics are the health signals; sustained high utilization or backlog means add SUs or repartition the query.' },
+          { h: 'Parallelism', d: 'Align the query partitioning with input partitions for linear scaling; a non-parallel query cannot use added SUs effectively.' },
+          { h: 'Late/out-of-order', d: 'Tune tolerance to balance completeness vs latency; events beyond tolerance are dropped/adjusted per policy.' },
+          { h: 'Restart modes', d: 'On restart, choose start-time (now / when last stopped / custom) carefully to avoid gaps or reprocessing.' },
+        ],
+      },
+      cost: {
+        lead: 'ASA bills Streaming-Unit-hours for the running job (plus a cluster cost if you use a dedicated VNet cluster). The lever is right-sizing SUs via partition-aligned queries so you do not over-provision. (Rates vary — price against the official Stream Analytics pricing page.)',
+        bullets: [
+          { h: 'SU-hours', d: 'A running job bills continuously for its SUs; size to sustained load, not peak-of-peaks.' },
+          { h: 'Parallelism efficiency', d: 'A partition-aligned query uses SUs efficiently; a bottlenecked query wastes them.' },
+          { h: 'Stop when idle', d: 'Stop jobs that do not need to run continuously to avoid idle SU cost.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'How ASA turns a stream into a windowed result emitted to a sink.',
+        steps: [
+          { h: 'Ingest + assign event time', d: 'ASA reads events from the input (e.g. an Event Hub consumer group) and assigns event time via TIMESTAMP BY.' },
+          { h: 'Buffer & reorder', d: 'Events are buffered up to the out-of-order/late tolerance so windows see events in event-time order.' },
+          { h: 'Apply the windowed query', d: 'The SQL runs continuously; a tumbling window, say, aggregates each 5-minute bucket as it closes.' },
+          { h: 'Emit to outputs', d: 'Results are written to the sinks (Power BI, SQL, ADLS…), with exactly-once to supported sinks via checkpoints.' },
+          { h: 'Checkpoint', d: 'ASA checkpoints progress so a restart resumes without loss.' },
+        ],
+        note: 'Simplified; exact exactly-once semantics depend on the output sink.',
+      },
+      examples: [{
+        title: 'Live 5-minute revenue to Power BI + SQL from Event Hubs',
+        requirement: 'Compute per-category revenue every 5 minutes from an event stream and serve it to a live dashboard and a SQL table — no cluster.',
+        input: 'Order events on an Event Hub with an event_time field.',
+        architecture: 'Event Hub → ASA (tumbling 5-min, partition-aligned) → Power BI streaming dataset + Azure SQL.',
+        code: {
+          lang: 'stream analytics sql (illustrative)',
+          text: "SELECT category, System.Timestamp() AS window_end,\n       SUM(amount) AS revenue, COUNT(*) AS orders\nINTO   [powerbi-out]\nFROM   [eventhub-orders] TIMESTAMP BY event_time PARTITION BY PartitionId\nGROUP BY category, PartitionId, TumblingWindow(minute, 5);",
+        },
+        steps: [
+          'Define the Event Hub input (dedicated consumer group).',
+          'Write a partition-aligned tumbling-window query.',
+          'Add Power BI + SQL outputs.',
+          'Size SUs to SU% utilization and backlog metrics.',
+        ],
+        output: 'A live revenue-by-category dashboard plus a SQL table, updated every 5 minutes, fully serverless.',
+        validation: 'Confirm windows emit on schedule; SU% stays healthy; counts reconcile with source events for a window.',
+        errorHandling: 'Tune late/out-of-order tolerance for completeness; choose the restart start-time to avoid gaps; exactly-once to SQL prevents dup rows.',
+        production: 'Use a dedicated consumer group; partition-align for scale; managed identity for sinks; alarm on watermark delay/backlog.',
+        cleanup: 'Stop/delete the ASA job and outputs; remove the consumer group.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'An ASA job cannot keep up — SU utilization is pinned high and input events back up.',
+          evidence: 'SU% near 100%; backlogged-input-events and watermark-delay rising; the query is not partition-aligned.',
+          causes: ['Query not partition-aligned, so added SUs do not help', 'Too few SUs for the load', 'A cross-partition operation forcing a non-parallel step'],
+          investigation: ['Check SU%, backlog and watermark-delay metrics', 'Review whether the query PARTITIONs BY the input partition key', 'Identify non-parallel steps'],
+          rootCause: 'The job is compute-bound and cannot scale because the query shuffles across partitions (not embarrassingly parallel) or is under-provisioned.',
+          remediation: ['Rewrite the query partition-aligned (PARTITION BY matching input partitions)', 'Add SUs once the query is parallelizable', 'Avoid/isolate cross-partition operations'],
+          validation: 'SU% drops with added SUs, backlog drains, and watermark delay returns to normal.',
+          prevention: 'Design partition-aligned queries from the start and monitor SU%/backlog.',
+        },
+        {
+          symptom: 'Aggregates are missing late events or windows look incomplete.',
+          evidence: 'Events arriving slightly late are dropped; late-arrival/out-of-order tolerance is set very low; results differ from a batch recompute.',
+          causes: ['Late-arrival tolerance too small for real data tardiness', 'Out-of-order tolerance too small', 'Wrong TIMESTAMP BY column (processing vs event time)'],
+          investigation: ['Check the configured late/out-of-order tolerances vs actual data delay', 'Confirm TIMESTAMP BY uses the true event-time column', 'Compare against a batch recompute'],
+          rootCause: 'Windows finalize before late events arrive because tolerance is too low (or event time is wrong), so those events are excluded.',
+          remediation: ['Increase late-arrival / out-of-order tolerance to match real tardiness (accepting a bit more latency)', 'Use the correct event-time column in TIMESTAMP BY', 'Document the latency/completeness trade-off'],
+          validation: 'Window results match the batch recompute within the chosen tolerance.',
+          prevention: 'Set tolerances from measured data tardiness and always aggregate on true event time.',
+        },
+      ],
+      certMapping: {
+        lead: 'Stream Analytics is Azure’s serverless streaming-SQL engine; the Synapse-era DP-203 covered it, and it complements Fabric (DP-700) real-time scenarios.',
+        items: [
+          { label: 'DP-700 Fabric Data Engineer (real-time context)', certId: 'ms-dp700', objectives: ['Windowed streaming aggregation', 'Event-time & late-arrival handling', 'Serverless streaming vs code-first (Spark)'] },
+          'Legacy lineage: DP-203 (retired 2025) covered Stream Analytics windows, event-time and outputs directly.',
+        ],
+      },
       interview: [
         { q: 'What window types does Stream Analytics support?', a: 'Tumbling (fixed non-overlapping), Hopping (fixed size, overlapping by a hop), Sliding (emits when events enter/leave the window), and Session (groups events separated by gaps). Tumbling is the default for periodic aggregations like "revenue per 5 minutes".' },
         { q: 'Stream Analytics vs Databricks Structured Streaming?', a: 'ASA is serverless, SQL-only, low-ops — great for standard windowed analytics and IoT with minimal code. Databricks Structured Streaming is code-first (Python/Scala), far more flexible (arbitrary transforms, ML, Delta sinks, complex state), and scales bigger, at the cost of running and tuning clusters. Choose ASA for simple SQL real-time; Databricks for rich or large pipelines.' },
@@ -910,6 +1005,102 @@
           { h: 'Read replicas', d: 'Offload reporting/extract reads to a geo/read replica to protect the primary’s transactional latency.' },
         ],
       },
+      architecture: {
+        lead: 'Azure SQL Database is the SQL Server engine delivered as PaaS, with automated HA replicas. For data engineering it is usually an OLTP source: a row-store transactional database you extract from incrementally (CDC/Change Tracking/watermark) rather than scan for analytics.',
+        bullets: [
+          { h: 'Deployment options', d: 'Single database, Elastic Pool (share resources across many DBs), or Managed Instance (near-full SQL Server surface for lift-and-shift).' },
+          { h: 'Purchasing & tiers', d: 'vCore (incl. Hyperscale for up to ~100 TB with fast backup/restore) or DTU; a serverless tier auto-pauses/scales compute for spiky/dev workloads.' },
+          { h: 'Built-in HA', d: 'Automatic replicas give a 99.99%+ SLA (zone-redundant higher); automated backups + point-in-time restore, active geo-replication and failover groups for DR.' },
+          { h: 'Change feeds for DE', d: 'CDC and Change Tracking surface row-level changes so pipelines pull deltas, not full reloads.' },
+        ],
+      },
+      security: {
+        lead: 'Azure SQL layers Entra/SQL auth, network isolation, encryption (TDE/Always Encrypted), and fine-grained controls (RLS, dynamic data masking).',
+        bullets: [
+          { h: 'Auth', d: 'Microsoft Entra authentication (preferred, incl. managed identities for pipelines) or SQL logins; least-privilege database roles.' },
+          { h: 'Network', d: 'Firewall rules + private endpoints keep access private; restrict public access.' },
+          { h: 'Encryption', d: 'TDE encrypts at rest by default; Always Encrypted protects sensitive columns even from DBAs; TLS in transit.' },
+          { h: 'Fine-grained', d: 'Row-level security and dynamic data masking restrict what each principal sees.' },
+        ],
+      },
+      operations: {
+        lead: 'For DE, operating Azure SQL as a source is protecting the OLTP primary during extracts, managing CDC retention, and right-sizing compute.',
+        bullets: [
+          { h: 'Protect the primary', d: 'Offload reporting/extract reads to a read replica (or geo-replica) so analytics pulls do not hurt transactional latency.' },
+          { h: 'CDC/Change Tracking', d: 'Enable and monitor change-tracking retention so a delayed pipeline does not miss changes that aged out.' },
+          { h: 'Scale & serverless', d: 'Scale vCores for load; serverless auto-pauses idle dev DBs; Hyperscale for very large DBs with fast restore.' },
+          { h: 'Backups/DR', d: 'PITR + geo-replication/failover groups; test restores.' },
+        ],
+      },
+      cost: {
+        lead: 'Azure SQL bills by purchasing model: vCore (compute + storage, or serverless per-second) or DTU (bundled). The DE-relevant levers are serverless for spiky/dev, read replicas to offload extracts, and not over-provisioning the primary for analytics. (Rates vary — price against the official Azure SQL pricing page.)',
+        bullets: [
+          { h: 'vCore vs DTU vs serverless', d: 'vCore gives control (and Hyperscale); serverless auto-pauses idle; DTU is a simple bundle — match to workload shape.' },
+          { h: 'Replicas', d: 'A read replica adds cost but protects the primary’s performance (and SLA) during heavy extracts.' },
+          { h: 'Right-size', d: 'Don’t size the OLTP primary for analytical scans — extract to the lake instead.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'How a CDC-based incremental extract from Azure SQL into the lake works.',
+        steps: [
+          { h: 'Enable change capture', d: 'Turn on CDC (or Change Tracking) on the source tables so inserts/updates/deletes are recorded with a change version.' },
+          { h: 'Read the delta', d: 'ADF/Databricks reads the change tables since the last captured version (ideally from a read replica to spare the primary).' },
+          { h: 'Land to Bronze', d: 'The changed rows (with operation type) are written to ADLS Bronze / a staging area.' },
+          { h: 'MERGE to Silver', d: 'A Spark/SQL MERGE applies the changes idempotently into a Silver Delta table keyed on the PK.' },
+          { h: 'Advance the marker', d: 'The pipeline records the last processed change version so the next run resumes incrementally.' },
+        ],
+        note: 'Simplified; exact mechanics depend on CDC vs Change Tracking vs watermark.',
+      },
+      examples: [{
+        title: 'CDC from Azure SQL into a Silver Delta table via a read replica',
+        requirement: 'Keep a Silver table current from an OLTP Azure SQL source without reloading or hurting the production database.',
+        input: 'An OLTP table with CDC enabled; a read replica for extraction.',
+        architecture: 'Azure SQL (CDC) → read replica → ADF/Databricks reads change tables → ADLS Bronze → MERGE → Silver Delta.',
+        code: {
+          lang: 'sql / pyspark (illustrative)',
+          text: "-- enable CDC on the source\nEXEC sys.sp_cdc_enable_table @source_schema='dbo', @source_name='orders', @role_name=NULL;\n\n# pipeline reads cdc.dbo_orders_CT since last LSN (from the replica),\n# writes to Bronze, then MERGEs into silver.orders by order_id applying __$operation",
+        },
+        steps: [
+          'Enable CDC on the source table(s).',
+          'Point the extract at a read replica to protect the primary.',
+          'Read changes since the last version into Bronze.',
+          'MERGE into the Silver Delta table idempotently; advance the marker.',
+        ],
+        output: 'A continuously-current Silver table with minimal load on the OLTP primary and no full reloads.',
+        validation: 'Counts reconcile with source changes; a re-run with no new changes merges 0 rows; the primary’s latency is unaffected.',
+        errorHandling: 'Monitor CDC retention so a delayed pipeline does not miss aged-out changes; idempotent MERGE makes retries safe.',
+        production: 'Extract from a replica; Entra/managed-identity auth; secrets in Key Vault; alarm on extract lag and CDC retention.',
+        cleanup: 'Disable CDC and drop the pipeline/Silver table if decommissioning.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'Analytics extracts slow down the production app — OLTP latency spikes during the nightly pull.',
+          evidence: 'The primary’s CPU/IO spikes during the extract window; large table scans run against the primary.',
+          causes: ['Heavy analytical reads hitting the OLTP primary', 'Full-table extracts instead of incremental', 'No read replica to offload to'],
+          investigation: ['Correlate primary latency with the extract window', 'Check whether extracts are full vs incremental', 'See whether a read replica exists'],
+          rootCause: 'An OLTP database is being used for analytical-scale reads, contending with transactional traffic.',
+          remediation: ['Extract from a read/geo replica, not the primary', 'Switch to incremental (CDC/Change Tracking/watermark) extraction', 'Move heavy processing to the lake/warehouse'],
+          validation: 'Primary latency stays flat during extracts; the pull reads only deltas.',
+          prevention: 'Default to replica + incremental extraction for OLTP sources.',
+        },
+        {
+          symptom: 'The incremental pipeline misses some changes or reprocesses rows.',
+          evidence: 'Silver drifts from source; CDC changes aged out before the pipeline ran, or the watermark/version marker advanced incorrectly.',
+          causes: ['CDC/Change Tracking retention shorter than the pipeline gap', 'Marker advanced before a successful load', 'Watermark bounded only on one side'],
+          investigation: ['Check CDC retention vs pipeline frequency/outages', 'Confirm the marker advances only on success', 'Review watermark bounds'],
+          rootCause: 'The change window or marker handling does not guarantee exactly-capturing the delta, so changes are skipped or duplicated.',
+          remediation: ['Increase CDC/Change Tracking retention beyond the max pipeline gap', 'Advance the marker only after a confirmed load; bound watermarks on both ends', 'Make the MERGE idempotent'],
+          validation: 'Backfilling a gap reconciles Silver exactly to source with no loss/dups.',
+          prevention: 'Size change retention to outages and gate marker advancement on success.',
+        },
+      ],
+      certMapping: {
+        lead: 'Azure SQL is the common OLTP source in Azure data-engineering scenarios; DP-203 covered extracting from it, and it feeds Fabric (DP-700) ingestion/mirroring.',
+        items: [
+          { label: 'DP-700 Fabric Data Engineer (ingestion context)', certId: 'ms-dp700', objectives: ['Ingest from relational sources (CDC/mirroring)', 'Incremental extraction patterns', 'Protecting the source & secure connections'] },
+          'Legacy lineage: DP-203 (retired 2025) covered incremental extraction, CDC and watermarks from Azure SQL.',
+        ],
+      },
       interview: [
         { q: 'How do you ingest from Azure SQL into a lake incrementally?', a: 'Prefer change-based extraction: enable CDC or Change Tracking to pull only inserted/updated/deleted rows, or use a watermark column (max modified_date/id) tracked per table. ADF or Databricks reads the delta and MERGEs it into a Delta Silver table, avoiding costly full reloads and reducing load on the OLTP primary.' },
         { q: 'Azure SQL Database vs Managed Instance vs Synapse?', a: 'Azure SQL Database is PaaS SQL Server for OLTP apps. Managed Instance gives near-full SQL Server surface (SQL Agent, cross-DB queries) for lift-and-shift. Synapse dedicated pool is an MPP analytical warehouse for OLAP. Rule of thumb: transactions → SQL Database/MI; large analytical scans → Synapse/Databricks.' },
@@ -966,6 +1157,102 @@
         bullets: [
           { h: '429 = throttled', d: 'Exceeding provisioned RU/s returns 429; SDKs retry with backoff, or you scale RUs / fix the key.' },
           { h: 'Single-partition reads are cheapest', d: 'Include the partition key in queries to hit one partition; cross-partition fan-out multiplies RU cost.' },
+        ],
+      },
+      architecture: {
+        lead: 'Cosmos DB is a globally-distributed, partitioned NoSQL engine. Documents route by partition key to logical partitions, which the service maps onto physical partitions it scales automatically. Throughput is Request Units; replication + a chosen consistency level govern freshness; the Change Feed is a persistent per-partition change log.',
+        bullets: [
+          { h: 'Partitions', d: 'Partition key → logical partition (max 20 GB) → physical partition. The key decides data and load distribution; it cannot be changed after creation, so it is the critical design choice.' },
+          { h: 'RU/s throughput', d: 'Provisioned (manual), autoscale (to a max), or serverless; every read/write costs RUs by size/indexing/complexity. Exceeding RU/s returns 429.' },
+          { h: 'Five consistency levels', d: 'Strong → Bounded Staleness → Session → Consistent Prefix → Eventual trade latency/availability vs freshness; multi-region writes add conflict resolution.' },
+          { h: 'Change Feed + APIs', d: 'The Change Feed (latest-version, or all-versions-and-deletes) is a built-in event source; one engine exposes NoSQL/Mongo/Cassandra/Gremlin/Table APIs. TTL and tunable indexing policy control storage/RU cost.' },
+        ],
+      },
+      security: {
+        lead: 'Cosmos DB security is data-plane auth (Entra RBAC or keys), network isolation, and encryption; access is at the account/database/container level.',
+        bullets: [
+          { h: 'Auth', d: 'Prefer Microsoft Entra RBAC data-plane roles (and managed identities for pipelines) over primary/read-only keys; rotate keys if used.' },
+          { h: 'Network', d: 'Private endpoints + IP firewall restrict access; disable public access where possible.' },
+          { h: 'Encryption', d: 'Encrypted at rest (customer-managed keys available) and TLS in transit.' },
+          { h: 'Scoping', d: 'Grant least-privilege at account/db/container; the Change-Feed consumer identity needs only read.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating Cosmos is RU provisioning, partition-key health, indexing/TTL tuning, and multi-region conflict handling.',
+        bullets: [
+          { h: 'RU mode', d: 'Autoscale for variable load (10x range), manual for steady, serverless for spiky/dev; watch normalized RU consumption and 429 rate.' },
+          { h: 'Hot partitions', d: 'Monitor per-partition RU/storage for skew; a hot partition throttles regardless of total RU/s — fix with a better key.' },
+          { h: 'Indexing & TTL', d: 'Tune the indexing policy (exclude unqueried paths) to cut RU/storage; use TTL to expire old documents.' },
+          { h: 'Multi-region', d: 'With multi-region writes, pick/implement a conflict-resolution policy; add read regions for low-latency global reads.' },
+        ],
+      },
+      cost: {
+        lead: 'Cosmos bills RU/s (provisioned/autoscale) or per-operation (serverless) plus storage, multiplied by regions for multi-region. The levers are partition-key/query efficiency (RUs per op), indexing policy, autoscale/serverless fit, and region count. (Rates vary — price against the official Cosmos pricing page.)',
+        bullets: [
+          { h: 'RU efficiency', d: 'Single-partition reads and lean queries cost far fewer RUs than cross-partition fan-out; indexing only queried paths cuts write RUs.' },
+          { h: 'Autoscale/serverless', d: 'Autoscale avoids over-provisioning for variable load; serverless suits spiky/low-volume; manual is cheapest for steady high load.' },
+          { h: 'Regions', d: 'Each additional region multiplies throughput cost — add only where latency/DR needs it.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'How a write propagates and becomes a downstream event via the Change Feed.',
+        steps: [
+          { h: 'Route by partition key', d: 'A write is routed to the logical (then physical) partition for its partition-key value; it debits RUs.' },
+          { h: 'Replicate per consistency', d: 'The write replicates within/across regions; the chosen consistency level decides when reads see it (e.g. Session guarantees your own writes).' },
+          { h: 'Append to Change Feed', d: 'The change is appended to that partition’s Change Feed in order.' },
+          { h: 'Consumer reads the feed', d: 'An Azure Function / Spark Change-Feed processor reads new changes per partition (checkpointing progress) in near real time.' },
+          { h: 'Land / propagate', d: 'The consumer writes the change to ADLS Bronze (or triggers downstream logic); Synapse Link alternatively maintains an analytical store with no consumer code.' },
+        ],
+        note: 'Simplified; exact read-visibility depends on the consistency level and region topology.',
+      },
+      examples: [{
+        title: 'Stream Cosmos changes to the lake via the Change Feed',
+        requirement: 'Propagate operational document changes into the lake in near real time without impacting the transactional workload.',
+        input: 'A Cosmos container (well-chosen partition key) receiving app writes.',
+        architecture: 'Cosmos container → Change Feed → Azure Function/Spark processor → ADLS Bronze → MERGE → Silver (or use Synapse Link for HTAP).',
+        code: {
+          lang: 'text / python (illustrative)',
+          text: "# Change Feed processor (Azure Function trigger) lands changes:\n#   for change in changes: write change (id, partitionKey, doc, _ts) to Bronze\n# Downstream MERGE into Silver keyed on id.\n# Alternative, no consumer code: enable Synapse Link analytical store\n#   -> query Cosmos data from Synapse with no ETL / no RU impact.",
+        },
+        steps: [
+          'Confirm a high-cardinality, evenly-accessed partition key.',
+          'Run a Change-Feed processor (Function/Spark) to read changes.',
+          'Land changes to Bronze and MERGE into Silver by id.',
+          'Or enable Synapse Link for no-ETL HTAP analytics.',
+        ],
+        output: 'Near-real-time operational data in the lake (or queryable via Synapse Link) with no load on the transactional path.',
+        validation: 'Confirm changes appear downstream within seconds; counts reconcile; transactional RU usage is unaffected by analytics.',
+        errorHandling: 'The processor checkpoints per partition for resumable, exactly-once-ish processing; Synapse Link isolates analytics from transactions.',
+        production: 'Autoscale RU/s for variable load; monitor 429/hot partitions; Entra/managed-identity auth; TTL to manage storage.',
+        cleanup: 'Stop the processor; disable Synapse Link / delete the container if decommissioning.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'Requests get throttled (429) and one physical partition is far hotter than others, even though total RU/s seems ample.',
+          evidence: '429 rate high; per-partition metrics show one partition near its RU/storage limit; a low-cardinality or lumpy partition key.',
+          causes: ['Partition key concentrating load/data on one partition (hot partition)', 'Under-provisioned RU/s overall', 'A single dominant key value (e.g. one tenant)'],
+          investigation: ['Check per-partition RU consumption and storage for skew', 'Review partition-key cardinality/access distribution', 'Compare total vs per-partition RU limits'],
+          rootCause: 'RU/s is divided across physical partitions; a hot key saturates one partition regardless of total throughput.',
+          remediation: ['Choose a higher-cardinality / evenly-accessed partition key (requires a new container + migration — the key is immutable)', 'Use a synthetic/composite key to spread a dominant value', 'Add RU/s only if the whole account is genuinely under-provisioned'],
+          validation: 'Per-partition load evens out and 429s stop under the same traffic.',
+          prevention: 'Design the partition key for even distribution up front (it cannot be changed later); monitor per-partition metrics.',
+        },
+        {
+          symptom: 'Cosmos RU cost is unexpectedly high for modest traffic.',
+          evidence: 'Queries fan out cross-partition (no partition key in the filter); the indexing policy indexes everything; large documents.',
+          causes: ['Cross-partition queries multiplying RU cost', 'Default indexing of all paths inflating write RUs', 'Over-provisioned RU/s or too many regions'],
+          investigation: ['Check whether hot queries include the partition key', 'Review the indexing policy vs actually-queried paths', 'Assess RU mode and region count'],
+          rootCause: 'RUs per operation are high because queries fan out, writes index unused paths, or capacity/regions are over-provisioned.',
+          remediation: ['Include the partition key in queries for single-partition reads', 'Trim the indexing policy to queried paths; consider autoscale/serverless', 'Reduce regions to those needed'],
+          validation: 'RUs per operation and the bill drop for the same workload.',
+          prevention: 'Design single-partition access paths, index only what you query, and match RU mode/regions to need.',
+        },
+      ],
+      certMapping: {
+        lead: 'Cosmos DB is the NoSQL source/serving store in Azure data scenarios; DP-203 covered its Change Feed/Synapse Link, and it feeds Fabric (DP-700) ingestion.',
+        items: [
+          { label: 'DP-700 Fabric Data Engineer (ingestion context)', certId: 'ms-dp700', objectives: ['Ingest NoSQL change data (Change Feed / mirroring)', 'Partitioning & throughput (RU) fundamentals', 'HTAP via analytical store'] },
+          'Legacy lineage: DP-203 (retired 2025) covered Cosmos Change Feed and Azure Synapse Link for analytics.',
         ],
       },
       interview: [
