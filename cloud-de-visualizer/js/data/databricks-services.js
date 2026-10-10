@@ -1252,6 +1252,102 @@
           { h: 'Data layout matters', d: 'OPTIMIZE/liquid clustering + data skipping determine how little each query scans.' },
         ],
       },
+      architecture: {
+        lead: 'Databricks SQL serves BI/SQL through SQL warehouses — Photon-accelerated compute tuned for concurrent SQL over governed Delta tables. A warehouse is sized (T-shirt sizes) and autoscales a cluster count between min/max to absorb concurrency; Serverless draws from a managed warm pool for instant start. All queries honor Unity Catalog.',
+        bullets: [
+          { h: 'Warehouse types', d: 'Classic (compute in your account, slower start), Pro (more features), and Serverless (managed warm pool, seconds to start, no idle) — same SQL surface, different start latency/cost model.' },
+          { h: 'Autoscaling + queuing', d: 'A warehouse adds clusters under concurrent load up to its max and queues beyond that; it scales down and (with auto-stop) shuts off when idle.' },
+          { h: 'Photon + data skipping', d: 'Photon vectorized execution plus Delta data skipping (log stats) and liquid clustering/OPTIMIZE determine how little each query scans.' },
+          { h: 'Caching layers', d: 'Result cache (identical queries), local disk cache (hot data on the warehouse), and predictive I/O cut repeat-scan cost and latency.' },
+        ],
+      },
+      security: {
+        lead: 'Databricks SQL authorization is Unity Catalog end to end: grants, row filters, and column masks apply to every warehouse query identically to notebooks, so BI users see only what they are entitled to.',
+        bullets: [
+          { h: 'UC grants + fine-grained', d: 'ANSI GRANTs on catalogs/schemas/tables, plus row-level filters and column masks, enforce access uniformly across DBSQL and notebooks.' },
+          { h: 'Lineage & audit', d: 'UC captures query lineage and access, giving auditable who-read-what over the same governed tables.' },
+          { h: 'BI connectivity auth', d: 'Power BI/Tableau/JDBC connect with OAuth/PAT/service principals; scope those identities with UC grants, not broad access.' },
+          { h: 'Serverless networking', d: 'Serverless warehouses run in the Databricks-managed plane; use the account’s network/egress controls and keep data access via UC external locations.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating DBSQL is warehouse sizing and auto-stop, scaling for concurrency, and using query history/profile to tune — plus keeping the underlying Delta well laid out.',
+        bullets: [
+          { h: 'Size + auto-stop', d: 'Pick the smallest size meeting latency and enable auto-stop so classic warehouses do not bill while idle; serverless removes idle cost inherently.' },
+          { h: 'Scale for concurrency', d: 'Set max clusters to the peak concurrent BI load so queries scale out instead of queuing.' },
+          { h: 'Query history & profile', d: 'The query profile shows scan size, spill, and skew per query — the primary tuning tool; query history surfaces slow/queued queries.' },
+          { h: 'Data layout', d: 'OPTIMIZE / liquid clustering and avoiding small files keep scans small; stale stats or tiny files slow every query.' },
+        ],
+      },
+      cost: {
+        lead: 'DBSQL bills DBUs by warehouse size × running time. Classic warehouses bill while running (so auto-stop matters); Serverless bills only while serving queries at a premium rate but removes idle. The levers are size, auto-stop, and scanning less. (DBU rates vary — price against the official Databricks pricing page.)',
+        bullets: [
+          { h: 'Size × time', d: 'Larger warehouses cost more per hour; right-size to latency rather than over-provisioning.' },
+          { h: 'Idle cost vs serverless', d: 'A classic warehouse left running bills idle — enable auto-stop; serverless trades a higher per-second rate for zero idle, often cheaper for spiky BI.' },
+          { h: 'Scan reduction', d: 'Result/disk caching, data skipping and clustering cut bytes scanned and therefore compute time.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'How a BI query runs on a serverless SQL warehouse under concurrency.',
+        steps: [
+          { h: 'Route to a warm cluster', d: 'The query hits the serverless warehouse, which assigns it to a running cluster from the warm pool (no multi-minute start).' },
+          { h: 'Authorize via UC', d: 'Unity Catalog checks grants and applies row filters/column masks for the querying identity before any data is read.' },
+          { h: 'Plan + Photon scan', d: 'The optimizer plans the query; Photon scans only needed columns, using Delta data skipping (and clustering) to touch minimal files; result/disk cache may short-circuit.' },
+          { h: 'Scale out if busy', d: 'If concurrent load exceeds the current clusters, the warehouse adds clusters up to its max; beyond that, queries queue.' },
+          { h: 'Return (and cache)', d: 'Results return to the BI tool and may be cached for identical subsequent queries.' },
+        ],
+        note: 'Simplified; exact autoscaling/caching behavior depends on warehouse type and settings.',
+      },
+      examples: [{
+        title: 'Serve governed Gold tables to Power BI on a serverless warehouse with a row filter',
+        requirement: 'Give BI users fast, concurrent access to Gold Delta tables while restricting each region’s analysts to their own rows — no data copy.',
+        input: 'Gold Delta tables in Unity Catalog; analysts grouped by region.',
+        architecture: 'Serverless SQL warehouse → UC grants + row filter on the Gold table → Power BI (OAuth) dashboards.',
+        code: {
+          lang: 'sql (databricks, illustrative)',
+          text: "-- Row-level security: analysts see only their region\nCREATE FUNCTION gold.region_filter(region STRING)\n  RETURN is_account_group_member('admins') OR region = current_user_region();\nALTER TABLE gold.sales SET ROW FILTER gold.region_filter ON (region);\n\nGRANT SELECT ON TABLE gold.sales TO `analysts`;\n-- Point Power BI at the serverless warehouse; auto-stop handles idle",
+        },
+        steps: [
+          'Create a serverless SQL warehouse sized to peak BI concurrency.',
+          'Apply UC grants + a row filter on the Gold table.',
+          'Connect Power BI via OAuth to the warehouse.',
+          'Rely on auto-stop / serverless to avoid idle cost.',
+        ],
+        output: 'Fast, concurrent BI over one governed copy of the Gold data, with each analyst restricted to their region’s rows.',
+        validation: 'Confirm two analysts in different regions see different rows; check the query profile for small scans; verify the warehouse stops when idle.',
+        errorHandling: 'If queries queue at peak, raise max clusters; if scans are large, OPTIMIZE/cluster the table; UC denies unauthorized access rather than leaking rows.',
+        production: 'Scope BI identities with UC grants; size + auto-stop (or serverless) for cost; monitor query history for slow/queued queries.',
+        cleanup: 'Delete the warehouse, drop the row filter/grants, and remove the Power BI connection if decommissioning.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'BI dashboards get slow or time out during busy hours, with queries waiting before they run.',
+          evidence: 'Query history shows queued time before execution; the warehouse is at its max cluster count (or max is 1); classic warehouse start latency adds delay.',
+          causes: ['Max clusters too low for peak concurrency, so queries queue', 'Classic warehouse cold-start latency on first queries', 'Undersized warehouse for the query complexity'],
+          investigation: ['Check queued vs running time in query history', 'Review the warehouse max cluster setting vs peak concurrency', 'Consider classic vs serverless start latency'],
+          rootCause: 'Concurrent demand exceeds the warehouse’s cluster capacity, so queries queue — a scaling/type configuration issue, not slow SQL.',
+          remediation: ['Raise max clusters to cover peak concurrency', 'Use a Serverless warehouse to remove start latency and scale faster', 'Right-size the warehouse to query complexity'],
+          validation: 'Queued time drops to ~0 at peak; dashboard latency stabilizes.',
+          prevention: 'Size max clusters to measured peak concurrency and prefer serverless for spiky BI.',
+        },
+        {
+          symptom: 'The Databricks SQL bill is higher than expected for modest query volume.',
+          evidence: 'A classic warehouse ran continuously with auto-stop disabled; or queries scan far more data than needed due to small files / no clustering.',
+          causes: ['Classic warehouse billing idle time (no auto-stop)', 'Oversized warehouse for the workload', 'Large scans from small files / missing data skipping'],
+          investigation: ['Check warehouse uptime vs actual query time', 'Review warehouse size vs latency need', 'Inspect query profiles for scan size and small-file counts'],
+          rootCause: 'Cost is driven by warehouse size × running time and bytes scanned; idle classic compute and large scans inflate both.',
+          remediation: ['Enable auto-stop or switch to Serverless (no idle)', 'Right-size the warehouse down', 'OPTIMIZE/cluster tables and leverage caching to scan less'],
+          validation: 'Idle cost disappears and per-query scan/time drops; the bill falls for the same workload.',
+          prevention: 'Default to serverless/auto-stop, right-size, and keep Delta tables well laid out.',
+        },
+      ],
+      certMapping: {
+        lead: 'Databricks SQL is the lakehouse serving/warehouse surface in Databricks certifications.',
+        items: [
+          { label: 'Databricks Data Engineer Associate', certId: 'dbx-de-associate', objectives: ['SQL warehouses over Delta', 'Unity Catalog governance for BI', 'Dashboards/alerts; data layout for performance'] },
+          { label: 'Databricks Data Engineer Professional', certId: 'dbx-de-professional', objectives: ['Warehouse sizing/concurrency & cost', 'Query profiles & performance tuning', 'Serverless vs classic trade-offs'] },
+        ],
+      },
       interview: [
         { q: 'What is a SQL warehouse in Databricks SQL?', a: 'It is the compute that runs SQL/BI queries — a Photon-accelerated cluster tuned for concurrent, low-latency SQL over Delta tables. It autoscales clusters based on query load, honors Unity Catalog governance, and comes in Classic/Pro/Serverless flavors; Serverless starts in seconds from a managed pool. It gives warehouse ergonomics directly on lakehouse data without copying it out.' },
         { q: 'How does Databricks SQL differ from a traditional data warehouse like Synapse dedicated pool?', a: 'DBSQL queries open Delta tables in the lakehouse in place — one governed copy of data, no ETL into proprietary warehouse storage — using Photon for speed and Unity Catalog for governance. A Synapse dedicated pool loads data into its own MPP storage tuned via distribution keys. DBSQL emphasizes lakehouse unification (engineering, ML and BI on one copy); the dedicated pool emphasizes a classic provisioned MPP warehouse. Both serve BI SQL at scale.' },

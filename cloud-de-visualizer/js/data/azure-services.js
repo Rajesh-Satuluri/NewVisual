@@ -596,6 +596,102 @@
           { h: 'Pause to save cost', d: 'Pausing a dedicated pool stops compute billing entirely while storage remains.' },
         ],
       },
+      architecture: {
+        lead: 'A Synapse dedicated SQL pool is an MPP warehouse: a control node parses and plans queries and distributes work; compute nodes execute over 60 data distributions. Table distribution + clustered columnstore + statistics decide how much data movement a join needs — the central performance model. (Synapse also bundles serverless SQL, Spark pools and Pipelines in one workspace.)',
+        bullets: [
+          { h: 'Control + 60 distributions', d: 'Every table is sharded across 60 distributions; the control node compiles a distributed plan and compute nodes run it in parallel across those shards.' },
+          { h: 'Distribution styles', d: 'HASH (large facts on the join key — co-locate to avoid movement), ROUND_ROBIN (staging, even spread, no key), REPLICATE (small dimensions copied to every node to avoid broadcast).' },
+          { h: 'Clustered columnstore', d: 'Fact tables use columnstore for compression + segment elimination; you need enough rows per partition per distribution (~1M+) to fill rowgroups, so over-partitioning hurts.' },
+          { h: 'DWU scaling + pause', d: 'Compute is provisioned in DWUs (memory/concurrency) and can be paused to stop compute billing while storage persists.' },
+        ],
+      },
+      security: {
+        lead: 'Synapse security spans Entra ID/SQL authentication, in-database authorization (roles, column/row-level security, dynamic data masking), encryption (TDE), and network isolation (managed VNet, private endpoints). PolyBase/COPY use managed identity to reach ADLS.',
+        bullets: [
+          { h: 'Auth + authorization', d: 'Entra ID (preferred) or SQL logins authenticate; database roles and GRANTs authorize; column-level security, row-level security and dynamic data masking restrict sensitive data.' },
+          { h: 'Encryption', d: 'Transparent Data Encryption protects data at rest; connections use TLS.' },
+          { h: 'Network isolation', d: 'A managed VNet with private endpoints keeps the workspace off the public internet; firewall rules gate access.' },
+          { h: 'Lake access via identity', d: 'COPY INTO / PolyBase / external tables reach ADLS using the workspace managed identity rather than embedded keys.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating a dedicated pool is distribution/statistics tuning, workload management, pause/resume for cost, and columnstore health — monitored through DMVs.',
+        bullets: [
+          { h: 'Workload management', d: 'Resource classes / workload groups set the memory and concurrency each query gets; workload isolation reserves capacity for critical workloads (e.g. loads vs BI).' },
+          { h: 'Statistics', d: 'Up-to-date statistics are essential for the optimizer to minimize data movement; create/update them on join and filter columns.' },
+          { h: 'Pause/resume + scale', d: 'Pause to stop compute billing when idle; scale DWUs up for loads/peak and down after — storage persists across both.' },
+          { h: 'Monitoring', d: 'DMVs (sys.dm_pdw_*) expose data-movement steps, skew, and rowgroup quality; restore points provide recovery.' },
+        ],
+      },
+      cost: {
+        lead: 'A dedicated pool bills DWU-hours while running (pausing stops compute billing entirely) plus storage; serverless SQL in the same workspace bills per TB scanned. The levers are pause/resume, right DWU sizing, and minimizing data movement/scan. (Rates vary — price against the official Synapse pricing page.)',
+        bullets: [
+          { h: 'Pause when idle', d: 'Compute billing stops on pause while storage remains — the biggest saving for non-24x7 warehouses.' },
+          { h: 'Right DWU sizing', d: 'Scale up for heavy loads/peak BI and down afterward; DWU sets both performance and cost.' },
+          { h: 'Movement = cost', d: 'Good distribution/statistics cut data movement and runtime; serverless charges per TB scanned, so partition/columnar the lake data it reads.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'How a star-schema join executes across the MPP pool.',
+        steps: [
+          { h: 'Control node plans', d: 'The control node parses the SQL and, using statistics, builds a distributed plan — deciding where data movement is needed.' },
+          { h: 'Distribute to compute nodes', d: 'The plan runs across the 60 distributions; each compute node works on its shards of the fact and dimensions.' },
+          { h: 'Join locally or move data', d: 'If the fact is HASH-distributed on the join key and the dimension is REPLICATE (or same hash), the join is local; otherwise the engine shuffles/broadcasts rows (data movement) — the main cost.' },
+          { h: 'Columnstore scan', d: 'Columnstore segment elimination skips rowgroups outside the filter (effective only if rowgroups are well-filled).' },
+          { h: 'Aggregate & return', d: 'Partial aggregates compute per distribution, the control node merges them, and result-set caching may serve repeats instantly.' },
+        ],
+        note: 'Simplified MPP execution; EXPLAIN / sys.dm_pdw_* show the actual data-movement operations.',
+      },
+      examples: [{
+        title: 'Load a hash-distributed star schema and tune away data movement',
+        requirement: 'Build a Gold star schema in a dedicated pool that serves BI fast by keeping fact/dimension joins local and columnstore healthy.',
+        input: 'Curated Parquet for a fact and dimensions in ADLS.',
+        architecture: 'ADLS → COPY INTO → fact (HASH on join key, clustered columnstore, range-partitioned) + small dims (REPLICATE) → statistics → Power BI.',
+        code: {
+          lang: 'sql (dedicated pool, illustrative)',
+          text: "CREATE TABLE fact_orders (order_id BIGINT, customer_id BIGINT, amount DECIMAL(12,2), order_date DATE)\nWITH (DISTRIBUTION = HASH(customer_id), CLUSTERED COLUMNSTORE INDEX,\n      PARTITION (order_date RANGE RIGHT FOR VALUES ('2025-01-01','2026-01-01')));\nCREATE TABLE dim_customer (customer_id BIGINT, segment VARCHAR(20))\nWITH (DISTRIBUTION = REPLICATE, CLUSTERED COLUMNSTORE INDEX);\n\nCOPY INTO fact_orders FROM 'https://acct.dfs.core.windows.net/gold/orders/'\n  WITH (FILE_TYPE='PARQUET');\nCREATE STATISTICS st_cust ON fact_orders(customer_id);",
+        },
+        steps: [
+          'HASH-distribute the fact on the dominant join key; REPLICATE small dims.',
+          'Use clustered columnstore and avoid over-partitioning (keep ~1M+ rows/partition/distribution).',
+          'COPY INTO to bulk-load from ADLS.',
+          'Create/update statistics on join and filter columns.',
+        ],
+        output: 'A star schema whose fact/dimension joins run locally with minimal data movement and healthy columnstore rowgroups.',
+        validation: 'Check sys.dm_pdw_* for data-movement (SHUFFLE/BROADCAST) on the hot join and for distribution skew; confirm rowgroups are well-filled.',
+        errorHandling: 'If the plan shows shuffles, revisit the hash key; if rowgroups are tiny, reduce partition granularity; load under a resource class with enough memory.',
+        production: 'Use workload isolation to protect loads vs BI; pause the pool when idle; keep statistics fresh after big loads.',
+        cleanup: 'DROP tables; delete restore points; pause or delete the pool to stop compute charges.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'A star-schema join is slow and worsens with scale, dominated by data movement.',
+          evidence: 'sys.dm_pdw_* / the plan shows SHUFFLE_MOVE or BROADCAST_MOVE on the join; a few distributions hold most rows (skew).',
+          causes: ['Fact not HASH-distributed on the join key (or wrong key) forcing shuffles', 'Large dimension not REPLICATE, causing broadcast', 'Low-cardinality/lumpy hash key causing skew'],
+          investigation: ['Inspect the plan / DMVs for data-movement operations', 'Check per-distribution row counts for skew', 'Review distribution choices vs the dominant join'],
+          rootCause: 'Joining rows are not co-located across distributions, so the engine moves data each query — or skew overloads a few distributions.',
+          remediation: ['HASH-distribute the fact (and large joined table) on the join key', 'REPLICATE small dimensions to remove broadcast', 'Pick a high-cardinality, evenly-distributed hash key to avoid skew'],
+          validation: 'The plan shows local joins with no shuffle/broadcast on the hot path; distributions even out; query time drops and scales.',
+          prevention: 'Design distribution around the dominant join; keep statistics current; monitor skew.',
+        },
+        {
+          symptom: 'Columnstore fact queries scan more than expected and compression is poor.',
+          evidence: 'Rowgroup DMVs show many small/open rowgroups; the fact is heavily partitioned so each partition×distribution holds too few rows.',
+          causes: ['Over-partitioning starving rowgroups (fewer than ~1M rows per partition per distribution)', 'Trickle loads creating small rowgroups', 'Missing columnstore maintenance'],
+          investigation: ['Check rowgroup quality DMVs (sizes/open rowgroups)', 'Compute rows per partition per distribution', 'Review load pattern (batch vs trickle)'],
+          rootCause: 'Columnstore needs well-filled rowgroups for segment elimination and compression; over-partitioning/trickle loads leave them under-filled.',
+          remediation: ['Reduce partition granularity so each partition×distribution has ~1M+ rows', 'Load in larger batches; rebuild the columnstore index to compact rowgroups', 'Avoid tiny trickle inserts into the fact'],
+          validation: 'Rowgroups fill up, compression improves, and scans skip more via segment elimination.',
+          prevention: 'Size partitioning to the 60-distribution math and load in batches; maintain columnstore after heavy DML.',
+        },
+      ],
+      certMapping: {
+        lead: 'Synapse (dedicated SQL pool) was core to the retired DP-203; it remains widely used in enterprises and common in interviews, though Microsoft’s current data-engineering credential (DP-700) is Fabric-focused.',
+        items: [
+          'DP-203 (Azure Data Engineer Associate, Synapse-era) — retired 2025; covered dedicated-pool distribution, columnstore, loading and serverless SQL directly.',
+          'Interview-relevant: MPP distribution/data-movement tuning is a frequent senior warehouse-design topic regardless of exam.',
+        ],
+      },
       interview: [
         { q: 'Explain distribution in a Synapse dedicated SQL pool.', a: 'Data is spread across 60 distributions. Hash distribution assigns rows by a column’s hash — use it for large fact tables on their join key so joins stay local. Round-robin spreads evenly with no key — good for staging. Replicated copies a small table to every node — good for dimensions. Matching fact and dimension on the same hash key avoids data movement, which is the main MPP tuning goal.' },
         { q: 'What causes slow queries in Synapse and how do you fix them?', a: 'Usually excessive data movement (shuffles/broadcasts) from a poor distribution key, or data skew from a lumpy hash key. Fixes: distribute facts on the join key, replicate small dimensions, keep statistics updated, use clustered columnstore with enough rows per partition, and avoid over-partitioning (which starves rowgroups).' },
