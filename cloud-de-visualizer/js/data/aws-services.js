@@ -1100,6 +1100,101 @@
           { h: 'Replay & checkpointing', d: 'Retention lets consumers re-read after a bug; the KCL (or Flink) checkpoints shard positions for fault-tolerant, resumable processing.' },
         ],
       },
+      architecture: {
+        lead: 'Kinesis is a family. Data Streams is a sharded, ordered, replayable log; Firehose is a managed buffer-and-deliver pipe with no consumers; Managed Service for Apache Flink is stream compute. The shard model (partition key → shard, ordering per shard, fixed per-shard throughput) governs almost every Data Streams design and failure.',
+        bullets: [
+          { h: 'Shards & partition key', d: 'A record’s partition key hashes to a shard; ordering holds only within a shard. Each shard takes ~1 MB/s or 1000 records/s in and ~2 MB/s out — so the key must both preserve needed ordering and spread load.' },
+          { h: 'Provisioned vs on-demand', d: 'Provisioned mode fixes shard count (you reshard to scale); on-demand auto-scales shard capacity to traffic for a higher per-GB price.' },
+          { h: 'Consumers: polling vs EFO', d: 'Standard consumers share the shard’s 2 MB/s read; enhanced fan-out (EFO) gives each consumer its own 2 MB/s dedicated pipe with push delivery. The KCL checkpoints shard position in a DynamoDB lease table for resumable, parallel consumption.' },
+          { h: 'Firehose delivery', d: 'Firehose buffers by size/interval, optionally runs a Lambda transform and converts to Parquet (via a Glue schema) with dynamic partitioning, then delivers to S3/Redshift/OpenSearch — failed records go to an error prefix.' },
+        ],
+      },
+      security: {
+        lead: 'Kinesis security is IAM for producer/consumer/delivery permissions, KMS encryption at rest, TLS in transit, and (for Firehose) an IAM delivery role scoped to the destination.',
+        bullets: [
+          { h: 'IAM', d: 'Producers need PutRecord(s); consumers need Get/Describe (and EFO subscribe); Firehose assumes a delivery role to write the destination and read the Glue schema — least-privilege each.' },
+          { h: 'Encryption', d: 'Server-side KMS encryption at rest and TLS in transit; use a CMK for audit/rotation on sensitive streams.' },
+          { h: 'Network', d: 'Interface VPC endpoints keep producer/consumer traffic off the public internet.' },
+          { h: 'Error visibility', d: 'Firehose routes undeliverable/failed-transform records to an S3 error prefix so nothing is silently dropped.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating Data Streams is capacity (shards) and consumer-lag management; Firehose is nearly ops-free. The IteratorAge metric is the single most important health signal for stream consumers.',
+        bullets: [
+          { h: 'Scaling', d: 'Provisioned mode scales by resharding (UpdateShardCount / split-merge); on-demand auto-scales. Hot keys need a better partition key, not just more shards.' },
+          { h: 'Consumer lag', d: 'GetRecords.IteratorAgeMilliseconds rising means consumers are falling behind — add consumers/shards, use EFO, or speed up processing.' },
+          { h: 'Throttling signals', d: 'WriteProvisionedThroughputExceeded flags producers exceeding a shard; ReadProvisionedThroughputExceeded flags consumers — act on the right side.' },
+          { h: 'Checkpoint store', d: 'The KCL lease/checkpoint table (DynamoDB) must be healthy; a throttled lease table stalls consumption.' },
+        ],
+      },
+      cost: {
+        lead: 'Data Streams (provisioned) bills shard-hours + PUT payload units (+ EFO + extended retention); on-demand bills per GB ingested/retrieved at a premium. Firehose bills per GB ingested (+ conversion/transform). The levers are right shard count, on-demand only when bursty, and buffering for efficient delivery. (Rates vary — price against the official Kinesis pricing page.)',
+        bullets: [
+          { h: 'Shards vs on-demand', d: 'Steady predictable load is cheaper provisioned; spiky/unknown load suits on-demand despite the per-GB premium.' },
+          { h: 'EFO & retention', d: 'Enhanced fan-out and extended retention add cost — use them only where dedicated throughput / long replay is needed.' },
+          { h: 'Firehose efficiency', d: 'Larger buffer sizes produce bigger S3 objects (fewer requests, better downstream scans) at a little more latency.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'How a record flows through Data Streams from producer to a resumable consumer.',
+        steps: [
+          { h: 'Producer puts a record', d: 'The producer calls PutRecord(s) with a partition key; the key is hashed to decide the target shard.' },
+          { h: 'Stored durably on a shard', d: 'The record is appended to that shard and replicated; it is retained (default 24h, up to 365 days) so it can be re-read.' },
+          { h: 'Consumer reads per shard', d: 'A KCL consumer leases shards and reads records in order per shard (or an EFO consumer gets pushed its own 2 MB/s pipe).' },
+          { h: 'Process & checkpoint', d: 'After processing a batch, the consumer checkpoints the shard position in its DynamoDB lease table, so a restart resumes from there.' },
+          { h: 'Replay if needed', d: 'Because data is retained, a consumer can reset to an earlier position and re-read after a bug — ordering per shard is preserved throughout.' },
+        ],
+        note: 'Simplified; exact throughput/fan-out behavior depends on provisioned vs on-demand and standard vs EFO consumers.',
+      },
+      examples: [{
+        title: 'Clickstream to the lake with Firehose: Parquet, dynamic partitioning, Lambda transform',
+        requirement: 'Land a high-volume clickstream as partitioned Parquet in S3 with minimal operations and analytics-friendly file sizes.',
+        input: 'JSON click events from web/mobile producers.',
+        architecture: 'Producers → Firehose delivery stream (Lambda transform → Parquet via Glue schema, dynamic partitioning by event_date) → S3 Bronze → Athena/Glue.',
+        code: {
+          lang: 'json (firehose config sketch, illustrative)',
+          text: "{\n  \"DataFormatConversion\": {\"enabled\": true, \"schema\": \"glue: lake.clicks\"},\n  \"DynamicPartitioning\": {\"enabled\": true},\n  \"Prefix\": \"bronze/clicks/dt=!{partitionKeyFromQuery:dt}/\",\n  \"BufferingHints\": {\"SizeInMBs\": 128, \"IntervalInSeconds\": 300},\n  \"ProcessingConfiguration\": {\"Lambda\": \"arn:...:function:enrich-clicks\"},\n  \"S3BackupMode\": \"FailedDataOnly\"\n}",
+        },
+        steps: [
+          'Point producers at a Firehose delivery stream (no consumers to run).',
+          'Enable a Lambda transform + Parquet conversion via a Glue schema.',
+          'Use dynamic partitioning to write dt=…/ prefixes.',
+          'Tune buffer size/interval for file size vs latency.',
+        ],
+        output: 'Partitioned Parquet clickstream in S3, queryable in Athena, with failed records isolated — no consumer fleet to operate.',
+        validation: 'Confirm Parquet lands under dt=…/ with reasonable file sizes; check the error prefix is empty; query counts in Athena match producer volume.',
+        errorHandling: 'Failed transforms/deliveries go to the S3 error prefix (S3BackupMode); a bad Lambda does not drop data silently.',
+        production: 'Least-privilege the Firehose delivery role; size buffers for good file sizes; monitor delivery freshness and error-record volume.',
+        cleanup: 'Delete the delivery stream and Lambda; expire the S3 data/error prefixes.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'Producers get throttled (ProvisionedThroughputExceeded) and one shard is far busier than others, even though total traffic is within the stream’s capacity.',
+          evidence: 'WriteProvisionedThroughputExceeded on specific shards; one shard near its 1 MB/s / 1000 rec/s limit while others idle; a low-cardinality partition key.',
+          causes: ['Skewed partition key concentrating records on one shard (hot shard)', 'Too few shards for the aggregate rate', 'A single key (e.g. a tenant) dominating volume'],
+          investigation: ['Check per-shard incoming metrics for a hot shard', 'Review the partition key cardinality/distribution', 'Compare aggregate rate to total shard capacity'],
+          rootCause: 'The partition key does not spread records evenly, so one shard saturates while the stream as a whole is under capacity — adding shards alone will not fix a single hot key.',
+          remediation: ['Choose a higher-cardinality / better-distributed partition key (preserving required ordering)', 'Add shards (or on-demand) for genuine aggregate growth', 'Sub-shard a dominant key (e.g. key + bucket) if its ordering granularity allows'],
+          validation: 'Per-shard load evens out and write throttling stops under the same traffic.',
+          prevention: 'Design the partition key for even distribution and the ordering granularity you actually need; monitor per-shard metrics.',
+        },
+        {
+          symptom: 'Downstream data is increasingly stale; consumers are hours behind the stream.',
+          evidence: 'GetRecords.IteratorAgeMilliseconds climbs steadily; consumers cannot keep up; standard consumers contend for shard read throughput.',
+          causes: ['Too few consumers/shards for the volume', 'Slow per-record processing in the consumer', 'Many consumers sharing the standard 2 MB/s per-shard read'],
+          investigation: ['Track IteratorAge trend per shard', 'Profile consumer processing time per batch', 'Check how many consumers share each shard’s read throughput'],
+          rootCause: 'Consumption throughput is below ingestion, so unread records age — a consumer-capacity/processing problem, not a producer one.',
+          remediation: ['Add shards + consumer instances (KCL scales with shards)', 'Use enhanced fan-out so each consumer gets a dedicated 2 MB/s pipe', 'Speed up per-record processing / batch writes downstream'],
+          validation: 'IteratorAge falls back to near-real-time and stays flat under load.',
+          prevention: 'Size shards/consumers to peak ingestion, use EFO for multiple consumers, and alarm on IteratorAge.',
+        },
+      ],
+      certMapping: {
+        lead: 'Kinesis is the streaming-ingestion family in the AWS Data Engineer exam’s ingestion/real-time domain.',
+        items: [
+          { label: 'AWS DEA-C01 (Data Engineer Associate)', certId: 'aws-dea-c01', objectives: ['Streaming ingestion selection (Data Streams vs Firehose)', 'Shards, partition keys, ordering & scaling', 'Delivery to the lake (Parquet, partitioning); monitoring lag'] },
+        ],
+      },
       interview: [
         { q: 'What is the difference between Kinesis Data Streams and Firehose?', a: 'Data Streams is a durable, low-latency, sharded stream you consume with your own applications — it supports ordering per shard, retention/replay (up to 365 days), and multiple consumers, but you manage the consumers and scaling. Firehose is a fully-managed delivery service: you point producers at it and it buffers, optionally transforms and converts to Parquet, and writes to S3/Redshift/OpenSearch with no consumers or code to run. Use Streams when you need control, low latency, or replay; use Firehose when you just need streaming data reliably landed in a destination.' },
         { q: 'How does ordering and scaling work with shards and partition keys?', a: 'A stream is split into shards, and each record’s partition key hashes to a shard. Ordering is guaranteed only within a shard, so records that must stay ordered (e.g. events for one customer) should share a partition key. Each shard has fixed throughput (~1 MB/s in), so you scale by adding shards or using on-demand mode. The trap is a hot key: too many records with the same key overload one shard while others idle — you want a key that both preserves needed ordering and spreads load evenly.' },
@@ -1164,6 +1259,101 @@
         bullets: [
           { h: 'Partition sizing', d: 'Too few partitions caps consumer parallelism and causes lag under load; too many adds overhead — sizing is the core tuning decision.' },
           { h: 'Consumer lag', d: 'Monitoring lag (records behind the head) is how you tell if consumers keep up; scale consumers up to the partition count to reduce it.' },
+        ],
+      },
+      architecture: {
+        lead: 'MSK runs real Apache Kafka: topics split into partitions replicated across brokers/AZs, consumed by consumer groups. AWS manages brokers, patching and recovery; you own topic design (partition count, replication, keys). Provisioned gives broker-level control; Serverless abstracts brokers and scales capacity.',
+        bullets: [
+          { h: 'Topics, partitions, groups', d: 'Ordering holds per partition; within a consumer group each partition is read by exactly one consumer, so partition count caps consumer parallelism. Records needing order share a key mapping to one partition.' },
+          { h: 'Replication & durability', d: 'Each partition has a replication factor across brokers/AZs; acks + min.insync.replicas trade durability against latency (acks=all + ISR≥2 for no-loss).' },
+          { h: 'Provisioned vs Serverless', d: 'Provisioned: choose broker type/count, storage autoscaling, and tiered storage for cheap long retention. Serverless: per-partition capacity, no broker sizing.' },
+          { h: 'Ecosystem', d: 'Standard Kafka APIs mean Kafka Connect (MSK Connect), Kafka Streams, Schema Registry (Glue or Confluent) and existing clients work unchanged — the portability/lock-in difference vs Kinesis.' },
+        ],
+      },
+      security: {
+        lead: 'MSK supports multiple client auth modes (IAM, SASL/SCRAM, mTLS), KMS encryption at rest, TLS in transit, and VPC isolation, plus schema governance via a registry.',
+        bullets: [
+          { h: 'Authentication', d: 'IAM access control (AWS-native, policy-based topic/group permissions), SASL/SCRAM (secrets), or mTLS with ACLs — pick one and scope topic/group access least-privilege.' },
+          { h: 'Encryption', d: 'KMS encryption at rest and TLS in transit (including between brokers); a CMK adds control/rotation.' },
+          { h: 'Network', d: 'The cluster lives in your VPC; clients connect over private networking, with security groups controlling access.' },
+          { h: 'Schema governance', d: 'A schema registry (Glue/Confluent) enforces compatible evolution so producers cannot break consumers.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating MSK is Kafka operations with brokers managed: partition sizing, consumer-lag and ISR monitoring, scaling storage/brokers, and keeping rebalances rare.',
+        bullets: [
+          { h: 'Partition sizing', d: 'Too few partitions caps consumer parallelism and builds lag; too many add overhead. Size to peak throughput and desired consumer count.' },
+          { h: 'Lag & ISR monitoring', d: 'Track consumer-group lag (records behind head) and under-replicated/offline partitions and ISR shrink — the core health signals.' },
+          { h: 'Scaling & storage', d: 'Add brokers / enable storage autoscaling; tiered storage offloads old segments to cheap storage for long retention without big broker disks.' },
+          { h: 'Stable consumers', d: 'Frequent consumer group rebalances (from timeouts/crashes) stall consumption — tune session/heartbeat and keep processing within poll intervals.' },
+        ],
+      },
+      cost: {
+        lead: 'Provisioned MSK bills broker-hours + storage (tiered storage cheaper for cold); MSK Serverless bills per-partition-hour + throughput + storage. The levers are right broker/partition sizing, tiered storage for retention, and Serverless for spiky/unknown load. (Rates vary — price against the official MSK pricing page.)',
+        bullets: [
+          { h: 'Brokers + storage', d: 'Provisioned cost is driven by broker type/count and retained data; tiered storage cuts the cost of long retention.' },
+          { h: 'Serverless', d: 'Removes broker sizing and suits spiky/unpredictable load, billing per partition + throughput.' },
+          { h: 'Right-size partitions', d: 'Over-partitioning adds overhead (and, on Serverless, cost); size to real parallelism/throughput needs.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'How a record is produced, replicated, and consumed with offset commits.',
+        steps: [
+          { h: 'Produce to a partition', d: 'The producer sends a record; its key hashes to a partition (or round-robins if no key). The partition leader broker receives it.' },
+          { h: 'Replicate per acks/ISR', d: 'The leader replicates to follower replicas; with acks=all the write is acknowledged only once min.insync.replicas have it — the durability guarantee.' },
+          { h: 'Consumer group assignment', d: 'Consumers in a group are each assigned a subset of partitions; each partition is consumed by exactly one member, preserving per-partition order.' },
+          { h: 'Process & commit offsets', d: 'A consumer processes records and commits its offset (to the __consumer_offsets topic); a restart resumes from the committed offset.' },
+          { h: 'Rebalance on change', d: 'If a consumer joins/leaves, the group rebalances partition ownership; frequent rebalances stall progress, so stability matters.' },
+        ],
+        note: 'Simplified Kafka semantics; exact durability depends on acks, replication factor and min.insync.replicas.',
+      },
+      examples: [{
+        title: 'Event backbone to the lake: MSK topic → Spark Structured Streaming → Delta',
+        requirement: 'Land a durable Kafka event stream into the lake as a table-format Bronze with exactly-once, while other consumers use the same topic.',
+        input: 'Microservices producing order events to an MSK topic (keyed by customer_id).',
+        architecture: 'Producers → MSK topic (RF=3, acks=all) → Spark Structured Streaming (Kafka source) → Delta Bronze on S3; other consumers read the same topic.',
+        code: {
+          lang: 'pyspark (illustrative)',
+          text: "df = (spark.readStream.format('kafka')\n  .option('kafka.bootstrap.servers', BROKERS)\n  .option('kafka.security.protocol','SASL_SSL')  # or AWS IAM\n  .option('subscribe','orders')\n  .option('startingOffsets','latest').load())\n\n(df.selectExpr(\"CAST(value AS STRING) AS json\")\n   .writeStream.format('delta')\n   .option('checkpointLocation','/chk/bronze_orders')\n   .toTable('bronze.orders'))",
+        },
+        steps: [
+          'Create the topic with RF=3 and acks=all for durability.',
+          'Consume with Spark Structured Streaming (Kafka source).',
+          'Write to a Delta Bronze table with a checkpoint for exactly-once.',
+          'Let independent consumers read the same topic in their own groups.',
+        ],
+        output: 'A durable Bronze Delta table fed exactly-once from Kafka, with the topic still available to other consumers (fan-out).',
+        validation: 'Confirm Bronze counts match produced records; kill/restart the stream and verify no loss/dups; check consumer lag stays low.',
+        errorHandling: 'The Spark checkpoint gives exactly-once on restart; acks=all + ISR prevent producer-side loss; schema registry guards against breaking changes.',
+        production: 'Use IAM/SASL auth least-privilege; size partitions to consumer parallelism; monitor lag and under-replicated partitions; tiered storage for long retention.',
+        cleanup: 'Delete the topic/connectors, drop the Bronze table, and remove the checkpoint.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'A consumer group falls behind (growing lag) and keeps rebalancing, so throughput is erratic.',
+          evidence: 'Consumer-group lag climbs; logs show frequent rebalances; partition count ≤ consumer count (some consumers idle) or processing exceeds the poll interval.',
+          causes: ['Too few partitions capping parallelism', 'Slow per-record processing exceeding max.poll.interval, triggering rebalances', 'Unstable consumers (timeouts/crashes) causing churn'],
+          investigation: ['Check lag per partition and partition vs consumer counts', 'Measure processing time vs poll interval / session timeout', 'Look for repeated rebalance events in consumer logs'],
+          rootCause: 'Consumption cannot keep up and/or the group is unstable — too few partitions or processing that overruns poll intervals forces rebalances and lag.',
+          remediation: ['Add partitions and consumers (up to the partition count) for parallelism', 'Speed up processing or raise max.poll.interval / reduce batch size', 'Stabilize consumers (tune session/heartbeat; fix crashes)'],
+          validation: 'Lag drains to near-zero and stays flat; rebalances stop; throughput is steady.',
+          prevention: 'Size partitions to peak consumer parallelism, keep per-batch processing within poll limits, and monitor lag + rebalance frequency.',
+        },
+        {
+          symptom: 'Under-replicated partitions appear and there is risk (or an incident) of message loss.',
+          evidence: 'UnderReplicatedPartitions > 0; ISR shrinking; producers configured with acks=1; or broker storage near full.',
+          causes: ['acks=1 (or min.insync.replicas=1) acknowledging before replicas have the data', 'A broker down / disk full shrinking ISR', 'Replication factor too low for the AZ-failure tolerance needed'],
+          investigation: ['Check UnderReplicatedPartitions / ISR metrics', 'Review producer acks and topic min.insync.replicas', 'Check broker health and storage headroom'],
+          rootCause: 'Durability settings or broker health do not guarantee replicated writes, so a broker failure can lose unreplicated messages.',
+          remediation: ['Set acks=all with min.insync.replicas≥2 and RF≥3 across AZs', 'Restore/replace the unhealthy broker; enable storage autoscaling / tiered storage to avoid full disks', 'Alarm on UnderReplicatedPartitions'],
+          validation: 'UnderReplicatedPartitions returns to 0, ISR is full, and acknowledged writes survive a broker loss.',
+          prevention: 'Default to acks=all + RF≥3 + min.insync.replicas≥2 across AZs; monitor ISR and broker storage.',
+        },
+      ],
+      certMapping: {
+        lead: 'MSK is the open-Kafka streaming option in the AWS Data Engineer exam’s ingestion/real-time domain.',
+        items: [
+          { label: 'AWS DEA-C01 (Data Engineer Associate)', certId: 'aws-dea-c01', objectives: ['Kafka vs Kinesis selection (portability/ecosystem)', 'Partitions, consumer groups, ordering & durability (acks/RF/ISR)', 'Landing to the lake (Connect/Spark); lag monitoring'] },
         ],
       },
       interview: [

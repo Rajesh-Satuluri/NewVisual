@@ -465,6 +465,102 @@
           { h: 'Auto-Inflate', d: 'Standard tier can auto-scale throughput units upward under load (never down automatically).' },
         ],
       },
+      architecture: {
+        lead: 'Event Hubs is a managed partitioned commit log — Azure’s managed Kafka-model service. Producers append to partitions; consumers in consumer groups read independently by offset and checkpoint progress. Capacity is provisioned in throughput units (Standard), processing units (Premium) or capacity units (Dedicated); a Kafka endpoint makes Kafka clients work unchanged.',
+        bullets: [
+          { h: 'Partitions = ordering + parallelism', d: 'Each partition is an ordered append-only log; ordering holds only within a partition and partition count caps consumer parallelism. On Standard, partition count is fixed at creation — size for future peak.' },
+          { h: 'Consumer groups & offsets', d: 'Each consumer group is an independent view with its own offsets; consumers lease partitions and checkpoint the last processed offset (to a Blob checkpoint store) for at-least-once resume.' },
+          { h: 'Capacity & Auto-Inflate', d: 'TUs/PUs/CUs set ingress/egress capacity; Auto-Inflate scales TUs up under load (not down). Premium/Dedicated add isolation and higher limits.' },
+          { h: 'Capture', d: 'Event Hubs Capture flushes the stream to ADLS/Blob as Avro/Parquet on a time/size window — a zero-code cold path to Bronze while the hot path consumes live.' },
+        ],
+      },
+      security: {
+        lead: 'Event Hubs authorizes via Microsoft Entra ID (RBAC data roles) or SAS, with network isolation and encryption at rest. Prefer Entra identities and data-plane roles over long-lived SAS keys.',
+        bullets: [
+          { h: 'Entra RBAC vs SAS', d: 'Azure Event Hubs Data Sender/Receiver roles grant least-privilege send/receive to Entra identities; SAS policies are the key-based alternative — scope and rotate them.' },
+          { h: 'Network', d: 'Private endpoints and IP firewall keep the namespace off the public internet; service endpoints restrict to selected VNets.' },
+          { h: 'Encryption', d: 'Encrypted at rest (customer-managed keys available on Premium/Dedicated) and TLS in transit.' },
+          { h: 'Capture target access', d: 'Capture writes to ADLS/Blob using a managed identity/role — least-privilege the destination.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating Event Hubs is capacity (TU/Auto-Inflate) and partition/consumer management, plus a healthy checkpoint store. Partition count being fixed on Standard is the key up-front decision.',
+        bullets: [
+          { h: 'Capacity scaling', d: 'Enable Auto-Inflate so TUs scale up under bursts; monitor throttled-request metrics to know when capacity is the limit.' },
+          { h: 'Partition sizing up front', d: 'Standard partition count cannot change after creation; choose it for future peak consumer parallelism (Premium/Dedicated are more flexible).' },
+          { h: 'Checkpoint store', d: 'Consumers checkpoint to Blob; a healthy, correctly-scoped checkpoint store is required for resume and balanced partition ownership.' },
+          { h: 'Monitoring', d: 'Watch incoming vs outgoing throughput, throttled requests, and consumer lag (via checkpoint offset vs head) to catch capacity or consumer problems.' },
+        ],
+      },
+      cost: {
+        lead: 'Event Hubs bills by capacity tier — throughput units (Standard) / processing units (Premium) / capacity units (Dedicated) — plus ingress events, Capture, and extended retention. Levers are the right tier, Auto-Inflate bounds, and using Capture instead of custom archival. (Rates vary — price against the official Event Hubs pricing page.)',
+        bullets: [
+          { h: 'Capacity tier', d: 'Standard TUs for typical load; Premium/Dedicated for isolation and high scale. Match the tier to throughput and isolation needs.' },
+          { h: 'Auto-Inflate bounds', d: 'Auto-Inflate scales TUs up (not down) — set a max so a burst does not inflate cost indefinitely.' },
+          { h: 'Capture vs custom', d: 'Capture is a cheap, zero-code cold path; building a custom archival consumer usually costs more to run and maintain.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'How an event flows through the hub to both a hot and a cold consumer.',
+        steps: [
+          { h: 'Produce with a key', d: 'The producer sends an event with a partition key; the key maps it to one partition (preserving order for that key), or round-robins if no key.' },
+          { h: 'Append with an offset', d: 'The event is appended to the partition’s log with a monotonic offset and retained for the configured window.' },
+          { h: 'Hot path consumes', d: 'A real-time consumer group (e.g. Databricks/Stream Analytics) leases partitions, reads events in order per partition, and checkpoints offsets.' },
+          { h: 'Cold path via Capture', d: 'Independently, Capture flushes the same stream to ADLS/Blob as Parquet/Avro on a time/size window — no code, separate from the hot path.' },
+          { h: 'Replay if needed', d: 'Within retention a consumer group can rewind to an earlier offset to reprocess after a fix — other groups are unaffected.' },
+        ],
+        note: 'Simplified; at-least-once delivery means downstream processing should be idempotent.',
+      },
+      examples: [{
+        title: 'Lambda-architecture ingress: hot Databricks path + cold Capture-to-ADLS',
+        requirement: 'Ingest high-volume telemetry once and serve both a real-time path and a durable raw lake copy, each independent.',
+        input: 'Device/app events producing to an Event Hub keyed by device_id.',
+        architecture: 'Producers → Event Hub (N partitions) → [consumer group realtime → Databricks Structured Streaming → Silver Delta] + [Capture → ADLS Bronze Parquet].',
+        code: {
+          lang: 'pyspark (eventhubs/kafka source, illustrative)',
+          text: "df = (spark.readStream.format('kafka')  # EH Kafka endpoint\n  .option('kafka.bootstrap.servers', EH_KAFKA)\n  .option('subscribe','telemetry')\n  .option('startingOffsets','latest').load())\n# hot path: transform -> Silver Delta (checkpointed, idempotent upsert)\n# cold path: enable Event Hubs Capture -> ADLS Bronze (Parquet) — no code",
+        },
+        steps: [
+          'Size partitions for peak consumer parallelism at hub creation.',
+          'Add a realtime consumer group for Databricks Structured Streaming.',
+          'Enable Capture to ADLS for the zero-code cold path.',
+          'Make the hot-path write idempotent (at-least-once delivery).',
+        ],
+        output: 'A real-time Silver table and a durable raw Bronze lake copy, both fed from one hub via separate consumer groups.',
+        validation: 'Confirm Capture files land in ADLS on schedule; hot-path counts match; replay a consumer group offset and verify reprocessing works.',
+        errorHandling: 'At-least-once means the hot path must dedup/upsert idempotently; Capture isolates the cold path from hot-path failures.',
+        production: 'Use Entra data roles; set Auto-Inflate with a max TU bound; monitor throttled requests and consumer lag; private-endpoint the namespace.',
+        cleanup: 'Delete the hub/namespace and Capture config; remove the Databricks checkpoint and Bronze/Silver tables.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'Producers get throttled (ServerBusy) and one partition is far hotter than the rest during peaks.',
+          evidence: 'Throttled-request metric rises; one partition’s incoming rate dominates; a low-cardinality partition key; TUs at their ceiling.',
+          causes: ['Skewed partition key concentrating events on one partition', 'Throughput units exhausted (Auto-Inflate off or capped low)', 'Partition count too low for the aggregate rate'],
+          investigation: ['Check per-partition incoming metrics for a hot partition', 'Review partition-key cardinality', 'Check TU usage / throttled-request metric and Auto-Inflate settings'],
+          rootCause: 'Either capacity (TUs) is exhausted, or a skewed key overloads one partition while the hub has spare capacity — different fixes.',
+          remediation: ['Enable/raise Auto-Inflate (or move to Premium) for genuine capacity limits', 'Choose a higher-cardinality partition key to spread load', 'For Standard, recreate the hub with more partitions if parallelism is the ceiling'],
+          validation: 'Throttling stops and per-partition load evens out under the same traffic.',
+          prevention: 'Pick a well-distributed partition key and size partitions/TUs for peak at creation; keep Auto-Inflate on with a sane max.',
+        },
+        {
+          symptom: 'Consumers cannot keep up or process events twice, and adding consumers does not help.',
+          evidence: 'Consumer lag grows; more consumers than partitions (extras idle); duplicates appear downstream after restarts.',
+          causes: ['Consumer parallelism capped by partition count (too few partitions)', 'Slow per-event processing', 'At-least-once redelivery with non-idempotent downstream'],
+          investigation: ['Compare consumer count to partition count', 'Measure per-event processing time / checkpoint frequency', 'Check downstream for idempotency on reprocessed events'],
+          rootCause: 'Each partition is read by one consumer per group, so parallelism cannot exceed partition count; and at-least-once delivery duplicates on restart unless downstream is idempotent.',
+          remediation: ['Increase partition count (plan at creation on Standard) to raise the parallelism ceiling', 'Speed up processing / checkpoint appropriately', 'Make the downstream write idempotent (dedup/upsert keys)'],
+          validation: 'Lag drains with added (useful) consumers; reprocessing no longer duplicates.',
+          prevention: 'Size partitions to future peak parallelism and design idempotent consumers given at-least-once delivery.',
+        },
+      ],
+      certMapping: {
+        lead: 'Event Hubs is the Azure streaming-ingress service; the Synapse-era DP-203 that covered it retired in 2025, and it feeds Fabric real-time (DP-700) scenarios.',
+        items: [
+          { label: 'DP-700 Fabric Data Engineer (real-time)', certId: 'ms-dp700', objectives: ['Ingest streams (Event Hubs → Fabric Eventstream/Databricks)', 'Partitions, consumer groups & ordering', 'Capture to the lake; at-least-once handling'] },
+          'Legacy lineage: DP-203 (retired 2025) covered Event Hubs ingestion, partitions/consumer groups and Capture directly.',
+        ],
+      },
       interview: [
         { q: 'Event Hubs vs Kafka — what is the relationship?', a: 'Event Hubs is a managed partitioned-log service with the same core model as Kafka (partitions, consumer groups, offsets) and it exposes a Kafka-protocol endpoint so Kafka clients work unchanged. You get the Kafka programming model without running or patching a Kafka cluster.' },
         { q: 'How is ordering guaranteed in Event Hubs?', a: 'Only within a single partition. Send events that must stay ordered with the same partition key (e.g. orderId) so they land in one partition. Across partitions there is no global order — that is the trade for horizontal scale.' },
