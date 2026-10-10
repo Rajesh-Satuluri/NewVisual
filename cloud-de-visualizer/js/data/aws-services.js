@@ -709,6 +709,102 @@
           { h: 'Concurrency', d: 'Queries run independently and scale automatically, subject to service/workgroup limits; heavy concurrent BI may favor a warehouse.' },
         ],
       },
+      architecture: {
+        lead: 'Athena is serverless SQL built on Trino/Presto (SQL engine v3) with a separate Spark engine for notebooks. It has no storage or metastore of its own: it resolves tables from the Glue Data Catalog and reads the files from S3, spinning up ephemeral workers per query and streaming results to an S3 result location.',
+        bullets: [
+          { h: 'Catalog + S3, no storage', d: 'Table schema/location/partitions come from Glue; data is read from S3. A table must exist in the catalog (crawler/DDL/API) before Athena can query it.' },
+          { h: 'Per-query serverless workers', d: 'Each query gets ephemeral Trino workers that read only the needed columns/partitions in parallel — there is no persistent cluster or state between queries.' },
+          { h: 'Scan-bound execution', d: 'Latency and cost are governed by bytes scanned, so partition pruning + columnar Parquet/ORC + compression are the primary design levers.' },
+          { h: 'Beyond SELECT', d: 'CTAS/INSERT INTO materialize optimized Parquet; partition projection computes partitions from a pattern; federated connectors (via Lambda) query external stores; Iceberg tables add ACID DML.' },
+        ],
+      },
+      security: {
+        lead: 'Athena authorizes via IAM (who can run queries / reach which workgroup and result location) combined with the data-access controls on the underlying lake — Lake Formation for fine-grained table/column/row access on Glue-cataloged S3 data.',
+        bullets: [
+          { h: 'IAM + workgroups', d: 'IAM policies gate query execution, workgroup membership, and access to the S3 result location; workgroups isolate teams and enforce guardrails.' },
+          { h: 'Lake Formation', d: 'Column/row-level and table access to the S3 data is enforced through Lake Formation on the Glue Catalog, not by Athena itself.' },
+          { h: 'Result protection', d: 'Encrypt query results in the S3 result location (SSE-S3/KMS); restrict who can read that bucket since results materialize there.' },
+          { h: 'Underlying S3 access', d: 'Athena reads S3 via the caller’s permissions/Lake Formation — least-privilege the data and result buckets.' },
+        ],
+      },
+      operations: {
+        lead: 'Athena is fully serverless, so operations is governance and cost control via workgroups, plus keeping table metadata healthy and watching service limits.',
+        bullets: [
+          { h: 'Workgroups as guardrails', d: 'Per-query/per-workgroup data-scan limits cap cost; workgroups route result locations, enforce encryption, and separate teams/environments.' },
+          { h: 'Result reuse', d: 'Query result reuse returns cached results for identical queries within a window, cutting cost and latency for repeated dashboards.' },
+          { h: 'Metadata hygiene', d: 'Keep partitions current (crawler, MSCK, or partition projection); projection avoids catalog bloat and slow partition listing on date tables.' },
+          { h: 'Limits & monitoring', d: 'Concurrency/DML quotas apply; CloudWatch metrics and query history expose scanned bytes, runtime and failures for tuning.' },
+        ],
+      },
+      cost: {
+        lead: 'Athena bills per terabyte scanned (with a small per-query minimum) and nothing when idle — the opposite of a provisioned warehouse. For predictable heavy use, provisioned capacity (DPU reservations) offers fixed-cost compute. The entire cost lever is scanning less. (Rates vary by region — price against the official Athena pricing page.)',
+        bullets: [
+          { h: 'Per-TB scanned', d: 'Cost is driven by bytes read; uncompressed CSV with no partitions scans everything, while partitioned columnar Parquet scans a fraction.' },
+          { h: 'Scan-reduction levers', d: 'Partition pruning, columnar + compression, selecting only needed columns, and CTAS to reformat raw data are the standard savings.' },
+          { h: 'Guardrails & reuse', d: 'Workgroup scan limits prevent runaway queries; result reuse avoids re-scanning for repeated identical queries.' },
+          { h: 'Provisioned capacity', d: 'For steady high volume, capacity reservations give predictable cost instead of per-query billing.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'How a partitioned query executes and why layout controls the bill.',
+        steps: [
+          { h: 'Resolve the table', d: 'Athena looks up the table’s schema, S3 location and partitions in the Glue Catalog (or computes them via partition projection).' },
+          { h: 'Prune partitions', d: 'The WHERE clause is matched against partition columns so only the relevant S3 prefixes are considered — the first and biggest scan reduction.' },
+          { h: 'Plan columnar reads', d: 'For Parquet/ORC, Athena reads only the projected columns and uses file statistics to skip row groups.' },
+          { h: 'Parallel scan on ephemeral workers', d: 'Serverless Trino workers read the selected data from S3 in parallel; bytes scanned here are what you pay for.' },
+          { h: 'Aggregate & write results', d: 'Workers compute the result, which streams to the workgroup’s S3 result location (and may be served from reuse next time).' },
+        ],
+        note: 'Simplified; actual pruning depends on partitioning/projection and file format.',
+      },
+      examples: [{
+        title: 'CTAS raw CSV into partitioned Parquet, then query cheaply with projection',
+        requirement: 'Make a large raw CSV dataset fast and cheap to query in Athena, and keep new date partitions queryable without crawlers.',
+        input: 'Raw gzip CSV order files in s3://shopkart-lake/raw/orders/ cataloged as raw.orders.',
+        architecture: 'Athena CTAS (CSV → partitioned Parquet in S3) → optimized table with partition projection → cheap analyst queries.',
+        code: {
+          lang: 'sql (athena, illustrative)',
+          text: "-- 1) Reformat to partitioned Parquet once\nCREATE TABLE lake.orders_parq\n  WITH (format='PARQUET', partitioned_by=ARRAY['dt'],\n        external_location='s3://shopkart-lake/silver/orders_parq/')\nAS SELECT order_id, customer_id, amount, dt FROM raw.orders;\n\n-- 2) Projection: no crawler/MSCK for new dates\nALTER TABLE lake.orders_parq SET TBLPROPERTIES (\n  'projection.enabled'='true','projection.dt.type'='date',\n  'projection.dt.range'='2023-01-01,NOW','projection.dt.format'='yyyy-MM-dd');\n\n-- 3) Cheap, pruned query\nSELECT dt, sum(amount) FROM lake.orders_parq\nWHERE dt BETWEEN '2024-01-01' AND '2024-01-31' GROUP BY dt;",
+        },
+        steps: [
+          'CTAS the raw CSV into partitioned, compressed Parquet.',
+          'Enable partition projection so new dates are queryable automatically.',
+          'Query with a partition filter and only needed columns.',
+          'Set a workgroup scan limit as a cost guardrail.',
+        ],
+        output: 'A columnar, partitioned table whose date-filtered queries scan a fraction of the data at a fraction of the cost.',
+        validation: 'Compare bytes scanned (query stats) before vs after; confirm new dates are queryable without a crawler; results match the raw table.',
+        errorHandling: 'If projection ranges are wrong, queries miss partitions — verify the range/format; CTAS failures surface in the query result.',
+        production: 'Encrypt the result location; set workgroup scan limits; schedule periodic CTAS/compaction for ongoing ingestion.',
+        cleanup: 'DROP the tables and delete the generated Parquet/result S3 prefixes to stop storage charges.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'Athena queries are slow and expensive — the scanned-bytes figure is enormous for a small result.',
+          evidence: 'Query stats show TBs scanned; the table is CSV/JSON and uncompressed; queries use SELECT * and have no partition filter.',
+          causes: ['Row-based uncompressed format (CSV/JSON) forcing full-file reads', 'No partitioning, so every query scans the whole table', 'SELECT * reading all columns'],
+          investigation: ['Check the data-scanned stat per query', 'Inspect the table format and partition scheme', 'Review whether queries filter on partition columns and select only needed columns'],
+          rootCause: 'The query scans far more data than it needs because the layout (format/partitioning/columns) does not let Athena prune — and Athena bills per byte scanned.',
+          remediation: ['CTAS the data into partitioned, compressed Parquet/ORC', 'Filter on partition columns and select only needed columns', 'Set a workgroup scan limit as a guardrail'],
+          validation: 'Scanned bytes drop by 10–100×; query latency and cost fall correspondingly.',
+          prevention: 'Store lake data as partitioned columnar Parquet from the start and teach partition-aware querying.',
+        },
+        {
+          symptom: 'A date-partitioned table is slow to plan or queries return no/incomplete data after new files land.',
+          evidence: 'Huge partition counts slow query planning; new partitions are not visible until a crawler/MSCK runs; or a HIVE_PARTITION_SCHEMA mismatch appears.',
+          causes: ['Partitions not registered (crawler/MSCK not run) so new data is invisible', 'Catalog bloat from millions of partitions slowing planning', 'Schema/partition mismatch between catalog and files'],
+          investigation: ['Check whether new partitions are registered in the catalog', 'Count partitions and assess planning overhead', 'Compare catalog schema to the actual file layout'],
+          rootCause: 'Partition metadata is stale or unwieldy — Athena cannot see or efficiently plan over partitions managed purely through the catalog.',
+          remediation: ['Use partition projection to compute partitions from a pattern (no crawler/MSCK, no catalog bloat)', 'Or automate MSCK/partition registration on ingest', 'Fix schema/partition definitions to match the files'],
+          validation: 'New dates are queryable immediately; planning is fast; no schema-mismatch errors.',
+          prevention: 'Adopt partition projection for high-cardinality date tables and keep catalog schema aligned with file layout.',
+        },
+      ],
+      certMapping: {
+        lead: 'Athena is the serverless lake-query engine in the AWS Data Engineer exam’s analysis and cost domains.',
+        items: [
+          { label: 'AWS DEA-C01 (Data Engineer Associate)', certId: 'aws-dea-c01', objectives: ['Serverless SQL over S3 (Athena vs Redshift)', 'Partitioning, columnar formats & cost control', 'CTAS, partition projection, workgroups; Lake Formation access'] },
+        ],
+      },
       interview: [
         { q: 'How is Athena priced and how do you reduce cost?', a: 'Athena charges per terabyte of data scanned by a query. You reduce cost by scanning less: partition tables (so WHERE prunes to relevant prefixes), store data as compressed columnar Parquet/ORC (reads only needed columns), and avoid SELECT *. CTAS to reformat raw CSV into partitioned Parquet, and partition projection for date tables, are the standard optimizations. Workgroup data-scan limits act as a cost guardrail.' },
         { q: 'When would you use Athena versus Redshift?', a: 'Athena is serverless, pay-per-query, and best for ad-hoc/intermittent SQL directly over the S3 lake with no infrastructure. Redshift is a provisioned MPP warehouse (or Serverless) better for high-concurrency BI, complex joins, and consistently fast dashboards on modeled data. A common pattern is Athena for exploration and lake queries, Redshift for the curated, high-traffic serving layer — with Spectrum bridging the two.' },
@@ -773,6 +869,102 @@
         bullets: [
           { h: 'Distribution skew', d: 'A bad DISTKEY concentrates rows on few slices, so those slices bottleneck the whole query — the classic Redshift performance trap.' },
           { h: 'Concurrency scaling & WLM', d: 'Workload management queues and concurrency scaling add transient clusters to absorb bursts of concurrent queries.' },
+        ],
+      },
+      architecture: {
+        lead: 'Redshift is a columnar MPP warehouse. A leader node parses/plans/optimizes queries and aggregates results; compute nodes are divided into slices that each own a partition of every table and scan it in parallel. RA3 separates compute from storage (Redshift Managed Storage on S3 with local SSD cache); Serverless abstracts nodes into RPUs.',
+        bullets: [
+          { h: 'Leader + compute slices', d: 'The leader compiles the plan and distributes it; each slice scans its local data in parallel. Query speed is governed by how evenly data and work spread across slices.' },
+          { h: 'Distribution + sort', d: 'Distribution style (KEY/ALL/EVEN/AUTO) decides which slice a row lives on — KEY on the join column co-locates joins; sort keys physically order rows so zone maps (block min/max) skip blocks on filtered columns.' },
+          { h: 'RA3 managed storage', d: 'RA3 stores data in RMS (S3-backed) with local SSD as cache, so compute scales independently of data size and enables data sharing across clusters.' },
+          { h: 'Serverless', d: 'Redshift Serverless auto-scales capacity in RPUs per workload, removing cluster sizing for spiky/intermittent use.' },
+        ],
+      },
+      security: {
+        lead: 'Redshift layers network isolation, IAM for AWS-side actions (COPY/UNLOAD/Spectrum), database-level authorization (users, groups, RBAC roles, column/row-level security), and encryption. Spectrum access to the lake can be governed by Lake Formation.',
+        bullets: [
+          { h: 'IAM roles for data movement', d: 'COPY/UNLOAD and Spectrum assume an IAM role to reach S3/Glue; attach least-privilege roles to the cluster/namespace rather than embedding keys.' },
+          { h: 'In-database authorization', d: 'Users/groups and RBAC roles grant privileges; column-level grants and row-level security policies restrict what each principal sees.' },
+          { h: 'Lake governance for Spectrum', d: 'External (Spectrum) tables on the Glue Catalog can be governed by Lake Formation for fine-grained access to S3 data.' },
+          { h: 'Encryption & network', d: 'KMS encrypts the cluster/RMS and snapshots; run in a VPC with security groups; enforce SSL for connections.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating Redshift centers on workload management (concurrency), table maintenance (now largely automatic), snapshots/DR, and performance monitoring via system tables.',
+        bullets: [
+          { h: 'WLM & concurrency scaling', d: 'Auto WLM manages query queues and memory; concurrency scaling spins transient clusters to absorb bursts of concurrent queries so dashboards do not queue.' },
+          { h: 'Maintenance', d: 'Auto VACUUM (reclaim/ re-sort) and ANALYZE (stats) keep tables healthy; for heavy delete/update patterns, confirm they are keeping up.' },
+          { h: 'Snapshots & resize', d: 'Automated + manual snapshots (cross-region copy for DR); elastic resize adds/removes nodes quickly, classic resize for big topology changes.' },
+          { h: 'Monitoring', d: 'STL/SVL/SYS system views and CloudWatch expose query plans, skew, spill and queue waits; query monitoring rules abort/log runaway queries.' },
+        ],
+      },
+      cost: {
+        lead: 'Provisioned RA3 bills node-hours plus RMS storage; Spectrum bills per TB scanned in S3; concurrency scaling bills in credits beyond a free allowance; Serverless bills RPU-hours for actual usage. The levers are right compute sizing, scan reduction, and pausing idle clusters. (Rates vary by region/node — price against the official Redshift pricing page.)',
+        bullets: [
+          { h: 'Compute vs storage', d: 'RA3 decouples them: pay node-hours for compute and RMS per-GB for storage; pause/stop or use Serverless for intermittent workloads to avoid idle cost.' },
+          { h: 'Spectrum scan cost', d: 'Spectrum charges per TB scanned — partition and use columnar Parquet in S3 to scan (and pay) less.' },
+          { h: 'Concurrency scaling', d: 'Earns some free credits; heavy sustained bursts beyond them bill — tune WLM so only genuine bursts scale out.' },
+          { h: 'Scan reduction', d: 'Good DISTKEY/SORTKEY, compression, and result caching cut I/O and compute — the biggest steady-state savings.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'How a join query executes across the MPP cluster.',
+        steps: [
+          { h: 'Leader plans', d: 'The leader parses the SQL, optimizes using table stats, and produces a distributed plan; a cached identical result may short-circuit here.' },
+          { h: 'Distribute to slices', d: 'The plan is compiled and sent to every slice; each slice will operate on its local partition of the tables.' },
+          { h: 'Scan with zone maps', d: 'Slices scan only the needed columns and skip blocks whose zone-map min/max cannot match the filter (effective when sorted on the filtered column).' },
+          { h: 'Join locally or redistribute', d: 'If both tables are DISTKEYd on the join column, the join is local; otherwise rows are redistributed (DS_DIST) or a small table is broadcast (DS_BCAST) across the network — the usual performance cost.' },
+          { h: 'Aggregate & return', d: 'Slices compute partial aggregates, the leader merges them, and the result returns (and may be cached).' },
+        ],
+        note: 'Simplified MPP execution; EXPLAIN shows the actual distribution/broadcast steps.',
+      },
+      examples: [{
+        title: 'Load a Gold star schema with the right DISTKEY/SORTKEY and join cold data via Spectrum',
+        requirement: 'Serve fast BI over a curated fact/dimension model, loaded in bulk from S3, while still joining to cold history left in the lake.',
+        input: 'Curated Parquet for a fact table and dimensions in s3://shopkart-lake/gold/; cold history in S3 cataloged in Glue.',
+        architecture: 'S3 Gold → COPY → Redshift fact (DISTKEY join col, SORTKEY date) + dims (DISTSTYLE ALL) → Spectrum external schema for cold S3 → BI.',
+        code: {
+          lang: 'sql (redshift, illustrative)',
+          text: "CREATE TABLE f_sales (sale_id bigint, customer_id bigint, dt date, amount numeric)\n  DISTKEY(customer_id) SORTKEY(dt);\nCREATE TABLE d_customer (customer_id bigint, segment varchar) DISTSTYLE ALL;\n\nCOPY f_sales FROM 's3://shopkart-lake/gold/sales/'\n  IAM_ROLE default FORMAT AS PARQUET;\n\n-- cold history stays in S3, joined via Spectrum\nCREATE EXTERNAL SCHEMA lake FROM DATA CATALOG DATABASE 'lake' IAM_ROLE default;\nSELECT * FROM f_sales s JOIN lake.sales_archive a USING (customer_id);",
+        },
+        steps: [
+          'DISTKEY the fact on the main join column; DISTSTYLE ALL small dims.',
+          'SORTKEY the fact on the common filter (date) for zone-map pruning.',
+          'COPY Parquet in parallel from S3.',
+          'Add a Spectrum external schema to join cold S3 history without loading it.',
+        ],
+        output: 'Fast, high-concurrency BI over the star schema, with on-demand access to cold lake data via Spectrum.',
+        validation: 'EXPLAIN shows local joins (no DS_BCAST/DS_DIST on the hot path); check for distribution skew in system views; Spectrum queries prune partitions.',
+        errorHandling: 'If EXPLAIN shows redistribution, revisit DISTKEY; if dims are large, reconsider DISTSTYLE ALL; COPY errors surface in STL_LOAD_ERRORS.',
+        production: 'Least-privilege the COPY/Spectrum IAM role; enable concurrency scaling for BI bursts; partition the Spectrum data to limit TB scanned.',
+        cleanup: 'DROP the tables/external schema; delete snapshots and pause/stop the cluster (or use Serverless) to stop charges.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'A join query is far slower than expected and gets worse as data grows, even on a healthy cluster.',
+          evidence: 'EXPLAIN shows DS_BCAST_INNER or DS_DIST_BOTH (redistribution/broadcast); system views show a few slices holding most rows (distribution skew).',
+          causes: ['Join columns not co-located (wrong/AUTO DISTKEY) forcing redistribution', 'A skewed DISTKEY concentrating rows on few slices', 'A large dimension set to DISTSTYLE ALL or EVEN where KEY was needed'],
+          investigation: ['Read EXPLAIN for DS_DIST/DS_BCAST steps on the join', 'Check per-slice row counts for skew in system views', 'Review DISTKEY/DISTSTYLE vs the actual join pattern'],
+          rootCause: 'Rows that join are not on the same slice, so Redshift redistributes/broadcasts data across the network each query — or skew makes a few slices the bottleneck.',
+          remediation: ['Set DISTKEY to the join column on both large tables so joins are local', 'DISTSTYLE ALL only for genuinely small dimensions', 'Pick a high-cardinality, evenly-distributed DISTKEY to avoid skew'],
+          validation: 'EXPLAIN shows local joins (no broadcast/redistribution); per-slice rows even out; query time drops and scales.',
+          prevention: 'Design distribution around the dominant join pattern; monitor skew; let AUTO manage only where patterns are unclear.',
+        },
+        {
+          symptom: 'Dashboards slow down or queue during busy periods, and queries spill to disk.',
+          evidence: 'System views show queue wait time and disk-based (spilled) query steps; WLM queue is saturated; concurrency scaling is off or capped.',
+          causes: ['WLM queue/memory too small for the concurrency', 'Concurrency scaling disabled so bursts queue', 'Queries needing more memory than their WLM slot, so they spill to disk'],
+          investigation: ['Check queue wait and disk-based steps in system views', 'Review WLM/auto-WLM configuration and memory per slot', 'Confirm whether concurrency scaling is enabled'],
+          rootCause: 'Concurrent demand exceeds the WLM memory/slots, so queries queue and spill — a workload-management/sizing issue, not slow SQL per se.',
+          remediation: ['Enable concurrency scaling to absorb bursts', 'Tune auto-WLM / memory so large queries get enough memory to stay in-memory', 'Reduce scanned data (sort keys, pruning) so queries need less memory'],
+          validation: 'Queue waits fall, disk-based steps disappear, and dashboard latency stabilizes under peak concurrency.',
+          prevention: 'Right-size WLM, keep concurrency scaling on for bursts, and cut scan/memory footprint with good table design.',
+        },
+      ],
+      certMapping: {
+        lead: 'Redshift is the MPP warehouse in the AWS Data Engineer exam’s data-store and performance domains.',
+        items: [
+          { label: 'AWS DEA-C01 (Data Engineer Associate)', certId: 'aws-dea-c01', objectives: ['Warehouse vs lake store selection', 'Distribution/sort design & query performance', 'COPY/UNLOAD, Spectrum, RA3/Serverless; security & cost'] },
         ],
       },
       interview: [
