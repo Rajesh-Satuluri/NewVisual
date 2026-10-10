@@ -386,6 +386,52 @@ function validate(TV) {
       if (Array.isArray(s.interview)) {
         for (const iq of s.interview) if (!iq.q || !iq.a) err(file, `${where}: interview item missing q/a`);
       }
+      // depth sections: when present, code blocks must carry text
+      for (const sf of ['architecture', 'security', 'operations', 'cost', 'runtime']) {
+        const sec = s[sf];
+        if (sec && typeof sec === 'object' && sec.code && !sec.code.text) {
+          err(file, `${where}: ${sf}.code present but has no text`);
+        }
+      }
+      // execution walkthrough — array of steps, or { steps:[...] }
+      if (s.walkthrough != null) {
+        const w = Array.isArray(s.walkthrough) ? { steps: s.walkthrough } : s.walkthrough;
+        if (!w || typeof w !== 'object') err(file, `${where}: walkthrough must be an array or object`);
+        else if (!Array.isArray(w.steps) || !w.steps.length) err(file, `${where}: walkthrough needs steps[]`);
+        else w.steps.forEach((st, i) => {
+          if (typeof st === 'string') { if (!st.trim()) err(file, `${where}: walkthrough step[${i}] empty`); }
+          else if (!st || !st.d) err(file, `${where}: walkthrough step[${i}] missing d`);
+        });
+      }
+      // worked examples — each needs a requirement; code (if any) needs text
+      if (s.examples != null) {
+        if (!Array.isArray(s.examples)) err(file, `${where}: examples must be an array`);
+        else s.examples.forEach((ex, i) => {
+          const ew = `${where}: example[${i}]`;
+          if (!ex || typeof ex !== 'object') { err(file, `${ew} not an object`); return; }
+          if (!ex.requirement) err(file, `${ew} missing requirement`);
+          if (ex.code && !ex.code.text) err(file, `${ew} code present but has no text`);
+        });
+      }
+      // troubleshooting — evidence-based incident shape
+      if (s.troubleshooting != null) {
+        if (!Array.isArray(s.troubleshooting)) err(file, `${where}: troubleshooting must be an array`);
+        else s.troubleshooting.forEach((t, i) => {
+          const tw = `${where}: troubleshooting[${i}]`;
+          if (!t || typeof t !== 'object') { err(file, `${tw} not an object`); return; }
+          for (const f of ['symptom', 'rootCause', 'remediation']) if (!t[f]) err(file, `${tw} missing "${f}"`);
+        });
+      }
+      // certification mapping — items[] of string or {cert/label}
+      if (s.certMapping != null) {
+        if (typeof s.certMapping !== 'object' || !Array.isArray(s.certMapping.items)) {
+          err(file, `${where}: certMapping must be an object with items[]`);
+        } else s.certMapping.items.forEach((it, i) => {
+          if (typeof it !== 'string' && !(it && (it.cert || it.label))) {
+            err(file, `${where}: certMapping item[${i}] needs cert/label`);
+          }
+        });
+      }
       checkRecordMetaOverride(file, s, where);
     }
   }

@@ -137,9 +137,108 @@
       </section>`;
   }
 
-  /* Does this service carry the extended A–I depth tier? */
+  /* Execution walkthrough: ordered lifecycle of a representative
+     operation. Accepts an array of steps, or { lead, steps:[string|{h,d}], note }. */
+  function walkthroughHTML(wt) {
+    if (!wt) return '';
+    const w = Array.isArray(wt) ? { steps: wt } : wt;
+    if (!w.steps || !w.steps.length) return '';
+    const lead = w.lead ? `<p class="sd-lead">${esc(w.lead)}</p>` : '';
+    const steps = w.steps.map(s => {
+      const o = (typeof s === 'string') ? { d: s } : s;
+      const h = o.h ? `<div class="sd-step-h">${esc(o.h)}</div>` : '';
+      return `<li class="sd-step"><div class="sd-step-body">${h}<div class="sd-step-d">${esc(o.d)}</div></div></li>`;
+    }).join('');
+    const note = w.note ? `<div class="sd-note">${esc(w.note)}</div>` : '';
+    return `
+      <section class="sd-section" data-accent="walk">
+        <div class="sd-kicker">Execution walkthrough</div>
+        ${lead}
+        <ol class="sd-steps">${steps}</ol>
+        ${note}
+      </section>`;
+  }
+
+  /* A value that may be a string or a list → rendered inline or as an
+     ordered/unordered list. */
+  function valOrList(v, ordered) {
+    if (v == null) return '';
+    if (Array.isArray(v)) {
+      const tag = ordered ? 'ol' : 'ul';
+      return `<${tag} class="sd-vlist">${v.map(x => `<li>${esc(x)}</li>`).join('')}</${tag}>`;
+    }
+    return `<span>${esc(v)}</span>`;
+  }
+
+  /* Worked examples: realistic end-to-end data-engineering scenarios.
+     Each: { title, illustrative, requirement, input, architecture,
+     code:{lang,text}, steps:[...], output, validation, errorHandling,
+     production, cleanup }. Code is labelled illustrative unless
+     illustrative===false (i.e. actually executed). */
+  function examplesHTML(exs) {
+    if (!exs || !exs.length) return '';
+    const row = (lbl, v, ordered) => {
+      const body = valOrList(v, ordered);
+      return body ? `<div class="sd-ex-row"><div class="sd-ex-lbl">${esc(lbl)}</div><div class="sd-ex-val">${body}</div></div>` : '';
+    };
+    const cards = exs.map(ex => {
+      const badge = ex.illustrative === false
+        ? `<span class="sd-ex-badge sd-ex-badge--run" title="Executed in a real environment">Tested</span>`
+        : `<span class="sd-ex-badge" title="Illustrative — copy-correct but not executed in a live cloud environment">Illustrative</span>`;
+      const code = ex.code ? `<div class="sd-ex-row"><div class="sd-ex-lbl">Code</div><div class="sd-ex-val">${codeHTML(ex.code)}</div></div>` : '';
+      return `<div class="sd-ex">
+        <div class="sd-ex-head">${esc(ex.title || 'Worked example')}${badge}</div>
+        ${row('Requirement', ex.requirement)}
+        ${row('Input data', ex.input)}
+        ${row('Architecture', ex.architecture)}
+        ${code}
+        ${row('Steps', ex.steps, true)}
+        ${row('Expected output', ex.output)}
+        ${row('Validation', ex.validation)}
+        ${row('Error handling', ex.errorHandling)}
+        ${row('Production notes', ex.production)}
+        ${row('Cleanup', ex.cleanup)}
+      </div>`;
+    }).join('');
+    return `
+      <section class="sd-section" data-accent="example">
+        <div class="sd-kicker">Worked example</div>
+        <div class="sd-exs">${cards}</div>
+      </section>`;
+  }
+
+  /* Troubleshooting / incident scenarios in the evidence-based format:
+     Symptom → Evidence → Causes → Investigation → Root cause →
+     Remediation → Validation → Prevention. Each: { symptom, evidence,
+     causes, investigation, rootCause, remediation, validation, prevention }. */
+  function troubleshootingHTML(ts) {
+    if (!ts || !ts.length) return '';
+    const field = (lbl, v, ordered) => {
+      const body = valOrList(v, ordered);
+      return body ? `<div class="sd-tb-row"><div class="sd-tb-lbl">${esc(lbl)}</div><div class="sd-tb-val">${body}</div></div>` : '';
+    };
+    const cards = ts.map(t => `<div class="sd-tb">
+      <div class="sd-tb-sym"><span class="sd-tb-sym-tag">Symptom</span>${esc(t.symptom)}</div>
+      ${field('Evidence', t.evidence)}
+      ${field('Possible causes', t.causes)}
+      ${field('Investigation', t.investigation, true)}
+      ${field('Root cause', t.rootCause)}
+      ${field('Remediation', t.remediation, true)}
+      ${field('Validation', t.validation)}
+      ${field('Prevention', t.prevention)}
+    </div>`).join('');
+    return `
+      <section class="sd-section" data-accent="trouble">
+        <div class="sd-kicker">Troubleshooting &amp; incidents</div>
+        <p class="sd-lead">Evidence-first diagnosis. Each scenario traces symptom to root cause before prescribing a fix.</p>
+        <div class="sd-tbs">${cards}</div>
+      </section>`;
+  }
+
+  /* Does this service carry the extended deep-dive depth tier? */
   function hasDeepDepth(svc) {
-    return !!(svc.architecture || svc.security || svc.operations || svc.cost);
+    return !!(svc.architecture || svc.security || svc.operations || svc.cost ||
+              svc.walkthrough || svc.examples || svc.troubleshooting);
   }
 
   function interviewHTML(qa) {
@@ -198,6 +297,43 @@
 .sd-section[data-accent="cost"]::before { background:#10b981; }
 .sd-section[data-accent="certmap"]::before { background:var(--brand); }
 .sd-section[data-accent="interview"]::before { background:var(--brand-2); }
+.sd-section[data-accent="walk"]::before { background:#0ea5e9; }
+.sd-section[data-accent="example"]::before { background:#8b5cf6; }
+.sd-section[data-accent="trouble"]::before { background:#e11d48; }
+/* Execution walkthrough — numbered lifecycle */
+.sd-steps { list-style:none; counter-reset:sd-step; margin:0; padding:0; display:grid; gap:10px; }
+.sd-step { counter-increment:sd-step; display:flex; gap:12px; background:var(--bg-1); border:1px solid var(--border-subtle); border-radius:9px; padding:11px 13px; }
+.sd-step::before { content:counter(sd-step); flex:0 0 auto; width:22px; height:22px; border-radius:6px; background:#0ea5e9; color:#fff; font-size:12px; font-weight:800; display:flex; align-items:center; justify-content:center; margin-top:1px; }
+.sd-step-body { flex:1; min-width:0; }
+.sd-step-h { font-size:13px; font-weight:700; color:var(--text-primary); margin-bottom:3px; }
+.sd-step-d { font-size:13px; color:var(--text-secondary); line-height:1.65; }
+/* Worked examples */
+.sd-exs { display:grid; gap:14px; }
+.sd-ex { background:var(--bg-1); border:1px solid var(--border-subtle); border-radius:10px; padding:13px 15px; }
+.sd-ex-head { font-size:14px; font-weight:800; color:var(--text-primary); margin-bottom:10px; display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+.sd-ex-badge { font-size:10px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; padding:2px 8px; border-radius:999px; color:#7c3aed; background:color-mix(in srgb, #8b5cf6 15%, transparent); border:1px solid color-mix(in srgb, #8b5cf6 42%, transparent); }
+.sd-ex-badge--run { color:#047857; background:color-mix(in srgb, #10b981 15%, transparent); border-color:color-mix(in srgb, #10b981 42%, transparent); }
+:root[data-theme="dark"] .sd-ex-badge, :root:not([data-theme="light"]) .sd-ex-badge { color:#c4b5fd; }
+:root[data-theme="dark"] .sd-ex-badge--run, :root:not([data-theme="light"]) .sd-ex-badge--run { color:#6ee7b7; }
+.sd-ex-row { display:grid; grid-template-columns:128px 1fr; gap:12px; padding:6px 0; }
+.sd-ex-row + .sd-ex-row { border-top:1px solid var(--border-subtle); }
+.sd-ex-lbl { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--text-muted); padding-top:2px; }
+.sd-ex-val { font-size:13px; color:var(--text-secondary); line-height:1.65; min-width:0; }
+.sd-ex-val .sd-code { margin-top:0; }
+@media (max-width:620px){ .sd-ex-row { grid-template-columns:1fr; gap:3px; } }
+/* Troubleshooting incidents */
+.sd-tbs { display:grid; gap:14px; }
+.sd-tb { background:var(--bg-1); border:1px solid var(--border-subtle); border-left:3px solid #e11d48; border-radius:10px; padding:13px 15px; }
+.sd-tb-sym { font-size:14px; font-weight:800; color:var(--text-primary); line-height:1.5; margin-bottom:10px; display:flex; align-items:baseline; gap:9px; flex-wrap:wrap; }
+.sd-tb-sym-tag { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 8px; border-radius:999px; color:#e11d48; background:color-mix(in srgb, #e11d48 14%, transparent); border:1px solid color-mix(in srgb, #e11d48 40%, transparent); }
+:root[data-theme="dark"] .sd-tb-sym-tag, :root:not([data-theme="light"]) .sd-tb-sym-tag { color:#fda4af; }
+.sd-tb-row { display:grid; grid-template-columns:128px 1fr; gap:12px; padding:6px 0; }
+.sd-tb-row + .sd-tb-row { border-top:1px solid var(--border-subtle); }
+.sd-tb-lbl { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--text-muted); padding-top:2px; }
+.sd-tb-val { font-size:13px; color:var(--text-secondary); line-height:1.65; min-width:0; }
+@media (max-width:620px){ .sd-tb-row { grid-template-columns:1fr; gap:3px; } }
+.sd-vlist { margin:0; padding-left:18px; display:grid; gap:4px; }
+.sd-vlist li { line-height:1.6; }
 .sd-depth { display:inline-block; margin-left:10px; padding:2px 9px; border-radius:999px; font-size:10px; font-weight:800; letter-spacing:.04em; vertical-align:middle; }
 .sd-depth--deep { color:#047857; background:color-mix(in srgb, #10b981 16%, transparent); border:1px solid color-mix(in srgb, #10b981 45%, transparent); }
 :root[data-theme="dark"] .sd-depth--deep, :root:not([data-theme="light"]) .sd-depth--deep { color:#6ee7b7; }
@@ -280,7 +416,7 @@ a.sd-cm-cert:hover { text-decoration:underline; }
     const vchip = (TV.VerifiedChip ? TV.VerifiedChip.html(format + '-services', svc) : '');
     const deep = hasDeepDepth(svc);
     const depthBadge = deep
-      ? `<span class="sd-depth sd-depth--deep" title="Full A–I deep dive: fundamentals through architecture, security, operations, cost and certification mapping">A–I deep dive</span>`
+      ? `<span class="sd-depth sd-depth--deep" title="Full deep dive: architecture &amp; internals, execution walkthrough, worked example, security, operations, troubleshooting, cost and certification mapping">Deep dive</span>`
       : '';
     container.innerHTML = `${styles}
 <div class="sd page-enter">
@@ -296,11 +432,14 @@ a.sd-cm-cert:hover { text-decoration:underline; }
     ${sectionHTML('Why it exists', 'why', svc.why)}
     ${sectionHTML('Architecture & internals', 'arch', svc.architecture)}
     ${sectionHTML('How it works', 'how', svc.how)}
+    ${walkthroughHTML(svc.walkthrough)}
     ${sectionHTML('Data engineering use case', 'deuse', svc.deUseCase)}
+    ${examplesHTML(svc.examples)}
     ${integrationsHTML(format, svc.integrations)}
     ${sectionHTML('Runtime & performance', 'runtime', svc.runtime)}
     ${sectionHTML('Security & governance', 'security', svc.security)}
     ${sectionHTML('Operations & reliability', 'operations', svc.operations)}
+    ${troubleshootingHTML(svc.troubleshooting)}
     ${sectionHTML('Cost model', 'cost', svc.cost)}
     ${interviewHTML(svc.interview)}
     ${certMappingHTML(svc.certMapping)}
