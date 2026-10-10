@@ -245,6 +245,101 @@
           { h: 'Metadata scale', d: 'Tables with millions of partitions strain metastore lookups; partition projection sidesteps this by computing partitions from a pattern instead of storing them.' },
         ],
       },
+      architecture: {
+        lead: 'The Glue Data Catalog is a managed, Hive-metastore-compatible metadata service. It stores databases → tables (schema, SerDe/format, S3 location, partition list) and nothing else — the data stays on S3. Every engine resolves table names against it, and Lake Formation attaches governance to its objects.',
+        bullets: [
+          { h: 'Metadata, not data', d: 'A table record points at an S3 prefix with a schema, format and partition list; engines read the files from S3 after resolving the table here.' },
+          { h: 'Population paths', d: 'Crawlers (infer schema/partitions from S3), DDL (CREATE EXTERNAL TABLE via Athena), or direct API/IaC calls create and update table definitions.' },
+          { h: 'Partition handling', d: 'The catalog tracks every partition and its location; partition indexes speed lookups on tables with huge partition counts, and partition projection avoids storing them at all.' },
+          { h: 'Schema registry & sharing', d: 'The Glue Schema Registry governs streaming message schemas separately; resource links (with Lake Formation) share catalog objects cross-account.' },
+        ],
+      },
+      security: {
+        lead: 'Catalog access is controlled by IAM on the Glue APIs and, for fine-grained data governance, by Lake Formation permissions on catalog databases/tables/columns/rows. Metadata can be encrypted and shared cross-account via resource policies/links.',
+        bullets: [
+          { h: 'IAM + Lake Formation', d: 'IAM gates who can call catalog APIs; Lake Formation expresses table/column/row-level access against catalog objects — the modern fine-grained model that Athena/Redshift/EMR honor.' },
+          { h: 'Encryption', d: 'Catalog metadata (and connection passwords) can be encrypted with KMS; enforce it account-wide.' },
+          { h: 'Cross-account', d: 'Catalog resource policies and Lake Formation resource links share databases/tables to other accounts without copying data.' },
+          { h: 'Least privilege', d: 'Scope crawler and job roles to the specific databases/paths they manage, not the whole catalog.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating the catalog is crawler/partition management, keeping schema evolution safe, and controlling partition-metadata scale.',
+        bullets: [
+          { h: 'Crawlers', d: 'Schedule crawlers (or incremental crawls) to keep schema/partitions current; configure how they handle schema changes and whether they combine compatible schemas vs create separate tables.' },
+          { h: 'Partition maintenance', d: 'Register new partitions via crawler, MSCK/ALTER, or partition projection; add partition indexes for tables with very many partitions.' },
+          { h: 'Schema evolution', d: 'Configure crawlers to add new columns while preserving existing ones so appended data with extra fields does not break tables.' },
+          { h: 'Scale', d: 'Millions of partitions strain metastore lookups — use partition indexes or projection to keep query planning fast.' },
+        ],
+      },
+      cost: {
+        lead: 'The catalog bills for stored objects above a free tier, per-request access, and crawler run time (DPU-hours). It is cheap relative to the S3 scans it directs, but millions of partitions and over-frequent crawlers add up. (Rates vary — price against the official Glue pricing page.)',
+        bullets: [
+          { h: 'Objects + requests', d: 'Stored tables/partitions above the free tier and metadata requests are billed; huge partition counts increase both.' },
+          { h: 'Crawler time', d: 'Crawlers bill DPU-hours — schedule them to data arrival, use incremental crawls, or skip them with projection where possible.' },
+          { h: 'Projection saves metadata', d: 'Partition projection avoids storing/scanning millions of partitions, cutting both metadata cost and planning time.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'How a query engine uses the catalog to read a partitioned table.',
+        steps: [
+          { h: 'Resolve the table', d: 'The engine (Athena/Spectrum/EMR) calls GetTable to get the schema, format and S3 location for the named table.' },
+          { h: 'Get matching partitions', d: 'It calls GetPartitions filtered by the query’s partition predicate (or uses a partition index / projection) to find only the relevant S3 prefixes.' },
+          { h: 'Prune before reading', d: 'With the partition list narrowed, the engine reads only those S3 prefixes — the catalog has pruned the scan before any data is read.' },
+          { h: 'Apply governance', d: 'Lake Formation checks the principal’s access to the table/columns/rows and filters/denies accordingly.' },
+          { h: 'Scan S3', d: 'The engine reads the selected files from S3; the catalog did the metadata work, S3 does the I/O.' },
+        ],
+        note: 'Simplified; projection replaces GetPartitions with a computed pattern.',
+      },
+      examples: [{
+        title: 'Crawler-driven table with a partition index for a many-partition dataset',
+        requirement: 'Register a large, date+region-partitioned S3 dataset as a catalog table and keep partition lookups fast as partitions grow into the millions.',
+        input: 'Parquet in s3://shopkart-lake/silver/events/dt=…/region=…/.',
+        architecture: 'S3 → Glue crawler (schema + partitions) → Glue Catalog table + partition index → Athena/Spectrum query with pruning.',
+        code: {
+          lang: 'sql / cli (illustrative)',
+          text: "-- after the crawler creates the table, add a partition index\nALTER TABLE events ADD PARTITION INDEX (dt, region);\n-- or avoid the catalog entirely for high-cardinality dt via projection\nALTER TABLE events SET TBLPROPERTIES (\n  'projection.enabled'='true','projection.dt.type'='date',\n  'projection.dt.range'='2023-01-01,NOW','projection.dt.format'='yyyy-MM-dd');",
+        },
+        steps: [
+          'Point a crawler at the partitioned S3 path to infer schema/partitions.',
+          'Add a partition index (or switch to projection) for fast pruning at scale.',
+          'Govern the table/columns with Lake Formation.',
+          'Query via Athena/Spectrum with partition predicates.',
+        ],
+        output: 'A governed, partition-pruned catalog table whose queries stay fast even with very many partitions.',
+        validation: 'Confirm partition pruning in query stats; verify the partition index/projection is used; check Lake Formation grants restrict as intended.',
+        errorHandling: 'If the crawler mis-infers mixed schemas, configure its schema-change/grouping behavior or define the table via DDL; projection avoids partition-scan slowness.',
+        production: 'Schedule crawlers to data arrival (or use projection); encrypt the catalog; least-privilege crawler/job roles; govern via Lake Formation.',
+        cleanup: 'Drop the table/partition index; delete the crawler; remove the S3 data if decommissioning.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'A crawler creates unexpected duplicate tables, or a table’s schema becomes wrong/merged after new data lands.',
+          evidence: 'Multiple tables for one dataset; columns change types or disappear; the crawler combined incompatible schemas (or split one dataset into many).',
+          causes: ['Crawler grouping/schema-change behavior not configured for the data layout', 'Incompatible file schemas under one path confusing inference', 'Mixed formats/locations under the crawled prefix'],
+          investigation: ['Review the crawler’s schema-change and table-grouping settings', 'Inspect the files for schema/format consistency', 'Check whether one logical table spans incompatible subfolders'],
+          rootCause: 'The crawler’s inference/grouping does not match the actual S3 layout, so it mis-models the table(s).',
+          remediation: ['Configure crawler grouping (create a single schema) / schema-change policy', 'Or define the table explicitly via DDL and stop crawling it', 'Standardize file schema/format under the path'],
+          validation: 'One correct table per dataset with a stable schema as new data lands.',
+          prevention: 'Keep consistent schema/format per prefix, configure crawler behavior deliberately, or manage critical tables with DDL/IaC.',
+        },
+        {
+          symptom: 'Query planning is slow and metadata-heavy on a table with a very large number of partitions.',
+          evidence: 'GetPartitions calls dominate query latency; the table has hundreds of thousands to millions of partitions; no partition index.',
+          causes: ['Huge partition count with no partition index', 'Over-partitioning (too fine a partition scheme)', 'Catalog-stored partitions where projection would fit'],
+          investigation: ['Count partitions and measure planning vs scan time', 'Check for a partition index', 'Assess whether partitions follow a predictable pattern (projection-friendly)'],
+          rootCause: 'Resolving millions of catalog-stored partitions is expensive; without an index or projection, planning dominates.',
+          remediation: ['Add partition indexes on the common filter columns', 'Adopt partition projection for predictable date/high-cardinality partitions', 'Coarsen over-fine partitioning'],
+          validation: 'Query planning time drops sharply; GetPartitions overhead disappears.',
+          prevention: 'Design partition granularity sensibly and use indexes/projection for high-cardinality partitioning from the start.',
+        },
+      ],
+      certMapping: {
+        lead: 'The Glue Data Catalog is the metadata/governance anchor in the AWS Data Engineer exam’s cataloging and access domains.',
+        items: [
+          { label: 'AWS DEA-C01 (Data Engineer Associate)', certId: 'aws-dea-c01', objectives: ['Cataloging S3 data (crawlers, DDL, schema)', 'Partition management (indexes, projection, MSCK)', 'Governance via Lake Formation on catalog objects'] },
+        ],
+      },
       interview: [
         { q: 'What is the Glue Data Catalog and what does it store?', a: 'It is a managed, Hive-metastore-compatible metadata repository. It stores databases, table definitions (schema, columns, types), the data format/SerDe, the S3 location, and the partition list — but not the data itself, which stays on S3. It gives the whole AWS analytics stack (Athena, Redshift Spectrum, EMR, Glue) a single shared source of schema truth.' },
         { q: 'How do new partitions become visible to Athena?', a: 'Several ways: re-run the crawler, run MSCK REPAIR TABLE (or ALTER TABLE ADD PARTITION for a specific one), or use partition projection. Projection is best for high-cardinality/date partitions — you describe the partition pattern in table properties and Athena computes the partitions at query time instead of reading them from the catalog, avoiding both the metadata bloat and the repair step.' },
@@ -476,6 +571,100 @@
         bullets: [
           { h: 'Enforcement point', d: 'Column and row filtering is applied before results leave the engine, so a filtered column is never returned to an unauthorized user.' },
           { h: 'Hybrid access mode', d: 'Lake Formation and IAM permissions can coexist during migration; you move tables to LF enforcement incrementally rather than all at once.' },
+        ],
+      },
+      architecture: {
+        lead: 'Lake Formation is an authorization layer over the Glue Data Catalog and S3. You register S3 locations with it, grant SQL-style permissions on catalog objects (directly or via LF-Tags), and at query time it authorizes the principal and vends short-lived, scoped credentials plus the allowed column/row set to the integrated engine.',
+        bullets: [
+          { h: 'Registered locations', d: 'You register S3 paths with Lake Formation (via a service-linked role); LF then brokers access to that data, so engines get scoped credentials instead of broad S3 access.' },
+          { h: 'Grants + LF-Tags', d: 'Permissions are granted per object or, at scale, via LF-Tags (tag-based access control): tag objects sensitivity=pii and grant on the tag so new tagged objects are governed automatically.' },
+          { h: 'Data filters', d: 'Named column projections and row-filter expressions attach to a grant to deliver column/row/cell security — applied before results leave the engine.' },
+          { h: 'Credential vending', d: 'On authorization LF returns temporary credentials scoped to exactly the permitted data and a row predicate/column list the engine enforces.' },
+        ],
+      },
+      security: {
+        lead: 'Lake Formation IS the security service, so its own model is the key: data lake administrators, the grant/revoke model, LF-Tags, and the legacy IAMAllowedPrincipals setting that must be understood when onboarding tables.',
+        bullets: [
+          { h: 'Data lake admins', d: 'A small set of admin principals manage LF settings, register locations, and grant permissions; keep this set tight — admins can govern the whole catalog.' },
+          { h: 'IAMAllowedPrincipals (legacy)', d: 'By default existing catalog tables carry the IAMAllowedPrincipals grant, meaning IAM alone controls them (LF not enforcing). Removing it switches a table to true LF fine-grained enforcement — forgetting this is the top onboarding gotcha.' },
+          { h: 'DATA_LOCATION_ACCESS', d: 'To create tables pointing at a registered location, a principal needs the data-location permission in addition to database grants.' },
+          { h: 'Cross-account', d: 'Grants to other accounts are shared via AWS RAM and consumed through resource links; the recipient still queries under LF enforcement.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating Lake Formation is onboarding tables to enforcement (carefully), managing LF-Tags at scale, migrating from IAM via hybrid mode, and auditing grants.',
+        bullets: [
+          { h: 'Onboarding / hybrid mode', d: 'Hybrid access mode lets LF and IAM permissions coexist so you move tables to LF enforcement incrementally rather than breaking everything at once.' },
+          { h: 'Tag governance at scale', d: 'Manage a handful of LF-Tag policies instead of thousands of per-table grants; define a tag ontology (sensitivity/domain) up front.' },
+          { h: 'Auditing', d: 'CloudTrail logs grants and data-access events; review who can see what and reconcile against intent periodically.' },
+          { h: 'Engine enablement', d: 'EMR needs runtime roles / LF integration enabled to honor fine-grained grants; Athena/Redshift/Glue honor them natively once tables are enforced.' },
+        ],
+      },
+      cost: {
+        lead: 'Lake Formation’s core governance (permissions, LF-Tags, data filters, credential vending) has no additional charge — you pay for the query engines (Athena/Redshift/EMR/Glue) and S3 they drive. The "cost" is operational: getting the model right so access is correct. (Confirm any feature-specific charges against the official Lake Formation pricing page.)',
+        bullets: [
+          { h: 'No core governance fee', d: 'Granting/enforcing permissions itself is not separately billed; the compute/storage underneath is.' },
+          { h: 'Operational cost', d: 'The real investment is designing LF-Tags and migrating tables correctly; mistakes cost outages or over-exposure, not dollars.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'How a governed query is authorized and filtered end to end.',
+        steps: [
+          { h: 'Query submitted', d: 'A principal runs a query in an integrated engine (e.g. Athena) against a governed catalog table.' },
+          { h: 'Engine asks Lake Formation', d: 'The engine calls LF with the principal and requested table; LF evaluates grants (direct + LF-Tag) and any attached data filters.' },
+          { h: 'Scoped credentials + filters returned', d: 'LF returns short-lived credentials scoped to the permitted S3 data, plus the allowed column list and row predicate.' },
+          { h: 'Engine enforces', d: 'The engine reads only the permitted S3 data and applies the column projection / row filter before returning results — unauthorized columns/rows never leave it.' },
+          { h: 'Audit', d: 'The access is logged (CloudTrail) for governance and review.' },
+        ],
+        note: 'Simplified; exact flow depends on the engine and whether the table is under LF enforcement vs IAMAllowedPrincipals.',
+      },
+      examples: [{
+        title: 'PII-column protection + EU row filter, shared cross-account',
+        requirement: 'Let analysts query orders but hide PII columns and restrict them to EU rows, and share the governed table to another account without copying data.',
+        input: 'A Glue-cataloged lake.orders table on registered S3; an analyst role; a second AWS account.',
+        architecture: 'S3 (registered) → Glue Catalog table → Lake Formation grants + data filter (EU rows, non-PII columns) → Athena; RAM share → other account resource link.',
+        code: {
+          lang: 'sql-like (lf, illustrative)',
+          text: "-- remove legacy IAMAllowedPrincipals so LF enforces, then:\nCREATE DATA FILTER eu_nonpii ON lake.orders\n  ROW FILTER region = 'EU'\n  COLUMNS (order_id, amount, dt, region);   -- excludes PII cols\nGRANT SELECT ON lake.orders DATA FILTER eu_nonpii TO ROLE 'analyst';\n\n-- cross-account: grant to account B (consumed via RAM + resource link)\nGRANT SELECT ON lake.orders TO EXTERNAL ACCOUNT '111122223333';",
+        },
+        steps: [
+          'Register the S3 location and remove IAMAllowedPrincipals so LF enforces.',
+          'Create a data filter for EU rows + non-PII columns.',
+          'Grant SELECT with the filter to the analyst role.',
+          'Share cross-account via RAM; the other account queries through a resource link.',
+        ],
+        output: 'Analysts see only EU rows and non-PII columns in Athena; account B queries the same governed table with no data copy.',
+        validation: 'Confirm an analyst query hides PII columns and non-EU rows; verify account B sees the table and the same restrictions apply.',
+        errorHandling: 'If queries suddenly return nothing after enforcement, a missing grant or DATA_LOCATION_ACCESS is usually the cause; hybrid mode eases migration.',
+        production: 'Keep data-lake admins minimal; govern with LF-Tags for scale; audit grants via CloudTrail; enable EMR runtime roles if EMR must honor grants.',
+        cleanup: 'Revoke grants, delete the data filter and RAM share/resource link; deregister the location if decommissioning.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'After enabling Lake Formation on a table, previously-working queries fail with access denied or return no rows/columns.',
+          evidence: 'The table had IAMAllowedPrincipals removed (now LF-enforced) but no LF grants exist for the principal; or the principal lacks DATA_LOCATION_ACCESS.',
+          causes: ['Switched to LF enforcement without granting the principals that need access', 'Missing DATA_LOCATION_ACCESS for table creation', 'Engine (e.g. EMR) not enabled for LF fine-grained access'],
+          investigation: ['Check whether IAMAllowedPrincipals was removed (table now LF-enforced)', 'List LF grants for the failing principal', 'Confirm DATA_LOCATION_ACCESS and engine LF integration'],
+          rootCause: 'Enforcement is now on but the required LF grants/location permissions were not created, so LF denies access that IAM used to allow.',
+          remediation: ['Grant the needed SELECT/DESCRIBE (and data filters) to the principals', 'Grant DATA_LOCATION_ACCESS where tables are created', 'Use hybrid access mode to migrate incrementally; enable EMR runtime roles'],
+          validation: 'Authorized principals query successfully with the intended column/row restrictions; unauthorized access is denied.',
+          prevention: 'Plan grants before removing IAMAllowedPrincipals; migrate via hybrid mode; template LF-Tag grants.',
+        },
+        {
+          symptom: 'A cross-account consumer cannot see or query a table you granted to their account.',
+          evidence: 'The grant exists but the other account sees nothing; no RAM resource share accepted; no resource link created on the consumer side.',
+          causes: ['RAM resource share not accepted by the consumer account', 'No resource link created in the consumer catalog', 'Consumer principals not granted on the shared resource link'],
+          investigation: ['Check the RAM share status (pending/accepted)', 'Confirm a resource link exists in the consumer account', 'Verify consumer-side LF grants on the link'],
+          rootCause: 'Cross-account LF sharing requires the RAM share to be accepted and a resource link + consumer-side grants — the producer grant alone is not enough.',
+          remediation: ['Accept the RAM resource share in the consumer account', 'Create a resource link to the shared database/table', 'Grant consumer principals on the resource link'],
+          validation: 'The consumer account queries the shared table under LF enforcement with no data copy.',
+          prevention: 'Document the full cross-account flow (grant → RAM accept → resource link → consumer grant) and automate it.',
+        },
+      ],
+      certMapping: {
+        lead: 'Lake Formation is the fine-grained lake-governance service in the AWS Data Engineer exam’s security/access domain.',
+        items: [
+          { label: 'AWS DEA-C01 (Data Engineer Associate)', certId: 'aws-dea-c01', objectives: ['Fine-grained access (column/row/cell) on the lake', 'LF-Tags / tag-based access control at scale', 'Cross-account sharing & migration from IAM'] },
         ],
       },
       interview: [
