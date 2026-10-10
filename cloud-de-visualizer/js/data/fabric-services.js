@@ -24,6 +24,32 @@
         { h: 'OneLake data-access roles', d: 'RBAC *below* the workspace role: grant read on specific folders within a Lakehouse (e.g. only Tables/sales/) so a user sees a subset of an item, not all of it — the fine-grained read control DP-700 tests.' },
         { h: 'Sensitivity labels', d: 'Microsoft Purview information-protection labels (e.g. Confidential) applied to Fabric items flow with the data — into downstream items and Power BI exports — carrying encryption and usage policy end-to-end, with label activity in the audit logs.' },
       ] },
+      architecture: { lead: 'OneLake is one logical lake per Fabric tenant, built on Azure Data Lake Storage Gen2 semantics and addressed through a single DFS endpoint. It is organized workspace → item (Lakehouse/Warehouse/KQL DB) → folders, and every item stores its tables as open Delta Parquet. Compute engines (Spark, the Warehouse T-SQL engine, KQL, Power BI Direct Lake) are decoupled and all read the same files.', bullets: [
+        { h: 'ADLS Gen2 under the hood', d: 'OneLake exposes the same ABFS/DFS API as ADLS Gen2, so any Delta/Parquet client can read it: abfss://<workspace>@onelake.dfs.fabric.microsoft.com/<item>/Tables/<table>.' },
+        { h: 'Shortcuts', d: 'A shortcut is a metadata pointer to data in ADLS Gen2, S3, GCS or another workspace; the bytes never move, so there is one copy and no drift. Internal shortcuts share data across workspaces.' },
+        { h: 'One copy, many engines', d: 'Because storage is open Delta and decoupled from compute, Spark writes and the Warehouse/Power BI read the same table — no export/import between tools.' },
+        { h: 'V-Order', d: 'Fabric’s Delta write optimization reorganizes Parquet for fast Power BI/SQL reads while staying a valid open Delta file.' },
+      ] },
+      security: { lead: 'OneLake access is layered: tenant/capacity admin settings, workspace roles (coarse), OneLake data-access roles (fine-grained folder RBAC) and Microsoft Purview sensitivity labels that travel with the data. Encryption at rest is handled by the underlying storage.', bullets: [
+        { h: 'Workspace roles', d: 'Admin / Member / Contributor / Viewer set coarse, item-wide access within a workspace.' },
+        { h: 'OneLake data-access roles', d: 'RBAC below the workspace role: grant read on specific folders (e.g. Tables/sales/) so a principal sees a subset of a Lakehouse — the fine-grained control DP-700 tests.' },
+        { h: 'Sensitivity labels', d: 'Purview labels (e.g. Confidential) applied to items flow downstream — into derived items and Power BI exports — carrying encryption and usage policy, with activity in audit logs.' },
+        { h: 'Shortcut permissions', d: 'A shortcut honors the permission model of its source; access is evaluated against the underlying location, not just the pointer.' },
+      ] },
+      operations: { lead: 'OneLake is fully managed — no storage to provision or scale — so operations is governance topology, Delta maintenance and monitoring through the Fabric Monitoring Hub. Capacity (not storage) is the throttling unit in Fabric.', bullets: [
+        { h: 'No provisioning', d: 'The lake is auto-provisioned per tenant; you organize workspaces/items rather than managing accounts or containers.' },
+        { h: 'Delta maintenance', d: 'OPTIMIZE/V-Order and vacuum on Lakehouse tables keep reads fast and storage tidy, same as any Delta table.' },
+        { h: 'Monitoring', d: 'The Fabric Monitoring Hub shows pipeline/notebook/dataflow runs; capacity metrics apps surface throttling and smoothing.' },
+        { h: 'ALM', d: 'Deployment pipelines + Git integration promote items dev → test → prod; OneLake data moves with the items’ definitions.' },
+      ] },
+      cost: { lead: 'Fabric bills on a single capacity (Capacity Units) model, not per-service, plus OneLake storage per GB. All compute (Spark, Warehouse, pipelines, Power BI) draws from the same capacity, which is smoothed/throttled rather than charged per query. (Rates vary — price against the official Fabric pricing page.)', bullets: [
+        { h: 'Capacity Units (CU)', d: 'A capacity SKU (e.g. F-series) provides CUs shared by every workload; bursts are smoothed over time, and sustained overload throttles rather than bills per-use.' },
+        { h: 'OneLake storage', d: 'Billed per GB stored; shortcuts avoid paying to duplicate data that already lives in ADLS/S3/GCS.' },
+        { h: 'Cost levers', d: 'Right-size the capacity SKU, use shortcuts instead of copies, compact/V-Order tables, and pause capacities when idle (where supported).' },
+      ] },
+      certMapping: { lead: 'OneLake is the storage foundation of the DP-700 Fabric Data Engineer exam.', items: [
+        { label: 'DP-700 Fabric Data Engineer', certId: 'ms-dp700', objectives: ['Ingest & store data in OneLake', 'Shortcuts vs copy vs mirroring', 'OneLake data-access roles & sensitivity labels'] },
+      ] },
       interview: [
         { q: 'What problem does OneLake solve?', a: 'Copy sprawl: one tenant-wide logical lake in open Delta format that every Fabric engine shares, with shortcuts to avoid duplicating external data.' },
         { q: 'How do shortcuts differ from copying (and from mirroring)?', a: 'A shortcut references data in place (ADLS/S3/GCS/another workspace) so it stays fresh and is never duplicated; a copy physically duplicates and drifts. Mirroring sits between them: it continuously replicates an external operational database into OneLake Delta so you get a local, query-optimized copy that stays in sync.' },

@@ -77,6 +77,7 @@ const LOAD_ORDER = [
   'incidents-aws.js',
   'incidents-azure.js',
   'incidents-fabric.js',
+  'design-challenges.js',
 ];
 
 /* ── Findings ─────────────────────────────────────────────── */
@@ -208,7 +209,7 @@ function validate(TV) {
       'quiz-bank', 'learning-paths', 'taxonomy', 'intuition', 'equivalences',
       'aws-services', 'azure-services', 'databricks-services', 'fabric-services',
       'aws-interview-qa', 'azure-interview-qa', 'databricks-interview-qa', 'fabric-interview-qa',
-      'incidents',
+      'incidents', 'design-challenges',
     ]) checkBankMeta('_meta.js', bankId);
   }
 
@@ -427,6 +428,48 @@ function validate(TV) {
       }
       if (inc.officialRef) checkRef('incidents.js', inc.officialRef, where);
       checkRecordMetaOverride('incidents.js', inc, where);
+    }
+  }
+
+  /* ---- design challenges ---- */
+  const DC = TV.DesignChallenges;
+  if (!DC) warn('design-challenges.js', 'TV.DesignChallenges not defined');
+  else {
+    const dcIds = new Set();
+    for (const ch of DC.all()) {
+      const where = ch.id || '??';
+      if (!ch.id) err('design-challenges.js', 'challenge with no id');
+      else if (dcIds.has(ch.id)) err('design-challenges.js', `duplicate challenge id "${ch.id}"`);
+      else dcIds.add(ch.id);
+      for (const f of ['title', 'scenario', 'difficulty']) if (!ch[f]) err('design-challenges.js', `${where}: missing "${f}"`);
+      if (!Array.isArray(ch.requirements) || !ch.requirements.length) err('design-challenges.js', `${where}: needs requirements[]`);
+      if (!Array.isArray(ch.decisions) || !ch.decisions.length) err('design-challenges.js', `${where}: needs decisions[]`);
+      else {
+        const decIds = new Set();
+        ch.decisions.forEach(d => {
+          const dw = `${where}/${d.id || '??'}`;
+          if (!d.id) err('design-challenges.js', `${where}: decision missing id`);
+          else if (decIds.has(d.id)) err('design-challenges.js', `${where}: duplicate decision id "${d.id}"`);
+          else decIds.add(d.id);
+          if (!d.question) err('design-challenges.js', `${dw}: missing question`);
+          if (!Array.isArray(d.options) || d.options.length < 2) { err('design-challenges.js', `${dw}: needs ≥2 options`); return; }
+          const optIds = new Set();
+          let correct = 0;
+          d.options.forEach(o => {
+            if (!o.id) err('design-challenges.js', `${dw}: option missing id`);
+            else if (optIds.has(o.id)) err('design-challenges.js', `${dw}: duplicate option id "${o.id}"`);
+            else optIds.add(o.id);
+            if (!o.label) err('design-challenges.js', `${dw}: option "${o.id}" missing label`);
+            if (!o.rationale) err('design-challenges.js', `${dw}: option "${o.id}" missing rationale`);
+            if (o.correct) correct++;
+          });
+          if (correct !== 1) err('design-challenges.js', `${dw}: must have exactly one correct option (has ${correct})`);
+        });
+      }
+      for (const f of ['tradeoffs', 'reference']) {
+        if (ch[f] != null && !Array.isArray(ch[f])) err('design-challenges.js', `${where}: ${f} must be an array`);
+      }
+      (ch.refs || []).forEach((r, i) => checkRef('design-challenges.js', r, `${where} ref[${i}]`));
     }
   }
 

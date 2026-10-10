@@ -72,6 +72,50 @@
           { h: 'VACUUM vs time travel', d: 'VACUUM removes old files past a retention window — it reclaims cost but also truncates how far back you can time-travel.' },
         ],
       },
+      architecture: {
+        lead: 'A Delta table is a directory of immutable Parquet data files plus a _delta_log directory that is the real source of truth. The log is an ordered sequence of atomic JSON commits (each listing add/remove file actions) with periodic Parquet checkpoints. Table state at any version = replay the latest checkpoint + the JSON commits after it. Nothing reads a raw file listing.',
+        bullets: [
+          { h: 'The transaction log', d: 'Commit N is written as 000…N.json. It records which files are added/removed, plus stats (min/max per column) used for data skipping. The atomic creation of that JSON is the transaction boundary.' },
+          { h: 'Optimistic concurrency (OCC)', d: 'Writers stage files, then try to commit the next log version; if another writer won the race, the loser re-reads and retries. Readers always see a consistent committed snapshot.' },
+          { h: 'Checkpoints', d: 'Every ~10 commits Delta writes a Parquet checkpoint of cumulative state so readers replay only a few JSONs, keeping open latency flat as history grows.' },
+          { h: 'CoW vs MoR', d: 'MERGE/UPDATE/DELETE either rewrite affected files (copy-on-write) or mark rows via deletion vectors (merge-on-read) to avoid rewriting whole files — a correctness/throughput trade.' },
+          { h: 'Clustering', d: 'OPTIMIZE bin-packs small files; Z-ORDER (static) or Liquid Clustering (adaptive, incremental) co-locate related rows so file-skipping prunes more.' },
+        ],
+      },
+      security: {
+        lead: 'Delta itself is a file format; access control and encryption come from the governance and storage layers around it — Unity Catalog for grants/RLS/CLS, and the cloud object store (ADLS/S3) for encryption at rest.',
+        bullets: [
+          { h: 'Governed by Unity Catalog', d: 'Delta tables registered in UC inherit ANSI GRANTs, row-level security and column masking; access to the underlying paths flows through UC external locations, not cluster keys.' },
+          { h: 'Encryption at rest', d: 'Data files sit in ADLS/S3 and are encrypted by the object store (service- or customer-managed keys); Delta adds no separate at-rest layer.' },
+          { h: 'GDPR / right-to-be-forgotten', d: 'DELETE + VACUUM physically removes a subject’s rows — something plain append-only Parquet lakes cannot do cleanly.' },
+          { h: 'Audit via the log', d: 'DESCRIBE HISTORY exposes who wrote each version and the operation, giving a tamper-evident change record.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating Delta is mostly about fighting small files and managing the log/retention trade-off. Streaming and frequent commits fragment tables; VACUUM reclaims storage but truncates time-travel reach.',
+        bullets: [
+          { h: 'Compaction', d: 'OPTIMIZE (or auto-compaction / optimized writes) bin-packs tiny files into right-sized ones — the biggest read-performance lever on streaming tables.' },
+          { h: 'VACUUM vs time travel', d: 'VACUUM removes files unreferenced by the current version past a retention window (default 7 days); after it, you can no longer time-travel to purged versions. Set retention to your recovery needs.' },
+          { h: 'History inspection', d: 'DESCRIBE HISTORY / DESCRIBE DETAIL show versions, operations and file counts for debugging and rollback (RESTORE VERSION AS OF).' },
+          { h: 'Concurrency conflicts', d: 'High-contention MERGE workloads can throw concurrent-modification retries; partition/cluster to reduce overlap, or serialize writers.' },
+        ],
+      },
+      cost: {
+        lead: 'Delta adds no license cost — you pay for the compute that reads/writes it and the object storage it occupies. The real cost levers are file layout (small files = more requests + slower scans) and retention (more history = more storage). (Compute/storage rates vary by cloud and tier.)',
+        bullets: [
+          { h: 'Storage', d: 'Data files + log + retained old versions all consume object storage; untended tables accumulate orphaned files until VACUUM.' },
+          { h: 'Scan efficiency', d: 'Data skipping (log stats) + clustering mean engines read fewer files — directly lowering compute time and, on pay-per-scan engines, scan cost.' },
+          { h: 'Small-file tax', d: 'Thousands of tiny files inflate list/open requests and slow every reader; compaction pays for itself quickly on hot tables.' },
+          { h: 'Retention', d: 'Longer VACUUM retention buys deeper time travel at higher storage cost — tune to compliance/recovery requirements.' },
+        ],
+      },
+      certMapping: {
+        lead: 'Delta Lake is the format every Databricks certification assumes.',
+        items: [
+          { label: 'Databricks Data Engineer Associate', certId: 'dbx-de-associate', objectives: ['Delta Lake fundamentals & the transaction log', 'MERGE, time travel, OPTIMIZE/VACUUM', 'Managed vs external tables'] },
+          { label: 'Databricks Data Engineer Professional', certId: 'dbx-de-professional', objectives: ['Advanced Delta: deletion vectors, CDF, clustering', 'Concurrency & performance tuning'] },
+        ],
+      },
       interview: [
         { q: 'What does the Delta transaction log give you that plain Parquet does not?', a: 'ACID transactions, safe concurrent writes (optimistic concurrency), schema enforcement/evolution, time travel, and upserts/deletes via MERGE. The log is an ordered set of atomic JSON commits (plus checkpoints) that defines the exact set of files in each version — so readers see consistent snapshots and writers never corrupt the table.' },
         { q: 'How does Delta do upserts, and why can’t plain Parquet?', a: 'MERGE INTO matches source rows to target and inserts/updates/deletes in one atomic commit. Under the hood it rewrites affected files (copy-on-write) or marks rows via deletion vectors (merge-on-read), then commits the add/remove actions to the log atomically. Plain Parquet has no transaction log, so there is no atomic way to replace files safely under concurrency.' },
@@ -135,6 +179,49 @@
         bullets: [
           { h: 'Enforced in the plan', d: 'Filters/masks are injected into the query, so there is no way around them via a different tool.' },
           { h: 'Cluster access modes', d: 'UC features require supported access modes; legacy no-isolation clusters bypass some controls and are discouraged.' },
+        ],
+      },
+      architecture: {
+        lead: 'Unity Catalog is an account-level metastore shared across workspaces. Identities live at the account (synced via SCIM from Entra ID/IdP); securable objects (catalog → schema → table/view/volume/model/function) carry ANSI privileges; and access to cloud storage is brokered through storage credentials + external locations rather than cluster-scoped keys. Enforcement happens in the query plan on UC-enabled compute.',
+        bullets: [
+          { h: 'Three-level namespace', d: 'catalog.schema.object lets you organize by domain/environment and grant at any level; one metastore per region serves many workspaces.' },
+          { h: 'Storage credential → external location', d: 'A managed identity is registered once as a storage credential; external locations map it to specific paths. Grants decide who may use them — decoupling storage access from clusters.' },
+          { h: 'Managed vs external tables', d: 'Managed tables live in UC-managed storage (UC owns lifecycle — DROP deletes data); external tables point at your own paths (DROP removes only metadata).' },
+          { h: 'Enforced in the plan', d: 'Row filters and column masks are injected into the query plan, so no alternate tool or path bypasses them. Requires a supported cluster access mode (shared/single-user).' },
+          { h: 'Automatic lineage', d: 'UC captures table- and column-level lineage from query plans across notebooks, jobs and dashboards — no instrumentation.' },
+        ],
+      },
+      security: {
+        lead: 'UC is the security control plane of the lakehouse: ANSI GRANT/REVOKE, dynamic row-level security and column masking, account-level identity, and audit logs answering "who can see PII and who accessed it."',
+        bullets: [
+          { h: 'Fine-grained access', d: 'GRANT SELECT/MODIFY… on any securable; row filters and masking functions apply dynamically based on the querying principal’s group membership.' },
+          { h: 'Account identity + SCIM', d: 'Users/groups/service principals are provisioned once at the account from the IdP; workspace assignment controls where they can operate.' },
+          { h: 'Credential isolation', d: 'No one hardcodes storage keys on clusters — access is always via UC storage credentials, so revoking a grant immediately cuts access everywhere.' },
+          { h: 'Audit', d: 'UC audit logs record grants and data access; combined with lineage they support compliance and impact analysis.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating UC is about identity hygiene, metastore/workspace topology, and migration from the legacy Hive metastore. Because governance is centralized, a misconfigured grant or external location has broad blast radius — change it deliberately.',
+        bullets: [
+          { h: 'Metastore topology', d: 'One metastore per region, attached to workspaces; plan catalogs per domain/environment (e.g. prod/dev) rather than per workspace.' },
+          { h: 'Migration', d: 'Upgrade legacy Hive metastore tables to UC (managed or external); dual-running during migration needs care so grants don’t silently diverge.' },
+          { h: 'Access modes', d: 'UC features require shared or single-user access-mode compute; legacy no-isolation clusters bypass some controls and are discouraged.' },
+          { h: 'Discovery & sharing', d: 'The searchable catalog plus Delta Sharing lets teams find and share governed data across orgs without copying.' },
+        ],
+      },
+      cost: {
+        lead: 'Unity Catalog governance is part of the Databricks platform (no separate per-table license); costs come from the compute that runs governed queries and any managed storage UC owns. The real "cost" of UC is operational discipline, not a meter.',
+        bullets: [
+          { h: 'Managed storage', d: 'Managed tables/volumes consume UC-managed object storage — subject to the same compaction/retention cost dynamics as any Delta table.' },
+          { h: 'Compute', d: 'Enforcement runs in-plan on UC-enabled compute; there is no extra per-query governance charge beyond normal DBU/compute cost.' },
+          { h: 'Sharing', d: 'Delta Sharing avoids duplicating data for consumers, saving storage and egress versus copy-based sharing.' },
+        ],
+      },
+      certMapping: {
+        lead: 'Governance via Unity Catalog is tested across both Databricks data-engineering exams.',
+        items: [
+          { label: 'Databricks Data Engineer Associate', certId: 'dbx-de-associate', objectives: ['UC namespace & GRANTs', 'Managed vs external tables', 'External locations & storage credentials'] },
+          { label: 'Databricks Data Engineer Professional', certId: 'dbx-de-professional', objectives: ['RLS/column masking, lineage & audit', 'Account identity, metastore design & migration'] },
         ],
       },
       interview: [

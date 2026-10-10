@@ -185,11 +185,59 @@
         { id: 'key-vault', label: 'Key Vault', note: 'stores secrets' },
         { label: 'Databricks', note: 'Notebook activity' },
       ],
-      runtime: {
-        lead: 'Copy Activity is billed by Data Integration Units (DIU) and runtime; Data Flows bill by the Spark cluster’s vCore-hours (with a cold-start warm-up). ADF itself is serverless — you pay per activity run and data moved, not for an idle service.',
+      architecture: {
+        lead: 'ADF separates a control plane (the service that stores pipeline definitions, schedules triggers and records run history) from a data plane (the Integration Runtime that actually moves and transforms bytes). The control plane never touches your data — it only tells an IR what to do. Understanding which IR runs an activity explains most ADF behavior, networking and cost.',
         bullets: [
-          { h: 'Parallel copy', d: 'Copy Activity partitions large sources and moves partitions in parallel to saturate bandwidth.' },
-          { h: 'Data Flow cluster', d: 'Each Data Flow debug/run warms a transient Spark cluster; a TTL/keep-alive avoids repeated cold starts across activities.' },
+          { h: 'Integration Runtime types', d: 'Azure IR = fully-managed cloud compute for cloud-to-cloud copy and Data Flows; Self-hosted IR (SHIR) = an agent you install on a VM/on-prem box to reach private sources; Azure-SSIS IR = a managed cluster that runs lifted SSIS packages.' },
+          { h: 'Copy Activity engine', d: 'A Copy Activity reads from a source connector, optionally serializes/compresses, and writes to a sink. On Azure IR it scales with Data Integration Units (DIUs); it can partition a large source and copy partitions in parallel (parallelCopies) to saturate bandwidth.' },
+          { h: 'Mapping Data Flow = generated Spark', d: 'A visual Data Flow is compiled to Scala/Spark and executed on a transient, ADF-managed Databricks-style cluster. You never see the cluster; you pick a compute size and TTL. This is why Data Flows have a cold-start and bill in vCore-hours, unlike Copy.' },
+          { h: 'Control flow vs data flow', d: 'Pipeline activities (ForEach, If, Until, Lookup, Set Variable, Execute Pipeline) are orchestration — they run on the service, not a cluster. Only Copy and Data Flow move real data. Mixing them up is the root of most cost surprises.' },
+          { h: 'Managed VNet', d: 'An Azure IR can be provisioned inside an ADF-managed virtual network so that copies and Data Flows egress through managed private endpoints onto the Microsoft backbone instead of the public internet.' },
+        ],
+      },
+      runtime: {
+        lead: 'ADF is serverless — there is no cluster to keep running — but its activities have very different performance characteristics. Copy throughput is governed by DIUs and parallelism; Data Flow latency is dominated by Spark cluster cold-start plus the compute size you pick.',
+        bullets: [
+          { h: 'Parallel copy', d: 'Copy Activity partitions large sources and moves partitions in parallel; raising DIUs and parallelCopies increases throughput until the source, sink or network becomes the bottleneck.' },
+          { h: 'Data Flow cold-start', d: 'Each Data Flow run warms a transient Spark cluster (minutes). Setting an Integration Runtime TTL keeps the cluster alive between sequential Data Flows so the warm-up is paid once, not per activity.' },
+          { h: 'Staged copy & PolyBase/COPY', d: 'For loading Synapse/SQL, ADF can stage data in blob and use COPY/PolyBase for a bulk, set-based load that is far faster than row-by-row inserts.' },
+          { h: 'Concurrency limits', d: 'Pipelines have concurrency settings and each IR has capacity; ForEach has a batchCount. Unbounded fan-out can throttle sources or exhaust IR capacity.' },
+        ],
+      },
+      security: {
+        lead: 'ADF authenticates to data stores without storing credentials in pipelines: the factory has a managed identity (Entra ID) that you grant RBAC roles, and secrets that must exist (e.g., SAS tokens) live in Key Vault and are referenced, never inlined. Network isolation is layered on with Managed VNet + private endpoints.',
+        bullets: [
+          { h: 'Managed identity', d: 'Every factory gets a system-assigned managed identity (and can add user-assigned ones). Grant it Storage Blob Data roles, SQL roles, etc., and ADF authenticates passwordlessly — no keys in linked services.' },
+          { h: 'Key Vault linked service', d: 'Where a secret is unavoidable, store it in Azure Key Vault and reference it from the linked service, so secrets are rotated centrally and never appear in Git or ARM templates.' },
+          { h: 'Managed VNet + managed private endpoints', d: 'Provision the Azure IR in a managed VNet and create managed private endpoints to data stores; traffic stays on the Microsoft backbone, public access can be disabled, and this guards against data exfiltration.' },
+          { h: 'Encryption & CMK', d: 'Factory metadata is encrypted at rest with Microsoft-managed keys by default; customer-managed keys (CMK) in Key Vault can be enabled where regulatory compliance requires you to own the key.' },
+          { h: 'RBAC on the factory', d: 'The Data Factory Contributor role and finer Entra roles control who can edit/publish pipelines; Git integration adds PR-based review before changes reach the live (published) factory.' },
+        ],
+      },
+      operations: {
+        lead: 'ADF is operated through its Monitor experience (pipeline/activity/trigger runs), Azure Monitor (metrics, logs, alerts) and Git-backed CI/CD. Reliability comes from built-in retries, tumbling-window dependencies with automatic backfill, and regional redundancy of the managed service.',
+        bullets: [
+          { h: 'Monitoring & alerting', d: 'The Monitor tab shows run status and lets you rerun from the point of failure; diagnostic settings ship run logs to Log Analytics, and Azure Monitor alerts fire on failed runs or SLA breaches.' },
+          { h: 'Retry & error handling', d: 'Each activity has retry count + interval; pipelines model success/failure/completion/skip paths, so you can branch to compensation logic or alerting on failure.' },
+          { h: 'Backfill & dependencies', d: 'Tumbling-window triggers track each time slice, honor inter-window dependencies, and automatically backfill missed windows — the backbone of reliable incremental loads.' },
+          { h: 'CI/CD', d: 'The authoring UI commits to a Git repo (feature branches + PRs); publishing generates ARM templates that promote dev → test → prod, with Key Vault supplying per-environment secrets.' },
+          { h: 'Availability', d: 'ADF is a regional managed service; Microsoft publishes an uptime SLA for activity-run scheduling (see the official SLA page). Self-hosted IR reliability is your responsibility — run 2+ nodes for high availability.' },
+        ],
+      },
+      cost: {
+        lead: 'ADF has no idle/base charge — you pay only for what runs, across three meters: orchestration (per activity run), data movement (DIU-hours for Copy on Azure IR), and data transformation (vCore-hours for Data Flows). Pipeline control-flow activities are cheap; Data Flows and large copies dominate the bill. (Rates vary by region/currency — always price against the official Azure pricing page.)',
+        bullets: [
+          { h: 'Orchestration', d: 'Billed per activity run (quoted per 1,000 runs). Lookups, Set Variable and ForEach iterations each count — a fan-out over thousands of items generates thousands of billable runs.' },
+          { h: 'Data movement (Copy)', d: 'Billed in DIU-hours on Azure IR, prorated by execution time; more DIUs = faster but more DIU-hours. Self-hosted IR copy is billed per hour of the move.' },
+          { h: 'Data transformation (Data Flows)', d: 'Billed in vCore-hours with an 8-vCore cluster minimum, prorated by the minute and rounded up. Cold-start time is billable, so TTL reuse and right-sizing the cluster matter.' },
+          { h: 'Cost levers', d: 'Push heavy transforms down to Databricks/Synapse instead of Data Flows when it is cheaper; use TTL to amortize Data Flow warm-up; prefer set-based COPY loads; avoid needless per-row ForEach fan-out.' },
+        ],
+      },
+      certMapping: {
+        lead: 'ADF appears across Azure data-engineering certifications as the orchestration/ingestion pillar.',
+        items: [
+          { label: 'DP-203 (retired) → DP-700 lineage', objectives: ['Ingest & transform data', 'Orchestrate & monitor pipelines'] },
+          { label: 'DP-700 Fabric Data Engineer', certId: 'ms-dp700', objectives: ['Pipelines map to Fabric Data Factory pipelines', 'Incremental load & monitoring patterns carry over'] },
         ],
       },
       interview: [

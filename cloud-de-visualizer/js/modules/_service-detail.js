@@ -117,6 +117,31 @@
     ).join('') + `</div>`;
   }
 
+  /* Cert mapping: which certifications/objectives this service maps to.
+     Accepts { lead, items:[{cert, label, objectives:[...]}|string] }. */
+  function certMappingHTML(cm) {
+    if (!cm) return '';
+    const items = (cm.items || []).map(it => {
+      if (typeof it === 'string') return `<li class="sd-cm-row"><span class="sd-cm-txt">${esc(it)}</span></li>`;
+      const objs = (it.objectives || []).length
+        ? `<span class="sd-cm-objs">${it.objectives.map(o => esc(o)).join(' · ')}</span>` : '';
+      const label = esc(it.label || it.cert || '');
+      return `<li class="sd-cm-row"><span class="sd-cm-cert">${label}</span>${objs}</li>`;
+    }).join('');
+    const lead = cm.lead ? `<p class="sd-lead">${esc(cm.lead)}</p>` : '';
+    return `
+      <section class="sd-section" data-accent="certmap">
+        <div class="sd-kicker">Certification mapping</div>
+        ${lead}
+        <ul class="sd-cm">${items}</ul>
+      </section>`;
+  }
+
+  /* Does this service carry the extended A–I depth tier? */
+  function hasDeepDepth(svc) {
+    return !!(svc.architecture || svc.security || svc.operations || svc.cost);
+  }
+
   function interviewHTML(qa) {
     if (!qa || !qa.length) return '';
     const items = qa.map((x, i) => `
@@ -167,7 +192,21 @@
 .sd-section[data-accent="deuse"]::before { background:var(--blue); }
 .sd-section[data-accent="link"]::before { background:var(--purple); }
 .sd-section[data-accent="runtime"]::before { background:var(--orange); }
+.sd-section[data-accent="arch"]::before { background:#06b6d4; }
+.sd-section[data-accent="security"]::before { background:#ef4444; }
+.sd-section[data-accent="operations"]::before { background:#f59e0b; }
+.sd-section[data-accent="cost"]::before { background:#10b981; }
+.sd-section[data-accent="certmap"]::before { background:var(--brand); }
 .sd-section[data-accent="interview"]::before { background:var(--brand-2); }
+.sd-depth { display:inline-block; margin-left:10px; padding:2px 9px; border-radius:999px; font-size:10px; font-weight:800; letter-spacing:.04em; vertical-align:middle; }
+.sd-depth--deep { color:#047857; background:color-mix(in srgb, #10b981 16%, transparent); border:1px solid color-mix(in srgb, #10b981 45%, transparent); }
+:root[data-theme="dark"] .sd-depth--deep, :root:not([data-theme="light"]) .sd-depth--deep { color:#6ee7b7; }
+.sd-cm { list-style:none; margin:0; padding:0; display:grid; gap:8px; }
+.sd-cm-row { display:flex; flex-wrap:wrap; align-items:baseline; gap:8px 12px; background:var(--bg-1); border:1px solid var(--border-subtle); border-radius:9px; padding:10px 13px; }
+.sd-cm-cert { font-size:13px; font-weight:800; color:var(--brand); text-decoration:none; }
+a.sd-cm-cert:hover { text-decoration:underline; }
+.sd-cm-objs { font-size:12px; color:var(--text-muted); line-height:1.5; }
+.sd-cm-txt { font-size:13px; color:var(--text-secondary); line-height:1.6; }
 .sd-kicker { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.07em; color:var(--text-muted); margin-bottom:10px; }
 .sd-lead { font-size:14px; color:var(--text-secondary); line-height:1.7; margin:0 0 12px; }
 .sd-bullets { display:grid; gap:10px; }
@@ -239,10 +278,14 @@
     const aka = svc.aka ? `<p class="sd-aka">${esc(svc.aka)}</p>` : '';
     const catLabel = (CATEGORIES[svc.category] || {}).label || svc.category || '';
     const vchip = (TV.VerifiedChip ? TV.VerifiedChip.html(format + '-services', svc) : '');
+    const deep = hasDeepDepth(svc);
+    const depthBadge = deep
+      ? `<span class="sd-depth sd-depth--deep" title="Full A–I deep dive: fundamentals through architecture, security, operations, cost and certification mapping">A–I deep dive</span>`
+      : '';
     container.innerHTML = `${styles}
 <div class="sd page-enter">
   <div class="sd-wrap">
-    <div class="sd-eyebrow">${esc(catLabel)}</div>
+    <div class="sd-eyebrow">${esc(catLabel)}${depthBadge}</div>
     <h1 class="sd-h1">${esc(svc.name)}</h1>
     ${aka}
     <p class="sd-tagline">${esc(svc.tagline || '')}</p>
@@ -251,11 +294,16 @@
     ${intuitionHTML(svc.intuition || (TV.Intuition && TV.Intuition[svc.id]))}
     ${sectionHTML('What it is', 'what', svc.what)}
     ${sectionHTML('Why it exists', 'why', svc.why)}
+    ${sectionHTML('Architecture & internals', 'arch', svc.architecture)}
     ${sectionHTML('How it works', 'how', svc.how)}
     ${sectionHTML('Data engineering use case', 'deuse', svc.deUseCase)}
     ${integrationsHTML(format, svc.integrations)}
-    ${sectionHTML('Runtime behavior', 'runtime', svc.runtime)}
+    ${sectionHTML('Runtime & performance', 'runtime', svc.runtime)}
+    ${sectionHTML('Security & governance', 'security', svc.security)}
+    ${sectionHTML('Operations & reliability', 'operations', svc.operations)}
+    ${sectionHTML('Cost model', 'cost', svc.cost)}
     ${interviewHTML(svc.interview)}
+    ${certMappingHTML(svc.certMapping)}
   </div>
 </div>`;
     // Wire interview accordions
@@ -274,6 +322,7 @@
     let styles = document.getElementById('sd-styles') ? '' : styleTag();
     const cats = categoriesFor(format);
     const total = cats.reduce((n, c) => n + c.items.length, 0);
+    const deepN = cats.reduce((n, c) => n + c.items.filter(hasDeepDepth).length, 0);
     // Optional certification practice-exam launcher (e.g., Fabric → DP-700).
     const examId = meta.certExam;
     const examN = (examId && TV.CertQuestions && TV.CertQuestions.has(examId))
@@ -304,7 +353,7 @@
       <div class="sd-home-stats">
         <div class="sd-home-stat"><b>${total}</b><span>services</span></div>
         <div class="sd-home-stat"><b>${cats.length}</b><span>categories</span></div>
-        <div class="sd-home-stat"><b>6</b><span>depth levels each</span></div>
+        ${deepN ? `<div class="sd-home-stat"><b>${deepN}</b><span>A–I deep dives</span></div>` : ''}
       </div>
       ${ctaHtml}
     </div>

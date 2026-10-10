@@ -51,6 +51,7 @@
     'azure-interview-qa': { lastReviewed: '2026-10-06', source: 'Authored from Microsoft Learn + engineering practice' },
     'databricks-interview-qa': { lastReviewed: '2026-10-06', source: 'Authored from Databricks docs + engineering practice' },
     'fabric-interview-qa': { lastReviewed: '2026-10-09', source: 'Authored from Microsoft Learn (Fabric) + engineering practice' },
+    'design-challenges': { lastReviewed: '2026-10-10', source: 'Authored system-design scenarios citing official docs' },
   };
 
   function daysSince(iso) {

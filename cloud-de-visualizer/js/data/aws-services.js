@@ -80,6 +80,49 @@
           { h: 'Strong consistency', d: 'Read-after-write and list-after-write are strongly consistent, so pipelines no longer need the eventual-consistency workarounds older tooling carried.' },
         ],
       },
+      architecture: {
+        lead: 'S3 is a regional, massively-distributed object store. An object is bytes + metadata addressed by bucket + key; there is no block device and no directory tree. Objects in the multi-AZ classes are redundantly stored across ≥3 Availability Zones, which is where the eleven-9s durability comes from. The flat key namespace — not a filesystem — explains almost every S3 performance and correctness nuance for data engineering.',
+        bullets: [
+          { h: 'Flat namespace, prefix sharding', d: 'Keys are strings; the console fakes folders from slashes. Request throughput scales per prefix, so partitioned layouts (dt=…/) both prune scans and spread load across prefixes.' },
+          { h: 'No atomic rename', d: 'A "rename" is copy-then-delete of every object. Spark/Hadoop commit protocols that rename a staging dir are slow and historically non-atomic on S3 — hence S3-optimized committers and manifest-based table formats (Iceberg/Delta/Hudi).' },
+          { h: 'Strong consistency', d: 'Since Dec 2020, read-after-write and list-after-write are strongly consistent for all operations, removing the eventual-consistency workarounds older tooling carried.' },
+          { h: 'Access Points & Multi-Region', d: 'S3 Access Points give per-application named endpoints with their own policies; Multi-Region Access Points route to the nearest copy across regions for global reads.' },
+        ],
+      },
+      security: {
+        lead: 'S3 security is layered: identity (IAM), resource (bucket) policies, Block Public Access as a safety net, encryption at rest (SSE), and encryption in transit (TLS). The default posture is private — public exposure is almost always a misconfiguration, and Block Public Access exists to stop it account-wide.',
+        bullets: [
+          { h: 'IAM + bucket policies', d: 'Identity-based IAM policies and resource-based bucket policies together decide access; an explicit Deny always wins. Access Points let you attach narrower policies per workload.' },
+          { h: 'Block Public Access', d: 'Account- and bucket-level settings that override any policy/ACL that would make data public — the single most important guardrail against leaks.' },
+          { h: 'Encryption', d: 'All new objects are encrypted at rest by default (SSE-S3). SSE-KMS adds customer-controlled keys with audit + rotation; DSSE-KMS adds dual-layer for regulated workloads. Enforce TLS with a policy condition (aws:SecureTransport).' },
+          { h: 'Lake Formation / governance', d: 'For analytics, fine-grained (column/row) access is enforced via Lake Formation on the Glue Catalog tables that point at S3, not on S3 keys directly.' },
+          { h: 'VPC endpoints', d: 'Gateway VPC endpoints keep S3 traffic off the public internet; bucket policies can require access only via a specific VPC endpoint.' },
+        ],
+      },
+      operations: {
+        lead: 'S3 is fully managed — no capacity planning — so operations centers on observability, data protection (versioning + replication), and lifecycle automation. Durability is 11 nines; availability varies by storage class and is covered by an SLA.',
+        bullets: [
+          { h: 'Versioning + MFA Delete', d: 'Versioning keeps every overwrite/delete as a prior version (protects against accidental or malicious deletion); MFA Delete hardens permanent removal. Pair with lifecycle rules to expire old versions.' },
+          { h: 'Replication', d: 'Cross-Region (CRR) and Same-Region (SRR) replication asynchronously copy objects for DR, latency or compliance; replication time control (RTC) adds an SLA on replication lag.' },
+          { h: 'Monitoring', d: 'CloudWatch metrics (requests, errors, bytes), S3 Storage Lens for estate-wide analytics, server access logs / CloudTrail data events for audit, and S3 Inventory for large-scale object reporting.' },
+          { h: 'Integrity', d: 'Checksums on upload/download detect corruption; Object Lock (WORM) enforces retention for compliance.' },
+        ],
+      },
+      cost: {
+        lead: 'S3 bills on several independent dimensions: storage (per GB-month, by class), requests (per 1,000 GET/PUT/LIST), data transfer out, and management features (replication, Storage Lens advanced, inventory). For analytics, request cost and cross-AZ/region transfer often surprise teams more than raw storage. (Rates vary by region/class — price against the official S3 pricing page.)',
+        bullets: [
+          { h: 'Storage classes', d: 'Standard (hot) → Standard-IA / One Zone-IA (lower storage, retrieval fee) → Glacier Instant/Flexible/Deep Archive (cheapest storage, retrieval latency+fee). Intelligent-Tiering auto-moves objects when access patterns are unknown.' },
+          { h: 'Request & retrieval', d: 'Millions of small files mean millions of GET/LIST requests — the small-files problem is a cost problem as well as a performance one. IA/Glacier add per-GB retrieval charges.' },
+          { h: 'Data transfer', d: 'Out to the internet and cross-region is billed; keeping compute in the same region and using VPC/gateway endpoints avoids needless transfer cost.' },
+          { h: 'Cost levers', d: 'Compact small files, lifecycle to colder tiers, expire old versions/incomplete multipart uploads, and partition/columnar-format data so engines scan (and bill) less.' },
+        ],
+      },
+      certMapping: {
+        lead: 'S3 is foundational across AWS data certifications — the storage layer under nearly every scenario.',
+        items: [
+          { label: 'AWS DEA-C01 (Data Engineer Associate)', certId: 'aws-dea-c01', objectives: ['Data store selection & storage classes', 'Partitioning & file formats', 'Encryption, access control & lifecycle'] },
+        ],
+      },
       interview: [
         { q: 'Is S3 a filesystem? Why does that matter for Spark?', a: 'No — S3 is a flat object store where keys only look like paths. There are no real directories, so there is no atomic folder rename. Spark commits output by writing to a temp location then "renaming" it, which on S3 is a copy-then-delete of every object. That is slow and historically non-atomic, which is why S3-optimized committers and table formats (Iceberg/Delta/Hudi) that commit via a manifest instead of a rename are important.' },
         { q: 'How do you make S3-backed queries cheap and fast?', a: 'Partition the data by encoding partition columns into the key (dt=2024-01-01/), store it in a columnar format (Parquet/ORC) with compression, and keep file sizes reasonable (avoid the small-files problem). Engines like Athena then prune to only the relevant prefixes and read only the needed columns, so you scan far less data — and on Athena you literally pay per byte scanned.' },
@@ -214,6 +257,48 @@
           { h: 'Parallelism = workers × cores', d: 'More/bigger workers give more executor cores and memory; too few causes spills and OOM, too many wastes DPU-seconds.' },
           { h: 'Cold start', d: 'Serverless jobs carry a provisioning delay per run; Glue offers a warm-pool/streaming path (G.025X) for latency-sensitive work.' },
           { h: 'Small files & shuffle', d: 'Repartition/coalesce before writing to avoid thousands of tiny S3 objects, and watch skewed joins that stall on one executor.' },
+        ],
+      },
+      architecture: {
+        lead: 'A Glue ETL job is a managed Apache Spark application. You hand Glue a script (PySpark/Scala) plus a worker type and count; Glue provisions DPUs (Data Processing Units — 4 vCPU + 16 GB each), runs a Spark driver + executors, then tears everything down. The DynamicFrame layer sits on top of Spark to tolerate dirty, schema-drifting data.',
+        bullets: [
+          { h: 'DPUs & worker types', d: 'G.1X = 1 DPU/worker, G.2X = 2 DPU, G.025X = ¼ DPU for streaming. Workers × cores set parallelism; this is the primary tuning (and cost) knob.' },
+          { h: 'DynamicFrame vs DataFrame', d: 'DynamicFrame needs no fixed schema and carries a "choice" type for ambiguous fields (resolveChoice); toDF() converts to a Spark DataFrame for the full SQL/optimizer API. Read dirty → DynamicFrame; transform heavy → DataFrame.' },
+          { h: 'Bookmarks', d: 'Job bookmarks persist processed-state (files/row ranges) keyed by transformation_ctx, giving built-in incrementality across runs with no manual watermark.' },
+          { h: 'Glue versions', d: 'The Glue version pins the Spark/Python runtime; newer versions bring faster startup and Spark upgrades. Streaming jobs run a micro-batch Structured Streaming app.' },
+        ],
+      },
+      security: {
+        lead: 'Glue jobs assume an IAM role and inherit lake governance from Lake Formation. Secrets go in Secrets Manager (referenced by JDBC connections), and network reach to private sources is via Glue Connections bound to a VPC.',
+        bullets: [
+          { h: 'Job IAM role', d: 'The role grants exactly the S3 prefixes, catalog databases and KMS keys the job needs — least privilege per job, not a shared power role.' },
+          { h: 'Lake Formation enforcement', d: 'When tables are LF-governed, the job only sees the columns/rows its principal is granted — fine-grained access is enforced inside the job, not bypassed.' },
+          { h: 'Connections & VPC', d: 'A Glue Connection pins JDBC credentials (via Secrets Manager) and the VPC/subnet/security group, so jobs reach RDS/Redshift privately.' },
+          { h: 'Encryption', d: 'A security configuration encrypts S3 output, CloudWatch logs and job bookmarks with KMS; enforce TLS to data stores.' },
+        ],
+      },
+      operations: {
+        lead: 'Glue is serverless, so operations is about observability, retries, and orchestration rather than cluster care. Jobs emit Spark UI, metrics and logs; triggers/workflows (or Step Functions/EventBridge) coordinate multi-job pipelines.',
+        bullets: [
+          { h: 'Monitoring', d: 'CloudWatch metrics (DPU usage, executors, shuffle), job run logs, and the Spark UI / Glue job run insights pinpoint skew, spills and OOM.' },
+          { h: 'Retries & timeouts', d: 'Each job has a retry count, timeout and max-concurrency; failed runs can rerun, and bookmarks mean a rerun resumes from unprocessed data.' },
+          { h: 'Orchestration', d: 'Glue triggers/workflows chain jobs + crawlers; for cross-service flows, Step Functions or EventBridge start jobs on schedule or on an S3 event.' },
+          { h: 'Data quality', d: 'Glue Data Quality (DQDL rules) can gate a pipeline — fail or quarantine when rows violate expectations.' },
+        ],
+      },
+      cost: {
+        lead: 'Glue ETL bills per DPU-hour, metered by the second with a short per-run minimum — you pay only while a job runs, which is what makes it cheaper than an idle EMR cluster for bursty/scheduled ETL. (Rates vary by region — price against the official Glue pricing page.)',
+        bullets: [
+          { h: 'DPU-hours', d: 'Cost = DPUs × run-seconds. Fewer, right-sized workers that finish faster beat a huge cluster that idles; over-provisioning wastes DPU-seconds.' },
+          { h: 'Startup overhead', d: 'Every run pays provisioning time; very frequent tiny jobs amortize startup poorly — batch them or use the streaming/warm path.' },
+          { h: 'When EMR wins', d: 'For long-running, very large or highly-customized Spark, EMR (especially on Spot) is usually cheaper at steady state; Glue wins on low-ops and bursty schedules.' },
+          { h: 'Cost levers', d: 'Push down partition predicates (read less S3), compact output files, enable bookmarks (process only new data), and right-size worker type/count.' },
+        ],
+      },
+      certMapping: {
+        lead: 'Glue ETL is central to the AWS Data Engineer exam’s ingestion/transformation domain.',
+        items: [
+          { label: 'AWS DEA-C01 (Data Engineer Associate)', certId: 'aws-dea-c01', objectives: ['Data ingestion & transformation', 'Glue vs EMR service selection', 'Incremental processing with bookmarks', 'Orchestration & data quality'] },
         ],
       },
       interview: [
