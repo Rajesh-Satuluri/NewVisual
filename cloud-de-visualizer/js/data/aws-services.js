@@ -2351,6 +2351,100 @@
           { h: 'Credential hygiene', d: 'Prefer short-lived role credentials; rotate or eliminate long-lived access keys.' },
         ],
       },
+      architecture: {
+        lead: 'IAM authorizes every AWS API call. A request is evaluated against the union of applicable policies: identity-based (on the user/role), resource-based (on the bucket/key), permission boundaries, Organizations SCPs, and session policies. The rule is deny-by-default, an explicit Deny (or a boundary/SCP that does not allow) always wins.',
+        bullets: [
+          { h: 'Policy types', d: 'Identity-based (what a principal can do), resource-based (who can act on a resource), permission boundaries (a ceiling on a role’s max permissions), SCPs (org-wide guardrails), and session policies (scope at assume time).' },
+          { h: 'Roles + STS', d: 'A role has a trust policy (who may assume it) and permission policies (what it can do). sts:AssumeRole vends short-lived credentials — services (Glue/EMR/Lambda) and cross-account principals run as roles, so no static keys.' },
+          { h: 'Evaluation order', d: 'Explicit Deny > SCP boundary > permission boundary > resource/identity Allow. A denied request anywhere in that chain fails, which is the mental model for debugging AccessDenied.' },
+          { h: 'Guardrails & review', d: 'IAM Access Analyzer flags resources shared externally and over-broad access; Identity Center provides workforce SSO + permission sets instead of per-account users.' },
+        ],
+      },
+      security: {
+        lead: 'IAM is the security service; its own best practices are the content: least privilege, roles over keys, boundaries/SCPs for guardrails, MFA for humans, and continuous review.',
+        bullets: [
+          { h: 'Least privilege + boundaries', d: 'Scope policies to exact actions/resources; use permission boundaries so even a role’s own admins cannot exceed a ceiling, and SCPs for org-wide guardrails (e.g. deny public S3).' },
+          { h: 'Roles, not long-lived keys', d: 'Services and humans assume roles for short-lived credentials; eliminate static access keys and rotate any that remain.' },
+          { h: 'MFA + conditions', d: 'Require MFA for sensitive actions; tighten with conditions (aws:SourceVpc, aws:SecureTransport, encryption-required).' },
+          { h: 'Review', d: 'Access Analyzer + access advisor (last-used) prune unused permissions; CloudTrail records who did what for audit.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating IAM is policy hygiene, debugging denials methodically, and keeping guardrails current as the platform grows.',
+        bullets: [
+          { h: 'Debugging denies', d: 'Read the error’s action+resource, then check (in order) explicit Deny, SCPs, permission boundary, resource policy, identity policy — the first blocker is the cause.' },
+          { h: 'Policy hygiene', d: 'Prefer managed policies for common roles; prune with access advisor; avoid wildcards that drift into over-permission.' },
+          { h: 'Credential hygiene', d: 'Short-lived role credentials auto-rotate; alarm on long-lived key usage and root-account activity.' },
+          { h: 'Guardrails', d: 'Maintain SCPs and boundaries so new roles cannot exceed policy even by mistake.' },
+        ],
+      },
+      cost: {
+        lead: 'IAM itself has no charge — you pay nothing for users, roles, or policies. The "cost" is operational and risk: over-broad permissions cause breaches/outages, not dollars; IAM Access Analyzer (and most features) are free.',
+        bullets: [
+          { h: 'Free service', d: 'IAM, roles, policies, boundaries and SCPs incur no direct charge.' },
+          { h: 'Risk cost', d: 'Over-permission is the real cost — a compromised over-scoped role can touch far more than it should.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'How a Glue job’s API call is authorized via an assumed role.',
+        steps: [
+          { h: 'Assume the role', d: 'The Glue service calls sts:AssumeRole on the job’s role; the role’s trust policy must allow the Glue service principal, or assumption fails.' },
+          { h: 'Receive short-lived creds', d: 'STS returns temporary credentials scoped to the role’s permissions (and any session policy).' },
+          { h: 'Make the API call', d: 'The job calls, say, s3:GetObject on a prefix using those credentials.' },
+          { h: 'Evaluate policies', d: 'AWS checks the chain: any explicit Deny, SCPs, the role’s permission boundary, the bucket’s resource policy, and the identity policy — all must permit it.' },
+          { h: 'Allow or deny', d: 'If every layer allows and nothing denies, the call succeeds; otherwise AccessDenied names the action/resource.' },
+        ],
+        note: 'Simplified evaluation; the full logic is in the IAM policy-evaluation documentation.',
+      },
+      examples: [{
+        title: 'Least-privilege cross-account role for sharing lake data',
+        requirement: 'Let a partner account read one S3 prefix without copying data or sharing keys, scoped tightly.',
+        input: 'A producer account with lake data; a consumer account that needs read on silver/shared/.',
+        architecture: 'Consumer principal → sts:AssumeRole → producer cross-account role (trust policy) → scoped S3 read.',
+        code: {
+          lang: 'json (trust + permission, illustrative)',
+          text: "// trust policy: who may assume\n{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::CONSUMER:root\"},\"Action\":\"sts:AssumeRole\",\n \"Condition\":{\"StringEquals\":{\"sts:ExternalId\":\"shopkart-2026\"}}}\n// permission policy: what it can do\n{\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\",\"s3:ListBucket\"],\n \"Resource\":[\"arn:aws:s3:::shopkart-lake\",\"arn:aws:s3:::shopkart-lake/silver/shared/*\"]}",
+        },
+        steps: [
+          'Create a role in the producer account with a trust policy for the consumer (+ ExternalId).',
+          'Scope its permission policy to the exact prefix.',
+          'The consumer assumes the role and reads only that prefix.',
+          'Audit usage via CloudTrail.',
+        ],
+        output: 'The partner reads only the shared prefix via short-lived credentials — no data copy, no shared keys.',
+        validation: 'Confirm the consumer can read silver/shared/ but not other prefixes; check CloudTrail for the AssumeRole + S3 calls.',
+        errorHandling: 'AssumeRole failures point to the trust policy / ExternalId; read failures to the permission policy or a bucket policy/SCP Deny.',
+        production: 'Use ExternalId for third parties, scope to exact prefixes, and review with Access Analyzer.',
+        cleanup: 'Delete the role and any bucket-policy grants when the share ends.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'An action fails with AccessDenied even though the role’s identity policy clearly allows it.',
+          evidence: 'The identity policy has the Allow, but the call still fails; an explicit Deny, an SCP, a permission boundary, or a resource policy is blocking it.',
+          causes: ['An explicit Deny somewhere (identity/resource/SCP)', 'An Organizations SCP not permitting the action', 'A permission boundary capping the role below the identity policy', 'The resource policy (bucket/KMS key) not allowing the principal'],
+          investigation: ['Read the exact action+resource in the error', 'Check for explicit Deny, then SCPs, then permission boundary, then resource policy, then identity policy', 'Use the IAM policy simulator / Access Analyzer'],
+          rootCause: 'Authorization is the whole chain, not just the identity policy; the first blocker (Deny/SCP/boundary/resource policy) wins over an identity Allow.',
+          remediation: ['Remove/narrow the explicit Deny, or adjust the SCP/boundary', 'Grant the principal in the resource policy (e.g. KMS key policy for kms:Decrypt)', 'Align all layers to the intended least-privilege'],
+          validation: 'The call succeeds with least privilege and no layer denies it.',
+          prevention: 'Design boundaries/SCPs deliberately and debug denies in evaluation order; use the simulator before shipping roles.',
+        },
+        {
+          symptom: 'A service or account cannot assume a role (AssumeRole fails).',
+          evidence: 'sts:AssumeRole returns access denied; the role’s trust policy does not allow the principal, or the caller lacks sts:AssumeRole, or an ExternalId mismatch.',
+          causes: ['Trust policy does not list the assuming principal/service', 'Caller’s identity policy lacks sts:AssumeRole on the role', 'ExternalId / condition mismatch'],
+          investigation: ['Inspect the role’s trust policy for the principal', 'Check the caller has sts:AssumeRole permission on the role ARN', 'Verify ExternalId/conditions match'],
+          rootCause: 'Role assumption requires both the trust policy to allow the principal and the caller to be permitted to assume — plus any conditions.',
+          remediation: ['Add the principal/service to the trust policy', 'Grant the caller sts:AssumeRole on the role', 'Fix the ExternalId/condition'],
+          validation: 'The principal assumes the role and receives temporary credentials.',
+          prevention: 'Template trust policies per use (service vs cross-account), require ExternalId for third parties, and test assumption.',
+        },
+      ],
+      certMapping: {
+        lead: 'IAM is the identity/authorization foundation in the AWS Data Engineer exam’s security domain.',
+        items: [
+          { label: 'AWS DEA-C01 (Data Engineer Associate)', certId: 'aws-dea-c01', objectives: ['Authentication vs authorization; roles vs users', 'Least-privilege policies for pipelines', 'Policy evaluation, boundaries/SCPs & cross-account access'] },
+        ],
+      },
       interview: [
         { q: 'What is the difference between an IAM role and an IAM user?', a: 'A user is a persistent identity with long-lived credentials, meant for a specific person or app. A role has no long-lived credentials — a trusted principal (a service like Glue/EMR/Lambda, another account, or a federated user) temporarily assumes it and receives short-lived credentials. For data pipelines you almost always use roles so there are no static keys to leak, and permissions auto-expire.' },
         { q: 'Explain least privilege for a Glue job.', a: 'Give the job a dedicated role whose policy allows only the exact actions on the exact resources it needs — e.g. s3:GetObject/PutObject on its input/output prefixes, glue:GetTable/BatchCreatePartition on its databases, and kms:Decrypt on the specific key — rather than s3:* on all buckets. That way a bug or compromise in the job can only touch its own data.' },
@@ -2408,6 +2502,101 @@
         bullets: [
           { h: 'Two permissions, not one', d: 'Reading SSE-KMS data needs both the S3 action and kms:Decrypt on the key.' },
           { h: 'Throttling', d: 'Very high-throughput jobs can hit KMS request limits; data-key caching reduces calls.' },
+        ],
+      },
+      architecture: {
+        lead: 'KMS manages encryption keys and performs cryptographic operations, with the key policy as the primary authorization gate. Bulk data uses envelope encryption: KMS vends a data key that the service uses locally, so the KMS key (CMK) never leaves KMS and large data scales without round-tripping bytes through KMS.',
+        bullets: [
+          { h: 'Key types', d: 'Customer-managed keys (CMK — you control policy/rotation), AWS-managed keys (per-service, auto), and AWS-owned keys. Mostly symmetric; asymmetric keys exist for sign/verify.' },
+          { h: 'Envelope encryption', d: 'The service calls GenerateDataKey, encrypts data with the plaintext data key locally, and stores the KMS-encrypted data key with the data; decryption asks KMS to decrypt the data key, then decrypts locally.' },
+          { h: 'Authorization', d: 'The key policy is the root of trust; IAM policies and grants add access. Using SSE-KMS data needs both the service action (e.g. s3:GetObject) AND kms:Decrypt on the key.' },
+          { h: 'Rotation & scope', d: 'Automatic annual key rotation keeps the key id stable; multi-region keys replicate for cross-region workloads; a CloudHSM custom key store backs keys with dedicated HSMs.' },
+        ],
+      },
+      security: {
+        lead: 'KMS is the encryption-control service: the key policy and grants decide who can encrypt/decrypt, separately from data access — enabling separation of duties and auditable key use.',
+        bullets: [
+          { h: 'Key policy first', d: 'Every CMK has a key policy; without an allow there (or a grant), no IAM policy can use the key — a deliberate independent gate.' },
+          { h: 'Separation of duties', d: 'A team can have S3 access but not kms:Decrypt, so they cannot read encrypted objects — the key owner controls decryption independently.' },
+          { h: 'Grants for services', d: 'Grants give services temporary, scoped key use without broad key-policy edits.' },
+          { h: 'Audit', d: 'Every KMS operation is logged in CloudTrail — who decrypted what, when — for compliance.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating KMS is rotation, key-policy hygiene, and avoiding request throttling on high-throughput data jobs.',
+        bullets: [
+          { h: 'Rotation', d: 'Enable automatic rotation on CMKs; old key material is retained to decrypt existing data, and the key id/ARN stays constant.' },
+          { h: 'Key-policy hygiene', d: 'Grant kms:Decrypt/Encrypt to exactly the roles that need it; avoid a wide-open key policy.' },
+          { h: 'Throttling', d: 'KMS has per-key/account request limits; high-throughput jobs that decrypt per object can hit them — use data-key caching to cut calls.' },
+          { h: 'Monitoring', d: 'CloudTrail + CloudWatch surface key usage and throttling (KMSThrottling).' },
+        ],
+      },
+      cost: {
+        lead: 'KMS bills per CMK per month plus per cryptographic request; AWS-managed keys and the free-tier requests cover light use, but high-throughput decryption (per-object) can run up request cost — data-key caching is the main lever. (Rates vary — price against the official KMS pricing page.)',
+        bullets: [
+          { h: 'Keys + requests', d: 'Each CMK has a monthly charge; Encrypt/Decrypt/GenerateDataKey calls are billed per request.' },
+          { h: 'Data-key caching', d: 'Caching data keys (e.g. in the Encryption SDK) drastically cuts KMS calls on large/high-throughput jobs — both cost and throttling.' },
+          { h: 'Managed vs CMK', d: 'AWS-managed keys avoid the per-key charge but give less control; use CMKs where policy/rotation/audit control matters.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'How an SSE-KMS-encrypted S3 object is read — the two-permission path.',
+        steps: [
+          { h: 'Request the object', d: 'The role calls s3:GetObject on an SSE-KMS-encrypted object; S3 retrieves the ciphertext and the encrypted data key stored with it.' },
+          { h: 'S3 asks KMS to decrypt the data key', d: 'S3 calls kms:Decrypt on the data key using the caller’s context; KMS checks the key policy + the caller’s permission.' },
+          { h: 'Authorize', d: 'If the role has kms:Decrypt on that key (via key policy/IAM/grant), KMS returns the plaintext data key; otherwise AccessDenied — on the key, not the object.' },
+          { h: 'Decrypt locally', d: 'S3 decrypts the object with the data key and returns plaintext to the caller; the CMK never left KMS.' },
+          { h: 'Audit', d: 'The kms:Decrypt call is recorded in CloudTrail.' },
+        ],
+        note: 'Simplified envelope-encryption flow; the CMK stays inside KMS throughout.',
+      },
+      examples: [{
+        title: 'Encrypt a lake bucket with SSE-KMS and grant a Glue role decrypt',
+        requirement: 'Encrypt lake data with a customer-managed key and let only specific pipeline roles read it — separating data access from decryption rights.',
+        input: 'An S3 lake bucket; a Glue job role; a CMK.',
+        architecture: 'CMK (key policy) → S3 default SSE-KMS on the bucket → Glue role granted kms:Decrypt + s3:GetObject.',
+        code: {
+          lang: 'json (key policy stmt, illustrative)',
+          text: "{\"Sid\":\"AllowGlueDecrypt\",\"Effect\":\"Allow\",\n \"Principal\":{\"AWS\":\"arn:aws:iam::ACCT:role/glue-ingest\"},\n \"Action\":[\"kms:Decrypt\",\"kms:GenerateDataKey\"],\n \"Resource\":\"*\"}\n// + bucket default encryption = aws:kms with this CMK\n// + the role's IAM policy grants s3:GetObject on the prefix",
+        },
+        steps: [
+          'Create a CMK and set default SSE-KMS on the bucket.',
+          'Grant the Glue role kms:Decrypt/GenerateDataKey in the key policy.',
+          'Grant the role s3:GetObject/PutObject in IAM.',
+          'Verify reads work only for authorized roles.',
+        ],
+        output: 'Lake data is encrypted at rest; only roles with both S3 and KMS permission can read it, with every decrypt audited.',
+        validation: 'Confirm an authorized role reads objects; a role with S3 but no kms:Decrypt gets AccessDenied on the key; check CloudTrail.',
+        errorHandling: 'AccessDenied on KMS (not S3) means the key policy/role lacks kms:Decrypt; enable data-key caching if KMS throttles.',
+        production: 'Enable rotation; scope the key policy to needed roles; use data-key caching on high-throughput jobs; audit via CloudTrail.',
+        cleanup: 'Remove the key-policy grants; schedule key deletion (with a waiting period) only when no data needs it.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'A role with full S3 access gets AccessDenied reading SSE-KMS objects.',
+          evidence: 'The error references the KMS key (kms:Decrypt), not S3; the role lacks decrypt permission on the CMK.',
+          causes: ['Role not granted kms:Decrypt in the key policy / IAM', 'Wrong CMK (object encrypted with a different key)', 'Cross-account key use without a grant'],
+          investigation: ['Read whether the denied action is kms:Decrypt', 'Check the key policy + the role’s IAM for decrypt on that key', 'Confirm which CMK encrypted the object'],
+          rootCause: 'SSE-KMS requires both S3 access and kms:Decrypt on the key; the key is an independent authorization gate.',
+          remediation: ['Grant the role kms:Decrypt on the specific CMK (key policy and/or IAM)', 'For cross-account, add a grant/key-policy entry for the external principal', 'Point to the correct CMK'],
+          validation: 'The role reads the objects; unauthorized roles still cannot decrypt.',
+          prevention: 'Template key-policy grants alongside S3 grants for pipeline roles.',
+        },
+        {
+          symptom: 'A high-throughput job slows or errors with KMS throttling (ThrottlingException).',
+          evidence: 'KMSThrottling metrics spike; the job decrypts per object/record, hitting the per-key request limit.',
+          causes: ['Per-object/per-record KMS calls exceeding the request limit', 'No data-key caching', 'Many parallel workers all calling KMS'],
+          investigation: ['Check KMS request/throttle metrics', 'Count KMS calls per unit of data', 'Confirm whether caching is enabled'],
+          rootCause: 'The job calls KMS far more often than needed because it does not cache data keys, exceeding the request limit.',
+          remediation: ['Enable data-key caching (reuse a data key across many objects within policy limits)', 'Batch work to reduce distinct KMS calls', 'Request a limit increase for genuine high scale'],
+          validation: 'KMS throttling stops and the job throughput recovers.',
+          prevention: 'Use data-key caching on bulk/high-throughput encryption workloads by default.',
+        },
+      ],
+      certMapping: {
+        lead: 'KMS is the encryption-at-rest control in the AWS Data Engineer exam’s security domain.',
+        items: [
+          { label: 'AWS DEA-C01 (Data Engineer Associate)', certId: 'aws-dea-c01', objectives: ['Encryption at rest (SSE-KMS) for the lake/warehouse', 'Key policies & separation of duties', 'Envelope encryption & the S3+KMS two-permission model'] },
         ],
       },
       interview: [
@@ -2471,6 +2660,101 @@
           { h: 'Cost control', d: 'Retention policies + metric filters keep logging spend in check.' },
         ],
       },
+      architecture: {
+        lead: 'CloudWatch collects metrics (numeric time series in namespaces/dimensions), logs (text in Log Groups/Streams), and fires alarms on metrics; EventBridge routes service events for automation. Most AWS services publish metrics/logs automatically; you add custom metrics, alarms, filters and dashboards on top.',
+        bullets: [
+          { h: 'Metrics', d: 'Standard (1-min) or high-resolution; custom metrics via PutMetricData or the Embedded Metric Format (EMF) from logs; namespaces + dimensions organize them.' },
+          { h: 'Logs & filters', d: 'Log Groups hold pipeline logs; metric filters turn log patterns into metrics, subscription filters stream logs elsewhere, and Logs Insights queries them for the failing stage.' },
+          { h: 'Alarms', d: 'Static-threshold, anomaly-detection, or composite alarms; alarm state changes trigger actions (SNS, EventBridge, auto scaling).' },
+          { h: 'Events (EventBridge)', d: 'Service events (job failed, object created) route to Lambda/Step Functions/SNS for event-driven ops and remediation.' },
+        ],
+      },
+      security: {
+        lead: 'CloudWatch access is IAM-controlled for publishing/reading metrics and logs; log groups can be KMS-encrypted; cross-account observability centralizes monitoring.',
+        bullets: [
+          { h: 'IAM', d: 'Scope who can PutMetricData, read logs, and change alarms; services publish under their own roles.' },
+          { h: 'Log encryption', d: 'Encrypt Log Groups with KMS; restrict read access since logs can contain sensitive data.' },
+          { h: 'Cross-account', d: 'Cross-account observability aggregates metrics/logs into a monitoring account without copying credentials.' },
+          { h: 'Least exposure', d: 'Avoid logging secrets/PII; use metric filters rather than retaining verbose sensitive logs.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating CloudWatch is choosing the right signals/alarms, wiring actions, and controlling log retention/cost.',
+        bullets: [
+          { h: 'Right signals', d: 'Alarm on what matters per service: Glue/Step Functions failures, Lambda Errors/Throttles, Kinesis IteratorAge, job duration for slow-detection.' },
+          { h: 'Alarm actions & missing data', d: 'Route alarms to SNS/EventBridge; set the treat-missing-data behavior so a metric that stops emitting does not silently hide a failure.' },
+          { h: 'Retention & cost', d: 'Set Log Group retention (logs default to never-expire) and avoid over-verbose logging to control ingestion/storage cost.' },
+          { h: 'Diagnosis', d: 'Logs Insights turns "the job failed" into the exact stack trace/step; pair metrics with the Spark/EMR UI for slow jobs.' },
+        ],
+      },
+      cost: {
+        lead: 'CloudWatch bills for custom metrics, alarms, dashboards, logs ingestion + storage, and Logs Insights queries. Logs ingestion and never-expiring retention are the usual surprises. (Rates vary — price against the official CloudWatch pricing page.)',
+        bullets: [
+          { h: 'Logs', d: 'Ingestion (per GB) + storage (retention) dominate; set retention and trim verbose logs.' },
+          { h: 'Metrics & alarms', d: 'Custom metrics and alarms are billed per unit; high-resolution metrics cost more — use them only where needed.' },
+          { h: 'Insights queries', d: 'Logs Insights bills by data scanned — scope time ranges and filters.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'How a pipeline failure becomes a page and a diagnosis.',
+        steps: [
+          { h: 'Metric emitted', d: 'Glue/Step Functions publishes a failure metric (and duration) to CloudWatch automatically.' },
+          { h: 'Alarm evaluates', d: 'A CloudWatch alarm on the failure metric breaches its threshold (with treat-missing-data configured so a stalled metric is not ignored).' },
+          { h: 'Action fires', d: 'The alarm state change notifies an SNS topic (pages on-call) and/or triggers an EventBridge rule to a remediation Lambda.' },
+          { h: 'Diagnose via logs', d: 'On-call opens the Log Group and runs a Logs Insights query to find the failing step/stack trace.' },
+          { h: 'Resolve & confirm', d: 'After the fix, the metric recovers and the alarm returns to OK.' },
+        ],
+        note: 'Simplified; exact metrics/events depend on the services in the pipeline.',
+      },
+      examples: [{
+        title: 'Alarm on Glue + Step Functions failures with Logs Insights diagnosis',
+        requirement: 'Get paged when the pipeline fails and quickly find the cause, without over-retaining logs.',
+        input: 'Glue jobs and a Step Functions state machine emitting metrics/logs.',
+        architecture: 'Glue/SFN metrics → CloudWatch alarms → SNS (on-call); logs → Log Group (retention set) → Logs Insights.',
+        code: {
+          lang: 'text / logs-insights (illustrative)',
+          text: "ALARM glue_failures >= 1 (5m), treat-missing-data=breaching -> SNS data-oncall\nALARM sfn_ExecutionsFailed >= 1 (5m) -> SNS data-oncall\n\n-- Logs Insights: find the failing step\nfields @timestamp, @message\n| filter @message like /ERROR|Exception/\n| sort @timestamp desc | limit 20",
+        },
+        steps: [
+          'Create alarms on Glue/Step Functions failure metrics → SNS.',
+          'Set treat-missing-data so a stalled metric still alerts.',
+          'Set Log Group retention to a sensible window.',
+          'Use a saved Logs Insights query to find failures fast.',
+        ],
+        output: 'On-call is paged on failures and can pinpoint the cause in seconds, with bounded log cost.',
+        validation: 'Force a failure and confirm the page fires and the Insights query surfaces the error; verify retention is applied.',
+        errorHandling: 'treat-missing-data=breaching prevents a stopped metric from hiding an outage; composite alarms reduce noise.',
+        production: 'Encrypt log groups; avoid logging secrets; tune retention; use composite alarms to cut alert fatigue.',
+        cleanup: 'Delete alarms, dashboards, and Log Groups when decommissioning.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'The CloudWatch Logs bill grows steadily and surprises the team.',
+          evidence: 'Log Groups have no retention (never-expire) and/or very verbose logging; ingestion GB is high.',
+          causes: ['Default never-expire retention accumulating logs forever', 'Over-verbose DEBUG logging in production', 'Insights queries over huge unfiltered ranges'],
+          investigation: ['Check Log Group retention settings and stored bytes', 'Review log verbosity', 'Look at Insights query scan volume'],
+          rootCause: 'Logs ingestion + indefinite retention accumulate cost; CloudWatch does not expire logs unless you set retention.',
+          remediation: ['Set retention on all Log Groups', 'Reduce log verbosity / sample in prod', 'Scope Insights queries by time/filter'],
+          validation: 'Stored bytes and ingestion stabilize; the bill flattens.',
+          prevention: 'Set retention at Log Group creation (IaC) and keep prod logging at the right level.',
+        },
+        {
+          symptom: 'A real failure happened but no alarm fired.',
+          evidence: 'The alarm is on the wrong metric/statistic, or the metric stopped emitting and treat-missing-data=notBreaching hid it.',
+          causes: ['Alarm on an unsuitable metric/statistic/period', 'Metric not emitted (job did not run) with treat-missing-data=missing/notBreaching', 'Threshold set so it never triggers'],
+          investigation: ['Verify which metric/statistic/period the alarm uses', 'Check the treat-missing-data setting', 'Confirm the metric is actually published when the failure occurs'],
+          rootCause: 'The alarm did not reflect the failure condition — wrong metric, or missing-data handling that treats "no data" as healthy.',
+          remediation: ['Alarm on the correct failure metric/statistic', 'Set treat-missing-data=breaching for "job must run" metrics', 'Add a composite/heartbeat alarm for absence of runs'],
+          validation: 'A simulated failure (including a missed run) now triggers the alarm.',
+          prevention: 'Review alarm metric + missing-data semantics; alert on absence as well as failure.',
+        },
+      ],
+      certMapping: {
+        lead: 'CloudWatch is the monitoring/observability service in the AWS Data Engineer exam’s maintain-and-monitor domain.',
+        items: [
+          { label: 'AWS DEA-C01 (Data Engineer Associate)', certId: 'aws-dea-c01', objectives: ['Monitor pipelines (metrics/logs/alarms)', 'Failure alerting & event-driven remediation', 'Troubleshoot slow jobs; control log cost'] },
+        ],
+      },
       interview: [
         { q: 'How would you monitor a Glue/Step Functions pipeline and get alerted on failures?', a: 'Glue and Step Functions publish metrics and logs to CloudWatch automatically. I create CloudWatch alarms on the failure metrics (and on duration/latency for slow-job detection), wire alarm state changes to an SNS topic for paging, and optionally use an EventBridge rule on the "execution failed" event to trigger an automated retry or remediation Lambda. Logs go to a Log Group that I query with Logs Insights to find the failing step.' },
         { q: 'A streaming consumer is falling behind — which CloudWatch signal tells you, and what do you do?', a: 'The Kinesis GetRecords.IteratorAge metric rising means consumers are lagging the stream. I alarm on it, then scale out consumers (more shards/parallelism), check for a slow downstream write or a poison record, and confirm the lag drops. It is the standard streaming back-pressure signal.' },
@@ -2528,6 +2812,101 @@
         bullets: [
           { h: 'Scope data events', d: 'Turn object-level logging on only where you need it to avoid cost blow-ups.' },
           { h: 'Not real-time', d: 'Use CloudWatch for immediate alarms; CloudTrail for the durable record.' },
+        ],
+      },
+      architecture: {
+        lead: 'CloudTrail records AWS API activity as events. Management events (control-plane calls) are captured by default and the first copy is free; data events (object-level, e.g. S3 GetObject) are high-volume and opt-in; Insights events flag unusual activity. A trail delivers events durably to S3 (and optionally CloudWatch Logs); CloudTrail Lake offers a queryable event store.',
+        bullets: [
+          { h: 'Event types', d: 'Management (who changed what configuration), data (who read/wrote which object/row — opt-in, high volume), and Insights (anomalous call-rate detection).' },
+          { h: 'Trails & scope', d: 'Multi-region and organization trails capture across regions/accounts; delivery goes to a (locked-down) S3 bucket, optionally mirrored to CloudWatch Logs for alarms.' },
+          { h: 'Integrity', d: 'Log-file integrity validation (digest files) proves the audit log was not tampered with — important for compliance.' },
+          { h: 'Querying', d: 'Query delivered logs with Athena, or use CloudTrail Lake (an immutable, SQL-queryable event store) for investigations.' },
+        ],
+      },
+      security: {
+        lead: 'CloudTrail is an audit service, so protecting the trail itself is the point: a locked-down, encrypted destination, integrity validation, and broad-but-least-exposed coverage.',
+        bullets: [
+          { h: 'Protect the trail bucket', d: 'Deliver to a dedicated, access-restricted S3 bucket (ideally a separate security account) with a bucket policy that blocks tampering; enable SSE-KMS.' },
+          { h: 'Integrity validation', d: 'Enable log-file validation so you can prove events were not altered or deleted.' },
+          { h: 'Org-wide coverage', d: 'An organization multi-region trail ensures no account/region escapes auditing.' },
+          { h: 'Least exposure', d: 'Restrict who can read the audit logs and who can stop/modify trails.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating CloudTrail is scoping data events for cost, ensuring full coverage, querying for investigations, and remembering it is not real-time.',
+        bullets: [
+          { h: 'Scope data events', d: 'Object-level logging is high-volume — enable it selectively on sensitive buckets/prefixes to avoid cost blow-ups.' },
+          { h: 'Coverage', d: 'Use a multi-region org trail so new regions/accounts are covered automatically; verify delivery is healthy.' },
+          { h: 'Querying', d: 'Athena over the trail bucket (or CloudTrail Lake) answers "who did/read X, when"; event history gives the last 90 days without a trail.' },
+          { h: 'Not real-time', d: 'Delivery has a short lag — use CloudWatch for immediate alarms; CloudTrail is the durable record (you can also route to CW Logs to alarm on sensitive actions).' },
+        ],
+      },
+      cost: {
+        lead: 'Management events’ first copy is free; additional copies, data events, and Insights events are billed per event, and CloudTrail Lake bills ingestion/storage/query. Data events on everything are the classic cost blow-up. (Rates vary — price against the official CloudTrail pricing page.)',
+        bullets: [
+          { h: 'Management ~free', d: 'The first trail’s management events are free; extra trails/copies add cost.' },
+          { h: 'Data events', d: 'Object-level events are billed per event and can be enormous — scope them to sensitive resources only.' },
+          { h: 'Lake & storage', d: 'CloudTrail Lake and S3 storage of logs add cost; set S3 lifecycle on the trail bucket.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'How an audit question ("who read this dataset?") is answered end to end.',
+        steps: [
+          { h: 'Enable data events', d: 'Turn on S3 data events for the sensitive bucket/prefix on a multi-region trail (management events are already on).' },
+          { h: 'Events recorded', d: 'Each GetObject/PutObject on that prefix is recorded with principal, time, source IP, and resource.' },
+          { h: 'Deliver durably', d: 'Events are delivered to the locked-down, encrypted trail S3 bucket (integrity-validated).' },
+          { h: 'Query', d: 'Run Athena over the trail (or CloudTrail Lake SQL) filtering on the resource + time range to list who accessed it.' },
+          { h: 'Act / report', d: 'Produce the access report for compliance, or alarm on sensitive actions via CloudWatch Logs.' },
+        ],
+        note: 'Simplified; delivery has a short lag, so this is audit/forensics, not real-time alerting.',
+      },
+      examples: [{
+        title: 'Answer "who read this sensitive dataset last month?" with S3 data events',
+        requirement: 'Prove exactly which principals read a sensitive S3 prefix over a time range, for a compliance request.',
+        input: 'A sensitive S3 prefix; a multi-region CloudTrail trail delivering to a secure bucket.',
+        architecture: 'S3 data events (sensitive prefix) → CloudTrail → secure S3 trail bucket → Athena query.',
+        code: {
+          lang: 'sql (athena over cloudtrail, illustrative)',
+          text: "SELECT useridentity.arn AS who, sourceipaddress, eventtime,\n       requestparameters\nFROM cloudtrail_logs\nWHERE eventname = 'GetObject'\n  AND requestparameters LIKE '%shopkart-lake/silver/pii/%'\n  AND eventtime BETWEEN '2026-09-01' AND '2026-10-01'\nORDER BY eventtime;",
+        },
+        steps: [
+          'Enable S3 data events on the sensitive prefix (multi-region trail).',
+          'Deliver to a locked-down, encrypted trail bucket with integrity validation.',
+          'Query with Athena filtering resource + time range.',
+          'Produce the principal/IP/time access report.',
+        ],
+        output: 'A precise list of who read the dataset, when, and from where — defensible for audit.',
+        validation: 'Confirm a test read appears in the query results; verify log-file integrity validation passes.',
+        errorHandling: 'If reads are missing, data events were not enabled for that prefix (or before the read); scope events to control cost.',
+        production: 'Keep the trail bucket in a separate security account, SSE-KMS encrypted, with validation on; scope data events to sensitive resources.',
+        cleanup: 'Disable the data events and lifecycle-expire old trail logs when no longer required.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'CloudTrail costs spike unexpectedly.',
+          evidence: 'Billing shows a surge in data events; object-level logging was enabled broadly (e.g. all S3 buckets) on a high-traffic lake.',
+          causes: ['S3 data events enabled on everything, not just sensitive prefixes', 'Multiple redundant trails copying the same events', 'Insights events on very high call volumes'],
+          investigation: ['Check which resources have data events enabled', 'Count trails and overlap', 'Review data-event volume by resource'],
+          rootCause: 'Data events are billed per event and are enormous on busy buckets; blanket object-level logging drives the cost.',
+          remediation: ['Scope data events to sensitive buckets/prefixes only', 'Consolidate to one org multi-region trail', 'Limit Insights events to where needed'],
+          validation: 'Data-event volume and cost drop while sensitive resources stay audited.',
+          prevention: 'Enable data events selectively by design; one org trail; monitor data-event volume.',
+        },
+        {
+          symptom: 'An investigation finds no audit record of an access that definitely happened.',
+          evidence: 'Management events exist but the object-level read is absent; data events were not enabled for that resource, or the trail did not cover that region/account, or you only used 90-day event history.',
+          causes: ['Data events not enabled for that resource (reads are not in management events)', 'Trail not multi-region/org, missing that region/account', 'Relying on 90-day event history for an older period with no trail'],
+          investigation: ['Check whether data events were enabled for the resource/time', 'Verify trail region/account coverage', 'Confirm whether a durable trail (vs event history) existed then'],
+          rootCause: 'The event was never captured — object-level reads need data events, and coverage/retention must include the time/region.',
+          remediation: ['Enable data events on sensitive resources going forward', 'Use an org multi-region trail for full coverage', 'Retain trail logs in S3 beyond the 90-day event-history window'],
+          validation: 'New accesses to the resource are recorded and queryable for the required retention.',
+          prevention: 'Stand up an org multi-region trail with scoped data events and long retention before you need it.',
+        },
+      ],
+      certMapping: {
+        lead: 'CloudTrail is the audit/governance service in the AWS Data Engineer exam’s security/compliance domain.',
+        items: [
+          { label: 'AWS DEA-C01 (Data Engineer Associate)', certId: 'aws-dea-c01', objectives: ['Audit data/API access (CloudTrail vs CloudWatch)', 'Data events for sensitive-data access', 'Querying audit logs & protecting the trail'] },
         ],
       },
       interview: [
