@@ -884,6 +884,91 @@
           { h: 'Track your position', d: 'Persist the last _commit_version consumed so each run reads only new changes.' },
         ],
       },
+      architecture: {
+        lead: 'CDF is a Delta table feature that exposes row-level changes per commit. Enabled via a table property, each commit’s inserts/updates/deletes become readable with change metadata, so a consumer can read exactly what changed in a version/timestamp range instead of rescanning the table.',
+        bullets: [
+          { h: 'Change metadata', d: 'Each changed row carries _change_type (insert / update_preimage / update_postimage / delete), _commit_version and _commit_timestamp.' },
+          { h: 'Read by range', d: 'readChangeFeed between startingVersion/timestamp and an end returns just that window — as a batch or a stream.' },
+          { h: 'Pre/post images', d: 'Updates yield both old and new row, so consumers can compute precise deltas.' },
+          { h: 'Post-enablement only', d: 'Only changes after CDF was enabled are captured, and change data is subject to the table’s retention (VACUUM).' },
+        ],
+      },
+      security: {
+        lead: 'CDF inherits the Delta table’s governance — Unity Catalog grants and storage encryption apply to the change feed exactly as to the table.',
+        bullets: [
+          { h: 'UC governance', d: 'Reading the change feed requires the same UC access as reading the table; grants/masks/row filters apply.' },
+          { h: 'Encryption', d: 'Change data lives in the table’s storage, encrypted by the object store.' },
+          { h: 'Scoping', d: 'The consumer identity needs read on the source table/feed only.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating CDF is tracking consumer position, managing retention, and accepting a small write overhead.',
+        bullets: [
+          { h: 'Track position', d: 'Persist the last _commit_version consumed so each run reads only new changes (streaming checkpoints do this automatically).' },
+          { h: 'Retention', d: 'VACUUM / retention can remove change data beyond the window — read before it ages out, and set retention to your consumer’s cadence.' },
+          { h: 'Enable early', d: 'Pre-enablement history is unavailable; enable CDF when the table is created if you may need it.' },
+          { h: 'Write overhead', d: 'CDF adds some write-side cost to record changes — enable it where you actually consume the feed.' },
+        ],
+      },
+      cost: {
+        lead: 'CDF costs are the small write-side overhead to record change data plus its storage; the saving is downstream — incremental propagation avoids recomputing whole tables. (Compute/storage rates vary — price against the official Databricks pricing page.)',
+        bullets: [
+          { h: 'Write overhead + storage', d: 'Recording changes adds a little write cost and stores change data under retention.' },
+          { h: 'Downstream savings', d: 'Processing only changed rows (vs full recompute) is the big compute saving.' },
+          { h: 'Enable selectively', d: 'Turn CDF on only for tables whose changes you consume.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'How CDF drives an incremental Silver→Gold update.',
+        steps: [
+          { h: 'Enable CDF', d: 'Set delta.enableChangeDataFeed=true on the Silver table (ideally at creation).' },
+          { h: 'Changes recorded', d: 'Each Silver commit records row-level changes with _change_type and _commit_version.' },
+          { h: 'Consumer reads new changes', d: 'The Gold job calls readChangeFeed from the last processed version to now, getting only changed rows.' },
+          { h: 'Apply to Gold', d: 'It MERGEs/aggregates just those changes into Gold (using pre/post images for precise deltas).' },
+          { h: 'Advance position', d: 'It persists the latest _commit_version so the next run resumes incrementally.' },
+        ],
+        note: 'Simplified; a streaming read checkpoints the position automatically.',
+      },
+      examples: [{
+        title: 'Incremental Silver→Gold aggregation via Change Data Feed',
+        requirement: 'Keep a Gold aggregate current from Silver by processing only changed rows, not recomputing the whole table.',
+        input: 'A Silver Delta table with CDF enabled.',
+        architecture: 'Silver (CDF) → readChangeFeed(startingVersion=last) → compute delta → MERGE into Gold → persist version.',
+        code: {
+          lang: 'pyspark (illustrative)',
+          text: "ALTER TABLE silver.orders SET TBLPROPERTIES (delta.enableChangeDataFeed = true);\n\nchanges = (spark.read.format('delta')\n  .option('readChangeFeed','true')\n  .option('startingVersion', last_version)\n  .table('silver.orders'))\n# use _change_type / post-images to update gold incrementally, then record max(_commit_version)",
+        },
+        steps: [
+          'Enable CDF on the Silver table.',
+          'Read changes since the last processed version.',
+          'Apply only those changes to Gold (MERGE/aggregate).',
+          'Persist the latest commit version for the next run.',
+        ],
+        output: 'A Gold table kept current by processing only changed rows — far cheaper than full recompute.',
+        validation: 'Compare incremental Gold to a full recompute for a window; confirm a no-change run processes 0 rows.',
+        errorHandling: 'If the consumer lags past retention, change data may be gone — widen retention or fall back to a one-time full recompute, then resume incrementally.',
+        production: 'Enable CDF early; set retention to consumer cadence; persist/checkpoint the position; enable only on consumed tables.',
+        cleanup: 'Disable CDF if no longer consumed; normal VACUUM manages change-data storage.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'A CDF consumer finds expected changes missing or fails to read a version range.',
+          evidence: 'CDF was enabled after the changes occurred, or VACUUM/retention removed the change data for the requested range, or the consumer’s last version is older than retention.',
+          causes: ['CDF enabled too late (pre-enablement history absent)', 'Change data aged out by retention/VACUUM before consumption', 'Consumer fell behind beyond the retention window'],
+          investigation: ['Check when CDF was enabled vs the needed range', 'Review table retention/VACUUM vs consumer cadence', 'Compare the consumer’s last version to available history'],
+          rootCause: 'CDF only has post-enablement changes within retention; a late enablement or a lagging consumer leaves gaps.',
+          remediation: ['Enable CDF early (at table creation where possible)', 'Increase retention to exceed the max consumer gap', 'On a gap, do a one-time full recompute then resume incrementally'],
+          validation: 'The consumer reads a continuous change stream with no gaps.',
+          prevention: 'Enable CDF upfront, size retention to consumer cadence, and alarm on consumer lag.',
+        },
+      ],
+      certMapping: {
+        lead: 'CDF is the Delta change-propagation feature tested in Databricks certifications for incremental pipelines/CDC.',
+        items: [
+          { label: 'Databricks Data Engineer Associate', certId: 'dbx-de-associate', objectives: ['Enable & read Change Data Feed', 'Incremental Silver→Gold propagation', 'Change metadata (_change_type/_commit_version)'] },
+          { label: 'Databricks Data Engineer Professional', certId: 'dbx-de-professional', objectives: ['CDF retention & consumer position', 'CDC patterns (CDF + MERGE / APPLY CHANGES)'] },
+        ],
+      },
       interview: [
         { q: 'What is Delta Change Data Feed and when would you use it?', a: 'CDF makes a Delta table expose its row-level changes (insert, update pre/post image, delete) with commit version/timestamp metadata. You use it to propagate changes downstream incrementally — e.g. MERGE only the rows that changed in Silver into Gold, or replicate changes to another system — instead of rescanning and recomputing the entire table. Enable it with a table property; it captures changes made after enablement.' },
         { q: 'How is CDF different from just time-travelling between two versions?', a: 'Time travel gives you full table snapshots at two versions; you’d have to diff them yourself to find changes. CDF directly emits the changed rows with a _change_type (and both pre- and post-images for updates), so consumers get precise, ready-to-apply change records without computing a diff — far more efficient for incremental downstream updates.' },
@@ -1244,6 +1329,102 @@
           { h: 'Start latency', d: 'Classic clusters take minutes to start; pools/serverless mitigate it.' },
         ],
       },
+      architecture: {
+        lead: 'A Databricks cluster is a driver + worker nodes running the Databricks Runtime (Spark + optimizations, optionally Photon). Three shapes — all-purpose (interactive/shared), job (ephemeral per run), serverless (managed pool) — and the access mode determines Unity Catalog compatibility and isolation.',
+        bullets: [
+          { h: 'Driver + workers', d: 'The driver plans the DAG and hosts the Spark session; workers run executors. You pick runtime version, node types, and worker count or an autoscaling range.' },
+          { h: 'Cluster shapes', d: 'All-purpose (persistent, shareable, autoscale + auto-terminate); job (created per run, isolated, cheaper); serverless (instant, no sizing).' },
+          { h: 'Access modes', d: 'Single-user vs shared access mode gate Unity Catalog features and isolation — shared enables multi-user UC governance, single-user for certain libraries/workloads.' },
+          { h: 'Pools & policies', d: 'Instance pools keep warm VMs to cut start latency; cluster policies constrain what clusters users can create (types, sizes, modes) for governance/cost.' },
+        ],
+      },
+      security: {
+        lead: 'Cluster security is access mode (UC compatibility/isolation), cluster policies, and keeping credentials off the cluster.',
+        bullets: [
+          { h: 'Access mode + UC', d: 'Shared access mode enforces Unity Catalog governance for multiple users; single-user binds to one principal. Pick per workload/governance need.' },
+          { h: 'Cluster policies', d: 'Policies restrict instance types, sizes, access modes and spark configs — guardrails for cost and security across a workspace.' },
+          { h: 'No secrets on cluster', d: 'Storage access flows through UC external locations/credentials, not cluster keys; read secrets from secret scopes at runtime.' },
+          { h: 'Init scripts', d: 'Govern init scripts (store in UC/workspace, not arbitrary locations) to avoid supply-chain risk on startup.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating clusters is cost hygiene (auto-terminate/job clusters), start-latency mitigation (pools/serverless), autoscaling, and runtime upgrades.',
+        bullets: [
+          { h: 'Auto-terminate + job clusters', d: 'Idle all-purpose clusters are the classic money leak — set auto-termination and run production on ephemeral job clusters.' },
+          { h: 'Start latency', d: 'Classic clusters take minutes to start; instance pools or serverless remove most of the cold-start.' },
+          { h: 'Autoscaling', d: 'Scale workers between min/max with load; size to the job, not the peak-of-peaks.' },
+          { h: 'Runtime & monitoring', d: 'Keep the Databricks Runtime current (Photon for SQL/ETL); use the Spark UI/metrics to find bottlenecks.' },
+        ],
+      },
+      cost: {
+        lead: 'Cost = DBUs (by runtime/tier and cluster type) + the underlying cloud VMs. The biggest leak is idle all-purpose clusters; the levers are job clusters, auto-termination, autoscaling, spot workers, and pools/serverless. (DBU + VM rates vary — price against the official pricing page.)',
+        bullets: [
+          { h: 'Idle = waste', d: 'An all-purpose cluster left running bills DBUs + VMs for nothing — auto-terminate and prefer job clusters for schedules.' },
+          { h: 'Spot workers', d: 'Spot/low-priority worker VMs cut cost for fault-tolerant jobs (keep the driver/critical on-demand).' },
+          { h: 'Right-size + pools', d: 'Autoscale and right node types; pools amortize start cost for frequent jobs; serverless removes idle.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'Lifecycle of a scheduled job on an ephemeral job cluster.',
+        steps: [
+          { h: 'Job triggers', d: 'A Workflow run requests its job cluster spec (runtime, nodes, autoscale, from a pool if configured).' },
+          { h: 'Provision', d: 'Databricks allocates the driver + workers (fast from a warm pool, or serverless instantly); init scripts run.' },
+          { h: 'Execute', d: 'The driver plans the Spark DAG and workers run it, autoscaling within the range for the load.' },
+          { h: 'Govern access', d: 'Under shared/single-user access mode, Unity Catalog authorizes data access with scoped credentials.' },
+          { h: 'Terminate', d: 'When the job finishes, the job cluster tears down so billing stops — no idle cost.' },
+        ],
+        note: 'Simplified; serverless skips the provisioning step you manage.',
+      },
+      examples: [{
+        title: 'Dev on an auto-terminating all-purpose cluster; prod on a policy-governed job cluster',
+        requirement: 'Give developers interactive compute without idle waste, and run production on isolated, right-sized, governed compute.',
+        input: 'A dev team; scheduled production Workflows.',
+        architecture: 'All-purpose cluster (autoscale + auto-terminate) for dev; job clusters (from a pool, under a cluster policy) for prod runs.',
+        code: {
+          lang: 'json (cluster policy sketch, illustrative)',
+          text: "{\n  \"spark_version\": {\"type\":\"allowlist\",\"values\":[\"15.x\"]},\n  \"node_type_id\": {\"type\":\"allowlist\",\"values\":[\"Standard_DS4_v2\"]},\n  \"autotermination_minutes\": {\"type\":\"range\",\"maxValue\":30},\n  \"data_security_mode\": {\"type\":\"fixed\",\"value\":\"USER_ISOLATION\"}\n}",
+        },
+        steps: [
+          'Create an all-purpose cluster with autoscale + a 30-min auto-termination.',
+          'Define a cluster policy constraining types/sizes/access mode.',
+          'Run production Workflows on job clusters under the policy (from a pool).',
+          'Use serverless for SQL/BI to remove sizing.',
+        ],
+        output: 'No idle-cluster waste, isolated/right-sized production compute, and governed cluster creation.',
+        validation: 'Confirm the dev cluster auto-terminates when idle; prod runs on ephemeral job clusters; policy blocks oversized/non-compliant clusters.',
+        errorHandling: 'Cluster policies prevent accidental oversizing; pools cut cold-start failures on frequent jobs.',
+        production: 'Auto-terminate + job clusters + policies + spot workers; keep runtime current; monitor via Spark UI.',
+        cleanup: 'Delete pools/policies and clusters when decommissioning.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'Databricks compute spend is high relative to actual work done.',
+          evidence: 'All-purpose clusters run idle (no auto-termination); production uses long-lived interactive clusters; oversized nodes.',
+          causes: ['Idle all-purpose clusters left running', 'Production on persistent clusters instead of job clusters', 'Oversized nodes / no autoscaling / no spot'],
+          investigation: ['Check cluster uptime vs active workload', 'See whether prod uses job vs all-purpose clusters', 'Review node sizes/autoscaling/spot usage'],
+          rootCause: 'Idle and oversized persistent compute bills DBUs + VMs for nothing — the classic Databricks cost leak.',
+          remediation: ['Set auto-termination on interactive clusters', 'Move production to ephemeral job clusters (or serverless)', 'Autoscale, right-size, and use spot workers for fault-tolerant jobs'],
+          validation: 'Idle cost disappears; DBU/VM spend tracks actual workload.',
+          prevention: 'Enforce auto-termination and job clusters via cluster policies; prefer serverless for spiky work.',
+        },
+        {
+          symptom: 'Jobs are slow to start or a workload cannot use Unity Catalog features on a cluster.',
+          evidence: 'Minutes of cold-start per run; or UC fine-grained features unavailable because the cluster is in the wrong access mode.',
+          causes: ['Classic cluster cold-start with no pool/serverless', 'Wrong access mode for the UC feature/workload', 'Frequent small jobs each paying startup'],
+          investigation: ['Measure cluster start time vs run time', 'Check the cluster’s access/data-security mode vs UC requirements', 'See whether a pool/serverless is used'],
+          rootCause: 'Either cold-start dominates (no warm pool/serverless) or the access mode does not support the UC governance the workload needs.',
+          remediation: ['Use instance pools or serverless to cut start latency', 'Set the correct access mode (shared for multi-user UC)', 'Consolidate tiny jobs or use a shared job cluster across tasks'],
+          validation: 'Start latency drops and UC features work as expected.',
+          prevention: 'Default to pools/serverless for frequent jobs and pick the access mode for the governance needs upfront.',
+        },
+      ],
+      certMapping: {
+        lead: 'Cluster/compute selection is tested across Databricks certifications for cost, isolation and governance.',
+        items: [
+          { label: 'Databricks Data Engineer Associate', certId: 'dbx-de-associate', objectives: ['All-purpose vs job vs serverless', 'Autoscaling, auto-termination, pools', 'Access modes & Unity Catalog compatibility'] },
+          { label: 'Databricks Data Engineer Professional', certId: 'dbx-de-professional', objectives: ['Cost optimization (job clusters, spot, policies)', 'Cluster policies & governance', 'Right-sizing & start-latency strategy'] },
+        ],
+      },
       interview: [
         { q: 'All-purpose vs job clusters — when do you use each?', a: 'All-purpose (interactive) clusters are persistent and shareable for notebooks, exploration and collaboration. Job clusters are created for a specific scheduled job run and terminated when it finishes. Use all-purpose for development/interactive work; use job clusters for production pipelines because they are isolated (no noisy-neighbour), right-sized per job, and cheaper since you never pay for idle time.' },
         { q: 'What is serverless compute and what problem does it solve?', a: 'Serverless compute is Databricks-managed compute where you don’t choose instance types or worker counts and get near-instant startup from a managed warm pool. It removes cluster sizing/tuning and cold-start latency — the main operational pain of classic clusters — and is available for SQL warehouses, jobs and notebooks, billed for actual usage.' },
@@ -1467,6 +1648,102 @@
           { h: 'Reproducibility depends on inputs', d: 'Log data versions (e.g. Delta version) alongside runs to truly reproduce a model.' },
         ],
       },
+      architecture: {
+        lead: 'MLflow organizes ML work into tracked runs and registered models. Tracking logs params/metrics/artifacts to a backend + artifact store; the Model Registry versions models with aliases/stages; MLflow Models package a model with its flavor + signature for consistent batch or real-time serving. On Databricks the registry lives in Unity Catalog.',
+        bullets: [
+          { h: 'Tracking', d: 'Runs (grouped in experiments) log params, metrics and artifacts (model files, plots); autolog captures them for popular frameworks with one call.' },
+          { h: 'Model Registry (UC)', d: 'Versioned models with aliases (e.g. @champion) / stage transitions and approvals; registered as UC objects they inherit grants, lineage and audit.' },
+          { h: 'Models + signature', d: 'A standard flavor plus an input/output signature so a model trained in sklearn/PyTorch/Spark deploys the same and validates inputs.' },
+          { h: 'Serving', d: 'Real-time Model Serving endpoints (managed compute, scale-to-zero) or batch scoring on clusters/jobs.' },
+        ],
+      },
+      security: {
+        lead: 'On Databricks, MLflow models are governed by Unity Catalog like data; serving endpoints and secrets add runtime protection.',
+        bullets: [
+          { h: 'UC-governed models', d: 'Registered models get UC grants/lineage/audit — control who can read/deploy/promote a model.' },
+          { h: 'Serving auth', d: 'Real-time endpoints require authenticated access; scope tokens/identities to callers.' },
+          { h: 'Secrets', d: 'Pull any external credentials the model needs from secret scopes, not baked into the artifact.' },
+          { h: 'Lineage', d: 'UC ties the model to the data/features that produced it for audit.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating MLflow is the promotion workflow, reproducibility hygiene, serving scaling, and model monitoring.',
+        bullets: [
+          { h: 'Promotion', d: 'Use aliases/stages + approvals to move a model experiment → production with lineage; automate via Workflows.' },
+          { h: 'Reproducibility', d: 'Log the data version (e.g. Delta version) and code version with the run so a model can be truly reproduced.' },
+          { h: 'Serving scaling', d: 'Real-time endpoints scale to traffic (scale-to-zero cuts idle cost but adds cold start); batch scoring runs on job clusters.' },
+          { h: 'Monitoring', d: 'Track model/endpoint metrics and input drift to catch degradation; retrain via a scheduled job.' },
+        ],
+      },
+      cost: {
+        lead: 'Tracking/registry are lightweight (logging + metadata); real cost is serving-endpoint compute and batch scoring. Scale-to-zero and right-sized endpoints are the levers. (Serving/compute rates vary — price against the official Databricks pricing page.)',
+        bullets: [
+          { h: 'Tracking cheap', d: 'Logging runs and registering models is inexpensive metadata/artifact storage.' },
+          { h: 'Serving compute', d: 'Real-time endpoints bill for provisioned compute; scale-to-zero removes idle but adds cold-start latency.' },
+          { h: 'Batch vs real-time', d: 'Batch scoring on ephemeral job clusters is cheaper when latency is not critical.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'From training run to a governed, served model.',
+        steps: [
+          { h: 'Train with tracking', d: 'A training job runs with autolog; params, metrics and the model artifact are logged to the tracking store (plus data/code version).' },
+          { h: 'Compare runs', d: 'Runs in the experiment are compared on metrics to pick the best model.' },
+          { h: 'Register in UC', d: 'The winning model is registered as a UC model version (governed, with lineage).' },
+          { h: 'Promote', d: 'An alias/stage transition (with approval) marks it production — e.g. set @champion.' },
+          { h: 'Serve', d: 'A real-time endpoint or batch job loads the production version and scores; monitoring watches drift.' },
+        ],
+        note: 'Simplified; exact promotion/approval depends on the registry workflow.',
+      },
+      examples: [{
+        title: 'Train on Gold features, register in UC, promote and serve',
+        requirement: 'Build a governed, reproducible model pipeline from Gold features to a production serving endpoint.',
+        input: 'Gold feature tables in Unity Catalog.',
+        architecture: 'Workflow: train (autolog) → compare runs → register UC model → set @champion → Model Serving endpoint (or batch scoring).',
+        code: {
+          lang: 'python (illustrative)',
+          text: "import mlflow\nmlflow.set_registry_uri('databricks-uc')\nmlflow.sklearn.autolog()\nwith mlflow.start_run():\n    model.fit(X, y)   # logs params/metrics/model\n    mlflow.log_param('data_version', delta_version)  # reproducibility\nmv = mlflow.register_model(run_uri, 'main.ml.churn')\nMlflowClient().set_registered_model_alias('main.ml.churn','champion', mv.version)",
+        },
+        steps: [
+          'Train with autolog; log the data/code version for reproducibility.',
+          'Register the best run’s model in Unity Catalog.',
+          'Set a production alias (with approval) to promote it.',
+          'Serve via a real-time endpoint or batch scoring job.',
+        ],
+        output: 'A governed, reproducible model promoted through UC and served, with lineage back to data/params.',
+        validation: 'Confirm the run logs metrics + data version; the UC model shows the version/alias; the endpoint serves predictions.',
+        errorHandling: 'Log data/code versions so a model is reproducible; a model signature validates serving inputs (catching training-serving skew).',
+        production: 'Govern models in UC; automate promotion via Workflows; monitor drift; scale-to-zero endpoints for cost.',
+        cleanup: 'Delete endpoints and archived model versions; remove the training job if decommissioning.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'A production model cannot be reproduced — re-training gives different results.',
+          evidence: 'The run logged params/metrics but not the exact input data version or code commit; the training data changed since.',
+          causes: ['Data version not logged with the run', 'Code/dependency version not captured', 'Non-deterministic training without a seed'],
+          investigation: ['Check whether the run records the Delta/data version and code commit', 'Review dependency pinning', 'Look for unset random seeds'],
+          rootCause: 'Reproducibility needs the inputs (data + code + env) captured; logging only params/metrics is not enough.',
+          remediation: ['Log the data version (Delta version/snapshot) and code commit with each run', 'Pin dependencies / use the model’s environment', 'Set seeds for determinism where needed'],
+          validation: 'Re-training from the logged inputs reproduces the model within tolerance.',
+          prevention: 'Make logging data+code version part of the training template.',
+        },
+        {
+          symptom: 'A real-time serving endpoint is slow (cold starts) or costs more than expected.',
+          evidence: 'First requests after idle are slow (scale-to-zero cold start); or an always-on endpoint bills idle compute; or inputs fail the model signature.',
+          causes: ['Scale-to-zero cold start on latency-sensitive traffic', 'Over-provisioned always-on endpoint for low traffic', 'Training-serving skew / signature mismatch causing errors'],
+          investigation: ['Check endpoint scaling config vs traffic pattern', 'Review latency after idle vs warm', 'Validate serving inputs against the model signature'],
+          rootCause: 'The serving configuration does not match the traffic/latency need, or inputs do not match the training schema.',
+          remediation: ['Keep min-capacity > 0 for latency-sensitive endpoints; scale-to-zero for spiky/cheap', 'Right-size the endpoint; use batch scoring where real-time is not needed', 'Enforce the model signature to catch skew'],
+          validation: 'Latency meets SLA, cost matches traffic, and inputs validate against the signature.',
+          prevention: 'Match serving mode (real-time vs batch, scale-to-zero vs min-capacity) to the SLA, and ship a model signature.',
+        },
+      ],
+      certMapping: {
+        lead: 'MLflow is the ML-lifecycle/governance layer referenced in Databricks certifications for reproducible, governed models.',
+        items: [
+          { label: 'Databricks Data Engineer Associate', certId: 'dbx-de-associate', objectives: ['Tracking runs; registering models', 'Model Registry stages/aliases', 'Batch vs real-time serving basics'] },
+          { label: 'Databricks Data Engineer Professional', certId: 'dbx-de-professional', objectives: ['UC-governed models & lineage', 'Reproducibility (data/code version)', 'Promotion workflow & serving cost/latency'] },
+        ],
+      },
       interview: [
         { q: 'What are the main components of MLflow?', a: 'Tracking (log params, metrics and artifacts per run for comparison and reproducibility), the Model Registry (versioned models with stage/alias transitions like Staging→Production and approvals), MLflow Models (a standard packaging/flavor so a model deploys consistently regardless of framework), and deployment/serving (batch or real-time endpoints). On Databricks the registry integrates with Unity Catalog for governed, audited models.' },
         { q: 'How does MLflow help with reproducibility and governance?', a: 'Every training run records its parameters, metrics, code version and artifacts, so you can reproduce and compare results. The Model Registry versions models and controls promotion through stages with approvals and lineage, and — registered in Unity Catalog — models get the same access control, lineage and audit as data. Together they answer "which data/params produced this production model, and who approved it".' },
@@ -1525,6 +1802,102 @@
         bullets: [
           { h: 'Egress ownership', d: 'The provider’s storage serves the bytes, so cross-region/cloud reads incur egress on the provider side.' },
           { h: 'Short-lived credentials', d: 'Signed URLs expire quickly, limiting exposure if leaked.' },
+        ],
+      },
+      architecture: {
+        lead: 'Delta Sharing is an open REST protocol for sharing live Delta tables without copying. A provider defines shares (table sets) and recipients in Unity Catalog; a sharing server authorizes each request and returns short-lived signed URLs to the underlying Parquet/Delta files, which any Delta Sharing client reads directly from the provider’s cloud storage.',
+        bullets: [
+          { h: 'Shares + recipients (UC)', d: 'A share bundles tables; a recipient gets access via a bearer token (open sharing, any client) or identity (Databricks-to-Databricks, richer features).' },
+          { h: 'Signed-URL reads', d: 'The sharing server hands back time-limited signed URLs to the files, so storage credentials are never exposed and recipients read at object-storage speed.' },
+          { h: 'Live data + change shares', d: 'Recipients see current data (not a stale export) and can stream changes (CDF-backed shares) where supported.' },
+          { h: 'Open + cross-platform', d: 'Open-source clients (pandas/Spark/BI) mean recipients need not be Databricks customers; works across clouds.' },
+        ],
+      },
+      security: {
+        lead: 'Delta Sharing is a governed-sharing service: UC defines/controls shares and recipients, credentials are short-lived, and the provider can audit and revoke at any time.',
+        bullets: [
+          { h: 'UC-governed', d: 'Shares/recipients are UC objects; grant, audit and revoke centrally — the provider stays in control.' },
+          { h: 'Token vs identity', d: 'Open sharing uses a bearer token (rotate it; treat as a secret); Databricks-to-Databricks uses identity (no token juggling) and is preferred when both sides are Databricks.' },
+          { h: 'Short-lived signed URLs', d: 'URLs to files expire quickly, limiting exposure if intercepted; storage keys are never shared.' },
+          { h: 'Audit + revoke', d: 'All access is logged; revoking a recipient/share cuts access immediately.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating Delta Sharing is managing shares/recipients, rotating tokens, and watching egress — the provider serves the bytes.',
+        bullets: [
+          { h: 'Share lifecycle', d: 'Add/remove tables from shares and recipients as data products evolve; revoke when access ends.' },
+          { h: 'Token rotation', d: 'For open sharing, rotate recipient bearer tokens and treat them as secrets; prefer D2D identity where possible.' },
+          { h: 'Egress ownership', d: 'Recipients read from the provider’s storage, so the provider pays egress — watch cross-region/cloud reads.' },
+          { h: 'Audit', d: 'Monitor access logs to see who read what and when.' },
+        ],
+      },
+      cost: {
+        lead: 'Delta Sharing itself adds no copy/storage cost (no duplication), but the provider pays cloud egress when recipients read across regions/clouds. The lever is co-locating recipients or accepting egress as the cost of live sharing. (Egress rates vary — price against the cloud’s networking pricing.)',
+        bullets: [
+          { h: 'No duplication', d: 'Sharing live data avoids the storage cost of copies/exports.' },
+          { h: 'Provider egress', d: 'Cross-region/cloud recipient reads incur egress on the provider side — the main cost consideration.' },
+          { h: 'Co-locate where possible', d: 'Keep heavy recipients in the provider’s region to limit egress.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'How a recipient reads a shared table without a copy.',
+        steps: [
+          { h: 'Provider defines share + recipient', d: 'In UC the provider creates a share (tables) and a recipient (token for open sharing, or identity for D2D).' },
+          { h: 'Recipient requests', d: 'The recipient’s Delta Sharing client calls the sharing server with its credential to list/read a shared table.' },
+          { h: 'Authorize', d: 'The server checks the recipient’s grant in UC.' },
+          { h: 'Return signed URLs', d: 'On success it returns short-lived signed URLs to the table’s files — no storage keys exposed.' },
+          { h: 'Read directly', d: 'The client reads the Parquet/Delta files straight from the provider’s storage at object-store speed; the provider pays egress and can revoke anytime.' },
+        ],
+        note: 'Simplified; D2D sharing uses identity and supports additional features (e.g. streaming, views).' ,
+      },
+      examples: [{
+        title: 'Publish a Gold table as a data product to an external partner and a sister workspace',
+        requirement: 'Share a curated Gold table live and read-only with an external partner (any client) and another Databricks account, with no copies.',
+        input: 'A governed Gold Delta table in Unity Catalog.',
+        architecture: 'UC share (gold table) → recipient A (open-sharing token, pandas/Spark) + recipient B (Databricks-to-Databricks identity).',
+        code: {
+          lang: 'sql (unity catalog, illustrative)',
+          text: "CREATE SHARE sales_share;\nALTER SHARE sales_share ADD TABLE main.gold.sales;\n-- open sharing (external): token-based recipient\nCREATE RECIPIENT partner_x;   -- yields an activation link/token\nGRANT SELECT ON SHARE sales_share TO RECIPIENT partner_x;\n-- D2D: recipient by sharing identifier (no token)\nCREATE RECIPIENT sister USING ID 'aws:us-east-1:<metastore-id>';\nGRANT SELECT ON SHARE sales_share TO RECIPIENT sister;",
+        },
+        steps: [
+          'Create a share and add the Gold table.',
+          'Create an open-sharing recipient (token) for the external partner.',
+          'Create a D2D recipient (identity) for the sister workspace.',
+          'Grant and share the activation; audit access.',
+        ],
+        output: 'Both recipients read the live Gold table from their own tools with no copy, governed and revocable by the provider.',
+        validation: 'Confirm each recipient reads current data; a provider-side update is visible without re-export; revoking cuts access immediately.',
+        errorHandling: 'Expired tokens/URLs cause access failures — rotate tokens; revoke to cut access; D2D avoids token handling.',
+        production: 'Prefer D2D identity where both sides are Databricks; rotate open-sharing tokens; monitor egress and access logs.',
+        cleanup: 'Revoke recipients and drop the share; no data to delete (nothing was copied).',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'A recipient cannot read a shared table (authorization/credential error).',
+          evidence: 'The bearer token expired or is wrong, the recipient was not granted the share, or signed URLs expired mid-read.',
+          causes: ['Expired/incorrect open-sharing token', 'Recipient not granted SELECT on the share', 'Clock skew / very slow read past URL expiry'],
+          investigation: ['Check the token validity / recipient activation', 'Verify the GRANT on the share to the recipient', 'Review access logs for the denied request'],
+          rootCause: 'The recipient’s credential or grant is missing/expired, so the sharing server denies the request.',
+          remediation: ['Rotate/re-issue the token (or use D2D identity)', 'Grant SELECT on the share to the recipient', 'Retry; ensure reads complete within URL lifetime'],
+          validation: 'The recipient reads the shared table successfully.',
+          prevention: 'Prefer D2D identity, rotate tokens proactively, and document the grant/activation flow.',
+        },
+        {
+          symptom: 'The provider’s cloud egress bill rises after sharing data.',
+          evidence: 'Recipients in other regions/clouds read large shared tables repeatedly; egress charges accrue on the provider’s storage.',
+          causes: ['Cross-region/cloud recipient reads', 'Large/full-table repeated reads instead of incremental', 'No co-location of heavy recipients'],
+          investigation: ['Check egress by region/recipient', 'Review recipient read patterns (full vs incremental)', 'Assess recipient locations vs provider region'],
+          rootCause: 'Delta Sharing serves bytes from the provider’s storage, so remote recipient reads incur provider egress.',
+          remediation: ['Co-locate heavy recipients in the provider region where feasible', 'Share change feeds / encourage incremental reads', 'Accept egress as the cost of live sharing (vs copies) and budget it'],
+          validation: 'Egress tracks expected recipient usage and is budgeted.',
+          prevention: 'Plan recipient locations and read patterns; prefer incremental/change-based consumption.',
+        },
+      ],
+      certMapping: {
+        lead: 'Delta Sharing is the open data-sharing feature in Databricks certifications for governed cross-org/platform sharing.',
+        items: [
+          { label: 'Databricks Data Engineer Associate', certId: 'dbx-de-associate', objectives: ['Share live data without copies', 'Shares & recipients in Unity Catalog', 'Open sharing vs Databricks-to-Databricks'] },
+          { label: 'Databricks Data Engineer Professional', certId: 'dbx-de-professional', objectives: ['Governed/auditable/revocable sharing', 'Token rotation & egress considerations', 'Data products across clouds/platforms'] },
         ],
       },
       interview: [
