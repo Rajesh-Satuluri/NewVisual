@@ -1222,6 +1222,101 @@
           { h: 'Cost awareness', d: 'Because scans are billed per TB, a query over poorly-formatted S3 data can be both slow and costly.' },
         ],
       },
+      architecture: {
+        lead: 'Spectrum is a Redshift feature, not a standalone service: a Redshift query referencing an external (S3) table triggers the optimizer to push scan/filter/aggregation down to a separate, managed Spectrum fleet that reads S3 in parallel. Filtered results stream back to the cluster, which finishes the join/aggregation with local tables.',
+        bullets: [
+          { h: 'External schema on Glue', d: 'An external schema maps to a Glue Catalog database; its tables point at S3 and are queried like local tables (and are the same tables Athena sees).' },
+          { h: 'Separate scan fleet', d: 'Spectrum scanning runs on a large managed fleet independent of your cluster size, so big S3 scans do not consume all cluster compute; the cluster does the final steps.' },
+          { h: 'Pushdown', d: 'Partition pruning, column projection and some aggregation push down to the fleet — the less data returned to the cluster, the faster/cheaper the query.' },
+          { h: 'Scan-bound like Athena', d: 'Cost/latency depend on S3 layout (Parquet + partitioning); billed per TB scanned on top of Redshift compute.' },
+        ],
+      },
+      security: {
+        lead: 'Spectrum inherits Redshift’s auth for the query and uses an IAM role to reach S3/Glue; fine-grained access to the external tables is governed by Lake Formation.',
+        bullets: [
+          { h: 'IAM role for S3/Glue', d: 'The external schema is created with an IAM role that grants Spectrum read on the S3 data and the Glue Catalog — least-privilege it.' },
+          { h: 'Lake Formation governance', d: 'Column/row-level access on the external tables is enforced via Lake Formation on the Glue Catalog, consistently with Athena.' },
+          { h: 'Redshift-side authz', d: 'Who can query the external schema is controlled by Redshift GRANTs like any schema.' },
+          { h: 'Encryption', d: 'The underlying S3 data is encrypted by the object store; results flow back over the cluster’s secured connections.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating Spectrum is keeping external-table metadata current and the S3 layout query-friendly, plus watching scan volume.',
+        bullets: [
+          { h: 'Partition currency', d: 'New S3 partitions must be registered (crawler / ALTER TABLE ADD PARTITION / partition projection via the catalog) or queries miss data.' },
+          { h: 'Layout for pushdown', d: 'Parquet + partitioning maximizes pruning/pushdown; unpartitioned CSV forces full scans and heavy data return.' },
+          { h: 'Monitoring', d: 'SVL_S3QUERY_SUMMARY and query plans show bytes scanned and how much filtering happened in Spectrum vs the cluster.' },
+          { h: 'Shared catalog', d: 'Because it uses the Glue Catalog, Spectrum and Athena stay consistent — fix metadata once.' },
+        ],
+      },
+      cost: {
+        lead: 'Spectrum bills per TB scanned in S3 (same lever as Athena) on top of your Redshift cluster cost. The entire lever is scanning less: partition, use columnar Parquet, and push filters down. (Rates vary — price against the official Redshift/Spectrum pricing page.)',
+        bullets: [
+          { h: 'Per-TB scanned', d: 'Poorly-formatted S3 data scans more and costs more; Parquet + partitioning cut it sharply.' },
+          { h: 'Avoid-load savings', d: 'Keeping cold/bulk history in S3 (vs loading into Redshift) saves warehouse storage and load compute — Spectrum reaches it only on demand.' },
+          { h: 'Pushdown reduces transfer', d: 'More filtering in the fleet means less data returned to the cluster, lowering latency and cluster work.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'How a warehouse+lake join query executes via Spectrum.',
+        steps: [
+          { h: 'Parse & plan', d: 'Redshift parses the query, recognizes the external (S3) table, and plans which operations to push to the Spectrum fleet.' },
+          { h: 'Push scan to the fleet', d: 'The managed Spectrum fleet reads the external table from S3, pruning partitions and projecting only needed columns (and applying pushed-down filters/aggregations).' },
+          { h: 'Return filtered rows', d: 'The fleet streams the reduced result set back to the Redshift compute nodes — far less data than the raw S3 table.' },
+          { h: 'Finish locally', d: 'The cluster joins the returned lake rows to local warehouse tables and completes aggregation.' },
+          { h: 'Return result', d: 'The combined result is returned; bytes scanned in S3 are what Spectrum bills.' },
+        ],
+        note: 'Simplified; how much pushes down depends on S3 layout and the query.',
+      },
+      examples: [{
+        title: 'Hot/cold tiering: recent data in Redshift, history in S3 via Spectrum',
+        requirement: 'Keep the warehouse lean by storing only recent data locally while still joining to years of history left in S3 — in one SQL query.',
+        input: 'Recent sales in a local Redshift table; archived history as partitioned Parquet in S3 (cataloged in Glue).',
+        architecture: 'Redshift local f_sales_recent + external schema lake (Glue) → Spectrum over s3 history → unioned/joined query.',
+        code: {
+          lang: 'sql (illustrative)',
+          text: "CREATE EXTERNAL SCHEMA lake FROM DATA CATALOG DATABASE 'lake' IAM_ROLE default;\n\n-- query spans hot (local) + cold (S3 via Spectrum)\nSELECT dt, sum(amount) FROM (\n  SELECT dt, amount FROM public.f_sales_recent\n  UNION ALL\n  SELECT dt, amount FROM lake.sales_history   -- S3, partitioned Parquet\n  WHERE dt >= '2022-01-01')\nGROUP BY dt;",
+        },
+        steps: [
+          'Create an external schema on the Glue database with an IAM role.',
+          'Keep history as partitioned Parquet in S3 (not loaded into Redshift).',
+          'Query local + external tables together; filter on partitions.',
+          'Check the plan/SVL for partition pruning and pushdown.',
+        ],
+        output: 'A lean warehouse plus on-demand access to full history, joined in one query, without loading cold data.',
+        validation: 'Confirm SVL_S3QUERY_SUMMARY shows pruned scans; results match a full-load baseline; cost tracks bytes scanned.',
+        errorHandling: 'If history rows are missing, partitions are unregistered; if access denied, fix the external-schema IAM role / Lake Formation grants.',
+        production: 'Partition + Parquet the S3 history; least-privilege the Spectrum IAM role; govern external tables with Lake Formation.',
+        cleanup: 'Drop the external schema; the S3 data is untouched (remove it separately if decommissioning).',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'A Spectrum query over S3 is slow and scans terabytes for a small result.',
+          evidence: 'SVL_S3QUERY_SUMMARY shows huge bytes scanned; the external table is CSV/unpartitioned; little filtering pushed down.',
+          causes: ['Row-based/uncompressed S3 data (CSV) forcing full reads', 'No partitioning so no pruning', 'Query shape preventing pushdown'],
+          investigation: ['Check SVL_S3QUERY_SUMMARY bytes scanned and the plan', 'Inspect the external table format/partitioning', 'See whether filters push to Spectrum'],
+          rootCause: 'The external data layout prevents pruning/pushdown, so Spectrum scans far more S3 than needed (billed per TB).',
+          remediation: ['Convert to partitioned, compressed Parquet/ORC', 'Filter on partition columns; select only needed columns', 'Restructure the query so filters/aggregations push down'],
+          validation: 'Bytes scanned drop sharply; query latency and cost fall.',
+          prevention: 'Keep Spectrum/lake data as partitioned columnar Parquet and query partition-aware.',
+        },
+        {
+          symptom: 'A Spectrum external table returns no rows or stale data after new files land, or fails with access denied.',
+          evidence: 'New S3 partitions are not registered in the catalog; or the external-schema IAM role / Lake Formation grant is missing.',
+          causes: ['Partitions not registered (crawler/ALTER/projection not run)', 'IAM role lacks S3/Glue read', 'Lake Formation not granting the external table'],
+          investigation: ['Check whether the new partitions exist in the Glue Catalog', 'Verify the external-schema IAM role permissions', 'Review Lake Formation grants on the table'],
+          rootCause: 'Spectrum can only see registered partitions it is authorized to read; missing metadata or grants hide data or deny access.',
+          remediation: ['Register partitions (crawler/ALTER TABLE ADD PARTITION/projection)', 'Grant the IAM role S3 + Glue read', 'Grant the table via Lake Formation'],
+          validation: 'Queries return current, complete data with no access errors.',
+          prevention: 'Automate partition registration and template the IAM/Lake Formation grants.',
+        },
+      ],
+      certMapping: {
+        lead: 'Redshift Spectrum is the warehouse-over-lake bridge in the AWS Data Engineer exam’s analysis/store domains.',
+        items: [
+          { label: 'AWS DEA-C01 (Data Engineer Associate)', certId: 'aws-dea-c01', objectives: ['Query S3 from Redshift (Spectrum vs load vs Athena)', 'External schemas, partitioning & pushdown', 'Cost (TB scanned) & governance via Lake Formation'] },
+        ],
+      },
       interview: [
         { q: 'What is Redshift Spectrum and how does it differ from Athena?', a: 'Spectrum is a Redshift feature that queries external tables in S3 and joins them to local Redshift tables, using an elastic fleet that pushes scans down to S3. Athena is a standalone serverless SQL service over S3. Both read the same Glue Catalog tables and both bill per TB scanned, but Spectrum runs inside a Redshift query (so you can join lake data to warehouse tables in one statement and reuse Redshift’s compute for the final steps), while Athena needs no Redshift cluster at all. Use Spectrum when the query centers on the warehouse and reaches into the lake; use Athena for pure lake querying.' },
         { q: 'Why use Spectrum instead of loading the data into Redshift?', a: 'To avoid paying warehouse storage and load time for data that is cold, huge, or rarely queried. You keep history in cheap S3 and query it on demand, joining it to hot warehouse tables only when needed. It keeps the cluster lean and lets you tier data — recent in Redshift for speed, older in S3 reached via Spectrum.' },
@@ -1937,6 +2032,101 @@
           { h: 'Right tool boundary', d: 'If a task risks the 15-minute timeout or needs lots of memory/parallelism, it should trigger a Glue/EMR job instead of doing the work in Lambda.' },
         ],
       },
+      architecture: {
+        lead: 'Lambda runs function code in managed, isolated execution environments that AWS scales with the event rate. Invocation model (synchronous, asynchronous, or poll-based event source mapping) determines retry/ordering behavior; memory sizing scales CPU; cold starts occur when a new environment initializes.',
+        bullets: [
+          { h: 'Invocation models', d: 'Synchronous (caller waits, e.g. API Gateway), asynchronous (event queued, Lambda retries ~2x then DLQ/destination), and event source mappings (Lambda polls Kinesis/DynamoDB/SQS in batches) — each has different retry/ordering semantics.' },
+          { h: 'Concurrency', d: 'Each concurrent event gets its own environment; scaling is automatic up to account/reserved limits. Reserved concurrency caps/guarantees a function’s share; provisioned concurrency keeps environments warm.' },
+          { h: 'Memory = CPU', d: 'CPU and network scale with allocated memory (up to 10 GB), so memory is the main performance dial; /tmp gives 512 MB–10 GB ephemeral storage.' },
+          { h: 'Packaging', d: 'Deploy as a zip or container image; layers share dependencies. VPC attachment uses Hyperplane ENIs so VPC cold-start penalty is small now.' },
+        ],
+      },
+      security: {
+        lead: 'Lambda security is the IAM execution role (what the function can do), resource policies (who can invoke it), encrypted configuration, and network placement.',
+        bullets: [
+          { h: 'Execution role', d: 'The function assumes an IAM role for its AWS calls — least-privilege it to exactly the services it touches (e.g. start a specific Glue job, read one bucket).' },
+          { h: 'Invoke permissions', d: 'Resource-based policies control which services/accounts can invoke the function; event sources need permission to trigger it.' },
+          { h: 'Secrets & env encryption', d: 'Environment variables are encrypted with KMS; pull real secrets from Secrets Manager/SSM at runtime rather than baking them in.' },
+          { h: 'Network', d: 'Attach to a VPC to reach private resources; otherwise it runs in the Lambda-managed network. Egress controls apply when VPC-attached.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating Lambda is concurrency management, failure handling (retries/DLQ/destinations), and monitoring the key metrics — plus respecting the limits.',
+        bullets: [
+          { h: 'Concurrency & throttling', d: 'Watch ConcurrentExecutions and Throttles; use reserved concurrency to protect downstreams (and the function’s own share) and provisioned concurrency for latency-sensitive paths.' },
+          { h: 'Failure handling', d: 'Async invokes retry then go to a DLQ / on-failure destination; stream sources retry a batch (configurable) with bisect-on-error and can route failures to a destination — otherwise a poison record blocks the shard.' },
+          { h: 'Monitoring', d: 'CloudWatch Errors/Throttles/Duration/ConcurrentExecutions and (for streams) IteratorAge are the core signals; X-Ray traces latency across the call chain.' },
+          { h: 'Right-tool boundary', d: 'If work risks the 15-min timeout or needs big memory/parallelism, trigger Glue/EMR/Step Functions instead of doing it in Lambda.' },
+        ],
+      },
+      cost: {
+        lead: 'Lambda bills per request + GB-seconds (memory × duration), with provisioned concurrency billed for kept-warm capacity. Idle costs nothing. Because memory scales CPU, right-sizing memory often lowers both latency and cost. (Rates vary — price against the official Lambda pricing page.)',
+        bullets: [
+          { h: 'Requests + GB-seconds', d: 'You pay per invocation and for memory×time; faster execution (more memory on CPU-bound work) can be cheaper despite the higher per-ms rate.' },
+          { h: 'Provisioned concurrency', d: 'Removes cold starts but bills for kept-warm instances — use only on latency-sensitive paths.' },
+          { h: 'Pay-per-use fit', d: 'Ideal for spiky/infrequent glue; a constantly-busy heavy workload may be cheaper on provisioned compute.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'What happens when an S3 upload asynchronously triggers a function, including failure handling.',
+        steps: [
+          { h: 'Event delivered', d: 'S3 emits an object-created event; Lambda queues it (asynchronous invocation) and returns to S3 immediately.' },
+          { h: 'Environment assigned', d: 'Lambda routes the event to a warm environment, or cold-starts a new one (init runtime + your init code) if none is free.' },
+          { h: 'Handler runs', d: 'The handler executes (e.g. starts a Glue job for the new file); code outside the handler (clients/connections) is reused across invokes.' },
+          { h: 'Retry on failure', d: 'If the handler errors, async invocation retries (~2x with backoff); persistent failures go to the configured DLQ / on-failure destination instead of being lost.' },
+          { h: 'Scale with load', d: 'If many objects land at once, Lambda spins up concurrent environments up to the limit; excess invocations throttle.' },
+        ],
+        note: 'Simplified; retry/ordering differ for synchronous and stream (event-source-mapping) invocations.',
+      },
+      examples: [{
+        title: 'S3-triggered orchestration: start a Glue job on new files with safe failure handling',
+        requirement: 'When a file lands in S3, kick off downstream processing reliably, with retries and a dead-letter path — no polling server.',
+        input: 'New objects under an S3 landing prefix.',
+        architecture: 'S3 event → Lambda (async) → start Glue job; on-failure destination → SQS DLQ; CloudWatch alarms.',
+        code: {
+          lang: 'python (illustrative)',
+          text: "import boto3\nglue = boto3.client('glue')\n\ndef handler(event, context):\n    for rec in event['Records']:\n        key = rec['s3']['object']['key']\n        glue.start_job_run(JobName='ingest',\n            Arguments={'--input': key})  # idempotent per key\n    return {'started': len(event['Records'])}",
+        },
+        steps: [
+          'Add the S3 trigger (async invocation).',
+          'Least-privilege the execution role to start that Glue job.',
+          'Configure an on-failure destination (SQS/SNS) as a DLQ.',
+          'Alarm on Errors/Throttles in CloudWatch.',
+        ],
+        output: 'New files reliably start downstream processing, with failures captured in a DLQ rather than lost.',
+        validation: 'Drop a test file and confirm the Glue job starts; force an error and confirm the event lands in the DLQ; check metrics.',
+        errorHandling: 'Async retries + DLQ prevent silent loss; make the start idempotent per key so retries do not double-process.',
+        production: 'Set reserved concurrency so bursts do not overwhelm Glue; keep the function small/fast; monitor Throttles.',
+        cleanup: 'Remove the S3 trigger and function; delete the DLQ and alarms.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'During a burst, many invocations fail with throttling (429 TooManyRequestsException) and events are delayed or dropped.',
+          evidence: 'CloudWatch Throttles spike; ConcurrentExecutions hits the account/reserved limit; a downstream (e.g. a database) is also saturated.',
+          causes: ['Concurrency ceiling (account or reserved) hit by the burst', 'A downstream resource (DB/API) limiting effective throughput', 'No batching, so each event is a separate invoke'],
+          investigation: ['Check Throttles and ConcurrentExecutions vs the limit', 'Identify whether a downstream is the real bottleneck', 'Review batch settings for stream/queue sources'],
+          rootCause: 'The event rate exceeds the available concurrency (or a downstream’s capacity), so Lambda throttles excess invocations.',
+          remediation: ['Raise the account/reserved concurrency (or request a limit increase)', 'Protect/scale the downstream, or add reserved concurrency to throttle to its capacity deliberately', 'Batch stream/queue events to reduce invokes'],
+          validation: 'Throttles return to ~0 under the same burst and events process within SLA.',
+          prevention: 'Size concurrency to peak and downstream capacity; batch where possible; alarm on Throttles.',
+        },
+        {
+          symptom: 'A Kinesis/DynamoDB-stream Lambda stops making progress on a shard and IteratorAge climbs.',
+          evidence: 'IteratorAge rises steadily; the same batch keeps erroring (a poison record); the shard is blocked because stream sources retry in order.',
+          causes: ['A poison record causing the batch to fail repeatedly, blocking the shard', 'No bisect-on-error / failure destination configured', 'Per-record processing too slow for the arrival rate'],
+          investigation: ['Watch IteratorAge per shard', 'Inspect the failing batch/record', 'Check the event source mapping’s error-handling settings'],
+          rootCause: 'Stream event sources preserve order and retry a failing batch, so a poison record (or too-slow processing) blocks the whole shard.',
+          remediation: ['Enable bisect-on-error and an on-failure destination so bad records are isolated, not retried forever', 'Fix/validate the record handling to tolerate bad input', 'Increase parallelization factor / speed up processing for throughput'],
+          validation: 'IteratorAge drains to near-real-time; bad records go to the failure destination instead of blocking.',
+          prevention: 'Always configure bisect + failure destination on stream sources and make record processing resilient to bad input.',
+        },
+      ],
+      certMapping: {
+        lead: 'Lambda is the serverless event-glue compute in the AWS Data Engineer exam’s ingestion/orchestration domain.',
+        items: [
+          { label: 'AWS DEA-C01 (Data Engineer Associate)', certId: 'aws-dea-c01', objectives: ['Event-driven triggering & lightweight transforms', 'Concurrency, retries & failure handling (DLQ)', 'When to offload to Glue/EMR/Step Functions'] },
+        ],
+      },
       interview: [
         { q: 'What is Lambda’s role in a data pipeline, and what are its limits?', a: 'Lambda is event-driven glue: it reacts to S3 uploads, stream records, schedules, and API calls to trigger and coordinate work — for example, starting a Glue job when a file lands, or transforming Kinesis records in flight. Its limits shape that role: a 15-minute max duration, memory-tied CPU (up to 10 GB), and per-invocation scaling. So it’s ideal for short, reactive tasks and orchestration, but not for large or long-running data processing — that work should run on Glue, EMR, or a Step Functions-coordinated job.' },
         { q: 'What are cold starts and how do you mitigate them?', a: 'A cold start is the extra latency when Lambda has to initialize a new execution environment (runtime + your init code) for the first invoke after idle or when scaling up. You mitigate it with provisioned concurrency (keeps a set number of instances warm), keeping the package small and init code light, choosing a fast runtime, and reusing connections/clients declared outside the handler. For most asynchronous data-pipeline glue, cold starts don’t matter; they matter for latency-sensitive synchronous APIs.' },
@@ -2002,6 +2192,101 @@
         bullets: [
           { h: 'CDC latency', d: 'Monitor source and target latency — if the target falls behind, scale the replication instance or tune the task (LOB handling, parallel apply).' },
           { h: 'Full-load tuning', d: 'Parallel table loading speeds the initial snapshot; CDC then takes over for ongoing changes.' },
+        ],
+      },
+      architecture: {
+        lead: 'DMS runs a task on a replication instance (or DMS Serverless capacity) that connects a source endpoint to a target endpoint. A task does a parallel full load and/or CDC: full-load bulk-copies existing rows while caching changes, then CDC reads the source transaction log and applies row-level changes to the target continuously.',
+        bullets: [
+          { h: 'Instance + endpoints + task', d: 'The replication instance provides compute; endpoints hold source/target connection + credentials; the task defines migration type, table mappings and transformation rules.' },
+          { h: 'Full load → CDC handoff', d: 'Full load copies current data (parallelized per table) while changes during the load are cached; the task then transitions to CDC and applies cached + ongoing log changes so nothing is missed.' },
+          { h: 'CDC from the log', d: 'CDC reads the source’s transaction log (MySQL binlog, Oracle redo + supplemental logging, Postgres logical replication) — low source impact vs table scans.' },
+          { h: 'Targets & serverless', d: 'Targets include RDS, Redshift, and S3 (Parquet/CSV with a CDC op flag per row). DMS Serverless auto-scales capacity instead of a fixed instance.' },
+        ],
+      },
+      security: {
+        lead: 'DMS security is endpoint credentials (ideally from Secrets Manager), encryption at rest/in transit, network placement, and a target IAM role for S3/Redshift.',
+        bullets: [
+          { h: 'Endpoint credentials', d: 'Source/target credentials should come from Secrets Manager rather than inline; the source CDC user needs log-read privileges.' },
+          { h: 'Encryption', d: 'KMS encrypts the replication storage and S3/Redshift targets; use SSL/TLS to the source and target endpoints.' },
+          { h: 'Network', d: 'Run the replication instance in a VPC with routes/security groups to reach the source (on-prem via VPN/DX) and target privately.' },
+          { h: 'Target access', d: 'An IAM role grants the task write access to an S3 (or Redshift) target — least-privilege it.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating DMS is instance/capacity sizing, CDC latency monitoring, LOB and validation handling, and resilience.',
+        bullets: [
+          { h: 'Latency monitoring', d: 'CDCLatencySource/CDCLatencyTarget are the key metrics — rising latency means the target trails the source; act before it compounds.' },
+          { h: 'LOB handling', d: 'Large objects need a LOB mode (full/limited/inline); limited LOB truncates beyond a size — choose deliberately to avoid data loss or slowness.' },
+          { h: 'Validation', d: 'DMS data validation compares source and target row-by-row to catch replication drift.' },
+          { h: 'Resilience', d: 'Multi-AZ replication instances survive AZ failure; tasks can resume from the last checkpoint; a premigration assessment flags unsupported constructs.' },
+        ],
+      },
+      cost: {
+        lead: 'DMS bills replication instance-hours (by instance size) plus storage and data transfer; DMS Serverless bills capacity units (DCUs) for actual usage. The levers are right instance/capacity sizing and not over-provisioning for steady CDC. (Rates vary — price against the official DMS pricing page.)',
+        bullets: [
+          { h: 'Instance-hours', d: 'A running replication instance bills continuously; size it to the change volume, not the peak-of-peaks.' },
+          { h: 'Serverless', d: 'DMS Serverless scales capacity to the workload, avoiding idle instance cost for variable replication.' },
+          { h: 'Transfer/storage', d: 'Cross-region/on-prem transfer and target storage add cost; keep source, instance and target close.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'Lifecycle of a full-load-and-CDC task into an S3 lake target.',
+        steps: [
+          { h: 'Connect & assess', d: 'The task connects to source/target endpoints; a premigration assessment flags unsupported types/constructs.' },
+          { h: 'Full load (parallel)', d: 'DMS bulk-copies existing rows table-by-table in parallel, while caching source changes that occur during the load.' },
+          { h: 'Apply cached changes', d: 'After full load, DMS applies the changes cached during the load so the target matches the source as of the switchover.' },
+          { h: 'CDC streaming', d: 'The task tails the source transaction log and writes ongoing inserts/updates/deletes to S3 as Parquet, each row carrying a CDC operation flag.' },
+          { h: 'Downstream MERGE', d: 'A Glue/Spark job MERGEs the CDC files into Silver Delta/Iceberg so the analytics table reflects current state.' },
+        ],
+        note: 'Simplified; exact handoff/LOB behavior depends on task settings and source engine.',
+      },
+      examples: [{
+        title: 'CDC from MySQL to S3, merged into a Silver Delta table',
+        requirement: 'Continuously replicate an operational MySQL table into the lake with minimal source impact, and keep a Silver table current.',
+        input: 'A production MySQL database with binlog enabled.',
+        architecture: 'MySQL (binlog) → DMS full-load+CDC task → S3 CDC prefix (Parquet + op flag) → Glue/Spark MERGE → Silver Delta.',
+        code: {
+          lang: 'text / sql (illustrative)',
+          text: "# DMS task: full-load-and-cdc, source=prod-mysql, target=s3://lake/cdc/orders/\n# S3 rows carry Op = I/U/D\n\n# downstream MERGE (Spark) keyed on PK, applying Op\nMERGE INTO silver.orders t USING cdc s ON t.id=s.id\n  WHEN MATCHED AND s.Op='D' THEN DELETE\n  WHEN MATCHED AND s.Op='U' THEN UPDATE SET *\n  WHEN NOT MATCHED AND s.Op<>'D' THEN INSERT *",
+        },
+        steps: [
+          'Enable binlog + a CDC user on the source; create endpoints (creds from Secrets Manager).',
+          'Run a full-load-and-CDC task writing Parquet + op flag to S3.',
+          'MERGE the CDC files into the Silver Delta table by primary key.',
+          'Monitor CDCLatencyTarget and validate row counts.',
+        ],
+        output: 'A continuously-updated Silver table reflecting the operational database, with low source impact.',
+        validation: 'Use DMS data validation and compare counts; apply a source change and confirm it flows to Silver; watch latency metrics.',
+        errorHandling: 'Choose a LOB mode that does not truncate needed data; resume the task from checkpoint on failure; the MERGE is idempotent per key.',
+        production: 'Right-size the instance / use Serverless; Multi-AZ for resilience; secrets from Secrets Manager; alarm on CDC latency.',
+        cleanup: 'Stop/delete the task and endpoints, delete the replication instance, and remove S3 CDC data if decommissioning.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'CDC latency grows steadily — the target falls further behind the source over time.',
+          evidence: 'CDCLatencyTarget/Source climb; high change volume or large/long transactions; an undersized replication instance or slow target.',
+          causes: ['Replication instance undersized for the change rate', 'Large/long transactions or heavy LOB handling', 'Slow target apply (e.g. Redshift single-row applies, or small S3 files)'],
+          investigation: ['Watch CDCLatencySource vs CDCLatencyTarget to localize the bottleneck (read vs apply)', 'Check change volume and transaction sizes', 'Review instance size and target write performance'],
+          rootCause: 'Apply (or capture) throughput is below the source change rate — usually sizing, big transactions/LOBs, or a slow target.',
+          remediation: ['Scale the replication instance (or use Serverless); enable parallel apply where supported', 'Tune LOB handling; batch target writes (e.g. larger S3 files)', 'Optimize the target for bulk apply'],
+          validation: 'CDC latency stabilizes near real-time under the same change rate.',
+          prevention: 'Size to peak change volume, tune LOB/parallel-apply, and alarm on CDC latency.',
+        },
+        {
+          symptom: 'CDC captures no changes (or misses some), though full load worked.',
+          evidence: 'Full load completed but CDC shows zero/partial changes; source logging (binlog/supplemental logging/logical replication) is not enabled, or the DMS user lacks log-read permission.',
+          causes: ['Source transaction logging not enabled/retained adequately', 'Oracle supplemental logging off / insufficient', 'CDC user missing log-read privileges'],
+          investigation: ['Verify source logging is enabled with sufficient retention', 'Check engine-specific CDC prerequisites (supplemental logging, binlog format=ROW)', 'Confirm the DMS user’s privileges'],
+          rootCause: 'CDC depends on the source exposing its transaction log with the right settings and permissions; without them, changes cannot be captured.',
+          remediation: ['Enable the required logging (binlog ROW, Oracle supplemental logging, Postgres logical replication) with adequate retention', 'Grant the CDC user log-read privileges', 'Re-run the task from a fresh full load if a gap occurred'],
+          validation: 'Ongoing source changes appear at the target; data validation reconciles source and target.',
+          prevention: 'Confirm CDC prerequisites via a premigration assessment before starting the task.',
+        },
+      ],
+      certMapping: {
+        lead: 'DMS is the database-migration/CDC ingestion service in the AWS Data Engineer exam’s ingestion domain.',
+        items: [
+          { label: 'AWS DEA-C01 (Data Engineer Associate)', certId: 'aws-dea-c01', objectives: ['Full load vs CDC; minimal-downtime migration', 'CDC-to-lake pattern (S3 + MERGE)', 'Latency, LOB handling & validation'] },
         ],
       },
       interview: [
