@@ -1029,6 +1029,102 @@
           { h: 'Private access', d: 'A self-hosted integration runtime lets scans reach sources inside a VNet or on-prem.' },
         ],
       },
+      architecture: {
+        lead: 'Purview’s core is the Data Map — a metadata graph of assets, schemas, classifications and lineage — populated by scans and organized into collections (a hierarchy that also scopes RBAC). A searchable Data Catalog and business glossary sit on top; information protection (sensitivity labels) and lineage from engines complete the picture.',
+        bullets: [
+          { h: 'Data Map + collections', d: 'Scanned assets live in the Data Map; collections form a hierarchy for organizing sources and delegating permissions (RBAC is applied at the collection level).' },
+          { h: 'Scans & classifiers', d: 'A scan crawls a registered source’s schema and samples data; built-in and custom classifiers tag sensitive data (emails, cards, national IDs). Scans run via a managed VNet runtime or a self-hosted IR for private/on-prem sources.' },
+          { h: 'Lineage', d: 'Engines (ADF, Synapse, and via connectors Databricks) emit operation metadata that Purview stitches into source→target lineage for impact analysis.' },
+          { h: 'Catalog, glossary, labels', d: 'The catalog makes assets searchable; the glossary adds business terms; Microsoft Information Protection sensitivity labels classify and can travel with data.' },
+        ],
+      },
+      security: {
+        lead: 'Purview access is role-based through collections, scanning uses a managed identity with least-privilege read on sources, and scan credentials live in Key Vault. Private networking keeps scans off the public internet.',
+        bullets: [
+          { h: 'Collection-scoped roles', d: 'Data Reader / Data Curator / Data Source Admin / Collection Admin are granted at collection scope, so teams govern their own sources without account-wide access.' },
+          { h: 'Scan identity', d: 'The Purview managed identity (or a credential in Key Vault) reads sources for scanning — grant it least-privilege read (e.g. Storage Blob Data Reader) on each source.' },
+          { h: 'Private access', d: 'Managed VNet / self-hosted IR + private endpoints let scans reach VNet/on-prem sources without public exposure.' },
+          { h: 'Sensitive-data governance', d: 'Classification + MIP sensitivity labels mark where regulated data lives, supporting compliance reporting.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating Purview is scan scheduling, collection design, lineage coverage, and Data Map capacity — balancing freshness against scan cost.',
+        bullets: [
+          { h: 'Scan scheduling', d: 'Use incremental scans and off-peak schedules; full classification scans sample data and are I/O-heavy.' },
+          { h: 'Collection design', d: 'Model collections to mirror org/domain ownership so RBAC and curation scale.' },
+          { h: 'Lineage coverage', d: 'Lineage is only as complete as the engines that emit it — verify ADF/Synapse/Databricks lineage is flowing and fill gaps with manual/custom lineage where needed.' },
+          { h: 'Capacity', d: 'The Data Map scales in capacity units with the number of assets; monitor and right-size as the estate grows.' },
+        ],
+      },
+      cost: {
+        lead: 'Purview bills Data Map capacity units (by asset volume/elastic usage) + scan vCore-hours + advanced features (resource sets, etc.). The levers are incremental scans, scoping classifiers, and right-sizing the Data Map. (Rates vary — price against the official Purview pricing page.)',
+        bullets: [
+          { h: 'Data Map capacity', d: 'Scales with the number of catalogued assets; prune/scope what you register to control it.' },
+          { h: 'Scan vCore-hours', d: 'Classification sampling is the heavy cost — use incremental scans and targeted scan rulesets.' },
+          { h: 'Scope classifiers', d: 'Apply only the classifiers you need; scanning everything with every classifier is the expensive default.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'How a source goes from registration to a governed, lineage-connected catalog asset.',
+        steps: [
+          { h: 'Register the source', d: 'Add the source (e.g. an ADLS account, Azure SQL) to a collection and configure how Purview authenticates (managed identity / Key Vault credential).' },
+          { h: 'Scan', d: 'A scan crawls schemas and samples data; a scan ruleset decides what is scanned and which classifiers apply, reaching private sources via managed VNet / SHIR.' },
+          { h: 'Classify & map', d: 'Classifiers tag sensitive columns; assets, schemas and relationships land in the Data Map.' },
+          { h: 'Stitch lineage', d: 'Operation metadata from ADF/Synapse/Databricks is stitched into source→target lineage for the scanned assets.' },
+          { h: 'Discover & govern', d: 'Users search the catalog, apply glossary terms and sensitivity labels, and run impact analysis via lineage.' },
+        ],
+        note: 'Simplified; exact scan/lineage behavior depends on source type and engine lineage support.',
+      },
+      examples: [{
+        title: 'Catalog + classify a medallion estate and enable impact analysis',
+        requirement: 'Make the lake and SQL estate discoverable, prove where PII lives, and let engineers see downstream impact before a schema change.',
+        input: 'ADLS Gen2 (medallion) and Azure SQL sources; ADF pipelines feeding the lake.',
+        architecture: 'Register sources into collections → managed-identity scans (classify PII) → Data Map + catalog → ADF lineage → impact analysis.',
+        code: {
+          lang: 'text (setup outline, illustrative)',
+          text: "1) Grant Purview MI: Storage Blob Data Reader on ADLS; db reader on SQL\n2) Register ADLS + SQL into a 'lake' collection\n3) Scan with a ruleset incl. PII classifiers (incremental, off-peak)\n4) Ensure ADF emits lineage -> source->target edges appear\n5) Search catalog; view lineage for impact analysis before changes",
+        },
+        steps: [
+          'Grant the Purview managed identity least-privilege read on each source.',
+          'Register sources into collections mirroring ownership.',
+          'Run incremental classification scans off-peak.',
+          'Verify ADF lineage flows, then use lineage for impact analysis.',
+        ],
+        output: 'A searchable catalog with PII classified and end-to-end lineage, so teams find data and assess change impact.',
+        validation: 'Confirm sensitive columns are classified; search returns the expected assets; lineage shows the ADF source→target path.',
+        errorHandling: 'If a scan cannot reach a private source, check the managed VNet/SHIR and the MI’s read grant; incomplete lineage usually means an engine is not emitting it.',
+        production: 'Scope classifiers and use incremental scans for cost; design collections for delegated RBAC; monitor Data Map capacity.',
+        cleanup: 'Remove scans/sources and the Purview account if decommissioning; revoke the MI grants.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'A scan fails or cannot connect to a source (especially a private/on-prem one).',
+          evidence: 'Scan status shows connection/auth failure; the source is behind a VNet/firewall; the Purview managed identity lacks read on the source.',
+          causes: ['No managed VNet runtime / self-hosted IR to reach a private source', 'Purview managed identity (or Key Vault credential) not granted read on the source', 'Firewall/network blocking the scan'],
+          investigation: ['Read the scan failure detail', 'Check whether the source is private and which runtime the scan uses', 'Verify the MI’s role assignment on the source'],
+          rootCause: 'The scanner cannot authenticate to or reach the source — missing runtime for private access or a missing read grant.',
+          remediation: ['Use a managed VNet runtime or self-hosted IR for private/on-prem sources', 'Grant the Purview MI least-privilege read (e.g. Storage Blob Data Reader)', 'Open the required network path'],
+          validation: 'The scan completes and populates assets/classifications for the source.',
+          prevention: 'Set up the right runtime and MI grants when registering a source; test connectivity before scheduling scans.',
+        },
+        {
+          symptom: 'Lineage is incomplete — some source→target relationships are missing in the catalog.',
+          evidence: 'Assets are catalogued but lineage edges are absent for certain pipelines/engines; the engine does not emit lineage or a connector is missing.',
+          causes: ['An engine in the flow does not emit lineage to Purview', 'Connector not configured for a source (e.g. custom/third-party)', 'Transformations outside supported engines break the chain'],
+          investigation: ['Identify which hop is missing in the lineage graph', 'Check whether that engine supports/has lineage emission enabled', 'Review connector configuration'],
+          rootCause: 'Purview draws lineage from engine-emitted metadata; any hop that does not emit it leaves a gap.',
+          remediation: ['Enable lineage emission on supported engines (ADF/Synapse/Databricks connectors)', 'Add manual/custom lineage via the API for unsupported hops', 'Consolidate transforms onto engines that emit lineage where feasible'],
+          validation: 'The lineage graph shows a complete source→target path for the flow.',
+          prevention: 'Prefer lineage-emitting engines and verify coverage as pipelines are added.',
+        },
+      ],
+      certMapping: {
+        lead: 'Purview is Azure’s estate-wide governance/catalog service; the Synapse-era DP-203 touched it, and it complements Fabric (DP-700) governance.',
+        items: [
+          { label: 'DP-700 Fabric Data Engineer (governance context)', certId: 'ms-dp700', objectives: ['Cataloging & classification across the estate', 'Lineage & impact analysis', 'Sensitivity labels / compliance'] },
+          'Legacy lineage: DP-203 (retired 2025) referenced Purview for cataloging, classification and lineage over the Azure estate.',
+        ],
+      },
       interview: [
         { q: 'What problem does Purview solve?', a: 'Discovery, trust and compliance across a sprawling data estate. It scans sources into a Data Map, auto-classifies sensitive data, and captures lineage — so people can find datasets, prove where PII lives, and trace a report back to source for impact analysis. It is the enterprise catalog/governance layer over lakes, warehouses and pipelines.' },
         { q: 'How does Purview relate to Databricks Unity Catalog?', a: 'They overlap on governance but operate at different layers. Unity Catalog is Databricks’ native governance — it enforces access control, lineage and auditing on data in Databricks. Purview is a broader estate-wide catalog that scans many sources (ADLS, SQL, Synapse, Power BI, on-prem) for discovery, classification and cross-system lineage. Enterprises often use Unity Catalog to govern the lakehouse and Purview to catalog everything, with connectors bridging them.' },
@@ -1146,6 +1242,102 @@
         bullets: [
           { h: 'Caching', d: 'Clients cache secrets for the run to avoid hitting vault throttling limits on hot paths.' },
           { h: 'Auditing', d: 'Every get/set is logged to Azure Monitor for compliance.' },
+        ],
+      },
+      architecture: {
+        lead: 'Key Vault is a managed store for three object types — secrets, keys, and certificates — fronted by Entra-governed access and TLS. Keys can be software- or HSM-backed; every object is versioned; soft-delete protects against loss. Services authenticate (ideally via managed identity) and read at runtime.',
+        bullets: [
+          { h: 'Three object types', d: 'Secrets (arbitrary strings), Keys (encrypt/sign, optionally HSM-backed), Certificates (with managed lifecycle/auto-renewal). Each is versioned.' },
+          { h: 'Two access models', d: 'Azure RBAC (role assignments, the modern model) or legacy vault access policies — a vault uses one model; mixing expectations is the classic access bug.' },
+          { h: 'Backing & tiers', d: 'Standard (software) or Premium (HSM-backed, FIPS 140-2 L2); Managed HSM offers dedicated FIPS L3 for stringent needs.' },
+          { h: 'Protection', d: 'Soft-delete (recover deleted objects within a retention window) and purge protection (block permanent deletion) guard against accidental/malicious loss.' },
+        ],
+      },
+      security: {
+        lead: 'Key Vault is a security service, so its own access model is the crux: prefer managed identities + RBAC, lock down the network, and enable soft-delete/purge protection and logging.',
+        bullets: [
+          { h: 'Managed identity + least privilege', d: 'Services authenticate with a managed identity and get only the needed data-plane role (e.g. Key Vault Secrets User) — no app secrets to bootstrap.' },
+          { h: 'RBAC vs access policies', d: 'Choose one model per vault; RBAC is recommended. A principal granted in the wrong model (or at the wrong plane — management vs data) gets access denied despite "having a role".' },
+          { h: 'Network isolation', d: 'Private endpoints + firewall restrict the vault to selected networks; disable public access where possible.' },
+          { h: 'Protection & audit', d: 'Soft-delete + purge protection prevent loss; diagnostic logs to Azure Monitor record every get/set for audit.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating Key Vault is rotation, recovery (soft-delete), access-model hygiene, and respecting throttling limits on hot paths.',
+        bullets: [
+          { h: 'Rotation', d: 'Use key rotation policies and certificate auto-renewal; store secrets so rotating in one place needs no code/pipeline change (consumers reference, not copy).' },
+          { h: 'Recovery', d: 'Soft-delete lets you recover a deleted secret/key within the retention window; purge protection stops even an admin from permanent early deletion.' },
+          { h: 'Access-model hygiene', d: 'Standardize on RBAC; audit role assignments; avoid mixing access policies and RBAC assumptions across teams.' },
+          { h: 'Throttling', d: 'Vaults have per-vault transaction limits; cache secrets in clients so hot paths do not hit 429 throttling.' },
+        ],
+      },
+      cost: {
+        lead: 'Key Vault bills per operation (get/set/list) and for premium/HSM keys (and Managed HSM has its own pool pricing). Cost is usually tiny — the main pitfall is uncached hot-path reads inflating operation counts (and risking throttling). (Rates vary — price against the official Key Vault pricing page.)',
+        bullets: [
+          { h: 'Per-operation', d: 'Each secret/key operation is billed; cache in clients to cut both cost and throttling on hot paths.' },
+          { h: 'HSM premium', d: 'HSM-backed keys (Premium) and Managed HSM cost more than software keys — use them only where compliance requires.' },
+          { h: 'Negligible vs risk', d: 'The cost is small; the real value is removing hardcoded secrets — optimize for security, not pennies.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'How a pipeline reads a secret with a managed identity — no credentials in code.',
+        steps: [
+          { h: 'Acquire an Entra token', d: 'The service (ADF/Databricks/app) uses its managed identity to get an Entra token for the Key Vault resource — no bootstrap secret.' },
+          { h: 'Authorize', d: 'Key Vault checks the identity against its access model (RBAC role like Key Vault Secrets User, or an access policy) for the requested operation.' },
+          { h: 'Read over TLS', d: 'On success the secret value is returned over TLS; the value never appears in code, Git or (in Databricks) notebook output.' },
+          { h: 'Cache', d: 'The client caches the value for the run so repeated use does not hit per-vault throttling.' },
+          { h: 'Audit', d: 'The access is logged to Azure Monitor for compliance and incident response.' },
+        ],
+        note: 'Simplified; exact authorization depends on whether the vault uses RBAC or access policies.',
+      },
+      examples: [{
+        title: 'Store DB credentials once; consume from ADF and Databricks via managed identity',
+        requirement: 'Keep a source database password out of code and pipelines, rotate it in one place, and let both ADF and Databricks use it securely.',
+        input: 'A database connection password; ADF and a Databricks workspace with managed identities.',
+        architecture: 'Key Vault (secret) ← RBAC grants to ADF MI + Databricks → ADF linked service reference + Databricks KV-backed secret scope.',
+        code: {
+          lang: 'text / python (illustrative)',
+          text: "# Grant data-plane role (RBAC model):\n#   Key Vault Secrets User -> ADF managed identity, Databricks\n\n# ADF: linked service references @Microsoft.KeyVault(SecretUri=...)\n# Databricks: KV-backed secret scope, then in a notebook:\npwd = dbutils.secrets.get(scope='kv', key='db-password')  # redacted in output",
+        },
+        steps: [
+          'Store the password as a Key Vault secret (versioned).',
+          'Grant the ADF and Databricks identities the Secrets User role (RBAC).',
+          'Reference it from the ADF linked service and a Databricks KV-backed scope.',
+          'Rotate the secret in Key Vault — consumers pick up the new version with no code change.',
+        ],
+        output: 'Both tools use the credential without it ever living in code/Git, and rotation is a single Key Vault operation.',
+        validation: 'Confirm ADF connects and the Databricks read returns (redacted) the value; rotate and verify consumers still work; check access logs.',
+        errorHandling: 'Access denied usually means the identity lacks the data-plane role (or the vault uses the other access model); soft-delete recovers an accidentally-deleted secret.',
+        production: 'Use managed identities + RBAC, private endpoints, soft-delete + purge protection, and caching on hot paths; audit via Monitor.',
+        cleanup: 'Remove role assignments and delete the secret/vault (mind purge protection) if decommissioning.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'A service with a Key Vault role still gets "Forbidden/AccessDenied" reading a secret.',
+          evidence: 'The identity has a role but the vault uses the other access model, or the role is a management-plane role (not a data-plane one), or the wrong identity is used.',
+          causes: ['Vault configured for access policies while you granted an RBAC role (or vice versa)', 'Granted a management-plane role (e.g. Contributor) instead of a data-plane role (Key Vault Secrets User)', 'Wrong managed identity / scope'],
+          investigation: ['Check whether the vault uses RBAC or access policies', 'Verify the assigned role is a data-plane secrets role', 'Confirm which identity the service actually presents'],
+          rootCause: 'Authorization is evaluated under the vault’s configured model and the data plane; a role in the wrong model or plane does not grant secret access.',
+          remediation: ['Align the grant with the vault’s access model (prefer RBAC)', 'Assign the data-plane role (Key Vault Secrets User) to the correct identity', 'Fix the identity/scope the service uses'],
+          validation: 'The service reads the secret successfully with least privilege.',
+          prevention: 'Standardize on RBAC, grant data-plane roles to managed identities, and document the model per vault.',
+        },
+        {
+          symptom: 'Under load, secret reads start failing with HTTP 429 (throttling).',
+          evidence: 'A hot path fetches a secret on every operation; per-vault transaction limits are hit; errors clear when load drops.',
+          causes: ['No client-side caching, so every operation calls the vault', 'Many instances fetching the same secret repeatedly', 'Tight loops reading secrets'],
+          investigation: ['Check call volume to the vault vs the per-vault limits', 'Look for per-operation secret fetches in hot code', 'Confirm whether the SDK caches'],
+          rootCause: 'Secret reads exceed the vault’s transaction limit because values are re-fetched instead of cached.',
+          remediation: ['Cache secrets in the client for the run / a sensible TTL', 'Fetch once at startup rather than per operation', 'Spread/stagger load or split across vaults if genuinely high-scale'],
+          validation: '429s stop and throughput recovers under the same load.',
+          prevention: 'Cache secrets by default; never read Key Vault inside hot loops.',
+        },
+      ],
+      certMapping: {
+        lead: 'Key Vault is the secrets/keys governance service underpinning secure pipelines across Azure data certifications.',
+        items: [
+          { label: 'DP-700 Fabric Data Engineer (security context)', certId: 'ms-dp700', objectives: ['Secure credentials via Key Vault / connections', 'Managed identities over keys', 'Rotation & audit'] },
+          'Legacy lineage: DP-203 (retired 2025) tested securing pipeline credentials with Key Vault (ADF references, Databricks secret scopes).',
         ],
       },
       interview: [
