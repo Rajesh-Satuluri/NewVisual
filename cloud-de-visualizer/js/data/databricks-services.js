@@ -346,10 +346,110 @@
           { h: 'Serverless option', d: 'Serverless DLT removes cluster sizing and speeds startup; otherwise you size the pipeline cluster.' },
         ],
       },
+      architecture: {
+        lead: 'A DLT (Lakeflow Declarative Pipelines) pipeline is a set of dataset definitions that DLT compiles into a dependency DAG and executes as a managed update. The runtime owns orchestration, incremental state/checkpoints, quality enforcement, and an event log that is the source of truth for metrics and lineage.',
+        bullets: [
+          { h: 'Declared DAG', d: 'Each @dlt.table / @dlt.view (or SQL STREAMING TABLE / MATERIALIZED VIEW) declares a query; DLT derives execution order from the references between datasets, so you never wire the DAG by hand.' },
+          { h: 'Streaming tables vs materialized views', d: 'A streaming table processes new data incrementally with a managed checkpoint (append/CDC semantics); a materialized view represents a query result that DLT refreshes — incrementally when it can, otherwise by recompute.' },
+          { h: 'Expectations inline', d: 'Data-quality constraints (expect / expect_or_drop / expect_or_fail) are evaluated as rows flow, emitting pass/fail counts to the event log rather than as a separate test step.' },
+          { h: 'Event log', d: 'Every update writes a queryable event log with per-dataset metrics, data-quality results, and lineage — the primary observability surface.' },
+          { h: 'APPLY CHANGES', d: 'Built-in CDC: ordered change events are applied into a target streaming table with managed SCD type 1/2, replacing hand-written MERGE + sequencing.' },
+        ],
+      },
+      security: {
+        lead: 'DLT itself runs as managed compute; access control and encryption come from Unity Catalog and the cloud storage layer. The pipeline runs under an identity whose grants bound what it can read and write.',
+        bullets: [
+          { h: 'Unity Catalog governance', d: 'DLT tables are registered in UC and inherit ANSI GRANTs, row-level security and column masking; the pipeline’s run-as identity needs explicit read/write grants on sources and targets.' },
+          { h: 'Least-privilege run-as', d: 'Scope the pipeline identity to only the catalogs/schemas it needs; access to underlying storage flows through UC external locations, not cluster keys.' },
+          { h: 'Encryption at rest', d: 'Output Delta files live in ADLS/S3 and are encrypted by the object store (service- or customer-managed keys); DLT adds no separate at-rest layer.' },
+          { h: 'Quality as a control', d: 'Expectations (expect_or_fail / quarantine patterns) act as a governance gate, stopping or isolating non-conforming data before it reaches Gold.' },
+        ],
+      },
+      operations: {
+        lead: 'DLT automates most day-2 work — orchestration, retries, recovery, and table maintenance — so operations is about update modes, autoscaling, monitoring the event log, and keeping refreshes incremental.',
+        bullets: [
+          { h: 'Update modes', d: 'Triggered updates run to completion then stop (cheapest for batch); continuous mode keeps processing as data arrives (lower latency, always-on compute). Choose per latency/cost need.' },
+          { h: 'Autoscaling & serverless', d: 'Enhanced autoscaling sizes the pipeline to load; serverless DLT removes cluster sizing and speeds startup.' },
+          { h: 'Automatic maintenance', d: 'DLT runs maintenance (e.g. OPTIMIZE/VACUUM) on its managed tables so you do not hand-schedule compaction.' },
+          { h: 'Monitoring & recovery', d: 'The event log drives dashboards/alerts on data-quality and run health; failed updates retry and recover from checkpoints without manual replay.' },
+        ],
+      },
+      cost: {
+        lead: 'DLT bills the underlying compute in DBUs with a DLT product-edition multiplier (Core/Pro/Advanced, where Pro adds CDC/SCD and Advanced adds expectations/quality), plus object storage. The levers are update mode (continuous = always-on), keeping MV refreshes incremental, and right edition selection. (DBU rates and edition multipliers vary — price against the official Databricks pricing page.)',
+        bullets: [
+          { h: 'Triggered vs continuous', d: 'Triggered pipelines pay only during the run; continuous pipelines keep compute live for low latency — use continuous only when latency needs it.' },
+          { h: 'Incremental vs recompute', d: 'A materialized view that cannot refresh incrementally recomputes fully every run — a hidden cost; structure queries so DLT can update incrementally.' },
+          { h: 'Edition fit', d: 'Pick the lowest edition that covers your features (expectations need Advanced, CDC needs Pro+); over-selecting raises the DBU multiplier.' },
+          { h: 'Maintenance pays off', d: 'Automatic compaction keeps reads cheap; serverless removes idle waste for bursty pipelines.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'What happens during a triggered DLT pipeline update — from start to event log.',
+        steps: [
+          { h: 'Resolve the DAG', d: 'DLT parses all dataset definitions, resolves references between them, and builds the execution graph; it validates schemas and expectations before running.' },
+          { h: 'Provision compute', d: 'DLT starts (or serverlessly allocates) the pipeline cluster sized by enhanced autoscaling.' },
+          { h: 'Run datasets in dependency order', d: 'Bronze streaming tables read new data (often via Auto Loader) using managed checkpoints; downstream Silver/Gold datasets run once their inputs are ready.' },
+          { h: 'Enforce expectations inline', d: 'As rows flow, expectations evaluate: expect tracks, expect_or_drop removes violating rows, expect_or_fail aborts the update. Counts stream to the event log.' },
+          { h: 'Apply CDC where declared', d: 'APPLY CHANGES INTO applies ordered change events into target streaming tables, maintaining SCD 1/2 without hand-written MERGE.' },
+          { h: 'Commit, maintain, log', d: 'Outputs commit to Delta in UC; DLT runs table maintenance and writes per-dataset metrics, quality results and lineage to the event log; a triggered update then stops.' },
+        ],
+        note: 'Simplified update model; incremental vs recompute and exact maintenance depend on the dataset types and edition.',
+      },
+      examples: [{
+        title: 'Medallion CDC pipeline with Auto Loader, expectations and SCD-2',
+        requirement: 'Ingest raw order files incrementally, drop invalid rows with visible metrics, and maintain an SCD-2 Silver dimension from change events — with no hand-written orchestration or MERGE.',
+        input: 'Raw JSON order/customer change files landing in cloud storage; change events carry a key, sequence column and operation.',
+        architecture: 'Auto Loader → Bronze streaming table → expectations → APPLY CHANGES INTO Silver (SCD-2) → Gold materialized view; all declared in one DLT pipeline.',
+        code: {
+          lang: 'python (dlt, illustrative)',
+          text: "import dlt\nfrom pyspark.sql.functions import col\n\n@dlt.table\ndef bronze_customers():\n    return (spark.readStream.format('cloudFiles')\n            .option('cloudFiles.format','json')\n            .load('/mnt/landing/customers'))\n\ndlt.create_streaming_table('silver_customers')\ndlt.apply_changes(\n    target='silver_customers', source='bronze_customers',\n    keys=['customer_id'], sequence_by=col('ts'),\n    stored_as_scd_type=2)\n\n@dlt.table\n@dlt.expect_or_drop('valid_email', \"email IS NOT NULL\")\ndef gold_active_customers():\n    return dlt.read('silver_customers').filter(\"__END_AT IS NULL\")",
+        },
+        steps: [
+          'Declare a Bronze streaming table reading via Auto Loader.',
+          'Use apply_changes with stored_as_scd_type=2 for the Silver dimension.',
+          'Attach expectations so invalid rows are dropped and counted.',
+          'Build a Gold MV over the current SCD-2 rows.',
+        ],
+        output: 'An SCD-2 Silver dimension kept current from change events, a Gold view of active customers, and event-log metrics for dropped rows.',
+        validation: 'Query the event log for expectation pass/drop counts; confirm SCD-2 history (__START_AT/__END_AT) for an updated key; a re-run with no new files processes ~0 rows.',
+        errorHandling: 'Expectations quarantine/drop bad rows without failing the run; streaming checkpoints make restarts exactly-once; apply_changes handles out-of-order events via sequence_by.',
+        production: 'Prefer triggered mode unless latency needs continuous; keep the pipeline identity least-privileged in UC; monitor the event log for rising drop rates.',
+        cleanup: 'Delete the DLT pipeline (removes managed tables per settings), and remove the landing data if decommissioning.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'A DLT materialized view takes far longer and costs more each run than expected, as if recomputing the whole dataset.',
+          evidence: 'The event log shows the MV doing a full refresh rather than an incremental update; runtime scales with total table size, not new data.',
+          causes: ['The MV query uses constructs that prevent incremental refresh', 'Non-deterministic or unsupported functions in the view', 'Upstream changes forcing a full recompute'],
+          investigation: ['Check the event log/flow details for refresh type (incremental vs full)', 'Review the MV query for non-incremental-friendly patterns', 'Confirm whether upstream schema/data changes triggered recompute'],
+          rootCause: 'DLT cannot refresh the materialized view incrementally, so it recomputes the full result every update — time and cost scale with table size, not with new data.',
+          remediation: ['Restructure the query to patterns DLT can refresh incrementally', 'Move high-churn logic into a streaming table where appropriate', 'Avoid non-deterministic functions that force recompute'],
+          validation: 'The event log reports incremental refresh; runtime/cost scales with new data volume.',
+          prevention: 'Design MVs for incremental refresh from the start and watch the event log for silent full recomputes.',
+        },
+        {
+          symptom: 'Rows that look valid are missing from a downstream DLT table, with no error in the pipeline.',
+          evidence: 'The event log shows a high drop count on an expect_or_drop expectation; counts into the target are lower than the source.',
+          causes: ['An expect_or_drop predicate is stricter than intended', 'Type/null handling in the predicate dropping legitimate rows', 'A quarantine pattern diverting rows without visibility'],
+          investigation: ['Query the event log for per-expectation pass/drop counts', 'Test the predicate against sample "valid" rows', 'Check whether nulls/edge cases fail the predicate unexpectedly'],
+          rootCause: 'An expectation with expect_or_drop is removing rows that should pass because the predicate is too strict or mishandles nulls — the pipeline succeeds while silently dropping data.',
+          remediation: ['Fix the predicate (handle nulls/edge cases) or downgrade to expect (track, don’t drop) while investigating', 'Route violations to a quarantine table instead of dropping', 'Add alerts on drop-rate thresholds'],
+          validation: 'Drop count falls to the expected level; downstream counts reconcile with source minus genuinely-bad rows.',
+          prevention: 'Alert on expectation drop rates; prefer quarantine over silent drop for recoverability; unit-test predicates against edge cases.',
+        },
+      ],
+      certMapping: {
+        lead: 'DLT is the declarative-pipeline surface Databricks certifications test for ingestion, quality and CDC.',
+        items: [
+          { label: 'Databricks Data Engineer Associate', certId: 'dbx-de-associate', objectives: ['Build DLT pipelines (streaming tables & materialized views)', 'Data-quality expectations', 'Auto Loader → medallion ingestion'] },
+          { label: 'Databricks Data Engineer Professional', certId: 'dbx-de-professional', objectives: ['APPLY CHANGES / SCD with DLT', 'Incremental refresh & pipeline cost/latency trade-offs', 'Monitoring via the event log'] },
+        ],
+      },
       interview: [
         { q: 'What is Delta Live Tables and how is it different from a normal Spark job?', a: 'DLT is a declarative pipeline framework: you declare streaming tables and materialized views with their queries, and DLT infers the dependency DAG, manages incremental processing and checkpoints, enforces data-quality expectations, and handles retries, recovery and lineage. A normal Spark job is imperative — you hand-wire orchestration, checkpoints and quality checks yourself. DLT trades some flexibility for a managed, observable, self-healing pipeline.' },
         { q: 'What are expectations in DLT?', a: 'Declarative data-quality constraints on a dataset. EXPECT keeps but tracks violations, EXPECT OR DROP removes bad rows, EXPECT OR FAIL stops the pipeline. They run inline and emit pass/fail metrics to the event log, so quality is enforced and observable rather than bolted on.' },
         { q: 'How does DLT handle CDC?', a: 'With APPLY CHANGES INTO, which applies ordered change events (inserts/updates/deletes) into a target streaming table and can maintain SCD type 1 or type 2 automatically — replacing hand-written MERGE logic and sequencing. You give it the key, sequence column and change type, and DLT keeps the target correct.' },
+        { q: 'When would you keep a hand-written Structured Streaming job instead of using DLT?', a: 'When you need control DLT’s managed model does not expose: custom checkpoint/state handling, arbitrary stateful operations (flatMapGroupsWithState), unusual sink/trigger patterns, or fine-grained cluster/runtime tuning. DLT buys reliability and observability at the cost of some flexibility; a bespoke streaming job is the escape hatch when the pipeline is non-standard enough that the declarative model fights you.' },
       ],
     },
 
@@ -410,6 +510,102 @@
         bullets: [
           { h: 'Listing vs notification', d: 'Switch to notification mode for high-volume paths to avoid costly LIST operations.' },
           { h: 'Checkpoint is critical', d: 'It records processed files; back it up and never point two streams at the same checkpoint.' },
+        ],
+      },
+      architecture: {
+        lead: 'Auto Loader is the cloudFiles Structured Streaming source. It layers file discovery, durable processed-file state, and schema management over any cloud object store, so each micro-batch picks up only new files and commits exactly-once with the write.',
+        bullets: [
+          { h: 'Two discovery modes', d: 'Directory listing enumerates the path (simple, no setup, cost grows with file count). File notification subscribes to storage events (on AWS an SNS→SQS pair, on Azure Event Grid→Storage Queue, on GCP Pub/Sub) — Auto Loader can auto-provision them — so discovery is event-driven and scales to millions of files.' },
+          { h: 'Processed-file state', d: 'A checkpoint (RocksDB-backed) records which files were ingested; it is committed atomically with the output write, which is what makes file processing exactly-once across restarts.' },
+          { h: 'Schema handling', d: 'Schema is inferred from sampled files and persisted at schemaLocation; evolution adds new columns (restarting the stream), and data that does not fit the current schema is captured in _rescued_data rather than dropped.' },
+          { h: 'Triggers', d: 'Run continuously, in micro-batches, or Trigger.AvailableNow to drain the current backlog once and stop — the standard backfill-then-live pattern.' },
+        ],
+      },
+      security: {
+        lead: 'Auto Loader runs inside a Structured Streaming job, so its access is the cluster/stream identity governed by Unity Catalog and the storage layer; notification mode also needs permission to manage the cloud event resources.',
+        bullets: [
+          { h: 'Storage access via UC', d: 'Reads from the landing path and writes to Bronze flow through UC external locations / the stream identity’s grants — not embedded keys.' },
+          { h: 'Notification-resource permissions', d: 'To auto-provision file notifications the identity needs rights to create the queue/subscription (SQS+SNS / Event Grid+Queue / Pub/Sub); otherwise pre-create them and grant consume access.' },
+          { h: 'Encryption at rest', d: 'Both landing files and Bronze output are encrypted by the object store; Auto Loader adds no separate layer.' },
+          { h: 'Least privilege', d: 'Scope the stream identity to the specific landing and Bronze locations; avoid broad storage roles that every job would inherit.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating Auto Loader centers on the checkpoint (the exactly-once source of truth), choosing the right discovery mode for scale, and managing schema evolution and small files.',
+        bullets: [
+          { h: 'Checkpoint discipline', d: 'Each stream needs its own stable checkpoint; never point two streams at one checkpoint, and never delete it unless you intend to reprocess. Back it up with the pipeline.' },
+          { h: 'Mode for scale', d: 'Start with directory listing; switch high-volume paths to file notification to avoid costly LIST operations as file counts grow.' },
+          { h: 'Schema evolution', d: 'New columns trigger a stream restart (by design); run under a supervisor (job retries / DLT) so the restart is automatic, and monitor _rescued_data volume for unexpected drift.' },
+          { h: 'Backfill + live', d: 'Trigger.AvailableNow drains the backlog deterministically; a continuous trigger then keeps Bronze current.' },
+        ],
+      },
+      cost: {
+        lead: 'Auto Loader’s own cost is the streaming compute plus, in notification mode, the cloud queue/notification charges. Directory listing adds LIST request cost that grows with file count — the main reason to switch to notifications at scale. (Compute DBU and cloud messaging rates vary — price against the official pricing pages.)',
+        bullets: [
+          { h: 'Listing vs notification', d: 'Listing is free of extra infra but incurs storage LIST costs that scale with directory size; notification trades a small queue cost for cheap discovery at high file volumes.' },
+          { h: 'Small-file overhead', d: 'Many tiny input files raise per-file processing overhead and fragment Bronze — compact downstream to control cost.' },
+          { h: 'Trigger choice', d: 'Trigger.AvailableNow (batch backfill) avoids always-on compute; continuous streaming pays for standing compute for low latency.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'What a single Auto Loader micro-batch does, end to end.',
+        steps: [
+          { h: 'Discover new files', d: 'In listing mode Auto Loader lists the path and diffs against the checkpoint; in notification mode it consumes file-arrival events from the queue — either way it builds the set of not-yet-processed files.' },
+          { h: 'Apply schema', d: 'Files are parsed against the persisted schema; unexpected columns go to _rescued_data. If evolution is needed, the stream updates the schema and restarts.' },
+          { h: 'Read as a micro-batch', d: 'The new files are read into a streaming micro-batch across executors.' },
+          { h: 'Transform & write', d: 'Optional transforms run, then the batch writes to the Bronze Delta table (or feeds a DLT streaming table).' },
+          { h: 'Commit checkpoint atomically', d: 'The processed-file identifiers are committed to the checkpoint together with the write — so a crash-and-restart resumes exactly once, never reprocessing or skipping.' },
+        ],
+        note: 'Simplified micro-batch model; exact discovery/commit behavior depends on the trigger and discovery mode.',
+      },
+      examples: [{
+        title: 'Backfill-then-live Bronze ingestion with schema evolution',
+        requirement: 'Load a large existing backlog of JSON order files into Bronze once, then keep ingesting new files continuously, tolerating new columns without breaking.',
+        input: 'JSON files in an ADLS landing zone (large historical backlog + ongoing arrivals).',
+        architecture: 'ADLS landing → Auto Loader (cloudFiles, notification mode) → Bronze Delta; Trigger.AvailableNow for backfill, then a continuous stream.',
+        code: {
+          lang: 'pyspark (illustrative)',
+          text: "reader = (spark.readStream.format('cloudFiles')\n  .option('cloudFiles.format','json')\n  .option('cloudFiles.useNotifications','true')\n  .option('cloudFiles.schemaLocation', CHK)\n  .option('cloudFiles.schemaEvolutionMode','addNewColumns')\n  .load(LANDING))\n\n# 1) Backfill once, then stop\n(reader.writeStream.option('checkpointLocation', CHK)\n   .trigger(availableNow=True).toTable('bronze.orders'))\n\n# 2) Same code with a continuous trigger keeps Bronze live",
+        },
+        steps: [
+          'Set a dedicated schemaLocation and checkpoint.',
+          'Enable notification mode for the high-volume path.',
+          'Run with Trigger.AvailableNow to drain the backlog.',
+          'Re-run continuously (or via a job) to keep ingesting.',
+        ],
+        output: 'A Bronze Delta table holding the full backlog plus new files, with new columns added automatically and anomalies captured in _rescued_data.',
+        validation: 'Compare Bronze file/row counts against the landing zone; confirm a re-run with no new files ingests 0 rows; inspect _rescued_data for drift.',
+        errorHandling: 'Schema evolution restarts the stream — run it under a job with retries so it resumes automatically; the checkpoint guarantees exactly-once on restart.',
+        production: 'Use notification mode at scale; give the identity rights to manage the notification queue; monitor _rescued_data growth and compact Bronze downstream.',
+        cleanup: 'Stop the stream, delete the checkpoint and schemaLocation, and drop the Bronze table if decommissioning.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'After a job change or redeploy, Auto Loader reprocesses files it already ingested (or two streams fight), creating duplicates in Bronze.',
+          evidence: 'Bronze row counts jump with no new source files; two streams reference the same checkpoint path, or the checkpoint was deleted/moved.',
+          causes: ['Two streams sharing one checkpointLocation', 'Checkpoint deleted, moved, or pointed at a new path', 'Writing to the same target from multiple Auto Loader streams'],
+          investigation: ['Confirm each stream has a unique, stable checkpointLocation', 'Check whether the checkpoint was recently recreated', 'Look for multiple streams targeting the same Bronze table'],
+          rootCause: 'The processed-file state was lost or shared, so Auto Loader no longer knows what it ingested and re-reads files — the checkpoint is the exactly-once source of truth.',
+          remediation: ['Give each stream its own dedicated checkpoint and never delete it unintentionally', 'Make the Bronze write idempotent (dedup on a file/row key) as a backstop', 'Separate streams onto distinct checkpoints/targets'],
+          validation: 'A redeploy resumes from the checkpoint and ingests only new files; duplicate counts return to zero.',
+          prevention: 'Treat the checkpoint as critical state: one per stream, backed up, never shared or casually deleted.',
+        },
+        {
+          symptom: 'An Auto Loader stream repeatedly stops with a "schema changed / new columns" condition, or expected fields keep landing in _rescued_data.',
+          evidence: 'Stream terminates on schema change; _rescued_data grows; downstream columns are null because the data is in _rescued_data.',
+          causes: ['Schema evolution not enabled (or mode too strict), so the stream halts on new columns', 'No supervising job to auto-restart after an evolution', 'Upstream producing inconsistent types the inferred schema rejects'],
+          investigation: ['Check cloudFiles.schemaEvolutionMode and schemaLocation', 'Inspect _rescued_data to see which columns/types are being rescued', 'Confirm the stream runs under a job with retries'],
+          rootCause: 'Schema drift is being rejected or only rescued because evolution is off/strict and nothing restarts the stream, so new fields never become real columns.',
+          remediation: ['Set schemaEvolutionMode to addNewColumns and a stable schemaLocation', 'Run the stream under a job with automatic retries so evolution restarts resume', 'Fix upstream type inconsistencies or add explicit schema hints'],
+          validation: 'New columns appear in Bronze automatically after a restart; _rescued_data shrinks to genuine anomalies only.',
+          prevention: 'Always set schemaLocation + evolution mode and supervise the stream; monitor _rescued_data as a drift signal.',
+        },
+      ],
+      certMapping: {
+        lead: 'Auto Loader is the incremental-ingestion primitive Databricks certifications test for building Bronze.',
+        items: [
+          { label: 'Databricks Data Engineer Associate', certId: 'dbx-de-associate', objectives: ['Incremental file ingestion with Auto Loader (cloudFiles)', 'Schema inference & evolution, rescued data', 'Checkpoints & exactly-once'] },
+          { label: 'Databricks Data Engineer Professional', certId: 'dbx-de-professional', objectives: ['File-notification mode at scale', 'Backfill (AvailableNow) + live patterns', 'Operational robustness of streaming ingestion'] },
         ],
       },
       interview: [
@@ -473,6 +669,103 @@
         bullets: [
           { h: 'Watermark or bust', d: 'Stateful aggregations/joins without a watermark accumulate unbounded state and eventually fail.' },
           { h: 'Exactly-once needs an idempotent/transactional sink', d: 'Delta gives transactional commits; arbitrary sinks may only be at-least-once.' },
+        ],
+      },
+      architecture: {
+        lead: 'Structured Streaming runs a single declared query incrementally over an unbounded input. The engine tracks source offsets and operator state in a checkpoint, plans one incremental execution per trigger, and commits results transactionally — the design that delivers exactly-once with a suitable sink.',
+        bullets: [
+          { h: 'Incremental execution', d: 'Each trigger computes the delta: the planner reads new offsets since the last commit, runs the query on that micro-batch, and updates results — the same DataFrame/SQL plan as batch, executed repeatedly.' },
+          { h: 'Checkpoint internals', d: 'The checkpoint holds the offset log (what to read), the commit log (what finished), and the state store. On restart the engine replays from the last committed offsets, so no input is lost or double-counted.' },
+          { h: 'State store (RocksDB)', d: 'Stateful operators (windowed aggregations, stream-stream joins, flatMapGroupsWithState) keep keyed state in a checkpointed RocksDB store; watermarks let the engine evict state past the allowed lateness to bound memory.' },
+          { h: 'Output modes & triggers', d: 'Append/Update/Complete control what is emitted; triggers are fixed-interval micro-batch, Trigger.AvailableNow (drain and stop), or continuous (ms latency, limited ops).' },
+        ],
+      },
+      security: {
+        lead: 'A streaming job’s security is the cluster/stream identity governed by Unity Catalog plus the source/sink systems’ own auth; the checkpoint and state live in governed storage.',
+        bullets: [
+          { h: 'Source/sink auth', d: 'Kafka/Event Hubs connections use their own credentials (ideally from a secret scope / Key Vault); Delta source and sink access flows through UC grants.' },
+          { h: 'Governed state', d: 'Checkpoint and state-store data live in object storage encrypted at rest; protect the checkpoint location as sensitive operational state.' },
+          { h: 'Secrets, not literals', d: 'Read connection strings/keys from Databricks secret scopes at runtime rather than hardcoding them in the notebook/job.' },
+          { h: 'Least privilege', d: 'Scope the stream identity to only its sources, sinks and checkpoint location.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating a stream is about keeping state bounded, batch duration healthy, and the checkpoint intact across code changes — plus monitoring lag and ensuring the sink gives the guarantee you need.',
+        bullets: [
+          { h: 'Bound state with watermarks', d: 'Every stateful aggregation/join needs a watermark; without one, state grows forever and the stream eventually fails. Set lateness to your real data tardiness.' },
+          { h: 'Backpressure / batch size', d: 'maxFilesPerTrigger / maxOffsetsPerTrigger cap input per batch so a backlog does not create an enormous first batch; tune batch duration for steady throughput.' },
+          { h: 'Checkpoint compatibility', d: 'Some query changes are not checkpoint-compatible (e.g. changing stateful operators); plan migrations, since an incompatible change forces a new checkpoint and reprocessing.' },
+          { h: 'Monitoring', d: 'StreamingQueryListener / the Spark UI expose input vs processing rate, batch duration and state-store size — watch for rising lag and growing state.' },
+        ],
+      },
+      cost: {
+        lead: 'Cost is driven by whether compute runs continuously and how heavy the state/shuffle is. Always-on streams pay for standing compute; Trigger.AvailableNow turns a stream into incremental batch to avoid idle cost. (Compute DBU rates vary — price against the official pricing page.)',
+        bullets: [
+          { h: 'Always-on vs incremental batch', d: 'Low-latency pipelines keep compute live; for near-real-time needs, a short-interval or AvailableNow trigger on a job cluster can be far cheaper.' },
+          { h: 'State & shuffle', d: 'Large keyed state and wide shuffles dominate stateful-job cost; watermarks (evict state) and partitioning (reduce shuffle/skew) are the levers.' },
+          { h: 'Right-size batch', d: 'Too-small batches waste overhead per trigger; too-large add latency and memory pressure — tune to steady batch duration.' },
+          { h: 'Delta sink efficiency', d: 'Frequent tiny commits fragment the sink table; compact downstream so readers (and bills) stay low.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'What one micro-batch of a stateful stream does under the hood.',
+        steps: [
+          { h: 'Plan offsets', d: 'The engine reads the source’s current end offsets, diffs against the checkpoint’s offset log, and writes the new batch’s offset range to the offset log before processing (so recovery is deterministic).' },
+          { h: 'Read the micro-batch', d: 'Only the new data in that offset range is read into the batch across executors.' },
+          { h: 'Execute incrementally', d: 'The query plan runs on the batch; stateful operators load their keyed state from the state store, apply updates, and drop state past the watermark.' },
+          { h: 'Write to the sink', d: 'Results are written per the output mode; a transactional sink like Delta commits atomically so partial writes are not visible.' },
+          { h: 'Commit', d: 'The engine writes to the commit log, finalizing the batch. On a crash before commit, the batch replays from the offset log — giving exactly-once with an idempotent/transactional sink.' },
+        ],
+        note: 'Simplified micro-batch lifecycle; continuous mode and exact state semantics differ by operator.',
+      },
+      examples: [{
+        title: 'Real-time Silver from Kafka/Event Hubs with windowed dedup and a Delta upsert',
+        requirement: 'Build a near-real-time Silver orders table from an event stream, deduplicating within a late-data window and upserting into Delta exactly-once.',
+        input: 'An order event stream on Kafka / Event Hubs (Kafka API) with an event-time timestamp.',
+        architecture: 'Kafka source → watermark + dedup → foreachBatch MERGE into Silver Delta → compaction downstream.',
+        code: {
+          lang: 'pyspark (illustrative)',
+          text: "stream = (spark.readStream.format('kafka')\n  .option('kafka.bootstrap.servers', BROKERS)\n  .option('subscribe','orders').load()\n  .select(from_json(col('value').cast('string'), SCHEMA).alias('d'))\n  .select('d.*')\n  .withWatermark('ts','30 minutes')\n  .dropDuplicates(['order_id','ts']))\n\ndef upsert(b, _):\n  (DeltaTable.forName(spark,'silver.orders').alias('t')\n     .merge(b.alias('s'),'t.order_id=s.order_id')\n     .whenMatchedUpdateAll().whenNotMatchedInsertAll().execute())\n\n(stream.writeStream.foreachBatch(upsert)\n   .option('checkpointLocation', CHK)\n   .trigger(processingTime='1 minute').start())",
+        },
+        steps: [
+          'Set a watermark so dedup/state is bounded.',
+          'Deduplicate within the watermark window.',
+          'Upsert each micro-batch into Silver via foreachBatch MERGE.',
+          'Checkpoint for exactly-once; compact Silver on a schedule.',
+        ],
+        output: 'A continuously-updated Silver Delta table with one row per order, read live by BI.',
+        validation: 'Confirm COUNT(DISTINCT order_id)==COUNT(*); kill and restart the stream and verify no duplicates/loss; watch batch duration stay steady.',
+        errorHandling: 'The checkpoint replays uncommitted batches on restart; the Delta MERGE makes writes idempotent; the watermark bounds state so memory stays stable.',
+        production: 'Cap maxOffsetsPerTrigger to tame backlogs; monitor lag/state size via a listener; plan for checkpoint-incompatible changes before editing stateful logic.',
+        cleanup: 'Stop the stream, delete the checkpoint, and drop the Silver table if decommissioning.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'A stateful streaming job slows over time and eventually fails with OOM / state-store errors, though input volume is steady.',
+          evidence: 'The Spark UI shows state-store size and batch duration growing without bound; a windowed aggregation or stream-stream join has no watermark.',
+          causes: ['Stateful operator with no watermark, so state is never evicted', 'Watermark lateness set far too high', 'Unbounded distinct/dedup without a time bound'],
+          investigation: ['Check whether each stateful operator has a withWatermark', 'Inspect state-store rows/size growth in the UI/listener', 'Review the watermark lateness vs actual data tardiness'],
+          rootCause: 'Without a watermark the engine cannot know when a window/key is final, so it retains state forever — memory and batch time climb until the job dies.',
+          remediation: ['Add a watermark to every stateful aggregation/join and set realistic lateness', 'Tighten overly-large watermark windows', 'Bound dedup with an event-time watermark'],
+          validation: 'State-store size stabilizes, batch duration flattens, and the job runs indefinitely without OOM.',
+          prevention: 'Make a watermark mandatory on any stateful operator in review; monitor state-store size as a leading indicator.',
+        },
+        {
+          symptom: 'Streaming lag grows: the batch-processing time exceeds the trigger interval and the stream falls behind the source.',
+          evidence: 'Input rate > processing rate in the metrics; batch duration exceeds the trigger interval; a backlog built up after a restart creating a huge first batch.',
+          causes: ['No input cap, so a backlog forms one enormous batch', 'Shuffle skew or undersized cluster for the load', 'Expensive per-batch work (wide joins, tiny-file sink)'],
+          investigation: ['Compare input vs processing rate and batch duration', 'Check for skew / large shuffle stages in the batch', 'Review maxOffsetsPerTrigger / maxFilesPerTrigger settings'],
+          rootCause: 'Per-batch work exceeds the trigger budget — usually an uncapped backlog or skew/undersizing — so the stream cannot keep up and lag compounds.',
+          remediation: ['Cap input per trigger (maxOffsetsPerTrigger/maxFilesPerTrigger) to size batches', 'Fix skew and right-size the cluster; reduce shuffle', 'Compact the sink and simplify heavy per-batch ops'],
+          validation: 'Processing rate meets or exceeds input rate; batch duration fits the trigger interval; lag drains and stays flat.',
+          prevention: 'Cap input per trigger from the start, design for skew, and alert on input-vs-processing-rate divergence.',
+        },
+      ],
+      certMapping: {
+        lead: 'Structured Streaming is the streaming engine Databricks certifications test for real-time pipelines and state/semantics.',
+        items: [
+          { label: 'Databricks Data Engineer Associate', certId: 'dbx-de-associate', objectives: ['Streaming reads/writes with Delta', 'Checkpoints & exactly-once', 'Triggers and output modes'] },
+          { label: 'Databricks Data Engineer Professional', certId: 'dbx-de-professional', objectives: ['Watermarks & state management', 'Stream-stream joins / stateful ops', 'Latency/throughput tuning & recovery'] },
         ],
       },
       interview: [
@@ -655,6 +948,88 @@
         bullets: [
           { h: 'UDF caveat', d: 'Non-native Python UDFs can’t be vectorized and fall back — prefer built-in/SQL expressions to stay on Photon.' },
           { h: 'DBU rate', d: 'Photon clusters bill at a higher DBU rate but usually finish faster, often a net cost win for SQL/ETL.' },
+        ],
+      },
+      architecture: {
+        lead: 'Photon is a native, vectorized execution engine that plugs into Spark’s physical plan. The Catalyst optimizer compiles supported operators to Photon’s C++ engine, which processes columnar batches with SIMD and off-heap memory; anything unsupported transparently falls back to the JVM Spark engine within the same query.',
+        bullets: [
+          { h: 'Vectorized columnar execution', d: 'Operators process batches of columns (not row-at-a-time), using SIMD instructions and off-heap memory to avoid JVM object overhead and GC stalls.' },
+          { h: 'Plan integration + fallback', d: 'Photon implements a subset of physical operators (scans, filters, projections, joins, aggregations, Delta writes). Within one query, supported stages run in Photon and unsupported stages (e.g. Python UDFs) run in Spark — a partial-Photon plan.' },
+          { h: 'Columnar/Delta synergy', d: 'Vectorized scans pair naturally with Parquet/Delta columnar layout and data skipping, so pruning plus vectorization compound.' },
+          { h: 'Where it runs', d: 'Photon powers Databricks SQL warehouses (on by default) and Photon-enabled clusters; the same API/results, different execution.' },
+        ],
+      },
+      security: {
+        lead: 'Photon is an execution engine, so it inherits the security of the cluster/warehouse it runs on — Unity Catalog governance, identity, and storage encryption. It changes performance and cost, not the authorization or data-protection model.',
+        bullets: [
+          { h: 'Inherited governance', d: 'Access to tables/paths is enforced by Unity Catalog and the stream/cluster identity exactly as without Photon; results are identical.' },
+          { h: 'No new surface', d: 'Enabling Photon does not add credentials or endpoints; it is a runtime option on existing governed compute.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating Photon is mostly a tuning/verification concern: confirm queries actually run in Photon (not falling back), and judge the net cost/perf given its higher DBU rate.',
+        bullets: [
+          { h: 'Verify Photon coverage', d: 'Read the query plan (the Spark UI marks Photon operators) to confirm heavy stages run in Photon rather than falling back to Spark.' },
+          { h: 'Avoid fallback triggers', d: 'Arbitrary Python UDFs and unsupported operators force fallback; prefer built-in/SQL expressions or pandas/vectorized UDFs to keep stages on Photon.' },
+          { h: 'Enablement', d: 'Use a Photon-enabled runtime/warehouse; DBSQL warehouses run it by default. No code change is required.' },
+          { h: 'Measure the win', d: 'Compare runtime and DBU-hours with/without Photon on representative queries before standardizing.' },
+        ],
+      },
+      cost: {
+        lead: 'Photon clusters/warehouses bill at a higher DBU rate than non-Photon compute, but CPU-bound relational workloads usually finish enough faster to be a net cost win. The decision is empirical per workload. (DBU rates vary — price against the official Databricks pricing page.)',
+        bullets: [
+          { h: 'Higher rate, shorter runtime', d: 'The per-DBU uplift is offset when queries finish faster; on SQL/ETL over columnar data this is typically a net saving.' },
+          { h: 'When it may cost more', d: 'I/O-bound, tiny, or UDF-dominated jobs see little speedup, so the higher rate can make them more expensive — measure before enabling broadly.' },
+          { h: 'Compounding efficiency', d: 'Pruning (data skipping) + vectorization together cut scan time; well-laid-out Delta maximizes the benefit.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'How a SQL/DataFrame query executes when Photon is enabled.',
+        steps: [
+          { h: 'Optimize the plan', d: 'Catalyst produces a physical plan as usual, applying predicate/column pruning and data skipping against Delta stats.' },
+          { h: 'Map operators to Photon', d: 'The engine replaces supported physical operators (scan, filter, project, hash join, aggregation, Delta write) with their Photon implementations.' },
+          { h: 'Vectorized native execution', d: 'Photon runs those operators over columnar batches with SIMD and off-heap memory, avoiding JVM/GC overhead on the hot path.' },
+          { h: 'Fall back where needed', d: 'Any unsupported operator (e.g. a Python UDF) runs on the JVM Spark engine; data is handed between Photon and Spark within the one query.' },
+          { h: 'Return identical results', d: 'The output is the same as stock Spark — only execution speed and cost differ.' },
+        ],
+        note: 'Simplified; exact operator coverage evolves by runtime version — always confirm coverage in the query plan.',
+      },
+      examples: [{
+        title: 'Accelerate a heavy Gold aggregation and keep it on Photon',
+        requirement: 'Speed up a nightly Gold aggregation over a large Delta table and confirm the speedup is real — without a UDF silently forcing fallback.',
+        input: 'A large Silver Delta fact table aggregated into Gold summaries.',
+        architecture: 'Photon-enabled job cluster → SQL/DataFrame aggregation over Delta → Gold table; plan inspected for Photon coverage.',
+        code: {
+          lang: 'sql / pyspark (illustrative)',
+          text: "-- Keep it on Photon: built-in expressions, no Python UDF\nCREATE OR REPLACE TABLE gold.daily_sales AS\nSELECT dt, region, sum(amount) AS revenue, count(*) AS orders\nFROM silver.orders\nGROUP BY dt, region;\n\n# Verify Photon ran the heavy stages:\n# spark.sql('EXPLAIN FORMATTED ...')  -> look for 'Photon' operators\n# (A python udf() here would force a Spark fallback stage.)",
+        },
+        steps: [
+          'Run the aggregation on a Photon-enabled cluster.',
+          'EXPLAIN the query and confirm scan/agg run as Photon operators.',
+          'Replace any Python UDF with a built-in/SQL expression to avoid fallback.',
+          'Compare runtime and DBU-hours vs a non-Photon run.',
+        ],
+        output: 'A faster Gold build with the heavy stages confirmed running in Photon and a measured runtime/cost improvement.',
+        validation: 'The query plan shows Photon operators on the scan/aggregate; wall-clock and DBU-hours drop vs the non-Photon baseline.',
+        errorHandling: 'If a stage falls back, the query still returns correct results — just slower; the fix is removing the fallback trigger, not changing logic.',
+        production: 'Standardize Photon for SQL/ETL after measuring; watch for UDF-heavy jobs where it may not pay; keep Delta well-laid-out for scan vectorization.',
+        cleanup: 'No Photon-specific cleanup; drop the Gold table if decommissioning.',
+      }],
+      troubleshooting: [{
+        symptom: 'A workload moved to a Photon cluster but is barely faster — and now costs more than before.',
+        evidence: 'The query plan shows stages running on Spark (not Photon); the job is dominated by a Python UDF or an unsupported operator; or the job is small/I/O-bound.',
+        causes: ['A Python UDF or unsupported operator forcing fallback for the heavy stage', 'Workload is I/O-bound or tiny, so vectorization gives little', 'Assuming Photon accelerates everything regardless of operators'],
+        investigation: ['EXPLAIN the query and check which operators are Photon vs Spark', 'Identify UDFs / unsupported ops on the hot path', 'Assess whether the job is CPU-bound relational work at all'],
+        rootCause: 'The expensive part of the query is not running in Photon (it fell back) or the workload is not CPU-bound relational work, so the higher DBU rate is not offset by a speedup.',
+        remediation: ['Replace Python UDFs with built-in/SQL or vectorized (pandas) UDFs to keep stages on Photon', 'Reserve Photon for CPU-bound SQL/ETL; leave UDF-/IO-dominated jobs on standard compute', 'Lay out Delta for pruning so vectorized scans pay off'],
+        validation: 'The plan shows the heavy stages in Photon; runtime drops enough that DBU-hours fall net of the rate uplift.',
+        prevention: 'Check the plan for Photon coverage before standardizing; avoid fallback triggers in hot paths; measure cost/perf per workload.',
+      }],
+      certMapping: {
+        lead: 'Photon appears in Databricks certs as the performance/cost lever for SQL and ETL compute.',
+        items: [
+          { label: 'Databricks Data Engineer Associate', certId: 'dbx-de-associate', objectives: ['Photon as a drop-in acceleration for SQL/ETL', 'When Photon helps vs falls back'] },
+          { label: 'Databricks Data Engineer Professional', certId: 'dbx-de-professional', objectives: ['Cost/performance tuning with Photon', 'Reading query plans for Photon coverage'] },
         ],
       },
       interview: [
