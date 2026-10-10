@@ -68,12 +68,113 @@
         bullets: [
           { h: 'Throughput', d: 'Scales to many GB/s per account; parallel readers hit many blocks/objects at once.' },
           { h: 'Consistency', d: 'Strong read-after-write consistency — a file written is immediately readable, so pipelines do not need eventual-consistency workarounds.' },
+          { h: 'Account scalability targets', d: 'A storage account has published request-rate and ingress/egress targets; exceeding them returns throttling (HTTP 503/500) until load drops — spread load across prefixes and use backoff.' },
+        ],
+      },
+      architecture: {
+        lead: 'ADLS Gen2 is Azure Blob Storage with a Hierarchical Namespace (HNS) overlay. The same stored bytes are reachable through two endpoints — the Blob endpoint (blob.core.windows.net, flat object view) and the Data Lake/DFS endpoint (dfs.core.windows.net, directory-aware, via the ABFS driver). HNS maintains a real directory tree in metadata, which is what makes folder operations atomic.',
+        bullets: [
+          { h: 'Hierarchical Namespace', d: 'HNS stores a true directory tree, so a rename/move/delete of a folder is a single atomic metadata transaction rather than copy-then-delete of every descendant object. This is the core architectural difference from flat blob.' },
+          { h: 'Dual endpoints, one copy', d: 'Blob APIs and ABFS/DFS APIs operate on the same bytes. Tools that speak either protocol interoperate without data movement between "blob" and "lake".' },
+          { h: 'Account → container → directory → file', d: 'A storage account hosts containers (filesystems); with HNS each is a directory-tree root. Partitioned analytics layouts (dt=…/) live as real directories, not just key prefixes.' },
+          { h: 'Redundancy topology', d: 'Data is replicated per the account’s redundancy choice — LRS (one datacenter), ZRS (across zones), GRS/GZRS (secondary region async), RA-GRS (secondary readable) — trading cost for durability and DR reach.' },
+        ],
+      },
+      security: {
+        lead: 'ADLS Gen2 security layers Microsoft Entra ID identity, two coordinated authorization models (Azure RBAC and POSIX ACLs), network isolation, and encryption. The key subtlety interviewers probe: RBAC is evaluated first, and if it already grants data access at the container/account scope, POSIX ACLs are not even consulted.',
+        bullets: [
+          { h: 'RBAC then ACLs', d: 'Azure RBAC data-plane roles (Storage Blob Data Reader/Contributor/Owner) grant coarse access at account/container scope. If RBAC permits the operation, evaluation short-circuits; only when RBAC does not grant it are POSIX ACLs checked on the path. ACLs add fine-grained read/write/execute on directories and files.' },
+          { h: 'ACL mechanics', d: 'Each file/dir has access ACLs; directories also have default ACLs that new children inherit at creation (existing children are not retroactively changed). There is a limit of 32 ACL entries per file/dir — so grant to Entra groups, not individual users, to stay under it and keep ACLs maintainable.' },
+          { h: 'Identities & keys', d: 'Prefer Entra ID (users, groups, managed identities, service principals) over the account key or SAS tokens. The account key is a full-access secret — rotate it, store it in Key Vault, and disable account-key access where possible.' },
+          { h: 'Network isolation', d: 'Private Endpoints bring the account into a VNet; the storage firewall + service endpoints restrict access to selected networks; "secure transfer required" enforces TLS.' },
+          { h: 'Encryption at rest', d: 'All data is encrypted at rest with Microsoft-managed keys by default; customer-managed keys (CMK) in Key Vault add control/rotation, and infrastructure encryption adds a second layer for regulated workloads.' },
+        ],
+      },
+      operations: {
+        lead: 'ADLS Gen2 is fully managed, so operations centers on data-protection features (soft delete, versioning, change feed), lifecycle/tiering automation, redundancy/DR, and watching account-level throttling. Durability and availability are covered by the storage SLA for the chosen redundancy.',
+        bullets: [
+          { h: 'Data protection', d: 'Blob and container soft delete recover accidental deletes within a retention window; blob versioning keeps prior versions on overwrite; snapshots capture point-in-time copies; change feed gives an ordered log of changes for incremental processing.' },
+          { h: 'Lifecycle & tiers', d: 'Lifecycle management policies move blobs Hot → Cool → Cold → Archive and expire them by age/last-access, automating cost control. Archive is offline and must be rehydrated (hours) before reading.' },
+          { h: 'Redundancy & DR', d: 'GRS/RA-GRS replicate asynchronously to a secondary region; customer-managed failover promotes it. ZRS/GZRS protect against zone failure within a region.' },
+          { h: 'Monitoring', d: 'Azure Monitor metrics (transactions, ingress/egress, latency, availability) and diagnostic/resource logs feed alerts; watch throttled-request and availability metrics to catch scalability-target breaches early.' },
+        ],
+      },
+      cost: {
+        lead: 'ADLS Gen2 bills on several independent dimensions: stored capacity (per GB-month, by access tier), transactions (per operation, priced higher on cooler tiers), data retrieval on cool/cold/archive, early-deletion charges, and egress bandwidth. For lakes, the small-files problem is a cost problem — millions of tiny files mean millions of billable operations. (Rates vary by region/tier — price against the official Azure Storage pricing page.)',
+        bullets: [
+          { h: 'Capacity by tier', d: 'Hot (cheapest transactions, priciest storage) → Cool → Cold → Archive (cheapest storage, highest retrieval cost + rehydration latency). Match the tier to access frequency.' },
+          { h: 'Transactions & retrieval', d: 'Every read/write/list is a billed operation; cooler tiers cost more per transaction and add per-GB retrieval fees. Compaction cuts both scan time and operation count.' },
+          { h: 'Early-deletion & egress', d: 'Cool/Cold/Archive have minimum-retention windows (deleting sooner incurs a charge). Cross-region/internet egress is billed — keep compute in the account’s region and use private endpoints.' },
+          { h: 'Cost levers', d: 'Compact small files, lifecycle to colder tiers, expire old versions/snapshots, and store columnar/compressed data so engines scan (and transact) less.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'How an authorized read of a file resolves end to end — the RBAC-then-ACL path that trips people up.',
+        steps: [
+          { h: 'Client addresses the DFS endpoint', d: 'Spark/ABFS issues a read for abfss://container@account.dfs.core.windows.net/silver/orders/part-0.parquet, presenting an Entra ID token (user, managed identity or service principal).' },
+          { h: 'Authenticate the identity', d: 'The request is authenticated via Entra ID (or, less preferably, an account key / SAS). The caller’s security principal and group memberships are established.' },
+          { h: 'RBAC check (first)', d: 'Azure evaluates data-plane RBAC role assignments at account/container scope. If a role like Storage Blob Data Reader already grants read, authorization succeeds immediately and ACLs are not consulted.' },
+          { h: 'ACL check (only if RBAC did not grant)', d: 'If RBAC did not authorize it, POSIX ACLs are evaluated along the path: execute (x) is needed on every parent directory to traverse, and read (r) on the target file. A missing x on any ancestor denies the read even if the file ACL grants r.' },
+          { h: 'Serve the bytes', d: 'On success the service streams the requested block ranges back; strong consistency means a just-written file is immediately readable.' },
+        ],
+        note: 'Simplified authorization model; the exact RBAC/ACL interaction and supported auth methods are defined in the Azure Storage access-control docs.',
+      },
+      examples: [{
+        title: 'Governed medallion lake: team read on Bronze without exposing Silver PII',
+        requirement: 'Give an analyst team read access to raw Bronze data but not the Silver PII folder, while an ingestion service principal writes Bronze — using groups so ACLs stay maintainable.',
+        input: 'A storage account with HNS enabled and containers/folders: bronze/orders/, silver/pii/.',
+        architecture: 'Entra groups (analysts, ingestors) → Azure RBAC at container scope + POSIX ACLs on folders → ADF/Databricks access via managed identity.',
+        code: {
+          lang: 'bash (azure cli, illustrative)',
+          text: "# Grant analysts read on the bronze container via RBAC (coarse)\naz role assignment create \\\n  --assignee <analysts-group-object-id> \\\n  --role \"Storage Blob Data Reader\" \\\n  --scope \"$ACCOUNT_ID/blobServices/default/containers/bronze\"\n\n# Fine-grained: default ACL so NEW files under bronze/orders inherit r-x for analysts\naz storage fs access set-recursive \\\n  --acl \"default:group:<analysts-group>:r-x\" \\\n  --path orders --file-system bronze --account-name shopkart\n\n# Ingestors write bronze; NO grant on silver/pii at all",
+        },
+        steps: [
+          'Create Entra groups and add members (never grant to individuals).',
+          'Assign RBAC data roles at container scope for coarse access.',
+          'Set access + default ACLs on the specific folders for fine-grained control.',
+          'Grant the ingestion managed identity write on Bronze only.',
+        ],
+        output: 'Analysts can read Bronze (including new files, via default ACLs) but get authorization failures on silver/pii; the ingestion identity can write Bronze.',
+        validation: 'As an analyst, read a Bronze file (succeeds) and a silver/pii file (denied); confirm a newly-written Bronze file is readable thanks to the default ACL.',
+        errorHandling: 'A 403 on Bronze usually means a missing execute (x) ACL on a parent directory — grant traversal on ancestors. Keep under 32 ACL entries per item by using groups.',
+        production: 'Prefer managed identities over keys/SAS; enable soft delete + versioning; add a Private Endpoint and firewall; audit access with diagnostic logs.',
+        cleanup: 'Remove the role assignments and ACL entries, delete the groups if unused, and delete the containers/account to stop charges.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'A user or service principal gets HTTP 403 reading a file it "should" have access to, even though an ACL grants read on that file.',
+          evidence: 'The file’s ACL shows r for the principal, but the read still fails; other files in the same tree may also fail; parent directories lack an execute entry for the principal.',
+          causes: ['Missing execute (x) ACL on a parent directory in the path', 'Access granted only via an access ACL with no default ACL, so newly-created children were not covered', 'Expecting ACLs to apply when an RBAC assignment is actually the effective (or missing) grant'],
+          investigation: ['List the ACLs along the full path, not just the target file', 'Check for x on every ancestor directory', 'Check RBAC role assignments at account/container scope to see the effective authorization'],
+          rootCause: 'POSIX traversal requires execute on every parent directory; a missing x on an ancestor denies the read regardless of the file’s own read ACL.',
+          remediation: ['Grant execute (x) to the principal/group on all parent directories in the path', 'Set default ACLs on directories so new children inherit the needed permissions', 'Or grant access via an appropriate RBAC data role at container scope if coarse access is acceptable'],
+          validation: 'The principal reads the file successfully; newly-created files under the directory are also readable via inherited default ACLs.',
+          prevention: 'Grant to Entra groups with both access and default ACLs set on directories; document the RBAC-then-ACL model so grants are placed at the right layer.',
+        },
+        {
+          symptom: 'A high-throughput job intermittently fails or slows with HTTP 503 "ServerBusy"/throttling against the storage account.',
+          evidence: 'Azure Monitor shows throttled-request and total-request spikes approaching the account’s scalability targets; errors cluster during peak fan-out.',
+          causes: ['Request rate or ingress/egress exceeding the storage account scalability targets', 'Too many parallel small-file operations', 'No exponential backoff/jitter in the client'],
+          investigation: ['Correlate 503s with the account’s request-rate and ingress/egress metrics', 'Check whether small files are inflating operation counts', 'Confirm the client/driver retry policy uses backoff with jitter'],
+          rootCause: 'The workload exceeded the storage account’s published scalability targets, so the service throttled requests to protect the account.',
+          remediation: ['Spread data/load across prefixes (and, for extreme scale, multiple accounts)', 'Compact small files to cut operation count', 'Enable exponential backoff with jitter; smooth/stagger bursts'],
+          validation: 'Throttled-request metric returns to ~0 and job throughput stabilizes under the same load.',
+          prevention: 'Design layouts that distribute load, keep files right-sized, and keep backoff-with-jitter on by default; monitor against scalability targets.',
+        },
+      ],
+      certMapping: {
+        lead: 'ADLS Gen2 is the Azure lake storage layer. The Synapse-era DP-203 (Azure Data Engineer Associate) that covered it was retired in 2025; the current Microsoft data-engineering credential, DP-700, is Fabric-focused and reaches ADLS primarily as an external/shortcut source.',
+        items: [
+          { label: 'DP-700 Fabric Data Engineer (Associate)', certId: 'ms-dp700', objectives: ['Ingest from / shortcut to ADLS Gen2 external locations', 'Secure external data (RBAC, identities)', 'Lake storage & medallion layout'] },
+          'Legacy lineage: DP-203 (Azure Data Engineer Associate, Synapse-era) — retired 2025; covered ADLS Gen2 storage, security (RBAC + ACLs) and partitioning directly.',
         ],
       },
       interview: [
         { q: 'What is the difference between Blob Storage and ADLS Gen2?', a: 'ADLS Gen2 is Blob Storage with the Hierarchical Namespace enabled. That adds real directories (atomic folder rename/move), POSIX ACLs for folder-level security, and the ABFS/DFS endpoint — while keeping blob economics and multi-protocol access to the same bytes.' },
         { q: 'Why does the hierarchical namespace matter for Spark?', a: 'Spark commits output by writing to a temp directory then renaming it. On flat blob a rename is copy+delete of every object — slow and non-atomic. HNS makes the rename a single metadata operation, so job commit is fast and atomic.' },
         { q: 'How do you secure data in ADLS Gen2?', a: 'Two layers: Azure RBAC for coarse-grained roles at account/container scope, and POSIX ACLs (read/write/execute) on directories and files for fine-grained access — e.g. a team gets read on /bronze but not /silver/pii.' },
+        { q: 'When both RBAC and ACLs exist, how is access decided?', a: 'RBAC is evaluated first. If a data-plane role assignment (e.g. Storage Blob Data Reader at the container) already grants the operation, authorization succeeds and ACLs are never consulted. ACLs only come into play when RBAC does not grant the access — and then you need execute on every parent directory plus read/write on the target. That ordering is why a correct file ACL can still 403 if an RBAC grant is broader than intended, or if a parent directory is missing execute.' },
+        { q: 'A service principal with a read ACL on a file still gets 403 — why, and how do you fix it without over-granting?', a: 'Almost always a missing execute (x) on a parent directory: POSIX traversal needs x on every ancestor to reach the file. Fix it by granting x to the principal’s group on the parent directories (and set default ACLs so new children inherit), rather than handing out a broad container-level RBAC role. Granting to Entra groups also keeps you under the 32-entry-per-item ACL limit.' },
       ],
     },
 
