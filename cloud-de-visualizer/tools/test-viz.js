@@ -67,13 +67,24 @@ vm.createContext(sandbox);
 
 function load(f) { vm.runInContext(fs.readFileSync(path.join(__dirname, '..', f), 'utf8'), sandbox); }
 load('js/features/viz-framework.js');
-load('js/data/viz-spark.js');
+['viz-spark', 'viz-delta', 'viz-pipeline', 'viz-storage'].forEach(f => load('js/data/' + f + '.js'));
 
 const TV = sandbox.window.TableViz;
 
 ok(TV.Viz && typeof TV.Viz.player === 'function', 'TV.Viz.player exported');
 ok(typeof TV.Viz.register === 'function', 'TV.Viz.register exported');
-ok(TV.Viz.list().length >= 1, 'at least one visualizer registered');
+ok(TV.Viz.list().length === 4, 'four visualizers registered (got ' + TV.Viz.list().length + ')');
+
+// every registered visualizer is well-formed
+TV.Viz.list().forEach(v => {
+  ok(v.id && v.title && v.subtitle, v.id + ' has id/title/subtitle');
+  ok(Array.isArray(v.steps) && v.steps.length >= 4, v.id + ' has >=4 steps');
+  ok(v.steps.every(s => s.title && s.caption && s.diagram != null), v.id + ' steps all complete');
+  v.steps.forEach((s, idx) => {
+    const html = typeof s.diagram === 'function' ? s.diagram({ i: idx, total: v.steps.length }) : s.diagram;
+    ok(typeof html === 'string' && html.length > 0, v.id + ' step ' + (idx + 1) + ' renders HTML');
+  });
+});
 
 const spark = TV.Viz.get('spark-execution');
 ok(spark, 'spark-execution registered');
