@@ -25,9 +25,9 @@ export const SECTIONS = [
     breadcrumb: 'Cloud &rsaquo; <strong>🔷 Azure</strong>',
     blurb: 'Event Hubs, Stream Analytics — partitions, consumer groups, capture, windowing.' },
 
-  { id: 'databricks', icon: '🧮', title: 'Cloud · Databricks', group: 'Cloud', status: 'soon', gate: 'Gate 5c',
+  { id: 'databricks', icon: '🧮', title: 'Cloud · Databricks', group: 'Cloud', status: 'live', gate: 'Gate 5c',
     breadcrumb: 'Cloud &rsaquo; <strong>🧮 Databricks</strong>',
-    blurb: 'Structured Streaming, Delta Live Tables, Autoloader, the medallion architecture.' },
+    blurb: 'Structured Streaming, Auto Loader, Delta Lake, Lakeflow Declarative Pipelines (DLT), the medallion architecture — validated against official Databricks docs.' },
 
   { id: 'engines', icon: '⚙️', title: 'Compare & Engines', group: 'Build', status: 'soon', gate: 'Gate 6',
     breadcrumb: 'Build &rsaquo; <strong>⚙️ Compare & Engines</strong>',

@@ -108,4 +108,50 @@ services-kinesis-parameters & API_CreateEventSourceMapping.
   output timestamp via `System.Timestamp()`; scale via **Streaming Units (SU)**; SAQL (SQL-like).
 Sources: event-hubs-quotas, event-hubs-scalability, event-hubs-features, stream-analytics-window-functions.
 
-### Databricks — pending (validate at I51)
+### Databricks (validated I51, 2026-10-11, against docs.databricks.com / spark.apache.org)
+- **Structured Streaming trigger modes:** `processingTime="N seconds"` (fixed micro-batch
+  interval; `0` = as fast as possible), `availableNow` (incremental batch — **recommended over
+  the deprecated `Trigger.Once`**, which is deprecated in DBR 11.3 LTS+), and OSS `continuous`
+  (**not supported/recommended on Databricks**; use "real-time mode" `trigger(realTime=...)`
+  for low latency). On **serverless** compute only `availableNow` is recommended; time-based
+  triggers are restricted. [structured-streaming/triggers, /production, /compute/serverless/streaming]
+- **Exactly-once:** achieved via the **checkpoint** (records source offsets per micro-batch +
+  which batches committed to the sink) **plus** idempotent/transactional sinks. Delta sink is
+  exactly-once; **`foreachBatch` is only at-least-once** on its own — dedupe using `batchId`, or
+  use Delta `txnAppId`/`txnVersion` write options. Delta-to-Delta pipelines are exactly-once
+  end-to-end. [structured-streaming/checkpoints, /foreach, /delta-lake]
+- **State & watermarks:** stateful ops = aggregations, stream-stream joins, `dropDuplicates`,
+  `[flat]MapGroupsWithState`. Watermark bounds state; **outer joins require a watermark**, inner
+  joins recommend one; stream-stream join needs a time-interval condition and runs in **append**
+  mode. Engine keeps **one global watermark = slowest input**. Use
+  `dropDuplicatesWithinWatermark` when duplicates can carry different event-times. Databricks
+  recommends **RocksDB state store** (`RocksDBStateStoreProvider`) with changelog checkpointing
+  for large/async state. [structured-streaming/watermarks, /stateful-streaming, /production]
+- **Auto Loader (`cloudFiles`):** incremental file ingestion. **Directory listing mode** (default,
+  LISTs the dir each trigger — cost grows with dir size) vs **file notification / file events**
+  (recommended for large dirs; `cloudFiles.useManagedFileEvents`). Schema evolution via
+  `cloudFiles.schemaEvolutionMode` ∈ {addNewColumns (default), none, rescue, failOnNewColumns,
+  addNewColumnsWithTypeWidening}; requires `cloudFiles.schemaLocation`; `_rescued_data` column
+  captures unparseable fields; `cloudFiles.schemaHints` pins known types.
+  [ingestion/.../auto-loader/, /schema, /file-notification-mode, /options]
+- **DLT → Lakeflow:** Delta Live Tables is now **Lakeflow (Declarative) Pipelines**; existing DLT
+  code runs with no migration (some Python decorators updated: `@dlt`→`@dp`, `@table` = streaming
+  table, new `@materialized_view`). **Streaming tables** = append-only, each row processed once;
+  **materialized views** = incrementally-refreshed precomputed results. **Expectations** = SQL
+  boolean constraints with action warn / drop / fail; emit metrics to the event log. (Describe
+  both names; prefer "Lakeflow Declarative Pipelines (formerly DLT)".) [ldp/concepts, /where-is-dlt,
+  /expectation-patterns]
+- **Delta Lake / lakehouse:** storage layer with **ACID transactions**, schema enforcement/
+  evolution, **time travel** (query/restore by version or timestamp). **Medallion**: bronze (raw,
+  append-only, retains history) → silver (validated/cleaned/conformed) → gold (enriched,
+  aggregated, business-facing). **Unity Catalog** = governance + lineage (recommend schema per
+  layer). **Photon** = vectorized C++ engine, Spark-API compatible. [lakehouse/medallion,
+  /lakehouse-architecture/..., delta/, glossary]
+- **Framing rule:** Databricks Structured Streaming is **micro-batch by default** (not per-event
+  like Flink's native streaming); "real-time mode" is the low-latency exception. Never state
+  continuous mode is supported on Databricks. Attribute exactly-once to checkpoint **+** sink
+  semantics, never the checkpoint alone.
+Sources: docs.databricks.com structured-streaming/{triggers,checkpoints,foreach,watermarks,
+stateful-streaming,production,delta-lake}; ingestion/.../auto-loader/{,schema,file-notification-mode,
+options}; ldp/{concepts,concepts/where-is-dlt,expectation-patterns}; lakehouse/medallion; spark.apache.org
+structured-streaming-programming-guide.

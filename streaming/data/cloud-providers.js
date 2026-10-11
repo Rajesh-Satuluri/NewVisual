@@ -3,7 +3,7 @@
 const LOADERS = {
   aws: () => import('./aws.js').then(m => m.AWS),
   azure: () => import('./azure.js').then(m => m.AZURE),
-  // databricks: () => import('./databricks.js').then(m => m.DATABRICKS), // Gate 5c
+  databricks: () => import('./databricks.js').then(m => m.DATABRICKS),
 };
 
 export const CLOUD_PROVIDER_IDS = Object.keys(LOADERS);

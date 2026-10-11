@@ -81,7 +81,14 @@ switch re-frames content, both themes, **0 console errors, 0 404s** (Playwright)
   protocol, Capture, Stream Analytics 5 window types — validated vs Microsoft Learn, logged §5) ·
   I45–I49 **21 modules** · I50 e2e architecture. Exit: 21 modules render, scenario re-frames, both
   themes, 0 errors/404s. **Deployed.**
-- **5c Databricks:** I51 accuracy · I52–I57 modules · I58 case studies.
+- **5c Databricks ✅** — I51 accuracy pass (Structured Streaming triggers/checkpoints/exactly-once,
+  watermarks & stateful ops, Auto Loader, DLT→Lakeflow Declarative Pipelines, Delta/medallion, RocksDB —
+  validated vs docs.databricks.com, logged §5) · I52–I57 **27 modules** (authored at full 4-tab depth) ·
+  I58 e2e architecture (`#databricks27-pipeline`). Exit: 27 modules render with 4 tabs + Interview Q&A,
+  scenario re-frames, both themes, 0 errors/404s. **Deployed.**
+
+> **Gate 5 complete.** All three cloud providers (AWS 20 · Azure 21 · Databricks 27 = 68 modules) live at
+> the Kafka/Flink 4-tab depth, every fact validated against official docs.
 
 > **Depth upgrade (post-5b):** AWS (20) and Azure (21) modules deepened from single-tab
 > prose to the full **4-tab** structure — Concept · Mechanics (diagrams/tables/code) ·
