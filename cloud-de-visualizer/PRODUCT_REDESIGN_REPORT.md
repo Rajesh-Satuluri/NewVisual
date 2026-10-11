@@ -19,7 +19,27 @@ to production (GitHub Pages, `main`) on its own.
 | I | 6 | Architecture Studio — functional drag/connect/save design canvas with honest layer-coverage | `6367e5f` |
 | J | 7 | Incident investigation workspace: case file carried across phases + persisted working notes | `4046de0` |
 | K | 9 | Honest skill-analytics grid on the Mastery hub ("Not assessed" where no evidence) | `6601645` |
-| L | 10–12 | Polish, full regression sweep, this report | (this commit) |
+| L | 10–12 | Polish, full regression sweep, this report | `6bc6daf` |
+
+### Wave 2 — depth & discoverability
+
+| Iter | Deliverable | Commit |
+|------|-------------|--------|
+| M | 3 more visualizers: streaming windows/watermarks, log partitions & consumer groups, row vs columnar | `46c7dac` |
+| N | Discoverability: Cmd-K indexes visualizers + new screens; "See it in motion" links on service pages deep-open the matching visualizer | `70fc55e` |
+| O | Architecture Studio starter templates (medallion / streaming / warehouse) + fix: TV.DS.confirm now resolves true on OK | `3ca0ab9` |
+
+### Wave 3 — breadth, onboarding & a11y
+
+| Iter | Deliverable | Commit |
+|------|-------------|--------|
+| P | 2 more visualizers: data lineage & governance, elastic-compute cost model (9 total) | `d33720c` |
+| Q | Guided first-run product tour (TV.Tour), re-openable from Cmd-K; palette gains action entries | `52e5402` |
+| R | Accessibility polish: skip-to-content link, global keyboard focus-visible ring, main landmark; report update | (this commit) |
+
+**Visualizer gallery (9):** Spark execution · Delta transaction log · pipeline DAG ·
+storage pruning · streaming windows · log partitions · row vs columnar · data lineage ·
+compute cost — all conceptual simulations.
 
 ## Guardrails enforced on every iteration
 
