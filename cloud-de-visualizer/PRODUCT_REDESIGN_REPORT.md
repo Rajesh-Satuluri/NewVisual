@@ -45,9 +45,21 @@ to production (GitHub Pages, `main`) on its own.
 | T | Architecture Studio shareable links (design encoded in URL, decoded on load) | `8438b0a` |
 | U | Printable per-cloud Study Summary (services + certs + honest mastery) + report update | (this commit) |
 
-**Visualizer gallery (11):** Spark execution · Delta transaction log · pipeline DAG ·
+### Wave 5 — deeper engine internals (5 more visualizers)
+
+| Iter | Deliverable | Commit |
+|------|-------------|--------|
+| V | RBAC vs ABAC access evaluation visualizer | (this commit) |
+| W | Schema evolution & schema drift visualizer | (this commit) |
+| X | Query result caching & materialized-view refresh visualizer | (this commit) |
+| Y | Partitioning vs bucketing vs Z-ordering visualizer | (this commit) |
+| Z | Autoscaling: warm-up & cold-start visualizer | (this commit) |
+
+**Visualizer gallery (16):** Spark execution · Delta transaction log · pipeline DAG ·
 storage pruning · streaming windows · log partitions · row vs columnar · data lineage ·
-compute cost · CDC & mirroring · query-optimizer joins — all conceptual simulations.
+compute cost · CDC & mirroring · query-optimizer joins · RBAC vs ABAC · schema evolution &
+drift · result caching & materialized views · partitioning vs bucketing vs Z-order ·
+autoscaling warm-up & cold start — all conceptual simulations.
 
 ## Guardrails enforced on every iteration
 
