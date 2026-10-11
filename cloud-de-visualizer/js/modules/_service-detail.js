@@ -263,8 +263,8 @@
   function styleTag() {
     return `
 <style id="sd-styles">
-.sd { height:100%; overflow-y:auto; padding:30px 32px 72px; }
-.sd-wrap { max-width:1180px; margin:0 auto; }
+.sd { height:100%; overflow-y:auto; padding:30px clamp(16px, 3vw, 56px) 72px; }
+.sd-wrap { width:100%; max-width:1600px; margin:0 auto; }
 .sd-eyebrow { font-size:11px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--brand); margin-bottom:8px; }
 .sd-h1 { font-size:28px; font-weight:800; letter-spacing:-.02em; color:var(--text-primary); margin:0 0 6px; }
 .sd-aka { font-size:13px; color:var(--text-muted); margin:0 0 10px; font-style:italic; }
