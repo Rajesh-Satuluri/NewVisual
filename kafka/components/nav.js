@@ -31,6 +31,9 @@ export const MODULES = [
 ];
 
 const GROUP_ORDER = ['Foundation','Core Internals','Consumer Side','Delivery','Ecosystem','Operations','Advanced'];
+const PLAYGROUND = [
+  { id:'playground', label:'Partition Simulator', icon:'🎮' },
+];
 const REFERENCE = [
   { id:'master-map',   label:'Master Map',   icon:'🗺️' },
   { id:'glossary',     label:'Glossary',     icon:'📖' },
@@ -86,6 +89,7 @@ export function renderNav(activeId, done) {
       <button class="icon-btn nav-collapse-all" title="Collapse / expand all" aria-label="Collapse or expand all sections">⇕</button>
     </div>
     ${GROUP_ORDER.map(g => section(g, groups[g] || [])).join('')}
+    ${section('Playground', PLAYGROUND)}
     ${section('Reference', REFERENCE)}
     ${section('Practice', PRACTICE)}
     ${section('Review', [{ ...REVIEW }])}

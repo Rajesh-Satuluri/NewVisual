@@ -13,6 +13,7 @@ import { SELF_EXPLAIN } from './data/self-explain.js';
 // Non-module pages (not tracked in progress). Value = breadcrumb HTML.
 const PAGES = {
   home: `<strong>🏠 Home</strong>`,
+  playground: `Playground &rsaquo; <strong>🎮 Partition Simulator</strong>`,
   glossary: `Reference &rsaquo; <strong>📖 Glossary</strong>`,
   cheatsheet: `Reference &rsaquo; <strong>📋 Cheat Sheet</strong>`,
   'master-map': `Reference &rsaquo; <strong>🗺️ Master Map</strong>`,
@@ -31,6 +32,7 @@ let cleanupFn = null;
 // ── Module loaders ─────────────────────────────────────────────────────────
 const LOADERS = {
   home: () => import('./modules/home.js'),
+  playground: () => import('./modules/playground.js'),
   glossary: () => import('./modules/glossary.js'),
   cheatsheet: () => import('./modules/cheatsheet.js'),
   'master-map': () => import('./modules/master-map.js'),
