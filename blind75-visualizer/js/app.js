@@ -63,7 +63,7 @@
     mode: "practice",                                // learn | practice
     pyGroupMode: store.getPref("pyGroupMode") || "pattern", // pattern | ds | difficulty
     approachIndex: {},  // problemId -> selected approach index
-    focusLocal: false   // transient per-problem focus mode (not persisted)
+    focusLocal: null    // per-problem focus override: null=inherit global, true/false=forced (reset on nav)
   };
 
   // ---- master stack/mode model ----
@@ -778,11 +778,13 @@
     });
     actions.appendChild(blurBtn);
 
-    // ---- local focus: strip THIS problem to desc/examples/solution (transient) ----
-    var focusBtn = h("button", { class: "chip-btn focus-local-btn" + (state.focusLocal ? " on" : "") },
-      (state.focusLocal ? "🎯 Focus: ON" : "🎯 Focus"));
+    // ---- local focus: per-problem toggle (overrides global for THIS problem,
+    //      resets on navigation). Always visible, even while global focus is on,
+    //      so you can pop a single problem back to full detail. ----
+    var focusBtn = h("button", { class: "chip-btn focus-local-btn" + (focusEffective() ? " on" : "") },
+      (focusEffective() ? "🎯 Focus: ON" : "🎯 Focus"));
     focusBtn.addEventListener("click", function () {
-      state.focusLocal = !state.focusLocal;
+      state.focusLocal = !focusEffective();   // flip the effective state for this problem
       focusBtn.classList.toggle("on", state.focusLocal);
       focusBtn.textContent = state.focusLocal ? "🎯 Focus: ON" : "🎯 Focus";
       applyFocus();
@@ -1642,13 +1644,14 @@
         if (e.key === "Escape") closeStackMenu();
       });
     }
-    // Esc exits focus mode (global + local) for a quick bail-out.
+    // Esc exits focus mode (global + per-problem override) for a quick bail-out.
     document.addEventListener("keydown", function (e) {
       if (e.key !== "Escape") return;
-      if (!store.getPref("focus") && !state.focusLocal) return;
+      if (!document.body.classList.contains("focus-on")) return;
       store.setPref("focus", false);
-      state.focusLocal = false;
+      state.focusLocal = null;
       applyFocus();
+      if (focusViewOk()) renderProblem();
     });
     // mode switch (Learn · Practice)
     var modeBtns = document.querySelectorAll("#modeSwitch .mode-btn");
@@ -1670,10 +1673,10 @@
     var focusGlobalBtn = el("focusGlobalBtn");
     if (focusGlobalBtn) {
       focusGlobalBtn.addEventListener("click", function () {
-        var on = !store.getPref("focus");
-        store.setPref("focus", on);
-        if (on) state.focusLocal = false; // global supersedes local
+        store.setPref("focus", !store.getPref("focus"));
+        state.focusLocal = null;              // global toggle clears any per-problem override
         applyFocus();
+        if (focusViewOk()) renderProblem();   // refresh the local chip's label/state
       });
     }
 
@@ -1885,12 +1888,32 @@
 
   // ---- Focus mode: strip the page to Problem / Examples / Solution only.
   // Global focus persists (pref); local focus is transient (cleared on nav).
+  // It only makes sense on a problem page that actually HAS those sections —
+  // on Home / Learn / dashboards etc. it must stay off (else the view blanks).
+  function focusViewOk() {
+    // Only the DSA problem view (python + practice, a real problem) — state is
+    // set synchronously by setChrome before any render, so this never trips on
+    // stale/async-mounted DOM. Home, Learn, dashboards and other stacks -> off.
+    if (state.stack !== "python" || state.mode !== "practice") return false;
+    var p = byId[state.currentId];
+    if (!p || p.isIntro) return false;
+    var main = el("main");
+    return !!(main && main.querySelector('.prob-section[data-key="code"]'));
+  }
+  // Effective focus for the current problem: a per-problem override (focusLocal
+  // = true/false) wins over the persisted global pref; null means "inherit".
+  function focusEffective() {
+    return state.focusLocal === null ? !!store.getPref("focus") : state.focusLocal;
+  }
   function applyFocus() {
     var g = !!store.getPref("focus");
-    document.body.classList.toggle("focus-global", g);
-    document.body.classList.toggle("focus-on", g || !!state.focusLocal);
+    var ok = focusViewOk();
+    document.body.classList.toggle("focus-on", ok && focusEffective());
     var gb = el("focusGlobalBtn");
-    if (gb) gb.setAttribute("aria-pressed", g ? "true" : "false");
+    if (gb) {
+      gb.setAttribute("aria-pressed", g ? "true" : "false");
+      gb.style.display = ok ? "" : "none"; // hide the toggle off the problem view
+    }
   }
 
   // Set the shell "chrome" (state, body attrs, switch highlights) WITHOUT
@@ -1988,7 +2011,7 @@
   function applyRoute() {
     if (location.hash === lastRenderedHash) return; // Back can fire popstate + hashchange
     lastRenderedHash = location.hash;
-    state.focusLocal = false; // local focus is per-problem — reset on every navigation
+    state.focusLocal = null; // per-problem focus override resets on every navigation
     navProgress();
     var r = parseRoute(location.hash);
 
