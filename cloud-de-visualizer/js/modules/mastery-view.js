@@ -114,6 +114,46 @@
       </section>`;
   }
 
+  /* Skill analytics grid (Phase 9). Honest by construction: each
+     dimension shows an assessed value only when there is real evidence;
+     otherwise it reads "Not assessed" with the action that produces a
+     signal. No fabricated scores. */
+  const SKILL_CTA = {
+    knowledge: { label: 'Take a quiz', route: f => `#${f}/home`, evidence: 'Quiz attempts' },
+    confidence: { label: 'Rate a topic', route: f => `#${f}/home`, evidence: 'Self-ratings' },
+    handsOn: { label: 'Open a project', route: f => `#${f}/project-tracks`, evidence: 'Project stages' },
+    troubleshooting: { label: 'Run an incident', route: f => `#${f}/incidents`, evidence: 'Incident runs' },
+    design: { label: 'Try a challenge', route: () => `#multi-cloud/design-challenges`, evidence: 'Design challenges' },
+    interview: { label: 'Self-assess', route: () => `#multi-cloud/scenarios`, evidence: 'Senior self-rating' },
+  };
+  function skillAnalyticsHTML(format) {
+    if (!(TV.Progress && TV.Progress.masteryDimensions)) return '';
+    const m = TV.Progress.masteryDimensions(catalogTotals());
+    const assessed = m.dimensions.filter(d => d.value != null).length;
+    const rows = m.dimensions.map(d => {
+      const cta = SKILL_CTA[d.id] || { label: 'Start', route: f => `#${f}/home`, evidence: 'Activity' };
+      const has = d.value != null;
+      const status = has
+        ? `<span class="ms-sk-pill ms-sk-pill--on" style="color:${barColor(d.value)}">${d.value}%</span>`
+        : `<span class="ms-sk-pill ms-sk-pill--na">Not assessed</span>`;
+      return `<tr class="ms-sk-row">
+        <td class="ms-sk-dim">${esc(d.label)}</td>
+        <td>${status}</td>
+        <td class="ms-sk-ev">${esc(cta.evidence)}</td>
+        <td class="ms-sk-act"><a class="ms-sk-cta" href="${esc(cta.route(format))}">${has ? 'Improve' : esc(cta.label)} →</a></td>
+      </tr>`;
+    }).join('');
+    return `
+      <section class="ms-card">
+        <div class="ms-card-h">Skill analytics <span class="ms-card-sub">${assessed} of ${m.dimensions.length} assessed</span></div>
+        <p class="ms-fr-summary">Each skill is shown only when you've generated real evidence for it. Anything you haven't exercised reads <b>Not assessed</b> — never an invented score.</p>
+        <div class="ms-fr-wrap"><table class="ms-fr ms-sk">
+          <thead><tr><th>Dimension</th><th>Status</th><th>Evidence source</th><th>Action</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>
+      </section>`;
+  }
+
   function modesHTML(format) {
     const cards = MODES.map(m => `
       <a class="ms-mode" href="${esc(m.route(format))}">
@@ -177,6 +217,13 @@
 .ms-fr-badge { font-size:10px; font-weight:800; padding:2px 8px; border-radius:999px; }
 .ms-fr-badge--fresh { color:var(--green); background:var(--green-subtle); }
 .ms-fr-badge--stale { color:var(--yellow); background:var(--yellow-subtle); }
+.ms-sk-dim { font-weight:700; color:var(--text-primary); }
+.ms-sk-pill { font-size:12px; font-weight:800; padding:2px 10px; border-radius:999px; display:inline-block; }
+.ms-sk-pill--on { background:var(--bg-4); }
+.ms-sk-pill--na { color:var(--text-muted); background:var(--bg-1); border:1px dashed var(--border-default); font-weight:700; }
+.ms-sk-ev { color:var(--text-muted); }
+.ms-sk-cta { color:var(--brand); text-decoration:none; font-weight:700; font-size:12px; white-space:nowrap; }
+.ms-sk-cta:hover { text-decoration:underline; }
 </style>`;
   }
 
@@ -191,6 +238,7 @@
     <p class="ms-intro">Where you stand across every dimension of data-engineering skill, what's due for review, and how fresh the content is — all in one place. Everything here is computed from your own activity on this device.</p>
     ${modesHTML(format)}
     ${dimensionsHTML()}
+    ${skillAnalyticsHTML(format)}
     ${reviewHTML(format)}
     ${freshnessHTML()}
   </div>
