@@ -17,7 +17,7 @@ export const SECTIONS = [
     breadcrumb: 'Engines &rsaquo; <strong>🌀 Apache Flink</strong>',
     blurb: '20 modules on the canonical ride R-4471 — watermarks, windows, state, checkpointing, savepoints, backpressure, with verified PyFlink.' },
 
-  { id: 'aws', icon: '☁️', title: 'Cloud · AWS', group: 'Cloud', status: 'soon', gate: 'Gate 5a',
+  { id: 'aws', icon: '☁️', title: 'Cloud · AWS', group: 'Cloud', status: 'live', gate: 'Gate 5a',
     breadcrumb: 'Cloud &rsaquo; <strong>☁️ AWS</strong>',
     blurb: 'Kinesis, MSK, Managed Service for Apache Flink, Firehose — validated against official AWS docs.' },
 

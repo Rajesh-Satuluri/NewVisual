@@ -72,8 +72,12 @@ switch re-frames content, both themes, **0 console errors, 0 404s** (Playwright)
 **11/11**. ✅ **Met — deployed.**
 
 ## Gate 5 — Cloud (three sub-gates, each opens with an accuracy pass)
-- **5a AWS:** I38 accuracy · I39–I42 modules · I43 case studies.
-- **5b Azure:** I44 accuracy · I45–I49 modules · I50 case studies.
+- **5a AWS ✅** — I38 accuracy pass (validated Kinesis/MSK/Firehose/Lambda facts vs official
+  docs, logged in technical-accuracy-review §5) · I39–I42 **20 modules** · I43 e2e architecture.
+  Reusable cloud-module system (`data/cloud-providers.js`, `modules/cloud.js`,
+  `modules/cloud-module.js`) built here, reused for 5b/5c. Exit: 20 modules render, scenario
+  re-frames, both themes, 0 errors/404s. **Deployed.**
+- **5b Azure:** I44 accuracy · I45–I49 modules · I50 case studies. *(next)*
 - **5c Databricks:** I51 accuracy · I52–I57 modules · I58 case studies.
 
 ## Gate 6 — Cross-cutting engines

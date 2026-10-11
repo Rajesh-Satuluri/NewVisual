@@ -3,8 +3,9 @@ import { SECTIONS, byId, PRIMARY_IDS } from './data/registry.js';
 import { renderNav, setActive, updateProgress } from './components/nav.js';
 import { initScenarioSwitcher } from './components/scenario-switcher.js';
 import { markVisited } from './data/progress-store.js';
+import { isCloudModule, isCloudLanding } from './data/cloud-providers.js';
 
-const BUILD = '20261011b'; // cache-buster — bump on each deploy
+const BUILD = '20261011c'; // cache-buster — bump on each deploy
 const imp = (p) => import(`${p}?v=${BUILD}`);
 
 // Lazy loaders. 'home' has its own module; every other section uses the generic
@@ -14,6 +15,8 @@ const LOADERS = {
   foundations: () => imp('./modules/foundations.js'),
   __section: () => imp('./modules/section.js'),
   __foundation: () => imp('./modules/foundation.js'),
+  __cloud: () => imp('./modules/cloud.js'),
+  __cloudModule: () => imp('./modules/cloud-module.js'),
 };
 
 // Foundation module ids are f01..f15.
@@ -37,8 +40,33 @@ async function route() {
     return;
   }
 
+  // Cloud module route (aws01.., azure01.., databricks01..).
+  if (isCloudModule(id)) {
+    if (typeof cleanupFn === 'function') { try { cleanupFn(); } catch (e) {} cleanupFn = null; }
+    const canvas = document.getElementById('module-canvas');
+    const crumb = document.getElementById('breadcrumb');
+    const prov = id.replace(/\d+$/, '');
+    if (crumb) crumb.innerHTML = `Cloud &rsaquo; <a href="#${prov}">${prov.toUpperCase()}</a> &rsaquo; <strong>Module ${id.slice(prov.length)}</strong>`;
+    setActive(prov); closeMobileNav(); window.scrollTo(0, 0);
+    try { const mod = await LOADERS.__cloudModule(); cleanupFn = (await mod.mount(canvas, id)) || null; }
+    catch (err) { canvas.innerHTML = `<div class="card"><h3>Could not load module</h3><p style="color:var(--text2)">${String(err && err.message || err)}</p></div>`; console.error(err); }
+    return;
+  }
+
   const section = byId(id) || byId('home');
   const resolvedId = section.id;
+
+  // Cloud landing pages (aws/azure/databricks) with a built dataset render the module grid.
+  if (isCloudLanding(resolvedId) && !section.url) {
+    if (typeof cleanupFn === 'function') { try { cleanupFn(); } catch (e) {} cleanupFn = null; }
+    const canvas = document.getElementById('module-canvas');
+    const crumb = document.getElementById('breadcrumb');
+    if (crumb) crumb.innerHTML = section.breadcrumb;
+    setActive(resolvedId); markVisited(resolvedId); updateProgress(); closeMobileNav(); window.scrollTo(0, 0);
+    try { const mod = await LOADERS.__cloud(); cleanupFn = (await mod.mount(canvas, resolvedId)) || null; }
+    catch (err) { canvas.innerHTML = `<div class="card"><h3>Could not load section</h3><p style="color:var(--text2)">${String(err && err.message || err)}</p></div>`; console.error(err); }
+    return;
+  }
 
   // Sections backed by a ported sub-app (Kafka/Flink) are full SPAs — navigate to them.
   if (section.url) { window.location.href = section.url; return; }

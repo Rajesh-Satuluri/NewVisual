@@ -64,6 +64,34 @@
 - Final acceptance (I80) re-scans for any unqualified "exactly-once" and any numeric
   claim lacking a citation or a "simulated assumption" label.
 
-## 5. Open items / to-validate log
+## 5. Validated facts log
 
-*(Populated as iterations run. Empty at I05 — no cloud content written yet.)*
+### AWS (validated I38, 2026-10-11, against docs.aws.amazon.com / aws.amazon.com)
+- **Kinesis shard capacity:** write **1 MB/s and 1,000 records/s** per shard (byte limit
+  includes partition key); read **2 MB/s and 5 GetRecords tps** per shard, **shared**
+  across consumers in the standard model. [Kinesis FAQs / key-concepts]
+- **Enhanced fan-out:** each registered consumer gets a **dedicated 2 MB/s per shard**.
+- **Retention:** default **24 hours**, extendable to **365 days** (8,760 h); >24 h costs extra.
+- **Ordering:** guaranteed **within a shard**, by sequence number; not across shards.
+- **On-demand vs provisioned:** on-demand auto-scales capacity (pay per throughput);
+  provisioned = you manage shard count.
+- **MSK:** managed Apache Kafka; **Provisioned** (you size brokers, full Kafka tooling /
+  Connect / Schema Registry) vs **Serverless** (no capacity management, pay per throughput).
+  Treat specific MSK Serverless throughput quotas as docs-current (state generally, not as
+  hard guarantees).
+- **Managed Service for Apache Flink** = the service formerly called Kinesis Data Analytics;
+  runs Apache Flink apps managed.
+- **Firehose (Amazon Data Firehose):** **near-real-time** delivery to S3/Redshift/OpenSearch/
+  Splunk via **buffering** (size + interval, whichever hits first; S3 default 5 MB / 300 s).
+  Stated as "near-real-time, buffered" — exact minimum interval has changed over time and is
+  described qualitatively, not pinned to a number.
+- **Lambda event-source mapping (Kinesis):** batch size default **100**, max **10,000**;
+  **parallelization factor 1–10** (default 1); **maximum retry attempts default -1 = infinite**
+  (finite 0–10,000); **bisect-on-error** splits a failing batch in two.
+
+Sources: Kinesis Data Streams FAQs; streams/latest/dev key-concepts & kinesis-extended-retention;
+MSK FAQs & kinesis-vs-msk compare page; Firehose FAQs & create-configure docs; Lambda
+services-kinesis-parameters & API_CreateEventSourceMapping.
+
+### Azure — pending (validate at I44)
+### Databricks — pending (validate at I51)
