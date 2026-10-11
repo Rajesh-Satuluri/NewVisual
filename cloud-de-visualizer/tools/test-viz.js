@@ -67,13 +67,13 @@ vm.createContext(sandbox);
 
 function load(f) { vm.runInContext(fs.readFileSync(path.join(__dirname, '..', f), 'utf8'), sandbox); }
 load('js/features/viz-framework.js');
-['viz-spark', 'viz-delta', 'viz-pipeline', 'viz-storage'].forEach(f => load('js/data/' + f + '.js'));
+['viz-spark', 'viz-delta', 'viz-pipeline', 'viz-storage', 'viz-streaming', 'viz-kafka', 'viz-columnar'].forEach(f => load('js/data/' + f + '.js'));
 
 const TV = sandbox.window.TableViz;
 
 ok(TV.Viz && typeof TV.Viz.player === 'function', 'TV.Viz.player exported');
 ok(typeof TV.Viz.register === 'function', 'TV.Viz.register exported');
-ok(TV.Viz.list().length === 4, 'four visualizers registered (got ' + TV.Viz.list().length + ')');
+ok(TV.Viz.list().length === 7, 'seven visualizers registered (got ' + TV.Viz.list().length + ')');
 
 // every registered visualizer is well-formed
 TV.Viz.list().forEach(v => {
