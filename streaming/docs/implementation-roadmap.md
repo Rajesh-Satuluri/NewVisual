@@ -17,21 +17,22 @@
 
 **Gate 1 exit:** 7 audit docs present and internally consistent. ✅ **Met.**
 
-## Gate 2 — Shell & scenario framework (first deployable template)
-| Iter | Deliverable |
-|------|-------------|
-| I06 | Skeleton: `index.html`, hash router, `LOADERS`, `?v=BUILD`, base `styles.css` |
-| I07 | Theme tokens + dark/light toggle (`sml-theme`) |
-| I08 | Shared component layer (merge/adopt per component-inventory) |
-| I09 | Top nav — 12 sections + Cloud sub-tabs |
-| I10 | Content registry (`data/registry.js`, stable concept IDs) |
-| I11 | Scenario data models (Uber R-4471 + E-commerce O9001) |
-| I12 | Global scenario switcher (`sml-scenario`) |
-| I13 | Progress store (`sml-*` namespace) |
-| I14 | Home / hero page |
+## Gate 2 — Shell & scenario framework (first deployable template) ✅
+| Iter | Deliverable | Status |
+|------|-------------|--------|
+| I06 | Skeleton: `index.html`, hash router, `LOADERS`, `?v=BUILD`, base `styles.css` | ✅ |
+| I07 | Theme tokens + dark/light toggle (`sml-theme`) | ✅ |
+| I08 | Shared shell primitives (template subset; full merge in Gate 3) | ✅ |
+| I09 | Nav — 12 sections, grouped, registry-driven | ✅ |
+| I10 | Content registry (`data/registry.js`, stable section IDs) | ✅ |
+| I11 | Scenario data models (Uber R-4471 + E-commerce O-9001) | ✅ |
+| I12 | Global scenario switcher (`sml-scenario`) | ✅ |
+| I13 | Progress store (`sml-*` namespace) | ✅ |
+| I14 | Home / hero page + generic section pages | ✅ |
+| +   | `favicon.svg`; root landing-page card (early I81) | ✅ |
 
-**Gate 2 exit:** navigable template site renders in both themes, scenario switch
-changes real data, 0 console errors. **This is the first state worth a live link.**
+**Gate 2 exit:** navigable template renders in both themes, scenario switch changes
+real data, **0 console errors, 0 404s** (verified via Playwright). ✅ **Met — deployed.**
 
 ## Gate 3 — Preserve Kafka + Flink
 I15 engine+tests · I16–I18 Kafka modules (3 batches) · I19 Kafka aux · I20 e-comm scenario
