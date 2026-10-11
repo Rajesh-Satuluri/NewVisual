@@ -92,6 +92,36 @@
   function loadDesigns() { try { return JSON.parse(TV.ls.get(KEY) || '{}') || {}; } catch (e) { return {}; } }
   function saveDesigns(d) { TV.ls.set(KEY, JSON.stringify(d)); }
 
+  // Share-link codec: a design travels in the URL query (?arch=...), so it
+  // works across devices without a server. Unicode-safe base64.
+  function encodeState(st) {
+    try { return btoa(unescape(encodeURIComponent(JSON.stringify({ nodes: st.nodes, edges: st.edges, seq: st.seq })))); }
+    catch (e) { return ''; }
+  }
+  function decodeState(s) {
+    try {
+      const o = JSON.parse(decodeURIComponent(escape(atob(s))));
+      if (o && Array.isArray(o.nodes) && Array.isArray(o.edges)) return { nodes: o.nodes, edges: o.edges, seq: o.seq || (o.nodes.length + 1) };
+    } catch (e) {}
+    return null;
+  }
+  function shareURL() {
+    const code = encodeState(state);
+    const fmt = TV.activeFormat || (location.hash.split('/')[0] || '').replace('#', '') || 'azure';
+    return location.origin + location.pathname + '?arch=' + encodeURIComponent(code) + '#' + fmt + '/architecture-studio';
+  }
+  function importFromURL() {
+    try {
+      const code = new URLSearchParams(location.search).get('arch');
+      if (!code) return false;
+      const st = decodeState(code);
+      // strip the param so refreshes/links stay clean, keep the hash route
+      history.replaceState(null, '', location.pathname + location.hash);
+      if (st) { state = st; connectFrom = null; return true; }
+    } catch (e) {}
+    return false;
+  }
+
   function ensureStyles() {
     if (document.getElementById('arch-styles')) return;
     const el = document.createElement('style');
@@ -272,6 +302,7 @@
     ensureStyles();
     container.className = '';
     container0 = container;
+    const importedFromURL = importFromURL();
     const pal = palette();
     const palHtml = LAYERS.map(l => {
       const items = pal[l.id] || [];
@@ -295,6 +326,7 @@
     </select>
     <button class="arch-btn" data-arch-clear>Clear canvas</button>
     <button class="arch-btn" data-arch-save>Save design…</button>
+    <button class="arch-btn" data-arch-share>Copy share link</button>
     <button class="arch-btn" data-arch-export>Export JSON</button>
     <span class="arch-hint">Tip: drag a block from the left; click <b>↔ link</b> on one node then another to connect them.</span>
   </div>
@@ -361,6 +393,13 @@
       const d = loadDesigns(); d[nm] = JSON.parse(JSON.stringify(state)); saveDesigns(d); renderSaved();
       if (TV.DS && TV.DS.toast) TV.DS.toast('Design saved', { type: 'success' });
     });
+    container.querySelector('[data-arch-share]').addEventListener('click', () => {
+      if (!state.nodes.length) { if (TV.DS && TV.DS.toast) TV.DS.toast('Add something to the canvas first', { type: 'info' }); return; }
+      const url = shareURL();
+      const okMsg = () => { if (TV.DS && TV.DS.toast) TV.DS.toast('Share link copied', { type: 'success' }); };
+      if (TV.DS && TV.DS.copy) TV.DS.copy(url).then(okMsg).catch(() => { if (TV.DS.toast) TV.DS.toast('Copy failed', { type: 'error' }); });
+      else if (navigator.clipboard) navigator.clipboard.writeText(url).then(okMsg).catch(() => {});
+    });
     container.querySelector('[data-arch-export]').addEventListener('click', () => {
       try {
         const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
@@ -371,6 +410,7 @@
 
     redraw();
     renderSaved();
+    if (importedFromURL && TV.DS && TV.DS.toast) TV.DS.toast('Loaded shared design from link', { type: 'success' });
   }
 
   function destroy() { if (TV.AnimationControls) TV.AnimationControls.hide(); }
