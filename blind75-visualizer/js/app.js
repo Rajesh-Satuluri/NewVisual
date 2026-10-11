@@ -1888,10 +1888,14 @@
   // It only makes sense on a problem page that actually HAS those sections —
   // on Home / Learn / dashboards etc. it must stay off (else the view blanks).
   function focusViewOk() {
+    // Only the DSA problem view (python + practice, a real problem) — state is
+    // set synchronously by setChrome before any render, so this never trips on
+    // stale/async-mounted DOM. Home, Learn, dashboards and other stacks -> off.
+    if (state.stack !== "python" || state.mode !== "practice") return false;
+    var p = byId[state.currentId];
+    if (!p || p.isIntro) return false;
     var main = el("main");
-    return !!(main &&
-      main.querySelector('.prob-section[data-key="description"]') &&
-      main.querySelector('.prob-section[data-key="code"]'));
+    return !!(main && main.querySelector('.prob-section[data-key="code"]'));
   }
   function applyFocus() {
     var g = !!store.getPref("focus");
