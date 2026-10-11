@@ -50,6 +50,42 @@
     return out;
   }
 
+  // Starter templates — common reference patterns, loaded in one click.
+  // Each node: [name, layer, col, row]; edges by node index.
+  const TEMPLATES = {
+    medallion: {
+      label: 'Medallion lakehouse',
+      nodes: [['Source systems', 'ingest', 0, 0], ['Ingestion', 'ingest', 1, 0], ['Bronze', 'storage', 2, 0],
+        ['Silver', 'storage', 2, 1], ['Gold', 'storage', 2, 2], ['BI / Serving', 'serve', 3, 2], ['Governance', 'govern', 3, 0]],
+      edges: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [6, 2], [6, 3], [6, 4]],
+    },
+    streaming: {
+      label: 'Streaming pipeline',
+      nodes: [['Producers', 'ingest', 0, 0], ['Event log / Kafka', 'ingest', 1, 0], ['Stream processor', 'process', 2, 0],
+        ['Delta / sink', 'storage', 3, 0], ['Real-time dashboard', 'serve', 3, 1], ['Monitoring', 'govern', 2, 1]],
+      edges: [[0, 1], [1, 2], [2, 3], [3, 4], [5, 2]],
+    },
+    warehouse: {
+      label: 'Analytics warehouse',
+      nodes: [['Operational DBs', 'storage', 0, 0], ['ELT / ingestion', 'ingest', 1, 0], ['Staging', 'storage', 2, 0],
+        ['Warehouse', 'process', 2, 1], ['Semantic model', 'serve', 3, 1], ['BI tools', 'serve', 3, 2], ['Catalog / lineage', 'govern', 1, 1]],
+      edges: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [6, 2], [6, 3]],
+    },
+  };
+  function loadTemplate(key) {
+    const t = TEMPLATES[key]; if (!t) return;
+    state = { nodes: [], edges: [], seq: 1 };
+    t.nodes.forEach(([name, layer, col, row]) => {
+      state.nodes.push({ nid: 'n' + (state.seq++), name, layer, x: 24 + col * 185, y: 24 + row * 92 });
+    });
+    (t.edges || []).forEach(([a, b]) => {
+      const na = state.nodes[a], nb = state.nodes[b];
+      if (na && nb) state.edges.push([na.nid, nb.nid]);
+    });
+    connectFrom = null;
+    redraw();
+  }
+
   let state = { nodes: [], edges: [], seq: 1 }; // nodes:{nid,name,layer,x,y}; edges:[nidA,nidB]
   let connectFrom = null;
 
@@ -253,6 +289,10 @@
     <p class="arch-sub">Sketch a data architecture: drag service blocks onto the canvas, move them, and link them. Save named designs to revisit later. This is a free-form sandbox for thinking through designs — it does not deploy anything.</p>
   </div>
   <div class="arch-toolbar">
+    <select class="arch-btn arch-tpl" aria-label="Load a starter template">
+      <option value="">Start from template…</option>
+      ${Object.keys(TEMPLATES).map(k => `<option value="${esc(k)}">${esc(TEMPLATES[k].label)}</option>`).join('')}
+    </select>
     <button class="arch-btn" data-arch-clear>Clear canvas</button>
     <button class="arch-btn" data-arch-save>Save design…</button>
     <button class="arch-btn" data-arch-export>Export JSON</button>
@@ -299,11 +339,21 @@
       addNode({ svcId, layer, name }, e.clientX - r.left - 60, e.clientY - r.top - 20);
     });
 
+    const tplSel = container.querySelector('.arch-tpl');
+    if (tplSel) tplSel.addEventListener('change', () => {
+      const key = tplSel.value; if (!key) return;
+      const apply = () => { loadTemplate(key); tplSel.value = ''; if (TV.DS && TV.DS.toast) TV.DS.toast('Template loaded', { type: 'success' }); };
+      if (state.nodes.length && TV.DS && TV.DS.confirm) {
+        TV.DS.confirm({ message: 'Replace the current canvas with this template?', confirmText: 'Load template' })
+          .then(okd => { if (okd) apply(); else tplSel.value = ''; });
+      } else apply();
+    });
     container.querySelector('[data-arch-clear]').addEventListener('click', () => {
-      if (!state.nodes.length || (TV.DS && TV.DS.confirm ? true : confirm('Clear the canvas?'))) {
-        const doClear = () => { state = { nodes: [], edges: [], seq: 1 }; connectFrom = null; redraw(); };
-        if (TV.DS && TV.DS.confirm && state.nodes.length) TV.DS.confirm('Clear the canvas?', { onConfirm: doClear }); else doClear();
-      }
+      const doClear = () => { state = { nodes: [], edges: [], seq: 1 }; connectFrom = null; redraw(); };
+      if (!state.nodes.length) { doClear(); return; }
+      if (TV.DS && TV.DS.confirm) {
+        TV.DS.confirm({ message: 'Clear the canvas?', confirmText: 'Clear', danger: true }).then(okd => { if (okd) doClear(); });
+      } else if (confirm('Clear the canvas?')) doClear();
     });
     container.querySelector('[data-arch-save]').addEventListener('click', () => {
       const nm = (prompt('Name this design:') || '').trim();

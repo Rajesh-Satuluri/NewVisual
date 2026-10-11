@@ -105,16 +105,19 @@
   function confirm(opts) {
     opts = opts || {};
     return new Promise(function (resolve) {
+      // Single-settle guard: whichever of ok / cancel / dismiss fires first wins.
+      // (close() triggers onClose, so the OK handler must settle BEFORE closing.)
+      let settled = false;
+      const done = function (v) { if (!settled) { settled = true; resolve(v); } };
       const body =
         `<p style="margin:0 0 16px;color:var(--ds-text-2)">${esc(opts.message || 'Are you sure?')}</p>` +
         `<div style="display:flex;gap:8px;justify-content:flex-end">` +
         `<button class="ds-btn" data-act="cancel">${esc(opts.cancelText || 'Cancel')}</button>` +
         `<button class="ds-btn ${opts.danger ? 'ds-btn--danger' : 'ds-btn--primary'}" data-act="ok">${esc(opts.confirmText || 'Confirm')}</button>` +
         `</div>`;
-      const m = modal({ title: opts.title || 'Please confirm', bodyHTML: body, dismissible: true, onClose: function () { resolve(false); } });
-      m.el.querySelector('[data-act="cancel"]').addEventListener('click', function () { m.close(); resolve(false); });
-      m.el.querySelector('[data-act="ok"]').addEventListener('click', function () { untie(); m.close(); resolve(true); });
-      function untie() { /* prevent double-resolve via onClose */ m._done = true; }
+      const m = modal({ title: opts.title || 'Please confirm', bodyHTML: body, dismissible: true, onClose: function () { done(false); } });
+      m.el.querySelector('[data-act="cancel"]').addEventListener('click', function () { done(false); m.close(); });
+      m.el.querySelector('[data-act="ok"]').addEventListener('click', function () { done(true); m.close(); });
     });
   }
 
