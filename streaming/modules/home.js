@@ -13,8 +13,8 @@ export function mount(container) {
          AWS, Azure, and Databricks — taught interactively through two real business scenarios.</p>
       <div class="cta-row">
         <button class="btn primary" data-go="foundations">🧱 Start with Foundations</button>
-        <button class="btn" data-go="kafka">📨 Explore Kafka</button>
-        <button class="btn" data-go="flink">🌀 Explore Flink</button>
+        <a class="btn" href="kafka/">📨 Explore Kafka</a>
+        <a class="btn" href="flink/">🌀 Explore Flink</a>
       </div>
       <div class="roadmap-note">
         <b>Template preview.</b> This is the live shell — navigation, theming, and the global
@@ -33,7 +33,7 @@ export function mount(container) {
     <div class="page-head"><h2 class="page-title" style="font-size:22px">Explore the lab</h2></div>
     <div class="grid cols-3">
       ${cards.map(c => `
-        <div class="card feature-card" data-go="${c.id}">
+        <div class="card feature-card" ${c.url ? `data-url="${c.url}"` : `data-go="${c.id}"`}>
           <div class="fc-icon">${c.icon}</div>
           <h3>${c.title}</h3>
           <p>${c.blurb || ''}</p>
@@ -47,4 +47,6 @@ export function mount(container) {
 
   container.querySelectorAll('[data-go]').forEach(el =>
     el.addEventListener('click', () => { location.hash = '#' + el.dataset.go; }));
+  container.querySelectorAll('[data-url]').forEach(el =>
+    el.addEventListener('click', () => { window.location.href = el.dataset.url; }));
 }

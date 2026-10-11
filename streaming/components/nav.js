@@ -19,7 +19,10 @@ export function renderNav(currentId) {
   el.innerHTML = html;
 
   el.querySelectorAll('.nav-item').forEach(n => {
-    n.addEventListener('click', () => { location.hash = '#' + n.dataset.id; });
+    n.addEventListener('click', () => {
+      if (n.dataset.url) { window.location.href = n.dataset.url; return; }
+      location.hash = '#' + n.dataset.id;
+    });
   });
   updateProgress();
 }
@@ -30,7 +33,8 @@ function navItem(s, currentId) {
   const badge = s.status === 'live'
     ? `<span class="ni-badge live">live</span>`
     : (s.gate ? `<span class="ni-badge">${s.gate.replace('Gate ', 'G')}</span>` : '');
-  return `<div class="nav-item${active}" data-id="${s.id}" role="link" tabindex="0">
+  const urlAttr = s.url ? ` data-url="${s.url}"` : '';
+  return `<div class="nav-item${active}" data-id="${s.id}"${urlAttr} role="link" tabindex="0">
     <span class="ni-icon">${s.icon}</span><span>${s.title}</span>${badge}
   </div>`;
 }

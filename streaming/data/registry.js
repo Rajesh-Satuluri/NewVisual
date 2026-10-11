@@ -9,11 +9,11 @@ export const SECTIONS = [
     breadcrumb: 'Learn &rsaquo; <strong>🧱 Foundations</strong>',
     blurb: 'Streaming from first principles — events, partitions, time, watermarks, windows, state, checkpoints, delivery guarantees, backpressure, observability.' },
 
-  { id: 'kafka', icon: '📨', title: 'Apache Kafka', group: 'Engines', status: 'soon', gate: 'Gate 3', tech: 'kafka',
+  { id: 'kafka', icon: '📨', title: 'Apache Kafka', group: 'Engines', status: 'live', gate: 'Gate 3', tech: 'kafka', url: 'kafka/',
     breadcrumb: 'Engines &rsaquo; <strong>📨 Apache Kafka</strong>',
     blurb: '22 interactive modules ported with 100% preservation — real murmur2 partition simulator, replication, consumer groups, delivery guarantees, and more.' },
 
-  { id: 'flink', icon: '🌀', title: 'Apache Flink', group: 'Engines', status: 'soon', gate: 'Gate 3', tech: 'flink',
+  { id: 'flink', icon: '🌀', title: 'Apache Flink', group: 'Engines', status: 'live', gate: 'Gate 3', tech: 'flink', url: 'flink/',
     breadcrumb: 'Engines &rsaquo; <strong>🌀 Apache Flink</strong>',
     blurb: '20 modules on the canonical ride R-4471 — watermarks, windows, state, checkpointing, savepoints, backpressure, with verified PyFlink.' },
 

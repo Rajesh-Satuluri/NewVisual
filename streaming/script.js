@@ -21,6 +21,9 @@ async function route() {
   const section = byId(id) || byId('home');
   const resolvedId = section.id;
 
+  // Sections backed by a ported sub-app (Kafka/Flink) are full SPAs — navigate to them.
+  if (section.url) { window.location.href = section.url; return; }
+
   // cleanup previous view
   if (typeof cleanupFn === 'function') { try { cleanupFn(); } catch (e) {} cleanupFn = null; }
 

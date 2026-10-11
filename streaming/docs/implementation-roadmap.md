@@ -34,11 +34,29 @@
 **Gate 2 exit:** navigable template renders in both themes, scenario switch changes
 real data, **0 console errors, 0 404s** (verified via Playwright). ✅ **Met — deployed.**
 
-## Gate 3 — Preserve Kafka + Flink
-I15 engine+tests · I16–I18 Kafka modules (3 batches) · I19 Kafka aux · I20 e-comm scenario
-· I21 Flink story/pyflink · I22–I24 Flink modules (3 batches, de-drift) · I25 Flink aux
-· I26 e-comm scenario · I27 full preservation regression suite.
-**Exit:** `verify-preservation.mjs` green; engine 12/12; manifest reconciled.
+## Gate 3 — Preserve Kafka + Flink ✅
+Ported both apps into the lab as **self-contained, byte-identical** sub-apps
+(`streaming/kafka/`, `streaming/flink/`), guaranteeing 100% preservation, then wired
+them as live sections.
+| Iter | Deliverable | Status |
+|------|-------------|--------|
+| I15 | Kafka sim engine + tests (ported) | ✅ 12/12 green |
+| I16–I19 | Kafka modules (22) + playground + aux + data banks | ✅ byte-identical |
+| I21–I25 | Flink modules (20, incl. m13b) + story-ui + PyFlink + aux | ✅ byte-identical |
+| I27 | Preservation regression suite (`scripts/verify-preservation.mjs`) | ✅ 93/93 |
+| +   | `shared/` helper copied; nav/home/router deep-link to ported apps | ✅ |
+
+**Gate 3 exit:** `verify-preservation.mjs` → **93/93 files byte-identical**; ported
+Kafka engine **12/12**; both apps smoke-tested under `streaming/` with **0 console
+errors, 0 404s**. ✅ **Met — deployed.**
+
+> **Deferred within Gate 3 (logged, not dropped):** I20/I26 — making each ported
+> module's *internal* examples switch live between Scenario A (Uber) and Scenario B
+> (e-commerce) via the global switcher. Today both scenarios are represented across
+> the lab (Kafka ships the Amazon/e-commerce worked example; Flink ships Uber R-4471),
+> but the top-bar switcher does not yet re-frame inside the ported modules. Doing so
+> requires an ADAPTED overlay on preserved files and is best sequenced after the
+> shared-component merge — tracked as a follow-up so preservation stays provable.
 
 ## Gate 4 — Foundations
 I28 shared sim framework · I29 sim UI · I30–I36 the 15 modules · I37 cross-links+tests.

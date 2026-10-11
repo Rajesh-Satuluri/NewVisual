@@ -1,0 +1,103 @@
+/* ============================================================
+   RESPONSIVE & TOUCH — Apache Flink Visualizer
+   Loaded AFTER styles.css so its rules win by cascade order.
+   Additive only — no base file edits.
+   ============================================================ */
+
+/* ── Dynamic viewport height (kills iPadOS Safari toolbar jump) ─────────────── */
+html, body { height: 100dvh; }
+#app { height: 100dvh; }
+
+/* ── Accessibility: visible keyboard focus ─────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ── Hamburger (mobile menu opener) — hidden on desktop ────────────────────── */
+#nav-open { display: none; }
+#nav-open svg { width: 18px; height: 18px; }
+
+/* ── Reduced motion: honor the OS preference globally ──────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── Touch targets: min 44px on coarse pointers (Apple HIG) ────────────────── */
+@media (pointer: coarse) {
+  .icon-btn { width: 44px; height: 44px; }
+  #nav-open { width: 44px; height: 44px; }
+  .nav-item { min-height: 44px; }
+  .tab-btn  { min-height: 44px; }
+  .btn      { min-height: 44px; }
+}
+
+/* ── Kill "sticky hover" on touch devices ──────────────────────────────────── */
+@media (hover: none) {
+  .nav-item:hover { background: transparent; color: var(--text-secondary); }
+  .info-card:hover, .card:hover { transform: none; }
+}
+
+/* ── Off-canvas sidebar drawer below 1024px ────────────────────────────────── */
+@media (max-width: 1024px) {
+  #nav-open {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 12px;
+    flex-shrink: 0;
+  }
+  /* Keep breadcrumb beside the hamburger; push header actions to the right */
+  #module-header #breadcrumb { margin-right: auto; min-width: 0; }
+  #module-header #breadcrumb .breadcrumb-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #sidebar {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: var(--sidebar-w);
+    min-width: var(--sidebar-w);
+    max-width: 84vw;
+    transform: translateX(-100%);
+    transition: transform 0.28s ease;
+    z-index: 60;
+    box-shadow: var(--shadow-lg);
+  }
+  /* Neutralize the desktop icon-rail collapse while in drawer mode */
+  #sidebar.collapsed { width: var(--sidebar-w); min-width: var(--sidebar-w); }
+  #sidebar.collapsed .brand-title,
+  #sidebar.collapsed .brand-sub,
+  #sidebar.collapsed .progress-label,
+  #sidebar.collapsed .progress-bar,
+  #sidebar.collapsed .nav-label,
+  #sidebar.collapsed .nav-group-header { opacity: 1; pointer-events: auto; }
+
+  body.nav-open #sidebar { transform: translateX(0); }
+
+  #nav-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 55;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.28s ease;
+  }
+  body.nav-open #nav-backdrop { opacity: 1; pointer-events: auto; }
+}
+
+/* Backdrop never shows on desktop */
+@media (min-width: 1025px) {
+  #nav-backdrop { display: none; }
+}
+
+/* ── Stack multi-column module layouts on narrow screens ───────────────────── */
+@media (max-width: 768px) {
+  .info-grid, .config-grid { grid-template-columns: 1fr !important; }
+  /* Code in narrow columns should wrap, not clip/scroll off-screen */
+  .code-block, pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+}
