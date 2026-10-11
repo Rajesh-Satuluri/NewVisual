@@ -62,6 +62,14 @@
 .is-scoreline b { color:var(--text-primary,#e6edf7); }
 .is-ref a { color:var(--brand,#58a6ff); text-decoration:none; font-size:13px; }
 .is-tag { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; padding:2px 8px; border-radius:20px; background:var(--bg-4,#223047); color:var(--text-muted,#7e8da8); }
+.is-casefile { background:var(--bg-1,#0e1420); border:1px solid var(--border-default,#223047); border-radius:9px; padding:10px 12px; margin:4px 0 2px; }
+.is-casefile-h { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted,#7e8da8); margin:0 0 7px; display:flex; align-items:center; gap:7px; }
+.is-casefile-n { font-size:10px; font-weight:800; color:var(--brand,#58a6ff); background:color-mix(in srgb,var(--brand,#58a6ff) 15%,transparent); border-radius:20px; padding:1px 7px; }
+.is-casefile .is-ev { margin-bottom:6px; }
+.is-casefile .is-ev:last-child { margin-bottom:0; }
+.is-casefile-empty { font-size:12px; color:var(--text-muted,#7e8da8); font-style:italic; }
+.is-notes { width:100%; box-sizing:border-box; min-height:58px; resize:vertical; background:var(--bg-1,#0e1420); border:1px solid var(--border-default,#223047); border-radius:9px; padding:9px 11px; color:var(--text-secondary,#b3c0d6); font:inherit; font-size:13px; line-height:1.55; }
+.is-notes:focus { outline:none; border-color:var(--brand,#58a6ff); }
 `;
     document.head.appendChild(s);
   }
@@ -71,6 +79,36 @@
   const modal = QE.createModal({ className: 'is-backdrop', ariaLabel: 'Production incident simulator', focusSelectors: ['.is-btn', '.is-inv', '.is-close'] });
 
   function available(cloud) { return TV.Incidents && TV.Incidents.byCloud(cloud).length > 0; }
+
+  /* ── Investigation workspace (additive) ───────────────────────
+     A running case file of gathered evidence, carried into every
+     phase, plus free-text working notes persisted per incident. */
+  function notesKey(inc) { return 'cde-incident-notes:' + inc.id; }
+  function loadNotes(inc) { try { return (TV.ls.get(notesKey(inc)) || ''); } catch (e) { return ''; } }
+  function saveNotes(inc, v) { try { TV.ls.set(notesKey(inc), v); } catch (e) {} }
+
+  function caseFileHTML() {
+    const inc = session.incident;
+    const n = session.inspected.length;
+    const evidence = session.inspected.map(id => {
+      const iv = inc.investigations.find(x => x.id === id);
+      return `<div class="is-ev"><b>${esc(iv ? iv.label : id)}:</b> ${esc(inc.evidence[id] || '')}</div>`;
+    }).join('');
+    return `<div class="is-casefile">
+      <div class="is-casefile-h">Case file — evidence gathered <span class="is-casefile-n">${n}</span></div>
+      ${n ? evidence : '<div class="is-casefile-empty">No evidence inspected yet — go back and investigate first.</div>'}
+    </div>`;
+  }
+
+  function notesHTML() {
+    return `<div class="is-sec-h">Working notes</div>
+      <textarea class="is-notes" placeholder="Jot your hypothesis and reasoning as you investigate… (saved automatically)">${esc(loadNotes(session.incident))}</textarea>`;
+  }
+
+  function wireNotes() {
+    const ta = root.querySelector('.is-notes');
+    if (ta) ta.addEventListener('input', () => saveNotes(session.incident, ta.value));
+  }
 
   function open(incidentId) {
     const inc = TV.Incidents && TV.Incidents.byId(incidentId);
@@ -134,35 +172,43 @@
     shell(
       `<div class="is-sec-h">Choose what to inspect</div>
        <div class="is-invs">${invs}</div>
-       ${session.inspected.length ? '<div class="is-sec-h">Evidence gathered</div><div class="is-evidence">' + evidence + '</div>' : ''}`,
+       ${session.inspected.length ? '<div class="is-sec-h">Evidence gathered</div><div class="is-evidence">' + evidence + '</div>' : ''}
+       ${notesHTML()}`,
       `<span class="is-note">${session.inspected.length} inspected</span><button class="is-btn is-diagnose" ${session.inspected.length ? '' : 'disabled'}>Ready to diagnose →</button>`
     );
     root.querySelectorAll('[data-inv]').forEach(b => b.addEventListener('click', () => { IE.inspect(session, b.getAttribute('data-inv')); renderPhase(); }));
     const d = root.querySelector('.is-diagnose'); if (d) d.addEventListener('click', () => { phase = 'diagnose'; renderPhase(); });
+    wireNotes();
   }
 
   function renderDiagnose() {
     const inc = session.incident;
     const opts = inc.rootCauses.map((o, k) => `<button class="is-opt ${session.rootPick === k ? 'picked' : ''}" data-root="${k}">${esc(o.text)}</button>`).join('');
     shell(
-      `<div class="is-q">What is the root cause?</div><div class="is-opts">${opts}</div>`,
+      `${caseFileHTML()}
+       <div class="is-q">What is the root cause?</div><div class="is-opts">${opts}</div>
+       ${notesHTML()}`,
       `<button class="is-btn is-btn--ghost is-back">← Investigate more</button><button class="is-btn is-next" ${session.rootPick != null ? '' : 'disabled'}>Choose remediation →</button>`
     );
     root.querySelectorAll('[data-root]').forEach(b => b.addEventListener('click', () => { session.rootPick = parseInt(b.dataset.root, 10); renderPhase(); }));
     root.querySelector('.is-back').addEventListener('click', () => { phase = 'investigate'; renderPhase(); });
     const n = root.querySelector('.is-next'); if (n) n.addEventListener('click', () => { phase = 'remediate'; renderPhase(); });
+    wireNotes();
   }
 
   function renderRemediate() {
     const inc = session.incident;
     const opts = inc.remediations.map((o, k) => `<button class="is-opt ${session.remedPick === k ? 'picked' : ''}" data-remed="${k}">${esc(o.text)}</button>`).join('');
     shell(
-      `<div class="is-q">What is the best remediation?</div><div class="is-opts">${opts}</div>`,
+      `${caseFileHTML()}
+       <div class="is-q">What is the best remediation?</div><div class="is-opts">${opts}</div>
+       ${notesHTML()}`,
       `<button class="is-btn is-btn--ghost is-back">← Back</button><button class="is-btn is-submit" ${session.remedPick != null ? '' : 'disabled'}>Submit diagnosis</button>`
     );
     root.querySelectorAll('[data-remed]').forEach(b => b.addEventListener('click', () => { session.remedPick = parseInt(b.dataset.remed, 10); renderPhase(); }));
     root.querySelector('.is-back').addEventListener('click', () => { phase = 'diagnose'; renderPhase(); });
     const sub = root.querySelector('.is-submit'); if (sub) sub.addEventListener('click', submit);
+    wireNotes();
   }
 
   function submit() {
@@ -200,6 +246,7 @@
        <div class="is-sec-h">How to validate the fix</div>${list(inc.validation)}
        <div class="is-sec-h">Prevention</div>${list(inc.prevention)}
        <div class="is-sec-h">Interview follow-ups</div>${list(inc.followUps)}
+       ${loadNotes(inc).trim() ? '<div class="is-sec-h">Your working notes</div><p class="is-p" style="white-space:pre-wrap">' + esc(loadNotes(inc)) + '</p>' : ''}
        ${ref}`,
       `<button class="is-btn is-btn--ghost is-close2">Close</button><button class="is-btn is-retry">Try another approach</button>`
     );
