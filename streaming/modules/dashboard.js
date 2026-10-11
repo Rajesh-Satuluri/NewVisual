@@ -4,6 +4,7 @@ import { completables } from '../data/catalog.js';
 import { isDone, isVisited } from '../data/progress-store.js';
 import { byId } from '../data/registry.js';
 import { getScenario } from '../data/scenarios.js';
+import { portedProgress } from '../data/ported-progress.js';
 
 const SECTION_META = [
   ['foundations', '🧱', 'Foundations'], ['aws', '☁️', 'AWS'], ['azure', '🔷', 'Azure'],
@@ -18,6 +19,11 @@ export async function mount(container) {
     const done = ids.filter(isDone).length;
     return { id, icon, label, done, total: ids.length, pct: ids.length ? Math.round(done / ids.length * 100) : 0 };
   });
+  // Ported Kafka/Flink completion (read-only bridge to their own stores).
+  const pp = portedProgress();
+  rows.push({ id: 'kafka', icon: '📨', label: 'Kafka', done: pp.kafka.done, total: pp.kafka.total, pct: Math.round(pp.kafka.done / pp.kafka.total * 100), url: pp.kafka.url });
+  rows.push({ id: 'flink', icon: '🌀', label: 'Flink', done: pp.flink.done, total: pp.flink.total, pct: Math.round(pp.flink.done / pp.flink.total * 100), url: pp.flink.url });
+
   const totalDone = rows.reduce((a, r) => a + r.done, 0);
   const totalAll = rows.reduce((a, r) => a + r.total, 0);
   const overallPct = totalAll ? Math.round(totalDone / totalAll * 100) : 0;
@@ -42,8 +48,13 @@ export async function mount(container) {
   container.innerHTML = `
     <div class="page-head"><div class="page-eyebrow">You</div>
       <h1 class="page-title">📊 Your dashboard</h1>
-      <p class="page-sub">Progress and mastery across the lab, your weak spots, and what to do next.
-        Progress is stored locally in your browser (<code>sml-*</code>), separate from the Kafka/Flink apps.</p></div>
+      <p class="page-sub">Progress and mastery across every course — including the Kafka &amp; Flink apps.
+        Progress is stored locally in your browser; use Export to back it up or move it to another device.</p>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn" id="dash-export">⬇️ Export progress</button>
+        <button class="btn" id="dash-import">⬆️ Import progress</button>
+        <input id="dash-file" type="file" accept="application/json,.json" style="display:none" />
+      </div></div>
 
     <div class="grid cols-2">
       <div class="card" style="display:flex;gap:18px;align-items:center">
@@ -62,7 +73,7 @@ export async function mount(container) {
     <div class="page-head" style="margin-top:8px"><h2 class="page-title" style="font-size:18px">Mastery by track</h2></div>
     <div style="display:flex;flex-direction:column;gap:10px">
       ${rows.map(r => `
-        <div class="card" data-go="${r.id}" style="cursor:pointer;display:flex;align-items:center;gap:14px">
+        <div class="card" ${r.url ? `data-url="${r.url}"` : `data-go="${r.id}"`} style="cursor:pointer;display:flex;align-items:center;gap:14px">
           <span style="font-size:22px">${r.icon}</span>
           <div style="flex:1">
             <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:600">
@@ -83,4 +94,39 @@ export async function mount(container) {
     </div>`;
 
   container.querySelectorAll('[data-go]').forEach(el => el.addEventListener('click', () => { location.hash = '#' + el.dataset.go; }));
+  container.querySelectorAll('[data-url]').forEach(el => el.addEventListener('click', () => { window.location.href = el.dataset.url; }));
+
+  // ── Export / import of browser-local progress ──────────────────────────────
+  // Covers the lab's own sml-* keys plus the ported apps' completion arrays, so a
+  // learner can back up or move their whole progress across devices.
+  const PROGRESS_KEYS = ['sml-done', 'sml-visited', 'sml-scenario', 'sml-theme', 'kafka-done', 'flink_done'];
+  container.querySelector('#dash-export')?.addEventListener('click', () => {
+    const data = {};
+    for (const k of PROGRESS_KEYS) { try { const v = localStorage.getItem(k); if (v != null) data[k] = v; } catch (e) {} }
+    const payload = { app: 'streaming-master-lab', version: 1, exported: new Date().toISOString(), data };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `streaming-lab-progress-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click(); URL.revokeObjectURL(a.href);
+  });
+  const fileInput = container.querySelector('#dash-file');
+  container.querySelector('#dash-import')?.addEventListener('click', () => fileInput?.click());
+  fileInput?.addEventListener('change', () => {
+    const f = fileInput.files && fileInput.files[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(String(reader.result));
+        const data = parsed && parsed.data;
+        if (!data || parsed.app !== 'streaming-master-lab') { alert('Not a Streaming Master Lab progress file.'); return; }
+        let n = 0;
+        for (const k of PROGRESS_KEYS) { if (typeof data[k] === 'string') { try { localStorage.setItem(k, data[k]); n++; } catch (e) {} } }
+        alert(`Imported ${n} progress key${n === 1 ? '' : 's'}. Reloading…`);
+        location.reload();
+      } catch (e) { alert('Could not read that file: ' + (e && e.message || e)); }
+    };
+    reader.readAsText(f);
+  });
 }

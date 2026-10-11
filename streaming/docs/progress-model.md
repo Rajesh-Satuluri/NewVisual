@@ -27,12 +27,25 @@ Reads `completables()` from `catalog.js` per section (`SECTION_META`:
 foundations, aws, azure, databricks, incident) + `isDone`. Renders a progress
 ring, per-track mastery meters, weak spots, recommended next.
 
-## VERIFIED GAP → Phase 2
+## Phase 2 — CLOSED ✅
 
-The dashboard currently aggregates **only lab-native `sml-*` sections**. Kafka
-and Flink completion lives in `kafka-*` / `flink-*` and is **not** surfaced in
-the unified dashboard. Phase 2 adds a read-only bridge so ported-app progress
-feeds the same mastery view, plus export/import of `sml-*` progress.
+The dashboard now aggregates **every course**. A read-only bridge
+(`data/ported-progress.js`) reads the ported apps' own completion arrays —
+`kafka-done` (22 modules) and `flink_done` (20 modules) — and renders Kafka and
+Flink mastery rows alongside the `sml-*` sections. The bridge only READS those
+keys (never writes), so preservation and the ported apps are untouched. Verified:
+seeding `kafka-done=[m01,m02,m03]` / `flink_done=[m01,m02]` shows **Kafka 3/22**
+and **Flink 2/20** in the unified mastery view, 0 console errors.
+
+### Export / import
+
+The dashboard offers **Export progress** (downloads a JSON of `sml-done`,
+`sml-visited`, `sml-scenario`, `sml-theme`, `kafka-done`, `flink_done`) and
+**Import progress** (restores from such a file, then reloads). This lets a
+learner back up or move progress across devices — the file is validated
+(`app: "streaming-master-lab"`) before import. Browser-local only; no account.
+
+**DoD item "learning dashboard aggregates progress across every course" — met.**
 
 ## Migration safety
 
