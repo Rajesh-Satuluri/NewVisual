@@ -107,6 +107,14 @@
     });
   }
 
+  // Deep-open a specific visualizer: set the selection, then navigate to the
+  // Visualizers screen (render() reads `selected`). Used by service pages.
+  function show(id) {
+    if (TV.Viz && TV.Viz.get(id)) selected = id;
+    const fmt = TV.activeFormat || (location.hash.split('/')[0] || '').replace('#', '') || 'azure';
+    location.hash = fmt + '/visualizers';
+  }
+
   register();
-  TV.VisualizersView = { register, render, destroy };
+  TV.VisualizersView = { register, render, destroy, show };
 })();

@@ -70,6 +70,12 @@
     add('Project Tracks', 'Go to', '', `${here()}/project-tracks`, 'End-to-end builds', 'build');
     add('Cross-cloud comparison', 'Go to', 'Cross-cloud', `multi-cloud/home`, 'Equivalence matrix', 'compare');
     add('Design Challenges', 'Go to', 'Cross-cloud', `multi-cloud/design-challenges`, 'System-design drills', 'architecture');
+    add('Visualizers', 'Go to', '', `${here()}/visualizers`, 'Interactive conceptual visualizers', 'interactive diagram animation');
+    add('Architecture Studio', 'Go to', '', `${here()}/architecture-studio`, 'Free-form design canvas', 'design canvas diagram draw');
+
+    // Each registered visualizer, deep-linked to the Visualizers screen.
+    if (TV.Viz && TV.Viz.list) TV.Viz.list().forEach(v =>
+      add(v.title || v.id, 'Visualizer', CLOUDS[v.vendor] || (v.vendor === 'multi' ? 'Cross-cloud' : ''), `${here()}/visualizers`, v.subtitle || 'Interactive conceptual visualizer', (v.tags || []).join(' ') + ' visualizer'));
 
     INDEX = out;
     return out;

@@ -419,6 +419,13 @@ a.sd-cm-cert:hover { text-decoration:underline; }
 .sd-rel:hover { border-color:var(--brand); transform:translateY(-1px); text-decoration:none; }
 .sd-rel-name { font-size:13px; font-weight:700; color:var(--brand); }
 .sd-rel-tag { font-size:12px; color:var(--text-muted); line-height:1.5; }
+.sd-vizlinks { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:10px; }
+.sd-vizlink { display:flex; align-items:center; gap:11px; cursor:pointer; text-align:left; background:var(--bg-1); border:1px solid var(--border-subtle); border-radius:10px; padding:11px 13px; font:inherit; transition:border-color .12s, transform .12s; }
+.sd-vizlink:hover { border-color:var(--brand); transform:translateY(-1px); }
+.sd-vizlink-ic { flex:0 0 auto; width:28px; height:28px; border-radius:7px; background:#0ea5e9; color:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; }
+.sd-vizlink-txt { display:flex; flex-direction:column; gap:2px; min-width:0; }
+.sd-vizlink-txt b { font-size:13px; font-weight:700; color:var(--text-primary); }
+.sd-vizlink-txt span { font-size:11px; color:var(--text-muted); }
 </style>`;
   }
 
@@ -449,6 +456,30 @@ a.sd-cm-cert:hover { text-decoration:underline; }
         <p class="sd-lead">Other services in the same category — useful to study side by side.</p>
         <div class="sd-rels">${cards}</div>
       </section>`;
+  }
+
+  /* Map a service to relevant conceptual visualizers (by id, then category). */
+  const VIZ_BY_CATEGORY = {
+    storage: ['row-vs-columnar', 'storage-pruning', 'delta-transaction'],
+    'ingest-etl': ['pipeline-dag', 'spark-execution'],
+    streaming: ['streaming-windows', 'log-partitions'],
+    analytics: ['row-vs-columnar', 'storage-pruning'],
+    compute: ['spark-execution'],
+    databases: ['row-vs-columnar'],
+    orchestration: ['pipeline-dag'],
+  };
+  const VIZ_BY_ID = {
+    'delta-lake': ['delta-transaction', 'storage-pruning'],
+    spark: ['spark-execution'], 'fabric-spark': ['spark-execution'],
+    'structured-streaming': ['streaming-windows', 'log-partitions'],
+    'event-hubs': ['log-partitions'], kinesis: ['log-partitions'], 'kinesis-data-streams': ['log-partitions'],
+    'auto-loader': ['pipeline-dag'],
+  };
+  function relatedVizIds(svc) {
+    const avail = (TV.Viz && TV.Viz.list) ? TV.Viz.list().map(v => v.id) : [];
+    if (!avail.length) return [];
+    const ids = (VIZ_BY_ID[svc.id] || VIZ_BY_CATEGORY[svc.category] || []).filter(id => avail.indexOf(id) !== -1);
+    return ids.slice(0, 2);
   }
 
   const SLUG = s => String(s || '').toLowerCase().replace(/&amp;|&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
@@ -509,6 +540,33 @@ a.sd-cm-cert:hover { text-decoration:underline; }
       reviewBtn.querySelector('.sd-review-txt').textContent = now ? 'Reviewed' : 'Mark reviewed';
       if (TV.DS && TV.DS.toast) TV.DS.toast(now ? 'Marked as reviewed' : 'Review mark removed', { type: now ? 'success' : 'info' });
     });
+
+    // 2b) Related visualizers — deep-open the matching conceptual visualizer.
+    const vizIds = relatedVizIds(svc);
+    if (vizIds.length && TV.Viz) {
+      const chips = vizIds.map(id => {
+        const v = TV.Viz.get(id); if (!v) return '';
+        return `<button type="button" class="sd-vizlink" data-sd-viz="${id}">
+                  <span class="sd-vizlink-ic">▶</span>
+                  <span class="sd-vizlink-txt"><b>${esc(v.title)}</b><span>Interactive conceptual visualizer</span></span>
+                </button>`;
+      }).join('');
+      const sec = document.createElement('section');
+      sec.className = 'sd-section';
+      sec.setAttribute('data-accent', 'walk');
+      sec.setAttribute('data-sd-skip', '1');
+      sec.innerHTML = `<div class="sd-kicker">See it in motion</div>
+        <p class="sd-lead">Step through how this works as an interactive, conceptual visualizer.</p>
+        <div class="sd-vizlinks">${chips}</div>`;
+      // place just before the Related section if present, else at the end of wrap.
+      const relSec = [...wrap.querySelectorAll('.sd-section')].find(s => /Related in/.test((s.querySelector('.sd-kicker') || {}).textContent || ''));
+      if (relSec) wrap.insertBefore(sec, relSec); else wrap.appendChild(sec);
+      sec.querySelectorAll('[data-sd-viz]').forEach(b => b.addEventListener('click', () => {
+        const id = b.getAttribute('data-sd-viz');
+        if (TV.VisualizersView && TV.VisualizersView.show) TV.VisualizersView.show(id);
+        else location.hash = (TV.activeFormat || format) + '/visualizers';
+      }));
+    }
 
     // 3) Copy buttons on every code block.
     wrap.querySelectorAll('.sd-code').forEach(block => {
