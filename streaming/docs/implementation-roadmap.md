@@ -111,9 +111,17 @@ Hub (`#engines`) + 7 interactive tools, scenario-aware, routed via `#eng-*`.
 **Gate 6 exit:** hub + all 7 tools render & interact, both themes, scenario re-frames,
 **0 console errors, 0 404s** (Playwright). ✅ **Met — deployed.**
 
-## Gate 7 — Practice surfaces
-I66 Incident Lab engine · I67–I68 incidents · I69 System Design Lab · I70 Interview
-Master shell+port · I71–I72 question banks.
+## Gate 7 — Practice surfaces ✅
+| Iter | Deliverable | Status |
+|------|-------------|--------|
+| I66 | Incident Lab engine (`modules/incident.js`) — predict-then-reveal MCQ + root cause + recovery playbook | ✅ |
+| I67–I68 | 12 production incidents (`data/incidents.js`), scenario-aware, each linked to its concept | ✅ |
+| I69 | System Design Lab (`modules/sysdesign.js`) — 2 briefs, requirement-checked design evaluation | ✅ |
+| I70 | Interview Master shell (`modules/interview.js`) — category browse + reveal + senior-nuance toggle | ✅ |
+| I71–I72 | Question bank (`data/interview.js`) — 22 questions × 5 tracks + Rapid-fire mode | ✅ |
+
+**Gate 7 exit:** all three labs render & interact (MCQ scoring, design evaluation, reveal/rapid-fire),
+both themes, scenario re-frames, **0 console errors, 0 404s** (Playwright). ✅ **Met — deployed.**
 
 ## Gate 8 — Dashboard, search, paths, polish, release
 I73 dashboard · I74 search · I75 glossary · I76 paths · I77 multi-level explanations

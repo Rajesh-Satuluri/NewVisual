@@ -5,7 +5,7 @@ import { initScenarioSwitcher } from './components/scenario-switcher.js';
 import { markVisited } from './data/progress-store.js';
 import { isCloudModule, isCloudLanding } from './data/cloud-providers.js';
 
-const BUILD = '20261011g'; // cache-buster — bump on each deploy
+const BUILD = '20261011h'; // cache-buster — bump on each deploy
 const imp = (p) => import(`${p}?v=${BUILD}`);
 
 // Lazy loaders. 'home' has its own module; every other section uses the generic
@@ -14,6 +14,9 @@ const LOADERS = {
   home: () => imp('./modules/home.js'),
   foundations: () => imp('./modules/foundations.js'),
   engines: () => imp('./modules/engines.js'),
+  incident: () => imp('./modules/incident.js'),
+  sysdesign: () => imp('./modules/sysdesign.js'),
+  interview: () => imp('./modules/interview.js'),
   __section: () => imp('./modules/section.js'),
   __foundation: () => imp('./modules/foundation.js'),
   __cloud: () => imp('./modules/cloud.js'),
@@ -24,6 +27,9 @@ const LOADERS = {
 const isFoundationModule = (id) => /^f\d{2}$/.test(id);
 // Engine tool ids (Gate 6).
 const isEngineTool = (id) => /^eng-(graph|compare|trace|break|builder|decide|capacity)$/.test(id);
+// Practice-lab sub-routes (Gate 7).
+const isIncidentDrill = (id) => /^inc\d{2}$/.test(id);
+const isSysdesignBrief = (id) => /^sd-/.test(id);
 
 let cleanupFn = null;
 
@@ -52,6 +58,20 @@ async function route() {
     setActive('engines'); closeMobileNav(); window.scrollTo(0, 0);
     try { const mod = await LOADERS.engines(); cleanupFn = (await mod.mount(canvas, id)) || null; }
     catch (err) { canvas.innerHTML = `<div class="card"><h3>Could not load tool</h3><p style="color:var(--text2)">${String(err && err.message || err)}</p></div>`; console.error(err); }
+    return;
+  }
+
+  // Practice-lab sub-routes (incident drills, system-design briefs).
+  if (isIncidentDrill(id) || isSysdesignBrief(id)) {
+    if (typeof cleanupFn === 'function') { try { cleanupFn(); } catch (e) {} cleanupFn = null; }
+    const canvas = document.getElementById('module-canvas');
+    const crumb = document.getElementById('breadcrumb');
+    const parent = isIncidentDrill(id) ? 'incident' : 'sysdesign';
+    const label = parent === 'incident' ? 'Incident Lab' : 'System Design Lab';
+    if (crumb) crumb.innerHTML = `Practice &rsaquo; <a href="#${parent}">${label}</a> &rsaquo; <strong>Exercise</strong>`;
+    setActive(parent); closeMobileNav(); window.scrollTo(0, 0);
+    try { const mod = await LOADERS[parent](); cleanupFn = (await mod.mount(canvas, id)) || null; }
+    catch (err) { canvas.innerHTML = `<div class="card"><h3>Could not load exercise</h3><p style="color:var(--text2)">${String(err && err.message || err)}</p></div>`; console.error(err); }
     return;
   }
 
@@ -110,6 +130,15 @@ async function route() {
     } else if (resolvedId === 'engines') {
       mod = await LOADERS.engines();
       cleanupFn = (await mod.mount(canvas, 'engines')) || null;
+    } else if (resolvedId === 'incident') {
+      mod = await LOADERS.incident();
+      cleanupFn = (await mod.mount(canvas, 'incident')) || null;
+    } else if (resolvedId === 'sysdesign') {
+      mod = await LOADERS.sysdesign();
+      cleanupFn = (await mod.mount(canvas, 'sysdesign')) || null;
+    } else if (resolvedId === 'interview') {
+      mod = await LOADERS.interview();
+      cleanupFn = (await mod.mount(canvas)) || null;
     } else {
       mod = await LOADERS.__section();
       cleanupFn = mod.mount(canvas, resolvedId) || null;

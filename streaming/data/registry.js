@@ -33,15 +33,15 @@ export const SECTIONS = [
     breadcrumb: 'Build &rsaquo; <strong>⚙️ Compare & Engines</strong>',
     blurb: 'Comparison matrix, concept graph, Trace One Event, Break the Pipeline, Architecture Builder, Decision Engine, capacity calculator.' },
 
-  { id: 'incident', icon: '🚨', title: 'Incident Lab', group: 'Practice', status: 'soon', gate: 'Gate 7',
+  { id: 'incident', icon: '🚨', title: 'Incident Lab', group: 'Practice', status: 'live', gate: 'Gate 7',
     breadcrumb: 'Practice &rsaquo; <strong>🚨 Incident Lab</strong>',
     blurb: '15 production incidents — diagnose, decide, and learn the recovery playbook.' },
 
-  { id: 'sysdesign', icon: '📐', title: 'System Design Lab', group: 'Practice', status: 'soon', gate: 'Gate 7',
+  { id: 'sysdesign', icon: '📐', title: 'System Design Lab', group: 'Practice', status: 'live', gate: 'Gate 7',
     breadcrumb: 'Practice &rsaquo; <strong>📐 System Design Lab</strong>',
     blurb: 'Requirements → technology choices → evaluated feedback on your streaming designs.' },
 
-  { id: 'interview', icon: '🎯', title: 'Interview Master', group: 'Practice', status: 'soon', gate: 'Gate 7',
+  { id: 'interview', icon: '🎯', title: 'Interview Master', group: 'Practice', status: 'live', gate: 'Gate 7',
     breadcrumb: 'Practice &rsaquo; <strong>🎯 Interview Master</strong>',
     blurb: 'Hundreds of questions across fundamentals, Kafka, Flink, cloud, system design, and rapid-fire.' },
 
