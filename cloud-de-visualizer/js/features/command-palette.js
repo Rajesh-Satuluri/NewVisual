@@ -73,6 +73,9 @@
     add('Visualizers', 'Go to', '', `${here()}/visualizers`, 'Interactive conceptual visualizers', 'interactive diagram animation');
     add('Architecture Studio', 'Go to', '', `${here()}/architecture-studio`, 'Free-form design canvas', 'design canvas diagram draw');
 
+    // Action: (re)launch the guided product tour.
+    if (TV.Tour && TV.Tour.open) out.push({ title: 'Product tour', category: 'Go to', cloud: '', route: `${here()}/home`, action: () => TV.Tour.open(0), desc: 'Replay the guided walkthrough', kw: 'product tour guide walkthrough onboarding help intro' });
+
     // Each registered visualizer, deep-linked to the Visualizers screen.
     if (TV.Viz && TV.Viz.list) TV.Viz.list().forEach(v =>
       add(v.title || v.id, 'Visualizer', CLOUDS[v.vendor] || (v.vendor === 'multi' ? 'Cross-cloud' : ''), `${here()}/visualizers`, v.subtitle || 'Interactive conceptual visualizer', (v.tags || []).join(' ') + ' visualizer'));
@@ -152,6 +155,7 @@
     const it = rows[i]; if (!it) return;
     pushRecent(input.value.trim());
     close();
+    if (it.action && typeof it.action === 'function') { it.action(); return; }
     location.hash = it.route;
   }
 
