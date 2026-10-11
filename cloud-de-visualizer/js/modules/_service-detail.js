@@ -393,6 +393,32 @@ a.sd-cm-cert:hover { text-decoration:underline; }
 .sd-home-cta-txt span { font-size:13px; color:var(--text-secondary); line-height:1.5; }
 .sd-home-cta-btn { flex:0 0 auto; cursor:pointer; border:0; border-radius:9px; padding:10px 16px; font-size:13px; font-weight:700; color:#07171a; background:var(--brand); }
 .sd-home-cta-btn:hover { filter:brightness(1.08); }
+/* ── Iter F: in-page section navigator + checkpoint ───────── */
+.sd-nav { position:sticky; top:0; z-index:5; display:flex; align-items:center; gap:12px; margin:0 0 18px; padding:8px 0; background:linear-gradient(var(--bg-0) 72%, transparent); backdrop-filter:saturate(1.1) blur(2px); }
+.sd-nav-chips { display:flex; gap:7px; overflow-x:auto; flex:1; min-width:0; scrollbar-width:thin; padding-bottom:2px; }
+.sd-nav-chips::-webkit-scrollbar { height:5px; }
+.sd-nav-chips::-webkit-scrollbar-thumb { background:var(--border-default); border-radius:3px; }
+.sd-nav-chip { flex:0 0 auto; cursor:pointer; border:1px solid var(--border-default); background:var(--bg-2); color:var(--text-secondary); font:inherit; font-size:12px; font-weight:600; padding:5px 11px; border-radius:999px; white-space:nowrap; transition:color .12s, border-color .12s, background .12s; }
+.sd-nav-chip:hover { color:var(--text-primary); border-color:var(--brand); }
+.sd-nav-chip.is-active { color:#fff; background:var(--brand); border-color:var(--brand); }
+.sd-review { flex:0 0 auto; cursor:pointer; display:inline-flex; align-items:center; gap:6px; border:1px solid var(--border-default); background:var(--bg-2); color:var(--text-secondary); font:inherit; font-size:12px; font-weight:700; padding:5px 12px; border-radius:999px; transition:color .12s, border-color .12s, background .12s; }
+.sd-review:hover { color:var(--text-primary); border-color:var(--green,#10b981); }
+.sd-review .sd-review-tick { opacity:.35; font-weight:900; }
+.sd-review.is-done { color:#047857; border-color:color-mix(in srgb,#10b981 45%,transparent); background:color-mix(in srgb,#10b981 14%,transparent); }
+.sd-review.is-done .sd-review-tick { opacity:1; }
+:root[data-theme="dark"] .sd-review.is-done, :root:not([data-theme="light"]) .sd-review.is-done { color:#6ee7b7; }
+@media (max-width:620px){ .sd-review .sd-review-txt { display:none; } }
+/* copy button on code blocks */
+.sd-code { position:relative; }
+.sd-copy { position:absolute; top:6px; right:8px; cursor:pointer; border:1px solid var(--border-default); background:var(--bg-2); color:var(--text-muted); font:inherit; font-size:10px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; padding:3px 9px; border-radius:6px; opacity:.75; transition:opacity .12s, color .12s, border-color .12s; }
+.sd-code:hover .sd-copy { opacity:1; }
+.sd-copy:hover { color:var(--text-primary); border-color:var(--brand); }
+/* related services */
+.sd-rels { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:10px; }
+.sd-rel { display:flex; flex-direction:column; gap:3px; text-decoration:none; background:var(--bg-1); border:1px solid var(--border-subtle); border-radius:9px; padding:10px 13px; transition:border-color .12s, transform .12s; }
+.sd-rel:hover { border-color:var(--brand); transform:translateY(-1px); text-decoration:none; }
+.sd-rel-name { font-size:13px; font-weight:700; color:var(--brand); }
+.sd-rel-tag { font-size:12px; color:var(--text-muted); line-height:1.5; }
 </style>`;
   }
 
@@ -405,6 +431,111 @@ a.sd-cm-cert:hover { text-decoration:underline; }
       .map(id => ({ id, label: (CATEGORIES[id] || {}).label || id, icon: (CATEGORIES[id] || {}).icon || 'layers',
                     order: (CATEGORIES[id] || {}).order || 999, items: byCat[id] }))
       .sort((a, b) => a.order - b.order);
+  }
+
+  /* Related services: same-category siblings (additive; links only). */
+  function relatedHTML(format, svc) {
+    const list = (TV._services && TV._services[format]) || [];
+    const sibs = list.filter(s => s.category === svc.category && s.id !== svc.id);
+    if (!sibs.length) return '';
+    const cards = sibs.map(s =>
+      `<a class="sd-rel" href="#${format}/${s.id}">
+         <span class="sd-rel-name">${esc(s.name)}</span>
+         <span class="sd-rel-tag">${esc(s.tagline || '')}</span>
+       </a>`).join('');
+    return `
+      <section class="sd-section" data-accent="link" data-sd-skip="1">
+        <div class="sd-kicker">Related in ${esc((CATEGORIES[svc.category] || {}).label || svc.category || 'this category')}</div>
+        <p class="sd-lead">Other services in the same category — useful to study side by side.</p>
+        <div class="sd-rels">${cards}</div>
+      </section>`;
+  }
+
+  const SLUG = s => String(s || '').toLowerCase().replace(/&amp;|&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  const REVIEW_KEY = 'cde-sd-reviewed';
+  function reviewedSet() { try { return JSON.parse(TV.ls.get(REVIEW_KEY) || '{}') || {}; } catch (e) { return {}; } }
+
+  /* Post-render enhancements (all additive, all wired):
+     section navigator with scroll-spy, copy-code buttons, review checkpoint. */
+  function enhanceDetail(container, format, svc) {
+    const scroller = container.querySelector('.sd');
+    const wrap = container.querySelector('.sd-wrap');
+    if (!scroller || !wrap) return;
+
+    // 1) Collect navigable sections in document order; give each a stable id.
+    const secs = [...wrap.querySelectorAll('.sd-intu, .sd-section')].filter(el => !el.hasAttribute('data-sd-skip'));
+    const entries = secs.map((el, i) => {
+      const kick = el.querySelector('.sd-kicker, .sd-intu-head');
+      let label = kick ? kick.textContent.trim() : ('Section ' + (i + 1));
+      label = label.replace(/^💡\s*/, '').replace(/\s*—.*$/, '');
+      el.id = el.id || ('sd-sec-' + (SLUG(label) || i));
+      return { el, label, id: el.id };
+    });
+
+    // 2) Build the navigator + checkpoint bar.
+    const reviewed = !!reviewedSet()[svc.id];
+    const nav = document.createElement('div');
+    nav.className = 'sd-nav';
+    nav.innerHTML =
+      `<div class="sd-nav-chips" role="navigation" aria-label="On this page">` +
+        entries.map(e => `<button type="button" class="sd-nav-chip" data-sd-to="${e.id}">${esc(e.label)}</button>`).join('') +
+      `</div>` +
+      `<button type="button" class="sd-review ${reviewed ? 'is-done' : ''}" aria-pressed="${reviewed}">` +
+        `<span class="sd-review-tick">✓</span><span class="sd-review-txt">${reviewed ? 'Reviewed' : 'Mark reviewed'}</span>` +
+      `</button>`;
+    const anchor = wrap.querySelector('.sd-verified') || wrap.querySelector('.sd-tagline') || wrap.firstElementChild;
+    if (anchor && anchor.nextSibling) wrap.insertBefore(nav, anchor.nextSibling);
+    else wrap.insertBefore(nav, wrap.children[1] || null);
+
+    // Jump to a section (account for sticky nav height within the scroller).
+    nav.querySelectorAll('.sd-nav-chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const el = document.getElementById(btn.getAttribute('data-sd-to'));
+        if (!el) return;
+        const top = el.offsetTop - (nav.offsetHeight + 16);
+        scroller.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+      });
+    });
+
+    // Review checkpoint — genuine, user-driven, persisted per service.
+    const reviewBtn = nav.querySelector('.sd-review');
+    reviewBtn.addEventListener('click', () => {
+      const set = reviewedSet();
+      const now = !set[svc.id];
+      if (now) set[svc.id] = Date.now(); else delete set[svc.id];
+      TV.ls.set(REVIEW_KEY, JSON.stringify(set));
+      reviewBtn.classList.toggle('is-done', now);
+      reviewBtn.setAttribute('aria-pressed', String(now));
+      reviewBtn.querySelector('.sd-review-txt').textContent = now ? 'Reviewed' : 'Mark reviewed';
+      if (TV.DS && TV.DS.toast) TV.DS.toast(now ? 'Marked as reviewed' : 'Review mark removed', { type: now ? 'success' : 'info' });
+    });
+
+    // 3) Copy buttons on every code block.
+    wrap.querySelectorAll('.sd-code').forEach(block => {
+      const pre = block.querySelector('pre');
+      if (!pre || block.querySelector('.sd-copy')) return;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'sd-copy';
+      btn.setAttribute('aria-label', 'Copy code');
+      btn.textContent = 'Copy';
+      block.appendChild(btn);
+      if (TV.DS && TV.DS.wireCopy) TV.DS.wireCopy(btn, () => pre.textContent);
+      else btn.addEventListener('click', () => { try { navigator.clipboard.writeText(pre.textContent); btn.textContent = 'Copied'; setTimeout(() => btn.textContent = 'Copy', 1200); } catch (e) {} });
+    });
+
+    // 4) Scroll-spy: highlight the active chip as sections pass the top.
+    if (entries.length) {
+      const chips = [...nav.querySelectorAll('.sd-nav-chip')];
+      const spy = () => {
+        const line = scroller.scrollTop + nav.offsetHeight + 24;
+        let active = 0;
+        entries.forEach((e, i) => { if (e.el.offsetTop <= line) active = i; });
+        chips.forEach((c, i) => c.classList.toggle('is-active', i === active));
+      };
+      scroller.addEventListener('scroll', spy, { passive: true });
+      spy();
+    }
   }
 
   /* ── Detail page for one service ─────────────────────────── */
@@ -443,6 +574,7 @@ a.sd-cm-cert:hover { text-decoration:underline; }
     ${sectionHTML('Cost model', 'cost', svc.cost)}
     ${interviewHTML(svc.interview)}
     ${certMappingHTML(svc.certMapping)}
+    ${relatedHTML(format, svc)}
   </div>
 </div>`;
     // Wire interview accordions
@@ -453,6 +585,8 @@ a.sd-cm-cert:hover { text-decoration:underline; }
         btn.setAttribute('aria-expanded', String(open));
       });
     });
+    // Additive UX layer: section navigator, copy-code, review checkpoint.
+    try { enhanceDetail(container, format, svc); } catch (e) { /* non-fatal */ }
   }
 
   /* ── Overview / home page for a format ───────────────────── */
