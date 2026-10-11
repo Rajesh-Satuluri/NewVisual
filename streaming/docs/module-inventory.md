@@ -144,3 +144,117 @@ verbatim) unless the manifest explicitly upgrades it to ADAPTED/EXPANDED.
 - **Zero** modules are flagged for removal or reduction. Every surface maps to a
   PRESERVED (or, where the manifest upgrades it, ADAPTED/EXPANDED) entry.
 - **Next:** I02 appends the Flink half (m01–m19 + m13b, pages, data) to this file.
+
+---
+
+# Flink app — inventory (I02)
+
+> **Source commit audited:** `flink/` at current `claude/pensive-ramanujan-alwe61` HEAD.
+> Same hashing convention (first 12 hex of `sha256sum`).
+
+## 6. Flink app — architecture facts (context for the port)
+
+- **Modules:** 20 learning modules — `m01`–`m19` plus **`m13b` Savepoints**
+  (inserted between Fault Tolerance and Backpressure without renumbering). Each is
+  built via `createModuleShell` and carries an **Interview Q&A** section.
+- **Narrative spine:** every module is threaded through the canonical ride
+  **`R-4471`** (Uber real-time platform) via `components/story-ui.js`
+  (`rideSpine`, `rideCallout`, `pyCode`, `scenarioCard`) and `data/ride-story.js`.
+  In the new lab this is **Scenario A (Uber mobility)**; **Scenario B (E-commerce)**
+  is added alongside (I26).
+- **Code snippets:** verified **PyFlink** in `data/pyflink-snippets.js` (+ a `.py`
+  mirror). Technical-accuracy anchor for the Flink curriculum.
+- **Pages:** `home`, `learning-path`, `comparison`, `master-map`, `glossary`,
+  `cheatsheet`, `study`.
+
+> ⚠️ **On-disk filename drift (critical for the port).** After the Phase-5 label
+> realignment, several *files* kept historical names while their *content* moved.
+> The **nav label is the source of truth**; the port must carry content by label,
+> not by filename. The table's "File (on disk)" column records the drift so nothing
+> is mis-mapped. This drift is logged again in `content-preservation-manifest.json`.
+
+## 7. Flink learning modules (nav order)
+
+Legend — **Big-idea**: the module's one-line hook string (not its label);
+**canvas**: animated-simulator sites; **IQ**: interview Q&A count.
+
+| # | Label (nav — source of truth) | File (on disk) | Big-idea hook | Bytes | Canvas | IQ | sha256:12 |
+|---|-------------------------------|----------------|---------------|------:|:------:|:--:|-----------|
+| 1 | Why Apache Flink | `m01-intro.js` | "True Low Latency" | 22,029 | 0 | 6 | `1e657beb2df2` |
+| 2 | Streaming Fundamentals | `m02-streaming-fundamentals.js` | "Streaming Fundamentals" | 30,194 | 3 | 5 | `6450b133a4d0` |
+| 3 | Flink Architecture | `m03-architecture.js` | "Distribute the compute" | 49,658 | 0 | 19 | `85675f9e59ca` |
+| 4 | Job Lifecycle | `m04-job-lifecycle.js` | "Compile code to a plan" | 24,249 | 0 | 3 | `eb5b4da592e7` |
+| 5 | Parallelism | `m05-parallelism.js` | "Scale throughput" | 23,606 | 0 | 4 | `d9ee54c40665` |
+| 6 | Operators | `m06-data-flow.js` ⚠️drift | "Reshape every record" | 25,407 | 0 | 4 | `04e691d37ce3` |
+| 7 | Sources & Sinks | `m07-operators.js` ⚠️drift | "Bridge two worlds" | 30,203 | 1 | 3 | `1ac5b3112a06` |
+| 8 | Time Concepts | `m08-time-concepts.js` | "Time Concepts in Flink" | 26,238 | 0 | 7 | `9ac0b80cafaf` |
+| 9 | Watermarks | `m09-watermarks.js` | "Events arrive out of order" | 27,367 | 0 | 4 | `8f4e580a2d14` |
+| 10 | Windows | `m10-windows.js` | "Bound the unbounded" | 25,656 | 0 | 5 | `63febf72e7f7` |
+| 11 | State Management | `m11-state-management.js` | "Counting & aggregating" | 26,543 | 0 | 5 | `ed53196a4b20` |
+| 12 | Checkpointing | `m12-checkpointing.js` | "State lives in memory" | 28,673 | 4 | 5 | `691df988619c` |
+| 13 | Fault Tolerance | `m13-savepoints.js` ⚠️drift | "Hardware will fail" | 26,861 | 0 | 4 | `4eab3a1ee81a` |
+| 13b | **Savepoints** | `m13b-savepoints.js` | "Savepoints" | 16,875 | 0 | 5 | `44413e3b98c9` |
+| 14 | Backpressure | `m14-fault-tolerance.js` ⚠️drift | "Match speeds automatically" | 27,295 | 2 | 4 | `7bef4dee3a13` |
+| 15 | Flink SQL & Table API | `m15-backpressure.js` ⚠️drift | "Say what, not how" | 27,796 | 0 | 3 | `540658846265` |
+| 16 | Connectors | `m16-connectors.js` | "Flink stores nothing" | 23,757 | 0 | 3 | `24b844da829f` |
+| 17 | Flink SQL (Advanced) | `m17-flink-sql.js` | "Detect sequences" | 21,857 | 0 | 3 | `95a8129ff6a6` |
+| 18 | Performance | `m18-performance.js` | "Set parallelism per operator" | 26,934 | 0 | 2 | `23ded0f5b237` |
+| 19 | Uber Pipeline (capstone) | `m19-uber-pipeline.js` | — | 21,185 | 0 | 3 | `76922a7fb36a` |
+
+> **Drift map (label → on-disk file):** Operators→`m06-data-flow.js`;
+> Sources & Sinks→`m07-operators.js`; Fault Tolerance→`m13-savepoints.js`;
+> Backpressure→`m14-fault-tolerance.js`; Flink SQL & Table API→`m15-backpressure.js`.
+> All other labels match their filename stem.
+>
+> **Canvas note:** Flink modules lean on structural diagrams and PyFlink code
+> walkthroughs rather than canvas animation (6 of 20 use canvas). As with Kafka,
+> these explanatory UIs are PRESERVED, not "upgraded"; new simulators are additive.
+
+## 8. Flink pages
+
+| Route | File | Bytes | sha256:12 | Preservation note |
+|-------|------|------:|-----------|-------------------|
+| home | `modules/home.js` | 7,594 | `07666953eb8f` | Re-shelled under new home (I14) |
+| learning-path | `modules/learning-path.js` | 24,568 | `b84659cd2b69` | Feeds learning paths (I76) |
+| comparison | `modules/comparison.js` | 7,969 | `dfa34b3301cb` | Feeds comparison engine (I60) |
+| master-map | `modules/master-map.js` | 4,059 | `ab2ef18a6025` | Feeds concept graph (I59) |
+| glossary | `modules/glossary.js` | 7,518 | `040e0530e2e7` | Folds into global glossary (I75) |
+| cheatsheet | `modules/cheatsheet.js` | 4,487 | `deea080dca4c` | Preserve under Flink section |
+| study | `modules/study.js` | 6,732 | `c7d2143c0546` | Study hub — preserve |
+
+## 9. Flink data modules (preserve verbatim)
+
+| File | Bytes | sha256:12 | Role |
+|------|------:|-----------|------|
+| `data/ride-story.js` | 14,475 | `b7ad124b1afd` | Canonical ride R-4471 spine + CONCEPT_INDEX |
+| `data/pyflink-snippets.js` | 18,026 | `fe8d07e791e2` | Verified PyFlink code (accuracy anchor) |
+| `data/pyflink-snippets.py` | 19,058 | *(mirror)* | `.py` mirror of the snippets |
+| `data/interview-cases.js` | 27,232 | `1a98cb831417` | Interview scenario catalogue |
+| `data/iq-bank.js` | 5,728 | `34ba5053c42d` | Per-module interview Q&A |
+| `data/quiz-bank.js` | 2,887 | `64586d6ffa4d` | Quiz questions |
+
+## 10. Flink components (evaluated for the shared layer in I04/I08)
+
+| File | Bytes | Role |
+|------|------:|------|
+| `components/module-shell.js` | 2,364 | `createModuleShell`/`initTabs` (⚠️ diverged from Kafka's — see component-inventory) |
+| `components/nav.js` | 8,532 | Sidebar nav (20-module tree + reference) |
+| `components/story-ui.js` | 6,595 | Ride-spine story primitives (Flink-unique) |
+| `components/quiz.js` | 4,381 | Quiz renderer |
+| `components/command-palette.js` | 3,726 | ⌘K palette |
+| `components/tour.js` | 4,111 | First-visit tour |
+| `components/toast.js` | 930 | Toast notifications |
+| `components/pager.js` | 1,220 | Prev/next pager |
+
+---
+
+## 11. Combined audit totals (Kafka + Flink)
+
+- **Learning modules:** 22 (Kafka) + 20 (Flink) = **42**.
+- **Pages:** 10 (Kafka) + 7 (Flink) = **17**.
+- **Data banks:** 9 (Kafka) + 6 (Flink) = **15**.
+- **Simulation/code assets:** Kafka `sim/engine.js` (+test); Flink PyFlink snippets (+`.py`).
+- **Zero** surfaces flagged for removal or reduction across both apps.
+- **5** Flink modules carry on-disk filename drift (label ≠ filename) — mapped above.
+- **Next:** I03 writes `content-preservation-manifest.json` with full (not truncated)
+  sha256 hashes and PRESERVED/ADAPTED/EXPANDED/NEW tags for every file above.

@@ -1,0 +1,497 @@
+{
+  "schema": "streaming-preservation-manifest/v1",
+  "generated": "2026-10-11",
+  "iteration": "I03",
+  "convention": "Every source file in kafka/ and flink/ with full sha256. tag=PRESERVED means port must reproduce byte-equivalent educational content; ADAPTED=re-shelled/re-skinned, content intact; EXPANDED=content added; NEW=did not exist in source.",
+  "default_tag": "PRESERVED",
+  "kafka": {
+    "entry": [
+      {
+        "path": "kafka/index.html",
+        "bytes": 4388,
+        "sha256": "6067562d6f944dbbfe23455bad27cc8db1e4d02e59e7f2b7193862bd51c63afb"
+      },
+      {
+        "path": "kafka/script.js",
+        "bytes": 11353,
+        "sha256": "060cb83bd7327188c9a55ddd9992cfdd64061655c58b201064b6d40f45dff9e6"
+      },
+      {
+        "path": "kafka/styles.css",
+        "bytes": 20395,
+        "sha256": "e9203a73a3f994a21dba11960fee08eb8cc205df3c0db64a837a5a2cd65fbbc6"
+      },
+      {
+        "path": "kafka/enhancements.css",
+        "bytes": 38388,
+        "sha256": "bfad593b724395dee8bccb366296789d941c9e508f5631752b2069b5495a6e51"
+      }
+    ],
+    "modules": [
+      {
+        "path": "modules/answers.js",
+        "bytes": 2215,
+        "sha256": "d5ab64e9e22b667c7e001f3c576741dfcf15120f2c2b719114dc054f8c5dbf1d"
+      },
+      {
+        "path": "modules/cheatsheet.js",
+        "bytes": 5807,
+        "sha256": "40b77619b2f29b32b0ddaafc1a14a09fddcedebafaabc1770469fc8cfac2f14c"
+      },
+      {
+        "path": "modules/decisions.js",
+        "bytes": 3865,
+        "sha256": "0ab7c1a260c06152584ceb87fca2b4216e849f84ae7510ae733bef98b5992764"
+      },
+      {
+        "path": "modules/glossary.js",
+        "bytes": 13155,
+        "sha256": "a91239d5b45ef8f0d4f90b7ad7f872a48a9699971f820928173b67c057353032"
+      },
+      {
+        "path": "modules/home.js",
+        "bytes": 7743,
+        "sha256": "10400e5a1edf241041ed9a33d01448b2c87ed029321ca3ff5b47c561dd95012e"
+      },
+      {
+        "path": "modules/incident-bank.js",
+        "bytes": 3365,
+        "sha256": "e0ee02ac5ef5c3d421d9fdf514eee892f1a6ec65097a1246a8ec4e1b4a1131ca"
+      },
+      {
+        "path": "modules/m01-intro.js",
+        "bytes": 18574,
+        "sha256": "5763e85d2ae1c2afd70100e63c32417b6267c889525ee7ec29a05c80710ce143"
+      },
+      {
+        "path": "modules/m02-messaging.js",
+        "bytes": 57361,
+        "sha256": "56854ec0640775f72f34a247fb7eb09e42740877e480d8a20b7ebde47a5512f8"
+      },
+      {
+        "path": "modules/m03-architecture.js",
+        "bytes": 35306,
+        "sha256": "ee609eab1b9f417df20453465f4af00713600e1d84270577d35e4de8aa952f3c"
+      },
+      {
+        "path": "modules/m04-producer.js",
+        "bytes": 20074,
+        "sha256": "d5999547318d46eeee1318cc44c8a21adcd199ff5262797a66a514690564ca16"
+      },
+      {
+        "path": "modules/m05-broker.js",
+        "bytes": 22514,
+        "sha256": "1439267703dbaf3dc09645d51ed925ab93b6619a5125374e6e83fe16e400e700"
+      },
+      {
+        "path": "modules/m06-partitions.js",
+        "bytes": 21279,
+        "sha256": "a16c35ff0e1806671a49295a794b1f481943c802f8aefa9ecf2f1653f4cc390e"
+      },
+      {
+        "path": "modules/m07-replication.js",
+        "bytes": 24593,
+        "sha256": "907422831b2bbaef2149422aa2d7c44d833c072ce1374782a1fe1dfe970ae638"
+      },
+      {
+        "path": "modules/m08-consumer-groups.js",
+        "bytes": 20929,
+        "sha256": "2e139361329f27a2c0e3def4b319026a9e8b9d5b98b2f9b17135f3c2be613e6a"
+      },
+      {
+        "path": "modules/m09-offsets.js",
+        "bytes": 20781,
+        "sha256": "8c9fc053f5f5ea708058474aafaf9748e7b001c82778d9b4a317e50e95232b8d"
+      },
+      {
+        "path": "modules/m10-retention.js",
+        "bytes": 26830,
+        "sha256": "ea9a519a83f9c1345d6f984d049dc225af50f2b25c77bc58706164ecf7c1b215"
+      },
+      {
+        "path": "modules/m11-delivery.js",
+        "bytes": 30401,
+        "sha256": "0cf35cc6a7c16cbd1e2eb8dabde3baf401d008cc7783fc8416f3242ab21b32af"
+      },
+      {
+        "path": "modules/m12-connect.js",
+        "bytes": 10391,
+        "sha256": "7ba0f2758c47a8f0fba1361c0f66814ce36052f49bd0201ccc7a2d80c0fc0d7e"
+      },
+      {
+        "path": "modules/m13-streams.js",
+        "bytes": 12439,
+        "sha256": "538b0e1912ae4632787c739f076fefe131f84d53904cf1ae5225576bc3341c44"
+      },
+      {
+        "path": "modules/m14-schema-registry.js",
+        "bytes": 14776,
+        "sha256": "554d6c91039abab89e9b0eabcdcaf376b904e97b2160d1fa35e778e54d04baa5"
+      },
+      {
+        "path": "modules/m15-security.js",
+        "bytes": 17255,
+        "sha256": "ab4b86bbb144b4d95c624a4992f75894303a506c01603f63cedd34c730727f40"
+      },
+      {
+        "path": "modules/m16-monitoring.js",
+        "bytes": 12857,
+        "sha256": "fca5e6c683b9e4257736fbbd1fe5c8de92089a292c4ea181c020095cf3abecb7"
+      },
+      {
+        "path": "modules/m17-performance.js",
+        "bytes": 12085,
+        "sha256": "11589ea65f1d5063ec933558e5143c980778d4aa97dde965d29c595e9b2028bb"
+      },
+      {
+        "path": "modules/m18-failure.js",
+        "bytes": 13670,
+        "sha256": "658d9087229c201351778eb228fb007eba1a1da1341c0ca822290afa9d52ea6e"
+      },
+      {
+        "path": "modules/m19-amazon-pipeline.js",
+        "bytes": 13526,
+        "sha256": "2a19d4be2f963223fea2326d9f075d268c78332db76ed1e14b1e73caff3c6656"
+      },
+      {
+        "path": "modules/m20-competitors.js",
+        "bytes": 15723,
+        "sha256": "49c38bcf47930b8391988f5aaa313c377c6f762ec0b5bedc63877783b02aa952"
+      },
+      {
+        "path": "modules/m21-mirrormaker.js",
+        "bytes": 17726,
+        "sha256": "03c42b628940556d0c3b6d8f77728eae46d0e0feec22fa05e064549e8067def4"
+      },
+      {
+        "path": "modules/m22-partition-reassignment.js",
+        "bytes": 16782,
+        "sha256": "08356e610fae6df9cb2d7a5aeab72f0c82e6af076acaf5638a1f418ddfc48c29"
+      },
+      {
+        "path": "modules/master-map.js",
+        "bytes": 4820,
+        "sha256": "0b80c5639aae8ef54830b49ed5d622ec55b9542665d49d7c7e68216feb97a947"
+      },
+      {
+        "path": "modules/playground.js",
+        "bytes": 14340,
+        "sha256": "021731f1b41ea9d0c1fc98085f12309e9350d87962e68772656cc3935aa262d0"
+      },
+      {
+        "path": "modules/study.js",
+        "bytes": 4984,
+        "sha256": "16ce59f14231ae0de03314bdc52179bbfae9adcca80cac2b0e5093c5dcf7a3b9"
+      },
+      {
+        "path": "modules/troubleshoot.js",
+        "bytes": 3948,
+        "sha256": "088433d2266d1a98e06cdf08076dbb05ed3c442be8a48c55adb7fc4305e6ec58"
+      }
+    ],
+    "data": [
+      {
+        "path": "data/arch-nodes.js",
+        "bytes": 9436,
+        "sha256": "6274871c1808f00d61d314eccae655262ed5e3a21cd6c157cce9b088e8e9df43"
+      },
+      {
+        "path": "data/decisions.js",
+        "bytes": 13980,
+        "sha256": "8dffed5016e826eeafac3b98a74bec19144d2e92e10edca0feee0e9517300e00"
+      },
+      {
+        "path": "data/incidents.js",
+        "bytes": 20005,
+        "sha256": "f4c6149b553475208864c774a3ebc55525bb9319381df12b99c200c6bf6f0e91"
+      },
+      {
+        "path": "data/iq-aggregate.js",
+        "bytes": 2384,
+        "sha256": "13de85f29d50edf462ddd8172d4709a046037958fa899e610a9858e6e1548ea3"
+      },
+      {
+        "path": "data/iq-bank.js",
+        "bytes": 11015,
+        "sha256": "876c4a7c4cf95c3fcaae1f11562265b6ea24e0beaf69bcada1ce60aeb3ae38c4"
+      },
+      {
+        "path": "data/progress-store.js",
+        "bytes": 1917,
+        "sha256": "1ef27e0ea92d49cf3aa1812efe65acb48fbb1e9d0f8189f7b14c0b32c7513e9d"
+      },
+      {
+        "path": "data/quiz-bank.js",
+        "bytes": 5373,
+        "sha256": "ffa3f469bedef3fe7a482add0f1a049bafc45c3409acee7bac8c4e0fc377d739"
+      },
+      {
+        "path": "data/self-explain.js",
+        "bytes": 4138,
+        "sha256": "9ea1a7751acae71c38c046e587eb7843fe1d527bd228643e17aed863d4a9d7df"
+      },
+      {
+        "path": "data/tiered.js",
+        "bytes": 8945,
+        "sha256": "b1430ba160cb54d529f37e063a99c8e73ffaa01a82938a73c9389a7161c330af"
+      }
+    ],
+    "sim": [
+      {
+        "path": "sim/PRESERVATION.md",
+        "bytes": 4213,
+        "sha256": "c921f37f6917b743c0427649f1f93d23421695533606490f607a3aafdb4a10b9"
+      },
+      {
+        "path": "sim/engine.js",
+        "bytes": 8469,
+        "sha256": "2b32d2af573ec864d7c43d6f47a76ce5f81eb36a39003783021f156f577ec86f"
+      },
+      {
+        "path": "sim/engine.test.mjs",
+        "bytes": 6050,
+        "sha256": "09bd7697f64a27af33de3aaf5fb5e40e86d3dc1ace013efa30df598699749c4b"
+      }
+    ]
+  },
+  "flink": {
+    "entry": [
+      {
+        "path": "flink/index.html",
+        "bytes": 4130,
+        "sha256": "87c4cd4985e0885e7dabdcf791609cc9a5c52c5f639b582a076ff27b5e3641fe"
+      },
+      {
+        "path": "flink/script.js",
+        "bytes": 14131,
+        "sha256": "1f31e71dc82c140144f744c9ba15ef16c484eb5a678d325ce52180e9bc127caf"
+      },
+      {
+        "path": "flink/styles.css",
+        "bytes": 49672,
+        "sha256": "e9ef40f7b1366c06a4831f4c65bd70fba47574b2e61f057787d49869e5f56476"
+      },
+      {
+        "path": "flink/enhancements.css",
+        "bytes": 34990,
+        "sha256": "fcd2b13dcc12909a53fa827267b147cd6d941ec3fa4a72c8ba874e56622d3cbb"
+      }
+    ],
+    "modules": [
+      {
+        "path": "modules/cheatsheet.js",
+        "bytes": 4487,
+        "sha256": "deea080dca4c495eef2f426422a24b02d57f94450ecf9a834d677bea4570aee2"
+      },
+      {
+        "path": "modules/comparison.js",
+        "bytes": 7969,
+        "sha256": "dfa34b3301cb859bc938a7d3d92935f7a548306bc6c302748e053fd36b4b3fb7"
+      },
+      {
+        "path": "modules/glossary.js",
+        "bytes": 7518,
+        "sha256": "040e0530e2e729e8f871132f855976aeb269ed019bd28b40cf92b3bfee704a6b"
+      },
+      {
+        "path": "modules/home.js",
+        "bytes": 7594,
+        "sha256": "07666953eb8f5b98508354e5347979ac7128cca4062cb0748e804d4b36cde5de"
+      },
+      {
+        "path": "modules/learning-path.js",
+        "bytes": 24568,
+        "sha256": "b84659cd2b69a28f1a7624631762d877f82193095d8ae6194816f8b15c641c77"
+      },
+      {
+        "path": "modules/m01-intro.js",
+        "bytes": 22029,
+        "sha256": "1e657beb2df27f9d6c7f0b2f98a101c3c75f8e462b2c8009a914ee02c96a74e4"
+      },
+      {
+        "path": "modules/m02-streaming-fundamentals.js",
+        "bytes": 30194,
+        "sha256": "6450b133a4d017564e40880136d87cd85e257cf345e0460c184f88e4fd16d0ec"
+      },
+      {
+        "path": "modules/m03-architecture.js",
+        "bytes": 49658,
+        "sha256": "85675f9e59cac087463af289d9e6150b92221596752a1b951175a01c81fd0e60"
+      },
+      {
+        "path": "modules/m04-job-lifecycle.js",
+        "bytes": 24249,
+        "sha256": "eb5b4da592e70376cb93a92a0b3f9d4095a6bed7b46467eb121229848b41f00c"
+      },
+      {
+        "path": "modules/m05-parallelism.js",
+        "bytes": 23606,
+        "sha256": "d9ee54c406653c43da938a14d51bb29ce67145c556c8f149fa60ac5c5b145abd"
+      },
+      {
+        "path": "modules/m06-data-flow.js",
+        "bytes": 25407,
+        "sha256": "04e691d37ce314dbd21045d6123558fc422fcea488a3d0615045b60763e32c87"
+      },
+      {
+        "path": "modules/m07-operators.js",
+        "bytes": 30203,
+        "sha256": "1ac5b3112a0645c3d16022abf112bf67ee02cb656e96f0fa3fd4b0f57a7bf2cc"
+      },
+      {
+        "path": "modules/m08-time-concepts.js",
+        "bytes": 26238,
+        "sha256": "9ac0b80cafaf09b9283a4e895a60b07d28b1d8d1c5999f34b997079b17c0caea"
+      },
+      {
+        "path": "modules/m09-watermarks.js",
+        "bytes": 27367,
+        "sha256": "8f4e580a2d1438ca4e071a8658ef63e57666a7f5b252479e3d1c681b45031a02"
+      },
+      {
+        "path": "modules/m10-windows.js",
+        "bytes": 25656,
+        "sha256": "63febf72e7f79c88c7f366533a9ec0a048106fb5c120fd46ee263fe278bbd551"
+      },
+      {
+        "path": "modules/m11-state-management.js",
+        "bytes": 26543,
+        "sha256": "ed53196a4b20e8d602210859c49060aa15777c0c4d8c10f9882a513dce04577d"
+      },
+      {
+        "path": "modules/m12-checkpointing.js",
+        "bytes": 28673,
+        "sha256": "691df988619cda78ed036c77b369fde2c9aab311e18805d2710d86a218ed8a77"
+      },
+      {
+        "path": "modules/m13-savepoints.js",
+        "bytes": 26861,
+        "sha256": "4eab3a1ee81a71be06ffadfb47ac291a70e16083d3144afba09caf47b8b529dc"
+      },
+      {
+        "path": "modules/m13b-savepoints.js",
+        "bytes": 16875,
+        "sha256": "44413e3b98c96e7bf63e6950177f78c42562b873ea204f95d23b0276c73294be"
+      },
+      {
+        "path": "modules/m14-fault-tolerance.js",
+        "bytes": 27295,
+        "sha256": "7bef4dee3a13cf93afd6c0b3b96b29e447c19af724347cdd808b3dbce1e01890"
+      },
+      {
+        "path": "modules/m15-backpressure.js",
+        "bytes": 27796,
+        "sha256": "540658846265c681d08dff94154d11dd530d1cee8eb328800b195b9f108e7ac7"
+      },
+      {
+        "path": "modules/m16-connectors.js",
+        "bytes": 23757,
+        "sha256": "24b844da829fa95e28d99af3d4e97260eddb2631b262f77a303687ed74880494"
+      },
+      {
+        "path": "modules/m17-flink-sql.js",
+        "bytes": 21857,
+        "sha256": "95a8129ff6a65a934f0466ab2977fda3d659d8284c7a1b0dd2f581ea8367c59a"
+      },
+      {
+        "path": "modules/m18-performance.js",
+        "bytes": 26934,
+        "sha256": "23ded0f5b2375db11ecf7fb6f440c562160f45d8817bb8fc201bdf84b28a4344"
+      },
+      {
+        "path": "modules/m19-uber-pipeline.js",
+        "bytes": 21185,
+        "sha256": "76922a7fb36a52fc9ba5907f3936c1d22e4fc0e1ab8393f9e577161fa7347ed7"
+      },
+      {
+        "path": "modules/master-map.js",
+        "bytes": 4059,
+        "sha256": "ab2ef18a6025a76b5a8596818fdadd2ba06095b670fc98d40b94f31b6432fcea"
+      },
+      {
+        "path": "modules/study.js",
+        "bytes": 6732,
+        "sha256": "c7d2143c0546b399ce0e748b82f344094fb4fea6d8e6e3a9b1c200c4a1b979c4"
+      }
+    ],
+    "data": [
+      {
+        "path": "data/interview-cases.js",
+        "bytes": 27232,
+        "sha256": "1a98cb83141741f36c55269a650c27d8fc0c987e00af3ed85c9fa7eda1438673"
+      },
+      {
+        "path": "data/iq-bank.js",
+        "bytes": 5728,
+        "sha256": "34ba5053c42db23a34f679861f82c15631529671bc82bb128c4f21b0a3faa282"
+      },
+      {
+        "path": "data/pyflink-snippets.js",
+        "bytes": 18026,
+        "sha256": "fe8d07e791e27d50cca3f41b981e0a9da23ffdaa294913ab2770bd0f7af570da"
+      },
+      {
+        "path": "data/pyflink-snippets.py",
+        "bytes": 19058,
+        "sha256": "575dbdd7830f72e878a06d20a52d94da7972280629d03b6469d4cc8b3cdbade3"
+      },
+      {
+        "path": "data/quiz-bank.js",
+        "bytes": 2887,
+        "sha256": "64586d6ffa4d1e692f410fb9ea92e7ec38ebc6167aa22fa4f7b4ea5d442628df"
+      },
+      {
+        "path": "data/ride-story.js",
+        "bytes": 14475,
+        "sha256": "b7ad124b1afda208e32308460fca29ff829659c8c1067efdedbb1a1694324792"
+      }
+    ],
+    "components": [
+      {
+        "path": "components/command-palette.js",
+        "bytes": 3726,
+        "sha256": "cbd7deb19105b8aaa9d7a194ab29016868df62f7f631f48ffa35c54230a35802"
+      },
+      {
+        "path": "components/module-shell.js",
+        "bytes": 2364,
+        "sha256": "17efa2d197bac9e06072084b9d5877202723741bf9dd5b9acde8569eed467e91"
+      },
+      {
+        "path": "components/nav.js",
+        "bytes": 8532,
+        "sha256": "f7484fd8fdd4971aa61b3557968d8261d07ab211956e30e4bb630232775dc39c"
+      },
+      {
+        "path": "components/pager.js",
+        "bytes": 1220,
+        "sha256": "afd98cd51f6dc1e656c1d8d81dfc77d7700eb87531a879756fe02c9e3e374356"
+      },
+      {
+        "path": "components/quiz.js",
+        "bytes": 4381,
+        "sha256": "4e23e445adf06df3351bdb61ef4938b57bb3b280102baf8f2a928a93d24654df"
+      },
+      {
+        "path": "components/story-ui.js",
+        "bytes": 6595,
+        "sha256": "fa6bbdb291e83567d4e0345418a084f7c23f115485ffe591e47d981b2fb98b3b"
+      },
+      {
+        "path": "components/toast.js",
+        "bytes": 930,
+        "sha256": "8de30fad7f009260f1b5a019440e741bd069847ce9d2c6f46cf98dcbf617b1df"
+      },
+      {
+        "path": "components/tour.js",
+        "bytes": 4111,
+        "sha256": "1eab88a5940982dbb356a81fbb3b493fba320f61ae5e64ca2e401e96131cf8da"
+      }
+    ]
+  },
+  "totals": {
+    "kafka_files": 48,
+    "flink_files": 45,
+    "total": 93
+  }
+}
