@@ -1885,12 +1885,24 @@
 
   // ---- Focus mode: strip the page to Problem / Examples / Solution only.
   // Global focus persists (pref); local focus is transient (cleared on nav).
+  // It only makes sense on a problem page that actually HAS those sections —
+  // on Home / Learn / dashboards etc. it must stay off (else the view blanks).
+  function focusViewOk() {
+    var main = el("main");
+    return !!(main &&
+      main.querySelector('.prob-section[data-key="description"]') &&
+      main.querySelector('.prob-section[data-key="code"]'));
+  }
   function applyFocus() {
     var g = !!store.getPref("focus");
-    document.body.classList.toggle("focus-global", g);
-    document.body.classList.toggle("focus-on", g || !!state.focusLocal);
+    var ok = focusViewOk();
+    document.body.classList.toggle("focus-global", g && ok);
+    document.body.classList.toggle("focus-on", ok && (g || !!state.focusLocal));
     var gb = el("focusGlobalBtn");
-    if (gb) gb.setAttribute("aria-pressed", g ? "true" : "false");
+    if (gb) {
+      gb.setAttribute("aria-pressed", g ? "true" : "false");
+      gb.style.display = ok ? "" : "none"; // hide the toggle off the problem view
+    }
   }
 
   // Set the shell "chrome" (state, body attrs, switch highlights) WITHOUT
