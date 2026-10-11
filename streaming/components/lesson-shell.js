@@ -43,6 +43,27 @@ export const twoCol = (a, b) => `<div class="grid cols-2">${a}${b}</div>`;
 export const codeBlock = (lang, code) =>
   `<div class="lx-code"><div class="lx-code-lang">${lang}</div><pre><code>${escapeHtml(code)}</code></pre></div>`;
 
+// Interview Q&A — collapsible questions (native <details>, no JS needed).
+export const iqSection = (items) => `
+  <div class="lx-iq">
+    <div class="lx-kp-h" style="margin-bottom:10px">Interview questions — click to reveal the model answer</div>
+    ${items.map((it, i) => `
+      <details class="lx-qa">
+        <summary><span class="lx-qa-n">Q${i + 1}</span>${it.q}</summary>
+        <div class="lx-qa-a">${it.a}</div>
+      </details>`).join('')}
+  </div>`;
+
+// Simple labelled flow/diagram row (nodes with arrows between).
+export const flowDiagram = (nodes) =>
+  `<div class="lx-flow">${nodes.map((n, i) =>
+    `<span class="lx-flow-node">${n}</span>${i < nodes.length - 1 ? '<span class="lx-flow-arrow">→</span>' : ''}`).join('')}</div>`;
+
+// Comparison table from headers + rows.
+export const compareTable = (headers, rows) =>
+  `<div class="lx-table-wrap"><table class="lx-table"><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+   <tbody>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+
 function escapeHtml(s) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }

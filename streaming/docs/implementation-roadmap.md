@@ -83,6 +83,12 @@ switch re-frames content, both themes, **0 console errors, 0 404s** (Playwright)
   themes, 0 errors/404s. **Deployed.**
 - **5c Databricks:** I51 accuracy · I52–I57 modules · I58 case studies.
 
+> **Depth upgrade (post-5b):** AWS (20) and Azure (21) modules deepened from single-tab
+> prose to the full **4-tab** structure — Concept · Mechanics (diagrams/tables/code) ·
+> In-your-scenario deep-dive · Interview Q&A (collapsible) — matching the Kafka/Flink bar.
+> Added reusable `iqSection`/`compareTable`/`flowDiagram` helpers. Databricks (5c) will be
+> authored to this depth from the start.
+
 ## Gate 6 — Cross-cutting engines
 I59 concept graph · I60 comparison · I61 Trace One Event · I62 Break the Pipeline
 · I63 Architecture Builder · I64 Decision Engine · I65 capacity calculator.
