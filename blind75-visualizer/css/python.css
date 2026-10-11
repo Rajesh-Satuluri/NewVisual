@@ -700,15 +700,8 @@ body:not([data-ws="python"]) #pyProgress { display: none !important; }
 .focus-global .focus-local-btn { display: none !important; }
 
 /* --- the focus layout itself --- */
-/* Full-width reading column. On desktop collapse the sidebar's grid track to 0
-   (it clips via overflow:hidden) rather than display:none, so the hamburger can
-   still pop it open to jump to another problem. On mobile the sidebar is already
-   an off-canvas drawer, so nothing extra is needed there. */
-@media (min-width: 901px) {
-  .focus-on .shell { grid-template-columns: 0 1fr; }
-  .focus-on .sidebar { border-right-color: transparent; }
-  .focus-on .sidebar-resizer { display: none !important; }
-}
+/* The sidebar stays put in focus mode so you can traverse problems; focus only
+   strips the problem CONTENT down to Description / Examples / Solution. */
 
 /* Declutter the topbar right-side tools (keep palette + more-menu + focus). */
 .focus-on #rosettaBtn,
