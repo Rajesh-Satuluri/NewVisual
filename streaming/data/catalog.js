@@ -5,6 +5,7 @@ import { getProvider, CLOUD_PROVIDER_IDS } from './cloud-providers.js';
 import { INCIDENTS } from './incidents.js';
 import { QUESTIONS } from './interview.js';
 import { GLOSSARY } from './glossary.js';
+import { KAFKA_LESSONS, FLINK_LESSONS } from './ported-lessons.js';
 
 const ENGINE_TOOLS = [
   ['eng-graph', 'Concept graph'], ['eng-compare', 'Comparison matrix'], ['eng-trace', 'Trace One Event'],
@@ -25,6 +26,9 @@ export async function buildCatalog() {
   INCIDENTS.forEach(i => items.push({ id: i.id, title: i.title, sub: i.severity + ' production incident', kind: 'Incident', section: 'incident' }));
   QUESTIONS.forEach(q => items.push({ id: 'interview', title: q.q, sub: 'Interview question', kind: 'Interview', section: 'interview' }));
   GLOSSARY.forEach(g => items.push({ id: g.see || 'glossary', title: g.term, sub: g.short, kind: 'Glossary', section: 'glossary' }));
+  // Ported sub-apps (Phase 1): deep-link into the Kafka/Flink SPAs at their own hash routes.
+  KAFKA_LESSONS.forEach(m => items.push({ id: m.id, title: m.title, sub: 'Kafka lesson', kw: m.kw, kind: 'Kafka', section: 'kafka', url: `kafka/#${m.id}` }));
+  FLINK_LESSONS.forEach(m => items.push({ id: m.id, title: m.title, sub: 'Flink lesson', kw: m.kw, kind: 'Flink', section: 'flink', url: `flink/#${m.id}` }));
   _cache = items;
   return items;
 }

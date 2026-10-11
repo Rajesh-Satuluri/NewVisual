@@ -27,12 +27,13 @@ export async function mount(container) {
     out.innerHTML = `<div style="color:var(--text3);font-size:13px;margin-bottom:8px">${hits.length} result${hits.length === 1 ? '' : 's'}</div>
       <div style="display:flex;flex-direction:column;gap:8px">
       ${hits.map(({ it }) => `
-        <div class="card" data-go="${it.id}" style="cursor:pointer;display:flex;gap:10px;align-items:flex-start">
+        <div class="card" ${it.url ? `data-url="${it.url}"` : `data-go="${it.id}"`} style="cursor:pointer;display:flex;gap:10px;align-items:flex-start">
           <span class="pill soon" style="flex-shrink:0">${it.kind}</span>
           <div><div style="font-weight:600">${hl(it.title, t)}</div>
             <div style="font-size:13px;color:var(--text2);margin-top:2px">${hl(it.sub || '', t)}</div></div>
         </div>`).join('')}</div>`;
     out.querySelectorAll('[data-go]').forEach(el => el.addEventListener('click', () => { location.hash = '#' + el.dataset.go; }));
+    out.querySelectorAll('[data-url]').forEach(el => el.addEventListener('click', () => { window.location.href = el.dataset.url; }));
   }
   input.addEventListener('input', () => run(input.value));
   run('');
@@ -40,13 +41,15 @@ export async function mount(container) {
 }
 
 function score(it, t) {
-  const title = (it.title || '').toLowerCase(), sub = (it.sub || '').toLowerCase(), kind = (it.kind || '').toLowerCase();
+  const title = (it.title || '').toLowerCase(), sub = (it.sub || '').toLowerCase(),
+        kind = (it.kind || '').toLowerCase(), kw = (it.kw || '').toLowerCase();
   let s = 0;
   if (title === t) s += 100;
   if (title.startsWith(t)) s += 40;
   if (title.includes(t)) s += 25;
   if (sub.includes(t)) s += 10;
   if (kind.includes(t)) s += 5;
+  if (kw.includes(t)) s += 18; // concept keywords (e.g. "consumer lag" → Offsets)
   return s;
 }
 function hl(text, t) {

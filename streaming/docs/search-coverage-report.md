@@ -1,7 +1,8 @@
 # Search Coverage Report
 
-> Phase 0 baseline (pre-Phase-1). Regenerated for real as `buildCatalog()` grows.
-> Verified against `data/catalog.js`.
+> Updated Phase 1 (2026-10-11). Verified by
+> `node scripts/verify-search-coverage.mjs` → **ALL SEARCH COVERAGE OK ✅**
+> (137 items indexed excl. async cloud providers; +68 cloud at runtime).
 
 ## Indexed today (`buildCatalog()` sources)
 
@@ -14,20 +15,31 @@
 | Interview questions (22) | ✅ |
 | Glossary (41) | ✅ |
 
-## NOT indexed → Phase 1 gap
+## Phase 1 — CLOSED ✅
 
-| Source | Status |
+Kafka (26 incl. tools) and Flink (22 incl. tools) lessons are now indexed via
+`data/ported-lessons.js` and deep-link into the ported SPAs at their own hash
+routes (`kafka/#m08`, `flink/#m13b`, …). Each carries concept keywords (`kw`) so
+interview-style queries resolve to the right lesson.
+
+| Source | Indexed? | Deep-link |
+|---|---|---|
+| Kafka lessons (22 modules + 4 tools) | ✅ | `kafka/#<id>` |
+| Flink lessons (20 modules + 2 tools) | ✅ | `flink/#<id>` |
+
+### Verified query resolution (automated)
+
+| Query | Resolves to |
 |---|---|
-| **Kafka lessons (22)** | ❌ not in catalog |
-| **Flink lessons (20)** | ❌ not in catalog |
+| consumer lag | Glossary term (exact) ✓ |
+| watermarks | Foundations lesson (exact) ✓ |
+| rebalancing | Kafka › Consumer Groups ✓ |
+| schema evolution | Kafka › Schema Registry ✓ |
+| partition reassignment | Kafka › Partition Reassignment ✓ |
+| savepoints | Flink › Savepoints ✓ |
+| backpressure | Flink › Backpressure ✓ |
+| checkpoint barriers | Flink › Checkpointing ✓ |
 
-This fails Definition-of-Done item *"Global search covers every course."*
-Phase 1 adds Kafka + Flink lesson entries (title, subtitle, deep-link into the
-ported app) so a search for e.g. "consumer lag", "rebalancing", "savepoints"
-opens the correct ported lesson. A coverage assertion will verify every intended
-section contributes ≥1 indexed item.
-
-## Target after Phase 1
-
-All Learn courses (Foundations, Kafka, Flink, AWS, Azure, Databricks,
-Comparisons) + Incidents + Interview + Glossary represented in the index.
+**DoD item "Global search covers every course" — met.** Every Learn course
+(Foundations, Kafka, Flink, AWS, Azure, Databricks, Comparisons) plus Incidents,
+Interview, and Glossary is represented in the index.
