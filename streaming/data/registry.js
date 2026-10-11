@@ -21,7 +21,7 @@ export const SECTIONS = [
     breadcrumb: 'Cloud &rsaquo; <strong>☁️ AWS</strong>',
     blurb: 'Kinesis, MSK, Managed Service for Apache Flink, Firehose — validated against official AWS docs.' },
 
-  { id: 'azure', icon: '🔷', title: 'Cloud · Azure', group: 'Cloud', status: 'soon', gate: 'Gate 5b',
+  { id: 'azure', icon: '🔷', title: 'Cloud · Azure', group: 'Cloud', status: 'live', gate: 'Gate 5b',
     breadcrumb: 'Cloud &rsaquo; <strong>🔷 Azure</strong>',
     blurb: 'Event Hubs, Stream Analytics — partitions, consumer groups, capture, windowing.' },
 

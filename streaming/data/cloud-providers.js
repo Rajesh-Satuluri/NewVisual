@@ -2,7 +2,7 @@
 // Extended in Gate 5b (azure) and 5c (databricks).
 const LOADERS = {
   aws: () => import('./aws.js').then(m => m.AWS),
-  // azure: () => import('./azure.js').then(m => m.AZURE),      // Gate 5b
+  azure: () => import('./azure.js').then(m => m.AZURE),
   // databricks: () => import('./databricks.js').then(m => m.DATABRICKS), // Gate 5c
 };
 

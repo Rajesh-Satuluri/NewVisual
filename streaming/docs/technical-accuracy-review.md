@@ -93,5 +93,19 @@ Sources: Kinesis Data Streams FAQs; streams/latest/dev key-concepts & kinesis-ex
 MSK FAQs & kinesis-vs-msk compare page; Firehose FAQs & create-configure docs; Lambda
 services-kinesis-parameters & API_CreateEventSourceMapping.
 
-### Azure — pending (validate at I44)
+### Azure (validated I44, 2026-10-11, against learn.microsoft.com / azure.microsoft.com)
+- **Event Hubs partitions:** max **32** (Basic/Standard), **100** (Premium), **1,024** (Dedicated);
+  set at creation, **cannot be decreased** after. [event-hubs-quotas / scalability]
+- **Throughput Unit (Standard):** ingress up to **1 MB/s or 1,000 events/s**; egress up to
+  **2 MB/s or 4,096 events/s**; up to **40 TU per namespace**, shared; **Auto-inflate** scales TUs.
+- **Premium = Processing Units (PU)**; **Dedicated = Capacity Units (CU)**.
+- **Consumer groups:** Standard **20** per event hub (Basic 1, Premium 100, Dedicated 1,000).
+- **Retention:** default/min **1 hour**; Standard max **7 days**; Premium/Dedicated max **90 days**.
+- **Protocols:** native **Apache Kafka**, AMQP 1.0, HTTPS. **Event Hubs Capture** writes to Blob
+  Storage or ADLS (Standard+).
+- **Checkpointing:** Event Processor stores checkpoints in a Blob container (analog of KCL/DynamoDB).
+- **Azure Stream Analytics windows:** **tumbling, hopping, sliding, session, snapshot** (5 types);
+  output timestamp via `System.Timestamp()`; scale via **Streaming Units (SU)**; SAQL (SQL-like).
+Sources: event-hubs-quotas, event-hubs-scalability, event-hubs-features, stream-analytics-window-functions.
+
 ### Databricks — pending (validate at I51)

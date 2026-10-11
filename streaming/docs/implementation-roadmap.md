@@ -77,7 +77,10 @@ switch re-frames content, both themes, **0 console errors, 0 404s** (Playwright)
   Reusable cloud-module system (`data/cloud-providers.js`, `modules/cloud.js`,
   `modules/cloud-module.js`) built here, reused for 5b/5c. Exit: 20 modules render, scenario
   re-frames, both themes, 0 errors/404s. **Deployed.**
-- **5b Azure:** I44 accuracy · I45–I49 modules · I50 case studies. *(next)*
+- **5b Azure ✅** — I44 accuracy pass (Event Hubs partitions/TU/retention/consumer-groups, Kafka
+  protocol, Capture, Stream Analytics 5 window types — validated vs Microsoft Learn, logged §5) ·
+  I45–I49 **21 modules** · I50 e2e architecture. Exit: 21 modules render, scenario re-frames, both
+  themes, 0 errors/404s. **Deployed.**
 - **5c Databricks:** I51 accuracy · I52–I57 modules · I58 case studies.
 
 ## Gate 6 — Cross-cutting engines
