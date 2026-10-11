@@ -96,9 +96,20 @@ switch re-frames content, both themes, **0 console errors, 0 404s** (Playwright)
 > Added reusable `iqSection`/`compareTable`/`flowDiagram` helpers. Databricks (5c) will be
 > authored to this depth from the start.
 
-## Gate 6 — Cross-cutting engines
-I59 concept graph · I60 comparison · I61 Trace One Event · I62 Break the Pipeline
-· I63 Architecture Builder · I64 Decision Engine · I65 capacity calculator.
+## Gate 6 — Cross-cutting engines ✅
+Hub (`#engines`) + 7 interactive tools, scenario-aware, routed via `#eng-*`.
+| Iter | Deliverable | Status |
+|------|-------------|--------|
+| I59 | Concept graph — clickable canvas graph of 12 concepts + edges, jump-to-module | ✅ |
+| I60 | Comparison matrix — Kafka/Flink/Kinesis/Event Hubs/Databricks on 9 dimensions + Q&A (exactly-once stated carefully) | ✅ |
+| I61 | Trace One Event — step a scenario event through the pipeline stage-by-stage | ✅ |
+| I62 | Break the Pipeline — 6 faults, predict-then-reveal symptom + fix | ✅ |
+| I63 | Architecture Builder — source/processor/sink + requirements, conflict-checked | ✅ |
+| I64 | Decision Engine — 4-question guided technology recommendation with rationale | ✅ |
+| I65 | Capacity calculator — throughput/storage/partitions with every assumption shown | ✅ |
+
+**Gate 6 exit:** hub + all 7 tools render & interact, both themes, scenario re-frames,
+**0 console errors, 0 404s** (Playwright). ✅ **Met — deployed.**
 
 ## Gate 7 — Practice surfaces
 I66 Incident Lab engine · I67–I68 incidents · I69 System Design Lab · I70 Interview

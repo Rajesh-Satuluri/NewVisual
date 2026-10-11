@@ -29,7 +29,7 @@ export const SECTIONS = [
     breadcrumb: 'Cloud &rsaquo; <strong>🧮 Databricks</strong>',
     blurb: 'Structured Streaming, Auto Loader, Delta Lake, Lakeflow Declarative Pipelines (DLT), the medallion architecture — validated against official Databricks docs.' },
 
-  { id: 'engines', icon: '⚙️', title: 'Compare & Engines', group: 'Build', status: 'soon', gate: 'Gate 6',
+  { id: 'engines', icon: '⚙️', title: 'Compare & Engines', group: 'Build', status: 'live', gate: 'Gate 6',
     breadcrumb: 'Build &rsaquo; <strong>⚙️ Compare & Engines</strong>',
     blurb: 'Comparison matrix, concept graph, Trace One Event, Break the Pipeline, Architecture Builder, Decision Engine, capacity calculator.' },
 
