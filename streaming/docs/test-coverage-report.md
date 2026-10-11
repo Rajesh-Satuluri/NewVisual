@@ -20,7 +20,13 @@
 - **Phase 2:** progress-aggregation test (ported `kafka-*`/`flink-*` keys surface in
   dashboard; export/import round-trip).
 - **Phase 3:** each system-design brief renders, scores, shows reference solution.
-- **Phase 4:** per-bank count assertion (no padding), timed-round + review-incorrect flows.
+- **Phase 4 — DONE:** 145 distinct questions across 8 banks (0 duplicate texts,
+  verified). Current/target per bank: fund 22/50, kafka 21/50, flink 20/50,
+  aws 16/40, azure 16/40, databricks 16/40, design 16/30, trouble 18/30. The
+  in-app coverage panel shows these honestly; banks keep growing. Module modes
+  verified in-browser: track filter, Rapid-fire, Timed round (live timer),
+  self-assessment → Review-missed, Mark-for-revision (persisted sml-revise),
+  0 errors.
 - **Phase 5:** incident diagnostic-action flow (evidence changes before reveal).
 - **Phase 7:** scenario A↔B switch assertions (see scenario-integration-plan).
 - **Phase 8:** routing (deep links, refresh, back/forward, invalid), a11y

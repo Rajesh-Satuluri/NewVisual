@@ -99,7 +99,7 @@ export async function mount(container) {
   // ── Export / import of browser-local progress ──────────────────────────────
   // Covers the lab's own sml-* keys plus the ported apps' completion arrays, so a
   // learner can back up or move their whole progress across devices.
-  const PROGRESS_KEYS = ['sml-done', 'sml-visited', 'sml-scenario', 'sml-theme', 'kafka-done', 'flink_done'];
+  const PROGRESS_KEYS = ['sml-done', 'sml-visited', 'sml-scenario', 'sml-theme', 'sml-revise', 'kafka-done', 'flink_done'];
   container.querySelector('#dash-export')?.addEventListener('click', () => {
     const data = {};
     for (const k of PROGRESS_KEYS) { try { const v = localStorage.getItem(k); if (v != null) data[k] = v; } catch (e) {} }
