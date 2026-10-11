@@ -123,10 +123,23 @@ Hub (`#engines`) + 7 interactive tools, scenario-aware, routed via `#eng-*`.
 **Gate 7 exit:** all three labs render & interact (MCQ scoring, design evaluation, reveal/rapid-fire),
 both themes, scenario re-frames, **0 console errors, 0 404s** (Playwright). ✅ **Met — deployed.**
 
-## Gate 8 — Dashboard, search, paths, polish, release
-I73 dashboard · I74 search · I75 glossary · I76 paths · I77 multi-level explanations
-· I78 a11y/responsive · I79 performance · I80 full regression · I81 landing-page card
-+ verified production deploy.
+## Gate 8 — Dashboard, search, paths, polish, release ✅
+| Iter | Deliverable | Status |
+|------|-------------|--------|
+| I73 | Dashboard (`modules/dashboard.js`) — progress ring, per-track mastery meters, weak spots, recommended next | ✅ |
+| I74 | Search (`modules/search.js`) — scored client-side search over the unified catalog (`data/catalog.js`) | ✅ |
+| I75 | Glossary (`modules/glossary.js`, `data/glossary.js`) — 40 terms, filter, jump-to-concept | ✅ |
+| I76 | Learning paths (`modules/paths.js`, `data/paths.js`) — 6 curated routes with completion tracking | ✅ |
+| I77 | Multi-level explanations — glossary plain/practitioner toggle + interview senior-nuance | ✅ |
+| I78 | A11y & responsive — :focus-visible, reduced-motion, mobile control stacking, canvas max-width | ✅ |
+| I79 | Performance — all sections lazy-loaded via `import()`; catalog built lazily & cached; no framework/build step | ✅ |
+| I80 | Full regression — 32 routes × 2 themes (64 renders) + Gate 8 interactions, 0 errors/404s (Playwright) | ✅ |
+| I81 | Root landing-page card (additive) + verified production deploy | ✅ |
+
+**Gate 8 exit:** dashboard/search/glossary/paths live and wired into nav; multi-level explanations;
+a11y pass; full regression clean. ✅ **Met — deployed.**
+
+## 🎉 Build complete — all 81 iterations across 8 gates shipped.
 
 ## Totals
 **81 iterations across 8 gates.** Gate-by-gate approval; each iteration leaves a
@@ -138,4 +151,8 @@ working tree and never touches the 7 protected tools.
 - **Full product:** after Gate 8 (I81 adds the root landing-page card + verified deploy).
 
 ## Current position
-Gate 1 complete (I01–I05). **Next: Gate 2, starting at I06** — on explicit "go".
+**All 8 gates complete (I01–I81).** The Streaming Engineering Master Lab is fully built and deployed:
+Foundations (15), Kafka (22) + Flink (20) preserved byte-identical, AWS (20) + Azure (21) + Databricks (27),
+7 cross-cutting engines, Incident Lab (12), System Design Lab (2 briefs), Interview Master (22 Q × 5 tracks),
+Dashboard, Search, Glossary (40 terms), and 6 Learning Paths — all framed by two permanent scenarios, every
+cloud fact validated against official docs, with zero impact on the 7 pre-existing tools.

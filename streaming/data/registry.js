@@ -45,9 +45,21 @@ export const SECTIONS = [
     breadcrumb: 'Practice &rsaquo; <strong>🎯 Interview Master</strong>',
     blurb: 'Hundreds of questions across fundamentals, Kafka, Flink, cloud, system design, and rapid-fire.' },
 
-  { id: 'dashboard', icon: '📊', title: 'Dashboard', group: 'You', status: 'soon', gate: 'Gate 8',
+  { id: 'dashboard', icon: '📊', title: 'Dashboard', group: 'You', status: 'live', gate: 'Gate 8',
     breadcrumb: 'You &rsaquo; <strong>📊 Dashboard</strong>',
     blurb: 'Your progress, mastery, weak concepts, and a recommended next step.' },
+
+  { id: 'paths', icon: '🧭', title: 'Learning paths', group: 'You', status: 'live', gate: 'Gate 8',
+    breadcrumb: 'You &rsaquo; <strong>🧭 Learning paths</strong>',
+    blurb: 'Curated routes through the lab for a specific goal — beginner, cloud tour, interview prep, on-call.' },
+
+  { id: 'glossary', icon: '📖', title: 'Glossary', group: 'You', status: 'live', gate: 'Gate 8',
+    breadcrumb: 'You &rsaquo; <strong>📖 Glossary</strong>',
+    blurb: 'Every streaming term at two depths — plain-language and practitioner-level.' },
+
+  { id: 'search', icon: '🔍', title: 'Search', group: 'You', status: 'live', gate: 'Gate 8',
+    breadcrumb: 'You &rsaquo; <strong>🔍 Search</strong>',
+    blurb: 'Find any module, tool, incident, question, or term across the lab.' },
 ];
 
 // The 12 primary sections that count toward the top-level progress ring.

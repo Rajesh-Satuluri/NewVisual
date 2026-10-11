@@ -5,7 +5,7 @@ import { initScenarioSwitcher } from './components/scenario-switcher.js';
 import { markVisited } from './data/progress-store.js';
 import { isCloudModule, isCloudLanding } from './data/cloud-providers.js';
 
-const BUILD = '20261011h'; // cache-buster — bump on each deploy
+const BUILD = '20261011i'; // cache-buster — bump on each deploy
 const imp = (p) => import(`${p}?v=${BUILD}`);
 
 // Lazy loaders. 'home' has its own module; every other section uses the generic
@@ -17,6 +17,10 @@ const LOADERS = {
   incident: () => imp('./modules/incident.js'),
   sysdesign: () => imp('./modules/sysdesign.js'),
   interview: () => imp('./modules/interview.js'),
+  dashboard: () => imp('./modules/dashboard.js'),
+  search: () => imp('./modules/search.js'),
+  glossary: () => imp('./modules/glossary.js'),
+  paths: () => imp('./modules/paths.js'),
   __section: () => imp('./modules/section.js'),
   __foundation: () => imp('./modules/foundation.js'),
   __cloud: () => imp('./modules/cloud.js'),
@@ -138,6 +142,18 @@ async function route() {
       cleanupFn = (await mod.mount(canvas, 'sysdesign')) || null;
     } else if (resolvedId === 'interview') {
       mod = await LOADERS.interview();
+      cleanupFn = (await mod.mount(canvas)) || null;
+    } else if (resolvedId === 'dashboard') {
+      mod = await LOADERS.dashboard();
+      cleanupFn = (await mod.mount(canvas)) || null;
+    } else if (resolvedId === 'search') {
+      mod = await LOADERS.search();
+      cleanupFn = (await mod.mount(canvas)) || null;
+    } else if (resolvedId === 'glossary') {
+      mod = await LOADERS.glossary();
+      cleanupFn = (await mod.mount(canvas)) || null;
+    } else if (resolvedId === 'paths') {
+      mod = await LOADERS.paths();
       cleanupFn = (await mod.mount(canvas)) || null;
     } else {
       mod = await LOADERS.__section();

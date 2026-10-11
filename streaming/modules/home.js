@@ -13,13 +13,15 @@ export function mount(container) {
          AWS, Azure, and Databricks — taught interactively through two real business scenarios.</p>
       <div class="cta-row">
         <button class="btn primary" data-go="foundations">🧱 Start with Foundations</button>
-        <a class="btn" href="kafka/">📨 Explore Kafka</a>
-        <a class="btn" href="flink/">🌀 Explore Flink</a>
+        <button class="btn" data-go="paths">🧭 Learning paths</button>
+        <button class="btn" data-go="dashboard">📊 Your dashboard</button>
+        <button class="btn" data-go="search">🔍 Search</button>
       </div>
       <div class="roadmap-note">
-        <b>Template preview.</b> This is the live shell — navigation, theming, and the global
-        scenario switcher all work. Learning content is ported and built gate by gate; each
-        section shows what is coming and when.
+        <b>Fully built.</b> 125+ interactive modules — Foundations, Kafka & Flink (100% preserved),
+        AWS · Azure · Databricks, cross-cutting engines, incident & system-design labs, interview
+        prep, and a glossary — all framed by two real scenarios. Every cloud fact is validated
+        against official docs.
       </div>
     </section>
 

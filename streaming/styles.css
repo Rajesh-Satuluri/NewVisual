@@ -293,3 +293,22 @@ ul.clean li { margin: 6px 0; color: var(--text2); font-size: 14px; }
 .lx-table th, .lx-table td { border: 1px solid var(--border); padding: 9px 12px; text-align: left; vertical-align: top; }
 .lx-table th { background: var(--bg3); color: var(--text); font-weight: 700; }
 .lx-table td { color: var(--text2); }
+
+/* ── Gate 8 — accessibility & polish (I78) ───────────────────── */
+:focus-visible {
+  outline: 2px solid var(--accent2);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+.nav-item:focus-visible { outline-offset: -2px; }
+a { color: var(--accent2); }
+mark { background: var(--accent-lo); color: var(--accent2); }
+canvas { max-width: 100%; }
+.sim-controls select, .sim-controls input[type="search"] { color: var(--text); }
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+}
+@media (max-width: 560px) {
+  .page-title { font-size: 22px; }
+  .sim-controls { flex-direction: column; align-items: stretch; }
+}
