@@ -408,6 +408,10 @@
         <div id="xformat-jump" class="xformat-jump" aria-label="Same topic in other formats" hidden></div>
       </div>
       <div class="topbar-right">
+        <button id="cmdk-trigger" class="btn-icon cmdk-trigger" title="Search (Ctrl/Cmd+K)" data-tooltip="Search  Ctrl/Cmd+K" aria-label="Open search" onclick="window.TableViz&&TableViz.CommandPalette&&TableViz.CommandPalette.open()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="16" height="16" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+          <kbd class="cmdk-trigger-kbd">⌘K</kbd>
+        </button>
         <button id="quiz-toggle" class="btn-icon" title="Test yourself on this cloud" data-tooltip="Test yourself" aria-label="Test yourself on this cloud" hidden>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="16" height="16" aria-hidden="true">
             <path d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
@@ -654,6 +658,7 @@
 <script src="js/app.js"></script>
 
 <!-- Features (decoupled; wire via app:navigate + DOM) -->
+<script src="js/features/command-palette.js"></script>
 <script src="js/features/quiz.js"></script>
 <script src="js/features/incident-sim.js"></script>
 
