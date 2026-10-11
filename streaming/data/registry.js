@@ -5,7 +5,7 @@
 export const SECTIONS = [
   { id: 'home', icon: '🏠', title: 'Home', group: null, status: 'live', breadcrumb: '<strong>🏠 Home</strong>' },
 
-  { id: 'foundations', icon: '🧱', title: 'Foundations', group: 'Learn', status: 'soon', gate: 'Gate 4',
+  { id: 'foundations', icon: '🧱', title: 'Foundations', group: 'Learn', status: 'live', gate: 'Gate 4',
     breadcrumb: 'Learn &rsaquo; <strong>🧱 Foundations</strong>',
     blurb: 'Streaming from first principles — events, partitions, time, watermarks, windows, state, checkpoints, delivery guarantees, backpressure, observability.' },
 

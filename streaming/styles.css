@@ -214,3 +214,60 @@ ul.clean li { margin: 6px 0; color: var(--text2); font-size: 14px; }
   .grid.cols-4 { grid-template-columns: repeat(2, 1fr); }
   .grid.cols-3 { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ── Lesson shell (Foundations, Cloud) ───────────────────────── */
+.lx-tabs { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+.lx-tab {
+  padding: 10px 16px; font-size: 13.5px; font-weight: 600; cursor: pointer;
+  background: transparent; border: none; color: var(--text2);
+  border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all .15s;
+}
+.lx-tab:hover { color: var(--text); }
+.lx-tab.active { color: var(--accent2); border-bottom-color: var(--accent); }
+.lx-panel { display: none; }
+.lx-panel.active { display: block; animation: lxfade .2s ease; }
+@keyframes lxfade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.lx-panel h3 { font-size: 17px; margin: 22px 0 8px; }
+.lx-panel h3:first-child { margin-top: 0; }
+.lx-panel p { color: var(--text2); font-size: 14.5px; }
+.lx-panel p b, .lx-panel li b { color: var(--text); }
+
+.lx-keypoints { background: var(--bg2); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 10px; padding: 14px 18px; margin: 18px 0; }
+.lx-kp-h { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--accent); font-weight: 700; margin-bottom: 4px; }
+
+.lx-callout { border-radius: 10px; padding: 14px 16px; margin: 16px 0; font-size: 14px; border: 1px solid var(--border); }
+.lx-callout b { display: block; margin-bottom: 4px; }
+.lx-callout div { color: var(--text2); }
+.lx-info { background: var(--accent-lo); border-color: var(--accent); }
+.lx-warn { background: rgba(245,158,11,.12); border-color: var(--warn); }
+.lx-ok { background: rgba(16,185,129,.12); border-color: var(--ok); }
+.lx-danger { background: rgba(239,68,68,.12); border-color: var(--err); }
+
+.lx-code { background: #0A0E1A; border: 1px solid var(--border); border-radius: 10px; margin: 16px 0; overflow: hidden; }
+.lx-code-lang { font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; color: var(--text3); padding: 7px 14px; border-bottom: 1px solid var(--border); background: #0F172A; }
+.lx-code pre { margin: 0; padding: 14px; overflow-x: auto; }
+.lx-code code { font-family: var(--mono); font-size: 12.5px; color: #CBD5E1; line-height: 1.6; }
+
+/* ── Sim UI ──────────────────────────────────────────────────── */
+.sim-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin: 16px 0; }
+.sim-wrap canvas { display: block; width: 100%; border-radius: 8px; background: #0A0E1A; }
+.sim-controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 14px 0; }
+.sim-slider { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text2); min-width: 160px; }
+.sim-slider input[type=range] { accent-color: var(--accent); }
+.sim-metrics { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0; }
+.sim-metric { flex: 1; min-width: 110px; background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 12px; text-align: center; }
+.sim-metric-v { font-size: 22px; font-weight: 800; font-family: var(--mono); }
+.sim-metric-l { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .3px; margin-top: 2px; }
+.sim-legend { display: flex; flex-wrap: wrap; gap: 14px; margin: 10px 0; font-size: 12px; color: var(--text2); }
+.sim-legend-i { display: inline-flex; align-items: center; gap: 6px; }
+.sim-swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+
+/* Foundations module grid */
+.fnd-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+@media (max-width: 1100px) { .fnd-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 860px) { .fnd-grid { grid-template-columns: 1fr; } }
+.fnd-card { display: flex; gap: 12px; align-items: flex-start; cursor: pointer; }
+.fnd-num { font-family: var(--mono); font-size: 12px; color: var(--accent); font-weight: 700; flex-shrink: 0; width: 34px; }
+.fnd-card h3 { margin: 0 0 4px; font-size: 15px; }
+.fnd-card p { margin: 0; font-size: 12.5px; color: var(--text2); }
+.lx-nav { display: flex; justify-content: space-between; margin-top: 28px; gap: 12px; }

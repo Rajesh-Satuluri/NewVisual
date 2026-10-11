@@ -4,20 +4,39 @@ import { renderNav, setActive, updateProgress } from './components/nav.js';
 import { initScenarioSwitcher } from './components/scenario-switcher.js';
 import { markVisited } from './data/progress-store.js';
 
-const BUILD = '20261011a'; // cache-buster — bump on each deploy
+const BUILD = '20261011b'; // cache-buster — bump on each deploy
 const imp = (p) => import(`${p}?v=${BUILD}`);
 
 // Lazy loaders. 'home' has its own module; every other section uses the generic
 // section renderer until its gate ships a dedicated module.
 const LOADERS = {
   home: () => imp('./modules/home.js'),
+  foundations: () => imp('./modules/foundations.js'),
   __section: () => imp('./modules/section.js'),
+  __foundation: () => imp('./modules/foundation.js'),
 };
+
+// Foundation module ids are f01..f15.
+const isFoundationModule = (id) => /^f\d{2}$/.test(id);
 
 let cleanupFn = null;
 
 async function route() {
   const id = (location.hash.replace(/^#/, '') || 'home');
+
+  // Foundation module route (f01..f15) — not a top-level registry section.
+  if (isFoundationModule(id)) {
+    if (typeof cleanupFn === 'function') { try { cleanupFn(); } catch (e) {} cleanupFn = null; }
+    const canvas = document.getElementById('module-canvas');
+    const crumb = document.getElementById('breadcrumb');
+    if (crumb) crumb.innerHTML = `Learn &rsaquo; <a href="#foundations">Foundations</a> &rsaquo; <strong>Module ${id.slice(1)}</strong>`;
+    setActive('foundations');
+    closeMobileNav(); window.scrollTo(0, 0);
+    try { const mod = await LOADERS.__foundation(); cleanupFn = mod.mount(canvas, id) || null; }
+    catch (err) { canvas.innerHTML = `<div class="card"><h3>Could not load module</h3><p style="color:var(--text2)">${String(err && err.message || err)}</p></div>`; console.error(err); }
+    return;
+  }
+
   const section = byId(id) || byId('home');
   const resolvedId = section.id;
 
@@ -41,6 +60,9 @@ async function route() {
     let mod;
     if (resolvedId === 'home') {
       mod = await LOADERS.home();
+      cleanupFn = mod.mount(canvas) || null;
+    } else if (resolvedId === 'foundations') {
+      mod = await LOADERS.foundations();
       cleanupFn = mod.mount(canvas) || null;
     } else {
       mod = await LOADERS.__section();

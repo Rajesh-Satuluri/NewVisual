@@ -58,8 +58,18 @@ errors, 0 404s**. ✅ **Met — deployed.**
 > requires an ADAPTED overlay on preserved files and is best sequenced after the
 > shared-component merge — tracked as a follow-up so preservation stays provable.
 
-## Gate 4 — Foundations
-I28 shared sim framework · I29 sim UI · I30–I36 the 15 modules · I37 cross-links+tests.
+## Gate 4 — Foundations ✅
+| Iter | Deliverable | Status |
+|------|-------------|--------|
+| I28 | `sim/stream-engine.js` — deterministic event-time/watermark/window/state/checkpoint/backpressure engine + 11 tests | ✅ 11/11 |
+| I29 | `components/lesson-shell.js` (tabs) + `components/sim-ui.js` (canvas helpers) | ✅ |
+| I30–I36 | 15 Foundations modules (`data/foundations.js`), scenario-aware | ✅ |
+| +   | 5 live simulators: event-time skew, watermarks, windows, checkpoint recovery, backpressure | ✅ |
+| I37 | Foundations landing + routing (`#foundations`, `#f01`–`#f15`) + nav/progress | ✅ |
+
+**Gate 4 exit:** all 15 modules render, 5 deterministic simulators interactive, scenario
+switch re-frames content, both themes, **0 console errors, 0 404s** (Playwright); engine
+**11/11**. ✅ **Met — deployed.**
 
 ## Gate 5 — Cloud (three sub-gates, each opens with an accuracy pass)
 - **5a AWS:** I38 accuracy · I39–I42 modules · I43 case studies.
