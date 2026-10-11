@@ -62,7 +62,8 @@
     stack: "python",                                 // python | sql | spark | numpy | pandas
     mode: "practice",                                // learn | practice
     pyGroupMode: store.getPref("pyGroupMode") || "pattern", // pattern | ds | difficulty
-    approachIndex: {}   // problemId -> selected approach index
+    approachIndex: {},  // problemId -> selected approach index
+    focusLocal: false   // transient per-problem focus mode (not persisted)
   };
 
   // ---- master stack/mode model ----
@@ -776,6 +777,17 @@
       renderProblem();
     });
     actions.appendChild(blurBtn);
+
+    // ---- local focus: strip THIS problem to desc/examples/solution (transient) ----
+    var focusBtn = h("button", { class: "chip-btn focus-local-btn" + (state.focusLocal ? " on" : "") },
+      (state.focusLocal ? "🎯 Focus: ON" : "🎯 Focus"));
+    focusBtn.addEventListener("click", function () {
+      state.focusLocal = !state.focusLocal;
+      focusBtn.classList.toggle("on", state.focusLocal);
+      focusBtn.textContent = state.focusLocal ? "🎯 Focus: ON" : "🎯 Focus";
+      applyFocus();
+    });
+    actions.appendChild(focusBtn);
 
     // ---- smart study-loop CTAs: keep momentum after each problem ----
     var nextId = nextUnsolvedId(p.id);
@@ -1630,6 +1642,14 @@
         if (e.key === "Escape") closeStackMenu();
       });
     }
+    // Esc exits focus mode (global + local) for a quick bail-out.
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "Escape") return;
+      if (!store.getPref("focus") && !state.focusLocal) return;
+      store.setPref("focus", false);
+      state.focusLocal = false;
+      applyFocus();
+    });
     // mode switch (Learn · Practice)
     var modeBtns = document.querySelectorAll("#modeSwitch .mode-btn");
     for (var mi = 0; mi < modeBtns.length; mi++) {
@@ -1645,6 +1665,17 @@
       store.setPref("theme", next);
       applyTheme(next);
     });
+
+    // global focus toggle (topbar) — persisted, applies to every problem
+    var focusGlobalBtn = el("focusGlobalBtn");
+    if (focusGlobalBtn) {
+      focusGlobalBtn.addEventListener("click", function () {
+        var on = !store.getPref("focus");
+        store.setPref("focus", on);
+        if (on) state.focusLocal = false; // global supersedes local
+        applyFocus();
+      });
+    }
 
     // grid
     el("gridBtn").addEventListener("click", openGrid);
@@ -1852,6 +1883,16 @@
     if (t) t.setAttribute("aria-expanded", "false");
   }
 
+  // ---- Focus mode: strip the page to Problem / Examples / Solution only.
+  // Global focus persists (pref); local focus is transient (cleared on nav).
+  function applyFocus() {
+    var g = !!store.getPref("focus");
+    document.body.classList.toggle("focus-global", g);
+    document.body.classList.toggle("focus-on", g || !!state.focusLocal);
+    var gb = el("focusGlobalBtn");
+    if (gb) gb.setAttribute("aria-pressed", g ? "true" : "false");
+  }
+
   // Set the shell "chrome" (state, body attrs, switch highlights) WITHOUT
   // rendering — the router decides what to render. `data-ws` is the legacy CSS key
   // (dsa = full problem chrome; python = everything hidden so a lab paints its
@@ -1937,6 +1978,7 @@
     _readingTopic = (r.mode === "learn" && !!(el("main") && el("main").querySelector(".ph-title")));
     updateReadProgress();
     updateToggleAllIcon();
+    applyFocus();
   }
 
   // The single router: render whatever the current location.hash points at.
@@ -1946,6 +1988,7 @@
   function applyRoute() {
     if (location.hash === lastRenderedHash) return; // Back can fire popstate + hashchange
     lastRenderedHash = location.hash;
+    state.focusLocal = false; // local focus is per-problem — reset on every navigation
     navProgress();
     var r = parseRoute(location.hash);
 

@@ -665,3 +665,85 @@ body:not([data-ws="python"]) #pyProgress { display: none !important; }
 .eg-nav-dir { font-size: 11px; font-weight: 700; color: var(--brand); text-transform: uppercase; letter-spacing: .04em; }
 .eg-nav-t { font-size: 13.5px; color: var(--text); font-weight: 600; }
 @media (max-width: 640px) { .eg-title { font-size: 23px; } .eg-nav-btn { max-width: 48%; } }
+
+/* ============================================================= FOCUS MODE
+   Pre-interview revision: strip the page to Problem Description, Examples and
+   Solution Code only. Driven entirely by body classes (no re-render):
+     .focus-on     -> the visual focus (global OR local) is active
+     .focus-global -> the persistent, topbar-driven global focus is on
+   The topbar "🎯 Focus" button toggles global; a per-problem "🎯 Focus" chip
+   in the problem header toggles the transient local focus. */
+
+/* --- topbar global focus button (sits in the empty topbar center) --- */
+.topbar { position: relative; }
+.focus-global-btn {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  z-index: 5;
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--bg-2); border: 1px solid var(--border); border-radius: 999px;
+  color: var(--text); font-size: 12.5px; font-weight: 700;
+  padding: 6px 13px; cursor: pointer; white-space: nowrap;
+  transition: border-color var(--dur-fast, .15s) ease, box-shadow var(--dur-fast, .15s) ease, background var(--dur-fast, .15s) ease, color var(--dur-fast, .15s) ease;
+}
+.focus-global-btn:hover { border-color: var(--brand); }
+.focus-global-btn[aria-pressed="true"] {
+  background: var(--brand); color: #06111f; border-color: var(--brand);
+  box-shadow: 0 0 12px var(--brand-glow);
+}
+/* On tighter widths drop out of dead-center into the flow so it can't collide. */
+@media (max-width: 1180px) {
+  .focus-global-btn { position: static; transform: none; left: auto; top: auto; margin-left: auto; }
+}
+@media (max-width: 1540px) { .focus-global-btn .btx { display: none; } }
+
+/* --- per-problem local focus chip --- */
+.focus-local-btn.on { background: var(--brand); color: #06111f; border-color: var(--brand); box-shadow: 0 0 10px var(--brand-glow); }
+/* When global focus is on, the local chip is redundant — hide it. */
+.focus-global .focus-local-btn { display: none !important; }
+
+/* --- the focus layout itself --- */
+/* Full-width reading column: hide the sidebar + resizer. */
+.focus-on .shell { grid-template-columns: 1fr; }
+.focus-on .sidebar,
+.focus-on .sidebar-resizer { display: none !important; }
+
+/* Declutter the topbar right-side tools (keep palette + more-menu + focus). */
+.focus-on #rosettaBtn,
+.focus-on #postmortemBtn,
+.focus-on #interviewBtn,
+.focus-on #cheatBtn,
+.focus-on #pyCheatBtn,
+.focus-on #sqlCheatBtn,
+.focus-on #dashBtn,
+.focus-on #gridBtn { display: none !important; }
+
+/* Hide every problem-view block, then re-show only what we want. */
+.focus-on #main > * { display: none !important; }
+.focus-on #main > .prob-header,
+.focus-on #main > .prob-section[data-key="description"],
+.focus-on #main > .prob-section[data-key="examples"],
+.focus-on #main > .approach-area { display: block !important; }
+
+/* Header: keep the title; drop badges + action chips except focus toggle + Next. */
+.focus-on .prob-header .ph-top { display: none !important; }
+.focus-on .prob-header .ph-actions > * { display: none !important; }
+.focus-on .prob-header .ph-actions .cta-next { display: inline-flex !important; }
+/* keep the local toggle only when local (not global) drove the focus */
+.focus-on:not(.focus-global) .prob-header .ph-actions .focus-local-btn { display: inline-flex !important; }
+
+/* Approach area: hide the switcher + Complete Logic, keep only Solution Code. */
+.focus-on .approach-area > * { display: none !important; }
+.focus-on .approach-area > .prob-section[data-key="code"] { display: block !important; }
+
+/* Force the three surviving sections open even if they default to collapsed
+   (Examples starts collapsed). Overrides the inline grid-collapse height. */
+.focus-on #main .prob-section .sec-body-outer { height: auto !important; }
+.focus-on #main .prob-section.collapsed .sec-caret { transform: none; }
+
+/* A little more breathing room for the stripped-down reading view. */
+.focus-on #main { padding-top: 6px; }
+
+/* Touch (iPad / phones): comfortable tap targets for the focus controls. */
+@media (pointer: coarse) {
+  .focus-global-btn { min-height: 40px; }
+}
