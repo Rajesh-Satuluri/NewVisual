@@ -212,3 +212,20 @@
   .cmdk-trigger-kbd { display: inline; font: 600 10px var(--font-mono); color: var(--ds-text-muted); border: 1px solid var(--ds-border); border-radius: 3px; padding: 0 4px; }
 }
 @media (max-width: 640px) { .cmdk-row-desc { display: none; } .cmdk { max-height: 80vh; } }
+
+/* ── Dashboard command-center band (Phase 3) ── */
+.dash-band { display: grid; grid-template-columns: 1.1fr 2fr; gap: 16px; margin: 4px 0 22px; }
+.dash-resume { display: flex; flex-direction: column; gap: 6px; justify-content: center; text-decoration: none; }
+.dash-kicker { font: 700 var(--text-xs) var(--font-ui); text-transform: uppercase; letter-spacing: .06em; color: var(--ds-accent); }
+.dash-resume-title { font: 700 var(--text-lg, 1.05rem) var(--font-ui); color: var(--ds-text); }
+.dash-resume-meta { font: 500 var(--text-xs) var(--font-ui); color: var(--ds-text-muted); }
+.dash-resume-btn { align-self: flex-start; margin-top: 8px; }
+.dash-actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.dash-action { display: flex; flex-direction: column; gap: 6px; text-decoration: none; padding: 16px; }
+.dash-action-ico { color: var(--ds-accent); }
+.dash-action-title { font: 700 var(--text-sm) var(--font-ui); color: var(--ds-text); }
+.dash-action-sub { font: 500 var(--text-xs) var(--font-ui); color: var(--ds-text-muted); }
+@media (max-width: 860px) {
+  .dash-band { grid-template-columns: 1fr; }
+  .dash-actions { grid-template-columns: repeat(2, 1fr); }
+}

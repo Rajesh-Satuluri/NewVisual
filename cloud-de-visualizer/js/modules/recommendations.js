@@ -279,6 +279,59 @@
     </svg>`;
   }
 
+  /* Phase 3: premium command-center band — Continue + 4 primary actions.
+     Additive; uses only real state (the app's own last-screen keys) and
+     valid existing routes. Falls back to an onboarding CTA when there is
+     no history. */
+  function continueBand() {
+    const lsGet = (TV.ls && TV.ls.get) || (k => { try { return localStorage.getItem(k); } catch (e) { return null; } });
+    const fmt = lsGet('cde-format') || TV.activeFormat || 'azure';
+    const last = lsGet('cde-' + fmt + '-last-screen');
+    const mod = last && TV.getModule ? TV.getModule(fmt, last) : null;
+    const CLOUDS = { aws: 'AWS', azure: 'Azure', databricks: 'Databricks', fabric: 'Fabric', 'multi-cloud': 'Cross-cloud' };
+    let resume;
+    if (mod && last !== 'home') {
+      resume = `
+        <a class="ds-card ds-card--interactive dash-resume" data-go="${esc(fmt)}/${esc(last)}">
+          <span class="dash-kicker">Continue learning</span>
+          <span class="dash-resume-title">${esc(mod.title || last)}</span>
+          <span class="dash-resume-meta">${esc(CLOUDS[fmt] || fmt)}${mod.group ? ' · ' + esc(mod.group) : ''}</span>
+          <span class="ds-btn ds-btn--primary dash-resume-btn">Resume →</span>
+        </a>`;
+    } else {
+      resume = `
+        <a class="ds-card ds-card--interactive dash-resume" data-go="${esc(fmt)}/home">
+          <span class="dash-kicker">Get started</span>
+          <span class="dash-resume-title">Begin your learning journey</span>
+          <span class="dash-resume-meta">Pick a service, path or practice mode below</span>
+          <span class="ds-btn ds-btn--primary dash-resume-btn">Explore ${esc(CLOUDS[fmt] || fmt)} →</span>
+        </a>`;
+    }
+    const act = (icon, title, sub, route) => `
+      <a class="ds-card ds-card--interactive dash-action" data-go="${esc(route)}">
+        <span class="dash-action-ico" aria-hidden="true">${icon}</span>
+        <span class="dash-action-title">${esc(title)}</span>
+        <span class="dash-action-sub">${esc(sub)}</span>
+      </a>`;
+    const I = {
+      learn: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 014 17V5h16v12H6.5A2.5 2.5 0 004 19.5z"/></svg>',
+      design: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>',
+      operate: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>',
+      prepare: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>',
+    };
+    const fmtNow = TV.activeFormat || fmt;
+    return `
+<div class="dash-band">
+  ${resume}
+  <div class="dash-actions">
+    ${act(I.learn, 'Learn', 'Docs & concepts', fmtNow + '/home')}
+    ${act(I.design, 'Design', 'Architecture challenges', 'multi-cloud/design-challenges')}
+    ${act(I.operate, 'Operate', 'Incidents & labs', fmtNow + '/incidents')}
+    ${act(I.prepare, 'Prepare', 'Interview & exams', fmtNow + '/certifications')}
+  </div>
+</div>`;
+  }
+
   function html() {
     const ov = TV.Recommend.getOverview();
     const role = TV.Progress.getRole();
@@ -330,6 +383,7 @@
 
     return `
 <div class="rec-wrap page-enter">
+  ${continueBand()}
   <div class="rec-hero">
     <div class="rec-hero-left">
       <h1>What should I study next?</h1>
