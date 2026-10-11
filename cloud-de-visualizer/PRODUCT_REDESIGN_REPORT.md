@@ -37,9 +37,17 @@ to production (GitHub Pages, `main`) on its own.
 | Q | Guided first-run product tour (TV.Tour), re-openable from Cmd-K; palette gains action entries | `52e5402` |
 | R | Accessibility polish: skip-to-content link, global keyboard focus-visible ring, main landmark; report update | (this commit) |
 
-**Visualizer gallery (9):** Spark execution · Delta transaction log · pipeline DAG ·
+### Wave 4 — more depth, sharing & printable study
+
+| Iter | Deliverable | Commit |
+|------|-------------|--------|
+| S | 2 more visualizers: CDC/mirroring, query-optimizer join strategies (11 total) | `9c641f9` |
+| T | Architecture Studio shareable links (design encoded in URL, decoded on load) | `8438b0a` |
+| U | Printable per-cloud Study Summary (services + certs + honest mastery) + report update | (this commit) |
+
+**Visualizer gallery (11):** Spark execution · Delta transaction log · pipeline DAG ·
 storage pruning · streaming windows · log partitions · row vs columnar · data lineage ·
-compute cost — all conceptual simulations.
+compute cost · CDC & mirroring · query-optimizer joins — all conceptual simulations.
 
 ## Guardrails enforced on every iteration
 

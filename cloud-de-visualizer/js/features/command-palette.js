@@ -72,6 +72,7 @@
     add('Design Challenges', 'Go to', 'Cross-cloud', `multi-cloud/design-challenges`, 'System-design drills', 'architecture');
     add('Visualizers', 'Go to', '', `${here()}/visualizers`, 'Interactive conceptual visualizers', 'interactive diagram animation');
     add('Architecture Studio', 'Go to', '', `${here()}/architecture-studio`, 'Free-form design canvas', 'design canvas diagram draw');
+    add('Study Summary', 'Go to', '', `${here()}/study-summary`, 'Printable revision sheet for this cloud', 'print pdf summary revision cheat sheet');
 
     // Action: (re)launch the guided product tour.
     if (TV.Tour && TV.Tour.open) out.push({ title: 'Product tour', category: 'Go to', cloud: '', route: `${here()}/home`, action: () => TV.Tour.open(0), desc: 'Replay the guided walkthrough', kw: 'product tour guide walkthrough onboarding help intro' });
