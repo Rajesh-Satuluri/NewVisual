@@ -694,10 +694,8 @@ body:not([data-ws="python"]) #pyProgress { display: none !important; }
 }
 @media (max-width: 1540px) { .focus-global-btn .btx { display: none; } }
 
-/* --- per-problem local focus chip --- */
+/* --- per-problem local focus chip (always available, even under global focus) --- */
 .focus-local-btn.on { background: var(--brand); color: #06111f; border-color: var(--brand); box-shadow: 0 0 10px var(--brand-glow); }
-/* When global focus is on, the local chip is redundant — hide it. */
-.focus-global .focus-local-btn { display: none !important; }
 
 /* --- the focus layout itself --- */
 /* The sidebar stays put in focus mode so you can traverse problems; focus only
@@ -723,9 +721,9 @@ body:not([data-ws="python"]) #pyProgress { display: none !important; }
 /* Header: keep the title; drop badges + action chips except focus toggle + Next. */
 .focus-on .prob-header .ph-top { display: none !important; }
 .focus-on .prob-header .ph-actions > * { display: none !important; }
-.focus-on .prob-header .ph-actions .cta-next { display: inline-flex !important; }
-/* keep the local toggle only when local (not global) drove the focus */
-.focus-on:not(.focus-global) .prob-header .ph-actions .focus-local-btn { display: inline-flex !important; }
+/* keep the focus toggle (so you can leave) and the Next button in focus mode */
+.focus-on .prob-header .ph-actions .cta-next,
+.focus-on .prob-header .ph-actions .focus-local-btn { display: inline-flex !important; }
 
 /* Approach area: hide the switcher + Complete Logic, keep only Solution Code. */
 .focus-on .approach-area > * { display: none !important; }
