@@ -1,4 +1,22 @@
 import { createModuleShell, createIQSection } from '../components/module-shell.js';
+import { createExerciseSet, initExerciseSet } from '../components/exercise.js';
+
+const SC_EXERCISES = [
+  { id:'m07-predict-cartesian', type:'predict', area:'ibpl', difficulty:1, competencyLabel:'cartesian', verify:'verified',
+    prompt:'A <code>cartesian scope</code> lists 2 SKUs and 4 Years (one Version) and assigns a constant. Starting from 0 matching cells, how many cells exist afterwards?',
+    options:[ {text:'2', why:'cartesian makes the full cross-product, not just the SKUs.'}, {text:'8', correct:true, why:'2 SKUs × 4 Years = 8 new intersections, each seeded with the constant.'}, {text:'0 (nothing changes)', why:'cartesian creates cells even when none existed.'} ],
+    explanation:'cartesian builds every combination of the listed members. Unfiltered, that cross-product can explode — always filter the members.' },
+
+  { id:'m07-predict-recur', type:'predict', area:'ibpl', difficulty:2, competencyLabel:'recurrence', verify:'verified',
+    prompt:'A <code>recurrence scope</code> computes <code>Inventory(t) = Inventory(t-1) + Supply(t) − Demand(t)</code>. Week 1 is seeded at 100. Supply/Demand are W2: +60/−90, W3: +70/−50. What is Inventory at W3?',
+    options:[ {text:'70', why:'70 is the W2 balance, not W3 — keep chaining one more week.'}, {text:'90', correct:true, why:'W2 = 100 + 60 − 90 = 70; W3 = 70 + 70 − 50 = 90.'}, {text:'180', why:'That would sum everything without the running carry-over.'} ],
+    explanation:'W2 = 100 + 60 − 90 = 70; W3 = 70 + 70 − 50 = 90. recurrence chains each period off the previous via @ LeadOffset(-1).' },
+
+  { id:'m07-diag-scopepick', type:'diagnose', area:'ibpl', difficulty:2, competencyLabel:'Pick the scope', verify:'verified',
+    prompt:'You have a coarse SKU-level launch date and withdrawal date, and you want a monthly "active" flag for every month a SKU is live. Which scope?',
+    options:[ {text:'evaluatemember scope', correct:true, why:'It creates finer-grained (monthly) intersections derived from a coarser (SKU-level) measure by comparing Time.#.Key to the dates.'}, {text:'regular scope', why:'regular only touches months that already have data; it cannot explode the coarse dates into every active month.'}, {text:'spread scope', why:'spread pushes an aggregate edit down a hierarchy — unrelated here.'} ],
+    explanation:'evaluatemember is the "explode a coarse attribute into finer time buckets" scope. regular cannot create the finer cells.' },
+];
 
 const SCOPES = [
   { k:'cartesian', when:'Create NEW intersections at all combinations of members and drop a constant.',
@@ -79,6 +97,8 @@ export function mount(container) {
       { id: 'what',   label: '📝 What is Scope' },
       { id: 'seven',  label: '7️⃣ The 7 Scopes' },
       { id: 'notsql', label: '🚫 Not UPDATE' },
+      { id: 'viz',    label: '🔲 Scope Visualizer' },
+      { id: 'drill',  label: '🧪 Exercises' },
       { id: 'iq',     label: '🎯 Interview Q&A', content: createIQSection(IQ) },
     ],
   });
@@ -154,5 +174,63 @@ end scope;</pre>
       <div class="callout sql"><b>The deeper difference:</b> in SQL you can only write cells that exist. In IBPL, <code>cartesian</code>/<code>evaluatemember</code> <b>create</b> cells, <code>recurrence</code> chains them through <b>time</b>, <code>spread</code> writes an <b>aggregate</b> and distributes down, and <code>graph</code> writes <b>edges</b>. One mental model ("UPDATE SET WHERE") cannot cover all of that.</div>
     </div>`;
 
-  return () => acc.removeEventListener('click', onAcc);
+  const cleanupViz = renderScopeViz(container.querySelector('#tab-viz'));
+  const drill = container.querySelector('#tab-drill');
+  drill.innerHTML = `<div class="section-pad">${createExerciseSet(SC_EXERCISES, { intro: 'Three exercises on the three most-asked scopes: cartesian (create), recurrence (chain through time), evaluatemember (explode coarse → fine).' })}</div>`;
+  const cleanupEx = initExerciseSet(drill, SC_EXERCISES);
+
+  return () => { acc.removeEventListener('click', onAcc); cleanupViz && cleanupViz(); cleanupEx && cleanupEx(); };
+}
+
+function renderScopeViz(el) {
+  // 3 SKUs × 4 weeks grid. "existing" cells are a sparse subset.
+  const SKUS = ['320D-Pump', '320D-Seal', '330-Drive'];
+  const WEEKS = ['W01', 'W02', 'W03', 'W04'];
+  const existing = new Set(['0-0', '0-1', '1-0', '2-2', '2-3']); // sparse populated cells
+  const MODES = {
+    cartesian: { label:'cartesian — create all', desc:'Creates a cell at <b>every</b> SKU×Week combination (the full cross-product) and seeds a constant. Empty cells become populated — the cube grows.', cells:(r,c)=>true, arrow:false },
+    regular:   { label:'regular — existing only', desc:'Computes only over cells that <b>already exist</b> (the sparse populated set). Creates nothing new; empty stays empty.', cells:(r,c)=>existing.has(`${r}-${c}`), arrow:false },
+    recurrence:{ label:'recurrence — chain through time', desc:'Walks time left→right per SKU: each week reads the <b>previous</b> week via <code>@ LeadOffset(-1)</code>. Needs a seed in the first week.', cells:(r,c)=>true, arrow:true },
+    spread:    { label:'spread — aggregate → leaves', desc:'An edit at a parent (e.g. a Brand row) is pushed <b>down</b> to the leaf SKUs by a spreading rule. Here the top SKU stands in for the aggregate.', cells:(r,c)=>r===0, arrow:false, down:true },
+  };
+
+  el.innerHTML = `
+    <div class="section-pad">
+      <p class="lead">The same grid, four scopes. See <b>which intersections each scope touches</b> — the heart of "a cube is not a table". Dots = cells that already exist (sparse); highlighted = cells this scope writes.</p>
+      <div class="lab-controls">
+        <span class="lab-sel">Scope:</span>
+        ${Object.keys(MODES).map((k,i)=>`<button class="sv-btn${i===0?' on':''}" data-mode="${k}">${k}</button>`).join('')}
+      </div>
+      <div class="sv-grid-wrap"><div class="sv-grid" id="sv-grid"></div></div>
+      <div class="callout" id="sv-desc"></div>
+    </div>`;
+
+  const grid = el.querySelector('#sv-grid');
+  const desc = el.querySelector('#sv-desc');
+
+  const draw = (mode) => {
+    const M = MODES[mode];
+    let html = `<div class="sv-corner"></div>` + WEEKS.map(w=>`<div class="sv-head">${w}</div>`).join('');
+    SKUS.forEach((s,r)=>{
+      html += `<div class="sv-row-head">${s}</div>`;
+      WEEKS.forEach((w,c)=>{
+        const ex = existing.has(`${r}-${c}`);
+        const on = M.cells(r,c);
+        const seed = M.arrow && c===0;
+        html += `<div class="sv-cell${on?' on':''}${ex?' has':''}${seed?' seed':''}">${ex?'•':''}${M.arrow&&c>0?'<span class="sv-arrow">←</span>':''}${M.down&&r===0?'<span class="sv-down">↓</span>':''}</div>`;
+      });
+    });
+    grid.innerHTML = html;
+    desc.innerHTML = `<b>${M.label}.</b> ${M.desc}`;
+  };
+  draw('cartesian');
+
+  const onClick = (e) => {
+    const b = e.target.closest('.sv-btn'); if (!b) return;
+    el.querySelectorAll('.sv-btn').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    draw(b.dataset.mode);
+  };
+  el.addEventListener('click', onClick);
+  return () => el.removeEventListener('click', onClick);
 }

@@ -1,4 +1,19 @@
 import { createModuleShell, createIQSection } from '../components/module-shell.js';
+import { createExerciseSet, initExerciseSet } from '../components/exercise.js';
+
+const M08_EX = [
+  { id:'m08-write-bias', type:'write', area:'ibpl', difficulty:2, dataset:'cat-forecast', competencyLabel:'Computed measure', verify:'simulated',
+    prompt:'Compute <b>forecast error %</b> = (Forecast − Actual) ÷ Actual per SKU×Week in the CWV, as a transient, protected against divide-by-zero. Run it (330-Link has Actual with Forecast 0; 320D-Seal W02 has Actual 0).',
+    starter:'Select ([Item].[SKU] * [Time].[Week] *\n  {  as Transient.ErrPct })\nwhere { Version.[Version Name].filter(#.Key == 0) };',
+    check:(res)=>{ if(!res.ok) return {correct:false,msg:'❌ '+res.error}; if(res.columns[res.columns.length-1]!=='ErrPct') return {correct:false,msg:'❌ Name the transient <code>Transient.ErrPct</code>.'}; return {correct:true,msg:'✅ Ran. SafeDivide returns null where Actual = 0 instead of erroring — exactly the guard you want.'}; },
+    explanation:'<code>SafeDivide(Measure.[Forecast Quantity] - Measure.[Actual Quantity], Measure.[Actual Quantity]) as Transient.ErrPct</code>. Add <code>coalesce(…, 0)</code> if you want 0 rather than null where Actual is 0.' },
+  { id:'m08-fix-nullprop', type:'fix', area:'debug', difficulty:2, dataset:'cat-inventory', competencyLabel:'Fix · null propagation', verify:'simulated',
+    prompt:'On the inventory dataset, <code>Inventory</code> is unpopulated (null) everywhere. This computes <code>Supply + Inventory</code> and the whole column comes back blank. Make the missing Inventory behave as 0. Run until no nulls remain.',
+    starter:'Select ([Item].[SKU] * [Time].[Week] *\n  { Measure.[Supply] + Measure.[Inventory] as Transient.Available })\nwhere { Version.[Version Name].filter(#.Key == 0) };',
+    check:(res)=>{ if(!res.ok) return {correct:false,msg:'❌ '+res.error}; const last=res.rows.map(r=>r[r.length-1]); return last.some(v=>v==null)?{correct:false,msg:'❌ Still blank — wrap it: <code>Measure.[Supply] + coalesce(Measure.[Inventory], 0)</code>.'}:{correct:true,msg:'✅ No blanks — coalesce stops the null Inventory from nulling the whole sum.'}; },
+    explanation:'Null propagates through <code>+</code>: <code>100 + null = null</code>. <code>coalesce(Measure.[Inventory], 0)</code> defaults the missing value to 0 so the arithmetic survives.' },
+];
+
 
 export const IQ = [
   { q: 'What is the "null trap" in IBPL arithmetic and how do you avoid it?',
@@ -25,6 +40,7 @@ export function mount(container) {
       { id: 'nulls',  label: '⚠️ Null & Divide' },
       { id: 'analytic', label: '🌲 Analytical Functions' },
       { id: 'time',   label: '⏱️ Time & @' },
+      { id: 'drill',  label: '🧪 Exercises' },
       { id: 'iq',     label: '🎯 Interview Q&A', content: createIQSection(IQ) },
     ],
   });
@@ -112,5 +128,8 @@ Customer.[City].filter(#.Name <span class="tok-k">contains</span> "mu")   <span 
       </table>
     </div>`;
 
-  return null;
+  const drill = container.querySelector('#tab-drill');
+  drill.innerHTML = `<div class="section-pad">${createExerciseSet(M08_EX, { intro: 'Two write/fix exercises on computed measures and null propagation — run them against the simulator.' })}</div>`;
+  const cleanup = initExerciseSet(drill, M08_EX);
+  return () => { cleanup && cleanup(); };
 }

@@ -1,4 +1,17 @@
 import { createModuleShell, createIQSection } from '../components/module-shell.js';
+import { createExerciseSet, initExerciseSet } from '../components/exercise.js';
+
+const M09_EX = [
+  { id:'m09-diag-command', type:'diagnose', area:'ibpl', difficulty:2, competencyLabel:'Pick the command', verify:'verified',
+    prompt:'A SKU was retired six months ago via <code>deletemember</code>, but it still appears in some admin views and its old facts linger. The business now wants it <b>permanently</b> gone. Which command?',
+    options:[ {text:'deletemember again', why:'It is already soft-deleted ($InActive = true); repeating it changes nothing.'}, {text:'purge members', correct:true, why:'purge permanently removes soft-deleted members and is irreversible — exactly "permanently gone".'}, {text:'updatemember', why:'update edits an existing member; it does not remove it.'} ],
+    explanation:'<code>deletemember</code> only sets the $InActive soft-delete flag; <code>purge members</code> is the irreversible hard delete. Always confirm before purging.' },
+  { id:'m09-explain-softdel', type:'explain', area:'concept', difficulty:2, competencyLabel:'Soft vs hard delete', verify:'verified',
+    prompt:'Explain the lifecycle of a member from <code>createmember</code> through <code>deletemember</code> to <code>purge</code>, and why o9 uses a soft-delete step at all.',
+    explanation:'<b>createmember</b> adds the member (and, if needed, its ancestor) with {key, name} slots. <b>deletemember</b> does not physically remove it — it sets <code>$InActive = true</code>, a soft delete. The member and its facts remain, hidden from active views but recoverable, and history/audit stays intact. <b>purge members</b> finally removes soft-deleted members permanently (irreversible). The soft-delete step exists so an accidental or premature delete can be reversed, so in-flight plans referencing the member do not break instantly, and so audit trails survive until an explicit, deliberate purge.',
+    pitfalls:'Assuming deletemember frees storage or removes facts immediately — only purge does, and it cannot be undone.' },
+];
+
 
 export const IQ = [
   { q: 'What are the four member commands and the soft-delete vs purge distinction?',
@@ -24,6 +37,7 @@ export function mount(container) {
       { id: 'members', label: '👤 Member Commands' },
       { id: 'data',    label: '🔁 Data & Transfer' },
       { id: 'access',  label: '🔐 Access Commands' },
+      { id: 'drill',   label: '🧪 Exercises' },
       { id: 'iq',      label: '🎯 Interview Q&A', content: createIQSection(IQ) },
     ],
   });
@@ -96,5 +110,8 @@ export function mount(container) {
       <div class="callout sql"><b>Not GRANT in SQL:</b> o9 rules are scoped to <b>plans, measures, models and members</b> (not tables/columns), can be row-restricted by a member <code>using scope</code>, and only take effect after <code>resetaccesscontrol;</code>.</div>
     </div>`;
 
-  return null;
+  const drill = container.querySelector('#tab-drill');
+  drill.innerHTML = `<div class="section-pad">${createExerciseSet(M09_EX, { intro: 'Two exercises on member-lifecycle commands — soft delete vs purge.' })}</div>`;
+  const cleanup = initExerciseSet(drill, M09_EX);
+  return () => { cleanup && cleanup(); };
 }
