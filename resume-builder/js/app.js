@@ -989,31 +989,124 @@
   /* curated skill / keyword dictionary, grouped so recommendations can say
      WHERE to put each missing term. Lowercase; phrases matched whole-word. */
   var JD_SKILL_DB = {
-    "Languages": ["python","java","scala","sql","pl/sql","t-sql","javascript","typescript","c++","c#",".net","golang","ruby","php","swift","kotlin","bash","shell scripting","powershell","vba","matlab","sas"],
-    "Cloud": ["aws","amazon web services","azure","gcp","google cloud","s3","ec2","lambda","redshift","glue","athena","emr","kinesis","adls","adf","azure data factory","synapse","databricks","snowflake","bigquery","dataproc","cloud functions","data lake","delta lake","lakehouse"],
-    "Data & ETL": ["etl","elt","spark","pyspark","apache spark","hadoop","hive","kafka","airflow","dbt","apache nifi","nifi","informatica","talend","ssis","data pipeline","data pipelines","data warehouse","data warehousing","data modeling","dimensional modeling","star schema","data governance","data quality","data integration","streaming","real-time","batch processing","cdc","orchestration"],
-    "Databases": ["mysql","postgresql","postgres","sql server","oracle","mongodb","cassandra","dynamodb","redis","teradata","nosql","rdbms","graph database"],
-    "BI & Analytics": ["power bi","tableau","looker","qlik","excel","pandas","numpy","data visualization","reporting","dashboards","kpi","a/b testing","statistics"],
-    "ML & AI": ["machine learning","deep learning","tensorflow","pytorch","scikit-learn","nlp","mlops","feature engineering","model deployment","llm","generative ai","genai","forecasting","predictive modeling"],
-    "DevOps & Tools": ["docker","kubernetes","terraform","jenkins","ci/cd","git","github","gitlab","bitbucket","ansible","linux","unix","rest api","graphql","microservices","api integration"],
-    "Ways of working": ["agile","scrum","kanban","waterfall","jira","confluence","sdlc","tdd","code review","unit testing"],
-    "Domain": ["supply chain","demand planning","supply planning","o9","sap","erp","salesforce","finance","healthcare","retail","e-commerce","manufacturing","logistics","inventory"],
-    "Soft skills": ["communication","leadership","stakeholder management","problem solving","collaboration","mentoring","cross-functional","analytical","attention to detail","time management","presentation"]
+    "Languages": ["python","java","scala","sql","pl/sql","t-sql","javascript","typescript","c++","c#",".net","golang","go","ruby","php","swift","kotlin","bash","shell scripting","powershell","vba","matlab","sas","r","perl","objective-c","rust"],
+    "Cloud": ["aws","amazon web services","azure","gcp","google cloud","s3","ec2","lambda","redshift","glue","athena","emr","kinesis","adls","adf","azure data factory","synapse","databricks","snowflake","bigquery","dataproc","cloud functions","data lake","delta lake","lakehouse","unity catalog","sagemaker","vertex ai","cloudformation","step functions","azure devops","azure synapse"],
+    "Data & ETL": ["etl","elt","spark","pyspark","spark sql","apache spark","hadoop","hive","hbase","kafka","airflow","dbt","apache nifi","nifi","informatica","talend","ssis","fivetran","matillion","prefect","dagster","great expectations","data pipeline","data pipelines","data warehouse","data warehousing","data modeling","data modelling","dimensional modeling","star schema","data vault","data governance","data quality","data integration","data mesh","streaming","real-time","batch processing","cdc","change data capture","orchestration","data engineering","etl pipeline"],
+    "Databases": ["mysql","postgresql","postgres","sql server","oracle","mongodb","cassandra","dynamodb","redis","teradata","neo4j","nosql","rdbms","graph database","db2","sap hana","snowflake sql"],
+    "BI & Analytics": ["power bi","tableau","looker","qlik","qlikview","microstrategy","cognos","alteryx","excel","pandas","numpy","data visualization","data visualisation","reporting","dashboards","dashboard","kpi","a/b testing","statistics","data analysis","data analytics","business intelligence","business analysis","requirements gathering","exploratory data analysis"],
+    "ML & AI": ["machine learning","deep learning","tensorflow","pytorch","keras","scikit-learn","nlp","mlops","feature engineering","model deployment","llm","generative ai","genai","forecasting","predictive modeling","predictive modelling","computer vision","time series","recommendation systems","model training"],
+    "DevOps & Tools": ["docker","kubernetes","terraform","jenkins","ci/cd","git","github","gitlab","bitbucket","ansible","puppet","chef","linux","unix","rest api","restful api","soap","graphql","microservices","api integration","grafana","prometheus","splunk","datadog","automation"],
+    "Ways of working": ["agile","scrum","kanban","waterfall","jira","confluence","sdlc","tdd","bdd","code review","unit testing","integration testing","version control","process improvement","continuous integration","continuous delivery"],
+    "Domain": ["supply chain","demand planning","supply planning","o9","sap","erp","salesforce","servicenow","workday","finance","healthcare","retail","e-commerce","manufacturing","logistics","inventory","banking","insurance","telecom","pharma","fintech","supply chain planning"],
+    "Certifications": ["aws certified","azure certified","gcp certified","pmp","cfa","cpa","cissp","scrum master","csm","itil","six sigma","databricks certified","snowflake certified","togaf"],
+    "Soft skills": ["communication","leadership","stakeholder management","problem solving","collaboration","mentoring","cross-functional","analytical","attention to detail","time management","presentation","critical thinking","decision making","adaptability","negotiation","interpersonal","teamwork","written communication","verbal communication","organizational skills"]
   };
+  /* categories whose terms are "soft" — real but weighted below hard skills, like Jobscan */
+  var JD_SOFT_CATS = { "Soft skills": 1 };
   var JD_STOP = (function () {
     var w = "a an the and or but of to in on for with at by from as is are was were be been being this that these those you your we our they their it its will shall should would can could may might must have has had do does did not no nor so than then once here there all any both each few more most other some such only own same too very s t just also into over under about above below up down out off again further who whom which what when where why how able across within without including include ability role work working experience years year team teams strong excellent good required require requirements responsibilities responsible preferred plus etc using use used help ensure support provide build develop drive deliver manage lead create design implement new across using per via amp".split(" ");
     var m = {}; w.forEach(function (x) { m[x] = 1; }); return m;
   })();
+  /* Generic business / HR / filler terms that must NEVER surface as a keyword,
+     even when frequent or capitalized. Professional scanners (Jobscan, Teal,
+     Resume Worded) rank hard skills, tools, titles and real methodologies — not
+     words like "Responsibilities", "Candidate", "Purpose" or "Tasks". This is
+     the noun/proper-noun POS filter approximated with a curated blocklist. */
+  var JD_GENERIC = (function () {
+    var w = ("purpose business businesses job jobs candidate candidates suitable applicant applicants "
+      + "application applications apply company companies organization organisation organizational organisational "
+      + "department departments position positions opportunity opportunities career careers employee employees "
+      + "employer employers staff personnel people person individual individuals member members colleague colleagues "
+      + "environment culture benefit benefits salary compensation payroll hour hours week weekly month monthly day "
+      + "daily shift location locations remote hybrid onsite office offices world worldwide industry industries "
+      + "market markets product products service services solution solutions task tasks duty duties responsibility "
+      + "responsibilities function functions functional activity activities process processes procedure procedures "
+      + "operation operations requirement requirements qualification qualifications skill skills skillset abilities "
+      + "knowledge understanding expertise proficiency proficient competency competencies background backgrounds "
+      + "education degree bachelor bachelors master masters phd doctorate diploma graduate undergraduate postgraduate "
+      + "certification certifications experience experiences level levels entry junior senior mid principal "
+      + "group groups client clients customer customers user users vendor vendors partner partners stakeholder stakeholders "
+      + "goal goals objective objectives result results outcome outcomes success successful issue issues problem problems "
+      + "fix fixes resolve resolution maintain maintaining handle handling perform execute conduct coordinate assist "
+      + "identify review monitor track update prepare follow meet achieve improve increase reduce optimize enhance utilize "
+      + "leverage apply participate contribute define establish oversee supervise train guide detail details information "
+      + "various multiple several relevant related appropriate effective efficient efficiency proven demonstrated "
+      + "key core critical essential important basic complex simple ongoing current existing additional general specific "
+      + "overall best better high higher large small willing ideal preferred desirable nice summary overview about "
+      + "engineer engineers developer developers analyst analysts architect architects scientist scientists administrator "
+      + "administrators consultant consultants specialist specialists designer designers programmer programmers manager "
+      + "managers director directors officer officers coordinator coordinators associate associates intern interns "
+      + "candidate's applicant's description posting join looking seeking hire hiring recruit recruiting onboarding "
+      + "computer science field fields area areas discipline disciplines subject subjects topic topics matter "
+      + "plus strongly highly etc eg ie").split(/\s+/);
+    var m = {}; w.forEach(function (x) { if (x) m[x] = 1; }); return m;
+  })();
+  function jdGeneric(t) { t = (t || "").replace(/[^a-z0-9+#./-]/g, ""); return !t || JD_STOP[t] === 1 || JD_GENERIC[t] === 1; }
   function jdNorm(t) { return (" " + (t || "").toLowerCase().replace(/[‘’]/g, "'") + " "); }
+  /* word boundaries that still treat "node.js" / "ci/cd" / "c#" as single tokens,
+     but DO allow a trailing sentence period or slash (so "Tableau." at a line end
+     still matches). Leading: not preceded by an alnum/+/#//.  Trailing lookahead:
+     not followed by alnum/+/#, and not by ".x" or "/x" (which would be a longer token). */
+  var LEAD_B = "(^|[^a-z0-9+#/.])";
+  var TRAIL_B = "(?![a-z0-9+#])(?!\\.[a-z0-9])(?!/[a-z0-9])";
   function reBound(phrase) {
     var e = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\\s|\s+/g, "\\s+");
-    return new RegExp("(^|[^a-z0-9+#/.])" + e + "([^a-z0-9+#/.]|$)", "i");
+    return new RegExp(LEAD_B + e + TRAIL_B, "i");
   }
   function countPhrase(norm, phrase) {
-    var re = new RegExp("(^|[^a-z0-9+#/.])" + phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+") + "([^a-z0-9+#/.]|$)", "ig");
+    var re = new RegExp(LEAD_B + phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+") + TRAIL_B, "ig");
     var n = 0; while (re.exec(norm) !== null) { n++; if (n > 50) break; } return n;
   }
   function hasPhrase(norm, phrase) { return reBound(phrase).test(norm); }
+
+  /* Proper-noun / tech-term mining on the ORIGINAL (cased) job description.
+     Surfaces real keywords the dictionary might miss — capitalized terms used
+     mid-sentence (genuine proper nouns, NOT sentence-starters like "Resolve"),
+     ALL-CAPS acronyms (ETL, AWS), and tech tokens (C#, CI/CD, Node.js) — while
+     dropping generic filler. This is the noun-phrase mining + NER-style
+     noise-removal that tools like Jobscan/Teal rely on, done in-browser.
+     Returns an array of { term, display, freq, tech }. */
+  var CAP_WORD = /^[A-Z][A-Za-z0-9]*(?:[&/.+#-][A-Za-z0-9]+)*$/;  // Title / Capitalized
+  var ACRONYM  = /^[A-Z][A-Z0-9]{1,6}$/;                           // AWS, SQL, ETL, KPI
+  var TECH_TOK = /[+#]|\.[a-z]{2,4}$|^[A-Za-z]+\/[A-Za-z]/;        // C++, C#, Node.js, CI/CD
+  function termTechy(w) { return ACRONYM.test(w) || TECH_TOK.test(w); }
+  function properTerms(jd) {
+    var out = {}, text = (jd || "").replace(/\r/g, "\n");
+    /* break into sentence-ish segments so we can tell a sentence-start word apart */
+    /* sentence-ish boundaries only (NOT commas — lists of tools must keep their
+       items mid-sentence so they aren't mistaken for sentence-starters) */
+    var segs = text.split(/(?:[.!?;:]+\s+|\n+|[•‣◦⁃∙·]+|\s[-–—]\s|\t+)/);
+    segs.forEach(function (seg) {
+      var words = seg.trim().split(/\s+/), run = [];
+      function flush() {
+        if (run.length) {
+          var slice = run.slice(0, 3);
+          /* trim generic words off both ends of the phrase */
+          while (slice.length && jdGeneric(slice[0].w.toLowerCase())) slice.shift();
+          while (slice.length && jdGeneric(slice[slice.length - 1].w.toLowerCase())) slice.pop();
+          if (slice.length) {
+            var loneStart = slice.length === 1 && slice[0].start && !termTechy(slice[0].w);
+            var tooShort = slice.length === 1 && slice[0].w.replace(/[^A-Za-z0-9]/g, "").length < 3 && !termTechy(slice[0].w);
+            if (!loneStart && !tooShort) {
+              var disp = slice.map(function (x) { return x.w; }).join(" ");
+              var key = disp.toLowerCase();
+              var e = out[key] || (out[key] = { term: key, display: disp, freq: 0, tech: slice.every(function (x) { return termTechy(x.w); }) });
+              e.freq++;
+            }
+          }
+        }
+        run = [];
+      }
+      words.forEach(function (raw, idx) {
+        var listBreak = /[,;]$/.test(raw);   // comma/semicolon ends one list item, breaks the phrase
+        var w = raw.replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9+#./&-]+$/g, "");
+        if (w && (CAP_WORD.test(w) || ACRONYM.test(w) || TECH_TOK.test(w))) { run.push({ w: w, start: idx === 0 }); if (listBreak) flush(); }
+        else flush();
+      });
+      flush();
+    });
+    return Object.keys(out).map(function (k) { return out[k]; });
+  }
 
   /* flatten the whole active resume into one searchable string */
   function resumePlainText(r) {
@@ -1034,44 +1127,48 @@
   function analyzeJd(jd, r) {
     var JN = jdNorm(jd), RN = jdNorm(resumePlainText(r));
     var keys = [], seen = {};
-    /* 1) dictionary skills that appear in the JD */
+    /* helper: is `term` already represented by a captured phrase (either direction)? */
+    function overlaps(term) {
+      for (var k = 0; k < keys.length; k++) {
+        var t = keys[k].term;
+        if (t === term) return true;
+        if ((" " + t + " ").indexOf(" " + term + " ") !== -1 || (" " + term + " ").indexOf(" " + t + " ") !== -1) return true;
+      }
+      return false;
+    }
+    /* 1) authoritative skill taxonomy — the backbone, like a professional scanner.
+          Classify hard vs soft so scoring can weight them differently. */
     Object.keys(JD_SKILL_DB).forEach(function (cat) {
       JD_SKILL_DB[cat].forEach(function (ph) {
         if (hasPhrase(JN, ph) && !seen[ph]) {
           seen[ph] = 1;
-          keys.push({ term: ph, cat: cat, skill: true, freq: countPhrase(JN, ph), inResume: hasPhrase(RN, ph) });
+          keys.push({ term: ph, cat: cat, skill: true, soft: !!JD_SOFT_CATS[cat], freq: countPhrase(JN, ph), inResume: hasPhrase(RN, ph) });
         }
       });
     });
-    /* 2) other frequent meaningful terms (so non-tech roles get value too) */
-    var toks = JN.replace(/[^a-z0-9+#./ -]/g, " ").split(/\s+/)
-      .map(function (t) { return t.replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, ""); }).filter(Boolean);
-    var uni = {}, bi = {};
-    for (var i = 0; i < toks.length; i++) {
-      var a = toks[i];
-      if (a.length >= 4 && !JD_STOP[a] && !/^\d+$/.test(a)) uni[a] = (uni[a] || 0) + 1;
-      if (i + 1 < toks.length) {
-        var b = toks[i + 1];
-        if (a.length >= 3 && b.length >= 3 && !JD_STOP[a] && !JD_STOP[b]) { var bg = a + " " + b; bi[bg] = (bi[bg] || 0) + 1; }
-      }
-    }
-    function pushExtra(obj, min, cap) {
-      Object.keys(obj).sort(function (x, y) { return obj[y] - obj[x]; }).forEach(function (term) {
-        if (keys.length >= cap || obj[term] < min) return;
-        if (seen[term]) return;
-        /* skip terms already contained in a matched skill phrase */
-        for (var k = 0; k < keys.length; k++) { if (keys[k].term.indexOf(term) !== -1 || term.indexOf(keys[k].term) !== -1) return; }
-        seen[term] = 1;
-        keys.push({ term: term, cat: "Keyword", skill: false, freq: obj[term], inResume: hasPhrase(RN, term) });
-      });
-    }
-    pushExtra(bi, 2, 999);           // meaningful 2-word phrases first
-    pushExtra(uni, 2, keys.length + 14);
+    /* 2) discovery: proper nouns / tools / acronyms the taxonomy doesn't list.
+          Only real-looking terms survive (capitalized mid-sentence, acronyms, tech
+          tokens, or multi-word proper phrases) — generic filler is dropped. */
+    var found = properTerms(jd).sort(function (x, y) {
+      return (y.tech - x.tech) || (y.freq - x.freq) || (y.display.length - x.display.length);
+    });
+    var EXTRA_CAP = 16, added = 0;   // keep discovery focused, not a word cloud
+    found.forEach(function (f) {
+      if (added >= EXTRA_CAP) return;
+      if (seen[f.term] || overlaps(f.term)) return;
+      /* properTerms already dropped sentence-starters, too-short tokens and
+         generic filler, so every survivor is a real proper noun / tool / phrase
+         — admit it (tech tokens and recurring terms sort to the top). */
+      seen[f.term] = 1; added++;
+      keys.push({ term: f.term, display: f.display, cat: f.tech ? "Tool / tech" : "Keyword",
+        skill: f.tech, soft: false, freq: f.freq, inResume: hasPhrase(RN, f.term) });
+    });
 
-    /* 3) score (weighted keyword coverage) */
+    /* 3) score — Jobscan-style weighting: hard skills >> tools > soft skills > keywords */
     var covered = 0, total = 0, matched = [], missing = [];
     keys.forEach(function (k) {
-      var w = (k.skill ? 2 : 1) * (1 + Math.min(k.freq - 1, 3) * 0.4);
+      var base = k.soft ? 1.5 : (k.skill ? 3 : 1);   // hard skills/tools >> soft skills > keywords
+      var w = base * (1 + Math.min(k.freq - 1, 3) * 0.35);
       k.weight = w; total += w; if (k.inResume) { covered += w; matched.push(k); } else missing.push(k);
     });
     missing.sort(function (a, b) { return b.weight - a.weight; });
@@ -1082,19 +1179,44 @@
   }
 
   function titleCase(s) { return s.replace(/\b([a-z])/g, function (m) { return m.toUpperCase(); }); }
+  /* canonical display casing for common acronyms / branded tools, so chips read
+     "AWS", "CI/CD", "Power BI", "PySpark" instead of a naive title-case. */
+  var KW_DISPLAY = (function () {
+    var pairs = {
+      "aws":"AWS","gcp":"GCP","s3":"S3","ec2":"EC2","emr":"EMR","adls":"ADLS","adf":"ADF","iam":"IAM",
+      "sql":"SQL","pl/sql":"PL/SQL","t-sql":"T-SQL","nosql":"NoSQL","mysql":"MySQL","postgresql":"PostgreSQL",
+      "sql server":"SQL Server","mongodb":"MongoDB","dynamodb":"DynamoDB","db2":"Db2","sap hana":"SAP HANA",
+      "etl":"ETL","elt":"ELT","cdc":"CDC","ssis":"SSIS","dbt":"dbt","hdfs":"HDFS","bigquery":"BigQuery",
+      "ci/cd":"CI/CD","rest api":"REST API","restful api":"RESTful API","graphql":"GraphQL","api integration":"API integration",
+      "kpi":"KPI","nlp":"NLP","mlops":"MLOps","llm":"LLM","genai":"GenAI","generative ai":"Generative AI",
+      "power bi":"Power BI","qlik":"Qlik","qlikview":"QlikView","a/b testing":"A/B Testing","seo":"SEO","sas":"SAS","vba":"VBA",
+      "pyspark":"PySpark","spark sql":"Spark SQL","javascript":"JavaScript","typescript":"TypeScript","php":"PHP",
+      "c#":"C#","c++":"C++",".net":".NET","sdlc":"SDLC","tdd":"TDD","bdd":"BDD","sap":"SAP","erp":"ERP","o9":"o9",
+      "github":"GitHub","gitlab":"GitLab","bitbucket":"Bitbucket","servicenow":"ServiceNow","pmp":"PMP","cfa":"CFA",
+      "cpa":"CPA","cissp":"CISSP","itil":"ITIL","csm":"CSM","togaf":"TOGAF","gcp certified":"GCP certified",
+      "aws certified":"AWS certified","azure certified":"Azure certified"
+    };
+    return pairs;
+  })();
+  /* display label for a keyword chip — canonical casing first, then the JD's own
+     casing for discovered proper nouns (HubSpot, Workday), else title-case. */
+  function kwLabel(m) {
+    var term = (m && m.term) || (typeof m === "string" ? m : "");
+    return KW_DISPLAY[term] || (m && m.display) || titleCase(term);
+  }
   function buildJdRecs(jd, r, missing, matched, score) {
     var recs = [], RN = jdNorm(resumePlainText(r));
     /* a) missing skills grouped by category -> concrete "add to X" actions */
     var byCat = {};
-    missing.filter(function (m) { return m.skill; }).forEach(function (m) { (byCat[m.cat] = byCat[m.cat] || []).push(m.term); });
+    missing.filter(function (m) { return m.skill; }).forEach(function (m) { (byCat[m.cat] = byCat[m.cat] || []).push(kwLabel(m)); });
     var sectionFor = { "Languages": "Technical Skills", "Cloud": "Technical Skills", "Data & ETL": "Technical Skills", "Databases": "Technical Skills", "BI & Analytics": "Technical Skills", "ML & AI": "Technical Skills", "DevOps & Tools": "Technical Skills", "Ways of working": "Experience bullets", "Domain": "Summary & Experience", "Soft skills": "Summary & Experience" };
     Object.keys(byCat).forEach(function (cat) {
-      var list = byCat[cat].slice(0, 8).map(titleCase).join(", ");
+      var list = byCat[cat].slice(0, 8).join(", ");
       recs.push({ icon: "➕", title: "Add to " + (sectionFor[cat] || "your resume") + " — " + cat, body: "The JD calls for <b>" + list + "</b>, which isn't on your resume. Add any you genuinely have (and back the important ones with a bullet)." });
     });
     /* b) high-emphasis missing keywords */
     missing.filter(function (m) { return !m.skill && m.freq >= 3; }).slice(0, 4).forEach(function (m) {
-      recs.push({ icon: "🎯", title: "Emphasize “" + titleCase(m.term) + "”", body: "This appears <b>" + m.freq + "×</b> in the job description but is missing from your resume — add a bullet or phrase that shows it in action." });
+      recs.push({ icon: "🎯", title: "Emphasize “" + kwLabel(m) + "”", body: "This appears <b>" + m.freq + "×</b> in the job description but is missing from your resume — add a bullet or phrase that shows it in action." });
     });
     /* c) headline / title alignment */
     var jdTitle = guessJdTitle(jd);
@@ -1107,7 +1229,7 @@
     /* d) summary coverage of top terms */
     var summ = findSummaryText(r);
     if (summ !== null) {
-      var topMiss = missing.slice(0, 3).map(function (m) { return titleCase(m.term); });
+      var topMiss = missing.slice(0, 3).map(function (m) { return kwLabel(m); });
       if (topMiss.length) recs.push({ icon: "📝", title: "Tune your Professional Summary", body: "Work your strongest JD-relevant themes into the summary (e.g. " + esc(topMiss.join(", ")) + ") so the top of page 1 mirrors the role." });
     }
     /* e) verdict-based closing note */
@@ -1132,7 +1254,7 @@
   }
 
   function buildTailorPrompt(r, a) {
-    var miss = a.missing.map(function (m) { return titleCase(m.term); });
+    var miss = a.missing.map(function (m) { return kwLabel(m); });
     return [
       "You are an expert resume writer and ATS optimization specialist.",
       "Rewrite and tailor my resume below so it aligns as closely as possible with the target job description, WITHOUT inventing experience I don't have.",
@@ -1302,21 +1424,21 @@
     /* Missing keywords */
     panel.appendChild(blockEl("Add these — missing from your resume (" + a.missing.length + ")", "jd.missing", function (body) {
       if (!a.missing.length) { body.appendChild(elText("p", "hint", "Nothing important is missing — great alignment!")); return; }
-      body.appendChild(elText("p", "hint", "Found in the job description, not in your resume. Click a keyword to copy it; use ＋ to add a skill straight into your resume. Add only what's truthful."));
+      body.appendChild(elText("p", "hint", "Prioritized by impact: hard skills & tools (with ＋ to add) rank above softer keywords — the way real ATS scanners weight them. Generic filler is filtered out. Click any term to copy it; add only what's truthful."));
       var wrap = el("div", "chip-wrap");
       a.missing.forEach(function (m) {
         var group = el("span", "kw-group");
-        var c = el("button", "kw-chip miss" + (m.freq >= 3 ? " hot" : "")); c.type = "button";
-        c.textContent = titleCase(m.term) + (m.freq >= 3 ? " ·" + m.freq : "");
-        c.title = "Appears " + m.freq + "× in the JD — click to copy";
-        c.addEventListener("click", function () { copyText(m.term, "“" + titleCase(m.term) + "” copied."); });
+        var c = el("button", "kw-chip miss" + (m.freq >= 3 ? " hot" : "") + (m.skill ? " skill" : "")); c.type = "button";
+        c.textContent = kwLabel(m) + (m.freq >= 3 ? " ·" + m.freq : "");
+        c.title = (m.skill ? "Skill/tool — " : "Keyword — ") + "appears " + m.freq + "× in the JD. Click to copy.";
+        c.addEventListener("click", function () { copyText(m.display || m.term, "“" + kwLabel(m) + "” copied."); });
         group.appendChild(c);
         if (m.skill) {
           var add = el("button", "kw-add"); add.type = "button"; add.textContent = "＋";
-          add.title = "Add “" + titleCase(m.term) + "” to your Technical Skills";
+          add.title = "Add “" + kwLabel(m) + "” to your Technical Skills";
           add.addEventListener("click", function () {
-            if (addSkillToResume(activeResume(), m.term)) { flash("Added “" + titleCase(m.term) + "” to Technical Skills."); reanalyzeAfterEdit(); }
-            else flash("“" + titleCase(m.term) + "” is already in your skills.");
+            if (addSkillToResume(activeResume(), kwLabel(m))) { flash("Added “" + kwLabel(m) + "” to Technical Skills."); reanalyzeAfterEdit(); }
+            else flash("“" + kwLabel(m) + "” is already in your skills.");
           });
           group.appendChild(add);
         }
@@ -1327,12 +1449,12 @@
       var addableMissing = a.missing.filter(function (m) { return m.skill; });
       if (addableMissing.length) {
         w.appendChild(miniBtn("＋ Add all " + addableMissing.length + " missing skills", function () {
-          var n = 0; addableMissing.forEach(function (m) { if (addSkillToResume(activeResume(), m.term)) n++; });
+          var n = 0; addableMissing.forEach(function (m) { if (addSkillToResume(activeResume(), kwLabel(m))) n++; });
           if (n) { flash("Added " + n + " skill" + (n > 1 ? "s" : "") + " to Technical Skills."); reanalyzeAfterEdit(); }
           else flash("Those skills are already in your resume.");
         }, "btn-primary"));
       }
-      w.appendChild(miniBtn("⧉ Copy all missing keywords", function () { copyText(a.missing.map(function (m) { return titleCase(m.term); }).join(", "), "Missing keywords copied."); }));
+      w.appendChild(miniBtn("⧉ Copy all missing keywords", function () { copyText(a.missing.map(function (m) { return kwLabel(m); }).join(", "), "Missing keywords copied."); }));
       body.appendChild(w);
     }));
 
@@ -1356,7 +1478,7 @@
     panel.appendChild(blockEl("You already cover (" + a.matched.length + ")", "jd.matched", function (body) {
       if (!a.matched.length) { body.appendChild(elText("p", "hint", "No overlap yet — start with the recommendations above.")); return; }
       var wrap = el("div", "chip-wrap");
-      a.matched.forEach(function (m) { wrap.appendChild(elText("span", "kw-chip have", titleCase(m.term))); });
+      a.matched.forEach(function (m) { wrap.appendChild(elText("span", "kw-chip have", kwLabel(m))); });
       body.appendChild(wrap);
     }));
   }
