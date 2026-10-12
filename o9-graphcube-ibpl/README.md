@@ -18,12 +18,32 @@ python3 -m http.server 8000
 # → http://localhost:8000/o9-graphcube-ibpl/
 ```
 
+## Interactive learning layer
+
+Beyond the reference content, the tool now has a hands-on practice layer:
+
+- **IBPL simulator** (`lib/ibpl-sim.js`) — a deterministic engine for a *documented subset*
+  of IBPL (Select + where/orderby/limit, transients, `coalesce`/`SafeDivide`, `@ LeadOffset`,
+  regular `scope:` writes, `DistributeToLeaves`/`aggregatePolicy` helpers) over an in-memory
+  CAT dataset. Every result is labelled **"Simulated — documented subset"**; it never claims
+  the real o9 engine ran. 29 unit tests (`node lib/ibpl-sim.test.js`).
+- **Exercise runner** (`components/exercise.js`) — mcq / predict / diagnose / fill / write /
+  fix / explain; write & fix run against the simulator and validate the output.
+- **Competency tracking** (`components/competency.js`) — a Home panel tracking *solved*
+  exercises across six areas (separate from the page-visited "done" set).
+- **Interactive pieces:** IBPL Sandbox & Playground (m06) · Data-Model explorer + Grain Lab
+  + troubleshooting (m02) · Aggregation & Spreading labs (m13) · Scope visualizer (m07) ·
+  dependency/Lineage explorer (m12) · guided model-build project (m10) · a **103-question
+  interview bank** with filters, self-grading and weak-area detection (m21).
+
 ## Architecture
 
 - `index.html` — sidebar + canvas shell, theme toggle.
 - `script.js` — hash router, lazy module loader, progress tracking (`localStorage`).
 - `components/nav.js` — the 21-module registry and sidebar rendering.
 - `components/module-shell.js` — `createModuleShell` / `initTabs` / `createIQSection` / `initIQ`.
+- `components/exercise.js`, `components/competency.js` — the practice layer.
+- `lib/ibpl-sim.js` (+ tests), `lib/interview-bank.js`, `lib/exercise-registry.js` — data/engine.
 - `modules/mNN-*.js` — one ES module per topic, each exporting `mount(container)`.
 - `assets/` — the two GraphCube explainers (architecture/flow and insert/store/retrieve),
   embedded in module 05. They load GSAP from a CDN and fall back to a static diagram offline.
