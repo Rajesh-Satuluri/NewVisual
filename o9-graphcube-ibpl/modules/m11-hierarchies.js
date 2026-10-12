@@ -1,4 +1,13 @@
 import { createModuleShell, createIQSection } from '../components/module-shell.js';
+import { createExerciseSet, initExerciseSet } from '../components/exercise.js';
+
+const M11_EX = [
+  { id:'m11-diag-orphan', type:'diagnose', area:'debug', difficulty:2, competencyLabel:'Hanging member', verify:'verified',
+    prompt:'A Brand roll-up is short by exactly one SKU’s worth of forecast. The SKU exists and has data. Most likely cause?',
+    options:[ {text:'The SKU is a hanging/orphan member with no Brand parent', correct:true, why:'A member with no parent at the Brand level rolls up nowhere, so the Brand total is short by its value.'}, {text:'The aggregation policy is Avg', why:'Avg would change the whole total, not drop exactly one SKU.'}, {text:'A version mismatch', why:'That would change or empty the result, not drop one member.'} ],
+    explanation:'List members with no parent at the level above; assign the correct parent (or createmember it). Add a validation rule to reject parentless members on load.' },
+];
+
 
 export const IQ = [
   { q: 'What is a level (LevelAttribute) and how does a hierarchy use it?',
@@ -21,6 +30,7 @@ export function mount(container) {
       { id: 'levels', label: '🪜 Levels & Roll-up' },
       { id: 'alt',    label: '🔀 Alternate Hierarchies' },
       { id: 'nav',    label: '🧭 Navigating in IBPL' },
+      { id: 'drill',  label: '🧪 Exercises' },
       { id: 'iq',     label: '🎯 Interview Q&A', content: createIQSection(IQ) },
     ],
   });
@@ -70,5 +80,8 @@ export function mount(container) {
       <div class="callout warn"><b>Orphan trap:</b> a SKU created without its Brand (or whose Brand was deleted) is a <b>hanging member</b> — it has leaf data but no roll-up path, so it vanishes from aggregates or double-counts. Always <code>createmember</code> a member <i>with</i> its ancestor; fix orphans with <code>updatemember</code> or purge them.</div>
     </div>`;
 
-  return null;
+  const drill = container.querySelector('#tab-drill');
+  drill.innerHTML = `<div class="section-pad">${createExerciseSet(M11_EX, { intro: 'The classic hierarchy-integrity bug.' })}</div>`;
+  const cleanup = initExerciseSet(drill, M11_EX);
+  return () => { cleanup && cleanup(); };
 }

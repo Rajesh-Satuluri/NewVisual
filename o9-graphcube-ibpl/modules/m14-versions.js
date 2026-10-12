@@ -1,4 +1,13 @@
 import { createModuleShell, createIQSection } from '../components/module-shell.js';
+import { createExerciseSet, initExerciseSet } from '../components/exercise.js';
+
+const M14_EX = [
+  { id:'m14-predict-scenario', type:'predict', area:'business', difficulty:2, competencyLabel:'Version isolation', verify:'verified',
+    prompt:'A planner builds a +15% upside in a <b>scenario</b> version (Key < 0), then edits the live plan. Does the scenario change?',
+    options:[ {text:'No — scenarios are isolated from the CWV', correct:true, why:'Each version partitions its own facts; edits to the CWV (Key 0) do not touch a scenario (Key < 0).'}, {text:'Yes — all versions share one set of cells', why:'Versions are separate partitions, not a shared set.'}, {text:'Only if they share a snapshot', why:'Snapshots are yet another isolated version; they do not link CWV and scenario edits.'} ],
+    explanation:'Version is a storage partition: CWV, each scenario and each snapshot hold their own values. That isolation is exactly what makes safe what-if analysis possible.' },
+];
+
 
 export const IQ = [
   { q: 'What is the difference between the Current Working View, a scenario, and a snapshot?',
@@ -20,6 +29,7 @@ export function mount(container) {
     tabs: [
       { id: 'three', label: '🗂️ Three Version Types' },
       { id: 'iso',   label: '🧪 Isolation & Merge' },
+      { id: 'drill', label: '🧪 Exercises' },
       { id: 'iq',    label: '🎯 Interview Q&A', content: createIQSection(IQ) },
     ],
   });
@@ -54,5 +64,8 @@ export function mount(container) {
       <div class="callout warn"><b>Isolation is why Version is mandatory.</b> No version filter = no partition selected = 0 rows. Moving data between versions is always an explicit, auditable copy — never a side effect.</div>
     </div>`;
 
-  return null;
+  const drill = container.querySelector('#tab-drill');
+  drill.innerHTML = `<div class="section-pad">${createExerciseSet(M14_EX, { intro: 'Version isolation in one question.' })}</div>`;
+  const cleanup = initExerciseSet(drill, M14_EX);
+  return () => { cleanup && cleanup(); };
 }
