@@ -37,6 +37,7 @@ export function mount(container) {
             ${realDone ? 'Continue' : 'Start'} — ${nextMod ? nextMod.icon + ' ' + nextMod.title : 'Begin'} <span>→</span>
           </button>
           <button class="btn btn-secondary" data-goto="m33">🏭 Production Lab</button>
+          <button class="btn btn-secondary" data-goto="studio">🧪 Coding Studio</button>
           <button class="btn btn-ghost" data-goto="modes">🧭 Learning Modes</button>
         </div>
       </div>

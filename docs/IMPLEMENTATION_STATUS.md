@@ -14,14 +14,15 @@ Living checklist for the Iter 0–4 build. Updated each wave. Counts are authori
 - [x] Dynamic counts: `script.js` toast + `home.js` stat strip wired to registry (removed hard-coded "16"/"33")
 - [ ] Headless route sweep green (dark+light) → deploy
 
-## Iter 1 — Coding Studio (real SQL) 🔵
+## Iter 1 — Coding Studio (real SQL) ✅
 
-- [ ] `/studio` route + nav entry
-- [ ] DuckDB-WASM engine wrapper (lazy-loaded, sandboxed; no eval/shell)
-- [ ] Editor + run + reset + output table + error surface + hints + solution + attempt history
-- [ ] Seed dataset load (e-commerce) into DuckDB
-- [ ] ~25 SQL/modeling exercises (full schema)
-- [ ] "Actual execution" labeling + dialect-difference notes
+- [x] `/studio` route + nav entry (Practice group) + home hero CTA
+- [x] DuckDB-WASM engine wrapper (lazy CDN, version-fallback, sandboxed worker; no eval/shell)
+- [x] Editor (Ctrl/⌘-Enter to run, Tab-indent) + run + check + reset + output table + error surface + progressive hints + solution reveal + solved-progress persistence
+- [x] Seed dataset (6 tables, intentional dedup/fan-out/refund quirks) loaded into DuckDB
+- [x] 25 SQL/modeling exercises (full schema), all solutions validated against real DuckDB (`tools/validate-sql.mjs`, 0 failing)
+- [x] "Actual execution — DuckDB-WASM" labeling; graceful degradation if CDN unreachable
+- [x] Verified headless: renders + interactions + graceful engine-offline, 0 pageerrors
 
 ## Iter 2 — Jinja / YAML / config 🔵
 

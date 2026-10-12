@@ -47,6 +47,8 @@ const LOADERS = {
   m31: () => import('./modules/m31-case-studies.js'),
   m32: () => import('./modules/m32-command-playground.js'),
   m33: () => import('./modules/m33-production-lab.js'),
+  // Practice
+  'studio':    () => import('./modules/studio.js'),
   // Reference & review
   'modes':     () => import('./modules/modes.js'),
   'readiness': () => import('./modules/readiness.js'),
