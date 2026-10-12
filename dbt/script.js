@@ -49,6 +49,7 @@ const LOADERS = {
   m33: () => import('./modules/m33-production-lab.js'),
   // Practice
   'studio':    () => import('./modules/studio.js'),
+  'config-lab':() => import('./modules/config-lab.js'),
   // Reference & review
   'modes':     () => import('./modules/modes.js'),
   'readiness': () => import('./modules/readiness.js'),

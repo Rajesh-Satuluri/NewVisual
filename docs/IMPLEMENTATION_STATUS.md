@@ -24,12 +24,14 @@ Living checklist for the Iter 0–4 build. Updated each wave. Counts are authori
 - [x] "Actual execution — DuckDB-WASM" labeling; graceful degradation if CDN unreachable
 - [x] Verified headless: renders + interactions + graceful engine-offline, 0 pageerrors
 
-## Iter 2 — Jinja / YAML / config 🔵
+## Iter 2 — Jinja / YAML / config ✅
 
-- [ ] Real YAML validation (js-yaml)
-- [ ] Labeled Jinja teaching-evaluator
-- [ ] Repair-broken-project exercises
-- [ ] valid→parsed→compiled→executed→correct ladder UI
+- [x] Real YAML parse (js-yaml in production; tested yaml-mini fallback offline/CI — validated vs PyYAML)
+- [x] Labeled pure-JS Jinja teaching-evaluator (if/for/set/filters/ref/var) — cross-checked vs real Jinja2
+- [x] `/config-lab` route + Practice nav entry
+- [x] 12 exercises (6 Jinja, 6 YAML repair) with full schema; all validated offline (`tools/validate-config.mjs`, 0 failing)
+- [x] valid→parsed→compiled→executed→correct ladder UI (per-exercise stage highlight)
+- [x] Verified headless: Jinja Check pass, YAML Check pass (yaml-mini), broken starter rejected, 0 pageerrors
 
 ## Iter 3 — Interview Academy 🔵
 
