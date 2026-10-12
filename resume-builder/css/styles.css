@@ -121,6 +121,27 @@ body.resizing { cursor: col-resize; user-select: none; }
 .resume-chip.active .rc-role { color: #a9c4ce; }
 .resume-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 2px; }
 
+/* per-chip archive affordance — appears on hover, stays out of the way otherwise */
+.resume-chip .rc-archive {
+  position: absolute; top: 7px; right: 8px; font-size: 9.5px; font-weight: 700;
+  letter-spacing: .04em; text-transform: uppercase; color: var(--muted);
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  padding: 2px 6px; cursor: pointer; opacity: 0; transition: opacity .12s, color .12s, border-color .12s;
+}
+.resume-chip:hover .rc-archive, .resume-chip.active .rc-archive { opacity: 1; }
+.resume-chip .rc-archive:hover { color: var(--brand); border-color: var(--brand); }
+
+/* archived resumes list inside the collapsible block */
+.archive-list { display: flex; flex-direction: column; gap: 7px; margin-top: 8px; }
+.archive-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 8px 11px;
+}
+.archive-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.archive-meta .ar-name { font-weight: 700; font-size: 13px; }
+.archive-meta .ar-role { font-size: 11px; color: var(--muted); }
+.archive-btns { display: flex; gap: 6px; flex-shrink: 0; }
+
 /* include pickers */
 .pick-group { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
 .pick-group:last-child { margin-bottom: 0; }

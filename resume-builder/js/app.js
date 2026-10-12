@@ -310,12 +310,15 @@
     /* switcher */
     panel.appendChild(elText("div", "group-label", "Your resumes — click to edit"));
     var switcher = el("div", "resume-switcher");
-    store.resumes.forEach(function (r) {
+    store.resumes.filter(function (r) { return !r.archived; }).forEach(function (r) {
       var isActive = r.id === store.activeResumeId;
       var chip = el("button", "resume-chip" + (isActive ? " active" : "")); chip.type = "button";
       if (isActive) chip.appendChild(elText("span", "rc-check", "✓ Editing"));
       chip.appendChild(elText("span", "rc-name", r.name || "Untitled"));
       if (r.targetRole) chip.appendChild(elText("span", "rc-role", r.targetRole));
+      var arch = el("span", "rc-archive"); arch.textContent = "Archive"; arch.title = "Move to archive";
+      arch.addEventListener("click", function (e) { e.stopPropagation(); archiveResume(r); });
+      chip.appendChild(arch);
       chip.addEventListener("click", function () { store.activeResumeId = r.id; renderApp(); });
       switcher.appendChild(chip);
     });
@@ -329,6 +332,30 @@
     actions.appendChild(miniBtn("⊕ Expand all", function () { setAllCollapsed(false); }));
     actions.appendChild(miniBtn("⊖ Collapse all", function () { setAllCollapsed(true); }));
     panel.appendChild(actions);
+
+    /* archived resumes — tucked away, restorable */
+    var archivedList = store.resumes.filter(function (r) { return r.archived; });
+    if (archivedList.length) {
+      if (collapsed["r.archived"] === undefined) collapsed["r.archived"] = true;
+      panel.appendChild(blockEl("Archived (" + archivedList.length + ")", "r.archived", function (body) {
+        body.appendChild(elText("p", "hint", "Resumes you've set aside. Restore one to bring it back to the list above."));
+        var wrap = el("div", "archive-list");
+        archivedList.forEach(function (r) {
+          var row = el("div", "archive-row");
+          var meta = el("div", "archive-meta");
+          meta.appendChild(elText("span", "ar-name", r.name || "Untitled"));
+          if (r.targetRole) meta.appendChild(elText("span", "ar-role", r.targetRole));
+          row.appendChild(meta);
+          var btns = el("div", "archive-btns");
+          btns.appendChild(miniBtn("↩ Restore", function () { unarchiveResume(r); }));
+          btns.appendChild(miniBtn("🗑 Delete", function () { deleteResume(r); }, "btn-danger"));
+          row.appendChild(btns);
+          wrap.appendChild(row);
+        });
+        body.appendChild(wrap);
+      }));
+    }
+
     var banner = el("div", "over-banner"); banner.id = "overBanner"; banner.hidden = true;
     banner.innerHTML = "⚠ This resume exceeds one page. Trim or shorten content — <strong>Add</strong> buttons are disabled until it fits.";
     panel.appendChild(banner);
@@ -567,11 +594,30 @@
     copy.sections.forEach(function (s) { s.id = uid(); (s.items || []).forEach(function (it) { it.id = uid(); }); });
     store.resumes.push(copy); store.activeResumeId = copy.id; renderApp(); touch();
   }
+  function archiveResume(r) {
+    var activeCount = store.resumes.filter(function (x) { return !x.archived; }).length;
+    if (activeCount <= 1) { alert("Keep at least one resume active. Restore or create another before archiving this one."); return; }
+    r.archived = true;
+    if (store.activeResumeId === r.id) {
+      var firstActive = store.resumes.filter(function (x) { return !x.archived; })[0];
+      if (firstActive) store.activeResumeId = firstActive.id;
+    }
+    renderApp(); touch(); flash("Moved “" + (r.name || "Untitled") + "” to archive");
+  }
+  function unarchiveResume(r) {
+    r.archived = false; store.activeResumeId = r.id; renderApp(); touch();
+    flash("Restored “" + (r.name || "Untitled") + "”");
+  }
   function deleteResume(r) {
     if (store.resumes.length <= 1) { alert("You need at least one resume. Create another before deleting this one."); return; }
     if (!confirm("Delete resume \"" + (r.name || "Untitled") + "\"?")) return;
+    var wasActive = store.activeResumeId === r.id;
     var idx = store.resumes.indexOf(r); store.resumes.splice(idx, 1);
-    store.activeResumeId = store.resumes[Math.max(0, idx - 1)].id; renderApp(); touch();
+    if (wasActive) {
+      var firstActive = store.resumes.filter(function (x) { return !x.archived; })[0] || store.resumes[0];
+      store.activeResumeId = firstActive.id;
+    }
+    renderApp(); touch();
   }
 
   /* ============================================================
