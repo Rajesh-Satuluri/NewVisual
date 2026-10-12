@@ -43,4 +43,17 @@ export const REGISTRY = [
   { id: 'm08-fix-nullprop',     area: 'debug' },
   { id: 'm09-diag-command',     area: 'ibpl' },
   { id: 'm09-explain-softdel',  area: 'concept' },
+  // ── Iter E · Deep Dive (m10 build project, m11/m12/m14) ────────────────────
+  { id: 'bp-dims',     area: 'model' },
+  { id: 'bp-grain',    area: 'model' },
+  { id: 'bp-measures', area: 'model' },
+  { id: 'bp-agg',      area: 'model' },
+  { id: 'bp-ibpl',     area: 'ibpl' },
+  { id: 'bp-validate', area: 'debug' },
+  { id: 'bp-version',  area: 'business' },
+  { id: 'bp-perf',     area: 'business' },
+  { id: 'm11-diag-orphan',    area: 'debug' },
+  { id: 'm12-diag-lineage',   area: 'debug' },
+  { id: 'm12-predict-change', area: 'model' },
+  { id: 'm14-predict-scenario', area: 'business' },
 ];

@@ -1005,3 +1005,27 @@ button.pill.on { box-shadow: 0 0 0 1px var(--accent), 0 4px 14px -6px var(--acce
 .sv-cell.seed { background: var(--purple-lo); border-color: var(--purple); }
 .sv-arrow { position: absolute; left: 2px; color: var(--accent); font-size: 13px; font-weight: 800; }
 .sv-down { position: absolute; bottom: 1px; color: var(--purple); font-size: 13px; font-weight: 800; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ITER E — Lineage explorer (m12) · Build project (m10)
+   ═══════════════════════════════════════════════════════════════════════════ */
+.ln-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11px; color: var(--text3); margin-bottom: 10px; }
+.ln-k.src { color: var(--text2); } .ln-k.base { color: var(--accent); } .ln-k.calc { color: var(--purple); } .ln-k.out { color: var(--good); }
+.ln-k.up::before { content: ''; } .ln-k.up { color: var(--accent); } .ln-k.down { color: var(--purple); }
+.ln-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px; overflow-x: auto; }
+.ln-svg { width: 100%; min-width: 720px; height: auto; display: block; }
+.ln-edge { fill: none; stroke: var(--border); stroke-width: 1.5; transition: stroke .15s, stroke-width .15s; }
+.ln-edge.up { stroke: var(--accent); stroke-width: 2.4; }
+.ln-edge.down { stroke: var(--purple); stroke-width: 2.4; }
+.ln-node { cursor: pointer; }
+.ln-node rect { fill: var(--bg3); stroke: var(--border); stroke-width: 1.4; transition: all .15s; }
+.ln-node text { fill: var(--text); font-size: 12px; font-weight: 700; text-anchor: middle; dominant-baseline: central; }
+.ln-node.ln-source rect { stroke-dasharray: 4 3; fill: var(--bg); }
+.ln-node.ln-base rect { stroke: var(--accent); }
+.ln-node.ln-calc rect { stroke: var(--purple); }
+.ln-node.ln-out rect { stroke: var(--good); }
+.ln-node.sel rect { fill: var(--accent); stroke: var(--accent); stroke-width: 2.4; }
+.ln-node.sel text { fill: #04121a; }
+.ln-node.up rect { fill: var(--accent-lo); stroke: var(--accent); stroke-width: 2; }
+.ln-node.down rect { fill: var(--purple-lo); stroke: var(--purple); stroke-width: 2; }
+.ln-detail { margin-top: 12px; }
