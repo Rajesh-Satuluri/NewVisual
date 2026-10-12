@@ -30,8 +30,9 @@ export const MODULES = [
 
 const GROUP_ORDER = ['Platform','GraphCube','IBPL Language','Data Model Deep Dive','Operations','Practice'];
 const REFERENCE = [
-  { id:'master-map', label:'Master Map', icon:'🗺️' },
-  { id:'glossary',   label:'Glossary',   icon:'📖' },
+  { id:'sandbox',    label:'IBPL Sandbox', icon:'🧪' },
+  { id:'master-map', label:'Master Map',   icon:'🗺️' },
+  { id:'glossary',   label:'Glossary',     icon:'📖' },
 ];
 
 const COLLAPSE_KEY = 'o9gc_nav_collapsed';
