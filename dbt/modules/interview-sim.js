@@ -12,7 +12,16 @@ const FOCI = [
   { id: 'scenario',    label: '🧩 Scenario & design', desc: 'System-design and "walk me through" prompts.', pick: () => byTier(['scenario', 'architecture']) },
   { id: 'debugging',   label: '🐛 Debugging drill',   desc: 'On-call triage and root-cause questions.', pick: () => byTier(['debugging']) },
   { id: 'senior',      label: '🎯 Senior deep-dive',  desc: '4-year + senior internals, cost, governance.', pick: () => byTier(['fouryear', 'senior']) },
+  { id: 'mixed',       label: '🎲 Full mock (mixed)',  desc: 'A broad random mock across every category.', pick: () => shuffle(BANK).slice(0, 10) },
 ];
+
+function recordWeakTopics(cats) {
+  try {
+    const prev = JSON.parse(localStorage.getItem('dbt-weak-topics') || '[]');
+    const merged = [...new Set([...cats, ...prev])].slice(0, 12);
+    localStorage.setItem('dbt-weak-topics', JSON.stringify(merged));
+  } catch {}
+}
 
 function shuffle(a) { const r = a.slice(); for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; }
 function byTier(tiers) { return shuffle(BANK.filter(b => tiers.includes(b.tier))).slice(0, 8); }
@@ -77,7 +86,8 @@ function runSession(tab, questions, label) {
         </div>
         <div class="stage-panel-body">
           <div class="sim-q">${b.q}</div>
-          <div class="sim-hint" id="sim-hint">Answer out loud, then reveal the model answer.</div>
+          <textarea class="sim-answer" id="sim-answer" placeholder="Optional: type your answer here first (as in a written interview), then reveal and compare." spellcheck="false"></textarea>
+          <div class="sim-hint" id="sim-hint">Answer out loud or in writing, then reveal the model answer.</div>
           <div id="sim-reveal" hidden>
             <div class="ib-row"><span class="ib-k">Strong answer</span><div>${b.short}</div></div>
             <div class="ib-row"><span class="ib-k">Detailed</span><div>${b.detailed}</div></div>
@@ -104,7 +114,7 @@ function runSession(tab, questions, label) {
       nav.addEventListener('click', ev => {
         const r = ev.target.closest('.sim-rate');
         if (!r) return;
-        ratings.push({ tier: b.tier, rating: r.dataset.r });
+        ratings.push({ tier: b.tier, cat: b.cat, rating: r.dataset.r });
         idx++;
         idx < questions.length ? renderQ() : renderSummary();
       });
@@ -117,6 +127,8 @@ function runSession(tab, questions, label) {
     const weakTiers = {};
     ratings.forEach(r => { if (r.rating !== 'strong') weakTiers[r.tier] = (weakTiers[r.tier] || 0) + 1; });
     const weak = Object.entries(weakTiers).sort((a, b) => b[1] - a[1]).map(([t]) => tierMeta(t).label);
+    const weakCats = [...new Set(ratings.filter(r => r.rating !== 'strong').map(r => r.cat))];
+    if (weakCats.length) recordWeakTopics(weakCats);
     const score = Math.round(((tally.strong + tally.partial * 0.5) / ratings.length) * 100);
     tab.innerHTML = `
       <div class="sim-summary">
@@ -131,7 +143,7 @@ function runSession(tab, questions, label) {
             <span class="sim-chip" style="color:var(--warn)">~ ${tally.partial} partial</span>
             <span class="sim-chip" style="color:var(--error)">✗ ${tally.shaky} shaky</span>
           </div>
-          <p>${weak.length ? `Focus your revision on: <strong>${weak.join(', ')}</strong>. Re-read those tiers in the Interview Master Bank, then run this track again.` : 'Strong across the board — try a harder track or the Senior deep-dive.'}</p>
+          <p>${weakCats.length ? `Focus your revision on: <strong>${weakCats.join(', ')}</strong>. Saved to your weak-topics list — see the Coverage Matrix in the Master Bank.` : 'Strong across the board — try a harder track or the Senior deep-dive.'}</p>
           <p style="font-size:12px;color:var(--text-3)">Self-assessed scores track your confidence, not a graded result.</p>
         </div>
       </div>
