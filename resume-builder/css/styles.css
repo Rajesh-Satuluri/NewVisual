@@ -256,6 +256,18 @@ button.kw-chip:hover { transform: translateY(-1px); }
 .kw-chip.miss:not(.skill) { color: #c9bfb2; border-color: #4a4238; background: #211e19; font-weight: 500; }
 .kw-chip.miss:not(.skill):hover { border-color: #726552; background: #2a2620; }
 .kw-chip.have { color: #a9e6c4; border-color: #2e5a42; background: #16271e; }
+button.kw-chip.have { cursor: pointer; }
+
+/* two-column covered-vs-missing layout */
+.jd-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 10px; align-items: start; }
+.jd-col { min-width: 0; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+.jd-col.have-col { border-color: #274635; }
+.jd-col.miss-col { border-color: #4a3620; }
+.jd-col-head { font-size: 12px; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; margin-bottom: 9px; padding-bottom: 7px; border-bottom: 1px solid var(--border); }
+.jd-col-head.have { color: #8fe0b2; }
+.jd-col-head.miss { color: #e0a05a; }
+.jd-col .prompt-actions { margin-top: 11px; }
+@media (max-width: 640px) { .jd-cols { grid-template-columns: 1fr; gap: 12px; } }
 /* missing keyword + inline add button */
 .kw-group { display: inline-flex; align-items: stretch; }
 .kw-group .kw-chip.miss { border-top-right-radius: 0; border-bottom-right-radius: 0; }
