@@ -11,6 +11,7 @@
 import { MODULES, EXTRAS } from '../components/nav.js';
 import { QUIZ_BANK } from './quiz-bank.js';
 import { BANK, TIERS } from './interview-bank.js';
+import { INCIDENTS } from './incidents.js';
 
 // ── Derived counts ──────────────────────────────────────────────────────────
 export const moduleCount = MODULES.length;
@@ -21,6 +22,9 @@ export const quizQuestionCount = Object.values(QUIZ_BANK)
   .reduce((n, qs) => n + qs.length, 0);
 
 export const interviewCount = BANK.length;
+
+// Production Incident Simulator scenarios (Iter 4).
+export const incidentCount = INCIDENTS.length;
 
 // Interview coverage, grouped two ways (for the competency matrix in Iter 3).
 export const interviewByTier = TIERS.map(t => ({
@@ -46,6 +50,7 @@ export const REGISTRY = {
   quizModuleCount,
   quizQuestionCount,
   interviewCount,
+  incidentCount,
   interviewByTier,
   interviewByCategory,
   modulesWithQuiz,
