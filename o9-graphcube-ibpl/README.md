@@ -40,8 +40,8 @@ python3 -m http.server 8000
 | Operations | m16 Access Control · m17 DistributeToLeaves · m18 Integrations · m20 Performance |
 | Practice | m19 Use Cases · m21 Interview Master |
 
-Modules m01–m09 and m15 are live; the remaining data-model / operations / practice modules
-are planned in later iterations and currently show a "Coming Soon" placeholder.
+Modules m01–m15 are live; the Operations (m16–m18, m20) and Practice (m19, m21) modules and
+the reference pages are planned in the next iteration and currently show a "Coming Soon" placeholder.
 
 ## Sources
 
