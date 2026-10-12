@@ -10,4 +10,12 @@ export const REGISTRY = [
   { id: 'sbx-fix-compare',     area: 'debug' },
   { id: 'sbx-predict-grain',   area: 'model' },
   { id: 'sbx-explain-safediv', area: 'concept' },
+  // ── Iter B · Data Model (m02) ──────────────────────────────────────────────
+  { id: 'm02-diag-badkey',      area: 'debug' },
+  { id: 'm02-diag-version',     area: 'debug' },
+  { id: 'm02-diag-grain',       area: 'debug' },
+  { id: 'm02-predict-rollup',   area: 'model' },
+  { id: 'm02-predict-nullzero', area: 'concept' },
+  { id: 'm02-write-grain',      area: 'ibpl' },
+  { id: 'm02-model-design',     area: 'model' },
 ];

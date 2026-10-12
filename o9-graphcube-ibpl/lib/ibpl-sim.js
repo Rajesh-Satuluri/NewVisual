@@ -341,8 +341,8 @@ function runSelect(toks, dataset) {
   // optional wrapping parens
   let paren = false;
   if (toks[ref.i].type === 'op' && toks[ref.i].value === '(') { paren = true; ref.i++; }
-  // grain levels
-  const levels = parseLevelRefs(toks, ref);
+  // grain levels (may be none → grand-total roll-up)
+  const levels = (toks[ref.i].type === 'op' && toks[ref.i].value === '{') ? [] : parseLevelRefs(toks, ref);
   // measures + transients
   const measures = []; const transients = [];
   if (toks[ref.i].type === 'op' && toks[ref.i].value === '*') ref.i++;
