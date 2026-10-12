@@ -6,6 +6,7 @@ const PAGES = {
   home: `<strong>🏠 Home</strong>`,
   'master-map': `Reference &rsaquo; <strong>🗺️ Master Map</strong>`,
   glossary: `Reference &rsaquo; <strong>📖 Glossary</strong>`,
+  sandbox: `Reference &rsaquo; <strong>🧪 IBPL Sandbox</strong>`,
 };
 
 const done = new Set(JSON.parse(localStorage.getItem('o9gc-done') || '[]'));
@@ -16,6 +17,7 @@ const LOADERS = {
   home: () => import('./modules/home.js'),
   'master-map': () => import('./modules/master-map.js'),
   glossary: () => import('./modules/glossary.js'),
+  sandbox: () => import('./modules/sandbox.js'),
   m01: () => import('./modules/m01-overview.js'),
   m02: () => import('./modules/m02-data-model.js'),
   m03: () => import('./modules/m03-planning-engine.js'),

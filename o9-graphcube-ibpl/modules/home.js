@@ -1,4 +1,6 @@
 import { MODULES } from '../components/nav.js';
+import { renderCompetencyPanel } from '../components/competency.js';
+import { REGISTRY } from '../lib/exercise-registry.js';
 
 const GROUPS = ['Platform','GraphCube','IBPL Language','Data Model Deep Dive','Operations','Practice'];
 
@@ -21,6 +23,11 @@ export function mount(container) {
           <b>Version is mandatory</b> (skip it → 0 rows), writes use <code style="color:var(--accent)">scope: … end scope;</code> (7 variants),
           joins are <b>graph edges</b> (<code style="color:var(--accent)">From/To/Edge/RelationshipType</code>), and <code style="color:var(--accent)">==</code> compares while <code style="color:var(--accent)">=</code> assigns.
           This tool teaches the differences explicitly.
+        </div>
+
+        <div class="home-competency">
+          ${renderCompetencyPanel(REGISTRY)}
+          <a class="pill sandbox-cta" href="#sandbox">🧪 Open the IBPL Sandbox →</a>
         </div>
 
         <div class="card-grid">
