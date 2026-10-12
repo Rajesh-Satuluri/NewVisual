@@ -1038,10 +1038,11 @@
       + "managers director directors officer officers coordinator coordinators associate associates intern interns "
       + "candidate's applicant's description posting join looking seeking hire hiring recruit recruiting onboarding "
       + "computer science field fields area areas discipline disciplines subject subjects topic topics matter "
-      + "plus strongly highly etc eg ie").split(/\s+/);
+      + "plus strongly highly etc eg ie technology technologies technical stack deliverable deliverables exposure "
+      + "btech mtech bca mca mba bsc msc bba bcom mcom be me bs ms ba ma educational").split(/\s+/);
     var m = {}; w.forEach(function (x) { if (x) m[x] = 1; }); return m;
   })();
-  function jdGeneric(t) { t = (t || "").replace(/[^a-z0-9+#./-]/g, ""); return !t || JD_STOP[t] === 1 || JD_GENERIC[t] === 1; }
+  function jdGeneric(t) { t = (t || "").toLowerCase().replace(/[^a-z0-9]/g, ""); return !t || JD_STOP[t] === 1 || JD_GENERIC[t] === 1; }
   function jdNorm(t) { return (" " + (t || "").toLowerCase().replace(/[‘’]/g, "'") + " "); }
   /* word boundaries that still treat "node.js" / "ci/cd" / "c#" as single tokens,
      but DO allow a trailing sentence period or slash (so "Tableau." at a line end
@@ -1070,6 +1071,11 @@
   var ACRONYM  = /^[A-Z][A-Z0-9]{1,6}$/;                           // AWS, SQL, ETL, KPI
   var TECH_TOK = /[+#]|\.[a-z]{2,4}$|^[A-Za-z]+\/[A-Za-z]/;        // C++, C#, Node.js, CI/CD
   function termTechy(w) { return ACRONYM.test(w) || TECH_TOK.test(w); }
+  /* keep real slash-acronyms (CI/CD, A/B, PL/SQL, TCP/IP, I/O) but reject prose
+     compounds the JD jams together (Data Lake/Lakehouse, analysts/engineers,
+     experience/exposure): a valid slash term has an uppercase letter and only
+     short segments. */
+  function slashOk(w) { return w.indexOf("/") === -1 || (/[A-Z]/.test(w) && w.split("/").every(function (s) { return s.length <= 4; })); }
   function properTerms(jd) {
     var out = {}, text = (jd || "").replace(/\r/g, "\n");
     /* break into sentence-ish segments so we can tell a sentence-start word apart */
@@ -1100,7 +1106,7 @@
       words.forEach(function (raw, idx) {
         var listBreak = /[,;]$/.test(raw);   // comma/semicolon ends one list item, breaks the phrase
         var w = raw.replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9+#./&-]+$/g, "");
-        if (w && (CAP_WORD.test(w) || ACRONYM.test(w) || TECH_TOK.test(w))) { run.push({ w: w, start: idx === 0 }); if (listBreak) flush(); }
+        if (w && slashOk(w) && (CAP_WORD.test(w) || ACRONYM.test(w) || TECH_TOK.test(w))) { run.push({ w: w, start: idx === 0 }); if (listBreak) flush(); }
         else flush();
       });
       flush();
@@ -1186,7 +1192,7 @@
       "aws":"AWS","gcp":"GCP","s3":"S3","ec2":"EC2","emr":"EMR","adls":"ADLS","adf":"ADF","iam":"IAM",
       "sql":"SQL","pl/sql":"PL/SQL","t-sql":"T-SQL","nosql":"NoSQL","mysql":"MySQL","postgresql":"PostgreSQL",
       "sql server":"SQL Server","mongodb":"MongoDB","dynamodb":"DynamoDB","db2":"Db2","sap hana":"SAP HANA",
-      "etl":"ETL","elt":"ELT","cdc":"CDC","ssis":"SSIS","dbt":"dbt","hdfs":"HDFS","bigquery":"BigQuery",
+      "etl":"ETL","elt":"ELT","cdc":"CDC","ssis":"SSIS","dbt":"dbt","hdfs":"HDFS","hbase":"HBase","bigquery":"BigQuery",
       "ci/cd":"CI/CD","rest api":"REST API","restful api":"RESTful API","graphql":"GraphQL","api integration":"API integration",
       "kpi":"KPI","nlp":"NLP","mlops":"MLOps","llm":"LLM","genai":"GenAI","generative ai":"Generative AI",
       "power bi":"Power BI","qlik":"Qlik","qlikview":"QlikView","a/b testing":"A/B Testing","seo":"SEO","sas":"SAS","vba":"VBA",
@@ -1421,41 +1427,66 @@
     /* Score card */
     panel.appendChild(scoreCard(a));
 
-    /* Missing keywords */
-    panel.appendChild(blockEl("Add these — missing from your resume (" + a.missing.length + ")", "jd.missing", function (body) {
-      if (!a.missing.length) { body.appendChild(elText("p", "hint", "Nothing important is missing — great alignment!")); return; }
-      body.appendChild(elText("p", "hint", "Prioritized by impact: hard skills & tools (with ＋ to add) rank above softer keywords — the way real ATS scanners weight them. Generic filler is filtered out. Click any term to copy it; add only what's truthful."));
-      var wrap = el("div", "chip-wrap");
-      a.missing.forEach(function (m) {
-        var group = el("span", "kw-group");
-        var c = el("button", "kw-chip miss" + (m.freq >= 3 ? " hot" : "") + (m.skill ? " skill" : "")); c.type = "button";
-        c.textContent = kwLabel(m) + (m.freq >= 3 ? " ·" + m.freq : "");
-        c.title = (m.skill ? "Skill/tool — " : "Keyword — ") + "appears " + m.freq + "× in the JD. Click to copy.";
-        c.addEventListener("click", function () { copyText(m.display || m.term, "“" + kwLabel(m) + "” copied."); });
-        group.appendChild(c);
-        if (m.skill) {
-          var add = el("button", "kw-add"); add.type = "button"; add.textContent = "＋";
-          add.title = "Add “" + kwLabel(m) + "” to your Technical Skills";
-          add.addEventListener("click", function () {
-            if (addSkillToResume(activeResume(), kwLabel(m))) { flash("Added “" + kwLabel(m) + "” to Technical Skills."); reanalyzeAfterEdit(); }
-            else flash("“" + kwLabel(m) + "” is already in your skills.");
-          });
-          group.appendChild(add);
-        }
-        wrap.appendChild(group);
-      });
-      body.appendChild(wrap);
-      var w = el("div", "prompt-actions");
-      var addableMissing = a.missing.filter(function (m) { return m.skill; });
-      if (addableMissing.length) {
-        w.appendChild(miniBtn("＋ Add all " + addableMissing.length + " missing skills", function () {
-          var n = 0; addableMissing.forEach(function (m) { if (addSkillToResume(activeResume(), kwLabel(m))) n++; });
-          if (n) { flash("Added " + n + " skill" + (n > 1 ? "s" : "") + " to Technical Skills."); reanalyzeAfterEdit(); }
-          else flash("Those skills are already in your resume.");
-        }, "btn-primary"));
+    /* Two-column keyword match: covered (left) vs missing (right) */
+    panel.appendChild(blockEl("Keyword match — covered vs missing", "jd.match", function (body) {
+      body.appendChild(elText("p", "hint", "Left: keywords your resume already covers. Right: keywords in the job description you're missing — hard skills & tools (with ＋ to add) rank above softer keywords, the way real ATS scanners weight them. Generic filler is filtered out. Click any term to copy it; add only what's truthful."));
+      var cols = el("div", "jd-cols");
+
+      /* LEFT — covered */
+      var left = el("div", "jd-col have-col");
+      left.appendChild(elText("div", "jd-col-head have", "✓ You cover (" + a.matched.length + ")"));
+      if (!a.matched.length) left.appendChild(elText("p", "hint", "No overlap yet — add the skills on the right that you genuinely have."));
+      else {
+        var lw = el("div", "chip-wrap");
+        a.matched.forEach(function (m) {
+          var c = elText("button", "kw-chip have" + (m.skill ? " skill" : ""), kwLabel(m)); c.type = "button";
+          c.title = (m.skill ? "Skill/tool" : "Keyword") + " — covered. Click to copy.";
+          c.addEventListener("click", function () { copyText(m.display || m.term, "“" + kwLabel(m) + "” copied."); });
+          lw.appendChild(c);
+        });
+        left.appendChild(lw);
       }
-      w.appendChild(miniBtn("⧉ Copy all missing keywords", function () { copyText(a.missing.map(function (m) { return kwLabel(m); }).join(", "), "Missing keywords copied."); }));
-      body.appendChild(w);
+      cols.appendChild(left);
+
+      /* RIGHT — missing */
+      var right = el("div", "jd-col miss-col");
+      right.appendChild(elText("div", "jd-col-head miss", "＋ Missing (" + a.missing.length + ")"));
+      if (!a.missing.length) right.appendChild(elText("p", "hint", "Nothing important is missing — great alignment!"));
+      else {
+        var rw = el("div", "chip-wrap");
+        a.missing.forEach(function (m) {
+          var group = el("span", "kw-group");
+          var c = el("button", "kw-chip miss" + (m.freq >= 3 ? " hot" : "") + (m.skill ? " skill" : "")); c.type = "button";
+          c.textContent = kwLabel(m) + (m.freq >= 3 ? " ·" + m.freq : "");
+          c.title = (m.skill ? "Skill/tool — " : "Keyword — ") + "appears " + m.freq + "× in the JD. Click to copy.";
+          c.addEventListener("click", function () { copyText(m.display || m.term, "“" + kwLabel(m) + "” copied."); });
+          group.appendChild(c);
+          if (m.skill) {
+            var add = el("button", "kw-add"); add.type = "button"; add.textContent = "＋";
+            add.title = "Add “" + kwLabel(m) + "” to your Technical Skills";
+            add.addEventListener("click", function () {
+              if (addSkillToResume(activeResume(), kwLabel(m))) { flash("Added “" + kwLabel(m) + "” to Technical Skills."); reanalyzeAfterEdit(); }
+              else flash("“" + kwLabel(m) + "” is already in your skills.");
+            });
+            group.appendChild(add);
+          }
+          rw.appendChild(group);
+        });
+        right.appendChild(rw);
+        var w = el("div", "prompt-actions");
+        var addableMissing = a.missing.filter(function (m) { return m.skill; });
+        if (addableMissing.length) {
+          w.appendChild(miniBtn("＋ Add all " + addableMissing.length + " missing skills", function () {
+            var n = 0; addableMissing.forEach(function (m) { if (addSkillToResume(activeResume(), kwLabel(m))) n++; });
+            if (n) { flash("Added " + n + " skill" + (n > 1 ? "s" : "") + " to Technical Skills."); reanalyzeAfterEdit(); }
+            else flash("Those skills are already in your resume.");
+          }, "btn-primary"));
+        }
+        w.appendChild(miniBtn("⧉ Copy all missing", function () { copyText(a.missing.map(function (m) { return kwLabel(m); }).join(", "), "Missing keywords copied."); }));
+        right.appendChild(w);
+      }
+      cols.appendChild(right);
+      body.appendChild(cols);
     }));
 
     /* Recommendations */
@@ -1472,14 +1503,6 @@
       tailor.classList.remove("btn-mini"); tailor.classList.add("btn-primary");
       var w = el("div", "prompt-actions"); w.appendChild(tailor); body.appendChild(w);
       body.appendChild(elText("p", "hint", "Want the AI to do the rewriting for you? Copy this prompt into any free AI chat — it already includes your resume, the JD, and the exact gaps."));
-    }));
-
-    /* Already covered */
-    panel.appendChild(blockEl("You already cover (" + a.matched.length + ")", "jd.matched", function (body) {
-      if (!a.matched.length) { body.appendChild(elText("p", "hint", "No overlap yet — start with the recommendations above.")); return; }
-      var wrap = el("div", "chip-wrap");
-      a.matched.forEach(function (m) { wrap.appendChild(elText("span", "kw-chip have", kwLabel(m))); });
-      body.appendChild(wrap);
     }));
   }
 
