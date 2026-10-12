@@ -40,9 +40,17 @@
 
   function _now() { return Date.now(); }
 
+  /* Multi-dimensional activity signals (Phase 5). Each sub-bucket keys
+     an item id → { best|rate, last, count }. Kept separate from the
+     engine's core signals so nothing downstream is disturbed. */
+  function _blankActivities() {
+    return { incidents: {}, challenges: {}, projects: {}, interviewRates: {} };
+  }
+
   function _blank() {
     return { v: VERSION, role: DEFAULT_ROLE, goal: 'interview', targetCert: null,
-             viewed: {}, quiz: {}, ratings: {}, certExam: {}, labs: {}, weights: null, updated: 0 };
+             viewed: {}, quiz: {}, ratings: {}, certExam: {}, labs: {}, weights: null,
+             activities: _blankActivities(), updated: 0 };
   }
 
   /* ── Load / persist ──────────────────────────────────────── */
@@ -64,6 +72,10 @@
     data.goal = data.goal || 'interview';
     if (!('targetCert' in data)) data.targetCert = null;
     if (!('weights' in data)) data.weights = null;
+    if (!data.activities || typeof data.activities !== 'object') data.activities = _blankActivities();
+    ['incidents', 'challenges', 'projects', 'interviewRates'].forEach(k => {
+      if (!data.activities[k] || typeof data.activities[k] !== 'object') data.activities[k] = {};
+    });
     _cache = data;
     return _cache;
   }
@@ -200,6 +212,129 @@
     };
   }
 
+  /* ── Multi-dimensional activity recorders (Phase 5 / M5.1) ───
+     Each keeps the BEST score and a last-seen timestamp + attempt
+     count, so a mastery view can reward improvement without losing
+     history. All degrade to no-op if storage is blocked. */
+  function _recScore(bucket, id, score) {
+    if (!id) return;
+    const d = load();
+    const b = d.activities[bucket] || (d.activities[bucket] = {});
+    const s = Math.max(0, Math.min(100, Math.round(+score || 0)));
+    const cur = b[id] || { best: 0, last: 0, count: 0 };
+    cur.best = Math.max(cur.best || 0, s);
+    cur.last = _now();
+    cur.count = (cur.count || 0) + 1;
+    b[id] = cur;
+    save();
+  }
+  /* Incident sim calls recordIncident(cloud, service, passedBool); also
+     tolerates recordIncident(id, pct). Keyed so retries keep best. */
+  function recordIncident(a, b, c) {
+    if (c !== undefined) { // (cloud, service, passedBool)
+      _recScore('incidents', String(a) + '/' + String(b), c ? 100 : 0);
+    } else { // (id, pct)
+      _recScore('incidents', a, b);
+    }
+  }
+  function recordDesignChallenge(challengeId, pct) { _recScore('challenges', challengeId, pct); }
+  function recordProjectStage(trackId, pct) { _recScore('projects', trackId, pct); }
+  /* Interview self-rate: called (format, topicId, qi, rate) by the QA
+     renderer, or (key, rate) directly. Rate words map to a 0–100 score. */
+  function recordInterviewSelfRate() {
+    const args = Array.prototype.slice.call(arguments);
+    const rate = args.pop();
+    const key = args.join('/');
+    if (!key) return;
+    const d = load();
+    const map = { strong: 100, partial: 55, partly: 55, review: 20, weak: 20 };
+    const v = typeof rate === 'number' ? Math.max(0, Math.min(100, rate)) : (map[rate] != null ? map[rate] : null);
+    if (v == null) { delete d.activities.interviewRates[key]; }
+    else d.activities.interviewRates[key] = { score: v, rate: rate, last: _now() };
+    save();
+  }
+  function activityInfo(bucket, id) { return (load().activities[bucket] || {})[id] || null; }
+  function activityBucket(bucket) { return load().activities[bucket] || {}; }
+
+  /* Average of best scores across a bucket's recorded items (0–100),
+     or null when nothing recorded. `denom` optionally spreads the
+     average over the full catalog size (coverage-weighted mastery). */
+  function _bucketScore(bucket, denom) {
+    const b = load().activities[bucket] || {};
+    const keys = Object.keys(b);
+    if (!keys.length) return null;
+    let sum = 0;
+    keys.forEach(k => {
+      const rec = b[k];
+      sum += (rec && (rec.best != null ? rec.best : rec.score)) || 0;
+    });
+    const n = denom && denom > keys.length ? denom : keys.length;
+    return Math.round(sum / n);
+  }
+
+  /* ── Multi-dimensional mastery (Phase 5 / M5.1) ──────────────
+     Combines the independent learning dimensions into one view.
+     Each dimension is 0–100 or null (untouched). Pure read. */
+  function masteryDimensions(opts) {
+    opts = opts || {};
+    const d = load();
+    // Knowledge: average quiz accuracy across attempted topics.
+    let kSum = 0, kN = 0;
+    Object.keys(d.quiz).forEach(t => { const q = d.quiz[t]; if (q && q.total) { kSum += (q.correct / q.total) * 100; kN++; } });
+    const knowledge = kN ? Math.round(kSum / kN) : null;
+    // Confidence: self-ratings (1–5) → 0–100.
+    const rKeys = Object.keys(d.ratings);
+    const confidence = rKeys.length ? Math.round(rKeys.reduce((a, t) => a + (d.ratings[t] / 5) * 100, 0) / rKeys.length) : null;
+    // Hands-on: project stage completion (best %) spread over catalog.
+    const handsOn = _bucketScore('projects', opts.projectTotal);
+    // Troubleshooting: incident scores spread over catalog.
+    const troubleshooting = _bucketScore('incidents', opts.incidentTotal);
+    // Design: design-challenge scores spread over catalog.
+    const design = _bucketScore('challenges', opts.challengeTotal);
+    // Interview: self-rated senior questions.
+    const interview = _bucketScore('interviewRates');
+    const dims = [
+      { id: 'knowledge', label: 'Knowledge', value: knowledge, hint: 'Quiz accuracy across topics' },
+      { id: 'confidence', label: 'Confidence', value: confidence, hint: 'Your self-ratings' },
+      { id: 'handsOn', label: 'Hands-on', value: handsOn, hint: 'Project-track progress' },
+      { id: 'troubleshooting', label: 'Troubleshooting', value: troubleshooting, hint: 'Incident simulator scores' },
+      { id: 'design', label: 'Design', value: design, hint: 'Design-challenge scores' },
+      { id: 'interview', label: 'Interview', value: interview, hint: 'Senior self-assessments' },
+    ];
+    const scored = dims.filter(x => x.value != null);
+    const overall = scored.length ? Math.round(scored.reduce((a, x) => a + x.value, 0) / scored.length) : null;
+    return { dimensions: dims, overall, dimensionsScored: scored.length };
+  }
+
+  /* ── Spaced-repetition review queue (Phase 5 / M5.2) ─────────
+     A lightweight SM-2-style scheduler over topics that carry a
+     signal (quiz/rating/view). Interval grows with mastery; weaker
+     topics come due sooner. Returns items sorted most-overdue first. */
+  function reviewQueue(topics, nowMs) {
+    const now = nowMs || _now();
+    const d = load();
+    const out = [];
+    (topics || []).forEach(topic => {
+      const sig = topicSignals(topic);
+      if (!sig || !sig.hasAnySignal || !sig.lastStudied) return;
+      // mastery 0..1 from quiz accuracy and rating
+      let m = 0, parts = 0;
+      if (sig.quizAccuracy != null) { m += sig.quizAccuracy / 100; parts++; }
+      if (sig.rating != null) { m += sig.rating / 5; parts++; }
+      const mastery = parts ? m / parts : 0.3;
+      // interval: 2 days (weak) → 21 days (strong)
+      const intervalDays = Math.round(2 + mastery * 19);
+      const dueAt = sig.lastStudied + intervalDays * DAY;
+      const overdueDays = Math.floor((now - dueAt) / DAY);
+      if (overdueDays >= 0) {
+        out.push({ topic, mastery: Math.round(mastery * 100), intervalDays, overdueDays,
+                   daysSinceStudied: sig.daysSinceStudied });
+      }
+    });
+    out.sort((a, b) => b.overdueDays - a.overdueDays || a.mastery - b.mastery);
+    return out;
+  }
+
   /* ── Aggregate helpers ───────────────────────────────────── */
   function hasAnyProgress() {
     const d = load();
@@ -244,5 +379,8 @@
     setLabDone, isLabDone, labsDoneCount,
     setWeights, getWeights,
     topicSignals,
+    recordIncident, recordDesignChallenge, recordProjectStage, recordInterviewSelfRate,
+    activityInfo, activityBucket,
+    masteryDimensions, reviewQueue,
   };
 })();

@@ -3,6 +3,8 @@
 import { MODULES } from '../components/nav.js';
 import { IQ_BANK } from '../data/iq-bank.js';
 import { QUIZ_BANK } from '../data/quiz-bank.js';
+import { INTERVIEW_CASES } from '../data/interview-cases.js';
+import { scenarioCard } from '../components/story-ui.js';
 
 const DIFF_ORDER = { easy: 0, medium: 1, hard: 2 };
 
@@ -32,7 +34,7 @@ export function mount(container) {
   const modulesCovered = new Set(ALL.map(x => x.moduleId));
   const totalQuizzes = Object.keys(QUIZ_BANK).reduce((n, k) => n + QUIZ_BANK[k].length, 0);
 
-  const state = { difficulty: 'all', module: 'all', query: '' };
+  const state = { difficulty: 'all', module: 'all', query: '', mode: 'qa' };
 
   container.innerHTML = `
     <div class="module-page">
@@ -46,6 +48,12 @@ export function mount(container) {
         <div class="stat-box"><span class="stat-val">${ALL.length}</span><span class="stat-label">Interview Q&amp;As</span></div>
         <div class="stat-box"><span class="stat-val">${modulesCovered.size}/${MODULES.length}</span><span class="stat-label">Modules covered</span></div>
         <div class="stat-box"><span class="stat-val">${totalQuizzes}</span><span class="stat-label">Quiz questions</span></div>
+        <div class="stat-box"><span class="stat-val">${INTERVIEW_CASES.length}</span><span class="stat-label">Scenario cases</span></div>
+      </div>
+
+      <div class="study-mode-tabs" style="display:flex;gap:8px;margin:0 0 4px">
+        <button class="study-chip active" data-mode="qa">📇 Q&amp;A bank</button>
+        <button class="study-chip" data-mode="scenario">🎬 Scenario drill (R-4471)</button>
       </div>
 
       <div class="study-controls">
@@ -69,6 +77,19 @@ export function mount(container) {
 
   function apply() {
     const q = state.query.toLowerCase();
+
+    if (state.mode === 'scenario') {
+      const cases = INTERVIEW_CASES.filter(c =>
+        (state.difficulty === 'all' || c.difficulty === state.difficulty) &&
+        (state.module === 'all' || c.module === state.module) &&
+        (!q || (c.scenario + ' ' + c.breaks + ' ' + c.answer).toLowerCase().includes(q))
+      );
+      resultsEl.innerHTML = cases.length
+        ? `<div class="study-count">${cases.length} scenario case${cases.length > 1 ? 's' : ''} — each anchored to a real moment in ride R-4471</div>${cases.map(c => scenarioCard(c)).join('')}`
+        : `<div class="study-empty">No scenario cases match your filters.</div>`;
+      return;
+    }
+
     const rows = ALL.filter(x =>
       (state.difficulty === 'all' || x.difficulty === state.difficulty) &&
       (state.module === 'all' || x.moduleId === state.module) &&
@@ -121,6 +142,13 @@ export function mount(container) {
   });
   container.querySelector('.study-select').addEventListener('change', e => {
     state.module = e.target.value; apply();
+  });
+  container.querySelector('.study-mode-tabs').addEventListener('click', e => {
+    const btn = e.target.closest('.study-chip');
+    if (!btn) return;
+    state.mode = btn.dataset.mode;
+    container.querySelectorAll('.study-mode-tabs .study-chip').forEach(c => c.classList.toggle('active', c === btn));
+    apply();
   });
 
   apply();

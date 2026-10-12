@@ -9,16 +9,17 @@ const BLURB = {
   m03: 'JobManager, TaskManagers, slots — the cluster anatomy.',
   m04: 'From code to running job: submit, schedule, execute.',
   m05: 'Parallel subtasks, slot sharing, and how to scale.',
-  m06: 'How records move: forward, hash, rebalance, broadcast.',
-  m07: 'map / filter / keyBy / process — the transformation toolkit.',
+  m06: 'map / filter / keyBy / process — the transformation toolkit.',
+  m07: 'Kafka source & sink, FileSink — connect to the outside world, exactly-once.',
   m08: 'Event time vs processing time vs ingestion time.',
   m09: 'Watermarks, out-of-orderness, and late-event handling.',
   m10: 'Tumbling, sliding, session — windowing in practice.',
   m11: 'Keyed vs operator state; heap vs RocksDB backends.',
   m12: 'Chandy-Lamport checkpoints for exactly-once state.',
-  m13: 'Savepoints: upgrades, rescaling, and time travel.',
-  m14: 'Recovery, restart strategies, and end-to-end guarantees.',
-  m15: 'Detect and relieve backpressure before it cascades.',
+  m13: 'Recovery, restart strategies, and end-to-end guarantees.',
+  m13b: 'Savepoints: safe upgrades, rescaling, and state migration.',
+  m14: 'Detect and relieve backpressure before it cascades.',
+  m15: 'Streaming SQL and the Table API over unbounded data.',
   m16: 'Kafka, filesystem, JDBC — sources & sinks with 2PC.',
   m17: 'Flink SQL & the Table API for declarative streaming.',
   m18: 'Tuning: serialization, state, parallelism, network.',
@@ -52,10 +53,11 @@ export function mount(container) {
           Uber's production data platform — from your first watermark to interview-ready.
         </p>
         <div class="home-cta">
-          <button class="btn btn-primary" data-goto="${nextId}">
+          <button class="btn btn-primary" data-goto="learning-path">🧭 Follow the guided path <span>→</span></button>
+          <button class="btn btn-secondary" data-goto="${nextId}">
             ${done.size ? 'Continue' : 'Start'} — ${nextMod ? nextMod.icon + ' ' + nextMod.title : 'Begin'} <span>→</span>
           </button>
-          <button class="btn btn-secondary" data-goto="master-map">🗺️ See the big picture</button>
+          <button class="btn btn-ghost" data-goto="master-map">🗺️ See the big picture</button>
           <button class="btn btn-ghost" data-goto="comparison">⚖️ Flink vs Spark vs Kafka Streams</button>
         </div>
       </div>

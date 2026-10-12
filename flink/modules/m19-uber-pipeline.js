@@ -1,6 +1,7 @@
 // Module 19 — Uber End-to-End Pipeline (Capstone)
 // Interactive walkthrough of Uber's complete Flink streaming platform:
 // GPS ingest → fraud detection → ETA computation → driver stats → data lake
+import { rideSpine, initRideSpine } from '../components/story-ui.js';
 
 const STAGES = [
   {
@@ -12,25 +13,20 @@ const STAGES = [
     desc: 'KafkaSource reads from "driver-locations" topic (1024 partitions). Each event carries driver_id, lat/lon, speed_kmh, and event_time. Source parallelism = 256 (4 partitions each). Watermark strategy: BoundedOutOfOrdernessWatermarks with 5-second tolerance.',
     uber: 'Every driver app pings every 4 seconds. At peak (Friday 6pm) Uber sees 1.2M events/sec. The Kafka cluster has 12 brokers; Flink consumes from all 1024 partitions concurrently.',
     metrics: { throughput: '1M eps', latency: '< 5ms', parallelism: 256, partitions: 1024 },
-    code: `KafkaSource<GPSEvent> source = KafkaSource
-  .<GPSEvent>builder()
-  .setBootstrapServers("kafka:9092")
-  .setTopics("driver-locations")
-  .setGroupId("flink-pipeline")
-  .setStartingOffsets(
-      OffsetsInitializer.committedOffsets(
-          OffsetResetStrategy.LATEST))
-  .setValueOnlyDeserializer(new GPSSchema())
-  .build();
+    code: `source = (KafkaSource.builder()
+  .set_bootstrap_servers("kafka:9092")
+  .set_topics("driver-locations")
+  .set_group_id("flink-pipeline")
+  .set_starting_offsets(KafkaOffsetsInitializer.committed_offsets())
+  .set_value_only_deserializer(SimpleStringSchema())
+  .build())
 
-DataStream<GPSEvent> gps = env.fromSource(
-  source,
-  WatermarkStrategy
-    .<GPSEvent>forBoundedOutOfOrderness(
-        Duration.ofSeconds(5))
-    .withTimestampAssigner(
-        (e,t) -> e.eventTimeMs),
-  "GPS-Source");`,
+watermarks = (WatermarkStrategy
+  .for_bounded_out_of_orderness(Duration.of_seconds(5))
+  .with_timestamp_assigner(RideEventTimestamp())
+  .with_idleness(Duration.of_seconds(15)))
+
+gps = env.from_source(source, watermarks, "GPS-Source")`,
   },
   {
     id: 'enrich',
@@ -41,29 +37,19 @@ DataStream<GPSEvent> gps = env.fromSource(
     desc: 'AsyncDataStream enriches each GPS ping with driver tier and rating from the driver-profiles service. Async I/O allows 500 concurrent in-flight requests per subtask. Results cached in a local Guava cache with 5-minute TTL to reduce service QPS by 95%.',
     uber: 'Driver tier (Gold/Silver/Basic) affects fraud thresholds. A Gold driver triggering the same speed pattern as a new driver gets a higher alert threshold. The enrichment service is Redis-backed at 99th percentile < 2ms.',
     metrics: { throughput: '1M eps', latency: '< 8ms', parallelism: 256, concurrency: 500 },
-    code: `DataStream<EnrichedEvent> enriched =
-  AsyncDataStream.unorderedWait(
-    gps,
-    new DriverProfileAsyncFunction(
-        redisClient,
-        cacheSpec(5, TimeUnit.MINUTES, 100_000)),
-    500,
-    TimeUnit.MILLISECONDS,
-    500  // max concurrent requests
-  );
-
-// AsyncFunction implementation:
-class DriverProfileAsyncFunction
-    extends RichAsyncFunction<GPSEvent, EnrichedEvent> {
-  @Override
-  public void asyncInvoke(GPSEvent e,
-      ResultFuture<EnrichedEvent> out) {
-    cache.getAsync(e.driverId)
-      .thenAccept(profile ->
-          out.complete(List.of(
-              EnrichedEvent.of(e, profile))));
-  }
-}`,
+    code: `# Async I/O (RichAsyncFunction) is JAVA-ONLY. In PyFlink the idiomatic
+# enrichment is a Table API lookup join against the driver-profiles table,
+# which the planner batches and caches for you:
+enriched = t_env.sql_query("""
+  SELECT g.*, d.tier, d.rating
+  FROM gps AS g
+  JOIN driver_profiles FOR SYSTEM_TIME AS OF g.proc_time AS d
+    ON g.driver_id = d.driver_id
+""")
+# driver_profiles DDL cache options:
+#   'lookup.cache' = 'PARTIAL'
+#   'lookup.partial-cache.max-rows' = '100000'
+#   'lookup.partial-cache.expire-after-write' = '5 min'`,
   },
   {
     id: 'fraud',
@@ -74,40 +60,29 @@ class DriverProfileAsyncFunction
     desc: 'KeyedProcessFunction keyed on driver_id maintains a sliding window of the last 60 GPS pings in ValueState. Three fraud rules run in parallel: (1) impossible speed > 250 km/h, (2) GPS spoofing (distance > physics allows), (3) MATCH_RECOGNIZE pattern for rapid location jumps. Alerts written to fraud-alerts Kafka topic.',
     uber: '14M trips/day. Uber estimates 0.3% fraud rate if unchecked. FraudDetector prevents > $40M/year in losses. End-to-end alert latency target: 10ms p99. RocksDB backend for the 60-ping window per driver.',
     metrics: { throughput: '1M eps', latency: '< 10ms p99', parallelism: 512, alertRate: '~3K/min' },
-    code: `KeyedStream<EnrichedEvent, String> keyed =
-  enriched.keyBy(e -> e.driverId);
+    code: `alerts = (enriched
+  .key_by(lambda e: e["driver_id"])
+  .process(FraudDetector()))
 
-DataStream<FraudAlert> alerts =
-  keyed.process(new FraudDetectorFunction());
+class FraudDetector(KeyedProcessFunction):
+    def open(self, ctx):
+        self.window = ctx.get_state(
+            ListStateDescriptor("pings", Types.PICKLED_BYTE_ARRAY()))
 
-class FraudDetectorFunction extends
-    KeyedProcessFunction<String, EnrichedEvent, FraudAlert> {
+    def process_element(self, e, ctx):
+        pings = [p for p in self.window.get()][-59:] + [e]
+        self.window.update(pings)
 
-  ValueState<Deque<GPSEvent>> windowState;
+        # Rule 1: impossible speed
+        if e["speed_kmh"] > 250:
+            yield {"driver_id": e["driver_id"], "rule": "IMPOSSIBLE_SPEED"}
 
-  @Override public void processElement(
-      EnrichedEvent e, Context ctx,
-      Collector<FraudAlert> out) {
-    Deque<GPSEvent> window = windowState.value();
-    window.addLast(e.gps);
-    if (window.size() > 60) window.pollFirst();
-    windowState.update(window);
-
-    // Rule 1: impossible speed
-    if (e.gps.speedKmh > 250) {
-      out.collect(FraudAlert.of(e, "IMPOSSIBLE_SPEED"));
-    }
-    // Rule 2: GPS spoof check
-    if (window.size() >= 2) {
-      double dist = haversine(
-          window.peekLast(), e.gps);
-      double timeSec = (e.gps.eventTimeMs
-          - window.peekFirst().eventTimeMs) / 1000.0;
-      if (dist / timeSec > 69.44) // 250 km/h in m/s
-        out.collect(FraudAlert.of(e, "GPS_SPOOF"));
-    }
-  }
-}`,
+        # Rule 2: GPS spoof (distance / time exceeds physics)
+        if len(pings) >= 2:
+            dist = haversine(pings[0], e)
+            secs = (e["event_time"] - pings[0]["event_time"]) / 1000.0
+            if secs > 0 and dist / secs > 69.44:   # 250 km/h in m/s
+                yield {"driver_id": e["driver_id"], "rule": "GPS_SPOOF"}`,
   },
   {
     id: 'eta',
@@ -118,31 +93,21 @@ class FraudDetectorFunction extends
     desc: 'TumblingEventTimeWindows (5 minutes) per geo_cell key compute: average speed, median speed, 95th-percentile speed. Output feeds the ETA model. ProcessWindowFunction accesses WindowState for full window contents; IncrementalAggregation pre-aggregates per subtask.',
     uber: 'ETA accuracy drives rider satisfaction. Zone-level speed aggregations from real Flink output reduced Uber ETA MAPE (mean absolute percentage error) from 18% to 11%. Window output latency: 5 minutes + watermark propagation.',
     metrics: { throughput: '200K eps', latency: '5min window', parallelism: 128, geoZones: '2M' },
-    code: `DataStream<ZoneStats> etaFeed = enriched
-  .keyBy(e -> e.geoCell)
-  .window(TumblingEventTimeWindows
-      .of(Time.minutes(5)))
-  .aggregate(
-    new SpeedAggregator(),    // incremental
-    new ZoneStatsFunction()   // per-window enrichment
-  );
+    code: `eta_feed = (enriched
+  .key_by(lambda e: e["s2_cell_id"])
+  .window(TumblingEventTimeWindows.of(Time.minutes(5)))
+  .aggregate(SpeedAggregator(),       # incremental pre-agg
+             window_function=ZoneStats()))
 
-class SpeedAggregator implements
-    AggregateFunction<EnrichedEvent,
-                      SpeedAccum, SpeedAccum> {
-  @Override
-  public SpeedAccum add(
-      EnrichedEvent e, SpeedAccum acc) {
-    acc.sum += e.gps.speedKmh;
-    acc.count++;
-    acc.speeds.add(e.gps.speedKmh);
-    return acc;
-  }
-  @Override
-  public SpeedAccum getResult(SpeedAccum acc) {
-    return acc;  // passed to ProcessWindowFunction
-  }
-}`,
+class SpeedAggregator(AggregateFunction):
+    def create_accumulator(self):      return (0.0, 0, [])
+    def add(self, e, acc):
+        s, n, speeds = acc
+        speeds.append(e["speed_kmh"])
+        return (s + e["speed_kmh"], n + 1, speeds)
+    def get_result(self, acc):         return acc   # -> window function
+    def merge(self, a, b):
+        return (a[0] + b[0], a[1] + b[1], a[2] + b[2])`,
   },
   {
     id: 'stats',
@@ -153,34 +118,25 @@ class SpeedAggregator implements
     desc: 'TumblingEventTimeWindows (1 hour) keyed by driver_id compute trip count, total distance, average speed, and active minutes. JdbcSink upserts into PostgreSQL using ON CONFLICT DO UPDATE. Used by the Ops Dashboard for real-time driver performance metrics.',
     uber: 'The Ops Dashboard shows 3M+ driver statistics refreshed every hour. JdbcSink batch size = 5000 rows, flush interval = 1s. Upsert ensures idempotency across restarts. State backend: HashMapStateBackend (window fits in memory).',
     metrics: { throughput: '50K eps', latency: '1hr window', parallelism: 64, sinkBatch: 5000 },
-    code: `DataStream<DriverStats> stats = enriched
-  .keyBy(e -> e.driverId)
-  .window(TumblingEventTimeWindows
-      .of(Time.hours(1)))
-  .process(new DriverStatsFunction());
+    code: `stats = (enriched
+  .key_by(lambda e: e["driver_id"])
+  .window(TumblingEventTimeWindows.of(Time.hours(1)))
+  .process(DriverStatsFunction()))
 
-// Sink: PostgreSQL upsert
-SinkFunction<DriverStats> pgSink = JdbcSink.sink(
+# Sink: PostgreSQL upsert (idempotent across restarts)
+pg_sink = JdbcSink.sink(
   "INSERT INTO driver_stats"
-  + "(driver_id,trip_count,total_km,avg_speed,hour)"
-  + " VALUES(?,?,?,?,?)"
-  + " ON CONFLICT(driver_id,hour)"
-  + " DO UPDATE SET"
-  + "   trip_count=EXCLUDED.trip_count,"
-  + "   total_km=EXCLUDED.total_km,"
-  + "   avg_speed=EXCLUDED.avg_speed",
-  (stmt, s) -> {
-    stmt.setString(1, s.driverId);
-    stmt.setLong(2, s.tripCount);
-    stmt.setDouble(3, s.totalKm);
-    stmt.setDouble(4, s.avgSpeed);
-    stmt.setTimestamp(5, s.windowHour);
-  },
+  "(driver_id, trip_count, total_km, avg_speed, hour) "
+  "VALUES (?, ?, ?, ?, ?) "
+  "ON CONFLICT (driver_id, hour) DO UPDATE SET "
+  "  trip_count = EXCLUDED.trip_count, "
+  "  total_km = EXCLUDED.total_km, "
+  "  avg_speed = EXCLUDED.avg_speed",
+  row_type_info,
   JdbcExecutionOptions.builder()
-    .withBatchSize(5000)
-    .withBatchIntervalMs(1000L)
-    .build(),
-  connOptions);`,
+    .with_batch_size(5000).with_batch_interval_ms(1000).build(),
+  conn_options)
+stats.add_sink(pg_sink)`,
   },
   {
     id: 'lake',
@@ -191,25 +147,21 @@ SinkFunction<DriverStats> pgSink = JdbcSink.sink(
     desc: 'FileSink writes raw GPS events to S3 in Parquet format, partitioned by date/hour. Iceberg sink writes enriched events with UPSERT semantics for downstream Spark/Presto ML training. OnCheckpointRollingPolicy ensures file commits are aligned with Flink checkpoints for exactly-once guarantees.',
     uber: 'GPS data lake: 2.5TB/day in Parquet. Iceberg tables enable time travel queries for model debugging ("what did the model see at 6pm on Friday?"). Presto queries the same Iceberg tables Flink writes — no ETL pipeline needed.',
     metrics: { throughput: '1M eps', latency: '5min files', parallelism: 128, dailySize: '2.5TB' },
-    code: `// Raw GPS → S3 Parquet (FileSink)
-FileSink<GPSEvent> s3Sink = FileSink
-  .forBulkFormat(
-    new Path("s3://uber-datalake/gps-raw/"),
-    ParquetAvroWriters
-        .forReflectRecord(GPSEvent.class))
-  .withBucketAssigner(
-    new DateTimeBucketAssigner<>("yyyy-MM-dd/HH"))
-  .withRollingPolicy(
-    OnCheckpointRollingPolicy.build())
-  .build();
+    code: `# Raw GPS -> S3 (FileSink, checkpoint-aligned commits)
+s3_sink = (FileSink
+  .for_row_format("s3://uber-datalake/gps-raw/",
+                  Encoder.simple_string_encoder())
+  .with_rolling_policy(RollingPolicy.on_checkpoint_rolling_policy())
+  .build())
+gps.sink_to(s3_sink)
+# Parquet bulk: FileSink.for_bulk_format(path, writer_factory)
 
-// Enriched → Iceberg (upsert)
-tableEnv.executeSql("""
+# Enriched -> Iceberg (upsert) via PyFlink Table API
+t_env.execute_sql("""
   INSERT INTO uber_catalog.gps.enriched_events
-  SELECT driver_id, lat, lon, speed_kmh,
-         tier, rating, event_time
+  SELECT driver_id, lat, lon, speed_kmh, tier, rating, event_time
   FROM enriched_stream
-""");`,
+""")`,
   },
 ];
 
@@ -236,6 +188,7 @@ export function mount(container) {
   let animStep = 0;
 
   container.innerHTML = `
+    ${rideSpine({ active: ['RIDE_REQUESTED','DRIVER_SEARCHING','DRIVER_ASSIGNED','DRIVER_ACCEPTED','DRIVER_ARRIVING','RIDE_STARTED','LOCATION_UPDATED','RIDE_COMPLETED','PAYMENT_COMPLETED'], incidents: ['DEFECT-4','DEFECT-5','DEFECT-6'] })}
     <div class="module-hero">
       <div class="module-hero-content">
         <span class="module-badge">Module 19</span>
@@ -270,90 +223,73 @@ export function mount(container) {
           </div>
           <div class="card p-24">
             <div class="card-title">Job Resource Profile</div>
-            <div class="code-block fs-11"><pre>// Flink Job configuration
-StreamExecutionEnvironment env =
-  StreamExecutionEnvironment
-    .getExecutionEnvironment();
+            <div class="code-block fs-11"><span class="lang-tag">PyFlink</span><pre># Flink Job configuration
+env = StreamExecutionEnvironment.get_execution_environment()
 
-// Checkpointing
-env.enableCheckpointing(30_000); // 30s
-env.getCheckpointConfig()
-  .setCheckpointingMode(
-      CheckpointingMode.EXACTLY_ONCE);
-env.getCheckpointConfig()
-  .setCheckpointTimeout(300_000); // 5min
-env.getCheckpointConfig()
-  .setMaxConcurrentCheckpoints(1);
+# Checkpointing
+env.enable_checkpointing(30_000)               # 30s
+cp = env.get_checkpoint_config()
+cp.set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)
+cp.set_checkpoint_timeout(300_000)             # 5 min
+cp.set_max_concurrent_checkpoints(1)
 
-// State backend: RocksDB on S3
-env.setStateBackend(
-  new EmbeddedRocksDBStateBackend(true));
-env.getCheckpointConfig()
-  .setCheckpointStorage(
-      "s3://uber-flink/checkpoints/");
+# State backend: RocksDB on S3
+env.set_state_backend(
+    EmbeddedRocksDBStateBackend(enable_incremental_checkpointing=True))
+cp.set_checkpoint_storage(
+    CheckpointStorage("s3://uber-flink/checkpoints/"))
 
-// Parallelism
-env.setParallelism(256);
+# Parallelism
+env.set_parallelism(256)
 
-// Restart strategy
-env.setRestartStrategy(
-  RestartStrategies
-    .exponentialDelayRestart(
-        Time.seconds(1),
-        Time.seconds(60),
-        2.0, // backoff multiplier
-        Time.minutes(5),
-        0.1  // jitter
-    ));</pre></div>
+# Restart strategy
+env.set_restart_strategy(
+    RestartStrategies.exponential_delay_restart(
+        1_000,      # initial backoff (ms)
+        60_000,     # max backoff (ms)
+        2.0,        # multiplier
+        300_000,    # reset threshold (ms)
+        0.1))       # jitter</pre></div>
           </div>
         </div>
         <div class="card p-24">
           <div class="card-title">Full Pipeline Assembly</div>
-          <div class="code-block" style="font-size:11px;max-height:420px;overflow-y:auto"><pre>// === UBER GPS FRAUD PIPELINE ===
-// 1. Ingest
-DataStream&lt;GPSEvent&gt; gps = env.fromSource(
-  kafkaSource, watermarkStrategy, "GPS-Source");
+          <div class="code-block" style="font-size:11px;max-height:420px;overflow-y:auto"><span class="lang-tag">PyFlink</span><pre># === UBER GPS FRAUD PIPELINE ===
+# 1. Ingest
+gps = env.from_source(kafka_source, watermarks, "GPS-Source")
 
-// 2. Enrich (async, unordered)
-DataStream&lt;EnrichedEvent&gt; enriched =
-  AsyncDataStream.unorderedWait(
-    gps, new DriverProfileLookup(),
-    500, TimeUnit.MILLISECONDS, 500);
+# 2. Enrich — Table API lookup join (async I/O is Java-only)
+enriched = t_env.sql_query("""
+  SELECT g.*, d.tier, d.rating FROM gps AS g
+  JOIN driver_profiles FOR SYSTEM_TIME AS OF g.proc_time AS d
+    ON g.driver_id = d.driver_id
+""")
 
-// 3. Fraud detection (keyed, stateful)
-DataStream&lt;FraudAlert&gt; alerts = enriched
-  .keyBy(e -&gt; e.driverId)
-  .process(new FraudDetectorFunction());
+# 3. Fraud detection (keyed, stateful)
+alerts = (enriched_ds
+  .key_by(lambda e: e["driver_id"])
+  .process(FraudDetector()))
 
-// 4. ETA feed (5-min window per zone)
-DataStream&lt;ZoneStats&gt; etaFeed = enriched
-  .keyBy(e -&gt; e.geoCell)
+# 4. ETA feed (5-min window per zone)
+eta_feed = (enriched_ds
+  .key_by(lambda e: e["s2_cell_id"])
   .window(TumblingEventTimeWindows.of(Time.minutes(5)))
-  .aggregate(new SpeedAgg(), new ZoneStatsWin());
+  .aggregate(SpeedAgg(), window_function=ZoneStats()))
 
-// 5. Driver stats (hourly)
-DataStream&lt;DriverStats&gt; driverStats = enriched
-  .keyBy(e -&gt; e.driverId)
+# 5. Driver stats (hourly)
+driver_stats = (enriched_ds
+  .key_by(lambda e: e["driver_id"])
   .window(TumblingEventTimeWindows.of(Time.hours(1)))
-  .process(new DriverStatsFunction());
+  .process(DriverStatsFunction()))
 
-// === SINKS (StatementSet pattern) ===
-// Fraud alerts → Kafka
-alerts.sinkTo(fraudKafkaSink);
+# === SINKS ===
+alerts.sink_to(fraud_kafka_sink)        # fraud alerts -> Kafka (EOS)
+eta_feed.sink_to(eta_kafka_sink)        # ETA -> Kafka
+driver_stats.add_sink(pg_sink)          # driver stats -> PostgreSQL upsert
+gps.sink_to(s3_file_sink)               # raw GPS -> S3
+# enriched -> Iceberg via t_env.execute_sql(INSERT INTO ...)
 
-// ETA → Kafka
-etaFeed.sinkTo(etaKafkaSink);
-
-// Driver stats → PostgreSQL
-driverStats.addSink(pgSink);
-
-// Raw GPS → S3
-gps.sinkTo(s3FileSink);
-
-// Enriched → Iceberg
-// (via Flink SQL Table API)
-
-env.execute("Uber-GPS-Fraud-Pipeline");</pre></div>
+env.execute("Uber-GPS-Fraud-Pipeline")</pre></div>
         </div>
       </div>
     </div>
@@ -362,6 +298,8 @@ env.execute("Uber-GPS-Fraud-Pipeline");</pre></div>
       <div class="iq-section" id="iq19-section"></div>
     </div>
   `;
+
+  initRideSpine(container);
 
   container.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -426,7 +364,7 @@ env.execute("Uber-GPS-Fraud-Pipeline");</pre></div>
         </div>
         <div>
           <div class="eyebrow">Production Code</div>
-          <div class="code-block" style="font-size:11px;max-height:520px;overflow-y:auto"><pre>${s.code}</pre></div>
+          <div class="code-block" style="font-size:11px;max-height:520px;overflow-y:auto"><span class="lang-tag">PyFlink</span><pre>${s.code}</pre></div>
         </div>
       </div>
     `;

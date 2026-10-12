@@ -2,6 +2,9 @@
 // Interactive window builder: choose Tumbling / Sliding / Session,
 // tweak parameters, watch GPS events fall into windows and fire.
 
+import { rideSpine, initRideSpine, rideCallout, scenarioList, pyCode } from '../components/story-ui.js';
+import { casesByModule } from '../data/interview-cases.js';
+
 const RAW_EVENTS = [
   { id:1,  et:2,  driverId:'D-001', speed:28 },
   { id:2,  et:5,  driverId:'D-002', speed:35 },
@@ -71,12 +74,124 @@ function computeSession(events, gap) {
   return sessions;
 }
 
+// ── "What & Why" foundations (additive) ──────────────────────────
+const WHY_REASONS = [
+  { icon: '♾️', title: 'Bound the unbounded', body: 'A GPS stream never ends, so "the average speed" has no answer. A window carves the infinite stream into finite buckets you <em>can</em> compute.' },
+  { icon: '📊', title: 'Aggregate over time', body: 'Trips-per-10-min, rolling max speed, per-trip distance — every time-based metric is really "aggregate the events that fall in this window."' },
+  { icon: '🚦', title: 'Emit on a schedule', body: 'A window gives a natural moment to produce a result: when it closes. Downstream (surge pricing, dashboards) gets a steady beat of outputs.' },
+  { icon: '🧮', title: 'Keep state bounded', body: 'Instead of remembering every event forever, the operator holds only the current window\'s accumulator, then purges — memory stays flat.' },
+  { icon: '🔑', title: 'Per-key windows', body: '<code>keyBy(driverId).window(...)</code> gives every driver their own independent windows — D-001\'s trips never mix with D-002\'s.' },
+  { icon: '⏳', title: 'Shape by activity', body: 'Session windows open on the first ping and close after a gap — matching a real trip\'s variable length instead of an arbitrary fixed clock.' },
+];
+
+const PROBLEMS = [
+  { naive: 'Aggregate "all events" to get a trip\'s average speed.', fail: 'The stream is unbounded — the aggregate <b>never completes</b> and no result is ever emitted.', fix: 'A window bounds the computation to a finite interval that closes and fires.' },
+  { naive: 'Buffer every event and recompute the metric on each arrival.', fail: 'State grows without limit — eventually <b>OOM</b>, and every recompute is more expensive.', fix: 'A window keeps only its accumulator and purges after firing — memory stays flat.' },
+  { naive: 'Use one fixed 10s window for everything.', fail: 'A trip lasts a variable number of minutes — fixed windows <b>split one trip</b> across buckets or merge two.', fix: 'Session windows close on an inactivity gap, matching the trip\'s real boundary.' },
+  { naive: 'Compute a rolling 15-min metric with back-to-back tumbling windows.', fail: 'Tumbling windows don\'t overlap, so the "last 15 min" <b>jumps</b> instead of sliding smoothly.', fix: 'Sliding windows (size 15m, slide 5m) overlap to give a continuously updated rolling metric.' },
+];
+
+const WHY_HTML = `
+  <div class="sm-wrap">
+    <div class="sm-def card">
+      <div class="sm-def-ic">🪟</div>
+      <div>
+        <div class="sm-def-eyebrow">What is a window?</div>
+        <p class="sm-def-lead">A <b>window</b> slices an unbounded stream into finite, bounded chunks so you can aggregate over them — count, sum, average, max. It's the answer to <em>"over what span of events should this computation run?"</em> On ride <b>R-4471</b>, windows turn an endless flow of GPS pings into per-minute distance, rolling speed, and a per-trip session.</p>
+      </div>
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">Why you can't just "aggregate the stream"</div>
+      <div class="section-desc">The whole topic exists because a stream has no end.</div>
+    </div>
+    <div class="sm-vs">
+      <div class="sm-vs-card stateless">
+        <div class="sm-vs-head">❌ Without windows</div>
+        <p class="sm-vs-sub">Aggregate over the entire stream.</p>
+        <ul>
+          <li>"Average speed" never finishes</li>
+          <li>State grows forever → OOM</li>
+          <li>No natural moment to emit</li>
+        </ul>
+        <div class="sm-vs-note">An unbounded aggregate is a question with no answer.</div>
+      </div>
+      <div class="sm-vs-card stateful">
+        <div class="sm-vs-head">✅ With windows</div>
+        <p class="sm-vs-sub">Aggregate over bounded slices that close and fire.</p>
+        <ul>
+          <li>Each window produces one result</li>
+          <li>Only the live window's state is held</li>
+          <li>Firing is driven by watermarks</li>
+        </ul>
+        <div class="sm-vs-note">Finite buckets → finite, repeatable answers on a steady beat.</div>
+      </div>
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">Why a stream needs windows</div>
+      <div class="section-desc">Six jobs windows do that a raw aggregate can't.</div>
+    </div>
+    <div class="sm-why-grid">
+      ${WHY_REASONS.map(r => `
+        <div class="sm-why">
+          <div class="sm-why-ic">${r.icon}</div>
+          <div class="sm-why-title">${r.title}</div>
+          <p>${r.body}</p>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">The problem windows solve</div>
+      <div class="section-desc">Four ways aggregation breaks without the right window — and the fix.</div>
+    </div>
+    <div class="sm-prob-list">
+      ${PROBLEMS.map((p, i) => `
+        <div class="sm-prob">
+          <div class="sm-prob-no">${i + 1}</div>
+          <div class="sm-prob-body">
+            <div class="sm-prob-naive"><span class="sm-tag naive">Naïve</span>${p.naive}</div>
+            <div class="sm-prob-fail"><span class="sm-tag fail">Breaks</span>${p.fail}</div>
+            <div class="sm-prob-fix"><span class="sm-tag fix">Window</span>${p.fix}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">Every window's four-phase lifecycle</div>
+    </div>
+    <div class="sm-keyed card">
+      <p>No matter the type, a window moves through the same phases — <b>watermarks</b> (not wall-clock) drive the trigger.</p>
+      <ul>
+        <li><b>Assign</b> — a WindowAssigner places each event in one or more windows.</li>
+        <li><b>Accumulate</b> — the event folds into the window's state (count/sum/accumulator).</li>
+        <li><b>Trigger</b> — fires when the watermark passes the window end (plus any allowed lateness).</li>
+        <li><b>Purge</b> — window state is cleared, keeping memory bounded.</li>
+      </ul>
+      <div class="sm-keyed-flow">
+        <code>event</code> <span class="sm-arrow">→</span> <b>Assign</b> <span class="sm-arrow">→</span> <b>Accumulate</b> <span class="sm-arrow">→</span> <code>watermark ≥ end</code> <span class="sm-arrow">→</span> <b>Trigger</b> (emit) <span class="sm-arrow">→</span> <b>Purge</b>
+      </div>
+    </div>
+
+    <div class="sm-bridge" style="margin-top:26px">
+      <div class="sm-bridge-txt">
+        <div class="sm-bridge-k">Now build each window type</div>
+        <p>You know <b>why</b> windows exist — switch between Tumbling, Sliding, and Session, tune the parameters, and watch GPS events fall into windows and fire.</p>
+      </div>
+      <button class="sm-bridge-btn" data-jump="sim">Open the Window Builder →</button>
+    </div>
+  </div>
+`;
+
 export function mount(container) {
   let winType = 'tumbling';
   let size = 10, slide = 5, gap = 8;
   let filterDriver = 'ALL';
 
   container.innerHTML = `
+    ${rideSpine({ active: ['RIDE_STARTED', 'LOCATION_UPDATED', 'DRIVER_ARRIVED'], incidents: ['DEFECT-2'] })}
     <div class="module-hero">
       <div class="module-hero-content">
         <span class="module-badge">Module 10</span>
@@ -85,12 +200,17 @@ export function mount(container) {
       </div>
     </div>
     <div class="module-tabs">
-      <button class="tab-btn active" data-tab="sim">Window Builder</button>
+      <button class="tab-btn active" data-tab="why">What &amp; Why</button>
+      <button class="tab-btn" data-tab="sim">Window Builder</button>
       <button class="tab-btn" data-tab="concept">Concepts</button>
       <button class="tab-btn" data-tab="iq">Interview Q&amp;A</button>
     </div>
 
-    <div class="tab-content active" data-tab="sim">
+    <div class="tab-content active" data-tab="why">
+      ${WHY_HTML}
+    </div>
+
+    <div class="tab-content" data-tab="sim">
       <div class="win-ctl-bar card">
         <div class="win-type-row">
           ${WINDOW_TYPES.map(w => `<button class="win-type-btn${w.id==='tumbling'?' active':''}" data-wt="${w.id}">${w.icon} ${w.label}</button>`).join('')}
@@ -111,15 +231,12 @@ export function mount(container) {
     </div>
 
     <div class="tab-content" data-tab="concept">
+      ${rideCallout('LOCATION_UPDATED', { openEvent: false })}
       <div class="grid-2 gap-20">
         <div class="card p-24">
           <h3 class="mb-12">⬜ Tumbling Window</h3>
           <p class="prose">Fixed size, no overlap. Each event falls in exactly one window. Simple, deterministic. Use for period aggregates.</p>
-          <div class="code-block" style="margin-top:12px;font-size:11px"><pre>stream.keyBy(e -> e.driverId)
-  .window(TumblingEventTimeWindows
-      .of(Time.seconds(10)))
-  .aggregate(new SpeedAvgAgg());
-// Windows: [0,10), [10,20), [20,30)...</pre></div>
+          ${pyCode('keyby_window_agg')}
           <div class="lc-uber-box mt-12">
             <div class="lc-uber-label">🚗 Uber</div>
             <p class="fs-12">Count trips completed per driver per 10-minute window for surge pricing calculation.</p>
@@ -128,12 +245,7 @@ export function mount(container) {
         <div class="card p-24">
           <h3 class="mb-12">🔲 Sliding Window</h3>
           <p class="prose">Fixed size, overlapping. Slide interval &lt; window size means events appear in multiple windows. Good for rolling metrics.</p>
-          <div class="code-block" style="margin-top:12px;font-size:11px"><pre>stream.keyBy(e -> e.driverId)
-  .window(SlidingEventTimeWindows.of(
-      Time.seconds(15), // size
-      Time.seconds(5))) // slide
-  .aggregate(new MaxSpeedAgg());
-// [0,15), [5,20), [10,25)...</pre></div>
+          ${pyCode('sliding_window')}
           <div class="lc-uber-box mt-12">
             <div class="lc-uber-label">🚗 Uber</div>
             <p class="fs-12">Rolling 15-min max speed per driver, updated every 5 min — feeds the speeding alert model.</p>
@@ -142,11 +254,7 @@ export function mount(container) {
         <div class="card p-24">
           <h3 class="mb-12">💬 Session Window</h3>
           <p class="prose">Opens on first event; closes after a gap of inactivity. Variable length. Perfect for user sessions or trip boundaries.</p>
-          <div class="code-block" style="margin-top:12px;font-size:11px"><pre>stream.keyBy(e -> e.driverId)
-  .window(EventTimeSessionWindows
-      .withGap(Time.minutes(2)))
-  .aggregate(new TripStatsAgg());
-// Each continuous GPS burst = 1 session</pre></div>
+          ${pyCode('session_window')}
           <div class="lc-uber-box mt-12">
             <div class="lc-uber-label">🚗 Uber</div>
             <p class="fs-12">A trip session: window opens on trip-start GPS, closes 2 min after last ping. Computes per-trip distance, duration, avg speed.</p>
@@ -161,9 +269,21 @@ export function mount(container) {
     </div>
 
     <div class="tab-content" data-tab="iq">
+      <div class="section-header" style="margin-bottom:8px">
+        <div class="section-title">Interview corner cases — on ride R-4471</div>
+        <div class="section-desc">Window gotchas asked in interviews, anchored to real moments in the ride.</div>
+      </div>
+      <div id="win-scenarios"></div>
+      <div class="section-header" style="margin:22px 0 8px"><div class="section-title">More window Q&amp;A</div></div>
       <div class="iq-section" id="iq10-section"></div>
     </div>
   `;
+
+  initRideSpine(container);
+
+  // Interview corner-case scenario cards
+  const winScen = container.querySelector('#win-scenarios');
+  if (winScen) winScen.innerHTML = scenarioList(casesByModule('m10'));
 
   // Tabs
   container.querySelectorAll('.tab-btn').forEach(btn => {
@@ -174,6 +294,17 @@ export function mount(container) {
       container.querySelector(`.tab-content[data-tab="${btn.dataset.tab}"]`).classList.add('active');
     });
   });
+
+  // Bridge button: jump from "What & Why" into the Window Builder tab.
+  const jumpBtn = container.querySelector('[data-jump]');
+  if (jumpBtn) {
+    jumpBtn.addEventListener('click', () => {
+      const target = jumpBtn.dataset.jump;
+      container.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === target));
+      container.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.dataset.tab === target));
+      container.querySelector('.module-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
 
   // IQ
   const iqSection = container.querySelector('#iq10-section');

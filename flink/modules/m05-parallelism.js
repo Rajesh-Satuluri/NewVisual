@@ -2,6 +2,9 @@
 // Canvas-based visualizer: drag parallelism slider, watch subtask tiles
 // redistribute across TaskManagers and slots in real time.
 
+import { rideSpine, initRideSpine, rideCallout, scenarioList } from '../components/story-ui.js';
+import { casesByModule } from '../data/interview-cases.js';
+
 const OPERATORS = [
   { id: 'source',   label: 'KafkaSource',    color: '#6366f1', icon: '📥' },
   { id: 'keyby',    label: 'keyBy(driverId)',  color: '#f59e0b', icon: '🔑' },
@@ -19,12 +22,123 @@ const IQS = [
   { q: 'How does Flink handle backpressure when one operator is slow?', a: 'Flink uses credit-based flow control over Netty. A fast upstream operator that fills its output buffers will block — no unbounded queuing. This backpressure signal propagates upstream all the way to the source, which then slows its Kafka poll rate. The Flink UI shows "backpressure ratio" per subtask. Uber monitors this metric; if FraudDetector backpressure > 50%, they auto-scale that operator\'s parallelism via Flink\'s Adaptive Scheduler.' },
 ];
 
+// ── "What & Why" foundations (additive) ──────────────────────────
+const WHY_REASONS = [
+  { icon: '🚀', title: 'Scale throughput', body: 'One FraudDetector can\'t process 1M events/sec. Set parallelism=4 and four subtasks each handle ~250K/sec — throughput scales near-linearly.' },
+  { icon: '🔑', title: 'Partition by key', body: '<code>keyBy(driverId)</code> hash-splits events so each subtask owns a disjoint slice of drivers — the basis for parallel stateful processing.' },
+  { icon: '🧠', title: 'Independent state', body: 'Each subtask keeps only its own keys\' state, so parallel instances never contend — state scales with parallelism.' },
+  { icon: '🎰', title: 'Slot sharing efficiency', body: 'All operators of a pipeline co-locate in one slot, so a 4-operator job at p=4 needs 4 slots, not 16 — a 75% cluster saving.' },
+  { icon: '🎚️', title: 'Tune per operator', body: 'A heavy window op can run at p=8 while source/sink stay at p=4; Flink inserts a shuffle at the boundary.' },
+  { icon: '📈', title: 'Rescale with load', body: 'Key groups let Flink redistribute keys when you change parallelism — scale up for the airport surge, down overnight.' },
+];
+
+const PROBLEMS = [
+  { naive: 'Run every operator at parallelism 1.', fail: 'A single instance <b>caps throughput</b> at what one CPU can do — it drowns at 1M events/sec.', fix: 'Parallelism runs N subtasks, each on a data slice, scaling throughput with the cluster.' },
+  { naive: 'Parallelize but share one mutable map across instances.', fail: 'Subtasks <b>race</b> on shared state and results are wrong.', fix: '<code>keyBy</code> + per-subtask state gives each instance an isolated, correct partition.' },
+  { naive: 'Give every operator instance its own slot.', fail: 'A 4-operator × p=4 job needs <b>16 slots</b> — 4× the machines.', fix: 'Slot sharing runs a whole pipeline slice per slot — only 4 slots needed.' },
+  { naive: 'Set one global parallelism for the whole job.', fail: 'The bottleneck operator <b>stays starved</b> while others sit idle.', fix: 'Heterogeneous parallelism scales just the bottleneck, with a shuffle at the boundary.' },
+];
+
+const WHY_HTML = `
+  <div class="sm-wrap">
+    <div class="sm-def card">
+      <div class="sm-def-ic">🔀</div>
+      <div>
+        <div class="sm-def-eyebrow">What is parallelism?</div>
+        <p class="sm-def-lead"><b>Parallelism</b> is how many copies (subtasks) of an operator run at once, each processing a slice of the data. <b>Slot sharing</b> then packs one subtask from every operator into a single task slot, so a whole pipeline "lane" runs together. It's how Flink turns a logical dataflow into horizontal scale. On ride <b>R-4471</b>, it's what lets the fraud pipeline keep up with the airport surge (DEFECT-6) by spreading drivers across subtasks.</p>
+      </div>
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">One instance vs. many</div>
+      <div class="section-desc">Why a single operator instance isn't enough.</div>
+    </div>
+    <div class="sm-vs">
+      <div class="sm-vs-card stateless">
+        <div class="sm-vs-head">1️⃣ Parallelism = 1</div>
+        <p class="sm-vs-sub">One subtask does all the work.</p>
+        <ul>
+          <li>Throughput capped at one CPU</li>
+          <li>All keys' state on one instance</li>
+          <li>No way to scale under load</li>
+        </ul>
+        <div class="sm-vs-note">Drowns at 1M events/sec.</div>
+      </div>
+      <div class="sm-vs-card stateful">
+        <div class="sm-vs-head">🔢 Parallelism = N</div>
+        <p class="sm-vs-sub">N subtasks each own a data slice.</p>
+        <ul>
+          <li>Throughput scales ~linearly</li>
+          <li>keyBy partitions keys across subtasks</li>
+          <li>Rescale up/down with demand</li>
+        </ul>
+        <div class="sm-vs-note">Each FraudDetector handles ~1/N of drivers.</div>
+      </div>
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">Why a job needs parallelism &amp; slot sharing</div>
+      <div class="section-desc">Six jobs they do that a single-instance pipeline can't.</div>
+    </div>
+    <div class="sm-why-grid">
+      ${WHY_REASONS.map(r => `
+        <div class="sm-why">
+          <div class="sm-why-ic">${r.icon}</div>
+          <div class="sm-why-title">${r.title}</div>
+          <p>${r.body}</p>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">The problem they solve</div>
+      <div class="section-desc">Four ways a naïve scaling attempt breaks — and the fix.</div>
+    </div>
+    <div class="sm-prob-list">
+      ${PROBLEMS.map((p, i) => `
+        <div class="sm-prob">
+          <div class="sm-prob-no">${i + 1}</div>
+          <div class="sm-prob-body">
+            <div class="sm-prob-naive"><span class="sm-tag naive">Naïve</span>${p.naive}</div>
+            <div class="sm-prob-fail"><span class="sm-tag fail">Breaks</span>${p.fail}</div>
+            <div class="sm-prob-fix"><span class="sm-tag fix">Flink</span>${p.fix}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">The slot-sharing math</div>
+    </div>
+    <div class="sm-keyed card">
+      <p>Slot sharing is why the cluster math works — a whole pipeline chain runs in one slot.</p>
+      <ul>
+        <li><b>Without sharing</b> — slots needed = operators × parallelism (4 × 4 = <b>16</b>).</li>
+        <li><b>With sharing</b> — slots needed = max operator parallelism (<b>4</b>).</li>
+        <li><b>Bonus</b> — co-located operators hand off data in-JVM, with no serialization or network hop.</li>
+      </ul>
+      <div class="sm-keyed-flow">
+        <code>Source|keyBy|Fraud|Sink</code> at p=4 <span class="sm-arrow">→</span> <b>slot sharing</b> <span class="sm-arrow">→</span> 4 pipeline slices <span class="sm-arrow">→</span> <b>4 slots</b> (not 16)
+      </div>
+    </div>
+
+    <div class="sm-bridge" style="margin-top:26px">
+      <div class="sm-bridge-txt">
+        <div class="sm-bridge-k">Now watch it redistribute</div>
+        <p>You know <b>why</b> parallelism matters — drag the slider and toggle slot sharing to see subtasks spread across TaskManagers live.</p>
+      </div>
+      <button class="sm-bridge-btn" data-jump="sim">Open the Visualizer →</button>
+    </div>
+  </div>
+`;
+
 export function mount(container) {
   let parallelism = 2;
   let slotSharing = true;
   let selectedOp = null;
 
   container.innerHTML = `
+    ${rideSpine({ active: ['DRIVER_SEARCHING', 'LOCATION_UPDATED'], incidents: ['DEFECT-6'] })}
     <div class="module-hero">
       <div class="module-hero-content">
         <span class="module-badge">Module 5</span>
@@ -33,12 +147,17 @@ export function mount(container) {
       </div>
     </div>
     <div class="module-tabs">
-      <button class="tab-btn active" data-tab="sim">Visualizer</button>
+      <button class="tab-btn active" data-tab="why">What &amp; Why</button>
+      <button class="tab-btn" data-tab="sim">Visualizer</button>
       <button class="tab-btn" data-tab="concept">Concepts</button>
       <button class="tab-btn" data-tab="iq">Interview Q&amp;A</button>
     </div>
 
-    <div class="tab-content active" data-tab="sim">
+    <div class="tab-content active" data-tab="why">
+      ${WHY_HTML}
+    </div>
+
+    <div class="tab-content" data-tab="sim">
       <div class="p5-controls card" style="display:flex;flex-wrap:wrap;gap:20px;align-items:center;margin-bottom:20px;padding:20px">
         <div class="p5-ctrl-group">
           <label class="ctrl-label">Parallelism: <strong id="p-val">2</strong></label>
@@ -59,6 +178,7 @@ export function mount(container) {
     </div>
 
     <div class="tab-content" data-tab="concept">
+      ${rideCallout('DRIVER_SEARCHING', { openEvent: false })}
       <div class="grid-2 gap-20">
         <div class="card p-24">
           <h3 class="mb-12">What is Parallelism?</h3>
@@ -87,20 +207,28 @@ source → map(parseGPS) → filter(speed > 0)
         <div class="card p-24">
           <h3 class="mb-12">Heterogeneous Parallelism</h3>
           <p class="prose">Different operators can run at different parallelisms. Flink inserts a <strong>data redistribution</strong> (shuffle or keyBy) at the boundary.</p>
-          <div class="code-block mt-12"><pre>source.setParallelism(4)         // 4 Kafka partitions
-  .keyBy(e -> e.driverId)        // shuffle → hash
-  .process(fraudDetector)
-    .setParallelism(8)           // 8× parallel detection
-  .addSink(kafkaSink)
-    .setParallelism(4)</pre></div>
+          <div class="code-block mt-12"><span class="lang-tag">PyFlink</span><pre>(source.set_parallelism(4)              # 4 Kafka partitions
+   .key_by(lambda e: e["driver_id"])    # shuffle -> hash
+   .process(FraudDetector()).set_parallelism(8)   # 8x detection
+   .sink_to(kafka_sink).set_parallelism(4))</pre></div>
         </div>
       </div>
     </div>
 
     <div class="tab-content" data-tab="iq">
+      <div class="section-header" style="margin-bottom:8px">
+        <div class="section-title">Interview corner cases — on ride R-4471</div>
+        <div class="section-desc">Hot-key skew and key-group/rescaling questions, anchored to the airport surge.</div>
+      </div>
+      <div id="par-scenarios"></div>
+      <div class="section-header" style="margin:22px 0 8px"><div class="section-title">More parallelism Q&amp;A</div></div>
       <div class="iq-section" id="iq-section"></div>
     </div>
   `;
+
+  initRideSpine(container);
+  const parScen = container.querySelector('#par-scenarios');
+  if (parScen) parScen.innerHTML = scenarioList(casesByModule('m05'));
 
   // Tabs
   container.querySelectorAll('.tab-btn').forEach(btn => {
@@ -111,6 +239,17 @@ source → map(parseGPS) → filter(speed > 0)
       container.querySelector(`.tab-content[data-tab="${btn.dataset.tab}"]`).classList.add('active');
     });
   });
+
+  // Bridge button: jump from "What & Why" into the Visualizer tab.
+  const jumpBtn = container.querySelector('[data-jump]');
+  if (jumpBtn) {
+    jumpBtn.addEventListener('click', () => {
+      const target = jumpBtn.dataset.jump;
+      container.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === target));
+      container.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.dataset.tab === target));
+      container.querySelector('.module-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
 
   // IQ
   const iqSection = container.querySelector('#iq-section');

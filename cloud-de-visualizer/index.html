@@ -64,6 +64,7 @@
   <link rel="stylesheet" href="css/responsive.css" />
   <link rel="stylesheet" href="css/enhancements.css" />
   <link rel="stylesheet" href="css/multiformat.css" />
+  <link rel="stylesheet" href="css/design-system.css" />
   <link rel="stylesheet" href="css/print.css" media="print" />
 
   <style>
@@ -327,6 +328,7 @@
 <!-- ══════════════════════════════════════════════════════════
      APP SHELL
 ══════════════════════════════════════════════════════════ -->
+<a href="#module-container" class="skip-link" onclick="var m=document.getElementById('module-container');if(m){m.focus();}">Skip to main content</a>
 <div id="app">
 
   <!-- ── Sidebar ── -->
@@ -407,6 +409,10 @@
         <div id="xformat-jump" class="xformat-jump" aria-label="Same topic in other formats" hidden></div>
       </div>
       <div class="topbar-right">
+        <button id="cmdk-trigger" class="btn-icon cmdk-trigger" title="Search (Ctrl/Cmd+K)" data-tooltip="Search  Ctrl/Cmd+K" aria-label="Open search" onclick="window.TableViz&&TableViz.CommandPalette&&TableViz.CommandPalette.open()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="16" height="16" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+          <kbd class="cmdk-trigger-kbd">⌘K</kbd>
+        </button>
         <button id="quiz-toggle" class="btn-icon" title="Test yourself on this cloud" data-tooltip="Test yourself" aria-label="Test yourself on this cloud" hidden>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="16" height="16" aria-hidden="true">
             <path d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
@@ -437,7 +443,7 @@
     </header>
 
     <!-- Module content -->
-    <div id="module-container" tabindex="-1"></div>
+    <div id="module-container" tabindex="-1" role="main" aria-label="Main content"></div>
 
     <!-- Animation controls bar -->
     <div id="anim-controls-bar" class="anim-controls-bar" role="toolbar" aria-label="Animation controls">
@@ -563,12 +569,14 @@
 <script src="js/core/tooltip.js"></script>
 <script src="js/core/keyboard.js"></script>
 <script src="js/core/toast.js"></script>
+<script src="js/core/ds.js"></script>
 <script src="js/core/split-pane.js"></script>
 <script src="js/core/json-annotations.js"></script>
 
 <!-- UI Components -->
 <script src="js/components/code-viewer.js"></script>
 <script src="js/components/animation-controls.js"></script>
+<script src="js/components/verified-chip.js"></script>
 
 <!-- Renderers (generic service-detail + stub home + cross-cloud matrix) -->
 <script src="js/modules/_service-detail.js"></script>
@@ -577,6 +585,7 @@
 <script src="js/modules/multi-cloud.js"></script>
 
 <!-- Data layer (must load before the format that reads it) -->
+<script src="js/data/_meta.js"></script>
 <script src="js/data/azure-services.js"></script>
 <script src="js/data/databricks-services.js"></script>
 <script src="js/data/aws-services.js"></script>
@@ -586,6 +595,7 @@
 <script src="js/data/azure-interview-qa.js"></script>
 <script src="js/data/databricks-interview-qa.js"></script>
 <script src="js/data/aws-interview-qa.js"></script>
+<script src="js/data/fabric-interview-qa.js"></script>
 
 <!-- Intuition layer (business-first mental models, looked up by service id) -->
 <script src="js/data/intuition.js"></script>
@@ -608,6 +618,17 @@
 <!-- Certification comparison tables + common exam traps -->
 <script src="js/data/cert-compare.js"></script>
 <script src="js/data/cert-traps.js"></script>
+<script src="js/data/incidents.js"></script>
+<script src="js/data/incidents-databricks.js"></script>
+<script src="js/data/incidents-aws.js"></script>
+<script src="js/data/incidents-azure.js"></script>
+<script src="js/data/incidents-fabric.js"></script>
+
+<!-- Cross-cloud design challenges (data) -->
+<script src="js/data/design-challenges.js"></script>
+
+<!-- End-to-end project tracks (data) -->
+<script src="js/data/project-tracks.js"></script>
 
 <!-- Format descriptors (register services + nav before app boot) -->
 <script src="js/formats/azure.js"></script>
@@ -618,18 +639,52 @@
 
 <!-- Recommendation engine (pure) + "For You" dashboard. Loads AFTER the
      format descriptors (so it can add the nav item) and BEFORE app boot. -->
+<script src="js/features/question-engine.js"></script>
 <script src="js/features/recommend-engine.js"></script>
 <script src="js/features/cert-engine.js"></script>
+<script src="js/features/cert-coverage.js"></script>
 <script src="js/features/cert-exam.js"></script>
+<script src="js/features/exam-sim.js"></script>
+<script src="js/features/incident-engine.js"></script>
+<script src="js/features/design-challenge-engine.js"></script>
 <script src="js/modules/recommendations.js"></script>
 <script src="js/modules/learning-paths-view.js"></script>
 <script src="js/modules/certifications-view.js"></script>
+<script src="js/modules/incidents-view.js"></script>
+<script src="js/modules/design-challenges-view.js"></script>
+<script src="js/modules/projects-view.js"></script>
+<script src="js/modules/mastery-view.js"></script>
+<!-- Interactive visualizers (conceptual simulations) -->
+<script src="js/features/viz-framework.js"></script>
+<script src="js/data/viz-spark.js"></script>
+<script src="js/data/viz-delta.js"></script>
+<script src="js/data/viz-pipeline.js"></script>
+<script src="js/data/viz-storage.js"></script>
+<script src="js/data/viz-streaming.js"></script>
+<script src="js/data/viz-kafka.js"></script>
+<script src="js/data/viz-columnar.js"></script>
+<script src="js/data/viz-lineage.js"></script>
+<script src="js/data/viz-cost.js"></script>
+<script src="js/data/viz-cdc.js"></script>
+<script src="js/data/viz-joins.js"></script>
+<script src="js/data/viz-access.js"></script>
+<script src="js/data/viz-schema.js"></script>
+<script src="js/data/viz-caching.js"></script>
+<script src="js/data/viz-partitioning.js"></script>
+<script src="js/data/viz-autoscaling.js"></script>
+<script src="js/modules/visualizers-view.js"></script>
+<!-- Architecture Studio (free-form design canvas) -->
+<script src="js/modules/architecture-studio.js"></script>
+<script src="js/modules/study-summary.js"></script>
 
 <!-- App bootstrap (registers navigate + nav registry) -->
 <script src="js/app.js"></script>
 
 <!-- Features (decoupled; wire via app:navigate + DOM) -->
+<script src="js/features/command-palette.js"></script>
+<script src="js/features/tour.js"></script>
 <script src="js/features/quiz.js"></script>
+<script src="js/features/incident-sim.js"></script>
 
 <!-- Shared: one-click "Download this tool (.zip)" backup button (slots into .topbar-right) -->
 <script src="../shared/backup-button.js" defer></script>

@@ -3,6 +3,9 @@
 // source → keyBy → process → sink pipeline. Each operator lights up
 // when it aligns barriers and snapshots state to S3.
 
+import { rideSpine, initRideSpine, rideCallout, scenarioList, pyCode } from '../components/story-ui.js';
+import { casesByModule } from '../data/interview-cases.js';
+
 const PIPELINE = [
   { id:'source',  label:'KafkaSource',  icon:'📥', x:80,  y:180, color:'#6366f1' },
   { id:'keyby',   label:'keyBy',        icon:'🔑', x:240, y:180, color:'#f59e0b' },
@@ -34,6 +37,116 @@ const IQS = [
   { q:'What state goes into a checkpoint for Uber\'s fraud pipeline?', a:'Each operator snapshots: (1) KafkaSource — partition offset map (tiny, <1KB per partition). (2) FraudDetector — all per-driver ValueState entries. At Uber scale (3M active drivers × ~200 bytes each = ~600MB). With HashMap backend, the full 600MB is serialized and uploaded to S3 every 30s. With RocksDB + incremental checkpoints, only the changed SSTables are uploaded — typically 5–20MB per checkpoint after the first full one. (3) KafkaSink — open transaction ID (tiny).' },
 ];
 
+// ── "What & Why" foundations (additive) ──────────────────────────
+const WHY_REASONS = [
+  { icon: '💾', title: 'State lives in memory', body: 'FraudDetector holds ~600 MB of per-driver counts in RAM. A crash wipes it — a checkpoint periodically copies it to durable storage (S3).' },
+  { icon: '📸', title: 'Consistent global snapshot', body: 'A barrier flows with the data so every operator snapshots the <em>same</em> logical point — a clean cut across the whole distributed pipeline (Chandy-Lamport).' },
+  { icon: '🎯', title: 'Exactly-once recovery', body: 'Source offsets are saved <em>with</em> state, so on restart Flink rewinds Kafka and restores state together — no event lost or double-counted.' },
+  { icon: '🏃', title: 'No stop-the-world', body: 'Snapshots are asynchronous (copy-on-write) — the pipeline keeps processing events while state uploads in the background.' },
+  { icon: '📦', title: 'Incremental uploads', body: 'With RocksDB, only changed SSTables ship each cycle (~5–20 MB) instead of the full 600 MB — cheap enough to run every 30s.' },
+  { icon: '⏮️', title: 'Bounded replay', body: 'Recovery restores the last checkpoint and replays only events since — seconds of rework, not reprocessing from the beginning of time.' },
+];
+
+const PROBLEMS = [
+  { naive: 'Keep per-driver fraud state only in memory.', fail: 'A TaskManager crash <b>loses all state</b> — every driver\'s trip history is gone and fraud detection resets to zero.', fix: 'Checkpoints persist operator state to durable storage on a fixed interval.' },
+  { naive: 'Snapshot each operator at its own wall-clock moment.', fail: 'Operators capture <b>inconsistent</b> points — some ahead, some behind — so the restored state doesn\'t correspond to any real instant.', fix: 'A checkpoint barrier flows with the records, giving one consistent global cut.' },
+  { naive: 'Save state but not the Kafka read position.', fail: 'On restart the state and the source disagree — events get <b>reprocessed or skipped</b>, breaking exactly-once.', fix: 'Source offsets are part of the same checkpoint, restored atomically with state.' },
+  { naive: 'Pause the pipeline to take a clean snapshot.', fail: 'Stopping a 1M-events/sec job every 30s to snapshot would <b>destroy throughput</b> and spike latency.', fix: 'Asynchronous, copy-on-write snapshots let processing continue during upload.' },
+];
+
+const WHY_HTML = `
+  <div class="sm-wrap">
+    <div class="sm-def card">
+      <div class="sm-def-ic">📍</div>
+      <div>
+        <div class="sm-def-eyebrow">What is checkpointing?</div>
+        <p class="sm-def-lead">A <b>checkpoint</b> is a periodic, consistent snapshot of <em>all</em> operator state plus each source's read position, written to durable storage so a failed job can resume exactly where it left off. <b>Barriers</b> are the in-stream markers that make that snapshot consistent <em>without stopping</em> the pipeline. On ride <b>R-4471</b>, it's what survives a mid-trip TaskManager crash (DEFECT-4) without losing the fraud counters.</p>
+      </div>
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">Why a long-running job needs it</div>
+      <div class="section-desc">Streaming jobs run forever, and machines fail.</div>
+    </div>
+    <div class="sm-vs">
+      <div class="sm-vs-card stateless">
+        <div class="sm-vs-head">❌ Without checkpoints</div>
+        <p class="sm-vs-sub">A crash is catastrophic.</p>
+        <ul>
+          <li>All in-memory state is lost</li>
+          <li>Must replay from the very start</li>
+          <li>Duplicates or gaps on restart</li>
+        </ul>
+        <div class="sm-vs-note">600 MB of per-driver history vanishes on one node failure.</div>
+      </div>
+      <div class="sm-vs-card stateful">
+        <div class="sm-vs-head">✅ With checkpoints</div>
+        <p class="sm-vs-sub">A crash is a few seconds of rework.</p>
+        <ul>
+          <li>State restored from last snapshot</li>
+          <li>Kafka rewound to matching offsets</li>
+          <li>Exactly-once preserved</li>
+        </ul>
+        <div class="sm-vs-note">Restore + replay-since = back online in seconds, no data lost.</div>
+      </div>
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">Why checkpointing is hard to get right</div>
+      <div class="section-desc">Six properties a naïve "save to disk" loop can't deliver.</div>
+    </div>
+    <div class="sm-why-grid">
+      ${WHY_REASONS.map(r => `
+        <div class="sm-why">
+          <div class="sm-why-ic">${r.icon}</div>
+          <div class="sm-why-title">${r.title}</div>
+          <p>${r.body}</p>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">The problem checkpointing solves</div>
+      <div class="section-desc">Four ways naïve persistence breaks a running pipeline — and the fix.</div>
+    </div>
+    <div class="sm-prob-list">
+      ${PROBLEMS.map((p, i) => `
+        <div class="sm-prob">
+          <div class="sm-prob-no">${i + 1}</div>
+          <div class="sm-prob-body">
+            <div class="sm-prob-naive"><span class="sm-tag naive">Naïve</span>${p.naive}</div>
+            <div class="sm-prob-fail"><span class="sm-tag fail">Breaks</span>${p.fail}</div>
+            <div class="sm-prob-fix"><span class="sm-tag fix">Checkpoint</span>${p.fix}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">How a barrier makes it consistent</div>
+    </div>
+    <div class="sm-keyed card">
+      <p>The trick is the <b>barrier</b> — a special marker injected into every source partition. It flows <em>with</em> the data, and each operator snapshots the instant it has seen the barrier on <b>all</b> its inputs (barrier alignment).</p>
+      <ul>
+        <li><b>Flows with records</b> — so every snapshot captures exactly the state after the same set of events.</li>
+        <li><b>Alignment</b> — an operator waits for the barrier on all input channels before snapshotting, guaranteeing a clean cut.</li>
+        <li><b>ACK to JobManager</b> — the checkpoint is "complete" only when every operator has acknowledged; then Kafka offsets commit.</li>
+      </ul>
+      <div class="sm-keyed-flow">
+        <code>triggerCheckpoint</code> <span class="sm-arrow">→</span> source injects <b>barrier</b> <span class="sm-arrow">→</span> align + snapshot per operator <span class="sm-arrow">→</span> upload to S3 <span class="sm-arrow">→</span> <b>all ACK</b> <span class="sm-arrow">→</span> commit offsets
+      </div>
+    </div>
+
+    <div class="sm-bridge" style="margin-top:26px">
+      <div class="sm-bridge-txt">
+        <div class="sm-bridge-k">Now watch the barrier flow</div>
+        <p>You know <b>what</b> a checkpoint is and <b>why</b> — trigger checkpoint #42 and watch each operator align, snapshot, and ACK through Uber's fraud pipeline.</p>
+      </div>
+      <button class="sm-bridge-btn" data-jump="anim">Open the Barrier Animation →</button>
+    </div>
+  </div>
+`;
+
 export function mount(container) {
   let animStep = -1; // -1 = idle
   let animTimer = null;
@@ -43,6 +156,7 @@ export function mount(container) {
   let phase = 'idle';
 
   container.innerHTML = `
+    ${rideSpine({ active: ['RIDE_STARTED'], incidents: ['DEFECT-4'] })}
     <div class="module-hero">
       <div class="module-hero-content">
         <span class="module-badge">Module 12</span>
@@ -51,12 +165,17 @@ export function mount(container) {
       </div>
     </div>
     <div class="module-tabs">
-      <button class="tab-btn active" data-tab="anim">Barrier Animation</button>
+      <button class="tab-btn active" data-tab="why">What &amp; Why</button>
+      <button class="tab-btn" data-tab="anim">Barrier Animation</button>
       <button class="tab-btn" data-tab="concept">How It Works</button>
       <button class="tab-btn" data-tab="iq">Interview Q&amp;A</button>
     </div>
 
-    <div class="tab-content active" data-tab="anim">
+    <div class="tab-content active" data-tab="why">
+      ${WHY_HTML}
+    </div>
+
+    <div class="tab-content" data-tab="anim">
       <div class="card" style="padding:24px;margin-bottom:20px">
         <canvas id="ckpt-canvas" width="680" height="360" style="width:100%;max-width:680px;display:block;border-radius:8px;background:var(--surface2)"></canvas>
         <div style="display:flex;gap:12px;margin-top:16px;flex-wrap:wrap;align-items:center">
@@ -94,6 +213,7 @@ export function mount(container) {
     </div>
 
     <div class="tab-content" data-tab="concept">
+      ${rideCallout('RIDE_STARTED', { openEvent: false })}
       <div class="grid-2 gap-20">
         <div class="card p-24">
           <h3 class="mb-12">Aligned vs Unaligned Checkpoints</h3>
@@ -105,36 +225,14 @@ export function mount(container) {
             <div style="font-size:12px;font-weight:700;color:var(--accent);text-transform:uppercase;margin-bottom:6px">Unaligned (Flink 1.11+)</div>
             <p style="color:var(--text-secondary);font-size:13px;line-height:1.6">Barrier passes immediately; in-flight records captured in checkpoint. No buffering delay. Larger checkpoint. Best under backpressure where aligned barriers stall.</p>
           </div>
-          <div class="code-block" style="margin-top:14px;font-size:11px"><pre>// Enable unaligned checkpoints:
-env.getCheckpointConfig()
-   .enableUnalignedCheckpoints();
-// Or per-job config:
-// execution.checkpointing.unaligned: true</pre></div>
+          <div class="code-block fs-11"><span class="lang-tag">PyFlink</span><pre># Enable unaligned checkpoints (barriers overtake buffered data):
+env.get_checkpoint_config().enable_unaligned_checkpoints()
+# Or in flink-conf.yaml:
+#   execution.checkpointing.unaligned: true</pre></div>
         </div>
         <div class="card p-24">
           <h3 class="mb-12">Checkpoint Configuration</h3>
-          <div class="code-block fs-11"><pre>CheckpointConfig cfg =
-    env.getCheckpointConfig();
-
-// Interval between checkpoint starts
-cfg.setCheckpointInterval(30_000); // 30s
-
-// Max time a checkpoint may take
-cfg.setCheckpointTimeout(60_000);  // 60s
-
-// Min time between checkpoint end and next start
-cfg.setMinPauseBetweenCheckpoints(5_000);
-
-// Keep last 2 checkpoints on failure
-cfg.setTolerableCheckpointFailureNumber(2);
-
-// Retain checkpoint on cancel (for restore)
-cfg.setExternalizedCheckpointCleanup(
-    RETAIN_ON_CANCELLATION);
-
-// Storage
-cfg.setCheckpointStorage(
-    "s3://uber-checkpoints/fraud/ckpt");</pre></div>
+          ${pyCode('checkpoint_config')}
         </div>
         <div class="card p-24">
           <h3 class="mb-12">Savepoints vs Checkpoints</h3>
@@ -157,25 +255,25 @@ cfg.setCheckpointStorage(
         </div>
         <div class="card p-24">
           <h3 class="mb-12">Restoring from a Savepoint</h3>
-          <div class="code-block fs-11"><pre># Trigger savepoint before upgrade:
-flink savepoint &lt;jobId&gt; s3://uber/savepoints/
-
-# Deploy new version, restore from savepoint:
-flink run -s s3://uber/savepoints/sp-42 \
-  uber-fraud-v4.jar
-
-# Flink matches operator state by UID:
-# Set stable UIDs to survive restores:
-stream.keyBy(...).process(new FraudDetector())
-      .uid("fraud-detector-v1");</pre></div>
+          ${pyCode('savepoint_uid')}
         </div>
       </div>
     </div>
 
     <div class="tab-content" data-tab="iq">
+      <div class="section-header" style="margin-bottom:8px">
+        <div class="section-title">Interview corner cases — on ride R-4471</div>
+        <div class="section-desc">Checkpoint questions interviewers dig into, anchored to the mid-trip crash (DEFECT-4).</div>
+      </div>
+      <div id="ckpt-scenarios"></div>
+      <div class="section-header" style="margin:22px 0 8px"><div class="section-title">More checkpoint Q&amp;A</div></div>
       <div class="iq-section" id="iq12-section"></div>
     </div>
   `;
+
+  initRideSpine(container);
+  const ckptScen = container.querySelector('#ckpt-scenarios');
+  if (ckptScen) ckptScen.innerHTML = scenarioList(casesByModule('m12'));
 
   // Tabs
   container.querySelectorAll('.tab-btn').forEach(btn => {
@@ -187,6 +285,18 @@ stream.keyBy(...).process(new FraudDetector())
       if (btn.dataset.tab === 'anim') startIdleDraw();
     });
   });
+
+  // Bridge button: jump from "What & Why" into the Barrier Animation tab.
+  const jumpBtn = container.querySelector('[data-jump]');
+  if (jumpBtn) {
+    jumpBtn.addEventListener('click', () => {
+      const target = jumpBtn.dataset.jump;
+      container.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === target));
+      container.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.dataset.tab === target));
+      container.querySelector('.module-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (target === 'anim') startIdleDraw();
+    });
+  }
 
   // IQ
   const iqSection = container.querySelector('#iq12-section');

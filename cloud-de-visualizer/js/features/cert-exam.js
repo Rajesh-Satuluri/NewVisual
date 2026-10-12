@@ -13,19 +13,10 @@
   'use strict';
   const TV = window.TableViz;
   if (!TV) return;
+  const QE = TV.QuestionEngine;   // shared modal/grade substrate (F0.4)
 
-  const esc = (s) => String(s == null ? '' : s).replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
-  let root, state, _lastFocus = null;
-
-  // Keep keyboard focus inside the dialog while it is open.
-  function trapFocus(e) {
-    if (e.key !== 'Tab' || !root || !root.classList.contains('visible')) return;
-    const f = root.querySelectorAll('button:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])');
-    if (!f.length) return;
-    const first = f[0], last = f[f.length - 1];
-    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-  }
+  const esc = QE.esc;
+  let root, state;
 
   function injectStyles() {
     if (document.getElementById('cx-styles')) return;
@@ -94,20 +85,12 @@
     document.head.appendChild(s);
   }
 
-  function ensureRoot() {
-    if (root) return root;
-    injectStyles();
-    root = document.createElement('div');
-    root.className = 'cx-backdrop';
-    root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true'); root.setAttribute('aria-label', 'Certification practice exam');
-    document.body.appendChild(root);
-    root.addEventListener('click', (e) => { if (e.target === root) close(); });
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && root.classList.contains('visible')) close(); });
-    document.addEventListener('keydown', trapFocus);
-    return root;
-  }
-
-  function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[a[i], a[j]] = [a[j], a[i]]; } return a; }
+  const modal = QE.createModal({
+    className: 'cx-backdrop',
+    ariaLabel: 'Certification practice exam',
+    focusSelectors: ['.cx-opt', '.cx-close'],
+  });
+  const shuffle = QE.shuffle;
   function domName(cert, id) { const d = (cert.domains || []).find(x => x.id === id); return d ? d.name : id; }
   function lvlClass(p) { return p < 45 ? 'cx-lo' : p < 70 ? 'cx-mid' : 'cx-hi'; }
 
@@ -120,24 +103,13 @@
       else alert('Practice exam for this track is coming soon.');
       return;
     }
-    _lastFocus = document.activeElement;
-    ensureRoot();
+    injectStyles();
+    root = modal.root();
     const n = Math.min(opts.count || 10, all.length);
     state = { cert: cert, qs: shuffle(all).slice(0, n), i: 0, correct: 0, answered: false, dom: {} };
-    renderQ();
-    root.classList.add('visible');
-    document.body.classList.add('modal-open');
-    // move focus into the dialog (first answer option)
-    const first = root.querySelector('.cx-opt') || root.querySelector('.cx-close');
-    if (first) first.focus();
+    modal.open(renderQ);
   }
-  function close() {
-    if (root) root.classList.remove('visible');
-    document.body.classList.remove('modal-open');
-    // restore focus to whatever opened the exam
-    if (_lastFocus && typeof _lastFocus.focus === 'function') { try { _lastFocus.focus(); } catch (e) {} }
-    _lastFocus = null;
-  }
+  function close() { modal.close(); }
 
   function renderQ() {
     const q = state.qs[state.i], cert = state.cert;
@@ -179,12 +151,7 @@
     state.answered = true;
     const q = state.qs[state.i];
     const correct = k === q.answer;
-    root.querySelectorAll('.cx-opt').forEach((b, idx) => {
-      b.disabled = true;
-      const letter = b.querySelector('.cx-letter');
-      if (idx === q.answer) { b.classList.add('correct'); if (letter) letter.textContent = '✓'; }
-      if (idx === k && !correct) { b.classList.add('wrong'); if (letter) letter.textContent = '✗'; }
-    });
+    QE.gradeOptions(root, { optSel: '.cx-opt', letterSel: '.cx-letter', answer: q.answer, chosen: k });
     if (correct) state.correct++;
     (state.log = state.log || []).push({ q: q, chosen: k, correct: correct });
     // per-domain tally + persist signal

@@ -3,6 +3,9 @@
 // Simulate read/write latency, checkpoint size, and GC pressure
 // at different state sizes. Uber fraud detection as the running example.
 
+import { rideSpine, initRideSpine, rideCallout, scenarioList, pyCode } from '../components/story-ui.js';
+import { casesByModule } from '../data/interview-cases.js';
+
 const METRICS = {
   hashmap: {
     readLatency:   (stateSize) => 0.01 + stateSize * 0.0001,  // ms
@@ -46,14 +49,123 @@ const IQS = [
   { q:'What is an incremental checkpoint and why does RocksDB support it but HashMap doesn\'t?', a:'An incremental checkpoint uploads only the state changes since the last checkpoint, not the full state. RocksDB is built on an LSM (Log-Structured Merge) tree: new writes go to immutable SSTables that never change. Flink tracks which SSTables are new since the last checkpoint and only uploads those to S3. HashMap backend stores state as a Java heap object — a single snapshot means serializing and uploading the entire in-memory map every time, with no delta concept.' },
   { q:'How does Flink\'s state TTL (Time-To-Live) work?', a:'StateTtlConfig attaches a timestamp to every state entry. On each read or write, Flink checks if the entry has expired. Expired entries are cleaned up lazily (on next access) or eagerly in the background (RocksDB compaction filter). This avoids unbounded state growth: at Uber, driver state that hasn\'t seen an event in 24 hours is auto-expired, preventing the state backend from growing to TBs for rarely-active drivers.' },
   { q:'What happens to in-flight state during a failover?', a:'Flink restores operator state from the latest completed checkpoint stored in the state backend (S3/HDFS). For HashMap, Flink downloads the full serialized snapshot and deserializes into the JVM heap. For RocksDB, Flink downloads SSTables and opens a new RocksDB instance pointing at them. The state is then exactly as it was at checkpoint time — all writes after the checkpoint are discarded and will be replayed from source (Kafka rewind to checkpointed offsets).' },
-  { q:'Can different operators in the same job use different state backends?', a:'Yes — state backend is configured per-operator using env.setStateBackend() globally or stateBackend annotation per transform. You might use HashMap for a latency-sensitive scoring operator and RocksDB for a large windowed aggregation in the same pipeline. Checkpoints still coordinate across all operators through the barrier protocol; each operator serializes its state to its configured backend\'s target path.' },
+  { q:'Can different operators in the same job use different state backends?', a:'Yes — state backend is configured per-operator using env.set_state_backend() globally or stateBackend annotation per transform. You might use HashMap for a latency-sensitive scoring operator and RocksDB for a large windowed aggregation in the same pipeline. Checkpoints still coordinate across all operators through the barrier protocol; each operator serializes its state to its configured backend\'s target path.' },
 ];
+
+// ── Foundations: what state is, why streaming needs it, what problem the
+// managed-state model solves. Rendered as the first tab, before the
+// HashMap-vs-RocksDB comparison (which is a "where does it live" question
+// that only makes sense once "why do we keep state at all" is clear).
+const WHY_REASONS = [
+  { icon:'🔢', title:'Counting & aggregating', body:'“How many trips has Rahul done in the last hour?” needs a running count that survives from one event to the next. The answer lives nowhere in a single event — only in what you remembered from the previous ones.' },
+  { icon:'🪟', title:'Windows', body:'A 5-minute average speed window has to hold every ping that fell inside the window until the window fires. Those buffered pings are state.' },
+  { icon:'🔁', title:'Deduplication', body:'“Is this the second time ride R-4471 tried to charge?” You can only answer by remembering the charges you have already seen for that ride.' },
+  { icon:'🔗', title:'Joins & enrichment', body:'Matching a GPS ping to the driver profile, or a payment to its ride, means holding one side of the join in memory until the other side arrives.' },
+  { icon:'🧠', title:'Pattern / fraud detection', body:'“Flag a driver whose speed jumped impossibly between two pings” compares this event to the last one — so the last one must be stored per driver.' },
+  { icon:'⏱️', title:'Timers & timeouts', body:'“Cancel the ride if no driver accepts within 30 s” requires remembering that a request is pending and when it started.' },
+];
+
+const PROBLEMS = [
+  { naive:'Keep a plain <code>HashMap</code> inside your function.', fail:'Fits in memory — until Uber has millions of active drivers. Then the heap overflows and the job dies.', flink:'Flink can spill keyed state to disk (RocksDB), so total state can reach terabytes, far beyond heap.' },
+  { naive:'The map lives only in the worker process.', fail:'The TaskManager crashes (a worker dies mid-trip). Everything it remembered is gone — every running count, every window, reset to zero.', flink:'Managed state is <b>checkpointed</b> to durable storage (S3/HDFS). After a crash Flink restores the exact state from the last checkpoint and replays the source from the matching offset — <b>exactly-once</b>.' },
+  { naive:'One map per parallel task, keyed however you like.', fail:'Scale the job from 4 to 8 workers and the keys are now in the wrong places — a driver’s history is split across tasks that can’t see each other.', flink:'Flink scopes state <b>per key</b> and groups keys into <b>key groups</b>. On rescale it redistributes whole key groups, so each driver’s state follows its key to exactly one task.' },
+  { naive:'Clear old entries… whenever you remember to.', fail:'State grows forever. Drivers who went offline weeks ago still occupy memory, and the job slowly bloats until it stalls.', flink:'<b>State TTL</b> expires entries automatically (e.g. drop driver state idle for 24 h), keeping state bounded without manual bookkeeping.' },
+];
+
+const WHY_HTML = `
+  <div class="sm-wrap">
+
+    <div class="sm-def card">
+      <div class="sm-def-ic">🧠</div>
+      <div>
+        <div class="sm-def-eyebrow">The one-sentence definition</div>
+        <p class="sm-def-lead"><b>State</b> is everything a streaming job <b>remembers between events</b> — the running counts, the buffered windows, the “last value I saw for this key.” <b>State management</b> is how Flink stores that memory, keeps it correct when workers crash, and lets it grow past the size of RAM.</p>
+      </div>
+    </div>
+
+    <div class="section-header"><div class="section-title">Stateless vs. stateful — the core distinction</div>
+      <div class="section-desc">Every operator is one or the other. The difference is whether it needs to look at the past.</div></div>
+    <div class="sm-vs">
+      <div class="sm-vs-card stateless">
+        <div class="sm-vs-head">⚡ Stateless</div>
+        <p class="sm-vs-sub">Each event is handled in isolation. Nothing is remembered.</p>
+        <ul>
+          <li><code>map</code>, <code>filter</code>, <code>flatMap</code></li>
+          <li>“Convert this ping’s speed from m/s to km/h.”</li>
+          <li>“Drop pings with no GPS fix.”</li>
+        </ul>
+        <div class="sm-vs-note">A crash loses nothing — replay the event and get the same answer.</div>
+      </div>
+      <div class="sm-vs-card stateful">
+        <div class="sm-vs-head">🧠 Stateful</div>
+        <p class="sm-vs-sub">The answer depends on earlier events, so something must be stored per key.</p>
+        <ul>
+          <li>counts, sums, averages, windows, joins, dedup</li>
+          <li>“Average speed of R-4471 over the last 5 min.”</li>
+          <li>“Has this driver been flagged before?”</li>
+        </ul>
+        <div class="sm-vs-note">A crash loses the memory — unless the engine manages and checkpoints it. <b>This is the whole topic.</b></div>
+      </div>
+    </div>
+
+    <div class="section-header"><div class="section-title">Why streaming <em>needs</em> state</div>
+      <div class="section-desc">A batch job can re-read the whole history from a table. A stream is infinite and arrives one event at a time — the only “history” it has is what it chose to remember.</div></div>
+    <div class="sm-why-grid">
+      ${WHY_REASONS.map(r => `
+        <div class="sm-why">
+          <div class="sm-why-ic">${r.icon}</div>
+          <div class="sm-why-title">${r.title}</div>
+          <p>${r.body}</p>
+        </div>`).join('')}
+    </div>
+
+    <div class="section-header"><div class="section-title">The problem it solves: “just use a HashMap” breaks four ways</div>
+      <div class="section-desc">You could keep your own map inside the function. It works on your laptop and fails in production. Here is exactly how — and what Flink’s <b>managed state</b> does instead.</div></div>
+    <div class="sm-prob-list">
+      ${PROBLEMS.map((p,i) => `
+        <div class="sm-prob">
+          <div class="sm-prob-no">${i+1}</div>
+          <div class="sm-prob-body">
+            <div class="sm-prob-naive"><span class="sm-tag naive">Naïve</span>${p.naive}</div>
+            <div class="sm-prob-fail"><span class="sm-tag fail">Breaks</span>${p.fail}</div>
+            <div class="sm-prob-fix"><span class="sm-tag fix">Managed state</span>${p.flink}</div>
+          </div>
+        </div>`).join('')}
+    </div>
+
+    <div class="section-header"><div class="section-title">How Flink makes it scale: keyed state</div></div>
+    <div class="sm-keyed card">
+      <p>Almost all state in Flink is <b>keyed</b> — it is partitioned by the same key you called <code>keyBy()</code> on (here, <code>driver_id</code>). That single design choice is what makes state both correct and horizontally scalable:</p>
+      <ul>
+        <li><b>Isolation.</b> When you read state inside a <code>KeyedProcessFunction</code>, you automatically see <em>only the current key’s</em> value. Rahul’s last-trip timestamp can never leak into another driver’s calculation.</li>
+        <li><b>Distribution.</b> Keys are hashed into a fixed number of <b>key groups</b>. Each parallel task owns a contiguous range of key groups, so every key lives on exactly one task — no coordination needed on the hot path.</li>
+        <li><b>Rescaling.</b> Grow from 4 workers to 8 and Flink simply reassigns whole key groups to the new tasks and loads their state from the checkpoint. Each driver’s history follows its key to its new owner — nothing is lost or duplicated.</li>
+      </ul>
+      <div class="sm-keyed-flow">
+        <span>events keyed by <code>driver_id</code></span><span class="sm-arrow">→</span>
+        <span>hashed into <b>key groups</b></span><span class="sm-arrow">→</span>
+        <span>groups assigned to <b>tasks</b></span><span class="sm-arrow">→</span>
+        <span>each task owns its keys’ state</span>
+      </div>
+    </div>
+
+    <div class="sm-bridge">
+      <div class="sm-bridge-txt">
+        <div class="sm-bridge-k">So where does all this remembered state physically live?</div>
+        <p>Now that you know <em>why</em> Flink keeps state and <em>how</em> it keys it, the remaining question is <b>where it is stored</b> — on the JVM heap for speed, or on local disk for size. That is exactly the choice between the two <b>state backends</b>.</p>
+      </div>
+      <button class="sm-bridge-btn" data-jump="compare">Compare HashMap vs RocksDB →</button>
+    </div>
+
+  </div>
+`;
 
 export function mount(container) {
   let stateSize = 10; // thousands of keys
   let selectedType = STATE_TYPES[0];
 
   container.innerHTML = `
+    ${rideSpine({ active: ['DRIVER_SEARCHING', 'DRIVER_ASSIGNED', 'DRIVER_ACCEPTED'] })}
     <div class="module-hero">
       <div class="module-hero-content">
         <span class="module-badge">Module 11</span>
@@ -62,12 +174,17 @@ export function mount(container) {
       </div>
     </div>
     <div class="module-tabs">
-      <button class="tab-btn active" data-tab="compare">Comparison</button>
+      <button class="tab-btn active" data-tab="why">What &amp; Why</button>
+      <button class="tab-btn" data-tab="compare">Comparison</button>
       <button class="tab-btn" data-tab="types">State Types</button>
       <button class="tab-btn" data-tab="iq">Interview Q&amp;A</button>
     </div>
 
-    <div class="tab-content active" data-tab="compare">
+    <div class="tab-content active" data-tab="why">
+      ${WHY_HTML}
+    </div>
+
+    <div class="tab-content" data-tab="compare">
       <div class="sb-controls card">
         <label class="ctrl-label">Keyed state entries: <strong id="ss-val">${stateSize}K drivers</strong></label>
         <input type="range" id="ss-slider" min="1" max="100" value="${stateSize}" style="width:200px">
@@ -98,25 +215,11 @@ export function mount(container) {
       <div class="grid-2" style="gap:20px;margin-top:20px">
         <div class="card p-24">
           <h4 style="margin:0 0 12px;color:#6366f1">HashMap Backend — Config</h4>
-          <div class="code-block fs-11"><pre>// Default since Flink 1.13
-env.setStateBackend(
-    new HashMapStateBackend());
-// Checkpoint storage separate:
-env.getCheckpointConfig()
-   .setCheckpointStorage(
-       "s3://uber-checkpoints/fraud/");</pre></div>
+          ${pyCode('hashmap_backend')}
         </div>
         <div class="card p-24">
           <h4 style="margin:0 0 12px;color:#FF6B35">RocksDB Backend — Config</h4>
-          <div class="code-block fs-11"><pre>EmbeddedRocksDBStateBackend rdb =
-    new EmbeddedRocksDBStateBackend(
-        true); // incremental=true
-env.setStateBackend(rdb);
-env.getCheckpointConfig()
-   .setCheckpointStorage(
-       "s3://uber-checkpoints/fraud/");
-// Also tune RocksDB block cache:
-// state.backend.rocksdb.block.cache-size: 256mb</pre></div>
+          ${pyCode('rocksdb_backend')}
         </div>
       </div>
     </div>
@@ -127,6 +230,12 @@ env.getCheckpointConfig()
     </div>
 
     <div class="tab-content" data-tab="iq">
+      <div class="section-header" style="margin-bottom:8px">
+        <div class="section-title">Interview corner cases — on ride R-4471</div>
+        <div class="section-desc">State questions interviewers push on, answered against the ride.</div>
+      </div>
+      <div id="state-scenarios"></div>
+      <div class="section-header" style="margin:22px 0 8px"><div class="section-title">More state Q&amp;A</div></div>
       <div class="iq-section" id="iq11-section"></div>
     </div>
   `;
@@ -140,6 +249,17 @@ env.getCheckpointConfig()
       container.querySelector(`.tab-content[data-tab="${btn.dataset.tab}"]`).classList.add('active');
     });
   });
+
+  // "Compare the backends →" bridge button jumps to the Comparison tab.
+  const jumpBtn = container.querySelector('[data-jump]');
+  if (jumpBtn) {
+    jumpBtn.addEventListener('click', () => {
+      const target = jumpBtn.dataset.jump;
+      container.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === target));
+      container.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.dataset.tab === target));
+      container.querySelector('.module-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
 
   // IQ
   const iqSection = container.querySelector('#iq11-section');
@@ -157,6 +277,10 @@ env.getCheckpointConfig()
       if (!open) item.classList.add('open');
     });
   });
+
+  initRideSpine(container);
+  const stateScen = container.querySelector('#state-scenarios');
+  if (stateScen) stateScen.innerHTML = scenarioList(casesByModule('m11'));
 
   // State type picker
   const typePicker = container.querySelector('#state-type-picker');
@@ -189,61 +313,50 @@ env.getCheckpointConfig()
         </div>
         <div class="mt-16">
           <div class="section-eyebrow">Usage Pattern</div>
-          <div class="code-block fs-11"><pre>${stateCodeFor(t.id)}</pre></div>
+          <div class="code-block fs-11"><span class="lang-tag">PyFlink</span><pre>${stateCodeFor(t.id)}</pre></div>
         </div>
         <div style="margin-top:16px;padding:14px;background:var(--surface2);border-radius:8px">
           <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text-secondary);margin-bottom:8px">State TTL (auto-expiry)</div>
-          <div class="code-block fs-11"><pre>StateTtlConfig ttl = StateTtlConfig
-    .newBuilder(Time.hours(24))
-    .setUpdateType(UpdateType.OnCreateAndWrite)
-    .setStateVisibility(
-        StateVisibility.NeverReturnExpired)
-    .cleanupInRocksdbCompactFilter(1000)
-    .build();
-
-descriptor.enableTimeToLive(ttl);
-// Driver state auto-expires after 24h inactivity</pre></div>
+          ${pyCode('state_ttl')}
         </div>
       </div>
     `;
   }
 
+  // PyFlink usage patterns per state type (verified-shape; mirrors the
+  // pyflink.datastream.state API used inside a KeyedProcessFunction).
   function stateCodeFor(id) {
     const snippets = {
-      value: `// Declare in open():
-ValueStateDescriptor<Long> desc =
-    new ValueStateDescriptor<>("lastTripTime", Long.class);
-ValueState<Long> lastTripTime = getRuntimeContext().getState(desc);
+      value: `# In open(self, ctx: RuntimeContext):
+desc = ValueStateDescriptor("last_trip_ts", Types.LONG())
+self.last_trip_ts = ctx.get_state(desc)
 
-// Read / Write in processElement():
-Long last = lastTripTime.value(); // null if first event
-lastTripTime.update(event.timestamp);`,
-      list: `ListStateDescriptor<GPSEvent> desc =
-    new ListStateDescriptor<>("recentPings", GPSEvent.class);
-ListState<GPSEvent> recentPings = getRuntimeContext().getListState(desc);
+# In process_element():
+last = self.last_trip_ts.value()      # None on first event
+self.last_trip_ts.update(event["event_time"])`,
+      list: `desc = ListStateDescriptor("recent_pings", Types.PICKLED_BYTE_ARRAY())
+self.recent_pings = ctx.get_list_state(desc)
 
-recentPings.add(event);  // append
-Iterable<GPSEvent> pings = recentPings.get();  // read all`,
-      map: `MapStateDescriptor<Integer, Long> desc =
-    new MapStateDescriptor<>("tripsByHour", Integer.class, Long.class);
-MapState<Integer, Long> tripsByHour = getRuntimeContext().getMapState(desc);
+self.recent_pings.add(event)          # append
+pings = list(self.recent_pings.get()) # read all`,
+      map: `desc = MapStateDescriptor("trips_by_hour", Types.INT(), Types.LONG())
+self.trips_by_hour = ctx.get_map_state(desc)
 
-int hour = LocalDateTime.now().getHour();
-tripsByHour.put(hour, tripsByHour.getOrDefault(hour, 0L) + 1);`,
-      reducing: `ReducingStateDescriptor<Double> desc =
-    new ReducingStateDescriptor<>("totalDist", Double::sum, Double.class);
-ReducingState<Double> totalDist = getRuntimeContext().getReducingState(desc);
+hour = (event["event_time"] // 3_600_000) % 24
+prev = self.trips_by_hour.get(hour) or 0
+self.trips_by_hour.put(hour, prev + 1)`,
+      reducing: `desc = ReducingStateDescriptor(
+    "total_dist", lambda a, b: a + b, Types.DOUBLE())
+self.total_dist = ctx.get_reducing_state(desc)
 
-totalDist.add(event.distanceDelta);  // auto-reduces with sum
-Double total = totalDist.get();`,
-      aggregating: `AggregatingStateDescriptor<GPSEvent, SpeedAcc, Double> desc =
-    new AggregatingStateDescriptor<>("avgSpeed",
-        new SpeedAggFunction(), SpeedAcc.class);
-AggregatingState<GPSEvent, Double> avgSpeed =
-    getRuntimeContext().getAggregatingState(desc);
+self.total_dist.add(event["distance_delta"])  # auto-reduces with sum
+total = self.total_dist.get()`,
+      aggregating: `desc = AggregatingStateDescriptor(
+    "avg_speed", SpeedAggregate(), Types.PICKLED_BYTE_ARRAY())
+self.avg_speed = ctx.get_aggregating_state(desc)
 
-avgSpeed.add(event);        // accumulate
-Double avg = avgSpeed.get(); // get output`,
+self.avg_speed.add(event)   # accumulate (count, sum)
+avg = self.avg_speed.get()  # -> output`,
     };
     return snippets[id] || '';
   }

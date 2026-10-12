@@ -1,0 +1,223 @@
+// Gate 7 (I67–I68) — production incident bank for the Incident Lab.
+// Each incident: a symptom, a diagnosis MCQ (predict-then-reveal), the real root
+// cause, and a recovery playbook. Grounded in both scenarios via {ENTITY}/{KEY}.
+// Technically accurate: no invented metrics; guarantees stated carefully.
+
+export const INCIDENTS = [
+  {
+    id: 'inc01', icon: '📈', title: 'Consumer lag climbing without bound',
+    severity: 'SEV-2',
+    symptom: `The {ENTITY} dashboard is minutes behind. Monitoring shows consumer lag rising steadily on every partition; CPU on the processing tier is pinned near 100%. Input rate is normal.`,
+    options: [
+      { text: 'The broker is down', correct: false, why: 'Lag would not rise smoothly with a dead broker — you would see connection errors and a hard stop.' },
+      { text: 'Processing throughput is below input throughput', correct: true, why: 'Pinned CPU + steadily rising lag at normal input is the classic signature: the consumers simply cannot keep up.' },
+      { text: 'The partition key changed', correct: false, why: 'A key change causes skew (one hot partition), not uniform lag across all partitions.' },
+    ],
+    rootCause: `Processing rate < input rate. With consumers saturated, the queue drains slower than it fills, so lag grows linearly — exactly the backpressure model.`,
+    playbook: [
+      'Confirm it is throughput, not a stuck consumer: check per-partition lag is rising on <i>all</i> partitions.',
+      'Scale out: add consumers up to the partition count (one partition = one consumer max within a group).',
+      'If already at partition count, increase partitions (and parallelism) or optimize the hot code path.',
+      'Short term, shed load or raise processing parallelism; confirm lag flattens then falls.',
+    ],
+    concept: 'f12',
+  },
+  {
+    id: 'inc02', icon: '🔥', title: 'One partition hot, the rest idle',
+    severity: 'SEV-2',
+    symptom: `Total throughput has collapsed. One consumer is at 100% CPU with huge lag while its peers sit nearly idle. All {ENTITY} traffic seems to land on a single <code>{KEY}</code>.`,
+    options: [
+      { text: 'Hot partition from low-cardinality / skewed key', correct: true, why: 'Idle peers + one saturated consumer = all records hashing to one partition. A skewed or low-cardinality key does exactly this.' },
+      { text: 'Not enough brokers', correct: false, why: 'More brokers would not rebalance a single over-loaded key — the key is the problem, not broker count.' },
+      { text: 'Checkpoint corruption', correct: false, why: 'Corruption shows as restart/replay issues, not uneven live load.' },
+    ],
+    rootCause: `Partitioning by a skewed <code>{KEY}</code> sends a disproportionate share of events to one partition. Ordering is preserved but parallelism is lost — the system runs at single-partition speed.`,
+    playbook: [
+      'Identify the hot key from per-partition metrics.',
+      'Increase key cardinality or add a salt (e.g. {KEY}#bucket) to spread load — accept that strict per-{KEY} order may need re-aggregation.',
+      'If order per {KEY} is mandatory, isolate the hot key to its own partition/stream with dedicated capacity.',
+      'Re-partition and verify load spreads evenly across consumers.',
+    ],
+    concept: 'f03',
+  },
+  {
+    id: 'inc03', icon: '🧠', title: 'Streaming job OOMs after hours of running',
+    severity: 'SEV-1',
+    symptom: `A stateful aggregation job runs fine for hours, then crashes with out-of-memory. State size grows continuously in metrics. Restarting only delays the next crash.`,
+    options: [
+      { text: 'Missing or ineffective watermark', correct: true, why: 'Ever-growing state that eventually OOMs is the signature of state that is never evicted — i.e. no watermark bounding it.' },
+      { text: 'Too few partitions', correct: false, why: 'Partition count affects parallelism, not unbounded state growth over time.' },
+      { text: 'Network latency to the broker', correct: false, why: 'Latency causes lag, not steadily growing in-memory state.' },
+    ],
+    rootCause: `Windowed/keyed state has no watermark (or one too lax), so old windows never close and their state is never released. Over time state outgrows memory.`,
+    playbook: [
+      'Add/ tighten the watermark (<code>withWatermark</code>) so windows close and state is evicted.',
+      'Verify the event-time column is correct — a bad timestamp can stall the watermark forever.',
+      'For legitimately large state, switch to the RocksDB state store (off-heap) with changelog checkpointing.',
+      'Confirm state size plateaus after the change.',
+    ],
+    concept: 'f07',
+  },
+  {
+    id: 'inc04', icon: '👻', title: 'Duplicates appear downstream after a restart',
+    severity: 'SEV-2',
+    symptom: `After the processing job restarted following a crash, downstream {ENTITY} records show duplicates. Counts are inflated. The source is a replayable log.`,
+    options: [
+      { text: 'Non-idempotent sink with at-least-once replay', correct: true, why: 'Replay after a crash re-emits a batch; a non-idempotent sink writes it again — visible duplicates.' },
+      { text: 'The broker duplicated messages', correct: false, why: 'Brokers deliver at-least-once by design; the duplication becomes a problem only because the sink is not idempotent.' },
+      { text: 'Clock skew', correct: false, why: 'Clock skew affects windowing/lateness, not exact-duplicate writes.' },
+    ],
+    rootCause: `The pipeline is at-least-once: on recovery the engine replays the last uncommitted batch. Without an idempotent/transactional sink, that replay double-writes.`,
+    playbook: [
+      'Make the sink idempotent: transactional writes (e.g. Delta), or upsert/dedupe on a stable event or batch id.',
+      'If using foreachBatch, dedupe using the provided batchId.',
+      'Add a dedup step (dropDuplicatesWithinWatermark on event id) if the sink cannot be made idempotent.',
+      'Reconcile/repair the already-duplicated rows, then confirm no new duplicates on the next forced restart.',
+    ],
+    concept: 'f11',
+  },
+  {
+    id: 'inc05', icon: '🕳️', title: 'Late data silently missing from reports',
+    severity: 'SEV-3',
+    symptom: `Finance reports a small, consistent undercount of {ENTITY} events. Events that arrive a few minutes late never show up in the windowed aggregates, though they are in the raw log.`,
+    options: [
+      { text: 'Watermark lateness threshold too tight', correct: true, why: 'Events later than (max event time − allowed lateness) are dropped from stateful windows — a tight threshold silently excludes them.' },
+      { text: 'Consumer is down', correct: false, why: 'A down consumer causes lag/gaps for everyone, not a selective drop of only late events.' },
+      { text: 'The sink is full', correct: false, why: 'A full sink causes write errors, not a correctness undercount of late arrivals.' },
+    ],
+    rootCause: `The watermark's allowed lateness is shorter than the real tail of late arrivals, so straggler events fall outside their window and are excluded from aggregates by design.`,
+    playbook: [
+      'Measure the real distribution of lateness; set allowed lateness to cover the tail you care about.',
+      'Accept the trade-off: more lateness tolerance = more state + later finalization.',
+      'For audit-critical counts, route dropped-late events to a side output / rescued table for reconciliation.',
+      'Re-run the affected windows if the source is replayable.',
+    ],
+    concept: 'f07',
+  },
+  {
+    id: 'inc06', icon: '💾', title: 'Job restarts from zero and loses progress',
+    severity: 'SEV-1',
+    symptom: `After a deploy, the streaming job reprocessed days of data and produced duplicate/partial results. It behaved as if it had never run before.`,
+    options: [
+      { text: 'Checkpoint location was changed/deleted', correct: true, why: 'With no valid checkpoint the query cannot resume from its offsets/state, so it starts over — reprocessing everything.' },
+      { text: 'Too much data in the topic', correct: false, why: 'Data volume does not reset progress; losing the checkpoint does.' },
+      { text: 'Wrong output mode', correct: false, why: 'Output mode affects what is emitted, not whether progress is remembered.' },
+    ],
+    rootCause: `The deploy changed (or wiped) the checkpoint location, or two queries shared one. Without its checkpoint the query has no memory of committed offsets or state.`,
+    playbook: [
+      'Restore the original, stable checkpoint location; never change it casually between deploys.',
+      'Ensure every query has its own dedicated checkpoint (never shared).',
+      'If the checkpoint is truly gone, plan a controlled replay and dedupe downstream.',
+      'Codify the checkpoint path in config/IaC so deploys cannot alter it accidentally.',
+    ],
+    concept: 'f10',
+  },
+  {
+    id: 'inc07', icon: '🔄', title: 'Latency spikes every time the fleet scales',
+    severity: 'SEV-3',
+    symptom: `Each autoscale event (consumers added/removed) causes a burst of end-to-end latency and some records appear reprocessed. It settles after a minute, then repeats on the next scale event.`,
+    options: [
+      { text: 'Rebalance storm on the consumer group', correct: true, why: 'Adding/removing members triggers partition rebalances that pause consumption and can reprocess — exactly this bursty pattern.' },
+      { text: 'Disk full', correct: false, why: 'Disk pressure is not correlated with scale events the way rebalances are.' },
+      { text: 'DNS failure', correct: false, why: 'DNS issues cause outright connection failures, not scale-correlated latency bursts.' },
+    ],
+    rootCause: `Frequent membership changes cause stop-the-world rebalances; partitions move, in-flight work pauses, and some records are reprocessed after reassignment.`,
+    playbook: [
+      'Enable cooperative/incremental rebalancing to avoid stop-the-world moves.',
+      'Use static group membership so brief restarts do not trigger full rebalances.',
+      'Dampen autoscaling (longer cooldowns) so membership stops flapping.',
+      'Ensure processing is idempotent so the occasional reprocess is harmless.',
+    ],
+    concept: 'kafka',
+  },
+  {
+    id: 'inc08', icon: '🧱', title: 'Pipeline halts on a bad message',
+    severity: 'SEV-2',
+    symptom: `Ingestion stopped. Logs show a deserialization error repeating on the same offset — the job crashes, restarts, hits the same record, and crashes again (a crash loop).`,
+    options: [
+      { text: 'A poison message the pipeline cannot deserialize', correct: true, why: 'A crash loop stuck on one offset is the poison-message signature: the same unparseable record kills every attempt.' },
+      { text: 'The whole topic is corrupt', correct: false, why: 'Only one offset is failing repeatedly; the rest is fine.' },
+      { text: 'Out of memory', correct: false, why: 'OOM is not tied to a single offset and deserialization error.' },
+    ],
+    rootCause: `A malformed/incompatible record ("poison pill") fails deserialization. With no bad-record handling, the job cannot advance past that offset.`,
+    playbook: [
+      'Route unparseable records to a dead-letter queue / rescued-data column instead of failing.',
+      'Add schema validation + a permissive/rescue parse mode so one bad row does not halt the stream.',
+      'Advance past the stuck offset once the record is quarantined.',
+      'Fix the upstream producer/schema so the format is enforced at the source.',
+    ],
+    concept: 'databricks07',
+  },
+  {
+    id: 'inc09', icon: '⏳', title: 'Retention expired before a slow consumer caught up',
+    severity: 'SEV-1',
+    symptom: `A consumer that was down for maintenance came back to find a gap: the oldest {ENTITY} events it never read are simply gone. Data loss, not duplication.`,
+    options: [
+      { text: 'Backlog outlived the log retention window', correct: true, why: 'If a consumer lags longer than retention, unread records are deleted — a permanent gap when it resumes.' },
+      { text: 'The consumer offset reset to latest', correct: false, why: 'Possible cause of skipping, but here the data itself is gone (past retention), which is the described loss.' },
+      { text: 'The producer stopped', correct: false, why: 'A stopped producer means no new data, not a gap in old data.' },
+    ],
+    rootCause: `Consumer downtime exceeded the broker's retention period, so records aged out and were purged before being consumed.`,
+    playbook: [
+      'Increase retention to exceed worst-case consumer downtime (Kinesis up to 365d; Kafka configurable; Event Hubs tier-bound).',
+      'Alert on consumer lag approaching the retention boundary — before data is at risk.',
+      'For critical data, land a raw copy (bronze / S3 / Capture) so the log is not the only store.',
+      'Backfill the gap from any durable raw copy if available.',
+    ],
+    concept: 'f04',
+  },
+  {
+    id: 'inc10', icon: '🎭', title: '"Exactly-once" still produced duplicates',
+    severity: 'SEV-2',
+    symptom: `The team enabled exactly-once settings on the processor, yet an external REST sink still received duplicate {ENTITY} writes after a failure.`,
+    options: [
+      { text: 'Exactly-once covers the engine, not a non-transactional external sink', correct: true, why: 'Engine checkpoints give exactly-once <i>internally</i>; an external sink that is not idempotent/transactional still sees replays.' },
+      { text: 'Exactly-once was not really enabled', correct: false, why: 'Even correctly enabled, end-to-end EOS requires a compatible sink — the setting alone is not enough.' },
+      { text: 'The source is broken', correct: false, why: 'The source replaying is expected and correct; the sink must tolerate it.' },
+    ],
+    rootCause: `Exactly-once is a property of source + engine + sink together. The checkpoint guarantees correct replay, but a non-idempotent external sink turns that replay into duplicates.`,
+    playbook: [
+      'Make the external write idempotent: dedupe on a stable key, or use the batchId/txn ids.',
+      'Prefer a transactional sink (e.g. Delta) where end-to-end EOS matters.',
+      'Document the sink edge as at-least-once if it cannot be made idempotent.',
+      'Add a reconciliation/dedup step and verify under a forced failure test.',
+    ],
+    concept: 'f11',
+  },
+  {
+    id: 'inc11', icon: '🧊', title: 'Throughput capped despite spare CPU',
+    severity: 'SEV-3',
+    symptom: `Adding consumers does nothing — throughput is flat and new consumers sit idle. There are 6 partitions and 10 consumers in the group.`,
+    options: [
+      { text: 'More consumers than partitions (no work left to assign)', correct: true, why: 'A partition goes to at most one consumer in a group; with 6 partitions, 4 of the 10 consumers get nothing.' },
+      { text: 'CPU throttling', correct: false, why: 'Spare CPU rules out throttling; the idle consumers are a partitioning limit.' },
+      { text: 'Serialization overhead', correct: false, why: 'That would slow all consumers, not leave some completely idle.' },
+    ],
+    rootCause: `Consumer parallelism within a group is capped by partition count. Extra consumers beyond the partition count have nothing to consume.`,
+    playbook: [
+      'Increase the partition/shard count to raise the parallelism ceiling.',
+      'Right-size the consumer group to the partition count (no idle members).',
+      'Re-check that the hot path, not partitioning, is now the limit after rebalancing.',
+      'Plan partition count for peak + future growth (repartitioning has ordering implications).',
+    ],
+    concept: 'f03',
+  },
+  {
+    id: 'inc12', icon: '🧬', title: 'Downstream breaks after an upstream schema change',
+    severity: 'SEV-2',
+    symptom: `A producer added a field. Overnight the silver job began failing (or silently dropping data). No code changed on the consumer side.`,
+    options: [
+      { text: 'Rigid schema handling with no evolution policy', correct: true, why: 'An unhandled new column either fails the write (strict) or is lost (ignored) — both match "broke after a producer added a field".' },
+      { text: 'The broker rejected the larger message', correct: false, why: 'A single extra field rarely breaches message-size limits; the failure is schema handling.' },
+      { text: 'Clock skew', correct: false, why: 'Unrelated to a schema/field change.' },
+    ],
+    rootCause: `The consumer had no schema-evolution strategy. A new field triggers failOnNewColumns-style errors, or is silently dropped, depending on the mode.`,
+    playbook: [
+      'Adopt an explicit evolution mode (e.g. addNewColumns) with a persisted schema location.',
+      'Capture anything unparseable in a rescued-data column so nothing is lost silently.',
+      'Pin critical fields with schema hints; run under a job so the stream auto-restarts on evolution.',
+      'Coordinate producer/consumer contracts via a schema registry where possible.',
+    ],
+    concept: 'databricks07',
+  },
+];

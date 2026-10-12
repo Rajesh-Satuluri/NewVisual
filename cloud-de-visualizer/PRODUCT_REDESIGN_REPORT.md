@@ -1,0 +1,112 @@
+# Product Redesign — Final Report
+
+Premium SaaS-quality transformation of the Cloud Data Engineering Visualizer,
+executed as 12 strictly-additive iterations (A–L), each validated and deployed
+to production (GitHub Pages, `main`) on its own.
+
+## What shipped, by iteration
+
+| Iter | Phase | Deliverable | Commit |
+|------|-------|-------------|--------|
+| A | — | Deep-dive content completed for the final 5 Fabric services (57/57 total) + machine-checked coverage ledger | `3b0b505` |
+| B | 0 | Product audit, design-system spec, implementation plan + a content-preservation gate (`tools/content-baseline.js`) | `00ff474` |
+| C | 1 | Design-system layer: canonical `ds-*` tokens/primitives aliased onto both themes + `TV.DS` helpers | `34aa987` |
+| D | 2 | Global command palette / search (Ctrl/Cmd+K), ~199-entry index across all content banks | `9c58cec` |
+| E | 3 | Dashboard command-center band: real resume-where-you-left-off + 4 primary actions | `d77966b` |
+| F | 4 | Service-doc UX: sticky section navigator (scroll-spy), copy-code, related-services, "mark reviewed" checkpoint | `e6cb3d7` |
+| G | 5a | Interactive visualizer framework (`TV.Viz`) + Spark job-execution stepper | `cda303a` |
+| H | 5b | Delta transaction-log, medallion pipeline DAG, and storage-pruning visualizers | `9ee032d` |
+| I | 6 | Architecture Studio — functional drag/connect/save design canvas with honest layer-coverage | `6367e5f` |
+| J | 7 | Incident investigation workspace: case file carried across phases + persisted working notes | `4046de0` |
+| K | 9 | Honest skill-analytics grid on the Mastery hub ("Not assessed" where no evidence) | `6601645` |
+| L | 10–12 | Polish, full regression sweep, this report | `6bc6daf` |
+
+### Wave 2 — depth & discoverability
+
+| Iter | Deliverable | Commit |
+|------|-------------|--------|
+| M | 3 more visualizers: streaming windows/watermarks, log partitions & consumer groups, row vs columnar | `46c7dac` |
+| N | Discoverability: Cmd-K indexes visualizers + new screens; "See it in motion" links on service pages deep-open the matching visualizer | `70fc55e` |
+| O | Architecture Studio starter templates (medallion / streaming / warehouse) + fix: TV.DS.confirm now resolves true on OK | `3ca0ab9` |
+
+### Wave 3 — breadth, onboarding & a11y
+
+| Iter | Deliverable | Commit |
+|------|-------------|--------|
+| P | 2 more visualizers: data lineage & governance, elastic-compute cost model (9 total) | `d33720c` |
+| Q | Guided first-run product tour (TV.Tour), re-openable from Cmd-K; palette gains action entries | `52e5402` |
+| R | Accessibility polish: skip-to-content link, global keyboard focus-visible ring, main landmark; report update | (this commit) |
+
+### Wave 4 — more depth, sharing & printable study
+
+| Iter | Deliverable | Commit |
+|------|-------------|--------|
+| S | 2 more visualizers: CDC/mirroring, query-optimizer join strategies (11 total) | `9c641f9` |
+| T | Architecture Studio shareable links (design encoded in URL, decoded on load) | `8438b0a` |
+| U | Printable per-cloud Study Summary (services + certs + honest mastery) + report update | (this commit) |
+
+### Wave 5 — deeper engine internals (5 more visualizers)
+
+| Iter | Deliverable | Commit |
+|------|-------------|--------|
+| V | RBAC vs ABAC access evaluation visualizer | (this commit) |
+| W | Schema evolution & schema drift visualizer | (this commit) |
+| X | Query result caching & materialized-view refresh visualizer | (this commit) |
+| Y | Partitioning vs bucketing vs Z-ordering visualizer | (this commit) |
+| Z | Autoscaling: warm-up & cold-start visualizer | (this commit) |
+
+**Visualizer gallery (16):** Spark execution · Delta transaction log · pipeline DAG ·
+storage pruning · streaming windows · log partitions · row vs columnar · data lineage ·
+compute cost · CDC & mirroring · query-optimizer joins · RBAC vs ABAC · schema evolution &
+drift · result caching & materialized views · partitioning vs bucketing vs Z-order ·
+autoscaling warm-up & cold start — all conceptual simulations.
+
+## Guardrails enforced on every iteration
+
+- **Content preservation.** `tools/content-baseline.js` snapshots every content ID
+  across 15 groups (362 IDs). Every iteration ran it; it never reported a removal.
+- **Content validity.** `tools/validate-content.js` — 0 errors throughout (6 pre-existing,
+  benign domain-id warnings in cert-labs, unchanged by this work).
+- **Unit tests.** ds (10), viz (50), service-detail (21), incident, progress (17),
+  design-challenge (82), project-tracks (133), coverage — all green.
+- **Browser regression.** 24 routes across all 5 formats render with **0 console errors**
+  (excluding the known, benign `/shared/backup-button.js` dev-harness 404).
+- **Deploy verification.** Each push confirmed `completed | success` via the Pages workflow.
+
+## Honesty & integrity (per the redesign mandate)
+
+- **No fabricated metrics.** Skill analytics shows an assessed value only when real
+  evidence exists (quiz/incident/challenge/project/self-rating); otherwise an explicit
+  **"Not assessed"**. Architecture Studio's layer coverage is labelled a factual
+  self-check, not a quality score. Resume/mastery data is read from real `TV.Progress`.
+- **Simulations labelled.** Every visualizer renders a prominent "Conceptual simulation —
+  not a live cluster/cloud" disclaimer. Worked-example code remains marked *Illustrative*
+  unless actually executed.
+- **No dead controls.** Every new button/link resolves to a real registered module or a
+  working in-page action; CTA routes are verified in tests.
+- **Additive only.** No existing module, route, theory section, or progress key was
+  removed or rewritten. New work is new files or appended sections.
+
+## Architecture of the additions
+
+- New reusable layers: `css/design-system.css`, `js/core/ds.js`, `js/features/viz-framework.js`.
+- New screens (self-registering modules): Visualizers, Architecture Studio.
+- New data: 4 conceptual-visualizer specs (`js/data/viz-*.js`).
+- Enhancements over existing engines: service-detail renderer (F), incident simulator (J),
+  mastery hub (K), recommendations dashboard (E) — all additive.
+- New tooling: content-baseline gate, viz tests.
+
+## Honest limitations
+
+- **Conceptual, not live.** Visualizers and the incident simulator model behaviour for
+  learning; nothing connects to a real cloud, cluster, or account.
+- **Illustrative code.** Worked examples are copy-correct but not executed in a live
+  environment unless explicitly marked Tested.
+- **Local-only state.** Progress, reviewed-marks, saved designs, and notes live in this
+  browser's `localStorage` — no account, no sync across devices.
+- **Verify before exams/production.** Certification facts and service details are authored
+  carefully but should be checked against current official docs; cloud pricing is described
+  qualitatively, never quoted.
+- **Testing scope.** "Tested" here means the content-baseline gate, the Node unit suites,
+  and headless-Chromium smoke/regression runs listed above — not a full manual QA pass on
+  every one of the 57 service pages.

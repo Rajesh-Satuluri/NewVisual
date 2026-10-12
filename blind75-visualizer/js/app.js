@@ -62,7 +62,8 @@
     stack: "python",                                 // python | sql | spark | numpy | pandas
     mode: "practice",                                // learn | practice
     pyGroupMode: store.getPref("pyGroupMode") || "pattern", // pattern | ds | difficulty
-    approachIndex: {}   // problemId -> selected approach index
+    approachIndex: {},  // problemId -> selected approach index
+    focusLocal: null    // per-problem focus override: null=inherit global, true/false=forced (reset on nav)
   };
 
   // ---- master stack/mode model ----
@@ -776,6 +777,19 @@
       renderProblem();
     });
     actions.appendChild(blurBtn);
+
+    // ---- local focus: per-problem toggle (overrides global for THIS problem,
+    //      resets on navigation). Always visible, even while global focus is on,
+    //      so you can pop a single problem back to full detail. ----
+    var focusBtn = h("button", { class: "chip-btn focus-local-btn" + (focusEffective() ? " on" : "") },
+      (focusEffective() ? "🎯 Focus: ON" : "🎯 Focus"));
+    focusBtn.addEventListener("click", function () {
+      state.focusLocal = !focusEffective();   // flip the effective state for this problem
+      focusBtn.classList.toggle("on", state.focusLocal);
+      focusBtn.textContent = state.focusLocal ? "🎯 Focus: ON" : "🎯 Focus";
+      applyFocus();
+    });
+    actions.appendChild(focusBtn);
 
     // ---- smart study-loop CTAs: keep momentum after each problem ----
     var nextId = nextUnsolvedId(p.id);
@@ -1605,11 +1619,40 @@
     var stackBtns = document.querySelectorAll("#stackSwitch .ws-btn");
     for (var wi = 0; wi < stackBtns.length; wi++) {
       stackBtns[wi].addEventListener("click", function () {
+        closeStackMenu();
         var stack = this.getAttribute("data-stack");
         if (stack === state.stack) return;
         goStack(stack);
       });
     }
+    // stack dropdown: trigger toggles the menu; outside-click / Esc close it.
+    var stackTrigger = el("stackTrigger");
+    if (stackTrigger) {
+      stackTrigger.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var menu = el("stackMenu");
+        if (!menu) return;
+        var open = menu.classList.contains("hidden");
+        if (open) { menu.classList.remove("hidden"); stackTrigger.setAttribute("aria-expanded", "true"); }
+        else closeStackMenu();
+      });
+      document.addEventListener("click", function (e) {
+        var menu = el("stackMenu");
+        if (menu && !menu.classList.contains("hidden") && !el("stackSwitch").contains(e.target)) closeStackMenu();
+      });
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") closeStackMenu();
+      });
+    }
+    // Esc exits focus mode (global + per-problem override) for a quick bail-out.
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "Escape") return;
+      if (!document.body.classList.contains("focus-on")) return;
+      store.setPref("focus", false);
+      state.focusLocal = null;
+      applyFocus();
+      if (focusViewOk()) renderProblem();
+    });
     // mode switch (Learn · Practice)
     var modeBtns = document.querySelectorAll("#modeSwitch .mode-btn");
     for (var mi = 0; mi < modeBtns.length; mi++) {
@@ -1625,6 +1668,17 @@
       store.setPref("theme", next);
       applyTheme(next);
     });
+
+    // global focus toggle (topbar) — persisted, applies to every problem
+    var focusGlobalBtn = el("focusGlobalBtn");
+    if (focusGlobalBtn) {
+      focusGlobalBtn.addEventListener("click", function () {
+        store.setPref("focus", !store.getPref("focus"));
+        state.focusLocal = null;              // global toggle clears any per-problem override
+        applyFocus();
+        if (focusViewOk()) renderProblem();   // refresh the local chip's label/state
+      });
+    }
 
     // grid
     el("gridBtn").addEventListener("click", openGrid);
@@ -1825,6 +1879,43 @@
   }
 
   // ============================================================= WORKSPACE / ROUTER
+  function closeStackMenu() {
+    var menu = el("stackMenu");
+    if (menu) menu.classList.add("hidden");
+    var t = el("stackTrigger");
+    if (t) t.setAttribute("aria-expanded", "false");
+  }
+
+  // ---- Focus mode: strip the page to Problem / Examples / Solution only.
+  // Global focus persists (pref); local focus is transient (cleared on nav).
+  // It only makes sense on a problem page that actually HAS those sections —
+  // on Home / Learn / dashboards etc. it must stay off (else the view blanks).
+  function focusViewOk() {
+    // Only the DSA problem view (python + practice, a real problem) — state is
+    // set synchronously by setChrome before any render, so this never trips on
+    // stale/async-mounted DOM. Home, Learn, dashboards and other stacks -> off.
+    if (state.stack !== "python" || state.mode !== "practice") return false;
+    var p = byId[state.currentId];
+    if (!p || p.isIntro) return false;
+    var main = el("main");
+    return !!(main && main.querySelector('.prob-section[data-key="code"]'));
+  }
+  // Effective focus for the current problem: a per-problem override (focusLocal
+  // = true/false) wins over the persisted global pref; null means "inherit".
+  function focusEffective() {
+    return state.focusLocal === null ? !!store.getPref("focus") : state.focusLocal;
+  }
+  function applyFocus() {
+    var g = !!store.getPref("focus");
+    var ok = focusViewOk();
+    document.body.classList.toggle("focus-on", ok && focusEffective());
+    var gb = el("focusGlobalBtn");
+    if (gb) {
+      gb.setAttribute("aria-pressed", g ? "true" : "false");
+      gb.style.display = ok ? "" : "none"; // hide the toggle off the problem view
+    }
+  }
+
   // Set the shell "chrome" (state, body attrs, switch highlights) WITHOUT
   // rendering — the router decides what to render. `data-ws` is the legacy CSS key
   // (dsa = full problem chrome; python = everything hidden so a lab paints its
@@ -1842,7 +1933,14 @@
     document.body.setAttribute("data-mode", mode);
 
     var sb = document.querySelectorAll("#stackSwitch .ws-btn");
-    for (var i = 0; i < sb.length; i++) sb[i].classList.toggle("active", sb[i].getAttribute("data-stack") === stack);
+    var curLabel = "";
+    for (var i = 0; i < sb.length; i++) {
+      var on = sb[i].getAttribute("data-stack") === stack;
+      sb[i].classList.toggle("active", on);
+      if (on) curLabel = sb[i].innerHTML;
+    }
+    var ddCur = document.querySelector("#stackTrigger .ws-dd-cur");
+    if (ddCur && curLabel) ddCur.innerHTML = curLabel;
     var mb = document.querySelectorAll("#modeSwitch .mode-btn");
     for (var j = 0; j < mb.length; j++) {
       var mm = mb[j].getAttribute("data-mode");
@@ -1903,6 +2001,7 @@
     _readingTopic = (r.mode === "learn" && !!(el("main") && el("main").querySelector(".ph-title")));
     updateReadProgress();
     updateToggleAllIcon();
+    applyFocus();
   }
 
   // The single router: render whatever the current location.hash points at.
@@ -1912,6 +2011,7 @@
   function applyRoute() {
     if (location.hash === lastRenderedHash) return; // Back can fire popstate + hashchange
     lastRenderedHash = location.hash;
+    state.focusLocal = null; // per-problem focus override resets on every navigation
     navProgress();
     var r = parseRoute(location.hash);
 

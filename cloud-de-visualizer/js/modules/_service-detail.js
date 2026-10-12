@@ -117,6 +117,130 @@
     ).join('') + `</div>`;
   }
 
+  /* Cert mapping: which certifications/objectives this service maps to.
+     Accepts { lead, items:[{cert, label, objectives:[...]}|string] }. */
+  function certMappingHTML(cm) {
+    if (!cm) return '';
+    const items = (cm.items || []).map(it => {
+      if (typeof it === 'string') return `<li class="sd-cm-row"><span class="sd-cm-txt">${esc(it)}</span></li>`;
+      const objs = (it.objectives || []).length
+        ? `<span class="sd-cm-objs">${it.objectives.map(o => esc(o)).join(' · ')}</span>` : '';
+      const label = esc(it.label || it.cert || '');
+      return `<li class="sd-cm-row"><span class="sd-cm-cert">${label}</span>${objs}</li>`;
+    }).join('');
+    const lead = cm.lead ? `<p class="sd-lead">${esc(cm.lead)}</p>` : '';
+    return `
+      <section class="sd-section" data-accent="certmap">
+        <div class="sd-kicker">Certification mapping</div>
+        ${lead}
+        <ul class="sd-cm">${items}</ul>
+      </section>`;
+  }
+
+  /* Execution walkthrough: ordered lifecycle of a representative
+     operation. Accepts an array of steps, or { lead, steps:[string|{h,d}], note }. */
+  function walkthroughHTML(wt) {
+    if (!wt) return '';
+    const w = Array.isArray(wt) ? { steps: wt } : wt;
+    if (!w.steps || !w.steps.length) return '';
+    const lead = w.lead ? `<p class="sd-lead">${esc(w.lead)}</p>` : '';
+    const steps = w.steps.map(s => {
+      const o = (typeof s === 'string') ? { d: s } : s;
+      const h = o.h ? `<div class="sd-step-h">${esc(o.h)}</div>` : '';
+      return `<li class="sd-step"><div class="sd-step-body">${h}<div class="sd-step-d">${esc(o.d)}</div></div></li>`;
+    }).join('');
+    const note = w.note ? `<div class="sd-note">${esc(w.note)}</div>` : '';
+    return `
+      <section class="sd-section" data-accent="walk">
+        <div class="sd-kicker">Execution walkthrough</div>
+        ${lead}
+        <ol class="sd-steps">${steps}</ol>
+        ${note}
+      </section>`;
+  }
+
+  /* A value that may be a string or a list → rendered inline or as an
+     ordered/unordered list. */
+  function valOrList(v, ordered) {
+    if (v == null) return '';
+    if (Array.isArray(v)) {
+      const tag = ordered ? 'ol' : 'ul';
+      return `<${tag} class="sd-vlist">${v.map(x => `<li>${esc(x)}</li>`).join('')}</${tag}>`;
+    }
+    return `<span>${esc(v)}</span>`;
+  }
+
+  /* Worked examples: realistic end-to-end data-engineering scenarios.
+     Each: { title, illustrative, requirement, input, architecture,
+     code:{lang,text}, steps:[...], output, validation, errorHandling,
+     production, cleanup }. Code is labelled illustrative unless
+     illustrative===false (i.e. actually executed). */
+  function examplesHTML(exs) {
+    if (!exs || !exs.length) return '';
+    const row = (lbl, v, ordered) => {
+      const body = valOrList(v, ordered);
+      return body ? `<div class="sd-ex-row"><div class="sd-ex-lbl">${esc(lbl)}</div><div class="sd-ex-val">${body}</div></div>` : '';
+    };
+    const cards = exs.map(ex => {
+      const badge = ex.illustrative === false
+        ? `<span class="sd-ex-badge sd-ex-badge--run" title="Executed in a real environment">Tested</span>`
+        : `<span class="sd-ex-badge" title="Illustrative — copy-correct but not executed in a live cloud environment">Illustrative</span>`;
+      const code = ex.code ? `<div class="sd-ex-row"><div class="sd-ex-lbl">Code</div><div class="sd-ex-val">${codeHTML(ex.code)}</div></div>` : '';
+      return `<div class="sd-ex">
+        <div class="sd-ex-head">${esc(ex.title || 'Worked example')}${badge}</div>
+        ${row('Requirement', ex.requirement)}
+        ${row('Input data', ex.input)}
+        ${row('Architecture', ex.architecture)}
+        ${code}
+        ${row('Steps', ex.steps, true)}
+        ${row('Expected output', ex.output)}
+        ${row('Validation', ex.validation)}
+        ${row('Error handling', ex.errorHandling)}
+        ${row('Production notes', ex.production)}
+        ${row('Cleanup', ex.cleanup)}
+      </div>`;
+    }).join('');
+    return `
+      <section class="sd-section" data-accent="example">
+        <div class="sd-kicker">Worked example</div>
+        <div class="sd-exs">${cards}</div>
+      </section>`;
+  }
+
+  /* Troubleshooting / incident scenarios in the evidence-based format:
+     Symptom → Evidence → Causes → Investigation → Root cause →
+     Remediation → Validation → Prevention. Each: { symptom, evidence,
+     causes, investigation, rootCause, remediation, validation, prevention }. */
+  function troubleshootingHTML(ts) {
+    if (!ts || !ts.length) return '';
+    const field = (lbl, v, ordered) => {
+      const body = valOrList(v, ordered);
+      return body ? `<div class="sd-tb-row"><div class="sd-tb-lbl">${esc(lbl)}</div><div class="sd-tb-val">${body}</div></div>` : '';
+    };
+    const cards = ts.map(t => `<div class="sd-tb">
+      <div class="sd-tb-sym"><span class="sd-tb-sym-tag">Symptom</span>${esc(t.symptom)}</div>
+      ${field('Evidence', t.evidence)}
+      ${field('Possible causes', t.causes)}
+      ${field('Investigation', t.investigation, true)}
+      ${field('Root cause', t.rootCause)}
+      ${field('Remediation', t.remediation, true)}
+      ${field('Validation', t.validation)}
+      ${field('Prevention', t.prevention)}
+    </div>`).join('');
+    return `
+      <section class="sd-section" data-accent="trouble">
+        <div class="sd-kicker">Troubleshooting &amp; incidents</div>
+        <p class="sd-lead">Evidence-first diagnosis. Each scenario traces symptom to root cause before prescribing a fix.</p>
+        <div class="sd-tbs">${cards}</div>
+      </section>`;
+  }
+
+  /* Does this service carry the extended deep-dive depth tier? */
+  function hasDeepDepth(svc) {
+    return !!(svc.architecture || svc.security || svc.operations || svc.cost ||
+              svc.walkthrough || svc.examples || svc.troubleshooting);
+  }
+
   function interviewHTML(qa) {
     if (!qa || !qa.length) return '';
     const items = qa.map((x, i) => `
@@ -139,12 +263,13 @@
   function styleTag() {
     return `
 <style id="sd-styles">
-.sd { height:100%; overflow-y:auto; padding:30px 32px 72px; }
-.sd-wrap { max-width:920px; margin:0 auto; }
+.sd { height:100%; overflow-y:auto; padding:30px clamp(16px, 3vw, 56px) 72px; }
+.sd-wrap { width:100%; max-width:1600px; margin:0 auto; }
 .sd-eyebrow { font-size:11px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--brand); margin-bottom:8px; }
 .sd-h1 { font-size:28px; font-weight:800; letter-spacing:-.02em; color:var(--text-primary); margin:0 0 6px; }
 .sd-aka { font-size:13px; color:var(--text-muted); margin:0 0 10px; font-style:italic; }
-.sd-tagline { font-size:16px; color:var(--text-secondary); line-height:1.7; margin:0 0 20px; max-width:760px; }
+.sd-tagline { font-size:16px; color:var(--text-secondary); line-height:1.7; margin:0 0 14px; max-width:760px; }
+.sd-verified { margin:0 0 20px; }
 .sd-intu { background:linear-gradient(135deg, var(--brand-glow), transparent 70%); border:1px solid var(--border-default); border-left:3px solid var(--brand); border-radius:var(--radius-lg,12px); padding:16px 18px; margin:0 0 18px; }
 .sd-intu-head { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--brand); margin-bottom:11px; display:flex; align-items:center; gap:7px; }
 .sd-intu-bulb { font-size:14px; }
@@ -166,7 +291,58 @@
 .sd-section[data-accent="deuse"]::before { background:var(--blue); }
 .sd-section[data-accent="link"]::before { background:var(--purple); }
 .sd-section[data-accent="runtime"]::before { background:var(--orange); }
+.sd-section[data-accent="arch"]::before { background:#06b6d4; }
+.sd-section[data-accent="security"]::before { background:#ef4444; }
+.sd-section[data-accent="operations"]::before { background:#f59e0b; }
+.sd-section[data-accent="cost"]::before { background:#10b981; }
+.sd-section[data-accent="certmap"]::before { background:var(--brand); }
 .sd-section[data-accent="interview"]::before { background:var(--brand-2); }
+.sd-section[data-accent="walk"]::before { background:#0ea5e9; }
+.sd-section[data-accent="example"]::before { background:#8b5cf6; }
+.sd-section[data-accent="trouble"]::before { background:#e11d48; }
+/* Execution walkthrough — numbered lifecycle */
+.sd-steps { list-style:none; counter-reset:sd-step; margin:0; padding:0; display:grid; gap:10px; }
+.sd-step { counter-increment:sd-step; display:flex; gap:12px; background:var(--bg-1); border:1px solid var(--border-subtle); border-radius:9px; padding:11px 13px; }
+.sd-step::before { content:counter(sd-step); flex:0 0 auto; width:22px; height:22px; border-radius:6px; background:#0ea5e9; color:#fff; font-size:12px; font-weight:800; display:flex; align-items:center; justify-content:center; margin-top:1px; }
+.sd-step-body { flex:1; min-width:0; }
+.sd-step-h { font-size:13px; font-weight:700; color:var(--text-primary); margin-bottom:3px; }
+.sd-step-d { font-size:13px; color:var(--text-secondary); line-height:1.65; }
+/* Worked examples */
+.sd-exs { display:grid; gap:14px; }
+.sd-ex { background:var(--bg-1); border:1px solid var(--border-subtle); border-radius:10px; padding:13px 15px; }
+.sd-ex-head { font-size:14px; font-weight:800; color:var(--text-primary); margin-bottom:10px; display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+.sd-ex-badge { font-size:10px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; padding:2px 8px; border-radius:999px; color:#7c3aed; background:color-mix(in srgb, #8b5cf6 15%, transparent); border:1px solid color-mix(in srgb, #8b5cf6 42%, transparent); }
+.sd-ex-badge--run { color:#047857; background:color-mix(in srgb, #10b981 15%, transparent); border-color:color-mix(in srgb, #10b981 42%, transparent); }
+:root[data-theme="dark"] .sd-ex-badge, :root:not([data-theme="light"]) .sd-ex-badge { color:#c4b5fd; }
+:root[data-theme="dark"] .sd-ex-badge--run, :root:not([data-theme="light"]) .sd-ex-badge--run { color:#6ee7b7; }
+.sd-ex-row { display:grid; grid-template-columns:128px 1fr; gap:12px; padding:6px 0; }
+.sd-ex-row + .sd-ex-row { border-top:1px solid var(--border-subtle); }
+.sd-ex-lbl { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--text-muted); padding-top:2px; }
+.sd-ex-val { font-size:13px; color:var(--text-secondary); line-height:1.65; min-width:0; }
+.sd-ex-val .sd-code { margin-top:0; }
+@media (max-width:620px){ .sd-ex-row { grid-template-columns:1fr; gap:3px; } }
+/* Troubleshooting incidents */
+.sd-tbs { display:grid; gap:14px; }
+.sd-tb { background:var(--bg-1); border:1px solid var(--border-subtle); border-left:3px solid #e11d48; border-radius:10px; padding:13px 15px; }
+.sd-tb-sym { font-size:14px; font-weight:800; color:var(--text-primary); line-height:1.5; margin-bottom:10px; display:flex; align-items:baseline; gap:9px; flex-wrap:wrap; }
+.sd-tb-sym-tag { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 8px; border-radius:999px; color:#e11d48; background:color-mix(in srgb, #e11d48 14%, transparent); border:1px solid color-mix(in srgb, #e11d48 40%, transparent); }
+:root[data-theme="dark"] .sd-tb-sym-tag, :root:not([data-theme="light"]) .sd-tb-sym-tag { color:#fda4af; }
+.sd-tb-row { display:grid; grid-template-columns:128px 1fr; gap:12px; padding:6px 0; }
+.sd-tb-row + .sd-tb-row { border-top:1px solid var(--border-subtle); }
+.sd-tb-lbl { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--text-muted); padding-top:2px; }
+.sd-tb-val { font-size:13px; color:var(--text-secondary); line-height:1.65; min-width:0; }
+@media (max-width:620px){ .sd-tb-row { grid-template-columns:1fr; gap:3px; } }
+.sd-vlist { margin:0; padding-left:18px; display:grid; gap:4px; }
+.sd-vlist li { line-height:1.6; }
+.sd-depth { display:inline-block; margin-left:10px; padding:2px 9px; border-radius:999px; font-size:10px; font-weight:800; letter-spacing:.04em; vertical-align:middle; }
+.sd-depth--deep { color:#047857; background:color-mix(in srgb, #10b981 16%, transparent); border:1px solid color-mix(in srgb, #10b981 45%, transparent); }
+:root[data-theme="dark"] .sd-depth--deep, :root:not([data-theme="light"]) .sd-depth--deep { color:#6ee7b7; }
+.sd-cm { list-style:none; margin:0; padding:0; display:grid; gap:8px; }
+.sd-cm-row { display:flex; flex-wrap:wrap; align-items:baseline; gap:8px 12px; background:var(--bg-1); border:1px solid var(--border-subtle); border-radius:9px; padding:10px 13px; }
+.sd-cm-cert { font-size:13px; font-weight:800; color:var(--brand); text-decoration:none; }
+a.sd-cm-cert:hover { text-decoration:underline; }
+.sd-cm-objs { font-size:12px; color:var(--text-muted); line-height:1.5; }
+.sd-cm-txt { font-size:13px; color:var(--text-secondary); line-height:1.6; }
 .sd-kicker { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.07em; color:var(--text-muted); margin-bottom:10px; }
 .sd-lead { font-size:14px; color:var(--text-secondary); line-height:1.7; margin:0 0 12px; }
 .sd-bullets { display:grid; gap:10px; }
@@ -217,6 +393,39 @@
 .sd-home-cta-txt span { font-size:13px; color:var(--text-secondary); line-height:1.5; }
 .sd-home-cta-btn { flex:0 0 auto; cursor:pointer; border:0; border-radius:9px; padding:10px 16px; font-size:13px; font-weight:700; color:#07171a; background:var(--brand); }
 .sd-home-cta-btn:hover { filter:brightness(1.08); }
+/* ── Iter F: in-page section navigator + checkpoint ───────── */
+.sd-nav { position:sticky; top:0; z-index:5; display:flex; align-items:center; gap:12px; margin:0 0 18px; padding:8px 0; background:linear-gradient(var(--bg-0) 72%, transparent); backdrop-filter:saturate(1.1) blur(2px); }
+.sd-nav-chips { display:flex; gap:7px; overflow-x:auto; flex:1; min-width:0; scrollbar-width:thin; padding-bottom:2px; }
+.sd-nav-chips::-webkit-scrollbar { height:5px; }
+.sd-nav-chips::-webkit-scrollbar-thumb { background:var(--border-default); border-radius:3px; }
+.sd-nav-chip { flex:0 0 auto; cursor:pointer; border:1px solid var(--border-default); background:var(--bg-2); color:var(--text-secondary); font:inherit; font-size:12px; font-weight:600; padding:5px 11px; border-radius:999px; white-space:nowrap; transition:color .12s, border-color .12s, background .12s; }
+.sd-nav-chip:hover { color:var(--text-primary); border-color:var(--brand); }
+.sd-nav-chip.is-active { color:#fff; background:var(--brand); border-color:var(--brand); }
+.sd-review { flex:0 0 auto; cursor:pointer; display:inline-flex; align-items:center; gap:6px; border:1px solid var(--border-default); background:var(--bg-2); color:var(--text-secondary); font:inherit; font-size:12px; font-weight:700; padding:5px 12px; border-radius:999px; transition:color .12s, border-color .12s, background .12s; }
+.sd-review:hover { color:var(--text-primary); border-color:var(--green,#10b981); }
+.sd-review .sd-review-tick { opacity:.35; font-weight:900; }
+.sd-review.is-done { color:#047857; border-color:color-mix(in srgb,#10b981 45%,transparent); background:color-mix(in srgb,#10b981 14%,transparent); }
+.sd-review.is-done .sd-review-tick { opacity:1; }
+:root[data-theme="dark"] .sd-review.is-done, :root:not([data-theme="light"]) .sd-review.is-done { color:#6ee7b7; }
+@media (max-width:620px){ .sd-review .sd-review-txt { display:none; } }
+/* copy button on code blocks */
+.sd-code { position:relative; }
+.sd-copy { position:absolute; top:6px; right:8px; cursor:pointer; border:1px solid var(--border-default); background:var(--bg-2); color:var(--text-muted); font:inherit; font-size:10px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; padding:3px 9px; border-radius:6px; opacity:.75; transition:opacity .12s, color .12s, border-color .12s; }
+.sd-code:hover .sd-copy { opacity:1; }
+.sd-copy:hover { color:var(--text-primary); border-color:var(--brand); }
+/* related services */
+.sd-rels { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:10px; }
+.sd-rel { display:flex; flex-direction:column; gap:3px; text-decoration:none; background:var(--bg-1); border:1px solid var(--border-subtle); border-radius:9px; padding:10px 13px; transition:border-color .12s, transform .12s; }
+.sd-rel:hover { border-color:var(--brand); transform:translateY(-1px); text-decoration:none; }
+.sd-rel-name { font-size:13px; font-weight:700; color:var(--brand); }
+.sd-rel-tag { font-size:12px; color:var(--text-muted); line-height:1.5; }
+.sd-vizlinks { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:10px; }
+.sd-vizlink { display:flex; align-items:center; gap:11px; cursor:pointer; text-align:left; background:var(--bg-1); border:1px solid var(--border-subtle); border-radius:10px; padding:11px 13px; font:inherit; transition:border-color .12s, transform .12s; }
+.sd-vizlink:hover { border-color:var(--brand); transform:translateY(-1px); }
+.sd-vizlink-ic { flex:0 0 auto; width:28px; height:28px; border-radius:7px; background:#0ea5e9; color:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; }
+.sd-vizlink-txt { display:flex; flex-direction:column; gap:2px; min-width:0; }
+.sd-vizlink-txt b { font-size:13px; font-weight:700; color:var(--text-primary); }
+.sd-vizlink-txt span { font-size:11px; color:var(--text-muted); }
 </style>`;
   }
 
@@ -231,28 +440,199 @@
       .sort((a, b) => a.order - b.order);
   }
 
+  /* Related services: same-category siblings (additive; links only). */
+  function relatedHTML(format, svc) {
+    const list = (TV._services && TV._services[format]) || [];
+    const sibs = list.filter(s => s.category === svc.category && s.id !== svc.id);
+    if (!sibs.length) return '';
+    const cards = sibs.map(s =>
+      `<a class="sd-rel" href="#${format}/${s.id}">
+         <span class="sd-rel-name">${esc(s.name)}</span>
+         <span class="sd-rel-tag">${esc(s.tagline || '')}</span>
+       </a>`).join('');
+    return `
+      <section class="sd-section" data-accent="link" data-sd-skip="1">
+        <div class="sd-kicker">Related in ${esc((CATEGORIES[svc.category] || {}).label || svc.category || 'this category')}</div>
+        <p class="sd-lead">Other services in the same category — useful to study side by side.</p>
+        <div class="sd-rels">${cards}</div>
+      </section>`;
+  }
+
+  /* Map a service to relevant conceptual visualizers (by id, then category). */
+  const VIZ_BY_CATEGORY = {
+    storage: ['row-vs-columnar', 'storage-pruning', 'delta-transaction'],
+    'ingest-etl': ['pipeline-dag', 'spark-execution'],
+    streaming: ['streaming-windows', 'log-partitions'],
+    analytics: ['row-vs-columnar', 'storage-pruning'],
+    compute: ['spark-execution'],
+    databases: ['row-vs-columnar'],
+    orchestration: ['pipeline-dag'],
+  };
+  const VIZ_BY_ID = {
+    'delta-lake': ['delta-transaction', 'storage-pruning'],
+    spark: ['spark-execution'], 'fabric-spark': ['spark-execution'],
+    'structured-streaming': ['streaming-windows', 'log-partitions'],
+    'event-hubs': ['log-partitions'], kinesis: ['log-partitions'], 'kinesis-data-streams': ['log-partitions'],
+    'auto-loader': ['pipeline-dag'],
+  };
+  function relatedVizIds(svc) {
+    const avail = (TV.Viz && TV.Viz.list) ? TV.Viz.list().map(v => v.id) : [];
+    if (!avail.length) return [];
+    const ids = (VIZ_BY_ID[svc.id] || VIZ_BY_CATEGORY[svc.category] || []).filter(id => avail.indexOf(id) !== -1);
+    return ids.slice(0, 2);
+  }
+
+  const SLUG = s => String(s || '').toLowerCase().replace(/&amp;|&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  const REVIEW_KEY = 'cde-sd-reviewed';
+  function reviewedSet() { try { return JSON.parse(TV.ls.get(REVIEW_KEY) || '{}') || {}; } catch (e) { return {}; } }
+
+  /* Post-render enhancements (all additive, all wired):
+     section navigator with scroll-spy, copy-code buttons, review checkpoint. */
+  function enhanceDetail(container, format, svc) {
+    const scroller = container.querySelector('.sd');
+    const wrap = container.querySelector('.sd-wrap');
+    if (!scroller || !wrap) return;
+
+    // 1) Collect navigable sections in document order; give each a stable id.
+    const secs = [...wrap.querySelectorAll('.sd-intu, .sd-section')].filter(el => !el.hasAttribute('data-sd-skip'));
+    const entries = secs.map((el, i) => {
+      const kick = el.querySelector('.sd-kicker, .sd-intu-head');
+      let label = kick ? kick.textContent.trim() : ('Section ' + (i + 1));
+      label = label.replace(/^💡\s*/, '').replace(/\s*—.*$/, '');
+      el.id = el.id || ('sd-sec-' + (SLUG(label) || i));
+      return { el, label, id: el.id };
+    });
+
+    // 2) Build the navigator + checkpoint bar.
+    const reviewed = !!reviewedSet()[svc.id];
+    const nav = document.createElement('div');
+    nav.className = 'sd-nav';
+    nav.innerHTML =
+      `<div class="sd-nav-chips" role="navigation" aria-label="On this page">` +
+        entries.map(e => `<button type="button" class="sd-nav-chip" data-sd-to="${e.id}">${esc(e.label)}</button>`).join('') +
+      `</div>` +
+      `<button type="button" class="sd-review ${reviewed ? 'is-done' : ''}" aria-pressed="${reviewed}">` +
+        `<span class="sd-review-tick">✓</span><span class="sd-review-txt">${reviewed ? 'Reviewed' : 'Mark reviewed'}</span>` +
+      `</button>`;
+    const anchor = wrap.querySelector('.sd-verified') || wrap.querySelector('.sd-tagline') || wrap.firstElementChild;
+    if (anchor && anchor.nextSibling) wrap.insertBefore(nav, anchor.nextSibling);
+    else wrap.insertBefore(nav, wrap.children[1] || null);
+
+    // Jump to a section (account for sticky nav height within the scroller).
+    nav.querySelectorAll('.sd-nav-chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const el = document.getElementById(btn.getAttribute('data-sd-to'));
+        if (!el) return;
+        const top = el.offsetTop - (nav.offsetHeight + 16);
+        scroller.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+      });
+    });
+
+    // Review checkpoint — genuine, user-driven, persisted per service.
+    const reviewBtn = nav.querySelector('.sd-review');
+    reviewBtn.addEventListener('click', () => {
+      const set = reviewedSet();
+      const now = !set[svc.id];
+      if (now) set[svc.id] = Date.now(); else delete set[svc.id];
+      TV.ls.set(REVIEW_KEY, JSON.stringify(set));
+      reviewBtn.classList.toggle('is-done', now);
+      reviewBtn.setAttribute('aria-pressed', String(now));
+      reviewBtn.querySelector('.sd-review-txt').textContent = now ? 'Reviewed' : 'Mark reviewed';
+      if (TV.DS && TV.DS.toast) TV.DS.toast(now ? 'Marked as reviewed' : 'Review mark removed', { type: now ? 'success' : 'info' });
+    });
+
+    // 2b) Related visualizers — deep-open the matching conceptual visualizer.
+    const vizIds = relatedVizIds(svc);
+    if (vizIds.length && TV.Viz) {
+      const chips = vizIds.map(id => {
+        const v = TV.Viz.get(id); if (!v) return '';
+        return `<button type="button" class="sd-vizlink" data-sd-viz="${id}">
+                  <span class="sd-vizlink-ic">▶</span>
+                  <span class="sd-vizlink-txt"><b>${esc(v.title)}</b><span>Interactive conceptual visualizer</span></span>
+                </button>`;
+      }).join('');
+      const sec = document.createElement('section');
+      sec.className = 'sd-section';
+      sec.setAttribute('data-accent', 'walk');
+      sec.setAttribute('data-sd-skip', '1');
+      sec.innerHTML = `<div class="sd-kicker">See it in motion</div>
+        <p class="sd-lead">Step through how this works as an interactive, conceptual visualizer.</p>
+        <div class="sd-vizlinks">${chips}</div>`;
+      // place just before the Related section if present, else at the end of wrap.
+      const relSec = [...wrap.querySelectorAll('.sd-section')].find(s => /Related in/.test((s.querySelector('.sd-kicker') || {}).textContent || ''));
+      if (relSec) wrap.insertBefore(sec, relSec); else wrap.appendChild(sec);
+      sec.querySelectorAll('[data-sd-viz]').forEach(b => b.addEventListener('click', () => {
+        const id = b.getAttribute('data-sd-viz');
+        if (TV.VisualizersView && TV.VisualizersView.show) TV.VisualizersView.show(id);
+        else location.hash = (TV.activeFormat || format) + '/visualizers';
+      }));
+    }
+
+    // 3) Copy buttons on every code block.
+    wrap.querySelectorAll('.sd-code').forEach(block => {
+      const pre = block.querySelector('pre');
+      if (!pre || block.querySelector('.sd-copy')) return;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'sd-copy';
+      btn.setAttribute('aria-label', 'Copy code');
+      btn.textContent = 'Copy';
+      block.appendChild(btn);
+      if (TV.DS && TV.DS.wireCopy) TV.DS.wireCopy(btn, () => pre.textContent);
+      else btn.addEventListener('click', () => { try { navigator.clipboard.writeText(pre.textContent); btn.textContent = 'Copied'; setTimeout(() => btn.textContent = 'Copy', 1200); } catch (e) {} });
+    });
+
+    // 4) Scroll-spy: highlight the active chip as sections pass the top.
+    if (entries.length) {
+      const chips = [...nav.querySelectorAll('.sd-nav-chip')];
+      const spy = () => {
+        const line = scroller.scrollTop + nav.offsetHeight + 24;
+        let active = 0;
+        entries.forEach((e, i) => { if (e.el.offsetTop <= line) active = i; });
+        chips.forEach((c, i) => c.classList.toggle('is-active', i === active));
+      };
+      scroller.addEventListener('scroll', spy, { passive: true });
+      spy();
+    }
+  }
+
   /* ── Detail page for one service ─────────────────────────── */
   function renderDetail(container, format, svc) {
     container.className = '';
     let styles = document.getElementById('sd-styles') ? '' : styleTag();
     const aka = svc.aka ? `<p class="sd-aka">${esc(svc.aka)}</p>` : '';
     const catLabel = (CATEGORIES[svc.category] || {}).label || svc.category || '';
+    const vchip = (TV.VerifiedChip ? TV.VerifiedChip.html(format + '-services', svc) : '');
+    const deep = hasDeepDepth(svc);
+    const depthBadge = deep
+      ? `<span class="sd-depth sd-depth--deep" title="Full deep dive: architecture &amp; internals, execution walkthrough, worked example, security, operations, troubleshooting, cost and certification mapping">Deep dive</span>`
+      : '';
     container.innerHTML = `${styles}
 <div class="sd page-enter">
   <div class="sd-wrap">
-    <div class="sd-eyebrow">${esc(catLabel)}</div>
+    <div class="sd-eyebrow">${esc(catLabel)}${depthBadge}</div>
     <h1 class="sd-h1">${esc(svc.name)}</h1>
     ${aka}
     <p class="sd-tagline">${esc(svc.tagline || '')}</p>
+    ${vchip ? `<div class="sd-verified">${vchip}</div>` : ''}
     ${keyFactsHTML(svc.keyFacts)}
     ${intuitionHTML(svc.intuition || (TV.Intuition && TV.Intuition[svc.id]))}
     ${sectionHTML('What it is', 'what', svc.what)}
     ${sectionHTML('Why it exists', 'why', svc.why)}
+    ${sectionHTML('Architecture & internals', 'arch', svc.architecture)}
     ${sectionHTML('How it works', 'how', svc.how)}
+    ${walkthroughHTML(svc.walkthrough)}
     ${sectionHTML('Data engineering use case', 'deuse', svc.deUseCase)}
+    ${examplesHTML(svc.examples)}
     ${integrationsHTML(format, svc.integrations)}
-    ${sectionHTML('Runtime behavior', 'runtime', svc.runtime)}
+    ${sectionHTML('Runtime & performance', 'runtime', svc.runtime)}
+    ${sectionHTML('Security & governance', 'security', svc.security)}
+    ${sectionHTML('Operations & reliability', 'operations', svc.operations)}
+    ${troubleshootingHTML(svc.troubleshooting)}
+    ${sectionHTML('Cost model', 'cost', svc.cost)}
     ${interviewHTML(svc.interview)}
+    ${certMappingHTML(svc.certMapping)}
+    ${relatedHTML(format, svc)}
   </div>
 </div>`;
     // Wire interview accordions
@@ -263,6 +643,8 @@
         btn.setAttribute('aria-expanded', String(open));
       });
     });
+    // Additive UX layer: section navigator, copy-code, review checkpoint.
+    try { enhanceDetail(container, format, svc); } catch (e) { /* non-fatal */ }
   }
 
   /* ── Overview / home page for a format ───────────────────── */
@@ -271,6 +653,7 @@
     let styles = document.getElementById('sd-styles') ? '' : styleTag();
     const cats = categoriesFor(format);
     const total = cats.reduce((n, c) => n + c.items.length, 0);
+    const deepN = cats.reduce((n, c) => n + c.items.filter(hasDeepDepth).length, 0);
     // Optional certification practice-exam launcher (e.g., Fabric → DP-700).
     const examId = meta.certExam;
     const examN = (examId && TV.CertQuestions && TV.CertQuestions.has(examId))
@@ -301,7 +684,7 @@
       <div class="sd-home-stats">
         <div class="sd-home-stat"><b>${total}</b><span>services</span></div>
         <div class="sd-home-stat"><b>${cats.length}</b><span>categories</span></div>
-        <div class="sd-home-stat"><b>6</b><span>depth levels each</span></div>
+        ${deepN ? `<div class="sd-home-stat"><b>${deepN}</b><span>A–I deep dives</span></div>` : ''}
       </div>
       ${ctaHtml}
     </div>

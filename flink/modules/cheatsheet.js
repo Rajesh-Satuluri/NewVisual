@@ -1,34 +1,34 @@
 // Cheat Sheet — quick reference for the APIs, configs and CLI you actually reach for.
 const CARDS = [
-  { icon: '🧩', title: 'DataStream API essentials', rows: [
-    ['Map / filter', 'stream.map(x -> ...).filter(x -> ...)'],
-    ['Key by field', 'stream.keyBy(e -> e.driverId)'],
+  { icon: '🧩', title: 'DataStream API essentials (PyFlink)', rows: [
+    ['Map / filter', 'stream.map(lambda x: ...).filter(lambda x: ...)'],
+    ['Key by field', 'stream.key_by(lambda e: e["driver_id"])'],
     ['Tumbling window', '.window(TumblingEventTimeWindows.of(Time.seconds(10)))'],
     ['Sliding window', '.window(SlidingEventTimeWindows.of(size, slide))'],
-    ['Session window', '.window(EventTimeSessionWindows.withGap(Time.minutes(5)))'],
-    ['Low-level fn', '.process(new KeyedProcessFunction<>() { ... })'],
-    ['Async I/O', 'AsyncDataStream.unorderedWait(stream, fn, 1, SECONDS)'],
+    ['Session window', '.window(EventTimeSessionWindows.with_gap(Time.minutes(5)))'],
+    ['Low-level fn', '.process(FraudDetector())  # KeyedProcessFunction subclass'],
+    ['Async I/O', 'Java-only → use Table API lookup join in PyFlink'],
   ]},
-  { icon: '💧', title: 'Watermarks & time', rows: [
-    ['Bounded OOO', 'WatermarkStrategy.forBoundedOutOfOrderness(Duration.ofSeconds(5))'],
-    ['Timestamp assigner', '.withTimestampAssigner((e, ts) -> e.eventTime)'],
-    ['Idle sources', '.withIdleness(Duration.ofSeconds(10))'],
-    ['Allowed lateness', '.allowedLateness(Time.seconds(30))'],
-    ['Late data', '.sideOutputLateData(lateTag)'],
+  { icon: '💧', title: 'Watermarks & time (PyFlink)', rows: [
+    ['Bounded OOO', 'WatermarkStrategy.for_bounded_out_of_orderness(Duration.of_seconds(5))'],
+    ['Timestamp assigner', '.with_timestamp_assigner(RideEventTimestamp())'],
+    ['Idle sources', '.with_idleness(Duration.of_seconds(15))'],
+    ['Allowed lateness', '.allowed_lateness(Time.minutes(2))'],
+    ['Late data', '.side_output_late_data(late_tag)'],
   ]},
-  { icon: '🗄️', title: 'State', rows: [
-    ['Value state', 'ValueStateDescriptor<Long> d = new ValueStateDescriptor<>("cnt", Long.class)'],
-    ['RocksDB backend', 'env.setStateBackend(new EmbeddedRocksDBStateBackend())'],
-    ['State TTL', 'StateTtlConfig.newBuilder(Time.days(7)).build()'],
+  { icon: '🗄️', title: 'State (PyFlink)', rows: [
+    ['Value state', 'ctx.get_state(ValueStateDescriptor("cnt", Types.LONG()))'],
+    ['RocksDB backend', 'env.set_state_backend(EmbeddedRocksDBStateBackend(True))'],
+    ['State TTL', 'StateTtlConfig.new_builder(Time.days(7)).build()'],
     ['Incremental ckpt', 'state.backend.incremental: true'],
   ]},
-  { icon: '✅', title: 'Checkpointing config', rows: [
-    ['Enable', 'env.enableCheckpointing(60000) // ms'],
-    ['Exactly-once', 'cfg.setCheckpointingMode(CheckpointingMode.EXACTLY_ONCE)'],
-    ['Min pause', 'cfg.setMinPauseBetweenCheckpoints(30000)'],
-    ['Timeout', 'cfg.setCheckpointTimeout(600000)'],
-    ['Retain on cancel', 'cfg.setExternalizedCheckpointCleanup(RETAIN_ON_CANCELLATION)'],
-    ['Unaligned', 'cfg.enableUnalignedCheckpoints()'],
+  { icon: '✅', title: 'Checkpointing config (PyFlink)', rows: [
+    ['Enable', 'env.enable_checkpointing(60000)  # ms'],
+    ['Exactly-once', 'cfg.set_checkpointing_mode(CheckpointingMode.EXACTLY_ONCE)'],
+    ['Min pause', 'cfg.set_min_pause_between_checkpoints(30000)'],
+    ['Timeout', 'cfg.set_checkpoint_timeout(600000)'],
+    ['Retain on cancel', 'cfg.set_externalized_checkpoint_cleanup(RETAIN_ON_CANCELLATION)'],
+    ['Unaligned', 'cfg.enable_unaligned_checkpoints()'],
   ]},
   { icon: '📊', title: 'Flink SQL', rows: [
     ['Kafka source', "CREATE TABLE t (...) WITH ('connector'='kafka', ...)"],
@@ -48,8 +48,8 @@ const CARDS = [
     ['Parallelism', '-p / parallelism.default'],
     ['Network buffers', 'taskmanager.memory.network.fraction: 0.1'],
     ['Managed memory', 'taskmanager.memory.managed.fraction: 0.4 (RocksDB)'],
-    ['Object reuse', 'env.getConfig().enableObjectReuse()'],
-    ['Disable chaining', '.disableChaining() / .startNewChain()'],
+    ['Object reuse', 'env.get_config().enable_object_reuse()'],
+    ['Disable chaining', '.disable_chaining() / .start_new_chain()'],
   ]},
   { icon: '🛡️', title: 'Delivery guarantees', rows: [
     ['At-most-once', 'No checkpointing — fastest, data loss on failure'],

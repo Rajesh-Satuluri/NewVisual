@@ -2,6 +2,9 @@
 // Focuses on production SQL patterns: CEP with MATCH_RECOGNIZE,
 // CDC ingestion, EXPLAIN plan reading, and multi-sink INSERT INTO.
 
+import { rideSpine, initRideSpine, rideCallout, scenarioList } from '../components/story-ui.js';
+import { casesByModule } from '../data/interview-cases.js';
+
 const PATTERNS = [
   {
     id:'cep',    label:'CEP / MATCH_RECOGNIZE', icon:'🔍', category:'Advanced',
@@ -60,24 +63,24 @@ JOIN driver_profiles_cdc FOR SYSTEM_TIME AS OF g.event_time AS p
     id:'multisink', label:'Multi-Sink (Statement Set)', icon:'📤', category:'Streaming ETL',
     desc:'A StatementSet lets you run multiple INSERT INTO statements in a single Flink job, sharing the source parsing cost and checkpoint overhead.',
     uber:'From one GPS event stream: write speeding alerts to Kafka, write raw GPS to S3, and write hourly driver stats to PostgreSQL — three sinks, one job, one checkpoint.',
-    sql:`-- One source, three sinks — single job
-StatementSet stmts = tableEnv.createStatementSet();
+    sql:`# One source, three sinks — single job (PyFlink Table API)
+stmts = t_env.create_statement_set()
 
-// Sink 1: Kafka fraud alerts
-stmts.addInsertSql("""
+# Sink 1: Kafka fraud alerts
+stmts.add_insert_sql("""
   INSERT INTO fraud_alerts_kafka
   SELECT driver_id, speed_kmh, event_time
   FROM gps_events WHERE speed_kmh > 80
-""");
+""")
 
-// Sink 2: S3 raw events (Parquet)
-stmts.addInsertSql("""
+# Sink 2: S3 raw events (Parquet)
+stmts.add_insert_sql("""
   INSERT INTO gps_raw_s3
   SELECT * FROM gps_events
-""");
+""")
 
-// Sink 3: PostgreSQL hourly aggregates
-stmts.addInsertSql("""
+# Sink 3: PostgreSQL hourly aggregates
+stmts.add_insert_sql("""
   INSERT INTO driver_stats_pg
   SELECT driver_id,
     TUMBLE_START(event_time, INTERVAL '1' HOUR),
@@ -85,9 +88,9 @@ stmts.addInsertSql("""
   FROM gps_events
   GROUP BY driver_id,
     TUMBLE(event_time, INTERVAL '1' HOUR)
-""");
+""")
 
-stmts.execute(); // one Flink job`,
+stmts.execute()   # one Flink job`,
     notes:'Without StatementSet, each INSERT INTO would be a separate job with its own Kafka source — tripling ingest cost. StatementSet DAG-fuses sources automatically.',
   },
   {
@@ -147,10 +150,123 @@ const IQS = [
   { q:'How do you optimize a slow Flink SQL window aggregation in production?', a:'In priority order: (1) Enable mini-batch: table.exec.mini-batch.enabled=true, mini-batch.allow-latency=5s — buffers records before processing, reducing state access frequency. (2) Enable two-phase aggregation (on by default with Blink planner). (3) Check EXPLAIN for filter pushdown — WHERE clauses should appear inside TableSourceScan. (4) Increase parallelism for the aggregation operator if it\'s the bottleneck. (5) If state is large, switch to RocksDB. (6) For deduplication-heavy pipelines, enable table.exec.deduplicate.mini-batch.enabled.' },
 ];
 
+// ── "What & Why" foundations (additive) ──────────────────────────
+const WHY_REASONS = [
+  { icon: '🔍', title: 'Detect sequences', body: '<code>MATCH_RECOGNIZE</code> finds ordered patterns (speed-up then hard-stop) in SQL — CEP without hand-writing a ProcessFunction and NFA.' },
+  { icon: '🔄', title: 'Ingest database changes', body: 'CDC sources turn a MySQL binlog into a changelog table, so a dimension (driver tier) stays live inside the stream.' },
+  { icon: '📤', title: 'Fan out once', body: 'A StatementSet runs many <code>INSERT INTO</code> sinks in one job, parsing the source once instead of N times.' },
+  { icon: '📋', title: 'Read the plan', body: '<code>EXPLAIN</code> reveals predicate pushdown, join order, and two-phase aggregation — catching a cross-join before it reaches production.' },
+  { icon: '🔗', title: 'Enrich on demand', body: 'Async lookup joins hit an external table per event with built-in LRU caching, so 1M events/sec don\'t overwhelm the DB.' },
+  { icon: '⚡', title: 'Tune for scale', body: 'Mini-batch, two-phase aggregation, and RocksDB turn a correct-but-slow query into one that holds at peak traffic.' },
+];
+
+const PROBLEMS = [
+  { naive: 'Hand-code harsh-driving detection in a ProcessFunction.', fail: 'A bespoke NFA is <b>complex and hard to maintain</b> for what is a declarable sequence.', fix: '<code>MATCH_RECOGNIZE</code> expresses the pattern as <code>PATTERN (FAST+ STOP)</code> in SQL.' },
+  { naive: 'Run each INSERT INTO sink as its own job.', fail: 'Every job re-reads the Kafka source — <b>N× the broker load</b> and N× the checkpoints.', fix: 'A StatementSet DAG-fuses the shared source and fans out to all sinks in one job.' },
+  { naive: 'Deploy SQL without reading its plan.', fail: 'A missing <code>ON</code> clause silently becomes a <b>cross-join</b> that melts the cluster.', fix: '<code>EXPLAIN</code> surfaces the physical plan so you catch it before deploy.' },
+  { naive: 'Join the stream to a dimension with a plain per-event query.', fail: 'Every event hits the database — it <b>can\'t survive</b> 1M lookups/sec.', fix: 'Async lookup joins batch and cache (<code>lookup.cache.ttl</code>), cutting DB QPS ~95%.' },
+];
+
+const WHY_HTML = `
+  <div class="sm-wrap">
+    <div class="sm-def card">
+      <div class="sm-def-ic">🧩</div>
+      <div>
+        <div class="sm-def-eyebrow">What are advanced SQL patterns?</div>
+        <p class="sm-def-lead">Basic Flink SQL (module 15) covers filters, windows, and joins. <b>Advanced patterns</b> are the production-grade features real pipelines depend on: <b>CEP</b> (MATCH_RECOGNIZE), <b>CDC</b> ingestion, multi-sink <b>StatementSets</b>, <b>EXPLAIN</b> plan reading, and <b>async lookup joins</b>. They turn SQL from a query tool into a way to ship complex, efficient streaming jobs. On ride <b>R-4471</b>, they detect harsh-driving patterns and enrich events at Uber scale.</p>
+      </div>
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">Basic SQL vs. production patterns</div>
+      <div class="section-desc">Where the simple layer ends and these patterns begin.</div>
+    </div>
+    <div class="sm-vs">
+      <div class="sm-vs-card stateless">
+        <div class="sm-vs-head">🧮 Basic SQL (m15)</div>
+        <p class="sm-vs-sub">Set-based transformations.</p>
+        <ul>
+          <li>SELECT / WHERE / GROUP BY</li>
+          <li>TUMBLE / HOP windows</li>
+          <li>Simple joins</li>
+        </ul>
+        <div class="sm-vs-note">Enough for most aggregations and ETL.</div>
+      </div>
+      <div class="sm-vs-card stateful">
+        <div class="sm-vs-head">🚀 Production patterns (m17)</div>
+        <p class="sm-vs-sub">The features real pipelines need.</p>
+        <ul>
+          <li>CEP, CDC, StatementSets</li>
+          <li>EXPLAIN-driven optimization</li>
+          <li>Async cached lookups</li>
+        </ul>
+        <div class="sm-vs-note">Complex detection and enrichment at 1M events/sec.</div>
+      </div>
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">Why production SQL needs more</div>
+      <div class="section-desc">Six patterns and what each buys you.</div>
+    </div>
+    <div class="sm-why-grid">
+      ${WHY_REASONS.map(r => `
+        <div class="sm-why">
+          <div class="sm-why-ic">${r.icon}</div>
+          <div class="sm-why-title">${r.title}</div>
+          <p>${r.body}</p>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">The problem these patterns solve</div>
+      <div class="section-desc">Four production pains basic SQL leaves — and the pattern that fixes each.</div>
+    </div>
+    <div class="sm-prob-list">
+      ${PROBLEMS.map((p, i) => `
+        <div class="sm-prob">
+          <div class="sm-prob-no">${i + 1}</div>
+          <div class="sm-prob-body">
+            <div class="sm-prob-naive"><span class="sm-tag naive">Naïve</span>${p.naive}</div>
+            <div class="sm-prob-fail"><span class="sm-tag fail">Breaks</span>${p.fail}</div>
+            <div class="sm-prob-fix"><span class="sm-tag fix">Pattern</span>${p.fix}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">Which pattern, when</div>
+    </div>
+    <div class="sm-keyed card">
+      <p>Each pattern answers a specific production question:</p>
+      <ul>
+        <li><b>Ordered event pattern?</b> → <code>MATCH_RECOGNIZE</code> (CEP).</li>
+        <li><b>Live dimension from a DB?</b> → CDC source + temporal join.</li>
+        <li><b>Many sinks from one source?</b> → StatementSet.</li>
+        <li><b>Is my query efficient?</b> → <code>EXPLAIN</code>, then mini-batch / two-phase tuning.</li>
+        <li><b>Enrich from a huge table?</b> → async lookup join with cache TTL.</li>
+      </ul>
+      <div class="sm-keyed-flow">
+        basic SQL works <span class="sm-arrow">→</span> hit a <b>production need</b> <span class="sm-arrow">→</span> reach for the matching pattern <span class="sm-arrow">→</span> <code>EXPLAIN</code> &amp; tune <span class="sm-arrow">→</span> ship
+      </div>
+    </div>
+
+    <div class="sm-bridge" style="margin-top:26px">
+      <div class="sm-bridge-txt">
+        <div class="sm-bridge-k">Now study each pattern</div>
+        <p>You know <b>why</b> each pattern exists — explore MATCH_RECOGNIZE, CDC, StatementSets, EXPLAIN, and lookup joins with full SQL and how each works.</p>
+      </div>
+      <button class="sm-bridge-btn" data-jump="patterns">Open the Pattern Explorer →</button>
+    </div>
+  </div>
+`;
+
 export function mount(container) {
   let selected = PATTERNS[0];
 
   container.innerHTML = `
+    ${rideSpine({ active: ['LOCATION_UPDATED', 'RIDE_COMPLETED'], incidents: ['DEFECT-6'] })}
     <div class="module-hero">
       <div class="module-hero-content">
         <span class="module-badge">Module 17</span>
@@ -159,19 +275,35 @@ export function mount(container) {
       </div>
     </div>
     <div class="module-tabs">
-      <button class="tab-btn active" data-tab="patterns">Pattern Explorer</button>
+      <button class="tab-btn active" data-tab="why">What &amp; Why</button>
+      <button class="tab-btn" data-tab="patterns">Pattern Explorer</button>
       <button class="tab-btn" data-tab="iq">Interview Q&amp;A</button>
     </div>
 
-    <div class="tab-content active" data-tab="patterns">
+    <div class="tab-content active" data-tab="why">
+      ${WHY_HTML}
+    </div>
+
+    <div class="tab-content" data-tab="patterns">
+      ${rideCallout('LOCATION_UPDATED', { openEvent: false })}
       <div class="sql-picker" id="sql17-picker"></div>
       <div id="sql17-detail" style="padding:20px 28px 28px"></div>
     </div>
 
     <div class="tab-content" data-tab="iq">
+      <div class="section-header" style="margin-bottom:8px">
+        <div class="section-title">Interview corner cases — on ride R-4471</div>
+        <div class="section-desc">CEP/MATCH_RECOGNIZE for surge detection — the PyFlink-vs-Java-CEP gap.</div>
+      </div>
+      <div id="sql-scenarios"></div>
+      <div class="section-header" style="margin:22px 0 8px"><div class="section-title">More SQL Q&amp;A</div></div>
       <div class="iq-section" id="iq17-section"></div>
     </div>
   `;
+
+  initRideSpine(container);
+  const sqlScen = container.querySelector('#sql-scenarios');
+  if (sqlScen) sqlScen.innerHTML = scenarioList(casesByModule('m17'));
 
   container.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -181,6 +313,17 @@ export function mount(container) {
       container.querySelector(`.tab-content[data-tab="${btn.dataset.tab}"]`).classList.add('active');
     });
   });
+
+  // Bridge button: jump from "What & Why" into the Pattern Explorer tab.
+  const jumpBtn = container.querySelector('[data-jump]');
+  if (jumpBtn) {
+    jumpBtn.addEventListener('click', () => {
+      const target = jumpBtn.dataset.jump;
+      container.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === target));
+      container.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.dataset.tab === target));
+      container.querySelector('.module-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
 
   const iqSec = container.querySelector('#iq17-section');
   iqSec.innerHTML = IQS.map((item, i) => `

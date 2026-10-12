@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="css/main.css" />
   <link rel="stylesheet" href="css/layout.css" />
   <link rel="stylesheet" href="css/components.css" />
-  <link rel="stylesheet" href="css/python.css" />
+  <link rel="stylesheet" href="css/python.css?v=20261011patterns13" />
   <link rel="stylesheet" href="css/master.css" />
   <link rel="stylesheet" href="css/ipad.css" />
 </head>
@@ -24,23 +24,30 @@
       <span class="brand-text">Data Engineering <b>Coding Stack</b></span>
     </a>
     <div class="ws-switches">
-      <div id="stackSwitch" class="ws-switch" role="tablist" aria-label="Stack">
-        <button class="ws-btn active" data-stack="python" role="tab">🐍 Python</button>
-        <button class="ws-btn" data-stack="numpy" role="tab">▦ NumPy</button>
-        <button class="ws-btn" data-stack="pandas" role="tab">🐼 Pandas</button>
-        <button class="ws-btn" data-stack="spark" role="tab">⚡ PySpark</button>
-        <button class="ws-btn" data-stack="sql" role="tab">🗄 SQL</button>
+      <div id="stackSwitch" class="ws-dd" aria-label="Stack">
+        <button id="stackTrigger" class="ws-dd-trigger" aria-haspopup="listbox" aria-expanded="false" title="Switch stack">
+          <span class="ws-dd-cur">🐍 Python</span>
+          <span class="ws-dd-caret" aria-hidden="true">▾</span>
+        </button>
+        <div id="stackMenu" class="ws-dd-menu hidden" role="listbox" aria-label="Stack">
+          <button class="ws-btn active" data-stack="python" role="option">🐍 Python</button>
+          <button class="ws-btn" data-stack="numpy" role="option">▦ NumPy</button>
+          <button class="ws-btn" data-stack="pandas" role="option">🐼 Pandas</button>
+          <button class="ws-btn" data-stack="spark" role="option">⚡ PySpark</button>
+          <button class="ws-btn" data-stack="sql" role="option">🗄 SQL</button>
+        </div>
       </div>
       <div id="modeSwitch" class="mode-switch" role="tablist" aria-label="Mode">
         <button class="mode-btn" data-mode="learn" role="tab">📘 Learn</button>
         <button class="mode-btn active" data-mode="practice" role="tab">💻 Practice</button>
       </div>
     </div>
+    <button id="focusGlobalBtn" class="focus-global-btn" aria-pressed="false" title="Global focus mode — show only the problem, examples &amp; solution (Esc to exit)" aria-label="Toggle global focus mode">🎯 <span class="btx">Focus</span></button>
     <div class="topbar-right">
       <button id="paletteBtn" class="ghost-btn" title="Jump to anything (Cmd/Ctrl+K)" aria-label="Command palette — jump to any topic or problem">⌘K <span class="btx">Jump to…</span></button>
       <button id="rosettaBtn" class="ghost-btn" title="Same task in SQL / Spark SQL / PySpark / Pandas / Python" aria-label="Rosetta — same task in every dialect">🔀 <span class="btx">Rosetta</span></button>
       <button id="postmortemBtn" class="ghost-btn" title="Interview postmortem — how to dissect a question: spot the pattern, the approach, do's & don'ts (SQL & PySpark)" aria-label="Interview postmortem — how to dissect a question">🩺 <span class="btx">Postmortem</span></button>
-      <button id="interviewBtn" class="ghost-btn iqa-btn" title="PySpark interview Q&amp;A — rapid-fire theory with interview-ready answers" aria-label="PySpark interview questions and answers">🎤 <span class="btx">Interview Q&amp;A</span></button>
+      <button id="interviewBtn" class="ghost-btn iqa-btn" title="Interview Q&amp;A — rapid-fire theory with interview-ready answers" aria-label="Interview questions and answers">🎤 <span class="btx">Interview Q&amp;A</span></button>
       <button id="cheatBtn" class="ghost-btn ref-btn" title="PySpark function cheatsheet — every function, its parameters, and what they do" aria-label="PySpark cheatsheet">⚡ <span class="btx">PySpark ref</span></button>
       <button id="pyCheatBtn" class="ghost-btn ref-btn" title="Python cheatsheet — the built-ins, idioms & stdlib for a coding round" aria-label="Python cheatsheet">🐍 <span class="btx">Python ref</span></button>
       <button id="sqlCheatBtn" class="ghost-btn ref-btn" title="SQL cheatsheet — every function, its parameters, and how to use it" aria-label="SQL cheatsheet">🗄 <span class="btx">SQL ref</span></button>
@@ -183,7 +190,7 @@
   <script src="js/vendor/prism-sql.js"></script>
   <script src="js/vendor/fuse.js"></script>
 
-  <script src="js/core.js"></script>
+  <script src="js/core.js?v=20261011patterns13"></script>
   <script src="js/pycore.js"></script>
   <script src="js/spcore.js"></script>
   <script src="js/sqlcore.js"></script>
@@ -207,6 +214,7 @@
   <script src="data/arrays_hashing.js"></script>
   <script src="data/two_pointers.js"></script>
   <script src="data/sliding_window.js"></script>
+  <script src="data/prefix_sum.js"></script>
   <script src="data/stack.js"></script>
   <script src="data/binary_search.js"></script>
   <script src="data/linked_list.js"></script>
@@ -222,9 +230,10 @@
   <script src="data/intervals.js"></script>
   <script src="data/math_geometry.js"></script>
   <script src="data/bit_manipulation.js"></script>
+  <script src="data/pattern_pack_extra.js"></script>
 
   <!-- per-category pattern explanations (Coding Interview Patterns chapters) -->
-  <script src="data/pattern_intros.js"></script>
+  <script src="data/pattern_intros.js?v=20261011patterns13"></script>
   <script src="data/ds_groups.js"></script>
 
   <!-- Python-for-DSA curriculum -->
@@ -303,6 +312,7 @@
   <script src="data/sql/pivot2.js"></script>
   <script src="data/sql/timeseries_cohort.js"></script>
   <script src="data/sql/domains.js"></script>
+  <script src="data/sql/practice_extra.js"></script>
 
   <!-- Concept (Learn) curriculum for the other stacks (window.LEARN) -->
   <!-- SQL Learn -->
@@ -314,6 +324,7 @@
   <script src="data/sql/concepts_ctes.js"></script>
   <script src="data/sql/concepts_dates_text.js"></script>
   <script src="data/sql/concepts_advanced.js"></script>
+  <script src="data/sql/concepts_design.js"></script>
   <!-- PySpark Learn -->
   <script src="data/pyspark/concepts_foundations.js"></script>
   <script src="data/pyspark/concepts_shuffle.js"></script>
@@ -359,7 +370,7 @@
   <script src="data/pandas/concepts_combine.js"></script>
   <script src="data/pandas/concepts_advanced.js"></script>
 
-  <script src="js/app.js"></script>
+  <script src="js/app.js?v=20261011patterns13"></script>
   <script src="js/pyrun.js"></script>
   <script src="js/pyapp.js"></script>
   <script src="js/problemlab.js"></script>
@@ -368,6 +379,7 @@
   <script src="data/rosetta.js"></script>
   <script src="data/postmortem.js"></script>
   <script src="data/pyspark/interview_qa.js"></script>
+  <script src="data/sql/interview_qa.js"></script>
   <script src="data/spark/cheatsheet.js"></script>
   <script src="data/python/cheatsheet.js"></script>
   <script src="data/sql/cheatsheet.js"></script>

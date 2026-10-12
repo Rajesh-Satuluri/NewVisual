@@ -2,6 +2,8 @@
 // Interactive Kafka source deep-dive: partition assignment, offset tracking,
 // exactly-once semantics, and Uber GPS pipeline wiring.
 
+import { rideSpine, initRideSpine, rideCallout } from '../components/story-ui.js';
+
 const KAFKA_PARTITIONS = [0, 1, 2, 3];
 const DRIVER_GROUPS = ['D-001..D-250K', 'D-250K..D-500K', 'D-500K..D-750K', 'D-750K..D-1M'];
 const TM_COLORS = ['#6366f1', '#f59e0b', '#10b981', '#3b82f6'];
@@ -22,21 +24,19 @@ const CONNECTORS = [
       { k: 'startingOffsets', v: 'COMMITTED / EARLIEST' },
       { k: 'boundedness', v: 'CONTINUOUS_UNBOUNDED' },
     ],
-    code: `KafkaSource<GPSEvent> source = KafkaSource.<GPSEvent>builder()
-    .setBootstrapServers("kafka-prod:9092")
-    .setTopics("driver-locations")
-    .setGroupId("flink-fraud-consumer")
-    .setStartingOffsets(
-        OffsetsInitializer.committedOffsets(
-            OffsetResetStrategy.EARLIEST))
-    .setValueOnlyDeserializer(new GPSEventSchema())
-    .build();
+    code: `from pyflink.datastream.connectors.kafka import (
+    KafkaSource, KafkaOffsetsInitializer)
+from pyflink.common.serialization import SimpleStringSchema
 
-env.fromSource(source,
-    WatermarkStrategy
-        .<GPSEvent>forBoundedOutOfOrderness(Duration.ofSeconds(5))
-        .withTimestampAssigner((e, ts) -> e.eventTime),
-    "GPS Source");`,
+source = (KafkaSource.builder()
+    .set_bootstrap_servers("kafka-prod:9092")
+    .set_topics("driver-locations")
+    .set_group_id("flink-fraud-consumer")
+    .set_starting_offsets(KafkaOffsetsInitializer.committed_offsets())
+    .set_value_only_deserializer(SimpleStringSchema())
+    .build())
+
+env.from_source(source, ride_watermarks, "GPS Source")`,
     exactly: [
       'On each checkpoint, Flink snapshots Kafka offsets as part of operator state.',
       'Offsets are committed to Kafka only after the checkpoint completes (two-phase).',
@@ -58,20 +58,22 @@ env.fromSource(source,
       { k: 'transactional.id.prefix', v: 'flink-fraud-sink' },
       { k: 'delivery.guarantee', v: 'EXACTLY_ONCE' },
     ],
-    code: `KafkaSink<Alert> sink = KafkaSink.<Alert>builder()
-    .setBootstrapServers("kafka-prod:9092")
-    .setRecordSerializer(KafkaRecordSerializationSchema
-        .builder()
-        .setTopic("fraud-alerts")
-        .setValueSerializationSchema(new AlertSchema())
-        .setKeySerializationSchema(
-            new DriverIdKeySchema()) // partition by driverId
-        .build())
-    .setDeliveryGuarantee(DeliveryGuarantee.EXACTLY_ONCE)
-    .setTransactionalIdPrefix("flink-fraud-sink")
-    .build();
+    code: `from pyflink.datastream.connectors.kafka import (
+    KafkaSink, KafkaRecordSerializationSchema, DeliveryGuarantee)
 
-stream.sinkTo(sink);`,
+sink = (KafkaSink.builder()
+    .set_bootstrap_servers("kafka-prod:9092")
+    .set_record_serializer(
+        KafkaRecordSerializationSchema.builder()
+            .set_topic("fraud-alerts")
+            .set_value_serialization_schema(SimpleStringSchema())
+            .build())
+    .set_delivery_guarantee(DeliveryGuarantee.EXACTLY_ONCE)
+    .set_transactional_id_prefix("flink-fraud-sink")
+    .set_property("transaction.timeout.ms", "900000")
+    .build())
+
+stream.sink_to(sink)`,
     exactly: [
       'KafkaSink opens a Kafka transaction at checkpoint start.',
       'Records are written inside the transaction (pre-committed).',
@@ -93,16 +95,18 @@ stream.sinkTo(sink);`,
       { k: 'rollingPolicy', v: 'OnCheckpointRollingPolicy' },
       { k: 'bucketAssigner', v: 'DateTimeBucketAssigner (hourly)' },
     ],
-    code: `FileSink<GPSEvent> fileSink = FileSink
-    .forBulkFormat(
-        new Path("s3://uber-datalake/gps-events/"),
-        ParquetAvroWriters.forReflectRecord(GPSEvent.class))
-    .withBucketAssigner(
-        new DateTimeBucketAssigner<>("yyyy-MM-dd/HH"))
-    .withRollingPolicy(OnCheckpointRollingPolicy.build())
-    .build();
+    code: `from pyflink.datastream.connectors.file_system import (
+    FileSink, RollingPolicy)
+from pyflink.common.serialization import Encoder
 
-stream.sinkTo(fileSink);`,
+file_sink = (FileSink
+    .for_row_format("s3://uber-datalake/gps-events/",
+                    Encoder.simple_string_encoder())
+    .with_rolling_policy(RollingPolicy.on_checkpoint_rolling_policy())
+    .build())
+
+stream.sink_to(file_sink)
+# Bulk/Parquet: FileSink.for_bulk_format(path, writer_factory)`,
     exactly: [
       'In-Progress files live in a .inprogress/ prefix, invisible to readers.',
       'On checkpoint → file becomes Pending (.pending/).',
@@ -124,21 +128,22 @@ stream.sinkTo(fileSink);`,
       { k: 'statement', v: 'INSERT ... ON CONFLICT DO UPDATE' },
       { k: 'batchSize', v: '1000' },
     ],
-    code: `SinkFunction<DriverStats> jdbcSink = JdbcSink.sink(
-    "INSERT INTO driver_stats(driver_id, trip_count, updated_at)" +
-    " VALUES (?, ?, ?) ON CONFLICT (driver_id)" +
-    " DO UPDATE SET trip_count=EXCLUDED.trip_count," +
-    " updated_at=EXCLUDED.updated_at",
-    (stmt, stats) -> {
-        stmt.setString(1, stats.driverId);
-        stmt.setLong(2, stats.tripCount);
-        stmt.setTimestamp(3, Timestamp.from(Instant.now()));
-    },
-    JdbcExecutionOptions.builder().withBatchSize(1000).build(),
-    new JdbcConnectionOptions.JdbcConnectionOptionsBuilder()
-        .withUrl("jdbc:postgresql://pg-ops:5432/trips")
-        .withDriverName("org.postgresql.Driver")
-        .build());`,
+    code: `from pyflink.datastream.connectors.jdbc import (
+    JdbcSink, JdbcConnectionOptions, JdbcExecutionOptions)
+
+jdbc_sink = JdbcSink.sink(
+    "INSERT INTO driver_stats(driver_id, trip_count, updated_at) "
+    "VALUES (?, ?, ?) ON CONFLICT (driver_id) "
+    "DO UPDATE SET trip_count = EXCLUDED.trip_count, "
+    "updated_at = EXCLUDED.updated_at",
+    row_type_info,                       # Types.ROW_NAMED([...])
+    JdbcExecutionOptions.builder().with_batch_size(1000).build(),
+    JdbcConnectionOptions.JdbcConnectionOptionsBuilder()
+        .with_url("jdbc:postgresql://pg-ops:5432/trips")
+        .with_driver_name("org.postgresql.Driver")
+        .build())
+
+stream.add_sink(jdbc_sink)`,
     exactly: [
       'JdbcSink is at-least-once by default — retry on failure may duplicate inserts.',
       'Use ON CONFLICT DO UPDATE (upsert) with a natural key for idempotent exactly-once.',
@@ -156,6 +161,124 @@ const IQS = [
   { q: 'What happens to open Kafka transactions if the job is cancelled?', a: 'Cancelled jobs trigger the Flink shutdown sequence: operators receive a finish() signal. KafkaSink\'s abort() method is called, which invokes kafkaProducer.abortTransaction(). This releases the Kafka transaction without committing, so no partial data is visible to downstream read_committed consumers. If the JVM is killed without graceful shutdown (kill -9), the Kafka transaction remains open until the transactional.timeout.ms expires (default 1 min) and Kafka auto-aborts it.' },
 ];
 
+// ── "What & Why" foundations (additive) ──────────────────────────
+const WHY_REASONS = [
+  { icon: '🔌', title: 'Bridge two worlds', body: 'Flink computes in-memory, but data lives in Kafka, S3, databases. Connectors translate between Flink records and each system\'s wire format and API.' },
+  { icon: '🧩', title: 'Split work in parallel', body: 'A <code>SplitEnumerator</code> divides Kafka\'s 1024 partitions into splits so 256 source subtasks each read ~4 — ingestion scales with parallelism.' },
+  { icon: '🔖', title: 'Track position', body: 'A source remembers <em>where it stopped</em> (Kafka offsets) as part of checkpoint state, so a restart resumes exactly there — not from zero, not re-reading.' },
+  { icon: '🔁', title: 'Replay on failure', body: 'Because the source can seek back to a checkpointed offset, Flink can re-process events after a crash — the foundation of fault tolerance.' },
+  { icon: '🤝', title: 'Commit atomically', body: 'Sinks join the checkpoint via two-phase commit (Kafka) or a file state-machine (S3), so output is finalized only when the checkpoint does.' },
+  { icon: '⏮️', title: 'Backpressure-aware', body: 'A slow sink naturally slows its source through Flink\'s credit-based flow — the connector never silently drops events to keep up.' },
+];
+
+const PROBLEMS = [
+  { naive: 'Commit the Kafka offset as soon as an event is read.', fail: 'If the job crashes after committing but before the result is produced, that event is <b>lost</b> forever — the offset already moved past it.', fix: 'Commit offsets only <em>after</em> the checkpoint completes, so a restart rewinds to un-finalized events.' },
+  { naive: 'Write each result straight to the output topic as it\'s computed.', fail: 'A replay after failure re-writes the same alerts — downstream sees <b>duplicates</b>.', fix: '<code>KafkaSink</code> writes inside a transaction committed with the checkpoint (exactly-once).' },
+  { naive: 'Let readers see files the moment the sink opens them.', fail: 'Consumers read <b>half-written</b> part-files; a crash leaves corrupt partial data in the lake.', fix: '<code>FileSink</code> keeps files In-Progress → Pending → Finished; only checkpoint-committed files become visible.' },
+  { naive: 'Insert every row into Postgres with a plain INSERT.', fail: 'At-least-once replay inserts the same row twice — <b>double-counted</b> dashboards.', fix: 'Upsert with <code>ON CONFLICT DO UPDATE</code> on a natural key makes writes idempotent.' },
+];
+
+const WHY_HTML = `
+  <div class="sm-wrap">
+    <div class="sm-def card">
+      <div class="sm-def-ic">🔗</div>
+      <div>
+        <div class="sm-def-eyebrow">What are sources &amp; sinks?</div>
+        <p class="sm-def-lead">A <b>source</b> reads events <em>into</em> a Flink job from the outside world; a <b>sink</b> writes results <em>out</em>. Together they're the <b>connectors</b> at the job's edges — and they're exactly where end-to-end <b>exactly-once</b> is won or lost. On ride <b>R-4471</b>, the source is Kafka topic <code>ride-events</code> and the sink is <code>fraud-alerts</code>.</p>
+      </div>
+    </div>
+
+    <div class="sm-def card" style="margin:18px 0 6px;border-left:3px solid #6366f1">
+      <div class="sm-def-ic">🧭</div>
+      <div>
+        <div class="sm-def-eyebrow">Scope &amp; related module</div>
+        <p class="sm-def-lead" style="font-size:0.95rem">This module is the <b>source/sink contract</b> — how a source rewinds, how a sink commits, and how the two cooperate for exactly-once. For the full <b>connector catalog</b> (Kafka, S3/FileSystem, JDBC, Elasticsearch…) and how to <b>choose one by delivery guarantee</b>, see <a href="#m16" style="color:#6366f1;font-weight:600">Module 16 — Connectors →</a>.</p>
+      </div>
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">Source vs. Sink</div>
+      <div class="section-desc">Two ends of the job, with mirror-image guarantees.</div>
+    </div>
+    <div class="sm-vs">
+      <div class="sm-vs-card stateless">
+        <div class="sm-vs-head">📥 Source</div>
+        <p class="sm-vs-sub">Ingests an unbounded stream and tracks its read position.</p>
+        <ul>
+          <li>Splits partitions across subtasks</li>
+          <li>Snapshots offsets into checkpoints</li>
+          <li>On restart, <b>seeks back</b> and replays</li>
+        </ul>
+        <div class="sm-vs-note">Guarantee: no event is skipped — the source can always rewind.</div>
+      </div>
+      <div class="sm-vs-card stateful">
+        <div class="sm-vs-head">📤 Sink</div>
+        <p class="sm-vs-sub">Emits results and finalizes them atomically with the checkpoint.</p>
+        <ul>
+          <li>Two-phase commit (Kafka transactions)</li>
+          <li>File state-machine (S3/HDFS)</li>
+          <li>Idempotent upserts (JDBC)</li>
+        </ul>
+        <div class="sm-vs-note">Guarantee: output appears once — committed only when the checkpoint does.</div>
+      </div>
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">Why connectors are the hard part</div>
+      <div class="section-desc">Six jobs a connector must do that a plain read/write loop can't.</div>
+    </div>
+    <div class="sm-why-grid">
+      ${WHY_REASONS.map(r => `
+        <div class="sm-why">
+          <div class="sm-why-ic">${r.icon}</div>
+          <div class="sm-why-title">${r.title}</div>
+          <p>${r.body}</p>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">The problem connectors solve</div>
+      <div class="section-desc">Four ways a naïve read/write loop loses or duplicates data — and the connector fix.</div>
+    </div>
+    <div class="sm-prob-list">
+      ${PROBLEMS.map((p, i) => `
+        <div class="sm-prob">
+          <div class="sm-prob-no">${i + 1}</div>
+          <div class="sm-prob-body">
+            <div class="sm-prob-naive"><span class="sm-tag naive">Naïve</span>${p.naive}</div>
+            <div class="sm-prob-fail"><span class="sm-tag fail">Breaks</span>${p.fail}</div>
+            <div class="sm-prob-fix"><span class="sm-tag fix">Connector</span>${p.fix}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">Exactly-once = source rewind + sink commit</div>
+    </div>
+    <div class="sm-keyed card">
+      <p>Exactly-once isn't one feature — it's the source and sink <b>cooperating around the checkpoint</b>. Neither alone is enough.</p>
+      <ul>
+        <li><b>Source side</b> — offsets live in checkpoint state, so a restart rewinds Kafka to the last consistent point.</li>
+        <li><b>Sink side</b> — results sit in an open transaction (or .pending file) until the checkpoint confirms, then commit atomically.</li>
+        <li><b>Together</b> — replayed events either replace or dedupe at the sink, so downstream sees each result once.</li>
+      </ul>
+      <div class="sm-keyed-flow">
+        <b>checkpoint start</b> <span class="sm-arrow">→</span> source snapshots offsets + sink opens txn <span class="sm-arrow">→</span> <code>barriers align</code> <span class="sm-arrow">→</span> <b>checkpoint complete</b> <span class="sm-arrow">→</span> commit offsets + commit txn
+      </div>
+    </div>
+
+    <div class="sm-bridge" style="margin-top:26px">
+      <div class="sm-bridge-txt">
+        <div class="sm-bridge-k">Now wire up the real connectors</div>
+        <p>You know <b>why</b> connectors are special — explore Kafka, FileSink, and JDBC with their config, PyFlink code, and the exactly-once protocol.</p>
+      </div>
+      <button class="sm-bridge-btn" data-jump="connectors">Open the Source/Sink Explorer →</button>
+    </div>
+  </div>
+`;
+
 export function mount(container) {
   let selectedConnector = CONNECTORS[0];
   let animRunning = false;
@@ -163,6 +286,7 @@ export function mount(container) {
   let animRaf = null;
 
   container.innerHTML = `
+    ${rideSpine({ active: ['RIDE_REQUESTED', 'RIDE_COMPLETED', 'PAYMENT_COMPLETED'] })}
     <div class="module-hero">
       <div class="module-hero-content">
         <span class="module-badge">Module 7</span>
@@ -171,12 +295,18 @@ export function mount(container) {
       </div>
     </div>
     <div class="module-tabs">
-      <button class="tab-btn active" data-tab="connectors">Connector Explorer</button>
+      <button class="tab-btn active" data-tab="why">What &amp; Why</button>
+      <button class="tab-btn" data-tab="connectors">Source/Sink Explorer</button>
       <button class="tab-btn" data-tab="kafka-anim">Kafka Source Animation</button>
       <button class="tab-btn" data-tab="iq">Interview Q&amp;A</button>
     </div>
 
-    <div class="tab-content active" data-tab="connectors">
+    <div class="tab-content active" data-tab="why">
+      ${WHY_HTML}
+    </div>
+
+    <div class="tab-content" data-tab="connectors">
+      ${rideCallout('RIDE_REQUESTED', { openEvent: false })}
       <div class="conn-picker" id="conn-picker"></div>
       <div id="conn-detail"></div>
     </div>
@@ -202,6 +332,8 @@ export function mount(container) {
     </div>
   `;
 
+  initRideSpine(container);
+
   // Tabs
   container.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -212,6 +344,17 @@ export function mount(container) {
       if (btn.dataset.tab === 'kafka-anim') buildKafkaAnim(container);
     });
   });
+
+  // Bridge button: jump from "What & Why" into the Connector Explorer tab.
+  const jumpBtn = container.querySelector('[data-jump]');
+  if (jumpBtn) {
+    jumpBtn.addEventListener('click', () => {
+      const target = jumpBtn.dataset.jump;
+      container.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === target));
+      container.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.dataset.tab === target));
+      container.querySelector('.module-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
 
   // IQ
   const iqSection = container.querySelector('#iq7-section');
@@ -271,7 +414,7 @@ export function mount(container) {
                 </div>
               `).join('')}
             </div>
-            <div class="code-block" style="margin-top:16px;font-size:11px;max-height:260px;overflow-y:auto"><pre>${c.code}</pre></div>
+            <div class="code-block" style="margin-top:16px;font-size:11px;max-height:300px;overflow-y:auto"><span class="lang-tag">PyFlink</span><pre>${c.code}</pre></div>
           </div>
         </div>
       </div>

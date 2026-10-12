@@ -1,10 +1,11 @@
 // Home — landing page. Hero + stat strip + story banner + curriculum grid +
 // reference links. The default route.
 import { MODULES, EXTRAS } from '../components/nav.js';
+import { moduleCount, interviewCount, quizQuestionCount } from '../data/registry.js';
 
 const STATS = [
-  { val: '33', label: 'Modules', sub: 'Pain era → Internals → Prod → Capstone' },
-  { val: '140+', label: 'Interview Qs', sub: 'Tiered bank + per-module' },
+  { val: String(moduleCount), label: 'Modules', sub: 'Pain era → Internals → Prod → Capstone' },
+  { val: `${interviewCount + quizQuestionCount}+`, label: 'Interview Qs', sub: 'Tiered bank + per-module' },
   { val: '10', label: 'Prod Incidents', sub: 'Failure simulator' },
   { val: '5', label: 'Case Studies', sub: 'E-com → banking → retail' },
 ];
@@ -36,6 +37,7 @@ export function mount(container) {
             ${realDone ? 'Continue' : 'Start'} — ${nextMod ? nextMod.icon + ' ' + nextMod.title : 'Begin'} <span>→</span>
           </button>
           <button class="btn btn-secondary" data-goto="m33">🏭 Production Lab</button>
+          <button class="btn btn-secondary" data-goto="studio">🧪 Coding Studio</button>
           <button class="btn btn-ghost" data-goto="modes">🧭 Learning Modes</button>
         </div>
       </div>

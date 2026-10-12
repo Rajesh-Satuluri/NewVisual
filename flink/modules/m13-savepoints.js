@@ -2,6 +2,9 @@
 // Interactive failure simulator: pick a restart strategy, click "Inject Failure",
 // watch the job fail and recover step-by-step with timeline visualization.
 
+import { rideSpine, initRideSpine, rideCallout, scenarioList, pyCode } from '../components/story-ui.js';
+import { casesByModule } from '../data/interview-cases.js';
+
 const STRATEGIES = [
   {
     id: 'none',
@@ -10,8 +13,9 @@ const STRATEGIES = [
     color: '#ef4444',
     desc: 'Job fails immediately and is not restarted. Use only for batch jobs where you\'d rather know about failures immediately.',
     uber: 'Not used in Uber\'s streaming pipelines — any failure would drop GPS events. Only used in one-off batch analytics jobs where idempotent reruns are trivial.',
-    config: `env.setRestartStrategy(
-    RestartStrategies.noRestart());`,
+    config: `from pyflink.common import RestartStrategies
+env.set_restart_strategy(
+    RestartStrategies.no_restart())`,
     recovery: null,
     steps: [
       { t:0,   label:'TaskManager crash detected',    color:'#ef4444' },
@@ -26,10 +30,10 @@ const STRATEGIES = [
     color: '#f59e0b',
     desc: 'Restart up to N times, with a fixed delay between attempts. Simple and predictable. Default strategy in many Flink deployments.',
     uber: 'Used for non-critical aggregation jobs with a 10-attempt cap and 10s delay — enough to survive transient Kafka broker restarts without hammering the cluster.',
-    config: `env.setRestartStrategy(
-    RestartStrategies.fixedDelayRestart(
-        10,          // max attempts
-        Time.seconds(10))); // delay between`,
+    config: `env.set_restart_strategy(
+    RestartStrategies.fixed_delay_restart(
+        10,       # max attempts
+        10_000))  # delay between attempts (ms)`,
     recovery: { attempts:3, delay:10, window:null },
     steps: [
       { t:0,    label:'TaskManager crash detected',       color:'#ef4444' },
@@ -48,13 +52,13 @@ const STRATEGIES = [
     color: '#6366f1',
     desc: 'Delay doubles on each attempt (with optional jitter), capping at a maximum. Prevents thundering herd when many jobs fail simultaneously.',
     uber: 'Uber\'s primary strategy for production fraud pipeline. Starts at 1s, doubles to 2s, 4s, 8s…, cap at 60s. Jitter ±20% avoids all jobs hammering ResourceManager simultaneously.',
-    config: `env.setRestartStrategy(
-    RestartStrategies.exponentialDelayRestart(
-        Time.seconds(1),   // initial delay
-        Time.seconds(60),  // max delay
-        2.0,               // multiplier
-        Time.minutes(5),   // reset threshold
-        0.2));             // jitter factor`,
+    config: `env.set_restart_strategy(
+    RestartStrategies.exponential_delay_restart(
+        1_000,     # initial backoff (ms)
+        60_000,    # max backoff (ms)
+        2.0,       # multiplier
+        300_000,   # reset threshold (ms)
+        0.2))      # jitter factor`,
     recovery: { attempts:null, delay:'1s→2s→4s…→60s', window:null },
     steps: [
       { t:0,    label:'TaskManager crash detected',        color:'#ef4444' },
@@ -72,11 +76,11 @@ const STRATEGIES = [
     color: '#10b981',
     desc: 'Restart as long as the failure rate stays below a threshold. If failures exceed N per time window, the job fails permanently.',
     uber: 'ETA prediction pipeline: allows up to 5 failures per 10 minutes. Occasional Kafka rebalances trigger restarts; sustained failures (bad deploy) are caught by the rate cap.',
-    config: `env.setRestartStrategy(
-    RestartStrategies.failureRateRestart(
-        5,                   // max failures per window
-        Time.minutes(10),    // measurement window
-        Time.seconds(5)));   // delay between attempts`,
+    config: `env.set_restart_strategy(
+    RestartStrategies.failure_rate_restart(
+        5,          # max failures per window
+        600_000,    # measurement window (ms)
+        5_000))     # delay between attempts (ms)`,
     recovery: { attempts:null, delay:'5s fixed', window:'5 per 10min' },
     steps: [
       { t:0,    label:'Failure #1 in window',              color:'#ef4444' },
@@ -96,12 +100,123 @@ const IQS = [
   { q:'How do you prevent a bad deploy from causing infinite restart loops?', a:'Two approaches: (1) Failure Rate strategy — cap restarts per time window; if a bad binary causes 5 crashes in 10 minutes, the job fails permanently and alerts fire. (2) Exponential backoff with a window reset — restarts slow down exponentially; if the job stays healthy for the reset threshold (e.g., 5 minutes), the backoff resets. Both approaches catch "hard" failures (bad code, schema mismatch) while tolerating transient failures (network blip, GC pause).' },
 ];
 
+// ── "What & Why" foundations (additive) ──────────────────────────
+const WHY_REASONS = [
+  { icon: '💥', title: 'Hardware will fail', body: 'Across thousands of machines running 24/7, a TaskManager dies every day — OOM, kernel panic, spot-instance reclaim. The job must survive it, not page an engineer.' },
+  { icon: '🎯', title: 'Recover exactly-once', body: 'Recovery restores state <em>and</em> rewinds Kafka to matching offsets, then replays — so no GPS event is lost or double-counted, even mid-trip.' },
+  { icon: '⏱️', title: 'Bound the downtime', body: 'Region failover + local RocksDB recovery bring a 600 MB job back in seconds, not minutes — the fraud model barely blinks.' },
+  { icon: '🔁', title: 'Choose how to retry', body: 'Restart strategies (fixed, exponential, failure-rate) decide <em>how often</em> to retry so transient blips self-heal without hammering the cluster.' },
+  { icon: '🛑', title: 'Stop bad deploys', body: 'A failure-rate cap turns an infinite crash-loop from a broken binary into a clean, permanent FAIL that alerts — instead of thrashing forever.' },
+  { icon: '🧩', title: 'Restart only what broke', body: 'Region failover restarts just the pipeline region containing the dead task; healthy operators keep running and buffering.' },
+];
+
+const PROBLEMS = [
+  { naive: 'Let the job die when a TaskManager crashes.', fail: 'A single node failure <b>takes down the whole pipeline</b> — GPS events pile up undelivered until a human intervenes.', fix: 'A restart strategy automatically recovers the job from the last checkpoint.' },
+  { naive: 'Restart from the beginning of the stream.', fail: 'Kafka\'s retention has aged out old events, and days of reprocessing is <b>infeasible</b>.', fix: 'Restore state from the latest checkpoint and replay only events since it.' },
+  { naive: 'Retry instantly, forever, on every failure.', fail: 'A bad deploy crash-loops at full speed — a <b>restart storm</b> that hammers the ResourceManager and hides the real error.', fix: 'Exponential backoff slows retries; failure-rate caps them and fails cleanly.' },
+  { naive: 'Full-restart every operator on any single task failure.', fail: 'A 600 MB job re-downloads all state from S3 and <b>stalls for ~12s</b> even when one small operator died.', fix: 'Region failover + task-local recovery restart only the affected region from local disk (~2s).' },
+];
+
+const WHY_HTML = `
+  <div class="sm-wrap">
+    <div class="sm-def card">
+      <div class="sm-def-ic">🛡️</div>
+      <div>
+        <div class="sm-def-eyebrow">What is fault tolerance?</div>
+        <p class="sm-def-lead"><b>Fault tolerance</b> is a streaming job's ability to <em>survive failures</em> — a crashed machine, a network blip, a bad deploy — and resume correctly without losing state or producing duplicates. It builds on checkpoints: a <b>restart strategy</b> decides when to retry, and <b>recovery</b> restores state and rewinds sources. On ride <b>R-4471</b>, it's what keeps the fraud pipeline whole through a mid-trip TaskManager crash (DEFECT-4).</p>
+      </div>
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">A crash, with and without it</div>
+      <div class="section-desc">The same TaskManager failure, two very different outcomes.</div>
+    </div>
+    <div class="sm-vs">
+      <div class="sm-vs-card stateless">
+        <div class="sm-vs-head">❌ No fault tolerance</div>
+        <p class="sm-vs-sub">One node dies, the job dies with it.</p>
+        <ul>
+          <li>Job moves to FAILED, stays down</li>
+          <li>In-memory state lost</li>
+          <li>GPS events pile up undelivered</li>
+        </ul>
+        <div class="sm-vs-note">Every failure is an incident and a page.</div>
+      </div>
+      <div class="sm-vs-card stateful">
+        <div class="sm-vs-head">✅ With fault tolerance</div>
+        <p class="sm-vs-sub">The job heals itself.</p>
+        <ul>
+          <li>Restart strategy retries automatically</li>
+          <li>State restored from checkpoint</li>
+          <li>Sources rewind, events replay exactly-once</li>
+        </ul>
+        <div class="sm-vs-note">A node death becomes a few seconds of replay.</div>
+      </div>
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">Why a streaming job needs it</div>
+      <div class="section-desc">Six realities of running forever on commodity hardware.</div>
+    </div>
+    <div class="sm-why-grid">
+      ${WHY_REASONS.map(r => `
+        <div class="sm-why">
+          <div class="sm-why-ic">${r.icon}</div>
+          <div class="sm-why-title">${r.title}</div>
+          <p>${r.body}</p>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">The problem fault tolerance solves</div>
+      <div class="section-desc">Four ways naïve failure handling breaks production — and the fix.</div>
+    </div>
+    <div class="sm-prob-list">
+      ${PROBLEMS.map((p, i) => `
+        <div class="sm-prob">
+          <div class="sm-prob-no">${i + 1}</div>
+          <div class="sm-prob-body">
+            <div class="sm-prob-naive"><span class="sm-tag naive">Naïve</span>${p.naive}</div>
+            <div class="sm-prob-fail"><span class="sm-tag fail">Breaks</span>${p.fail}</div>
+            <div class="sm-prob-fix"><span class="sm-tag fix">Flink</span>${p.fix}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="section-header" style="margin:26px 0 12px">
+      <div class="section-title">What recovery actually does</div>
+    </div>
+    <div class="sm-keyed card">
+      <p>Recovery is checkpoints run in reverse — restore the last consistent snapshot, rewind the sources to match, then replay forward.</p>
+      <ul>
+        <li><b>Detect</b> — the JobManager notices a lost heartbeat or a task exception.</li>
+        <li><b>Restore</b> — operators fetch their checkpointed state (from local disk when possible, else S3).</li>
+        <li><b>Rewind + replay</b> — Kafka seeks to checkpointed offsets; events between the checkpoint and the crash reprocess exactly-once.</li>
+      </ul>
+      <div class="sm-keyed-flow">
+        <code>crash</code> <span class="sm-arrow">→</span> <b>detect</b> <span class="sm-arrow">→</span> cancel + restart (per strategy) <span class="sm-arrow">→</span> <b>restore state</b> <span class="sm-arrow">→</span> seek Kafka offsets <span class="sm-arrow">→</span> <b>RUNNING</b> (replaying)
+      </div>
+    </div>
+
+    <div class="sm-bridge" style="margin-top:26px">
+      <div class="sm-bridge-txt">
+        <div class="sm-bridge-k">Now inject a failure</div>
+        <p>You know <b>why</b> fault tolerance matters — pick a restart strategy, inject a crash, and watch Flink recover the pipeline step by step.</p>
+      </div>
+      <button class="sm-bridge-btn" data-jump="sim">Open the Failure Simulator →</button>
+    </div>
+  </div>
+`;
+
 export function mount(container) {
   let selected = STRATEGIES[1];
   let animRunning = false;
   let animRaf = null;
 
   container.innerHTML = `
+    ${rideSpine({ active: ['JOB_UPGRADE', 'RIDE_STARTED'], incidents: ['DEFECT-4'] })}
     <div class="module-hero">
       <div class="module-hero-content">
         <span class="module-badge">Module 13</span>
@@ -110,12 +225,17 @@ export function mount(container) {
       </div>
     </div>
     <div class="module-tabs">
-      <button class="tab-btn active" data-tab="sim">Failure Simulator</button>
+      <button class="tab-btn active" data-tab="why">What &amp; Why</button>
+      <button class="tab-btn" data-tab="sim">Failure Simulator</button>
       <button class="tab-btn" data-tab="concept">Recovery Deep-Dive</button>
       <button class="tab-btn" data-tab="iq">Interview Q&amp;A</button>
     </div>
 
-    <div class="tab-content active" data-tab="sim">
+    <div class="tab-content active" data-tab="why">
+      ${WHY_HTML}
+    </div>
+
+    <div class="tab-content" data-tab="sim">
       <div class="ft-strategy-picker" id="ft-picker"></div>
       <div id="ft-strategy-detail"></div>
       <div class="card" style="padding:24px;margin-top:20px">
@@ -128,6 +248,7 @@ export function mount(container) {
     </div>
 
     <div class="tab-content" data-tab="concept">
+      ${rideCallout('RIDE_STARTED', { openEvent: false })}
       <div class="grid-2 gap-20">
         <div class="card p-24">
           <h3 class="mb-12">Recovery Steps (Full Restart)</h3>
@@ -150,14 +271,13 @@ export function mount(container) {
         <div class="card p-24">
           <h3 class="mb-12">Region Failover (Partial Restart)</h3>
           <p style="color:var(--text-secondary);font-size:13px;line-height:1.7;margin-bottom:12px">With <code>RegionFailoverStrategy</code>, only the pipelined region containing the failed task restarts. Regions are sets of operators connected by pipelined (non-blocking) data exchanges.</p>
-          <div class="code-block fs-11"><pre>// Enable region failover in flink-conf.yaml:
+          <div class="code-block fs-11"><span class="lang-tag">flink-conf.yaml</span><pre># Enable region failover:
 jobmanager.execution.failover-strategy: region
 
-// Or programmatically:
-env.setRestartStrategy(...)
-// The failover strategy is set in config,
-// not per-job. Region failover + exponential
-// backoff = Uber's production setup.</pre></div>
+# The failover strategy is cluster config, not
+# per-job. Region failover + exponential backoff
+# (env.set_restart_strategy in PyFlink) = Uber's
+# production setup.</pre></div>
           <div class="lc-uber-box mt-12">
             <div class="lc-uber-label">🚗 Uber Impact</div>
             <p class="fs-12">If sink TM fails, only the sink region restarts — source and FraudDetector keep running, buffering output. Recovery time: 3s vs 12s for full restart.</p>
@@ -192,9 +312,19 @@ state.backend.local-recovery: true
     </div>
 
     <div class="tab-content" data-tab="iq">
+      <div class="section-header" style="margin-bottom:8px">
+        <div class="section-title">Interview corner cases — on ride R-4471</div>
+        <div class="section-desc">Savepoint &amp; recovery questions, anchored to the planned upgrade and the mid-trip crash.</div>
+      </div>
+      <div id="sp-scenarios"></div>
+      <div class="section-header" style="margin:22px 0 8px"><div class="section-title">More recovery Q&amp;A</div></div>
       <div class="iq-section" id="iq13-section"></div>
     </div>
   `;
+
+  initRideSpine(container);
+  const spScen = container.querySelector('#sp-scenarios');
+  if (spScen) spScen.innerHTML = scenarioList(casesByModule('m13'));
 
   // Tabs
   container.querySelectorAll('.tab-btn').forEach(btn => {
@@ -205,6 +335,17 @@ state.backend.local-recovery: true
       container.querySelector(`.tab-content[data-tab="${btn.dataset.tab}"]`).classList.add('active');
     });
   });
+
+  // Bridge button: jump from "What & Why" into the Failure Simulator tab.
+  const jumpBtn = container.querySelector('[data-jump]');
+  if (jumpBtn) {
+    jumpBtn.addEventListener('click', () => {
+      const target = jumpBtn.dataset.jump;
+      container.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === target));
+      container.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.dataset.tab === target));
+      container.querySelector('.module-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
 
   // IQ
   const iqSection = container.querySelector('#iq13-section');
@@ -248,7 +389,7 @@ state.backend.local-recovery: true
             <div class="lc-uber-label">🚗 Uber Use Case</div>
             <p class="fs-125">${s.uber}</p>
           </div>
-          <div class="code-block fs-11"><pre>${s.config}</pre></div>
+          <div class="code-block fs-11"><span class="lang-tag">PyFlink</span><pre>${s.config}</pre></div>
         </div>
         ${s.recovery ? `
         <div style="display:flex;gap:20px;margin-top:14px;flex-wrap:wrap">

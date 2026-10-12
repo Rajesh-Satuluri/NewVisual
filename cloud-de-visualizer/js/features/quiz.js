@@ -9,6 +9,7 @@
   'use strict';
   const TV = window.TableViz;
   if (!TV) return;
+  const QE = TV.QuestionEngine;   // shared modal/grade substrate (F0.4)
 
   const LABEL = { azure: 'Azure', databricks: 'Databricks', aws: 'AWS', 'multi-cloud': 'Cross-Cloud' };
 
@@ -18,9 +19,7 @@
     return b && b.length ? { fmt: f, questions: b } : null;
   }
 
-  function esc(s) {
-    return String(s == null ? '' : s).replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
-  }
+  const esc = QE.esc;
 
   function injectStyles() {
     if (document.getElementById('quiz-styles')) return;
@@ -73,53 +72,25 @@
     document.head.appendChild(s);
   }
 
-  let root, state, _lastFocus = null;
-
-  function trapFocus(e) {
-    if (e.key !== 'Tab' || !root || !root.classList.contains('visible')) return;
-    const f = root.querySelectorAll('button:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])');
-    if (!f.length) return;
-    const first = f[0], last = f[f.length - 1];
-    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-  }
-
-  function ensureRoot() {
-    if (root) return root;
-    injectStyles();
-    root = document.createElement('div');
-    root.className = 'quiz-backdrop';
-    root.setAttribute('role', 'dialog');
-    root.setAttribute('aria-modal', 'true');
-    root.setAttribute('aria-label', 'Test yourself quiz');
-    document.body.appendChild(root);
-    root.addEventListener('click', (e) => { if (e.target === root) close(); });
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && root.classList.contains('visible')) close(); });
-    document.addEventListener('keydown', trapFocus);
-    return root;
-  }
+  let root, state;
+  const modal = QE.createModal({
+    className: 'quiz-backdrop',
+    ariaLabel: 'Test yourself quiz',
+    focusSelectors: ['.quiz-opt', '.quiz-close'],
+  });
 
   function bestKey(fmt) { return 'cde-' + fmt + '-quiz-best'; }
 
   function open() {
     const b = bank();
     if (!b) return;
-    _lastFocus = document.activeElement;
-    ensureRoot();
+    injectStyles();
+    root = modal.root();
     state = { fmt: b.fmt, qs: b.questions, i: 0, correct: 0, answered: false };
-    renderQuestion();
-    root.classList.add('visible');
-    document.body.classList.add('modal-open');
-    const first = root.querySelector('.quiz-opt') || root.querySelector('.quiz-close');
-    if (first) first.focus();
+    modal.open(renderQuestion);
   }
 
-  function close() {
-    if (root) root.classList.remove('visible');
-    document.body.classList.remove('modal-open');
-    if (_lastFocus && typeof _lastFocus.focus === 'function') { try { _lastFocus.focus(); } catch (e) {} }
-    _lastFocus = null;
-  }
+  function close() { modal.close(); }
 
   function renderQuestion() {
     const q = state.qs[state.i];
@@ -161,13 +132,7 @@
     if (state.answered) return;
     state.answered = true;
     const q = state.qs[state.i];
-    const opts = root.querySelectorAll('.quiz-opt');
-    opts.forEach((b, idx) => {
-      b.disabled = true;
-      const letter = b.querySelector('.quiz-letter');
-      if (idx === q.answer) { b.classList.add('correct'); if (letter) letter.textContent = '✓'; }
-      if (idx === k && k !== q.answer) { b.classList.add('wrong'); if (letter) letter.textContent = '✗'; }
-    });
+    QE.gradeOptions(root, { optSel: '.quiz-opt', letterSel: '.quiz-letter', answer: q.answer, chosen: k });
     if (k === q.answer) state.correct++;
     // Feed per-topic accuracy into the recommendation engine's signal store.
     if (q.topic && TV.Progress && TV.Progress.recordQuizAnswer) {

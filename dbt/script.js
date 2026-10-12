@@ -47,6 +47,8 @@ const LOADERS = {
   m31: () => import('./modules/m31-case-studies.js'),
   m32: () => import('./modules/m32-command-playground.js'),
   m33: () => import('./modules/m33-production-lab.js'),
+  // Practice
+  'studio':    () => import('./modules/studio.js'),
   // Reference & review
   'modes':     () => import('./modules/modes.js'),
   'readiness': () => import('./modules/readiness.js'),
@@ -104,7 +106,7 @@ async function navigate(id) {
         const mod = MODULES.find(mm => mm.id === id);
         toast(`Module complete — ${mod.title}`, { icon: '✅' });
         if ([...done].filter(x => MODULES.some(mm => mm.id === x)).length === MODULES.length) {
-          toast('All 16 modules complete! 🏆', { icon: '🏆', duration: 4200 });
+          toast(`All ${MODULES.length} modules complete! 🏆`, { icon: '🏆', duration: 4200 });
         }
       }, 25000);
     }

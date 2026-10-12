@@ -1035,3 +1035,45 @@
 }
 
 .tree-children.collapsed { display: none; }
+
+/* ============================================================
+   Verified chip (F0.3) — content provenance badge
+   ============================================================ */
+.vchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 20px;
+  background: var(--green-subtle, rgba(63, 185, 80, 0.12));
+  border: 1px solid var(--green-dim, rgba(63, 185, 80, 0.3));
+  color: var(--green, #3fb950);
+  font-size: var(--text-xs, 11px);
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  vertical-align: middle;
+  max-width: 100%;
+}
+.vchip-ic { display: inline-flex; align-items: center; flex-shrink: 0; }
+.vchip-lbl { font-weight: 700; }
+.vchip-date { color: var(--text-secondary, #b3c0d6); font-weight: 600; }
+.vchip-sep { color: var(--text-muted, #7e8da8); }
+.vchip-src {
+  color: var(--text-muted, #7e8da8);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 24ch;
+}
+/* Stale / review-due state: muted amber, never alarming red */
+.vchip-stale {
+  background: var(--yellow-subtle, rgba(210, 153, 34, 0.12));
+  border-color: var(--yellow-dim, rgba(210, 153, 34, 0.3));
+  color: var(--yellow, #d29922);
+}
+.vchip-stale .vchip-date { color: var(--yellow, #d29922); }
+
+@media (max-width: 640px) {
+  .vchip-src, .vchip-sep { display: none; }
+}
