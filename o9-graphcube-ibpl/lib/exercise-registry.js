@@ -18,4 +18,11 @@ export const REGISTRY = [
   { id: 'm02-predict-nullzero', area: 'concept' },
   { id: 'm02-write-grain',      area: 'ibpl' },
   { id: 'm02-model-design',     area: 'model' },
+  // ── Iter C · Aggregation & Spreading (m13) ─────────────────────────────────
+  { id: 'm13-predict-policy',   area: 'model' },
+  { id: 'm13-predict-nullavg',  area: 'concept' },
+  { id: 'm13-predict-copysum',  area: 'debug' },
+  { id: 'm13-predict-distself', area: 'model' },
+  { id: 'm13-diag-nospread',    area: 'debug' },
+  { id: 'm13-explain-basis',    area: 'concept' },
 ];

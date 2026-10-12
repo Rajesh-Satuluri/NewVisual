@@ -589,6 +589,25 @@ function round2(v) { return v === null || v === undefined ? null : Math.round(nu
 
 /* ===================== DISTRIBUTE-TO-LEAVES HELPER ==================== */
 
+// aggregatePolicy — roll leaf values up to a parent by the named policy.
+// values: array that MAY contain null (an unstored/sparse leaf) or 0 (a real zero).
+// Returns a number, or null when nothing aggregates.
+export function aggregatePolicy(values, policy) {
+  const nonNull = values.filter(v => v !== null && v !== undefined).map(Number);
+  const nonNullOrZero = nonNull.filter(v => v !== 0);
+  switch (policy) {
+    case 'Sum': return nonNull.length ? nonNull.reduce((s, v) => s + v, 0) : null;
+    case 'Min': return nonNull.length ? Math.min(...nonNull) : null;
+    case 'Max': return nonNull.length ? Math.max(...nonNull) : null;
+    case 'Avg': return nonNull.length ? nonNull.reduce((s, v) => s + v, 0) / nonNull.length : null;
+    case 'AvgNonNull': return nonNull.length ? nonNull.reduce((s, v) => s + v, 0) / nonNull.length : null;
+    case 'AvgNonNullOrZero': return nonNullOrZero.length ? nonNullOrZero.reduce((s, v) => s + v, 0) / nonNullOrZero.length : null;
+    case 'FirstChild': { const f = values.find(v => v !== undefined); return f === undefined ? null : f; }
+    case 'LastChild': return values.length ? values[values.length - 1] : null;
+    default: return null;
+  }
+}
+
 export function distributeToLeaves(aggValue, basis, assortment) {
   // basis: array of numbers (null allowed). assortment: array of 0/1 eligibility (optional).
   const elig = basis.map((_, i) => (assortment ? !!assortment[i] : true));

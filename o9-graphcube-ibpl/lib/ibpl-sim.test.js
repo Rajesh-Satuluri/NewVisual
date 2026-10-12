@@ -1,6 +1,6 @@
 // Node test suite for the IBPL simulator (documented subset).
 // Run:  node lib/ibpl-sim.test.js
-import { runIBPL, distributeToLeaves } from './ibpl-sim.js';
+import { runIBPL, distributeToLeaves, aggregatePolicy } from './ibpl-sim.js';
 
 let pass = 0, fail = 0;
 function eq(name, got, want) {
@@ -97,6 +97,17 @@ eq('DTL assortment eligibility', distributeToLeaves(10, [1, 1, 1], [1, 0, 1]), [
   const r = runIBPL('scope: ([Version].[Version Name].filter(#.Key==0) * [Item].[SKU]); Measure.[BAF] == 5; end scope;', 'cat-forecast');
   ok('== in assignment flagged', !r.ok && /compare/i.test(r.error));
 }
+
+// 11. aggregatePolicy — null vs zero and policy differences
+eq('Sum skips null', aggregatePolicy([10, null, 20], 'Sum'), 30);
+eq('Avg skips null (not count)', aggregatePolicy([null, 10], 'Avg'), 10);
+eq('Avg counts explicit zero', aggregatePolicy([0, 10], 'Avg'), 5);
+eq('AvgNonNullOrZero drops zero', aggregatePolicy([0, 10], 'AvgNonNullOrZero'), 10);
+eq('Min over values', aggregatePolicy([4, 9, 2], 'Min'), 2);
+eq('Max over values', aggregatePolicy([4, 9, 2], 'Max'), 9);
+eq('FirstChild', aggregatePolicy([7, 8, 9], 'FirstChild'), 7);
+eq('LastChild', aggregatePolicy([7, 8, 9], 'LastChild'), 9);
+eq('all null → null', aggregatePolicy([null, null], 'Sum'), null);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

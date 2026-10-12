@@ -968,3 +968,17 @@ button.pill.on { box-shadow: 0 0 0 1px var(--accent), 0 4px 14px -6px var(--acce
 .tc-reveal > summary::before { content: '🔍 '; }
 .tc-root, .tc-fix { font-size: 13px; line-height: 1.6; color: var(--text2); background: var(--bg3); border-left: 3px solid var(--good); border-radius: var(--radius-sm); padding: 9px 12px; margin-top: 8px; }
 .tc-root b, .tc-fix b { color: var(--text); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ITER C — Aggregation & Spreading labs (m13)
+   ═══════════════════════════════════════════════════════════════════════════ */
+.lab-controls { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+.lab-sel { font-size: 12.5px; color: var(--text2); font-weight: 700; display: inline-flex; align-items: center; gap: 8px; }
+.lab-sel select, .lab-sel input { font-family: inherit; font-size: 13px; background: var(--bg3); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; }
+.lab-sel select:focus, .lab-sel input:focus { outline: none; border-color: var(--accent); box-shadow: var(--ring); }
+.lab-table { margin: 0 0 14px; }
+.lab-in { font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 7px; padding: 5px 9px; }
+.lab-in:focus { outline: none; border-color: var(--accent); box-shadow: var(--ring); }
+.lab-in:disabled { opacity: .5; }
+.lab-parent { color: var(--accent) !important; font-size: 15px; font-variant-numeric: tabular-nums; }
+.sp-elig { accent-color: var(--accent); width: 16px; height: 16px; cursor: pointer; }
