@@ -2,8 +2,9 @@
 // competency area, so the Home competency panel can show "solved / total"
 // without eagerly importing every module. Each iteration appends its ids here;
 // the ids MUST match the `id` field on the actual exercise objects.
+import { BANK } from './interview-bank.js';
 
-export const REGISTRY = [
+const BASE = [
   // ── Iter A · Sandbox demo set ──────────────────────────────────────────────
   { id: 'sbx-predict-version', area: 'ibpl' },
   { id: 'sbx-write-topn',      area: 'ibpl' },
@@ -56,4 +57,10 @@ export const REGISTRY = [
   { id: 'm12-diag-lineage',   area: 'debug' },
   { id: 'm12-predict-change', area: 'model' },
   { id: 'm14-predict-scenario', area: 'business' },
+];
+
+// Iter F · the unified interview bank feeds the "interview" competency axis.
+export const REGISTRY = [
+  ...BASE,
+  ...BANK.map(q => ({ id: q.id, area: 'interview' })),
 ];
