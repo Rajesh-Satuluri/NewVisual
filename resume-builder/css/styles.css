@@ -252,6 +252,9 @@ button.kw-chip:hover { transform: translateY(-1px); }
 .kw-chip.miss { color: #ffd0a8; border-color: #6b4a2e; background: #2c2016; }
 .kw-chip.miss:hover { border-color: #e0a05a; background: #3a2a1b; }
 .kw-chip.miss.hot { color: #ffb380; border-color: #8a5326; background: #3a2616; font-weight: 700; }
+/* softer, lower-priority look for plain keywords (not hard skills/tools) */
+.kw-chip.miss:not(.skill) { color: #c9bfb2; border-color: #4a4238; background: #211e19; font-weight: 500; }
+.kw-chip.miss:not(.skill):hover { border-color: #726552; background: #2a2620; }
 .kw-chip.have { color: #a9e6c4; border-color: #2e5a42; background: #16271e; }
 /* missing keyword + inline add button */
 .kw-group { display: inline-flex; align-items: stretch; }
