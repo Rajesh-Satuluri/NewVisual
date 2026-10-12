@@ -33,18 +33,22 @@ Living checklist for the Iter 0–4 build. Updated each wave. Counts are authori
 - [x] valid→parsed→compiled→executed→correct ladder UI (per-exercise stage highlight)
 - [x] Verified headless: Jinja Check pass, YAML Check pass (yaml-mini), broken starter rejected, 0 pageerrors
 
-## Iter 3 — Interview Academy 🔵
+## Iter 3 — Interview Academy ✅
 
-- [ ] Bank → ~250–320 distinct full-schema questions
-- [ ] Competency coverage matrix (category × difficulty) from registry
-- [ ] 4 modes (oral/written/coding/system-design) with rubric scoring
-- [ ] Weak-topic tracking + revision surface
+- [x] Bank → **293** distinct full-schema questions (44 core + 249 authored; 8 tiers)
+- [x] Competency coverage matrix (15 areas × difficulty) with live counts + weak-topic chips
+- [x] Simulator tracks: ramp / scenario+design / debugging / senior / full-mock; written-answer box + self-assessment
+- [x] Weak-topic persistence (`dbt-weak-topics`) → surfaced on the Coverage Matrix
+- [x] content-lint 0/0; headless verify (bank + coverage + sim), 0 pageerrors — deployed
 
-## Iter 4 — Production Incident Simulator 🔵
+## Iter 4 — Production Incident Simulator ✅
 
-- [ ] Reusable multi-step incident engine
-- [ ] 20 named scenarios
-- [ ] Branch-aware recovery consequences + incident report output
+- [x] Reusable multi-step engine: briefing → evidence → hypothesis → root cause → recovery → fix → validate → postmortem
+- [x] **20** named scenarios (data/incidents.js); schema-checked (one correct hypothesis + one correct recovery each)
+- [x] Scored hypothesis + recovery choice with consequences; generated 5-part postmortem + 0/2 triage score
+- [x] On-call playbook tab (4-bucket taxonomy + loop); Practice nav entry + lazy loader; registry `incidentCount`
+- [x] Illustrative-fix labelling (nothing executed); adapter-specific behavior called out
+- [x] content-lint 0/0; headless full-flow verify, 0 pageerrors — deployed
 
 ## Verification gates (every wave)
 
