@@ -104,7 +104,7 @@ async function navigate(id) {
         const mod = MODULES.find(mm => mm.id === id);
         toast(`Module complete — ${mod.title}`, { icon: '✅' });
         if ([...done].filter(x => MODULES.some(mm => mm.id === x)).length === MODULES.length) {
-          toast('All 16 modules complete! 🏆', { icon: '🏆', duration: 4200 });
+          toast(`All ${MODULES.length} modules complete! 🏆`, { icon: '🏆', duration: 4200 });
         }
       }, 25000);
     }
