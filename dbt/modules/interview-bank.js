@@ -11,7 +11,7 @@ export function mount(container) {
     tag: 'Reference · Interview',
     title: 'Interview Master Bank',
     subtitle: `${BANK.length} tiered questions, each with a short + detailed answer, example, common mistake, follow-up, and the senior-level answer.`,
-    tabs: [{ id: 'bank', label: '🎯 Question Bank' }],
+    tabs: [{ id: 'bank', label: '🎯 Question Bank' }, { id: 'coverage', label: '📊 Coverage Matrix' }],
   });
 
   const tab = container.querySelector('#tab-bank');
@@ -89,6 +89,64 @@ export function mount(container) {
   });
 
   render();
+  buildCoverage(container.querySelector('#tab-coverage'));
+}
+
+// Stable competency areas — questions are bucketed by keyword (from cat + q), so
+// the matrix stays readable no matter how granular the raw `cat` labels are.
+const AREAS = [
+  ['Fundamentals & ELT', /fundamental|elt|etl|what is dbt|where dbt|transformation vs|when not|ref\(|source\(|\bdag\b|lineage|\bmodel\b/],
+  ['Project & Config', /config|dbt_project|profile|target|\bvar\b|naming|environment|variable|precedence|property|seed/],
+  ['Jinja & Macros', /jinja|macro|dispatch|whitespace|template|run_query|execute var|loop/],
+  ['Materializations', /materializ|ephemeral|\bview\b|\btable\b materi|relation/],
+  ['Incremental', /incremental|is_incremental|merge|microbatch|watermark|backfill|lookback|append|insert_overwrite|delete.?insert/],
+  ['Snapshots & History', /snapshot|scd|slowly changing|dbt_valid|invalidate_hard/],
+  ['Testing & Data Quality', /\btest|contract|freshness|not_null|unique|accepted_values|relationship|constraint|data quality|coverage/],
+  ['SQL & Modeling', /\bsql\b|\bjoin|grain|window|dedup|surrogate|dimension|\bfact|aggregat|cardinality|null handling|date|time zone|precision|pivot/],
+  ['CLI & Artifacts', /\bcli\b|command|parse|compile|manifest|run_results|catalog|artifact|dbt run|dbt build|dbt ls|dbt show|retry|clean/],
+  ['Selection & State', /select|\bstate\b|slim ci|defer|state:modified|\btag/],
+  ['CI/CD & Orchestration', /ci\/cd|\bci\b|deploy|airflow|orchestrat|schedul|\bretry|idempoten|pull request|\bpr\b/],
+  ['Performance & Cost', /perform|\bcost|cluster|partition|prune|warehouse siz|scan|concurren/],
+  ['Adapters & Platform', /adapter|snowflake|bigquery|databricks|redshift|postgres|platform|\bcloud|mesh|cross-project|python model|semantic|metric/],
+  ['Debugging & Incidents', /debug|incident|root cause|triage|\bfail|orphan|broke|on-call|duplicate/],
+  ['Architecture & Governance', /architect|governance|\bdesign|ownership|domain|access|deprecat|version|large.?team|audit/],
+];
+function areaOf(b) {
+  const hay = ((b.cat || '') + ' ' + (b.q || '')).toLowerCase();
+  for (const [name, re] of AREAS) if (re.test(hay)) return name;
+  return 'Other';
+}
+
+function buildCoverage(root) {
+  if (!root) return;
+  const activeTiers = TIERS.filter(t => BANK.some(b => b.tier === t.id));
+  const tagged = BANK.map(b => ({ b, area: areaOf(b) }));
+  const areaNames = [...AREAS.map(a => a[0]), 'Other'].filter(name => tagged.some(x => x.area === name));
+  const rows = areaNames.map(name => {
+    const inArea = tagged.filter(x => x.area === name);
+    return { name, total: inArea.length,
+      byTier: Object.fromEntries(activeTiers.map(t => [t.id, inArea.filter(x => x.b.tier === t.id).length])) };
+  }).sort((a, b) => b.total - a.total);
+  const tierTotals = Object.fromEntries(activeTiers.map(t => [t.id, BANK.filter(b => b.tier === t.id).length]));
+  const rawCats = new Set(BANK.map(b => b.cat)).size;
+
+  let weak = [];
+  try { weak = JSON.parse(localStorage.getItem('dbt-weak-topics') || '[]'); } catch {}
+
+  root.innerHTML = `
+    <p class="cov-lead">Competency coverage by area and difficulty tier — counts are live: <strong>${BANK.length}</strong> questions across ${rows.length} areas (${rawCats} raw categories) and ${activeTiers.length} tiers. A thin row is a competency to shore up before an interview.</p>
+    ${weak.length ? `<div class="cov-weak"><strong>Your weak topics</strong> (saved from the Interview Simulator): ${weak.map(w => `<span class="cov-weak-chip">${escapeHtml(w)}</span>`).join('')}</div>` : ''}
+    <div class="cov-scroll">
+      <table class="cov-table">
+        <thead><tr><th class="cov-cat-h">Competency area</th>${activeTiers.map(t => `<th style="color:${t.color}">${t.label}</th>`).join('')}<th>Total</th></tr></thead>
+        <tbody>
+          ${rows.map(c => `<tr><td class="cov-cat">${escapeHtml(c.name)}</td>${activeTiers.map(t => {
+            const n = c.byTier[t.id]; return `<td class="${n ? 'cov-has' : 'cov-none'}">${n || '·'}</td>`;
+          }).join('')}<td class="cov-total">${c.total}</td></tr>`).join('')}
+        </tbody>
+        <tfoot><tr><td class="cov-cat">All areas</td>${activeTiers.map(t => `<td class="cov-total">${tierTotals[t.id]}</td>`).join('')}<td class="cov-total">${BANK.length}</td></tr></tfoot>
+      </table>
+    </div>`;
 }
 
 function escapeHtml(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }

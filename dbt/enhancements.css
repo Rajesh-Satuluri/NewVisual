@@ -993,3 +993,21 @@ body.cmdk-open { overflow: hidden; }
 .cfg-assert-table tr.bad td:first-child { color: var(--error); }
 .cfg-assert-path { font-family: var(--font-mono); color: var(--text-2); }
 @media (max-width: 820px) { .cfg-ladder-arrow { display: none; } }
+
+/* ── Interview coverage matrix (Iter 3) ───────────────────────────────────── */
+.cov-lead { color: var(--text-2); font-size: 13.5px; line-height: 1.6; margin: 4px 0 14px; }
+.cov-weak { background: color-mix(in srgb, var(--warn, #F59E0B) 12%, var(--surface)); border: 1px solid color-mix(in srgb, var(--warn, #F59E0B) 34%, transparent); border-radius: var(--radius-sm); padding: 10px 13px; font-size: 13px; margin-bottom: 14px; }
+.cov-weak-chip { display: inline-block; background: var(--surface-2); border-radius: 999px; padding: 2px 9px; margin: 2px 4px; font-size: 12px; }
+.cov-scroll { overflow-x: auto; }
+.cov-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.cov-table th, .cov-table td { padding: 7px 10px; text-align: center; border-bottom: 1px solid var(--border); }
+.cov-table th.cov-cat-h, .cov-table td.cov-cat { text-align: left; font-weight: 600; }
+.cov-cat { color: var(--text); }
+.cov-has { color: var(--text); font-weight: 600; }
+.cov-none { color: var(--text-3); }
+.cov-total { font-weight: 800; color: var(--accent); }
+.cov-table tfoot td { border-top: 2px solid var(--border); border-bottom: none; }
+
+/* ── Interview simulator written-answer box (Iter 3) ──────────────────────── */
+.sim-answer { width: 100%; box-sizing: border-box; min-height: 70px; resize: vertical; margin: 10px 0; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 11px; font-size: 13px; font-family: inherit; line-height: 1.5; }
+.sim-answer:focus { outline: 2px solid var(--accent-dim); outline-offset: -2px; }
