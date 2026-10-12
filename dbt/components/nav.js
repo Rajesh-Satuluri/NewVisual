@@ -54,6 +54,7 @@ export const MODULES = [
 export const EXTRAS = [
   { id:'studio',    title:'Coding Studio',     icon:'🧪', group:'Practice', num:'', desc:'Write and run real SQL on the e-commerce dataset (DuckDB-WASM).' },
   { id:'config-lab',title:'Config Lab',        icon:'⚙️', group:'Practice', num:'', desc:'Jinja templating + YAML/config repair with real validation.' },
+  { id:'incident-simulator', title:'Incident Simulator', icon:'🚨', group:'Practice', num:'', desc:'Work 20 real dbt incidents on-call: briefing → evidence → root cause → recovery → fix.' },
   { id:'modes',     title:'Learning Modes',    icon:'🧭', group:'Guide', num:'', desc:'Six goal-based paths through the modules.' },
   { id:'readiness', title:'Readiness Dashboard',icon:'📊', group:'Guide', num:'', desc:'Your learning progress by area, from views + quiz scores.' },
   { id:'master-map', title:'Master Map',       icon:'🗺️', group:'Reference', num:'', desc:'The whole dbt project on one page — sources to marts.' },

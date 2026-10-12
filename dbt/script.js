@@ -50,6 +50,7 @@ const LOADERS = {
   // Practice
   'studio':    () => import('./modules/studio.js'),
   'config-lab':() => import('./modules/config-lab.js'),
+  'incident-simulator': () => import('./modules/incident-simulator.js'),
   // Reference & review
   'modes':     () => import('./modules/modes.js'),
   'readiness': () => import('./modules/readiness.js'),
