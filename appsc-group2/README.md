@@ -8,7 +8,8 @@ A syllabus-first study tool for the **APPSC Group 2** exam (Andhra Pradesh Publi
 - **Syllabus Map** — the whole syllabus as a flow tree: **Paper → Section → Part**. The "veteran's map" of everything the exam can ask, colour-coded by stage.
 - **Prep Tracker** — tap each part to mark it **Learning** then **Revised**. Marks-weighted **readiness rings** (Mains = merit, Prelims = gate), a **Revise next** strip that resurfaces whatever you studied longest ago (spaced revision), and per-paper progress. Saved in your browser (localStorage).
 - **Blueprint** — the exam pattern (Prelims screening, Mains two papers, CPT), negative marking, what counts toward merit, and the **notification history** timeline.
-- **Practice** *(auto-unlocks once PYQs are added)* — **Coverage** (mark weight vs. PYQs seen → gap analysis), **Heatmap** (exam × topic / year), and a **Quiz** that drills real previous-year questions with solutions.
+- **PYQ Analysis** — **where the questions actually come from.** Built by OCR-reading 4 official papers (2019 & 2024 Prelims, 2025 Mains Paper-I & II) and mapping every recovered question onto the syllabus: biggest concentrations per paper-half, and a full per-section / per-sub-theme breakdown. Answers "which part of the syllabus gets the most questions."
+- **Practice** *(auto-unlocks once per-question answer keys are added)* — **Coverage** (mark weight vs. PYQs seen → gap analysis), **Heatmap** (exam × topic / year), and a **Quiz** that drills real previous-year questions with solutions.
 
 ## Build phases
 
@@ -16,7 +17,28 @@ A syllabus-first study tool for the **APPSC Group 2** exam (Andhra Pradesh Publi
 |---|---|---|
 | **0** | Syllabus skeleton: full Prelims + Mains tree, mark weights, blueprint, notification history | ✅ live |
 | **Study** | Prep Tracker — study status, spaced revision, readiness (no PYQs needed) | ✅ live |
-| **PYQ** | Parse PYQ paper PDFs → `data/syllabus.js`; unlocks Coverage + Heatmap + Quiz | machinery live, needs PDFs |
+| **PYQ Analysis** | OCR 4 official papers → classify every question → **frequency by syllabus part** | ✅ live |
+| **Quiz** | Attach per-question answer keys → Coverage + Heatmap + Quiz drill | needs answer keys |
+
+### PYQ frequency — key findings (from the 4 parsed papers)
+
+- **2025 Mains Paper-II, Science & Technology half: ~76% of questions are Environment / Ecology / Pollution / Climate / Sustainable Development** — space, defence, ICT and biotech barely feature. The single highest-yield area in the whole dataset.
+- **2025 Mains Paper-II, Economy half:** Macro (National Income / Structure / Planning) + Money, Banking & Public Finance dominate (~2/3); AP-specific economy is a smaller but distinct block.
+- **2025 Mains Paper-I:** AP History is led by **early + medieval dynastic/cultural history** (Satavahana→Kakatiya→Reddy→Vijayanagara); the Constitution half is led by **Union & State Government** and **Constitutional & Local Bodies**.
+- **Prelims** is deliberately even by design — 2024 ran 5 sections × 30 Qs (History, Geography, Indian Society, Current Affairs, Mental Ability); 2019 ran 3 × 50 (GS+Mental Ability, AP History+Constitution, Planning & Economy).
+
+### How the analysis is built (`tools/`)
+
+The official papers are **scanned, bilingual image PDFs**, so the pipeline is OCR-based:
+
+```
+ocr_papers.py   # PyMuPDF renders each page @250dpi → tesseract (eng) → pyq_txt/*.txt
+segment.py      # LIS over numbered markers → split into 150 questions, English stem + options
+classify.py     # section fixed by each paper's printed header (number range); leaf by keyword rules
+build_pyq.py    # aggregate → data/pyq.js  (declared = exact, captured = OCR-recovered)
+```
+
+Trust model: **declared** section counts are exact (printed on each paper's own header); **captured** counts are what OCR recovered (~89% of all questions across the 4 papers), lost roughly evenly — so proportions are reliable, but a bar is a floor, not an exact tally. The local scans, OCR dumps and venv are git-ignored; only the scripts and the aggregated `data/pyq.js` are committed.
 
 The data model (`data/syllabus.js`) is **PYQ-aware from day one**: every leaf topic carries a `pyq` slot (null until parsed). When PYQ papers are ingested, frequency/recency, coverage, heatmap and quiz all light up automatically — the Practice tab reveals itself — with no UI changes.
 
