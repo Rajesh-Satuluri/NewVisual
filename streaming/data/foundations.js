@@ -680,7 +680,85 @@ ceiling (parallelism) = 120 partitions → at most 120 useful instances
         re-emits every output in that range. If your pipeline sends emails, charges cards, or appends
         (not upserts) to a store, naive replay repeats those actions. Design sinks for replay <i>before</i>
         you need to replay in an incident.</div></div>` },
-      { id: 'sizing', label: '📐 Sizing in production', body: `
+      { id: 'retention', label: '🗄️ Retention sizing', body: `
+        <h3>Retention is a policy decision with a price tag</h3>
+        <p>Retention answers one question — "how far back can anyone rewind?" — and every answer is a
+        trade between <b>capability</b> (replay window, audit, backfill) and <b>cost</b> (disk × replication).
+        A principal doesn't pick a round number like "7 days" by habit; they derive it from requirements,
+        price it, and then decide <i>where</i> the bytes live. This tab is the dedicated walk-through.</p>
+
+        <h3>Step 1 — Two kinds of retention, picked by data shape</h3>
+        <p>Before sizing anything, choose the <i>mechanism</i>, because it changes what "retention" even
+        means:</p>
+        <div class="lx-table-wrap"><table class="lx-table">
+          <thead><tr><th>Mode</th><th>Keeps</th><th>Use when</th><th>Sizing driver</th></tr></thead>
+          <tbody>
+            <tr><td><b>Delete (time/size)</b></td><td>Every event until it ages out</td>
+              <td>Event streams, facts, audit — you care about <i>history</i></td>
+              <td>throughput × window × replication</td></tr>
+            <tr><td><b>Compact (log compaction)</b></td><td>The latest value per key, forever (+ tombstones for deletes)</td>
+              <td>Changelogs, current-state topics, CDC, config — you care about <i>latest state</i></td>
+              <td>distinct key count × avg record size × replication</td></tr>
+          </tbody>
+        </table></div>
+        <p>This is the single biggest retention lever and the one juniors miss: a current-state topic
+        (e.g. "{ENTITY} → latest status") sized with <i>delete</i> retention grows without bound, but under
+        <b>compaction</b> it's bounded by the number of distinct {KEY}s, not by traffic. You can also run
+        <b>compact + delete</b> together (keep latest-per-key, but still age out keys untouched for N days).</p>
+
+        <h3>Step 2 — Derive the window from requirements, then price it</h3>
+        <p>Pick the window from the <i>longest</i> real need, not a guess:</p>
+        <ul class="clean">
+          <li><b>Reprocess SLA:</b> "we must be able to rebuild from a bug found up to 30 days late" → ≥ 30 days.</li>
+          <li><b>Backfill:</b> "a new consumer rebuilds its view from scratch" → as far back as the view needs.</li>
+          <li><b>Compliance/audit:</b> a regulatory "keep N years" → long, and usually a tiered/archive concern.</li>
+          <li><b>Disaster recovery:</b> rebuild a downstream store → cover your worst realistic outage + margin.</li>
+        </ul>
+        <p>Then price it — retention is literally a storage bill:</p>
+        <div class="lx-code"><div class="lx-code-lang">calc</div><pre><code>stored bytes = throughput(bytes/s) × window(s) × replication factor
+e.g. 50,000 ev/s × 1 KB × 30 days × RF3 ≈ 390 TB on broker disk</code></pre></div>
+        <p>390 TB of hot broker disk to hold a 30-day rewind window is exactly the number that forces the
+        next decision.</p>
+
+        <h3>Step 3 — Decide WHERE the bytes live: hot disk vs tiered storage</h3>
+        <p>You rarely need 30 days at hot-disk latency. The principal pattern is a <b>short hot window</b>
+        on broker disk for live consumers plus <b>tiered storage</b> — older log segments offloaded to
+        object storage — for the long tail:</p>
+        <div class="lx-table-wrap"><table class="lx-table">
+          <thead><tr><th>Tier</th><th>Holds</th><th>Latency</th><th>Cost/GB</th><th>Serves</th></tr></thead>
+          <tbody>
+            <tr><td><b>Hot (broker disk)</b></td><td>Hours–days</td><td>Low</td><td>High</td><td>Live consumers, normal catch-up</td></tr>
+            <tr><td><b>Tiered (object store)</b></td><td>Weeks–∞</td><td>Higher per byte</td><td>Low</td><td>Replay, backfill, DR, audit</td></tr>
+          </tbody>
+        </table></div>
+        <p>Tiered storage is what makes long — even effectively infinite — retention affordable, and it's
+        the enabler behind <b>Kappa</b> architecture, where "the log <i>is</i> the source of truth" and you
+        rebuild any downstream by replaying from the beginning. Without tiering, "retention = source of
+        truth" is a ruinous disk bill; with it, it's a design choice.</p>
+
+        <h3>Step 4 — Operational guards a principal states</h3>
+        <ul class="clean">
+          <li><b>Retention ≥ replay window, always.</b> You can't rewind past deleted data — a retention
+          shorter than your reprocess SLA silently makes recovery impossible exactly when you need it.</li>
+          <li><b>Per-topic overrides, not one global setting.</b> A high-volume clickstream and a
+          low-volume config changelog have opposite retention needs; set them per topic.</li>
+          <li><b>Retention ≠ consumer lag budget.</b> If a consumer can lag by hours, retention must exceed
+          the max tolerated lag or a slow consumer loses data off the tail.</li>
+          <li><b>Compaction isn't instant.</b> It runs in the background, so a compacted topic still holds
+          some superseded versions transiently — size with a little headroom, don't assume exactly one
+          record per key on disk.</li>
+        </ul>
+
+        <div class="lx-callout lx-ok"><b>Interview-ready summary.</b><div>"First I pick the mechanism:
+        delete retention for event history, compaction for current-state/changelog topics — because a
+        state topic under compaction is bounded by distinct key count, not traffic. Then I derive the
+        window from the longest real need (reprocess SLA, backfill, compliance, DR) and price it:
+        throughput × window × replication, which here is ~390 TB for 30 days at RF3. That cost pushes me to
+        tiered storage — a short hot window on disk, long tail in object storage — which is what makes long
+        retention and Kappa-style 'log as source of truth' affordable. And I'd set it per topic, keep it
+        ≥ the replay window and ≥ the max consumer lag, and leave headroom for background
+        compaction."</div></div>` },
+      { id: 'sizing', label: '📐 Consumer/replay sizing', body: `
         <h3>Sizing retention and replay like a principal</h3>
         <p>Offsets are free; what you actually size around them is <b>retention</b> (how far back you can
         rewind) and <b>replay throughput</b> (how fast you can). The interview question is rarely "what's
@@ -735,6 +813,14 @@ to replay 30 days of data in 24 h you need ≈ 1.5 million ev/s drain
         to my duplicate tolerance and guard auto-offset-reset=earliest so a backfill doesn't flood the
         sink."</div></div>` },
       { id: 'iq', label: '🎤 Interview', body: iq([
+        { q: 'Delete retention vs log compaction — how do you choose, and why does it change sizing?', a:
+          `Choose by what the topic represents. Delete (time/size) retention keeps every event until it
+          ages out — right for event history, facts, and audit, and sized as throughput × window ×
+          replication. Compaction keeps only the latest value per key (plus tombstones for deletes) — right
+          for changelogs, current-state, CDC, and config topics, and sized by distinct key count × record
+          size × replication, independent of traffic. That's the key insight: a current-state topic under
+          delete retention grows without bound, but under compaction it's bounded by cardinality. You can
+          also combine compact+delete to still age out keys untouched for N days.` },
         { q: 'How do you size retention, and what does 30-day retention actually cost?', a: `Retention is a
           storage bill: throughput × avg bytes × seconds × replication factor. At 50k ev/s × 1 KB that's
           ~4.3 TB/day raw, ×30 days ×RF3 ≈ 390 TB on broker disk — which is why "keep everything" doesn't
