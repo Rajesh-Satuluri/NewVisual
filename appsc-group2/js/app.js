@@ -386,22 +386,77 @@
     });
     return out;
   }
+  var pyqMode = "freq";
   function renderPyq() {
     if (!PYQ) { main.innerHTML = "<div class='view-head'><h1>PYQ Analysis</h1></div><p class='empty'>PYQ data not loaded.</p>"; return; }
     var totalCap = PYQ.papers.reduce(function (a, p) { return a + p.captured; }, 0);
-    var kf = keyFindings();
-    var cards = kf.map(function (k) {
+    main.innerHTML =
+      "<div class='view-head'><h1>PYQ Analysis <span class='pq-badge'>live</span></h1><p>Where the questions <b>actually</b> come from — built by OCR-reading <b>4 official papers</b> (2019 &amp; 2024 Prelims, 2025 Mains Paper-I &amp; II) and mapping every recovered question to the syllabus.</p></div>" +
+      "<div class='controls'><div class='seg' id='pyqseg'><button data-m='freq'" + (pyqMode === "freq" ? " class='on'" : "") + ">📊 Frequency</button><button data-m='bank'" + (pyqMode === "bank" ? " class='on'" : "") + ">📚 Question Bank</button></div></div>" +
+      "<div id='pyqbody'></div>";
+    document.getElementById("pyqseg").addEventListener("click", function (e) { var b = e.target.closest("button[data-m]"); if (!b) return; pyqMode = b.dataset.m; [].forEach.call(this.children, function (c) { c.classList.toggle("on", c === b); }); paintPyq(); });
+    paintPyq();
+  }
+  function paintPyq() {
+    var body = document.getElementById("pyqbody");
+    if (pyqMode === "bank") { body.innerHTML = buildBank(); wireBank(); return; }
+    var totalCap = PYQ.papers.reduce(function (a, p) { return a + p.captured; }, 0);
+    var cards = keyFindings().map(function (k) {
       return "<div class='kf-card'><div class='kf-share'>" + k.share + "%</div><div class='kf-body'><b>" + esc(k.area) + "</b>" +
         "<div class='kf-sub'>" + esc(k.paper) + (k.scope !== "paper" ? " · " + esc(k.scope) + " half" : "") + "</div></div></div>";
     }).join("");
-    main.innerHTML =
-      "<div class='view-head'><h1>PYQ Analysis <span class='pq-badge'>live</span></h1><p>Where the questions <b>actually</b> come from — built by OCR-reading <b>4 official papers</b> (2019 &amp; 2024 Prelims, 2025 Mains Paper-I &amp; II) and mapping every recovered question to the syllabus. <b>" + totalCap + " questions</b> classified. This is the gap between the syllabus on paper and the exam in practice.</p></div>" +
+    body.innerHTML =
       "<div class='stats'>" + stat("Papers read", PYQ.papers.length) + stat("Questions mapped", totalCap) + stat("Prelims papers", 2) + stat("Mains papers", 2) + "</div>" +
       "<div class='subhead'>Biggest concentrations — one per paper-half</div>" +
       "<div class='kf-grid'>" + cards + "</div>" +
       "<div class='subhead' style='margin-top:20px'>Full breakdown — bars are questions recovered per area</div>" +
       PYQ.papers.map(paperPanel).join("") +
-      "<div class='caveat'><b>How to read this honestly.</b> <b>Declared</b> section counts are exact — printed on each paper's own header. The <b>bars</b> show questions our OCR recovered (" + Math.round(totalCap / (150 * PYQ.papers.length) * 100) + "% of all questions across the 4 papers); a few per paper are lost to scan noise, roughly evenly, so the <b>proportions</b> are reliable but a bar is a floor, not an exact tally. Sub-theme splits are observed from the recovered sample, not official quotas. " + esc(PYQ.note) + "</div>";
+      "<div class='caveat'><b>How to read this honestly.</b> <b>Declared</b> section counts are exact — printed on each paper's own header. The <b>bars</b> show questions our OCR recovered (" + Math.round(totalCap / (150 * PYQ.papers.length) * 100) + "% of all questions across the 4 papers); a few per paper are lost to scan noise, roughly evenly, so the <b>proportions</b> are reliable but a bar is a floor, not an exact tally. Sub-theme splits are observed from the recovered sample, not official quotas.</div>";
+  }
+
+  /* ---- Question Bank (window.APPSC_BANK) ---- */
+  var BANK = window.APPSC_BANK || null;
+  var bankPaper = "all", bankSec = "all", bankQ = "";
+  function bankSections() {
+    if (!BANK) return [];
+    var names = {};
+    BANK.papers.forEach(function (p) { if (bankPaper === "all" || p.id === bankPaper) p.sections.forEach(function (s) { names[s.name] = 1; }); });
+    return Object.keys(names).sort();
+  }
+  function buildBank() {
+    if (!BANK) return "<p class='empty'>Question bank not loaded.</p>";
+    var total = BANK.papers.reduce(function (a, p) { return a + p.total; }, 0);
+    var paperOpts = "<option value='all'>All 4 papers</option>" + BANK.papers.map(function (p) { return "<option value='" + p.id + "'" + (p.id === bankPaper ? " selected" : "") + ">" + esc(p.label) + "</option>"; }).join("");
+    var secOpts = "<option value='all'>All sections</option>" + bankSections().map(function (n) { return "<option value='" + esc(n) + "'" + (n === bankSec ? " selected" : "") + ">" + esc(n) + "</option>"; }).join("");
+    return "<p class='hint' style='margin:4px 0 10px'>Every question we recovered from the scanned papers (<b>" + total + "</b> stems). Filter by paper or section, or search. " +
+      "Options and answers aren't shown — the bilingual scans don't yield reliable option text, and official answer keys haven't been supplied yet.</p>" +
+      "<div class='controls'><select id='bkpaper'>" + paperOpts + "</select><select id='bksec'>" + secOpts + "</select>" +
+      "<input id='bkq' class='bk-search' type='search' placeholder='Search questions…' value='" + esc(bankQ) + "'></div>" +
+      "<div id='bklist'></div>";
+  }
+  function paintBankList() {
+    var host = document.getElementById("bklist"); if (!host) return;
+    var q = bankQ.trim().toLowerCase(), out = [], shown = 0;
+    BANK.papers.forEach(function (p) {
+      if (bankPaper !== "all" && p.id !== bankPaper) return;
+      p.sections.forEach(function (s) {
+        if (bankSec !== "all" && s.name !== bankSec) return;
+        var items = s.items.filter(function (it) { return !q || it.q.toLowerCase().indexOf(q) >= 0; });
+        if (!items.length) return;
+        shown += items.length;
+        out.push("<div class='bk-grp'><div class='bk-grph'>" + stageTag(p.stage) + " <b>" + esc(p.label) + "</b> · " + esc(s.name) + " <span class='bk-c'>" + items.length + "</span></div>" +
+          "<ol class='bk-items'>" + items.map(function (it) { return "<li><span class='bk-n'>Q" + it.n + "</span>" + esc(it.q) + "</li>"; }).join("") + "</ol></div>");
+      });
+    });
+    host.innerHTML = "<div class='bk-count'>" + shown + " question" + (shown === 1 ? "" : "s") + "</div>" + (out.join("") || "<p class='empty'>No questions match.</p>");
+  }
+  function wireBank() {
+    var ps = document.getElementById("bkpaper"), ss = document.getElementById("bksec"), qi = document.getElementById("bkq");
+    if (!ps) return;
+    ps.addEventListener("change", function () { bankPaper = this.value; bankSec = "all"; document.getElementById("pyqbody").innerHTML = buildBank(); wireBank(); });
+    ss.addEventListener("change", function () { bankSec = this.value; paintBankList(); });
+    qi.addEventListener("input", function () { bankQ = this.value; paintBankList(); });
+    paintBankList();
   }
 
   /* ---------- Drill-down drawer ---------- */
