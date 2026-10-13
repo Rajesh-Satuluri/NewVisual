@@ -440,6 +440,68 @@ export const FOUNDATIONS = [
         partitions/consumers and the lag will clear", check for skew first. If the lag lives on one
         partition, more consumers do nothing — the hot key is serialized by the very guarantee you rely
         on. The fix is in the <i>key</i>, not the capacity.</div></div>` },
+      { id: 'sizing', label: '📐 Sizing in production', body: `
+        <h3>How a principal actually sizes partitions</h3>
+        <p>In a design interview "how many partitions?" is never answered with a number — it's answered
+        with a <b>method</b>: start from throughput, bound it by three independent ceilings, take the max,
+        then add headroom. Here is the full walk-through on a concrete brief.</p>
+        <div class="lx-callout lx-info"><b>The brief.</b><div>Order-events topic for {ENTITY}s. Peak
+        <b>200,000 events/s</b>, average event <b>1 KB</b> serialized. Processing is moderately heavy
+        (enrichment + a keyed aggregation): a single consumer task sustains about <b>8,000 events/s</b>.
+        Retention 7 days. Expected 3× growth over two years.</div></div>
+
+        <h3>Step 1 — Size three independent ceilings</h3>
+        <p>Partition count must satisfy <i>every</i> constraint, so compute each one and take the largest.</p>
+        <div class="lx-table-wrap"><table class="lx-table">
+          <thead><tr><th>Ceiling</th><th>Formula</th><th>This brief</th></tr></thead>
+          <tbody>
+            <tr><td><b>Ingest throughput</b></td>
+              <td>peak bytes/s ÷ safe per-partition write rate</td>
+              <td>200k × 1 KB = 200 MB/s. At a conservative ~10 MB/s per partition → <b>≥ 20</b></td></tr>
+            <tr><td><b>Consumer parallelism</b></td>
+              <td>peak events/s ÷ per-task throughput</td>
+              <td>200,000 ÷ 8,000 = <b>≥ 25</b> (one partition per task you'll ever run concurrently)</td></tr>
+            <tr><td><b>Catch-up / replay</b></td>
+              <td>must drain a backlog within an SLA, not just keep up</td>
+              <td>To recover a 1-hour outage in 15 min you need ~4× live consume → <b>≥ 100</b></td></tr>
+          </tbody>
+        </table></div>
+        <p>The binding constraint here is <b>catch-up</b>, not steady-state — a classic principal catch.
+        A topic sized only for "keep up" can never recover from an incident, because at 1× you clear a
+        1-hour backlog in exactly 1 hour while new data keeps arriving. Size for the <i>recovery</i> rate
+        you promised, then the steady-state numbers fall out for free.</p>
+
+        <h3>Step 2 — Take the max, then add headroom</h3>
+        <p>max(20, 25, 100) = 100. Now layer growth and operability:</p>
+        <ul class="clean">
+          <li><b>Growth (3×):</b> because raising partition count later breaks key→partition mapping and
+          scatters keyed state (see <i>The routing rule</i> tab), bake in the two-year number now:
+          100 × 3 = 300.</li>
+          <li><b>Round for rebalance math:</b> pick a count that divides evenly across your likely
+          consumer counts and brokers so partitions spread uniformly — e.g. round 300 → a clean number
+          your team standardizes on. Avoid primes.</li>
+          <li><b>Sanity-check the ceiling:</b> more partitions isn't free — each adds open file handles,
+          replication connections, controller metadata, and rebalance time, and it raises end-to-end
+          latency (more, smaller batches) and the cost of an exactly-once commit across more
+          transactional partitions. Thousands of partitions per topic is a smell; revisit the key or
+          split the topic first.</li>
+        </ul>
+
+        <h3>Step 3 — State the assumptions out loud</h3>
+        <p>The number is only as good as its inputs, so a strong answer names them: the <b>per-partition
+        write ceiling</b> is platform- and hardware-specific (look it up for your broker/instance, don't
+        assume a universal value); <b>per-task throughput</b> comes from a load test of your real
+        processing, not a guess; and the whole calculation assumes <b>no skew</b> — a single hot
+        {ENTITY} can saturate one partition while the other 299 idle, so pair sizing with the skew
+        analysis in the next tab. Sizing gets you the floor; key design keeps you off the ceiling.</p>
+
+        <div class="lx-callout lx-ok"><b>Interview-ready summary.</b><div>"I size partitions as the max of
+        three ceilings — ingest bytes/s over the per-partition write limit, peak events/s over
+        per-task throughput, and the catch-up rate my recovery SLA demands — then multiply for growth
+        because repartitioning is disruptive, round for even rebalancing, and cap it so I don't drown the
+        cluster in metadata. For this brief that's ~100 driven by catch-up, ~300 with 3× growth headroom.
+        And I'd flag that none of it survives a hot key, so I'd validate the key's distribution
+        separately."</div></div>` },
       { id: 'iq', label: '🎤 Interview', body: iq([
         { q: 'What does the partition key control?', a: `Three things at once: ordering (same key → same
           partition → ordered), co-location (events that must be processed together share a partition), and
@@ -457,6 +519,16 @@ export const FOUNDATIONS = [
           key's events are serialized by the ordering guarantee itself. Confirm by checking per-partition
           lag. The fix is in the key: raise cardinality, salt the hot key (trading ordering), or isolate
           the whale — not more consumers.` },
+        { q: 'How do you decide how many partitions a topic needs?', a: `Not with a number — with a method.
+          I take the max of three independent ceilings: ingest bytes/s divided by the platform's safe
+          per-partition write rate; peak events/s divided by one task's measured throughput (one partition
+          per concurrent task); and the catch-up rate my recovery SLA demands — which is usually the
+          binding constraint, because a topic sized only to "keep up" can never drain a backlog. Then I
+          multiply for expected growth since repartitioning is disruptive, round to a count that divides
+          evenly for clean rebalancing, and cap it so I don't bury the cluster in metadata. Finally I say
+          the inputs out loud — per-partition limit is platform-specific, per-task throughput comes from a
+          load test — and flag that the whole estimate assumes no skew, so a hot key still has to be
+          designed out separately.` },
         { q: 'When would you produce with a null key?', a: `When per-key ordering genuinely doesn't matter
           and you want maximum balance — e.g. independent log/telemetry lines. A null key spreads events
           across all partitions (round-robin / sticky batching) for even load, but you forfeit ordering
