@@ -1555,7 +1555,91 @@ to replay 30 days of data in 24 h you need ≈ 1.5 million ev/s drain
         pipeline reliable; reliability emerges from layering them. A principal reflex when designing any hop:
         "how does this fail, which pattern covers it, and what's the blast radius if that pattern also
         fails?"</div></div>` },
+      { id: 'repl', label: '📐 Replication sizing', body: `
+        <h3>Replication factor is a durability dial with three knobs, not one</h3>
+        <p>"What replication factor?" is a trap if you answer with a bare number. Durability is set by
+        <b>three settings together</b> — the replication factor (how many copies exist), the producer
+        <code>acks</code> (how many must acknowledge before the write is considered sent), and
+        <code>min.insync.replicas</code> (how many in-sync copies must exist for a write to be accepted).
+        A principal sizes all three as one decision, from a durability and availability target, then prices
+        the storage.</p>
+        <div class="lx-callout lx-info"><b>The brief.</b><div>Order-events topic, must survive the loss of
+        <b>any one broker (or one AZ)</b> with <b>no acknowledged-write loss</b>, across a 3-AZ region.
+        Throughput 50,000 ev/s × 1 KB, 7-day retention.</div></div>
+
+        <h3>Step 1 — Pick RF from the failure you must tolerate</h3>
+        <p>To survive <b>f</b> simultaneous replica failures <i>without losing an acknowledged write</i>,
+        you need the writes to land on more than f copies and keep a quorum. The standard, well-worn answer
+        for "tolerate one failure" is <b>RF=3 with min.insync.replicas=2 and acks=all</b>:</p>
+        <div class="lx-table-wrap"><table class="lx-table">
+          <thead><tr><th>Setting</th><th>Value</th><th>Why</th></tr></thead>
+          <tbody>
+            <tr><td><b>replication.factor</b></td><td>3</td><td>Three copies → can lose one and still have two.</td></tr>
+            <tr><td><b>min.insync.replicas</b></td><td>2</td><td>A write needs 2 in-sync copies to be accepted, so an acked write is on ≥2 brokers — losing one can't lose it.</td></tr>
+            <tr><td><b>acks</b></td><td>all</td><td>Producer waits for all in-sync replicas (≥ min.insync) before considering the write durable.</td></tr>
+          </tbody>
+        </table></div>
+        <p>The pairing is the whole point: <b>RF=3 alone doesn't guarantee durability</b> — with
+        <code>acks=1</code> a write acked by only the leader can be lost if that leader dies before a
+        follower copies it. RF sets how many copies <i>can</i> exist; <code>acks</code> +
+        <code>min.insync.replicas</code> set how many <i>must</i> have it before you call it safe.</p>
+
+        <h3>Step 2 — Understand the availability trade you just made</h3>
+        <p><code>min.insync.replicas=2</code> with RF=3 means: lose one replica and you still accept writes
+        (2 remain, which meets the minimum); lose a <i>second</i> and the partition goes
+        <b>read-only / unavailable for writes</b> rather than risk under-replicated data loss. That's the
+        deliberate trade — you chose <b>consistency over availability</b> for the second failure. Pushing
+        min.insync.replicas=3 on RF=3 is almost always a mistake: now a single broker restart stalls all
+        writes, because you can't tolerate even one missing replica.</p>
+        <div class="lx-code"><div class="lx-code-lang">rule of thumb</div><pre><code>RF = (failures to tolerate) + 1          # survive f losses → RF ≥ f+1
+min.insync.replicas = RF - (write-availability failures to tolerate)
+acks = all                               # or the whole chain is theatre
+typical: RF=3, min.insync=2, acks=all    # tolerate 1 loss, stay writable through 1</code></pre></div>
+
+        <h3>Step 3 — Place the replicas: rack / AZ awareness</h3>
+        <p>Three copies on three brokers in the <i>same</i> rack or AZ don't survive an AZ outage. Use
+        <b>rack-aware placement</b> so the RF=3 copies land in three different failure domains (3 AZs). Now
+        RF is also your blast-radius design: an AZ loss drops one replica per partition, min.insync=2 still
+        holds, and writes continue. This is why "RF=3 across 3 AZs" is the default spine of a durable
+        streaming cluster.</p>
+
+        <h3>Step 4 — Price it: RF is a direct storage multiplier</h3>
+        <p>Every copy is real disk, so replication multiplies the retention bill linearly:</p>
+        <div class="lx-code"><div class="lx-code-lang">calc</div><pre><code>one replica (7 days) = 50,000 ev/s × 1 KB × 86,400 × 7 ≈ 30 TB
+RF=3 on disk         = 30 TB × 3                         ≈ 90 TB
+cross-AZ replication also costs inter-AZ network transfer, continuously</code></pre></div>
+        <p>So RF is a correctness decision with a 3× (or Nx) cost tail: storage, inter-AZ bandwidth, and
+        write latency (acks=all waits for the slowest in-sync follower). You don't go higher than 3 without
+        a specific reason — a regulatory multi-region mandate, or a topic so critical the extra copy earns
+        its cost. Going to RF=5 (tolerate two failures) more than the storage; it also raises tail latency.</p>
+
+        <div class="lx-callout lx-ok"><b>Interview-ready summary.</b><div>"Replication factor is never one
+        number — it's RF with acks and min.insync.replicas. To survive one broker/AZ loss with no acked-write
+        loss I use the standard RF=3, min.insync.replicas=2, acks=all: three copies, a write must reach two
+        in-sync replicas, so losing one can't lose data and writes continue; lose a second and I
+        deliberately go read-only rather than risk loss. I place the three replicas across three AZs with
+        rack-aware assignment so an AZ outage only costs one replica. And I price it — RF is a linear storage
+        multiplier (~90 TB at RF3 here) plus inter-AZ bandwidth and the acks=all latency tax — so I don't go
+        past 3 without a specific durability mandate."</div></div>` },
       { id: 'iq', label: '🎤 Interview', body: iq([
+        { q: 'What replication factor do you use, and why is the number alone not an answer?', a: `RF is one
+          of three settings that together set durability: replication factor (copies that can exist), acks
+          (how many must acknowledge a write), and min.insync.replicas (how many in-sync copies a write
+          requires). The standard for tolerating one broker/AZ loss with no acked-write loss is RF=3,
+          min.insync.replicas=2, acks=all. RF=3 with acks=1 is not durable — a leader-only ack can be lost
+          if the leader dies before a follower copies it. So I always quote the triple, not a bare RF.` },
+        { q: 'With RF=3 and min.insync.replicas=2, what happens as brokers fail?', a: `Lose one replica and
+          writes continue — two in-sync copies still meet the minimum, so you tolerate the failure with no
+          data loss. Lose a second and the partition becomes read-only / unavailable for writes rather than
+          accept an under-replicated write that could be lost — a deliberate choice of consistency over
+          write-availability for the second failure. That's why min.insync.replicas=3 on RF=3 is usually
+          wrong: a single broker restart would then stall all writes.` },
+        { q: 'Why does replica placement matter, and what does RF cost?', a: `Three copies in the same AZ
+          don't survive an AZ outage, so you use rack-aware placement to spread the RF=3 copies across three
+          AZs — then an AZ loss costs only one replica and min.insync=2 still holds. Cost-wise RF is a linear
+          storage multiplier (RF=3 is 3× the retained bytes on disk) plus continuous inter-AZ network
+          transfer and the write-latency tax of acks=all waiting on the slowest in-sync follower. So you
+          don't exceed RF=3 without a specific mandate.` },
         { q: 'Why is idempotency so central to streaming reliability?', a: `Because the pragmatic default is
           at-least-once delivery, which means duplicates will happen on retries and recovery replays.
           Idempotent operations — set-to-value, upsert by deterministic key — make applying the same event
