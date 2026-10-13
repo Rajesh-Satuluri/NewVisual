@@ -336,7 +336,77 @@ export const FOUNDATIONS = [
           <span class="lx-flow-node">Broker (durable, replicated log)</span><span class="lx-flow-arrow">→ pull →</span>
           <span class="lx-flow-node">Consumer group</span>
         </div>` },
+      { id: 'sizing', label: '📐 Sizing in production', body: `
+        <h3>Sizing a consumer group like a principal</h3>
+        <p>"How many consumer instances?" is answered the same way as partitions — from throughput, bounded
+        by a hard ceiling — plus two group-specific dials interviewers love: the <b>rebalance budget</b>
+        and the <b>poll-interval headroom</b>. Numbers first, then the operational caveats.</p>
+        <div class="lx-callout lx-info"><b>The brief.</b><div>Topic has <b>120 partitions</b>. Peak
+        <b>200,000 events/s</b>; one consumer instance sustains <b>10,000 events/s</b> end-to-end
+        (including the downstream write). Each record takes up to <b>40 ms</b> to process. Recovery SLA:
+        tolerate the loss of one instance without falling behind.</div></div>
+
+        <h3>Step 1 — Instance count = throughput need, capped by partitions</h3>
+        <div class="lx-code"><div class="lx-code-lang">calc</div><pre><code>need (throughput) = 200,000 / 10,000 = 20 instances
+ceiling (parallelism) = 120 partitions → at most 120 useful instances
++1 for fault tolerance (lose one, 19 still ≥ 20? no) → run 22–24
+</code></pre></div>
+        <p>Start from throughput (20), check it against the <b>hard ceiling</b> — a group can never use
+        more instances than partitions, so a 121st consumer sits idle — then add fault-tolerance headroom
+        so losing an instance doesn't drop you below the required 20. You want partitions to divide
+        <i>evenly</i> across instances too: 120 / 24 = 5 partitions each; 120 / 22 ≈ uneven, so some
+        instances carry 6 partitions and become the lagging tail. Pick an instance count that divides the
+        partition count cleanly.</p>
+
+        <h3>Step 2 — Budget the poll interval against your worst-case batch</h3>
+        <p>The broker evicts a consumer that doesn't poll within <code>max.poll.interval.ms</code>, which
+        triggers a rebalance and a lag spike. So that interval must exceed your <i>worst-case</i> time to
+        process one fetched batch:</p>
+        <div class="lx-code"><div class="lx-code-lang">calc</div><pre><code>batch time ≈ max.poll.records × per-record time
+           = 500 records × 40 ms = 20 s   ← must be < max.poll.interval.ms
+</code></pre></div>
+        <p>If <code>max.poll.records</code> × worst-case per-record latency approaches the poll interval,
+        a slow batch (a GC pause, a sluggish downstream) blows the deadline, the member is evicted, and the
+        group stop-the-world rebalances — the "silent lag spike" from the previous tab. The fix is to
+        <b>shrink the batch</b>, <b>raise the interval</b>, or move slow I/O off the poll thread, not to
+        add instances.</p>
+
+        <h3>Step 3 — Budget rebalances, not just steady state</h3>
+        <ul class="clean">
+          <li><b>Rebalance cost scales with instance count and state.</b> A stateful group reassigning
+          partitions must reload keyed state for moved partitions; more instances = more churn per deploy.
+          Favor <b>cooperative/incremental rebalancing</b> (only moved partitions pause) and <b>static
+          membership</b> so a rolling restart doesn't trigger a full reshuffle.</li>
+          <li><b>Deploy strategy is a sizing input.</b> With 24 instances and stop-the-world rebalancing,
+          a rolling deploy can trigger many pauses; sizing the group larger makes this <i>worse</i>, not
+          better. The group's size trades throughput and fault tolerance against rebalance pain.</li>
+          <li><b>Offset-commit load:</b> every instance commits offsets to the group coordinator; very
+          frequent commits across many instances add broker load. Commit on a sensible cadence, not per
+          record, unless correctness demands it.</li>
+        </ul>
+
+        <div class="lx-callout lx-ok"><b>Interview-ready summary.</b><div>"I size instances as peak events/s
+        over per-instance throughput — 20 here — capped at the partition count (120) because a group can't
+        use more consumers than partitions, plus headroom so losing one instance doesn't drop me below the
+        need, and I pick a count that divides the partitions evenly to avoid a lagging tail. Then I check
+        that max.poll.records × worst-case per-record time stays under the poll interval so a slow batch
+        doesn't get me evicted and rebalanced, and I budget rebalances explicitly — cooperative rebalancing,
+        static membership, a deploy strategy that doesn't stop-the-world — because past a point adding
+        instances buys rebalance pain, not throughput."</div></div>` },
       { id: 'iq', label: '🎤 Interview', body: iq([
+        { q: 'How do you size the number of consumer instances in a group?', a: `Peak events/s divided by
+          one instance's end-to-end throughput gives the need; that's capped by the partition count because
+          a group can never use more consumers than partitions (extras idle). Add headroom so losing an
+          instance doesn't drop you below the need, and choose a count that divides the partitions evenly so
+          no instance carries an extra partition and becomes the lagging tail. Then sanity-check the poll
+          interval and rebalance cost — past a point more instances buys rebalance pain, not throughput.` },
+        { q: 'How does max.poll.records interact with the poll interval, and why does it matter for sizing?',
+          a: `The broker evicts a consumer that doesn't poll within max.poll.interval.ms. Your worst-case
+          batch time is roughly max.poll.records × worst-case per-record latency, and it must stay under
+          that interval — otherwise a slow batch (GC, sluggish sink) misses the deadline, the member is
+          evicted, and the group rebalances, spiking lag even though nothing crashed. So I size the batch
+          and interval against worst-case processing time, and move slow I/O off the poll thread, rather
+          than adding instances to a group that's really rebalance-bound.` },
         { q: 'What is the difference between a log and a queue, and why does it matter?', a: `A queue
           deletes a message when it's consumed — one reader, no replay, good for task dispatch. A log
           retains events until retention expires, so many independent consumer groups each read from their
@@ -610,7 +680,73 @@ export const FOUNDATIONS = [
         re-emits every output in that range. If your pipeline sends emails, charges cards, or appends
         (not upserts) to a store, naive replay repeats those actions. Design sinks for replay <i>before</i>
         you need to replay in an incident.</div></div>` },
+      { id: 'sizing', label: '📐 Sizing in production', body: `
+        <h3>Sizing retention and replay like a principal</h3>
+        <p>Offsets are free; what you actually size around them is <b>retention</b> (how far back you can
+        rewind) and <b>replay throughput</b> (how fast you can). The interview question is rarely "what's
+        the offset?" — it's "how long do you keep data, how much storage is that, and how long does a
+        full replay take?" Answer it the same way: throughput → storage → time, with the drivers named.</p>
+        <div class="lx-callout lx-info"><b>The brief.</b><div>Order-events topic, sustained
+        <b>50,000 events/s</b>, average <b>1 KB</b> serialized, replication factor <b>3</b>. Business wants
+        to be able to reprocess the last <b>30 days</b> after a logic bug. A backfill consumer sustains
+        <b>80,000 events/s</b>.</div></div>
+
+        <h3>Step 1 — Retention is a storage bill, so size it</h3>
+        <p>Retention isn't a free "keep everything" dial — every day of retention is disk you pay for,
+        multiplied by replication.</p>
+        <div class="lx-code"><div class="lx-code-lang">calc</div><pre><code>raw/day   = 50,000 ev/s × 1 KB × 86,400 s  ≈ 4.32 TB/day
+30 days   = 4.32 TB × 30                   ≈ 130 TB (one replica)
+on disk   = 130 TB × replication factor 3  ≈ 390 TB stored</code></pre></div>
+        <p>390 TB on hot broker disk for a 30-day rewind window is the number that ends the "just keep it
+        forever" conversation. The principal move is <b>tiered storage</b>: keep a short hot window
+        (hours–days) on broker disk for live consumers, and offload older segments to object storage for
+        cheap long/▸infinite retention. Replay then reads mostly from object storage — slower per byte,
+        but a fraction of the cost, and it's what makes Kappa-style "retention = source of truth" affordable.</p>
+
+        <h3>Step 2 — Replay time is throughput ÷ rate, and it bounds your recovery</h3>
+        <p>"We can reprocess 30 days" is meaningless without <i>how long</i>. Compute it:</p>
+        <div class="lx-code"><div class="lx-code-lang">calc</div><pre><code>backlog   = 50,000 ev/s × 86,400 × 30 ≈ 130 billion events
+at 1× consume (80k/s) → 130e9 / 80,000 ≈ 18.8 days to replay (!)
+to replay 30 days of data in 24 h you need ≈ 1.5 million ev/s drain
+→ ≈ 19× the steady consume rate → size partitions + consumer instances for it</code></pre></div>
+        <p>This is the catch most people miss: a replay rate equal to the <i>produce</i> rate takes as
+        long as the history is old, and meanwhile new data keeps arriving. Your <b>recovery SLA</b> (how
+        fast you must reprocess after a bug) is what sets the required consumer parallelism — which loops
+        straight back to partition count (Module 04). Replay capacity and partition count are the same
+        decision viewed from two directions.</p>
+
+        <h3>Step 3 — The offset-store and commit-frequency trade-off</h3>
+        <p>Two smaller sizing dials worth naming in an interview:</p>
+        <ul class="clean">
+          <li><b>Commit frequency:</b> committing every record is safe but adds load and latency;
+          committing rarely shrinks overhead but widens the reprocess window on a crash (at-least-once
+          means more duplicates to absorb). Size it to your duplicate-tolerance and idempotency, typically
+          commit every N records or every few seconds.</li>
+          <li><b>auto-offset-reset for a backfill:</b> <code>earliest</code> on a 30-day topic means a new
+          group replays 130 B events on first start — throttle it, scale the sink, or run it out-of-band,
+          or it melts downstream (the incident in <i>Commit semantics</i>).</li>
+        </ul>
+
+        <div class="lx-callout lx-ok"><b>Interview-ready summary.</b><div>"Retention is a storage decision:
+        throughput × bytes × days × replication — here ~390 TB for 30 days at RF3, which is why I'd use
+        tiered storage, hot window on disk and cold segments in object storage. Replay <i>time</i> is
+        backlog ÷ drain rate: at 1× consume a 30-day replay takes ~30 days, so my recovery SLA sets the
+        consumer parallelism and partition count, not the steady-state load. And I'd size commit frequency
+        to my duplicate tolerance and guard auto-offset-reset=earliest so a backfill doesn't flood the
+        sink."</div></div>` },
       { id: 'iq', label: '🎤 Interview', body: iq([
+        { q: 'How do you size retention, and what does 30-day retention actually cost?', a: `Retention is a
+          storage bill: throughput × avg bytes × seconds × replication factor. At 50k ev/s × 1 KB that's
+          ~4.3 TB/day raw, ×30 days ×RF3 ≈ 390 TB on broker disk — which is why "keep everything" doesn't
+          survive contact with the storage cost. The principal answer is tiered storage: a short hot window
+          on disk for live consumers, older segments offloaded to object storage for cheap long retention.
+          That's what makes long replay windows (and Kappa-style reprocessing) affordable.` },
+        { q: 'You say you can replay 30 days of history. How long does that take?', a: `backlog ÷ drain
+          rate. 30 days at 50k ev/s is ~130 billion events; at a 1× consume rate (~80k/s) that's ~18 days
+          to replay — and new data keeps arriving meanwhile. So "we retain 30 days" is not "we recover in
+          30 days"; the recovery SLA sets the required drain rate (here ~19× steady to replay in a day),
+          which sets consumer parallelism and therefore partition count. Replay capacity and partition
+          sizing are the same decision.` },
         { q: 'How is a consumer offset different from a queue acknowledgement?', a: `An ack tells the
           server "delete this message, I've got it" — the server owns delivery state and the data is gone.
           An offset is the consumer's own bookmark over data that stays in the log until retention expires.
