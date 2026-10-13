@@ -253,3 +253,29 @@ select:focus,input:focus{outline:none;border-color:var(--accent)}
 .locked h2{font-size:20px;margin:10px 0 8px}
 .locked p{color:var(--muted);font-size:14px;line-height:1.6}
 .locked code{background:var(--bg-3);border:1px solid var(--border);border-radius:5px;padding:1px 6px;font-size:12.5px}
+
+/* ---- PYQ Analysis view ---- */
+.pq-badge{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;background:var(--accent);color:#fff;padding:2px 8px;border-radius:20px;vertical-align:middle;margin-left:8px}
+.kf-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin:10px 0 4px}
+.kf-card{display:flex;align-items:center;gap:14px;background:linear-gradient(180deg,var(--bg-2),var(--bg-1));border:1px solid var(--border);border-radius:14px;padding:14px 16px}
+.kf-share{font-size:30px;font-weight:800;color:var(--accent2);line-height:1;min-width:58px}
+.kf-body b{font-size:14px;line-height:1.25;display:block}
+.kf-sub{color:var(--muted);font-size:12px;margin-top:3px}
+.pq-panel{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin:12px 0}
+.pq-phead{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px;border-bottom:1px solid var(--border);padding-bottom:10px;margin-bottom:10px}
+.pq-phead .tb-code{background:var(--bg-4);border-radius:5px;padding:2px 7px;font-size:11px;font-weight:700;margin-right:6px}
+.pq-date{color:var(--muted-2);font-size:12px;margin-left:6px}
+.pq-cap{font-size:12.5px;color:var(--muted)}.pq-cap span{color:var(--muted-2)}
+.pq-half{margin:8px 0}
+.pq-halfh{font-size:13px;font-weight:700;margin:12px 0 8px;display:flex;flex-wrap:wrap;gap:8px;align-items:baseline}
+.pq-decl{font-size:11px;font-weight:600;color:var(--muted-2);background:var(--bg-3);border-radius:5px;padding:1px 7px}
+.pq-lead{font-size:11.5px;font-weight:600;color:var(--accent2)}
+.pq-decl2{font-size:11.5px;color:var(--muted-2);margin-top:8px;font-style:italic}
+.pq-row{display:flex;align-items:center;gap:10px;margin:5px 0}
+.pq-lab{width:40%;min-width:150px;font-size:12.5px;line-height:1.3}
+.pq-note{color:var(--muted-2);font-size:11px}
+.pq-bar{flex:1;height:14px;background:var(--bg-4);border-radius:7px;overflow:hidden}
+.pq-bar span{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:7px}
+.pq-bar.hot span{background:linear-gradient(90deg,#f59e0b,#f43f5e)}
+.pq-n{width:34px;text-align:right;font-weight:800;font-size:13px}
+@media(max-width:640px){.pq-lab{width:100%;min-width:0}.pq-row{flex-wrap:wrap}.pq-bar{flex:1 1 70%}}

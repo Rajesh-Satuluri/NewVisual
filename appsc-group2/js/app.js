@@ -341,6 +341,69 @@
     document.getElementById("qnext").addEventListener("click", function () { quiz.i++; paintQuiz(); });
   }
 
+  /* ---------- View: PYQ Analysis (window.APPSC_PYQ) ---------- */
+  var PYQ = window.APPSC_PYQ || null;
+  function hbar(label, count, max, cls, note) {
+    var w = Math.max(3, Math.round(count / (max || 1) * 100));
+    return "<div class='pq-row'><div class='pq-lab'>" + esc(label) + (note ? " <span class='pq-note'>" + esc(note) + "</span>" : "") + "</div>" +
+      "<div class='pq-bar " + (cls || "") + "'><span style='width:" + w + "%'></span></div><div class='pq-n'>" + count + "</div></div>";
+  }
+  function paperPanel(p) {
+    var cap = p.captured, rate = Math.round((p.captureRate || cap / p.total) * 100);
+    var head = "<div class='pq-phead'><div><span class='tb-code'>" + esc(p.stage) + "</span> <b>" + esc(p.label) + "</b> " +
+      "<span class='pq-date'>" + esc(p.date) + "</span></div><div class='pq-cap'>" + cap + " of " + p.total + " Qs read <span>(" + rate + "%)</span></div></div>";
+    var body;
+    if (p.halves) {
+      body = p.halves.map(function (h) {
+        var max = Math.max.apply(null, h.subthemes.map(function (s) { return s.captured; })) || 1;
+        var top = h.subthemes[0];
+        var bars = h.subthemes.map(function (s, i) { return hbar(s.name, s.captured, max, i === 0 ? "hot" : ""); }).join("");
+        return "<div class='pq-half'><div class='pq-halfh'>" + esc(h.half) + " <span class='pq-decl'>declared " + h.declared + " Qs</span>" +
+          (top ? "<span class='pq-lead'>top: " + esc(top.name) + " · " + Math.round(top.captured / h.captured * 100) + "% of this half</span>" : "") +
+          "</div>" + bars + "</div>";
+      }).join("");
+    } else {
+      var max = Math.max.apply(null, p.sections.map(function (s) { return s.captured; })) || 1;
+      var decl = {}; (p.declaredGroups || []).forEach(function (g) { });
+      body = "<div class='pq-half'>" + p.sections.map(function (s, i) {
+        return hbar(s.name, s.captured, max, i === 0 ? "hot" : "");
+      }).join("") + (p.declaredGroups ? "<div class='pq-decl2'>Official sections: " + p.declaredGroups.map(function (g) { return esc(g.name) + " (" + g.declared + ")"; }).join(" · ") + "</div>" : "<div class='pq-decl2'>Official: 5 sections × 30 Qs each</div>") + "</div>";
+    }
+    return "<div class='pq-panel'>" + head + body + "</div>";
+  }
+  function keyFindings() {
+    // compute the single most-asked sub-area per paper and its share
+    var out = [];
+    PYQ.papers.forEach(function (p) {
+      var best = null, half = null;
+      if (p.halves) {
+        p.halves.forEach(function (h) { h.subthemes.forEach(function (s) { if (!best || s.captured > best.captured) { best = s; half = h; } }); });
+        if (best) out.push({ paper: p.label, area: best.name, share: Math.round(best.captured / half.captured * 100), scope: half.half });
+      } else {
+        p.sections.forEach(function (s) { if (!best || s.captured > best.captured) best = s; });
+        if (best) out.push({ paper: p.label, area: best.name, share: Math.round(best.captured / p.captured * 100), scope: "paper" });
+      }
+    });
+    return out;
+  }
+  function renderPyq() {
+    if (!PYQ) { main.innerHTML = "<div class='view-head'><h1>PYQ Analysis</h1></div><p class='empty'>PYQ data not loaded.</p>"; return; }
+    var totalCap = PYQ.papers.reduce(function (a, p) { return a + p.captured; }, 0);
+    var kf = keyFindings();
+    var cards = kf.map(function (k) {
+      return "<div class='kf-card'><div class='kf-share'>" + k.share + "%</div><div class='kf-body'><b>" + esc(k.area) + "</b>" +
+        "<div class='kf-sub'>" + esc(k.paper) + (k.scope !== "paper" ? " · " + esc(k.scope) + " half" : "") + "</div></div></div>";
+    }).join("");
+    main.innerHTML =
+      "<div class='view-head'><h1>PYQ Analysis <span class='pq-badge'>live</span></h1><p>Where the questions <b>actually</b> come from — built by OCR-reading <b>4 official papers</b> (2019 &amp; 2024 Prelims, 2025 Mains Paper-I &amp; II) and mapping every recovered question to the syllabus. <b>" + totalCap + " questions</b> classified. This is the gap between the syllabus on paper and the exam in practice.</p></div>" +
+      "<div class='stats'>" + stat("Papers read", PYQ.papers.length) + stat("Questions mapped", totalCap) + stat("Prelims papers", 2) + stat("Mains papers", 2) + "</div>" +
+      "<div class='subhead'>Biggest concentrations — one per paper-half</div>" +
+      "<div class='kf-grid'>" + cards + "</div>" +
+      "<div class='subhead' style='margin-top:20px'>Full breakdown — bars are questions recovered per area</div>" +
+      PYQ.papers.map(paperPanel).join("") +
+      "<div class='caveat'><b>How to read this honestly.</b> <b>Declared</b> section counts are exact — printed on each paper's own header. The <b>bars</b> show questions our OCR recovered (" + Math.round(totalCap / (150 * PYQ.papers.length) * 100) + "% of all questions across the 4 papers); a few per paper are lost to scan noise, roughly evenly, so the <b>proportions</b> are reliable but a bar is a floor, not an exact tally. Sub-theme splits are observed from the recovered sample, not official quotas. " + esc(PYQ.note) + "</div>";
+  }
+
   /* ---------- Drill-down drawer ---------- */
   var drawer = document.getElementById("drawer"), dbody = document.getElementById("drawer-body");
   function openDrawer(html) { dbody.innerHTML = html; drawer.hidden = false; document.body.style.overflow = "hidden"; }
@@ -365,7 +428,7 @@
   main.addEventListener("click", function (e) { var row = e.target.closest(".row[data-key]"); if (row) openSection(row.dataset.key); });
 
   /* ---------- Routing / nav ---------- */
-  var VIEWS = { board: renderBoard, map: renderMap, tracker: renderTracker, blueprint: renderBlueprint, practice: renderPractice };
+  var VIEWS = { board: renderBoard, map: renderMap, tracker: renderTracker, pyq: renderPyq, blueprint: renderBlueprint, practice: renderPractice };
   var nav = document.querySelector(".nav");
   // reveal the Practice tab only once PYQ data exists
   var practicePill = nav.querySelector("[data-view='practice']");
