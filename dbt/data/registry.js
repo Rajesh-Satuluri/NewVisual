@@ -12,6 +12,7 @@ import { MODULES, EXTRAS } from '../components/nav.js';
 import { QUIZ_BANK } from './quiz-bank.js';
 import { BANK, TIERS } from './interview-bank.js';
 import { INCIDENTS } from './incidents.js';
+import { fileCount as projectFileCount } from './sample-project.js';
 
 // ── Derived counts ──────────────────────────────────────────────────────────
 export const moduleCount = MODULES.length;
@@ -25,6 +26,9 @@ export const interviewCount = BANK.length;
 
 // Production Incident Simulator scenarios (Iter 4).
 export const incidentCount = INCIDENTS.length;
+
+// Sample dbt project file count (Iter 5).
+export const projectFiles = projectFileCount;
 
 // Interview coverage, grouped two ways (for the competency matrix in Iter 3).
 export const interviewByTier = TIERS.map(t => ({
@@ -51,6 +55,7 @@ export const REGISTRY = {
   quizQuestionCount,
   interviewCount,
   incidentCount,
+  projectFiles,
   interviewByTier,
   interviewByCategory,
   modulesWithQuiz,

@@ -6,62 +6,18 @@ import { toast } from './components/toast.js';
 import { maybeRunTour } from './components/tour.js';
 import { createQuiz, initQuiz } from './components/quiz.js';
 import { QUIZ_BANK } from './data/quiz-bank.js';
+import { MODULE_FILES } from './data/loader-map.js';
 
 const done = new Set(JSON.parse(localStorage.getItem('dbt-done') || '[]'));
 let currentId = null;
 let cleanupFn = null;
 let completeTimer = null;
 
-const LOADERS = {
-  home:         () => import('./modules/home.js'),
-  m01: () => import('./modules/m01-data-chaos.js'),
-  m02: () => import('./modules/m02-revenue-disagreement.js'),
-  m03: () => import('./modules/m03-duplication-trap.js'),
-  m04: () => import('./modules/m04-broken-dashboards.js'),
-  m05: () => import('./modules/m05-onboarding-nightmare.js'),
-  m06: () => import('./modules/m06-trust-crisis.js'),
-  m07: () => import('./modules/m07-etl-era.js'),
-  m08: () => import('./modules/m08-elt-revolution.js'),
-  m09: () => import('./modules/m09-introducing-dbt.js'),
-  m10: () => import('./modules/m10-dbt-models.js'),
-  m11: () => import('./modules/m11-dbt-tests.js'),
-  m12: () => import('./modules/m12-snapshots.js'),
-  m13: () => import('./modules/m13-incremental-models.js'),
-  m14: () => import('./modules/m14-macros.js'),
-  m15: () => import('./modules/m15-lineage-dag.js'),
-  m16: () => import('./modules/m16-when-not-to-use.js'),
-  m17: () => import('./modules/m17-dbt-internals.js'),
-  m18: () => import('./modules/m18-compile-vs-execute.js'),
-  m19: () => import('./modules/m19-manifest-explorer.js'),
-  m20: () => import('./modules/m20-state-selection.js'),
-  m21: () => import('./modules/m21-incremental-strategies.js'),
-  m22: () => import('./modules/m22-testing-lab.js'),
-  m23: () => import('./modules/m23-source-freshness.js'),
-  m24: () => import('./modules/m24-failure-simulator.js'),
-  m25: () => import('./modules/m25-debugging-tree.js'),
-  m26: () => import('./modules/m26-performance-lab.js'),
-  m27: () => import('./modules/m27-cicd-lab.js'),
-  m28: () => import('./modules/m28-environments.js'),
-  m29: () => import('./modules/m29-adapters-warehouses.js'),
-  m30: () => import('./modules/m30-dbt-airflow.js'),
-  m31: () => import('./modules/m31-case-studies.js'),
-  m32: () => import('./modules/m32-command-playground.js'),
-  m33: () => import('./modules/m33-production-lab.js'),
-  // Practice
-  'studio':    () => import('./modules/studio.js'),
-  'config-lab':() => import('./modules/config-lab.js'),
-  'incident-simulator': () => import('./modules/incident-simulator.js'),
-  // Reference & review
-  'modes':     () => import('./modules/modes.js'),
-  'readiness': () => import('./modules/readiness.js'),
-  'interview-bank': () => import('./modules/interview-bank.js'),
-  'interview-sim':  () => import('./modules/interview-sim.js'),
-  'master-map': () => import('./modules/master-map.js'),
-  comparison:   () => import('./modules/comparison.js'),
-  glossary:     () => import('./modules/glossary.js'),
-  cheatsheet:   () => import('./modules/cheatsheet.js'),
-  study:        () => import('./modules/study.js'),
-};
+// Derived from the shared loader map (data/loader-map.js) so routes can never
+// drift between the router and the Build Health harness.
+const LOADERS = Object.fromEntries(
+  Object.entries(MODULE_FILES).map(([id, file]) => [id, () => import(`./modules/${file}`)])
+);
 
 async function navigate(id) {
   if (!LOADERS[id]) id = 'home';

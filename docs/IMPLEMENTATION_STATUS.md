@@ -50,6 +50,32 @@ Living checklist for the Iter 0–4 build. Updated each wave. Counts are authori
 - [x] Illustrative-fix labelling (nothing executed); adapter-specific behavior called out
 - [x] content-lint 0/0; headless full-flow verify, 0 pageerrors — deployed
 
+## Iter 5 — Sample Project Explorer ✅
+
+- [x] `data/sample-project.js` — complete runnable `jaffle_commerce` dbt project (**19** real source files: dbt_project.yml, profiles, packages, sources, staging + marts models, schema.yml tests, macro, snapshot, singular test, seeds, README)
+- [x] `/project-explorer` route + Practice nav entry + lazy loader; registry `projectFiles`
+- [x] Browsable file tree (derived from paths) + per-file viewer with highlighting + per-file download
+- [x] "Run it locally" tab: one-click **self-extracting setup script** (quoted heredocs, verbatim) → actually `dbt build`s on DuckDB, no warehouse
+- [x] Honest labelling: nothing executed in-browser; Explorer only displays + packages real dbt source
+- [x] content-lint 0/0; headless render + file-switch verify, 0 pageerrors — deployed
+
+## Iter 6 — Spaced Review ✅
+
+- [x] `/spaced-review` route + Practice nav entry + lazy loader
+- [x] Compact **SM-2** scheduler (SuperMemo-2 family) over all 293 bank questions; due-today queue + new-card cap
+- [x] Reveal → 4-grade recall (Again/Hard/Good/Easy) with projected next-interval; lapse resets to 1 day
+- [x] Progress tab (due/studied/mature/new + bar) and reset; state local-only (`dbt-srs`), stable hashed card ids
+- [x] content-lint 0/0; headless reveal→grade→advance + persistence verify, 0 pageerrors — deployed
+
+## Iter 7 — Build Health + route hardening ✅
+
+- [x] `data/loader-map.js` — single source of truth for route→file; `script.js` builds LOADERS from it; content-lint imports it (no more text-scraping) and guards the refactor
+- [x] `/build-health` route + Reference nav entry: **live** in-browser checks (registry parity, bank schema, dedup, incident invariants, all routes import+mount, quiz indices) — 10/10 passing
+- [x] **Build-time** checks surfaced honestly (DuckDB/Jinja2/PyYAML/headless) with last recorded results, clearly labelled not re-executed in the sandbox
+- [x] Content-counts tab derived live from the registry
+- [x] content-lint 0/0; headless verify (live board all-green), 0 pageerrors — deployed
+- [x] (Deliberately skipped the spec's app-wide UX redesign — it would violate the no-redesign rule; hardening + test harness kept instead)
+
 ## Verification gates (every wave)
 
 1. `node tools/content-lint.mjs` → 0 errors
