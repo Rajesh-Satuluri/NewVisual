@@ -98,17 +98,72 @@
       p: "SLOs, on-call, incident response loop." }
   ];
 
+  // Technology → existing learning module, with whether the tool is
+  // documented as part of the Airbnb case or part of our reference
+  // implementation (prompt §2.8 / §6).
+  var TECHMAP = [
+    { tool: "Airflow", route: "airflow-cicd", role: "Orchestrates the run order; created at Airbnb.", doc: true },
+    { tool: "Metrics / semantic layer", route: "dbt-cicd", role: "Define a metric once, serve it everywhere (Airbnb's Minerva idea; dbt/SQL analogue here).", doc: true },
+    { tool: "Data Quality", route: "data-quality", role: "Freshness/accuracy/consistency gates — the Midas quality dimensions.", doc: true },
+    { tool: "Git / GitHub", route: "github", role: "Metric & pipeline definitions reviewed as code.", doc: true },
+    { tool: "GitHub Actions", route: "github-actions", role: "Runs validation on every change.", doc: false },
+    { tool: "pytest", route: "pytest", role: "Proves transform logic before it ships.", doc: false },
+    { tool: "SQL testing", route: "sql-testing", role: "Asserts business rules on the resulting data.", doc: false },
+    { tool: "Docker", route: "docker", role: "Packages the processor identically across envs.", doc: false },
+    { tool: "Container Registry", route: "container-registry", role: "Stores & promotes the exact artifact by digest.", doc: false },
+    { tool: "Terraform", route: "terraform", role: "Provisions warehouse/cluster infra as code.", doc: false },
+    { tool: "Databricks Bundles", route: "databricks-bundles", role: "Promotes jobs dev→prod.", doc: false },
+    { tool: "Observability", route: "observability", role: "Watches duration, failures, freshness; raises alerts.", doc: false }
+  ];
+
   var module = {
     id: "end-to-end-pipeline",
     title: "End-to-End Pipeline",
     render: function (container) {
+      var E = NS.Evidence;
       container.innerHTML =
         '<div class="module-header animate-fade-in-up">' +
-          '<div class="module-eyebrow">🗺️ Real-World Scenario · RetailFlow</div>' +
-          '<h1 class="module-title gradient-text">End-to-End Pipeline</h1>' +
-          '<p class="module-subtitle">The whole journey, one map. Click any stage to see what it does, ' +
-          "what goes in and out, the tool, an example command, how it can fail, and how to explain it at three levels.</p>" +
+          '<div class="module-eyebrow">📘 Case Study · Chapter 2 of 4</div>' +
+          '<h1 class="module-title gradient-text">Architecture &amp; Technical Design</h1>' +
+          '<p class="module-subtitle">How the business problem becomes an engineering system. Trace the ' +
+          "<b>data</b> from source to the business consumer, see where <b>control</b> (orchestration, gates) sits, " +
+          "and map each component to the tool that implements it.</p>" +
         "</div>";
+
+      // ── Architecture evidence (real company) ─────────────────
+      if (E && E.ready()) {
+        var cn = document.createElement("div");
+        cn.innerHTML = E.chapterNav("end-to-end-pipeline");
+        container.appendChild(cn);
+
+        var arch = document.createElement("section");
+        arch.className = "section";
+        arch.innerHTML =
+          '<h2 class="section-title">What the real architecture documents</h2>' +
+          '<p class="cs-lead">Airbnb has published how it orchestrates workflows (Airflow) and how it makes metrics ' +
+          "consistent (the Minerva metrics platform). The reference medallion flow below maps those documented ideas " +
+          "onto the tools this platform teaches.</p>" +
+          E.legend() +
+          E.claimGroup("architecture") +
+          '<p class="cs-ref-link">Full sources are listed in <a href="#business-scenario">Chapter 1 · References</a>.</p>';
+        container.appendChild(arch);
+
+        // Data flow vs control flow explainer.
+        var flow = document.createElement("section");
+        flow.className = "section";
+        flow.innerHTML =
+          '<h2 class="section-title">Data flow vs. control flow</h2>' +
+          '<p class="cs-lead">Two different arrows run through the map below. Keeping them distinct is the single most ' +
+          "useful idea in data-platform architecture.</p>" +
+          '<div class="flow-legend">' +
+            '<span class="flow-key"><span class="flow-swatch data"></span> <b>Data flow</b> — rows moving: sources → bronze → silver → gold → BI.</span>' +
+            '<span class="flow-key"><span class="flow-swatch control"></span> <b>Control flow</b> — decisions: CI gates, approvals, the scheduler triggering a run.</span>' +
+          "</div>" +
+          '<div class="callout tip"><span class="callout-icon">🔁</span><div class="callout-body">' +
+          "<b>Deploying the pipeline code is control flow; running it to produce rows is data flow.</b> A green deploy means the " +
+          "<i>code</i> arrived — it says nothing about whether today's <i>data</i> is correct. That gap is why Chapter 4 exists.</div></div>";
+        container.appendChild(flow);
+      }
 
       var layout = document.createElement("div");
       layout.className = "e2e-layout";
@@ -158,6 +213,29 @@
         if (b && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); show(b.getAttribute("data-id")); }
       });
       show("commit");
+
+      // ── Technology → learning-module map ─────────────────────
+      var tm = document.createElement("section");
+      tm.className = "section";
+      function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+      tm.innerHTML =
+        '<h2 class="section-title">Technology → where to learn it</h2>' +
+        '<p class="cs-lead">Each component above maps to a tool. Tools marked <b>documented</b> are part of the real ' +
+        "Airbnb record (Airflow, the metrics/quality ideas); the rest are <b>reference-implementation</b> choices that fit " +
+        "this architecture. Click through to the full module.</p>" +
+        '<div class="tech-map">' +
+        TECHMAP.map(function (t) {
+          var tag = t.doc
+            ? '<span class="ev-badge ev-fact" title="Part of the documented Airbnb case">📄 documented</span>'
+            : '<span class="ev-badge ev-ref" title="Reference-implementation choice, not an Airbnb claim">🧩 reference</span>';
+          return '<div class="tech-map-item' + (t.doc ? "" : " ref-only") + '">' +
+            '<div class="tech-map-tool">' + esc(t.tool) + "</div>" +
+            '<div class="tech-map-role">' + esc(t.role) + "</div>" +
+            tag + ' <a class="tech-map-link" href="#' + esc(t.route) + '">Open module →</a>' +
+            "</div>";
+        }).join("") +
+        "</div>";
+      container.appendChild(tm);
     },
     destroy: function () {}
   };

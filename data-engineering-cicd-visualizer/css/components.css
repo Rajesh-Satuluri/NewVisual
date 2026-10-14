@@ -1818,3 +1818,72 @@ a.card:hover { text-decoration: none; }
 .ev-src-primary { color: var(--green); border: 1px solid var(--green); background: var(--green-subtle); }
 .ev-src-secondary { color: var(--yellow); border: 1px solid var(--yellow); background: var(--yellow-subtle); }
 .ev-provenance { margin-top: var(--space-5); }
+
+/* ============================================================
+   Case-study chrome — chapter navigator + company-context block,
+   plus Section-2 data-flow/control-flow + tech-map styling.
+   ============================================================ */
+.cs-chapters {
+  display: flex; flex-wrap: wrap; gap: var(--space-2);
+  margin: var(--space-4) 0 var(--space-6);
+}
+.cs-chapter {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-default); border-radius: var(--radius-full);
+  background: var(--bg-2); color: var(--text-secondary); text-decoration: none;
+  font-size: 0.82rem; font-weight: 600;
+}
+.cs-chapter:hover { border-color: var(--brand); color: var(--text-primary); }
+.cs-chapter.active { border-color: var(--brand); background: var(--brand-subtle, var(--airflow-subtle)); color: var(--brand-bright); }
+.cs-chapter-n {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border-radius: var(--radius-full);
+  background: var(--bg-4); color: var(--text-primary); font-size: 0.72rem; font-weight: 700;
+}
+.cs-chapter.active .cs-chapter-n { background: var(--brand); color: var(--text-on-accent); }
+
+.cs-company { border: 1px solid var(--border-muted); border-radius: var(--radius-lg); padding: var(--space-5); background: var(--bg-1); }
+.cs-company-head { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.cs-company-badge {
+  font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 2px 8px; border-radius: var(--radius-full);
+  color: var(--purple); border: 1px solid var(--purple); background: var(--purple-subtle);
+}
+.cs-company-domain { color: var(--text-secondary); max-width: 72ch; }
+.cs-company-why-label { font-weight: 700; color: var(--text-secondary); font-size: 0.85rem; margin-top: var(--space-3); }
+.cs-company-why ul { margin: var(--space-2) 0 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: var(--space-2); }
+.cs-company-why li { color: var(--text-primary); line-height: 1.55; }
+
+/* Sandbox divider — marks the RetailFlow practice content as fictional */
+.cs-sandbox-note {
+  display: flex; align-items: flex-start; gap: var(--space-2);
+  margin: var(--space-6) 0 var(--space-3); padding: var(--space-3) var(--space-4);
+  border: 1px dashed var(--border-muted); border-radius: var(--radius-md);
+  background: var(--bg-1); color: var(--text-secondary); font-size: 0.88rem;
+}
+.cs-sandbox-note b { color: var(--text-primary); }
+
+/* Section 2 — data flow vs control flow */
+.flow-legend { display: flex; flex-wrap: wrap; gap: var(--space-4); margin: var(--space-3) 0; }
+.flow-key { display: inline-flex; align-items: center; gap: var(--space-2); font-size: 0.85rem; color: var(--text-secondary); }
+.flow-swatch { width: 26px; height: 0; border-top-width: 3px; border-top-style: solid; }
+.flow-swatch.data { border-top-color: var(--cyan); }
+.flow-swatch.control { border-top-color: var(--purple); border-top-style: dashed; }
+
+/* Section 2 — technology → module map */
+.tech-map { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px,1fr)); gap: var(--space-3); }
+.tech-map-item {
+  border: 1px solid var(--border-default); border-radius: var(--radius-md);
+  padding: var(--space-3); background: var(--bg-2);
+}
+.tech-map-tool { font-weight: 700; color: var(--text-primary); }
+.tech-map-role { font-size: 0.84rem; color: var(--text-secondary); margin: 4px 0 var(--space-2); }
+.tech-map-link { font-size: 0.78rem; font-weight: 600; color: var(--brand-bright); text-decoration: none; }
+.tech-map-link:hover { text-decoration: underline; }
+.tech-map-item.ref-only { border-style: dashed; }
+
+.cs-lead { color: var(--text-secondary); max-width: 74ch; margin-bottom: var(--space-3); }
+
+.cs-ref-link { font-size: 0.85rem; color: var(--text-muted); margin-top: var(--space-3); }
+.cs-ref-link a { color: var(--brand-bright); }
