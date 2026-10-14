@@ -36,7 +36,8 @@
   // ---- Fuse search index ----
   var fuse = new Fuse(ALL, {
     includeScore: true,
-    threshold: 0.38,
+    threshold: 0.3,
+    minMatchCharLength: 2,
     ignoreLocation: true,
     keys: [
       { name: "title", weight: 0.4 },
@@ -245,17 +246,41 @@
     if (window.LABFILTERS) window.LABFILTERS.setContext(["difficulty", "status", "importance"]);
   }
 
+  // Map a problem to the plain-string getters SEARCH.passFacets expects.
+  function facetGetters(p) {
+    return {
+      difficulty: p.difficulty || "",
+      status: store.getStatus(p.id),
+      blind75: B.isBlind75(p),
+      pattern: (p.meta && p.meta.pattern) || "",
+      dataStructure: (p.meta && p.meta.dataStructure) || "",
+      category: p.category || ""
+    };
+  }
+
   // Which problems pass the current filters/search? Returns a Set of ids.
   function visibleIds() {
+    var q = state.query.trim();
+    var parsed = window.SEARCH ? window.SEARCH.parse(q)
+      : { text: q, terms: [], facets: {}, lc: null };
+    state.searchTerms = parsed.terms || [];
+
     var base = ALL;
-    if (state.query.trim()) {
-      base = fuse.search(state.query.trim()).map(function (r) { return r.item; });
+    if (parsed.lc != null) {
+      // Bare LeetCode number -> exact-number jump.
+      base = ALL.filter(function (p) { return String(p.lc) === String(parsed.lc); });
+    } else if (parsed.text) {
+      base = fuse.search(parsed.text).map(function (r) { return r.item; });
     }
+    var hasFacets = false;
+    for (var fk in parsed.facets) { hasFacets = true; break; }
+
     var ids = {};
     base.forEach(function (p) {
       if (!inActiveSet(p)) return;
       if (window.LABFILTERS && !window.LABFILTERS.passes(p, DSA_GETTERS)) return;
       if (state.filterPattern !== "all" && (!p.meta || p.meta.pattern !== state.filterPattern)) return;
+      if (hasFacets && window.SEARCH && !window.SEARCH.passFacets(facetGetters(p), parsed.facets)) return;
       ids[p.id] = true;
     });
     return ids;
@@ -427,9 +452,12 @@
         var imp = impOf(p);
         var impDot = imp === "occasional" ? "" :
           '<span class="ni-imp ' + IMP_META[imp].cls + '" title="' + IMP_META[imp].label + ' — interview importance">●</span>';
+        var titleHtml = (window.SEARCH && state.searchTerms && state.searchTerms.length)
+          ? window.SEARCH.highlight(p.title, state.searchTerms)
+          : esc(p.title);
         item.innerHTML =
           '<span class="st st-' + st + '">' + STATUS_GLYPH[st] + "</span>" +
-          '<span class="ni-title">' + esc(p.title) + "</span>" +
+          '<span class="ni-title">' + titleHtml + "</span>" +
           (store.isReview(p.id) ? '<span class="ni-review" title="Flagged for review">★</span>' : "") +
           impDot +
           '<span class="ni-diff d-' + p.difficulty.toLowerCase() + '">' + p.difficulty.charAt(0) + "</span>";
@@ -460,9 +488,26 @@
       }
     }
 
-    if (!nav.children.length) {
-      nav.appendChild(h("div", { class: "nav-empty" }, "No problems match your search / filters."));
+    if (!nav.querySelector(".cat-block") && !nav.querySelector(".nav-xsearch")) {
+      var emptyBox = h("div", { class: "nav-empty" }, "No problems match your search / filters.");
+      var q = state.query.trim();
+      if (q && window.SEARCH) {
+        var guess = window.SEARCH.suggestCategory(q, B.CATEGORY_ORDER || []);
+        if (guess) {
+          var sug = h("button", { class: "nav-empty-sug" }, "Did you mean " + esc(guess) + "?");
+          sug.addEventListener("click", function () {
+            var s = el("search"); if (s) { s.value = guess; state.query = guess; }
+            renderSidebar(); renderProgress(); updateSearchUI();
+          });
+          emptyBox.appendChild(sug);
+        }
+      }
+      nav.appendChild(emptyBox);
     }
+    // Result count surfaced to the search UI.
+    var _cnt = 0; for (var _k in vis) if (vis[_k]) _cnt++;
+    state.searchCount = _cnt;
+    updateSearchUI();
     updateToggleAllIcon();
   }
 
@@ -1547,14 +1592,155 @@
     if (nav) { nav.classList.remove("nav-flip"); void nav.offsetWidth; nav.classList.add("nav-flip"); }
   }
 
+  // ---- search enhancement UI: clear button, result count, suggestions,
+  // keyboard navigation of results (DSA python+practice only) ----
+  var _kbIdx = -1;
+  function isDSASearch() { return state.stack === "python" && state.mode === "practice"; }
+  function updateSearchUI() {
+    var s = el("search"); if (!s) return;
+    var on = isDSASearch();
+    var clear = el("searchClear");
+    if (clear) clear.hidden = !(on && s.value);
+    var count = el("searchCount");
+    if (count) {
+      var q = state.query.trim();
+      if (on && q) {
+        count.hidden = false;
+        var n = state.searchCount || 0;
+        count.textContent = n + (n === 1 ? " result" : " results");
+      } else { count.hidden = true; }
+    }
+  }
+  function searchResultItems() {
+    var nav = el("nav"); if (!nav) return [];
+    // actual problems only — skip the "Introduction to <pattern>" entries
+    return Array.prototype.slice.call(nav.querySelectorAll('.nav-item[data-id]:not(.nav-intro)'));
+  }
+  function clearKbSel(items) { for (var i = 0; i < items.length; i++) items[i].classList.remove("kbsel"); }
+
+  function wireSearchEnhance(search) {
+    var box = search.parentNode; // .search-box
+
+    // Clear (✕) button — sits between the input and the filter gear.
+    var clear = h("button", { id: "searchClear", class: "search-clear", type: "button", "aria-label": "Clear search", title: "Clear search" }, "✕");
+    clear.hidden = true;
+    clear.addEventListener("click", function () {
+      search.value = ""; state.query = ""; _kbIdx = -1;
+      renderSidebar(); renderProgress(); updateSearchUI();
+      search.focus(); showSuggest();
+    });
+    var gear = el("filterToggle");
+    if (gear && gear.parentNode === box) box.insertBefore(clear, gear);
+    else box.appendChild(clear);
+
+    // Result count line, just under the search row.
+    var count = h("div", { id: "searchCount", class: "search-count" });
+    count.hidden = true;
+    if (box.parentNode) box.parentNode.insertBefore(count, box.nextSibling);
+
+    // Suggestions dropdown (recent searches + quick pattern jumps).
+    var drop = h("div", { id: "searchSuggest", class: "search-suggest", role: "listbox" });
+    drop.hidden = true;
+    box.appendChild(drop);
+
+    function applySuggest(q) {
+      search.value = q; state.query = q; _kbIdx = -1;
+      renderSidebar(); renderProgress(); updateSearchUI(); hideSuggest();
+      search.focus();
+      if (window.SEARCH) window.SEARCH.addRecent(q);
+    }
+    function addItem(label, iconHtml, val) {
+      var it = h("button", { class: "ss-item", type: "button", role: "option" },
+        '<span class="ss-ic">' + iconHtml + "</span>" + esc(label));
+      it.addEventListener("mousedown", function (e) { e.preventDefault(); applySuggest(val); });
+      drop.appendChild(it);
+    }
+    function showSuggest() {
+      if (!isDSASearch() || search.value.trim()) { hideSuggest(); return; }
+      drop.innerHTML = "";
+      var rec = window.SEARCH ? window.SEARCH.recent() : [];
+      if (rec.length) {
+        var head = h("div", { class: "ss-head" });
+        head.appendChild(h("span", null, "Recent"));
+        var clr = h("button", { class: "ss-clear", type: "button" }, "Clear");
+        clr.addEventListener("mousedown", function (e) {
+          e.preventDefault();
+          if (window.SEARCH) window.SEARCH.clearRecent();
+          showSuggest();
+        });
+        head.appendChild(clr);
+        drop.appendChild(head);
+        for (var i = 0; i < rec.length; i++) addItem(rec[i], "🕘", rec[i]);
+      }
+      drop.appendChild(h("div", { class: "ss-head" }, "Jump to pattern"));
+      var pats = (B.CATEGORY_ORDER || []).slice(0, 8);
+      for (var c = 0; c < pats.length; c++) addItem(pats[c], (B.CATEGORY_ICON[pats[c]] || "•"), pats[c]);
+      drop.hidden = false;
+    }
+    function hideSuggest() { drop.hidden = true; }
+
+    search.addEventListener("focus", function () { showSuggest(); });
+    search.addEventListener("blur", function () {
+      if (window.SEARCH && search.value.trim().length >= 2) window.SEARCH.addRecent(search.value);
+      setTimeout(hideSuggest, 140);
+    });
+    // reset keyboard selection + toggle suggestions as the user types
+    search.addEventListener("input", function () {
+      _kbIdx = -1;
+      if (!search.value.trim()) showSuggest(); else hideSuggest();
+    });
+
+    function applyKbSel(items) {
+      clearKbSel(items);
+      var it = items[_kbIdx];
+      if (it) { it.classList.add("kbsel"); if (it.scrollIntoView) it.scrollIntoView({ block: "nearest" }); }
+    }
+    search.addEventListener("keydown", function (e) {
+      if (!isDSASearch()) return;
+      var items;
+      if (e.key === "ArrowDown") {
+        e.preventDefault(); hideSuggest();
+        items = searchResultItems(); if (!items.length) return;
+        _kbIdx = Math.min(_kbIdx + 1, items.length - 1); applyKbSel(items);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        items = searchResultItems(); if (!items.length) return;
+        _kbIdx = Math.max(_kbIdx - 1, 0); applyKbSel(items);
+      } else if (e.key === "Enter") {
+        items = searchResultItems();
+        if (items.length) {
+          e.preventDefault();
+          var pick = items[_kbIdx >= 0 ? _kbIdx : 0];
+          if (pick) {
+            if (window.SEARCH && search.value.trim().length >= 2) window.SEARCH.addRecent(search.value);
+            navigate("#" + pick.getAttribute("data-id")); hideSuggest();
+          }
+        }
+      } else if (e.key === "Escape") {
+        if (!drop.hidden) { e.preventDefault(); hideSuggest(); }
+        else if (_kbIdx >= 0) { e.preventDefault(); _kbIdx = -1; clearKbSel(searchResultItems()); }
+      }
+    });
+  }
+
   function wireControls() {
     var search = el("search");
+    var searchDeb = null;
     search.addEventListener("input", function () {
-      if (state.stack === "python" && state.mode === "practice") { state.query = search.value; renderSidebar(); renderProgress(); }
+      if (state.stack === "python" && state.mode === "practice") {
+        state.query = search.value;
+        updateSearchUI(); // clear button + count update immediately
+        if (searchDeb) clearTimeout(searchDeb);
+        searchDeb = setTimeout(function () {
+          searchDeb = null;
+          renderSidebar(); renderProgress();
+        }, 110); // debounce the heavier re-render on 227 items
+      }
       else if (state.stack === "python" && state.mode === "learn") { if (window.PYLAB && window.PYLAB.onSearch) window.PYLAB.onSearch(search.value); }
       else if (state.mode === "practice") { if (window.ProblemLab) window.ProblemLab.onSearch(search.value); }
       else { if (window.ConceptLab) window.ConceptLab.onSearch(search.value); }
     });
+    wireSearchEnhance(search);
 
     // set toggle: All 150 vs Blind 75
     var setToggle = el("setToggle");
@@ -1950,6 +2136,7 @@
       mb[j].disabled = !ok;
       mb[j].title = ok ? "" : (STACK_LABEL[stack] + " " + (mm === "learn" ? "concepts" : "problems") + " — coming soon");
     }
+    updateSearchUI(); // reflect/hide the DSA-only clear button + result count
   }
 
   // ---- motion + polish helpers (route fade, top progress, titles, etc.) ----
