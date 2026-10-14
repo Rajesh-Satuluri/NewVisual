@@ -15,10 +15,8 @@
 .plat-seg--compare.active{ color:#fff; background:var(--blue); border-style:solid; }
 
 /* ── Skeleton / stub module styles ───────────────────────── */
-.home-hero{max-width:780px;margin:0 auto;padding:3.5rem 1.5rem 2.5rem;text-align:center}
-.home-hero-badge{display:inline-block;background:rgba(var(--blue-rgb),.12);border:1px solid rgba(var(--blue-rgb),.3);color:var(--blue);font-size:.72rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:.3rem .8rem;border-radius:999px;margin-bottom:1.1rem}
-.home-hero-title{font-size:clamp(1.6rem,4vw,2.4rem);font-weight:700;letter-spacing:-.02em;margin:0 0 .75rem}
-.home-hero-sub{color:var(--text-secondary);max-width:620px;margin:0 auto 1rem;line-height:1.6}
+/* Home-hero styling now lives in app-inline.css (carried from the original
+   Snowflake index.html) and is shared by all platforms. */
 .stub-note{background:rgba(var(--blue-rgb),.08);border:1px solid rgba(var(--blue-rgb),.25);border-radius:10px;padding:.7rem 1rem;color:var(--text-secondary);font-size:.85rem;max-width:620px;margin:0 auto 1rem}
 .stub-page{max-width:860px;margin:0 auto;padding:2rem 1.5rem}
 .stub-head{display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem}
