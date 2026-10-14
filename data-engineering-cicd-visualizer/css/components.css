@@ -1737,3 +1737,84 @@ a.card:hover { text-decoration: none; }
 @media (max-width: 1040px) {
   .lab-grid { grid-template-columns: 1fr; }
 }
+
+/* ============================================================
+   Evidence layer — tier badges, citations, References panel.
+   Used by the real-world case-study sections (Airbnb).
+   ============================================================ */
+.ev-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 0.68rem; font-weight: 700; letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 2px 8px; border-radius: var(--radius-full);
+  border: 1px solid var(--border-muted); white-space: nowrap;
+  vertical-align: middle;
+}
+.ev-badge-icon { font-size: 0.8em; }
+.ev-fact   { color: var(--green);   border-color: var(--green);   background: var(--green-subtle); }
+.ev-interp { color: var(--cyan);    border-color: var(--cyan);    background: var(--cyan-subtle); }
+.ev-ref    { color: var(--purple);  border-color: var(--purple);  background: var(--purple-subtle); }
+.ev-pseudo { color: var(--yellow);  border-color: var(--yellow);  background: var(--yellow-subtle); }
+
+/* Claim blocks */
+.ev-claims { display: flex; flex-direction: column; gap: var(--space-3); }
+.ev-claim {
+  border: 1px solid var(--border-default);
+  border-left-width: 3px;
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-2);
+}
+.ev-claim.ev-fact   { border-left-color: var(--green); }
+.ev-claim.ev-interp { border-left-color: var(--cyan); }
+.ev-claim.ev-ref    { border-left-color: var(--purple); }
+.ev-claim.ev-pseudo { border-left-color: var(--yellow); }
+.ev-claim-top { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-2); }
+.ev-claim-body { color: var(--text-primary); line-height: 1.55; }
+.ev-claim-body code { font-size: 0.86em; }
+.ev-claim-note { margin-top: var(--space-2); font-size: 0.82rem; color: var(--text-muted); font-style: italic; }
+
+/* Citations */
+.ev-cites { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.ev-cite {
+  font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em;
+  padding: 1px 7px; border-radius: var(--radius-full);
+  border: 1px solid var(--border-muted); color: var(--text-secondary);
+  text-decoration: none;
+}
+.ev-cite::before { content: "↗ "; opacity: 0.6; }
+.ev-cite:hover { border-color: var(--brand); color: var(--brand-bright); }
+.ev-cite-secondary { border-style: dashed; color: var(--yellow); }
+.ev-cite-secondary:hover { border-color: var(--yellow); color: var(--yellow); }
+
+/* Legend */
+.ev-legend {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3);
+  padding: var(--space-3) var(--space-4); margin: var(--space-4) 0;
+  border: 1px dashed var(--border-muted); border-radius: var(--radius-md);
+  background: var(--bg-1);
+}
+.ev-legend-title { font-weight: 700; color: var(--text-secondary); font-size: 0.85rem; }
+.ev-legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.ev-legend-blurb { font-size: 0.78rem; color: var(--text-muted); }
+
+/* References panel */
+.ev-references .ev-ref-intro { color: var(--text-secondary); max-width: 70ch; }
+.ev-ref-sub { margin: var(--space-5) 0 var(--space-2); color: var(--text-primary); font-size: 1rem; }
+.ev-src-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.ev-src {
+  border: 1px solid var(--border-default); border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4); background: var(--bg-2);
+}
+.ev-src-head { display: flex; align-items: baseline; gap: var(--space-2); flex-wrap: wrap; }
+.ev-src-title { font-weight: 600; color: var(--text-primary); text-decoration: none; }
+.ev-src-title:hover { color: var(--brand-bright); text-decoration: underline; }
+.ev-src-meta { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
+.ev-src-note { font-size: 0.8rem; color: var(--yellow); margin-top: var(--space-2); }
+.ev-src-tag {
+  font-size: 0.64rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+  padding: 1px 7px; border-radius: var(--radius-full); white-space: nowrap;
+}
+.ev-src-primary { color: var(--green); border: 1px solid var(--green); background: var(--green-subtle); }
+.ev-src-secondary { color: var(--yellow); border: 1px solid var(--yellow); background: var(--yellow-subtle); }
+.ev-provenance { margin-top: var(--space-5); }
