@@ -48,16 +48,19 @@ function dupes(list, label) {
 }
 dupes(navIds, 'nav');
 
-// ── 2. Loaders ↔ nav parity (parse script.js text; it is not import-safe) ─────
-const scriptSrc = readFileSync(join(root, 'script.js'), 'utf8');
-const loaderBlock = scriptSrc.slice(scriptSrc.indexOf('const LOADERS'));
-const loaderEntries = [...loaderBlock.matchAll(/(?:^|\s|')([\w-]+)'?\s*:\s*\(\)\s*=>\s*import\('\.\/modules\/([\w./-]+)'\)/g)];
+// ── 2. Loaders ↔ nav parity (import the shared, import-safe loader map) ───────
+const { MODULE_FILES } = await import('../data/loader-map.js');
 const loaderIds = new Set();
-for (const [, id, file] of loaderEntries) {
+for (const [id, file] of Object.entries(MODULE_FILES)) {
   loaderIds.add(id);
   if (!existsSync(join(root, 'modules', file))) {
     err(`Loader "${id}" points at modules/${file} which does not exist`);
   }
+}
+// The router must actually build its LOADERS from this map (guard the refactor).
+const scriptSrc = readFileSync(join(root, 'script.js'), 'utf8');
+if (!scriptSrc.includes('MODULE_FILES')) {
+  err('script.js no longer consumes MODULE_FILES — loader map is bypassed');
 }
 for (const n of navItems) {
   if (!loaderIds.has(n.id)) err(`Nav item "${n.id}" has no loader in script.js`);
