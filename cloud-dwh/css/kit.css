@@ -67,3 +67,34 @@
 .cmp-pick { background: var(--surface, rgba(255,255,255,.03)); border: 1px solid var(--border, rgba(255,255,255,.08)); border-radius: 12px; padding: 1rem 1.1rem; }
 .cmp-pick-title { font-weight: 700; font-size: .9rem; margin-bottom: .4rem; }
 .cmp-pick-body { font-size: .82rem; color: var(--text-secondary); line-height: 1.55; }
+
+/* ── Compare (first-class section): side-by-side 3-column layout ── */
+:root[data-platform="compare"]{ --blue:#8b7ff0; --blue-dim:#6b5fd0; --blue-rgb:139,127,240; }
+.cmp-page { max-width: 1060px; margin: 0 auto; padding: 1.5rem 1.25rem 3rem; }
+.cmp-h1 { font-size: clamp(1.4rem,3.2vw,2rem); font-weight: 800; letter-spacing: -.02em; margin: 0 0 .5rem; }
+.cmp-lead { font-size: .95rem; color: var(--text-secondary); line-height: 1.7; margin: 0 0 1.5rem; max-width: 860px; }
+.cmp-cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: .85rem; }
+@media (max-width: 920px){ .cmp-cols { grid-template-columns: 1fr; } }
+.cmp-col { border: 1px solid var(--border, rgba(255,255,255,.1)); border-radius: 14px; background: var(--surface, rgba(255,255,255,.03)); overflow: hidden; }
+.cmp-col__head { padding: .7rem 1rem; display: flex; align-items: center; gap: .55rem; border-bottom: 1px solid var(--border, rgba(255,255,255,.1)); }
+.cmp-col__dot { width: 12px; height: 12px; border-radius: 4px; flex: none; }
+.cmp-col__title { font-size: .92rem; font-weight: 800; letter-spacing: -.01em; }
+.cmp-col--sf .cmp-col__head { background: linear-gradient(180deg, rgba(41,181,232,.12), transparent); }
+.cmp-col--sf .cmp-col__title { color: #29b5e8; } .cmp-col--sf .cmp-col__dot { background: #29b5e8; } .cmp-col--sf .cmp-points li::before { background: #29b5e8; }
+.cmp-col--rs .cmp-col__head { background: linear-gradient(180deg, rgba(77,163,224,.12), transparent); }
+.cmp-col--rs .cmp-col__title { color: #4da3e0; } .cmp-col--rs .cmp-col__dot { background: #4da3e0; } .cmp-col--rs .cmp-points li::before { background: #4da3e0; }
+.cmp-col--fb .cmp-col__head { background: linear-gradient(180deg, rgba(19,168,132,.14), transparent); }
+.cmp-col--fb .cmp-col__title { color: #13a884; } .cmp-col--fb .cmp-col__dot { background: #13a884; } .cmp-col--fb .cmp-points li::before { background: #13a884; }
+.cmp-col__body { padding: .85rem 1rem 1rem; }
+.cmp-points { list-style: none; margin: 0 0 .75rem; padding: 0; display: flex; flex-direction: column; gap: .55rem; }
+.cmp-points li { position: relative; padding-left: 1.1rem; font-size: .8rem; color: var(--text-secondary); line-height: 1.55; }
+.cmp-points li::before { content: ''; position: absolute; left: .15rem; top: .45rem; width: 7px; height: 7px; border-radius: 2px; }
+.cmp-code { font-family: var(--font-mono, ui-monospace, monospace); font-size: .72rem; line-height: 1.6; color: var(--text-primary, #e6edf3); background: var(--bg, #0d1117); border: 1px solid var(--border, rgba(255,255,255,.12)); border-radius: 8px; padding: .6rem .7rem; white-space: pre; overflow-x: auto; }
+.cmp-takeaway { margin-top: 1.1rem; display: flex; gap: .7rem; align-items: flex-start; padding: .85rem 1.1rem; background: rgba(var(--blue-rgb), .08); border: 1px solid rgba(var(--blue-rgb), .25); border-left: 3px solid var(--blue); border-radius: 0 10px 10px 0; }
+.cmp-takeaway__icon { flex: none; font-size: 1.1rem; }
+.cmp-takeaway__txt { font-size: .85rem; color: var(--text-secondary); line-height: 1.6; } .cmp-takeaway__txt b { color: var(--text-primary, #e6edf3); }
+.cmp-jump { margin-top: 1.5rem; display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+.cmp-jump__label { font-size: .68rem; color: var(--text-muted, #64748b); text-transform: uppercase; letter-spacing: .05em; font-weight: 700; margin-right: .2rem; }
+.cmp-jump a { font-size: .74rem; padding: .3rem .7rem; border-radius: 999px; border: 1px solid var(--border, rgba(255,255,255,.12)); background: var(--surface, rgba(255,255,255,.03)); color: var(--text-secondary); text-decoration: none; cursor: pointer; }
+.cmp-jump a:hover { border-color: var(--blue); color: var(--text-primary, #e6edf3); }
+.cmp-hero-badge { display:inline-block; background: rgba(var(--blue-rgb),.12); border:1px solid rgba(var(--blue-rgb),.3); color: var(--blue); font-size:.72rem; font-weight:600; letter-spacing:.04em; text-transform:uppercase; padding:.3rem .8rem; border-radius:999px; margin-bottom:1rem; }
