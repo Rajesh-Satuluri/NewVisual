@@ -37,6 +37,19 @@
     }).join("");
   }
 
+  // Resolve a module id to its route title (for prerequisite/related links).
+  function routeTitle(id) {
+    var r = (NS.routes || {})[id];
+    return (r && r.title) || id.replace(/-/g, " ");
+  }
+  function linkChips(items, cls) {
+    return '<div class="cm-links ' + (cls || "") + '">' + items.map(function (it) {
+      var id = typeof it === "string" ? it : it.id;
+      var label = (typeof it === "string" ? null : it.label) || routeTitle(id);
+      return '<a class="cm-link-chip" href="#' + esc(id) + '">' + esc(label) + "</a>";
+    }).join("") + "</div>";
+  }
+
   function section(title, lead, bodyEl) {
     var s = document.createElement("section");
     s.className = "section cm-section";
@@ -80,6 +93,15 @@
         // ── Learning actions (bookmark / revise / complete) ─
         if (NS.ModuleActions) {
           NS.ModuleActions.mount(container, { id: cfg.id, title: cfg.title, route: cfg.id });
+        }
+
+        // ── Prerequisites (learn these first) ──────────────
+        if (cfg.prerequisites && cfg.prerequisites.length) {
+          var pre = document.createElement("div");
+          pre.innerHTML =
+            '<p class="section-lead">Comfortable with these first makes this topic click faster.</p>' +
+            linkChips(cfg.prerequisites, "cm-prereqs");
+          container.appendChild(section("Before this, know", null, pre));
         }
 
         // ── Animated flow (idx-driven) ─────────────────────
@@ -262,6 +284,68 @@
             btn.textContent = ans.hidden ? "Reveal answer" : "Hide answer";
           });
           container.appendChild(section("Can you explain it?", null, wrap));
+        }
+
+        // ── Production considerations ──────────────────────
+        if (cfg.production && cfg.production.length) {
+          var prod = document.createElement("div");
+          prod.className = "cm-prod";
+          prod.innerHTML = cfg.production.map(function (p) {
+            var head = typeof p === "string" ? "" : p.h;
+            var body = typeof p === "string" ? p : p.body;
+            return '<div class="cm-prod-item">' +
+              (head ? '<span class="cm-prod-h">' + esc(head) + "</span>" : "") +
+              '<span class="cm-prod-b">' + body + "</span></div>";
+          }).join("");
+          container.appendChild(section("In production, watch", null, prod));
+        }
+
+        // ── Common misconceptions ──────────────────────────
+        if (cfg.misconceptions && cfg.misconceptions.length) {
+          var mis = document.createElement("div");
+          mis.className = "cm-mis";
+          mis.innerHTML = cfg.misconceptions.map(function (m) {
+            return '<div class="cm-mis-item">' +
+              '<div class="cm-mis-myth"><span class="cm-mis-tag myth">Myth</span>' + m.myth + "</div>" +
+              '<div class="cm-mis-truth"><span class="cm-mis-tag truth">Reality</span>' + m.truth + "</div>" +
+            "</div>";
+          }).join("");
+          container.appendChild(section("Common misconceptions", null, mis));
+        }
+
+        // ── Troubleshooting ────────────────────────────────
+        if (cfg.troubleshooting && cfg.troubleshooting.length) {
+          var tr = document.createElement("div");
+          tr.className = "cm-trouble";
+          tr.innerHTML =
+            '<div class="cm-trouble-head"><span>Symptom</span><span>Likely cause</span><span>Fix</span></div>' +
+            cfg.troubleshooting.map(function (t) {
+              return '<div class="cm-trouble-row">' +
+                '<span class="cm-trouble-sym">' + t.symptom + "</span>" +
+                '<span>' + t.cause + "</span>" +
+                '<span>' + t.fix + "</span></div>";
+            }).join("");
+          container.appendChild(section("Troubleshooting", "Symptom → likely cause → how to fix and verify.", tr));
+        }
+
+        // ── Topic interview questions ──────────────────────
+        if (cfg.interview && cfg.interview.length) {
+          var iv = document.createElement("div");
+          iv.className = "cm-iv";
+          iv.innerHTML = cfg.interview.map(function (q) {
+            return '<details class="cm-iv-item"><summary class="cm-iv-q">' + esc(q.q) + "</summary>" +
+              '<div class="cm-iv-a">' + q.a + "</div></details>";
+          }).join("");
+          var ivWrap = section("Interview check", "Can you answer these out loud? Reveal to compare.", iv);
+          var full = el('<p class="cm-iv-more">More across the stack in the ' +
+            '<a href="#interview">Interview bank</a> and <a href="#quiz">Quiz</a>.</p>');
+          ivWrap.appendChild(full);
+          container.appendChild(ivWrap);
+        }
+
+        // ── Related topics ─────────────────────────────────
+        if (cfg.related && cfg.related.length) {
+          container.appendChild(section("Related topics", null, el(linkChips(cfg.related, "cm-related"))));
         }
       },
 
