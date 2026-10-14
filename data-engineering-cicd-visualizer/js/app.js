@@ -24,6 +24,7 @@
     "end-to-end-pipeline": { title: "End-to-End Pipeline", ready: true },
     "environment-promotion": { title: "Environment Promotion", ready: true },
     "failure-simulator": { title: "Failure Simulator", ready: true },
+    labs: { title: "Hands-on Labs", ready: true },
 
     // Tier 1 — Essential Foundations
     git: { title: "Git", ready: true },

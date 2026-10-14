@@ -45,6 +45,17 @@
     { kind: "concept", title: "Expand and contract schema change", route: "dbt-cicd", keywords: "contract backfill migrate column rename" },
     { kind: "concept", title: "DORA metrics", route: "observability", keywords: "deploy frequency lead time change fail mttr" },
     { kind: "concept", title: "Medallion architecture (bronze/silver/gold)", route: "data-quality", keywords: "layers recompute reprocess source of truth" },
-    { kind: "concept", title: "Deploying code vs running a pipeline", route: "airflow-cicd", keywords: "execution separation dag deploy schedule" }
+    { kind: "concept", title: "Deploying code vs running a pipeline", route: "airflow-cicd", keywords: "execution separation dag deploy schedule" },
+
+    // ── Hands-on labs ────────────────────────────────────────
+    { kind: "concept", title: "Hands-on labs (fix broken config)", route: "labs", keywords: "lab exercise editor validate practice" },
+    { kind: "command", title: "Lab: make the test gate the deploy", route: "labs/gate-the-test", keywords: "needs github actions required check" },
+    { kind: "command", title: "Lab: stop leaking a secret in CI", route: "labs/secret-exposure", keywords: "secrets echo env mask" },
+    { kind: "command", title: "Lab: fix an insecure Dockerfile", route: "labs/dockerfile-fix", keywords: "docker pin non-root cache layer" },
+    { kind: "command", title: "Lab: prevent a Terraform destroy", route: "labs/terraform-guard", keywords: "prevent_destroy lifecycle stateful" },
+    { kind: "command", title: "Lab: fix a late-arriving dbt incremental", route: "labs/dbt-incremental", keywords: "lookback window merge watermark" },
+    { kind: "command", title: "Lab: fix a DAG import error", route: "labs/airflow-import", keywords: "dagbag top-level parse scheduler" },
+    { kind: "command", title: "Lab: fix a CrashLoopBackOff (OOM)", route: "labs/k8s-oom", keywords: "memory limit readiness probe oomkilled" },
+    { kind: "command", title: "Lab: fix a flaky freshness check", route: "labs/freshness-check", keywords: "current_date interval deterministic sql" }
   ];
 })();
