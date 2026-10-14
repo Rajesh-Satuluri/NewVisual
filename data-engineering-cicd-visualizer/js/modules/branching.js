@@ -106,6 +106,38 @@
     retention: {
       question: "Why does RetailFlow pick short-lived feature branches off a protected <code>main</code> instead of full Git Flow for its Daily Revenue Pipeline?",
       answer: "The pipeline is <b>continuously deployed</b> — there are no versioned field releases to maintain — so Git Flow's long-lived <code>develop</code>/<code>release</code>/<code>hotfix</code> branches add merge pain and slow fixes for no benefit. Short-lived branches (near <b>trunk-based development</b>) integrate daily, keep conflicts tiny, and — with branch protection requiring CI + review — keep <code>main</code> always deployable."
-    }
+    },
+
+    prerequisites: ["git", "github"],
+
+    production: [
+      { h: "Protected main makes short branches safe", body: "Trunk-based flow only works with branch protection on <code>main</code>: required CI (unit + dbt tests), at least one review, and up-to-date branches — so a short-lived branch can't merge breakage into RetailFlow's deployable trunk." },
+      { h: "Feature flags over long branches", body: "Ship unfinished work dark behind a flag/config instead of letting a branch live for weeks; this keeps integration continuous while hiding incomplete revenue logic from the 7 AM dashboard." },
+      { h: "Reliable tests are the prerequisite", body: "Merging to <code>main</code> daily without a trustworthy automated suite just spreads breakage faster. The CI safety net is what earns the right to integrate often." },
+      { h: "Rebase daily to avoid drift", body: "The longer <code>feature/fix-net-revenue</code> diverges from <code>main</code>, the bigger the eventual conflict — rebasing on <code>main</code> daily keeps each integration tiny and auditable." }
+    ],
+
+    misconceptions: [
+      { myth: "Trunk-based development means no branches at all.", truth: "It means <b>short-lived</b> branches (hours to a day) that integrate into trunk frequently, or direct commits behind flags — not the absence of branches." },
+      { myth: "Git Flow is the industry best practice for everything.", truth: "Git Flow suits versioned, release-cadence software. For continuously-deployed data pipelines its long-lived <code>develop</code>/<code>release</code> branches add merge pain for no benefit." },
+      { myth: "More isolation (longer branches) is always safer.", truth: "Longer branches drift from <code>main</code> and make merges a risky 'big bang'. Frequent small integrations are actually safer because conflicts stay tiny." },
+      { myth: "A branching strategy is just a naming convention.", truth: "It's a decision about integration frequency and release model, backed by branch protection and CI — naming is the least important part." }
+    ],
+
+    troubleshooting: [
+      { symptom: "Merging a week-old branch produces a huge conflict in revenue.py.", cause: "The branch drifted far from <code>main</code>.", fix: "Rebase onto <code>main</code> (resolving incrementally), re-run the net-revenue tests, and going forward keep branches short-lived and rebase daily." },
+      { symptom: "Unfinished feature code is blocking a release because it's half-merged.", cause: "Incomplete work was merged to trunk without gating.", fix: "Wrap it in a <b>feature flag</b> defaulted off, merge safely, and enable it only when complete; verify the flag-off path matches current behavior." },
+      { symptom: "Daily merges keep breaking main.", cause: "Weak or missing CI gates on <code>main</code>.", fix: "Add required status checks (unit + dbt) and a review requirement to branch protection; verify a deliberately failing test now blocks the merge." },
+      { symptom: "A hotfix on a release branch never made it back to main.", cause: "No cherry-pick/merge-forward step.", fix: "Cherry-pick the fix onto <code>main</code> (or merge the release branch forward) and verify the commit appears in <code>git log main</code>." }
+    ],
+
+    interview: [
+      { q: "Compare Git Flow and trunk-based development — when would you choose each?", a: "Git Flow's long-lived <code>develop</code>/<code>release</code>/<code>hotfix</code> branches fit versioned software with scheduled releases and multiple supported versions; trunk-based (short-lived branches off a protected <code>main</code>) fits continuously-deployed systems like data pipelines, where frequent small integrations and strong CI beat heavy release machinery." },
+      { q: "Why do short-lived branches reduce merge risk?", a: "They integrate before <code>main</code> drifts far, so conflicts stay small and are resolved while the code is fresh — the opposite of a weeks-old branch whose 'big bang' merge can silently clobber another change like the refund fix." },
+      { q: "What must be in place before a team can safely adopt trunk-based development?", a: "A reliable automated test suite and branch protection on <code>main</code>, plus feature flags for incomplete work — otherwise daily merges just propagate breakage faster across everyone building on the trunk." },
+      { q: "Why do most data pipelines avoid release branches?", a: "There's rarely a need to maintain 'version 1.3 of the revenue pipeline' in the field — there's just the current pipeline deployed continuously — so release/hotfix branches are overhead with no corresponding benefit." }
+    ],
+
+    related: ["git", "github", "ci-vs-cd", "github-actions"]
   }));
 })();

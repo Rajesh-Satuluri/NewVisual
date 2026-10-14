@@ -90,6 +90,44 @@
     retention: {
       question: "RetailFlow's pipeline needs a payments API key but must never store it in the repo. How should the key reach the code, and what do you do if it leaks?",
       answer: "Keep the key in a <b>secret store</b> (Azure Key Vault), grant the pipeline least-privilege access via <b>OIDC</b> short-lived credentials, and <b>inject it at runtime</b> as an env var the code reads — the value is never in Git. If it leaks, <b>rotate</b> it (new key, revoke old); deleting the commit is not enough."
-    }
+    },
+
+    prerequisites: [
+      "git",
+      "github-actions",
+      { id: "security", label: "CI/CD security (the wider picture)" }
+    ],
+
+    production: [
+      { h: "Rotate with overlap", body: "Schedule rotation and keep the old and new credential valid together for a short window so in-flight jobs don't fail mid-rotation — then revoke the old one once nothing uses it." },
+      { h: "Least privilege per identity", body: "Scope each secret to the one workload that needs it; RetailFlow's revenue pipeline identity can read <code>payments-api-key</code> and nothing else, so a compromised job can't reach unrelated secrets." },
+      { h: "Prefer OIDC over stored secrets", body: "Where the cloud supports it, exchange a signed workflow token for a short-lived credential (<code>id-token: write</code>) so there is no durable password to leak or rotate at all." },
+      { h: "Mask secrets in logs", body: "Register injected values as masked (GitHub auto-masks <code>secrets.*</code>; use <code>::add-mask::</code> for values you fetch) so an <code>echo</code> or stack trace never prints the raw credential." },
+      { h: "Audit secret reads", body: "Turn on access logging on the vault so every read is attributable — unexpected reads are the earliest signal that an identity or token has been abused." }
+    ],
+
+    misconceptions: [
+      { myth: "Passing a secret as a Docker <code>build ARG</code> keeps it safe.", truth: "Build args are baked into image layers and visible in <code>docker history</code>; mount secrets at build with BuildKit <code>--secret</code> or inject at runtime instead." },
+      { myth: "Deleting the commit that leaked a key removes the secret.", truth: "The value lives in Git history and anyone who cloned it still has it — the only real fix is to <b>rotate</b> the credential; history scrubbing is cleanup, not remediation." },
+      { myth: "A secret in an environment variable can't end up in logs.", truth: "Any <code>env</code>, <code>set -x</code>, crash dump, or verbose client can print it — values must be explicitly masked, not assumed hidden." },
+      { myth: "GitHub Secrets encrypt the value so it's fine to reuse one key everywhere.", truth: "Encryption at rest doesn't limit blast radius; one shared key means one leak compromises every environment, which is why per-environment secrets matter." }
+    ],
+
+    troubleshooting: [
+      { symptom: "Push blocked / scanner flags a committed credential.", cause: "A real secret was written into a tracked file.", fix: "Treat it as compromised and <b>rotate</b> it immediately, remove it from the file and read it from the vault, then confirm the scanner is green and the old value is revoked." },
+      { symptom: "CI job can read far more secrets than it should.", cause: "The pipeline identity was granted broad vault access.", fix: "Tighten the access policy to only the required secret, redeploy, and verify the job still succeeds while a read of an out-of-scope secret now fails." },
+      { symptom: "Pipeline authenticates locally but fails in CI with 'secret not found'.", cause: "The secret exists in a developer's shell but was never added to the store/OIDC trust the runner uses.", fix: "Add the secret (or federated identity) to the environment CI targets, re-run, and confirm the job resolves it without any local fallback." },
+      { symptom: "Jobs start failing right after a scheduled rotation.", cause: "The old credential was revoked before all consumers picked up the new one.", fix: "Re-issue with an overlap window, update every consumer, verify a full run succeeds, then revoke the old value last." },
+      { symptom: "A secret value appears in plaintext in the run log.", cause: "The value was fetched dynamically and never registered as masked.", fix: "Mask it with <code>::add-mask::</code> at the point it's fetched, re-run to confirm it prints as <code>***</code>, and rotate it since it already leaked." }
+    ],
+
+    interview: [
+      { q: "Why is <b>OIDC</b> considered stronger than storing a long-lived cloud key in GitHub Secrets?", a: "OIDC stores <b>no durable credential</b>: the workflow presents a signed token, the cloud's IAM trusts that issuer for a specific repo/branch and returns a credential that expires in minutes. There is nothing persistent to leak, and access is automatically scoped and time-bounded, so even a leaked log can't be replayed later." },
+      { q: "A payments key was accidentally committed and pushed. Walk through your response.", a: "Treat the key as <b>compromised</b>: issue a new one in the vault, update the store, revoke the old one, and inject the new value at runtime. Only then scrub history and enable <b>secret scanning with push protection</b> so it can't recur. Deleting the commit alone is not a fix because the value is already in history and any clone." },
+      { q: "What's the trade-off between per-environment secrets and a single shared secret?", a: "Per-environment secrets add management overhead but <b>contain blast radius</b> — a dev leak can't touch production money. A single shared key is simpler but turns any one leak into a full compromise. For anything revenue-critical the isolation is worth the overhead." },
+      { q: "When should a value <i>not</i> go into the secret store?", a: "Non-sensitive config — hostnames, region names, feature flags — belongs in checked-in config, not the vault. Over-vaulting harmless values adds friction and <b>hides what's actually secret</b>, weakening the signal of what truly needs protection." }
+    ],
+
+    related: ["security", "environment-promotion", "github-actions", "docker"]
   }));
 })();

@@ -111,6 +111,39 @@
     retention: {
       question: "RetailFlow's CI takes 40 minutes because it only runs full end-to-end pipeline tests. What does the testing pyramid say to do, and why does it catch the refund-sign bug faster?",
       answer: "Rebuild the suite with a <b>wide base of fast, isolated tests</b> (pytest unit tests + dbt/SQL assertions) and only a <b>few slow E2E runs</b> at the top. The base runs in seconds on every PR and a failing unit test names the exact broken function (<code>net_revenue()</code>) — whereas a slow E2E run only says 'something broke' after 40 minutes without pinpointing where."
-    }
+    },
+
+    prerequisites: ["pytest", "sql-testing", "ci-vs-cd"],
+
+    production: [
+      { h: "Keep the base fast enough to run on every PR", body: "The whole point is a sub-minute base so RetailFlow engineers run it before pushing — once unit + dbt tests creep over a few minutes, people skip them and bugs slip to the slow layers." },
+      { h: "Isolation makes the base shardable", body: "A wide base only stays fast if tests are independent — shared fixtures or ordering coupling break <code>pytest -n auto</code> and reintroduce flakiness at the layer you rely on most." },
+      { h: "Put data correctness in the data layer", body: "Assert the net_revenue invariant as a dbt/SQL test (<code>net_revenue = gross_revenue - refund_amount</code>), not only a Python unit test — the data layer catches wrong rows the pure-function test can't see." },
+      { h: "Reserve E2E for a few critical paths", body: "Full <code>daily_revenue</code> DAG runs against staging are minutes each and flakier; run only a handful (pre-merge/nightly), not on every save, or CI time balloons." },
+      { h: "A layer is a gate only if it blocks", body: "Each layer protects prod only when CI fails the build on its non-zero exit — a pyramid of tests nobody wired as required checks still lets bad revenue code merge." }
+    ],
+
+    misconceptions: [
+      { myth: "More end-to-end tests mean more confidence.", truth: "Inverting the pyramid (the ice-cream cone) gives slow, flaky runs that say 'something broke' without saying where. Confidence comes from a wide fast base that pinpoints the failing function." },
+      { myth: "Unit tests alone prove the pipeline is correct.", truth: "Unit tests cover pure logic; they don't catch incomplete or stale data, or broken component wiring. You still need data/SQL tests and a few integration/E2E runs." },
+      { myth: "Integration tests need the full production stack.", truth: "Run them against a throwaway containerized DB or DuckDB — you verify components wire together without a prod warehouse, keeping the layer affordable." },
+      { myth: "A flaky E2E test is acceptable because it's 'realistic'.", truth: "Flakiness at the top still erodes trust and blocks merges; stabilize the data/fixtures or demote the check — realism doesn't excuse nondeterminism." }
+    ],
+
+    troubleshooting: [
+      { symptom: "CI takes 40 minutes and engineers stop waiting for it.", cause: "Top-heavy suite — mostly slow E2E pipeline runs, few fast tests.", fix: "Push coverage down: add pytest unit tests and dbt/SQL assertions for the base, keep a few E2E runs, and confirm the base finishes under a minute on every PR." },
+      { symptom: "A red E2E run says 'broken' but not where.", cause: "No fast base to localize the failure to a function or model.", fix: "Add unit tests on the transform functions so the same bug fails fast and names <code>net_revenue()</code>; verify the unit layer catches it before the E2E run." },
+      { symptom: "Base tests pass individually but flake under <code>-n auto</code>.", cause: "Shared mutable state or ordering dependence between tests.", fix: "Isolate with fresh fixtures/<code>tmp_path</code>, remove cross-test coupling, and re-run sharded to confirm stability." },
+      { symptom: "Unit tests are green but the shipped revenue is wrong.", cause: "Correctness lives in data/wiring the pure-function tests don't exercise.", fix: "Add a dbt/SQL assertion on the net_revenue formula and an integration test against a containerized DB; confirm they trip on the bad data." }
+    ],
+
+    interview: [
+      { q: "What is the testing pyramid and what are its layers for data engineering?", a: "A shape for the suite: a <b>wide base of many fast, isolated tests</b> narrowing to a <b>few slow, realistic ones</b>. For data the layers are <b>Unit → Data/SQL → Integration → E2E</b> — push as much coverage as low as possible because more isolated means faster and cheaper, more end-to-end means realistic but slow." },
+      { q: "What's the ice-cream-cone anti-pattern and why is it bad?", a: "Inverting the pyramid — mostly slow E2E tests, few unit tests. CI becomes slow and flaky, and a red E2E only tells you 'something broke' after many minutes without pinpointing where. A wide base runs in seconds and a failing unit test names the exact broken function." },
+      { q: "Where does the net_revenue rule belong in the pyramid?", a: "In multiple layers: a pytest unit test on <code>net_revenue(gross, refund)</code> at the base for instant logic feedback, plus a dbt/SQL singular test asserting <code>net_revenue = gross_revenue - refund_amount</code> at the data layer to catch wrong <i>rows</i> the pure-function test never sees." },
+      { q: "How do you decide what gets an E2E test vs staying at a lower layer?", a: "E2E runs are minutes each and flakier, so reserve them for a few critical end-to-end paths (the full <code>daily_revenue</code> DAG producing correct totals) run pre-merge or nightly. Everything else — pure logic, data invariants, component wiring — belongs lower where it's faster and localizes failures." }
+    ],
+
+    related: ["pytest", "sql-testing", "dbt-cicd", "data-quality"]
   }));
 })();

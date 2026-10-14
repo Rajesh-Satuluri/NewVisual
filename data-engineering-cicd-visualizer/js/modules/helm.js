@@ -97,6 +97,45 @@
     retention: {
       question: "RetailFlow needs the same Airflow worker deployment in dev (1 replica) and prod (4 replicas) without maintaining two copies of the YAML. How does Helm solve this?",
       answer: "One <b>chart</b> holds templated manifests (<code>templates/</code>) with <code>{{ .Values.* }}</code> placeholders; <code>values-dev.yaml</code> and <code>values-prod.yaml</code> fill them per environment. <code>helm upgrade --install</code> renders and applies the right values, and <code>helm rollback</code> reverts a bad release."
-    }
+    },
+
+    prerequisites: [
+      "kubernetes",
+      "container-registry",
+      { id: "environment-promotion", label: "Environment promotion (values per env)" },
+      "rollback"
+    ],
+
+    production: [
+      { h: "Require the env values file", body: "Make <code>-f values-prod.yaml</code> a mandatory, checked-in CI argument so prod never silently falls back to dev-sized defaults — the cause of RetailFlow's Airflow workers being under-provisioned." },
+      { h: "Pin the image digest at deploy", body: "Inject the promoted build with <code>--set image.tag=$GIT_SHA</code> (or a digest) so the release runs the exact tested bytes, never a moving <code>latest</code>." },
+      { h: "Lint and template in CI", body: "Run <code>helm lint</code> and <code>helm template</code> to render and diff manifests before apply, catching mistakes without touching the cluster." },
+      { h: "Keep rollback history", body: "Helm stores release revisions in-cluster, so <code>helm rollback</code> restores a prior rendered state in seconds — don't prune history you may need to revert to." },
+      { h: "Secrets don't belong in values", body: "Plain <code>values.yaml</code> is not secret storage; use a secrets manager / sealed-secrets / external-secrets and reference them, so the warehouse credential isn't committed." }
+    ],
+
+    misconceptions: [
+      { myth: "<code>helm install</code> is what CI should run each deploy.", truth: "<code>helm install</code> fails if the release already exists. CI uses <code>helm upgrade --install</code>, which is idempotent — it creates if missing, upgrades otherwise." },
+      { myth: "<code>helm rollback</code> reverts your Git/chart source too.", truth: "It only restores the previously <b>rendered release</b> stored in the cluster. Your chart and values files in Git are unchanged — reconcile them separately or the next deploy re-applies the bad version." },
+      { myth: "Later <code>-f</code> files merge equally with earlier ones.", truth: "Precedence is ordered: later <code>-f</code> files and <code>--set</code> flags <b>override</b> earlier values over the chart's <code>values.yaml</code>. Order matters, and <code>--set</code> wins." },
+      { myth: "More template logic makes a chart more powerful.", truth: "Heavy <code>{{ if }}</code> branching makes charts unreadable and error-prone. Push variation into values or separate charts; keep templates simple." }
+    ],
+
+    troubleshooting: [
+      { symptom: "<code>Error: template: ... function \"X\" not defined</code> or a parse error on upgrade.", cause: "Malformed Go template or a referenced value is missing/nil.", fix: "Run <code>helm template</code> locally to see the exact line, guard nil values with <code>default</code>/<code>required</code>, then re-render clean before applying." },
+      { symptom: "Prod deployed with dev defaults (e.g. 1 replica).", cause: "The <code>-f values-prod.yaml</code> override was never passed.", fix: "Make the prod values file a required CI arg and <code>helm template</code>-diff the result; verify the rendered replica count/resources match prod." },
+      { symptom: "<code>UPGRADE FAILED: another operation is in progress</code>.", cause: "A previous release is stuck in a pending state.", fix: "Inspect with <code>helm status</code>/<code>helm history</code>, <code>helm rollback</code> to the last good revision (or <code>--cleanup-on-fail</code> going forward); confirm status is <code>deployed</code>." },
+      { symptom: "<code>--set</code> value seems ignored.", cause: "Wrong key path or a later <code>-f</code> file overrides it, or the type needs quoting (e.g. <code>--set-string</code>).", fix: "Check precedence order and the exact path with <code>helm get values</code>; use <code>--set-string</code> for string-typed values and re-verify the rendered output." },
+      { symptom: "Rollback succeeds but the bad config returns next deploy.", cause: "Git/chart still holds the broken values; rollback only reverted the in-cluster release.", fix: "Fix the chart/values in Git to match the rolled-back state, then redeploy; verify <code>helm get values</code> matches the committed files." }
+    ],
+
+    interview: [
+      { q: "Why does CI run <code>helm upgrade --install</code> instead of <code>helm install</code>?", a: "<code>helm install</code> errors if the release already exists, so it's not idempotent. <code>helm upgrade --install</code> creates the release the first time and upgrades it every subsequent run — one command that works for both, which is what a repeatable CI deploy needs." },
+      { q: "How do you deploy the same chart to dev and prod without duplicating YAML?", a: "Keep one chart with templated manifests and safe defaults in <code>values.yaml</code>, then layer environment overrides with <code>-f values-dev.yaml</code> / <code>-f values-prod.yaml</code>. Only the differences (replicas, resources, image tag) live in the override, so there's no copy-paste drift." },
+      { q: "What exactly does <code>helm rollback</code> revert, and what does it not?", a: "It restores the previously <b>rendered release</b> stored in the cluster (the Kubernetes objects of a prior revision). It does <b>not</b> change your chart or values in Git — so you must also reconcile the source, or the next <code>helm upgrade</code> re-applies the bad version." },
+      { q: "Helm vs Kustomize — when would you pick each?", a: "Helm excels at packaging plus release lifecycle: versioned charts, <code>upgrade --install</code>, rollback, and sharing via repos. Kustomize's overlay model avoids templating-language complexity and is great for straightforward env patches. Heavy templating logic favors neither — keep variation in values/overlays and templates simple." }
+    ],
+
+    related: ["kubernetes", "argo-cd", "container-registry", "environment-promotion"]
   }));
 })();

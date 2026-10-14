@@ -86,6 +86,36 @@
     retention: {
       question: "RetailFlow's revenue change passes every CI test but the team still won't auto-release it. Which CD variant are they using, and why?",
       answer: "<b>Continuous Delivery</b> — every change is validated and release-ready, but a <b>human approves</b> the final push to prod. Because the number feeds the exec dashboard, they keep a person on the button rather than <b>Continuous Deployment</b>'s fully automatic release."
-    }
+    },
+
+    production: [
+      { h: "Build once, promote the same artifact", body: "CI produces one validated artifact; CD promotes <i>that exact one</i> through dev → test → prod. Rebuilding per environment reintroduces 'works in test, breaks in prod' drift." },
+      { h: "Verify after deploy, not just before merge", body: "A green CI run never touched prod. CD's post-deploy smoke tests + data checks are what catch config/environment problems before the 7 AM dashboard reads a wrong number." },
+      { h: "Gate prod with approvals (Continuous Delivery)", body: "For revenue-critical pipelines, keep a human approval before prod and automated rollback on failed verification — speed up to prod, a safety catch on the final button." },
+      { h: "Separate the gates", body: "CI gates protect <code>main</code> (required checks, review, coverage); CD gates protect production (environment protection, progressive rollout). Confusing them yields unreviewed merges or unguarded deploys." }
+    ],
+
+    misconceptions: [
+      { myth: "CI/CD is one thing.", truth: "CI answers 'is this change safe to integrate?' and outputs an artifact; CD answers 'how do we deliver it safely?' They're two problems with two gates joined at the artifact." },
+      { myth: "A passing CI run means it's shipped.", truth: "CI only validated the code — it never deployed. Delivery (config, environment, data) is CD's job, which is why a green pipeline can still break prod." },
+      { myth: "CD always means fully automatic releases to prod.", truth: "That's Continuous <b>Deployment</b>. Continuous <b>Delivery</b> keeps a human approval before prod — every change is release-<i>ready</i>, not auto-released." },
+      { myth: "You should rebuild the artifact for each environment.", truth: "You promote the <b>same</b> artifact CI produced; rebuilding risks a different output reaching prod than the one you tested." }
+    ],
+
+    troubleshooting: [
+      { symptom: "All CI tests passed but the job fails in prod at 7 AM.", cause: "Environment/config differences CI never exercised.", fix: "Add a CD verify stage (smoke test + data-quality check) after deploy; verify it would have caught the prod-only failure, then gate promotion on it." },
+      { symptom: "Test and prod behave differently for the 'same' release.", cause: "The artifact was rebuilt per environment.", fix: "Build once in CI, publish the artifact, and have every deploy stage download that identical artifact; verify by comparing artifact digests across environments." },
+      { symptom: "A bad change auto-released to prod with no sign-off.", cause: "Continuous Deployment with no approval gate on a critical pipeline.", fix: "Switch to Continuous Delivery — add a required environment approval before prod; verify the deploy now pauses for a named approver." },
+      { symptom: "A failed deploy left prod in a broken state.", cause: "No automated rollback on failed verification.", fix: "Wire CD to roll back to the last-good artifact when smoke/data checks fail; verify by forcing a failing check in a drill." }
+    ],
+
+    interview: [
+      { q: "What's the precise difference between CI and CD?", a: "CI integrates code changes safely and produces a validated artifact (build → test → quality checks); CD takes that artifact and delivers it to environments safely (deploy → verify → promote). The artifact is the handoff: CI's output is CD's input." },
+      { q: "Continuous Delivery vs Continuous Deployment — which would you pick for a revenue pipeline and why?", a: "Continuous Delivery: every change is validated and release-ready but a human approves the final prod push. For a number feeding the executive dashboard, keeping a person on the button is safer than Deployment's fully automatic release until verification and rollback are truly trustworthy." },
+      { q: "How can a change pass all CI tests yet still break production?", a: "CI validated the code in the CI environment; it never touched prod's config, data, or environment. Only CD's post-deploy verification (smoke tests, data checks) exercises those, which is why delivery needs its own gate." },
+      { q: "Why is the artifact the clean boundary between CI and CD?", a: "CI builds and tests it once, giving a reproducible, immutable thing to promote; CD moves that exact artifact through environments without rebuilding, so what runs in prod is provably what was tested." }
+    ],
+
+    related: ["github-actions", "deployment-strategies", "rollback", "artifact-lifecycle"]
   }));
 })();

@@ -96,6 +96,39 @@
     retention: {
       question: "A RetailFlow dev accidentally writes <code>gross + refund</code> in the revenue helper. How does pytest stop it from reaching the dashboard?",
       answer: "The unit test <code>assert calculate_net_revenue(100, 20) == 80</code> gets <code>120</code>, fails, and pytest exits non-zero in CI — which <b>blocks the merge</b>. The bad logic never ships."
-    }
+    },
+
+    prerequisites: ["git", "testing-pyramid", "github-actions"],
+
+    production: [
+      { h: "Isolation enables parallelism", body: "<code>pytest -n auto</code> (pytest-xdist) only speeds CI if tests share no mutable state or ordering — one test writing a temp table another reads will fail nondeterministically under sharding." },
+      { h: "Determinism: freeze time and seed", body: "A test on RetailFlow's net_revenue must not depend on today's date or a live table. Freeze the clock, seed randomness, and build fixtures fresh so a red build always means a real bug, not a flaky one." },
+      { h: "Mock the boundary, not the logic", body: "Mock the warehouse/S3/API edge so unit tests stay fast and offline — but if you mock the function under test you only test the mock. Real wiring belongs in a slower integration suite." },
+      { h: "Reuse a session-scoped Spark fixture", body: "Spinning a new <code>SparkSession</code> per test is slow; a <code>scope='session'</code> fixture shares one local session — just keep each test's data independent so sharing the session doesn't leak state." },
+      { h: "Tests as the merge gate", body: "pytest only guards prod when CI runs it and the merge is conditioned on a zero exit code — a suite that exists but isn't wired as a required check protects nothing." }
+    ],
+
+    misconceptions: [
+      { myth: "Passing unit tests mean the data on the dashboard is correct.", truth: "Unit tests prove the <i>logic</i> on known inputs. Correct code on incomplete or stale data still ships wrong numbers — that's the job of dbt/SQL data tests." },
+      { myth: "More mocking makes a test better.", truth: "Over-mocking tests the mocks, not your code. Mock only external boundaries (warehouse, network); keep the logic under test real." },
+      { myth: "100% coverage means well-tested.", truth: "Coverage counts executed lines, not asserted behaviour — you can run every line and assert nothing meaningful. Prioritize the revenue math where a bug costs money over trivial glue." },
+      { myth: "A test that sometimes fails is still useful.", truth: "A flaky test erodes trust until people ignore red builds. Fix the nondeterminism (time, ordering, shared state) or the suite stops being a gate." }
+    ],
+
+    troubleshooting: [
+      { symptom: "Tests pass alone but fail when run together.", cause: "Shared mutable state or ordering dependence between tests.", fix: "Isolate state with fresh fixtures and <code>tmp_path</code>, remove cross-test coupling, then run <code>pytest -p no:randomly</code> off and <code>pytest -n auto</code> to confirm order-independence." },
+      { symptom: "A revenue test is flaky — green most runs, red some.", cause: "Dependence on current date, unseeded randomness, or a live table.", fix: "Freeze time, seed the RNG, and build input data in-fixture; re-run many times (<code>pytest --count</code>) and confirm it is stable." },
+      { symptom: "PySpark test fails on row order mismatch.", cause: "Spark partitions return rows in nondeterministic order.", fix: "Sort before asserting (or use <code>chispa.assert_df_equality(..., ignore_row_order=True)</code>) and verify the comparison passes regardless of partitioning." },
+      { symptom: "Unit suite takes minutes and hits the network.", cause: "Tests call the real warehouse/API instead of mocking the boundary.", fix: "Mock those calls with <code>monkeypatch</code>/<code>unittest.mock</code>, move true integration checks to a separate suite, and confirm the unit run is offline and under a minute." }
+    ],
+
+    interview: [
+      { q: "What's the difference between a unit test and a data test, and why do you need both?", a: "A unit test proves a function (like <code>calculate_net_revenue</code>) is correct on known inputs; a data test asserts the actual rows are complete, unique, and in-range. Perfect code on broken data still lands wrong numbers — so you test the logic <i>and</i> the data." },
+      { q: "How do you test a PySpark transformation reliably?", a: "Use a session-scoped local Spark fixture (<code>local[*]</code>), build a tiny input DataFrame, run the real transform, <code>collect()</code>, and assert on business rules — comparing sorted rows (or <code>ignore_row_order</code>) so partition order never causes a false failure." },
+      { q: "Why must tests be isolated and deterministic?", a: "Isolation lets you shard with <code>pytest -n auto</code> for fast CI and makes a failure point at one cause; determinism (frozen time, seeded randomness, fresh fixtures) means a red build is always a real bug. Shared state or reliance on 'today' breeds flakiness that erodes trust in the gate." },
+      { q: "When is chasing coverage the wrong goal?", a: "Coverage measures executed lines, not meaningful assertions — 100% can still assert nothing. Spend effort where a bug is expensive, like the net_revenue math, rather than on trivial glue, and don't over-mock to the point you only test the mocks." }
+    ],
+
+    related: ["testing-pyramid", "sql-testing", "github-actions", "dbt-cicd"]
   }));
 })();

@@ -87,6 +87,44 @@
     retention: {
       question: "RetailFlow wants CI to block any PR that lowers test coverage on the revenue module below 80%, plus catch bugs and vulnerabilities automatically. What tool and mechanism does this?",
       answer: "<b>SonarQube</b> runs <b>static analysis</b> in CI (via <code>sonar-scanner</code> / its GitHub Action) to detect bugs, vulnerabilities, code smells, duplication, and coverage. A <b>quality gate</b> compares those against thresholds (coverage ≥ 80%); a RED gate fails the required check and blocks the merge."
-    }
+    },
+
+    prerequisites: [
+      { id: "pytest", label: "Tests + coverage" },
+      "github-actions",
+      "ci-vs-cd"
+    ],
+
+    production: [
+      { h: "Gate on new code", body: "Enforce 'Clean as You Code' — strict thresholds on <i>new</i> code per PR rather than boiling the ocean on legacy debt, so quality improves incrementally without blocking the team on old modules." },
+      { h: "Make the gate a required check", body: "RetailFlow wires the quality gate as a <b>required</b> status check, so a RED gate on the revenue module's coverage actually blocks the merge instead of being an ignorable warning." },
+      { h: "Feed real coverage", body: "The scanner reports coverage, it doesn't produce it — run <code>pytest --cov</code> first and upload the XML, or Sonar reports 0% and the gate misfires." },
+      { h: "Tune rules, mark false positives", body: "Too strict and teams route around it; too loose and it's theater. Tune per language and triage false positives so the signal stays honest and actionable." },
+      { h: "Watch security hotspots", body: "Review flagged injection risks and hardcoded-secret hotspots as part of the gate — static analysis catches classes of vulnerability that tests and reviewers miss." }
+    ],
+
+    misconceptions: [
+      { myth: "A green SonarQube gate means the code is correct.", truth: "Static analysis finds likely bugs, smells, and uncovered lines — it does <b>not</b> run the code or validate output, so logic errors still need tests and data-quality checks." },
+      { myth: "100% coverage means the code is well-tested.", truth: "Coverage measures lines <i>executed</i> by tests, not whether assertions are meaningful; a test with no asserts raises coverage while proving nothing." },
+      { myth: "SonarQube replaces pytest.", truth: "They're complementary — Sonar analyzes code without executing it; pytest runs it. Sonar ingests pytest's coverage report but adds bug/vulnerability/smell detection tests can't." },
+      { myth: "SonarQube checks whether the data is right.", truth: "It only inspects <b>code</b> quality; stale or wrong <i>data</i> is the data-quality layer's job, not static analysis." }
+    ],
+
+    troubleshooting: [
+      { symptom: "Gate fails on 'coverage on new code < 80%'.", cause: "New/changed lines in the PR aren't exercised by tests.", fix: "Add tests covering the new logic (e.g. the net-revenue change), re-run <code>pytest --cov</code>, and confirm the gate turns GREEN on the next scan." },
+      { symptom: "Sonar reports 0% coverage even though tests pass.", cause: "The coverage report wasn't generated or uploaded before the scan.", fix: "Run tests with <code>--cov-report=xml</code> and point <code>sonar.python.coverage.reportPaths</code> at it, then verify the dashboard shows real coverage." },
+      { symptom: "Gate is RED on a huge legacy repo and the team is stuck.", cause: "The gate enforces strict thresholds on <i>overall</i> code, not just new code.", fix: "Switch the gate to new-code conditions, re-scan, and confirm legacy debt no longer blocks unrelated PRs." },
+      { symptom: "Developers keep bypassing or disabling the check.", cause: "The gate is too strict or full of false positives.", fix: "Triage and mark false positives, tune rules per language, and keep only actionable conditions, then confirm the gate is trusted and no longer skipped." },
+      { symptom: "Scan step fails with an auth/token error.", cause: "Missing or invalid <code>SONAR_TOKEN</code>.", fix: "Add the token as a secret, reference it in the scan step's env, and verify the scan authenticates and uploads results." }
+    ],
+
+    interview: [
+      { q: "How does SonarQube differ from running your unit tests?", a: "SonarQube performs <b>static analysis</b> — it inspects code <i>without executing it</i> to find bugs, vulnerabilities, code smells, and duplication, and it reads the coverage report your tests produce. Tests actually <b>run</b> the code to check behavior. They're complementary: Sonar catches risky patterns tests don't, tests catch logic Sonar can't see." },
+      { q: "What is a quality gate and what makes it effective?", a: "A <b>quality gate</b> is a set of pass/fail conditions (e.g. coverage on new code ≥ 80%, zero new bugs, duplication < 3%). It's effective when it's a <b>required check</b> that blocks the merge on RED, gates on <b>new code</b> so legacy debt doesn't paralyze the team, and is tuned (false positives triaged) so the signal stays trusted." },
+      { q: "RetailFlow's revenue module keeps losing coverage under deadline pressure. How would you use SonarQube to stop that?", a: "Add a quality gate as a <b>required</b> CI check with a new-code coverage condition (≥ 80%). When someone edits the net-revenue formula without tests, the scan sees coverage on new code drop, the gate goes RED, and the PR is blocked until tests are added — stopping rot at the door instead of after it corrupts the 7 AM dashboard." },
+      { q: "Why gate on 'new code' instead of overall coverage, and what's the trade-off?", a: "Gating on new code (<b>Clean as You Code</b>) improves quality incrementally without demanding a massive one-time cleanup of legacy debt, so teams aren't blocked on old modules. The trade-off is that pre-existing debt isn't forced to improve — you accept slower legacy cleanup in exchange for a gate the team will actually keep enabled." }
+    ],
+
+    related: ["pytest", "sql-testing", "data-quality", "security"]
   }));
 })();

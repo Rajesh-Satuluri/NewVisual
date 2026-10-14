@@ -96,6 +96,40 @@
     retention: {
       question: "RetailFlow wants the revenue test suite to run automatically on every push and block the merge if it fails. Which GitHub Actions pieces make that happen?",
       answer: "A <b>workflow</b> triggered by the <code>push</code>/<code>pull_request</code> <b>event</b>, with a <b>job</b> whose <b>steps</b> checkout, install, and run <code>pytest</code>. Marking that job's <b>status check</b> as <b>required</b> in branch protection wires the green result to the merge button."
-    }
+    },
+
+    prerequisites: ["github", "git", "ci-vs-cd"],
+
+    production: [
+      { h: "Pin actions to a full commit SHA", body: "A tag like <code>@v4</code> is mutable — a compromised maintainer can repoint it. Pin to a 40-char commit SHA (and renovate it) so a supply-chain swap can't run in RetailFlow's pipeline." },
+      { h: "OIDC + least-privilege permissions", body: "Set <code>permissions:</code> to the minimum (default read-only) and use OIDC for cloud deploys instead of long-lived secrets; the default <code>GITHUB_TOKEN</code> should not have write scope it doesn't need." },
+      { h: "Concurrency to avoid clobbering deploys", body: "A <code>concurrency</code> group cancels or queues overlapping runs so two pushes don't deploy the revenue pipeline on top of each other and race." },
+      { h: "Environment approvals for prod", body: "Gate the prod deploy job behind an <b>environment</b> with required reviewers, so a human signs off before the net-revenue change reaches the 7 AM dashboard." },
+      { h: "Secrets masking and fork safety", body: "Secrets are masked in logs and are <b>not</b> exposed to <code>pull_request</code> runs from forks — don't rely on secrets in untrusted-PR CI; use <code>pull_request_target</code> only with extreme care." }
+    ],
+
+    misconceptions: [
+      { myth: "A moving tag like <code>actions/checkout@v4</code> is immutable.", truth: "Tags can be repointed; only a full commit SHA is immutable. SHA-pin third-party actions to prevent supply-chain attacks." },
+      { myth: "Jobs always run in order.", truth: "Jobs run <b>in parallel</b> by default. Ordering requires <code>needs:</code> to declare dependencies." },
+      { myth: "Secrets are available to every workflow run.", truth: "Secrets are not passed to workflows triggered by PRs from forks, which is a deliberate security boundary — fork CI can't exfiltrate them." },
+      { myth: "The <code>GITHUB_TOKEN</code> has full repo write by default.", truth: "Its default permissions are configurable and increasingly default to read-only; you grant write scopes explicitly via <code>permissions:</code>." }
+    ],
+
+    troubleshooting: [
+      { symptom: "Workflow doesn't trigger on a push.", cause: "The YAML is on the wrong branch, the <code>on:</code> filters exclude it, or the file is malformed.", fix: "Confirm <code>.github/workflows/ci.yml</code> is on the pushed branch and the <code>on:</code>/<code>branches</code> filters match; check the Actions tab for a parse error and fix the YAML." },
+      { symptom: "<code>pip install</code> is slow on every run.", cause: "No dependency caching.", fix: "Add <code>actions/setup-python</code> with <code>cache: pip</code> (or <code>actions/cache</code> keyed on the lockfile hash); verify by the 'Cache restored' line in logs and a faster install step." },
+      { symptom: "A step can't reach the private data warehouse.", cause: "GitHub-hosted runners have no network path into the VPC.", fix: "Use a hardened <b>self-hosted runner</b> inside the network; verify connectivity with a small smoke query before the full job." },
+      { symptom: "Required status check 'test' never reports on the PR.", cause: "The check name in branch protection doesn't match the job, or the workflow didn't run.", fix: "Align the required-check context with the job name and confirm the trigger fired; the PR merge-box should then show the check as required and pending/passing." },
+      { symptom: "Two deploys ran at once and raced.", cause: "No concurrency control.", fix: "Add a <code>concurrency: { group: deploy-prod, cancel-in-progress: false }</code> block; verify overlapping runs now queue instead of running together." }
+    ],
+
+    interview: [
+      { q: "Why pin a GitHub Action to a commit SHA instead of a tag?", a: "A tag is mutable — a compromised action maintainer can move <code>@v4</code> to malicious code that then runs with your workflow's permissions and secrets. A full SHA is immutable, so pinning (plus automated bumps) closes that supply-chain hole." },
+      { q: "How do you give an Actions job cloud access without storing a long-lived key?", a: "Configure OIDC: GitHub mints a short-lived token the cloud's trust policy accepts for that specific repo/branch/job, so no standing credential lives in secrets and the grant is scoped and auditable per run." },
+      { q: "Your CI passes but a fork's PR can't read a needed secret — why, and is that right?", a: "Secrets aren't exposed to workflows triggered by fork PRs, by design, so untrusted contributors can't exfiltrate them. It's correct; move secret-needing steps to a trusted trigger or run them post-merge rather than loosening the boundary." },
+      { q: "When would you use a self-hosted runner over a GitHub-hosted one?", a: "When the job needs network access into a private VPC (e.g. an internal data warehouse) or specialized hardware. The trade-off is you now own patching and hardening the runner, which is real security and ops work." }
+    ],
+
+    related: ["github", "ci-vs-cd", "git", "docker"]
   }));
 })();

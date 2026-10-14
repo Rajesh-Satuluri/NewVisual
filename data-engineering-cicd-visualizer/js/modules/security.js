@@ -94,6 +94,44 @@
     retention: {
       question: "RetailFlow's CI needs to deploy to Azure every merge. Why is storing a long-lived Azure key as a GitHub secret risky, and what's the stronger pattern?",
       answer: "A long-lived key is a durable credential that can be leaked (e.g. committed to history) or abused via a malicious workflow edit, granting <b>standing</b> cloud access. The stronger pattern is <b>OIDC</b>: Azure federates trust to GitHub's token issuer for that repo/branch, so CI exchanges a signed workflow token for a <b>short-lived, least-privilege</b> credential — nothing durable to steal, access expires in minutes — backed by branch protection, scanning, signed artifacts, and audit logs."
-    }
+    },
+
+    prerequisites: [
+      { id: "secrets", label: "Secrets management" },
+      "github-actions",
+      "terraform"
+    ],
+
+    production: [
+      { h: "Short-lived OIDC tokens", body: "Store no long-lived cloud password; let CI exchange a signed <code>id-token</code> for a credential that expires in minutes, so a leaked log or artifact can't be replayed later." },
+      { h: "Least-privilege IAM", body: "Scope the deploy role to exactly the resources it touches — RetailFlow's CI role can write the revenue pipeline's resources and <i>nothing else</i>, so a compromised job can't reach the payments database." },
+      { h: "Protect the pipeline's own files", body: "Require review + <b>CODEOWNERS</b> on workflow and IaC files; the definition of the pipeline is as sensitive as the code it ships, because an edit there can exfiltrate every secret." },
+      { h: "Scan the supply chain", body: "Gate on dependency, container, and secret scanning (block on high-severity, warn on the rest) so a known CVE or committed credential is stopped before it reaches production." },
+      { h: "Sign artifacts and keep audit logs", body: "Sign images (Cosign/Sigstore), verify the signature at deploy, and log every deploy and secret read so production only runs what your pipeline built — and every action is attributable." }
+    ],
+
+    misconceptions: [
+      { myth: "A green pipeline means the deploy is secure.", truth: "CI proves the code builds and tests pass; it says nothing about leaked credentials, over-broad IAM, or an unsigned image — security is separate controls, not a side effect of a passing build." },
+      { myth: "Only the application code is a security target, not the pipeline.", truth: "The pipeline holds cloud credentials and can deploy to prod, so it is a <b>high-value target</b> — compromise it and you compromise everything it can reach." },
+      { myth: "A client-id in the workflow is a secret that must be hidden.", truth: "An OIDC client-id is a <b>public identifier</b>; the security comes from the federated trust relationship and short-lived token, not from hiding the id." },
+      { myth: "Making every check blocking makes delivery safer.", truth: "Blocking on low-risk findings causes teams to route around the gate; proportionate defense in depth gates on high-severity and warns on the rest." }
+    ],
+
+    troubleshooting: [
+      { symptom: "Secret scanner flags a cloud key in workflow history.", cause: "A long-lived credential was hard-coded instead of federated.", fix: "<b>Rotate</b> the key immediately, switch the job to OIDC so there's no stored secret, and verify the next deploy authenticates with a short-lived token." },
+      { symptom: "A CI job can reach resources it never should (e.g. the payments DB).", cause: "The pipeline's IAM role or workflow <code>permissions:</code> are too broad.", fix: "Tighten the role to least privilege and request only <code>id-token</code>/<code>contents: read</code>, redeploy, and confirm the job succeeds while out-of-scope access is denied." },
+      { symptom: "Someone edited the deploy workflow without review.", cause: "Branch protection / CODEOWNERS don't cover the workflow files.", fix: "Add CODEOWNERS on <code>.github/workflows</code> and require review on <code>main</code>, then verify an unapproved change to the pipeline is blocked." },
+      { symptom: "Deploy target runs an image the pipeline didn't build.", cause: "No signature verification before run.", fix: "Sign images in CI and require signature verification at deploy, then confirm an unsigned or tampered image is rejected." },
+      { symptom: "Dependabot/pip-audit reports a critical CVE in a shipped image.", cause: "A vulnerable dependency passed because scanning wasn't blocking.", fix: "Make high-severity findings fail the build, bump or pin the dependency, rebuild, and re-scan to confirm the image is clean." }
+    ],
+
+    interview: [
+      { q: "Why is a CI/CD pipeline a higher-value target than the application it ships?", a: "The pipeline can read the repo, holds deploy credentials, and reaches every environment — so compromising it compromises <b>everything it can reach</b> at once, often with standing access. Securing the path (OIDC, least privilege, protected workflow files, signed artifacts, audit logs) matters as much as securing the app." },
+      { q: "Design the auth between GitHub Actions and your cloud so there's no long-lived secret.", a: "Use <b>OIDC federation</b>: the cloud's IAM trusts GitHub's token issuer scoped to a specific repo/branch. CI requests <code>id-token: write</code>, presents the signed token, and receives a <b>short-lived</b> credential scoped least-privilege. Nothing durable is stored, access expires in minutes, and the trust is pinned to the exact workflow." },
+      { q: "A workflow file can be edited by anyone with write access. Why is that a security problem and how do you fix it?", a: "The workflow <i>is</i> the privileged path — an attacker who edits it can add a step that exfiltrates every secret the job can read. Fix it with <b>branch protection</b> on <code>main</code> plus <b>CODEOWNERS</b> on the workflow/IaC files, so changing the pipeline requires review by its owners." },
+      { q: "How do you balance security gates against delivery speed?", a: "Make gates <b>proportionate</b>: block on high-severity scan findings, failed signature verification, and missing reviews; warn (don't block) on low-risk findings. Maximal blocking everywhere drives teams to bypass the gate, so the goal is defense in depth where no single slip hands over prod — not friction for its own sake." }
+    ],
+
+    related: ["secrets", "environment-promotion", "rollback", "container-registry"]
   }));
 })();

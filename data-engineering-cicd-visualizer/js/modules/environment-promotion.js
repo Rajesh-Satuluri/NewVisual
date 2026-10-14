@@ -108,6 +108,44 @@
     retention: {
       question: "RetailFlow validated <code>revenue-processor:sha-9f3c1</code> in staging. What must happen to that artifact on its way to production, and what is allowed to change?",
       answer: "The <b>same immutable artifact</b> (<code>sha-9f3c1</code>) is promoted to production unchanged — no rebuild. Only <b>configuration and secrets</b> (database URL, warehouse size, credentials) differ per environment. Rebuilding for prod would break the guarantee that prod runs what staging approved."
-    }
+    },
+
+    prerequisites: [
+      { id: "artifact-lifecycle", label: "Artifact lifecycle" },
+      "container-registry",
+      "secrets"
+    ],
+
+    production: [
+      { h: "Promote the same digest", body: "Re-tag or re-deploy the exact <code>@sha256</code> that staging validated — never rebuild per environment, or prod runs an unproven binary." },
+      { h: "Config and secrets per environment", body: "Only <code>DATABASE_URL</code>, <code>ENV</code>, warehouse size, and credentials differ per stage, injected at deploy from env vars / a secret manager (Twelve-Factor), not baked into the image." },
+      { h: "Approval gate before prod", body: "Automate dev→test→staging, but require a human sign-off on staging→prod (GitHub Environments protection rule, Argo CD sync approval) before the artifact reaches the revenue-critical path." },
+      { h: "Isolate infrastructure per stage", body: "Separate warehouses/schemas, buckets, and service accounts so dev has no credential that can reach RetailFlow's production <code>orders</code> table." },
+      { h: "Rollback = promote the prior digest", body: "Because releases are immutable and versioned, re-point prod at the previous known-good digest — no hotfix build, and the bad transform stops within seconds (code only; data repair is separate)." }
+    ],
+
+    misconceptions: [
+      { myth: "Rebuilding from the same commit in each environment is equivalent to promoting.", truth: "A rebuild can pull a bumped dependency or different base image, so prod gets a <b>different binary</b> than staging approved — only promoting the same digest preserves the guarantee." },
+      { myth: "Promotion should carry config along with the artifact.", truth: "Config and secrets must be <b>injected per environment</b> at deploy; baking them into the image means one artifact can't safely move across stages." },
+      { myth: "Passing staging means prod is safe to flip automatically.", truth: "For a revenue-critical change, the staging→prod hop should pass a <b>human approval gate</b>; a wrong revenue number on the 7 AM dashboard is a fireable event." },
+      { myth: "A successful promotion means the data in prod is correct.", truth: "Promotion guarantees prod runs the <i>approved code</i>; whether it produced right numbers still needs runtime data-quality and observability checks." }
+    ],
+
+    troubleshooting: [
+      { symptom: "'Works in staging, breaks in prod' at 6 AM.", cause: "Prod rebuilt the image instead of promoting the staged digest, pulling a changed dependency.", fix: "Deploy the exact <code>sha-...</code> staging validated, stop rebuilding per environment, and verify the prod digest matches staging's before release." },
+      { symptom: "Same image behaves wrong in one environment.", cause: "Config/secrets were baked into the image rather than injected per stage.", fix: "Externalize <code>DATABASE_URL</code>/<code>ENV</code>/secrets to env vars + secret manager, redeploy the same digest, and verify each stage reads its own config." },
+      { symptom: "A change reached prod without review.", cause: "No protection rule on the staging→prod hop.", fix: "Add a GitHub Environments required reviewer (or Argo sync approval) on production, and verify an unapproved promotion is blocked." },
+      { symptom: "Dev job wrote to the production warehouse.", cause: "Shared credentials / infra across environments.", fix: "Isolate per-env service accounts and warehouses so dev has no path to prod, then verify dev credentials are rejected by prod resources." },
+      { symptom: "Rollback requires an emergency rebuild.", cause: "Deploys used moving tags, so no prior immutable digest is pinned.", fix: "Deploy by digest and keep history, then roll back by re-pointing prod at the previous known-good <code>sha-...</code> and verifying it runs healthy." }
+    ],
+
+    interview: [
+      { q: "What does 'build once, promote the same artifact' guarantee, and why does rebuilding per environment break it?", a: "It guarantees that production runs the <b>exact binary</b> QA/staging approved. Rebuilding — even from the same commit — can pull a bumped dependency or different base image, so prod runs something never tested. Promoting the same immutable digest (<code>@sha256</code>) is the only way to keep 'what we tested is what we shipped' true." },
+      { q: "If the artifact never changes between environments, what <i>does</i> change, and how?", a: "Only <b>configuration and secrets</b> — database URL, bucket, dbt target, warehouse size, credentials. Following Twelve-Factor, these live in the environment and are injected at deploy via env vars and a secret manager. The same <code>revenue-processor</code> image reads <code>ENV=staging</code> vs <code>ENV=prod</code> and behaves correctly in each." },
+      { q: "Why is the staging→prod hop usually a manual approval gate when dev→staging is automated?", a: "Dev→test→staging are safe to automate because they don't touch real money or real consumers. The staging→prod hop reaches the revenue-critical path where a wrong number hits the 7 AM exec dashboard, so a human confirms 'staging looks right' first — via a GitHub Environments protection rule, Argo CD approval, or change ticket — before the same artifact is released." },
+      { q: "How does immutable artifact promotion make rollback trivial?", a: "Because every release is a pinned, versioned digest, rolling back is just <b>re-pointing prod at the previous known-good digest</b> (<code>sha-8a1b0</code>) — no hotfix build, no scramble, and the bad transform stops within seconds. The caveat: that reverts <i>code</i> only; rows a bad run already wrote still need a separate backfill/restore." }
+    ],
+
+    related: ["artifact-lifecycle", "container-registry", "rollback", "secrets"]
   }));
 })();

@@ -83,6 +83,39 @@
     retention: {
       question: "RetailFlow's revenue pipeline deployed successfully with a green CI run, yet the 7 AM dashboard would have shown yesterday's numbers. Why didn't CI catch it, and what does?",
       answer: "CI/CD validates the <b>software</b> — and the code ran fine. The data was stale because an upstream feed stopped, which no code test can see. A <b>data-quality freshness check</b> (Great Expectations / Soda) runs after load, asserts the newest row is recent, FAILS, and blocks the downstream refresh."
-    }
+    },
+
+    prerequisites: ["sql-testing", "dbt-cicd", "observability"],
+
+    production: [
+      { h: "Blocking vs warning", body: "Make integrity-critical checks (freshness, completeness) <b>blocking</b> so they halt the downstream refresh, and keep noisier signals as warnings — RetailFlow would rather page on-call than let the 7 AM dashboard read a stale table, but not alert on every minor wobble." },
+      { h: "Freshness against an SLA", body: "Compare <code>max(revenue_date)</code> to an explicit SLA (e.g. within 6 hours); without it a silently-stopped point-of-sale feed serves yesterday's net_revenue as today's and no code test notices." },
+      { h: "Anomaly/distribution over time", body: "Track row counts and metric ranges across runs so a 10x revenue spike or a 4% drop flags as an anomaly — this catches upstream breakage that passes every structural check." },
+      { h: "Version the expectation suite", body: "Keep the Great Expectations/Soda checks in Git and run them in CI against sample data, so the data contract evolves with review rather than drifting as untracked config." },
+      { h: "Don't duplicate dbt tests", body: "If dbt already asserts <code>not_null</code>/<code>unique</code>/<code>relationships</code> on a model, re-asserting them in a second framework doubles maintenance — reserve the dedicated tool for freshness and distribution checks dbt doesn't express." }
+    ],
+
+    misconceptions: [
+      { myth: "A green CI/CD deploy means the data is good.", truth: "CI/CD validates the software path; it says nothing about the runtime output. A flawless deploy still emits stale or broken data if an upstream source changed — that's exactly what data quality checks." },
+      { myth: "dbt tests and a data-quality tool are redundant.", truth: "dbt tests assert model structure; a DQ tool adds freshness SLAs, distribution/anomaly detection, and cross-source checks dbt generics don't express. Use the DQ layer for what dbt can't, not to re-run the same assertions." },
+      { myth: "Freshness is covered by not_null and unique checks.", truth: "A stale table can be perfectly complete and unique — those checks pass while the data is simply old. Freshness needs its own <code>max(event_time)</code> vs SLA assertion." },
+      { myth: "Every data-quality failure should halt the pipeline.", truth: "Only critical checks should block; warnings should alert without halting. Blocking on every soft signal causes alert fatigue and people start ignoring the pages." }
+    ],
+
+    troubleshooting: [
+      { symptom: "Pipeline deploys green but the dashboard shows yesterday's numbers.", cause: "An upstream feed stopped; the code ran fine on no new data.", fix: "Add a blocking freshness check (<code>max(revenue_date)</code> within SLA) that fails the run and pages on-call; verify it trips when the feed is paused in a test." },
+      { symptom: "On-call is paged constantly for trivial fluctuations.", cause: "Soft signals (minor row-count wobble) are wired as blocking failures.", fix: "Reclassify them as warnings, reserve blocking for freshness/completeness/integrity, and confirm pages now fire only on genuine incidents." },
+      { symptom: "A 10x revenue day slipped through all checks.", cause: "Only structural checks exist; no distribution/anomaly monitoring.", fix: "Add a distribution check comparing the day's total against the trailing range and alert on outliers; verify it flags a seeded anomaly." },
+      { symptom: "The same checks exist in dbt and in Great Expectations and drift apart.", cause: "Duplicated assertions across two frameworks with separate maintenance.", fix: "Keep structural tests in dbt, move only freshness/anomaly checks to the DQ tool, version both in Git, and confirm there's a single source of truth per rule." }
+    ],
+
+    interview: [
+      { q: "What's the difference between software quality and data quality?", a: "Software quality (CI/CD, pytest, deploys) asks 'did the code run correctly?'; data quality asks 'is the <i>output</i> actually good?'. A green deploy can still emit stale, incomplete, or anomalous data if an upstream source changed — so you need a validation layer after load, not just before merge." },
+      { q: "A RetailFlow deploy is green but the 7 AM dashboard would show stale revenue. What catches it?", a: "A <b>freshness check</b> run after load that asserts <code>max(revenue_date)</code> is within SLA (say 6 hours). The code ran fine, so no code test sees the stale feed — the data-quality layer fails, blocks the downstream refresh, and pages on-call." },
+      { q: "When do you reach for Great Expectations/Soda vs just dbt tests?", a: "Use dbt tests for model structure (<code>not_null</code>, <code>unique</code>, <code>relationships</code>). Reach for a dedicated DQ tool when you need checks dbt doesn't express — freshness SLAs, distribution/anomaly detection, cross-source reconciliation — and avoid re-implementing the same structural assertions in both." },
+      { q: "How do you decide blocking vs warning for a check?", a: "Block on failures that make the numbers untrustworthy — stale data, missing rows, broken integrity — so downstream consumers never read bad data. Warn on signals that need a human look but not a halt. Making everything blocking causes alert fatigue and eroded trust in the pages." }
+    ],
+
+    related: ["sql-testing", "dbt-cicd", "observability", "testing-pyramid"]
   }));
 })();
