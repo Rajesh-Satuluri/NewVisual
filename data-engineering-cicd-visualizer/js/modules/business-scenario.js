@@ -79,6 +79,15 @@
 
         container.appendChild(E.referencesPanel());
 
+        container.appendChild(E.learningCheck([{
+          q: "A nightly revenue job finishes with status “success”, yet Finance says the number is wrong. What does that tell you?",
+          options: [
+            { label: "The job must have actually failed — just re-run it.", ok: false, why: "A green run only means the code executed; re-running the same code reproduces the same wrong number." },
+            { label: "A green job proves the code ran, not that the data is correct — correctness needs its own checks.", ok: true, why: "Job success and data correctness are different things; that gap is why data-quality and reconciliation gates exist." },
+            { label: "Nothing is wrong — trust the pipeline status.", ok: false, why: "Treating job status as proof of correctness is exactly how a silently-wrong number reaches executives." }
+          ]
+        }]));
+
         // Divider: everything below is the fictional practice sandbox.
         var div = document.createElement("div");
         div.className = "cs-sandbox-note";
@@ -201,6 +210,12 @@
           "<i>safely and repeatably</i> — validated by tests, packaged once, reviewed for infra, and checked for data quality on the way.</p>";
         return a;
       })());
+
+      if (NS.Evidence && NS.Evidence.ready()) {
+        var pn = document.createElement("div");
+        pn.innerHTML = NS.Evidence.chapterPrevNext("business-scenario");
+        container.appendChild(pn);
+      }
     },
 
     destroy: function () {

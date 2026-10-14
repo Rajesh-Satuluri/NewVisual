@@ -410,6 +410,17 @@
       }
       renderWalkthrough(container);
 
+      if (E && E.ready()) {
+        container.appendChild(E.learningCheck([{
+          q: "You fixed and deployed a metric definition, but historical dashboard values still show the old numbers. Why?",
+          options: [
+            { label: "The deploy failed.", ok: false, why: "The deploy succeeded — deploying a new definition doesn’t recompute rows that were already written." },
+            { label: "Deploying new code doesn’t rewrite old data — you must backfill / reprocess history.", ok: true, why: "A code change is not a data change; history needs an idempotent backfill to be recomputed." },
+            { label: "Dashboards cache forever — clear the cache.", ok: false, why: "The stored values themselves are old; they must be recomputed, not just re-fetched." }
+          ]
+        }]));
+      }
+
       // Divider, then the preserved concept module (promotion deep-dive).
       var div = document.createElement("div");
       div.className = "cs-sandbox-note";
@@ -419,6 +430,12 @@
       var sub = document.createElement("div");
       container.appendChild(sub);
       try { concept.render(sub); } catch (e) { console.error("concept render error:", e); }
+
+      if (E && E.ready()) {
+        var pn = document.createElement("div");
+        pn.innerHTML = E.chapterPrevNext("environment-promotion");
+        container.appendChild(pn);
+      }
     },
     destroy: function () { try { concept.destroy && concept.destroy(); } catch (e) {} }
   });
