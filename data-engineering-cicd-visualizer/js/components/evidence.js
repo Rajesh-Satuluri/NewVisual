@@ -101,6 +101,39 @@
         "</div>";
     },
 
+    // Shared 4-chapter navigator across the case-study sections.
+    // activeRoute highlights the current chapter.
+    chapterNav: function (activeRoute) {
+      var cs = CS();
+      if (!cs || !cs.chapters) return "";
+      return '<nav class="cs-chapters" aria-label="Case-study chapters">' +
+        cs.chapters.map(function (c) {
+          var on = c.route === activeRoute;
+          return '<a class="cs-chapter' + (on ? " active" : "") + '"' +
+            (on ? ' aria-current="true"' : "") + ' href="#' + esc(c.route) + '">' +
+            '<span class="cs-chapter-n">' + esc(c.n) + "</span>" +
+            '<span class="cs-chapter-t">' + esc(c.title) + "</span></a>";
+        }).join("") +
+        "</nav>";
+    },
+
+    // The Airbnb company-context block (name, domain, why chosen).
+    companyIntro: function () {
+      var cs = CS();
+      if (!cs || !cs.company) return "";
+      var c = cs.company;
+      return '<section class="section cs-company">' +
+        '<div class="cs-company-head">' +
+          '<span class="cs-company-badge">Evidence-based case study</span>' +
+          '<h2 class="section-title">' + esc(c.name) + '</h2>' +
+        "</div>" +
+        '<p class="cs-company-domain">' + esc(c.domain) + "</p>" +
+        '<div class="cs-company-why"><div class="cs-company-why-label">Why this company anchors the case study</div>' +
+          "<ul>" + c.whyChosen.map(function (w) { return "<li>" + w + "</li>"; }).join("") + "</ul>" +
+        "</div>" +
+        "</section>";
+    },
+
     // The References panel: all sources, grouped primary/secondary,
     // plus the honest research-provenance note.
     referencesPanel: function () {

@@ -206,12 +206,22 @@
     ]
   };
 
+  // The four scenario sections, as one connected case study (prompt §5).
+  // route = existing module id; used for the shared chapter navigator.
+  var CHAPTERS = [
+    { n: 1, route: "business-scenario",      title: "Business Problem & Impact" },
+    { n: 2, route: "end-to-end-pipeline",    title: "Architecture & Design" },
+    { n: 3, route: "environment-promotion",  title: "Code Change → Production" },
+    { n: 4, route: "failure-simulator",      title: "Incident & Recovery" }
+  ];
+
   // ── Public API ───────────────────────────────────────────
   NS.CaseStudy = {
     tiers: TIERS,
     sources: SOURCES,
     sourceById: function (id) { return SOURCE_BY_ID[id] || null; },
     company: COMPANY,
+    chapters: CHAPTERS,
     claims: CLAIMS,
     // Research provenance, surfaced in the References panel (honest
     // disclosure per prompt §3.2 / §12).
