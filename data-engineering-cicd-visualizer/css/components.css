@@ -1887,3 +1887,39 @@ a.card:hover { text-decoration: none; }
 
 .cs-ref-link { font-size: 0.85rem; color: var(--text-muted); margin-top: var(--space-3); }
 .cs-ref-link a { color: var(--brand-bright); }
+
+/* ============================================================
+   Chapter 3 — code-change-to-production walkthrough (stepper).
+   ============================================================ */
+.wt-layout { display: grid; grid-template-columns: 240px 1fr; gap: var(--space-5); align-items: start; margin-top: var(--space-4); }
+.wt-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; position: sticky; top: var(--space-4); }
+.wt-step {
+  width: 100%; display: flex; align-items: center; gap: var(--space-2);
+  text-align: left; padding: var(--space-2) var(--space-3);
+  border: 1px solid transparent; border-radius: var(--radius-md);
+  background: transparent; color: var(--text-secondary); cursor: pointer; font-size: 0.86rem;
+}
+.wt-step:hover { background: var(--bg-2); color: var(--text-primary); }
+.wt-step.active { background: var(--bg-3); border-color: var(--brand); color: var(--text-primary); }
+.wt-step-n {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; flex: 0 0 22px; border-radius: var(--radius-full);
+  background: var(--bg-4); font-size: 0.72rem; font-weight: 700;
+}
+.wt-step.active .wt-step-n { background: var(--brand); color: var(--text-on-accent); }
+.wt-detail { min-width: 0; border: 1px solid var(--border-default); border-radius: var(--radius-lg); padding: var(--space-5); background: var(--bg-1); }
+.wt-detail-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-3); }
+.wt-detail-n { font-size: 0.74rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.wt-detail-t { margin: 0; font-size: 1.15rem; color: var(--text-primary); flex: 1 1 auto; }
+.wt-what { color: var(--text-primary); line-height: 1.55; }
+.wt-why { color: var(--text-secondary); line-height: 1.55; }
+.wt-io { display: grid; grid-template-columns: auto 1fr; gap: 4px var(--space-3); margin: var(--space-3) 0; font-size: 0.86rem; }
+.wt-io-k { font-weight: 700; color: var(--text-muted); text-transform: uppercase; font-size: 0.7rem; align-self: center; }
+.wt-fail { margin: var(--space-3) 0; padding: var(--space-2) var(--space-3); border-left: 3px solid var(--red); background: var(--red-subtle); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.88rem; }
+.wt-code { display: flex; flex-direction: column; gap: var(--space-3); margin-top: var(--space-3); }
+@media (max-width: 860px) {
+  .wt-layout { grid-template-columns: 1fr; }
+  .wt-steps { position: static; flex-direction: row; flex-wrap: wrap; }
+  .wt-step { width: auto; }
+  .wt-step-t { display: none; }
+}
