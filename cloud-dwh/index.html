@@ -34,6 +34,7 @@
   <link rel="stylesheet" href="css/enhancements.css" />
   <link rel="stylesheet" href="css/responsive.css" />
   <link rel="stylesheet" href="css/platform-switch.css" />
+  <link rel="stylesheet" href="css/kit.css" />
 </head>
 <body>
   <div id="app">
@@ -171,6 +172,17 @@
   <!-- ── Redshift + Fabric module stubs ─────────────────── -->
   <script src="js/platforms/redshift/modules/stubs.js"></script>
   <script src="js/platforms/fabric/modules/stubs.js"></script>
+
+  <!-- ── Redshift content (Phase B) — kit + banks + real modules.
+       Loaded AFTER stubs so real modules override the placeholders. -->
+  <script src="js/platforms/redshift/redshift-kit.js"></script>
+  <script src="js/platforms/redshift/data/interview-bank.js"></script>
+  <script src="js/platforms/redshift/data/quiz-bank.js"></script>
+  <script src="js/platforms/redshift/modules/learn.js"></script>
+  <script src="js/platforms/redshift/modules/internals.js"></script>
+  <script src="js/platforms/redshift/modules/scale.js"></script>
+  <script src="js/platforms/redshift/modules/ecosystem.js"></script>
+  <script src="js/platforms/redshift/modules/security.js"></script>
 
   <!-- ── Compare + app ──────────────────────────────────── -->
   <script src="js/platforms/compare.js"></script>
