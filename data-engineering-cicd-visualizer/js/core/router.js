@@ -51,7 +51,13 @@
 
   Router.prototype._id = function () {
     var raw = (location.hash || "").replace(/^#/, "").trim();
-    return raw || this.defaultRoute;
+    if (!raw) { AV.routeParam = ""; return this.defaultRoute; }
+    // Support "#route/param" (e.g. #labs/gate-the-test) — first segment is
+    // the route id, the rest is exposed as AV.routeParam for the module.
+    var slash = raw.indexOf("/");
+    if (slash === -1) { AV.routeParam = ""; return raw; }
+    AV.routeParam = raw.slice(slash + 1);
+    return raw.slice(0, slash);
   };
 
   Router.prototype._teardown = function () {

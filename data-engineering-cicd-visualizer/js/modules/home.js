@@ -144,6 +144,7 @@
           '<div class="hero-cta">' +
             '<a class="btn btn-primary" href="#git">Start with Git →</a>' +
             '<a class="btn btn-secondary" href="#business-scenario">Watch a change reach production</a>' +
+            '<a class="btn btn-secondary" href="#labs">🧪 Try a hands-on lab</a>' +
             '<a class="btn btn-ghost" href="#interview">Interview prep</a>' +
           "</div>" +
           '<div class="home-flow">' + flow + "</div>" +

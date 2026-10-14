@@ -18,6 +18,7 @@ Each concept follows the same learning spine:
 - **Failure Simulator** — realistic RetailFlow incidents walked stage by stage (symptom → detection → logs → diagnosis → fix → verification).
 - **Interview bank** — searchable, level-tabbed questions with answer, why-it-matters, common mistake, RetailFlow scenario, and a harder follow-up.
 - **Quiz** — multiple-choice checks with explanations.
+- **Hands-on Labs** — fix a real broken config (GitHub Actions gating, a leaked secret, an insecure Dockerfile, a Terraform destroy guard, a late-arriving dbt incremental, a DAG import error, a Kubernetes OOM, a flaky freshness check), run deterministic checks, reveal progressive hints, and diff against a reference solution. Code is never executed — labs use static validation and scripted simulated runs, labelled on each lab.
 - **Learning Dashboard** — overall and per-tier progress, continue-learning, bookmarks, and a revision queue, derived from real interactions and saved locally.
 - **Global search** across topics, glossary terms, tools, and common errors.
 - **Glossary** and a **Master Map** of the whole stack.
@@ -60,10 +61,9 @@ Keyboard shortcuts (`?` for help), theme toggle, semantic structure, and respons
 
 ## Status & roadmap
 
-Core platform, all concept modules, end-to-end map, failure simulator, interview/quiz, dashboard, and global search are live. Planned next: an interactive hands-on **Lab** framework (editable config with static + simulated validation), an expanded failure catalogue and interview bank, a content/route test harness, and broader UX/a11y polish.
+Core platform, all concept modules, end-to-end map, failure simulator, interview/quiz, dashboard, global search, and hands-on labs are live. Planned next: an expanded failure catalogue and interview bank, a content/route test harness, and broader UX/a11y polish.
 
 ## Known limitations
 
 - Progress is browser-local only (no backend, no cross-device sync).
-- Code execution is simulated/static, never real (see Execution model).
-- Hands-on editable labs are on the roadmap, not yet shipped.
+- Code execution is simulated/static, never real (see Execution model) — labs validate your edits with structural/regex checks and scripted simulated runs, not a real runtime.
