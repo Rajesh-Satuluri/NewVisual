@@ -13,7 +13,6 @@
   let _platform = null;
   let _currentModuleId = null;
   let _currentInstance = null;
-  let _compareMode = false;
 
   function platforms() { return ORDER.filter(id => viz.P[id] && viz.P[id].meta); }
   function P(id) { return viz.P[id || _platform]; }
@@ -56,27 +55,24 @@
       || 'snowflake';
     if (!viz.P[startP] || !viz.P[startP].meta) startP = platforms()[0] || 'snowflake';
 
-    setPlatform(startP, { initial: true, target: parsed.id, compare: parsed.compare });
+    setPlatform(startP, { initial: true, target: parsed.id });
 
     window.addEventListener('hashchange', () => {
       const h = _parseHash(location.hash);
-      if (h.platform && h.platform !== _platform) { setPlatform(h.platform, { target: h.id, compare: h.compare }); return; }
-      if (h.compare) { _showCompare(); return; }
+      if (h.platform && h.platform !== _platform) { setPlatform(h.platform, { target: h.id }); return; }
       if (h.id && h.id !== _currentModuleId) navigate(h.id);
     });
   }
 
-  /* ── Hash: #platform/module  |  #module  |  #compare ─────── */
+  /* ── Hash: #platform/module  |  #module  (platform may be "compare") ─ */
   function _parseHash(hash) {
     const raw = (hash || '').replace(/^#/, '');
-    if (!raw) return { platform: null, id: '', compare: false };
+    if (!raw) return { platform: null, id: '' };
     const parts = raw.split('/');
-    if (parts[0] === 'compare') return { platform: null, id: '', compare: true };
     if (viz.P[parts[0]] && viz.P[parts[0]].meta) {
-      if (parts[1] === 'compare') return { platform: parts[0], id: '', compare: true };
-      return { platform: parts[0], id: parts[1] || '', compare: false };
+      return { platform: parts[0], id: parts[1] || '' };
     }
-    return { platform: null, id: parts[0] || '', compare: false };
+    return { platform: null, id: parts[0] || '' };
   }
 
   /* ── Platform switcher ──────────────────────────────────── */
@@ -93,22 +89,19 @@
       b.addEventListener('click', () => setPlatform(id));
       track.appendChild(b);
     });
-    if (list.length > 1) {
+    if (list.length > 1 && viz.P.compare && viz.P.compare.meta) {
       const c = document.createElement('button');
-      c.type = 'button'; c.className = 'plat-seg plat-seg--compare'; c.dataset.compare = '1';
+      c.type = 'button'; c.className = 'plat-seg plat-seg--compare'; c.dataset.platform = 'compare';
       c.textContent = '⇄ Compare';
-      c.addEventListener('click', _showCompare);
+      c.addEventListener('click', () => setPlatform('compare'));
       track.appendChild(c);
     }
     host.innerHTML = ''; host.appendChild(track);
   }
   function _syncSwitcher() {
     document.querySelectorAll('#platform-switch .plat-seg').forEach(b => {
-      const on = !_compareMode && b.dataset.platform === _platform;
-      b.classList.toggle('active', on);
+      b.classList.toggle('active', b.dataset.platform === _platform);
     });
-    const cmp = document.querySelector('#platform-switch .plat-seg--compare');
-    if (cmp) cmp.classList.toggle('active', _compareMode);
   }
 
   /* ── Set active platform ────────────────────────────────── */
@@ -118,11 +111,9 @@
     _platform = id;
     viz.activePlatform = id;
     try { localStorage.setItem(LS_PLATFORM, id); } catch (_) {}
-    _compareMode = false;
     _syncActive(id);
     _buildNav();
     _syncSwitcher();
-    if (opts.compare) { _showCompare(); return; }
     const target = opts.target && _allItems().some(i => i.id === opts.target) ? opts.target : P(id).meta.home;
     _currentModuleId = null;
     navigate(target, { replace: true });
@@ -133,7 +124,6 @@
   /* ── Navigate within active platform ────────────────────── */
   function navigate(moduleId, opts) {
     opts = opts || {};
-    _compareMode = false; _syncSwitcher();
     const items = _allItems();
     const target = items.find(i => i.id === moduleId) || items[0];
     if (!target) return;
@@ -166,22 +156,6 @@
     canvas.classList.remove('loading');
     if (window.innerWidth <= 1024 && viz._closeMobileNav) viz._closeMobileNav();
     document.dispatchEvent(new CustomEvent('cdwh:navigate', { detail: { id: target.id, platform: _platform } }));
-  }
-
-  function _showCompare() {
-    _compareMode = true; _syncSwitcher();
-    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-    if (_currentInstance && typeof _currentInstance.destroy === 'function') _currentInstance.destroy();
-    _currentInstance = null;
-    _currentModuleId = null;
-    history.replaceState(null, '', '#' + _platform + '/compare');
-    const canvas = document.getElementById('canvas');
-    if (!canvas) return;
-    canvas.innerHTML = ''; canvas.classList.add('loading');
-    if (viz.Compare && viz.Compare.render) _currentInstance = viz.Compare.render(canvas);
-    canvas.classList.remove('loading');
-    _updateBreadcrumb({ label: 'Compare Platforms' });
-    if (window.innerWidth <= 1024 && viz._closeMobileNav) viz._closeMobileNav();
   }
 
   function _reflectHash(id) { history.replaceState(null, '', '#' + _platform + '/' + id); }
