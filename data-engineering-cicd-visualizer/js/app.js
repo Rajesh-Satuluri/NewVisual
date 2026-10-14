@@ -102,6 +102,11 @@
       function open() { if (modal) modal.classList.remove("hidden"); }
       function close() { if (modal) modal.classList.add("hidden"); }
 
+      var searchBtn = document.getElementById("search-btn");
+      if (searchBtn) searchBtn.addEventListener("click", function () {
+        if (NS.Search) NS.Search.open();
+      });
+
       if (openBtn) openBtn.addEventListener("click", open);
       if (closeBtn) closeBtn.addEventListener("click", close);
       if (backdrop) backdrop.addEventListener("click", close);
@@ -124,6 +129,7 @@
       var list = document.getElementById("kbd-list");
       if (!list) return;
       var shortcuts = [
+        { keys: ["/"], desc: "Search" },
         { keys: ["Space"], desc: "Play / pause animation" },
         { keys: ["→"], desc: "Next step" },
         { keys: ["←"], desc: "Previous step" },

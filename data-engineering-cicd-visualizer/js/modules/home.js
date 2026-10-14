@@ -35,11 +35,87 @@
     ]}
   ];
 
+  // Flat lookup of all topic items (for titles in the dashboard).
+  var ITEM = {};
+  TIERS.forEach(function (tier) { tier.items.forEach(function (it) { ITEM[it.id] = it; }); });
+
+  function titleOf(id) {
+    if (ITEM[id]) return ITEM[id].title;
+    var r = (NS.routes || {})[id];
+    return (r && r.title) || id;
+  }
+
   function card(t) {
-    return '<a class="card card-hover topic-card" href="#' + t.id + '">' +
+    var done = NS.Progress && NS.Progress.isComplete(t.id);
+    var visited = NS.Progress && NS.Progress.isVisited(t.id);
+    var badge = done ? '<span class="topic-badge done" title="Completed">✓</span>'
+      : (visited ? '<span class="topic-badge seen" title="Visited">•</span>' : "");
+    return '<a class="card card-hover topic-card' + (done ? " is-done" : "") + '" href="#' + t.id + '">' +
+      badge +
       '<div class="topic-icon">' + t.icon + "</div>" +
       '<div class="card-title">' + t.title + "</div>" +
       "<p>" + t.desc + "</p></a>";
+  }
+
+  function tierProgress(tier) {
+    if (!NS.Progress) return "";
+    var ids = tier.items.map(function (i) { return i.id; });
+    var done = ids.filter(function (id) { return NS.Progress.isComplete(id); }).length;
+    return '<span class="home-tier-progress">' + done + "/" + ids.length + "</span>";
+  }
+
+  function dashboard() {
+    if (!NS.Progress) return "";
+    var P = NS.Progress;
+    var st = P.stats();
+    var rec = P.recommended();
+    var last = P.lastVisited();
+    var bms = P.bookmarks();
+    var rev = P.revisionQueue();
+    var qz = P.quiz();
+
+    function pill(id) {
+      if (!id) return "";
+      return '<a class="dash-pill" href="#' + id + '">' + titleOf(id) + " →</a>";
+    }
+    function list(items, emptyText) {
+      if (!items.length) return '<p class="dash-empty">' + emptyText + "</p>";
+      return '<div class="dash-chips">' + items.map(function (b) {
+        return '<a class="dash-chip" href="#' + b.route + '">' + titleOf(b.id) + "</a>";
+      }).join("") + "</div>";
+    }
+
+    var started = st.visited > 0 || bms.length || rev.length || qz;
+
+    return '<section class="section dash animate-fade-in-up">' +
+      '<div class="dash-head"><h2 class="section-title">Your learning dashboard</h2>' +
+        '<div class="dash-head-actions">' +
+          '<button type="button" class="btn btn-ghost btn-sm" id="dash-export">Export</button>' +
+          '<button type="button" class="btn btn-ghost btn-sm" id="dash-reset">Reset</button>' +
+        '</div></div>' +
+      '<div class="dash-grid">' +
+        '<div class="dash-card dash-progress">' +
+          '<div class="dash-ring" style="--pct:' + st.pct + '"><span>' + st.pct + '%</span></div>' +
+          '<div class="dash-progress-meta">' +
+            '<div class="dash-stat"><b>' + st.complete + '</b> / ' + st.total + ' topics completed</div>' +
+            '<div class="dash-stat-sub">' + st.visited + ' visited' +
+              (qz ? ' · quiz best ' + qz.best + '/' + qz.total : '') + '</div>' +
+            (rec ? '<div class="dash-next">Recommended next: ' + pill(rec) + '</div>' : '<div class="dash-next">🎉 All topics complete.</div>') +
+            (last && last !== rec ? '<div class="dash-next dash-next-sub">Jump back in: ' + pill(last) + '</div>' : '') +
+          '</div>' +
+        '</div>' +
+        '<div class="dash-card">' +
+          '<div class="dash-card-title">★ Bookmarks</div>' +
+          list(bms, "No bookmarks yet — open a topic and tap ☆ Bookmark.") +
+        '</div>' +
+        '<div class="dash-card">' +
+          '<div class="dash-card-title">🔁 Revision queue</div>' +
+          list(rev, "Empty — add topics to revise from any topic page.") +
+        '</div>' +
+      '</div>' +
+      (started ? '' : '<p class="dash-hint">Progress, bookmarks, and your revision queue are saved in this browser only ' +
+        '(no account, no sync across devices).</p>') +
+    '</section>';
   }
 
   NS.registerModule({
@@ -54,6 +130,7 @@
       var tiers = TIERS.map(function (tier) {
         return '<section class="section"><div class="home-tier-head">' +
           '<h2 class="section-title">' + tier.label + "</h2>" +
+          tierProgress(tier) +
           '<span class="home-roi">ROI: ' + tier.roi + "</span></div>" +
           '<div class="card-grid stagger">' + tier.items.map(card).join("") + "</div></section>";
       }).join("");
@@ -74,7 +151,34 @@
         '<div class="callout tip animate-fade-in"><span class="callout-icon">🧭</span><div class="callout-body">' +
           "Modules are ordered by <b>ROI for a modern Data Engineer</b> — learn the top tiers first. " +
           "Kubernetes, Argo CD, and Jenkins matter, but they shouldn't distract from Git, CI/CD, Terraform, Docker, Databricks, dbt, and testing.</div></div>" +
+        dashboard() +
         tiers;
+
+      // Dashboard controls.
+      var exportBtn = container.querySelector("#dash-export");
+      var resetBtn = container.querySelector("#dash-reset");
+      if (exportBtn && NS.Progress) {
+        exportBtn.addEventListener("click", function () {
+          try {
+            var blob = new Blob([NS.Progress.exportJSON()], { type: "application/json" });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement("a");
+            a.href = url; a.download = "retailflow-cicd-progress.json";
+            document.body.appendChild(a); a.click();
+            document.body.removeChild(a);
+            setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+          } catch (e) {}
+        });
+      }
+      if (resetBtn && NS.Progress) {
+        resetBtn.addEventListener("click", function () {
+          if (window.confirm("Reset all local progress, bookmarks, and revision queue? This can't be undone.")) {
+            NS.Progress.reset();
+            var c = document.getElementById("module-container");
+            if (c) { c.innerHTML = ""; NS.modules.home.render(c); }
+          }
+        });
+      }
     },
     destroy: function () {}
   });

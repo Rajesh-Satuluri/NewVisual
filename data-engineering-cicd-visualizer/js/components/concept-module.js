@@ -77,6 +77,11 @@
         }
         container.appendChild(header);
 
+        // ── Learning actions (bookmark / revise / complete) ─
+        if (NS.ModuleActions) {
+          NS.ModuleActions.mount(container, { id: cfg.id, title: cfg.title, route: cfg.id });
+        }
+
         // ── Animated flow (idx-driven) ─────────────────────
         if (cfg.flow && cfg.flow.length) {
           var flowWrap = document.createElement("section");

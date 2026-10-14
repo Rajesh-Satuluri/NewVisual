@@ -94,6 +94,8 @@
     var canvas = document.getElementById("canvas");
     if (canvas) canvas.scrollTop = 0;
     try { mod.render(c); } catch (e) { console.error("Module render error:", e); }
+    // Record the visit for the learning dashboard (local-only).
+    if (AV.Progress && mod.id) { try { AV.Progress.visit(mod.id); } catch (e) {} }
     // Append the recurring e-commerce business example below concept
     // modules (no-op for modules without a lens entry).
     if (AV.BusinessLens) {
