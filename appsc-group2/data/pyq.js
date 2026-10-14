@@ -11,21 +11,21 @@ window.APPSC_PYQ = {
    "stage": "Prelims",
    "date": "25 Feb 2024",
    "total": 150,
-   "captured": 106,
-   "captureRate": 0.71,
+   "captured": 104,
+   "captureRate": 0.69,
    "sections": [
     {
      "name": "Mental Ability",
      "captured": 23,
      "examples": [
       {
-       "stem": "Rajesh codes the alphabets as numbers such"
+       "stem": "Rajesh codes the alphabets as numbers such as"
       },
       {
-       "stem": "Ifit is known that the stadium is favourable to fast bowli i ast bowli"
+       "stem": "YSR Kadapa team decides to compose"
       },
       {
-       "stem": "Read the following instructions :"
+       "stem": "If it is known that the stadium is favourable to"
       }
      ]
     },
@@ -34,13 +34,13 @@ window.APPSC_PYQ = {
      "captured": 22,
      "examples": [
       {
-       "stem": "Consider the following statements : . imei prc a"
+       "stem": "Consider the following statements : hag ' I. According to Continental"
       },
       {
-       "stem": "Identify the incorrect statement:"
+       "stem": "Identify the 9a Keer gap statement: :"
       },
       {
-       "stem": "Match the following :"
+       "stem": "Match the following : &c List I List IT (Landform) (Geomorphic agent)"
       }
      ]
     },
@@ -49,28 +49,13 @@ window.APPSC_PYQ = {
      "captured": 21,
      "examples": [
       {
-       "stem": "To eradicate child marriages, a unique data| gy, ares Darsreoco DOPZOO"
+       "stem": "To eradicate child marriages, a unique data 2 driven approach like ALI"
       },
       {
-       "stem": "A circular structure used by Zoroastrians for"
+       "stem": "A circular structure used by Zoroastrians for & excarnation or the dis"
       },
       {
-       "stem": "The online portal developed by the"
-      }
-     ]
-    },
-    {
-     "name": "Current Affairs",
-     "captured": 21,
-     "examples": [
-      {
-       "stem": "Which country was certified as Malaria-free|g9"
-      },
-      {
-       "stem": "Who among the following eminent"
-      },
-      {
-       "stem": "According to INTERPOL, which State police erQedond — actighe 8 ie had"
+       "stem": "'Diku Andi' means : oe"
       }
      ]
     },
@@ -79,13 +64,28 @@ window.APPSC_PYQ = {
      "captured": 19,
      "examples": [
       {
-       "stem": "Romaka Siddhanta written by Varahamihira|5, So°sraves\" 6OOOS FHS NGodo"
+       "stem": "Romaka Siddhanta written by Varahamihiral5. deals with : )"
       },
       {
-       "stem": "Which of the following statements is QS mwodSo&"
+       "stem": "Which of the following statements is incorrect with reference to Perma"
       },
       {
-       "stem": "Match List I with List II and select the correct % oak Br 8 rds a6 wan"
+       "stem": "Match List I with List II and select the correct answer using the code"
+      }
+     ]
+    },
+    {
+     "name": "Current Affairs",
+     "captured": 19,
+     "examples": [
+      {
+       "stem": "Which country was certified as Malaria-free"
+      },
+      {
+       "stem": "According to INTERPOL, which State police <i had registered one of the"
+      },
+      {
+       "stem": "Match the following List I with List Il with"
       }
      ]
     }
@@ -97,81 +97,78 @@ window.APPSC_PYQ = {
    "stage": "Prelims",
    "date": "5 May 2019",
    "total": 150,
-   "captured": 146,
-   "captureRate": 0.97,
+   "captured": 150,
+   "captureRate": 1.0,
    "sections": [
     {
      "name": "Planning & Economy",
-     "captured": 49,
+     "captured": 50,
      "examples": [
       {
-       "stem": "QVord So vAvH DHSSVY DTDS"
+       "stem": "Which among the following is the poorest state in India as per Global"
       },
       {
-       "stem": "In which year, Mahatma Gandhi National Rural a. aad Po ardav rade ar a"
+       "stem": "According to Global Multidimensional Poverty Index"
       },
       {
-       "stem": "Out of 8 Millennium Development Goals, how"
+       "stem": "In which year, Mahatma Gandhi National Rural IN Employment Guarantee A"
       }
      ]
     },
     {
      "name": "General Studies",
-     "captured": 43,
+     "captured": 47,
      "examples": [
       {
-       "stem": "The second highest number of tickets are sold}, gg >"
+       "stem": "The total number of tickets sold by B, D, E : and F is a"
       },
       {
-       "stem": "For a mod the srmpieeag skewed distribution, what is"
+       "stem": "With which sports brand did P.V. Sindhu sign a record endorsement deal"
       },
       {
-       "stem": "Sodar&eS° HISSS HowoGoe) arosasoes"
+       "stem": "Who was the designer of the Indian National Flag ?"
       }
      ]
     },
     {
      "name": "AP History & Culture",
-     "captured": 38,
+     "captured": 40,
      "examples": [
       {
        "stem": "How many members are there in the Legislative Council of Andhra Prades"
       },
       {
-       "stem": "Which of the items below does not fall in the State"
+       "stem": "Out of the following terms, which one has not been"
       },
       {
-       "stem": "Which of the following is correct about the Rajya Sabha ? ."
+       "stem": "Which of the items below does not fall in the State"
       }
      ]
     },
     {
      "name": "Indian Constitution",
-     "captured": 12,
+     "captured": 10,
      "examples": [
       {
-       "stem": "Out of the following terms, which one has not been , ; ; ae"
+       "stem": "\"all persons are equally entitled to freedom of conscience and the rig"
       },
       {
-       "stem": "“all persons are equally entitled to freedom of iP"
+       "stem": "Which Article of the Indian Constitution contains provision for \"Promo"
       },
       {
-       "stem": "“Dia QAPAN Dv, wos wSHor-wsd DCEING SROH, DEING"
+       "stem": "The Preamble of Indian Constitution declares India as None of the abov"
       }
      ]
     },
     {
      "name": "Mental Ability",
-     "captured": 4,
+     "captured": 3,
      "examples": [
       {
-       "stem": "&6coTP DoBDowds VOQ BAGQODo, oas SosoS, Denso, SwovArr Avd0%0 VMsms DI"
+       "stem": "What represents the frequency of occurrence of specific phenomena that"
       },
       {
-       "stem": "wren of the following States in India is not crossed"
-      },
-      {
-       "stem": "Find the number of triangles in the given figure : Be"
+       "stem": "Find the number of triangles in the given figure : By"
       }
      ]
     }
@@ -197,141 +194,141 @@ window.APPSC_PYQ = {
    "stage": "Mains",
    "date": "23 Feb 2025",
    "total": 150,
-   "captured": 143,
-   "captureRate": 0.95,
+   "captured": 138,
+   "captureRate": 0.92,
    "sections": [
     {
      "name": "AP Social & Cultural History",
      "captured": 39,
      "examples": [
       {
-       "stem": "Many numbers of cyst burials were found i VishakhapatnanrDistrict arco"
+       "stem": "Which of the following statements is incorrect with reference to thédk"
       },
       {
-       "stem": "Which of the following statements is incorrect with reference to théks"
+       "stem": "'Janasraya' is the title of which of the following Vishnukundin rulers"
       },
       {
-       "stem": "‘Janasraya’ is the title of which of the following Vishnukundin rulers"
-      }
-     ]
-    },
-    {
-     "name": "Union & State Government",
-     "captured": 23,
-     "examples": [
-      {
-       "stem": "Which part of the Indian Constitution deals with the Union Executive ?"
-      },
-      {
-       "stem": "The concept of Judicial Activism was originated and developed in"
-      },
-      {
-       "stem": "Which of the following statement(s) is/are true relating to Election C"
+       "stem": "Ayyana Mahadevi built the Jain temple \"Nedumba Vasati' near Vijayawada"
       }
      ]
     },
     {
      "name": "Colonial & Nationalist Andhra",
-     "captured": 21,
+     "captured": 22,
      "examples": [
       {
-       "stem": "Which of the following statements is incorrect ?"
+       "stem": "Arrange the following events chronologically : ty A. Implementation of"
       },
       {
-       "stem": "Arrange the following events chronologically : A. Implementation of Ry"
+       "stem": "Which of the following statements regarding Library Movement are corre"
       },
       {
-       "stem": "Maich List — I with List — I] and select the correct answer using the"
+       "stem": "Ir which year was the English East India Company established ?"
       }
      ]
     },
     {
      "name": "Constitutional & Local Bodies",
-     "captured": 17,
+     "captured": 21,
      "examples": [
       {
-       "stem": "When was the Human Rights Commission of India constituted ? Saas"
+       "stem": "Which Article of the Indian Constitution is described as the \"heart an"
       },
       {
-       "stem": "Match List —I with List — Il. (Common codes for English and Telugu Ver"
+       "stem": "When was the Human Rights Commission of India constituted ?"
       },
       {
-       "stem": "The State Election Commission conducts elections to Ste Ke?"
+       "stem": "Match List—I with List — II. (Common codes for English and Telugu Vers"
+      }
+     ]
+    },
+    {
+     "name": "Union & State Government",
+     "captured": 20,
+     "examples": [
+      {
+       "stem": "Which part of the Indian Constitution deals with the Union Executive ?"
+      },
+      {
+       "stem": "The concept of Judicial Activism was originated and developed in ia om"
+      },
+      {
+       "stem": "The power to increase the number of judges in the Supreme Court of Ind"
       }
      ]
     },
     {
      "name": "Rights, Duties & Principles",
-     "captured": 12,
+     "captured": 10,
      "examples": [
       {
        "stem": "Fundamental Duties were added to the Constitution on the recommendatio"
       },
       {
-       "stem": "Match List — 1 with List — II. (Common codes for English and Telugu Ve"
+       "stem": "Match List — I with List — Il. (Common codes for English and Tetiteu V"
       },
       {
-       "stem": "Which of the following statements afe #rue regarding"
+       "stem": "Match the Constitutions of different countries given in List — A with"
       }
      ]
     },
     {
      "name": "Andhra Movement & State Formation",
-     "captured": 11,
+     "captured": 8,
      "examples": [
       {
-       "stem": "Arrange the following in chronological order : Ap A. Formation of the"
+       "stem": "Arrange the following in chronological order : a A. Formation of the V"
       },
       {
-       "stem": "Maith-List — I with List — II and select the correct answer using thé’"
+       "stem": "Maith-List ~ I with List — II and select the correct answer using thé'"
       },
       {
-       "stem": "Which of the following statement(s) is/are incorrect?"
+       "stem": "Who was the Chairman of the Partition Committee constituted by Madras"
       }
      ]
     },
     {
      "name": "Nature & Features of the Constitution",
-     "captured": 10,
+     "captured": 7,
      "examples": [
       {
-       "stem": "The term “Secular” was added to the Preamble of the Indian Constitutio"
+       "stem": "The term \"Secular\" was added to the Preamble of the Indian Constitutio"
       },
       {
        "stem": "Indian Constitution was adopted by the Constituent Assembly of India o"
       },
       {
-       "stem": "How many Schedules were there in the original Indian Constitution ? 2r"
-      }
-     ]
-    },
-    {
-     "name": "Constitutional Dynamics",
-     "captured": 6,
-     "examples": [
-      {
-       "stem": "Which of the following Constitution Amendment Acts reduced the minimum"
-      },
-      {
-       "stem": "Which of the following statements is/are mot correct regarding the"
-      },
-      {
-       "stem": "Which of the following provisions of"
+       "stem": "How many Schedules were there in the original Indian Constitution ?"
       }
      ]
     },
     {
      "name": "?",
-     "captured": 4,
+     "captured": 6,
      "examples": [
       {
-       "stem": "Who described Indian Union as, “a federation with a cehtralising tende"
+       "stem": "Which of the following statements is/are correct ?"
       },
       {
-       "stem": "Which of the following is not on Center — State Relations 2"
+       "stem": "Which of the following statements are correct?"
       },
       {
-       "stem": "Are the statements given below in the Indian Constitution.2. Statement"
+       "stem": "Which of the following is net on Center — State Relatio ns)"
+      }
+     ]
+    },
+    {
+     "name": "Constitutional Dynamics",
+     "captured": 5,
+     "examples": [
+      {
+       "stem": "Which of the following statements afe #rue regarding"
+      },
+      {
+       "stem": "Which of the following Constitution Amendment Acts reduced the mmimum"
+      },
+      {
+       "stem": "Which of the following statements is/are nof correct regarding the"
       }
      ]
     }
@@ -340,7 +337,7 @@ window.APPSC_PYQ = {
     {
      "half": "AP Social & Cultural History",
      "declared": 75,
-     "captured": 71,
+     "captured": 69,
      "subthemes": [
       {
        "name": "AP Social & Cultural History",
@@ -348,38 +345,38 @@ window.APPSC_PYQ = {
       },
       {
        "name": "Colonial & Nationalist Andhra",
-       "captured": 21
+       "captured": 22
       },
       {
        "name": "Andhra Movement & State Formation",
-       "captured": 11
+       "captured": 8
       }
      ]
     },
     {
      "half": "Indian Constitution (all Const. sections)",
      "declared": 75,
-     "captured": 68,
+     "captured": 63,
      "subthemes": [
       {
-       "name": "Union & State Government",
-       "captured": 23
+       "name": "Constitutional & Local Bodies",
+       "captured": 21
       },
       {
-       "name": "Constitutional & Local Bodies",
-       "captured": 17
+       "name": "Union & State Government",
+       "captured": 20
       },
       {
        "name": "Rights, Duties & Principles",
-       "captured": 12
-      },
-      {
-       "name": "Nature & Features of the Constitution",
        "captured": 10
       },
       {
+       "name": "Nature & Features of the Constitution",
+       "captured": 7
+      },
+      {
        "name": "Constitutional Dynamics",
-       "captured": 6
+       "captured": 5
       }
      ]
     }
@@ -391,15 +388,15 @@ window.APPSC_PYQ = {
    "stage": "Mains",
    "date": "23 Feb 2025",
    "total": 150,
-   "captured": 136,
-   "captureRate": 0.91,
+   "captured": 138,
+   "captureRate": 0.92,
    "sections": [
     {
      "name": "Environment & Disaster",
-     "captured": 50,
+     "captured": 51,
      "examples": [
       {
-       "stem": "What is the primary goal of India’s National Clean Energy Fund (NCEF)."
+       "stem": "What is the primary goal of India's National Clean Energy Fund (NCEF)."
       },
       {
        "stem": "National Green Tribunal (NGT) was established to"
@@ -410,11 +407,26 @@ window.APPSC_PYQ = {
      ]
     },
     {
-     "name": "Structure, National Income & Planning",
-     "captured": 25,
+     "name": "Money, Banking & Public Finance",
+     "captured": 24,
      "examples": [
       {
-       "stem": "Post-economic reforms, the Indian economy saw a shift towards ncreased"
+       "stem": "The severe balance of payments crisis, faced by India in"
+      },
+      {
+       "stem": "What was the primary reason for the current account surplus in"
+      },
+      {
+       "stem": "Which of the following statements is/are correct about Foreign Portfol"
+      }
+     ]
+    },
+    {
+     "name": "Structure, National Income & Planning",
+     "captured": 24,
+     "examples": [
+      {
+       "stem": "Post-economic reforms, the Indian economy saw a shift towards creased"
       },
       {
        "stem": "Which of the following is not a method of measurement of National Inco"
@@ -425,23 +437,8 @@ window.APPSC_PYQ = {
      ]
     },
     {
-     "name": "Money, Banking & Public Finance",
-     "captured": 23,
-     "examples": [
-      {
-       "stem": "What was the primary reason for the current account surplus in"
-      },
-      {
-       "stem": "Which of the following statements is/are correct about Foreign Portfol"
-      },
-      {
-       "stem": "How does the introduction of the Standing Deposit Facility (SDF) enhan"
-      }
-     ]
-    },
-    {
      "name": "Agriculture, Industry & Services",
-     "captured": 10,
+     "captured": 11,
      "examples": [
       {
        "stem": "Which of the following statements accurately describe the environmenta"
@@ -450,16 +447,16 @@ window.APPSC_PYQ = {
        "stem": "Which of the following are the major provisions of the Industrial Poli"
       },
       {
-       "stem": "Which organization launched the Credit Guarantee Scheme for the Livest"
+       "stem": "Which among the following classifications of unemployment is predomina"
       }
      ]
     },
     {
      "name": "Andhra Pradesh Economy",
-     "captured": 9,
+     "captured": 10,
      "examples": [
       {
-       "stem": "Statement A : Andhra Pradesh ranks"
+       "stem": "Statement A : Andhra Pradesh ranks * in the productivity of Oil palm i"
       },
       {
        "stem": "Match the following Central Institutes established under the A. P. Sta"
@@ -474,7 +471,7 @@ window.APPSC_PYQ = {
      "captured": 8,
      "examples": [
       {
-       "stem": "What is the “dual burden” India faces in public health ? >"
+       "stem": "What is the \"dual burden\" India faces in public health ?"
       },
       {
        "stem": "Subject that is not associated with Ayushman Bharat Digital Mission"
@@ -489,13 +486,10 @@ window.APPSC_PYQ = {
      "captured": 4,
      "examples": [
       {
-       "stem": "The mission of the Ministry of New and Renewable Energy (MNRE) is ae a"
+       "stem": "The mission of the Ministry of New and Renewable Energy (MNRE) is a. E"
       },
       {
-       "stem": "BrahMos supersonic cruise missile is developed by the joint efforts o"
-      },
-      {
-       "stem": "Match List—1 with List— [I and choose the correct answet using the cod"
+       "stem": "BrahMos supersonic cruise missile is developed by the joint efforts of"
       }
      ]
     },
@@ -504,13 +498,13 @@ window.APPSC_PYQ = {
      "captured": 3,
      "examples": [
       {
+       "stem": "Which of the following statements are correct regarding PURVODAYA sche"
+      },
+      {
        "stem": "Which principal methodology is employed by the National Statistical Of"
       },
       {
        "stem": "Which Indian organization is responsible for estimating the National M"
-      },
-      {
-       "stem": "Which initiative was launched to provide a tap water connection to eve"
       }
      ]
     },
@@ -519,19 +513,19 @@ window.APPSC_PYQ = {
      "captured": 2,
      "examples": [
       {
-       "stem": "Geosvnchrono satellite | aunch Vehicle almnchers have"
+       "stem": "Geosvnchrona atellite Launch Vehicle aunchers ha é"
       },
       {
-       "stem": "Radio Astronomy center is located in"
+       "stem": "Radio Astronomy center is located in 'O"
       }
      ]
     },
     {
      "name": "ICT & Emerging Technology",
-     "captured": 2,
+     "captured": 1,
      "examples": [
       {
-       "stem": "The terms ‘Petya’ and ‘WannaCry’ are related to"
+       "stem": "Match List -I with List — II and choose the correct answer using the c"
       }
      ]
     }
@@ -540,23 +534,23 @@ window.APPSC_PYQ = {
     {
      "half": "Indian & AP Economy",
      "declared": 75,
-     "captured": 70,
+     "captured": 72,
      "subthemes": [
       {
        "name": "Structure, National Income & Planning",
-       "captured": 25
+       "captured": 24
       },
       {
        "name": "Money, Banking & Public Finance",
-       "captured": 23
+       "captured": 24
       },
       {
        "name": "Agriculture, Industry & Services",
-       "captured": 10
+       "captured": 11
       },
       {
        "name": "Andhra Pradesh Economy",
-       "captured": 9
+       "captured": 10
       },
       {
        "name": "Development & Social Sector",
@@ -571,7 +565,7 @@ window.APPSC_PYQ = {
      "subthemes": [
       {
        "name": "Environment & Disaster",
-       "captured": 50
+       "captured": 51
       },
       {
        "name": "Life Sciences & Health",
@@ -587,7 +581,7 @@ window.APPSC_PYQ = {
       },
       {
        "name": "ICT & Emerging Technology",
-       "captured": 2
+       "captured": 1
       }
      ]
     }
@@ -597,42 +591,42 @@ window.APPSC_PYQ = {
  "topAreas": [
   {
    "area": "Environment & Disaster",
-   "count": 50
+   "count": 51
   },
   {
    "area": "Planning & Economy",
-   "count": 49
+   "count": 50
   },
   {
    "area": "General Studies",
-   "count": 43
+   "count": 47
+  },
+  {
+   "area": "AP History & Culture",
+   "count": 40
   },
   {
    "area": "AP Social & Cultural History",
    "count": 39
   },
   {
-   "area": "AP History & Culture",
-   "count": 38
-  },
-  {
    "area": "Mental Ability",
-   "count": 27
-  },
-  {
-   "area": "Structure, National Income & Planning",
-   "count": 25
-  },
-  {
-   "area": "Union & State Government",
-   "count": 23
+   "count": 26
   },
   {
    "area": "Money, Banking & Public Finance",
-   "count": 23
+   "count": 24
+  },
+  {
+   "area": "Structure, National Income & Planning",
+   "count": 24
   },
   {
    "area": "Geography",
+   "count": 22
+  },
+  {
+   "area": "Colonial & Nationalist Andhra",
    "count": 22
   },
   {
@@ -640,56 +634,56 @@ window.APPSC_PYQ = {
    "count": 21
   },
   {
-   "area": "Current Affairs",
+   "area": "Constitutional & Local Bodies",
    "count": 21
   },
   {
-   "area": "Colonial & Nationalist Andhra",
-   "count": 21
+   "area": "Union & State Government",
+   "count": 20
   },
   {
    "area": "Indian History",
    "count": 19
   },
   {
-   "area": "Constitutional & Local Bodies",
-   "count": 17
-  },
-  {
-   "area": "Indian Constitution",
-   "count": 12
-  },
-  {
-   "area": "Rights, Duties & Principles",
-   "count": 12
-  },
-  {
-   "area": "Andhra Movement & State Formation",
-   "count": 11
-  },
-  {
-   "area": "Nature & Features of the Constitution",
-   "count": 10
+   "area": "Current Affairs",
+   "count": 19
   },
   {
    "area": "Agriculture, Industry & Services",
+   "count": 11
+  },
+  {
+   "area": "Indian Constitution",
+   "count": 10
+  },
+  {
+   "area": "Rights, Duties & Principles",
    "count": 10
   },
   {
    "area": "Andhra Pradesh Economy",
-   "count": 9
+   "count": 10
+  },
+  {
+   "area": "Andhra Movement & State Formation",
+   "count": 8
   },
   {
    "area": "Life Sciences & Health",
    "count": 8
   },
   {
-   "area": "Constitutional Dynamics",
-   "count": 6
+   "area": "Nature & Features of the Constitution",
+   "count": 7
   },
   {
    "area": "?",
-   "count": 4
+   "count": 6
+  },
+  {
+   "area": "Constitutional Dynamics",
+   "count": 5
   },
   {
    "area": "Energy & Strategic Technology",
@@ -705,7 +699,7 @@ window.APPSC_PYQ = {
   },
   {
    "area": "ICT & Emerging Technology",
-   "count": 2
+   "count": 1
   }
  ]
 };

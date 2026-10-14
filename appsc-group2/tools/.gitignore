@@ -4,3 +4,4 @@ pyq_txt/
 pdfvenv/
 *.seg.json
 classified.json
+__pycache__/

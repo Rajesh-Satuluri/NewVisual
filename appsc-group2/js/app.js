@@ -445,7 +445,12 @@
         if (!items.length) return;
         shown += items.length;
         out.push("<div class='bk-grp'><div class='bk-grph'>" + stageTag(p.stage) + " <b>" + esc(p.label) + "</b> · " + esc(s.name) + " <span class='bk-c'>" + items.length + "</span></div>" +
-          "<ol class='bk-items'>" + items.map(function (it) { return "<li><span class='bk-n'>Q" + it.n + "</span>" + esc(it.q) + "</li>"; }).join("") + "</ol></div>");
+          "<ol class='bk-items'>" + items.map(function (it) {
+            var opts = (it.o && it.o.length === 4)
+              ? "<ol class='bk-opts'>" + it.o.map(function (o) { return "<li>" + esc(o) + "</li>"; }).join("") + "</ol>"
+              : "";
+            return "<li><span class='bk-n'>Q" + it.n + "</span><span class='bk-qt'>" + esc(it.q) + "</span>" + opts + "</li>";
+          }).join("") + "</ol></div>");
       });
     });
     host.innerHTML = "<div class='bk-count'>" + shown + " question" + (shown === 1 ? "" : "s") + "</div>" + (out.join("") || "<p class='empty'>No questions match.</p>");

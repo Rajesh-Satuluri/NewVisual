@@ -15,6 +15,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # ---- map: paper -> list of (lo, hi, block_code, section_name, [(leaf, [kw...]), ...], default_leaf)
 # leaf names must match data/syllabus.js exactly.
 P = "2024-prelims"; P19 = "2019-prelims"; M1 = "2025-mains-p1"; M2 = "2025-mains-p2"
+import json as _json
+QJS = _json.load(open(os.path.join(HERE,"pyq_txt","questions.json")))
 
 def rules():
     return {
@@ -155,7 +157,7 @@ def classify():
     out = {}  # paper -> list of {n, block, section, leaf, kw}
     R = rules()
     for paper in [M1, M2]:
-        qs = json.load(open(os.path.join(HERE,"pyq_txt",paper+".seg.json")))
+        qs = QJS[paper]
         rows = []
         for q in qs:
             n, stem = q["n"], q["stem"]
@@ -202,7 +204,7 @@ def classify():
                 return "Planning & Economy"
 
     for paper in [P, P19]:
-        qs = json.load(open(os.path.join(HERE,"pyq_txt",paper+".seg.json")))
+        qs = QJS[paper]
         rows=[]
         for q in qs:
             sec = prelims_section(paper, q["n"], q["stem"])
