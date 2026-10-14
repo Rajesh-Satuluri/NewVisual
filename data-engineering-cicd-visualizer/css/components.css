@@ -1923,3 +1923,70 @@ a.card:hover { text-decoration: none; }
   .wt-step { width: auto; }
   .wt-step-t { display: none; }
 }
+
+/* ============================================================
+   Chapter 4 — incident response (investigation, decisions, review).
+   ============================================================ */
+.inc-label { font-size: 0.82rem; color: var(--text-muted); }
+.inc-symptom { border: 1px solid var(--red); border-left-width: 4px; border-radius: var(--radius-md); background: var(--red-subtle); padding: var(--space-4); margin: var(--space-3) 0 var(--space-5); }
+.inc-symptom-h { font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+.inc h3 { margin: var(--space-5) 0 var(--space-2); color: var(--text-primary); font-size: 1.05rem; }
+
+.inc-invest { border: 1px solid var(--border-default); border-radius: var(--radius-lg); padding: var(--space-4); background: var(--bg-1); }
+.inc-invest-head { display: flex; align-items: baseline; gap: var(--space-3); flex-wrap: wrap; }
+.inc-invest-head h3 { margin: 0; }
+.inc-invest-sub { font-size: 0.82rem; color: var(--text-muted); }
+.inc-clues { display: flex; flex-direction: column; gap: var(--space-2); margin: var(--space-3) 0; }
+.inc-clue { display: flex; gap: var(--space-3); padding: var(--space-3); border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-2); border-left-width: 3px; }
+.inc-clue-ic { font-size: 1.2rem; }
+.inc-clue-t { font-weight: 700; color: var(--text-primary); margin-bottom: 2px; }
+.inc-clue p { margin: 0; color: var(--text-secondary); font-size: 0.9rem; }
+.inc-clue-metric { border-left-color: var(--cyan); }
+.inc-clue-log { border-left-color: var(--text-muted); }
+.inc-clue-deploy { border-left-color: var(--purple); }
+.inc-clue-dq { border-left-color: var(--green); }
+.inc-controls { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-2); }
+.inc-rootcause { margin-top: var(--space-3); padding: var(--space-3) var(--space-4); border: 1px solid var(--yellow); border-radius: var(--radius-md); background: var(--yellow-subtle); }
+.inc-root-h { font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+.inc-rootcause p { margin: 0; color: var(--text-primary); line-height: 1.55; }
+
+.inc-decision { border: 1px solid var(--border-default); border-radius: var(--radius-md); padding: var(--space-3) var(--space-4); margin-bottom: var(--space-3); background: var(--bg-2); }
+.inc-q { font-weight: 600; color: var(--text-primary); margin-bottom: var(--space-2); }
+.inc-opts { display: flex; flex-direction: column; gap: var(--space-2); }
+.inc-opt { text-align: left; padding: var(--space-2) var(--space-3); border: 1px solid var(--border-muted); border-radius: var(--radius-sm); background: var(--bg-3); color: var(--text-primary); cursor: pointer; font-size: 0.9rem; }
+.inc-opt:hover { border-color: var(--brand); }
+.inc-opt.ok.sel { border-color: var(--green); background: var(--green-subtle); }
+.inc-opt.no.sel { border-color: var(--red); background: var(--red-subtle); }
+.inc-consequence { margin-top: var(--space-2); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); font-size: 0.88rem; }
+.inc-consequence.good { background: var(--green-subtle); color: var(--text-primary); }
+.inc-consequence.bad { background: var(--red-subtle); color: var(--text-primary); }
+
+.inc-sub { font-size: 0.74rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin-bottom: 4px; }
+.inc-recovery ul { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 4px; }
+.inc-recovery li { color: var(--text-secondary); }
+.inc-rec-cols { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-top: var(--space-3); }
+.inc-rec-col { border: 1px solid var(--border-default); border-radius: var(--radius-md); padding: var(--space-3); background: var(--bg-2); }
+.inc-rec-h { font-weight: 700; margin-bottom: var(--space-2); }
+.inc-rec-h.code { color: var(--purple); }
+.inc-rec-h.data { color: var(--green); }
+.inc-note { margin-top: var(--space-3); padding: var(--space-2) var(--space-3); border-left: 3px solid var(--yellow); background: var(--yellow-subtle); border-radius: var(--radius-sm); font-size: 0.88rem; color: var(--text-primary); }
+.inc-verify ul { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 4px; }
+.inc-verify li { color: var(--text-secondary); }
+
+.inc-prevent-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); gap: var(--space-3); }
+.inc-prevent-item { border: 1px solid var(--border-default); border-radius: var(--radius-md); padding: var(--space-3); background: var(--bg-2); }
+.inc-prevent-change { color: var(--text-primary); margin-bottom: var(--space-2); }
+.inc-prevent-prevents { font-size: 0.85rem; color: var(--text-secondary); }
+.inc-prevent-prevents span { font-weight: 700; color: var(--green); text-transform: uppercase; font-size: 0.68rem; }
+
+.inc-review { border: 1px solid var(--border-muted); border-radius: var(--radius-lg); padding: var(--space-4); margin-top: var(--space-5); background: var(--bg-1); }
+.inc-review-tag { font-size: 0.64rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--yellow); border: 1px solid var(--yellow); border-radius: var(--radius-full); padding: 1px 7px; vertical-align: middle; }
+.inc-rev-row { display: grid; grid-template-columns: 130px 1fr; gap: var(--space-3); padding: var(--space-2) 0; border-top: 1px solid var(--border-subtle); }
+.inc-rev-row:first-child { border-top: none; }
+.inc-rev-row > span { font-weight: 700; color: var(--text-muted); font-size: 0.78rem; text-transform: uppercase; }
+.inc-rev-row > div { color: var(--text-secondary); }
+.inc-timeline, .inc-actions { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 4px; }
+@media (max-width: 760px) {
+  .inc-rec-cols { grid-template-columns: 1fr; }
+  .inc-rev-row { grid-template-columns: 1fr; gap: 2px; }
+}
