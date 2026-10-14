@@ -96,6 +96,39 @@
     retention: {
       question: "RetailFlow's rule is that every completed order has exactly one customer. Which data test enforces it, and what does a 'pass' look like?",
       answer: "A <b>referential-integrity (anti-join) test</b>: <code>LEFT JOIN dim_customers ... WHERE customer_id IS NULL</code>. A pass is <b>zero rows returned</b> — every order matched exactly one existing customer."
-    }
+    },
+
+    prerequisites: ["testing-pyramid", "dbt-cicd", "data-quality"],
+
+    production: [
+      { h: "Hard vs soft failures", body: "Decide per check whether a violation <b>blocks</b> the publish or merely <b>warns</b> — RetailFlow's <code>order_id</code> uniqueness is a hard gate, while a small row-count dip may be a soft alert. Wiring every check as hard-fail causes alert fatigue and 3 AM pages." },
+      { h: "Reconcile to an external source", body: "<code>SUM(net_revenue)</code> in the mart should tie to the finance ledger within tolerance; schema and null checks pass while a join still silently loses rows, so reconciliation is what proves business correctness." },
+      { h: "Keep checks cheap on big tables", body: "Full-table scans every micro-batch get expensive — partition the uniqueness/anti-join checks by load date so they still catch the day's bad rows without re-scanning history." },
+      { h: "Freshness as a gate before 7 AM", body: "Assert the newest <code>order_completed_at</code> is recent; a stale load serves yesterday's revenue as today's on the dashboard, and only a freshness check catches a silently stopped feed." },
+      { h: "Schema evolution", body: "A renamed or retyped upstream column breaks joins quietly — add a schema/column-presence check so an upstream change fails loud instead of producing plausible-but-wrong rows." }
+    ],
+
+    misconceptions: [
+      { myth: "Green data tests mean the numbers are correct.", truth: "Not-null/unique/in-range checks prove structural properties, not business truth — a wrong-but-plausible formula produces clean rows that pass. Only reconciliation to a trusted source catches that." },
+      { myth: "A uniqueness check is just <code>SELECT DISTINCT</code>.", truth: "You detect duplicates with <code>GROUP BY key HAVING COUNT(*) > 1</code> (which <i>returns</i> the offending keys); <code>DISTINCT</code> hides duplicates rather than reporting them, so it can't gate a pipeline." },
+      { myth: "Row-count checks should hard-fail on any change.", truth: "Volumes fluctuate; a rigid exact-count gate is flaky. Compare against a trailing average with a tolerance, and reserve hard-fail for clear drops (e.g. 4% below baseline)." },
+      { myth: "If dbt tests pass, you don't need freshness checks.", truth: "Standard dbt generic tests don't assert recency — a stale but internally-consistent table passes unique/not_null while serving yesterday's data. Freshness is a separate assertion." }
+    ],
+
+    troubleshooting: [
+      { symptom: "Uniqueness check returns duplicate order_ids after a transform change.", cause: "A join fanned out one-to-many (e.g. multiple refund rows per order).", fix: "Pre-aggregate the child table to one row per <code>order_id</code> before joining; re-run <code>GROUP BY order_id HAVING COUNT(*) > 1</code> and confirm zero rows." },
+      { symptom: "Referential-integrity anti-join suddenly returns rows.", cause: "An upstream loader dropped parent rows (a deleted/late customer), orphaning the foreign key.", fix: "Backfill the missing <code>dim_customers</code> rows or quarantine orphaned orders; re-run the <code>LEFT JOIN ... WHERE c.customer_id IS NULL</code> check to confirm it returns zero." },
+      { symptom: "A data check flaps green/red between runs.", cause: "It depends on wall-clock time or an exact row count on fluctuating volume.", fix: "Anchor freshness to a fixed SLA window and switch count checks to a trailing-average tolerance; re-run across several loads to confirm stability." },
+      { symptom: "All checks pass but finance says the total is low.", cause: "No reconciliation — a silent row drop produces structurally-valid but incomplete data.", fix: "Add a reconciliation check comparing <code>SUM(net_revenue)</code> to the ledger within tolerance and a row-count-vs-average gate; verify it trips on the incomplete load." }
+    ],
+
+    interview: [
+      { q: "How does a SQL data test actually 'fail'?", a: "Each check is a query that selects the <i>bad</i> rows — a null <code>order_id</code>, a duplicate key, an orphaned <code>customer_id</code>, a negative net_revenue. If it returns any rows the test fails and the runner exits non-zero to gate the pipeline; zero rows means the invariant holds." },
+      { q: "Why can every data test be green and the revenue still be wrong?", a: "Structural checks (unique, not_null, range) don't assert business meaning — a plausible-but-wrong formula emits clean rows. You need <b>reconciliation</b> to a trusted source (the finance ledger) and anomaly/row-count checks to catch silent completeness problems." },
+      { q: "When should a data check block the pipeline vs just alert?", a: "Hard-fail (block) on integrity invariants that make the numbers meaningless — uniqueness of <code>order_id</code>, referential integrity, negative revenue. Soft-warn on signals that need a human look but not a halt, like a minor row-count dip. Making everything blocking causes alert fatigue." },
+      { q: "How do you keep uniqueness and integrity checks cheap at scale?", a: "Use <code>GROUP BY key HAVING COUNT(*) > 1</code> for duplicates and a <code>LEFT JOIN ... WHERE parent IS NULL</code> anti-join for orphans, and partition them by load date so each run scans only the new partition instead of the full history, while still catching the day's bad rows." }
+    ],
+
+    related: ["dbt-cicd", "data-quality", "testing-pyramid", "pytest"]
   }));
 })();

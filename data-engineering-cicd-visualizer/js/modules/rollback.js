@@ -87,6 +87,44 @@
     retention: {
       question: "RetailFlow's inverted net-revenue build already ran at 2 AM and wrote inflated numbers to the Gold table. You redeploy the previous image digest — is the incident over?",
       answer: "No. Redeploying the previous <b>artifact</b> only fixes the code path for future runs. The bad run already wrote wrong rows, which the rollback never touched. You must also <b>repair the data</b> — backfill / reprocess the affected partition (or restore from a snapshot / time-travel version) and re-run data-quality checks before the 7 AM dashboard reads it. Code rollback ≠ data rollback."
-    }
+    },
+
+    prerequisites: [
+      { id: "deployment-strategies", label: "Deployment strategies" },
+      "environment-promotion",
+      "observability"
+    ],
+
+    production: [
+      { h: "Roll back to a pinned digest", body: "Redeploy the previous immutable <code>@sha256</code> digest or Helm revision — never a moving <code>:latest</code> tag — so 'the previous version' is exactly reproducible." },
+      { h: "Repair the data, not just the code", body: "RetailFlow's rollback fixes tomorrow's run; the inflated rows the 2 AM run wrote to the Gold table must be <b>backfilled/restored</b> separately before the 7 AM dashboard reads them." },
+      { h: "Design for idempotent reprocessing", body: "Partitioned, idempotent loads (merge or delete-and-insert by partition) let you safely re-run any date range; non-idempotent appends turn a backfill into double-counting." },
+      { h: "Know when to roll forward instead", body: "If the bad release already ran a forward schema migration, old code won't run against the new table — ship a corrective fix (roll-forward) rather than an incompatible rollback." },
+      { h: "Verify before releasing the dashboard", body: "After rollback, run a data-quality check on a fresh sample and confirm the repaired partitions pass before letting consumers read the table." }
+    ],
+
+    misconceptions: [
+      { myth: "Reverting the code reverses the bad data it already wrote.", truth: "A rollback changes the code path going forward only; rows the bad run loaded are still in the warehouse and must be backfilled or restored separately." },
+      { myth: "Under pressure, the fastest fix is to hot-fix live.", truth: "The safe move is to redeploy the <b>previous known-good artifact</b> you already trust; forward-fixing comes later, calmly, through the normal PR + CI path." },
+      { myth: "Rollback is always available.", truth: "If the release already ran a forward schema migration, redeploying old code against the new table just breaks differently — you must <b>roll forward</b> instead." },
+      { myth: "A backfill can just re-run the pipeline for the bad dates.", truth: "Only if the load is <b>idempotent</b>; a plain append re-run double-counts, so the partition must be overwritten via merge or delete-and-insert." }
+    ],
+
+    troubleshooting: [
+      { symptom: "Rolled back the image but the Gold table still shows inflated revenue.", cause: "The rollback only reverted code; the bad 2 AM run's rows remain.", fix: "Identify the affected partitions, backfill/reprocess them from Bronze with an idempotent load, re-run data-quality checks, and confirm the dashboard totals are correct." },
+      { symptom: "Old code crashes immediately after rollback.", cause: "The bad release ran a forward schema migration the old code can't read.", fix: "Roll <b>forward</b> with a corrective release instead, or restore the schema; verify the pipeline runs green against the current table." },
+      { symptom: "Backfill produced doubled revenue numbers.", cause: "The load appends rather than overwrites — it's not idempotent.", fix: "Switch the affected load to merge/delete-and-insert by partition, re-run the backfill, and verify row counts match the expected single-count totals." },
+      { symptom: "Can't reproduce the previous version to roll back to.", cause: "Deploys used a moving <code>:latest</code> tag, so the prior artifact isn't pinned.", fix: "Deploy by immutable digest/revision going forward; recover the prior digest from the registry/Helm history, redeploy it, and verify the run is healthy." },
+      { symptom: "Rollback looks healthy but downstream models are still wrong.", cause: "Repaired Gold partitions weren't re-verified before release.", fix: "Run the data-quality suite on the reprocessed window and confirm it passes before letting the 7 AM dashboard read the table." }
+    ],
+
+    interview: [
+      { q: "Why isn't redeploying the previous artifact enough to resolve a bad data load?", a: "A rollback restores the <b>code path</b> for future runs, but the bad run already wrote wrong rows to the warehouse, and reverting code never un-writes them. Full recovery is two steps: <b>redeploy the previous artifact</b>, then <b>backfill or restore</b> the corrupted partitions and re-run data-quality checks before consumers read the table." },
+      { q: "When would you roll <i>forward</i> instead of rolling back?", a: "When a rollback would be <b>incompatible</b> — e.g. the bad release already ran a forward schema migration (new/renamed columns), so old code can't run against the new table. There you ship a <b>corrective fix</b> through CI rather than redeploying an older, now-incompatible artifact." },
+      { q: "RetailFlow's inverted net-revenue build ran at 2 AM and corrupted the Gold table. Walk through your incident response before the 7 AM dashboard.", a: "1) Redeploy the <b>previous image digest</b> and verify the code path is healthy. 2) Identify the <b>blast radius</b> — which partitions/dates the 2 AM run touched. 3) <b>Backfill</b> those partitions from Bronze (or restore from a snapshot/time-travel version) with an idempotent load. 4) Re-run <b>data-quality checks</b> on the reprocessed window. 5) Only then release the dashboard. Code rollback fixes tomorrow; the backfill fixes yesterday." },
+      { q: "What pipeline design choices make rollback fast and safe?", a: "<b>Immutable, pinned artifacts</b> (digest/Helm revision, never <code>:latest</code>) so the prior version is instantly redeployable; <b>idempotent, partitioned loads</b> (merge/delete-insert) so any date range can be safely re-run; and <b>snapshots/time travel</b> so data can be restored. Rollback speed is a property you build in before the incident, not something you improvise during it." }
+    ],
+
+    related: ["deployment-strategies", "observability", "environment-promotion", "container-registry"]
   }));
 })();

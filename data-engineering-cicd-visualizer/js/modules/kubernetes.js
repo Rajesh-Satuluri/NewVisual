@@ -100,6 +100,45 @@
     retention: {
       question: "RetailFlow's processing pod once ate a whole node's memory and OOM-killed its neighbors. Which two settings prevent this, and what does each do?",
       answer: "<b>Resource requests</b> (reserve CPU/memory so the scheduler places the pod correctly) and <b>limits</b> (cap what the pod can consume so it can't starve neighbors). Together they give each pod a bounded, schedulable envelope."
-    }
+    },
+
+    prerequisites: [
+      "docker",
+      "container-registry",
+      { id: "deployment-strategies", label: "Deployment strategies (rolling updates)" },
+      "secrets"
+    ],
+
+    production: [
+      { h: "Always set requests and limits", body: "Every data pod needs CPU/memory <b>requests</b> (for scheduling) and <b>limits</b> (to cap it) — without them one greedy RetailFlow processor can OOM-kill its node neighbors. Enforce this in CI before a manifest ships." },
+      { h: "Liveness vs readiness probes", body: "A <b>readiness</b> probe holds traffic until the pod can serve; a <b>liveness</b> probe restarts a hung pod. Misusing liveness as readiness causes needless restart loops under load." },
+      { h: "Secrets and config outside the image", body: "Mount the warehouse credential from a <b>Secret</b> and batch settings from a <b>ConfigMap</b>; never bake them into the image. Pair with RBAC so only the right service accounts read them." },
+      { h: "Pods are ephemeral — externalize state", body: "A pod can be killed and rescheduled anytime; never store the revenue checkpoint in the pod's filesystem — use a Volume or external store so restarts don't lose data." },
+      { h: "Autoscale and pin images by digest", body: "An HPA scales replicas to load so cost tracks demand; pin the container image by <code>@sha256</code> digest so a rescheduled pod can't pull different bytes." }
+    ],
+
+    misconceptions: [
+      { myth: "A pod and a container are the same thing.", truth: "A <b>pod</b> is the smallest schedulable unit and can hold one or more containers sharing network/storage. Usually one app container, but the pod — not the container — is what Kubernetes schedules and reschedules." },
+      { myth: "Setting a memory <b>limit</b> alone is enough.", truth: "Without a <b>request</b>, the scheduler can overpack a node; the request reserves capacity. Limit caps usage, request guarantees placement — you need both for data workloads." },
+      { myth: "Data written inside a pod persists.", truth: "A pod's filesystem is ephemeral — it's gone when the pod is rescheduled or restarted. Durable state needs a <b>PersistentVolume</b> or an external store." },
+      { myth: "A liveness probe failing just means 'not ready yet'.", truth: "A failed <b>liveness</b> probe <b>restarts</b> the container. Use <b>readiness</b> for 'not ready to serve' — confusing the two causes restart loops during slow startup or heavy load." }
+    ],
+
+    troubleshooting: [
+      { symptom: "Pod stuck in <code>CrashLoopBackOff</code>.", cause: "The container exits/crashes on startup repeatedly (bad config, missing secret, failing liveness probe).", fix: "<code>kubectl logs --previous</code> and <code>kubectl describe pod</code> to find the exit reason; fix config/probe, redeploy, confirm the pod reaches <code>Running</code>/<code>Ready</code>." },
+      { symptom: "Pod killed with reason <code>OOMKilled</code>.", cause: "The process exceeded its memory limit (or a spike with no limit starved the node).", fix: "Raise the memory limit to the real working set or shard the job, and set requests; verify with <code>kubectl top pod</code> that usage stays under the limit." },
+      { symptom: "<code>ImagePullBackOff</code>.", cause: "Wrong image reference or missing registry pull secret.", fix: "Verify the digest/tag exists and attach a valid <code>imagePullSecret</code>; confirm the pod pulls and starts." },
+      { symptom: "Pod is <code>Pending</code> and never schedules.", cause: "No node has enough free CPU/memory to satisfy the requests (or a taint/affinity blocks it).", fix: "Lower requests, add capacity, or fix node selectors/tolerations; <code>kubectl describe pod</code> shows the exact scheduling reason, then confirm it schedules." },
+      { symptom: "Rolling update stalls, new pods never become ready.", cause: "Readiness probe failing on the new image (bad healthcheck path/port or startup too slow).", fix: "Fix the probe path/port or add <code>initialDelaySeconds</code>/startup probe; verify the rollout completes with <code>kubectl rollout status</code>." }
+    ],
+
+    interview: [
+      { q: "Explain requests vs limits and why both matter for data workloads.", a: "<b>Requests</b> reserve CPU/memory so the scheduler places the pod on a node with capacity; <b>limits</b> cap consumption so a spiky, memory-hungry data job can't starve or OOM-kill neighbors. Without requests the scheduler overpacks; without limits one pod takes down the node — both together are the biggest reliability lever on k8s." },
+      { q: "Liveness vs readiness probe — when does each fire?", a: "A <b>readiness</b> probe failing removes the pod from the Service's endpoints (no traffic) but leaves it running — used during startup or temporary overload. A <b>liveness</b> probe failing <b>restarts</b> the container — used for a hung/deadlocked process. Confusing them causes restart loops or traffic to unready pods." },
+      { q: "Your processing pod is in CrashLoopBackOff — walk through debugging.", a: "Check <code>kubectl describe pod</code> for the reason and events, then <code>kubectl logs --previous</code> for the crashed container's output. Common causes: missing Secret/ConfigMap, bad image, failing liveness probe, or OOMKilled. Fix the root cause, redeploy, and confirm the pod reaches Ready." },
+      { q: "When is Kubernetes the wrong tool for a data team?", a: "When the workload is a handful of scheduled batch jobs, k8s brings YAML, networking, upgrades, and on-call overhead that a managed Airflow, serverless container, or warehouse job avoids. Reach for k8s when you genuinely need self-healing, autoscaling, and many long-running services — not for a nightly script." }
+    ],
+
+    related: ["docker", "helm", "container-registry", "argo-cd"]
   }));
 })();

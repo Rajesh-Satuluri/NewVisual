@@ -80,6 +80,45 @@
     retention: {
       question: "Why does RetailFlow build the revenue image once and promote it, instead of rebuilding it in each environment's pipeline?",
       answer: "Rebuilding per environment re-resolves dependencies and base images, so prod can end up running <b>different code than was tested</b>. Building <b>once</b> and promoting the same immutable artifact (pinned by digest) guarantees dev/test/prod are byte-for-byte identical — so a passing test actually predicts prod, and rollback is just redeploying the prior digest."
-    }
+    },
+
+    prerequisites: [
+      { id: "ci-vs-cd", label: "CI vs CD (build in CI, promote in CD)" },
+      "environment-promotion",
+      "container-registry",
+      "rollback"
+    ],
+
+    production: [
+      { h: "Pin by digest", body: "Reference the artifact by immutable content digest, not a mutable <code>latest</code> tag, so the thing deployed is provably the thing tested — RetailFlow pins <code>revenue:1.4.2</code> by its <code>sha256</code>." },
+      { h: "Config is injected, not baked", body: "Keep environment differences (prod DB URL, warehouse creds) out of the artifact and inject them at deploy time, so one immutable artifact serves every environment." },
+      { h: "Provenance + SBOM", body: "Attach build provenance (which commit, which tests passed) and an SBOM, and sign the artifact, so you can prove what's running was built from reviewed source." },
+      { h: "Rollback by digest", body: "Keep previous good digests available so rollback is redeploying the prior artifact — no rebuild, no scramble to reconstruct an old version." },
+      { h: "Retention vs cost", body: "Immutable artifacts accumulate; set retention policies that keep enough history for rollback and audit without unbounded registry/storage growth." }
+    ],
+
+    misconceptions: [
+      { myth: "Rebuilding from the same commit gives the same artifact.", truth: "Unless every dependency and base image is pinned, a rebuild re-resolves to newer versions — so the 'same' source can produce <b>different bytes</b>. Only promoting the one built artifact guarantees identity." },
+      { myth: "A <code>latest</code> tag is fine for tracking the current release.", truth: "<code>latest</code> is mutable and can be re-pointed; it gives no reproducibility or rollback guarantee. Pin by digest and let promotion move the reference." },
+      { myth: "Each environment should build its own copy to be sure it's fresh.", truth: "That's exactly what breaks 'works in test, fails in prod' — freshness introduces drift. The goal is <b>sameness</b>: build once, promote the identical bytes." },
+      { myth: "Environment-specific values belong in the artifact.", truth: "Baking a prod URL or key into the artifact forces a rebuild per environment. The senior framing: the artifact is immutable; the environment is configuration injected at deploy." }
+    ],
+
+    troubleshooting: [
+      { symptom: "'Works in test, fails in prod' with no code change between them.", cause: "Prod was rebuilt instead of promoting the tested artifact, pulling a newer dependency.", fix: "Switch to build-once/promote-by-digest; verify test and prod resolve to the identical digest before deploy." },
+      { symptom: "Rollback redeploys but the bug persists.", cause: "Rolled back to a mutable tag that was re-pointed, or env config (not the artifact) carried the regression.", fix: "Roll back to the specific previous <b>digest</b>, and confirm the regression wasn't in injected config; verify by diffing digests and config." },
+      { symptom: "Can't tell which commit produced the running artifact.", cause: "No provenance/labels attached at build.", fix: "Add build metadata (commit SHA, build ID) as labels/provenance; verify by inspecting the artifact and tracing back to the source commit." },
+      { symptom: "Two 'identical' deploys behave differently.", cause: "They reference the same tag but the tag moved, so the bytes differ.", fix: "Pin by digest everywhere and enable immutable tags; verify both deploys report the same digest." },
+      { symptom: "Registry/storage costs climbing from kept artifacts.", cause: "No retention policy on old versions.", fix: "Add retention that preserves enough rollback history and prunes the rest; verify storage stabilizes." }
+    ],
+
+    interview: [
+      { q: "What is 'build once, promote' and why is it the golden rule?", a: "CI produces a single immutable artifact; promotion moves that artifact's reference (digest) through dev→test→prod without rebuilding. It matters because rebuilding per environment re-resolves dependencies, so prod could run untested code. Build-once makes every environment byte-for-byte identical, so a green test actually predicts prod." },
+      { q: "Where do environment differences live if the artifact is immutable?", a: "In <b>configuration injected at deploy time</b> — env vars, secrets, config files/maps. The same image reads prod vs dev settings at runtime. The framing: 'the artifact is immutable; the environment is configuration.' That separation keeps tests trustworthy and rollbacks instant." },
+      { q: "Why pin by digest rather than a version tag like <code>1.4.2</code>?", a: "A tag is a movable pointer that can be re-pushed to new bytes; a digest (<code>sha256:…</code>) is content-addressed and immutable. Pinning by digest guarantees the exact bytes you tested run in prod and makes rollback a precise, reproducible operation." },
+      { q: "How does build-once make rollback easy?", a: "Because every release is an immutable, retained artifact addressed by digest, rolling back is just redeploying the previous known-good digest — no rebuild, no dependency re-resolution, no reconstructing old source. RetailFlow can revert a bad revenue build in seconds." }
+    ],
+
+    related: ["container-registry", "environment-promotion", "ci-vs-cd", "rollback"]
   }));
 })();

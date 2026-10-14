@@ -105,6 +105,39 @@
     retention: {
       question: "A RetailFlow PR only touches <code>int_orders</code>, but rebuilding the whole warehouse to validate it is slow and expensive. Which dbt feature validates just the change?",
       answer: "<b>Slim CI</b> — using <code>state:modified+</code> with <code>--defer</code> against stored production artifacts, dbt builds only the changed model and its downstream children while deferring unchanged parents to prod."
-    }
+    },
+
+    prerequisites: ["git", "github-actions", "testing-pyramid", "sql-testing"],
+
+    production: [
+      { h: "Store and refresh the prod manifest", body: "Slim CI compares the PR's <code>manifest.json</code> against a <i>production</i> one — if that artifact is stale or missing, <code>state:modified+</code> silently rebuilds everything or skips changed models. Publish fresh prod artifacts on every main-branch run." },
+      { h: "Incremental late-arriving data", body: "A <code>max(order_completed_at)</code> incremental filter on RetailFlow's <code>daily_revenue</code> model misses orders that land after the watermark; use a lookback window or <code>incremental_strategy='merge'</code> on <code>order_id</code> so late refunds still correct net_revenue." },
+      { h: "Contracts and schema evolution", body: "Put a <code>contract</code> on the model feeding the 7 AM dashboard so a renamed or retyped column fails the build instead of silently breaking the downstream exposure." },
+      { h: "Tests as a real deploy gate", body: "A failing <code>dbt test</code> only blocks prod if the orchestrator runs <code>dbt build</code> (not <code>run</code>) and halts on non-zero exit; wire <code>--fail-fast</code> and check the exit code so a uniqueness failure actually stops the publish." },
+      { h: "Warehouse cost", body: "<code>table</code> and full-refresh <code>incremental</code> rebuilds scan the whole history every run — bound CI to <code>state:modified+</code> and prefer incremental in prod to keep warehouse spend predictable." }
+    ],
+
+    misconceptions: [
+      { myth: "A failing dbt test always blocks the deployment.", truth: "Only if the pipeline enforces it — <code>dbt run</code> ignores tests, and <code>test</code> failures block prod merely when the orchestrator runs <code>build</code>/<code>test</code> and acts on the non-zero exit. <code>severity: warn</code> tests never block." },
+      { myth: "An incremental model using <code>max(timestamp)</code> catches all new rows.", truth: "It misses late-arriving rows (a refund posted after the watermark). Use a lookback window, a merge strategy, or an explicit watermark table." },
+      { myth: "Slim CI tests the whole project cheaply.", truth: "It only builds <code>state:modified+</code> and defers the rest to prod — unchanged models are not re-tested, so a change that breaks an untouched downstream model via data (not SQL) can slip through until the full prod run." },
+      { myth: "<code>ref()</code> just controls run order.", truth: "<code>ref()</code> builds the lineage DAG and resolves to the correct schema per target/defer — it is how dbt knows dependencies, enables Slim CI deferral, and powers lineage and exposures, not merely ordering." }
+    ],
+
+    troubleshooting: [
+      { symptom: "<code>unique</code> test on <code>order_id</code> fails after an int_orders edit.", cause: "A join to refunds went one-to-many (fan-out), duplicating each order row.", fix: "Pre-aggregate refunds to one row per order (<code>group by order_id</code>) before joining, or join on a unique grain; re-run <code>dbt build</code> and confirm the unique test returns zero duplicates." },
+      { symptom: "Slim CI rebuilds the entire warehouse on a one-model PR.", cause: "The stored prod <code>manifest.json</code> is missing or stale, so <code>state:modified+</code> can't diff.", fix: "Regenerate and upload prod artifacts from the latest main run, point <code>--state</code> at them, and verify only the changed model and children build." },
+      { symptom: "Net revenue is correct in CI but wrong in prod.", cause: "The incremental model missed late-arriving refunds past its max-timestamp watermark.", fix: "Switch to <code>incremental_strategy='merge'</code> keyed on <code>order_id</code> with a lookback window; full-refresh once, then confirm late refunds update existing rows." },
+      { symptom: "Build passes but a downstream dashboard column vanished.", cause: "An upstream column was renamed with no contract to catch it.", fix: "Add a <code>contract</code> (enforced: true) with column names/types to the model and its exposure; re-run and confirm the breaking change now fails the build." }
+    ],
+
+    interview: [
+      { q: "How does Slim CI avoid rebuilding the whole warehouse on every PR?", a: "It diffs the PR's <code>manifest.json</code> against a stored <b>production</b> manifest, selects <code>state:modified+</code> (changed models plus descendants), and <code>--defer</code>s unchanged parents to the prod schema — so CI builds and tests only what changed while still resolving references correctly." },
+      { q: "Does a failing dbt test block a deploy? When does it not?", a: "Only if the orchestrator runs <code>dbt build</code> or <code>test</code> and treats the non-zero exit as a gate. <code>dbt run</code> alone never runs tests, and a test with <code>severity: warn</code> logs but passes — so 'tests are green' only guarantees a block when the pipeline is wired to enforce it." },
+      { q: "A RetailFlow incremental revenue model keeps missing late refunds. Why, and how do you fix it?", a: "A <code>where ts > max(ts)</code> filter only picks up rows newer than the last watermark, so a refund posted for an older order is never re-processed. Use <code>incremental_strategy='merge'</code> on <code>order_id</code> with a lookback window (reprocess the last N days) so late-arriving corrections update existing rows." },
+      { q: "When would you use a contract vs a test?", a: "A <b>contract</b> enforces structure (column names, types, constraints) at build time and fails fast on schema drift; a <b>test</b> asserts data properties (unique, not_null, ranges) after the model builds. Contracts guard the interface for downstream consumers; tests guard the data." }
+    ],
+
+    related: ["sql-testing", "testing-pyramid", "data-quality", "github-actions"]
   }));
 })();

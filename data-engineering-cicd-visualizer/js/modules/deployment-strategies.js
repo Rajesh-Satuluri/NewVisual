@@ -116,6 +116,44 @@
     retention: {
       question: "RetailFlow must add <code>refund_amount</code> to <code>orders</code> and change the transform, but dozens of downstream models read that table. Which deployment approach keeps them from breaking?",
       answer: "Make the schema change <b>backward compatible</b> using <b>expand/contract</b>: <i>add</i> the new <code>refund_amount</code> column (nullable/defaulted) without removing or renaming anything, so old models keep working; migrate readers to the new formula; and drop old columns only in a later release once nothing references them. Pair it with a <b>canary</b> so the risky transform proves out on a small slice of runs before going to 100%."
-    }
+    },
+
+    prerequisites: [
+      { id: "ci-vs-cd", label: "CI vs CD" },
+      "environment-promotion",
+      "rollback"
+    ],
+
+    production: [
+      { h: "Canary on real metrics", body: "A canary is only useful if you watch the right signals — row counts, revenue totals, error rate — on the small slice before widening; auto-halt if they diverge from the control." },
+      { h: "Backward-compatible schema steps", body: "During a rolling or canary release old and new code run at once, so schema changes must be <b>additive</b> (expand first); never expand and contract in the same release." },
+      { h: "RetailFlow blue/green on a shared warehouse", body: "Blue and green share the same warehouse, so an instant <i>code</i> flip doesn't undo rows green already wrote — keep writes additive so flipping back to blue still reads a table it understands." },
+      { h: "Version data contracts", body: "A breaking change to a consumed table (rename, unit change) must be published as <code>orders_v2</code> alongside <code>v1</code> and announced, not mutated under consumers." },
+      { h: "Match strategy to blast radius", body: "Don't double infra with blue/green for a low-stakes nightly batch — recreate it; reserve canary/blue-green for revenue-critical or always-on paths." }
+    ],
+
+    misconceptions: [
+      { myth: "Blue/green gives instant rollback, so a bad data load is instantly undone.", truth: "Flipping back to blue reverts only the <b>code path</b>; rows green already wrote to the shared warehouse remain and must be repaired separately." },
+      { myth: "A canary passing on 5% proves the change is safe at 100%.", truth: "A canary limits blast radius and gives early signal, but skewed partitions or scale effects can still surface at full volume — widen in stages and keep watching." },
+      { myth: "Renaming a column is a quick, safe change.", truth: "A rename is a <b>breaking</b>, non-backward-compatible change that breaks every consumer still referencing the old name the instant it ships — use expand/contract." },
+      { myth: "Rolling deployments are always zero-risk because there's no downtime.", truth: "Mid-roll, old and new versions run <b>simultaneously</b>, so both must tolerate the same data/schema or you get inconsistent results during the roll." }
+    ],
+
+    troubleshooting: [
+      { symptom: "Canary revenue totals diverge from the control slice.", cause: "The new transform computes net revenue differently on real data.", fix: "Halt the canary (don't widen), diff the canary vs control output to find the discrepancy, fix the transform, and re-canary from 5% before confirming totals match." },
+      { symptom: "Downstream dbt models error right after a deploy.", cause: "A column was renamed/dropped in place — a breaking schema change.", fix: "Restore the old column (or roll forward to re-add it), switch to <b>expand/contract</b> so the old name survives the transition, and verify the models compile and run green." },
+      { symptom: "Row counts inconsistent while a rolling deploy is in progress.", cause: "Old and new versions are writing incompatible shapes at the same time.", fix: "Ensure the change is additive/backward-compatible so both versions coexist, re-run, and verify counts are stable mid-roll." },
+      { symptom: "Rolled back to blue but the numbers are still wrong.", cause: "Green already wrote bad rows to the shared warehouse; the flip only changed code.", fix: "Backfill/reprocess the affected partitions from Bronze, re-run data-quality checks, then confirm the dashboard reads correct totals." },
+      { symptom: "Blue/green flip doubled the infra cost and never came back down.", cause: "The old (blue) environment was never torn down after the cutover.", fix: "Decommission blue once green is verified stable, and verify only one environment is serving traffic." }
+    ],
+
+    interview: [
+      { q: "Compare blue/green and canary — when would you pick each for a data pipeline?", a: "<b>Blue/green</b> runs the new version fully alongside the old and flips all traffic at once — instant cutover and instant flip-back, at the cost of double infra. <b>Canary</b> routes a small slice (5% of runs/partitions) to the new version and widens only if metrics hold. Pick canary for a <b>risky transform</b> where you want real production signal at low blast radius; pick blue/green when you want an instant, all-or-nothing switch with a fast escape hatch." },
+      { q: "Why does 'code rolls back in seconds but data doesn't' shape your deployment strategy?", a: "Flipping code (blue/green, redeploy) is reversible instantly, but rows already written to the warehouse persist. So you design for it: make schema changes <b>additive/backward-compatible</b> (expand/contract) so a rollback still reads a table it understands, and pair risky transforms with a <b>canary</b> so few bad rows are written before you catch the problem." },
+      { q: "Walk through adding <code>refund_amount</code> to <code>orders</code> without breaking downstream consumers.", a: "Use <b>expand → migrate → contract</b>: EXPAND by adding <code>refund_amount</code> as a nullable/defaulted column (additive, old code still works); MIGRATE by backfilling and pointing the transform at <code>net_revenue = gross_revenue - refund_amount</code>; CONTRACT only in a <i>later</i> release once no model reads a deprecated column. Canary the new transform on ~5% of partitions and watch revenue totals before widening." },
+      { q: "What's the risk of a rolling deployment specific to data pipelines?", a: "During the roll, old and new code run <b>at the same time</b> and may write to the same tables. If the new version changed the data shape non-additively, the two produce inconsistent rows mid-roll. The mitigation is to keep every change backward-compatible so both versions can coexist safely until the roll completes." }
+    ],
+
+    related: ["rollback", "environment-promotion", "kubernetes", "argo-cd"]
   }));
 })();

@@ -105,6 +105,39 @@
     retention: {
       question: "Why is generic GitHub Actions CI/CD not enough for RetailFlow's Databricks revenue job, and what do Asset Bundles add?",
       answer: "Generic CI only tests the Python; the <b>job definition</b> — notebook, cluster, schedule, permissions — is stateful config inside the Databricks workspace. <b>Asset Bundles</b> put that config in code (<code>databricks.yml</code>) with per-environment <b>targets</b>, so <code>bundle deploy --target prod</code> promotes the exact tested job spec instead of a human recreating it by hand."
-    }
+    },
+
+    prerequisites: ["git", "github-actions", "environment-promotion", "secrets"],
+
+    production: [
+      { h: "Bundle state and deletions", body: "A bundle deploy reconciles tracked state — resources removed from <code>databricks.yml</code> are destroyed in the target. Review the plan before prod so dropping a job from the YAML doesn't silently delete RetailFlow's running revenue job." },
+      { h: "Development vs production mode", body: "<code>mode: development</code> prefixes resources, pauses schedules, and tags runs as dev; <code>mode: production</code> enforces a clean, run-as identity. Deploying a dev-mode bundle to prod leaves schedules paused — the 7 AM revenue job never fires." },
+      { h: "Service-principal identity and secrets", body: "Prod should <code>run_as</code> a service principal with a scoped CI token (OIDC), never a person's PAT — a user's token breaks the job the day they leave, and over-broad tokens widen blast radius." },
+      { h: "Idempotent re-deploys", body: "<code>bundle deploy</code> is declarative, so re-running the same version is a no-op — but a job that isn't idempotent (non-merge writes) can double-count orders on a retried run; make the task itself idempotent, not just the deploy." },
+      { h: "Validate as a gate", body: "<code>bundle validate</code> catches malformed YAML and bad references, but it does not test your transforms — keep <code>pytest</code> and a dev integration run as explicit gates before the prod deploy step." }
+    ],
+
+    misconceptions: [
+      { myth: "Asset Bundles replace Terraform for Databricks.", truth: "Bundles deploy Databricks <i>assets</i> (jobs, pipelines, notebooks); Terraform provisions the workspace, storage, and account-level infra. They are complementary layers, not substitutes." },
+      { myth: "<code>bundle validate</code> proves the job works.", truth: "It only checks the bundle definition is well-formed and references resolve — it runs no transform logic. Correctness still needs pytest plus an integration run on dev data." },
+      { myth: "Deploying the same bundle twice could duplicate the job.", truth: "Deploys are declarative and idempotent — the same config reconciles to the same resources. Duplicate <i>data</i> comes from a non-idempotent task, not from re-deploying." },
+      { myth: "The dev and prod jobs can drift if you're careful.", truth: "They can't drift by construction when both come from one bundle with per-target overrides — drift only returns the moment someone hand-edits the job in the workspace UI." }
+    ],
+
+    troubleshooting: [
+      { symptom: "Prod revenue job never runs after a successful deploy.", cause: "The bundle was deployed with <code>mode: development</code>, which pauses schedules.", fix: "Deploy the prod target with <code>mode: production</code>; confirm the job's schedule shows UNPAUSED in the workspace and the next run is queued." },
+      { symptom: "Deploy fails with a permissions / 403 error in prod.", cause: "CI is authenticating as a user token without rights, or the service principal lacks CAN_MANAGE on the target.", fix: "Set <code>run_as</code> to the service principal, grant it the needed permissions in the bundle, and re-run; verify the deploy completes and the run owner is the SP." },
+      { symptom: "A job disappeared from prod after a refactor.", cause: "The resource was removed from the bundle YAML, so state reconciliation destroyed it.", fix: "Restore the resource definition (or confirm the deletion was intended), re-deploy, and verify the job exists and is scheduled." },
+      { symptom: "Retried revenue run double-counts orders.", cause: "The task overwrites with append/insert, not a merge, so a re-run re-inserts rows.", fix: "Make the write idempotent (MERGE on <code>order_id</code> or overwrite the partition); re-run twice and confirm row counts are stable." }
+    ],
+
+    interview: [
+      { q: "Why aren't generic GitHub Actions enough to deploy a Databricks job?", a: "Actions can test the Python, but a Databricks job is <i>stateful workspace config</i> — notebook, job cluster, schedule, permissions — that lives in the workspace, not in files. <b>Asset Bundles</b> put that config in <code>databricks.yml</code> with per-target overrides so the tested spec is promoted exactly, not recreated by hand." },
+      { q: "What's the difference between development and production bundle modes?", a: "<code>development</code> namespaces resources per user, pauses schedules, and tags runs as dev to avoid clobbering shared state; <code>production</code> deploys clean names, runs as a configured identity, and keeps schedules active. Shipping a dev-mode bundle to prod leaves the job paused." },
+      { q: "How do bundles keep dev and prod from drifting, and when does drift return?", a: "One bundle defines the resources once and overrides only what differs per <b>target</b>, so both environments are generated from the same source — drift is impossible by construction. It returns the instant someone hand-edits the job in the workspace UI instead of changing the bundle." },
+      { q: "A re-run of the revenue job doubled the numbers. Is that a bundle problem?", a: "No — <code>bundle deploy</code> is idempotent, so the deploy isn't the cause. The <i>task</i> isn't idempotent: it appends rather than merging, so a retry re-inserts rows. Fix the write (MERGE on <code>order_id</code> or partition overwrite), not the bundle." }
+    ],
+
+    related: ["environment-promotion", "terraform", "secrets", "dbt-cicd"]
   }));
 })();

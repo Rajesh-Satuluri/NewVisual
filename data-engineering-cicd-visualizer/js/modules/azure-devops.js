@@ -96,6 +96,40 @@
     retention: {
       question: "A RetailFlow enterprise team must record a human sign-off before any revenue-pipeline change reaches production. Which Azure DevOps feature enforces that?",
       answer: "An <b>approval check on the prod Environment</b>. The deploy job pauses until an authorized reviewer approves, and Azure DevOps logs who approved and when — an enforced, audited release gate."
-    }
+    },
+
+    prerequisites: ["ci-vs-cd", "github-actions", "git"],
+
+    production: [
+      { h: "Workload identity over stored secrets", body: "Service connections should use Entra <b>workload identity federation</b> / managed identities rather than a stored service-principal secret, so there's no long-lived credential to rotate or leak for the revenue deploy." },
+      { h: "Environment approval checks = audit trail", body: "Attach approval checks to the <code>prod</code> Environment so a named reviewer must sign off; Azure DevOps records who approved and when — exactly what auditors require when <code>net_revenue</code> changes." },
+      { h: "Publish the artifact once", body: "<code>PublishPipelineArtifact</code> in the build stage, then every deploy stage consumes that same artifact — build once, promote it, never rebuild per environment." },
+      { h: "Self-hosted agents for private data", body: "Use self-hosted agents inside the network to reach a private warehouse; harden and patch them, since they hold pipeline credentials and network access." },
+      { h: "Least-privilege branch policies", body: "Branch policies with required reviewers + build validation + Boards work-item linkage give a full change-to-deploy audit trail for regulated enterprises." }
+    ],
+
+    misconceptions: [
+      { myth: "You must choose Azure DevOps or GitHub Actions — never both ideas overlap.", truth: "They share the same CI/CD concepts. Pick Azure DevOps for Azure/Entra-standardized, governance-heavy enterprises; GitHub Actions for GitHub-native, marketplace-driven workflows. Running both for one repo is usually a smell." },
+      { myth: "Azure Pipelines (YAML) is only for Azure deployments.", truth: "It deploys anywhere — AWS, GCP, on-prem — via tasks and service connections; the 'Azure' is the platform host, not a cloud lock-in." },
+      { myth: "An Environment approval blocks the whole pipeline.", truth: "It gates only the <b>deployment job</b> targeting that environment; earlier build/test stages run unblocked, and the approval pauses just the prod deploy." },
+      { myth: "Variable groups are a safe place for any config.", truth: "Mark secret variables as secret (or link Azure Key Vault); plain variables are visible in logs and the UI, like any plaintext config." }
+    ],
+
+    troubleshooting: [
+      { symptom: "The prod deploy job runs without any sign-off.", cause: "No approval check attached to the <code>prod</code> Environment.", fix: "Add an approval check (named reviewers) in the Environments UI; verify the next run pauses the deploy job until approved and logs the approver." },
+      { symptom: "Deploy uses a different build than what was tested.", cause: "A later stage rebuilt instead of consuming the published artifact.", fix: "Publish once with <code>PublishPipelineArtifact</code> and download it in deploy stages; verify the artifact name/version matches across stages." },
+      { symptom: "The pipeline can't reach the private data warehouse.", cause: "Microsoft-hosted agents have no network path into the VPC.", fix: "Run the job on a self-hosted agent inside the network; verify with a connectivity smoke step before the deploy." },
+      { symptom: "A service connection auth fails intermittently.", cause: "An expiring service-principal secret.", fix: "Switch the service connection to workload identity federation (no secret to expire); verify by running past the old secret's expiry date." },
+      { symptom: "An auditor can't tell who approved a release.", cause: "Deploys happened outside the Environment gate.", fix: "Route all prod deploys through the approval-gated Environment; verify the Environment's deployment history shows approver + timestamp." }
+    ],
+
+    interview: [
+      { q: "When would you pick Azure DevOps over GitHub Actions?", a: "When the org is standardized on Azure + Entra ID and needs mature release-gate governance and audit trails — approvals, Boards linkage, enterprise agreements. GitHub Actions wins for GitHub-native, community-marketplace workflows; it's a 'when', not a mandate to run both." },
+      { q: "How do you avoid storing cloud secrets in an Azure Pipeline?", a: "Use a service connection backed by Entra workload identity federation / a managed identity, so the pipeline gets short-lived tokens with no stored secret to rotate or leak — the same OIDC-style pattern as GitHub Actions." },
+      { q: "How does Azure DevOps enforce an audited human sign-off before prod?", a: "An approval check on the prod Environment pauses the deployment job until a named reviewer approves, and the Environment's history records who approved and when — turning 'someone should have looked' into an enforced, logged gate." },
+      { q: "Why publish a pipeline artifact once instead of rebuilding per stage?", a: "So the exact binary/package that passed tests is what reaches prod; rebuilding per environment risks a different output and reintroduces 'works in test, breaks in prod' drift." }
+    ],
+
+    related: ["github-actions", "jenkins", "ci-vs-cd", "secrets"]
   }));
 })();

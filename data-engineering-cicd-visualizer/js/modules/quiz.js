@@ -135,6 +135,7 @@
 
       function drawResult() {
         var pct = Math.round((score / DATA.length) * 100);
+        if (NS.Progress) { try { NS.Progress.recordQuiz(score, DATA.length); } catch (e) {} }
         var verdict;
         if (pct >= 90) verdict = "Outstanding — you could deploy RetailFlow's pipeline blindfolded.";
         else if (pct >= 70) verdict = "Strong — solid grasp of the CI/CD stack, a few edges to sharpen.";

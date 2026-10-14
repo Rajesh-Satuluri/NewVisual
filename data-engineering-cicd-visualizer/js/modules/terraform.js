@@ -96,6 +96,45 @@
     retention: {
       question: "A RetailFlow engineer changes the revenue job's Databricks cluster in Terraform. How does the team confirm the change is safe before it hits production?",
       answer: "CI runs <code>terraform plan</code> and posts the diff on the PR — e.g. <b>Plan: 0 to add, 2 to change, 0 to destroy</b>. A reviewer reads exactly what will change before approving; <code>terraform apply</code> only runs after merge (often behind a manual approval)."
-    }
+    },
+
+    prerequisites: [
+      "git",
+      { id: "ci-vs-cd", label: "CI vs CD (plan in CI, apply in CD)" },
+      "environment-promotion",
+      { id: "secrets", label: "Secrets (keep them out of .tf)" }
+    ],
+
+    production: [
+      { h: "Remote state + locking", body: "Store state in a remote backend (an Azure blob) so the team shares one truth, and rely on <b>state locking</b> so two concurrent <code>apply</code> runs can't corrupt it — RetailFlow's data-lake state lives in <code>retailflowtfstate</code>, never on a laptop." },
+      { h: "Plan-in-PR, apply after merge", body: "Run <code>terraform plan</code> in CI and post the diff on the PR; gate <code>apply</code> behind merge plus a manual approval so no infra change reaches RetailFlow's prod storage account unreviewed." },
+      { h: "Guard destructive changes", body: "A rename or a changed immutable field can turn a plan into <b>destroy + recreate</b>. Use <code>lifecycle { prevent_destroy = true }</code> on stateful resources and read every <code>-/+</code> line before approving." },
+      { h: "Least-privilege credentials", body: "The CI service principal should hold only the roles it needs; never commit secrets in <code>.tf</code> — source them from Key Vault or environment variables at runtime." },
+      { h: "Drift detection", body: "A scheduled <code>terraform plan</code> surfaces manual portal changes as drift before they cause a surprise diff on the next real apply." }
+    ],
+
+    misconceptions: [
+      { myth: "Reverting the <code>.tf</code> file always safely undoes the infra change.", truth: "A git revert only changes desired state — Terraform computes a <b>new plan</b> from current reality, which may <b>destroy</b> resources rather than restore them. Always read the plan; infra rollback is not a code rollback." },
+      { myth: "<code>terraform apply</code> only ever adds or edits things.", truth: "Changing an immutable attribute (e.g. a storage account name) forces <b>destroy + recreate</b> — potentially deleting data. The plan's <code>-/+</code> marker is the warning." },
+      { myth: "The state file is just a cache you can delete.", truth: "State is the <b>authoritative map</b> of config to real resources. Losing it makes Terraform think everything is new and try to recreate it; corrupting it by hand orphans resources." },
+      { myth: "Running <code>plan</code> locks in exactly what <code>apply</code> will do.", truth: "Without a saved plan file, reality can change between <code>plan</code> and <code>apply</code>. Pass the saved plan (<code>terraform apply tfplan</code>) to guarantee what you reviewed is what runs." }
+    ],
+
+    troubleshooting: [
+      { symptom: "<code>Error acquiring the state lock</code> on every apply.", cause: "A previous run crashed holding the lock, or another apply is running.", fix: "Confirm no other apply is active, then <code>terraform force-unlock &lt;LOCK_ID&gt;</code>; verify with a clean <code>plan</code> that nothing else was left half-applied." },
+      { symptom: "Plan shows <b>destroy + recreate</b> of a production resource you only wanted to tweak.", cause: "You changed an immutable/ForceNew attribute (name, location).", fix: "Revert that attribute, or use <code>terraform state mv</code> / <code>moved</code> blocks to rename without recreating; re-run <code>plan</code> to confirm 0 to destroy." },
+      { symptom: "Plan wants to recreate resources that already exist in the portal.", cause: "They were created out-of-band and aren't in state.", fix: "<code>terraform import</code> each resource into state, then <code>plan</code> should show no changes." },
+      { symptom: "<code>Error: Provider configuration not present</code> after removing a module.", cause: "State still references a provider that's gone from config.", fix: "Re-add the provider block, run <code>apply</code> to let it clean up, then remove it; verify with <code>plan</code>." },
+      { symptom: "Two engineers' applies overwrite each other's changes.", cause: "State is local, not shared.", fix: "Move state to a remote backend with locking and run <code>terraform init -migrate-state</code>; confirm both see the same <code>plan</code>." }
+    ],
+
+    interview: [
+      { q: "What is the Terraform state file and why must it be remote and locked?", a: "State maps your config to real cloud resources and records metadata Terraform needs to compute diffs. Remote storage lets the whole team share one truth; <b>locking</b> prevents two concurrent applies from corrupting it. Local state means drift, conflicts, and lost resources." },
+      { q: "A teammate reverts a Terraform PR to roll back an infra change. Is that safe?", a: "Not automatically. A revert changes desired state, but Terraform computes a fresh plan against current reality — which can mean <b>destroying</b> resources the forward change created. You must read the plan; infra rollback is not the same as reverting application code." },
+      { q: "How do you run Terraform safely in CI/CD?", a: "Run <code>plan</code> in CI and post the diff on the PR for review; run <code>apply</code> only after merge, ideally with the <b>saved plan file</b> so what ran is exactly what was reviewed, behind a manual approval for prod, using a least-privilege service principal and remote locked state." },
+      { q: "When would <code>terraform apply</code> destroy data unexpectedly, and how do you prevent it?", a: "When you change an immutable/ForceNew attribute, Terraform plans <b>destroy + recreate</b>. Prevent it with <code>lifecycle { prevent_destroy = true }</code> on stateful resources, by reading every <code>-/+</code> line in the plan, and by using <code>moved</code> blocks for safe renames." }
+    ],
+
+    related: ["ci-vs-cd", "environment-promotion", "secrets", "azure-devops"]
   }));
 })();

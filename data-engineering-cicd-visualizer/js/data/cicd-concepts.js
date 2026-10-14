@@ -1,8 +1,10 @@
 /* ============================================================
-   cicd-concepts.js — concept metadata, glossary source, and the
-   tool-comparison matrix rows (prompt §23). Populated in later
-   content iterations; this scaffold exposes the tool registry and
-   ROI ordering used by the home page and master map.
+   cicd-concepts.js — the ROI-ordered tool registry used by the home
+   page, master map, learning dashboard, and search index. Each tool
+   carries its purpose, relative ROI for a modern Data Engineer, and
+   the CSS accent token modules restyle from (color values live in
+   css/main.css). The recurring business narrative and learning path
+   live in retailflow-data.js.
    ============================================================ */
 (function () {
   "use strict";
