@@ -236,6 +236,20 @@
         }).join("") +
         "</div>";
       container.appendChild(tm);
+
+      if (E && E.ready()) {
+        container.appendChild(E.learningCheck([{
+          q: "A deploy of the pipeline code goes green. What has actually happened to today’s data?",
+          options: [
+            { label: "Today’s rows are now correct and fresh.", ok: false, why: "Deploying code is control flow — it hasn’t run the pipeline or produced any rows yet." },
+            { label: "Nothing yet — deploying code is not running the pipeline.", ok: true, why: "The scheduled run (data flow) still has to execute, and its output still has to be verified." },
+            { label: "The old data was deleted.", ok: false, why: "A deploy changes the code that will run next; it doesn’t touch existing data." }
+          ]
+        }]));
+        var pn = document.createElement("div");
+        pn.innerHTML = E.chapterPrevNext("end-to-end-pipeline");
+        container.appendChild(pn);
+      }
     },
     destroy: function () {}
   };

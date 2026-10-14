@@ -1990,3 +1990,38 @@ a.card:hover { text-decoration: none; }
   .inc-rec-cols { grid-template-columns: 1fr; }
   .inc-rev-row { grid-template-columns: 1fr; gap: 2px; }
 }
+
+/* ============================================================
+   Iteration E — chapter progress markers, prev/next, learning checks,
+   and reduced-motion.
+   ============================================================ */
+.cs-chapter-mark { margin-left: 4px; font-weight: 700; }
+.cs-chapter-mark.done { color: var(--green); }
+.cs-chapter-mark.seen { color: var(--text-muted); }
+
+.cs-prevnext { display: flex; gap: var(--space-3); margin-top: var(--space-6); }
+.cs-pn {
+  flex: 1 1 0; display: flex; flex-direction: column; gap: 2px;
+  padding: var(--space-3) var(--space-4); border: 1px solid var(--border-default);
+  border-radius: var(--radius-md); background: var(--bg-2); text-decoration: none;
+}
+.cs-pn:hover { border-color: var(--brand); }
+.cs-pn span { font-size: 0.74rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; }
+.cs-pn b { color: var(--text-primary); }
+.cs-pn-next { text-align: right; }
+.cs-pn-empty { flex: 1 1 0; }
+
+.lc-q { border: 1px solid var(--border-default); border-radius: var(--radius-md); padding: var(--space-3) var(--space-4); margin-bottom: var(--space-3); background: var(--bg-2); }
+.lc-q-text { font-weight: 600; color: var(--text-primary); margin-bottom: var(--space-2); }
+.lc-opts { display: flex; flex-direction: column; gap: var(--space-2); }
+.lc-opt { text-align: left; padding: var(--space-2) var(--space-3); border: 1px solid var(--border-muted); border-radius: var(--radius-sm); background: var(--bg-3); color: var(--text-primary); cursor: pointer; font-size: 0.9rem; }
+.lc-opt:hover { border-color: var(--brand); }
+.lc-opt.ok.sel { border-color: var(--green); background: var(--green-subtle); }
+.lc-opt.no.sel { border-color: var(--red); background: var(--red-subtle); }
+.lc-explain { margin-top: var(--space-2); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); font-size: 0.88rem; color: var(--text-primary); }
+.lc-explain.good { background: var(--green-subtle); }
+.lc-explain.bad { background: var(--red-subtle); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
+}

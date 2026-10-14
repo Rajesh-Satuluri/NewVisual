@@ -102,19 +102,74 @@
     },
 
     // Shared 4-chapter navigator across the case-study sections.
-    // activeRoute highlights the current chapter.
+    // activeRoute highlights the current chapter; visited/complete
+    // markers come from DECICDViz.Progress when available.
     chapterNav: function (activeRoute) {
       var cs = CS();
       if (!cs || !cs.chapters) return "";
+      var P = NS.Progress;
       return '<nav class="cs-chapters" aria-label="Case-study chapters">' +
         cs.chapters.map(function (c) {
           var on = c.route === activeRoute;
+          var mark = "";
+          if (P) {
+            if (P.isComplete(c.route)) mark = '<span class="cs-chapter-mark done" title="Completed">✓</span>';
+            else if (P.isVisited(c.route)) mark = '<span class="cs-chapter-mark seen" title="Visited">•</span>';
+          }
           return '<a class="cs-chapter' + (on ? " active" : "") + '"' +
             (on ? ' aria-current="true"' : "") + ' href="#' + esc(c.route) + '">' +
             '<span class="cs-chapter-n">' + esc(c.n) + "</span>" +
-            '<span class="cs-chapter-t">' + esc(c.title) + "</span></a>";
+            '<span class="cs-chapter-t">' + esc(c.title) + "</span>" + mark + "</a>";
         }).join("") +
         "</nav>";
+    },
+
+    // Prev / next chapter footer links for a given chapter route.
+    chapterPrevNext: function (activeRoute) {
+      var cs = CS();
+      if (!cs || !cs.chapters) return "";
+      var idx = -1;
+      cs.chapters.forEach(function (c, i) { if (c.route === activeRoute) idx = i; });
+      if (idx === -1) return "";
+      var prev = cs.chapters[idx - 1], next = cs.chapters[idx + 1];
+      var left = prev
+        ? '<a class="cs-pn cs-pn-prev" href="#' + esc(prev.route) + '"><span>← Chapter ' + esc(prev.n) + '</span><b>' + esc(prev.title) + "</b></a>"
+        : '<span class="cs-pn cs-pn-empty"></span>';
+      var right = next
+        ? '<a class="cs-pn cs-pn-next" href="#' + esc(next.route) + '"><span>Chapter ' + esc(next.n) + ' →</span><b>' + esc(next.title) + "</b></a>"
+        : '<a class="cs-pn cs-pn-next" href="#interview"><span>Finish →</span><b>Interview prep</b></a>';
+      return '<nav class="cs-prevnext" aria-label="Chapter navigation">' + left + right + "</nav>";
+    },
+
+    // A scenario learning check: one or more questions, each option
+    // reveals whether it's right and why. Returns a wired DOM element.
+    learningCheck: function (questions) {
+      var wrap = document.createElement("section");
+      wrap.className = "section lc";
+      if (!questions || !questions.length) return wrap;
+      wrap.innerHTML = '<h2 class="section-title">Check yourself</h2>';
+      questions.forEach(function (q) {
+        var box = document.createElement("div");
+        box.className = "lc-q";
+        box.innerHTML = '<div class="lc-q-text">' + esc(q.q) + "</div>" +
+          '<div class="lc-opts">' + q.options.map(function (o, oi) {
+            return '<button type="button" class="lc-opt" data-o="' + oi + '">' + esc(o.label) + "</button>";
+          }).join("") + "</div>" +
+          '<div class="lc-explain" hidden></div>';
+        wrap.appendChild(box);
+        box.addEventListener("click", function (e) {
+          var b = e.target.closest(".lc-opt");
+          if (!b) return;
+          var o = q.options[+b.getAttribute("data-o")];
+          box.querySelectorAll(".lc-opt").forEach(function (x) { x.classList.remove("ok", "no", "sel"); });
+          b.classList.add(o.ok ? "ok" : "no", "sel");
+          var ex = box.querySelector(".lc-explain");
+          ex.hidden = false;
+          ex.className = "lc-explain " + (o.ok ? "good" : "bad");
+          ex.innerHTML = (o.ok ? "✅ Correct. " : "❌ Not quite. ") + esc(o.why);
+        });
+      });
+      return wrap;
     },
 
     // The Airbnb company-context block (name, domain, why chosen).

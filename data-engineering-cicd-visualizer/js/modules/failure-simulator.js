@@ -354,6 +354,20 @@
         "diagnosis → fix → verification across the whole stack.</div>";
       container.appendChild(div);
       renderPracticeLibrary(container);
+
+      if (E && E.ready()) {
+        container.appendChild(E.learningCheck([{
+          q: "Rolling the revenue image back to the previous known-good digest will…",
+          options: [
+            { label: "Fix both the code and the already-written wrong rows.", ok: false, why: "Rollback stops NEW bad rows; it cannot repair rows a bad run already wrote." },
+            { label: "Stop new bad rows, but not repair the data already written.", ok: true, why: "Code recovery and data recovery are separate — you still need an idempotent reprocess of the affected partitions." },
+            { label: "Corrupt the data further.", ok: false, why: "Re-pointing to a known-good digest is safe for future runs; it just doesn’t retroactively fix written rows." }
+          ]
+        }]));
+        var pn = document.createElement("div");
+        pn.innerHTML = E.chapterPrevNext("failure-simulator");
+        container.appendChild(pn);
+      }
     },
     destroy: function () {}
   });
