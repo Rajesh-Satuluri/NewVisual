@@ -27,8 +27,8 @@
     m30: 1, // buffer pool              (Phase 3 — kernel + tests + lab)
     m48: 1, // MVCC                     (Phase 4 — kernel + tests + lab)
     m17: 1, // cost-based optimizer     (Phase 4 — kernel + tests + lab)
-    // m41: LSM tree                    (Phase 5)
-    // m55/m63/m79: replication/consensus (Phase 5)
+    m41: 1, // LSM tree                 (Phase 5 — kernel + tests + lab)
+    m63: 1, // Raft consensus           (Phase 5 — kernel + tests + lab)
   };
 
   var META = {

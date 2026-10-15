@@ -16,8 +16,8 @@ const FILES = [
   "./bplustree.test.mjs",
   "./mvcc.test.mjs",
   "./optimizer.test.mjs",
-  // Flagship kernels register their tests here as they land:
-  // "./lsm.test.mjs", "./replication.test.mjs", ...
+  "./lsm.test.mjs",
+  "./replication.test.mjs",
 ];
 
 reset();

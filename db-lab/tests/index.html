@@ -43,7 +43,7 @@
   <script type="module">
     import { run, reset } from "./harness.mjs";
 
-    const FILES = ["./kernels.test.mjs", "./wal.test.mjs", "./buffer-pool.test.mjs", "./bplustree.test.mjs", "./mvcc.test.mjs", "./optimizer.test.mjs"]; // keep in sync with run.mjs
+    const FILES = ["./kernels.test.mjs", "./wal.test.mjs", "./buffer-pool.test.mjs", "./bplustree.test.mjs", "./mvcc.test.mjs", "./optimizer.test.mjs", "./lsm.test.mjs", "./replication.test.mjs"]; // keep in sync with run.mjs
 
     reset();
     for (const f of FILES) { await import(f); }
