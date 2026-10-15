@@ -36,6 +36,13 @@ Investigate → diagnose → remediate → scored.
 **Mastery & Revision (P8)** — `#revision`: evidence-based mastery bars,
 prerequisite-aware review queue, assessment history, the sources ledger.
 
+**Navigator hubs (P10)** — the three former "coming soon" routes now ship as
+real, data-backed pages: `#engineering-lab` (a focused hub for the 7
+kernel-backed ⚡ labs with what-you-drive blurbs), `#real-world` (the ShopKart
+stack service-by-service, each mapped to the concepts it exercises and its
+incident), and `#interview` (every concept's authored interview Q&A — 113
+questions across 90 concepts — grouped by domain with click-to-reveal answers).
+
 **QA & accessibility (P9)** — 14-route headless smoke test clean; global
 reduced-motion guard; visible keyboard focus on all lab controls.
 

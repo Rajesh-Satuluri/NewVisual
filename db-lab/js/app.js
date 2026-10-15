@@ -16,11 +16,10 @@
     concept:         { title: "Concept", ready: true },
     simulators:      { title: "Simulators", ready: true },
     progress:        { title: "Progress", ready: true },
-    // Roadmap sections (render a branded "coming soon" until built):
-    "engineering-lab": { title: "Engineering Lab", ready: false },
+    "engineering-lab": { title: "Engineering Lab", ready: true },
     "failure-lab":     { title: "Failure Lab", ready: true },
-    "real-world":      { title: "Real-World Systems (ShopKart)", ready: false },
-    interview:         { title: "Interview Center", ready: false },
+    "real-world":      { title: "Real-World Systems (ShopKart)", ready: true },
+    interview:         { title: "Interview Center", ready: true },
     revision:          { title: "Revision", ready: true },
   };
   DL.routes = ROUTES;
