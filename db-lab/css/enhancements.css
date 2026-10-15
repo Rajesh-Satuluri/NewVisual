@@ -325,3 +325,15 @@
 .status-chip.st-understood { color: #35c3ff; }
 .status-chip.st-mastered   { color: #3ddc84; }
 .status-chip.st-review     { color: #ffb020; }
+
+/* ── A11y: visible keyboard focus for interactive-lab controls ─────────────── */
+.wal-btn:focus-visible, .wal-mini:focus-visible, .wal-chip:focus-visible,
+.bp-btn:focus-visible, .bp-chip:focus-visible, .bp-in:focus-visible, .opt-range:focus-visible,
+.raft-mini:focus-visible, .incident-run:focus-visible, .incident-card:focus-visible,
+.rv-card:focus-visible, .incident-link:focus-visible, .sim-tier:focus-visible {
+  outline: 2px solid var(--cyan, #35c3ff);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+/* Ensure radios/checksboxes in the incident engine show focus */
+.incident-hyp:focus-within, .incident-rem:focus-within { border-color: var(--cyan, #35c3ff); }
