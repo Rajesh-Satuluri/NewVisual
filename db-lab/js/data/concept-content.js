@@ -431,6 +431,310 @@
   };
   Object.assign(C, S);
 
+  /* ── Distributed Databases ──────────────────────────────────────────── */
+  var D = {
+    m62: {
+      why: "A single machine eventually runs out of CPU, RAM, disk or I/O. Sharding (horizontal partitioning) splits one logical dataset across many nodes so the system scales out instead of up.",
+      intuition: "Divide rows across shards by a partition key, each shard a self-contained database holding a subset. A router sends each query to the shard(s) that own the relevant keys.",
+      internals: "A sharding function (hash or range of the partition key) maps each row to a shard. Single-key operations touch one shard; cross-shard queries and joins require scatter-gather and are expensive. The partition key choice governs load balance and which queries stay single-shard.",
+      engineering: "Pick a partition key that spreads load evenly and keeps your hottest queries single-shard (e.g., shard orders by customer_id if you query by customer). Cross-shard transactions need distributed commit; avoid them on hot paths.",
+      failureModes: "Skewed keys creating hot shards. Cross-shard joins/transactions blowing up latency. Re-sharding pain when a key choice turns out wrong. Losing a shard = losing its data unless replicated.",
+      interviewQs: [
+        iq("How do you choose a sharding (partition) key?", "Pick one that (1) distributes data and load evenly to avoid hot shards and (2) keeps your most frequent queries within a single shard to avoid scatter-gather. For example, sharding orders by customer_id keeps per-customer reads single-shard. A poor key causes skew or forces cross-shard joins that don't scale."),
+      ],
+      prerequisites: ["m55"], related: ["m86", "m87", "m90"],
+    },
+    m64: {
+      why: "Quorums let a replicated system stay consistent and available without every replica being up: require overlapping read and write majorities so a read always sees the latest write.",
+      intuition: "With N replicas, write to W and read from R. If R + W > N, the read set and any write set overlap in at least one replica, so a read always catches the newest value.",
+      internals: "A write succeeds when W replicas acknowledge; a read queries R replicas and takes the newest (by version/timestamp). R + W > N guarantees overlap. Tuning: W=N,R=1 favors reads; W=1,R=N favors writes; W=R=⌈(N+1)/2⌉ balances. Quorums tolerate up to N−W write failures and N−R read failures.",
+      engineering: "Dynamo-style stores expose N/R/W as knobs. R+W>N gives strong-ish reads; relaxing it (R+W≤N) gives faster but potentially stale reads (eventual consistency). Explore overlap in the Quorum lab.",
+      failureModes: "R+W≤N allowing stale reads. Losing quorum under too many failures → unavailable. Clock-based conflict resolution losing writes. Sloppy quorums/hinted handoff weakening guarantees.",
+      interviewQs: [
+        iq("Why does R + W > N guarantee a read sees the latest write?", "A write is acknowledged by W replicas; a read consults R replicas. If R + W > N, the two sets must overlap in at least one replica by the pigeonhole principle — and that replica holds the latest write, which the read picks by version. If R + W ≤ N, the sets can be disjoint and the read may miss the newest value."),
+      ],
+      prerequisites: ["m79"], related: ["m79", "m80", "m81"],
+    },
+    m69: {
+      why: "Distributing a database buys scale and fault tolerance but introduces partial failure, network uncertainty and the need for coordination — a fundamentally harder model than a single node.",
+      intuition: "Many machines cooperating over an unreliable network, where any node or link can fail independently and messages can be lost, delayed or reordered. No shared clock, no shared memory.",
+      internals: "The 'fallacies of distributed computing' bite: the network is not reliable, latency is not zero, bandwidth is finite, topology changes. Core problems: replication (copies), partitioning (splitting), consensus (agreement), and consistency (what readers see). CAP/PACELC frame the unavoidable trade-offs under partitions and latency.",
+      engineering: "Design for partial failure from day one: timeouts, retries (idempotent), health checks, and explicit consistency choices. Don't pretend remote calls are local.",
+      failureModes: "Assuming the network is reliable/synchronous. Ignoring partial failure. Unbounded retries amplifying outages. Hidden single points of failure.",
+      interviewQs: [
+        iq("What makes distributed systems fundamentally harder than single-node ones?", "Partial failure and asynchrony: individual nodes and links fail independently, and messages can be lost, delayed or reordered with no shared clock or memory. You can't tell a slow node from a dead one, so correctness requires explicit coordination (consensus, quorums) and every operation must tolerate components failing underneath it."),
+      ],
+      prerequisites: ["m01"], related: ["m70", "m55", "m80"],
+    },
+    m70: {
+      why: "You can't design fault tolerance without a model of what 'fault' means. Classifying failure modes — crash, omission, timing, Byzantine — sets what a protocol must tolerate.",
+      intuition: "Failures range from clean (a node stops) to messy (a node sends wrong or conflicting data). The nastier the model you tolerate, the more expensive the protocol.",
+      internals: "Crash-stop: a node halts and stays halted. Crash-recovery: it may restart (needs stable storage). Omission: messages dropped. Timing: responses too late (asynchrony). Byzantine: arbitrary/malicious behavior — tolerated only by BFT protocols needing 3f+1 nodes for f faults. Most databases assume crash-recovery with reliable-ish links, not Byzantine.",
+      engineering: "Match the model to reality: in a trusted datacenter, crash-recovery (Raft/Paxos, 2f+1 for f faults) suffices; across trust boundaries (blockchains) you need BFT. Over-modeling costs performance.",
+      failureModes: "Assuming crash-stop when nodes actually recover with stale state. Ignoring omission/timing faults (the common real ones). Using a non-Byzantine protocol where malicious actors exist.",
+      interviewQs: [
+        iq("What's the difference between crash and Byzantine failures, and how many nodes does each need?", "A crash failure is a node simply stopping; a Byzantine failure is a node behaving arbitrarily or maliciously (wrong or conflicting messages). Crash-tolerant consensus (Raft/Paxos) needs 2f+1 nodes to tolerate f failures (a majority survives); Byzantine fault tolerance needs 3f+1, because you must out-vote both the failed nodes and their lies."),
+      ],
+      prerequisites: ["m69"], related: ["m72", "m73", "m93"],
+    },
+    m71: {
+      why: "Everything in a distributed database happens by sending messages over a network that can lose, delay, duplicate and reorder them. The communication model shapes every protocol.",
+      intuition: "Nodes talk by RPC or message passing. A request may get no reply because the request was lost, the node died, or the reply was lost — and the sender can't tell which.",
+      internals: "Synchronous RPC blocks awaiting a reply (simple but couples availability); asynchronous messaging decouples sender and receiver (queues, callbacks). At-most-once, at-least-once and exactly-once delivery semantics differ sharply; 'exactly once' is achieved via idempotency + dedup, not magic. Timeouts convert silence into a (possibly wrong) failure decision.",
+      engineering: "Make retried operations idempotent (so at-least-once is safe). Bound every wait with a timeout. Prefer async messaging for loose coupling and backpressure. Treat a timeout as 'unknown', not 'failed'.",
+      failureModes: "Non-idempotent retries double-applying effects. Unbounded blocking RPCs cascading failures. Assuming exactly-once delivery. Retry storms (thundering herd) on recovery.",
+      interviewQs: [
+        iq("Why is 'exactly-once delivery' usually an illusion, and what do you do instead?", "The network can lose either the request or the acknowledgment, so a sender that sees no reply must retry — risking duplicates — or give up — risking loss. You can't have exactly-once at the transport. Instead you build exactly-once *effects*: make operations idempotent and deduplicate by a request id, so at-least-once delivery becomes effectively exactly-once."),
+      ],
+      prerequisites: ["m69"], related: ["m72", "m70", "m60"],
+    },
+    m72: {
+      why: "Partial failure — some components working while others fail — is the defining difficulty of distributed systems. A single machine is all-or-nothing; a cluster is not.",
+      intuition: "One node is down, or one link is slow, while everything else runs. The hard part: a healthy node cannot reliably tell whether a silent peer has crashed or is just slow/unreachable.",
+      internals: "Because you can't distinguish 'crashed' from 'slow' from 'partitioned' (the core asynchrony problem), systems use timeouts and failure detectors that are necessarily imperfect — they make mistakes (false positives). Protocols must remain correct despite these wrong guesses (e.g., a wrongly-declared-dead leader must not cause split-brain).",
+      engineering: "Assume any subset can be down at any time. Design idempotent, retryable operations; use quorums so a minority failing doesn't stop progress; fence off nodes you've declared dead so a 'resurrected' one can't corrupt state.",
+      failureModes: "Split-brain when a slow node is wrongly declared dead and a new one takes over. Cascading failures from aggressive timeouts. Operations that assume all-or-nothing execution.",
+      interviewQs: [
+        iq("Why can't a node reliably tell whether a peer has crashed or is just slow?", "In an asynchronous network there's no bound on message delay, so an absent response could mean the peer crashed, the network dropped the message, or the peer is merely slow — these are indistinguishable from the outside. Systems resort to timeouts, which are heuristics that sometimes wrongly declare a live node dead, so protocols must stay safe even when the failure detector is wrong."),
+      ],
+      prerequisites: ["m69"], related: ["m73", "m96", "m95"],
+    },
+    m73: {
+      why: "Before a system can react to a failure — fail over, re-replicate, re-elect — it has to detect it. Failure detection is foundational and, in an async network, provably imperfect.",
+      intuition: "Watch for signs of life (heartbeats, successful RPCs); if they stop for long enough, suspect the node. 'Long enough' is a guess that trades detection speed against false alarms.",
+      internals: "Failure detectors are characterized by completeness (dead nodes are eventually suspected) and accuracy (live nodes aren't wrongly suspected) — in a fully async system you can't have perfect accuracy. Adaptive detectors (e.g., phi-accrual) output a suspicion level from inter-arrival statistics rather than a hard timeout.",
+      engineering: "Tune timeouts to your network's tail latency: too short → false positives (needless failovers); too long → slow detection (prolonged outages). Pair detection with fencing so a falsely-suspected node can't cause damage.",
+      failureModes: "Aggressive timeouts causing flapping/needless failovers. Lax timeouts delaying recovery. Correlated failures fooling detectors. Detection without fencing → split-brain.",
+      interviewQs: [
+        iq("What is the fundamental trade-off in setting a failure-detection timeout?", "Detection speed vs accuracy. A short timeout detects real failures fast but wrongly suspects slow-but-live nodes (false positives → needless, risky failovers); a long timeout avoids false alarms but prolongs outages before recovery kicks in. Since async networks preclude a perfect detector, you tune toward your network's tail latency and add fencing to contain mistakes."),
+      ],
+      prerequisites: ["m72"], related: ["m74", "m63", "m96"],
+    },
+    m74: {
+      why: "Heartbeats are the simplest, most common liveness mechanism: periodic 'I'm alive' signals whose absence triggers failure suspicion and recovery.",
+      intuition: "Each node (or a monitor) sends a small message every interval; miss a few in a row and the peer is suspected dead.",
+      internals: "A sender emits heartbeats every T; a receiver suspects failure after k missed intervals (timeout ≈ kT). Heartbeats also piggyback leader leases (a leader that stops heart-beating loses leadership) and cluster-membership gossip. The interval/threshold set the detection-latency vs false-positive trade-off.",
+      engineering: "Size the interval below your failover tolerance but above normal jitter. Combine with leases so a leader must keep heart-beating to retain authority (preventing a partitioned old leader from acting). Avoid synchronized heartbeat storms.",
+      failureModes: "GC pauses or load spikes delaying heartbeats → false death. Too-frequent heartbeats wasting bandwidth. A partitioned leader still 'alive' to one side → split-brain without leases.",
+      interviewQs: [
+        iq("How do heartbeats and leases prevent a partitioned old leader from causing harm?", "A leader holds a time-bounded lease that it must renew by heart-beating to a quorum. If it's partitioned away from the quorum, it stops receiving renewals and its lease expires, so it voluntarily steps down before a new leader is elected on the other side. Without such a lease, both the old and new leaders could act simultaneously — split-brain."),
+      ],
+      prerequisites: ["m73"], related: ["m73", "m63", "m96"],
+    },
+    m76: {
+      why: "Multi-leader replication lets more than one node accept writes — good for multi-region latency and offline operation — but it admits concurrent conflicting writes that must be resolved.",
+      intuition: "Each region has a writable leader; they replicate to each other asynchronously. Two regions can edit the same record at once, so the system must detect and merge or pick a winner.",
+      internals: "Writes apply locally then propagate; conflicting concurrent updates are resolved by a strategy: last-write-wins (by timestamp — can lose data), application merge, or CRDTs (conflict-free types that merge deterministically). Version vectors detect concurrency. There's no single ordering of writes, so strong consistency is sacrificed.",
+      engineering: "Use multi-leader for geo-distributed low-latency writes or offline clients, with a conflict strategy you can live with. Avoid it for data needing a single source of truth (balances) unless you add coordination.",
+      failureModes: "Lost updates under last-write-wins. Conflict resolution that violates invariants. Replication loops/amplification. Divergent replicas if merge is wrong.",
+      interviewQs: [
+        iq("What new problem does multi-leader replication introduce, and how is it handled?", "Write conflicts: two leaders can accept concurrent edits to the same key with no global order. Resolution strategies include last-write-wins by timestamp (simple but can silently drop a write), application-specific merge, or CRDTs that merge deterministically without losing data. Version vectors detect which writes were concurrent versus causally ordered."),
+      ],
+      prerequisites: ["m55"], related: ["m77", "m78", "m81"],
+    },
+    m77: {
+      why: "Synchronous replication makes a commit wait until replicas have the data, so a committed write survives the loss of the primary — strong durability at the cost of latency.",
+      intuition: "On commit, the primary blocks until one or more replicas acknowledge the write. The client's success means the data is on multiple nodes.",
+      internals: "The primary ships the WAL/log to replicas and waits for W acknowledgments before returning commit. Guarantees no data loss on primary failure (the write is already on a replica) and read-your-writes from synced replicas — but commit latency now includes a round trip, and if replicas are unreachable, writes stall (availability coupling).",
+      engineering: "Use for data that must never be lost (financial), often as 'semi-sync' (wait for one replica, not all) to bound the latency/availability hit. Combine with async replicas for read scaling.",
+      failureModes: "Write stalls when replicas lag or fail (availability tied to replicas). Higher commit latency. Over-replicating synchronously (waiting for all) amplifying tail latency.",
+      interviewQs: [
+        iq("What does synchronous replication guarantee, and what does it cost?", "It guarantees a committed write is already on one or more replicas, so a primary failure loses no acknowledged data and synced replicas can serve read-your-writes. The cost is that commit latency includes a replica round trip, and if the required replicas are slow or unreachable, writes stall — availability becomes coupled to replica health. Semi-sync (wait for one of several) softens this."),
+      ],
+      prerequisites: ["m55"], related: ["m78", "m76", "m64"],
+    },
+    m78: {
+      why: "Asynchronous replication keeps writes fast by not waiting for replicas — the default for read scaling and geo-distribution — at the price of replication lag and possible data loss on failover.",
+      intuition: "The primary commits locally and returns immediately; replicas apply the change a little later. Reads from a replica may be slightly stale.",
+      internals: "The primary streams its WAL to replicas that apply it in the background; commit doesn't wait. Replication lag (ms to seconds) means a read right after a write can miss it on a replica (no read-your-writes), and an un-replicated tail is lost if the primary dies before shipping it. This is the ShopKart 'order vanishes then reappears' scenario.",
+      engineering: "Great for scaling reads and cross-region replicas. For correctness, route read-your-writes to the primary (or a caught-up replica), monitor lag, and accept bounded data-loss on failover or add sync for critical writes.",
+      failureModes: "Stale reads violating read-your-writes. Data loss of the un-shipped tail on failover. Unbounded lag under write bursts. Replica falling so far behind it must re-snapshot.",
+      interviewQs: [
+        iq("What consistency problem does asynchronous replication cause for reads, and how do you fix it?", "Replication lag means a read sent to a replica right after a write may not see that write (no read-your-writes), and the un-replicated tail is lost if the primary fails. Fixes: route a user's post-write reads to the primary for a short window, or pin them to a replica that has applied the client's last write LSN (session/causal consistency), keeping the replica fan-out for everything else."),
+      ],
+      prerequisites: ["m55"], related: ["m77", "m81", "m80"],
+    },
+    m80: {
+      why: "'Consistency' isn't one thing — it's a spectrum of guarantees about what a read can see. Choosing a consistency model is choosing how much staleness and anomaly your app tolerates for how much performance.",
+      intuition: "From strong (every read sees the latest write, as if one copy) to eventual (replicas converge if writes stop), with useful middles: read-your-writes, monotonic reads, causal consistency.",
+      internals: "Linearizability (strong) orders all operations on a single timeline — expensive, needs coordination. Causal consistency preserves cause-effect order without a global clock — cheaper, often enough. Eventual consistency only promises convergence. Session guarantees (read-your-writes, monotonic reads/writes) are practical client-centric middles. CAP: under a partition you must drop strong consistency or availability.",
+      engineering: "Pick the weakest model that preserves your invariants: strong for balances, causal for comments/feeds, eventual for caches/metrics. Stronger = more coordination = more latency and less availability.",
+      failureModes: "Choosing eventual where an invariant needs strong (overselling stock). Assuming linearizability from an async-replicated read. Mixing models and getting surprising anomalies.",
+      interviewQs: [
+        iq("Give an example where eventual consistency is fine and one where it isn't.", "Fine: a 'like' counter or a product-view count — brief staleness is harmless and replicas converge. Not fine: decrementing inventory on checkout or a bank balance, where two replicas each approving a write on stale data can oversell stock or overdraw an account. Invariants that must hold across concurrent writes need strong consistency or explicit coordination."),
+        iq("What is causal consistency and why is it a popular middle ground?", "It guarantees that operations which are causally related (a reply after its message, a read that influenced a write) are seen in that order by all nodes, while concurrent operations may be seen in any order. It rules out the confusing 'effect before cause' anomalies without needing a global total order, so it's much cheaper than linearizability while still feeling intuitive to users."),
+      ],
+      prerequisites: ["m81"], related: ["m82", "m81", "m64"],
+    },
+    m82: {
+      why: "Strong consistency (linearizability) is the gold standard: the system behaves as if there's a single copy of the data and every operation takes effect atomically at some instant between its start and finish.",
+      intuition: "Once a write completes, every subsequent read anywhere sees it (or a newer value). There are no stale reads and no reordering — exactly the single-machine mental model, preserved across replicas.",
+      internals: "Achieved via consensus (Raft/Paxos) or synchronous replication with a leader serializing writes and reads going through the committed log. It requires coordination on every operation, so it costs latency and, under a network partition, availability (CAP's CP side). Linearizability is a per-object real-time guarantee; serializability is the multi-object transaction analog.",
+      engineering: "Use it where correctness depends on seeing the latest value: leader election, locks, account balances, unique constraints. Confine it to the data that needs it; serve everything else from cheaper models.",
+      failureModes: "Latency and throughput cost on every op. Unavailability during partitions. Mistaking 'reads from the leader' for linearizable without going through the log/lease.",
+      interviewQs: [
+        iq("What does linearizability guarantee, and why does it cost availability under a partition?", "It guarantees every operation appears to take effect atomically at a single point in real time, so a completed write is visible to all later reads — the single-copy illusion. Providing it requires coordinating each operation through a consensus leader/quorum; during a network partition the minority side can't reach a quorum, so to avoid serving stale or conflicting data it must reject requests — sacrificing availability (CAP's CP choice)."),
+      ],
+      prerequisites: ["m80"], related: ["m80", "m63", "m64"],
+    },
+    m83: {
+      why: "In eventually-consistent, quorum-replicated stores, replicas drift. Read repair fixes staleness opportunistically — on the read path — so frequently-read data self-heals.",
+      intuition: "When a read queries several replicas and notices one is behind, it writes the newest value back to the stale replica as a side effect of serving the read.",
+      internals: "A coordinator reads from R replicas, compares versions, returns the newest to the client, and asynchronously pushes it to any lagging replica. It repairs only data that gets read (hot keys heal; cold keys don't), so it's paired with anti-entropy for full coverage.",
+      engineering: "Cheap and effective for hot data in Dynamo-style systems; combine with background anti-entropy for the long tail. Tune how often (probabilistically) to do it to bound extra writes.",
+      failureModes: "Cold keys never repaired (needs anti-entropy). Extra write load on reads. Conflict resolution during repair losing data (last-write-wins). Repair amplifying under skew.",
+      interviewQs: [
+        iq("What does read repair fix, and what does it miss?", "On a quorum read it detects replicas holding a stale version and writes the newest value back to them, so frequently-read keys converge as a side effect of being read. It misses rarely-read ('cold') keys, which never trigger a repair — so it's paired with background anti-entropy (e.g., Merkle-tree comparison) to converge the data that read repair never touches."),
+      ],
+      prerequisites: ["m81"], related: ["m84", "m64", "m81"],
+    },
+    m84: {
+      why: "Anti-entropy is the background process that converges replicas regardless of read traffic — the safety net that guarantees eventual consistency actually happens for all data, not just hot keys.",
+      intuition: "Replicas periodically compare their data and exchange whatever differs. To avoid shipping everything, they compare compact fingerprints (Merkle trees) and only sync the mismatched ranges.",
+      internals: "Each replica builds a Merkle tree (a hash tree over key ranges); two replicas compare roots, then descend only where hashes differ, pinpointing divergent ranges in log time and transferring just those. Gossip spreads updates epidemically. This bounds convergence time independent of whether keys are read.",
+      engineering: "Schedule anti-entropy to balance convergence speed against I/O/network cost; it's the complement to read repair (hot path) and hinted handoff (temporary failures). Essential for cold data.",
+      failureModes: "Expensive full comparisons without Merkle trees. Anti-entropy I/O competing with live traffic. Slow convergence if run too rarely. Conflict resolution still needed when values differ.",
+      interviewQs: [
+        iq("How do Merkle trees make anti-entropy efficient?", "Each replica hashes its key ranges into a tree. Two replicas compare root hashes; if equal, they're identical and nothing transfers. If not, they recurse only into subtrees whose hashes differ, pinpointing the exact divergent ranges in logarithmic comparisons and transferring just those keys — instead of streaming and comparing the entire dataset."),
+      ],
+      prerequisites: ["m83"], related: ["m83", "m81", "m64"],
+    },
+    m85: {
+      why: "Vertical partitioning splits a table by columns (or splits a schema by feature) rather than by rows — isolating hot columns, big blobs, or independent services.",
+      intuition: "Put frequently-accessed columns in one store and rarely-used or large ones in another, so common queries read narrower rows; or give each service its own tables.",
+      internals: "Row-store column splitting keeps hot, narrow columns together (more rows per page, faster scans) and moves cold/large columns aside (referenced by key). At the schema level, vertical partitioning underlies service-oriented data ownership. Contrast with horizontal partitioning (sharding) which splits rows.",
+      engineering: "Use it to keep hot-path rows small (better cache density) and to decouple services. The cost is a join/extra fetch when you need the split-off columns together.",
+      failureModes: "Needing both partitions per query (join overhead negating the benefit). Over-splitting creating chatty access. Confusing it with sharding (which splits rows for scale).",
+      interviewQs: [
+        iq("How does vertical partitioning differ from horizontal partitioning (sharding)?", "Vertical partitioning splits a table by columns — separating hot/narrow columns from cold/large ones (or splitting schema by service) so common queries read smaller rows. Horizontal partitioning (sharding) splits by rows across nodes to scale capacity and throughput. Vertical is about access-pattern locality on (often) one node; horizontal is about distributing load and data volume."),
+      ],
+      prerequisites: ["m62"], related: ["m86", "m87", "m27"],
+    },
+    m86: {
+      why: "Hash partitioning spreads rows across shards by hashing the partition key — the default way to get even load distribution and avoid hotspots.",
+      intuition: "shard = hash(key) mod N. Similar keys scatter to different shards, so load is balanced, but ordering is lost — you can't do a range scan without hitting every shard.",
+      internals: "A hash function maps keys uniformly to shards, giving good balance for skewed keys. The downside: adjacent keys land on different shards, so range queries become scatter-gather. Naive mod-N rebalances almost everything when N changes — consistent hashing (with virtual nodes) fixes that by moving only ~1/N of keys.",
+      engineering: "Use hash partitioning when access is by exact key and you want even load (user_id, order_id). Avoid it when you need range scans on the partition key. Prefer consistent hashing so adding a node doesn't reshuffle everything.",
+      failureModes: "Range queries forced to scatter-gather. mod-N rebalancing moving nearly all data on resize. Hash skew from a low-cardinality or heavily-repeated key. Still hot if one key is extremely popular.",
+      interviewQs: [
+        iq("Why is naive hash(key) mod N partitioning problematic when you add a node, and what fixes it?", "Changing N changes almost every key's (hash mod N) result, so adding one node reshuffles nearly the whole dataset — a massive rebalancing storm. Consistent hashing fixes this: keys and nodes are placed on a hash ring and a key belongs to the next node clockwise, so adding a node only moves the keys between it and its predecessor (~1/N of the data). Virtual nodes smooth the distribution further."),
+      ],
+      prerequisites: ["m62"], related: ["m87", "m88", "m90"],
+    },
+    m87: {
+      why: "Range partitioning assigns contiguous key ranges to shards, preserving order so range scans stay efficient — at the risk of hotspots when load concentrates in one range.",
+      intuition: "Shard A holds keys 1–1000, B holds 1001–2000, and so on. A range query touches only the shards covering that range; sequential inserts, though, all hit the last shard.",
+      internals: "A partition map records range boundaries; lookups and range scans route to the owning shard(s), keeping ordered access cheap. Splits/merges adjust boundaries as data grows (like a distributed B-tree). The classic hazard: monotonic keys (timestamps, auto-increment ids) send all new writes to one shard — a write hotspot.",
+      engineering: "Use range partitioning when range/ordered queries matter (time-series, scans). Avoid monotonic partition keys for writes, or salt/prefix them to spread inserts. Watch for uneven range sizes needing split/merge.",
+      failureModes: "Write hotspot on the latest range under monotonic keys. Uneven ranges (some shards huge). Rebalancing via split/merge adding overhead. Range queries spanning many shards.",
+      interviewQs: [
+        iq("Range vs hash partitioning — what do you gain and lose with each?", "Range partitioning preserves key order, so range/ordered scans touch only the relevant shards — but monotonic keys concentrate writes on one shard (hotspot) and ranges can grow unevenly. Hash partitioning spreads load evenly and avoids write hotspots — but destroys ordering, so range queries become scatter-gather. Choose by whether your workload is range-oriented or exact-key-oriented."),
+      ],
+      prerequisites: ["m62"], related: ["m86", "m88", "m90"],
+    },
+    m88: {
+      why: "Virtual nodes make consistent hashing practical: instead of one ring position per server, each server owns many small 'vnodes', smoothing load and making rebalancing incremental.",
+      intuition: "Give each physical node hundreds of random ring positions. Keys spread more evenly, and adding/removing a node moves many small slices from/to many peers rather than one big slice from one neighbor.",
+      internals: "With one token per node, hash-ring load is lumpy and a leaving node dumps its whole range on one successor. Virtual nodes (vnodes) assign each physical node V ring tokens, so load variance drops ~1/√V and a node's data is spread across many peers — making rebalancing fast, parallel and even. Heterogeneous nodes get more vnodes to carry more load.",
+      engineering: "Vnodes are standard in Dynamo/Cassandra-style systems. Pick V to balance smoothness against metadata overhead. They enable graceful scale-out and faster recovery (many peers each stream a small share).",
+      failureModes: "Too few vnodes → lumpy load; too many → metadata/overhead. Rebalancing still moves data (just more evenly). Token assignment bugs causing imbalance.",
+      interviewQs: [
+        iq("Why do consistent-hashing systems use virtual nodes?", "With one ring token per server, load is uneven and removing a node dumps its entire key range onto a single successor (and adding one steals a big range from one neighbor). Giving each server many virtual tokens spreads its data across many peers, so load is smoother and rebalancing moves many small slices in parallel across the cluster — faster, more even scale-out and recovery. Heterogeneous capacity is handled by assigning more vnodes to bigger servers."),
+      ],
+      prerequisites: ["m86"], related: ["m86", "m89", "m90"],
+    },
+    m89: {
+      why: "Rebalancing moves partitions when the cluster changes — nodes added, removed or failed — to keep load even. How it's done determines whether scaling is smooth or an outage.",
+      intuition: "When topology changes, some data must move to new owners. Good rebalancing moves the minimum amount, in the background, without overloading the network or the nodes involved.",
+      internals: "Strategies: fixed partition count (many more partitions than nodes; assign whole partitions to nodes — move partitions, not re-hash keys), dynamic partitioning (split/merge by size, like HBase), and consistent hashing with vnodes (move ~1/N on change). Rebalancing should be incremental and throttled, and ideally automatic but with a human in the loop for safety.",
+      engineering: "Prefer 'move whole partitions' designs so rebalancing never re-hashes every key. Throttle data movement to protect live traffic. Make it observable and reversible; automatic rebalancing + a flaky node can cascade.",
+      failureModes: "Rebalancing storms saturating the network. Moving too much data (mod-N designs). Automatic rebalancing reacting to a transient failure and thrashing. Hot partitions that rebalancing alone can't fix (need splitting).",
+      interviewQs: [
+        iq("How do you rebalance without re-hashing the entire dataset when adding a node?", "Decouple partitions from nodes: create many more fixed partitions than nodes and assign whole partitions to nodes. Adding a node just reassigns some existing partitions to it — their keys don't change, only ownership — so you move ~1/N of the data and never re-hash everything. Consistent hashing with virtual nodes achieves the same minimal-movement property on a ring."),
+      ],
+      prerequisites: ["m88"], related: ["m88", "m90", "m62"],
+    },
+    m90: {
+      why: "Even with good partitioning, a single key or range can attract disproportionate traffic — a hot partition — bottlenecking one node while others idle. Handling skew is a core scaling problem.",
+      intuition: "A celebrity user, a trending product, or the newest time-range gets far more load than its share. The shard that owns it saturates; adding nodes doesn't help because the load is on one key.",
+      internals: "Skew defeats uniform partitioning because the unit of distribution (a key/range) is itself overloaded. Mitigations: split the hot key (salting — append a random suffix to spread writes, then gather on read), add a caching layer in front, replicate the hot partition for reads, or isolate it on dedicated capacity. Range schemes also hotspot on monotonic keys.",
+      engineering: "Detect hotspots via per-partition metrics. For hot writes, salt the key; for hot reads, cache or add read replicas. Design partition keys to avoid predictable concentration (don't shard purely by timestamp).",
+      failureModes: "One shard at 100% while the cluster is idle. Salting complicating reads (must query all salts). Cache stampedes on a hot key. Monotonic keys hotspotting the latest range.",
+      interviewQs: [
+        iq("A single popular key is overloading one shard — how do you fix it?", "You can't fix single-key skew by adding shards, because the load is on one key. Options: split the hot key by salting (append a random prefix/suffix so writes spread across N sub-keys, then fan-in on read), put a cache in front of hot reads, replicate that partition across nodes for read scaling, or isolate it on dedicated capacity. The right mix depends on whether the hotspot is reads or writes."),
+      ],
+      prerequisites: ["m62"], related: ["m86", "m87", "m89"],
+    },
+    m92: {
+      why: "Three-phase commit tries to fix two-phase commit's blocking problem by adding a phase so a recovering coordinator/participant can make progress — illustrating why non-blocking atomic commit is hard.",
+      intuition: "2PC can block forever if the coordinator dies after participants vote 'yes' but before the commit decision arrives. 3PC inserts a 'prepared-to-commit' phase so survivors can infer and complete the decision.",
+      internals: "3PC splits commit into canCommit → preCommit → doCommit. The extra preCommit phase means that if the coordinator fails, participants that reached preCommit know the outcome was 'commit' and can finish, giving non-blocking behavior under the synchronous, fail-stop model. But it's not safe under network partitions (it can commit on one side and abort on another), so real systems use consensus (Paxos/Raft)-based commit instead.",
+      engineering: "3PC is mostly of theoretical/teaching value: its assumptions (bounded delay, no partitions) don't hold in practice, so production systems favor Paxos/Raft-backed commit or careful 2PC with timeouts and recovery.",
+      failureModes: "Unsafe under network partitions (can violate atomicity). Extra round trip cost. Still relies on timing assumptions. Rarely used in practice.",
+      interviewQs: [
+        iq("What problem does 3PC try to solve over 2PC, and why isn't it used?", "2PC blocks if the coordinator crashes after participants vote yes but before they learn the decision — they're stuck holding locks with no way to decide. 3PC adds a preCommit phase so survivors can infer the outcome and finish without the coordinator (non-blocking) — but only under synchronous, partition-free assumptions. Under real network partitions 3PC can commit on one side and abort on another, violating atomicity, so production systems use consensus-based commit instead."),
+      ],
+      prerequisites: ["m60"], related: ["m60", "m93", "m95"],
+    },
+    m93: {
+      why: "Consensus — getting a set of nodes to agree on a single value despite failures — is the foundation of fault-tolerant distributed systems: leader election, replicated logs, atomic commit and locks all reduce to it.",
+      intuition: "Many nodes propose; all must decide on one value, and once decided it never changes, even as nodes crash and recover. Achieved by majority agreement so decisions survive minority failures.",
+      internals: "A consensus protocol must satisfy agreement (all decide the same), validity (the value was proposed) and termination (they eventually decide). FLP proves deterministic consensus is impossible in a fully async system with even one failure — so practical protocols (Paxos, Raft) use timeouts/leaders to make progress when the network is well-behaved while never violating safety. A majority quorum ensures any two decisions overlap.",
+      engineering: "Don't build consensus yourself; use a proven implementation (Raft libraries, etcd/ZooKeeper). Keep the consensus group small (3–5) for latency; put only metadata/critical state through it, not high-volume data.",
+      failureModes: "Rolling your own and getting safety wrong. Large consensus groups → high latency. Routing bulk data through consensus. Losing quorum → no progress (by design).",
+      interviewQs: [
+        iq("What does the FLP result say, and how do real consensus protocols cope?", "FLP proves that in a fully asynchronous network, no deterministic protocol can guarantee consensus if even one node may fail — you can't always distinguish a slow node from a dead one, so termination can't be guaranteed. Real protocols (Paxos, Raft) sidestep it by relying on timeouts/leader election for *liveness* (progress when the network behaves) while never sacrificing *safety* (they never decide two different values), so they're always correct and usually live."),
+        iq("Why must a consensus decision be backed by a majority quorum?", "Because any two majorities of the same set overlap in at least one node, so a value decided by one majority is known to a node in every future majority — preventing two different decisions. Majorities also let the system keep deciding while a minority is down, giving fault tolerance of f failures with 2f+1 nodes."),
+      ],
+      prerequisites: ["m79"], related: ["m63", "m79", "m60"],
+    },
+    m94: {
+      why: "Raft is the consensus algorithm most engineers actually meet (etcd, Consul, CockroachDB). It was designed for understandability, decomposing consensus into leader election, log replication and safety.",
+      intuition: "One elected leader per term takes all writes, replicates them to followers, and commits an entry once a majority stores it. Terms and the up-to-date voting rule keep the log consistent across leader changes.",
+      internals: "Time is divided into terms, each with at most one leader. A follower that times out becomes a candidate, increments the term and requests votes, granted only if its log is at least as up-to-date — guaranteeing a new leader has all committed entries. The leader replicates entries and advances commitIndex when a majority (and the current term) holds them. See the interactive Raft lab.",
+      engineering: "Use a battle-tested Raft library rather than reimplementing. Keep the group at 3 or 5 nodes; co-locate for low election timeouts; snapshot the log to bound its growth. Raft gives you a linearizable replicated log to build on.",
+      failureModes: "Reimplementation bugs. Flapping leaders from too-short election timeouts under load. Large groups raising commit latency. Unbounded log without snapshots.",
+      interviewQs: [
+        iq("How does Raft guarantee a newly elected leader has all committed entries?", "By the election restriction: a voter grants its vote only if the candidate's log is at least as up-to-date (higher last term, or same term and ≥ index) as its own. A committed entry is on a majority; any winning candidate needs votes from a majority; those majorities intersect, and the overlapping voter won't vote for a candidate missing that entry — so the winner necessarily has every committed entry, and committed data is never lost across leader changes."),
+      ],
+      prerequisites: ["m63"], related: ["m63", "m93", "m96"],
+    },
+    m95: {
+      why: "A network partition — the cluster splits into groups that can't talk — is the failure that forces the CAP choice. How a system behaves when partitioned defines its consistency/availability character.",
+      intuition: "A link failure cuts the cluster in two. Each side sees the other as 'dead'. Do you let both sides keep serving (risking divergence) or make the minority stop (losing availability)?",
+      internals: "Under a partition you cannot have both consistency and availability (CAP): a CP system makes the minority side reject requests (no quorum → unavailable but consistent); an AP system lets both sides serve and reconciles later (available but temporarily inconsistent). Quorum/consensus systems are CP — only the majority side makes progress; the minority can't elect a leader or commit.",
+      engineering: "Decide per-dataset: CP for data needing correctness (balances, locks — use consensus), AP for data needing availability (shopping carts, feeds — use conflict-free merge). Make the partition behavior explicit and test it (chaos/partition injection).",
+      failureModes: "Split-brain if both sides keep writing without coordination. Minority-side outages (the correct CP behavior, but surprising). Silent divergence in AP systems with bad conflict resolution.",
+      interviewQs: [
+        iq("During a network partition, what choice does CAP force, and how does a quorum system behave?", "CAP says under a partition you must sacrifice either consistency or availability. A quorum/consensus (CP) system keeps consistency: only the side with a majority can elect a leader and commit, so the minority side rejects writes (and often reads) — unavailable but never divergent. An AP system keeps availability: both sides serve and the data is reconciled after the partition heals, accepting temporary inconsistency."),
+      ],
+      prerequisites: ["m80"], related: ["m96", "m82", "m64"],
+    },
+    m96: {
+      why: "Split-brain is the dangerous failure where two nodes both believe they're the leader/primary and both accept writes — leading to divergent, conflicting state. Preventing it is a core job of coordination protocols.",
+      intuition: "A partition isolates the leader; the other side elects a new one; now two leaders write independently. When the network heals, their histories conflict and data is lost or corrupted.",
+      internals: "Prevented by requiring a majority quorum to lead (two majorities can't exist simultaneously, so at most one leader) and by fencing: a new leader gets a higher epoch/term, and storage/peers reject writes stamped with an older epoch — so a partitioned old leader that returns is ignored. Leases (time-bounded leadership) make an isolated leader step down before its lease expires.",
+      engineering: "Never allow leadership on a minority. Use fencing tokens (monotonic epoch) at the storage layer so a stale leader's writes are rejected. Combine quorum + lease + fencing; don't rely on failure detection alone.",
+      failureModes: "Two leaders writing during a partition → divergence. A resurrected old leader corrupting state without fencing. Fencing missing at the storage layer. Leases without clock-skew bounds.",
+      interviewQs: [
+        iq("How do systems prevent split-brain (two active leaders)?", "Three layers: (1) require a majority quorum to become leader, so two leaders can't coexist (two majorities would overlap); (2) fencing tokens — each leadership gets a higher monotonic epoch, and storage/peers reject writes carrying an older epoch, so a returning stale leader is ignored; (3) time-bounded leases, so a partitioned leader stops acting before its lease expires. Quorum + fencing + leases together, not failure detection alone."),
+      ],
+      prerequisites: ["m95"], related: ["m63", "m74", "m95"],
+    },
+    m97: {
+      why: "After nodes crash, partitions heal, or leaders change, a distributed database must reconcile — recover committed state, discard uncommitted, and bring stale replicas back in sync — without losing or duplicating data.",
+      intuition: "Recovery combines single-node crash recovery (WAL replay per node) with distributed reconciliation: a rejoining node catches up from the leader's log; conflicting histories are resolved by the commit rules.",
+      internals: "Each node recovers locally via its WAL (redo committed, undo uncommitted). A rejoining follower catches up by log shipping/snapshots from the current leader, truncating any uncommitted tail that conflicts (Raft log reconciliation). Consensus guarantees committed entries survive; uncommitted ones from a deposed leader are overwritten. Anti-entropy/read-repair converge eventually-consistent replicas.",
+      engineering: "Lean on the protocol's guarantees: with Raft, a recovered node safely re-syncs from the leader and can't resurrect stale writes (fencing by term). Snapshot to bound catch-up time. Make recovery idempotent and observable.",
+      failureModes: "A recovered node serving stale reads before catching up. Un-fenced old leader reintroducing overwritten writes. Slow catch-up without snapshots. Conflicting histories resolved incorrectly.",
+      interviewQs: [
+        iq("When a crashed follower rejoins a Raft cluster, how does it recover without corrupting the log?", "It first recovers its own state locally via its WAL, then rejoins as a follower and the current leader brings it up to date via AppendEntries (or a snapshot): any uncommitted tail in the follower's log that conflicts with the leader is overwritten, and missing committed entries are shipped over. Because leadership is fenced by term, the stale node can't act as leader or reintroduce overwritten writes, so committed data is preserved and divergence is repaired."),
+      ],
+      prerequisites: ["m53"], related: ["m63", "m95", "m54"],
+    },
+  };
+  Object.assign(C, D);
+
   DL.conceptContent = Object.assign(DL.conceptContent || {}, C);
 
   // Merge authored content over the generated registry (same objects as conceptById).
