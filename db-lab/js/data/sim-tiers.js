@@ -23,8 +23,8 @@
   //  the flagship kernels below are built and flipped on in later phases.)
   var INTERACTIVE = {
     m47: 1, // WAL + crash recovery     (Phase 2 — kernel + tests + lab)
-    // m36: B+Tree                      (Phase 3)
-    // m30: buffer pool                 (Phase 3)
+    m36: 1, // B+Tree                   (Phase 3 — kernel + tests + lab)
+    m30: 1, // buffer pool              (Phase 3 — kernel + tests + lab)
     // m48: MVCC                        (Phase 4)
     // m16/m17: query optimizer         (Phase 4)
     // m41: LSM tree                    (Phase 5)

@@ -1,221 +1,191 @@
-import { createModuleShell, initTabs, createIQSection, initIQ, PRIME_SCHEMA } from '../components/module-shell.js';
-import { SimulationEngine } from '../components/simulation-engine.js';
+/* ============================================================
+   m36-b-plus-tree.js — ⚡ Interactive Lab: B+Tree index.
+   Renderer for sims/kernels/bplustree.mjs. Insert / delete / search /
+   range-scan a real B+Tree; the drawn tree, node occupancy, height and
+   highlighted search path are the kernel's actual state.
+   ============================================================ */
+import { createModuleShell, initTabs, createIQSection, initIQ } from '../components/module-shell.js';
+import { createBPlusTree } from '../kernels/bplustree.mjs';
 
-// B+ Tree: internal nodes = routing keys only, leaf nodes = keys + TID data, leaves linked
-const BPT_NODES = [
-  { id: 'root',  keys: [30, 70],     x: 400, y: 40,  type: 'internal', color: '#4F46E5' },
-  { id: 'i1',   keys: [10, 20],     x: 180, y: 140, type: 'internal', color: '#818CF8' },
-  { id: 'i2',   keys: [40, 60],     x: 400, y: 140, type: 'internal', color: '#818CF8' },
-  { id: 'i3',   keys: [80, 90],     x: 620, y: 140, type: 'internal', color: '#818CF8' },
-  { id: 'l1',   keys: [5,10],       x: 80,  y: 260, type: 'leaf', color: '#10B981' },
-  { id: 'l2',   keys: [15,20],      x: 200, y: 260, type: 'leaf', color: '#10B981' },
-  { id: 'l3',   keys: [25,30],      x: 320, y: 260, type: 'leaf', color: '#10B981' },
-  { id: 'l4',   keys: [40,50,60],   x: 440, y: 260, type: 'leaf', color: '#10B981' },
-  { id: 'l5',   keys: [70,80,90],   x: 600, y: 260, type: 'leaf', color: '#10B981' },
-  { id: 'l6',   keys: [95,99],      x: 720, y: 260, type: 'leaf', color: '#10B981' },
-];
-const BPT_EDGES = [
-  ['root','i1'],['root','i2'],['root','i3'],
-  ['i1','l1'],['i1','l2'],['i2','l3'],['i2','l4'],['i3','l5'],['i3','l6'],
-];
-const LEAF_CHAIN = ['l1','l2','l3','l4','l5','l6'];
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
+const src = (id) => (window.DBLab && window.DBLab.source && window.DBLab.source(id)) || null;
 
-const BPT_STEPS = [
-  { highlight: [], chains: false, desc: 'B+ Tree: internal nodes hold ROUTING KEYS ONLY (no data). Leaf nodes hold all keys with TID data pointers. All leaves linked in a doubly-linked list at the same depth.' },
-  { highlight: ['root'], chains: false, desc: 'Root: keys [30, 70] — routing only. Three child pointers: left subtree (< 30), middle (30–70), right (≥ 70). No data records here — just routing information.' },
-  { highlight: ['i1','i2','i3'], chains: false, desc: 'Internal level: three nodes with routing keys only. Keys are COPIES of leaf keys promoted upward during splits. No heap TID here — data is always in leaves.' },
-  { highlight: ['l1','l2','l3','l4','l5','l6'], chains: false, desc: 'Leaf level: all keys with TID (heap page, slot) pointers. Keys are in sorted order across all leaves. This is where actual data lives.' },
-  { highlight: ['l1','l2','l3','l4','l5','l6'], chains: true, desc: 'Leaf linked list: each leaf has a right-sibling pointer (and left for backward scan). Range scan [20, 60]: find leaf with 20, follow chain → l2 → l3 → l4 until key > 60. O(K) sequential I/O.' },
-  { highlight: ['root','i1','l1'], chains: true, desc: 'Point lookup for key=10: root (10 < 30 → left) → i1 (10 ≤ 10 → l1) → leaf l1 → found. 3 page reads for internal nodes + 1 leaf = 4 I/Os total.' },
-];
-
-function drawBPlusTree(ctx, stepIdx, w, h) {
-  ctx.clearRect(0, 0, w, h);
-
-  const step = BPT_STEPS[Math.max(0, stepIdx)];
-  const activeSet = new Set(step.highlight);
-
-  // Edges
-  BPT_EDGES.forEach(([a, b]) => {
-    const na = BPT_NODES.find(n => n.id === a), nb = BPT_NODES.find(n => n.id === b);
-    const isActive = activeSet.has(a) || activeSet.has(b);
-    ctx.strokeStyle = isActive ? '#4F46E5' + '88' : '#1E293B'; ctx.lineWidth = isActive ? 1.5 : 1;
-    ctx.beginPath(); ctx.moveTo(na.x, na.y + 22); ctx.lineTo(nb.x, nb.y - 22); ctx.stroke();
+export function mount(host) {
+  const shell = createModuleShell(host, {
+    tag: '⚡ Interactive Lab · Storage Engine',
+    title: 'B+Tree Index',
+    subtitle: "Insert, delete, search and range-scan a live B+Tree. Splits, merges, borrows and height changes are the kernel's real state — every node stays within its occupancy bounds and every leaf at equal depth.",
+    tabs: [{ id: 'lab', label: 'Lab' }, { id: 'how', label: 'How it works' }, { id: 'iq', label: 'Interview' }],
   });
+  const teardown = initTabs(shell.tabs, shell.body, {
+    lab: (panel) => mountLab(panel),
+    how: (panel) => { panel.innerHTML = howHTML(); },
+    iq: (panel) => { const iq = createIQSection(); panel.appendChild(iq.el); initIQ(iq, IQ); },
+  });
+  return { destroy() { if (typeof teardown === 'function') teardown(); } };
+}
 
-  // Leaf chain
-  if (step.chains) {
-    for (let i = 0; i < LEAF_CHAIN.length - 1; i++) {
-      const na = BPT_NODES.find(n => n.id === LEAF_CHAIN[i]);
-      const nb = BPT_NODES.find(n => n.id === LEAF_CHAIN[i + 1]);
-      ctx.strokeStyle = '#10B981'; ctx.lineWidth = 2; ctx.setLineDash([5, 3]);
-      ctx.beginPath(); ctx.moveTo(na.x + 50, na.y + 6); ctx.lineTo(nb.x - 50, nb.y + 6); ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.fillStyle = '#10B981'; ctx.font = '9px system-ui'; ctx.textAlign = 'center';
-      ctx.fillText('→', (na.x + 50 + nb.x - 50) / 2, na.y + 9);
-      ctx.textAlign = 'left';
+function mountLab(panel) {
+  let order = 3;
+  let kernel = createBPlusTree({ order: order });
+  // seed a small tree so the first view is interesting
+  [10, 20, 5, 15, 25, 30, 1, 8].forEach((key) => kernel.dispatch({ type: 'insert', key: key }));
+
+  const root = document.createElement('div');
+  root.className = 'bt-lab';
+  panel.appendChild(root);
+
+  function rebuild(seed) {
+    kernel = createBPlusTree({ order: order });
+    if (seed) seed.forEach((key) => kernel.dispatch({ type: 'insert', key: key }));
+    render();
+  }
+  function dispatch(op) { try { kernel.dispatch(op); } catch (e) {} render(); }
+
+  root.addEventListener('click', (ev) => {
+    const el = ev.target.closest('[data-act]'); if (!el) return;
+    const a = el.dataset.act;
+    const kv = () => Number(root.querySelector('#bt-key').value);
+    if (a === 'insert') return dispatch({ type: 'insert', key: kv() });
+    if (a === 'delete') return dispatch({ type: 'delete', key: kv() });
+    if (a === 'search') return dispatch({ type: 'search', key: kv() });
+    if (a === 'range') return dispatch({ type: 'range', lo: Number(root.querySelector('#bt-lo').value), hi: Number(root.querySelector('#bt-hi').value) });
+    if (a === 'insert-rand') {
+      const key = 1 + Math.floor(deterministicNext(kernel) % 99);
+      return dispatch({ type: 'insert', key: key });
     }
-  }
-
-  // Nodes
-  BPT_NODES.forEach(n => {
-    const isActive = activeSet.has(n.id);
-    const nodeW = n.keys.length * 44 + 16;
-    const nodeH = 44;
-    const nx = n.x - nodeW / 2, ny = n.y - nodeH / 2;
-
-    ctx.fillStyle = isActive ? n.color + '33' : '#0A0F1A';
-    ctx.strokeStyle = isActive ? n.color : '#1E293B';
-    ctx.lineWidth = isActive ? 2.5 : 1;
-    ctx.beginPath(); ctx.roundRect(nx, ny, nodeW, nodeH, 6); ctx.fill(); ctx.stroke();
-
-    n.keys.forEach((k, ki) => {
-      if (ki > 0) {
-        ctx.strokeStyle = isActive ? n.color + '55' : '#1E293B'; ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(nx + ki * 44, ny + 4); ctx.lineTo(nx + ki * 44, ny + nodeH - 4); ctx.stroke();
-      }
-      ctx.fillStyle = isActive ? n.color : '#475569';
-      ctx.font = (isActive ? '700' : '400') + ' 11px system-ui'; ctx.textAlign = 'center';
-      ctx.fillText(k, nx + ki * 44 + 22, ny + nodeH / 2 - 2);
-      if (n.type === 'leaf') {
-        ctx.fillStyle = isActive ? '#F59E0B' : '#334155';
-        ctx.font = '7px system-ui';
-        ctx.fillText('TID', nx + ki * 44 + 22, ny + nodeH / 2 + 10);
-      } else {
-        ctx.fillStyle = '#334155'; ctx.font = '7px system-ui';
-        ctx.fillText('→', nx + ki * 44 + 22, ny + nodeH / 2 + 10);
-      }
-      ctx.textAlign = 'left';
-    });
-
-    ctx.fillStyle = isActive ? n.color : '#334155';
-    ctx.font = '8px system-ui'; ctx.textAlign = 'center';
-    ctx.fillText(n.type, n.x, ny + nodeH + 12);
-    ctx.textAlign = 'left';
+    if (a === 'build') return rebuild(range(1, 15));
+    if (a === 'bulk') return rebuild(shuffleSeed(range(1, 20)));
+    if (a === 'clear') return rebuild(null);
+  });
+  root.addEventListener('change', (ev) => {
+    if (ev.target.id === 'bt-order') { order = Number(ev.target.value); rebuild([10, 20, 5, 15, 25, 30, 1, 8]); }
   });
 
-  if (stepIdx < 0) {
-    ctx.fillStyle = '#475569'; ctx.font = '13px system-ui'; ctx.textAlign = 'center';
-    ctx.fillText('Press Play to explore B+ Tree structure and leaf chain', w/2, h/2);
-    ctx.textAlign = 'left';
-  } else {
-    ctx.fillStyle = '#1E293B';
-    ctx.beginPath(); ctx.roundRect(20, h - 52, w - 40, 44, 4); ctx.fill();
-    const words = step.desc.split(' ');
-    let line = '', ly = h - 36;
-    ctx.fillStyle = '#94A3B8'; ctx.font = '9.5px system-ui';
-    words.forEach(wd => {
-      const test = line + (line ? ' ' : '') + wd;
-      if (ctx.measureText(test).width > w - 50) { ctx.fillText(line, 28, ly); line = wd; ly += 13; } else line = test;
-    });
-    if (line) ctx.fillText(line, 28, ly);
-  }
+  function render() { root.innerHTML = labHTML(kernel, order); }
+  render();
 }
 
-export function mount(container) {
-  container.innerHTML = createModuleShell({
-    tag: 'Storage Engine · M36',
-    title: 'B+ Tree',
-    subtitle: 'B+ Tree: routing keys in internal nodes, all data in leaf nodes, leaves linked for range scans.',
-    tabs: [
-      { id: 'bptree', label: '🌳 B+ Tree Structure' },
-      { id: 'leaf',   label: '🍃 Leaf Chain Scan' },
-      { id: 'iq',     label: '💼 Interview Q&A' },
-    ],
-  });
-  initTabs(container);
-
-  const bptTab = container.querySelector('#tab-bptree');
-  bptTab.innerHTML = `
-    ${PRIME_SCHEMA}
-    <div class="canvas-wrap" style="margin-top:12px">
-      <canvas width="800" height="360" style="width:100%;max-height:360px"></canvas>
-      <div class="canvas-controls"></div>
-      <div class="sim-timeline"></div>
-      <div class="canvas-explainer" id="bpt-explainer">
-        <h3>B+ Tree — The Standard Database Index</h3>
-        <p>All production databases (PostgreSQL, MySQL InnoDB, SQL Server, Oracle) use B+ Trees.
-           Internal nodes route the search; leaf nodes hold the data. Leaves form a sorted linked list
-           for range scans. Press <strong>Play</strong> to explore.</p>
-      </div>
-    </div>
-  `;
-  const canvas = bptTab.querySelector('canvas');
-  const ctx = canvas.getContext('2d');
-  const engine = new SimulationEngine({
-    initialState: { step: -1 },
-    steps: BPT_STEPS.map((s, i) => ({ label: `Step ${i+1}`, duration: 2000, mutate: st => { st.step = i; } })),
-    onRender: state => {
-      drawBPlusTree(ctx, state.step, 800, 360);
-      const el = bptTab.querySelector('#bpt-explainer');
-      if (el && state.step >= 0) { el.innerHTML = `<h3>Step ${state.step + 1}</h3><p>${BPT_STEPS[state.step].desc}</p>`; }
-    },
-  });
-  SimulationEngine.renderControls(bptTab.querySelector('.canvas-wrap'), engine);
-  SimulationEngine.renderTimeline(bptTab.querySelector('.canvas-wrap'), engine);
-  drawBPlusTree(ctx, -1, 800, 360);
-  engine.reset();
-
-  container.querySelector('#tab-leaf').innerHTML = `
-    <div class="scroll-content">
-      <div class="section-header">
-        <div class="section-title">Leaf Node Linked List — Range Scans in O(K)</div>
-        <div class="section-desc">The key advantage of B+ Tree over B-Tree for database range queries</div>
-      </div>
-      <div class="prose">
-        <h3>Range Scan Algorithm</h3>
-        <div class="code-block">
-Range query: WHERE order_id BETWEEN 1001 AND 1050
-
-1. Root → internal node: navigate as point lookup to first key ≥ 1001
-2. Arrive at leaf L containing key 1001
-3. Scan L sequentially (keys are sorted within each leaf)
-4. Follow right-sibling pointer → next leaf (sequential I/O)
-5. Continue until key > 1050 or EOF
-6. For each key found: fetch heap page by TID (ctid)
-
-Cost: O(log N) to find first leaf + O(K/f) to scan K rows across leaves
-      where f = keys per leaf page (fill factor)
-        </div>
-        <h3>Backward Scan (ORDER BY DESC)</h3>
-        <p>PostgreSQL B+ Tree leaves have BOTH left and right sibling pointers.
-           For <code>ORDER BY order_id DESC LIMIT 10</code>: navigate to the rightmost leaf,
-           follow left-sibling pointers. No sort needed — index provides the order.</p>
-      </div>
-      <div class="info-grid">
-        ${[
-          { label: 'Leaf page size', color: '#10B981', desc: 'Each leaf page holds ~500 keys (8 KB page / 16 bytes per int8 key + TID). A range scan of 5000 rows = ~10 leaf page reads — 10 sequential I/Os.' },
-          { label: 'Right/left sibling pointers', color: '#4F46E5', desc: 'BTPageOpaqueData stores btpo_prev and btpo_next (sibling page numbers). Forward and backward scans follow these pointers without returning to parent nodes.' },
-          { label: 'Index-Only Scan', color: '#06B6D4', desc: 'If all SELECT columns are in the index, PostgreSQL uses Index-Only Scan: reads the leaf page but skips the heap fetch. Checks the Visibility Map to confirm all-visible (no MVCC heap visit needed).' },
-          { label: 'Loose index scan (missing feature)', color: '#F59E0B', desc: 'PostgreSQL lacks "loose index scan" for SELECT DISTINCT or GROUP BY on an index. Without it, GROUP BY category on an index must scan all index entries. Workaround: recursive CTE technique for sparse distinct values.' },
-        ].map(e => `
-          <div class="info-card" style="border-color:${e.color}33">
-            <div style="font-weight:700;font-size:11px;color:${e.color};margin-bottom:6px">${e.label}</div>
-            <div class="info-card-body">${e.desc}</div>
-          </div>
-        `).join('')}
-      </div>
-    </div>
-  `;
-
-  container.querySelector('#tab-iq').innerHTML = createIQSection([
-    {
-      q: 'How does a B+ Tree leaf linked list enable efficient range scans in PostgreSQL?',
-      a: 'Every B+ Tree leaf page has a btpo_next pointer (right sibling page number stored in BTPageOpaqueData). A range scan (WHERE order_id BETWEEN 1001 AND 1050): (1) Descend from root to the first leaf containing 1001 — O(log N) page reads, typically 3–4. (2) Scan the leaf sequentially — keys are sorted within a leaf. (3) Follow btpo_next to the next leaf — a direct page number lookup, no tree traversal. (4) Repeat until key > 1050. This makes range scan cost O(log N + K/f) where K = rows returned and f ≈ 500 keys/leaf. For 1000 rows: log(350M) + 1000/500 ≈ 4 + 2 = 6 page reads. Without the leaf chain (as in B-Tree), each successive key might require re-traversing internal nodes — potentially 3–4× more I/Os. PostgreSQL also supports backward scan via btpo_prev — no separate DESC index needed.',
-      tip: 'Index-Only Scan avoids the heap entirely for queries where all needed columns are in the index. Condition: all-visible bit set in the Visibility Map (no dead tuples on the leaf\'s corresponding heap page).',
-    },
-    {
-      q: 'Why do internal B+ Tree nodes store "routing keys" that are copies of leaf keys?',
-      a: 'Internal nodes store separator keys that partition the key space for child subtrees. The separator key between two children must be any value K such that: all keys in the left child ≤ K, and all keys in the right child > K. A common choice is to copy the first key of the right child up to the parent — this is called a "copy-up" operation (vs "push-up" in some B-Tree variants). In PostgreSQL, internal node keys may be actual copies of leaf keys (not minimal separators) — this simplifies implementation. The duplicate is acceptable because internal nodes don\'t hold data records, only routing keys. Implication: a key can appear in both an internal node and a leaf. This is the "B+ Tree" invariant: leaf keys are the definitive data; internal keys are navigation aids only. Delete may remove a leaf key while leaving the corresponding routing key in internal nodes — it still works as a valid separator.',
-      tip: 'Some B+ Tree implementations use the "smallest key of right subtree" as the separator — this is what PostgreSQL does for B+ Tree page splits: the new page\'s first key is inserted into the parent.',
-    },
-    {
-      q: 'What is a "covering index" and how does it eliminate heap fetches?',
-      a: 'A covering index (PostgreSQL calls it an Index-Only Scan) includes all columns needed by the query — the heap page is never read. Example: SELECT order_id, created_at FROM orders WHERE order_id BETWEEN 1001 AND 2000. If an index on (order_id, created_at) exists: the leaf page contains both columns → no heap fetch needed. PostgreSQL still checks the Visibility Map: if the all-visible bit is set for the heap page, heap is skipped entirely. If not (dead tuples exist), heap is read for visibility check. Creating a covering index: <code>CREATE INDEX idx_orders_covering ON orders (order_id) INCLUDE (created_at, total)</code>. INCLUDE columns are stored in leaf nodes only (not routing nodes) — they don\'t affect the tree structure but make leaf reads self-sufficient. At Amazon scale: a covering index on (product_id, price) eliminates heap fetches for price-lookup queries — dramatically reduces I/O during Prime Day product page loads.',
-      tip: 'The INCLUDE clause (PostgreSQL 11+) adds columns to leaf nodes without using them as sort keys — they don\'t affect search but can satisfy SELECT columns without heap reads.',
-    },
-  ]);
-  initIQ(container);
-
-  return () => engine.destroy();
+/* deterministic "random" key from current tree size (no Math.random → replayable feel) */
+function deterministicNext(k) { return (k.state.inserted.length * 37 + 13) * 2654435761 % 100; }
+function range(a, b) { const o = []; for (let i = a; i <= b; i++) o.push(i); return o; }
+function shuffleSeed(arr) { // fixed deterministic shuffle
+  let seed = 9973; const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) { seed = (seed * 1103515245 + 12345) & 0x7fffffff; const j = seed % (i + 1); const t = a[i]; a[i] = a[j]; a[j] = t; }
+  return a;
 }
+
+function labHTML(k, order) {
+  const s = k.state, m = k.metrics(), inv = k.invariants();
+  const orders = [3, 4, 5].map((o) => `<option ${o === order ? 'selected' : ''}>${o}</option>`).join('');
+
+  // compute highlight sets from the last op
+  const hiNodes = new Set(), hiKeys = new Set();
+  let rangeLeaves = null;
+  if (s.lastOp) {
+    if (s.lastOp.kind === 'search') { markSearchPath(s.root, s.lastOp.key, hiNodes); if (s.lastOp.found) hiKeys.add(s.lastOp.key); }
+    else if (s.lastOp.kind === 'range') { rangeLeaves = { lo: s.lastOp.lo, hi: s.lastOp.hi }; s.lastOp.keys.forEach((x) => hiKeys.add(x)); }
+    else if ((s.lastOp.kind === 'insert' || s.lastOp.kind === 'delete') && !s.lastOp.dup && !s.lastOp.absent) hiKeys.add(s.lastOp.key);
+  }
+
+  const tree = s.root ? renderNode(s.root, order, hiNodes, hiKeys, rangeLeaves) : '<div class="bt-empty">Empty tree — insert a key.</div>';
+
+  return `
+  <div class="bt-controls">
+    <div class="bt-row">
+      <label class="bp-lbl">order</label><select id="bt-order" class="bp-in">${orders}</select>
+      <span class="bp-sep"></span>
+      <label class="bp-lbl">key</label><input id="bt-key" class="bp-in bp-num" type="number" value="12" />
+      <button class="bp-btn bp-primary" data-act="insert">Insert</button>
+      <button class="bp-btn" data-act="delete">Delete</button>
+      <button class="bp-btn" data-act="search">Search</button>
+      <button class="bp-btn" data-act="insert-rand">+ Random</button>
+    </div>
+    <div class="bt-row">
+      <label class="bp-lbl">range</label>
+      <input id="bt-lo" class="bp-in bp-num" type="number" value="8" /><span class="bp-lbl">to</span>
+      <input id="bt-hi" class="bp-in bp-num" type="number" value="20" />
+      <button class="bp-btn" data-act="range">Range scan</button>
+      <span class="bp-sep"></span>
+      <button class="bp-chip" data-act="build">Build 1–15</button>
+      <button class="bp-chip" data-act="bulk">Bulk + shuffle</button>
+      <button class="bp-chip" data-act="clear">Clear</button>
+    </div>
+  </div>
+
+  <div class="bt-canvas"><div class="bt-tree">${tree}</div></div>
+
+  <div class="bp-metrics">
+    ${metric('Height', m.height)}
+    ${metric('Nodes', m.nodes)}
+    ${metric('Leaves', m.leaves)}
+    ${metric('Keys', m.keys)}
+    ${metric('Fill', (m.fill * 100).toFixed(0) + '%')}
+  </div>
+
+  <div class="wal-invariants">
+    ${inv.map((c) => `<span class="wal-inv ${c.ok ? 'ok' : 'bad'}" title="${esc(c.detail)}">${c.ok ? '✓' : '✗'} ${esc(c.name)}</span>`).join('')}
+  </div>
+
+  <div class="bt-explain"><span>${opIcon(s.lastOp)}</span> ${opText(s.lastOp)}</div>`;
+}
+
+function renderNode(node, order, hiNodes, hiKeys, rangeLeaves) {
+  const hot = hiNodes.has(node);
+  const inRange = (k) => rangeLeaves && k >= rangeLeaves.lo && k <= rangeLeaves.hi;
+  const keys = node.keys.map((k) =>
+    `<span class="bt-key ${hiKeys.has(k) ? 'hi' : ''} ${node.leaf && inRange(k) ? 'inrange' : ''}">${esc(k)}</span>`).join('');
+  const box = `<div class="bt-node ${node.leaf ? 'leaf' : 'internal'} ${hot ? 'onpath' : ''}">${keys || '∅'}</div>`;
+  if (node.leaf) return `<div class="bt-wrap">${box}</div>`;
+  const kids = node.children.map((c) => renderNode(c, order, hiNodes, hiKeys, rangeLeaves)).join('');
+  return `<div class="bt-wrap">${box}<div class="bt-children">${kids}</div></div>`;
+}
+
+function markSearchPath(node, key, set) {
+  if (!node) return;
+  set.add(node);
+  if (node.leaf) return;
+  let i = 0; while (i < node.keys.length && key >= node.keys[i]) i++;
+  markSearchPath(node.children[i], key, set);
+}
+
+function opIcon(op) { if (!op) return '▸'; return { insert: '➕', delete: '➖', search: '🔍', range: '↔' }[op.kind] || '▸'; }
+function opText(op) {
+  if (!op) return 'Insert, delete, search or range-scan to see the tree respond.';
+  if (op.kind === 'insert') return op.dup ? `Key ${op.key} already present — ignored (keys are unique).` : `Inserted ${op.key}. A leaf split propagates upward only if a node overflowed.`;
+  if (op.kind === 'delete') return op.absent ? `Key ${op.key} not in the tree — nothing to delete.` : `Deleted ${op.key}. An underflowing node borrows from a sibling, or merges and may shrink the tree's height.`;
+  if (op.kind === 'search') return op.found ? `Found ${op.key} after ${op.comparisons} node${op.comparisons === 1 ? '' : 's'} on the root-to-leaf path (that's the height — the I/O cost of a lookup).` : `${op.key} not found — the search still descended ${op.comparisons} node(s) to the leaf where it would live.`;
+  if (op.kind === 'range') return `Range [${op.lo}, ${op.hi}] → ${op.keys.length} key(s): descend once to the first leaf, then follow leaves in order. That sequential leaf scan is why B+Trees beat hash indexes for ranges.`;
+  return '';
+}
+function metric(l, v) { return `<div class="bp-metric"><div class="bp-metric-v">${esc(v)}</div><div class="bp-metric-l">${esc(l)}</div></div>`; }
+
+function howHTML() {
+  const cmu = src('cmu-15445'), sq = src('sqlite-fileformat');
+  const cite = (x, label) => x ? ` <a class="wal-cite" href="${x.url}" target="_blank" rel="noopener">${label}↗</a>` : '';
+  return `<div class="wal-how">
+    <h3>Why B+Trees run the world's indexes</h3>
+    <p>A B+Tree keeps data <em>sorted</em> and <em>balanced</em>: every leaf sits at the same depth, so a lookup costs a fixed, shallow number of page reads even as the table grows to billions of rows. All real values live in the leaves; internal nodes hold only separator keys to route the search.${cite(sq, 'SQLite')}</p>
+    <h3>Insert → split</h3>
+    <p>Insert walks to the correct leaf and adds the key in order. If the leaf overflows (more than <code>order</code> keys), it splits in two and <em>copies up</em> the new leaf's first key as a separator. A cascade of splits can reach the root and add one level — the only way a B+Tree grows taller.</p>
+    <h3>Delete → borrow / merge</h3>
+    <p>Delete removes the key; if a node drops below its minimum occupancy it <em>borrows</em> a key from a sibling, or <em>merges</em> with one (pulling a separator down). Merges can cascade and shrink the height. Watch the occupancy invariant stay green throughout.${cite(cmu, 'CMU 15-445')}</p>
+    <h3>Range scans</h3>
+    <p>Because leaves are sorted and linked, a range query descends once to the low end and then walks leaves sequentially — the pattern a hash index cannot do. Try a range scan and watch the matched leaves light up.</p>
+  </div>`;
+}
+
+const IQ = [
+  { q: 'Why do databases use B+Trees instead of binary search trees for on-disk indexes?',
+    a: 'Disk/SSD I/O is done in pages, and latency dominates. A B+Tree is wide (hundreds of keys per node) and shallow, so a lookup touches only a handful of pages; a balanced BST is O(log₂ n) pointer-chases, far deeper and not page-aligned. B+Trees also keep leaves linked for efficient range scans.',
+    tip: 'Frame it as minimizing page reads: high fan-out → low height → few I/Os.' },
+  { q: 'Why keep all values in the leaves (B+Tree) rather than in internal nodes (B-Tree)?',
+    a: 'Internal nodes then hold only keys, so fan-out is higher and the tree is shallower; and the linked leaves give ordered, sequential range scans. The small cost is that a point lookup always descends to a leaf, even for a key stored higher in a B-Tree.',
+    tip: 'Two wins: higher fan-out and sequential range scans via the leaf chain.' },
+  { q: 'What keeps a B+Tree balanced as it grows and shrinks?',
+    a: 'Splits on overflow and borrow/merge on underflow. Both operate bottom-up and preserve the invariant that every leaf is at the same depth; the tree only changes height at the root (split of the root grows it; merge that empties the root shrinks it).',
+    tip: 'Emphasize that height only changes at the root — that is what keeps it balanced.' },
+  { q: 'How does page/node occupancy affect index performance?',
+    a: 'Higher occupancy means higher fan-out, a shorter tree and fewer I/Os, but costly splits under heavy inserts; lower occupancy wastes space and deepens the tree. Engines target ~50–70% fill and sometimes bulk-load or rebuild to restore it (vs. index bloat).',
+    tip: 'Mention fill-factor and bulk loading — and the tie-in to index bloat/rebuilds.' },
+];
