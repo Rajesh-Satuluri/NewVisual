@@ -1,25 +1,59 @@
-// Unified platform switcher (I50) — a segmented control in the SIDEBAR that
-// swaps between Kafka · Flink · AWS · Azure · Databricks · ⇄ Compare in place,
-// no page reload (modeled on the cloud-dwh platform-switch mechanism).
+// Unified platform switcher (I50) — a blended, platform-aware shell modeled on
+// the cloud-dwh / iceberg mechanism. While this view is active the ENTIRE
+// sidebar becomes the platform experience:
 //
-// The switcher is injected at the top of the sidebar while this view is active
-// and removed on cleanup. Accent recolor is driven by <html data-platform>.
-// Kafka/Flink render as embedded frames of the byte-preserved sub-apps (never
-// mutated → preservation stays 93/93); AWS/Azure/Databricks render natively
-// inline via the lesson shell; Compare mounts the comparison hub.
+//   ┌──────────────────────────┐
+//   │  ⚡ segmented switcher     │  ← Foundations · Kafka · Flink · AWS ·
+//   │                          │     Azure · Databricks · ⇄ Compare
+//   ├──────────────────────────┤
+//   │  <active tool's OWN nav>  │  ← that tool's grouped module tree,
+//   │   Foundation             │     rebuilt in place on every switch
+//   │    • Why Kafka           │
+//   │    • Architecture …      │
+//   └──────────────────────────┘
+//
+// Switching a segment swaps the whole nav tree + accent + brand + breadcrumb,
+// no page reload. Content renders natively inline for Foundations / AWS /
+// Azure / Databricks / Compare. Kafka & Flink are byte-preserved standalone
+// apps, so their nav tree is built from their own importable MODULES manifest
+// and each click deep-links one persistent iframe (#<module>) — never editing
+// a preserved file, so preservation stays 93/93.
 import { PLATFORMS, ORDER, getPlatform, isPlatform, lastPlatform, rememberPlatform } from '../data/platforms.js';
 import { getProvider } from '../data/cloud-providers.js';
 import { createLessonShell, initTabs } from '../components/lesson-shell.js';
 import { getScenario } from '../data/scenarios.js';
 import { isDone, markDone, unmarkDone } from '../data/progress-store.js';
-import { updateProgress, setActive } from '../components/nav.js';
+import { updateProgress, setActive, renderNav } from '../components/nav.js';
 import { pipelineDiagram } from './foundation-sims.js';
+import { FOUNDATIONS, foundationById } from '../data/foundations.js';
+import { MODULES as KAFKA_MODULES } from '../kafka/components/nav.js';
+import { MODULES as FLINK_MODULES } from '../flink/components/nav.js';
 
 const fill = (html, sc) => html
   .replace(/\{ENTITY\}/g, sc.entity).replace(/\{KEY\}/g, sc.keyField).replace(/\{ID\}/g, sc.canonicalId);
 
 let _stage = null;
 let _platform = null;
+let _brandSaved = null;
+
+// Thematic grouping for the 15 flat Foundations modules (cosmetic only).
+const FND_GROUPS = [
+  ['First principles',   ['f01', 'f02', 'f03', 'f04', 'f05']],
+  ['Time & correctness', ['f06', 'f07', 'f08', 'f09']],
+  ['State & delivery',   ['f10', 'f11', 'f12', 'f13']],
+  ['Operating it',       ['f14', 'f15']],
+];
+
+// Compare hub tools (mirror of modules/engines.js TOOLS, kept in sync by id).
+const COMPARE_TOOLS = [
+  { id: 'eng-graph',    icon: '🕸️', label: 'Concept graph' },
+  { id: 'eng-compare',  icon: '📊', label: 'Comparison matrix' },
+  { id: 'eng-trace',    icon: '🔎', label: 'Trace One Event' },
+  { id: 'eng-break',    icon: '💥', label: 'Break the Pipeline' },
+  { id: 'eng-builder',  icon: '🏗️', label: 'Architecture Builder' },
+  { id: 'eng-decide',   icon: '🧭', label: 'Decision Engine' },
+  { id: 'eng-capacity', icon: '🧮', label: 'Capacity calculator' },
+];
 
 export async function mount(container, sub) {
   // sub is the hash tail after "platforms": "", "kafka", or "aws/aws03".
@@ -44,49 +78,146 @@ export async function mount(container, sub) {
     else setPlatform('foundations', t);             // a foundation module id (fNN)
   }, true);
 
-  injectSidebarSwitcher();
+  injectSidebarShell();
   await setPlatform(startId, startMod);
 
-  // cleanup when leaving the platforms view
+  // cleanup when leaving the platforms view — restore the global shell nav
   return () => {
-    removeSidebarSwitcher();
+    removeSidebarShell();
     try { delete document.documentElement.dataset.platform; } catch (e) {}
     _stage = null;
     _platform = null;
   };
 }
 
-// ── Sidebar switcher ────────────────────────────────────────────────────────
-function injectSidebarSwitcher() {
+// ── Sidebar shell: switcher + per-platform nav tree ─────────────────────────
+function injectSidebarShell() {
   const nav = document.getElementById('nav-list');
   if (!nav) return;
-  let host = document.getElementById('plat-switch-host');
-  if (!host) {
-    host = document.createElement('div');
-    host.id = 'plat-switch-host';
-    nav.parentNode.insertBefore(host, nav);
+  nav.style.display = 'none';                     // hide the global shell nav
+
+  let rail = document.getElementById('plat-rail');
+  if (!rail) {
+    rail = document.createElement('div');
+    rail.id = 'plat-rail';
+    nav.parentNode.insertBefore(rail, nav);
   }
   const real = PLATFORMS.filter(p => ORDER.includes(p.id));
   const compare = PLATFORMS.find(p => p.id === 'compare');
-  host.innerHTML = `
+  rail.innerHTML = `
     <div class="plat-switch">
       <div class="plat-brand"><span class="plat-brand-ico">⚡</span> Platforms</div>
       <div class="plat-grid">
         ${real.map(p => `<button class="plat-seg" data-platform="${p.id}" title="${p.label} — ${p.tagline}">${p.short}</button>`).join('')}
       </div>
       ${compare ? `<button class="plat-seg plat-seg--compare" data-platform="compare" title="${compare.label}">${compare.short}</button>` : ''}
-    </div>`;
-  host.querySelectorAll('.plat-seg').forEach(b =>
+    </div>
+    <nav class="plat-nav" id="plat-nav" aria-label="Platform navigation"></nav>`;
+  rail.querySelectorAll('.plat-seg').forEach(b =>
     b.addEventListener('click', () => setPlatform(b.dataset.platform, null)));
+
+  // Remember the shell brand so we can restore it on cleanup.
+  const title = document.querySelector('.brand-title');
+  const subEl = document.querySelector('.brand-sub');
+  _brandSaved = { title: title ? title.textContent : null, sub: subEl ? subEl.textContent : null };
 }
 
-function removeSidebarSwitcher() {
-  document.getElementById('plat-switch-host')?.remove();
+function removeSidebarShell() {
+  document.getElementById('plat-rail')?.remove();
+  const nav = document.getElementById('nav-list');
+  if (nav) nav.style.display = '';
+  if (_brandSaved) {
+    const title = document.querySelector('.brand-title');
+    const subEl = document.querySelector('.brand-sub');
+    if (title && _brandSaved.title != null) title.textContent = _brandSaved.title;
+    if (subEl && _brandSaved.sub != null) subEl.textContent = _brandSaved.sub;
+    _brandSaved = null;
+  }
+  try { renderNav('platforms'); } catch (e) {}   // rebuild the real nav underneath
 }
 
 function syncSegments(id) {
-  document.querySelectorAll('#plat-switch-host .plat-seg').forEach(b =>
+  document.querySelectorAll('#plat-rail .plat-seg').forEach(b =>
     b.classList.toggle('active', b.dataset.platform === id));
+}
+
+function applyBrand(p) {
+  const title = document.querySelector('.brand-title');
+  const subEl = document.querySelector('.brand-sub');
+  if (title) title.textContent = p.label;
+  if (subEl) subEl.textContent = p.tagline;
+}
+
+// ── Per-platform nav model ──────────────────────────────────────────────────
+function groupBy(items) {
+  const order = [];
+  const map = new Map();
+  for (const it of items) {
+    const g = it.group || 'Modules';
+    if (!map.has(g)) { map.set(g, []); order.push(g); }
+    map.get(g).push(it);
+  }
+  return order.map(label => ({ label, items: map.get(label) }));
+}
+
+async function navModel(id) {
+  if (id === 'foundations') {
+    const byId = Object.fromEntries(FOUNDATIONS.map(m => [m.id, m]));
+    const seen = new Set();
+    const groups = FND_GROUPS.map(([label, ids]) => ({
+      label,
+      items: ids.filter(x => byId[x]).map(x => { seen.add(x); const m = byId[x]; return { id: m.id, icon: m.icon, label: `${m.num} · ${m.title}` }; }),
+    })).filter(g => g.items.length);
+    const extra = FOUNDATIONS.filter(m => !seen.has(m.id)).map(m => ({ id: m.id, icon: m.icon, label: `${m.num} · ${m.title}` }));
+    if (extra.length) groups.push({ label: 'More', items: extra });
+    return groups;
+  }
+  if (id === 'kafka') return groupBy(KAFKA_MODULES.map(m => ({ id: m.id, icon: m.icon, label: m.label, group: m.group })));
+  if (id === 'flink') return groupBy(FLINK_MODULES.map(m => ({ id: m.id, icon: m.icon, label: `${m.num ? m.num + ' · ' : ''}${m.title}`, group: m.group })));
+  if (id === 'compare') return [{ label: 'Compare engines & clouds', items: COMPARE_TOOLS.map(t => ({ id: t.id, icon: t.icon, label: t.label })) }];
+  // cloud providers
+  const p = getPlatform(id);
+  if (p && p.kind === 'cloud') {
+    const prov = await getProvider(p.provider);
+    if (prov) return [{ label: prov.name, items: prov.modules.map(m => ({ id: m.id, icon: m.icon || '•', label: `${m.num} · ${m.title}` })) }];
+  }
+  return [];
+}
+
+function renderNavTree(groups, activeModuleId) {
+  const host = document.getElementById('plat-nav');
+  if (!host) return;
+  let html = '';
+  for (const g of groups) {
+    html += `<div class="nav-group-label">${g.label}</div>`;
+    for (const it of g.items) {
+      const active = it.id === activeModuleId ? ' active' : '';
+      html += `<div class="nav-item${active}" data-mod="${it.id}" role="link" tabindex="0">
+        <span class="ni-icon">${it.icon}</span><span>${it.label}</span>${isDone(it.id) ? '<span class="ni-badge live">✓</span>' : ''}
+      </div>`;
+    }
+  }
+  host.innerHTML = html;
+  host.querySelectorAll('[data-mod]').forEach(n =>
+    n.addEventListener('click', () => setPlatform(_platform, n.dataset.mod)));
+}
+
+function syncNavActive(moduleId) {
+  document.querySelectorAll('#plat-nav .nav-item').forEach(n =>
+    n.classList.toggle('active', n.dataset.mod === moduleId));
+}
+
+function setBreadcrumb(p, groups, moduleId) {
+  const crumb = document.getElementById('breadcrumb');
+  if (!crumb) return;
+  let trail = `Platforms &rsaquo; <strong>${p.label}</strong>`;
+  if (moduleId) {
+    const g = groups.find(gr => gr.items.some(i => i.id === moduleId));
+    const it = g && g.items.find(i => i.id === moduleId);
+    if (g) trail += ` &rsaquo; <span>${g.label}</span>`;
+    if (it) trail += ` &rsaquo; <strong>${it.label}</strong>`;
+  }
+  crumb.innerHTML = trail;
 }
 
 // ── Switch ──────────────────────────────────────────────────────────────────
@@ -97,25 +228,18 @@ async function setPlatform(id, moduleId = null) {
   rememberPlatform(id);
   document.documentElement.dataset.platform = id;   // drives accent tokens
   syncSegments(id);
+  applyBrand(p);
   reflectHash(id, moduleId);
 
-  const crumb = document.getElementById('breadcrumb');
-  if (crumb) crumb.innerHTML = `Platforms &rsaquo; <strong>${p.label}</strong>`;
+  const groups = await navModel(id);
+  renderNavTree(groups, moduleId);
+  setBreadcrumb(p, groups, moduleId);
 
   _stage.scrollTop = 0;
   if (p.kind === 'foundations') return renderFoundations(moduleId);
-  if (p.kind === 'frame') return renderFrame(p);
+  if (p.kind === 'frame') return renderFrame(p, moduleId);
   if (p.kind === 'cloud') return renderCloud(p, moduleId);
-  if (p.kind === 'compare') return renderCompare();
-}
-
-// ── Foundations — native inline (reuses the shell renderers) ────────────────
-async function renderFoundations(moduleId) {
-  const [fnd, fm, data] = await Promise.all([
-    import('./foundations.js'), import('./foundation.js'), import('../data/foundations.js'),
-  ]);
-  if (moduleId && data.foundationById(moduleId)) fm.mount(_stage, moduleId);
-  else fnd.mount(_stage);
+  if (p.kind === 'compare') return renderCompare(moduleId);
 }
 
 function reflectHash(id, moduleId) {
@@ -123,15 +247,53 @@ function reflectHash(id, moduleId) {
   if (location.hash !== h) { try { history.replaceState(null, '', h); } catch (e) { location.hash = h; } }
 }
 
-// ── Kafka / Flink — embedded preserved sub-app ──────────────────────────────
-function renderFrame(p) {
-  _stage.innerHTML = `
-    <div class="plat-frame-bar">
-      <span class="plat-frame-dot"></span>
-      <span>${p.label} — full interactive app, ${p.tagline}.</span>
-      <a class="plat-frame-open" href="${p.url}" target="_blank" rel="noopener">Open in full screen ↗</a>
-    </div>
-    <iframe class="plat-frame" src="${p.url}" title="${p.label}" loading="lazy"></iframe>`;
+// ── Foundations — native inline (reuses the shell renderers) ────────────────
+async function renderFoundations(moduleId) {
+  const [fnd, fm] = await Promise.all([import('./foundations.js'), import('./foundation.js')]);
+  if (moduleId && foundationById(moduleId)) fm.mount(_stage, moduleId);
+  else fnd.mount(_stage);
+}
+
+// ── Kafka / Flink — native nav tree driving one deep-linked preserved iframe ─
+function renderFrame(p, moduleId) {
+  let frame = _stage.querySelector('.plat-frame');
+  const needNew = !frame || frame.dataset.platform !== p.id;
+  if (needNew) {
+    const src = p.url + (moduleId ? '#' + moduleId : '');
+    _stage.innerHTML = `
+      <div class="plat-frame-bar">
+        <span class="plat-frame-dot"></span>
+        <span>${p.label} — full interactive app, ${p.tagline}.</span>
+        <a class="plat-frame-open" href="${p.url}" target="_blank" rel="noopener">Open in full screen ↗</a>
+      </div>
+      <iframe class="plat-frame" data-platform="${p.id}" src="${src}" title="${p.label}" loading="lazy"></iframe>`;
+    frame = _stage.querySelector('.plat-frame');
+    const blend = () => blendFrameChrome(frame);
+    frame.addEventListener('load', blend);
+    blend(); // in case it is already loaded (cache)
+  } else if (moduleId) {
+    // Deep-link in place — no reload, no edit to the preserved sub-app.
+    try { frame.contentWindow.location.hash = '#' + moduleId; }
+    catch (e) { frame.src = p.url + '#' + moduleId; }
+  }
+}
+
+// Same-origin: hide the preserved sub-app's OWN sidebar so our shell nav is the
+// only navigation and the lesson fills the width — a style injection into the
+// iframe, never an edit to a preserved file (preservation stays 93/93).
+function blendFrameChrome(frame) {
+  try {
+    const doc = frame.contentDocument;
+    if (!doc) return;
+    if (doc.getElementById('plat-blend-style')) return;
+    const st = doc.createElement('style');
+    st.id = 'plat-blend-style';
+    st.textContent = `
+      #sidebar { display: none !important; }
+      #app { display: block !important; }
+      #content { margin-left: 0 !important; width: 100% !important; max-width: 100% !important; }`;
+    (doc.head || doc.documentElement).appendChild(st);
+  } catch (e) { /* cross-origin or not ready — ignore */ }
 }
 
 // ── AWS / Azure / Databricks — native inline ────────────────────────────────
@@ -188,14 +350,20 @@ function renderCloudModule(p, prov, id) {
     if (isDone(id)) { unmarkDone(id); doneBtn.textContent = 'Mark complete'; }
     else { markDone(id); doneBtn.textContent = '✓ Completed'; }
     updateProgress();
+    // Refresh the ✓ badge on this module's sidebar nav item in place.
+    const ni = document.querySelector(`#plat-nav .nav-item[data-mod="${id}"]`);
+    if (ni) {
+      ni.querySelector('.ni-badge')?.remove();
+      if (isDone(id)) ni.insertAdjacentHTML('beforeend', '<span class="ni-badge live">✓</span>');
+    }
   });
 }
 
 // ── Compare — comparison hub ────────────────────────────────────────────────
-async function renderCompare() {
+async function renderCompare(moduleId) {
   try {
     const mod = await import('./engines.js');
-    await mod.mount(_stage, 'engines');
+    await mod.mount(_stage, moduleId || 'engines');
   } catch (e) {
     _stage.innerHTML = `<div class="card"><h3>Could not load Compare</h3><p style="color:var(--text2)">${String(e && e.message || e)}</p></div>`;
   }

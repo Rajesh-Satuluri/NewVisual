@@ -323,11 +323,22 @@ canvas { max-width: 100%; }
 :root[data-platform="databricks"]  { --plat: #FF5F46; }
 :root[data-platform="compare"]     { --plat: #8B7FF0; }
 
-#plat-switch-host { padding: 10px 12px 4px; }
+#plat-rail { padding: 10px 12px 4px; }
 .plat-switch {
   background: var(--bg3); border: 1px solid var(--border);
   border-radius: 12px; padding: 10px;
 }
+
+/* Per-platform nav tree (replaces the global shell nav while switching) */
+.plat-nav { margin-top: 12px; display: flex; flex-direction: column; }
+.plat-nav .nav-group-label { margin-top: 12px; }
+.plat-nav .nav-group-label:first-child { margin-top: 2px; }
+.plat-nav .nav-item.active {
+  background: color-mix(in srgb, var(--plat) 16%, transparent);
+  color: var(--plat);
+  box-shadow: inset 2px 0 0 var(--plat);
+}
+.plat-nav .nav-item.active .ni-icon { filter: none; }
 .plat-brand {
   display: flex; align-items: center; gap: 6px;
   font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
