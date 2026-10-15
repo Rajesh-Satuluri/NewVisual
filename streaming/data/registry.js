@@ -9,23 +9,27 @@ export const SECTIONS = [
     breadcrumb: 'Learn &rsaquo; <strong>🧱 Foundations</strong>',
     blurb: 'Streaming from first principles — events, partitions, time, watermarks, windows, state, checkpoints, delivery guarantees, backpressure, observability.' },
 
-  { id: 'kafka', icon: '📨', title: 'Apache Kafka', group: 'Engines', status: 'live', gate: 'Gate 3', tech: 'kafka', url: 'kafka/',
+  { id: 'platforms', icon: '⚡', title: 'Engines & Clouds', group: 'Engines', status: 'live',
+    breadcrumb: 'Engines &rsaquo; <strong>⚡ Engines & Clouds</strong>',
+    blurb: 'One switcher across Kafka, Flink, AWS, Azure, Databricks — plus a side-by-side Compare.' },
+
+  { id: 'kafka', icon: '📨', title: 'Apache Kafka', group: 'Engines', status: 'live', gate: 'Gate 3', tech: 'kafka', url: 'kafka/', hidden: true,
     breadcrumb: 'Engines &rsaquo; <strong>📨 Apache Kafka</strong>',
     blurb: '22 interactive modules ported with 100% preservation — real murmur2 partition simulator, replication, consumer groups, delivery guarantees, and more.' },
 
-  { id: 'flink', icon: '🌀', title: 'Apache Flink', group: 'Engines', status: 'live', gate: 'Gate 3', tech: 'flink', url: 'flink/',
+  { id: 'flink', icon: '🌀', title: 'Apache Flink', group: 'Engines', status: 'live', gate: 'Gate 3', tech: 'flink', url: 'flink/', hidden: true,
     breadcrumb: 'Engines &rsaquo; <strong>🌀 Apache Flink</strong>',
     blurb: '20 modules on the canonical ride R-4471 — watermarks, windows, state, checkpointing, savepoints, backpressure, with verified PyFlink.' },
 
-  { id: 'aws', icon: '☁️', title: 'Cloud · AWS', group: 'Cloud', status: 'live', gate: 'Gate 5a',
+  { id: 'aws', icon: '☁️', title: 'Cloud · AWS', group: 'Cloud', status: 'live', gate: 'Gate 5a', hidden: true,
     breadcrumb: 'Cloud &rsaquo; <strong>☁️ AWS</strong>',
     blurb: 'Kinesis, MSK, Managed Service for Apache Flink, Firehose — validated against official AWS docs.' },
 
-  { id: 'azure', icon: '🔷', title: 'Cloud · Azure', group: 'Cloud', status: 'live', gate: 'Gate 5b',
+  { id: 'azure', icon: '🔷', title: 'Cloud · Azure', group: 'Cloud', status: 'live', gate: 'Gate 5b', hidden: true,
     breadcrumb: 'Cloud &rsaquo; <strong>🔷 Azure</strong>',
     blurb: 'Event Hubs, Stream Analytics — partitions, consumer groups, capture, windowing.' },
 
-  { id: 'databricks', icon: '🧮', title: 'Cloud · Databricks', group: 'Cloud', status: 'live', gate: 'Gate 5c',
+  { id: 'databricks', icon: '🧮', title: 'Cloud · Databricks', group: 'Cloud', status: 'live', gate: 'Gate 5c', hidden: true,
     breadcrumb: 'Cloud &rsaquo; <strong>🧮 Databricks</strong>',
     blurb: 'Structured Streaming, Auto Loader, Delta Lake, Lakeflow Declarative Pipelines (DLT), the medallion architecture — validated against official Databricks docs.' },
 
@@ -62,8 +66,8 @@ export const SECTIONS = [
     blurb: 'Find any module, tool, incident, question, or term across the lab.' },
 ];
 
-// The 12 primary sections that count toward the top-level progress ring.
-export const PRIMARY_IDS = SECTIONS.map(s => s.id);
+// Primary sections that count toward the top-level progress ring (visible ones).
+export const PRIMARY_IDS = SECTIONS.filter(s => !s.hidden).map(s => s.id);
 
 export const byId = (id) => SECTIONS.find(s => s.id === id);
 

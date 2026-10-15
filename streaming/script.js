@@ -5,7 +5,7 @@ import { initScenarioSwitcher } from './components/scenario-switcher.js';
 import { markVisited } from './data/progress-store.js';
 import { isCloudModule, isCloudLanding } from './data/cloud-providers.js';
 
-const BUILD = '20261011r'; // cache-buster — bump on each deploy
+const BUILD = '20261011s'; // cache-buster — bump on each deploy
 const imp = (p) => import(`${p}?v=${BUILD}`);
 
 // Lazy loaders. 'home' has its own module; every other section uses the generic
@@ -13,6 +13,7 @@ const imp = (p) => import(`${p}?v=${BUILD}`);
 const LOADERS = {
   home: () => imp('./modules/home.js'),
   foundations: () => imp('./modules/foundations.js'),
+  platforms: () => imp('./modules/platforms.js'),
   engines: () => imp('./modules/engines.js'),
   incident: () => imp('./modules/incident.js'),
   sysdesign: () => imp('./modules/sysdesign.js'),
@@ -39,6 +40,19 @@ let cleanupFn = null;
 
 async function route() {
   const id = (location.hash.replace(/^#/, '') || 'home');
+
+  // Unified platform switcher (#platforms, #platforms/<id>, #platforms/<id>/<module>).
+  if (id === 'platforms' || id.startsWith('platforms/')) {
+    if (typeof cleanupFn === 'function') { try { cleanupFn(); } catch (e) {} cleanupFn = null; }
+    const canvas = document.getElementById('module-canvas');
+    const crumb = document.getElementById('breadcrumb');
+    if (crumb) crumb.innerHTML = `Engines & Clouds &rsaquo; <strong>⚡ Platform switch</strong>`;
+    setActive('platforms'); closeMobileNav(); window.scrollTo(0, 0);
+    const sub = id === 'platforms' ? '' : id.slice('platforms/'.length);
+    try { const mod = await LOADERS.platforms(); cleanupFn = (await mod.mount(canvas, sub)) || null; }
+    catch (err) { canvas.innerHTML = `<div class="card"><h3>Could not load platforms</h3><p style="color:var(--text2)">${String(err && err.message || err)}</p></div>`; console.error(err); }
+    return;
+  }
 
   // Foundation module route (f01..f15) — not a top-level registry section.
   if (isFoundationModule(id)) {

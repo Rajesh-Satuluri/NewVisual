@@ -11,7 +11,7 @@ export function renderNav(currentId) {
   html += navItem(SECTIONS.find(s => s.id === 'home'), currentId);
 
   for (const group of NAV_GROUPS) {
-    const items = SECTIONS.filter(s => s.group === group);
+    const items = SECTIONS.filter(s => s.group === group && !s.hidden);
     if (!items.length) continue;
     html += `<div class="nav-group-label">${group}</div>`;
     for (const s of items) html += navItem(s, currentId);

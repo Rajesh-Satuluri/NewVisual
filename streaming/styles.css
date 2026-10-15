@@ -312,3 +312,56 @@ canvas { max-width: 100%; }
   .page-title { font-size: 22px; }
   .sim-controls { flex-direction: column; align-items: stretch; }
 }
+
+/* ── Unified platform switcher (I50) ─────────────────────────── */
+.plat-wrap { --plat: var(--accent); }
+.plat-wrap[data-platform="kafka"]      { --plat: #FF6900; }
+.plat-wrap[data-platform="flink"]      { --plat: #E6526F; }
+.plat-wrap[data-platform="aws"]        { --plat: #FF9900; }
+.plat-wrap[data-platform="azure"]      { --plat: #3B9EFF; }
+.plat-wrap[data-platform="databricks"]{ --plat: #FF5F46; }
+.plat-wrap[data-platform="compare"]    { --plat: #8B7FF0; }
+
+.plat-switch { margin-bottom: 22px; }
+.plat-track {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 12px; padding: 6px;
+}
+.plat-seg {
+  flex: 1 1 auto; min-width: 92px;
+  appearance: none; cursor: pointer;
+  background: transparent; color: var(--text2);
+  border: 1px solid transparent; border-radius: 8px;
+  padding: 10px 14px; font: inherit; font-weight: 650; font-size: 14px;
+  letter-spacing: .01em; transition: background .15s, color .15s, border-color .15s, box-shadow .15s;
+}
+.plat-seg:hover { color: var(--text); background: var(--bg4); }
+.plat-seg.active {
+  color: #fff; background: var(--seg-accent, var(--plat));
+  border-color: var(--seg-accent, var(--plat));
+  box-shadow: 0 4px 16px -4px var(--seg-accent, var(--plat));
+}
+.plat-seg--compare {
+  flex: 1 1 100%; margin-top: 2px;
+  border: 1px dashed var(--border); color: var(--text2);
+}
+.plat-seg--compare.active { border-style: solid; }
+
+.plat-stage { min-height: 50vh; }
+
+/* Kafka/Flink embedded preserved sub-app */
+.plat-frame-bar {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 14px; margin-bottom: 12px;
+  color: var(--text2); font-size: 13.5px;
+}
+.plat-frame-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--plat); flex-shrink: 0; box-shadow: 0 0 0 4px color-mix(in srgb, var(--plat) 22%, transparent); }
+.plat-frame-open { margin-left: auto; color: var(--accent2); font-weight: 600; white-space: nowrap; }
+.plat-frame {
+  width: 100%; height: calc(100vh - 210px); min-height: 520px;
+  border: 1px solid var(--border); border-radius: 12px;
+  background: var(--bg2); display: block;
+}
+@media (max-width: 1024px) { .plat-frame { height: calc(100vh - 240px); } }
