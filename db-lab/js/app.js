@@ -18,7 +18,7 @@
     progress:        { title: "Progress", ready: true },
     // Roadmap sections (render a branded "coming soon" until built):
     "engineering-lab": { title: "Engineering Lab", ready: false },
-    "failure-lab":     { title: "Failure Lab", ready: false },
+    "failure-lab":     { title: "Failure Lab", ready: true },
     "real-world":      { title: "Real-World Systems (ShopKart)", ready: false },
     interview:         { title: "Interview Center", ready: false },
     revision:          { title: "Revision", ready: false },
