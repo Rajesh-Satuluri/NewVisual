@@ -735,6 +735,165 @@
   };
   Object.assign(C, D);
 
+  /* ── Production Engineering (systems / DDIA-style) ──────────────────── */
+  var P = {
+    m98: {
+      why: "Replication copies data to multiple nodes for fault tolerance, read scaling and locality. The three models — single-leader, multi-leader, leaderless — are the menu, each with distinct consistency and conflict trade-offs.",
+      intuition: "Who can accept writes? One node (single-leader: simple, linear), several (multi-leader: low-latency multi-region, conflicts), or any node via quorums (leaderless: highly available, needs read-repair).",
+      internals: "Single-leader: all writes to one leader, replicated to followers (sync or async) — no write conflicts, but a failover gap. Multi-leader: multiple writable leaders replicate to each other — conflict resolution required. Leaderless (Dynamo): clients write to many replicas, read from a quorum, with read-repair/anti-entropy — R+W>N tunes consistency. Each trades consistency for availability/latency differently.",
+      engineering: "Default to single-leader for correctness; add async read replicas for scale. Reach for multi-leader only for multi-region write latency or offline, and leaderless for extreme availability with conflict-tolerant data.",
+      failureModes: "Single-leader failover window/data loss (async). Multi-leader write conflicts. Leaderless stale reads if R+W≤N. Picking a model that fights the workload.",
+      interviewQs: [
+        iq("Compare single-leader, multi-leader and leaderless replication.", "Single-leader routes all writes through one node — no conflicts, strong-ish consistency, but a failover gap and one write bottleneck. Multi-leader accepts writes at several nodes for low-latency/multi-region writes, at the cost of resolving concurrent conflicts. Leaderless (quorum) lets any replica take writes and uses R/W quorums plus read-repair for high availability, tuning consistency via R+W>N. The axis is: fewer write points = simpler consistency; more = better availability/latency but conflict handling."),
+      ],
+      prerequisites: ["m55"], related: ["m76", "m77", "m64"],
+    },
+    m99: {
+      why: "Partitioning strategy decides how data (and load) spreads across nodes. The choice — key-range, hash, or directory — determines which queries stay cheap and whether you get hotspots.",
+      intuition: "Range keeps order (good scans, risk of monotonic-write hotspots); hash spreads evenly (good balance, no ranges); directory/lookup maps keys to shards explicitly (flexible, needs a maintained map).",
+      internals: "Range partitioning routes by key boundaries (ordered scans cheap, but sequential keys hotspot one shard). Hash partitioning (ideally consistent hashing + vnodes) balances load but loses order. A lookup/directory service stores an explicit key→partition map, allowing arbitrary placement and easy rebalancing at the cost of a metadata layer. Secondary indexes add local vs global partitioning choices.",
+      engineering: "Match the strategy to your dominant query: hash for exact-key/even-load, range for time-series/scans (salt monotonic keys), directory when you need flexible placement. Keep many more partitions than nodes so rebalancing moves whole partitions.",
+      failureModes: "Monotonic-key hotspots (range). Lost range queries (hash). Directory as a bottleneck/SPOF. Secondary-index fan-out (scatter-gather reads or write amplification).",
+      interviewQs: [
+        iq("How do secondary indexes complicate partitioning?", "You must choose local or global secondary indexes. A local (document-partitioned) index lives with its partition's data: writes are cheap (one partition), but a query on the indexed field must scatter-gather across all partitions. A global (term-partitioned) index is partitioned by the indexed value: reads hit one partition, but a single write may update index entries on several partitions — trading read efficiency for write cost and cross-partition consistency."),
+      ],
+      prerequisites: ["m62"], related: ["m86", "m87", "m89"],
+    },
+    m100: {
+      why: "Transactions guarantee all-or-nothing, but across shards or services that guarantee is expensive and partition-sensitive. Scaling transactions means choosing between distributed commit and looser patterns like sagas.",
+      intuition: "A cross-shard transaction needs every participant to agree to commit (atomic commit). When that's too costly or unavailable, break the work into a saga: a sequence of local transactions with compensating undo steps.",
+      internals: "Two-phase commit gives atomicity across participants but blocks if the coordinator fails and couples availability. Consensus-backed commit (Paxos/Raft commit, as in Spanner/Cockroach) makes it fault-tolerant but still costs cross-node round trips. Sagas trade atomicity+isolation for availability: each step commits locally and failures trigger compensating transactions — eventual consistency with application-managed rollback. Idempotency and outbox patterns keep effects exactly-once.",
+      engineering: "Keep transactions single-shard whenever possible (choose keys accordingly). For genuinely cross-service workflows, prefer sagas with idempotent steps and an outbox; reserve distributed ACID for the few cases that truly need it.",
+      failureModes: "2PC coordinator blocking. Cross-shard latency. Sagas exposing intermediate states (no isolation). Compensations that can't truly undo (sent email). Non-idempotent steps double-applying.",
+      interviewQs: [
+        iq("When would you use a saga instead of a distributed (2PC) transaction?", "When spanning multiple services/shards where blocking 2PC's availability coupling is unacceptable, or where participants can't hold locks across a long workflow. A saga runs each step as a local transaction and, on failure, invokes compensating transactions to undo prior steps — giving availability and loose coupling at the cost of atomicity/isolation (intermediate states are visible). It requires idempotent steps and compensations, and tolerating eventual consistency."),
+      ],
+      prerequisites: ["m60"], related: ["m60", "m48", "m93"],
+    },
+    m101: {
+      why: "Consistency guarantees and consensus are two sides of a coin: providing strong consistency (linearizability) across replicas requires agreement, and agreement is what consensus delivers. This ties the whole distributed stack together.",
+      intuition: "To make replicas look like one copy, writes must be totally ordered — and getting nodes to agree on that order, despite failures, is consensus. Linearizable storage, leader election and atomic commit all reduce to it.",
+      internals: "Linearizability ⇔ total order of operations agreed by a majority (consensus). A replicated state machine applies a consensus-ordered log identically on every node, yielding a consistent, fault-tolerant service — the pattern behind etcd/ZooKeeper and distributed SQL. Weaker models (causal, eventual) need less coordination and so are cheaper and more available, which is the lever you actually pull.",
+      engineering: "Put only the data that needs strong consistency through consensus (metadata, locks, leadership); serve the rest from cheaper models. Use a replicated-state-machine library rather than hand-rolling. Expect latency proportional to a quorum round trip for linearizable ops.",
+      failureModes: "Routing high-volume data through consensus (latency/throughput collapse). Assuming replicas are linearizable when they're async. Over-strong defaults harming availability under partitions.",
+      interviewQs: [
+        iq("Why is linearizable storage essentially a consensus problem?", "Making many replicas behave as a single copy requires every node to agree on one total order of operations; once a value is 'decided', it must never change even as nodes fail — which is exactly the agreement, validity and stability consensus provides. A replicated state machine applies the consensus-ordered log identically everywhere, so linearizable services are built directly on consensus (Paxos/Raft), and their cost is a quorum round trip per operation."),
+      ],
+      prerequisites: ["m93"], related: ["m82", "m63", "m80"],
+    },
+    m102: {
+      why: "Batch processing crunches large, bounded datasets (ETL, analytics, model training) with high throughput and simple fault tolerance — the workhorse of offline data pipelines.",
+      intuition: "Read a big fixed input, transform it in parallel across many machines, write a big output. No low-latency requirement, so you optimize for throughput and easy retries.",
+      internals: "The MapReduce model: partition input, run map tasks in parallel, shuffle by key, run reduce tasks, write output. Fault tolerance is cheap because inputs are immutable — just re-run a failed task. Modern engines (Spark) keep intermediate data in memory and model the job as a DAG of transformations, but the principles (partitioning, shuffle, deterministic re-execution) are the same.",
+      engineering: "Use batch for periodic, throughput-bound work over complete datasets (nightly rollups, reindexing). Immutable inputs make it reproducible and idempotent. The shuffle (data movement by key) is the usual bottleneck — minimize it.",
+      failureModes: "Shuffle/network bottlenecks. Skewed keys creating straggler reducers. Latency (hours) unsuitable for real-time needs. Non-deterministic jobs breaking re-execution.",
+      interviewQs: [
+        iq("Why is fault tolerance simpler in batch processing than in online systems?", "Because inputs are immutable and bounded, and tasks are deterministic: if a worker fails, the framework just re-runs that task on another node from the same input and gets the same result — no need to track partial mutable state. Immutability plus deterministic re-execution turns fault recovery into 'retry', which is far simpler than recovering mutable online state."),
+      ],
+      prerequisites: ["m01"], related: ["m103", "m104", "m109"],
+    },
+    m103: {
+      why: "Stream processing handles unbounded, continuously-arriving data with low latency — powering real-time analytics, monitoring, fraud detection and event-driven pipelines where waiting for a batch is too slow.",
+      intuition: "Process events as they arrive, one at a time or in small windows, maintaining running state. The data never 'ends', so you compute incrementally and define windows over time.",
+      internals: "Streams are processed as records flow in; operators keep state (counts, joins, aggregates) in a fault-tolerant store with periodic checkpoints. Key hard problems: event-time vs processing-time (events arrive late/out of order), windowing (tumbling/sliding/session), and watermarks (how long to wait for stragglers). Exactly-once effects come from idempotency + checkpointed offsets, not from the transport.",
+      engineering: "Use streaming for low-latency, continuous computation; design windows around event time with watermarks for late data. Checkpoint state for recovery. Expect a correctness/latency trade-off: wait longer for completeness, or emit early and revise.",
+      failureModes: "Out-of-order/late events corrupting windows without watermarks. Unbounded state growth. Reprocessing semantics (duplicates) without idempotency. Backpressure when consumers lag producers.",
+      interviewQs: [
+        iq("What is the difference between event time and processing time, and why does it matter?", "Event time is when an event actually occurred; processing time is when the system handles it. They diverge because events arrive late, out of order, or in bursts (network delays, offline devices). Windowed computations must use event time to be correct (e.g., 'sales in the 3pm hour' means events timestamped 3pm, not processed then), and watermarks bound how long to wait for stragglers before closing a window — trading latency for completeness."),
+      ],
+      prerequisites: ["m102"], related: ["m104", "m107", "m109"],
+    },
+    m104: {
+      why: "An append-only event log (Kafka-style) is the backbone of modern data systems: an ordered, durable, replayable record of everything that happened, used as a message bus and a source of truth.",
+      intuition: "Instead of mutating state in place, append immutable events to an ordered log; consumers read the log at their own pace and rebuild whatever views they need. The log is the ledger; everything else is a projection.",
+      internals: "The log is a partitioned, ordered, durable sequence of records. Each consumer tracks its own offset, so many consumers read independently and can replay from any point. Partitions give parallelism and per-key ordering; replication gives durability. Because events are immutable and ordered, the log is both a reliable message queue and a rebuildable system of record — the basis of event sourcing and CDC.",
+      engineering: "Use the log to decouple producers from consumers, to replay/rebuild derived stores, and to integrate many systems from one source. Choose partition keys for ordering+parallelism. Retention and compaction control how much history you keep.",
+      failureModes: "Hot partitions from a skewed key. Ordering only within a partition (not globally). Unbounded retention cost. Consumers falling behind (lag). Schema evolution breaking old consumers.",
+      interviewQs: [
+        iq("Why is an append-only log a powerful foundation for data systems?", "Because it's immutable, ordered and replayable: it serves as a durable message bus (many consumers read independently at their own offsets) and as a system of record from which any derived view can be rebuilt by replaying events. Immutability makes it reliable and auditable; per-partition ordering plus consumer offsets decouple producers from consumers and enable reprocessing — which is why it underpins event sourcing, CDC and stream processing."),
+      ],
+      prerequisites: ["m103"], related: ["m107", "m105", "m109"],
+    },
+    m105: {
+      why: "Derived data is any dataset computed from a source of truth: indexes, caches, materialized views, search indexes, aggregates. Keeping the source authoritative and everything else derived makes systems simpler and recoverable.",
+      intuition: "Pick one system of record; treat every other representation (a search index, a cache, a rollup) as a function of it that can be recomputed. If a derived store is lost or wrong, rebuild it from the source.",
+      internals: "Derived stores are updated by a deterministic transformation of the source — synchronously (triggers), via CDC/event streams, or by batch recomputation. Because they're functions of the source, they can be rebuilt (disaster recovery, schema change, new view) by replaying the source log. This is the 'log as source of truth, views as projections' pattern.",
+      engineering: "Be explicit about which store is authoritative. Update derived data via a stream/CDC pipeline so it's eventually consistent and rebuildable. Never let two stores each think they're the source — that's how data diverges.",
+      failureModes: "Ambiguous ownership (two sources of truth) → divergence. Derived store drifting from source (missed updates). Expensive full rebuilds without incremental updates. Stale caches served as truth.",
+      interviewQs: [
+        iq("Why distinguish a 'system of record' from 'derived data'?", "Because it removes ambiguity about which copy is authoritative and makes everything else recoverable. The system of record holds the canonical state; indexes, caches, materialized views and search indexes are deterministic functions of it, updated via CDC/streams and rebuildable by replaying the source. If a derived store is lost or corrupted, you recompute it — whereas two stores each believing they're authoritative inevitably diverge with no way to reconcile."),
+      ],
+      prerequisites: ["m104"], related: ["m104", "m107", "m108"],
+    },
+    m106: {
+      why: "Real organizations run many specialized stores (OLTP DB, search index, cache, warehouse, queue). Data integration is the problem of keeping them consistent — and the event log is the modern answer.",
+      intuition: "Rather than point-to-point syncs between every pair of systems (N² spaghetti), funnel all changes through one ordered log that each system consumes to update itself.",
+      internals: "Writing to N systems directly is unreliable (partial failures, no ordering, no atomicity). Capturing changes once (CDC) into an ordered log and letting each downstream system consume it gives a single, replayable integration backbone with consistent ordering and the ability to add new consumers/rebuild stores. This turns N² integrations into N log subscriptions.",
+      engineering: "Make the primary database's change stream (CDC) the integration point; derive search/cache/warehouse from it. Use the outbox pattern to publish events atomically with the DB write. Add new systems by subscribing, not by writing a new sync.",
+      failureModes: "Dual writes (app writes DB and queue separately) losing consistency on partial failure. Point-to-point integrations that don't scale. Ordering/replay gaps. Schema drift across consumers.",
+      interviewQs: [
+        iq("Why use a change-event log for data integration instead of writing to each system directly?", "Writing to multiple systems directly (dual writes) has no atomicity or ordering — a partial failure leaves them inconsistent, and every new system means another bespoke sync (N² problem). Capturing changes once into an ordered, durable log that each system consumes gives consistent ordering, reliable replay, and single-point extensibility: adding a consumer or rebuilding a store is just another subscription. The outbox pattern makes publishing atomic with the source write."),
+      ],
+      prerequisites: ["m104"], related: ["m107", "m104", "m105"],
+    },
+    m107: {
+      why: "Change Data Capture turns a database's writes into an event stream — the bridge that lets the operational database feed search indexes, caches, warehouses and other services in near real time.",
+      intuition: "Tap the database's own change record (its WAL/replication log) and emit each insert/update/delete as an event, so downstream systems learn about every change without polling.",
+      internals: "CDC reads the transaction log (logical decoding of the WAL / binlog) rather than querying tables, so it captures every committed change in commit order with low overhead and no missed updates. Tools (Debezium) publish these to a log (Kafka). Combined with the outbox pattern, it gives exactly-once, ordered propagation of changes and makes the database the single source of truth for derived data.",
+      engineering: "Prefer log-based CDC over query-based polling (no missed changes, lower load, ordered). Use it to keep caches/search/warehouses fresh and to migrate or integrate systems. Mind schema evolution and initial snapshots for new consumers.",
+      failureModes: "Query-based CDC missing deletes/intermediate updates. Snapshot + stream handoff gaps. Schema changes breaking decoders. Large transactions causing bursts. Replication-slot bloat if a consumer stalls.",
+      interviewQs: [
+        iq("Why is log-based CDC better than polling tables for changes?", "Polling (SELECT … WHERE updated_at > x) misses deletes and intermediate updates between polls, adds query load, and can't guarantee ordering. Log-based CDC reads the database's own write-ahead/replication log, so it captures every committed insert/update/delete exactly once, in commit order, with minimal overhead — turning the DB's durable change record into a reliable, ordered event stream for downstream systems."),
+      ],
+      prerequisites: ["m47"], related: ["m104", "m106", "m105"],
+    },
+    m108: {
+      why: "A materialized view precomputes and stores a query's result so reads are instant, trading storage and update cost for query speed — essential when a query is too expensive to run per request.",
+      intuition: "Run the expensive aggregation/join once, save the result, and serve reads from it. When the underlying data changes, refresh the view (fully or incrementally).",
+      internals: "Unlike a regular view (a stored query re-run each time), a materialized view stores actual rows. Refresh strategies: full recompute (simple, expensive), incremental/eager maintenance (apply deltas as base data changes — fast reads, complex maintenance), or stream-maintained (a stream processor keeps it current from a change log). The trade-off is read latency vs freshness vs maintenance cost.",
+      engineering: "Use for dashboards, rollups and expensive joins read far more than written. Choose refresh by freshness need: periodic for tolerant cases, incremental/streaming for near-real-time. It's a form of derived data — rebuildable from the source.",
+      failureModes: "Staleness between refreshes. Expensive full refreshes. Incremental maintenance complexity/bugs. Storage cost. Serving a stale view as if live.",
+      interviewQs: [
+        iq("What's the difference between a view and a materialized view, and when do you use each?", "A regular view is just a saved query re-executed on every read — always fresh, no storage, but pays the full query cost each time. A materialized view stores the precomputed result, so reads are fast, but it must be refreshed (fully, incrementally, or via a stream) and can be stale between refreshes. Use a materialized view when an expensive aggregation/join is read far more often than the base data changes and some staleness is acceptable."),
+      ],
+      prerequisites: ["m105"], related: ["m105", "m23", "m103"],
+    },
+    m109: {
+      why: "Dataflow architecture models a system as data moving through a pipeline of transformations rather than services mutating shared state — the mental model behind streams, derived data and event-driven systems.",
+      intuition: "Think in flows: events enter, pass through stateless/stateful transforms, and produce derived outputs. State is the result of processing a stream, not a thing you mutate directly.",
+      internals: "Composes the earlier pieces: an event log as the backbone, stream processors deriving views, CDC feeding changes, and materialized views as outputs. Each stage consumes an input stream and produces an output stream/store deterministically, so the whole pipeline is replayable and rebuildable. This 'turning the database inside out' treats the log as the core and databases as materialized views over it.",
+      engineering: "Design pipelines where each stage is a deterministic transform over a stream, with explicit inputs/outputs and replayability. It decouples teams (subscribe to streams), enables rebuilding any view, and makes data lineage explicit. Watch end-to-end latency and state growth.",
+      failureModes: "Hidden coupling via shared mutable state defeating the model. Unbounded intermediate state. Hard-to-debug multi-stage pipelines. End-to-end latency accumulation.",
+      interviewQs: [
+        iq("What does 'turning the database inside out' mean in a dataflow architecture?", "It means treating the ordered event log as the primary source of truth and every database/index/cache as a materialized view derived from it by stream processing — the inverse of a monolithic database that hides its log inside and exposes mutable tables. State becomes the output of processing a stream, so views are rebuildable by replay, data lineage is explicit, and systems integrate by subscribing to streams rather than sharing mutable state."),
+      ],
+      prerequisites: ["m104"], related: ["m103", "m105", "m110"],
+    },
+    m110: {
+      why: "No single database does everything well, so modern systems compose specialized stores — OLTP DB, search, cache, warehouse, stream processor — into a coherent whole. Knowing how to combine them is the real-world skill.",
+      intuition: "Use the right tool for each access pattern and keep them consistent via a change log. The 'database' becomes an architecture of cooperating systems, not one box.",
+      internals: "Polyglot persistence: an OLTP store for transactions, a search index for text, a cache for hot reads, a columnar warehouse for analytics, a stream processor for real-time — each fed from the system of record via CDC/streams so they stay consistent and rebuildable. The hard parts are consistency across stores (eventual, via the log), operational complexity, and clear data ownership.",
+      engineering: "Pick stores by workload, make one authoritative, and integrate via an event log rather than dual writes. Accept eventual consistency between stores. Weigh the operational cost of each added system against its benefit — simplicity is a feature.",
+      failureModes: "Over-engineering (too many systems to operate). Dual-write inconsistency. Unclear source of truth. Cross-store consistency surprises. Operational/skills overhead.",
+      interviewQs: [
+        iq("How do you keep multiple specialized data stores consistent?", "Designate one store as the system of record and derive the others from its change stream (CDC → event log), so each specialized store (search, cache, warehouse) is an eventually-consistent, rebuildable projection of the source. Avoid dual writes (writing to each store directly), which have no atomicity or ordering; the log gives consistent ordering and replay. You accept eventual consistency between stores in exchange for using the right tool per workload."),
+      ],
+      prerequisites: ["m106"], related: ["m106", "m109", "m111"],
+    },
+    m111: {
+      why: "The canonical modern data pipeline — OLTP → CDC → Kafka → stream processing → OLAP — ties the whole course together: how a write in an operational database becomes real-time analytics without coupling the two.",
+      intuition: "A user action writes to the OLTP database; CDC captures the change into Kafka; a stream processor transforms/enriches it; the result lands in an OLAP/warehouse store for analytics — each stage decoupled and replayable.",
+      internals: "OLTP handles low-latency transactional writes. CDC (log-based) captures every committed change in order. Kafka (the event log) buffers and distributes it durably. Stream processing joins/aggregates/enriches with event-time semantics. OLAP (columnar warehouse) serves analytical queries over the derived data. The log decouples the fast operational side from the heavy analytical side, so analytics never slows transactions and either side can evolve independently.",
+      engineering: "This pattern separates concerns cleanly: OLTP stays fast, analytics stays rich, and they're linked by a replayable log instead of expensive cross-database queries. Use the outbox pattern for atomic event publishing, watch pipeline lag end-to-end, and treat the warehouse as rebuildable derived data.",
+      failureModes: "Pipeline lag making analytics stale. Outbox/dual-write gaps losing events. Schema evolution breaking downstream stages. Backpressure when the warehouse load lags. Operating five systems well.",
+      interviewQs: [
+        iq("Walk through how a database write becomes real-time analytics in an OLTP→CDC→Kafka→stream→OLAP pipeline.", "The user action commits to the OLTP database (fast transactional write). Log-based CDC reads the WAL and emits the change, in commit order, to Kafka — the durable event log that decouples producers from consumers. A stream processor consumes it, applying event-time joins/aggregations/enrichment, and writes the result into an OLAP/columnar warehouse that serves analytical queries. The log in the middle means heavy analytics never contend with transactional writes, every stage is replayable, and the warehouse is rebuildable derived data."),
+      ],
+      prerequisites: ["m107"], related: ["m107", "m103", "m110"],
+    },
+  };
+  Object.assign(C, P);
+
   DL.conceptContent = Object.assign(DL.conceptContent || {}, C);
 
   // Merge authored content over the generated registry (same objects as conceptById).

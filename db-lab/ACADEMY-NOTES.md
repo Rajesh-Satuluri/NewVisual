@@ -50,10 +50,15 @@ reduced-motion guard; visible keyboard focus on all lab controls.
 - **Two sim tiers.** 7 concepts are ⚡ interactive labs; the remaining ~126 are
   🎬 guided walkthroughs (scripted canvas step-throughs). The UI says which is
   which — walkthroughs are not represented as interactive.
-- **Content depth is uneven (P7 not done).** ~34 concepts have gold-standard
-  authored deep dives; the rest carry lighter metadata. Concept status is
-  computed honestly so nothing over-claims, but the depth-parity sweep across
-  the long tail is future work.
+- **Content depth (P7 done for all real lessons).** 34 concepts have
+  gold-standard interactive deep dives; the **other 77 genuine concept
+  lessons** now carry authored content (why / intuition / internals /
+  engineering / failure-modes + interview Q&A), merged via
+  `js/data/concept-content.js`. The remaining 22 entries (m112–m125
+  lab-launchers, m126–m133 navigation/meta pages such as glossary,
+  concept-map, interview-center) are intentionally not written as lessons —
+  they point at the ⚡ flagship labs and tools. So every concept that *is* a
+  lesson has real content; nothing over-claims.
 - **Incident scenarios are hypothetical/composite**, labelled as such — realistic
   mechanics, not transcripts of specific real outages.
 - **Progress is per-browser** (localStorage); it doesn't sync across devices.
