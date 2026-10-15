@@ -22,7 +22,7 @@
   // (Empty today — the foundation phase ships the contract + harness;
   //  the flagship kernels below are built and flipped on in later phases.)
   var INTERACTIVE = {
-    // m47: WAL + crash recovery        (Phase 2)
+    m47: 1, // WAL + crash recovery     (Phase 2 — kernel + tests + lab)
     // m36: B+Tree                      (Phase 3)
     // m30: buffer pool                 (Phase 3)
     // m48: MVCC                        (Phase 4)

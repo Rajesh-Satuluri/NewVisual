@@ -11,8 +11,9 @@ import { run, reset } from "./harness.mjs";
 
 const FILES = [
   "./kernels.test.mjs",
+  "./wal.test.mjs",
   // Flagship kernels register their tests here as they land:
-  // "./wal.test.mjs", "./bplustree.test.mjs", "./buffer-pool.test.mjs", ...
+  // "./bplustree.test.mjs", "./buffer-pool.test.mjs", "./mvcc.test.mjs", ...
 ];
 
 reset();
