@@ -4,7 +4,7 @@ import { getScenario } from '../data/scenarios.js';
 
 export function mount(container) {
   const s = getScenario();
-  const cards = SECTIONS.filter(x => x.id !== 'home');
+  const cards = SECTIONS.filter(x => x.id !== 'home' && !x.hidden);
 
   container.innerHTML = `
     <section class="hero">
