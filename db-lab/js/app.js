@@ -21,7 +21,7 @@
     "failure-lab":     { title: "Failure Lab", ready: true },
     "real-world":      { title: "Real-World Systems (ShopKart)", ready: false },
     interview:         { title: "Interview Center", ready: false },
-    revision:          { title: "Revision", ready: false },
+    revision:          { title: "Revision", ready: true },
   };
   DL.routes = ROUTES;
 

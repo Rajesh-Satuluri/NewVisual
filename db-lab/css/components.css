@@ -1350,3 +1350,44 @@ a.card:hover { text-decoration: none; }
 .incident-links { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
 .incident-link { font-size:13px; padding:6px 11px; border:1px solid var(--border-emphasis); border-radius:8px; color:var(--cyan,#35c3ff); text-decoration:none; }
 .incident-link:hover { border-color:var(--cyan,#35c3ff); }
+
+/* ============================================================
+   Mastery & Revision (route #revision)
+   ============================================================ */
+.rv-sec { border:1px solid var(--border-emphasis); border-radius:12px; padding:16px 18px; margin-bottom:14px; background:var(--bg-2,#0e1726); }
+.rv-sec h3 { margin:0 0 4px; font-size:15px; display:flex; justify-content:space-between; align-items:center; }
+.rv-sub { font-size:12px; color:var(--text-tertiary,var(--text-secondary)); margin:0 0 12px; }
+.rv-hint { font-size:11px; font-weight:500; color:var(--text-tertiary,var(--text-secondary)); }
+.rv-domain { margin-bottom:12px; }
+.rv-domain-h { display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px; }
+.rv-domain-n { color:var(--text-tertiary,var(--text-secondary)); }
+.rv-bar { display:flex; height:10px; border-radius:999px; overflow:hidden; background:var(--bg-3,#111c2e); }
+.rv-seg { height:100%; display:block; }
+.rv-seg.st-mastered { background:#3ddc84; } .rv-seg.st-understood { background:#35c3ff; }
+.rv-seg.st-practiced { background:#9aa7ff; } .rv-seg.st-review { background:#ffb020; } .rv-seg.st-none { background:#2a3648; }
+
+.rv-queue { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:10px; }
+.rv-card { display:flex; flex-direction:column; gap:5px; padding:12px; border:1px solid var(--border-emphasis); border-radius:10px;
+  background:var(--bg-3,#111c2e); text-decoration:none; color:var(--text-primary); transition:border-color .15s; }
+.rv-card:hover { border-color:var(--cyan,#35c3ff); }
+.rv-card-tag { align-self:flex-start; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; padding:1px 7px; border-radius:999px; }
+.rv-card-tag.t-review { background:color-mix(in srgb,#ffb020 16%,transparent); color:#ffb020; }
+.rv-card-tag.t-next { background:color-mix(in srgb,#35c3ff 16%,transparent); color:var(--cyan,#35c3ff); }
+.rv-card-tag.t-new { background:color-mix(in srgb,#9aa7ff 16%,transparent); color:#9aa7ff; }
+.rv-card-title { font-weight:600; font-size:13px; }
+.rv-empty { font-size:13px; color:var(--text-tertiary,var(--text-secondary)); }
+
+.rv-hist { display:flex; flex-direction:column; }
+.rv-hrow { display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-bottom:1px solid color-mix(in srgb,var(--border-emphasis) 50%,transparent); font-size:13px; }
+.rv-hrow a { color:var(--text-primary); text-decoration:none; } .rv-hrow a:hover { color:var(--cyan,#35c3ff); }
+.rv-score.good { color:#3ddc84; } .rv-score.ok { color:#ffb020; } .rv-score.low { color:#ff6b6b; }
+
+.rv-sources { width:100%; border-collapse:collapse; font-size:12.5px; }
+.rv-sources th { text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-tertiary,var(--text-secondary)); padding:7px 10px; border-bottom:1px solid var(--border-emphasis); }
+.rv-sources td { padding:9px 10px; border-bottom:1px solid color-mix(in srgb,var(--border-emphasis) 50%,transparent); vertical-align:top; }
+.rv-claim { max-width:460px; line-height:1.45; }
+.rv-eng { white-space:nowrap; font-family:ui-monospace,monospace; font-size:11px; color:var(--text-secondary); }
+.rv-scope { display:inline-block; margin-left:6px; font-size:10px; padding:0 5px; border-radius:4px; }
+.rv-scope.rv-generic { background:color-mix(in srgb,#9aa7ff 16%,transparent); color:#9aa7ff; }
+.rv-scope.rv-specific { background:color-mix(in srgb,#35c3ff 16%,transparent); color:var(--cyan,#35c3ff); }
+.rv-sources a { color:var(--cyan,#35c3ff); text-decoration:none; } .rv-rev { display:block; font-size:10px; color:var(--text-tertiary,var(--text-secondary)); margin-top:2px; }
