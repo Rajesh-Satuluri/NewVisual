@@ -7,7 +7,7 @@
   'use strict';
   const viz = (window.CDWH = window.CDWH || {});
   viz.P = viz.P || {};
-  const ORDER = ['snowflake', 'redshift', 'fabric'];
+  const ORDER = ['fundamentals', 'snowflake', 'redshift', 'fabric'];
   const LS_PLATFORM = 'cdwh-platform';
 
   let _platform = null;
@@ -52,7 +52,7 @@
     const parsed = _parseHash(location.hash);
     let startP = parsed.platform
       || (function(){ try { return localStorage.getItem(LS_PLATFORM); } catch(_) { return null; } })()
-      || 'snowflake';
+      || 'fundamentals';
     if (!viz.P[startP] || !viz.P[startP].meta) startP = platforms()[0] || 'snowflake';
 
     setPlatform(startP, { initial: true, target: parsed.id });
