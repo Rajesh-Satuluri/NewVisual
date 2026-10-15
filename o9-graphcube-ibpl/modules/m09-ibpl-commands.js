@@ -85,7 +85,31 @@ export function mount(container) {
         <div class="card"><h4>⬇️ DownloadDataFile / Export</h4><p>Bulk out to CSV/Excel; <code>ExportAll</code> for full extracts.</p></div>
         <div class="card"><h4>🔎 FILTER_BY_UPDATES</h4><p>Show only rows changed-but-not-saved — review pending edits before committing.</p></div>
       </div>
-      <div class="callout"><b>Five buckets of IBPL:</b> query (<code>select</code>) · modify (<code>scope</code>, <code>createmember</code>, <code>update</code>, <code>copymeasure</code>) · transfer (<code>DownloadDataFile</code>, <code>Export</code>) · query the model (inspect dims/measures/graphs) · control access (<code>grant</code>/<code>deny</code>).</div>
+
+      <div class="code-cap" style="margin-top:18px"><code>delete data for model</code> — bulk-wipe fact values (not members)</div>
+      <pre class="code"><span class="tok-c">-- whole measure group for one version</span>
+<span class="tok-k">delete data for model</span> [SalesHistory] <span class="tok-k">where</span> {Version.[Version Name].[CurrentWorkingView]};
+<span class="tok-c">-- scoped to one brand's SKUs</span>
+<span class="tok-k">delete data for model</span> [SalesHistory]
+<span class="tok-k">where</span> {Version.[Version Name].[CurrentWorkingView], [Item].[Brand].[Fructis].relatedmembers([SKU])};
+<span class="tok-c">-- conditional on measure values</span>
+<span class="tok-k">delete data for model</span> [SalesHistory]
+<span class="tok-k">where</span> {Version.[Version Name].[ScenarioAllPlays], ~isnull(Measure.[SalesPrice]), Measure.[UnitsSold] &gt; <span class="tok-n">10</span>};</pre>
+      <div class="callout warn"><b>Removes fact cells, not dimension members</b> (that's <code>deletemember</code>/<code>purge</code>). Hard to undo — dry-run first with a <code>select</code> using the same <code>where</code>. Edges use the sibling <code>delete data for relationshiptype</code>.</div>
+
+      <div class="code-cap" style="margin-top:18px">Version &amp; scenario commands</div>
+      <table class="o9-table">
+        <thead><tr><th>Command</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><code>createversion</code></td><td>Create a normal or <b>scoped</b> version (data only for a subset of intersections)</td></tr>
+          <tr><td><code>updateversion</code> / <code>deleteversion</code></td><td>Edit version properties / remove a version</td></tr>
+          <tr><td><code>createscenario</code></td><td>Create a <b>scenario</b> — a modifiable copy of a version for what-if analysis</td></tr>
+          <tr><td><code>updatescenario</code></td><td>Update a scenario (or just a scoped part of it)</td></tr>
+        </tbody>
+      </table>
+      <div class="callout"><b>Version is the "special" dimension</b> — it drives time-travel &amp; what-if. <b>CWV</b> (<code>Key == 0</code>) is the single live view everyone reads/writes; a <b>Version</b> is an archive/snapshot (usually read-only); a <b>Scenario</b> is a modifiable copy for planning alternatives. All follow the same <code>{Key, Name}</code> slot convention as <code>createmember</code>. (Concepts &amp; isolation/merge: see <b>m14</b>.)</div>
+
+      <div class="callout sql"><b>Five buckets of IBPL:</b> query (<code>select</code>) · modify (<code>scope</code>, <code>createmember</code>, <code>update</code>, <code>copymeasure</code>) · transfer (<code>DownloadDataFile</code>, <code>Export</code>) · query the model (inspect dims/measures/graphs) · control access (<code>grant</code>/<code>deny</code>).</div>
     </div>`;
 
   container.querySelector('#tab-access').innerHTML = `

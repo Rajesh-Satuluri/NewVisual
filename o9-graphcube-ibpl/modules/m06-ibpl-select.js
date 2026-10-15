@@ -90,6 +90,7 @@ export function mount(container) {
       { id: 'notsql',  label: '🚫 Not SQL' },
       { id: 'filter',  label: '🎚️ where vs .filter()' },
       { id: 'members', label: '🔹 Selecting Members' },
+      { id: 'idioms',  label: '🚨 Mistakes & Idioms' },
       { id: 'play',    label: '🧪 Playground' },
       { id: 'iq',      label: '🎯 Interview Q&A', content: createIQSection(IQ) },
     ],
@@ -99,6 +100,7 @@ export function mount(container) {
 
   container.querySelector('#tab-anatomy').innerHTML = `
     <div class="section-pad">
+      <div class="callout"><b>The mental model.</b> Picture a supply chain for shampoo: SKUs × Time × Location × Customer × Version. A measure like <i>UnitsSold</i> lives at the <b>intersection</b> of those — "UnitsSold of Fructis Shine 100ml, in Mumbai, in Week 5, in CurrentWorkingView" is one cell in a multi-dimensional cube. A <code>select</code> is how you <b>read</b> cells: you pick a grain (which dimensions), pick measures, and filter.</div>
       <p class="lead">Every full-featured select has five parts. Only ① and ② are mandatory — but ③ Version is effectively mandatory too.</p>
       <pre class="code"><span class="tok-k">Select</span> ( [Item].[SKU] * [Time].[Week] *            <span class="tok-c">-- ① scope / granularity (MANDATORY)</span>
          {Measure.[UnitSold], Measure.[UnitPrice]}   <span class="tok-c">-- ② measures (MANDATORY)</span>
@@ -190,6 +192,49 @@ orderby Measure.[UnitPrice] desc limit 6;</pre></div>
     {[SCSLocation].[Location], [ContactNumber]}
   <span class="tok-k">limit</span> <span class="tok-n">5</span>;</pre>
       <div class="callout"><b>Debug tip:</b> use <code>execute datasource</code> (not plain <code>execute</code>) in the debug workspace to see properties as columns instead of raw JSON. And <code>select ("Hello IBPL")</code> / <code>select (5 + 3 * 2)</code> print constants for sanity checks (BODMAS → 11).</div>
+    </div>`;
+
+  container.querySelector('#tab-idioms').innerHTML = `
+    <div class="section-pad">
+      <p class="lead">The handful of mistakes that bite every beginner, and the three small idioms (<code>#</code>, <code>&amp;</code>, order/limit) that separate a fluent query from a flailing one.</p>
+
+      <div class="code-cap">🚨 Common beginner mistakes</div>
+      <table class="o9-table">
+        <thead><tr><th>Mistake</th><th>Symptom</th><th>Fix</th></tr></thead>
+        <tbody>
+          <tr><td>Forgot the <b>Version</b> filter</td><td><b>0 rows</b> returned (no error)</td><td>Add <code>* Version.[Version Name].[CurrentWorkingView]</code> or <code>where {Version.[Version Name].filter(#.Key == 0)}</code></td></tr>
+          <tr><td>Forgot the trailing <code>;</code></td><td>Syntax error</td><td>Every statement ends with <code>;</code></td></tr>
+          <tr><td>Used <code>=</code> instead of <code>==</code></td><td>Fails silently / matches everything</td><td>Inside a filter you <b>compare</b> → <code>==</code></td></tr>
+          <tr><td>Forgot the <code>Measure.</code> prefix</td><td>Unknown identifier</td><td>Measures are always <code>Measure.[Name]</code></td></tr>
+          <tr><td>Single brackets around a spaced name</td><td>Parse error</td><td>Wrap in <code>[ ]</code>: <code>[Version Name]</code></td></tr>
+          <tr><td>No <code>limit</code> while exploring</td><td>Browser hangs on a huge result</td><td>Always <code>limit N</code> during ad-hoc work</td></tr>
+        </tbody>
+      </table>
+
+      <div class="card-grid" style="margin-top:18px">
+        <div class="card"><h4>🧷 <code>#</code> — "self" in a filter</h4>
+          <p style="color:var(--text2);font-size:12px;margin:6px 0 0">Inside <code>.filter()</code>, <code>#</code> is the level attribute being filtered — like <code>this</code>. Use <code>#.Name</code>, <code>#.Key</code>, or any custom property.</p>
+<pre class="code" style="margin:8px 0 0">[Item].[SKU].filter(#.Name <span class="tok-k">in</span>
+   {<span class="tok-s">"Fructis Shine - 100"</span>})</pre></div>
+        <div class="card"><h4>🎁 <code>&amp;</code> — namesets (shortcuts)</h4>
+          <p style="color:var(--text2);font-size:12px;margin:6px 0 0">Predefine a reusable alias, then drop it in anywhere — handy for the long CWV path or an ordered week set.</p>
+<pre class="code" style="margin:8px 0 0"><span class="tok-c">-- &CWV ≡ the CWV version path</span>
+<span class="tok-k">Select</span> (&amp;CWV * [Item].[SKU] * {...});
+<span class="tok-c">-- &PastWeeks.element(0).Key = first week</span></pre></div>
+      </div>
+
+      <div class="code-cap" style="margin-top:18px">Ordering &amp; limiting — the details interviewers probe</div>
+      <table class="o9-table">
+        <thead><tr><th>Construct</th><th>Behaviour</th></tr></thead>
+        <tbody>
+          <tr><td><code>orderby Measure.[Sales] desc</code></td><td>Sort by a measure; add <code>desc</code> for descending (default is ascending).</td></tr>
+          <tr><td><code>orderby [Item].[SKU].Name asc</code></td><td>Sort by a member property — you <b>must</b> name <code>.Name</code> or <code>.Key</code>, not the bare attribute.</td></tr>
+          <tr><td>Nulls in an <code>orderby</code></td><td><b>null is treated as 0</b> for sorting purposes.</td></tr>
+          <tr><td><code>limit 6</code> / <code>top 6</code></td><td>First 6 rows (respecting the order). <code>top</code> is a synonym for <code>limit</code>.</td></tr>
+          <tr><td><code>bottom 6</code></td><td>Last 6 rows (respecting the order).</td></tr>
+        </tbody>
+      </table>
+      <div class="callout"><b>Print / sanity-check trick:</b> <code>select ("Hello IBPL")</code> prints a constant and <code>select (5 + 3 * 2)</code> evaluates an expression (→ 11, BODMAS) — quick ways to test a formula before wiring it into a scope.</div>
     </div>`;
 
   return () => { cleanupPlay && cleanupPlay(); };
