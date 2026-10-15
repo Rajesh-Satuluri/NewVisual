@@ -318,10 +318,11 @@
       html += '<section class="ws-panel active" data-panel="overview">' +
         section("Why it exists", c.why) +
         section("Intuition", c.intuition) +
-        section("How it works", c.how || c.intuition) +
-        '<div class="callout"><span class="callout-icon">✍️</span><div class="callout-body">' +
-        "A full written walkthrough for this concept is on the roadmap — the interactive simulation in the <b>▶ Simulate</b> tab is fully live." +
-        "</div></div>" +
+        section("How it works", c.how || (c.why ? "" : c.intuition)) +
+        (c.why ? "" :
+          '<div class="callout"><span class="callout-icon">✍️</span><div class="callout-body">' +
+          "A full written walkthrough for this concept is on the roadmap — the interactive simulation in the <b>▶ Simulate</b> tab is fully live." +
+          "</div></div>") +
         "</section>";
       html += '<section class="ws-panel" data-panel="internals">' +
         section("Inside the database", c.internals) +
