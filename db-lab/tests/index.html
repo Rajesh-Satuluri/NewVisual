@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DB Lab — Kernel Self-Tests</title>
+  <style>
+    :root { --bg:#0A0F1A; --panel:#111827; --line:#1f2a3a; --fg:#e5edf7; --dim:#7d8ba1;
+            --green:#3ddc84; --red:#ff6b6b; --cyan:#35c3ff; }
+    @media (prefers-color-scheme: light){ :root:not([data-theme="dark"]){
+            --bg:#f5f8fc; --panel:#fff; --line:#dfe6ef; --fg:#14202e; --dim:#5a6b80; } }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--fg);
+           font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; padding:24px 16px; }
+    .wrap { max-width:820px; margin:0 auto; }
+    h1 { font-size:20px; margin:0 0 4px; }
+    .sub { color:var(--dim); margin:0 0 20px; font-size:13px; }
+    .summary { padding:14px 16px; border:1px solid var(--line); border-radius:10px;
+               background:var(--panel); margin-bottom:18px; font-weight:600; }
+    .summary.ok { border-color:var(--green); } .summary.bad { border-color:var(--red); }
+    .dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:8px; }
+    .dot.ok{ background:var(--green);} .dot.bad{ background:var(--red);}
+    .suite { margin:16px 0 6px; color:var(--cyan); font-weight:700; font-size:13px;
+             text-transform:uppercase; letter-spacing:.04em; }
+    .t { display:flex; gap:10px; padding:7px 12px; border:1px solid var(--line);
+         border-radius:8px; margin:5px 0; background:var(--panel); }
+    .t .mk { font-weight:700; } .t.ok .mk{ color:var(--green);} .t.bad .mk{ color:var(--red);}
+    .t .err { color:var(--red); white-space:pre-wrap; font-family:ui-monospace,monospace;
+              font-size:12px; margin-top:4px; }
+    code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>DB Lab — Kernel Self-Tests</h1>
+    <p class="sub">The same <code>tests/*.test.mjs</code> files that run in Node
+      (<code>node tests/run.mjs</code>) run here in the browser. Green means the
+      interactive-lab kernels satisfy the contract.</p>
+    <div id="summary" class="summary">Running…</div>
+    <div id="out"></div>
+  </div>
+
+  <script type="module">
+    import { run, reset } from "./harness.mjs";
+
+    const FILES = ["./kernels.test.mjs"]; // keep in sync with run.mjs
+
+    reset();
+    for (const f of FILES) { await import(f); }
+    const r = run();
+
+    const summary = document.getElementById("summary");
+    const out = document.getElementById("out");
+    summary.className = "summary " + (r.failed ? "bad" : "ok");
+    summary.innerHTML = '<span class="dot ' + (r.failed ? "bad" : "ok") + '"></span>' +
+      (r.failed ? "FAIL" : "PASS") + " — " + r.passed + "/" + r.total + " tests passed";
+
+    const failBySuite = {};
+    r.failures.forEach((f) => { (failBySuite[f.suite] = failBySuite[f.suite] || {})[f.test] = f.error; });
+
+    let html = "";
+    r.suites.forEach((s) => {
+      html += '<div class="suite">' + s.name + "</div>";
+      s.tests.forEach((t) => {
+        const err = failBySuite[s.name] && failBySuite[s.name][t.name];
+        html += '<div class="t ' + (err ? "bad" : "ok") + '"><span class="mk">' +
+          (err ? "✗" : "✓") + "</span><div><div>" + t.name + "</div>" +
+          (err ? '<div class="err">' + err.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c])) + "</div>" : "") +
+          "</div></div>";
+      });
+    });
+    out.innerHTML = html;
+  </script>
+</body>
+</html>
