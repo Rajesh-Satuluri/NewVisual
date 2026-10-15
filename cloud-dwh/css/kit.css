@@ -101,3 +101,37 @@
 .cmp-jump a { font-size: .74rem; padding: .3rem .7rem; border-radius: 999px; border: 1px solid var(--border, rgba(255,255,255,.12)); background: var(--surface, rgba(255,255,255,.03)); color: var(--text-secondary); text-decoration: none; cursor: pointer; }
 .cmp-jump a:hover { border-color: var(--blue); color: var(--text-primary, #e6edf3); }
 .cmp-hero-badge { display:inline-block; background: rgba(var(--blue-rgb),.12); border:1px solid rgba(var(--blue-rgb),.3); color: var(--blue); font-size:.72rem; font-weight:600; letter-spacing:.04em; text-transform:uppercase; padding:.3rem .8rem; border-radius:999px; margin-bottom:1rem; }
+
+/* ── Fundamentals module layout (FundKit) ─────────────────── */
+.fund-page { max-width: 980px; margin: 0 auto; padding: 1.5rem 1.25rem 3rem; }
+.fund-lead { font-size: 1rem; line-height: 1.7; color: var(--text-secondary); max-width: 840px; }
+.fund-prose { margin: 1.5rem 0 0; display: grid; gap: .9rem; }
+.fund-section { background: var(--bg-elevated, rgba(255,255,255,.03)); border: 1px solid var(--border, rgba(255,255,255,.08)); border-left: 3px solid var(--blue); border-radius: 0 12px 12px 0; padding: 1rem 1.25rem; }
+.fund-section h3 { font-size: .98rem; font-weight: 700; margin: 0 0 .45rem; color: var(--text-primary, #e6edf3); }
+.fund-section-body { font-size: .9rem; line-height: 1.72; color: var(--text-secondary); }
+.fund-section-body p { margin: 0 0 .6rem; } .fund-section-body p:last-child { margin-bottom: 0; }
+.fund-section-body strong { color: var(--text-primary, #e6edf3); font-weight: 600; }
+.fund-section-body code { font-family: var(--font-mono, ui-monospace, monospace); font-size: .82em; background: rgba(var(--blue-rgb), .12); color: var(--blue); padding: .1em .4em; border-radius: 5px; }
+.fund-section-body ul { margin: .4rem 0 0; padding-left: 1.15rem; display: flex; flex-direction: column; gap: .35rem; }
+.fund-section-body li { line-height: 1.6; }
+.fund-block { margin: 1.85rem 0 0; }
+.fund-block-title { font-size: .74rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--blue); margin-bottom: .8rem; }
+.fund-map-intro { font-size: .9rem; line-height: 1.68; color: var(--text-secondary); margin: 0 0 .95rem; }
+.fund-term { font-size: .82rem; font-weight: 700; color: var(--blue); margin-bottom: .55rem; padding-bottom: .5rem; border-bottom: 1px dashed rgba(var(--blue-rgb), .3); }
+.fund-foot { margin-top: 1.85rem; padding-top: 1.1rem; border-top: 1px solid var(--border, rgba(255,255,255,.08)); display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; justify-content: space-between; }
+.fund-xlink { appearance: none; cursor: pointer; font: inherit; font-size: .85rem; font-weight: 600; color: #fff; background: var(--blue); border: 0; border-radius: 10px; padding: .6rem 1.1rem; transition: transform .12s, box-shadow .12s; box-shadow: 0 2px 10px rgba(var(--blue-rgb), .35); }
+.fund-xlink:hover { transform: translateY(-1px); box-shadow: 0 5px 18px rgba(var(--blue-rgb), .5); }
+.fund-docs { display: flex; flex-wrap: wrap; gap: .35rem 1rem; }
+.fund-docs a { font-size: .8rem; font-weight: 600; color: var(--blue); text-decoration: none; }
+.fund-docs a:hover { text-decoration: underline; }
+
+/* ── Fundamentals landing ─────────────────────────────────── */
+.fund-home-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; margin-top: 1.5rem; }
+.fund-home-card { background: var(--bg-elevated, rgba(255,255,255,.03)); border: 1px solid var(--border, rgba(255,255,255,.08)); border-radius: 14px; padding: 1.1rem 1.25rem; }
+.fund-home-card__title { font-size: .95rem; font-weight: 700; color: var(--text-primary, #e6edf3); margin: 0 0 .7rem; }
+.fund-home-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
+.fund-home-list a { display: flex; gap: .55rem; align-items: center; font-size: .84rem; color: var(--text-secondary); text-decoration: none; cursor: pointer; padding: .25rem .4rem; border-radius: 8px; transition: background .12s, color .12s; }
+.fund-home-list a:hover { background: rgba(var(--blue-rgb), .1); color: var(--text-primary, #e6edf3); }
+.fund-home-steps { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1.25rem; }
+.fund-home-step { font-size: .8rem; color: var(--text-secondary); background: var(--surface, rgba(255,255,255,.03)); border: 1px solid var(--border, rgba(255,255,255,.1)); border-radius: 999px; padding: .35rem .85rem; }
+.fund-home-step b { color: var(--blue); }
