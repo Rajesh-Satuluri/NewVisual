@@ -767,3 +767,46 @@
 .bt-empty { color:var(--text-tertiary,var(--text-secondary)); padding:24px; text-align:center; }
 
 @media (max-width:720px){ .bp-str { width:140px; } }
+
+/* ============================================================
+   MVCC (m48) + Cost-Based Optimizer (m17) Interactive Labs.
+   Reuse .bp-* controls/metrics, .wal-inv chips, .wal-panel. Theme-aware.
+   ============================================================ */
+.mvcc-lab, .opt-lab { display:flex; flex-direction:column; gap:14px; padding:18px 24px 28px; }
+.mvcc-controls, .opt-controls { display:flex; flex-direction:column; gap:8px; }
+
+.mv-grid { display:grid; grid-template-columns:minmax(0,1.5fr) minmax(0,1fr); gap:14px; }
+.mv-table { width:100%; border-collapse:collapse; font-size:13px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+.mv-table th { text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-tertiary,var(--text-secondary)); padding:6px 10px; border-bottom:1px solid var(--border-emphasis); }
+.mv-table td { padding:5px 10px; border-bottom:1px solid color-mix(in srgb,var(--border-emphasis) 50%,transparent); }
+.mv-ver.dead { opacity:.5; } .mv-ver.vis { background:color-mix(in srgb,#3ddc84 12%,transparent); }
+.mv-k { font-weight:700; } .mv-val { color:var(--cyan,#35c3ff); }
+.mv-lab { font-size:10px; color:var(--text-tertiary,var(--text-secondary)); margin-left:5px; }
+.mv-dead { color:#ff6b6b; font-size:11px; } .mv-live { color:#3ddc84; font-size:11px; } .mv-see { color:#3ddc84; font-size:11px; }
+.mv-txns { padding:10px 12px; display:flex; flex-direction:column; gap:7px; }
+.mv-txn { display:flex; align-items:center; gap:8px; font-size:13px; flex-wrap:wrap; }
+.mv-txn-id { font-weight:700; min-width:30px; }
+.mv-snap { font-size:11px; color:var(--text-tertiary,var(--text-secondary)); font-family:ui-monospace,monospace; }
+.mv-lastread { color:var(--text-secondary); margin-left:4px; }
+
+/* optimizer */
+.opt-knobs { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px 18px; }
+.opt-knob { display:flex; flex-direction:column; gap:2px; }
+.opt-range { width:100%; accent-color:var(--cyan,#35c3ff); }
+.opt-kv { font-size:12px; font-variant-numeric:tabular-nums; color:var(--text-secondary); }
+.opt-check { font-size:13px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; }
+.opt-query { font-size:13px; padding:10px 12px; border:1px solid var(--border-emphasis); border-radius:8px; background:var(--bg-2,#0e1726); display:flex; flex-wrap:wrap; gap:10px; justify-content:space-between; align-items:center; }
+.opt-query code { font-family:ui-monospace,monospace; color:var(--cyan,#35c3ff); }
+.opt-card { font-size:12px; color:var(--text-secondary); }
+.opt-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.opt-plans { padding:12px; display:flex; flex-direction:column; gap:10px; }
+.opt-plan { border:1px solid var(--border-emphasis); border-radius:8px; padding:8px 10px; background:var(--bg-3,#111c2e); }
+.opt-plan.chosen { border-color:#3ddc84; box-shadow:0 0 0 1px #3ddc84 inset; }
+.opt-plan-head { display:flex; justify-content:space-between; font-size:13px; font-weight:600; }
+.opt-plan-name { color:var(--text-primary); } .opt-plan.chosen .opt-plan-name { color:#3ddc84; }
+.opt-plan-cost { font-family:ui-monospace,monospace; color:var(--text-secondary); }
+.opt-bar { height:6px; border-radius:999px; background:var(--bg-2,#0e1726); overflow:hidden; margin:5px 0; }
+.opt-bar-fill { height:100%; background:var(--text-tertiary,#64748b); } .opt-bar-fill.win { background:linear-gradient(90deg,#3ddc84,var(--cyan,#35c3ff)); }
+.opt-plan-note { font-size:11px; color:var(--text-tertiary,var(--text-secondary)); }
+
+@media (max-width:760px){ .mv-grid, .opt-grid { grid-template-columns:1fr; } }

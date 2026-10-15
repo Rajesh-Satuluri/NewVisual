@@ -1,400 +1,191 @@
+/* ============================================================
+   m48-mvcc.js — ⚡ Interactive Lab: MVCC & Snapshot Isolation.
+   Renderer for sims/kernels/mvcc.mjs. Run concurrent transactions,
+   watch version chains (xmin/xmax) grow, and highlight exactly what
+   each transaction's snapshot can see. Real kernel state throughout.
+   ============================================================ */
 import { createModuleShell, initTabs, createIQSection, initIQ } from '../components/module-shell.js';
-import { SimulationEngine } from '../components/simulation-engine.js';
+import { createMvcc, visibleSet } from '../kernels/mvcc.mjs';
 
-/* ── Step data ─────────────────────────────────────────────────────────────── */
-// Each tuple: tid, xmin (creator XID), xmax (deleter XID|null), data, flags
-const MVCC_STEPS = [
-  {
-    tuples: [
-      { tid:'(23,1)', xmin:50,  xmax:null, data:'order_id=1001  status=placed',  dead:false, isNew:false },
-      { tid:'(23,2)', xmin:55,  xmax:null, data:'order_id=1002  status=placed',  dead:false, isNew:false },
-      { tid:'(23,3)', xmin:60,  xmax:null, data:'order_id=1003  status=placed',  dead:false, isNew:false },
-    ],
-    t1: null, t2: null, vacuum: false,
-    hi: [],
-    desc: 'Heap page 23 holds 3 live tuples. xmin = transaction that INSERT-ed the row (committed). xmax = null means no one has deleted it. All are visible to any new transaction.',
-  },
-  {
-    tuples: [
-      { tid:'(23,1)', xmin:50,  xmax:null, data:'order_id=1001  status=placed',  dead:false, isNew:false },
-      { tid:'(23,2)', xmin:55,  xmax:null, data:'order_id=1002  status=placed',  dead:false, isNew:false },
-      { tid:'(23,3)', xmin:60,  xmax:null, data:'order_id=1003  status=placed',  dead:false, isNew:false },
-    ],
-    t1: { xid:100, status:'active', label:'T1 active' },
-    t2: null, vacuum: false,
-    hi: [1],
-    desc: 'T1 (XID=100) starts: UPDATE orders SET status=\'shipped\' WHERE order_id=1002. It targets tuple (23,2). MVCC will create a new row version — no table lock required.',
-  },
-  {
-    tuples: [
-      { tid:'(23,1)', xmin:50,  xmax:null, data:'order_id=1001  status=placed',  dead:false, isNew:false },
-      { tid:'(23,2)', xmin:55,  xmax:100,  data:'order_id=1002  status=placed',  dead:false, isNew:false },
-      { tid:'(23,3)', xmin:60,  xmax:null, data:'order_id=1003  status=placed',  dead:false, isNew:false },
-      { tid:'(23,4)', xmin:100, xmax:null, data:'order_id=1002  status=shipped', dead:false, isNew:true },
-    ],
-    t1: { xid:100, status:'active', label:'T1 active — old xmax=100, new xmin=100' },
-    t2: null, vacuum: false,
-    hi: [1, 3],
-    desc: 'T1 stamps xmax=100 on old tuple (23,2) and inserts new version (23,4) with xmin=100. Two versions coexist in the page. Writers never block readers — the heart of MVCC.',
-  },
-  {
-    tuples: [
-      { tid:'(23,1)', xmin:50,  xmax:null, data:'order_id=1001  status=placed',  dead:false, isNew:false },
-      { tid:'(23,2)', xmin:55,  xmax:100,  data:'order_id=1002  status=placed',  dead:false, isNew:false },
-      { tid:'(23,3)', xmin:60,  xmax:null, data:'order_id=1003  status=placed',  dead:false, isNew:false },
-      { tid:'(23,4)', xmin:100, xmax:null, data:'order_id=1002  status=shipped', dead:false, isNew:true },
-    ],
-    t1: { xid:100, status:'active', label:'T1 active — not yet committed' },
-    t2: { xid:101, status:'active', label:'T2 starts SELECT' },
-    vacuum: false,
-    hi: [1, 3],
-    desc: 'T2 (XID=101) starts. Its snapshot records which XIDs are active at that moment. T1 (XID=100) is in the active list → T2 cannot see rows with xmin=100.',
-  },
-  {
-    tuples: [
-      { tid:'(23,1)', xmin:50,  xmax:null, data:'order_id=1001  status=placed',  dead:false, isNew:false, t2:true },
-      { tid:'(23,2)', xmin:55,  xmax:100,  data:'order_id=1002  status=placed',  dead:false, isNew:false, t2:true  },
-      { tid:'(23,3)', xmin:60,  xmax:null, data:'order_id=1003  status=placed',  dead:false, isNew:false, t2:true },
-      { tid:'(23,4)', xmin:100, xmax:null, data:'order_id=1002  status=shipped', dead:false, isNew:true,  t2:false },
-    ],
-    t1: { xid:100, status:'active', label:'T1 still active' },
-    t2: { xid:101, status:'active', label:'T2 reads old version → status=placed' },
-    vacuum: false,
-    hi: [1],
-    desc: 'T2 sees the OLD version (23,2) with status=placed. Tuple (23,4) is invisible: its xmin=100 is in T2\'s active-transaction list. Snapshot isolation delivers a consistent read without any lock.',
-  },
-  {
-    tuples: [
-      { tid:'(23,1)', xmin:50,  xmax:null, data:'order_id=1001  status=placed',  dead:false, isNew:false },
-      { tid:'(23,2)', xmin:55,  xmax:100,  data:'order_id=1002  status=placed',  dead:true,  isNew:false },
-      { tid:'(23,3)', xmin:60,  xmax:null, data:'order_id=1003  status=placed',  dead:false, isNew:false },
-      { tid:'(23,4)', xmin:100, xmax:null, data:'order_id=1002  status=shipped', dead:false, isNew:false },
-    ],
-    t1: { xid:100, status:'committed', label:'T1 COMMIT' },
-    t2: { xid:101, status:'committed', label:'T2 COMMIT — saw consistent snapshot' },
-    vacuum: false,
-    hi: [3],
-    desc: 'T1 commits. (23,2) is now a dead tuple — its xmax=100 is a committed XID, so all future snapshots skip it. T2 also commits; it saw a fully consistent view throughout its lifetime.',
-  },
-  {
-    tuples: [
-      { tid:'(23,1)', xmin:50,  xmax:null, data:'order_id=1001  status=placed',  dead:false, isNew:false },
-      { tid:'(23,3)', xmin:60,  xmax:null, data:'order_id=1003  status=placed',  dead:false, isNew:false },
-      { tid:'(23,4)', xmin:100, xmax:null, data:'order_id=1002  status=shipped', dead:false, isNew:false },
-    ],
-    t1: null, t2: null, vacuum: true,
-    hi: [],
-    desc: 'VACUUM reclaims (23,2). Dead tuples are not removed immediately — VACUUM runs periodically to compact pages and return space to the free-space map. Long-running transactions block VACUUM.',
-  },
-];
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
+const src = (id) => (window.DBLab && window.DBLab.source && window.DBLab.source(id)) || null;
 
-/* ── Canvas renderer ───────────────────────────────────────────────────────── */
-function drawMVCC(ctx, stepIdx, w, h) {
-  const step = MVCC_STEPS[stepIdx];
-  ctx.clearRect(0, 0, w, h);
+const SEED = { A: 1, B: 2, C: 3 };
 
-  const tuples = step.tuples;
-  const rowH   = 44;
-  const pageX  = 20, pageY = 48;
-  const pageW  = w - 40;
-  const pageH  = tuples.length * rowH + 36;
+const PRESETS = {
+  repeatable: { label: 'Repeatable read', ops: [B('T1'), B('T2'), U('T2', 'A', 99), C('T2'), R('T1', 'A')] },
+  conflict: { label: 'Write-write conflict', ops: [B('T1'), B('T2'), U('T1', 'A', 10), U('T2', 'A', 20)] },
+  dead: { label: 'Dead tuple → VACUUM', ops: [B('T1'), U('T1', 'A', 5), C('T1')] },
+};
+function B(t) { return { type: 'begin', txn: t }; }
+function U(t, k, v) { return { type: 'update', txn: t, key: k, value: v }; }
+function R(t, k) { return { type: 'read', txn: t, key: k }; }
+function C(t) { return { type: 'commit', txn: t }; }
 
-  // ── page box ──
-  ctx.strokeStyle = '#334155'; ctx.lineWidth = 1.5;
-  ctx.fillStyle   = '#0F172A';
-  ctx.beginPath(); ctx.roundRect(pageX, pageY, pageW, pageH, 6); ctx.fill(); ctx.stroke();
-
-  ctx.fillStyle = '#64748B'; ctx.font = '700 10px system-ui'; ctx.textAlign = 'left';
-  ctx.fillText('HEAP PAGE 23  (8 KB)', pageX + 12, pageY + 18);
-
-  // column widths
-  const C0 = pageX + 12;
-  const C1 = C0 + 72;
-  const C2 = C1 + 68;
-  const C3 = C2 + 68;
-  const C4 = C3 + 54;
-
-  // header
-  const hY = pageY + 32;
-  ctx.fillStyle = '#475569'; ctx.font = '700 9px system-ui'; ctx.textAlign = 'left';
-  ['TID', 'xmin', 'xmax', 'ver', 'DATA'].forEach((h, i) => {
-    ctx.fillText(h, [C0, C1, C2, C3, C4][i], hY);
+export function mount(host) {
+  const shell = createModuleShell(host, {
+    tag: '⚡ Interactive Lab · Transactions',
+    title: 'MVCC & Snapshot Isolation',
+    subtitle: "Run concurrent transactions and watch row versions (xmin/xmax) accumulate. Pick a 'viewer' transaction to highlight exactly what its snapshot sees — readers never block writers, and the version chain is the kernel's real state.",
+    tabs: [{ id: 'lab', label: 'Lab' }, { id: 'how', label: 'How it works' }, { id: 'iq', label: 'Interview' }],
   });
-
-  // ── draw each tuple ──
-  tuples.forEach((t, i) => {
-    const ry = pageY + 36 + i * rowH;
-    const isHi = step.hi.includes(i);
-
-    // row background
-    if (t.dead) {
-      ctx.fillStyle = '#1C0A0A';
-    } else if (t.isNew) {
-      ctx.fillStyle = '#0D0B1A';
-    } else if (isHi) {
-      ctx.fillStyle = '#0F1F3D';
-    } else {
-      ctx.fillStyle = 'transparent';
-    }
-    ctx.fillRect(pageX + 2, ry + 2, pageW - 4, rowH - 4);
-
-    // row border
-    if (t.isNew) {
-      ctx.strokeStyle = '#A78BFA'; ctx.lineWidth = 1.5;
-      ctx.setLineDash([4, 3]);
-    } else if (t.dead) {
-      ctx.strokeStyle = '#7F1D1D'; ctx.lineWidth = 1;
-      ctx.setLineDash([]);
-    } else if (isHi) {
-      ctx.strokeStyle = '#4F46E5'; ctx.lineWidth = 1.5;
-      ctx.setLineDash([]);
-    } else {
-      ctx.strokeStyle = '#1E293B'; ctx.lineWidth = 1;
-      ctx.setLineDash([]);
-    }
-    ctx.strokeRect(pageX + 2, ry + 2, pageW - 4, rowH - 4);
-    ctx.setLineDash([]);
-
-    const textY = ry + rowH / 2 + 4;
-    const alpha = t.dead ? 0.4 : 1;
-
-    // TID
-    ctx.globalAlpha = alpha;
-    ctx.fillStyle   = '#94A3B8'; ctx.font = '700 10px monospace'; ctx.textAlign = 'left';
-    ctx.fillText(t.tid, C0, textY);
-
-    // xmin
-    ctx.fillStyle = t.xmin >= 100 ? '#A78BFA' : '#64748B';
-    ctx.fillText(String(t.xmin), C1, textY);
-
-    // xmax
-    ctx.fillStyle = t.xmax != null ? '#EF4444' : '#10B981';
-    ctx.fillText(t.xmax != null ? String(t.xmax) : 'null', C2, textY);
-
-    // version badge
-    ctx.fillStyle = t.isNew ? '#A78BFA' : '#64748B';
-    ctx.font = '600 9px system-ui';
-    ctx.fillText(t.isNew ? 'v2 NEW' : 'v1', C3, textY);
-
-    // data
-    ctx.fillStyle = t.dead ? '#7F1D1D' : '#CBD5E1';
-    ctx.font = '10px monospace';
-    const maxDataW = pageW - (C4 - pageX) - 12;
-    let dataStr = t.data;
-    while (ctx.measureText(dataStr).width > maxDataW && dataStr.length > 10) {
-      dataStr = dataStr.slice(0, -1);
-    }
-    if (dataStr !== t.data) dataStr += '…';
-    ctx.fillText(dataStr, C4, textY);
-    ctx.globalAlpha = 1;
-
-    // T2 visibility dot
-    if (t.t2 !== undefined) {
-      const dotX = pageX + pageW - 12;
-      ctx.fillStyle = t.t2 ? '#10B981' : '#EF4444';
-      ctx.beginPath(); ctx.arc(dotX, textY - 4, 4, 0, Math.PI * 2); ctx.fill();
-    }
-
-    // dead strikethrough
-    if (t.dead && !step.vacuum) {
-      ctx.strokeStyle = '#EF4444'; ctx.lineWidth = 1; ctx.globalAlpha = 0.6;
-      ctx.beginPath();
-      ctx.moveTo(pageX + 4, ry + rowH / 2);
-      ctx.lineTo(pageX + pageW - 4, ry + rowH / 2);
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-    }
+  const teardown = initTabs(shell.tabs, shell.body, {
+    lab: (panel) => mountLab(panel),
+    how: (panel) => { panel.innerHTML = howHTML(); },
+    iq: (panel) => { const iq = createIQSection(); panel.appendChild(iq.el); initIQ(iq, IQ); },
   });
-
-  // ── Transaction status boxes ──
-  const boxY = pageY + pageH + 16;
-  const boxH = 46;
-
-  function drawTxBox(tx, x, bw, color) {
-    ctx.fillStyle = color + '22';
-    ctx.strokeStyle = color; ctx.lineWidth = 1.5;
-    ctx.setLineDash([]);
-    ctx.beginPath(); ctx.roundRect(x, boxY, bw, boxH, 6); ctx.fill(); ctx.stroke();
-
-    ctx.fillStyle = color; ctx.font = '700 10px system-ui'; ctx.textAlign = 'left';
-    ctx.fillText(`XID ${tx.xid}  —  ${tx.status.toUpperCase()}`, x + 10, boxY + 16);
-    ctx.fillStyle = '#94A3B8'; ctx.font = '9px system-ui';
-    ctx.fillText(tx.label, x + 10, boxY + 32);
-  }
-
-  const halfW = (pageW - 12) / 2;
-  if (step.t1) drawTxBox(step.t1, pageX, halfW, '#4F46E5');
-  if (step.t2) drawTxBox(step.t2, pageX + halfW + 12, halfW, '#10B981');
-
-  // ── T2 legend if applicable ──
-  if (step.tuples.some(t => t.t2 !== undefined)) {
-    const lx = pageX + pageW - 105, ly = pageY + pageH - 28;
-    ctx.fillStyle = '#0F172A'; ctx.strokeStyle = '#334155';
-    ctx.beginPath(); ctx.roundRect(lx, ly, 100, 24, 4); ctx.fill(); ctx.stroke();
-    ctx.font = '9px system-ui'; ctx.textAlign = 'left';
-    ctx.fillStyle = '#10B981'; ctx.fillText('●', lx + 6, ly + 15);
-    ctx.fillStyle = '#94A3B8'; ctx.fillText(' visible to T2', lx + 14, ly + 15);
-    ctx.fillStyle = '#EF4444'; ctx.fillText('●', lx + 6, ly + 26);
-    ctx.fillStyle = '#94A3B8'; ctx.fillText(' hidden from T2', lx + 14, ly + 26);
-  }
-
-  // ── VACUUM label ──
-  if (step.vacuum) {
-    ctx.fillStyle = '#F59E0B'; ctx.font = '700 11px system-ui'; ctx.textAlign = 'center';
-    ctx.fillText('VACUUM: dead tuple reclaimed — space returned to free-space map', w / 2, boxY + 24);
-  }
-
-  // ── Snapshot rule at top ──
-  ctx.fillStyle = '#334155'; ctx.font = '9px system-ui'; ctx.textAlign = 'left';
-  ctx.fillText('Visibility rule:  xmin committed  AND  (xmax = null  OR  xmax in-progress at snapshot)', pageX, 34);
-  ctx.textAlign = 'left';
+  return { destroy() { if (typeof teardown === 'function') teardown(); } };
 }
 
-/* ── Content tabs ──────────────────────────────────────────────────────────── */
-function renderTuplesTab(panel) {
-  panel.innerHTML = `
-<div style="padding:20px;max-width:780px;font-family:system-ui;font-size:13px;color:#CBD5E1;line-height:1.6">
-  <h3 style="margin:0 0 16px;color:#E2E8F0;font-size:15px">PostgreSQL Tuple Header Fields</h3>
+function mountLab(panel) {
+  let kernel = createMvcc({ seed: SEED });
+  let nextT = 1, viewer = null;
 
-  <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:24px">
-    <thead>
-      <tr style="background:#0F172A">
-        <th style="padding:8px 12px;text-align:left;color:#64748B;border-bottom:1px solid #1E293B;font-weight:600">Field</th>
-        <th style="padding:8px 12px;text-align:left;color:#64748B;border-bottom:1px solid #1E293B;font-weight:600">Size</th>
-        <th style="padding:8px 12px;text-align:left;color:#64748B;border-bottom:1px solid #1E293B;font-weight:600">Purpose</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${[
-        ['t_xmin','4 bytes','XID of the INSERT transaction. Row is visible if xmin is committed and ≤ snapshot XID.'],
-        ['t_xmax','4 bytes','XID of DELETE/UPDATE transaction. 0 = still live. Row is invisible if xmax is committed.'],
-        ['t_cid','4 bytes','Command ID within the transaction — distinguishes multiple SQL statements in one txn.'],
-        ['t_ctid','6 bytes','Physical location (page, offset) of the LATEST version of this row (self-pointer if current).'],
-        ['t_infomask','2 bytes','Visibility hint bits: XMIN_COMMITTED, XMAX_COMMITTED, IS_HEAP_HOT_UPDATED, etc.'],
-        ['t_hoff','1 byte','Offset to the actual data — accounts for null bitmap and alignment padding.'],
-      ].map(([f,s,d]) => `
-        <tr style="border-bottom:1px solid #0F172A">
-          <td style="padding:8px 12px;color:#A78BFA;font-family:monospace">${f}</td>
-          <td style="padding:8px 12px;color:#64748B">${s}</td>
-          <td style="padding:8px 12px">${d}</td>
-        </tr>`).join('')}
-    </tbody>
-  </table>
+  const root = document.createElement('div');
+  root.className = 'mvcc-lab';
+  panel.appendChild(root);
 
-  <h3 style="margin:0 0 12px;color:#E2E8F0;font-size:15px">Visibility Algorithm (simplified)</h3>
-  <pre style="background:#0F172A;border:1px solid #1E293B;border-radius:6px;padding:14px;font-size:11px;color:#94A3B8;overflow-x:auto">
-function isVisible(tuple, snapshot):
-  # row must have been inserted by a committed transaction
-  if NOT xmin_is_committed(tuple.xmin, snapshot):   return False
-  if tuple.xmin > snapshot.xid:                      return False
-  if tuple.xmin in snapshot.active_xids:             return False
+  function act(op) {
+    try { kernel.dispatch(op); }
+    catch (e) { flash(root, e.message); return; }
+    render();
+  }
+  function activeLabels() { return Object.keys(kernel.state.txns).map(Number).filter((x) => x !== 0 && kernel.state.txns[x].status === 'active').map((x) => kernel.state.txns[x].label); }
 
-  # row must not have been deleted by a committed transaction
-  if tuple.xmax == 0:                                return True   # still live
-  if NOT xmax_is_committed(tuple.xmax, snapshot):   return True   # deleter aborted/active
-  if tuple.xmax > snapshot.xid:                      return True   # deleted after our snapshot
-  if tuple.xmax in snapshot.active_xids:             return True   # deleter still active
+  root.addEventListener('click', (ev) => {
+    const el = ev.target.closest('[data-act]'); if (!el) return;
+    const a = el.dataset.act;
+    if (a === 'begin') { act(B('T' + nextT)); nextT++; return; }
+    const t = () => root.querySelector('#mv-txn') && root.querySelector('#mv-txn').value;
+    const key = () => root.querySelector('#mv-key').value;
+    const val = () => Number(root.querySelector('#mv-val').value);
+    if (a === 'read') return act(R(t(), key()));
+    if (a === 'update') return act(U(t(), key(), val()));
+    if (a === 'delete') return act({ type: 'delete', txn: t(), key: key() });
+    if (a === 'commit') return act(C(el.dataset.txn));
+    if (a === 'abort') return act({ type: 'abort', txn: el.dataset.txn });
+    if (a === 'reset') { kernel = createMvcc({ seed: SEED }); nextT = 1; viewer = null; return render(); }
+    if (a === 'preset') {
+      kernel = createMvcc({ seed: SEED }); nextT = 1; viewer = null;
+      PRESETS[el.dataset.preset].ops.forEach((o) => { try { kernel.dispatch(o); } catch (e) {} });
+      PRESETS[el.dataset.preset].ops.forEach((o) => { if (o.txn) nextT = Math.max(nextT, Number(o.txn.slice(1)) + 1); });
+      render();
+    }
+  });
+  root.addEventListener('change', (ev) => { if (ev.target.id === 'mv-viewer') { viewer = ev.target.value || null; render(); } });
 
-  return False  # definitively deleted
-</pre>
+  function render() {
+    const labels = activeLabels();
+    if (viewer && labels.indexOf(viewer) === -1) viewer = null;
+    root.innerHTML = labHTML(kernel, labels, viewer);
+  }
+  render();
+}
 
-  <h3 style="margin:16px 0 12px;color:#E2E8F0;font-size:15px">HOT Updates (Heap-Only Tuple)</h3>
-  <p style="margin:0 0 8px">When an UPDATE does NOT change any indexed column, PostgreSQL uses a HOT update:</p>
-  <ul style="margin:0;padding-left:20px">
-    <li style="margin-bottom:6px">New version is placed on the <strong>same heap page</strong> (if space allows)</li>
-    <li style="margin-bottom:6px">Old tuple's <code style="color:#A78BFA">t_ctid</code> points to the new version — index entries are <strong>not</strong> duplicated</li>
-    <li style="margin-bottom:6px">Index scans follow the HOT chain on the heap page</li>
-    <li>Amazon Prime Day: status column updates (placed→shipped→delivered) are ideal HOT candidates when the indexed columns (order_id, customer_id) don't change</li>
-  </ul>
+function labHTML(k, activeLabels, viewer) {
+  const s = k.state, m = k.metrics(), inv = k.invariants();
+  const vis = viewer ? new Set(visibleSet(k, viewer)) : null;
+  const keys = Object.keys(SEED);
 
-  <h3 style="margin:16px 0 12px;color:#E2E8F0;font-size:15px">Why Long-Running Transactions Are Dangerous</h3>
-  <div style="background:#1C0A0A;border:1px solid #7F1D1D;border-radius:6px;padding:14px;font-size:12px">
-    <strong style="color:#EF4444">Transaction Horizon:</strong> VACUUM cannot reclaim dead tuples that are still visible to <em>any</em> open transaction. A single 30-minute analytics query during Prime Day blocks VACUUM from reclaiming any rows updated in that window — even on unrelated tables — because the old snapshots must be preserved. This is called "transaction ID horizon bloat."
+  const txnOptions = activeLabels.map((l) => `<option>${l}</option>`).join('') || '<option value="">—</option>';
+  const viewerOptions = '<option value="">(none)</option>' + activeLabels.map((l) => `<option ${l === viewer ? 'selected' : ''}>${l}</option>`).join('');
+
+  // version table, grouped by key
+  const rows = s.tuples.map((v) => {
+    const deadGlobal = v.xmax != null && s.txns[v.xmax] && s.txns[v.xmax].status === 'committed';
+    const isVis = vis && vis.has(v.id);
+    const xminT = s.txns[v.xmin], xmaxT = v.xmax != null ? s.txns[v.xmax] : null;
+    return `<tr class="mv-ver ${deadGlobal ? 'dead' : ''} ${isVis ? 'vis' : ''}">
+      <td class="mv-k">${esc(v.key)}</td>
+      <td class="mv-val">${esc(v.value)}</td>
+      <td class="mv-x">${v.xmin}${xminT && xminT.label ? '<span class="mv-lab">' + esc(xminT.label) + '</span>' : v.xmin === 0 ? '<span class="mv-lab">init</span>' : ''}</td>
+      <td class="mv-x">${v.xmax == null ? '—' : v.xmax + (xmaxT && xmaxT.label ? '<span class="mv-lab">' + esc(xmaxT.label) + '</span>' : '')}</td>
+      <td class="mv-flag">${deadGlobal ? '<span class="mv-dead">dead</span>' : '<span class="mv-live">live</span>'}${viewer && isVis ? ' <span class="mv-see">👁 ' + esc(viewer) + '</span>' : ''}</td>
+    </tr>`;
+  }).join('');
+
+  const txnRows = Object.keys(s.txns).map(Number).filter((x) => x !== 0).map((x) => {
+    const T = s.txns[x];
+    const actions = T.status === 'active'
+      ? `<button class="wal-mini wal-primary" data-act="commit" data-txn="${T.label}">commit</button><button class="wal-mini" data-act="abort" data-txn="${T.label}">abort</button>`
+      : `<span class="wal-tstatus wal-tstatus--${T.status === 'committed' ? 'committed' : 'aborted'}">${T.status}</span>`;
+    return `<div class="mv-txn"><span class="mv-txn-id">${esc(T.label)}</span><span class="mv-snap">xid ${x} · snap&lt;${T.snapshot.xmax}${T.snapshot.active.length ? ', skip [' + T.snapshot.active.join(',') + ']' : ''}&gt;</span>${actions}</div>`;
+  }).join('');
+
+  return `
+  <div class="mvcc-controls">
+    <div class="bp-row">
+      <button class="bp-btn bp-primary" data-act="begin">+ Begin txn</button>
+      <span class="bp-sep"></span>
+      <label class="bp-lbl">txn</label><select id="mv-txn" class="bp-in">${txnOptions}</select>
+      <label class="bp-lbl">key</label><select id="mv-key" class="bp-in">${keys.map((x) => `<option>${x}</option>`).join('')}</select>
+      <label class="bp-lbl">=</label><input id="mv-val" class="bp-in bp-num" type="number" value="42" />
+      <button class="bp-btn" data-act="read">Read</button>
+      <button class="bp-btn" data-act="update">Update</button>
+      <button class="bp-btn" data-act="delete">Delete</button>
+      <button class="bp-btn" data-act="reset">Reset</button>
+    </div>
+    <div class="bp-row">
+      <label class="bp-lbl">highlight what</label><select id="mv-viewer" class="bp-in">${viewerOptions}</select><span class="bp-lbl">sees</span>
+      <span class="bp-sep"></span>
+      ${Object.keys(PRESETS).map((id) => `<button class="bp-chip" data-act="preset" data-preset="${id}">${esc(PRESETS[id].label)}</button>`).join('')}
+    </div>
   </div>
-</div>`;
+
+  <div class="mv-grid">
+    <div class="wal-panel">
+      <div class="wal-panel-h">Version chains <span class="wal-hint">${viewer ? '👁 highlighting what ' + esc(viewer) + ' sees' : 'pick a viewer to highlight visibility'}</span></div>
+      <table class="mv-table"><thead><tr><th>key</th><th>value</th><th>xmin</th><th>xmax</th><th>state</th></tr></thead><tbody>${rows}</tbody></table>
+    </div>
+    <div class="wal-panel"><div class="wal-panel-h">Transactions</div><div class="mv-txns">${txnRows || '<div class="wal-empty">Begin a transaction.</div>'}</div></div>
+  </div>
+
+  <div class="bp-metrics">
+    ${metric('Versions', m.versions)}
+    ${metric('Live', m.liveVersions)}
+    ${metric('Dead (VACUUM)', m.deadVersions)}
+    ${metric('Active', m.activeTxns)}
+    ${metric('Committed', m.committedTxns)}
+    ${metric('Aborted', m.abortedTxns)}
+  </div>
+  <div class="wal-invariants">${inv.map((c) => `<span class="wal-inv ${c.ok ? 'ok' : 'bad'}" title="${esc(c.detail)}">${c.ok ? '✓' : '✗'} ${esc(c.name)}</span>`).join('')}</div>
+  <div class="bp-explain"><span>▸</span> ${esc(s.note)}${s.lastRead ? ` <span class="mv-lastread">Last read: ${esc(s.lastRead.label)} saw ${esc(s.lastRead.key)} = ${s.lastRead.found ? esc(s.lastRead.value) : '∅'}.</span>` : ''}</div>`;
 }
 
-function renderIQ(panel) {
-  const iq = createIQSection();
-  panel.appendChild(iq.el);
-  initIQ(iq, [
-    {
-      q: 'How does MVCC achieve snapshot isolation without read locks?',
-      a: `PostgreSQL never locks rows for reads. Instead, each transaction captures a <strong>snapshot</strong> at start — a list of committed XIDs and the set of in-progress XIDs at that moment. For each heap tuple it evaluates the visibility rule: xmin must be a committed XID ≤ snapshot.xid and not in the active set; xmax must be null, uncommitted, or > snapshot.xid. The reader simply skips invisible versions without contacting the lock manager. The cost is storage: multiple tuple versions coexist on heap pages until VACUUM reclaims dead ones. On Prime Day, this lets analytics SELECT queries scan order history while thousands of concurrent UPDATEs mark orders shipped — zero lock contention between them.`,
-    },
-    {
-      q: 'What is the difference between READ COMMITTED and REPEATABLE READ isolation in PostgreSQL under MVCC?',
-      a: `<strong>READ COMMITTED</strong> (the default) takes a fresh snapshot at the start of <em>each SQL statement</em>. If T1 commits between two SELECTs in T2, T2's second SELECT sees the new data — a non-repeatable read is possible.<br><br>
-<strong>REPEATABLE READ</strong> takes the snapshot once at the start of the <em>first statement</em> and holds it for the entire transaction. All reads see a consistent point-in-time view. Phantom rows are also prevented because new rows inserted by committed transactions after snapshot time are invisible. The tradeoff: PostgreSQL may raise a serialization error if a write conflict is detected, requiring the application to retry.`,
-    },
-    {
-      q: 'What is VACUUM\'s role in MVCC, and when does autovacuum fail to keep up?',
-      a: `MVCC deliberately leaves dead tuples in place so concurrent readers can still see them. VACUUM scans heap pages, identifies tuples where xmax is committed and no open snapshot can see them, and reclaims their space into the free-space map (FSM) for reuse. Without VACUUM: (1) <strong>table bloat</strong> — pages fill with dead tuples, sequential scans read more blocks; (2) <strong>index bloat</strong> — index leaf pages retain entries pointing to dead heap tuples; (3) <strong>transaction ID wraparound</strong> — XID is a 32-bit counter; without freezing old tuples, after ~2 billion transactions PostgreSQL would consider old data "in the future" and corrupt the database.<br><br>
-Autovacuum fails to keep up when: update/delete rate exceeds the cost-delay throttle, a long-running transaction holds an old snapshot blocking cleanup, or <code>autovacuum_vacuum_scale_factor</code> is too high for large tables. On Prime Day: set <code>autovacuum_vacuum_scale_factor=0.01</code> for the orders table so it triggers after 1% of rows are dead, not the default 20%.`,
-    },
-  ]);
+function metric(l, v) { return `<div class="bp-metric"><div class="bp-metric-v">${esc(v)}</div><div class="bp-metric-l">${esc(l)}</div></div>`; }
+function flash(root, msg) {
+  let el = root.querySelector('.wal-flash');
+  if (!el) { el = document.createElement('div'); el.className = 'wal-flash'; root.appendChild(el); }
+  el.textContent = '⚠ ' + msg; el.classList.add('show');
+  clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 3000);
 }
 
-/* ── Mount ─────────────────────────────────────────────────────────────────── */
-export function mount(container) {
-  const shell = createModuleShell(container, {
-    tag: 'Transactions',
-    title: 'MVCC — Multi-Version Concurrency Control',
-    subtitle: 'How PostgreSQL serves consistent snapshots to every reader without blocking writers — the mechanism behind isolation levels',
-    tabs: [
-      { id: 'anim',   label: 'MVCC Animation' },
-      { id: 'tuples', label: 'Tuple Versioning' },
-      { id: 'iq',     label: 'Interview Q&A' },
-    ],
-  });
-
-  const { tabs, body } = shell;
-
-  initTabs(tabs, body, {
-    anim: panel => {
-      const canvas = document.createElement('canvas');
-      canvas.style.cssText = 'width:100%;height:360px;display:block;background:#0A0F1A;border-radius:8px';
-      panel.appendChild(canvas);
-
-      const steps = MVCC_STEPS.map((s, i) => ({
-        label: `Step ${i + 1}`,
-        duration: 2800,
-        mutate: state => { state.stepIdx = i; },
-      }));
-
-      const engine = new SimulationEngine({
-        initialState: { stepIdx: 0 },
-        steps,
-        onRender: (state, cnv) => {
-          const ctx = cnv.getContext('2d');
-          const pr  = window.devicePixelRatio || 1;
-          cnv.width  = cnv.clientWidth  * pr;
-          cnv.height = cnv.clientHeight * pr;
-          ctx.scale(pr, pr);
-          drawMVCC(ctx, state.stepIdx, cnv.clientWidth, cnv.clientHeight);
-        },
-      });
-
-      const controls = SimulationEngine.renderControls(engine);
-      const timeline = SimulationEngine.renderTimeline(engine, steps);
-      panel.appendChild(controls);
-      panel.appendChild(timeline);
-
-      // desc box
-      const desc = document.createElement('div');
-      desc.style.cssText = 'margin-top:10px;padding:10px 14px;background:#0F172A;border-radius:6px;font-size:12px;color:#94A3B8;line-height:1.55';
-      panel.appendChild(desc);
-
-      engine.attach(canvas);
-      engine.on('step', i => { desc.textContent = MVCC_STEPS[i].desc; });
-      desc.textContent = MVCC_STEPS[0].desc;
-
-      return () => engine.destroy();
-    },
-
-    tuples: renderTuplesTab,
-    iq:     renderIQ,
-  });
-
-  return null;
+function howHTML() {
+  const pg = src('pg-mvcc'), vac = src('pg-vacuum');
+  const cite = (x, l) => x ? ` <a class="wal-cite" href="${x.url}" target="_blank" rel="noopener">${l}↗</a>` : '';
+  return `<div class="wal-how">
+    <h3>One row, many versions</h3>
+    <p>Instead of overwriting, an UPDATE writes a <em>new</em> version of the row and stamps the old one as superseded. Each version carries <code>xmin</code> (the transaction that created it) and <code>xmax</code> (the transaction that replaced or deleted it). Readers pick the version their snapshot can see — so a read never waits for a writer.${cite(pg, 'PostgreSQL')}</p>
+    <h3>Snapshots & visibility</h3>
+    <p>At BEGIN a transaction captures a snapshot: the set of transactions still in progress and the next xid. A version is visible if its creator committed before the snapshot and its deleter hasn't (from the snapshot's point of view). Pick a viewer in the lab and watch rows light up.</p>
+    <h3>First-updater-wins</h3>
+    <p>Two transactions that update the same row concurrently conflict: the first to write holds it; the second gets a serialization failure (try the <em>Write-write conflict</em> scenario). This is how snapshot isolation prevents lost updates without read locks.</p>
+    <h3>Dead tuples & VACUUM</h3>
+    <p>A superseded version whose deleter has committed is <em>dead</em> — invisible to everyone, but still on the page until VACUUM reclaims it. Long-running transactions hold back that cleanup and cause bloat.${cite(vac, 'VACUUM')}</p>
+  </div>`;
 }
+
+const IQ = [
+  { q: 'How does MVCC let readers avoid blocking writers (and vice-versa)?',
+    a: 'Writers create new row versions instead of overwriting, so a reader can keep reading the old version its snapshot sees while a writer produces a new one. Reads consult version visibility, not locks, so neither side waits on the other. Only writer-writer pairs on the same row conflict.',
+    tip: 'The crisp line: "writes create versions, reads pick a version" — so only write/write on the same row contends.' },
+  { q: 'What do xmin and xmax mean, and how is visibility decided?',
+    a: 'xmin is the xid that created a version; xmax is the xid that deleted or superseded it. A version is visible to a transaction if its xmin committed before the transaction\'s snapshot and its xmax has not (from that snapshot\'s view). The snapshot records which transactions were in-flight at begin.',
+    tip: 'Mention the snapshot = {in-progress xids, xid horizon} captured at begin.' },
+  { q: 'Why does MVCC need VACUUM, and what makes it fall behind?',
+    a: 'Dead versions (superseded, with a committed xmax) stay on the page until reclaimed; VACUUM removes them and frees space. A long-running transaction keeps an old snapshot alive, so versions it might still need cannot be removed — the dead-tuple horizon stalls and the table bloats.',
+    tip: 'Name the culprit: a long-lived snapshot pins the removable-row horizon.' },
+  { q: 'How does snapshot isolation differ from serializable, and what anomaly can it still allow?',
+    a: 'SI gives each transaction a consistent snapshot and first-updater-wins on direct write conflicts, but it can still permit write skew — two transactions each read an overlapping set and update disjoint rows, together violating a constraint neither saw break. Serializable (e.g., SSI) adds conflict detection to rule that out.',
+    tip: 'Name write skew specifically — that is the classic SI gap.' },
+];

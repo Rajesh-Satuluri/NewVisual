@@ -25,8 +25,8 @@
     m47: 1, // WAL + crash recovery     (Phase 2 — kernel + tests + lab)
     m36: 1, // B+Tree                   (Phase 3 — kernel + tests + lab)
     m30: 1, // buffer pool              (Phase 3 — kernel + tests + lab)
-    // m48: MVCC                        (Phase 4)
-    // m16/m17: query optimizer         (Phase 4)
+    m48: 1, // MVCC                     (Phase 4 — kernel + tests + lab)
+    m17: 1, // cost-based optimizer     (Phase 4 — kernel + tests + lab)
     // m41: LSM tree                    (Phase 5)
     // m55/m63/m79: replication/consensus (Phase 5)
   };

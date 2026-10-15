@@ -14,8 +14,10 @@ const FILES = [
   "./wal.test.mjs",
   "./buffer-pool.test.mjs",
   "./bplustree.test.mjs",
+  "./mvcc.test.mjs",
+  "./optimizer.test.mjs",
   // Flagship kernels register their tests here as they land:
-  // "./mvcc.test.mjs", "./optimizer.test.mjs", "./lsm.test.mjs", ...
+  // "./lsm.test.mjs", "./replication.test.mjs", ...
 ];
 
 reset();
