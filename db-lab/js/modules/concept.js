@@ -111,15 +111,23 @@
       var related = (c.related || []).map(function (id) { return DL.conceptById[id]; }).filter(Boolean);
       var next = related[0] || null;
 
+      // Flagship concepts carry a tested, kernel-backed interactive lab
+      // (c.simFile). Surface it as its own tab so it isn't shadowed by the
+      // authored scripted walkthrough on the ▶ Simulate tab.
+      var isInteractive = !!(DL.simTier && DL.simTier(c.id) === "interactive" && c.simFile && DL.SimBridge);
+
       var tabs = [
         { id: "overview", label: "Overview" },
-        { id: "internals", label: "Internals" },
+        { id: "internals", label: "Internals" }
+      ];
+      if (isInteractive) tabs.push({ id: "lab", label: "⚡ Interactive lab" });
+      tabs.push(
         { id: "simulate", label: "▶ Simulate" },
         { id: "engineering", label: "Engineering" },
         { id: "failure", label: "Failure & Tradeoffs" },
         { id: "interview", label: "Interview" },
         { id: "related", label: "Related" }
-      ];
+      );
 
       var html = "";
       html += '<div class="module-header animate-fade-in-up">' +
@@ -143,7 +151,9 @@
         section("The intuition", dd.overview && dd.overview.what) +
         section("How it works", dd.overview && dd.overview.how) +
         '<div class="callout tip"><span class="callout-icon">🔬</span><div class="callout-body">' +
-        "Open the <b>▶ Simulate</b> tab to watch this happen step-by-step with a live reader and writer." +
+        (isInteractive
+          ? "Open the <b>⚡ Interactive lab</b> tab to drive this yourself in a tested kernel, or <b>▶ Simulate</b> for a guided step-by-step."
+          : "Open the <b>▶ Simulate</b> tab to watch this happen step-by-step with a live reader and writer.") +
         "</div></div>" +
         '<div id="ws-quickcheck"></div>' +
         "</section>";
@@ -160,6 +170,15 @@
           }).join("") + "</tbody></table></div>";
       }
       html += "</section>";
+
+      // Interactive lab (kernel-backed) — the real, tested lab for flagships.
+      if (isInteractive) {
+        html += '<section class="ws-panel" data-panel="lab">' +
+          '<div class="ws-lab-intro">⚡ <b>Interactive lab.</b> The real thing — backed by a tested simulation ' +
+          'kernel. Configure the inputs and drive the state yourself; every step re-checks the system’s invariants.</div>' +
+          '<div id="ws-lab-host" class="ws-lab-host"></div>' +
+          "</section>";
+      }
 
       // Simulate — the star
       html += '<section class="ws-panel" data-panel="simulate">' +
@@ -278,8 +297,13 @@
         if (wantsPlay()) { try { engine.play(); } catch (e) {} }
       }
 
+      var labMounted = false;
       this._wireTabs(container, function (id) {
-        // deep dive builds the viz eagerly; nothing lazy needed
+        if (id === "lab" && !labMounted && isInteractive) {
+          labMounted = true;
+          var labHost = container.querySelector("#ws-lab-host");
+          if (labHost && DL.SimBridge) self._teardownSim = DL.SimBridge.mount(labHost, c.simFile);
+        }
       });
     },
 

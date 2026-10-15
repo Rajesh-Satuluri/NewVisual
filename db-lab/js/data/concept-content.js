@@ -909,4 +909,22 @@
     if (e.engineeringApp) c.engineeringApp = e.engineeringApp;
     c.contentAuthored = true;
   });
+
+  // Normalize related/prerequisites to concept IDs. Authored content
+  // references some concepts by slug, but the registry and every consumer
+  // (master-map edges, the Related tab) key on id — so map slug -> id,
+  // drop anything that resolves to nothing or to self, and dedupe.
+  function normRefs(list, selfId) {
+    if (!list || !list.length) return list || [];
+    var out = [], seen = {};
+    list.forEach(function (ref) {
+      var id = DL.conceptById[ref] ? ref : (DL.conceptBySlug[ref] ? DL.conceptBySlug[ref].id : null);
+      if (id && id !== selfId && !seen[id]) { seen[id] = 1; out.push(id); }
+    });
+    return out;
+  }
+  (DL.concepts || []).forEach(function (c) {
+    c.related = normRefs(c.related, c.id);
+    c.prerequisites = normRefs(c.prerequisites, c.id);
+  });
 })();
