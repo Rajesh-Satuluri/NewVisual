@@ -384,8 +384,8 @@ canvas { max-width: 100%; }
 .plat-frame-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--plat); flex-shrink: 0; box-shadow: 0 0 0 4px color-mix(in srgb, var(--plat) 22%, transparent); }
 .plat-frame-open { margin-left: auto; color: var(--accent2); font-weight: 600; white-space: nowrap; }
 .plat-frame {
-  width: 100%; height: calc(100vh - 210px); min-height: 520px;
-  border: 1px solid var(--border); border-radius: 12px;
-  background: var(--bg2); display: block;
+  width: 100%; height: calc(100vh - 92px); min-height: 560px;
+  border: 0; border-radius: 0;
+  background: var(--bg); display: block;
 }
-@media (max-width: 1024px) { .plat-frame { height: calc(100vh - 240px); } }
+@media (max-width: 1024px) { .plat-frame { height: calc(100vh - 120px); } }

@@ -256,17 +256,16 @@ async function renderFoundations(moduleId) {
 
 // ── Kafka / Flink — native nav tree driving one deep-linked preserved iframe ─
 function renderFrame(p, moduleId) {
+  // The embedded sub-app is same-origin, so it shares this localStorage. Its
+  // first-run tour points at the sidebar we hide, so pre-dismiss it for a
+  // seamless embed (never edits a preserved file).
+  try { localStorage.setItem(p.id + '_tour_done', '1'); } catch (e) {}
+
   let frame = _stage.querySelector('.plat-frame');
   const needNew = !frame || frame.dataset.platform !== p.id;
   if (needNew) {
     const src = p.url + (moduleId ? '#' + moduleId : '');
-    _stage.innerHTML = `
-      <div class="plat-frame-bar">
-        <span class="plat-frame-dot"></span>
-        <span>${p.label} — full interactive app, ${p.tagline}.</span>
-        <a class="plat-frame-open" href="${p.url}" target="_blank" rel="noopener">Open in full screen ↗</a>
-      </div>
-      <iframe class="plat-frame" data-platform="${p.id}" src="${src}" title="${p.label}" loading="lazy"></iframe>`;
+    _stage.innerHTML = `<iframe class="plat-frame" data-platform="${p.id}" src="${src}" title="${p.label}" loading="lazy"></iframe>`;
     frame = _stage.querySelector('.plat-frame');
     const blend = () => blendFrameChrome(frame);
     frame.addEventListener('load', blend);
@@ -291,7 +290,11 @@ function blendFrameChrome(frame) {
     st.textContent = `
       #sidebar { display: none !important; }
       #app { display: block !important; }
-      #content { margin-left: 0 !important; width: 100% !important; max-width: 100% !important; }`;
+      #content { margin-left: 0 !important; width: 100% !important; max-width: 100% !important; }
+      /* Hide the sub-app's own top chrome — our shell already provides it */
+      #module-header { display: none !important; }
+      .nv-actions, .nv-backup, .nv-actions--fixed, .nv-backup--fixed, .nv-home { display: none !important; }
+      #module-canvas { padding-top: 14px !important; }`;
     (doc.head || doc.documentElement).appendChild(st);
   } catch (e) { /* cross-origin or not ready — ignore */ }
 }
