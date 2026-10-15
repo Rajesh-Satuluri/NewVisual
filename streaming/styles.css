@@ -315,6 +315,7 @@ canvas { max-width: 100%; }
 
 /* ── Unified platform switcher (I50) — sidebar segmented control ─────── */
 :root                          { --plat: var(--accent); }
+:root[data-platform="foundations"] { --plat: #06B6D4; }
 :root[data-platform="kafka"]       { --plat: #FF6900; }
 :root[data-platform="flink"]       { --plat: #E6526F; }
 :root[data-platform="aws"]         { --plat: #FF9900; }

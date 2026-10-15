@@ -19,6 +19,7 @@ const fill = (html, sc) => html
   .replace(/\{ENTITY\}/g, sc.entity).replace(/\{KEY\}/g, sc.keyField).replace(/\{ID\}/g, sc.canonicalId);
 
 let _stage = null;
+let _platform = null;
 
 export async function mount(container, sub) {
   // sub is the hash tail after "platforms": "", "kafka", or "aws/aws03".
@@ -30,6 +31,19 @@ export async function mount(container, sub) {
   container.innerHTML = `<div class="plat-stage" id="plat-stage"></div>`;
   _stage = container.querySelector('#plat-stage');
 
+  // Foundations modules reuse the shell renderers, which bind [data-go] nav to
+  // location.hash. Intercept those clicks in the capture phase so drill-down
+  // stays inside the switcher instead of routing away.
+  _stage.addEventListener('click', (e) => {
+    if (_platform !== 'foundations') return;
+    const go = e.target.closest('[data-go]');
+    if (!go) return;
+    e.preventDefault(); e.stopPropagation();
+    const t = go.dataset.go;
+    if (isPlatform(t)) setPlatform(t, null);        // "All foundations" / "Continue to Kafka"
+    else setPlatform('foundations', t);             // a foundation module id (fNN)
+  }, true);
+
   injectSidebarSwitcher();
   await setPlatform(startId, startMod);
 
@@ -38,6 +52,7 @@ export async function mount(container, sub) {
     removeSidebarSwitcher();
     try { delete document.documentElement.dataset.platform; } catch (e) {}
     _stage = null;
+    _platform = null;
   };
 }
 
@@ -55,7 +70,7 @@ function injectSidebarSwitcher() {
   const compare = PLATFORMS.find(p => p.id === 'compare');
   host.innerHTML = `
     <div class="plat-switch">
-      <div class="plat-brand"><span class="plat-brand-ico">⚡</span> Engines &amp; Clouds</div>
+      <div class="plat-brand"><span class="plat-brand-ico">⚡</span> Platforms</div>
       <div class="plat-grid">
         ${real.map(p => `<button class="plat-seg" data-platform="${p.id}" title="${p.label} — ${p.tagline}">${p.short}</button>`).join('')}
       </div>
@@ -78,18 +93,29 @@ function syncSegments(id) {
 async function setPlatform(id, moduleId = null) {
   const p = getPlatform(id);
   if (!p || !_stage) return;
+  _platform = id;
   rememberPlatform(id);
   document.documentElement.dataset.platform = id;   // drives accent tokens
   syncSegments(id);
   reflectHash(id, moduleId);
 
   const crumb = document.getElementById('breadcrumb');
-  if (crumb) crumb.innerHTML = `Engines &amp; Clouds &rsaquo; <strong>${p.label}</strong>`;
+  if (crumb) crumb.innerHTML = `Platforms &rsaquo; <strong>${p.label}</strong>`;
 
   _stage.scrollTop = 0;
+  if (p.kind === 'foundations') return renderFoundations(moduleId);
   if (p.kind === 'frame') return renderFrame(p);
   if (p.kind === 'cloud') return renderCloud(p, moduleId);
   if (p.kind === 'compare') return renderCompare();
+}
+
+// ── Foundations — native inline (reuses the shell renderers) ────────────────
+async function renderFoundations(moduleId) {
+  const [fnd, fm, data] = await Promise.all([
+    import('./foundations.js'), import('./foundation.js'), import('../data/foundations.js'),
+  ]);
+  if (moduleId && data.foundationById(moduleId)) fm.mount(_stage, moduleId);
+  else fnd.mount(_stage);
 }
 
 function reflectHash(id, moduleId) {
