@@ -68,6 +68,9 @@
 .cmp-pick-title { font-weight: 700; font-size: .9rem; margin-bottom: .4rem; }
 .cmp-pick-body { font-size: .82rem; color: var(--text-secondary); line-height: 1.55; }
 
+/* ── Fundamentals (concept-first on-ramp): amber accent ── */
+:root[data-platform="fundamentals"]{ --blue:#e0a540; --blue-dim:#b5802c; --blue-rgb:224,165,64; }
+
 /* ── Compare (first-class section): side-by-side 3-column layout ── */
 :root[data-platform="compare"]{ --blue:#8b7ff0; --blue-dim:#6b5fd0; --blue-rgb:139,127,240; }
 .cmp-page { max-width: 1060px; margin: 0 auto; padding: 1.5rem 1.25rem 3rem; }
