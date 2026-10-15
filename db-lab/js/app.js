@@ -38,16 +38,6 @@
       });
     },
 
-    initSidebarToggle: function () {
-      var btn = document.getElementById("sidebar-toggle");
-      var sb = document.getElementById("sidebar");
-      if (btn && sb) btn.addEventListener("click", function () { sb.classList.toggle("open"); });
-      // Close sidebar on mobile after navigating.
-      window.addEventListener("dblab:navigate", function () {
-        if (window.innerWidth <= 900 && sb) sb.classList.remove("open");
-      });
-    },
-
     setActive: function (id) {
       // Concept workspaces highlight the Learn section.
       var navId = id === "concept" ? "learn" : id;
@@ -60,7 +50,6 @@
 
     start: function () {
       this.initTheme();
-      this.initSidebarToggle();
       var container = document.getElementById("module-container");
       var self = this;
       var router = new DL.Router({

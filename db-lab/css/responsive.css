@@ -81,6 +81,16 @@
   .arch-detail { position: static; }
 }
 
+/* ── Phone topbar: keep brand + actions on-screen ───────────────
+   At narrow widths the brand's version badge ("Engineering &
+   Internals") is long and non-shrinking, which pushed the search +
+   theme buttons off the clipped right edge. Drop the badge and
+   tighten padding below 560px. */
+@media (max-width: 560px) {
+  .topbar { padding: 0 var(--space-3); gap: var(--space-2); }
+  .brand-version { display: none; }
+}
+
 /* ── Global reduced-motion honor ────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
