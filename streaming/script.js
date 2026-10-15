@@ -5,7 +5,7 @@ import { initScenarioSwitcher } from './components/scenario-switcher.js';
 import { markVisited } from './data/progress-store.js';
 import { isCloudModule, isCloudLanding } from './data/cloud-providers.js';
 
-const BUILD = '20261015a'; // cache-buster — bump on each deploy
+const BUILD = '20261015b'; // cache-buster — bump on each deploy
 const imp = (p) => import(`${p}?v=${BUILD}`);
 
 // Lazy loaders. 'home' has its own module; every other section uses the generic
