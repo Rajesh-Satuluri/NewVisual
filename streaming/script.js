@@ -41,6 +41,11 @@ let cleanupFn = null;
 async function route() {
   const id = (location.hash.replace(/^#/, '') || 'home');
 
+  // Back-compat: fold the old standalone engine/cloud routes into the switcher.
+  if (id === 'kafka' || id === 'flink') { location.hash = '#platforms/' + id; return; }
+  if (isCloudModule(id)) { location.hash = '#platforms/' + id.replace(/\d+$/, '') + '/' + id; return; }
+  if (isCloudLanding(id)) { location.hash = '#platforms/' + id; return; }
+
   // Unified platform switcher (#platforms, #platforms/<id>, #platforms/<id>/<module>).
   if (id === 'platforms' || id.startsWith('platforms/')) {
     if (typeof cleanupFn === 'function') { try { cleanupFn(); } catch (e) {} cleanupFn = null; }

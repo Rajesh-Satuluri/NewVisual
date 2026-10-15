@@ -1,15 +1,12 @@
-// Unified platform switcher (I50) — one segmented control that swaps between
-// Kafka · Flink · AWS · Azure · Databricks · ⇄ Compare in place, no page reload.
+// Unified platform switcher (I50) — a segmented control in the SIDEBAR that
+// swaps between Kafka · Flink · AWS · Azure · Databricks · ⇄ Compare in place,
+// no page reload (modeled on the cloud-dwh platform-switch mechanism).
 //
-// Mechanism (mirrors the cloud-dwh platform-switch model, adapted to this lab):
-//   • A persistent segmented bar; the active segment recolors to the platform
-//     accent via [data-platform] tokens in styles.css.
-//   • Switching = re-render the stage for the chosen platform. Kafka/Flink are
-//     byte-preserved sub-apps, so they render in an embedded frame (we never
-//     touch those files → preservation stays 93/93). AWS/Azure/Databricks and
-//     Compare render natively inline with the shell's lesson components.
-//   • Hash is mirrored as #platforms/<id>[/<module>] via replaceState so deep
-//     links and the back button work without a full re-route.
+// The switcher is injected at the top of the sidebar while this view is active
+// and removed on cleanup. Accent recolor is driven by <html data-platform>.
+// Kafka/Flink render as embedded frames of the byte-preserved sub-apps (never
+// mutated → preservation stays 93/93); AWS/Azure/Databricks render natively
+// inline via the lesson shell; Compare mounts the comparison hub.
 import { PLATFORMS, ORDER, getPlatform, isPlatform, lastPlatform, rememberPlatform } from '../data/platforms.js';
 import { getProvider } from '../data/cloud-providers.js';
 import { createLessonShell, initTabs } from '../components/lesson-shell.js';
@@ -21,8 +18,7 @@ import { pipelineDiagram } from './foundation-sims.js';
 const fill = (html, sc) => html
   .replace(/\{ENTITY\}/g, sc.entity).replace(/\{KEY\}/g, sc.keyField).replace(/\{ID\}/g, sc.canonicalId);
 
-let _platform = null;      // active platform id
-let _module = null;        // active cloud module id (within a provider)
+let _stage = null;
 
 export async function mount(container, sub) {
   // sub is the hash tail after "platforms": "", "kafka", or "aws/aws03".
@@ -31,64 +27,69 @@ export async function mount(container, sub) {
   const startMod = parts[1] || null;
 
   setActive('platforms');
-  const crumb = document.getElementById('breadcrumb');
-  if (crumb) crumb.innerHTML = 'Engines & Clouds &rsaquo; <strong>⚡ Platform switch</strong>';
+  container.innerHTML = `<div class="plat-stage" id="plat-stage"></div>`;
+  _stage = container.querySelector('#plat-stage');
 
-  container.innerHTML = `
-    <div class="plat-wrap" data-platform="${startId}">
-      <div class="plat-switch" role="tablist" aria-label="Platform switcher">
-        <div class="plat-track" id="plat-track"></div>
-      </div>
-      <div class="plat-stage" id="plat-stage"></div>
-    </div>`;
+  injectSidebarSwitcher();
+  await setPlatform(startId, startMod);
 
-  const track = container.querySelector('#plat-track');
+  // cleanup when leaving the platforms view
+  return () => {
+    removeSidebarSwitcher();
+    try { delete document.documentElement.dataset.platform; } catch (e) {}
+    _stage = null;
+  };
+}
+
+// ── Sidebar switcher ────────────────────────────────────────────────────────
+function injectSidebarSwitcher() {
+  const nav = document.getElementById('nav-list');
+  if (!nav) return;
+  let host = document.getElementById('plat-switch-host');
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'plat-switch-host';
+    nav.parentNode.insertBefore(host, nav);
+  }
   const real = PLATFORMS.filter(p => ORDER.includes(p.id));
   const compare = PLATFORMS.find(p => p.id === 'compare');
-  for (const p of real) track.appendChild(seg(p, false));
-  if (compare) track.appendChild(seg(compare, true));
-
-  track.addEventListener('click', (e) => {
-    const b = e.target.closest('.plat-seg');
-    if (b) setPlatform(container, b.dataset.platform);
-  });
-
-  await setPlatform(container, startId, startMod, { initial: true });
-  return () => { _platform = null; _module = null; };
+  host.innerHTML = `
+    <div class="plat-switch">
+      <div class="plat-brand"><span class="plat-brand-ico">⚡</span> Engines &amp; Clouds</div>
+      <div class="plat-grid">
+        ${real.map(p => `<button class="plat-seg" data-platform="${p.id}" title="${p.label} — ${p.tagline}">${p.short}</button>`).join('')}
+      </div>
+      ${compare ? `<button class="plat-seg plat-seg--compare" data-platform="compare" title="${compare.label}">${compare.short}</button>` : ''}
+    </div>`;
+  host.querySelectorAll('.plat-seg').forEach(b =>
+    b.addEventListener('click', () => setPlatform(b.dataset.platform, null)));
 }
 
-function seg(p, isCompare) {
-  const b = document.createElement('button');
-  b.className = 'plat-seg' + (isCompare ? ' plat-seg--compare' : '');
-  b.dataset.platform = p.id;
-  b.style.setProperty('--seg-accent', p.accent);
-  b.setAttribute('role', 'tab');
-  b.title = p.label + ' — ' + p.tagline;
-  b.innerHTML = `<span class="plat-seg-label">${p.short}</span>`;
-  return b;
+function removeSidebarSwitcher() {
+  document.getElementById('plat-switch-host')?.remove();
 }
 
-async function setPlatform(container, id, moduleId = null, opts = {}) {
-  const p = getPlatform(id);
-  if (!p) return;
-  _platform = id;
-  _module = moduleId;
-  rememberPlatform(id);
-
-  const wrap = container.querySelector('.plat-wrap');
-  if (wrap) wrap.dataset.platform = id;
-  container.querySelectorAll('.plat-seg').forEach(b =>
+function syncSegments(id) {
+  document.querySelectorAll('#plat-switch-host .plat-seg').forEach(b =>
     b.classList.toggle('active', b.dataset.platform === id));
+}
 
+// ── Switch ──────────────────────────────────────────────────────────────────
+async function setPlatform(id, moduleId = null) {
+  const p = getPlatform(id);
+  if (!p || !_stage) return;
+  rememberPlatform(id);
+  document.documentElement.dataset.platform = id;   // drives accent tokens
+  syncSegments(id);
   reflectHash(id, moduleId);
 
-  const stage = container.querySelector('#plat-stage');
-  if (!stage) return;
-  stage.scrollTop = 0;
+  const crumb = document.getElementById('breadcrumb');
+  if (crumb) crumb.innerHTML = `Engines &amp; Clouds &rsaquo; <strong>${p.label}</strong>`;
 
-  if (p.kind === 'frame') return renderFrame(stage, p);
-  if (p.kind === 'cloud') return renderCloud(container, stage, p, moduleId);
-  if (p.kind === 'compare') return renderCompare(stage);
+  _stage.scrollTop = 0;
+  if (p.kind === 'frame') return renderFrame(p);
+  if (p.kind === 'cloud') return renderCloud(p, moduleId);
+  if (p.kind === 'compare') return renderCompare();
 }
 
 function reflectHash(id, moduleId) {
@@ -97,8 +98,8 @@ function reflectHash(id, moduleId) {
 }
 
 // ── Kafka / Flink — embedded preserved sub-app ──────────────────────────────
-function renderFrame(stage, p) {
-  stage.innerHTML = `
+function renderFrame(p) {
+  _stage.innerHTML = `
     <div class="plat-frame-bar">
       <span class="plat-frame-dot"></span>
       <span>${p.label} — full interactive app, ${p.tagline}.</span>
@@ -108,13 +109,12 @@ function renderFrame(stage, p) {
 }
 
 // ── AWS / Azure / Databricks — native inline ────────────────────────────────
-async function renderCloud(container, stage, p, moduleId) {
+async function renderCloud(p, moduleId) {
   const prov = await getProvider(p.provider);
-  if (!prov) { stage.innerHTML = `<div class="card">Provider not available yet.</div>`; return; }
-  if (moduleId && prov.modules.some(m => m.id === moduleId)) return renderCloudModule(container, stage, p, prov, moduleId);
+  if (!prov) { _stage.innerHTML = `<div class="card">Provider not available yet.</div>`; return; }
+  if (moduleId && prov.modules.some(m => m.id === moduleId)) return renderCloudModule(p, prov, moduleId);
 
-  const sc = getScenario();
-  stage.innerHTML = `
+  _stage.innerHTML = `
     <div class="page-head">
       <div class="page-eyebrow">${prov.name}</div>
       <h1 class="page-title">${prov.icon} ${prov.name}</h1>
@@ -130,18 +130,18 @@ async function renderCloud(container, stage, p, moduleId) {
           </div>
         </div>`).join('')}
     </div>`;
-  stage.querySelectorAll('[data-mod]').forEach(c =>
-    c.addEventListener('click', () => setPlatform(container, p.id, c.dataset.mod)));
+  _stage.querySelectorAll('[data-mod]').forEach(c =>
+    c.addEventListener('click', () => setPlatform(p.id, c.dataset.mod)));
 }
 
-function renderCloudModule(container, stage, p, prov, id) {
+function renderCloudModule(p, prov, id) {
   const idx = prov.modules.findIndex(m => m.id === id);
   const m = prov.modules[idx];
   const sc = getScenario();
   const prev = prov.modules[idx - 1], next = prov.modules[idx + 1];
   const tabs = m.tabs.map(t => ({ id: t.id, label: t.label, body: fill(t.body, sc) }));
 
-  stage.innerHTML =
+  _stage.innerHTML =
     createLessonShell({ tag: `${prov.name} · Module ${m.num}`, title: `${m.icon || ''} ${m.title}`, subtitle: m.idea, tabs })
     + `<div class="lx-nav">
         <div>${prev ? `<button class="btn" data-mod="${prev.id}">← ${prev.num}</button>` : `<button class="btn" data-grid>← All ${prov.name}</button>`}</div>
@@ -150,14 +150,14 @@ function renderCloudModule(container, stage, p, prov, id) {
           ${next ? `<button class="btn primary" data-mod="${next.id}">${next.num} ${next.title} →</button>` : `<button class="btn primary" data-grid>Back to ${prov.name} ↩</button>`}
         </div>
       </div>`;
-  initTabs(stage);
+  initTabs(_stage);
 
-  const pipe = stage.querySelector('#' + id + '-pipeline');
+  const pipe = _stage.querySelector('#' + id + '-pipeline');
   if (pipe) { const panel = pipe.closest('.lx-panel'); const run = () => pipelineDiagram(pipe, sc); if (!panel || panel.classList.contains('active')) run(); else panel.__onShow = run; }
 
-  stage.querySelectorAll('[data-mod]').forEach(b => b.addEventListener('click', () => setPlatform(container, p.id, b.dataset.mod)));
-  stage.querySelectorAll('[data-grid]').forEach(b => b.addEventListener('click', () => setPlatform(container, p.id, null)));
-  const doneBtn = stage.querySelector('#cl-done');
+  _stage.querySelectorAll('[data-mod]').forEach(b => b.addEventListener('click', () => setPlatform(p.id, b.dataset.mod)));
+  _stage.querySelectorAll('[data-grid]').forEach(b => b.addEventListener('click', () => setPlatform(p.id, null)));
+  const doneBtn = _stage.querySelector('#cl-done');
   doneBtn?.addEventListener('click', () => {
     if (isDone(id)) { unmarkDone(id); doneBtn.textContent = 'Mark complete'; }
     else { markDone(id); doneBtn.textContent = '✓ Completed'; }
@@ -166,11 +166,11 @@ function renderCloudModule(container, stage, p, prov, id) {
 }
 
 // ── Compare — comparison hub ────────────────────────────────────────────────
-async function renderCompare(stage) {
+async function renderCompare() {
   try {
     const mod = await import('./engines.js');
-    await mod.mount(stage, 'engines');
+    await mod.mount(_stage, 'engines');
   } catch (e) {
-    stage.innerHTML = `<div class="card"><h3>Could not load Compare</h3><p style="color:var(--text2)">${String(e && e.message || e)}</p></div>`;
+    _stage.innerHTML = `<div class="card"><h3>Could not load Compare</h3><p style="color:var(--text2)">${String(e && e.message || e)}</p></div>`;
   }
 }
