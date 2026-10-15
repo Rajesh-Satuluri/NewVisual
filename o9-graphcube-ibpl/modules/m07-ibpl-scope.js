@@ -96,6 +96,7 @@ export function mount(container) {
     tabs: [
       { id: 'what',   label: '📝 What is Scope' },
       { id: 'seven',  label: '7️⃣ The 7 Scopes' },
+      { id: 'recur',  label: '🔁 Recurrence Deep Dive' },
       { id: 'notsql', label: '🚫 Not UPDATE' },
       { id: 'viz',    label: '🔲 Scope Visualizer' },
       { id: 'drill',  label: '🧪 Exercises' },
@@ -112,6 +113,22 @@ export function mount(container) {
 <span class="tok-k">end scope</span>;</pre>
       <div class="callout"><b>Rough SQL cousin:</b> <code>UPDATE … SET … WHERE</code>. In IBPL the <code>WHERE</code> becomes the <b>scope</b> and the <code>SET</code> becomes the <b>assignment</b> — but you choose one of 7 scope types depending on whether you're creating cells, computing over existing ones, chaining through time, or spreading down a hierarchy.</div>
       <div class="callout warn"><b>Ten golden rules recap:</b> every statement ends with <code>;</code> · <code>==</code> compares / <code>=</code> assigns · <code>*</code> joins levels, commas separate set items · <code>Measure.</code> prefix required · <code>#</code> = "self" in a filter · null propagates (coalesce!).</div>
+
+      <h3 style="font-size:16px;font-weight:800;margin:26px 0 8px">🗑️ <code>delete data for model</code> — bulk-wipe fact data</h3>
+      <p class="lead" style="margin-bottom:12px">Not a scope, but it lives next door: it removes <b>fact values</b> (measure cells) across a whole measure group, filtered by a <code>where</code> — <i>without</i> touching dimension members. (Removing members is <code>deletemember</code>/<code>purge</code> — see m09.)</p>
+      <div class="code-cap">Wipe a whole measure group for one version</div>
+      <pre class="code"><span class="tok-k">delete data for model</span> [SalesHistory]
+<span class="tok-k">where</span> {Version.[Version Name].[CurrentWorkingView]};</pre>
+      <div class="code-cap">Scope it tighter — one version + one brand</div>
+      <pre class="code"><span class="tok-k">delete data for model</span> [SalesHistory]
+<span class="tok-k">where</span> {Version.[Version Name].[CurrentWorkingView],
+       [Item].[Brand].[Fructis].relatedmembers([SKU])};</pre>
+      <div class="code-cap">Conditional on measure values</div>
+      <pre class="code"><span class="tok-k">delete data for model</span> [SalesHistory]
+<span class="tok-k">where</span> {Version.[Version Name].[ScenarioAllPlays],
+       ~isnull(Measure.[SalesPrice]),
+       Measure.[UnitsSold] &gt; <span class="tok-n">10</span>};</pre>
+      <div class="callout warn"><b>Serious, hard-to-undo operation.</b> Always dry-run first: swap <code>delete data for model</code> for a <code>select</code> with the <i>same</i> where-clause and eyeball exactly which cells would go. For edges there's the sibling <code>delete data for relationshiptype</code>.</div>
     </div>`;
 
   container.querySelector('#tab-seven').innerHTML = `
@@ -140,6 +157,21 @@ export function mount(container) {
             </div>
           </div>`).join('')}
       </div>
+
+      <div class="code-cap" style="margin-top:22px">Which scope do I reach for?</div>
+      <table class="o9-table">
+        <thead><tr><th>The situation</th><th>Scope</th></tr></thead>
+        <tbody>
+          <tr><td>Create 100 new intersections at every combination of 4 SKUs × 5 Weeks and seed a constant</td><td><code>cartesian</code></td></tr>
+          <tr><td>Compute Revenue = Price × Units for rows that <b>already exist</b></td><td><code>regular</code></td></tr>
+          <tr><td>I have SKULaunchDate/WithdrawalDate at SKU level, want an SKUActiveFlag at SKU × Month</td><td><code>evaluatemember</code></td></tr>
+          <tr><td>Running inventory = last_week + supply − demand (period <i>t</i> needs <i>t−1</i>)</td><td><code>recurrence</code></td></tr>
+          <tr><td>Three similar computations on the same measure group, and I want speed</td><td><code>block</code></td></tr>
+          <tr><td>Set a total at Brand level and let it distribute down to SKUs by rule</td><td><code>spread</code></td></tr>
+          <tr><td>Query or modify pegging graph <b>edges</b></td><td><code>graph</code></td></tr>
+        </tbody>
+      </table>
+      <div class="callout"><b>One verb each:</b> cartesian = <b>create</b> cells · regular = <b>compute</b> existing cells · evaluatemember = <b>explode</b> coarse → fine · recurrence = <b>chain</b> through time · block = compute <b>several measures</b> in one pass · spread = <b>push down</b> an aggregate · graph = write <b>edges</b>.</div>
     </div>`;
 
   // wire the scope accordion (reuses iq styles but separate handler)
@@ -172,6 +204,46 @@ end scope;</pre>
         <p style="color:var(--text2);font-size:12px;margin-top:8px">A <b>spread</b> scope + a spreading rule pushes the +10% down to every SKU. Editing an aggregate and auto-distributing to leaves has no SQL equivalent.</p></div>
       </div>
       <div class="callout sql"><b>The deeper difference:</b> in SQL you can only write cells that exist. In IBPL, <code>cartesian</code>/<code>evaluatemember</code> <b>create</b> cells, <code>recurrence</code> chains them through <b>time</b>, <code>spread</code> writes an <b>aggregate</b> and distributes down, and <code>graph</code> writes <b>edges</b>. One mental model ("UPDATE SET WHERE") cannot cover all of that.</div>
+    </div>`;
+
+  container.querySelector('#tab-recur').innerHTML = `
+    <div class="section-pad">
+      <p class="lead">The interview-favourite scope. A <b>recurrence scope</b> is the only clean way to compute a running series where period <i>t</i> depends on period <i>t−1</i> — inventory carry-over, running balance, cumulative sums.</p>
+      <div class="code-cap">The classic inventory formula</div>
+      <pre class="code">Inventory(t) = Inventory(t−1) + Supply(t) − Demand(t)</pre>
+
+      <h3 style="font-size:16px;font-weight:800;margin:22px 0 6px">Why <code>regular</code> scope gives the WRONG answer</h3>
+      <p style="color:var(--text2);font-size:13px;max-width:760px">A <code>regular</code> scope reads <b>every input once</b>, then writes <b>every output</b>. So when it computes week&nbsp;3 it reads week&nbsp;2's <i>old</i> (pre-update) inventory — not the value it just wrote one step earlier. The error compounds week over week:</p>
+      <table class="o9-table">
+        <thead><tr><th>Week</th><th>Supply</th><th>Demand</th><th>Expected</th><th><code>regular</code> scope</th><th><code>recurrence</code> scope</th></tr></thead>
+        <tbody>
+          <tr><td>1 <span style="color:var(--text3)">(seed)</span></td><td>14</td><td>12</td><td>10</td><td style="color:var(--good);font-weight:700">10 ✓</td><td style="color:var(--good);font-weight:700">10 ✓</td></tr>
+          <tr><td>2</td><td>8</td><td>10</td><td>8</td><td style="color:var(--good);font-weight:700">8 ✓</td><td style="color:var(--good);font-weight:700">8 ✓</td></tr>
+          <tr><td>3</td><td>5</td><td>12</td><td>1</td><td style="color:var(--bad);font-weight:700">−7 ✗</td><td style="color:var(--good);font-weight:700">1 ✓</td></tr>
+          <tr><td>4</td><td>8</td><td>9</td><td>0</td><td style="color:var(--bad);font-weight:700">−1 ✗</td><td style="color:var(--good);font-weight:700">0 ✓</td></tr>
+        </tbody>
+      </table>
+      <p style="color:var(--text2);font-size:13px"><code>regular</code> is right through week 2 but wrong from week 3 on — it never sees the <b>freshly-computed</b> prior balance, so it keeps subtracting demand from a stale number.</p>
+
+      <div class="code-cap" style="margin-top:18px">The fix — <code>recurrence</code> walks time step by step</div>
+      <pre class="code"><span class="tok-k">recurrence scope</span>: (Version.[Version Name].filter(#.Key==<span class="tok-n">0</span>) * [Item].[SKU] * [Time].[Week]);
+   Measure.[Inventory] = <span class="tok-k">if</span> (Time.#.Key == &amp;PastWeeks.element(<span class="tok-n">0</span>).Key)
+       <span class="tok-k">then</span> Measure.[Inventory]                                   <span class="tok-c">-- seed: keep week 1 as-is</span>
+       <span class="tok-k">else</span> <span class="tok-f">coalesce</span>(Measure.[Inventory]@(Time.#.LeadOffset(-<span class="tok-n">1</span>)), <span class="tok-n">0</span>)   <span class="tok-c">-- prior week's NEW value</span>
+          + <span class="tok-f">coalesce</span>(Measure.[Supply], <span class="tok-n">0</span>)
+          - <span class="tok-f">coalesce</span>(Measure.[Demand], <span class="tok-n">0</span>);
+<span class="tok-k">end scope</span>;</pre>
+      <table class="o9-table">
+        <thead><tr><th>Piece</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td><code>@(Time.#.LeadOffset(-1))</code></td><td>Reads the measure at the <b>previous</b> week — and in a recurrence that's the <i>just-computed</i> value, not the stale one.</td></tr>
+          <tr><td><code>coalesce(…, 0)</code></td><td>Treats a missing prior inventory / supply / demand as 0 so one null doesn't blank the whole chain.</td></tr>
+          <tr><td><code>&amp;PastWeeks.element(0).Key</code></td><td>Identifies the <b>first</b> (seed) bucket — the earliest week, which has no prior to read.</td></tr>
+          <tr><td><code>if … then (seed) else (chain)</code></td><td>Week 1 keeps its opening value; every later week chains off the one before.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout warn"><b>Two things a recurrence always needs:</b> (1) a <b>seed</b> for the first period (there is no <i>t−1</i> to read), and (2) an <b>ordered time set</b> so "previous" is well-defined. Miss the seed and the whole series nulls out from the start.</div>
+      <div class="callout"><b>Say it in the interview:</b> "regular reads-all-then-writes-all, so prior-period reads are stale; recurrence updates step-by-step so each period sees the freshly-written previous period — that's why running-balance logic needs recurrence, not regular."</div>
     </div>`;
 
   const cleanupViz = renderScopeViz(container.querySelector('#tab-viz'));

@@ -38,6 +38,7 @@ export function mount(container) {
     tabs: [
       { id: 'ops',    label: '🧮 Operators' },
       { id: 'nulls',  label: '⚠️ Null & Divide' },
+      { id: 'fns',    label: '🔢 Functions & Formats' },
       { id: 'analytic', label: '🌲 Analytical Functions' },
       { id: 'time',   label: '⏱️ Time & @' },
       { id: 'drill',  label: '🧪 Exercises' },
@@ -100,9 +101,43 @@ export function mount(container) {
 <span class="tok-k">select</span> Time.[Day].filter(#.Name == "30").ancestorsAtLevel([Week]); <span class="tok-c">-- ✅ → 5</span>
 <span class="tok-k">select</span> Time.[Week].[5].descendantsAtLevel([Day]);                 <span class="tok-c">-- ❌</span>
 <span class="tok-k">select</span> Time.[Week].filter(#.Name == [5]).descendantsAtLevel([Day]);<span class="tok-c">-- ✅ → 27,28,29,30,31</span></pre>
-      <div class="code-cap">filter predicates</div>
+      <div class="code-cap">filter predicates — startswith / endswith / contains</div>
       <pre class="code">Customer.[CustomerName].filter(#.Name <span class="tok-k">startswith</span> ([A]) || #.Name <span class="tok-k">endswith</span> ([E]))
 Customer.[City].filter(#.Name <span class="tok-k">contains</span> "mu")   <span class="tok-c">-- Muzzafarpur, Mumbai, Yamunanagar…</span></pre>
+
+      <div class="code-cap" style="margin-top:18px">Hierarchy navigation — up, down, across</div>
+      <table class="o9-table">
+        <thead><tr><th>Function</th><th>Direction</th><th>Family / input</th></tr></thead>
+        <tbody>
+          <tr><td><code>AncestorAtLevel([Week])</code></td><td>Up to a named level</td><td>Attribute → needs a filtered set</td></tr>
+          <tr><td><code>DescendantAtLevel([Day])</code></td><td>Down to a named level</td><td>Attribute → needs a filtered set</td></tr>
+          <tr><td><code>Ancestor(HierDim, n)</code></td><td>Up n levels</td><td>Member → needs <code>.[Member]</code></td></tr>
+          <tr><td><code>Children(HierDim)</code></td><td>Down one level</td><td>Member → needs <code>.[Member]</code></td></tr>
+          <tr><td><code>RelatedMembers([SKU])</code></td><td>Cross-dim related set</td><td>All members at the target level linked to this one</td></tr>
+          <tr><td><code>LeadOffset(n)</code></td><td>Same level, ±n positions</td><td>+ future / − past (pairs with <code>@</code>)</td></tr>
+          <tr><td><code>Between(mA, mB)</code></td><td>Inclusive range, same level</td><td>e.g. all Weeks from W2 to W4</td></tr>
+          <tr><td><code>element(n)</code> · <code>first()</code> · <code>last()</code></td><td>Positional pick from a set</td><td><code>element(0)</code> = first (0-indexed)</td></tr>
+        </tbody>
+      </table>
+      <pre class="code"><span class="tok-c">-- RelatedMembers: every SKU under the Fructis brand</span>
+[Item].[Brand].[Fructis].<span class="tok-f">relatedmembers</span>([SKU])
+<span class="tok-c">-- Between: Weeks 2 through 4 inclusive, then read their sales</span>
+[Time].[Week].filter(#.Name==[2]).<span class="tok-f">Between</span>([Time].[Week].filter(#.Name==[4]))
+<span class="tok-c">-- element: the earliest week in an ordered set (recurrence seed)</span>
+&amp;PastWeeks.<span class="tok-f">element</span>(<span class="tok-n">0</span>).Key</pre>
+
+      <div class="code-cap">find · set ops · calculated members</div>
+      <table class="o9-table">
+        <thead><tr><th>Construct</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td><code>find</code></td><td>Locate a single member by a condition (vs <code>filter</code>, which returns a set).</td></tr>
+          <tr><td><code>setA UnionWith setB</code></td><td>Combine two member sets (all members in either).</td></tr>
+          <tr><td><code>setA IntersectWith setB</code></td><td>Keep only members common to both sets.</td></tr>
+          <tr><td><code>Filter_By_Updates</code></td><td>Show only rows changed-but-not-saved — review pending edits.</td></tr>
+          <tr><td><code>With Calculated Members</code></td><td>Define a reusable computed member/column inline for the query.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout"><b>Count works on one level only:</b> <code>Customer.[CustomerName].count</code> ✓ and <code>Customer.[City].[Mumbai].relatedmembers([CustomerName]).count</code> ✓, but <code>(Customer.[City].[Mumbai] * Customer.[CustomerName].count)</code> ✗ — you can't count across a cross-product.</div>
     </div>`;
 
   container.querySelector('#tab-time').innerHTML = `
@@ -126,6 +161,110 @@ Customer.[City].filter(#.Name <span class="tok-k">contains</span> "mu")   <span 
           <tr><td><code>todatetime("…")</code></td><td>Parse a string to a date (Time keys are dates)</td></tr>
         </tbody>
       </table>
+
+      <div class="code-cap" style="margin-top:18px">Date/time functions</div>
+      <table class="o9-table">
+        <thead><tr><th>Function</th><th>Does</th><th>Example → result</th></tr></thead>
+        <tbody>
+          <tr><td><code>now()</code></td><td>Current server datetime</td><td><code>select now();</code></td></tr>
+          <tr><td><code>ToDateTime(str)</code></td><td>String → date literal</td><td><code>todatetime("Aug 30 2018")</code> → 2018-08-30T00:00:00</td></tr>
+          <tr><td><code>DateAdd(date, n, [unit])</code></td><td>Shift a date by n units</td><td><code>dateadd(todatetime("08/27/2018"), 2, [week])</code> → 2018-09-10</td></tr>
+          <tr><td><code>DateDiff(d1, d2, [unit])</code></td><td>Difference between two dates</td><td><code>datediff(…"1/1/2000", …"08/31/2018", [month])</code> → 224</td></tr>
+        </tbody>
+      </table>
+      <div class="callout"><b><code>ToDateTime</code> gotchas:</b> numeric month must come first (<code>MM/dd/yyyy</code>); a textual month (<code>Aug</code>) can go in any order. Units for <code>DateAdd</code>/<code>DateDiff</code>: <code>[year] [month] [week] [day] [hour] [minute] [second]</code>. To extract the year of a date measure, <code>datediff(todatetime("1/1/2000"), Measure.[D], [year])</code> gives years-since-2000 (add 2000 back).</div>
+    </div>`;
+
+  container.querySelector('#tab-fns').innerHTML = `
+    <div class="section-pad">
+      <p class="lead">The function reference you'll return to constantly: numeric, string, and the output-format strings for numbers and dates. The tricky ones — <code>Avg</code> vs <code>AvgWithNulls</code>, the <code>Floor/Ceiling/Round/Integer</code> family, and <code>SafeDivide</code>'s fallback — are exactly what gets asked.</p>
+
+      <div class="code-cap">Numeric functions</div>
+      <table class="o9-table">
+        <thead><tr><th>Function</th><th>Purpose</th><th>Note</th></tr></thead>
+        <tbody>
+          <tr><td><code>Avg(a, b, …)</code></td><td>Average of the arguments</td><td><b>Ignores nulls</b> (averages only the non-null values)</td></tr>
+          <tr><td><code>AvgWithNulls(a, b, …)</code></td><td>Average, nulls counted as 0</td><td>Divisor stays the same → nulls pull it <b>down</b></td></tr>
+          <tr><td><code>Sum(a, b, …)</code></td><td>Sum of the <b>arguments in one row</b></td><td>NOT the same as a measure's cross-row aggregation</td></tr>
+          <tr><td><code>Min / Max(a, b, …)</code></td><td>Smallest / largest argument</td><td></td></tr>
+          <tr><td><code>Count</code></td><td>Count members in an attribute set</td><td>Single level attribute only — not a cross-product</td></tr>
+          <tr><td><code>Abs(x)</code></td><td>Absolute value</td><td><code>abs(-8.5)</code> → 8.5</td></tr>
+          <tr><td><code>Floor / Ceiling / Round / Integer(x)</code></td><td>Rounding family (see table below)</td><td><code>Floor</code> won't accept strings</td></tr>
+          <tr><td><code>Float(x)</code></td><td>Numeric string → float</td><td>Needed before math on string-typed measures</td></tr>
+          <tr><td><code>SafeDivide(a, b, fallback)</code></td><td><code>a/b</code>, but returns <code>fallback</code> when <code>b == 0</code></td><td>The right way to divide — never throws</td></tr>
+          <tr><td><code>Coalesce(a, b, …)</code></td><td>First non-null argument</td><td>Universal null-guard</td></tr>
+        </tbody>
+      </table>
+
+      <div class="vs-grid">
+        <div class="vs-col sql"><h5><code>Avg</code> — ignores nulls</h5>
+          <p style="color:var(--text2);font-size:12px">UnitPrice = 10858, UnitCost = null<br><br><code>Avg(10858, null)</code> = <b>10858</b><br><span style="color:var(--text3)">(average of just {10858})</span></p></div>
+        <div class="vs-col ibpl"><h5><code>AvgWithNulls</code> — null = 0</h5>
+          <p style="color:var(--text2);font-size:12px">Same inputs<br><br><code>AvgWithNulls(10858, null)</code> = <b>5429</b><br><span style="color:var(--text3)">((10858 + 0) / 2)</span></p></div>
+      </div>
+
+      <div class="code-cap">Floor / Ceiling / Round / Integer — know the sign behaviour</div>
+      <table class="o9-table">
+        <thead><tr><th>x</th><th>Floor (→ −∞)</th><th>Ceiling (→ +∞)</th><th>Round (nearest)</th><th>Integer (→ 0)</th></tr></thead>
+        <tbody>
+          <tr><td>2.85</td><td>2</td><td>3</td><td>3</td><td>2</td></tr>
+          <tr><td>−2.85</td><td>−3</td><td>−2</td><td>−3</td><td>−2</td></tr>
+          <tr><td>2.5</td><td>2</td><td>3</td><td>2</td><td>2</td></tr>
+          <tr><td>3.5</td><td>3</td><td>4</td><td>4</td><td>3</td></tr>
+        </tbody>
+      </table>
+      <div class="callout"><b><code>Integer</code> truncates toward zero</b> — positive numbers behave like <code>Floor</code>, negatives like <code>Ceiling</code>. That's the distinction interviewers want: <code>Floor(-2.85) = -3</code> but <code>Integer(-2.85) = -2</code>.</div>
+
+      <div class="code-cap">SafeDivide — the three-argument form</div>
+      <pre class="code"><span class="tok-f">SafeDivide</span>(<span class="tok-n">4</span>, <span class="tok-n">3</span>)        <span class="tok-c">-- 1.333…</span>
+<span class="tok-f">SafeDivide</span>(<span class="tok-n">8</span>, <span class="tok-n">5</span>, <span class="tok-n">3</span>)     <span class="tok-c">-- 1.6   (fallback ignored — divisor ≠ 0)</span>
+<span class="tok-f">SafeDivide</span>(<span class="tok-n">8</span>, <span class="tok-n">0</span>, <span class="tok-n">3</span>)     <span class="tok-c">-- 3     (divisor is 0 → returns the fallback)</span>
+<span class="tok-c">-- Profit % that never divides by zero:</span>
+<span class="tok-f">SafeDivide</span>((Measure.[UnitPrice] - Measure.[UnitCost]) * <span class="tok-n">100</span>, Measure.[UnitCost], <span class="tok-n">9</span>) <span class="tok-k">as</span> Transient.ProfitPct;</pre>
+
+      <div class="code-cap">Coalesce — first non-null, chained</div>
+      <pre class="code"><span class="tok-f">Coalesce</span>(Measure.[UnitPrice], <span class="tok-n">0</span>)                              <span class="tok-c">-- price, else 0</span>
+<span class="tok-f">Coalesce</span>(Measure.[UnitPrice], <span class="tok-n">1.4</span>*Measure.[UnitCost], <span class="tok-n">0</span>)   <span class="tok-c">-- price, else 40% markup on cost, else 0</span></pre>
+
+      <div class="code-cap">String functions</div>
+      <table class="o9-table">
+        <thead><tr><th>Function</th><th>Example</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr><td><code>ToString(x)</code></td><td><code>ToString(5+3)</code></td><td><code>"8"</code> — convert to string</td></tr>
+          <tr><td><code>Upper(s)</code></td><td><code>Upper("Hello!")</code></td><td><code>"HELLO!"</code></td></tr>
+          <tr><td><code>Lower(s)</code></td><td><code>Lower("Hello!")</code></td><td><code>"hello!"</code></td></tr>
+          <tr><td><code>+</code> (concat)</td><td><code>"Rs. " + Measure.[TextPrice] + "/- only"</code></td><td><code>"Rs. 10857.63/- only"</code></td></tr>
+        </tbody>
+      </table>
+      <div class="callout warn">String functions work on measure/string <b>values</b>, not directly on attribute members. And when a measure is string-typed, wrap it in <code>float(…)</code> before doing math — otherwise <code>+</code> concatenates instead of adding.</div>
+
+      <div class="code-cap">Number format strings (display only)</div>
+      <table class="o9-table">
+        <thead><tr><th>Format</th><th>1234567.1256 →</th><th>−9875.23 →</th></tr></thead>
+        <tbody>
+          <tr><td><code>#.00</code></td><td>1234567.13</td><td>−9875.23</td></tr>
+          <tr><td><code>,.00</code></td><td>1,234,567.13</td><td>−9,875.23</td></tr>
+          <tr><td><code>$ ,.00</code></td><td>$ 1,234,567.13</td><td>−$ 9,875.23</td></tr>
+          <tr><td><code>#.00 a</code></td><td>1.23 m</td><td>−9.86 k</td></tr>
+          <tr><td><code>,.00;(,.00)</code></td><td>1,234,567.13</td><td>(9,875.23)</td></tr>
+        </tbody>
+      </table>
+      <div class="callout"><code>;</code> splits positive-from-negative format (accountant parentheses) · <code>,</code> thousands · <code>$</code> currency · <code>a</code> scale suffix (k/m) · <code>o</code> ordinal (1st) · <code>%</code> multiplies by 100.</div>
+
+      <div class="code-cap">Date format strings</div>
+      <table class="o9-table">
+        <thead><tr><th>Symbol</th><th>Meaning</th><th>Sample</th></tr></thead>
+        <tbody>
+          <tr><td><code>d</code> / <code>dd</code></td><td>Day of month, 1 / 2 digits</td><td>6 / 06</td></tr>
+          <tr><td><code>ddd</code> / <code>dddd</code></td><td>Day name short / full</td><td>Thu / Thursday</td></tr>
+          <tr><td><code>M</code>/<code>MM</code>/<code>MMM</code>/<code>MMMM</code></td><td>Month: num / 2-dig / abbr / full</td><td>8 / 08 / Aug / August</td></tr>
+          <tr><td><code>yy</code> / <code>yyyy</code></td><td>Year, 2 / 4 digits</td><td>18 / 2018</td></tr>
+          <tr><td><code>hh</code> / <code>HH</code></td><td>12-hour / 24-hour hour</td><td>08 / 08</td></tr>
+          <tr><td><code>mm</code> / <code>ss</code></td><td>Minute / second</td><td>42 / 54</td></tr>
+          <tr><td><code>tt</code> / <code>zzz</code></td><td>AM-PM / timezone</td><td>PM / +05:30</td></tr>
+        </tbody>
+      </table>
+      <div class="callout"><b>Patterns:</b> <code>yyyy-MM-dd HH:mm:ss</code> → 2018-08-30 08:42:54 · <code>dd-MMM-yyyy</code> → 30-Aug-2018. Default IBPL datetime format: <code>yyyy-MM-ddThh:mm:ss.ffffffzzz</code>. Formatting <code>2018-08-30 08:42:54</code> with <code>yyyy/MM/dd HH:mm</code> → <code>2018/08/30 08:42</code> (seconds dropped).</div>
     </div>`;
 
   const drill = container.querySelector('#tab-drill');
