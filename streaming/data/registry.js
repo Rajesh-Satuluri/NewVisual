@@ -5,13 +5,13 @@
 export const SECTIONS = [
   { id: 'home', icon: '🏠', title: 'Home', group: null, status: 'live', breadcrumb: '<strong>🏠 Home</strong>' },
 
-  { id: 'foundations', icon: '🧱', title: 'Foundations', group: 'Learn', status: 'live', gate: 'Gate 4',
+  { id: 'foundations', icon: '🧱', title: 'Foundations', group: 'Learn', status: 'live', gate: 'Gate 4', hidden: true,
     breadcrumb: 'Learn &rsaquo; <strong>🧱 Foundations</strong>',
     blurb: 'Streaming from first principles — events, partitions, time, watermarks, windows, state, checkpoints, delivery guarantees, backpressure, observability.' },
 
-  { id: 'platforms', icon: '⚡', title: 'Engines & Clouds', group: 'Engines', status: 'live',
-    breadcrumb: 'Engines &rsaquo; <strong>⚡ Engines & Clouds</strong>',
-    blurb: 'One switcher across Kafka, Flink, AWS, Azure, Databricks — plus a side-by-side Compare.' },
+  { id: 'platforms', icon: '⚡', title: 'Foundations & Platforms', group: 'Learn', status: 'live',
+    breadcrumb: 'Platforms &rsaquo; <strong>⚡ Foundations & Platforms</strong>',
+    blurb: 'One switcher across Foundations, Kafka, Flink, AWS, Azure, Databricks — plus a side-by-side Compare.' },
 
   { id: 'kafka', icon: '📨', title: 'Apache Kafka', group: 'Engines', status: 'live', gate: 'Gate 3', tech: 'kafka', url: 'kafka/', hidden: true,
     breadcrumb: 'Engines &rsaquo; <strong>📨 Apache Kafka</strong>',

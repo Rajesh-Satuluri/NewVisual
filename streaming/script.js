@@ -41,7 +41,9 @@ let cleanupFn = null;
 async function route() {
   const id = (location.hash.replace(/^#/, '') || 'home');
 
-  // Back-compat: fold the old standalone engine/cloud routes into the switcher.
+  // Back-compat: fold the old standalone learn/engine/cloud routes into the switcher.
+  if (id === 'foundations') { location.hash = '#platforms/foundations'; return; }
+  if (isFoundationModule(id)) { location.hash = '#platforms/foundations/' + id; return; }
   if (id === 'kafka' || id === 'flink') { location.hash = '#platforms/' + id; return; }
   if (isCloudModule(id)) { location.hash = '#platforms/' + id.replace(/\d+$/, '') + '/' + id; return; }
   if (isCloudLanding(id)) { location.hash = '#platforms/' + id; return; }
