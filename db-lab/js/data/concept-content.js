@@ -238,6 +238,199 @@
     },
   };
 
+  /* ── Storage & Indexing ─────────────────────────────────────────────── */
+  var S = {
+    m26: {
+      why: "Everything above the storage engine — tables, indexes, the WAL — ultimately lands in files on disk. How the engine lays out those files decides what I/O patterns queries produce.",
+      intuition: "A table is a heap file: an unordered collection of fixed-size pages holding rows. Indexes are separate files. The engine maps a (file, page number) to a byte offset and reads a whole page at a time.",
+      internals: "Databases manage their own file layout rather than one row per OS file: a relation is one or more segment files split into pages; a free-space map tracks room for inserts; a visibility/space map aids scans and vacuum. The buffer pool caches these pages in RAM.",
+      engineering: "Co-locating related rows (clustering) turns random reads into sequential ones. Append-heavy tables fragment differently from update-heavy ones; file layout is why VACUUM/compaction exist.",
+      failureModes: "Fragmentation and bloat from updates/deletes leaving dead space. Scattered inserts causing random I/O. Running out of free space mid-transaction.",
+      interviewQs: [
+        iq("Why do databases manage their own on-disk file layout instead of using one file per row or table?", "Row/record granularity must map to page-sized I/O for the buffer pool and OS to be efficient, and the engine needs control over free space, clustering and recovery metadata. Managing pages within segment files lets it batch I/O, track free space, and coordinate with the WAL and vacuum."),
+      ],
+      prerequisites: ["m09"], related: ["m27", "m30", "m33"],
+    },
+    m27: {
+      why: "The page (typically 4–16 KB) is the atomic unit of database I/O and caching. Everything — rows, index nodes, the buffer pool, the WAL — is organized around it.",
+      intuition: "A fixed-size block read and written as a whole. Reading one row means reading its entire page; the buffer pool caches pages, not rows.",
+      internals: "A page has a header, a slot array of (offset, length) pointers growing from the front, and row data growing from the back — the slotted-page layout. This supports variable-length rows and in-place compaction without moving row identifiers (which point at slots, not offsets).",
+      engineering: "Page size trades off: bigger pages amortize I/O and suit scans but waste cache on point lookups and increase contention. Row size vs page size determines rows-per-page, which drives scan cost.",
+      failureModes: "Rows larger than a page need overflow/TOAST storage. Low fill factor wastes cache; too-high fill factor causes splits under updates. Torn pages on crash (mitigated by full-page WAL images).",
+      interviewQs: [
+        iq("Why does the slotted-page layout use a slot array instead of storing rows at fixed offsets?", "Row identifiers (page, slot) must stay stable even as variable-length rows are inserted, deleted and compacted within a page. The slot array indirection lets the engine move row bytes to reclaim space while keeping each row's (page, slot) identifier — referenced by indexes — unchanged."),
+      ],
+      prerequisites: ["m26"], related: ["m26", "m28", "m30"],
+    },
+    m28: {
+      why: "How a row is encoded inside a page determines storage efficiency, the cost of reading a column, and how updates behave. It is the lowest level of the data model.",
+      intuition: "A tuple is a header plus its column values packed into a page slot. Fixed-length columns sit at known offsets; variable-length ones (text) are length-prefixed and packed after.",
+      internals: "The row header carries visibility info (xmin/xmax for MVCC), a null bitmap, and the column layout. Fixed-width columns are read by offset; variable-width require walking lengths. Large values are moved to overflow (TOAST) storage and referenced by pointer.",
+      engineering: "Column order can matter for alignment/padding. Wide rows reduce rows-per-page and slow scans. An UPDATE in an MVCC engine writes a whole new row version, not an in-place field edit.",
+      failureModes: "Padding waste from poor column ordering. Oversized rows forcing overflow and extra I/O. Update-heavy tables bloating with dead versions.",
+      interviewQs: [
+        iq("In an MVCC database, what physically happens to a row on UPDATE?", "A new row version (tuple) is written with the updating transaction's xmin; the old version is stamped with that transaction's xmax to mark it superseded. The field isn't edited in place — which is why updates create dead tuples that VACUUM later reclaims."),
+      ],
+      prerequisites: ["m27"], related: ["m27", "m48", "m50"],
+    },
+    m31: {
+      why: "When the buffer pool is full, something must be evicted to make room. The replacement policy decides what — and a bad choice turns a cache into a bottleneck.",
+      intuition: "Keep the pages you'll reuse soon, evict the ones you won't. LRU approximates 'soon' by 'recently used'; CLOCK approximates LRU cheaply; FIFO ignores reuse entirely.",
+      internals: "LRU evicts the least-recently-used frame (updates recency on hit); CLOCK uses a reference bit and a sweeping hand to approximate LRU at O(1); FIFO evicts the oldest-loaded frame and can suffer Bélády's anomaly. Dirty victims must be written back (and the WAL forced) before eviction.",
+      engineering: "Scans can pollute an LRU cache by flooding it with pages used once — real engines add scan resistance (LRU-K, ring buffers for big scans). Explore the trade-offs in the interactive Buffer Pool lab.",
+      failureModes: "Cache thrash when the working set exceeds the pool. Scan pollution evicting hot pages. FIFO's anomaly where more frames → more misses.",
+      interviewQs: [
+        iq("Why do real databases use CLOCK or LRU-K instead of plain LRU?", "Plain LRU needs per-access list maintenance and is vulnerable to scan pollution (a one-pass scan evicts the hot working set). CLOCK approximates LRU with a cheap reference bit, and LRU-K/scan-resistant variants keep single-use scan pages from displacing frequently-reused pages."),
+      ],
+      prerequisites: ["m30"], related: ["m30", "m32", "m34"],
+    },
+    m32: {
+      why: "The OS keeps its own page cache beneath the database's buffer pool. Understanding the two layers explains double-buffering, direct I/O, and why 'free' RAM shows as cache.",
+      intuition: "Two caches in series: the DB buffer pool (knows transactions and dirty pages) over the OS page cache (knows files and blocks). A read may hit either, both, or neither.",
+      internals: "By default a read not in the buffer pool goes to the OS, which may serve it from its page cache (a fast 'warm' miss) or go to disk. This double-buffering wastes some RAM but gives a second cache tier. Direct I/O (O_DIRECT) bypasses the OS cache to avoid duplication, at the cost of losing OS read-ahead.",
+      engineering: "Sizing shared_buffers vs leaving RAM for the OS cache is a real tuning decision; many engines deliberately keep the buffer pool modest and lean on the OS cache. fsync semantics matter for durability across this boundary.",
+      failureModes: "Double-buffering wasting RAM. Relying on OS cache for durability (it isn't durable until fsync). Cold OS cache after a restart causing a slow warm-up.",
+      interviewQs: [
+        iq("What is double buffering and why might a database use direct I/O?", "Double buffering is caching the same page in both the DB buffer pool and the OS page cache, wasting RAM. Direct I/O (O_DIRECT) bypasses the OS cache so each page is cached once under the database's control — chosen when the engine wants full control of caching and write ordering, trading away OS read-ahead."),
+      ],
+      prerequisites: ["m30"], related: ["m30", "m31", "m33"],
+    },
+    m33: {
+      why: "All of a database's performance engineering exists to manage disk I/O — the slowest thing it does by orders of magnitude. Knowing how I/O actually works grounds every tuning decision.",
+      intuition: "Storage is accessed in blocks. A read costs a positioning delay plus transfer time; the positioning delay (seek on HDD, flash translation on SSD) is what you fight to avoid or amortize.",
+      internals: "HDDs pay seek + rotational latency per random access (~10 ms); SSDs have no seek but still pay per-operation overhead and have write-amplification/erase-block constraints. Databases issue page-sized I/Os, prefetch sequential runs, and batch/sequentialize writes (WAL) to amortize per-op cost. fsync forces durability to the device.",
+      engineering: "Measure IOPS and throughput separately: random workloads are IOPS-bound, scans are throughput-bound. SSDs shrink but don't eliminate the random/sequential gap, and their write endurance shapes compaction/WAL design.",
+      failureModes: "Random-I/O-bound workloads starved for IOPS. fsync storms during checkpoints. SSD write amplification from small random writes.",
+      interviewQs: [
+        iq("SSDs have no seek time — does the sequential-vs-random distinction still matter?", "Yes. SSDs still pay per-operation overhead, read in pages and erase in larger blocks, so many small random writes cause write amplification and garbage-collection cost. Sequential access amortizes overhead and is kinder to flash endurance — the gap shrinks versus HDDs but doesn't vanish."),
+      ],
+      prerequisites: ["m09"], related: ["m34", "m09", "m54"],
+    },
+    m34: {
+      why: "The single most important storage fact in databases: sequential I/O is often 100–1000× faster than random I/O. Indexes, logging and clustering all exist to turn random into sequential.",
+      intuition: "Reading contiguous pages pays one positioning cost then streams; jumping around pays the positioning cost every time. A scan is sequential; an unclustered index lookup of many rows is random.",
+      internals: "The WAL makes commit durable with a sequential append instead of random data-page writes. A clustered index stores rows in key order so range scans are sequential. Prefetch/read-ahead detects sequential patterns. The optimizer's cost model weighs random page cost far above sequential.",
+      engineering: "Prefer plans and layouts that sequentialize access: covering indexes, clustering on range-query keys, batching writes. An index that fetches 40% of a table via random I/O can be slower than a sequential scan — the seq-vs-index crossover.",
+      failureModes: "Random-access plans (unclustered index over many rows) that lose to a seq scan. Insert patterns scattering related rows. Ignoring read-ahead by issuing tiny scattered reads.",
+      interviewQs: [
+        iq("Why can a sequential scan beat an index scan even when an index exists?", "If the query matches a large fraction of rows, the index path performs many random page fetches (one per matching row) plus the index traversal, while a sequential scan streams all pages once with a single positioning cost. Past a crossover selectivity, sequential throughput wins — which is why the optimizer sometimes correctly chooses a seq scan."),
+      ],
+      prerequisites: ["m33"], related: ["m18", "m09", "m17"],
+    },
+    m35: {
+      why: "The B-tree is the ancestor of the B+tree and the classic balanced, disk-friendly index: high fan-out, shallow depth, O(log n) lookups with few page reads. Understanding it frames why B+trees refine it.",
+      intuition: "A balanced search tree with many keys per node (not two), so it stays shallow. Each internal node holds keys and child pointers; a search descends comparing against keys.",
+      internals: "A B-tree stores keys (and sometimes values) in both internal and leaf nodes; a B+tree moves all values to the leaves and links them. High fan-out (hundreds of keys/node) keeps height ~3–4 even for billions of rows, so a lookup is a handful of page reads. Nodes split on overflow and merge on underflow to stay balanced.",
+      engineering: "Almost every relational index is a B+tree variant. The B-tree's key property — balance via split/merge so all leaves are equidistant — is what guarantees predictable lookup cost. See it live in the interactive B+Tree lab.",
+      failureModes: "Low fan-out (large keys) deepening the tree. Random insert order causing frequent splits/bloat. Confusing B-tree with binary tree (B-trees are wide and shallow).",
+      interviewQs: [
+        iq("Why are B-trees wide and shallow instead of binary?", "Because disk/SSD I/O is page-sized and latency-dominated. Packing hundreds of keys per node (matching a page) gives high fan-out, so the tree height — and thus the number of page reads per lookup — stays tiny (3–4) even for billions of keys. A binary tree would be far deeper and not page-aligned."),
+      ],
+      prerequisites: ["m09"], related: ["m36", "m52", "m18"],
+    },
+    m37: {
+      why: "Search is the B+tree's core operation and the reason it exists: find a key (or the start of a range) in a few page reads, regardless of table size.",
+      intuition: "Start at the root, compare the key against the separators, follow the one child whose range contains it, repeat until a leaf — then the leaf holds the value (or the range's start).",
+      internals: "Each internal node's separator keys partition the key space; the search follows one pointer per level, so it touches exactly height nodes (≈ the number of page reads). A range scan descends to the low end once, then walks the linked leaves sequentially — the B+tree's range superpower.",
+      engineering: "Point lookups cost the tree height in I/O; range scans add the sequential leaf walk. This is why B+trees serve both equality and range predicates well, unlike hash indexes. Try searches in the B+Tree lab.",
+      failureModes: "Non-covering lookups needing an extra heap fetch per match (random I/O). Deep trees from low fan-out. Searching a non-leading column of a composite index (can't use it).",
+      interviewQs: [
+        iq("Why can a B+tree serve range queries efficiently but a hash index cannot?", "B+tree leaves are stored in sorted order and linked, so a range query descends once to the low bound and then walks leaves sequentially. A hash index scatters keys across buckets with no order, so it supports equality lookups but has no way to find 'the next key' — ranges would require scanning every bucket."),
+      ],
+      prerequisites: ["m35"], related: ["m36", "m38", "m52"],
+    },
+    m38: {
+      why: "Insertion is where a B+tree grows while staying balanced. The split-and-propagate mechanism is what keeps every leaf at the same depth no matter the insert order.",
+      intuition: "Find the right leaf, put the key in sorted position. If the leaf overflows, split it in two and push a separator up to the parent — which may split in turn, up to the root.",
+      internals: "A leaf over capacity splits; the new leaf's first key is copied up as a separator. If a parent overflows it splits and pushes its middle key up. Only a root split adds a level — the single way the tree grows taller, and why all leaves stay equidistant.",
+      engineering: "Sequential (monotonic) inserts hit the rightmost leaf repeatedly — efficient but can create a hotspot; random inserts spread splits out. Fill factor tunes how full leaves start, trading space for fewer future splits. Watch splits in the B+Tree lab.",
+      failureModes: "Right-edge insert hotspots under monotonic keys. Page splits causing fragmentation and bloat under heavy insert. Low fill factor wasting space.",
+      interviewQs: [
+        iq("How does a B+tree stay balanced as rows are inserted in any order?", "Inserts only ever cause bottom-up splits: an overflowing node splits and pushes a separator to its parent, cascading upward. The tree's height changes only when the root splits, which adds one level to every path at once — so all leaves always remain at the same depth regardless of insertion order."),
+      ],
+      prerequisites: ["m37"], related: ["m36", "m39", "m40"],
+    },
+    m39: {
+      why: "Deletion is the mirror of insertion: remove a key and, if a node falls below minimum occupancy, rebalance so the tree stays valid and reasonably full.",
+      intuition: "Remove the key from its leaf. If the leaf is now too empty, borrow a key from a sibling that has spare, or merge with a sibling and pull a separator down from the parent.",
+      internals: "Underflow (below the minimum key count) triggers a borrow (rotate a key through the parent separator) if a sibling has surplus, else a merge (combine with a sibling and remove the parent's separator). Merges can cascade upward and shrink the tree's height when the root loses its last separator.",
+      engineering: "Many real engines defer or avoid aggressive merging (allowing some under-full nodes) because deletes are often followed by inserts; periodic rebuild/VACUUM reclaims space. Watch borrow/merge in the B+Tree lab.",
+      failureModes: "Index bloat when deletes leave under-full pages that aren't reclaimed. Cascading merges adding write cost. Churn from alternating insert/delete at a boundary.",
+      interviewQs: [
+        iq("What happens when a B+tree node underflows on delete?", "If a neighboring sibling has more than the minimum keys, the node borrows one (rotating a key through the parent's separator). Otherwise it merges with a sibling, pulling the separator down and removing it from the parent — which can cascade and, if the root empties, reduce the tree's height."),
+      ],
+      prerequisites: ["m38"], related: ["m36", "m38", "m50"],
+    },
+    m40: {
+      why: "A root split is the only event that makes a B+tree taller. It's worth isolating because it explains the tree's balance guarantee and its logarithmic, uniform depth.",
+      intuition: "When a split propagates all the way up and the root itself overflows, the root splits into two and a brand-new root is created above them — adding exactly one level to every path simultaneously.",
+      internals: "Splits cascade from a leaf upward; if they reach the root and it overflows, a new root with a single separator and two children is created. Because this lifts every leaf by one level at once, the tree remains perfectly balanced. Height grows O(log) in the number of keys.",
+      engineering: "Root splits are rare (height grows logarithmically), so the amortized cost of insertion stays low. The guarantee 'all leaves at equal depth' is exactly what a root split preserves — the basis of the B+tree's predictable lookup cost.",
+      failureModes: "Nothing pathological — but very low fan-out makes root splits (and height growth) happen sooner, deepening the tree and raising lookup I/O.",
+      interviewQs: [
+        iq("Why is a B+tree guaranteed to have all leaves at the same depth?", "Because the tree only ever grows at the root: splits propagate bottom-up, and the sole way to add a level is a root split, which creates a new root above the whole tree. That lifts every leaf by one level simultaneously, so no path is ever longer than another."),
+      ],
+      prerequisites: ["m38"], related: ["m36", "m38", "m35"],
+    },
+    m42: {
+      why: "The MemTable + WAL is the LSM-tree's write path: make writes fast and durable by appending to a log and buffering in sorted memory, deferring the expensive sorted-file work.",
+      intuition: "A write does two cheap things: append a record to the WAL (durability) and insert into an in-memory sorted structure (the MemTable). No random disk writes on the hot path.",
+      internals: "The WAL append is sequential and fsync'd for durability; the MemTable (a balanced tree or skip list) keeps keys sorted in RAM. When the MemTable fills, it is flushed as an immutable sorted SSTable in one sequential write, and a fresh MemTable + WAL segment begins. A crash replays the WAL into a new MemTable.",
+      engineering: "This is why LSM stores (RocksDB, Cassandra) have excellent write throughput: random user writes become sequential log appends plus in-memory inserts. Explore it in the LSM-Tree lab.",
+      failureModes: "WAL fsync latency on the write path. MemTable memory pressure forcing frequent small flushes. Losing un-fsync'd WAL tail on crash.",
+      interviewQs: [
+        iq("How does an LSM-tree make writes fast without losing durability?", "Each write appends to a sequential WAL (durable via fsync) and updates an in-memory sorted MemTable — both cheap, no random disk writes. When the MemTable fills it is flushed as one immutable sorted SSTable in a single sequential write. A crash is recovered by replaying the WAL into a fresh MemTable."),
+      ],
+      prerequisites: ["m47"], related: ["m41", "m43", "m45"],
+    },
+    m43: {
+      why: "The SSTable (Sorted String Table) is the LSM-tree's on-disk building block: an immutable, sorted, self-describing file. Immutability is what makes LSM writes sequential and compaction simple.",
+      intuition: "A file of key→value pairs sorted by key, written once and never modified. To 'change' data you write a newer SSTable; reads merge across them newest-first.",
+      internals: "An SSTable stores sorted entries plus a sparse index (and often a Bloom filter) for fast lookups, and is never updated in place. Because it's immutable, concurrent reads need no locks, and compaction can merge SSTables by streaming. Deletes are tombstone entries in newer SSTables.",
+      engineering: "Immutability trades update-in-place for append + background merge: great write throughput and simple concurrency, at the cost of read amplification (check several SSTables) mitigated by Bloom filters. See SSTables form in the LSM-Tree lab.",
+      failureModes: "Read amplification from many overlapping SSTables (before compaction). Tombstones lingering until compaction. Space amplification from superseded versions.",
+      interviewQs: [
+        iq("Why are SSTables immutable, and what does that cost?", "Immutability makes writes sequential (just append a new file), lets reads proceed lock-free, and makes compaction a simple streaming merge. The cost is read amplification — a lookup may have to check several SSTables and the MemTable — plus space for superseded versions until compaction reclaims them. Bloom filters cut the read cost."),
+      ],
+      prerequisites: ["m42"], related: ["m41", "m45", "m44"],
+    },
+    m45: {
+      why: "Compaction is the LSM-tree's housekeeping: merge SSTables to discard superseded versions and tombstones, bound read amplification, and reclaim space. Its strategy sets the write/read/space trade-off.",
+      intuition: "Periodically merge several sorted files into fewer, larger sorted files — keeping the newest value per key and dropping deletes at the bottom level. It's a streaming k-way merge.",
+      internals: "Leveled compaction keeps one sorted run per level with a size ratio, giving low read/space amplification but high write amplification (data rewritten as it descends). Size-tiered compaction merges similarly-sized runs, giving low write amplification but higher read/space amplification. Tombstones are purged only at the bottom level.",
+      engineering: "Pick the strategy for the workload: leveled for read-heavy/space-sensitive, tiered for write-heavy. Compaction competes with foreground I/O — poorly tuned compaction causes latency stalls. Watch amplification shift in the LSM-Tree lab.",
+      failureModes: "Compaction stalls/backlog under heavy writes (write stalls). Write amplification wearing SSDs. Large tombstones delaying space reclamation. I/O contention with live traffic.",
+      interviewQs: [
+        iq("Contrast leveled and size-tiered compaction.", "Leveled keeps one sorted run per level with a fixed size ratio: few files to check (low read amplification) and compact storage (low space amplification), but data is rewritten repeatedly as it moves down (high write amplification). Size-tiered merges similarly-sized runs: less rewriting (low write amplification) but more overlapping files and dead versions (higher read/space amplification)."),
+      ],
+      prerequisites: ["m43"], related: ["m41", "m44", "m43"],
+    },
+    m52: {
+      why: "Not every index is a B+tree. Choosing the right index type — hash, bitmap, covering, partial, GIN/GiST — is a core design decision that maps the index to the query pattern.",
+      intuition: "Match the structure to the predicate: B+tree for equality+range, hash for equality-only, bitmap for low-cardinality analytics, GIN for containment (arrays/JSON/full-text), covering to avoid heap fetches.",
+      internals: "Hash indexes give O(1) equality but no ranges. Bitmap indexes store a bit-vector per distinct value — tiny and fast to combine with AND/OR for low-cardinality columns, poor for high-cardinality or heavy updates. Covering (include) indexes store extra columns in the leaf so the query is answered from the index alone (index-only scan). Partial indexes index only rows matching a predicate. GIN/GiST handle multi-valued and geometric/text data.",
+      engineering: "A covering index turns a random heap fetch per row into zero — a big win for hot read paths. Partial indexes shrink an index to just the rows you query (e.g., WHERE status='active'). Over-indexing slows writes and wastes space.",
+      failureModes: "Using a hash index where ranges are needed. Bitmap indexes on high-cardinality or write-heavy columns. Too many indexes slowing every write. Non-covering lookups paying heap-fetch random I/O.",
+      interviewQs: [
+        iq("What is a covering (index-only) scan and when is it worth it?", "A covering index includes all columns a query needs in its leaf entries, so the query is answered from the index without fetching the heap row — eliminating one random I/O per matching row. It's worth it for hot read paths where that heap-fetch cost dominates, at the price of a larger index and slower writes."),
+        iq("When would you choose a hash index over a B+tree index?", "Only when the workload is pure equality lookups and you never need ranges or ordering, since a hash index gives O(1) equality but cannot support range or sorted access. In practice B+trees are the default because they handle equality and ranges; hash indexes are a niche optimization."),
+      ],
+      prerequisites: ["m35"], related: ["m36", "m37", "m17"],
+    },
+    m56: {
+      why: "Opening a database connection is expensive (TCP + auth + backend process/thread). A connection pool reuses a bounded set of established connections, which is essential for scaling application concurrency.",
+      intuition: "Keep a fixed pool of open connections; hand one to a request, take it back when done. Requests briefly wait if all are busy, instead of each paying full connection setup.",
+      internals: "Each database backend consumes memory and scheduling; too many connections cause contention and context-switch overhead (databases are usually fastest with a modest number of busy connections). A pool caps concurrency, multiplexes many app requests over few backends, and can queue or reject excess. External poolers (e.g., PgBouncer) add transaction-level pooling.",
+      engineering: "Size the pool near the database's optimal concurrency (often a small multiple of cores), not the number of app threads. Watch for pool exhaustion (requests queueing) and for long-held connections (a slow query starving the pool).",
+      failureModes: "Pool too large → database thrashes on too many active backends. Pool too small → request queueing. Leaked connections (not returned) exhausting the pool. Long transactions holding connections and locks.",
+      interviewQs: [
+        iq("Why can adding more database connections make throughput worse?", "Each connection is a backend consuming memory and CPU scheduling; beyond the database's optimal concurrency (often a small multiple of cores), they contend for locks, cache and the scheduler, so more connections mean more context-switching and less useful work. A pool that caps active connections near that optimum and queues the rest usually beats a larger pool."),
+      ],
+      prerequisites: ["m01"], related: ["m49", "m30", "m48"],
+    },
+  };
+  Object.assign(C, S);
+
   DL.conceptContent = Object.assign(DL.conceptContent || {}, C);
 
   // Merge authored content over the generated registry (same objects as conceptById).
