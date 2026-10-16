@@ -116,11 +116,11 @@
     var pop = document.createElement("div");
     pop.className = "welcome-pop";
     pop.innerHTML =
-      '<div class="welcome-title">👋 Welcome to the Airflow Visualizer</div>' +
+      '<div class="welcome-title">👋 Welcome to the API Engineering Lab</div>' +
       '<ul class="welcome-tips">' +
-        "<li>Press <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>K</kbd> to jump to any module</li>" +
+        "<li>Press <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>K</kbd> (or <kbd>/</kbd>) to jump to any module</li>" +
         "<li>Use <kbd>Space</kbd> to play animations, <kbd>←</kbd>/<kbd>→</kbd> to step</li>" +
-        "<li>Your progress is tracked in the sidebar</li>" +
+        "<li>Switch learning modes up top; your progress is tracked in the sidebar</li>" +
       "</ul>" +
       '<button class="welcome-dismiss btn btn-primary">Got it</button>';
     document.body.appendChild(pop);
