@@ -116,6 +116,10 @@
       destroy: function () {
         offStep();
         offState();
+        // Remove the bar from the DOM so repeated create/destroy cycles
+        // (e.g. a module reloading its engine on a scenario change) don't
+        // leave a stack of orphaned, frozen transport bars behind.
+        if (bar.parentNode) bar.parentNode.removeChild(bar);
         if (AV.activeControls) AV.activeControls = null;
       }
     };

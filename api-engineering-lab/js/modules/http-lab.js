@@ -148,6 +148,7 @@
           if (si === steps.length - 1) setTimeout(function () { if (engine.currentStep === steps.length - 1) { stageState(result.stages.length); showResponse(); } }, Math.max(400, (result.stages[stageIdx].ms * 18)));
         });
         var controls = AV.AnimationControls.create(engine, { title: "Ready — press play" });
+        controlsMount.innerHTML = "";
         controlsMount.appendChild(controls.el);
         self._controls = controls;
         showDetail(-1);
