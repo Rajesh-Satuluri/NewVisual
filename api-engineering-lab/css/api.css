@@ -321,3 +321,7 @@ body[data-mode="interview"] [data-mode-only]:not([data-mode-only~="interview"]) 
 .pg-nav { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
 .pg-nav #pg-pageinfo { color: var(--text-muted); font-size: var(--text-sm); margin: 0 auto; }
 
+/* ── Resilience timeline ──────────────────────────────────── */
+.rs-timeline { display: flex; flex-wrap: wrap; gap: 4px; }
+.rs-dot { width: 14px; height: 14px; border-radius: var(--radius-xs); display: inline-block; }
+

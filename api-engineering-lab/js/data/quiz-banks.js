@@ -63,6 +63,31 @@
       { q: "RFC 9457 Problem Details uses which media type?", options: ["application/json", "text/error", "application/problem+json", "application/rfc"], answer: 2, diff: "intermediate", why: "Problem Details responses use application/problem+json." },
       { q: "Which must NEVER appear in a public error response?", options: ["A stable error code", "A requestId", "A SQL query / stack trace", "A human-readable detail"], answer: 2, diff: "beginner", why: "Internal diagnostics leak schema and aid attackers — log them server-side keyed by requestId." },
       { q: "A duplicate order (idempotency key already used) is best represented as…", options: ["500 Internal Server Error", "200 OK", "409 Conflict", "403 Forbidden"], answer: 2, diff: "intermediate", why: "It's a conflict with current state — 409, not a 500 for a client-side situation." }
+    ],
+    architecture: [
+      { q: "In the checkout trace, why can a 201 return before fulfillment finishes?", options: ["Fulfillment is skipped", "Fulfillment is triggered asynchronously via an event, off the response path", "The DB is slow", "The gateway caches it"], answer: 1, diff: "advanced", why: "Order creation is synchronous; fulfillment/notification react to an event so the customer isn't kept waiting." },
+      { q: "Why is the payment provider handled differently from the database?", options: ["It's faster", "It's external and outside our transaction boundary, so outcomes can be uncertain", "It doesn't fail", "It's cached"], answer: 1, diff: "advanced", why: "A DB transaction can't span an external provider — hence a state machine + webhook reconciliation." },
+      { q: "Microservices are…", options: ["Always better than a monolith", "A trade-off: independent deploy/scaling for a distributed-systems tax", "Required for REST", "Simpler to operate"], answer: 1, diff: "intermediate", why: "They buy autonomy at the cost of network failures, eventual consistency, and ops overhead — not a free upgrade." }
+    ],
+    resilience: [
+      { q: "A failing dependency plus aggressive retries can cause…", options: ["Faster recovery", "A retry storm that keeps it down", "Lower latency", "Nothing"], answer: 1, diff: "advanced", why: "Retries multiply load on an already-struggling system; bound them and add a circuit breaker." },
+      { q: "What does a circuit breaker do when open?", options: ["Retries faster", "Fast-fails without calling the dependency, giving it room to recover", "Caches responses", "Increases the timeout"], answer: 1, diff: "advanced", why: "After N failures it trips and stops calling for a cooldown, shedding load from the failing dependency." },
+      { q: "Why add jitter to exponential backoff?", options: ["To look random", "So clients don't retry in lockstep and create a thundering herd", "To slow all retries equally", "It's required by HTTP"], answer: 1, diff: "advanced", why: "Randomizing the delay spreads retries out instead of synchronizing them into a spike." }
+    ],
+    protocols: [
+      { q: "Does GraphQL automatically eliminate excessive backend calls?", options: ["Yes", "No — naive resolvers cause N+1; you batch (DataLoader) and cap query cost", "Only with gRPC", "Only for mutations"], answer: 1, diff: "advanced", why: "GraphQL shapes the response, but backend fetching still needs batching and complexity limits." },
+      { q: "gRPC is most commonly used for…", options: ["Public browser APIs", "Internal service-to-service calls", "Static file serving", "Email"], answer: 1, diff: "intermediate", why: "Binary Protobuf + typed contracts + HTTP/2 streaming shine for internal, latency-sensitive calls; browsers need gRPC-Web + a proxy." },
+      { q: "A strength REST has that GraphQL finds harder is…", options: ["Typed schema", "HTTP caching (GET + CDNs)", "One endpoint", "Exact field selection"], answer: 1, diff: "intermediate", why: "REST leverages HTTP caching naturally; GraphQL usually POSTs to one URL, making caching harder." }
+    ],
+    "realtime-protocols": [
+      { q: "Webhook deliveries are typically at-least-once, so consumers must…", options: ["Ignore duplicates by luck", "Be idempotent (dedupe by event id)", "Reply very fast only", "Use GET"], answer: 1, diff: "advanced", why: "At-least-once means duplicates happen; dedupe by event id and tolerate reordering." },
+      { q: "Which should you verify before acting on a webhook?", options: ["Only the HTTP method", "The signature (and timestamp)", "The user-agent", "Nothing"], answer: 1, diff: "intermediate", why: "Signature + timestamp verification stops forged or replayed events from mutating your data." },
+      { q: "A message that keeps failing to process should go to…", options: ["The main queue forever", "A dead-letter queue for inspection", "The client", "A log file only"], answer: 1, diff: "intermediate", why: "A DLQ isolates poison messages so they don't block the queue." }
+    ],
+    "protocol-matrix": [
+      { q: "A third party must notify your system when a payment settles. Best fit?", options: ["Polling their API forever", "A webhook they call", "gRPC streaming", "GraphQL subscription"], answer: 1, diff: "intermediate", why: "Inbound event notification from a third party is the webhook use case." },
+      { q: "Read-heavy public API that benefits from CDN caching. Best default?", options: ["gRPC", "WebSockets", "REST", "A queue"], answer: 2, diff: "beginner", why: "REST's HTTP caching + ubiquity make it the default for cacheable public reads." },
+      { q: "True or false: one protocol should be used everywhere.", options: ["True — standardize on one", "False — real platforms mix protocols per use case"], answer: 1, diff: "intermediate", why: "Browser reach, streaming, caching, and coupling pull in different directions; mix per requirement." }
     ]
   };
 })();
