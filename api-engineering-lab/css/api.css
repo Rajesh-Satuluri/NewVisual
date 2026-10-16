@@ -357,3 +357,33 @@ body[data-mode="interview"] [data-mode-only]:not([data-mode-only~="interview"]) 
 /* ── OpenAPI studio ───────────────────────────────────────── */
 .oa-doc-head { display: flex; align-items: center; gap: var(--space-2); }
 
+/* ── OAuth flow stepper ───────────────────────────────────── */
+.oauth-flow { display: flex; flex-direction: column; gap: var(--space-2); }
+.oauth-step { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-2) var(--space-3); border: 1px solid var(--border-default); border-radius: var(--radius-md); opacity: 0.5; transition: all var(--ease-base); color: var(--text-secondary); }
+.oauth-step.done { opacity: 1; }
+.oauth-step.done .oauth-step-n { background: var(--green); color: #04110a; }
+.oauth-step.active { opacity: 1; border-color: var(--airflow); background: var(--airflow-subtle); color: var(--text-primary); }
+.oauth-step.active .oauth-step-n { background: var(--airflow); color: #fff; }
+.oauth-step-n { flex-shrink: 0; width: 24px; height: 24px; border-radius: var(--radius-full); background: var(--bg-4); color: var(--text-secondary); font-weight: 700; font-size: var(--text-sm); display: inline-flex; align-items: center; justify-content: center; }
+.oauth-nav { display: flex; align-items: center; gap: var(--space-3); margin-top: var(--space-3); }
+.oauth-nav #oa-pos { margin: 0 auto; color: var(--text-muted); font-size: var(--text-sm); }
+
+/* ── Rate-limit timeline ──────────────────────────────────── */
+.rl-timeline { position: relative; height: 28px; background: var(--bg-0); border: 1px solid var(--border-default); border-radius: var(--radius-sm); }
+.rl-dot { position: absolute; top: 7px; width: 12px; height: 12px; border-radius: var(--radius-full); transform: translateX(-50%); }
+
+/* ── Business-case journey ────────────────────────────────── */
+.bs-step-head { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2); }
+.bs-step-title { font-size: var(--text-lg); font-weight: 700; color: var(--text-primary); margin-bottom: var(--space-2); }
+.bs-dots { display: flex; gap: 6px; margin-top: var(--space-4); }
+.bs-dot { width: 10px; height: 10px; border-radius: var(--radius-full); background: var(--bg-4); }
+.bs-dot.active { background: var(--airflow); box-shadow: 0 0 0 3px var(--airflow-subtle); }
+.bs-dot.done { background: var(--green); }
+
+/* ── Observability trace ──────────────────────────────────── */
+.obs-trace { display: flex; flex-direction: column; gap: 4px; }
+.obs-span { display: grid; grid-template-columns: 140px 1fr 56px; align-items: center; gap: var(--space-2); }
+.obs-span-label { font-size: var(--text-sm); color: var(--text-secondary); }
+.obs-span-bar { height: 12px; border-radius: var(--radius-xs); background: var(--airflow); }
+.obs-span-ms { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); text-align: right; }
+

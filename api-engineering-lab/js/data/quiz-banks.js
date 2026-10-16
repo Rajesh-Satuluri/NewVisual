@@ -108,6 +108,61 @@
       { q: "One OpenAPI spec can drive all of these EXCEPT…", options: ["Interactive docs", "Client SDK generation", "Guaranteeing your code is bug-free", "Contract tests"], answer: 2, diff: "intermediate", why: "The spec describes the contract and powers docs/SDKs/tests, but can't guarantee implementation correctness." },
       { q: "Removing a response field from the spec is…", options: ["Always safe", "Breaking — deprecate first, remove in a new version", "Only a docs change", "Automatically versioned"], answer: 1, diff: "intermediate", why: "Clients reading that field break and contract tests fail; deprecate then remove on a schedule." },
       { q: "Contract tests catch a breaking change by…", options: ["Reading the changelog", "Replaying the spec against the running API in CI", "Asking the client", "Monitoring production"], answer: 1, diff: "advanced", why: "They assert the live API still matches the spec, failing the build before customers are affected." }
+    ],
+    security: [
+      { q: "A valid token accesses another user's order by changing the id. This is…", options: ["A 500 bug", "Broken Object-Level Authorization (BOLA/IDOR)", "A caching issue", "A rate-limit miss"], answer: 1, diff: "advanced", why: "Trusting an id without an ownership check is the #1 API risk; enforce ownership server-side." },
+      { q: "CORS is…", options: ["A server authorization control", "A browser-enforced cross-origin policy, not authorization", "A rate limiter", "An encryption scheme"], answer: 1, diff: "intermediate", why: "CORS limits what a browser page may read cross-origin; it does nothing against server-to-server calls. Authorize on the server." },
+      { q: "An API key embedded in frontend JS is…", options: ["Secure if minified", "Public to anyone viewing source — keys belong on a server", "Fine with HTTPS", "User authentication"], answer: 1, diff: "beginner", why: "Anything in the browser is visible; keys identify apps and must stay server-side." }
+    ],
+    oauth: [
+      { q: "What does PKCE protect against?", options: ["Slow tokens", "An intercepted authorization code being exchanged by an attacker", "Expired tokens", "CORS errors"], answer: 1, diff: "advanced", why: "PKCE binds the code exchange to the client that started the flow via code_verifier/challenge." },
+      { q: "Decoding a JWT payload proves…", options: ["It's authentic", "Nothing — only verifying the signature proves authenticity", "It's encrypted", "The user is admin"], answer: 1, diff: "advanced", why: "Anyone can craft a JWT; only signature verification (with the key) proves it's untampered." },
+      { q: "OpenID Connect adds what to OAuth 2.0?", options: ["Rate limiting", "An identity layer (ID token) answering who the user is", "Encryption", "Caching"], answer: 1, diff: "intermediate", why: "OAuth is authorization; OIDC layers authentication on top with an ID token." }
+    ],
+    "rate-limiting": [
+      { q: "Which algorithm allows controlled bursts while smoothing the average?", options: ["Fixed window", "Token bucket", "Leaky bucket", "None"], answer: 1, diff: "advanced", why: "Token bucket permits a burst up to capacity, then throttles to the refill rate." },
+      { q: "Fixed-window rate limiting suffers from…", options: ["No downsides", "Boundary bursts — up to 2× the limit across a window edge", "Being too slow", "Needing a GPU"], answer: 1, diff: "intermediate", why: "Requests clustered at a window boundary can double the effective allowance; sliding window fixes it." },
+      { q: "In a multi-server deployment, counters should live…", options: ["Per instance", "In a shared store (e.g. Redis)", "In the client", "In the URL"], answer: 1, diff: "advanced", why: "Per-instance counters let a client get N× the limit; share the counter for a correct global limit." }
+    ],
+    performance: [
+      { q: "You should optimize…", options: ["Serialization first always", "The biggest latency contributor (often DB or a dependency)", "The network only", "Whatever is easiest"], answer: 1, diff: "intermediate", why: "Measure, then attack the dominant component — shaving tiny stages while the DB dominates is wasted." },
+      { q: "The N+1 query problem is fixed by…", options: ["Adding servers", "Batching into one query (IN / join) or a DataLoader", "Caching the HTML", "Using PATCH"], answer: 1, diff: "advanced", why: "Replace per-row queries with a single batched query or a join." },
+      { q: "An unbounded collection endpoint risks…", options: ["Nothing", "Melting the DB and the client with huge responses", "Better caching", "Lower latency"], answer: 1, diff: "beginner", why: "Always paginate; never return an unbounded result set." }
+    ],
+    caching: [
+      { q: "A conditional GET with If-None-Match returns 304 when…", options: ["The server is down", "The resource is unchanged since the client's ETag", "The cache is cold", "The token expired"], answer: 1, diff: "intermediate", why: "304 Not Modified saves bandwidth by sending no body when the ETag still matches." },
+      { q: "Which must NOT be stored in a shared cache?", options: ["Public catalog", "Personalized or sensitive responses", "Static images", "A CSS file"], answer: 1, diff: "advanced", why: "A shared cache could serve one user's private data to another; mark it private/no-store." },
+      { q: "The hardest part of caching is usually…", options: ["Reading the cache", "Invalidation / staleness", "Choosing a port", "Serializing JSON"], answer: 1, diff: "intermediate", why: "Knowing when cached data is stale (and clearing it) is the classic hard problem." }
+    ],
+    observability: [
+      { q: "Which pillar answers 'where did the time go across services'?", options: ["Logs", "Metrics", "Traces", "Alerts"], answer: 2, diff: "intermediate", why: "A distributed trace is a tree of spans sharing a trace id, revealing the slow hop." },
+      { q: "A correlation (request) id and a distributed trace id are…", options: ["The same thing", "Related but distinct — request vs operation-across-services", "Both encryption keys", "Unused in practice"], answer: 1, diff: "advanced", why: "A correlation id ties one request's logs; a trace id ties spans of an operation across services." },
+      { q: "You should alert primarily on…", options: ["Every CPU blip", "Symptoms users feel (error rate, p95/p99, availability) vs SLOs", "Disk color", "Number of logs"], answer: 1, diff: "intermediate", why: "Alert on SLO-relevant symptoms, not noisy low-level metrics." }
+    ],
+    "business-scenario": [
+      { q: "Why is payment modeled as a state machine + webhook rather than a DB transaction?", options: ["It's faster", "A DB transaction can't span an external provider; outcomes can be uncertain", "Webhooks are cheaper", "To avoid JSON"], answer: 1, diff: "senior", why: "External calls live outside your transaction boundary; reconcile asynchronously." },
+      { q: "An availability snapshot (GET /inventory) means…", options: ["Stock is reserved for you", "It's a point-in-time view, not a guarantee it can be reserved later", "The item is sold out", "Caching is off"], answer: 1, diff: "intermediate", why: "Reservation is a separate atomic step; the snapshot can change before checkout." },
+      { q: "If notification delivery fails, the order should…", options: ["Be cancelled", "Remain valid — notifications must not gate the order", "Retry forever synchronously", "Return 500"], answer: 1, diff: "intermediate", why: "Notifications are a side effect; order validity shouldn't depend on them." }
+    ],
+    "senior-decisions": [
+      { q: "For internal, latency-critical service-to-service calls, a common pick is…", options: ["GraphQL", "gRPC", "Webhooks", "Long polling"], answer: 1, diff: "senior", why: "Binary Protobuf + typed contracts + HTTP/2 suit internal high-volume calls; browsers would need gRPC-Web." },
+      { q: "A workflow spanning several services is best coordinated with…", options: ["One distributed transaction", "A saga with compensating actions", "No coordination", "A bigger DB"], answer: 1, diff: "senior", why: "ACID can't span services; a saga sequences local transactions with compensations." },
+      { q: "A reasonable alternative to the 'recommended' option is…", options: ["Always wrong", "Often valid — the right choice depends on constraints", "Never considered", "A bug"], answer: 1, diff: "intermediate", why: "Senior design is judgment under constraints; trade-offs decide, not dogma." }
+    ],
+    incidents: [
+      { q: "Checkout 500s immediately after a deploy. First move?", options: ["Add servers", "Roll back the release, then diagnose", "Email customers", "Increase the timeout"], answer: 1, diff: "senior", why: "Restore service first (rollback), investigate root cause after." },
+      { q: "A webhook delivered twice risks double-marking paid. Long-term fix?", options: ["Ignore it", "Durable event-id dedupe + idempotent processing", "Disable webhooks", "Retry faster"], answer: 1, diff: "advanced", why: "At-least-once delivery requires idempotent consumers keyed by event id." },
+      { q: "A cache serving stale inventory causes oversells. Fix?", options: ["Longer TTL", "Shorter TTL + event-based invalidation + verify at reserve", "Remove the DB", "Cache more"], answer: 1, diff: "advanced", why: "Don't long-cache volatile data; invalidate on change and confirm at reservation." }
+    ],
+    challenges: [
+      { q: "To cancel an order, the correct method is…", options: ["GET", "DELETE (or PATCH status)", "OPTIONS", "HEAD"], answer: 1, diff: "beginner", why: "The method is the verb; GET must never mutate." },
+      { q: "Two buyers, one unit — avoid overselling with…", options: ["A longer timeout", "An atomic conditional reserve (lock/constraint); loser gets 409", "More retries", "A bigger cache"], answer: 1, diff: "advanced", why: "Make the reservation the atomic point of truth." },
+      { q: "A backward-compatible way to enrich a response is…", options: ["Rename fields", "Add new optional fields in-place", "Remove old fields", "Change the shape"], answer: 1, diff: "intermediate", why: "Additive changes don't break clients that ignore unknown fields." }
+    ],
+    "interview-prep": [
+      { q: "A strong senior answer includes…", options: ["Only a definition", "Definition + mechanism + business + trade-offs + failure + mitigation", "Just code", "Only trade-offs"], answer: 1, diff: "advanced", why: "The framework signals depth: how it works, where it's used, and how it fails + is mitigated." },
+      { q: "Asked about idempotency, you should mention…", options: ["Only that POST is unsafe", "Key + persisted result + unique constraint + concurrency + TTL", "Only caching", "Nothing about retries"], answer: 1, diff: "advanced", why: "Idempotency is server-side machinery, not just a header." },
+      { q: "For 401 vs 403, the crisp distinction is…", options: ["They're the same", "401 = unauthenticated (who), 403 = unauthorized (what)", "403 means server error", "401 means not found"], answer: 1, diff: "beginner", why: "Identity vs permission — a reliably-tested distinction." }
     ]
   };
 })();

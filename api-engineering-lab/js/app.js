@@ -15,7 +15,7 @@
   // but still show correct titles + active nav state.
   var ROUTES = {
     home: { title: "Overview Dashboard", ready: true, group: "Start Here" },
-    "business-scenario": { title: "ShopSphere Business Case", ready: false, group: "Start Here" },
+    "business-scenario": { title: "ShopSphere Business Case", ready: true, group: "Start Here" },
 
     fundamentals: { title: "What is an API?", ready: true, group: "Fundamentals" },
     "http-lab": { title: "HTTP Request–Response Lab", ready: true, group: "Fundamentals" },
@@ -41,19 +41,19 @@
     "testing-challenges": { title: "Testing Challenges", ready: true, group: "Implementation" },
     "openapi-studio": { title: "OpenAPI & Docs Studio", ready: true, group: "Implementation" },
 
-    security: { title: "Security Lab", ready: false, group: "Security" },
-    oauth: { title: "OAuth 2.0 & JWT", ready: false, group: "Security" },
-    "rate-limiting": { title: "Rate Limiting", ready: false, group: "Security" },
-    performance: { title: "Performance Lab", ready: false, group: "Performance" },
-    caching: { title: "Caching", ready: false, group: "Performance" },
-    observability: { title: "Observability", ready: false, group: "Performance" },
+    security: { title: "Security Lab", ready: true, group: "Security" },
+    oauth: { title: "OAuth 2.0 & JWT", ready: true, group: "Security" },
+    "rate-limiting": { title: "Rate Limiting", ready: true, group: "Security" },
+    performance: { title: "Performance Lab", ready: true, group: "Performance" },
+    caching: { title: "Caching", ready: true, group: "Performance" },
+    observability: { title: "Observability", ready: true, group: "Performance" },
 
-    "production-ops": { title: "Production Operations Lab", ready: false, group: "Practice" },
-    incidents: { title: "Incident Simulator", ready: false, group: "Practice" },
-    "senior-decisions": { title: "Senior Design Decisions", ready: false, group: "Practice" },
-    challenges: { title: "Scenario Challenges", ready: false, group: "Practice" },
-    "interview-prep": { title: "Knowledge & Interview Prep", ready: false, group: "Practice" },
-    progress: { title: "Learning Progress", ready: false, group: "Practice" }
+    "production-ops": { title: "Production Operations Lab", ready: true, group: "Practice" },
+    incidents: { title: "Incident Simulator", ready: true, group: "Practice" },
+    "senior-decisions": { title: "Senior Design Decisions", ready: true, group: "Practice" },
+    challenges: { title: "Scenario Challenges", ready: true, group: "Practice" },
+    "interview-prep": { title: "Knowledge & Interview Prep", ready: true, group: "Practice" },
+    progress: { title: "Learning Progress", ready: true, group: "Practice" }
   };
   AV.routes = ROUTES;
 
