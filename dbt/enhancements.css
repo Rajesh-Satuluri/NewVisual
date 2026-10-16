@@ -1191,3 +1191,123 @@ body.cmdk-open { overflow: hidden; }
   .bh-row { grid-template-columns:22px 1fr; }
   .bh-detail { grid-column:2; text-align:left; }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Core Features — Engineering Lab (shared across m10–m15)
+   Wire-the-DAG, compile viewer, materialization switcher, incremental & test
+   simulators. All interactive, all clearly labelled as local simulations.
+   ───────────────────────────────────────────────────────────────────────────── */
+.cf-lab { display:flex; flex-direction:column; gap:16px; }
+.cf-lab-intro {
+  background:var(--surface-2); border:1px solid var(--border); border-left:3px solid var(--accent);
+  border-radius:var(--radius-sm); padding:12px 14px; font-size:13.5px; line-height:1.6; color:var(--text-2);
+}
+.cf-sim {
+  display:inline-block; margin-top:8px; padding:3px 9px; border-radius:999px; font-size:11.5px;
+  background:color-mix(in srgb, var(--warn) 14%, transparent); color:var(--warn);
+  border:1px solid color-mix(in srgb, var(--warn) 35%, transparent); font-weight:600;
+}
+.cf-lab-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:16px; align-items:start; }
+.cf-lab-left { display:flex; flex-direction:column; gap:10px; }
+.cf-lab-right { display:flex; flex-direction:column; gap:12px; position:sticky; top:8px; }
+
+.cf-mcard { border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--surface); overflow:hidden; }
+.cf-mhead { display:flex; align-items:center; gap:8px; padding:7px 11px; background:var(--surface-2);
+  border-bottom:1px solid var(--border); font-size:12px; color:var(--text-2); }
+.cf-mhead code { font-family:var(--font-mono); font-size:11.5px; color:var(--text); }
+.cf-mdot { width:9px; height:9px; border-radius:50%; flex:none; }
+.cf-msql { margin:0; padding:11px 13px; font-family:var(--font-mono); font-size:12px; line-height:1.7;
+  color:var(--text); white-space:pre-wrap; overflow-x:auto; }
+.cf-slot {
+  font-family:var(--font-mono); font-size:11.5px; padding:2px 6px; border-radius:5px;
+  background:color-mix(in srgb, var(--accent) 12%, var(--surface)); color:var(--accent);
+  border:1px solid color-mix(in srgb, var(--accent) 40%, transparent); cursor:pointer; max-width:100%;
+}
+.cf-slot:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+
+.cf-dag { border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--surface);
+  padding:10px; display:flex; justify-content:center; }
+.cf-readout { border:1px solid var(--border); border-radius:var(--radius-sm); padding:11px 13px;
+  background:var(--surface); font-size:13px; line-height:1.55; }
+.cf-readout.ok  { border-color:color-mix(in srgb, var(--success) 50%, var(--border)); }
+.cf-readout.bad { border-color:color-mix(in srgb, var(--warn) 50%, var(--border)); }
+.cf-ro-muted { color:var(--text-3); font-size:12.5px; }
+.cf-ro-head { font-weight:700; font-size:14px; margin-bottom:8px; color:var(--text); }
+.cf-ro-row { padding:6px 0; border-top:1px solid var(--border); color:var(--text-2); }
+.cf-ro-row:first-of-type { border-top:none; }
+.cf-ro-row.ok   { color:var(--success); }
+.cf-ro-row.warn { color:var(--warn); }
+.cf-ro-row.err  { color:var(--error); }
+.cf-ro-row code { font-family:var(--font-mono); font-size:11.5px; }
+
+.cf-lab-actions { display:flex; flex-wrap:wrap; gap:8px; }
+.cf-xlink { font-size:12px; color:var(--text-3); margin:0; }
+.cf-xlink a { color:var(--accent); text-decoration:none; }
+.cf-xlink a:hover { text-decoration:underline; }
+
+/* Progressive-disclosure advanced blocks in the detail tabs */
+.cf-det { border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--surface);
+  margin:8px 0; overflow:hidden; }
+.cf-det > summary { cursor:pointer; padding:11px 14px; font-weight:600; font-size:13.5px; color:var(--text);
+  list-style:none; display:flex; align-items:center; gap:8px; }
+.cf-det > summary::before { content:'▸'; color:var(--accent); transition:transform .15s; }
+.cf-det[open] > summary::before { transform:rotate(90deg); }
+.cf-det > summary::-webkit-details-marker { display:none; }
+.cf-det[open] > summary { border-bottom:1px solid var(--border); }
+.cf-det > *:not(summary) { padding:0 14px; }
+.cf-det > p:first-of-type { padding-top:12px; }
+.cf-det > *:last-child { padding-bottom:13px; }
+.cf-det code { font-family:var(--font-mono); font-size:11.5px;
+  background:var(--surface-2); padding:1px 5px; border-radius:4px; }
+
+/* Materialization / compile switcher chips (m10) */
+.cf-chips { display:flex; flex-wrap:wrap; gap:8px; }
+.cf-chip { padding:7px 14px; border-radius:999px; border:1px solid var(--border); background:var(--surface);
+  color:var(--text-2); font-size:13px; font-weight:600; cursor:pointer; transition:all .12s; }
+.cf-chip:hover { border-color:var(--accent); color:var(--text); }
+.cf-chip.active { background:color-mix(in srgb, var(--accent) 16%, transparent);
+  border-color:var(--accent); color:var(--accent); }
+.cf-chip:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.cf-two { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.cf-pane { border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--surface); overflow:hidden; }
+.cf-pane-h { padding:7px 12px; background:var(--surface-2); border-bottom:1px solid var(--border);
+  font-size:11.5px; font-weight:700; letter-spacing:.4px; color:var(--text-3); text-transform:uppercase; }
+.cf-pane pre { margin:0; padding:12px; font-family:var(--font-mono); font-size:12px; line-height:1.65;
+  color:var(--text); white-space:pre-wrap; overflow-x:auto; }
+.cf-fact { display:flex; gap:9px; padding:9px 12px; border-top:1px solid var(--border); font-size:12.5px; color:var(--text-2); }
+.cf-fact-k { color:var(--text-3); min-width:92px; flex:none; }
+
+/* Simulator tables (m11 tests, m13 incremental) */
+.cf-simtable { width:100%; border-collapse:collapse; font-family:var(--font-mono); font-size:12px; }
+.cf-simtable th, .cf-simtable td { padding:5px 9px; border:1px solid var(--border); text-align:left; }
+.cf-simtable th { background:var(--surface-2); color:var(--text-3); font-weight:600; }
+.cf-row-new    { background:color-mix(in srgb, var(--success) 13%, transparent); }
+.cf-row-upd    { background:color-mix(in srgb, var(--accent) 13%, transparent); }
+.cf-row-skip   { opacity:.45; }
+.cf-row-dup    { background:color-mix(in srgb, var(--warn) 14%, transparent); }
+.cf-row-miss   { background:color-mix(in srgb, var(--error) 14%, transparent); }
+.cf-tag { display:inline-block; padding:1px 7px; border-radius:999px; font-size:10.5px; font-weight:700; }
+.cf-tag.new  { background:color-mix(in srgb, var(--success) 20%, transparent); color:var(--success); }
+.cf-tag.upd  { background:color-mix(in srgb, var(--accent) 20%, transparent); color:var(--accent); }
+.cf-tag.skip { background:var(--surface-2); color:var(--text-3); }
+.cf-tag.dup  { background:color-mix(in srgb, var(--warn) 22%, transparent); color:var(--warn); }
+.cf-tag.miss { background:color-mix(in srgb, var(--error) 22%, transparent); color:var(--error); }
+
+.cf-controls { display:flex; flex-wrap:wrap; gap:14px; align-items:flex-end;
+  padding:12px 14px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--surface-2); }
+.cf-field { display:flex; flex-direction:column; gap:4px; }
+.cf-field label { font-size:11.5px; color:var(--text-3); font-weight:600; }
+.cf-field input[type=number] { width:88px; padding:6px 8px; border-radius:6px; border:1px solid var(--border);
+  background:var(--surface); color:var(--text); font-family:var(--font-mono); font-size:13px; }
+.cf-field input[type=range] { width:150px; accent-color:var(--accent); }
+.cf-field select { padding:6px 8px; border-radius:6px; border:1px solid var(--border);
+  background:var(--surface); color:var(--text); font-size:13px; }
+
+@media (max-width:760px) {
+  .cf-lab-grid, .cf-two { grid-template-columns:1fr; }
+  .cf-lab-right { position:static; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cf-det > summary::before { transition:none; }
+  .cf-chip { transition:none; }
+}
