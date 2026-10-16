@@ -341,7 +341,9 @@ body {
 #module-canvas::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
 /* ── Module Shell ─────────────────────────────────────────────────────────── */
-.module-shell { max-width: 900px; }
+/* Centered within the content canvas so wide screens don't leave the whole
+   lesson pinned to the left with dead space on the right (matches .home). */
+.module-shell { max-width: 1040px; margin: 0 auto; width: 100%; }
 
 .module-hero {
   margin-bottom: 24px;

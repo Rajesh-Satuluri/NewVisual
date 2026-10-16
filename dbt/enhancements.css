@@ -135,7 +135,6 @@ body.cmdk-open { overflow: hidden; }
 /* ── Prev / Next pager ─────────────────────────────────────────────────────── */
 .pager {
   display: flex; justify-content: space-between; gap: 14px;
-  max-width: 900px;
   padding: 28px 0 4px; border-top: 1px solid var(--border); margin-top: 32px;
 }
 .pager-btn {
@@ -167,7 +166,7 @@ body.cmdk-open { overflow: hidden; }
 .toast-icon { font-size: 16px; }
 
 /* ── Quiz ("Test Yourself") ────────────────────────────────────────────────── */
-.quiz-section { max-width: 900px; padding: 28px 0 4px; border-top: 1px solid var(--border); margin-top: 32px; }
+.quiz-section { padding: 28px 0 4px; border-top: 1px solid var(--border); margin-top: 32px; }
 .quiz-best { color: var(--accent); font-weight: 600; }
 .quiz-body { display: flex; flex-direction: column; gap: 18px; max-width: 760px; }
 .quiz-q { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; }
