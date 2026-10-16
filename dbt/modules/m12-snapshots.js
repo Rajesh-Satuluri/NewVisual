@@ -50,6 +50,41 @@ const IQ = [
     </ul>`,
     tip: 'The compound unique key answer shows you\'ve hit this in production. "The key changed because the business model changed" is the real reason most snapshot breakages happen — not dbt bugs.',
   },
+  {
+    q: 'Why must snapshots be run on their own schedule, and why is `--full-refresh` on a snapshot dangerous?',
+    a: `A snapshot captures source state <em>at the moment it runs</em>. The source system overwrites rows in place, so any change that happens <strong>between two snapshot runs and is then overwritten again</strong> is lost forever — snapshots can only see what's present when they execute.
+    <br><br>
+    That drives two practices:
+    <ul>
+      <li><strong>Run early and often</strong> — <code>dbt snapshot</code> typically runs on its own frequent schedule, <em>before</em> the models that consume it, so it captures changes close to when they happen.</li>
+      <li><strong>Never casually <code>--full-refresh</code></strong> — the snapshot table is the <em>only</em> place history lives; the source no longer has the old values. A full refresh rebuilds from current source state and <strong>permanently destroys every past version</strong>. It's a last resort requiring stakeholder sign-off.</li>
+    </ul>`,
+    tip: 'The core insight: "a snapshot is the sole copy of history — the source has moved on." That\'s why it is append-only and why --full-refresh is destructive in a way it never is for a model.',
+  },
+  {
+    q: 'How do you query "what was the customer\'s tier at the time of each order"? Write the join.',
+    a: `This is the point-in-time join snapshots exist for — join each order to the <em>version that was valid when the order was placed</em>:
+    <div style="margin:8px 0;padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;font-family:var(--font-mono);font-size:11.5px;color:var(--text-2)">
+    select o.order_id, o.ordered_at, s.tier<br>
+    from {{ ref('fct_orders') }} o<br>
+    join {{ ref('customers_snapshot') }} s<br>
+    &nbsp;&nbsp;on s.customer_id = o.customer_id<br>
+    &nbsp;&nbsp;and o.ordered_at &gt;= s.dbt_valid_from<br>
+    &nbsp;&nbsp;and (o.ordered_at &lt; s.dbt_valid_to or s.dbt_valid_to is null)
+    </div>
+    The two date predicates are the whole trick: an order falls inside exactly one version's <code>[valid_from, valid_to)</code> window. Joining to the current dimension instead would wrongly attribute every past order to the customer's <em>present</em> tier.`,
+    tip: 'The half-open interval [valid_from, valid_to) with the `or valid_to is null` for the current row is what interviewers look for — it avoids both gaps and double-counting at the boundaries.',
+  },
+  {
+    q: 'What\'s the difference between a snapshot and an incremental model — both "add rows over time"?',
+    a: `They answer different questions:
+    <ul>
+      <li>A <strong>snapshot</strong> captures <em>how a row changed</em>. It watches a mutable dimension (customer, product, subscription) and writes a new <em>version</em> each time tracked attributes change, with validity windows. Purpose: historical/point-in-time truth.</li>
+      <li>An <strong>incremental model</strong> captures <em>new facts efficiently</em>. It's a performance strategy for appending/merging new event rows into a large table instead of rebuilding it. Purpose: scale, not history.</li>
+    </ul>
+    Key tells: a snapshot is run with <code>dbt snapshot</code>, is append-only, and its history is irreplaceable; an incremental model is run with <code>dbt run</code>, can be <code>--full-refresh</code>ed any time because the source still has the data, and adds no SCD columns. You often use both: snapshot the dimension, then build incremental facts that join to it.`,
+    tip: 'One line: "snapshots preserve history of changing rows; incremental models efficiently add new rows." Mentioning that a snapshot\'s history can\'t be rebuilt but an incremental\'s can is the clincher.',
+  },
 ];
 
 export function mount(container) {
@@ -59,15 +94,164 @@ export function mount(container) {
     subtitle: 'Track how your data changes over time. The SCD Type 2 pattern — automated.',
     tabs: [
       { id: 'visual', label: '🎬 History Builder' },
+      { id: 'lab',    label: '🔬 Lab · Snapshot over time' },
       { id: 'detail', label: '📋 How Snapshots Work' },
       { id: 'iq',     label: '🎯 Interview Q&A' },
     ]
   });
 
   const cleanup = buildVisual(container);
+  buildLab(container);
   buildDetail(container);
   container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
   return cleanup;
+}
+
+// ── Lab · Snapshot over time (SCD Type 2) ─────────────────────────────────────
+// Step through successive source loads of one customer and watch the snapshot
+// table accumulate history (dbt_valid_from / dbt_valid_to / dbt_is_current).
+// Switch between timestamp and check strategies to see the key trade-off —
+// including the classic miss where the source changes data but forgets to bump
+// updated_at. Deterministic model of dbt's snapshot behaviour; nothing executed.
+const esc12 = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const SNAP_EVENTS = [
+  { day: '2024-01-01', upd: 1,  tier: 'Basic', region: 'CA', email: 'ada@x.io',   note: 'Initial load' },
+  { day: '2024-01-05', upd: 5,  tier: 'Prime', region: 'CA', email: 'ada@x.io',   note: 'Upgraded to Prime' },
+  { day: '2024-01-09', upd: 9,  tier: 'Prime', region: 'NY', email: 'ada@x.io',   note: 'Moved CA → NY' },
+  { day: '2024-01-12', upd: 12, tier: 'Prime', region: 'NY', email: 'ada@new.io', note: 'Changed email only' },
+  { day: '2024-01-15', upd: 12, tier: 'Prime', region: 'NY', email: 'ada@new.io', note: 'Re-run — nothing changed' },
+  { day: '2024-01-18', upd: 12, tier: 'Basic', region: 'NY', email: 'ada@new.io', note: 'Downgraded — but source forgot to bump updated_at ⚠' },
+];
+
+function buildLab(container) {
+  const tab = container.querySelector('#tab-lab');
+  const st = { strategy: 'timestamp', cols: { tier: true, region: true, email: false }, step: 0, rows: [], log: [] };
+
+  tab.innerHTML = `
+    <div class="cf-lab">
+      <div class="cf-lab-intro">
+        <strong>Build history one run at a time.</strong> Each <code>dbt snapshot</code> reads the current
+        source row for customer <code>42</code> and decides whether to open a new version. Choose the
+        strategy, then step through the loads and watch <code>dbt_valid_from/to</code> and
+        <code>dbt_is_current</code> evolve.
+        <span class="cf-sim">🧪 Deterministic model of dbt's snapshot behaviour — no SQL runs.</span>
+      </div>
+      <div class="cf-controls">
+        <div class="cf-field"><label for="m12-strat">strategy</label>
+          <select id="m12-strat"><option value="timestamp">timestamp (updated_at)</option><option value="check">check (hash of columns)</option></select></div>
+        <div class="cf-field" id="m12-colwrap" hidden><label>check_cols</label>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            ${['tier', 'region', 'email'].map(c => `<label style="display:flex;gap:5px;align-items:center;font-family:var(--font-mono);font-size:12px;cursor:pointer"><input type="checkbox" data-col="${c}" ${st.cols[c] ? 'checked' : ''} style="accent-color:var(--accent)">${c}</label>`).join('')}
+          </div></div>
+        <div class="cf-field" style="flex-direction:row;align-items:flex-end;gap:8px">
+          <button class="ctrl-btn" id="m12-step">▶ Run next dbt snapshot</button>
+          <button class="ctrl-btn" id="m12-reset">↺ Reset</button>
+        </div>
+      </div>
+      <div class="cf-two">
+        <div class="cf-pane"><div class="cf-pane-h" id="m12-srch">Source · raw.customers (customer_id = 42)</div>
+          <div id="m12-source" style="padding:11px 13px"></div></div>
+        <div class="cf-pane"><div class="cf-pane-h">Run log</div>
+          <div id="m12-log" style="padding:11px 13px;font-size:12.5px;line-height:1.5"></div></div>
+      </div>
+      <div class="cf-pane"><div class="cf-pane-h">snapshots.customers_snapshot · accumulated history</div>
+        <div style="overflow-x:auto;padding:10px"><table class="cf-simtable" id="m12-snap"></table></div></div>
+      <div class="cf-readout" id="m12-note"></div>
+    </div>`;
+
+  const tracked = () => ['tier', 'region', 'email'].filter(c => st.cols[c]);
+  const hashOf = (r) => tracked().map(c => r[c]).join('|');
+
+  function runStep() {
+    if (st.step >= SNAP_EVENTS.length) return;
+    const e = SNAP_EVENTS[st.step];
+    const cur = st.rows.find(r => r.is_current);
+    let decision;
+    if (!cur) {
+      st.rows.push({ scd: st.rows.length + 1, tier: e.tier, region: e.region, email: e.email, upd: e.upd, from: e.day, to: '—', is_current: true });
+      decision = { kind: 'new', msg: `First load → opened version #1, <code>dbt_is_current = true</code>.` };
+    } else {
+      const trackedChanged = hashOf(e) !== hashOf(cur);
+      const tsAdvanced = e.upd > cur.upd;
+      const changed = st.strategy === 'timestamp' ? tsAdvanced : trackedChanged;
+      if (changed) {
+        cur.is_current = false; cur.to = e.day;
+        st.rows.push({ scd: st.rows.length + 1, tier: e.tier, region: e.region, email: e.email, upd: e.upd, from: e.day, to: '—', is_current: true });
+        decision = { kind: 'new', msg: st.strategy === 'timestamp'
+          ? `updated_at advanced (${cur.upd} → ${e.upd}) → closed old version (valid_to = ${e.day}) and opened a new one.`
+          : `hash of [${tracked().join(', ')}] changed → closed old version and opened a new one.` };
+      } else if (st.strategy === 'timestamp' && trackedChanged && !tsAdvanced) {
+        decision = { kind: 'miss', msg: `⚠ <strong>Change MISSED.</strong> ${tracked().filter(c => e[c] !== cur[c]).map(c => `${c}: ${cur[c]}→${e[c]}`).join(', ')} changed, but <code>updated_at</code> stayed at ${cur.upd} — the timestamp strategy can't see it. Switch to <code>check</code> to catch this.` };
+      } else {
+        decision = { kind: 'same', msg: st.strategy === 'timestamp'
+          ? `updated_at unchanged (${cur.upd}) → no new version.`
+          : `hash of [${tracked().join(', ')}] unchanged → no new version${(e.email !== cur.email && !st.cols.email) ? ` (email changed but isn't tracked).` : '.'}` };
+      }
+    }
+    st.log.unshift({ n: st.step + 1, day: e.day, note: e.note, decision });
+    st.step++;
+    render();
+  }
+
+  function reset() { st.step = 0; st.rows = []; st.log = []; render(); }
+
+  function render() {
+    tab.querySelector('#m12-colwrap').hidden = st.strategy !== 'check';
+    const done = st.step >= SNAP_EVENTS.length;
+    const nextBtn = tab.querySelector('#m12-step');
+    nextBtn.disabled = done;
+    nextBtn.textContent = done ? '✓ All loads applied' : `▶ Run snapshot (load ${st.step + 1} of ${SNAP_EVENTS.length})`;
+    nextBtn.style.opacity = done ? '0.55' : '1';
+
+    // source preview (the next event, or last applied)
+    const e = SNAP_EVENTS[Math.min(st.step, SNAP_EVENTS.length - 1)];
+    tab.querySelector('#m12-srch').textContent = done
+      ? 'Source · raw.customers (customer_id = 42) — all loads applied'
+      : `Source · next load ${e.day} (customer_id = 42)`;
+    tab.querySelector('#m12-source').innerHTML = `
+      <table class="cf-simtable"><thead><tr><th>tier</th><th>region</th><th>email</th><th>updated_at</th></tr></thead>
+      <tbody><tr><td>${e.tier}</td><td>${e.region}</td><td>${esc12(e.email)}</td><td>day ${e.upd}</td></tr></tbody></table>
+      <p style="color:var(--text-3);font-size:12px;margin:9px 0 0">${done ? 'Press Reset to replay.' : `Next change: <em>${esc12(e.note)}</em>`}</p>`;
+
+    // run log
+    tab.querySelector('#m12-log').innerHTML = st.log.length
+      ? st.log.map(l => `<div style="padding:5px 0;border-top:1px solid var(--border)">
+          <strong>Run ${l.n}</strong> · ${l.day} — ${esc12(l.note)}<br>
+          <span style="color:${l.decision.kind === 'new' ? 'var(--success)' : l.decision.kind === 'miss' ? 'var(--error)' : 'var(--text-3)'}">${l.decision.msg}</span></div>`).join('')
+      : `<span style="color:var(--text-3)">No runs yet — press <strong>Run next dbt snapshot</strong>.</span>`;
+
+    // snapshot table
+    tab.querySelector('#m12-snap').innerHTML = `
+      <thead><tr><th>dbt_scd_id</th><th>tier</th><th>region</th><th>email</th><th>updated_at</th><th>dbt_valid_from</th><th>dbt_valid_to</th><th>dbt_is_current</th></tr></thead>
+      <tbody>${st.rows.length ? st.rows.map(r => `<tr class="${r.is_current ? 'cf-row-new' : ''}">
+        <td>scd_${String(r.scd).padStart(2, '0')}</td><td>${r.tier}</td><td>${r.region}</td><td>${esc12(r.email)}</td>
+        <td>day ${r.upd}</td><td>${r.from}</td><td>${r.to}</td><td>${r.is_current ? '<strong style="color:var(--success)">true</strong>' : 'false'}</td></tr>`).join('')
+        : `<tr><td colspan="8" style="color:var(--text-3);text-align:center">empty — no snapshot runs yet</td></tr>`}</tbody>`;
+
+    // note
+    const ro = tab.querySelector('#m12-note');
+    const versions = st.rows.length;
+    const missed = st.log.some(l => l.decision.kind === 'miss');
+    ro.className = `cf-readout ${missed ? 'bad' : 'ok'}`;
+    ro.innerHTML = `
+      <div class="cf-ro-head">${missed ? '⚠️' : 'ℹ️'} ${versions} version row(s) · strategy = <code>${st.strategy}</code>${st.strategy === 'check' ? ` · tracking [${tracked().join(', ') || 'nothing'}]` : ''}</div>
+      <div class="cf-ro-row ${missed ? 'err' : 'ok'}">
+        ${missed
+          ? `A real change slipped past the <code>timestamp</code> strategy because the source didn't advance <code>updated_at</code>. In production this silently corrupts history. The <code>check</code> strategy hashes the tracked columns, so it catches changes no matter what the timestamp does — at the cost of reading those columns every run.`
+          : st.strategy === 'check'
+            ? `The <code>check</code> strategy opens a new version whenever the hash of [${tracked().join(', ') || '—'}] differs. Columns you don't track (like email here) never trigger a version — scope the hash to the attributes whose history you actually need.`
+            : `The <code>timestamp</code> strategy trusts <code>updated_at</code>: cheap (one column) and correct <em>when the source reliably bumps it</em>. Replay with a downgrade that forgets to bump the timestamp to see where it fails.`}
+      </div>`;
+  }
+
+  tab.querySelector('#m12-strat').addEventListener('change', e => { st.strategy = e.target.value; reset(); });
+  tab.querySelector('#m12-colwrap').addEventListener('change', e => {
+    const cb = e.target.closest('input[data-col]'); if (!cb) return;
+    st.cols[cb.dataset.col] = cb.checked; reset();
+  });
+  tab.querySelector('#m12-step').addEventListener('click', runStep);
+  tab.querySelector('#m12-reset').addEventListener('click', reset);
+  render();
 }
 
 function buildVisual(container) {
@@ -340,6 +524,24 @@ ORDER BY customer_id, dbt_valid_from</div>
           </tbody>
         </table>
       </div>
+    </div>
+    <div class="detail-section">
+      <h3>Going deeper — the mechanism</h3>
+      <details class="cf-det"><summary>The four meta-columns dbt adds</summary>
+        <ul>
+          <li><code>dbt_scd_id</code> — a surrogate key unique to each <em>version</em> (not each entity). A customer with 3 versions has 3 scd_ids.</li>
+          <li><code>dbt_valid_from</code> — when this version became effective.</li>
+          <li><code>dbt_valid_to</code> — when it was superseded; <code>NULL</code> for the current version.</li>
+          <li><code>dbt_updated_at</code> — the source timestamp dbt recorded at capture.</li>
+        </ul>
+        <p>"Current state" is <code>where dbt_valid_to is null</code>; "state on date D" is <code>where D &gt;= dbt_valid_from and (D &lt; dbt_valid_to or dbt_valid_to is null)</code> — a point-in-time join. Step through the Lab tab to watch these columns fill in.</p>
+      </details>
+      <details class="cf-det"><summary>timestamp vs check — the real trade-off</summary>
+        <p><code>timestamp</code> compares one <code>updated_at</code> column: cheap and correct <em>only if the source reliably bumps it on every change</em>. <code>check</code> hashes a chosen set of columns and opens a version whenever the hash moves — immune to a stale timestamp, but it must read and hash those columns each run. Rule: <code>timestamp</code> for well-engineered sources you trust; <code>check</code> for legacy systems you don't. The Lab's final load shows exactly where <code>timestamp</code> silently misses a change.</p>
+      </details>
+      <details class="cf-det"><summary>Why snapshots are append-only (and must never be rebuilt casually)</summary>
+        <p>Snapshots are the one dbt resource that holds state a rebuild would destroy. A normal model can be dropped and recreated; a snapshot's history exists <em>only</em> in the snapshot table — the source has already overwritten the old values. <code>dbt snapshot --full-refresh</code> throws away every past version permanently. That's why snapshots live in their own command, run early and often, and are treated as precious. <strong>Note:</strong> in current dbt, snapshots are configured in YAML (a <code>snapshots/*.yml</code> with <code>config:</code>), replacing the older <code>{% snapshot %}</code> block.</p>
+      </details>
     </div>
     <div class="detail-section">
       <h3>What problem did snapshots solve?</h3>
