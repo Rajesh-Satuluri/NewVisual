@@ -387,3 +387,42 @@ body[data-mode="interview"] [data-mode-only]:not([data-mode-only~="interview"]) 
 .obs-span-bar { height: 12px; border-radius: var(--radius-xs); background: var(--airflow); }
 .obs-span-ms { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); text-align: right; }
 
+
+/* ── Learning-mode lens (features/mode-lens.js) ───────────────
+   The top-bar mode buttons drop a context hint at the top of each
+   module and spotlight the surface that mode cares about. */
+.mode-hint {
+  display: flex; align-items: flex-start; gap: var(--space-3);
+  margin: var(--space-4) 0 var(--space-5);
+  padding: var(--space-3) var(--space-4);
+  background: var(--airflow-subtle);
+  border: 1px solid var(--airflow-dim);
+  border-left: 3px solid var(--airflow);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm); color: var(--text-secondary);
+  line-height: 1.5;
+}
+.mode-hint-icon { font-size: 1.05rem; line-height: 1.4; flex-shrink: 0; }
+.mode-hint-text b { color: var(--text-primary); }
+.mode-hint-text a { color: var(--airflow-bright); font-weight: 600; }
+/* Learn is the default reading mode — keep its banner quiet. */
+.mode-hint-learn {
+  background: var(--bg-2); border-color: var(--border-default);
+  border-left-color: var(--text-muted);
+}
+
+.mode-spot {
+  outline: 2px solid var(--airflow);
+  outline-offset: 3px;
+  border-radius: var(--radius-md);
+  transition: outline-color 0.3s ease;
+}
+.mode-pulse { animation: modePulse 1.4s ease; }
+@keyframes modePulse {
+  0%   { box-shadow: 0 0 0 0 var(--airflow-glow); }
+  70%  { box-shadow: 0 0 0 10px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mode-pulse { animation: none; }
+}
