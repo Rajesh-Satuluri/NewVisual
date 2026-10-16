@@ -88,6 +88,26 @@
       { q: "A third party must notify your system when a payment settles. Best fit?", options: ["Polling their API forever", "A webhook they call", "gRPC streaming", "GraphQL subscription"], answer: 1, diff: "intermediate", why: "Inbound event notification from a third party is the webhook use case." },
       { q: "Read-heavy public API that benefits from CDN caching. Best default?", options: ["gRPC", "WebSockets", "REST", "A queue"], answer: 2, diff: "beginner", why: "REST's HTTP caching + ubiquity make it the default for cacheable public reads." },
       { q: "True or false: one protocol should be used everywhere.", options: ["True — standardize on one", "False — real platforms mix protocols per use case"], answer: 1, diff: "intermediate", why: "Browser reach, streaming, caching, and coupling pull in different directions; mix per requirement." }
+    ],
+    "express-workshop": [
+      { q: "Your POST handler sees req.body as undefined. The fix?", options: ["Restart the server", "Add app.use(express.json()) before the route", "Switch to GET", "Use a bigger timeout"], answer: 1, diff: "beginner", why: "Express doesn't parse JSON bodies by default; add the json() middleware before body-reading routes." },
+      { q: "Why does the error-handling middleware take FOUR arguments?", options: ["For speed", "The (err, req, res, next) signature is how Express recognizes an error handler", "To log more", "It doesn't matter"], answer: 1, diff: "intermediate", why: "Express identifies error middleware by its four-argument signature; register it last." },
+      { q: "In the DB stage, why use parameterized queries?", options: ["They're shorter", "They prevent SQL injection", "They're required by Postgres", "They cache results"], answer: 1, diff: "intermediate", why: "Parameterized values are never interpreted as SQL, closing the injection hole string-building opens." }
+    ],
+    "testing-workbench": [
+      { q: "What does {{baseUrl}} let you do?", options: ["Encrypt the URL", "Swap environments (local/dev/staging/prod) without rewriting every request", "Speed up requests", "Avoid auth"], answer: 1, diff: "beginner", why: "Environment variables reduce repeated configuration errors across environments." },
+      { q: "Chaining a created {{orderId}} into the next request tests…", options: ["Nothing useful", "A realistic multi-step client flow (create → fetch)", "Only the database", "Rate limits"], answer: 1, diff: "intermediate", why: "Real clients use returned ids in follow-up calls; collections chain them." },
+      { q: "Where should real production secrets live?", options: ["In the request collection", "In browser localStorage", "Never in the tool/source — use a secret manager", "In the URL"], answer: 2, diff: "beginner", why: "Secrets never belong in collections, source, or local storage; use a managed secret store." }
+    ],
+    "testing-challenges": [
+      { q: "A request returns 403 with a valid token. Most likely cause?", options: ["Expired token", "Missing scope or accessing another user's resource", "Malformed JSON", "Server down"], answer: 1, diff: "intermediate", why: "403 = authenticated but not permitted; retrying the same identity won't help." },
+      { q: "Duplicate orders during flaky mobile connections point to…", options: ["A DB bug", "Non-idempotent retries without an idempotency key", "Rate limiting", "Bad JSON"], answer: 1, diff: "intermediate", why: "Lost responses trigger retries that duplicate a non-idempotent POST." },
+      { q: "A 504 during checkout usually means…", options: ["Client error", "An upstream (e.g. payment provider) timed out", "Wrong method", "Cache miss"], answer: 1, diff: "intermediate", why: "504 = upstream didn't respond in time; add timeouts/retries/breaker and reconcile the charge." }
+    ],
+    "openapi-studio": [
+      { q: "One OpenAPI spec can drive all of these EXCEPT…", options: ["Interactive docs", "Client SDK generation", "Guaranteeing your code is bug-free", "Contract tests"], answer: 2, diff: "intermediate", why: "The spec describes the contract and powers docs/SDKs/tests, but can't guarantee implementation correctness." },
+      { q: "Removing a response field from the spec is…", options: ["Always safe", "Breaking — deprecate first, remove in a new version", "Only a docs change", "Automatically versioned"], answer: 1, diff: "intermediate", why: "Clients reading that field break and contract tests fail; deprecate then remove on a schedule." },
+      { q: "Contract tests catch a breaking change by…", options: ["Reading the changelog", "Replaying the spec against the running API in CI", "Asking the client", "Monitoring production"], answer: 1, diff: "advanced", why: "They assert the live API still matches the spec, failing the build before customers are affected." }
     ]
   };
 })();

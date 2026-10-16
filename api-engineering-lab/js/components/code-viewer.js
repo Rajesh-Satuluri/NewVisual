@@ -14,10 +14,10 @@
 
   var RE = new RegExp(
     [
-      "(#.*$)",                                   // 1 comment
-      "('(?:[^'\\\\]|\\\\.)*'|\"(?:[^\"\\\\]|\\\\.)*\")", // 2 string
+      "(#.*$|//.*$)",                            // 1 comment (Python # and JS //)
+      "('(?:[^'\\\\]|\\\\.)*'|\"(?:[^\"\\\\]|\\\\.)*\"|`(?:[^`\\\\]|\\\\.)*`)", // 2 string (incl. template literals)
       "(@[A-Za-z_][\\w.]*)",                     // 3 decorator
-      "\\b(def|class|import|from|as|return|with|for|in|if|elif|else|try|except|finally|raise|while|pass|yield|lambda|and|or|not|is|None|True|False|await|async)\\b", // 4 keyword
+      "\\b(def|class|import|from|as|return|with|for|in|if|elif|else|try|except|finally|raise|while|pass|yield|lambda|and|or|not|is|None|True|False|await|async|const|let|var|function|new|of|catch|throw|typeof|extends|require|module|exports|null|true|false|undefined|rpc|service|message|stream|query|mutation|type)\\b", // 4 keyword (Python + JS + GraphQL/proto)
       "\\b([A-Za-z_]\\w*)(?=\\s*\\()",           // 5 function call
       "\\b(\\d+\\.?\\d*)\\b"                      // 6 number
     ].join("|"),
