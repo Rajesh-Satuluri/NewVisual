@@ -76,6 +76,30 @@ Living checklist for the Iter 0–4 build. Updated each wave. Counts are authori
 - [x] content-lint 0/0; headless verify (live board all-green), 0 pageerrors — deployed
 - [x] (Deliberately skipped the spec's app-wide UX redesign — it would violate the no-redesign rule; hardening + test harness kept instead)
 
+## Core Features enrichment — in-place labs + deeper explanations ✅
+
+Scope: the **Core Features** group only (m10–m15). Every existing visual + interview
+Q&A preserved; each module gains a `🔬 Lab` tab, progressive-disclosure "going deeper"
+blocks, and its interview Q&A expanded 3 → 6 (Foundation→Senior). Pinned to dbt Core 1.9.
+All labs are clearly labelled local simulations (real execution stays in Coding Studio /
+the downloadable project). Shared `.cf-*` stylesheet in enhancements.css.
+
+- **Wave 1** — m15 *Wire the DAG* (choose each ref()/source() target; graph forms live;
+  flags missing refs, hardcoded tables, wrong targets, cycles) · m10 *Compile & Materialize*
+  (materialization chips + dev/prod target → source → compiled SQL → materialization
+  wrapper DDL → behaviour table).
+- **Wave 2** — m13 *Incremental run* (compose new/updated/late/duplicate batch + watermark
+  operator + lookback + strategy → per-row fate & why; models merge/append/delete+insert,
+  late-data miss, boundary ties, merge dup-key conflict) · m11 *Break a test* (inject bad
+  rows → each generic/singular test as its real failures query; severity warn vs error and
+  the deploy gate).
+- **Wave 3** — m12 *Snapshot over time* (step successive loads; SCD-2 validity windows;
+  timestamp vs check incl. the stale-updated_at miss) · m14 *Expand a macro* (args/defaults,
+  a for-loop surrogate key, computed fiscal-quarter CASE, env-aware target logic → compiled SQL).
+
+Each wave: content-lint 0/0, `node --check` + ESM import, headless render + lab interactions
+(both themes) 0 pageerrors, merged to `main`.
+
 ## Verification gates (every wave)
 
 1. `node tools/content-lint.mjs` → 0 errors
