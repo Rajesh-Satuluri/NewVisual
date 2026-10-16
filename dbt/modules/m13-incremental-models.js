@@ -55,6 +55,39 @@ const IQ = [
     <strong>Rule of thumb:</strong> A 1B-row Redshift table with 100K new rows/day is the sweet spot. A 10M-row table that's fully requeried in 90 seconds doesn't need incremental — the complexity cost exceeds the savings.`,
     tip: '"The complexity cost of incremental must exceed the compute savings to justify it" is a mature engineering take. Interviewers will probe whether you use it by default or by judgement.',
   },
+  {
+    q: 'Explain the `>` vs `>=` watermark bug and the exact failure each one causes.',
+    a: `The incremental filter is <code>where updated_at [op] (select max(updated_at) from {{ this }})</code>. The operator choice is a trade-off between <strong>missing</strong> and <strong>duplicating</strong>:
+    <ul>
+      <li><strong><code>&gt;</code> (strict):</strong> on each run you reprocess nothing at the boundary. But any row whose <code>updated_at</code> <em>equals</em> the current max — a tie at the exact watermark second — is excluded next run and <strong>silently lost</strong>. Common when many rows share a batch-load timestamp.</li>
+      <li><strong><code>&gt;=</code>:</strong> you never miss boundary ties, but the row(s) at exactly the watermark get <strong>reprocessed every run</strong> — harmless with <code>merge</code> (idempotent upsert), but with <code>append</code> it produces growing duplicates.</li>
+    </ul>
+    <strong>The robust pattern:</strong> use <code>&gt;=</code> with a <code>unique_key</code> + <code>merge</code> (reprocessing the boundary is then idempotent), or <code>&gt;</code> plus a lookback window. Never <code>&gt;=</code> with <code>append</code>. Try both operators in the Lab tab with a tie at the boundary.`,
+    tip: 'Frame it as "strict > risks missing boundary ties; >= risks reprocessing them. merge makes >= safe; append makes >= dangerous." That shows you reason about it as a correctness trade-off, not a style choice.',
+  },
+  {
+    q: 'What do `append`, `merge`, and `delete+insert` incremental strategies actually do differently?',
+    a: `All three decide how passing rows are written; they differ in how they treat keys that already exist:
+    <ul>
+      <li><strong>append</strong> — blind <code>INSERT</code> of every new row. No <code>unique_key</code> needed, fastest, but it <em>never</em> updates: a changed existing row becomes a second physical row. Only safe for immutable, append-only events.</li>
+      <li><strong>merge</strong> — <code>MERGE</code> on <code>unique_key</code>: existing keys are updated in place, new keys inserted. Idempotent. Requires unique keys in the <em>incoming batch</em> — duplicate source keys raise an error on Snowflake/BigQuery.</li>
+      <li><strong>delete+insert</strong> — delete target rows whose key is in the batch, then insert the batch. Achieves an upsert without a native MERGE (handy on engines where MERGE is costly, e.g. some Redshift/Spark cases), but within-batch duplicate keys still land as duplicate rows.</li>
+    </ul>
+    Adapter note: the <em>default</em> strategy differs by warehouse (Snowflake/BigQuery/Databricks default to <code>merge</code>; older Redshift/Spark often <code>append</code> or <code>delete+insert</code>).`,
+    tip: 'Name the adapter defaults — "merge on Snowflake/BigQuery, delete+insert or append elsewhere." It signals you have shipped on more than one warehouse.',
+  },
+  {
+    q: 'What does `on_schema_change` do, and why can\'t it handle every schema change?',
+    a: `<code>on_schema_change</code> controls what happens when your model's column set no longer matches the existing incremental table:
+    <ul>
+      <li><code>ignore</code> (older default) — new columns are not added; they're silently dropped from the insert.</li>
+      <li><code>append_new_columns</code> — new columns are added to the table (existing rows get NULL for them).</li>
+      <li><code>sync_all_columns</code> — adds new <em>and</em> removes deleted columns.</li>
+      <li><code>fail</code> — abort so a human decides.</li>
+    </ul>
+    <strong>What it cannot do:</strong> it only reconciles the <em>column set</em>. It does <strong>not</strong> backfill the new column's values for historical rows, change a column's data <em>type</em>, or recompute changed business logic. Any of those needs a <code>--full-refresh</code>. So <code>on_schema_change</code> smooths additive column changes; it is not a substitute for rebuilding when semantics change.`,
+    tip: 'The line "it reconciles columns, not history or logic — those need --full-refresh" is the senior distinction. Juniors think it handles all schema evolution.',
+  },
 ];
 
 export function mount(container) {
@@ -64,16 +97,173 @@ export function mount(container) {
     subtitle: 'Don\'t reprocess 10 billion rows every night. Process only what\'s new.',
     tabs: [
       { id: 'visual', label: '🎬 Full vs Incremental' },
+      { id: 'lab',    label: '🔬 Lab · Incremental run' },
       { id: 'detail', label: '📋 How It Works' },
       { id: 'iq',     label: '🎯 Interview Q&A' },
     ]
   });
 
   const cleanup = buildVisual(container);
+  buildLab(container);
   buildDetail(container);
   container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
   return cleanup;
 }
+
+// ── Lab D · Incremental data processing ───────────────────────────────────────
+// Deterministic simulation of one incremental run. You compose an incoming batch
+// (new / updated / late-arriving / duplicate-key rows), choose the watermark
+// operator + lookback and the incremental_strategy, and see exactly which rows
+// are processed, which are silently missed, and which create duplicates — and
+// why. No SQL is executed; this models dbt's documented merge/append behaviour.
+const WM = 240;                           // watermark = D10 00:00 (hours since epoch)
+const EXISTS_MAX = 100;                   // target already holds order_id 1..100
+const isExisting = id => id <= EXISTS_MAX;
+const fmtTs = (h) => `D${Math.floor(h / 24)} ${String(h % 24).padStart(2, '0')}:00`;
+
+function buildBatch(c) {
+  const rows = [];
+  for (let i = 1; i <= c.neu; i++)    rows.push({ id: EXISTS_MAX + i, ts: WM + 2 + i, role: 'new' });
+  for (let i = 1; i <= c.upd; i++)    rows.push({ id: i, ts: WM + 1 + i, role: 'updated' });
+  for (let i = 1; i <= c.late; i++)   rows.push({ id: 200 + i, ts: WM - i, role: 'late' });
+  for (let i = 1; i <= c.dup; i++)    rows.push({ id: EXISTS_MAX + 1, ts: WM + 4 + i, role: 'dup' }); // repeats first new key
+  return rows;
+}
+
+function buildLab(container) {
+  const tab = container.querySelector('#tab-lab');
+  const st = { neu: 3, upd: 2, late: 2, dup: 0, op: '>', lookback: 0, strategy: 'merge' };
+
+  const num = (id, label, val, max) => `
+    <div class="cf-field"><label for="${id}">${label}</label>
+      <input type="number" id="${id}" min="0" max="${max}" value="${val}"></div>`;
+
+  tab.innerHTML = `
+    <div class="cf-lab">
+      <div class="cf-lab-intro">
+        <strong>Run one incremental batch.</strong> Compose what arrives tonight, pick the watermark rule and
+        the <code>incremental_strategy</code>, then read which rows dbt would process, miss, or duplicate — and
+        why. The target already holds <code>order_id 1–100</code>; the watermark is <code>${fmtTs(WM)}</code>.
+        <span class="cf-sim">🧪 Deterministic model of dbt's documented merge/append behaviour — no SQL runs.</span>
+      </div>
+      <div class="cf-controls">
+        ${num('m13-new', 'New rows', st.neu, 5)}
+        ${num('m13-upd', 'Updated (existing keys)', st.upd, 4)}
+        ${num('m13-late', 'Late-arriving', st.late, 4)}
+        ${num('m13-dup', 'Duplicate keys', st.dup, 3)}
+        <div class="cf-field"><label for="m13-op">Watermark operator</label>
+          <select id="m13-op"><option value="&gt;">&gt; (strict)</option><option value="&gt;=">&gt;= </option></select></div>
+        <div class="cf-field"><label for="m13-lb">Lookback window</label>
+          <select id="m13-lb"><option value="0">none (strict)</option><option value="3">3 hours</option><option value="6">6 hours</option><option value="24">24 hours</option></select></div>
+        <div class="cf-field"><label for="m13-strat">incremental_strategy</label>
+          <select id="m13-strat"><option value="merge">merge (unique_key)</option><option value="append">append</option><option value="delete+insert">delete+insert</option></select></div>
+      </div>
+      <div class="cf-pane"><div class="cf-pane-h">Compiled filter · what dbt sends on an incremental run</div>
+        <pre id="m13-filter"></pre></div>
+      <div class="cf-pane"><div class="cf-pane-h">Incoming batch · fate of each row</div>
+        <div style="overflow-x:auto;padding:10px"><table class="cf-simtable" id="m13-table"></table></div></div>
+      <div class="cf-readout" id="m13-verdict"></div>
+    </div>`;
+
+  const readInputs = () => {
+    st.neu = +tab.querySelector('#m13-new').value || 0;
+    st.upd = +tab.querySelector('#m13-upd').value || 0;
+    st.late = +tab.querySelector('#m13-late').value || 0;
+    st.dup = +tab.querySelector('#m13-dup').value || 0;
+    st.op = tab.querySelector('#m13-op').value.includes('=') ? '>=' : '>';
+    st.lookback = +tab.querySelector('#m13-lb').value || 0;
+    st.strategy = tab.querySelector('#m13-strat').value;
+  };
+
+  function simulate() {
+    const batch = buildBatch(st);
+    const threshold = WM - st.lookback;
+    const passes = r => st.op === '>=' ? r.ts >= threshold : r.ts > threshold;
+
+    // within-batch key multiplicity (for duplicate detection)
+    const keyCount = {};
+    batch.forEach(r => { if (passes(r)) keyCount[r.id] = (keyCount[r.id] || 0) + 1; });
+    const seen = {};
+
+    const out = batch.map(r => {
+      if (!passes(r)) return { ...r, fate: 'miss', why: `${fmtTs(r.ts)} is below the watermark — filtered out` };
+      seen[r.id] = (seen[r.id] || 0) + 1;
+      const dupInBatch = keyCount[r.id] > 1;
+      if (st.strategy === 'append') {
+        if (isExisting(r.id)) return { ...r, fate: 'dup', why: 'append INSERTs — existing key becomes a 2nd row (no upsert)' };
+        if (dupInBatch && seen[r.id] > 1) return { ...r, fate: 'dup', why: 'append INSERTs every row — repeated key duplicated' };
+        return { ...r, fate: 'new', why: 'inserted as a new row' };
+      }
+      if (st.strategy === 'merge') {
+        if (dupInBatch) return { ...r, fate: seen[r.id] > 1 ? 'dup' : 'upd', why: 'duplicate unique_key in source — merge is ambiguous' };
+        return isExisting(r.id)
+          ? { ...r, fate: 'upd', why: 'merged on unique_key — existing row updated' }
+          : { ...r, fate: 'new', why: 'merged on unique_key — inserted' };
+      }
+      // delete+insert
+      if (dupInBatch && seen[r.id] > 1) return { ...r, fate: 'dup', why: 'delete+insert inserts every batch row — repeated key duplicated' };
+      return isExisting(r.id)
+        ? { ...r, fate: 'upd', why: 'matching key deleted then re-inserted (net update)' }
+        : { ...r, fate: 'new', why: 'inserted as a new row' };
+    });
+
+    const n = f => out.filter(r => r.fate === f).length;
+    const mergeDupConflict = st.strategy === 'merge' && Object.values(keyCount).some(c => c > 1);
+    return { out, missed: n('miss'), dups: n('dup'), news: n('new'), upds: n('upd'), mergeDupConflict, threshold };
+  }
+
+  const ROLE = { new: 'new', updated: 'upd', late: 'skip', dup: 'dup' };
+  const FATE = { new: ['new', 'INSERT'], upd: ['upd', 'UPDATE'], dup: ['dup', 'DUPLICATE'], miss: ['miss', 'MISSED'] };
+
+  function render() {
+    readInputs();
+    const { out, missed, dups, news, upds, mergeDupConflict, threshold } = simulate();
+
+    const lbTxt = st.lookback > 0 ? ` - interval '${st.lookback} hours'` : '';
+    container.querySelector('#m13-filter').innerHTML =
+      esc(`{{ config(materialized='incremental', unique_key='order_id',
+          incremental_strategy='${st.strategy}') }}
+
+{% if is_incremental() %}
+where updated_at ${st.op} (
+    select max(updated_at)${lbTxt} from {{ this }}
+)   -- threshold = ${fmtTs(threshold)}
+{% endif %}`);
+
+    container.querySelector('#m13-table').innerHTML = `
+      <thead><tr><th>order_id</th><th>updated_at</th><th>in batch as</th><th>passes filter?</th><th>result</th><th>why</th></tr></thead>
+      <tbody>${out.map(r => {
+        const [cls, tag] = FATE[r.fate];
+        const pass = r.fate !== 'miss';
+        return `<tr class="cf-row-${cls}">
+          <td>${r.id}${isExisting(r.id) ? '' : ' <span style="opacity:.5">(new key)</span>'}</td>
+          <td>${fmtTs(r.ts)}</td>
+          <td><span class="cf-tag ${ROLE[r.role]}">${r.role}</span></td>
+          <td>${pass ? '✓' : '✕'}</td>
+          <td><span class="cf-tag ${cls}">${tag}</span></td>
+          <td style="font-family:inherit">${r.why}</td></tr>`;
+      }).join('')}</tbody>`;
+
+    const ro = container.querySelector('#m13-verdict');
+    const msgs = [];
+    if (mergeDupConflict) msgs.push(`<div class="cf-ro-row err">⛔ <strong>merge aborts:</strong> the source batch has a duplicate <code>unique_key</code>. Snowflake &amp; BigQuery raise <em>"duplicate rows in source"</em>. Deduplicate the source (e.g. <code>qualify row_number() over (partition by order_id order by updated_at desc) = 1</code>) before loading.</div>`);
+    if (missed > 0) msgs.push(`<div class="cf-ro-row err">⚠ <strong>${missed} late-arriving row(s) silently dropped.</strong> They sit below the watermark, so the filter excludes them forever. Raise the <em>lookback window</em> above the lateness, or track a reliable <code>loaded_at</code> instead of event time.</div>`);
+    if (dups > 0) msgs.push(`<div class="cf-ro-row warn">⚠ <strong>${dups} duplicate row(s) created.</strong> ${st.strategy === 'append' ? 'append never upserts — switch to <code>merge</code> with a <code>unique_key</code> to update existing rows in place.' : 'the batch contains repeated keys — dedupe the source before insert.'}</div>`);
+    const clean = !mergeDupConflict && missed === 0 && dups === 0;
+    ro.className = `cf-readout ${clean ? 'ok' : 'bad'}`;
+    ro.innerHTML = `
+      <div class="cf-ro-head">${clean ? '✅' : '⚠️'} ${news} inserted · ${upds} updated · ${dups} duplicated · ${missed} missed</div>
+      ${clean
+        ? `<div class="cf-ro-row ok">Every new and updated row was processed exactly once, nothing was missed, and no duplicates were created. This is the behaviour you want: <code>merge</code> on a <code>unique_key</code>, with a lookback window wide enough to catch late data.</div>`
+        : msgs.join('')}`;
+  }
+
+  tab.addEventListener('input', e => { if (e.target.closest('.cf-controls')) render(); });
+  tab.addEventListener('change', e => { if (e.target.closest('.cf-controls')) render(); });
+  tab.querySelector('#m13-strat').value = st.strategy;
+  render();
+}
+const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 function buildVisual(container) {
   const tab = container.querySelector('#tab-visual');
@@ -324,6 +514,22 @@ FROM {{ source('clickstream', 'raw_events') }}
           </tbody>
         </table>
       </div>
+    </div>
+    <div class="detail-section">
+      <h3>Going deeper — the four failure modes</h3>
+      <p>Incremental models trade compute for correctness risk. Every production incident traces to one of these four — work them live in the <strong>Lab</strong> tab.</p>
+      <details class="cf-det"><summary>1 · Late-arriving data silently dropped</summary>
+        <p>A strict <code>updated_at &gt; max(updated_at)</code> excludes any row that arrives after the run but carries an earlier event time (offline mobile client, delayed webhook). It is never reprocessed — the data is simply gone from the model. Fixes: a <strong>lookback window</strong> (<code>max(updated_at) - interval '3 hours'</code>) wide enough to cover realistic lateness, or filter on a reliable <code>loaded_at</code> (ingestion time) instead of event time.</p>
+      </details>
+      <details class="cf-det"><summary>2 · Boundary ties (&gt; vs &gt;=)</summary>
+        <p>When many rows share the exact max timestamp, <code>&gt;</code> drops the ties and <code>&gt;=</code> reprocesses them. Safe combination: <code>&gt;=</code> with <code>merge</code> on a <code>unique_key</code> (reprocessing is idempotent). Dangerous: <code>&gt;=</code> with <code>append</code> (duplicates grow every run).</p>
+      </details>
+      <details class="cf-det"><summary>3 · Duplicates from the wrong strategy</summary>
+        <p><code>append</code> never upserts — a corrected existing row becomes a second physical row. Use <code>merge</code> with <code>unique_key</code> for anything mutable. And <code>merge</code> needs unique keys <em>within the incoming batch</em>: duplicate source keys error on Snowflake/BigQuery, so dedupe the source (<code>qualify row_number() … = 1</code>) first.</p>
+      </details>
+      <details class="cf-det"><summary>4 · Stale schema / logic (why --full-refresh exists)</summary>
+        <p><code>on_schema_change</code> reconciles the column set but never backfills values, changes types, or recomputes changed logic. When the model's SQL semantics change, the only correct rebuild is <code>dbt run --full-refresh</code>, which drops and recreates the table from scratch (is_incremental() is false that run).</p>
+      </details>
     </div>
     <div class="detail-section">
       <h3>What problem did incremental models solve?</h3>
