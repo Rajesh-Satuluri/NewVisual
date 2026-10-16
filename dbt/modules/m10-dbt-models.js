@@ -59,6 +59,37 @@ const IQ = [
     <strong>Rule of thumb:</strong> If you're unsure, use <code>view</code>. Ephemeral is an optimization for very specific situations.`,
     tip: 'Most candidates know what ephemeral models are. Knowing when NOT to use them (multiple consumers, need for testing, debugging difficulty) is what separates a practitioner from someone who just read the docs.',
   },
+  {
+    q: 'What exactly does `{{ ref(\'stg_orders\') }}` compile to, and why not just hardcode the table name?',
+    a: `<code>ref()</code> does <strong>two</strong> jobs at once:
+    <ol>
+      <li><strong>Resolution</strong> — at compile time it is replaced with the model's fully-qualified physical relation: <code>"analytics"."stg_orders"</code> in prod, but <code>"analytics_dev_alice"."stg_orders"</code> in your dev target. The <em>same</em> code resolves to different relations per environment — that is what makes one project safe to run in dev, CI, and prod.</li>
+      <li><strong>Dependency</strong> — it records a DAG edge so dbt builds <code>stg_orders</code> before this model.</li>
+    </ol>
+    <strong>Hardcoding</strong> <code>analytics.stg_orders</code> throws both away: no edge (dbt may build this model before its parent, or in the wrong order), and no environment portability (your dev run reads prod tables, or fails). It also breaks <code>state:modified+</code> selection and lineage. ref() is non-negotiable for any dbt-managed relation.`,
+    tip: 'Lead with "ref does two things — resolution AND dependency." Candidates who only mention the dependency edge miss the environment-portability half that senior engineers care about.',
+  },
+  {
+    q: 'A model compiles fine but fails at runtime. How is that possible — isn\'t compilation the check?',
+    a: `Compilation and execution are <strong>separate stages that catch different errors</strong>:
+    <ul>
+      <li><strong>Compile</strong> renders Jinja and resolves <code>ref()</code>/<code>source()</code> into SQL text. It catches Jinja errors, unknown refs, and cycles — but it does <em>not</em> run the SQL or talk to the warehouse. A compiled model is just a string.</li>
+      <li><strong>Execute</strong> wraps that SQL in a materialization (<code>create table … as …</code>) and sends it to the adapter. This is where the warehouse validates it: a column that doesn't exist, a type mismatch, a division by zero, insufficient permissions, a duplicate on a merge key.</li>
+    </ul>
+    So <code>dbt compile</code> passing only means "the SQL is well-formed and dependencies resolve." Correctness against the actual data is proven only by <code>dbt run</code> (and then <code>dbt test</code>). This is why CI runs the models, not just compiles them.`,
+    tip: 'The crisp framing: "compile proves the SQL is well-formed; execute proves it is correct against the warehouse." Give one concrete runtime-only error (type mismatch, missing column) to show you have hit it.',
+  },
+  {
+    q: 'Why should `source()` appear only in staging models, never in marts?',
+    a: `It is a <strong>layering contract</strong>. Staging models are the single place raw sources enter the project; everything downstream refs <em>models</em>, never raw tables. That gives you:
+    <ul>
+      <li><strong>One place to adapt to source change.</strong> If the raw schema changes (renamed column, new source system), you fix one staging model, not fifty marts.</li>
+      <li><strong>Consistent cleaning.</strong> Casting, renaming, deduplication happen once in staging; marts trust clean inputs.</li>
+      <li><strong>Correct lineage &amp; freshness.</strong> Sources attach freshness checks; keeping <code>source()</code> in staging keeps the raw→staging boundary explicit in the DAG.</li>
+    </ul>
+    A <code>source()</code> call inside a mart is a smell: it couples business logic directly to raw ingestion and scatters the blast radius of a source change.`,
+    tip: 'Call it "the staging layer is the project\'s anti-corruption layer for raw data." That vocabulary signals you think in architecture, not just syntax.',
+  },
 ];
 
 export function mount(container) {
@@ -68,15 +99,178 @@ export function mount(container) {
     subtitle: 'SQL files that know about each other. ref() creates the dependency graph; dbt handles the rest.',
     tabs: [
       { id: 'visual', label: '🎬 DAG Build' },
+      { id: 'lab',    label: '🔬 Lab · Compile & Materialize' },
       { id: 'detail', label: '📋 How Models Work' },
       { id: 'iq',     label: '🎯 Interview Q&A' },
     ]
   });
 
   const cleanup = buildVisual(container);
+  buildLab(container);
   buildDetail(container);
   container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
   return cleanup;
+}
+
+// ── Lab B + C · Compile the model / Choose a materialization ──────────────────
+// One model, two levers: the target (dev/prod) changes how ref() resolves into a
+// physical relation; the materialization changes the DDL dbt wraps around the
+// compiled SELECT. Everything is illustrative compiled SQL — the exact statement
+// varies by adapter, and nothing is executed. Run it for real in the Coding
+// Studio (DuckDB-WASM) or the downloadable project.
+const MATS = [
+  { id: 'view',        label: 'view' },
+  { id: 'table',       label: 'table' },
+  { id: 'incremental', label: 'incremental' },
+  { id: 'ephemeral',   label: 'ephemeral' },
+];
+const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+function buildLab(container) {
+  const tab = container.querySelector('#tab-lab');
+  let mat = 'table', target = 'prod';
+
+  tab.innerHTML = `
+    <div class="cf-lab">
+      <div class="cf-lab-intro">
+        <strong>One model, two levers.</strong> Pick a <em>materialization</em> to see the DDL dbt wraps
+        around your <code>select</code>; switch the <em>target</em> to watch <code>ref()</code> resolve to a
+        different physical relation. The <code>select</code> you write never changes — dbt changes everything
+        around it.
+        <span class="cf-sim">🧪 Illustrative compiled SQL — exact DDL varies by adapter; nothing is executed. Run it for real in <a href="#studio" style="color:inherit;text-decoration:underline">Coding Studio</a>.</span>
+      </div>
+      <div class="cf-controls">
+        <div class="cf-field"><label>Materialization</label>
+          <div class="cf-chips" id="m10-mats">
+            ${MATS.map(m => `<button class="cf-chip${m.id === mat ? ' active' : ''}" data-mat="${m.id}">${m.label}</button>`).join('')}
+          </div>
+        </div>
+        <div class="cf-field"><label for="m10-target">Target (profiles.yml)</label>
+          <select id="m10-target">
+            <option value="prod">prod → schema "analytics"</option>
+            <option value="dev">dev → schema "analytics_dev_alice"</option>
+          </select>
+        </div>
+      </div>
+      <div class="cf-two">
+        <div class="cf-pane"><div class="cf-pane-h">Model source · models/marts/fct_orders.sql</div>
+          <pre id="m10-src"></pre></div>
+        <div class="cf-pane"><div class="cf-pane-h">Compiled SQL · what your SELECT becomes</div>
+          <pre id="m10-compiled"></pre></div>
+      </div>
+      <div class="cf-pane"><div class="cf-pane-h" id="m10-wrap-h">What dbt executes · materialization wrapper</div>
+        <pre id="m10-wrap"></pre></div>
+      <div class="cf-pane"><div class="cf-pane-h">Behaviour at a glance</div>
+        <div id="m10-facts"></div></div>
+    </div>`;
+
+  const rel = (name) => {
+    const schema = target === 'prod' ? 'analytics' : 'analytics_dev_alice';
+    return `"${schema}"."${name}"`;
+  };
+
+  const sourceSql = () => `{{ config(
+    materialized='${mat}'${mat === 'incremental' ? `,
+    unique_key='order_id'` : ''}
+) }}
+
+select
+    o.order_id,
+    o.customer_id,
+    o.order_date,
+    o.amount,
+    p.payment_amount
+from {{ ref('stg_orders') }} o
+left join {{ ref('stg_payments') }} p on p.order_id = o.order_id
+{% if is_incremental() %}
+where o.order_date > (select max(order_date) from {{ this }})
+{% endif %}`;
+
+  const compiledSelect = (withFilter) => `select
+    o.order_id,
+    o.customer_id,
+    o.order_date,
+    o.amount,
+    p.payment_amount
+from ${rel('stg_orders')} o
+left join ${rel('stg_payments')} p on p.order_id = o.order_id${withFilter ? `
+where o.order_date > (select max(order_date) from ${rel('fct_orders')})` : ''}`;
+
+  const indent = (s) => s.split('\n').map(l => '  ' + l).join('\n');
+
+  const wrapper = () => {
+    const r = rel('fct_orders');
+    if (mat === 'view')
+      return `create or replace view ${r} as (\n${indent(compiledSelect(false))}\n);`;
+    if (mat === 'table')
+      return `create or replace table ${r} as (\n${indent(compiledSelect(false))}\n);`;
+    if (mat === 'incremental')
+      return `-- FIRST run (table does not exist): is_incremental() is false,
+-- so dbt builds the whole table with no watermark filter:
+create table ${r} as (
+${indent(compiledSelect(false))}
+);
+
+-- EVERY LATER run: is_incremental() is true. dbt builds only new rows
+-- into a temp relation, then merges them on unique_key = order_id:
+create temporary table "fct_orders__dbt_tmp" as (
+${indent(compiledSelect(true))}
+);
+
+merge into ${r} as target
+using "fct_orders__dbt_tmp" as source
+    on target.order_id = source.order_id
+when matched then update set
+    customer_id = source.customer_id,
+    order_date = source.order_date,
+    amount = source.amount,
+    payment_amount = source.payment_amount
+when not matched then insert
+    (order_id, customer_id, order_date, amount, payment_amount)
+    values (source.order_id, source.customer_id, source.order_date,
+            source.amount, source.payment_amount);`;
+    // ephemeral
+    return `-- Nothing is created for fct_orders. It is NOT a warehouse object.
+-- Instead, dbt inlines the compiled SELECT as a CTE into EVERY model
+-- that refs it. A downstream model { ref('fct_orders') } compiles to:
+
+with fct_orders as (
+${indent(compiledSelect(false))}
+)
+select *
+from fct_orders
+where amount > 0;`;
+  };
+
+  const FACTS = {
+    view:        [['Warehouse object', 'A view — stores no data, just the query definition'], ['On each run', 'Recreated (cheap — only the definition)'], ['On each query', 'The SELECT re-executes against live upstream data'], ['Queryable / testable', 'Yes / Yes'], ['Best for', 'Staging & light transforms; always-fresh small models']],
+    table:       [['Warehouse object', 'A physical table — full data stored'], ['On each run', 'Dropped & rebuilt from scratch (create or replace)'], ['On each query', 'Fast — reads materialized rows, no recompute'], ['Queryable / testable', 'Yes / Yes'], ['Best for', 'The safe default; marts queried often, rebuilt affordably']],
+    incremental: [['Warehouse object', 'A physical table, grown over time'], ['On each run', 'First run: full build. After: only new/changed rows merged'], ['On each query', 'Fast — reads materialized rows'], ['Queryable / testable', 'Yes / Yes (watch late-arriving data — see M13)'], ['Best for', 'Large event/fact tables where full refresh is too slow']],
+    ephemeral:   [['Warehouse object', 'None — never materialized'], ['On each run', 'Not built; inlined as a CTE into each consumer'], ['On each query', 'Runs once per downstream model that refs it (N times if N consumers)'], ['Queryable / testable', 'No / No — invisible in the warehouse'], ['Best for', 'Trivial single-consumer logic; avoid for shared/tested models']],
+  };
+
+  function render() {
+    container.querySelector('#m10-src').innerHTML = esc(sourceSql());
+    container.querySelector('#m10-compiled').innerHTML = esc(
+      mat === 'ephemeral'
+        ? '-- Ephemeral models are never compiled to a standalone relation.\n-- Their SELECT is inlined into consumers (see the wrapper below).'
+        : compiledSelect(mat === 'incremental'));
+    container.querySelector('#m10-wrap').innerHTML = esc(wrapper());
+    container.querySelector('#m10-wrap-h').textContent =
+      mat === 'ephemeral' ? 'What dbt executes · nothing — inlined into consumers' : 'What dbt executes · materialization wrapper';
+    container.querySelector('#m10-facts').innerHTML = FACTS[mat]
+      .map(([k, v]) => `<div class="cf-fact"><span class="cf-fact-k">${k}</span><span>${v}</span></div>`).join('');
+  }
+
+  tab.querySelector('#m10-mats').addEventListener('click', e => {
+    const b = e.target.closest('.cf-chip'); if (!b) return;
+    mat = b.dataset.mat;
+    tab.querySelectorAll('#m10-mats .cf-chip').forEach(c => c.classList.toggle('active', c.dataset.mat === mat));
+    render();
+  });
+  tab.querySelector('#m10-target').addEventListener('change', e => { target = e.target.value; render(); });
+
+  render();
 }
 
 function buildVisual(container) {
@@ -328,6 +522,30 @@ JOIN {{ ref('stg_products') }} p        -- and here
           </tbody>
         </table>
       </div>
+    </div>
+    <div class="detail-section">
+      <h3>Going deeper — the mechanism</h3>
+      <details class="cf-det"><summary>How a logical model name becomes a physical relation</summary>
+        <p>A model's <em>logical</em> name is its filename: <code>stg_orders.sql</code> → <code>stg_orders</code>. Its <em>physical</em> relation is <code>database.schema.identifier</code>, and dbt computes it from the active target, not from your SQL:</p>
+        <ul>
+          <li><strong>database / schema</strong> come from your <code>profiles.yml</code> target (plus any <code>generate_schema_name</code> logic). Prod target → <code>analytics.stg_orders</code>; a dev target → <code>analytics_dev_alice.stg_orders</code>.</li>
+          <li><strong>identifier</strong> defaults to the model name, unless you set <code>alias</code>.</li>
+        </ul>
+        <p>So the same <code>{{ ref('stg_orders') }}</code> resolves differently per environment — the compiled SQL is environment-specific even though the model file is not. Try the <strong>target</strong> toggle in the Lab tab to see both.</p>
+      </details>
+      <details class="cf-det"><summary>Compiled SQL ≠ what the warehouse runs</summary>
+        <p>Compiled SQL is just your <code>select</code> with refs resolved. What actually executes is that select <em>wrapped</em> in a materialization statement:</p>
+        <ul>
+          <li><code>view</code> → <code>create or replace view … as (select …)</code></li>
+          <li><code>table</code> → <code>create or replace table … as (select …)</code></li>
+          <li><code>incremental</code> → first run is a plain create; later runs build new rows into a temp relation and <code>merge</code>/<code>insert</code> them on the <code>unique_key</code></li>
+          <li><code>ephemeral</code> → no statement at all; the select is inlined as a CTE into each consumer</li>
+        </ul>
+        <p>The exact DDL is adapter-specific (Snowflake, BigQuery, Databricks and Postgres each differ, e.g. merge vs insert-overwrite). The Lab tab shows the illustrative wrapper for each.</p>
+      </details>
+      <details class="cf-det"><summary>Why ephemeral models run N times for N consumers</summary>
+        <p>Because an ephemeral model is inlined rather than built, each downstream model that refs it gets its own private copy of the CTE — and therefore re-runs that logic every time. One ephemeral model used by five marts executes its SQL five times per run. For shared or expensive logic, a <code>view</code> (compute once logically) or <code>table</code> (compute once, store) is almost always better. Ephemeral is an optimization for trivial, single-consumer glue only.</p>
+      </details>
     </div>
     <div class="detail-section">
       <h3>What problem did dbt models solve?</h3>
