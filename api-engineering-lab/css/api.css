@@ -306,3 +306,18 @@ body[data-mode="interview"] [data-mode-only]:not([data-mode-only~="interview"]) 
 .sc-chip.st-4xx .sc-code { color: var(--orange); }
 .sc-chip.st-5xx .sc-code { color: var(--red); }
 
+/* ── Good vs bad naming rows ───────────────────────────────── */
+.gb-row { padding: var(--space-3); border: 1px solid var(--border-default); border-radius: var(--radius-md); margin-bottom: var(--space-2); cursor: pointer; background: var(--bg-2); }
+.gb-row:hover { border-color: var(--border-emphasis); }
+.gb-pair { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; font-family: var(--font-mono); font-size: var(--text-sm); }
+.gb-bad { color: var(--red); }
+.gb-good { color: var(--green); }
+.gb-arrow { color: var(--text-muted); }
+.gb-why { margin-top: var(--space-2); font-size: var(--text-sm); color: var(--text-secondary); font-family: var(--font-ui); }
+
+/* ── Pagination controls ──────────────────────────────────── */
+.pg-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--space-3); align-items: end; }
+.pg-controls .field { margin-bottom: 0; }
+.pg-nav { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.pg-nav #pg-pageinfo { color: var(--text-muted); font-size: var(--text-sm); margin: 0 auto; }
+
