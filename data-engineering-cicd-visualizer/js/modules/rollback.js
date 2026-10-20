@@ -125,6 +125,65 @@
       { q: "What pipeline design choices make rollback fast and safe?", a: "<b>Immutable, pinned artifacts</b> (digest/Helm revision, never <code>:latest</code>) so the prior version is instantly redeployable; <b>idempotent, partitioned loads</b> (merge/delete-insert) so any date range can be safely re-run; and <b>snapshots/time travel</b> so data can be restored. Rollback speed is a property you build in before the incident, not something you improvise during it." }
     ],
 
+    problem: {
+      before: "When a release went bad, teams scrambled to hand-fix production live, or rebuilt an old commit under pressure, hoping it matched what had worked.",
+      insufficient: "Ad-hoc recovery is slow and error-prone exactly when stress is highest. And for data pipelines, reverting the <i>code</i> doesn't undo the <i>wrong data</i> already written — a crucial distinction manual scrambling misses.",
+      failureModes: [
+        "Code is rolled back but the bad revenue numbers already in the warehouse remain.",
+        "A hand-fix in prod diverges from the repo and is lost on the next deploy.",
+        "No last-good artifact exists, so 'rollback' means a slow rebuild."
+      ]
+    },
+    definition: {
+      formal: "<b>Rollback</b> returns a system to a previous known-good state. For deployments this means re-pointing to the prior <b>artifact</b>. A <b>forward fix</b> instead ships a new corrected version. Crucially, <b>code/config rollback</b> ≠ <b>data recovery</b>: undoing a deploy does not undo data the bad version already wrote.",
+      distinguish: [
+        { from: "Rollback vs forward fix", note: "Rollback restores the last-good version fast; a forward fix corrects the problem in a new release. Choose by speed, risk, and whether the old version is still valid." },
+        { from: "Code rollback vs data recovery", note: "Re-pointing to the old artifact fixes behavior going forward; it doesn't repair rows already written — those need a backfill/restore." },
+        { from: "Config rollback vs code rollback", note: "Sometimes only a config/flag change caused the incident; reverting config is faster and lower-risk than redeploying code." }
+      ]
+    },
+    comparisons: [
+      { title: "Rollback vs forward fix", aLabel: "Rollback", bLabel: "Forward fix",
+        rows: [
+          { dim: "Speed", a: "Fast — re-point to last good", b: "Slower — build + ship a fix" },
+          { dim: "Risk", a: "Low if old version still valid", b: "Depends on the fix" },
+          { dim: "When", a: "Old version is fine & schema compatible", b: "Can't go back (e.g. migration) — must go forward" }
+        ],
+        verdict: "Default to rollback when the previous version is still valid; forward-fix when a schema/data change makes going back impossible." }
+    ],
+    knowledgeChecks: [
+      { level: "Explain", q: "You roll back the code but the dashboard is still wrong. Why?",
+        options: [
+          { label: "Code rollback doesn't undo data the bad version already wrote", ok: true, why: "Data recovery (backfill/restore) is a separate step." },
+          { label: "The rollback failed", ok: false, why: "It may have succeeded — the written data is the issue." },
+          { label: "Rollbacks never work for data", ok: false, why: "They fix behavior forward; the point is data needs its own recovery." }
+        ], revisit: "rollback" },
+      { level: "Decide", q: "A migration changed the schema, then a bug appeared. Rollback or forward fix?",
+        options: [
+          { label: "Often forward fix — you may not be able to go back", ok: true, why: "A schema/data migration can make the old version incompatible." },
+          { label: "Always rollback", ok: false, why: "Rolling back code against a migrated schema can break worse." },
+          { label: "Do nothing", ok: false, why: "The incident needs a deliberate recovery path." }
+        ], revisit: "rollback" },
+      { level: "Apply", q: "What makes rollback fast and safe?",
+        options: [
+          { label: "The last-good artifact still exists and is addressable", ok: true, why: "Re-point to the prior digest — no rebuild under pressure." },
+          { label: "A documented manual hot-fix procedure", ok: false, why: "Hand-fixes diverge from the repo and are risky." },
+          { label: "Deleting the bad release", ok: false, why: "You need the good one available, not the bad one gone." }
+        ], revisit: "artifact-lifecycle" }
+    ],
+    mastery: {
+      task: "Write RetailFlow's recovery plan for a release that produced wrong revenue: cover code rollback, the data recovery step, and verification that the number is right again.",
+      acceptance: [
+        "Re-points the deployment to the last-good artifact.",
+        "Includes a backfill/restore to repair the already-written wrong data.",
+        "Verifies correctness (reconciliation) before declaring recovery.",
+        "States when you'd forward-fix instead (e.g. after a schema migration)."
+      ]
+    },
+    furtherReading: [
+      { title: "Continuous Delivery — deployment pipeline", publisher: "Humble & Farley", url: "https://continuousdelivery.com/", why: "How releasable artifacts and pipelines make safe rollback possible.", read: "Principles; the deployment pipeline.", reviewed: "2026-10-20" }
+    ],
+
     related: ["deployment-strategies", "observability", "environment-promotion", "container-registry"]
   }));
 })();

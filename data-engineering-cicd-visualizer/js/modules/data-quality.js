@@ -116,6 +116,65 @@
       { q: "How do you decide blocking vs warning for a check?", a: "Block on failures that make the numbers untrustworthy — stale data, missing rows, broken integrity — so downstream consumers never read bad data. Warn on signals that need a human look but not a halt. Making everything blocking causes alert fatigue and eroded trust in the pages." }
     ],
 
+    problem: {
+      before: "Teams monitored whether the <i>job</i> succeeded — green run, move on — and assumed healthy software meant healthy data.",
+      insufficient: "A job can finish perfectly and still produce wrong, stale, or incomplete data: a source feed is late, a schema drifts, an upstream bug skews a distribution. Job health and data health are different things.",
+      failureModes: [
+        "The pipeline is green but yesterday's orders never landed, so revenue is understated.",
+        "An upstream schema change nulls a column, and totals quietly drop.",
+        "A distribution shift (a currency bug) doubles average order value unnoticed."
+      ]
+    },
+    definition: {
+      formal: "Data quality is the practice of asserting properties of the <i>data itself</i> — accuracy, completeness, freshness, consistency, validity, uniqueness — separately from whether the code ran. A data-quality <b>gate</b> blocks promotion on violation; a <b>monitor</b> alerts on violation in production.",
+      distinguish: [
+        { from: "Software correctness vs data correctness", note: "CI/tests prove the code is right; data quality proves the data is right. A green job with wrong data is exactly the gap this fills." },
+        { from: "Gate vs monitor", note: "A gate stops a bad result from being promoted; a monitor raises an incident when production data drifts. You often want both." },
+        { from: "Freshness vs completeness", note: "Freshness = is the data recent enough; completeness = are all expected rows present. A feed can be fresh but partial, or complete but stale." }
+      ]
+    },
+    comparisons: [
+      { title: "Block (gate) vs alert (monitor)", aLabel: "Block / gate", bLabel: "Alert / monitor",
+        rows: [
+          { dim: "When", a: "Before promotion", b: "After data lands in prod" },
+          { dim: "Effect", a: "Stops the bad data shipping", b: "Raises an incident to investigate" },
+          { dim: "Use for", a: "Hard correctness rules (reconciliation)", b: "Drift/anomaly that needs judgment" }
+        ],
+        verdict: "Gate the rules you're certain about; monitor the softer signals — a wrong revenue number should be a gate." }
+    ],
+    knowledgeChecks: [
+      { level: "Explain", q: "The nightly job is green but Finance says revenue is wrong. What's the lesson?",
+        options: [
+          { label: "Job success ≠ data correctness — data needs its own checks", ok: true, why: "A healthy job can still emit stale/incomplete/wrong data." },
+          { label: "Re-run the job", ok: false, why: "Same code reproduces the same wrong number." },
+          { label: "Trust the status", ok: false, why: "That's how a silently-wrong number reaches executives." }
+        ], revisit: "data-quality" },
+      { level: "Apply", q: "Yesterday's orders feed is sometimes late. Which check protects the morning dashboard?",
+        options: [
+          { label: "A freshness + completeness gate before publish", ok: true, why: "It blocks publishing an incomplete/stale total." },
+          { label: "A unit test on the transform", ok: false, why: "Logic is fine; the input is late." },
+          { label: "Nothing — it'll catch up", ok: false, why: "The dashboard reads the wrong number at 7 AM meanwhile." }
+        ], revisit: "data-quality" },
+      { level: "Decide", q: "A reconciliation mismatch vs the ledger is detected pre-publish. Gate or alert?",
+        options: [
+          { label: "Gate — block promotion", ok: true, why: "A wrong revenue number must not ship; it's a hard rule." },
+          { label: "Alert only and publish anyway", ok: false, why: "That ships a known-wrong number." },
+          { label: "Ignore under 5%", ok: false, why: "Tolerance may apply, but an unexplained mismatch shouldn't auto-ship." }
+        ], revisit: "data-quality" }
+    ],
+    mastery: {
+      task: "Design the data-quality gates for RetailFlow's revenue publish step: name the checks, say which block vs alert, and justify the choice for the 7 AM SLA.",
+      acceptance: [
+        "Includes freshness, completeness, and a ledger reconciliation.",
+        "Classifies each as a gate or a monitor with reasoning.",
+        "Explains why a reconciliation failure blocks publication."
+      ]
+    },
+    furtherReading: [
+      { title: "Great Expectations — Core concepts", publisher: "Great Expectations", url: "https://docs.greatexpectations.io/", why: "A practical framework for expressing and running data-quality checks.", read: "Expectations, Checkpoints, Data Docs.", reviewed: "2026-10-20" },
+      { title: "dbt — Tests & source freshness", publisher: "dbt Labs", url: "https://docs.getdbt.com/", why: "Built-in freshness and test gates for a transformation project.", read: "Build → Tests; Sources → freshness.", reviewed: "2026-10-20" }
+    ],
+
     related: ["sql-testing", "dbt-cicd", "observability", "testing-pyramid"]
   }));
 })();

@@ -119,6 +119,64 @@
       { q: "How does build-once make rollback easy?", a: "Because every release is an immutable, retained artifact addressed by digest, rolling back is just redeploying the previous known-good digest — no rebuild, no dependency re-resolution, no reconstructing old source. RetailFlow can revert a bad revenue build in seconds." }
     ],
 
+    problem: {
+      before: "Each environment built its own copy of the code from source at deploy time — dev built one thing, prod built another, from 'the same' repo.",
+      insufficient: "Rebuilding per environment means the thing you tested is never exactly the thing you ship: a different dependency resolves, a different base image, a different build machine. 'Works in staging, breaks in prod' is the direct result.",
+      failureModes: [
+        "Staging and prod install different dependency versions from the 'same' commit.",
+        "A hotfix is built from a slightly different tree than what was tested.",
+        "Nobody can say exactly which build is running in production."
+      ]
+    },
+    definition: {
+      formal: "An <b>artifact</b> is the immutable, versioned output of a build (a wheel, a container image at a digest, a dbt package). Its <b>identity</b> ties it to a source commit SHA and a content digest. The lifecycle is build-once in CI, store in a registry, then <b>promote the same artifact</b> through environments.",
+      distinguish: [
+        { from: "Artifact vs source", note: "Source is the code; an artifact is a built, packaged result. You promote artifacts, not re-builds of source." },
+        { from: "Artifact vs cache", note: "An artifact is a durable deliverable; a cache is a best-effort speed optimization that must never affect correctness." },
+        { from: "Tag vs digest", note: "A tag (v1.4, latest) can move; a digest (sha256:…) is immutable. Pin production to the digest." }
+      ]
+    },
+    comparisons: [
+      { title: "Build-once/promote vs rebuild-per-environment", aLabel: "Build once, promote", bLabel: "Rebuild per env",
+        rows: [
+          { dim: "What reaches prod", a: "Exactly what was tested", b: "A fresh, possibly different build" },
+          { dim: "Reproducibility", a: "High — same digest everywhere", b: "Low — inputs can drift" },
+          { dim: "Rollback", a: "Re-point to a prior artifact", b: "Rebuild an old commit and hope" }
+        ],
+        verdict: "Build once, record the digest, and promote that identical artifact — don't rebuild per environment." }
+    ],
+    knowledgeChecks: [
+      { level: "Explain", q: "Why promote one artifact instead of rebuilding per environment?",
+        options: [
+          { label: "So prod runs exactly what was tested", ok: true, why: "Rebuilds can differ; promoting one digest removes that drift." },
+          { label: "To save registry space", ok: false, why: "It's about correctness, not storage." },
+          { label: "Rebuilding is impossible", ok: false, why: "It's possible but risky — that's the point." }
+        ], revisit: "artifact-lifecycle" },
+      { level: "Apply", q: "How do you pin a deployment to an exact image?",
+        options: [
+          { label: "Reference it by digest (sha256:…)", ok: true, why: "Digests are immutable; tags can move." },
+          { label: "Use the :latest tag", ok: false, why: "latest floats and can change under you." },
+          { label: "Rebuild from source each deploy", ok: false, why: "That reintroduces drift." }
+        ], revisit: "artifact-lifecycle" },
+      { level: "Decide", q: "You need to roll back fast. What makes that easy?",
+        options: [
+          { label: "The previous artifact still exists and is addressable", ok: true, why: "Re-point to the prior digest — no rebuild." },
+          { label: "The old source commit", ok: false, why: "Rebuilding is slower and may differ." },
+          { label: "A cache of dependencies", ok: false, why: "A cache isn't the deployable artifact." }
+        ], revisit: "rollback" }
+    ],
+    mastery: {
+      task: "Describe RetailFlow's artifact flow for the revenue image from CI build to prod, naming what identifies the artifact and how you'd roll back.",
+      acceptance: [
+        "CI builds one image and records its digest and source SHA.",
+        "Each environment deploys that same digest (no rebuild).",
+        "Rollback re-points prod to the previous digest."
+      ]
+    },
+    furtherReading: [
+      { title: "Store and share build artifacts", publisher: "GitHub Docs", url: "https://docs.github.com/en/actions", why: "How CI persists and shares build outputs between jobs.", read: "Managing workflow runs → Storing and sharing artifacts.", reviewed: "2026-10-20" }
+    ],
+
     related: ["container-registry", "environment-promotion", "ci-vs-cd", "rollback"]
   }));
 })();

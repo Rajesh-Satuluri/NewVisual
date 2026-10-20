@@ -154,6 +154,66 @@
       { q: "What's the risk of a rolling deployment specific to data pipelines?", a: "During the roll, old and new code run <b>at the same time</b> and may write to the same tables. If the new version changed the data shape non-additively, the two produce inconsistent rows mid-roll. The mitigation is to keep every change backward-compatible so both versions can coexist safely until the roll completes." }
     ],
 
+    problem: {
+      before: "Deploys meant stopping the running version and starting the new one — a hard cutover, often during a maintenance window at night.",
+      insufficient: "A hard cutover has downtime and no safety margin: if the new version is bad, every user hits it at once and the only recovery is another full redeploy. For data workloads, a bad cutover can also corrupt a batch mid-run.",
+      failureModes: [
+        "A bad release hits 100% of traffic instantly with no gradual check.",
+        "Downtime during the cutover window breaks a dependent job.",
+        "A naive strategy borrowed from stateless web apps corrupts stateful data."
+      ]
+    },
+    definition: {
+      formal: "A deployment strategy is how a new version replaces the old. <b>Recreate</b>: stop old, start new (downtime). <b>Blue-green</b>: run two full environments and switch traffic atomically. <b>Canary</b>: route a small fraction of traffic to the new version, watch, then ramp. <b>Rolling</b>: replace instances incrementally.",
+      distinguish: [
+        { from: "Blue-green vs canary", note: "Blue-green flips all traffic at once between two complete environments; canary shifts a <i>fraction</i> gradually while observing." },
+        { from: "Stateless web vs data workloads", note: "These strategies assume replaceable stateless instances; batch data jobs and schema changes need extra care (idempotency, backfills) because they mutate shared state." },
+        { from: "Deployment vs release", note: "Deploying code and releasing it to users can be decoupled (feature flags) — a canary is as much a release technique as a deploy one." }
+      ]
+    },
+    comparisons: [
+      { title: "Blue-green vs Canary", aLabel: "Blue-green", bLabel: "Canary",
+        rows: [
+          { dim: "Traffic switch", a: "All at once", b: "Gradual fraction, then ramp" },
+          { dim: "Blast radius if bad", a: "Everyone (but instant switch back)", b: "A small % first" },
+          { dim: "Cost", a: "Two full environments", b: "Extra routing + monitoring" },
+          { dim: "Data workloads", a: "Clean cutover, but double infra", b: "Hard if the job mutates shared state" }
+        ],
+        verdict: "For stateless services canary gives the smallest blast radius; for batch data jobs, a verified cutover plus backfill-safe design often matters more than the traffic strategy." }
+    ],
+    knowledgeChecks: [
+      { level: "Explain", q: "What's the core idea of a canary deploy?",
+        options: [
+          { label: "Send a small traffic fraction to the new version first, then ramp", ok: true, why: "It limits blast radius while you watch health." },
+          { label: "Run two full environments and switch at once", ok: false, why: "That's blue-green." },
+          { label: "Stop old, start new", ok: false, why: "That's recreate." }
+        ], revisit: "deployment-strategies" },
+      { level: "Decide", q: "Which strategy best limits blast radius for a stateless API?",
+        options: [
+          { label: "Canary", ok: true, why: "Only a small fraction hits the new version until it's proven." },
+          { label: "Recreate", ok: false, why: "Full cutover with downtime and max blast radius." },
+          { label: "No strategy", ok: false, why: "That's the uncontrolled case you're avoiding." }
+        ], revisit: "deployment-strategies" },
+      { level: "Troubleshoot", q: "Why don't these strategies map cleanly to a nightly Spark batch?",
+        options: [
+          { label: "Batch jobs mutate shared state, not serve replaceable traffic", ok: true, why: "Traffic-splitting assumes stateless instances; batch needs idempotency/backfills." },
+          { label: "Spark can't be deployed", ok: false, why: "It can; the issue is stateful semantics." },
+          { label: "They map perfectly", ok: false, why: "Stateful data work needs extra care." }
+        ], revisit: "rollback" }
+    ],
+    mastery: {
+      task: "Recommend a deployment approach for (a) RetailFlow's stateless metrics API and (b) its nightly revenue batch, and justify why they differ.",
+      acceptance: [
+        "Chooses canary/blue-green for the stateless API with reasoning.",
+        "Notes that the batch needs idempotency/backfill-safety over traffic splitting.",
+        "Mentions post-deploy verification before full ramp/cutover."
+      ]
+    },
+    furtherReading: [
+      { title: "BlueGreenDeployment", publisher: "Martin Fowler (bliki)", url: "https://martinfowler.com/bliki/BlueGreenDeployment.html", why: "The canonical description of the two-environment switch.", read: "The full entry.", reviewed: "2026-10-20" },
+      { title: "CanaryRelease", publisher: "Martin Fowler (bliki)", url: "https://martinfowler.com/bliki/CanaryRelease.html", why: "The canonical description of gradual traffic shifting.", read: "The full entry.", reviewed: "2026-10-20" }
+    ],
+
     related: ["rollback", "environment-promotion", "kubernetes", "argo-cd"]
   }));
 })();
