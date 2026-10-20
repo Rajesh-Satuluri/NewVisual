@@ -173,8 +173,10 @@
         '<span class="capstone-progress">' + done + "/" + CAPSTONE.length + " chapters</span>" +
       "</div>" +
       '<p class="capstone-lead">One connected, evidence-based case study that ties the whole curriculum together — ' +
-        "from the business problem to incident recovery. The full 14-milestone hands-on capstone builds in a later release.</p>" +
+        "from the business problem to incident recovery. Then take the hands-on " +
+        '<a class="cs-ref-link" href="#capstone">14-milestone RetailFlow Capstone</a>.</p>' +
       '<div class="capstone-steps">' + rows + "</div>" +
+      '<div class="capstone-cta"><a class="btn btn-secondary btn-sm" href="#capstone">Open the 14-milestone capstone →</a></div>' +
     "</section>";
   }
 

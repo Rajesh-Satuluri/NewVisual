@@ -2375,3 +2375,48 @@ a.card:hover { text-decoration: none; }
   background: var(--bg-1); border: 1px solid var(--border-default); border-radius: var(--radius-md);
   color: var(--text-primary); font-family: var(--font-mono, monospace); font-size: var(--text-sm); }
 .inc-win { margin-top: var(--space-4); }
+
+/* ============================================================
+   RetailFlow Capstone — Iteration 7
+   ============================================================ */
+.cap-progress { display: flex; align-items: center; gap: var(--space-3); }
+.cap-progress-bar { flex: 1; height: 10px; background: var(--bg-3); border-radius: var(--radius-full); overflow: hidden; }
+.cap-progress-bar span { display: block; height: 100%; background: linear-gradient(90deg, var(--brand), var(--cyan)); border-radius: var(--radius-full); }
+.cap-progress-label { font-size: var(--text-sm); color: var(--text-secondary); white-space: nowrap; }
+
+.cap-tree { display: grid; gap: 2px; font-size: var(--text-sm); }
+.cap-tree-row { display: grid; grid-template-columns: 16em 1fr; gap: var(--space-3); padding: var(--space-2) var(--space-3);
+  background: var(--bg-1); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); }
+.cap-tree-path { color: var(--cyan); }
+.cap-tree-note { color: var(--text-muted); }
+@media (max-width: 640px) { .cap-tree-row { grid-template-columns: 1fr; } }
+
+.cap-setup { margin: 0; padding-left: 1.3em; display: grid; gap: 6px; }
+.cap-setup li code { font-size: var(--text-sm); color: var(--text-primary); }
+
+.cap-ms-list { display: grid; gap: var(--space-2); }
+.cap-ms { border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-1); overflow: hidden; }
+.cap-ms.done { border-color: color-mix(in srgb, var(--green) 45%, transparent); }
+.cap-ms-head { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-4); cursor: pointer; list-style: none; }
+.cap-ms-head::-webkit-details-marker { display: none; }
+.cap-ms-n { width: 2em; height: 2em; flex: none; display: inline-flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: var(--text-sm); color: var(--brand); background: color-mix(in srgb, var(--brand) 14%, transparent); border-radius: var(--radius-full); }
+.cap-ms.done .cap-ms-n { color: var(--green); background: var(--green-subtle); }
+.cap-ms-titles { display: flex; flex-direction: column; }
+.cap-ms-title { font-weight: 600; color: var(--text-primary); }
+.cap-ms-goal { font-size: var(--text-xs); color: var(--text-muted); }
+.cap-ms-body { padding: 0 var(--space-4) var(--space-4); display: grid; gap: var(--space-3); }
+.cap-ms-builds { font-size: var(--text-sm); color: var(--text-secondary); margin: 0; }
+.cap-ms-linkrow { display: grid; grid-template-columns: 5em 1fr; gap: var(--space-2); align-items: center; font-size: var(--text-sm); }
+.cap-ms-k { color: var(--text-muted); font-weight: 600; font-size: var(--text-xs); }
+.cap-chip { display: inline-block; font-size: var(--text-xs); color: var(--text-primary); background: var(--bg-3);
+  border: 1px solid var(--border-default); border-radius: var(--radius-full); padding: 3px 9px; text-decoration: none; margin: 2px; }
+.cap-chip:hover { border-color: var(--brand); color: var(--brand); }
+.cap-chip-lab { color: var(--cyan); }
+.cap-ms-acc-h { font-size: var(--text-sm); font-weight: 600; color: var(--text-secondary); }
+.cap-acc { margin: 0; padding-left: 1.1em; display: grid; gap: 4px; font-size: var(--text-sm); color: var(--text-secondary); }
+.cap-snip { background: var(--bg-0, var(--bg-2)); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); overflow: hidden; }
+.cap-snip-lang { font-size: var(--text-xs); color: var(--text-muted); padding: 6px var(--space-3); border-bottom: 1px solid var(--border-subtle); }
+.cap-snip pre { margin: 0; padding: var(--space-3); overflow-x: auto; }
+.cap-snip code { font-size: var(--text-sm); color: var(--text-primary); white-space: pre; }
+.capstone-cta { margin-top: var(--space-4); }
