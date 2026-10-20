@@ -286,6 +286,22 @@
     return ids;
   }
 
+  // The visible problems in the exact order the sidebar lays them out (current
+  // grouping lens + search + filters). Prev/Next walk THIS so stepping follows
+  // the list the user is looking at. Falls back to the full canonical list if
+  // the current problem is filtered out of view.
+  function orderedVisible(curId) {
+    var vis = visibleIds(), out = [];
+    activeGroups().forEach(function (g) {
+      byFrequency(g.problems.filter(function (p) { return vis[p.id]; })).forEach(function (p) { out.push(p); });
+    });
+    if (curId != null) {
+      for (var i = 0; i < out.length; i++) if (out[i].id === curId) return out;
+      return ALL;
+    }
+    return out;
+  }
+
   // ============================================================= SIDEBAR
   // Smoothly open/close a category by animating an explicit pixel height. Works
   // in every browser and never reflows-per-frame the way a grid-fr transition
@@ -1047,8 +1063,9 @@
 
     // ---- prev/next nav ----
     var footer = h("div", { class: "prob-nav" });
-    var idx = ALL.findIndex(function (x) { return x.id === p.id; });
-    var prev = ALL[idx - 1], next = ALL[idx + 1];
+    var navList = orderedVisible(p.id);
+    var idx = navList.findIndex(function (x) { return x.id === p.id; });
+    var prev = navList[idx - 1], next = navList[idx + 1];
     var pbtn = h("button", { class: "nav-btn" + (prev ? "" : " disabled") },
       prev ? "← " + esc(prev.title) : "← Start");
     if (prev) pbtn.addEventListener("click", function () { navigate("#" + prev.id); });
@@ -2002,14 +2019,16 @@
           if (window.ProblemLab) { e.preventDefault(); d > 0 ? window.ProblemLab.next() : window.ProblemLab.prev(); }
           return;
         }
-        var pi = ALL.findIndex(function (x) { return x.id === state.currentId; });
-        if (ALL[pi + d]) { e.preventDefault(); navigate("#" + ALL[pi + d].id); }
+        var pnav = orderedVisible(state.currentId);
+        var pi = pnav.findIndex(function (x) { return x.id === state.currentId; });
+        if (pnav[pi + d]) { e.preventDefault(); navigate("#" + pnav[pi + d].id); }
         return;
       }
       if (!(state.stack === "python" && state.mode === "practice")) return; // remaining shortcuts are DSA-only
-      var idx = ALL.findIndex(function (x) { return x.id === state.currentId; });
-      if (e.key === "j" || e.key === "ArrowDown") { if (ALL[idx + 1]) { e.preventDefault(); navigate("#" + ALL[idx + 1].id); } }
-      if (e.key === "k" || e.key === "ArrowUp") { if (ALL[idx - 1]) { e.preventDefault(); navigate("#" + ALL[idx - 1].id); } }
+      var jkNav = orderedVisible(state.currentId);
+      var idx = jkNav.findIndex(function (x) { return x.id === state.currentId; });
+      if (e.key === "j" || e.key === "ArrowDown") { if (jkNav[idx + 1]) { e.preventDefault(); navigate("#" + jkNav[idx + 1].id); } }
+      if (e.key === "k" || e.key === "ArrowUp") { if (jkNav[idx - 1]) { e.preventDefault(); navigate("#" + jkNav[idx - 1].id); } }
       if (e.key === "n") { var nx = nextUnsolvedId(state.currentId); if (nx) { e.preventDefault(); navigate("#" + nx); } }
       if (e.key === "r") { store.setPref("codeMode", "rcs"); renderProblem(); }
       if (e.key === "p") { store.setPref("codeMode", "plain"); renderProblem(); }
