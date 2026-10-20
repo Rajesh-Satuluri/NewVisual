@@ -172,6 +172,24 @@ fs.readdirSync(modDir).filter(function (f) { return /\.js$/.test(f); }).forEach(
   }
 });
 
+// ── 8. Every ready route has a module file on disk ──────────
+Object.keys(routes).forEach(function (id) {
+  if (routes[id] && routes[id].ready) {
+    var f = path.join(modDir, id + ".js");
+    check(fs.existsSync(f), "Ready route '" + id + "' has js/modules/" + id + ".js");
+  }
+});
+
+// ── 9. Every lesson is reachable in the guided path (byLevel) ─
+if (C) {
+  var reachable = {};
+  var bl = C.byLevel();
+  Object.keys(bl).forEach(function (n) { (bl[n] || []).forEach(function (id) { reachable[id] = true; }); });
+  C.lessonIds().forEach(function (id) {
+    check(reachable[id], "Lesson '" + id + "' is placed in a curriculum level (reachable in the path)");
+  });
+}
+
 // ── Report ──────────────────────────────────────────────────
 console.log("\nQA checks: " + pass + " passed, " + fail + " failed.");
 if (fail) {
