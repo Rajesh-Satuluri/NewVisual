@@ -178,6 +178,19 @@
     if (window.LABFILTERS) base = base.filter(function (p) { return window.LABFILTERS.passes(p, PL_GETTERS); });
     return base;
   }
+  // The visible problems in the exact order the sidebar lays them out (current
+  // grouping lens + search + filters). Prev/Next walk THIS so stepping through
+  // problems follows the Group-by / filtered list the user is looking at. Falls
+  // back to the full list if the current problem is filtered out of view.
+  function orderedVisibleList() {
+    var vis = {}; visibleList().forEach(function (p) { vis[p.id] = true; });
+    var out = [];
+    activeGroups().forEach(function (g) {
+      g.problems.forEach(function (p) { if (vis[p.id]) out.push(p); });
+    });
+    for (var i = 0; i < out.length; i++) if (out[i].id === cur.id) return out;
+    return all();
+  }
   function capDiff(d) { return d ? (String(d).charAt(0).toUpperCase() + String(d).slice(1).toLowerCase()) : ""; }
   function updateFilterCounts() {
     // Cross-filtered counts: each chip reflects the other active facets, so the
@@ -766,8 +779,9 @@
     noteWrap.appendChild(h("span", { class: "note-sync-time" }, cloud && cloud.syncLabel ? cloud.syncLabel() : ""));
     main.appendChild(section("notes", "My Notes", noteWrap, { collapsed: true }));
 
-    // prev / next stepper (also driven by [ and ] keys)
-    var list = all(), idx = -1;
+    // prev / next stepper (also driven by [ and ] keys) — follows the sidebar's
+    // current grouping + filters, not the raw full list.
+    var list = orderedVisibleList(), idx = -1;
     for (var li = 0; li < list.length; li++) if (list[li].id === cur.id) idx = li;
     var prevP = idx > 0 ? list[idx - 1] : null;
     var nextP = (idx >= 0 && idx < list.length - 1) ? list[idx + 1] : null;
@@ -814,7 +828,7 @@
 
   // step to the previous/next problem in the full list (keyboard [ / ])
   function step(delta) {
-    var list = all(), idx = -1;
+    var list = orderedVisibleList(), idx = -1;
     for (var i = 0; i < list.length; i++) if (list[i].id === cur.id) idx = i;
     var t = list[idx + delta];
     if (t) window.BLIND75.goTo("practice", cur.stack, t.id);
