@@ -410,6 +410,40 @@
     return wrap;
   }
 
+  // ---- LeetCode-style schema + sample-data layout ----
+  // Pair each table's schema (Column/Type) with its sample rows in one compact
+  // card, then lay the cards out in a responsive grid so narrow SQL tables sit
+  // side by side instead of each stretching full width with a dead right gutter.
+  // Tables are matched by name (schema[].name <-> sampleData[].table); a table
+  // present in only one of the two still renders what it has.
+  function schemaDataGrid(p) {
+    var grid = h("div", { class: "lab-schema-grid" });
+    var schema = p.schema || [], sample = p.sampleData || [];
+    var order = [], seen = {};
+    schema.forEach(function (t) { if (!seen[t.name]) { seen[t.name] = true; order.push(t.name); } });
+    sample.forEach(function (t) { if (!seen[t.table]) { seen[t.table] = true; order.push(t.table); } });
+    function findSchema(n) { for (var i = 0; i < schema.length; i++) if (schema[i].name === n) return schema[i]; return null; }
+    function findSample(n) { for (var i = 0; i < sample.length; i++) if (sample[i].table === n) return sample[i]; return null; }
+    order.forEach(function (name) {
+      var card = h("div", { class: "lab-tbl-card" });
+      card.appendChild(h("div", { class: "lab-tbl-card-name" }, esc(name)));
+      var sc = findSchema(name);
+      if (sc) {
+        var defRows = (sc.columns || []).map(function (c) { return [c.name, c.type + (c.note ? "  · " + c.note : "")]; });
+        card.appendChild(dataTable(["Column", "Type"], defRows));
+      }
+      var sm = findSample(name);
+      if (sm) {
+        card.appendChild(h("div", { class: "lab-tbl-sub" }, sc ? "Sample rows" : "Sample data"));
+        var box = h("div", { class: "lab-sample-box" });
+        box.appendChild(dataTable(sm.columns, sm.rows));
+        card.appendChild(box);
+      }
+      grid.appendChild(card);
+    });
+    return grid;
+  }
+
   // ============================================================ SIDEBAR
   // Collapse state is namespaced by lens so Pattern and Domain remember their own
   // open/closed sections independently (and "Other" can never clash across lenses).
@@ -674,13 +708,7 @@
 
     // schema + sample data (SQL)
     if ((p.schema && p.schema.length) || (p.sampleData && p.sampleData.length)) {
-      var sd = h("div", {});
-      (p.schema || []).forEach(function (t) { sd.appendChild(schemaTable(t)); });
-      (p.sampleData || []).forEach(function (t) {
-        sd.appendChild(h("div", { class: "lab-table-cap" }, esc(t.table)));
-        sd.appendChild(dataTable(t.columns, t.rows));
-      });
-      main.appendChild(section("schema", "Schema & Sample Data", sd));
+      main.appendChild(section("schema", "Schema & Sample Data", schemaDataGrid(p)));
     }
 
     // examples (PySpark / generic)
