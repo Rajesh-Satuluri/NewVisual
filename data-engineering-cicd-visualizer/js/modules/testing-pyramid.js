@@ -144,6 +144,66 @@
       { q: "How do you decide what gets an E2E test vs staying at a lower layer?", a: "E2E runs are minutes each and flakier, so reserve them for a few critical end-to-end paths (the full <code>daily_revenue</code> DAG producing correct totals) run pre-merge or nightly. Everything else — pure logic, data invariants, component wiring — belongs lower where it's faster and localizes failures." }
     ],
 
+    problem: {
+      before: "Teams tested by clicking through the whole system at the end, or by writing a few slow end-to-end checks that exercised everything at once.",
+      insufficient: "All-end-to-end suites are slow, flaky, and vague: a red run tells you 'something broke' but not where. They run so slowly that people stop running them, so bugs reach production anyway.",
+      failureModes: [
+        "A single data issue fails fifty end-to-end tests, burying the real cause.",
+        "The suite takes 40 minutes, so developers skip it locally.",
+        "Flaky top-heavy tests get muted, and then catch nothing."
+      ]
+    },
+    definition: {
+      formal: "The testing pyramid is a heuristic for test distribution: many fast, isolated <b>unit</b> tests at the base; fewer <b>integration</b> tests that check components together; and a small number of slow <b>end-to-end</b> tests at the top. The shape optimizes for fast, precise feedback.",
+      distinguish: [
+        { from: "Unit vs integration", note: "A unit test isolates one function with no external systems; an integration test checks two or more real components (e.g. a transform against a real warehouse schema)." },
+        { from: "Test pyramid vs ice-cream cone", note: "The anti-pattern (the 'ice-cream cone') inverts the pyramid — mostly slow e2e tests — and is slow and flaky." },
+        { from: "Data tests vs code tests", note: "Code tests check logic on fixed inputs; data-quality tests check the actual production data. Both belong, at different layers." }
+      ]
+    },
+    comparisons: [
+      { title: "Unit vs integration vs end-to-end", aLabel: "Unit", bLabel: "Integration / E2E",
+        rows: [
+          { dim: "Speed", a: "Milliseconds", b: "Seconds to minutes" },
+          { dim: "Scope", a: "One function, isolated", b: "Multiple real components / whole pipeline" },
+          { dim: "When it fails", a: "Pinpoints the cause", b: "Tells you 'somewhere in here'" },
+          { dim: "How many", a: "Many", b: "Few" }
+        ],
+        verdict: "Push logic down to fast unit tests; reserve slow integration/e2e for the few flows that truly need them." }
+    ],
+    knowledgeChecks: [
+      { level: "Explain", q: "Why should most tests be unit tests?",
+        options: [
+          { label: "They're fast and pinpoint failures precisely", ok: true, why: "Fast, isolated tests give quick, specific feedback and get run often." },
+          { label: "They test the most code at once", ok: false, why: "That's e2e; units isolate small pieces deliberately." },
+          { label: "They need no assertions", ok: false, why: "They very much assert — just on small units." }
+        ], revisit: "testing-pyramid" },
+      { level: "Troubleshoot", q: "Your suite is slow and flaky and people skip it. Likely shape?",
+        options: [
+          { label: "Inverted pyramid — too many e2e tests", ok: true, why: "Top-heavy suites are slow and flaky; push tests down." },
+          { label: "Too many unit tests", ok: false, why: "Unit tests are fast; they're not the flakiness source." },
+          { label: "No tests at all", ok: false, why: "The symptom describes a slow, flaky suite that exists." }
+        ], revisit: "testing-pyramid" },
+      { level: "Apply", q: "Where does a check that refunds reconcile to the ledger belong?",
+        options: [
+          { label: "A data-quality/integration check on real data", ok: true, why: "Reconciliation needs actual data, not a fixed unit fixture." },
+          { label: "A pure unit test only", ok: false, why: "A unit test on fixed inputs can't verify real production data." },
+          { label: "No test needed", ok: false, why: "Reconciliation is exactly what protects the revenue number." }
+        ], revisit: "data-quality" }
+    ],
+    mastery: {
+      task: "For RetailFlow's revenue pipeline, list which checks you'd put at each pyramid layer (unit, integration, e2e/data-quality) and justify the proportion.",
+      acceptance: [
+        "Most checks are fast unit tests on transform logic.",
+        "A few integration tests exercise the real schema/warehouse.",
+        "A small number of e2e/data-quality checks guard the final number.",
+        "You explain why the shape gives fast, precise feedback."
+      ]
+    },
+    furtherReading: [
+      { title: "TestPyramid", publisher: "Martin Fowler (bliki)", url: "https://martinfowler.com/bliki/TestPyramid.html", why: "The origin and correct interpretation of the pyramid, plus the ice-cream-cone anti-pattern.", read: "The full entry.", reviewed: "2026-10-20" }
+    ],
+
     related: ["pytest", "sql-testing", "dbt-cicd", "data-quality"]
   }));
 })();

@@ -129,6 +129,65 @@
       { q: "How do you keep uniqueness and integrity checks cheap at scale?", a: "Use <code>GROUP BY key HAVING COUNT(*) > 1</code> for duplicates and a <code>LEFT JOIN ... WHERE parent IS NULL</code> anti-join for orphans, and partition them by load date so each run scans only the new partition instead of the full history, while still catching the day's bad rows." }
     ],
 
+    problem: {
+      before: "Teams trusted that if a SQL query ran without error, the result was correct — a successful run and a correct result were treated as the same thing.",
+      insufficient: "SQL that executes can still be wrong: a bad join duplicates rows, a filter drops data, a type coercion silently changes a total. 'It ran' says nothing about whether the number is right.",
+      failureModes: [
+        "A fan-out join doubles revenue; the query succeeds and the dashboard is wrong.",
+        "A LEFT JOIN that should be INNER lets nulls inflate a count.",
+        "A late-arriving partition makes today's total silently incomplete."
+      ]
+    },
+    definition: {
+      formal: "SQL testing verifies the <i>correctness</i> of data and transformations using assertion queries — queries written to return rows (or a count) only when something is wrong. Common classes: uniqueness, not-null, referential integrity, accepted-values, row-count/reconciliation, and freshness.",
+      distinguish: [
+        { from: "Schema test vs data test", note: "A schema/structural test checks shape (columns, types, not-null); a data test checks values and relationships (reconciliation, distributions)." },
+        { from: "Query runs vs query correct", note: "Execution success is not correctness — an assertion query is what proves correctness." },
+        { from: "SQL test vs unit test", note: "A unit test checks transform logic on fixed inputs; a SQL/data test checks the actual table the transform produced." }
+      ]
+    },
+    comparisons: [
+      { title: "Structural (schema) vs data (value) tests", aLabel: "Structural", bLabel: "Data/value",
+        rows: [
+          { dim: "Checks", a: "Columns, types, not-null, uniqueness", b: "Reconciliation, distributions, referential integrity" },
+          { dim: "Catches", a: "Shape drift / contract breaks", b: "Wrong numbers / bad joins" },
+          { dim: "Example", a: "order_id is unique & not null", b: "sum(net_revenue) ties to the ledger" }
+        ],
+        verdict: "You need both: structure guards the contract, value tests guard the number." }
+    ],
+    knowledgeChecks: [
+      { level: "Explain", q: "A query runs without error. What does that prove about correctness?",
+        options: [
+          { label: "Nothing — execution success isn't correctness", ok: true, why: "A bad join or filter runs fine and still produces wrong data." },
+          { label: "The data is correct", ok: false, why: "That's the exact misconception SQL testing exists to fix." },
+          { label: "The schema is wrong", ok: false, why: "Running says nothing either way about schema or values." }
+        ], revisit: "sql-testing" },
+      { level: "Apply", q: "How do you catch a fan-out join that duplicates orders?",
+        options: [
+          { label: "A uniqueness assertion on order_id", ok: true, why: "Duplicates fail a unique test immediately." },
+          { label: "Re-run the query", ok: false, why: "It'll reproduce the same duplicates." },
+          { label: "Check it compiled", ok: false, why: "It compiles fine; you need a value assertion." }
+        ], revisit: "sql-testing" },
+      { level: "Decide", q: "A daily total looks low. Which check pinpoints a missing feed?",
+        options: [
+          { label: "A freshness/completeness check on the source partition", ok: true, why: "Freshness/completeness catches late or missing data directly." },
+          { label: "A type check", ok: false, why: "Types are fine; the data is incomplete." },
+          { label: "A uniqueness check", ok: false, why: "Uniqueness doesn't detect missing rows." }
+        ], revisit: "data-quality" }
+    ],
+    mastery: {
+      task: "Write three assertion queries for RetailFlow's revenue table: order_id is unique, net_revenue is never negative, and daily revenue reconciles to the payments ledger within tolerance.",
+      acceptance: [
+        "Each query returns rows (or a non-zero count) only when the rule is violated.",
+        "Includes a reconciliation check against an independent source.",
+        "You can explain the lifecycle point where each should run."
+      ]
+    },
+    furtherReading: [
+      { title: "dbt — Tests", publisher: "dbt Labs", url: "https://docs.getdbt.com/", why: "Generic and singular tests, the standard way to express SQL assertions in a project.", read: "Build → Tests; data tests vs unit tests.", reviewed: "2026-10-20" },
+      { title: "Great Expectations — Expectations", publisher: "Great Expectations", url: "https://docs.greatexpectations.io/", why: "A rich vocabulary of data assertions beyond basic SQL.", read: "Core concepts → Expectations & Checkpoints.", reviewed: "2026-10-20" }
+    ],
+
     related: ["dbt-cicd", "data-quality", "testing-pyramid", "pytest"]
   }));
 })();

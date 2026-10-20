@@ -129,6 +129,60 @@
       { q: "When is chasing coverage the wrong goal?", a: "Coverage measures executed lines, not meaningful assertions — 100% can still assert nothing. Spend effort where a bug is expensive, like the net_revenue math, rather than on trivial glue, and don't over-mock to the point you only test the mocks." }
     ],
 
+    problem: {
+      before: "Developers 'tested' a transform by running it and eyeballing the printout, or by scattering <code>print()</code> and <code>assert</code> statements they later deleted.",
+      insufficient: "Manual eyeballing doesn't run in CI, doesn't cover edge cases, and isn't repeatable. A pipeline that computes money needs automated, deterministic checks that fail loudly on a wrong result.",
+      failureModes: [
+        "A sign-flip in net_revenue passes an eyeball test because the number 'looks plausible'.",
+        "A test depends on a live cluster and fails randomly, so it's ignored.",
+        "Edge cases (zero refunds, nulls) are never exercised."
+      ]
+    },
+    definition: {
+      formal: "pytest is a Python testing framework. A <b>test</b> is a function whose name starts with <code>test_</code> containing <code>assert</code> statements; pytest discovers and runs them, rewriting assertions to show rich failure detail. <b>Fixtures</b> provide reusable setup/teardown; <b>parametrize</b> runs one test across many inputs.",
+      distinguish: [
+        { from: "Fixture vs plain setup", note: "A fixture is a managed, composable dependency with a scope (function/module/session); ad-hoc setup in the test body isn't reusable or scoped." },
+        { from: "Testing logic vs a live cluster", note: "A good PySpark unit test checks transform logic on small local data; it does not require a running production cluster." },
+        { from: "Deterministic vs flaky", note: "A deterministic test gives the same result every run; flakiness (time, randomness, external state) must be removed, not retried away." }
+      ]
+    },
+    mechanics: [
+      { h: "Collection", body: "pytest discovers <code>test_*.py</code> files and <code>test_*</code> functions, builds a test tree, and runs them, reporting pass/fail/error and a non-zero exit code if any fail — which is what turns a CI check red." },
+      { h: "Assertion rewriting", body: "pytest rewrites <code>assert</code> expressions so a failure shows the actual and expected values, not just 'AssertionError' — so <code>assert net_revenue(100,20)==80</code> prints the offending 120." },
+      { h: "Fixtures & scope", body: "A fixture runs setup, yields a value, then tears down; its <b>scope</b> controls how often (per test, module, or session). Parametrized fixtures and <code>@pytest.mark.parametrize</code> fan one test across inputs." }
+    ],
+    knowledgeChecks: [
+      { level: "Recall", q: "How does pytest know a function is a test?",
+        options: [
+          { label: "Its name starts with test_", ok: true, why: "pytest discovers test_-prefixed functions in test_ files." },
+          { label: "It imports pytest", ok: false, why: "Importing isn't required for discovery." },
+          { label: "It has a @test decorator", ok: false, why: "pytest uses naming conventions, not a @test decorator." }
+        ], revisit: "pytest" },
+      { level: "Apply", q: "You want one test to run across several (input, expected) pairs. What do you use?",
+        options: [
+          { label: "@pytest.mark.parametrize", ok: true, why: "Parametrize fans a single test across many cases." },
+          { label: "A for-loop with one assert", ok: false, why: "A loop stops at the first failure and reports poorly; parametrize reports each case." },
+          { label: "Copy the test many times", ok: false, why: "Duplication; parametrize is the idiom." }
+        ], revisit: "pytest" },
+      { level: "Troubleshoot", q: "A PySpark test fails randomly on CI. Most likely cause?",
+        options: [
+          { label: "It depends on external/live state (non-determinism)", ok: true, why: "Flakiness comes from time, randomness, ordering, or live systems — remove the dependency." },
+          { label: "pytest is broken", ok: false, why: "Far more likely the test isn't deterministic." },
+          { label: "Too many assertions", ok: false, why: "Assertion count doesn't cause flakiness." }
+        ], revisit: "pytest" }
+    ],
+    mastery: {
+      task: "Write a pytest that proves <code>net_revenue(gross, refunds)</code> subtracts refunds, covering a normal case, zero refunds, and a refunds-greater-than-gross edge case — all deterministic.",
+      acceptance: [
+        "At least three cases, ideally via parametrize.",
+        "No dependency on a live cluster or external state.",
+        "A failing implementation (addition instead of subtraction) makes the test fail with a clear message."
+      ]
+    },
+    furtherReading: [
+      { title: "pytest — How-to guides", publisher: "pytest", url: "https://docs.pytest.org/", why: "Authoritative guidance on assertions, fixtures, and parametrize.", read: "How-to guides → fixtures; parametrizing tests.", reviewed: "2026-10-20" }
+    ],
+
     related: ["testing-pyramid", "sql-testing", "github-actions", "dbt-cicd"]
   }));
 })();
