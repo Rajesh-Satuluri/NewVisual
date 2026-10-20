@@ -24,15 +24,34 @@ Four chapters, cross-linked by a shared chapter navigator:
 
 **Integrity (honest labelling).** Every statement is tagged **Documented fact** (with a clickable source), **Engineering interpretation**, **Reference implementation**, or **Pseudocode**. Facts link to primary Airbnb Engineering / Apache sources; figures that appear only in secondary coverage are flagged and shown as "reported by". The fictional **RetailFlow** narrative is preserved as a clearly-labelled practice sandbox, never presented as a real company. See `docs/AIRBNB-CASE-STUDY-REPORT.md` for the full source list and requirement→file mapping.
 
+## The Academy (beginner → expert)
+
+The platform is a **competency-based academy** with two first-class modes that share one set of lessons and one progress record:
+
+- **Guided Academy** (default) — a prerequisite-aware path across **11 levels** (L0 fundamentals → L10 advanced platform engineering), driven by a single source of truth (`js/data/curriculum.js`). Each lesson shows its status (complete / in-progress / available / locked-by-prereqs) and a clear "next step". Order is guidance, not a hard lock.
+- **Reference Lab** — the ROI-tiered topic grid plus global search, for jumping straight to any tool or concept. Every page links back to its place in the path.
+
+Supporting systems:
+
+- **Lesson metadata + sources** — every lesson carries level, prerequisites, learning objectives, and authoritative official-doc sources (with the section to read and a last-reviewed date), rendered as a lesson-info panel.
+- **Deep theory** — a reusable teaching factory renders the full mandatory structure where authored: the problem before the tech, an intuitive explanation (with an honest "where the analogy breaks"), a precise definition + distinctions, internal mechanics, an **interactive architecture explorer**, a step-by-step execution trace, annotated line-by-line code, input→output, comparison tables, documented-vs-illustrative real-world examples (cited), trade-offs, structured failure modes, **knowledge checks across six cognitive levels**, a mastery challenge, and integrated further reading.
+- **Lab engine (4 modes)** — `repair`, `guided` (per-step checkpoints), `incident` (evidence → diagnose → recover), and `challenge` (acceptance criteria). Reusable static validators (YAML lint, structural checks) and richer feedback (why it failed / robust fix / revisit link). Code is never executed.
+- **RetailFlow Capstone** (`#capstone`) — one coherent project in **14 milestones**, each wired to the lessons and labs that prepare it, with acceptance criteria and reproducible reference snippets.
+- **Interactive visualizers** — a **Release & Rollback Simulator** (`#release-sim`, 6 scenarios + choose-your-recovery), an interactive **CI-run** widget, and a **Git commit-graph** widget — learner actions change the displayed state.
+- **Competency progress** — mastery stages (Understand → Implement → Apply → Diagnose → Integrate) derived from knowledge-checks, labs, and capstone milestones (never time-on-page), plus **spaced review** that resurfaces missed concepts. Progress is versioned and migrates old saves.
+- **QA harness** (`tools/qa-check.js`) — a pure-Node check (routes resolve, prereqs form an acyclic graph, objectives + sources present, facts cited, no broken internal links, every ready route has a module file). Runs with `node tools/qa-check.js`.
+
+See `docs/ACADEMY-REPORT.md` for the full build report and `docs/AIRBNB-CASE-STUDY-REPORT.md` for the case-study sources.
+
 ## Feature inventory
 
-- **~28 concept modules** built on a shared teaching factory with Beginner / Intermediate / Proficient depth tabs, an animated flow, Why→What→How, before/after, a failure scenario, "when NOT to use," a RetailFlow mini-story, real code/config examples, prerequisites, misconceptions, troubleshooting, and per-topic interview questions.
+- **~30 concept lessons** built on a shared teaching factory with Beginner / Intermediate / Proficient depth tabs, an animated flow, Why→What→How, before/after, a failure scenario, "when NOT to use," a RetailFlow mini-story, real code/config examples, prerequisites, misconceptions, troubleshooting, and per-topic interview questions — with the deep-theory sections above added to the foundational and CI/testing/CD lessons.
 - **End-to-End Pipeline** (case-study Chapter 2) — a clickable map of the whole lifecycle, each node showing purpose, input, output, tool, example command, and failure mode, plus a data-flow/control-flow explainer and a technology→module map.
 - **Failure Simulator** (case-study Chapter 4) — a staged incident investigation (reveal evidence progressively; root cause on request), decision points, code-vs-data recovery, and a post-incident review, plus a preserved 10-scenario practice library walked stage by stage.
 - **Interview bank** — searchable, level-tabbed questions with answer, why-it-matters, common mistake, RetailFlow scenario, and a harder follow-up.
 - **Quiz** — multiple-choice checks with explanations.
-- **Hands-on Labs** — fix a real broken config (GitHub Actions gating, a leaked secret, an insecure Dockerfile, a Terraform destroy guard, a late-arriving dbt incremental, a DAG import error, a Kubernetes OOM, a flaky freshness check), run deterministic checks, reveal progressive hints, and diff against a reference solution. Code is never executed — labs use static validation and scripted simulated runs, labelled on each lab.
-- **Learning Dashboard** — overall and per-tier progress, continue-learning, bookmarks, and a revision queue, derived from real interactions and saved locally.
+- **Hands-on Labs (4 modes)** — guided walkthroughs, code-repair fixes, incident investigations, and independent challenges. Run deterministic checks, reveal progressive hints, and diff against a reference solution. Code is never executed — labs use static validation and scripted simulated runs, labelled on each lab.
+- **Learning Dashboard** — mode toggle, skill-mastery bar, spaced review, next-action, capstone progress, bookmarks, and a revision queue, derived from real interactions and saved locally.
 - **Global search** across topics, glossary terms, tools, and common errors.
 - **Glossary** and a **Master Map** of the whole stack.
 
