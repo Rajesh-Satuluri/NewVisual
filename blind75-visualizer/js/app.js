@@ -1837,7 +1837,8 @@
       store.setPref("focus", false);
       state.focusLocal = null;
       applyFocus();
-      if (focusViewOk()) renderProblem();
+      // DSA chip is rebuilt by renderProblem; ProblemLab chip is synced by applyFocus.
+      if (state.stack === "python" && state.mode === "practice" && focusViewOk()) renderProblem();
     });
     // mode switch (Learn · Practice)
     var modeBtns = document.querySelectorAll("#modeSwitch .mode-btn");
@@ -1862,7 +1863,8 @@
         store.setPref("focus", !store.getPref("focus"));
         state.focusLocal = null;              // global toggle clears any per-problem override
         applyFocus();
-        if (focusViewOk()) renderProblem();   // refresh the local chip's label/state
+        // DSA rebuilds its chip via renderProblem; ProblemLab chip is synced by applyFocus.
+        if (state.stack === "python" && state.mode === "practice" && focusViewOk()) renderProblem();
       });
     }
 
@@ -2077,12 +2079,17 @@
   // It only makes sense on a problem page that actually HAS those sections —
   // on Home / Learn / dashboards etc. it must stay off (else the view blanks).
   function focusViewOk() {
-    // Only the DSA problem view (python + practice, a real problem) — state is
-    // set synchronously by setChrome before any render, so this never trips on
-    // stale/async-mounted DOM. Home, Learn, dashboards and other stacks -> off.
-    if (state.stack !== "python" || state.mode !== "practice") return false;
-    var p = byId[state.currentId];
-    if (!p || p.isIntro) return false;
+    // Any PRACTICE problem view that actually has a Solution (code) section:
+    // the DSA app (python + practice) AND the ProblemLab stacks (SQL / PySpark /
+    // NumPy / Pandas), which emit the same .prob-section[data-key="code"]. Home,
+    // Learn, dashboards and empty states have no code section -> off. The DOM
+    // check is the real gate; state is set synchronously by setChrome before any
+    // render, so this never trips on stale/async-mounted DOM.
+    if (state.mode !== "practice") return false;
+    if (state.stack === "python") {           // DSA: also skip pattern-intro pages
+      var p = byId[state.currentId];
+      if (!p || p.isIntro) return false;
+    }
     var main = el("main");
     return !!(main && main.querySelector('.prob-section[data-key="code"]'));
   }
@@ -2100,6 +2107,28 @@
       gb.setAttribute("aria-pressed", g ? "true" : "false");
       gb.style.display = ok ? "" : "none"; // hide the toggle off the problem view
     }
+    if (ok) ensureLabFocusBtn();
+  }
+  // ProblemLab (SQL / PySpark / NumPy / Pandas practice) builds no per-problem
+  // focus chip of its own, so inject one into its header to match the DSA view.
+  // DSA builds + wires its own chip in renderProblem, so skip there.
+  function ensureLabFocusBtn() {
+    if (state.stack === "python" && state.mode === "practice") return; // DSA owns its chip
+    var main = el("main"); if (!main) return;
+    var actions = main.querySelector(".prob-header .ph-actions");
+    if (!actions) return;
+    var btn = actions.querySelector(".focus-local-btn");
+    if (!btn) {
+      btn = h("button", { class: "chip-btn focus-local-btn" }, "🎯 Focus");
+      btn.addEventListener("click", function () {
+        state.focusLocal = !focusEffective(); // flip the effective state for this problem
+        applyFocus();                         // re-paint body class + chip label
+      });
+      actions.appendChild(btn);
+    }
+    var on = focusEffective();
+    btn.classList.toggle("on", on);
+    btn.textContent = on ? "🎯 Focus: ON" : "🎯 Focus";
   }
 
   // Set the shell "chrome" (state, body attrs, switch highlights) WITHOUT
