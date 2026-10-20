@@ -129,7 +129,12 @@
       }).join("") + "</ul>" +
       (logs.length ? '<div class="lab-logs-h">Simulated log</div><pre class="lab-logs">' + logs.map(esc).join("\n") + "</pre>" : "");
     if (res.pass) {
-      if (NS.Progress) { try { NS.Progress.recordLab(c.id, true); } catch (e) {} }
+      if (NS.Progress) {
+        try {
+          if (NS.Progress.recordLabEvidence) NS.Progress.recordLabEvidence(c.id, { solved: true, hints: (res._hints || 0) });
+          else NS.Progress.recordLab(c.id, true);
+        } catch (e) {}
+      }
       win.hidden = false;
       win.innerHTML =
         '<div class="lab-win-h">🎉 Solved</div>' +
@@ -231,6 +236,7 @@
           var res;
           try { res = c.validate(editor.value); }
           catch (e) { res = { pass: false, checks: [{ label: "Validator error", pass: false, detail: String(e.message || e) }], logs: [] }; }
+          res._hints = self._hintsShown;
           renderResults(output, win, c, res);
         }
 
@@ -366,7 +372,7 @@
             ? "✅ Your plan covers the key recovery steps (" + hits.map(esc).join(", ") + ")."
             : "❌ " + (diagnosed ? "Mention the key recovery ideas: think " + kws.map(esc).join(", ") + "." : "Diagnose the root cause above first.");
           if (ok) {
-            if (NS.Progress) { try { NS.Progress.recordLab(c.id, true); } catch (e) {} }
+            if (NS.Progress) { try { (NS.Progress.recordLabEvidence || NS.Progress.recordLab).call(NS.Progress, c.id, { solved: true }); } catch (e) {} }
             win.hidden = false;
             win.innerHTML = '<div class="lab-win-h">🎉 Incident resolved</div>' +
               (inc.rootCause ? '<div class="lab-takeaway"><b>Root cause:</b> ' + inc.rootCause + "</div>" : "") +

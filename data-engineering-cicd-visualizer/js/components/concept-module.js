@@ -589,6 +589,14 @@
               fb.className = "cm-kc-fb " + (o.ok ? "good" : "bad");
               fb.innerHTML = (o.ok ? "✅ Correct. " : "❌ Not quite. ") + esc(o.why || "") +
                 (!o.ok && q.revisit ? ' <a class="cm-kc-revisit" href="#' + esc(q.revisit) + '">Revisit the relevant topic →</a>' : "");
+              // Competency evidence + spaced review (first answer per question only).
+              if (!box._answered && NS.Progress) {
+                box._answered = true;
+                try {
+                  NS.Progress.recordKnowledgeCheck(cfg.id, o.ok);
+                  if (!o.ok) NS.Progress.scheduleReview(q.revisit || cfg.id, false);
+                } catch (e2) {}
+              }
             });
           });
           container.appendChild(kcWrap);

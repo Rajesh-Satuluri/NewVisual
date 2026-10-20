@@ -180,6 +180,50 @@
     "</section>";
   }
 
+  // ── Competency: mastery stages across the curriculum ───────
+  function masteryCard() {
+    var P = NS.Progress;
+    if (!P || !P.masterySummary) return "";
+    var sum = P.masterySummary();
+    var labels = ["Not started", "Understand", "Implement", "Apply", "Diagnose", "Integrate"];
+    var reached = 0; // lessons at stage >=1
+    for (var i = 1; i <= 5; i++) reached += sum.buckets[i];
+    var seg = [1, 2, 3, 4, 5].map(function (st) {
+      var n = sum.buckets[st];
+      var pct = sum.total ? Math.round((n / sum.total) * 100) : 0;
+      return '<div class="mastery-seg mastery-s' + st + '" style="--w:' + pct + '%" title="' +
+        labels[st] + ": " + n + '"><span class="mastery-seg-n">' + n + "</span></div>";
+    }).join("");
+    var legend = [1, 2, 3, 4, 5].map(function (st) {
+      return '<span class="mastery-leg"><span class="mastery-dot mastery-s' + st + '"></span>' + labels[st] + "</span>";
+    }).join("");
+    return '<section class="section mastery-card">' +
+      '<div class="dash-card-title">🧠 Skill mastery <span class="mastery-sub">derived from your knowledge-checks, labs &amp; capstone — not time on page</span></div>' +
+      '<div class="mastery-bar">' + seg + "</div>" +
+      '<div class="mastery-legend">' + legend + "</div>" +
+      '<p class="mastery-foot">' + reached + " / " + sum.total + " lessons engaged. Stages climb as you pass checks, solve labs, and complete capstone milestones.</p>" +
+    "</section>";
+  }
+
+  // ── Spaced review: concepts you missed resurface ───────────
+  function reviewCard() {
+    var P = NS.Progress;
+    if (!P || !P.reviews) return "";
+    var all = P.reviews();
+    if (!all.length) return "";
+    var due = all.filter(function (r) { return r.due; });
+    function row(r) {
+      return '<a class="review-chip' + (r.due ? " due" : "") + '" href="#' + r.id + '">' +
+        titleOf(r.id) + (r.due ? " · due" : "") + "</a>";
+    }
+    return '<section class="section review-card">' +
+      '<div class="dash-card-title">🔁 Spaced review ' +
+        (due.length ? '<span class="review-due-badge">' + due.length + " due now</span>" : '<span class="mastery-sub">scheduled</span>') + "</div>" +
+      '<p class="review-lead">Concepts you missed in a knowledge check come back on a spaced schedule. Answering them correctly pushes the next review further out.</p>' +
+      '<div class="review-chips">' + all.slice(0, 12).map(row).join("") + "</div>" +
+    "</section>";
+  }
+
   function academyView(mode) {
     var C = NS.Curriculum;
     if (!C) return referenceView(); // graceful fallback
@@ -209,7 +253,7 @@
       return levelCard(l, ids, next);
     }).join("");
 
-    return hero + capstoneCard() +
+    return hero + masteryCard() + reviewCard() + capstoneCard() +
       '<section class="section"><h2 class="section-title">The learning path</h2>' +
         '<p class="section-lead">Eleven levels, beginner to expert. Each lesson shows its status and what to learn first. ' +
           "You can open any lesson any time — the order is guidance, not a lock.</p>" +
