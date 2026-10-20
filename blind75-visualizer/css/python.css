@@ -765,6 +765,11 @@ mark.sx-hit {
 .focus-on #main > .prob-header,
 .focus-on #main > .prob-section[data-key="description"],
 .focus-on #main > .prob-section[data-key="examples"],
+/* SQL practice: keep the schema + sample data and expected output in focus too,
+   so you can write the query against the tables without leaving focus. These
+   sections exist only for SQL, so other stacks are unaffected. */
+.focus-on #main > .prob-section[data-key="schema"],
+.focus-on #main > .prob-section[data-key="expected"],
 .focus-on #main > .approach-area { display: block !important; }
 /* keep the bottom Previous / Next stepper so you can traverse problems in focus */
 .focus-on #main > .prob-nav { display: flex !important; }
