@@ -766,6 +766,8 @@ mark.sx-hit {
 .focus-on #main > .prob-section[data-key="description"],
 .focus-on #main > .prob-section[data-key="examples"],
 .focus-on #main > .approach-area { display: block !important; }
+/* keep the bottom Previous / Next stepper so you can traverse problems in focus */
+.focus-on #main > .prob-nav { display: flex !important; }
 
 /* Header: keep the title; drop badges + action chips except focus toggle + Next. */
 .focus-on .prob-header .ph-top { display: none !important; }
