@@ -82,6 +82,17 @@ body[data-ws="python"] #setToggle { display: none !important; }
 .lab-table-cap { font-size: 12px; font-weight: 700; color: var(--text-2); margin: 12px 0 2px; }
 .lab-schema { margin-bottom: 12px; }
 .lab-schema-name { font-size: 12.5px; font-weight: 800; color: var(--brand-2); margin-bottom: 3px; }
+/* LeetCode-style schema + sample-data: compact per-table cards that wrap into a
+   responsive grid, so narrow SQL tables pack side by side instead of each
+   stretching full width. Collapses to one column on narrow screens. */
+.lab-schema-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; align-items: start; }
+.lab-tbl-card { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px 12px; background: var(--bg-1); min-width: 0; }
+.lab-tbl-card-name { font-size: 12.5px; font-weight: 800; color: var(--brand-2); margin-bottom: 6px; }
+.lab-tbl-sub { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin: 10px 0 2px; }
+/* Cap sample rows (~6 visible) so a long dataset doesn't make one card tower
+   over the rest; wide tables still scroll horizontally inside the card. */
+.lab-sample-box { max-height: 196px; overflow-y: auto; }
+.lab-sample-box .lab-table-scroll { margin-top: 2px; }
 .lab-step { margin-bottom: 16px; }
 .lab-step:last-child { margin-bottom: 0; }
 .lab-step-h { font-size: 13.5px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
