@@ -2496,3 +2496,31 @@ a.card:hover { text-decoration: none; }
 .civ-merge.ok { background: var(--green-subtle); color: var(--text-primary); }
 .civ-merge.bad { background: color-mix(in srgb, var(--red,#e5484d) 12%, transparent); color: var(--text-primary); }
 .civ-msg { font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.5; }
+
+/* ============================================================
+   Competency: mastery + spaced review — Iteration 9
+   ============================================================ */
+.mastery-card, .review-card { border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--bg-1); padding: var(--space-5); }
+.mastery-sub { font-size: var(--text-xs); color: var(--text-muted); font-weight: 400; }
+.mastery-bar { display: flex; gap: 3px; height: 32px; margin: var(--space-3) 0; }
+.mastery-seg { flex: 0 0 var(--w); min-width: 0; display: flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-sm); overflow: hidden; transition: flex-basis .3s; }
+.mastery-seg-n { font-size: var(--text-xs); color: var(--text-on-accent, #fff); font-weight: 700; }
+.mastery-seg:empty, .mastery-seg[style*="--w:0%"] { display: none; }
+.mastery-s1 { background: var(--bg-4); } .mastery-s1 .mastery-seg-n { color: var(--text-primary); }
+.mastery-s2 { background: color-mix(in srgb, var(--cyan) 55%, var(--bg-3)); }
+.mastery-s3 { background: var(--cyan); }
+.mastery-s4 { background: color-mix(in srgb, var(--brand) 70%, var(--cyan)); }
+.mastery-s5 { background: var(--green); }
+.mastery-legend { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-bottom: var(--space-2); }
+.mastery-leg { font-size: var(--text-xs); color: var(--text-secondary); display: inline-flex; align-items: center; gap: 5px; }
+.mastery-dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.mastery-foot { font-size: var(--text-xs); color: var(--text-muted); margin: 0; }
+
+.review-lead { font-size: var(--text-sm); color: var(--text-secondary); margin: var(--space-2) 0 var(--space-3); }
+.review-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.review-chip { font-size: var(--text-xs); color: var(--text-primary); background: var(--bg-3); border: 1px solid var(--border-default);
+  border-radius: var(--radius-full); padding: 4px 10px; text-decoration: none; }
+.review-chip:hover { border-color: var(--brand); }
+.review-chip.due { border-color: var(--yellow); color: var(--yellow); background: var(--yellow-subtle); }
+.review-due-badge { font-size: var(--text-xs); color: var(--yellow); background: var(--yellow-subtle); border-radius: var(--radius-full); padding: 2px 9px; font-weight: 600; }
