@@ -486,6 +486,207 @@
           logs: []
         };
       }
+    },
+
+    // ── Guided lab (Iteration 6): step-by-step with checkpoints ──
+    {
+      id: "cache-deps-guided",
+      title: "Add dependency caching to CI (guided)",
+      tool: "--tool-ci", lang: "yaml", file: ".github/workflows/ci.yml",
+      difficulty: "Beginner", kind: "Static validation", mode: "guided",
+      scenario: "RetailFlow's CI reinstalls every dependency from scratch on each run, wasting minutes. Add pip caching — one small, checked step at a time.",
+      businessContext: "Faster CI means faster feedback on the revenue fix; caching is a speed optimization that must never change correctness (a cache miss is just slower).",
+      objectives: [
+        "Pin Python with actions/setup-python.",
+        "Enable pip caching so repeat installs are fast.",
+        "Keep indentation valid YAML."
+      ],
+      prerequisites: ["github-actions", "cli-yaml-deps"],
+      steps: [
+        { title: "1 · Pin the Python version", detail: "Use <code>actions/setup-python@v5</code> with a <code>python-version</code>.",
+          check: function (code) { return /actions\/setup-python@v5/.test(code) && /python-version\s*:/.test(code); } },
+        { title: "2 · Turn on pip caching", detail: "Add <code>cache: pip</code> under the setup-python <code>with:</code>.",
+          check: function (code) { return /cache\s*:\s*pip/.test(code); } },
+        { title: "3 · Keep the YAML valid", detail: "No tabs; indentation in multiples of two spaces.",
+          check: function (code) { return NS.LabValidators.yamlLint(code).ok; } }
+      ],
+      hints: [
+        "setup-python@v5 accepts a <code>cache</code> input — set it to <code>pip</code>.",
+        "The <code>cache: pip</code> line goes under <code>with:</code>, indented two more spaces than <code>with</code>.",
+        "Tabs are invalid YAML indentation — use spaces only."
+      ],
+      takeaway: "Caching keyed on the lockfile speeds repeat installs with zero correctness risk — a cache miss simply falls back to a full install.",
+      starter:
+        "name: CI\n" +
+        "on: [push]\n" +
+        "jobs:\n" +
+        "  test:\n" +
+        "    runs-on: ubuntu-latest\n" +
+        "    steps:\n" +
+        "      - uses: actions/checkout@v4\n" +
+        "      - uses: actions/setup-python@v5\n" +
+        "        with:\n" +
+        "          python-version: \"3.11\"\n" +
+        "      - run: pip install -r requirements.txt\n" +
+        "      - run: pytest -q\n",
+      solution:
+        "name: CI\n" +
+        "on: [push]\n" +
+        "jobs:\n" +
+        "  test:\n" +
+        "    runs-on: ubuntu-latest\n" +
+        "    steps:\n" +
+        "      - uses: actions/checkout@v4\n" +
+        "      - uses: actions/setup-python@v5\n" +
+        "        with:\n" +
+        "          python-version: \"3.11\"\n" +
+        "          cache: pip\n" +
+        "      - run: pip install -r requirements.txt\n" +
+        "      - run: pytest -q\n",
+      validate: function (code) {
+        var pin = /actions\/setup-python@v5/.test(code) && /python-version\s*:/.test(code);
+        var cache = /cache\s*:\s*pip/.test(code);
+        var lint = NS.LabValidators.yamlLint(code);
+        return {
+          pass: pin && cache && lint.ok,
+          checks: [
+            { label: "Python pinned via setup-python@v5", pass: pin, why: "CI needs a defined interpreter version to be reproducible.", revisit: "github-actions" },
+            { label: "pip caching enabled (cache: pip)", pass: cache, detail: cache ? "" : "Add cache: pip under with:.", why: "Without a cache every run re-downloads all dependencies.", revisit: "cli-yaml-deps" },
+            { label: "Valid YAML indentation", pass: lint.ok, detail: lint.ok ? "" : (lint.errors[0] && ("Line " + lint.errors[0].line + ": " + lint.errors[0].msg)), why: "YAML structure is its indentation; tabs or odd indents break it.", revisit: "cli-yaml-deps" }
+          ],
+          logs: cache
+            ? ["▶ setup-python  restoring pip cache… HIT", "▶ pip install   (fast, from cache)", "✓ pytest        passed"]
+            : ["▶ setup-python  no cache configured", "▶ pip install   downloading everything… (slow)", "✓ pytest        passed"]
+        };
+      }
+    },
+
+    // ── Incident lab (Iteration 6): investigate → diagnose → recover ──
+    {
+      id: "stale-revenue-incident",
+      title: "The 7 AM number is wrong — find out why",
+      tool: "--tool-dq", lang: "investigation", file: "incident #4471",
+      difficulty: "Intermediate", kind: "Static validation", mode: "incident",
+      scenario: "At 7:02 AM, Finance reports daily revenue looks ~18% low. The pipeline ran green. You're on call — investigate, diagnose the root cause, and propose a recovery.",
+      businessContext: "The executive dashboard reads this number at 7 AM. A green job with a wrong number is a business-correctness incident, not a crash.",
+      objectives: [
+        "Read the evidence and separate 'job healthy' from 'data correct'.",
+        "Diagnose the true root cause.",
+        "Propose a recovery that repairs the data, not just the code."
+      ],
+      prerequisites: ["data-quality", "observability", "rollback"],
+      incident: {
+        evidence: [
+          { t: "Job status", line: "revenue_daily DAG — all tasks SUCCESS at 06:48." },
+          { t: "Freshness", line: "orders source: newest row is from 02:10; the 03:00–05:00 batch window is missing." },
+          { t: "Row counts", line: "today's order count is 82% of the trailing 7-day median." },
+          { t: "Code", line: "no deploy to the revenue repo in 9 days; last commit is unrelated docs." },
+          { t: "Upstream", line: "the orders ingestion connector logged a 90-minute outage overnight, now recovered." }
+        ],
+        question: {
+          q: "What is the root cause of the low revenue number?",
+          options: [
+            { label: "A code bug in the net-revenue formula", ok: false, why: "No deploy in 9 days and the formula is unchanged; the code didn't cause this." },
+            { label: "Incomplete source data — an ingestion outage dropped part of the orders feed", ok: true, why: "Freshness + row counts show missing rows; the connector outage explains the gap. The job ran green on incomplete input." },
+            { label: "The dashboard cache is stale", ok: false, why: "The warehouse itself is missing rows; it's not a presentation cache issue." }
+          ]
+        },
+        correction: {
+          prompt: "Describe how you'd recover the correct number and verify it — be specific about data vs code.",
+          keywords: ["backfill", "reprocess", "reconcile", "ingest", "verify", "rerun"],
+          sample: "Re-ingest the missing orders window after the connector recovered, <b>backfill</b>/reprocess the affected partitions, then <b>reconcile</b> daily revenue against the payments ledger before republishing. No code rollback is needed — the code was correct; the <i>data</i> was incomplete. Add a freshness + completeness gate so an incomplete feed blocks publication next time."
+        },
+        rootCause: "The orders ingestion connector had a ~90-minute outage, so part of the feed was missing when the pipeline ran. The job succeeded on incomplete input — a data-completeness failure, not a code failure.",
+        prevention: "Add a freshness and completeness data-quality gate before publish, so an incomplete source blocks the 7 AM number instead of silently understating it."
+      }
+    },
+
+    // ── Independent challenge (Iteration 6): acceptance-criteria only ──
+    {
+      id: "secure-deploy-challenge",
+      title: "Harden the deploy job (challenge)",
+      tool: "--tool-secrets", lang: "yaml", file: ".github/workflows/deploy.yml",
+      difficulty: "Advanced", kind: "Static validation", mode: "challenge",
+      scenario: "RetailFlow's deploy workflow is functional but insecure. Harden it to production standard. You get acceptance criteria — not step-by-step instructions.",
+      businessContext: "This job deploys the revenue pipeline to prod. A leaked credential or an ungated prod deploy is a direct risk to the business's numbers.",
+      objectives: [
+        "Apply least-privilege permissions.",
+        "Use OIDC instead of a long-lived cloud key.",
+        "Gate the prod deploy behind an environment approval.",
+        "Pin the third-party action to a commit SHA."
+      ],
+      prerequisites: ["security", "secrets", "github-actions"],
+      acceptance: [
+        "Top-level or job <code>permissions:</code> is least-privilege (contents: read, plus id-token: write for OIDC).",
+        "The job declares <code>environment:</code> (e.g. prod) so it can require approval.",
+        "No long-lived cloud key in <code>secrets</code> is echoed; auth uses OIDC (id-token).",
+        "The third-party action is pinned to a 40-char commit SHA, not a moving tag."
+      ],
+      constraints: [
+        "Don't remove the actual deploy step.",
+        "Don't print any secret to the log."
+      ],
+      commonMistakes: [
+        "Leaving <code>permissions</code> at the default (often write) instead of narrowing it.",
+        "Adding <code>id-token: write</code> but forgetting the matching OIDC auth step.",
+        "Pinning to <code>@v4</code> (mutable) instead of a commit SHA."
+      ],
+      hints: [
+        "Least privilege: start from <code>contents: read</code> and add only what you need; OIDC needs <code>id-token: write</code>.",
+        "An <code>environment: prod</code> on the job is what lets a required reviewer gate it.",
+        "Replace the stored cloud password with an OIDC auth step that assumes a role; pin actions to a SHA."
+      ],
+      takeaway: "Production deploy jobs should hold no standing credential (OIDC), run with least privilege, be gated by an environment approval, and pin third-party actions by SHA.",
+      starter:
+        "name: Deploy\n" +
+        "on:\n" +
+        "  push:\n" +
+        "    branches: [main]\n" +
+        "jobs:\n" +
+        "  deploy:\n" +
+        "    runs-on: ubuntu-latest\n" +
+        "    steps:\n" +
+        "      - uses: actions/checkout@v4\n" +
+        "      - uses: some-cloud/login@v4\n" +
+        "        with:\n" +
+        "          cloud-key: ${{ secrets.PROD_CLOUD_KEY }}\n" +
+        "      - run: ./scripts/deploy.sh -t prod\n",
+      solution:
+        "name: Deploy\n" +
+        "on:\n" +
+        "  push:\n" +
+        "    branches: [main]\n" +
+        "permissions:\n" +
+        "  contents: read\n" +
+        "  id-token: write\n" +
+        "jobs:\n" +
+        "  deploy:\n" +
+        "    runs-on: ubuntu-latest\n" +
+        "    environment: prod\n" +
+        "    steps:\n" +
+        "      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11\n" +
+        "      - uses: some-cloud/login@0c5e2b8115b80b4c7b5c7c7c7c7c7c7c7c7c7c7c\n" +
+        "        with:\n" +
+        "          role-to-assume: arn:aws:iam::123456789012:role/retailflow-deploy\n" +
+        "      - run: ./scripts/deploy.sh -t prod\n",
+      validate: function (code) {
+        var leastPriv = /permissions\s*:/.test(code) && /contents\s*:\s*read/.test(code);
+        var oidc = /id-token\s*:\s*write/.test(code);
+        var env = /environment\s*:\s*\w/.test(code);
+        var noKey = !/cloud-key\s*:\s*\$\{\{\s*secrets\./.test(code);
+        var shaPin = /@[0-9a-f]{40}/.test(code);
+        return {
+          pass: leastPriv && oidc && env && noKey && shaPin,
+          checks: [
+            { label: "Least-privilege permissions (contents: read)", pass: leastPriv, why: "A broad default token lets a compromised step do damage.", revisit: "security" },
+            { label: "OIDC enabled (id-token: write)", pass: oidc, why: "OIDC mints short-lived credentials — no standing key to leak.", revisit: "security" },
+            { label: "Prod deploy gated by environment", pass: env, why: "An environment lets a human approve before prod.", revisit: "environment-promotion" },
+            { label: "No long-lived cloud key from secrets", pass: noKey, detail: noKey ? "" : "Remove the stored cloud-key; use OIDC.", why: "A stored key can leak and must be rotated.", revisit: "secrets" },
+            { label: "Third-party action pinned to a commit SHA", pass: shaPin, detail: shaPin ? "" : "Pin uses: to a 40-char SHA, not @v4.", why: "A moving tag can be repointed to malicious code.", revisit: "security" }
+          ],
+          logs: []
+        };
+      }
     }
   ];
 })();
