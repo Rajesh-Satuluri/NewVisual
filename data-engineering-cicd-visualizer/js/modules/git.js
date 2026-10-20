@@ -106,6 +106,93 @@
       { q: "How would you recover a commit after an accidental <code>git reset --hard</code>?", a: "Run <code>git reflog</code> to find the lost commit's SHA — the reflog records where HEAD has been for ~90 days — then <code>git checkout</code> or <code>git cherry-pick</code> it back, provided garbage collection hasn't pruned it." }
     ],
 
+    interactive: [{
+      title: "Interactive: build a commit graph",
+      lead: "Run safe, simulated Git operations and watch the history graph change. Nothing touches a real repo.",
+      mount: function (host) {
+        // Model: commits [{id, branch, parent}], branches {name: headId}, HEAD branch.
+        var seq = 0;
+        var commits = [{ id: "c0", branch: "main", parent: null, msg: "init" }];
+        var branches = { main: "c0" };
+        var head = "main";
+        var log = [];
+
+        function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+        function newId() { return "c" + (++seq); }
+
+        var wrap = document.createElement("div");
+        wrap.className = "gv";
+        wrap.innerHTML =
+          '<div class="gv-controls">' +
+            '<label class="gv-head">HEAD: <select class="gv-branch"></select></label>' +
+            '<button type="button" class="btn btn-secondary btn-sm gv-commit">commit</button>' +
+            '<button type="button" class="btn btn-secondary btn-sm gv-branch-new">branch feature/*</button>' +
+            '<button type="button" class="btn btn-secondary btn-sm gv-merge">merge → main</button>' +
+            '<button type="button" class="btn btn-ghost btn-sm gv-reset">reset demo</button>' +
+          "</div>" +
+          '<div class="gv-graph"></div>' +
+          '<pre class="gv-log"></pre>';
+        host.appendChild(wrap);
+
+        var sel = wrap.querySelector(".gv-branch");
+        var graph = wrap.querySelector(".gv-graph");
+        var logEl = wrap.querySelector(".gv-log");
+
+        function paint() {
+          sel.innerHTML = Object.keys(branches).map(function (b) {
+            return '<option value="' + esc(b) + '"' + (b === head ? " selected" : "") + ">" + esc(b) + "</option>";
+          }).join("");
+          graph.innerHTML = commits.map(function (c) {
+            var isHead = branches[head] === c.id;
+            var tags = Object.keys(branches).filter(function (b) { return branches[b] === c.id; });
+            return '<div class="gv-commit-node gv-b-' + esc(c.branch) + (isHead ? " gv-is-head" : "") + '">' +
+              '<span class="gv-dot"></span>' +
+              '<span class="gv-cid">' + esc(c.id) + "</span>" +
+              '<span class="gv-cmsg">' + esc(c.msg) + "</span>" +
+              (tags.length ? '<span class="gv-tags">' + tags.map(function (t) { return '<span class="gv-tag">' + esc(t) + "</span>"; }).join("") + "</span>" : "") +
+            "</div>";
+          }).join("");
+          logEl.textContent = log.slice(-6).join("\n");
+        }
+
+        function doCommit() {
+          var id = newId();
+          commits.push({ id: id, branch: head, parent: branches[head], msg: head === "main" ? "work on main" : "feature work" });
+          branches[head] = id;
+          log.push("$ git commit        → " + id + " on " + head);
+          paint();
+        }
+        function doBranch() {
+          var name = "feature/f" + (Object.keys(branches).length);
+          branches[name] = branches[head];
+          head = name;
+          log.push("$ git checkout -b " + name);
+          paint();
+        }
+        function doMerge() {
+          if (head === "main") { log.push("# already on main — nothing to merge"); paint(); return; }
+          var id = newId();
+          commits.push({ id: id, branch: "main", parent: branches.main, msg: "merge " + head, merge: head });
+          branches.main = id;
+          log.push("$ git checkout main && git merge " + head + " → " + id);
+          head = "main";
+          paint();
+        }
+        function reset() {
+          seq = 0; commits = [{ id: "c0", branch: "main", parent: null, msg: "init" }];
+          branches = { main: "c0" }; head = "main"; log = [];
+          paint();
+        }
+
+        sel.addEventListener("change", function () { head = sel.value; paint(); });
+        wrap.querySelector(".gv-commit").addEventListener("click", doCommit);
+        wrap.querySelector(".gv-branch-new").addEventListener("click", doBranch);
+        wrap.querySelector(".gv-merge").addEventListener("click", doMerge);
+        wrap.querySelector(".gv-reset").addEventListener("click", reset);
+        paint();
+      }
+    }],
+
     problem: {
       before: "Teams versioned code by copying folders: <code>pipeline_final/</code>, <code>pipeline_final_v2/</code>, <code>pipeline_REALLY_final/</code>. Sharing meant emailing zips or editing files on a shared drive.",
       insufficient: "Copies don't record <i>why</i> something changed, can't merge two people's edits, and silently overwrite each other. There's no reliable way to answer 'what changed between the version that worked and the one that broke?'",

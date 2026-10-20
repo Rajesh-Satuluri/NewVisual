@@ -100,6 +100,64 @@
 
     prerequisites: ["github", "git", "ci-vs-cd"],
 
+    interactive: [{
+      title: "Interactive: watch a CI run react",
+      lead: "Toggle the conditions and see how the workflow run changes — which jobs pass, fail, or get skipped, and whether the merge is allowed.",
+      mount: function (host) {
+        var state = { testPasses: true, needsGate: true, cache: true };
+        var wrap = document.createElement("div");
+        wrap.className = "civ";
+        wrap.innerHTML =
+          '<div class="civ-controls">' +
+            '<label class="civ-tog"><input type="checkbox" class="civ-test" checked> test suite passes</label>' +
+            '<label class="civ-tog"><input type="checkbox" class="civ-needs" checked> deploy needs: test</label>' +
+            '<label class="civ-tog"><input type="checkbox" class="civ-cache" checked> dependency cache</label>' +
+          "</div>" +
+          '<div class="civ-run"></div>' +
+          '<div class="civ-note"></div>';
+        host.appendChild(wrap);
+        var run = wrap.querySelector(".civ-run");
+        var note = wrap.querySelector(".civ-note");
+
+        function paint() {
+          var testSt = state.testPasses ? "success" : "failed";
+          var deploySt, mergeMsg, mergeOk;
+          if (!state.testPasses && state.needsGate) { deploySt = "skipped"; }
+          else if (!state.testPasses && !state.needsGate) { deploySt = "danger"; }
+          else { deploySt = "success"; }
+          mergeOk = state.testPasses;
+          mergeMsg = state.testPasses
+            ? "✅ Required check green → merge allowed."
+            : "⛔ Required check red → merge blocked.";
+
+          var jobs = [
+            { k: "checkout", label: "checkout", st: "success" },
+            { k: "setup", label: "setup-python" + (state.cache ? " (cache HIT)" : " (no cache)"), st: "success" },
+            { k: "install", label: "pip install" + (state.cache ? " — fast" : " — slow"), st: "success" },
+            { k: "test", label: "pytest", st: testSt },
+            { k: "deploy", label: "deploy (prod)", st: deploySt }
+          ];
+          run.innerHTML = jobs.map(function (j, i) {
+            var arrow = i ? '<span class="civ-arrow">→</span>' : "";
+            return arrow + '<div class="civ-job civ-' + j.st + '"><span class="civ-job-l">' + j.label + "</span>" +
+              '<span class="civ-job-s">' + j.st + "</span></div>";
+          }).join("");
+
+          var msg;
+          if (deploySt === "danger") msg = "⚠️ With no <code>needs: test</code>, deploy ran <b>in parallel</b> and shipped despite the failing test — a broken build reached prod.";
+          else if (deploySt === "skipped") msg = "🛡️ <code>needs: test</code> gated deploy — a failing test <b>skips</b> deploy entirely. Nothing ships.";
+          else msg = "✅ Tests passed and deploy ran after them." + (state.cache ? " Caching made install fast." : " Without caching, install was slow.");
+          note.innerHTML = '<div class="civ-merge ' + (mergeOk ? "ok" : "bad") + '">' + mergeMsg + "</div>" +
+            '<div class="civ-msg">' + msg + "</div>";
+        }
+
+        wrap.querySelector(".civ-test").addEventListener("change", function (e) { state.testPasses = e.target.checked; paint(); });
+        wrap.querySelector(".civ-needs").addEventListener("change", function (e) { state.needsGate = e.target.checked; paint(); });
+        wrap.querySelector(".civ-cache").addEventListener("change", function (e) { state.cache = e.target.checked; paint(); });
+        paint();
+      }
+    }],
+
     // ── Deep-theory layer (golden template, Iteration 3) ──────
     problem: {
       before: "Before CI, teams ran tests <i>manually</i> on their own laptops before merging — if they remembered. Integration happened rarely and in big, scary batches; a shared branch would sit broken for hours while people argued about whose change did it.",
