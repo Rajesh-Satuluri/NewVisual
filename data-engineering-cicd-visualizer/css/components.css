@@ -2025,3 +2025,50 @@ a.card:hover { text-decoration: none; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
 }
+
+/* ============================================================
+   Lesson info panel (curriculum metadata) — Iteration 1
+   Objectives · prerequisites · authoritative sources, rendered
+   from DECICDViz.Curriculum by js/components/lesson.js.
+   ============================================================ */
+.lesson-info { border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);
+  background: var(--bg-1); padding: var(--space-5); }
+.lesson-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3);
+  margin-bottom: var(--space-4); }
+.lesson-badge { font-size: var(--text-xs); font-weight: 600; letter-spacing: .02em;
+  color: var(--brand); background: color-mix(in srgb, var(--brand) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand) 32%, transparent);
+  padding: 4px 10px; border-radius: var(--radius-full); }
+.lesson-est { font-size: var(--text-xs); color: var(--text-muted); }
+.lesson-path-link { margin-left: auto; font-size: var(--text-xs); color: var(--cyan);
+  text-decoration: none; white-space: nowrap; }
+.lesson-path-link:hover { text-decoration: underline; }
+
+.lesson-info-grid { display: grid; gap: var(--space-4);
+  grid-template-columns: 1.4fr 1fr; align-items: start; }
+@media (max-width: 760px) { .lesson-info-grid { grid-template-columns: 1fr; } }
+
+.lesson-block-h { font-size: var(--text-sm); font-weight: 600; color: var(--text-secondary);
+  margin-bottom: var(--space-2); }
+.lesson-objectives { margin: 0; padding-left: 1.1em; display: grid; gap: 4px; }
+.lesson-objectives li { font-size: var(--text-sm); color: var(--text-primary); line-height: 1.5; }
+.lesson-none { font-size: var(--text-sm); color: var(--text-muted); margin: 0; }
+
+.lesson-prereqs { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.lesson-prereq-chip { font-size: var(--text-xs); color: var(--text-primary);
+  background: var(--bg-3); border: 1px solid var(--border-default);
+  padding: 4px 10px; border-radius: var(--radius-full); text-decoration: none; }
+.lesson-prereq-chip:hover { border-color: var(--brand); color: var(--brand); }
+
+.lesson-sources { margin-top: var(--space-4); border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-3); }
+.lesson-sources > summary { cursor: pointer; list-style: revert; }
+.lesson-src-list { margin: var(--space-3) 0 0; padding-left: 1.1em; display: grid; gap: var(--space-3); }
+.lesson-src { font-size: var(--text-sm); line-height: 1.5; }
+.lesson-src-link { color: var(--cyan); text-decoration: none; font-weight: 600; }
+.lesson-src-link:hover { text-decoration: underline; }
+.lesson-src-pub { color: var(--text-muted); font-size: var(--text-xs); }
+.lesson-src-sec { display: block; color: var(--text-secondary); font-size: var(--text-xs); margin-top: 2px; }
+.lesson-src-rev { display: block; color: var(--text-muted); font-size: var(--text-xs);
+  font-style: italic; margin-top: 2px; }
+.lesson-src-note { font-size: var(--text-xs); color: var(--text-muted); margin: var(--space-3) 0 0; }

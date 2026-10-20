@@ -95,8 +95,19 @@
           NS.ModuleActions.mount(container, { id: cfg.id, title: cfg.title, route: cfg.id });
         }
 
+        // ── Lesson info panel (objectives · prereqs · sources) ─
+        // Additive: renders only when curriculum metadata exists for
+        // this lesson. Single source of truth = DECICDViz.Curriculum.
+        var hasLessonInfo = false;
+        if (NS.Lesson && NS.Lesson.ready(cfg.id)) {
+          var info = NS.Lesson.infoPanel(cfg.id);
+          if (info) { container.appendChild(info); hasLessonInfo = true; }
+        }
+
         // ── Prerequisites (learn these first) ──────────────
-        if (cfg.prerequisites && cfg.prerequisites.length) {
+        // Skip when the lesson info panel already lists prerequisites,
+        // so they are never shown twice.
+        if (!hasLessonInfo && cfg.prerequisites && cfg.prerequisites.length) {
           var pre = document.createElement("div");
           pre.innerHTML =
             '<p class="section-lead">Comfortable with these first makes this topic click faster.</p>' +
