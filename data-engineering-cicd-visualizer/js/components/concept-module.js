@@ -290,6 +290,20 @@
           container.appendChild(ioSec);
         }
 
+        // ── Interactive widgets (learner-controlled state) ──
+        if (cfg.interactive && cfg.interactive.length) {
+          cfg.interactive.forEach(function (w) {
+            var sec = document.createElement("section");
+            sec.className = "section cm-interactive";
+            sec.innerHTML = '<h2 class="section-title">' + esc(w.title || "Try it") + "</h2>" +
+              (w.lead ? '<p class="section-lead">' + w.lead + "</p>" : "");
+            var mount = document.createElement("div");
+            sec.appendChild(mount);
+            container.appendChild(sec);
+            try { if (typeof w.mount === "function") w.mount(mount); } catch (e) { /* widget error must not break the page */ }
+          });
+        }
+
         // ── Why → What → How ───────────────────────────────
         if (cfg.why || cfg.what || cfg.how) {
           var grid = document.createElement("div");
