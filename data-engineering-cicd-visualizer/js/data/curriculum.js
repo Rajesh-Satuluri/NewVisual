@@ -81,7 +81,11 @@
     canary:      { title: "CanaryRelease", publisher: "Martin Fowler (bliki)", url: "https://martinfowler.com/bliki/CanaryRelease.html", section: "Full entry" },
     testpyramid: { title: "TestPyramid", publisher: "Martin Fowler (bliki)", url: "https://martinfowler.com/bliki/TestPyramid.html", section: "Full entry — unit vs integration vs end-to-end proportions" },
     sre:         { title: "Google SRE Books", publisher: "Google", url: "https://sre.google/books/", section: "SLOs chapter; Monitoring distributed systems; Postmortem culture" },
-    airbnbeng:   { title: "Airbnb Engineering & Data Science", publisher: "Airbnb", url: "https://medium.com/airbnb-engineering", section: "Data Quality / Minerva posts (see case study for exact citations)" }
+    airbnbeng:   { title: "Airbnb Engineering & Data Science", publisher: "Airbnb", url: "https://medium.com/airbnb-engineering", section: "Data Quality / Minerva posts (see case study for exact citations)" },
+    pyvenv:      { title: "venv — Creation of virtual environments", publisher: "Python docs", url: "https://docs.python.org/3/library/venv.html", section: "The whole page — creating and activating a venv" },
+    pip:         { title: "pip user guide", publisher: "pip / PyPA", url: "https://pip.pypa.io/en/stable/", section: "Requirements files; Secure installs (hash-checking mode)" },
+    yamlspec:    { title: "YAML Specification", publisher: "yaml.org", url: "https://yaml.org/spec/", section: "Collections (mappings, sequences); indentation rules" },
+    twelvefactor:{ title: "The Twelve-Factor App — Config", publisher: "12factor.net", url: "https://12factor.net/config", section: "Factor III — Config (store config in the environment)" }
   };
 
   // ── Lesson metadata, keyed by route id ──────────────────────
@@ -105,6 +109,15 @@
         "Recognise why a 'green' job does not prove the data is correct."
       ],
       sourceIds: ["cdSite", "airbnbeng"] },
+
+    "cli-yaml-deps": { level: 2, estMinutes: 25,
+      prereqs: [],
+      objectives: [
+        "Read and predict shell commands, working directories, and exit codes the way a headless CI runner sees them.",
+        "Isolate and pin dependencies with virtual environments and lockfiles for reproducible builds.",
+        "Write valid YAML and separate ordinary configuration from secrets."
+      ],
+      sourceIds: ["pyvenv", "pip", "yamlspec", "twelvefactor"] },
 
     "git": { level: 1, estMinutes: 25,
       prereqs: ["ci-vs-cd"],

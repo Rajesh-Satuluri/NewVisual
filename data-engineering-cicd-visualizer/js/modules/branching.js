@@ -138,6 +138,66 @@
       { q: "Why do most data pipelines avoid release branches?", a: "There's rarely a need to maintain 'version 1.3 of the revenue pipeline' in the field — there's just the current pipeline deployed continuously — so release/hotfix branches are overhead with no corresponding benefit." }
     ],
 
+    problem: {
+      before: "Early teams either all committed to one branch (and constantly broke each other) or kept huge long-lived branches per person that only merged every few weeks.",
+      insufficient: "Both extremes hurt: one shared branch means half-finished work breaks everyone; long-lived branches drift from the mainline until the eventual merge is a conflict-ridden 'big bang' nobody remembers the context for.",
+      failureModes: [
+        "A three-week branch's merge silently reverts someone else's fix.",
+        "Unfinished work committed to the shared branch blocks a release.",
+        "Nobody can say which branch is actually deployable."
+      ]
+    },
+    definition: {
+      formal: "A branching strategy is the agreed convention for how branches are created, integrated, and released. <b>Trunk-based development</b> integrates every change into one mainline at least daily via short-lived branches (or direct commits behind flags). <b>Git Flow</b> uses long-lived <code>main</code>+<code>develop</code> plus <code>feature/</code>, <code>release/</code>, and <code>hotfix/</code> branches for versioned, scheduled releases.",
+      distinguish: [
+        { from: "Trunk-based vs 'no branches'", note: "Trunk-based means <i>short-lived</i> branches integrating frequently, not the absence of branches." },
+        { from: "Strategy vs naming", note: "A strategy is a decision about integration frequency and release model backed by protection + CI — the branch names are the least important part." },
+        { from: "Isolation vs integration", note: "Longer branches maximize isolation but make merges risky; frequent small integrations keep conflicts tiny." }
+      ]
+    },
+    comparisons: [
+      { title: "Git Flow vs Trunk-based development", aLabel: "Git Flow", bLabel: "Trunk-based",
+        rows: [
+          { dim: "Branch lifetime", a: "Long-lived develop/release/hotfix", b: "Short-lived (hours–a day)" },
+          { dim: "Integration frequency", a: "Infrequent, at release time", b: "At least daily" },
+          { dim: "Merge pain", a: "Higher — big-bang merges", b: "Lower — tiny, frequent" },
+          { dim: "Needs", a: "Release discipline", b: "Strong CI + feature flags" },
+          { dim: "Best fit", a: "Versioned shipped software", b: "Continuously-deployed pipelines" }
+        ],
+        verdict: "RetailFlow's pipeline deploys continuously, so <b>trunk-based / short-lived feature branches</b> fit; Git Flow's release machinery would be dead weight." }
+    ],
+    knowledgeChecks: [
+      { level: "Explain", q: "Why do short-lived branches reduce merge risk?",
+        options: [
+          { label: "They integrate before main drifts, so conflicts stay tiny", ok: true, why: "Frequent small merges beat a weeks-old big-bang merge." },
+          { label: "They skip code review", ok: false, why: "Short-lived branches still go through PR + CI." },
+          { label: "They never conflict", ok: false, why: "They can conflict, but the conflicts are small and fresh." }
+        ], revisit: "branching" },
+      { level: "Decide", q: "A continuously-deployed revenue pipeline — which strategy?",
+        options: [
+          { label: "Short-lived feature branches off protected main (trunk-based)", ok: true, why: "No versioned field releases to maintain; integrate continuously." },
+          { label: "Full Git Flow with develop + release branches", ok: false, why: "Release/hotfix machinery adds merge pain for no benefit here." },
+          { label: "One shared branch, no PRs", ok: false, why: "Half-finished work would break the deployable line." }
+        ], revisit: "branching" },
+      { level: "Apply", q: "You must ship incomplete work without a long-lived branch. What do you use?",
+        options: [
+          { label: "A feature flag, merged dark and off by default", ok: true, why: "Keeps integration continuous while hiding unfinished behavior." },
+          { label: "A three-week branch", ok: false, why: "That's exactly the drift trunk-based avoids." },
+          { label: "Commit directly to main, enabled", ok: false, why: "Exposes unfinished logic to production." }
+        ], revisit: "branching" }
+    ],
+    mastery: {
+      task: "Recommend a branching strategy for RetailFlow's Daily Revenue Pipeline and justify it in three sentences, naming the one safeguard that makes your choice safe.",
+      acceptance: [
+        "Chooses short-lived feature branches / trunk-based with reasoning tied to continuous deployment.",
+        "Names branch protection on main (required CI + review) as the safeguard.",
+        "Mentions feature flags for incomplete work and daily rebase to avoid drift."
+      ]
+    },
+    furtherReading: [
+      { title: "Pro Git — Branching & Merging", publisher: "git-scm.com", url: "https://git-scm.com/doc", why: "The mechanics beneath any branching strategy.", read: "Ch. 3 — Git Branching (branches in a nutshell, rebasing).", reviewed: "2026-10-20" }
+    ],
+
     related: ["git", "github", "ci-vs-cd", "github-actions"]
   }));
 })();

@@ -106,6 +106,97 @@
       { q: "How would you recover a commit after an accidental <code>git reset --hard</code>?", a: "Run <code>git reflog</code> to find the lost commit's SHA — the reflog records where HEAD has been for ~90 days — then <code>git checkout</code> or <code>git cherry-pick</code> it back, provided garbage collection hasn't pruned it." }
     ],
 
+    problem: {
+      before: "Teams versioned code by copying folders: <code>pipeline_final/</code>, <code>pipeline_final_v2/</code>, <code>pipeline_REALLY_final/</code>. Sharing meant emailing zips or editing files on a shared drive.",
+      insufficient: "Copies don't record <i>why</i> something changed, can't merge two people's edits, and silently overwrite each other. There's no reliable way to answer 'what changed between the version that worked and the one that broke?'",
+      failureModes: [
+        "Two engineers edit the shared revenue script; the last to save wins and the other's work vanishes.",
+        "Nobody can tell which copy is the one running in production.",
+        "A bad change can't be isolated or undone because there's no history to revert to."
+      ]
+    },
+    intuition: {
+      plain: "Git gives every change a permanent, labelled save point and lets each person work on their own copy of the whole history, then reconcile safely. Nothing is lost, and you can always see who changed what and why.",
+      analogy: "Like a video game's save points plus parallel save slots: you branch off to try something risky, and if it goes wrong you load the last good save — the main save is untouched.",
+      breaks: "Game saves are usually linear and single-player; Git is distributed and multi-player, so it must also <i>merge</i> independent lines of history — something a single save slot never does."
+    },
+    definition: {
+      formal: "Git is a distributed version-control system. A <b>commit</b> is an immutable snapshot of the tracked tree plus metadata (author, message, parent commit(s)), identified by a hash of its content. A <b>branch</b> is a movable pointer to a commit; <b>HEAD</b> points at your current branch. History is a directed acyclic graph of commits.",
+      distinguish: [
+        { from: "Working tree vs staging vs commit", note: "The working tree is your current files; the staging area (index) is what you've marked for the next commit; a commit is the recorded snapshot. Edits you never <code>git add</code> aren't committed." },
+        { from: "Branch vs commit", note: "A commit is a fixed snapshot; a branch is just a moving label pointing at one. Deleting a branch doesn't delete its commits immediately." },
+        { from: "git fetch vs pull", note: "<code>fetch</code> only downloads remote commits; <code>pull</code> is fetch + merge/rebase and can change your working tree and create conflicts." }
+      ]
+    },
+    mechanics: [
+      { h: "Content-addressed snapshots", body: "Each commit stores a snapshot of the whole tree (as blobs/trees) and the parent commit's hash. Because the id is a hash of the content + parents, history is tamper-evident and a commit's identity is fixed — rewriting it creates a <i>new</i> commit with a new id." },
+      { h: "Branches are cheap pointers", body: "Creating a branch just writes a 41-byte pointer; that's why feature branches are free. <code>HEAD</code> tracks the current branch, and committing moves that branch pointer forward." },
+      { h: "Merging", body: "A <b>fast-forward</b> merge moves the pointer when there's no divergence. A <b>three-way merge</b> uses the common ancestor plus both tips to synthesize a merge commit; a conflict arises only when both sides changed the same region." },
+      { h: "The reflog safety net", body: "Git records where HEAD has been in the <b>reflog</b> for ~90 days, so most 'lost' commits after a bad reset are recoverable until garbage collection prunes unreferenced objects." }
+    ],
+    trace: [
+      { t: "git checkout -b feature/fix-net-revenue", state: "success", detail: "Creates a branch pointer at the current commit and moves HEAD to it." },
+      { t: "edit transforms/revenue.py", state: "running", detail: "Changes live only in the working tree so far." },
+      { t: "git add transforms/revenue.py", state: "success", detail: "Stages the change into the index — now it will be part of the next commit." },
+      { t: "git commit -m \"Fix net revenue…\"", state: "success", detail: "Records an immutable snapshot; the branch pointer advances to the new commit." },
+      { t: "git push -u origin feature/fix-net-revenue", state: "success", detail: "Uploads the commit to the shared remote and sets the upstream for future pushes." }
+    ],
+    comparisons: [
+      { title: "git revert vs git reset", aLabel: "revert", bLabel: "reset",
+        rows: [
+          { dim: "What it does", a: "Adds a new commit that undoes a change", b: "Moves the branch pointer to an earlier commit" },
+          { dim: "Rewrites history?", a: "No", b: "Yes (for commits after the target)" },
+          { dim: "Safe on shared branches?", a: "Yes", b: "No — breaks everyone who pulled" },
+          { dim: "Use when", a: "Undoing a pushed/shared change", b: "Cleaning up local, unpushed work" }
+        ],
+        verdict: "On <code>main</code> or any pushed branch, always <b>revert</b>; keep <b>reset</b> for local history you haven't shared." },
+      { title: "merge vs rebase", aLabel: "merge", bLabel: "rebase",
+        rows: [
+          { dim: "History shape", a: "Preserves topology + merge commit", b: "Linear, replayed onto a new base" },
+          { dim: "Commit ids", a: "Unchanged", b: "Rewritten (new SHAs)" },
+          { dim: "Shared branches", a: "Safe", b: "Never rebase already-pushed commits" }
+        ],
+        verdict: "Rebase to tidy a <i>local</i> feature branch before a PR; merge to integrate shared history." }
+    ],
+    knowledgeChecks: [
+      { level: "Recall", q: "Which command records a snapshot into history?",
+        options: [
+          { label: "git commit", ok: true, why: "A commit records the staged snapshot into the repository." },
+          { label: "git add", ok: false, why: "That stages changes; it doesn't commit them." },
+          { label: "git push", ok: false, why: "That uploads existing commits to a remote." }
+        ], revisit: "git" },
+      { level: "Predict", q: "You edited a file but never ran <code>git add</code>, then committed. What's in the commit?",
+        options: [
+          { label: "Not your edit — only staged changes are committed", ok: true, why: "Unstaged edits stay in the working tree, out of the commit." },
+          { label: "Your edit, automatically", ok: false, why: "Git only commits what's staged (unless you use -a)." },
+          { label: "Nothing can be committed", ok: false, why: "Other staged changes could still commit; yours wouldn't." }
+        ], revisit: "git" },
+      { level: "Troubleshoot", q: "Push is rejected as non-fast-forward. Best next step?",
+        options: [
+          { label: "git pull --rebase, resolve, then push", ok: true, why: "Replays your commits on top of the remote's new work, then pushes cleanly." },
+          { label: "git push --force immediately", ok: false, why: "Force-push can destroy teammates' commits on a shared branch." },
+          { label: "Delete the remote branch", ok: false, why: "Destructive and unnecessary; integrate the remote work instead." }
+        ], revisit: "git" },
+      { level: "Decide", q: "A pushed commit broke the nightly job. How do you undo it safely?",
+        options: [
+          { label: "git revert the commit", ok: true, why: "Creates a new undo commit without rewriting shared history." },
+          { label: "git reset --hard and force-push", ok: false, why: "Rewrites history others have pulled — breaks their clones." },
+          { label: "Edit files and recommit silently", ok: false, why: "Loses the audit trail of what was reverted and why." }
+        ], revisit: "git" }
+    ],
+    mastery: {
+      task: "On a fresh branch, make two separate commits (a code change and a doc change), then combine them into the right order for a clean PR without losing either — and explain whether you'd rebase or merge to land it on protected <code>main</code>.",
+      acceptance: [
+        "Two focused commits exist with clear messages.",
+        "You can show the branch's history with git log.",
+        "You correctly choose revert (not reset) for any shared-history undo.",
+        "Your explanation states you never rebase already-pushed shared commits."
+      ]
+    },
+    furtherReading: [
+      { title: "Pro Git (book) + Reference", publisher: "git-scm.com", url: "https://git-scm.com/doc", why: "The authoritative, free reference and book — especially branching and the staging model.", read: "Ch. 2 (recording changes) and Ch. 3 (branching & merging).", reviewed: "2026-10-20" }
+    ],
+
     related: ["github", "branching", "ci-vs-cd", "github-actions"]
   }));
 })();
