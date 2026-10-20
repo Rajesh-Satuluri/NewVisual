@@ -55,6 +55,7 @@
 
     // Engineering concepts
     "ci-vs-cd": { title: "CI vs CD", ready: true },
+    "cli-yaml-deps": { title: "Command Line, YAML & Dependencies", ready: true },
     "artifact-lifecycle": { title: "Artifact Lifecycle", ready: true },
     branching: { title: "Git Branching", ready: true },
     "testing-pyramid": { title: "Testing Pyramid", ready: true },
