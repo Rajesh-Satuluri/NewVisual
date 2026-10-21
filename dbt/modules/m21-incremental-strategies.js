@@ -199,7 +199,7 @@ function buildDetail(container) {
       <h3>The six incremental pitfalls</h3>
       <div class="info-grid">
         ${PITFALLS.map(([t, d]) => `
-          <div class="info-card" style="border-left-color:#F59E0B">
+          <div class="info-card" style="border-left-color:var(--warn)">
             <div class="info-card-title">${t}</div>
             <div class="info-card-body">${d}</div>
           </div>`).join('')}

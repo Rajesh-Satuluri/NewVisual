@@ -52,7 +52,7 @@ const IQ = [
 
 export function mount(container) {
   container.innerHTML = createModuleShell({
-    tag: 'M09 · Introduction',
+    tag: 'M09 · The Shift to dbt',
     title: 'Introducing dbt',
     subtitle: 'After 8 modules of SQL chaos, meet the tool that brings engineering discipline to analytics.',
     tabs: [
@@ -286,24 +286,24 @@ GROUP BY 1
     <div class="detail-section">
       <h3>Five capabilities that change everything</h3>
       <div class="info-grid">
-        <div class="info-card" style="border-left-color:#3B82F6">
+        <div class="info-card" style="border-left-color:var(--info)">
           <div class="info-card-title">ref() — Dependency DAG</div>
-          <div class="info-card-tag" style="color:#3B82F6;background:#3B82F622">Lineage</div>
+          <div class="info-card-tag" style="color:var(--info);background:color-mix(in srgb, var(--info) 13%, transparent)">Lineage</div>
           <div class="info-card-body"><code>{{ ref('stg_orders') }}</code> tells dbt that stg_orders must run first. dbt compiles a full DAG and executes in topological order — no manual orchestration.</div>
         </div>
-        <div class="info-card" style="border-left-color:#10B981">
+        <div class="info-card" style="border-left-color:var(--success)">
           <div class="info-card-title">schema.yml — Tests & Docs</div>
-          <div class="info-card-tag" style="color:#10B981;background:#10B98122">Quality</div>
+          <div class="info-card-tag" style="color:var(--success);background:color-mix(in srgb, var(--success) 13%, transparent)">Quality</div>
           <div class="info-card-body">Declare <code>not_null</code>, <code>unique</code>, <code>relationships</code>, <code>accepted_values</code> in YAML. <code>dbt test</code> validates. <code>dbt docs generate</code> publishes a searchable catalog.</div>
         </div>
-        <div class="info-card" style="border-left-color:#F59E0B">
+        <div class="info-card" style="border-left-color:var(--warn)">
           <div class="info-card-title">Materializations</div>
-          <div class="info-card-tag" style="color:#F59E0B;background:#F59E0B22">Performance</div>
+          <div class="info-card-tag" style="color:var(--warn);background:color-mix(in srgb, var(--warn) 13%, transparent)">Performance</div>
           <div class="info-card-body"><code>view</code>, <code>table</code>, <code>incremental</code>, <code>ephemeral</code> — choose how each model persists. Change the strategy in one config line without rewriting SQL.</div>
         </div>
-        <div class="info-card" style="border-left-color:#8B5CF6">
+        <div class="info-card" style="border-left-color:var(--purple)">
           <div class="info-card-title">Multi-environment</div>
-          <div class="info-card-tag" style="color:#8B5CF6;background:#8B5CF622">Safety</div>
+          <div class="info-card-tag" style="color:var(--purple);background:color-mix(in srgb, var(--purple) 13%, transparent)">Safety</div>
           <div class="info-card-body">Dev/staging/prod isolated by profiles. <code>dbt run --target dev</code> writes to your personal schema. CI validates in staging. Production only gets CI-passed code.</div>
         </div>
       </div>
@@ -325,5 +325,6 @@ GROUP BY 1
       <h3>What problem did dbt solve?</h3>
       <p style="font-size:15px;font-weight:600;color:var(--accent)">SQL was being written like the 1990s — no tests, no docs, no version control, no dependency tracking. dbt brought software engineering discipline to analytics without requiring analysts to become software engineers.</p>
     </div>
+    <div class="detail-section"><p style="padding:12px 14px;background:var(--surface-2);border-left:3px solid var(--accent);border-radius:8px;font-size:14px;margin:0"><strong>🧠 First principles —</strong> dbt isn't a runtime — it's a compiler that turns templated SQL into warehouse SQL, then hands it off. That parse→compile→execute model is the key to everything that follows. <a href="#concepts" style="color:var(--accent);font-weight:600">Core Concepts → Execution Lifecycle</a>.</p></div>
   `;
 }

@@ -300,14 +300,14 @@ function buildDetail(container) {
     <div class="detail-section">
       <h3>Real maintenance cost at scale</h3>
       <div class="info-grid">
-        <div class="info-card" style="border-left-color:#EF4444">
+        <div class="info-card" style="border-left-color:var(--error)">
           <div class="info-card-title">Swiggy</div>
-          <div class="info-card-tag" style="color:#EF4444;background:#EF444422">Food Delivery</div>
+          <div class="info-card-tag" style="color:var(--error);background:color-mix(in srgb, var(--error) 13%, transparent)">Food Delivery</div>
           <div class="info-card-body">Delivery fee calculation changed when surge pricing launched. Affected 23 SQL files across 6 teams. 4 teams updated their copy the first week. 2 teams ran stale numbers for 3 more weeks.</div>
         </div>
-        <div class="info-card" style="border-left-color:#F59E0B">
+        <div class="info-card" style="border-left-color:var(--warn)">
           <div class="info-card-title">Banking</div>
-          <div class="info-card-tag" style="color:#F59E0B;background:#F59E0B22">Risk</div>
+          <div class="info-card-tag" style="color:var(--warn);background:color-mix(in srgb, var(--warn) 13%, transparent)">Risk</div>
           <div class="info-card-body">Interest calculation rule changed per new RBI regulation. Risk team had 18 SQL files. Auditors found 3 files still using the old formula 6 months after the regulatory change.</div>
         </div>
       </div>
@@ -316,5 +316,6 @@ function buildDetail(container) {
       <h3>What problem did this module show?</h3>
       <p style="font-size:15px;font-weight:600;color:var(--accent)">When business logic lives in 12 copies of a SQL file, every rule change is a 12-file audit. One missed copy means wrong data silently reaching production.</p>
     </div>
+    <div class="detail-section"><p style="padding:12px 14px;background:var(--surface-2);border-left:3px solid var(--accent);border-radius:8px;font-size:14px;margin:0"><strong>🧠 First principles —</strong> Copying the same SQL twelve times is the problem staging→intermediate→marts layering exists to kill: define each transformation once, reference it everywhere. <a href="#concepts" style="color:var(--accent);font-weight:600">Core Concepts → The ELT Paradigm</a>.</p></div>
   `;
 }

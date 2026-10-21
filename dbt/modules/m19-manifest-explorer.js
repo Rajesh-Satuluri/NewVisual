@@ -215,28 +215,59 @@ function buildDetail(container) {
     <div class="detail-section">
       <h3>Three files, written on every run</h3>
       <div class="info-grid">
-        <div class="info-card" style="border-left-color:#3B82F6">
+        <div class="info-card" style="border-left-color:var(--info)">
           <div class="info-card-title">manifest.json</div>
-          <div class="info-card-tag" style="color:#3B82F6;background:#3B82F622">The graph</div>
+          <div class="info-card-tag" style="color:var(--info);background:color-mix(in srgb, var(--info) 13%, transparent)">The graph</div>
           <div class="info-card-body">Every node, its config, raw + compiled SQL, and <code>parent_map</code>/<code>child_map</code>. The source of truth for lineage, docs, <code>state:modified</code>, and <code>defer</code>.</div>
         </div>
-        <div class="info-card" style="border-left-color:#10B981">
+        <div class="info-card" style="border-left-color:var(--success)">
           <div class="info-card-title">run_results.json</div>
-          <div class="info-card-tag" style="color:#10B981;background:#10B98122">The outcome</div>
+          <div class="info-card-tag" style="color:var(--success);background:color-mix(in srgb, var(--success) 13%, transparent)">The outcome</div>
           <div class="info-card-body">Status, timing, and adapter response per node from the last invocation. The raw material for observability, alerting, and cost analysis.</div>
         </div>
-        <div class="info-card" style="border-left-color:#8B5CF6">
+        <div class="info-card" style="border-left-color:var(--purple)">
           <div class="info-card-title">catalog.json</div>
-          <div class="info-card-tag" style="color:#8B5CF6;background:#8B5CF622">The shape</div>
+          <div class="info-card-tag" style="color:var(--purple);background:color-mix(in srgb, var(--purple) 13%, transparent)">The shape</div>
           <div class="info-card-body">Column types and table stats read from the warehouse by <code>dbt docs generate</code>. Populates the docs site; not produced by a plain <code>dbt run</code>.</div>
         </div>
       </div>
+    </div>
+    <div class="detail-section">
+      <h3>What each file holds, and when it is written</h3>
+      <p>The three artifacts are produced at different moments, which is the detail people get wrong when they assume all three appear on every command.</p>
+      <div class="compare-table-wrap">
+        <table class="compare-table">
+          <thead><tr><th>Artifact</th><th>Written by</th><th>Core contents</th></tr></thead>
+          <tbody>
+            <tr><td><code>manifest.json</code></td><td>Almost every command that parses the project (<code>run</code>, <code>build</code>, <code>test</code>, <code>compile</code>, <code>docs generate</code>, even <code>parse</code>)</td><td>Every node + config + raw and compiled SQL, sources, exposures, macros, and the <code>parent_map</code>/<code>child_map</code> graph.</td></tr>
+            <tr><td><code>run_results.json</code></td><td>Any command that executes nodes (<code>run</code>, <code>build</code>, <code>test</code>, <code>seed</code>, <code>snapshot</code>)</td><td>Per-node <code>status</code>, <code>execution_time</code>, <code>adapter_response</code> (e.g. rows affected), and the thread/timing breakdown. A <code>compile</code> writes an empty-results version.</td></tr>
+            <tr><td><code>catalog.json</code></td><td>Only <code>dbt docs generate</code></td><td>Real column names, data types and table/row-count stats <em>queried from the warehouse's information schema</em> — the one artifact whose data comes from the warehouse, not from your code.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>So a plain <code>dbt run</code> refreshes the manifest and run_results but never touches the catalog — that is why column types and row counts in the docs site go stale until the next <code>docs generate</code>.</p>
+    </div>
+    <div class="detail-section">
+      <h3>How <code>state:modified</code> diffs two manifests</h3>
+      <p><code>state:modified</code> is a comparison between the <strong>current</strong> manifest (just built from your branch) and a <strong>stored</strong> manifest passed via <code>--state path/to/artifacts/</code> (usually downloaded from the last production run). For each node, dbt compares a set of fingerprints rather than eyeballing the SQL:</p>
+      <ul>
+        <li><strong>Body</strong> — a <code>sha256</code> checksum of the node's raw file (stored on the node as <code>checksum</code>). Change one character and the hash changes.</li>
+        <li><strong>Configs</strong> — materialization, tags, <code>unique_key</code>, and other resolved config values.</li>
+        <li><strong>Relation</strong> — the resolved database/schema/identifier the node would build into.</li>
+        <li><strong>Macros</strong> — a node is modified if any macro it depends on changed (macros have their own fingerprints).</li>
+        <li><strong>Contract</strong> — an enforced contract that has been broken (a column removed or retyped) also marks the node modified.</li>
+      </ul>
+      <p>Any one of these differing marks the node <code>modified</code>. The <code>+</code> in <code>state:modified+</code> then expands the selection to those nodes' downstream children. That is the whole mechanism behind Slim CI: build only what changed and what depends on it, and <code>defer</code> the rest to the relations already built in prod.</p>
+      <details class="cf-det"><summary>Going deeper — the mechanism: why a stale comparison manifest breaks CI</summary>
+        <p><code>state:modified</code> is only as trustworthy as the manifest you diff against. If the <code>--state</code> manifest was generated from a different target (dev vs prod), the <strong>relation</strong> fingerprints differ for every node, so dbt flags the entire project as modified and Slim CI rebuilds everything — the opposite of slim. If it is older than your last merge, genuinely-changed models can be missed. The discipline is to always publish the production run's <code>manifest.json</code> to a known location and pull <em>that exact file</em> as the comparison state in CI. dbt compares fingerprints, not timestamps, so a manifest from the wrong environment fails silently rather than erroring.</p>
+      </details>
     </div>
     <div class="detail-section">
       <h3>Why artifacts are the real power feature</h3>
       <p>Lineage graphs, the docs site, Slim CI, <code>defer</code>, and every "dbt observability" dashboard are not separate systems — they are just <strong>readers of these JSON files</strong>. Once you see that a run <em>produces data about itself</em>, the advanced features stop being magic.</p>
       <p style="font-size:15px;font-weight:600;color:var(--accent)">Persist your artifacts between runs. State comparison, trend analysis, and cost tracking all depend on having yesterday's manifest and run_results to diff against.</p>
     </div>
+    <div class="detail-section"><p style="padding:12px 14px;background:var(--surface-2);border-left:3px solid var(--accent);border-radius:8px;font-size:14px;margin:0"><strong>🧠 First principles —</strong> dbt is a compiler, not a runtime: it turns your templated project into a manifest and plain warehouse SQL, then executes it. <a href="#concepts" style="color:var(--accent);font-weight:600">Core Concepts → Execution Lifecycle</a>.</p></div>
   `;
 }
 

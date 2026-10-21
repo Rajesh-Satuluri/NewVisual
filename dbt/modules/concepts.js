@@ -72,24 +72,24 @@ function lifecycleHTML() {
     <div class="detail-section">
       <h3>The four stages of a run</h3>
       <div class="info-grid">
-        <div class="info-card" style="border-left-color:#3B82F6">
+        <div class="info-card" style="border-left-color:var(--info)">
           <div class="info-card-title">1 · Parse</div>
-          <div class="info-card-tag" style="color:#3B82F6;background:#3B82F622">No warehouse</div>
+          <div class="info-card-tag" style="color:var(--info);background:color-mix(in srgb, var(--info) 13%, transparent)">No warehouse</div>
           <div class="info-card-body">Read every <code>.sql</code>/<code>.yml</code>, render just enough Jinja to find <code>ref()</code>/<code>source()</code>/<code>config()</code>, and build the <strong>manifest</strong> + the dependency <strong>DAG</strong>. Catches cycles and unknown refs.</div>
         </div>
-        <div class="info-card" style="border-left-color:#8B5CF6">
+        <div class="info-card" style="border-left-color:var(--purple)">
           <div class="info-card-title">2 · Compile</div>
-          <div class="info-card-tag" style="color:#8B5CF6;background:#8B5CF622">No warehouse</div>
+          <div class="info-card-tag" style="color:var(--purple);background:color-mix(in srgb, var(--purple) 13%, transparent)">No warehouse</div>
           <div class="info-card-body">Fully render Jinja to SQL and resolve each <code>ref()</code> to a real <code>database.schema.relation</code>. Output is pure SQL in <code>target/compiled/</code> — a string, nothing more.</div>
         </div>
-        <div class="info-card" style="border-left-color:#F59E0B">
+        <div class="info-card" style="border-left-color:var(--warn)">
           <div class="info-card-title">3 · Execute</div>
-          <div class="info-card-tag" style="color:#F59E0B;background:#F59E0B22">Warehouse</div>
+          <div class="info-card-tag" style="color:var(--warn);background:color-mix(in srgb, var(--warn) 13%, transparent)">Warehouse</div>
           <div class="info-card-body">Wrap the compiled <code>select</code> in the materialization's DDL (<code>create table as…</code>, <code>create view…</code>, <code>merge…</code>), write it to <code>target/run/</code>, and send it to the adapter in DAG order. This is the paid step.</div>
         </div>
-        <div class="info-card" style="border-left-color:#10B981">
+        <div class="info-card" style="border-left-color:var(--success)">
           <div class="info-card-title">4 · Artifacts</div>
-          <div class="info-card-tag" style="color:#10B981;background:#10B98122">Metadata</div>
+          <div class="info-card-tag" style="color:var(--success);background:color-mix(in srgb, var(--success) 13%, transparent)">Metadata</div>
           <div class="info-card-body"><code>run_results.json</code> records status + timing. <code>dbt docs generate</code> additionally queries the warehouse to build <code>catalog.json</code> (real column types + stats).</div>
         </div>
       </div>
@@ -139,19 +139,19 @@ function warehouseHTML() {
     <div class="detail-section">
       <h3>What "work" actually costs</h3>
       <div class="info-grid">
-        <div class="info-card" style="border-left-color:#F59E0B">
+        <div class="info-card" style="border-left-color:var(--warn)">
           <div class="info-card-title">Bytes / partitions scanned</div>
           <div class="info-card-body">BigQuery on-demand bills per <strong>byte scanned</strong>. A missing partition filter or <code>select *</code> on a wide table is a direct, measurable cost. Columnar storage means unreferenced columns are never read — so narrow <code>select</code>s are cheaper.</div>
         </div>
-        <div class="info-card" style="border-left-color:#3B82F6">
+        <div class="info-card" style="border-left-color:var(--info)">
           <div class="info-card-title">Compute-seconds</div>
           <div class="info-card-body">Snowflake / Databricks bill by <strong>warehouse size × time running</strong>. A query that scans less data finishes sooner and releases the warehouse — so reducing scanned data lowers cost here too, just indirectly.</div>
         </div>
-        <div class="info-card" style="border-left-color:#10B981">
+        <div class="info-card" style="border-left-color:var(--success)">
           <div class="info-card-title">Storage</div>
           <div class="info-card-body">Cheap and usually a rounding error next to compute. This is <em>why</em> ELT works: landing all the raw data first and transforming later is affordable because storing it costs almost nothing.</div>
         </div>
-        <div class="info-card" style="border-left-color:#8B5CF6">
+        <div class="info-card" style="border-left-color:var(--purple)">
           <div class="info-card-title">Build-time vs read-time</div>
           <div class="info-card-body">The real trade behind every materialization choice: pay now (build) or pay on every query (read). See the table below.</div>
         </div>
@@ -235,11 +235,11 @@ qualify row_number() over (
       <h3>Idempotency — running twice changes nothing</h3>
       <p>A transform is <strong>idempotent</strong> when running it again on the same inputs yields the same output. It is what makes a pipeline safe to retry — and retries are a fact of life in production (a job dies halfway, an orchestrator re-runs it).</p>
       <div class="info-grid">
-        <div class="info-card" style="border-left-color:#10B981">
+        <div class="info-card" style="border-left-color:var(--success)">
           <div class="info-card-title">table / view</div>
           <div class="info-card-body">Idempotent by construction — each run <code>create or replace</code>s the whole relation, so the result depends only on current inputs, never on how many times you ran it.</div>
         </div>
-        <div class="info-card" style="border-left-color:#F59E0B">
+        <div class="info-card" style="border-left-color:var(--warn)">
           <div class="info-card-title">incremental (needs care)</div>
           <div class="info-card-body">An <code>append</code> with no <code>unique_key</code> is <strong>not</strong> idempotent — re-running inserts the same rows twice. A <code>unique_key</code> turns the insert into a <code>merge</code>/upsert, so a re-run overwrites instead of duplicating. That is what makes it retry-safe.</div>
         </div>
@@ -266,14 +266,14 @@ function jinjaHTML() {
     <div class="detail-section">
       <h3>Two passes: render first, run second</h3>
       <div class="info-grid">
-        <div class="info-card" style="border-left-color:#8B5CF6">
+        <div class="info-card" style="border-left-color:var(--purple)">
           <div class="info-card-title">Pass 1 · Jinja renders (compile)</div>
-          <div class="info-card-tag" style="color:#8B5CF6;background:#8B5CF622">dbt, no data</div>
+          <div class="info-card-tag" style="color:var(--purple);background:color-mix(in srgb, var(--purple) 13%, transparent)">dbt, no data</div>
           <div class="info-card-body">Loops, conditionals, variables, macros, <code>ref()</code> — all evaluated here, producing a SQL string. Jinja has <strong>no access to your table's rows</strong>; it only knows project metadata (vars, target, whether a relation exists).</div>
         </div>
-        <div class="info-card" style="border-left-color:#F59E0B">
+        <div class="info-card" style="border-left-color:var(--warn)">
           <div class="info-card-title">Pass 2 · SQL runs (execute)</div>
-          <div class="info-card-tag" style="color:#F59E0B;background:#F59E0B22">warehouse, data</div>
+          <div class="info-card-tag" style="color:var(--warn);background:color-mix(in srgb, var(--warn) 13%, transparent)">warehouse, data</div>
           <div class="info-card-body">The rendered SQL is sent to the warehouse, which runs it against actual rows. By now every <code>{{ }}</code> is already gone — it was resolved in pass 1.</div>
         </div>
       </div>
@@ -368,11 +368,11 @@ function eltHTML() {
     <div class="detail-section">
       <h3>The economic inversion that made ELT win</h3>
       <div class="info-grid">
-        <div class="info-card" style="border-left-color:#8895AA">
+        <div class="info-card" style="border-left-color:var(--text-3)">
           <div class="info-card-title">ETL era — transform before load</div>
           <div class="info-card-body">Storage was expensive and compute was scarce and <strong>coupled</strong> to storage. So you cleaned, aggregated, and shrank data on a separate ETL server <em>before</em> paying to store it. <strong>Schema-on-write</strong>: you had to decide the shape up front, and raw data was discarded.</div>
         </div>
-        <div class="info-card" style="border-left-color:#10B981">
+        <div class="info-card" style="border-left-color:var(--success)">
           <div class="info-card-title">ELT era — load then transform</div>
           <div class="info-card-body">Cloud warehouses <strong>decoupled storage from compute</strong>: storage became cheap, compute became elastic and pay-per-use. Now it's cheaper to land all the raw data first and transform it in place. Raw data is kept, so you can re-model history any time.</div>
         </div>

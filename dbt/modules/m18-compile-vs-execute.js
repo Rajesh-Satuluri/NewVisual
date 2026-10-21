@@ -236,10 +236,38 @@ function buildDetail(container) {
       </div>
     </div>
     <div class="detail-section">
+      <h3>"Compiled" does not mean "correct"</h3>
+      <p>A successful <code>dbt compile</code> proves exactly one thing: your Jinja rendered into syntactically well-formed SQL and every <code>ref()</code>/<code>source()</code> resolved to a known relation. It says <strong>nothing</strong> about whether that SQL will run. Compilation is pure string generation — dbt never asks the warehouse to plan or run the query. So a model can compile cleanly and still fail the moment it executes: a column that does not exist, a type that will not cast, a join that explodes row counts, a <code>unique_key</code> that is not actually unique. The warehouse is the only thing that can validate the query against real data, and that only happens in the Execute step.</p>
+      <p>This is the practical meaning of the Lab above: everything up to Execute is dbt rearranging text; correctness against your data is proven only by running it (then <code>dbt test</code>).</p>
+    </div>
+    <div class="detail-section">
+      <h3>Compile time vs execute time: who decides what</h3>
+      <div class="info-grid">
+        <div class="info-card" style="border-left-color:var(--info)">
+          <div class="info-card-title">Jinja resolves at compile time</div>
+          <div class="info-card-tag" style="color:var(--info);background:color-mix(in srgb, var(--info) 13%, transparent)">dbt, offline</div>
+          <div class="info-card-body"><code>{{ ref() }}</code> / <code>{{ source() }}</code> → physical relation names; <code>{{ config() }}</code> → materialization settings; <code>is_incremental()</code> → <code>true</code>/<code>false</code>; <code>{% if %}</code>/<code>{% for %}</code> control flow and macros expand. The output is fixed, warehouse-ready text.</div>
+        </div>
+        <div class="info-card" style="border-left-color:var(--error)">
+          <div class="info-card-title">The warehouse decides at execute time</div>
+          <div class="info-card-tag" style="color:var(--error);background:color-mix(in srgb, var(--error) 13%, transparent)">Runtime, with credits</div>
+          <div class="info-card-body">Row counts, actual column types, whether a cast succeeds, constraint and contract failures, duplicate keys on a <code>MERGE</code>, timeouts, out-of-memory. None of this is knowable from the text — only from running it against the data.</div>
+        </div>
+      </div>
+      <p>A useful tell: if the answer depends on <em>the data</em>, it is an execute-time question; if it depends only on <em>your code and target</em>, Jinja already settled it at compile time. <code>is_incremental()</code> is the classic trap — the branch is chosen by dbt before the query runs (based on whether the relation exists and whether <code>--full-refresh</code> was passed), not by the warehouse.</p>
+    </div>
+    <div class="detail-section">
+      <h3>Going deeper — the mechanism</h3>
+      <details class="cf-det"><summary>The two-pass render-then-execute model</summary>
+        <p>dbt renders a model's Jinja in <strong>two</strong> distinct passes against a context that grows between them. <strong>Pass one (parse):</strong> a lightweight render just discovers the <code>ref()</code>, <code>source()</code> and <code>config()</code> calls so the DAG and manifest can be built — the SQL is thrown away. <strong>Pass two (compile):</strong> once the full manifest exists, dbt renders the model for real with everything resolvable — <code>this</code>, <code>is_incremental()</code>, macros, the right relation names for the active target — and writes the final SQL to <code>target/compiled/</code>. Only after that does the adapter wrap the SQL in materialization DDL and hand it to the warehouse to <em>execute</em>. Render-render-then-execute: two offline passes, one online. It is why a bad <code>ref()</code> fails at parse, a bad macro at compile, and a bad column at execute — three different stages, three different costs.</p>
+      </details>
+    </div>
+    <div class="detail-section">
       <h3>Why the split exists</h3>
       <p>dbt separates <strong>planning</strong> (parse + compile) from <strong>execution</strong> on purpose. Planning is free and deterministic, so you can validate an entire project in CI, review generated SQL in a PR, and catch dependency bugs — all without spending a single warehouse credit. Execution is the only expensive, side-effecting step, and it happens last, in dependency order.</p>
       <p style="font-size:15px;font-weight:600;color:var(--accent)">Compile answers "what SQL will run?" — Execute answers "run it." Keeping them separate is what makes dbt cheap to test and safe to deploy.</p>
     </div>
+    <div class="detail-section"><p style="padding:12px 14px;background:var(--surface-2);border-left:3px solid var(--accent);border-radius:8px;font-size:14px;margin:0"><strong>🧠 First principles —</strong> dbt is a compiler, not a runtime: it turns your templated project into a manifest and plain warehouse SQL, then executes it. <a href="#concepts" style="color:var(--accent);font-weight:600">Core Concepts → Execution Lifecycle</a>.</p></div>
   `;
 }
 

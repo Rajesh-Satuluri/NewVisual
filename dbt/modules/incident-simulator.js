@@ -305,24 +305,24 @@ function buildPlaybook(tab) {
       <h3>Classify first, then fix</h3>
       <p>The fastest on-call engineers bucket an incident before touching code. The bucket tells you <em>where</em> to look and <em>who</em> owns the fix.</p>
       <div class="info-grid">
-        <div class="info-card" style="border-left-color:#3B82F6">
+        <div class="info-card" style="border-left-color:var(--info)">
           <div class="info-card-title">Source failure</div>
-          <div class="info-card-tag" style="color:#3B82F6;background:#3B82F622">Upstream</div>
+          <div class="info-card-tag" style="color:var(--info);background:color-mix(in srgb, var(--info) 13%, transparent)">Upstream</div>
           <div class="info-card-body">Missing, stale, partial, or zero-row source. Surfaces at staging or via <code>dbt source freshness</code>. Owner: the loader / source team. Gate it before the build.</div>
         </div>
-        <div class="info-card" style="border-left-color:#10B981">
+        <div class="info-card" style="border-left-color:var(--success)">
           <div class="info-card-title">Data-quality failure</div>
-          <div class="info-card-tag" style="color:#10B981;background:#10B98122">A test fails</div>
+          <div class="info-card-tag" style="color:var(--success);background:color-mix(in srgb, var(--success) 13%, transparent)">A test fails</div>
           <div class="info-card-body">Data built but is wrong — duplicate key, broken FK, bad enum. Caught by tests. Fix the data or the logic; never silence the test.</div>
         </div>
-        <div class="info-card" style="border-left-color:#8B5CF6">
+        <div class="info-card" style="border-left-color:var(--purple)">
           <div class="info-card-title">Transformation failure</div>
-          <div class="info-card-tag" style="color:#8B5CF6;background:#8B5CF622">Your SQL</div>
+          <div class="info-card-tag" style="color:var(--purple);background:color-mix(in srgb, var(--purple) 13%, transparent)">Your SQL</div>
           <div class="info-card-body">Logic/SQL error in your model — bad column, divide-by-zero, fan-out. Inspect the compiled SQL. Owner: you.</div>
         </div>
-        <div class="info-card" style="border-left-color:#EF4444">
+        <div class="info-card" style="border-left-color:var(--error)">
           <div class="info-card-title">Warehouse / config failure</div>
-          <div class="info-card-tag" style="color:#EF4444;background:#EF444422">Infra</div>
+          <div class="info-card-tag" style="color:var(--error);background:color-mix(in srgb, var(--error) 13%, transparent)">Infra</div>
           <div class="info-card-body">Timeout, permission, wrong target/schema, cost blow-up. Usually a materialization, sizing, or environment problem. Fix architecture before upsizing compute.</div>
         </div>
       </div>

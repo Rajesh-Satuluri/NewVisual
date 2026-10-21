@@ -23,7 +23,7 @@ const codeBlock = (lang, title, text) => `
 
 export function mount(container) {
   container.innerHTML = createModuleShell({
-    tag: 'M33 · Real-World Production Lab',
+    tag: 'M33 · Mastery & Capstone',
     title: 'Real-World Production',
     subtitle: 'Follow a production data pipeline from raw source to business dashboard — and see exactly where dbt fits.',
     tabs: [

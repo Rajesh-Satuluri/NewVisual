@@ -185,12 +185,12 @@ function buildDetail(container) {
     <div class="detail-section">
       <h3>Reduce the work before you buy compute</h3>
       <div class="info-grid">
-        <div class="info-card" style="border-left-color:#FF694B"><div class="info-card-title">Right materialization</div><div class="info-card-body">view (recompute on read) vs table (compute once) vs incremental (only new rows) vs ephemeral (inline). Pick where to pay the cost.</div></div>
-        <div class="info-card" style="border-left-color:#3B82F6"><div class="info-card-title">Partition & cluster</div><div class="info-card-body">On the columns you filter/join by, so the warehouse prunes instead of full-scanning.</div></div>
-        <div class="info-card" style="border-left-color:#F59E0B"><div class="info-card-title">Fix the grain</div><div class="info-card-body">Fan-out joins inflate rows and compute. Dedupe dimensions; keep one row per key.</div></div>
-        <div class="info-card" style="border-left-color:#10B981"><div class="info-card-title">Build less (Slim CI)</div><div class="info-card-body">state:modified+ --defer builds only what changed; don't rebuild 2,000 models for a one-line PR.</div></div>
+        <div class="info-card" style="border-left-color:var(--accent)"><div class="info-card-title">Right materialization</div><div class="info-card-body">view (recompute on read) vs table (compute once) vs incremental (only new rows) vs ephemeral (inline). Pick where to pay the cost.</div></div>
+        <div class="info-card" style="border-left-color:var(--info)"><div class="info-card-title">Partition & cluster</div><div class="info-card-body">On the columns you filter/join by, so the warehouse prunes instead of full-scanning.</div></div>
+        <div class="info-card" style="border-left-color:var(--warn)"><div class="info-card-title">Fix the grain</div><div class="info-card-body">Fan-out joins inflate rows and compute. Dedupe dimensions; keep one row per key.</div></div>
+        <div class="info-card" style="border-left-color:var(--success)"><div class="info-card-title">Build less (Slim CI)</div><div class="info-card-body">state:modified+ --defer builds only what changed; don't rebuild 2,000 models for a one-line PR.</div></div>
         <div class="info-card" style="border-left-color:#EC4899"><div class="info-card-title">Efficient incremental predicate</div><div class="info-card-body">Compute the high-watermark once; avoid per-row correlated subqueries; bound the scan.</div></div>
-        <div class="info-card" style="border-left-color:#8B5CF6"><div class="info-card-title">Measure from artifacts</div><div class="info-card-body">Sort run_results by execution_time; target the expensive few; tag queries to warehouse cost.</div></div>
+        <div class="info-card" style="border-left-color:var(--purple)"><div class="info-card-title">Measure from artifacts</div><div class="info-card-body">Sort run_results by execution_time; target the expensive few; tag queries to warehouse cost.</div></div>
       </div>
     </div>
     <div class="detail-section">
