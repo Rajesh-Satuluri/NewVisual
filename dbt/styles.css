@@ -306,6 +306,9 @@ body {
   position: relative;
   white-space: nowrap;
 }
+/* Home sits above the filter as a persistent anchor, not inside a group. */
+.nav-home { margin: 4px 0 2px; font-weight: 600; color: var(--sidebar-text); }
+.nav-home .nav-label { font-weight: 600; }
 
 .nav-item:hover {
   background: var(--sidebar-hover);

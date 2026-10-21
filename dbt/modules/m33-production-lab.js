@@ -32,7 +32,7 @@ export function mount(container) {
       { id: 'incidents',label: '🚨 Incidents' },
       { id: 'decisions',label: '🧭 Decisions' },
       { id: 'flow',     label: '🔎 Data Flow' },
-      { id: 'iq',       label: '🎯 Interview' },
+      { id: 'iq',       label: '🎯 Interview Q&A' },
     ],
   });
 

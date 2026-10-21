@@ -65,7 +65,7 @@ export function mount(container) {
     title: 'dbt + Airflow',
     subtitle: 'Orchestration vs transformation. Where Airflow ends and dbt begins — and the interview scenarios that test it.',
     tabs: [
-      { id: 'lab',    label: '🔗 Orchestration Q&A' },
+      { id: 'lab',    label: '🔗 Orchestration' },
       { id: 'detail', label: '📋 Architecture & integration' },
       { id: 'iq',     label: '🎯 Interview Q&A' },
     ],
