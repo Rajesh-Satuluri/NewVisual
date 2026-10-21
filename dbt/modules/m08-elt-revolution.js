@@ -60,7 +60,7 @@ const IQ = [
 
 export function mount(container) {
   container.innerHTML = createModuleShell({
-    tag: 'M08 · ELT Revolution',
+    tag: 'M08 · The Shift to dbt',
     title: 'Why ELT Won',
     subtitle: 'Cloud warehouses made transformation cheap and fast. The entire data architecture flipped — and dbt was born to own the new transformation layer.',
     tabs: [
@@ -290,19 +290,19 @@ function buildDetail(container) {
     <div class="detail-section">
       <h3>The ELT revolution in three numbers</h3>
       <div class="info-grid">
-        <div class="info-card" style="border-left-color:#10B981">
+        <div class="info-card" style="border-left-color:var(--success)">
           <div class="info-card-title">100× cheaper storage</div>
-          <div class="info-card-tag" style="color:#10B981;background:#10B98122">Snowflake, 2012</div>
+          <div class="info-card-tag" style="color:var(--success);background:color-mix(in srgb, var(--success) 13%, transparent)">Snowflake, 2012</div>
           <div class="info-card-body">Cloud object storage (S3, GCS) made storing raw data essentially free. The old reason to transform before loading — saving warehouse storage costs — disappeared overnight.</div>
         </div>
-        <div class="info-card" style="border-left-color:#3B82F6">
+        <div class="info-card" style="border-left-color:var(--info)">
           <div class="info-card-title">10× faster queries</div>
-          <div class="info-card-tag" style="color:#3B82F6;background:#3B82F622">BigQuery, 2010</div>
+          <div class="info-card-tag" style="color:var(--info);background:color-mix(in srgb, var(--info) 13%, transparent)">BigQuery, 2010</div>
           <div class="info-card-body">Column-oriented cloud warehouses could run analytical SQL on billions of rows in seconds. The "transform before load" performance argument no longer held — the warehouse was now fast enough to transform raw data on demand.</div>
         </div>
-        <div class="info-card" style="border-left-color:#FF694B">
+        <div class="info-card" style="border-left-color:var(--accent)">
           <div class="info-card-title">$0 per iteration</div>
-          <div class="info-card-tag" style="color:#FF694B;background:#FF694B22">dbt, 2016</div>
+          <div class="info-card-tag" style="color:var(--accent);background:color-mix(in srgb, var(--accent) 13%, transparent)">dbt, 2016</div>
           <div class="info-card-body">dbt made SQL transformation free to iterate. An analyst can write a new model, test it, and deploy it in minutes — with no ETL developer, no server, no IT ticket. The bottleneck that defined data work for 20 years was gone.</div>
         </div>
       </div>

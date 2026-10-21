@@ -64,7 +64,7 @@ export function mount(container) {
                 <button class="btn btn-primary cfg-check" type="button">✓ Check</button>
               </div>
             </div>
-            <textarea class="studio-editor cfg-editor" spellcheck="false" aria-label="Config editor"></textarea>
+            <textarea class="studio-editor cfg-editor" spellcheck="false" aria-label="Config editor. Press Escape then Tab to move focus out of the editor."></textarea>
           </div>
           <div class="studio-verdict cfg-verdict" hidden></div>
           <div class="studio-output cfg-output"><div class="studio-output-empty">Render or Check to see the result.</div></div>
@@ -177,7 +177,14 @@ export function mount(container) {
   $('.cfg-run').addEventListener('click', doRun);
   $('.cfg-check').addEventListener('click', doCheck);
   $('.cfg-reset').addEventListener('click', () => { editor.value = current().starter; verdictEl.hidden = true; });
-  editor.addEventListener('keydown', ev => { if (ev.key === 'Tab') { ev.preventDefault(); const s=editor.selectionStart,en=editor.selectionEnd; editor.value=editor.value.slice(0,s)+'  '+editor.value.slice(en); editor.selectionStart=editor.selectionEnd=s+2; } });
+  // Tab indents, but Esc releases the trap so keyboard-only users can Tab out
+  // of the editor (WCAG 2.1.2). Re-focusing re-arms indentation.
+  let tabTraps = true;
+  editor.addEventListener('focus', () => { tabTraps = true; });
+  editor.addEventListener('keydown', ev => {
+    if (ev.key === 'Escape') { tabTraps = false; return; }
+    if (ev.key === 'Tab' && tabTraps) { ev.preventDefault(); const s=editor.selectionStart,en=editor.selectionEnd; editor.value=editor.value.slice(0,s)+'  '+editor.value.slice(en); editor.selectionStart=editor.selectionEnd=s+2; }
+  });
   hintsBody.addEventListener('click', ev => {
     if (ev.target.closest('.cfg-hint-next')) {
       const e = current(), list = hintsBody.querySelector('.studio-hint-list');

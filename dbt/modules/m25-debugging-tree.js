@@ -246,14 +246,14 @@ function buildDetail(container) {
     <div class="detail-section">
       <h3>The nine error classes</h3>
       <div class="info-grid">
-        <div class="info-card" style="border-left-color:#3B82F6"><div class="info-card-title">Parsing error</div><div class="info-card-body">Malformed Jinja/YAML. Pre-execution, dbt-side. <code>dbt parse</code>.</div></div>
-        <div class="info-card" style="border-left-color:#3B82F6"><div class="info-card-title">Compilation error</div><div class="info-card-body">Undefined macro/var, bad ref. Pre-execution. <code>dbt compile</code>.</div></div>
-        <div class="info-card" style="border-left-color:#06B6D4"><div class="info-card-title">Dependency error</div><div class="info-card-body">Cycle in the DAG, or missing ref target. Fix the graph.</div></div>
-        <div class="info-card" style="border-left-color:#F59E0B"><div class="info-card-title">Source error</div><div class="info-card-body">Missing/stale source. Surfaces at staging or freshness. Owner: loader.</div></div>
-        <div class="info-card" style="border-left-color:#8B5CF6"><div class="info-card-title">Transformation error</div><div class="info-card-body">Bad SQL/logic in your model. Inspect compiled SQL. Owner: you.</div></div>
-        <div class="info-card" style="border-left-color:#10B981"><div class="info-card-title">Data-quality error</div><div class="info-card-body">A test failed. Data built but violates an assertion.</div></div>
-        <div class="info-card" style="border-left-color:#EF4444"><div class="info-card-title">Warehouse error</div><div class="info-card-body">Timeout / OOM. Materialization or sizing problem.</div></div>
-        <div class="info-card" style="border-left-color:#EF4444"><div class="info-card-title">Permission error</div><div class="info-card-body">Role lacks grants, or wrong target. <code>dbt debug</code>.</div></div>
+        <div class="info-card" style="border-left-color:var(--info)"><div class="info-card-title">Parsing error</div><div class="info-card-body">Malformed Jinja/YAML. Pre-execution, dbt-side. <code>dbt parse</code>.</div></div>
+        <div class="info-card" style="border-left-color:var(--info)"><div class="info-card-title">Compilation error</div><div class="info-card-body">Undefined macro/var, bad ref. Pre-execution. <code>dbt compile</code>.</div></div>
+        <div class="info-card" style="border-left-color:var(--info)"><div class="info-card-title">Dependency error</div><div class="info-card-body">Cycle in the DAG, or missing ref target. Fix the graph.</div></div>
+        <div class="info-card" style="border-left-color:var(--warn)"><div class="info-card-title">Source error</div><div class="info-card-body">Missing/stale source. Surfaces at staging or freshness. Owner: loader.</div></div>
+        <div class="info-card" style="border-left-color:var(--purple)"><div class="info-card-title">Transformation error</div><div class="info-card-body">Bad SQL/logic in your model. Inspect compiled SQL. Owner: you.</div></div>
+        <div class="info-card" style="border-left-color:var(--success)"><div class="info-card-title">Data-quality error</div><div class="info-card-body">A test failed. Data built but violates an assertion.</div></div>
+        <div class="info-card" style="border-left-color:var(--error)"><div class="info-card-title">Warehouse error</div><div class="info-card-body">Timeout / OOM. Materialization or sizing problem.</div></div>
+        <div class="info-card" style="border-left-color:var(--error)"><div class="info-card-title">Permission error</div><div class="info-card-body">Role lacks grants, or wrong target. <code>dbt debug</code>.</div></div>
         <div class="info-card" style="border-left-color:#EC4899"><div class="info-card-title">Performance issue</div><div class="info-card-body">Full scans, fan-out, cost spike. See M26.</div></div>
       </div>
     </div>

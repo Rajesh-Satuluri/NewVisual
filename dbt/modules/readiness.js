@@ -3,6 +3,7 @@
 // (localStorage dbt-done) and your best quiz scores (dbt-quiz-<id>). This is
 // LEARNING PROGRESS through the tool — explicitly NOT a claim of job readiness.
 import { createModuleShell } from '../components/module-shell.js';
+import { MODULES } from '../components/nav.js';
 import { QUIZ_BANK } from '../data/quiz-bank.js';
 
 const AREAS = [
@@ -64,7 +65,7 @@ function render(tab) {
       </div>
       <div class="rd-top-body">
         <h3>Your dbt learning progress</h3>
-        <p>${viewedCount} of 32 modules viewed. Scores combine modules you've opened with your best quiz results. Take each module's <em>Test Yourself</em> quiz and work the <em>Interview Simulator</em> to raise your numbers.</p>
+        <p>${viewedCount} of ${MODULES.length} modules viewed. Scores combine modules you've opened with your best quiz results. Take each module's <em>Test Yourself</em> quiz and work the <em>Interview Simulator</em> to raise your numbers.</p>
         <p class="rd-disclaimer">This measures your progress through this tool — it is <strong>not</strong> a measure of actual job readiness.</p>
       </div>
     </div>

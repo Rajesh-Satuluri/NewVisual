@@ -49,7 +49,7 @@ const IQ = [
 
 export function mount(container) {
   container.innerHTML = createModuleShell({
-    tag: 'M07 · ELT Revolution',
+    tag: 'M07 · The Shift to dbt',
     title: 'The ETL Era',
     subtitle: 'Before cloud warehouses, data transformation happened in heavyweight tools. A single schema change could take two weeks to deploy.',
     tabs: [
@@ -288,24 +288,24 @@ function buildDetail(container) {
     <div class="detail-section">
       <h3>The ETL stack of the era</h3>
       <div class="info-grid">
-        <div class="info-card" style="border-left-color:#8B5CF6">
+        <div class="info-card" style="border-left-color:var(--purple)">
           <div class="info-card-title">ETL Tools</div>
-          <div class="info-card-tag" style="color:#8B5CF6;background:#8B5CF622">GUI-based</div>
+          <div class="info-card-tag" style="color:var(--purple);background:color-mix(in srgb, var(--purple) 13%, transparent)">GUI-based</div>
           <div class="info-card-body">Informatica PowerCenter, IBM DataStage, Talend, SSIS, Pentaho. Business logic was configured in drag-and-drop GUI workflows. Not version-controllable. Vendor-locked.</div>
         </div>
-        <div class="info-card" style="border-left-color:#F59E0B">
+        <div class="info-card" style="border-left-color:var(--warn)">
           <div class="info-card-title">Stored Procedures</div>
-          <div class="info-card-tag" style="color:#F59E0B;background:#F59E0B22">Database-native</div>
+          <div class="info-card-tag" style="color:var(--warn);background:color-mix(in srgb, var(--warn) 13%, transparent)">Database-native</div>
           <div class="info-card-body">Complex transformations written as database stored procedures. Logic lived in the database, not in Git. Unversioned, untested, undocumented. The "last person to touch it" was often unknown.</div>
         </div>
-        <div class="info-card" style="border-left-color:#10B981">
+        <div class="info-card" style="border-left-color:var(--success)">
           <div class="info-card-title">Warehouses</div>
-          <div class="info-card-tag" style="color:#10B981;background:#10B98122">On-premise</div>
+          <div class="info-card-tag" style="color:var(--success);background:color-mix(in srgb, var(--success) 13%, transparent)">On-premise</div>
           <div class="info-card-body">Teradata, Netezza, Oracle. Column-oriented, optimized for reads. Very expensive — a Teradata license could cost $500k+. Compute was rationed, not elastic.</div>
         </div>
-        <div class="info-card" style="border-left-color:#3B82F6">
+        <div class="info-card" style="border-left-color:var(--info)">
           <div class="info-card-title">Release Cycles</div>
-          <div class="info-card-tag" style="color:#3B82F6;background:#3B82F622">Slow</div>
+          <div class="info-card-tag" style="color:var(--info);background:color-mix(in srgb, var(--info) 13%, transparent)">Slow</div>
           <div class="info-card-body">Changing business logic in an ETL pipeline required: requirements doc → IT ticket → ETL developer → test environment → production deploy. 2–6 week cycle per change.</div>
         </div>
       </div>

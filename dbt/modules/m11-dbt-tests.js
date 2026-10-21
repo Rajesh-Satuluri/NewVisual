@@ -493,24 +493,24 @@ models:
     <div class="detail-section">
       <h3>When tests run</h3>
       <div class="info-grid">
-        <div class="info-card" style="border-left-color:#3B82F6">
+        <div class="info-card" style="border-left-color:var(--info)">
           <div class="info-card-title">dbt test</div>
-          <div class="info-card-tag" style="color:#3B82F6;background:#3B82F622">On demand</div>
+          <div class="info-card-tag" style="color:var(--info);background:color-mix(in srgb, var(--info) 13%, transparent)">On demand</div>
           <div class="info-card-body">Run all tests manually. Pass <code>--select model_name</code> to test only one model. Use for debugging a specific data quality issue.</div>
         </div>
-        <div class="info-card" style="border-left-color:#10B981">
+        <div class="info-card" style="border-left-color:var(--success)">
           <div class="info-card-title">dbt build</div>
-          <div class="info-card-tag" style="color:#10B981;background:#10B98122">Build + test</div>
+          <div class="info-card-tag" style="color:var(--success);background:color-mix(in srgb, var(--success) 13%, transparent)">Build + test</div>
           <div class="info-card-body">Runs models AND their downstream tests in a single command. A model is only marked successful if its tests pass. The production-safe way to deploy.</div>
         </div>
-        <div class="info-card" style="border-left-color:#F59E0B">
+        <div class="info-card" style="border-left-color:var(--warn)">
           <div class="info-card-title">CI Gate</div>
-          <div class="info-card-tag" style="color:#F59E0B;background:#F59E0B22">Pre-merge</div>
+          <div class="info-card-tag" style="color:var(--warn);background:color-mix(in srgb, var(--warn) 13%, transparent)">Pre-merge</div>
           <div class="info-card-body">GitHub Actions runs <code>dbt build --target staging</code> on every PR. A failing test blocks the merge. Nothing bad reaches prod without passing CI.</div>
         </div>
-        <div class="info-card" style="border-left-color:#8B5CF6">
+        <div class="info-card" style="border-left-color:var(--purple)">
           <div class="info-card-title">Severity levels</div>
-          <div class="info-card-tag" style="color:#8B5CF6;background:#8B5CF622">Flexibility</div>
+          <div class="info-card-tag" style="color:var(--purple);background:color-mix(in srgb, var(--purple) 13%, transparent)">Flexibility</div>
           <div class="info-card-body"><code>severity: error</code> (default) fails the run. <code>severity: warn</code> logs but continues. Use warn for known borderline cases while you investigate root causes.</div>
         </div>
       </div>

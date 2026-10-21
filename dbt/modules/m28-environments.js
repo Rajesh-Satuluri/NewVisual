@@ -159,6 +159,7 @@ function buildDetail(container) {
 {% endmacro %}</div>
       <p style="font-size:15px;font-weight:600;color:var(--accent)">The model code is identical everywhere. The target decides the database, schema, role and warehouse — so dev is isolated, CI is ephemeral, and prod is protected, all from one codebase.</p>
     </div>
+    <div class="detail-section"><p style="padding:12px 14px;background:var(--surface-2);border-left:3px solid var(--accent);border-radius:8px;font-size:14px;margin:0"><strong>🧠 First principles —</strong> Environments are the same code pointed at different targets/schemas — and <code>--defer</code> lets dev read prod's unchanged models instead of rebuilding them. <a href="#concepts" style="color:var(--accent);font-weight:600">Core Concepts → State &amp; Selection</a>.</p></div>
   `;
 }
 

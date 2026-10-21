@@ -524,24 +524,24 @@ GROUP BY 1</div>
     <div class="detail-section">
       <h3>The dbt_utils package: macros you don't need to build</h3>
       <div class="info-grid">
-        <div class="info-card" style="border-left-color:#3B82F6">
+        <div class="info-card" style="border-left-color:var(--info)">
           <div class="info-card-title">generate_surrogate_key</div>
-          <div class="info-card-tag" style="color:#3B82F6;background:#3B82F622">Key generation</div>
+          <div class="info-card-tag" style="color:var(--info);background:color-mix(in srgb, var(--info) 13%, transparent)">Key generation</div>
           <div class="info-card-body">Creates a consistent hash-based surrogate key from a list of columns. Handles NULLs correctly — rolling your own version has subtle bugs.</div>
         </div>
-        <div class="info-card" style="border-left-color:#10B981">
+        <div class="info-card" style="border-left-color:var(--success)">
           <div class="info-card-title">date_spine</div>
-          <div class="info-card-tag" style="color:#10B981;background:#10B98122">Date tables</div>
+          <div class="info-card-tag" style="color:var(--success);background:color-mix(in srgb, var(--success) 13%, transparent)">Date tables</div>
           <div class="info-card-body">Generates a table with every date between two endpoints. Foundation for filling gaps in time-series data (no-sale days, inactive user days).</div>
         </div>
-        <div class="info-card" style="border-left-color:#F59E0B">
+        <div class="info-card" style="border-left-color:var(--warn)">
           <div class="info-card-title">safe_divide</div>
-          <div class="info-card-tag" style="color:#F59E0B;background:#F59E0B22">Safety</div>
+          <div class="info-card-tag" style="color:var(--warn);background:color-mix(in srgb, var(--warn) 13%, transparent)">Safety</div>
           <div class="info-card-body"><code>{{ dbt_utils.safe_divide('numerator', 'denominator') }}</code> — returns NULL instead of dividing by zero. Eliminates a class of runtime errors from all division in your project.</div>
         </div>
-        <div class="info-card" style="border-left-color:#8B5CF6">
+        <div class="info-card" style="border-left-color:var(--purple)">
           <div class="info-card-title">audit_helper</div>
-          <div class="info-card-tag" style="color:#8B5CF6;background:#8B5CF622">Refactoring</div>
+          <div class="info-card-tag" style="color:var(--purple);background:color-mix(in srgb, var(--purple) 13%, transparent)">Refactoring</div>
           <div class="info-card-body">Compare outputs of two model versions row-by-row. Proves a refactor didn't change any numbers before you promote to production.</div>
         </div>
       </div>

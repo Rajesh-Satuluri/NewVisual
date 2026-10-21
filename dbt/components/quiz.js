@@ -29,7 +29,7 @@ export function createQuiz(id, questions) {
       <div class="quiz-actions">
         <button class="btn btn-primary quiz-grade">Check answers</button>
         <button class="btn quiz-retry" hidden>Try again</button>
-        <span class="quiz-score" hidden></span>
+        <span class="quiz-score" role="status" aria-live="polite" hidden></span>
       </div>
     </section>`;
 }
@@ -80,6 +80,15 @@ export function initQuiz(container) {
       scoreEl.textContent = `You scored ${correct}/${qs.length}`;
       gradeBtn.hidden = true;
       retryBtn.hidden = false;
+
+      // A passing score (≥60%) is the strongest "this module was learned"
+      // signal — broadcast it so the router can mark the module complete
+      // instead of relying on a passive dwell timer.
+      if (correct / qs.length >= 0.6) {
+        document.dispatchEvent(new CustomEvent('dbt-quiz-passed', {
+          detail: { id, correct, total: qs.length },
+        }));
+      }
 
       try {
         const prev = Number(localStorage.getItem(key) ?? -1);

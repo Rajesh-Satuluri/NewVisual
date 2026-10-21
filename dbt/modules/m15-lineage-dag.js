@@ -563,24 +563,24 @@ function buildDetail(container) {
       <p>In a pre-dbt world, SQL dependencies are invisible. You only discover them when something breaks. dbt's <code>ref()</code> function makes every dependency explicit, and dbt compiles these into a Directed Acyclic Graph (DAG) stored in <code>target/manifest.json</code>.</p>
       <p>This graph enables three questions that previously required hours of SQL archaeology:</p>
       <div class="info-grid">
-        <div class="info-card" style="border-left-color:#3B82F6">
+        <div class="info-card" style="border-left-color:var(--info)">
           <div class="info-card-title">Impact Analysis</div>
-          <div class="info-card-tag" style="color:#3B82F6;background:#3B82F622">Forward</div>
+          <div class="info-card-tag" style="color:var(--info);background:color-mix(in srgb, var(--info) 13%, transparent)">Forward</div>
           <div class="info-card-body">"If I change stg_patients, what breaks?" — <code>dbt ls --select stg_patients+</code> returns every downstream model instantly. No Slack messages, no grep, no hoping you found everything.</div>
         </div>
-        <div class="info-card" style="border-left-color:#FF694B">
+        <div class="info-card" style="border-left-color:var(--accent)">
           <div class="info-card-title">Root Cause</div>
-          <div class="info-card-tag" style="color:#FF694B;background:#FF694B22">Backward</div>
+          <div class="info-card-tag" style="color:var(--accent);background:color-mix(in srgb, var(--accent) 13%, transparent)">Backward</div>
           <div class="info-card-body">"This dashboard is wrong — where did the bad data enter?" — follow the DAG upstream from the broken model until you find the node where data diverged from expected.</div>
         </div>
-        <div class="info-card" style="border-left-color:#10B981">
+        <div class="info-card" style="border-left-color:var(--success)">
           <div class="info-card-title">Safe Deprecation</div>
-          <div class="info-card-tag" style="color:#10B981;background:#10B98122">Cleanup</div>
+          <div class="info-card-tag" style="color:var(--success);background:color-mix(in srgb, var(--success) 13%, transparent)">Cleanup</div>
           <div class="info-card-body">"Can I delete this table?" — check downstream map. If nothing depends on it, safe to drop. Without lineage, every deletion is a gamble.</div>
         </div>
-        <div class="info-card" style="border-left-color:#8B5CF6">
+        <div class="info-card" style="border-left-color:var(--purple)">
           <div class="info-card-title">Compliance</div>
-          <div class="info-card-tag" style="color:#8B5CF6;background:#8B5CF622">Audit</div>
+          <div class="info-card-tag" style="color:var(--purple);background:color-mix(in srgb, var(--purple) 13%, transparent)">Audit</div>
           <div class="info-card-body">"Where does patient_id flow?" — trace the column from raw source through every transformation to every output. Required for HIPAA, GDPR right-to-be-forgotten requests.</div>
         </div>
       </div>

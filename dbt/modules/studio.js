@@ -68,7 +68,7 @@ export function mount(container) {
                 <button class="btn btn-primary studio-check" type="button">✓ Check</button>
               </div>
             </div>
-            <textarea class="studio-editor" spellcheck="false" aria-label="SQL editor"></textarea>
+            <textarea class="studio-editor" spellcheck="false" aria-label="SQL editor. Press Escape then Tab to move focus out of the editor."></textarea>
           </div>
 
           <div class="studio-verdict" hidden></div>
@@ -218,9 +218,14 @@ export function mount(container) {
   $('.studio-run').addEventListener('click', doRun);
   $('.studio-check').addEventListener('click', doCheck);
   $('.studio-reset').addEventListener('click', () => { editor.value = current().starter; verdictEl.hidden = true; });
+  // Tab inserts two spaces, but Esc releases the trap so keyboard-only users
+  // can Tab out of the editor (WCAG 2.1.2). Re-focusing re-arms indentation.
+  let tabTraps = true;
+  editor.addEventListener('focus', () => { tabTraps = true; });
   editor.addEventListener('keydown', ev => {
-    if ((ev.ctrlKey||ev.metaKey) && ev.key === 'Enter') { ev.preventDefault(); doRun(); }
-    if (ev.key === 'Tab') { ev.preventDefault(); const s=editor.selectionStart, en=editor.selectionEnd; editor.value = editor.value.slice(0,s)+'  '+editor.value.slice(en); editor.selectionStart=editor.selectionEnd=s+2; }
+    if ((ev.ctrlKey||ev.metaKey) && ev.key === 'Enter') { ev.preventDefault(); doRun(); return; }
+    if (ev.key === 'Escape') { tabTraps = false; return; }
+    if (ev.key === 'Tab' && tabTraps) { ev.preventDefault(); const s=editor.selectionStart, en=editor.selectionEnd; editor.value = editor.value.slice(0,s)+'  '+editor.value.slice(en); editor.selectionStart=editor.selectionEnd=s+2; }
   });
   hintsBody.addEventListener('click', ev => {
     if (ev.target.closest('.studio-hint-next')) {

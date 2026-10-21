@@ -315,9 +315,9 @@ function buildDetail(container) {
           <div class="info-card-tag" style="color:#4ECDC4;background:#4ECDC422">E-commerce</div>
           <div class="info-card-body">Marketplace GMV (total order value) vs Net Revenue (commission earned) vs Platform Revenue (ads + logistics fees). Finance and Business heads use different ones.</div>
         </div>
-        <div class="info-card" style="border-left-color:#F59E0B">
+        <div class="info-card" style="border-left-color:var(--warn)">
           <div class="info-card-title">Netflix</div>
-          <div class="info-card-tag" style="color:#F59E0B;background:#F59E0B22">Streaming</div>
+          <div class="info-card-tag" style="color:var(--warn);background:color-mix(in srgb, var(--warn) 13%, transparent)">Streaming</div>
           <div class="info-card-body">ARM (Average Revenue per Membership) requires an exact subscriber count definition. Is a paused account "active"? Depending on the query, ARM swings ±8%.</div>
         </div>
       </div>

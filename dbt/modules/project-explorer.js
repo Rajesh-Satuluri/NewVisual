@@ -132,7 +132,7 @@ export function mount(container) {
     tabs: [
       { id: 'explore', label: '📂 Explore' },
       { id: 'run', label: '▶️ Run it locally' },
-      { id: 'iq', label: '💬 Interview Q&A' },
+      { id: 'iq', label: '🎯 Interview Q&A' },
     ],
   });
 

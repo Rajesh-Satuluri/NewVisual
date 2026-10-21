@@ -267,14 +267,14 @@ function buildDetail(container) {
     <div class="detail-section">
       <h3>Real examples</h3>
       <div class="info-grid">
-        <div class="info-card" style="border-left-color:#EF4444">
+        <div class="info-card" style="border-left-color:var(--error)">
           <div class="info-card-title">Healthcare company</div>
-          <div class="info-card-tag" style="color:#EF4444;background:#EF444422">HIPAA Impact</div>
+          <div class="info-card-tag" style="color:var(--error);background:color-mix(in srgb, var(--error) 13%, transparent)">HIPAA Impact</div>
           <div class="info-card-body">A patient ID column was renamed for HIPAA compliance. Unknown dependency chain caused patient matching to fail in 6 downstream reports. Compliance team found out 3 weeks later during an audit.</div>
         </div>
-        <div class="info-card" style="border-left-color:#F59E0B">
+        <div class="info-card" style="border-left-color:var(--warn)">
           <div class="info-card-title">Amazon</div>
-          <div class="info-card-tag" style="color:#F59E0B;background:#F59E0B22">Prime Day</div>
+          <div class="info-card-tag" style="color:var(--warn);background:color-mix(in srgb, var(--warn) 13%, transparent)">Prime Day</div>
           <div class="info-card-body">A metrics view was updated 48h before Prime Day to add new product categories. Broke the real-time sales dashboard. The dependency chain had 12 intermediate views between the source and the dashboard.</div>
         </div>
       </div>

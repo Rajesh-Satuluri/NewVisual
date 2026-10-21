@@ -287,24 +287,24 @@ function buildDetail(container) {
     <div class="detail-section">
       <h3>The symptoms of an undocumented SQL warehouse</h3>
       <div class="info-grid">
-        <div class="info-card" style="border-left-color:#EF4444">
+        <div class="info-card" style="border-left-color:var(--error)">
           <div class="info-card-title">File naming chaos</div>
-          <div class="info-card-tag" style="color:#EF4444;background:#EF444422">Pattern</div>
+          <div class="info-card-tag" style="color:var(--error);background:color-mix(in srgb, var(--error) 13%, transparent)">Pattern</div>
           <div class="info-card-body"><code>revenue.sql</code>, <code>revenue_v2.sql</code>, <code>revenue_FINAL.sql</code>, <code>revenue_USE_THIS.sql</code> — all exist. Nobody knows which one dashboards are actually reading.</div>
         </div>
-        <div class="info-card" style="border-left-color:#F59E0B">
+        <div class="info-card" style="border-left-color:var(--warn)">
           <div class="info-card-title">Orphaned queries</div>
-          <div class="info-card-tag" style="color:#F59E0B;background:#F59E0B22">Pattern</div>
+          <div class="info-card-tag" style="color:var(--warn);background:color-mix(in srgb, var(--warn) 13%, transparent)">Pattern</div>
           <div class="info-card-body">30% of SQL files in a typical mature warehouse are no longer used. But nobody knows which 30%. Deleting anything feels dangerous.</div>
         </div>
-        <div class="info-card" style="border-left-color:#8B5CF6">
+        <div class="info-card" style="border-left-color:var(--purple)">
           <div class="info-card-title">Knowledge hoarding</div>
-          <div class="info-card-tag" style="color:#8B5CF6;background:#8B5CF622">Pattern</div>
+          <div class="info-card-tag" style="color:var(--purple);background:color-mix(in srgb, var(--purple) 13%, transparent)">Pattern</div>
           <div class="info-card-body">The one analyst who knows how the revenue query works becomes a bottleneck. Every new team member has to sit with them for a week to get context. They become a single point of failure.</div>
         </div>
-        <div class="info-card" style="border-left-color:#3B82F6">
+        <div class="info-card" style="border-left-color:var(--info)">
           <div class="info-card-title">Slow ramp time</div>
-          <div class="info-card-tag" style="color:#3B82F6;background:#3B82F622">Pattern</div>
+          <div class="info-card-tag" style="color:var(--info);background:color-mix(in srgb, var(--info) 13%, transparent)">Pattern</div>
           <div class="info-card-body">New data engineers at companies without dbt take 4–6 weeks to become productive. With a well-documented dbt project, ramp time drops to under one week.</div>
         </div>
       </div>
