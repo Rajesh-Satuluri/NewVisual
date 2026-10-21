@@ -556,6 +556,13 @@ a.sd-cm-cert:hover { text-decoration:underline; }
 .sd-next-lbl { font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em; font-weight:700; }
 .sd-next-nm { font-size:15px; font-weight:700; color:var(--brand); }
 .sd-next:hover .sd-next-nm { text-decoration:underline; }
+/* Overview mastery + per-category progress */
+.sd-hero-row { display:flex; align-items:flex-start; justify-content:space-between; gap:24px; flex-wrap:wrap; }
+.sd-hero-main { flex:1; min-width:0; }
+.sd-home-cat-h .sd-cat-prog { font-size:11px; font-weight:800; color:var(--text-muted); background:var(--bg-3); border-radius:999px; padding:2px 9px; margin-left:8px; vertical-align:middle; letter-spacing:0; text-transform:none; }
+.sd-home-cat-h .sd-cat-prog.complete { color:var(--green); background:var(--green-subtle); }
+.sd-card.is-learned { border-left-color:var(--green); }
+.sd-card-check { color:var(--green); font-weight:800; }
 </style>`;
   }
 
@@ -615,6 +622,7 @@ a.sd-cm-cert:hover { text-decoration:underline; }
   const SLUG = s => String(s || '').toLowerCase().replace(/&amp;|&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
   const REVIEW_KEY = 'cde-sd-reviewed';
   function reviewedSet() { try { return JSON.parse(TV.ls.get(REVIEW_KEY) || '{}') || {}; } catch (e) { return {}; } }
+  function isReviewed(id) { return !!reviewedSet()[id]; }
 
   /* Post-render enhancements (all additive, all wired):
      section navigator with scroll-spy, copy-code buttons, review checkpoint. */
@@ -669,6 +677,7 @@ a.sd-cm-cert:hover { text-decoration:underline; }
       reviewBtn.setAttribute('aria-pressed', String(now));
       reviewBtn.querySelector('.sd-review-txt').textContent = now ? 'Reviewed' : 'Mark reviewed';
       if (TV.DS && TV.DS.toast) TV.DS.toast(now ? 'Marked as reviewed' : 'Review mark removed', { type: now ? 'success' : 'info' });
+      document.dispatchEvent(new CustomEvent('cde:reviewed-changed', { detail: { id: svc.id, reviewed: now } }));
     });
 
     // 2b) Related visualizers — deep-open the matching conceptual visualizer.
@@ -946,25 +955,39 @@ a.sd-cm-cert:hover { text-decoration:underline; }
         </div>
         <button class="sd-home-cta-btn" data-action="cert-exam" data-exam="${esc(examId)}">Start model questions →</button>
       </div>` : '';
-    const catBlocks = cats.map(c => `
+    const reviewed = reviewedSet();
+    const reviewedCount = cats.reduce((n, c) => n + c.items.filter(s => reviewed[s.id]).length, 0);
+    const masteryPct = total ? reviewedCount / total : 0;
+    const catBlocks = cats.map(c => {
+      const done = c.items.filter(s => reviewed[s.id]).length;
+      const complete = done === c.items.length && c.items.length > 0;
+      return `
       <div class="sd-home-cat">
-        <h2 class="sd-home-cat-h">${esc(c.label)}</h2>
-        <div class="sd-grid">${c.items.map(s =>
-          `<a class="sd-card" href="#${format}/${s.id}">
-             <div class="sd-card-name">${esc(s.name)}</div>
+        <h2 class="sd-home-cat-h">${esc(c.label)} <span class="sd-cat-prog${complete ? ' complete' : ''}">${done}/${c.items.length}</span></h2>
+        <div class="sd-grid">${c.items.map(s => {
+          const isR = !!reviewed[s.id];
+          return `<a class="sd-card${isR ? ' is-learned' : ''}" href="#${format}/${s.id}">
+             <div class="sd-card-name">${isR ? '<span class="sd-card-check" aria-label="Reviewed">✓</span> ' : ''}${esc(s.name)}</div>
              <div class="sd-card-tag">${esc(s.tagline || '')}</div>
-           </a>`).join('')}</div>
-      </div>`).join('');
+           </a>`;
+        }).join('')}</div>
+      </div>`;
+    }).join('');
     container.innerHTML = `${styles}
 <div class="sd-home page-enter">
   <div class="sd-home-wrap">
     <div class="sd-home-hero">
-      <h1>${esc(meta.title)}</h1>
-      <p>${esc(meta.subtitle)}</p>
-      <div class="sd-home-stats">
-        <div class="sd-home-stat"><b>${total}</b><span>services</span></div>
-        <div class="sd-home-stat"><b>${cats.length}</b><span>categories</span></div>
-        ${deepN ? `<div class="sd-home-stat"><b>${deepN}</b><span>A–I deep dives</span></div>` : ''}
+      <div class="sd-hero-row">
+        <div class="sd-hero-main">
+          <h1>${esc(meta.title)}</h1>
+          <p>${esc(meta.subtitle)}</p>
+          <div class="sd-home-stats">
+            <div class="sd-home-stat"><b>${total}</b><span>services</span></div>
+            <div class="sd-home-stat"><b>${cats.length}</b><span>categories</span></div>
+            ${deepN ? `<div class="sd-home-stat"><b>${deepN}</b><span>A–I deep dives</span></div>` : ''}
+          </div>
+        </div>
+        ${ringHTML(masteryPct, reviewedCount + ' / ' + total + ' reviewed')}
       </div>
       ${ctaHtml}
     </div>
@@ -1015,5 +1038,6 @@ a.sd-cm-cert:hover { text-decoration:underline; }
     return groups;
   }
 
-  TV.ServiceDetail = { registerAll, registerHome, categoriesFor, navGroupsFor, CATEGORIES };
+  TV.ServiceDetail = { registerAll, registerHome, categoriesFor, navGroupsFor, CATEGORIES,
+                       isReviewed, getReviewedSet: reviewedSet };
 })();
