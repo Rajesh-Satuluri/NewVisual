@@ -477,6 +477,34 @@ a.sd-cm-cert:hover { text-decoration:underline; }
 .sd-vizlink-txt { display:flex; flex-direction:column; gap:2px; min-width:0; }
 .sd-vizlink-txt b { font-size:13px; font-weight:700; color:var(--text-primary); }
 .sd-vizlink-txt span { font-size:11px; color:var(--text-muted); }
+/* ── Study header: meta chips, mastery checklist, progress ring ── */
+.sd-headrow { display:flex; align-items:flex-start; justify-content:space-between; gap:24px; flex-wrap:wrap; }
+.sd-headmain { flex:1; min-width:0; }
+.sd-essence { font-size:16px; color:var(--text-secondary); line-height:1.6; margin:2px 0 0; max-width:680px; font-style:italic; }
+.sd-meta { display:flex; flex-wrap:wrap; gap:10px; margin:16px 0 0; }
+.sd-mchip { display:inline-flex; align-items:center; gap:7px; background:var(--bg-1); border:1px solid var(--border-subtle); border-radius:999px; padding:7px 13px; font-size:12.5px; font-weight:600; color:var(--text-secondary); box-shadow:var(--card-shadow); }
+.sd-mchip b { color:var(--text-primary); font-weight:800; }
+.sd-mchip .sd-mchip-ico { font-size:13px; line-height:1; }
+.sd-mchip-lvl .dot { width:8px; height:8px; border-radius:50%; background:var(--text-muted); display:inline-block; }
+.sd-mchip-lvl[data-lvl="foundational"] { color:var(--green); } .sd-mchip-lvl[data-lvl="foundational"] .dot { background:var(--green); }
+.sd-mchip-lvl[data-lvl="core"] { color:var(--yellow); } .sd-mchip-lvl[data-lvl="core"] .dot { background:var(--yellow); }
+.sd-mchip-lvl[data-lvl="advanced"] { color:var(--red); } .sd-mchip-lvl[data-lvl="advanced"] .dot { background:var(--red); }
+.sd-ringwrap { display:flex; flex-direction:column; align-items:center; gap:7px; flex-shrink:0; }
+.sd-ring { position:relative; width:72px; height:72px; }
+.sd-ring-fg { transition:stroke-dashoffset .4s ease; }
+.sd-ring-txt { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:800; color:var(--brand); }
+.sd-ring-sub { font-size:11px; color:var(--text-muted); white-space:nowrap; }
+.sd-master { background:linear-gradient(180deg,var(--bg-1),var(--bg-2)); border:1px solid var(--border-subtle); border-radius:16px; padding:20px 24px; margin:0 0 28px; box-shadow:var(--card-shadow-lg); }
+.sd-master-h { font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.07em; color:var(--text-muted); margin:0 0 14px; display:flex; align-items:center; gap:8px; }
+.sd-master-h .sd-master-hint { margin-left:auto; font-size:10px; font-weight:600; text-transform:none; letter-spacing:0; color:var(--text-disabled); }
+.sd-master-grid { display:grid; grid-template-columns:1fr 1fr; gap:11px 28px; }
+.sd-goal { display:flex; align-items:flex-start; gap:11px; width:100%; text-align:left; background:none; border:none; font:inherit; padding:0; cursor:pointer; font-size:13.5px; color:var(--text-secondary); line-height:1.5; }
+.sd-goal .sd-goal-box { flex-shrink:0; width:18px; height:18px; border:2px solid var(--border-muted); border-radius:5px; margin-top:1px; display:flex; align-items:center; justify-content:center; transition:background .12s, border-color .12s; }
+.sd-goal:hover .sd-goal-box { border-color:var(--brand); }
+.sd-goal.done .sd-goal-box { background:var(--green); border-color:var(--green); }
+.sd-goal.done .sd-goal-box::after { content:'✓'; color:#fff; font-size:11px; font-weight:800; line-height:1; }
+.sd-goal.done .sd-goal-txt { color:var(--text-muted); text-decoration:line-through; text-decoration-color:var(--border-muted); }
+@media (max-width:720px){ .sd-master-grid { grid-template-columns:1fr; } }
 </style>`;
   }
 
@@ -647,6 +675,104 @@ a.sd-cm-cert:hover { text-decoration:underline; }
     }
   }
 
+  /* Teachable depth sections that carry bullets, in study order. */
+  const DEPTH_KEYS = ['what', 'why', 'architecture', 'how', 'deUseCase', 'runtime', 'security', 'operations', 'cost'];
+  const GOAL_KEYS = ['what', 'why', 'how', 'architecture', 'deUseCase', 'runtime'];
+
+  function countWords(str) {
+    if (!str) return 0;
+    return String(str).trim().split(/\s+/).filter(Boolean).length;
+  }
+  function conceptCount(svc) {
+    let n = 0;
+    DEPTH_KEYS.forEach(k => { const s = normSection(svc[k]); if (s && s.bullets) n += s.bullets.length; });
+    return n;
+  }
+  function studyMinutes(svc) {
+    let w = countWords(svc.aka) + countWords(svc.tagline);
+    DEPTH_KEYS.forEach(k => {
+      const s = normSection(svc[k]); if (!s) return;
+      w += countWords(s.lead);
+      (s.bullets || []).forEach(b => { w += countWords(b.h) + countWords(b.d); });
+    });
+    (svc.interview || []).forEach(x => { w += countWords(x.q) + countWords(x.a); });
+    const wt = Array.isArray(svc.walkthrough) ? { steps: svc.walkthrough } : (svc.walkthrough || {});
+    (wt.steps || []).forEach(s => { w += countWords(typeof s === 'string' ? s : (s.h + ' ' + s.d)); });
+    return Math.min(30, Math.max(2, Math.round(w / 200)));
+  }
+
+  function studyMetaHTML(svc) {
+    const chips = [];
+    const lvl = svc.level && ['foundational', 'core', 'advanced'].includes(svc.level) ? svc.level : null;
+    if (lvl) {
+      const label = lvl.charAt(0).toUpperCase() + lvl.slice(1);
+      chips.push(`<span class="sd-mchip sd-mchip-lvl" data-lvl="${lvl}"><span class="dot"></span>${label}</span>`);
+    }
+    chips.push(`<span class="sd-mchip"><span class="sd-mchip-ico">⏱</span><b>~${studyMinutes(svc)} min</b> study</span>`);
+    const concepts = conceptCount(svc);
+    if (concepts) chips.push(`<span class="sd-mchip"><span class="sd-mchip-ico">📚</span><b>${concepts}</b> concept${concepts === 1 ? '' : 's'}</span>`);
+    const iq = (svc.interview || []).length;
+    if (iq) chips.push(`<span class="sd-mchip"><span class="sd-mchip-ico">🎯</span><b>${iq}</b> interview Q${iq === 1 ? '' : 's'}</span>`);
+    const ints = (svc.integrations || []).length;
+    if (ints) chips.push(`<span class="sd-mchip"><span class="sd-mchip-ico">🔗</span><b>${ints}</b> integration${ints === 1 ? '' : 's'}</span>`);
+    return `<div class="sd-meta">${chips.join('')}</div>`;
+  }
+
+  function masterGoals(svc) {
+    if (Array.isArray(svc.goals) && svc.goals.length) return svc.goals.slice(0, 6);
+    const goals = [];
+    GOAL_KEYS.forEach(k => {
+      const s = normSection(svc[k]);
+      if (s && s.bullets && s.bullets[0] && s.bullets[0].h) goals.push(s.bullets[0].h);
+    });
+    return goals.slice(0, 6);
+  }
+
+  /* Per-service goal progress (micro; drives the header ring). Macro completion
+     is the existing "Mark reviewed" checkpoint (cde-sd-reviewed). */
+  function goalsKey(format, id) { return 'cde-' + format + '-goals-' + id; }
+  function getCheckedGoals(format, id) {
+    try { return new Set(JSON.parse(TV.ls.get(goalsKey(format, id)) || '[]')); } catch (e) { return new Set(); }
+  }
+  function setCheckedGoals(format, id, set) {
+    try { TV.ls.set(goalsKey(format, id), JSON.stringify(Array.from(set))); } catch (e) {}
+  }
+
+  function ringHTML(pct, sub) {
+    const r = 30, C = 2 * Math.PI * r;
+    const off = Math.max(0, Math.min(C, C * (1 - pct)));
+    return `
+      <div class="sd-ringwrap">
+        <div class="sd-ring" data-circ="${C.toFixed(1)}">
+          <svg width="72" height="72" viewBox="0 0 72 72" aria-hidden="true">
+            <circle cx="36" cy="36" r="${r}" fill="none" stroke="var(--bg-4)" stroke-width="7"/>
+            <circle class="sd-ring-fg" cx="36" cy="36" r="${r}" fill="none" stroke="var(--brand)" stroke-width="7"
+              stroke-linecap="round" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}"
+              transform="rotate(-90 36 36)"/>
+          </svg>
+          <div class="sd-ring-txt">${Math.round(pct * 100)}%</div>
+        </div>
+        <span class="sd-ring-sub">${esc(sub)}</span>
+      </div>`;
+  }
+
+  function masterHTML(format, svc) {
+    const goals = masterGoals(svc);
+    if (goals.length < 2) return '';
+    const checked = getCheckedGoals(format, svc.id);
+    const items = goals.map((g, i) => {
+      const done = checked.has(i);
+      return `<button class="sd-goal${done ? ' done' : ''}" type="button" data-goal="${i}" aria-pressed="${done}">
+          <span class="sd-goal-box"></span><span class="sd-goal-txt">${esc(g)}</span>
+        </button>`;
+    }).join('');
+    return `
+      <div class="sd-master">
+        <div class="sd-master-h">🎓 What you'll master here <span class="sd-master-hint">tap to check off</span></div>
+        <div class="sd-master-grid">${items}</div>
+      </div>`;
+  }
+
   /* ── Detail page for one service ─────────────────────────── */
   function renderDetail(container, format, svc) {
     container.className = '';
@@ -658,15 +784,26 @@ a.sd-cm-cert:hover { text-decoration:underline; }
     const depthBadge = deep
       ? `<span class="sd-depth sd-depth--deep" title="Full deep dive: architecture &amp; internals, execution walkthrough, worked example, security, operations, troubleshooting, cost and certification mapping">Deep dive</span>`
       : '';
+    const goals = masterGoals(svc);
+    const hasGoals = goals.length >= 2;
+    const checkedNow = getCheckedGoals(format, svc.id);
+    const ring = hasGoals ? ringHTML(checkedNow.size / goals.length, checkedNow.size + ' / ' + goals.length + ' goals') : '';
     container.innerHTML = `${styles}
 <div class="sd page-enter">
   <div class="sd-wrap">
     <div class="sd-eyebrow">${esc(catLabel)}${depthBadge}</div>
-    <h1 class="sd-h1">${esc(svc.name)}</h1>
-    ${aka}
+    <div class="sd-headrow">
+      <div class="sd-headmain">
+        <h1 class="sd-h1">${esc(svc.name)}</h1>
+        ${aka}
+        ${studyMetaHTML(svc)}
+      </div>
+      ${ring}
+    </div>
     <p class="sd-tagline">${esc(svc.tagline || '')}</p>
     ${vchip ? `<div class="sd-verified">${vchip}</div>` : ''}
     ${keyFactsHTML(svc.keyFacts)}
+    ${masterHTML(format, svc)}
     ${intuitionHTML(svc.intuition || (TV.Intuition && TV.Intuition[svc.id]))}
     ${sectionHTML('What it is', 'what', svc.what)}
     ${sectionHTML('Why it exists', 'why', svc.why)}
@@ -694,6 +831,38 @@ a.sd-cm-cert:hover { text-decoration:underline; }
         btn.setAttribute('aria-expanded', String(open));
       });
     });
+    // Goal checklist → persist + update the header progress ring (guarded:
+    // the unit-test container has querySelectorAll but no querySelector).
+    try {
+      const ringEl = container.querySelector('.sd-ring');
+      const ringFg = ringEl && ringEl.querySelector('.sd-ring-fg');
+      const ringTxt = ringEl && ringEl.querySelector('.sd-ring-txt');
+      const ringSub = container.querySelector('.sd-ring-sub');
+      const refreshRing = () => {
+        const total = goals.length;
+        const set = getCheckedGoals(format, svc.id);
+        const pct = total ? set.size / total : 0;
+        if (ringEl && ringFg) {
+          const C = parseFloat(ringEl.getAttribute('data-circ')) || (2 * Math.PI * 30);
+          ringFg.setAttribute('stroke-dashoffset', (C * (1 - pct)).toFixed(1));
+        }
+        if (ringTxt) ringTxt.textContent = Math.round(pct * 100) + '%';
+        if (ringSub) ringSub.textContent = set.size + ' / ' + total + ' goals';
+      };
+      container.querySelectorAll('.sd-goal[data-goal]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const i = parseInt(btn.getAttribute('data-goal'), 10);
+          const set = getCheckedGoals(format, svc.id);
+          const now = !set.has(i);
+          if (now) set.add(i); else set.delete(i);
+          setCheckedGoals(format, svc.id, set);
+          btn.classList.toggle('done', now);
+          btn.setAttribute('aria-pressed', String(now));
+          refreshRing();
+        });
+      });
+    } catch (e) { /* non-fatal */ }
+
     // Additive UX layer: section navigator, copy-code, review checkpoint.
     try { enhanceDetail(container, format, svc); } catch (e) { /* non-fatal */ }
   }
