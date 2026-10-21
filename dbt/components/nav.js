@@ -119,7 +119,7 @@ export function renderNav(activeId, done) {
         <div class="nav-group-items"><div class="nav-group-inner">
           ${g.items.map(m => `
             <div class="nav-item ${m.id === activeId ? 'active' : ''} ${done.has(m.id) ? 'done' : ''}"
-                 data-id="${m.id}" role="button" tabindex="0">
+                 data-id="${m.id}" role="button" tabindex="0"${m.id === activeId ? ' aria-current="page"' : ''}>
               <span class="nav-icon">${m.icon}</span>
               <span class="nav-label">${m.title}</span>
               <span class="nav-number">${done.has(m.id) ? '✓' : m.num}</span>

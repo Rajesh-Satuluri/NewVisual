@@ -10,6 +10,8 @@
   <link rel="stylesheet" href="enhancements.css" />
 </head>
 <body>
+  <a href="#module-canvas" class="skip-link">Skip to content</a>
+  <div id="route-announce" class="sr-only" aria-live="polite" aria-atomic="true"></div>
   <div id="app">
     <aside id="sidebar">
       <div class="sidebar-header">
@@ -31,7 +33,7 @@
       <div class="sidebar-progress">
         <div class="progress-label">
           <span>Progress</span>
-          <span id="progress-count">0 / 16</span>
+          <span id="progress-count"></span>
         </div>
         <div class="progress-bar"><div id="progress-fill"></div></div>
       </div>
@@ -42,6 +44,19 @@
       <div id="module-header">
         <div id="breadcrumb"></div>
         <div class="header-actions">
+          <button id="search-btn" class="icon-btn" title="Search modules (⌘/Ctrl+K)" aria-label="Search modules">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="7"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+          </button>
+          <button id="help-btn" class="icon-btn" title="Replay the guided tour" aria-label="Replay the guided tour">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+          </button>
           <button id="theme-toggle" class="icon-btn" title="Toggle theme">
             <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="5"/>

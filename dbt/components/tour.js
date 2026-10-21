@@ -1,11 +1,15 @@
-// First-run guided tour — a few dismissible coach-marks, shown once.
+// First-run guided tour — a few dismissible coach-marks, shown once (and
+// replayable from the header "?" button, which calls maybeRunTour({force:true})).
+import { MODULES } from './nav.js';
+
 const FLAG = 'dbt-tour-done';
 
 const STEPS = [
-  { sel: '#sidebar',      title: 'Your module map', body: '16 lessons grouped by theme — the pain era, the ELT revolution, then dbt\'s core features. Progress is tracked automatically.' },
-  { sel: '.tab-bar',      title: 'Explore each topic', body: 'Every module has tabs — a live demo, the problem explained, and interview Q&A. Click through them.' },
-  { sel: '#theme-toggle', title: 'Make it yours', body: 'Toggle light/dark here. On a phone the ☰ button collapses the sidebar.' },
-  { sel: null,            title: 'Power moves ⚡', body: 'Press <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>K</kbd> to jump to any module, use the pager at the bottom of each lesson, and open the <strong>Study Hub</strong> to review every interview question.' },
+  { sel: '#sidebar',      title: 'Your module map', body: `${MODULES.length} lessons grouped by theme — the pain era, the ELT revolution, dbt's core features, internals, and production. A module is marked complete when you pass its quiz or read it through.` },
+  { sel: '.tab-bar',      title: 'Explore each topic', body: 'Every module has tabs — usually an interactive demo or lab, the theory, and interview Q&A. Use the <strong>arrow keys</strong> to move between them.' },
+  { sel: null,            title: 'Get hands-on', body: 'Open the <strong>Coding Studio</strong> to write and run real SQL (DuckDB in your browser), and the <strong>Config Lab</strong> to practice Jinja + YAML with live validation.' },
+  { sel: '#theme-toggle', title: 'Make it yours', body: 'Toggle light/dark here. The 🔍 button (or <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>K</kbd>) jumps to any module, and the <kbd>?</kbd> button replays this tour anytime.' },
+  { sel: null,            title: 'Power moves ⚡', body: 'Use the pager at the bottom of each lesson, the <strong>Study Hub</strong> to review every interview question, and <strong>Spaced Review</strong> to drill them on a schedule.' },
 ];
 
 export function maybeRunTour({ force = false } = {}) {

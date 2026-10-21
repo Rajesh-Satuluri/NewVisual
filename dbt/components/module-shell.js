@@ -3,28 +3,33 @@ export function createModuleShell({ tag, title, subtitle, tabs }) {
     <div class="module-shell">
       <div class="module-hero">
         <div class="module-badge">${tag}</div>
-        <h2 class="module-title">${title}</h2>
+        <h2 class="module-title" tabindex="-1">${title}</h2>
         <p class="module-subtitle">${subtitle}</p>
       </div>
-      <div class="tab-bar">
-        ${tabs.map((t, i) => `<button class="tab-btn${i === 0 ? ' active' : ''}" data-tab="${t.id}">${t.label}</button>`).join('')}
+      <div class="tab-bar" role="tablist" aria-label="${title} — sections">
+        ${tabs.map((t, i) => `<button class="tab-btn${i === 0 ? ' active' : ''}" role="tab" id="tabbtn-${t.id}" aria-controls="tab-${t.id}" aria-selected="${i === 0 ? 'true' : 'false'}" tabindex="${i === 0 ? '0' : '-1'}" data-tab="${t.id}">${t.label}</button>`).join('')}
       </div>
-      ${tabs.map((t, i) => `<div class="tab-content${i === 0 ? ' active' : ''}" id="tab-${t.id}"></div>`).join('')}
+      ${tabs.map((t, i) => `<div class="tab-content${i === 0 ? ' active' : ''}" id="tab-${t.id}" role="tabpanel" aria-labelledby="tabbtn-${t.id}" tabindex="0"></div>`).join('')}
     </div>
   `;
 }
 
+// Unique-per-call prefix so accordion ids never collide if a page ever renders
+// more than one IQ list.
+let iqSeq = 0;
+
 export function createIQSection(IQ) {
+  const p = `iq${++iqSeq}`;
   return `
     <div class="iq-list">
       ${IQ.map((item, i) => `
         <div class="iq-item">
-          <button class="iq-question">
+          <button class="iq-question" aria-expanded="false" aria-controls="${p}-a${i}" id="${p}-q${i}">
             <span class="iq-num">Q${i + 1}</span>
             <span>${item.q}</span>
-            <span class="iq-chevron">▾</span>
+            <span class="iq-chevron" aria-hidden="true">▾</span>
           </button>
-          <div class="iq-answer">
+          <div class="iq-answer" id="${p}-a${i}" role="region" aria-labelledby="${p}-q${i}">
             <div class="iq-answer-body">${item.a}</div>
             ${item.tip ? `<div class="iq-tip">💡 ${item.tip}</div>` : ''}
           </div>
@@ -35,15 +40,35 @@ export function createIQSection(IQ) {
 }
 
 export function initTabs(container) {
-  const btns = container.querySelectorAll('.tab-btn');
-  const contents = container.querySelectorAll('.tab-content');
-  btns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      btns.forEach(b => b.classList.remove('active'));
-      contents.forEach(c => c.classList.remove('active'));
-      btn.classList.add('active');
-      const target = container.querySelector(`#tab-${btn.dataset.tab}`);
-      if (target) target.classList.add('active');
+  const btns = [...container.querySelectorAll('.tab-btn')];
+  const contents = [...container.querySelectorAll('.tab-content')];
+  if (!btns.length) return;
+
+  function activate(btn, focus) {
+    btns.forEach(b => {
+      b.classList.remove('active');
+      b.setAttribute('aria-selected', 'false');
+      b.tabIndex = -1;
+    });
+    contents.forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    btn.setAttribute('aria-selected', 'true');
+    btn.tabIndex = 0;
+    const target = container.querySelector(`#tab-${btn.dataset.tab}`);
+    if (target) target.classList.add('active');
+    if (focus) btn.focus();
+  }
+
+  btns.forEach((btn, idx) => {
+    btn.addEventListener('click', () => activate(btn));
+    // Arrow/Home/End keyboard navigation per the ARIA tablist pattern.
+    btn.addEventListener('keydown', e => {
+      let ni = null;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') ni = (idx + 1) % btns.length;
+      else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') ni = (idx - 1 + btns.length) % btns.length;
+      else if (e.key === 'Home') ni = 0;
+      else if (e.key === 'End') ni = btns.length - 1;
+      if (ni !== null) { e.preventDefault(); activate(btns[ni], true); }
     });
   });
 }
@@ -127,6 +152,7 @@ export function initIQ(container) {
     if (!q || !a) return;
     q.addEventListener('click', () => {
       const isOpen = item.classList.toggle('open');
+      q.setAttribute('aria-expanded', String(isOpen));
       a.style.maxHeight = isOpen ? a.scrollHeight + 'px' : '0';
     });
   });
