@@ -328,5 +328,10 @@ function buildDetail(container) {
       <p>ELT created a new persona: the <strong>analytics engineer</strong>. They understand SQL deeply, apply software engineering practices (version control, testing, documentation), and own the transformation layer from raw data to business-facing marts. Before ELT, this role didn't exist — transformation was owned by ETL developers who didn't know the business, and analysts who knew the business couldn't change the pipeline.</p>
       <p>dbt is the analytics engineer's primary tool. It gave SQL the infrastructure that software engineers take for granted: Git, tests, documentation, CI/CD.</p>
     </div>
+    <div class="detail-section">
+      <p style="padding:12px 14px;background:var(--surface-2);border-left:3px solid var(--accent);border-radius:8px;font-size:14px;margin:0">
+        <strong>🧠 First principles —</strong> once cloud warehouses decoupled storage from compute, loading raw then transforming in-place beat maintaining a separate ETL tier — and dbt is only the "T". That one idea explains why dbt is batch, SQL-first, and read-only against sources. <a href="#concepts" style="color:var(--accent);font-weight:600">Core Concepts → The ELT Paradigm</a>.
+      </p>
+    </div>
   `;
 }

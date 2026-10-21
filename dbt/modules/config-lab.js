@@ -38,6 +38,12 @@ export function mount(container) {
         ${LADDER.map(s=>`<div class="cfg-ladder-step" data-step="${s.id}"><span class="cfg-ladder-dot"></span><span class="cfg-ladder-label">${s.label}</span><span class="cfg-ladder-hint">${s.hint}</span></div>`).join('<span class="cfg-ladder-arrow">→</span>')}
       </div>
 
+      <div style="margin:0 0 18px">
+        <p style="padding:12px 14px;background:var(--surface-2);border-left:3px solid var(--accent);border-radius:8px;font-size:14px;margin:0">
+          <strong>🧠 First principles —</strong> that ladder <em>is</em> the two-phase model: Jinja <strong>renders</strong> to SQL first (dbt, no warehouse), then the warehouse <strong>executes</strong> it. "Valid" and "compiled" are the render phase; "executed" and "correct" are the run phase — and Jinja can never branch on a value from your data, because at render time there are no rows yet. <a href="#concepts" style="color:var(--accent);font-weight:600">Core Concepts → Jinja &amp; Templating</a>.
+        </p>
+      </div>
+
       <div class="studio-grid">
         <aside class="studio-list">
           <div class="studio-filters">

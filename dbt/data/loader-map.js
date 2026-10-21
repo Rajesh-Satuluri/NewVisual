@@ -49,6 +49,7 @@ export const MODULE_FILES = {
   'project-explorer': 'project-explorer.js',
   'spaced-review': 'spaced-review.js',
   // Reference & review
+  concepts: 'concepts.js',
   'build-health': 'build-health.js',
   modes: 'modes.js',
   readiness: 'readiness.js',

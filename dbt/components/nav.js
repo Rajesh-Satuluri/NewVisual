@@ -59,6 +59,7 @@ export const EXTRAS = [
   { id:'spaced-review', title:'Spaced Review', icon:'🔁', group:'Practice', num:'', desc:'Spaced-repetition review over the interview bank — SM-2 scheduling, due-today queue.' },
   { id:'modes',     title:'Learning Modes',    icon:'🧭', group:'Guide', num:'', desc:'Six goal-based paths through the modules.' },
   { id:'readiness', title:'Readiness Dashboard',icon:'📊', group:'Guide', num:'', desc:'Your learning progress by area, from views + quiz scores.' },
+  { id:'concepts',   title:'Core Concepts',     icon:'🧠', group:'Reference', num:'', desc:'First-principles deep dives: lifecycle, warehouse cost, grain, Jinja, state, ELT.' },
   { id:'master-map', title:'Master Map',       icon:'🗺️', group:'Reference', num:'', desc:'The whole dbt project on one page — sources to marts.' },
   { id:'comparison', title:'ETL vs ELT vs dbt', icon:'⚖️', group:'Reference', num:'', desc:'Feature matrix, when-to-use, interview Q&A.' },
   { id:'glossary',   title:'Glossary',          icon:'📖', group:'Reference', num:'', desc:'Every dbt term, searchable and defined.' },

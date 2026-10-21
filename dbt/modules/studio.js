@@ -35,6 +35,11 @@ export function mount(container) {
         <h2 class="module-title">Write real SQL. Run it for real.</h2>
         <p class="module-subtitle">Every query below runs against a live in-browser DuckDB loaded with the e-commerce dataset — no backend, no simulation. Pick a problem, write SQL, and <strong>Check</strong> compares your result to a reference solution.</p>
       </div>
+      <div style="margin:0 0 18px">
+        <p style="padding:12px 14px;background:var(--surface-2);border-left:3px solid var(--accent);border-radius:8px;font-size:14px;margin:0">
+          <strong>🧠 First principles —</strong> this dataset is seeded with real traps — a double-loaded order, a customer who paid twice. They exercise the SQL-correctness ideas behind every Check: <strong>grain</strong> (what one row means), <strong>fan-out</strong> on joins, <strong>dedup</strong>, and <strong>idempotency</strong>. The Check grades on result-set equivalence, so grain and ordering matter. <a href="#concepts" style="color:var(--accent);font-weight:600">Core Concepts → Grain &amp; Correctness</a>.
+        </p>
+      </div>
 
       <div class="studio-grid">
         <aside class="studio-list">

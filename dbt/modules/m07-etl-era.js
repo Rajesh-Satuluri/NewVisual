@@ -320,5 +320,10 @@ function buildDetail(container) {
         <li>The bottleneck disappeared</li>
       </ul>
     </div>
+    <div class="detail-section">
+      <p style="padding:12px 14px;background:var(--surface-2);border-left:3px solid var(--accent);border-radius:8px;font-size:14px;margin:0">
+        <strong>🧠 First principles —</strong> ETL existed because storage was expensive and compute was scarce and coupled to it — so you transformed before loading to store less. The whole shift to ELT is that economic inversion. <a href="#concepts" style="color:var(--accent);font-weight:600">Core Concepts → The ELT Paradigm</a>.
+      </p>
+    </div>
   `;
 }

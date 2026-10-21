@@ -326,5 +326,10 @@ function buildDetail(container) {
       <h3>What problem did this module show?</h3>
       <p style="font-size:15px;font-weight:600;color:var(--accent)">Without a shared transformation layer, every team writes their own SQL — and every team gets a different answer to the same question.</p>
     </div>
+    <div class="detail-section">
+      <p style="padding:12px 14px;background:var(--surface-2);border-left:3px solid var(--accent);border-radius:8px;font-size:14px;margin:0">
+        <strong>🧠 First principles —</strong> "single source of truth" is not about finding the one true number; it is one named, version-controlled definition per metric that everyone <code>ref()</code>s. Several definitions can be valid at once — the fix is naming each, not deleting all but one. <a href="#concepts" style="color:var(--accent);font-weight:600">Core Concepts → The ELT Paradigm</a>.
+      </p>
+    </div>
   `;
 }

@@ -216,5 +216,10 @@ function buildDetail(container) {
       <p>Without state selection, every PR rebuilds the whole project — slow and expensive as the project grows. With <code>state:modified+ --defer</code>, CI builds only what changed and its children, resolving everything else to production. That turns a 40-minute full build into a 2-minute targeted one.</p>
       <p style="font-size:15px;font-weight:600;color:var(--accent)">state:modified+ decides WHAT to build; --defer decides how unbuilt refs resolve. Together they are Slim CI.</p>
     </div>
+    <div class="detail-section">
+      <p style="padding:12px 14px;background:var(--surface-2);border-left:3px solid var(--accent);border-radius:8px;font-size:14px;margin:0">
+        <strong>🧠 First principles —</strong> selection is set algebra over the DAG (<code>+</code>, <code>@</code>, union, intersection), and <code>state:modified</code> is a fingerprint diff of two manifests — not a warehouse query. <code>--defer</code> works because <code>ref()</code> is an indirection, so an unbuilt ref can safely resolve to prod. <a href="#concepts" style="color:var(--accent);font-weight:600">Core Concepts → State & Selection</a>.
+      </p>
+    </div>
   `;
 }

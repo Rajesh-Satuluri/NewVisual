@@ -299,5 +299,10 @@ function buildDetail(container) {
       <h3>What problem did this module show?</h3>
       <p style="font-size:15px;font-weight:600;color:var(--accent)">Without a shared definition layer, every team optimizes for their own metrics — creating a crisis of trust when leadership tries to make a single decision from multiple data sources.</p>
     </div>
+    <div class="detail-section">
+      <p style="padding:12px 14px;background:var(--surface-2);border-left:3px solid var(--accent);border-radius:8px;font-size:14px;margin:0">
+        <strong>🧠 First principles —</strong> trust is a measurable property: every number should trace back to a single named definition in Git. The problem was never "more than one definition" — it was undocumented, divergent ones. <a href="#concepts" style="color:var(--accent);font-weight:600">Core Concepts → The ELT Paradigm</a>.
+      </p>
+    </div>
   `;
 }
