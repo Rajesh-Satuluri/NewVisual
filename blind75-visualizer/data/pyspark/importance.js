@@ -82,6 +82,10 @@
     // P2 polish: Sessionization (Q301-Q304), Percentiles (Q305-Q307), Self-joins (Q308-Q309)
     301: "essential", 302: "common", 303: "common", 304: "common",
     305: "essential", 306: "common", 307: "common",
-    308: "essential", 309: "common"
+    308: "essential", 309: "common",
+    // CDC snapshot-diff / versioning / recovery (Q310-Q315), schema-drift & dynamic
+    // DQ (Q316-Q317), executor-OOM diagnosis (Q318)
+    310: "essential", 311: "common", 312: "common", 313: "common", 314: "common",
+    315: "essential", 316: "common", 317: "common", 318: "essential"
   };
 })();
