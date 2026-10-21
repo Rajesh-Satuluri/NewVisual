@@ -1001,10 +1001,36 @@ a.sd-cm-cert:hover { text-decoration:underline; }
     });
   }
 
+  /* Merge authored study metadata (level / goals / per-section callouts) onto
+     the service objects by id. Data lives in TV.StudyEnrich[format][id] (see
+     js/data/<format>-study.js). Purely additive — absent entries change nothing. */
+  function applyStudyEnrichment(format, services) {
+    const map = (TV.StudyEnrich && TV.StudyEnrich[format]) || null;
+    if (!map) return;
+    services.forEach(svc => {
+      const e = map[svc.id];
+      if (!e) return;
+      if (e.level && !svc.level) svc.level = e.level;
+      if (e.goals && !svc.goals) svc.goals = e.goals;
+      if (e.callouts) {
+        Object.keys(e.callouts).forEach(k => {
+          const add = e.callouts[k];
+          if (!add || !add.length) return;
+          let sec = svc[k];
+          if (typeof sec === 'string') sec = { lead: sec };
+          if (!sec || typeof sec !== 'object') sec = {};
+          sec.callouts = (sec.callouts || []).concat(add);
+          svc[k] = sec;
+        });
+      }
+    });
+  }
+
   /* ── Registration ────────────────────────────────────────── */
   function registerAll(format, services) {
     TV._services = TV._services || {};
     TV._services[format] = services;
+    applyStudyEnrichment(format, services);
     services.forEach(svc => {
       TV.registerModule(format, {
         id: svc.id, title: svc.name, group: svc.category, format,
