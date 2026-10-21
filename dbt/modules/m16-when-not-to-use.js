@@ -212,5 +212,10 @@ function buildDetail(container) {
       <h3>The mature answer</h3>
       <p style="font-size:15px;font-weight:600;color:var(--accent)">The engineers who get hired at senior levels don't just know how to use dbt — they know exactly where it stops being the right tool, and what to reach for next. A tool used beyond its design constraints creates more problems than it solves.</p>
     </div>
+    <div class="detail-section">
+      <p style="padding:12px 14px;background:var(--surface-2);border-left:3px solid var(--accent);border-radius:8px;font-size:14px;margin:0">
+        <strong>🧠 First principles —</strong> dbt is the "T" in ELT and assumes the warehouse is the compute engine. Every "don't use dbt here" (streaming, pre-load PII masking, non-SQL transforms) is just a case that falls outside batch, in-warehouse, SQL. <a href="#concepts" style="color:var(--accent);font-weight:600">Core Concepts → The ELT Paradigm</a>.
+      </p>
+    </div>
   `;
 }

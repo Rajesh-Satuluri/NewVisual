@@ -164,6 +164,11 @@ function buildDetail(container) {
       </div>
       <p style="font-size:15px;font-weight:600;color:var(--accent)">Reach for the free commands first — parse/compile/ls answer most "what will this do?" questions before you spend a single credit.</p>
     </div>
+    <div class="detail-section">
+      <p style="padding:12px 14px;background:var(--surface-2);border-left:3px solid var(--accent);border-radius:8px;font-size:14px;margin:0">
+        <strong>🧠 First principles —</strong> the free/paid split is the compile boundary: <code>parse</code> and <code>compile</code> turn your project into SQL with no warehouse (dbt is a compiler); <code>run</code>/<code>build</code>/<code>test</code> execute that SQL against the warehouse. That is why you debug <code>target/compiled/</code>, not your Jinja. <a href="#concepts" style="color:var(--accent);font-weight:600">Core Concepts → Execution Lifecycle</a>.
+      </p>
+    </div>
   `;
 }
 
