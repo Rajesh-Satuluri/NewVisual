@@ -19,17 +19,27 @@ const BLURB = {
   m13: 'Recovery, restart strategies, and end-to-end guarantees.',
   m13b: 'Savepoints: safe upgrades, rescaling, and state migration.',
   m14: 'Detect and relieve backpressure before it cascades.',
-  m15: 'Streaming SQL and the Table API over unbounded data.',
+  m15: 'Streaming SQL & Table API basics: dynamic tables, windowed SQL.',
   m16: 'Kafka, filesystem, JDBC — sources & sinks with 2PC.',
-  m17: 'Flink SQL & the Table API for declarative streaming.',
+  m17: 'Advanced Flink SQL: joins, Top-N, dedup, changelog streams.',
   m18: 'Tuning: serialization, state, parallelism, network.',
   m19: 'The full Uber real-time pipeline, end to end.',
 };
 
+// Difficulty + estimated time per module (for curriculum card badges).
+const META = {
+  m01: ['Beginner', 12], m02: ['Beginner', 14], m03: ['Intermediate', 16], m04: ['Intermediate', 14],
+  m05: ['Intermediate', 16], m06: ['Intermediate', 14], m07: ['Intermediate', 16], m08: ['Beginner', 12],
+  m09: ['Intermediate', 18], m10: ['Intermediate', 16], m11: ['Advanced', 18], m12: ['Advanced', 18],
+  m13: ['Advanced', 16], m13b: ['Advanced', 16], m14: ['Advanced', 16], m15: ['Intermediate', 16],
+  m16: ['Intermediate', 16], m17: ['Advanced', 18], m18: ['Advanced', 18], m19: ['Advanced', 20],
+};
+const levelClass = l => 'lvl-' + (l || '').toLowerCase();
+
 const STATS = [
-  { val: '19', label: 'Modules', sub: 'Foundation → Advanced' },
+  { val: '20', label: 'Modules', sub: 'Foundation → Advanced' },
   { val: '10+', label: 'Interactive Sims', sub: 'Watermarks, windows, more' },
-  { val: '100+', label: 'Interview Qs', sub: 'Senior DE level' },
+  { val: '180+', label: 'Practice Qs', sub: 'Quizzes + interview Q&A' },
   { val: '1', label: 'Real Platform', sub: "Uber's data stack" },
 ];
 
@@ -104,6 +114,10 @@ export function mount(container) {
                     <span class="home-mod-num">MODULE ${m.num}</span>
                     <div class="home-mod-title">${m.title}</div>
                     <div class="home-mod-desc">${BLURB[m.id] || ''}</div>
+                    ${META[m.id] ? `<div class="home-mod-badges">
+                      <span class="mod-badge ${levelClass(META[m.id][0])}">${META[m.id][0]}</span>
+                      <span class="mod-badge mod-badge-time">⏱ ${META[m.id][1]} min</span>
+                    </div>` : ''}
                   </span>
                 </button>`).join('')}
             </div>

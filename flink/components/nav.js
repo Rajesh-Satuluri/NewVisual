@@ -21,8 +21,9 @@ export const MODULES = [
   // Group: APIs & Connectors
   { id: 'm15', title: 'Flink SQL & Table API',   icon: '📊', group: 'APIs & Connectors', num: '15' },
   { id: 'm16', title: 'Connectors',              icon: '🔌', group: 'APIs & Connectors', num: '16' },
-  { id: 'm17', title: 'Flink SQL',               icon: '📊', group: 'APIs & Connectors', num: '17' },
-  { id: 'm18', title: 'Performance',             icon: '🚀', group: 'APIs & Connectors', num: '18' },
+  { id: 'm17', title: 'Flink SQL · Advanced',    icon: '🧮', group: 'APIs & Connectors', num: '17' },
+  // Group: Optimization
+  { id: 'm18', title: 'Performance',             icon: '🚀', group: 'Optimization',    num: '18' },
   { id: 'm19', title: 'Uber Pipeline',           icon: '🗺️', group: 'End-to-End',     num: '19' },
 ];
 
@@ -34,6 +35,9 @@ export const EXTRAS = [
   { id: 'comparison', title: 'Engine Comparison', icon: '⚖️', group: 'Reference', num: '' },
   { id: 'glossary',   title: 'Glossary',          icon: '📖', group: 'Reference', num: '' },
   { id: 'cheatsheet', title: 'Cheat Sheet',       icon: '📋', group: 'Reference', num: '' },
+  { id: 'config-reference', title: 'Config Reference', icon: '⚙️', group: 'Reference', num: '' },
+  { id: 'advanced',   title: 'Advanced Topics',   icon: '🧬', group: 'Reference', num: '' },
+  { id: 'sizing',     title: 'Sizing Lab',        icon: '📐', group: 'Reference', num: '' },
   { id: 'study',      title: 'Study Hub',         icon: '📚', group: 'Review',    num: '★' },
 ];
 const REVIEW = EXTRAS;

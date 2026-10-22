@@ -15,7 +15,7 @@ import { DECISIONS } from './data/decisions.js';
 // fresh deploy is fetched immediately instead of served from the browser/CDN
 // cache (a hard-reload does not reliably re-fetch dynamic import() subresources).
 // Bump this on each deploy that changes module code.
-const BUILD = '20261022a';
+const BUILD = '20261022b';
 const imp = (p) => import(`${p}?v=${BUILD}`);
 const LOADERS = {
   home:  () => imp('./modules/home.js'),
@@ -45,6 +45,9 @@ const LOADERS = {
   comparison:   () => imp('./modules/comparison.js'),
   glossary:     () => imp('./modules/glossary.js'),
   cheatsheet:   () => imp('./modules/cheatsheet.js'),
+  'config-reference': () => imp('./modules/config-reference.js'),
+  advanced:     () => imp('./modules/advanced.js'),
+  sizing:       () => imp('./modules/sizing.js'),
   study:        () => imp('./modules/study.js'),
 };
 
@@ -85,10 +88,11 @@ async function navigate(id) {
     updateProgress(done);
   } catch(err) {
     console.error('Module load error:', err);
-    canvas.innerHTML = `<div class="welcome-screen">
-      <div style="font-size:48px">🚧</div>
-      <div class="welcome-title" style="font-size:28px;margin-top:16px">Coming Soon</div>
-      <p class="welcome-sub">This module is being built in the next iteration.</p>
+    canvas.innerHTML = `<div class="welcome-screen" role="alert">
+      <div style="font-size:48px">⚠️</div>
+      <div class="welcome-title" style="font-size:28px;margin-top:16px">Couldn't load this section</div>
+      <p class="welcome-sub">Something went wrong loading this page. Check your connection and try again — a hard refresh usually fixes a stale cache.</p>
+      <div class="welcome-actions"><button class="btn btn-primary" onclick="location.reload()">Reload</button></div>
     </div>`;
   }
 }
@@ -188,6 +192,13 @@ function onHashChange() {
   const id = window.location.hash.slice(1) || 'home';
   navigate(LOADERS[id] ? id : 'home');
 }
+
+// ── Skip link (hash-router-safe: focus main without changing the route) ─────
+document.getElementById('skip-link')?.addEventListener('click', e => {
+  e.preventDefault();
+  const c = document.getElementById('module-canvas');
+  if (c) { c.setAttribute('tabindex', '-1'); c.focus(); }
+});
 
 // ── Sidebar toggle ────────────────────────────────────────────────────────
 document.getElementById('sidebar-toggle')?.addEventListener('click', () => {
