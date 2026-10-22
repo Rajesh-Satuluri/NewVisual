@@ -760,3 +760,76 @@ body.cmdk-open { overflow: hidden; }
   .sm-vs, .sm-why-grid { grid-template-columns: 1fr; }
   .sm-wrap { padding: 16px; }
 }
+
+/* ── Track A: honest progress + practice components ───────────────────────── */
+.quiz-score.quiz-passed { color: var(--green); font-weight: 700; }
+
+.practice-section { margin: 28px 0; }
+
+/* Self-explain */
+.se-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  padding: 16px 18px;
+  margin: 12px 0;
+}
+.se-prompt { font-weight: 600; color: var(--text); margin-bottom: 12px; line-height: 1.6; }
+.se-reveal { font-size: 13px; }
+.se-model { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; }
+.se-points { margin-bottom: 12px; }
+.se-points-label { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); margin-bottom: 6px; }
+.se-points ul { margin: 0; padding-left: 20px; color: var(--text-secondary); }
+.se-points li { margin: 4px 0; }
+.se-answer { color: var(--text-secondary); line-height: 1.7; }
+
+/* Decision drill */
+.dd-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  padding: 16px 18px;
+  margin: 12px 0;
+}
+.dd-scenario { font-weight: 600; color: var(--text); margin-bottom: 14px; line-height: 1.6; }
+.dd-options { display: flex; flex-direction: column; gap: 10px; }
+.dd-option {
+  display: flex; flex-direction: column; gap: 6px; text-align: left;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg-surface); color: var(--text);
+  padding: 12px 14px; cursor: pointer; transition: var(--transition);
+}
+.dd-option:hover:not(.revealed) { border-color: var(--accent); }
+.dd-option-label { font-weight: 600; }
+.dd-option.revealed { cursor: default; }
+.dd-option.v-best.revealed  { border-color: var(--green); background: var(--green-dim); }
+.dd-option.v-ok.revealed    { border-color: var(--yellow); background: var(--yellow-dim); }
+.dd-option.v-bad.revealed   { border-color: var(--red); background: var(--red-dim); }
+.dd-option.chosen { outline: 2px solid var(--accent); outline-offset: 1px; }
+.dd-why { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+.dd-badge { font-size: 12px; font-weight: 700; }
+.dd-badge.dd-best { color: var(--green); }
+.dd-badge.dd-ok { color: var(--yellow); }
+.dd-badge.dd-bad { color: var(--red); }
+.dd-takeaway { margin-top: 14px; padding: 10px 12px; border-left: 3px solid var(--accent); background: var(--accent-dim); border-radius: var(--radius-sm); color: var(--text-secondary); line-height: 1.6; }
+
+/* Tiered answers */
+.tiered-card { border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-card); padding: 16px 18px; margin: 12px 0; }
+.tiered-q { font-weight: 600; color: var(--text); margin-bottom: 14px; line-height: 1.6; }
+.tiered-tiers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.tiered-tier { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; background: var(--bg-surface); }
+.tiered-tier .tier-label { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; font-weight: 700; margin-bottom: 8px; }
+.tier-weak .tier-label { color: var(--red); }
+.tier-good .tier-label { color: var(--yellow); }
+.tier-senior .tier-label { color: var(--green); }
+.tiered-tier .tier-body { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+@media (max-width: 760px) { .tiered-tiers { grid-template-columns: 1fr; } }
+
+/* Study Hub per-module grouping (tiered / decisions / self-explain modes) */
+.study-mod-group { margin: 22px 0; }
+.study-mod-head {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-weight: 700; color: var(--text); text-decoration: none;
+  border-bottom: 2px solid var(--accent); padding-bottom: 4px; margin-bottom: 10px;
+}
+.study-mod-head:hover { color: var(--accent); }
