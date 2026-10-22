@@ -73,7 +73,10 @@
     try {
       localStorage.setItem(KEY, JSON.stringify(state));
     } catch (e) {
-      /* private mode / quota — fail silently, app still works in-memory */
+      // private mode / quota exceeded — the app keeps working in-memory, but the
+      // user's progress is NOT being persisted. Announce it so the UI can warn
+      // the user instead of losing their work silently (app.js shows a toast).
+      try { window.dispatchEvent(new Event("blind75:storage-error")); } catch (e2) { /* no window */ }
     }
     // Let the (optional) cloud-sync layer push changes to other devices.
     // It only ships notes/codeEdits/logicEdits and debounces internally, so
