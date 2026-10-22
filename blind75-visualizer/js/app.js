@@ -14,6 +14,30 @@
   var byId = {};
   ALL.forEach(function (p) { byId[p.id] = p; });
 
+  // ---- full-text haystack ----
+  // The Fuse index below matches titles + metadata only (fast, fuzzy). To also
+  // catch concept phrases that live in prose — the paraphrased statement, the
+  // A–M logic write-ups, example reasoning, recognition/recall cues, even the
+  // clean solution code — precompute one lowercased text blob per problem that
+  // visibleIds() substring-scans. Built once at load; memory is a few MB.
+  function buildHaystack(p) {
+    var parts = [p.title, p.category, p.difficulty];
+    if (p.meta) parts.push(p.meta.pattern, p.meta.dataStructure, p.meta.technique);
+    if (p.description) parts.push(p.description);
+    if (p.constraints) parts.push(p.constraints.join(" "));
+    if (p.notes) parts.push(p.notes.join(" "));
+    (p.examples || []).forEach(function (ex) {
+      parts.push(ex.input, ex.output, ex.reasoning, ex.visual);
+    });
+    (p.approaches || []).forEach(function (a) {
+      parts.push(a.name, a.whenToUse, a.logic, a.plain);
+    });
+    if (p.patternRecognition) parts.push(p.patternRecognition.join(" "));
+    if (p.interviewRecall) parts.push(p.interviewRecall.join(" "));
+    return parts.filter(Boolean).join(" \n ").toLowerCase();
+  }
+  ALL.forEach(function (p) { p._ft = buildHaystack(p); });
+
   // ---- pattern-intro pseudo-entries ----
   // Each category that has a chapter explanation gets a standalone "Introduction
   // to X" entry that sits atop its sidebar group. It is NOT a real problem (not
@@ -258,6 +282,40 @@
     };
   }
 
+  // Raw query -> lowercased words to substring-match against the full-text blob.
+  // Facet tokens ("diff:hard") are skipped; punctuation is stripped but c#/c++
+  // survive. Words shorter than 2 chars are dropped.
+  function ftWords(raw) {
+    var toks = String(raw || "").toLowerCase().split(/\s+/), out = [];
+    for (var i = 0; i < toks.length; i++) {
+      var t = toks[i];
+      if (t.indexOf(":") !== -1) continue;        // facet token — handled elsewhere
+      t = t.replace(/[^a-z0-9#+]/g, "");
+      if (t.length >= 2) out.push(t);
+    }
+    return out;
+  }
+  // Widen fuzzy title/metadata hits with a precise full-text pass: append any
+  // problem whose prose/code haystack contains EVERY query word (AND match).
+  // This surfaces concept-phrase matches the title index misses, without the
+  // noise a fuzzy scan over long text would add.
+  function mergeFullText(hits, raw) {
+    var words = ftWords(raw);
+    if (!words.length) return hits;
+    var seen = {}, out = hits.slice();
+    hits.forEach(function (p) { seen[p.id] = true; });
+    for (var i = 0; i < ALL.length; i++) {
+      var p = ALL[i];
+      if (seen[p.id] || !p._ft) continue;
+      var ok = true;
+      for (var w = 0; w < words.length; w++) {
+        if (p._ft.indexOf(words[w]) === -1) { ok = false; break; }
+      }
+      if (ok) { out.push(p); seen[p.id] = true; }
+    }
+    return out;
+  }
+
   // Which problems pass the current filters/search? Returns a Set of ids.
   function visibleIds() {
     var q = state.query.trim();
@@ -270,7 +328,12 @@
       // Bare LeetCode number -> exact-number jump.
       base = ALL.filter(function (p) { return String(p.lc) === String(parsed.lc); });
     } else if (parsed.text) {
-      base = fuse.search(parsed.text).map(function (r) { return r.item; });
+      var hits = fuse.search(parsed.text).map(function (r) { return r.item; });
+      // Full-text widening only kicks in when the fuzzy title/metadata search is
+      // thin (< 6 hits) — enough to rescue concept-phrase queries that live only
+      // in prose (e.g. "pigeonhole", "amortized"), without flooding common
+      // queries like "two sum" that already match many titles.
+      base = hits.length < 6 ? mergeFullText(hits, q) : hits;
     }
     var hasFacets = false;
     for (var fk in parsed.facets) { hasFacets = true; break; }
@@ -1297,7 +1360,7 @@
 
   // small transient toast
   var toastTimer;
-  function toast(msg) {
+  function toast(msg, ms) {
     var t = el("toast");
     if (!t) {
       t = h("div", { class: "toast", id: "toast" });
@@ -1306,7 +1369,7 @@
     t.textContent = msg;
     t.classList.add("show");
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { t.classList.remove("show"); }, 1800);
+    toastTimer = setTimeout(function () { t.classList.remove("show"); }, ms || 1800);
   }
 
   function buildLinksSection(p) {
@@ -1373,18 +1436,56 @@
   }
 
   // ============================================================= SELECT
-  // Next problem (in the active set's order) that isn't solved yet; wraps around.
-  // Returns null when everything in the set is solved.
+  // Smart "what to study next": the highest-leverage UNSOLVED problem in the
+  // active set, rather than the next one in list order. Priority, in order:
+  //   1. a card that's due for review (if it's also unsolved) — spaced review wins
+  //   2. the weakest category (lowest solved ratio)
+  //   3. interview importance (essential > common > occasional)
+  //   4. the weakest pattern
+  //   5. canonical order, as a stable tiebreak
+  // The contract is unchanged — it returns an unsolved id or null — so every
+  // caller ("Next unsolved →", the `n` key, the solved toast) keeps working.
   function nextUnsolvedId(fromId) {
     var list = activeProblems();
     if (!list.length) return null;
-    var start = list.findIndex(function (p) { return p.id === fromId; });
-    if (start < 0) start = -1;
-    for (var off = 1; off <= list.length; off++) {
-      var p = list[(start + off) % list.length];
-      if (store.getStatus(p.id) !== "solved") return p.id;
+
+    // solved/total ratios per category and per pattern across the active set
+    var catAgg = {}, patAgg = {};
+    list.forEach(function (p) {
+      var c = p.category || "", pat = (p.meta && p.meta.pattern) || "";
+      if (!catAgg[c]) catAgg[c] = { s: 0, t: 0 };
+      catAgg[c].t++; if (store.getStatus(p.id) === "solved") catAgg[c].s++;
+      if (pat) {
+        if (!patAgg[pat]) patAgg[pat] = { s: 0, t: 0 };
+        patAgg[pat].t++; if (store.getStatus(p.id) === "solved") patAgg[pat].s++;
+      }
+    });
+    function ratio(agg, k) { var a = agg[k]; return (a && a.t) ? a.s / a.t : 1; }
+    var impRank = { essential: 0, common: 1, occasional: 2 };
+
+    var best = null, bestKey = null;
+    for (var i = 0; i < list.length; i++) {
+      var p = list[i];
+      if (p.id === fromId || store.getStatus(p.id) === "solved") continue;
+      var ir = impRank[impOf(p)]; if (ir == null) ir = 1;
+      var key = [
+        store.isDue(p.id) ? 0 : 1,
+        ratio(catAgg, p.category || ""),
+        ir,
+        ratio(patAgg, (p.meta && p.meta.pattern) || ""),
+        i
+      ];
+      if (bestKey === null || cmpKey(key, bestKey) < 0) { bestKey = key; best = p.id; }
     }
-    return null;
+    return best;
+  }
+  // Lexicographic compare of two numeric priority tuples.
+  function cmpKey(a, b) {
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] < b[i]) return -1;
+      if (a[i] > b[i]) return 1;
+    }
+    return 0;
   }
 
   // Pure renderer for a problem — history is managed by navigate()/applyRoute().
@@ -2536,6 +2637,16 @@
     // Cloud sync pulled newer notes/code from another device — re-render the
     // current view so the updated content shows without a manual reload.
     window.addEventListener("blind75:cloud-refresh", applyRoute);
+    // Progress normally persists to this browser's localStorage. If a save throws
+    // (private-mode, or the storage quota is full) the app keeps working from
+    // memory but changes won't survive a reload — warn the user once so their
+    // work isn't lost silently, and point them at Export.
+    var storageWarned = false;
+    window.addEventListener("blind75:storage-error", function () {
+      if (storageWarned) return;
+      storageWarned = true;
+      toast("⚠ Can't save progress to this browser (private mode or storage full). Use ⋯ → Export to keep your data.", 7000);
+    });
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
