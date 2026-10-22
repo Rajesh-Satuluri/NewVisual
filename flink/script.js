@@ -9,13 +9,14 @@ import { markVisited } from './data/progress-store.js';
 import { createSelfExplain, initSelfExplain, createDecisionDrill, initDecisionDrill } from './components/practice.js';
 import { SELF_EXPLAIN } from './data/self-explain.js';
 import { DECISIONS } from './data/decisions.js';
+import { highlightCodeBlocks } from './components/highlight.js';
 
 // ── Module loaders (lazy) ─────────────────────────────────────────────────
 // Cache-busting build tag: appended to every lazily-imported module URL so a
 // fresh deploy is fetched immediately instead of served from the browser/CDN
 // cache (a hard-reload does not reliably re-fetch dynamic import() subresources).
 // Bump this on each deploy that changes module code.
-const BUILD = '20261022d';
+const BUILD = '20261022e';
 const imp = (p) => import(`${p}?v=${BUILD}`);
 const LOADERS = {
   home:  () => imp('./modules/home.js'),
@@ -85,6 +86,9 @@ async function navigate(id) {
 
     // Auto-inject the "Test Yourself" quiz (where a bank exists) + Prev/Next pager.
     enhanceModule(id);
+    // Syntax-highlight every code block (incl. the just-injected practice ones)
+    // before the copy buttons attach — copy reads innerText, so spans are safe.
+    highlightCodeBlocks(canvas);
     injectCopyButtons(canvas);
 
     // Honest progress: opening a module records a "visit" only. Mastery is
