@@ -19,6 +19,9 @@ const QUIZ_PASS_RATIO = 2 / 3;
 const PAGES = {
   home: `<strong>🏠 Home</strong>`,
   playground: `Playground &rsaquo; <strong>🎮 Partition Simulator</strong>`,
+  sizing: `Playground &rsaquo; <strong>📐 Capacity &amp; Sizing Lab</strong>`,
+  advanced: `Reference &rsaquo; <strong>🧠 Advanced Topics</strong>`,
+  'config-reference': `Reference &rsaquo; <strong>⚙️ Config Reference</strong>`,
   glossary: `Reference &rsaquo; <strong>📖 Glossary</strong>`,
   cheatsheet: `Reference &rsaquo; <strong>📋 Cheat Sheet</strong>`,
   'master-map': `Reference &rsaquo; <strong>🗺️ Master Map</strong>`,
@@ -38,6 +41,9 @@ let cleanupFn = null;
 const LOADERS = {
   home: () => import('./modules/home.js'),
   playground: () => import('./modules/playground.js'),
+  sizing: () => import('./modules/sizing.js'),
+  advanced: () => import('./modules/advanced.js'),
+  'config-reference': () => import('./modules/config-reference.js'),
   glossary: () => import('./modules/glossary.js'),
   cheatsheet: () => import('./modules/cheatsheet.js'),
   'master-map': () => import('./modules/master-map.js'),
@@ -99,6 +105,12 @@ async function navigate(id) {
     cleanupFn = m.mount(canvas) || null;
     if (mod) {
       initTabs(canvas); initIQ(canvas); enhanceModule(id);
+      // Canvas visuals are opaque to screen readers; give them an accessible
+      // name so AT announces something, while the module's prose carries detail.
+      canvas.querySelectorAll('canvas:not([aria-label])').forEach(c => {
+        c.setAttribute('role', 'img');
+        c.setAttribute('aria-label', `${mod.label} — interactive visualization. The explanation and tables on this page describe it in text.`);
+      });
       // Record the visit for the dashboard, but DON'T mark complete here —
       // completion is earned by passing the module's quiz (see the listener
       // below). Opening a page is not the same as learning it.

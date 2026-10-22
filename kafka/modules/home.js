@@ -7,6 +7,16 @@ import { loadAllIQ } from '../data/iq-aggregate.js';
 
 const GROUP_ORDER = ['Foundation', 'Core Internals', 'Consumer Side', 'Delivery', 'Ecosystem', 'Operations', 'Advanced'];
 
+// Difficulty + rough reading-time by theme group, so a learner can gauge a
+// module before opening it. Time is an estimate for the interactive content.
+const LEVEL = { Foundation: 'Beginner', 'Core Internals': 'Intermediate', 'Consumer Side': 'Intermediate', Delivery: 'Intermediate', Ecosystem: 'Intermediate', Operations: 'Advanced', Advanced: 'Advanced' };
+const LEVEL_CLASS = { Beginner: 'lvl-beg', Intermediate: 'lvl-int', Advanced: 'lvl-adv' };
+const MINS = { Foundation: 10, 'Core Internals': 15, 'Consumer Side': 14, Delivery: 14, Ecosystem: 13, Operations: 15, Advanced: 18 };
+const badges = m => {
+  const lv = LEVEL[m.group] || 'Intermediate';
+  return `<span class="home-card-badges"><span class="mlvl ${LEVEL_CLASS[lv]}">${lv}</span><span class="mmins">~${MINS[m.group] || 14} min</span></span>`;
+};
+
 // A short "why start here" path — the spine through the 22 modules.
 const START_PATH = ['m01', 'm03', 'm04', 'm08', 'm11', 'm19'];
 
@@ -45,6 +55,7 @@ export function mount(container) {
         <span class="home-card-text">
           <span class="home-card-title"><span class="home-card-num">${n}</span> ${m.label}</span>
           <span class="home-card-desc">${m.desc}</span>
+          ${badges(m)}
         </span>
       </a>`;
   };
@@ -104,6 +115,27 @@ export function mount(container) {
           <span class="home-card-text">
             <span class="home-card-title">Master Map</span>
             <span class="home-card-desc">Follow one event end to end, then jump into any stage.</span>
+          </span>
+        </a>
+        <a href="#advanced" class="home-card">
+          <span class="home-card-icon">🧠</span>
+          <span class="home-card-text">
+            <span class="home-card-title">Advanced Topics</span>
+            <span class="home-card-desc">Tiered storage, static membership, quotas, leader epoch — the staff-level deep dives.</span>
+          </span>
+        </a>
+        <a href="#config-reference" class="home-card">
+          <span class="home-card-icon">⚙️</span>
+          <span class="home-card-text">
+            <span class="home-card-title">Config Reference</span>
+            <span class="home-card-desc">The settings that matter, with defaults, safe values, and what breaks when they're wrong.</span>
+          </span>
+        </a>
+        <a href="#sizing" class="home-card">
+          <span class="home-card-icon">📐</span>
+          <span class="home-card-text">
+            <span class="home-card-title">Capacity &amp; Sizing Lab</span>
+            <span class="home-card-desc">Partition, consumer, and storage math you can reproduce on a whiteboard.</span>
           </span>
         </a>
         <a href="#glossary" class="home-card">

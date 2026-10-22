@@ -33,9 +33,12 @@ export const MODULES = [
 const GROUP_ORDER = ['Foundation','Core Internals','Consumer Side','Delivery','Ecosystem','Operations','Advanced'];
 const PLAYGROUND = [
   { id:'playground', label:'Partition Simulator', icon:'🎮' },
+  { id:'sizing',     label:'Capacity & Sizing Lab', icon:'📐' },
 ];
 const REFERENCE = [
   { id:'master-map',   label:'Master Map',   icon:'🗺️' },
+  { id:'advanced',     label:'Advanced Topics', icon:'🧠' },
+  { id:'config-reference', label:'Config Reference', icon:'⚙️' },
   { id:'glossary',     label:'Glossary',     icon:'📖' },
   { id:'cheatsheet',   label:'Cheat Sheet',  icon:'📋' },
   { id:'incident-bank', label:'Incident Bank', icon:'🚑' },

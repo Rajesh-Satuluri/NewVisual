@@ -1,0 +1,115 @@
+// Config reference — the Kafka settings that actually matter in production,
+// grouped by concern. For each: the default, a safe range / typical value, and
+// — the part most references omit — what BREAKS if you get it wrong. Linked to
+// the module that explains the mechanism. Trusted in-repo content.
+//
+// Shape: { group, scope, items: [ { name, default, typical, breaks, moduleId } ] }
+
+export const CONFIG_GROUPS = [
+  {
+    group: 'Producer — durability',
+    scope: 'producer',
+    items: [
+      { name: 'acks', default: 'all (3.x)', typical: 'all for critical data; 1 for tolerant',
+        breaks: 'acks=1 loses records if the leader dies after acking but before a follower replicates; acks=0 can lose silently. For money, always all.', moduleId: 'm04' },
+      { name: 'enable.idempotence', default: 'true (3.x)', typical: 'true',
+        breaks: 'If false, producer retries can write duplicates and reorder records within a partition. Leave it on — it is nearly free and is required for EOS.', moduleId: 'm04' },
+      { name: 'max.in.flight.requests.per.connection', default: '5', typical: '≤5 with idempotence',
+        breaks: '>5 with idempotence disabled can reorder records on retry. With idempotence on, up to 5 is safe and preserves order.', moduleId: 'm04' },
+      { name: 'retries / delivery.timeout.ms', default: 'retries=MAX, timeout=120000', typical: 'bound by delivery.timeout.ms',
+        breaks: 'Too-low delivery.timeout.ms expires batches during a brief leader change (spurious TimeoutException). Tune the timeout, not retries, in 3.x.', moduleId: 'm04' },
+    ],
+  },
+  {
+    group: 'Producer — throughput',
+    scope: 'producer',
+    items: [
+      { name: 'batch.size', default: '16384 (16 KB)', typical: '32–256 KB for high volume',
+        breaks: 'Too small → many tiny requests, poor compression, low throughput. Too large → memory pressure and added latency if batches rarely fill.', moduleId: 'm17' },
+      { name: 'linger.ms', default: '0', typical: '5–100 ms for throughput',
+        breaks: '0 ships batches immediately (low latency, low throughput). A few ms lets batches fill — big throughput win for a small, bounded latency cost.', moduleId: 'm17' },
+      { name: 'compression.type', default: 'none', typical: 'zstd or lz4',
+        breaks: 'none wastes bandwidth and disk on high-volume topics. zstd = best ratio; lz4/snappy = lowest CPU. Match to whether you are CPU- or bandwidth-bound.', moduleId: 'm17' },
+      { name: 'buffer.memory', default: '33554432 (32 MB)', typical: '32–256 MB',
+        breaks: 'If a slow leader fills the buffer, new send() calls block up to max.block.ms then throw BufferExhausted. Size it for your burst + a slow-leader margin.', moduleId: 'm04' },
+    ],
+  },
+  {
+    group: 'Consumer',
+    scope: 'consumer',
+    items: [
+      { name: 'enable.auto.commit', default: 'true', typical: 'false for at-least-once',
+        breaks: 'Auto-commit commits on a timer regardless of processing — a crash can lose records you had not durably written. Use manual commit after the side effect.', moduleId: 'm09' },
+      { name: 'auto.offset.reset', default: 'latest', typical: 'earliest or latest, deliberately',
+        breaks: 'When offsets are missing/expired: earliest replays the whole log (can flood sinks); latest silently skips a gap. Pick per topic; consider none to fail loudly.', moduleId: 'm09' },
+      { name: 'max.poll.records', default: '500', typical: 'size to fit max.poll.interval.ms',
+        breaks: 'Too high → a batch takes longer than max.poll.interval.ms → the consumer is evicted → rebalance storm. Lower it when per-record work is heavy.', moduleId: 'm08' },
+      { name: 'max.poll.interval.ms', default: '300000 (5 min)', typical: 'match worst-case batch time',
+        breaks: 'If processing a poll batch exceeds this, the coordinator assumes the consumer died and rebalances — the classic cause of a rebalance loop.', moduleId: 'm08' },
+      { name: 'session.timeout.ms / heartbeat.interval.ms', default: '45000 / 3000', typical: 'heartbeat ≈ 1/3 session',
+        breaks: 'Too-tight session timeout evicts healthy consumers on a brief GC pause. Heartbeats run on a background thread, so they do not catch slow processing — that is max.poll.interval.ms.', moduleId: 'm08' },
+      { name: 'group.instance.id (static membership)', default: 'unset', typical: 'set for stateful/stable groups',
+        breaks: 'Without it, every rolling restart triggers a full rebalance. With a stable id, a restarting member reclaims its partitions within session.timeout.ms — no reassignment.', moduleId: 'm08' },
+      { name: 'partition.assignment.strategy', default: 'range,cooperative-sticky', typical: 'CooperativeStickyAssignor',
+        breaks: 'The eager assignors are stop-the-world on every change. Cooperative-sticky revokes only partitions that must move — far less disruption. Migrate deliberately (both sides).', moduleId: 'm08' },
+      { name: 'isolation.level', default: 'read_uncommitted', typical: 'read_committed for EOS',
+        breaks: 'To honor transactions (skip aborted/in-flight records) consumers must set read_committed. Left at the default, they see uncommitted transactional data.', moduleId: 'm11' },
+    ],
+  },
+  {
+    group: 'Topic & broker — durability',
+    scope: 'broker',
+    items: [
+      { name: 'replication.factor', default: '1 (set 3)', typical: '3 for production',
+        breaks: 'RF=1 loses data on any broker failure. RF=3 tolerates one failure with room to meet the in-sync floor. Set it explicitly per critical topic.', moduleId: 'm07' },
+      { name: 'min.insync.replicas', default: '1', typical: '2 with RF=3',
+        breaks: 'The famous gotcha: acks=all with min.insync.replicas=1 can still leave a single copy. Set 2 so a write needs two in-sync replicas or is rejected.', moduleId: 'm07' },
+      { name: 'unclean.leader.election.enable', default: 'false', typical: 'false for critical data',
+        breaks: 'true lets an out-of-sync replica become leader when the ISR is empty — available, but it can silently drop acknowledged records. Keep false unless availability > correctness.', moduleId: 'm18' },
+      { name: 'replica.lag.time.max.ms', default: '30000', typical: 'default is usually fine',
+        breaks: 'A follower that has not caught up within this window is removed from the ISR. Too low → ISR flaps under load; too high → a slow replica masquerades as in-sync.', moduleId: 'm07' },
+    ],
+  },
+  {
+    group: 'Retention & compaction',
+    scope: 'broker',
+    items: [
+      { name: 'cleanup.policy', default: 'delete', typical: 'delete for events, compact for state',
+        breaks: 'delete ages out whole segments by time/size (events). compact keeps the latest value per key (changelog/table). Wrong choice loses state or never frees disk.', moduleId: 'm10' },
+      { name: 'retention.ms / retention.bytes', default: '604800000 / -1', typical: 'sized to ingest + disk',
+        breaks: 'Setting -1 (infinite) during debugging and forgetting fills disks toward an outage. Size retention to real ingest and alert on -1 and on log-size growth.', moduleId: 'm10' },
+      { name: 'segment.ms / segment.bytes', default: '604800000 / 1 GB', typical: 'default, smaller for compact',
+        breaks: 'Only closed segments are deleted/compacted. Huge segments delay retention and compaction; tiny segments create too many files. The active segment is always kept.', moduleId: 'm05' },
+      { name: 'delete.retention.ms', default: '86400000 (1 day)', typical: 'long enough for consumers',
+        breaks: 'On compacted topics, tombstones must survive long enough for every consumer to observe a delete. Too short → a lagging consumer misses the delete and keeps stale state.', moduleId: 'm10' },
+      { name: 'offsets.retention.minutes', default: '10080 (7 days)', typical: '> expected idle time',
+        breaks: 'An inactive group longer than this loses its committed offsets; on return, auto.offset.reset replays from earliest or skips to latest. Raise it above planned downtime.', moduleId: 'm09' },
+    ],
+  },
+  {
+    group: 'Performance & limits',
+    scope: 'broker',
+    items: [
+      { name: 'num.partitions', default: '1', typical: 'sized from throughput',
+        breaks: 'Caps consumer parallelism and is hard to change: you can only increase, and increasing re-maps keys (breaking per-key ordering). Over-partitioning slows recovery and adds latency.', moduleId: 'm06' },
+      { name: 'Producer/consumer quotas (client/user)', default: 'unset', typical: 'set in multi-tenant clusters',
+        breaks: 'Without quotas, one noisy client can saturate broker network/IO and starve others. Quotas throttle by byte-rate (and request %) per client/user to protect the cluster.', moduleId: 'm17' },
+      { name: 'broker.rack / replica placement', default: 'unset', typical: 'set to AZ/rack',
+        breaks: 'Without rack awareness, all replicas of a partition can land in one AZ — a single AZ failure then takes the partition offline. Set broker.rack so replicas spread across failure domains.', moduleId: 'm07' },
+      { name: 'Tiered storage (remote.storage.enable)', default: 'false', typical: 'true for long retention',
+        breaks: 'Local-only retention forces a trade between history and disk cost. Tiered storage (KIP-405) offloads old segments to object storage, so you keep long history cheaply without giant broker disks.', moduleId: 'm10' },
+    ],
+  },
+  {
+    group: 'Security',
+    scope: 'broker',
+    items: [
+      { name: 'security.protocol', default: 'PLAINTEXT', typical: 'SASL_SSL in production',
+        breaks: 'PLAINTEXT sends data (and SASL/PLAIN credentials) in the clear. Use SSL to encrypt and SASL_SSL to encrypt + authenticate. PLAINTEXT is for isolated dev only.', moduleId: 'm15' },
+      { name: 'sasl.mechanism', default: 'GSSAPI', typical: 'SCRAM-SHA-256/512 or OAUTHBEARER',
+        breaks: 'SASL/PLAIN over a non-TLS listener leaks credentials. Prefer SCRAM or OAuth, and only over SSL. The mechanism authenticates who the client is — separate from encryption.', moduleId: 'm15' },
+      { name: 'ACLs (authorizer)', default: 'none (allow all)', typical: 'enabled, least-privilege',
+        breaks: 'With no authorizer, any authenticated client can do anything. Enable ACLs and grant each principal only the topics/groups it needs — authorization is a distinct layer from auth.', moduleId: 'm15' },
+    ],
+  },
+];
