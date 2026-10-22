@@ -16,7 +16,7 @@ import { highlightCodeBlocks } from './components/highlight.js';
 // fresh deploy is fetched immediately instead of served from the browser/CDN
 // cache (a hard-reload does not reliably re-fetch dynamic import() subresources).
 // Bump this on each deploy that changes module code.
-const BUILD = '20261022e';
+const BUILD = '20261022f';
 const imp = (p) => import(`${p}?v=${BUILD}`);
 const LOADERS = {
   home:  () => imp('./modules/home.js'),
@@ -331,6 +331,28 @@ window.addEventListener('flink:quiz-graded', e => {
   toast(`Module mastered — ${mod.title}`, { icon: '🎓' });
   if (done.size === MODULES.length) toast(`All ${MODULES.length} modules mastered!`, { icon: '🏆', duration: 4200 });
 });
+
+// ── Keep dynamically-injected code blocks highlighted ───────────────────────
+// The mount-time pass handles everything present at mount, but some modules
+// re-render part of themselves after an interaction (e.g. the Performance
+// accordion injects its before/after code only when an item is opened). One
+// observer on the canvas covers every current and future dynamic injection;
+// both passes are idempotent (dataset.hl / existing copy-btn guards), so this
+// can't loop.
+(() => {
+  const canvasEl = document.getElementById('module-canvas');
+  if (!canvasEl || !('MutationObserver' in window)) return;
+  let scheduled = false;
+  new MutationObserver(() => {
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(() => {
+      scheduled = false;
+      highlightCodeBlocks(canvasEl);
+      injectCopyButtons(canvasEl);
+    });
+  }).observe(canvasEl, { childList: true, subtree: true });
+})();
 
 // ── Boot ──────────────────────────────────────────────────────────────────
 window.addEventListener('hashchange', onHashChange);
