@@ -145,7 +145,7 @@ function buildVisual(container) {
   function drawPipeline(stages, baseY, pktArr, label, labelColor) {
     const BW = 90, BH = STAGE_H;
     ctx.fillStyle = labelColor;
-    ctx.font = 'bold 11px Inter, sans-serif';
+    ctx.font = 'bold 13px Inter, sans-serif';
     ctx.textAlign = 'left';
     ctx.fillText(label, stages[0].x, baseY - 18);
 
@@ -155,19 +155,19 @@ function buildVisual(container) {
         s.color + (s.slow || s.fast ? '' : '88')
       );
       ctx.fillStyle = s.color;
-      ctx.font = 'bold 9px Inter, sans-serif';
+      ctx.font = 'bold 12px Inter, sans-serif';
       ctx.textAlign = 'center';
       const lines = s.label.split('\n');
       lines.forEach((line, li) => ctx.fillText(line, s.x + BW/2, baseY + 18 + li * 12));
 
       if (s.slow) {
         ctx.fillStyle = '#EF4444';
-        ctx.font = 'bold 9px Inter, sans-serif';
+        ctx.font = 'bold 12px Inter, sans-serif';
         ctx.fillText('🐌 slow + costly', s.x + BW/2, baseY + BH - 8);
       }
       if (s.fast) {
         ctx.fillStyle = '#FF694B';
-        ctx.font = 'bold 9px Inter, sans-serif';
+        ctx.font = 'bold 12px Inter, sans-serif';
         ctx.fillText('⚡ fast SQL', s.x + BW/2, baseY + BH - 8);
       }
 
@@ -233,7 +233,7 @@ function buildVisual(container) {
 
     // Headers
     ctx.fillStyle = '#EF4444';
-    ctx.font = 'bold 13px Inter, sans-serif';
+    ctx.font = 'bold 14px Inter, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('ETL (Before Cloud)', MID * 0.5, 30);
     ctx.fillStyle = '#10B981';
@@ -256,7 +256,7 @@ function buildVisual(container) {
     metrics.forEach((m, i) => {
       const ry = compY + i * 30;
       ctx.fillStyle = '#8895AA';
-      ctx.font = '11px Inter, sans-serif';
+      ctx.font = '13px Inter, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(m.label, W/2, ry + 12);
 
@@ -274,7 +274,7 @@ function buildVisual(container) {
 
     // Bottom label
     ctx.fillStyle = '#FF694B';
-    ctx.font = 'bold 11px Inter, sans-serif';
+    ctx.font = 'bold 13px Inter, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('dbt owns the "T" in ELT — transformations in SQL, versioned in Git, tested automatically.', W/2, H - 12);
 

@@ -165,8 +165,8 @@ function buildVisual(container) {
     ctx.fillStyle = '#0A0E1A'; ctx.fillRect(0, 0, W, H);
 
     // Pipeline title
-    ctx.fillStyle = '#4B5E78';
-    ctx.font = '11px Inter, sans-serif';
+    ctx.fillStyle = '#8A99B3';
+    ctx.font = '13px Inter, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('Classic ETL Pipeline  ·  2005–2015', W/2, 22);
 
@@ -202,12 +202,12 @@ function buildVisual(container) {
         isBroken ? '#EF4444' : s.color + '88'
       );
       ctx.fillStyle = color;
-      ctx.font = `bold 11px Inter, sans-serif`;
+      ctx.font = `bold 13px Inter, sans-serif`;
       ctx.textAlign = 'center';
       const lines = s.label.split('\n');
       lines.forEach((line, li) => ctx.fillText(line, s.x + BOX_W/2, BOX_Y + 20 + li * 15));
-      ctx.fillStyle = isBroken ? '#EF4444' : '#4B5E78';
-      ctx.font = '9px Inter, sans-serif';
+      ctx.fillStyle = isBroken ? '#EF4444' : '#8A99B3';
+      ctx.font = '12px Inter, sans-serif';
       const subs = s.sub.split('\n');
       subs.forEach((sub, si) => ctx.fillText(sub, s.x + BOX_W/2, BOX_Y + 54 + si * 11));
 
@@ -229,8 +229,8 @@ function buildVisual(container) {
     // Time labels under stages
     const TIMES = ['Always on', '2–4 hrs\nprocessing', '1–3 hrs\ntransform', '30 min\nload', 'Stale\n8+ hrs'];
     STAGES.forEach((s, i) => {
-      ctx.fillStyle = '#4B5E78';
-      ctx.font = '9px Inter, sans-serif';
+      ctx.fillStyle = '#8A99B3';
+      ctx.font = '12px Inter, sans-serif';
       ctx.textAlign = 'center';
       const tlines = TIMES[i].split('\n');
       tlines.forEach((tl, li) => ctx.fillText(tl, s.x + BOX_W/2, BOX_Y + BOX_H + 18 + li * 12));
@@ -243,30 +243,30 @@ function buildVisual(container) {
       ctx.globalAlpha = Math.min(1, state.ticketTimer * 2);
       rr(ctx, tx, ty, 280, 120, 10, '#131D2E', '#F59E0B');
       ctx.fillStyle = '#F59E0B';
-      ctx.font = 'bold 12px Inter, sans-serif';
+      ctx.font = 'bold 14px Inter, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('🎫  IT TICKET #4821', tx + 140, ty + 24);
       ctx.fillStyle = '#CBD4E6';
-      ctx.font = '11px Inter, sans-serif';
+      ctx.font = '13px Inter, sans-serif';
       ctx.fillText('Request: Update ETL mapping for', tx + 140, ty + 46);
       ctx.fillText('schema change in raw_orders', tx + 140, ty + 62);
       ctx.fillStyle = '#EF4444';
-      ctx.font = 'bold 11px Inter, sans-serif';
+      ctx.font = 'bold 13px Inter, sans-serif';
       ctx.fillText('⏱  Estimated time: 2 weeks', tx + 140, ty + 84);
-      ctx.fillStyle = '#4B5E78';
-      ctx.font = '10px Inter, sans-serif';
+      ctx.fillStyle = '#8A99B3';
+      ctx.font = '13px Inter, sans-serif';
       ctx.fillText('Assigned to: ETL Team  ·  Priority: Normal', tx + 140, ty + 102);
       ctx.restore();
     }
 
     if (state.broken) {
       ctx.fillStyle = '#EF4444';
-      ctx.font = 'bold 11px Inter, sans-serif';
+      ctx.font = 'bold 13px Inter, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('Schema change broke the ETL mapping. All downstream data stopped. IT ticket created.', W/2, H - 12);
     } else {
-      ctx.fillStyle = '#4B5E78';
-      ctx.font = '11px Inter, sans-serif';
+      ctx.fillStyle = '#8A99B3';
+      ctx.font = '13px Inter, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('Data flows through the ETL pipeline — taking 8+ hours end-to-end. Try changing a schema.', W/2, H - 12);
     }

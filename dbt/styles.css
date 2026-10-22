@@ -17,8 +17,8 @@
   --border: #D6DEF0;
   --border-2: #E8EEF8;
   --text: #1A2640;
-  --text-2: #4B5E78;
-  --text-3: #8895AA;
+  --text-2: #3E5173;
+  --text-3: #6A7689;
   --shadow: rgba(0,0,0,0.08);
 
   /* Sidebar always stays dark */
@@ -40,8 +40,8 @@
     --border: #1E2D43;
     --border-2: #162238;
     --text: #E2E8F4;
-    --text-2: #8895AA;
-    --text-3: #4B5E78;
+    --text-2: #A6B2C6;
+    --text-3: #7C8BA3;
     --shadow: rgba(0,0,0,0.3);
   }
 }
@@ -54,8 +54,8 @@
   --border: #1E2D43;
   --border-2: #162238;
   --text: #E2E8F4;
-  --text-2: #8895AA;
-  --text-3: #4B5E78;
+  --text-2: #A6B2C6;
+  --text-3: #7C8BA3;
   --shadow: rgba(0,0,0,0.3);
 }
 
@@ -104,10 +104,10 @@
   --space-12: 48px;
 
   /* Type scale — a modular ladder for headings/body/labels. */
-  --text-xs: 11px;
-  --text-sm: 12.5px;
-  --text-base: 14px;
-  --text-md: 15px;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 15px;
+  --text-md: 16px;
   --text-lg: 18px;
   --text-xl: 22px;
   --text-2xl: 26px;
@@ -137,7 +137,7 @@
 /* ── Reset ───────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-html, body { height: 100%; font-size: 14px; }
+html, body { height: 100%; font-size: 15px; }
 
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
