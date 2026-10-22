@@ -15,7 +15,7 @@ import { DECISIONS } from './data/decisions.js';
 // fresh deploy is fetched immediately instead of served from the browser/CDN
 // cache (a hard-reload does not reliably re-fetch dynamic import() subresources).
 // Bump this on each deploy that changes module code.
-const BUILD = '20261022c';
+const BUILD = '20261022d';
 const imp = (p) => import(`${p}?v=${BUILD}`);
 const LOADERS = {
   home:  () => imp('./modules/home.js'),
@@ -51,6 +51,8 @@ const LOADERS = {
   search:       () => imp('./modules/search.js'),
   dashboard:    () => imp('./modules/dashboard.js'),
   review:       () => imp('./modules/review.js'),
+  'rescale-lab': () => imp('./modules/rescale-lab.js'),
+  'watermark-lab': () => imp('./modules/watermark-lab.js'),
   study:        () => imp('./modules/study.js'),
 };
 

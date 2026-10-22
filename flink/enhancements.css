@@ -1017,3 +1017,44 @@ a:focus-visible, button:focus-visible, [role="button"]:focus-visible,
 .dash-weak-detail { color: var(--text-muted); font-size: 13px; }
 .dash-empty { color: var(--text-muted); font-size: 14px; }
 @media (max-width: 620px) { .dash-top { grid-template-columns: 1fr; } }
+
+/* ── Track F: interactive labs (shared) ──────────────────────────────────── */
+.lab-controls { border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-card); padding: 16px 18px; margin-bottom: 18px; }
+.lab-field { display: block; margin: 12px 0; }
+.lab-flabel { display: block; font-size: 13px; color: var(--text); margin-bottom: 6px; }
+.lab-field input[type=range] { width: 100%; accent-color: var(--accent); }
+.lab-note { font-size: 13px; color: var(--text-muted); margin-top: 8px; line-height: 1.6; }
+.lab-insight { margin-top: 16px; padding: 12px 14px; border-left: 3px solid var(--accent); background: var(--accent-dim); border-radius: var(--radius-sm); color: var(--text-secondary); line-height: 1.6; }
+.lab-ledger { margin-top: 20px; padding: 12px 14px; border: 1px dashed var(--border); border-radius: var(--radius-sm); color: var(--text-muted); font-size: 13px; line-height: 1.6; }
+
+/* Rescaling lab */
+.rl-grid { display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px; align-items: stretch; }
+.rl-panel { border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-card); padding: 14px; }
+.rl-panel-head { font-weight: 700; color: var(--text); font-size: 13px; margin-bottom: 12px; }
+.rl-arrow { display: flex; align-items: center; color: var(--text-muted); font-size: 24px; }
+.rl-bars { display: flex; align-items: flex-end; gap: 4px; height: 120px; }
+.rl-bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+.rl-bar { width: 100%; min-height: 2px; background: var(--accent); border-radius: 3px 3px 0 0; transition: height .25s; }
+.rl-bar-lab { font-size: 10px; color: var(--text-muted); margin-top: 4px; }
+.rl-metrics { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; font-size: 12px; color: var(--text-secondary); }
+.rl-metrics span { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; }
+@media (max-width: 760px) { .rl-grid { grid-template-columns: 1fr; } .rl-arrow { transform: rotate(90deg); justify-content: center; } }
+
+/* Watermark lab */
+#wl-parts { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 18px; }
+.wl-part { border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-card); padding: 12px 14px; }
+.wl-part.idle { opacity: .6; }
+.wl-part-head { display: flex; justify-content: space-between; align-items: center; font-weight: 600; color: var(--text); font-size: 13px; margin-bottom: 8px; }
+.wl-idle { font-size: 12px; color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px; font-weight: 400; }
+.wl-part-ctl { display: flex; align-items: center; gap: 10px; }
+.wl-part-ctl input[type=range] { flex: 1; accent-color: var(--accent); }
+.wl-wm-val { font-family: var(--font-mono); font-size: 13px; color: var(--accent); min-width: 42px; text-align: right; }
+.wl-result { display: flex; gap: 20px; align-items: center; border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; background: var(--bg-card); }
+.wl-result.fires { border-color: var(--green); background: var(--green-dim); }
+.wl-result.waiting { border-color: var(--yellow); background: var(--yellow-dim); }
+.wl-result.stalled { border-color: var(--red); background: var(--red-dim); }
+.wl-op { text-align: center; }
+.wl-op-label { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); }
+.wl-op-val { font-size: 28px; font-weight: 800; font-family: var(--font-mono); color: var(--text); }
+.wl-verdict { flex: 1; color: var(--text-secondary); line-height: 1.6; }
+@media (max-width: 620px) { .wl-result { flex-direction: column; align-items: flex-start; } }

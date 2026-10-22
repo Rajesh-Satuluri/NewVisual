@@ -39,7 +39,9 @@ export const EXTRAS = [
   { id: 'cheatsheet', title: 'Cheat Sheet',       icon: '📋', group: 'Reference', num: '' },
   { id: 'config-reference', title: 'Config Reference', icon: '⚙️', group: 'Reference', num: '' },
   { id: 'advanced',   title: 'Advanced Topics',   icon: '🧬', group: 'Reference', num: '' },
-  { id: 'sizing',     title: 'Sizing Lab',        icon: '📐', group: 'Reference', num: '' },
+  { id: 'sizing',     title: 'Sizing Lab',        icon: '📐', group: 'Labs', num: '' },
+  { id: 'rescale-lab', title: 'Rescaling Lab',    icon: '🧩', group: 'Labs', num: '' },
+  { id: 'watermark-lab', title: 'Watermark Lab',  icon: '💧', group: 'Labs', num: '' },
   { id: 'review',     title: 'Review Center',     icon: '🔁', group: 'Review',    num: '' },
   { id: 'study',      title: 'Study Hub',         icon: '📚', group: 'Review',    num: '★' },
 ];
