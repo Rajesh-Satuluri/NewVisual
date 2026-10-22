@@ -1,5 +1,5 @@
 // Cheat Sheet — quick reference for the APIs, configs and CLI you actually reach for.
-const CARDS = [
+export const CARDS = [
   { icon: '🧩', title: 'DataStream API essentials (PyFlink)', rows: [
     ['Map / filter', 'stream.map(lambda x: ...).filter(lambda x: ...)'],
     ['Key by field', 'stream.key_by(lambda e: e["driver_id"])'],

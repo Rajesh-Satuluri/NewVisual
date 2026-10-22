@@ -1,5 +1,5 @@
 // Glossary — searchable, category-filterable Flink terminology.
-const TERMS = [
+export const TERMS = [
   ['JobManager', 'Architecture', 'The master process. Coordinates checkpoints, schedules tasks, and manages recovery. Contains the Dispatcher, ResourceManager, and per-job JobMaster.'],
   ['TaskManager', 'Architecture', 'A worker process that executes subtasks in <code>task slots</code>. Each TM has a fixed number of slots; a slot runs one parallel pipeline of chained operators.'],
   ['Task Slot', 'Architecture', 'A unit of resource on a TaskManager. Slot sharing lets subtasks from different operators of the same job share one slot.'],

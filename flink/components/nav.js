@@ -30,7 +30,9 @@ export const MODULES = [
 // Synthetic entries that live in the sidebar but aren't numbered modules.
 // They don't count toward course progress or the prev/next pager.
 export const EXTRAS = [
+  { id: 'dashboard',  title: 'Dashboard',        icon: '📊', group: 'Start', num: '' },
   { id: 'learning-path', title: 'Learning Path', icon: '🧭', group: 'Start', num: '▶' },
+  { id: 'search',     title: 'Search',           icon: '🔍', group: 'Start', num: '' },
   { id: 'master-map', title: 'Master Map',       icon: '🗺️', group: 'Reference', num: '' },
   { id: 'comparison', title: 'Engine Comparison', icon: '⚖️', group: 'Reference', num: '' },
   { id: 'glossary',   title: 'Glossary',          icon: '📖', group: 'Reference', num: '' },
@@ -38,6 +40,7 @@ export const EXTRAS = [
   { id: 'config-reference', title: 'Config Reference', icon: '⚙️', group: 'Reference', num: '' },
   { id: 'advanced',   title: 'Advanced Topics',   icon: '🧬', group: 'Reference', num: '' },
   { id: 'sizing',     title: 'Sizing Lab',        icon: '📐', group: 'Reference', num: '' },
+  { id: 'review',     title: 'Review Center',     icon: '🔁', group: 'Review',    num: '' },
   { id: 'study',      title: 'Study Hub',         icon: '📚', group: 'Review',    num: '★' },
 ];
 const REVIEW = EXTRAS;

@@ -15,7 +15,7 @@ import { DECISIONS } from './data/decisions.js';
 // fresh deploy is fetched immediately instead of served from the browser/CDN
 // cache (a hard-reload does not reliably re-fetch dynamic import() subresources).
 // Bump this on each deploy that changes module code.
-const BUILD = '20261022b';
+const BUILD = '20261022c';
 const imp = (p) => import(`${p}?v=${BUILD}`);
 const LOADERS = {
   home:  () => imp('./modules/home.js'),
@@ -48,6 +48,9 @@ const LOADERS = {
   'config-reference': () => imp('./modules/config-reference.js'),
   advanced:     () => imp('./modules/advanced.js'),
   sizing:       () => imp('./modules/sizing.js'),
+  search:       () => imp('./modules/search.js'),
+  dashboard:    () => imp('./modules/dashboard.js'),
+  review:       () => imp('./modules/review.js'),
   study:        () => imp('./modules/study.js'),
 };
 
@@ -189,7 +192,8 @@ function renderWelcome() {
 
 // ── Hash routing ─────────────────────────────────────────────────────────
 function onHashChange() {
-  const id = window.location.hash.slice(1) || 'home';
+  const raw = window.location.hash.slice(1) || 'home';
+  const id = raw.split('?')[0]; // strip query (e.g. search?q=…)
   navigate(LOADERS[id] ? id : 'home');
 }
 
