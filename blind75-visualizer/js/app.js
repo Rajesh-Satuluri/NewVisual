@@ -673,6 +673,80 @@
     return wrap;
   }
 
+  // ============================================================= LOGIC BLOCK
+  // The "Complete Logic" write-up renders as Markdown but can be unlocked and
+  // rewritten in the reader's own words for active recall — the same edit
+  // affordance the PySpark practice lab ships (js/problemlab.js). Edits persist
+  // per problem + approach through the shared store, and reset to the original
+  // when the text is cleared back. `ident` = { id, ai }. When `blur` is on the
+  // rendered Markdown keeps its blur-to-recall overlay; entering edit mode
+  // always reveals the text (you can't rewrite what you can't read).
+  function logicBlock(srcMd, ident, blur) {
+    var wrap = h("div", { class: "logic-wrap" });
+    var bar = h("div", { class: "logic-bar" });
+    bar.appendChild(h("span", { class: "logic-tag" }, "Logic"));
+    var actions = h("div", { class: "code-actions" });
+    bar.appendChild(actions);
+    var body = h("div", { class: "logic-body" });
+    wrap.appendChild(bar);
+    wrap.appendChild(body);
+
+    var editing = false; // lock state is per-block and starts LOCKED every render
+
+    function savedEdit() { return store.getLogicEdit(ident.id, ident.ai); }
+    function currentSource() {
+      var e = savedEdit();
+      return e != null ? e : srcMd;
+    }
+
+    function render() {
+      body.innerHTML = "";
+      actions.innerHTML = "";
+
+      if (savedEdit() != null) {
+        actions.appendChild(h("span", { class: "code-edited", title: "This logic was edited locally" }, "edited"));
+      }
+
+      var lock = h("button", { class: "code-mini lock" + (editing ? " on" : "") },
+        editing ? "🔓 Editing" : "✏️ Edit");
+      lock.title = editing ? "Lock to stop editing (changes are saved)" : "Unlock to rewrite this logic in Markdown";
+      lock.addEventListener("click", function () { editing = !editing; render(); });
+      actions.appendChild(lock);
+
+      if (editing) {
+        var ta = h("textarea", { class: "logic-edit", spellcheck: "false", autocomplete: "off" });
+        ta.value = currentSource();
+        var fit = function () { ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px"; };
+        ta.addEventListener("input", function () {
+          fit();
+          if (ta.value === srcMd) store.clearLogicEdit(ident.id, ident.ai); // back to original
+          else store.setLogicEdit(ident.id, ident.ai, ta.value);
+        });
+        // two-space indent on Tab (Markdown-friendly), same feel as the code editor
+        ta.addEventListener("keydown", function (e) {
+          if (e.key === "Tab") {
+            e.preventDefault();
+            var s = ta.selectionStart, en = ta.selectionEnd;
+            ta.value = ta.value.slice(0, s) + "  " + ta.value.slice(en);
+            ta.selectionStart = ta.selectionEnd = s + 2;
+            ta.dispatchEvent(new Event("input"));
+          }
+        });
+        body.appendChild(ta);
+        // preventScroll: focusing the fresh textarea must not jump the page down
+        setTimeout(function () { fit(); ta.focus({ preventScroll: true }); }, 0);
+      } else {
+        var node = h("div", { class: "md logic" + (blur ? " blurred" : "") });
+        node.innerHTML = md(currentSource());
+        if (blur) node.appendChild(revealOverlay(node));
+        body.appendChild(node);
+      }
+    }
+
+    render();
+    return wrap;
+  }
+
   // Draw VS-Code-style vertical indentation guides. Runs after Prism, so it
   // walks the highlighted HTML line by line and wraps each 4-space indent step
   // in a guide span. Leading indentation is always plain text (Prism never puts
@@ -981,11 +1055,9 @@
     var cur = approaches[ai] || {};
     var blur = store.getPref("blur");
 
-    // Logic
-    var logicNode = h("div", { class: "md logic" + (blur ? " blurred" : "") });
-    logicNode.innerHTML = md(cur.logic);
-    if (blur) logicNode.appendChild(revealOverlay(logicNode));
-    var logicSection = section("logic", "Complete Logic — " + (cur.name || "Approach"), logicNode, { collapsed: true });
+    // Logic (editable — unlock to rewrite in your own words for active recall)
+    var logicSection = section("logic", "Complete Logic — " + (cur.name || "Approach"),
+      logicBlock(cur.logic, { id: p.id, ai: ai }, blur), { collapsed: true });
     apWrap.appendChild(logicSection);
 
     // Code (RCS / Plain toggle)
