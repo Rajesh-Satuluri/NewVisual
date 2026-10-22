@@ -280,7 +280,7 @@ function buildDetail(container) {
     <div class="detail-section">
       <h3>The CLV disaster — a real pattern</h3>
       <p>Three analysts each need customer lifetime value. They each write it from scratch:</p>
-      <div class="code-block"><span class="cmt">-- Analyst 1: simple average</span>
+      <div class="code-block" data-lang="sql"><span class="cmt">-- Analyst 1: simple average</span>
 <span class="kw">SELECT</span> customer_id, <span class="fn">AVG</span>(order_total) * <span class="num">12</span> <span class="kw">AS</span> clv
 <span class="kw">FROM</span> raw_orders <span class="kw">GROUP BY</span> 1
 

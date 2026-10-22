@@ -478,7 +478,7 @@ function buildDetail(container) {
     <div class="detail-section">
       <h3>The problem: event tables grow forever</h3>
       <p>Clickstream, transaction, and log tables grow by millions of rows every day. A <code>table</code> materialization drops and rebuilds the entire table on every dbt run — reprocessing 2 billion rows to incorporate 50,000 new ones. Incremental models solve this by only processing rows added since the last run.</p>
-      <div class="code-block">{{ config(
+      <div class="code-block" data-lang="sql">{{ config(
     materialized = 'incremental',
     unique_key   = 'event_id',         -- enables MERGE (upsert) instead of INSERT
 ) }}
@@ -497,7 +497,7 @@ FROM {{ source('clickstream', 'raw_events') }}
     <div class="detail-section">
       <h3>Late-arriving data: the gotcha</h3>
       <p>Mobile app events can arrive hours or days late (the user was offline). A strict <code>MAX(occurred_at)</code> watermark silently drops them. The production fix: add a lookback buffer.</p>
-      <div class="code-block">WHERE occurred_at > (
+      <div class="code-block" data-lang="sql">WHERE occurred_at > (
     SELECT MAX(occurred_at) - INTERVAL '3 hours'   -- 3-hour lookback buffer
     FROM {{ this }}
 )</div>

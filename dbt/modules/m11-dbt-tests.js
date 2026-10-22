@@ -471,7 +471,7 @@ function buildDetail(container) {
     <div class="detail-section">
       <h3>Tests run as SQL assertions</h3>
       <p>Every dbt test compiles to a SQL query that returns rows when something is wrong. If the query returns 0 rows, the test passes. If it returns any rows, the test fails. You declare tests in <code>schema.yml</code> next to your model definitions — no separate test framework to learn.</p>
-      <div class="code-block">-- schema.yml
+      <div class="code-block" data-lang="yaml"># schema.yml — tests are declared next to the model, not in a separate framework
 models:
   - name: fct_orders
     columns:
@@ -518,8 +518,8 @@ models:
     <div class="detail-section">
       <h3>Custom singular tests for business logic</h3>
       <p>Generic tests cover structural quality (nulls, uniqueness). Singular tests cover business logic that can't be expressed as column-level assertions.</p>
-      <div class="code-block">-- tests/no_refund_exceeds_order.sql
--- Fails if any refund is larger than the original order total
+      <div class="code-block" data-lang="sql">-- tests/no_refund_exceeds_order.sql
+-- A singular test = a SELECT that returns the BAD rows. 0 rows = pass.
 SELECT r.order_id, r.refund_amount, o.order_total
 FROM {{ ref('fct_refunds') }} r
 JOIN {{ ref('fct_orders') }} o USING (order_id)

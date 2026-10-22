@@ -488,7 +488,7 @@ function buildDetail(container) {
     </div>
     <div class="detail-section">
       <h3>The snapshot configuration</h3>
-      <div class="code-block">-- snapshots/customer_tier_snapshot.sql
+      <div class="code-block" data-lang="sql">-- snapshots/customer_tier_snapshot.sql
 {% snapshot customer_tier_snapshot %}
   {{ config(
     target_schema   = 'snapshots',
@@ -508,7 +508,8 @@ function buildDetail(container) {
     </div>
     <div class="detail-section">
       <h3>Querying snapshot history</h3>
-      <div class="code-block">-- "How long was each customer on Basic before upgrading?"
+      <div class="code-block" data-lang="sql">-- "How long was each customer on Basic before upgrading?"
+-- dbt_valid_from / dbt_valid_to are the SCD-2 columns the snapshot maintains.
 SELECT
     customer_id,
     membership_tier,

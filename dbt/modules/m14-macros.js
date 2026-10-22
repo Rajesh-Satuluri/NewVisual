@@ -504,7 +504,8 @@ function buildDetail(container) {
     </div>
     <div class="detail-section">
       <h3>Building a macro</h3>
-      <div class="code-block">-- macros/fiscal_quarter.sql
+      <div class="code-block" data-lang="sql">-- macros/fiscal_quarter.sql
+-- A macro is a Jinja function that returns SQL text. Write the logic once…
 {% macro fiscal_quarter(date_col) %}
   CASE
     WHEN EXTRACT(MONTH FROM {{ date_col }}) IN (4, 5, 6)  THEN 'FY-Q1'

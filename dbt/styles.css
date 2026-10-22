@@ -704,6 +704,12 @@ canvas {
   font-size: 12px;
   line-height: 1.7;
   color: #CBD4E6;
+  /* Preserve the newlines + indentation authored in each block. Without this,
+     white-space collapses the code into one wrapped paragraph; long lines still
+     scroll horizontally via overflow-x above. */
+  white-space: pre;
+  tab-size: 2;
+  -moz-tab-size: 2;
 }
 
 .code-block .kw { color: #FF694B; }

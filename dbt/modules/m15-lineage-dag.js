@@ -587,13 +587,13 @@ function buildDetail(container) {
     </div>
     <div class="detail-section">
       <h3>Querying the lineage programmatically</h3>
-      <div class="code-block">-- Find all models downstream of stg_patients (CLI)
+      <div class="code-block" data-lang="bash"># Find all models downstream of stg_patients
 dbt ls --select stg_patients+
 
--- Find all models directly dependent on stg_patients
-dbt ls --select stg_patients+1    -- +1 means one level only
+# Direct children only — the +N syntax limits the hop count
+dbt ls --select stg_patients+1
 
--- Find only the changed model and its children (Slim CI)
+# Only the changed model and its children (Slim CI)
 dbt build --select state:modified+</div>
     </div>
     <div class="detail-section">
