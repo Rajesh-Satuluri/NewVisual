@@ -396,12 +396,12 @@ function buildVisual(container) {
     ctx.fillStyle = '#0A0E1A'; ctx.fillRect(0, 0, W, H);
 
     // Source nodes (leftmost)
-    ctx.fillStyle = '#4B5E78'; ctx.font = '9px Inter, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillStyle = '#8A99B3'; ctx.font = '12px Inter, sans-serif'; ctx.textAlign = 'center';
     ctx.fillText('SOURCES', 80, 24);
     ['raw_orders', 'raw_customers', 'raw_products'].forEach((name, i) => {
       const y = 100 + i * 110;
       rr(ctx, 28, y-13, 104, 26, 5, '#131D2E', '#4B5E7855');
-      ctx.fillStyle = '#4B5E78'; ctx.font = '8px "JetBrains Mono", monospace'; ctx.textAlign = 'center';
+      ctx.fillStyle = '#8A99B3'; ctx.font = '12px "JetBrains Mono", monospace'; ctx.textAlign = 'center';
       ctx.fillText(name, 80, y + 3);
 
       // Edge to staging
@@ -423,14 +423,14 @@ function buildVisual(container) {
         const mx = (from.x + 68 + to.x - 80) / 2;
         const my = (from.y + to.y) / 2 - 8;
         ctx.fillStyle = LAYER_COLORS[l2] + '99';
-        ctx.font = '7px "JetBrains Mono", monospace'; ctx.textAlign = 'center';
+        ctx.font = '11px "JetBrains Mono", monospace'; ctx.textAlign = 'center';
         ctx.fillText(`ref('${from.label}')`, mx, my);
       }
     });
 
     // Layer labels & nodes
     LAYERS.forEach((layer, li) => {
-      ctx.fillStyle = LAYER_COLORS[li]; ctx.font = '9px Inter, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = LAYER_COLORS[li]; ctx.font = '12px Inter, sans-serif'; ctx.textAlign = 'center';
       ctx.fillText(LAYER_LABELS[li], layer[0].x, 24);
 
       layer.forEach(n => {
@@ -451,8 +451,8 @@ function buildVisual(container) {
         }
 
         rr(ctx, n.x-68, n.y-16, 136, 32, 6, bg, col, 1.5);
-        ctx.fillStyle = st === 'idle' ? '#4B5E78' : col;
-        ctx.font = 'bold 9px "JetBrains Mono", monospace'; ctx.textAlign = 'center';
+        ctx.fillStyle = st === 'idle' ? '#8A99B3' : col;
+        ctx.font = 'bold 12px "JetBrains Mono", monospace'; ctx.textAlign = 'center';
 
         const prefix = st === 'done' ? '✓ ' : st === 'running' ? '⟳ ' : '';
         ctx.fillText(prefix + n.label, n.x, n.y + 4);
@@ -463,13 +463,13 @@ function buildVisual(container) {
     const built = Object.values(state.nodeStatus).filter(s => s === 'done').length;
     const total = Object.keys(state.nodeStatus).length;
     if (state.done) {
-      ctx.fillStyle = '#10B981'; ctx.font = 'bold 12px Inter, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = '#10B981'; ctx.font = 'bold 14px Inter, sans-serif'; ctx.textAlign = 'center';
       ctx.fillText(`✓  All ${total} models built successfully — ready for dbt test`, W/2, H - 14);
     } else if (state.running) {
-      ctx.fillStyle = '#3B82F6'; ctx.font = '11px Inter, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = '#3B82F6'; ctx.font = '13px Inter, sans-serif'; ctx.textAlign = 'center';
       ctx.fillText(`Building... ${built}/${total} models complete`, W/2, H - 14);
     } else {
-      ctx.fillStyle = '#4B5E78'; ctx.font = '11px Inter, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = '#8A99B3'; ctx.font = '13px Inter, sans-serif'; ctx.textAlign = 'center';
       ctx.fillText(`${total} models across 3 layers · press Run to watch the DAG execute in order`, W/2, H - 14);
     }
 

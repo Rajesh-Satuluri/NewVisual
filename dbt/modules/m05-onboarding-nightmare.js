@@ -160,15 +160,15 @@ function buildVisual(container) {
     ctx.fillStyle = '#0A0E1A'; ctx.fillRect(0, 0, W, H);
 
     // Title
-    ctx.fillStyle = '#4B5E78';
-    ctx.font = '11px Inter, sans-serif';
+    ctx.fillStyle = '#8A99B3';
+    ctx.font = '13px Inter, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('New engineer joins the team. Opens the SQL repository.', W/2, 22);
 
     // File tree panel
     rr(ctx, 14, 36, 560, H - 52, 8, '#0D1220', '#1E2D43');
     ctx.fillStyle = '#3B82F6';
-    ctx.font = 'bold 11px "JetBrains Mono", monospace';
+    ctx.font = 'bold 13px "JetBrains Mono", monospace';
     ctx.textAlign = 'left';
     ctx.fillText('📁  analytics-sql-repo/', 26, 56);
 
@@ -193,7 +193,7 @@ function buildVisual(container) {
       const color = isSuspicious ? '#EF4444' : '#8895AA';
 
       ctx.fillStyle = color;
-      ctx.font = '9px "JetBrains Mono", monospace';
+      ctx.font = '12px "JetBrains Mono", monospace';
       ctx.textAlign = 'left';
       ctx.fillText('  📄  ' + fname, x, y + 12);
     }
@@ -201,7 +201,7 @@ function buildVisual(container) {
     // File count
     if (state.FILENAMES_SEEN > 0) {
       ctx.fillStyle = state.FILENAMES_SEEN >= 25 ? '#EF4444' : '#F59E0B';
-      ctx.font = 'bold 10px Inter, sans-serif';
+      ctx.font = 'bold 13px Inter, sans-serif';
       ctx.textAlign = 'left';
       ctx.fillText(`${state.FILENAMES_SEEN} files... (and growing)`, 26, H - 20);
     }
@@ -228,8 +228,8 @@ function buildVisual(container) {
     ctx.beginPath(); ctx.moveTo(DEV_X, DEV_Y + 20); ctx.lineTo(DEV_X + 12, DEV_Y + 40); ctx.stroke();
 
     // Developer label
-    ctx.fillStyle = '#4B5E78';
-    ctx.font = '10px Inter, sans-serif';
+    ctx.fillStyle = '#8A99B3';
+    ctx.font = '13px Inter, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('New Engineer', DEV_X, DEV_Y + 58);
 
@@ -238,7 +238,7 @@ function buildVisual(container) {
       ctx.save();
       ctx.globalAlpha = Math.min(1, q.life * 2);
       ctx.fillStyle = q.color;
-      ctx.font = `bold ${q.text.length > 3 ? '9' : '14'}px Inter, sans-serif`;
+      ctx.font = `bold ${q.text.length > 3 ? '12' : '15'}px Inter, sans-serif`;
       ctx.textAlign = 'center';
       ctx.fillText(q.text, q.x, q.y);
       ctx.restore();
@@ -253,8 +253,8 @@ function buildVisual(container) {
       ctx.font = 'bold 15px Inter, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(label, W - 77, 55);
-      ctx.fillStyle = '#4B5E78';
-      ctx.font = '9px Inter, sans-serif';
+      ctx.fillStyle = '#8A99B3';
+      ctx.font = '12px Inter, sans-serif';
       ctx.fillText('still confused', W - 77, 72);
     }
 
@@ -265,8 +265,8 @@ function buildVisual(container) {
     else if (state.visibleFiles < 25) msg = 'Are these all still used? What does FINAL_v2 mean?';
     else msg = `${state.visibleFiles}+ SQL files. Zero documentation. No naming conventions. Where do you even start?`;
 
-    ctx.fillStyle = state.visibleFiles > 20 ? '#EF4444' : '#4B5E78';
-    ctx.font = '11px Inter, sans-serif';
+    ctx.fillStyle = state.visibleFiles > 20 ? '#EF4444' : '#8A99B3';
+    ctx.font = '13px Inter, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(msg, W/2, H - 8);
 

@@ -343,7 +343,7 @@ function buildVisual(container) {
   const MODEL_NAMES = ['fct_revenue', 'dim_orders', 'int_quarterly', 'rpt_finance', 'fct_tax'];
   const BAD_SQL = "CASE WHEN MONTH IN (4,5,6) THEN 'Q1'…";
   const GOOD_SQL = "{{ fiscal_quarter('tx_date') }}";
-  const MACRO_SQL = "{% macro fiscal_quarter(col) %}…{% endmacro %}";
+  const MACRO_SQL = "{% macro fiscal_quarter() %}";
 
   let state = {
     editAnim: 0,    // 0→1 when "change" button is clicked
@@ -409,8 +409,8 @@ function buildVisual(container) {
 
     // ── LEFT: WITHOUT MACROS ─────────────────────────────────────
     const lx = 14;
-    ctx.fillStyle = state.editDone ? '#EF4444' : '#4B5E78';
-    ctx.font = 'bold 10px Inter, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillStyle = state.editDone ? '#EF4444' : '#8A99B3';
+    ctx.font = 'bold 13px Inter, sans-serif'; ctx.textAlign = 'center';
     ctx.fillText('WITHOUT MACROS · 5 files with copied code', lx + 185, 20);
 
     MODEL_NAMES.forEach((name, i) => {
@@ -430,28 +430,28 @@ function buildVisual(container) {
       }
 
       ctx.fillStyle = isHighlighted ? '#F59E0B' : wasEdited ? '#EF4444' : '#3B82F6';
-      ctx.font = 'bold 9px Inter, sans-serif'; ctx.textAlign = 'left';
+      ctx.font = 'bold 12px Inter, sans-serif'; ctx.textAlign = 'left';
       ctx.fillText(isHighlighted ? `✏ Editing: ${name}` : wasEdited ? `✗  ${name} (needs update)` : name, bx + 10, by + 16);
 
-      ctx.fillStyle = '#4B5E78'; ctx.font = '8px "JetBrains Mono", monospace';
+      ctx.fillStyle = '#8A99B3'; ctx.font = '12px "JetBrains Mono", monospace';
       ctx.fillText(BAD_SQL, bx + 10, by + 30);
 
       if (isHighlighted || wasEdited) {
         ctx.fillStyle = isHighlighted ? '#F59E0B88' : '#EF444488';
-        ctx.font = '8px Inter, sans-serif';
+        ctx.font = '12px Inter, sans-serif';
         ctx.fillText(isHighlighted ? '← editing here now' : '← same change needed here too', bx + 10, by + 46);
       }
     });
 
     if (state.editDone) {
-      ctx.fillStyle = '#EF4444'; ctx.font = 'bold 11px Inter, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = '#EF4444'; ctx.font = 'bold 13px Inter, sans-serif'; ctx.textAlign = 'center';
       ctx.fillText(`5 files edited · 5 PR reviews · 5 chances for inconsistency`, lx + 190, H - 16);
     }
 
     // ── RIGHT: WITH MACROS ───────────────────────────────────────
     const rx = W/2 + 10;
-    ctx.fillStyle = state.editDone ? '#10B981' : '#4B5E78';
-    ctx.font = 'bold 10px Inter, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillStyle = state.editDone ? '#10B981' : '#8A99B3';
+    ctx.font = 'bold 13px Inter, sans-serif'; ctx.textAlign = 'center';
     ctx.fillText('WITH MACROS · 1 macro · 5 references', rx + 185, 20);
 
     // Macro box (top, centered)
@@ -461,9 +461,9 @@ function buildVisual(container) {
       macroHighlight ? '#0A2A0A' : '#12102A',
       macroHighlight ? '#10B981' : '#8B5CF6', macroHighlight ? 2 : 1.5);
     ctx.fillStyle = macroHighlight ? '#10B981' : '#8B5CF6';
-    ctx.font = 'bold 9px Inter, sans-serif'; ctx.textAlign = 'left';
+    ctx.font = 'bold 12px Inter, sans-serif'; ctx.textAlign = 'left';
     ctx.fillText(macroHighlight ? '✓  fiscal_quarter.sql' : 'fiscal_quarter.sql', rx + 100, macroY + 18);
-    ctx.fillStyle = '#4B5E78'; ctx.font = '8px "JetBrains Mono", monospace';
+    ctx.fillStyle = '#8A99B3'; ctx.font = '11px "JetBrains Mono", monospace';
     ctx.fillText(macroHighlight ? 'Updated once ✓' : MACRO_SQL, rx + 100, macroY + 33);
 
     // Model boxes pointing to macro
@@ -473,9 +473,9 @@ function buildVisual(container) {
         state.editDone ? '#0A1F1A' : '#0D1F3C',
         state.editDone ? '#10B98188' : '#3B82F688');
       ctx.fillStyle = state.editDone ? '#10B981' : '#3B82F6';
-      ctx.font = 'bold 9px Inter, sans-serif'; ctx.textAlign = 'left';
+      ctx.font = 'bold 12px Inter, sans-serif'; ctx.textAlign = 'left';
       ctx.fillText(state.editDone ? `✓  ${name}` : name, bx + 10, by + 16);
-      ctx.fillStyle = '#4B5E78'; ctx.font = '8px "JetBrains Mono", monospace';
+      ctx.fillStyle = '#8A99B3'; ctx.font = '12px "JetBrains Mono", monospace';
       ctx.fillText(GOOD_SQL, bx + 10, by + 30);
 
       // Arrow to macro
@@ -484,7 +484,7 @@ function buildVisual(container) {
     });
 
     if (state.editDone) {
-      ctx.fillStyle = '#10B981'; ctx.font = 'bold 11px Inter, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = '#10B981'; ctx.font = 'bold 13px Inter, sans-serif'; ctx.textAlign = 'center';
       ctx.fillText('1 file edited · 1 PR review · 0 chance of inconsistency', rx + 190, H - 16);
     }
 

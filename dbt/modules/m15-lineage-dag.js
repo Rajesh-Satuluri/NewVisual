@@ -236,7 +236,7 @@ function buildVisual(container) {
 
     // Layer labels
     ['SOURCES', 'STAGING', 'INTERMEDIATE', 'MARTS', 'BI TOOLS'].forEach((lbl, i) => {
-      ctx.fillStyle = '#2A3550'; ctx.font = '9px Inter, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = '#2A3550'; ctx.font = '12px Inter, sans-serif'; ctx.textAlign = 'center';
       ctx.fillText(lbl, [65, 235, 420, 600, 762][i], 20);
     });
 
@@ -297,7 +297,7 @@ function buildVisual(container) {
       rr(ctx, n.x-54, n.y-16, 108, 32, 6, bgCol, borderCol, borderW);
 
       // Label
-      ctx.fillStyle = labelCol; ctx.font = 'bold 9px "JetBrains Mono", monospace'; ctx.textAlign = 'center';
+      ctx.fillStyle = labelCol; ctx.font = 'bold 12px "JetBrains Mono", monospace'; ctx.textAlign = 'center';
       ctx.fillText(n.label, n.x, n.y + 4);
 
       // Role indicator dot
@@ -313,7 +313,7 @@ function buildVisual(container) {
       const lx = 18, ly = H - 52;
       [['#3B82F6', 'Upstream (dependencies)'], ['#FF694B', 'Downstream (impacts)'], [NODES.find(n=>n.id===selected)?.color||'#fff', 'Selected node']].forEach(([col, label], i) => {
         ctx.fillStyle = col; ctx.fillRect(lx, ly + i*16 - 6, 10, 10);
-        ctx.fillStyle = '#4B5E78'; ctx.font = '9px Inter, sans-serif'; ctx.textAlign = 'left';
+        ctx.fillStyle = '#8A99B3'; ctx.font = '12px Inter, sans-serif'; ctx.textAlign = 'left';
         ctx.fillText(label, lx + 14, ly + i*16 + 3);
       });
     }

@@ -172,9 +172,9 @@ function buildVisual(container) {
       ctx.save(); ctx.globalAlpha = state.bOp;
 
       rr(ctx, 610, 110, 168, 200, 10, '#1A0A0A', '#EF4444');
-      ctx.fillStyle = '#EF4444'; ctx.font = 'bold 10px Inter, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = '#EF4444'; ctx.font = 'bold 13px Inter, sans-serif'; ctx.textAlign = 'center';
       ctx.fillText('Amazon Warehouse', 694, 138);
-      ctx.fillStyle = '#4B5E78'; ctx.font = '9px Inter, sans-serif';
+      ctx.fillStyle = '#8A99B3'; ctx.font = '12px Inter, sans-serif';
       ctx.fillText('100+ tables', 694, 158);
       ctx.fillText('no tests · no docs', 694, 174);
       ctx.fillText('no ownership', 694, 190);
@@ -190,13 +190,13 @@ function buildVisual(container) {
         ctx.stroke(); ctx.setLineDash([]);
 
         rr(ctx, 30, t.y-16, 108, 32, 6, '#131D2E', t.color + '88');
-        ctx.fillStyle = t.color; ctx.font = 'bold 10px Inter, sans-serif'; ctx.textAlign = 'center';
+        ctx.fillStyle = t.color; ctx.font = 'bold 13px Inter, sans-serif'; ctx.textAlign = 'center';
         ctx.fillText(t.name, 84, t.y - 1);
-        ctx.fillStyle = '#4B5E78'; ctx.font = '7px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#8A99B3'; ctx.font = '11px "JetBrains Mono", monospace';
         ctx.fillText(t.sql.substring(0, 24) + '…', 84, t.y + 12);
       });
 
-      ctx.fillStyle = '#EF4444'; ctx.font = 'bold 11px Inter, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = '#EF4444'; ctx.font = 'bold 13px Inter, sans-serif'; ctx.textAlign = 'center';
       ctx.fillText('5 teams · 5 conflicting schemas · zero shared definitions', W/2, H - 14);
       ctx.restore();
     }
@@ -206,23 +206,23 @@ function buildVisual(container) {
       ctx.save(); ctx.globalAlpha = state.aOp;
 
       ['SOURCES', 'STAGING', 'INTERMEDIATE', 'MARTS'].forEach((lbl, i) => {
-        ctx.fillStyle = '#4B5E78'; ctx.font = '9px Inter, sans-serif'; ctx.textAlign = 'center';
+        ctx.fillStyle = '#8A99B3'; ctx.font = '12px Inter, sans-serif'; ctx.textAlign = 'center';
         ctx.fillText(lbl, [80, 230, 430, 630][i], 24);
       });
 
       ['raw_orders', 'raw_customers', 'raw_events'].forEach((name, i) => {
         const y = 90 + i * 113;
         rr(ctx, 30, y-13, 100, 26, 5, '#131D2E', '#4B5E7866');
-        ctx.fillStyle = '#4B5E78'; ctx.font = '8px "JetBrains Mono", monospace'; ctx.textAlign = 'center';
+        ctx.fillStyle = '#8A99B3'; ctx.font = '12px "JetBrains Mono", monospace'; ctx.textAlign = 'center';
         ctx.fillText(name, 80, y + 4);
         arw(ctx, 130, y, SNODES[i].x - 58, SNODES[i].y, '#4B5E7855');
       });
 
       SNODES.forEach(n => {
         rr(ctx, n.x-58, n.y-16, 116, 32, 6, '#0D1F3C', '#3B82F6');
-        ctx.fillStyle = '#3B82F6'; ctx.font = 'bold 9px "JetBrains Mono", monospace'; ctx.textAlign = 'center';
+        ctx.fillStyle = '#3B82F6'; ctx.font = 'bold 12px "JetBrains Mono", monospace'; ctx.textAlign = 'center';
         ctx.fillText(n.name, n.x, n.y + 4);
-        ctx.fillStyle = '#10B981'; ctx.font = '11px Inter, sans-serif';
+        ctx.fillStyle = '#10B981'; ctx.font = '13px Inter, sans-serif';
         ctx.fillText('✓', n.x + 46, n.y - 2);
       });
 
@@ -233,9 +233,9 @@ function buildVisual(container) {
 
       INODES.forEach(n => {
         rr(ctx, n.x-78, n.y-16, 156, 32, 6, '#12102A', '#8B5CF6');
-        ctx.fillStyle = '#8B5CF6'; ctx.font = 'bold 9px "JetBrains Mono", monospace'; ctx.textAlign = 'center';
+        ctx.fillStyle = '#8B5CF6'; ctx.font = 'bold 12px "JetBrains Mono", monospace'; ctx.textAlign = 'center';
         ctx.fillText(n.name, n.x, n.y + 4);
-        ctx.fillStyle = '#10B981'; ctx.font = '11px Inter, sans-serif';
+        ctx.fillStyle = '#10B981'; ctx.font = '13px Inter, sans-serif';
         ctx.fillText('✓', n.x + 66, n.y - 2);
       });
 
@@ -247,13 +247,13 @@ function buildVisual(container) {
       const mColors = ['#10B981', '#F59E0B', '#10B981'];
       MNODES.forEach((n, i) => {
         rr(ctx, n.x-50, n.y-16, 100, 32, 6, '#0A1F14', mColors[i]);
-        ctx.fillStyle = mColors[i]; ctx.font = 'bold 9px "JetBrains Mono", monospace'; ctx.textAlign = 'center';
+        ctx.fillStyle = mColors[i]; ctx.font = 'bold 12px "JetBrains Mono", monospace'; ctx.textAlign = 'center';
         ctx.fillText(n.name, n.x, n.y + 4);
-        ctx.fillStyle = '#10B981'; ctx.font = '11px Inter, sans-serif';
+        ctx.fillStyle = '#10B981'; ctx.font = '13px Inter, sans-serif';
         ctx.fillText('✓', n.x + 38, n.y - 2);
       });
 
-      ctx.fillStyle = '#10B981'; ctx.font = 'bold 11px Inter, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = '#10B981'; ctx.font = 'bold 13px Inter, sans-serif'; ctx.textAlign = 'center';
       ctx.fillText('✓  All models tested · documented · version-controlled · one canonical definition per metric', W/2, H - 14);
       ctx.restore();
     }

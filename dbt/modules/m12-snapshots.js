@@ -374,17 +374,17 @@ function buildVisual(container) {
     const headerBorder = state.withSnapshots ? '#3B82F6' : '#EF4444';
     rr(ctx, 20, 18, 780, 80, 8, headerBg, headerBorder);
 
-    ctx.fillStyle = headerBorder; ctx.font = 'bold 10px Inter, sans-serif'; ctx.textAlign = 'left';
+    ctx.fillStyle = headerBorder; ctx.font = 'bold 13px Inter, sans-serif'; ctx.textAlign = 'left';
     ctx.fillText('raw_customers · customer_id: 42 · name: Priya Sharma', 36, 40);
-    ctx.fillStyle = '#4B5E78'; ctx.font = '9px Inter, sans-serif';
+    ctx.fillStyle = '#8A99B3'; ctx.font = '12px Inter, sans-serif';
     ctx.fillText('LIVE RECORD (always shows current state)', 36, 56);
 
     // Current tier chip
     rr(ctx, 36, 62, 160, 26, 5, current.color + '30', current.color);
-    ctx.fillStyle = current.color; ctx.font = 'bold 11px Inter, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillStyle = current.color; ctx.font = 'bold 13px Inter, sans-serif'; ctx.textAlign = 'center';
     ctx.fillText(current.tier, 116, 79);
 
-    ctx.fillStyle = '#4B5E78'; ctx.font = '9px Inter, sans-serif'; ctx.textAlign = 'left';
+    ctx.fillStyle = '#8A99B3'; ctx.font = '12px Inter, sans-serif'; ctx.textAlign = 'left';
     ctx.fillText(`updated_at: ${current.from}`, 210, 79);
 
     // WITHOUT mode: "LOST" flash
@@ -394,7 +394,7 @@ function buildVisual(container) {
       ctx.fillRect(36, 62, 160, 26);
       ctx.strokeStyle = '#EF4444'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(36, 75); ctx.lineTo(196, 75); ctx.stroke();
-      ctx.fillStyle = '#EF4444'; ctx.font = 'bold 10px Inter, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = '#EF4444'; ctx.font = 'bold 13px Inter, sans-serif'; ctx.textAlign = 'center';
       ctx.fillText(`${state.lostTier} — LOST`, 116, 59);
       ctx.restore();
     }
@@ -406,7 +406,7 @@ function buildVisual(container) {
 
     // Table mode label
     ctx.fillStyle = state.withSnapshots ? '#10B981' : '#EF4444';
-    ctx.font = 'bold 9px Inter, sans-serif'; ctx.textAlign = 'left';
+    ctx.font = 'bold 12px Inter, sans-serif'; ctx.textAlign = 'left';
     ctx.fillText(
       state.withSnapshots
         ? 'dbt_snapshot: customer_tier_history  ✓  Full history preserved'
@@ -416,7 +416,7 @@ function buildVisual(container) {
 
     // Headers
     headers.forEach((h, i) => {
-      ctx.fillStyle = '#4B5E78'; ctx.font = 'bold 8px "JetBrains Mono", monospace'; ctx.textAlign = 'left';
+      ctx.fillStyle = '#8A99B3'; ctx.font = 'bold 12px "JetBrains Mono", monospace'; ctx.textAlign = 'left';
       ctx.fillText(h, colX[i] + 4, tableY + 34);
     });
     ctx.strokeStyle = '#1E2D43'; ctx.lineWidth = 1;
@@ -437,15 +437,15 @@ function buildVisual(container) {
 
       // Tier chip
       rr(ctx, colX[0] + 4, ry + 2, 154, 20, 4, row.color + '28', row.color, 1);
-      ctx.fillStyle = row.color; ctx.font = 'bold 9px Inter, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = row.color; ctx.font = 'bold 12px Inter, sans-serif'; ctx.textAlign = 'center';
       ctx.fillText(row.tier, colX[0] + 81, ry + 16);
 
-      ctx.fillStyle = '#8895AA'; ctx.font = '9px "JetBrains Mono", monospace'; ctx.textAlign = 'left';
+      ctx.fillStyle = '#8895AA'; ctx.font = '12px "JetBrains Mono", monospace'; ctx.textAlign = 'left';
       ctx.fillText(row.from, colX[1] + 4, ry + 16);
       ctx.fillStyle = row.to ? '#EF4444' : '#10B981';
       ctx.fillText(row.to || 'NULL (open)', colX[2] + 4, ry + 16);
-      ctx.fillStyle = row.current ? '#10B981' : '#4B5E78';
-      ctx.font = 'bold 9px Inter, sans-serif';
+      ctx.fillStyle = row.current ? '#10B981' : '#8A99B3';
+      ctx.font = 'bold 12px Inter, sans-serif';
       ctx.fillText(row.current ? 'TRUE' : 'FALSE', colX[3] + 4, ry + 16);
 
       // Divider
@@ -460,7 +460,7 @@ function buildVisual(container) {
       const ry = tableY + 42 + ROW_H;
       if (ry < H - 10) {
         ctx.save(); ctx.globalAlpha = 0.35;
-        ctx.fillStyle = '#EF4444'; ctx.font = '10px Inter, sans-serif'; ctx.textAlign = 'center';
+        ctx.fillStyle = '#EF4444'; ctx.font = '13px Inter, sans-serif'; ctx.textAlign = 'center';
         ctx.fillText(`⚠  ${state.changeCount} previous tier(s) permanently lost — history cannot be reconstructed`, W/2, ry + 14);
         ctx.restore();
       }
@@ -468,7 +468,7 @@ function buildVisual(container) {
 
     // History count
     if (state.withSnapshots && state.history.length > 1) {
-      ctx.fillStyle = '#10B981'; ctx.font = '10px Inter, sans-serif'; ctx.textAlign = 'right';
+      ctx.fillStyle = '#10B981'; ctx.font = '13px Inter, sans-serif'; ctx.textAlign = 'right';
       ctx.fillText(`${state.history.length} rows  ·  full membership history preserved`, 780, H - 14);
     }
 

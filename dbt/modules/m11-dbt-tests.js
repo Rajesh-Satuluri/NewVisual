@@ -385,12 +385,12 @@ function buildVisual(container) {
     // SOURCE box
     const srcCol = '#3B82F6';
     rr(ctx, 20, 160, 165, 110, 8, '#0D1F3C', srcCol);
-    ctx.fillStyle = srcCol; ctx.font = 'bold 10px Inter, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillStyle = srcCol; ctx.font = 'bold 13px Inter, sans-serif'; ctx.textAlign = 'center';
     ctx.fillText('📦 Data Source', 102, 185);
-    ctx.fillStyle = '#4B5E78'; ctx.font = '9px Inter, sans-serif';
+    ctx.fillStyle = '#8A99B3'; ctx.font = '12px Inter, sans-serif';
     ctx.fillText('Orders, customers,', 102, 203);
     ctx.fillText('events streaming in', 102, 218);
-    ctx.fillStyle = '#10B981'; ctx.font = 'bold 9px Inter, sans-serif';
+    ctx.fillStyle = '#10B981'; ctx.font = 'bold 12px Inter, sans-serif';
     ctx.fillText(`${state.dashGoodCount} rows passed`, 102, 250);
 
     // TEST GATE line
@@ -406,7 +406,7 @@ function buildVisual(container) {
     ctx.save();
     ctx.translate(GATE_X + 14, 215);
     ctx.rotate(-Math.PI / 2);
-    ctx.fillStyle = gateCol; ctx.font = 'bold 10px Inter, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillStyle = gateCol; ctx.font = 'bold 13px Inter, sans-serif'; ctx.textAlign = 'center';
     ctx.fillText(state.testsOn ? 'TEST GATE (ON)' : 'TEST GATE (OFF)', 0, 0);
     ctx.restore();
 
@@ -415,12 +415,12 @@ function buildVisual(container) {
     const dashCol = dashBad ? `rgba(239,68,68,${0.3 + state.dashBadOp * 0.5})` : '#10B981';
     const dashBg  = dashBad ? `rgba(42,10,10,${state.dashBadOp})` : '#0A1F14';
     rr(ctx, 640, 160, 165, 110, 8, dashBg, dashCol);
-    ctx.fillStyle = dashCol; ctx.font = 'bold 10px Inter, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillStyle = dashCol; ctx.font = 'bold 13px Inter, sans-serif'; ctx.textAlign = 'center';
     ctx.fillText(dashBad ? '⚠ CEO Dashboard' : '✓ CEO Dashboard', 722, 185);
-    ctx.fillStyle = '#4B5E78'; ctx.font = '9px Inter, sans-serif';
+    ctx.fillStyle = '#8A99B3'; ctx.font = '12px Inter, sans-serif';
     ctx.fillText(dashBad ? 'BAD DATA IN PROD!' : 'All metrics clean', 722, 205);
     if (dashBad) {
-      ctx.fillStyle = '#EF4444'; ctx.font = 'bold 11px Inter, sans-serif';
+      ctx.fillStyle = '#EF4444'; ctx.font = 'bold 13px Inter, sans-serif';
       ctx.fillText('ALERT!', 722, 242);
     }
 
@@ -428,7 +428,7 @@ function buildVisual(container) {
     state.rows.forEach(row => {
       ctx.save(); ctx.globalAlpha = row.opacity;
       rr(ctx, row.x - 38, row.y - 11, 76, 22, 5, row.color + '28', row.color);
-      ctx.fillStyle = row.color; ctx.font = '8px Inter, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = row.color; ctx.font = '12px Inter, sans-serif'; ctx.textAlign = 'center';
       ctx.fillText(row.label.substring(0, 16), row.x, row.y + 4);
       ctx.restore();
     });
@@ -444,9 +444,9 @@ function buildVisual(container) {
     // Alert labels
     state.alerts.filter(a => !a.isPulse).forEach(a => {
       ctx.save(); ctx.globalAlpha = a.opacity;
-      ctx.fillStyle = a.color; ctx.font = 'bold 10px Inter, sans-serif'; ctx.textAlign = 'left';
+      ctx.fillStyle = a.color; ctx.font = 'bold 13px Inter, sans-serif'; ctx.textAlign = 'left';
       ctx.fillText(a.msg, GATE_X - 160, a.y);
-      ctx.fillStyle = '#8895AA'; ctx.font = '9px Inter, sans-serif';
+      ctx.fillStyle = '#8895AA'; ctx.font = '12px Inter, sans-serif';
       ctx.fillText(a.msgDetail, GATE_X - 160, a.y + 13);
       ctx.restore();
     });
@@ -455,7 +455,7 @@ function buildVisual(container) {
     ROW_TYPES.forEach((rt, i) => {
       const lx = 22, ly = H - 70 + i * 20;
       ctx.fillStyle = rt.color + 'cc'; ctx.fillRect(lx, ly - 6, 10, 10);
-      ctx.fillStyle = '#4B5E78'; ctx.font = '9px Inter, sans-serif'; ctx.textAlign = 'left';
+      ctx.fillStyle = '#8A99B3'; ctx.font = '12px Inter, sans-serif'; ctx.textAlign = 'left';
       ctx.fillText(`${rt.label}  →  caught by ${rt.test}`, lx + 14, ly + 3);
     });
 

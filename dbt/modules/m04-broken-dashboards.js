@@ -187,11 +187,11 @@ function buildVisual(container) {
       allBroken ? '#EF4444' : '#FF694B'
     );
     ctx.fillStyle = allBroken ? '#EF4444' : '#FF694B';
-    ctx.font = 'bold 12px "JetBrains Mono", monospace';
+    ctx.font = 'bold 14px "JetBrains Mono", monospace';
     ctx.textAlign = 'center';
     ctx.fillText(srcLabel, SRC_X, SRC_Y + 2);
-    ctx.fillStyle = '#4B5E78';
-    ctx.font = '10px Inter, sans-serif';
+    ctx.fillStyle = '#8A99B3';
+    ctx.font = '13px Inter, sans-serif';
     ctx.fillText('Finance SQL view  ·  feeds all reports', SRC_X, SRC_Y + 20);
 
     // Report nodes
@@ -204,12 +204,12 @@ function buildVisual(container) {
         broken ? '#EF4444' : color + '88'
       );
       ctx.fillStyle = color;
-      ctx.font = `bold ${broken ? 11 : 10}px Inter, sans-serif`;
+      ctx.font = `bold ${broken ? 13 : 12}px Inter, sans-serif`;
       ctx.textAlign = 'center';
       ctx.fillText(broken ? '✗  ' + name : name, rp.x, rp.y - 1);
       if (broken) {
         ctx.fillStyle = '#EF444488';
-        ctx.font = '9px Inter, sans-serif';
+        ctx.font = '12px Inter, sans-serif';
         ctx.fillText('column not found', rp.x, rp.y + 13);
       }
     });
@@ -218,17 +218,17 @@ function buildVisual(container) {
     const brokenCount = state.broken.filter(Boolean).length;
     if (brokenCount > 0) {
       ctx.fillStyle = '#EF4444';
-      ctx.font = 'bold 12px Inter, sans-serif';
+      ctx.font = 'bold 14px Inter, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(`${brokenCount} / ${REPORTS.length} dashboards now showing errors`, W/2, H - 28);
       if (allBroken) {
         ctx.fillStyle = '#8895AA';
-        ctx.font = '11px Inter, sans-serif';
+        ctx.font = '13px Inter, sans-serif';
         ctx.fillText('Nobody knew these dashboards all depended on that one view.', W/2, H - 12);
       }
     } else {
-      ctx.fillStyle = '#4B5E78';
-      ctx.font = '11px Inter, sans-serif';
+      ctx.fillStyle = '#8A99B3';
+      ctx.font = '13px Inter, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(`${REPORTS.length} dashboards depend on this one Finance SQL view. Rename one column →`, W/2, H - 12);
     }

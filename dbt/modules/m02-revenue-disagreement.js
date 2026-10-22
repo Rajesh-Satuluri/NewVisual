@@ -174,11 +174,11 @@ function buildVisual(container) {
     // Header
     ctx.globalAlpha = state.ceoOp;
     ctx.fillStyle = '#8895AA';
-    ctx.font = '11px Inter, sans-serif';
+    ctx.font = '13px Inter, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('Q4 2024  ·  Amazon Retail Revenue  ·  Three teams, three dashboards', W/2, 28);
     ctx.fillStyle = '#F59E0B';
-    ctx.font = 'bold 13px Inter, sans-serif';
+    ctx.font = 'bold 14px Inter, sans-serif';
     ctx.fillText('👔  CEO: "What was our revenue last quarter?"', W/2, 52);
     ctx.globalAlpha = 1;
 
@@ -202,13 +202,13 @@ function buildVisual(container) {
       rr(ctx, px, PY, PW, 38, 10, panel.color + '22', null);
       rr(ctx, px + PW - 30, PY, 30, 38, 0, panel.color + '22', null);
       ctx.fillStyle = panel.color;
-      ctx.font = 'bold 12px Inter, sans-serif';
+      ctx.font = 'bold 14px Inter, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(panel.team, px + PW/2, PY + 24);
 
       // Revenue label
       ctx.fillStyle = '#8895AA';
-      ctx.font = '11px Inter, sans-serif';
+      ctx.font = '13px Inter, sans-serif';
       ctx.fillText('Revenue (Q4)', px + PW/2, PY + 58);
 
       // Big number
@@ -218,14 +218,14 @@ function buildVisual(container) {
       ctx.fillText('$' + displayed.toFixed(1) + 'M', px + PW/2, PY + 102);
 
       // Formula
-      ctx.fillStyle = '#4B5E78';
-      ctx.font = '10px Inter, sans-serif';
+      ctx.fillStyle = '#8A99B3';
+      ctx.font = '13px Inter, sans-serif';
       ctx.fillText(panel.formula, px + PW/2, PY + 124);
 
       // SQL preview
       const lines = panel.sql.split('\n');
       ctx.fillStyle = isSelected ? '#CBD4E6' : '#3A4D65';
-      ctx.font = '9px "JetBrains Mono", monospace';
+      ctx.font = '12px "JetBrains Mono", monospace';
       ctx.textAlign = 'left';
       lines.forEach((line, li) => {
         ctx.fillText(line, px + 10, PY + 148 + li * 14);
@@ -235,7 +235,7 @@ function buildVisual(container) {
       rr(ctx, px + 6, PY + PH - 34, PW - 12, 24, 4,
         panel.note.includes('Correct') ? '#10B98120' : '#EF444418', null);
       ctx.fillStyle = panel.note.includes('Correct') ? '#10B981' : '#EF4444';
-      ctx.font = '10px Inter, sans-serif';
+      ctx.font = '13px Inter, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(panel.note, px + PW/2, PY + PH - 17);
 
@@ -247,10 +247,10 @@ function buildVisual(container) {
       const fade = Math.min(1, (state.time - 2) * 0.5);
       ctx.globalAlpha = fade;
       ctx.fillStyle = '#EF4444';
-      ctx.font = 'bold 13px Inter, sans-serif';
+      ctx.font = 'bold 14px Inter, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('↑  ↑  ↑', W/2, PY + PH + 30);
-      ctx.font = '12px Inter, sans-serif';
+      ctx.font = '14px Inter, sans-serif';
       ctx.fillStyle = '#8895AA';
       ctx.fillText('Three dashboards. Three SQL queries. Which revenue is correct?', W/2, PY + PH + 52);
       ctx.globalAlpha = 1;
@@ -262,7 +262,7 @@ function buildVisual(container) {
       ctx.fillStyle = '#1E2D43';
       ctx.fillRect(0, H - 30, W, 30);
       ctx.fillStyle = PANELS[state.selected].color;
-      ctx.font = 'bold 11px Inter, sans-serif';
+      ctx.font = 'bold 13px Inter, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(`${PANELS[state.selected].team}: ${PANELS[state.selected].formula}`, W/2, H - 12);
       ctx.globalAlpha = 1;

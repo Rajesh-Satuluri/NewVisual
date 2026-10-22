@@ -178,8 +178,8 @@ function buildVisual(container) {
     // Title
     if (state.phase < 2) {
       ctx.globalAlpha = 1 - state.phase;
-      ctx.fillStyle = '#4B5E78';
-      ctx.font = '13px Inter, sans-serif';
+      ctx.fillStyle = '#8A99B3';
+      ctx.font = '14px Inter, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('A company with raw data in Snowflake.  Six teams need reports.', W/2, 22);
       ctx.globalAlpha = 1;
@@ -192,7 +192,7 @@ function buildVisual(container) {
       rr(ctx, TBL_X, 44, TBL_W, H - 64, 8, '#0F1A2E', '#1E2D43');
       rr(ctx, TBL_X + 4, 48, TBL_W - 8, 34, 6, '#162238', null);
       ctx.fillStyle = '#29ABE2';
-      ctx.font = 'bold 12px Inter, sans-serif';
+      ctx.font = 'bold 14px Inter, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('❄  Snowflake', TBL_X + TBL_W/2, 71);
       ctx.globalAlpha = 1;
@@ -206,7 +206,7 @@ function buildVisual(container) {
       rr(ctx, TBL_X + 4, y + 2, TBL_W - 8, TBL_H - 4, 4,
          i % 2 === 0 ? '#131D2E' : '#0F1626', null);
       ctx.fillStyle = '#3B82F6';
-      ctx.font = '10px "JetBrains Mono", monospace';
+      ctx.font = '13px "JetBrains Mono", monospace';
       ctx.textAlign = 'left';
       ctx.fillText('▤  ' + name, TBL_X + 14, y + 20);
       ctx.globalAlpha = 1;
@@ -223,7 +223,7 @@ function buildVisual(container) {
       ctx.beginPath(); ctx.arc(c.x, c.y, 14, 0, Math.PI * 2);
       ctx.fillStyle = team.color; ctx.fill();
       ctx.fillStyle = '#CBD4E6';
-      ctx.font = '11px Inter, sans-serif';
+      ctx.font = '13px Inter, sans-serif';
       ctx.textAlign = 'left';
       ctx.fillText(team.name, c.x + 28, c.y + 4);
       ctx.globalAlpha = 1;
@@ -234,7 +234,7 @@ function buildVisual(container) {
       if (p.life < 0.05) return;
       ctx.save();
       ctx.globalAlpha = Math.min(1, p.life * 3) * 0.88;
-      ctx.font = 'bold 9px "JetBrains Mono", monospace';
+      ctx.font = 'bold 12px "JetBrains Mono", monospace';
       const tw = ctx.measureText(p.label).width + 10;
       rr(ctx, p.x - tw/2, p.y - 9, tw, 18, 5, p.color, null);
       ctx.fillStyle = '#fff';
@@ -247,7 +247,7 @@ function buildVisual(container) {
     if (state.phase >= 2 && state.particles.length > 0) {
       const n = state.particles.length;
       ctx.fillStyle = n > 40 ? '#EF4444' : n > 20 ? '#F59E0B' : '#10B981';
-      ctx.font = 'bold 11px Inter, sans-serif';
+      ctx.font = 'bold 13px Inter, sans-serif';
       ctx.textAlign = 'right';
       ctx.fillText(`${n} SQL files in flight`, W - 14, 18);
     }
@@ -256,7 +256,7 @@ function buildVisual(container) {
     if (state.phase >= 2 && state.time > 14) {
       ctx.globalAlpha = Math.min(1, (state.time - 14) * 0.4);
       ctx.fillStyle = '#EF4444';
-      ctx.font = 'bold 13px Inter, sans-serif';
+      ctx.font = 'bold 14px Inter, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('6 teams × uncoordinated SQL = zero shared truth', W/2, H - 18);
       ctx.globalAlpha = 1;

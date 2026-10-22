@@ -172,7 +172,7 @@ function buildVisual(container) {
 
     // Counter badge
     ctx.fillStyle = state.copies >= 10 ? '#EF4444' : state.copies >= 6 ? '#F59E0B' : '#10B981';
-    ctx.font = 'bold 13px Inter, sans-serif';
+    ctx.font = 'bold 14px Inter, sans-serif';
     ctx.textAlign = 'right';
     ctx.fillText(`${state.copies} cop${state.copies === 1 ? 'y' : 'ies'} of this pipeline`, W - 14, 22);
 
@@ -202,20 +202,20 @@ function buildVisual(container) {
 
       // Header
       const label = state.copies === 1 ? 'order_pipeline.sql' : `pipeline_v${copyIdx+1}.sql`;
-      ctx.fillStyle = isDone ? '#10B981' : isEditing ? '#FF694B' : '#4B5E78';
-      ctx.font = `bold ${Math.round(9 * scale + 2)}px "JetBrains Mono", monospace`;
+      ctx.fillStyle = isDone ? '#10B981' : isEditing ? '#FF694B' : '#8A99B3';
+      ctx.font = `bold ${Math.round(11 * scale + 3)}px "JetBrains Mono", monospace`;
       ctx.textAlign = 'left';
       ctx.fillText('📄  ' + label, 8, 18);
 
       if (isEditing) {
         ctx.fillStyle = '#FF694B';
-        ctx.font = `bold ${Math.round(9 * scale + 2)}px Inter, sans-serif`;
+        ctx.font = `bold ${Math.round(11 * scale + 3)}px Inter, sans-serif`;
         ctx.textAlign = 'right';
         ctx.fillText('✏ editing...', bw - 8, 18);
       } else if (isDone) {
         ctx.fillStyle = '#10B981';
         ctx.textAlign = 'right';
-        ctx.font = `${Math.round(9 * scale + 2)}px Inter, sans-serif`;
+        ctx.font = `${Math.round(11 * scale + 3)}px Inter, sans-serif`;
         ctx.fillText('✓ updated', bw - 8, 18);
       }
 
@@ -232,7 +232,7 @@ function buildVisual(container) {
         ctx.fillStyle = highlight ? '#FF694B' : dot;
         ctx.fill();
         ctx.fillStyle = highlight ? '#FF8068' : '#8895AA';
-        ctx.font = `${Math.round(9 * scale + 1)}px Inter, sans-serif`;
+        ctx.font = `${Math.round(11 * scale + 2)}px Inter, sans-serif`;
         ctx.textAlign = 'left';
         ctx.fillText(step, 28, sy + stepH/2 + 3);
         if (si < STEPS.length - 1) {
@@ -258,8 +258,8 @@ function buildVisual(container) {
       msg = 'Start by clicking "Duplicate" to see what happens in the real world.';
     }
 
-    ctx.fillStyle = state.phase === 'done' ? '#F59E0B' : '#4B5E78';
-    ctx.font = '11px Inter, sans-serif';
+    ctx.fillStyle = state.phase === 'done' ? '#F59E0B' : '#8A99B3';
+    ctx.font = '13px Inter, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(msg, W/2, H - 12);
 

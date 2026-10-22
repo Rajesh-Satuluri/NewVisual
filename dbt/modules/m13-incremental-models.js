@@ -340,9 +340,9 @@ function buildVisual(container) {
     const fullRunning = state.running && state.fullProgress < 1;
     rr(ctx, lx, py, pw, ph, 8, '#100A0A', state.fullDone ? '#EF4444' : fullRunning ? '#F59E0B' : '#1E2D43');
 
-    ctx.fillStyle = '#F59E0B'; ctx.font = 'bold 12px Inter, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillStyle = '#F59E0B'; ctx.font = 'bold 14px Inter, sans-serif'; ctx.textAlign = 'center';
     ctx.fillText('materialized = "table"', lx + pw/2, py + 24);
-    ctx.fillStyle = '#4B5E78'; ctx.font = '10px Inter, sans-serif';
+    ctx.fillStyle = '#8A99B3'; ctx.font = '13px Inter, sans-serif';
     ctx.fillText('Full refresh every run', lx + pw/2, py + 42);
 
     // Big data pool bar
@@ -358,12 +358,12 @@ function buildVisual(container) {
     rr(ctx, barX, barY, barW, barH, 4, null, '#2A3550');
 
     // Row count labels
-    ctx.fillStyle = '#4B5E78'; ctx.font = '9px Inter, sans-serif'; ctx.textAlign = 'left';
+    ctx.fillStyle = '#8A99B3'; ctx.font = '12px Inter, sans-serif'; ctx.textAlign = 'left';
     ctx.fillText('0', barX, barY + barH + 14);
     ctx.textAlign = 'right';
     ctx.fillText('2,000,000,000 rows', barX + barW, barY + barH + 14);
 
-    ctx.fillStyle = '#F59E0B'; ctx.font = 'bold 10px Inter, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillStyle = '#F59E0B'; ctx.font = 'bold 13px Inter, sans-serif'; ctx.textAlign = 'center';
     ctx.fillText('SCANS ALL 2B ROWS', barX + barW/2, barY + barH/2 + 4);
 
     // Metrics
@@ -373,20 +373,20 @@ function buildVisual(container) {
       ['Compute cost:', state.fullDone ? '$18.40' : '—'],
     ];
     metrics.forEach(([label, val], i) => {
-      ctx.fillStyle = '#4B5E78'; ctx.font = '10px Inter, sans-serif'; ctx.textAlign = 'left';
+      ctx.fillStyle = '#8A99B3'; ctx.font = '13px Inter, sans-serif'; ctx.textAlign = 'left';
       ctx.fillText(label, lx + 24, py + 130 + i * 34);
       ctx.fillStyle = i === 1 && state.fullDone ? '#EF4444'
                     : i === 2 && state.fullDone ? '#EF4444' : '#8895AA';
-      ctx.font = 'bold 10px Inter, sans-serif';
+      ctx.font = 'bold 13px Inter, sans-serif';
       ctx.fillText(val, lx + 160, py + 130 + i * 34);
     });
 
     if (state.fullDone) {
       rr(ctx, lx + 20, py + 230, pw - 40, 70, 6, '#2A0A0A', '#EF4444');
-      ctx.fillStyle = '#EF4444'; ctx.font = 'bold 11px Inter, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = '#EF4444'; ctx.font = 'bold 13px Inter, sans-serif'; ctx.textAlign = 'center';
       ctx.fillText('Runs at 2 AM every night.', lx + pw/2, py + 258);
       ctx.fillText('Finishes at 5:42 AM.', lx + pw/2, py + 276);
-      ctx.fillStyle = '#8895AA'; ctx.font = '10px Inter, sans-serif';
+      ctx.fillStyle = '#8895AA'; ctx.font = '13px Inter, sans-serif';
       ctx.fillText('98% of work is re-processing data', lx + pw/2, py + 295);
       ctx.fillText('that hasn\'t changed since yesterday.', lx + pw/2, py + 309);
     }
@@ -396,9 +396,9 @@ function buildVisual(container) {
     const incrRunning = state.running && state.incrProgress < 1;
     rr(ctx, rx, py, pw, ph, 8, '#0A100A', state.incrDone ? '#10B981' : incrRunning ? '#10B981' : '#1E2D43');
 
-    ctx.fillStyle = '#10B981'; ctx.font = 'bold 12px Inter, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillStyle = '#10B981'; ctx.font = 'bold 14px Inter, sans-serif'; ctx.textAlign = 'center';
     ctx.fillText('materialized = "incremental"', rx + pw/2, py + 24);
-    ctx.fillStyle = '#4B5E78'; ctx.font = '10px Inter, sans-serif';
+    ctx.fillStyle = '#8A99B3'; ctx.font = '13px Inter, sans-serif';
     ctx.fillText('Appends/merges new rows only', rx + pw/2, py + 42);
 
     // Timeline bar with watermark
@@ -422,15 +422,17 @@ function buildVisual(container) {
     ctx.setLineDash([4, 3]);
     ctx.beginPath(); ctx.moveTo(wmX, ibY - 8); ctx.lineTo(wmX, ibY + ibH + 8); ctx.stroke();
     ctx.setLineDash([]);
-    ctx.fillStyle = '#10B981'; ctx.font = 'bold 8px Inter, sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText('WATERMARK', wmX, ibY - 12);
-    ctx.fillText('MAX(occurred_at)', wmX, ibY + ibH + 22);
+    // These labels sit at the watermark (~97.5% across the bar), so right-align
+    // them to the panel's inner edge to keep larger text from clipping off-canvas.
+    ctx.fillStyle = '#10B981'; ctx.font = 'bold 12px Inter, sans-serif'; ctx.textAlign = 'right';
+    ctx.fillText('WATERMARK', rx + pw - 12, ibY - 12);
+    ctx.fillText('MAX(occurred_at)', rx + pw - 12, ibY + ibH + 22);
 
-    ctx.fillStyle = '#4B5E78'; ctx.font = '8px Inter, sans-serif';
+    ctx.fillStyle = '#8A99B3'; ctx.font = '12px Inter, sans-serif'; ctx.textAlign = 'center';
     ctx.fillText('1.95B rows', ibX + histW/2, ibY + ibH/2 + 3);
     ctx.fillText('(skip)', ibX + histW/2, ibY + ibH/2 + 14);
-    ctx.fillStyle = '#10B981'; ctx.font = 'bold 8px Inter, sans-serif';
-    ctx.fillText('50K new', ibX + histW + newW/2, ibY + ibH/2 + 4);
+    ctx.fillStyle = '#10B981'; ctx.font = 'bold 12px Inter, sans-serif'; ctx.textAlign = 'right';
+    ctx.fillText('50K new', rx + pw - 12, ibY + ibH/2 + 4);
 
     // Metrics
     const iMetrics = [
@@ -439,30 +441,30 @@ function buildVisual(container) {
       ['Compute cost:', state.incrDone ? '$0.92' : '—'],
     ];
     iMetrics.forEach(([label, val], i) => {
-      ctx.fillStyle = '#4B5E78'; ctx.font = '10px Inter, sans-serif'; ctx.textAlign = 'left';
+      ctx.fillStyle = '#8A99B3'; ctx.font = '13px Inter, sans-serif'; ctx.textAlign = 'left';
       ctx.fillText(label, rx + 24, py + 130 + i * 34);
       ctx.fillStyle = i === 1 && state.incrDone ? '#10B981'
                     : i === 2 && state.incrDone ? '#10B981' : '#8895AA';
-      ctx.font = 'bold 10px Inter, sans-serif';
+      ctx.font = 'bold 13px Inter, sans-serif';
       ctx.fillText(val, rx + 160, py + 130 + i * 34);
     });
 
     if (state.incrDone) {
       rr(ctx, rx + 20, py + 230, pw - 40, 70, 6, '#0A200A', '#10B981');
-      ctx.fillStyle = '#10B981'; ctx.font = 'bold 11px Inter, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = '#10B981'; ctx.font = 'bold 13px Inter, sans-serif'; ctx.textAlign = 'center';
       ctx.fillText('Runs at 2 AM every night.', rx + pw/2, py + 258);
       ctx.fillText('Finishes at 2:04 AM.', rx + pw/2, py + 276);
-      ctx.fillStyle = '#8895AA'; ctx.font = '10px Inter, sans-serif';
+      ctx.fillStyle = '#8895AA'; ctx.font = '13px Inter, sans-serif';
       ctx.fillText('Processes only 50K new rows.', rx + pw/2, py + 295);
       ctx.fillText('20× faster · 95% cheaper.', rx + pw/2, py + 309);
     }
 
     // Savings summary
     if (state.incrDone) {
-      ctx.fillStyle = '#10B981'; ctx.font = 'bold 13px Inter, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = '#10B981'; ctx.font = 'bold 14px Inter, sans-serif'; ctx.textAlign = 'center';
       ctx.fillText('Savings: 3h 38m · $17.48 per run · $6,380/year', W/2, H - 14);
     } else {
-      ctx.fillStyle = '#4B5E78'; ctx.font = '11px Inter, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = '#8A99B3'; ctx.font = '13px Inter, sans-serif'; ctx.textAlign = 'center';
       ctx.fillText('Both strategies produce identical output — only the compute cost differs', W/2, H - 14);
     }
 

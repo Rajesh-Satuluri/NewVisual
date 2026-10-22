@@ -145,11 +145,11 @@ function buildVisual(container) {
     ctx.globalAlpha = state.questionOp;
     rr(ctx, CEO_X - 150, 16, 300, 54, 10, '#1E2D43', '#F59E0B');
     ctx.fillStyle = '#F59E0B';
-    ctx.font = 'bold 12px Inter, sans-serif';
+    ctx.font = 'bold 14px Inter, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('👔  CEO', CEO_X - 80, 36);
     ctx.fillStyle = '#CBD4E6';
-    ctx.font = '12px Inter, sans-serif';
+    ctx.font = '14px Inter, sans-serif';
     ctx.fillText('"How many active users do we have?"', CEO_X + 20, 48);
     ctx.globalAlpha = 1;
 
@@ -167,11 +167,11 @@ function buildVisual(container) {
       ctx.globalAlpha = b.opacity;
       rr(ctx, team.x - 80, TEAM_Y, 160, 50, 8, '#131D2E', team.color + '88');
       ctx.fillStyle = team.color;
-      ctx.font = 'bold 11px Inter, sans-serif';
+      ctx.font = 'bold 13px Inter, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(team.name, team.x, TEAM_Y + 22);
-      ctx.fillStyle = '#4B5E78';
-      ctx.font = '9px "JetBrains Mono", monospace';
+      ctx.fillStyle = '#8A99B3';
+      ctx.font = '12px "JetBrains Mono", monospace';
       ctx.fillText(team.sql, team.x, TEAM_Y + 38);
 
       // Rising answer bubble
@@ -182,7 +182,7 @@ function buildVisual(container) {
       ctx.textAlign = 'center';
       ctx.fillText(team.answer, bx, by + 30);
       ctx.fillStyle = '#8895AA';
-      ctx.font = '9px Inter, sans-serif';
+      ctx.font = '12px Inter, sans-serif';
       ctx.fillText(team.definition, bx, by + 46);
       // Bubble tail
       ctx.beginPath();
@@ -244,10 +244,10 @@ function buildVisual(container) {
       ctx.fillText('≠', 505, 134);
 
       ctx.fillStyle = '#EF4444';
-      ctx.font = 'bold 13px Inter, sans-serif';
+      ctx.font = 'bold 14px Inter, sans-serif';
       ctx.fillText('Which number do we put in the board deck?', W/2, H - 30);
       ctx.fillStyle = '#8895AA';
-      ctx.font = '11px Inter, sans-serif';
+      ctx.font = '13px Inter, sans-serif';
       ctx.fillText('All three teams are using "correct" SQL. None agree. Trust is broken.', W/2, H - 12);
       ctx.restore();
     }
