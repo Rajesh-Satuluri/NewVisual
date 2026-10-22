@@ -76,6 +76,15 @@ export function initQuiz(container) {
         const prev = Number(localStorage.getItem(key) ?? -1);
         if (correct > prev) { localStorage.setItem(key, String(correct)); bestEl.textContent = `Best: ${correct}/${qs.length}`; }
       } catch (e) {}
+      // Announce the result so the app can mark mastery (honest progress) and
+      // feed the dashboard. Carries this attempt's score and the best so far.
+      try {
+        let best = correct;
+        try { best = Math.max(correct, Number(localStorage.getItem(key) ?? correct)); } catch (e) {}
+        window.dispatchEvent(new CustomEvent('kafka:quiz-graded', {
+          detail: { id, score: correct, total: qs.length, best },
+        }));
+      } catch (e) {}
     });
 
     retryBtn.addEventListener('click', () => {

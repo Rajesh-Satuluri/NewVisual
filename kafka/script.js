@@ -9,6 +9,11 @@ import { createQuiz, initQuiz } from './components/quiz.js';
 import { createSelfExplain, initSelfExplain } from './components/self-explain.js';
 import { QUIZ_BANK } from './data/quiz-bank.js';
 import { SELF_EXPLAIN } from './data/self-explain.js';
+import { record } from './data/progress-store.js';
+
+// A module counts as "complete" only when its quiz is passed at this ratio —
+// mastery, not merely opening the page. Honest progress.
+const QUIZ_PASS_RATIO = 2 / 3;
 
 // Non-module pages (not tracked in progress). Value = breadcrumb HTML.
 const PAGES = {
@@ -92,8 +97,13 @@ async function navigate(id) {
     const m = await loader();
     canvas.innerHTML = '';
     cleanupFn = m.mount(canvas) || null;
-    if (mod) { initTabs(canvas); initIQ(canvas); enhanceModule(id); }
-    if (mod) markDone(id); // Study Hub is not a trackable module
+    if (mod) {
+      initTabs(canvas); initIQ(canvas); enhanceModule(id);
+      // Record the visit for the dashboard, but DON'T mark complete here —
+      // completion is earned by passing the module's quiz (see the listener
+      // below). Opening a page is not the same as learning it.
+      try { record('visited', id, { label: mod.label }); } catch (e) {}
+    }
   } catch (e) {
     console.error('Module load error', e);
     canvas.innerHTML = `
@@ -130,11 +140,24 @@ function markDone(id) {
   renderNav(currentId, done);
   if (isNew) {
     const mod = MODULES.find(m => m.id === id);
-    if (mod) toast(`Module complete — ${mod.label}`, { icon: '✅' });
+    if (mod) toast(`Module mastered — ${mod.label}`, { icon: '✅' });
     const real = [...done].filter(x => MODULES.some(m => m.id === x)).length;
-    if (real === MODULES.length) toast('All 22 modules complete!', { icon: '🏆', duration: 4200 });
+    if (real === MODULES.length) toast('All 22 modules mastered!', { icon: '🏆', duration: 4200 });
   }
 }
+
+// Honest progress: a module is "complete" when its quiz is passed. The quiz
+// component dispatches 'kafka:quiz-graded' with { id, score, total, best };
+// we record every attempt and mark the module done once the best score clears
+// the pass ratio.
+window.addEventListener('kafka:quiz-graded', e => {
+  const { id, score, total, best } = e.detail || {};
+  if (!id || !total) return;
+  const bestScore = Number.isFinite(best) ? best : score;
+  const passed = bestScore / total >= QUIZ_PASS_RATIO;
+  try { record('quiz', id, { score, total, best: bestScore, passed }); } catch (err) {}
+  if (passed && MODULES.some(m => m.id === id)) markDone(id);
+});
 
 // ── Router ─────────────────────────────────────────────────────────────────
 function getHash() {
