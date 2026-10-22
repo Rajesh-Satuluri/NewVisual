@@ -747,6 +747,79 @@
     return wrap;
   }
 
+  // =========================================================== DESCRIPTION BLOCK
+  // The "Problem Description" prose renders as Markdown but can be unlocked and
+  // rewritten in the reader's own words — the same edit affordance the Logic and
+  // code blocks ship. Keyed per problem (no approach index). Any structured
+  // extras (constraints, notes) render read-only below the editable prose.
+  function descBlock(srcMd, ident, extras) {
+    var wrap = h("div", { class: "logic-wrap" });
+    var bar = h("div", { class: "logic-bar" });
+    bar.appendChild(h("span", { class: "logic-tag" }, "Description"));
+    var actions = h("div", { class: "code-actions" });
+    bar.appendChild(actions);
+    var body = h("div", { class: "logic-body" });
+    wrap.appendChild(bar);
+    wrap.appendChild(body);
+
+    var editing = false; // lock state is per-block and starts LOCKED every render
+
+    function savedEdit() { return store.getDescEdit(ident.id); }
+    function currentSource() {
+      var e = savedEdit();
+      return e != null ? e : srcMd;
+    }
+
+    function render() {
+      body.innerHTML = "";
+      actions.innerHTML = "";
+
+      if (savedEdit() != null) {
+        actions.appendChild(h("span", { class: "code-edited", title: "This description was edited locally" }, "edited"));
+      }
+
+      var lock = h("button", { class: "code-mini lock" + (editing ? " on" : "") },
+        editing ? "🔓 Editing" : "✏️ Edit");
+      lock.title = editing ? "Lock to stop editing (changes are saved)" : "Unlock to rewrite this description in Markdown";
+      lock.addEventListener("click", function () { editing = !editing; render(); });
+      actions.appendChild(lock);
+
+      if (editing) {
+        var ta = h("textarea", { class: "logic-edit", spellcheck: "false", autocomplete: "off" });
+        ta.value = currentSource();
+        var fit = function () { ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px"; };
+        ta.addEventListener("input", function () {
+          fit();
+          if (ta.value === srcMd) store.clearDescEdit(ident.id); // back to original
+          else store.setDescEdit(ident.id, ta.value);
+        });
+        // two-space indent on Tab (Markdown-friendly), same feel as the code editor
+        ta.addEventListener("keydown", function (e) {
+          if (e.key === "Tab") {
+            e.preventDefault();
+            var s = ta.selectionStart, en = ta.selectionEnd;
+            ta.value = ta.value.slice(0, s) + "  " + ta.value.slice(en);
+            ta.selectionStart = ta.selectionEnd = s + 2;
+            ta.dispatchEvent(new Event("input"));
+          }
+        });
+        body.appendChild(ta);
+        // preventScroll: focusing the fresh textarea must not jump the page down
+        setTimeout(function () { fit(); ta.focus({ preventScroll: true }); }, 0);
+      } else {
+        var node = h("div", { class: "md" });
+        node.innerHTML = md(currentSource());
+        body.appendChild(node);
+      }
+
+      // structured constraints / notes always render read-only below the prose
+      if (extras) extras.forEach(function (n) { body.appendChild(n); });
+    }
+
+    render();
+    return wrap;
+  }
+
   // Draw VS-Code-style vertical indentation guides. Runs after Prism, so it
   // walks the highlighted HTML line by line and wraps each 4-space indent step
   // in a guide span. Leading indentation is always plain text (Prism never puts
@@ -991,16 +1064,15 @@
     // ---- animation / visualization links (above the description) ----
     main.appendChild(buildLinksSection(p));
 
-    // ---- Problem Description ----
-    var descNode = h("div", { class: "md" });
-    descNode.innerHTML = md(p.description);
+    // ---- Problem Description (editable — unlock to rewrite in your own words) ----
+    var descExtras = [];
     if (p.constraints && p.constraints.length) {
       var cwrap = h("div", { class: "constraints" });
       cwrap.appendChild(h("div", { class: "subhead" }, "Constraints"));
       var ul = h("ul");
       p.constraints.forEach(function (c) { ul.appendChild(h("li", { html: md(c).replace(/^<p>|<\/p>$/g, "") })); });
       cwrap.appendChild(ul);
-      descNode.appendChild(cwrap);
+      descExtras.push(cwrap);
     }
     if (p.notes && p.notes.length) {
       var nwrap = h("div", { class: "notes-block" });
@@ -1008,9 +1080,10 @@
       var ul2 = h("ul");
       p.notes.forEach(function (c) { ul2.appendChild(h("li", { html: md(c).replace(/^<p>|<\/p>$/g, "") })); });
       nwrap.appendChild(ul2);
-      descNode.appendChild(nwrap);
+      descExtras.push(nwrap);
     }
-    main.appendChild(section("description", "Problem Description", descNode));
+    main.appendChild(section("description", "Problem Description",
+      descBlock(p.description, { id: p.id }, descExtras)));
 
     // ---- Examples ----
     var exWrap = h("div", { class: "examples" });
