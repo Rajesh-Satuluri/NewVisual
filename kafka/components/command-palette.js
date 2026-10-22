@@ -17,6 +17,8 @@ const EXTRA = [
   { id: 'home', label: 'Home', icon: '🏠', group: 'Start' },
   { id: 'search', label: 'Search everything', icon: '🔎', group: 'Start' },
   { id: 'playground', label: 'Partition Simulator', icon: '🎮', group: 'Playground' },
+  { id: 'consumer-lab', label: 'Consumer Group Lab', icon: '👥', group: 'Playground' },
+  { id: 'replication-lab', label: 'Replication & Failure Lab', icon: '🔁', group: 'Playground' },
   { id: 'sizing', label: 'Capacity & Sizing Lab', icon: '📐', group: 'Playground' },
   { id: 'master-map', label: 'Master Map', icon: '🗺️', group: 'Reference' },
   { id: 'advanced', label: 'Advanced Topics', icon: '🧠', group: 'Reference' },

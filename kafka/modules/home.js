@@ -100,6 +100,41 @@ export function mount(container) {
       <div class="home-steps">${START_PATH.map(startCard).join('')}</div>
 
       <div class="section-header home-section-head">
+        <div class="section-title">Interactive labs</div>
+        <div class="section-desc">Deterministic simulators built on Kafka's real algorithms — experiment, don't just read.</div>
+      </div>
+      <div class="home-grid home-ref-grid">
+        <a href="#playground" class="home-card">
+          <span class="home-card-icon">🎮</span>
+          <span class="home-card-text">
+            <span class="home-card-title">Partition Simulator</span>
+            <span class="home-card-desc">Publish events and watch Kafka's real murmur2 partitioner route them — spot hot partitions.</span>
+          </span>
+        </a>
+        <a href="#consumer-lab" class="home-card">
+          <span class="home-card-icon">👥</span>
+          <span class="home-card-text">
+            <span class="home-card-title">Consumer Group Lab</span>
+            <span class="home-card-desc">See how a group divides partitions, and why parallelism is capped by partition count.</span>
+          </span>
+        </a>
+        <a href="#replication-lab" class="home-card">
+          <span class="home-card-icon">🔁</span>
+          <span class="home-card-text">
+            <span class="home-card-title">Replication & Failure Lab</span>
+            <span class="home-card-desc">Kill brokers and watch leaders re-elect from the ISR — under-replicated vs offline.</span>
+          </span>
+        </a>
+        <a href="#sizing" class="home-card">
+          <span class="home-card-icon">📐</span>
+          <span class="home-card-text">
+            <span class="home-card-title">Capacity & Sizing Lab</span>
+            <span class="home-card-desc">Partition, consumer, and storage math you can reproduce on a whiteboard.</span>
+          </span>
+        </a>
+      </div>
+
+      <div class="section-header home-section-head">
         <div class="section-title">Full curriculum</div>
         <div class="section-desc">All ${MODULES.length} modules, grouped by theme. Pick up anywhere — your progress is saved.</div>
       </div>
@@ -129,13 +164,6 @@ export function mount(container) {
           <span class="home-card-text">
             <span class="home-card-title">Config Reference</span>
             <span class="home-card-desc">The settings that matter, with defaults, safe values, and what breaks when they're wrong.</span>
-          </span>
-        </a>
-        <a href="#sizing" class="home-card">
-          <span class="home-card-icon">📐</span>
-          <span class="home-card-text">
-            <span class="home-card-title">Capacity &amp; Sizing Lab</span>
-            <span class="home-card-desc">Partition, consumer, and storage math you can reproduce on a whiteboard.</span>
           </span>
         </a>
         <a href="#glossary" class="home-card">
