@@ -83,7 +83,7 @@ export function mount(container) {
         senior data-engineering interviews. 22 modules, zero setup, runs in your browser.</p>
         <div class="home-cta">
           <a class="home-btn home-btn-primary" href="#m01">Start learning →</a>
-          <a class="home-btn home-btn-ghost" href="#study">Interview prep</a>
+          <a class="home-btn home-btn-ghost" href="#dashboard">Your dashboard</a>
         </div>
         <div class="stats-row home-stats">
           ${stat(MODULES.length, 'Modules')}
@@ -171,6 +171,20 @@ export function mount(container) {
           <span class="home-card-text">
             <span class="home-card-title">Level Up Your Answer</span>
             <span class="home-card-desc">The same question answered Weak / Good / Senior — and why the senior version wins.</span>
+          </span>
+        </a>
+        <a href="#dashboard" class="home-card">
+          <span class="home-card-icon">📊</span>
+          <span class="home-card-text">
+            <span class="home-card-title">Dashboard</span>
+            <span class="home-card-desc">Honest mastery analytics — progress by group, weak spots, and what to study next.</span>
+          </span>
+        </a>
+        <a href="#review" class="home-card">
+          <span class="home-card-icon">🔁</span>
+          <span class="home-card-text">
+            <span class="home-card-title">Review Center</span>
+            <span class="home-card-desc">Spaced-repetition flashcards from every quiz and term — review what's due today.</span>
           </span>
         </a>
         <a href="#study" class="home-card">

@@ -48,7 +48,11 @@ const PRACTICE = [
   { id:'troubleshoot', label:'Troubleshooting Lab', icon:'🔍' },
   { id:'answers',      label:'Level Up Your Answer', icon:'🎯' },
 ];
-const REVIEW = { id:'study', label:'Study Hub', icon:'📚' };
+const REVIEW = [
+  { id:'dashboard', label:'Dashboard',    icon:'📊' },
+  { id:'review',    label:'Review Center', icon:'🔁' },
+  { id:'study',     label:'Study Hub',     icon:'📚' },
+];
 
 const COLLAPSE_KEY = 'kafka_nav_collapsed';
 function loadCollapsed() {
@@ -91,11 +95,14 @@ export function renderNav(activeId, done) {
       <input class="nav-filter" type="text" placeholder="Filter modules…" aria-label="Filter modules" />
       <button class="icon-btn nav-collapse-all" title="Collapse / expand all" aria-label="Collapse or expand all sections">⇕</button>
     </div>
+    <a href="#search" class="nav-item nav-search-link${activeId === 'search' ? ' active' : ''}" data-id="search">
+      <span class="nav-icon">🔎</span><span class="nav-label">Search everything</span>
+    </a>
     ${GROUP_ORDER.map(g => section(g, groups[g] || [])).join('')}
     ${section('Playground', PLAYGROUND)}
     ${section('Reference', REFERENCE)}
     ${section('Practice', PRACTICE)}
-    ${section('Review', [{ ...REVIEW }])}
+    ${section('Review', REVIEW)}
   `;
 
   // Toggle a single section.

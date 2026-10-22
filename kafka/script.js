@@ -18,6 +18,7 @@ const QUIZ_PASS_RATIO = 2 / 3;
 // Non-module pages (not tracked in progress). Value = breadcrumb HTML.
 const PAGES = {
   home: `<strong>🏠 Home</strong>`,
+  search: `<strong>🔎 Search</strong>`,
   playground: `Playground &rsaquo; <strong>🎮 Partition Simulator</strong>`,
   sizing: `Playground &rsaquo; <strong>📐 Capacity &amp; Sizing Lab</strong>`,
   advanced: `Reference &rsaquo; <strong>🧠 Advanced Topics</strong>`,
@@ -29,6 +30,8 @@ const PAGES = {
   troubleshoot: `Practice &rsaquo; <strong>🔍 Troubleshooting Lab</strong>`,
   answers: `Practice &rsaquo; <strong>🎯 Level Up Your Answer</strong>`,
   'incident-bank': `Reference &rsaquo; <strong>🚑 Incident Bank</strong>`,
+  dashboard: `Review &rsaquo; <strong>📊 Dashboard</strong>`,
+  review: `Review &rsaquo; <strong>🔁 Review Center</strong>`,
   study: `Review &rsaquo; <strong>📚 Study Hub</strong>`,
 };
 
@@ -40,6 +43,7 @@ let cleanupFn = null;
 // ── Module loaders ─────────────────────────────────────────────────────────
 const LOADERS = {
   home: () => import('./modules/home.js'),
+  search: () => import('./modules/search.js'),
   playground: () => import('./modules/playground.js'),
   sizing: () => import('./modules/sizing.js'),
   advanced: () => import('./modules/advanced.js'),
@@ -51,6 +55,8 @@ const LOADERS = {
   troubleshoot: () => import('./modules/troubleshoot.js'),
   answers: () => import('./modules/answers.js'),
   'incident-bank': () => import('./modules/incident-bank.js'),
+  dashboard: () => import('./modules/dashboard.js'),
+  review: () => import('./modules/review.js'),
   study: () => import('./modules/study.js'),
   m01: () => import('./modules/m01-intro.js'),
   m02: () => import('./modules/m02-messaging.js'),
@@ -173,7 +179,7 @@ window.addEventListener('kafka:quiz-graded', e => {
 
 // ── Router ─────────────────────────────────────────────────────────────────
 function getHash() {
-  const h = location.hash.slice(1);
+  const h = location.hash.slice(1).split('?')[0]; // ignore query (e.g. #search?q=…)
   if (PAGES[h]) return h;
   return MODULES.find(m => m.id === h) ? h : 'home';
 }
