@@ -429,7 +429,14 @@ body {
   gap: 2px;
   border-bottom: 1px solid var(--border);
   margin-bottom: 24px;
+  /* Many tabs (e.g. Core Concepts) exceed the content width — scroll the row
+     instead of clipping the last tabs off the edge. */
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  scrollbar-width: thin;
 }
+.tab-bar::-webkit-scrollbar { height: 6px; }
+.tab-bar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
 .tab-btn {
   background: none;
@@ -443,6 +450,7 @@ body {
   margin-bottom: -1px;
   transition: color 0.15s, border-color 0.15s;
   white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .tab-btn:hover { color: var(--text-2); }
