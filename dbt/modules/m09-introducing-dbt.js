@@ -270,7 +270,7 @@ function buildDetail(container) {
     <div class="detail-section">
       <h3>What dbt actually is</h3>
       <p>dbt (data build tool) is a command-line tool that lets analysts transform data in their warehouse using SQL. The key insight: <em>dbt doesn't move data</em>. Your ELT pipeline loads raw data; dbt transforms it into models, metrics, tests, and documentation — all in one framework, all in Git.</p>
-      <div class="code-block">-- Without dbt: standalone SQL, no tests, no lineage, no docs
+      <div class="code-block" data-lang="sql">-- Without dbt: standalone SQL, no tests, no lineage, no docs
 SELECT customer_id, SUM(order_total) as ltv
 FROM raw_orders WHERE status = 'completed' GROUP BY 1;
 

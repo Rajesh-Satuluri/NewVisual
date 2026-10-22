@@ -6,7 +6,7 @@ import { createModuleShell, createIQSection, injectCodeEnhancements } from '../c
 
 const TYPES = [
   {
-    id: 'generic', name: 'Generic tests', color: '#3B82F6',
+    id: 'generic', name: 'Generic tests', color: '#3B82F6', lang: 'yaml',
     what: 'The four built-in column assertions, declared in YAML next to the model. Each compiles to a query that returns bad rows.',
     catches: 'Structural quality: nulls, duplicates, invalid enums, broken foreign keys.',
     config: `models:
@@ -26,7 +26,7 @@ const TYPES = [
     note: 'Apply not_null + unique to EVERY primary key automatically, relationships to every FK. That single habit catches the majority of data-quality issues.',
   },
   {
-    id: 'singular', name: 'Singular tests', color: '#FF694B',
+    id: 'singular', name: 'Singular tests', color: '#FF694B', lang: 'sql',
     what: 'A hand-written SQL file in tests/ that returns rows when something is wrong. 0 rows = pass; any rows = fail.',
     catches: 'Business logic that is not a simple column rule — cross-table invariants, reconciliations.',
     config: `-- tests/no_refund_exceeds_order.sql
@@ -37,7 +37,7 @@ where r.refund_amount > o.order_total`,
     note: 'A revenue-reconciliation singular test (dbt total vs Finance GL within 0.5%) is the most impressive example — it validates logic across two independent systems.',
   },
   {
-    id: 'custom', name: 'Custom generic tests', color: '#F59E0B',
+    id: 'custom', name: 'Custom generic tests', color: '#F59E0B', lang: 'sql',
     what: 'A reusable test macro in tests/generic/ that you can then apply to any column in YAML, parameterized.',
     catches: 'Repeated bespoke rules you want to declare declaratively across many models (e.g. "value is non-negative").',
     config: `-- tests/generic/non_negative.sql
@@ -52,7 +52,7 @@ where r.refund_amount > o.order_total`,
     note: 'Custom generics turn a singular test you keep rewriting into a one-word YAML assertion — DRY testing.',
   },
   {
-    id: 'unit', name: 'Unit tests', color: '#8B5CF6',
+    id: 'unit', name: 'Unit tests', color: '#8B5CF6', lang: 'yaml',
     what: 'Test a model\'s SQL LOGIC against mocked inputs and an expected output — at compile/CI time, without scanning real data. (dbt 1.8+)',
     catches: 'Logic bugs in transformations (a CASE, a window, a join) before they ever touch production data.',
     config: `unit_tests:
@@ -69,7 +69,7 @@ where r.refund_amount > o.order_total`,
     note: 'Data tests check the DATA; unit tests check the LOGIC. A unit test catches "refunds should be excluded" even when no refund exists in prod yet.',
   },
   {
-    id: 'contract', name: 'Model contracts', color: '#10B981',
+    id: 'contract', name: 'Model contracts', color: '#10B981', lang: 'yaml',
     what: 'Enforce a model\'s output schema (column names, types, constraints) at BUILD time. A mismatch fails before publishing.',
     catches: 'Breaking changes to a model other teams/BI tools consume — a dropped column or changed type.',
     config: `models:
@@ -165,7 +165,7 @@ function buildLab(container) {
           <div class="mx-cell"><div class="mx-k">What it catches</div><div class="mx-v">${t.catches}</div></div>
         </div>
         <div class="mx-k" style="margin-bottom:6px">How it's declared</div>
-        <div class="code-block" data-lang="yaml">${escapeHtml(t.config)}</div>
+        <div class="code-block" data-lang="${t.lang}">${escapeHtml(t.config)}</div>
         <div class="ex-interview" style="border-left-color:${t.color};background:${t.color}18;margin-top:14px">
           <span class="ex-iq-badge" style="color:${t.color}">Pro tip</span> ${t.note}</div>
       </div>`;

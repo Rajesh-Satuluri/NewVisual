@@ -311,7 +311,7 @@ function buildDetail(container) {
     </div>
     <div class="detail-section">
       <h3>What dbt documentation looks like</h3>
-      <div class="code-block"><span class="cmt"># models/marts/finance/schema.yml</span>
+      <div class="code-block" data-lang="yaml"><span class="cmt"># models/marts/finance/schema.yml</span>
 <span class="kw">models</span>:
   - <span class="fn">name</span>: fct_revenue
     <span class="fn">description</span>: <span class="str">|

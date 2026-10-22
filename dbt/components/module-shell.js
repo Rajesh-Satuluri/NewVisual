@@ -78,17 +78,30 @@ export function initTabs(container) {
 // carry manual highlight spans keep their markup — we only add the copy button.
 const SQL_KW = /\b(select|from|where|group by|order by|having|join|left join|right join|inner join|full join|cross join|on|as|with|union all|union|distinct|case|when|then|else|end|and|or|not|in|is|null|between|like|limit|over|partition by|create|replace|table|view|materialized|insert|into|values|update|set|delete|coalesce|cast|count|sum|avg|min|max|row_number|rank|dense_rank|lag|lead|desc|asc)\b/gi;
 
-function highlightCode(raw) {
+function highlightCode(raw, lang) {
   // Escape first so code text can never inject markup.
   let s = raw.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const stash = [];
   const keep = (cls, txt) => { stash.push(`<span class="${cls}">${txt}</span>`); return `\x00${stash.length - 1}\x00`; };
 
-  // Comments (-- … and # …), then strings, then Jinja, then keywords, numbers.
-  s = s.replace(/(--|#)[^\n]*/g, m => keep('cmt', m));
+  // Comments, then strings, then Jinja, then keywords, numbers.
+  // Comment syntax is language-aware:
+  //   yaml  → only `#`
+  //   bash  → `#`, or `--` ONLY when followed by whitespace (a `-- note`), so a
+  //           shell flag like `--select`/`--full-refresh` is never dimmed, while
+  //           inline SQL annotations in a console block still read as comments.
+  //   sql / jinja / text / default → `--` or `#`
+  let cmtRe;
+  if (lang === 'yaml') cmtRe = /#[^\n]*/g;
+  else if (lang === 'bash') cmtRe = /#[^\n]*|--(?=\s)[^\n]*/g;
+  else cmtRe = /(--|#)[^\n]*/g;
+  s = s.replace(cmtRe, m => keep('cmt', m));
   s = s.replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"/g, m => keep('str', m));
   s = s.replace(/\{\{[^]*?\}\}|\{%[^]*?%\}/g, m => keep('fn', m));
-  s = s.replace(SQL_KW, m => keep('kw', m));
+  // SQL keyword coloring only for SQL/Jinja. For yaml/bash/text it would mis-tint
+  // ordinary words (e.g. yaml `values:`, `table:`), so we keep just the
+  // always-correct comment/string/Jinja/number passes for those.
+  if (lang === 'sql' || lang === 'jinja') s = s.replace(SQL_KW, m => keep('kw', m));
   // Number pass must not match the digits inside existing \x00<index>\x00
   // placeholders, or it re-stashes them and corrupts the restore below.
   s = s.replace(/(?<!\x00)\b\d+\.?\d*\b(?!\x00)/g, m => keep('num', m));
@@ -113,7 +126,7 @@ export function injectCodeEnhancements(container) {
     // Highlight only plain-text blocks (skip ones with existing spans).
     const lang = block.dataset.lang;
     if (lang && !block.querySelector('span, button')) {
-      block.innerHTML = highlightCode(codeText);
+      block.innerHTML = highlightCode(codeText, lang);
     }
 
     if (lang) {

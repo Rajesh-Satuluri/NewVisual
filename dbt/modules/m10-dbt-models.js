@@ -485,20 +485,21 @@ function buildDetail(container) {
     <div class="detail-section">
       <h3>What a dbt model is</h3>
       <p>A dbt model is a single SQL <code>SELECT</code> statement in a <code>.sql</code> file. That's it. dbt takes your SELECT and wraps it in a CREATE TABLE or CREATE VIEW statement based on your materialization config. One file = one table or view in the warehouse.</p>
-      <div class="code-block">-- models/staging/stg_orders.sql
+      <div class="code-block" data-lang="sql">-- models/staging/stg_orders.sql
+-- A model is just a SELECT. dbt wraps it in CREATE TABLE/VIEW for you.
 SELECT
     order_id,
     customer_id,
-    order_total::DECIMAL(10,2)  AS order_total,
+    order_total::DECIMAL(10,2)  AS order_total,   -- cast raw strings to real types
     created_at::TIMESTAMP       AS created_at,
     status
-FROM {{ source('raw', 'orders') }}
-WHERE order_id IS NOT NULL</div>
+FROM {{ source('raw', 'orders') }}                -- source() = declared raw table
+WHERE order_id IS NOT NULL                        -- light cleanup lives in staging</div>
     </div>
     <div class="detail-section">
       <h3>The ref() function: the magic that builds the DAG</h3>
       <p>Every time you write <code>{{ ref('stg_orders') }}</code>, dbt records a dependency edge. When you run <code>dbt run</code>, dbt compiles the full DAG from all ref() calls and executes models in topological order. No model runs before its dependencies finish.</p>
-      <div class="code-block">-- models/intermediate/int_order_items.sql
+      <div class="code-block" data-lang="sql">-- models/intermediate/int_order_items.sql
 SELECT
     o.order_id,
     o.customer_id,
