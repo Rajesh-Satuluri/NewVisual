@@ -22,6 +22,42 @@
   };
   var LIB_KEYS = ["summaries", "skills", "experiences", "projects", "education", "awards"];
 
+  /* ---------- templates & theming (ATS-safe, single-column) ---------- */
+  var THEME_TEMPLATES = {
+    classic:  { label: "Classic",  desc: "Centered name, underlined headings" },
+    modern:   { label: "Modern",   desc: "Left-aligned, accent name, bold rules" },
+    compact:  { label: "Compact",  desc: "Tighter spacing, fits more content" }
+  };
+  /* ATS-safe font stacks. The `docx` name is what Word embeds. */
+  var THEME_FONTS = {
+    calibri:  { label: "Calibri",  css: '"Calibri","Segoe UI",Candara,Arial,sans-serif', docx: "Calibri" },
+    arial:    { label: "Arial",    css: 'Arial,"Helvetica Neue",Helvetica,sans-serif',   docx: "Arial" },
+    georgia:  { label: "Georgia",  css: 'Georgia,"Times New Roman",serif',                docx: "Georgia" },
+    garamond: { label: "Garamond", css: '"EB Garamond",Garamond,"Times New Roman",serif', docx: "Garamond" },
+    times:    { label: "Times",    css: '"Times New Roman",Times,serif',                  docx: "Times New Roman" }
+  };
+  var THEME_ACCENTS = [
+    { id: "navy",     label: "Navy",     hex: "#1f3b66" },
+    { id: "teal",     label: "Teal",     hex: "#1f7d92" },
+    { id: "blue",     label: "Blue",     hex: "#2456b3" },
+    { id: "green",    label: "Green",    hex: "#206a4e" },
+    { id: "burgundy", label: "Burgundy", hex: "#7a2234" },
+    { id: "slate",    label: "Slate",    hex: "#3a4452" },
+    { id: "black",    label: "Black",    hex: "#1a1a1a" }
+  ];
+  var THEME_DENSITIES = { compact: 0.92, normal: 1, relaxed: 1.08 };
+  function accentHex(id) { for (var i = 0; i < THEME_ACCENTS.length; i++) if (THEME_ACCENTS[i].id === id) return THEME_ACCENTS[i].hex; return THEME_ACCENTS[1].hex; }
+  function normalizeTheme(t) {
+    t = t && typeof t === "object" ? t : {};
+    return {
+      template: THEME_TEMPLATES[t.template] ? t.template : "classic",
+      font:     THEME_FONTS[t.font] ? t.font : "calibri",
+      accent:   /^#[0-9a-fA-F]{6}$/.test(t.accent) ? t.accent : (t.accent && accentHex(t.accent)) || "#1f7d92",
+      density:  THEME_DENSITIES[t.density] ? t.density : "normal"
+    };
+  }
+  function activeTheme() { var r = activeResume(); return (r && r.theme) || normalizeTheme(null); }
+
   /* ---------- utils ---------- */
   function uid() { return "id" + Math.random().toString(36).slice(2, 9); }
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -100,6 +136,23 @@
     };
   }
 
+  /* A blank resume scaffold for brand-new users — the structure is there to
+     fill in, but NOTHING is pre-written, so demo text can never be mistaken for
+     the user's own data. */
+  function emptyContent() {
+    return {
+      profile: { name: "", title: "", contacts: [
+        { icon: "✉", value: "" }, { icon: "☎", value: "" }, { icon: "⚲", value: "" }
+      ] },
+      sections: [
+        { id: uid(), title: "Professional Summary", type: "text", text: "" },
+        { id: uid(), title: "Technical Skills", type: "labeled", items: [ { id: uid(), label: "", value: "" } ] },
+        { id: uid(), title: "Professional Experience", type: "entries", items: [ { id: uid(), heading: "", role: "", date: "", meta: "", bullets: [""] } ] },
+        { id: uid(), title: "Education", type: "entries", items: [ { id: uid(), heading: "", role: "", date: "", meta: "", bullets: [] } ] }
+      ]
+    };
+  }
+
   function emptyLibrary() { return { summaries: [], skills: [], experiences: [], projects: [], education: [], awards: [] }; }
 
   /* build the library reference pool from a set of sections (deep copies) */
@@ -122,6 +175,13 @@
     var c = sampleContent();
     var resume = { id: uid(), name: "My Resume", targetRole: "", profile: c.profile, sections: c.sections };
     return { library: libraryFromSections(c.sections), resumes: [resume], activeResumeId: resume.id, aiAssist: { fields: {}, jd: "" } };
+  }
+  /* What a first-time visitor gets: a blank resume and an onboarding prompt —
+     not a stranger's pre-filled data. */
+  function firstRunStore() {
+    var c = emptyContent();
+    var resume = { id: uid(), name: "My Resume", targetRole: "", profile: c.profile, sections: c.sections };
+    return { library: emptyLibrary(), resumes: [resume], activeResumeId: resume.id, aiAssist: { fields: {}, jd: "" }, onboarded: false };
   }
 
   /* ---------- migrations ---------- */
@@ -172,7 +232,7 @@
     try { var r3 = localStorage.getItem(KEY3); if (r3) return normalize(JSON.parse(r3)); } catch (e) {}
     try { var r2 = localStorage.getItem(KEY2); if (r2) { var m = migrateV2(JSON.parse(r2)); persist(m); return m; } } catch (e) {}
     try { var r1 = localStorage.getItem(KEY1); if (r1) { var m1 = migrateV1(JSON.parse(r1)); persist(m1); return m1; } } catch (e) {}
-    return sampleStore();
+    return firstRunStore();
   }
   function normalize(s) {
     if (!s || !Array.isArray(s.resumes) || !s.resumes.length) return sampleStore();
@@ -182,6 +242,7 @@
       r.profile = r.profile || { name: "", title: "", contacts: [] };
       r.profile.contacts = r.profile.contacts || [];
       r.sections = r.sections || [];
+      r.theme = normalizeTheme(r.theme);
       /* one-time repair: ensure a Professional Summary section exists
          (older migrations could drop it). Guarded so an intentional delete
          is not undone on the next load. */
@@ -200,6 +261,7 @@
       s.aiAssist.fields.other = (s.aiAssist.fields.other ? s.aiAssist.fields.other + "\n\n" : "") + s.aiAssist.vault;
     }
     delete s.aiAssist.vault;
+    if (s.onboarded === undefined) s.onboarded = true;   /* existing data = already past onboarding */
     if (!Array.isArray(s.snippets)) s.snippets = [];
     if (!Array.isArray(s.applications)) s.applications = [];
     if (!s.coverLetter || typeof s.coverLetter !== "object") s.coverLetter = { company: "", manager: "", role: "", body: "" };
@@ -367,6 +429,23 @@
      RESUMES TAB — pick a resume and edit ALL its content
      ============================================================ */
   function renderResumes(panel) {
+    /* first-run onboarding — only for brand-new visitors (no stored data) */
+    if (store.onboarded === false) panel.appendChild(onboardingCard());
+
+    /* sample-content banner — demo data is always clearly marked so it's never
+       mistaken for the user's own */
+    var act = activeResume();
+    if (act && act.isSample) {
+      var sb = el("div", "sample-banner");
+      sb.appendChild(elText("span", "sb-icon", "🧪"));
+      var sbt = el("div", "sb-text");
+      sbt.appendChild(elText("strong", null, "This is sample content."));
+      sbt.appendChild(elText("span", null, " It's here to show the structure — edit it into your own, or delete it. Nothing here is your real data."));
+      sb.appendChild(sbt);
+      sb.appendChild(miniBtn("✓ Make it mine", function () { act.isSample = false; renderApp(); touch(); flash("Marked as your own resume."); }));
+      panel.appendChild(sb);
+    }
+
     /* switcher */
     panel.appendChild(elText("div", "group-label", "Your resumes — click to edit"));
     var switcher = el("div", "resume-switcher");
@@ -374,6 +453,7 @@
       var isActive = r.id === store.activeResumeId;
       var chip = el("button", "resume-chip" + (isActive ? " active" : "")); chip.type = "button";
       if (isActive) chip.appendChild(elText("span", "rc-check", "✓ Editing"));
+      if (r.isSample) chip.appendChild(elText("span", "rc-sample", "SAMPLE"));
       chip.appendChild(elText("span", "rc-name", r.name || "Untitled"));
       if (r.targetRole) chip.appendChild(elText("span", "rc-role", r.targetRole));
       var arch = el("span", "rc-archive"); arch.textContent = "Archive"; arch.title = "Move to archive";
@@ -428,6 +508,9 @@
       var w = el("div"); w.style.marginTop = "4px"; w.appendChild(del); body.appendChild(w);
     }));
 
+    /* design & template */
+    panel.appendChild(designBlock(r));
+
     /* header (identity) */
     panel.appendChild(headerBlock(r));
 
@@ -442,6 +525,51 @@
     }, "js-add"));
     foot.appendChild(miniBtn("📚 Add from Library…", function () { openLibraryInsert(r); }, "js-add"));
     panel.appendChild(foot);
+  }
+
+  function designBlock(r) {
+    r.theme = normalizeTheme(r.theme);
+    if (collapsed["r.design"] === undefined) collapsed["r.design"] = true;
+    return blockEl("Design & template", "r.design", function (body) {
+      body.appendChild(elText("p", "hint", "Every template is single-column and ATS-safe. Changes apply to this resume's preview, PDF, and Word export."));
+      /* template */
+      body.appendChild(elText("div", "design-label", "Template"));
+      var tg = el("div", "tmpl-grid");
+      Object.keys(THEME_TEMPLATES).forEach(function (key) {
+        var t = THEME_TEMPLATES[key];
+        var b = el("button", "tmpl-opt" + (r.theme.template === key ? " sel" : "")); b.type = "button";
+        b.appendChild(elText("span", "tmpl-name", t.label));
+        b.appendChild(elText("span", "tmpl-desc", t.desc));
+        b.addEventListener("click", function () { r.theme.template = key; renderApp(); touch(); });
+        tg.appendChild(b);
+      });
+      body.appendChild(tg);
+      /* font + density side by side */
+      var row = el("div", "row-2");
+      var fontField = el("div", "field");
+      fontField.appendChild(elText("label", null, "Font (ATS-safe)"));
+      var fsel = el("select", "inp");
+      Object.keys(THEME_FONTS).forEach(function (key) { var o = el("option"); o.value = key; o.textContent = THEME_FONTS[key].label; if (r.theme.font === key) o.selected = true; fsel.appendChild(o); });
+      fsel.addEventListener("change", function () { r.theme.font = fsel.value; renderApp(); touch(); });
+      fontField.appendChild(fsel); row.appendChild(fontField);
+      var dField = el("div", "field");
+      dField.appendChild(elText("label", null, "Density"));
+      var dsel = el("select", "inp");
+      [["compact", "Compact"], ["normal", "Normal"], ["relaxed", "Relaxed"]].forEach(function (o) { var op = el("option"); op.value = o[0]; op.textContent = o[1]; if (r.theme.density === o[0]) op.selected = true; dsel.appendChild(op); });
+      dsel.addEventListener("change", function () { r.theme.density = dsel.value; renderApp(); touch(); });
+      dField.appendChild(dsel); row.appendChild(dField);
+      body.appendChild(row);
+      /* accent */
+      body.appendChild(elText("div", "design-label", "Accent color"));
+      var sw = el("div", "accent-row");
+      THEME_ACCENTS.forEach(function (a) {
+        var b = el("button", "accent-dot" + (r.theme.accent === a.hex ? " sel" : "")); b.type = "button";
+        b.style.background = a.hex; b.title = a.label; b.setAttribute("aria-label", "Accent " + a.label);
+        b.addEventListener("click", function () { r.theme.accent = a.hex; renderApp(); touch(); });
+        sw.appendChild(b);
+      });
+      body.appendChild(sw);
+    });
   }
 
   function headerBlock(r) {
@@ -638,6 +766,29 @@
     if (!base) base = "Satuluri_Rajesh_Resume";
     var company = ((r && r.targetRole) || "").trim().replace(/[^A-Za-z0-9]+/g, "");
     return company ? base + "_" + company : base;
+  }
+  /* ---------- onboarding (first run) ---------- */
+  function onboardingCard() {
+    var card = el("div", "onboard-card");
+    card.appendChild(elText("div", "onboard-title", "👋 Welcome to Resume Builder"));
+    card.appendChild(elText("p", "onboard-lead", "Free, private, and 100% in your browser — nothing is uploaded. Build a clean, ATS-friendly resume, tailor it to any job, and export to PDF or Word."));
+    card.appendChild(elText("p", "onboard-lead", "Start from a blank resume, or load a clearly-marked sample to see how everything fits together."));
+    var row = el("div", "onboard-actions");
+    row.appendChild(miniBtn("✍ Start blank", function () { store.onboarded = true; renderApp(); touch(); flash("Blank resume ready — fill in your details."); }, "btn-primary"));
+    row.appendChild(miniBtn("🧪 Load a sample", function () { loadSample(); }));
+    card.appendChild(row);
+    return card;
+  }
+  /* Replace the active (empty) resume with marked sample content. */
+  function loadSample() {
+    var c = sampleContent(), r = activeResume();
+    r.profile = { name: c.profile.name, title: c.profile.title, contacts: clone(c.profile.contacts) };
+    r.sections = clone(c.sections);
+    r.sections.forEach(function (s) { s.id = uid(); (s.items || []).forEach(function (it) { it.id = uid(); }); });
+    r.isSample = true;
+    if (!store.library || !LIB_KEYS.some(function (k) { return (store.library[k] || []).length; })) store.library = libraryFromSections(c.sections);
+    store.onboarded = true;
+    renderApp(); touch(); flash("Sample loaded — it's marked so you don't mistake it for your own.");
   }
   function newResume() {
     // start from the full standard template (all sections present) so a new
@@ -2174,17 +2325,29 @@
   /* ============================================================
      PREVIEW (active resume)
      ============================================================ */
+  function applyThemeToPage(page, t) {
+    t = normalizeTheme(t);
+    page.setAttribute("data-template", t.template);
+    page.setAttribute("data-density", t.density);
+    page.style.setProperty("--r-accent", t.accent);
+    page.style.setProperty("--r-font", THEME_FONTS[t.font].css);
+  }
   function renderPreview() {
     var page = document.getElementById("page");
     var r = activeResume();
     var label = document.getElementById("previewLabel");
     if (label) label.textContent = "Preview · A4 · " + (r ? (r.name || "Untitled") : "");
     if (!r) { page.innerHTML = ""; return; }
+    applyThemeToPage(page, r.theme);
     var p = r.profile;
     var h = '<div class="r-name">' + esc(p.name || "Your Name") + "</div>";
     if (p.title) h += '<div class="r-title">' + esc(p.title) + "</div>";
     var contacts = (p.contacts || []).filter(function (c) { return c.value; });
-    if (contacts.length) h += '<div class="r-contacts">' + contacts.map(function (c) { return '<span class="ico">' + esc(c.icon) + "</span>" + esc(c.value); }).join('<span class="sep">|</span>') + "</div>";
+    if (contacts.length) h += '<div class="r-contacts">' + contacts.map(function (c) {
+      var t = contactTarget(c.value);
+      var val = t ? '<a href="' + esc(t) + '" target="_blank" rel="noopener noreferrer">' + esc(c.value) + "</a>" : esc(c.value);
+      return '<span class="ico">' + esc(c.icon) + "</span>" + val;
+    }).join('<span class="sep">|</span>') + "</div>";
 
     r.sections.forEach(function (sec) {
       h += '<div class="r-section"><div class="r-sec-title">' + esc(sec.title || "Section") + "</div>";
@@ -2330,6 +2493,7 @@
     if (opt.italic) rpr += "<w:i/>";
     if (opt.size) rpr += '<w:sz w:val="' + opt.size + '"/>';
     if (opt.color) rpr += '<w:color w:val="' + opt.color + '"/>';
+    if (opt.under) rpr += '<w:u w:val="single"/>';
     if (opt.caps) rpr += "<w:caps/>";
     return "<w:r>" + (rpr ? "<w:rPr>" + rpr + "</w:rPr>" : "") +
       '<w:t xml:space="preserve">' + xmlEsc(r.t) + "</w:t></w:r>";
@@ -2360,11 +2524,47 @@
   }
   var PARA_OVERHEAD_PT = 0.4;    /* small flat per-paragraph cushion for layout rounding */
 
+  /* Turn a contact value into a hyperlink target, or null for phone/location/
+     plain text. Shared by the preview and the DOCX export so they agree. */
+  function contactTarget(value) {
+    var v = (value || "").trim();
+    if (!v) return null;
+    if (EMAIL_RE.test(v)) return "mailto:" + v;
+    if (/^https?:\/\//i.test(v)) return v;
+    if (/^www\./i.test(v)) return "https://" + v;
+    if (!/\s/.test(v) && !/@/.test(v) && /^[a-z0-9.\-\/]+\.(com|io|dev|net|org|co|ai|me|in|app|xyz|us|uk|tech)\b/i.test(v)) return "https://" + v;
+    return null;   /* phone, location, plain text */
+  }
+  function contactLinks(contacts) {
+    var out = [];
+    (contacts || []).forEach(function (c, i) { var t = contactTarget(c.value); if (t) out.push({ idx: i, rid: "rId" + (100 + i), target: t }); });
+    return out;
+  }
+  function contactsRunXml(contacts, size, accent) {
+    var links = contactLinks(contacts), byIdx = {};
+    links.forEach(function (l) { byIdx[l.idx] = l; });
+    var parts = [];
+    contacts.forEach(function (c, i) {
+      if (i) parts.push(runXml({ t: "   |   " }, { size: size, color: "999999" }));
+      var l = byIdx[i];
+      if (l) parts.push('<w:hyperlink r:id="' + l.rid + '">' + runXml({ t: c.value }, { size: size, color: accent, under: true }) + '</w:hyperlink>');
+      else parts.push(runXml({ t: c.value }, { size: size, color: "555555" }));
+    });
+    return parts.join("");
+  }
+
   /* Build the <w:body> paragraphs at a given typographic scale, and return
      both the XML and an estimated total content height (points). */
   function buildBody(r, scale, fillTwips) {
     var p = r.profile || {}, body = [], hPt = 0;
     fillTwips = fillTwips || 0;                                                    /* extra space spread before each section to fill the page */
+    /* theme → OOXML: accent color on title & headings (and the name in Modern),
+       header alignment, matching the on-screen preview exactly. */
+    var theme = normalizeTheme(r.theme);
+    var accent = theme.accent.replace("#", "").toUpperCase();
+    var nameAlign = theme.template === "modern" ? "left" : "center";
+    var nameColor = theme.template === "modern" ? accent : "111111";
+    var ruleColor = theme.template === "modern" ? accent : "999999";
     function sz(base) { return Math.max(15, Math.round(base * scale)); }           /* half-points, floor 7.5pt */
     function sp(base) { return Math.max(0, Math.round(base * scale)); }            /* twips */
     function add(xml, sizeHalfPt, text, widthTwips, before, after, extraPt) {
@@ -2378,26 +2578,27 @@
        ->9.5pt, etc., so the .docx matches what the preview and PDF show. */
     /* name */
     var nSize = sz(36);
-    add(para(runXml({ t: p.name || "Your Name", b: true }, { size: nSize, bold: true }),
-      pPr('<w:jc w:val="center"/>' + spacing(0, sp(40)))), nSize, p.name || "Your Name", USABLE_W, 0, sp(40));
+    add(para(runXml({ t: p.name || "Your Name", b: true }, { size: nSize, bold: true, color: nameColor }),
+      pPr('<w:jc w:val="' + nameAlign + '"/>' + spacing(0, sp(40)))), nSize, p.name || "Your Name", USABLE_W, 0, sp(40));
     /* title */
     if (p.title) { var tSize = sz(24);
-      add(para(runXml({ t: p.title }, { size: tSize, color: "444444" }),
-        pPr('<w:jc w:val="center"/>' + spacing(0, sp(30)))), tSize, p.title, USABLE_W, 0, sp(30)); }
-    /* contacts */
+      add(para(runXml({ t: p.title }, { size: tSize, color: accent }),
+        pPr('<w:jc w:val="' + nameAlign + '"/>' + spacing(0, sp(30)))), tSize, p.title, USABLE_W, 0, sp(30)); }
+    /* contacts (hyperlinked where the value is an email or URL) */
     var contacts = (p.contacts || []).filter(function (c) { return c.value; });
     if (contacts.length) {
-      var joined = contacts.map(function (c) { return c.value; }).join("   |   "), cSize = sz(19);
-      add(para(runXml({ t: joined }, { size: cSize, color: "555555" }),
-        pPr('<w:jc w:val="center"/>' + spacing(0, sp(110)))), cSize, joined, USABLE_W, 0, sp(110));
+      var cSize = sz(19);
+      var cInner = contactsRunXml(contacts, cSize, accent);
+      var joined = contacts.map(function (c) { return c.value; }).join("   |   ");
+      add(para(cInner, pPr('<w:jc w:val="' + nameAlign + '"/>' + spacing(0, sp(110)))), cSize, joined, USABLE_W, 0, sp(110));
     }
 
     /* sections */
     (r.sections || []).forEach(function (sec) {
-      var hdBdr = '<w:pBdr><w:bottom w:val="single" w:sz="6" w:space="2" w:color="999999"/></w:pBdr>';
+      var hdBdr = '<w:pBdr><w:bottom w:val="single" w:sz="6" w:space="2" w:color="' + ruleColor + '"/></w:pBdr>';
       var hSize = sz(19);
       var hBefore = sp(110) + fillTwips;
-      add(para(runXml({ t: sec.title || "Section" }, { bold: true, size: hSize, caps: true, color: "222222" }),
+      add(para(runXml({ t: sec.title || "Section" }, { bold: true, size: hSize, caps: true, color: accent }),
         pPr(hdBdr + spacing(hBefore, sp(44)))), hSize, sec.title || "Section", USABLE_W, hBefore, sp(44), 2.5);
 
       if (sec.type === "text") {
@@ -2454,7 +2655,8 @@
     var over = USABLE_H_PT * 0.96;                   /* shrink target (safety headroom) */
     var fillTarget = USABLE_H_PT * 0.96;             /* fill most of the page; small cushion keeps it safely on one page */
     var FLOOR = 0.55;
-    var scale = 1, built = buildBody(r, scale, 0);
+    var base = THEME_DENSITIES[normalizeTheme(r.theme).density] || 1;   /* density sets the baseline scale */
+    var scale = base, built = buildBody(r, scale, 0);
     if (built.hPt > over) {
       /* overflow: step down gradually to the largest scale that still fits */
       for (var pass = 0; pass < 24 && built.hPt > over && scale > FLOOR; pass++) {
@@ -2467,10 +2669,11 @@
       var slackPt = fillTarget - built.hPt;
       var FILL_CAP_TWIPS = 480;                      /* ~24pt, mirrors the preview's per-section fill cap */
       var fillTwips = Math.min(FILL_CAP_TWIPS, Math.max(0, Math.round((slackPt / secs) * 20)));
-      built = buildBody(r, 1, fillTwips);
+      built = buildBody(r, base, fillTwips);
     }
     return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-      '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
+      '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ' +
+      'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
       '<w:body>' + built.xml + '</w:body></w:document>';
   }
 
@@ -2489,14 +2692,17 @@
       '</Relationships>';
     /* compact defaults: Calibri 10pt, single line spacing, no space-after —
        this (not Word's looser Normal style) is what keeps the resume to one page */
+    var links = contactLinks(((r.profile || {}).contacts || []).filter(function (c) { return c.value; }));
     var docRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
       '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
       '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' +
+      links.map(function (l) { return '<Relationship Id="' + l.rid + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="' + xmlEsc(l.target) + '" TargetMode="External"/>'; }).join("") +
       '</Relationships>';
+    var docxFont = (THEME_FONTS[normalizeTheme(r.theme).font] || THEME_FONTS.calibri).docx;
     var styles = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
       '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
       '<w:docDefaults><w:rPrDefault><w:rPr>' +
-      '<w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:sz w:val="20"/><w:szCs w:val="20"/>' +
+      '<w:rFonts w:ascii="' + xmlEsc(docxFont) + '" w:hAnsi="' + xmlEsc(docxFont) + '" w:cs="' + xmlEsc(docxFont) + '"/><w:sz w:val="20"/><w:szCs w:val="20"/>' +
       '</w:rPr></w:rPrDefault><w:pPrDefault><w:pPr>' +
       '<w:spacing w:after="0" w:line="240" w:lineRule="auto"/>' +
       '</w:pPr></w:pPrDefault></w:docDefaults>' +
