@@ -19,8 +19,14 @@
         "Given `customers` (`customer_id`, `name`) and `orders` (`order_id`, `customer_id`, `order_amount`), return one row per order enriched with the customer's `name`. Use an **inner** join on `customer_id` so only orders that have a matching customer (and customers who have orders) survive.",
       examples: [
         {
-          input: "customers: (1, 'Mira'), (2, 'Kabir'); orders: (10, 1, 200), (11, 3, 90)",
-          output: "one row: (10, 1, 200, 'Mira')",
+          inputs: [
+            { name: "customers", columns: ["customer_id", "name"],
+              rows: [[1, "Mira"], [2, "Kabir"]] },
+            { name: "orders", columns: ["order_id", "customer_id", "order_amount"],
+              rows: [[10, 1, 200], [11, 3, 90]] }
+          ],
+          output: { columns: ["order_id", "customer_id", "name", "order_amount"],
+            rows: [[10, 1, "Mira", 200]] },
           reasoning: "Order 10 matches customer 1. Order 11 (customer 3) has no matching customer, and customer 2 has no order, so both drop under inner join."
         }
       ],
@@ -80,8 +86,14 @@
         "Keep **every** customer, attaching their order details where they exist. Use a `left` (left outer) join from `customers` to `orders` on `customer_id`. Customers with no orders still appear, with null order columns.",
       examples: [
         {
-          input: "customers: (1, 'Mira'), (2, 'Kabir'); orders: (10, 1, 200)",
-          output: "(1, 'Mira', 10, 200) and (2, 'Kabir', null, null)",
+          inputs: [
+            { name: "customers", columns: ["customer_id", "name"],
+              rows: [[1, "Mira"], [2, "Kabir"]] },
+            { name: "orders", columns: ["order_id", "customer_id", "order_amount"],
+              rows: [[10, 1, 200]] }
+          ],
+          output: { columns: ["customer_id", "name", "order_id", "order_amount"],
+            rows: [[1, "Mira", 10, 200], [2, "Kabir", null, null]] },
           reasoning: "Kabir has no order, so he is retained with nulls in the order columns — that is the difference from an inner join."
         }
       ],
@@ -138,8 +150,14 @@
         "Return the customers who appear in `customers` but have **no** matching row in `orders`. A `left_anti` join keeps only the left rows that fail to match — the clean, null-safe way to express 'not in'.",
       examples: [
         {
-          input: "customers: (1, 'Mira'), (2, 'Kabir'); orders: (10, 1, 200)",
-          output: "(2, 'Kabir')",
+          inputs: [
+            { name: "customers", columns: ["customer_id", "name"],
+              rows: [[1, "Mira"], [2, "Kabir"]] },
+            { name: "orders", columns: ["order_id", "customer_id", "order_amount"],
+              rows: [[10, 1, 200]] }
+          ],
+          output: { columns: ["customer_id", "name"],
+            rows: [[2, "Kabir"]] },
           reasoning: "Customer 1 has an order so is excluded; customer 2 has none, so the anti-join keeps only her — and it returns left columns only."
         }
       ],
@@ -199,8 +217,14 @@
         "Find **orphan** orders — rows in `orders` whose `customer_id` has no match in `customers` (a referential-integrity check). Put `orders` on the left of a `left_anti` join so unmatched orders are returned.",
       examples: [
         {
-          input: "orders: (10, 1, 200), (11, 3, 90); customers: (1, 'Mira'), (2, 'Kabir')",
-          output: "(11, 3, 90)",
+          inputs: [
+            { name: "orders", columns: ["order_id", "customer_id", "order_amount"],
+              rows: [[10, 1, 200], [11, 3, 90]] },
+            { name: "customers", columns: ["customer_id", "name"],
+              rows: [[1, "Mira"], [2, "Kabir"]] }
+          ],
+          output: { columns: ["order_id", "customer_id", "order_amount"],
+            rows: [[11, 3, 90]] },
           reasoning: "Order 11 references customer 3, who is absent from customers, so the anti-join keeps it. Order 10 matches customer 1 and is dropped."
         }
       ],
@@ -257,8 +281,14 @@
         "Attach each employee's department **name** by joining `employees` (`employee_id`, `name`, `department_id`) to a small `departments` lookup (`department_id`, `department_name`) on `department_id`. This is a classic large-fact-to-small-dimension join.",
       examples: [
         {
-          input: "employees: (1, 'Nadia', 10), (2, 'Omar', 20); departments: (10, 'Engineering'), (20, 'Sales')",
-          output: "(1, 'Nadia', 'Engineering'), (2, 'Omar', 'Sales')",
+          inputs: [
+            { name: "employees", columns: ["employee_id", "name", "department_id"],
+              rows: [[1, "Nadia", 10], [2, "Omar", 20]] },
+            { name: "departments", columns: ["department_id", "department_name"],
+              rows: [[10, "Engineering"], [20, "Sales"]] }
+          ],
+          output: { columns: ["employee_id", "name", "department_name"],
+            rows: [[1, "Nadia", "Engineering"], [2, "Omar", "Sales"]] },
           reasoning: "Each employee's department_id is matched to the department row and the name is attached."
         }
       ],
@@ -318,8 +348,14 @@
         "Join `orders` (`order_id`, `product_id`, `order_amount`) to `products` (`product_id`, `category`) to attach each order's category, then compute **total revenue per category** by summing `order_amount` within each category.",
       examples: [
         {
-          input: "orders: (1, p1, 200), (2, p2, 50), (3, p1, 100); products: (p1, 'Books'), (p2, 'Toys')",
-          output: "Books -> 300, Toys -> 50",
+          inputs: [
+            { name: "orders", columns: ["order_id", "product_id", "order_amount"],
+              rows: [[1, "p1", 200], [2, "p2", 50], [3, "p1", 100]] },
+            { name: "products", columns: ["product_id", "category"],
+              rows: [["p1", "Books"], ["p2", "Toys"]] }
+          ],
+          output: { columns: ["category", "total_revenue"],
+            rows: [["Books", 300], ["Toys", 50]] },
           reasoning: "Orders 1 and 3 map to Books (200+100=300); order 2 maps to Toys (50)."
         }
       ],
@@ -390,8 +426,16 @@
         "Join three DataFrames — `customers` (`customer_id`, `name`), `orders` (`order_id`, `customer_id`, `product_id`, `quantity`), and `products` (`product_id`, `price`) — to compute each customer's **total revenue**, where a line's revenue is `quantity * price`. Group the result by customer.",
       examples: [
         {
-          input: "customers: (1,'Mira'); orders: (10,1,p1,2),(11,1,p2,1); products: (p1,50),(p2,30)",
-          output: "Mira -> 130",
+          inputs: [
+            { name: "customers", columns: ["customer_id", "name"],
+              rows: [[1, "Mira"]] },
+            { name: "orders", columns: ["order_id", "customer_id", "product_id", "quantity"],
+              rows: [[10, 1, "p1", 2], [11, 1, "p2", 1]] },
+            { name: "products", columns: ["product_id", "price"],
+              rows: [["p1", 50], ["p2", 30]] }
+          ],
+          output: { columns: ["customer_id", "name", "total_revenue"],
+            rows: [[1, "Mira", 130]] },
           reasoning: "Line 10: 2*50=100; line 11: 1*30=30; Mira's total = 130."
         }
       ],
@@ -467,8 +511,14 @@
         "Join two DataFrames whose join keys have **different names** — e.g. `orders_ext` has `cust_id` while `customers` has `customer_id`. Because there is no shared column name, join on an explicit equality **expression** rather than a string key, then drop the duplicate key.",
       examples: [
         {
-          input: "orders_ext: (10, cust_id=1, 200); customers: (customer_id=1, 'Mira')",
-          output: "(10, 1, 200, 'Mira')  (after dropping the duplicate key)",
+          inputs: [
+            { name: "orders_ext", columns: ["order_id", "cust_id", "order_amount"],
+              rows: [[10, 1, 200]] },
+            { name: "customers", columns: ["customer_id", "name"],
+              rows: [[1, "Mira"]] }
+          ],
+          output: { columns: ["order_id", "cust_id", "order_amount", "name"],
+            rows: [[10, 1, 200, "Mira"]] },
           reasoning: "cust_id (1) matches customer_id (1); the expression join keeps BOTH key columns, so one is dropped."
         }
       ],
