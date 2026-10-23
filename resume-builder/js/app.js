@@ -67,6 +67,42 @@
   function rich(s) { return esc(s).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>"); }
   function byId(arr, id) { for (var i = 0; i < arr.length; i++) if (arr[i].id === id) return arr[i]; return null; }
   function moveIn(arr, idx, dir) { var j = idx + dir; if (j < 0 || j >= arr.length) return false; var t = arr[idx]; arr[idx] = arr[j]; arr[j] = t; return true; }
+
+  /* ---------- drag-and-drop list reordering ----------
+     Reorders an array by dragging a handle. `group` scopes drops so items only
+     drop within their own list (sections to sections, a job's bullets to that
+     same job). The ▲▼ buttons remain as a keyboard/click fallback. */
+  var dragState = null;
+  function clearDragMarks() { var ns = document.querySelectorAll(".drag-over"); for (var i = 0; i < ns.length; i++) ns[i].classList.remove("drag-over"); }
+  function makeDragItem(node, handle, arr, idx, group, after) {
+    handle.setAttribute("draggable", "true");
+    handle.classList.add("drag-handle");
+    handle.setAttribute("aria-label", "Drag to reorder");
+    handle.title = "Drag to reorder";
+    handle.addEventListener("dragstart", function (e) {
+      dragState = { arr: arr, from: idx, group: group };
+      node.classList.add("dragging");
+      try { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", String(idx)); } catch (_) {}
+    });
+    handle.addEventListener("dragend", function () { node.classList.remove("dragging"); clearDragMarks(); dragState = null; });
+    node.addEventListener("dragover", function (e) {
+      if (!dragState || dragState.group !== group || dragState.arr !== arr) return;
+      e.preventDefault(); try { e.dataTransfer.dropEffect = "move"; } catch (_) {}
+      if (dragState.from !== idx) node.classList.add("drag-over");
+    });
+    node.addEventListener("dragleave", function () { node.classList.remove("drag-over"); });
+    node.addEventListener("drop", function (e) {
+      if (!dragState || dragState.group !== group || dragState.arr !== arr) return;
+      e.preventDefault(); e.stopPropagation();
+      var from = dragState.from, to = idx;
+      node.classList.remove("drag-over"); dragState = null;
+      if (from === to || from < 0 || from >= arr.length) return;
+      var item = arr.splice(from, 1)[0];
+      arr.splice(to, 0, item);
+      renderApp(); touch();
+      if (after) after();
+    });
+  }
   function autoGrow(ta) { ta.style.height = "auto"; ta.style.height = Math.max(ta.scrollHeight, 32) + "px"; }
   function growAll(root) { var t = (root || document).querySelectorAll("textarea.inp:not(.ai-textarea)"); for (var i = 0; i < t.length; i++) autoGrow(t[i]); }
   function classifyLib(section) {
@@ -243,6 +279,7 @@
       r.profile.contacts = r.profile.contacts || [];
       r.sections = r.sections || [];
       r.theme = normalizeTheme(r.theme);
+      r.pages = (r.pages === 2) ? 2 : 1;
       /* one-time repair: ensure a Professional Summary section exists
          (older migrations could drop it). Guarded so an intentional delete
          is not undone on the next load. */
@@ -473,6 +510,9 @@
     actions.appendChild(miniBtn("⊖ Collapse all", function () { setAllCollapsed(true); }));
     panel.appendChild(actions);
 
+    /* readiness dashboard — a one-glance summary of this resume's state */
+    panel.appendChild(readinessBlock(r));
+
     /* archived resumes — tucked away, restorable */
     var archivedList = store.resumes.filter(function (r) { return r.archived; });
     if (archivedList.length) {
@@ -523,6 +563,12 @@
       r.sections.push({ id: uid(), title: "New Section", type: "entries", items: [] }); renderApp(); touch();
       var ed = document.getElementById("editor"); ed.scrollTop = ed.scrollHeight;
     }, "js-add"));
+    foot.appendChild(miniBtn("📜 Add Certifications", function () {
+      if (findSection(r, "Certifications", "entries")) { flash("You already have a Certifications section."); return; }
+      r.sections.push({ id: uid(), title: "Certifications", type: "entries", items: [ { id: uid(), heading: "", role: "", date: "", meta: "", bullets: [] } ] });
+      renderApp(); touch();
+      var ed = document.getElementById("editor"); ed.scrollTop = ed.scrollHeight;
+    }, "js-add"));
     foot.appendChild(miniBtn("📚 Add from Library…", function () { openLibraryInsert(r); }, "js-add"));
     panel.appendChild(foot);
   }
@@ -559,6 +605,17 @@
       dsel.addEventListener("change", function () { r.theme.density = dsel.value; renderApp(); touch(); });
       dField.appendChild(dsel); row.appendChild(dField);
       body.appendChild(row);
+      /* page length */
+      body.appendChild(elText("div", "design-label", "Length"));
+      var pg = el("div", "seg-toggle");
+      [[1, "1 page", "Best for < ~10 yrs experience"], [2, "2 pages", "For senior / extensive history"]].forEach(function (o) {
+        var b = el("button", "seg-opt" + (r.pages === o[0] ? " sel" : "")); b.type = "button";
+        b.appendChild(elText("span", "seg-name", o[1]));
+        b.appendChild(elText("span", "seg-desc", o[2]));
+        b.addEventListener("click", function () { r.pages = o[0]; renderApp(); touch(); });
+        pg.appendChild(b);
+      });
+      body.appendChild(pg);
       /* accent */
       body.appendChild(elText("div", "design-label", "Accent color"));
       var sw = el("div", "accent-row");
@@ -597,6 +654,7 @@
     var titleInput = el("input", "sec-title"); titleInput.value = sec.title; titleInput.title = "Edit section heading";
     titleInput.addEventListener("input", function () { sec.title = titleInput.value; touch(); });
 
+    var grip = el("span", "move grip"); grip.textContent = "⠿"; grip.title = "Drag to reorder section";
     var up = el("span", "move"); up.textContent = "▲"; up.title = "Move section up";
     up.addEventListener("click", function () { if (moveIn(r.sections, idx, -1)) { renderApp(); touch(); } });
     var down = el("span", "move"); down.textContent = "▼"; down.title = "Move section down";
@@ -604,7 +662,7 @@
     var star = miniBtn("★ Save to Library", function () { saveSectionToLibrary(sec); }, "js-add");
     var del = miniBtn("Delete", function () { if (confirm("Delete section \"" + sec.title + "\"?")) { r.sections.splice(idx, 1); renderApp(); touch(); } }, "btn-danger");
 
-    return blockEl(sec.title, "r.sec." + sec.id, function (body) {
+    var block = blockEl(sec.title, "r.sec." + sec.id, function (body) {
       if (sec.type === "text") {
         body.appendChild(fieldTextarea("Paragraph (use **bold**)", sec.text, function (v) { sec.text = v; touch(); }));
       } else if (sec.type === "labeled") {
@@ -613,7 +671,9 @@
         renderEntriesEditor(body, sec, true);
       }
       body.appendChild(typeSwitcher(sec));
-    }, [up, down, star, del], titleInput);
+    }, [grip, up, down, star, del], titleInput);
+    makeDragItem(block, grip, r.sections, idx, "sections");
+    return block;
   }
 
   function renderLabeledEditor(body, sec, allowSave) {
@@ -676,6 +736,51 @@
     return pop;
   }
 
+  /* ---------- structured date-range picker ----------
+     Writes a consistent "MMM YYYY – Present" string into it.date (still the
+     single source of truth for preview/export), so dates stay uniform without
+     changing the data model. The free-text field remains for odd cases. */
+  var MONTHS_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  function parseDatePart(s) {
+    s = (s || "").trim();
+    if (/present|current|now|ongoing/i.test(s) && !/\d/.test(s)) return { present: true, mon: "", year: "" };
+    var ym = s.match(/(19|20)\d{2}/), year = ym ? ym[0] : "";
+    var mm = s.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*/i), mon = "";
+    if (mm) { var k = mm[1].slice(0, 3).toLowerCase(); for (var i = 0; i < MONTHS_ABBR.length; i++) if (MONTHS_ABBR[i].toLowerCase() === k) mon = MONTHS_ABBR[i]; }
+    return { present: false, mon: mon, year: year };
+  }
+  function splitRange(s) { var parts = (s || "").split(/\s*(?:–|—|-|\bto\b)\s*/i); return { start: parts[0] || "", end: parts.length > 1 ? parts[parts.length - 1] : "" }; }
+  function dateRangeControl(it) {
+    var f = el("div", "field date-field");
+    f.appendChild(elText("label", null, "Date range"));
+    var inp = el("input", "inp"); inp.value = it.date || ""; inp.placeholder = "e.g. Jul 2022 – Present";
+    inp.addEventListener("input", function () { it.date = inp.value; touch(); });
+    f.appendChild(inp);
+    var toggle = el("button", "btn btn-mini date-pick-toggle"); toggle.type = "button"; toggle.textContent = "📅 Pick dates";
+    var pick = el("div", "date-pick");
+    var rng = splitRange(it.date), sp = parseDatePart(rng.start), ep = parseDatePart(rng.end);
+    function monthSel(val) { var s = el("select", "inp"); var o0 = el("option"); o0.value = ""; o0.textContent = "Month"; s.appendChild(o0); MONTHS_ABBR.forEach(function (m) { var o = el("option"); o.value = m; o.textContent = m; if (m === val) o.selected = true; s.appendChild(o); }); return s; }
+    function yearSel(val) { var s = el("select", "inp"); var o0 = el("option"); o0.value = ""; o0.textContent = "Year"; s.appendChild(o0); var now = new Date().getFullYear(); for (var y = now + 1; y >= now - 45; y--) { var o = el("option"); o.value = String(y); o.textContent = String(y); if (String(y) === val) o.selected = true; s.appendChild(o); } return s; }
+    var sMon = monthSel(sp.mon), sYear = yearSel(sp.year), eMon = monthSel(ep.mon), eYear = yearSel(ep.year);
+    var present = el("input"); present.type = "checkbox"; present.checked = ep.present;
+    function compose() {
+      var start = (sMon.value || "") + (sMon.value && sYear.value ? " " : "") + (sYear.value || "");
+      var end = present.checked ? "Present" : ((eMon.value || "") + (eMon.value && eYear.value ? " " : "") + (eYear.value || ""));
+      it.date = (start + (start && end ? " – " : "") + end).trim(); inp.value = it.date;
+      eMon.disabled = present.checked; eYear.disabled = present.checked; touch();
+    }
+    [sMon, sYear, eMon, eYear].forEach(function (s) { s.addEventListener("change", compose); });
+    present.addEventListener("change", compose);
+    eMon.disabled = present.checked; eYear.disabled = present.checked;
+    var startRow = el("div", "date-pick-row"); startRow.appendChild(elText("span", "dp-lbl", "Start")); startRow.appendChild(sMon); startRow.appendChild(sYear);
+    var endRow = el("div", "date-pick-row"); endRow.appendChild(elText("span", "dp-lbl", "End")); endRow.appendChild(eMon); endRow.appendChild(eYear);
+    var presentRow = el("label", "dp-present"); presentRow.appendChild(present); presentRow.appendChild(document.createTextNode(" Present (current role)"));
+    pick.appendChild(startRow); pick.appendChild(endRow); pick.appendChild(presentRow);
+    toggle.addEventListener("click", function () { pick.classList.toggle("open"); });
+    f.appendChild(toggle); f.appendChild(pick);
+    return f;
+  }
+
   function renderEntriesEditor(body, sec, allowSave) {
     sec.items = sec.items || [];
     var bar = el("div", "item-bar");
@@ -685,16 +790,19 @@
     sec.items.forEach(function (it, i) {
       var wrap = el("div", "item");
       var top = el("div", "item-bar");
+      var egrip = el("span", "move grip item-grip"); egrip.textContent = "⠿";
+      top.appendChild(egrip);
       top.appendChild(elText("span", "lbl", it.heading || ("Entry " + (i + 1))));
       var tools = el("div", "item-tools");
       tools.appendChild(miniBtn("▲", function () { if (moveIn(sec.items, i, -1)) { renderApp(); touch(); } }));
       tools.appendChild(miniBtn("▼", function () { if (moveIn(sec.items, i, 1)) { renderApp(); touch(); } }));
       tools.appendChild(miniBtn("✕", function () { sec.items.splice(i, 1); renderApp(); touch(); }, "btn-danger"));
       top.appendChild(tools); wrap.appendChild(top);
+      makeDragItem(wrap, egrip, sec.items, i, "items:" + sec.id);
       wrap.appendChild(fieldInput("Company / project / school", it.heading, function (v) { it.heading = v; touch(); }));
       var r2 = el("div", "row-2");
       r2.appendChild(fieldInput("Role / title (optional)", it.role, function (v) { it.role = v; touch(); }));
-      r2.appendChild(fieldInput("Date range", it.date, function (v) { it.date = v; touch(); }));
+      r2.appendChild(dateRangeControl(it));
       wrap.appendChild(r2);
       wrap.appendChild(fieldInput("Meta / tech line", it.meta, function (v) { it.meta = v; touch(); }));
       var bbar = el("div", "item-bar");
@@ -710,14 +818,27 @@
       var bl = el("div", "bullets");
       (it.bullets || []).forEach(function (bt, bi) {
         var row = el("div", "bullet-row");
-        var ta = el("textarea", "inp"); ta.value = bt;
+        var grip = el("span", "move grip bullet-grip"); grip.textContent = "⠿";
+        row.appendChild(grip);
+        var ta = el("textarea", "inp"); ta.value = bt; ta.setAttribute("data-b", it.id + "_" + bi);
         ta.addEventListener("input", function () { it.bullets[bi] = ta.value; autoGrow(ta); touch(); });
+        /* Enter adds the next bullet and focuses it (Shift+Enter = newline within) */
+        ta.addEventListener("keydown", function (e) {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            it.bullets.splice(bi + 1, 0, "");
+            touch(); renderApp();
+            var nn = document.querySelector('[data-b="' + it.id + "_" + (bi + 1) + '"]');
+            if (nn) { nn.focus(); }
+          }
+        });
         row.appendChild(ta);
         row.appendChild(miniBtn("☆", function () {
           if (saveSnippet(it.bullets[bi])) { flash("Saved to bullet bank."); touch(); renderApp(); }
           else flash((it.bullets[bi] || "").trim() ? "Already in your bank." : "Write the bullet first.");
         }, "js-star"));
         row.appendChild(miniBtn("✕", function () { it.bullets.splice(bi, 1); renderApp(); touch(); }, "btn-danger"));
+        makeDragItem(row, grip, it.bullets, bi, "bullets:" + it.id);
         bl.appendChild(row);
         if (bt && bt.trim() && !/\d/.test(bt)) bl.appendChild(elText("div", "quant-nudge", "＋ add a metric (%, $, #, time) to strengthen this"));
       });
@@ -767,6 +888,47 @@
     var company = ((r && r.targetRole) || "").trim().replace(/[^A-Za-z0-9]+/g, "");
     return company ? base + "_" + company : base;
   }
+  /* ---------- readiness dashboard ---------- */
+  function completenessChecks(r) {
+    var p = r.profile || {};
+    return [
+      { ok: !!(p.name && p.name.trim()), label: "Your name" },
+      { ok: !!(p.title && p.title.trim()), label: "Professional title" },
+      { ok: (p.contacts || []).some(function (c) { return /@/.test(c.value || ""); }), label: "Email" },
+      { ok: (p.contacts || []).some(function (c) { return c.value && c.value.trim() && !/@/.test(c.value); }), label: "Phone / location" },
+      { ok: !!(findSummary(r) || "").trim(), label: "Summary" },
+      { ok: (r.sections || []).some(function (s) { return s.type === "entries" && (s.items || []).some(function (it) { return (it.bullets || []).some(function (b) { return b && b.trim(); }); }); }), label: "Experience bullets" },
+      { ok: (r.sections || []).some(function (s) { return s.type === "labeled" && /skill/i.test(s.title || "") && (s.items || []).some(function (it) { return (it.value || "").trim(); }); }), label: "Skills" },
+      { ok: (r.sections || []).some(function (s) { return /educ/i.test(s.title || "") && (s.items || []).some(function (it) { return (it.heading || "").trim(); }); }), label: "Education" }
+    ];
+  }
+  function scoreBand(n) { return n >= 85 ? "high" : (n >= 60 ? "mid" : "low"); }
+  function statTile(label, val, bandCls, onClick) {
+    var t = el(onClick ? "button" : "div", "stat-tile " + (bandCls || "")); if (onClick) { t.type = "button"; t.addEventListener("click", onClick); t.title = "Open " + label; }
+    t.appendChild(elText("span", "stat-val", String(val)));
+    t.appendChild(elText("span", "stat-lbl", label));
+    return t;
+  }
+  function readinessBlock(r) {
+    var checks = completenessChecks(r), done = checks.filter(function (c) { return c.ok; }).length;
+    var pct = Math.round(done / checks.length * 100);
+    var health = analyzeHealth(r);
+    var fitOver = document.body.classList.contains("is-over");
+    var jd = jdAnalysis ? jdAnalysis.score : null;
+    var block = el("div", "readiness");
+    block.appendChild(elText("div", "readiness-title", "Resume readiness"));
+    var grid = el("div", "readiness-grid");
+    grid.appendChild(statTile("Complete", pct + "%", scoreBand(pct)));
+    grid.appendChild(statTile("Health", health.score, scoreBand(health.score), function () { activeTab = "health"; renderApp(); }));
+    grid.appendChild(statTile("Page fit", fitOver ? "Review" : (r.pages === 2 ? "2 pg" : "1 pg"), fitOver ? "low" : "high"));
+    grid.appendChild(statTile("JD match", jd != null ? jd + "%" : "—", jd != null ? scoreBand(jd) : "none", function () { activeTab = "jd"; renderApp(); }));
+    block.appendChild(grid);
+    var missing = checks.filter(function (c) { return !c.ok; });
+    if (missing.length) block.appendChild(elText("p", "readiness-missing", "To finish: " + missing.map(function (m) { return m.label; }).join(" · ")));
+    else block.appendChild(elText("p", "readiness-done", "✓ All the essentials are filled in — polish it in Health and tailor it in JD Match."));
+    return block;
+  }
+
   /* ---------- onboarding (first run) ---------- */
   function onboardingCard() {
     var card = el("div", "onboard-card");
@@ -2332,6 +2494,7 @@
     page.style.setProperty("--r-accent", t.accent);
     page.style.setProperty("--r-font", THEME_FONTS[t.font].css);
   }
+  var PAGE_PX = 1123;   /* A4 height @96dpi, mirrors the .page CSS height */
   function renderPreview() {
     var page = document.getElementById("page");
     var r = activeResume();
@@ -2339,6 +2502,7 @@
     if (label) label.textContent = "Preview · A4 · " + (r ? (r.name || "Untitled") : "");
     if (!r) { page.innerHTML = ""; return; }
     applyThemeToPage(page, r.theme);
+    page.setAttribute("data-pages", r.pages === 2 ? "2" : "1");
     var p = r.profile;
     var h = '<div class="r-name">' + esc(p.name || "Your Name") + "</div>";
     if (p.title) h += '<div class="r-title">' + esc(p.title) + "</div>";
@@ -2380,6 +2544,8 @@
     var page = document.getElementById("page");
     if (!page) return;
     page.style.setProperty("--r-fill", "0px");
+    /* two-page resumes flow naturally — no bottom-gap fill */
+    if (page.getAttribute("data-pages") === "2") return;
     var secs = page.querySelectorAll(".r-section").length;
     if (!secs || !page.children.length) return;
     var cs = getComputedStyle(page);
@@ -2405,22 +2571,45 @@
   function fitPreview() {
     var wrap = document.querySelector(".preview-wrap"), holder = document.getElementById("pageHolder"), scaler = document.getElementById("pageScaler");
     if (!wrap || !holder || !scaler) return;
+    var page = document.getElementById("page");
+    var maxPages = (page && page.getAttribute("data-pages") === "2") ? 2 : 1;
     var avail = wrap.clientWidth - 4, scale = Math.min(avail / 794, 1);
     if (!isFinite(scale) || scale <= 0) scale = 0.45;
     scaler.style.transform = "scale(" + scale + ")";
-    holder.style.width = (794 * scale) + "px"; holder.style.height = (1123 * scale) + "px";
+    /* measure the real rendered height (two-page pages grow); holder reserves
+       the scaled space so the preview scrolls correctly. */
+    var ph = page ? Math.max(PAGE_PX * maxPages, page.offsetHeight) : PAGE_PX;
+    holder.style.width = (794 * scale) + "px"; holder.style.height = (ph * scale) + "px";
   }
   function checkOnePage() {
     var page = document.getElementById("page"), badge = document.getElementById("pageBadge");
     if (!page || !badge) return;
-    var over = page.scrollHeight > page.clientHeight + 1;
-    page.classList.toggle("over", over);
-    badge.textContent = over ? "⚠ Over 1 page" : "1 page";
-    badge.className = "page-badge " + (over ? "over" : "ok");
-    document.body.classList.toggle("is-over", over);
-    var banner = document.getElementById("overBanner"); if (banner) banner.hidden = !over;
+    var r = activeResume();
+    var maxPages = (r && r.pages === 2) ? 2 : 1;
+    if (maxPages === 2) {
+      /* two-page: measure content vs the two-page budget */
+      var contentH = page.scrollHeight;
+      var usedPages = contentH > PAGE_PX + 2 ? 2 : 1;
+      var over2 = contentH > PAGE_PX * 2 + 2;
+      page.classList.toggle("over", over2);
+      badge.textContent = over2 ? "⚠ Over 2 pages" : (usedPages === 2 ? "2 pages" : "1 of 2 pages");
+      badge.className = "page-badge " + (over2 ? "over" : "ok");
+      document.body.classList.toggle("is-over", over2);
+      var banner2 = document.getElementById("overBanner");
+      if (banner2) { banner2.hidden = !over2; banner2.innerHTML = "⚠ This resume exceeds two pages. Trim or shorten content, or the export will scale it down to fit."; }
+    } else {
+      var over = page.scrollHeight > page.clientHeight + 1;
+      page.classList.toggle("over", over);
+      badge.textContent = over ? "⚠ Over 1 page" : "1 page";
+      badge.className = "page-badge " + (over ? "over" : "ok");
+      document.body.classList.toggle("is-over", over);
+      var banner = document.getElementById("overBanner");
+      if (banner) { banner.hidden = !over; banner.innerHTML = "⚠ This resume runs past one page. Trim content, switch to a 2-page layout in Design, or the export will scale it down to fit."; }
+    }
+    /* warn, don't block: Add buttons stay enabled even when over (a brief
+       overflow mid-edit shouldn't disable editing). */
     var adders = document.querySelectorAll("#tabPanel .btn.js-add");
-    for (var i = 0; i < adders.length; i++) adders[i].disabled = over;
+    for (var i = 0; i < adders.length; i++) adders[i].disabled = false;
   }
 
   /* ============================================================
@@ -2652,8 +2841,9 @@
        - if it UNDERFLOWS, spread the leftover height evenly before each section
          so the content fills the page with no blank band at the bottom — the
          same thing the preview/PDF do. */
-    var over = USABLE_H_PT * 0.96;                   /* shrink target (safety headroom) */
-    var fillTarget = USABLE_H_PT * 0.96;             /* fill most of the page; small cushion keeps it safely on one page */
+    var maxPages = (r.pages === 2) ? 2 : 1;
+    var over = USABLE_H_PT * 0.96 * maxPages;        /* shrink target (safety headroom), across the allowed pages */
+    var fillTarget = USABLE_H_PT * 0.96;             /* only fill the FIRST page when a 1-page resume underflows */
     var FLOOR = 0.55;
     var base = THEME_DENSITIES[normalizeTheme(r.theme).density] || 1;   /* density sets the baseline scale */
     var scale = base, built = buildBody(r, scale, 0);
