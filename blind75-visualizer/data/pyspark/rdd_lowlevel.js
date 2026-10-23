@@ -18,7 +18,15 @@
       description:
         "The classic. Given a text file, count occurrences of each word using the **RDD API**, and do it efficiently (combine before the shuffle).",
       examples: [
-        { input: "'to be or to be'", output: "(to,2),(be,2),(or,1)", reasoning: "flatMap splits to words, map pairs each with 1, reduceByKey sums per word with a map-side combine." }
+        {
+          inputs: [
+            { name: "lines", columns: ["line"],
+              rows: [["to be or to be"]] }
+          ],
+          output: { columns: ["word", "count"],
+            rows: [["to", 2], ["be", 2], ["or", 1]] },
+          reasoning: "flatMap splits to words, map pairs each with 1, reduceByKey sums per word with a map-side combine."
+        }
       ],
       approaches: [
         {
@@ -72,7 +80,15 @@
       description:
         "Compute the **average value per key** from an RDD of `(key, value)` pairs — the efficient way (map-side combine), not `groupByKey`. Note the twist: an average needs both a sum and a count.",
       examples: [
-        { input: "(a,10),(a,20),(b,5)", output: "(a,15.0),(b,5.0)", reasoning: "Carry (sum,count) through reduceByKey, then divide — combines per partition, unlike groupByKey which shuffles every value." }
+        {
+          inputs: [
+            { name: "pairs", columns: ["key", "value"],
+              rows: [["a", 10], ["a", 20], ["b", 5]] }
+          ],
+          output: { columns: ["key", "avg"],
+            rows: [["a", "15.0"], ["b", "5.0"]] },
+          reasoning: "Carry (sum,count) through reduceByKey, then divide — combines per partition, unlike groupByKey which shuffles every value."
+        }
       ],
       approaches: [
         {
@@ -124,7 +140,14 @@
       description:
         "You have an RDD of tuples `(name, age)` produced by low-level parsing. Convert it to a **DataFrame with a proper schema** so you can use the DataFrame API / SQL from here on.",
       examples: [
-        { input: "rdd = [('alice', 30), ('bob', 25)]", output: "DataFrame[name: string, age: int]", reasoning: "Attach column names and types via toDF/createDataFrame with an explicit schema." }
+        {
+          inputs: [
+            { name: "rdd", columns: ["name", "age"],
+              rows: [["alice", 30], ["bob", 25]] }
+          ],
+          output: "DataFrame[name: string, age: int]",
+          reasoning: "Attach column names and types via toDF/createDataFrame with an explicit schema."
+        }
       ],
       approaches: [
         {

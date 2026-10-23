@@ -51,8 +51,12 @@
       ],
       examples: [
         {
-          input: "data = [(1, 'Asha', 'Engineering', 120000), (2, 'Ravi', 'Sales', 80000)]",
-          output: "A 2-row DataFrame with columns employee_id, name, department, salary",
+          inputs: [
+            { name: "data", columns: ["employee_id", "name", "department", "salary"],
+              rows: [[1, "Asha", "Engineering", 120000], [2, "Ravi", "Sales", 80000]] }
+          ],
+          output: { columns: ["employee_id", "name", "department", "salary"],
+            rows: [[1, "Asha", "Engineering", 120000], [2, "Ravi", "Sales", 80000]] },
           reasoning: "createDataFrame parallelizes the driver list into a distributed DataFrame; the second argument names the columns positionally."
         }
       ],
@@ -266,8 +270,11 @@
         "Keep only the rows where `salary` exceeds 100000. `filter` and `where` are aliases — both apply a boolean predicate row-by-row.",
       examples: [
         {
-          input: "salaries = [120000, 80000, 150000]",
-          output: "rows with 120000 and 150000",
+          inputs: [
+            { name: "employees", columns: ["salary"],
+              rows: [[120000], [80000], [150000]] }
+          ],
+          output: { columns: ["salary"], rows: [[120000], [150000]] },
           reasoning: "The predicate salary > 100000 is evaluated independently per row."
         }
       ],
@@ -324,8 +331,11 @@
         "Keep rows whose `department` is one of a set of values — here, `Engineering` or `Data Science`. Use `isin` for a clean membership test instead of chaining OR conditions.",
       examples: [
         {
-          input: "departments = ['Engineering', 'Sales', 'Data Science']",
-          output: "rows for Engineering and Data Science",
+          inputs: [
+            { name: "employees", columns: ["department"],
+              rows: [["Engineering"], ["Sales"], ["Data Science"]] }
+          ],
+          output: { columns: ["department"], rows: [["Engineering"], ["Data Science"]] },
           reasoning: "isin(['Engineering', 'Data Science']) is true for those two rows."
         }
       ],
@@ -552,8 +562,11 @@
         "Replace nulls in the numeric `salary` column with `0`. `fillna` (alias `na.fill`) substitutes a default for nulls, optionally scoped to specific columns.",
       examples: [
         {
-          input: "salary = [100000, null, 80000]",
-          output: "salary = [100000, 0, 80000]",
+          inputs: [
+            { name: "employees", columns: ["salary"],
+              rows: [[100000], [null], [80000]] }
+          ],
+          output: { columns: ["salary"], rows: [[100000], [0], [80000]] },
           reasoning: "fillna(0, subset=['salary']) replaces only the null with 0."
         }
       ],
@@ -606,8 +619,11 @@
         "Replace nulls in the string column `department` with the literal `\"Unknown\"`. Same `fillna` idea as Q9, but with a string value scoped to a string column.",
       examples: [
         {
-          input: "department = ['Sales', null, 'Engineering']",
-          output: "department = ['Sales', 'Unknown', 'Engineering']",
+          inputs: [
+            { name: "employees", columns: ["department"],
+              rows: [["Sales"], [null], ["Engineering"]] }
+          ],
+          output: { columns: ["department"], rows: [["Sales"], ["Unknown"], ["Engineering"]] },
           reasoning: "fillna('Unknown', subset=['department']) fills the missing category."
         }
       ],
@@ -658,8 +674,11 @@
         "Drop rows missing a `customer_id`. `dropna(subset=['customer_id'])` removes rows where that key is null — essential before joins or grouping on the key.",
       examples: [
         {
-          input: "customer_id = [1, null, 3]",
-          output: "rows with 1 and 3",
+          inputs: [
+            { name: "customers", columns: ["customer_id"],
+              rows: [[1], [null], [3]] }
+          ],
+          output: { columns: ["customer_id"], rows: [[1], [3]] },
           reasoning: "The middle row has a null key and is removed."
         }
       ],
@@ -711,8 +730,11 @@
         "Collapse rows so each `customer_id` appears once. `dropDuplicates(['customer_id'])` keeps one arbitrary row per key. (To keep a *specific* row — e.g. the latest — use a window; see Q68.)",
       examples: [
         {
-          input: "customer_id = [1, 1, 2]",
-          output: "one row for 1, one row for 2",
+          inputs: [
+            { name: "customers", columns: ["customer_id"],
+              rows: [[1], [1], [2]] }
+          ],
+          output: { columns: ["customer_id"], rows: [[1], [2]] },
           reasoning: "Duplicate keys collapse to a single (arbitrary) row each."
         }
       ],
@@ -817,7 +839,10 @@
         "Count unique `customer_id` values. Either `df.select('customer_id').distinct().count()`, or an aggregate `countDistinct('customer_id')`.",
       examples: [
         {
-          input: "customer_id = [1, 1, 2, 3]",
+          inputs: [
+            { name: "customers", columns: ["customer_id"],
+              rows: [[1], [1], [2], [3]] }
+          ],
           output: "3",
           reasoning: "Distinct ids are {1, 2, 3}."
         }
@@ -931,8 +956,12 @@
         "From a date/timestamp column, derive separate `year`, `month`, and `day` columns using the built-in `year`, `month`, and `dayofmonth` functions.",
       examples: [
         {
-          input: "order_date = 2026-08-26",
-          output: "year = 2026, month = 8, day = 26",
+          inputs: [
+            { name: "orders", columns: ["order_date"],
+              rows: [["2026-08-26"]] }
+          ],
+          output: { columns: ["order_date", "year", "month", "day"],
+            rows: [["2026-08-26", 2026, 8, 26]] },
           reasoning: "Each function extracts one component from the date."
         }
       ],
@@ -992,8 +1021,11 @@
         "Order the whole DataFrame by `salary` from highest to lowest with `orderBy(col('salary').desc())`.",
       examples: [
         {
-          input: "salaries = [80000, 150000, 120000]",
-          output: "150000, 120000, 80000",
+          inputs: [
+            { name: "employees", columns: ["salary"],
+              rows: [[80000], [150000], [120000]] }
+          ],
+          output: { columns: ["salary"], rows: [[150000], [120000], [80000]] },
           reasoning: "Descending order puts the largest first."
         }
       ],
@@ -1047,8 +1079,11 @@
         "Keep orders whose `order_amount` falls in the inclusive range [100, 500] using `col('order_amount').between(100, 500)`.",
       examples: [
         {
-          input: "order_amount = [50, 250, 600]",
-          output: "row with 250",
+          inputs: [
+            { name: "orders", columns: ["order_amount"],
+              rows: [[50], [250], [600]] }
+          ],
+          output: { columns: ["order_amount"], rows: [[250]] },
           reasoning: "between(100, 500) is inclusive, so only 250 qualifies."
         }
       ],
@@ -1102,8 +1137,12 @@
         "Create `order_category`: `< 100 → Low`, `100–500 → Medium`, `> 500 → High`. Use chained `when(...).when(...).otherwise(...)` — PySpark's CASE expression.",
       examples: [
         {
-          input: "order_amount = [50, 250, 900]",
-          output: "['Low', 'Medium', 'High']",
+          inputs: [
+            { name: "orders", columns: ["order_amount"],
+              rows: [[50], [250], [900]] }
+          ],
+          output: { columns: ["order_amount", "order_category"],
+            rows: [[50, "Low"], [250, "Medium"], [900, "High"]] },
           reasoning: "Each amount falls into exactly one bucket by the thresholds."
         }
       ],

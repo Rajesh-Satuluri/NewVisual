@@ -21,8 +21,12 @@
         "Given an `employees` DataFrame (`employee_id`, `name`, `salary`), return the **second-highest salary** across the whole company as a single value. If several employees share the top salary, the second-highest is the next *distinct* salary below it — not merely the second row. Return null if there is no second distinct salary.",
       examples: [
         {
-          input: "employees: (1, 'Asha', 150000), (2, 'Ravi', 150000), (3, 'Meera', 120000), (4, 'Dev', 90000)",
-          output: "second-highest salary = 120000",
+          inputs: [
+            { name: "employees", columns: ["employee_id", "name", "salary"],
+              rows: [[1, "Asha", 150000], [2, "Ravi", 150000], [3, "Meera", 120000], [4, "Dev", 90000]] }
+          ],
+          output: { name: "dense_rank rnk == 2", columns: ["salary"],
+            rows: [[120000]] },
           reasoning: "Two employees tie at 150000 (the top distinct salary). The next distinct salary below it is 120000, so that is the second-highest — tied top rows do not count as two separate ranks."
         }
       ],
@@ -105,8 +109,12 @@
         "Given an `employees` DataFrame (`employee_id`, `name`, `department`, `salary`), return the **second-highest salary within each department**. As in the global case, ties at a salary level count as one rank, so the answer is the second *distinct* salary per department. Departments without a second distinct salary produce no row.",
       examples: [
         {
-          input: "employees: (1,'Asha','Eng',150000), (2,'Ravi','Eng',150000), (3,'Meera','Eng',120000), (4,'Dev','Sales',90000), (5,'Nina','Sales',70000)",
-          output: "Eng -> 120000 ; Sales -> 70000",
+          inputs: [
+            { name: "employees", columns: ["employee_id", "name", "department", "salary"],
+              rows: [[1, "Asha", "Eng", 150000], [2, "Ravi", "Eng", 150000], [3, "Meera", "Eng", 120000], [4, "Dev", "Sales", 90000], [5, "Nina", "Sales", 70000]] }
+          ],
+          output: { columns: ["department", "salary"],
+            rows: [["Eng", 120000], ["Sales", 70000]] },
           reasoning: "In Eng, 150000 is the top distinct salary (a tie) and 120000 is the second distinct salary. In Sales, 90000 is top and 70000 is second."
         }
       ],
@@ -195,8 +203,12 @@
         "Given an `employees` DataFrame (`employee_id`, `name`, `department`, `salary`), return the **third-highest salary within each department** — the third *distinct* salary from the top of each department, ties collapsed. Departments with fewer than three distinct salaries yield no row.",
       examples: [
         {
-          input: "employees: (1,'Asha','Eng',150000), (2,'Ravi','Eng',150000), (3,'Meera','Eng',120000), (4,'Dev','Eng',90000)",
-          output: "Eng -> 90000",
+          inputs: [
+            { name: "employees", columns: ["employee_id", "name", "department", "salary"],
+              rows: [[1, "Asha", "Eng", 150000], [2, "Ravi", "Eng", 150000], [3, "Meera", "Eng", 120000], [4, "Dev", "Eng", 90000]] }
+          ],
+          output: { columns: ["department", "salary"],
+            rows: [["Eng", 90000]] },
           reasoning: "Distinct Eng salaries, high to low: 150000 (rank 1, tied), 120000 (rank 2), 90000 (rank 3). The third distinct salary is 90000."
         }
       ],
@@ -285,8 +297,12 @@
         "Given an `employees` DataFrame (`employee_id`, `name`, `department`, `salary`), assign each employee a salary rank **within their department** (highest salary = 1). The real lesson is choosing the right ranking function: `rank`, `dense_rank`, and `row_number` all number rows but behave differently when salaries **tie**.",
       examples: [
         {
-          input: "Eng: (Asha,150000), (Ravi,150000), (Meera,120000), (Dev,90000)",
-          output: "rank -> 1,1,3,4 ; dense_rank -> 1,1,2,3 ; row_number -> 1,2,3,4",
+          inputs: [
+            { name: "employees", columns: ["department", "name", "salary"],
+              rows: [["Eng", "Asha", 150000], ["Eng", "Ravi", 150000], ["Eng", "Meera", 120000], ["Eng", "Dev", 90000]] }
+          ],
+          output: { columns: ["name", "salary", "rank", "dense_rank", "row_number"],
+            rows: [["Asha", 150000, 1, 1, 1], ["Ravi", 150000, 1, 1, 2], ["Meera", 120000, 3, 2, 3], ["Dev", 90000, 4, 3, 4]] },
           reasoning: "Asha and Ravi tie at 150000: rank gives both 1 then SKIPS to 3; dense_rank gives both 1 then continues at 2 (no gap); row_number breaks the tie arbitrarily into 1 and 2."
         }
       ],
@@ -365,8 +381,12 @@
         "Given an `employees` DataFrame (`employee_id`, `name`, `department`, `salary`), return the **top 3 highest-paid employees within each department**. The choice of ranking function decides how salary ties near the cutoff are handled: `row_number` guarantees exactly 3 rows per department; `rank`/`dense_rank` may return more when salaries tie.",
       examples: [
         {
-          input: "Eng: (Asha,150000),(Ravi,140000),(Meera,140000),(Dev,120000),(Nina,100000)",
-          output: "row_number top-3 -> Asha, Ravi, Meera (exactly 3) ; rank/dense_rank <= 3 -> Asha, Ravi, Meera, Dev? (depends: 150k=1, 140k=2, 140k=2, 120k=... )",
+          inputs: [
+            { name: "employees", columns: ["department", "name", "salary"],
+              rows: [["Eng", "Asha", 150000], ["Eng", "Ravi", 140000], ["Eng", "Meera", 140000], ["Eng", "Dev", 120000], ["Eng", "Nina", 100000]] }
+          ],
+          output: { name: "row_number() <= 3 (exactly 3 per dept)", columns: ["department", "name", "salary"],
+            rows: [["Eng", "Asha", 150000], ["Eng", "Ravi", 140000], ["Eng", "Meera", 140000]] },
           reasoning: "row_number numbers 1..5 uniquely and keeps <=3, so exactly Asha/Ravi/Meera. With rank, the two 140000 both get rank 2, and 120000 gets rank 4 — so `rank <= 3` still returns just those three here, but a three-way tie at the boundary would let rank return more than 3."
         }
       ],
@@ -449,8 +469,12 @@
         "Given a `customers` DataFrame (`customer_id`, `name`, `email`, `updated_at`) that contains **duplicate rows per customer**, keep exactly **one** record per `customer_id` — the one with the **latest** `updated_at`. Unlike `dropDuplicates` (which keeps an arbitrary row), this must deterministically keep the most recent version.",
       examples: [
         {
-          input: "customers: (1,'Asha','a@x',2026-01-01), (1,'Asha','asha@x',2026-06-01), (2,'Ravi','r@x',2026-03-01)",
-          output: "kept: (1,'Asha','asha@x',2026-06-01), (2,'Ravi','r@x',2026-03-01)",
+          inputs: [
+            { name: "customers", columns: ["customer_id", "name", "email", "updated_at"],
+              rows: [[1, "Asha", "a@x", "2026-01-01"], [1, "Asha", "asha@x", "2026-06-01"], [2, "Ravi", "r@x", "2026-03-01"]] }
+          ],
+          output: { name: "kept (rn == 1)", columns: ["customer_id", "name", "email", "updated_at"],
+            rows: [[1, "Asha", "asha@x", "2026-06-01"], [2, "Ravi", "r@x", "2026-03-01"]] },
           reasoning: "Customer 1 has two rows; the 2026-06-01 record is later, so it wins. Customer 2 has one row, kept as-is."
         }
       ],
@@ -532,8 +556,12 @@
         "Given an `events` DataFrame (`customer_id`, `event_type`, `event_ts`) with many rows per customer, return, **for every customer, the single record with the latest `event_ts`**. This is the 'most recent event per user' pattern — the same row_number-keep-first idiom as keeping the latest deduplicated record.",
       examples: [
         {
-          input: "events: (1,'login',2026-05-01 09:00), (1,'purchase',2026-05-03 12:00), (2,'login',2026-05-02 08:00)",
-          output: "kept: (1,'purchase',2026-05-03 12:00), (2,'login',2026-05-02 08:00)",
+          inputs: [
+            { name: "events", columns: ["customer_id", "event_type", "event_ts"],
+              rows: [[1, "login", "2026-05-01 09:00"], [1, "purchase", "2026-05-03 12:00"], [2, "login", "2026-05-02 08:00"]] }
+          ],
+          output: { name: "kept (rn == 1)", columns: ["customer_id", "event_type", "event_ts"],
+            rows: [[1, "purchase", "2026-05-03 12:00"], [2, "login", "2026-05-02 08:00"]] },
           reasoning: "Customer 1's latest event is the 2026-05-03 purchase; customer 2 has only one event, which is trivially the latest."
         }
       ],
@@ -614,8 +642,12 @@
         "Given a `transactions` DataFrame (`transaction_id`, `customer_id`, `txn_ts`, `amount`) where a customer can have **multiple rows sharing the same timestamp**, keep one row per `customer_id` — the latest by `txn_ts`, and among rows tied on that timestamp, the one with the **highest `transaction_id`**. This is dedup with a deterministic tie-breaker.",
       examples: [
         {
-          input: "transactions: (101,1,2026-07-01 10:00,50), (105,1,2026-07-01 10:00,50), (102,2,2026-06-01 09:00,30)",
-          output: "kept: (105,1,2026-07-01 10:00,50), (102,2,2026-06-01 09:00,30)",
+          inputs: [
+            { name: "transactions", columns: ["transaction_id", "customer_id", "txn_ts", "amount"],
+              rows: [[101, 1, "2026-07-01 10:00", 50], [105, 1, "2026-07-01 10:00", 50], [102, 2, "2026-06-01 09:00", 30]] }
+          ],
+          output: { name: "kept (rn == 1)", columns: ["transaction_id", "customer_id", "txn_ts", "amount"],
+            rows: [[105, 1, "2026-07-01 10:00", 50], [102, 2, "2026-06-01 09:00", 30]] },
           reasoning: "Customer 1 has two rows at the same timestamp; the tie-breaker keeps transaction_id 105 (higher) over 101. Customer 2 has a single row."
         }
       ],
