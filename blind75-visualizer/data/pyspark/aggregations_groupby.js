@@ -19,8 +19,12 @@
         "Given an `orders` DataFrame (`customer_id`, `order_amount`), compute the **total revenue** each customer generated: group by `customer_id` and sum `order_amount`.",
       examples: [
         {
-          input: "orders: (c1, 100), (c1, 250), (c2, 90)",
-          output: "c1 → 350, c2 → 90",
+          inputs: [
+            { name: "orders", columns: ["customer_id", "order_amount"],
+              rows: [["c1", 100], ["c1", 250], ["c2", 90]] }
+          ],
+          output: { columns: ["customer_id", "total_revenue"],
+            rows: [["c1", 350], ["c2", 90]] },
           reasoning: "Rows are grouped by customer_id and order_amount is summed within each group."
         }
       ],
@@ -80,8 +84,12 @@
         "For each customer, compute the **average** order amount: group by `customer_id` and take `avg(order_amount)`.",
       examples: [
         {
-          input: "orders: (c1, 100), (c1, 300), (c2, 90)",
-          output: "c1 → 200.0, c2 → 90.0",
+          inputs: [
+            { name: "orders", columns: ["customer_id", "order_amount"],
+              rows: [["c1", 100], ["c1", 300], ["c2", 90]] }
+          ],
+          output: { columns: ["customer_id", "avg_order_value"],
+            rows: [["c1", "200.0"], ["c2", "90.0"]] },
           reasoning: "avg = sum/count within each group; (100+300)/2 = 200."
         }
       ],
@@ -140,8 +148,12 @@
         "For each customer, return both the **smallest** and **largest** order amount in a single grouped aggregation.",
       examples: [
         {
-          input: "orders: (c1, 100), (c1, 250), (c1, 40)",
-          output: "c1 → min 40, max 250",
+          inputs: [
+            { name: "orders", columns: ["customer_id", "order_amount"],
+              rows: [["c1", 100], ["c1", 250], ["c1", 40]] }
+          ],
+          output: { columns: ["customer_id", "min_order", "max_order"],
+            rows: [["c1", 40, 250]] },
           reasoning: "min and max are computed together over the same group in one pass."
         }
       ],
@@ -202,8 +214,12 @@
         "Count how many orders each customer placed: `groupBy('customer_id').count()`, or `agg(count('*'))` for a custom name.",
       examples: [
         {
-          input: "orders: (c1), (c1), (c1), (c2)",
-          output: "c1 → 3, c2 → 1",
+          inputs: [
+            { name: "orders", columns: ["customer_id"],
+              rows: [["c1"], ["c1"], ["c1"], ["c2"]] }
+          ],
+          output: { columns: ["customer_id", "order_count"],
+            rows: [["c1", 3], ["c2", 1]] },
           reasoning: "count() tallies the rows in each group."
         }
       ],
@@ -262,8 +278,12 @@
         "Find customers with more than 5 orders: aggregate the per-customer count, then **filter on the aggregate** (the DataFrame equivalent of SQL `HAVING`).",
       examples: [
         {
-          input: "counts: c1 → 7, c2 → 3, c3 → 6",
-          output: "c1, c3",
+          inputs: [
+            { name: "counts", columns: ["customer_id", "order_count"],
+              rows: [["c1", 7], ["c2", 3], ["c3", 6]] }
+          ],
+          output: { columns: ["customer_id", "order_count"],
+            rows: [["c1", 7], ["c3", 6]] },
           reasoning: "Keep groups whose count exceeds 5."
         }
       ],
@@ -324,8 +344,12 @@
         "Identify high-value customers: sum each customer's `order_amount`, then keep those whose total is greater than 10000 (a HAVING on a summed aggregate).",
       examples: [
         {
-          input: "totals: c1 → 12000, c2 → 8000",
-          output: "c1",
+          inputs: [
+            { name: "totals", columns: ["customer_id", "total_spending"],
+              rows: [["c1", 12000], ["c2", 8000]] }
+          ],
+          output: { columns: ["customer_id", "total_spending"],
+            rows: [["c1", 12000]] },
           reasoning: "Only c1's summed spending exceeds 10000."
         }
       ],
@@ -386,8 +410,12 @@
         "Given an `employees` DataFrame (`department`, `salary`), compute the average salary for each department.",
       examples: [
         {
-          input: "employees: (Eng, 120k), (Eng, 100k), (Sales, 80k)",
-          output: "Eng → 110000, Sales → 80000",
+          inputs: [
+            { name: "employees", columns: ["department", "salary"],
+              rows: [["Eng", 120000], ["Eng", 100000], ["Sales", 80000]] }
+          ],
+          output: { columns: ["department", "avg_salary"],
+            rows: [["Eng", 110000], ["Sales", 80000]] },
           reasoning: "Group by department, average the salaries."
         }
       ],
@@ -446,8 +474,12 @@
         "Return departments whose **average** salary exceeds 100000 — average per department, then HAVING-filter on that average.",
       examples: [
         {
-          input: "avgs: Eng → 110000, Sales → 80000",
-          output: "Eng",
+          inputs: [
+            { name: "avgs", columns: ["department", "avg_salary"],
+              rows: [["Eng", 110000], ["Sales", 80000]] }
+          ],
+          output: { columns: ["department", "avg_salary"],
+            rows: [["Eng", 110000]] },
           reasoning: "Only Engineering's average exceeds 100000."
         }
       ],
@@ -510,8 +542,12 @@
         "For each department, return the maximum salary. (If you need the *employee* earning it, that's a window/rank problem — this returns the value.)",
       examples: [
         {
-          input: "employees: (Eng, 120k), (Eng, 100k), (Sales, 80k)",
-          output: "Eng → 120000, Sales → 80000",
+          inputs: [
+            { name: "employees", columns: ["department", "salary"],
+              rows: [["Eng", 120000], ["Eng", 100000], ["Sales", 80000]] }
+          ],
+          output: { columns: ["department", "max_salary"],
+            rows: [["Eng", 120000], ["Sales", 80000]] },
           reasoning: "max salary within each department group."
         }
       ],
@@ -570,8 +606,12 @@
         "Compute total revenue per calendar month: derive a month bucket from `order_date`, group by it, and sum `order_amount`.",
       examples: [
         {
-          input: "orders: (2026-01-05, 100), (2026-01-20, 250), (2026-02-01, 90)",
-          output: "2026-01 → 350, 2026-02 → 90",
+          inputs: [
+            { name: "orders", columns: ["order_date", "order_amount"],
+              rows: [["2026-01-05", 100], ["2026-01-20", 250], ["2026-02-01", 90]] }
+          ],
+          output: { columns: ["month", "revenue"],
+            rows: [["2026-01", 350], ["2026-02", 90]] },
           reasoning: "Rows are bucketed by year-month, then summed."
         }
       ],
@@ -636,8 +676,12 @@
         "Count the number of orders placed on each calendar day: group by the date and count rows.",
       examples: [
         {
-          input: "orders on: 2026-01-05, 2026-01-05, 2026-01-06",
-          output: "2026-01-05 → 2, 2026-01-06 → 1",
+          inputs: [
+            { name: "orders", columns: ["order_date"],
+              rows: [["2026-01-05"], ["2026-01-05"], ["2026-01-06"]] }
+          ],
+          output: { columns: ["order_day", "order_count"],
+            rows: [["2026-01-05", 2], ["2026-01-06", 1]] },
           reasoning: "Rows grouped by day, then counted."
         }
       ],
@@ -701,8 +745,12 @@
         "For each month, count how many **distinct** customers placed at least one order — a distinct count within a time bucket.",
       examples: [
         {
-          input: "2026-01: c1, c1, c2 ; 2026-02: c3",
-          output: "2026-01 → 2, 2026-02 → 1",
+          inputs: [
+            { name: "orders", columns: ["order_date", "customer_id"],
+              rows: [["2026-01-05", "c1"], ["2026-01-05", "c1"], ["2026-01-20", "c2"], ["2026-02-01", "c3"]] }
+          ],
+          output: { columns: ["month", "active_customers"],
+            rows: [["2026-01", 2], ["2026-02", 1]] },
           reasoning: "Within each month, count unique customer_ids (c1 counted once)."
         }
       ],
