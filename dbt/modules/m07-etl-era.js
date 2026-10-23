@@ -49,7 +49,7 @@ const IQ = [
 
 export function mount(container) {
   container.innerHTML = createModuleShell({
-    tag: 'M07 · ELT Revolution',
+    tag: 'M07 · The Shift to dbt',
     title: 'The ETL Era',
     subtitle: 'Before cloud warehouses, data transformation happened in heavyweight tools. A single schema change could take two weeks to deploy.',
     tabs: [
@@ -165,8 +165,8 @@ function buildVisual(container) {
     ctx.fillStyle = '#0A0E1A'; ctx.fillRect(0, 0, W, H);
 
     // Pipeline title
-    ctx.fillStyle = '#4B5E78';
-    ctx.font = '11px Inter, sans-serif';
+    ctx.fillStyle = '#8A99B3';
+    ctx.font = '13px Inter, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('Classic ETL Pipeline  ·  2005–2015', W/2, 22);
 
@@ -202,12 +202,12 @@ function buildVisual(container) {
         isBroken ? '#EF4444' : s.color + '88'
       );
       ctx.fillStyle = color;
-      ctx.font = `bold 11px Inter, sans-serif`;
+      ctx.font = `bold 13px Inter, sans-serif`;
       ctx.textAlign = 'center';
       const lines = s.label.split('\n');
       lines.forEach((line, li) => ctx.fillText(line, s.x + BOX_W/2, BOX_Y + 20 + li * 15));
-      ctx.fillStyle = isBroken ? '#EF4444' : '#4B5E78';
-      ctx.font = '9px Inter, sans-serif';
+      ctx.fillStyle = isBroken ? '#EF4444' : '#8A99B3';
+      ctx.font = '12px Inter, sans-serif';
       const subs = s.sub.split('\n');
       subs.forEach((sub, si) => ctx.fillText(sub, s.x + BOX_W/2, BOX_Y + 54 + si * 11));
 
@@ -229,8 +229,8 @@ function buildVisual(container) {
     // Time labels under stages
     const TIMES = ['Always on', '2–4 hrs\nprocessing', '1–3 hrs\ntransform', '30 min\nload', 'Stale\n8+ hrs'];
     STAGES.forEach((s, i) => {
-      ctx.fillStyle = '#4B5E78';
-      ctx.font = '9px Inter, sans-serif';
+      ctx.fillStyle = '#8A99B3';
+      ctx.font = '12px Inter, sans-serif';
       ctx.textAlign = 'center';
       const tlines = TIMES[i].split('\n');
       tlines.forEach((tl, li) => ctx.fillText(tl, s.x + BOX_W/2, BOX_Y + BOX_H + 18 + li * 12));
@@ -243,30 +243,30 @@ function buildVisual(container) {
       ctx.globalAlpha = Math.min(1, state.ticketTimer * 2);
       rr(ctx, tx, ty, 280, 120, 10, '#131D2E', '#F59E0B');
       ctx.fillStyle = '#F59E0B';
-      ctx.font = 'bold 12px Inter, sans-serif';
+      ctx.font = 'bold 14px Inter, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('🎫  IT TICKET #4821', tx + 140, ty + 24);
       ctx.fillStyle = '#CBD4E6';
-      ctx.font = '11px Inter, sans-serif';
+      ctx.font = '13px Inter, sans-serif';
       ctx.fillText('Request: Update ETL mapping for', tx + 140, ty + 46);
       ctx.fillText('schema change in raw_orders', tx + 140, ty + 62);
       ctx.fillStyle = '#EF4444';
-      ctx.font = 'bold 11px Inter, sans-serif';
+      ctx.font = 'bold 13px Inter, sans-serif';
       ctx.fillText('⏱  Estimated time: 2 weeks', tx + 140, ty + 84);
-      ctx.fillStyle = '#4B5E78';
-      ctx.font = '10px Inter, sans-serif';
+      ctx.fillStyle = '#8A99B3';
+      ctx.font = '13px Inter, sans-serif';
       ctx.fillText('Assigned to: ETL Team  ·  Priority: Normal', tx + 140, ty + 102);
       ctx.restore();
     }
 
     if (state.broken) {
       ctx.fillStyle = '#EF4444';
-      ctx.font = 'bold 11px Inter, sans-serif';
+      ctx.font = 'bold 13px Inter, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('Schema change broke the ETL mapping. All downstream data stopped. IT ticket created.', W/2, H - 12);
     } else {
-      ctx.fillStyle = '#4B5E78';
-      ctx.font = '11px Inter, sans-serif';
+      ctx.fillStyle = '#8A99B3';
+      ctx.font = '13px Inter, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('Data flows through the ETL pipeline — taking 8+ hours end-to-end. Try changing a schema.', W/2, H - 12);
     }
@@ -288,24 +288,24 @@ function buildDetail(container) {
     <div class="detail-section">
       <h3>The ETL stack of the era</h3>
       <div class="info-grid">
-        <div class="info-card" style="border-left-color:#8B5CF6">
+        <div class="info-card" style="border-left-color:var(--purple)">
           <div class="info-card-title">ETL Tools</div>
-          <div class="info-card-tag" style="color:#8B5CF6;background:#8B5CF622">GUI-based</div>
+          <div class="info-card-tag" style="color:var(--purple);background:color-mix(in srgb, var(--purple) 13%, transparent)">GUI-based</div>
           <div class="info-card-body">Informatica PowerCenter, IBM DataStage, Talend, SSIS, Pentaho. Business logic was configured in drag-and-drop GUI workflows. Not version-controllable. Vendor-locked.</div>
         </div>
-        <div class="info-card" style="border-left-color:#F59E0B">
+        <div class="info-card" style="border-left-color:var(--warn)">
           <div class="info-card-title">Stored Procedures</div>
-          <div class="info-card-tag" style="color:#F59E0B;background:#F59E0B22">Database-native</div>
+          <div class="info-card-tag" style="color:var(--warn);background:color-mix(in srgb, var(--warn) 13%, transparent)">Database-native</div>
           <div class="info-card-body">Complex transformations written as database stored procedures. Logic lived in the database, not in Git. Unversioned, untested, undocumented. The "last person to touch it" was often unknown.</div>
         </div>
-        <div class="info-card" style="border-left-color:#10B981">
+        <div class="info-card" style="border-left-color:var(--success)">
           <div class="info-card-title">Warehouses</div>
-          <div class="info-card-tag" style="color:#10B981;background:#10B98122">On-premise</div>
+          <div class="info-card-tag" style="color:var(--success);background:color-mix(in srgb, var(--success) 13%, transparent)">On-premise</div>
           <div class="info-card-body">Teradata, Netezza, Oracle. Column-oriented, optimized for reads. Very expensive — a Teradata license could cost $500k+. Compute was rationed, not elastic.</div>
         </div>
-        <div class="info-card" style="border-left-color:#3B82F6">
+        <div class="info-card" style="border-left-color:var(--info)">
           <div class="info-card-title">Release Cycles</div>
-          <div class="info-card-tag" style="color:#3B82F6;background:#3B82F622">Slow</div>
+          <div class="info-card-tag" style="color:var(--info);background:color-mix(in srgb, var(--info) 13%, transparent)">Slow</div>
           <div class="info-card-body">Changing business logic in an ETL pipeline required: requirements doc → IT ticket → ETL developer → test environment → production deploy. 2–6 week cycle per change.</div>
         </div>
       </div>
@@ -319,6 +319,11 @@ function buildDetail(container) {
         <li>Analysts could write the transformations themselves — no ETL developer needed</li>
         <li>The bottleneck disappeared</li>
       </ul>
+    </div>
+    <div class="detail-section">
+      <p style="padding:12px 14px;background:var(--surface-2);border-left:3px solid var(--accent);border-radius:8px;font-size:14px;margin:0">
+        <strong>🧠 First principles —</strong> ETL existed because storage was expensive and compute was scarce and coupled to it — so you transformed before loading to store less. The whole shift to ELT is that economic inversion. <a href="#concepts" style="color:var(--accent);font-weight:600">Core Concepts → The ELT Paradigm</a>.
+      </p>
     </div>
   `;
 }

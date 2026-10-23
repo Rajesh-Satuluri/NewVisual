@@ -52,7 +52,7 @@ const IQ = [
 
 export function mount(container) {
   container.innerHTML = createModuleShell({
-    tag: 'M09 · Introduction',
+    tag: 'M09 · The Shift to dbt',
     title: 'Introducing dbt',
     subtitle: 'After 8 modules of SQL chaos, meet the tool that brings engineering discipline to analytics.',
     tabs: [
@@ -172,9 +172,9 @@ function buildVisual(container) {
       ctx.save(); ctx.globalAlpha = state.bOp;
 
       rr(ctx, 610, 110, 168, 200, 10, '#1A0A0A', '#EF4444');
-      ctx.fillStyle = '#EF4444'; ctx.font = 'bold 10px Inter, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = '#EF4444'; ctx.font = 'bold 13px Inter, sans-serif'; ctx.textAlign = 'center';
       ctx.fillText('Amazon Warehouse', 694, 138);
-      ctx.fillStyle = '#4B5E78'; ctx.font = '9px Inter, sans-serif';
+      ctx.fillStyle = '#8A99B3'; ctx.font = '12px Inter, sans-serif';
       ctx.fillText('100+ tables', 694, 158);
       ctx.fillText('no tests · no docs', 694, 174);
       ctx.fillText('no ownership', 694, 190);
@@ -190,13 +190,13 @@ function buildVisual(container) {
         ctx.stroke(); ctx.setLineDash([]);
 
         rr(ctx, 30, t.y-16, 108, 32, 6, '#131D2E', t.color + '88');
-        ctx.fillStyle = t.color; ctx.font = 'bold 10px Inter, sans-serif'; ctx.textAlign = 'center';
+        ctx.fillStyle = t.color; ctx.font = 'bold 13px Inter, sans-serif'; ctx.textAlign = 'center';
         ctx.fillText(t.name, 84, t.y - 1);
-        ctx.fillStyle = '#4B5E78'; ctx.font = '7px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#8A99B3'; ctx.font = '11px "JetBrains Mono", monospace';
         ctx.fillText(t.sql.substring(0, 24) + '…', 84, t.y + 12);
       });
 
-      ctx.fillStyle = '#EF4444'; ctx.font = 'bold 11px Inter, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = '#EF4444'; ctx.font = 'bold 13px Inter, sans-serif'; ctx.textAlign = 'center';
       ctx.fillText('5 teams · 5 conflicting schemas · zero shared definitions', W/2, H - 14);
       ctx.restore();
     }
@@ -206,23 +206,23 @@ function buildVisual(container) {
       ctx.save(); ctx.globalAlpha = state.aOp;
 
       ['SOURCES', 'STAGING', 'INTERMEDIATE', 'MARTS'].forEach((lbl, i) => {
-        ctx.fillStyle = '#4B5E78'; ctx.font = '9px Inter, sans-serif'; ctx.textAlign = 'center';
+        ctx.fillStyle = '#8A99B3'; ctx.font = '12px Inter, sans-serif'; ctx.textAlign = 'center';
         ctx.fillText(lbl, [80, 230, 430, 630][i], 24);
       });
 
       ['raw_orders', 'raw_customers', 'raw_events'].forEach((name, i) => {
         const y = 90 + i * 113;
         rr(ctx, 30, y-13, 100, 26, 5, '#131D2E', '#4B5E7866');
-        ctx.fillStyle = '#4B5E78'; ctx.font = '8px "JetBrains Mono", monospace'; ctx.textAlign = 'center';
+        ctx.fillStyle = '#8A99B3'; ctx.font = '12px "JetBrains Mono", monospace'; ctx.textAlign = 'center';
         ctx.fillText(name, 80, y + 4);
         arw(ctx, 130, y, SNODES[i].x - 58, SNODES[i].y, '#4B5E7855');
       });
 
       SNODES.forEach(n => {
         rr(ctx, n.x-58, n.y-16, 116, 32, 6, '#0D1F3C', '#3B82F6');
-        ctx.fillStyle = '#3B82F6'; ctx.font = 'bold 9px "JetBrains Mono", monospace'; ctx.textAlign = 'center';
+        ctx.fillStyle = '#3B82F6'; ctx.font = 'bold 12px "JetBrains Mono", monospace'; ctx.textAlign = 'center';
         ctx.fillText(n.name, n.x, n.y + 4);
-        ctx.fillStyle = '#10B981'; ctx.font = '11px Inter, sans-serif';
+        ctx.fillStyle = '#10B981'; ctx.font = '13px Inter, sans-serif';
         ctx.fillText('✓', n.x + 46, n.y - 2);
       });
 
@@ -233,9 +233,9 @@ function buildVisual(container) {
 
       INODES.forEach(n => {
         rr(ctx, n.x-78, n.y-16, 156, 32, 6, '#12102A', '#8B5CF6');
-        ctx.fillStyle = '#8B5CF6'; ctx.font = 'bold 9px "JetBrains Mono", monospace'; ctx.textAlign = 'center';
+        ctx.fillStyle = '#8B5CF6'; ctx.font = 'bold 12px "JetBrains Mono", monospace'; ctx.textAlign = 'center';
         ctx.fillText(n.name, n.x, n.y + 4);
-        ctx.fillStyle = '#10B981'; ctx.font = '11px Inter, sans-serif';
+        ctx.fillStyle = '#10B981'; ctx.font = '13px Inter, sans-serif';
         ctx.fillText('✓', n.x + 66, n.y - 2);
       });
 
@@ -247,13 +247,13 @@ function buildVisual(container) {
       const mColors = ['#10B981', '#F59E0B', '#10B981'];
       MNODES.forEach((n, i) => {
         rr(ctx, n.x-50, n.y-16, 100, 32, 6, '#0A1F14', mColors[i]);
-        ctx.fillStyle = mColors[i]; ctx.font = 'bold 9px "JetBrains Mono", monospace'; ctx.textAlign = 'center';
+        ctx.fillStyle = mColors[i]; ctx.font = 'bold 12px "JetBrains Mono", monospace'; ctx.textAlign = 'center';
         ctx.fillText(n.name, n.x, n.y + 4);
-        ctx.fillStyle = '#10B981'; ctx.font = '11px Inter, sans-serif';
+        ctx.fillStyle = '#10B981'; ctx.font = '13px Inter, sans-serif';
         ctx.fillText('✓', n.x + 38, n.y - 2);
       });
 
-      ctx.fillStyle = '#10B981'; ctx.font = 'bold 11px Inter, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = '#10B981'; ctx.font = 'bold 13px Inter, sans-serif'; ctx.textAlign = 'center';
       ctx.fillText('✓  All models tested · documented · version-controlled · one canonical definition per metric', W/2, H - 14);
       ctx.restore();
     }
@@ -270,7 +270,7 @@ function buildDetail(container) {
     <div class="detail-section">
       <h3>What dbt actually is</h3>
       <p>dbt (data build tool) is a command-line tool that lets analysts transform data in their warehouse using SQL. The key insight: <em>dbt doesn't move data</em>. Your ELT pipeline loads raw data; dbt transforms it into models, metrics, tests, and documentation — all in one framework, all in Git.</p>
-      <div class="code-block">-- Without dbt: standalone SQL, no tests, no lineage, no docs
+      <div class="code-block" data-lang="sql">-- Without dbt: standalone SQL, no tests, no lineage, no docs
 SELECT customer_id, SUM(order_total) as ltv
 FROM raw_orders WHERE status = 'completed' GROUP BY 1;
 
@@ -286,24 +286,24 @@ GROUP BY 1
     <div class="detail-section">
       <h3>Five capabilities that change everything</h3>
       <div class="info-grid">
-        <div class="info-card" style="border-left-color:#3B82F6">
+        <div class="info-card" style="border-left-color:var(--info)">
           <div class="info-card-title">ref() — Dependency DAG</div>
-          <div class="info-card-tag" style="color:#3B82F6;background:#3B82F622">Lineage</div>
+          <div class="info-card-tag" style="color:var(--info);background:color-mix(in srgb, var(--info) 13%, transparent)">Lineage</div>
           <div class="info-card-body"><code>{{ ref('stg_orders') }}</code> tells dbt that stg_orders must run first. dbt compiles a full DAG and executes in topological order — no manual orchestration.</div>
         </div>
-        <div class="info-card" style="border-left-color:#10B981">
+        <div class="info-card" style="border-left-color:var(--success)">
           <div class="info-card-title">schema.yml — Tests & Docs</div>
-          <div class="info-card-tag" style="color:#10B981;background:#10B98122">Quality</div>
+          <div class="info-card-tag" style="color:var(--success);background:color-mix(in srgb, var(--success) 13%, transparent)">Quality</div>
           <div class="info-card-body">Declare <code>not_null</code>, <code>unique</code>, <code>relationships</code>, <code>accepted_values</code> in YAML. <code>dbt test</code> validates. <code>dbt docs generate</code> publishes a searchable catalog.</div>
         </div>
-        <div class="info-card" style="border-left-color:#F59E0B">
+        <div class="info-card" style="border-left-color:var(--warn)">
           <div class="info-card-title">Materializations</div>
-          <div class="info-card-tag" style="color:#F59E0B;background:#F59E0B22">Performance</div>
+          <div class="info-card-tag" style="color:var(--warn);background:color-mix(in srgb, var(--warn) 13%, transparent)">Performance</div>
           <div class="info-card-body"><code>view</code>, <code>table</code>, <code>incremental</code>, <code>ephemeral</code> — choose how each model persists. Change the strategy in one config line without rewriting SQL.</div>
         </div>
-        <div class="info-card" style="border-left-color:#8B5CF6">
+        <div class="info-card" style="border-left-color:var(--purple)">
           <div class="info-card-title">Multi-environment</div>
-          <div class="info-card-tag" style="color:#8B5CF6;background:#8B5CF622">Safety</div>
+          <div class="info-card-tag" style="color:var(--purple);background:color-mix(in srgb, var(--purple) 13%, transparent)">Safety</div>
           <div class="info-card-body">Dev/staging/prod isolated by profiles. <code>dbt run --target dev</code> writes to your personal schema. CI validates in staging. Production only gets CI-passed code.</div>
         </div>
       </div>
@@ -325,5 +325,6 @@ GROUP BY 1
       <h3>What problem did dbt solve?</h3>
       <p style="font-size:15px;font-weight:600;color:var(--accent)">SQL was being written like the 1990s — no tests, no docs, no version control, no dependency tracking. dbt brought software engineering discipline to analytics without requiring analysts to become software engineers.</p>
     </div>
+    <div class="detail-section"><p style="padding:12px 14px;background:var(--surface-2);border-left:3px solid var(--accent);border-radius:8px;font-size:14px;margin:0"><strong>🧠 First principles —</strong> dbt isn't a runtime — it's a compiler that turns templated SQL into warehouse SQL, then hands it off. That parse→compile→execute model is the key to everything that follows. <a href="#concepts" style="color:var(--accent);font-weight:600">Core Concepts → Execution Lifecycle</a>.</p></div>
   `;
 }

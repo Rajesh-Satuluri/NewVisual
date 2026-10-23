@@ -19,8 +19,12 @@
         "Given `employees` (`employee_id`, `name`, `department_id`, `manager_id`, `salary`) where `manager_id` points at another row's `employee_id` (and is `null` for the CEO), return each employee's `name` next to their **manager's name**. The manager lives in the *same* table, so you join `employees` to itself. Because both sides carry identical column names, you must **alias** each side (`.alias('e')`, `.alias('m')`) and reference columns as `col('e.name')` / `col('m.name')`, otherwise every column reference is ambiguous. Use a **left** join so the CEO (no manager) is kept with a null manager.",
       examples: [
         {
-          input: "employees: (1,'Ada',10,null,300), (2,'Ben',10,1,200), (3,'Cy',20,1,180)",
-          output: "(Ada, null), (Ben, Ada), (Cy, Ada)",
+          inputs: [
+            { name: "employees", columns: ["employee_id", "name", "department_id", "manager_id", "salary"],
+              rows: [[1, "Ada", 10, null, 300], [2, "Ben", 10, 1, 200], [3, "Cy", 20, 1, 180]] }
+          ],
+          output: { columns: ["employee", "manager"],
+            rows: [["Ada", null], ["Ben", "Ada"], ["Cy", "Ada"]] },
           reasoning: "Ben.manager_id=1 matches employee_id=1 (Ada), so Ben's manager is Ada; Cy likewise. Ada has manager_id=null, so a left join keeps her with a null manager name."
         }
       ],
@@ -88,8 +92,12 @@
         "Using `employees` (`employee_id`, `name`, `department_id`, `manager_id`, `salary`), return the names of employees whose `salary` is strictly greater than their manager's `salary`. Self-join the table to itself on `col('e.manager_id') == col('m.employee_id')`, then keep rows where `col('e.salary') > col('m.salary')`. An **inner** join is right here — an employee with no manager cannot out-earn a manager who does not exist.",
       examples: [
         {
-          input: "employees: (1,'Ada',10,null,300), (2,'Ben',10,1,320), (3,'Cy',10,1,180)",
-          output: "(Ben)",
+          inputs: [
+            { name: "employees", columns: ["employee_id", "name", "department_id", "manager_id", "salary"],
+              rows: [[1, "Ada", 10, null, 300], [2, "Ben", 10, 1, 320], [3, "Cy", 10, 1, 180]] }
+          ],
+          output: { columns: ["employee"],
+            rows: [["Ben"]] },
           reasoning: "Ben's manager is Ada (salary 300); Ben earns 320 > 300, so he qualifies. Cy earns 180 < 300, excluded. Ada has no manager, so she is not considered."
         }
       ],
@@ -158,8 +166,12 @@
         "From `employees` (`employee_id`, `name`, `department_id`, `manager_id`, `salary`), produce every **unordered pair** of distinct employees who share a `department_id`. Self-join on equal department, but exclude self-pairs (an employee paired with themselves) and collapse the (A,B)/(B,A) duplicate by requiring `col('e1.employee_id') < col('e2.employee_id')`. That single strict-less-than condition kills both the self-pair (where ids are equal) and the mirror pair in one stroke.",
       examples: [
         {
-          input: "employees: (1,'Ada',10,...), (2,'Ben',10,...), (3,'Cy',20,...)",
-          output: "(Ada, Ben)",
+          inputs: [
+            { name: "employees", columns: ["employee_id", "name", "department_id"],
+              rows: [[1, "Ada", 10], [2, "Ben", 10], [3, "Cy", 20]] }
+          ],
+          output: { columns: ["emp_a", "emp_b"],
+            rows: [["Ada", "Ben"]] },
           reasoning: "Ada and Ben are both in department 10, and 1 < 2, so the pair is emitted once. Cy is alone in department 20, so no pair. (Ben, Ada) is suppressed because 2 < 1 is false, and (Ada, Ada) is suppressed because 1 < 1 is false."
         }
       ],
@@ -230,8 +242,12 @@
         "For `employees` (`employee_id`, `name`, `department_id`, `manager_id`, `salary`), find each employee's **skip-level manager** — their manager's manager (two levels up). Chain two self-joins: employee `e` to their manager `m` (`e.manager_id = m.employee_id`), then `m` to the grand-manager `g` (`m.manager_id = g.employee_id`). Use **left** joins so employees near the top (whose manager is the CEO, or who are the CEO) are kept with a null skip-level manager.",
       examples: [
         {
-          input: "employees: (1,'Ada',null), (2,'Ben',1), (3,'Cy',2)  [id,name,manager_id]",
-          output: "(Cy, Ada), (Ben, null), (Ada, null)",
+          inputs: [
+            { name: "employees", columns: ["employee_id", "name", "manager_id"],
+              rows: [[1, "Ada", null], [2, "Ben", 1], [3, "Cy", 2]] }
+          ],
+          output: { columns: ["employee", "skip_level_manager"],
+            rows: [["Cy", "Ada"], ["Ben", null], ["Ada", null]] },
           reasoning: "Cy reports to Ben, Ben reports to Ada, so Cy's skip-level manager is Ada. Ben's manager is Ada whose manager is null, so Ben's skip-level is null. Ada is the CEO, so null."
         }
       ],
@@ -303,8 +319,12 @@
         "From `employees` (`employee_id`, `name`, `department_id`, `manager_id`, `salary`), compute how many **direct reports** each employee has, and flag whether they are a `manager` (>=1 report) or an `individual_contributor` (0 reports). The report count is a `groupBy('manager_id').count()`; join it back to the employee list (left) so people with zero reports show up as 0, then derive the flag with `when(...)`.",
       examples: [
         {
-          input: "employees: (1,'Ada',null), (2,'Ben',1), (3,'Cy',1), (4,'Di',2)  [id,name,manager_id]",
-          output: "Ada: 2 (manager), Ben: 1 (manager), Cy: 0 (IC), Di: 0 (IC)",
+          inputs: [
+            { name: "employees", columns: ["employee_id", "name", "manager_id"],
+              rows: [[1, "Ada", null], [2, "Ben", 1], [3, "Cy", 1], [4, "Di", 2]] }
+          ],
+          output: { columns: ["name", "direct_reports", "role"],
+            rows: [["Ada", 2, "manager"], ["Ben", 1, "manager"], ["Cy", 0, "individual_contributor"], ["Di", 0, "individual_contributor"]] },
           reasoning: "manager_id column has 1 twice (Ben, Cy) and 2 once (Di), so Ada has 2 reports, Ben has 1. Cy and Di appear as nobody's manager_id, so a left join gives them count 0 -> individual_contributor."
         }
       ],
@@ -381,8 +401,12 @@
         "For `employees` (`employee_id`, `name`, `department_id`, `manager_id`, `salary`), compute each employee's **level** in the org, with the CEO (`manager_id is null`) at level 1, their direct reports at level 2, and so on. Spark has **no native recursive CTE**, so you cannot walk arbitrary depth in one query. Instead you either (a) chain a **bounded** number of self-joins if you know the max depth, or (b) run an **iterative** loop in driver code: seed the roots at level 1, then repeatedly join the not-yet-leveled employees to the already-leveled set (`col('e.manager_id') == col('leveled.employee_id')`), assigning `manager_level + 1`, until no new rows are assigned (iterate-until-stable).",
       examples: [
         {
-          input: "employees: (1,'Ada',null), (2,'Ben',1), (3,'Cy',2)  [id,name,manager_id]",
-          output: "Ada: 1, Ben: 2, Cy: 3",
+          inputs: [
+            { name: "employees", columns: ["employee_id", "name", "manager_id"],
+              rows: [[1, "Ada", null], [2, "Ben", 1], [3, "Cy", 2]] }
+          ],
+          output: { columns: ["name", "level"],
+            rows: [["Ada", 1], ["Ben", 2], ["Cy", 3]] },
           reasoning: "Ada has null manager_id -> level 1 (root). Ben reports to Ada (level 1) -> level 2. Cy reports to Ben (level 2) -> level 3. The loop stops after the round that levels Cy, because the next round assigns nobody new."
         }
       ],

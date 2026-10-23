@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  KafkaSim, murmur2, partitionForKey, utf8Bytes, mulberry32,
+  KafkaSim, murmur2, partitionForKey, utf8Bytes, mulberry32, assignPartitions,
 } from './engine.js';
 
 // ── murmur2 matches Kafka's published test vectors ───────────────────────────
@@ -118,4 +118,51 @@ test('replicas spread across brokers, leader is first replica', () => {
 test('mulberry32 is deterministic', () => {
   const a = mulberry32(42), b = mulberry32(42);
   for (let i = 0; i < 100; i++) assert.equal(a(), b());
+});
+
+// ── Consumer-group assignment ────────────────────────────────────────────────
+test('assignPartitions covers every partition exactly once (range)', () => {
+  const a = assignPartitions(7, 3, 'range');
+  const flat = a.flat().sort((x, y) => x - y);
+  assert.deepEqual(flat, [0, 1, 2, 3, 4, 5, 6]);
+  // range gives earlier consumers the extra: 3,2,2
+  assert.deepEqual(a.map(x => x.length), [3, 2, 2]);
+});
+
+test('assignPartitions round-robin spreads evenly', () => {
+  const a = assignPartitions(7, 3, 'roundrobin');
+  assert.deepEqual(a[0], [0, 3, 6]);
+  assert.deepEqual(a[1], [1, 4]);
+  assert.deepEqual(a[2], [2, 5]);
+});
+
+test('extra consumers beyond partitions sit idle', () => {
+  const a = assignPartitions(3, 5, 'range');
+  assert.equal(a.length, 5);
+  assert.equal(a.filter(x => x.length === 0).length, 2); // 2 idle consumers
+});
+
+// ── Broker failure & leader election ─────────────────────────────────────────
+test('killing a broker re-elects leaders from the ISR', () => {
+  const sim = new KafkaSim({ seed: 1, brokers: 3 });
+  sim.createTopic('t', { partitions: 6, replicationFactor: 3 });
+  const leadBroker = 0;
+  sim.killBroker(leadBroker);
+  const view = sim.replicationView('t');
+  for (const p of view) {
+    assert.notEqual(p.leader, leadBroker, 'dead broker must not lead');
+    assert.ok(!p.offline, 'with RF=3 and one dead broker nothing goes offline');
+    assert.ok(p.underReplicated, 'losing a replica makes partitions under-replicated');
+    assert.ok(!p.replicas.find(r => r.broker === leadBroker).inSync, 'dead broker drops out of ISR');
+  }
+});
+
+test('losing all replicas takes a partition offline, revive restores it', () => {
+  const sim = new KafkaSim({ seed: 1, brokers: 3 });
+  sim.createTopic('t', { partitions: 3, replicationFactor: 1 }); // one copy each
+  sim.killBroker(0);
+  const health = sim.replicationHealth('t');
+  assert.ok(health.offline >= 1, 'RF=1 partitions on the dead broker go offline');
+  sim.reviveBroker(0);
+  assert.equal(sim.replicationHealth('t').offline, 0, 'revive brings them back online');
 });

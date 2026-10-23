@@ -181,4 +181,200 @@ export const DECISIONS = [
     whatIfChanged: `If the output were <b>another Kafka topic</b> instead of a database, Kafka's exactly-once (read-process-write in one transaction) becomes the clean best answer — the guarantee then actually spans the whole path.`,
     interviewNote: `The senior move is spotting the boundary: "Exactly-once is a Kafka-to-Kafka guarantee. My sink is a database, so I get correctness more cheaply with at-least-once plus an idempotent upsert than by reaching for transactions that don't cover the DB anyway."`,
   },
+
+  {
+    id: 'replication-factor',
+    title: 'Replication factor for a production topic',
+    difficulty: 'easy',
+    topic: 'Replication & durability',
+    moduleId: 'm07',
+    requirement: `You're creating a topic for <b>business-critical</b> data on a multi-broker cluster and must survive a single broker failure with no data loss and no downtime. What replication factor?`,
+    options: [
+      {
+        label: 'RF=3 with min.insync.replicas=2',
+        verdict: 'best',
+        why: `RF=3 keeps three copies on three brokers. With <code>min.insync.replicas=2</code> and <code>acks=all</code>, a write needs two in-sync copies to be accepted — so losing <b>one</b> broker still leaves a valid, writable partition (2 copies, meets the floor). It's the standard production default: tolerates one failure for both reads and writes, with room to lose a broker during maintenance.`,
+      },
+      {
+        label: 'RF=2 with min.insync.replicas=2',
+        verdict: 'wrong',
+        why: `Two copies sounds enough, but with <code>min.insync.replicas=2</code> the loss of <b>either</b> broker drops you to one in-sync replica — below the floor — so <code>acks=all</code> writes immediately start failing. You've made the topic unavailable the moment a single broker hiccups. RF=2 leaves no headroom.`,
+      },
+      {
+        label: 'RF=1',
+        verdict: 'wrong',
+        why: `One copy means a single broker failure loses the data outright and takes the partition offline. Fine for throwaway/dev topics, never for business-critical data.`,
+      },
+    ],
+    whatIfChanged: `For <b>transient, reproducible</b> data (e.g. a cache-warming or dev topic) RF=1 or RF=2 is a reasonable cost saving — you accept that a broker loss means rebuild-from-source rather than seamless failover.`,
+    interviewNote: `Say the pair and the reason: "RF=3 with min.insync.replicas=2 — three copies so I can lose one broker and still meet the two-in-sync floor that acks=all needs, so writes keep succeeding through a single failure."`,
+  },
+
+  {
+    id: 'commit-strategy',
+    title: 'Auto-commit or manual commit?',
+    difficulty: 'medium',
+    topic: 'Offsets & delivery',
+    moduleId: 'm09',
+    requirement: `A consumer reads events and writes each to a database. You must not <b>lose</b> an event if the consumer crashes mid-batch. How should it commit offsets?`,
+    options: [
+      {
+        label: 'Manual commit AFTER the database write succeeds',
+        verdict: 'best',
+        why: `Committing only after the side effect is durable gives clean at-least-once semantics: if the consumer crashes before the commit, those records are redelivered and reprocessed — no loss. You control the exact commit point, so "processed" and "committed" can't drift apart in a way that drops data.`,
+      },
+      {
+        label: 'Default auto-commit (enable.auto.commit=true)',
+        verdict: 'viable',
+        why: `Auto-commit periodically commits the <i>last polled</i> offset on a timer (every <code>auto.commit.interval.ms</code>), <b>regardless of whether processing finished</b>. That can commit past records you haven't durably written yet — a crash then loses them. It's convenient and fine for tolerant workloads, but it doesn't meet a strict no-loss requirement.`,
+      },
+      {
+        label: 'Manual commit BEFORE processing',
+        verdict: 'wrong',
+        why: `Committing first is at-most-once: a crash during the DB write leaves the offset already advanced, so the event is never retried and is lost. That's the exact failure mode the requirement forbids.`,
+      },
+    ],
+    whatIfChanged: `For <b>loss-tolerant</b> telemetry where throughput matters more than every record, default auto-commit is the pragmatic choice — simpler code, and the occasional lost record on crash is acceptable.`,
+    interviewNote: `"Commit after the effect is durable. Auto-commit commits on a timer irrespective of processing, so it can advance past records I haven't written — I use manual commit after the DB write to guarantee at-least-once with no loss."`,
+  },
+
+  {
+    id: 'compression-codec',
+    title: 'Choosing a producer compression codec',
+    difficulty: 'easy',
+    topic: 'Performance tuning',
+    moduleId: 'm17',
+    requirement: `A high-volume topic is saturating <b>network bandwidth</b> and growing storage fast. CPU headroom on producers and brokers is moderate. What compression do you set?`,
+    options: [
+      {
+        label: 'compression.type=zstd',
+        verdict: 'best',
+        why: `zstd gives a strong compression ratio at reasonable CPU cost, directly cutting bytes on the wire and on disk — exactly the bandwidth/storage problem here. On modern clusters it's the usual recommendation when you have some CPU to spend for a big size win, and it compresses whole batches so larger batches help further.`,
+      },
+      {
+        label: 'compression.type=lz4',
+        verdict: 'viable',
+        why: `lz4 is very fast with a decent ratio — the right pick if CPU were tight or latency were ultra-sensitive. Here you have moderate CPU and a bandwidth/storage problem, so zstd's better ratio is worth the extra CPU; but lz4 is a perfectly defensible, safe choice.`,
+      },
+      {
+        label: 'compression.type=none',
+        verdict: 'wrong',
+        why: `Leaving it uncompressed ignores the actual problem — you're paying full bandwidth and storage for every message. Compression is nearly free value for high-volume topics; "none" only makes sense for tiny or already-compressed payloads.`,
+      },
+    ],
+    whatIfChanged: `If producers were <b>CPU-bound</b> or the pipeline were latency-critical (every millisecond counts), you'd prefer <code>lz4</code> (or snappy) for speed over zstd's higher ratio.`,
+    interviewNote: `"I'd match codec to the binding constraint: bandwidth/storage-bound with CPU to spare → zstd for the ratio; CPU- or latency-bound → lz4/snappy for speed. Compression applies per batch, so I'd also give batches room with linger.ms."`,
+  },
+
+  {
+    id: 'schema-compat',
+    title: 'Picking a schema compatibility mode',
+    difficulty: 'medium',
+    topic: 'Schema Registry',
+    moduleId: 'm14',
+    requirement: `Many independent services consume a topic and you <b>can't coordinate a lockstep upgrade</b>. You need to add fields over time and upgrade consumers before producers. Which compatibility setting?`,
+    options: [
+      {
+        label: 'BACKWARD compatibility',
+        verdict: 'best',
+        why: `Backward means a <b>new</b> schema can read data written with the <b>old</b> schema — so you can upgrade <i>consumers first</i> (they understand both), then roll producers. That matches "upgrade consumers before producers" exactly, and it permits the common safe change of adding an optional field with a default. It's the most widely used default for this reason.`,
+      },
+      {
+        label: 'FULL compatibility',
+        verdict: 'viable',
+        why: `Full = both backward and forward, so either side can be upgraded first — maximum safety. The cost is it's the most restrictive (a change must satisfy both directions), so you lose some evolution freedom. Great when you genuinely can't control deploy order at all; here backward is enough and less constraining.`,
+      },
+      {
+        label: 'NONE',
+        verdict: 'wrong',
+        why: `Disabling compatibility checks lets an incompatible schema through, which can break consumers at deserialize time in production. With many independent consumers and no lockstep upgrade, that's exactly the outage you're trying to prevent.`,
+      },
+    ],
+    whatIfChanged: `If you needed to upgrade <b>producers first</b> (new data written before all consumers understand it), you'd want <b>FORWARD</b> compatibility instead — old consumers can still read the new data.`,
+    interviewNote: `"Compatibility direction sets deploy order. Backward (new reads old) → upgrade consumers first; forward (old reads new) → upgrade producers first; full → either. With uncoordinated consumers I default to backward, and add only optional-with-default fields."`,
+  },
+
+  {
+    id: 'integration-approach',
+    title: 'Getting topic data into a data warehouse',
+    difficulty: 'easy',
+    topic: 'Kafka Connect & ecosystem',
+    moduleId: 'm12',
+    requirement: `Order events in Kafka need to land in <b>Snowflake</b> for analytics, continuously and reliably, with minimal ongoing maintenance. What do you build?`,
+    options: [
+      {
+        label: 'A Kafka Connect sink connector (with a dead-letter queue)',
+        verdict: 'best',
+        why: `A managed sink connector moves data to the warehouse by <b>configuration</b>, with scaling across workers, offset tracking for restart-safety, retries, and a dead-letter queue for bad records — all built in. It's the least code to write and, crucially, the least to operate for a standard "topic → warehouse" flow.`,
+      },
+      {
+        label: 'A hand-written consumer that batches and loads to Snowflake',
+        verdict: 'viable',
+        why: `This works and gives full control, but now you own all the hard parts a connector already solves: scaling, offset management, retries, poison-record handling, monitoring. Justified only if you need custom logic no connector offers — otherwise it's maintenance you volunteered for.`,
+      },
+      {
+        label: 'Use Kafka Streams to write to Snowflake',
+        verdict: 'wrong',
+        why: `Kafka Streams is for stream <i>processing</i> (transform, join, aggregate between Kafka topics), not for sinking to an external store — it has no native warehouse sink. Forcing it into an integration role is the wrong tool; Connect is purpose-built for moving data in and out.`,
+      },
+    ],
+    whatIfChanged: `If the events needed real <b>transformation/enrichment/aggregation</b> before landing (not just a move), you'd put <b>Kafka Streams</b> (or ksqlDB) in front to process, then still use a <b>Connect sink</b> to load the result.`,
+    interviewNote: `"Moving data in/out of Kafka → Connect (config, scaling, DLQ for free). Processing data within Kafka → Streams. For topic-to-warehouse I reach for a sink connector and only hand-roll a consumer if I need logic no connector provides."`,
+  },
+
+  {
+    id: 'security-mechanism',
+    title: 'Securing a cluster for external service clients',
+    difficulty: 'medium',
+    topic: 'Security',
+    moduleId: 'm15',
+    requirement: `Services outside the cluster's trusted network must connect. You need the traffic <b>encrypted</b>, each service <b>authenticated</b>, and each limited to <b>only its own</b> topics. What do you configure?`,
+    options: [
+      {
+        label: 'TLS for encryption + SASL (SCRAM/mTLS) for auth + ACLs for authorization',
+        verdict: 'best',
+        why: `These are three distinct layers and the requirement names all three. <b>TLS</b> encrypts data in transit; <b>SASL</b> (SCRAM or OAuth) or <b>mutual TLS</b> authenticates <i>who</i> each service is; <b>ACLs</b> restrict each authenticated principal to its own topics. Only the full stack satisfies "encrypted, authenticated, and least-privilege."`,
+      },
+      {
+        label: 'TLS encryption only',
+        verdict: 'wrong',
+        why: `One-way TLS encrypts the channel but doesn't identify the client — any service that can reach the port can produce/consume anything. It covers encryption and none of authentication or authorization, so it fails two of the three requirements.`,
+      },
+      {
+        label: 'ACLs only',
+        verdict: 'wrong',
+        why: `ACLs authorize a <i>principal</i>, but a principal only exists once the client is authenticated — and without TLS the traffic is in the clear. ACLs on their own have nothing to act on and leave data unencrypted. Authorization is the last layer, not the only one.`,
+      },
+    ],
+    whatIfChanged: `For <b>internal</b> clients already on a trusted, isolated network, teams sometimes run SASL + ACLs without full TLS (or TLS between brokers only) to save CPU — a weaker posture that's only acceptable when the network itself is the trust boundary.`,
+    interviewNote: `"I separate the three concerns: TLS encrypts, SASL/mTLS authenticates the principal, ACLs authorize that principal to specific resources. 'Authenticated but not authorized' is normal — you fix it with an ACL, not by weakening auth."`,
+  },
+
+  {
+    id: 'dr-strategy',
+    title: 'Surviving a full region outage',
+    difficulty: 'hard',
+    topic: 'Multi-cluster & DR',
+    moduleId: 'm21',
+    requirement: `A critical pipeline must keep running if an entire <b>region</b> goes down. Consumers should be able to fail over to a second region and resume near where they left off. What's the approach?`,
+    options: [
+      {
+        label: 'A second cluster in another region, replicated by MirrorMaker 2 with offset translation',
+        verdict: 'best',
+        why: `Cross-region durability needs a <b>separate cluster</b> in a second region — a single stretched cluster still shares a failure domain for a regional outage. MirrorMaker 2 replicates topics <i>and</i> translates consumer offsets, so on failover a group resumes near the corresponding position in the target cluster instead of re-reading everything or skipping data. That directly meets "fail over and resume near where they left off."`,
+      },
+      {
+        label: 'Increase replication factor to 6 within the single cluster',
+        verdict: 'wrong',
+        why: `More replicas in <b>one</b> cluster/region doesn't survive that region failing — all copies share the same regional failure domain. You'd also pay heavy replication cost for zero cross-region protection. RF protects against broker loss, not region loss.`,
+      },
+      {
+        label: 'Rely on consumers re-reading from the source cluster once the region recovers',
+        verdict: 'viable',
+        why: `Acceptable only if the business can tolerate the pipeline being <b>down for the entire outage</b> and catching up afterward. It's the cheapest option, but it provides no continuity during the outage — which contradicts "must keep running." Fine for non-critical flows, not this one.`,
+      },
+    ],
+    whatIfChanged: `If only <b>broker</b> failures (not a whole region) were in scope, a single cluster with <b>RF=3 across racks/AZs</b> is the right, far cheaper answer — you don't need a second cluster or MM2 at all.`,
+    interviewNote: `"Match the replication scope to the failure domain: broker loss → RF across racks in one cluster; region loss → a second cluster replicated by MirrorMaker 2, and I'd call out offset translation so failed-over consumers resume at the right position rather than from scratch."`,
+  },
 ];

@@ -51,7 +51,13 @@
 
   Router.prototype._id = function () {
     var raw = (location.hash || "").replace(/^#/, "").trim();
-    return raw || this.defaultRoute;
+    if (!raw) { AV.routeParam = ""; return this.defaultRoute; }
+    // Support "#route/param" (e.g. #labs/gate-the-test) — first segment is
+    // the route id, the rest is exposed as AV.routeParam for the module.
+    var slash = raw.indexOf("/");
+    if (slash === -1) { AV.routeParam = ""; return raw; }
+    AV.routeParam = raw.slice(slash + 1);
+    return raw.slice(0, slash);
   };
 
   Router.prototype._teardown = function () {
@@ -94,6 +100,8 @@
     var canvas = document.getElementById("canvas");
     if (canvas) canvas.scrollTop = 0;
     try { mod.render(c); } catch (e) { console.error("Module render error:", e); }
+    // Record the visit for the learning dashboard (local-only).
+    if (AV.Progress && mod.id) { try { AV.Progress.visit(mod.id); } catch (e) {} }
     // Append the recurring e-commerce business example below concept
     // modules (no-op for modules without a lens entry).
     if (AV.BusinessLens) {
@@ -117,21 +125,22 @@
   };
 
   Router.prototype._renderComingSoon = function (id, title) {
+    // No real route is unbuilt; this is the graceful not-found page
+    // for an unknown hash (a stale link, a typo, a renamed route).
     if (!this.container) return;
     var t = this._title(id, title);
     this.container.className = "module-container";
     this.container.innerHTML =
       '<div class="module-header animate-fade-in-up">' +
-        '<div class="module-eyebrow">Data Engineering CI/CD Visualizer</div>' +
+        '<div class="module-eyebrow">Page not found</div>' +
         '<h1 class="module-title gradient-text">' + t + "</h1>" +
-        '<p class="module-subtitle">This module is on the build roadmap. The core ' +
-        "engine, routing, and design system are live — interactive content for this " +
-        "topic lands in an upcoming phase.</p>" +
+        '<p class="module-subtitle">There is no module at <code>#' + this._title(id, null).toLowerCase().replace(/\s+/g, "-") +
+        "</code>. It may have been renamed or the link is out of date.</p>" +
       "</div>" +
       '<div class="callout tip animate-fade-in">' +
-        '<span class="callout-icon">🚧</span>' +
-        '<div class="callout-body">Under construction. The scaffold (engine, routing, ' +
-        'navigation, design system) is live — concept content lands in upcoming build batches.</div>' +
+        '<span class="callout-icon">🧭</span>' +
+        '<div class="callout-body">Try the <a href="#home">Home dashboard</a>, open ' +
+        'search with <kbd>/</kbd>, or pick a topic from the sidebar.</div>' +
       "</div>";
   };
 

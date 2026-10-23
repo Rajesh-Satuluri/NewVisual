@@ -17,8 +17,8 @@
   --border: #D6DEF0;
   --border-2: #E8EEF8;
   --text: #1A2640;
-  --text-2: #4B5E78;
-  --text-3: #8895AA;
+  --text-2: #3E5173;
+  --text-3: #6A7689;
   --shadow: rgba(0,0,0,0.08);
 
   /* Sidebar always stays dark */
@@ -40,8 +40,8 @@
     --border: #1E2D43;
     --border-2: #162238;
     --text: #E2E8F4;
-    --text-2: #8895AA;
-    --text-3: #4B5E78;
+    --text-2: #A6B2C6;
+    --text-3: #7C8BA3;
     --shadow: rgba(0,0,0,0.3);
   }
 }
@@ -54,8 +54,8 @@
   --border: #1E2D43;
   --border-2: #162238;
   --text: #E2E8F4;
-  --text-2: #8895AA;
-  --text-3: #4B5E78;
+  --text-2: #A6B2C6;
+  --text-3: #7C8BA3;
   --shadow: rgba(0,0,0,0.3);
 }
 
@@ -85,16 +85,59 @@
   --radius: 8px;
   --radius-lg: 12px;
   --radius-xl: 16px;
+  --radius-pill: 999px;
   --shadow-lg: 0 12px 40px var(--shadow);
   --transition: 0.15s ease;
   --transition-slow: 0.3s ease;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
+
+  /* Spacing scale (4px base) — use these instead of ad-hoc px for new work. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Type scale — a modular ladder for headings/body/labels. */
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 15px;
+  --text-md: 16px;
+  --text-lg: 18px;
+  --text-xl: 22px;
+  --text-2xl: 26px;
+  --text-3xl: 32px;
+
+  /* Shared breakpoints (reference values; media queries can't read vars but
+     keeping them documented here curbs future breakpoint drift). */
+  --bp-mobile: 640px;
+  --bp-tablet: 860px;
+  --bp-desktop: 1040px;
 }
+
+/* ── Accessibility helpers ───────────────────────────────────────────────── */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+.skip-link {
+  position: fixed; top: 8px; left: 8px; z-index: 1000;
+  transform: translateY(-150%);
+  background: var(--accent); color: #fff; font-weight: 600; font-size: 13px;
+  padding: 8px 14px; border-radius: var(--radius); text-decoration: none;
+  transition: transform var(--transition);
+}
+.skip-link:focus { transform: translateY(0); outline: 2px solid #fff; outline-offset: 2px; }
 
 /* ── Reset ───────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-html, body { height: 100%; font-size: 14px; }
+html, body { height: 100%; font-size: 15px; }
 
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -263,6 +306,9 @@ body {
   position: relative;
   white-space: nowrap;
 }
+/* Home sits above the filter as a persistent anchor, not inside a group. */
+.nav-home { margin: 4px 0 2px; font-weight: 600; color: var(--sidebar-text); }
+.nav-home .nav-label { font-weight: 600; }
 
 .nav-item:hover {
   background: var(--sidebar-hover);
@@ -341,7 +387,9 @@ body {
 #module-canvas::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
 /* ── Module Shell ─────────────────────────────────────────────────────────── */
-.module-shell { max-width: 900px; }
+/* Centered within the content canvas so wide screens don't leave the whole
+   lesson pinned to the left with dead space on the right (matches .home). */
+.module-shell { max-width: 1040px; margin: 0 auto; width: 100%; }
 
 .module-hero {
   margin-bottom: 24px;
@@ -381,7 +429,14 @@ body {
   gap: 2px;
   border-bottom: 1px solid var(--border);
   margin-bottom: 24px;
+  /* Many tabs (e.g. Core Concepts) exceed the content width — scroll the row
+     instead of clipping the last tabs off the edge. */
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  scrollbar-width: thin;
 }
+.tab-bar::-webkit-scrollbar { height: 6px; }
+.tab-bar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
 .tab-btn {
   background: none;
@@ -395,6 +450,7 @@ body {
   margin-bottom: -1px;
   transition: color 0.15s, border-color 0.15s;
   white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .tab-btn:hover { color: var(--text-2); }
@@ -656,6 +712,12 @@ canvas {
   font-size: 12px;
   line-height: 1.7;
   color: #CBD4E6;
+  /* Preserve the newlines + indentation authored in each block. Without this,
+     white-space collapses the code into one wrapped paragraph; long lines still
+     scroll horizontally via overflow-x above. */
+  white-space: pre;
+  tab-size: 2;
+  -moz-tab-size: 2;
 }
 
 .code-block .kw { color: #FF694B; }

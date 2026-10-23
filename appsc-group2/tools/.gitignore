@@ -1,0 +1,7 @@
+# Local PYQ ingestion artifacts — not committed (large scans, venv, OCR dumps)
+pyq_src/
+pyq_txt/
+pdfvenv/
+*.seg.json
+classified.json
+__pycache__/

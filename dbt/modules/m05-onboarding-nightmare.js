@@ -160,15 +160,15 @@ function buildVisual(container) {
     ctx.fillStyle = '#0A0E1A'; ctx.fillRect(0, 0, W, H);
 
     // Title
-    ctx.fillStyle = '#4B5E78';
-    ctx.font = '11px Inter, sans-serif';
+    ctx.fillStyle = '#8A99B3';
+    ctx.font = '13px Inter, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('New engineer joins the team. Opens the SQL repository.', W/2, 22);
 
     // File tree panel
     rr(ctx, 14, 36, 560, H - 52, 8, '#0D1220', '#1E2D43');
     ctx.fillStyle = '#3B82F6';
-    ctx.font = 'bold 11px "JetBrains Mono", monospace';
+    ctx.font = 'bold 13px "JetBrains Mono", monospace';
     ctx.textAlign = 'left';
     ctx.fillText('📁  analytics-sql-repo/', 26, 56);
 
@@ -193,7 +193,7 @@ function buildVisual(container) {
       const color = isSuspicious ? '#EF4444' : '#8895AA';
 
       ctx.fillStyle = color;
-      ctx.font = '9px "JetBrains Mono", monospace';
+      ctx.font = '12px "JetBrains Mono", monospace';
       ctx.textAlign = 'left';
       ctx.fillText('  📄  ' + fname, x, y + 12);
     }
@@ -201,7 +201,7 @@ function buildVisual(container) {
     // File count
     if (state.FILENAMES_SEEN > 0) {
       ctx.fillStyle = state.FILENAMES_SEEN >= 25 ? '#EF4444' : '#F59E0B';
-      ctx.font = 'bold 10px Inter, sans-serif';
+      ctx.font = 'bold 13px Inter, sans-serif';
       ctx.textAlign = 'left';
       ctx.fillText(`${state.FILENAMES_SEEN} files... (and growing)`, 26, H - 20);
     }
@@ -228,8 +228,8 @@ function buildVisual(container) {
     ctx.beginPath(); ctx.moveTo(DEV_X, DEV_Y + 20); ctx.lineTo(DEV_X + 12, DEV_Y + 40); ctx.stroke();
 
     // Developer label
-    ctx.fillStyle = '#4B5E78';
-    ctx.font = '10px Inter, sans-serif';
+    ctx.fillStyle = '#8A99B3';
+    ctx.font = '13px Inter, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('New Engineer', DEV_X, DEV_Y + 58);
 
@@ -238,7 +238,7 @@ function buildVisual(container) {
       ctx.save();
       ctx.globalAlpha = Math.min(1, q.life * 2);
       ctx.fillStyle = q.color;
-      ctx.font = `bold ${q.text.length > 3 ? '9' : '14'}px Inter, sans-serif`;
+      ctx.font = `bold ${q.text.length > 3 ? '12' : '15'}px Inter, sans-serif`;
       ctx.textAlign = 'center';
       ctx.fillText(q.text, q.x, q.y);
       ctx.restore();
@@ -253,8 +253,8 @@ function buildVisual(container) {
       ctx.font = 'bold 15px Inter, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(label, W - 77, 55);
-      ctx.fillStyle = '#4B5E78';
-      ctx.font = '9px Inter, sans-serif';
+      ctx.fillStyle = '#8A99B3';
+      ctx.font = '12px Inter, sans-serif';
       ctx.fillText('still confused', W - 77, 72);
     }
 
@@ -265,8 +265,8 @@ function buildVisual(container) {
     else if (state.visibleFiles < 25) msg = 'Are these all still used? What does FINAL_v2 mean?';
     else msg = `${state.visibleFiles}+ SQL files. Zero documentation. No naming conventions. Where do you even start?`;
 
-    ctx.fillStyle = state.visibleFiles > 20 ? '#EF4444' : '#4B5E78';
-    ctx.font = '11px Inter, sans-serif';
+    ctx.fillStyle = state.visibleFiles > 20 ? '#EF4444' : '#8A99B3';
+    ctx.font = '13px Inter, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(msg, W/2, H - 8);
 
@@ -287,31 +287,31 @@ function buildDetail(container) {
     <div class="detail-section">
       <h3>The symptoms of an undocumented SQL warehouse</h3>
       <div class="info-grid">
-        <div class="info-card" style="border-left-color:#EF4444">
+        <div class="info-card" style="border-left-color:var(--error)">
           <div class="info-card-title">File naming chaos</div>
-          <div class="info-card-tag" style="color:#EF4444;background:#EF444422">Pattern</div>
+          <div class="info-card-tag" style="color:var(--error);background:color-mix(in srgb, var(--error) 13%, transparent)">Pattern</div>
           <div class="info-card-body"><code>revenue.sql</code>, <code>revenue_v2.sql</code>, <code>revenue_FINAL.sql</code>, <code>revenue_USE_THIS.sql</code> — all exist. Nobody knows which one dashboards are actually reading.</div>
         </div>
-        <div class="info-card" style="border-left-color:#F59E0B">
+        <div class="info-card" style="border-left-color:var(--warn)">
           <div class="info-card-title">Orphaned queries</div>
-          <div class="info-card-tag" style="color:#F59E0B;background:#F59E0B22">Pattern</div>
+          <div class="info-card-tag" style="color:var(--warn);background:color-mix(in srgb, var(--warn) 13%, transparent)">Pattern</div>
           <div class="info-card-body">30% of SQL files in a typical mature warehouse are no longer used. But nobody knows which 30%. Deleting anything feels dangerous.</div>
         </div>
-        <div class="info-card" style="border-left-color:#8B5CF6">
+        <div class="info-card" style="border-left-color:var(--purple)">
           <div class="info-card-title">Knowledge hoarding</div>
-          <div class="info-card-tag" style="color:#8B5CF6;background:#8B5CF622">Pattern</div>
+          <div class="info-card-tag" style="color:var(--purple);background:color-mix(in srgb, var(--purple) 13%, transparent)">Pattern</div>
           <div class="info-card-body">The one analyst who knows how the revenue query works becomes a bottleneck. Every new team member has to sit with them for a week to get context. They become a single point of failure.</div>
         </div>
-        <div class="info-card" style="border-left-color:#3B82F6">
+        <div class="info-card" style="border-left-color:var(--info)">
           <div class="info-card-title">Slow ramp time</div>
-          <div class="info-card-tag" style="color:#3B82F6;background:#3B82F622">Pattern</div>
+          <div class="info-card-tag" style="color:var(--info);background:color-mix(in srgb, var(--info) 13%, transparent)">Pattern</div>
           <div class="info-card-body">New data engineers at companies without dbt take 4–6 weeks to become productive. With a well-documented dbt project, ramp time drops to under one week.</div>
         </div>
       </div>
     </div>
     <div class="detail-section">
       <h3>What dbt documentation looks like</h3>
-      <div class="code-block"><span class="cmt"># models/marts/finance/schema.yml</span>
+      <div class="code-block" data-lang="yaml"><span class="cmt"># models/marts/finance/schema.yml</span>
 <span class="kw">models</span>:
   - <span class="fn">name</span>: fct_revenue
     <span class="fn">description</span>: <span class="str">|

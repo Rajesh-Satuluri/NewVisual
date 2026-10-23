@@ -40,15 +40,72 @@
       var self = this;
       var view = "biz";
       var reached = 0; // how many stages have been "passed" by the animation
+      var E = NS.Evidence;
 
       container.innerHTML =
         '<div class="module-header animate-fade-in-up">' +
-          '<div class="module-eyebrow">🚀 Flagship Scenario · RetailFlow</div>' +
-          '<h1 class="module-title gradient-text">A Code Change Travels to Production</h1>' +
+          '<div class="module-eyebrow">📘 Case Study · Chapter 1 of 4</div>' +
+          '<h1 class="module-title gradient-text">Business Problem, Context &amp; Impact</h1>' +
+          '<p class="module-subtitle">Before any pipeline diagram: <b>what real business problem</b> makes this engineering exist, ' +
+          "and what does it cost when the data is wrong? We ground this in a real company — Airbnb — then practise the same ideas " +
+          "in a labelled sandbox, RetailFlow.</p>" +
+        "</div>";
+
+      // ── Case-study layer (real company, evidence-based) ──────
+      if (E && E.ready()) {
+        var cs = document.createElement("div");
+        cs.innerHTML =
+          E.chapterNav("business-scenario") +
+          E.companyIntro();
+        container.appendChild(cs);
+
+        var problem = document.createElement("section");
+        problem.className = "section";
+        problem.innerHTML =
+          '<h2 class="section-title">The documented business problem</h2>' +
+          '<p class="cs-lead">Airbnb\'s own engineering writing describes the stakes directly: data people could not trust, and the ' +
+          'same business question answered differently by different teams. Each statement below is labelled by how we know it.</p>' +
+          E.legend() +
+          E.claimGroup("business");
+        container.appendChild(problem);
+
+        var why = document.createElement("div");
+        why.className = "callout tip";
+        why.innerHTML = '<span class="callout-icon">💡</span><div class="callout-body">' +
+          '<b>Why CI/CD matters for this problem.</b> A wrong revenue or bookings number is not a crash — the job can finish “green” ' +
+          "and still be wrong. That is exactly why correctness has to be <i>enforced</i> before a change ships (tests, reviews, data-quality gates) " +
+          "and <i>verified</i> after it runs — not left to manual spot-checks. The next three chapters show how a change is built, shipped, and recovered.</div>";
+        container.appendChild(why);
+
+        container.appendChild(E.referencesPanel());
+
+        container.appendChild(E.learningCheck([{
+          q: "A nightly revenue job finishes with status “success”, yet Finance says the number is wrong. What does that tell you?",
+          options: [
+            { label: "The job must have actually failed — just re-run it.", ok: false, why: "A green run only means the code executed; re-running the same code reproduces the same wrong number." },
+            { label: "A green job proves the code ran, not that the data is correct — correctness needs its own checks.", ok: true, why: "Job success and data correctness are different things; that gap is why data-quality and reconciliation gates exist." },
+            { label: "Nothing is wrong — trust the pipeline status.", ok: false, why: "Treating job status as proof of correctness is exactly how a silently-wrong number reaches executives." }
+          ]
+        }]));
+
+        // Divider: everything below is the fictional practice sandbox.
+        var div = document.createElement("div");
+        div.className = "cs-sandbox-note";
+        div.innerHTML = "🧪 <div><b>Practice sandbox (fictional).</b> “RetailFlow” below is a made-up company used to rehearse these ideas " +
+          "hands-on. It is <b>not</b> Airbnb and not a real business — it exists so the animation and labs can show a concrete change end to end.</div>";
+        container.appendChild(div);
+      }
+
+      // ── RetailFlow sandbox narrative (preserved) ─────────────
+      var hero = document.createElement("div");
+      hero.className = "module-header";
+      hero.innerHTML =
+          '<div class="module-eyebrow">🚀 Sandbox Scenario · RetailFlow</div>' +
+          '<h2 class="module-title gradient-text">A Code Change Travels to Production</h2>' +
           '<p class="module-subtitle">It\'s 6:55 AM. RetailFlow\'s COO will open the revenue dashboard in five minutes. ' +
           'Yesterday an engineer changed one line — <code>net_revenue = gross_revenue - refund_amount</code>. ' +
-          "Watch that change travel safely from a laptop to the executive dashboard.</p>" +
-        "</div>";
+          "Watch that change travel safely from a laptop to the executive dashboard.</p>";
+      container.appendChild(hero);
 
       // View switcher
       var views = document.createElement("div");
@@ -153,6 +210,12 @@
           "<i>safely and repeatably</i> — validated by tests, packaged once, reviewed for infra, and checked for data quality on the way.</p>";
         return a;
       })());
+
+      if (NS.Evidence && NS.Evidence.ready()) {
+        var pn = document.createElement("div");
+        pn.innerHTML = NS.Evidence.chapterPrevNext("business-scenario");
+        container.appendChild(pn);
+      }
     },
 
     destroy: function () {

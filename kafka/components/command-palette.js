@@ -15,7 +15,14 @@ function fuzzyScore(query, text) {
 
 const EXTRA = [
   { id: 'home', label: 'Home', icon: '🏠', group: 'Start' },
+  { id: 'search', label: 'Search everything', icon: '🔎', group: 'Start' },
+  { id: 'playground', label: 'Partition Simulator', icon: '🎮', group: 'Playground' },
+  { id: 'consumer-lab', label: 'Consumer Group Lab', icon: '👥', group: 'Playground' },
+  { id: 'replication-lab', label: 'Replication & Failure Lab', icon: '🔁', group: 'Playground' },
+  { id: 'sizing', label: 'Capacity & Sizing Lab', icon: '📐', group: 'Playground' },
   { id: 'master-map', label: 'Master Map', icon: '🗺️', group: 'Reference' },
+  { id: 'advanced', label: 'Advanced Topics', icon: '🧠', group: 'Reference' },
+  { id: 'config-reference', label: 'Config Reference', icon: '⚙️', group: 'Reference' },
   { id: 'glossary', label: 'Glossary', icon: '📖', group: 'Reference' },
   { id: 'cheatsheet', label: 'Cheat Sheet', icon: '📋', group: 'Reference' },
   { id: 'incident-bank', label: 'Incident Bank', icon: '🚑', group: 'Reference' },
@@ -50,6 +57,8 @@ export function initCommandPalette() {
       .filter(r => r.s !== null)
       .sort((a, b) => a.s - b.s)
       .map(r => r.m);
+    // Always offer full-content search for the typed query.
+    if (q) results.push({ id: '__search__', label: `Search all content for “${q}”`, icon: '🔎', group: 'Search', q });
     if (sel >= results.length) sel = 0;
     list.innerHTML = results.length
       ? results.map((m, i) => `
@@ -62,7 +71,11 @@ export function initCommandPalette() {
   }
   function open() { overlay.hidden = false; input.value = ''; sel = 0; render(); input.focus(); document.body.classList.add('cmdk-open'); }
   function close() { overlay.hidden = true; document.body.classList.remove('cmdk-open'); }
-  function go(i) { const m = results[i]; if (!m) return; close(); window.location.hash = m.id; }
+  function go(i) {
+    const m = results[i]; if (!m) return; close();
+    if (m.id === '__search__') { window.location.hash = `search?q=${encodeURIComponent(m.q)}`; return; }
+    window.location.hash = m.id;
+  }
 
   input.addEventListener('input', () => { sel = 0; render(); });
   input.addEventListener('keydown', e => {
@@ -73,7 +86,9 @@ export function initCommandPalette() {
   });
   list.addEventListener('click', e => {
     const li = e.target.closest('.cmdk-item[data-id]');
-    if (li) { window.location.hash = li.dataset.id; close(); }
+    if (!li) return;
+    const idx = [...list.querySelectorAll('.cmdk-item')].indexOf(li);
+    if (idx >= 0) go(idx);
   });
   overlay.addEventListener('mousedown', e => { if (e.target === overlay) close(); });
 

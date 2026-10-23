@@ -1,0 +1,53 @@
+/* ============================================================
+   sim-tiers.js — honest two-tier labelling for simulators.
+
+   Every concept has a sim. There are two kinds, and the UI must say
+   which is which rather than implying all 133 are interactive:
+
+     "interactive" (⚡ Interactive Lab) — backed by a pure kernel
+        (sims/kernels/*.mjs): the learner configures inputs and drives
+        state; the picture renders the kernel's real state; tested.
+
+     "walkthrough" (🎬 Guided Walkthrough) — the scripted-frame canvas
+        animations: play / pause / scrub through authored steps.
+
+   Flagship phases flip a concept id into INTERACTIVE as its kernel +
+   tests + wiring land. Until then it is honestly a walkthrough.
+   ============================================================ */
+(function () {
+  "use strict";
+  var DL = (window.DBLab = window.DBLab || {});
+
+  // Concepts whose sim is a real, tested interactive kernel.
+  // (Empty today — the foundation phase ships the contract + harness;
+  //  the flagship kernels below are built and flipped on in later phases.)
+  var INTERACTIVE = {
+    m47: 1, // WAL + crash recovery     (Phase 2 — kernel + tests + lab)
+    m36: 1, // B+Tree                   (Phase 3 — kernel + tests + lab)
+    m30: 1, // buffer pool              (Phase 3 — kernel + tests + lab)
+    m48: 1, // MVCC                     (Phase 4 — kernel + tests + lab)
+    m17: 1, // cost-based optimizer     (Phase 4 — kernel + tests + lab)
+    m41: 1, // LSM tree                 (Phase 5 — kernel + tests + lab)
+    m63: 1, // Raft consensus           (Phase 5 — kernel + tests + lab)
+  };
+
+  var META = {
+    interactive: { label: "Interactive lab", icon: "⚡", badge: "⚡ interactive", cls: "tier-interactive" },
+    walkthrough: { label: "Guided walkthrough", icon: "🎬", badge: "🎬 walkthrough", cls: "tier-walkthrough" },
+  };
+
+  /** Tier for a concept id: "interactive" | "walkthrough". */
+  DL.simTier = function (conceptId) {
+    return INTERACTIVE[conceptId] ? "interactive" : "walkthrough";
+  };
+
+  /** Display metadata for a tier string. */
+  DL.simTierMeta = function (tier) {
+    return META[tier] || META.walkthrough;
+  };
+
+  /** Count of interactive labs (for honest dashboard/subtitle copy). */
+  DL.interactiveCount = function () {
+    return Object.keys(INTERACTIVE).length;
+  };
+})();

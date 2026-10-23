@@ -9,11 +9,22 @@ import { createQuiz, initQuiz } from './components/quiz.js';
 import { createSelfExplain, initSelfExplain } from './components/self-explain.js';
 import { QUIZ_BANK } from './data/quiz-bank.js';
 import { SELF_EXPLAIN } from './data/self-explain.js';
+import { record } from './data/progress-store.js';
+
+// A module counts as "complete" only when its quiz is passed at this ratio —
+// mastery, not merely opening the page. Honest progress.
+const QUIZ_PASS_RATIO = 2 / 3;
 
 // Non-module pages (not tracked in progress). Value = breadcrumb HTML.
 const PAGES = {
   home: `<strong>🏠 Home</strong>`,
+  search: `<strong>🔎 Search</strong>`,
   playground: `Playground &rsaquo; <strong>🎮 Partition Simulator</strong>`,
+  'consumer-lab': `Playground &rsaquo; <strong>👥 Consumer Group Lab</strong>`,
+  'replication-lab': `Playground &rsaquo; <strong>🔁 Replication &amp; Failure Lab</strong>`,
+  sizing: `Playground &rsaquo; <strong>📐 Capacity &amp; Sizing Lab</strong>`,
+  advanced: `Reference &rsaquo; <strong>🧠 Advanced Topics</strong>`,
+  'config-reference': `Reference &rsaquo; <strong>⚙️ Config Reference</strong>`,
   glossary: `Reference &rsaquo; <strong>📖 Glossary</strong>`,
   cheatsheet: `Reference &rsaquo; <strong>📋 Cheat Sheet</strong>`,
   'master-map': `Reference &rsaquo; <strong>🗺️ Master Map</strong>`,
@@ -21,6 +32,8 @@ const PAGES = {
   troubleshoot: `Practice &rsaquo; <strong>🔍 Troubleshooting Lab</strong>`,
   answers: `Practice &rsaquo; <strong>🎯 Level Up Your Answer</strong>`,
   'incident-bank': `Reference &rsaquo; <strong>🚑 Incident Bank</strong>`,
+  dashboard: `Review &rsaquo; <strong>📊 Dashboard</strong>`,
+  review: `Review &rsaquo; <strong>🔁 Review Center</strong>`,
   study: `Review &rsaquo; <strong>📚 Study Hub</strong>`,
 };
 
@@ -32,7 +45,13 @@ let cleanupFn = null;
 // ── Module loaders ─────────────────────────────────────────────────────────
 const LOADERS = {
   home: () => import('./modules/home.js'),
+  search: () => import('./modules/search.js'),
   playground: () => import('./modules/playground.js'),
+  'consumer-lab': () => import('./modules/consumer-lab.js'),
+  'replication-lab': () => import('./modules/replication-lab.js'),
+  sizing: () => import('./modules/sizing.js'),
+  advanced: () => import('./modules/advanced.js'),
+  'config-reference': () => import('./modules/config-reference.js'),
   glossary: () => import('./modules/glossary.js'),
   cheatsheet: () => import('./modules/cheatsheet.js'),
   'master-map': () => import('./modules/master-map.js'),
@@ -40,6 +59,8 @@ const LOADERS = {
   troubleshoot: () => import('./modules/troubleshoot.js'),
   answers: () => import('./modules/answers.js'),
   'incident-bank': () => import('./modules/incident-bank.js'),
+  dashboard: () => import('./modules/dashboard.js'),
+  review: () => import('./modules/review.js'),
   study: () => import('./modules/study.js'),
   m01: () => import('./modules/m01-intro.js'),
   m02: () => import('./modules/m02-messaging.js'),
@@ -92,8 +113,19 @@ async function navigate(id) {
     const m = await loader();
     canvas.innerHTML = '';
     cleanupFn = m.mount(canvas) || null;
-    if (mod) { initTabs(canvas); initIQ(canvas); enhanceModule(id); }
-    if (mod) markDone(id); // Study Hub is not a trackable module
+    if (mod) {
+      initTabs(canvas); initIQ(canvas); enhanceModule(id);
+      // Canvas visuals are opaque to screen readers; give them an accessible
+      // name so AT announces something, while the module's prose carries detail.
+      canvas.querySelectorAll('canvas:not([aria-label])').forEach(c => {
+        c.setAttribute('role', 'img');
+        c.setAttribute('aria-label', `${mod.label} — interactive visualization. The explanation and tables on this page describe it in text.`);
+      });
+      // Record the visit for the dashboard, but DON'T mark complete here —
+      // completion is earned by passing the module's quiz (see the listener
+      // below). Opening a page is not the same as learning it.
+      try { record('visited', id, { label: mod.label }); } catch (e) {}
+    }
   } catch (e) {
     console.error('Module load error', e);
     canvas.innerHTML = `
@@ -130,15 +162,28 @@ function markDone(id) {
   renderNav(currentId, done);
   if (isNew) {
     const mod = MODULES.find(m => m.id === id);
-    if (mod) toast(`Module complete — ${mod.label}`, { icon: '✅' });
+    if (mod) toast(`Module mastered — ${mod.label}`, { icon: '✅' });
     const real = [...done].filter(x => MODULES.some(m => m.id === x)).length;
-    if (real === MODULES.length) toast('All 22 modules complete!', { icon: '🏆', duration: 4200 });
+    if (real === MODULES.length) toast('All 22 modules mastered!', { icon: '🏆', duration: 4200 });
   }
 }
 
+// Honest progress: a module is "complete" when its quiz is passed. The quiz
+// component dispatches 'kafka:quiz-graded' with { id, score, total, best };
+// we record every attempt and mark the module done once the best score clears
+// the pass ratio.
+window.addEventListener('kafka:quiz-graded', e => {
+  const { id, score, total, best } = e.detail || {};
+  if (!id || !total) return;
+  const bestScore = Number.isFinite(best) ? best : score;
+  const passed = bestScore / total >= QUIZ_PASS_RATIO;
+  try { record('quiz', id, { score, total, best: bestScore, passed }); } catch (err) {}
+  if (passed && MODULES.some(m => m.id === id)) markDone(id);
+});
+
 // ── Router ─────────────────────────────────────────────────────────────────
 function getHash() {
-  const h = location.hash.slice(1);
+  const h = location.hash.slice(1).split('?')[0]; // ignore query (e.g. #search?q=…)
   if (PAGES[h]) return h;
   return MODULES.find(m => m.id === h) ? h : 'home';
 }

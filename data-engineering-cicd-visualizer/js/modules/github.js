@@ -77,6 +77,94 @@
     retention: {
       question: "RetailFlow wants to guarantee no revenue change reaches <code>main</code> without a passing test suite and a teammate's sign-off. What GitHub feature enforces this?",
       answer: "<b>Branch protection</b> on <code>main</code> with <b>required status checks</b> (CI must be green) and <b>required reviews</b> (at least one approval, often routed by <code>CODEOWNERS</code>). The merge button stays locked until both are satisfied."
-    }
+    },
+
+    prerequisites: ["git", "branching"],
+
+    production: [
+      { h: "Branch protection / rulesets as the real gate", body: "Require status checks, reviews, up-to-date branches, and block force-pushes on <code>main</code>. Set <code>enforce_admins</code> so even admins can't bypass the gate on PR #482's revenue change." },
+      { h: "OIDC instead of long-lived cloud keys", body: "Let Actions mint short-lived <b>OIDC</b> tokens that Azure/AWS trust per job, so there's no standing credential in repo secrets to leak — the senior-preferred identity pattern for deploys." },
+      { h: "Secrets vs variables, and scope", body: "Secrets are encrypted and masked; variables print in plaintext. Scope each to repo/environment/org and grant least privilege — never a prod token where a dev job can read it." },
+      { h: "Auditability for revenue changes", body: "CODEOWNERS routing, required reviews, signed commits, and protected tags give finance the who/when audit trail they ask for whenever <code>net_revenue</code> logic changes." }
+    ],
+
+    misconceptions: [
+      { myth: "GitHub and Git are the same thing.", truth: "Git is the distributed version-control tool; GitHub is a hosting + collaboration platform built on top of it (PRs, reviews, Actions, protection rules). You can use Git with no GitHub at all." },
+      { myth: "Branch protection stops everyone, including admins.", truth: "Only if <b>Include administrators</b> / <code>enforce_admins</code> is enabled. By default admins can often bypass required checks." },
+      { myth: "A PR approval means the code is tested.", truth: "Approval is a human review; it does not run tests. You need <b>required status checks</b> for CI to actually gate the merge." },
+      { myth: "Deleting a secret from the UI removes it from past runs.", truth: "Logs and forks may retain exposed values; a leaked secret must be <b>rotated</b>, not just deleted." }
+    ],
+
+    troubleshooting: [
+      { symptom: "Merge button is greyed out on a green PR.", cause: "A required review is missing, the branch is behind <code>main</code>, or a required check hasn't reported.", fix: "Check the PR's merge-box: request the CODEOWNERS review, click 'Update branch', or re-run the missing check; the button unlocks when all required gates pass." },
+      { symptom: "CODEOWNERS isn't requesting the data team.", cause: "The file is in the wrong path, the pattern doesn't match, or the team lacks repo access.", fix: "Place it at <code>.github/CODEOWNERS</code>, confirm the glob matches <code>transforms/revenue.py</code>, and ensure the team has at least read access; verify via the PR's 'Reviewers' auto-request." },
+      { symptom: "An admin pushed straight to <code>main</code>, bypassing review.", cause: "<code>enforce_admins</code> is off.", fix: "Enable 'Include administrators' in branch protection; verify by attempting a direct push and confirming it's rejected." },
+      { symptom: "A deploy job can't read <code>secrets.PROD_TOKEN</code>.", cause: "The secret is scoped to an environment the job doesn't declare, or it's a variable not a secret.", fix: "Add <code>environment: prod</code> to the job (or move the secret to the right scope); verify the step no longer prints an empty/undefined value." }
+    ],
+
+    interview: [
+      { q: "How do you guarantee no unreviewed, untested change reaches <code>main</code> on GitHub?", a: "Branch protection on <code>main</code> requiring passing status checks and at least one approving review (ideally CODEOWNERS-routed), with 'Include administrators' on so nobody bypasses it — the merge button is wired to those gates, not to good intentions." },
+      { q: "Why prefer OIDC over storing a cloud key as a GitHub secret?", a: "OIDC mints a short-lived token the cloud trusts for a single job, so there's no long-lived credential sitting in secrets to leak or rotate; it narrows the blast radius and is auditable per run." },
+      { q: "What's the difference between a secret and a variable in GitHub Actions?", a: "Secrets are encrypted at rest and masked in logs for credentials; variables are plaintext config like a region or warehouse name. Putting a credential in a variable exposes it in plaintext, so it's a real security bug." },
+      { q: "A reviewer approved a PR but it still broke prod. What gate was missing?", a: "Approval is only human review — it doesn't run tests. A <b>required status check</b> (CI) must gate the merge, and post-deploy verification belongs to CD; approval alone proves nothing about correctness." }
+    ],
+
+    problem: {
+      before: "Git alone is distributed — everyone has a full copy, but there's no agreed shared home, no place to discuss a change, and no gate that stops someone pushing straight to the line production builds on.",
+      insufficient: "Without a review-and-checks gate, 'please run the tests and get someone to look' is a social convention, not an enforced rule. Under deadline it's the first thing skipped, and an unreviewed revenue change reaches the mainline.",
+      failureModes: [
+        "Someone force-pushes to the shared branch and rewrites history others depend on.",
+        "A change merges with a red test suite because nothing blocked it.",
+        "No record of who approved a finance-critical change when auditors ask."
+      ]
+    },
+    definition: {
+      formal: "GitHub is a hosting and collaboration platform built on Git. A <b>pull request</b> is a proposed merge of one branch into another that collects the diff, automated <b>status checks</b>, and human reviews in one place. <b>Branch protection</b> (rulesets) are server-side rules that block a merge until declared conditions — required checks, required reviews, up-to-date branch — are satisfied.",
+      distinguish: [
+        { from: "Git vs GitHub", note: "Git is the version-control tool; GitHub is one host for it (GitLab/Bitbucket are others). You can use Git with no GitHub." },
+        { from: "Review vs required check", note: "A review is a human approving the diff; a required status check is CI actually running. Approval does not run tests — you need both." },
+        { from: "Secret vs variable", note: "Secrets are encrypted and masked; variables are plaintext config. A credential in a variable is a security bug." }
+      ]
+    },
+    mechanics: [
+      { h: "The PR merge-box gate", body: "When you open a PR, GitHub evaluates branch-protection rules on the target branch. Each required check reports a status on the head commit; each required review must be approved. The merge button stays disabled until every declared condition is green." },
+      { h: "CODEOWNERS routing", body: "A <code>.github/CODEOWNERS</code> file maps path globs to teams; a PR touching a matched path auto-requests those owners as reviewers and can make their approval required." },
+      { h: "Identity for deploys", body: "Instead of a stored cloud key, Actions can present an <b>OIDC</b> token that the cloud's trust policy accepts for a specific repo/branch/job, minting short-lived credentials with no standing secret to leak." }
+    ],
+    knowledgeChecks: [
+      { level: "Explain", q: "A PR was approved by a teammate but still broke prod. Which gate was missing?",
+        options: [
+          { label: "A required status check (CI) — approval doesn't run tests", ok: true, why: "Human review ≠ automated verification; you need required checks too." },
+          { label: "Nothing — approval guarantees correctness", ok: false, why: "Approval is a human reading the diff, not a test run." },
+          { label: "A second approval", ok: false, why: "More approvals still don't run the test suite." }
+        ], revisit: "github" },
+      { level: "Apply", q: "You must guarantee the data team reviews any change to <code>transforms/</code>. What do you add?",
+        options: [
+          { label: "A CODEOWNERS rule mapping that path to the team", ok: true, why: "CODEOWNERS auto-requests and can require those reviewers." },
+          { label: "A comment asking people to remember", ok: false, why: "A convention isn't enforcement; use CODEOWNERS + required review." },
+          { label: "A branch name rule", ok: false, why: "Branch names don't route reviewers." }
+        ], revisit: "github" },
+      { level: "Decide", q: "Your deploy needs cloud access. Most secure option on GitHub?",
+        options: [
+          { label: "OIDC short-lived tokens, no stored key", ok: true, why: "No standing credential to leak; scoped and auditable per run." },
+          { label: "A long-lived key in repo secrets", ok: false, why: "A standing credential that can leak and must be rotated." },
+          { label: "A key in a repo variable", ok: false, why: "Variables are plaintext — never put credentials there." }
+        ], revisit: "secrets" }
+    ],
+    mastery: {
+      task: "Describe the exact branch-protection configuration for RetailFlow's <code>main</code> that guarantees no unreviewed, untested change to <code>transforms/revenue.py</code> can merge — and name the file that routes the review.",
+      acceptance: [
+        "Requires at least one approving review.",
+        "Requires the CI status check(s) to pass.",
+        "Requires the branch to be up to date and blocks force-pushes.",
+        "Enables 'include administrators' and names .github/CODEOWNERS for routing."
+      ]
+    },
+    furtherReading: [
+      { title: "About pull requests", publisher: "GitHub Docs", url: "https://docs.github.com/en/pull-requests", why: "How PRs, reviews, and required checks fit together.", read: "Collaborating with pull requests → reviews; About protected branches.", reviewed: "2026-10-20" },
+      { title: "About code owners", publisher: "GitHub Docs", url: "https://docs.github.com/en/repositories", why: "Exact CODEOWNERS syntax and how required-owner review works.", read: "Managing your repository → About code owners.", reviewed: "2026-10-20" }
+    ],
+
+    related: ["git", "github-actions", "branching", "ci-vs-cd"]
   }));
 })();

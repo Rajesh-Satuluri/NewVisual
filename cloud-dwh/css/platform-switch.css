@@ -1,0 +1,30 @@
+/* Platform switcher, per-platform accent tokens, and skeleton styles.
+   Loaded AFTER the base CSS so these win the cascade. */
+:root{ --blue-rgb:41,181,232; }
+:root[data-platform="snowflake"]{ --blue:#29b5e8; --blue-dim:#1a8fb5; --blue-rgb:41,181,232; }
+:root[data-platform="redshift"]{  --blue:#4da3e0; --blue-dim:#2f7bb0; --blue-rgb:77,163,224; }
+:root[data-platform="fabric"]{    --blue:#13a884; --blue-dim:#0c7d62; --blue-rgb:19,168,132; }
+
+/* ── Platform switcher (segmented control) ───────────────── */
+.platform-switch{ padding:.6rem .75rem .25rem; }
+.plat-track{ display:flex; gap:.25rem; background:var(--bg-elevated,rgba(255,255,255,.04)); border:1px solid var(--border,rgba(255,255,255,.08)); border-radius:12px; padding:.25rem; flex-wrap:wrap; }
+.plat-seg{ flex:1 1 auto; min-width:fit-content; appearance:none; border:0; cursor:pointer; font:inherit; font-size:.76rem; font-weight:600; color:var(--text-secondary); background:transparent; border-radius:9px; padding:.4rem .5rem; transition:background .15s,color .15s; white-space:nowrap; }
+.plat-seg:hover{ color:var(--text-primary); background:rgba(var(--blue-rgb),.1); }
+.plat-seg.active{ color:#fff; background:var(--blue); box-shadow:0 2px 8px rgba(var(--blue-rgb),.4); }
+.plat-seg--compare{ flex:1 1 100%; margin-top:.1rem; color:var(--blue); background:rgba(var(--blue-rgb),.08); border:1px dashed rgba(var(--blue-rgb),.4); }
+.plat-seg--compare.active{ color:#fff; background:var(--blue); border-style:solid; }
+
+/* ── Skeleton / stub module styles ───────────────────────── */
+/* Home-hero styling now lives in app-inline.css (carried from the original
+   Snowflake index.html) and is shared by all platforms. */
+.stub-note{background:rgba(var(--blue-rgb),.08);border:1px solid rgba(var(--blue-rgb),.25);border-radius:10px;padding:.7rem 1rem;color:var(--text-secondary);font-size:.85rem;max-width:620px;margin:0 auto 1rem}
+.stub-page{max-width:860px;margin:0 auto;padding:2rem 1.5rem}
+.stub-head{display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem}
+.stub-icon{font-size:2rem;width:3.2rem;height:3.2rem;display:flex;align-items:center;justify-content:center;background:rgba(var(--blue-rgb),.15);border:1px solid rgba(var(--blue-rgb),.3);border-radius:14px;flex:none}
+.stub-title{font-size:1.5rem;font-weight:700;margin:0}
+.stub-purpose{color:var(--text-secondary);margin:.25rem 0 0;line-height:1.5}
+.stub-badge{margin-left:auto;align-self:flex-start;font-size:.7rem;font-weight:600;color:var(--blue);background:rgba(var(--blue-rgb),.15);border:1px solid rgba(var(--blue-rgb),.3);padding:.25rem .6rem;border-radius:999px;white-space:nowrap}
+.stub-section{background:var(--bg-elevated,rgba(255,255,255,.03));border:1px solid var(--border,rgba(255,255,255,.08));border-radius:14px;padding:1.25rem 1.5rem}
+.stub-section-title{font-size:.78rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:.6rem}
+.stub-list{margin:0;padding-left:1.1rem;line-height:1.9}
+.stub-foot{color:var(--text-secondary);font-size:.82rem;margin-top:1.25rem;opacity:.8}

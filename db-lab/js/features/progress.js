@@ -68,6 +68,35 @@
       return limit ? out.slice(0, limit) : out;
     },
 
+    // Evidence-based concept status (honest — never "mastered" from a click).
+    //   not-started → never opened, never quizzed
+    //   practiced   → opened, not yet quizzed
+    //   needs-review→ quizzed below 60%
+    //   understood  → quizzed 60–85%
+    //   mastered    → opened AND quizzed ≥85%
+    conceptStatus: function (id) {
+      var q = state.quiz[id];
+      var viewed = !!state.viewed[id];
+      if (q && q.total) {
+        var r = q.correct / q.total;
+        if (r < 0.6) return "needs-review";
+        if (r < 0.85) return "understood";
+        return viewed ? "mastered" : "understood";
+      }
+      return viewed ? "practiced" : "not-started";
+    },
+
+    statusMeta: function (status) {
+      var M = {
+        "not-started": { label: "Not started", cls: "st-none" },
+        "practiced":   { label: "Practiced",   cls: "st-practiced" },
+        "understood":  { label: "Understood",  cls: "st-understood" },
+        "mastered":    { label: "Mastered",    cls: "st-mastered" },
+        "needs-review":{ label: "Needs review",cls: "st-review" },
+      };
+      return M[status] || M["not-started"];
+    },
+
     overall: function () {
       var all = DL.concepts || [];
       var viewed = all.filter(function (c) { return state.viewed[c.id]; }).length;

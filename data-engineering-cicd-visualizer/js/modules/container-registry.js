@@ -83,6 +83,45 @@
     retention: {
       question: "RetailFlow wants prod to run the exact image that passed tests in dev, with zero chance of drift. What registry concept guarantees this, and what should it avoid?",
       answer: "Reference the image by its immutable <b>digest</b> (<code>@sha256:…</code>) and <b>promote</b> that same digest dev→prod instead of rebuilding. Avoid pinning mutable tags like <code>:latest</code>, which can be re-pushed to point at different, untested bytes."
-    }
+    },
+
+    prerequisites: [
+      "docker",
+      "artifact-lifecycle",
+      { id: "environment-promotion", label: "Environment promotion (dev→prod)" },
+      "security"
+    ],
+
+    production: [
+      { h: "Reference by digest, not tag", body: "Prod manifests should pin <code>retailflow/pipeline@sha256:…</code> so a re-pushed tag can never swap in untested bytes — the revenue pipeline runs exactly what passed dev's tests." },
+      { h: "Scan on push", body: "Enable registry vulnerability scanning (ACR/ECR/ghcr) so a newly disclosed CVE in a pushed image is flagged; block promotion of images with critical findings." },
+      { h: "Immutable tags + retention", body: "Enable <b>immutable tags</b> so a published version can never be overwritten, and add retention/GC policies to expire old untagged layers before storage costs balloon." },
+      { h: "Access control + pull auth", body: "Scope push to CI and pull to runtimes with least-privilege tokens/managed identities; a public or over-permissioned registry leaks your images and invites supply-chain tampering." },
+      { h: "Signing and verification", body: "Sign images (cosign/Notation) and require signature verification before prod pulls, so only images built from reviewed source can run." }
+    ],
+
+    misconceptions: [
+      { myth: "A tag like <code>:2.9.1</code> permanently identifies one image.", truth: "Tags are <b>mutable pointers</b> — anyone with push access can re-point <code>:2.9.1</code> at new bytes. Only the digest is content-addressed and immutable." },
+      { myth: "Promotion means rebuilding the image for prod.", truth: "Promotion <b>moves a reference</b> (retag/copy the tested digest), it does not rebuild — rebuilding re-resolves dependencies and can produce different bytes than were tested." },
+      { myth: "The registry is a good place to ship datasets or config.", truth: "A registry stores runtime images, not data or secrets. Baking a dataset or credential into an image bloats it and leaks the secret into every pull." },
+      { myth: "Pushing a new image replaces the old layers entirely.", truth: "Images are content-addressed layers; a push only uploads <b>changed</b> layers, and old layers persist until retention/GC removes them." }
+    ],
+
+    troubleshooting: [
+      { symptom: "<code>ImagePullBackOff</code> / <code>ErrImagePull</code> in Kubernetes.", cause: "Wrong tag/digest, missing <code>imagePullSecret</code>, or no pull permission on the registry.", fix: "Verify the reference exists (<code>docker manifest inspect</code>), attach a valid pull secret/identity, then confirm the pod pulls and starts." },
+      { symptom: "Prod suddenly runs different behavior after a restart, no deploy happened.", cause: "Prod pinned a mutable tag and someone re-pushed it.", fix: "Pin the <b>digest</b> instead and enable immutable tags; verify by diffing the running image's digest against the promoted one." },
+      { symptom: "<code>denied: requested access to the resource is denied</code> on push.", cause: "Not logged in, or token lacks push scope to that repository.", fix: "<code>docker login</code> / refresh the CI identity with push scope, then re-push and confirm the tag appears in the registry." },
+      { symptom: "Registry storage keeps growing and costs climb.", cause: "No retention policy; old tags and untagged layers accumulate.", fix: "Add a retention/GC policy to expire old tags and prune dangling layers; verify storage drops after the next GC run." },
+      { symptom: "Pulls are slow across the cluster.", cause: "Registry is in a different region, or no layer caching/mirror.", fix: "Use a geo-replicated registry or a pull-through cache near the nodes; verify pull latency improves." }
+    ],
+
+    interview: [
+      { q: "Why pin images by digest rather than tag in production?", a: "A digest (<code>@sha256:…</code>) is a content hash — immutable and reproducible. A tag is a movable pointer anyone with push access can re-point, so a tag-pinned prod can silently pull untested bytes on the next restart. Digests guarantee prod runs exactly what was tested." },
+      { q: "What does 'build once, promote' mean and why does it matter?", a: "CI builds the image a single time, captures its digest, tests that digest, then promotes <b>the same digest</b> through dev→test→prod — never rebuilding. Rebuilding per environment re-resolves dependencies and base images, so prod could run code that was never tested. Promotion keeps every environment byte-for-byte identical." },
+      { q: "How do you stop a compromised or vulnerable image from reaching prod?", a: "Scan on push and fail on critical CVEs, enable immutable tags so published versions can't be overwritten, sign images and require verification before pull, and scope registry access with least-privilege identities — so only reviewed, signed, clean images are promotable." },
+      { q: "A pod is stuck in <code>ImagePullBackOff</code> — how do you debug it?", a: "Check <code>kubectl describe pod</code> for the pull error: a missing/typo'd tag or digest, a missing <code>imagePullSecret</code>, or lack of pull permission. Verify the reference exists with <code>docker manifest inspect</code>, fix the auth or reference, and confirm the pod pulls and starts." }
+    ],
+
+    related: ["docker", "artifact-lifecycle", "kubernetes", "security"]
   }));
 })();

@@ -1,192 +1,157 @@
-import { createModuleShell, initTabs, createIQSection, initIQ, PRIME_SCHEMA } from '../components/module-shell.js';
-import { SimulationEngine } from '../components/simulation-engine.js';
+/* ============================================================
+   m17-cost-based-optimization.js — ⚡ Interactive Lab: Cost-Based Optimizer.
+   Renderer for sims/kernels/optimizer.mjs. Turn the knobs (table sizes,
+   selectivity, index, memory) and watch the optimizer enumerate access
+   paths and join algorithms, cost each, and pick the cheapest. TEACHING
+   cost model — shapes, not any engine's real numbers.
+   ============================================================ */
+import { createModuleShell, initTabs, createIQSection, initIQ } from '../components/module-shell.js';
+import { createOptimizer } from '../kernels/optimizer.mjs';
 
-const STATS_EXAMPLES = [
-  { stat: 'reltuples', table: 'products',  value: '350,000,000', meaning: 'Estimated row count — updated by ANALYZE' },
-  { stat: 'relpages',  table: 'products',  value: '5,250,000',   meaning: 'Physical page count (8KB each = ~42 GB)' },
-  { stat: 'n_distinct', table: 'products.product_id', value: '-1 (all unique)', meaning: 'Negative = fraction; -1 = 100% unique → perfect for index' },
-  { stat: 'most_common_vals', table: 'products.category', value: "['Electronics','Books','Clothing']", meaning: 'Most frequent values + their frequencies for MCV selectivity' },
-  { stat: 'histogram_bounds', table: 'products.price', value: '[0.99, 9.99, 24.99, 49.99 … 999.99]', meaning: '100 equal-frequency buckets for range predicate estimation' },
-  { stat: 'correlation', table: 'products.product_id', value: '0.98 (nearly 1.0)', meaning: 'Physical vs logical order correlation — high → index-only scan safe' },
-];
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
+const src = (id) => (window.DBLab && window.DBLab.source && window.DBLab.source(id)) || null;
+const fmt = (n) => Number(n).toLocaleString();
 
-const SELECTIVITY_STEPS = [
-  {
-    label: 'Predicate: product_id = B08N5WRWNW',
-    sel: 1 / 350_000_000,
-    display: '1 / 350,000,000 = 0.0000000029',
-    reason: 'product_id is UNIQUE (n_distinct = -1.0). Exactly 1 row matches.',
-    rows: 1, color: '#10B981',
-  },
-  {
-    label: 'Predicate: quantity > 0',
-    sel: 0.95,
-    display: '95% — from histogram on inventory.quantity',
-    reason: 'Histogram shows quantity = 0 for ~5% of inventory rows. So 95% survive qty > 0.',
-    rows: 2_000_000, color: '#F59E0B',
-  },
-  {
-    label: 'Join selectivity: product_id = product_id',
-    sel: 1 / 350_000_000,
-    display: '1 / max(n_distinct_products, n_distinct_inventory)',
-    reason: 'Equijoin on unique key. Each inventory row matches at most 1 products row. Join output ≈ min(|products|, |inventory|) = 2M rows in the worst case.',
-    rows: 2, color: '#06B6D4',
-  },
-];
+const PRESETS = {
+  lookup: { label: 'Selective lookup', p: { outerRows: 20, innerRows: 1000000, selectivity: 0.0001, hasIndexInner: true, memoryPages: 100 } },
+  scanjoin: { label: 'Big scan join', p: { outerRows: 2000000, innerRows: 500000, selectivity: 0.4, hasIndexInner: false, memoryPages: 400 } },
+  starjoin: { label: 'Star join (indexed)', p: { outerRows: 5000000, innerRows: 50000, selectivity: 0.02, hasIndexInner: true, memoryPages: 200 } },
+};
 
-function drawSelectivity(ctx, stepIdx, w, h) {
-  ctx.clearRect(0, 0, w, h);
-  if (stepIdx < 0) {
-    ctx.fillStyle = '#475569'; ctx.font = '13px system-ui'; ctx.textAlign = 'center';
-    ctx.fillText('Press Play to see how selectivity is estimated', w/2, h/2);
-    ctx.textAlign = 'left'; return;
-  }
-  const s = SELECTIVITY_STEPS[stepIdx];
-  const barMaxW = w - 160;
-
-  // Title
-  ctx.fillStyle = '#94A3B8'; ctx.font = '600 12px system-ui';
-  ctx.fillText(s.label, 20, 40);
-  ctx.fillStyle = s.color; ctx.font = '700 18px system-ui';
-  ctx.fillText(`Selectivity: ${s.display}`, 20, 72);
-
-  // Bar showing selectivity
-  const barY = 100, barH = 40;
-  ctx.fillStyle = '#1E293B';
-  ctx.beginPath(); ctx.roundRect(20, barY, barMaxW, barH, 4); ctx.fill();
-  const selW = Math.max(4, s.rows > 1 ? 30 : 2);
-  ctx.fillStyle = s.color;
-  ctx.beginPath(); ctx.roundRect(20, barY, selW, barH, 4); ctx.fill();
-  ctx.fillStyle = '#64748B'; ctx.font = '10px system-ui';
-  ctx.fillText('All rows', 20, barY + barH + 16);
-  ctx.fillStyle = s.color;
-  ctx.fillText(`↑ Matching rows: ${s.rows.toLocaleString()}`, 22, barY + barH + 32);
-
-  // Reason
-  ctx.fillStyle = '#475569';
-  ctx.beginPath(); ctx.roundRect(20, 180, w - 40, 80, 6); ctx.fill();
-  ctx.fillStyle = '#94A3B8'; ctx.font = '600 11px system-ui';
-  ctx.fillText('How the optimizer estimated this:', 30, 200);
-  ctx.fillStyle = '#64748B'; ctx.font = '11px system-ui';
-  const words = s.reason.split(' ');
-  let line = '', cy = 218;
-  words.forEach(w => {
-    if ((line + w).length > 90) { ctx.fillText(line, 30, cy); line = w + ' '; cy += 14; } else line += w + ' ';
+export function mount(host) {
+  const shell = createModuleShell(host, {
+    tag: '⚡ Interactive Lab · Query Engine',
+    title: 'Cost-Based Query Optimization',
+    subtitle: "Turn the knobs and watch the optimizer enumerate access paths and join algorithms, cost each in page-I/O units, and pick the cheapest plan. A teaching cost model — it captures the shape of real optimizer decisions, not any engine's exact numbers.",
+    tabs: [{ id: 'lab', label: 'Lab' }, { id: 'how', label: 'How it works' }, { id: 'iq', label: 'Interview' }],
   });
-  if (line) ctx.fillText(line, 30, cy);
-
-  // Cost box
-  const cost = s.rows * 0.01 + (s.rows > 100 ? s.rows / 50000 * 4 : 3);
-  ctx.fillStyle = '#1E2D3D';
-  ctx.beginPath(); ctx.roundRect(20, 280, w - 40, 50, 6); ctx.fill();
-  ctx.fillStyle = '#4F46E5'; ctx.font = '700 11px system-ui';
-  ctx.fillText(`Estimated plan cost contribution: ${cost.toFixed(2)} cost units`, 30, 302);
-  ctx.fillStyle = '#64748B'; ctx.font = '10px system-ui';
-  ctx.fillText(`(${s.rows.toLocaleString()} rows × cpu_tuple_cost 0.01 + page reads × random_page_cost 4.0)`, 30, 320);
+  const teardown = initTabs(shell.tabs, shell.body, {
+    lab: (panel) => mountLab(panel),
+    how: (panel) => { panel.innerHTML = howHTML(); },
+    iq: (panel) => { const iq = createIQSection(); panel.appendChild(iq.el); initIQ(iq, IQ); },
+  });
+  return { destroy() { if (typeof teardown === 'function') teardown(); } };
 }
 
-export function mount(container) {
-  container.innerHTML = createModuleShell({
-    tag: 'Query Engine · M17',
-    title: 'Cost-Based Optimization',
-    subtitle: 'How the optimizer uses table statistics to estimate row counts and compare plan costs.',
-    tabs: [
-      { id: 'selectivity', label: '📊 Selectivity' },
-      { id: 'statistics',  label: '📈 Statistics' },
-      { id: 'iq',          label: '💼 Interview Q&A' },
-    ],
+function mountLab(panel) {
+  let kernel = createOptimizer({});
+  const root = document.createElement('div');
+  root.className = 'opt-lab';
+  panel.appendChild(root);
+
+  function setp(key, value) { try { kernel.dispatch({ type: 'set', key: key, value: value }); } catch (e) {} render(); }
+
+  root.addEventListener('input', (ev) => {
+    const el = ev.target; if (!el.dataset.param) return;
+    if (el.type === 'checkbox') setp(el.dataset.param, el.checked);
+    else setp(el.dataset.param, Number(el.value));
   });
-  initTabs(container);
-
-  const selTab = container.querySelector('#tab-selectivity');
-  selTab.innerHTML = `
-    ${PRIME_SCHEMA}
-    <div class="canvas-wrap" style="margin-top:12px">
-      <canvas width="800" height="360" style="width:100%;max-height:360px"></canvas>
-      <div class="canvas-controls"></div>
-      <div class="sim-timeline"></div>
-      <div class="canvas-explainer" id="sel-explainer">
-        <h3>Selectivity Estimation</h3>
-        <p>Selectivity = fraction of rows that pass a predicate. The optimizer multiplies selectivities
-           for AND predicates and uses statistics to estimate each one. Press <strong>Play</strong>
-           to see how each predicate in our Prime Day query is estimated.</p>
-      </div>
-    </div>
-  `;
-  const canvas = selTab.querySelector('canvas');
-  const ctx = canvas.getContext('2d');
-  const engine = new SimulationEngine({
-    initialState: { step: -1 },
-    steps: SELECTIVITY_STEPS.map((s, i) => ({ label: s.label, duration: 2200, mutate: st => { st.step = i; } })),
-    onRender: state => {
-      drawSelectivity(ctx, state.step, 800, 360);
-      const el = selTab.querySelector('#sel-explainer');
-      if (el && state.step >= 0) { const s = SELECTIVITY_STEPS[state.step]; el.innerHTML = `<h3>${s.label}</h3><p>Matching rows: <strong>${s.rows.toLocaleString()}</strong> — selectivity ${s.display}</p>`; }
-    },
+  root.addEventListener('click', (ev) => {
+    const el = ev.target.closest('[data-act]'); if (!el) return;
+    if (el.dataset.act === 'reset') { kernel = createOptimizer({}); return render(); }
+    if (el.dataset.act === 'preset') {
+      const p = PRESETS[el.dataset.preset].p;
+      kernel = createOptimizer({});
+      Object.keys(p).forEach((key) => { try { kernel.dispatch({ type: 'set', key: key, value: p[key] }); } catch (e) {} });
+      render();
+    }
   });
-  SimulationEngine.renderControls(selTab.querySelector('.canvas-wrap'), engine);
-  SimulationEngine.renderTimeline(selTab.querySelector('.canvas-wrap'), engine);
-  drawSelectivity(ctx, -1, 800, 360);
-  engine.reset();
 
-  container.querySelector('#tab-statistics').innerHTML = `
-    <div class="scroll-content">
-      <div class="section-header">
-        <div class="section-title">PostgreSQL Statistics — pg_statistic</div>
-        <div class="section-desc">Collected by ANALYZE / autovacuum — feeds the cost model</div>
-      </div>
-      <div class="compare-table-wrap">
-        <table class="compare-table">
-          <thead><tr><th>Statistic</th><th>Table / Column</th><th>Value (Prime Day)</th><th>Optimizer Use</th></tr></thead>
-          <tbody>
-            ${STATS_EXAMPLES.map(s => `
-              <tr>
-                <td><code style="color:var(--accent)">${s.stat}</code></td>
-                <td>${s.table}</td>
-                <td style="font-family:monospace;font-size:11px;color:var(--text2)">${s.value}</td>
-                <td style="font-size:11px">${s.meaning}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
-      <div class="prose" style="padding-top:20px">
-        <h3>Selectivity Rules</h3>
-        <ul>
-          <li><strong>Equality on unique column:</strong> sel = 1 / n_distinct (or 1/reltuples for PK)</li>
-          <li><strong>Equality on non-unique:</strong> sel = MCV frequency if in most_common_vals, else 1/n_distinct</li>
-          <li><strong>Range predicate (&gt;, &lt;, BETWEEN):</strong> interpolate from histogram_bounds buckets</li>
-          <li><strong>LIKE 'prefix%':</strong> estimate using histogram; LIKE '%suffix' → 1/3 of rows (heuristic)</li>
-          <li><strong>AND predicates:</strong> multiply selectivities (assumes independence)</li>
-          <li><strong>OR predicates:</strong> sel(A) + sel(B) – sel(A) × sel(B)</li>
-        </ul>
-        <h3>When Statistics Go Wrong</h3>
-        <p>After a Prime Day bulk load of 50M new orders, autovacuum hasn't run yet. pg_statistic
-           still shows 375M rows but the actual count is 425M. The optimizer underestimates
-           join output size → picks NLJ when HashJoin would be 5× faster. Fix: run ANALYZE
-           immediately after bulk loads.</p>
-      </div>
-    </div>
-  `;
-
-  container.querySelector('#tab-iq').innerHTML = createIQSection([
-    {
-      q: 'What is selectivity and how does the optimizer estimate it?',
-      a: 'Selectivity is the fraction of rows passing a predicate: 0 = no rows, 1 = all rows. The optimizer estimates it from pg_statistic: (1) <strong>equality on unique column</strong>: 1/reltuples; (2) <strong>equality on non-unique</strong>: frequency from most_common_vals, or 1/n_distinct if not in MCV; (3) <strong>range predicate</strong>: interpolated from the 100-bucket histogram; (4) <strong>AND</strong>: multiply individual selectivities (independence assumption). For the Prime Day query: product_id = constant → selectivity = 1/350M ≈ 0.0000000029 → estimated 1 row. This tiny selectivity drives the optimizer to choose IndexScan over SeqScan.',
-      tip: 'Always explain selectivity with a concrete formula. Interviewers want to know you understand the math, not just "it uses statistics".',
-    },
-    {
-      q: 'How does running ANALYZE affect query performance?',
-      a: 'ANALYZE samples ~30,000 rows (default statistics target = 100 histogram buckets) from each table and updates pg_statistic. Effect on performance: the optimizer gets accurate row count estimates → makes better plan choices → faster queries. In practice: run ANALYZE after bulk loads, after major deletes, after significant data distribution changes. Autovacuum runs ANALYZE automatically when > 20% of rows are modified (autovacuum_analyze_scale_factor = 0.2). For large tables, this can be too slow — tune autovacuum_analyze_threshold and scale_factor per table.',
-      tip: 'ANALYZE does not lock the table. VACUUM + ANALYZE together reclaim dead tuple space and refresh statistics. Run both after big ETL jobs.',
-    },
-    {
-      q: 'What is the independence assumption and when does it fail?',
-      a: 'The optimizer estimates AND selectivity by multiplying individual predicate selectivities, assuming they are statistically independent. This fails when columns are correlated: <code>WHERE country = \'US\' AND state = \'CA\'</code> — California is 100% correlated with country = US, so sel(country=US) × sel(state=CA) grossly underestimates the fraction. The optimizer thinks far fewer rows pass → may choose NLJ when HashJoin is better. Fix: <code>CREATE STATISTICS ON (country, state) FROM customers</code> tells PostgreSQL to collect joint distribution statistics. Available since PG 10.',
-      tip: 'Extended statistics (CREATE STATISTICS) is the cure for correlated column mis-estimation. Mention this as a production-level optimization technique.',
-    },
-  ]);
-  initIQ(container);
-
-  return () => engine.destroy();
+  function render() { root.innerHTML = labHTML(kernel); }
+  render();
 }
+
+function labHTML(k) {
+  const s = k.state, p = s.params, pl = s.plan, m = k.metrics(), inv = k.invariants();
+  const maxJoin = Math.max.apply(null, pl.join.map((j) => j.cost));
+  const maxAcc = Math.max.apply(null, pl.access.map((a) => a.cost));
+
+  const slider = (key, label, min, max, step, val, suffix) =>
+    `<div class="opt-knob"><label class="bp-lbl">${label}</label>
+      <input type="range" data-param="${key}" min="${min}" max="${max}" step="${step}" value="${val}" class="opt-range"/>
+      <span class="opt-kv">${fmt(val)}${suffix || ''}</span></div>`;
+
+  const planRow = (pl2, chosen, maxc, kind) => pl2.map((x) => `
+    <div class="opt-plan ${x === chosen ? 'chosen' : ''}">
+      <div class="opt-plan-head"><span class="opt-plan-name">${x === chosen ? '★ ' : ''}${esc(x.name)}</span><span class="opt-plan-cost">${fmt(x.cost)}</span></div>
+      <div class="opt-bar"><div class="opt-bar-fill ${x === chosen ? 'win' : ''}" style="width:${maxc ? (x.cost / maxc * 100).toFixed(1) : 0}%"></div></div>
+      <div class="opt-plan-note">${esc(x.note)}</div>
+    </div>`).join('');
+
+  return `
+  <div class="opt-controls">
+    <div class="opt-knobs">
+      ${slider('outerRows', 'outer rows', 10, 10000000, 10, p.outerRows, '')}
+      ${slider('innerRows', 'inner rows', 10, 10000000, 10, p.innerRows, '')}
+      ${slider('selectivity', 'predicate selectivity', 0, 1, 0.0005, p.selectivity, '')}
+      ${slider('memoryPages', 'memory (pages)', 1, 5000, 1, p.memoryPages, '')}
+    </div>
+    <div class="bp-row">
+      <label class="opt-check"><input type="checkbox" data-param="hasIndexInner" ${p.hasIndexInner ? 'checked' : ''}/> index on inner join/filter key</label>
+      <span class="bp-sep"></span>
+      ${Object.keys(PRESETS).map((id) => `<button class="bp-chip" data-act="preset" data-preset="${id}">${esc(PRESETS[id].label)}</button>`).join('')}
+      <button class="bp-btn" data-act="reset">Reset</button>
+    </div>
+  </div>
+
+  <div class="opt-query">
+    <code>SELECT * FROM outer JOIN inner ON outer.fk = inner.id WHERE inner.pred</code>
+    <span class="opt-card">est. result ≈ <b>${fmt(pl.estRows)}</b> rows &nbsp;·&nbsp; outer ${fmt(pl.Opg)} pg · inner ${fmt(pl.Ipg)} pg · ${pl.fits ? 'inner fits memory' : 'inner spills'}</span>
+  </div>
+
+  <div class="opt-grid">
+    <div class="wal-panel"><div class="wal-panel-h">Access path (filter inner)</div><div class="opt-plans">${planRow(pl.access, pl.chosenAccess, maxAcc)}</div></div>
+    <div class="wal-panel"><div class="wal-panel-h">Join algorithm</div><div class="opt-plans">${planRow(pl.join, pl.chosenJoin, maxJoin)}</div></div>
+  </div>
+
+  <div class="bp-metrics">
+    ${metric('Chosen join I/O', fmt(m.chosenJoinCost))}
+    ${metric('Worst plan I/O', fmt(m.worstJoinCost))}
+    ${metric('Speedup', m.speedup.toFixed(1) + '×')}
+    ${metric('Est. rows', fmt(m.estRows))}
+    ${metric('Access I/O', fmt(m.accessCost))}
+  </div>
+  <div class="wal-invariants">${inv.map((c) => `<span class="wal-inv ${c.ok ? 'ok' : 'bad'}" title="${esc(c.detail)}">${c.ok ? '✓' : '✗'} ${esc(c.name)}</span>`).join('')}</div>
+  <div class="bp-explain"><span>▸</span> ${esc(s.note)}</div>
+  <details class="wal-disc"><summary>Teaching model — what's simplified</summary>
+    <ul>
+      <li>Costs are abstract page-I/O units, not milliseconds; a real optimizer blends CPU, random-vs-sequential I/O and buffer effects.</li>
+      <li>FK→PK join, so result ≈ selectivity × outer rows. General joins need histograms and multi-column correlation.</li>
+      <li>Hash "fits memory" is a single threshold; real engines model partitions, grace hashing and skew.</li>
+    </ul>
+  </details>`;
+}
+
+function metric(l, v) { return `<div class="bp-metric"><div class="bp-metric-v">${esc(v)}</div><div class="bp-metric-l">${esc(l)}</div></div>`; }
+
+function howHTML() {
+  const cmu = src('cmu-15445');
+  const cite = cmu ? ` <a class="wal-cite" href="${cmu.url}" target="_blank" rel="noopener">CMU 15-445↗</a>` : '';
+  return `<div class="wal-how">
+    <h3>What a cost-based optimizer does</h3>
+    <p>For a given query it enumerates equivalent physical plans — different access paths and join algorithms — estimates each plan's cost from table statistics, and executes the cheapest. It never runs the slow ones; it predicts them.${cite}</p>
+    <h3>Cardinality first</h3>
+    <p>Everything hinges on estimating how many rows flow between operators. A wrong row estimate (bad selectivity, correlated columns) is the usual cause of a catastrophic plan — the optimizer confidently picks a nested loop for what turns out to be millions of rows.</p>
+    <h3>The crossovers to feel</h3>
+    <ul>
+      <li><b>Seq vs Index scan:</b> an index wins only when the filter is selective enough that fetching matches beats reading every page. Slide selectivity up and watch it flip to Seq Scan.</li>
+      <li><b>Nested loop vs Hash vs Merge:</b> indexed nested loop shines for a small outer with an inner index; hash join dominates large unsorted equi-joins that fit memory; merge join wins when inputs are already sorted (or memory is tight).</li>
+      <li><b>Memory:</b> shrink memory and watch the hash join spill (×2) and merge/other plans overtake it.</li>
+    </ul>
+  </div>`;
+}
+
+const IQ = [
+  { q: 'Why is cardinality (row-count) estimation the heart of query optimization?',
+    a: 'Plan cost is driven by how many rows each operator processes. If the optimizer mis-estimates selectivity, it picks the wrong join order and algorithm — e.g., a nested loop that is great for 10 rows but disastrous for 10 million. Good statistics and histograms matter more than the cost constants.',
+    tip: 'Say "garbage estimates → garbage plans" and cite correlated columns as a classic failure.' },
+  { q: 'When does an index scan lose to a sequential scan?',
+    a: 'When the predicate is not selective: fetching a large fraction of rows through the index means many random I/Os plus the index traversal, which costs more than streaming every page sequentially once. Past a crossover selectivity (often a few percent), seq scan wins.',
+    tip: 'Mention random vs sequential I/O and the few-percent crossover.' },
+  { q: 'Compare nested-loop, hash and merge joins — when is each best?',
+    a: 'Indexed nested loop: small outer with an index on the inner join key. Hash join: large, unsorted equi-joins that fit (or partition into) memory — no ordering needed. Merge join: inputs already sorted on the join key (e.g., from an index or a prior sort), or when memory is too tight for a hash table.',
+    tip: 'Tie each to a precondition: index+small outer, in-memory equi-join, pre-sorted inputs.' },
+  { q: 'What happens to a hash join when the build side exceeds memory?',
+    a: 'It spills: the build and probe inputs are partitioned to disk and processed partition-by-partition (grace/hybrid hash), adding extra I/O passes. The lab models this as a ×2 cost once the inner no longer fits — enough to let merge or indexed plans overtake it.',
+    tip: 'Name grace/hybrid hash and the extra I/O passes.' },
+];

@@ -1,0 +1,255 @@
+/* Carried over from the original Snowflake index.html inline <style>.
+   These classes are relied on by home.js, the breadcrumb, placeholder,
+   shortcuts modal, canvas scrolling, and section typography. var(--snowflake)
+   is mapped to var(--blue) so the accent adapts to the active platform. */
+    /* ── Home page layout ───────────────────────────────── */
+    .home-hero {
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 3.5rem 1.5rem 2.5rem;
+      text-align: center;
+    }
+    .home-hero-badge {
+      display: inline-block;
+      background: rgba(41,181,232,.12);
+      border: 1px solid rgba(41,181,232,.3);
+      color: var(--blue);
+      border-radius: 100px;
+      padding: .25rem 1rem;
+      font-size: .75rem;
+      font-weight: 600;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      margin-bottom: 1.5rem;
+    }
+    .home-hero-title {
+      font-size: clamp(1.75rem, 4vw, 3rem);
+      font-weight: 700;
+      line-height: 1.2;
+      margin: 0 0 1rem;
+      color: var(--text-primary);
+    }
+    .home-hero-sub {
+      font-size: 1.0625rem;
+      color: var(--text-secondary);
+      line-height: 1.7;
+      margin: 0 auto 2rem;
+      max-width: 580px;
+    }
+    .home-hero-cta { display: flex; gap: .75rem; justify-content: center; flex-wrap: wrap; }
+
+    /* Stats strip */
+    .home-stats-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      margin: 0 0 3rem;
+    }
+    .home-stat-card {
+      flex: 1 1 160px;
+      padding: 1.25rem 1rem;
+      text-align: center;
+      background: var(--surface);
+    }
+    .home-stat-value {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--blue);
+      font-variant-numeric: tabular-nums;
+    }
+    .home-stat-label {
+      font-size: .75rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin: .25rem 0 .125rem;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    .home-stat-sub { font-size: .7rem; color: var(--text-muted); }
+
+    /* Architecture preview */
+    .home-arch-preview { margin-bottom: 3rem; }
+    .home-layer-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+    .home-layer-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      transition: border-color .2s, transform .2s;
+    }
+    .home-layer-card:hover { transform: translateY(-2px); }
+    .home-layer-icon { font-size: 2rem; margin-bottom: .75rem; }
+    .home-layer-name { font-weight: 600; font-size: .9375rem; margin-bottom: .5rem; }
+    .home-layer-desc { font-size: .84rem; color: var(--text-secondary); line-height: 1.6; margin: 0 0 .875rem; }
+    .home-layer-tags { display: flex; flex-wrap: wrap; gap: .375rem; }
+
+    /* Warehouses */
+    .home-wh-section { margin-bottom: 3rem; }
+    .home-wh-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+    .home-wh-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid;
+      border-radius: var(--radius-lg);
+      padding: 1.125rem 1.25rem;
+    }
+    .home-wh-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: .5rem; }
+    .home-wh-name { font-family: var(--font-mono); font-size: .8125rem; font-weight: 600; }
+    .home-wh-purpose { font-size: .8125rem; color: var(--text-secondary); margin: 0 0 .625rem; line-height: 1.5; }
+    .home-wh-meta { display: flex; gap: .75rem; flex-wrap: wrap; font-size: .7rem; color: var(--text-muted); }
+    .home-wh-team { color: var(--text-secondary); }
+
+    /* Module cards */
+    .home-modules-section { margin-bottom: 3rem; }
+    .home-module-group { margin-top: 2rem; }
+    .home-module-group-title {
+      font-size: .6875rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--text-muted);
+      margin-bottom: .75rem;
+      padding-bottom: .375rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .home-module-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: .625rem;
+    }
+    .home-module-card {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: .875rem 1rem;
+      cursor: pointer;
+      transition: background .15s, border-color .15s, transform .15s;
+    }
+    .home-module-card:hover, .home-module-card:focus {
+      background: var(--bg-3);
+      border-color: var(--blue);
+      transform: translateX(2px);
+      outline: none;
+    }
+    .home-module-icon { font-size: 1.375rem; flex-shrink: 0; width: 2rem; text-align: center; }
+    .home-module-info { flex: 1; min-width: 0; }
+    .home-module-label { font-weight: 600; font-size: .875rem; color: var(--text-primary); margin-bottom: .2rem; }
+    .home-module-desc { font-size: .75rem; color: var(--text-muted); line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .home-module-arrow { color: var(--text-muted); font-size: 1.125rem; flex-shrink: 0; transition: color .15s; }
+    .home-module-card:hover .home-module-arrow { color: var(--blue); }
+
+    /* Placeholder for unbuilt modules */
+    .placeholder-msg {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 40vh;
+      gap: 1rem;
+      text-align: center;
+      padding: 3rem;
+    }
+    .placeholder-icon { font-size: 3.5rem; }
+    .placeholder-msg h2 { margin: 0; font-size: 1.5rem; }
+
+    /* Breadcrumb */
+    #breadcrumb { display: flex; align-items: center; gap: .375rem; font-size: .8125rem; color: var(--text-muted); }
+    #breadcrumb span:last-child { color: var(--text-secondary); }
+    .bc-sep { color: var(--border); }
+
+    /* Shortcuts modal */
+    .shortcuts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.5rem;
+      padding: 1.5rem;
+      max-height: 65vh;
+      overflow-y: auto;
+    }
+    .shortcut-group-title {
+      font-size: .6875rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--text-muted);
+      margin-bottom: .625rem;
+    }
+    .shortcut-row { display: flex; align-items: center; gap: .625rem; padding: .25rem 0; }
+    .shortcut-row kbd {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: .125rem .4rem;
+      font-family: var(--font-mono);
+      font-size: .6875rem;
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+    .shortcut-row span { font-size: .8125rem; color: var(--text-secondary); }
+
+    /* ── Shortcuts modal visibility ─────────────────────── */
+    #shortcuts-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: var(--z-modal, 300);
+      background: rgba(0,0,0,.75);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    #shortcuts-modal.visible { display: flex; }
+
+    /* ── Canvas scrolling ───────────────────────────────── */
+    #canvas {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      min-height: 0;
+    }
+
+    /* ── Section typography (used by home.js) ───────────── */
+    .section-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: .375rem;
+      letter-spacing: -.01em;
+    }
+    .section-sub {
+      font-size: .875rem;
+      color: var(--text-secondary);
+      margin-bottom: 1.5rem;
+      line-height: 1.65;
+    }
+
+    /* ── Sidebar footer flex ────────────────────────────── */
+    #sidebar-footer {
+      display: flex;
+      align-items: center;
+      gap: .25rem;
+    }
+    #sidebar-version {
+      font-size: .6875rem;
+      color: var(--text-muted);
+      margin-left: auto;
+    }

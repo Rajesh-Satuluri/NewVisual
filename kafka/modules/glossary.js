@@ -1,7 +1,7 @@
 // Glossary — searchable, category-filterable Kafka terminology reference.
 // Pure data + a tiny filter UI. Deep-links terms to their home module.
 
-const TERMS = [
+export const TERMS = [
   // ── Core concepts ─────────────────────────────────────────────────────────
   { t: 'Event / Record', c: 'Core', m: 'm02', d: 'The unit of data in Kafka — an immutable key/value pair with a timestamp and optional headers. Also called a message.' },
   { t: 'Topic', c: 'Core', m: 'm02', d: 'A named, append-only log of events. Producers write to topics; consumers read from them. Split into partitions for scale.' },

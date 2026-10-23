@@ -3,7 +3,7 @@
 // goals. Not a mode engine — each mode is a hand-picked sequence of existing
 // modules/pages you can jump into. Progressive disclosure for a 32-module tool.
 import { createModuleShell } from '../components/module-shell.js';
-import { getNavItem } from '../components/nav.js';
+import { getNavItem, MODULES } from '../components/nav.js';
 
 const MODES = [
   { id:'learn', icon:'📚', name:'Learn', color:'#3B82F6',
@@ -30,7 +30,7 @@ export function mount(container) {
   container.innerHTML = createModuleShell({
     tag: 'Guide · Modes',
     title: 'Learning Modes',
-    subtitle: 'Six goal-based paths through the 32 modules. Pick how you want to work today.',
+    subtitle: `${MODES.length} goal-based paths through the ${MODULES.length} modules. Pick how you want to work today.`,
     tabs: [{ id: 'modes', label: '🧭 Modes' }],
   });
   const tab = container.querySelector('#tab-modes');
@@ -39,7 +39,7 @@ export function mount(container) {
   try { done = new Set(JSON.parse(localStorage.getItem('dbt-done') || '[]')); } catch (e) {}
 
   tab.innerHTML = `
-    <p class="lab-intro">The same 32 modules, organized by what you're trying to do right now. Each path is an
+    <p class="lab-intro">The same ${MODULES.length} modules, organized by what you're trying to do right now. Each path is an
     ordered set — click any step to jump in.</p>
     <div class="modes-grid">
       ${MODES.map(m => `

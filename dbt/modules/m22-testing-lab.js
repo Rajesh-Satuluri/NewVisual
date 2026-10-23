@@ -6,7 +6,7 @@ import { createModuleShell, createIQSection, injectCodeEnhancements } from '../c
 
 const TYPES = [
   {
-    id: 'generic', name: 'Generic tests', color: '#3B82F6',
+    id: 'generic', name: 'Generic tests', color: '#3B82F6', lang: 'yaml',
     what: 'The four built-in column assertions, declared in YAML next to the model. Each compiles to a query that returns bad rows.',
     catches: 'Structural quality: nulls, duplicates, invalid enums, broken foreign keys.',
     config: `models:
@@ -26,7 +26,7 @@ const TYPES = [
     note: 'Apply not_null + unique to EVERY primary key automatically, relationships to every FK. That single habit catches the majority of data-quality issues.',
   },
   {
-    id: 'singular', name: 'Singular tests', color: '#FF694B',
+    id: 'singular', name: 'Singular tests', color: '#FF694B', lang: 'sql',
     what: 'A hand-written SQL file in tests/ that returns rows when something is wrong. 0 rows = pass; any rows = fail.',
     catches: 'Business logic that is not a simple column rule — cross-table invariants, reconciliations.',
     config: `-- tests/no_refund_exceeds_order.sql
@@ -37,7 +37,7 @@ where r.refund_amount > o.order_total`,
     note: 'A revenue-reconciliation singular test (dbt total vs Finance GL within 0.5%) is the most impressive example — it validates logic across two independent systems.',
   },
   {
-    id: 'custom', name: 'Custom generic tests', color: '#F59E0B',
+    id: 'custom', name: 'Custom generic tests', color: '#F59E0B', lang: 'sql',
     what: 'A reusable test macro in tests/generic/ that you can then apply to any column in YAML, parameterized.',
     catches: 'Repeated bespoke rules you want to declare declaratively across many models (e.g. "value is non-negative").',
     config: `-- tests/generic/non_negative.sql
@@ -52,7 +52,7 @@ where r.refund_amount > o.order_total`,
     note: 'Custom generics turn a singular test you keep rewriting into a one-word YAML assertion — DRY testing.',
   },
   {
-    id: 'unit', name: 'Unit tests', color: '#8B5CF6',
+    id: 'unit', name: 'Unit tests', color: '#8B5CF6', lang: 'yaml',
     what: 'Test a model\'s SQL LOGIC against mocked inputs and an expected output — at compile/CI time, without scanning real data. (dbt 1.8+)',
     catches: 'Logic bugs in transformations (a CASE, a window, a join) before they ever touch production data.',
     config: `unit_tests:
@@ -69,7 +69,7 @@ where r.refund_amount > o.order_total`,
     note: 'Data tests check the DATA; unit tests check the LOGIC. A unit test catches "refunds should be excluded" even when no refund exists in prod yet.',
   },
   {
-    id: 'contract', name: 'Model contracts', color: '#10B981',
+    id: 'contract', name: 'Model contracts', color: '#10B981', lang: 'yaml',
     what: 'Enforce a model\'s output schema (column names, types, constraints) at BUILD time. A mismatch fails before publishing.',
     catches: 'Breaking changes to a model other teams/BI tools consume — a dropped column or changed type.',
     config: `models:
@@ -165,7 +165,7 @@ function buildLab(container) {
           <div class="mx-cell"><div class="mx-k">What it catches</div><div class="mx-v">${t.catches}</div></div>
         </div>
         <div class="mx-k" style="margin-bottom:6px">How it's declared</div>
-        <div class="code-block" data-lang="yaml">${escapeHtml(t.config)}</div>
+        <div class="code-block" data-lang="${t.lang}">${escapeHtml(t.config)}</div>
         <div class="ex-interview" style="border-left-color:${t.color};background:${t.color}18;margin-top:14px">
           <span class="ex-iq-badge" style="color:${t.color}">Pro tip</span> ${t.note}</div>
       </div>`;
@@ -207,10 +207,10 @@ function buildDetail(container) {
     <div class="detail-section">
       <h3>Severity, filtering, and store-failures</h3>
       <div class="info-grid">
-        <div class="info-card" style="border-left-color:#EF4444"><div class="info-card-title">severity: error</div><div class="info-card-tag" style="color:#EF4444;background:#EF444422">Default</div><div class="info-card-body">Failure fails the run and skips downstream. Use for anything that must never reach prod.</div></div>
-        <div class="info-card" style="border-left-color:#F59E0B"><div class="info-card-title">severity: warn</div><div class="info-card-tag" style="color:#F59E0B;background:#F59E0B22">Monitor</div><div class="info-card-body">Logs but doesn't block. Use while investigating, or for borderline cases you want visible.</div></div>
-        <div class="info-card" style="border-left-color:#3B82F6"><div class="info-card-title">where / limit</div><div class="info-card-tag" style="color:#3B82F6;background:#3B82F622">Scope</div><div class="info-card-body">Run a test only on the subset you care about (e.g. ignore legacy dirty history).</div></div>
-        <div class="info-card" style="border-left-color:#8B5CF6"><div class="info-card-title">store_failures</div><div class="info-card-tag" style="color:#8B5CF6;background:#8B5CF622">Debug</div><div class="info-card-body">Persist failing rows to a table so you can inspect exactly what broke, not just the count.</div></div>
+        <div class="info-card" style="border-left-color:var(--error)"><div class="info-card-title">severity: error</div><div class="info-card-tag" style="color:var(--error);background:color-mix(in srgb, var(--error) 8%, transparent)">Default</div><div class="info-card-body">Failure fails the run and skips downstream. Use for anything that must never reach prod.</div></div>
+        <div class="info-card" style="border-left-color:var(--warn)"><div class="info-card-title">severity: warn</div><div class="info-card-tag" style="color:var(--warn);background:color-mix(in srgb, var(--warn) 8%, transparent)">Monitor</div><div class="info-card-body">Logs but doesn't block. Use while investigating, or for borderline cases you want visible.</div></div>
+        <div class="info-card" style="border-left-color:var(--info)"><div class="info-card-title">where / limit</div><div class="info-card-tag" style="color:var(--info);background:color-mix(in srgb, var(--info) 8%, transparent)">Scope</div><div class="info-card-body">Run a test only on the subset you care about (e.g. ignore legacy dirty history).</div></div>
+        <div class="info-card" style="border-left-color:var(--purple)"><div class="info-card-title">store_failures</div><div class="info-card-tag" style="color:var(--purple);background:color-mix(in srgb, var(--purple) 8%, transparent)">Debug</div><div class="info-card-body">Persist failing rows to a table so you can inspect exactly what broke, not just the count.</div></div>
       </div>
     </div>
     <div class="detail-section">
@@ -218,6 +218,7 @@ function buildDetail(container) {
       <p style="font-size:15px;font-weight:600;color:var(--accent)">Structural tests on keys · source freshness gates · unit tests on logic · contracts on consumed models · singular tests for business invariants — all gated by <code>dbt build</code> in CI.</p>
       <p>Quality is layered, not sprinkled. Each layer catches a different failure class; together they are the difference between "we have some tests" and "bad data cannot reach the dashboard." Source freshness has its own lab — see <strong>M23</strong>.</p>
     </div>
+    <div class="detail-section"><p style="padding:12px 14px;background:var(--surface-2);border-left:3px solid var(--accent);border-radius:8px;font-size:14px;margin:0"><strong>🧠 First principles —</strong> A test is just a SELECT that should return zero rows — the same assert-the-invariant idea that makes a tested DAG trustworthy. Pair it with state-aware selection to test only what changed. <a href="#concepts" style="color:var(--accent);font-weight:600">Core Concepts → State &amp; Selection</a>.</p></div>
   `;
 }
 

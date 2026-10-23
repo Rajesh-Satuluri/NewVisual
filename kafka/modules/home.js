@@ -7,6 +7,16 @@ import { loadAllIQ } from '../data/iq-aggregate.js';
 
 const GROUP_ORDER = ['Foundation', 'Core Internals', 'Consumer Side', 'Delivery', 'Ecosystem', 'Operations', 'Advanced'];
 
+// Difficulty + rough reading-time by theme group, so a learner can gauge a
+// module before opening it. Time is an estimate for the interactive content.
+const LEVEL = { Foundation: 'Beginner', 'Core Internals': 'Intermediate', 'Consumer Side': 'Intermediate', Delivery: 'Intermediate', Ecosystem: 'Intermediate', Operations: 'Advanced', Advanced: 'Advanced' };
+const LEVEL_CLASS = { Beginner: 'lvl-beg', Intermediate: 'lvl-int', Advanced: 'lvl-adv' };
+const MINS = { Foundation: 10, 'Core Internals': 15, 'Consumer Side': 14, Delivery: 14, Ecosystem: 13, Operations: 15, Advanced: 18 };
+const badges = m => {
+  const lv = LEVEL[m.group] || 'Intermediate';
+  return `<span class="home-card-badges"><span class="mlvl ${LEVEL_CLASS[lv]}">${lv}</span><span class="mmins">~${MINS[m.group] || 14} min</span></span>`;
+};
+
 // A short "why start here" path — the spine through the 22 modules.
 const START_PATH = ['m01', 'm03', 'm04', 'm08', 'm11', 'm19'];
 
@@ -45,6 +55,7 @@ export function mount(container) {
         <span class="home-card-text">
           <span class="home-card-title"><span class="home-card-num">${n}</span> ${m.label}</span>
           <span class="home-card-desc">${m.desc}</span>
+          ${badges(m)}
         </span>
       </a>`;
   };
@@ -72,7 +83,7 @@ export function mount(container) {
         senior data-engineering interviews. 22 modules, zero setup, runs in your browser.</p>
         <div class="home-cta">
           <a class="home-btn home-btn-primary" href="#m01">Start learning →</a>
-          <a class="home-btn home-btn-ghost" href="#study">Interview prep</a>
+          <a class="home-btn home-btn-ghost" href="#dashboard">Your dashboard</a>
         </div>
         <div class="stats-row home-stats">
           ${stat(MODULES.length, 'Modules')}
@@ -87,6 +98,41 @@ export function mount(container) {
         <div class="section-desc">The shortest path from "what is Kafka" to an end-to-end pipeline.</div>
       </div>
       <div class="home-steps">${START_PATH.map(startCard).join('')}</div>
+
+      <div class="section-header home-section-head">
+        <div class="section-title">Interactive labs</div>
+        <div class="section-desc">Deterministic simulators built on Kafka's real algorithms — experiment, don't just read.</div>
+      </div>
+      <div class="home-grid home-ref-grid">
+        <a href="#playground" class="home-card">
+          <span class="home-card-icon">🎮</span>
+          <span class="home-card-text">
+            <span class="home-card-title">Partition Simulator</span>
+            <span class="home-card-desc">Publish events and watch Kafka's real murmur2 partitioner route them — spot hot partitions.</span>
+          </span>
+        </a>
+        <a href="#consumer-lab" class="home-card">
+          <span class="home-card-icon">👥</span>
+          <span class="home-card-text">
+            <span class="home-card-title">Consumer Group Lab</span>
+            <span class="home-card-desc">See how a group divides partitions, and why parallelism is capped by partition count.</span>
+          </span>
+        </a>
+        <a href="#replication-lab" class="home-card">
+          <span class="home-card-icon">🔁</span>
+          <span class="home-card-text">
+            <span class="home-card-title">Replication & Failure Lab</span>
+            <span class="home-card-desc">Kill brokers and watch leaders re-elect from the ISR — under-replicated vs offline.</span>
+          </span>
+        </a>
+        <a href="#sizing" class="home-card">
+          <span class="home-card-icon">📐</span>
+          <span class="home-card-text">
+            <span class="home-card-title">Capacity & Sizing Lab</span>
+            <span class="home-card-desc">Partition, consumer, and storage math you can reproduce on a whiteboard.</span>
+          </span>
+        </a>
+      </div>
 
       <div class="section-header home-section-head">
         <div class="section-title">Full curriculum</div>
@@ -104,6 +150,20 @@ export function mount(container) {
           <span class="home-card-text">
             <span class="home-card-title">Master Map</span>
             <span class="home-card-desc">Follow one event end to end, then jump into any stage.</span>
+          </span>
+        </a>
+        <a href="#advanced" class="home-card">
+          <span class="home-card-icon">🧠</span>
+          <span class="home-card-text">
+            <span class="home-card-title">Advanced Topics</span>
+            <span class="home-card-desc">Tiered storage, static membership, quotas, leader epoch — the staff-level deep dives.</span>
+          </span>
+        </a>
+        <a href="#config-reference" class="home-card">
+          <span class="home-card-icon">⚙️</span>
+          <span class="home-card-text">
+            <span class="home-card-title">Config Reference</span>
+            <span class="home-card-desc">The settings that matter, with defaults, safe values, and what breaks when they're wrong.</span>
           </span>
         </a>
         <a href="#glossary" class="home-card">
@@ -139,6 +199,20 @@ export function mount(container) {
           <span class="home-card-text">
             <span class="home-card-title">Level Up Your Answer</span>
             <span class="home-card-desc">The same question answered Weak / Good / Senior — and why the senior version wins.</span>
+          </span>
+        </a>
+        <a href="#dashboard" class="home-card">
+          <span class="home-card-icon">📊</span>
+          <span class="home-card-text">
+            <span class="home-card-title">Dashboard</span>
+            <span class="home-card-desc">Honest mastery analytics — progress by group, weak spots, and what to study next.</span>
+          </span>
+        </a>
+        <a href="#review" class="home-card">
+          <span class="home-card-icon">🔁</span>
+          <span class="home-card-text">
+            <span class="home-card-title">Review Center</span>
+            <span class="home-card-desc">Spaced-repetition flashcards from every quiz and term — review what's due today.</span>
           </span>
         </a>
         <a href="#study" class="home-card">

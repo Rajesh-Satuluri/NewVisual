@@ -19,8 +19,12 @@
         "Given `users` (`user_id`, `email`, `phone`, `bio`), add a `domain` column containing the part **after** the `@` in each `email` (e.g. `asha@acme.com` → `acme.com`). Show two ways: `split(email, '@')` then take the second element, or a single `regexp_extract`.",
       examples: [
         {
-          input: "users: (1,'asha@acme.com'), (2,'ravi@corp.co.uk')",
-          output: "(1,'acme.com'), (2,'corp.co.uk')",
+          inputs: [
+            { name: "users", columns: ["user_id", "email"],
+              rows: [[1, "asha@acme.com"], [2, "ravi@corp.co.uk"]] }
+          ],
+          output: { columns: ["user_id", "email", "domain"],
+            rows: [[1, "asha@acme.com", "acme.com"], [2, "ravi@corp.co.uk", "corp.co.uk"]] },
           reasoning: "The domain is everything to the right of the single '@'. split yields ['asha','acme.com']; element 2 (1-based) is the domain."
         }
       ],
@@ -86,8 +90,12 @@
         "Given `logs` (`line`) holding raw access-log strings like `127.0.0.1 - - [10/Oct/2026:13:55:36] \"GET /index.html HTTP/1.1\" 200`, extract `ip`, `timestamp`, `method`, `path`, and `status` into separate columns using `regexp_extract` with capture groups.",
       examples: [
         {
-          input: "logs: '127.0.0.1 - - [10/Oct/2026:13:55:36] \"GET /index.html HTTP/1.1\" 200'",
-          output: "ip='127.0.0.1', timestamp='10/Oct/2026:13:55:36', method='GET', path='/index.html', status=200",
+          inputs: [
+            { name: "logs", columns: ["line"],
+              rows: [["127.0.0.1 - - [10/Oct/2026:13:55:36] \"GET /index.html HTTP/1.1\" 200"]] }
+          ],
+          output: { columns: ["ip", "timestamp", "method", "path", "status"],
+            rows: [["127.0.0.1", "10/Oct/2026:13:55:36", "GET", "/index.html", 200]] },
           reasoning: "One regex with five capture groups pulls each field out of the fixed log grammar; status is cast to int."
         }
       ],
@@ -166,8 +174,12 @@
         "Given `users` (`user_id`, `email`, `phone`, `bio`), mask each `phone` so only the **last 4 digits** survive, e.g. `4111-1111-1111-1234` → `************1234`. Use `regexp_replace` to turn every masked digit into `*` while preserving the tail.",
       examples: [
         {
-          input: "users: (1,'4111111111111234'), (2,'5500 0000 0000 0004')",
-          output: "(1,'************1234'), (2,'************0004')",
+          inputs: [
+            { name: "users", columns: ["user_id", "phone"],
+              rows: [[1, "4111111111111234"], [2, "5500 0000 0000 0004"]] }
+          ],
+          output: { columns: ["user_id", "phone", "phone_masked"],
+            rows: [[1, "4111111111111234", "************1234"], [2, "5500 0000 0000 0004", "************0004"]] },
           reasoning: "All non-digit separators are stripped, then every digit except the final four is replaced by '*'."
         }
       ],
@@ -233,8 +245,12 @@
         "Given `customers` (`customer_id`, `name`, `city`, `registration_date`) where `name` is a full name like `Asha Rao` or `Maria de la Cruz`, derive `first_name` (first token) and `last_name` (last token), handling middle names gracefully by using `size` to find the final element.",
       examples: [
         {
-          input: "customers: 'Asha Rao', 'Maria de la Cruz', 'Prince'",
-          output: "('Asha','Rao'), ('Maria','Cruz'), ('Prince','Prince')",
+          inputs: [
+            { name: "customers", columns: ["name"],
+              rows: [["Asha Rao"], ["Maria de la Cruz"], ["Prince"]] }
+          ],
+          output: { columns: ["name", "first_name", "last_name"],
+            rows: [["Asha Rao", "Asha", "Rao"], ["Maria de la Cruz", "Maria", "Cruz"], ["Prince", "Prince", "Prince"]] },
           reasoning: "first token is element 1; last token is element size(parts). A single-token name maps both to itself."
         }
       ],
@@ -304,8 +320,12 @@
         "Given `users` (`user_id`, `email`, `phone`, `bio`), keep only rows whose `email` matches a valid email shape using `rlike` (regex predicate). Report both the valid rows and, as a contrast, the invalid ones with `~col(...).rlike(...)`.",
       examples: [
         {
-          input: "users: 'asha@acme.com', 'not-an-email', 'ravi@corp.co.uk', 'bob@@x'",
-          output: "valid: 'asha@acme.com', 'ravi@corp.co.uk'",
+          inputs: [
+            { name: "users", columns: ["email"],
+              rows: [["asha@acme.com"], ["not-an-email"], ["ravi@corp.co.uk"], ["bob@@x"]] }
+          ],
+          output: { name: "valid (rlike match)", columns: ["email"],
+            rows: [["asha@acme.com"], ["ravi@corp.co.uk"]] },
           reasoning: "rlike returns true when the pattern matches; only well-formed local@domain.tld strings pass, and the negation gives the reject list."
         }
       ],
@@ -373,8 +393,12 @@
         "Given `users` (`user_id`, `email`, `phone`, `bio`), normalize the free-text `bio`: lowercase it, strip punctuation with `regexp_replace`, collapse runs of whitespace to a single space, and trim the ends — producing a clean, comparable token stream.",
       examples: [
         {
-          input: "bio: '  Hello,  WORLD!!!   It\\'s   great...  '",
-          output: "'hello world its great'",
+          inputs: [
+            { name: "users", columns: ["bio"],
+              rows: [["  Hello,  WORLD!!!   It's   great...  "]] }
+          ],
+          output: { columns: ["bio_clean"],
+            rows: [["hello world its great"]] },
           reasoning: "lower + remove non-alphanumeric/space + collapse multiple spaces + trim yields a canonical form."
         }
       ],
@@ -443,8 +467,12 @@
         "Given `users` (`user_id`, `email`, `phone`, `bio`), add `word_count` = number of words in each `bio`, and `the_count` = how many times the token `the` appears. Use `split` + `size` for words, and a normalize-then-count trick for the token.",
       examples: [
         {
-          input: "bio: 'the cat sat on the mat'",
-          output: "word_count=6, the_count=2",
+          inputs: [
+            { name: "users", columns: ["bio"],
+              rows: [["the cat sat on the mat"]] }
+          ],
+          output: { columns: ["bio", "word_count", "the_count"],
+            rows: [["the cat sat on the mat", 6, 2]] },
           reasoning: "split on whitespace gives 6 tokens; counting occurrences of the standalone word 'the' gives 2."
         }
       ],
@@ -519,8 +547,12 @@
         "Given `users` (`user_id`, `email`, `phone`, `bio`), pull every hashtag (`#word`) out of each `bio` into an array, then `explode` and `groupBy` to find the **top hashtags** across all rows. Show `regexp_extract_all` (Spark 3.1+) and a portable `split` + `filter` fallback for older Spark.",
       examples: [
         {
-          input: "bios: 'love #spark and #Spark', 'learning #python #spark'",
-          output: "top: #spark → 3, #python → 1",
+          inputs: [
+            { name: "users", columns: ["bio"],
+              rows: [["love #spark and #Spark"], ["learning #python #spark"]] }
+          ],
+          output: { columns: ["tag", "count"],
+            rows: [["#spark", 3], ["#python", 1]] },
           reasoning: "extract all #tokens per row, lowercase to merge #Spark/#spark, explode to one tag per row, then count per tag descending."
         }
       ],

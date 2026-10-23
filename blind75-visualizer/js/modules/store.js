@@ -19,6 +19,7 @@
     links: {},      // problemId -> [{name,url}, {name,url}] (animation/visualization links)
     codeEdits: {},  // problemId -> { "<approachIndex>:<mode>": editedSource } (user code edits)
     logicEdits: {}, // problemId -> { "<approachIndex>": editedMarkdown } (user logic edits)
+    descEdits: {},  // problemId -> editedMarkdown (user problem-description edits)
     srs: {},        // problemId -> { ease, interval(days), reps, lapses, due(ms), last(ms) }
     activity: {},   // "YYYY-MM-DD" -> count of solves/reviews that day (for the heatmap + streak)
     pyStatus: {},   // pythonTopicId -> "not-started" | "learning" | "learned" | "mastered"
@@ -49,6 +50,7 @@
       data.links = data.links || {};
       data.codeEdits = data.codeEdits || {};
       data.logicEdits = data.logicEdits || {};
+      data.descEdits = data.descEdits || {};
       data.srs = data.srs || {};
       data.activity = data.activity || {};
       data.pyStatus = data.pyStatus || {};
@@ -71,7 +73,10 @@
     try {
       localStorage.setItem(KEY, JSON.stringify(state));
     } catch (e) {
-      /* private mode / quota — fail silently, app still works in-memory */
+      // private mode / quota exceeded — the app keeps working in-memory, but the
+      // user's progress is NOT being persisted. Announce it so the UI can warn
+      // the user instead of losing their work silently (app.js shows a toast).
+      try { window.dispatchEvent(new Event("blind75:storage-error")); } catch (e2) { /* no window */ }
     }
     // Let the (optional) cloud-sync layer push changes to other devices.
     // It only ships notes/codeEdits/logicEdits and debounces internally, so
@@ -222,6 +227,21 @@
       save();
     },
 
+    // ---- problem-description edits (per problem) ----
+    getDescEdit: function (id) {
+      var v = state.descEdits[id];
+      return v == null ? null : v;
+    },
+    setDescEdit: function (id, text) {
+      state.descEdits[id] = text;
+      save();
+    },
+    clearDescEdit: function (id) {
+      if (state.descEdits[id] == null) return;
+      delete state.descEdits[id];
+      save();
+    },
+
     // ---- Python-for-DSA topic progress ----
     // States: "not-started" | "learning" | "learned" | "mastered".
     getPyStatus: function (id) {
@@ -333,6 +353,7 @@
       state.links = incoming.links || {};
       state.codeEdits = incoming.codeEdits || {};
       state.logicEdits = incoming.logicEdits || {};
+      state.descEdits = incoming.descEdits || {};
       state.srs = incoming.srs || {};
       state.activity = incoming.activity || {};
       state.pyStatus = incoming.pyStatus || {};
@@ -356,6 +377,7 @@
         links:       deep(state.links),
         codeEdits:   deep(state.codeEdits),
         logicEdits:  deep(state.logicEdits),
+        descEdits:   deep(state.descEdits),
         status:      deep(state.status),
         pyStatus:    deep(state.pyStatus),
         srs:         deep(state.srs),
@@ -376,6 +398,7 @@
       if (b.links)       state.links = b.links;
       if (b.codeEdits)   state.codeEdits = b.codeEdits;
       if (b.logicEdits)  state.logicEdits = b.logicEdits;
+      if (b.descEdits)   state.descEdits = b.descEdits;
       if (b.status)      state.status = b.status;
       if (b.pyStatus)    state.pyStatus = b.pyStatus;
       if (b.srs)         state.srs = b.srs;
@@ -410,7 +433,7 @@
     return JSON.stringify([
       state.status, state.pyStatus, state.srs, state.review, state.activity,
       state.pyChallenge, state.notes, state.links, state.codeEdits,
-      state.logicEdits, pickSyncPrefs()
+      state.logicEdits, state.descEdits, pickSyncPrefs()
     ]);
   }
 

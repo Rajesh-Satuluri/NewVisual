@@ -27,8 +27,14 @@
         "You receive a micro-batch of <code>updates</code> keyed by a business key (<code>customer_id</code>) and must apply it to a Delta table <code>customers</code> so that existing keys are <b>updated</b> in place and new keys are <b>inserted</b> &mdash; a classic upsert. Use <code>DeltaTable.forName(spark, 'customers').alias('t').merge(updates.alias('s'), 't.customer_id = s.customer_id')</code> with <code>whenMatchedUpdateAll()</code> and <code>whenNotMatchedInsertAll()</code>. Deduplicate the source to one row per key first, because a MERGE that matches multiple source rows to one target row fails.",
       examples: [
         {
-          input: "customers has (c1, NYC), (c2, LA). updates: (c1, SF), (c3, SEA).",
-          output: "After merge: (c1, SF) [updated], (c2, LA) [untouched], (c3, SEA) [inserted].",
+          inputs: [
+            { name: "customers", columns: ["customer_id", "city"],
+              rows: [["c1", "NYC"], ["c2", "LA"]] },
+            { name: "updates", columns: ["customer_id", "city"],
+              rows: [["c1", "SF"], ["c3", "SEA"]] }
+          ],
+          output: { name: "customers after merge", columns: ["customer_id", "city"],
+            rows: [["c1", "SF"], ["c2", "LA"], ["c3", "SEA"]] },
           reasoning: "c1 matches an existing key so whenMatchedUpdateAll overwrites its columns; c2 is not in the source so it is left as-is; c3 has no matching target row so whenNotMatchedInsertAll adds it."
         }
       ],
@@ -519,8 +525,14 @@
         "Enrich a stream of transaction events with attributes from a small, slowly-changing <code>products</code> dimension (name, category) by joining the streaming DataFrame to the <b>static</b> DataFrame on <code>product_id</code>. A stream-static join is stateless: each micro-batch joins against the current dimension, and a broadcast makes it a map-side lookup. Use <code>stream.join(broadcast(dim), 'product_id')</code> and write with <code>append</code> and a checkpoint.",
       examples: [
         {
-          input: "stream: (t1, product_id=p1, amt=20). static products: (p1, 'Widget', 'Hardware'), (p2, 'Gadget', 'Electronics').",
-          output: "Enriched: (t1, p1, 20, name='Widget', category='Hardware'). Each event gains the dimension attributes for its product_id.",
+          inputs: [
+            { name: "txns (stream)", columns: ["txn_id", "product_id", "amt"],
+              rows: [["t1", "p1", 20]] },
+            { name: "products (static)", columns: ["product_id", "name", "category"],
+              rows: [["p1", "Widget", "Hardware"], ["p2", "Gadget", "Electronics"]] }
+          ],
+          output: { name: "enriched", columns: ["txn_id", "product_id", "amt", "name", "category"],
+            rows: [["t1", "p1", 20, "Widget", "Hardware"]] },
           reasoning: "The stream-static inner join looks up each event's product_id in the broadcast dimension and appends its columns. Because the dimension is broadcast, no shuffle of the stream is needed; the join runs entirely map-side per micro-batch."
         }
       ],
@@ -616,8 +628,13 @@
         "A change feed <code>cdc</code> (<code>id</code>, columns, <code>op</code> in {<code>I</code>, <code>U</code>, <code>D</code>}, <code>seq</code>) from Debezium/DMS must be applied incrementally to a Delta <code>target</code>: inserts and updates upsert the row, deletes remove it. Collapse the batch to the <b>latest</b> change per id with <code>row_number()</code> over <code>seq</code> desc, then run a three-branch Delta <code>MERGE</code> &mdash; <code>whenMatchedDelete(op = 'D')</code>, <code>whenMatchedUpdateAll(op &lt;&gt; 'D')</code>, <code>whenNotMatchedInsertAll(op &lt;&gt; 'D')</code>.",
       examples: [
         {
-          input: "target has (7, city=NYC). cdc for id=7: (U, city=LA, seq=10), (U, city=SF, seq=11), (D, seq=12).",
-          output: "Latest change for id=7 is the D at seq 12, so id=7 is DELETED. The intermediate LA/SF updates are collapsed away.",
+          inputs: [
+            { name: "target", columns: ["id", "city"],
+              rows: [[7, "NYC"]] },
+            { name: "cdc", columns: ["id", "op", "city", "seq"],
+              rows: [[7, "U", "LA", 10], [7, "U", "SF", 11], [7, "D", null, 12]] }
+          ],
+          output: "Latest change for id=7 is the D at seq 12, so id=7 is DELETED. The intermediate LA/SF updates are collapsed away (the target ends with no row for id=7).",
           reasoning: "row_number() desc on seq keeps only the last event per id (the delete). The MERGE then applies that net change: op='D' matched-deletes the row; had the latest op been I/U it would upsert the row's values instead."
         }
       ],
@@ -1005,8 +1022,14 @@
         "You need a streaming sink that <b>upserts</b> each micro-batch into a Delta table (there is no built-in MERGE sink). Use <code>writeStream.foreachBatch(fn)</code>: the function receives the batch DataFrame and its <code>batchId</code>, dedupes to one row per key, and runs a Delta <code>MERGE</code> (<code>whenMatchedUpdateAll</code> / <code>whenNotMatchedInsertAll</code>). Make it re-run-safe (the same <code>batchId</code> may be reprocessed after a failure), and set a <code>checkpointLocation</code>.",
       examples: [
         {
-          input: "Micro-batch b: (k1, v=9, ts=2), (k1, v=7, ts=1), (k2, v=3). target has (k1, v=5).",
-          output: "Dedupe to latest per key -> (k1, v=9), (k2, v=3). MERGE: k1 updated to 9, k2 inserted. If batch b is reprocessed, the same MERGE yields the same state (idempotent).",
+          inputs: [
+            { name: "micro_batch", columns: ["k", "v", "ts"],
+              rows: [["k1", 9, 2], ["k1", 7, 1], ["k2", 3, null]] },
+            { name: "state_table (target)", columns: ["k", "v"],
+              rows: [["k1", 5]] }
+          ],
+          output: { name: "state_table after merge (dedupe to latest per key, then upsert)", columns: ["k", "v"],
+            rows: [["k1", 9], ["k2", 3]] },
           reasoning: "foreachBatch turns each micro-batch into a normal DataFrame so batch-only operations like MERGE are usable. Deduping to one row per key satisfies MERGE's single-match rule; because MERGE upserts by key it is idempotent under reprocessing of the same batch."
         }
       ],

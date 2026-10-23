@@ -216,9 +216,13 @@
         const searchBits = [item.label, svc && svc.aka, svc && svc.name, svc && svc.tagline]
           .filter(Boolean).join(' ').toLowerCase();
         a.dataset.search = searchBits;
+        const reviewed = item.available && TV.ServiceDetail && TV.ServiceDetail.isReviewed &&
+          TV.ServiceDetail.isReviewed(item.id);
+        if (reviewed) a.classList.add('learned');
         a.innerHTML = `
           <span class="nav-icon">${_navIcon(item.icon)}</span>
           <span class="nav-label">${item.label}</span>
+          ${reviewed ? '<span class="nav-check" aria-label="Reviewed">✓</span>' : ''}
           ${!item.available ? '<span class="nav-badge">soon</span>' : ''}
         `;
         if (!item.available) {
@@ -234,6 +238,27 @@
 
     _updateCollapseAllBtn();
   }
+
+  /* Live-update the sidebar when a service is marked reviewed / un-reviewed. */
+  document.addEventListener('cde:reviewed-changed', (e) => {
+    const d = e.detail || {};
+    if (!d.id) return;
+    const sel = 'a.nav-item[data-nav-id="' + (window.CSS && CSS.escape ? CSS.escape(d.id) : d.id) + '"]';
+    const a = document.querySelector(sel);
+    if (!a) return;
+    a.classList.toggle('learned', !!d.reviewed);
+    let chk = a.querySelector('.nav-check');
+    if (d.reviewed && !chk) {
+      chk = document.createElement('span');
+      chk.className = 'nav-check';
+      chk.setAttribute('aria-label', 'Reviewed');
+      chk.textContent = '✓';
+      const label = a.querySelector('.nav-label');
+      if (label) label.insertAdjacentElement('afterend', chk); else a.appendChild(chk);
+    } else if (!d.reviewed && chk) {
+      chk.remove();
+    }
+  });
 
   /* ── Active nav highlight ────────────────────────────────── */
   function _setActiveNav(id) {

@@ -178,6 +178,19 @@
     if (window.LABFILTERS) base = base.filter(function (p) { return window.LABFILTERS.passes(p, PL_GETTERS); });
     return base;
   }
+  // The visible problems in the exact order the sidebar lays them out (current
+  // grouping lens + search + filters). Prev/Next walk THIS so stepping through
+  // problems follows the Group-by / filtered list the user is looking at. Falls
+  // back to the full list if the current problem is filtered out of view.
+  function orderedVisibleList() {
+    var vis = {}; visibleList().forEach(function (p) { vis[p.id] = true; });
+    var out = [];
+    activeGroups().forEach(function (g) {
+      g.problems.forEach(function (p) { if (vis[p.id]) out.push(p); });
+    });
+    for (var i = 0; i < out.length; i++) if (out[i].id === cur.id) return out;
+    return all();
+  }
   function capDiff(d) { return d ? (String(d).charAt(0).toUpperCase() + String(d).slice(1).toLowerCase()) : ""; }
   function updateFilterCounts() {
     // Cross-filtered counts: each chip reflects the other active facets, so the
@@ -395,6 +408,40 @@
     });
     wrap.appendChild(dataTable(["Column", "Type"], rows));
     return wrap;
+  }
+
+  // ---- LeetCode-style schema + sample-data layout ----
+  // Pair each table's schema (Column/Type) with its sample rows in one compact
+  // card, then lay the cards out in a responsive grid so narrow SQL tables sit
+  // side by side instead of each stretching full width with a dead right gutter.
+  // Tables are matched by name (schema[].name <-> sampleData[].table); a table
+  // present in only one of the two still renders what it has.
+  function schemaDataGrid(p) {
+    var grid = h("div", { class: "lab-schema-grid" });
+    var schema = p.schema || [], sample = p.sampleData || [];
+    var order = [], seen = {};
+    schema.forEach(function (t) { if (!seen[t.name]) { seen[t.name] = true; order.push(t.name); } });
+    sample.forEach(function (t) { if (!seen[t.table]) { seen[t.table] = true; order.push(t.table); } });
+    function findSchema(n) { for (var i = 0; i < schema.length; i++) if (schema[i].name === n) return schema[i]; return null; }
+    function findSample(n) { for (var i = 0; i < sample.length; i++) if (sample[i].table === n) return sample[i]; return null; }
+    order.forEach(function (name) {
+      var card = h("div", { class: "lab-tbl-card" });
+      card.appendChild(h("div", { class: "lab-tbl-card-name" }, esc(name)));
+      var sc = findSchema(name);
+      if (sc) {
+        var defRows = (sc.columns || []).map(function (c) { return [c.name, c.type + (c.note ? "  · " + c.note : "")]; });
+        card.appendChild(dataTable(["Column", "Type"], defRows));
+      }
+      var sm = findSample(name);
+      if (sm) {
+        card.appendChild(h("div", { class: "lab-tbl-sub" }, sc ? "Sample rows" : "Sample data"));
+        var box = h("div", { class: "lab-sample-box" });
+        box.appendChild(dataTable(sm.columns, sm.rows));
+        card.appendChild(box);
+      }
+      grid.appendChild(card);
+    });
+    return grid;
   }
 
   // ============================================================ SIDEBAR
@@ -661,24 +708,40 @@
 
     // schema + sample data (SQL)
     if ((p.schema && p.schema.length) || (p.sampleData && p.sampleData.length)) {
-      var sd = h("div", {});
-      (p.schema || []).forEach(function (t) { sd.appendChild(schemaTable(t)); });
-      (p.sampleData || []).forEach(function (t) {
-        sd.appendChild(h("div", { class: "lab-table-cap" }, esc(t.table)));
-        sd.appendChild(dataTable(t.columns, t.rows));
-      });
-      main.appendChild(section("schema", "Schema & Sample Data", sd));
+      main.appendChild(section("schema", "Schema & Sample Data", schemaDataGrid(p)));
     }
 
-    // examples (PySpark / generic)
+    // examples (PySpark / generic) — render DataFrame tables when the example is
+    // structured ({name,columns,rows}), fall back to a <code> line for prose/scalar.
     if (p.examples && p.examples.length) {
       var exWrap = h("div", { class: "examples" });
+      // one Input/Output column (label on top): table(s) when structured, else code
+      function exCol(label, tables, str) {
+        var tbls = tables && tables.length ? tables : null;
+        var col = h("div", { class: "ex-col" });
+        col.appendChild(h("span", { class: "ex-label" }, label));
+        var body = h("div", { class: "ex-body" });
+        if (tbls) {
+          tbls.forEach(function (t) {
+            if (t.name) body.appendChild(h("div", { class: "lab-table-cap" }, esc(t.name)));
+            body.appendChild(dataTable(t.columns, t.rows));
+          });
+        } else {
+          body.innerHTML = "<code>" + esc(str) + "</code>";
+        }
+        col.appendChild(body);
+        return col;
+      }
       p.examples.forEach(function (ex, i) {
         var card = h("div", { class: "example-card" });
         card.appendChild(h("div", { class: "ex-num" }, "Example " + (i + 1)));
-        var io = h("div", { class: "ex-io" });
-        io.innerHTML = '<div class="ex-row"><span class="ex-label">Input</span><code>' + esc(ex.input) + "</code></div>" +
-          '<div class="ex-row"><span class="ex-label">Output</span><code>' + esc(ex.output) + "</code></div>";
+        // Input | Output side by side (wraps to stacked when the row is too narrow).
+        var io = h("div", { class: "ex-io ex-io-split" });
+        // input: ex.inputs = [{name,columns,rows}, ...]  OR  ex.input = string
+        io.appendChild(exCol("Input", ex.inputs, ex.input));
+        // output: ex.output = {name?,columns,rows}  OR  ex.output = string
+        var outTbls = (ex.output && typeof ex.output === "object" && ex.output.columns) ? [ex.output] : null;
+        io.appendChild(exCol("Output", outTbls, ex.output));
         card.appendChild(io);
         if (ex.reasoning) { var r = h("div", { class: "ex-reason md" }); r.innerHTML = md(ex.reasoning); card.appendChild(r); }
         exWrap.appendChild(card);
@@ -766,8 +829,9 @@
     noteWrap.appendChild(h("span", { class: "note-sync-time" }, cloud && cloud.syncLabel ? cloud.syncLabel() : ""));
     main.appendChild(section("notes", "My Notes", noteWrap, { collapsed: true }));
 
-    // prev / next stepper (also driven by [ and ] keys)
-    var list = all(), idx = -1;
+    // prev / next stepper (also driven by [ and ] keys) — follows the sidebar's
+    // current grouping + filters, not the raw full list.
+    var list = orderedVisibleList(), idx = -1;
     for (var li = 0; li < list.length; li++) if (list[li].id === cur.id) idx = li;
     var prevP = idx > 0 ? list[idx - 1] : null;
     var nextP = (idx >= 0 && idx < list.length - 1) ? list[idx + 1] : null;
@@ -814,7 +878,7 @@
 
   // step to the previous/next problem in the full list (keyboard [ / ])
   function step(delta) {
-    var list = all(), idx = -1;
+    var list = orderedVisibleList(), idx = -1;
     for (var i = 0; i < list.length; i++) if (list[i].id === cur.id) idx = i;
     var t = list[idx + delta];
     if (t) window.BLIND75.goTo("practice", cur.stack, t.id);

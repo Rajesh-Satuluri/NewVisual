@@ -178,8 +178,8 @@ function buildVisual(container) {
     // Title
     if (state.phase < 2) {
       ctx.globalAlpha = 1 - state.phase;
-      ctx.fillStyle = '#4B5E78';
-      ctx.font = '13px Inter, sans-serif';
+      ctx.fillStyle = '#8A99B3';
+      ctx.font = '14px Inter, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('A company with raw data in Snowflake.  Six teams need reports.', W/2, 22);
       ctx.globalAlpha = 1;
@@ -192,7 +192,7 @@ function buildVisual(container) {
       rr(ctx, TBL_X, 44, TBL_W, H - 64, 8, '#0F1A2E', '#1E2D43');
       rr(ctx, TBL_X + 4, 48, TBL_W - 8, 34, 6, '#162238', null);
       ctx.fillStyle = '#29ABE2';
-      ctx.font = 'bold 12px Inter, sans-serif';
+      ctx.font = 'bold 14px Inter, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('❄  Snowflake', TBL_X + TBL_W/2, 71);
       ctx.globalAlpha = 1;
@@ -206,7 +206,7 @@ function buildVisual(container) {
       rr(ctx, TBL_X + 4, y + 2, TBL_W - 8, TBL_H - 4, 4,
          i % 2 === 0 ? '#131D2E' : '#0F1626', null);
       ctx.fillStyle = '#3B82F6';
-      ctx.font = '10px "JetBrains Mono", monospace';
+      ctx.font = '13px "JetBrains Mono", monospace';
       ctx.textAlign = 'left';
       ctx.fillText('▤  ' + name, TBL_X + 14, y + 20);
       ctx.globalAlpha = 1;
@@ -223,7 +223,7 @@ function buildVisual(container) {
       ctx.beginPath(); ctx.arc(c.x, c.y, 14, 0, Math.PI * 2);
       ctx.fillStyle = team.color; ctx.fill();
       ctx.fillStyle = '#CBD4E6';
-      ctx.font = '11px Inter, sans-serif';
+      ctx.font = '13px Inter, sans-serif';
       ctx.textAlign = 'left';
       ctx.fillText(team.name, c.x + 28, c.y + 4);
       ctx.globalAlpha = 1;
@@ -234,7 +234,7 @@ function buildVisual(container) {
       if (p.life < 0.05) return;
       ctx.save();
       ctx.globalAlpha = Math.min(1, p.life * 3) * 0.88;
-      ctx.font = 'bold 9px "JetBrains Mono", monospace';
+      ctx.font = 'bold 12px "JetBrains Mono", monospace';
       const tw = ctx.measureText(p.label).width + 10;
       rr(ctx, p.x - tw/2, p.y - 9, tw, 18, 5, p.color, null);
       ctx.fillStyle = '#fff';
@@ -247,7 +247,7 @@ function buildVisual(container) {
     if (state.phase >= 2 && state.particles.length > 0) {
       const n = state.particles.length;
       ctx.fillStyle = n > 40 ? '#EF4444' : n > 20 ? '#F59E0B' : '#10B981';
-      ctx.font = 'bold 11px Inter, sans-serif';
+      ctx.font = 'bold 13px Inter, sans-serif';
       ctx.textAlign = 'right';
       ctx.fillText(`${n} SQL files in flight`, W - 14, 18);
     }
@@ -256,7 +256,7 @@ function buildVisual(container) {
     if (state.phase >= 2 && state.time > 14) {
       ctx.globalAlpha = Math.min(1, (state.time - 14) * 0.4);
       ctx.fillStyle = '#EF4444';
-      ctx.font = 'bold 13px Inter, sans-serif';
+      ctx.font = 'bold 14px Inter, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('6 teams × uncoordinated SQL = zero shared truth', W/2, H - 18);
       ctx.globalAlpha = 1;
@@ -279,24 +279,24 @@ function buildDetail(container) {
     <div class="detail-section">
       <h3>What the chaos looks like in practice</h3>
       <div class="info-grid">
-        <div class="info-card" style="border-left-color:#EF4444">
+        <div class="info-card" style="border-left-color:var(--error)">
           <div class="info-card-title">30+ duplicate queries</div>
-          <div class="info-card-tag" style="color:#EF4444;background:#EF444422">Pain</div>
+          <div class="info-card-tag" style="color:var(--error);background:color-mix(in srgb, var(--error) 13%, transparent)">Pain</div>
           <div class="info-card-body">Marketing, Finance, and Ops each maintain their own version of "revenue". None agree. All are "correct" by their own definitions.</div>
         </div>
-        <div class="info-card" style="border-left-color:#F59E0B">
+        <div class="info-card" style="border-left-color:var(--warn)">
           <div class="info-card-title">No documentation</div>
-          <div class="info-card-tag" style="color:#F59E0B;background:#F59E0B22">Pain</div>
+          <div class="info-card-tag" style="color:var(--warn);background:color-mix(in srgb, var(--warn) 13%, transparent)">Pain</div>
           <div class="info-card-body">A new analyst opens a file named <code>final_v3_USE_THIS.sql</code>. There are no comments. The JOIN condition references a column that no longer exists.</div>
         </div>
-        <div class="info-card" style="border-left-color:#8B5CF6">
+        <div class="info-card" style="border-left-color:var(--purple)">
           <div class="info-card-title">No dependency map</div>
-          <div class="info-card-tag" style="color:#8B5CF6;background:#8B5CF622">Pain</div>
+          <div class="info-card-tag" style="color:var(--purple);background:color-mix(in srgb, var(--purple) 13%, transparent)">Pain</div>
           <div class="info-card-body">Finance changes one view. Two weeks later, the Marketing dashboard silently starts showing wrong numbers. Nobody knows why.</div>
         </div>
-        <div class="info-card" style="border-left-color:#3B82F6">
+        <div class="info-card" style="border-left-color:var(--info)">
           <div class="info-card-title">Manual execution</div>
-          <div class="info-card-tag" style="color:#3B82F6;background:#3B82F622">Pain</div>
+          <div class="info-card-tag" style="color:var(--info);background:color-mix(in srgb, var(--info) 13%, transparent)">Pain</div>
           <div class="info-card-body">Refreshing reports means running SQL files by hand, in the right order, hoping nothing changed upstream. There is no orchestration.</div>
         </div>
       </div>
@@ -311,5 +311,6 @@ function buildDetail(container) {
       <p style="font-size:15px;font-weight:600;color:var(--accent)">If every team writes SQL differently and nothing is shared, what does it take to make 50 analysts agree on a single number?</p>
       <p>Keep that question in mind. We'll answer it — but only after you feel the full weight of the problem.</p>
     </div>
+    <div class="detail-section"><p style="padding:12px 14px;background:var(--surface-2);border-left:3px solid var(--accent);border-radius:8px;font-size:14px;margin:0"><strong>🧠 First principles —</strong> The fix for six teams computing revenue six ways is one shared, named definition every query builds on — the single source of truth. <a href="#concepts" style="color:var(--accent);font-weight:600">Core Concepts → The ELT Paradigm</a>.</p></div>
   `;
 }

@@ -13,19 +13,26 @@
     render:function(container){
       var byDomain={};
       (DL.concepts||[]).forEach(function(c){ (byDomain[c.domain]=byDomain[c.domain]||[]).push(c); });
+      var totalN=(DL.concepts||[]).length;
+      var interN=(typeof DL.interactiveCount==='function')?DL.interactiveCount():0;
+      var subtitle=interN
+        ? interN+' interactive labs (⚡ configure inputs &amp; drive state) + '+(totalN-interN)+' guided walkthroughs (🎬 play, pause, scrub authored steps).'
+        : totalN+' guided Canvas walkthroughs — play, pause, scrub, and inspect what changes at each step. Interactive labs (⚡) are rolling out flagship by flagship.';
       var html='<div class="module-header animate-fade-in-up">'+
         '<div class="module-eyebrow">Simulators</div>'+
-        '<h1 class="module-title gradient-text">Interactive Simulators</h1>'+
-        '<p class="module-subtitle">'+(DL.concepts||[]).length+' step-through Canvas simulations — play, pause, scrub, and inspect what changes at each step.</p></div>';
+        '<h1 class="module-title gradient-text">Simulators</h1>'+
+        '<p class="module-subtitle">'+subtitle+'</p></div>';
       (DL.domains||[]).forEach(function(d){
         var list=byDomain[d]||[]; if(!list.length)return;
         html+='<section class="learn-domain"><div class="learn-domain-head"><h2 class="learn-domain-title">'+esc(d)+'</h2>'+
           '<span class="learn-domain-count">'+list.length+'</span></div><div class="concept-grid">';
         list.forEach(function(c){
+          var tier=(typeof DL.simTier==='function')?DL.simTier(c.id):'walkthrough';
+          var tm=(typeof DL.simTierMeta==='function')?DL.simTierMeta(tier):{badge:'🎬 walkthrough',cls:'tier-walkthrough'};
           html+='<a class="concept-card" href="#concept/'+c.slug+'">'+
             '<span class="concept-card-icon">'+(c.icon||"▶")+'</span>'+
             '<span class="concept-card-title">'+esc(c.title)+'</span>'+
-            '<span class="concept-card-badge">▶ sim</span></a>';
+            '<span class="concept-card-badge sim-tier '+tm.cls+'">'+tm.badge+'</span></a>';
         });
         html+='</div></section>';
       });

@@ -64,6 +64,29 @@ export function partitionForKey(key, numPartitions) {
   return (h & 0x7fffffff) % numPartitions;
 }
 
+// ── Consumer-group partition assignment (pure) ───────────────────────────────
+// Mirrors how Kafka divides a topic's partitions across the consumers in a
+// group: each partition goes to exactly one consumer. Returns an array indexed
+// by consumer, each holding its assigned partition ids. Consumers beyond the
+// partition count get an empty list (they sit idle — parallelism is capped by
+// partitions).
+export function assignPartitions(numPartitions, numConsumers, strategy = 'range') {
+  const assign = Array.from({ length: Math.max(0, numConsumers) }, () => []);
+  if (numConsumers <= 0 || numPartitions <= 0) return assign;
+  if (strategy === 'roundrobin') {
+    for (let p = 0; p < numPartitions; p++) assign[p % numConsumers].push(p);
+  } else { // range (default): contiguous blocks, earlier consumers get the extra
+    const per = Math.floor(numPartitions / numConsumers);
+    const extra = numPartitions % numConsumers;
+    let p = 0;
+    for (let c = 0; c < numConsumers && p < numPartitions; c++) {
+      const take = per + (c < extra ? 1 : 0);
+      for (let k = 0; k < take; k++) assign[c].push(p++);
+    }
+  }
+  return assign;
+}
+
 // ── The engine ───────────────────────────────────────────────────────────────
 export class KafkaSim {
   constructor({ seed = 1, brokers = 3 } = {}) {
@@ -177,6 +200,62 @@ export class KafkaSim {
 
   totalRecords(topicName) {
     return this.getTopic(topicName).partitions.reduce((s, p) => s + p.log.length, 0);
+  }
+
+  // ── Broker failure & leader election ───────────────────────────────────────
+  // Mark a broker dead (or alive) and recompute every partition's ISR and
+  // leader — exactly the controller's job: drop the dead broker from each ISR,
+  // and if it led a partition, elect the first surviving in-sync replica. A
+  // partition with no surviving in-sync replica goes offline (leader = null).
+  setBrokerAlive(id, alive) {
+    const b = this.brokers.find(x => x.id === id);
+    if (b) b.alive = alive;
+    this._reelect();
+    return this;
+  }
+  killBroker(id) { return this.setBrokerAlive(id, false); }
+  reviveBroker(id) { return this.setBrokerAlive(id, true); }
+
+  _reelect() {
+    const alive = new Set(this.brokers.filter(b => b.alive).map(b => b.id));
+    for (const t of this.topics.values()) {
+      for (const p of t.partitions) {
+        p.isr = p.replicas.filter(r => alive.has(r));
+        if (p.leader == null || !alive.has(p.leader)) {
+          p.leader = p.isr.length ? p.isr[0] : null; // null = partition offline
+        }
+      }
+    }
+  }
+
+  // Per-partition replication view for a topic: leader, each replica's role and
+  // sync/alive state, plus under-replicated / offline flags. Drives the UI.
+  replicationView(topicName) {
+    const t = this.getTopic(topicName);
+    const aliveSet = new Set(this.brokers.filter(b => b.alive).map(b => b.id));
+    return t.partitions.map(p => ({
+      partition: p.id,
+      leader: p.leader,
+      offline: p.leader == null,
+      underReplicated: p.isr.length < p.replicas.length,
+      replicas: p.replicas.map(r => ({
+        broker: r,
+        role: r === p.leader ? 'leader' : 'follower',
+        inSync: p.isr.includes(r),
+        alive: aliveSet.has(r),
+      })),
+    }));
+  }
+
+  // Cluster-wide replication health.
+  replicationHealth(topicName) {
+    const view = this.replicationView(topicName);
+    return {
+      partitions: view.length,
+      underReplicated: view.filter(v => v.underReplicated && !v.offline).length,
+      offline: view.filter(v => v.offline).length,
+      liveBrokers: this.brokers.filter(b => b.alive).length,
+    };
   }
 
   // Serializable snapshot (for debugging / future save-state).

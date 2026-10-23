@@ -172,7 +172,7 @@ function buildVisual(container) {
 
     // Counter badge
     ctx.fillStyle = state.copies >= 10 ? '#EF4444' : state.copies >= 6 ? '#F59E0B' : '#10B981';
-    ctx.font = 'bold 13px Inter, sans-serif';
+    ctx.font = 'bold 14px Inter, sans-serif';
     ctx.textAlign = 'right';
     ctx.fillText(`${state.copies} cop${state.copies === 1 ? 'y' : 'ies'} of this pipeline`, W - 14, 22);
 
@@ -202,20 +202,20 @@ function buildVisual(container) {
 
       // Header
       const label = state.copies === 1 ? 'order_pipeline.sql' : `pipeline_v${copyIdx+1}.sql`;
-      ctx.fillStyle = isDone ? '#10B981' : isEditing ? '#FF694B' : '#4B5E78';
-      ctx.font = `bold ${Math.round(9 * scale + 2)}px "JetBrains Mono", monospace`;
+      ctx.fillStyle = isDone ? '#10B981' : isEditing ? '#FF694B' : '#8A99B3';
+      ctx.font = `bold ${Math.round(11 * scale + 3)}px "JetBrains Mono", monospace`;
       ctx.textAlign = 'left';
       ctx.fillText('📄  ' + label, 8, 18);
 
       if (isEditing) {
         ctx.fillStyle = '#FF694B';
-        ctx.font = `bold ${Math.round(9 * scale + 2)}px Inter, sans-serif`;
+        ctx.font = `bold ${Math.round(11 * scale + 3)}px Inter, sans-serif`;
         ctx.textAlign = 'right';
         ctx.fillText('✏ editing...', bw - 8, 18);
       } else if (isDone) {
         ctx.fillStyle = '#10B981';
         ctx.textAlign = 'right';
-        ctx.font = `${Math.round(9 * scale + 2)}px Inter, sans-serif`;
+        ctx.font = `${Math.round(11 * scale + 3)}px Inter, sans-serif`;
         ctx.fillText('✓ updated', bw - 8, 18);
       }
 
@@ -232,7 +232,7 @@ function buildVisual(container) {
         ctx.fillStyle = highlight ? '#FF694B' : dot;
         ctx.fill();
         ctx.fillStyle = highlight ? '#FF8068' : '#8895AA';
-        ctx.font = `${Math.round(9 * scale + 1)}px Inter, sans-serif`;
+        ctx.font = `${Math.round(11 * scale + 2)}px Inter, sans-serif`;
         ctx.textAlign = 'left';
         ctx.fillText(step, 28, sy + stepH/2 + 3);
         if (si < STEPS.length - 1) {
@@ -258,8 +258,8 @@ function buildVisual(container) {
       msg = 'Start by clicking "Duplicate" to see what happens in the real world.';
     }
 
-    ctx.fillStyle = state.phase === 'done' ? '#F59E0B' : '#4B5E78';
-    ctx.font = '11px Inter, sans-serif';
+    ctx.fillStyle = state.phase === 'done' ? '#F59E0B' : '#8A99B3';
+    ctx.font = '13px Inter, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(msg, W/2, H - 12);
 
@@ -280,7 +280,7 @@ function buildDetail(container) {
     <div class="detail-section">
       <h3>The CLV disaster — a real pattern</h3>
       <p>Three analysts each need customer lifetime value. They each write it from scratch:</p>
-      <div class="code-block"><span class="cmt">-- Analyst 1: simple average</span>
+      <div class="code-block" data-lang="sql"><span class="cmt">-- Analyst 1: simple average</span>
 <span class="kw">SELECT</span> customer_id, <span class="fn">AVG</span>(order_total) * <span class="num">12</span> <span class="kw">AS</span> clv
 <span class="kw">FROM</span> raw_orders <span class="kw">GROUP BY</span> 1
 
@@ -300,14 +300,14 @@ function buildDetail(container) {
     <div class="detail-section">
       <h3>Real maintenance cost at scale</h3>
       <div class="info-grid">
-        <div class="info-card" style="border-left-color:#EF4444">
+        <div class="info-card" style="border-left-color:var(--error)">
           <div class="info-card-title">Swiggy</div>
-          <div class="info-card-tag" style="color:#EF4444;background:#EF444422">Food Delivery</div>
+          <div class="info-card-tag" style="color:var(--error);background:color-mix(in srgb, var(--error) 13%, transparent)">Food Delivery</div>
           <div class="info-card-body">Delivery fee calculation changed when surge pricing launched. Affected 23 SQL files across 6 teams. 4 teams updated their copy the first week. 2 teams ran stale numbers for 3 more weeks.</div>
         </div>
-        <div class="info-card" style="border-left-color:#F59E0B">
+        <div class="info-card" style="border-left-color:var(--warn)">
           <div class="info-card-title">Banking</div>
-          <div class="info-card-tag" style="color:#F59E0B;background:#F59E0B22">Risk</div>
+          <div class="info-card-tag" style="color:var(--warn);background:color-mix(in srgb, var(--warn) 13%, transparent)">Risk</div>
           <div class="info-card-body">Interest calculation rule changed per new RBI regulation. Risk team had 18 SQL files. Auditors found 3 files still using the old formula 6 months after the regulatory change.</div>
         </div>
       </div>
@@ -316,5 +316,6 @@ function buildDetail(container) {
       <h3>What problem did this module show?</h3>
       <p style="font-size:15px;font-weight:600;color:var(--accent)">When business logic lives in 12 copies of a SQL file, every rule change is a 12-file audit. One missed copy means wrong data silently reaching production.</p>
     </div>
+    <div class="detail-section"><p style="padding:12px 14px;background:var(--surface-2);border-left:3px solid var(--accent);border-radius:8px;font-size:14px;margin:0"><strong>🧠 First principles —</strong> Copying the same SQL twelve times is the problem staging→intermediate→marts layering exists to kill: define each transformation once, reference it everywhere. <a href="#concepts" style="color:var(--accent);font-weight:600">Core Concepts → The ELT Paradigm</a>.</p></div>
   `;
 }

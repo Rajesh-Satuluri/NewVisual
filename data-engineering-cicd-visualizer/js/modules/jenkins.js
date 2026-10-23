@@ -89,6 +89,39 @@
     retention: {
       question: "A RetailFlow legacy system runs on Jenkins. As a new data engineer, how much should you invest in learning it, and why?",
       answer: "Learn enough to <b>recognize the vocabulary</b> (controller, agent, Jenkinsfile, stages) so you can work in a legacy shop — but invest your real time in <b>modern managed CI fundamentals</b>. Jenkins's extra weight is self-hosting ops, not new CI concepts, so it's lower ROI to master first."
-    }
+    },
+
+    prerequisites: ["ci-vs-cd", "github-actions", "git"],
+
+    production: [
+      { h: "Credentials store, never hard-coded", body: "Secrets live in Jenkins <b>credentials</b> and are injected via <code>withCredentials</code>, masked in logs — the prod token for RetailFlow's revenue deploy should never appear in the Jenkinsfile." },
+      { h: "You own patching and uptime", body: "Controller, agents, and every plugin are yours to patch. Unattended plugin/version drift is a real source of silent nightly-build failures — the ops burden managed CI removes." },
+      { h: "Controller/agent isolation", body: "Keep the controller light and run builds on agents; a compromised or overloaded agent shouldn't take down scheduling. Lock down who can configure jobs and install plugins." },
+      { h: "Pipeline-as-code for auditability", body: "Keep the <code>Jenkinsfile</code> in the repo so the pipeline is versioned and reviewed like any code, instead of click-configured jobs with no change history." }
+    ],
+
+    misconceptions: [
+      { myth: "Jenkins is obsolete and nobody uses it.", truth: "Many enterprises still run large, tuned Jenkins estates — especially air-gapped/regulated shops — so you'll meet it; new projects just rarely start on it." },
+      { myth: "Jenkins does CI that managed platforms can't.", truth: "The CI concepts are identical (stages, steps, artifacts, gates). The real difference is <b>who operates the server</b> — with Jenkins, you do." },
+      { myth: "A declarative Jenkinsfile is written in YAML.", truth: "It's Groovy-based (declarative or scripted), not YAML — a common point of confusion versus GitHub Actions / Azure Pipelines." },
+      { myth: "More plugins make Jenkins strictly better.", truth: "Plugins are its power <i>and</i> its maintenance burden — version conflicts and unpatched plugins are a leading cause of broken pipelines and security exposure." }
+    ],
+
+    troubleshooting: [
+      { symptom: "The nightly revenue build stopped running silently.", cause: "A plugin auto-updated to an incompatible version.", fix: "Pin plugin versions, roll back the broken one, and re-run the job; verify the stage completes and add a build-failure alert so silence can't hide it again." },
+      { symptom: "A push to Git doesn't trigger the pipeline.", cause: "The webhook isn't reaching the controller (network/firewall) or isn't configured.", fix: "Check the controller's webhook logs and the Git side's delivery history; re-register the webhook and verify a test push starts a build." },
+      { symptom: "A secret leaked into the console log.", cause: "The value was echoed outside <code>withCredentials</code> or not stored as a credential.", fix: "Move it into the credentials store, wrap usage in <code>withCredentials</code>, rotate the exposed value, and verify the masked <code>****</code> appears in logs." },
+      { symptom: "Builds queue forever and never start.", cause: "No available executors/agents, or agents disconnected.", fix: "Check agent connectivity and executor count; bring agents back online or add capacity, then verify the queue drains." },
+      { symptom: "The pipeline works for one engineer but no one else can maintain it.", cause: "Groovy/shared-library knowledge is siloed.", fix: "Document the Jenkinsfile, move logic into reviewed shared libraries, and plan migration to managed CI; verify a second engineer can modify and run it." }
+    ],
+
+    interview: [
+      { q: "Contrast Jenkins with GitHub Actions.", a: "Jenkins is self-hosted, plugin-based, with a Groovy <code>Jenkinsfile</code> — you own the controller, agents, patching, and uptime. GitHub Actions is managed with YAML workflows and a marketplace, where GitHub runs the runners (you add self-hosted only where needed). Same CI concepts; the difference is who operates the platform." },
+      { q: "Why do enterprises keep Jenkins despite the ops burden?", a: "Sunk investment: hundreds of tuned Jenkinsfiles, shared libraries, on-prem agents with internal data access, and air-gapped/regulated environments where a self-hosted server is a requirement — rewriting all that is expensive, so Jenkins persists." },
+      { q: "As a new data engineer, how much should you invest in Jenkins?", a: "Enough to recognize the vocabulary (controller, agent, Jenkinsfile, stages) so you can work in a legacy shop, but put your real learning into modern managed CI fundamentals — Jenkins's extra weight is self-hosting ops, not new CI concepts." },
+      { q: "How are secrets handled safely in a Jenkins pipeline?", a: "They live in the Jenkins credentials store and are injected at runtime via <code>withCredentials</code>, which masks them in logs; they're never hard-coded in the Jenkinsfile, and a leaked value must be rotated, not just removed." }
+    ],
+
+    related: ["github-actions", "azure-devops", "ci-vs-cd", "secrets"]
   }));
 })();

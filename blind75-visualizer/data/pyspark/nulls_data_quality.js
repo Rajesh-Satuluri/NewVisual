@@ -19,8 +19,14 @@
         "Join `customers` to `transactions` on `customer_id`, but the key is **nullable** on both sides and you want rows where `null` on the left matches `null` on the right. A normal equi-join uses `=`, and under SQL three-valued logic `null = null` is **UNKNOWN**, not true — so those rows silently drop. Use **`eqNullSafe`** (the `<=>` operator) so `null <=> null` evaluates to true.",
       examples: [
         {
-          input: "customers: (1,'Mira'), (null,'Guest'); transactions: (900, 1, 50), (901, null, 30)",
-          output: "(1,'Mira',900,50) and (null,'Guest',901,30)",
+          inputs: [
+            { name: "customers", columns: ["customer_id", "name"],
+              rows: [[1, "Mira"], [null, "Guest"]] },
+            { name: "transactions", columns: ["txn_id", "customer_id", "amount"],
+              rows: [[900, 1, 50], [901, null, 30]] }
+          ],
+          output: { columns: ["customer_id", "name", "txn_id", "amount"],
+            rows: [[1, "Mira", 900, 50], [null, "Guest", 901, 30]] },
           reasoning: "With a plain `==` join the (null,'Guest') / (901,null) pair vanishes because null==null is UNKNOWN. `eqNullSafe` treats null==null as a match, so the Guest row survives."
         }
       ],
@@ -88,8 +94,12 @@
         "Profile the `customers` table: for `email` (which has nulls) report the total row count, the number of **non-null** emails, and the number of **distinct** emails. The trap is that `count('*')` counts rows, `count('email')` counts only non-null values, and `countDistinct('email')` counts distinct non-null values — three different numbers from the same column. This 'count non-null per column' pattern is the backbone of data-quality profiling.",
       examples: [
         {
-          input: "customers: (1,'Mira','NY','m@x.com'), (2,'Kabir','LA',null), (3,'Zoe','NY','m@x.com')",
-          output: "total=3, non_null_email=2, distinct_email=1",
+          inputs: [
+            { name: "customers", columns: ["customer_id", "name", "city", "email"],
+              rows: [[1, "Mira", "NY", "m@x.com"], [2, "Kabir", "LA", null], [3, "Zoe", "NY", "m@x.com"]] }
+          ],
+          output: { columns: ["total", "non_null_email", "distinct_email"],
+            rows: [[3, 2, 1]] },
           reasoning: "`count('*')`=3 rows. `count('email')`=2 because Kabir's null is skipped. `countDistinct('email')`=1 because the two non-null emails are identical and nulls are ignored."
         }
       ],
@@ -188,7 +198,12 @@
         "Clean `customers`: replace null `city` with `'unknown'`, and in `orders` replace null `order_amount` with `0`. Then show a smarter fallback: fill a null `email` from a backup column (or a computed default) using **`coalesce`**, which returns the first non-null argument. `fillna` is best for constant per-column defaults; `coalesce` is best for value-to-value fallbacks.",
       examples: [
         {
-          input: "orders: (10,1,200),(11,2,null); customers: (1,'Mira',null,'m@x.com'),(2,'Kabir','LA',null)",
+          inputs: [
+            { name: "orders", columns: ["order_id", "customer_id", "order_amount"],
+              rows: [[10, 1, 200], [11, 2, null]] },
+            { name: "customers", columns: ["customer_id", "name", "city", "email"],
+              rows: [[1, "Mira", null, "m@x.com"], [2, "Kabir", "LA", null]] }
+          ],
           output: "orders amounts -> 200, 0; customers cities -> 'unknown','LA'; email -> 'm@x.com', 'kabir@fallback'",
           reasoning: "fillna(0) turns the null amount into 0; fillna('unknown') fills the missing city; coalesce(email, fallback) supplies a computed email only where email was null."
         }
@@ -279,7 +294,10 @@
         "Filter `customers` by completeness. Show three modes of `dropna` (alias `na.drop`): `how='any'` drops a row if **any** field is null; `how='all'` drops only rows that are entirely null; and `thresh=N` keeps rows with at least **N non-null** fields. Use `subset=[...]` to restrict the null check to specific columns.",
       examples: [
         {
-          input: "customers: (1,'Mira','NY','m@x.com'), (2,'Kabir',null,null), (3,null,null,null)",
+          inputs: [
+            { name: "customers", columns: ["customer_id", "name", "city", "email"],
+              rows: [[1, "Mira", "NY", "m@x.com"], [2, "Kabir", null, null], [3, null, null, null]] }
+          ],
           output: "thresh=2 keeps rows 1 and 2 (row 1 has 4 non-null, row 2 has 2); how='all' would keep 1 and 2, drop 3",
           reasoning: "Row 2 has 2 non-null fields, meeting thresh=2. Row 3 is all null (0 non-null) and fails thresh=2 and how='all'. how='any' would drop rows 2 and 3."
         }
@@ -367,7 +385,12 @@
         "Find customers who have **no** transaction. The obvious `WHERE customer_id NOT IN (subquery)` is a trap: if the subquery returns even a single **null** `customer_id`, `NOT IN` collapses to UNKNOWN for every row and returns **ZERO** results. The null-safe fix is a `left_anti` join (equivalent to `NOT EXISTS`).",
       examples: [
         {
-          input: "customers: (1,'Mira'),(2,'Kabir'),(3,'Zoe'); transactions customer_ids: 1, null",
+          inputs: [
+            { name: "customers", columns: ["customer_id", "name"],
+              rows: [[1, "Mira"], [2, "Kabir"], [3, "Zoe"]] },
+            { name: "transactions", columns: ["customer_id"],
+              rows: [[1], [null]] }
+          ],
           output: "left_anti -> (2,'Kabir'),(3,'Zoe'); NOT IN -> ZERO rows",
           reasoning: "The null in the transaction ids makes `customer_id NOT IN (1, null)` evaluate to UNKNOWN for 2 and 3 (they are not `IN`, but null makes the negation unknown), so NOT IN returns nothing. left_anti correctly returns the two unmatched customers."
         }
@@ -465,8 +488,12 @@
         "Compute average `order_amount` per customer where some amounts are null. `avg` **ignores nulls**, so it equals `sum / count(non-null)`, NOT `sum / count(*)`. Show both interpretations: (a) the default `avg` that skips nulls, and (b) a 'treat null as 0' average using `coalesce(order_amount, 0)` so the null rows count toward the denominator.",
       examples: [
         {
-          input: "orders for customer 1: 200, null, 100",
-          output: "avg (skip nulls) = 150; avg treating null as 0 = 100",
+          inputs: [
+            { name: "orders", columns: ["customer_id", "order_amount"],
+              rows: [[1, 200], [1, null], [1, 100]] }
+          ],
+          output: { columns: ["customer_id", "avg_skip_nulls", "avg_null_as_zero"],
+            rows: [[1, 150, 100]] },
           reasoning: "Default avg = (200+100)/2 = 150 because the null is skipped in both numerator and denominator. Treating null as 0 = (200+0+100)/3 = 100 because the null row now counts as a zero value over 3 rows."
         }
       ],
@@ -572,7 +599,10 @@
         "`customers` has duplicate rows per `customer_id`, each partially filled. Keep exactly one row per `customer_id` — the **most complete** one (fewest nulls). Build a non-null-count score per row, then use a window partitioned by `customer_id` ordered by that score descending, and keep `row_number() == 1`.",
       examples: [
         {
-          input: "id 1: ('Mira', null, 'm@x.com') and ('Mira', 'NY', null)",
+          inputs: [
+            { name: "customers", columns: ["customer_id", "name", "city", "email"],
+              rows: [[1, "Mira", null, "m@x.com"], [1, "Mira", "NY", null]] }
+          ],
           output: "keep ('Mira','NY',null) or ('Mira',null,'m@x.com') — whichever scores higher; tie -> tiebreaker",
           reasoning: "Each row has 2 non-null of the 3 optional fields, a tie; add a deterministic tiebreaker (e.g. prefer non-null email) so the pick is stable. If one row had all three fields, its score of 3 wins outright."
         }

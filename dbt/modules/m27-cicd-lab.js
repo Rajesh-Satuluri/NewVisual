@@ -157,13 +157,14 @@ function buildDetail(container) {
     <div class="detail-section">
       <h3>Why separate CI from the prod deploy</h3>
       <div class="info-grid">
-        <div class="info-card" style="border-left-color:#3B82F6"><div class="info-card-title">CI (per PR)</div><div class="info-card-body">Isolated schema/target, Slim build of the change, tests gate the merge. Optimized for fast, cheap feedback.</div></div>
-        <div class="info-card" style="border-left-color:#10B981"><div class="info-card-title">Prod deploy (on merge)</div><div class="info-card-body"><code>dbt build</code> on main against the prod target, scheduled by your orchestrator. Writes the real tables.</div></div>
-        <div class="info-card" style="border-left-color:#8B5CF6"><div class="info-card-title">Artifacts</div><div class="info-card-body">Each prod run publishes its manifest; CI consumes it for state comparison. Store run_results for observability.</div></div>
-        <div class="info-card" style="border-left-color:#06B6D4"><div class="info-card-title">Rollback</div><div class="info-card-body">Revert the merge commit to redeploy prior definitions; restore data via warehouse time-travel. Git is the source of truth.</div></div>
+        <div class="info-card" style="border-left-color:var(--info)"><div class="info-card-title">CI (per PR)</div><div class="info-card-body">Isolated schema/target, Slim build of the change, tests gate the merge. Optimized for fast, cheap feedback.</div></div>
+        <div class="info-card" style="border-left-color:var(--success)"><div class="info-card-title">Prod deploy (on merge)</div><div class="info-card-body"><code>dbt build</code> on main against the prod target, scheduled by your orchestrator. Writes the real tables.</div></div>
+        <div class="info-card" style="border-left-color:var(--purple)"><div class="info-card-title">Artifacts</div><div class="info-card-body">Each prod run publishes its manifest; CI consumes it for state comparison. Store run_results for observability.</div></div>
+        <div class="info-card" style="border-left-color:var(--info)"><div class="info-card-title">Rollback</div><div class="info-card-body">Revert the merge commit to redeploy prior definitions; restore data via warehouse time-travel. Git is the source of truth.</div></div>
       </div>
       <p style="font-size:15px;font-weight:600;color:var(--accent)">CI proves the change is safe cheaply; the prod job applies it. state:modified+ --defer is what keeps CI fast as the project grows. See M20 for the selection mechanics.</p>
     </div>
+    <div class="detail-section"><p style="padding:12px 14px;background:var(--surface-2);border-left:3px solid var(--accent);border-radius:8px;font-size:14px;margin:0"><strong>🧠 First principles —</strong> Slim CI is just state comparison: diff the PR's manifest against production's to build and test only what changed (<code>state:modified+</code> with <code>--defer</code>). <a href="#concepts" style="color:var(--accent);font-weight:600">Core Concepts → State &amp; Selection</a>.</p></div>
   `;
 }
 

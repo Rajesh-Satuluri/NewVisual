@@ -51,7 +51,7 @@ const IQ = [
 
 export function mount(container) {
   container.innerHTML = createModuleShell({
-    tag: 'M16 · Advanced',
+    tag: 'M16 · Core Features',
     title: 'When NOT to Use dbt',
     subtitle: 'The best engineers know the edges of their tools. Five scenarios where dbt is the wrong choice.',
     tabs: [
@@ -77,60 +77,60 @@ function buildDecisionGuide(container) {
 
       <div style="display:grid;gap:14px">
 
-        <div class="no-dbt-card" style="border:1px solid #EF444444;border-radius:10px;padding:18px;background:rgba(239,68,68,0.04)">
+        <div class="no-dbt-card" style="border:1px solid color-mix(in srgb, var(--error) 27%, transparent);border-radius:10px;padding:18px;background:color-mix(in srgb, var(--error) 4%, transparent)">
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
             <span style="font-size:20px">⚡</span>
-            <strong style="color:#EF4444;font-size:13px">Real-time / Streaming Pipelines</strong>
-            <span style="margin-left:auto;font-size:11px;color:#EF4444;background:#EF444422;padding:3px 8px;border-radius:4px">WRONG LAYER</span>
+            <strong style="color:var(--error);font-size:13px">Real-time / Streaming Pipelines</strong>
+            <span style="margin-left:auto;font-size:11px;color:var(--error);background:color-mix(in srgb, var(--error) 13%, transparent);padding:3px 8px;border-radius:4px">WRONG LAYER</span>
           </div>
           <p style="font-size:12px;color:var(--text-2);margin:0 0 6px;line-height:1.6">
             dbt runs on a schedule (every N minutes at fastest). Fraud detection, live inventory, real-time recommendations require sub-second latency. dbt has no concept of event streams or streaming windows.
           </p>
-          <p style="font-size:11px;color:#4B5E78;margin:0">
-            <strong style="color:#10B981">Use instead:</strong> Apache Flink, Kafka Streams, Spark Structured Streaming, AWS Kinesis.
+          <p style="font-size:11px;color:var(--text-2);margin:0">
+            <strong style="color:var(--success)">Use instead:</strong> Apache Flink, Kafka Streams, Spark Structured Streaming, AWS Kinesis.
             dbt can still contribute: train ML models on dbt-built feature tables, then serve features via Flink.
           </p>
         </div>
 
-        <div class="no-dbt-card" style="border:1px solid #F59E0B44;border-radius:10px;padding:18px;background:rgba(245,158,11,0.04)">
+        <div class="no-dbt-card" style="border:1px solid color-mix(in srgb, var(--warn) 27%, transparent);border-radius:10px;padding:18px;background:color-mix(in srgb, var(--warn) 4%, transparent)">
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
             <span style="font-size:20px">✍</span>
-            <strong style="color:#F59E0B;font-size:13px">Writing Back to Operational Systems</strong>
-            <span style="margin-left:auto;font-size:11px;color:#F59E0B;background:#F59E0B22;padding:3px 8px;border-radius:4px">READ-ONLY</span>
+            <strong style="color:var(--warn);font-size:13px">Writing Back to Operational Systems</strong>
+            <span style="margin-left:auto;font-size:11px;color:var(--warn);background:color-mix(in srgb, var(--warn) 13%, transparent);padding:3px 8px;border-radius:4px">READ-ONLY</span>
           </div>
           <p style="font-size:12px;color:var(--text-2);margin:0 0 6px;line-height:1.6">
             dbt is a read-only transformation tool. It cannot INSERT/UPDATE/DELETE from your application database, Salesforce, HubSpot, or any OLTP system. Attempting to use dbt for reverse ETL creates unsupported workflows.
           </p>
-          <p style="font-size:11px;color:#4B5E78;margin:0">
-            <strong style="color:#10B981">Use instead:</strong> Reverse ETL tools (Census, Hightouch) read from your warehouse and write to operational systems. They can reference dbt model outputs as their source.
+          <p style="font-size:11px;color:var(--text-2);margin:0">
+            <strong style="color:var(--success)">Use instead:</strong> Reverse ETL tools (Census, Hightouch) read from your warehouse and write to operational systems. They can reference dbt model outputs as their source.
           </p>
         </div>
 
-        <div class="no-dbt-card" style="border:1px solid #8B5CF644;border-radius:10px;padding:18px;background:rgba(139,92,246,0.04)">
+        <div class="no-dbt-card" style="border:1px solid color-mix(in srgb, var(--purple) 27%, transparent);border-radius:10px;padding:18px;background:color-mix(in srgb, var(--purple) 4%, transparent)">
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
             <span style="font-size:20px">🐍</span>
-            <strong style="color:#8B5CF6;font-size:13px">Complex Python / ML Transformations</strong>
-            <span style="margin-left:auto;font-size:11px;color:#8B5CF6;background:#8B5CF622;padding:3px 8px;border-radius:4px">SQL-FIRST</span>
+            <strong style="color:var(--purple);font-size:13px">Complex Python / ML Transformations</strong>
+            <span style="margin-left:auto;font-size:11px;color:var(--purple);background:color-mix(in srgb, var(--purple) 13%, transparent);padding:3px 8px;border-radius:4px">SQL-FIRST</span>
           </div>
           <p style="font-size:12px;color:var(--text-2);margin:0 0 6px;line-height:1.6">
             dbt models are SQL files. Heavy pandas manipulations, custom model training, image processing, NLP tokenization — these require Python. dbt Python models (Snowpark/BigQuery) exist but are limited; complex ML belongs in dedicated tooling.
           </p>
-          <p style="font-size:11px;color:#4B5E78;margin:0">
-            <strong style="color:#10B981">Use instead:</strong> Airflow + Python operators, Prefect, Dagster, SageMaker Pipelines. Use dbt to prepare features, then hand off to Python for model training.
+          <p style="font-size:11px;color:var(--text-2);margin:0">
+            <strong style="color:var(--success)">Use instead:</strong> Airflow + Python operators, Prefect, Dagster, SageMaker Pipelines. Use dbt to prepare features, then hand off to Python for model training.
           </p>
         </div>
 
-        <div class="no-dbt-card" style="border:1px solid #3B82F644;border-radius:10px;padding:18px;background:rgba(59,130,246,0.04)">
+        <div class="no-dbt-card" style="border:1px solid color-mix(in srgb, var(--info) 27%, transparent);border-radius:10px;padding:18px;background:color-mix(in srgb, var(--info) 4%, transparent)">
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
             <span style="font-size:20px">📁</span>
-            <strong style="color:#3B82F6;font-size:13px">Tiny Teams or One-Time Scripts</strong>
-            <span style="margin-left:auto;font-size:11px;color:#3B82F6;background:#3B82F622;padding:3px 8px;border-radius:4px">OVERKILL</span>
+            <strong style="color:var(--info);font-size:13px">Tiny Teams or One-Time Scripts</strong>
+            <span style="margin-left:auto;font-size:11px;color:var(--info);background:color-mix(in srgb, var(--info) 13%, transparent);padding:3px 8px;border-radius:4px">OVERKILL</span>
           </div>
           <p style="font-size:12px;color:var(--text-2);margin:0 0 6px;line-height:1.6">
             One analyst, three source tables, a weekly report. The setup cost (Jinja, profiles.yml, CI/CD) exceeds the benefit. A one-time data migration that runs once doesn't need a reproducible transformation framework.
           </p>
-          <p style="font-size:11px;color:#4B5E78;margin:0">
-            <strong style="color:#10B981">Rule:</strong> Introduce dbt when the codebase grows beyond one person, or when you're committing to running the same transformations repeatedly. Don't over-engineer a one-off.
+          <p style="font-size:11px;color:var(--text-2);margin:0">
+            <strong style="color:var(--success)">Rule:</strong> Introduce dbt when the codebase grows beyond one person, or when you're committing to running the same transformations repeatedly. Don't over-engineer a one-off.
           </p>
         </div>
 
@@ -143,15 +143,15 @@ function buildDecisionGuide(container) {
           <p style="font-size:12px;color:var(--text-2);margin:0 0 6px;line-height:1.6">
             A customer-facing dashboard querying a 500M-row mart directly on every page load will be slow, regardless of how well the dbt model is written. dbt is designed for analytical workloads, not transactional serving.
           </p>
-          <p style="font-size:11px;color:#4B5E78;margin:0">
-            <strong style="color:#10B981">Use instead:</strong> Export mart outputs to Redis/DynamoDB for &lt;10ms serving. Or use a BI tool with pre-aggregated caches (Looker PDTs, Metabase materializations). dbt feeds the cache; a different layer serves it.
+          <p style="font-size:11px;color:var(--text-2);margin:0">
+            <strong style="color:var(--success)">Use instead:</strong> Export mart outputs to Redis/DynamoDB for &lt;10ms serving. Or use a BI tool with pre-aggregated caches (Looker PDTs, Metabase materializations). dbt feeds the cache; a different layer serves it.
           </p>
         </div>
 
       </div>
 
-      <div style="margin-top:20px;padding:16px 20px;background:rgba(16,185,129,0.06);border:1px solid #10B98133;border-radius:10px">
-        <strong style="color:#10B981;font-size:12px">✓  dbt IS the right tool when:</strong>
+      <div style="margin-top:20px;padding:16px 20px;background:color-mix(in srgb, var(--success) 6%, transparent);border:1px solid color-mix(in srgb, var(--success) 20%, transparent);border-radius:10px">
+        <strong style="color:var(--success);font-size:12px">✓  dbt IS the right tool when:</strong>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px">
           ${[
             'Batch analytical transformations (any latency &gt; 1 minute is fine)',
@@ -186,24 +186,24 @@ function buildDetail(container) {
     <div class="detail-section">
       <h3>The modern data stack: where dbt sits</h3>
       <div class="info-grid">
-        <div class="info-card" style="border-left-color:#4B5E78">
+        <div class="info-card" style="border-left-color:var(--text-2)">
           <div class="info-card-title">Extract & Load</div>
-          <div class="info-card-tag" style="color:#4B5E78;background:#4B5E7822">Before dbt</div>
+          <div class="info-card-tag" style="color:var(--text-2);background:color-mix(in srgb, var(--text-2) 13%, transparent)">Before dbt</div>
           <div class="info-card-body">Fivetran, Airbyte, Kafka, Debezium. Gets raw data into the warehouse. dbt doesn't touch this layer.</div>
         </div>
-        <div class="info-card" style="border-left-color:#FF694B">
+        <div class="info-card" style="border-left-color:var(--accent)">
           <div class="info-card-title">Transform</div>
-          <div class="info-card-tag" style="color:#FF694B;background:#FF694B22">dbt's domain</div>
+          <div class="info-card-tag" style="color:var(--accent);background:color-mix(in srgb, var(--accent) 13%, transparent)">dbt's domain</div>
           <div class="info-card-body">Raw → staging → intermediate → marts. dbt owns this layer exclusively. Version control, tests, documentation, DAG.</div>
         </div>
-        <div class="info-card" style="border-left-color:#3B82F6">
+        <div class="info-card" style="border-left-color:var(--info)">
           <div class="info-card-title">Serve</div>
-          <div class="info-card-tag" style="color:#3B82F6;background:#3B82F622">After dbt</div>
+          <div class="info-card-tag" style="color:var(--info);background:color-mix(in srgb, var(--info) 13%, transparent)">After dbt</div>
           <div class="info-card-body">BI tools (Looker, Metabase, Tableau), reverse ETL (Census, Hightouch), ML serving (Feast). Reads from dbt mart outputs.</div>
         </div>
-        <div class="info-card" style="border-left-color:#10B981">
+        <div class="info-card" style="border-left-color:var(--success)">
           <div class="info-card-title">Orchestrate</div>
-          <div class="info-card-tag" style="color:#10B981;background:#10B98122">Coordinates all</div>
+          <div class="info-card-tag" style="color:var(--success);background:color-mix(in srgb, var(--success) 13%, transparent)">Coordinates all</div>
           <div class="info-card-body">Airflow, Dagster, Prefect. Triggers dbt runs after loads complete, coordinates with Spark/Flink jobs, manages retry logic.</div>
         </div>
       </div>
@@ -211,6 +211,11 @@ function buildDetail(container) {
     <div class="detail-section">
       <h3>The mature answer</h3>
       <p style="font-size:15px;font-weight:600;color:var(--accent)">The engineers who get hired at senior levels don't just know how to use dbt — they know exactly where it stops being the right tool, and what to reach for next. A tool used beyond its design constraints creates more problems than it solves.</p>
+    </div>
+    <div class="detail-section">
+      <p style="padding:12px 14px;background:var(--surface-2);border-left:3px solid var(--accent);border-radius:8px;font-size:14px;margin:0">
+        <strong>🧠 First principles —</strong> dbt is the "T" in ELT and assumes the warehouse is the compute engine. Every "don't use dbt here" (streaming, pre-load PII masking, non-SQL transforms) is just a case that falls outside batch, in-warehouse, SQL. <a href="#concepts" style="color:var(--accent);font-weight:600">Core Concepts → The ELT Paradigm</a>.
+      </p>
     </div>
   `;
 }

@@ -24,6 +24,9 @@
     "end-to-end-pipeline": { title: "End-to-End Pipeline", ready: true },
     "environment-promotion": { title: "Environment Promotion", ready: true },
     "failure-simulator": { title: "Failure Simulator", ready: true },
+    "release-sim": { title: "Release & Rollback Simulator", ready: true },
+    capstone: { title: "RetailFlow Capstone", ready: true },
+    labs: { title: "Hands-on Labs", ready: true },
 
     // Tier 1 — Essential Foundations
     git: { title: "Git", ready: true },
@@ -54,6 +57,7 @@
 
     // Engineering concepts
     "ci-vs-cd": { title: "CI vs CD", ready: true },
+    "cli-yaml-deps": { title: "Command Line, YAML & Dependencies", ready: true },
     "artifact-lifecycle": { title: "Artifact Lifecycle", ready: true },
     branching: { title: "Git Branching", ready: true },
     "testing-pyramid": { title: "Testing Pyramid", ready: true },
@@ -102,6 +106,11 @@
       function open() { if (modal) modal.classList.remove("hidden"); }
       function close() { if (modal) modal.classList.add("hidden"); }
 
+      var searchBtn = document.getElementById("search-btn");
+      if (searchBtn) searchBtn.addEventListener("click", function () {
+        if (NS.Search) NS.Search.open();
+      });
+
       if (openBtn) openBtn.addEventListener("click", open);
       if (closeBtn) closeBtn.addEventListener("click", close);
       if (backdrop) backdrop.addEventListener("click", close);
@@ -124,6 +133,7 @@
       var list = document.getElementById("kbd-list");
       if (!list) return;
       var shortcuts = [
+        { keys: ["/"], desc: "Search" },
         { keys: ["Space"], desc: "Play / pause animation" },
         { keys: ["→"], desc: "Next step" },
         { keys: ["←"], desc: "Previous step" },

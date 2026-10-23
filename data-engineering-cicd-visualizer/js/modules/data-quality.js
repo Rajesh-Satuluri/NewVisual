@@ -83,6 +83,98 @@
     retention: {
       question: "RetailFlow's revenue pipeline deployed successfully with a green CI run, yet the 7 AM dashboard would have shown yesterday's numbers. Why didn't CI catch it, and what does?",
       answer: "CI/CD validates the <b>software</b> — and the code ran fine. The data was stale because an upstream feed stopped, which no code test can see. A <b>data-quality freshness check</b> (Great Expectations / Soda) runs after load, asserts the newest row is recent, FAILS, and blocks the downstream refresh."
-    }
+    },
+
+    prerequisites: ["sql-testing", "dbt-cicd", "observability"],
+
+    production: [
+      { h: "Blocking vs warning", body: "Make integrity-critical checks (freshness, completeness) <b>blocking</b> so they halt the downstream refresh, and keep noisier signals as warnings — RetailFlow would rather page on-call than let the 7 AM dashboard read a stale table, but not alert on every minor wobble." },
+      { h: "Freshness against an SLA", body: "Compare <code>max(revenue_date)</code> to an explicit SLA (e.g. within 6 hours); without it a silently-stopped point-of-sale feed serves yesterday's net_revenue as today's and no code test notices." },
+      { h: "Anomaly/distribution over time", body: "Track row counts and metric ranges across runs so a 10x revenue spike or a 4% drop flags as an anomaly — this catches upstream breakage that passes every structural check." },
+      { h: "Version the expectation suite", body: "Keep the Great Expectations/Soda checks in Git and run them in CI against sample data, so the data contract evolves with review rather than drifting as untracked config." },
+      { h: "Don't duplicate dbt tests", body: "If dbt already asserts <code>not_null</code>/<code>unique</code>/<code>relationships</code> on a model, re-asserting them in a second framework doubles maintenance — reserve the dedicated tool for freshness and distribution checks dbt doesn't express." }
+    ],
+
+    misconceptions: [
+      { myth: "A green CI/CD deploy means the data is good.", truth: "CI/CD validates the software path; it says nothing about the runtime output. A flawless deploy still emits stale or broken data if an upstream source changed — that's exactly what data quality checks." },
+      { myth: "dbt tests and a data-quality tool are redundant.", truth: "dbt tests assert model structure; a DQ tool adds freshness SLAs, distribution/anomaly detection, and cross-source checks dbt generics don't express. Use the DQ layer for what dbt can't, not to re-run the same assertions." },
+      { myth: "Freshness is covered by not_null and unique checks.", truth: "A stale table can be perfectly complete and unique — those checks pass while the data is simply old. Freshness needs its own <code>max(event_time)</code> vs SLA assertion." },
+      { myth: "Every data-quality failure should halt the pipeline.", truth: "Only critical checks should block; warnings should alert without halting. Blocking on every soft signal causes alert fatigue and people start ignoring the pages." }
+    ],
+
+    troubleshooting: [
+      { symptom: "Pipeline deploys green but the dashboard shows yesterday's numbers.", cause: "An upstream feed stopped; the code ran fine on no new data.", fix: "Add a blocking freshness check (<code>max(revenue_date)</code> within SLA) that fails the run and pages on-call; verify it trips when the feed is paused in a test." },
+      { symptom: "On-call is paged constantly for trivial fluctuations.", cause: "Soft signals (minor row-count wobble) are wired as blocking failures.", fix: "Reclassify them as warnings, reserve blocking for freshness/completeness/integrity, and confirm pages now fire only on genuine incidents." },
+      { symptom: "A 10x revenue day slipped through all checks.", cause: "Only structural checks exist; no distribution/anomaly monitoring.", fix: "Add a distribution check comparing the day's total against the trailing range and alert on outliers; verify it flags a seeded anomaly." },
+      { symptom: "The same checks exist in dbt and in Great Expectations and drift apart.", cause: "Duplicated assertions across two frameworks with separate maintenance.", fix: "Keep structural tests in dbt, move only freshness/anomaly checks to the DQ tool, version both in Git, and confirm there's a single source of truth per rule." }
+    ],
+
+    interview: [
+      { q: "What's the difference between software quality and data quality?", a: "Software quality (CI/CD, pytest, deploys) asks 'did the code run correctly?'; data quality asks 'is the <i>output</i> actually good?'. A green deploy can still emit stale, incomplete, or anomalous data if an upstream source changed — so you need a validation layer after load, not just before merge." },
+      { q: "A RetailFlow deploy is green but the 7 AM dashboard would show stale revenue. What catches it?", a: "A <b>freshness check</b> run after load that asserts <code>max(revenue_date)</code> is within SLA (say 6 hours). The code ran fine, so no code test sees the stale feed — the data-quality layer fails, blocks the downstream refresh, and pages on-call." },
+      { q: "When do you reach for Great Expectations/Soda vs just dbt tests?", a: "Use dbt tests for model structure (<code>not_null</code>, <code>unique</code>, <code>relationships</code>). Reach for a dedicated DQ tool when you need checks dbt doesn't express — freshness SLAs, distribution/anomaly detection, cross-source reconciliation — and avoid re-implementing the same structural assertions in both." },
+      { q: "How do you decide blocking vs warning for a check?", a: "Block on failures that make the numbers untrustworthy — stale data, missing rows, broken integrity — so downstream consumers never read bad data. Warn on signals that need a human look but not a halt. Making everything blocking causes alert fatigue and eroded trust in the pages." }
+    ],
+
+    problem: {
+      before: "Teams monitored whether the <i>job</i> succeeded — green run, move on — and assumed healthy software meant healthy data.",
+      insufficient: "A job can finish perfectly and still produce wrong, stale, or incomplete data: a source feed is late, a schema drifts, an upstream bug skews a distribution. Job health and data health are different things.",
+      failureModes: [
+        "The pipeline is green but yesterday's orders never landed, so revenue is understated.",
+        "An upstream schema change nulls a column, and totals quietly drop.",
+        "A distribution shift (a currency bug) doubles average order value unnoticed."
+      ]
+    },
+    definition: {
+      formal: "Data quality is the practice of asserting properties of the <i>data itself</i> — accuracy, completeness, freshness, consistency, validity, uniqueness — separately from whether the code ran. A data-quality <b>gate</b> blocks promotion on violation; a <b>monitor</b> alerts on violation in production.",
+      distinguish: [
+        { from: "Software correctness vs data correctness", note: "CI/tests prove the code is right; data quality proves the data is right. A green job with wrong data is exactly the gap this fills." },
+        { from: "Gate vs monitor", note: "A gate stops a bad result from being promoted; a monitor raises an incident when production data drifts. You often want both." },
+        { from: "Freshness vs completeness", note: "Freshness = is the data recent enough; completeness = are all expected rows present. A feed can be fresh but partial, or complete but stale." }
+      ]
+    },
+    comparisons: [
+      { title: "Block (gate) vs alert (monitor)", aLabel: "Block / gate", bLabel: "Alert / monitor",
+        rows: [
+          { dim: "When", a: "Before promotion", b: "After data lands in prod" },
+          { dim: "Effect", a: "Stops the bad data shipping", b: "Raises an incident to investigate" },
+          { dim: "Use for", a: "Hard correctness rules (reconciliation)", b: "Drift/anomaly that needs judgment" }
+        ],
+        verdict: "Gate the rules you're certain about; monitor the softer signals — a wrong revenue number should be a gate." }
+    ],
+    knowledgeChecks: [
+      { level: "Explain", q: "The nightly job is green but Finance says revenue is wrong. What's the lesson?",
+        options: [
+          { label: "Job success ≠ data correctness — data needs its own checks", ok: true, why: "A healthy job can still emit stale/incomplete/wrong data." },
+          { label: "Re-run the job", ok: false, why: "Same code reproduces the same wrong number." },
+          { label: "Trust the status", ok: false, why: "That's how a silently-wrong number reaches executives." }
+        ], revisit: "data-quality" },
+      { level: "Apply", q: "Yesterday's orders feed is sometimes late. Which check protects the morning dashboard?",
+        options: [
+          { label: "A freshness + completeness gate before publish", ok: true, why: "It blocks publishing an incomplete/stale total." },
+          { label: "A unit test on the transform", ok: false, why: "Logic is fine; the input is late." },
+          { label: "Nothing — it'll catch up", ok: false, why: "The dashboard reads the wrong number at 7 AM meanwhile." }
+        ], revisit: "data-quality" },
+      { level: "Decide", q: "A reconciliation mismatch vs the ledger is detected pre-publish. Gate or alert?",
+        options: [
+          { label: "Gate — block promotion", ok: true, why: "A wrong revenue number must not ship; it's a hard rule." },
+          { label: "Alert only and publish anyway", ok: false, why: "That ships a known-wrong number." },
+          { label: "Ignore under 5%", ok: false, why: "Tolerance may apply, but an unexplained mismatch shouldn't auto-ship." }
+        ], revisit: "data-quality" }
+    ],
+    mastery: {
+      task: "Design the data-quality gates for RetailFlow's revenue publish step: name the checks, say which block vs alert, and justify the choice for the 7 AM SLA.",
+      acceptance: [
+        "Includes freshness, completeness, and a ledger reconciliation.",
+        "Classifies each as a gate or a monitor with reasoning.",
+        "Explains why a reconciliation failure blocks publication."
+      ]
+    },
+    furtherReading: [
+      { title: "Great Expectations — Core concepts", publisher: "Great Expectations", url: "https://docs.greatexpectations.io/", why: "A practical framework for expressing and running data-quality checks.", read: "Expectations, Checkpoints, Data Docs.", reviewed: "2026-10-20" },
+      { title: "dbt — Tests & source freshness", publisher: "dbt Labs", url: "https://docs.getdbt.com/", why: "Built-in freshness and test gates for a transformation project.", read: "Build → Tests; Sources → freshness.", reviewed: "2026-10-20" }
+    ],
+
+    related: ["sql-testing", "dbt-cicd", "observability", "testing-pyramid"]
   }));
 })();

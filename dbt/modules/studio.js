@@ -35,6 +35,11 @@ export function mount(container) {
         <h2 class="module-title">Write real SQL. Run it for real.</h2>
         <p class="module-subtitle">Every query below runs against a live in-browser DuckDB loaded with the e-commerce dataset — no backend, no simulation. Pick a problem, write SQL, and <strong>Check</strong> compares your result to a reference solution.</p>
       </div>
+      <div style="margin:0 0 18px">
+        <p style="padding:12px 14px;background:var(--surface-2);border-left:3px solid var(--accent);border-radius:8px;font-size:14px;margin:0">
+          <strong>🧠 First principles —</strong> this dataset is seeded with real traps — a double-loaded order, a customer who paid twice. They exercise the SQL-correctness ideas behind every Check: <strong>grain</strong> (what one row means), <strong>fan-out</strong> on joins, <strong>dedup</strong>, and <strong>idempotency</strong>. The Check grades on result-set equivalence, so grain and ordering matter. <a href="#concepts" style="color:var(--accent);font-weight:600">Core Concepts → Grain &amp; Correctness</a>.
+        </p>
+      </div>
 
       <div class="studio-grid">
         <aside class="studio-list">
@@ -63,7 +68,7 @@ export function mount(container) {
                 <button class="btn btn-primary studio-check" type="button">✓ Check</button>
               </div>
             </div>
-            <textarea class="studio-editor" spellcheck="false" aria-label="SQL editor"></textarea>
+            <textarea class="studio-editor" spellcheck="false" aria-label="SQL editor. Press Escape then Tab to move focus out of the editor."></textarea>
           </div>
 
           <div class="studio-verdict" hidden></div>
@@ -213,9 +218,14 @@ export function mount(container) {
   $('.studio-run').addEventListener('click', doRun);
   $('.studio-check').addEventListener('click', doCheck);
   $('.studio-reset').addEventListener('click', () => { editor.value = current().starter; verdictEl.hidden = true; });
+  // Tab inserts two spaces, but Esc releases the trap so keyboard-only users
+  // can Tab out of the editor (WCAG 2.1.2). Re-focusing re-arms indentation.
+  let tabTraps = true;
+  editor.addEventListener('focus', () => { tabTraps = true; });
   editor.addEventListener('keydown', ev => {
-    if ((ev.ctrlKey||ev.metaKey) && ev.key === 'Enter') { ev.preventDefault(); doRun(); }
-    if (ev.key === 'Tab') { ev.preventDefault(); const s=editor.selectionStart, en=editor.selectionEnd; editor.value = editor.value.slice(0,s)+'  '+editor.value.slice(en); editor.selectionStart=editor.selectionEnd=s+2; }
+    if ((ev.ctrlKey||ev.metaKey) && ev.key === 'Enter') { ev.preventDefault(); doRun(); return; }
+    if (ev.key === 'Escape') { tabTraps = false; return; }
+    if (ev.key === 'Tab' && tabTraps) { ev.preventDefault(); const s=editor.selectionStart, en=editor.selectionEnd; editor.value = editor.value.slice(0,s)+'  '+editor.value.slice(en); editor.selectionStart=editor.selectionEnd=s+2; }
   });
   hintsBody.addEventListener('click', ev => {
     if (ev.target.closest('.studio-hint-next')) {

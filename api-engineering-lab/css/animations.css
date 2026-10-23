@@ -1,0 +1,125 @@
+/* ============================================================
+   animations.css: keyframes, transition utilities, motion primitives
+   ============================================================ */
+
+/* ── Entrances ──────────────────────────────────────────────── */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in-down {
+  from { opacity: 0; transform: translateY(-12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.animate-fade-in { animation: fade-in var(--ease-base) both; }
+.animate-fade-in-up { animation: fade-in-up var(--ease-slow) both; }
+.animate-scale-in { animation: scale-in var(--ease-bounce) both; }
+.animate-slide-in-right { animation: slide-in-right var(--ease-slow) both; }
+
+/* Staggered children */
+.stagger > * { animation: fade-in-up var(--ease-slow) both; }
+.stagger > *:nth-child(1) { animation-delay: 0ms; }
+.stagger > *:nth-child(2) { animation-delay: 60ms; }
+.stagger > *:nth-child(3) { animation-delay: 120ms; }
+.stagger > *:nth-child(4) { animation-delay: 180ms; }
+.stagger > *:nth-child(5) { animation-delay: 240ms; }
+.stagger > *:nth-child(6) { animation-delay: 300ms; }
+.stagger > *:nth-child(7) { animation-delay: 360ms; }
+.stagger > *:nth-child(8) { animation-delay: 420ms; }
+
+/* ── Flow / data movement (used by architecture diagrams) ──── */
+@keyframes flow-dash {
+  to { stroke-dashoffset: -20; }
+}
+.flow-line {
+  stroke-dasharray: 6 6;
+  animation: flow-dash 1s linear infinite;
+}
+.flow-line.paused { animation-play-state: paused; }
+
+@keyframes packet-travel {
+  from { offset-distance: 0%; }
+  to { offset-distance: 100%; }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { filter: drop-shadow(0 0 2px var(--airflow-glow)); }
+  50% { filter: drop-shadow(0 0 8px var(--airflow-glow)); }
+}
+.glow-pulse { animation: glow-pulse 2s ease-in-out infinite; }
+
+/* ── Node activation (state machine, arch nodes) ───────────── */
+@keyframes node-activate {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+.node-activate { animation: node-activate var(--ease-bounce); }
+
+@keyframes ring-ping {
+  0% { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+.ring-ping { animation: ring-ping 1.2s ease-out infinite; }
+
+/* ── Spinner ────────────────────────────────────────────────── */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--bg-4);
+  border-top-color: var(--airflow);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+/* ── Progress bar (animation timeline) ──────────────────────── */
+@keyframes progress-indeterminate {
+  0% { left: -40%; }
+  100% { left: 100%; }
+}
+
+/* ── Typewriter reveal for code ─────────────────────────────── */
+@keyframes blink-caret {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.caret::after {
+  content: '';
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: var(--airflow);
+  vertical-align: text-bottom;
+  animation: blink-caret 1s step-end infinite;
+}
+
+/* ── Reduced motion ─────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .flow-line { stroke-dasharray: none; }
+}

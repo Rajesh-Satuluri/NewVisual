@@ -20,8 +20,12 @@
         "Given a `transactions` DataFrame (`customer_id`, `txn_date`, `amount`), add a `running_revenue` column that accumulates each customer's spending **in date order** — a running (cumulative) sum that resets per customer. Every original row is kept; nothing is collapsed.",
       examples: [
         {
-          input: "transactions: (c1, 2026-01-01, 100), (c1, 2026-01-05, 40), (c1, 2026-01-09, 60), (c2, 2026-01-02, 500)",
-          output: "c1 rows -> 100, 140, 200 ; c2 row -> 500",
+          inputs: [
+            { name: "transactions", columns: ["customer_id", "txn_date", "amount"],
+              rows: [["c1", "2026-01-01", 100], ["c1", "2026-01-05", 40], ["c1", "2026-01-09", 60], ["c2", "2026-01-02", 500]] }
+          ],
+          output: { columns: ["customer_id", "txn_date", "amount", "running_revenue"],
+            rows: [["c1", "2026-01-01", 100, 100], ["c1", "2026-01-05", 40, 140], ["c1", "2026-01-09", 60, 200], ["c2", "2026-01-02", 500, 500]] },
           reasoning: "Within customer c1, ordered by date, each row adds its amount to the sum of all earlier-or-equal rows; c2 restarts its own running total."
         }
       ],
@@ -101,8 +105,12 @@
         "Given an `orders` DataFrame (`customer_id`, `order_date`, `order_id`), add a `running_orders` column that tells, for each order, how many orders that customer has placed up to and including this one (in date order). It is the count analogue of the running sum.",
       examples: [
         {
-          input: "orders: (c1, 2026-03-01), (c1, 2026-03-04), (c1, 2026-03-08), (c2, 2026-03-02)",
-          output: "c1 rows -> 1, 2, 3 ; c2 row -> 1",
+          inputs: [
+            { name: "orders", columns: ["customer_id", "order_date"],
+              rows: [["c1", "2026-03-01"], ["c1", "2026-03-04"], ["c1", "2026-03-08"], ["c2", "2026-03-02"]] }
+          ],
+          output: { columns: ["customer_id", "order_date", "running_orders"],
+            rows: [["c1", "2026-03-01", 1], ["c1", "2026-03-04", 2], ["c1", "2026-03-08", 3], ["c2", "2026-03-02", 1]] },
           reasoning: "Ordered by date within each customer, each row counts itself plus all earlier orders; c2 starts its own count."
         }
       ],
@@ -180,8 +188,12 @@
         "Given an `orders` DataFrame (`customer_id`, `order_date`, `order_amount`), add a `prev_amount` column holding the **previous** order's amount for the same customer, in date order. The first order of each customer has no predecessor, so its `prev_amount` is null.",
       examples: [
         {
-          input: "orders: (c1, 2026-02-01, 100), (c1, 2026-02-10, 250), (c1, 2026-02-15, 80)",
-          output: "prev_amount -> null, 100, 250",
+          inputs: [
+            { name: "orders", columns: ["customer_id", "order_date", "order_amount"],
+              rows: [["c1", "2026-02-01", 100], ["c1", "2026-02-10", 250], ["c1", "2026-02-15", 80]] }
+          ],
+          output: { columns: ["customer_id", "order_date", "order_amount", "prev_amount"],
+            rows: [["c1", "2026-02-01", 100, null], ["c1", "2026-02-10", 250, 100], ["c1", "2026-02-15", 80, 250]] },
           reasoning: "Each row looks back one position within customer c1; the earliest row has nothing before it."
         }
       ],
@@ -255,8 +267,12 @@
         "Given an `orders` DataFrame (`customer_id`, `order_date`, `order_amount`), add a `next_amount` column holding the **next** order's amount for the same customer, in date order. The last order of each customer has no successor, so its `next_amount` is null.",
       examples: [
         {
-          input: "orders: (c1, 2026-02-01, 100), (c1, 2026-02-10, 250), (c1, 2026-02-15, 80)",
-          output: "next_amount -> 250, 80, null",
+          inputs: [
+            { name: "orders", columns: ["customer_id", "order_date", "order_amount"],
+              rows: [["c1", "2026-02-01", 100], ["c1", "2026-02-10", 250], ["c1", "2026-02-15", 80]] }
+          ],
+          output: { columns: ["customer_id", "order_date", "order_amount", "next_amount"],
+            rows: [["c1", "2026-02-01", 100, 250], ["c1", "2026-02-10", 250, 80], ["c1", "2026-02-15", 80, null]] },
           reasoning: "Each row looks forward one position within customer c1; the latest row has nothing after it."
         }
       ],
@@ -330,8 +346,12 @@
         "Given an `orders` DataFrame (`customer_id`, `order_date`, `order_amount`), add an `amount_diff` column equal to the current order amount minus the previous order amount for the same customer, in date order. The first order per customer has no previous amount, so its difference is null.",
       examples: [
         {
-          input: "orders: (c1, 2026-04-01, 100), (c1, 2026-04-05, 250), (c1, 2026-04-11, 200)",
-          output: "amount_diff -> null, 150, -50",
+          inputs: [
+            { name: "orders", columns: ["customer_id", "order_date", "order_amount"],
+              rows: [["c1", "2026-04-01", 100], ["c1", "2026-04-05", 250], ["c1", "2026-04-11", 200]] }
+          ],
+          output: { columns: ["customer_id", "order_date", "order_amount", "amount_diff"],
+            rows: [["c1", "2026-04-01", 100, null], ["c1", "2026-04-05", 250, 150], ["c1", "2026-04-11", 200, -50]] },
           reasoning: "150 = 250 - 100 and -50 = 200 - 250; the first row has no predecessor so the difference is null."
         }
       ],
@@ -406,8 +426,12 @@
         "Given an `orders` DataFrame (`customer_id`, `order_date`, `order_amount`), add a `pct_change` column giving the percentage change from each customer's previous order to the current one, in date order: `(current - previous) / previous * 100`. The first order per customer has no previous value, so its percentage change is null.",
       examples: [
         {
-          input: "orders: (c1, 2026-05-01, 200), (c1, 2026-05-07, 250), (c1, 2026-05-12, 200)",
-          output: "pct_change -> null, 25.0, -20.0",
+          inputs: [
+            { name: "orders", columns: ["customer_id", "order_date", "order_amount"],
+              rows: [["c1", "2026-05-01", 200], ["c1", "2026-05-07", 250], ["c1", "2026-05-12", 200]] }
+          ],
+          output: { columns: ["customer_id", "order_date", "order_amount", "pct_change"],
+            rows: [["c1", "2026-05-01", 200, null], ["c1", "2026-05-07", 250, "25.0"], ["c1", "2026-05-12", 200, "-20.0"]] },
           reasoning: "(250-200)/200*100 = 25.0 and (200-250)/250*100 = -20.0; the first row has no baseline so it is null."
         }
       ],
@@ -484,8 +508,12 @@
         "Given a `sales` DataFrame (`store_id`, `sale_date`, `sales_amount`), add a `rolling_7d_avg` column: the average of `sales_amount` over a trailing **7-day calendar window** (the current day and the 6 days before it) for each store. Because the window is measured in *days* rather than a fixed number of rows, it must frame on the date value itself.",
       examples: [
         {
-          input: "store s1: (2026-06-01, 100), (2026-06-02, 200), (2026-06-08, 800)",
-          output: "rolling_7d_avg -> 100.0, 150.0, 500.0",
+          inputs: [
+            { name: "sales", columns: ["store_id", "sale_date", "sales_amount"],
+              rows: [["s1", "2026-06-01", 100], ["s1", "2026-06-02", 200], ["s1", "2026-06-08", 800]] }
+          ],
+          output: { columns: ["store_id", "sale_date", "sales_amount", "rolling_7d_avg"],
+            rows: [["s1", "2026-06-01", 100, "100.0"], ["s1", "2026-06-02", 200, "150.0"], ["s1", "2026-06-08", 800, "500.0"]] },
           reasoning: "On 06-02 the window covers 06-01..06-02 -> avg(100,200)=150. On 06-08 the window is 06-02..06-08, so 06-01 has dropped out -> avg(200,800)=500."
         }
       ],
@@ -572,8 +600,12 @@
         "Given a `transactions` DataFrame (`customer_id`, `txn_date`, `amount`), add a `rolling_30d_revenue` column: the total `amount` over a trailing **30-day calendar window** (the current day and the 29 days before it) for each customer. Like the 7-day average, the window is a span of days, so it must frame on the date value, not a row count.",
       examples: [
         {
-          input: "customer c1: (2026-01-01, 100), (2026-01-20, 50), (2026-02-15, 200)",
-          output: "rolling_30d_revenue -> 100, 150, 200",
+          inputs: [
+            { name: "transactions", columns: ["customer_id", "txn_date", "amount"],
+              rows: [["c1", "2026-01-01", 100], ["c1", "2026-01-20", 50], ["c1", "2026-02-15", 200]] }
+          ],
+          output: { columns: ["customer_id", "txn_date", "amount", "rolling_30d_revenue"],
+            rows: [["c1", "2026-01-01", 100, 100], ["c1", "2026-01-20", 50, 150], ["c1", "2026-02-15", 200, 200]] },
           reasoning: "On 01-20 the 30-day window (12-22..01-20) includes 01-01 and 01-20 -> 150. By 02-15 the window (01-17..02-15) has dropped 01-01 and 01-20, leaving only 200."
         }
       ],

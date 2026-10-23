@@ -50,15 +50,36 @@ simulated is labelled "simulation", never presented as live.
   - Verified: Playground both themes 0 console errors; full 22-module smoke
     test clean.
 
-- Iteration 2 — more Playground surfaces (consumer group, offset timeline,
-  replication/broker-failure, lag) reusing the engine. *(planned)*
-- Iteration 3 — app shell + global search. *(planned)*
-- Iteration 4 — learning dashboard + mastery analytics + persistence. *(planned)*
-- Iteration 5 — interview mastery deepening. *(planned)*
-- Iteration 6 — revision center (spaced repetition). *(planned)*
-- Iteration 7 — coding labs + CLI simulator (labelled simulated execution). *(planned)*
-- Iteration 8 — incident simulator + system-design lab. *(planned)*
-- Iteration 9 — QA, a11y, docs. *(planned)*
+### Post-audit build (third-party audit → Tracks A–F, all shipped)
+
+- **Track A — content completeness + honest progress** ✅
+  - Quizzes for all 22 modules (was 4); self-explain for all 22 (was 5);
+    tiered Weak/Good/Senior answers 5→12; decision drills 6→13; incidents 4→9.
+  - "Complete" now means the module's quiz is passed (≥2/3), not opened;
+    quiz grading records to the progress store and marks mastery.
+- **Track B — missing theory** ✅
+  - Config Reference (`#config-reference`, `data/configs.js`): ~35 settings
+    with default / production value / what-breaks.
+  - Capacity & Sizing Lab (`#sizing`): deterministic partition/consumer/storage
+    math, labelled planning estimates.
+  - Advanced Topics (`#advanced`, `data/advanced-topics.js`): tiered storage,
+    static membership, quotas, high-water mark & leader epoch, record batch
+    format, rack awareness.
+- **Track C — global search** ✅ (`#search`, `data/search-index.js`): one box
+  across modules, glossary, configs, advanced, decisions, incidents, and all
+  interview Q&A; command palette route + standalone nav link.
+- **Track D — dashboard + spaced repetition** ✅
+  - Dashboard (`#dashboard`): mastery ring, per-group bars, activity stats,
+    weak spots, recommended next; live-refreshes on progress.
+  - Review Center (`#review`, `data/review.js`): SM-2 spaced-repetition
+    flashcards (114) from quizzes + glossary; schedule persisted.
+- **Track E — accessibility & polish** ✅: ARIA + keyboard on tabs and
+  interview accordions; canvas text alternatives; difficulty/time badges;
+  focus rings; print stylesheet.
+- **Track F — more Playground surfaces** ✅: engine extended with
+  `assignPartitions` + broker-failure/leader-election (17 unit tests);
+  Consumer Group Lab (`#consumer-lab`) and Replication & Failure Lab
+  (`#replication-lab`).
 
 ## Real vs simulated (honesty ledger)
 

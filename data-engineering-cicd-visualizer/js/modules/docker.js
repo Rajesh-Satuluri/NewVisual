@@ -88,6 +88,45 @@
     retention: {
       question: "RetailFlow's revenue code passes on a laptop but fails in CI because of a pandas version difference. How does Docker eliminate this class of bug?",
       answer: "By packaging the code with its <b>exact</b> environment — base image, Python version, and pinned dependencies — into one immutable <b>image</b>. CI and production pull the same image (ideally by <code>@sha256</code> digest), so there's no version drift between environments to cause different results."
-    }
+    },
+
+    prerequisites: [
+      "git",
+      { id: "ci-vs-cd", label: "CI vs CD (where images get built)" },
+      "artifact-lifecycle",
+      "container-registry"
+    ],
+
+    production: [
+      { h: "Pin everything by digest", body: "Pin the base image and the built image by <code>@sha256</code> digest, not <code>:latest</code> — RetailFlow's revenue processor runs in prod the exact bytes CI tested, with no drift from a moved tag." },
+      { h: "Scan images for CVEs", body: "Scan on build/push (Trivy, Grype, registry scanning) and fail the pipeline on critical vulnerabilities; a pinned base image still needs rescanning as new CVEs are disclosed." },
+      { h: "Run as non-root, minimal base", body: "Use a non-root <code>USER</code> and a <code>-slim</code>/distroless base to shrink attack surface and image size — faster pulls and fewer packages to exploit." },
+      { h: "Keep secrets out of layers", body: "A secret <code>COPY</code>'d or <code>ENV</code>'d in persists in image history even if deleted later. Use build secrets (<code>--mount=type=secret</code>) or inject at runtime, never bake the warehouse password into the image." },
+      { h: "Leverage layer cache", body: "Copy <code>requirements.txt</code> and install before copying source so dependency layers stay cached when only RetailFlow's transform code changes — cuts build time and registry churn." }
+    ],
+
+    misconceptions: [
+      { myth: "A tag like <code>:1.4.0</code> is immutable.", truth: "A tag is a <b>movable pointer</b> — it can be re-pushed to point at different bytes. Only the <b>digest</b> (<code>@sha256:...</code>) is immutable, derived from content." },
+      { myth: "Containers virtualize the OS like a VM.", truth: "Containers share the <b>host kernel</b> and isolate via namespaces/cgroups — much lighter than a VM, but a Linux image needs a Linux kernel; there's no separate guest OS." },
+      { myth: "Deleting a secret in a later layer removes it from the image.", truth: "Each instruction is an immutable layer; a secret added in one layer stays in history even if a later layer removes the file. It must never enter a layer at all." },
+      { myth: "<code>docker build</code> is deterministic by default.", truth: "Unpinned bases and <code>apt-get</code>/<code>pip</code> without version pins resolve to whatever is newest at build time, so two builds of the same Dockerfile can differ. Pinning is what makes it reproducible." }
+    ],
+
+    troubleshooting: [
+      { symptom: "Build is slow and reinstalls dependencies on every code change.", cause: "Source is copied before <code>requirements.txt</code>, busting the dependency layer cache.", fix: "<code>COPY requirements.txt</code> and <code>pip install</code> before <code>COPY</code>ing source; verify the install layer shows <code>CACHED</code> on the next build." },
+      { symptom: "Container exits immediately with no error.", cause: "The <code>ENTRYPOINT</code>/<code>CMD</code> process finished or the main process crashed on startup.", fix: "Run <code>docker logs &lt;id&gt;</code> and <code>docker run -it ... sh</code> to inspect; ensure the process runs in the foreground (PID 1), then confirm it stays up." },
+      { symptom: "<code>permission denied</code> writing a file after adding <code>USER runner</code>.", cause: "The non-root user can't write to a directory owned by root.", fix: "<code>chown</code> the target dir to the runner before switching user, or mount a writable volume; verify by running the job end-to-end as that user." },
+      { symptom: "Image works on your Mac but fails on the cluster.", cause: "Architecture mismatch — image built for <code>arm64</code>, nodes are <code>amd64</code>.", fix: "Build with <code>docker buildx --platform linux/amd64</code> (or multi-arch); verify with <code>docker inspect</code> that the manifest matches the node arch." },
+      { symptom: "Final image is huge (GBs).", cause: "Build tools and caches baked into the runtime layer.", fix: "Use a multi-stage build and <code>COPY --from=builder</code> only artifacts; add a <code>.dockerignore</code>; re-check with <code>docker images</code>." }
+    ],
+
+    interview: [
+      { q: "What's the difference between an image and a container?", a: "An <b>image</b> is an immutable, layered template built from a Dockerfile; a <b>container</b> is a running (or stopped) instance of that image with a writable layer on top. One image can spawn many identical containers." },
+      { q: "Tag vs digest — which should production reference and why?", a: "The <b>digest</b> (<code>@sha256:...</code>), because it's a content hash and can never change. A tag is a movable pointer that someone can re-push, so pinning <code>:latest</code> in prod risks silently pulling untested bytes after a restart." },
+      { q: "Why are multi-stage builds useful for a PySpark/data image?", a: "A fat builder stage compiles wheels and native deps, then the final stage <code>COPY --from=builder</code> copies only the needed artifacts onto a slim base. The runtime image is smaller, pulls faster, and drops build tools — less attack surface, which matters when the image runs across many cluster nodes." },
+      { q: "How do you keep secrets out of a Docker image?", a: "Never <code>COPY</code> or <code>ENV</code> them in — they persist in layer history. Use BuildKit build secrets (<code>--mount=type=secret</code>) for build-time credentials and inject runtime secrets via environment/secret stores at <code>docker run</code> or in Kubernetes, so nothing sensitive is baked into the distributable image." }
+    ],
+
+    related: ["container-registry", "artifact-lifecycle", "kubernetes", "ci-vs-cd"]
   }));
 })();

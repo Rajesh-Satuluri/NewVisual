@@ -3,6 +3,8 @@
 //   { tier, cat, q, short, detailed, example?, mistake, followup, senior }
 // Consumed by the Interview Master Bank reference page and the Interview Simulator.
 
+import { EXTRA_BANK } from './interview-extra.js';
+
 export const TIERS = [
   { id: 'beginner',     label: 'Beginner',        color: '#3B82F6' },
   { id: 'intermediate', label: 'Intermediate',    color: '#06B6D4' },
@@ -14,7 +16,7 @@ export const TIERS = [
   { id: 'sql',          label: 'SQL + dbt',       color: '#14B8A6' },
 ];
 
-export const BANK = [
+const CORE_BANK = [
   // ── Beginner ───────────────────────────────────────────────────────────────
   { tier:'beginner', cat:'Fundamentals', q:'What is dbt and what problem does it solve?',
     short:'dbt is the transformation (T) layer of ELT — it turns raw warehouse data into tested, documented, version-controlled models using SQL + Jinja.',
@@ -257,3 +259,5 @@ export const BANK = [
     mistake:'Leaving the frame implicit (RANGE vs ROWS differ with ties) or forgetting the partition.',
     followup:'How do you test a window result?', senior:'A unit test with mock rows and an expected cumulative output catches frame/partition bugs pre-deploy.' },
 ];
+
+export const BANK = [...CORE_BANK, ...EXTRA_BANK];

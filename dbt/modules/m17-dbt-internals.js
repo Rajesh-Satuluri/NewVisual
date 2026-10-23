@@ -222,32 +222,71 @@ function buildDetail(container) {
     <div class="detail-section">
       <h3>The four commands people confuse</h3>
       <div class="info-grid">
-        <div class="info-card" style="border-left-color:#8B5CF6">
+        <div class="info-card" style="border-left-color:var(--purple)">
           <div class="info-card-title">dbt parse</div>
-          <div class="info-card-tag" style="color:#8B5CF6;background:#8B5CF622">Structure only</div>
+          <div class="info-card-tag" style="color:var(--purple);background:color-mix(in srgb, var(--purple) 13%, transparent)">Structure only</div>
           <div class="info-card-body">Reads files, builds the manifest. No Jinja rendering of model SQL to disk, no execution. Fastest way to validate project structure in CI.</div>
         </div>
-        <div class="info-card" style="border-left-color:#3B82F6">
+        <div class="info-card" style="border-left-color:var(--info)">
           <div class="info-card-title">dbt compile</div>
-          <div class="info-card-tag" style="color:#3B82F6;background:#3B82F622">Jinja → SQL</div>
+          <div class="info-card-tag" style="color:var(--info);background:color-mix(in srgb, var(--info) 13%, transparent)">Jinja → SQL</div>
           <div class="info-card-body">Renders Jinja to pure SQL in <code>target/compiled/</code>. <strong>Nothing runs on the warehouse.</strong> Use it to see exactly what a model will execute.</div>
         </div>
-        <div class="info-card" style="border-left-color:#10B981">
+        <div class="info-card" style="border-left-color:var(--success)">
           <div class="info-card-title">dbt run</div>
-          <div class="info-card-tag" style="color:#10B981;background:#10B98122">Materialize</div>
+          <div class="info-card-tag" style="color:var(--success);background:color-mix(in srgb, var(--success) 13%, transparent)">Materialize</div>
           <div class="info-card-body">Compiles then executes models on the warehouse in DAG order. Does <em>not</em> run tests, seeds, or snapshots.</div>
         </div>
-        <div class="info-card" style="border-left-color:#FF694B">
+        <div class="info-card" style="border-left-color:var(--accent)">
           <div class="info-card-title">dbt build</div>
-          <div class="info-card-tag" style="color:#FF694B;background:#FF694B22">Run + test + gate</div>
+          <div class="info-card-tag" style="color:var(--accent);background:color-mix(in srgb, var(--accent) 13%, transparent)">Run + test + gate</div>
           <div class="info-card-body">Runs models, tests, seeds, and snapshots together in DAG order, gating children on a model's tests. The production-safe command.</div>
         </div>
       </div>
+    </div>
+    <div class="detail-section">
+      <h3>From <code>dbt run</code> to SQL hitting the warehouse</h3>
+      <p>Typing <code>dbt run</code> does not send anything to the warehouse right away. dbt first runs an entirely local, in-memory pipeline and only touches compute at the very end. It collapses into four phases:</p>
+      <div class="info-grid">
+        <div class="info-card" style="border-left-color:var(--purple)">
+          <div class="info-card-title">1 · Parse</div>
+          <div class="info-card-tag" style="color:var(--purple);background:color-mix(in srgb, var(--purple) 13%, transparent)">Read + structure</div>
+          <div class="info-card-body">Read every <code>.sql</code>/<code>.yml</code>, extract <code>ref()</code>, <code>source()</code>, <code>config()</code> and tests, and build one node per resource. Refs become DAG edges. No SQL is run.</div>
+        </div>
+        <div class="info-card" style="border-left-color:var(--info)">
+          <div class="info-card-title">2 · Compile</div>
+          <div class="info-card-tag" style="color:var(--info);background:color-mix(in srgb, var(--info) 13%, transparent)">Jinja → SQL</div>
+          <div class="info-card-body">For the selected nodes, render all Jinja to pure SQL in <code>target/compiled/</code>. <code>ref()</code> resolves to a physical relation; macros expand. Still offline — nothing executes.</div>
+        </div>
+        <div class="info-card" style="border-left-color:var(--success)">
+          <div class="info-card-title">3 · Execute</div>
+          <div class="info-card-tag" style="color:var(--success);background:color-mix(in srgb, var(--success) 13%, transparent)">Warehouse</div>
+          <div class="info-card-body">The adapter wraps each compiled <code>select</code> in materialization DDL and sends it over the connection, in DAG order up to <code>threads</code>. This is the only phase that spends compute credits.</div>
+        </div>
+        <div class="info-card" style="border-left-color:var(--accent)">
+          <div class="info-card-title">4 · Write artifacts</div>
+          <div class="info-card-tag" style="color:var(--accent);background:color-mix(in srgb, var(--accent) 13%, transparent)">Record</div>
+          <div class="info-card-body">Write <code>run_results.json</code> (status + timing per node) and the final <code>manifest.json</code>. These turn the run into data that docs, Slim CI and cost dashboards read back later.</div>
+        </div>
+      </div>
+      <p>The dividing line is Execute: phases 1–2 are pure planning that you can run in CI for free, and only phase 3 can fail with a real warehouse error or run up a bill.</p>
+    </div>
+    <div class="detail-section">
+      <h3>The manifest is the compiled project graph</h3>
+      <p>Parsing produces one in-memory node per resource; dbt serializes all of them into <code>target/manifest.json</code>. That file <em>is</em> your project as a graph: every node, its resolved config, its raw and (after compile) compiled SQL, and the <code>parent_map</code>/<code>child_map</code> adjacency that encodes the DAG. Nothing downstream re-reads your raw <code>.sql</code> files — lineage, the docs site, <code>state:modified</code> and <code>defer</code> all read the manifest. That single indirection is why dbt can reason about your whole project cheaply and why Slim CI is even possible.</p>
+    </div>
+    <div class="detail-section">
+      <h3>Compilation is offline; execution is where the money is</h3>
+      <p>Compilation is pure and deterministic: given the same files, flags and target, it produces the same SQL every time, and it never opens a query cursor against your data. (dbt connects to the warehouse during a normal run to resolve relation metadata, but it is not scanning or materializing anything yet.) Every genuinely expensive, side-effecting operation — scanning rows, building tables, running a <code>MERGE</code> — happens only once the adapter sends DDL in the Execute phase. This is the practical reason to reach for <code>dbt compile</code> when debugging: you can inspect the exact SQL a model will run without spending a credit or mutating a single table.</p>
+      <details class="cf-det"><summary>Going deeper — the mechanism: why compile is a two-pass render</summary>
+        <p>Jinja is rendered against models <strong>twice</strong>. The first pass happens during parse: dbt renders just enough to discover <code>ref()</code>, <code>source()</code> and <code>config()</code> calls so it can build the graph — it does not keep the SQL. The second pass happens during compile, once the full manifest and the selected set exist, and produces the final SQL written to <code>target/compiled/</code>. This is why a <code>ref()</code> to a model that does not exist fails at <em>parse</em> time (the graph can't be built) while an undefined macro or a Jinja type error can surface at <em>compile</em> time (the full render fails) — both before any warehouse execution. dbt also caches a <code>partial_parse.msgpack</code> so unchanged files are not re-parsed on the next invocation.</p>
+      </details>
     </div>
     <div class="detail-section">
       <h3>The one mental model to keep</h3>
       <p style="font-size:15px;font-weight:600;color:var(--accent)">Parse builds the graph. Compile turns Jinja into SQL. Execute is the only stage that spends warehouse credits. Artifacts turn the run into data you can debug and diff later.</p>
       <p>Every advanced dbt feature — Slim CI, <code>defer</code>, lineage, docs, cost analysis — is just something reading the artifacts produced by this pipeline.</p>
     </div>
+    <div class="detail-section"><p style="padding:12px 14px;background:var(--surface-2);border-left:3px solid var(--accent);border-radius:8px;font-size:14px;margin:0"><strong>🧠 First principles —</strong> dbt is a compiler, not a runtime: it turns your templated project into a manifest and plain warehouse SQL, then executes it. <a href="#concepts" style="color:var(--accent);font-weight:600">Core Concepts → Execution Lifecycle</a>.</p></div>
   `;
 }

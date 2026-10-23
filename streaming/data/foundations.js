@@ -336,7 +336,77 @@ export const FOUNDATIONS = [
           <span class="lx-flow-node">Broker (durable, replicated log)</span><span class="lx-flow-arrow">→ pull →</span>
           <span class="lx-flow-node">Consumer group</span>
         </div>` },
+      { id: 'sizing', label: '📐 Sizing in production', body: `
+        <h3>Sizing a consumer group like a principal</h3>
+        <p>"How many consumer instances?" is answered the same way as partitions — from throughput, bounded
+        by a hard ceiling — plus two group-specific dials interviewers love: the <b>rebalance budget</b>
+        and the <b>poll-interval headroom</b>. Numbers first, then the operational caveats.</p>
+        <div class="lx-callout lx-info"><b>The brief.</b><div>Topic has <b>120 partitions</b>. Peak
+        <b>200,000 events/s</b>; one consumer instance sustains <b>10,000 events/s</b> end-to-end
+        (including the downstream write). Each record takes up to <b>40 ms</b> to process. Recovery SLA:
+        tolerate the loss of one instance without falling behind.</div></div>
+
+        <h3>Step 1 — Instance count = throughput need, capped by partitions</h3>
+        <div class="lx-code"><div class="lx-code-lang">calc</div><pre><code>need (throughput) = 200,000 / 10,000 = 20 instances
+ceiling (parallelism) = 120 partitions → at most 120 useful instances
++1 for fault tolerance (lose one, 19 still ≥ 20? no) → run 22–24
+</code></pre></div>
+        <p>Start from throughput (20), check it against the <b>hard ceiling</b> — a group can never use
+        more instances than partitions, so a 121st consumer sits idle — then add fault-tolerance headroom
+        so losing an instance doesn't drop you below the required 20. You want partitions to divide
+        <i>evenly</i> across instances too: 120 / 24 = 5 partitions each; 120 / 22 ≈ uneven, so some
+        instances carry 6 partitions and become the lagging tail. Pick an instance count that divides the
+        partition count cleanly.</p>
+
+        <h3>Step 2 — Budget the poll interval against your worst-case batch</h3>
+        <p>The broker evicts a consumer that doesn't poll within <code>max.poll.interval.ms</code>, which
+        triggers a rebalance and a lag spike. So that interval must exceed your <i>worst-case</i> time to
+        process one fetched batch:</p>
+        <div class="lx-code"><div class="lx-code-lang">calc</div><pre><code>batch time ≈ max.poll.records × per-record time
+           = 500 records × 40 ms = 20 s   ← must be < max.poll.interval.ms
+</code></pre></div>
+        <p>If <code>max.poll.records</code> × worst-case per-record latency approaches the poll interval,
+        a slow batch (a GC pause, a sluggish downstream) blows the deadline, the member is evicted, and the
+        group stop-the-world rebalances — the "silent lag spike" from the previous tab. The fix is to
+        <b>shrink the batch</b>, <b>raise the interval</b>, or move slow I/O off the poll thread, not to
+        add instances.</p>
+
+        <h3>Step 3 — Budget rebalances, not just steady state</h3>
+        <ul class="clean">
+          <li><b>Rebalance cost scales with instance count and state.</b> A stateful group reassigning
+          partitions must reload keyed state for moved partitions; more instances = more churn per deploy.
+          Favor <b>cooperative/incremental rebalancing</b> (only moved partitions pause) and <b>static
+          membership</b> so a rolling restart doesn't trigger a full reshuffle.</li>
+          <li><b>Deploy strategy is a sizing input.</b> With 24 instances and stop-the-world rebalancing,
+          a rolling deploy can trigger many pauses; sizing the group larger makes this <i>worse</i>, not
+          better. The group's size trades throughput and fault tolerance against rebalance pain.</li>
+          <li><b>Offset-commit load:</b> every instance commits offsets to the group coordinator; very
+          frequent commits across many instances add broker load. Commit on a sensible cadence, not per
+          record, unless correctness demands it.</li>
+        </ul>
+
+        <div class="lx-callout lx-ok"><b>Interview-ready summary.</b><div>"I size instances as peak events/s
+        over per-instance throughput — 20 here — capped at the partition count (120) because a group can't
+        use more consumers than partitions, plus headroom so losing one instance doesn't drop me below the
+        need, and I pick a count that divides the partitions evenly to avoid a lagging tail. Then I check
+        that max.poll.records × worst-case per-record time stays under the poll interval so a slow batch
+        doesn't get me evicted and rebalanced, and I budget rebalances explicitly — cooperative rebalancing,
+        static membership, a deploy strategy that doesn't stop-the-world — because past a point adding
+        instances buys rebalance pain, not throughput."</div></div>` },
       { id: 'iq', label: '🎤 Interview', body: iq([
+        { q: 'How do you size the number of consumer instances in a group?', a: `Peak events/s divided by
+          one instance's end-to-end throughput gives the need; that's capped by the partition count because
+          a group can never use more consumers than partitions (extras idle). Add headroom so losing an
+          instance doesn't drop you below the need, and choose a count that divides the partitions evenly so
+          no instance carries an extra partition and becomes the lagging tail. Then sanity-check the poll
+          interval and rebalance cost — past a point more instances buys rebalance pain, not throughput.` },
+        { q: 'How does max.poll.records interact with the poll interval, and why does it matter for sizing?',
+          a: `The broker evicts a consumer that doesn't poll within max.poll.interval.ms. Your worst-case
+          batch time is roughly max.poll.records × worst-case per-record latency, and it must stay under
+          that interval — otherwise a slow batch (GC, sluggish sink) misses the deadline, the member is
+          evicted, and the group rebalances, spiking lag even though nothing crashed. So I size the batch
+          and interval against worst-case processing time, and move slow I/O off the poll thread, rather
+          than adding instances to a group that's really rebalance-bound.` },
         { q: 'What is the difference between a log and a queue, and why does it matter?', a: `A queue
           deletes a message when it's consumed — one reader, no replay, good for task dispatch. A log
           retains events until retention expires, so many independent consumer groups each read from their
@@ -440,6 +510,68 @@ export const FOUNDATIONS = [
         partitions/consumers and the lag will clear", check for skew first. If the lag lives on one
         partition, more consumers do nothing — the hot key is serialized by the very guarantee you rely
         on. The fix is in the <i>key</i>, not the capacity.</div></div>` },
+      { id: 'sizing', label: '📐 Sizing in production', body: `
+        <h3>How a principal actually sizes partitions</h3>
+        <p>In a design interview "how many partitions?" is never answered with a number — it's answered
+        with a <b>method</b>: start from throughput, bound it by three independent ceilings, take the max,
+        then add headroom. Here is the full walk-through on a concrete brief.</p>
+        <div class="lx-callout lx-info"><b>The brief.</b><div>Order-events topic for {ENTITY}s. Peak
+        <b>200,000 events/s</b>, average event <b>1 KB</b> serialized. Processing is moderately heavy
+        (enrichment + a keyed aggregation): a single consumer task sustains about <b>8,000 events/s</b>.
+        Retention 7 days. Expected 3× growth over two years.</div></div>
+
+        <h3>Step 1 — Size three independent ceilings</h3>
+        <p>Partition count must satisfy <i>every</i> constraint, so compute each one and take the largest.</p>
+        <div class="lx-table-wrap"><table class="lx-table">
+          <thead><tr><th>Ceiling</th><th>Formula</th><th>This brief</th></tr></thead>
+          <tbody>
+            <tr><td><b>Ingest throughput</b></td>
+              <td>peak bytes/s ÷ safe per-partition write rate</td>
+              <td>200k × 1 KB = 200 MB/s. At a conservative ~10 MB/s per partition → <b>≥ 20</b></td></tr>
+            <tr><td><b>Consumer parallelism</b></td>
+              <td>peak events/s ÷ per-task throughput</td>
+              <td>200,000 ÷ 8,000 = <b>≥ 25</b> (one partition per task you'll ever run concurrently)</td></tr>
+            <tr><td><b>Catch-up / replay</b></td>
+              <td>must drain a backlog within an SLA, not just keep up</td>
+              <td>To recover a 1-hour outage in 15 min you need ~4× live consume → <b>≥ 100</b></td></tr>
+          </tbody>
+        </table></div>
+        <p>The binding constraint here is <b>catch-up</b>, not steady-state — a classic principal catch.
+        A topic sized only for "keep up" can never recover from an incident, because at 1× you clear a
+        1-hour backlog in exactly 1 hour while new data keeps arriving. Size for the <i>recovery</i> rate
+        you promised, then the steady-state numbers fall out for free.</p>
+
+        <h3>Step 2 — Take the max, then add headroom</h3>
+        <p>max(20, 25, 100) = 100. Now layer growth and operability:</p>
+        <ul class="clean">
+          <li><b>Growth (3×):</b> because raising partition count later breaks key→partition mapping and
+          scatters keyed state (see <i>The routing rule</i> tab), bake in the two-year number now:
+          100 × 3 = 300.</li>
+          <li><b>Round for rebalance math:</b> pick a count that divides evenly across your likely
+          consumer counts and brokers so partitions spread uniformly — e.g. round 300 → a clean number
+          your team standardizes on. Avoid primes.</li>
+          <li><b>Sanity-check the ceiling:</b> more partitions isn't free — each adds open file handles,
+          replication connections, controller metadata, and rebalance time, and it raises end-to-end
+          latency (more, smaller batches) and the cost of an exactly-once commit across more
+          transactional partitions. Thousands of partitions per topic is a smell; revisit the key or
+          split the topic first.</li>
+        </ul>
+
+        <h3>Step 3 — State the assumptions out loud</h3>
+        <p>The number is only as good as its inputs, so a strong answer names them: the <b>per-partition
+        write ceiling</b> is platform- and hardware-specific (look it up for your broker/instance, don't
+        assume a universal value); <b>per-task throughput</b> comes from a load test of your real
+        processing, not a guess; and the whole calculation assumes <b>no skew</b> — a single hot
+        {ENTITY} can saturate one partition while the other 299 idle, so pair sizing with the skew
+        analysis in the next tab. Sizing gets you the floor; key design keeps you off the ceiling.</p>
+
+        <div class="lx-callout lx-ok"><b>Interview-ready summary.</b><div>"I size partitions as the max of
+        three ceilings — ingest bytes/s over the per-partition write limit, peak events/s over
+        per-task throughput, and the catch-up rate my recovery SLA demands — then multiply for growth
+        because repartitioning is disruptive, round for even rebalancing, and cap it so I don't drown the
+        cluster in metadata. For this brief that's ~100 driven by catch-up, ~300 with 3× growth headroom.
+        And I'd flag that none of it survives a hot key, so I'd validate the key's distribution
+        separately."</div></div>` },
       { id: 'iq', label: '🎤 Interview', body: iq([
         { q: 'What does the partition key control?', a: `Three things at once: ordering (same key → same
           partition → ordered), co-location (events that must be processed together share a partition), and
@@ -457,6 +589,16 @@ export const FOUNDATIONS = [
           key's events are serialized by the ordering guarantee itself. Confirm by checking per-partition
           lag. The fix is in the key: raise cardinality, salt the hot key (trading ordering), or isolate
           the whale — not more consumers.` },
+        { q: 'How do you decide how many partitions a topic needs?', a: `Not with a number — with a method.
+          I take the max of three independent ceilings: ingest bytes/s divided by the platform's safe
+          per-partition write rate; peak events/s divided by one task's measured throughput (one partition
+          per concurrent task); and the catch-up rate my recovery SLA demands — which is usually the
+          binding constraint, because a topic sized only to "keep up" can never drain a backlog. Then I
+          multiply for expected growth since repartitioning is disruptive, round to a count that divides
+          evenly for clean rebalancing, and cap it so I don't bury the cluster in metadata. Finally I say
+          the inputs out loud — per-partition limit is platform-specific, per-task throughput comes from a
+          load test — and flag that the whole estimate assumes no skew, so a hot key still has to be
+          designed out separately.` },
         { q: 'When would you produce with a null key?', a: `When per-key ordering genuinely doesn't matter
           and you want maximum balance — e.g. independent log/telemetry lines. A null key spreads events
           across all partitions (round-robin / sticky batching) for even load, but you forfeit ordering
@@ -538,7 +680,159 @@ export const FOUNDATIONS = [
         re-emits every output in that range. If your pipeline sends emails, charges cards, or appends
         (not upserts) to a store, naive replay repeats those actions. Design sinks for replay <i>before</i>
         you need to replay in an incident.</div></div>` },
+      { id: 'retention', label: '🗄️ Retention sizing', body: `
+        <h3>Retention is a policy decision with a price tag</h3>
+        <p>Retention answers one question — "how far back can anyone rewind?" — and every answer is a
+        trade between <b>capability</b> (replay window, audit, backfill) and <b>cost</b> (disk × replication).
+        A principal doesn't pick a round number like "7 days" by habit; they derive it from requirements,
+        price it, and then decide <i>where</i> the bytes live. This tab is the dedicated walk-through.</p>
+
+        <h3>Step 1 — Two kinds of retention, picked by data shape</h3>
+        <p>Before sizing anything, choose the <i>mechanism</i>, because it changes what "retention" even
+        means:</p>
+        <div class="lx-table-wrap"><table class="lx-table">
+          <thead><tr><th>Mode</th><th>Keeps</th><th>Use when</th><th>Sizing driver</th></tr></thead>
+          <tbody>
+            <tr><td><b>Delete (time/size)</b></td><td>Every event until it ages out</td>
+              <td>Event streams, facts, audit — you care about <i>history</i></td>
+              <td>throughput × window × replication</td></tr>
+            <tr><td><b>Compact (log compaction)</b></td><td>The latest value per key, forever (+ tombstones for deletes)</td>
+              <td>Changelogs, current-state topics, CDC, config — you care about <i>latest state</i></td>
+              <td>distinct key count × avg record size × replication</td></tr>
+          </tbody>
+        </table></div>
+        <p>This is the single biggest retention lever and the one juniors miss: a current-state topic
+        (e.g. "{ENTITY} → latest status") sized with <i>delete</i> retention grows without bound, but under
+        <b>compaction</b> it's bounded by the number of distinct {KEY}s, not by traffic. You can also run
+        <b>compact + delete</b> together (keep latest-per-key, but still age out keys untouched for N days).</p>
+
+        <h3>Step 2 — Derive the window from requirements, then price it</h3>
+        <p>Pick the window from the <i>longest</i> real need, not a guess:</p>
+        <ul class="clean">
+          <li><b>Reprocess SLA:</b> "we must be able to rebuild from a bug found up to 30 days late" → ≥ 30 days.</li>
+          <li><b>Backfill:</b> "a new consumer rebuilds its view from scratch" → as far back as the view needs.</li>
+          <li><b>Compliance/audit:</b> a regulatory "keep N years" → long, and usually a tiered/archive concern.</li>
+          <li><b>Disaster recovery:</b> rebuild a downstream store → cover your worst realistic outage + margin.</li>
+        </ul>
+        <p>Then price it — retention is literally a storage bill:</p>
+        <div class="lx-code"><div class="lx-code-lang">calc</div><pre><code>stored bytes = throughput(bytes/s) × window(s) × replication factor
+e.g. 50,000 ev/s × 1 KB × 30 days × RF3 ≈ 390 TB on broker disk</code></pre></div>
+        <p>390 TB of hot broker disk to hold a 30-day rewind window is exactly the number that forces the
+        next decision.</p>
+
+        <h3>Step 3 — Decide WHERE the bytes live: hot disk vs tiered storage</h3>
+        <p>You rarely need 30 days at hot-disk latency. The principal pattern is a <b>short hot window</b>
+        on broker disk for live consumers plus <b>tiered storage</b> — older log segments offloaded to
+        object storage — for the long tail:</p>
+        <div class="lx-table-wrap"><table class="lx-table">
+          <thead><tr><th>Tier</th><th>Holds</th><th>Latency</th><th>Cost/GB</th><th>Serves</th></tr></thead>
+          <tbody>
+            <tr><td><b>Hot (broker disk)</b></td><td>Hours–days</td><td>Low</td><td>High</td><td>Live consumers, normal catch-up</td></tr>
+            <tr><td><b>Tiered (object store)</b></td><td>Weeks–∞</td><td>Higher per byte</td><td>Low</td><td>Replay, backfill, DR, audit</td></tr>
+          </tbody>
+        </table></div>
+        <p>Tiered storage is what makes long — even effectively infinite — retention affordable, and it's
+        the enabler behind <b>Kappa</b> architecture, where "the log <i>is</i> the source of truth" and you
+        rebuild any downstream by replaying from the beginning. Without tiering, "retention = source of
+        truth" is a ruinous disk bill; with it, it's a design choice.</p>
+
+        <h3>Step 4 — Operational guards a principal states</h3>
+        <ul class="clean">
+          <li><b>Retention ≥ replay window, always.</b> You can't rewind past deleted data — a retention
+          shorter than your reprocess SLA silently makes recovery impossible exactly when you need it.</li>
+          <li><b>Per-topic overrides, not one global setting.</b> A high-volume clickstream and a
+          low-volume config changelog have opposite retention needs; set them per topic.</li>
+          <li><b>Retention ≠ consumer lag budget.</b> If a consumer can lag by hours, retention must exceed
+          the max tolerated lag or a slow consumer loses data off the tail.</li>
+          <li><b>Compaction isn't instant.</b> It runs in the background, so a compacted topic still holds
+          some superseded versions transiently — size with a little headroom, don't assume exactly one
+          record per key on disk.</li>
+        </ul>
+
+        <div class="lx-callout lx-ok"><b>Interview-ready summary.</b><div>"First I pick the mechanism:
+        delete retention for event history, compaction for current-state/changelog topics — because a
+        state topic under compaction is bounded by distinct key count, not traffic. Then I derive the
+        window from the longest real need (reprocess SLA, backfill, compliance, DR) and price it:
+        throughput × window × replication, which here is ~390 TB for 30 days at RF3. That cost pushes me to
+        tiered storage — a short hot window on disk, long tail in object storage — which is what makes long
+        retention and Kappa-style 'log as source of truth' affordable. And I'd set it per topic, keep it
+        ≥ the replay window and ≥ the max consumer lag, and leave headroom for background
+        compaction."</div></div>` },
+      { id: 'sizing', label: '📐 Consumer/replay sizing', body: `
+        <h3>Sizing retention and replay like a principal</h3>
+        <p>Offsets are free; what you actually size around them is <b>retention</b> (how far back you can
+        rewind) and <b>replay throughput</b> (how fast you can). The interview question is rarely "what's
+        the offset?" — it's "how long do you keep data, how much storage is that, and how long does a
+        full replay take?" Answer it the same way: throughput → storage → time, with the drivers named.</p>
+        <div class="lx-callout lx-info"><b>The brief.</b><div>Order-events topic, sustained
+        <b>50,000 events/s</b>, average <b>1 KB</b> serialized, replication factor <b>3</b>. Business wants
+        to be able to reprocess the last <b>30 days</b> after a logic bug. A backfill consumer sustains
+        <b>80,000 events/s</b>.</div></div>
+
+        <h3>Step 1 — Retention is a storage bill, so size it</h3>
+        <p>Retention isn't a free "keep everything" dial — every day of retention is disk you pay for,
+        multiplied by replication.</p>
+        <div class="lx-code"><div class="lx-code-lang">calc</div><pre><code>raw/day   = 50,000 ev/s × 1 KB × 86,400 s  ≈ 4.32 TB/day
+30 days   = 4.32 TB × 30                   ≈ 130 TB (one replica)
+on disk   = 130 TB × replication factor 3  ≈ 390 TB stored</code></pre></div>
+        <p>390 TB on hot broker disk for a 30-day rewind window is the number that ends the "just keep it
+        forever" conversation. The principal move is <b>tiered storage</b>: keep a short hot window
+        (hours–days) on broker disk for live consumers, and offload older segments to object storage for
+        cheap long/▸infinite retention. Replay then reads mostly from object storage — slower per byte,
+        but a fraction of the cost, and it's what makes Kappa-style "retention = source of truth" affordable.</p>
+
+        <h3>Step 2 — Replay time is throughput ÷ rate, and it bounds your recovery</h3>
+        <p>"We can reprocess 30 days" is meaningless without <i>how long</i>. Compute it:</p>
+        <div class="lx-code"><div class="lx-code-lang">calc</div><pre><code>backlog   = 50,000 ev/s × 86,400 × 30 ≈ 130 billion events
+at 1× consume (80k/s) → 130e9 / 80,000 ≈ 18.8 days to replay (!)
+to replay 30 days of data in 24 h you need ≈ 1.5 million ev/s drain
+→ ≈ 19× the steady consume rate → size partitions + consumer instances for it</code></pre></div>
+        <p>This is the catch most people miss: a replay rate equal to the <i>produce</i> rate takes as
+        long as the history is old, and meanwhile new data keeps arriving. Your <b>recovery SLA</b> (how
+        fast you must reprocess after a bug) is what sets the required consumer parallelism — which loops
+        straight back to partition count (Module 04). Replay capacity and partition count are the same
+        decision viewed from two directions.</p>
+
+        <h3>Step 3 — The offset-store and commit-frequency trade-off</h3>
+        <p>Two smaller sizing dials worth naming in an interview:</p>
+        <ul class="clean">
+          <li><b>Commit frequency:</b> committing every record is safe but adds load and latency;
+          committing rarely shrinks overhead but widens the reprocess window on a crash (at-least-once
+          means more duplicates to absorb). Size it to your duplicate-tolerance and idempotency, typically
+          commit every N records or every few seconds.</li>
+          <li><b>auto-offset-reset for a backfill:</b> <code>earliest</code> on a 30-day topic means a new
+          group replays 130 B events on first start — throttle it, scale the sink, or run it out-of-band,
+          or it melts downstream (the incident in <i>Commit semantics</i>).</li>
+        </ul>
+
+        <div class="lx-callout lx-ok"><b>Interview-ready summary.</b><div>"Retention is a storage decision:
+        throughput × bytes × days × replication — here ~390 TB for 30 days at RF3, which is why I'd use
+        tiered storage, hot window on disk and cold segments in object storage. Replay <i>time</i> is
+        backlog ÷ drain rate: at 1× consume a 30-day replay takes ~30 days, so my recovery SLA sets the
+        consumer parallelism and partition count, not the steady-state load. And I'd size commit frequency
+        to my duplicate tolerance and guard auto-offset-reset=earliest so a backfill doesn't flood the
+        sink."</div></div>` },
       { id: 'iq', label: '🎤 Interview', body: iq([
+        { q: 'Delete retention vs log compaction — how do you choose, and why does it change sizing?', a:
+          `Choose by what the topic represents. Delete (time/size) retention keeps every event until it
+          ages out — right for event history, facts, and audit, and sized as throughput × window ×
+          replication. Compaction keeps only the latest value per key (plus tombstones for deletes) — right
+          for changelogs, current-state, CDC, and config topics, and sized by distinct key count × record
+          size × replication, independent of traffic. That's the key insight: a current-state topic under
+          delete retention grows without bound, but under compaction it's bounded by cardinality. You can
+          also combine compact+delete to still age out keys untouched for N days.` },
+        { q: 'How do you size retention, and what does 30-day retention actually cost?', a: `Retention is a
+          storage bill: throughput × avg bytes × seconds × replication factor. At 50k ev/s × 1 KB that's
+          ~4.3 TB/day raw, ×30 days ×RF3 ≈ 390 TB on broker disk — which is why "keep everything" doesn't
+          survive contact with the storage cost. The principal answer is tiered storage: a short hot window
+          on disk for live consumers, older segments offloaded to object storage for cheap long retention.
+          That's what makes long replay windows (and Kappa-style reprocessing) affordable.` },
+        { q: 'You say you can replay 30 days of history. How long does that take?', a: `backlog ÷ drain
+          rate. 30 days at 50k ev/s is ~130 billion events; at a 1× consume rate (~80k/s) that's ~18 days
+          to replay — and new data keeps arriving meanwhile. So "we retain 30 days" is not "we recover in
+          30 days"; the recovery SLA sets the required drain rate (here ~19× steady to replay in a day),
+          which sets consumer parallelism and therefore partition count. Replay capacity and partition
+          sizing are the same decision.` },
         { q: 'How is a consumer offset different from a queue acknowledgement?', a: `An ack tells the
           server "delete this message, I've got it" — the server owns delivery state and the data is gone.
           An offset is the consumer's own bookmark over data that stays in the log until retention expires.
@@ -1261,7 +1555,91 @@ export const FOUNDATIONS = [
         pipeline reliable; reliability emerges from layering them. A principal reflex when designing any hop:
         "how does this fail, which pattern covers it, and what's the blast radius if that pattern also
         fails?"</div></div>` },
+      { id: 'repl', label: '📐 Replication sizing', body: `
+        <h3>Replication factor is a durability dial with three knobs, not one</h3>
+        <p>"What replication factor?" is a trap if you answer with a bare number. Durability is set by
+        <b>three settings together</b> — the replication factor (how many copies exist), the producer
+        <code>acks</code> (how many must acknowledge before the write is considered sent), and
+        <code>min.insync.replicas</code> (how many in-sync copies must exist for a write to be accepted).
+        A principal sizes all three as one decision, from a durability and availability target, then prices
+        the storage.</p>
+        <div class="lx-callout lx-info"><b>The brief.</b><div>Order-events topic, must survive the loss of
+        <b>any one broker (or one AZ)</b> with <b>no acknowledged-write loss</b>, across a 3-AZ region.
+        Throughput 50,000 ev/s × 1 KB, 7-day retention.</div></div>
+
+        <h3>Step 1 — Pick RF from the failure you must tolerate</h3>
+        <p>To survive <b>f</b> simultaneous replica failures <i>without losing an acknowledged write</i>,
+        you need the writes to land on more than f copies and keep a quorum. The standard, well-worn answer
+        for "tolerate one failure" is <b>RF=3 with min.insync.replicas=2 and acks=all</b>:</p>
+        <div class="lx-table-wrap"><table class="lx-table">
+          <thead><tr><th>Setting</th><th>Value</th><th>Why</th></tr></thead>
+          <tbody>
+            <tr><td><b>replication.factor</b></td><td>3</td><td>Three copies → can lose one and still have two.</td></tr>
+            <tr><td><b>min.insync.replicas</b></td><td>2</td><td>A write needs 2 in-sync copies to be accepted, so an acked write is on ≥2 brokers — losing one can't lose it.</td></tr>
+            <tr><td><b>acks</b></td><td>all</td><td>Producer waits for all in-sync replicas (≥ min.insync) before considering the write durable.</td></tr>
+          </tbody>
+        </table></div>
+        <p>The pairing is the whole point: <b>RF=3 alone doesn't guarantee durability</b> — with
+        <code>acks=1</code> a write acked by only the leader can be lost if that leader dies before a
+        follower copies it. RF sets how many copies <i>can</i> exist; <code>acks</code> +
+        <code>min.insync.replicas</code> set how many <i>must</i> have it before you call it safe.</p>
+
+        <h3>Step 2 — Understand the availability trade you just made</h3>
+        <p><code>min.insync.replicas=2</code> with RF=3 means: lose one replica and you still accept writes
+        (2 remain, which meets the minimum); lose a <i>second</i> and the partition goes
+        <b>read-only / unavailable for writes</b> rather than risk under-replicated data loss. That's the
+        deliberate trade — you chose <b>consistency over availability</b> for the second failure. Pushing
+        min.insync.replicas=3 on RF=3 is almost always a mistake: now a single broker restart stalls all
+        writes, because you can't tolerate even one missing replica.</p>
+        <div class="lx-code"><div class="lx-code-lang">rule of thumb</div><pre><code>RF = (failures to tolerate) + 1          # survive f losses → RF ≥ f+1
+min.insync.replicas = RF - (write-availability failures to tolerate)
+acks = all                               # or the whole chain is theatre
+typical: RF=3, min.insync=2, acks=all    # tolerate 1 loss, stay writable through 1</code></pre></div>
+
+        <h3>Step 3 — Place the replicas: rack / AZ awareness</h3>
+        <p>Three copies on three brokers in the <i>same</i> rack or AZ don't survive an AZ outage. Use
+        <b>rack-aware placement</b> so the RF=3 copies land in three different failure domains (3 AZs). Now
+        RF is also your blast-radius design: an AZ loss drops one replica per partition, min.insync=2 still
+        holds, and writes continue. This is why "RF=3 across 3 AZs" is the default spine of a durable
+        streaming cluster.</p>
+
+        <h3>Step 4 — Price it: RF is a direct storage multiplier</h3>
+        <p>Every copy is real disk, so replication multiplies the retention bill linearly:</p>
+        <div class="lx-code"><div class="lx-code-lang">calc</div><pre><code>one replica (7 days) = 50,000 ev/s × 1 KB × 86,400 × 7 ≈ 30 TB
+RF=3 on disk         = 30 TB × 3                         ≈ 90 TB
+cross-AZ replication also costs inter-AZ network transfer, continuously</code></pre></div>
+        <p>So RF is a correctness decision with a 3× (or Nx) cost tail: storage, inter-AZ bandwidth, and
+        write latency (acks=all waits for the slowest in-sync follower). You don't go higher than 3 without
+        a specific reason — a regulatory multi-region mandate, or a topic so critical the extra copy earns
+        its cost. Going to RF=5 (tolerate two failures) more than the storage; it also raises tail latency.</p>
+
+        <div class="lx-callout lx-ok"><b>Interview-ready summary.</b><div>"Replication factor is never one
+        number — it's RF with acks and min.insync.replicas. To survive one broker/AZ loss with no acked-write
+        loss I use the standard RF=3, min.insync.replicas=2, acks=all: three copies, a write must reach two
+        in-sync replicas, so losing one can't lose data and writes continue; lose a second and I
+        deliberately go read-only rather than risk loss. I place the three replicas across three AZs with
+        rack-aware assignment so an AZ outage only costs one replica. And I price it — RF is a linear storage
+        multiplier (~90 TB at RF3 here) plus inter-AZ bandwidth and the acks=all latency tax — so I don't go
+        past 3 without a specific durability mandate."</div></div>` },
       { id: 'iq', label: '🎤 Interview', body: iq([
+        { q: 'What replication factor do you use, and why is the number alone not an answer?', a: `RF is one
+          of three settings that together set durability: replication factor (copies that can exist), acks
+          (how many must acknowledge a write), and min.insync.replicas (how many in-sync copies a write
+          requires). The standard for tolerating one broker/AZ loss with no acked-write loss is RF=3,
+          min.insync.replicas=2, acks=all. RF=3 with acks=1 is not durable — a leader-only ack can be lost
+          if the leader dies before a follower copies it. So I always quote the triple, not a bare RF.` },
+        { q: 'With RF=3 and min.insync.replicas=2, what happens as brokers fail?', a: `Lose one replica and
+          writes continue — two in-sync copies still meet the minimum, so you tolerate the failure with no
+          data loss. Lose a second and the partition becomes read-only / unavailable for writes rather than
+          accept an under-replicated write that could be lost — a deliberate choice of consistency over
+          write-availability for the second failure. That's why min.insync.replicas=3 on RF=3 is usually
+          wrong: a single broker restart would then stall all writes.` },
+        { q: 'Why does replica placement matter, and what does RF cost?', a: `Three copies in the same AZ
+          don't survive an AZ outage, so you use rack-aware placement to spread the RF=3 copies across three
+          AZs — then an AZ loss costs only one replica and min.insync=2 still holds. Cost-wise RF is a linear
+          storage multiplier (RF=3 is 3× the retained bytes on disk) plus continuous inter-AZ network
+          transfer and the write-latency tax of acks=all waiting on the slowest in-sync follower. So you
+          don't exceed RF=3 without a specific mandate.` },
         { q: 'Why is idempotency so central to streaming reliability?', a: `Because the pragmatic default is
           at-least-once delivery, which means duplicates will happen on retries and recovery replays.
           Idempotent operations — set-to-value, upsert by deterministic key — make applying the same event

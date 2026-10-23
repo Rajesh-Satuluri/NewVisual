@@ -14,6 +14,30 @@
   var byId = {};
   ALL.forEach(function (p) { byId[p.id] = p; });
 
+  // ---- full-text haystack ----
+  // The Fuse index below matches titles + metadata only (fast, fuzzy). To also
+  // catch concept phrases that live in prose — the paraphrased statement, the
+  // A–M logic write-ups, example reasoning, recognition/recall cues, even the
+  // clean solution code — precompute one lowercased text blob per problem that
+  // visibleIds() substring-scans. Built once at load; memory is a few MB.
+  function buildHaystack(p) {
+    var parts = [p.title, p.category, p.difficulty];
+    if (p.meta) parts.push(p.meta.pattern, p.meta.dataStructure, p.meta.technique);
+    if (p.description) parts.push(p.description);
+    if (p.constraints) parts.push(p.constraints.join(" "));
+    if (p.notes) parts.push(p.notes.join(" "));
+    (p.examples || []).forEach(function (ex) {
+      parts.push(ex.input, ex.output, ex.reasoning, ex.visual);
+    });
+    (p.approaches || []).forEach(function (a) {
+      parts.push(a.name, a.whenToUse, a.logic, a.plain);
+    });
+    if (p.patternRecognition) parts.push(p.patternRecognition.join(" "));
+    if (p.interviewRecall) parts.push(p.interviewRecall.join(" "));
+    return parts.filter(Boolean).join(" \n ").toLowerCase();
+  }
+  ALL.forEach(function (p) { p._ft = buildHaystack(p); });
+
   // ---- pattern-intro pseudo-entries ----
   // Each category that has a chapter explanation gets a standalone "Introduction
   // to X" entry that sits atop its sidebar group. It is NOT a real problem (not
@@ -36,7 +60,8 @@
   // ---- Fuse search index ----
   var fuse = new Fuse(ALL, {
     includeScore: true,
-    threshold: 0.38,
+    threshold: 0.3,
+    minMatchCharLength: 2,
     ignoreLocation: true,
     keys: [
       { name: "title", weight: 0.4 },
@@ -245,20 +270,99 @@
     if (window.LABFILTERS) window.LABFILTERS.setContext(["difficulty", "status", "importance"]);
   }
 
+  // Map a problem to the plain-string getters SEARCH.passFacets expects.
+  function facetGetters(p) {
+    return {
+      difficulty: p.difficulty || "",
+      status: store.getStatus(p.id),
+      blind75: B.isBlind75(p),
+      pattern: (p.meta && p.meta.pattern) || "",
+      dataStructure: (p.meta && p.meta.dataStructure) || "",
+      category: p.category || ""
+    };
+  }
+
+  // Raw query -> lowercased words to substring-match against the full-text blob.
+  // Facet tokens ("diff:hard") are skipped; punctuation is stripped but c#/c++
+  // survive. Words shorter than 2 chars are dropped.
+  function ftWords(raw) {
+    var toks = String(raw || "").toLowerCase().split(/\s+/), out = [];
+    for (var i = 0; i < toks.length; i++) {
+      var t = toks[i];
+      if (t.indexOf(":") !== -1) continue;        // facet token — handled elsewhere
+      t = t.replace(/[^a-z0-9#+]/g, "");
+      if (t.length >= 2) out.push(t);
+    }
+    return out;
+  }
+  // Widen fuzzy title/metadata hits with a precise full-text pass: append any
+  // problem whose prose/code haystack contains EVERY query word (AND match).
+  // This surfaces concept-phrase matches the title index misses, without the
+  // noise a fuzzy scan over long text would add.
+  function mergeFullText(hits, raw) {
+    var words = ftWords(raw);
+    if (!words.length) return hits;
+    var seen = {}, out = hits.slice();
+    hits.forEach(function (p) { seen[p.id] = true; });
+    for (var i = 0; i < ALL.length; i++) {
+      var p = ALL[i];
+      if (seen[p.id] || !p._ft) continue;
+      var ok = true;
+      for (var w = 0; w < words.length; w++) {
+        if (p._ft.indexOf(words[w]) === -1) { ok = false; break; }
+      }
+      if (ok) { out.push(p); seen[p.id] = true; }
+    }
+    return out;
+  }
+
   // Which problems pass the current filters/search? Returns a Set of ids.
   function visibleIds() {
+    var q = state.query.trim();
+    var parsed = window.SEARCH ? window.SEARCH.parse(q)
+      : { text: q, terms: [], facets: {}, lc: null };
+    state.searchTerms = parsed.terms || [];
+
     var base = ALL;
-    if (state.query.trim()) {
-      base = fuse.search(state.query.trim()).map(function (r) { return r.item; });
+    if (parsed.lc != null) {
+      // Bare LeetCode number -> exact-number jump.
+      base = ALL.filter(function (p) { return String(p.lc) === String(parsed.lc); });
+    } else if (parsed.text) {
+      var hits = fuse.search(parsed.text).map(function (r) { return r.item; });
+      // Full-text widening only kicks in when the fuzzy title/metadata search is
+      // thin (< 6 hits) — enough to rescue concept-phrase queries that live only
+      // in prose (e.g. "pigeonhole", "amortized"), without flooding common
+      // queries like "two sum" that already match many titles.
+      base = hits.length < 6 ? mergeFullText(hits, q) : hits;
     }
+    var hasFacets = false;
+    for (var fk in parsed.facets) { hasFacets = true; break; }
+
     var ids = {};
     base.forEach(function (p) {
       if (!inActiveSet(p)) return;
       if (window.LABFILTERS && !window.LABFILTERS.passes(p, DSA_GETTERS)) return;
       if (state.filterPattern !== "all" && (!p.meta || p.meta.pattern !== state.filterPattern)) return;
+      if (hasFacets && window.SEARCH && !window.SEARCH.passFacets(facetGetters(p), parsed.facets)) return;
       ids[p.id] = true;
     });
     return ids;
+  }
+
+  // The visible problems in the exact order the sidebar lays them out (current
+  // grouping lens + search + filters). Prev/Next walk THIS so stepping follows
+  // the list the user is looking at. Falls back to the full canonical list if
+  // the current problem is filtered out of view.
+  function orderedVisible(curId) {
+    var vis = visibleIds(), out = [];
+    activeGroups().forEach(function (g) {
+      byFrequency(g.problems.filter(function (p) { return vis[p.id]; })).forEach(function (p) { out.push(p); });
+    });
+    if (curId != null) {
+      for (var i = 0; i < out.length; i++) if (out[i].id === curId) return out;
+      return ALL;
+    }
+    return out;
   }
 
   // ============================================================= SIDEBAR
@@ -427,9 +531,12 @@
         var imp = impOf(p);
         var impDot = imp === "occasional" ? "" :
           '<span class="ni-imp ' + IMP_META[imp].cls + '" title="' + IMP_META[imp].label + ' — interview importance">●</span>';
+        var titleHtml = (window.SEARCH && state.searchTerms && state.searchTerms.length)
+          ? window.SEARCH.highlight(p.title, state.searchTerms)
+          : esc(p.title);
         item.innerHTML =
           '<span class="st st-' + st + '">' + STATUS_GLYPH[st] + "</span>" +
-          '<span class="ni-title">' + esc(p.title) + "</span>" +
+          '<span class="ni-title">' + titleHtml + "</span>" +
           (store.isReview(p.id) ? '<span class="ni-review" title="Flagged for review">★</span>' : "") +
           impDot +
           '<span class="ni-diff d-' + p.difficulty.toLowerCase() + '">' + p.difficulty.charAt(0) + "</span>";
@@ -460,9 +567,26 @@
       }
     }
 
-    if (!nav.children.length) {
-      nav.appendChild(h("div", { class: "nav-empty" }, "No problems match your search / filters."));
+    if (!nav.querySelector(".cat-block") && !nav.querySelector(".nav-xsearch")) {
+      var emptyBox = h("div", { class: "nav-empty" }, "No problems match your search / filters.");
+      var q = state.query.trim();
+      if (q && window.SEARCH) {
+        var guess = window.SEARCH.suggestCategory(q, B.CATEGORY_ORDER || []);
+        if (guess) {
+          var sug = h("button", { class: "nav-empty-sug" }, "Did you mean " + esc(guess) + "?");
+          sug.addEventListener("click", function () {
+            var s = el("search"); if (s) { s.value = guess; state.query = guess; }
+            renderSidebar(); renderProgress(); updateSearchUI();
+          });
+          emptyBox.appendChild(sug);
+        }
+      }
+      nav.appendChild(emptyBox);
     }
+    // Result count surfaced to the search UI.
+    var _cnt = 0; for (var _k in vis) if (vis[_k]) _cnt++;
+    state.searchCount = _cnt;
+    updateSearchUI();
     updateToggleAllIcon();
   }
 
@@ -606,6 +730,153 @@
         if (window.Prism) window.Prism.highlightElement(code);
         addIndentGuides(code);
       }
+    }
+
+    render();
+    return wrap;
+  }
+
+  // ============================================================= LOGIC BLOCK
+  // The "Complete Logic" write-up renders as Markdown but can be unlocked and
+  // rewritten in the reader's own words for active recall — the same edit
+  // affordance the PySpark practice lab ships (js/problemlab.js). Edits persist
+  // per problem + approach through the shared store, and reset to the original
+  // when the text is cleared back. `ident` = { id, ai }. When `blur` is on the
+  // rendered Markdown keeps its blur-to-recall overlay; entering edit mode
+  // always reveals the text (you can't rewrite what you can't read).
+  function logicBlock(srcMd, ident, blur) {
+    var wrap = h("div", { class: "logic-wrap" });
+    var bar = h("div", { class: "logic-bar" });
+    bar.appendChild(h("span", { class: "logic-tag" }, "Logic"));
+    var actions = h("div", { class: "code-actions" });
+    bar.appendChild(actions);
+    var body = h("div", { class: "logic-body" });
+    wrap.appendChild(bar);
+    wrap.appendChild(body);
+
+    var editing = false; // lock state is per-block and starts LOCKED every render
+
+    function savedEdit() { return store.getLogicEdit(ident.id, ident.ai); }
+    function currentSource() {
+      var e = savedEdit();
+      return e != null ? e : srcMd;
+    }
+
+    function render() {
+      body.innerHTML = "";
+      actions.innerHTML = "";
+
+      if (savedEdit() != null) {
+        actions.appendChild(h("span", { class: "code-edited", title: "This logic was edited locally" }, "edited"));
+      }
+
+      var lock = h("button", { class: "code-mini lock" + (editing ? " on" : "") },
+        editing ? "🔓 Editing" : "✏️ Edit");
+      lock.title = editing ? "Lock to stop editing (changes are saved)" : "Unlock to rewrite this logic in Markdown";
+      lock.addEventListener("click", function () { editing = !editing; render(); });
+      actions.appendChild(lock);
+
+      if (editing) {
+        var ta = h("textarea", { class: "logic-edit", spellcheck: "false", autocomplete: "off" });
+        ta.value = currentSource();
+        var fit = function () { ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px"; };
+        ta.addEventListener("input", function () {
+          fit();
+          if (ta.value === srcMd) store.clearLogicEdit(ident.id, ident.ai); // back to original
+          else store.setLogicEdit(ident.id, ident.ai, ta.value);
+        });
+        // two-space indent on Tab (Markdown-friendly), same feel as the code editor
+        ta.addEventListener("keydown", function (e) {
+          if (e.key === "Tab") {
+            e.preventDefault();
+            var s = ta.selectionStart, en = ta.selectionEnd;
+            ta.value = ta.value.slice(0, s) + "  " + ta.value.slice(en);
+            ta.selectionStart = ta.selectionEnd = s + 2;
+            ta.dispatchEvent(new Event("input"));
+          }
+        });
+        body.appendChild(ta);
+        // preventScroll: focusing the fresh textarea must not jump the page down
+        setTimeout(function () { fit(); ta.focus({ preventScroll: true }); }, 0);
+      } else {
+        var node = h("div", { class: "md logic" + (blur ? " blurred" : "") });
+        node.innerHTML = md(currentSource());
+        if (blur) node.appendChild(revealOverlay(node));
+        body.appendChild(node);
+      }
+    }
+
+    render();
+    return wrap;
+  }
+
+  // =========================================================== DESCRIPTION BLOCK
+  // The "Problem Description" prose renders as Markdown but can be unlocked and
+  // rewritten in the reader's own words — the same edit affordance the Logic and
+  // code blocks ship. Keyed per problem (no approach index). Any structured
+  // extras (constraints, notes) render read-only below the editable prose.
+  function descBlock(srcMd, ident, extras) {
+    var wrap = h("div", { class: "logic-wrap" });
+    var bar = h("div", { class: "logic-bar" });
+    bar.appendChild(h("span", { class: "logic-tag" }, "Description"));
+    var actions = h("div", { class: "code-actions" });
+    bar.appendChild(actions);
+    var body = h("div", { class: "logic-body" });
+    wrap.appendChild(bar);
+    wrap.appendChild(body);
+
+    var editing = false; // lock state is per-block and starts LOCKED every render
+
+    function savedEdit() { return store.getDescEdit(ident.id); }
+    function currentSource() {
+      var e = savedEdit();
+      return e != null ? e : srcMd;
+    }
+
+    function render() {
+      body.innerHTML = "";
+      actions.innerHTML = "";
+
+      if (savedEdit() != null) {
+        actions.appendChild(h("span", { class: "code-edited", title: "This description was edited locally" }, "edited"));
+      }
+
+      var lock = h("button", { class: "code-mini lock" + (editing ? " on" : "") },
+        editing ? "🔓 Editing" : "✏️ Edit");
+      lock.title = editing ? "Lock to stop editing (changes are saved)" : "Unlock to rewrite this description in Markdown";
+      lock.addEventListener("click", function () { editing = !editing; render(); });
+      actions.appendChild(lock);
+
+      if (editing) {
+        var ta = h("textarea", { class: "logic-edit", spellcheck: "false", autocomplete: "off" });
+        ta.value = currentSource();
+        var fit = function () { ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px"; };
+        ta.addEventListener("input", function () {
+          fit();
+          if (ta.value === srcMd) store.clearDescEdit(ident.id); // back to original
+          else store.setDescEdit(ident.id, ta.value);
+        });
+        // two-space indent on Tab (Markdown-friendly), same feel as the code editor
+        ta.addEventListener("keydown", function (e) {
+          if (e.key === "Tab") {
+            e.preventDefault();
+            var s = ta.selectionStart, en = ta.selectionEnd;
+            ta.value = ta.value.slice(0, s) + "  " + ta.value.slice(en);
+            ta.selectionStart = ta.selectionEnd = s + 2;
+            ta.dispatchEvent(new Event("input"));
+          }
+        });
+        body.appendChild(ta);
+        // preventScroll: focusing the fresh textarea must not jump the page down
+        setTimeout(function () { fit(); ta.focus({ preventScroll: true }); }, 0);
+      } else {
+        var node = h("div", { class: "md" });
+        node.innerHTML = md(currentSource());
+        body.appendChild(node);
+      }
+
+      // structured constraints / notes always render read-only below the prose
+      if (extras) extras.forEach(function (n) { body.appendChild(n); });
     }
 
     render();
@@ -856,16 +1127,15 @@
     // ---- animation / visualization links (above the description) ----
     main.appendChild(buildLinksSection(p));
 
-    // ---- Problem Description ----
-    var descNode = h("div", { class: "md" });
-    descNode.innerHTML = md(p.description);
+    // ---- Problem Description (editable — unlock to rewrite in your own words) ----
+    var descExtras = [];
     if (p.constraints && p.constraints.length) {
       var cwrap = h("div", { class: "constraints" });
       cwrap.appendChild(h("div", { class: "subhead" }, "Constraints"));
       var ul = h("ul");
       p.constraints.forEach(function (c) { ul.appendChild(h("li", { html: md(c).replace(/^<p>|<\/p>$/g, "") })); });
       cwrap.appendChild(ul);
-      descNode.appendChild(cwrap);
+      descExtras.push(cwrap);
     }
     if (p.notes && p.notes.length) {
       var nwrap = h("div", { class: "notes-block" });
@@ -873,9 +1143,10 @@
       var ul2 = h("ul");
       p.notes.forEach(function (c) { ul2.appendChild(h("li", { html: md(c).replace(/^<p>|<\/p>$/g, "") })); });
       nwrap.appendChild(ul2);
-      descNode.appendChild(nwrap);
+      descExtras.push(nwrap);
     }
-    main.appendChild(section("description", "Problem Description", descNode));
+    main.appendChild(section("description", "Problem Description",
+      descBlock(p.description, { id: p.id }, descExtras)));
 
     // ---- Examples ----
     var exWrap = h("div", { class: "examples" });
@@ -920,11 +1191,9 @@
     var cur = approaches[ai] || {};
     var blur = store.getPref("blur");
 
-    // Logic
-    var logicNode = h("div", { class: "md logic" + (blur ? " blurred" : "") });
-    logicNode.innerHTML = md(cur.logic);
-    if (blur) logicNode.appendChild(revealOverlay(logicNode));
-    var logicSection = section("logic", "Complete Logic — " + (cur.name || "Approach"), logicNode, { collapsed: true });
+    // Logic (editable — unlock to rewrite in your own words for active recall)
+    var logicSection = section("logic", "Complete Logic — " + (cur.name || "Approach"),
+      logicBlock(cur.logic, { id: p.id, ai: ai }, blur), { collapsed: true });
     apWrap.appendChild(logicSection);
 
     // Code (RCS / Plain toggle)
@@ -1002,8 +1271,9 @@
 
     // ---- prev/next nav ----
     var footer = h("div", { class: "prob-nav" });
-    var idx = ALL.findIndex(function (x) { return x.id === p.id; });
-    var prev = ALL[idx - 1], next = ALL[idx + 1];
+    var navList = orderedVisible(p.id);
+    var idx = navList.findIndex(function (x) { return x.id === p.id; });
+    var prev = navList[idx - 1], next = navList[idx + 1];
     var pbtn = h("button", { class: "nav-btn" + (prev ? "" : " disabled") },
       prev ? "← " + esc(prev.title) : "← Start");
     if (prev) pbtn.addEventListener("click", function () { navigate("#" + prev.id); });
@@ -1090,7 +1360,7 @@
 
   // small transient toast
   var toastTimer;
-  function toast(msg) {
+  function toast(msg, ms) {
     var t = el("toast");
     if (!t) {
       t = h("div", { class: "toast", id: "toast" });
@@ -1099,7 +1369,7 @@
     t.textContent = msg;
     t.classList.add("show");
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { t.classList.remove("show"); }, 1800);
+    toastTimer = setTimeout(function () { t.classList.remove("show"); }, ms || 1800);
   }
 
   function buildLinksSection(p) {
@@ -1166,18 +1436,56 @@
   }
 
   // ============================================================= SELECT
-  // Next problem (in the active set's order) that isn't solved yet; wraps around.
-  // Returns null when everything in the set is solved.
+  // Smart "what to study next": the highest-leverage UNSOLVED problem in the
+  // active set, rather than the next one in list order. Priority, in order:
+  //   1. a card that's due for review (if it's also unsolved) — spaced review wins
+  //   2. the weakest category (lowest solved ratio)
+  //   3. interview importance (essential > common > occasional)
+  //   4. the weakest pattern
+  //   5. canonical order, as a stable tiebreak
+  // The contract is unchanged — it returns an unsolved id or null — so every
+  // caller ("Next unsolved →", the `n` key, the solved toast) keeps working.
   function nextUnsolvedId(fromId) {
     var list = activeProblems();
     if (!list.length) return null;
-    var start = list.findIndex(function (p) { return p.id === fromId; });
-    if (start < 0) start = -1;
-    for (var off = 1; off <= list.length; off++) {
-      var p = list[(start + off) % list.length];
-      if (store.getStatus(p.id) !== "solved") return p.id;
+
+    // solved/total ratios per category and per pattern across the active set
+    var catAgg = {}, patAgg = {};
+    list.forEach(function (p) {
+      var c = p.category || "", pat = (p.meta && p.meta.pattern) || "";
+      if (!catAgg[c]) catAgg[c] = { s: 0, t: 0 };
+      catAgg[c].t++; if (store.getStatus(p.id) === "solved") catAgg[c].s++;
+      if (pat) {
+        if (!patAgg[pat]) patAgg[pat] = { s: 0, t: 0 };
+        patAgg[pat].t++; if (store.getStatus(p.id) === "solved") patAgg[pat].s++;
+      }
+    });
+    function ratio(agg, k) { var a = agg[k]; return (a && a.t) ? a.s / a.t : 1; }
+    var impRank = { essential: 0, common: 1, occasional: 2 };
+
+    var best = null, bestKey = null;
+    for (var i = 0; i < list.length; i++) {
+      var p = list[i];
+      if (p.id === fromId || store.getStatus(p.id) === "solved") continue;
+      var ir = impRank[impOf(p)]; if (ir == null) ir = 1;
+      var key = [
+        store.isDue(p.id) ? 0 : 1,
+        ratio(catAgg, p.category || ""),
+        ir,
+        ratio(patAgg, (p.meta && p.meta.pattern) || ""),
+        i
+      ];
+      if (bestKey === null || cmpKey(key, bestKey) < 0) { bestKey = key; best = p.id; }
     }
-    return null;
+    return best;
+  }
+  // Lexicographic compare of two numeric priority tuples.
+  function cmpKey(a, b) {
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] < b[i]) return -1;
+      if (a[i] > b[i]) return 1;
+    }
+    return 0;
   }
 
   // Pure renderer for a problem — history is managed by navigate()/applyRoute().
@@ -1547,14 +1855,155 @@
     if (nav) { nav.classList.remove("nav-flip"); void nav.offsetWidth; nav.classList.add("nav-flip"); }
   }
 
+  // ---- search enhancement UI: clear button, result count, suggestions,
+  // keyboard navigation of results (DSA python+practice only) ----
+  var _kbIdx = -1;
+  function isDSASearch() { return state.stack === "python" && state.mode === "practice"; }
+  function updateSearchUI() {
+    var s = el("search"); if (!s) return;
+    var on = isDSASearch();
+    var clear = el("searchClear");
+    if (clear) clear.hidden = !(on && s.value);
+    var count = el("searchCount");
+    if (count) {
+      var q = state.query.trim();
+      if (on && q) {
+        count.hidden = false;
+        var n = state.searchCount || 0;
+        count.textContent = n + (n === 1 ? " result" : " results");
+      } else { count.hidden = true; }
+    }
+  }
+  function searchResultItems() {
+    var nav = el("nav"); if (!nav) return [];
+    // actual problems only — skip the "Introduction to <pattern>" entries
+    return Array.prototype.slice.call(nav.querySelectorAll('.nav-item[data-id]:not(.nav-intro)'));
+  }
+  function clearKbSel(items) { for (var i = 0; i < items.length; i++) items[i].classList.remove("kbsel"); }
+
+  function wireSearchEnhance(search) {
+    var box = search.parentNode; // .search-box
+
+    // Clear (✕) button — sits between the input and the filter gear.
+    var clear = h("button", { id: "searchClear", class: "search-clear", type: "button", "aria-label": "Clear search", title: "Clear search" }, "✕");
+    clear.hidden = true;
+    clear.addEventListener("click", function () {
+      search.value = ""; state.query = ""; _kbIdx = -1;
+      renderSidebar(); renderProgress(); updateSearchUI();
+      search.focus(); showSuggest();
+    });
+    var gear = el("filterToggle");
+    if (gear && gear.parentNode === box) box.insertBefore(clear, gear);
+    else box.appendChild(clear);
+
+    // Result count line, just under the search row.
+    var count = h("div", { id: "searchCount", class: "search-count" });
+    count.hidden = true;
+    if (box.parentNode) box.parentNode.insertBefore(count, box.nextSibling);
+
+    // Suggestions dropdown (recent searches + quick pattern jumps).
+    var drop = h("div", { id: "searchSuggest", class: "search-suggest", role: "listbox" });
+    drop.hidden = true;
+    box.appendChild(drop);
+
+    function applySuggest(q) {
+      search.value = q; state.query = q; _kbIdx = -1;
+      renderSidebar(); renderProgress(); updateSearchUI(); hideSuggest();
+      search.focus();
+      if (window.SEARCH) window.SEARCH.addRecent(q);
+    }
+    function addItem(label, iconHtml, val) {
+      var it = h("button", { class: "ss-item", type: "button", role: "option" },
+        '<span class="ss-ic">' + iconHtml + "</span>" + esc(label));
+      it.addEventListener("mousedown", function (e) { e.preventDefault(); applySuggest(val); });
+      drop.appendChild(it);
+    }
+    function showSuggest() {
+      if (!isDSASearch() || search.value.trim()) { hideSuggest(); return; }
+      drop.innerHTML = "";
+      var rec = window.SEARCH ? window.SEARCH.recent() : [];
+      if (rec.length) {
+        var head = h("div", { class: "ss-head" });
+        head.appendChild(h("span", null, "Recent"));
+        var clr = h("button", { class: "ss-clear", type: "button" }, "Clear");
+        clr.addEventListener("mousedown", function (e) {
+          e.preventDefault();
+          if (window.SEARCH) window.SEARCH.clearRecent();
+          showSuggest();
+        });
+        head.appendChild(clr);
+        drop.appendChild(head);
+        for (var i = 0; i < rec.length; i++) addItem(rec[i], "🕘", rec[i]);
+      }
+      drop.appendChild(h("div", { class: "ss-head" }, "Jump to pattern"));
+      var pats = (B.CATEGORY_ORDER || []).slice(0, 8);
+      for (var c = 0; c < pats.length; c++) addItem(pats[c], (B.CATEGORY_ICON[pats[c]] || "•"), pats[c]);
+      drop.hidden = false;
+    }
+    function hideSuggest() { drop.hidden = true; }
+
+    search.addEventListener("focus", function () { showSuggest(); });
+    search.addEventListener("blur", function () {
+      if (window.SEARCH && search.value.trim().length >= 2) window.SEARCH.addRecent(search.value);
+      setTimeout(hideSuggest, 140);
+    });
+    // reset keyboard selection + toggle suggestions as the user types
+    search.addEventListener("input", function () {
+      _kbIdx = -1;
+      if (!search.value.trim()) showSuggest(); else hideSuggest();
+    });
+
+    function applyKbSel(items) {
+      clearKbSel(items);
+      var it = items[_kbIdx];
+      if (it) { it.classList.add("kbsel"); if (it.scrollIntoView) it.scrollIntoView({ block: "nearest" }); }
+    }
+    search.addEventListener("keydown", function (e) {
+      if (!isDSASearch()) return;
+      var items;
+      if (e.key === "ArrowDown") {
+        e.preventDefault(); hideSuggest();
+        items = searchResultItems(); if (!items.length) return;
+        _kbIdx = Math.min(_kbIdx + 1, items.length - 1); applyKbSel(items);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        items = searchResultItems(); if (!items.length) return;
+        _kbIdx = Math.max(_kbIdx - 1, 0); applyKbSel(items);
+      } else if (e.key === "Enter") {
+        items = searchResultItems();
+        if (items.length) {
+          e.preventDefault();
+          var pick = items[_kbIdx >= 0 ? _kbIdx : 0];
+          if (pick) {
+            if (window.SEARCH && search.value.trim().length >= 2) window.SEARCH.addRecent(search.value);
+            navigate("#" + pick.getAttribute("data-id")); hideSuggest();
+          }
+        }
+      } else if (e.key === "Escape") {
+        if (!drop.hidden) { e.preventDefault(); hideSuggest(); }
+        else if (_kbIdx >= 0) { e.preventDefault(); _kbIdx = -1; clearKbSel(searchResultItems()); }
+      }
+    });
+  }
+
   function wireControls() {
     var search = el("search");
+    var searchDeb = null;
     search.addEventListener("input", function () {
-      if (state.stack === "python" && state.mode === "practice") { state.query = search.value; renderSidebar(); renderProgress(); }
+      if (state.stack === "python" && state.mode === "practice") {
+        state.query = search.value;
+        updateSearchUI(); // clear button + count update immediately
+        if (searchDeb) clearTimeout(searchDeb);
+        searchDeb = setTimeout(function () {
+          searchDeb = null;
+          renderSidebar(); renderProgress();
+        }, 110); // debounce the heavier re-render on 227 items
+      }
       else if (state.stack === "python" && state.mode === "learn") { if (window.PYLAB && window.PYLAB.onSearch) window.PYLAB.onSearch(search.value); }
       else if (state.mode === "practice") { if (window.ProblemLab) window.ProblemLab.onSearch(search.value); }
       else { if (window.ConceptLab) window.ConceptLab.onSearch(search.value); }
     });
+    wireSearchEnhance(search);
 
     // set toggle: All 150 vs Blind 75
     var setToggle = el("setToggle");
@@ -1651,7 +2100,8 @@
       store.setPref("focus", false);
       state.focusLocal = null;
       applyFocus();
-      if (focusViewOk()) renderProblem();
+      // DSA chip is rebuilt by renderProblem; ProblemLab chip is synced by applyFocus.
+      if (state.stack === "python" && state.mode === "practice" && focusViewOk()) renderProblem();
     });
     // mode switch (Learn · Practice)
     var modeBtns = document.querySelectorAll("#modeSwitch .mode-btn");
@@ -1676,7 +2126,8 @@
         store.setPref("focus", !store.getPref("focus"));
         state.focusLocal = null;              // global toggle clears any per-problem override
         applyFocus();
-        if (focusViewOk()) renderProblem();   // refresh the local chip's label/state
+        // DSA rebuilds its chip via renderProblem; ProblemLab chip is synced by applyFocus.
+        if (state.stack === "python" && state.mode === "practice" && focusViewOk()) renderProblem();
       });
     }
 
@@ -1814,14 +2265,16 @@
           if (window.ProblemLab) { e.preventDefault(); d > 0 ? window.ProblemLab.next() : window.ProblemLab.prev(); }
           return;
         }
-        var pi = ALL.findIndex(function (x) { return x.id === state.currentId; });
-        if (ALL[pi + d]) { e.preventDefault(); navigate("#" + ALL[pi + d].id); }
+        var pnav = orderedVisible(state.currentId);
+        var pi = pnav.findIndex(function (x) { return x.id === state.currentId; });
+        if (pnav[pi + d]) { e.preventDefault(); navigate("#" + pnav[pi + d].id); }
         return;
       }
       if (!(state.stack === "python" && state.mode === "practice")) return; // remaining shortcuts are DSA-only
-      var idx = ALL.findIndex(function (x) { return x.id === state.currentId; });
-      if (e.key === "j" || e.key === "ArrowDown") { if (ALL[idx + 1]) { e.preventDefault(); navigate("#" + ALL[idx + 1].id); } }
-      if (e.key === "k" || e.key === "ArrowUp") { if (ALL[idx - 1]) { e.preventDefault(); navigate("#" + ALL[idx - 1].id); } }
+      var jkNav = orderedVisible(state.currentId);
+      var idx = jkNav.findIndex(function (x) { return x.id === state.currentId; });
+      if (e.key === "j" || e.key === "ArrowDown") { if (jkNav[idx + 1]) { e.preventDefault(); navigate("#" + jkNav[idx + 1].id); } }
+      if (e.key === "k" || e.key === "ArrowUp") { if (jkNav[idx - 1]) { e.preventDefault(); navigate("#" + jkNav[idx - 1].id); } }
       if (e.key === "n") { var nx = nextUnsolvedId(state.currentId); if (nx) { e.preventDefault(); navigate("#" + nx); } }
       if (e.key === "r") { store.setPref("codeMode", "rcs"); renderProblem(); }
       if (e.key === "p") { store.setPref("codeMode", "plain"); renderProblem(); }
@@ -1891,12 +2344,17 @@
   // It only makes sense on a problem page that actually HAS those sections —
   // on Home / Learn / dashboards etc. it must stay off (else the view blanks).
   function focusViewOk() {
-    // Only the DSA problem view (python + practice, a real problem) — state is
-    // set synchronously by setChrome before any render, so this never trips on
-    // stale/async-mounted DOM. Home, Learn, dashboards and other stacks -> off.
-    if (state.stack !== "python" || state.mode !== "practice") return false;
-    var p = byId[state.currentId];
-    if (!p || p.isIntro) return false;
+    // Any PRACTICE problem view that actually has a Solution (code) section:
+    // the DSA app (python + practice) AND the ProblemLab stacks (SQL / PySpark /
+    // NumPy / Pandas), which emit the same .prob-section[data-key="code"]. Home,
+    // Learn, dashboards and empty states have no code section -> off. The DOM
+    // check is the real gate; state is set synchronously by setChrome before any
+    // render, so this never trips on stale/async-mounted DOM.
+    if (state.mode !== "practice") return false;
+    if (state.stack === "python") {           // DSA: also skip pattern-intro pages
+      var p = byId[state.currentId];
+      if (!p || p.isIntro) return false;
+    }
     var main = el("main");
     return !!(main && main.querySelector('.prob-section[data-key="code"]'));
   }
@@ -1914,6 +2372,28 @@
       gb.setAttribute("aria-pressed", g ? "true" : "false");
       gb.style.display = ok ? "" : "none"; // hide the toggle off the problem view
     }
+    if (ok) ensureLabFocusBtn();
+  }
+  // ProblemLab (SQL / PySpark / NumPy / Pandas practice) builds no per-problem
+  // focus chip of its own, so inject one into its header to match the DSA view.
+  // DSA builds + wires its own chip in renderProblem, so skip there.
+  function ensureLabFocusBtn() {
+    if (state.stack === "python" && state.mode === "practice") return; // DSA owns its chip
+    var main = el("main"); if (!main) return;
+    var actions = main.querySelector(".prob-header .ph-actions");
+    if (!actions) return;
+    var btn = actions.querySelector(".focus-local-btn");
+    if (!btn) {
+      btn = h("button", { class: "chip-btn focus-local-btn" }, "🎯 Focus");
+      btn.addEventListener("click", function () {
+        state.focusLocal = !focusEffective(); // flip the effective state for this problem
+        applyFocus();                         // re-paint body class + chip label
+      });
+      actions.appendChild(btn);
+    }
+    var on = focusEffective();
+    btn.classList.toggle("on", on);
+    btn.textContent = on ? "🎯 Focus: ON" : "🎯 Focus";
   }
 
   // Set the shell "chrome" (state, body attrs, switch highlights) WITHOUT
@@ -1950,6 +2430,7 @@
       mb[j].disabled = !ok;
       mb[j].title = ok ? "" : (STACK_LABEL[stack] + " " + (mm === "learn" ? "concepts" : "problems") + " — coming soon");
     }
+    updateSearchUI(); // reflect/hide the DSA-only clear button + result count
   }
 
   // ---- motion + polish helpers (route fade, top progress, titles, etc.) ----
@@ -2156,6 +2637,16 @@
     // Cloud sync pulled newer notes/code from another device — re-render the
     // current view so the updated content shows without a manual reload.
     window.addEventListener("blind75:cloud-refresh", applyRoute);
+    // Progress normally persists to this browser's localStorage. If a save throws
+    // (private-mode, or the storage quota is full) the app keeps working from
+    // memory but changes won't survive a reload — warn the user once so their
+    // work isn't lost silently, and point them at Export.
+    var storageWarned = false;
+    window.addEventListener("blind75:storage-error", function () {
+      if (storageWarned) return;
+      storageWarned = true;
+      toast("⚠ Can't save progress to this browser (private mode or storage full). Use ⋯ → Export to keep your data.", 7000);
+    });
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);

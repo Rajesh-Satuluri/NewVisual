@@ -56,6 +56,24 @@
     return `<div class="sd-code"><div class="sd-code-lang">${esc(code.lang || 'code')}</div><pre>${esc(code.text)}</pre></div>`;
   }
 
+  /* Callouts — pedagogical highlight boxes. A section may supply
+     callouts:[{ kind, title?, body }] with kind in
+     insight | gotcha | interview | analogy | tip. Renders nothing when absent. */
+  const CO_ICON = { insight: '💡', gotcha: '⚠️', interview: '🎯', analogy: '🔗', tip: '📌' };
+  const CO_LABEL = { insight: 'Key insight', gotcha: 'Gotcha', interview: 'Interview angle', analogy: 'Analogy', tip: 'Tip' };
+  function calloutsHTML(callouts) {
+    if (!callouts || !callouts.length) return '';
+    return callouts.map(c => {
+      if (!c || !c.body) return '';
+      const kind = CO_ICON[c.kind] ? c.kind : 'tip';
+      const title = c.title || CO_LABEL[kind];
+      return `<div class="sd-callout" data-kind="${kind}">
+          <span class="sd-co-ico" aria-hidden="true">${CO_ICON[kind]}</span>
+          <div><span class="sd-co-b">${esc(title)}</span><span class="sd-co-body">${esc(c.body)}</span></div>
+        </div>`;
+    }).join('');
+  }
+
   function sectionHTML(kicker, accent, section) {
     const s = normSection(section);
     if (!s) return '';
@@ -67,6 +85,7 @@
         ${lead}
         ${bulletsHTML(s.bullets)}
         ${codeHTML(s.code)}
+        ${calloutsHTML(s.callouts)}
         ${note}
       </section>`;
   }
@@ -241,29 +260,54 @@
               svc.walkthrough || svc.examples || svc.troubleshooting);
   }
 
+  /* "Test yourself" — the interview Q&A as flip-to-reveal flashcards with a
+     self-grade, so the page drives active recall instead of passive reading. */
   function interviewHTML(qa) {
     if (!qa || !qa.length) return '';
-    const items = qa.map((x, i) => `
-      <div class="sd-iq" data-iq="${i}">
-        <button class="sd-iq-q" type="button" aria-expanded="false">
-          <span class="sd-iq-mark">Q</span>
-          <span class="sd-iq-text">${esc(x.q)}</span>
-          <span class="sd-iq-chev">▾</span>
-        </button>
-        <div class="sd-iq-a"><p>${esc(x.a)}</p></div>
+    const cards = qa.map((x, i) => `
+      <div class="sd-fc" data-fc="${i}">
+        <div class="sd-fc-q"><span class="sd-fc-num">${i + 1}</span><span class="sd-fc-qt">${esc(x.q)}</span></div>
+        <button class="sd-fc-reveal" type="button" aria-expanded="false">Reveal answer ▾</button>
+        <div class="sd-fc-a" hidden>
+          <p>${esc(x.a)}</p>
+          <div class="sd-fc-grade">
+            <button class="sd-fc-g sd-fc-g--good" type="button" data-g="good">✓ I knew it</button>
+            <button class="sd-fc-g sd-fc-g--again" type="button" data-g="again">↻ Review again</button>
+          </div>
+        </div>
       </div>`).join('');
     return `
-      <section class="sd-section" data-accent="interview">
-        <div class="sd-kicker">Interview Q&amp;A</div>
-        <p class="sd-lead">The questions an interviewer actually asks about this service. Tap to reveal a model answer.</p>
-        <div class="sd-iqs">${items}</div>
+      <section class="sd-section sd-recall" data-accent="interview">
+        <h2 class="sd-recall-h">🎯 Test yourself</h2>
+        <p class="sd-recall-sub">Active recall beats re-reading — try to answer out loud before you reveal.</p>
+        <div class="sd-fcs">${cards}</div>
       </section>`;
+  }
+
+  /* The next service in reading order (within, then across categories). */
+  function nextService(format, svc) {
+    const flat = [];
+    categoriesFor(format).forEach(c => c.items.forEach(s => flat.push({ cat: c.label, svc: s })));
+    const idx = flat.findIndex(x => x.svc.id === svc.id);
+    if (idx < 0 || idx + 1 >= flat.length) return null;
+    return flat[idx + 1];
+  }
+  function footerHTML(format, svc) {
+    const nx = nextService(format, svc);
+    if (!nx) return '';
+    return `
+      <div class="sd-foot">
+        <a class="sd-next" href="#${format}/${nx.svc.id}">
+          <span class="sd-next-lbl">Next up in ${esc(nx.cat)} →</span>
+          <span class="sd-next-nm">${esc(nx.svc.name)}</span>
+        </a>
+      </div>`;
   }
 
   function styleTag() {
     return `
 <style id="sd-styles">
-.sd { height:100%; overflow-y:auto; padding:30px clamp(16px, 3vw, 56px) 72px; }
+.sd { height:100%; overflow-y:auto; padding:30px clamp(16px, 3vw, 56px) 88px; background:var(--bg-0); }
 .sd-wrap { width:100%; max-width:1600px; margin:0 auto; }
 .sd-eyebrow { font-size:11px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--brand); margin-bottom:8px; }
 .sd-h1 { font-size:28px; font-weight:800; letter-spacing:-.02em; color:var(--text-primary); margin:0 0 6px; }
@@ -280,11 +324,12 @@
 .sd-intu-val { font-size:14px; color:var(--text-secondary); line-height:1.65; }
 @media (max-width:620px){ .sd-intu-row { grid-template-columns:1fr; gap:2px; } }
 .sd-facts { display:flex; flex-wrap:wrap; gap:10px; margin:0 0 28px; }
-.sd-fact { background:var(--bg-2); border:1px solid var(--border-default); border-radius:10px; padding:9px 14px; min-width:120px; }
+.sd-fact { position:relative; overflow:hidden; background:var(--bg-1); border:1px solid var(--border-subtle); border-radius:12px; padding:12px 16px 10px; min-width:132px; box-shadow:var(--card-shadow); }
+.sd-fact::before { content:''; position:absolute; left:0; right:0; top:0; height:3px; background:var(--brand); opacity:.9; }
 .sd-fact-k { font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted); font-weight:800; margin-bottom:3px; }
 .sd-fact-v { font-size:14px; font-weight:700; color:var(--text-primary); }
-.sd-section { position:relative; background:var(--bg-2); border:1px solid var(--border-default); border-radius:var(--radius-lg); padding:18px 20px 20px; margin-bottom:16px; }
-.sd-section::before { content:''; position:absolute; left:0; top:14px; bottom:14px; width:3px; border-radius:0 3px 3px 0; background:var(--stripe-neutral); }
+.sd-section { position:relative; background:var(--bg-1); border:1px solid var(--border-subtle); border-radius:16px; padding:22px 26px 24px; margin-bottom:18px; box-shadow:var(--card-shadow); }
+.sd-section::before { content:''; position:absolute; left:0; top:0; bottom:0; width:4px; border-radius:16px 0 0 16px; background:var(--stripe-neutral); }
 .sd-section[data-accent="what"]::before { background:var(--brand); }
 .sd-section[data-accent="why"]::before { background:var(--yellow); }
 .sd-section[data-accent="how"]::before { background:var(--green); }
@@ -343,18 +388,48 @@
 a.sd-cm-cert:hover { text-decoration:underline; }
 .sd-cm-objs { font-size:12px; color:var(--text-muted); line-height:1.5; }
 .sd-cm-txt { font-size:13px; color:var(--text-secondary); line-height:1.6; }
-.sd-kicker { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.07em; color:var(--text-muted); margin-bottom:10px; }
+.sd-kicker { display:inline-block; font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); background:var(--bg-3); padding:5px 12px; border-radius:999px; margin-bottom:14px; }
+.sd-section[data-accent="what"] .sd-kicker,
+.sd-section[data-accent="certmap"] .sd-kicker { color:var(--brand); background:var(--brand-glow); }
+.sd-section[data-accent="interview"] .sd-kicker { color:var(--brand-2); background:var(--brand-glow); }
+.sd-section[data-accent="why"] .sd-kicker,
+.sd-section[data-accent="operations"] .sd-kicker { color:var(--yellow); background:var(--yellow-subtle); }
+.sd-section[data-accent="how"] .sd-kicker,
+.sd-section[data-accent="cost"] .sd-kicker { color:var(--green); background:var(--green-subtle); }
+.sd-section[data-accent="deuse"] .sd-kicker,
+.sd-section[data-accent="walk"] .sd-kicker { color:var(--blue); background:var(--blue-subtle); }
+.sd-section[data-accent="link"] .sd-kicker,
+.sd-section[data-accent="example"] .sd-kicker { color:var(--purple); background:var(--purple-subtle); }
+.sd-section[data-accent="runtime"] .sd-kicker { color:var(--orange); background:var(--orange-subtle); }
+.sd-section[data-accent="arch"] .sd-kicker { color:var(--teal); background:var(--teal-subtle); }
+.sd-section[data-accent="security"] .sd-kicker,
+.sd-section[data-accent="trouble"] .sd-kicker { color:var(--red); background:var(--red-subtle); }
 .sd-lead { font-size:14px; color:var(--text-secondary); line-height:1.7; margin:0 0 12px; }
 .sd-bullets { display:grid; gap:10px; }
-.sd-bullet { background:var(--bg-1); border:1px solid var(--border-subtle); border-radius:9px; padding:10px 13px; }
+.sd-bullet { background:var(--bg-2); border:1px solid var(--border-subtle); border-radius:11px; padding:12px 15px; }
 .sd-bullet-h { font-size:13px; font-weight:700; color:var(--text-primary); margin-bottom:3px; }
 .sd-bullet-d { font-size:13px; color:var(--text-secondary); line-height:1.6; }
-.sd-code { margin-top:12px; background:var(--bg-1); border:1px solid var(--border-default); border-radius:9px; overflow:hidden; }
-.sd-code-lang { font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); font-weight:800; padding:6px 12px; border-bottom:1px solid var(--border-subtle); }
-.sd-code pre { margin:0; padding:12px 14px; font-family:var(--font-mono); font-size:12px; line-height:1.65; color:var(--text-secondary); white-space:pre; overflow-x:auto; }
+.sd-code { margin-top:14px; background:var(--code-bg,#0b1017); border:1px solid #1a2536; border-radius:11px; overflow:hidden; }
+.sd-code-lang { font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:#7e8da8; font-weight:800; padding:8px 14px; border-bottom:1px solid #1a2536; }
+.sd-code pre { margin:0; padding:14px 16px; font-family:var(--font-mono); font-size:12.5px; line-height:1.7; color:#b3c0d6; white-space:pre; overflow-x:auto; }
 .sd-note { margin-top:12px; background:var(--brand-glow); border-radius:8px; padding:10px 13px; font-size:13px; color:var(--text-primary); line-height:1.6; }
+/* Callouts — pedagogical highlight boxes (rendered when a section supplies callouts[]) */
+.sd-callout { display:flex; gap:12px; align-items:flex-start; margin-top:14px; padding:13px 16px; border-radius:11px; border:1px solid var(--border-subtle); border-left:3px solid var(--text-muted); background:var(--bg-2); font-size:13.5px; line-height:1.65; }
+.sd-co-ico { flex-shrink:0; font-size:16px; line-height:1.4; }
+.sd-co-b { display:block; font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; margin-bottom:4px; color:var(--text-muted); }
+.sd-co-body { color:var(--text-primary); }
+.sd-callout[data-kind="insight"]   { background:var(--green-subtle);  border-left-color:var(--green); }
+.sd-callout[data-kind="insight"] .sd-co-b { color:var(--green); }
+.sd-callout[data-kind="gotcha"]    { background:var(--red-subtle);    border-left-color:var(--red); }
+.sd-callout[data-kind="gotcha"] .sd-co-b { color:var(--red); }
+.sd-callout[data-kind="interview"] { background:var(--purple-subtle); border-left-color:var(--purple); }
+.sd-callout[data-kind="interview"] .sd-co-b { color:var(--purple); }
+.sd-callout[data-kind="analogy"]   { background:var(--teal-subtle);   border-left-color:var(--teal); }
+.sd-callout[data-kind="analogy"] .sd-co-b { color:var(--teal); }
+.sd-callout[data-kind="tip"]       { background:var(--blue-subtle);   border-left-color:var(--blue); }
+.sd-callout[data-kind="tip"] .sd-co-b { color:var(--blue); }
 .sd-chips { display:flex; flex-wrap:wrap; gap:9px; }
-.sd-chip { display:inline-flex; flex-direction:column; gap:2px; background:var(--bg-1); border:1px solid var(--border-default); border-radius:9px; padding:8px 12px; text-decoration:none; }
+.sd-chip { display:inline-flex; flex-direction:column; gap:2px; background:var(--bg-2); border:1px solid var(--border-subtle); border-left:3px solid var(--purple); border-radius:10px; padding:9px 13px; text-decoration:none; }
 .sd-chip--link { transition:border-color .12s, transform .12s, background .12s; }
 .sd-chip--link:hover { border-color:var(--brand); background:var(--brand-glow); transform:translateY(-1px); text-decoration:none; }
 .sd-chip-label { font-size:13px; font-weight:700; color:var(--text-primary); }
@@ -371,21 +446,22 @@ a.sd-cm-cert:hover { text-decoration:underline; }
 .sd-iq.open .sd-iq-a { grid-template-rows:1fr; }
 .sd-iq-a > p { overflow:hidden; min-height:0; margin:0; padding:0 14px 13px 44px; font-size:13px; color:var(--text-secondary); line-height:1.7; }
 /* Overview / home grid */
-.sd-home { height:100%; overflow-y:auto; padding:32px 32px 72px; }
-.sd-home-wrap { max-width:1000px; margin:0 auto; }
+.sd-home { height:100%; overflow-y:auto; padding:34px clamp(18px,3vw,56px) 88px; background:var(--bg-0); }
+.sd-home-wrap { width:100%; max-width:1080px; margin:0 auto; }
 .sd-home-cat { margin-top:26px; }
 .sd-home-cat-h { font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); margin:0 0 12px; }
 .sd-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:12px; }
-.sd-card { display:block; background:var(--bg-2); border:1px solid var(--border-default); border-radius:12px; padding:15px 16px; text-decoration:none; transition:border-color .12s, transform .12s, box-shadow .12s; }
-.sd-card:hover { border-color:var(--brand); transform:translateY(-2px); box-shadow:var(--lift); text-decoration:none; }
+.sd-card { display:block; background:var(--bg-1); border:1px solid var(--border-subtle); border-left:3px solid var(--brand); border-radius:14px; padding:16px 18px; text-decoration:none; box-shadow:var(--card-shadow); transition:border-color .12s, transform .14s, box-shadow .14s; }
+.sd-card:hover { transform:translateY(-3px); box-shadow:var(--card-shadow-lg); text-decoration:none; }
 .sd-card-name { font-size:15px; font-weight:700; color:var(--text-primary); margin-bottom:5px; }
 .sd-card-tag { font-size:12px; color:var(--text-secondary); line-height:1.55; }
-.sd-home-hero { border:1px solid var(--border-default); border-radius:16px; padding:26px 28px; background:
-  radial-gradient(120% 140% at 0% 0%, var(--brand-glow), transparent 60%), var(--bg-2); }
-.sd-home-hero h1 { font-size:26px; font-weight:800; letter-spacing:-.02em; margin:0 0 8px; color:var(--text-primary); }
+.sd-home-hero { position:relative; border:1px solid var(--border-subtle); border-radius:20px; padding:30px 34px; box-shadow:var(--card-shadow-lg); background:
+  radial-gradient(130% 150% at 0% 0%, var(--brand-glow), transparent 55%), linear-gradient(180deg, var(--bg-1), var(--bg-2)); }
+.sd-home-hero h1 { font-size:28px; font-weight:800; letter-spacing:-.02em; margin:0 0 8px; color:var(--text-primary); }
 .sd-home-hero p { font-size:15px; color:var(--text-secondary); line-height:1.7; margin:0; max-width:720px; }
-.sd-home-stats { display:flex; gap:22px; margin-top:18px; flex-wrap:wrap; }
-.sd-home-stat b { display:block; font-size:22px; font-weight:800; color:var(--brand); }
+.sd-home-stats { display:flex; gap:14px; margin-top:22px; flex-wrap:wrap; }
+.sd-home-stat { background:var(--bg-1); border:1px solid var(--border-subtle); border-radius:14px; padding:13px 20px; box-shadow:var(--card-shadow); }
+.sd-home-stat b { display:block; font-size:24px; font-weight:800; color:var(--brand); }
 .sd-home-stat span { font-size:12px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em; }
 .sd-home-cta { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-top:20px; padding:14px 18px; border:1px solid var(--brand); border-radius:12px; background:color-mix(in srgb, var(--brand) 8%, transparent); }
 .sd-home-cta-txt { display:flex; flex-direction:column; gap:3px; }
@@ -426,6 +502,67 @@ a.sd-cm-cert:hover { text-decoration:underline; }
 .sd-vizlink-txt { display:flex; flex-direction:column; gap:2px; min-width:0; }
 .sd-vizlink-txt b { font-size:13px; font-weight:700; color:var(--text-primary); }
 .sd-vizlink-txt span { font-size:11px; color:var(--text-muted); }
+/* ── Study header: meta chips, mastery checklist, progress ring ── */
+.sd-headrow { display:flex; align-items:flex-start; justify-content:space-between; gap:24px; flex-wrap:wrap; }
+.sd-headmain { flex:1; min-width:0; }
+.sd-essence { font-size:16px; color:var(--text-secondary); line-height:1.6; margin:2px 0 0; max-width:680px; font-style:italic; }
+.sd-meta { display:flex; flex-wrap:wrap; gap:10px; margin:16px 0 0; }
+.sd-mchip { display:inline-flex; align-items:center; gap:7px; background:var(--bg-1); border:1px solid var(--border-subtle); border-radius:999px; padding:7px 13px; font-size:12.5px; font-weight:600; color:var(--text-secondary); box-shadow:var(--card-shadow); }
+.sd-mchip b { color:var(--text-primary); font-weight:800; }
+.sd-mchip .sd-mchip-ico { font-size:13px; line-height:1; }
+.sd-mchip-lvl .dot { width:8px; height:8px; border-radius:50%; background:var(--text-muted); display:inline-block; }
+.sd-mchip-lvl[data-lvl="foundational"] { color:var(--green); } .sd-mchip-lvl[data-lvl="foundational"] .dot { background:var(--green); }
+.sd-mchip-lvl[data-lvl="core"] { color:var(--yellow); } .sd-mchip-lvl[data-lvl="core"] .dot { background:var(--yellow); }
+.sd-mchip-lvl[data-lvl="advanced"] { color:var(--red); } .sd-mchip-lvl[data-lvl="advanced"] .dot { background:var(--red); }
+.sd-ringwrap { display:flex; flex-direction:column; align-items:center; gap:7px; flex-shrink:0; }
+.sd-ring { position:relative; width:72px; height:72px; }
+.sd-ring-fg { transition:stroke-dashoffset .4s ease; }
+.sd-ring-txt { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:800; color:var(--brand); }
+.sd-ring-sub { font-size:11px; color:var(--text-muted); white-space:nowrap; }
+.sd-master { background:linear-gradient(180deg,var(--bg-1),var(--bg-2)); border:1px solid var(--border-subtle); border-radius:16px; padding:20px 24px; margin:0 0 28px; box-shadow:var(--card-shadow-lg); }
+.sd-master-h { font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.07em; color:var(--text-muted); margin:0 0 14px; display:flex; align-items:center; gap:8px; }
+.sd-master-h .sd-master-hint { margin-left:auto; font-size:10px; font-weight:600; text-transform:none; letter-spacing:0; color:var(--text-disabled); }
+.sd-master-grid { display:grid; grid-template-columns:1fr 1fr; gap:11px 28px; }
+.sd-goal { display:flex; align-items:flex-start; gap:11px; width:100%; text-align:left; background:none; border:none; font:inherit; padding:0; cursor:pointer; font-size:13.5px; color:var(--text-secondary); line-height:1.5; }
+.sd-goal .sd-goal-box { flex-shrink:0; width:18px; height:18px; border:2px solid var(--border-muted); border-radius:5px; margin-top:1px; display:flex; align-items:center; justify-content:center; transition:background .12s, border-color .12s; }
+.sd-goal:hover .sd-goal-box { border-color:var(--brand); }
+.sd-goal.done .sd-goal-box { background:var(--green); border-color:var(--green); }
+.sd-goal.done .sd-goal-box::after { content:'✓'; color:#fff; font-size:11px; font-weight:800; line-height:1; }
+.sd-goal.done .sd-goal-txt { color:var(--text-muted); text-decoration:line-through; text-decoration-color:var(--border-muted); }
+@media (max-width:720px){ .sd-master-grid { grid-template-columns:1fr; } }
+/* Test yourself — flashcards */
+.sd-recall { background:linear-gradient(180deg,var(--bg-1),var(--bg-2)); }
+.sd-recall-h { font-size:19px; font-weight:800; color:var(--text-primary); margin:0 0 4px; display:flex; align-items:center; gap:9px; }
+.sd-recall-sub { font-size:13px; color:var(--text-muted); margin:0 0 18px; }
+.sd-fcs { display:grid; gap:12px; }
+.sd-fc { background:var(--bg-1); border:1px solid var(--border-subtle); border-radius:12px; padding:16px 18px; box-shadow:var(--card-shadow); transition:border-color .12s; }
+.sd-fc-q { display:flex; gap:11px; align-items:flex-start; font-size:14.5px; font-weight:700; color:var(--text-primary); line-height:1.5; }
+.sd-fc-num { flex-shrink:0; width:22px; height:22px; border-radius:6px; background:var(--purple); color:#fff; font-size:11px; font-weight:800; display:flex; align-items:center; justify-content:center; margin-top:1px; }
+.sd-fc-qt { flex:1; }
+.sd-fc-reveal { margin:14px 0 0 33px; font-size:12.5px; font-weight:700; color:var(--purple); background:var(--purple-subtle); border:1px dashed var(--purple); border-radius:8px; padding:9px 14px; cursor:pointer; }
+.sd-fc-reveal:hover { filter:brightness(1.06); }
+.sd-fc-a { margin-left:33px; }
+.sd-fc-a > p { margin:14px 0 0; font-size:13.5px; color:var(--text-secondary); line-height:1.7; padding:13px 16px; background:var(--bg-2); border-radius:9px; border-left:3px solid var(--purple); }
+.sd-fc-grade { display:flex; gap:9px; margin-top:12px; }
+.sd-fc-g { font-size:12px; font-weight:700; border-radius:8px; padding:6px 13px; cursor:pointer; border:1px solid var(--border-muted); background:var(--bg-2); color:var(--text-secondary); }
+.sd-fc-g--good:hover, .sd-fc[data-grade="good"] .sd-fc-g--good { color:var(--green); border-color:var(--green); background:var(--green-subtle); }
+.sd-fc-g--again:hover, .sd-fc[data-grade="again"] .sd-fc-g--again { color:var(--orange); border-color:var(--orange); background:var(--orange-subtle); }
+.sd-fc[data-grade="good"] { border-color:var(--green); }
+.sd-fc[data-grade="again"] { border-color:var(--orange); }
+/* Next-up momentum footer */
+.sd-foot { display:flex; align-items:center; justify-content:flex-end; gap:16px; flex-wrap:wrap; margin-top:30px; padding-top:24px; border-top:1px solid var(--border-subtle); }
+.sd-next { display:inline-flex; flex-direction:column; align-items:flex-end; text-decoration:none; }
+.sd-next:hover { text-decoration:none; }
+.sd-next-lbl { font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em; font-weight:700; }
+.sd-next-nm { font-size:15px; font-weight:700; color:var(--brand); }
+.sd-next:hover .sd-next-nm { text-decoration:underline; }
+/* Overview mastery + per-category progress */
+.sd-hero-row { display:flex; align-items:flex-start; justify-content:space-between; gap:24px; flex-wrap:wrap; }
+.sd-hero-main { flex:1; min-width:0; }
+.sd-home-cat-h .sd-cat-prog { font-size:11px; font-weight:800; color:var(--text-muted); background:var(--bg-3); border-radius:999px; padding:2px 9px; margin-left:8px; vertical-align:middle; letter-spacing:0; text-transform:none; }
+.sd-home-cat-h .sd-cat-prog.complete { color:var(--green); background:var(--green-subtle); }
+.sd-card.is-learned { border-left-color:var(--green); }
+.sd-card-check { color:var(--green); font-weight:800; }
 </style>`;
   }
 
@@ -485,6 +622,7 @@ a.sd-cm-cert:hover { text-decoration:underline; }
   const SLUG = s => String(s || '').toLowerCase().replace(/&amp;|&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
   const REVIEW_KEY = 'cde-sd-reviewed';
   function reviewedSet() { try { return JSON.parse(TV.ls.get(REVIEW_KEY) || '{}') || {}; } catch (e) { return {}; } }
+  function isReviewed(id) { return !!reviewedSet()[id]; }
 
   /* Post-render enhancements (all additive, all wired):
      section navigator with scroll-spy, copy-code buttons, review checkpoint. */
@@ -496,9 +634,9 @@ a.sd-cm-cert:hover { text-decoration:underline; }
     // 1) Collect navigable sections in document order; give each a stable id.
     const secs = [...wrap.querySelectorAll('.sd-intu, .sd-section')].filter(el => !el.hasAttribute('data-sd-skip'));
     const entries = secs.map((el, i) => {
-      const kick = el.querySelector('.sd-kicker, .sd-intu-head');
+      const kick = el.querySelector('.sd-kicker, .sd-intu-head, .sd-recall-h');
       let label = kick ? kick.textContent.trim() : ('Section ' + (i + 1));
-      label = label.replace(/^💡\s*/, '').replace(/\s*—.*$/, '');
+      label = label.replace(/^(?:💡|🎯|🎓|⚠️|🔗|📌)\s*/, '').replace(/\s*—.*$/, '');
       el.id = el.id || ('sd-sec-' + (SLUG(label) || i));
       return { el, label, id: el.id };
     });
@@ -539,6 +677,7 @@ a.sd-cm-cert:hover { text-decoration:underline; }
       reviewBtn.setAttribute('aria-pressed', String(now));
       reviewBtn.querySelector('.sd-review-txt').textContent = now ? 'Reviewed' : 'Mark reviewed';
       if (TV.DS && TV.DS.toast) TV.DS.toast(now ? 'Marked as reviewed' : 'Review mark removed', { type: now ? 'success' : 'info' });
+      document.dispatchEvent(new CustomEvent('cde:reviewed-changed', { detail: { id: svc.id, reviewed: now } }));
     });
 
     // 2b) Related visualizers — deep-open the matching conceptual visualizer.
@@ -596,6 +735,104 @@ a.sd-cm-cert:hover { text-decoration:underline; }
     }
   }
 
+  /* Teachable depth sections that carry bullets, in study order. */
+  const DEPTH_KEYS = ['what', 'why', 'architecture', 'how', 'deUseCase', 'runtime', 'security', 'operations', 'cost'];
+  const GOAL_KEYS = ['what', 'why', 'how', 'architecture', 'deUseCase', 'runtime'];
+
+  function countWords(str) {
+    if (!str) return 0;
+    return String(str).trim().split(/\s+/).filter(Boolean).length;
+  }
+  function conceptCount(svc) {
+    let n = 0;
+    DEPTH_KEYS.forEach(k => { const s = normSection(svc[k]); if (s && s.bullets) n += s.bullets.length; });
+    return n;
+  }
+  function studyMinutes(svc) {
+    let w = countWords(svc.aka) + countWords(svc.tagline);
+    DEPTH_KEYS.forEach(k => {
+      const s = normSection(svc[k]); if (!s) return;
+      w += countWords(s.lead);
+      (s.bullets || []).forEach(b => { w += countWords(b.h) + countWords(b.d); });
+    });
+    (svc.interview || []).forEach(x => { w += countWords(x.q) + countWords(x.a); });
+    const wt = Array.isArray(svc.walkthrough) ? { steps: svc.walkthrough } : (svc.walkthrough || {});
+    (wt.steps || []).forEach(s => { w += countWords(typeof s === 'string' ? s : (s.h + ' ' + s.d)); });
+    return Math.min(30, Math.max(2, Math.round(w / 200)));
+  }
+
+  function studyMetaHTML(svc) {
+    const chips = [];
+    const lvl = svc.level && ['foundational', 'core', 'advanced'].includes(svc.level) ? svc.level : null;
+    if (lvl) {
+      const label = lvl.charAt(0).toUpperCase() + lvl.slice(1);
+      chips.push(`<span class="sd-mchip sd-mchip-lvl" data-lvl="${lvl}"><span class="dot"></span>${label}</span>`);
+    }
+    chips.push(`<span class="sd-mchip"><span class="sd-mchip-ico">⏱</span><b>~${studyMinutes(svc)} min</b> study</span>`);
+    const concepts = conceptCount(svc);
+    if (concepts) chips.push(`<span class="sd-mchip"><span class="sd-mchip-ico">📚</span><b>${concepts}</b> concept${concepts === 1 ? '' : 's'}</span>`);
+    const iq = (svc.interview || []).length;
+    if (iq) chips.push(`<span class="sd-mchip"><span class="sd-mchip-ico">🎯</span><b>${iq}</b> interview Q${iq === 1 ? '' : 's'}</span>`);
+    const ints = (svc.integrations || []).length;
+    if (ints) chips.push(`<span class="sd-mchip"><span class="sd-mchip-ico">🔗</span><b>${ints}</b> integration${ints === 1 ? '' : 's'}</span>`);
+    return `<div class="sd-meta">${chips.join('')}</div>`;
+  }
+
+  function masterGoals(svc) {
+    if (Array.isArray(svc.goals) && svc.goals.length) return svc.goals.slice(0, 6);
+    const goals = [];
+    GOAL_KEYS.forEach(k => {
+      const s = normSection(svc[k]);
+      if (s && s.bullets && s.bullets[0] && s.bullets[0].h) goals.push(s.bullets[0].h);
+    });
+    return goals.slice(0, 6);
+  }
+
+  /* Per-service goal progress (micro; drives the header ring). Macro completion
+     is the existing "Mark reviewed" checkpoint (cde-sd-reviewed). */
+  function goalsKey(format, id) { return 'cde-' + format + '-goals-' + id; }
+  function getCheckedGoals(format, id) {
+    try { return new Set(JSON.parse(TV.ls.get(goalsKey(format, id)) || '[]')); } catch (e) { return new Set(); }
+  }
+  function setCheckedGoals(format, id, set) {
+    try { TV.ls.set(goalsKey(format, id), JSON.stringify(Array.from(set))); } catch (e) {}
+  }
+
+  function ringHTML(pct, sub) {
+    const r = 30, C = 2 * Math.PI * r;
+    const off = Math.max(0, Math.min(C, C * (1 - pct)));
+    return `
+      <div class="sd-ringwrap">
+        <div class="sd-ring" data-circ="${C.toFixed(1)}">
+          <svg width="72" height="72" viewBox="0 0 72 72" aria-hidden="true">
+            <circle cx="36" cy="36" r="${r}" fill="none" stroke="var(--bg-4)" stroke-width="7"/>
+            <circle class="sd-ring-fg" cx="36" cy="36" r="${r}" fill="none" stroke="var(--brand)" stroke-width="7"
+              stroke-linecap="round" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}"
+              transform="rotate(-90 36 36)"/>
+          </svg>
+          <div class="sd-ring-txt">${Math.round(pct * 100)}%</div>
+        </div>
+        <span class="sd-ring-sub">${esc(sub)}</span>
+      </div>`;
+  }
+
+  function masterHTML(format, svc) {
+    const goals = masterGoals(svc);
+    if (goals.length < 2) return '';
+    const checked = getCheckedGoals(format, svc.id);
+    const items = goals.map((g, i) => {
+      const done = checked.has(i);
+      return `<button class="sd-goal${done ? ' done' : ''}" type="button" data-goal="${i}" aria-pressed="${done}">
+          <span class="sd-goal-box"></span><span class="sd-goal-txt">${esc(g)}</span>
+        </button>`;
+    }).join('');
+    return `
+      <div class="sd-master">
+        <div class="sd-master-h">🎓 What you'll master here <span class="sd-master-hint">tap to check off</span></div>
+        <div class="sd-master-grid">${items}</div>
+      </div>`;
+  }
+
   /* ── Detail page for one service ─────────────────────────── */
   function renderDetail(container, format, svc) {
     container.className = '';
@@ -607,15 +844,26 @@ a.sd-cm-cert:hover { text-decoration:underline; }
     const depthBadge = deep
       ? `<span class="sd-depth sd-depth--deep" title="Full deep dive: architecture &amp; internals, execution walkthrough, worked example, security, operations, troubleshooting, cost and certification mapping">Deep dive</span>`
       : '';
+    const goals = masterGoals(svc);
+    const hasGoals = goals.length >= 2;
+    const checkedNow = getCheckedGoals(format, svc.id);
+    const ring = hasGoals ? ringHTML(checkedNow.size / goals.length, checkedNow.size + ' / ' + goals.length + ' goals') : '';
     container.innerHTML = `${styles}
 <div class="sd page-enter">
   <div class="sd-wrap">
     <div class="sd-eyebrow">${esc(catLabel)}${depthBadge}</div>
-    <h1 class="sd-h1">${esc(svc.name)}</h1>
-    ${aka}
+    <div class="sd-headrow">
+      <div class="sd-headmain">
+        <h1 class="sd-h1">${esc(svc.name)}</h1>
+        ${aka}
+        ${studyMetaHTML(svc)}
+      </div>
+      ${ring}
+    </div>
     <p class="sd-tagline">${esc(svc.tagline || '')}</p>
     ${vchip ? `<div class="sd-verified">${vchip}</div>` : ''}
     ${keyFactsHTML(svc.keyFacts)}
+    ${masterHTML(format, svc)}
     ${intuitionHTML(svc.intuition || (TV.Intuition && TV.Intuition[svc.id]))}
     ${sectionHTML('What it is', 'what', svc.what)}
     ${sectionHTML('Why it exists', 'why', svc.why)}
@@ -633,16 +881,57 @@ a.sd-cm-cert:hover { text-decoration:underline; }
     ${interviewHTML(svc.interview)}
     ${certMappingHTML(svc.certMapping)}
     ${relatedHTML(format, svc)}
+    ${footerHTML(format, svc)}
   </div>
 </div>`;
-    // Wire interview accordions
-    container.querySelectorAll('.sd-iq-q').forEach(btn => {
+    // Flashcards: reveal answer, then self-grade
+    container.querySelectorAll('.sd-fc-reveal').forEach(btn => {
       btn.addEventListener('click', () => {
-        const row = btn.closest('.sd-iq');
-        const open = row.classList.toggle('open');
-        btn.setAttribute('aria-expanded', String(open));
+        const card = btn.closest('.sd-fc');
+        const ans = card && card.querySelector('.sd-fc-a');
+        if (ans) ans.hidden = false;
+        btn.setAttribute('aria-expanded', 'true');
+        btn.style.display = 'none';
       });
     });
+    container.querySelectorAll('.sd-fc-g').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const card = btn.closest('.sd-fc');
+        if (card) card.setAttribute('data-grade', btn.getAttribute('data-g'));
+      });
+    });
+    // Goal checklist → persist + update the header progress ring (guarded:
+    // the unit-test container has querySelectorAll but no querySelector).
+    try {
+      const ringEl = container.querySelector('.sd-ring');
+      const ringFg = ringEl && ringEl.querySelector('.sd-ring-fg');
+      const ringTxt = ringEl && ringEl.querySelector('.sd-ring-txt');
+      const ringSub = container.querySelector('.sd-ring-sub');
+      const refreshRing = () => {
+        const total = goals.length;
+        const set = getCheckedGoals(format, svc.id);
+        const pct = total ? set.size / total : 0;
+        if (ringEl && ringFg) {
+          const C = parseFloat(ringEl.getAttribute('data-circ')) || (2 * Math.PI * 30);
+          ringFg.setAttribute('stroke-dashoffset', (C * (1 - pct)).toFixed(1));
+        }
+        if (ringTxt) ringTxt.textContent = Math.round(pct * 100) + '%';
+        if (ringSub) ringSub.textContent = set.size + ' / ' + total + ' goals';
+      };
+      container.querySelectorAll('.sd-goal[data-goal]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const i = parseInt(btn.getAttribute('data-goal'), 10);
+          const set = getCheckedGoals(format, svc.id);
+          const now = !set.has(i);
+          if (now) set.add(i); else set.delete(i);
+          setCheckedGoals(format, svc.id, set);
+          btn.classList.toggle('done', now);
+          btn.setAttribute('aria-pressed', String(now));
+          refreshRing();
+        });
+      });
+    } catch (e) { /* non-fatal */ }
+
     // Additive UX layer: section navigator, copy-code, review checkpoint.
     try { enhanceDetail(container, format, svc); } catch (e) { /* non-fatal */ }
   }
@@ -666,25 +955,39 @@ a.sd-cm-cert:hover { text-decoration:underline; }
         </div>
         <button class="sd-home-cta-btn" data-action="cert-exam" data-exam="${esc(examId)}">Start model questions →</button>
       </div>` : '';
-    const catBlocks = cats.map(c => `
+    const reviewed = reviewedSet();
+    const reviewedCount = cats.reduce((n, c) => n + c.items.filter(s => reviewed[s.id]).length, 0);
+    const masteryPct = total ? reviewedCount / total : 0;
+    const catBlocks = cats.map(c => {
+      const done = c.items.filter(s => reviewed[s.id]).length;
+      const complete = done === c.items.length && c.items.length > 0;
+      return `
       <div class="sd-home-cat">
-        <h2 class="sd-home-cat-h">${esc(c.label)}</h2>
-        <div class="sd-grid">${c.items.map(s =>
-          `<a class="sd-card" href="#${format}/${s.id}">
-             <div class="sd-card-name">${esc(s.name)}</div>
+        <h2 class="sd-home-cat-h">${esc(c.label)} <span class="sd-cat-prog${complete ? ' complete' : ''}">${done}/${c.items.length}</span></h2>
+        <div class="sd-grid">${c.items.map(s => {
+          const isR = !!reviewed[s.id];
+          return `<a class="sd-card${isR ? ' is-learned' : ''}" href="#${format}/${s.id}">
+             <div class="sd-card-name">${isR ? '<span class="sd-card-check" aria-label="Reviewed">✓</span> ' : ''}${esc(s.name)}</div>
              <div class="sd-card-tag">${esc(s.tagline || '')}</div>
-           </a>`).join('')}</div>
-      </div>`).join('');
+           </a>`;
+        }).join('')}</div>
+      </div>`;
+    }).join('');
     container.innerHTML = `${styles}
 <div class="sd-home page-enter">
   <div class="sd-home-wrap">
     <div class="sd-home-hero">
-      <h1>${esc(meta.title)}</h1>
-      <p>${esc(meta.subtitle)}</p>
-      <div class="sd-home-stats">
-        <div class="sd-home-stat"><b>${total}</b><span>services</span></div>
-        <div class="sd-home-stat"><b>${cats.length}</b><span>categories</span></div>
-        ${deepN ? `<div class="sd-home-stat"><b>${deepN}</b><span>A–I deep dives</span></div>` : ''}
+      <div class="sd-hero-row">
+        <div class="sd-hero-main">
+          <h1>${esc(meta.title)}</h1>
+          <p>${esc(meta.subtitle)}</p>
+          <div class="sd-home-stats">
+            <div class="sd-home-stat"><b>${total}</b><span>services</span></div>
+            <div class="sd-home-stat"><b>${cats.length}</b><span>categories</span></div>
+            ${deepN ? `<div class="sd-home-stat"><b>${deepN}</b><span>A–I deep dives</span></div>` : ''}
+          </div>
+        </div>
+        ${ringHTML(masteryPct, reviewedCount + ' / ' + total + ' reviewed')}
       </div>
       ${ctaHtml}
     </div>
@@ -698,10 +1001,36 @@ a.sd-cm-cert:hover { text-decoration:underline; }
     });
   }
 
+  /* Merge authored study metadata (level / goals / per-section callouts) onto
+     the service objects by id. Data lives in TV.StudyEnrich[format][id] (see
+     js/data/<format>-study.js). Purely additive — absent entries change nothing. */
+  function applyStudyEnrichment(format, services) {
+    const map = (TV.StudyEnrich && TV.StudyEnrich[format]) || null;
+    if (!map) return;
+    services.forEach(svc => {
+      const e = map[svc.id];
+      if (!e) return;
+      if (e.level && !svc.level) svc.level = e.level;
+      if (e.goals && !svc.goals) svc.goals = e.goals;
+      if (e.callouts) {
+        Object.keys(e.callouts).forEach(k => {
+          const add = e.callouts[k];
+          if (!add || !add.length) return;
+          let sec = svc[k];
+          if (typeof sec === 'string') sec = { lead: sec };
+          if (!sec || typeof sec !== 'object') sec = {};
+          sec.callouts = (sec.callouts || []).concat(add);
+          svc[k] = sec;
+        });
+      }
+    });
+  }
+
   /* ── Registration ────────────────────────────────────────── */
   function registerAll(format, services) {
     TV._services = TV._services || {};
     TV._services[format] = services;
+    applyStudyEnrichment(format, services);
     services.forEach(svc => {
       TV.registerModule(format, {
         id: svc.id, title: svc.name, group: svc.category, format,
@@ -735,5 +1064,6 @@ a.sd-cm-cert:hover { text-decoration:underline; }
     return groups;
   }
 
-  TV.ServiceDetail = { registerAll, registerHome, categoriesFor, navGroupsFor, CATEGORIES };
+  TV.ServiceDetail = { registerAll, registerHome, categoriesFor, navGroupsFor, CATEGORIES,
+                       isReviewed, getReviewedSet: reviewedSet };
 })();

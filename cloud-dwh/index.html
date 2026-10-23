@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" data-platform="snowflake">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <script>
+    try { var t = localStorage.getItem('cdwh-theme'); if (t) document.documentElement.setAttribute('data-theme', t);
+          var p = localStorage.getItem('cdwh-platform'); if (p) document.documentElement.setAttribute('data-platform', p); } catch (e) {}
+  </script>
+  <title>Cloud Data Warehouses — Snowflake · Redshift · Fabric</title>
+  <meta name="description" content="Interactive cloud data warehouse guide: Snowflake, Amazon Redshift, and Microsoft Fabric side by side — one tool, platform switcher." />
+  <meta name="theme-color" content="#0d1117" />
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png" />
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+  <link rel="manifest" href="manifest.json" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Cloud Data Warehouses — Snowflake · Redshift · Fabric" />
+  <meta property="og:description" content="Snowflake, Amazon Redshift, and Microsoft Fabric — one interactive tool with a platform switcher." />
+  <meta property="og:image" content="https://rajesh-satuluri.github.io/NewVisual/cloud-dwh/assets/og-image.png" />
+  <meta property="og:url" content="https://rajesh-satuluri.github.io/NewVisual/cloud-dwh/" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Cloud Data Warehouses — Snowflake · Redshift · Fabric" />
+  <meta name="twitter:image" content="https://rajesh-satuluri.github.io/NewVisual/cloud-dwh/assets/og-image.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/layout.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/animations.css" />
+  <link rel="stylesheet" href="css/modules.css" />
+  <link rel="stylesheet" href="css/enhancements.css" />
+  <link rel="stylesheet" href="css/responsive.css" />
+  <link rel="stylesheet" href="css/platform-switch.css" />
+  <link rel="stylesheet" href="css/kit.css" />
+  <link rel="stylesheet" href="css/app-inline.css" />
+</head>
+<body>
+  <div id="app">
+    <aside id="sidebar" class="sidebar">
+      <div id="sidebar-header" class="sidebar-header">
+        <a href="#" id="logo-link" style="text-decoration:none;display:flex;align-items:center;gap:.625rem;">
+          <svg viewBox="0 0 40 40" width="30" height="30" aria-hidden="true"><rect x="5" y="9" width="30" height="7" rx="2" fill="var(--blue)"/><rect x="5" y="19" width="30" height="7" rx="2" fill="none" stroke="var(--blue)" stroke-width="2"/><rect x="5" y="29" width="18" height="5" rx="2" fill="var(--blue)" opacity=".6"/></svg>
+          <div><div id="logo-title">Snowflake</div><div id="logo-sub">Netflix on Snowflake</div></div>
+        </a>
+      </div>
+      <div id="platform-switch" class="platform-switch"></div>
+      <div id="sidebar-search-wrap" class="sidebar-search">
+        <div class="search-input-wrap">
+          <svg class="search-icon" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="6.5" cy="6.5" r="4.5"/><line x1="10" y1="10" x2="14" y2="14"/></svg>
+          <input id="sidebar-search" type="search" placeholder="Search modules…" autocomplete="off" spellcheck="false" />
+        </div>
+      </div>
+      <nav id="sidebar-nav" class="sidebar-nav-scroll" aria-label="Module navigation"></nav>
+      <div id="sidebar-footer" class="sidebar-footer">
+        <button id="theme-toggle" class="btn-icon" title="Toggle theme" aria-label="Toggle light/dark theme"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></button>
+        <button class="btn-icon" title="Keyboard shortcuts (?)" onclick="window.CDWH?._showShortcutsModal?.()"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M6 10h0M10 10h0M14 10h0M18 10h0M6 14h12"/></svg></button>
+        <span id="sidebar-version">v0.1 · multi</span>
+      </div>
+    </aside>
+    <main id="main-area" class="main">
+      <header id="top-bar" class="topbar">
+        <button id="nav-toggle" class="btn-icon nav-toggle" aria-label="Open navigation menu" aria-controls="sidebar" aria-expanded="false"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+        <div id="breadcrumb"><span>CloudDWH</span></div>
+        <div id="top-bar-right" class="topbar-right">
+          <a href="https://docs.snowflake.com" id="docs-link" target="_blank" rel="noopener" class="btn-icon" title="Docs" aria-label="Documentation"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+        </div>
+      </header>
+      <div id="canvas" role="main" aria-live="polite"></div>
+      <div id="anim-controls-bar" class="anim-controls-bar" role="toolbar" aria-label="Animation controls">
+        <button id="anim-btn-reset" class="btn-icon anim-btn" title="Reset (R)" aria-label="Reset animation"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-5"/></svg></button>
+        <button id="anim-btn-prev" class="btn-icon anim-btn" title="Previous (←)" aria-label="Previous step"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><polygon points="19,3 5,12 19,21"/></svg></button>
+        <button id="anim-btn-play" class="btn-icon anim-btn anim-btn-play" title="Play (Space)" aria-label="Play/pause"><svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><polygon points="5,3 19,12 5,21"/></svg></button>
+        <button id="anim-btn-next" class="btn-icon anim-btn" title="Next (→)" aria-label="Next step"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg></button>
+        <div id="anim-progress-wrap" class="anim-controls-center"><div id="anim-progress-track" class="anim-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100"><div id="anim-progress-fill" class="anim-progress-fill"></div></div><div id="anim-step-label" class="anim-step-label"></div></div>
+        <div id="anim-step-counter" class="anim-step-counter"></div>
+        <select id="anim-speed" class="anim-speed-select" title="Playback speed" aria-label="Playback speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select>
+      </div>
+    </main>
+    <div id="nav-backdrop" class="nav-backdrop"></div>
+  </div>
+  <div id="shortcuts-modal" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
+    <div class="modal-box" style="max-height:80vh;overflow:hidden;display:flex;flex-direction:column;">
+      <div class="modal-header"><h2 class="modal-title" style="font-size:1.125rem;font-weight:600;">Keyboard Shortcuts</h2><button id="shortcuts-close" class="btn-icon" aria-label="Close"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+      <div class="shortcuts-grid" style="overflow-y:auto;"></div>
+    </div>
+  </div>
+
+  <!-- ── Shared core / components / features ─────────────── -->
+  <script src="js/core/animation-engine.js"></script>
+  <script src="js/core/tooltip.js"></script>
+  <script src="js/core/keyboard.js"></script>
+  <script src="js/components/animation-controls.js"></script>
+  <script src="js/components/code-viewer.js"></script>
+  <script src="js/components/qa-accordion.js"></script>
+  <script src="js/components/command-palette.js"></script>
+  <script src="js/features/quiz.js"></script>
+  <script src="js/features/progress-store.js"></script>
+  <script src="js/features/scenario-engine.js"></script>
+  <script src="js/features/enhance.js"></script>
+
+  <!-- ── Platform descriptors ───────────────────────────── -->
+  <script src="js/platforms/fundamentals/descriptor.js"></script>
+  <script src="js/platforms/snowflake/descriptor.js"></script>
+  <script src="js/platforms/redshift/descriptor.js"></script>
+  <script src="js/platforms/fabric/descriptor.js"></script>
+  <script src="js/platforms/compare/descriptor.js"></script>
+
+  <!-- ── Snowflake data + scenarios + modules (real) ────── -->
+  <script src="js/platforms/snowflake/data/netflix-data.js"></script>
+  <script src="js/platforms/snowflake/data/snowflake-concepts.js"></script>
+  <script src="js/platforms/snowflake/data/quiz-bank.js"></script>
+  <script src="js/platforms/snowflake/data/interview-bank.js"></script>
+  <script src="js/platforms/snowflake/data/scenarios/troubleshooting.js"></script>
+  <script src="js/platforms/snowflake/data/scenarios/decisions.js"></script>
+  <script src="js/platforms/snowflake/data/scenarios/chains.js"></script>
+  <script src="js/platforms/snowflake/data/scenarios/tiered.js"></script>
+  <script src="js/platforms/snowflake/data/scenarios/optimization.js"></script>
+  <script src="js/platforms/snowflake/data/scenarios/cost.js"></script>
+  <script src="js/platforms/snowflake/data/scenarios/system-design.js"></script>
+  <script src="js/platforms/snowflake/data/scenarios/de-scenarios.js"></script>
+  <script src="js/platforms/snowflake/data/scenarios/rbac-lab.js"></script>
+  <script src="js/platforms/snowflake/data/scenarios/loading-lab.js"></script>
+  <script src="js/platforms/snowflake/data/scenarios/traps.js"></script>
+  <script src="js/platforms/snowflake/data/scenarios/failure.js"></script>
+  <script src="js/platforms/snowflake/data/scenarios/sql.js"></script>
+  <script src="js/platforms/snowflake/data/scenarios/cert-interview.js"></script>
+  <script src="js/platforms/snowflake/data/scenarios/case-study.js"></script>
+  <script src="js/platforms/snowflake/modules/advanced.js"></script>
+  <script src="js/platforms/snowflake/modules/apps.js"></script>
+  <script src="js/platforms/snowflake/modules/architecture.js"></script>
+  <script src="js/platforms/snowflake/modules/business-continuity.js"></script>
+  <script src="js/platforms/snowflake/modules/caching.js"></script>
+  <script src="js/platforms/snowflake/modules/certification.js"></script>
+  <script src="js/platforms/snowflake/modules/cloud-services.js"></script>
+  <script src="js/platforms/snowflake/modules/comparison.js"></script>
+  <script src="js/platforms/snowflake/modules/compute.js"></script>
+  <script src="js/platforms/snowflake/modules/cost-performance.js"></script>
+  <script src="js/platforms/snowflake/modules/data-engineering.js"></script>
+  <script src="js/platforms/snowflake/modules/data-loading.js"></script>
+  <script src="js/platforms/snowflake/modules/data-sharing.js"></script>
+  <script src="js/platforms/snowflake/modules/e2e-flow.js"></script>
+  <script src="js/platforms/snowflake/modules/editions.js"></script>
+  <script src="js/platforms/snowflake/modules/governance.js"></script>
+  <script src="js/platforms/snowflake/modules/home.js"></script>
+  <script src="js/platforms/snowflake/modules/interview-prep.js"></script>
+  <script src="js/platforms/snowflake/modules/intro.js"></script>
+  <script src="js/platforms/snowflake/modules/lab-answers.js"></script>
+  <script src="js/platforms/snowflake/modules/lab-case.js"></script>
+  <script src="js/platforms/snowflake/modules/lab-cert-interview.js"></script>
+  <script src="js/platforms/snowflake/modules/lab-chains.js"></script>
+  <script src="js/platforms/snowflake/modules/lab-cost.js"></script>
+  <script src="js/platforms/snowflake/modules/lab-dashboard.js"></script>
+  <script src="js/platforms/snowflake/modules/lab-de.js"></script>
+  <script src="js/platforms/snowflake/modules/lab-decisions.js"></script>
+  <script src="js/platforms/snowflake/modules/lab-design.js"></script>
+  <script src="js/platforms/snowflake/modules/lab-failure.js"></script>
+  <script src="js/platforms/snowflake/modules/lab-loading.js"></script>
+  <script src="js/platforms/snowflake/modules/lab-mock.js"></script>
+  <script src="js/platforms/snowflake/modules/lab-query-opt.js"></script>
+  <script src="js/platforms/snowflake/modules/lab-rbac.js"></script>
+  <script src="js/platforms/snowflake/modules/lab-sql.js"></script>
+  <script src="js/platforms/snowflake/modules/lab-traps.js"></script>
+  <script src="js/platforms/snowflake/modules/lab-troubleshooting.js"></script>
+  <script src="js/platforms/snowflake/modules/objects.js"></script>
+  <script src="js/platforms/snowflake/modules/query-execution.js"></script>
+  <script src="js/platforms/snowflake/modules/rbac.js"></script>
+  <script src="js/platforms/snowflake/modules/reference.js"></script>
+  <script src="js/platforms/snowflake/modules/security.js"></script>
+  <script src="js/platforms/snowflake/modules/semi-structured.js"></script>
+  <script src="js/platforms/snowflake/modules/storage.js"></script>
+
+  <!-- ── Fundamentals (concept-first on-ramp) — skeleton ──── -->
+  <script src="js/platforms/fundamentals/modules/stubs.js"></script>
+
+  <!-- ── Fundamentals content — FundKit + real modules.
+       Loaded AFTER stubs so real modules override the placeholders. -->
+  <script src="js/platforms/fundamentals/fund-kit.js"></script>
+  <script src="js/platforms/fundamentals/modules/foundations.js"></script>
+  <script src="js/platforms/fundamentals/modules/ingestion.js"></script>
+  <script src="js/platforms/fundamentals/modules/performance.js"></script>
+  <script src="js/platforms/fundamentals/modules/modeling.js"></script>
+  <script src="js/platforms/fundamentals/modules/operations.js"></script>
+  <script src="js/platforms/fundamentals/modules/home.js"></script>
+
+  <!-- ── Redshift + Fabric module stubs ─────────────────── -->
+  <script src="js/platforms/redshift/modules/stubs.js"></script>
+  <script src="js/platforms/fabric/modules/stubs.js"></script>
+
+  <!-- ── Redshift content (Phase B) — kit + banks + real modules.
+       Loaded AFTER stubs so real modules override the placeholders. -->
+  <script src="js/platforms/redshift/redshift-kit.js"></script>
+  <script src="js/platforms/redshift/data/interview-bank.js"></script>
+  <script src="js/platforms/redshift/data/quiz-bank.js"></script>
+  <script src="js/platforms/redshift/modules/learn.js"></script>
+  <script src="js/platforms/redshift/modules/internals.js"></script>
+  <script src="js/platforms/redshift/modules/scale.js"></script>
+  <script src="js/platforms/redshift/modules/ecosystem.js"></script>
+  <script src="js/platforms/redshift/modules/security.js"></script>
+  <script src="js/platforms/redshift/data/scenarios.js"></script>
+  <script src="js/platforms/redshift/modules/labs.js"></script>
+  <script src="js/platforms/redshift/modules/reference.js"></script>
+
+  <!-- ── Fabric content (Phase B′) — reuses the shared kit above.
+       Loaded after fabric stubs so real modules override placeholders. -->
+  <script src="js/platforms/fabric/data/interview-bank.js"></script>
+  <script src="js/platforms/fabric/data/quiz-bank.js"></script>
+  <script src="js/platforms/fabric/modules/learn.js"></script>
+  <script src="js/platforms/fabric/modules/internals.js"></script>
+  <script src="js/platforms/fabric/modules/platform.js"></script>
+  <script src="js/platforms/fabric/modules/security.js"></script>
+  <script src="js/platforms/fabric/data/scenarios.js"></script>
+  <script src="js/platforms/fabric/modules/labs.js"></script>
+  <script src="js/platforms/fabric/modules/reference.js"></script>
+
+  <!-- ── Compare + app ──────────────────────────────────── -->
+  <script src="js/platforms/compare/compare.js"></script>
+  <script src="js/app.js"></script>
+  <script src="../shared/backup-button.js" defer></script>
+</body>
+</html>

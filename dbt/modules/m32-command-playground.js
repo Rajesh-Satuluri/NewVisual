@@ -79,7 +79,7 @@ const IQ = [
 
 export function mount(container) {
   container.innerHTML = createModuleShell({
-    tag: 'M32 · Reference',
+    tag: 'M32 · Mastery & Capstone',
     title: 'Command Playground',
     subtitle: 'Every dbt command — purpose, example, what happens internally, production use, and the common mistake.',
     tabs: [
@@ -159,10 +159,15 @@ function buildDetail(container) {
     <div class="detail-section">
       <h3>Spends credits vs free</h3>
       <div class="info-grid">
-        <div class="info-card" style="border-left-color:#10B981"><div class="info-card-title">Free (local only)</div><div class="info-card-body"><code>parse</code>, <code>compile</code>, <code>ls</code>, <code>clean</code>, <code>deps</code>, <code>debug</code> (connection test). Validate and inspect without warehouse cost.</div></div>
-        <div class="info-card" style="border-left-color:#EF4444"><div class="info-card-title">Spends warehouse compute</div><div class="info-card-body"><code>run</code>, <code>build</code>, <code>test</code>, <code>seed</code>, <code>snapshot</code>, <code>source freshness</code>, <code>docs generate</code>. These contact the warehouse.</div></div>
+        <div class="info-card" style="border-left-color:var(--success)"><div class="info-card-title">Free (local only)</div><div class="info-card-body"><code>parse</code>, <code>compile</code>, <code>ls</code>, <code>clean</code>, <code>deps</code>, <code>debug</code> (connection test). Validate and inspect without warehouse cost.</div></div>
+        <div class="info-card" style="border-left-color:var(--error)"><div class="info-card-title">Spends warehouse compute</div><div class="info-card-body"><code>run</code>, <code>build</code>, <code>test</code>, <code>seed</code>, <code>snapshot</code>, <code>source freshness</code>, <code>docs generate</code>. These contact the warehouse.</div></div>
       </div>
       <p style="font-size:15px;font-weight:600;color:var(--accent)">Reach for the free commands first — parse/compile/ls answer most "what will this do?" questions before you spend a single credit.</p>
+    </div>
+    <div class="detail-section">
+      <p style="padding:12px 14px;background:var(--surface-2);border-left:3px solid var(--accent);border-radius:8px;font-size:14px;margin:0">
+        <strong>🧠 First principles —</strong> the free/paid split is the compile boundary: <code>parse</code> and <code>compile</code> turn your project into SQL with no warehouse (dbt is a compiler); <code>run</code>/<code>build</code>/<code>test</code> execute that SQL against the warehouse. That is why you debug <code>target/compiled/</code>, not your Jinja. <a href="#concepts" style="color:var(--accent);font-weight:600">Core Concepts → Execution Lifecycle</a>.
+      </p>
     </div>
   `;
 }

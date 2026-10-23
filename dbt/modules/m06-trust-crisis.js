@@ -145,11 +145,11 @@ function buildVisual(container) {
     ctx.globalAlpha = state.questionOp;
     rr(ctx, CEO_X - 150, 16, 300, 54, 10, '#1E2D43', '#F59E0B');
     ctx.fillStyle = '#F59E0B';
-    ctx.font = 'bold 12px Inter, sans-serif';
+    ctx.font = 'bold 14px Inter, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('👔  CEO', CEO_X - 80, 36);
     ctx.fillStyle = '#CBD4E6';
-    ctx.font = '12px Inter, sans-serif';
+    ctx.font = '14px Inter, sans-serif';
     ctx.fillText('"How many active users do we have?"', CEO_X + 20, 48);
     ctx.globalAlpha = 1;
 
@@ -167,11 +167,11 @@ function buildVisual(container) {
       ctx.globalAlpha = b.opacity;
       rr(ctx, team.x - 80, TEAM_Y, 160, 50, 8, '#131D2E', team.color + '88');
       ctx.fillStyle = team.color;
-      ctx.font = 'bold 11px Inter, sans-serif';
+      ctx.font = 'bold 13px Inter, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(team.name, team.x, TEAM_Y + 22);
-      ctx.fillStyle = '#4B5E78';
-      ctx.font = '9px "JetBrains Mono", monospace';
+      ctx.fillStyle = '#8A99B3';
+      ctx.font = '12px "JetBrains Mono", monospace';
       ctx.fillText(team.sql, team.x, TEAM_Y + 38);
 
       // Rising answer bubble
@@ -182,7 +182,7 @@ function buildVisual(container) {
       ctx.textAlign = 'center';
       ctx.fillText(team.answer, bx, by + 30);
       ctx.fillStyle = '#8895AA';
-      ctx.font = '9px Inter, sans-serif';
+      ctx.font = '12px Inter, sans-serif';
       ctx.fillText(team.definition, bx, by + 46);
       // Bubble tail
       ctx.beginPath();
@@ -244,10 +244,10 @@ function buildVisual(container) {
       ctx.fillText('≠', 505, 134);
 
       ctx.fillStyle = '#EF4444';
-      ctx.font = 'bold 13px Inter, sans-serif';
+      ctx.font = 'bold 14px Inter, sans-serif';
       ctx.fillText('Which number do we put in the board deck?', W/2, H - 30);
       ctx.fillStyle = '#8895AA';
-      ctx.font = '11px Inter, sans-serif';
+      ctx.font = '13px Inter, sans-serif';
       ctx.fillText('All three teams are using "correct" SQL. None agree. Trust is broken.', W/2, H - 12);
       ctx.restore();
     }
@@ -298,6 +298,11 @@ function buildDetail(container) {
     <div class="detail-section">
       <h3>What problem did this module show?</h3>
       <p style="font-size:15px;font-weight:600;color:var(--accent)">Without a shared definition layer, every team optimizes for their own metrics — creating a crisis of trust when leadership tries to make a single decision from multiple data sources.</p>
+    </div>
+    <div class="detail-section">
+      <p style="padding:12px 14px;background:var(--surface-2);border-left:3px solid var(--accent);border-radius:8px;font-size:14px;margin:0">
+        <strong>🧠 First principles —</strong> trust is a measurable property: every number should trace back to a single named definition in Git. The problem was never "more than one definition" — it was undocumented, divergent ones. <a href="#concepts" style="color:var(--accent);font-weight:600">Core Concepts → The ELT Paradigm</a>.
+      </p>
     </div>
   `;
 }

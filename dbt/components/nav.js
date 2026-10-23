@@ -9,11 +9,10 @@ export const MODULES = [
   { id:'m04', title:'Broken Dashboards',     icon:'📉', group:'Foundation',     num:'04', desc:'One column change breaks everything downstream' },
   { id:'m05', title:'Onboarding Nightmare',  icon:'😵', group:'Foundation',     num:'05', desc:'600 SQL files, no docs, no dependencies' },
   { id:'m06', title:'The Trust Crisis',      icon:'🤔', group:'Foundation',     num:'06', desc:'CEO asks one question, gets three different answers' },
-  // ── ELT Revolution ──────────────────────────────────────────────────────
-  { id:'m07', title:'The ETL Era',           icon:'🔧', group:'ELT Revolution', num:'07', desc:'How data pipelines worked before cloud warehouses' },
-  { id:'m08', title:'Why ELT Won',           icon:'⚡', group:'ELT Revolution', num:'08', desc:'Cloud warehouses changed transformation forever' },
-  // ── Introduction ────────────────────────────────────────────────────────
-  { id:'m09', title:'Introducing dbt',       icon:'🦆', group:'Introduction',   num:'09', desc:'The tool that finally solved the chaos' },
+  // ── The Shift to dbt (ETL → ELT → dbt) ────────────────────────────────────
+  { id:'m07', title:'The ETL Era',           icon:'🔧', group:'The Shift to dbt', num:'07', desc:'How data pipelines worked before cloud warehouses' },
+  { id:'m08', title:'Why ELT Won',           icon:'⚡', group:'The Shift to dbt', num:'08', desc:'Cloud warehouses changed transformation forever' },
+  { id:'m09', title:'Introducing dbt',       icon:'🦆', group:'The Shift to dbt', num:'09', desc:'The tool that finally solved the chaos' },
   // ── Core Features ───────────────────────────────────────────────────────
   { id:'m10', title:'dbt Models',            icon:'🏗️', group:'Core Features',  num:'10', desc:'Reusable, versioned SQL transformations' },
   { id:'m11', title:'dbt Tests',             icon:'🧪', group:'Core Features',  num:'11', desc:'Catch bad data before it reaches dashboards' },
@@ -21,20 +20,19 @@ export const MODULES = [
   { id:'m13', title:'Incremental Models',    icon:'⏩', group:'Core Features',  num:'13', desc:'Process only new records, not the full table' },
   { id:'m14', title:'Macros & Reuse',        icon:'♻️', group:'Core Features',  num:'14', desc:'Write SQL once, call it everywhere' },
   { id:'m15', title:'Lineage & DAG',         icon:'🕸️', group:'Core Features',  num:'15', desc:'Know exactly what depends on what' },
-  // ── Advanced ────────────────────────────────────────────────────────────
-  { id:'m16', title:'When NOT to Use dbt',   icon:'🚫', group:'Advanced',       num:'16', desc:'Where dbt fits and where it does not belong' },
+  { id:'m16', title:'When NOT to Use dbt',   icon:'🚫', group:'Core Features',  num:'16', desc:'Where dbt fits and where it does not belong' },
   // ── dbt Internals ───────────────────────────────────────────────────────
   { id:'m17', title:'Internals Visualizer',  icon:'🔬', group:'dbt Internals',  num:'17', desc:'What happens between dbt run and SQL hitting the warehouse' },
   { id:'m18', title:'Compile vs Execute',    icon:'⚙️', group:'dbt Internals',  num:'18', desc:'One templated model → compiled SQL → execution, step by step' },
   { id:'m19', title:'Manifest & Artifacts',  icon:'🗂️', group:'dbt Internals',  num:'19', desc:'Browse manifest/run_results/catalog; trace any node' },
   // ── Selection & Incrementals ─────────────────────────────────────────────
   { id:'m20', title:'State & Selection',      icon:'🎯', group:'Selection & Incrementals', num:'20', desc:'Pick a changed model, apply selectors, see what builds (Slim CI)' },
-  { id:'m21', title:'Incremental Strategies', icon:'⏩', group:'Selection & Incrementals', num:'21', desc:'append/merge/delete+insert/insert_overwrite/microbatch + pitfalls' },
+  { id:'m21', title:'Incremental Strategies', icon:'🔀', group:'Selection & Incrementals', num:'21', desc:'append/merge/delete+insert/insert_overwrite/microbatch + pitfalls' },
   // ── Data Quality ─────────────────────────────────────────────────────────
-  { id:'m22', title:'Testing & Data Quality', icon:'🧪', group:'Data Quality', num:'22', desc:'Generic, singular, custom, unit tests + contracts; run rollup' },
+  { id:'m22', title:'Testing & Data Quality', icon:'✅', group:'Data Quality', num:'22', desc:'Generic, singular, custom, unit tests + contracts; run rollup' },
   { id:'m23', title:'Source & Freshness',     icon:'📥', group:'Data Quality', num:'23', desc:'Freshness gates + the five source failures + classification' },
   // ── Production & Debugging ───────────────────────────────────────────────
-  { id:'m24', title:'Failure Simulator',     icon:'🚨', group:'Production & Debugging', num:'24', desc:'Ten real dbt incidents: symptom → root cause → fix → prevent' },
+  { id:'m24', title:'Failure Simulator',     icon:'⚠️', group:'Production & Debugging', num:'24', desc:'Ten real dbt incidents: symptom → root cause → fix → prevent' },
   { id:'m25', title:'Debugging Decision Tree',icon:'🌳', group:'Production & Debugging', num:'25', desc:'Guided triage from symptom to root-cause class and fix' },
   { id:'m26', title:'Performance Lab',        icon:'🚀', group:'Production & Debugging', num:'26', desc:'Before/after optimizations and why each one helps' },
   // ── Platform & Architecture ──────────────────────────────────────────────
@@ -43,28 +41,33 @@ export const MODULES = [
   { id:'m29', title:'Adapters & Warehouses',  icon:'🔌', group:'Platform & Architecture', num:'29', desc:'Snowflake/BigQuery/Databricks/Redshift/Postgres differences' },
   { id:'m30', title:'dbt + Airflow',          icon:'🔗', group:'Platform & Architecture', num:'30', desc:'Orchestration vs transformation; integration & interview scenarios' },
   { id:'m31', title:'Case Studies',           icon:'🏢', group:'Platform & Architecture', num:'31', desc:'Five production stacks across industries, each with an incident' },
-  // ── Mastery ──────────────────────────────────────────────────────────────
-  { id:'m32', title:'Command Playground',     icon:'⌨️', group:'Mastery', num:'32', desc:'Every dbt command: purpose, example, internals, prod use, mistake' },
-  // ── Real-World Production Lab (capstone) ──────────────────────────────────
-  { id:'m33', title:'Real-World Production',   icon:'🏭', group:'Real-World Production Lab', num:'33', desc:'One e-commerce project from raw source to BI dashboard — the capstone' },
+  // ── Mastery & Capstone ────────────────────────────────────────────────────
+  { id:'m32', title:'Command Playground',     icon:'⌨️', group:'Mastery & Capstone', num:'32', desc:'Every dbt command: purpose, example, internals, prod use, mistake' },
+  { id:'m33', title:'Real-World Production',   icon:'🏭', group:'Mastery & Capstone', num:'33', desc:'One e-commerce project from raw source to BI dashboard — the capstone' },
 ];
 
 // Synthetic entries: reference & review pages. They live in the sidebar but
 // don't count toward course progress or the prev/next pager.
 export const EXTRAS = [
-  { id:'studio',    title:'Coding Studio',     icon:'🧪', group:'Practice', num:'', desc:'Write and run real SQL on the e-commerce dataset (DuckDB-WASM).' },
+  { id:'studio',    title:'Coding Studio',     icon:'💻', group:'Practice', num:'', desc:'Write and run real SQL on the e-commerce dataset (DuckDB-WASM).' },
+  { id:'config-lab',title:'Config Lab',        icon:'⚙️', group:'Practice', num:'', desc:'Jinja templating + YAML/config repair with real validation.' },
+  { id:'incident-simulator', title:'Incident Simulator', icon:'🚨', group:'Practice', num:'', desc:'Work 20 real dbt incidents on-call: briefing → evidence → root cause → recovery → fix.' },
+  { id:'project-explorer', title:'Sample Project', icon:'📦', group:'Practice', num:'', desc:'Browse a complete, runnable dbt project and download it to dbt run locally on DuckDB.' },
+  { id:'spaced-review', title:'Spaced Review', icon:'🗓️', group:'Practice', num:'', desc:'Spaced-repetition review over the interview bank — SM-2 scheduling, due-today queue.' },
   { id:'modes',     title:'Learning Modes',    icon:'🧭', group:'Guide', num:'', desc:'Six goal-based paths through the modules.' },
   { id:'readiness', title:'Readiness Dashboard',icon:'📊', group:'Guide', num:'', desc:'Your learning progress by area, from views + quiz scores.' },
+  { id:'concepts',   title:'Core Concepts',     icon:'🧠', group:'Reference', num:'', desc:'First-principles deep dives: lifecycle, warehouse cost, grain, Jinja, state, ELT.' },
   { id:'master-map', title:'Master Map',       icon:'🗺️', group:'Reference', num:'', desc:'The whole dbt project on one page — sources to marts.' },
   { id:'comparison', title:'ETL vs ELT vs dbt', icon:'⚖️', group:'Reference', num:'', desc:'Feature matrix, when-to-use, interview Q&A.' },
   { id:'glossary',   title:'Glossary',          icon:'📖', group:'Reference', num:'', desc:'Every dbt term, searchable and defined.' },
-  { id:'cheatsheet', title:'Cheat Sheet',       icon:'📋', group:'Reference', num:'', desc:'CLI, Jinja, config and test quick reference.' },
+  { id:'cheatsheet', title:'Cheat Sheet',       icon:'🗒️', group:'Reference', num:'', desc:'CLI, Jinja, config and test quick reference.' },
+  { id:'build-health', title:'Build Health',    icon:'🩺', group:'Reference', num:'', desc:'The platform\'s own test harness: live in-browser checks + build-time validator results.' },
   { id:'interview-bank', title:'Interview Master Bank', icon:'🎯', group:'Interview Prep', num:'', desc:'Tiered interview questions with full-schema answers.' },
   { id:'interview-sim',  title:'Interview Simulator',   icon:'🎤', group:'Interview Prep', num:'', desc:'Interviewer mode: escalating questions, self-assessed.' },
   { id:'study',      title:'Study Hub',         icon:'📚', group:'Review',    num:'★', desc:'All interview questions in one filterable place.' },
 ];
 
-const HOME = { id:'home', title:'Home', icon:'🦆', group:'Start', num:'' };
+const HOME = { id:'home', title:'Home', icon:'🏠', group:'Start', num:'' };
 
 // Look up any routable entry (numbered module, reference page, or home).
 export function getNavItem(id) {
@@ -98,6 +101,12 @@ export function renderNav(activeId, done) {
   const groups = buildGroups();
 
   list.innerHTML = `
+    <div class="nav-item nav-home ${activeId === 'home' ? 'active' : ''}"
+         data-id="home" role="button" tabindex="0"${activeId === 'home' ? ' aria-current="page"' : ''}>
+      <span class="nav-icon">${HOME.icon}</span>
+      <span class="nav-label">${HOME.title}</span>
+      <span class="nav-number"></span>
+    </div>
     <div class="nav-tools">
       <input class="nav-filter" type="text" placeholder="Filter…" aria-label="Filter modules" />
       <button class="icon-btn nav-collapse-all" title="Collapse / expand all" aria-label="Collapse or expand all sections">⇕</button>
@@ -113,7 +122,7 @@ export function renderNav(activeId, done) {
         <div class="nav-group-items"><div class="nav-group-inner">
           ${g.items.map(m => `
             <div class="nav-item ${m.id === activeId ? 'active' : ''} ${done.has(m.id) ? 'done' : ''}"
-                 data-id="${m.id}" role="button" tabindex="0">
+                 data-id="${m.id}" role="button" tabindex="0"${m.id === activeId ? ' aria-current="page"' : ''}>
               <span class="nav-icon">${m.icon}</span>
               <span class="nav-label">${m.title}</span>
               <span class="nav-number">${done.has(m.id) ? '✓' : m.num}</span>

@@ -24,8 +24,12 @@
         "Given an `orders` DataFrame (`order_id`, `product_ids`) where `product_ids` is an **array** of the product IDs bought in that order, compute how many times **each product** was purchased across all orders. Flatten the array so every product ID becomes its own row, then count occurrences per product.",
       examples: [
         {
-          input: "orders: (1, ['A','B']), (2, ['A']), (3, ['B','C','A'])",
-          output: "A -> 3 ; B -> 2 ; C -> 1",
+          inputs: [
+            { name: "orders", columns: ["order_id", "product_ids"],
+              rows: [[1, "['A', 'B']"], [2, "['A']"], [3, "['B', 'C', 'A']"]] }
+          ],
+          output: { columns: ["product_id", "purchase_count"],
+            rows: [["A", 3], ["B", 2], ["C", 1]] },
           reasoning: "A appears in orders 1, 2 and 3 (3 times); B in orders 1 and 3 (2 times); C only in order 3 (1 time)."
         }
       ],
@@ -90,8 +94,12 @@
         "Given a `purchases` DataFrame (`customer_id`, `product_ids`) where `product_ids` is an **array** of product IDs, return the customers who bought a **specific** product (say `'P100'`). Test each row's array for membership rather than exploding the whole table.",
       examples: [
         {
-          input: "purchases: (c1, ['P100','P200']), (c2, ['P200']), (c3, ['P300','P100'])",
-          output: "c1 and c3 (both contain P100) ; c2 excluded",
+          inputs: [
+            { name: "purchases", columns: ["customer_id", "product_ids"],
+              rows: [["c1", "['P100', 'P200']"], ["c2", "['P200']"], ["c3", "['P300', 'P100']"]] }
+          ],
+          output: { name: "filter array_contains(product_ids, 'P100')", columns: ["customer_id"],
+            rows: [["c1"], ["c3"]] },
           reasoning: "c1 and c3 have P100 inside their product_ids array; c2 does not, so it is filtered out."
         }
       ],
@@ -154,8 +162,12 @@
         "Given a `readings` DataFrame (`id`, `nums`) where `nums` is an **array of integers**, compute for each row the array's `sum`, `avg`, `min` and `max` — without exploding the array. Use the higher-order `aggregate` for the sum, `size` for the count (to derive the average), and the built-in `array_min` / `array_max`.",
       examples: [
         {
-          input: "readings: (1, [10, 20, 30]), (2, [5, 15])",
-          output: "row 1 -> sum 60, avg 20.0, min 10, max 30 ; row 2 -> sum 20, avg 10.0, min 5, max 15",
+          inputs: [
+            { name: "readings", columns: ["id", "nums"],
+              rows: [[1, "[10, 20, 30]"], [2, "[5, 15]"]] }
+          ],
+          output: { columns: ["id", "sum", "avg", "min", "max"],
+            rows: [[1, 60, "20.0", 10, 30], [2, 20, "10.0", 5, 15]] },
           reasoning: "Row 1: 10+20+30=60, 60/3=20.0, min 10, max 30. Row 2: 5+15=20, 20/2=10.0, min 5, max 15."
         }
       ],
@@ -229,8 +241,12 @@
         "Given an `orders` DataFrame (`order_id`, `items`) where `items` is an **array of structs** each shaped `{product_id, quantity, price}`, produce one flat row per item with the struct's fields lifted into their own top-level columns. Explode the array, then reach into the struct with dot notation.",
       examples: [
         {
-          input: "orders: (1, [{p:'A', q:2, pr:10.0}, {p:'B', q:1, pr:5.0}])",
-          output: "(1,'A',2,10.0) ; (1,'B',1,5.0)",
+          inputs: [
+            { name: "orders", columns: ["order_id", "items (array<struct>)"],
+              rows: [[1, "[{product_id:'A', quantity:2, price:10.0}, {product_id:'B', quantity:1, price:5.0}]"]] }
+          ],
+          output: { columns: ["order_id", "product_id", "quantity", "price"],
+            rows: [[1, "A", 2, "10.0"], [1, "B", 1, "5.0"]] },
           reasoning: "The single order's two-element struct array becomes two rows, each with product_id, quantity and price pulled out of the struct into flat columns."
         }
       ],
@@ -303,8 +319,12 @@
         "Given an `events` DataFrame (`event_id`, `payload`) where `payload` is a **JSON string** like `{\"user\":\"u1\",\"action\":\"click\",\"count\":3}`, parse it into a real typed struct and lift its fields into their own columns. Define a `StructType` schema and apply `from_json`.",
       examples: [
         {
-          input: "events: (1, '{\"user\":\"u1\",\"action\":\"click\",\"count\":3}')",
-          output: "(1, 'u1', 'click', 3)  with typed columns user:string, action:string, count:int",
+          inputs: [
+            { name: "events", columns: ["event_id", "payload (json string)"],
+              rows: [[1, '{"user":"u1","action":"click","count":3}']] }
+          ],
+          output: { name: "typed columns: user string, action string, count int", columns: ["event_id", "user", "action", "count"],
+            rows: [[1, "u1", "click", 3]] },
           reasoning: "from_json parses the JSON string against the schema into a struct; selecting the struct's fields yields typed top-level columns."
         }
       ],
@@ -421,8 +441,12 @@
         "Given a `logs` DataFrame (`log_id`, `body`) where `body` is a JSON string with **nested** objects like `{\"user\":{\"id\":\"u1\",\"geo\":{\"city\":\"NYC\"}},\"status\":200}`, pull out deep fields such as the user's city and the status code. Either parse the whole thing with a nested `from_json` schema and dot into it, or grab a single field cheaply with `get_json_object`.",
       examples: [
         {
-          input: "logs: (1, '{\"user\":{\"id\":\"u1\",\"geo\":{\"city\":\"NYC\"}},\"status\":200}')",
-          output: "(1, 'u1', 'NYC', 200)",
+          inputs: [
+            { name: "logs", columns: ["log_id", "body (nested json string)"],
+              rows: [[1, '{"user":{"id":"u1","geo":{"city":"NYC"}},"status":200}']] }
+          ],
+          output: { columns: ["log_id", "user_id", "city", "status"],
+            rows: [[1, "u1", "NYC", 200]] },
           reasoning: "user.id -> 'u1', user.geo.city -> 'NYC', status -> 200, each lifted from its nested position in the JSON."
         }
       ],
@@ -545,8 +569,12 @@
         "Given a `users` DataFrame (`user_id`, `tags`) where `tags` is a **comma-separated string** like `'sports,music,tech'`, produce one row per individual tag. Split the string into an array on the delimiter, then explode that array into rows.",
       examples: [
         {
-          input: "users: (1, 'sports,music'), (2, 'tech')",
-          output: "(1,'sports'), (1,'music'), (2,'tech')",
+          inputs: [
+            { name: "users", columns: ["user_id", "tags"],
+              rows: [[1, "sports,music"], [2, "tech"]] }
+          ],
+          output: { columns: ["user_id", "tag"],
+            rows: [[1, "sports"], [1, "music"], [2, "tech"]] },
           reasoning: "User 1's 'sports,music' splits into ['sports','music'] then explodes to two rows; user 2's single 'tech' becomes one row."
         }
       ],
@@ -608,8 +636,12 @@
         "Given a `baskets` DataFrame (`basket_id`, `items`) where `items` is an **array** of product names, find the single **most frequently occurring** item across all baskets. Explode the arrays, count each item, and take the top one by frequency.",
       examples: [
         {
-          input: "baskets: (1, ['milk','bread']), (2, ['milk','eggs']), (3, ['milk','bread'])",
-          output: "milk (appears 3 times)",
+          inputs: [
+            { name: "baskets", columns: ["basket_id", "items"],
+              rows: [[1, "['milk', 'bread']"], [2, "['milk', 'eggs']"], [3, "['milk', 'bread']"]] }
+          ],
+          output: { columns: ["item", "freq"],
+            rows: [["milk", 3]] },
           reasoning: "milk appears in all three baskets (3), bread in two (2), eggs in one (1); milk is the most common."
         }
       ],

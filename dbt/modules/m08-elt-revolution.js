@@ -60,7 +60,7 @@ const IQ = [
 
 export function mount(container) {
   container.innerHTML = createModuleShell({
-    tag: 'M08 · ELT Revolution',
+    tag: 'M08 · The Shift to dbt',
     title: 'Why ELT Won',
     subtitle: 'Cloud warehouses made transformation cheap and fast. The entire data architecture flipped — and dbt was born to own the new transformation layer.',
     tabs: [
@@ -145,7 +145,7 @@ function buildVisual(container) {
   function drawPipeline(stages, baseY, pktArr, label, labelColor) {
     const BW = 90, BH = STAGE_H;
     ctx.fillStyle = labelColor;
-    ctx.font = 'bold 11px Inter, sans-serif';
+    ctx.font = 'bold 13px Inter, sans-serif';
     ctx.textAlign = 'left';
     ctx.fillText(label, stages[0].x, baseY - 18);
 
@@ -155,19 +155,19 @@ function buildVisual(container) {
         s.color + (s.slow || s.fast ? '' : '88')
       );
       ctx.fillStyle = s.color;
-      ctx.font = 'bold 9px Inter, sans-serif';
+      ctx.font = 'bold 12px Inter, sans-serif';
       ctx.textAlign = 'center';
       const lines = s.label.split('\n');
       lines.forEach((line, li) => ctx.fillText(line, s.x + BW/2, baseY + 18 + li * 12));
 
       if (s.slow) {
         ctx.fillStyle = '#EF4444';
-        ctx.font = 'bold 9px Inter, sans-serif';
+        ctx.font = 'bold 12px Inter, sans-serif';
         ctx.fillText('🐌 slow + costly', s.x + BW/2, baseY + BH - 8);
       }
       if (s.fast) {
         ctx.fillStyle = '#FF694B';
-        ctx.font = 'bold 9px Inter, sans-serif';
+        ctx.font = 'bold 12px Inter, sans-serif';
         ctx.fillText('⚡ fast SQL', s.x + BW/2, baseY + BH - 8);
       }
 
@@ -233,7 +233,7 @@ function buildVisual(container) {
 
     // Headers
     ctx.fillStyle = '#EF4444';
-    ctx.font = 'bold 13px Inter, sans-serif';
+    ctx.font = 'bold 14px Inter, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('ETL (Before Cloud)', MID * 0.5, 30);
     ctx.fillStyle = '#10B981';
@@ -256,7 +256,7 @@ function buildVisual(container) {
     metrics.forEach((m, i) => {
       const ry = compY + i * 30;
       ctx.fillStyle = '#8895AA';
-      ctx.font = '11px Inter, sans-serif';
+      ctx.font = '13px Inter, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(m.label, W/2, ry + 12);
 
@@ -274,7 +274,7 @@ function buildVisual(container) {
 
     // Bottom label
     ctx.fillStyle = '#FF694B';
-    ctx.font = 'bold 11px Inter, sans-serif';
+    ctx.font = 'bold 13px Inter, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('dbt owns the "T" in ELT — transformations in SQL, versioned in Git, tested automatically.', W/2, H - 12);
 
@@ -290,19 +290,19 @@ function buildDetail(container) {
     <div class="detail-section">
       <h3>The ELT revolution in three numbers</h3>
       <div class="info-grid">
-        <div class="info-card" style="border-left-color:#10B981">
+        <div class="info-card" style="border-left-color:var(--success)">
           <div class="info-card-title">100× cheaper storage</div>
-          <div class="info-card-tag" style="color:#10B981;background:#10B98122">Snowflake, 2012</div>
+          <div class="info-card-tag" style="color:var(--success);background:color-mix(in srgb, var(--success) 13%, transparent)">Snowflake, 2012</div>
           <div class="info-card-body">Cloud object storage (S3, GCS) made storing raw data essentially free. The old reason to transform before loading — saving warehouse storage costs — disappeared overnight.</div>
         </div>
-        <div class="info-card" style="border-left-color:#3B82F6">
+        <div class="info-card" style="border-left-color:var(--info)">
           <div class="info-card-title">10× faster queries</div>
-          <div class="info-card-tag" style="color:#3B82F6;background:#3B82F622">BigQuery, 2010</div>
+          <div class="info-card-tag" style="color:var(--info);background:color-mix(in srgb, var(--info) 13%, transparent)">BigQuery, 2010</div>
           <div class="info-card-body">Column-oriented cloud warehouses could run analytical SQL on billions of rows in seconds. The "transform before load" performance argument no longer held — the warehouse was now fast enough to transform raw data on demand.</div>
         </div>
-        <div class="info-card" style="border-left-color:#FF694B">
+        <div class="info-card" style="border-left-color:var(--accent)">
           <div class="info-card-title">$0 per iteration</div>
-          <div class="info-card-tag" style="color:#FF694B;background:#FF694B22">dbt, 2016</div>
+          <div class="info-card-tag" style="color:var(--accent);background:color-mix(in srgb, var(--accent) 13%, transparent)">dbt, 2016</div>
           <div class="info-card-body">dbt made SQL transformation free to iterate. An analyst can write a new model, test it, and deploy it in minutes — with no ETL developer, no server, no IT ticket. The bottleneck that defined data work for 20 years was gone.</div>
         </div>
       </div>
@@ -327,6 +327,11 @@ function buildDetail(container) {
       <h3>The analytics engineer role emerges</h3>
       <p>ELT created a new persona: the <strong>analytics engineer</strong>. They understand SQL deeply, apply software engineering practices (version control, testing, documentation), and own the transformation layer from raw data to business-facing marts. Before ELT, this role didn't exist — transformation was owned by ETL developers who didn't know the business, and analysts who knew the business couldn't change the pipeline.</p>
       <p>dbt is the analytics engineer's primary tool. It gave SQL the infrastructure that software engineers take for granted: Git, tests, documentation, CI/CD.</p>
+    </div>
+    <div class="detail-section">
+      <p style="padding:12px 14px;background:var(--surface-2);border-left:3px solid var(--accent);border-radius:8px;font-size:14px;margin:0">
+        <strong>🧠 First principles —</strong> once cloud warehouses decoupled storage from compute, loading raw then transforming in-place beat maintaining a separate ETL tier — and dbt is only the "T". That one idea explains why dbt is batch, SQL-first, and read-only against sources. <a href="#concepts" style="color:var(--accent);font-weight:600">Core Concepts → The ELT Paradigm</a>.
+      </p>
     </div>
   `;
 }

@@ -91,6 +91,44 @@
     retention: {
       question: "RetailFlow's revenue pipeline deployed green, then one night ran 40% slower and nearly missed the 7 AM SLA — nothing errored. Why couldn't CI/CD catch this, and what does?",
       answer: "CI/CD validates that the code <b>ships and passes tests</b>; it can't observe how the pipeline behaves on real data at 2 AM, so a slowdown with no failure is invisible to it. <b>Observability</b> does: a <b>pipeline-duration metric</b> against a baseline and a <b>freshness/SLA alert rule</b> detect the run trending toward a 7 AM miss and page on-call while there's still time to act. Deployment is the start of production engineering, not the end."
-    }
+    },
+
+    prerequisites: [
+      { id: "data-quality", label: "Data quality" },
+      "rollback",
+      "deployment-strategies"
+    ],
+
+    production: [
+      { h: "Instrument software and data", body: "Runtime health has two halves — the <b>software</b> ran (duration, failure rate, traces) <i>and</i> the <b>data</b> is right (freshness, row counts, null/duplicate rate); a run can succeed while emitting stale numbers." },
+      { h: "Alert on SLA-threatening signals", body: "RetailFlow pages on duration > 1.4× baseline and freshness nearing the 7 AM deadline, so on-call is woken at 2 AM with time to act — not surfaced to a CFO at 7." },
+      { h: "Route by severity to avoid fatigue", body: "Page only on actionable, SLA-impacting conditions; send lower-severity signals to a dashboard/channel, and delete alerts nobody acts on." },
+      { h: "Track SLOs and error budgets", body: "Turn 'is it healthy?' into a number — an SLI (% of days revenue lands before 7 AM), an SLO target, and the remaining error budget that tells you when to invest in reliability." },
+      { h: "Close the loop to CI/CD", body: "A duration/SLA alert can trigger a <b>rollback</b>, and recurring failures should become new pre-deploy tests and data-quality checks — production signal is how you know a release was actually good." }
+    ],
+
+    misconceptions: [
+      { myth: "A successful deploy proves the data is correct.", truth: "A green deploy proves the code shipped; it says nothing about freshness, row counts, or whether the 2 AM run produced right numbers — that needs runtime data-quality signals." },
+      { myth: "A job that finished successfully produced good data.", truth: "A run can exit 0 while emitting stale, incomplete, or malformed rows, so success status and data correctness are separate checks." },
+      { myth: "More alerts means better coverage.", truth: "Non-actionable pages cause <b>alert fatigue</b> and real incidents get ignored; instrument what maps to SLA/user impact and route the rest to a dashboard." },
+      { myth: "Monitoring and observability are the same thing.", truth: "<b>Monitoring</b> watches predefined failure modes; <b>observability</b> is having enough signal (logs + metrics + traces + data quality) to debug the <i>unknown</i> ones after the fact — you need both." }
+    ],
+
+    troubleshooting: [
+      { symptom: "Pipeline deployed green but missed the 7 AM SLA.", cause: "CI can't see runtime behavior on real data — a slow source/heavier volume made the run 40% slower.", fix: "Add a duration-vs-baseline and freshness/SLA alert that pages on-call pre-deadline, scale the job or defer the slow source, and verify the run lands before 7 AM." },
+      { symptom: "On-call is drowning in pages and ignores them.", cause: "Alerts fire on non-actionable, non-SLA conditions.", fix: "Keep only alerts tied to SLA/user impact at <code>severity: page</code>, route the rest to a channel, delete the dead ones, and confirm page volume drops to actionable incidents." },
+      { symptom: "Run succeeded but the dashboard shows old numbers.", cause: "The job exited 0 while the output data was stale — no freshness check.", fix: "Add a freshness alert (newest row age vs deadline), investigate the upstream staleness, and verify the dashboard reads current data." },
+      { symptom: "Revenue totals look wrong but no infra alert fired.", cause: "Only software metrics are instrumented, not data-quality metrics.", fix: "Add row-count/null/duplicate-rate checks to the same dashboards, backfill if needed, and verify the data-quality suite passes." },
+      { symptom: "An alert fires every night at the same time but nothing is wrong.", cause: "The threshold is static and doesn't track the real baseline.", fix: "Base the rule on a rolling baseline (e.g. 1.4× the 30-day duration) with a <code>for:</code> window, then confirm it only fires on genuine deviations." }
+    ],
+
+    interview: [
+      { q: "Why can't CI/CD catch a pipeline that deploys green but runs 40% slower on real data?", a: "CI/CD validates the code <b>builds and passes tests</b> in a controlled environment; it never observes the run on production-scale data at 2 AM. A slowdown with no failure is invisible to it. <b>Observability</b> catches it with a duration-vs-baseline metric and a freshness/SLA alert that pages on-call before the 7 AM deadline — deployment is the start of production engineering, not the end." },
+      { q: "What's the difference between monitoring and observability?", a: "<b>Monitoring</b> watches known failure modes you predefined — this metric, this threshold. <b>Observability</b> is having enough rich signal (logs + metrics + traces + data quality) to debug the <i>unknown</i> failures after the fact. You need both: dashboards and alerts for the known, deep signal for the surprises." },
+      { q: "Which metrics would you put on a data pipeline's health dashboard, and why both software and data?", a: "Software: <b>pipeline duration</b> (vs baseline), <b>task failure rate</b>, traces. Data: <b>freshness</b>, <b>row counts</b> (vs history), <b>null/duplicate rate</b>, and <b>SLA</b> (finished by 7 AM). Both halves matter because a run can succeed while the data is stale or malformed — infra-green does not mean data-correct, so data-quality signals belong on the same dashboard." },
+      { q: "How do SLIs, SLOs, and error budgets help you decide what to work on?", a: "An <b>SLI</b> measures a user-facing property (e.g. % of days revenue lands before 7 AM); the <b>SLO</b> is the target (say 99.5%); the <b>error budget</b> is the allowed shortfall. When the budget is being burned, you slow feature work and invest in reliability; when it's healthy, you can ship faster. It turns 'is it healthy?' into an objective, trade-off-driving number." }
+    ],
+
+    related: ["data-quality", "rollback", "deployment-strategies", "airflow-cicd"]
   }));
 })();

@@ -97,6 +97,39 @@
     retention: {
       question: "A RetailFlow DAG has a typo in an import. Which CI check catches it before the scheduler does, and how?",
       answer: "The <b>DAG import test</b> — CI loads all DAGs with <code>DagBag(include_examples=False)</code> and asserts <code>import_errors == {}</code>. The bad import makes that non-empty, failing CI and <b>blocking the deploy</b>."
-    }
+    },
+
+    prerequisites: ["git", "github-actions", "docker", "pytest"],
+
+    production: [
+      { h: "Keep DAG files import-light", body: "Top-level code runs on every scheduler parse (every ~30s). A warehouse call or heavy import at module scope slows parsing and can time out the DagBag — build the revenue DAG's work inside tasks, not at import time." },
+      { h: "Backfills and idempotent tasks", body: "RetailFlow re-runs <code>daily_revenue</code> for past dates via <code>catchup</code>/backfill, so each task must be idempotent — overwrite the day's partition or MERGE on <code>order_id</code>, never blind-append, or a backfill double-counts revenue." },
+      { h: "Pin the runtime, image = prod", body: "Pin <code>requirements.txt</code> and ship the same Docker image CI tested; an unpinned provider upgrade can change operator behaviour between CI and the scheduler." },
+      { h: "Secrets and connections per environment", body: "Pull the warehouse password from a secrets backend via an Airflow Connection, scoped per environment — never hard-code it in the DAG, and never let a dev connection point at prod data." },
+      { h: "Import test as a real gate", body: "The DagBag import check only guards prod if CI fails the build on a non-empty <code>import_errors</code> and the deploy step is conditioned on that job passing — assert it explicitly." }
+    ],
+
+    misconceptions: [
+      { myth: "A green pytest run means the DAG will schedule correctly.", truth: "Unit tests cover task logic; they don't prove the file imports in the Airflow runtime. A DagBag import test is a separate, required check." },
+      { myth: "Top-level code in a DAG file runs once at deploy.", truth: "It runs on <i>every</i> scheduler parse of the file. Expensive top-level work (DB calls, big computations) repeatedly slows parsing and can break DAG loading." },
+      { myth: "<code>catchup=True</code> is safe because Airflow handles re-runs.", truth: "Only if every task is idempotent. A non-idempotent append task will double-count rows across backfilled runs regardless of Airflow's scheduling." },
+      { myth: "Rolling back a bad DAG means editing the file back.", truth: "With immutable image deploys, rollback is redeploying the previous image/commit tag — hand-editing on the scheduler leaves no reproducible version and invites drift." }
+    ],
+
+    troubleshooting: [
+      { symptom: "The whole DAGs folder stops loading after one PR.", cause: "A top-level import error in one file fails DagBag parsing and blocks sibling DAGs.", fix: "Run <code>DagBag(include_examples=False)</code> locally, read <code>import_errors</code>, fix the import, and confirm <code>import_errors == {}</code> before deploy." },
+      { symptom: "Scheduler is sluggish and heartbeats lag.", cause: "Heavy top-level code (warehouse queries, large imports) runs on every parse.", fix: "Move the work into task callables / operators, keep module scope cheap, and verify parse time drops in the scheduler logs." },
+      { symptom: "A backfill of daily_revenue doubled some days' totals.", cause: "A task appends instead of overwriting, so re-running a date re-inserts rows.", fix: "Make the task idempotent (overwrite partition or MERGE on <code>order_id</code>), re-run the affected dates, and confirm counts match the single-run baseline." },
+      { symptom: "DAG works in CI but fails in prod with a missing-connection error.", cause: "The Airflow Connection/secret isn't configured in the prod environment, or config is baked into code.", fix: "Register the connection in the prod secrets backend, reference it by conn_id, and verify the task resolves it at runtime." }
+    ],
+
+    interview: [
+      { q: "Why is a DAG import test separate from your unit tests, and how do you write one?", a: "Unit tests exercise task logic in Python; they don't prove the file parses inside Airflow, where one bad import can break the whole DagBag. Load <code>DagBag(include_examples=False)</code> and <code>assert dag_bag.import_errors == {}</code> so any parse error fails CI before the scheduler sees it." },
+      { q: "What belongs in a task vs at the top level of a DAG file?", a: "Only lightweight structure (operator wiring, dependencies) at module scope — it runs on every scheduler parse. All real work (queries, I/O, heavy computation) goes inside task callables/operators, so parsing stays fast and a slow import doesn't stall the scheduler." },
+      { q: "How do you make a RetailFlow DAG safe to backfill?", a: "Make every task idempotent: overwrite the target date's partition or MERGE on <code>order_id</code> rather than appending, so re-running <code>daily_revenue</code> for a past date produces the same rows. Then <code>catchup</code>/backfill can replay history without double-counting net_revenue." },
+      { q: "How do you deploy DAGs and roll back a bad release?", a: "Ship an immutable Docker image (or git-sync a pinned commit) so CI and prod run identical code. Rollback is redeploying the previous image tag/commit — reversible and reproducible — rather than hand-editing files on the scheduler." }
+    ],
+
+    related: ["pytest", "docker", "dbt-cicd", "rollback"]
   }));
 })();

@@ -124,7 +124,7 @@ function buildLab(container) {
           <div class="mx-cell"><div class="mx-k">Sources</div><div class="mx-v">${c.sources}</div></div>
           <div class="mx-cell"><div class="mx-k">Grain</div><div class="mx-v">${c.grain}</div></div>
         </div>
-        <div class="ex-interview" style="border-left-color:var(--error);background:rgba(239,68,68,0.10)">
+        <div class="ex-interview" style="border-left-color:var(--error);background:color-mix(in srgb, var(--error) 10%, transparent)">
           <span class="ex-iq-badge" style="color:var(--error)">Incident</span> ${c.incident}</div>
         <div class="mx-grid" style="margin-top:12px">
           <div class="mx-cell"><div class="mx-k">Root cause</div><div class="mx-v">${c.root}</div></div>
@@ -160,11 +160,11 @@ function buildDetail(container) {
     <div class="detail-section">
       <h3>Every incident was a source-boundary failure</h3>
       <div class="info-grid">
-        <div class="info-card" style="border-left-color:#FF694B"><div class="info-card-title">E-commerce: double-load</div><div class="info-card-body">Dedup in staging + volume anomaly + reconciliation test.</div></div>
-        <div class="info-card" style="border-left-color:#10B981"><div class="info-card-title">Banking: late/backdated</div><div class="info-card-body">Lookback + unique_key + daily reconciliation to the ledger.</div></div>
-        <div class="info-card" style="border-left-color:#3B82F6"><div class="info-card-title">Retail: empty-but-fresh</div><div class="info-card-body">Row-count test — freshness alone misses zero-row loads.</div></div>
-        <div class="info-card" style="border-left-color:#8B5CF6"><div class="info-card-title">Customer: schema rename</div><div class="info-card-body">Contract + not_null + staging alias isolates the change.</div></div>
-        <div class="info-card" style="border-left-color:#F59E0B"><div class="info-card-title">Marketing: mixed definitions</div><div class="info-card-body">One tested definition + currency normalization macro.</div></div>
+        <div class="info-card" style="border-left-color:var(--accent)"><div class="info-card-title">E-commerce: double-load</div><div class="info-card-body">Dedup in staging + volume anomaly + reconciliation test.</div></div>
+        <div class="info-card" style="border-left-color:var(--success)"><div class="info-card-title">Banking: late/backdated</div><div class="info-card-body">Lookback + unique_key + daily reconciliation to the ledger.</div></div>
+        <div class="info-card" style="border-left-color:var(--info)"><div class="info-card-title">Retail: empty-but-fresh</div><div class="info-card-body">Row-count test — freshness alone misses zero-row loads.</div></div>
+        <div class="info-card" style="border-left-color:var(--purple)"><div class="info-card-title">Customer: schema rename</div><div class="info-card-body">Contract + not_null + staging alias isolates the change.</div></div>
+        <div class="info-card" style="border-left-color:var(--warn)"><div class="info-card-title">Marketing: mixed definitions</div><div class="info-card-body">One tested definition + currency normalization macro.</div></div>
       </div>
       <p style="font-size:15px;font-weight:600;color:var(--accent)">Architecture is pattern recognition: same layered skeleton, same source-boundary failure modes, same defenses (freshness + volume tests, thin staging, contracts, reconciliation). Learn the pattern once and every domain is a variation.</p>
     </div>

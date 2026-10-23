@@ -45,6 +45,11 @@
       </nav>
 
       <div class="topbar-actions">
+        <button id="search-btn" class="icon-btn" title="Search (/)" aria-label="Search">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/>
+          </svg>
+        </button>
         <button id="theme-toggle" class="icon-btn" title="Toggle theme (T)" aria-label="Toggle theme">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
@@ -79,6 +84,9 @@
             <li><a href="#end-to-end-pipeline" class="sidebar-link" data-route="end-to-end-pipeline">End-to-End Pipeline</a></li>
             <li><a href="#environment-promotion" class="sidebar-link" data-route="environment-promotion">Environment Promotion</a></li>
             <li><a href="#failure-simulator" class="sidebar-link" data-route="failure-simulator">Failure Simulator</a></li>
+            <li><a href="#release-sim" class="sidebar-link" data-route="release-sim">🎛️ Release &amp; Rollback Simulator</a></li>
+            <li><a href="#capstone" class="sidebar-link" data-route="capstone">🏷️ RetailFlow Capstone</a></li>
+            <li><a href="#labs" class="sidebar-link" data-route="labs">🧪 Hands-on Labs</a></li>
           </ul>
         </div>
 
@@ -129,6 +137,7 @@
           <div class="sidebar-label">Engineering Concepts</div>
           <ul class="sidebar-list" role="list">
             <li><a href="#ci-vs-cd" class="sidebar-link" data-route="ci-vs-cd">CI vs CD</a></li>
+            <li><a href="#cli-yaml-deps" class="sidebar-link" data-route="cli-yaml-deps">CLI, YAML &amp; Dependencies</a></li>
             <li><a href="#artifact-lifecycle" class="sidebar-link" data-route="artifact-lifecycle">Artifact Lifecycle</a></li>
             <li><a href="#branching" class="sidebar-link" data-route="branching">Git Branching</a></li>
             <li><a href="#testing-pyramid" class="sidebar-link" data-route="testing-pyramid">Testing Pyramid</a></li>
@@ -191,6 +200,8 @@
   <!-- Core engine -->
   <script src="js/core/animation-engine.js"></script>
   <script src="js/core/router.js"></script>
+  <script src="js/core/progress.js"></script>
+  <script src="js/core/search.js"></script>
   <script src="js/core/tooltip.js"></script>
   <script src="js/core/keyboard.js"></script>
 
@@ -200,12 +211,21 @@
   <script src="js/components/arch-diagram.js"></script>
   <script src="js/components/state-machine.js"></script>
   <script src="js/components/timeline.js"></script>
+  <script src="js/components/module-actions.js"></script>
+  <script src="js/components/lab.js"></script>
+  <script src="js/components/evidence.js"></script>
+  <script src="js/components/lesson.js"></script>
   <script src="js/components/concept-module.js"></script>
   <script src="js/components/data-engineering-lens.js"></script>
 
   <!-- Data -->
   <script src="js/data/retailflow-data.js"></script>
+  <script src="js/data/curriculum.js"></script>
+  <script src="js/data/capstone.js"></script>
+  <script src="js/data/casestudy-airbnb.js"></script>
   <script src="js/data/cicd-concepts.js"></script>
+  <script src="js/data/search-index.js"></script>
+  <script src="js/data/labs.js"></script>
 
   <script src="js/app.js"></script>
   <!-- Offline backup: one-click .zip download of this project (top-right) -->

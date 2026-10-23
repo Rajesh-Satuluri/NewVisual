@@ -24,25 +24,81 @@ Living checklist for the Iter 0–4 build. Updated each wave. Counts are authori
 - [x] "Actual execution — DuckDB-WASM" labeling; graceful degradation if CDN unreachable
 - [x] Verified headless: renders + interactions + graceful engine-offline, 0 pageerrors
 
-## Iter 2 — Jinja / YAML / config 🔵
+## Iter 2 — Jinja / YAML / config ✅
 
-- [ ] Real YAML validation (js-yaml)
-- [ ] Labeled Jinja teaching-evaluator
-- [ ] Repair-broken-project exercises
-- [ ] valid→parsed→compiled→executed→correct ladder UI
+- [x] Real YAML parse (js-yaml in production; tested yaml-mini fallback offline/CI — validated vs PyYAML)
+- [x] Labeled pure-JS Jinja teaching-evaluator (if/for/set/filters/ref/var) — cross-checked vs real Jinja2
+- [x] `/config-lab` route + Practice nav entry
+- [x] 12 exercises (6 Jinja, 6 YAML repair) with full schema; all validated offline (`tools/validate-config.mjs`, 0 failing)
+- [x] valid→parsed→compiled→executed→correct ladder UI (per-exercise stage highlight)
+- [x] Verified headless: Jinja Check pass, YAML Check pass (yaml-mini), broken starter rejected, 0 pageerrors
 
-## Iter 3 — Interview Academy 🔵
+## Iter 3 — Interview Academy ✅
 
-- [ ] Bank → ~250–320 distinct full-schema questions
-- [ ] Competency coverage matrix (category × difficulty) from registry
-- [ ] 4 modes (oral/written/coding/system-design) with rubric scoring
-- [ ] Weak-topic tracking + revision surface
+- [x] Bank → **293** distinct full-schema questions (44 core + 249 authored; 8 tiers)
+- [x] Competency coverage matrix (15 areas × difficulty) with live counts + weak-topic chips
+- [x] Simulator tracks: ramp / scenario+design / debugging / senior / full-mock; written-answer box + self-assessment
+- [x] Weak-topic persistence (`dbt-weak-topics`) → surfaced on the Coverage Matrix
+- [x] content-lint 0/0; headless verify (bank + coverage + sim), 0 pageerrors — deployed
 
-## Iter 4 — Production Incident Simulator 🔵
+## Iter 4 — Production Incident Simulator ✅
 
-- [ ] Reusable multi-step incident engine
-- [ ] 20 named scenarios
-- [ ] Branch-aware recovery consequences + incident report output
+- [x] Reusable multi-step engine: briefing → evidence → hypothesis → root cause → recovery → fix → validate → postmortem
+- [x] **20** named scenarios (data/incidents.js); schema-checked (one correct hypothesis + one correct recovery each)
+- [x] Scored hypothesis + recovery choice with consequences; generated 5-part postmortem + 0/2 triage score
+- [x] On-call playbook tab (4-bucket taxonomy + loop); Practice nav entry + lazy loader; registry `incidentCount`
+- [x] Illustrative-fix labelling (nothing executed); adapter-specific behavior called out
+- [x] content-lint 0/0; headless full-flow verify, 0 pageerrors — deployed
+
+## Iter 5 — Sample Project Explorer ✅
+
+- [x] `data/sample-project.js` — complete runnable `jaffle_commerce` dbt project (**19** real source files: dbt_project.yml, profiles, packages, sources, staging + marts models, schema.yml tests, macro, snapshot, singular test, seeds, README)
+- [x] `/project-explorer` route + Practice nav entry + lazy loader; registry `projectFiles`
+- [x] Browsable file tree (derived from paths) + per-file viewer with highlighting + per-file download
+- [x] "Run it locally" tab: one-click **self-extracting setup script** (quoted heredocs, verbatim) → actually `dbt build`s on DuckDB, no warehouse
+- [x] Honest labelling: nothing executed in-browser; Explorer only displays + packages real dbt source
+- [x] content-lint 0/0; headless render + file-switch verify, 0 pageerrors — deployed
+
+## Iter 6 — Spaced Review ✅
+
+- [x] `/spaced-review` route + Practice nav entry + lazy loader
+- [x] Compact **SM-2** scheduler (SuperMemo-2 family) over all 293 bank questions; due-today queue + new-card cap
+- [x] Reveal → 4-grade recall (Again/Hard/Good/Easy) with projected next-interval; lapse resets to 1 day
+- [x] Progress tab (due/studied/mature/new + bar) and reset; state local-only (`dbt-srs`), stable hashed card ids
+- [x] content-lint 0/0; headless reveal→grade→advance + persistence verify, 0 pageerrors — deployed
+
+## Iter 7 — Build Health + route hardening ✅
+
+- [x] `data/loader-map.js` — single source of truth for route→file; `script.js` builds LOADERS from it; content-lint imports it (no more text-scraping) and guards the refactor
+- [x] `/build-health` route + Reference nav entry: **live** in-browser checks (registry parity, bank schema, dedup, incident invariants, all routes import+mount, quiz indices) — 10/10 passing
+- [x] **Build-time** checks surfaced honestly (DuckDB/Jinja2/PyYAML/headless) with last recorded results, clearly labelled not re-executed in the sandbox
+- [x] Content-counts tab derived live from the registry
+- [x] content-lint 0/0; headless verify (live board all-green), 0 pageerrors — deployed
+- [x] (Deliberately skipped the spec's app-wide UX redesign — it would violate the no-redesign rule; hardening + test harness kept instead)
+
+## Core Features enrichment — in-place labs + deeper explanations ✅
+
+Scope: the **Core Features** group only (m10–m15). Every existing visual + interview
+Q&A preserved; each module gains a `🔬 Lab` tab, progressive-disclosure "going deeper"
+blocks, and its interview Q&A expanded 3 → 6 (Foundation→Senior). Pinned to dbt Core 1.9.
+All labs are clearly labelled local simulations (real execution stays in Coding Studio /
+the downloadable project). Shared `.cf-*` stylesheet in enhancements.css.
+
+- **Wave 1** — m15 *Wire the DAG* (choose each ref()/source() target; graph forms live;
+  flags missing refs, hardcoded tables, wrong targets, cycles) · m10 *Compile & Materialize*
+  (materialization chips + dev/prod target → source → compiled SQL → materialization
+  wrapper DDL → behaviour table).
+- **Wave 2** — m13 *Incremental run* (compose new/updated/late/duplicate batch + watermark
+  operator + lookback + strategy → per-row fate & why; models merge/append/delete+insert,
+  late-data miss, boundary ties, merge dup-key conflict) · m11 *Break a test* (inject bad
+  rows → each generic/singular test as its real failures query; severity warn vs error and
+  the deploy gate).
+- **Wave 3** — m12 *Snapshot over time* (step successive loads; SCD-2 validity windows;
+  timestamp vs check incl. the stale-updated_at miss) · m14 *Expand a macro* (args/defaults,
+  a for-loop surrogate key, computed fiscal-quarter CASE, env-aware target logic → compiled SQL).
+
+Each wave: content-lint 0/0, `node --check` + ESM import, headless render + lab interactions
+(both themes) 0 pageerrors, merged to `main`.
 
 ## Verification gates (every wave)
 
