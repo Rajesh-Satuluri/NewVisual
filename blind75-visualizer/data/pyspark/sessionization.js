@@ -42,6 +42,15 @@
             "4. New-session flag: `when(prev_ts.isNull() | (gap > 1800), 1).otherwise(0)`.\n" +
             "5. Session number: `F.sum('is_new_session').over(w)` — an ordered sum, so its frame is `rowsBetween(unboundedPreceding, currentRow)` by default.\n\n" +
             "**Why it works.** The flag emits a 1 exactly at the start of each session (first event, or any event more than 30 minutes after the previous one) and a 0 otherwise. A cumulative sum of a series of 0s and 1s increments only at those session boundaries, so every event inside the same session shares the same running total — a perfect per-user session id.\n\n" +
+            "**Walkthrough — the gaps-and-islands (sessionization) trick on the example rows.** `prev` is `lag(event_time)`, `gap` is the minutes since it, `is_new` flags a gap > 30 min (or the null first event), and `session_id` is the running `sum(is_new)`:\n\n" +
+            "| event_time | prev (lag) | gap (min) | is_new | session_id = running sum |\n" +
+            "|---|---|---|---|---|\n" +
+            "| 10:00 | (null) | - | 1 | 1 |\n" +
+            "| 10:20 | 10:00 | 20 | 0 | 1 |\n" +
+            "| 11:05 | 10:20 | 45 | 1 | 2 |\n" +
+            "| 11:10 | 11:05 | 5 | 0 | 2 |\n" +
+            "\n" +
+            "Each `is_new = 1` opens a new island (session); the running sum carries that number forward until the next gap > 30 min. The flag column `1,0,1,0` sums to `1,1,2,2` — the expected output. (The code compares in seconds: 30 min = **1800s**.)\n\n" +
             "**Common Gotchas.**\n" +
             "- The first event per user has a null `prev_ts` (no predecessor); you must treat that as the start of session 1, or the arithmetic yields null and the sum breaks. Handle it explicitly with `prev_ts.isNull()`.\n" +
             "- 30 minutes is **1800 seconds**; comparing raw timestamps or minutes is an off-by-unit bug. Cast both times to `long` (epoch seconds) and subtract.\n" +
@@ -157,6 +166,15 @@
             "2. Reduce per user: `groupBy('user_id').agg(F.max('session_id').alias('num_sessions'))`.\n" +
             "3. (Alternative) `groupBy('user_id').agg(F.countDistinct('session_id').alias('num_sessions'))`.\n\n" +
             "**Why it works.** The running sum increments by exactly 1 at each new session boundary and stays flat inside a session, so the largest value it ever reaches per user is the count of session boundaries — i.e. the number of sessions. Counting distinct ids yields the same number without relying on the ids being contiguous.\n\n" +
+            "**The gaps-and-islands step this builds on.** Step 1 assigns `session_id` from raw events with `lag` -> `gap` -> `is_new` flag -> running `sum` (30 min = 1800s). For one user's stream:\n\n" +
+            "| event_time | gap (min) | is_new | session_id = running sum |\n" +
+            "|---|---|---|---|\n" +
+            "| 10:00 | - | 1 | 1 |\n" +
+            "| 10:20 | 20 | 0 | 1 |\n" +
+            "| 11:05 | 45 | 1 | 2 |\n" +
+            "| 11:10 | 5 | 0 | 2 |\n" +
+            "\n" +
+            "Each gap > 30 min opens a new island; `max(session_id)` per user (here 2) is the session count. In this problem's example u1 reaches 3 and u2 reaches 1 -> `u1 -> 3`, `u2 -> 1`.\n\n" +
             "**Common Gotchas.**\n" +
             "- `max(session_id)` only equals the count because session ids start at 1 and step by 1; if you ever build non-contiguous ids (e.g. a composite key), use `countDistinct` instead.\n" +
             "- Do not `countDistinct` the raw `session_id` across ALL users without grouping by `user_id`, or you will conflate different users' session numbers (both users have a session '1').\n" +
@@ -264,6 +282,15 @@
             "2. Per-session span: `groupBy('user_id', 'session_id').agg((F.max('event_time').cast('long') - F.min('event_time').cast('long')).alias('duration_secs'))`.\n" +
             "3. Per-user average: `groupBy('user_id').agg(F.avg('duration_secs').alias('avg_session_secs'))`.\n\n" +
             "**Why it works.** Within one session all events share the same `session_id`, so `max(time) - min(time)` over that group is precisely the elapsed time from the first to the last event of the session. Averaging those per-session durations for a user gives the mean session length; the two groupBys keep the two levels (per session, then per user) cleanly separated.\n\n" +
+            "**The gaps-and-islands step this builds on.** Step 1 turns raw events into the `session_id` the example already shows, via `lag` -> `gap` -> `is_new` flag -> running `sum` (30 min = 1800s; strict `> 30` keeps an exactly-30-min gap in the same session):\n\n" +
+            "| event_time | gap (min) | is_new | session_id = running sum |\n" +
+            "|---|---|---|---|\n" +
+            "| 10:00 | - | 1 | 1 |\n" +
+            "| 10:20 | 20 | 0 | 1 |\n" +
+            "| 11:05 | 45 | 1 | 2 |\n" +
+            "| 11:35 | 30 | 0 | 2 |\n" +
+            "\n" +
+            "That yields the two islands in the example: session 1 (10:00->10:20 = 20 min) and session 2 (11:05->11:35 = 30 min); averaging 20 and 30 min gives **1500 s**.\n\n" +
             "**Common Gotchas.**\n" +
             "- Compute the span in a numeric unit: subtract `cast('long')` epoch seconds (or use `unix_timestamp`); subtracting raw timestamps does not give you a plain number of seconds.\n" +
             "- A single-event session has duration 0 (max == min). Decide whether those count in the average; including them pulls the mean down, which is usually correct but worth stating.\n" +
@@ -390,6 +417,15 @@
             "2. Events per session: `session_counts = sessioned.groupBy('user_id', 'session_id').agg(F.count('*').alias('event_count'))`.\n" +
             "3. Longest session per user: `session_counts.groupBy('user_id').agg(F.max('event_count').alias('longest_session_events'))`.\n\n" +
             "**Why it works.** Every event in a session shares the same `session_id`, so counting rows per `(user_id, session_id)` is exactly the events-per-session figure. Taking the per-user `max` of those counts selects the session with the most activity — the longest by event count.\n\n" +
+            "**The gaps-and-islands step this builds on.** Step 1 tags raw events with `session_id` via `lag` -> `gap` -> `is_new` flag -> running `sum` (30 min = 1800s); counting rows within each island gives `event_count`:\n\n" +
+            "| event_time | gap (min) | is_new | session_id = running sum |\n" +
+            "|---|---|---|---|\n" +
+            "| 09:00 | - | 1 | 1 |\n" +
+            "| 09:15 | 15 | 0 | 1 |\n" +
+            "| 10:00 | 45 | 1 | 2 |\n" +
+            "| 10:05 | 5 | 0 | 2 |\n" +
+            "\n" +
+            "Each `is_new = 1` opens an island; rows per island are the per-session event counts. In this problem's example u1's three islands hold 2, 5 and 1 events, so `max` per user is **5**.\n\n" +
             "**Common Gotchas.**\n" +
             "- 'Longest' here means most events, not most elapsed time — a short-but-busy session can beat a long idle one. Be explicit about which 'longest' the question wants (event count vs duration).\n" +
             "- `count('*')` counts all rows including duplicates; use `countDistinct` on an event id only if the spec wants unique events.\n" +

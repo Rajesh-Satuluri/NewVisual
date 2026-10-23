@@ -110,6 +110,9 @@
 .ex-io-split .lab-table-cap { margin-top: 8px; }
 .ex-io-split .lab-table-cap:first-child { margin-top: 0; }
 .ex-reason { font-size: 13.5px; }
+/* markdown-rendered tables inside logic / internals (e.g. gaps-and-islands walkthrough) */
+.md .lab-table-scroll { margin: 12px 0; }
+.md .lab-table-scroll table.lab-table { font-size: 12.5px; }
 .ex-visual { margin-top: 8px; }
 
 /* ---------- approaches ---------- */

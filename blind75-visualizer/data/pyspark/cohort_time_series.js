@@ -238,6 +238,16 @@
             "4. Form the island id: `withColumn('grp', col('day_num') - col('rn'))` — constant inside a run.\n" +
             "5. `groupBy('customer_id', 'grp').count()`, then keep `count >= 3` and take distinct `customer_id`.\n\n" +
             "**Why it works.** Inside a consecutive run, `day_num` and `rn` step together (+1, +1), so `day_num - rn` stays fixed; a missing day makes `day_num` jump while `rn` still increments by 1, so the difference changes and a new island begins. The number of rows per island is exactly the run length.\n\n" +
+            "**Walkthrough — the gaps-and-islands trick on the example rows.** `day_num = datediff(order_date, '1970-01-01')`, `rn = row_number()` per customer in date order, and the island id is `grp = day_num - rn`:\n\n" +
+            "| customer_id | order_date | day_num | rn | grp = day_num - rn |\n" +
+            "|---|---|---|---|---|\n" +
+            "| c1 | 2026-05-01 | 20574 | 1 | 20573 |\n" +
+            "| c1 | 2026-05-02 | 20575 | 2 | 20573 |\n" +
+            "| c1 | 2026-05-03 | 20576 | 3 | 20573 |\n" +
+            "| c2 | 2026-05-01 | 20574 | 1 | 20573 |\n" +
+            "| c2 | 2026-05-02 | 20575 | 2 | 20573 |\n" +
+            "\n" +
+            "Read down each customer's `grp`: it stays **constant** across a consecutive run (the +1/+1 lockstep). `groupBy('customer_id', 'grp').count()` then gives c1's island **3** rows (kept, `>= 3`) and c2's island **2** rows (dropped) — matching the expected output. Had c1 skipped to 05-05, that row's `day_num` would jump +3 while `rn` rose only +1, so `grp` would change and the run would be cut into a new island.\n\n" +
             "**Common Gotchas.**\n" +
             "- Deduplicate days first, or duplicate same-day rows break the row_number/day_number lockstep.\n" +
             "- Use `row_number` (strict 1..N), not `rank`/`dense_rank`, so the +1 lockstep holds.\n" +
@@ -655,6 +665,16 @@
             "5. Run lengths: `groupBy('user_id', 'grp').count()`.\n" +
             "6. Longest per user: `groupBy('user_id').agg(_max('count').alias('longest_streak'))`.\n\n" +
             "**Why it works.** Within a consecutive run, `day_num` and `rn` both step by 1, so `day_num - rn` is constant and identifies the run; a gap changes the difference and starts a new island. Each island's row count is its streak length, and the per-user `max` of those is the longest streak.\n\n" +
+            "**Walkthrough — the gaps-and-islands trick on the example rows.** `day_num = datediff(login_date, '1970-01-01')`, `rn = row_number()` per user in date order, island id `grp = day_num - rn`:\n\n" +
+            "| user_id | login_date | day_num | rn | grp = day_num - rn |\n" +
+            "|---|---|---|---|---|\n" +
+            "| u1 | 2026-07-01 | 20635 | 1 | 20634 |\n" +
+            "| u1 | 2026-07-02 | 20636 | 2 | 20634 |\n" +
+            "| u1 | 2026-07-03 | 20637 | 3 | 20634 |\n" +
+            "| u1 | 2026-07-10 | 20644 | 4 | 20640 |\n" +
+            "| u2 | 2026-07-05 | 20639 | 1 | 20638 |\n" +
+            "\n" +
+            "The 7-day gap at 07-10 makes `day_num` jump +7 while `rn` rises only +1, so `grp` flips 20634 -> 20640 and a **new island** starts. `groupBy('user_id','grp').count()` gives u1 two islands of lengths **3** and **1**, u2 one island of **1**; `max` per user yields `u1 -> 3`, `u2 -> 1`, matching the expected output.\n\n" +
             "**Common Gotchas.**\n" +
             "- Dedupe days first, or repeated same-day logins break the row_number/day_number lockstep.\n" +
             "- Use `row_number` (strict 1..N), not `rank`/`dense_rank`.\n" +
