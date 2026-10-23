@@ -45,7 +45,10 @@ body {
 .topbar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
 /* tabs */
-.tabs { display: flex; gap: 4px; margin-left: 6px; }
+.tabs { display: flex; gap: 4px; margin-left: 6px; align-items: center; }
+/* subtle divider between tab groups: Build | Tailor | Apply | Material */
+.tab.grp-start { margin-left: 12px; position: relative; }
+.tab.grp-start::before { content: ""; position: absolute; left: -7px; top: 18%; height: 64%; width: 1px; background: var(--border); }
 .tab {
   font-family: inherit; font-size: 13px; font-weight: 600; color: var(--muted);
   background: transparent; border: 1px solid transparent; border-radius: 8px;
@@ -66,6 +69,8 @@ body {
 .btn-mini { font-size: 12px; padding: 3px 8px; border-radius: 6px; }
 .btn-danger { color: #e79a9a; border-color: #5a3340; background: #2a1a20; }
 .btn-danger:hover { border-color: var(--danger); color: #ffb4b4; background: #38212a; }
+.block-head:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; border-radius: 10px; }
+button:focus-visible, .move:focus-visible, .grip:focus-visible, .tab:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, .accent-dot:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
 .btn-icon { padding: 7px 10px; font-size: 15px; line-height: 1; }
 .btn-icon:disabled { opacity: .35; cursor: not-allowed; }
 .btn-icon:disabled:hover { border-color: var(--border); background: var(--panel-2); }
@@ -154,6 +159,13 @@ button.stat-tile:hover { border-color: var(--brand); transform: translateY(-1px)
 .stat-tile.none .stat-val { color: var(--muted); }
 .readiness-missing { font-size: 11.5px; color: var(--muted); line-height: 1.5; margin-top: 9px; }
 .readiness-done { font-size: 11.5px; color: #a9e6c4; line-height: 1.5; margin-top: 9px; }
+
+/* library search + tags */
+.lib-search { display: flex; align-items: center; gap: 10px; margin: 2px 0 4px; }
+.lib-search input { flex: 1; font-size: 13px; }
+.lib-search-note { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.lib-tags label { color: #9fb0c8; }
+.lib-tags input { font-size: 12px; }
 @media (max-width: 520px) { .readiness-grid { grid-template-columns: repeat(2, 1fr); } }
 
 /* per-chip archive affordance — appears on hover, stays out of the way otherwise */
@@ -633,9 +645,24 @@ textarea.cover-body { min-height: 300px; resize: vertical; line-height: 1.55; wh
 @media (max-width: 900px) {
   .layout { grid-template-columns: 1fr; height: auto; }
   .resizer { display: none; }
-  .editor { border-right: none; border-bottom: 1px solid var(--border); max-height: 60vh; }
+  .editor { border-right: none; border-bottom: 1px solid var(--border); max-height: 65vh; }
   .preview-wrap { padding: 14px; }
   .page { width: 100%; padding: 28px 24px; }
+  /* topbar: let it wrap, make the tab row horizontally scrollable */
+  .topbar { flex-wrap: wrap; gap: 8px; }
+  .topbar-left { flex-wrap: wrap; gap: 8px 10px; width: 100%; }
+  .tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; padding-bottom: 3px; margin-left: 0; scrollbar-width: thin; }
+  .tab { white-space: nowrap; flex: 0 0 auto; }
+  .topbar-actions { flex-wrap: wrap; }
+}
+@media (max-width: 560px) {
+  .topbar-actions { width: 100%; justify-content: flex-start; }
+  .brand { font-size: 15px; }
+  .btn { font-size: 12px; padding: 6px 10px; }
+  #tabPanel { padding: 12px 14px; }
+  .row-2 { grid-template-columns: 1fr; }
+  .resume-actions { gap: 6px; }
+  .jd-col { padding: 10px; }
 }
 
 /* ---------- Print → PDF ---------- */
