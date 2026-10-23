@@ -12,6 +12,15 @@
       .replace(/>/g, "&gt;");
   }
 
+  // split a GFM table row "| a | b |" into trimmed cell strings
+  function splitRow(row) {
+    var t = row.trim().replace(/^\|/, "").replace(/\|$/, "");
+    var raw = t.split("|");
+    var out = [];
+    for (var k = 0; k < raw.length; k++) out.push(raw[k].replace(/^\s+|\s+$/g, ""));
+    return out;
+  }
+
   // Inline formatting applied to already-escaped text.
   function inline(text) {
     // inline code first so its contents aren't further formatted
@@ -105,6 +114,37 @@
         continue;
       }
 
+      // GFM pipe table: a "| h | h |" header, a "|---|---|" separator, then rows
+      if (
+        /^\s*\|.*\|\s*$/.test(line) &&
+        i + 1 < lines.length &&
+        /^\s*\|?[\s:|-]+\|?\s*$/.test(lines[i + 1]) &&
+        lines[i + 1].indexOf("-") !== -1
+      ) {
+        var headers = splitRow(line);
+        i += 2; // skip the header and separator rows
+        var trs = "";
+        while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) {
+          var cells = splitRow(lines[i]);
+          trs += "<tr>";
+          for (var c = 0; c < headers.length; c++) {
+            trs += "<td>" + inline(cells[c] || "") + "</td>";
+          }
+          trs += "</tr>";
+          i++;
+        }
+        var ths = "";
+        for (var hh = 0; hh < headers.length; hh++) ths += "<th>" + inline(headers[hh]) + "</th>";
+        html.push(
+          '<div class="lab-table-scroll"><table class="lab-table"><thead><tr>' +
+            ths +
+            "</tr></thead><tbody>" +
+            trs +
+            "</tbody></table></div>"
+        );
+        continue;
+      }
+
       // blank line
       if (/^\s*$/.test(line)) {
         i++;
@@ -121,7 +161,8 @@
         !/^>\s?/.test(lines[i]) &&
         !/^!\[[^\]]*\]\([^)]+\)\s*$/.test(lines[i]) &&
         !/^\s*[-*]\s+/.test(lines[i]) &&
-        !/^\s*\d+\.\s+/.test(lines[i])
+        !/^\s*\d+\.\s+/.test(lines[i]) &&
+        !/^\s*\|.*\|\s*$/.test(lines[i])
       ) {
         para.push(lines[i]);
         i++;

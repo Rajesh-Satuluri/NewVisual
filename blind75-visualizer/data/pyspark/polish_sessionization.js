@@ -38,6 +38,15 @@
             "2. `prev = lag('ts').over(w)`; `is_new = (ts - prev > 1800s) or prev is null`.\n" +
             "3. `session_id = sum(is_new).over(w rows unbounded preceding→current)`.\n\n" +
             "**Why it works.** Each boundary increments the running counter, so contiguous events share an id.\n\n" +
+            "**Walkthrough — the gaps-and-islands (sessionization) trick on the example rows.** `prev` is `lag(ts)`, `gap` the minutes since it, `is_new` flags a gap > 30 min (or the null first event), `session_id` the running `sum(is_new)`:\n\n" +
+            "| ts | prev (lag) | gap (min) | is_new | session_id = running sum |\n" +
+            "|---|---|---|---|---|\n" +
+            "| 10:00 | (null) | - | 1 | 1 |\n" +
+            "| 10:20 | 10:00 | 20 | 0 | 1 |\n" +
+            "| 11:05 | 10:20 | 45 | 1 | 2 |\n" +
+            "| 11:10 | 11:05 | 5 | 0 | 2 |\n" +
+            "\n" +
+            "The 45-min gap at 11:05 trips `is_new = 1`, opening a new island; the running sum `1,1,2,2` is the output. (Threshold in code is seconds: 30 min = **1800s**.)\n\n" +
             "**Common Gotchas.**\n" +
             "- The first event's null gap must count as a new session.\n" +
             "- Use `unix_timestamp`/seconds for the threshold.\n\n" +
