@@ -34,6 +34,9 @@
     if (ls) ls.textContent = p.meta.tagline;
     const docs = document.getElementById('docs-link');
     if (docs) { docs.href = p.meta.docsUrl; docs.title = p.meta.label + ' docs'; }
+    // Per-platform content version in the sidebar (falls back to the tool version)
+    const ver = document.getElementById('sidebar-version');
+    if (ver) ver.textContent = p.meta.version || 'v0.1 · multi';
   }
 
   /* ── Boot ───────────────────────────────────────────────── */
