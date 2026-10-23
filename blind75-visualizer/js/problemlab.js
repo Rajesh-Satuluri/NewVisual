@@ -715,11 +715,11 @@
     // structured ({name,columns,rows}), fall back to a <code> line for prose/scalar.
     if (p.examples && p.examples.length) {
       var exWrap = h("div", { class: "examples" });
-      // one Input/Output row: table(s) when structured, else a code string
-      function exRow(label, tables, str) {
+      // one Input/Output column (label on top): table(s) when structured, else code
+      function exCol(label, tables, str) {
         var tbls = tables && tables.length ? tables : null;
-        var row = h("div", { class: "ex-row" + (tbls ? " ex-row-tbl" : "") });
-        row.appendChild(h("span", { class: "ex-label" }, label));
+        var col = h("div", { class: "ex-col" });
+        col.appendChild(h("span", { class: "ex-label" }, label));
         var body = h("div", { class: "ex-body" });
         if (tbls) {
           tbls.forEach(function (t) {
@@ -729,18 +729,19 @@
         } else {
           body.innerHTML = "<code>" + esc(str) + "</code>";
         }
-        row.appendChild(body);
-        return row;
+        col.appendChild(body);
+        return col;
       }
       p.examples.forEach(function (ex, i) {
         var card = h("div", { class: "example-card" });
         card.appendChild(h("div", { class: "ex-num" }, "Example " + (i + 1)));
-        var io = h("div", { class: "ex-io" });
+        // Input | Output side by side (wraps to stacked when the row is too narrow).
+        var io = h("div", { class: "ex-io ex-io-split" });
         // input: ex.inputs = [{name,columns,rows}, ...]  OR  ex.input = string
-        io.appendChild(exRow("Input", ex.inputs, ex.input));
+        io.appendChild(exCol("Input", ex.inputs, ex.input));
         // output: ex.output = {name?,columns,rows}  OR  ex.output = string
         var outTbls = (ex.output && typeof ex.output === "object" && ex.output.columns) ? [ex.output] : null;
-        io.appendChild(exRow("Output", outTbls, ex.output));
+        io.appendChild(exCol("Output", outTbls, ex.output));
         card.appendChild(io);
         if (ex.reasoning) { var r = h("div", { class: "ex-reason md" }); r.innerHTML = md(ex.reasoning); card.appendChild(r); }
         exWrap.appendChild(card);
