@@ -205,11 +205,61 @@
     if (!s.coverLetter || typeof s.coverLetter !== "object") s.coverLetter = { company: "", manager: "", role: "", body: "" };
     return s;
   }
-  function persist(s) { try { localStorage.setItem(KEY3, JSON.stringify(s)); } catch (e) {} }
-  function save() { persist(store); setSaveState("Saved"); }
+  function persist(s) { try { localStorage.setItem(KEY3, JSON.stringify(s)); return true; } catch (e) { return false; } }
+  function save() {
+    var ok = persist(store);
+    if (!ok) {
+      /* storage full / blocked (private mode, quota). Tell the truth — don't
+         pretend it saved. The in-memory data is still intact for this session. */
+      setSaveState("⚠ Save failed", true);
+      if (!save._warned) { save._warned = true; flash("Couldn't save to this browser — storage may be full or blocked. Export your data to keep it."); }
+      return;
+    }
+    save._warned = false;
+    /* record an undo snapshot at each save boundary (coarse-grained, ~400ms
+       after a burst of edits — the right granularity for a document editor). */
+    var cur = snapshotStr();
+    if (lastSnapshot !== null && cur !== lastSnapshot) {
+      undoStack.push(lastSnapshot);
+      if (undoStack.length > UNDO_CAP) undoStack.shift();
+      redoStack = [];
+    }
+    lastSnapshot = cur;
+    setSaveState("Saved");
+    updateUndoButtons();
+  }
   function setSaveState(txt, dirty) { var s = document.getElementById("saveState"); if (!s) return; s.textContent = txt; s.classList.toggle("dirty", !!dirty); }
   function touch() { setSaveState("Saving…", true); if (saveTimer) clearTimeout(saveTimer); saveTimer = setTimeout(save, 400); renderPreview(); }
   function scheduleSave() { setSaveState("Saving…", true); if (saveTimer) clearTimeout(saveTimer); saveTimer = setTimeout(save, 400); }
+
+  /* ---------- undo / redo (snapshot stacks, state at save boundaries) ---------- */
+  var undoStack = [], redoStack = [], lastSnapshot = null, UNDO_CAP = 60;
+  function snapshotStr() { try { return JSON.stringify(store); } catch (e) { return ""; } }
+  function updateUndoButtons() {
+    var u = document.getElementById("btnUndo"), r = document.getElementById("btnRedo");
+    if (u) { u.disabled = !undoStack.length; u.title = undoStack.length ? "Undo (Ctrl+Z) — " + undoStack.length + " step" + (undoStack.length > 1 ? "s" : "") : "Nothing to undo"; }
+    if (r) { r.disabled = !redoStack.length; }
+  }
+  function applySnapshot(str) {
+    try { store = normalize(JSON.parse(str)); } catch (e) { return false; }
+    lastSnapshot = snapshotStr();
+    persist(store);
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+    renderApp(); setSaveState("Saved"); updateUndoButtons();
+    return true;
+  }
+  function doUndo() {
+    if (!undoStack.length) { flash("Nothing to undo."); return; }
+    /* flush any pending debounced edit into the current snapshot first */
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; persist(store); lastSnapshot = snapshotStr(); }
+    var cur = snapshotStr(), prev = undoStack.pop();
+    if (applySnapshot(prev)) { redoStack.push(cur); updateUndoButtons(); flash("Undo"); }
+  }
+  function doRedo() {
+    if (!redoStack.length) { flash("Nothing to redo."); return; }
+    var cur = snapshotStr(), next = redoStack.pop();
+    if (applySnapshot(next)) { undoStack.push(cur); updateUndoButtons(); flash("Redo"); }
+  }
   function copyText(str, okMsg) {
     function done() { flash(okMsg || "Copied to clipboard."); }
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -230,6 +280,16 @@
     var f = el("div", "field");
     if (label) f.appendChild(elText("label", null, label));
     var i = el("input", "inp"); i.value = val || ""; if (ph) i.placeholder = ph;
+    i.addEventListener("input", function () { onInput(i.value); });
+    f.appendChild(i); return f;
+  }
+  function dateField(label, val, dueTxt, onInput) {
+    var f = el("div", "field");
+    var lab = el("label");
+    lab.appendChild(document.createTextNode(label));
+    if (dueTxt) { var d = daysUntil(val); lab.appendChild(elText("span", "due-pill" + (d !== null && d < 0 ? " overdue" : (d !== null && d <= 2 ? " soon" : "")), dueTxt)); }
+    f.appendChild(lab);
+    var i = el("input", "inp"); i.type = "date"; i.value = val || "";
     i.addEventListener("input", function () { onInput(i.value); });
     f.appendChild(i); return f;
   }
@@ -1130,8 +1190,52 @@
     return parts.join("  ").replace(/[*_`]/g, "");
   }
 
+  /* Break the resume into labelled chunks so a matched keyword can be traced to
+     the exact place it appears. `kind` drives the demonstrated-vs-listed call:
+     a keyword proven inside an experience/project bullet or the summary is
+     "evidence-backed"; one that only appears in the skills list or header/title
+     is "listed" (present, but not shown in action). This is the coverage-vs-
+     competency distinction professional scanners draw. */
+  function resumeChunks(r) {
+    var out = [];
+    if (!r) return out;
+    var p = r.profile || {};
+    if (p.title) out.push({ where: "Header / title", kind: "header", text: p.title });
+    (r.sections || []).forEach(function (sec) {
+      var st = sec.title || "Section";
+      if (sec.type === "text") { if (sec.text) out.push({ where: st, kind: "summary", text: sec.text }); }
+      else if (sec.type === "labeled") {
+        (sec.items || []).forEach(function (it) { out.push({ where: st + (it.label ? " · " + it.label : ""), kind: "skills", text: (it.label || "") + " " + (it.value || "") }); });
+      } else {
+        (sec.items || []).forEach(function (it) {
+          var head = [it.heading, it.role, it.meta].filter(Boolean).join(" ");
+          if (head) out.push({ where: it.heading || st, kind: "entry", text: head });
+          (it.bullets || []).forEach(function (b) { if (b) out.push({ where: it.heading || st, kind: "bullet", text: b }); });
+        });
+      }
+    });
+    return out;
+  }
+  function findEvidence(chunks, phrase) {
+    /* prefer evidence from a bullet/summary (demonstrated) over skills/header */
+    var rank = { bullet: 0, summary: 1, entry: 2, skills: 3, header: 4 }, best = null;
+    for (var i = 0; i < chunks.length; i++) {
+      if (hasPhrase(jdNorm(chunks[i].text), phrase)) {
+        if (best === null || rank[chunks[i].kind] < rank[best.kind]) best = chunks[i];
+        if (best && rank[best.kind] === 0) break;
+      }
+    }
+    return best;
+  }
+  function evidenceSnippet(text, max) {
+    var t = (text || "").replace(/[*_`]/g, "").replace(/\s+/g, " ").trim();
+    max = max || 120;
+    return t.length > max ? t.slice(0, max - 1) + "…" : t;
+  }
+
   function analyzeJd(jd, r) {
     var JN = jdNorm(jd), RN = jdNorm(resumePlainText(r));
+    var chunks = resumeChunks(r);
     var keys = [], seen = {};
     /* helper: is `term` already represented by a captured phrase (either direction)? */
     function overlaps(term) {
@@ -1175,7 +1279,16 @@
     keys.forEach(function (k) {
       var base = k.soft ? 1.5 : (k.skill ? 3 : 1);   // hard skills/tools >> soft skills > keywords
       var w = base * (1 + Math.min(k.freq - 1, 3) * 0.35);
-      k.weight = w; total += w; if (k.inResume) { covered += w; matched.push(k); } else missing.push(k);
+      k.weight = w; total += w;
+      if (k.inResume) {
+        covered += w;
+        var ev = findEvidence(chunks, k.term);
+        k.evidence = ev;
+        /* demonstrated = proven in a bullet/summary/entry; listed = only in the
+           skills list or header. */
+        k.demonstrated = !!ev && (ev.kind === "bullet" || ev.kind === "summary" || ev.kind === "entry");
+        matched.push(k);
+      } else missing.push(k);
     });
     missing.sort(function (a, b) { return b.weight - a.weight; });
     matched.sort(function (a, b) { return b.weight - a.weight; });
@@ -1427,6 +1540,18 @@
     /* Score card */
     panel.appendChild(scoreCard(a));
 
+    /* Methodology + honest disclaimer (Phase 3): transparent about what the
+       number is and — importantly — what it is NOT. */
+    if (collapsed["jd.method"] === undefined) collapsed["jd.method"] = true;
+    panel.appendChild(blockEl("How this score works (and what it isn't)", "jd.method", function (body) {
+      var ul = el("ul", "ats-list");
+      [ "It's a keyword-coverage estimate computed entirely in your browser — it weights hard skills & tools (×3) above soft skills (×1.5) above plain keywords (×1), and gives a little more weight to terms the JD repeats, the way scanners like Jobscan rank them.",
+        "“✓ You cover” means the term appears somewhere on this resume; “●” means it's backed by a bullet or your summary (stronger), “○” means it's only listed in Skills (weaker).",
+        "This is NOT your real employer ATS score and does not predict whether you'll be shortlisted. Every company's ATS and recruiter search is different and private.",
+        "Use it to spot genuine gaps and mirror the posting's wording — only ever add skills you truly have." ].forEach(function (t) { ul.appendChild(elText("li", null, t)); });
+      body.appendChild(ul);
+    }));
+
     /* Two-column keyword match: covered (left) vs missing (right) */
     panel.appendChild(blockEl("Keyword match — covered vs missing", "jd.match", function (body) {
       body.appendChild(elText("p", "hint", "Left: keywords your resume already covers. Right: keywords in the job description you're missing — hard skills & tools (with ＋ to add) rank above softer keywords, the way real ATS scanners weight them. Generic filler is filtered out. Click any term to copy it; add only what's truthful."));
@@ -1434,17 +1559,23 @@
 
       /* LEFT — covered */
       var left = el("div", "jd-col have-col");
+      var demoN = a.matched.filter(function (m) { return m.demonstrated; }).length;
       left.appendChild(elText("div", "jd-col-head have", "✓ You cover (" + a.matched.length + ")"));
       if (!a.matched.length) left.appendChild(elText("p", "hint", "No overlap yet — add the skills on the right that you genuinely have."));
       else {
+        left.appendChild(elText("p", "jd-legend", "● " + demoN + " shown in a bullet/summary  ·  ○ " + (a.matched.length - demoN) + " listed only. Hover a chip to see where it appears."));
         var lw = el("div", "chip-wrap");
         a.matched.forEach(function (m) {
-          var c = elText("button", "kw-chip have" + (m.skill ? " skill" : ""), kwLabel(m)); c.type = "button";
-          c.title = (m.skill ? "Skill/tool" : "Keyword") + " — covered. Click to copy.";
+          var cls = "kw-chip have" + (m.skill ? " skill" : "") + (m.demonstrated ? " demonstrated" : " listed-only");
+          var c = el("button", cls); c.type = "button";
+          c.appendChild(document.createTextNode((m.demonstrated ? "● " : "○ ") + kwLabel(m)));
+          if (m.evidence) c.title = (m.demonstrated ? "Demonstrated in " : "Listed in ") + m.evidence.where + ": “" + evidenceSnippet(m.evidence.text) + "”  (click to copy keyword)";
+          else c.title = (m.skill ? "Skill/tool" : "Keyword") + " — covered. Click to copy.";
           c.addEventListener("click", function () { copyText(m.display || m.term, "“" + kwLabel(m) + "” copied."); });
           lw.appendChild(c);
         });
         left.appendChild(lw);
+        if (demoN < a.matched.length) left.appendChild(elText("p", "hint", "Tip: keywords only listed in your Skills (○) are weaker evidence. Where it's true, add a bullet that shows the ○ ones in action."));
       }
       cols.appendChild(left);
 
@@ -1554,6 +1685,22 @@
     });
     return out;
   }
+  /* validation helpers — used by Health to FLAG (never auto-correct) format issues */
+  var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  var URL_RE = /^(https?:\/\/)?(www\.)?[a-z0-9-]+(\.[a-z0-9-]+)+(\/[^\s]*)?$/i;
+  var MONTHS_RE = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\b/i;
+  /* classify a date string's style so we can spot inconsistency. */
+  function dateStyle(d) {
+    d = (d || "").trim();
+    if (!d) return "other";
+    if (/present|current|now|ongoing/i.test(d) && !/\d/.test(d)) return "present";
+    var hasMonthName = MONTHS_RE.test(d);
+    var hasYear = /\b(19|20)\d{2}\b/.test(d);
+    if (hasMonthName && hasYear) return "monthname";          /* Jul 2022 – Present */
+    if (/\b\d{1,2}[\/.\-]\d{4}\b/.test(d)) return "numeric";   /* 07/2022 */
+    if (hasYear && !hasMonthName) return "yearonly";          /* 2022 – 2024 */
+    return "other";
+  }
   function wordCount(s) { return (s || "").trim() ? s.trim().split(/\s+/).length : 0; }
   function findSummary(r) {
     var s = (r.sections || []).filter(function (x) { return x.type === "text"; })[0];
@@ -1618,11 +1765,39 @@
     else if (totalW < 220) { score -= 6; checks.push({ level: "warn", label: "Overall length", detail: "~" + totalW + " words — looks thin. Add impact and detail to recent roles.", items: [] }); }
     else checks.push({ level: "good", label: "Overall length", detail: "~" + totalW + " words — good one-page density.", items: [] });
 
-    /* 8. Contact essentials */
-    var contacts = ((r.profile || {}).contacts || []).map(function (c) { return c.value || ""; }).join(" ");
-    var hasEmail = /@/.test(contacts);
-    if (!hasEmail) { score -= 6; checks.push({ level: "bad", label: "Contact details", detail: "No email detected in your header. Add a professional email.", items: [] }); }
-    else checks.push({ level: "good", label: "Contact details", detail: "Email present in header.", items: [] });
+    /* 8. Contact essentials + format validation (non-destructive: we flag, never rewrite) */
+    var contactVals = ((r.profile || {}).contacts || []).map(function (c) { return (c.value || "").trim(); }).filter(Boolean);
+    var joined = contactVals.join(" ");
+    var emailVals = contactVals.filter(function (v) { return /@/.test(v); });
+    var badEmails = emailVals.filter(function (v) { return !EMAIL_RE.test(v); });
+    if (!emailVals.length) { score -= 6; checks.push({ level: "bad", label: "Contact details", detail: "No email detected in your header. Add a professional email.", items: [] }); }
+    else if (badEmails.length) { score -= 4; checks.push({ level: "warn", label: "Contact details", detail: "An email in your header doesn't look valid — check for typos (missing @ or domain).", items: badEmails, itemsLabel: "Check:" }); }
+    else checks.push({ level: "good", label: "Contact details", detail: "Email present and well-formed.", items: [] });
+
+    /* 9. Link validity — profile/portfolio URLs that look malformed */
+    var linkVals = contactVals.filter(function (v) { return !/@/.test(v) && (/\./.test(v) && /[a-z]/i.test(v) && !/\s/.test(v)) && (/https?:|www\.|\.(com|io|dev|net|org|co|ai|me|in|app)\b/i.test(v) || /linkedin|github|gitlab|behance|portfolio/i.test(v)); });
+    var badLinks = linkVals.filter(function (v) { return !URL_RE.test(v); });
+    if (linkVals.length) {
+      if (badLinks.length) { score -= 3; checks.push({ level: "warn", label: "Profile links", detail: "A link looks incomplete (e.g. “linkedin” with no full URL). Use the full address so it's clickable and parseable.", items: badLinks, itemsLabel: "Fix:" }); }
+      else checks.push({ level: "good", label: "Profile links", detail: linkVals.length + " profile link(s) look well-formed.", items: [] });
+    }
+
+    /* 10. Date-format consistency across entries (an ATS computes tenure from these) */
+    var dateVals = [];
+    (r.sections || []).forEach(function (sec) { if (sec.type === "entries") (sec.items || []).forEach(function (it) { if (it.date && it.date.trim()) dateVals.push(it.date.trim()); }); });
+    if (dateVals.length >= 2) {
+      var styles = {}, unrecognized = [];
+      dateVals.forEach(function (d) { var s = dateStyle(d); if (s === "other") unrecognized.push(d); else styles[s] = 1; });
+      var styleCount = Object.keys(styles).length;
+      if (unrecognized.length) { score -= 4; checks.push({ level: "warn", label: "Date formats", detail: "Some dates don't follow a clear “MMM YYYY – MMM YYYY” pattern. Consistent, recognizable dates help an ATS read your timeline.", items: unrecognized.slice(0, 5), itemsLabel: "Clarify:" }); }
+      else if (styleCount > 1) { score -= 3; checks.push({ level: "warn", label: "Date formats", detail: "Your entries mix date styles (e.g. “Jul 2022” vs “07/2022”). Pick one format and use it everywhere.", items: dateVals.slice(0, 6), itemsLabel: "Dates found:" }); }
+      else checks.push({ level: "good", label: "Date formats", detail: "Dates are consistent and recognizable.", items: [] });
+    }
+
+    /* 11. One-page integrity — read the live preview's page-fit state */
+    var over = document.body.classList.contains("is-over");
+    if (over) { score -= 6; checks.push({ level: "warn", label: "Fits one page", detail: "The preview currently overflows one page. Trim older/less-relevant content, or the PDF/DOCX auto-fit will shrink the type.", items: [] }); }
+    else checks.push({ level: "good", label: "Fits one page", detail: "Content fits on a single page.", items: [] });
 
     score = Math.max(0, Math.min(100, score));
     /* order: problems first */
@@ -1657,7 +1832,7 @@
   function renderHealth(panel) {
     var r = activeResume();
     var hint = el("p", "panel-hint");
-    hint.innerHTML = "An instant quality read on <strong>" + esc(r ? (r.name || "this resume") : "your resume") + "</strong> — quantified impact, strong verbs, clichés, passive voice, length. All in your browser. <strong>Fix the flags, not fake keywords.</strong>";
+    hint.innerHTML = "An instant quality read on <strong>" + esc(r ? (r.name || "this resume") : "your resume") + "</strong> — quantified impact, strong verbs, clichés, passive voice, length, contact &amp; date validity, one-page fit. All in your browser. <strong>Fix the flags, not fake keywords.</strong> These are heuristic writing checks, not a guarantee — use your judgement.";
     panel.appendChild(hint);
     if (!r) { panel.appendChild(elText("div", "jd-empty", "Create a resume first.")); return; }
 
@@ -1684,12 +1859,31 @@
      ============================================================ */
   var APP_STATUSES = ["Saved", "Applied", "Interview", "Offer", "Rejected"];
   var APP_STATUS_CLASS = { Saved: "st-saved", Applied: "st-applied", Interview: "st-interview", Offer: "st-offer", Rejected: "st-rejected" };
+  var trackerFilter = "All";                 /* which status the tracker is filtered to */
+  var APP_CLOSED = { Offer: 1, Rejected: 1 };  /* follow-up reminders don't apply once closed */
+  function todayISO() { var d = new Date(); return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); }
+  function pad2(n) { return (n < 10 ? "0" : "") + n; }
+  /* days from today to an ISO date (negative = overdue). null if unparseable. */
+  function daysUntil(iso) {
+    if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
+    var t = new Date(iso + "T00:00:00"), now = new Date(todayISO() + "T00:00:00");
+    if (isNaN(t.getTime())) return null;
+    return Math.round((t - now) / 86400000);
+  }
+  function dueLabel(iso) {
+    var d = daysUntil(iso); if (d === null) return "";
+    if (d < 0) return "overdue by " + (-d) + "d";
+    if (d === 0) return "due today";
+    if (d === 1) return "due tomorrow";
+    return "in " + d + "d";
+  }
 
   function newApplication(prefill) {
     store.applications = store.applications || [];
     var a = {
       id: uid(), company: "", role: "", link: "", status: "Saved", notes: "",
       jd: "", resumeId: "", resumeName: "", score: null,
+      followUp: "", deadline: "",
       createdAt: Date.now(), updatedAt: Date.now()
     };
     if (prefill) for (var k in prefill) a[k] = prefill[k];
@@ -1705,17 +1899,35 @@
     hint.innerHTML = "Track every role in one place — the job description, the resume you tailored, its match score, and where you are in the pipeline. <strong>All in your browser; exports with your data.</strong>";
     panel.appendChild(hint);
 
-    /* summary counts */
+    /* summary counts — clickable to filter the list */
     var counts = {}; APP_STATUSES.forEach(function (s) { counts[s] = 0; });
     apps.forEach(function (a) { counts[a.status] = (counts[a.status] || 0) + 1; });
+    if (trackerFilter !== "All" && APP_STATUSES.indexOf(trackerFilter) === -1) trackerFilter = "All";
     var sum = el("div", "track-summary");
+    var allChip = el("button", "track-count track-all" + (trackerFilter === "All" ? " sel" : "")); allChip.type = "button";
+    allChip.appendChild(elText("span", "tc-num", String(apps.length)));
+    allChip.appendChild(elText("span", "tc-lbl", "All"));
+    allChip.addEventListener("click", function () { trackerFilter = "All"; renderApp(); });
+    sum.appendChild(allChip);
     APP_STATUSES.forEach(function (s) {
-      var chip = el("div", "track-count " + APP_STATUS_CLASS[s]);
+      var chip = el("button", "track-count " + APP_STATUS_CLASS[s] + (trackerFilter === s ? " sel" : "")); chip.type = "button";
       chip.appendChild(elText("span", "tc-num", String(counts[s] || 0)));
       chip.appendChild(elText("span", "tc-lbl", s));
+      chip.title = "Show only " + s;
+      chip.addEventListener("click", function () { trackerFilter = (trackerFilter === s ? "All" : s); renderApp(); });
       sum.appendChild(chip);
     });
     panel.appendChild(sum);
+
+    /* follow-ups due / overdue banner (open applications only) */
+    var dueSoon = apps.filter(function (a) { if (APP_CLOSED[a.status]) return false; var d = daysUntil(a.followUp); return d !== null && d <= 2; });
+    if (dueSoon.length) {
+      var od = dueSoon.filter(function (a) { return daysUntil(a.followUp) < 0; }).length;
+      var fb = el("div", "track-due-banner" + (od ? " overdue" : ""));
+      fb.textContent = (od ? "⏰ " + od + " follow-up" + (od > 1 ? "s" : "") + " overdue" + (dueSoon.length - od ? ", " : "") : "🔔 ") +
+        (dueSoon.length - od ? (dueSoon.length - od) + " due in the next 2 days" : (od ? "" : dueSoon.length + " follow-up due soon"));
+      panel.appendChild(fb);
+    }
 
     /* add actions */
     var addRow = el("div", "prompt-actions");
@@ -1742,8 +1954,16 @@
       return;
     }
 
+    var visible = trackerFilter === "All" ? apps : apps.filter(function (a) { return a.status === trackerFilter; });
+    if (!visible.length) {
+      var none = el("div", "jd-empty");
+      none.innerHTML = "No applications with status <b>" + esc(trackerFilter) + "</b>. <br>Click <b>All</b> above to see everything.";
+      panel.appendChild(none);
+      return;
+    }
+
     /* one block per application */
-    apps.forEach(function (a) {
+    visible.forEach(function (a) {
       var title = (a.company || "Untitled") + (a.role ? " — " + a.role : "");
       panel.appendChild(blockEl(title, "track." + a.id, function (body) {
         var r2 = el("div", "row-2");
@@ -1759,6 +1979,12 @@
         APP_STATUSES.forEach(function (s) { var o = el("option"); o.value = s; o.textContent = s; if (a.status === s) o.selected = true; sel.appendChild(o); });
         sel.addEventListener("change", function () { a.status = sel.value; a.updatedAt = Date.now(); touch(); renderApp(); });
         sf.appendChild(sel); body.appendChild(sf);
+
+        /* follow-up + deadline dates */
+        var dr = el("div", "row-2");
+        dr.appendChild(dateField("Follow-up reminder", a.followUp, APP_CLOSED[a.status] ? "" : dueLabel(a.followUp), function (v) { a.followUp = v; a.updatedAt = Date.now(); touch(); renderApp(); }));
+        dr.appendChild(dateField("Application deadline", a.deadline, APP_CLOSED[a.status] ? "" : dueLabel(a.deadline), function (v) { a.deadline = v; a.updatedAt = Date.now(); touch(); renderApp(); }));
+        body.appendChild(dr);
 
         /* linked resume + score */
         var meta = el("div", "track-meta");
@@ -1799,8 +2025,17 @@
           touch(); renderApp();
         }, "btn-danger"));
         body.appendChild(footer);
-      }, [elText("span", "hl-pill " + APP_STATUS_CLASS[a.status], a.status)]));
+      }, trackerHeadPills(a)));
     });
+  }
+  function trackerHeadPills(a) {
+    var pills = [];
+    if (!APP_CLOSED[a.status]) {
+      var d = daysUntil(a.followUp);
+      if (d !== null && d <= 2) pills.push(elText("span", "hl-pill " + (d < 0 ? "due-overdue" : "due-soon"), d < 0 ? "⏰ overdue" : "🔔 due"));
+    }
+    pills.push(elText("span", "hl-pill " + APP_STATUS_CLASS[a.status], a.status));
+    return pills;
   }
 
   function guessCompanyFromJd(jd) {
@@ -2292,22 +2527,54 @@
     a.download = (activeResume().profile.name || "resume").replace(/\s+/g, "_").toLowerCase() + "_resume_data.json";
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(url); }, 500);
   }
+  var IMPORT_MAX_BYTES = 12 * 1024 * 1024;   /* resume JSON is normally < 1 MB; cap guards against junk/huge files */
+  var BACKUP_KEY = "newvisual.resumedata.backup";
+  function backupCurrent(str) {
+    try { localStorage.setItem(BACKUP_KEY, str); localStorage.setItem(BACKUP_KEY + ".at", String(Date.now())); } catch (e) {}
+  }
+  /* Import that validates the file, never silently overwrites, backs up the
+     current data first, and is undoable (Ctrl+Z). */
   function importJson(file) {
+    if (file && typeof file.size === "number" && file.size > IMPORT_MAX_BYTES) {
+      alert("That file is " + (file.size / 1048576).toFixed(1) + " MB — too large for resume data (normally under 1 MB). Import cancelled; nothing was changed.");
+      return;
+    }
     var reader = new FileReader();
+    reader.onerror = function () { alert("Could not read that file. Nothing was changed."); };
     reader.onload = function () {
+      var parsed;
+      try { parsed = JSON.parse(reader.result); }
+      catch (e) { alert("That file isn't valid JSON, so it can't be imported. Nothing was changed."); return; }
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        alert("That file doesn't contain resume data. Nothing was changed."); return;
+      }
+      var looksLikeResume = Array.isArray(parsed.resumes) || Array.isArray(parsed.sections) || (parsed.library && typeof parsed.library === "object");
+      if (!looksLikeResume) {
+        alert("That file doesn't look like a Resume Builder export (no resumes, sections, or library found). Nothing was changed."); return;
+      }
+      var curCount = (store.resumes || []).length;
+      if (!confirm("Import will REPLACE your current data (" + curCount + " resume" + (curCount !== 1 ? "s" : "") + ") with this file's contents.\n\nYour current data is backed up first — press Undo (Ctrl+Z) or Reset if you change your mind.\n\nContinue?")) return;
+      var before = snapshotStr();
       try {
-        var parsed = JSON.parse(reader.result);
-        if (parsed && parsed.sections && !parsed.resumes) parsed = migrateV1(parsed);
-        else if (parsed && parsed.resumes && parsed.resumes[0] && parsed.resumes[0].picks) parsed = migrateV2(parsed);
-        store = normalize(parsed); renderApp(); save();
-      } catch (e) { alert("Could not read that file: " + e.message); }
+        if (parsed.sections && !parsed.resumes) parsed = migrateV1(parsed);
+        else if (parsed.resumes && parsed.resumes[0] && parsed.resumes[0].picks) parsed = migrateV2(parsed);
+        var next = normalize(parsed);
+      } catch (e) { alert("Could not import that file: " + e.message + "\nNothing was changed."); return; }
+      backupCurrent(before);
+      store = next;
+      /* make the import a single undoable step */
+      if (before) { undoStack.push(before); if (undoStack.length > UNDO_CAP) undoStack.shift(); redoStack = []; }
+      lastSnapshot = snapshotStr(); persist(store);
+      renderApp(); setSaveState("Saved"); updateUndoButtons();
+      var n = store.resumes.length;
+      flash("Imported — " + n + " resume" + (n !== 1 ? "s" : "") + " loaded. Press Ctrl+Z to undo.");
     };
     reader.readAsText(file);
   }
   function resetAll() { if (!confirm("Reset everything (all resumes and library) back to the sample? Your current data will be lost.")) return; store = sampleStore(); renderApp(); save(); }
 
   function init() {
-    store = load(); renderApp();
+    store = load(); lastSnapshot = snapshotStr(); renderApp();
     var tabs = document.querySelectorAll("#tabs .tab");
     for (var i = 0; i < tabs.length; i++) tabs[i].addEventListener("click", function () { activeTab = this.getAttribute("data-tab"); renderApp(); });
     document.getElementById("btnPdf").addEventListener("click", function () {
@@ -2324,6 +2591,20 @@
     document.getElementById("btnDocx").addEventListener("click", exportDocx);
     document.getElementById("btnExport").addEventListener("click", exportJson);
     document.getElementById("btnReset").addEventListener("click", resetAll);
+    var btnUndo = document.getElementById("btnUndo"), btnRedo = document.getElementById("btnRedo");
+    if (btnUndo) btnUndo.addEventListener("click", doUndo);
+    if (btnRedo) btnRedo.addEventListener("click", doRedo);
+    updateUndoButtons();
+    /* keyboard undo/redo — only when focus is NOT in a text field, so native
+       text-editing undo inside inputs/textareas keeps working as expected. */
+    document.addEventListener("keydown", function (e) {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      var tag = (e.target && e.target.tagName || "").toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select" || (e.target && e.target.isContentEditable)) return;
+      var k = (e.key || "").toLowerCase();
+      if (k === "z" && !e.shiftKey) { e.preventDefault(); doUndo(); }
+      else if ((k === "z" && e.shiftKey) || k === "y") { e.preventDefault(); doRedo(); }
+    });
     var fileInput = document.getElementById("fileImport");
     document.getElementById("btnImport").addEventListener("click", function () { fileInput.click(); });
     fileInput.addEventListener("change", function () { if (fileInput.files && fileInput.files[0]) importJson(fileInput.files[0]); fileInput.value = ""; });
