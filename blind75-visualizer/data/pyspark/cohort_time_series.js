@@ -24,8 +24,12 @@
         "Given an `orders` DataFrame (`customer_id`, `order_date`, `amount`), find the customers who had **three consecutive purchases** (in date order) where each order's `amount` was strictly greater than the one before — i.e. a run of the shape `a < b < c` across three back-to-back orders. Compare each order to its two predecessors with `lag` and keep customers where such a triple exists.",
       examples: [
         {
-          input: "orders: (c1, 2026-01-01, 10), (c1, 2026-01-05, 20), (c1, 2026-01-09, 30), (c2, 2026-01-01, 50), (c2, 2026-01-04, 40)",
-          output: "c1 qualifies",
+          inputs: [
+            { name: "orders", columns: ["customer_id", "order_date", "amount"],
+              rows: [["c1", "2026-01-01", 10], ["c1", "2026-01-05", 20], ["c1", "2026-01-09", 30], ["c2", "2026-01-01", 50], ["c2", "2026-01-04", 40]] }
+          ],
+          output: { columns: ["customer_id"],
+            rows: [["c1"]] },
           reasoning: "c1's three orders 10 < 20 < 30 form a strictly increasing run of three. c2 decreases (50 -> 40) and never has a 3-order rising run, so c2 is excluded."
         }
       ],
@@ -116,8 +120,12 @@
         "Given an `orders` DataFrame (`customer_id`, `order_date`), find the customers who ordered on **two consecutive calendar days** — i.e. some order is exactly one day after that customer's previous distinct order day. Deduplicate to one row per customer per day, then check whether any adjacent pair of order days is exactly 1 day apart.",
       examples: [
         {
-          input: "orders: (c1, 2026-03-01), (c1, 2026-03-02), (c2, 2026-03-01), (c2, 2026-03-05)",
-          output: "c1 qualifies",
+          inputs: [
+            { name: "orders", columns: ["customer_id", "order_date"],
+              rows: [["c1", "2026-03-01"], ["c1", "2026-03-02"], ["c2", "2026-03-01"], ["c2", "2026-03-05"]] }
+          ],
+          output: { columns: ["customer_id"],
+            rows: [["c1"]] },
           reasoning: "c1 ordered on 03-01 and 03-02 — one day apart. c2's order days (03-01, 03-05) are 4 days apart, so c2 is excluded."
         }
       ],
@@ -207,8 +215,12 @@
         "Given an `orders` DataFrame (`customer_id`, `order_date`), find the customers who ordered on **three or more consecutive calendar days**. This is the classic gaps-and-islands problem: dedupe to distinct order days, then subtract a per-customer sequence number from each day's day-number so consecutive days collapse to a constant group id, and keep groups (runs) of length >= 3.",
       examples: [
         {
-          input: "orders: (c1, 2026-05-01), (c1, 2026-05-02), (c1, 2026-05-03), (c2, 2026-05-01), (c2, 2026-05-02)",
-          output: "c1 qualifies",
+          inputs: [
+            { name: "orders", columns: ["customer_id", "order_date"],
+              rows: [["c1", "2026-05-01"], ["c1", "2026-05-02"], ["c1", "2026-05-03"], ["c2", "2026-05-01"], ["c2", "2026-05-02"]] }
+          ],
+          output: { columns: ["customer_id"],
+            rows: [["c1"]] },
           reasoning: "c1 ordered on 05-01, 05-02, 05-03 — a run of 3 consecutive days. c2's longest run is only 2 days (05-01, 05-02), so c2 is excluded."
         }
       ],
@@ -316,8 +328,12 @@
         "Given an `orders` DataFrame (`customer_id`, `order_date`), find the customer whose largest gap between two **consecutive** purchases (in date order) is the biggest across all customers. Compute each order's gap from the previous order with `lag` + `datediff`, take each customer's maximum gap, then pick the customer with the overall maximum.",
       examples: [
         {
-          input: "orders: (c1, 2026-01-01), (c1, 2026-01-10), (c2, 2026-01-01), (c2, 2026-04-01)",
-          output: "c2 (max gap 90 days)",
+          inputs: [
+            { name: "orders", columns: ["customer_id", "order_date"],
+              rows: [["c1", "2026-01-01"], ["c1", "2026-01-10"], ["c2", "2026-01-01"], ["c2", "2026-04-01"]] }
+          ],
+          output: { columns: ["customer_id", "max_gap"],
+            rows: [["c2", 90]] },
           reasoning: "c1's only gap is 9 days; c2's only gap is 90 days. c2 has the largest single gap between consecutive purchases across all customers."
         }
       ],
@@ -412,8 +428,12 @@
         "Given an `orders` DataFrame (`product_id`, `order_date`, `order_id`), add a `rolling_7d_orders` column: for each row, the number of orders for that product over a trailing **7-day calendar window** (the current day and the 6 days before it). Because the window spans *days* rather than a fixed number of rows, it must frame on the date value via the datediff day-number trick.",
       examples: [
         {
-          input: "product p1: (2026-06-01), (2026-06-02), (2026-06-02), (2026-06-10)",
-          output: "rolling_7d_orders -> 1, 3, 3, 1",
+          inputs: [
+            { name: "orders", columns: ["product_id", "order_date"],
+              rows: [["p1", "2026-06-01"], ["p1", "2026-06-02"], ["p1", "2026-06-02"], ["p1", "2026-06-10"]] }
+          ],
+          output: { columns: ["product_id", "order_date", "rolling_7d_orders"],
+            rows: [["p1", "2026-06-01", 1], ["p1", "2026-06-02", 3], ["p1", "2026-06-02", 3], ["p1", "2026-06-10", 1]] },
           reasoning: "On 06-02 the window covers 06-01..06-02 and sees 3 orders (one on 06-01, two on 06-02). On 06-10 the window is 06-04..06-10, so all the June-1/2 orders have dropped out, leaving just 1."
         }
       ],
@@ -500,8 +520,12 @@
         "Given a `sales` DataFrame (`product_id`, `sale_date`, `amount`), find the products whose monthly revenue **increased for three consecutive months** — three back-to-back months where each month's revenue is strictly greater than the previous month's. Roll revenue up to `product_id` x month, then compare each month to its two predecessors per product.",
       examples: [
         {
-          input: "p1 monthly revenue: (2026-01, 100), (2026-02, 150), (2026-03, 200) ; p2: (2026-01, 100), (2026-02, 90)",
-          output: "p1 qualifies",
+          inputs: [
+            { name: "monthly", columns: ["product_id", "month", "revenue"],
+              rows: [["p1", "2026-01", 100], ["p1", "2026-02", 150], ["p1", "2026-03", 200], ["p2", "2026-01", 100], ["p2", "2026-02", 90]] }
+          ],
+          output: { columns: ["product_id"],
+            rows: [["p1"]] },
           reasoning: "p1's revenue rises 100 < 150 < 200 across three consecutive months. p2 falls in February, so it never has a 3-month rising run and is excluded."
         }
       ],
@@ -607,8 +631,12 @@
         "Given a `logins` DataFrame (`user_id`, `login_date`), compute each user's **longest consecutive-day login streak** — the maximum number of back-to-back calendar days they logged in. This is gaps-and-islands: dedupe login days, subtract a per-user row number from each day-number to label consecutive runs, count each run, and take the longest per user.",
       examples: [
         {
-          input: "logins: (u1, 2026-07-01), (u1, 2026-07-02), (u1, 2026-07-03), (u1, 2026-07-10), (u2, 2026-07-05)",
-          output: "u1 -> 3, u2 -> 1",
+          inputs: [
+            { name: "logins", columns: ["user_id", "login_date"],
+              rows: [["u1", "2026-07-01"], ["u1", "2026-07-02"], ["u1", "2026-07-03"], ["u1", "2026-07-10"], ["u2", "2026-07-05"]] }
+          ],
+          output: { columns: ["user_id", "longest_streak"],
+            rows: [["u1", 3], ["u2", 1]] },
           reasoning: "u1's days 07-01..07-03 form a 3-day streak, then 07-10 starts a separate 1-day run; the longest is 3. u2 has a single login, so its longest streak is 1."
         }
       ],
@@ -722,8 +750,12 @@
         "Given a `transactions` DataFrame (`customer_id`, `txn_date`, `amount`), find the customers whose monthly spending **increased for three consecutive months** — three back-to-back months where each month's total spend is strictly greater than the previous month's. Roll spend up to `customer_id` x month, then compare each month to its two predecessors per customer.",
       examples: [
         {
-          input: "c1 monthly spend: (2026-01, 200), (2026-02, 300), (2026-03, 350) ; c2: (2026-01, 200), (2026-02, 180)",
-          output: "c1 qualifies",
+          inputs: [
+            { name: "monthly", columns: ["customer_id", "month", "spend"],
+              rows: [["c1", "2026-01", 200], ["c1", "2026-02", 300], ["c1", "2026-03", 350], ["c2", "2026-01", 200], ["c2", "2026-02", 180]] }
+          ],
+          output: { columns: ["customer_id"],
+            rows: [["c1"]] },
           reasoning: "c1's spend rises 200 < 300 < 350 across three consecutive months. c2 drops in February, so it never has a 3-month rising run and is excluded."
         }
       ],

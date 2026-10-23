@@ -19,8 +19,12 @@
         "Given an `events` DataFrame (`user_id`, `event_type`, `event_time` as a timestamp), assign a `session_id` to every event so that a **gap of more than 30 minutes** between one user's consecutive events starts a new session. This is the canonical sessionization pattern: order each user's events by time, use `lag` to read the previous event's time, flag a row as a *new session* when the gap exceeds 1800 seconds (and when it is the user's first event), then take a **running sum** of that flag over the same window to number the sessions 1, 2, 3, ... per user.",
       examples: [
         {
-          input: "user u1: events at 10:00, 10:20, 11:05, 11:10 (same day)",
-          output: "session numbers 1, 1, 2, 2",
+          inputs: [
+            { name: "events", columns: ["user_id", "event_time"],
+              rows: [["u1", "10:00"], ["u1", "10:20"], ["u1", "11:05"], ["u1", "11:10"]] }
+          ],
+          output: { columns: ["user_id", "event_time", "session_id"],
+            rows: [["u1", "10:00", 1], ["u1", "10:20", 1], ["u1", "11:05", 2], ["u1", "11:10", 2]] },
           reasoning: "10:00 is the first event -> new session 1. 10:20 is 20 min after (<= 30) -> same session 1. 11:05 is 45 min after 10:20 (> 30) -> new session 2. 11:10 is 5 min later -> same session 2. The running sum of the new-session flag (1,0,1,0) gives 1,1,2,2."
         }
       ],
@@ -132,8 +136,12 @@
         "Building on the sessionization pattern, count **how many sessions each user has**. Once every event carries a per-user `session_id` (from the lag + running-sum trick with a 30-minute gap), the session count for a user is simply the number of distinct session ids — and because the running sum numbers sessions 1, 2, 3, ... in order, the count equals the **maximum** session number per user (or `countDistinct('session_id')`).",
       examples: [
         {
-          input: "user u1 events sessionized to session numbers 1,1,2,2,3 ; user u2 to 1,1",
-          output: "u1 -> 3 sessions, u2 -> 1 session",
+          inputs: [
+            { name: "sessioned (events with session_id)", columns: ["user_id", "session_id"],
+              rows: [["u1", 1], ["u1", 1], ["u1", 2], ["u1", 2], ["u1", 3], ["u2", 1], ["u2", 1]] }
+          ],
+          output: { columns: ["user_id", "num_sessions"],
+            rows: [["u1", 3], ["u2", 1]] },
           reasoning: "u1's session ids reach a max of 3, so u1 had 3 sessions; u2's only reach 1, so u2 had a single session. The max session number equals the count because the running sum increments once per session."
         }
       ],
@@ -235,8 +243,12 @@
         "Building on the sessionization pattern, compute each user's **average session duration**. First sessionize the `events` stream (lag + running-sum with a 30-minute gap) so every event has a `session_id`; a single session's duration is `max(event_time) - min(event_time)` within that `(user_id, session_id)`; then average those per-session durations across each user's sessions.",
       examples: [
         {
-          input: "u1 session 1: events 10:00,10:20 ; u1 session 2: events 11:05,11:35",
-          output: "u1 -> avg 25 min (1500s)",
+          inputs: [
+            { name: "sessioned (events with session_id)", columns: ["user_id", "session_id", "event_time"],
+              rows: [["u1", 1, "10:00"], ["u1", 1, "10:20"], ["u1", 2, "11:05"], ["u1", 2, "11:35"]] }
+          ],
+          output: { columns: ["user_id", "avg_session_secs"],
+            rows: [["u1", 1500]] },
           reasoning: "Session 1 lasts 20 min (10:00->10:20), session 2 lasts 30 min (11:05->11:35). The average of 20 and 30 minutes is 25 minutes (1500 seconds)."
         }
       ],
@@ -357,8 +369,12 @@
         "Building on the sessionization pattern, compute the **number of events in each session**, and then, for each user, the **longest session by event count**. Sessionize the `events` stream (lag + running-sum with a 30-minute gap), count rows per `(user_id, session_id)` to get events-per-session, and take the `max` of those counts per user for the busiest session.",
       examples: [
         {
-          input: "u1 sessions: session 1 has 2 events, session 2 has 5 events, session 3 has 1 event",
-          output: "events per session -> 2, 5, 1 ; u1 longest session -> 5 events",
+          inputs: [
+            { name: "session_counts (events per session)", columns: ["user_id", "session_id", "event_count"],
+              rows: [["u1", 1, 2], ["u1", 2, 5], ["u1", 3, 1]] }
+          ],
+          output: { columns: ["user_id", "longest_session_events"],
+            rows: [["u1", 5]] },
           reasoning: "Counting rows per session gives 2, 5 and 1. The user's longest session by event count is the one with 5 events, so the per-user max is 5."
         }
       ],

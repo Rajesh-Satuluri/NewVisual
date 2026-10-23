@@ -197,8 +197,14 @@
         "From a `transactions` DataFrame (`customer_id`, `order_date`, `amount`), produce one row per customer with: `first_purchase_date`, `second_purchase_date`, `total_orders`, `total_revenue`, `average_order_value`, `largest_order`, and `days_between_first_second_purchase`. This composes a standard group aggregate with a window to isolate the first and second dated purchases.",
       examples: [
         {
-          input: "transactions: (c1, 2026-01-01, 100), (c1, 2026-01-06, 40), (c1, 2026-02-01, 260), (c2, 2026-03-10, 500)",
-          output: "c1 -> first 2026-01-01, second 2026-01-06, total_orders 3, total_revenue 400, avg 133.33, largest 260, gap 5 ; c2 -> first/second 2026-03-10/null, orders 1, revenue 500, avg 500, largest 500, gap null",
+          inputs: [
+            { name: "transactions", columns: ["customer_id", "order_date", "amount"],
+              rows: [["c1", "2026-01-01", 100], ["c1", "2026-01-06", 40],
+                     ["c1", "2026-02-01", 260], ["c2", "2026-03-10", 500]] }
+          ],
+          output: { columns: ["customer_id", "first_purchase_date", "second_purchase_date", "total_orders", "total_revenue", "average_order_value", "largest_order", "days_between_first_second_purchase"],
+            rows: [["c1", "2026-01-01", "2026-01-06", 3, 400, "133.33", 260, 5],
+                   ["c2", "2026-03-10", null, 1, 500, "500.0", 500, null]] },
           reasoning: "c1's ranked dates give first=01-01 and second=01-06 (gap 5 days); the aggregates sum/count/avg/max over all three rows. c2 has only one order, so second_purchase_date and the gap are null."
         }
       ],
@@ -315,8 +321,15 @@
         "From an `orders` DataFrame (`customer_id`, `order_date`, `amount`), produce one row per customer with `first_order_date`, `last_order_date`, `total_orders`, `total_revenue`, `average_order_value`, and `revenue_rank` — customers ranked **globally** by total revenue (highest revenue = rank 1). This composes a group aggregate with a global (unpartitioned) ranking window.",
       examples: [
         {
-          input: "orders: (c1, 2026-01-01, 300), (c1, 2026-02-01, 200), (c2, 2026-01-15, 900), (c3, 2026-01-20, 500)",
-          output: "c2 -> revenue 900, rank 1 ; c3 -> revenue 500, rank 2 ; c1 -> revenue 500, rank 3(dense: 2) ... e.g. c1 first 2026-01-01, last 2026-02-01, orders 2, revenue 500, avg 250",
+          inputs: [
+            { name: "orders", columns: ["customer_id", "order_date", "amount"],
+              rows: [["c1", "2026-01-01", 300], ["c1", "2026-02-01", 200],
+                     ["c2", "2026-01-15", 900], ["c3", "2026-01-20", 500]] }
+          ],
+          output: { columns: ["customer_id", "first_order_date", "last_order_date", "total_orders", "total_revenue", "average_order_value", "revenue_rank"],
+            rows: [["c2", "2026-01-15", "2026-01-15", 1, 900, "900.0", 1],
+                   ["c1", "2026-01-01", "2026-02-01", 2, 500, "500.0", 2],
+                   ["c3", "2026-01-20", "2026-01-20", 1, 500, "500.0", 2]] },
           reasoning: "Aggregate to one row per customer (min/max dates, count, sum, avg), then rank those customer rows by total_revenue descending across the whole result."
         }
       ],
@@ -411,7 +424,11 @@
         "From a `sales` DataFrame (`store_id`, `product_id`, `sale_date`, `quantity`, `price`) compute revenue at several grains: `daily_revenue` (per product per day), `monthly_revenue` (per product per month), `monthly_rank` (rank of each product within its month by monthly revenue), and `rolling_7d_revenue` (a trailing 7-day revenue per product). This composes date bucketing, group aggregates, a ranking window, and a time-based rolling window. Alias names are chosen to never start with a digit.",
       examples: [
         {
-          input: "sales for product p1: (2026-03-01, qty 2, price 10), (2026-03-02, qty 1, price 10), (2026-03-08, qty 3, price 10)",
+          inputs: [
+            { name: "sales", columns: ["product_id", "sale_date", "quantity", "price"],
+              rows: [["p1", "2026-03-01", 2, 10], ["p1", "2026-03-02", 1, 10],
+                     ["p1", "2026-03-08", 3, 10]] }
+          ],
           output: "daily_revenue: 20, 10, 30 ; monthly_revenue (2026-03): 60 ; monthly_rank: p1 ranked vs other products in 2026-03 ; rolling_7d_revenue on 03-08 = 30 (03-01 and 03-02 fall outside the trailing 7 days)",
           reasoning: "Daily revenue sums quantity*price per product per day; monthly sums per product per month; monthly_rank ranks products within each month; the rolling window sums the last 7 days by actual date, so 03-08's window excludes 03-01/03-02."
         }
@@ -539,8 +556,13 @@
         "From an `events` DataFrame (`user_id`, `event_name`, `event_ts`) compute, per user: `first_event` (timestamp of their earliest event of any kind), `first_purchase` and `second_purchase` (timestamps of their 1st and 2nd `purchase` events), `days_to_first_purchase` (from first event to first purchase), and `total_purchases`. This composes conditional aggregation with a window that ranks only the purchase events.",
       examples: [
         {
-          input: "events for u1: (view, 2026-01-01 09:00), (view, 2026-01-02 10:00), (purchase, 2026-01-05 11:00), (purchase, 2026-01-09 12:00)",
-          output: "u1 -> first_event 2026-01-01 09:00, first_purchase 2026-01-05 11:00, second_purchase 2026-01-09 12:00, days_to_first_purchase 4, total_purchases 2",
+          inputs: [
+            { name: "events", columns: ["user_id", "event_name", "event_ts"],
+              rows: [["u1", "view", "2026-01-01 09:00"], ["u1", "view", "2026-01-02 10:00"],
+                     ["u1", "purchase", "2026-01-05 11:00"], ["u1", "purchase", "2026-01-09 12:00"]] }
+          ],
+          output: { columns: ["user_id", "first_event", "first_purchase", "second_purchase", "days_to_first_purchase", "total_purchases"],
+            rows: [["u1", "2026-01-01 09:00", "2026-01-05 11:00", "2026-01-09 12:00", 4, 2]] },
           reasoning: "first_event is the min timestamp over all events; the purchase events ranked by time give first/second purchase; the gap is datediff(first_purchase, first_event); total_purchases counts purchase rows."
         }
       ],

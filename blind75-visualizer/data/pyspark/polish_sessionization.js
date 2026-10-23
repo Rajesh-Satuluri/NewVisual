@@ -16,7 +16,15 @@
       description:
         "Given `events(user_id, ts)`, assign a **session id** per user: a new session starts whenever the gap since the previous event exceeds **30 minutes**.",
       examples: [
-        { input: "u1: 10:00, 10:20, 11:05, 11:10", output: "sessions: {10:00,10:20}=1, {11:05,11:10}=2", reasoning: "Gap 10:20→11:05 is 45 min > 30 → new session; a cumulative sum of the new-session flag numbers them." }
+        {
+          inputs: [
+            { name: "events", columns: ["user_id", "ts"],
+              rows: [["u1", "10:00"], ["u1", "10:20"], ["u1", "11:05"], ["u1", "11:10"]] }
+          ],
+          output: { columns: ["user_id", "ts", "session_id"],
+            rows: [["u1", "10:00", 1], ["u1", "10:20", 1], ["u1", "11:05", 2], ["u1", "11:10", 2]] },
+          reasoning: "Gap 10:20→11:05 is 45 min > 30 → new session; a cumulative sum of the new-session flag numbers them."
+        }
       ],
       approaches: [
         {
@@ -73,7 +81,15 @@
       description:
         "Given events already tagged with `session_id`, produce per-session metrics: **start, end, duration (seconds), and event count**.",
       examples: [
-        { input: "session s1: 10:00, 10:05, 10:20", output: "s1: start 10:00, end 10:20, duration 1200s, events 3", reasoning: "min/max of ts give the span; count gives events." }
+        {
+          inputs: [
+            { name: "df2", columns: ["session_id", "ts"],
+              rows: [["s1", "10:00"], ["s1", "10:05"], ["s1", "10:20"]] }
+          ],
+          output: { columns: ["session_id", "start", "end", "duration_s", "events"],
+            rows: [["s1", "10:00", "10:20", 1200, 3]] },
+          reasoning: "min/max of ts give the span; count gives events."
+        }
       ],
       approaches: [
         {
@@ -176,7 +192,15 @@
       description:
         "For each session, attribute it to the **channel of its first event** (first-touch attribution). Return one row per session with that channel.",
       examples: [
-        { input: "s1: (10:00, google),(10:05, email)", output: "s1 → google", reasoning: "The earliest event in the session is the first touch." }
+        {
+          inputs: [
+            { name: "df2", columns: ["session_id", "ts", "channel"],
+              rows: [["s1", "10:00", "google"], ["s1", "10:05", "email"]] }
+          ],
+          output: { columns: ["session_id", "first_channel"],
+            rows: [["s1", "google"]] },
+          reasoning: "The earliest event in the session is the first touch."
+        }
       ],
       approaches: [
         {
