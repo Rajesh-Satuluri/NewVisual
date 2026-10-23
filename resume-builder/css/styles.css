@@ -138,6 +138,24 @@ body.resizing { cursor: col-resize; user-select: none; }
 .sample-banner .sb-text { flex: 1; font-size: 12.5px; line-height: 1.45; color: #e8d9b8; }
 .sample-banner .sb-text strong { color: #ffcf8f; }
 
+/* readiness dashboard */
+.readiness { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 13px 14px; }
+.readiness-title { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 800; margin-bottom: 9px; }
+.readiness-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.stat-tile { font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 11px 6px;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--panel-2); color: var(--text); text-align: center; }
+button.stat-tile { cursor: pointer; transition: .12s; }
+button.stat-tile:hover { border-color: var(--brand); transform: translateY(-1px); }
+.stat-tile .stat-val { font-size: 20px; font-weight: 800; line-height: 1; }
+.stat-tile .stat-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.stat-tile.high { border-color: #2e5a42; } .stat-tile.high .stat-val { color: #a9e6c4; }
+.stat-tile.mid { border-color: #5a4a26; } .stat-tile.mid .stat-val { color: #ffd79a; }
+.stat-tile.low { border-color: #5a2e2e; } .stat-tile.low .stat-val { color: #ffb3b3; }
+.stat-tile.none .stat-val { color: var(--muted); }
+.readiness-missing { font-size: 11.5px; color: var(--muted); line-height: 1.5; margin-top: 9px; }
+.readiness-done { font-size: 11.5px; color: #a9e6c4; line-height: 1.5; margin-top: 9px; }
+@media (max-width: 520px) { .readiness-grid { grid-template-columns: repeat(2, 1fr); } }
+
 /* per-chip archive affordance — appears on hover, stays out of the way otherwise */
 .resume-chip .rc-archive {
   position: absolute; top: 7px; right: 8px; font-size: 9.5px; font-weight: 700;
@@ -367,6 +385,14 @@ button.kw-chip.have { cursor: pointer; }
 .block-head .sec-title:focus { outline: none; border-color: var(--border); background: var(--bg); }
 .block-head .move { color: var(--muted); cursor: pointer; user-select: none; font-size: 13px; padding: 1px 3px; border-radius: 4px; transition: color .12s, background .12s; }
 .block-head .move:hover { color: var(--text); background: rgba(255,255,255,.06); }
+/* drag handles + drop feedback */
+.grip { cursor: grab; color: var(--muted); user-select: none; font-size: 13px; line-height: 1; padding: 1px 3px; border-radius: 4px; }
+.grip:hover { color: var(--text); background: rgba(255,255,255,.06); }
+.grip:active { cursor: grabbing; }
+.item-grip, .bullet-grip { align-self: center; }
+.dragging { opacity: .5; }
+.block.drag-over { outline: 2px dashed var(--brand); outline-offset: 2px; }
+.item.drag-over, .bullet-row.drag-over { outline: 2px dashed var(--brand); outline-offset: 1px; border-radius: 6px; }
 
 /* smooth collapse/expand via animated grid row (0fr <-> 1fr) */
 .block-body-wrap {
@@ -563,6 +589,14 @@ textarea.cover-body { min-height: 300px; resize: vertical; line-height: 1.55; wh
 .page[data-density="relaxed"] .r-text, .page[data-density="relaxed"] .r-bullets li { line-height: 1.5; }
 .page[data-density="relaxed"] .r-entry { margin-bottom: 9px; }
 
+/* ---------- Two-page mode ---------- */
+.page[data-pages="2"] { height: auto; min-height: 1123px; overflow: visible; }
+.page[data-pages="2"]::after {
+  content: "▸ page 2"; position: absolute; top: 1123px; left: 0; right: 0;
+  border-top: 1px dashed #c3ccd6; font-size: 9px; color: #9aa7b4; padding: 2px 8px;
+  font-family: var(--font-ui); letter-spacing: .05em; pointer-events: none; text-align: right;
+}
+
 /* ---------- Design controls (editor) ---------- */
 .design-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 700; margin: 10px 0 5px; }
 .tmpl-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
@@ -576,6 +610,23 @@ textarea.cover-body { min-height: 300px; resize: vertical; line-height: 1.55; wh
 .accent-dot { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--border); cursor: pointer; padding: 0; transition: transform .1s, border-color .12s, box-shadow .12s; }
 .accent-dot:hover { transform: scale(1.1); }
 .accent-dot.sel { border-color: #fff; box-shadow: 0 0 0 2px var(--brand); }
+.seg-toggle { display: flex; gap: 8px; }
+.seg-opt { flex: 1; font-family: inherit; text-align: left; cursor: pointer; background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: 9px; padding: 9px 11px; color: var(--text); display: flex; flex-direction: column; gap: 2px; transition: .12s; }
+.seg-opt:hover { border-color: var(--brand); }
+.seg-opt.sel { border-color: var(--brand); background: #1a2b38; box-shadow: 0 0 0 1px var(--brand) inset; }
+.seg-opt .seg-name { font-weight: 700; font-size: 12.5px; }
+.seg-opt .seg-desc { font-size: 10.5px; color: var(--muted); line-height: 1.3; }
+/* structured date picker */
+.date-field { position: relative; }
+.date-pick-toggle { margin-top: 5px; }
+.date-pick { display: none; margin-top: 7px; padding: 9px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); flex-direction: column; gap: 7px; }
+.date-pick.open { display: flex; }
+.date-pick-row { display: flex; align-items: center; gap: 6px; }
+.date-pick-row .dp-lbl { font-size: 11px; color: var(--muted); width: 38px; flex-shrink: 0; }
+.date-pick-row select.inp { padding: 5px 7px; font-size: 12px; }
+.dp-present { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text); cursor: pointer; }
+.dp-present input { width: 15px; height: 15px; }
 @media (max-width: 640px) { .tmpl-grid { grid-template-columns: 1fr; } }
 
 /* ---------- Responsive ---------- */
@@ -606,6 +657,9 @@ textarea.cover-body { min-height: 300px; resize: vertical; line-height: 1.55; wh
     width: 794px; box-shadow: none; margin: 0; outline: none !important;
     padding: 34px 46px; height: 1123px; max-height: 1123px; overflow: hidden;
   }
+  /* two-page resumes paginate naturally instead of clipping at one page */
+  .page[data-pages="2"] { height: auto; max-height: none; min-height: 0; overflow: visible; }
+  .page[data-pages="2"]::after { display: none; }
   .r-entry, .r-section { page-break-inside: avoid; }
   .r-bullets li { page-break-inside: avoid; }
 }
