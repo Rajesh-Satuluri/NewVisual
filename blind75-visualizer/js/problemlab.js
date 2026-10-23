@@ -711,15 +711,36 @@
       main.appendChild(section("schema", "Schema & Sample Data", schemaDataGrid(p)));
     }
 
-    // examples (PySpark / generic)
+    // examples (PySpark / generic) — render DataFrame tables when the example is
+    // structured ({name,columns,rows}), fall back to a <code> line for prose/scalar.
     if (p.examples && p.examples.length) {
       var exWrap = h("div", { class: "examples" });
+      // one Input/Output row: table(s) when structured, else a code string
+      function exRow(label, tables, str) {
+        var tbls = tables && tables.length ? tables : null;
+        var row = h("div", { class: "ex-row" + (tbls ? " ex-row-tbl" : "") });
+        row.appendChild(h("span", { class: "ex-label" }, label));
+        var body = h("div", { class: "ex-body" });
+        if (tbls) {
+          tbls.forEach(function (t) {
+            if (t.name) body.appendChild(h("div", { class: "lab-table-cap" }, esc(t.name)));
+            body.appendChild(dataTable(t.columns, t.rows));
+          });
+        } else {
+          body.innerHTML = "<code>" + esc(str) + "</code>";
+        }
+        row.appendChild(body);
+        return row;
+      }
       p.examples.forEach(function (ex, i) {
         var card = h("div", { class: "example-card" });
         card.appendChild(h("div", { class: "ex-num" }, "Example " + (i + 1)));
         var io = h("div", { class: "ex-io" });
-        io.innerHTML = '<div class="ex-row"><span class="ex-label">Input</span><code>' + esc(ex.input) + "</code></div>" +
-          '<div class="ex-row"><span class="ex-label">Output</span><code>' + esc(ex.output) + "</code></div>";
+        // input: ex.inputs = [{name,columns,rows}, ...]  OR  ex.input = string
+        io.appendChild(exRow("Input", ex.inputs, ex.input));
+        // output: ex.output = {name?,columns,rows}  OR  ex.output = string
+        var outTbls = (ex.output && typeof ex.output === "object" && ex.output.columns) ? [ex.output] : null;
+        io.appendChild(exRow("Output", outTbls, ex.output));
         card.appendChild(io);
         if (ex.reasoning) { var r = h("div", { class: "ex-reason md" }); r.innerHTML = md(ex.reasoning); card.appendChild(r); }
         exWrap.appendChild(card);
