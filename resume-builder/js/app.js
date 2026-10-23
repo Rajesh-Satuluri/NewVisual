@@ -422,15 +422,28 @@
     var b = el("div", "block");
     if (collapsed[collapseKey]) b.classList.add("collapsed");
     var head = el("div", "block-head"); head.title = "Click to collapse / expand";
+    /* keyboard-operable disclosure: focusable, Enter/Space toggles, state announced */
+    head.setAttribute("role", "button");
+    head.setAttribute("tabindex", "0");
+    head.setAttribute("aria-expanded", collapsed[collapseKey] ? "false" : "true");
+    head.setAttribute("aria-label", (titleText || (headInput && headInput.value) || "Section") + " — toggle");
     head.appendChild(elText("span", "caret", "▼"));
     head.appendChild(elText("span", "sec-icon", iconFor(titleText || (headInput && headInput.value))));
     if (headInput) head.appendChild(headInput); else head.appendChild(elText("span", "sec-title", titleText));
     if (headRight) { for (var i = 0; i < headRight.length; i++) head.appendChild(headRight[i]); }
-    head.addEventListener("click", function (e) {
-      if (e.target.closest("input, button, .move, select")) return;
+    function toggle() {
       collapsed[collapseKey] = !collapsed[collapseKey];
       b.classList.toggle("collapsed", collapsed[collapseKey]);
+      head.setAttribute("aria-expanded", collapsed[collapseKey] ? "false" : "true");
       if (!collapsed[collapseKey]) growAll(b);
+    }
+    head.addEventListener("click", function (e) {
+      if (e.target.closest("input, button, .move, .grip, select, a")) return;
+      toggle();
+    });
+    head.addEventListener("keydown", function (e) {
+      if (e.target !== head) return;   /* don't hijack keys inside the title input */
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); }
     });
     b.appendChild(head);
     var wrap = el("div", "block-body-wrap"), body = el("div", "block-body");
@@ -455,11 +468,31 @@
     else if (activeTab === "cover") renderCover(panel);
     else renderResumes(panel);
     growAll(panel);
+    applyA11yLabels(panel);
+    var curTab = document.querySelector('#tabs .tab[data-tab="' + activeTab + '"]');
+    for (var t = 0; t < tabs.length; t++) tabs[t].setAttribute("aria-selected", tabs[t] === curTab ? "true" : "false");
 
     /* right panel: resume preview normally, big field editor on AI tab */
     document.body.classList.toggle("ai-active", activeTab === "ai");
     if (activeTab === "ai") renderAiPane();
     else renderPreview();
+  }
+
+  /* Give icon-only controls an accessible name so screen readers announce the
+     action rather than the glyph. Runs after each render. */
+  var GLYPH_LABELS = { "▲": "Move up", "▼": "Move down", "✕": "Remove", "☆": "Save to bullet bank", "＋": "Add", "⠿": "Drag to reorder", "↶": "Undo", "↷": "Redo", "↩": "Restore", "🗑": "Delete", "⧉": "Copy", "⬆": "Upload", "⬇": "Download" };
+  function applyA11yLabels(root) {
+    var nodes = (root || document).querySelectorAll("button, .move, .grip, .rc-archive");
+    for (var i = 0; i < nodes.length; i++) {
+      var b = nodes[i];
+      if (b.getAttribute("aria-label")) continue;
+      var t = (b.textContent || "").trim();
+      if (GLYPH_LABELS[t]) { b.setAttribute("aria-label", GLYPH_LABELS[t]); continue; }
+      var first = t.charAt(0);
+      if (GLYPH_LABELS[first] && t.length <= 2) { b.setAttribute("aria-label", GLYPH_LABELS[first]); continue; }
+      /* a glyph-led label like "＋ Add bullet" is already readable; only bare glyphs need help */
+      if (b.title && /^[^0-9A-Za-z]{1,2}$/.test(t)) b.setAttribute("aria-label", b.title);
+    }
   }
 
   /* ============================================================
@@ -1069,8 +1102,53 @@
   /* ============================================================
      LIBRARY TAB — your document store (edit reference material)
      ============================================================ */
+  var librarySearch = "";
+  function libHaystack(it) {
+    var parts = [it.label, it.value, it.text, it.heading, it.role, it.meta, it.tags];
+    if (it.bullets) parts = parts.concat(it.bullets);
+    return parts.filter(Boolean).join("  ").toLowerCase();
+  }
+  function filterLibrary(q) {
+    q = (q || "").trim().toLowerCase();
+    var items = document.querySelectorAll("#tabPanel .item[data-search]");
+    for (var i = 0; i < items.length; i++) {
+      var hit = !q || items[i].getAttribute("data-search").indexOf(q) >= 0;
+      items[i].style.display = hit ? "" : "none";
+    }
+    /* hide category blocks with no visible items while searching; expand matches */
+    var blocks = document.querySelectorAll("#tabPanel .block");
+    for (var b = 0; b < blocks.length; b++) {
+      var its = blocks[b].querySelectorAll(".item[data-search]");
+      if (!its.length) continue;   /* not a library category block */
+      var visible = false;
+      for (var k = 0; k < its.length; k++) if (its[k].style.display !== "none") { visible = true; break; }
+      blocks[b].style.display = (visible || !q) ? "" : "none";
+      if (q && visible) blocks[b].classList.remove("collapsed");
+    }
+    var note = document.getElementById("libSearchNote");
+    if (note) {
+      var total = items.length, shown = 0;
+      for (var m = 0; m < items.length; m++) if (items[m].style.display !== "none") shown++;
+      note.textContent = q ? (shown + " of " + total + " item" + (total !== 1 ? "s" : "") + " match") : "";
+    }
+  }
+  function libTagsField(it) {
+    var f = el("div", "field lib-tags");
+    f.appendChild(elText("label", null, "Tags (comma-separated — used by search)"));
+    var i = el("input", "inp"); i.value = it.tags || ""; i.placeholder = "e.g. cloud, leadership, python";
+    i.addEventListener("input", function () { it.tags = i.value; touch(); var w = i.closest(".item"); if (w) w.setAttribute("data-search", libHaystack(it)); });
+    f.appendChild(i); return f;
+  }
   function renderLibrary(panel) {
     panel.appendChild(elText("p", "panel-hint", "Your personal document store — keep all your material here for reference and reuse. Use “Add from Library” inside a resume to pull items in. Editing here does not change any resume."));
+    /* search box */
+    var sw = el("div", "lib-search");
+    var si = el("input", "inp"); si.id = "libSearch"; si.type = "search"; si.value = librarySearch;
+    si.placeholder = "🔍  Search your library — text or tags…"; si.setAttribute("aria-label", "Search library");
+    si.addEventListener("input", function () { librarySearch = si.value; filterLibrary(si.value); });
+    sw.appendChild(si);
+    sw.appendChild(elText("span", "lib-search-note", "")).id = "libSearchNote";
+    panel.appendChild(sw);
     libBlock(panel, "Professional Summaries", "summaries", function () { store.library.summaries.push({ id: uid(), label: "New summary", text: "" }); }, function (body, it) {
       body.appendChild(fieldInput("Label (your reference)", it.label, function (v) { it.label = v; touch(); }));
       body.appendChild(fieldTextarea("Summary text (use **bold**)", it.text, function (v) { it.text = v; touch(); }));
@@ -1108,6 +1186,7 @@
       body.appendChild(fieldInput("Side-heading", it.label, function (v) { it.label = v; touch(); }));
       body.appendChild(fieldTextarea("Description", it.value, function (v) { it.value = v; touch(); }));
     });
+    if (librarySearch) filterLibrary(librarySearch);
   }
 
   function libBlock(panel, title, catKey, addFn, itemBody) {
@@ -1126,6 +1205,8 @@
         tools.appendChild(miniBtn("✕", function () { if (confirm("Delete this library item?")) { arr.splice(i, 1); renderApp(); touch(); } }, "btn-danger"));
         top.appendChild(tools); wrap.appendChild(top);
         itemBody(wrap, it);
+        wrap.appendChild(libTagsField(it));
+        wrap.setAttribute("data-search", libHaystack(it));
         body.appendChild(wrap);
       });
     }, [add]));
