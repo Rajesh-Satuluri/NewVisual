@@ -123,7 +123,7 @@
   // Every synced bucket, with safe defaults so a merge never touches undefined.
   function emptyBundle() {
     return {
-      notes: {}, links: {}, codeEdits: {}, logicEdits: {},
+      notes: {}, links: {}, codeEdits: {}, logicEdits: {}, descEdits: {},
       status: {}, pyStatus: {}, srs: {}, review: {}, activity: {},
       pyChallenge: {}, prefs: {}, prefsAt: 0
     };
@@ -243,6 +243,7 @@
       links:       mergeBucket(baseS.links, localB.links, remoteB.links),
       codeEdits:   mergeNested(baseS.codeEdits, localB.codeEdits, remoteB.codeEdits),
       logicEdits:  mergeNested(baseS.logicEdits, localB.logicEdits, remoteB.logicEdits),
+      descEdits:   mergeBucket(baseS.descEdits, localB.descEdits, remoteB.descEdits),
       status:      mergeMonotonic(localB.status, remoteB.status),
       pyStatus:    mergeMonotonic(localB.pyStatus, remoteB.pyStatus),
       srs:         mergeSrs(localB.srs, remoteB.srs),
@@ -380,6 +381,23 @@
     setCode: setCode,
     onLocalChange: onLocalChange,
     pull: pull,
+    // Force an immediate push of this device's state to the cloud and resolve
+    // once it has landed (used by the "Publish now" button). Rejects if sync is
+    // off or the push does not complete in time.
+    flush: function () {
+      if (!enabled()) return Promise.reject(new Error("Cloud sync is off"));
+      dirty = true;
+      if (pushTimer) clearTimeout(pushTimer);
+      pushTimer = setTimeout(doPush, 0);
+      return new Promise(function (resolve, reject) {
+        var started = Date.now();
+        (function wait() {
+          if (!dirty && !busy) { resolve(lastSyncAt); return; }
+          if (Date.now() - started > 20000) { reject(new Error("timed out — check your connection")); return; }
+          setTimeout(wait, 300);
+        })();
+      });
+    },
     status: function () { return statusText; },
     onStatus: function (cb) { if (typeof cb === "function") statusListeners.push(cb); },
     lastSync: function () { return { at: lastSyncAt, kind: lastSyncKind }; },
