@@ -765,6 +765,9 @@
     function render() {
       body.innerHTML = "";
       actions.innerHTML = "";
+      // Mark the wrap while editing so a capped logic section moves its scroll
+      // onto the textarea (native caret-follow) instead of the prose container.
+      wrap.classList.toggle("editing", editing);
 
       if (savedEdit() != null) {
         actions.appendChild(h("span", { class: "code-edited", title: "This logic was edited locally" }, "edited"));
