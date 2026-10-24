@@ -87,6 +87,15 @@
 .sec-body-outer { overflow: hidden; transition: height var(--dur-cat) var(--ease-cat); }
 .sec-body { padding: 18px 20px; }
 
+/* Capped logic: expand to a fixed viewport-relative height and scroll the
+   content inside, instead of growing the whole page. The outer settles to
+   height:auto on open (see animateCollapse), so clamping the inner body here
+   also bounds the outer's scrollHeight — the collapse animation still works. */
+.prob-section.logic-capped .sec-body {
+  max-height: min(60vh, 520px);
+  overflow-y: auto;
+}
+
 .subhead { font-size: 11px; text-transform: uppercase; letter-spacing: .7px; color: var(--muted); font-weight: 700; margin: 14px 0 6px; }
 .constraints ul, .notes-block ul { margin-left: 20px; }
 .constraints li, .notes-block li { color: var(--text-2); margin: 3px 0; }
