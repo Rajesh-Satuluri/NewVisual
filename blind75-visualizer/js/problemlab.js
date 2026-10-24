@@ -347,7 +347,6 @@
       } else {
         var node = h("div", { class: "md logic" });
         node.innerHTML = md(currentSource());
-        if (window.BLIND75 && window.BLIND75.enhanceMd) window.BLIND75.enhanceMd(node);
         body.appendChild(node);
       }
     }
