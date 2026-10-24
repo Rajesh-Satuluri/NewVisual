@@ -88,10 +88,13 @@
 .sec-body { padding: 18px 20px; }
 
 /* Capped logic: expand to a fixed viewport-relative height and scroll the
-   content inside, instead of growing the whole page. The outer settles to
-   height:auto on open (see animateCollapse), so clamping the inner body here
-   also bounds the outer's scrollHeight — the collapse animation still works. */
-.prob-section.logic-capped .sec-body {
+   content inside, instead of growing the whole page. We cap the .logic-body
+   (the prose/editor) rather than the whole section, so the .logic-bar (the
+   "Logic" tag + Edit button) stays pinned at the top while you scroll — you can
+   jump into edit mode from anywhere in the write-up. The outer settles to
+   height:auto on open (see animateCollapse), so clamping here also bounds the
+   outer's scrollHeight — the collapse animation still works. */
+.prob-section.logic-capped .logic-body {
   max-height: min(60vh, 520px);
   overflow-y: auto;
 }
