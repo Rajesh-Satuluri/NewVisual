@@ -98,6 +98,17 @@
   max-height: min(60vh, 520px);
   overflow-y: auto;
 }
+/* In edit mode let the textarea itself be the scroller, so the browser keeps the
+   caret in view as you type; capping the prose container instead would scroll
+   the wrong element and push the active line off-screen. */
+.prob-section.logic-capped .logic-wrap.editing .logic-body {
+  max-height: none;
+  overflow: visible;
+}
+.prob-section.logic-capped .logic-wrap.editing .logic-edit {
+  max-height: min(58vh, 500px);
+  overflow-y: auto;
+}
 
 .subhead { font-size: 11px; text-transform: uppercase; letter-spacing: .7px; color: var(--muted); font-weight: 700; margin: 14px 0 6px; }
 .constraints ul, .notes-block ul { margin-left: 20px; }
