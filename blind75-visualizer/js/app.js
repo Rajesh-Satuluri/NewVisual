@@ -1840,7 +1840,7 @@
   function openDashboard() {
     // The cross-stack dashboard counts every stack, so make sure all lazy data
     // is present first (show the modal with a loader while it finishes).
-    if (window.DATALOADER && !window.DATALOADER.hydrated()) {
+    if (window.DATALOADER && !window.DATALOADER.allLoaded()) {
       openModal("dashModal");
       var pend = el("dashBody");
       if (pend) pend.innerHTML = '<div class="empty-state">Loading all stacks…</div>';
@@ -2790,12 +2790,12 @@
     // Pre-load only the stack+mode we're about to paint (applyRoute still
     // lazy-loads correctly on its own, so this just avoids a "Loading" flash).
     var need = groupsForStack(tgt, mode);
-    var go = function () {
-      bootReal();
-      setTimeout(function () { if (window.DATALOADER) window.DATALOADER.hydrate(); }, 400);
-    };
-    if (need.length && window.DATALOADER) window.DATALOADER.ensure(need, go);
-    else go();
+    // On-demand only: each stack's data loads when that stack is first opened
+    // (applyRoute gate), and the cross-stack dashboard pulls the rest when it is
+    // opened. We deliberately do NOT background-load every stack, so a device
+    // never has to hold all stacks in memory at once (avoids "Out of Memory").
+    if (need.length && window.DATALOADER) window.DATALOADER.ensure(need, bootReal);
+    else bootReal();
   }
 
   function bootReal() {

@@ -11,10 +11,14 @@
  * WHAT: the DSA (Blind 75) practice data stays eager, because app.js builds its
  * search index / byId map from it at parse time. Everything else (SQL, PySpark,
  * NumPy, Pandas, each stack's Learn curriculum, and per-stack extras) is grouped
- * here and injected only when a stack is first opened. After first paint we also
- * quietly hydrate the remaining groups in the background so the cross-stack
- * dashboard and progress totals stay correct — but spread across many tasks so
- * the main thread never blocks long enough to freeze.
+ * here and injected ONLY when a stack is first opened (on demand). The
+ * cross-stack dashboard pulls whatever is still missing when it is opened
+ * (ensureAll). This keeps both first-paint cost AND peak memory low: a device
+ * never has to download or hold every stack at once, which was tripping both
+ * "Page Unresponsive" (CPU) and "Out of Memory" on constrained devices.
+ *
+ * (A background-hydrate helper is kept below but intentionally NOT auto-run, so
+ * unopened stacks are never resident in memory.)
  *
  * The registry cores (core/pycore/spcore/sqlcore/numcore/pdcore/learncore) load
  * in index.html BEFORE this file, so register() always exists when an injected
@@ -260,6 +264,15 @@
       var list = toList(groups);
       for (var i = 0; i < list.length; i++) {
         if (!this.loaded(list[i])) return false;
+      }
+      return true;
+    },
+
+    // Is every known group loaded? (used to decide if the dashboard can render
+    // immediately or must first pull the remaining stacks).
+    allLoaded: function () {
+      for (var k in MANIFEST) {
+        if (MANIFEST.hasOwnProperty(k) && stateOf(k).status !== "loaded") return false;
       }
       return true;
     },
