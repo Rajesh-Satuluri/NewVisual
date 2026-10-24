@@ -108,6 +108,23 @@
   }
   function modeAvailable(stack, mode) { return mode === "learn" ? hasLearn(stack) : hasPractice(stack); }
 
+  // Which lazy data group(s) must be present before we can render (stack, mode)?
+  // DSA (python practice) ships eagerly; every other stack's data is injected on
+  // demand by js/dataloader.js. mode == null means "both modes" (used on resume).
+  function groupsForStack(stack, mode) {
+    if (!window.DATALOADER) return [];
+    var want = [];
+    if (stack === "python") {
+      if (mode === "learn" || mode == null) want.push("pylearn");
+    } else {
+      if (mode === "practice" || mode == null) want.push(stack);
+      if (mode === "learn" || mode == null) want.push(stack + "learn");
+    }
+    var out = [];
+    for (var i = 0; i < want.length; i++) if (window.DATALOADER.has(want[i])) out.push(want[i]);
+    return out;
+  }
+
   // Build the hash for a (mode, stack, id). Python keeps its legacy routes so old
   // deep links still resolve; every other stack uses "#learn|solve/<stack>/<id>".
   function routeFor(mode, stack, id) {
@@ -1821,6 +1838,19 @@
   }
 
   function openDashboard() {
+    // The cross-stack dashboard counts every stack, so make sure all lazy data
+    // is present first (show the modal with a loader while it finishes).
+    if (window.DATALOADER && !window.DATALOADER.hydrated()) {
+      openModal("dashModal");
+      var pend = el("dashBody");
+      if (pend) pend.innerHTML = '<div class="empty-state">Loading all stacks…</div>';
+      window.DATALOADER.ensureAll(function () { buildDashboard(); });
+      return;
+    }
+    buildDashboard();
+  }
+
+  function buildDashboard() {
     var body = el("dashBody");
     body.innerHTML = "";
     renderCrossStack(body);
@@ -2636,8 +2666,23 @@
   // It NEVER writes history, so it is safe to call on popstate and on load.
   var lastRenderedHash = null;
   var lastView = null; // "stack:mode" of what is currently painted
-  function applyRoute() {
-    if (location.hash === lastRenderedHash) return; // Back can fire popstate + hashchange
+  function applyRoute(force) {
+    // popstate/hashchange/cloud-refresh pass an Event as the first arg; only an
+    // explicit boolean true (from the lazy-load callback below) counts as force.
+    if (force !== true && location.hash === lastRenderedHash) return; // Back can fire popstate + hashchange
+
+    // Lazy-load this stack's data before rendering. Show a brief placeholder,
+    // then re-enter once the group(s) are present. DSA needs nothing here.
+    var pre = parseRoute(location.hash);
+    var need = groupsForStack(pre.stack, pre.mode);
+    if (need.length && window.DATALOADER && !window.DATALOADER.loadedAll(need)) {
+      var loadingEl = el("main");
+      if (loadingEl) loadingEl.innerHTML =
+        '<div class="empty-state">Loading ' + esc(STACK_LABEL[pre.stack] || pre.stack) + '…</div>';
+      window.DATALOADER.ensure(need, function () { applyRoute(true); });
+      return;
+    }
+
     lastRenderedHash = location.hash;
     state.focusLocal = null; // per-problem focus override resets on every navigation
     navProgress();
@@ -2729,7 +2774,31 @@
     renderSidebar(); renderProblem(); renderProgress();
   }
 
+  // Ensure the stack we're about to show has its data, THEN boot; afterwards
+  // hydrate the remaining stacks in the background so the cross-stack dashboard
+  // and progress totals fill in without blocking first paint.
   function boot() {
+    var tgt, mode;
+    if (location.hash && location.hash !== "#") {
+      var r0 = parseRoute(location.hash);
+      tgt = r0.stack; mode = r0.mode;
+    } else {
+      tgt = store.getPref("lastStack") || "python";
+      if (STACK_KEYS.indexOf(tgt) === -1) tgt = "python";
+      mode = store.getPref("lastModeFor_" + tgt) || "practice";
+    }
+    // Pre-load only the stack+mode we're about to paint (applyRoute still
+    // lazy-loads correctly on its own, so this just avoids a "Loading" flash).
+    var need = groupsForStack(tgt, mode);
+    var go = function () {
+      bootReal();
+      setTimeout(function () { if (window.DATALOADER) window.DATALOADER.hydrate(); }, 400);
+    };
+    if (need.length && window.DATALOADER) window.DATALOADER.ensure(need, go);
+    else go();
+  }
+
+  function bootReal() {
     // restore persisted desktop sidebar-collapse state
     if (store.getPref("sidebarCollapsed")) document.body.classList.add("sidebar-collapsed");
 
