@@ -773,6 +773,24 @@
         actions.appendChild(h("span", { class: "code-edited", title: "This logic was edited locally" }, "edited"));
       }
 
+      // Copy the logic (its Markdown source) to the clipboard — handy for
+      // re-pasting a write-up elsewhere. Hidden while editing (the textarea
+      // already lets you select/copy natively).
+      if (!editing) {
+        var copyBtn = h("button", { class: "code-mini copy-logic", title: "Copy this logic to the clipboard" }, "⧉ Copy");
+        var copyTimer = null;
+        copyBtn.addEventListener("click", function (e) {
+          e.stopPropagation();
+          copyText(currentSource(), function () {
+            copyBtn.textContent = "✓ Copied";
+            copyBtn.classList.add("on");
+            if (copyTimer) clearTimeout(copyTimer);
+            copyTimer = setTimeout(function () { copyBtn.textContent = "⧉ Copy"; copyBtn.classList.remove("on"); }, 1300);
+          });
+        });
+        actions.appendChild(copyBtn);
+      }
+
       var lock = h("button", { class: "code-mini lock" + (editing ? " on" : "") },
         editing ? "🔓 Editing" : "✏️ Edit");
       lock.title = editing ? "Lock to stop editing (changes are saved)" : "Unlock to rewrite this logic in Markdown";
@@ -935,6 +953,13 @@
     ta.value = text; document.body.appendChild(ta); ta.select();
     try { document.execCommand("copy"); } catch (e) {}
     document.body.removeChild(ta);
+  }
+  // Copy text to the clipboard (async API with a synchronous fallback) and run
+  // `done` once it's on the clipboard, for a short "Copied" confirmation.
+  function copyText(text, done) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text); done(); });
+    } else { fallbackCopy(text); done(); }
   }
 
   // ============================================================= SECTION
