@@ -303,6 +303,29 @@
       if (edited) {
         actions.appendChild(h("span", { class: "code-edited", title: "This logic was edited locally" }, "edited"));
       }
+      // Copy the logic (its Markdown source) to the clipboard. Hidden while
+      // editing — the textarea already supports native select/copy.
+      if (!editing) {
+        var copyBtn = h("button", { class: "code-mini copy-logic", title: "Copy this logic to the clipboard" }, "⧉ Copy");
+        var copyTimer = null;
+        copyBtn.addEventListener("click", function (e) {
+          e.stopPropagation();
+          var text = currentSource();
+          function flash() {
+            copyBtn.textContent = "✓ Copied"; copyBtn.classList.add("on");
+            if (copyTimer) clearTimeout(copyTimer);
+            copyTimer = setTimeout(function () { copyBtn.textContent = "⧉ Copy"; copyBtn.classList.remove("on"); }, 1300);
+          }
+          if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(flash, flash);
+          else {
+            var tmp = document.createElement("textarea");
+            tmp.value = text; document.body.appendChild(tmp); tmp.select();
+            try { document.execCommand("copy"); } catch (e2) {}
+            document.body.removeChild(tmp); flash();
+          }
+        });
+        actions.appendChild(copyBtn);
+      }
       var lock = h("button", { class: "code-mini lock" + (editing ? " on" : "") }, editing ? "🔓 Editing" : "✏️ Edit");
       lock.title = editing ? "Lock to stop editing (changes are saved)" : "Unlock to rewrite this logic in Markdown";
       lock.addEventListener("click", function () {
