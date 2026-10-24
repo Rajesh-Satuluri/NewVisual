@@ -826,6 +826,7 @@
       } else {
         var node = h("div", { class: "md logic" + (blur ? " blurred" : "") });
         node.innerHTML = md(currentSource());
+        if (window.BLIND75 && window.BLIND75.enhanceMd) window.BLIND75.enhanceMd(node);
         if (blur) node.appendChild(revealOverlay(node));
         body.appendChild(node);
       }
