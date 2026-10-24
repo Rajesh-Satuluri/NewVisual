@@ -1844,7 +1844,10 @@
       openModal("dashModal");
       var pend = el("dashBody");
       if (pend) pend.innerHTML = '<div class="empty-state">Loading all stacks…</div>';
-      window.DATALOADER.ensureAll(function () { buildDashboard(); });
+      window.DATALOADER.ensureAll(function () {
+        if (B.applyOverridesAll) B.applyOverridesAll();
+        buildDashboard();
+      });
       return;
     }
     buildDashboard();
@@ -2679,7 +2682,12 @@
       var loadingEl = el("main");
       if (loadingEl) loadingEl.innerHTML =
         '<div class="empty-state">Loading ' + esc(STACK_LABEL[pre.stack] || pre.stack) + '…</div>';
-      window.DATALOADER.ensure(need, function () { applyRoute(true); });
+      window.DATALOADER.ensure(need, function () {
+        // A lazily-loaded stack just registered its problems — overlay any
+        // baked user edits onto them before this (re)render.
+        if (B.applyOverridesAll) B.applyOverridesAll();
+        applyRoute(true);
+      });
       return;
     }
 
@@ -2794,7 +2802,10 @@
     // (applyRoute gate), and the cross-stack dashboard pulls the rest when it is
     // opened. We deliberately do NOT background-load every stack, so a device
     // never has to hold all stacks in memory at once (avoids "Out of Memory").
-    if (need.length && window.DATALOADER) window.DATALOADER.ensure(need, bootReal);
+    if (need.length && window.DATALOADER) window.DATALOADER.ensure(need, function () {
+      if (B.applyOverridesAll) B.applyOverridesAll();
+      bootReal();
+    });
     else bootReal();
   }
 

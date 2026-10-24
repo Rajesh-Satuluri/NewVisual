@@ -245,8 +245,13 @@
        its search index at parse time from it. -->
   <script src="js/dataloader.js?v=20261024oom"></script>
 
+  <!-- User edits baked from cloud sync (logic/description/code), applied onto the
+       eager DSA problems BEFORE app.js builds its search index. GENERATED file —
+       see scripts/bake-edits.mjs + .github/workflows/bake-edits.yml. -->
+  <script src="data/user_overrides.js?v=20261024publish"></script>
+
   <script src="js/search-enhance.js?v=20261020sqlfocus"></script>
-  <script src="js/app.js?v=20261024oom"></script>
+  <script src="js/app.js?v=20261024publish"></script>
   <script src="js/pyrun.js"></script>
   <script src="js/pyapp.js"></script>
   <script src="js/problemlab.js?v=20261024lazyload"></script>
