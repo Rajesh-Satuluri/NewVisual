@@ -1220,9 +1220,8 @@
     var logicSection = section("logic", "Complete Logic — " + (cur.name || "Approach"),
       logicBlock(cur.logic, { id: p.id, ai: ai }, blur), { collapsed: true });
     // Cap the expanded logic at a fixed viewport height with an internal scroll
-    // instead of letting it push the whole page down. (Piloting on one problem
-    // before rolling out to all.)
-    if (p.id === "rotting-oranges") logicSection.classList.add("logic-capped");
+    // instead of letting it push the whole page down.
+    logicSection.classList.add("logic-capped");
     apWrap.appendChild(logicSection);
 
     // Code (RCS / Plain toggle)
