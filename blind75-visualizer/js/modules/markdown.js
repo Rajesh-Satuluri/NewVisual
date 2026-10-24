@@ -74,20 +74,45 @@
     return t;
   }
 
+  // Lightweight Unicode fallback (used only when KaTeX is unavailable or errors).
   function mathSpan(inner, block) {
     var s = subsup(symbols(inner.replace(/\\\\/g, " "))).replace(/\\,|\\;|\\ |\\!/g, " ");
     return '<span class="md-math' + (block ? " md-math-block" : "") + '">' + s + "</span>";
   }
 
-  // Normalize LaTeX in a text segment. Delimited regions get full treatment
-  // (symbols + sub/sup); outside delimiters only stray symbol commands convert.
-  function latexify(t) {
-    if (t.indexOf("\\") === -1 && t.indexOf("$") === -1) return t;
-    t = t.replace(/\\\[([\s\S]*?)\\\]/g, function (_, m) { return mathSpan(m, true); });
-    t = t.replace(/\\\(([\s\S]*?)\\\)/g, function (_, m) { return mathSpan(m, false); });
-    t = t.replace(/\$\$([\s\S]*?)\$\$/g, function (_, m) { return mathSpan(m, true); });
-    t = t.replace(/\$([^$\n]+?)\$/g, function (_, m) { return mathSpan(m, false); });
-    return symbols(t);
+  // Render one delimited math region. Prefer real KaTeX typesetting; KaTeX needs
+  // the raw LaTeX, so undo the HTML escaping we applied to the source up front.
+  function renderMath(escInner, block) {
+    if (window.katex && window.katex.renderToString) {
+      var raw = escInner
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&amp;/g, "&");
+      try {
+        return window.katex.renderToString(raw, {
+          displayMode: !!block,
+          throwOnError: false,
+          output: "html"
+        });
+      } catch (e) {}
+    }
+    return mathSpan(escInner, block);
+  }
+
+  // Pull delimited math (\(..\), \[..\], $..$, $$..$$) out of a text segment into
+  // placeholders so the Markdown emphasis pass can't corrupt the rendered HTML;
+  // the caller splices the rendered math back in afterwards.
+  function extractMath(seg, store) {
+    if (seg.indexOf("\\") === -1 && seg.indexOf("$") === -1) return seg;
+    function ph(inner, block) {
+      store.push(renderMath(inner, block));
+      return "" + (store.length - 1) + "";
+    }
+    seg = seg.replace(/\\\[([\s\S]*?)\\\]/g, function (_, m) { return ph(m, true); });
+    seg = seg.replace(/\\\(([\s\S]*?)\\\)/g, function (_, m) { return ph(m, false); });
+    seg = seg.replace(/\$\$([\s\S]*?)\$\$/g, function (_, m) { return ph(m, true); });
+    seg = seg.replace(/\$([^$\n]+?)\$/g, function (_, m) { return ph(m, false); });
+    return seg;
   }
 
   // split a GFM table row "| a | b |" into trimmed cell strings
@@ -107,11 +132,18 @@
       if (parts[i].charAt(0) === "`" && parts[i].charAt(parts[i].length - 1) === "`") {
         parts[i] = "<code>" + parts[i].slice(1, -1) + "</code>";
       } else {
-        parts[i] = latexify(parts[i])
+        var store = [];
+        var seg = extractMath(parts[i], store);
+        seg = seg
           .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
           .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
           .replace(/~~([^~]+)~~/g, "<del>$1</del>")
           .replace(/(^|[^*])\*([^*]+)\*/g, "$1<em>$2</em>");
+        seg = symbols(seg); // stray LaTeX symbol commands in prose (outside math)
+        if (store.length) {
+          seg = seg.replace(/(\d+)/g, function (_, n) { return store[+n]; });
+        }
+        parts[i] = seg;
       }
     }
     return parts.join("");

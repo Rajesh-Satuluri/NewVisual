@@ -190,6 +190,9 @@
 .md .md-math { font-family: "Cambria Math", "Latin Modern Math", Georgia, serif; white-space: nowrap; }
 .md .md-math-block { display: block; text-align: center; margin: .6em 0; white-space: normal; }
 .md .md-math sub, .md .md-math sup { font-size: .72em; }
+/* real KaTeX output (when vendored) — let wide display equations scroll */
+.md .katex-display { overflow-x: auto; overflow-y: hidden; padding: 2px 0; margin: .7em 0; }
+.md .katex { font-size: 1.05em; }
 
 /* ---------- approaches ---------- */
 .approach-area { margin-top: 20px; }
