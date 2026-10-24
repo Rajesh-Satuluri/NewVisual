@@ -170,99 +170,82 @@
       difficulty: "Medium",
       category: "Binary Search",
       link: "https://leetcode.com/problems/search-in-rotated-sorted-array/",
-      meta: { pattern: "Binary Search on Rotation", dataStructure: "Array", technique: "Find sorted half" },
+      meta: { pattern: "Binary Search on Rotation", dataStructure: "Array", technique: "Search the sorted half" },
       description:
-        "You are given an integer array `nums` of **distinct** values, originally sorted in ascending order, then possibly **rotated** at an unknown pivot (e.g. `[0,1,2,4,5,6,7]` might become `[4,5,6,7,0,1,2]`). Given a `target`, return the **index** of `target` in `nums`, or `-1` if it is not present.\n\n" +
-        "You must write an algorithm with `O(log n)` runtime complexity.",
+        "You are given an array `nums` of **distinct** integers that was originally sorted in ascending order, then **rotated** at some unknown pivot. For example, `[0,1,2,4,5,6,7]` might become `[4,5,6,7,0,1,2]`.\n\n" +
+        "Given the rotated array `nums` and an integer `target`, return the **index** of `target` if it is present, or `-1` if it is not. You must write an algorithm with `O(log n)` runtime.",
       constraints: [
         "`1 <= nums.length <= 5000`",
         "`-10^4 <= nums[i] <= 10^4`",
-        "All values of `nums` are **unique**.",
-        "`nums` is an ascending array possibly rotated at some pivot.",
+        "All values in `nums` are **distinct**.",
+        "`nums` is an ascending array that has been rotated at some pivot.",
         "`-10^4 <= target <= 10^4`"
       ],
       notes: [
-        "Return the **index**, not the value; return `-1` when the target is absent.",
-        "The pivot is unknown, and the array may not be rotated at all (still one sorted run).",
-        "Distinct values guarantee that at each step exactly one half is cleanly sorted, which the algorithm relies on."
+        "Because the values are distinct, the test `nums[left] <= nums[mid]` cleanly decides which half is sorted; there is no `nums[left] == nums[mid]` ambiguity (that only arises in the LC 81 duplicates variant).",
+        "An array rotated by a multiple of its length looks fully sorted, and the same logic still works: the whole range reads as the sorted half on every step."
       ],
       examples: [
         {
           input: "nums = [4, 5, 6, 7, 0, 1, 2], target = 0",
           output: "4",
-          reasoning: "0 is present at index 4. The left half is the sorted run and target 0 is not inside it, so we search the right half where 0 lives.",
+          reasoning: "0 is present at index 4. Each step identifies the sorted half, checks whether target lies inside it, and keeps that half.",
           visual:
-            "```\nindex :  0   1   2   3   4   5   6\nvalue :  4   5   6   7   0   1   2\n         L           M           R\nnums[L]=4 <= nums[M]=7 -> LEFT half [4..7] is sorted\ntarget 0 not in [4,7) -> search RIGHT half\n```"
+            "```\nindex :  0   1   2   3   4   5   6\nvalue :  4   5   6   7   0   1   2\n         L           M           R\nnums[L]=4 <= nums[M]=7  -> LEFT half sorted\n4 <= 0 < 7 ? no  -> search RIGHT half [4..6]\n```"
         },
         {
           input: "nums = [4, 5, 6, 7, 0, 1, 2], target = 3",
           output: "-1",
-          reasoning: "3 never appears; the search window empties and we return -1."
+          reasoning: "3 is absent, so the window shrinks to empty and the loop returns -1."
         },
         {
           input: "nums = [1], target = 0",
           output: "-1",
-          reasoning: "Single element that isn't the target."
+          reasoning: "Single element that is not the target."
         },
         {
           input: "nums = [5, 1, 3], target = 5",
           output: "0",
-          reasoning: "L=0,R=2,M=1: nums[1]=1 <= nums[2]=3 so the RIGHT half [1..2] is sorted; target 5 is not within (1,3], so search the LEFT half and find 5 at index 0.",
-          visual:
-            "```\nindex :  0   1   2\nvalue :  5   1   3\n         L   M   R\nnums[M]=1 <= nums[R]=3 -> RIGHT half [1..3] sorted\ntarget 5 not in (1,3] -> go LEFT\n```"
+          reasoning: "L=0,R=2,M=1: nums[1]=1 != 5. Left half 5..1 is NOT sorted (nums[L]=5 > nums[M]=1), so the right half is sorted; 5 is not in (1, 3], so go left -> R=0, find 5 at index 0."
         }
       ],
       approaches: [
         {
-          name: "Brute Force — Linear Scan",
+          name: "Brute Force - Linear Scan",
           time: "O(n)",
           space: "O(1)",
-          whenToUse: "Only as the naive baseline to contrast against; it ignores the rotation structure and misses the required O(log n).",
+          whenToUse: "A correctness baseline only. It ignores the required O(log n) bound, but it is the obvious first answer and a good sanity check.",
           logic:
-            "**What it asks.** Return the index of `target` in an array that was sorted ascending and then possibly rotated at an unknown pivot, or `-1` if `target` is absent. Values are distinct, and the required runtime is `O(log n)` — which this brute-force baseline deliberately ignores.\n" +
+            "**What it asks.** Return the index of `target` in a rotated, ascending array of distinct values, or `-1` if it is absent. The required runtime is `O(log n)` - which this baseline deliberately ignores.\n" +
             "\n" +
-            "**Why the naive idea fails.** Forget the rotation entirely and walk the array left to right, returning the first index whose value equals `target`, else `-1`. It is trivially correct, but it is `O(n)`: it makes no use of the fact that the array is two sorted runs, so it inspects every element in the worst case. The problem explicitly demands `O(log n)`, so this exists only as the obvious starting point that motivates the binary-search solution.\n" +
-            "\n" +
-            "**Key Idea.** There is no cleverness here — just exhaustiveness. If `target` is present, a full linear scan is guaranteed to meet it; if it is absent, the scan falls through to `-1`.\n" +
+            "**Key Idea.** No cleverness: look at every element in order. The first element equal to `target` is its index; if none matches, the answer is `-1`.\n" +
             "\n" +
             "**Step-by-Step Approach.**\n" +
             "\n" +
-            "1. Iterate over `nums` with both the index `i` and the value `num`.\n" +
-            "2. If `num == target`, return `i` immediately — distinct values mean the first match is the only match.\n" +
-            "3. If the loop finishes with no match, return `-1`.\n" +
+            "1. Walk the array with both index and value (`enumerate`).\n" +
+            "2. If the current value equals `target`, return its index immediately - distinct values mean the first match is the only match.\n" +
+            "3. If the scan finishes with no match, return `-1`.\n" +
             "\n" +
-            "**Why it works.** Every index is examined in order, so a present target cannot be skipped, and reaching the end without a hit proves the target is not in the array.\n" +
+            "**Complexity.** Time `O(n)` - every element may be inspected. Space `O(1)`.\n" +
             "\n" +
-            "**Common Gotchas.**\n" +
-            "\n" +
-            "- Return the index `i`, not the value at that index.\n" +
-            "- Return `-1` (not `0` or `None`) when the target is absent.\n" +
-            "\n" +
-            "**Complexity.** Time `O(n)` — every element may be inspected. Space `O(1)`.\n" +
-            "\n" +
-            "**Interview mindset.** State this as the obvious baseline, then immediately pivot: a sorted-then-rotated array plus an `O(log n)` requirement is the cue to reach for binary search over a sorted half.",
+            "**Interview mindset.** State this to show you have a correct answer, then immediately pivot to the binary-search version to meet the `O(log n)` requirement.",
           rcs:
-            "from typing import List  # List lets the type hints say we take a list of ints (plus an int target) and return one int.\n" +
+            "from typing import List  # List lets the type hints say we take a list of ints and return one int.\n" +
             "\n" +
             "\n" +
             "class Solution:  # LeetCode creates an object of this class and calls search on it.\n" +
             "\n" +
-            "    def search(self, nums: List[int], target: int) -> int:  # Return the index of target in nums, or -1 if absent.\n" +
+            "    def search(self, nums: List[int], target: int) -> int:  # Return target's index, or -1 if absent.\n" +
             "\n" +
-            "        # ==================== PHASE 1: SCAN EVERY ELEMENT ====================\n" +
+            "        # ==================== SINGLE PASS ====================\n" +
             "\n" +
-            "        for i, num in enumerate(nums):  # Walk the array left to right; enumerate yields both the index i and the value num.\n" +
-            "                                        # Why ignore the rotation: brute force uses none of the ordering, so any element order works.\n" +
-            "                                        # Loop invariant: every index before i has already been checked and did not match.\n" +
-            "                                        # Execution flow: after each element Python advances to the next (i, num).\n" +
+            "        for i, num in enumerate(nums):  # Visit each index i and its value num together.\n" +
+            "                                        # Why enumerate: we must return the INDEX, not the value.\n" +
             "\n" +
-            "            if num == target:  # Is this element the one we are looking for?\n" +
-            "                return i  # Yes: hand back its index and end the function immediately.\n" +
-            "                          # Execution flow: no code after return runs; control leaves search.\n" +
-            "                          # Why safe: values are distinct, so the first match is the only match.\n" +
+            "            if num == target:  # First element equal to target.\n" +
+            "                return i       # Distinct values mean this is the only match, so return at once.\n" +
             "\n" +
-            "        return -1  # Fell off the end with no match, so target is not present in nums.\n" +
-            "                   # Execution flow: this value is handed to the caller and search ends.",
+            "        return -1  # Loop finished with no match, so target is not in nums.",
           plain:
             "class Solution:\n" +
             "    def search(self, nums: List[int], target: int) -> int:\n" +
@@ -272,103 +255,80 @@
             "        return -1"
         },
         {
-          name: "Optimized — Binary Search (find the sorted half)",
+          name: "Optimized - Binary Search (search the sorted half)",
           time: "O(log n)",
           space: "O(1)",
-          whenToUse: "The expected O(log n) solution for locating a target in a rotated, uniquely-valued sorted array.",
+          whenToUse: "The expected O(log n) answer: binary search adapted so that at each step you find the half that is sorted and decide whether target lies in it.",
           logic:
-            "**What it asks.** Locate `target` in a single binary-search pass over a sorted-then-rotated array of distinct values, returning its index or `-1`, all in `O(log n)`.\n" +
+            "**What it asks.** Find the index of `target` in an array that was sorted ascending and then rotated, in `O(log n)` time. A linear scan is correct but too slow; plain binary search does not directly apply because the whole range is not sorted.\n" +
             "\n" +
-            "**Why the naive idea fails.** A linear scan is `O(n)` and ignores the ordering. But *plain* binary search fails too: ordinary binary search assumes the entire range is sorted, so `nums[mid]` versus `target` alone tells it whether to go left or right. After rotation the range as a whole is **not** sorted — `nums[mid]` could be in either run — so that single comparison no longer reveals which side holds `target`.\n" +
+            "**Why plain binary search fails.** Ordinary binary search assumes the entire window is sorted, so comparing `nums[mid]` with `target` tells it which way to go. After rotation the window is two ascending runs, so `nums[mid]` versus `target` alone no longer reveals which side holds `target`.\n" +
             "\n" +
-            "**Key Idea.** A rotated sorted array is two ascending runs stuck together, e.g. `4 5 6 7 | 0 1 2`. The unlocking invariant is: **for any `mid`, at least one of the two halves `[left..mid]` and `[mid..right]` is fully sorted.** The single rotation point can lie in only one half, so the other is a clean ascending stretch. Because values are distinct, one comparison (`nums[left]` vs `nums[mid]`) reveals which half is sorted, and within a sorted half deciding whether `target` lies inside is a plain bounds check. So each step: identify the sorted half, test whether `target` falls within its known range, and discard the half that provably cannot contain it.\n" +
+            "**Key Idea.** Even though the whole window is not sorted, **at least one half always is**. Split at `mid`: compare `nums[left]` with `nums[mid]`. If `nums[left] <= nums[mid]`, the left half `[left..mid]` is a clean ascending run; otherwise the right half `[mid..right]` is. Within the half you know is sorted, a simple range check tells you whether `target` is inside it - and therefore which half to keep.\n" +
             "\n" +
-            "**What `left`, `right`, and `mid` mean.** `[left, right]` is the search space — the window of indices that might still hold `target`. `left`/`right` are its inclusive ends and `mid` the probed index. Unlike the find-minimum variant, here we hunt an exact value, so the window can legitimately shrink to empty, which means 'not found'.\n" +
+            "**What `left`, `right`, and `mid` mean.** `[left, right]` is the search window - the indices that might still hold `target`. `left` and `right` are its inclusive ends and `mid` the probed index. Because we hunt an exact value, the window may legitimately shrink to empty, which means 'not found'.\n" +
             "\n" +
             "**Step-by-Step Approach.**\n" +
             "\n" +
-            "1. Set `left = 0`, `right = n - 1`. Loop `while left <= right` and take `mid = (left + right) // 2`.\n" +
-            "2. If `nums[mid] == target`, return `mid` immediately.\n" +
-            "3. **Identify the sorted half.** If `nums[left] <= nums[mid]`, the **left half `[left..mid]` is sorted** (no drop between the ends); otherwise the drop is on the left, so the **right half `[mid..right]` is sorted**.\n" +
-            "4. **Test `target` against that half's ends.** If the left half is sorted and `nums[left] <= target < nums[mid]`, `target` is inside it → `right = mid - 1`; otherwise it can only be in the other half → `left = mid + 1`. Symmetrically, if the right half is sorted and `nums[mid] < target <= nums[right]`, `target` is inside it → `left = mid + 1`; otherwise → `right = mid - 1`.\n" +
-            "5. If the window empties (`left > right`) without a hit, return `-1`.\n" +
+            "1. Set `left = 0`, `right = n - 1`, the whole array.\n" +
+            "2. While `left <= right`, take `mid = (left + right) // 2`.\n" +
+            "3. If `nums[mid] == target`, return `mid`.\n" +
+            "4. **If `nums[left] <= nums[mid]` (left half sorted):** if `nums[left] <= target < nums[mid]`, `target` is inside it -> `right = mid - 1`; otherwise -> `left = mid + 1`.\n" +
+            "5. **Else (right half sorted):** if `nums[mid] < target <= nums[right]`, `target` is inside it -> `left = mid + 1`; otherwise -> `right = mid - 1`.\n" +
+            "6. If the loop ends, `target` is absent - return `-1`.\n" +
             "\n" +
-            "**Why it works.** We always test `target` against the boundaries of the half we *know* is sorted, where 'between the ends' means exactly 'present in this half'. The half that fails that test provably cannot contain `target` — its values are either outside the range or belong to the other run — so discarding it is safe. Each step eliminates half the window while the surviving half still satisfies the invariant, giving both correctness and convergence. Termination is guaranteed because every branch moves `left` past `mid` or `right` below `mid`, strictly shrinking the window.\n" +
+            "**Why it works.** One half is always sorted, and against its two known ends 'between the ends' means exactly 'present in this half'. The half that fails that range test provably cannot contain `target`, so discarding it is safe. Each step halves the window, giving `O(log n)`, and the standard `left <= right` / `mid +/- 1` bounds guarantee termination.\n" +
             "\n" +
             "**Common Gotchas.**\n" +
             "\n" +
-            "- The sorted-half test must be `<=` (`nums[left] <= nums[mid]`), not `<`, so a one- or two-element window with `left == mid` still classifies as sorted.\n" +
-            "- Get the in-range bounds right: `nums[left] <= target < nums[mid]` and `nums[mid] < target <= nums[right]`. The strict end sits at `mid` because `mid` was already checked and excluded above.\n" +
-            "- This relies on **distinct** values; with duplicates `nums[left] == nums[mid]` becomes ambiguous about which half is sorted (the harder LC 81 variant).\n" +
-            "- Use `right = mid - 1` / `left = mid + 1` with `while left <= right` — the standard exact-match template. Off-by-one here either misses the target or loops forever.\n" +
+            "- Use `nums[left] <= nums[mid]` (not `<`) so a two-element window where `left == mid` still classifies correctly.\n" +
+            "- The range checks are half-open on the sorted side (`nums[left] <= target < nums[mid]` and `nums[mid] < target <= nums[right]`); `nums[mid]` itself is already handled by the equality check in step 3.\n" +
+            "- Use `while left <= right` and move past `mid` with `mid - 1` / `mid + 1`, the exact-match template - off-by-one here either misses the target or loops forever.\n" +
             "\n" +
-            "**Complexity.** Time `O(log n)` — one half discarded per step. Space `O(1)` — just the two indices.\n" +
+            "**Complexity.** Time `O(log n)` - one half discarded per step. Space `O(1)` - just the two indices.\n" +
             "\n" +
-            "**Interview mindset.** The whole trick is: **identify the sorted half first** (compare `nums[left]` and `nums[mid]`), then run a plain in-range check on that half to choose a direction. Rotated sorted array + `O(log n)` is the exact signal. Trace on `nums = [4,5,6,7,0,1,2]`, target = 0: L=0,R=6,M=3 → `nums[3]=7`≠0, `4 <= 7` left sorted, `4 <= 0 < 7`? no → L=4; L=4,R=6,M=5 → `nums[5]=1`≠0, `0 <= 1` left sorted, `0 <= 0 < 1`? yes → R=4; L=4,R=4,M=4 → `nums[4]=0`==target → return 4.",
+            "**Interview mindset.** Say it in one line: find the sorted half (`nums[left] <= nums[mid]`), test whether `target` is inside that half, keep it. Trace `nums = [4,5,6,7,0,1,2]`, target = 0: L=0,R=6,M=3 -> nums[3]=7, left sorted, 4 <= 0 < 7? no -> L=4; L=4,R=6,M=5 -> nums[5]=1, left sorted (0 <= 1), 0 <= 0 < 1? yes -> R=4; L=4,R=4,M=4 -> nums[4]=0 == target -> return 4.",
           rcs:
-            "from typing import List  # List lets the type hints say we take a list of ints (plus an int target) and return one int.\n" +
+            "from typing import List  # List lets the type hints say we take a list of ints and an int, and return one int.\n" +
             "\n" +
             "\n" +
             "class Solution:  # LeetCode creates an object of this class and calls search on it.\n" +
             "\n" +
-            "    def search(self, nums: List[int], target: int) -> int:  # Return the index of target, or -1, in O(log n).\n" +
+            "    def search(self, nums: List[int], target: int) -> int:  # Return target's index in the rotated array, or -1.\n" +
             "\n" +
             "        # ==================== PHASE 1: PREPARE ====================\n" +
             "\n" +
-            "        left, right = 0, len(nums) - 1  # Search space is the whole array; target, if present, lives inside [left, right].\n" +
-            "                                        # Why these bounds: indices 0..n-1 cover every position where target could sit.\n" +
-            "                                        # Invariant: if target is in nums, its index stays within [left, right] as the window shrinks.\n" +
-            "                                        # Execution flow: Python enters the while loop.\n" +
+            "        left, right = 0, len(nums) - 1  # Search space is the whole array; if target exists, its index is inside [left, right].\n" +
+            "                                        # Invariant: whenever target is present, it stays within [left, right] as the window shrinks.\n" +
             "\n" +
-            "        # ==================== PHASE 2: BINARY SEARCH VIA THE SORTED HALF ====================\n" +
+            "        # ==================== PHASE 2: BINARY SEARCH ====================\n" +
             "\n" +
-            "        while left <= right:  # Standard exact-match template: keep going while the window still holds at least one index.\n" +
-            "                              # Why '<=' not '<': with 'mid +/- 1' updates the answer can be the final lone element, so\n" +
-            "                              # left == right must still be probed.\n" +
-            "                              # Loop invariant: every index OUTSIDE [left, right] has been proven not to hold target.\n" +
-            "                              # Execution flow: when left > right the window is empty and the loop ends.\n" +
+            "        while left <= right:  # '<=' because we probe for an exact value; the window may shrink to empty (not found).\n" +
             "\n" +
             "            mid = (left + right) // 2  # Midpoint of the current window.\n" +
-            "                                       # Why floor division is fine here: every branch below moves off mid by at least one, so the\n" +
-            "                                       # window always shrinks regardless of rounding.\n" +
-            "                                       # State: mid splits the window into a left part [left..mid] and a right part [mid..right].\n" +
+            "                                       # State: mid splits [left, right] into a left part and a right part.\n" +
             "\n" +
-            "            if nums[mid] == target:  # Direct hit at the midpoint?\n" +
-            "                return mid  # Found it: return the index and end search immediately.\n" +
-            "                            # Execution flow: no code below runs; control leaves search.\n" +
-            "                            # Why safe: distinct values mean this is the unique occurrence of target.\n" +
+            "            if nums[mid] == target:  # Direct hit.\n" +
+            "                return mid           # Distinct values mean this index is the unique answer.\n" +
             "\n" +
-            "            if nums[left] <= nums[mid]:  # LEFT half [left..mid] is cleanly sorted (no rotation drop between left and mid).\n" +
-            "                                         # Why '<=' not '<': when the window is one or two elements (left == mid), the half is trivially\n" +
-            "                                         # sorted and must still classify as such.\n" +
-            "                                         # Key fact: the single rotation point can sit in only ONE half, so a drop-free left half is fully\n" +
-            "                                         # ascending -- which makes a bounds check on it exact.\n" +
-            "                if nums[left] <= target < nums[mid]:  # Does target fall inside the sorted left half's value range?\n" +
-            "                                                      # Why these bounds: '>= nums[left]' and '< nums[mid]' means target lies strictly between the known\n" +
-            "                                                      # ends; nums[mid] was already ruled out just above.\n" +
-            "                    right = mid - 1  # Yes: keep the left half and discard [mid..right].\n" +
-            "                                     # State change: window becomes [left..mid-1]; mid is dropped since it was already checked.\n" +
-            "                                     # Why safe: target is provably inside the sorted left half, so the right half cannot hold it.\n" +
-            "                else:  # target is NOT in the sorted left half, so it can only be in the right half.\n" +
-            "                    left = mid + 1  # Discard [left..mid] and search the right half.\n" +
-            "                                    # State change: window becomes [mid+1..right].\n" +
-            "                                    # Why safe: the left half is fully sorted and target is outside its range, so it is absent there.\n" +
-            "            else:  # nums[left] > nums[mid]: the drop is in the left half, so the RIGHT half [mid..right] is sorted.\n" +
-            "                if nums[mid] < target <= nums[right]:  # Does target fall inside the sorted right half's value range?\n" +
-            "                                                       # Why these bounds: '> nums[mid]' and '<= nums[right]' means target lies strictly between the known\n" +
-            "                                                       # ends; nums[mid] was already ruled out above.\n" +
-            "                    left = mid + 1  # Yes: keep the right half and discard [left..mid].\n" +
-            "                                    # State change: window becomes [mid+1..right].\n" +
-            "                                    # Why safe: target is provably inside the sorted right half, so the left half cannot hold it.\n" +
-            "                else:  # target is NOT in the sorted right half, so it can only be in the left half.\n" +
-            "                    right = mid - 1  # Discard [mid..right] and search the left half.\n" +
-            "                                     # State change: window becomes [left..mid-1].\n" +
-            "                                     # Why safe: the right half is fully sorted and target is outside its range, so it is absent there.\n" +
+            "            if nums[left] <= nums[mid]:  # LEFT half [left..mid] is a clean ascending run.\n" +
+            "                                         # Why '<=': when the window has two elements left == mid, and this keeps the classification correct.\n" +
             "\n" +
-            "        # ==================== PHASE 3: RETURN ====================\n" +
+            "                if nums[left] <= target < nums[mid]:  # target falls inside the sorted left half.\n" +
+            "                    right = mid - 1                   # Keep the left half; drop mid and everything to its right.\n" +
+            "                else:                                 # target is not in the left half.\n" +
+            "                    left = mid + 1                    # It can only be in the right half; drop the left half.\n" +
             "\n" +
-            "        return -1  # The window emptied (left > right) without a hit, so target is not in nums.\n" +
-            "                   # Execution flow: this value is handed to the caller and search ends.",
+            "            else:  # nums[left] > nums[mid], so the RIGHT half [mid..right] is the clean ascending run.\n" +
+            "\n" +
+            "                if nums[mid] < target <= nums[right]:  # target falls inside the sorted right half.\n" +
+            "                    left = mid + 1                     # Keep the right half; drop mid and everything to its left.\n" +
+            "                else:                                  # target is not in the right half.\n" +
+            "                    right = mid - 1                    # It can only be in the left half; drop the right half.\n" +
+            "\n" +
+            "        # ==================== PHASE 3: NOT FOUND ====================\n" +
+            "\n" +
+            "        return -1  # The window emptied without a hit, so target is absent.",
           plain:
             "class Solution:\n" +
             "    def search(self, nums: List[int], target: int) -> int:\n" +
@@ -391,14 +351,14 @@
         }
       ],
       patternRecognition: [
-        "Sorted array that has been rotated, and you must find a target's index in O(log n).",
-        "Plain binary search won't work because the whole range isn't sorted -> split into a sorted half + the other.",
-        "Distinct values let you identify exactly one sorted half per step with a single comparison."
+        "Array is sorted then rotated, and you must find a target's index in O(log n).",
+        "Distinct values -> the nums[left] <= nums[mid] test cleanly identifies the sorted half.",
+        "At every step exactly one half is sorted; range-check target against that half's ends."
       ],
       interviewRecall: [
-        "First check nums[mid] == target and return mid.",
-        "Determine the sorted half with nums[left] <= nums[mid] (left sorted) else right sorted.",
-        "Then do an in-range bounds check on the sorted half to pick which side to keep; use left <= right and mid +/- 1."
+        "Find the sorted half: if nums[left] <= nums[mid], the left half is sorted, else the right half is.",
+        "Check if target lies within the sorted half's range; if so keep it, otherwise search the other half.",
+        "Use while left <= right with mid - 1 / mid + 1; return mid on a hit, -1 if the window empties."
       ]
     },
 
