@@ -138,62 +138,6 @@
 .md .lab-table-scroll table.lab-table { font-size: 12.5px; }
 .ex-visual { margin-top: 8px; }
 
-/* ---------- markdown rendered content (logic / description write-ups) ---------- */
-/* Fenced code blocks: own box, syntax highlighting (Prism), horizontal scroll,
-   and a copy button pinned top-right. */
-.md pre.md-pre {
-  position: relative;
-  overflow-x: auto;
-  margin: 12px 0;
-  padding: 12px 14px;
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-sm);
-  background: var(--bg-0);
-  font-size: 12.8px;
-  line-height: 1.5;
-}
-.md pre.md-pre code {
-  background: none;
-  padding: 0;
-  white-space: pre;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-}
-.md pre.md-pre.md-pre-has-copy { padding-top: 30px; }
-.md .md-copy {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  padding: 2px 10px;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--muted);
-  background: var(--bg-2);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity .12s ease, color .12s ease;
-}
-.md pre.md-pre:hover .md-copy,
-.md .md-copy:focus { opacity: 1; }
-.md .md-copy:hover { color: var(--text); border-color: var(--brand-2); }
-
-/* compact, readable spacing for prose + nested lists */
-.md p { margin: .45em 0; }
-.md ul, .md ol { padding-left: 1.5rem; margin: .4em 0 .7em; }
-.md li { margin: .18em 0; }
-.md li > ul, .md li > ol { margin: .2em 0 .2em; }
-.md hr { border: 0; border-top: 1px solid var(--border-soft); margin: 1.1em 0; }
-.md del { opacity: .65; }
-
-/* lightweight math (LaTeX normalized to Unicode) */
-.md .md-math { font-family: "Cambria Math", "Latin Modern Math", Georgia, serif; white-space: nowrap; }
-.md .md-math-block { display: block; text-align: center; margin: .6em 0; white-space: normal; }
-.md .md-math sub, .md .md-math sup { font-size: .72em; }
-/* real KaTeX output (when vendored) — let wide display equations scroll */
-.md .katex-display { overflow-x: auto; overflow-y: hidden; padding: 2px 0; margin: .7em 0; }
-.md .katex { font-size: 1.05em; }
-
 /* ---------- approaches ---------- */
 .approach-area { margin-top: 20px; }
 .approach-switch { display: flex; gap: 8px; margin: 0 34px 4px; flex-wrap: wrap; }
