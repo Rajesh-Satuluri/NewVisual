@@ -776,7 +776,29 @@
       var lock = h("button", { class: "code-mini lock" + (editing ? " on" : "") },
         editing ? "🔓 Editing" : "✏️ Edit");
       lock.title = editing ? "Lock to stop editing (changes are saved)" : "Unlock to rewrite this logic in Markdown";
-      lock.addEventListener("click", function () { editing = !editing; render(); });
+      lock.addEventListener("click", function () {
+        // Carry the reading position across the read<->edit swap so a mid-logic
+        // Edit opens where you were, not scrolled back to the top. The read
+        // scroller is .logic-body (capped); the edit scroller is the textarea.
+        var cur = editing ? body.querySelector(".logic-edit") : body;
+        var denom = cur ? cur.scrollHeight - cur.clientHeight : 0;
+        var frac = denom > 0 ? cur.scrollTop / denom : 0;
+        editing = !editing;
+        render();
+        // Defer past render()'s own focus/fit (both on setTimeout 0) so our
+        // restore wins. When entering edit, also place the caret near the same
+        // spot so the first keystroke doesn't snap the view back to the top.
+        setTimeout(function () {
+          var next = editing ? body.querySelector(".logic-edit") : body;
+          if (!next) return;
+          if (editing && next.value) {
+            var pos = Math.round(frac * next.value.length);
+            try { next.setSelectionRange(pos, pos); } catch (e) {}
+          }
+          var d = next.scrollHeight - next.clientHeight;
+          next.scrollTop = d > 0 ? Math.round(frac * d) : 0;
+        }, 0);
+      });
       actions.appendChild(lock);
 
       if (editing) {
