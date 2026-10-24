@@ -2267,11 +2267,24 @@
     // settings popover (⋯) — declutters the toolbar
     var settingsBtn = el("settingsBtn"), settingsMenu = el("settingsMenu");
     function closeSettings() { if (!settingsMenu) return; settingsMenu.classList.add("hidden"); settingsBtn.setAttribute("aria-expanded", "false"); }
+    // Anchor the popover to the button in fixed (viewport) coordinates so it
+    // escapes the topbar's horizontal scroll container, which on tablets gets
+    // overflow-x:auto and would otherwise clip an absolutely-positioned menu.
+    function positionSettings() {
+      if (!settingsMenu || !settingsBtn) return;
+      var r = settingsBtn.getBoundingClientRect();
+      settingsMenu.style.position = "fixed";
+      settingsMenu.style.top = (r.bottom + 6) + "px";
+      settingsMenu.style.right = Math.max(8, window.innerWidth - r.right) + "px";
+      settingsMenu.style.left = "auto";
+    }
     function toggleSettings() {
       if (!settingsMenu) return;
       var open = settingsMenu.classList.toggle("hidden") === false;
+      if (open) positionSettings();
       settingsBtn.setAttribute("aria-expanded", open ? "true" : "false");
     }
+    window.addEventListener("resize", function () { if (settingsMenu && !settingsMenu.classList.contains("hidden")) positionSettings(); });
     if (settingsBtn) settingsBtn.addEventListener("click", function (e) { e.stopPropagation(); toggleSettings(); });
     if (settingsMenu) {
       settingsMenu.addEventListener("click", function (e) {
