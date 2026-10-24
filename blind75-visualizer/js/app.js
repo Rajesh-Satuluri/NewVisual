@@ -1537,15 +1537,71 @@
   }
 
   // ============================================================= REVISION GRID
+  // Sortable columns in the grid. getVal returns a comparable key (number for
+  // numeric/ranked columns, lower-cased string for text). Columns not listed
+  // here (Problem / Time / Space / Status) are not sortable.
+  var GRID_SORTS = {
+    lc:         { getVal: function (p) { return typeof p.lc === "number" ? p.lc : Number.MAX_SAFE_INTEGER; } },
+    category:   { getVal: function (p) { return String(p.category || "").toLowerCase(); } },
+    difficulty: { getVal: function (p) { var d = DIFF_ORDER[p.difficulty]; return d == null ? 99 : d; } },
+    importance: { getVal: function (p) { return IMP_RANK[impOf(p)]; } },
+    pattern:    { getVal: function (p) { return String((p.meta && p.meta.pattern) || "").toLowerCase(); } }
+  };
+  // Persisted across opens within a session. null key = natural (unsorted) order.
+  var gridSort = { key: null, dir: 1 };
+
   function openGrid() {
-    var modal = el("gridModal");
     var body = el("gridBody");
     body.innerHTML = "";
     var table = h("table", { class: "grid-table" });
-    table.innerHTML = "<thead><tr><th>#</th><th>Problem</th><th>Category</th><th>Difficulty</th>" +
-      "<th>Importance</th><th>Pattern</th><th>Time</th><th>Space</th><th>Status</th></tr></thead>";
+
+    // Columns: [label, sortKey|null]. Only keyed columns are clickable.
+    var cols = [
+      ["#", "lc"], ["Problem", null], ["Category", "category"],
+      ["Difficulty", "difficulty"], ["Importance", "importance"],
+      ["Pattern", "pattern"], ["Time", null], ["Space", null], ["Status", null]
+    ];
+    var thead = h("thead");
+    var htr = h("tr");
+    cols.forEach(function (c) {
+      var key = c[1];
+      var sortable = !!key;
+      var arrow = sortable && gridSort.key === key ? (gridSort.dir === 1 ? " ▲" : " ▼") : "";
+      var th = h("th", sortable ? { class: "g-sortable", role: "button", tabindex: "0",
+        "aria-sort": gridSort.key === key ? (gridSort.dir === 1 ? "ascending" : "descending") : "none" } : null,
+        esc(c[0]) + '<span class="g-arrow">' + arrow + "</span>");
+      if (sortable) {
+        th.addEventListener("click", function () { sortGrid(key); });
+        th.addEventListener("keydown", function (e) {
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); sortGrid(key); }
+        });
+      }
+      htr.appendChild(th);
+    });
+    thead.appendChild(htr);
+    table.appendChild(thead);
+
+    var rows = activeProblems().slice();
+    if (gridSort.key && GRID_SORTS[gridSort.key]) {
+      var getVal = GRID_SORTS[gridSort.key].getVal;
+      // Stable sort with a value compare; ties fall back to leetcode number then
+      // title so the order is deterministic.
+      rows = rows.map(function (p, i) { return { p: p, i: i }; });
+      rows.sort(function (x, y) {
+        var av = getVal(x.p), bv = getVal(y.p);
+        var cmp = av < bv ? -1 : av > bv ? 1 : 0;
+        if (cmp === 0) {
+          var al = typeof x.p.lc === "number" ? x.p.lc : Number.MAX_SAFE_INTEGER;
+          var bl = typeof y.p.lc === "number" ? y.p.lc : Number.MAX_SAFE_INTEGER;
+          cmp = al - bl || String(x.p.title).localeCompare(String(y.p.title)) || (x.i - y.i);
+        }
+        return cmp * gridSort.dir;
+      });
+      rows = rows.map(function (o) { return o.p; });
+    }
+
     var tbody = h("tbody");
-    activeProblems().forEach(function (p) {
+    rows.forEach(function (p) {
       var a0 = p.approaches[p.approaches.length - 1] || {};
       var stt = store.getStatus(p.id);
       var tr = h("tr", { class: "grid-row" });
@@ -1565,6 +1621,17 @@
     table.appendChild(tbody);
     body.appendChild(table);
     openModal("gridModal");
+  }
+
+  // Toggle sort on a column: first click ascending, second descending, third
+  // clears back to natural order. Re-renders the grid in place.
+  function sortGrid(key) {
+    if (gridSort.key !== key) { gridSort.key = key; gridSort.dir = 1; }
+    else if (gridSort.dir === 1) { gridSort.dir = -1; }
+    else { gridSort.key = null; gridSort.dir = 1; }
+    var scroll = el("gridBody").scrollTop;
+    openGrid();
+    el("gridBody").scrollTop = scroll;
   }
 
   // ============================================================= REVIEW SESSION
