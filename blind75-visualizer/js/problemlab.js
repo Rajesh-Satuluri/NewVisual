@@ -968,6 +968,111 @@
   }
 
   // ============================================================ PUBLIC API
+  // ============================================================ REVISION GRID
+  // A sortable "all problems" grid for the SQL & PySpark practice tabs, mirroring
+  // the DSA revision grid. Reuses the shared #gridModal + its CSS.
+  var GRID_DIFF_ORDER = { "Easy": 0, "Medium": 1, "Hard": 2 };
+  var GRID_IMP_RANK = { essential: 0, common: 1, occasional: 2 };
+  var gridSort = { key: null, dir: 1 };
+
+  // Numeric key for the "#" column: PySpark uses the numeric lc; SQL stores a
+  // "LC 570"-style string, so pull the first number out of it.
+  function gridNum(p) {
+    if (typeof p.lc === "number") return p.lc;
+    var m = String(p.number || "").match(/\d+/);
+    return m ? parseInt(m[0], 10) : Number.MAX_SAFE_INTEGER;
+  }
+  var GRID_SORTS = {
+    num:        { getVal: function (p) { return gridNum(p); } },
+    category:   { getVal: function (p) { return String(p.category || "").toLowerCase(); } },
+    difficulty: { getVal: function (p) { var d = GRID_DIFF_ORDER[p.difficulty]; return d == null ? 99 : d; } },
+    importance: { getVal: function (p) { return GRID_IMP_RANK[cfg().importanceOf(p)]; } },
+    pattern:    { getVal: function (p) { return String((p.meta && p.meta.pattern) || "").toLowerCase(); } }
+  };
+
+  function openGrid() {
+    var c = cfg();
+    var body = el("gridBody");
+    if (!c || !body) return;
+    body.innerHTML = "";
+    var h2 = document.querySelector("#gridModal h2");
+    if (h2) h2.textContent = c.langLabel + " — Revision Grid";
+    var table = h("table", { class: "grid-table" });
+
+    // [label, sortKey|null]. Only keyed columns are clickable/sortable.
+    var cols = [
+      ["#", "num"], ["Problem", null], ["Category", "category"],
+      ["Difficulty", "difficulty"], ["Importance", "importance"],
+      ["Pattern", "pattern"], ["Status", null]
+    ];
+    var thead = h("thead");
+    var htr = h("tr");
+    cols.forEach(function (col) {
+      var key = col[1];
+      var sortable = !!key;
+      var arrow = sortable && gridSort.key === key ? (gridSort.dir === 1 ? " ▲" : " ▼") : "";
+      var th = h("th", sortable ? { class: "g-sortable", role: "button", tabindex: "0",
+        "aria-sort": gridSort.key === key ? (gridSort.dir === 1 ? "ascending" : "descending") : "none" } : null,
+        esc(col[0]) + '<span class="g-arrow">' + arrow + "</span>");
+      if (sortable) {
+        th.addEventListener("click", function () { sortGrid(key); });
+        th.addEventListener("keydown", function (e) {
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); sortGrid(key); }
+        });
+      }
+      htr.appendChild(th);
+    });
+    thead.appendChild(htr);
+    table.appendChild(thead);
+
+    var rows = all().slice();
+    if (gridSort.key && GRID_SORTS[gridSort.key]) {
+      var getVal = GRID_SORTS[gridSort.key].getVal;
+      // Stable sort; ties fall back to problem number then title.
+      rows = rows.map(function (p, i) { return { p: p, i: i }; });
+      rows.sort(function (x, y) {
+        var av = getVal(x.p), bv = getVal(y.p);
+        var cmp = av < bv ? -1 : av > bv ? 1 : 0;
+        if (cmp === 0) cmp = gridNum(x.p) - gridNum(y.p) || String(x.p.title).localeCompare(String(y.p.title)) || (x.i - y.i);
+        return cmp * gridSort.dir;
+      });
+      rows = rows.map(function (o) { return o.p; });
+    }
+
+    var tbody = h("tbody");
+    rows.forEach(function (p) {
+      var stt = store.getStatus(nsId(p.id));
+      var imp = c.importanceOf(p);
+      var tr = h("tr", { class: "grid-row" });
+      tr.innerHTML =
+        "<td>" + esc(c.numberOf(p) || "—") + "</td>" +
+        '<td class="g-title">' + esc(p.title) + "</td>" +
+        "<td>" + esc(p.category || "") + "</td>" +
+        '<td class="d-' + String(p.difficulty).toLowerCase() + '">' + esc(p.difficulty) + "</td>" +
+        '<td class="' + IMP_META[imp].cls + '" title="' + IMP_META[imp].label + '">' + IMP_META[imp].stars + "</td>" +
+        "<td>" + esc((p.meta && p.meta.pattern) || "") + "</td>" +
+        '<td class="st st-' + stt + '">' + STATUS_GLYPH[stt] + "</td>";
+      tr.addEventListener("click", function () {
+        window.BLIND75.closeModal("gridModal");
+        window.BLIND75.goTo("practice", cur.stack, p.id);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    body.appendChild(table);
+    window.BLIND75.openModal("gridModal");
+  }
+
+  // Toggle sort on a column: ascending -> descending -> natural order.
+  function sortGrid(key) {
+    if (gridSort.key !== key) { gridSort.key = key; gridSort.dir = 1; }
+    else if (gridSort.dir === 1) { gridSort.dir = -1; }
+    else { gridSort.key = null; gridSort.dir = 1; }
+    var sc = el("gridBody").scrollTop;
+    openGrid();
+    el("gridBody").scrollTop = sc;
+  }
+
   window.ProblemLab = {
     // Render the given stack's practice view; id null => first problem.
     mount: function (stack, id) {
@@ -1011,6 +1116,8 @@
     allCollapsed: function () {
       var gs = activeGroups();
       return gs.length > 0 && gs.every(function (g) { return store.isCatCollapsed(catCollapseKey(g.category)); });
-    }
+    },
+    // Open the sortable revision grid for the current (SQL / PySpark) stack.
+    openGrid: openGrid
   };
 })();

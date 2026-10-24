@@ -1553,6 +1553,9 @@
   function openGrid() {
     var body = el("gridBody");
     body.innerHTML = "";
+    // Restore the DSA title (a lab grid may have overwritten it).
+    var h2 = document.querySelector("#gridModal h2");
+    if (h2) h2.textContent = "All 75 — Revision Grid";
     var table = h("table", { class: "grid-table" });
 
     // Columns: [label, sortKey|null]. Only keyed columns are clickable.
@@ -2227,7 +2230,16 @@
     }
 
     // grid
-    el("gridBtn").addEventListener("click", openGrid);
+    el("gridBtn").addEventListener("click", function () {
+      // The SQL & PySpark practice tabs own their own revision grid (ProblemLab);
+      // every other context uses the DSA grid.
+      if ((state.stack === "spark" || state.stack === "sql") && state.mode === "practice"
+          && window.ProblemLab && window.ProblemLab.openGrid) {
+        window.ProblemLab.openGrid();
+      } else {
+        openGrid();
+      }
+    });
     el("gridClose").addEventListener("click", function () { closeModal("gridModal"); });
     el("gridModal").addEventListener("click", function (e) { if (e.target === el("gridModal")) closeModal("gridModal"); });
 
@@ -2626,6 +2638,9 @@
     applyRoute();
   }
   B.navigate = navigate;
+  // Let ProblemLab reuse the shared modal transitions for its revision grid.
+  B.openModal = openModal;
+  B.closeModal = closeModal;
   // Let the practice lab refresh the header collapse-all icon after it changes
   // its own group set (e.g. flipping Pattern ⇄ Domain grouping).
   B.updateToggleAllIcon = updateToggleAllIcon;
