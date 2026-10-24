@@ -1000,8 +1000,9 @@
     var table = h("table", { class: "grid-table" });
 
     // [label, sortKey|null]. Only keyed columns are clickable/sortable.
+    // "S.No." is a running row counter in display order — never sortable.
     var cols = [
-      ["#", "num"], ["Problem", null], ["Category", "category"],
+      ["S.No.", null], ["#", "num"], ["Problem", null], ["Category", "category"],
       ["Difficulty", "difficulty"], ["Importance", "importance"],
       ["Pattern", "pattern"], ["Status", null]
     ];
@@ -1040,11 +1041,12 @@
     }
 
     var tbody = h("tbody");
-    rows.forEach(function (p) {
+    rows.forEach(function (p, idx) {
       var stt = store.getStatus(nsId(p.id));
       var imp = c.importanceOf(p);
       var tr = h("tr", { class: "grid-row" });
       tr.innerHTML =
+        '<td class="g-sno">' + (idx + 1) + "</td>" +
         "<td>" + esc(c.numberOf(p) || "—") + "</td>" +
         '<td class="g-title">' + esc(p.title) + "</td>" +
         "<td>" + esc(p.category || "") + "</td>" +
