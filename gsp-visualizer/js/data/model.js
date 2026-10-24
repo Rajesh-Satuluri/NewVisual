@@ -33,7 +33,17 @@
         "A scheduled pipeline is NOT proof a file arrived — check presence, name, completion and size first.",
         "A filename appearing is not proof the upload finished — require an atomic rename or a completion/manifest marker."
       ],
-      io: { in: "Operational & planning source systems", out: "Raw files in the ingestion zone" }
+      io: { in: "Operational & planning source systems", out: "Raw files in the ingestion zone" },
+      asBuilt: {
+        tech: "SFTP incoming directories + the o9 mPower download connector",
+        artifacts: [
+          ["Standard_SFTP_Download_Files", "Generic SSIS package pulling feeds from the SFTP incoming directory"],
+          ["Control_SFTP_Files / _Freq", "Tracks every file seen per batch tier — the arrival ledger"],
+          ["In_Control_BatchFile", "Per-batch manifest of expected vs received files"],
+          ["~17 In_Fact_* interfaces", "Demand, history, purchase, stock-transfer, ASN & requirement feeds"]
+        ],
+        note: "Feeds arrive as flat files over SFTP (and o9 mPower pulls); each lands into an In_Fact_* staging table. Arrival is proven by the Control_SFTP_Files ledger + batch-file manifest, not by a schedule firing."
+      }
     },
 
     {
@@ -73,7 +83,18 @@
         "Frequent batch takes ~85 min against an hourly target → runs overlap. Start with max_active_runs=1, then choose queue / coalesce / skip.",
         "Unity Catalog is NOT the scheduler. It governs access; Airflow controls execution order."
       ],
-      io: { in: "Calendar, sensors, run config", out: "Triggered & monitored tasks across the stack" }
+      io: { in: "Calendar, sensors, run config", out: "Triggered & monitored tasks across the stack" },
+      asBuilt: {
+        tech: "SQL Server Agent jobs → SSIS master packages (the delivered system has no Airflow)",
+        artifacts: [
+          ["Master_FrequentBatch", "The ~85-min frequent batch (ASN / inventory / requirement refresh)"],
+          ["Master_Daily · _Weekly · _Monthly · _Weekend", "The planning-cadence tiers"],
+          ["Master_Expedite", "Off-cycle expedite run"],
+          ["Schedule_Master_InboundPkg / _OutboundPkg", "Inbound and outbound sequencing wrappers"],
+          ["GetVersionsBeforeBatch / AfterBatch", "Captures o9 plan versions around the run for rollback"]
+        ],
+        note: "Orchestration = SSIS master packages executed on a schedule by SQL Server Agent. Order and dependencies live inside the DTSX control flow; the frequent batch is guarded so a run can't stack on itself. Airflow is the cloud-target equivalent, not what shipped."
+      }
     },
 
     {
@@ -117,7 +138,18 @@
         code:
           '{\n  "feed_name": "In_Fact_PurchaseSchedule_Extd",\n  "business_date": "2026-10-24",\n  "source_path": "/gsp/purchase_schedule/",\n  "target_path": "/bronze/gsp/purchase_schedule/"\n}'
       },
-      io: { in: "Raw source files", out: "Bronze raw data + ingestion metadata" }
+      io: { in: "Raw source files", out: "Bronze raw data + ingestion metadata" },
+      asBuilt: {
+        tech: "SSIS Data Flow + File System tasks loading flat files into SQL Server staging",
+        artifacts: [
+          ["Frequent_Batch_Interface", "Loads the frequent-tier inbound interfaces"],
+          ["Dimension_Load", "Loads the Dim_* / Ref_* master data"],
+          ["Fact_DemandHistory · Fact_DemandForecastInitial", "Per-feed fact load packages"],
+          ["Standard_Download_From_SQL", "Reusable extract-to-file package for outbound"],
+          ["Archive_Files / Move_Archive_files", "Moves processed files to the archive directory"]
+        ],
+        note: "Movement only — flat files become In_* rows via SSIS Data Flows. Business logic stays out of this layer (it lives in the stored procs). On the cloud this maps to ADF (Azure) or Glue + Transfer Family (AWS)."
+      }
     },
 
     {
@@ -148,7 +180,19 @@
         "A file's presence in Bronze is NOT proof the business batch completed.",
         "Gold does not automatically mean publishable — still validate output contract, counts, keys and rules."
       ],
-      io: { in: "Copied source data; curated Delta writes", out: "Layered datasets for every consumer" }
+      io: { in: "Copied source data; curated Delta writes", out: "Layered datasets for every consumer" },
+      asBuilt: {
+        tech: "A single SQL Server planning database (~3,800 tables) — the medallion equivalent lives in the table-naming convention",
+        artifacts: [
+          ["Ref_* / Dim_*", "Reference & master data (dimensions) — the conformed layer"],
+          ["In_*", "Inbound landing straight from the feeds — the Bronze equivalent"],
+          ["Stg_* / STG_*", "Staging & transform scratch — the Silver equivalent"],
+          ["Out_* / Fact_Out_*", "Outbound, consumer-ready for o9 — the Gold equivalent"],
+          ["Q_*", "Point-in-time snapshot / queue tables (e.g. Q_Dim_Item, Q_Fact_*)"],
+          ["Control_* / CFU_*", "Batch-status control tables + Critical File Upload tracking"]
+        ],
+        note: "There is no object-store lake; the layers are SQL schemas/prefixes in one database. Re-platformed, In_/Stg_/Out_ become Bronze/Silver/Gold folders on ADLS Gen2 (Azure) or S3 (AWS)."
+      }
     },
 
     {
@@ -178,7 +222,17 @@
         "Don't promise Databricks auto-beats the old SSIS/SQL job — benchmark time, cost, correctness & reliability on a representative load (e.g. a 33M-row feed).",
         "Watch partition sizes, shuffle volume, skew and file sizes via the Spark UI."
       ],
-      io: { in: "Bronze raw inputs", out: "Silver + consumer-specific Gold Delta tables" }
+      io: { in: "Bronze raw inputs", out: "Silver + consumer-specific Gold Delta tables" },
+      asBuilt: {
+        tech: "SSIS Data Flows + set-based T-SQL stored procedures (plus the o9 Solver)",
+        artifacts: [
+          ["Proc_Daily · Proc_Weekly · Proc_Monthly", "Cadence transform procs run by the master packages"],
+          ["Proc_StatForecast", "Statistical-forecast processing"],
+          ["SolverInput · SolverProc_Daily/_Weekly/_Monthly", "Builds Solver inputs and post-processes its output"],
+          ["Demand_Realignment · Item_Rationalization · Part_Rationalization", "Core supply-planning business rules"]
+        ],
+        note: "Validation, dedup, joins and aggregation are done in T-SQL and SSIS against SQL Server — not PySpark. This is the layer that would move onto Databricks / Spark if re-platformed; the business rules are the thing to port, not the engine."
+      }
     },
 
     {
@@ -207,7 +261,17 @@
       gotchas: [
         "A Delta transaction does NOT make snapshot promotion + Snowflake load + o9 publish one atomic unit — coordinate those with batch IDs, manifests, commit markers and reconciliation."
       ],
-      io: { in: "Validated DataFrames", out: "Committed, versioned lakehouse tables" }
+      io: { in: "Validated DataFrames", out: "Committed, versioned lakehouse tables" },
+      asBuilt: {
+        tech: "SQL Server staging-swap + MERGE pattern (the delivered system has no Delta Lake)",
+        artifacts: [
+          ["Stg_* → Out_* swap", "Build in staging, then publish atomically into the outbound table"],
+          ["Q_* snapshots", "Frozen point-in-time copies so readers see a consistent set"],
+          ["In_Batch_Flag / Control_In_Tables", "Batch flags gating what downstream may read"],
+          ["GetVersionsBeforeBatch", "o9 plan-version capture = the point-in-time rollback handle"]
+        ],
+        note: "Atomicity and 'time travel' are achieved with SQL transactions, table swaps, Q_ snapshots and o9 version capture rather than ACID lakehouse commits. Delta Lake is the cloud-target equivalent of this discipline."
+      }
     },
 
     {
@@ -232,7 +296,16 @@
         "Unity Catalog is governance, NOT a scheduler and not a substitute for Airflow.",
         "On AWS, reconcile authority with the Glue Data Catalog so each asset has ONE authoritative catalog."
       ],
-      io: { in: "User/service identity + access request", out: "Permitted, audited data access" }
+      io: { in: "User/service identity + access request", out: "Permitted, audited data access" },
+      asBuilt: {
+        tech: "SQL Server logins / roles / schemas + o9 role & IBPL data-security rules",
+        artifacts: [
+          ["SQL Server roles & schema grants", "Who can read/write each layer in the planning DB"],
+          ["o9 Roles", "Role-based access inside the planning tenant"],
+          ["IBPL 'Data Security' rule", "Row/scope-level data security enforced in o9"]
+        ],
+        note: "Governance is split: SQL Server permissions guard the database, and o9's roles + IBPL rules guard the planning model. Unity Catalog is the cloud-target equivalent for the lakehouse half."
+      }
     },
 
     {
@@ -260,7 +333,19 @@
         "Replenishment handshake: Frequent → CWV copy then Frequent recreated from CWV is an explicit dependency, not an arbitrary copy.",
         "Hold demand/solver outbound until the weekly batch succeeds."
       ],
-      io: { in: "Gold planning datasets", out: "Executed planning + operational outbound" }
+      io: { in: "Gold planning datasets", out: "Executed planning + operational outbound" },
+      asBuilt: {
+        tech: "o9 Solutions tenant integrated via the o9 mPower connector over SFTP",
+        artifacts: [
+          ["o9 mPower upload / download", "The integration channel between SQL Server and o9"],
+          ["61 Dimensions · 5 Plans", "Item, Customer, Location/LC, Supplier, BOM, Bodid, Resource, PlanningVersion…"],
+          ["~865 IBPL rule-groups · 25 Alerts", "The planning logic and exception alerting in-tenant"],
+          ["CWV (Current Working Version)", "The active plan version in the replenishment handshake"],
+          ["CFU_* + CriticalFileUpload_AfterSolver", "Critical files that must reach o9 after the Solver"],
+          ["CriticalFilesBatchEndEmail", "Batch-end confirmation that critical files landed"]
+        ],
+        note: "o9 is the operational planning engine and Solver. Success is not 'file sent' — it's the critical files uploaded, the Solver run, and the plan version advanced. mPower + SFTP is the real transport; o9 itself is cloud-agnostic."
+      }
     },
 
     {
@@ -293,8 +378,56 @@
         "Snowflake is NOT a replacement for o9's planning engine — it's a separate analytical consumption layer.",
         "Define ONE controlled ingestion contract — don't assume Delta tables are automatically native Snowflake tables."
       ],
-      io: { in: "Curated Gold analytical export", out: "Queryable facts/dimensions, views, BI" }
+      io: { in: "Curated Gold analytical export", out: "Queryable facts/dimensions, views, BI" },
+      asBuilt: {
+        tech: "Not in the delivered system — analytics today is served from SQL Server reporting + metrics outbound",
+        artifacts: [
+          ["Outbound_FilesSS_Metrics", "Supply-metrics extracts pushed out of the planning DB"],
+          ["BatchStatistics · BatchEnd_Stats", "Run timing / volume statistics per batch"],
+          ["Standard_BatchSummary · Standard_OutboundBatchSummary", "Batch summary reports"],
+          ["Standard_DataTable_To_Email", "Tabular reports emailed to the business"]
+        ],
+        note: "There is no Snowflake in the as-built platform; reporting runs on SQL Server tables + emailed/extracted metrics. Snowflake is the cloud-target analytical layer this would move to — kept separate from o9, exactly as the operational/analytical split describes."
+      }
     }
+  ];
+
+  /* ── As-built reality vs cloud target ────────────────────────── */
+  GSP.asBuilt = {
+    headline: "Delivered on SQL Server + SSIS, integrating with o9 Solutions over SFTP / mPower",
+    stack: [
+      ["Orchestration", "SQL Server Agent + SSIS master packages"],
+      ["Ingestion", "SSIS Data Flow + File System tasks; o9 mPower"],
+      ["Storage / layers", "One SQL Server DB (~3,800 tables) — In_/Stg_/Out_/Ref_/Q_/Control_/CFU_"],
+      ["Processing", "Set-based T-SQL stored procs + SSIS; o9 Solver"],
+      ["Transactional writes", "SQL transactions, Stg→Out swaps, Q_ snapshots, o9 version capture"],
+      ["Planning platform", "o9 Solutions (mPower, IBPL rules, Plans, Solver)"],
+      ["Analytics", "SQL Server reporting + metrics outbound (no Snowflake)"],
+      ["Transport", "SFTP (inbound feeds + outbound files) & o9 mPower"]
+    ],
+    note:
+      "This project was delivered on SQL Server + SSIS, integrating with o9 Solutions over SFTP and the o9 mPower connector. The Azure and AWS columns throughout this lab show how each piece maps if the same platform were rebuilt on that cloud — they are a re-platforming map, not what shipped. Live credentials, internal hostnames and client identifiers from the source project are deliberately excluded."
+  };
+
+  /* ── Real inbound interfaces (the feeds that start every batch) ─ */
+  GSP.inboundInterfaces = [
+    ["In_Fact_DemandForecastHeader", "Forecast header — PULL (moves with its detail)"],
+    ["In_Fact_DemandForecastDetail", "Forecast detail — PULL (moves with its header)"],
+    ["In_Fact_DemandForecastInitial", "Initial / customer forecast"],
+    ["In_Fact_DemandHistoryCustomer", "Demand history by customer"],
+    ["In_Fact_DemandHistoryLC", "Demand history by logistics center"],
+    ["In_Fact_PurchaseSchedule_Extd", "Purchase schedule (extended)"],
+    ["In_Fact_PurchaseAgreementLine", "Purchase agreement lines"],
+    ["In_Fact_PurchaseRequisitionSchedule", "Purchase requisition schedule"],
+    ["In_Fact_PurchaseScheduleColl", "Purchase schedule — collaboration"],
+    ["In_Fact_StockTransferSchedule", "Stock-transfer schedule"],
+    ["In_Fact_StockTransferAgreement", "Stock-transfer agreements"],
+    ["In_Fact_InboundAsn", "Inbound ASN (advance shipping notice)"],
+    ["In_Fact_InboundFilledRequirement", "Inbound filled requirements"],
+    ["In_Fact_OutboundFilledRequire", "Outbound filled requirements"],
+    ["In_Fact_OutboundOpenRequirement", "Outbound open requirements"],
+    ["In_Fact_SupplierLCItem_P2", "Supplier × LC-item master"],
+    ["In_Fact_LCItem_GSC", "LC-item (supply-chain) master"]
   ];
 
   /* ── Cross-cutting security & monitoring (rendered separately) ── */
@@ -317,23 +450,23 @@
   };
 
   /* ── Azure ⇄ AWS capability map ──────────────────────────────── */
+  // [capability, as-built (real), Azure target, AWS target]
   GSP.cloudMap = [
-    ["Object storage", "ADLS Gen2", "Amazon S3"],
-    ["Ingestion & copy", "Azure Data Factory", "AWS Glue + Transfer Family + S3 notifications"],
-    ["Main processing", "Azure Databricks", "Databricks on AWS"],
-    ["Lakehouse format", "Delta Lake", "Delta Lake"],
-    ["Databricks governance", "Unity Catalog", "Unity Catalog"],
-    ["Central orchestration", "Apache Airflow", "Apache Airflow"],
-    ["Analytical warehouse", "Snowflake", "Snowflake"],
-    ["Planning platform", "o9 Solutions", "o9 Solutions"],
-    ["Secrets", "Azure Key Vault", "AWS Secrets Manager"],
-    ["Encryption", "Key Vault / storage encryption", "AWS KMS"],
-    ["Cloud monitoring", "Azure Monitor", "Amazon CloudWatch"],
-    ["Audit", "Azure activity / diagnostic logs", "AWS CloudTrail"],
-    ["Managed SFTP", "SFTP endpoint / 3rd-party", "AWS Transfer Family"]
+    ["Orchestration / scheduler", "SQL Server Agent + SSIS", "ADF triggers / Apache Airflow", "Apache Airflow / Step Functions"],
+    ["ETL / movement", "SSIS Data Flow + File System tasks", "Azure Data Factory", "AWS Glue + Transfer Family + S3 notifications"],
+    ["Transforms / business rules", "T-SQL stored procs + SSIS", "Azure Databricks (PySpark)", "Databricks on AWS (PySpark)"],
+    ["Storage / layers", "SQL Server DB (In_/Stg_/Out_)", "ADLS Gen2 (Bronze/Silver/Gold)", "Amazon S3 (Bronze/Silver/Gold)"],
+    ["Transactional writes", "Stg→Out swap · Q_ snapshots", "Delta Lake", "Delta Lake"],
+    ["Governance", "SQL roles + o9 roles/IBPL", "Unity Catalog", "Unity Catalog"],
+    ["Analytics warehouse", "SQL Server reporting + metrics", "Snowflake", "Snowflake"],
+    ["Planning platform", "o9 Solutions (mPower)", "o9 Solutions", "o9 Solutions"],
+    ["Transport", "SFTP + o9 mPower", "SFTP endpoint + ADF", "AWS Transfer Family"],
+    ["Secrets", "SSIS/SQL config + project params", "Azure Key Vault", "AWS Secrets Manager"],
+    ["Monitoring / alerting", "BatchStatistics + email/PagerDuty", "Azure Monitor", "Amazon CloudWatch"],
+    ["Audit", "SQL + SSIS logging", "Azure activity / diagnostic logs", "AWS CloudTrail"]
   ];
   GSP.cloudMapNote =
-    "ADF has no clean one-to-one AWS equivalent — AWS blends Glue, Transfer Family, S3 notifications and other services. Airflow orchestrates all of them in both clouds.";
+    "The as-built system is SQL Server + SSIS + o9; the Azure and AWS columns are a re-platforming map, not what shipped. ADF has no clean one-to-one AWS equivalent — AWS blends Glue, Transfer Family and S3 notifications. o9 is cloud-agnostic and stays put.";
 
   /* ── The hard business cases (interview gold) ────────────────── */
   GSP.businessCases = [
@@ -343,8 +476,8 @@
       title: "PULL forecast snapshot",
       hook: "Header and detail must move as one.",
       body: [
-        "The PULL forecast process has staged and active header/detail datasets. The pipeline must preserve the header↔detail relationship.",
-        "Validate both, apply the configured eligibility and holiday rules, and promote them TOGETHER on the approved schedule."
+        "The PULL forecast arrives as a related pair — In_Fact_DemandForecastHeader and In_Fact_DemandForecastDetail — plus the initial/customer forecast (Fact_DemandForecastInitial). The process must preserve the header↔detail relationship.",
+        "Validate both, apply the configured eligibility and holiday rules, freeze a consistent set via the Q_ snapshot tables, and promote them TOGETHER on the approved schedule."
       ],
       rule: "Never activate a new header while its matching detail is still on an older snapshot.",
       tag: "Consistency"
@@ -355,35 +488,47 @@
       title: "The 85-minute frequent batch",
       hook: "~85 min runtime vs an hourly target → overlap & backlog.",
       body: [
-        "If execution takes ~85 minutes but the refresh target is hourly, runs overlap or build a backlog.",
-        "Start with a controlled policy — max_active_runs=1 — then decide whether overdue runs queue, coalesce, or skip, based on business need. Monitor freshness and missed refreshes."
+        "Master_FrequentBatch (ASN / inventory / requirement refresh via Frequent_Batch_Interface) takes ~85 minutes while the refresh target is roughly hourly — so runs can overlap or build a backlog.",
+        "As built, SQL Server Agent + the master package guard against a run stacking on itself (the one-active-run rule); the Control_SFTP_Files_Freq ledger and In_Batch_Flag decide what the next run picks up. Then it's a business call whether overdue runs queue, coalesce or skip."
       ],
-      rule: "Pick an explicit queue / coalesce / skip policy + freshness alerts — don't let runs silently pile up.",
+      rule: "Guard against overlapping runs (one active instance), then pick an explicit queue / coalesce / skip policy + freshness alerts — don't let runs silently pile up.",
       tag: "Concurrency"
     },
     {
       id: "replen-handshake",
       icon: "🤝",
       title: "Replenishment handshake",
-      hook: "Frequent ↔ CWV is an explicit dependency.",
+      hook: "Solver ↔ Frequent ↔ CWV is an explicit dependency.",
       body: [
-        "After replenishment processing completes, the handshake copies Frequent updates to the Current Working Version (CWV), and Frequent is then recreated from CWV.",
-        "Model this as an ordered dependency in Airflow — not an arbitrary copy task that could run at the wrong time."
+        "The Solver signals completion through flag/polling packages — SolverFile_Flag_Lock, SolverFile_Flag_Polling and SolverFile_JobStatus — and the replenishment files (Inbound_Replen_Files, ReplenishmentPlanning) are only processed once that handshake clears.",
+        "After replenishment, Frequent updates are copied to the Current Working Version (CWV), and Frequent is recreated from CWV — an ordered dependency, not an arbitrary copy that could run at the wrong time."
       ],
-      rule: "Sequence the copy behind replenishment completion; recreate Frequent only after CWV is updated.",
+      rule: "Gate the copy behind Solver + replenishment completion (the flag/polling handshake); recreate Frequent only after CWV is updated.",
       tag: "Dependency"
+    },
+    {
+      id: "critical-files",
+      icon: "📌",
+      title: "Critical files & batch status",
+      hook: "Some files are not optional — the plan is wrong without them.",
+      body: [
+        "A subset of outputs are tracked as Critical File Uploads (CFU_* tables + Control_Fact_CriticalFileUpload). CriticalFileUpload_AfterSolver pushes them once the Solver finishes, and CriticalFilesBatchEndEmail confirms they landed.",
+        "The authoritative batch status lives in the Control_* tables (and BatchStatistics); BatchStatus_Alert / BatchAlertFrequentBatch raise exceptions, escalating to PagerDuty when a critical file is missing or late."
+      ],
+      rule: "A batch isn't done until every critical file is confirmed uploaded — track it in a control table, not in someone's memory.",
+      tag: "Operability"
     },
     {
       id: "o9-vs-snow",
       icon: "🔀",
-      title: "Why o9 AND Snowflake?",
-      hook: "Operational planning vs analytical consumption.",
+      title: "Why operational AND analytical?",
+      hook: "o9 planning vs reporting/analytics consumption.",
       body: [
-        "o9 = supply-chain planning & scenario execution; input is planning-ready interfaces; success = correct delivery + procedure completion.",
-        "Snowflake = analytical warehousing; input is curated analytical datasets; success = ingestion + reconciliation + data availability.",
-        "They can have different completion criteria unless the business explicitly requires one to block the other."
+        "o9 = supply-chain planning & Solver execution; input is planning-ready interfaces over mPower/SFTP; success = critical files uploaded + Solver run + plan version advanced.",
+        "The analytical side (today SQL Server reporting + metrics outbound; Snowflake as the cloud target) consumes curated datasets; success = ingestion + reconciliation + data availability.",
+        "They have different completion criteria — an analytics delay must not block planning, or vice-versa, unless the business explicitly requires it."
       ],
-      rule: "Snowflake is not a replacement for o9's planning engine — it's a separate analytical layer.",
+      rule: "The analytical warehouse is not a replacement for o9's planning engine — it's a separate consumption layer.",
       tag: "Architecture"
     }
   ];
@@ -400,24 +545,29 @@
       ["Resume / Reset", "Resume if safe; full reset or escalate only when necessary."]
     ],
     metrics: [
-      "Source files expected vs received",
+      "Files expected vs received (Control_SFTP_Files / In_Control_BatchFile)",
       "Source / accepted / rejected record counts",
-      "Ingestion duration & status (ADF / Glue)",
-      "Databricks job duration, shuffle/skew, failed tasks",
-      "Delta commit status & processed watermarks",
-      "o9 transfer acknowledgement & procedure status",
-      "Snowflake loaded / rejected rows & reconciliation",
-      "Data freshness, task backlog, end-to-end duration"
+      "SSIS package duration & status (BatchStatistics, BatchEnd_Stats)",
+      "Stored-proc runtime & row counts per transform step",
+      "Stg→Out swap status & Q_ snapshot watermarks",
+      "o9 mPower delivery + Solver status (SolverFile_JobStatus)",
+      "Critical files uploaded vs required (Control_Fact_CriticalFileUpload)",
+      "Data freshness, frequent-batch backlog, end-to-end duration"
     ],
     idempotency:
-      "Use an idempotency strategy (batch IDs, manifests, commit markers) so retrying a failed step never duplicates business data or publishes the same batch twice.",
+      "Use an idempotency strategy (batch flags, file-control ledgers, Stg→Out swaps, o9 version capture) so retrying a failed step never duplicates business data or publishes the same batch twice. GetVersionsBeforeBatch captures the o9 plan version so a bad run can be rolled back cleanly.",
     canonical:
-      "Settle the authoritative batch-status record early: where the canonical run ID, business date, feed status, row counts, consumer status and recovery checkpoint live. That is what lets Airflow tell a successful TASK apart from a successfully completed business BATCH."
+      "Settle the authoritative batch-status record early — the Control_* tables that hold the canonical run, business date, feed status, row counts, critical-file status and recovery checkpoint. That is what lets the system tell a successful TASK (a package exited 0) apart from a successfully completed business BATCH."
   };
 
   /* ── Interview Q&A bank ──────────────────────────────────────── */
   GSP.interview = [
-    { cat: "Architecture", q: "Walk me through this project end to end.", a: "Airflow orchestrates on a business calendar; it checks source readiness, then triggers ingestion (ADF on Azure / Glue+Transfer Family on AWS) into Bronze object storage. Databricks validates, deduplicates, joins and applies GSP business rules in PySpark, writing Silver then consumer-specific Gold Delta tables. The operational branch publishes planning-ready Gold to o9 and confirms the planning procedure, while the analytical branch loads curated Gold into Snowflake via a storage integration + external stage. Airflow gates downstream work on real completion, not just job submission." },
+    { cat: "As-built", q: "Walk me through this project end to end.", a: "As delivered it runs on SQL Server + SSIS. SQL Server Agent fires SSIS master packages on a cadence — frequent (~85 min), daily, weekly, monthly, weekend. Feeds arrive over SFTP (and o9's mPower connector) and land in In_Fact_* staging tables, tracked by the Control_SFTP_Files ledger. Set-based T-SQL stored procedures and SSIS data flows validate, dedup, join and apply the supply-planning rules across In_ → Stg_ → Out_ tables. The Solver runs, replenishment completes via a flag/polling handshake, critical files (CFU_) are uploaded to o9 through mPower, and the plan version is advanced. Reporting/metrics are served from SQL Server. Everything is gated on the Control_ batch-status tables, not just on a package exiting 0." },
+    { cat: "As-built", q: "What was the actual technology stack?", a: "SQL Server as the single planning database (~3,800 tables organized by naming convention — In_/Stg_/Out_/Ref_/Q_/Control_/CFU_), SSIS for ETL and orchestration, SQL Server Agent as the scheduler, SFTP + the o9 mPower connector for transport, and o9 Solutions as the planning engine and Solver. No Airflow, Databricks, Delta Lake or Snowflake — those are the cloud-target equivalents this lab maps each piece to." },
+    { cat: "As-built", q: "How did you orchestrate without Airflow?", a: "SQL Server Agent jobs trigger SSIS master packages (Master_FrequentBatch, Master_Daily, _Weekly, _Monthly, _Weekend, _Expedite). The dependency graph lives inside each package's control flow; the frequent batch is guarded so a run can't stack on itself, and GetVersionsBeforeBatch/AfterBatch capture o9 plan versions around the run. The role is identical to an Airflow DAG — calendar, order, readiness, retries — just expressed in DTSX and SQL Agent." },
+    { cat: "As-built", q: "What is o9 mPower and how did data reach o9?", a: "mPower is o9's integration connector. SSIS produces the planning-ready outbound files, and mPower (over SFTP) uploads them into the o9 tenant and pulls data back. The critical files are tracked explicitly (CFU_ / Control_Fact_CriticalFileUpload) and pushed after the Solver via CriticalFileUpload_AfterSolver, with CriticalFilesBatchEndEmail confirming arrival." },
+    { cat: "As-built", q: "Without Delta time-travel, how did you get consistent snapshots and rollback?", a: "Q_ snapshot tables freeze a consistent set for readers; Stg_→Out_ swaps publish atomically; In_Batch_Flag / Control_In_Tables gate what downstream reads; and GetVersionsBeforeBatch captures the o9 plan version so a bad run can be rolled back. It's the same discipline Delta gives you — just built from SQL transactions, table swaps and version capture." },
+    { cat: "Architecture", q: "Walk me through how this maps to a cloud re-platform.", a: "SSIS orchestration → Airflow; SSIS/T-SQL transforms → Databricks/PySpark; the SQL layers In_/Stg_/Out_ → Bronze/Silver/Gold on ADLS Gen2 (Azure) or S3 (AWS); Stg→Out swaps → Delta MERGE; SQL + o9 security → Unity Catalog + o9 roles; SQL reporting → Snowflake. o9 stays put (cloud-agnostic). The thing you port is the business rules in the stored procs, not the engine." },
     { cat: "Architecture", q: "Why split the output into an operational and an analytical branch?", a: "They have different consumers and success criteria. o9 is the planning engine — success means correct delivery AND the planning procedure completing. Snowflake is analytical — success means ingestion, reconciliation and data availability. Coupling them would let an analytics delay block planning (or vice-versa) with no business reason." },
     { cat: "Architecture", q: "Why Airflow when ADF/Glue can also schedule?", a: "Airflow is the single cross-service orchestrator: calendar logic, cross-system dependencies, readiness sensors, retries, pools and recovery across ADF/Glue, Databricks, o9 and Snowflake. ADF/Glue schedule their own jobs, but no single one of them sees the whole business batch." },
     { cat: "Orchestration", q: "How do you handle the frequent batch that runs ~85 min against an hourly cadence?", a: "Overlap is the risk. I start with max_active_runs=1 so runs can't stack, then choose an explicit policy — queue, coalesce the overdue runs, or skip to the latest — driven by whether stale-but-complete or fresh-but-partial is worse for the business. I add freshness and missed-refresh alerts rather than letting a backlog grow silently." },
@@ -446,10 +596,10 @@
 
   /* ── Quiz ────────────────────────────────────────────────────── */
   GSP.quiz = [
-    { q: "An Airflow task submits a Databricks job and immediately returns success. What's the flaw?", opts: ["Nothing — submission is enough", "Downstream starts before the job really finishes", "Databricks can't be triggered by Airflow", "It will retry forever"], correct: 1 },
-    { q: "A file appears in Bronze. What does that prove?", opts: ["The business batch completed", "o9 received the plan", "A file landed — nothing about batch completion", "Snowflake is loaded"], correct: 2 },
-    { q: "Frequent batch runs ~85 min against an hourly target. First control to apply?", opts: ["Run every 30 min", "max_active_runs=1 + an explicit queue/coalesce/skip policy", "Disable retries", "Move it to Snowflake"], correct: 1 },
-    { q: "A successful SFTP transfer to o9 means…", opts: ["The planning procedure succeeded", "Delivery happened; the procedure still must run & succeed", "The batch is closed", "Snowflake can load now"], correct: 1 },
+    { q: "A task/package submits a job and immediately returns success. What's the flaw?", opts: ["Nothing — submission is enough", "Downstream starts before the job really finishes", "Jobs can't be triggered this way", "It will retry forever"], correct: 1 },
+    { q: "A feed has landed in the In_ (Bronze) layer. What does that prove?", opts: ["The business batch completed", "o9 received the plan", "A file landed — nothing about batch completion", "Reporting is loaded"], correct: 2 },
+    { q: "The frequent batch runs ~85 min against an hourly target. First control to apply?", opts: ["Run every 30 min", "A single active run + an explicit queue/coalesce/skip policy", "Disable retries", "Move it to reporting"], correct: 1 },
+    { q: "A successful mPower/SFTP transfer to o9 means…", opts: ["The Solver run succeeded", "Delivery happened; the Solver & critical-file upload still must succeed", "The batch is closed", "Analytics can load now"], correct: 1 },
     { q: "Which is NOT guaranteed atomic by a single Delta transaction?", opts: ["One table write", "Snapshot promotion + Snowflake load + o9 publish together", "A MERGE into one table", "A schema-enforced append"], correct: 1 },
     { q: "Azure ADF maps most closely on AWS to…", opts: ["A single equivalent service", "Glue + Transfer Family + S3 notifications combined", "Snowflake", "Unity Catalog"], correct: 1 },
     { q: "PULL forecast snapshot rule:", opts: ["Promote header first, detail later", "Promote header + detail together", "Only promote the header", "Detail is optional"], correct: 1 },
@@ -462,25 +612,34 @@
   GSP.glossary = [
     ["ADF", "Azure Data Factory — Azure's managed data-movement/ingestion service."],
     ["ADLS Gen2", "Azure Data Lake Storage Gen2 — hierarchical object storage on Azure."],
-    ["ASN", "Advance Shipping Notice — inbound-shipment feed."],
+    ["ASN", "Advance Shipping Notice — inbound-shipment feed (In_Fact_InboundAsn)."],
     ["Batch ID", "Identifier tying every artifact of one business run together for reconciliation."],
-    ["Bronze/Silver/Gold", "Medallion layers: raw → cleaned → consumer-ready."],
-    ["COPY INTO", "Snowflake command loading staged files into tables."],
+    ["Bronze/Silver/Gold", "Medallion layers: raw → cleaned → consumer-ready. Here: In_ → Stg_ → Out_ SQL tables."],
+    ["CFU", "Critical File Upload — outputs tracked as must-deliver (CFU_* / Control_Fact_CriticalFileUpload)."],
+    ["Control_ tables", "SQL Server batch-status / file-tracking tables — the authoritative run record."],
+    ["COPY INTO", "Snowflake command loading staged files into tables (cloud-target analytics)."],
     ["CWV", "Current Working Version — the active o9 plan version in the replenishment handshake."],
-    ["DAG", "Directed Acyclic Graph — an Airflow workflow of tasks + dependencies."],
-    ["Delta Lake", "ACID table format over Parquet with MERGE and time travel."],
+    ["DAG", "Directed Acyclic Graph — an Airflow workflow of tasks + dependencies (cloud-target orchestration)."],
+    ["Delta Lake", "ACID table format over Parquet with MERGE and time travel (cloud-target of the Stg→Out swap)."],
+    ["DTSX / SSIS", "SQL Server Integration Services package — the as-built ETL + orchestration unit."],
+    ["IBPL", "o9's rule language — the in-tenant planning logic (incl. the Data Security rule)."],
     ["External stage", "Snowflake pointer to lake files, used with a storage integration."],
     ["GSP", "Global Supply Planning — the supply-chain domain of this project."],
     ["Glue", "AWS managed ETL + Data Catalog service."],
     ["Idempotency", "A step can be safely re-run without duplicating effects."],
-    ["LC", "Logistics Center — a demand/inventory location."],
+    ["LC", "Logistics Center — a demand/inventory location (dimension)."],
+    ["Master package", "An SSIS master (Master_FrequentBatch, _Daily, _Weekly…) orchestrating a cadence tier."],
     ["MERGE INTO", "Upsert: insert new rows, update matched rows on a key."],
-    ["o9 Solutions", "The supply-chain planning platform / solver."],
-    ["PULL forecast", "A forecast process with staged + active header/detail snapshots."],
-    ["Quarantine", "Zone isolating invalid records/files for investigation."],
-    ["Storage integration", "Secure Snowflake↔cloud-storage credential binding."],
-    ["Transfer Family", "AWS managed SFTP backed by S3."],
-    ["Unity Catalog", "Databricks governance layer: catalogs, grants, lineage, audit."],
+    ["mPower", "o9's integration connector — moves files between SQL Server and the o9 tenant over SFTP."],
+    ["o9 Solutions", "The supply-chain planning platform, Solver and IBPL rule engine."],
+    ["PULL forecast", "A forecast process with staged + active header/detail (In_Fact_DemandForecast Header/Detail)."],
+    ["Q_ tables", "Point-in-time snapshot / queue tables giving readers a consistent frozen set."],
+    ["Quarantine", "Isolating invalid records/files for investigation instead of silently dropping them."],
+    ["Solver", "o9's optimization engine; signals completion via SolverFile flag/polling packages."],
+    ["SQL Server Agent", "The as-built scheduler that fires the SSIS master packages on a cadence."],
+    ["Storage integration", "Secure Snowflake↔cloud-storage credential binding (cloud-target analytics)."],
+    ["Transfer Family", "AWS managed SFTP backed by S3 (cloud-target of the SFTP ingest)."],
+    ["Unity Catalog", "Databricks governance layer: catalogs, grants, lineage, audit (cloud-target)."],
     ["Watermark", "Processed-position marker enabling incremental loads."]
   ];
 })();

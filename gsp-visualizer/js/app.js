@@ -39,8 +39,9 @@
     ]},
     { label: "Deep dives", items: [
       ["components", "🧩", "Components"],
+      ["interfaces", "📨", "Inbound interfaces"],
       ["layers", "🪙", "Medallion layers"],
-      ["cloudmap", "⚖️", "Azure ⇄ AWS"]
+      ["cloudmap", "⚖️", "As-built ⇄ cloud"]
     ]},
     { label: "The hard parts", items: [
       ["cases", "🧠", "Business cases"],
@@ -63,13 +64,13 @@
       '<div class="m-head">' +
         '<div class="eyebrow">Interactive project walkthrough</div>' +
         '<h1 class="m-title">Global Supply Planning — <span class="grad">Data Platform</span></h1>' +
-        '<p class="m-sub">An end-to-end supply-chain data integration & analytics platform: ingest demand, inventory, ASN, purchase & stock-transfer feeds; transform them into planning-ready datasets; publish to <strong>o9 Solutions</strong>; and serve analytics from <strong>Snowflake</strong>. Orchestrated by <strong>Apache Airflow</strong>, built on <strong>Databricks + Delta Lake</strong>. Flip the cloud toggle to see it on Azure or AWS.</p>' +
+        '<p class="m-sub">An end-to-end supply-chain data integration & planning platform — <strong>delivered on SQL Server + SSIS</strong>, integrating with <strong>o9 Solutions</strong> over SFTP / mPower. It ingests demand, inventory, ASN, purchase & stock-transfer feeds, transforms them into planning-ready datasets, runs the Solver, and serves reporting. Every stage also shows its <strong>Azure</strong> and <strong>AWS</strong> re-platform equivalent — flip the cloud toggle.</p>' +
       '</div>' +
       '<div class="kpi-row">' +
         '<div class="kpi accent"><div class="num">9</div><div class="lbl">Core components</div></div>' +
-        '<div class="kpi"><div class="num">2</div><div class="lbl">Clouds mapped</div></div>' +
-        '<div class="kpi good"><div class="num">2</div><div class="lbl">Downstream consumers (o9 · Snowflake)</div></div>' +
-        '<div class="kpi warn"><div class="num">4</div><div class="lbl">Hard business cases</div></div>' +
+        '<div class="kpi"><div class="num">17</div><div class="lbl">Inbound interfaces</div></div>' +
+        '<div class="kpi good"><div class="num">~3,800</div><div class="lbl">SQL tables (In_/Stg_/Out_…)</div></div>' +
+        '<div class="kpi warn"><div class="num">5</div><div class="lbl">Hard business cases</div></div>' +
       '</div>' +
       '<div class="section-title">Explore the lab</div>' +
       '<div class="hero-grid">' +
@@ -80,8 +81,8 @@
             '<p>' + esc(homeBlurb(it[0])) + '</p></div>';
         }).join("") +
       '</div>' +
-      '<div class="callout info rise" style="margin-top:26px"><span class="ic">🎙️</span><div><strong>Interview positioning.</strong> If you designed or proposed this, call it a <em>target architecture / project design</em>. If you delivered it, keep claims to the services, implementation and operational responsibilities you personally performed.</div></div>' +
-      '<p class="disclaimer">This is a proposed target architecture based on the GSP process. Specific deployment and integration mechanisms should be validated against the real environment. Service names, table names and parameters shown are illustrative.</p>';
+      '<div class="callout info rise" style="margin-top:26px"><span class="ic">🎙️</span><div><strong>Interview positioning.</strong> The <em>As built</em> blocks are the delivered SQL Server + SSIS + o9 system; the Azure/AWS columns are a re-platforming map. Speak to the stack and responsibilities you personally owned, and present the cloud mapping as design, not as shipped.</div></div>' +
+      '<p class="disclaimer">Grounded in the real GSP implementation (SSIS packages, SQL table layers, o9 configuration). Live credentials, internal hostnames and client identifiers are deliberately excluded. The Azure/AWS mappings are a target design, not the delivered environment.</p>';
 
     root.querySelectorAll("[data-go]").forEach(function (c) {
       c.addEventListener("click", function () { location.hash = c.getAttribute("data-go"); });
@@ -90,15 +91,16 @@
   function homeBlurb(id) {
     return {
       architecture: "Animated, clickable end-to-end diagram. Click any box to deep-dive.",
-      pipeline: "The 8 steps a batch takes, from source files to o9 + Snowflake.",
-      components: "Responsibility, components, gotchas and example code per service.",
-      layers: "Bronze → Silver → Gold, plus quarantine & control zones.",
-      cloudmap: "Side-by-side Azure ⇄ AWS service mapping — the port-it question.",
-      cases: "PULL snapshot, the 85-min batch, replenishment handshake, o9-vs-Snowflake.",
+      pipeline: "The 9 steps a batch takes, from SFTP feeds to o9 + reporting.",
+      components: "Each stage: the real SSIS/SQL artifacts + the Azure/AWS equivalent.",
+      interfaces: "The 17 real In_Fact_* feeds and the as-built SQL + SSIS + o9 stack.",
+      layers: "In_ → Stg_ → Out_ (Bronze → Silver → Gold), plus Q_ & Control_.",
+      cloudmap: "As-built (SQL Server + SSIS + o9) mapped onto Azure and AWS.",
+      cases: "PULL snapshot, the 85-min batch, replenishment handshake, critical files.",
       recovery: "Monitoring metrics, the retry/recovery flow, idempotency.",
-      interview: "25 Q&As across architecture, orchestration, o9, failure and cloud.",
+      interview: "30 Q&As across the as-built stack, orchestration, o9, failure & cloud.",
       quiz: "10 quick checks on the traps interviewers probe.",
-      glossary: "Every term — ADF, ADLS, CWV, Delta, Unity Catalog, and more."
+      glossary: "Every term — SSIS, mPower, CWV, CFU, Q_ tables, Delta, and more."
     }[id] || "";
   }
 
@@ -110,7 +112,7 @@
       '<div class="m-head">' +
         '<div class="eyebrow">Logical architecture · ' + cloudLabel() + '</div>' +
         '<h1 class="m-title">The <span class="grad">end-to-end</span> architecture</h1>' +
-        '<p class="m-sub">Airflow orchestrates every stage. Source files land in Bronze, Databricks curates them through Silver to Gold, then the Gold datasets fan out to the operational (o9) and analytical (Snowflake) branches. Click any node for its deep dive.</p>' +
+        '<p class="m-sub">The logical topology — the same shape as built on SSIS + SQL Server. Orchestration drives each stage; source files land in the In_ (Bronze) layer, transforms curate them through Stg_ (Silver) to Out_ (Gold), then the Gold datasets fan out to the operational (o9) and analytical branches. Node labels show the ' + cloudLabel() + ' re-platform equivalent; open any node for its real <em>as-built</em> artifacts.</p>' +
       '</div>' +
       '<div class="arch-wrap">' + archSVG() + '</div>' +
       '<div class="arch-legend">' +
@@ -205,23 +207,22 @@
      MODULE: pipeline (8 steps)
      ============================================================ */
   function mPipeline(root) {
-    var ing = compName(byId("ingestion")), sto = compName(byId("storage"));
     var steps = [
-      ["Source data arrives", "Source systems", "SFTP feeds / configured interfaces deliver forecasts, demand history, purchase & stock-transfer schedules, ASN and inventory. The workflow checks file presence, naming, completion and size — a scheduled pipeline is not proof a file arrived."],
-      ["Airflow starts the batch", "Apache Airflow", "Airflow evaluates the business calendar, picks the batch (main / frequent / snapshot / reconciliation), confirms no prior run is active and upstream deps are met, then passes run context (business date, batch ID, scenario) to the stack."],
-      ["Ingest the source data", ing, "Reliable movement into the raw zone via linked services / connections + a parameterized copy. Goal here is movement, not supply-planning calculations."],
-      ["Store raw inputs in Bronze", sto, "Originals preserved with metadata: source feed, filename, business date, ingestion timestamp, batch ID, record count, checksum. Enables traceability and controlled reprocessing without a resend."],
-      ["Databricks validates & transforms", "Databricks / PySpark", "Validate schema & mandatory fields → quarantine bad records → deduplicate on business keys → standardize → join feeds + apply GSP rules → aggregate to grain → write curated Delta."],
-      ["Produce Gold datasets", sto + " · Gold", "Consumer-specific outputs: o9 planning interfaces, frequent ASN/inventory refresh, Snowflake analytics. Gold still gets its output contract, counts, keys and rules validated."],
-      ["Publish operational data to o9", "o9 Solutions", "Create the interface payload → publish via the configured interface → check delivery/ack → trigger/await the o9 procedure → confirm completion → enable dependent outbound only after prerequisites succeed."],
-      ["Load Snowflake for analytics", "Snowflake", "Databricks writes an approved export; Snowflake reads it via external stage + storage integration; COPY INTO staging → reconcile → MERGE into facts/dimensions → views, KPIs, BI."],
-      ["Monitor & close the run", "Airflow + control zone", "Record task states, durations, retries, counts, rejects, freshness and reconciliation. A run is successful only when its required success conditions are met — o9 and Snowflake branches can differ."]
+      ["Source data arrives", "SFTP + o9 mPower", "Feeds deliver forecasts, demand history, purchase & stock-transfer schedules, ASN and requirements. The Control_SFTP_Files ledger + In_Control_BatchFile manifest check presence, naming, completion and size — a schedule firing is not proof a file arrived."],
+      ["SQL Server Agent starts the batch", "SSIS master package", "Agent fires the right master package (Master_FrequentBatch / _Daily / _Weekly / _Monthly / _Weekend), confirms no prior run is active, captures the o9 plan version (GetVersionsBeforeBatch), and carries run context (business date, batch tier)."],
+      ["Ingest into staging", "SSIS Data Flow", "Reliable movement of the flat files into In_Fact_* staging tables via SSIS data flows + file-system tasks. Goal here is movement, not supply-planning calculations."],
+      ["Land the In_ (Bronze) layer", "SQL Server · In_*", "Inbound rows preserved with batch metadata: feed, filename, business date, batch tier, record counts. Enables traceability and controlled reprocessing without a resend."],
+      ["Transform in T-SQL + SSIS", "Stored procs · Stg_*", "Validate schema & mandatory fields → quarantine bad rows → dedup on business keys → standardize → join feeds + apply the supply-planning rules → aggregate to grain. Set-based T-SQL, not PySpark."],
+      ["Publish the Out_ (Gold) layer", "SQL Server · Out_*", "Consumer-ready outputs built in Stg_ and swapped into Out_*: o9 planning interfaces, the frequent refresh, reporting. Q_ snapshots freeze a consistent set; output contract, counts and keys are validated."],
+      ["Run Solver & replenishment", "o9 Solver", "SolverInput is built and the Solver runs; completion is signalled via the SolverFile flag/polling handshake; replenishment files are processed and Frequent ↔ CWV is reconciled in order."],
+      ["Upload to o9 & confirm", "o9 mPower", "Critical files (CFU_) are uploaded through mPower after the Solver (CriticalFileUpload_AfterSolver); delivery is confirmed (CriticalFilesBatchEndEmail). A transfer is not success — the Solver run and plan-version advance are."],
+      ["Monitor & close the run", "Control_ tables + alerts", "Record package states, durations, counts, rejects, freshness and critical-file status in the Control_ / BatchStatistics tables. A run is complete only when its success conditions are met — operational and analytical can differ."]
     ];
     root.innerHTML =
       '<div class="m-head">' +
-        '<div class="eyebrow">Daily execution · ' + cloudLabel() + '</div>' +
+        '<div class="eyebrow">Daily execution · as built</div>' +
         '<h1 class="m-title">A batch, <span class="grad">step by step</span></h1>' +
-        '<p class="m-sub">What actually happens from the moment source files land to the moment the run is declared complete. Labels update with the cloud toggle.</p>' +
+        '<p class="m-sub">What actually happens from the moment source files land to the moment the run is declared complete — on the delivered SQL Server + SSIS + o9 stack. The Components view shows each step\'s Azure/AWS equivalent.</p>' +
       '</div>' +
       '<div class="card"><div class="flow">' +
         steps.map(function (s) {
@@ -260,6 +261,18 @@
   }
   function trunc(s, n) { return s.length > n ? s.slice(0, n - 1) + "…" : s; }
 
+  // "As built" (real SSIS / SQL Server / o9) card for a component
+  function asBuiltCard(c) {
+    var a = c.asBuilt;
+    return '<div class="card accent-l asbuilt" style="--accent:var(--brand);margin-top:16px">' +
+      '<div class="asbuilt-head"><span class="chip on">AS BUILT</span><span class="asbuilt-tech">' + esc(a.tech) + '</span></div>' +
+      (a.artifacts ? '<div class="dl" style="margin-top:12px">' + a.artifacts.map(function (x) {
+        return "<dt><code class=\"inline\">" + esc(x[0]) + "</code></dt><dd>" + esc(x[1]) + "</dd>";
+      }).join("") + "</div>" : "") +
+      (a.note ? '<p style="color:var(--muted);font-size:13px;margin-top:12px">' + esc(a.note) + "</p>" : "") +
+    "</div>";
+  }
+
   function compDetail(root, id) {
     var c = byId(id);
     if (!c) { location.hash = "components"; return; }
@@ -271,10 +284,11 @@
         '<p class="m-sub">' + esc(c.tagline) + ' · <span style="color:' + c.accent + ';font-weight:700">' + (c.name.shared ? "Same on Azure & AWS" : cloudLabel()) + '</span></p>' +
       '</div>' +
       '<div class="card accent-l" style="--accent:' + c.accent + '"><p style="font-size:14.5px">' + esc(c.purpose) + '</p></div>' +
+      (c.asBuilt ? asBuiltCard(c) : "") +
       '<div class="grid grid-2" style="margin-top:16px">' +
         '<div class="card"><div style="font-weight:800;margin-bottom:12px">Responsibilities</div><ul class="ticks">' +
           c.responsibilities.map(function (r) { return "<li>" + esc(r) + "</li>"; }).join("") + '</ul></div>' +
-        '<div class="card"><div style="font-weight:800;margin-bottom:12px">Components / features</div><div class="chips">' +
+        '<div class="card"><div style="font-weight:800;margin-bottom:12px">Cloud-target components · ' + cloudLabel() + '</div><div class="chips">' +
           feats.map(function (f) { return '<span class="chip on">' + esc(f) + "</span>"; }).join("") + '</div>' +
           (c.dags ? '<div style="font-weight:800;margin:16px 0 10px">Recommended DAGs</div><div class="dl">' + c.dags.map(function (d) { return "<dt><code class=\"inline\">" + esc(d[0]) + "</code></dt><dd>" + esc(d[1]) + "</dd>"; }).join("") + "</div>" : "") +
         '</div>' +
@@ -343,13 +357,13 @@
     root.innerHTML =
       '<div class="m-head">' +
         '<div class="eyebrow">The port-it question</div>' +
-        '<h1 class="m-title">Azure <span class="grad">⇄</span> AWS</h1>' +
-        '<p class="m-sub">The same logical platform on two clouds. Databricks, Delta Lake, Unity Catalog, Airflow, Snowflake and o9 stay put — only the cloud-native plumbing swaps. Rows in green are identical.</p>' +
+        '<h1 class="m-title">As&nbsp;built <span class="grad">→</span> Azure &amp; AWS</h1>' +
+        '<p class="m-sub">The as-built platform (SQL Server + SSIS + o9) and how each capability maps onto Azure and AWS. o9 is cloud-agnostic and stays put; rows where Azure and AWS coincide are tinted green.</p>' +
       '</div>' +
-      '<div class="card" style="overflow-x:auto"><table class="tbl"><thead><tr><th>Capability</th><th>Azure</th><th>AWS</th></tr></thead><tbody>' +
+      '<div class="card" style="overflow-x:auto"><table class="tbl"><thead><tr><th>Capability</th><th>As built</th><th>Azure</th><th>AWS</th></tr></thead><tbody>' +
         GSP.cloudMap.map(function (r) {
-          var same = r[1] === r[2];
-          return '<tr class="' + (same ? "same" : "") + '"><td style="font-weight:600">' + esc(r[0]) + '</td><td class="azcol">' + esc(r[1]) + '</td><td class="awscol">' + esc(r[2]) + "</td></tr>";
+          var same = r[2] === r[3];
+          return '<tr class="' + (same ? "same" : "") + '"><td style="font-weight:600">' + esc(r[0]) + '</td><td class="builtcol">' + esc(r[1]) + '</td><td class="azcol">' + esc(r[2]) + '</td><td class="awscol">' + esc(r[3]) + "</td></tr>";
         }).join("") +
       '</tbody></table></div>' +
       '<div class="callout info" style="margin-top:18px"><span class="ic">💡</span><div>' + esc(GSP.cloudMapNote) + "</div></div>" +
@@ -499,14 +513,37 @@
     render("");
   }
 
+  /* ============================================================
+     MODULE: inbound interfaces (real feeds) + as-built stack
+     ============================================================ */
+  function mInterfaces(root) {
+    var ab = GSP.asBuilt;
+    root.innerHTML =
+      '<div class="m-head">' +
+        '<div class="eyebrow">As built · the real feeds</div>' +
+        '<h1 class="m-title">Inbound <span class="grad">interfaces</span></h1>' +
+        '<p class="m-sub">' + esc(ab.headline) + '. Every batch starts from these ' + GSP.inboundInterfaces.length + ' inbound feeds, each landing into an <code class="inline">In_Fact_*</code> staging table over SFTP / o9 mPower.</p>' +
+      '</div>' +
+      '<div class="section-title">The as-built stack</div>' +
+      '<div class="card"><div class="dl">' +
+        ab.stack.map(function (s) { return "<dt>" + esc(s[0]) + "</dt><dd>" + esc(s[1]) + "</dd>"; }).join("") +
+      '</div></div>' +
+      '<div class="section-title">Inbound feeds (' + GSP.inboundInterfaces.length + ')</div>' +
+      '<div class="card"><div class="dl">' +
+        GSP.inboundInterfaces.map(function (f) { return "<dt><code class=\"inline\">" + esc(f[0]) + "</code></dt><dd>" + esc(f[1]) + "</dd>"; }).join("") +
+      '</div></div>' +
+      '<div class="callout info" style="margin-top:18px"><span class="ic">🔐</span><div>' + esc(ab.note) + "</div></div>";
+  }
+
   /* ── module registry ────────────────────────────────────────── */
   var MODULES = {
     home: { title: "Overview", render: mHome },
     architecture: { title: "Architecture", render: mArch },
     pipeline: { title: "End-to-end flow", render: mPipeline },
     components: { title: "Components", render: mComponents, sub: true },
+    interfaces: { title: "Inbound interfaces", render: mInterfaces },
     layers: { title: "Medallion layers", render: mLayers },
-    cloudmap: { title: "Azure ⇄ AWS", render: mCloudMap },
+    cloudmap: { title: "As-built ⇄ cloud", render: mCloudMap },
     cases: { title: "Business cases", render: mCases },
     recovery: { title: "Failure & recovery", render: mRecovery },
     interview: { title: "Interview Q&A", render: mInterview },

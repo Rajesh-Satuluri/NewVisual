@@ -229,13 +229,19 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 table.tbl th, table.tbl td { text-align: left; padding: 10px 13px; border-bottom: 1px solid var(--border); vertical-align: top; }
 table.tbl th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted-2); font-weight: 800; }
 table.tbl tr:hover td { background: color-mix(in srgb, var(--brand) 5%, transparent); }
+table.tbl .builtcol { color: var(--text); font-weight: 700; }
 table.tbl .azcol { color: #4ab3f4; font-weight: 600; }
 table.tbl .awscol { color: #f5a623; font-weight: 600; }
-table.tbl .same td:nth-child(2), table.tbl .same td:nth-child(3) { color: var(--green); }
+table.tbl .same td:nth-child(3), table.tbl .same td:nth-child(4) { color: var(--green); }
 
 .dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; font-size: 13.5px; }
 .dl dt { font-weight: 700; color: var(--brand-3); }
 .dl dd { color: var(--muted); }
+
+/* as-built component card */
+.card.asbuilt { background: color-mix(in srgb, var(--brand) 6%, var(--bg-1)); }
+.asbuilt-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.asbuilt-tech { font-weight: 700; font-size: 13.5px; color: var(--text); }
 
 /* ── Architecture diagram ───────────────────────────────────── */
 .arch-wrap { background: var(--bg-1); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px; overflow-x: auto; }
