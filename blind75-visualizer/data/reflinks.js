@@ -21,7 +21,6 @@
     22: [{ name: "CodeDive", url: "https://codedive.in/" }, { name: "AlgoMaster", url: "https://algomaster.io/animations/dsa/generate-parentheses" }],
     23: [{ name: "CodeDive", url: "https://codedive.in/" }, { name: "AlgoMaster", url: "https://algomaster.io/animations/dsa/merge-k-sorted-lists" }],
     25: [{ name: "CodeDive", url: "https://codedive.in/" }, { name: "AlgoMaster", url: "https://algomaster.io/animations/dsa/reverse-nodes-in-k-group" }],
-    33: [{ name: "CodeDive", url: "https://codedive.in/" }, { name: "AlgoMaster", url: "https://algomaster.io/animations/dsa/search-in-rotated-sorted-array" }],
     36: [{ name: "CodeDive", url: "https://codedive.in/" }, { name: "AlgoMaster", url: "https://algomaster.io/animations/dsa/valid-sudoku" }],
     39: [{ name: "CodeDive", url: "https://codedive.in/" }, { name: "AlgoMaster", url: "https://algomaster.io/animations/dsa/combination-sum" }],
     40: [{ name: "CodeDive", url: "https://codedive.in/" }, { name: "AlgoMaster", url: "https://algomaster.io/animations/dsa/combination-sum-ii" }],
