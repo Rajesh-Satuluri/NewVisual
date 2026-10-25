@@ -106,7 +106,17 @@
     if (stack === "pandas") return !!(window.PANDAS && window.PANDAS.all().length);
     return false;
   }
-  function modeAvailable(stack, mode) { return mode === "learn" ? hasLearn(stack) : hasPractice(stack); }
+  function modeAvailable(stack, mode) {
+    // Content already registered for this cell?
+    if (mode === "learn" ? hasLearn(stack) : hasPractice(stack)) return true;
+    // Not yet — but if a lazy data group is DECLARED for it, navigation loads it
+    // on demand (see applyRoute), so the mode is reachable. Treating it as
+    // available here avoids a "coming soon" deadlock where the button stays
+    // disabled because the data never loads (and the data never loads because
+    // the button is disabled). Genuinely contentless cells have no group and
+    // correctly stay unavailable.
+    return groupsForStack(stack, mode).length > 0;
+  }
 
   // Which lazy data group(s) must be present before we can render (stack, mode)?
   // DSA (python practice) ships eagerly; every other stack's data is injected on
