@@ -12,6 +12,130 @@
       .replace(/>/g, "&gt;");
   }
 
+  // --- Math (KaTeX) support ------------------------------------------------
+  // We protect math spans BEFORE the Markdown pipeline runs so that neither
+  // escapeHtml nor the inline formatter can mangle LaTeX (backslashes, $, []).
+  // Each span is rendered to HTML with KaTeX and swapped for a NUL-delimited
+  // placeholder that survives escaping/formatting untouched; after rendering we
+  // splice the KaTeX HTML back in. Fenced code and inline code are copied
+  // verbatim here, so LaTeX inside code stays literal. If KaTeX is unavailable
+  // the source is returned unchanged (graceful no-op), matching prior behavior.
+  function renderKatex(latex, display, tokens) {
+    var html;
+    try {
+      html = window.katex.renderToString(latex, {
+        displayMode: display,
+        throwOnError: false,
+        output: "html"
+      });
+    } catch (e) {
+      return null; // leave the raw text in place on failure
+    }
+    var idx = tokens.length;
+    tokens.push(html);
+    return "\u0000" + idx + "\u0000";
+  }
+
+  function protectMath(src) {
+    var tokens = [];
+    if (!window.katex || typeof window.katex.renderToString !== "function") {
+      return { src: src, tokens: tokens };
+    }
+    var out = "";
+    var n = src.length;
+    var p = 0;
+    var atLineStart = true;
+
+    while (p < n) {
+      var ch = src.charAt(p);
+
+      // fenced code block (``` at line start) -> copy through the closing fence
+      if (atLineStart && src.substr(p, 3) === "```") {
+        var firstNl = src.indexOf("\n", p);
+        var ls = firstNl === -1 ? n : firstNl + 1;
+        var blockEnd = n;
+        while (ls <= n) {
+          var le = src.indexOf("\n", ls);
+          if (le === -1) le = n;
+          if (/^\s*```\s*$/.test(src.slice(ls, le))) { blockEnd = le; break; }
+          if (le === n) break;
+          ls = le + 1;
+        }
+        out += src.slice(p, blockEnd);
+        p = blockEnd;
+        atLineStart = false;
+        continue;
+      }
+
+      // inline code (`...`) -> copy verbatim
+      if (ch === "`") {
+        var close = src.indexOf("`", p + 1);
+        if (close === -1) { out += src.slice(p); break; }
+        out += src.slice(p, close + 1);
+        p = close + 1;
+        atLineStart = false;
+        continue;
+      }
+
+      // block math: $$...$$
+      if (src.substr(p, 2) === "$$") {
+        var e = src.indexOf("$$", p + 2);
+        if (e !== -1) {
+          var tok = renderKatex(src.slice(p + 2, e), true, tokens);
+          if (tok !== null) { out += tok; p = e + 2; atLineStart = false; continue; }
+        }
+      }
+
+      // block math: \[ ... \]
+      if (src.substr(p, 2) === "\\[") {
+        var e2 = src.indexOf("\\]", p + 2);
+        if (e2 !== -1) {
+          var tok2 = renderKatex(src.slice(p + 2, e2), true, tokens);
+          if (tok2 !== null) { out += tok2; p = e2 + 2; atLineStart = false; continue; }
+        }
+      }
+
+      // inline math: \( ... \)  (must not span lines)
+      if (src.substr(p, 2) === "\\(") {
+        var e3 = src.indexOf("\\)", p + 2);
+        if (e3 !== -1) {
+          var inner3 = src.slice(p + 2, e3);
+          if (inner3.indexOf("\n") === -1) {
+            var tok3 = renderKatex(inner3, false, tokens);
+            if (tok3 !== null) { out += tok3; p = e3 + 2; atLineStart = false; continue; }
+          }
+        }
+      }
+
+      // inline math: $ ... $  (single dollar, non-empty, same line)
+      if (ch === "$") {
+        var k = p + 1, e4 = -1;
+        while (k < n) {
+          var kc = src.charAt(k);
+          if (kc === "$") { e4 = k; break; }
+          if (kc === "\n") break;
+          k++;
+        }
+        if (e4 !== -1 && e4 > p + 1) {
+          var tok4 = renderKatex(src.slice(p + 1, e4), false, tokens);
+          if (tok4 !== null) { out += tok4; p = e4 + 1; atLineStart = false; continue; }
+        }
+      }
+
+      out += ch;
+      atLineStart = (ch === "\n");
+      p++;
+    }
+    return { src: out, tokens: tokens };
+  }
+
+  function restoreMath(html, tokens) {
+    for (var i = tokens.length - 1; i >= 0; i--) {
+      html = html.split("\u0000" + i + "\u0000").join(tokens[i]);
+    }
+    return html;
+  }
+
   // split a GFM table row "| a | b |" into trimmed cell strings
   function splitRow(row) {
     var t = row.trim().replace(/^\|/, "").replace(/\|$/, "");
@@ -40,7 +164,8 @@
 
   function render(md) {
     if (md == null) return "";
-    var src = escapeHtml(String(md));
+    var prot = protectMath(String(md));
+    var src = escapeHtml(prot.src);
     var lines = src.split("\n");
     var html = [];
     var i = 0;
@@ -170,7 +295,7 @@
       html.push("<p>" + inline(para.join("<br>")) + "</p>");
     }
 
-    return html.join("\n");
+    return restoreMath(html.join("\n"), prot.tokens);
   }
 
   window.BLIND75.md = render;
