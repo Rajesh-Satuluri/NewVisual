@@ -147,19 +147,26 @@
 
   // Inline formatting applied to already-escaped text.
   function inline(text) {
-    // inline code first so its contents aren't further formatted
-    var parts = text.split(/(`[^`]+`)/g);
-    for (var i = 0; i < parts.length; i++) {
-      if (parts[i].charAt(0) === "`" && parts[i].charAt(parts[i].length - 1) === "`") {
-        parts[i] = "<code>" + parts[i].slice(1, -1) + "</code>";
-      } else {
-        parts[i] = parts[i]
-          .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
-          .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-          .replace(/(^|[^*])\*([^*]+)\*/g, "$1<em>$2</em>");
-      }
+    // Protect inline code into placeholders FIRST. This keeps its contents from
+    // being further formatted AND — crucially — lets emphasis markers that
+    // straddle a code span still pair up (e.g. "**foo `bar` baz**"). Splitting
+    // on code spans instead would sever the leading/trailing ** into different
+    // pieces, leaving them literal. Placeholders are NUL + "c" + idx + NUL, which
+    // survive the emphasis/link passes (no *, [, or `) and never collide with the
+    // math placeholders (NUL + digits + NUL) that may also be present here.
+    var codes = [];
+    var protectedText = text.replace(/`[^`]+`/g, function (m) {
+      codes.push("<code>" + m.slice(1, -1) + "</code>");
+      return "\u0000c" + (codes.length - 1) + "\u0000";
+    });
+    var out = protectedText
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+      .replace(/(^|[^*])\*([^*]+)\*/g, "$1<em>$2</em>");
+    for (var i = codes.length - 1; i >= 0; i--) {
+      out = out.split("\u0000c" + i + "\u0000").join(codes[i]);
     }
-    return parts.join("");
+    return out;
   }
 
   function render(md) {

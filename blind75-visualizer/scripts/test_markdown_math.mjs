@@ -86,6 +86,16 @@ const tbl = md("| A | B |\n|---|---|\n| 1 | 2 |");
 check("table renders", /<table class="lab-table">/.test(tbl) && tbl.indexOf("<td>1</td>") !== -1);
 check("line break preserved in paragraph", /line1<br>line2/.test(md("line1\nline2")));
 
+// 9b. Emphasis that straddles an inline-code span must still render (regression:
+//     the reported "**... `seen` ...**" case rendered the ** literally).
+const straddle = md("**The window has no repeats, and `seen` holds its chars.**");
+check("bold straddling inline code renders <strong>", /<strong>/.test(straddle));
+check("bold straddling inline code leaves no literal **", straddle.indexOf("**") === -1);
+check("bold straddling inline code keeps the <code> span", /<code>seen<\/code>/.test(straddle));
+const straddleEm = md("Use *the `k` value* carefully.");
+check("italic straddling inline code renders <em>", /<em>the <code>k<\/code> value<\/em>/.test(straddleEm));
+check("inline code inside bold is not formatted", md("**a `*x*` b**").indexOf("<em>") === -1);
+
 // 10. Mixed prose + math + code in one blob keeps each part correct.
 const blob = md("Cost is \\(O(n)\\).\n\n```\n\\[ raw \\]\n```\n\nThen $k$ items.");
 check("mixed blob: inline math rendered", /class="katex"/.test(blob));
