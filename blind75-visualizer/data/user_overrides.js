@@ -2,7 +2,7 @@
    Baked from cloud sync by .github/workflows/bake-edits.yml. It overlays the
    user's in-tool edits (logic / description / code) onto the problems at load,
    so edits render for everyone and are captured in the Backup (.zip).
-   generatedAt: 2026-10-26T23:00:00.743Z
+   generatedAt: 2026-10-27T01:58:59.404Z
    edits: logic=74 desc=0 code=34 */
 (function () {
   "use strict";
@@ -335,7 +335,7 @@
     }
   }
 };
-  OV.generatedAt = "2026-10-26T23:00:00.743Z";
+  OV.generatedAt = "2026-10-27T01:58:59.404Z";
   B.USER_OVERRIDES = OV;
 
   // Every problem registry the unified app exposes an .all() on.
