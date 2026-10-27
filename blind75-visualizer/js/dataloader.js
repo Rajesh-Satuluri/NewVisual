@@ -44,7 +44,7 @@
       "data/python/ds_trees.js",
       "data/python/ds_heap_graph.js",
       "data/python/ds_advanced.js",
-      "data/python/cheatsheet.js"
+      "data/python/cheatsheet.js?v=20261027useall"
     ],
     spark: [
       "data/pyspark/importance.js?v=20261021pyspark",
@@ -77,7 +77,7 @@
       "data/pyspark/schema_drift_dq.js",
       "data/pyspark/perf_oom_diagnosis.js",
       "data/pyspark/interview_qa.js",
-      "data/spark/cheatsheet.js"
+      "data/spark/cheatsheet.js?v=20261027useall"
     ],
     sparklearn: [
       "data/pyspark/concepts_foundations.js",
@@ -122,7 +122,7 @@
       "data/sql/domains.js",
       "data/sql/practice_extra.js",
       "data/sql/interview_qa.js",
-      "data/sql/cheatsheet.js"
+      "data/sql/cheatsheet.js?v=20261027useall"
     ],
     sqllearn: [
       "data/sql/concepts_foundations.js",
