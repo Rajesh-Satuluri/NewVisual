@@ -101,8 +101,11 @@ body[data-ws="python"] #setToggle { display: none !important; }
    more room (it may hold several tables); both wrap to full width when narrow. */
 .lab-io-split { display: flex; flex-flow: row wrap; gap: 16px 20px; align-items: flex-start; }
 .lab-io-panel { min-width: 0; }
-.lab-io-in  { flex: 2 1 360px; }
-.lab-io-out { flex: 1 1 260px; }
+/* input grows to fill; output sizes to its own table (capped) so there's no
+   dead gutter to its right — the reclaimed width goes to the input panel */
+.lab-io-in  { flex: 1 1 360px; }
+.lab-io-out { flex: 0 1 auto; min-width: 240px; max-width: 560px; }
+.lab-io-out .lab-table-scroll { max-height: 420px; overflow: auto; }
 .lab-io-head { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
 .lab-io-badge { font-size: 10.5px; font-weight: 700; text-transform: none; letter-spacing: 0; color: var(--brand-2); background: var(--bg-1); border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; }
 .lab-io-out .lab-table-scroll { border: 1px solid var(--border); border-radius: var(--radius-sm); }
