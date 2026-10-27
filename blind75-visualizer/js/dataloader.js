@@ -80,7 +80,7 @@
       "data/spark/cheatsheet.js?v=20261027useall"
     ],
     sparklearn: [
-      "data/pyspark/concepts_foundations.js",
+      "data/pyspark/concepts_foundations.js?v=20261027sparksubmit",
       "data/pyspark/concepts_shuffle.js",
       "data/pyspark/concepts_transformations.js",
       "data/pyspark/concepts_performance.js",
