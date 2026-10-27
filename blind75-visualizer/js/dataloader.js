@@ -55,7 +55,7 @@
       "data/pyspark/window_functions.js",
       "data/pyspark/ranking_dedup.js",
       "data/pyspark/date_time.js",
-      "data/pyspark/arrays_json_nested.js",
+      "data/pyspark/arrays_json_nested.js?v=20261027jsonprofile",
       "data/pyspark/cohort_time_series.js",
       "data/pyspark/performance_optimization.js",
       "data/pyspark/end_to_end_challenges.js",
