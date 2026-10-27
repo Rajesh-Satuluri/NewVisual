@@ -475,18 +475,28 @@
     order.forEach(function (name) {
       var card = h("div", { class: "lab-tbl-card" });
       card.appendChild(h("div", { class: "lab-tbl-card-name" }, esc(name)));
+      // schema definition (Column/Type) and sample rows sit side by side so each
+      // narrow table fills the card's width instead of stacking into a tall column;
+      // wraps back to stacked when the card is too narrow.
+      var cols = h("div", { class: "lab-tbl-cols" });
       var sc = findSchema(name);
       if (sc) {
         var defRows = (sc.columns || []).map(function (c) { return [c.name, c.type + (c.note ? "  · " + c.note : "")]; });
-        card.appendChild(dataTable(["Column", "Type"], defRows));
+        var def = h("div", { class: "lab-tbl-def" });
+        def.appendChild(h("div", { class: "lab-tbl-sub" }, "Schema"));
+        def.appendChild(dataTable(["Column", "Type"], defRows));
+        cols.appendChild(def);
       }
       var sm = findSample(name);
       if (sm) {
-        card.appendChild(h("div", { class: "lab-tbl-sub" }, sc ? "Sample rows" : "Sample data"));
+        var smp = h("div", { class: "lab-tbl-smp" });
+        smp.appendChild(h("div", { class: "lab-tbl-sub" }, sc ? "Sample rows" : "Sample data"));
         var box = h("div", { class: "lab-sample-box" });
         box.appendChild(dataTable(sm.columns, sm.rows));
-        card.appendChild(box);
+        smp.appendChild(box);
+        cols.appendChild(smp);
       }
+      card.appendChild(cols);
       grid.appendChild(card);
     });
     return grid;
