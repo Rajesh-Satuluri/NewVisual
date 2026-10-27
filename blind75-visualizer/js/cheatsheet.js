@@ -470,7 +470,9 @@
     ariaLabel: "SQL function cheatsheet",
     title: "🗄 SQL cheatsheet",
     sub: "every function, its parameters, and how to use it",
-    placeholder: "Search… (row_number, coalesce, datediff, case, string_agg…)"
+    placeholder: "Search… (row_number, coalesce, datediff, case, string_agg…)",
+    collapsible: true,   // cards collapse to just their signature; click to expand
+    wide: true           // landscape aspect — roomier for comparison tables
   });
 
 })();
