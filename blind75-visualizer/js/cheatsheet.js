@@ -21,17 +21,31 @@
   // Build one cheatsheet panel from a config object. Every panel is independent
   // (its own overlay, its own persisted sort), but shares this exact behavior.
   function makeCheatsheet(cfg) {
-    var DATA = cfg.data || { groups: [], fns: [] };
     var LANG = cfg.lang || "python";
     var COLLAPSIBLE = !!cfg.collapsible;   // cards collapse to just their signature
     var overlay = null, bodyEl = null, searchEl = null, active = "all", query = "", sortMode = "used";
 
+    // The cheatsheet dataset is shipped in a LAZY dataloader group (spark /
+    // pylearn / sql), so window[cfg.dataKey] is NOT defined when this file is
+    // parsed at page load. Resolving it here once would permanently capture the
+    // empty default and render a blank "No functions match" panel. Instead we
+    // (re)read the global — and recompute everything derived from it — every time
+    // the panel opens, after ensuring its data group is loaded. See open().
+    var DATA = { groups: [], fns: [] };
+    var RANK = {};
+    var ESSENTIAL = 0;
+
+    function resolveData() {
+      var d = (cfg.dataKey && window[cfg.dataKey]) || cfg.data;
+      DATA = d && d.fns ? d : { groups: [], fns: [] };
+      RANK = {}; (DATA.rankOrder || []).forEach(function (id, i) { RANK[id] = i; });
+      ESSENTIAL = DATA.essentialCount || 0;
+    }
+
     // Usage rank (lower = more used). Drives the default "Most used" sort, the
     // within-category ordering, and the ★ essential badge on the top tier.
-    var RANK = {}; (DATA.rankOrder || []).forEach(function (id, i) { RANK[id] = i; });
     function rankOf(f) { var r = RANK[f.id]; return r == null ? 9999 : r; }
     function byRank(a, b) { var d = rankOf(a) - rankOf(b); return d !== 0 ? d : (a.name || "").localeCompare(b.name || ""); }
-    var ESSENTIAL = DATA.essentialCount || 0;
     function isEssential(f) { return rankOf(f) < ESSENTIAL; }
 
     var SORT_KEY = cfg.sortKey;
@@ -203,6 +217,27 @@
       });
     }
 
+    // (Re)build the category filter chips from the current DATA.groups. Runs on
+    // every open because the dataset arrives lazily (see open()/resolveData()).
+    function renderChips() {
+      if (!overlay) return;
+      var filter = overlay.querySelector(".ros-filter");
+      if (!filter) return;
+      if (active !== "all" && DATA.groups.indexOf(active) === -1) active = "all";
+      filter.innerHTML =
+        '<button class="ros-chip ros-chip-all' + (active === "all" ? " active" : "") + '" data-g="all">All</button>' +
+        DATA.groups.map(function (g) {
+          return '<button class="ros-chip' + (active === g ? " active" : "") + '" data-g="' + esc(g) + '">' + esc(g) + "</button>";
+        }).join("");
+      filter.querySelectorAll(".ros-chip").forEach(function (b) {
+        b.addEventListener("click", function () {
+          active = b.getAttribute("data-g");
+          filter.querySelectorAll(".ros-chip").forEach(function (c) { c.classList.toggle("active", c === b); });
+          render();
+        });
+      });
+    }
+
     function render() {
       bodyEl.innerHTML = "";
       updateChipCounts();
@@ -236,8 +271,6 @@
       overlay = document.createElement("div");
       overlay.id = cfg.overlayId;
       overlay.className = "ros hidden" + (cfg.wide ? " ros-wide" : "");
-      var chips = '<button class="ros-chip ros-chip-all active" data-g="all">All</button>' +
-        DATA.groups.map(function (g) { return '<button class="ros-chip" data-g="' + esc(g) + '">' + esc(g) + "</button>"; }).join("");
       overlay.innerHTML =
         '<div class="ros-box" role="dialog" aria-label="' + esc(cfg.ariaLabel) + '">' +
         '  <div class="ros-head">' +
@@ -256,7 +289,7 @@
         '      <button class="cht-xall-btn" data-x="close" title="Collapse to just names">Collapse all</button>' +
         '    </div>' : "") +
         '  </div>' +
-        '  <div class="ros-filter">' + chips + '</div>' +
+        '  <div class="ros-filter"></div>' +
         '  <div class="ros-body"></div>' +
         '</div>';
       document.body.appendChild(overlay);
@@ -264,13 +297,6 @@
       searchEl = overlay.querySelector(".cht-search");
       overlay.addEventListener("mousedown", function (e) { if (e.target === overlay) close(); });
       overlay.querySelector(".ros-close").addEventListener("click", close);
-      overlay.querySelectorAll(".ros-chip").forEach(function (b) {
-        b.addEventListener("click", function () {
-          active = b.getAttribute("data-g");
-          overlay.querySelectorAll(".ros-chip").forEach(function (c) { c.classList.toggle("active", c === b); });
-          render();
-        });
-      });
       searchEl.addEventListener("input", function () { query = searchEl.value.trim().toLowerCase(); render(); });
       overlay.querySelectorAll(".cht-sort-btn").forEach(function (b) {
         b.addEventListener("click", function () {
@@ -299,7 +325,18 @@
       if (!overlay) build();
       restoreSort();
       syncSortButtons();
-      render();
+
+      // The dataset lives in a lazy dataloader group; make sure it is present,
+      // then (re)read the global and paint. We show the shell immediately and
+      // fill it once the group resolves (synchronously if already loaded).
+      function paint() { resolveData(); renderChips(); render(); }
+      if (cfg.group && window.DATALOADER && !window.DATALOADER.loaded(cfg.group)) {
+        paint(); // show the shell (empty for an instant) while the group loads
+        window.DATALOADER.ensure(cfg.group, paint);
+      } else {
+        paint();
+      }
+
       overlay.classList.remove("hidden");
       requestAnimationFrame(function () { overlay.classList.add("open"); if (searchEl) searchEl.focus(); });
       document.body.classList.add("cmdk-lock");
@@ -323,7 +360,8 @@
 
   // ---- the three panels -----------------------------------------------------
   window.CHEATSHEET = makeCheatsheet({
-    data: window.PYSPARK_CHEAT,
+    dataKey: "PYSPARK_CHEAT",   // resolved lazily on open (ships in the "spark" group)
+    group: "spark",
     lang: "python",
     overlayId: "cheatsheet",
     btnId: "cheatBtn",
@@ -337,7 +375,8 @@
   });
 
   window.PYCHEATSHEET = makeCheatsheet({
-    data: window.PYTHON_CHEAT,
+    dataKey: "PYTHON_CHEAT",    // resolved lazily on open (ships in the "pylearn" group)
+    group: "pylearn",
     lang: "python",
     overlayId: "pycheatsheet",
     btnId: "pyCheatBtn",
@@ -349,7 +388,8 @@
   });
 
   window.SQLCHEATSHEET = makeCheatsheet({
-    data: window.SQL_CHEAT,
+    dataKey: "SQL_CHEAT",       // resolved lazily on open (ships in the "sql" group)
+    group: "sql",
     lang: "sql",
     overlayId: "sqlcheatsheet",
     btnId: "sqlCheatBtn",
