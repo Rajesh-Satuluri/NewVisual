@@ -46,6 +46,7 @@ window.PYTHON_CHEAT = {
     {
       id: "enumerate", group: "Built-ins", name: "enumerate",
       signature: "enumerate(iterable, start=0)",
+      use: "Loops over a list while also handing you each item's position, so you skip clumsy <code>range(len(...))</code> code. Reach for it whenever you need both index and value.",
       summary: "Loop over an iterable with a running <b>index</b> — cleaner than <code>range(len(...))</code>.",
       returns: "iterator of (index, item)",
       params: [
@@ -59,6 +60,7 @@ window.PYTHON_CHEAT = {
     {
       id: "zip", group: "Built-ins", name: "zip",
       signature: "zip(*iterables, strict=False)",
+      use: "Walks several lists together, pairing up their matching items. Perfect for looping over names and scores side by side.",
       summary: "Iterate several sequences in lockstep, pairing element <code>i</code> of each.",
       returns: "iterator of tuples",
       params: [
@@ -72,6 +74,7 @@ window.PYTHON_CHEAT = {
     {
       id: "sorted", group: "Built-ins", name: "sorted",
       signature: "sorted(iterable, key=None, reverse=False)",
+      use: "Returns a new sorted copy of any iterable, with a <code>key</code> for custom order. The go-to for ordering data in coding problems.",
       summary: "Return a <b>new</b> sorted list (does not mutate the input). Stable sort.",
       returns: "list",
       params: [
@@ -86,6 +89,7 @@ window.PYTHON_CHEAT = {
     {
       id: "range", group: "Built-ins", name: "range",
       signature: "range(stop) | range(start, stop, step)",
+      use: "Produces a sequence of numbers to loop over, with optional start and step. The standard counter for <code>for</code> loops.",
       summary: "Lazy arithmetic sequence — the standard counting loop. <code>stop</code> is <b>exclusive</b>.",
       returns: "range object",
       params: [
@@ -100,6 +104,7 @@ window.PYTHON_CHEAT = {
     {
       id: "len", group: "Built-ins", name: "len",
       signature: "len(obj)",
+      use: "Tells you how many items are in a list, string, dict, or set. One of the first things you check about any collection.",
       summary: "Number of items in a sequence, mapping, or set — O(1).",
       returns: "int",
       params: [
@@ -112,6 +117,7 @@ window.PYTHON_CHEAT = {
     {
       id: "sum", group: "Built-ins", name: "sum",
       signature: "sum(iterable, start=0)",
+      use: "Adds up all the numbers in an iterable. The quick way to total a list without writing a loop.",
       summary: "Add up an iterable of numbers, optionally onto a starting value.",
       returns: "number",
       params: [
@@ -125,6 +131,7 @@ window.PYTHON_CHEAT = {
     {
       id: "min-max", group: "Built-ins", name: "min / max",
       signature: "min(iterable, key=None, default=…)",
+      use: "Finds the smallest or largest item, with a <code>key</code> for custom comparisons. Used everywhere for picking extremes.",
       summary: "Smallest / largest item, with the same <code>key</code> trick as <code>sorted</code>.",
       returns: "item",
       params: [
@@ -139,6 +146,7 @@ window.PYTHON_CHEAT = {
     {
       id: "map", group: "Built-ins", name: "map",
       signature: "map(func, *iterables)",
+      use: "Applies a function to every item and gives back the results. A compact alternative to a loop for transforming data.",
       summary: "Apply a function to every item lazily. Often a comprehension reads clearer.",
       returns: "iterator",
       params: [
@@ -152,6 +160,7 @@ window.PYTHON_CHEAT = {
     {
       id: "filter", group: "Built-ins", name: "filter",
       signature: "filter(func, iterable)",
+      use: "Keeps only the items for which a test returns true. The functional way to drop items you do not want.",
       summary: "Keep items where <code>func(item)</code> is truthy. A comprehension is usually clearer.",
       returns: "iterator",
       params: [
@@ -165,6 +174,7 @@ window.PYTHON_CHEAT = {
     {
       id: "any-all", group: "Built-ins", name: "any / all",
       signature: "any(iterable) | all(iterable)",
+      use: "Checks a bunch of conditions at once — <code>any</code> is true if at least one holds, <code>all</code> if every one does. Clean validation in one line.",
       summary: "<code>any</code>: is at least one truthy? <code>all</code>: are they all truthy? Both <b>short-circuit</b>.",
       returns: "bool",
       params: [
@@ -177,6 +187,7 @@ window.PYTHON_CHEAT = {
     {
       id: "reversed", group: "Built-ins", name: "reversed",
       signature: "reversed(seq)",
+      use: "Iterates a sequence from back to front without copying it. Handy for walking a list in reverse.",
       summary: "Iterate a sequence back-to-front without copying.",
       returns: "iterator",
       params: [
@@ -189,6 +200,7 @@ window.PYTHON_CHEAT = {
     {
       id: "abs-round", group: "Built-ins", name: "abs / round",
       signature: "abs(x) | round(x, ndigits=None)",
+      use: "Gets the absolute value or rounds a number to set decimals. Everyday math helpers for cleaning up values.",
       summary: "Magnitude, and rounding to N decimals (banker's rounding).",
       returns: "number",
       params: [
@@ -202,6 +214,7 @@ window.PYTHON_CHEAT = {
     {
       id: "divmod", group: "Built-ins", name: "divmod",
       signature: "divmod(a, b)",
+      use: "Returns the quotient and remainder of a division together. Handy for digit problems and converting totals into units.",
       summary: "Quotient and remainder in one call — handy for digit / grid math.",
       returns: "(quotient, remainder)",
       params: [
@@ -215,6 +228,7 @@ window.PYTHON_CHEAT = {
     {
       id: "isinstance", group: "Built-ins", name: "isinstance",
       signature: "isinstance(obj, class_or_tuple)",
+      use: "Checks whether a value is of a given type. Used for input validation and handling mixed-type data safely.",
       summary: "Runtime type check that respects inheritance.",
       returns: "bool",
       params: [
@@ -230,6 +244,7 @@ window.PYTHON_CHEAT = {
     {
       id: "slicing", group: "Sequences & Slicing", name: "slice",
       signature: "seq[start:stop:step]",
+      use: "Grabs part of a list or string with <code>start:stop:step</code>. One of Python's most-used tricks — reversing, chunking, copying.",
       summary: "Extract a subsequence (a <b>copy</b> for lists/strings). All parts optional.",
       returns: "same type as seq",
       params: [
@@ -244,6 +259,7 @@ window.PYTHON_CHEAT = {
     {
       id: "list-comp", group: "Sequences & Slicing", name: "list / set / dict comprehension",
       signature: "[expr for x in it if cond]",
+      use: "Builds a list, set, or dict in one readable line from a loop. The Pythonic replacement for build-up-with-append loops.",
       summary: "Build a collection in one pass — the Pythonic map+filter. Nest for grids.",
       returns: "list / set / dict",
       params: [
@@ -258,6 +274,7 @@ window.PYTHON_CHEAT = {
     {
       id: "list-append-pop", group: "Sequences & Slicing", name: "list.append / pop",
       signature: "a.append(x) | a.pop(i=-1)",
+      use: "Adds an item to the end of a list or removes one from it. The basic moves for using a list as a stack.",
       summary: "Amortized-O(1) push/pop at the end — a list is your default stack.",
       returns: "None / popped item",
       params: [
@@ -271,6 +288,7 @@ window.PYTHON_CHEAT = {
     {
       id: "list-sort", group: "Sequences & Slicing", name: "list.sort",
       signature: "a.sort(key=None, reverse=False)",
+      use: "Sorts a list in place (changes the original), with a custom <code>key</code>. Use when you do not need to keep the old order.",
       summary: "Sort a list <b>in place</b> (returns <code>None</code>). Same <code>key</code>/<code>reverse</code> as <code>sorted</code>.",
       returns: "None",
       params: [
@@ -284,6 +302,7 @@ window.PYTHON_CHEAT = {
     {
       id: "list-insert-remove", group: "Sequences & Slicing", name: "list.insert / remove",
       signature: "a.insert(i, x) | a.remove(x)",
+      use: "Inserts an item at a position or removes the first matching value. Handy for editing a list in the middle.",
       summary: "Insert at an index / delete the first matching value — both O(n).",
       returns: "None",
       params: [
@@ -297,6 +316,7 @@ window.PYTHON_CHEAT = {
     {
       id: "list-index-count", group: "Sequences & Slicing", name: "list.index / count",
       signature: "a.index(x[, start]) | a.count(x)",
+      use: "Finds where a value sits in a list or counts how often it appears. Quick lookups without a manual loop.",
       summary: "First position of a value / how many times it occurs. Both O(n).",
       returns: "int",
       params: [
@@ -310,6 +330,7 @@ window.PYTHON_CHEAT = {
     {
       id: "list-extend", group: "Sequences & Slicing", name: "list.extend / +=",
       signature: "a.extend(iterable)",
+      use: "Appends all items from another iterable onto a list. The clean way to merge one list into another.",
       summary: "Append every item of another iterable (in place). Unlike <code>append</code>, which adds one item.",
       returns: "None",
       params: [
@@ -322,6 +343,7 @@ window.PYTHON_CHEAT = {
     {
       id: "unpacking", group: "Sequences & Slicing", name: "unpacking / star",
       signature: "a, *rest = seq   |   f(*args, **kw)",
+      use: "Splits a sequence into variables, and <code>*</code> grabs the rest. Great for swapping, peeling off head/tail, and flexible function args.",
       summary: "Destructure sequences and splat iterables into calls / literals.",
       returns: "—",
       params: [
@@ -337,6 +359,7 @@ window.PYTHON_CHEAT = {
     {
       id: "dict-comp", group: "Dicts & Sets", name: "dict comprehension",
       signature: "{k: v for x in it}",
+      use: "Builds a dictionary in one line from a loop. The Pythonic way to turn pairs of data into a lookup table.",
       summary: "Build a dict in one pass — inversion, indexing, grouping keys.",
       returns: "dict",
       params: [
@@ -350,6 +373,7 @@ window.PYTHON_CHEAT = {
     {
       id: "dict-get", group: "Dicts & Sets", name: "dict.get",
       signature: "d.get(key, default=None)",
+      use: "Looks up a key but returns a default instead of crashing when it is missing. Avoids messy key-exists checks.",
       summary: "Read a key with a fallback instead of a <code>KeyError</code> — the safe lookup.",
       returns: "value or default",
       params: [
@@ -363,6 +387,7 @@ window.PYTHON_CHEAT = {
     {
       id: "dict-items", group: "Dicts & Sets", name: "dict.items / keys / values",
       signature: "d.items() | d.keys() | d.values()",
+      use: "Loops over a dictionary's keys, values, or key-value pairs. The standard way to iterate a dict.",
       summary: "Live <b>views</b> for iterating a dict; <code>items()</code> gives (key, value) pairs.",
       returns: "view object",
       params: [
@@ -375,6 +400,7 @@ window.PYTHON_CHEAT = {
     {
       id: "dict-setdefault", group: "Dicts & Sets", name: "dict.setdefault",
       signature: "d.setdefault(key, default)",
+      use: "Gets a key's value, inserting a default first if it is not there. A one-liner for grouping items into lists.",
       summary: "Get <code>key</code>, inserting <code>default</code> first if it's missing — one-liner grouping.",
       returns: "value at key",
       params: [
@@ -388,6 +414,7 @@ window.PYTHON_CHEAT = {
     {
       id: "dict-update", group: "Dicts & Sets", name: "dict.update / merge",
       signature: "d.update(other) | d | other",
+      use: "Merges another dictionary's entries into this one. Used to combine config or override defaults.",
       summary: "Bulk-set keys from another dict/pairs; right side wins on conflicts.",
       returns: "None / dict",
       params: [
@@ -400,6 +427,7 @@ window.PYTHON_CHEAT = {
     {
       id: "set-ops", group: "Dicts & Sets", name: "set operations",
       signature: "a & b | a | b | a - b | a ^ b",
+      use: "Combine sets with union, intersection, difference, and symmetric difference. The fast way to compare two groups of items.",
       summary: "O(1) membership plus fast intersection / union / difference / symmetric-diff.",
       returns: "set / bool",
       params: [
@@ -412,6 +440,7 @@ window.PYTHON_CHEAT = {
     {
       id: "set-add", group: "Dicts & Sets", name: "set.add / discard",
       signature: "s.add(x) | s.discard(x) | s.remove(x)",
+      use: "Adds or removes a single item from a set. Core moves for tracking seen items and removing duplicates.",
       summary: "Insert / delete a single element. <code>discard</code> is the no-error remove.",
       returns: "None",
       params: [
@@ -426,6 +455,7 @@ window.PYTHON_CHEAT = {
     {
       id: "Counter", group: "collections", name: "Counter",
       signature: "Counter(iterable_or_mapping)",
+      use: "Counts how many times each item appears, all at once. The instant answer to most-frequent and tally problems.",
       summary: "A dict subclass that <b>tallies</b> hashables — frequencies in one line.",
       returns: "Counter",
       params: [
@@ -438,6 +468,7 @@ window.PYTHON_CHEAT = {
     {
       id: "defaultdict", group: "collections", name: "defaultdict",
       signature: "defaultdict(default_factory)",
+      use: "A dict that auto-creates a starting value for missing keys. Removes the boilerplate when grouping or counting.",
       summary: "A dict that auto-creates a value on first access — no <code>get</code>/<code>setdefault</code> boilerplate.",
       returns: "defaultdict",
       params: [
@@ -450,6 +481,7 @@ window.PYTHON_CHEAT = {
     {
       id: "deque", group: "collections", name: "deque",
       signature: "deque(iterable, maxlen=None)",
+      use: "A list-like container that is fast to add to or pop from both ends. The right choice for queues and sliding windows.",
       summary: "Double-ended queue with O(1) push/pop at <b>both</b> ends — the BFS queue & sliding window.",
       returns: "deque",
       params: [
@@ -463,6 +495,7 @@ window.PYTHON_CHEAT = {
     {
       id: "namedtuple", group: "collections", name: "namedtuple",
       signature: "namedtuple('Name', ['a', 'b'])",
+      use: "A lightweight record with named fields instead of positions. Makes tuple data readable without a full class.",
       summary: "A lightweight immutable record with named fields — readable coordinates/nodes.",
       returns: "tuple subclass",
       params: [
@@ -478,6 +511,7 @@ window.PYTHON_CHEAT = {
     {
       id: "heappush", group: "heapq & bisect", name: "heapq.heappush",
       signature: "heapq.heappush(heap, item)",
+      use: "Adds an item to a min-heap, keeping the smallest easy to reach. Part of building a priority queue.",
       summary: "Push onto a <b>min-heap</b> (a plain list) in O(log n). Smallest stays at <code>heap[0]</code>.",
       returns: "None",
       params: [
@@ -491,6 +525,7 @@ window.PYTHON_CHEAT = {
     {
       id: "heappop", group: "heapq & bisect", name: "heapq.heappop",
       signature: "heapq.heappop(heap)",
+      use: "Removes and returns the smallest item from a heap. The pop side of a priority queue.",
       summary: "Pop and return the smallest item in O(log n).",
       returns: "smallest item",
       params: [
@@ -503,6 +538,7 @@ window.PYTHON_CHEAT = {
     {
       id: "heapify", group: "heapq & bisect", name: "heapq.heapify",
       signature: "heapq.heapify(list)",
+      use: "Turns an existing list into a heap in place, cheaply. The quick setup step before heap operations.",
       summary: "Rearrange an existing list into a heap <b>in place</b> in O(n) — faster than n pushes.",
       returns: "None",
       params: [
@@ -515,6 +551,7 @@ window.PYTHON_CHEAT = {
     {
       id: "heap-nlargest", group: "heapq & bisect", name: "heapq.nlargest / nsmallest",
       signature: "heapq.nlargest(k, it, key=None)",
+      use: "Grabs the k largest or smallest items from data efficiently. The clean answer to top-k problems.",
       summary: "Top-k / bottom-k without a full sort — O(n log k). Beats <code>sorted(...)[:k]</code> for small k.",
       returns: "list (sorted)",
       params: [
@@ -529,6 +566,7 @@ window.PYTHON_CHEAT = {
     {
       id: "heap-pushpop", group: "heapq & bisect", name: "heapq.heappushpop / heapreplace",
       signature: "heapq.heappushpop(h, x)",
+      use: "Pushes then pops (or the reverse) in one efficient step. Handy for maintaining a fixed-size top-k heap.",
       summary: "Push then pop (or pop then push) in a single O(log n) op — the fixed-size top-k trick.",
       returns: "popped item",
       params: [
@@ -542,6 +580,7 @@ window.PYTHON_CHEAT = {
     {
       id: "bisect", group: "heapq & bisect", name: "bisect_left / bisect_right",
       signature: "bisect.bisect_left(a, x)",
+      use: "Finds where a value belongs in a sorted list using binary search. Fast lookups and range counts without re-sorting.",
       summary: "Binary-search the insertion index in a <b>sorted</b> list — O(log n). No manual lo/hi.",
       returns: "int index",
       params: [
@@ -556,6 +595,7 @@ window.PYTHON_CHEAT = {
     {
       id: "insort", group: "heapq & bisect", name: "bisect.insort",
       signature: "bisect.insort(a, x)",
+      use: "Inserts a value into a sorted list while keeping it sorted. Maintains order as you add items one by one.",
       summary: "Insert <code>x</code> keeping the list sorted — the search is O(log n), the shift O(n).",
       returns: "None",
       params: [
@@ -571,6 +611,7 @@ window.PYTHON_CHEAT = {
     {
       id: "accumulate", group: "itertools", name: "itertools.accumulate",
       signature: "accumulate(it, func=add, initial=None)",
+      use: "Produces running totals (or any running combination) across a list. The quick way to build prefix sums.",
       summary: "Running totals (prefix sums) — or any running fold with a custom function.",
       returns: "iterator",
       params: [
@@ -585,6 +626,7 @@ window.PYTHON_CHEAT = {
     {
       id: "combinations", group: "itertools", name: "itertools.combinations",
       signature: "combinations(iterable, r)",
+      use: "Lists every way to choose r items where order does not matter. A staple of subset and pairing problems.",
       summary: "All unordered <code>r</code>-length selections (no repeats, order ignored).",
       returns: "iterator of tuples",
       params: [
@@ -598,6 +640,7 @@ window.PYTHON_CHEAT = {
     {
       id: "permutations", group: "itertools", name: "itertools.permutations",
       signature: "permutations(iterable, r=None)",
+      use: "Lists every ordering of items where order does matter. Used for arrangement and brute-force search problems.",
       summary: "All ordered arrangements of length <code>r</code> (default: full length).",
       returns: "iterator of tuples",
       params: [
@@ -611,6 +654,7 @@ window.PYTHON_CHEAT = {
     {
       id: "product", group: "itertools", name: "itertools.product",
       signature: "product(*iterables, repeat=1)",
+      use: "Builds every combination across several lists (the nested-loop result). Great for grids and option matrices.",
       summary: "Cartesian product — flattens nested loops into one, incl. grid neighbors.",
       returns: "iterator of tuples",
       params: [
@@ -624,6 +668,7 @@ window.PYTHON_CHEAT = {
     {
       id: "groupby-it", group: "itertools", name: "itertools.groupby",
       signature: "groupby(iterable, key=None)",
+      use: "Groups adjacent equal items in a sequence. Note it only groups runs, so sort first if you want full groups.",
       summary: "Group <b>consecutive</b> equal-key runs — run-length encoding, streaks.",
       returns: "iterator of (key, group)",
       params: [
@@ -637,6 +682,7 @@ window.PYTHON_CHEAT = {
     {
       id: "chain", group: "itertools", name: "itertools.chain",
       signature: "chain(*iterables) | chain.from_iterable(it)",
+      use: "Treats several iterables as one long sequence without copying. The clean way to loop over many lists in a row.",
       summary: "Concatenate iterables lazily / flatten one level of nesting.",
       returns: "iterator",
       params: [
@@ -650,6 +696,7 @@ window.PYTHON_CHEAT = {
     {
       id: "pairwise", group: "itertools", name: "itertools.pairwise",
       signature: "pairwise(iterable)",
+      use: "Yields each item paired with the next one. Perfect for comparing neighbors or computing differences.",
       summary: "Yield overlapping adjacent pairs — perfect for diffs / consecutive checks (3.10+).",
       returns: "iterator of pairs",
       params: [
@@ -662,6 +709,7 @@ window.PYTHON_CHEAT = {
     {
       id: "count-it", group: "itertools", name: "itertools.count / cycle / repeat",
       signature: "count(start=0, step=1)",
+      use: "Endless counters and repeaters (<code>count</code>, <code>cycle</code>, <code>repeat</code>). Handy for numbering or round-robin logic.",
       summary: "Infinite counters and cyclers — pair with <code>zip</code>/<code>islice</code> to bound them.",
       returns: "iterator",
       params: [
@@ -678,6 +726,7 @@ window.PYTHON_CHEAT = {
     {
       id: "fstring", group: "Strings", name: "f-string",
       signature: "f'{value!r:>10.2f}'",
+      use: "Embeds values straight into a string with formatting. The modern, readable way to build text and debug output.",
       summary: "Inline expression formatting — width, precision, alignment, and debug <code>=</code>.",
       returns: "str",
       params: [
@@ -691,6 +740,7 @@ window.PYTHON_CHEAT = {
     {
       id: "str-join", group: "Strings", name: "str.join",
       signature: "sep.join(iterable_of_str)",
+      use: "Glues a list of strings together with a separator. The right way to build CSV lines or sentences from parts.",
       summary: "Concatenate strings with a separator — the <b>right</b> way to build a string (O(n)).",
       returns: "str",
       params: [
@@ -703,6 +753,7 @@ window.PYTHON_CHEAT = {
     {
       id: "str-split", group: "Strings", name: "str.split / rsplit / splitlines",
       signature: "s.split(sep=None, maxsplit=-1)",
+      use: "Breaks a string into a list on spaces or a delimiter. The first step in most text-parsing tasks.",
       summary: "Break a string into a list. Default splits on <b>any run of whitespace</b> and trims ends.",
       returns: "list[str]",
       params: [
@@ -716,6 +767,7 @@ window.PYTHON_CHEAT = {
     {
       id: "str-replace", group: "Strings", name: "str.replace / translate",
       signature: "s.replace(old, new, count=-1)",
+      use: "Swaps out all copies of some text for another. Everyday string cleanup and find-and-replace.",
       summary: "Return a copy with substrings swapped (strings are immutable).",
       returns: "str",
       params: [
@@ -729,6 +781,7 @@ window.PYTHON_CHEAT = {
     {
       id: "str-strip", group: "Strings", name: "str.strip / lstrip / rstrip",
       signature: "s.strip(chars=None)",
+      use: "Trims unwanted characters (usually whitespace) off the ends of a string. Essential for cleaning user or file input.",
       summary: "Trim leading/trailing whitespace — or any set of characters.",
       returns: "str",
       params: [
@@ -741,6 +794,7 @@ window.PYTHON_CHEAT = {
     {
       id: "str-find", group: "Strings", name: "str.find / index",
       signature: "s.find(sub) | s.index(sub)",
+      use: "Locates where a substring appears in a string. Used to check for or jump to a piece of text.",
       summary: "Locate a substring. <code>find</code> returns <code>-1</code> if absent; <code>index</code> raises.",
       returns: "int",
       params: [
@@ -754,6 +808,7 @@ window.PYTHON_CHEAT = {
     {
       id: "str-case", group: "Strings", name: "str.upper / lower / title / swapcase",
       signature: "s.lower() | s.upper() | s.title()",
+      use: "Changes text to upper, lower, or title case. Key for normalizing text before comparing or grouping.",
       summary: "Case transforms — normalize before comparing case-insensitively.",
       returns: "str",
       params: [
@@ -766,6 +821,7 @@ window.PYTHON_CHEAT = {
     {
       id: "str-isx", group: "Strings", name: "str.isdigit / isalpha / isalnum",
       signature: "s.isdigit() | s.isalpha() | s.isalnum()",
+      use: "Tests what a string contains — all digits, all letters, alphanumeric. Handy for quick input validation.",
       summary: "Character-class tests — validate tokens, filter input.",
       returns: "bool",
       params: [
@@ -778,6 +834,7 @@ window.PYTHON_CHEAT = {
     {
       id: "str-count", group: "Strings", name: "str.count",
       signature: "s.count(sub[, start[, end]])",
+      use: "Counts how many times a substring appears in a string. A fast tally without a manual loop.",
       summary: "Count non-overlapping occurrences of a substring.",
       returns: "int",
       params: [
@@ -791,6 +848,7 @@ window.PYTHON_CHEAT = {
     {
       id: "str-startswith", group: "Strings", name: "str.startswith / endswith",
       signature: "s.startswith(prefix) | s.endswith(suffix)",
+      use: "Checks whether a string begins or ends with given text. Common for filtering filenames and prefixes.",
       summary: "Prefix/suffix test; accepts a <b>tuple</b> to match any of several.",
       returns: "bool",
       params: [
@@ -803,6 +861,7 @@ window.PYTHON_CHEAT = {
     {
       id: "str-pad", group: "Strings", name: "str.zfill / ljust / rjust / center",
       signature: "s.zfill(w) | s.rjust(w, fill)",
+      use: "Pads a string to a width with zeros or spaces, left/right/center. Used for lining up output and zero-padding ids.",
       summary: "Pad a string to a width — zero-pad numbers or align columns.",
       returns: "str",
       params: [
@@ -816,6 +875,7 @@ window.PYTHON_CHEAT = {
     {
       id: "ord-chr", group: "Strings", name: "ord / chr",
       signature: "ord(char) | chr(codepoint)",
+      use: "Converts between a character and its number code. The trick behind alphabet math and simple ciphers.",
       summary: "Char ↔ code point — alphabet indexing and char arithmetic.",
       returns: "int / str",
       params: [
@@ -831,6 +891,7 @@ window.PYTHON_CHEAT = {
     {
       id: "lru-cache", group: "functools & math", name: "functools.lru_cache / cache",
       signature: "@lru_cache(maxsize=None)",
+      use: "Remembers a function's past results so repeat calls are instant. A one-line speed-up for recursion and expensive lookups.",
       summary: "Memoize a function by its args — turns exponential recursion into linear DP.",
       returns: "decorator",
       params: [
@@ -843,6 +904,7 @@ window.PYTHON_CHEAT = {
     {
       id: "reduce", group: "functools & math", name: "functools.reduce",
       signature: "reduce(func, iterable[, initializer])",
+      use: "Boils an iterable down to a single value by combining items step by step. Used for custom running combinations.",
       summary: "Fold an iterable to a single value with a binary function.",
       returns: "value",
       params: [
@@ -857,6 +919,7 @@ window.PYTHON_CHEAT = {
     {
       id: "cmp-to-key", group: "functools & math", name: "functools.cmp_to_key",
       signature: "sorted(it, key=cmp_to_key(cmp))",
+      use: "Turns an old-style compare function into a sort key. Needed when ordering depends on comparing two items directly.",
       summary: "Sort by a pairwise comparator when no simple key exists (e.g. custom orderings).",
       returns: "key function",
       params: [
@@ -869,6 +932,7 @@ window.PYTHON_CHEAT = {
     {
       id: "math-gcd", group: "functools & math", name: "math.gcd / lcm / prod / isqrt",
       signature: "math.gcd(*ints) | math.isqrt(n)",
+      use: "Handy number helpers — greatest common divisor, least common multiple, integer square root. Common in math puzzles.",
       summary: "Number-theory helpers: gcd/lcm, integer product, exact integer sqrt.",
       returns: "int",
       params: [
@@ -883,6 +947,7 @@ window.PYTHON_CHEAT = {
     {
       id: "math-inf", group: "functools & math", name: "float('inf') / -inf",
       signature: "float('inf') | math.inf",
+      use: "Represents positive or negative infinity. Perfect starting values when searching for a minimum or maximum.",
       summary: "Sentinel infinities — safe initial values for min/max scans.",
       returns: "float",
       params: [
@@ -895,6 +960,7 @@ window.PYTHON_CHEAT = {
     {
       id: "pow-mod", group: "functools & math", name: "pow (modular)",
       signature: "pow(base, exp, mod)",
+      use: "Raises a number to a power, with an optional modulus done efficiently. Key for big-exponent and cryptography-style math.",
       summary: "Fast modular exponentiation — <code>(base**exp) % mod</code> without huge intermediates.",
       returns: "int",
       params: [

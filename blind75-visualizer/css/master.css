@@ -619,6 +619,25 @@ body.sidebar-open .ham i:nth-child(3) { top: 6px; transform: rotate(-45deg); }
 .cht-xall-btn:hover { color: var(--text); border-color: var(--brand); }
 @media (pointer: coarse) { .cht-xall-btn { min-height: 32px; } }
 
+/* edit-notes / export control (sits in the search row) */
+.cht-notes-tools { display: inline-flex; gap: 4px; }
+.cht-edit-btn { background: var(--bg-2); border: 1px solid var(--border); color: var(--muted); font-size: 11.5px;
+  font-weight: 700; font-family: inherit; padding: 6px 11px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+.cht-edit-btn:hover { color: var(--text); border-color: var(--brand); }
+.cht-edit-btn.active { color: #06111f; background: var(--brand); border-color: var(--brand); }
+@media (pointer: coarse) { .cht-edit-btn { min-height: 32px; } }
+
+/* inline-editable note (Edit mode on): show an obvious editable box */
+.cht-editing .cht-use { cursor: text; }
+.cht-use-editable { -webkit-line-clamp: unset; display: block; white-space: normal;
+  border: 1px dashed var(--border); border-radius: 6px; padding: 4px 8px; background: var(--bg-2); }
+.cht-use-editable:hover { border-color: var(--brand); }
+.cht-use-editable:focus { outline: none; border: 1px solid var(--brand); background: var(--bg-1);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand) 30%, transparent); }
+.cht-editing .cht-use-editable:empty::before { content: "add a note…"; color: var(--muted); }
+/* a note the user has customised gets a subtle marker */
+.cht-use-edited { box-shadow: inset 2px 0 0 var(--brand); padding-left: 8px; }
+
 /* ---- sub-section dividers within a group (e.g. the Regex chip) ------------- */
 .cht-subdiv { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .7px;
   color: var(--brand-2); margin: 18px 0 10px; padding: 8px 12px;

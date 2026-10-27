@@ -23,7 +23,30 @@
   function makeCheatsheet(cfg) {
     var LANG = cfg.lang || "python";
     var COLLAPSIBLE = !!cfg.collapsible;   // cards collapse to just their signature
-    var overlay = null, bodyEl = null, searchEl = null, active = "all", query = "", sortMode = "used";
+    var overlay = null, bodyEl = null, searchEl = null, active = "all", query = "", sortMode = "used", editMode = false;
+
+    // ---- editable notes: the per-function "use" line is user-editable in the UI.
+    // Edits are saved to localStorage (namespaced per panel) and override the
+    // shipped default; Export downloads them as JSON so they can be merged back.
+    var USE_NS = "cheatuse:" + cfg.overlayId + ":";
+    function useOverride(id) { try { return localStorage.getItem(USE_NS + id); } catch (e) { return null; } }
+    function setUseOverride(id, html) { try { localStorage.setItem(USE_NS + id, html); } catch (e) {} }
+    function clearUseOverride(id) { try { localStorage.removeItem(USE_NS + id); } catch (e) {} }
+    function allOverrides() {
+      var o = {};
+      try { for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf(USE_NS) === 0) o[k.slice(USE_NS.length)] = localStorage.getItem(k); } } catch (e) {}
+      return o;
+    }
+    function exportNotes() {
+      var data = allOverrides();
+      var n = Object.keys(data).length;
+      if (!n) { alert("No edited notes yet. Turn on “✎ Edit notes”, click a note to change it, then Export."); return; }
+      var blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url; a.download = cfg.overlayId + "-notes.json"; document.body.appendChild(a); a.click();
+      document.body.removeChild(a); setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    }
 
     // The cheatsheet dataset is shipped in a LAZY dataloader group (spark /
     // pylearn / sql), so window[cfg.dataKey] is NOT defined when this file is
@@ -99,6 +122,13 @@
       c.className = "cht-card" + (isEssential(fn) ? " cht-essential" : "") +
         (COLLAPSIBLE ? " cht-collapsible" : "") + (collapsed ? " collapsed" : "");
 
+      // The one-line "what it's for" note: a user edit (saved in localStorage)
+      // wins over the shipped default. Shown even while a card is collapsed, and
+      // made inline-editable when Edit mode is on. See useOverride()/editMode.
+      var ov = useOverride(fn.id);
+      var useHtml = ov != null ? ov : (fn.use || "");
+      var showUse = !!(useHtml || editMode);
+
       var head = document.createElement("div");
       head.className = "cht-head";
       head.innerHTML =
@@ -109,12 +139,37 @@
         "</span>" +
         // One-line plain-English "what it's for / where it's used" — sits in the
         // middle of the head so it shows even while the card is collapsed.
-        (fn.use ? '<span class="cht-use" title="' + esc(fn.use) + '">' + fn.use + "</span>" : "") +
+        (showUse ? '<span class="cht-use' + (ov != null ? " cht-use-edited" : "") + '" data-fnid="' + esc(fn.id) + '">' + useHtml + "</span>" : "") +
         '<span class="cht-head-r">' +
           (showPill && fn.group ? '<span class="cht-group-pill">' + esc(fn.group) + "</span>" : "") +
           (fn.returns ? '<span class="cht-ret">→ ' + esc(fn.returns) + "</span>" : "") +
         "</span>";
       c.appendChild(head);
+
+      // In Edit mode, make the note directly editable in place. Edits persist to
+      // localStorage (per panel, per function id) and override the default.
+      if (editMode) {
+        var u = head.querySelector(".cht-use");
+        if (u) {
+          u.setAttribute("contenteditable", "true");
+          u.setAttribute("spellcheck", "false");
+          u.classList.add("cht-use-editable");
+          // Don't let a click in the note toggle the collapsible card.
+          u.addEventListener("mousedown", function (e) { e.stopPropagation(); });
+          u.addEventListener("click", function (e) { e.stopPropagation(); });
+          u.addEventListener("keydown", function (e) {
+            e.stopPropagation();
+            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); u.blur(); }
+            else if (e.key === "Escape") { e.preventDefault(); u.innerHTML = (useOverride(fn.id) != null ? useOverride(fn.id) : (fn.use || "")); u.blur(); }
+          });
+          u.addEventListener("blur", function () {
+            var html = u.innerHTML.trim();
+            var def = fn.use || "";
+            if (html === "" || html === def) { clearUseOverride(fn.id); u.classList.remove("cht-use-edited"); if (html === "") u.innerHTML = def; }
+            else { setUseOverride(fn.id, html); u.classList.add("cht-use-edited"); }
+          });
+        }
+      }
 
       // In collapsible mode everything below the head lives in a togglable body.
       var body = COLLAPSIBLE ? document.createElement("div") : c;
@@ -291,6 +346,10 @@
         '      <button class="cht-xall-btn" data-x="open" title="Expand every function">Expand all</button>' +
         '      <button class="cht-xall-btn" data-x="close" title="Collapse to just names">Collapse all</button>' +
         '    </div>' : "") +
+        '    <div class="cht-notes-tools" role="group" aria-label="Edit the one-line notes">' +
+        '      <button class="cht-edit-btn" data-edit="toggle" title="Edit the one-line notes in place; your edits are saved in this browser">✎ Edit notes</button>' +
+        '      <button class="cht-edit-btn" data-edit="export" title="Download your edited notes as a JSON file">⬇ Export</button>' +
+        '    </div>' +
         '  </div>' +
         '  <div class="ros-filter"></div>' +
         '  <div class="ros-body"></div>' +
@@ -306,6 +365,17 @@
           sortMode = b.getAttribute("data-sort");
           overlay.querySelectorAll(".cht-sort-btn").forEach(function (c) { c.classList.toggle("active", c === b); });
           saveSort();
+          render();
+        });
+      });
+      overlay.querySelectorAll(".cht-edit-btn").forEach(function (b) {
+        b.addEventListener("click", function () {
+          var a = b.getAttribute("data-edit");
+          if (a === "export") { exportNotes(); return; }
+          // toggle edit mode: re-render so every note becomes (un)editable
+          editMode = !editMode;
+          b.classList.toggle("active", editMode);
+          overlay.classList.toggle("cht-editing", editMode);
           render();
         });
       });
