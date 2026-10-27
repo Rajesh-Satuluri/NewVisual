@@ -1664,6 +1664,7 @@ window.PYSPARK_CHEAT = {
       group: "Dates",
       name: "F.to_date",
       signature: "F.to_date(col, format=None)",
+      use: "Turns text dates like <code>\"2024-01-31\"</code> into real date values you can sort, filter and do date math on. Used constantly when raw files load dates as plain strings.",
       summary: "Parse a string (or truncate a timestamp) into a <code>date</code>.",
       returns: "Column (date)",
       params: [

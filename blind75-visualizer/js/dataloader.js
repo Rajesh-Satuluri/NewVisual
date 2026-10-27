@@ -77,7 +77,7 @@
       "data/pyspark/schema_drift_dq.js",
       "data/pyspark/perf_oom_diagnosis.js",
       "data/pyspark/interview_qa.js",
-      "data/spark/cheatsheet.js"
+      "data/spark/cheatsheet.js?v=20261027use"
     ],
     sparklearn: [
       "data/pyspark/concepts_foundations.js",

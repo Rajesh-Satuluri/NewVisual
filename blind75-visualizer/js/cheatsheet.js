@@ -107,6 +107,9 @@
           (isEssential(fn) ? '<span class="cht-star" title="Essential — one of the most-used; learn these first">★</span>' : "") +
           '<code class="cht-sig">' + esc(fn.signature || fn.name) + "</code>" +
         "</span>" +
+        // One-line plain-English "what it's for / where it's used" — sits in the
+        // middle of the head so it shows even while the card is collapsed.
+        (fn.use ? '<span class="cht-use" title="' + esc(fn.use) + '">' + fn.use + "</span>" : "") +
         '<span class="cht-head-r">' +
           (showPill && fn.group ? '<span class="cht-group-pill">' + esc(fn.group) + "</span>" : "") +
           (fn.returns ? '<span class="cht-ret">→ ' + esc(fn.returns) + "</span>" : "") +
