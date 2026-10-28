@@ -3,7 +3,7 @@
 // Registered as the #search PAGE.
 import { buildStaticIndex, loadFullIndex, rankMatches } from '../data/search-index.js';
 
-const TYPES = ['All', 'Module', 'Glossary', 'Config', 'Advanced', 'Decision', 'Incident', 'Interview', 'Interview Q'];
+const TYPES = ['All', 'Module', 'Glossary', 'Config', 'Advanced', 'Decision', 'Incident', 'Coding', 'Interview', 'Interview Q'];
 
 // Read ?q= from the hash (e.g. #search?q=rebalance), set by the command palette.
 function initialQuery() {

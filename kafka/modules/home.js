@@ -201,6 +201,13 @@ export function mount(container) {
             <span class="home-card-desc">The same question answered Weak / Good / Senior — and why the senior version wins.</span>
           </span>
         </a>
+        <a href="#coding" class="home-card">
+          <span class="home-card-icon">💻</span>
+          <span class="home-card-text">
+            <span class="home-card-title">Coding Dojo</span>
+            <span class="home-card-desc">Python coding problems on streams of events — dedup, aggregation, ordering, producers — each with a reference solution and its Kafka-pipeline follow-up.</span>
+          </span>
+        </a>
         <a href="#dashboard" class="home-card">
           <span class="home-card-icon">📊</span>
           <span class="home-card-text">

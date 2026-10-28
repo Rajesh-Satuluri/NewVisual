@@ -49,6 +49,7 @@ const PRACTICE = [
   { id:'decisions',    label:'Choose the Approach', icon:'🧭' },
   { id:'troubleshoot', label:'Troubleshooting Lab', icon:'🔍' },
   { id:'answers',      label:'Level Up Your Answer', icon:'🎯' },
+  { id:'coding',       label:'Coding Dojo',          icon:'💻' },
 ];
 const REVIEW = [
   { id:'dashboard', label:'Dashboard',    icon:'📊' },
