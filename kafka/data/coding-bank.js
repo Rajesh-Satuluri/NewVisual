@@ -738,6 +738,229 @@ def windowed_dedup(events, window=600):
     complexity: 'O(n) amortized; O(w) space bounded by ids within the window.',
     kafkaFollowup: `<strong>"Manage memory, event-time vs processing-time expiry, and restart recovery?"</strong> Use a windowed state store (Kafka Streams <code>Windowed</code> / Flink keyed state) with a <strong>retention = window</strong> so old keys are compacted/evicted automatically and memory stays bounded. Expire on <strong>event time</strong> (the embedded timestamp) so results are reproducible on replay, not wall-clock. Fault tolerance comes from the store's changelog topic: on restart, state is restored from it, so the dedup window survives crashes rather than resetting.`,
   },
+
+  // ── Level 4 — Production-oriented challenges ──────────────────────────────
+  {
+    id: 'c16',
+    title: 'Database-to-Kafka change publisher',
+    level: 4,
+    category: 'Reconciliation',
+    difficulty: 'hard',
+    tags: ['cdc', 'watermark', 'cursor', 'at-least-once'],
+    prompt: `Write a publisher that reads rows changed since a stored <strong>watermark</strong> and publishes them to Kafka. It must keep a durable watermark, survive restarts without skipping changes, and handle multiple rows sharing the same <code>updated_at</code>.`,
+    example: {
+      input: `# table 'orders' with an updated_at column;
+# watermark persisted between runs`,
+      output: `# every changed row published exactly once forward progress,
+# no row skipped across a restart`,
+    },
+    starter: `def publish_changes(db, producer, load_watermark, save_watermark):
+    ...`,
+    hints: [
+      'A timestamp-only watermark loses rows that share the same updated_at as the last one you saw.',
+      'Use a compound cursor (updated_at, id) and fetch strictly greater than it.',
+      'Save the watermark only after the batch is acknowledged by Kafka — publish-then-advance.',
+    ],
+    solution: {
+      code: `def publish_changes(db, producer, load_watermark, save_watermark, batch=1000):
+    # Watermark is a compound cursor: (updated_at, id). Start low.
+    last_ts, last_id = load_watermark() or ("1970-01-01", 0)
+
+    while True:
+        rows = db.query(
+            """
+            SELECT id, updated_at, payload
+            FROM orders
+            WHERE (updated_at, id) > (%s, %s)   -- strictly after the cursor
+            ORDER BY updated_at, id
+            LIMIT %s
+            """,
+            (last_ts, last_id, batch),
+        )
+        if not rows:
+            break
+
+        for r in rows:
+            producer.produce("orders.cdc",
+                             key=str(r["id"]).encode(),
+                             value=serialize(r))
+        producer.flush()              # ensure delivery BEFORE advancing
+
+        last_ts, last_id = rows[-1]["updated_at"], rows[-1]["id"]
+        save_watermark(last_ts, last_id)   # durable forward progress`,
+      walkthrough: `Two ideas carry this: a <strong>compound cursor</strong> <code>(updated_at, id)</code> so rows with identical timestamps are totally ordered and none are skipped or re-sent, and <strong>publish-then-advance</strong> — flush to Kafka, <em>then</em> persist the watermark. A crash between flush and save merely replays the last batch (at-least-once), which is safe for idempotent consumers.`,
+    },
+    complexity: 'O(changed rows); each batch is one indexed range scan.',
+    kafkaFollowup: `<strong>"Why a compound cursor, and when prefer log-based CDC?"</strong> <code>updated_at</code> alone isn't unique — several rows can share a millisecond, so a timestamp-only watermark skips or duplicates on the boundary; <code>(updated_at, id)</code> is a total order. But query-based CDC still misses <strong>deletes</strong> and hard-to-catch rapid updates, and polls load the DB. <strong>Log-based CDC</strong> (Debezium reading the WAL/binlog) captures every insert/update/<em>delete</em> in commit order with low overhead and exact offsets — the production-grade choice when you need completeness.`,
+  },
+
+  {
+    id: 'c17',
+    title: 'Reconcile source and target records',
+    level: 4,
+    category: 'Reconciliation',
+    difficulty: 'medium',
+    tags: ['reconciliation', 'set-ops', 'diff', 'scale'],
+    prompt: `Given source and target datasets keyed by id, find: records <strong>missing from target</strong>, records <strong>only in target</strong>, and records whose <strong>values differ</strong>.`,
+    example: {
+      input: `source = {"E1": {"amount":100}, "E2": {"amount":200}, "E3": {"amount":300}}
+target = {"E1": {"amount":100}, "E2": {"amount":250}, "E4": {"amount":400}}`,
+      output: `missing_in_target = ["E3"]
+extra_in_target   = ["E4"]
+mismatched        = ["E2"]`,
+    },
+    starter: `def reconcile(source, target):
+    ...`,
+    hints: [
+      'Key sets give missing/extra via set difference.',
+      'Intersection gives the ids to compare value-by-value.',
+      'Return sorted lists for stable, testable output.',
+    ],
+    solution: {
+      code: `def reconcile(source, target):
+    s_keys, t_keys = set(source), set(target)
+    missing = sorted(s_keys - t_keys)        # in source, not target
+    extra   = sorted(t_keys - s_keys)        # in target, not source
+    mismatched = sorted(
+        k for k in (s_keys & t_keys) if source[k] != target[k]
+    )
+    return {
+        "missing_in_target": missing,
+        "extra_in_target": extra,
+        "mismatched": mismatched,
+    }`,
+      walkthrough: `Set algebra does the heavy lifting: <code>s - t</code>, <code>t - s</code>, and <code>s &amp; t</code> for the keys to compare. Comparing values only over the <strong>intersection</strong> avoids KeyErrors and is the minimal work. Sorting makes the result deterministic — important when this feeds alerts or tests.`,
+    },
+    complexity: 'O(n + m) time and space (n, m = dataset sizes).',
+    kafkaFollowup: `<strong>"Reconcile billions of records without loading everything into memory?"</strong> You can't hold both sides in a dict. Options: (1) <strong>sort-merge</strong> both sides by key (external sort) and walk them in lockstep — O(n) streaming, O(1) memory; (2) compute per-key <strong>hashes/checksums</strong> and compare partition-by-partition so only mismatched partitions get a detailed diff; (3) run it as a distributed job (Spark) that shuffles both sides by key and co-partitions them. For Kafka↔sink reconciliation, compare committed offsets/counts per partition first, then diff only the partitions that disagree.`,
+  },
+
+  {
+    id: 'c18',
+    title: 'Recover from a consumer failure without losing records',
+    level: 4,
+    category: 'Producer/Consumer',
+    difficulty: 'hard',
+    tags: ['recovery', 'offsets', 'idempotency', 'graceful-shutdown'],
+    prompt: `Implement (or precisely describe) a consumer that writes records to a target DB and <strong>resumes correctly after a crash</strong> — no lost records, no corruption. Cover offset management, durable state, idempotent writes, and graceful shutdown.`,
+    example: {
+      input: `# consumer killed mid-batch; restarts and rejoins the group`,
+      output: `# resumes from last committed offset; replayed records
+# are no-ops via idempotent upsert -> no loss, no dupes`,
+    },
+    starter: `def resilient_consumer(consumer, db):
+    # commit-after-write + idempotent upsert + clean shutdown
+    ...`,
+    hints: [
+      'Order of operations is everything: write durably, THEN commit the offset.',
+      'Idempotent upsert makes the inevitable replay harmless.',
+      'Handle SIGTERM: stop polling, finish/▸commit the in-flight record, close the consumer.',
+    ],
+    solution: {
+      code: `import signal
+
+def resilient_consumer(consumer, db):
+    running = {"on": True}
+    signal.signal(signal.SIGTERM, lambda *_: running.__setitem__("on", False))
+    signal.signal(signal.SIGINT,  lambda *_: running.__setitem__("on", False))
+
+    consumer.subscribe(["payments"])
+    try:
+        while running["on"]:
+            msg = consumer.poll(1.0)
+            if msg is None or msg.error():
+                continue
+            rec = parse(msg.value())
+
+            # 1) Durable, idempotent write (safe to replay).
+            db.execute(
+                "INSERT INTO payments (event_id, amount) VALUES (%s,%s) "
+                "ON CONFLICT (event_id) DO NOTHING",
+                (rec["event_id"], rec["amount"]),
+            )
+            db.commit()
+
+            # 2) Only now advance the offset.
+            consumer.commit(msg, asynchronous=False)
+    finally:
+        consumer.close()     # graceful: commit state, leave group, fast rebalance`,
+      walkthrough: `The invariant is <strong>write-then-commit</strong>: the offset only advances after the record is durable, so a crash can at worst replay the last record — never skip it. The <code>ON CONFLICT DO NOTHING</code> makes that replay a no-op. Trapping SIGTERM to drain the in-flight record and <code>close()</code> cleanly turns an abrupt kill into a controlled handoff.`,
+    },
+    complexity: 'O(1) per record; recovery cost = reprocessing one batch.',
+    kafkaFollowup: `<strong>"Restart from last committed offset vs replay a known offset range?"</strong> Normal recovery resumes at the <strong>committed offset</strong> — the consumer picks up where it left off, replaying at most the uncommitted tail (at-least-once). Deliberately <strong>seeking</strong> to an earlier offset range (via <code>seek()</code> / <code>auto.offset.reset=earliest</code>) is for <em>reprocessing</em> — backfills, bug fixes, rebuilding a downstream store — and is only safe when writes are idempotent, since you'll re-emit everything in that range. One is crash recovery; the other is intentional replay.`,
+  },
+
+  {
+    id: 'c19',
+    title: 'Handle schema evolution in messages',
+    level: 4,
+    category: 'Schema',
+    difficulty: 'medium',
+    tags: ['schema-evolution', 'compatibility', 'avro', 'normalize'],
+    prompt: `Write a parser that accepts an <strong>older</strong> event schema and a <strong>newer</strong> one that adds an optional <code>currency</code> field, normalizing both to one internal representation.`,
+    example: {
+      input: `old = {"event_id":"E1","amount":100}
+new = {"event_id":"E2","amount":200,"currency":"USD"}`,
+      output: `# both -> {event_id, amount, currency(default "USD")}`,
+    },
+    starter: `def normalize(event):
+    ...`,
+    hints: [
+      'A new optional field must have a default so old messages still parse.',
+      'Use .get(field, default) rather than assuming the key exists.',
+      'Validate required fields; reject messages missing them.',
+    ],
+    solution: {
+      code: `def normalize(event):
+    if "event_id" not in event or "amount" not in event:
+        raise ValueError(f"missing required field: {event}")
+    return {
+        "event_id": event["event_id"],
+        "amount": float(event["amount"]),
+        # New optional field -> default keeps OLD messages valid.
+        "currency": event.get("currency", "USD"),
+    }`,
+      walkthrough: `Forward/backward compatibility in one function: required fields are checked explicitly, and the <strong>new optional field carries a default</strong> so old producers (which never send <code>currency</code>) and new producers both normalize to the same shape. <code>.get(..., default)</code> is the whole trick — never index a field that an older schema may lack.`,
+    },
+    complexity: 'O(1) per event.',
+    kafkaFollowup: `<strong>"Incompatible changes, versioning, and the Schema Registry?"</strong> Adding an <strong>optional</strong> field with a default is a <em>backward-compatible</em> change — the safe kind. Removing/renaming a field or changing a type is <strong>incompatible</strong>: you version the schema and migrate consumers first (or dual-write). With Avro + <strong>Schema Registry</strong>, each message carries a schema id; the registry enforces a compatibility mode (<code>BACKWARD</code>/<code>FORWARD</code>/<code>FULL</code>) at produce time, so an incompatible schema is <em>rejected before</em> it can break consumers — defaults and optionality are exactly what make a change pass the backward check.`,
+  },
+
+  {
+    id: 'c20',
+    title: 'Compute consumer lag per partition',
+    level: 4,
+    category: 'Producer/Consumer',
+    difficulty: 'medium',
+    tags: ['lag', 'offsets', 'monitoring', 'operations'],
+    prompt: `Given each partition's <strong>committed</strong> offset and its <strong>log-end</strong> offset, compute per-partition lag and the total, and flag partitions whose lag exceeds a threshold.`,
+    example: {
+      input: `committed = {0: 1500, 1: 900, 2: 4000}
+end       = {0: 1500, 1: 1200, 2: 9000}
+threshold = 1000`,
+      output: `# lag: {0:0, 1:300, 2:5000}; total=5300; hot=[2]`,
+    },
+    starter: `def consumer_lag(committed, end, threshold):
+    ...`,
+    hints: [
+      'Lag per partition = end_offset − committed_offset (never negative).',
+      'A partition never consumed yet may be missing from committed — treat as 0 / from reset.',
+      'Total lag = sum; hot partitions = those over the threshold.',
+    ],
+    solution: {
+      code: `def consumer_lag(committed, end, threshold):
+    lag = {}
+    for p, end_off in end.items():
+        c = committed.get(p, 0)          # unconsumed partition -> from 0
+        lag[p] = max(0, end_off - c)     # clamp: never report negative lag
+    total = sum(lag.values())
+    hot = sorted(p for p, l in lag.items() if l > threshold)
+    return {"lag": lag, "total": total, "hot": hot}`,
+      walkthrough: `Lag is simply "how far behind the head is this consumer": <code>end − committed</code>, clamped at 0 because a just-reset or racing read can momentarily look negative. Per-partition lag (not just the total) is what matters operationally — one hot partition can carry all the lag while the rest are caught up.`,
+    },
+    complexity: 'O(p) over partitions.',
+    kafkaFollowup: `<strong>"Rising lag — how do you diagnose and load-test it?"</strong> Lag growing means <strong>produce rate &gt; consume rate</strong>. Check whether it's <em>all</em> partitions (under-provisioned consumers / slow processing — add consumers up to the partition count, or speed up the handler) or <em>one</em> partition (a hot key skewing the partitioner — re-key or repartition). Load-test by producing at a known rate and watching lag: flat lag = keeping up, linearly rising lag = saturated. Tools: <code>kafka-consumer-groups --describe</code>, Burrow, or JMX <code>records-lag-max</code>. Beyond partition-count parallelism, the fix is faster per-record work or batching the sink.`,
+  },
 ];
 
 // Convenience lookups.
