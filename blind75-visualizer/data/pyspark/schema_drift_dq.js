@@ -23,8 +23,14 @@
         "Daily files for the same feed disagree on a column's <b>type</b>: yesterday <code>amount</code> arrived as a string (<code>'100'</code>), today as an integer, tomorrow maybe a double. A plain <code>unionByName</code> across days fails or mis-types the result. Conform every day's DataFrame to one <b>canonical target schema</b> (safe casts) before combining, so the unified DataFrame has stable, correct types. (Distinct from additive schema evolution &mdash; here the column exists everywhere but its type changes.)",
       examples: [
         {
-          input: "day1: id int, amount string -> (1,'100'). day2: id int, amount int -> (2,200). target amount: double.",
-          output: "unified: (1,100.0),(2,200.0) with amount typed DOUBLE in one DataFrame.",
+          inputs: [
+            { name: "day1 (amount: string)", columns: ["id", "amount"],
+              rows: [[1, "100"]] },
+            { name: "day2 (amount: int)", columns: ["id", "amount"],
+              rows: [[2, 200]] }
+          ],
+          output: { name: "unified (amount cast to DOUBLE)", columns: ["id", "amount"],
+            rows: [[1, "100.0"], [2, "200.0"]] },
           reasoning: "Each day is cast to the canonical (id int, amount double) before union, so the string '100' and the int 200 both become doubles and unionByName aligns identically-typed columns instead of erroring on the string-vs-int mismatch."
         }
       ],
@@ -104,8 +110,12 @@
         "Write a function that takes <b>any</b> DataFrame and returns a data-quality report with one row <b>per column</b>: total rows, null count, null %, and distinct count. It must work for arbitrary schemas (you don't know the columns ahead of time), computing all metrics in a <b>single pass</b> rather than one job per column.",
       examples: [
         {
-          input: "df = (1,'a',null),(2,'a',5),(3,null,5)  with columns id, cat, val.",
-          output: "id: total 3, nulls 0, null% 0.0, distinct 3 | cat: nulls 1, distinct 1 | val: nulls 1, distinct 1.",
+          inputs: [
+            { name: "df", columns: ["id", "cat", "val"],
+              rows: [[1, "a", null], [2, "a", 5], [3, null, 5]] }
+          ],
+          output: { name: "dq_report", columns: ["column", "total", "nulls", "null_pct", "distinct"],
+            rows: [["id", 3, 0, "0.0", 3], ["cat", 3, 1, "33.33", 1], ["val", 3, 1, "33.33", 1]] },
           reasoning: "Iterating df.columns builds a null-count and distinct-count aggregation for every column; one agg() computes them all together, then the single result row is reshaped into one report row per column."
         }
       ],

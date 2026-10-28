@@ -22,8 +22,12 @@
         "Given an `orders` DataFrame (`customer_id`, `order_date`), find each customer's **first** purchase and report the month it happened in as a `yyyy-MM` string. Take the minimum `order_date` per customer, then format that date into a year-month label.",
       examples: [
         {
-          input: "orders: (c1, 2026-03-14), (c1, 2026-05-02), (c2, 2026-01-30), (c2, 2026-02-11)",
-          output: "(c1, 2026-03) ; (c2, 2026-01)",
+          inputs: [
+            { name: "orders", columns: ["customer_id", "order_date"],
+              rows: [["c1", "2026-03-14"], ["c1", "2026-05-02"], ["c2", "2026-01-30"], ["c2", "2026-02-11"]] }
+          ],
+          output: { columns: ["customer_id", "first_month"],
+            rows: [["c1", "2026-03"], ["c2", "2026-01"]] },
           reasoning: "c1's earliest order is 2026-03-14 -> month 2026-03; c2's earliest is 2026-01-30 -> month 2026-01."
         }
       ],
@@ -95,8 +99,12 @@
         "Given an `orders` DataFrame (`customer_id`, `order_date`), add a `days_since_prev` column giving how many days passed since that customer's previous order, in date order. The first order per customer has no predecessor, so its gap is null.",
       examples: [
         {
-          input: "orders: (c1, 2026-01-01), (c1, 2026-01-05), (c1, 2026-01-20)",
-          output: "days_since_prev -> null, 4, 15",
+          inputs: [
+            { name: "orders", columns: ["customer_id", "order_date"],
+              rows: [["c1", "2026-01-01"], ["c1", "2026-01-05"], ["c1", "2026-01-20"]] }
+          ],
+          output: { columns: ["customer_id", "order_date", "days_since_prev"],
+            rows: [["c1", "2026-01-01", null], ["c1", "2026-01-05", 4], ["c1", "2026-01-20", 15]] },
           reasoning: "4 = 2026-01-05 minus 2026-01-01; 15 = 2026-01-20 minus 2026-01-05; the first order has nothing before it."
         }
       ],
@@ -172,8 +180,12 @@
         "Given an `orders` DataFrame (`customer_id`, `order_date`), find the customers whose **second** order happened within 7 days of their **first** order. Rank each customer's orders by date, isolate orders #1 and #2, and keep the customer only when the gap between them is 7 days or less.",
       examples: [
         {
-          input: "orders: (c1, 2026-01-01), (c1, 2026-01-05), (c2, 2026-02-01), (c2, 2026-03-20)",
-          output: "c1 qualifies (gap 4 days) ; c2 does not (gap 47 days)",
+          inputs: [
+            { name: "orders", columns: ["customer_id", "order_date"],
+              rows: [["c1", "2026-01-01"], ["c1", "2026-01-05"], ["c2", "2026-02-01"], ["c2", "2026-03-20"]] }
+          ],
+          output: { columns: ["customer_id", "first_date", "second_date"],
+            rows: [["c1", "2026-01-01", "2026-01-05"]] },
           reasoning: "c1's first two orders are 4 days apart (<= 7). c2's are 47 days apart, so c2 is excluded."
         }
       ],
@@ -267,8 +279,14 @@
         "Given a `customers` DataFrame (`customer_id`, `registration_date`) and an `orders` DataFrame (`customer_id`, `order_date`), find the customers who placed their **first** order within 30 days of registering. Take each customer's earliest order date, join it back to the registration date, and keep those where the gap is 30 days or less.",
       examples: [
         {
-          input: "customers: (c1, 2026-01-01), (c2, 2026-01-01) ; orders: (c1, 2026-01-10), (c2, 2026-03-15)",
-          output: "c1 qualifies (9 days) ; c2 does not (73 days)",
+          inputs: [
+            { name: "customers", columns: ["customer_id", "registration_date"],
+              rows: [["c1", "2026-01-01"], ["c2", "2026-01-01"]] },
+            { name: "orders", columns: ["customer_id", "order_date"],
+              rows: [["c1", "2026-01-10"], ["c2", "2026-03-15"]] }
+          ],
+          output: { columns: ["customer_id", "registration_date", "first_order_date"],
+            rows: [["c1", "2026-01-01", "2026-01-10"]] },
           reasoning: "c1's first order is 9 days after signup (<= 30). c2's first order is 73 days later, so c2 is excluded."
         }
       ],
@@ -346,8 +364,12 @@
         "Given a `transactions` DataFrame (`txn_date`, `amount`), compute total revenue per calendar month and then the month-over-month percentage growth versus the previous month. Bucket each transaction into a `yyyy-MM` month, sum revenue per month, then compare each month to the one before it. The earliest month has no prior month, so its growth is null.",
       examples: [
         {
-          input: "monthly revenue: (2026-01, 1000), (2026-02, 1500), (2026-03, 1200)",
-          output: "growth_pct -> null, 50.0, -20.0",
+          inputs: [
+            { name: "monthly", columns: ["month", "revenue"],
+              rows: [["2026-01", 1000], ["2026-02", 1500], ["2026-03", 1200]] }
+          ],
+          output: { columns: ["month", "revenue", "growth_pct"],
+            rows: [["2026-01", 1000, null], ["2026-02", 1500, "50.0"], ["2026-03", 1200, "-20.0"]] },
           reasoning: "(1500-1000)/1000*100 = 50.0 ; (1200-1500)/1500*100 = -20.0 ; the first month has no baseline so it is null."
         }
       ],
@@ -435,8 +457,12 @@
         "Given a `transactions` DataFrame (`txn_date`, `amount`), compute total revenue per calendar year and then the year-over-year percentage growth versus the previous year. Bucket each transaction into a `yyyy` year, sum revenue per year, then compare each year to the one before it. The earliest year has no prior year, so its growth is null.",
       examples: [
         {
-          input: "yearly revenue: (2024, 50000), (2025, 65000), (2026, 58500)",
-          output: "growth_pct -> null, 30.0, -10.0",
+          inputs: [
+            { name: "yearly", columns: ["year", "revenue"],
+              rows: [["2024", 50000], ["2025", 65000], ["2026", 58500]] }
+          ],
+          output: { columns: ["year", "revenue", "growth_pct"],
+            rows: [["2024", 50000, null], ["2025", 65000, "30.0"], ["2026", 58500, "-10.0"]] },
           reasoning: "(65000-50000)/50000*100 = 30.0 ; (58500-65000)/65000*100 = -10.0 ; the first year has no baseline so it is null."
         }
       ],
@@ -524,8 +550,12 @@
         "Given an `orders` DataFrame (`customer_id`, `order_date`), find customers who made a purchase in **January** but did **not** purchase again within the next 30 days of that January order. For each January order, check whether the same customer has any later order within 30 days; keep the customers for whom no such follow-up exists.",
       examples: [
         {
-          input: "orders: (c1, 2026-01-05), (c1, 2026-01-20), (c2, 2026-01-10), (c2, 2026-03-01)",
-          output: "c2 qualifies ; c1 does not",
+          inputs: [
+            { name: "orders", columns: ["customer_id", "order_date"],
+              rows: [["c1", "2026-01-05"], ["c1", "2026-01-20"], ["c2", "2026-01-10"], ["c2", "2026-03-01"]] }
+          ],
+          output: { columns: ["customer_id"],
+            rows: [["c2"]] },
           reasoning: "c1 bought again on 01-20, only 15 days after 01-05 (a repeat within 30 days), so c1 is excluded. c2's next order is 50 days later, so c2 had no repeat within 30 days and qualifies."
         }
       ],
@@ -632,8 +662,12 @@
         "Given a `transactions` DataFrame (`txn_id`, `txn_date`, `amount`), keep only the rows from the **last 30 days**. Compare `txn_date` against a cutoff of 30 days before today with `date_sub(current_date(), 30)`, or against a fixed cutoff date when reproducibility matters.",
       examples: [
         {
-          input: "today = 2026-08-27 ; transactions: (t1, 2026-08-20), (t2, 2026-07-10), (t3, 2026-08-27)",
-          output: "t1 and t3 (t2 is 48 days old and dropped)",
+          inputs: [
+            { name: "transactions", columns: ["txn_id", "txn_date"],
+              rows: [["t1", "2026-08-20"], ["t2", "2026-07-10"], ["t3", "2026-08-27"]] }
+          ],
+          output: { name: "kept (cutoff 2026-07-28; today = 2026-08-27)", columns: ["txn_id", "txn_date"],
+            rows: [["t1", "2026-08-20"], ["t3", "2026-08-27"]] },
           reasoning: "The cutoff is 2026-07-28 (30 days before 2026-08-27). t1 and t3 are on/after the cutoff; t2 (2026-07-10) is before it and is filtered out."
         }
       ],

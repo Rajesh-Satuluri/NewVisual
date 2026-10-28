@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400..800;1,14..32,400..600&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..700;1,400..600&display=swap" />
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
@@ -16,19 +17,21 @@
     <div class="topbar-left">
       <a class="home-link" href="../index.html" title="Back to NewVisual">←</a>
       <span class="brand">Resume Builder</span>
-      <nav class="tabs" id="tabs">
-        <button class="tab" data-tab="resumes">Resumes</button>
-        <button class="tab" data-tab="jd">JD Match</button>
-        <button class="tab" data-tab="health">Health</button>
-        <button class="tab" data-tab="tracker">Tracker</button>
-        <button class="tab" data-tab="cover">Cover Letter</button>
-        <button class="tab" data-tab="library">Library</button>
-        <button class="tab" data-tab="ai">AI Assist</button>
-        <button class="tab" data-tab="ats">ATS Guide</button>
+      <nav class="tabs" id="tabs" role="tablist" aria-label="Sections">
+        <button class="tab" data-tab="resumes" role="tab" title="Build your resume">Resumes</button>
+        <button class="tab grp-start" data-tab="jd" role="tab" title="Tailor to a job description">JD Match</button>
+        <button class="tab" data-tab="health" role="tab" title="Check resume quality">Health</button>
+        <button class="tab" data-tab="cover" role="tab" title="Draft a cover letter">Cover Letter</button>
+        <button class="tab grp-start" data-tab="tracker" role="tab" title="Track applications">Tracker</button>
+        <button class="tab grp-start" data-tab="library" role="tab" title="Reusable content library">Library</button>
+        <button class="tab" data-tab="ai" role="tab" title="AI prompt helper">AI Assist</button>
+        <button class="tab" data-tab="ats" role="tab" title="ATS guidance">ATS Guide</button>
       </nav>
-      <span class="save-state" id="saveState">Saved</span>
+      <span class="save-state" id="saveState" aria-live="polite">Saved</span>
     </div>
     <div class="topbar-actions">
+      <button class="btn btn-icon" id="btnUndo" title="Undo (Ctrl+Z)" aria-label="Undo" disabled>↶</button>
+      <button class="btn btn-icon" id="btnRedo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled>↷</button>
       <button class="btn" id="btnImport" title="Import all data (JSON)">Import</button>
       <button class="btn" id="btnExport" title="Export all data (JSON)">Export</button>
       <button class="btn" id="btnReset" title="Reset to sample data">Reset</button>

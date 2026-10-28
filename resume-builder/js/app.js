@@ -22,6 +22,42 @@
   };
   var LIB_KEYS = ["summaries", "skills", "experiences", "projects", "education", "awards"];
 
+  /* ---------- templates & theming (ATS-safe, single-column) ---------- */
+  var THEME_TEMPLATES = {
+    classic:  { label: "Classic",  desc: "Centered name, underlined headings" },
+    modern:   { label: "Modern",   desc: "Left-aligned, accent name, bold rules" },
+    compact:  { label: "Compact",  desc: "Tighter spacing, fits more content" }
+  };
+  /* ATS-safe font stacks. The `docx` name is what Word embeds. */
+  var THEME_FONTS = {
+    calibri:  { label: "Calibri",  css: '"Calibri","Segoe UI",Candara,Arial,sans-serif', docx: "Calibri" },
+    arial:    { label: "Arial",    css: 'Arial,"Helvetica Neue",Helvetica,sans-serif',   docx: "Arial" },
+    georgia:  { label: "Georgia",  css: 'Georgia,"Times New Roman",serif',                docx: "Georgia" },
+    garamond: { label: "Garamond", css: '"EB Garamond",Garamond,"Times New Roman",serif', docx: "Garamond" },
+    times:    { label: "Times",    css: '"Times New Roman",Times,serif',                  docx: "Times New Roman" }
+  };
+  var THEME_ACCENTS = [
+    { id: "navy",     label: "Navy",     hex: "#1f3b66" },
+    { id: "teal",     label: "Teal",     hex: "#1f7d92" },
+    { id: "blue",     label: "Blue",     hex: "#2456b3" },
+    { id: "green",    label: "Green",    hex: "#206a4e" },
+    { id: "burgundy", label: "Burgundy", hex: "#7a2234" },
+    { id: "slate",    label: "Slate",    hex: "#3a4452" },
+    { id: "black",    label: "Black",    hex: "#1a1a1a" }
+  ];
+  var THEME_DENSITIES = { compact: 0.92, normal: 1, relaxed: 1.08 };
+  function accentHex(id) { for (var i = 0; i < THEME_ACCENTS.length; i++) if (THEME_ACCENTS[i].id === id) return THEME_ACCENTS[i].hex; return THEME_ACCENTS[1].hex; }
+  function normalizeTheme(t) {
+    t = t && typeof t === "object" ? t : {};
+    return {
+      template: THEME_TEMPLATES[t.template] ? t.template : "classic",
+      font:     THEME_FONTS[t.font] ? t.font : "calibri",
+      accent:   /^#[0-9a-fA-F]{6}$/.test(t.accent) ? t.accent : (t.accent && accentHex(t.accent)) || "#1f7d92",
+      density:  THEME_DENSITIES[t.density] ? t.density : "normal"
+    };
+  }
+  function activeTheme() { var r = activeResume(); return (r && r.theme) || normalizeTheme(null); }
+
   /* ---------- utils ---------- */
   function uid() { return "id" + Math.random().toString(36).slice(2, 9); }
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -31,6 +67,42 @@
   function rich(s) { return esc(s).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>"); }
   function byId(arr, id) { for (var i = 0; i < arr.length; i++) if (arr[i].id === id) return arr[i]; return null; }
   function moveIn(arr, idx, dir) { var j = idx + dir; if (j < 0 || j >= arr.length) return false; var t = arr[idx]; arr[idx] = arr[j]; arr[j] = t; return true; }
+
+  /* ---------- drag-and-drop list reordering ----------
+     Reorders an array by dragging a handle. `group` scopes drops so items only
+     drop within their own list (sections to sections, a job's bullets to that
+     same job). The ▲▼ buttons remain as a keyboard/click fallback. */
+  var dragState = null;
+  function clearDragMarks() { var ns = document.querySelectorAll(".drag-over"); for (var i = 0; i < ns.length; i++) ns[i].classList.remove("drag-over"); }
+  function makeDragItem(node, handle, arr, idx, group, after) {
+    handle.setAttribute("draggable", "true");
+    handle.classList.add("drag-handle");
+    handle.setAttribute("aria-label", "Drag to reorder");
+    handle.title = "Drag to reorder";
+    handle.addEventListener("dragstart", function (e) {
+      dragState = { arr: arr, from: idx, group: group };
+      node.classList.add("dragging");
+      try { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", String(idx)); } catch (_) {}
+    });
+    handle.addEventListener("dragend", function () { node.classList.remove("dragging"); clearDragMarks(); dragState = null; });
+    node.addEventListener("dragover", function (e) {
+      if (!dragState || dragState.group !== group || dragState.arr !== arr) return;
+      e.preventDefault(); try { e.dataTransfer.dropEffect = "move"; } catch (_) {}
+      if (dragState.from !== idx) node.classList.add("drag-over");
+    });
+    node.addEventListener("dragleave", function () { node.classList.remove("drag-over"); });
+    node.addEventListener("drop", function (e) {
+      if (!dragState || dragState.group !== group || dragState.arr !== arr) return;
+      e.preventDefault(); e.stopPropagation();
+      var from = dragState.from, to = idx;
+      node.classList.remove("drag-over"); dragState = null;
+      if (from === to || from < 0 || from >= arr.length) return;
+      var item = arr.splice(from, 1)[0];
+      arr.splice(to, 0, item);
+      renderApp(); touch();
+      if (after) after();
+    });
+  }
   function autoGrow(ta) { ta.style.height = "auto"; ta.style.height = Math.max(ta.scrollHeight, 32) + "px"; }
   function growAll(root) { var t = (root || document).querySelectorAll("textarea.inp:not(.ai-textarea)"); for (var i = 0; i < t.length; i++) autoGrow(t[i]); }
   function classifyLib(section) {
@@ -100,6 +172,23 @@
     };
   }
 
+  /* A blank resume scaffold for brand-new users — the structure is there to
+     fill in, but NOTHING is pre-written, so demo text can never be mistaken for
+     the user's own data. */
+  function emptyContent() {
+    return {
+      profile: { name: "", title: "", contacts: [
+        { icon: "✉", value: "" }, { icon: "☎", value: "" }, { icon: "⚲", value: "" }
+      ] },
+      sections: [
+        { id: uid(), title: "Professional Summary", type: "text", text: "" },
+        { id: uid(), title: "Technical Skills", type: "labeled", items: [ { id: uid(), label: "", value: "" } ] },
+        { id: uid(), title: "Professional Experience", type: "entries", items: [ { id: uid(), heading: "", role: "", date: "", meta: "", bullets: [""] } ] },
+        { id: uid(), title: "Education", type: "entries", items: [ { id: uid(), heading: "", role: "", date: "", meta: "", bullets: [] } ] }
+      ]
+    };
+  }
+
   function emptyLibrary() { return { summaries: [], skills: [], experiences: [], projects: [], education: [], awards: [] }; }
 
   /* build the library reference pool from a set of sections (deep copies) */
@@ -122,6 +211,13 @@
     var c = sampleContent();
     var resume = { id: uid(), name: "My Resume", targetRole: "", profile: c.profile, sections: c.sections };
     return { library: libraryFromSections(c.sections), resumes: [resume], activeResumeId: resume.id, aiAssist: { fields: {}, jd: "" } };
+  }
+  /* What a first-time visitor gets: a blank resume and an onboarding prompt —
+     not a stranger's pre-filled data. */
+  function firstRunStore() {
+    var c = emptyContent();
+    var resume = { id: uid(), name: "My Resume", targetRole: "", profile: c.profile, sections: c.sections };
+    return { library: emptyLibrary(), resumes: [resume], activeResumeId: resume.id, aiAssist: { fields: {}, jd: "" }, onboarded: false };
   }
 
   /* ---------- migrations ---------- */
@@ -172,7 +268,7 @@
     try { var r3 = localStorage.getItem(KEY3); if (r3) return normalize(JSON.parse(r3)); } catch (e) {}
     try { var r2 = localStorage.getItem(KEY2); if (r2) { var m = migrateV2(JSON.parse(r2)); persist(m); return m; } } catch (e) {}
     try { var r1 = localStorage.getItem(KEY1); if (r1) { var m1 = migrateV1(JSON.parse(r1)); persist(m1); return m1; } } catch (e) {}
-    return sampleStore();
+    return firstRunStore();
   }
   function normalize(s) {
     if (!s || !Array.isArray(s.resumes) || !s.resumes.length) return sampleStore();
@@ -182,6 +278,8 @@
       r.profile = r.profile || { name: "", title: "", contacts: [] };
       r.profile.contacts = r.profile.contacts || [];
       r.sections = r.sections || [];
+      r.theme = normalizeTheme(r.theme);
+      r.pages = (r.pages === 2) ? 2 : 1;
       /* one-time repair: ensure a Professional Summary section exists
          (older migrations could drop it). Guarded so an intentional delete
          is not undone on the next load. */
@@ -200,16 +298,67 @@
       s.aiAssist.fields.other = (s.aiAssist.fields.other ? s.aiAssist.fields.other + "\n\n" : "") + s.aiAssist.vault;
     }
     delete s.aiAssist.vault;
+    if (s.onboarded === undefined) s.onboarded = true;   /* existing data = already past onboarding */
     if (!Array.isArray(s.snippets)) s.snippets = [];
     if (!Array.isArray(s.applications)) s.applications = [];
     if (!s.coverLetter || typeof s.coverLetter !== "object") s.coverLetter = { company: "", manager: "", role: "", body: "" };
     return s;
   }
-  function persist(s) { try { localStorage.setItem(KEY3, JSON.stringify(s)); } catch (e) {} }
-  function save() { persist(store); setSaveState("Saved"); }
+  function persist(s) { try { localStorage.setItem(KEY3, JSON.stringify(s)); return true; } catch (e) { return false; } }
+  function save() {
+    var ok = persist(store);
+    if (!ok) {
+      /* storage full / blocked (private mode, quota). Tell the truth — don't
+         pretend it saved. The in-memory data is still intact for this session. */
+      setSaveState("⚠ Save failed", true);
+      if (!save._warned) { save._warned = true; flash("Couldn't save to this browser — storage may be full or blocked. Export your data to keep it."); }
+      return;
+    }
+    save._warned = false;
+    /* record an undo snapshot at each save boundary (coarse-grained, ~400ms
+       after a burst of edits — the right granularity for a document editor). */
+    var cur = snapshotStr();
+    if (lastSnapshot !== null && cur !== lastSnapshot) {
+      undoStack.push(lastSnapshot);
+      if (undoStack.length > UNDO_CAP) undoStack.shift();
+      redoStack = [];
+    }
+    lastSnapshot = cur;
+    setSaveState("Saved");
+    updateUndoButtons();
+  }
   function setSaveState(txt, dirty) { var s = document.getElementById("saveState"); if (!s) return; s.textContent = txt; s.classList.toggle("dirty", !!dirty); }
   function touch() { setSaveState("Saving…", true); if (saveTimer) clearTimeout(saveTimer); saveTimer = setTimeout(save, 400); renderPreview(); }
   function scheduleSave() { setSaveState("Saving…", true); if (saveTimer) clearTimeout(saveTimer); saveTimer = setTimeout(save, 400); }
+
+  /* ---------- undo / redo (snapshot stacks, state at save boundaries) ---------- */
+  var undoStack = [], redoStack = [], lastSnapshot = null, UNDO_CAP = 60;
+  function snapshotStr() { try { return JSON.stringify(store); } catch (e) { return ""; } }
+  function updateUndoButtons() {
+    var u = document.getElementById("btnUndo"), r = document.getElementById("btnRedo");
+    if (u) { u.disabled = !undoStack.length; u.title = undoStack.length ? "Undo (Ctrl+Z) — " + undoStack.length + " step" + (undoStack.length > 1 ? "s" : "") : "Nothing to undo"; }
+    if (r) { r.disabled = !redoStack.length; }
+  }
+  function applySnapshot(str) {
+    try { store = normalize(JSON.parse(str)); } catch (e) { return false; }
+    lastSnapshot = snapshotStr();
+    persist(store);
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+    renderApp(); setSaveState("Saved"); updateUndoButtons();
+    return true;
+  }
+  function doUndo() {
+    if (!undoStack.length) { flash("Nothing to undo."); return; }
+    /* flush any pending debounced edit into the current snapshot first */
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; persist(store); lastSnapshot = snapshotStr(); }
+    var cur = snapshotStr(), prev = undoStack.pop();
+    if (applySnapshot(prev)) { redoStack.push(cur); updateUndoButtons(); flash("Undo"); }
+  }
+  function doRedo() {
+    if (!redoStack.length) { flash("Nothing to redo."); return; }
+    var cur = snapshotStr(), next = redoStack.pop();
+    if (applySnapshot(next)) { undoStack.push(cur); updateUndoButtons(); flash("Redo"); }
+  }
   function copyText(str, okMsg) {
     function done() { flash(okMsg || "Copied to clipboard."); }
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -230,6 +379,16 @@
     var f = el("div", "field");
     if (label) f.appendChild(elText("label", null, label));
     var i = el("input", "inp"); i.value = val || ""; if (ph) i.placeholder = ph;
+    i.addEventListener("input", function () { onInput(i.value); });
+    f.appendChild(i); return f;
+  }
+  function dateField(label, val, dueTxt, onInput) {
+    var f = el("div", "field");
+    var lab = el("label");
+    lab.appendChild(document.createTextNode(label));
+    if (dueTxt) { var d = daysUntil(val); lab.appendChild(elText("span", "due-pill" + (d !== null && d < 0 ? " overdue" : (d !== null && d <= 2 ? " soon" : "")), dueTxt)); }
+    f.appendChild(lab);
+    var i = el("input", "inp"); i.type = "date"; i.value = val || "";
     i.addEventListener("input", function () { onInput(i.value); });
     f.appendChild(i); return f;
   }
@@ -263,15 +422,28 @@
     var b = el("div", "block");
     if (collapsed[collapseKey]) b.classList.add("collapsed");
     var head = el("div", "block-head"); head.title = "Click to collapse / expand";
+    /* keyboard-operable disclosure: focusable, Enter/Space toggles, state announced */
+    head.setAttribute("role", "button");
+    head.setAttribute("tabindex", "0");
+    head.setAttribute("aria-expanded", collapsed[collapseKey] ? "false" : "true");
+    head.setAttribute("aria-label", (titleText || (headInput && headInput.value) || "Section") + " — toggle");
     head.appendChild(elText("span", "caret", "▼"));
     head.appendChild(elText("span", "sec-icon", iconFor(titleText || (headInput && headInput.value))));
     if (headInput) head.appendChild(headInput); else head.appendChild(elText("span", "sec-title", titleText));
     if (headRight) { for (var i = 0; i < headRight.length; i++) head.appendChild(headRight[i]); }
-    head.addEventListener("click", function (e) {
-      if (e.target.closest("input, button, .move, select")) return;
+    function toggle() {
       collapsed[collapseKey] = !collapsed[collapseKey];
       b.classList.toggle("collapsed", collapsed[collapseKey]);
+      head.setAttribute("aria-expanded", collapsed[collapseKey] ? "false" : "true");
       if (!collapsed[collapseKey]) growAll(b);
+    }
+    head.addEventListener("click", function (e) {
+      if (e.target.closest("input, button, .move, .grip, select, a")) return;
+      toggle();
+    });
+    head.addEventListener("keydown", function (e) {
+      if (e.target !== head) return;   /* don't hijack keys inside the title input */
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); }
     });
     b.appendChild(head);
     var wrap = el("div", "block-body-wrap"), body = el("div", "block-body");
@@ -296,6 +468,9 @@
     else if (activeTab === "cover") renderCover(panel);
     else renderResumes(panel);
     growAll(panel);
+    applyA11yLabels(panel);
+    var curTab = document.querySelector('#tabs .tab[data-tab="' + activeTab + '"]');
+    for (var t = 0; t < tabs.length; t++) tabs[t].setAttribute("aria-selected", tabs[t] === curTab ? "true" : "false");
 
     /* right panel: resume preview normally, big field editor on AI tab */
     document.body.classList.toggle("ai-active", activeTab === "ai");
@@ -303,10 +478,44 @@
     else renderPreview();
   }
 
+  /* Give icon-only controls an accessible name so screen readers announce the
+     action rather than the glyph. Runs after each render. */
+  var GLYPH_LABELS = { "▲": "Move up", "▼": "Move down", "✕": "Remove", "☆": "Save to bullet bank", "＋": "Add", "⠿": "Drag to reorder", "↶": "Undo", "↷": "Redo", "↩": "Restore", "🗑": "Delete", "⧉": "Copy", "⬆": "Upload", "⬇": "Download" };
+  function applyA11yLabels(root) {
+    var nodes = (root || document).querySelectorAll("button, .move, .grip, .rc-archive");
+    for (var i = 0; i < nodes.length; i++) {
+      var b = nodes[i];
+      if (b.getAttribute("aria-label")) continue;
+      var t = (b.textContent || "").trim();
+      if (GLYPH_LABELS[t]) { b.setAttribute("aria-label", GLYPH_LABELS[t]); continue; }
+      var first = t.charAt(0);
+      if (GLYPH_LABELS[first] && t.length <= 2) { b.setAttribute("aria-label", GLYPH_LABELS[first]); continue; }
+      /* a glyph-led label like "＋ Add bullet" is already readable; only bare glyphs need help */
+      if (b.title && /^[^0-9A-Za-z]{1,2}$/.test(t)) b.setAttribute("aria-label", b.title);
+    }
+  }
+
   /* ============================================================
      RESUMES TAB — pick a resume and edit ALL its content
      ============================================================ */
   function renderResumes(panel) {
+    /* first-run onboarding — only for brand-new visitors (no stored data) */
+    if (store.onboarded === false) panel.appendChild(onboardingCard());
+
+    /* sample-content banner — demo data is always clearly marked so it's never
+       mistaken for the user's own */
+    var act = activeResume();
+    if (act && act.isSample) {
+      var sb = el("div", "sample-banner");
+      sb.appendChild(elText("span", "sb-icon", "🧪"));
+      var sbt = el("div", "sb-text");
+      sbt.appendChild(elText("strong", null, "This is sample content."));
+      sbt.appendChild(elText("span", null, " It's here to show the structure — edit it into your own, or delete it. Nothing here is your real data."));
+      sb.appendChild(sbt);
+      sb.appendChild(miniBtn("✓ Make it mine", function () { act.isSample = false; renderApp(); touch(); flash("Marked as your own resume."); }));
+      panel.appendChild(sb);
+    }
+
     /* switcher */
     panel.appendChild(elText("div", "group-label", "Your resumes — click to edit"));
     var switcher = el("div", "resume-switcher");
@@ -314,6 +523,7 @@
       var isActive = r.id === store.activeResumeId;
       var chip = el("button", "resume-chip" + (isActive ? " active" : "")); chip.type = "button";
       if (isActive) chip.appendChild(elText("span", "rc-check", "✓ Editing"));
+      if (r.isSample) chip.appendChild(elText("span", "rc-sample", "SAMPLE"));
       chip.appendChild(elText("span", "rc-name", r.name || "Untitled"));
       if (r.targetRole) chip.appendChild(elText("span", "rc-role", r.targetRole));
       var arch = el("span", "rc-archive"); arch.textContent = "Archive"; arch.title = "Move to archive";
@@ -332,6 +542,9 @@
     actions.appendChild(miniBtn("⊕ Expand all", function () { setAllCollapsed(false); }));
     actions.appendChild(miniBtn("⊖ Collapse all", function () { setAllCollapsed(true); }));
     panel.appendChild(actions);
+
+    /* readiness dashboard — a one-glance summary of this resume's state */
+    panel.appendChild(readinessBlock(r));
 
     /* archived resumes — tucked away, restorable */
     var archivedList = store.resumes.filter(function (r) { return r.archived; });
@@ -368,6 +581,9 @@
       var w = el("div"); w.style.marginTop = "4px"; w.appendChild(del); body.appendChild(w);
     }));
 
+    /* design & template */
+    panel.appendChild(designBlock(r));
+
     /* header (identity) */
     panel.appendChild(headerBlock(r));
 
@@ -380,8 +596,70 @@
       r.sections.push({ id: uid(), title: "New Section", type: "entries", items: [] }); renderApp(); touch();
       var ed = document.getElementById("editor"); ed.scrollTop = ed.scrollHeight;
     }, "js-add"));
+    foot.appendChild(miniBtn("📜 Add Certifications", function () {
+      if (findSection(r, "Certifications", "entries")) { flash("You already have a Certifications section."); return; }
+      r.sections.push({ id: uid(), title: "Certifications", type: "entries", items: [ { id: uid(), heading: "", role: "", date: "", meta: "", bullets: [] } ] });
+      renderApp(); touch();
+      var ed = document.getElementById("editor"); ed.scrollTop = ed.scrollHeight;
+    }, "js-add"));
     foot.appendChild(miniBtn("📚 Add from Library…", function () { openLibraryInsert(r); }, "js-add"));
     panel.appendChild(foot);
+  }
+
+  function designBlock(r) {
+    r.theme = normalizeTheme(r.theme);
+    if (collapsed["r.design"] === undefined) collapsed["r.design"] = true;
+    return blockEl("Design & template", "r.design", function (body) {
+      body.appendChild(elText("p", "hint", "Every template is single-column and ATS-safe. Changes apply to this resume's preview, PDF, and Word export."));
+      /* template */
+      body.appendChild(elText("div", "design-label", "Template"));
+      var tg = el("div", "tmpl-grid");
+      Object.keys(THEME_TEMPLATES).forEach(function (key) {
+        var t = THEME_TEMPLATES[key];
+        var b = el("button", "tmpl-opt" + (r.theme.template === key ? " sel" : "")); b.type = "button";
+        b.appendChild(elText("span", "tmpl-name", t.label));
+        b.appendChild(elText("span", "tmpl-desc", t.desc));
+        b.addEventListener("click", function () { r.theme.template = key; renderApp(); touch(); });
+        tg.appendChild(b);
+      });
+      body.appendChild(tg);
+      /* font + density side by side */
+      var row = el("div", "row-2");
+      var fontField = el("div", "field");
+      fontField.appendChild(elText("label", null, "Font (ATS-safe)"));
+      var fsel = el("select", "inp");
+      Object.keys(THEME_FONTS).forEach(function (key) { var o = el("option"); o.value = key; o.textContent = THEME_FONTS[key].label; if (r.theme.font === key) o.selected = true; fsel.appendChild(o); });
+      fsel.addEventListener("change", function () { r.theme.font = fsel.value; renderApp(); touch(); });
+      fontField.appendChild(fsel); row.appendChild(fontField);
+      var dField = el("div", "field");
+      dField.appendChild(elText("label", null, "Density"));
+      var dsel = el("select", "inp");
+      [["compact", "Compact"], ["normal", "Normal"], ["relaxed", "Relaxed"]].forEach(function (o) { var op = el("option"); op.value = o[0]; op.textContent = o[1]; if (r.theme.density === o[0]) op.selected = true; dsel.appendChild(op); });
+      dsel.addEventListener("change", function () { r.theme.density = dsel.value; renderApp(); touch(); });
+      dField.appendChild(dsel); row.appendChild(dField);
+      body.appendChild(row);
+      /* page length */
+      body.appendChild(elText("div", "design-label", "Length"));
+      var pg = el("div", "seg-toggle");
+      [[1, "1 page", "Best for < ~10 yrs experience"], [2, "2 pages", "For senior / extensive history"]].forEach(function (o) {
+        var b = el("button", "seg-opt" + (r.pages === o[0] ? " sel" : "")); b.type = "button";
+        b.appendChild(elText("span", "seg-name", o[1]));
+        b.appendChild(elText("span", "seg-desc", o[2]));
+        b.addEventListener("click", function () { r.pages = o[0]; renderApp(); touch(); });
+        pg.appendChild(b);
+      });
+      body.appendChild(pg);
+      /* accent */
+      body.appendChild(elText("div", "design-label", "Accent color"));
+      var sw = el("div", "accent-row");
+      THEME_ACCENTS.forEach(function (a) {
+        var b = el("button", "accent-dot" + (r.theme.accent === a.hex ? " sel" : "")); b.type = "button";
+        b.style.background = a.hex; b.title = a.label; b.setAttribute("aria-label", "Accent " + a.label);
+        b.addEventListener("click", function () { r.theme.accent = a.hex; renderApp(); touch(); });
+        sw.appendChild(b);
+      });
+      body.appendChild(sw);
+    });
   }
 
   function headerBlock(r) {
@@ -409,6 +687,7 @@
     var titleInput = el("input", "sec-title"); titleInput.value = sec.title; titleInput.title = "Edit section heading";
     titleInput.addEventListener("input", function () { sec.title = titleInput.value; touch(); });
 
+    var grip = el("span", "move grip"); grip.textContent = "⠿"; grip.title = "Drag to reorder section";
     var up = el("span", "move"); up.textContent = "▲"; up.title = "Move section up";
     up.addEventListener("click", function () { if (moveIn(r.sections, idx, -1)) { renderApp(); touch(); } });
     var down = el("span", "move"); down.textContent = "▼"; down.title = "Move section down";
@@ -416,7 +695,7 @@
     var star = miniBtn("★ Save to Library", function () { saveSectionToLibrary(sec); }, "js-add");
     var del = miniBtn("Delete", function () { if (confirm("Delete section \"" + sec.title + "\"?")) { r.sections.splice(idx, 1); renderApp(); touch(); } }, "btn-danger");
 
-    return blockEl(sec.title, "r.sec." + sec.id, function (body) {
+    var block = blockEl(sec.title, "r.sec." + sec.id, function (body) {
       if (sec.type === "text") {
         body.appendChild(fieldTextarea("Paragraph (use **bold**)", sec.text, function (v) { sec.text = v; touch(); }));
       } else if (sec.type === "labeled") {
@@ -425,7 +704,9 @@
         renderEntriesEditor(body, sec, true);
       }
       body.appendChild(typeSwitcher(sec));
-    }, [up, down, star, del], titleInput);
+    }, [grip, up, down, star, del], titleInput);
+    makeDragItem(block, grip, r.sections, idx, "sections");
+    return block;
   }
 
   function renderLabeledEditor(body, sec, allowSave) {
@@ -488,6 +769,51 @@
     return pop;
   }
 
+  /* ---------- structured date-range picker ----------
+     Writes a consistent "MMM YYYY – Present" string into it.date (still the
+     single source of truth for preview/export), so dates stay uniform without
+     changing the data model. The free-text field remains for odd cases. */
+  var MONTHS_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  function parseDatePart(s) {
+    s = (s || "").trim();
+    if (/present|current|now|ongoing/i.test(s) && !/\d/.test(s)) return { present: true, mon: "", year: "" };
+    var ym = s.match(/(19|20)\d{2}/), year = ym ? ym[0] : "";
+    var mm = s.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*/i), mon = "";
+    if (mm) { var k = mm[1].slice(0, 3).toLowerCase(); for (var i = 0; i < MONTHS_ABBR.length; i++) if (MONTHS_ABBR[i].toLowerCase() === k) mon = MONTHS_ABBR[i]; }
+    return { present: false, mon: mon, year: year };
+  }
+  function splitRange(s) { var parts = (s || "").split(/\s*(?:–|—|-|\bto\b)\s*/i); return { start: parts[0] || "", end: parts.length > 1 ? parts[parts.length - 1] : "" }; }
+  function dateRangeControl(it) {
+    var f = el("div", "field date-field");
+    f.appendChild(elText("label", null, "Date range"));
+    var inp = el("input", "inp"); inp.value = it.date || ""; inp.placeholder = "e.g. Jul 2022 – Present";
+    inp.addEventListener("input", function () { it.date = inp.value; touch(); });
+    f.appendChild(inp);
+    var toggle = el("button", "btn btn-mini date-pick-toggle"); toggle.type = "button"; toggle.textContent = "📅 Pick dates";
+    var pick = el("div", "date-pick");
+    var rng = splitRange(it.date), sp = parseDatePart(rng.start), ep = parseDatePart(rng.end);
+    function monthSel(val) { var s = el("select", "inp"); var o0 = el("option"); o0.value = ""; o0.textContent = "Month"; s.appendChild(o0); MONTHS_ABBR.forEach(function (m) { var o = el("option"); o.value = m; o.textContent = m; if (m === val) o.selected = true; s.appendChild(o); }); return s; }
+    function yearSel(val) { var s = el("select", "inp"); var o0 = el("option"); o0.value = ""; o0.textContent = "Year"; s.appendChild(o0); var now = new Date().getFullYear(); for (var y = now + 1; y >= now - 45; y--) { var o = el("option"); o.value = String(y); o.textContent = String(y); if (String(y) === val) o.selected = true; s.appendChild(o); } return s; }
+    var sMon = monthSel(sp.mon), sYear = yearSel(sp.year), eMon = monthSel(ep.mon), eYear = yearSel(ep.year);
+    var present = el("input"); present.type = "checkbox"; present.checked = ep.present;
+    function compose() {
+      var start = (sMon.value || "") + (sMon.value && sYear.value ? " " : "") + (sYear.value || "");
+      var end = present.checked ? "Present" : ((eMon.value || "") + (eMon.value && eYear.value ? " " : "") + (eYear.value || ""));
+      it.date = (start + (start && end ? " – " : "") + end).trim(); inp.value = it.date;
+      eMon.disabled = present.checked; eYear.disabled = present.checked; touch();
+    }
+    [sMon, sYear, eMon, eYear].forEach(function (s) { s.addEventListener("change", compose); });
+    present.addEventListener("change", compose);
+    eMon.disabled = present.checked; eYear.disabled = present.checked;
+    var startRow = el("div", "date-pick-row"); startRow.appendChild(elText("span", "dp-lbl", "Start")); startRow.appendChild(sMon); startRow.appendChild(sYear);
+    var endRow = el("div", "date-pick-row"); endRow.appendChild(elText("span", "dp-lbl", "End")); endRow.appendChild(eMon); endRow.appendChild(eYear);
+    var presentRow = el("label", "dp-present"); presentRow.appendChild(present); presentRow.appendChild(document.createTextNode(" Present (current role)"));
+    pick.appendChild(startRow); pick.appendChild(endRow); pick.appendChild(presentRow);
+    toggle.addEventListener("click", function () { pick.classList.toggle("open"); });
+    f.appendChild(toggle); f.appendChild(pick);
+    return f;
+  }
+
   function renderEntriesEditor(body, sec, allowSave) {
     sec.items = sec.items || [];
     var bar = el("div", "item-bar");
@@ -497,16 +823,19 @@
     sec.items.forEach(function (it, i) {
       var wrap = el("div", "item");
       var top = el("div", "item-bar");
+      var egrip = el("span", "move grip item-grip"); egrip.textContent = "⠿";
+      top.appendChild(egrip);
       top.appendChild(elText("span", "lbl", it.heading || ("Entry " + (i + 1))));
       var tools = el("div", "item-tools");
       tools.appendChild(miniBtn("▲", function () { if (moveIn(sec.items, i, -1)) { renderApp(); touch(); } }));
       tools.appendChild(miniBtn("▼", function () { if (moveIn(sec.items, i, 1)) { renderApp(); touch(); } }));
       tools.appendChild(miniBtn("✕", function () { sec.items.splice(i, 1); renderApp(); touch(); }, "btn-danger"));
       top.appendChild(tools); wrap.appendChild(top);
+      makeDragItem(wrap, egrip, sec.items, i, "items:" + sec.id);
       wrap.appendChild(fieldInput("Company / project / school", it.heading, function (v) { it.heading = v; touch(); }));
       var r2 = el("div", "row-2");
       r2.appendChild(fieldInput("Role / title (optional)", it.role, function (v) { it.role = v; touch(); }));
-      r2.appendChild(fieldInput("Date range", it.date, function (v) { it.date = v; touch(); }));
+      r2.appendChild(dateRangeControl(it));
       wrap.appendChild(r2);
       wrap.appendChild(fieldInput("Meta / tech line", it.meta, function (v) { it.meta = v; touch(); }));
       var bbar = el("div", "item-bar");
@@ -522,14 +851,27 @@
       var bl = el("div", "bullets");
       (it.bullets || []).forEach(function (bt, bi) {
         var row = el("div", "bullet-row");
-        var ta = el("textarea", "inp"); ta.value = bt;
+        var grip = el("span", "move grip bullet-grip"); grip.textContent = "⠿";
+        row.appendChild(grip);
+        var ta = el("textarea", "inp"); ta.value = bt; ta.setAttribute("data-b", it.id + "_" + bi);
         ta.addEventListener("input", function () { it.bullets[bi] = ta.value; autoGrow(ta); touch(); });
+        /* Enter adds the next bullet and focuses it (Shift+Enter = newline within) */
+        ta.addEventListener("keydown", function (e) {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            it.bullets.splice(bi + 1, 0, "");
+            touch(); renderApp();
+            var nn = document.querySelector('[data-b="' + it.id + "_" + (bi + 1) + '"]');
+            if (nn) { nn.focus(); }
+          }
+        });
         row.appendChild(ta);
         row.appendChild(miniBtn("☆", function () {
           if (saveSnippet(it.bullets[bi])) { flash("Saved to bullet bank."); touch(); renderApp(); }
           else flash((it.bullets[bi] || "").trim() ? "Already in your bank." : "Write the bullet first.");
         }, "js-star"));
         row.appendChild(miniBtn("✕", function () { it.bullets.splice(bi, 1); renderApp(); touch(); }, "btn-danger"));
+        makeDragItem(row, grip, it.bullets, bi, "bullets:" + it.id);
         bl.appendChild(row);
         if (bt && bt.trim() && !/\d/.test(bt)) bl.appendChild(elText("div", "quant-nudge", "＋ add a metric (%, $, #, time) to strengthen this"));
       });
@@ -578,6 +920,70 @@
     if (!base) base = "Satuluri_Rajesh_Resume";
     var company = ((r && r.targetRole) || "").trim().replace(/[^A-Za-z0-9]+/g, "");
     return company ? base + "_" + company : base;
+  }
+  /* ---------- readiness dashboard ---------- */
+  function completenessChecks(r) {
+    var p = r.profile || {};
+    return [
+      { ok: !!(p.name && p.name.trim()), label: "Your name" },
+      { ok: !!(p.title && p.title.trim()), label: "Professional title" },
+      { ok: (p.contacts || []).some(function (c) { return /@/.test(c.value || ""); }), label: "Email" },
+      { ok: (p.contacts || []).some(function (c) { return c.value && c.value.trim() && !/@/.test(c.value); }), label: "Phone / location" },
+      { ok: !!(findSummary(r) || "").trim(), label: "Summary" },
+      { ok: (r.sections || []).some(function (s) { return s.type === "entries" && (s.items || []).some(function (it) { return (it.bullets || []).some(function (b) { return b && b.trim(); }); }); }), label: "Experience bullets" },
+      { ok: (r.sections || []).some(function (s) { return s.type === "labeled" && /skill/i.test(s.title || "") && (s.items || []).some(function (it) { return (it.value || "").trim(); }); }), label: "Skills" },
+      { ok: (r.sections || []).some(function (s) { return /educ/i.test(s.title || "") && (s.items || []).some(function (it) { return (it.heading || "").trim(); }); }), label: "Education" }
+    ];
+  }
+  function scoreBand(n) { return n >= 85 ? "high" : (n >= 60 ? "mid" : "low"); }
+  function statTile(label, val, bandCls, onClick) {
+    var t = el(onClick ? "button" : "div", "stat-tile " + (bandCls || "")); if (onClick) { t.type = "button"; t.addEventListener("click", onClick); t.title = "Open " + label; }
+    t.appendChild(elText("span", "stat-val", String(val)));
+    t.appendChild(elText("span", "stat-lbl", label));
+    return t;
+  }
+  function readinessBlock(r) {
+    var checks = completenessChecks(r), done = checks.filter(function (c) { return c.ok; }).length;
+    var pct = Math.round(done / checks.length * 100);
+    var health = analyzeHealth(r);
+    var fitOver = document.body.classList.contains("is-over");
+    var jd = jdAnalysis ? jdAnalysis.score : null;
+    var block = el("div", "readiness");
+    block.appendChild(elText("div", "readiness-title", "Resume readiness"));
+    var grid = el("div", "readiness-grid");
+    grid.appendChild(statTile("Complete", pct + "%", scoreBand(pct)));
+    grid.appendChild(statTile("Health", health.score, scoreBand(health.score), function () { activeTab = "health"; renderApp(); }));
+    grid.appendChild(statTile("Page fit", fitOver ? "Review" : (r.pages === 2 ? "2 pg" : "1 pg"), fitOver ? "low" : "high"));
+    grid.appendChild(statTile("JD match", jd != null ? jd + "%" : "—", jd != null ? scoreBand(jd) : "none", function () { activeTab = "jd"; renderApp(); }));
+    block.appendChild(grid);
+    var missing = checks.filter(function (c) { return !c.ok; });
+    if (missing.length) block.appendChild(elText("p", "readiness-missing", "To finish: " + missing.map(function (m) { return m.label; }).join(" · ")));
+    else block.appendChild(elText("p", "readiness-done", "✓ All the essentials are filled in — polish it in Health and tailor it in JD Match."));
+    return block;
+  }
+
+  /* ---------- onboarding (first run) ---------- */
+  function onboardingCard() {
+    var card = el("div", "onboard-card");
+    card.appendChild(elText("div", "onboard-title", "👋 Welcome to Resume Builder"));
+    card.appendChild(elText("p", "onboard-lead", "Free, private, and 100% in your browser — nothing is uploaded. Build a clean, ATS-friendly resume, tailor it to any job, and export to PDF or Word."));
+    card.appendChild(elText("p", "onboard-lead", "Start from a blank resume, or load a clearly-marked sample to see how everything fits together."));
+    var row = el("div", "onboard-actions");
+    row.appendChild(miniBtn("✍ Start blank", function () { store.onboarded = true; renderApp(); touch(); flash("Blank resume ready — fill in your details."); }, "btn-primary"));
+    row.appendChild(miniBtn("🧪 Load a sample", function () { loadSample(); }));
+    card.appendChild(row);
+    return card;
+  }
+  /* Replace the active (empty) resume with marked sample content. */
+  function loadSample() {
+    var c = sampleContent(), r = activeResume();
+    r.profile = { name: c.profile.name, title: c.profile.title, contacts: clone(c.profile.contacts) };
+    r.sections = clone(c.sections);
+    r.sections.forEach(function (s) { s.id = uid(); (s.items || []).forEach(function (it) { it.id = uid(); }); });
+    r.isSample = true;
+    if (!store.library || !LIB_KEYS.some(function (k) { return (store.library[k] || []).length; })) store.library = libraryFromSections(c.sections);
+    store.onboarded = true;
+    renderApp(); touch(); flash("Sample loaded — it's marked so you don't mistake it for your own.");
   }
   function newResume() {
     // start from the full standard template (all sections present) so a new
@@ -696,8 +1102,53 @@
   /* ============================================================
      LIBRARY TAB — your document store (edit reference material)
      ============================================================ */
+  var librarySearch = "";
+  function libHaystack(it) {
+    var parts = [it.label, it.value, it.text, it.heading, it.role, it.meta, it.tags];
+    if (it.bullets) parts = parts.concat(it.bullets);
+    return parts.filter(Boolean).join("  ").toLowerCase();
+  }
+  function filterLibrary(q) {
+    q = (q || "").trim().toLowerCase();
+    var items = document.querySelectorAll("#tabPanel .item[data-search]");
+    for (var i = 0; i < items.length; i++) {
+      var hit = !q || items[i].getAttribute("data-search").indexOf(q) >= 0;
+      items[i].style.display = hit ? "" : "none";
+    }
+    /* hide category blocks with no visible items while searching; expand matches */
+    var blocks = document.querySelectorAll("#tabPanel .block");
+    for (var b = 0; b < blocks.length; b++) {
+      var its = blocks[b].querySelectorAll(".item[data-search]");
+      if (!its.length) continue;   /* not a library category block */
+      var visible = false;
+      for (var k = 0; k < its.length; k++) if (its[k].style.display !== "none") { visible = true; break; }
+      blocks[b].style.display = (visible || !q) ? "" : "none";
+      if (q && visible) blocks[b].classList.remove("collapsed");
+    }
+    var note = document.getElementById("libSearchNote");
+    if (note) {
+      var total = items.length, shown = 0;
+      for (var m = 0; m < items.length; m++) if (items[m].style.display !== "none") shown++;
+      note.textContent = q ? (shown + " of " + total + " item" + (total !== 1 ? "s" : "") + " match") : "";
+    }
+  }
+  function libTagsField(it) {
+    var f = el("div", "field lib-tags");
+    f.appendChild(elText("label", null, "Tags (comma-separated — used by search)"));
+    var i = el("input", "inp"); i.value = it.tags || ""; i.placeholder = "e.g. cloud, leadership, python";
+    i.addEventListener("input", function () { it.tags = i.value; touch(); var w = i.closest(".item"); if (w) w.setAttribute("data-search", libHaystack(it)); });
+    f.appendChild(i); return f;
+  }
   function renderLibrary(panel) {
     panel.appendChild(elText("p", "panel-hint", "Your personal document store — keep all your material here for reference and reuse. Use “Add from Library” inside a resume to pull items in. Editing here does not change any resume."));
+    /* search box */
+    var sw = el("div", "lib-search");
+    var si = el("input", "inp"); si.id = "libSearch"; si.type = "search"; si.value = librarySearch;
+    si.placeholder = "🔍  Search your library — text or tags…"; si.setAttribute("aria-label", "Search library");
+    si.addEventListener("input", function () { librarySearch = si.value; filterLibrary(si.value); });
+    sw.appendChild(si);
+    sw.appendChild(elText("span", "lib-search-note", "")).id = "libSearchNote";
+    panel.appendChild(sw);
     libBlock(panel, "Professional Summaries", "summaries", function () { store.library.summaries.push({ id: uid(), label: "New summary", text: "" }); }, function (body, it) {
       body.appendChild(fieldInput("Label (your reference)", it.label, function (v) { it.label = v; touch(); }));
       body.appendChild(fieldTextarea("Summary text (use **bold**)", it.text, function (v) { it.text = v; touch(); }));
@@ -735,6 +1186,7 @@
       body.appendChild(fieldInput("Side-heading", it.label, function (v) { it.label = v; touch(); }));
       body.appendChild(fieldTextarea("Description", it.value, function (v) { it.value = v; touch(); }));
     });
+    if (librarySearch) filterLibrary(librarySearch);
   }
 
   function libBlock(panel, title, catKey, addFn, itemBody) {
@@ -753,6 +1205,8 @@
         tools.appendChild(miniBtn("✕", function () { if (confirm("Delete this library item?")) { arr.splice(i, 1); renderApp(); touch(); } }, "btn-danger"));
         top.appendChild(tools); wrap.appendChild(top);
         itemBody(wrap, it);
+        wrap.appendChild(libTagsField(it));
+        wrap.setAttribute("data-search", libHaystack(it));
         body.appendChild(wrap);
       });
     }, [add]));
@@ -1130,8 +1584,52 @@
     return parts.join("  ").replace(/[*_`]/g, "");
   }
 
+  /* Break the resume into labelled chunks so a matched keyword can be traced to
+     the exact place it appears. `kind` drives the demonstrated-vs-listed call:
+     a keyword proven inside an experience/project bullet or the summary is
+     "evidence-backed"; one that only appears in the skills list or header/title
+     is "listed" (present, but not shown in action). This is the coverage-vs-
+     competency distinction professional scanners draw. */
+  function resumeChunks(r) {
+    var out = [];
+    if (!r) return out;
+    var p = r.profile || {};
+    if (p.title) out.push({ where: "Header / title", kind: "header", text: p.title });
+    (r.sections || []).forEach(function (sec) {
+      var st = sec.title || "Section";
+      if (sec.type === "text") { if (sec.text) out.push({ where: st, kind: "summary", text: sec.text }); }
+      else if (sec.type === "labeled") {
+        (sec.items || []).forEach(function (it) { out.push({ where: st + (it.label ? " · " + it.label : ""), kind: "skills", text: (it.label || "") + " " + (it.value || "") }); });
+      } else {
+        (sec.items || []).forEach(function (it) {
+          var head = [it.heading, it.role, it.meta].filter(Boolean).join(" ");
+          if (head) out.push({ where: it.heading || st, kind: "entry", text: head });
+          (it.bullets || []).forEach(function (b) { if (b) out.push({ where: it.heading || st, kind: "bullet", text: b }); });
+        });
+      }
+    });
+    return out;
+  }
+  function findEvidence(chunks, phrase) {
+    /* prefer evidence from a bullet/summary (demonstrated) over skills/header */
+    var rank = { bullet: 0, summary: 1, entry: 2, skills: 3, header: 4 }, best = null;
+    for (var i = 0; i < chunks.length; i++) {
+      if (hasPhrase(jdNorm(chunks[i].text), phrase)) {
+        if (best === null || rank[chunks[i].kind] < rank[best.kind]) best = chunks[i];
+        if (best && rank[best.kind] === 0) break;
+      }
+    }
+    return best;
+  }
+  function evidenceSnippet(text, max) {
+    var t = (text || "").replace(/[*_`]/g, "").replace(/\s+/g, " ").trim();
+    max = max || 120;
+    return t.length > max ? t.slice(0, max - 1) + "…" : t;
+  }
+
   function analyzeJd(jd, r) {
     var JN = jdNorm(jd), RN = jdNorm(resumePlainText(r));
+    var chunks = resumeChunks(r);
     var keys = [], seen = {};
     /* helper: is `term` already represented by a captured phrase (either direction)? */
     function overlaps(term) {
@@ -1175,7 +1673,16 @@
     keys.forEach(function (k) {
       var base = k.soft ? 1.5 : (k.skill ? 3 : 1);   // hard skills/tools >> soft skills > keywords
       var w = base * (1 + Math.min(k.freq - 1, 3) * 0.35);
-      k.weight = w; total += w; if (k.inResume) { covered += w; matched.push(k); } else missing.push(k);
+      k.weight = w; total += w;
+      if (k.inResume) {
+        covered += w;
+        var ev = findEvidence(chunks, k.term);
+        k.evidence = ev;
+        /* demonstrated = proven in a bullet/summary/entry; listed = only in the
+           skills list or header. */
+        k.demonstrated = !!ev && (ev.kind === "bullet" || ev.kind === "summary" || ev.kind === "entry");
+        matched.push(k);
+      } else missing.push(k);
     });
     missing.sort(function (a, b) { return b.weight - a.weight; });
     matched.sort(function (a, b) { return b.weight - a.weight; });
@@ -1427,6 +1934,18 @@
     /* Score card */
     panel.appendChild(scoreCard(a));
 
+    /* Methodology + honest disclaimer (Phase 3): transparent about what the
+       number is and — importantly — what it is NOT. */
+    if (collapsed["jd.method"] === undefined) collapsed["jd.method"] = true;
+    panel.appendChild(blockEl("How this score works (and what it isn't)", "jd.method", function (body) {
+      var ul = el("ul", "ats-list");
+      [ "It's a keyword-coverage estimate computed entirely in your browser — it weights hard skills & tools (×3) above soft skills (×1.5) above plain keywords (×1), and gives a little more weight to terms the JD repeats, the way scanners like Jobscan rank them.",
+        "“✓ You cover” means the term appears somewhere on this resume; “●” means it's backed by a bullet or your summary (stronger), “○” means it's only listed in Skills (weaker).",
+        "This is NOT your real employer ATS score and does not predict whether you'll be shortlisted. Every company's ATS and recruiter search is different and private.",
+        "Use it to spot genuine gaps and mirror the posting's wording — only ever add skills you truly have." ].forEach(function (t) { ul.appendChild(elText("li", null, t)); });
+      body.appendChild(ul);
+    }));
+
     /* Two-column keyword match: covered (left) vs missing (right) */
     panel.appendChild(blockEl("Keyword match — covered vs missing", "jd.match", function (body) {
       body.appendChild(elText("p", "hint", "Left: keywords your resume already covers. Right: keywords in the job description you're missing — hard skills & tools (with ＋ to add) rank above softer keywords, the way real ATS scanners weight them. Generic filler is filtered out. Click any term to copy it; add only what's truthful."));
@@ -1434,17 +1953,23 @@
 
       /* LEFT — covered */
       var left = el("div", "jd-col have-col");
+      var demoN = a.matched.filter(function (m) { return m.demonstrated; }).length;
       left.appendChild(elText("div", "jd-col-head have", "✓ You cover (" + a.matched.length + ")"));
       if (!a.matched.length) left.appendChild(elText("p", "hint", "No overlap yet — add the skills on the right that you genuinely have."));
       else {
+        left.appendChild(elText("p", "jd-legend", "● " + demoN + " shown in a bullet/summary  ·  ○ " + (a.matched.length - demoN) + " listed only. Hover a chip to see where it appears."));
         var lw = el("div", "chip-wrap");
         a.matched.forEach(function (m) {
-          var c = elText("button", "kw-chip have" + (m.skill ? " skill" : ""), kwLabel(m)); c.type = "button";
-          c.title = (m.skill ? "Skill/tool" : "Keyword") + " — covered. Click to copy.";
+          var cls = "kw-chip have" + (m.skill ? " skill" : "") + (m.demonstrated ? " demonstrated" : " listed-only");
+          var c = el("button", cls); c.type = "button";
+          c.appendChild(document.createTextNode((m.demonstrated ? "● " : "○ ") + kwLabel(m)));
+          if (m.evidence) c.title = (m.demonstrated ? "Demonstrated in " : "Listed in ") + m.evidence.where + ": “" + evidenceSnippet(m.evidence.text) + "”  (click to copy keyword)";
+          else c.title = (m.skill ? "Skill/tool" : "Keyword") + " — covered. Click to copy.";
           c.addEventListener("click", function () { copyText(m.display || m.term, "“" + kwLabel(m) + "” copied."); });
           lw.appendChild(c);
         });
         left.appendChild(lw);
+        if (demoN < a.matched.length) left.appendChild(elText("p", "hint", "Tip: keywords only listed in your Skills (○) are weaker evidence. Where it's true, add a bullet that shows the ○ ones in action."));
       }
       cols.appendChild(left);
 
@@ -1554,6 +2079,22 @@
     });
     return out;
   }
+  /* validation helpers — used by Health to FLAG (never auto-correct) format issues */
+  var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  var URL_RE = /^(https?:\/\/)?(www\.)?[a-z0-9-]+(\.[a-z0-9-]+)+(\/[^\s]*)?$/i;
+  var MONTHS_RE = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\b/i;
+  /* classify a date string's style so we can spot inconsistency. */
+  function dateStyle(d) {
+    d = (d || "").trim();
+    if (!d) return "other";
+    if (/present|current|now|ongoing/i.test(d) && !/\d/.test(d)) return "present";
+    var hasMonthName = MONTHS_RE.test(d);
+    var hasYear = /\b(19|20)\d{2}\b/.test(d);
+    if (hasMonthName && hasYear) return "monthname";          /* Jul 2022 – Present */
+    if (/\b\d{1,2}[\/.\-]\d{4}\b/.test(d)) return "numeric";   /* 07/2022 */
+    if (hasYear && !hasMonthName) return "yearonly";          /* 2022 – 2024 */
+    return "other";
+  }
   function wordCount(s) { return (s || "").trim() ? s.trim().split(/\s+/).length : 0; }
   function findSummary(r) {
     var s = (r.sections || []).filter(function (x) { return x.type === "text"; })[0];
@@ -1618,11 +2159,39 @@
     else if (totalW < 220) { score -= 6; checks.push({ level: "warn", label: "Overall length", detail: "~" + totalW + " words — looks thin. Add impact and detail to recent roles.", items: [] }); }
     else checks.push({ level: "good", label: "Overall length", detail: "~" + totalW + " words — good one-page density.", items: [] });
 
-    /* 8. Contact essentials */
-    var contacts = ((r.profile || {}).contacts || []).map(function (c) { return c.value || ""; }).join(" ");
-    var hasEmail = /@/.test(contacts);
-    if (!hasEmail) { score -= 6; checks.push({ level: "bad", label: "Contact details", detail: "No email detected in your header. Add a professional email.", items: [] }); }
-    else checks.push({ level: "good", label: "Contact details", detail: "Email present in header.", items: [] });
+    /* 8. Contact essentials + format validation (non-destructive: we flag, never rewrite) */
+    var contactVals = ((r.profile || {}).contacts || []).map(function (c) { return (c.value || "").trim(); }).filter(Boolean);
+    var joined = contactVals.join(" ");
+    var emailVals = contactVals.filter(function (v) { return /@/.test(v); });
+    var badEmails = emailVals.filter(function (v) { return !EMAIL_RE.test(v); });
+    if (!emailVals.length) { score -= 6; checks.push({ level: "bad", label: "Contact details", detail: "No email detected in your header. Add a professional email.", items: [] }); }
+    else if (badEmails.length) { score -= 4; checks.push({ level: "warn", label: "Contact details", detail: "An email in your header doesn't look valid — check for typos (missing @ or domain).", items: badEmails, itemsLabel: "Check:" }); }
+    else checks.push({ level: "good", label: "Contact details", detail: "Email present and well-formed.", items: [] });
+
+    /* 9. Link validity — profile/portfolio URLs that look malformed */
+    var linkVals = contactVals.filter(function (v) { return !/@/.test(v) && (/\./.test(v) && /[a-z]/i.test(v) && !/\s/.test(v)) && (/https?:|www\.|\.(com|io|dev|net|org|co|ai|me|in|app)\b/i.test(v) || /linkedin|github|gitlab|behance|portfolio/i.test(v)); });
+    var badLinks = linkVals.filter(function (v) { return !URL_RE.test(v); });
+    if (linkVals.length) {
+      if (badLinks.length) { score -= 3; checks.push({ level: "warn", label: "Profile links", detail: "A link looks incomplete (e.g. “linkedin” with no full URL). Use the full address so it's clickable and parseable.", items: badLinks, itemsLabel: "Fix:" }); }
+      else checks.push({ level: "good", label: "Profile links", detail: linkVals.length + " profile link(s) look well-formed.", items: [] });
+    }
+
+    /* 10. Date-format consistency across entries (an ATS computes tenure from these) */
+    var dateVals = [];
+    (r.sections || []).forEach(function (sec) { if (sec.type === "entries") (sec.items || []).forEach(function (it) { if (it.date && it.date.trim()) dateVals.push(it.date.trim()); }); });
+    if (dateVals.length >= 2) {
+      var styles = {}, unrecognized = [];
+      dateVals.forEach(function (d) { var s = dateStyle(d); if (s === "other") unrecognized.push(d); else styles[s] = 1; });
+      var styleCount = Object.keys(styles).length;
+      if (unrecognized.length) { score -= 4; checks.push({ level: "warn", label: "Date formats", detail: "Some dates don't follow a clear “MMM YYYY – MMM YYYY” pattern. Consistent, recognizable dates help an ATS read your timeline.", items: unrecognized.slice(0, 5), itemsLabel: "Clarify:" }); }
+      else if (styleCount > 1) { score -= 3; checks.push({ level: "warn", label: "Date formats", detail: "Your entries mix date styles (e.g. “Jul 2022” vs “07/2022”). Pick one format and use it everywhere.", items: dateVals.slice(0, 6), itemsLabel: "Dates found:" }); }
+      else checks.push({ level: "good", label: "Date formats", detail: "Dates are consistent and recognizable.", items: [] });
+    }
+
+    /* 11. One-page integrity — read the live preview's page-fit state */
+    var over = document.body.classList.contains("is-over");
+    if (over) { score -= 6; checks.push({ level: "warn", label: "Fits one page", detail: "The preview currently overflows one page. Trim older/less-relevant content, or the PDF/DOCX auto-fit will shrink the type.", items: [] }); }
+    else checks.push({ level: "good", label: "Fits one page", detail: "Content fits on a single page.", items: [] });
 
     score = Math.max(0, Math.min(100, score));
     /* order: problems first */
@@ -1657,7 +2226,7 @@
   function renderHealth(panel) {
     var r = activeResume();
     var hint = el("p", "panel-hint");
-    hint.innerHTML = "An instant quality read on <strong>" + esc(r ? (r.name || "this resume") : "your resume") + "</strong> — quantified impact, strong verbs, clichés, passive voice, length. All in your browser. <strong>Fix the flags, not fake keywords.</strong>";
+    hint.innerHTML = "An instant quality read on <strong>" + esc(r ? (r.name || "this resume") : "your resume") + "</strong> — quantified impact, strong verbs, clichés, passive voice, length, contact &amp; date validity, one-page fit. All in your browser. <strong>Fix the flags, not fake keywords.</strong> These are heuristic writing checks, not a guarantee — use your judgement.";
     panel.appendChild(hint);
     if (!r) { panel.appendChild(elText("div", "jd-empty", "Create a resume first.")); return; }
 
@@ -1684,12 +2253,31 @@
      ============================================================ */
   var APP_STATUSES = ["Saved", "Applied", "Interview", "Offer", "Rejected"];
   var APP_STATUS_CLASS = { Saved: "st-saved", Applied: "st-applied", Interview: "st-interview", Offer: "st-offer", Rejected: "st-rejected" };
+  var trackerFilter = "All";                 /* which status the tracker is filtered to */
+  var APP_CLOSED = { Offer: 1, Rejected: 1 };  /* follow-up reminders don't apply once closed */
+  function todayISO() { var d = new Date(); return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); }
+  function pad2(n) { return (n < 10 ? "0" : "") + n; }
+  /* days from today to an ISO date (negative = overdue). null if unparseable. */
+  function daysUntil(iso) {
+    if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
+    var t = new Date(iso + "T00:00:00"), now = new Date(todayISO() + "T00:00:00");
+    if (isNaN(t.getTime())) return null;
+    return Math.round((t - now) / 86400000);
+  }
+  function dueLabel(iso) {
+    var d = daysUntil(iso); if (d === null) return "";
+    if (d < 0) return "overdue by " + (-d) + "d";
+    if (d === 0) return "due today";
+    if (d === 1) return "due tomorrow";
+    return "in " + d + "d";
+  }
 
   function newApplication(prefill) {
     store.applications = store.applications || [];
     var a = {
       id: uid(), company: "", role: "", link: "", status: "Saved", notes: "",
       jd: "", resumeId: "", resumeName: "", score: null,
+      followUp: "", deadline: "",
       createdAt: Date.now(), updatedAt: Date.now()
     };
     if (prefill) for (var k in prefill) a[k] = prefill[k];
@@ -1705,17 +2293,35 @@
     hint.innerHTML = "Track every role in one place — the job description, the resume you tailored, its match score, and where you are in the pipeline. <strong>All in your browser; exports with your data.</strong>";
     panel.appendChild(hint);
 
-    /* summary counts */
+    /* summary counts — clickable to filter the list */
     var counts = {}; APP_STATUSES.forEach(function (s) { counts[s] = 0; });
     apps.forEach(function (a) { counts[a.status] = (counts[a.status] || 0) + 1; });
+    if (trackerFilter !== "All" && APP_STATUSES.indexOf(trackerFilter) === -1) trackerFilter = "All";
     var sum = el("div", "track-summary");
+    var allChip = el("button", "track-count track-all" + (trackerFilter === "All" ? " sel" : "")); allChip.type = "button";
+    allChip.appendChild(elText("span", "tc-num", String(apps.length)));
+    allChip.appendChild(elText("span", "tc-lbl", "All"));
+    allChip.addEventListener("click", function () { trackerFilter = "All"; renderApp(); });
+    sum.appendChild(allChip);
     APP_STATUSES.forEach(function (s) {
-      var chip = el("div", "track-count " + APP_STATUS_CLASS[s]);
+      var chip = el("button", "track-count " + APP_STATUS_CLASS[s] + (trackerFilter === s ? " sel" : "")); chip.type = "button";
       chip.appendChild(elText("span", "tc-num", String(counts[s] || 0)));
       chip.appendChild(elText("span", "tc-lbl", s));
+      chip.title = "Show only " + s;
+      chip.addEventListener("click", function () { trackerFilter = (trackerFilter === s ? "All" : s); renderApp(); });
       sum.appendChild(chip);
     });
     panel.appendChild(sum);
+
+    /* follow-ups due / overdue banner (open applications only) */
+    var dueSoon = apps.filter(function (a) { if (APP_CLOSED[a.status]) return false; var d = daysUntil(a.followUp); return d !== null && d <= 2; });
+    if (dueSoon.length) {
+      var od = dueSoon.filter(function (a) { return daysUntil(a.followUp) < 0; }).length;
+      var fb = el("div", "track-due-banner" + (od ? " overdue" : ""));
+      fb.textContent = (od ? "⏰ " + od + " follow-up" + (od > 1 ? "s" : "") + " overdue" + (dueSoon.length - od ? ", " : "") : "🔔 ") +
+        (dueSoon.length - od ? (dueSoon.length - od) + " due in the next 2 days" : (od ? "" : dueSoon.length + " follow-up due soon"));
+      panel.appendChild(fb);
+    }
 
     /* add actions */
     var addRow = el("div", "prompt-actions");
@@ -1742,8 +2348,16 @@
       return;
     }
 
+    var visible = trackerFilter === "All" ? apps : apps.filter(function (a) { return a.status === trackerFilter; });
+    if (!visible.length) {
+      var none = el("div", "jd-empty");
+      none.innerHTML = "No applications with status <b>" + esc(trackerFilter) + "</b>. <br>Click <b>All</b> above to see everything.";
+      panel.appendChild(none);
+      return;
+    }
+
     /* one block per application */
-    apps.forEach(function (a) {
+    visible.forEach(function (a) {
       var title = (a.company || "Untitled") + (a.role ? " — " + a.role : "");
       panel.appendChild(blockEl(title, "track." + a.id, function (body) {
         var r2 = el("div", "row-2");
@@ -1759,6 +2373,12 @@
         APP_STATUSES.forEach(function (s) { var o = el("option"); o.value = s; o.textContent = s; if (a.status === s) o.selected = true; sel.appendChild(o); });
         sel.addEventListener("change", function () { a.status = sel.value; a.updatedAt = Date.now(); touch(); renderApp(); });
         sf.appendChild(sel); body.appendChild(sf);
+
+        /* follow-up + deadline dates */
+        var dr = el("div", "row-2");
+        dr.appendChild(dateField("Follow-up reminder", a.followUp, APP_CLOSED[a.status] ? "" : dueLabel(a.followUp), function (v) { a.followUp = v; a.updatedAt = Date.now(); touch(); renderApp(); }));
+        dr.appendChild(dateField("Application deadline", a.deadline, APP_CLOSED[a.status] ? "" : dueLabel(a.deadline), function (v) { a.deadline = v; a.updatedAt = Date.now(); touch(); renderApp(); }));
+        body.appendChild(dr);
 
         /* linked resume + score */
         var meta = el("div", "track-meta");
@@ -1799,8 +2419,17 @@
           touch(); renderApp();
         }, "btn-danger"));
         body.appendChild(footer);
-      }, [elText("span", "hl-pill " + APP_STATUS_CLASS[a.status], a.status)]));
+      }, trackerHeadPills(a)));
     });
+  }
+  function trackerHeadPills(a) {
+    var pills = [];
+    if (!APP_CLOSED[a.status]) {
+      var d = daysUntil(a.followUp);
+      if (d !== null && d <= 2) pills.push(elText("span", "hl-pill " + (d < 0 ? "due-overdue" : "due-soon"), d < 0 ? "⏰ overdue" : "🔔 due"));
+    }
+    pills.push(elText("span", "hl-pill " + APP_STATUS_CLASS[a.status], a.status));
+    return pills;
   }
 
   function guessCompanyFromJd(jd) {
@@ -1939,17 +2568,31 @@
   /* ============================================================
      PREVIEW (active resume)
      ============================================================ */
+  function applyThemeToPage(page, t) {
+    t = normalizeTheme(t);
+    page.setAttribute("data-template", t.template);
+    page.setAttribute("data-density", t.density);
+    page.style.setProperty("--r-accent", t.accent);
+    page.style.setProperty("--r-font", THEME_FONTS[t.font].css);
+  }
+  var PAGE_PX = 1123;   /* A4 height @96dpi, mirrors the .page CSS height */
   function renderPreview() {
     var page = document.getElementById("page");
     var r = activeResume();
     var label = document.getElementById("previewLabel");
     if (label) label.textContent = "Preview · A4 · " + (r ? (r.name || "Untitled") : "");
     if (!r) { page.innerHTML = ""; return; }
+    applyThemeToPage(page, r.theme);
+    page.setAttribute("data-pages", r.pages === 2 ? "2" : "1");
     var p = r.profile;
     var h = '<div class="r-name">' + esc(p.name || "Your Name") + "</div>";
     if (p.title) h += '<div class="r-title">' + esc(p.title) + "</div>";
     var contacts = (p.contacts || []).filter(function (c) { return c.value; });
-    if (contacts.length) h += '<div class="r-contacts">' + contacts.map(function (c) { return '<span class="ico">' + esc(c.icon) + "</span>" + esc(c.value); }).join('<span class="sep">|</span>') + "</div>";
+    if (contacts.length) h += '<div class="r-contacts">' + contacts.map(function (c) {
+      var t = contactTarget(c.value);
+      var val = t ? '<a href="' + esc(t) + '" target="_blank" rel="noopener noreferrer">' + esc(c.value) + "</a>" : esc(c.value);
+      return '<span class="ico">' + esc(c.icon) + "</span>" + val;
+    }).join('<span class="sep">|</span>') + "</div>";
 
     r.sections.forEach(function (sec) {
       h += '<div class="r-section"><div class="r-sec-title">' + esc(sec.title || "Section") + "</div>";
@@ -1982,6 +2625,8 @@
     var page = document.getElementById("page");
     if (!page) return;
     page.style.setProperty("--r-fill", "0px");
+    /* two-page resumes flow naturally — no bottom-gap fill */
+    if (page.getAttribute("data-pages") === "2") return;
     var secs = page.querySelectorAll(".r-section").length;
     if (!secs || !page.children.length) return;
     var cs = getComputedStyle(page);
@@ -2007,22 +2652,45 @@
   function fitPreview() {
     var wrap = document.querySelector(".preview-wrap"), holder = document.getElementById("pageHolder"), scaler = document.getElementById("pageScaler");
     if (!wrap || !holder || !scaler) return;
+    var page = document.getElementById("page");
+    var maxPages = (page && page.getAttribute("data-pages") === "2") ? 2 : 1;
     var avail = wrap.clientWidth - 4, scale = Math.min(avail / 794, 1);
     if (!isFinite(scale) || scale <= 0) scale = 0.45;
     scaler.style.transform = "scale(" + scale + ")";
-    holder.style.width = (794 * scale) + "px"; holder.style.height = (1123 * scale) + "px";
+    /* measure the real rendered height (two-page pages grow); holder reserves
+       the scaled space so the preview scrolls correctly. */
+    var ph = page ? Math.max(PAGE_PX * maxPages, page.offsetHeight) : PAGE_PX;
+    holder.style.width = (794 * scale) + "px"; holder.style.height = (ph * scale) + "px";
   }
   function checkOnePage() {
     var page = document.getElementById("page"), badge = document.getElementById("pageBadge");
     if (!page || !badge) return;
-    var over = page.scrollHeight > page.clientHeight + 1;
-    page.classList.toggle("over", over);
-    badge.textContent = over ? "⚠ Over 1 page" : "1 page";
-    badge.className = "page-badge " + (over ? "over" : "ok");
-    document.body.classList.toggle("is-over", over);
-    var banner = document.getElementById("overBanner"); if (banner) banner.hidden = !over;
+    var r = activeResume();
+    var maxPages = (r && r.pages === 2) ? 2 : 1;
+    if (maxPages === 2) {
+      /* two-page: measure content vs the two-page budget */
+      var contentH = page.scrollHeight;
+      var usedPages = contentH > PAGE_PX + 2 ? 2 : 1;
+      var over2 = contentH > PAGE_PX * 2 + 2;
+      page.classList.toggle("over", over2);
+      badge.textContent = over2 ? "⚠ Over 2 pages" : (usedPages === 2 ? "2 pages" : "1 of 2 pages");
+      badge.className = "page-badge " + (over2 ? "over" : "ok");
+      document.body.classList.toggle("is-over", over2);
+      var banner2 = document.getElementById("overBanner");
+      if (banner2) { banner2.hidden = !over2; banner2.innerHTML = "⚠ This resume exceeds two pages. Trim or shorten content, or the export will scale it down to fit."; }
+    } else {
+      var over = page.scrollHeight > page.clientHeight + 1;
+      page.classList.toggle("over", over);
+      badge.textContent = over ? "⚠ Over 1 page" : "1 page";
+      badge.className = "page-badge " + (over ? "over" : "ok");
+      document.body.classList.toggle("is-over", over);
+      var banner = document.getElementById("overBanner");
+      if (banner) { banner.hidden = !over; banner.innerHTML = "⚠ This resume runs past one page. Trim content, switch to a 2-page layout in Design, or the export will scale it down to fit."; }
+    }
+    /* warn, don't block: Add buttons stay enabled even when over (a brief
+       overflow mid-edit shouldn't disable editing). */
     var adders = document.querySelectorAll("#tabPanel .btn.js-add");
-    for (var i = 0; i < adders.length; i++) adders[i].disabled = over;
+    for (var i = 0; i < adders.length; i++) adders[i].disabled = false;
   }
 
   /* ============================================================
@@ -2095,6 +2763,7 @@
     if (opt.italic) rpr += "<w:i/>";
     if (opt.size) rpr += '<w:sz w:val="' + opt.size + '"/>';
     if (opt.color) rpr += '<w:color w:val="' + opt.color + '"/>';
+    if (opt.under) rpr += '<w:u w:val="single"/>';
     if (opt.caps) rpr += "<w:caps/>";
     return "<w:r>" + (rpr ? "<w:rPr>" + rpr + "</w:rPr>" : "") +
       '<w:t xml:space="preserve">' + xmlEsc(r.t) + "</w:t></w:r>";
@@ -2125,11 +2794,47 @@
   }
   var PARA_OVERHEAD_PT = 0.4;    /* small flat per-paragraph cushion for layout rounding */
 
+  /* Turn a contact value into a hyperlink target, or null for phone/location/
+     plain text. Shared by the preview and the DOCX export so they agree. */
+  function contactTarget(value) {
+    var v = (value || "").trim();
+    if (!v) return null;
+    if (EMAIL_RE.test(v)) return "mailto:" + v;
+    if (/^https?:\/\//i.test(v)) return v;
+    if (/^www\./i.test(v)) return "https://" + v;
+    if (!/\s/.test(v) && !/@/.test(v) && /^[a-z0-9.\-\/]+\.(com|io|dev|net|org|co|ai|me|in|app|xyz|us|uk|tech)\b/i.test(v)) return "https://" + v;
+    return null;   /* phone, location, plain text */
+  }
+  function contactLinks(contacts) {
+    var out = [];
+    (contacts || []).forEach(function (c, i) { var t = contactTarget(c.value); if (t) out.push({ idx: i, rid: "rId" + (100 + i), target: t }); });
+    return out;
+  }
+  function contactsRunXml(contacts, size, accent) {
+    var links = contactLinks(contacts), byIdx = {};
+    links.forEach(function (l) { byIdx[l.idx] = l; });
+    var parts = [];
+    contacts.forEach(function (c, i) {
+      if (i) parts.push(runXml({ t: "   |   " }, { size: size, color: "999999" }));
+      var l = byIdx[i];
+      if (l) parts.push('<w:hyperlink r:id="' + l.rid + '">' + runXml({ t: c.value }, { size: size, color: accent, under: true }) + '</w:hyperlink>');
+      else parts.push(runXml({ t: c.value }, { size: size, color: "555555" }));
+    });
+    return parts.join("");
+  }
+
   /* Build the <w:body> paragraphs at a given typographic scale, and return
      both the XML and an estimated total content height (points). */
   function buildBody(r, scale, fillTwips) {
     var p = r.profile || {}, body = [], hPt = 0;
     fillTwips = fillTwips || 0;                                                    /* extra space spread before each section to fill the page */
+    /* theme → OOXML: accent color on title & headings (and the name in Modern),
+       header alignment, matching the on-screen preview exactly. */
+    var theme = normalizeTheme(r.theme);
+    var accent = theme.accent.replace("#", "").toUpperCase();
+    var nameAlign = theme.template === "modern" ? "left" : "center";
+    var nameColor = theme.template === "modern" ? accent : "111111";
+    var ruleColor = theme.template === "modern" ? accent : "999999";
     function sz(base) { return Math.max(15, Math.round(base * scale)); }           /* half-points, floor 7.5pt */
     function sp(base) { return Math.max(0, Math.round(base * scale)); }            /* twips */
     function add(xml, sizeHalfPt, text, widthTwips, before, after, extraPt) {
@@ -2143,26 +2848,27 @@
        ->9.5pt, etc., so the .docx matches what the preview and PDF show. */
     /* name */
     var nSize = sz(36);
-    add(para(runXml({ t: p.name || "Your Name", b: true }, { size: nSize, bold: true }),
-      pPr('<w:jc w:val="center"/>' + spacing(0, sp(40)))), nSize, p.name || "Your Name", USABLE_W, 0, sp(40));
+    add(para(runXml({ t: p.name || "Your Name", b: true }, { size: nSize, bold: true, color: nameColor }),
+      pPr('<w:jc w:val="' + nameAlign + '"/>' + spacing(0, sp(40)))), nSize, p.name || "Your Name", USABLE_W, 0, sp(40));
     /* title */
     if (p.title) { var tSize = sz(24);
-      add(para(runXml({ t: p.title }, { size: tSize, color: "444444" }),
-        pPr('<w:jc w:val="center"/>' + spacing(0, sp(30)))), tSize, p.title, USABLE_W, 0, sp(30)); }
-    /* contacts */
+      add(para(runXml({ t: p.title }, { size: tSize, color: accent }),
+        pPr('<w:jc w:val="' + nameAlign + '"/>' + spacing(0, sp(30)))), tSize, p.title, USABLE_W, 0, sp(30)); }
+    /* contacts (hyperlinked where the value is an email or URL) */
     var contacts = (p.contacts || []).filter(function (c) { return c.value; });
     if (contacts.length) {
-      var joined = contacts.map(function (c) { return c.value; }).join("   |   "), cSize = sz(19);
-      add(para(runXml({ t: joined }, { size: cSize, color: "555555" }),
-        pPr('<w:jc w:val="center"/>' + spacing(0, sp(110)))), cSize, joined, USABLE_W, 0, sp(110));
+      var cSize = sz(19);
+      var cInner = contactsRunXml(contacts, cSize, accent);
+      var joined = contacts.map(function (c) { return c.value; }).join("   |   ");
+      add(para(cInner, pPr('<w:jc w:val="' + nameAlign + '"/>' + spacing(0, sp(110)))), cSize, joined, USABLE_W, 0, sp(110));
     }
 
     /* sections */
     (r.sections || []).forEach(function (sec) {
-      var hdBdr = '<w:pBdr><w:bottom w:val="single" w:sz="6" w:space="2" w:color="999999"/></w:pBdr>';
+      var hdBdr = '<w:pBdr><w:bottom w:val="single" w:sz="6" w:space="2" w:color="' + ruleColor + '"/></w:pBdr>';
       var hSize = sz(19);
       var hBefore = sp(110) + fillTwips;
-      add(para(runXml({ t: sec.title || "Section" }, { bold: true, size: hSize, caps: true, color: "222222" }),
+      add(para(runXml({ t: sec.title || "Section" }, { bold: true, size: hSize, caps: true, color: accent }),
         pPr(hdBdr + spacing(hBefore, sp(44)))), hSize, sec.title || "Section", USABLE_W, hBefore, sp(44), 2.5);
 
       if (sec.type === "text") {
@@ -2216,10 +2922,12 @@
        - if it UNDERFLOWS, spread the leftover height evenly before each section
          so the content fills the page with no blank band at the bottom — the
          same thing the preview/PDF do. */
-    var over = USABLE_H_PT * 0.96;                   /* shrink target (safety headroom) */
-    var fillTarget = USABLE_H_PT * 0.96;             /* fill most of the page; small cushion keeps it safely on one page */
+    var maxPages = (r.pages === 2) ? 2 : 1;
+    var over = USABLE_H_PT * 0.96 * maxPages;        /* shrink target (safety headroom), across the allowed pages */
+    var fillTarget = USABLE_H_PT * 0.96;             /* only fill the FIRST page when a 1-page resume underflows */
     var FLOOR = 0.55;
-    var scale = 1, built = buildBody(r, scale, 0);
+    var base = THEME_DENSITIES[normalizeTheme(r.theme).density] || 1;   /* density sets the baseline scale */
+    var scale = base, built = buildBody(r, scale, 0);
     if (built.hPt > over) {
       /* overflow: step down gradually to the largest scale that still fits */
       for (var pass = 0; pass < 24 && built.hPt > over && scale > FLOOR; pass++) {
@@ -2232,10 +2940,11 @@
       var slackPt = fillTarget - built.hPt;
       var FILL_CAP_TWIPS = 480;                      /* ~24pt, mirrors the preview's per-section fill cap */
       var fillTwips = Math.min(FILL_CAP_TWIPS, Math.max(0, Math.round((slackPt / secs) * 20)));
-      built = buildBody(r, 1, fillTwips);
+      built = buildBody(r, base, fillTwips);
     }
     return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-      '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
+      '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ' +
+      'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
       '<w:body>' + built.xml + '</w:body></w:document>';
   }
 
@@ -2254,14 +2963,17 @@
       '</Relationships>';
     /* compact defaults: Calibri 10pt, single line spacing, no space-after —
        this (not Word's looser Normal style) is what keeps the resume to one page */
+    var links = contactLinks(((r.profile || {}).contacts || []).filter(function (c) { return c.value; }));
     var docRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
       '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
       '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' +
+      links.map(function (l) { return '<Relationship Id="' + l.rid + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="' + xmlEsc(l.target) + '" TargetMode="External"/>'; }).join("") +
       '</Relationships>';
+    var docxFont = (THEME_FONTS[normalizeTheme(r.theme).font] || THEME_FONTS.calibri).docx;
     var styles = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
       '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
       '<w:docDefaults><w:rPrDefault><w:rPr>' +
-      '<w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:sz w:val="20"/><w:szCs w:val="20"/>' +
+      '<w:rFonts w:ascii="' + xmlEsc(docxFont) + '" w:hAnsi="' + xmlEsc(docxFont) + '" w:cs="' + xmlEsc(docxFont) + '"/><w:sz w:val="20"/><w:szCs w:val="20"/>' +
       '</w:rPr></w:rPrDefault><w:pPrDefault><w:pPr>' +
       '<w:spacing w:after="0" w:line="240" w:lineRule="auto"/>' +
       '</w:pPr></w:pPrDefault></w:docDefaults>' +
@@ -2292,22 +3004,54 @@
     a.download = (activeResume().profile.name || "resume").replace(/\s+/g, "_").toLowerCase() + "_resume_data.json";
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(url); }, 500);
   }
+  var IMPORT_MAX_BYTES = 12 * 1024 * 1024;   /* resume JSON is normally < 1 MB; cap guards against junk/huge files */
+  var BACKUP_KEY = "newvisual.resumedata.backup";
+  function backupCurrent(str) {
+    try { localStorage.setItem(BACKUP_KEY, str); localStorage.setItem(BACKUP_KEY + ".at", String(Date.now())); } catch (e) {}
+  }
+  /* Import that validates the file, never silently overwrites, backs up the
+     current data first, and is undoable (Ctrl+Z). */
   function importJson(file) {
+    if (file && typeof file.size === "number" && file.size > IMPORT_MAX_BYTES) {
+      alert("That file is " + (file.size / 1048576).toFixed(1) + " MB — too large for resume data (normally under 1 MB). Import cancelled; nothing was changed.");
+      return;
+    }
     var reader = new FileReader();
+    reader.onerror = function () { alert("Could not read that file. Nothing was changed."); };
     reader.onload = function () {
+      var parsed;
+      try { parsed = JSON.parse(reader.result); }
+      catch (e) { alert("That file isn't valid JSON, so it can't be imported. Nothing was changed."); return; }
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        alert("That file doesn't contain resume data. Nothing was changed."); return;
+      }
+      var looksLikeResume = Array.isArray(parsed.resumes) || Array.isArray(parsed.sections) || (parsed.library && typeof parsed.library === "object");
+      if (!looksLikeResume) {
+        alert("That file doesn't look like a Resume Builder export (no resumes, sections, or library found). Nothing was changed."); return;
+      }
+      var curCount = (store.resumes || []).length;
+      if (!confirm("Import will REPLACE your current data (" + curCount + " resume" + (curCount !== 1 ? "s" : "") + ") with this file's contents.\n\nYour current data is backed up first — press Undo (Ctrl+Z) or Reset if you change your mind.\n\nContinue?")) return;
+      var before = snapshotStr();
       try {
-        var parsed = JSON.parse(reader.result);
-        if (parsed && parsed.sections && !parsed.resumes) parsed = migrateV1(parsed);
-        else if (parsed && parsed.resumes && parsed.resumes[0] && parsed.resumes[0].picks) parsed = migrateV2(parsed);
-        store = normalize(parsed); renderApp(); save();
-      } catch (e) { alert("Could not read that file: " + e.message); }
+        if (parsed.sections && !parsed.resumes) parsed = migrateV1(parsed);
+        else if (parsed.resumes && parsed.resumes[0] && parsed.resumes[0].picks) parsed = migrateV2(parsed);
+        var next = normalize(parsed);
+      } catch (e) { alert("Could not import that file: " + e.message + "\nNothing was changed."); return; }
+      backupCurrent(before);
+      store = next;
+      /* make the import a single undoable step */
+      if (before) { undoStack.push(before); if (undoStack.length > UNDO_CAP) undoStack.shift(); redoStack = []; }
+      lastSnapshot = snapshotStr(); persist(store);
+      renderApp(); setSaveState("Saved"); updateUndoButtons();
+      var n = store.resumes.length;
+      flash("Imported — " + n + " resume" + (n !== 1 ? "s" : "") + " loaded. Press Ctrl+Z to undo.");
     };
     reader.readAsText(file);
   }
   function resetAll() { if (!confirm("Reset everything (all resumes and library) back to the sample? Your current data will be lost.")) return; store = sampleStore(); renderApp(); save(); }
 
   function init() {
-    store = load(); renderApp();
+    store = load(); lastSnapshot = snapshotStr(); renderApp();
     var tabs = document.querySelectorAll("#tabs .tab");
     for (var i = 0; i < tabs.length; i++) tabs[i].addEventListener("click", function () { activeTab = this.getAttribute("data-tab"); renderApp(); });
     document.getElementById("btnPdf").addEventListener("click", function () {
@@ -2324,6 +3068,20 @@
     document.getElementById("btnDocx").addEventListener("click", exportDocx);
     document.getElementById("btnExport").addEventListener("click", exportJson);
     document.getElementById("btnReset").addEventListener("click", resetAll);
+    var btnUndo = document.getElementById("btnUndo"), btnRedo = document.getElementById("btnRedo");
+    if (btnUndo) btnUndo.addEventListener("click", doUndo);
+    if (btnRedo) btnRedo.addEventListener("click", doRedo);
+    updateUndoButtons();
+    /* keyboard undo/redo — only when focus is NOT in a text field, so native
+       text-editing undo inside inputs/textareas keeps working as expected. */
+    document.addEventListener("keydown", function (e) {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      var tag = (e.target && e.target.tagName || "").toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select" || (e.target && e.target.isContentEditable)) return;
+      var k = (e.key || "").toLowerCase();
+      if (k === "z" && !e.shiftKey) { e.preventDefault(); doUndo(); }
+      else if ((k === "z" && e.shiftKey) || k === "y") { e.preventDefault(); doRedo(); }
+    });
     var fileInput = document.getElementById("fileImport");
     document.getElementById("btnImport").addEventListener("click", function () { fileInput.click(); });
     fileInput.addEventListener("change", function () { if (fileInput.files && fileInput.files[0]) importJson(fileInput.files[0]); fileInput.value = ""; });

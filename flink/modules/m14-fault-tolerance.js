@@ -173,7 +173,7 @@ export function mount(container) {
         </div>
       </div>
       <div style="margin:20px 0;overflow-x:auto">
-        <canvas id="bp-canvas" width="720" height="380" style="max-width:720px;width:100%;display:block;border-radius:10px;background:var(--surface2)"></canvas>
+        <canvas id="bp-canvas" role="img" aria-label="Animated diagram of backpressure: a slow downstream operator fills its network buffers and propagates backpressure upstream via credit-based flow control, throttling the source." width="720" height="380" style="max-width:720px;width:100%;display:block;border-radius:10px;background:var(--surface2)"></canvas>
       </div>
       <div id="bp-metric-row" style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px"></div>
     </div>

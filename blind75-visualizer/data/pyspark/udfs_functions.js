@@ -19,8 +19,12 @@
         "Given `employees` (`employee_id`, `name`, `department_id`, `manager_id`, `salary`), classify each employee into a **band**: `'low'` for salary `< 80000`, `'mid'` for `< 120000`, else `'high'`. Do it with a **Python UDF** — a plain Python function wrapped with `@udf(returnType=StringType())` and applied via `withColumn`. This is the baseline you will later rewrite natively (Q241).",
       examples: [
         {
-          input: "employees: (1,'Asha',10,None,120000), (2,'Ravi',20,1,75000)",
-          output: "(1,'Asha',...,120000,'high'), (2,'Ravi',...,75000,'low')",
+          inputs: [
+            { name: "employees", columns: ["employee_id", "name", "department_id", "manager_id", "salary"],
+              rows: [[1, "Asha", 10, null, 120000], [2, "Ravi", 20, 1, 75000]] }
+          ],
+          output: { columns: ["employee_id", "name", "department_id", "manager_id", "salary", "band"],
+            rows: [[1, "Asha", 10, null, 120000, "high"], [2, "Ravi", 20, 1, 75000, "low"]] },
           reasoning: "120000 is not < 120000 so it falls through to 'high'; 75000 < 80000 so it is 'low'. The Python function runs once per row."
         }
       ],
@@ -100,8 +104,12 @@
         "Take the salary-band logic from Q240 and rewrite it **without a UDF**, using native `F.when(...).otherwise(...)`. This is the single most important habit in this whole category: any UDF whose body is just comparisons, arithmetic, string ops, or conditionals should be a native column expression instead. Native expressions are **visible to Catalyst** (pushdown, pruning, codegen); a Python UDF is not.",
       examples: [
         {
-          input: "employees: (1,'Asha',10,None,120000), (2,'Ravi',20,1,75000)",
-          output: "(1,'Asha',...,120000,'high'), (2,'Ravi',...,75000,'low')",
+          inputs: [
+            { name: "employees", columns: ["employee_id", "name", "department_id", "manager_id", "salary"],
+              rows: [[1, "Asha", 10, null, 120000], [2, "Ravi", 20, 1, 75000]] }
+          ],
+          output: { columns: ["employee_id", "name", "department_id", "manager_id", "salary", "band"],
+            rows: [[1, "Asha", 10, null, 120000, "high"], [2, "Ravi", 20, 1, 75000, "low"]] },
           reasoning: "Identical output to the UDF version — but the whole chain stays in the JVM with codegen, so it is dramatically faster and optimizable, and it handles null salary safely (a null falls through every when and takes 'high' unless you guard it)."
         }
       ],
@@ -171,8 +179,12 @@
         "Sometimes one row's computation naturally yields **several** outputs. Instead of calling three separate UDFs (three Python round-trips), write **one** UDF that returns a `StructType`, then expand it into flat columns with `.select('out.*')`. Example: from `salary`, return a struct of `{band, annual_bonus, tax_bracket}` in a single pass.",
       examples: [
         {
-          input: "employees: (2,'Ravi',20,1,75000)",
-          output: "out.band='low', out.annual_bonus=7500, out.tax_bracket='B'  ->  select('out.*') flattens to columns band, annual_bonus, tax_bracket",
+          inputs: [
+            { name: "employees", columns: ["employee_id", "name", "department_id", "manager_id", "salary"],
+              rows: [[2, "Ravi", 20, 1, 75000]] }
+          ],
+          output: { name: "after select('employee_id', 'name', 'out.*')", columns: ["employee_id", "name", "band", "annual_bonus", "tax_bracket"],
+            rows: [[2, "Ravi", "low", 7500, "C"]] },
           reasoning: "The UDF runs ONCE per row and returns a Row/tuple matching the declared StructType; select('out.*') expands each struct field into its own top-level column."
         }
       ],
@@ -265,8 +277,12 @@
         "When you truly need custom Python but a row-at-a-time UDF is too slow, use a **`pandas_udf`**. It receives a `pandas.Series` (a whole batch of values) and returns a `pandas.Series`, transferring data in **Apache Arrow** columnar batches instead of pickling one row at a time. Example: apply a numeric transform (a scaled log-style adjustment) to `order_amount`.",
       examples: [
         {
-          input: "orders: (10, 1, 200.0), (11, 2, 50.0)",
-          output: "(10, 1, 200.0, 46.05...), (11, 2, 50.0, 39.12...)  where adjusted = order_amount * 0.1 + ln(order_amount) * 10",
+          inputs: [
+            { name: "orders", columns: ["order_id", "customer_id", "order_amount"],
+              rows: [[10, 1, "200.0"], [11, 2, "50.0"]] }
+          ],
+          output: { name: "adjusted = order_amount * 0.1 + ln(order_amount) * 10", columns: ["order_id", "customer_id", "order_amount", "adjusted"],
+            rows: [[10, 1, "200.0", "72.98"], [11, 2, "50.0", "44.12"]] },
           reasoning: "The function gets a Series of all order_amounts in an Arrow batch, runs vectorized pandas/numpy math over the whole batch at once, and returns a Series of the same length — far fewer Python boundary crossings than a per-row UDF."
         }
       ],
@@ -341,8 +357,14 @@
         "A UDF sometimes needs an external Python object — a lookup dict, a model, a config map. If you reference the raw dict directly, Spark serializes a **copy with every task**, wasting network and memory. Wrap it in `sc.broadcast(...)` so each executor gets **one** read-only copy, and read it inside the UDF via `.value`. Example: map `department_id` to a department name.",
       examples: [
         {
-          input: "employees: (1,'Asha',10,None,120000); dept_map = {10:'Engineering', 20:'Sales'}",
-          output: "(1,'Asha',10,...,'Engineering')",
+          inputs: [
+            { name: "employees", columns: ["employee_id", "name", "department_id", "manager_id", "salary"],
+              rows: [[1, "Asha", 10, null, 120000]] },
+            { name: "dept_map (broadcast dict)", columns: ["department_id", "department_name"],
+              rows: [[10, "Engineering"], [20, "Sales"]] }
+          ],
+          output: { columns: ["employee_id", "name", "department_id", "manager_id", "salary", "department"],
+            rows: [[1, "Asha", 10, null, 120000, "Engineering"]] },
           reasoning: "The UDF looks up department_id in the broadcast dict. Because dept_map is broadcast, it is shipped once per executor, not re-serialized into every task closure."
         }
       ],
@@ -420,8 +442,12 @@
         "Element-wise work on an `array<int>` column is a classic place people reach for a UDF — and they shouldn't. Native **higher-order functions** apply a lambda to array elements entirely inside Spark: `F.transform` (map), `F.filter` (keep matching), `F.aggregate` (fold to a scalar). Example on `df(id, nums array<int>)`: square each element, keep only positives, and sum them. **Note:** the `F.*` Python wrappers for these need **Spark 3.1+** (before that, use `expr('transform(...)')`).",
       examples: [
         {
-          input: "df: (1, [1, -2, 3]), (2, [-5, 4])",
-          output: "squared: (1,[1,4,9]),(2,[25,16]); positives kept from nums: (1,[1,3]),(2,[4]); sum of positives: (1,4),(2,4)",
+          inputs: [
+            { name: "df", columns: ["id", "nums"],
+              rows: [[1, "[1, -2, 3]"], [2, "[-5, 4]"]] }
+          ],
+          output: { columns: ["id", "nums", "squared", "pos", "pos_sum"],
+            rows: [[1, "[1, -2, 3]", "[1, 4, 9]", "[1, 3]", 4], [2, "[-5, 4]", "[25, 16]", "[4]", 4]] },
           reasoning: "transform(nums, x -> x*x) maps each element; filter(nums, x -> x>0) keeps positives; aggregate(positives, 0, (acc,x)->acc+x) folds them to a single sum — all native, no UDF."
         }
       ],

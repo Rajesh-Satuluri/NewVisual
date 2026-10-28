@@ -3,6 +3,12 @@
 // createQuiz(id, questions) -> HTML string
 //   questions: [{ q, options:[...], answer:<index>, explanation }]
 // initQuiz(container) wires grading/retry and restores best score.
+//
+// On grading it records the score to the progress store and dispatches a
+// `flink:quiz-graded` event { id, correct, total, passed } so the router can
+// mark the module mastered (honest progress) and the dashboard can refresh.
+
+import { recordQuiz } from '../data/progress-store.js';
 
 export function createQuiz(id, questions) {
   if (!questions || !questions.length) return '';
@@ -79,7 +85,9 @@ export function initQuiz(container) {
       });
       section.classList.add('graded');
       scoreEl.hidden = false;
-      scoreEl.textContent = `You scored ${correct}/${qs.length}`;
+      const passed = qs.length > 0 && correct / qs.length >= 2 / 3;
+      scoreEl.textContent = `You scored ${correct}/${qs.length}${passed ? ' — passed ✓' : ''}`;
+      scoreEl.classList.toggle('quiz-passed', passed);
       gradeBtn.hidden = true;
       retryBtn.hidden = false;
 
@@ -89,6 +97,14 @@ export function initQuiz(container) {
           localStorage.setItem(key, String(correct));
           bestEl.textContent = `Best: ${correct}/${qs.length}`;
         }
+      } catch (e) {}
+
+      // Honest progress: record to the store and announce the result.
+      try { recordQuiz(id, correct, qs.length); } catch (e) {}
+      try {
+        window.dispatchEvent(new CustomEvent('flink:quiz-graded', {
+          detail: { id, correct, total: qs.length, passed },
+        }));
       } catch (e) {}
     });
 

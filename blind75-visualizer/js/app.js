@@ -14,6 +14,30 @@
   var byId = {};
   ALL.forEach(function (p) { byId[p.id] = p; });
 
+  // ---- full-text haystack ----
+  // The Fuse index below matches titles + metadata only (fast, fuzzy). To also
+  // catch concept phrases that live in prose — the paraphrased statement, the
+  // A–M logic write-ups, example reasoning, recognition/recall cues, even the
+  // clean solution code — precompute one lowercased text blob per problem that
+  // visibleIds() substring-scans. Built once at load; memory is a few MB.
+  function buildHaystack(p) {
+    var parts = [p.title, p.category, p.difficulty];
+    if (p.meta) parts.push(p.meta.pattern, p.meta.dataStructure, p.meta.technique);
+    if (p.description) parts.push(p.description);
+    if (p.constraints) parts.push(p.constraints.join(" "));
+    if (p.notes) parts.push(p.notes.join(" "));
+    (p.examples || []).forEach(function (ex) {
+      parts.push(ex.input, ex.output, ex.reasoning, ex.visual);
+    });
+    (p.approaches || []).forEach(function (a) {
+      parts.push(a.name, a.whenToUse, a.logic, a.plain);
+    });
+    if (p.patternRecognition) parts.push(p.patternRecognition.join(" "));
+    if (p.interviewRecall) parts.push(p.interviewRecall.join(" "));
+    return parts.filter(Boolean).join(" \n ").toLowerCase();
+  }
+  ALL.forEach(function (p) { p._ft = buildHaystack(p); });
+
   // ---- pattern-intro pseudo-entries ----
   // Each category that has a chapter explanation gets a standalone "Introduction
   // to X" entry that sits atop its sidebar group. It is NOT a real problem (not
@@ -82,7 +106,34 @@
     if (stack === "pandas") return !!(window.PANDAS && window.PANDAS.all().length);
     return false;
   }
-  function modeAvailable(stack, mode) { return mode === "learn" ? hasLearn(stack) : hasPractice(stack); }
+  function modeAvailable(stack, mode) {
+    // Content already registered for this cell?
+    if (mode === "learn" ? hasLearn(stack) : hasPractice(stack)) return true;
+    // Not yet — but if a lazy data group is DECLARED for it, navigation loads it
+    // on demand (see applyRoute), so the mode is reachable. Treating it as
+    // available here avoids a "coming soon" deadlock where the button stays
+    // disabled because the data never loads (and the data never loads because
+    // the button is disabled). Genuinely contentless cells have no group and
+    // correctly stay unavailable.
+    return groupsForStack(stack, mode).length > 0;
+  }
+
+  // Which lazy data group(s) must be present before we can render (stack, mode)?
+  // DSA (python practice) ships eagerly; every other stack's data is injected on
+  // demand by js/dataloader.js. mode == null means "both modes" (used on resume).
+  function groupsForStack(stack, mode) {
+    if (!window.DATALOADER) return [];
+    var want = [];
+    if (stack === "python") {
+      if (mode === "learn" || mode == null) want.push("pylearn");
+    } else {
+      if (mode === "practice" || mode == null) want.push(stack);
+      if (mode === "learn" || mode == null) want.push(stack + "learn");
+    }
+    var out = [];
+    for (var i = 0; i < want.length; i++) if (window.DATALOADER.has(want[i])) out.push(want[i]);
+    return out;
+  }
 
   // Build the hash for a (mode, stack, id). Python keeps its legacy routes so old
   // deep links still resolve; every other stack uses "#learn|solve/<stack>/<id>".
@@ -258,6 +309,40 @@
     };
   }
 
+  // Raw query -> lowercased words to substring-match against the full-text blob.
+  // Facet tokens ("diff:hard") are skipped; punctuation is stripped but c#/c++
+  // survive. Words shorter than 2 chars are dropped.
+  function ftWords(raw) {
+    var toks = String(raw || "").toLowerCase().split(/\s+/), out = [];
+    for (var i = 0; i < toks.length; i++) {
+      var t = toks[i];
+      if (t.indexOf(":") !== -1) continue;        // facet token — handled elsewhere
+      t = t.replace(/[^a-z0-9#+]/g, "");
+      if (t.length >= 2) out.push(t);
+    }
+    return out;
+  }
+  // Widen fuzzy title/metadata hits with a precise full-text pass: append any
+  // problem whose prose/code haystack contains EVERY query word (AND match).
+  // This surfaces concept-phrase matches the title index misses, without the
+  // noise a fuzzy scan over long text would add.
+  function mergeFullText(hits, raw) {
+    var words = ftWords(raw);
+    if (!words.length) return hits;
+    var seen = {}, out = hits.slice();
+    hits.forEach(function (p) { seen[p.id] = true; });
+    for (var i = 0; i < ALL.length; i++) {
+      var p = ALL[i];
+      if (seen[p.id] || !p._ft) continue;
+      var ok = true;
+      for (var w = 0; w < words.length; w++) {
+        if (p._ft.indexOf(words[w]) === -1) { ok = false; break; }
+      }
+      if (ok) { out.push(p); seen[p.id] = true; }
+    }
+    return out;
+  }
+
   // Which problems pass the current filters/search? Returns a Set of ids.
   function visibleIds() {
     var q = state.query.trim();
@@ -270,7 +355,12 @@
       // Bare LeetCode number -> exact-number jump.
       base = ALL.filter(function (p) { return String(p.lc) === String(parsed.lc); });
     } else if (parsed.text) {
-      base = fuse.search(parsed.text).map(function (r) { return r.item; });
+      var hits = fuse.search(parsed.text).map(function (r) { return r.item; });
+      // Full-text widening only kicks in when the fuzzy title/metadata search is
+      // thin (< 6 hits) — enough to rescue concept-phrase queries that live only
+      // in prose (e.g. "pigeonhole", "amortized"), without flooding common
+      // queries like "two sum" that already match many titles.
+      base = hits.length < 6 ? mergeFullText(hits, q) : hits;
     }
     var hasFacets = false;
     for (var fk in parsed.facets) { hasFacets = true; break; }
@@ -673,6 +763,196 @@
     return wrap;
   }
 
+  // ============================================================= LOGIC BLOCK
+  // The "Complete Logic" write-up renders as Markdown but can be unlocked and
+  // rewritten in the reader's own words for active recall — the same edit
+  // affordance the PySpark practice lab ships (js/problemlab.js). Edits persist
+  // per problem + approach through the shared store, and reset to the original
+  // when the text is cleared back. `ident` = { id, ai }. When `blur` is on the
+  // rendered Markdown keeps its blur-to-recall overlay; entering edit mode
+  // always reveals the text (you can't rewrite what you can't read).
+  function logicBlock(srcMd, ident, blur) {
+    var wrap = h("div", { class: "logic-wrap" });
+    var bar = h("div", { class: "logic-bar" });
+    bar.appendChild(h("span", { class: "logic-tag" }, "Logic"));
+    var actions = h("div", { class: "code-actions" });
+    bar.appendChild(actions);
+    var body = h("div", { class: "logic-body" });
+    wrap.appendChild(bar);
+    wrap.appendChild(body);
+
+    var editing = false; // lock state is per-block and starts LOCKED every render
+
+    function savedEdit() { return store.getLogicEdit(ident.id, ident.ai); }
+    function currentSource() {
+      var e = savedEdit();
+      return e != null ? e : srcMd;
+    }
+
+    function render() {
+      body.innerHTML = "";
+      actions.innerHTML = "";
+      // Mark the wrap while editing so a capped logic section moves its scroll
+      // onto the textarea (native caret-follow) instead of the prose container.
+      wrap.classList.toggle("editing", editing);
+
+      if (savedEdit() != null) {
+        actions.appendChild(h("span", { class: "code-edited", title: "This logic was edited locally" }, "edited"));
+      }
+
+      // Copy the logic (its Markdown source) to the clipboard — handy for
+      // re-pasting a write-up elsewhere. Hidden while editing (the textarea
+      // already lets you select/copy natively).
+      if (!editing) {
+        var copyBtn = h("button", { class: "code-mini copy-logic", title: "Copy this logic to the clipboard" }, "⧉ Copy");
+        var copyTimer = null;
+        copyBtn.addEventListener("click", function (e) {
+          e.stopPropagation();
+          copyText(currentSource(), function () {
+            copyBtn.textContent = "✓ Copied";
+            copyBtn.classList.add("on");
+            if (copyTimer) clearTimeout(copyTimer);
+            copyTimer = setTimeout(function () { copyBtn.textContent = "⧉ Copy"; copyBtn.classList.remove("on"); }, 1300);
+          });
+        });
+        actions.appendChild(copyBtn);
+      }
+
+      var lock = h("button", { class: "code-mini lock" + (editing ? " on" : "") },
+        editing ? "🔓 Editing" : "✏️ Edit");
+      lock.title = editing ? "Lock to stop editing (changes are saved)" : "Unlock to rewrite this logic in Markdown";
+      lock.addEventListener("click", function () {
+        // Carry the reading position across the read<->edit swap so a mid-logic
+        // Edit opens where you were, not scrolled back to the top. The read
+        // scroller is .logic-body (capped); the edit scroller is the textarea.
+        var cur = editing ? body.querySelector(".logic-edit") : body;
+        var denom = cur ? cur.scrollHeight - cur.clientHeight : 0;
+        var frac = denom > 0 ? cur.scrollTop / denom : 0;
+        editing = !editing;
+        render();
+        // Defer past render()'s own focus/fit (both on setTimeout 0) so our
+        // restore wins. When entering edit, also place the caret near the same
+        // spot so the first keystroke doesn't snap the view back to the top.
+        setTimeout(function () {
+          var next = editing ? body.querySelector(".logic-edit") : body;
+          if (!next) return;
+          if (editing && next.value) {
+            var pos = Math.round(frac * next.value.length);
+            try { next.setSelectionRange(pos, pos); } catch (e) {}
+          }
+          var d = next.scrollHeight - next.clientHeight;
+          next.scrollTop = d > 0 ? Math.round(frac * d) : 0;
+        }, 0);
+      });
+      actions.appendChild(lock);
+
+      if (editing) {
+        var ta = h("textarea", { class: "logic-edit", spellcheck: "false", autocomplete: "off" });
+        ta.value = currentSource();
+        var fit = function () { ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px"; };
+        ta.addEventListener("input", function () {
+          fit();
+          if (ta.value === srcMd) store.clearLogicEdit(ident.id, ident.ai); // back to original
+          else store.setLogicEdit(ident.id, ident.ai, ta.value);
+        });
+        // two-space indent on Tab (Markdown-friendly), same feel as the code editor
+        ta.addEventListener("keydown", function (e) {
+          if (e.key === "Tab") {
+            e.preventDefault();
+            var s = ta.selectionStart, en = ta.selectionEnd;
+            ta.value = ta.value.slice(0, s) + "  " + ta.value.slice(en);
+            ta.selectionStart = ta.selectionEnd = s + 2;
+            ta.dispatchEvent(new Event("input"));
+          }
+        });
+        body.appendChild(ta);
+        // preventScroll: focusing the fresh textarea must not jump the page down
+        setTimeout(function () { fit(); ta.focus({ preventScroll: true }); }, 0);
+      } else {
+        var node = h("div", { class: "md logic" + (blur ? " blurred" : "") });
+        node.innerHTML = md(currentSource());
+        if (blur) node.appendChild(revealOverlay(node));
+        body.appendChild(node);
+      }
+    }
+
+    render();
+    return wrap;
+  }
+
+  // =========================================================== DESCRIPTION BLOCK
+  // The "Problem Description" prose renders as Markdown but can be unlocked and
+  // rewritten in the reader's own words — the same edit affordance the Logic and
+  // code blocks ship. Keyed per problem (no approach index). Any structured
+  // extras (constraints, notes) render read-only below the editable prose.
+  function descBlock(srcMd, ident, extras) {
+    var wrap = h("div", { class: "logic-wrap" });
+    var bar = h("div", { class: "logic-bar" });
+    bar.appendChild(h("span", { class: "logic-tag" }, "Description"));
+    var actions = h("div", { class: "code-actions" });
+    bar.appendChild(actions);
+    var body = h("div", { class: "logic-body" });
+    wrap.appendChild(bar);
+    wrap.appendChild(body);
+
+    var editing = false; // lock state is per-block and starts LOCKED every render
+
+    function savedEdit() { return store.getDescEdit(ident.id); }
+    function currentSource() {
+      var e = savedEdit();
+      return e != null ? e : srcMd;
+    }
+
+    function render() {
+      body.innerHTML = "";
+      actions.innerHTML = "";
+
+      if (savedEdit() != null) {
+        actions.appendChild(h("span", { class: "code-edited", title: "This description was edited locally" }, "edited"));
+      }
+
+      var lock = h("button", { class: "code-mini lock" + (editing ? " on" : "") },
+        editing ? "🔓 Editing" : "✏️ Edit");
+      lock.title = editing ? "Lock to stop editing (changes are saved)" : "Unlock to rewrite this description in Markdown";
+      lock.addEventListener("click", function () { editing = !editing; render(); });
+      actions.appendChild(lock);
+
+      if (editing) {
+        var ta = h("textarea", { class: "logic-edit", spellcheck: "false", autocomplete: "off" });
+        ta.value = currentSource();
+        var fit = function () { ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px"; };
+        ta.addEventListener("input", function () {
+          fit();
+          if (ta.value === srcMd) store.clearDescEdit(ident.id); // back to original
+          else store.setDescEdit(ident.id, ta.value);
+        });
+        // two-space indent on Tab (Markdown-friendly), same feel as the code editor
+        ta.addEventListener("keydown", function (e) {
+          if (e.key === "Tab") {
+            e.preventDefault();
+            var s = ta.selectionStart, en = ta.selectionEnd;
+            ta.value = ta.value.slice(0, s) + "  " + ta.value.slice(en);
+            ta.selectionStart = ta.selectionEnd = s + 2;
+            ta.dispatchEvent(new Event("input"));
+          }
+        });
+        body.appendChild(ta);
+        // preventScroll: focusing the fresh textarea must not jump the page down
+        setTimeout(function () { fit(); ta.focus({ preventScroll: true }); }, 0);
+      } else {
+        var node = h("div", { class: "md" });
+        node.innerHTML = md(currentSource());
+        body.appendChild(node);
+      }
+
+      // structured constraints / notes always render read-only below the prose
+      if (extras) extras.forEach(function (n) { body.appendChild(n); });
+    }
+
+    render();
+    return wrap;
+  }
+
   // Draw VS-Code-style vertical indentation guides. Runs after Prism, so it
   // walks the highlighted HTML line by line and wraps each 4-space indent step
   // in a guide span. Leading indentation is always plain text (Prism never puts
@@ -700,6 +980,13 @@
     ta.value = text; document.body.appendChild(ta); ta.select();
     try { document.execCommand("copy"); } catch (e) {}
     document.body.removeChild(ta);
+  }
+  // Copy text to the clipboard (async API with a synchronous fallback) and run
+  // `done` once it's on the clipboard, for a short "Copied" confirmation.
+  function copyText(text, done) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text); done(); });
+    } else { fallbackCopy(text); done(); }
   }
 
   // ============================================================= SECTION
@@ -917,16 +1204,15 @@
     // ---- animation / visualization links (above the description) ----
     main.appendChild(buildLinksSection(p));
 
-    // ---- Problem Description ----
-    var descNode = h("div", { class: "md" });
-    descNode.innerHTML = md(p.description);
+    // ---- Problem Description (editable — unlock to rewrite in your own words) ----
+    var descExtras = [];
     if (p.constraints && p.constraints.length) {
       var cwrap = h("div", { class: "constraints" });
       cwrap.appendChild(h("div", { class: "subhead" }, "Constraints"));
       var ul = h("ul");
       p.constraints.forEach(function (c) { ul.appendChild(h("li", { html: md(c).replace(/^<p>|<\/p>$/g, "") })); });
       cwrap.appendChild(ul);
-      descNode.appendChild(cwrap);
+      descExtras.push(cwrap);
     }
     if (p.notes && p.notes.length) {
       var nwrap = h("div", { class: "notes-block" });
@@ -934,9 +1220,10 @@
       var ul2 = h("ul");
       p.notes.forEach(function (c) { ul2.appendChild(h("li", { html: md(c).replace(/^<p>|<\/p>$/g, "") })); });
       nwrap.appendChild(ul2);
-      descNode.appendChild(nwrap);
+      descExtras.push(nwrap);
     }
-    main.appendChild(section("description", "Problem Description", descNode));
+    main.appendChild(section("description", "Problem Description",
+      descBlock(p.description, { id: p.id }, descExtras)));
 
     // ---- Examples ----
     var exWrap = h("div", { class: "examples" });
@@ -981,11 +1268,12 @@
     var cur = approaches[ai] || {};
     var blur = store.getPref("blur");
 
-    // Logic
-    var logicNode = h("div", { class: "md logic" + (blur ? " blurred" : "") });
-    logicNode.innerHTML = md(cur.logic);
-    if (blur) logicNode.appendChild(revealOverlay(logicNode));
-    var logicSection = section("logic", "Complete Logic — " + (cur.name || "Approach"), logicNode, { collapsed: true });
+    // Logic (editable — unlock to rewrite in your own words for active recall)
+    var logicSection = section("logic", "Complete Logic — " + (cur.name || "Approach"),
+      logicBlock(cur.logic, { id: p.id, ai: ai }, blur), { collapsed: true });
+    // Cap the expanded logic at a fixed viewport height with an internal scroll
+    // instead of letting it push the whole page down.
+    logicSection.classList.add("logic-capped");
     apWrap.appendChild(logicSection);
 
     // Code (RCS / Plain toggle)
@@ -1152,7 +1440,7 @@
 
   // small transient toast
   var toastTimer;
-  function toast(msg) {
+  function toast(msg, ms) {
     var t = el("toast");
     if (!t) {
       t = h("div", { class: "toast", id: "toast" });
@@ -1161,7 +1449,7 @@
     t.textContent = msg;
     t.classList.add("show");
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { t.classList.remove("show"); }, 1800);
+    toastTimer = setTimeout(function () { t.classList.remove("show"); }, ms || 1800);
   }
 
   function buildLinksSection(p) {
@@ -1228,18 +1516,56 @@
   }
 
   // ============================================================= SELECT
-  // Next problem (in the active set's order) that isn't solved yet; wraps around.
-  // Returns null when everything in the set is solved.
+  // Smart "what to study next": the highest-leverage UNSOLVED problem in the
+  // active set, rather than the next one in list order. Priority, in order:
+  //   1. a card that's due for review (if it's also unsolved) — spaced review wins
+  //   2. the weakest category (lowest solved ratio)
+  //   3. interview importance (essential > common > occasional)
+  //   4. the weakest pattern
+  //   5. canonical order, as a stable tiebreak
+  // The contract is unchanged — it returns an unsolved id or null — so every
+  // caller ("Next unsolved →", the `n` key, the solved toast) keeps working.
   function nextUnsolvedId(fromId) {
     var list = activeProblems();
     if (!list.length) return null;
-    var start = list.findIndex(function (p) { return p.id === fromId; });
-    if (start < 0) start = -1;
-    for (var off = 1; off <= list.length; off++) {
-      var p = list[(start + off) % list.length];
-      if (store.getStatus(p.id) !== "solved") return p.id;
+
+    // solved/total ratios per category and per pattern across the active set
+    var catAgg = {}, patAgg = {};
+    list.forEach(function (p) {
+      var c = p.category || "", pat = (p.meta && p.meta.pattern) || "";
+      if (!catAgg[c]) catAgg[c] = { s: 0, t: 0 };
+      catAgg[c].t++; if (store.getStatus(p.id) === "solved") catAgg[c].s++;
+      if (pat) {
+        if (!patAgg[pat]) patAgg[pat] = { s: 0, t: 0 };
+        patAgg[pat].t++; if (store.getStatus(p.id) === "solved") patAgg[pat].s++;
+      }
+    });
+    function ratio(agg, k) { var a = agg[k]; return (a && a.t) ? a.s / a.t : 1; }
+    var impRank = { essential: 0, common: 1, occasional: 2 };
+
+    var best = null, bestKey = null;
+    for (var i = 0; i < list.length; i++) {
+      var p = list[i];
+      if (p.id === fromId || store.getStatus(p.id) === "solved") continue;
+      var ir = impRank[impOf(p)]; if (ir == null) ir = 1;
+      var key = [
+        store.isDue(p.id) ? 0 : 1,
+        ratio(catAgg, p.category || ""),
+        ir,
+        ratio(patAgg, (p.meta && p.meta.pattern) || ""),
+        i
+      ];
+      if (bestKey === null || cmpKey(key, bestKey) < 0) { bestKey = key; best = p.id; }
     }
-    return null;
+    return best;
+  }
+  // Lexicographic compare of two numeric priority tuples.
+  function cmpKey(a, b) {
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] < b[i]) return -1;
+      if (a[i] > b[i]) return 1;
+    }
+    return 0;
   }
 
   // Pure renderer for a problem — history is managed by navigate()/applyRoute().
@@ -1263,19 +1589,80 @@
   }
 
   // ============================================================= REVISION GRID
+  // Sortable columns in the grid. getVal returns a comparable key (number for
+  // numeric/ranked columns, lower-cased string for text). Columns not listed
+  // here (Problem / Time / Space / Status) are not sortable.
+  var GRID_SORTS = {
+    lc:         { getVal: function (p) { return typeof p.lc === "number" ? p.lc : Number.MAX_SAFE_INTEGER; } },
+    category:   { getVal: function (p) { return String(p.category || "").toLowerCase(); } },
+    difficulty: { getVal: function (p) { var d = DIFF_ORDER[p.difficulty]; return d == null ? 99 : d; } },
+    importance: { getVal: function (p) { return IMP_RANK[impOf(p)]; } },
+    pattern:    { getVal: function (p) { return String((p.meta && p.meta.pattern) || "").toLowerCase(); } }
+  };
+  // Persisted across opens within a session. null key = natural (unsorted) order.
+  var gridSort = { key: null, dir: 1 };
+
   function openGrid() {
-    var modal = el("gridModal");
     var body = el("gridBody");
     body.innerHTML = "";
+    // Restore the DSA title (a lab grid may have overwritten it).
+    var h2 = document.querySelector("#gridModal h2");
+    if (h2) h2.textContent = "All 75 — Revision Grid";
     var table = h("table", { class: "grid-table" });
-    table.innerHTML = "<thead><tr><th>#</th><th>Problem</th><th>Category</th><th>Difficulty</th>" +
-      "<th>Importance</th><th>Pattern</th><th>Time</th><th>Space</th><th>Status</th></tr></thead>";
+
+    // Columns: [label, sortKey|null]. Only keyed columns are clickable.
+    // "S.No." is a running row counter in display order — never sortable.
+    var cols = [
+      ["S.No.", null], ["#", "lc"], ["Problem", null], ["Category", "category"],
+      ["Difficulty", "difficulty"], ["Importance", "importance"],
+      ["Pattern", "pattern"], ["Time", null], ["Space", null], ["Status", null]
+    ];
+    var thead = h("thead");
+    var htr = h("tr");
+    cols.forEach(function (c) {
+      var key = c[1];
+      var sortable = !!key;
+      var arrow = sortable && gridSort.key === key ? (gridSort.dir === 1 ? " ▲" : " ▼") : "";
+      var th = h("th", sortable ? { class: "g-sortable", role: "button", tabindex: "0",
+        "aria-sort": gridSort.key === key ? (gridSort.dir === 1 ? "ascending" : "descending") : "none" } : null,
+        esc(c[0]) + '<span class="g-arrow">' + arrow + "</span>");
+      if (sortable) {
+        th.addEventListener("click", function () { sortGrid(key); });
+        th.addEventListener("keydown", function (e) {
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); sortGrid(key); }
+        });
+      }
+      htr.appendChild(th);
+    });
+    thead.appendChild(htr);
+    table.appendChild(thead);
+
+    var rows = activeProblems().slice();
+    if (gridSort.key && GRID_SORTS[gridSort.key]) {
+      var getVal = GRID_SORTS[gridSort.key].getVal;
+      // Stable sort with a value compare; ties fall back to leetcode number then
+      // title so the order is deterministic.
+      rows = rows.map(function (p, i) { return { p: p, i: i }; });
+      rows.sort(function (x, y) {
+        var av = getVal(x.p), bv = getVal(y.p);
+        var cmp = av < bv ? -1 : av > bv ? 1 : 0;
+        if (cmp === 0) {
+          var al = typeof x.p.lc === "number" ? x.p.lc : Number.MAX_SAFE_INTEGER;
+          var bl = typeof y.p.lc === "number" ? y.p.lc : Number.MAX_SAFE_INTEGER;
+          cmp = al - bl || String(x.p.title).localeCompare(String(y.p.title)) || (x.i - y.i);
+        }
+        return cmp * gridSort.dir;
+      });
+      rows = rows.map(function (o) { return o.p; });
+    }
+
     var tbody = h("tbody");
-    activeProblems().forEach(function (p) {
+    rows.forEach(function (p, idx) {
       var a0 = p.approaches[p.approaches.length - 1] || {};
       var stt = store.getStatus(p.id);
       var tr = h("tr", { class: "grid-row" });
       tr.innerHTML =
+        '<td class="g-sno">' + (idx + 1) + "</td>" +
         "<td>" + (p.lc || "—") + "</td>" +
         '<td class="g-title">' + esc(p.title) + "</td>" +
         "<td>" + esc(p.category) + "</td>" +
@@ -1291,6 +1678,17 @@
     table.appendChild(tbody);
     body.appendChild(table);
     openModal("gridModal");
+  }
+
+  // Toggle sort on a column: first click ascending, second descending, third
+  // clears back to natural order. Re-renders the grid in place.
+  function sortGrid(key) {
+    if (gridSort.key !== key) { gridSort.key = key; gridSort.dir = 1; }
+    else if (gridSort.dir === 1) { gridSort.dir = -1; }
+    else { gridSort.key = null; gridSort.dir = 1; }
+    var scroll = el("gridBody").scrollTop;
+    openGrid();
+    el("gridBody").scrollTop = scroll;
   }
 
   // ============================================================= REVIEW SESSION
@@ -1450,6 +1848,22 @@
   }
 
   function openDashboard() {
+    // The cross-stack dashboard counts every stack, so make sure all lazy data
+    // is present first (show the modal with a loader while it finishes).
+    if (window.DATALOADER && !window.DATALOADER.allLoaded()) {
+      openModal("dashModal");
+      var pend = el("dashBody");
+      if (pend) pend.innerHTML = '<div class="empty-state">Loading all stacks…</div>';
+      window.DATALOADER.ensureAll(function () {
+        if (B.applyOverridesAll) B.applyOverridesAll();
+        buildDashboard();
+      });
+      return;
+    }
+    buildDashboard();
+  }
+
+  function buildDashboard() {
     var body = el("dashBody");
     body.innerHTML = "";
     renderCrossStack(body);
@@ -1886,7 +2300,16 @@
     }
 
     // grid
-    el("gridBtn").addEventListener("click", openGrid);
+    el("gridBtn").addEventListener("click", function () {
+      // The SQL & PySpark practice tabs own their own revision grid (ProblemLab);
+      // every other context uses the DSA grid.
+      if ((state.stack === "spark" || state.stack === "sql") && state.mode === "practice"
+          && window.ProblemLab && window.ProblemLab.openGrid) {
+        window.ProblemLab.openGrid();
+      } else {
+        openGrid();
+      }
+    });
     el("gridClose").addEventListener("click", function () { closeModal("gridModal"); });
     el("gridModal").addEventListener("click", function (e) { if (e.target === el("gridModal")) closeModal("gridModal"); });
 
@@ -1912,11 +2335,24 @@
     // settings popover (⋯) — declutters the toolbar
     var settingsBtn = el("settingsBtn"), settingsMenu = el("settingsMenu");
     function closeSettings() { if (!settingsMenu) return; settingsMenu.classList.add("hidden"); settingsBtn.setAttribute("aria-expanded", "false"); }
+    // Anchor the popover to the button in fixed (viewport) coordinates so it
+    // escapes the topbar's horizontal scroll container, which on tablets gets
+    // overflow-x:auto and would otherwise clip an absolutely-positioned menu.
+    function positionSettings() {
+      if (!settingsMenu || !settingsBtn) return;
+      var r = settingsBtn.getBoundingClientRect();
+      settingsMenu.style.position = "fixed";
+      settingsMenu.style.top = (r.bottom + 6) + "px";
+      settingsMenu.style.right = Math.max(8, window.innerWidth - r.right) + "px";
+      settingsMenu.style.left = "auto";
+    }
     function toggleSettings() {
       if (!settingsMenu) return;
       var open = settingsMenu.classList.toggle("hidden") === false;
+      if (open) positionSettings();
       settingsBtn.setAttribute("aria-expanded", open ? "true" : "false");
     }
+    window.addEventListener("resize", function () { if (settingsMenu && !settingsMenu.classList.contains("hidden")) positionSettings(); });
     if (settingsBtn) settingsBtn.addEventListener("click", function (e) { e.stopPropagation(); toggleSettings(); });
     if (settingsMenu) {
       settingsMenu.addEventListener("click", function (e) {
@@ -2243,8 +2679,28 @@
   // It NEVER writes history, so it is safe to call on popstate and on load.
   var lastRenderedHash = null;
   var lastView = null; // "stack:mode" of what is currently painted
-  function applyRoute() {
-    if (location.hash === lastRenderedHash) return; // Back can fire popstate + hashchange
+  function applyRoute(force) {
+    // popstate/hashchange/cloud-refresh pass an Event as the first arg; only an
+    // explicit boolean true (from the lazy-load callback below) counts as force.
+    if (force !== true && location.hash === lastRenderedHash) return; // Back can fire popstate + hashchange
+
+    // Lazy-load this stack's data before rendering. Show a brief placeholder,
+    // then re-enter once the group(s) are present. DSA needs nothing here.
+    var pre = parseRoute(location.hash);
+    var need = groupsForStack(pre.stack, pre.mode);
+    if (need.length && window.DATALOADER && !window.DATALOADER.loadedAll(need)) {
+      var loadingEl = el("main");
+      if (loadingEl) loadingEl.innerHTML =
+        '<div class="empty-state">Loading ' + esc(STACK_LABEL[pre.stack] || pre.stack) + '…</div>';
+      window.DATALOADER.ensure(need, function () {
+        // A lazily-loaded stack just registered its problems — overlay any
+        // baked user edits onto them before this (re)render.
+        if (B.applyOverridesAll) B.applyOverridesAll();
+        applyRoute(true);
+      });
+      return;
+    }
+
     lastRenderedHash = location.hash;
     state.focusLocal = null; // per-problem focus override resets on every navigation
     navProgress();
@@ -2285,6 +2741,9 @@
     applyRoute();
   }
   B.navigate = navigate;
+  // Let ProblemLab reuse the shared modal transitions for its revision grid.
+  B.openModal = openModal;
+  B.closeModal = closeModal;
   // Let the practice lab refresh the header collapse-all icon after it changes
   // its own group set (e.g. flipping Pattern ⇄ Domain grouping).
   B.updateToggleAllIcon = updateToggleAllIcon;
@@ -2333,7 +2792,34 @@
     renderSidebar(); renderProblem(); renderProgress();
   }
 
+  // Ensure the stack we're about to show has its data, THEN boot; afterwards
+  // hydrate the remaining stacks in the background so the cross-stack dashboard
+  // and progress totals fill in without blocking first paint.
   function boot() {
+    var tgt, mode;
+    if (location.hash && location.hash !== "#") {
+      var r0 = parseRoute(location.hash);
+      tgt = r0.stack; mode = r0.mode;
+    } else {
+      tgt = store.getPref("lastStack") || "python";
+      if (STACK_KEYS.indexOf(tgt) === -1) tgt = "python";
+      mode = store.getPref("lastModeFor_" + tgt) || "practice";
+    }
+    // Pre-load only the stack+mode we're about to paint (applyRoute still
+    // lazy-loads correctly on its own, so this just avoids a "Loading" flash).
+    var need = groupsForStack(tgt, mode);
+    // On-demand only: each stack's data loads when that stack is first opened
+    // (applyRoute gate), and the cross-stack dashboard pulls the rest when it is
+    // opened. We deliberately do NOT background-load every stack, so a device
+    // never has to hold all stacks in memory at once (avoids "Out of Memory").
+    if (need.length && window.DATALOADER) window.DATALOADER.ensure(need, function () {
+      if (B.applyOverridesAll) B.applyOverridesAll();
+      bootReal();
+    });
+    else bootReal();
+  }
+
+  function bootReal() {
     // restore persisted desktop sidebar-collapse state
     if (store.getPref("sidebarCollapsed")) document.body.classList.add("sidebar-collapsed");
 
@@ -2391,6 +2877,16 @@
     // Cloud sync pulled newer notes/code from another device — re-render the
     // current view so the updated content shows without a manual reload.
     window.addEventListener("blind75:cloud-refresh", applyRoute);
+    // Progress normally persists to this browser's localStorage. If a save throws
+    // (private-mode, or the storage quota is full) the app keeps working from
+    // memory but changes won't survive a reload — warn the user once so their
+    // work isn't lost silently, and point them at Export.
+    var storageWarned = false;
+    window.addEventListener("blind75:storage-error", function () {
+      if (storageWarned) return;
+      storageWarned = true;
+      toast("⚠ Can't save progress to this browser (private mode or storage full). Use ⋯ → Export to keep your data.", 7000);
+    });
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);

@@ -1,0 +1,11 @@
+{
+  "name": "GSP Visualizer — Global Supply Planning Data Platform",
+  "short_name": "GSP Visualizer",
+  "description": "Interactive walkthrough of a Global Supply Planning data platform on Azure or AWS — Airflow, Databricks, Delta Lake, Snowflake and o9 Solutions.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#07090f",
+  "theme_color": "#14b8a6",
+  "icons": []
+}
