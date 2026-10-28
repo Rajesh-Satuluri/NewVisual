@@ -1,4 +1,5 @@
 import { renderNav } from './components/nav.js';
+import { mount as mountQuestion } from './components/question-renderer.js';
 import {
   QUESTIONS, LOADERS, CATEGORY_ORDER, CATEGORY_LABEL,
 } from './content/index.js';
@@ -67,40 +68,6 @@ function esc(s) {
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
   ));
 }
-const DIFF_CLASS = {
-  Fundamental: 'diff-fundamental',
-  Intermediate: 'diff-intermediate',
-  Advanced: 'diff-advanced',
-};
-
-// ── Placeholder question view (full renderer arrives in Block B) ────────────
-function renderQuestion(data) {
-  const diffClass = DIFF_CLASS[data.difficulty] || '';
-  const tags = (data.tags || [])
-    .map(t => `<span class="sd-tag">${esc(t)}</span>`).join('');
-  root.innerHTML = `
-    <div class="module-page">
-      <div class="module-hero">
-        <div class="sd-badges">
-          <span class="sd-diff ${diffClass}">${esc(data.difficulty || '')}</span>
-          ${data.draft ? '<span class="sd-draft">draft</span>' : ''}
-          <span class="sd-cat">${esc(CATEGORY_LABEL[data.category] || data.category)}</span>
-        </div>
-        <h1 class="module-title">${esc(data.question)}</h1>
-        ${data.tldr ? `<p class="module-subtitle"><strong>TL;DR</strong> ${esc(data.tldr)}</p>` : ''}
-        <div class="sd-tags">${tags}</div>
-      </div>
-      <div class="sd-placeholder">
-        <div class="sd-placeholder-icon">🚧</div>
-        <p>The interactive answer view is built in <strong>Block B</strong>.
-        This question has <strong>${(data.steps || []).length}</strong> answer step(s),
-        ${data.flow ? 'a flow diagram, ' : ''}${(data.checklist || []).length} checklist item(s)
-        ${data.widget ? `, and a <strong>${esc(data.widget)}</strong> widget` : ''} ready in its data.</p>
-      </div>
-    </div>`;
-  return null;
-}
-
 // ── Router ─────────────────────────────────────────────────────────────────
 async function navigate(id) {
   if (!id || !LOADERS[id]) { showHome(); return; }
@@ -120,7 +87,8 @@ async function navigate(id) {
   try {
     const mod = await LOADERS[id]();
     const data = mod.default || mod;
-    const cleanup = renderQuestion(data);
+    root.innerHTML = '';
+    const cleanup = mountQuestion(root, data, { label: meta && meta.question });
     if (typeof cleanup === 'function') currentCleanup = cleanup;
   } catch (e) {
     root.innerHTML = `<div class="coming-soon">
