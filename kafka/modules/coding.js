@@ -11,7 +11,7 @@ import { all } from '../data/progress-store.js';
 const DIFFS = ['all', 'easy', 'medium', 'hard'];
 
 export function mount(container) {
-  const state = { level: 'all', category: 'all', difficulty: 'all', openId: null };
+  const state = { level: 'all', category: 'all', difficulty: 'all', openId: null, revealAll: false };
 
   container.innerHTML = `
     <div class="module-page">
@@ -36,6 +36,7 @@ export function mount(container) {
           ${DIFFS.map(d => `<button class="study-chip ${d === 'all' ? 'active' : ''}" data-val="${d}">${d === 'all' ? 'Any' : d[0].toUpperCase() + d.slice(1)}</button>`).join('')}
         </div>
         <button class="quiz-btn cd-random">🎲 Random drill</button>
+        <button class="quiz-btn cd-reveal-all" aria-pressed="false" title="Show every question's reference solution at once">👁 Reveal all answers</button>
         <span class="ca-progress" id="cd-progress"></span>
       </div>
 
@@ -62,6 +63,9 @@ export function mount(container) {
     const rows = filtered();
     if (!rows.length) { listEl.innerHTML = `<div class="study-empty">No problems match these filters.</div>`; return; }
 
+    // In "reveal all" mode every card is open; otherwise one at a time.
+    const isOpen = id => state.revealAll || id === state.openId;
+
     const done = all('coding');
     listEl.innerHTML = rows.map(p => {
       const rec = done[p.id];
@@ -70,13 +74,13 @@ export function mount(container) {
         : '';
       return `
       <div class="ca-card" data-id="${p.id}">
-        <button class="ca-card-head" aria-expanded="${p.id === state.openId}">
+        <button class="ca-card-head" aria-expanded="${isOpen(p.id)}">
           <span class="ca-card-topic">L${p.level} · ${p.category}</span>
           <span class="ca-card-title">${p.title}${badge}</span>
           <span class="diff-badge diff-${p.difficulty}">${p.difficulty}</span>
           <span class="q-chevron">▼</span>
         </button>
-        <div class="ca-card-body" ${p.id === state.openId ? '' : 'hidden'}></div>
+        <div class="ca-card-body" ${isOpen(p.id) ? '' : 'hidden'}></div>
       </div>`;
     }).join('');
 
@@ -84,8 +88,15 @@ export function mount(container) {
       const id = card.dataset.id;
       const head = card.querySelector('.ca-card-head');
       const body = card.querySelector('.ca-card-body');
-      if (id === state.openId) fillBody(body, id);
+      if (isOpen(id)) fillBody(body, id);
       head.addEventListener('click', () => {
+        if (state.revealAll) {
+          // Answer-key mode: head click collapses/expands this card only,
+          // without re-rendering (the body is already filled + revealed).
+          const nowHidden = body.hidden = !body.hidden;
+          head.setAttribute('aria-expanded', String(!nowHidden));
+          return;
+        }
         state.openId = state.openId === id ? null : id;
         render();
       });
@@ -95,7 +106,7 @@ export function mount(container) {
   function fillBody(body, id) {
     const p = CODING_BANK.find(x => x.id === id);
     if (!p || body.dataset.filled) return;
-    body.innerHTML = createCodingProblem(p);
+    body.innerHTML = createCodingProblem(p, { revealed: state.revealAll });
     initCodingProblem(body);
     body.dataset.filled = '1';
   }
@@ -117,6 +128,17 @@ export function mount(container) {
   container.querySelector('.study-select').addEventListener('change', e => {
     state.category = e.target.value;
     state.openId = null;
+    render();
+  });
+
+  // Reveal-all toggle — flip between the single-open accordion and a full
+  // answer-key view (every question expanded with its reference solution).
+  const revealBtn = container.querySelector('.cd-reveal-all');
+  revealBtn.addEventListener('click', () => {
+    state.revealAll = !state.revealAll;
+    revealBtn.setAttribute('aria-pressed', String(state.revealAll));
+    revealBtn.classList.toggle('active', state.revealAll);
+    revealBtn.textContent = state.revealAll ? '🙈 Hide all answers' : '👁 Reveal all answers';
     render();
   });
 

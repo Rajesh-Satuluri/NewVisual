@@ -49,7 +49,8 @@ export function codeBlock(code, lang = 'python') {
 
 const RATE_LABEL = { got: '✅ Got it', partial: '🟡 Partial', review: '🔁 Review' };
 
-export function createCodingProblem(p) {
+export function createCodingProblem(p, opts = {}) {
+  const revealed = !!opts.revealed;
   const prior = (() => { try { return get('coding', p.id); } catch (e) { return null; } })();
   const hints = p.hints || [];
   return `
@@ -84,8 +85,8 @@ export function createCodingProblem(p) {
         </div>` : ''}
 
       <div class="cd-solution">
-        <button class="quiz-btn primary cd-reveal">Reveal reference solution</button>
-        <div class="cd-sol-body" hidden>
+        <button class="quiz-btn primary cd-reveal"${revealed ? ' hidden' : ''}>Reveal reference solution</button>
+        <div class="cd-sol-body"${revealed ? '' : ' hidden'}>
           <div class="cd-sub">Reference solution <span class="cd-note">Python · study reference, not run here</span></div>
           ${codeBlock(p.solution.code)}
           ${p.solution.walkthrough ? `<div class="cd-walk">${p.solution.walkthrough}</div>` : ''}

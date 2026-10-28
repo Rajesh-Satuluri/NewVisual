@@ -1061,7 +1061,8 @@ body.cmdk-open { overflow: hidden; }
   color: var(--text2); background: color-mix(in srgb, var(--amber) 9%, transparent);
   border: 1px solid color-mix(in srgb, var(--amber) 30%, transparent); border-radius: 10px;
 }
-.cd-random { white-space: nowrap; }
+.cd-random, .cd-reveal-all { white-space: nowrap; }
+.cd-reveal-all.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 .cd-rated { margin-left: 8px; font-weight: 800; font-size: 12px; }
 .cd-rated-got { color: var(--green); }
 .cd-rated-partial { color: var(--amber); }
