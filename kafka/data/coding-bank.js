@@ -212,6 +212,300 @@ def count_by_type(events):
     complexity: 'O(n + r) time (r = max − min), O(n) space.',
     kafkaFollowup: `<strong>"Detect gaps per account/partition in a stream."</strong> Within a single Kafka <strong>partition</strong>, offsets are strictly ordered and monotonic — a gap in a per-record sequence number signals a lost or skipped producer message. Track the <strong>expected-next</strong> number per key (account) in keyed state: when an arrival jumps ahead, the span between last-seen and current is the gap. Key the topic by <code>account_id</code> so one account's sequence is wholly owned by one consumer; across partitions, sequences interleave and global ordering isn't guaranteed — so per-key gap detection is the only sound approach.`,
   },
+
+  // ── Level 2 — Kafka producer / consumer coding ───────────────────────────
+  {
+    id: 'c06',
+    title: 'Write a Kafka producer with keys and delivery callbacks',
+    level: 2,
+    category: 'Producer/Consumer',
+    difficulty: 'medium',
+    tags: ['producer', 'confluent-kafka', 'partitioning', 'acks'],
+    prompt: `Implement a producer (<code>confluent-kafka</code>) that publishes payment events to the <code>payments</code> topic. Serialize as JSON, use <code>payment_id</code> as the message <strong>key</strong>, handle delivery success/failure callbacks, and flush before exiting.`,
+    example: {
+      input: `payments = [
+    {"payment_id": "P1", "amount": 100, "merchant": "M1"},
+    {"payment_id": "P2", "amount": 250, "merchant": "M2"},
+]`,
+      output: `# Each record acked via the delivery callback:
+# Delivered P1 to payments[2]@57
+# Delivered P2 to payments[0]@43`,
+    },
+    starter: `from confluent_kafka import Producer
+import json
+
+def publish_payments(payments, bootstrap="localhost:9092"):
+    ...`,
+    hints: [
+      'Producer sends are asynchronous — you register a per-message delivery callback and must poll() to serve it.',
+      'The key must be bytes; encode both key and JSON value.',
+      'Call flush() at the end so buffered messages are actually delivered before the process exits.',
+    ],
+    solution: {
+      code: `from confluent_kafka import Producer
+import json
+
+def publish_payments(payments, bootstrap="localhost:9092"):
+    p = Producer({
+        "bootstrap.servers": bootstrap,
+        "acks": "all",          # wait for all in-sync replicas
+        "enable.idempotence": True,  # no duplicates on producer retries
+        "linger.ms": 5,         # small batching window for throughput
+    })
+
+    def on_delivery(err, msg):
+        if err is not None:
+            print(f"FAILED {msg.key()}: {err}")
+        else:
+            print(f"Delivered {msg.key().decode()} to "
+                  f"{msg.topic()}[{msg.partition()}]@{msg.offset()}")
+
+    for ev in payments:
+        p.produce(
+            topic="payments",
+            key=str(ev["payment_id"]).encode(),
+            value=json.dumps(ev).encode(),
+            callback=on_delivery,
+        )
+        p.poll(0)   # serve delivery callbacks without blocking
+
+    p.flush()       # block until every message is delivered or fails`,
+      walkthrough: `The three things interviewers check: (1) a <strong>key</strong> so related events co-locate on a partition and stay ordered; (2) <code>acks=all</code> + <code>enable.idempotence</code> for durability without duplicates; (3) <code>poll()</code> during the loop and <code>flush()</code> at the end — forgetting these is the classic "my messages disappeared" bug, because produce() only enqueues.`,
+    },
+    complexity: 'O(n) produce calls; delivery is async and batched.',
+    kafkaFollowup: `<strong>"Why a key, and what picks the partition?"</strong> With a key, Kafka's default partitioner computes <code>murmur2(key) % numPartitions</code>, so every event for a given <code>payment_id</code> lands on the same partition and keeps its relative order — essential for per-entity ordering. With no key, records are spread (sticky-batched) across partitions for throughput but lose per-entity ordering. Changing the partition count later re-maps keys, which is why partition count is a decision you make up front.`,
+  },
+
+  {
+    id: 'c07',
+    title: 'Consumer that commits offsets only after success',
+    level: 2,
+    category: 'Producer/Consumer',
+    difficulty: 'medium',
+    tags: ['consumer', 'offsets', 'at-least-once', 'commit'],
+    prompt: `Implement a consumer that reads from <code>payments</code>, parses JSON, validates the payload, and processes valid records — committing offsets <strong>only after</strong> successful processing. Handle malformed JSON and close cleanly.`,
+    example: {
+      input: `# topic 'payments' has a mix of valid records and one
+# malformed (non-JSON) message`,
+      output: `# valid records processed; bad message logged & skipped;
+# offset advanced only past successfully handled records`,
+    },
+    starter: `from confluent_kafka import Consumer
+import json
+
+def consume_payments(bootstrap="localhost:9092"):
+    ...`,
+    hints: [
+      'Disable auto-commit (enable.auto.commit=False) so you control exactly when the offset advances.',
+      'Wrap json.loads in try/except — a poison message must not crash the loop.',
+      'Commit after the record is durably processed; on failure, do not commit so it is re-delivered.',
+    ],
+    solution: {
+      code: `from confluent_kafka import Consumer, KafkaError
+import json
+
+def consume_payments(bootstrap="localhost:9092"):
+    c = Consumer({
+        "bootstrap.servers": bootstrap,
+        "group.id": "payments-processor",
+        "enable.auto.commit": False,     # we commit manually
+        "auto.offset.reset": "earliest",
+    })
+    c.subscribe(["payments"])
+    try:
+        while True:
+            msg = c.poll(1.0)
+            if msg is None:
+                continue
+            if msg.error():
+                if msg.error().code() == KafkaError._PARTITION_EOF:
+                    continue
+                raise Exception(msg.error())
+
+            try:
+                record = json.loads(msg.value())
+            except (ValueError, TypeError):
+                print(f"skip malformed @ offset {msg.offset()}")
+                c.commit(msg)        # skip poison: advance past it
+                continue
+
+            if not valid(record):
+                print(f"invalid payload @ {msg.offset()}")
+                c.commit(msg)
+                continue
+
+            process(record)          # side effect (DB write, etc.)
+            c.commit(msg)            # commit ONLY after success
+    finally:
+        c.close()                    # leave the group cleanly -> fast rebalance
+
+def valid(r):
+    return isinstance(r, dict) and "payment_id" in r and "amount" in r
+
+def process(r):
+    ...`,
+      walkthrough: `Manual commit after processing gives <strong>at-least-once</strong>: if the process crashes between <code>process()</code> and <code>commit()</code>, the record is redelivered and reprocessed (so <code>process()</code> must be idempotent). Committing the poison/invalid message is a deliberate choice — otherwise it blocks the partition forever. <code>c.close()</code> in <code>finally</code> triggers a prompt, clean rebalance.`,
+    },
+    complexity: 'O(1) work per message; throughput bounded by process().',
+    kafkaFollowup: `<strong>"Processing succeeds but the commit fails — then what?"</strong> The offset doesn't advance, so after a rebalance/restart the record is <strong>redelivered and processed again</strong>. That's the core at-least-once reality: duplicates are possible, so downstream writes must be idempotent (unique key / upsert) or you need the transactional (exactly-once) producer-consumer path. Committing before processing would instead risk <em>losing</em> a record on a crash — the opposite, worse failure.`,
+  },
+
+  {
+    id: 'c08',
+    title: 'Retry transient failures with a dead-letter queue',
+    level: 2,
+    category: 'Producer/Consumer',
+    difficulty: 'medium',
+    tags: ['retry', 'dlq', 'poison-message', 'backoff'],
+    prompt: `Write a function that processes a message and retries <strong>transient</strong> failures up to 3 times. Don't retry invalid input. Route permanently failed records to a dead-letter topic, preserving the original event id and the error.`,
+    example: {
+      input: `# transient: DB timeout -> retry
+# permanent: schema invalid -> straight to DLQ
+# success after 2 retries -> processed`,
+      output: `# processed, or published to payments.DLQ with
+# {original, error, attempts} metadata`,
+    },
+    starter: `def process_with_retry(record, produce_dlq, max_retries=3):
+    ...`,
+    hints: [
+      'Separate exception types: transient (timeouts, connection) retry; validation errors do not.',
+      'Exponential backoff between retries (and in a real consumer, beware blocking the partition).',
+      'After exhausting retries, publish to the DLQ with enough context to debug/replay.',
+    ],
+    solution: {
+      code: `import time, json
+
+class TransientError(Exception): ...
+class PermanentError(Exception): ...
+
+def process_with_retry(record, produce_dlq, max_retries=3):
+    attempt = 0
+    while True:
+        try:
+            handle(record)                 # may raise
+            return "ok"
+        except PermanentError as e:        # invalid input -> no retry
+            to_dlq(record, produce_dlq, str(e), attempt)
+            return "dlq"
+        except TransientError as e:
+            attempt += 1
+            if attempt > max_retries:
+                to_dlq(record, produce_dlq, str(e), attempt)
+                return "dlq"
+            time.sleep(min(2 ** attempt, 30))   # exp. backoff, capped
+
+def to_dlq(record, produce_dlq, error, attempts):
+    produce_dlq(json.dumps({
+        "original": record,
+        "error": error,
+        "attempts": attempts,
+        "event_id": record.get("event_id") or record.get("payment_id"),
+    }).encode())
+
+def handle(record):
+    ...`,
+      walkthrough: `The key design move is <strong>classifying the error</strong>: retrying a validation failure just wastes 3 attempts and still fails, while retrying a DB timeout usually succeeds. Capped exponential backoff avoids hammering a struggling dependency. The DLQ record keeps the original payload + error + attempt count so it's debuggable and replayable.`,
+    },
+    complexity: 'O(max_retries) worst case per record; backoff dominates wall-clock.',
+    kafkaFollowup: `<strong>"How do you avoid blocking a partition behind one poison message?"</strong> In-line <code>sleep</code> retries stall every later message on that partition (head-of-line blocking). Production patterns: (1) <strong>retry topics</strong> — on transient failure, republish to <code>payments.retry.5s</code> / <code>.30s</code> with a delay and move on, so the main partition keeps flowing; (2) a dead-letter topic for terminal failures; (3) bound total attempts to prevent infinite loops. Confluent's "retry topic + DLQ" pattern is the standard answer.`,
+  },
+
+  {
+    id: 'c09',
+    title: 'Idempotent database writes from a consumer',
+    level: 2,
+    category: 'Dedup',
+    difficulty: 'medium',
+    tags: ['idempotency', 'upsert', 'exactly-once', 'at-least-once'],
+    prompt: `A consumer writes payment events to a database. The same event can be <strong>delivered more than once</strong> (at-least-once). Write the processing logic so an event whose <code>event_id</code> already exists does not create a second row.`,
+    example: {
+      input: `# E1 delivered twice (consumer restart replayed it)`,
+      output: `# exactly one row for E1 in the payments table`,
+    },
+    starter: `def write_payment(conn, event):
+    ...`,
+    hints: [
+      'A Python set of seen ids works in one process but is lost on restart and not shared across consumers.',
+      'Push idempotency into the database: a unique constraint on event_id.',
+      'INSERT ... ON CONFLICT DO NOTHING (Postgres) / INSERT IGNORE / MERGE makes the write a no-op on a duplicate.',
+    ],
+    solution: {
+      code: `# Schema:  UNIQUE constraint on event_id
+#   CREATE TABLE payments (
+#     event_id TEXT PRIMARY KEY,
+#     amount   NUMERIC,
+#     merchant TEXT,
+#     ts       TIMESTAMPTZ
+#   );
+
+def write_payment(conn, event):
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO payments (event_id, amount, merchant, ts)
+            VALUES (%(event_id)s, %(amount)s, %(merchant)s, now())
+            ON CONFLICT (event_id) DO NOTHING
+            """,
+            event,
+        )
+    conn.commit()
+    # Duplicate deliveries hit ON CONFLICT and change nothing -> idempotent.`,
+      walkthrough: `The database is the single source of truth, so the dedup guarantee belongs <strong>there</strong>, not in process memory. A primary-key/unique constraint on <code>event_id</code> plus <code>ON CONFLICT DO NOTHING</code> makes re-delivery a safe no-op across restarts, rebalances, and multiple consumer instances — none of which a local <code>set</code> survives.`,
+    },
+    complexity: 'O(1) per write (index lookup on the unique key).',
+    kafkaFollowup: `<strong>"Why isn't a Python set enough in production?"</strong> It's per-process and in-memory: it vanishes on restart, isn't shared when the consumer group scales to N instances, and grows unbounded. The DB unique constraint is durable, shared, and bounded by the data itself. This turns at-least-once delivery into <strong>effectively exactly-once processing</strong> at the sink — the pragmatic pattern most teams use instead of full Kafka transactions.`,
+  },
+
+  {
+    id: 'c10',
+    title: 'Process a batch, then commit safely',
+    level: 2,
+    category: 'Producer/Consumer',
+    difficulty: 'hard',
+    tags: ['batching', 'offsets', 'transactions', 'atomicity'],
+    prompt: `Write consumer logic that reads a <strong>batch</strong> of events, validates each, writes the valid ones to the target, handles the failures, and commits offsets only when the batch's required processing is complete.`,
+    example: {
+      input: `# poll up to 500 records, process as one batch`,
+      output: `# batch written atomically; offset committed once,
+# past the last successfully handled record`,
+    },
+    starter: `def consume_in_batches(consumer, sink, batch_size=500, timeout=1.0):
+    ...`,
+    hints: [
+      'consume(num_messages=N, timeout=…) returns a list — accumulate a batch.',
+      'Validate and split into good/bad before the write; route bad ones to a DLQ.',
+      'Commit once after the batch is durable; a bulk DB write + single commit amortizes overhead.',
+    ],
+    solution: {
+      code: `def consume_in_batches(consumer, sink, dlq, batch_size=500, timeout=1.0):
+    while True:
+        msgs = consumer.consume(num_messages=batch_size, timeout=timeout)
+        if not msgs:
+            continue
+
+        good, bad = [], []
+        for m in msgs:
+            if m.error():
+                continue
+            try:
+                rec = parse(m.value())
+                (good if valid(rec) else bad).append((m, rec))
+            except Exception:
+                bad.append((m, None))
+
+        # Write all valid records as ONE unit of work.
+        if good:
+            sink.write_batch([r for _, r in good])   # bulk insert / upsert
+        for m, _ in bad:
+            dlq.produce(m.value())
+
+        # Everything handled -> commit once, past the whole batch.
+        consumer.commit(asynchronous=False)`,
+      walkthrough: `Batching amortizes the per-record cost of both the DB write and the offset commit. The invariant: <strong>commit only after the batch is durable</strong>. The write should be atomic (a single transaction / bulk upsert) so a mid-batch crash can't leave the sink half-written while the offset implies "done".`,
+    },
+    complexity: 'O(batch) per cycle; one bulk write + one commit amortizes cost.',
+    kafkaFollowup: `<strong>"What if the DB partially commits a batch, then fails?"</strong> With a non-atomic write + a single offset commit you get a gap: some rows written, offset not advanced → on restart the whole batch replays, duplicating the already-written rows (fine only if the sink is idempotent). The robust options: (1) make the batch write a <strong>single transaction</strong> so it's all-or-nothing; (2) idempotent upserts keyed by <code>event_id</code> so replays are safe; or (3) Kafka <strong>transactions</strong> (<code>read-process-write</code> with <code>sendOffsetsToTransaction</code>) to commit the writes and the offsets atomically for true exactly-once.`,
+  },
 ];
 
 // Convenience lookups.
