@@ -1,5 +1,6 @@
 import { renderNav } from './components/nav.js';
 import { mount as mountQuestion } from './components/question-renderer.js';
+import { mount as mountHome } from './components/home.js';
 import {
   QUESTIONS, LOADERS, CATEGORY_ORDER, CATEGORY_LABEL,
 } from './content/index.js';
@@ -102,47 +103,14 @@ async function navigate(id) {
 
 // ── Home ───────────────────────────────────────────────────────────────────
 function showHome() {
+  if (currentCleanup) { currentCleanup(); currentCleanup = null; }
   currentId = null;
   markDoneBtn.style.display = 'none';
   breadcrumbGroup.textContent = 'System Design';
-  breadcrumbTitle.textContent = 'Welcome';
-
-  const cats = CATEGORY_ORDER
-    .map(c => [c, QUESTIONS.filter(q => q.category === c).length])
-    .filter(([, n]) => n > 0);
-
-  root.innerHTML = `
-    <div class="module-page">
-      <div class="module-hero" style="text-align:center;padding:64px 40px 48px">
-        <div class="module-tag">Visual Learning Lab</div>
-        <h1 class="module-title" style="font-size:clamp(22px,4vw,40px);margin-bottom:14px">
-          System Design<br>Knowledge Base
-        </h1>
-        <p class="module-subtitle" style="margin:0 auto;text-align:center">
-          A searchable, visual collection of real-world system-design questions and
-          model answers — browse by topic, difficulty, and tag.
-        </p>
-      </div>
-
-      <div class="stats-row" style="justify-content:center;padding:32px 40px 0">
-        <div class="stat-box"><div class="stat-val">${QUESTIONS.length}</div><div class="stat-label">Questions</div></div>
-        <div class="stat-box"><div class="stat-val">${cats.length}</div><div class="stat-label">Categories</div></div>
-        <div class="stat-box"><div class="stat-val">${done.size}</div><div class="stat-label">Completed</div></div>
-      </div>
-
-      <div class="info-grid" style="padding-top:32px">
-        ${cats.map(([c, n]) => {
-          const first = QUESTIONS.find(q => q.category === c);
-          return `
-          <a href="#${first ? first.id : ''}" class="info-card" style="text-decoration:none;cursor:pointer">
-            <div class="info-card-icon">${first ? (first.icon || '📚') : '📚'}</div>
-            <div class="info-card-title">${esc(CATEGORY_LABEL[c] || c)}</div>
-            <div class="info-card-body">${esc(c)}</div>
-            <span class="info-card-tag">${n} question${n === 1 ? '' : 's'} →</span>
-          </a>`;
-        }).join('')}
-      </div>
-    </div>`;
+  breadcrumbTitle.textContent = 'All questions';
+  root.innerHTML = '';
+  const cleanup = mountHome(root, { done });
+  if (typeof cleanup === 'function') currentCleanup = cleanup;
   renderNav(null, done);
 }
 
