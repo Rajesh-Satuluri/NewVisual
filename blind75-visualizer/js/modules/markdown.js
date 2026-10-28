@@ -169,9 +169,19 @@
     return out;
   }
 
+  // Strip stray SVG <text> wrappers that sometimes leak into pasted content.
+  // Real diagrams in this app are drawn at runtime via createElementNS (pyviz.js),
+  // never as Markdown, so a literal <text ...> / </text> here is always junk — e.g.
+  // ASCII art pasted wrapped in <text preserveWhitespace>...</text>. Because the
+  // renderer escapes HTML, those tags would otherwise show as visible garbage.
+  // We drop the wrapper tags only, keeping the ASCII art between them intact.
+  function stripLeakedSvgText(s) {
+    return s.replace(/<\/?text\b[^>]*>/gi, "");
+  }
+
   function render(md) {
     if (md == null) return "";
-    var prot = protectMath(String(md));
+    var prot = protectMath(stripLeakedSvgText(String(md)));
     var src = escapeHtml(prot.src);
     var lines = src.split("\n");
     var html = [];
