@@ -7,6 +7,7 @@
 import {
   QUESTIONS, CATEGORY_ORDER, CATEGORY_LABEL, DIFFICULTY_ORDER, allTags,
 } from '../content/index.js';
+import { mount as mountFlashcards } from './flashcards.js';
 
 const DIFF_CLASS = {
   Fundamental: 'diff-fundamental',
@@ -71,7 +72,10 @@ export function mount(container, { done } = { done: new Set() }) {
 
       <div class="sd-result-bar">
         <span id="sd-count"></span>
-        <button class="sd-clear" id="sd-clear" hidden>Clear filters</button>
+        <div class="sd-result-actions">
+          <button class="sd-study" id="sd-study">🃏 Study as flashcards</button>
+          <button class="sd-clear" id="sd-clear" hidden>Clear filters</button>
+        </div>
       </div>
 
       <div class="sd-card-grid" id="sd-grid"></div>
@@ -89,6 +93,10 @@ export function mount(container, { done } = { done: new Set() }) {
   const clearBtn = container.querySelector('#sd-clear');
   const diffPills = [...container.querySelectorAll('[data-diff]')];
   const tagChips  = [...container.querySelectorAll('[data-tag]')];
+  const studyBtn  = container.querySelector('#sd-study');
+
+  let fcCleanup = null;
+  let lastList = [];
 
   function matches(qn) {
     if (state.difficulty && qn.difficulty !== state.difficulty) return false;
@@ -122,12 +130,17 @@ export function mount(container, { done } = { done: new Set() }) {
 
   function render() {
     const list = QUESTIONS.filter(matches);
+    lastList = list;
     grid.innerHTML = list.map(card).join('');
     empty.hidden = list.length > 0;
     grid.hidden = list.length === 0;
     countEl.textContent = `${list.length} of ${QUESTIONS.length} question${QUESTIONS.length === 1 ? '' : 's'}`;
     const active = state.q || state.difficulty || state.tags.size || state.category !== 'all';
     clearBtn.hidden = !active;
+    if (studyBtn) {
+      studyBtn.disabled = list.length === 0;
+      studyBtn.textContent = `🃏 Study ${list.length} as flashcards`;
+    }
   }
 
   // ── events ────────────────────────────────────────────────────────────────
@@ -155,6 +168,15 @@ export function mount(container, { done } = { done: new Set() }) {
 
   catSel.addEventListener('change', () => { state.category = catSel.value; render(); });
 
+  studyBtn.addEventListener('click', () => {
+    if (!lastList.length) return;
+    const deck = lastList.slice();
+    fcCleanup = mountFlashcards(container, {
+      cards: deck,
+      onExit: () => { if (fcCleanup) { fcCleanup(); fcCleanup = null; } mount(container, { done }); },
+    });
+  });
+
   clearBtn.addEventListener('click', () => {
     state.q = ''; state.difficulty = null; state.tags.clear(); state.category = 'all';
     search.value = '';
@@ -172,5 +194,8 @@ export function mount(container, { done } = { done: new Set() }) {
 
   render();
 
-  return function cleanup() { clearTimeout(searchTimer); };
+  return function cleanup() {
+    clearTimeout(searchTimer);
+    if (fcCleanup) { fcCleanup(); fcCleanup = null; }
+  };
 }

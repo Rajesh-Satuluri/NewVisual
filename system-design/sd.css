@@ -477,3 +477,96 @@
   .sd-filters, .sd-result-bar, .sd-card-grid { padding-left: 16px; padding-right: 16px; }
   .sd-home-stats { gap: 16px; }
 }
+
+/* ── Result-bar actions + study button ─────────────────────────────────── */
+.sd-result-actions { display: flex; align-items: center; gap: 14px; }
+.sd-study {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: 9px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  cursor: pointer;
+  transition: all .15s;
+}
+.sd-study:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 20%, transparent); }
+.sd-study:disabled { opacity: .4; cursor: default; }
+
+/* ── Flashcard mode (D12) ──────────────────────────────────────────────── */
+.sd-fc-wrap { max-width: 720px; margin: 0 auto; padding: 24px 40px 56px; }
+.sd-fc-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.sd-fc-progress { font-size: 14px; color: var(--text2); }
+.sd-fc-progress #sd-fc-done { color: var(--accent); font-weight: 700; }
+.sd-fc-remaining { color: var(--text3); }
+
+.sd-fc-card {
+  min-height: 340px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--bg2);
+  display: flex;
+  box-shadow: 0 8px 28px rgba(0,0,0,.14);
+}
+.sd-fc-face {
+  flex: 1;
+  padding: 36px 32px;
+  display: flex;
+  flex-direction: column;
+}
+.sd-fc-front { align-items: center; justify-content: center; text-align: center; gap: 14px; }
+.sd-fc-meta { display: flex; gap: 8px; align-items: center; }
+.sd-fc-icon { font-size: 44px; }
+.sd-fc-q { font-size: 22px; line-height: 1.35; color: var(--text); margin: 0; max-width: 32ch; }
+.sd-fc-hint { color: var(--text3); font-size: 13px; margin: 2px 0 10px; }
+.sd-fc-reveal { min-width: 180px; }
+
+.sd-fc-back { gap: 14px; }
+.sd-fc-q-sm { font-size: 16px; color: var(--text); margin: 0; }
+.sd-fc-tldr { font-size: 16px; line-height: 1.6; color: var(--text); margin: 0; }
+.sd-fc-outline-wrap {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+.sd-fc-outline-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--text3);
+  margin-bottom: 8px;
+}
+.sd-fc-outline { margin: 0; padding-left: 20px; color: var(--text2); }
+.sd-fc-outline li { margin: 0 0 5px; line-height: 1.45; }
+.sd-fc-draft { color: var(--text3); font-style: italic; margin: 0; }
+.sd-fc-open {
+  font-size: 13px;
+  color: var(--accent);
+  text-decoration: none;
+  align-self: flex-start;
+}
+.sd-fc-open:hover { text-decoration: underline; }
+.sd-fc-grade { display: flex; gap: 12px; margin-top: auto; padding-top: 10px; }
+.sd-fc-grade .sd-btn { flex: 1; padding: 12px; }
+.sd-fc-again { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 45%, var(--border)); }
+
+.sd-fc-finish { text-align: center; padding: 48px 24px; }
+.sd-fc-finish-icon { font-size: 44px; margin-bottom: 8px; }
+.sd-fc-finish h2 { margin: 0 0 6px; color: var(--text); }
+.sd-fc-finish p { color: var(--text2); margin: 0 0 20px; }
+.sd-fc-finish-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+@media (max-width: 720px) {
+  .sd-fc-wrap { padding: 20px 16px 40px; }
+  .sd-fc-face { padding: 26px 20px; }
+  .sd-fc-q { font-size: 19px; }
+  .sd-result-actions { gap: 10px; }
+}
