@@ -506,6 +506,238 @@ def write_payment(conn, event):
     complexity: 'O(batch) per cycle; one bulk write + one commit amortizes cost.',
     kafkaFollowup: `<strong>"What if the DB partially commits a batch, then fails?"</strong> With a non-atomic write + a single offset commit you get a gap: some rows written, offset not advanced → on restart the whole batch replays, duplicating the already-written rows (fine only if the sink is idempotent). The robust options: (1) make the batch write a <strong>single transaction</strong> so it's all-or-nothing; (2) idempotent upserts keyed by <code>event_id</code> so replays are safe; or (3) Kafka <strong>transactions</strong> (<code>read-process-write</code> with <code>sendOffsetsToTransaction</code>) to commit the writes and the offsets atomically for true exactly-once.`,
   },
+
+  // ── Level 3 — Streaming algorithms & data engineering ────────────────────
+  {
+    id: 'c11',
+    title: 'Rolling 5-minute transaction total',
+    level: 3,
+    category: 'Windowing',
+    difficulty: 'medium',
+    tags: ['sliding-window', 'deque', 'event-time'],
+    prompt: `Given timestamped payment events (seconds), for each event compute the <strong>total amount in the preceding 5 minutes</strong> (300s), inclusive. Explain your window boundary and how you expire old events efficiently.`,
+    example: {
+      input: `events = [
+    {"timestamp": 100, "amount": 100},
+    {"timestamp": 180, "amount": 200},
+    {"timestamp": 250, "amount": 50},
+    {"timestamp": 500, "amount": 300},
+]`,
+      output: `# at ts=500, window is (200, 500]: 50 + 300 = 350
+# (ts 100 and 180 have aged out of the 300s window)
+[100, 300, 350, 350]`,
+    },
+    starter: `from collections import deque
+
+def rolling_window_totals(events, window=300):
+    ...`,
+    hints: [
+      'Keep a deque of (timestamp, amount) and a running sum.',
+      'When a new event arrives, pop from the left while the oldest is older than now - window.',
+      'Each event is added once and removed once → amortized O(1) per event.',
+    ],
+    solution: {
+      code: `from collections import deque
+
+def rolling_window_totals(events, window=300):
+    q = deque()        # (timestamp, amount), oldest on the left
+    running = 0.0
+    out = []
+    for e in events:   # assumes non-decreasing timestamps (ordered stream)
+        ts, amt = e["timestamp"], e["amount"]
+        q.append((ts, amt)); running += amt
+        # Expire everything strictly older than the window's left edge.
+        while q and q[0][0] <= ts - window:
+            running -= q.popleft()[1]
+        out.append(running)
+    return out`,
+      walkthrough: `A monotonic deque + running sum is the canonical sliding-window trick: define the window as <code>(ts - 300, ts]</code>, and because each element is appended once and popped once, the whole pass is <strong>amortized O(1) per event</strong> rather than O(n) rescans. Be explicit about boundary inclusivity — it's a common off-by-one.`,
+    },
+    complexity: 'O(n) total (amortized O(1) per event), O(w) space for the window.',
+    kafkaFollowup: `<strong>"Event-time windows and late events in a streaming engine?"</strong> This hand-rolled version assumes ordered timestamps. Real engines (Kafka Streams, Flink, Spark Structured Streaming) window on <strong>event time</strong> with a <strong>watermark</strong> that estimates "we've probably seen everything up to T". A late event behind the watermark either updates its window (if within the allowed lateness / grace period) or is dropped to a side output. Sliding windows are expressed declaratively (<code>hopping</code>/<code>sliding</code> windows) and backed by fault-tolerant state.`,
+  },
+
+  {
+    id: 'c12',
+    title: 'Top-K merchants by transaction volume',
+    level: 3,
+    category: 'Aggregation',
+    difficulty: 'medium',
+    tags: ['heap', 'top-k', 'tie-break'],
+    prompt: `Given payment events, return the <strong>top 3 merchants</strong> by total amount, with a defined tie-breaking rule (e.g. merchant id ascending on a tie).`,
+    example: {
+      input: `events = [
+    {"merchant": "M1", "amount": 100}, {"merchant": "M2", "amount": 500},
+    {"merchant": "M1", "amount": 400}, {"merchant": "M3", "amount": 300},
+    {"merchant": "M4", "amount": 200},
+]`,
+      output: `# totals: M1=500, M2=500, M3=300, M4=200
+# tie M1/M2 broken by id asc -> [("M1",500),("M2",500),("M3",300)]`,
+    },
+    starter: `def top_k_merchants(events, k=3):
+    ...`,
+    hints: [
+      'First aggregate totals per merchant (dict).',
+      'heapq.nlargest with a key handles selection in O(m log k).',
+      'Encode the tie-break in the sort key: (−total, merchant_id) sorts by total desc then id asc.',
+    ],
+    solution: {
+      code: `from collections import defaultdict
+import heapq
+
+def top_k_merchants(events, k=3):
+    totals = defaultdict(float)
+    for e in events:
+        totals[e["merchant"]] += e["amount"]
+
+    # Sort key: highest total first; ties -> merchant id ascending.
+    # nlargest with a key gives O(m log k) instead of a full O(m log m) sort.
+    top = heapq.nsmallest(k, totals.items(), key=lambda kv: (-kv[1], kv[0]))
+    return [(m, t) for m, t in top]`,
+      walkthrough: `Two stages: aggregate (O(n)), then select top-k. Using a heap keyed by <code>(-total, merchant)</code> picks the k largest by total while breaking ties deterministically by id — spelling out the tie-break is exactly what separates a complete answer from a hand-wave. For k ≪ m, <code>nsmallest/nlargest</code> beats a full sort.`,
+    },
+    complexity: 'O(n) to aggregate + O(m log k) to select (m = distinct merchants).',
+    kafkaFollowup: `<strong>"Maintain top-K continuously without re-sorting on every event?"</strong> Keep the running totals in a <strong>KTable</strong> (stateful aggregate, partitioned by merchant), then maintain a bounded top-K structure updated incrementally: on each total change, update a size-K min-heap / sorted structure keyed on the running total. Because merchant totals only grow within a window, you re-rank in O(log K) per update instead of re-sorting all merchants. Emit the leaderboard on a timer or on change to a compacted output topic.`,
+  },
+
+  {
+    id: 'c13',
+    title: 'Correct final state from out-of-order events',
+    level: 3,
+    category: 'Ordering',
+    difficulty: 'medium',
+    tags: ['event-time', 'out-of-order', 'last-write-wins'],
+    prompt: `Account balance updates carry timestamps but <strong>arrive out of order</strong>. Compute the correct final balance per account — the value from each account's latest-timestamped event.`,
+    example: {
+      input: `events = [
+    {"account": "A1", "timestamp": 30, "balance": 300},
+    {"account": "A1", "timestamp": 10, "balance": 100},
+    {"account": "A1", "timestamp": 20, "balance": 200},
+]`,
+      output: `{"A1": 300}   # ts=30 is newest, regardless of arrival order`,
+    },
+    starter: `def final_balances(events):
+    ...`,
+    hints: [
+      'Track per account the max timestamp seen and its balance.',
+      'Only overwrite when the incoming timestamp is strictly greater.',
+      'Think about what to do on equal timestamps — you need a tiebreaker.',
+    ],
+    solution: {
+      code: `def final_balances(events):
+    latest_ts = {}
+    balance = {}
+    for e in events:
+        a, ts = e["account"], e["timestamp"]
+        if a not in latest_ts or ts > latest_ts[a]:
+            latest_ts[a] = ts
+            balance[a] = e["balance"]
+    return balance`,
+      walkthrough: `This is <strong>last-write-wins by event time</strong>: arrival order is irrelevant because the <code>ts &gt; latest</code> guard always keeps the newest. It's the same shape as "latest per user," applied to a mutable value. The subtle gap is equal timestamps — see the follow-up.`,
+    },
+    complexity: 'O(n) time, O(a) space (a = distinct accounts).',
+    kafkaFollowup: `<strong>"What if two events share a timestamp?"</strong> Timestamp alone can't order them, so you need a <strong>deterministic tiebreaker</strong>: a monotonic source sequence number, the producer's record offset, or a version field. In Kafka, records in one partition have a total order (offset), so keying the topic by <code>account_id</code> gives you a canonical last-write-wins by offset even when event-time ties. Without a tiebreaker, "final" is ambiguous and two replays can disagree.`,
+  },
+
+  {
+    id: 'c14',
+    title: 'Per-key ordering with cross-key concurrency',
+    level: 3,
+    category: 'Ordering',
+    difficulty: 'hard',
+    tags: ['partitioning', 'ordering', 'concurrency', 'keyed-state'],
+    prompt: `Design a processing strategy so events for the same <code>account_id</code> are applied <strong>strictly in order</strong>, while <strong>different</strong> accounts are processed concurrently. Sketch it in code.`,
+    example: {
+      input: `# interleaved events for A1, A2, A3 on one stream`,
+      output: `# A1's events applied in order on one worker;
+# A2 and A3 handled in parallel on other workers`,
+    },
+    starter: `# Partition by account_id so ordering is per-key, parallelism is per-partition.
+def route(event, num_workers):
+    ...`,
+    hints: [
+      'Ordering in Kafka is guaranteed only within a partition — so same key must map to the same partition.',
+      'Hash the key to a worker/queue; each worker processes its queue sequentially.',
+      'Never fan a single key across workers, or you lose its order.',
+    ],
+    solution: {
+      code: `import hashlib, queue, threading
+
+def partition_for(key, n):
+    # Stable hash -> same account always maps to the same worker.
+    h = int(hashlib.md5(key.encode()).hexdigest(), 16)
+    return h % n
+
+def run(events, num_workers=4):
+    queues = [queue.Queue() for _ in range(num_workers)]
+
+    def worker(q):
+        while True:
+            ev = q.get()
+            if ev is None:
+                return
+            apply(ev)          # sequential within this worker -> per-key order
+            q.task_done()
+
+    threads = [threading.Thread(target=worker, args=(q,), daemon=True)
+               for q in queues]
+    for t in threads: t.start()
+
+    for ev in events:                     # single ordered source
+        queues[partition_for(ev["account_id"], num_workers)].put(ev)
+
+    for q in queues: q.join()
+    for q in queues: q.put(None)
+
+def apply(ev):
+    ...`,
+      walkthrough: `The whole guarantee rests on one rule: <strong>a key is owned by exactly one worker</strong>. Hashing <code>account_id</code> to a worker queue means one account's events are always handled by the same thread in arrival order, while distinct accounts spread across workers for parallelism. The moment you let a key be handled by two workers, its order is gone.`,
+    },
+    complexity: 'O(n) dispatch; throughput scales with worker/partition count.',
+    kafkaFollowup: `<strong>"Map this onto Kafka."</strong> It's exactly how Kafka already works: produce with <code>key=account_id</code> so the partitioner sends an account's events to one <strong>partition</strong> (ordered), and a consumer group assigns each partition to one <strong>consumer</strong> (one owner). Parallelism = partition count; ordering = per key within a partition. Ordered DB updates per key keep the sink consistent. The catch: max parallelism is capped by partitions, and a single hot key is a serial bottleneck you can't parallelize without breaking its order.`,
+  },
+
+  {
+    id: 'c15',
+    title: 'Deduplication window with expiry',
+    level: 3,
+    category: 'Dedup',
+    difficulty: 'hard',
+    tags: ['windowed-dedup', 'ttl', 'state', 'memory'],
+    prompt: `Deduplicate events by <code>event_id</code> within a <strong>10-minute window</strong>: an id seen within the last 10 minutes is a duplicate, but the same id is allowed again once it expires from the window.`,
+    example: {
+      input: `# E1 @ t=0 (new), E1 @ t=120 (dup), E1 @ t=700 (new again)
+# window = 600s`,
+      output: `# emit E1@0, drop E1@120, emit E1@700`,
+    },
+    starter: `def windowed_dedup(events, window=600):
+    ...`,
+    hints: [
+      'Store last-seen time per id, and expire entries older than the window.',
+      'On each event, first evict expired ids, then check membership.',
+      'Unbounded ids = unbounded memory; expiry is what bounds it.',
+    ],
+    solution: {
+      code: `from collections import OrderedDict
+
+def windowed_dedup(events, window=600):
+    seen = OrderedDict()     # event_id -> last_seen_ts, in insertion order
+    out = []
+    for e in events:         # assumes non-decreasing timestamps
+        eid, ts = e["event_id"], e["timestamp"]
+        # Evict ids whose last-seen has aged out of the window.
+        while seen and next(iter(seen.values())) <= ts - window:
+            seen.popitem(last=False)
+        if eid in seen:
+            continue                 # duplicate within window -> drop
+        seen[eid] = ts               # first time (or re-allowed) -> emit
+        out.append(e)
+    return out`,
+      walkthrough: `The window is what makes dedup <strong>bounded</strong>: without expiry the id set grows forever. An <code>OrderedDict</code> keeps ids in time order so the oldest expire from the front in amortized O(1). A re-seen id past the window counts as new again — matching the spec. Eviction before the membership check is the ordering that keeps it correct.`,
+    },
+    complexity: 'O(n) amortized; O(w) space bounded by ids within the window.',
+    kafkaFollowup: `<strong>"Manage memory, event-time vs processing-time expiry, and restart recovery?"</strong> Use a windowed state store (Kafka Streams <code>Windowed</code> / Flink keyed state) with a <strong>retention = window</strong> so old keys are compacted/evicted automatically and memory stays bounded. Expire on <strong>event time</strong> (the embedded timestamp) so results are reproducible on replay, not wall-clock. Fault tolerance comes from the store's changelog topic: on restart, state is restored from it, so the dedup window survives crashes rather than resetting.`,
+  },
 ];
 
 // Convenience lookups.
