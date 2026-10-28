@@ -1544,7 +1544,9 @@
         "- `LRUCache(capacity)` initializes the cache with a positive `capacity`.\n" +
         "- `get(key)` returns the value for `key` if present, otherwise `-1`.\n" +
         "- `put(key, value)` inserts or updates the value. If inserting exceeds `capacity`, evict the **least recently used** entry first.\n\n" +
-        "Both `get` and `put` must run in average `O(1)` time. Any access (get or put) counts as a use, making that key the most recently used.",
+        "Both `get` and `put` must run in average `O(1)` time. Any access (get or put) counts as a use, making that key the most recently used.\n\n" +
+        "**A doubly linked list holds entries in use-order: most-recently-used at the front (`head`), least-recently-used at the back — the one evicted on overflow. `prev` pointers exist too but aren't drawn here:**\n\n" +
+        "```linkedlist\n4 -> 1 -> 3 -> None\n```",
       constraints: [
         "`1 <= capacity <= 3000`",
         "`0 <= key <= 10^4`, `0 <= value <= 10^5`",
@@ -1779,7 +1781,11 @@
       description:
         "Given the `head` of a linked list, reverse the nodes of the list `k` at a time and return the modified list.\n\n" +
         "`k` is a positive integer no larger than the list length. If the number of nodes is not a multiple of `k`, the leftover nodes at the end stay in their original order.\n\n" +
-        "You may not change node values — only rearrange the nodes themselves.",
+        "You may not change node values — only rearrange the nodes themselves.\n\n" +
+        "**Before — with `k = 2`:**\n\n" +
+        "```linkedlist\n1 -> 2 -> 3 -> 4 -> 5 -> None\n```\n\n" +
+        "**After — each group of 2 reversed; the final lone node 5 stays as-is:**\n\n" +
+        "```linkedlist\n2 -> 1 -> 4 -> 3 -> 5 -> None\n```",
       constraints: [
         "The number of nodes is `n`, with `1 <= k <= n <= 5000`.",
         "`0 <= Node.val <= 1000`",
@@ -1921,7 +1927,7 @@
         "dataStructure": "Linked List",
         "technique": "Two-speed traversal"
       },
-      "description": "Given the `head` of a singly linked list, return its **middle node**. If the list has an even number of nodes, return the **second** of the two middles.\n\nThe elegant one-pass solution uses two pointers moving at different speeds.",
+      "description": "Given the `head` of a singly linked list, return its **middle node**. If the list has an even number of nodes, return the **second** of the two middles.\n\nThe elegant one-pass solution uses two pointers moving at different speeds.\n\n**Odd length — the middle is node 3:**\n\n```linkedlist\n1 -> 2 -> 3 -> 4 -> 5 -> None\n```\n\n**Even length — return the second middle, node 4:**\n\n```linkedlist\n1 -> 2 -> 3 -> 4 -> 5 -> 6 -> None\n```",
       "constraints": [
         "The list has at least one node.",
         "`1 <= number of nodes <= 100`"
@@ -1991,7 +1997,7 @@
         "dataStructure": "Linked List",
         "technique": "Length equalization"
       },
-      "description": "Given the heads of two singly linked lists `headA` and `headB`, return the **node where they intersect** (the first node they share, after which all nodes are common). Return `None` if they never intersect.\n\nIntersection is by **node identity**, not value. Aim for `O(1)` extra space.",
+      "description": "Given the heads of two singly linked lists `headA` and `headB`, return the **node where they intersect** (the first node they share, after which all nodes are common). Return `None` if they never intersect.\n\nIntersection is by **node identity**, not value. Aim for `O(1)` extra space.\n\n**`headA`:**\n\n```linkedlist\n4 -> 1 -> 8 -> 4 -> 5 -> None\n```\n\n**`headB`:**\n\n```linkedlist\n5 -> 6 -> 1 -> 8 -> 4 -> 5 -> None\n```\n\n**From node `8` onward both lists are the *same shared nodes* — so the intersection node is `8`.**",
       "constraints": [
         "The lists keep their original structure after the function returns.",
         "There are no cycles anywhere in the lists.",
@@ -2062,7 +2068,7 @@
         "dataStructure": "Linked List",
         "technique": "Reverse second half"
       },
-      "description": "Given the `head` of a singly linked list, return whether its values read the **same forwards and backwards** (a palindrome). Aim for `O(n)` time and `O(1)` extra space.",
+      "description": "Given the `head` of a singly linked list, return whether its values read the **same forwards and backwards** (a palindrome). Aim for `O(n)` time and `O(1)` extra space.\n\n**A palindrome — `1, 2, 2, 1` reads the same in both directions:**\n\n```linkedlist\n1 -> 2 -> 2 -> 1 -> None\n```\n\n**Not a palindrome:**\n\n```linkedlist\n1 -> 2 -> 3 -> None\n```",
       "constraints": [
         "`1 <= number of nodes <= 10^5`",
         "`0 <= Node.val <= 9`"
@@ -2132,7 +2138,7 @@
         "dataStructure": "Linked List",
         "technique": "Divide & conquer"
       },
-      "description": "Given the `head` of a linked list, return it **sorted in ascending order**. The ideal solution runs in `O(n log n)` time.\n\n**Merge sort** is the natural fit: unlike quicksort it needs no random access, so it works smoothly on linked lists.",
+      "description": "Given the `head` of a linked list, return it **sorted in ascending order**. The ideal solution runs in `O(n log n)` time.\n\n**Merge sort** is the natural fit: unlike quicksort it needs no random access, so it works smoothly on linked lists.\n\n**Before:**\n\n```linkedlist\n4 -> 2 -> 1 -> 3 -> None\n```\n\n**After — sorted ascending:**\n\n```linkedlist\n1 -> 2 -> 3 -> 4 -> None\n```",
       "constraints": [
         "`0 <= number of nodes <= 5 * 10^4`",
         "`-10^5 <= Node.val <= 10^5`",
@@ -2203,7 +2209,7 @@
         "dataStructure": "Doubly Linked List",
         "technique": "Depth-first inline insertion"
       },
-      "description": "A doubly linked list where each node has `prev`, `next`, and a `child` pointer to a separate doubly linked list (which may have its own children). **Flatten** it into a single-level doubly linked list.\n\nWhen a node has a child, that child list must be inserted **between the node and its next** (depth-first), with all `prev`/`next` pointers fixed and every `child` set to `None`.",
+      "description": "A doubly linked list where each node has `prev`, `next`, and a `child` pointer to a separate doubly linked list (which may have its own children). **Flatten** it into a single-level doubly linked list.\n\nWhen a node has a child, that child list must be inserted **between the node and its next** (depth-first), with all `prev`/`next` pointers fixed and every `child` set to `None`.\n\nSuppose node `2` has a child list `7 -> 8`. The top level is `1 -> 2 -> 3`; flattening splices the child in right after `2`:\n\n**After flattening (doubly-linked; `prev` arrows omitted):**\n\n```linkedlist\n1 -> 2 -> 7 -> 8 -> 3 -> None\n```",
       "constraints": [
         "Number of nodes `<= 1000`.",
         "`1 <= Node.val <= 10^5`",

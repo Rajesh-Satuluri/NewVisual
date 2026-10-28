@@ -99,7 +99,7 @@
       "dataStructure": "Linked List",
       "technique": "Two-speed traversal"
     },
-    "description": "Given the `head` of a singly linked list, return the **middle node** of the list.\n\nIf the list has an **even** number of nodes, there are two middle nodes, and you must return the **second** of the two. For example, for `[1, 2, 3, 4]` the two middles are `2` and `3`, and you return `3`.\n\nYou are handed only `head`; the length is not given, so you must either measure it or sense the middle as you walk.",
+    "description": "Given the `head` of a singly linked list, return the **middle node** of the list.\n\nIf the list has an **even** number of nodes, there are two middle nodes, and you must return the **second** of the two. For example, for `[1, 2, 3, 4]` the two middles are `2` and `3`, and you return `3`.\n\nYou are handed only `head`; the length is not given, so you must either measure it or sense the middle as you walk.\n\n**Odd length — the middle is node 3:**\n\n```linkedlist\n1 -> 2 -> 3 -> 4 -> 5 -> None\n```\n\n**Even length — return the second middle, node 4:**\n\n```linkedlist\n1 -> 2 -> 3 -> 4 -> 5 -> 6 -> None\n```",
     "constraints": [
       "The number of nodes is in the range `[1, 100]`.",
       "`1 <= Node.val <= 100`",
