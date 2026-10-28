@@ -961,6 +961,244 @@ threshold = 1000`,
     complexity: 'O(p) over partitions.',
     kafkaFollowup: `<strong>"Rising lag — how do you diagnose and load-test it?"</strong> Lag growing means <strong>produce rate &gt; consume rate</strong>. Check whether it's <em>all</em> partitions (under-provisioned consumers / slow processing — add consumers up to the partition count, or speed up the handler) or <em>one</em> partition (a hot key skewing the partitioner — re-key or repartition). Load-test by producing at a known rate and watching lag: flat lag = keeping up, linearly rising lag = saturated. Tools: <code>kafka-consumer-groups --describe</code>, Burrow, or JMX <code>records-lag-max</code>. Beyond partition-count parallelism, the fix is faster per-record work or batching the sink.`,
   },
+
+  // ── Capstone — put it all together ───────────────────────────────────────
+  {
+    id: 'c21',
+    title: 'Mini replication worker (capstone)',
+    level: 4,
+    category: 'Reconciliation',
+    difficulty: 'hard',
+    tags: ['capstone', 'dedup', 'retry', 'dlq', 'metrics', 'offsets'],
+    prompt: `Build a worker that consumes events from Kafka and replicates them into a target store. It must: deserialize + validate, <strong>deduplicate</strong> on a durable id, <strong>retry</strong> transient failures, route permanently-invalid events to a <strong>DLQ</strong>, <strong>commit offsets safely</strong>, and emit <strong>metrics</strong> (processed / duplicated / failed).`,
+    example: {
+      input: `# stream of replication events, some duplicate, some invalid,
+# some hitting transient target errors`,
+      output: `# target holds each valid event once; invalid -> DLQ;
+# metrics: {processed, duplicated, failed} exported`,
+    },
+    starter: `def replication_worker(consumer, target, dlq, metrics):
+    ...`,
+    hints: [
+      'Compose the pieces from earlier problems: validate → dedup (durable) → upsert with retry → DLQ → commit.',
+      'Dedup belongs in the target (unique key); treat a conflict as "duplicated", not an error.',
+      'Commit only after the write is durable; increment metrics on each path.',
+    ],
+    solution: {
+      code: `import json
+
+def replication_worker(consumer, target, dlq, metrics, max_retries=3):
+    consumer.subscribe(["replication.events"])
+    try:
+        while True:
+            msg = consumer.poll(1.0)
+            if msg is None or msg.error():
+                continue
+
+            # 1) Deserialize + validate.
+            try:
+                ev = json.loads(msg.value())
+                assert "event_id" in ev and "payload" in ev
+            except Exception as e:
+                dlq.produce(msg.value()); metrics.inc("failed")
+                consumer.commit(msg, asynchronous=False)   # skip poison
+                continue
+
+            # 2) Idempotent upsert with transient-retry; conflict = duplicate.
+            outcome = None
+            for attempt in range(max_retries + 1):
+                try:
+                    inserted = target.upsert(ev["event_id"], ev["payload"])
+                    outcome = "processed" if inserted else "duplicated"
+                    break
+                except TransientError:
+                    if attempt == max_retries:
+                        outcome = "retry_exhausted"
+                    else:
+                        backoff(attempt)
+
+            # 3) Route + meter + commit.
+            if outcome in ("processed", "duplicated"):
+                metrics.inc(outcome)
+                consumer.commit(msg, asynchronous=False)   # durable -> advance
+            else:
+                dlq.produce(msg.value()); metrics.inc("failed")
+                consumer.commit(msg, asynchronous=False)
+    finally:
+        consumer.close()
+
+# target.upsert returns True if a new row was inserted, False on id conflict.`,
+      walkthrough: `This is the whole track composed into one loop: <strong>validate</strong> (→ DLQ on bad input), <strong>dedup</strong> via an idempotent upsert whose conflict signal becomes the "duplicated" metric, <strong>retry</strong> transient target errors with backoff, <strong>DLQ</strong> the terminal failures, and <strong>commit-after-durable</strong> so nothing is lost or double-applied. Metrics on every branch make it observable.`,
+    },
+    complexity: 'O(1) per event (one indexed upsert); retries bounded by max_retries.',
+    kafkaFollowup: `<strong>"Load-test it and diagnose rising lag."</strong> Drive a known produce rate and watch per-partition lag: flat = keeping up, rising = the worker is the bottleneck. Attack it in order — (1) is one partition hot (key skew)? repartition / re-key; (2) is the target write slow? batch upserts, add connection pooling; (3) are retries/backoff stalling the partition? move retries to a retry topic so the main loop never blocks; (4) scale consumers up to the partition count (and raise partitions if you need more parallelism). Export <code>processed/duplicated/failed</code> + lag to Prometheus/Grafana and alert on failed-rate and lag slope.`,
+  },
+
+  {
+    id: 'c22',
+    title: 'Exactly-once with Kafka transactions',
+    level: 4,
+    category: 'Producer/Consumer',
+    difficulty: 'hard',
+    tags: ['capstone', 'exactly-once', 'transactions', 'read-process-write'],
+    prompt: `Implement a <strong>read-process-write</strong> loop that is exactly-once: consume from an input topic, transform, produce to an output topic, and commit the input offsets <strong>atomically with</strong> the output — so a crash never double-emits or loses.`,
+    example: {
+      input: `# consume 'orders', enrich, produce 'orders.enriched'`,
+      output: `# output records + consumed offsets committed in ONE
+# transaction; abort on failure leaves nothing partial`,
+    },
+    starter: `def exactly_once_pipeline(consumer, producer):
+    # producer configured with a transactional.id
+    ...`,
+    hints: [
+      'The producer needs a transactional.id and init_transactions().',
+      'Wrap produce(s) + send_offsets_to_transaction in begin/commit.',
+      'The consumer must NOT auto-commit; offsets are committed via the transaction.',
+    ],
+    solution: {
+      code: `from confluent_kafka import Producer, Consumer
+
+def exactly_once_pipeline(bootstrap="localhost:9092"):
+    consumer = Consumer({
+        "bootstrap.servers": bootstrap,
+        "group.id": "enricher",
+        "enable.auto.commit": False,          # offsets go through the txn
+        "isolation.level": "read_committed",  # ignore aborted records
+    })
+    producer = Producer({
+        "bootstrap.servers": bootstrap,
+        "transactional.id": "enricher-tx-1",  # enables transactions
+        "enable.idempotence": True,
+    })
+    producer.init_transactions()
+    consumer.subscribe(["orders"])
+
+    while True:
+        msgs = consumer.consume(500, timeout=1.0)
+        if not msgs:
+            continue
+        producer.begin_transaction()
+        try:
+            for m in msgs:
+                if m.error():
+                    continue
+                producer.produce("orders.enriched", value=enrich(m.value()))
+            # Commit CONSUMED offsets as part of THIS transaction.
+            producer.send_offsets_to_transaction(
+                consumer.position(consumer.assignment()),
+                consumer.consumer_group_metadata())
+            producer.commit_transaction()     # output + offsets: atomic
+        except Exception:
+            producer.abort_transaction()       # nothing partial survives
+            raise`,
+      walkthrough: `Exactly-once-semantics (EOS) hinges on one atomic unit: the output records <strong>and</strong> the input offsets commit together via <code>send_offsets_to_transaction</code> + <code>commit_transaction</code>. On failure, <code>abort_transaction</code> rolls back both. Downstream consumers set <code>isolation.level=read_committed</code> so they never see aborted output. That closes the gap that plain at-least-once leaves.`,
+    },
+    complexity: 'O(batch) per transaction; txn commit adds coordinator round-trips.',
+    kafkaFollowup: `<strong>"When is EOS worth it vs idempotent sink?"</strong> Transactions add latency (two-phase commit via the transaction coordinator) and only cover <strong>Kafka-to-Kafka</strong> read-process-write — an external DB sink isn't inside the Kafka transaction. For Kafka→external systems, the pragmatic pattern is still at-least-once + an <strong>idempotent upsert</strong> keyed by <code>event_id</code> (problem c09), which gives effectively-exactly-once at the sink without the transactional overhead. Reach for full EOS when the whole pipeline is Kafka topics (e.g. Kafka Streams with <code>processing.guarantee=exactly_once_v2</code>).`,
+  },
+
+  {
+    id: 'c23',
+    title: 'Tumbling-window aggregation, emit on close',
+    level: 3,
+    category: 'Windowing',
+    difficulty: 'hard',
+    tags: ['capstone', 'tumbling-window', 'aggregation', 'watermark'],
+    prompt: `Aggregate a count (or sum) per <strong>fixed 60-second tumbling window</strong>, emitting each window's result once it's complete. Group events into non-overlapping windows by event time.`,
+    example: {
+      input: `# events with second timestamps; window = 60s
+# ts 10,20,70,130 -> windows [0,60),[60,120),[120,180)`,
+      output: `# window 0: 2 events, window 60: 1, window 120: 1 (emitted on close)`,
+    },
+    starter: `def tumbling_counts(events, window=60):
+    ...`,
+    hints: [
+      'window_start = (ts // window) * window maps an event to its bucket.',
+      'Accumulate per window_start; a window is "complete" once event time passes its end.',
+      'Emit and drop a window when a later event proves no more can land in it.',
+    ],
+    solution: {
+      code: `from collections import defaultdict
+
+def tumbling_counts(events, window=60):
+    buckets = defaultdict(int)
+    emitted = []
+    max_seen = None
+    for e in events:                 # assumes non-decreasing event time
+        ts = e["timestamp"]
+        start = (ts // window) * window      # fixed, non-overlapping bucket
+        buckets[start] += 1
+        max_seen = ts if max_seen is None else max(max_seen, ts)
+        # Any window whose end <= watermark can't receive more events -> close.
+        for w in sorted(buckets):
+            if w + window <= max_seen:       # watermark = max_seen here
+                emitted.append((w, buckets.pop(w)))
+    # Flush remaining (stream ended).
+    for w in sorted(buckets):
+        emitted.append((w, buckets[w]))
+    return emitted`,
+      walkthrough: `<code>(ts // window) * window</code> is the canonical bucketing trick — it snaps each event to its window start with no overlap. A window is safe to <strong>emit</strong> once event time (here a simple watermark = max timestamp seen) has advanced past its end, because no further event can fall into it. The final flush handles the end of stream.`,
+    },
+    complexity: 'O(n) events; open windows bounded by allowed lateness.',
+    kafkaFollowup: `<strong>"Tumbling vs hopping/sliding, and late data?"</strong> Tumbling = fixed, non-overlapping (this problem). Hopping = fixed size, advancing by a smaller step (overlap). Sliding = a window per event over the preceding interval. In Kafka Streams / Flink you declare the window and a <strong>grace period</strong> for lateness; events arriving before the watermark + grace still update their window, later ones go to a side output. Results land in a windowed KTable keyed by <code>(key, window)</code> and are emitted on close or on each update, backed by a changelog for fault tolerance.`,
+  },
+
+  {
+    id: 'c24',
+    title: 'Rebalance-safe consumer (commit on revoke)',
+    level: 4,
+    category: 'Producer/Consumer',
+    difficulty: 'hard',
+    tags: ['capstone', 'rebalance', 'offsets', 'callbacks'],
+    prompt: `Make a consumer <strong>rebalance-safe</strong>: when partitions are reassigned (scale up/down, a consumer dies), flush in-flight work and commit offsets <strong>before</strong> the partitions are taken away, so no record is processed twice across the handoff.`,
+    example: {
+      input: `# a second consumer joins the group -> rebalance;
+# partitions move from consumer A to consumer B`,
+      output: `# A flushes + commits revoked partitions before losing them;
+# B resumes from those committed offsets -> clean handoff`,
+    },
+    starter: `def rebalance_safe_consumer(consumer, sink):
+    # use on_assign / on_revoke callbacks
+    ...`,
+    hints: [
+      'subscribe() accepts on_assign and on_revoke callbacks.',
+      'on_revoke fires BEFORE partitions are reassigned — flush and commit there.',
+      'Buffer work per partition so you can flush exactly what is about to be revoked.',
+    ],
+    solution: {
+      code: `def rebalance_safe_consumer(consumer, sink):
+    buffer = {}   # partition -> list of pending records
+
+    def on_assign(c, partitions):
+        c.assign(partitions)        # start consuming the new set
+
+    def on_revoke(c, partitions):
+        # Called BEFORE these partitions leave us: finish + commit them.
+        for tp in partitions:
+            recs = buffer.pop((tp.topic, tp.partition), [])
+            if recs:
+                sink.write_batch(recs)     # durable flush
+        try:
+            c.commit(asynchronous=False)   # commit offsets we actually reached
+        except Exception:
+            pass
+
+    consumer.subscribe(["payments"], on_assign=on_assign, on_revoke=on_revoke)
+
+    while True:
+        msg = consumer.poll(1.0)
+        if msg is None or msg.error():
+            continue
+        key = (msg.topic(), msg.partition())
+        buffer.setdefault(key, []).append(parse(msg.value()))
+        if len(buffer[key]) >= 100:
+            sink.write_batch(buffer[key]); buffer[key] = []
+            consumer.commit(msg, asynchronous=False)`,
+      walkthrough: `The <strong>on_revoke</strong> callback is the hook that makes a rebalance clean: it fires <em>before</em> the partitions are handed to another consumer, so you flush buffered work and commit the offsets you actually reached. The consumer that picks up those partitions then resumes from a correct committed offset — no gap, and no silent reprocessing of a half-written buffer.`,
+    },
+    complexity: 'O(buffered) flush on each revoke; steady state O(1) per record.',
+    kafkaFollowup: `<strong>"Stop-the-world vs cooperative rebalancing?"</strong> The classic eager protocol revokes <em>all</em> partitions from <em>all</em> consumers on any change (a stop-the-world pause). <strong>Cooperative sticky</strong> rebalancing (<code>partition.assignment.strategy=CooperativeStickyAssignor</code>) only moves the partitions that actually need to migrate, so most consumers keep working through the rebalance — far less disruption at scale. Either way, committing in <code>on_revoke</code> is what guarantees the handoff doesn't double-process; cooperative just shrinks the blast radius.`,
+  },
 ];
 
 // Convenience lookups.

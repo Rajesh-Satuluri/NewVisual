@@ -175,3 +175,44 @@ Nothing is presented as live that isn't. Every simulated surface is labelled.
 `components/nav.js`, `components/module-shell.js`, `components/command-palette.js`,
 `modules/home.js`, `modules/glossary.js`, `sim/engine.js`, `sim/engine.test.mjs`,
 `script.js`, `enhancements.css` (~690 → ~1055 lines), `sim/PRESERVATION.md`.
+
+---
+
+## Addendum — Coding Dojo (2026-10-28)
+
+A later enhancement adding the **coding** half of interview prep. Until now the
+platform was conceptual (theory, decisions, incidents, interview Q&A); a real
+data-engineering loop (e.g. PayPal) also tests **coding on streams of events**.
+
+**New route `#coding`** (nav → Practice). A study-grade coding practice bank —
+shipped live in **5 batches of 5** (24 problems total). Honest scope: this
+platform has **no code runtime** (Track 2), so nothing is executed. Each problem
+is: prompt → worked example → **scratchpad** (notes only, persisted, never run) →
+**progressive hints** → **Python reference solution** + walkthrough + complexity
+→ a **"make it a Kafka pipeline"** follow-up (partitioning, offsets, retries,
+restart recovery — the part interviews actually probe). Self-rating
+(Got it / Partial / Review) feeds `progress-store` category `coding` and the
+Dashboard.
+
+**Coverage (24 problems, 4 levels):**
+
+| Level | Theme | Problems |
+|---|---|---|
+| L1 | Python + event processing | dedup by id, totals by merchant, latest-per-user, count by type, missing sequences |
+| L2 | Producer / consumer coding | producer (keys+acks+callbacks), commit-after-success consumer, retry+DLQ, idempotent DB write, batch-then-commit |
+| L3 | Streaming algorithms | rolling 5-min window, top-K merchants, out-of-order final state, per-key ordering, windowed dedup, tumbling-window emit-on-close |
+| L4 | Production | DB→Kafka change publisher (watermark), source/target reconciliation, crash recovery, schema evolution, consumer-lag, exactly-once transactions, rebalance-safe commit-on-revoke |
+| Capstone | Compose it all | mini replication worker (validate→dedup→retry→DLQ→commit→metrics) |
+
+**New files:** `data/coding-bank.js`, `modules/coding.js`,
+`components/coding-problem.js` (includes a dependency-free Python syntax
+highlighter).
+**Edited:** `script.js` (route), `components/nav.js` (Practice link),
+`data/search-index.js` (search type `Coding`), `modules/search.js` (filter chip),
+`modules/home.js` (card), `modules/dashboard.js` (coding stat),
+`enhancements.css` (Coding Dojo styles + print rules).
+
+**Verification:** each batch loaded headless in dark + light with the full
+interaction exercised (filter → open → hints → reveal → self-rate → scratchpad
+persistence → search → dashboard), 0 console errors. Deployed per batch to
+`main` → GitHub Pages.
