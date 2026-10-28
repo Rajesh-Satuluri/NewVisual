@@ -195,6 +195,13 @@
   overflow-x: auto;
 }
 .md-fig img { max-width: 100%; height: auto; display: inline-block; vertical-align: middle; }
+/* linked-list diagram (theme-aware SVG, no white card needed) */
+.md-ll-fig {
+  margin: 16px 0; padding: 12px 14px; border: 1px solid var(--border);
+  border-radius: var(--radius); background: var(--bg-1); text-align: left;
+  overflow-x: auto;
+}
+.md-ll { max-width: 100%; height: auto; display: block; }
 .st { font-size: 13px; width: 14px; text-align: center; }
 .st-solved { color: var(--green); }
 .st-learning { color: var(--amber); }
