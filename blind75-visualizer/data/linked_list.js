@@ -26,7 +26,11 @@
       description:
         "Given the `head` of a singly linked list, determine whether the list contains a **cycle**.\n\n" +
         "A cycle exists if some node can be reached again by continuously following the `next` pointers. Internally the position is tracked by a `pos` index that marks which node the tail's `next` connects to, but `pos` is **not** passed to you \u2014 you only get `head`.\n\n" +
-        "Return `true` if there is a cycle, otherwise `false`.",
+        "Return `true` if there is a cycle, otherwise `false`.\n\n" +
+        "**A cycle — the tail's `next` links back to an earlier node (here node 2):**\n\n" +
+        "```linkedlist\n1 -> 2 -> 3 -> 4 -> *2\n```\n\n" +
+        "**No cycle — the list ends at `None`:**\n\n" +
+        "```linkedlist\n1 -> 2 -> 3 -> 4 -> None\n```",
       constraints: [
         "The number of nodes is in the range `[0, 10^4]`.",
         "`-10^5 <= Node.val <= 10^5`",
@@ -215,7 +219,13 @@
       link: "https://leetcode.com/problems/merge-two-sorted-lists/",
       meta: { pattern: "Two Pointers + Dummy Head", dataStructure: "Linked List", technique: "Splice sorted nodes" },
       description:
-        "You are given the heads of two sorted singly linked lists, `list1` and `list2`. Merge them into **one sorted list** by splicing together the existing nodes (do not create new node values), and return the head of the merged list.",
+        "You are given the heads of two sorted singly linked lists, `list1` and `list2`. Merge them into **one sorted list** by splicing together the existing nodes (do not create new node values), and return the head of the merged list.\n\n" +
+        "**`list1`:**\n\n" +
+        "```linkedlist\n1 -> 2 -> 4 -> None\n```\n\n" +
+        "**`list2`:**\n\n" +
+        "```linkedlist\n1 -> 3 -> 4 -> None\n```\n\n" +
+        "**Merged:**\n\n" +
+        "```linkedlist\n1 -> 1 -> 2 -> 3 -> 4 -> 4 -> None\n```",
       constraints: [
         "The number of nodes in each list is in the range `[0, 50]`.",
         "`-100 <= Node.val <= 100`",
@@ -349,7 +359,13 @@
       link: "https://leetcode.com/problems/merge-k-sorted-lists/",
       meta: { pattern: "K-Way Merge", dataStructure: "Min-Heap", technique: "Priority queue over heads" },
       description:
-        "You are given an array `lists` of `k` sorted linked lists, each in non-decreasing order. Merge all of them into a single sorted linked list and return its head.",
+        "You are given an array `lists` of `k` sorted linked lists, each in non-decreasing order. Merge all of them into a single sorted linked list and return its head.\n\n" +
+        "**Three input lists (`k = 3`):**\n\n" +
+        "```linkedlist\n1 -> 4 -> 5 -> None\n```\n\n" +
+        "```linkedlist\n1 -> 3 -> 4 -> None\n```\n\n" +
+        "```linkedlist\n2 -> 6 -> None\n```\n\n" +
+        "**Merged into one sorted list:**\n\n" +
+        "```linkedlist\n1 -> 1 -> 2 -> 3 -> 4 -> 4 -> 5 -> 6 -> None\n```",
       constraints: [
         "`0 <= k <= 10^4`",
         "`0 <= lists[i].length <= 500`",
@@ -566,7 +582,11 @@
       meta: { pattern: "Two Pointers (Gap of n)", dataStructure: "Linked List", technique: "One-pass with dummy" },
       description:
         "Given the `head` of a linked list, remove the `n`-th node counting from the **end** of the list, and return the head of the modified list.\n\n" +
-        "Aim to do it in a single pass over the list.",
+        "Aim to do it in a single pass over the list.\n\n" +
+        "**Before — remove the 2nd node from the end (node 4):**\n\n" +
+        "```linkedlist\n1 -> 2 -> 3 -> 4 -> 5 -> None\n```\n\n" +
+        "**After — node 3 now links straight to node 5:**\n\n" +
+        "```linkedlist\n1 -> 2 -> 3 -> 5 -> None\n```",
       constraints: [
         "The number of nodes is `sz`, with `1 <= sz <= 30`.",
         "`0 <= Node.val <= 100`",
@@ -696,7 +716,11 @@
       description:
         "You are given the head of a singly linked list `L0 -> L1 -> ... -> Ln-1 -> Ln`.\n\n" +
         "Reorder it in place to `L0 -> Ln -> L1 -> Ln-1 -> L2 -> Ln-2 -> ...`, interleaving nodes from the front and the back.\n\n" +
-        "You may **not** change node values \u2014 only rearrange the nodes themselves. Return nothing (the list is modified in place).",
+        "You may **not** change node values \u2014 only rearrange the nodes themselves. Return nothing (the list is modified in place).\n\n" +
+        "**Before:**\n\n" +
+        "```linkedlist\n1 -> 2 -> 3 -> 4 -> None\n```\n\n" +
+        "**After \u2014 interleave front and back (`L0 -> Ln -> L1 -> Ln-1 -> ...`):**\n\n" +
+        "```linkedlist\n1 -> 4 -> 2 -> 3 -> None\n```",
       constraints: [
         "The number of nodes is in the range `[1, 5 * 10^4]`.",
         "`1 <= Node.val <= 1000`"
@@ -856,7 +880,11 @@
       meta: { pattern: "Pointer Reversal", dataStructure: "Linked List", technique: "prev/curr in-place flip" },
       description:
         "Given the `head` of a singly linked list, reverse the list and return the head of the reversed list.\n\n" +
-        "Each node's `next` pointer must be flipped so that the last node becomes the new head and the original head becomes the tail.",
+        "Each node's `next` pointer must be flipped so that the last node becomes the new head and the original head becomes the tail.\n\n" +
+        "**Before:**\n\n" +
+        "```linkedlist\n1 -> 2 -> 3 -> 4 -> None\n```\n\n" +
+        "**After — every arrow flipped; old tail is the new head:**\n\n" +
+        "```linkedlist\n4 -> 3 -> 2 -> 1 -> None\n```",
       constraints: [
         "The number of nodes is in the range `[0, 5000]`.",
         "`-5000 <= Node.val <= 5000`"
@@ -1044,7 +1072,13 @@
       description:
         "You are given two non-empty linked lists, `l1` and `l2`, representing two non-negative integers. The digits are stored in **reverse order**, one digit per node (so the ones place is the head).\n\n" +
         "Add the two numbers and return the sum as a linked list, also in reverse-order digits.\n\n" +
-        "Neither number has leading zeros, except the number 0 itself.",
+        "Neither number has leading zeros, except the number 0 itself.\n\n" +
+        "**`l1` = 342, stored least-significant digit first:**\n\n" +
+        "```linkedlist\n2 -> 4 -> 3 -> None\n```\n\n" +
+        "**`l2` = 465:**\n\n" +
+        "```linkedlist\n5 -> 6 -> 4 -> None\n```\n\n" +
+        "**Sum = 807, also reverse-order digits:**\n\n" +
+        "```linkedlist\n7 -> 0 -> 8 -> None\n```",
       constraints: [
         "The number of nodes in each list is in the range `[1, 100]`.",
         "`0 <= Node.val <= 9`",
@@ -1161,7 +1195,9 @@
       description:
         "You are given the `head` of a linked list where each node has a `val`, a `next` pointer, and an extra `random` pointer that can point to **any** node in the list or to `null`.\n\n" +
         "Construct a **deep copy** of the list: a brand-new set of nodes whose `next` and `random` pointers mirror the original structure but point only to the copied nodes, never to the originals. Return the head of the copied list.\n\n" +
-        "Each node is described as a pair `[val, random_index]`, where `random_index` is the index of the node `random` points to, or `null`.",
+        "Each node is described as a pair `[val, random_index]`, where `random_index` is the index of the node `random` points to, or `null`.\n\n" +
+        "**The `next` chain (each node *also* carries a second `random` pointer, not drawn here):**\n\n" +
+        "```linkedlist\n7 -> 13 -> 11 -> 10 -> 1 -> None\n```",
       constraints: [
         "The number of nodes is in the range `[0, 1000]`.",
         "`-10^4 <= Node.val <= 10^4`",
@@ -1347,7 +1383,10 @@
       meta: { pattern: "Cycle Detection on Implicit List", dataStructure: "Array as Linked List", technique: "Floyd's tortoise & hare" },
       description:
         "Given an array `nums` of `n + 1` integers where each value is in the range `[1, n]`, exactly one value is repeated — possibly more than once. Return that repeated number.\n\n" +
-        "You must solve it **without modifying** the array and using only `O(1)` extra space.",
+        "You must solve it **without modifying** the array and using only `O(1)` extra space.\n\n" +
+        "**Key insight — treat each index as a node whose `next` is `nums[i]`. A repeated value makes two indices point to the same place, so this implicit list must contain a cycle. For `nums = [1, 3, 4, 2, 2]` the index chain `0 -> 1 -> 3 -> 2 -> 4 -> 2 ...` loops back to node 2:**\n\n" +
+        "```linkedlist\n0 -> 1 -> 3 -> 2 -> 4 -> *2\n```\n\n" +
+        "Floyd's cycle detection on this implicit list finds the cycle entry, which is the duplicate number.",
       constraints: [
         "`1 <= n <= 10^5`, and `nums` has length `n + 1`.",
         "`1 <= nums[i] <= n`",
