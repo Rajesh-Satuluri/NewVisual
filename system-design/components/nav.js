@@ -1,27 +1,73 @@
 import { QUESTIONS, CATEGORY_ORDER, CATEGORY_LABEL } from '../content/index.js';
+import { CONCEPTS, CONCEPT_GROUPS, CONCEPT_PREFIX } from '../content/concepts.js';
 
 const COLLAPSE_KEY = 'system-design-nav-collapsed';
 
-export function renderNav(activeId, done) {
+export function renderNav(activeHash, done) {
   const nav = document.getElementById('nav-list');
   if (!nav) return;
 
-  const collapsed = new Set(
-    JSON.parse(localStorage.getItem(COLLAPSE_KEY) || '[]')
-  );
+  const collapsed = new Set(JSON.parse(localStorage.getItem(COLLAPSE_KEY) || '[]'));
 
-  // Auto-expand the active question's category.
-  if (activeId) {
-    const active = QUESTIONS.find(q => q.id === activeId);
-    if (active) collapsed.delete(active.category);
+  const activeConceptId = activeHash && activeHash.startsWith(CONCEPT_PREFIX)
+    ? activeHash.slice(CONCEPT_PREFIX.length) : null;
+  const activeQuestionId = activeHash && !activeHash.startsWith(CONCEPT_PREFIX) ? activeHash : null;
+
+  // Auto-expand the active item's group.
+  if (activeQuestionId) {
+    const aq = QUESTIONS.find(q => q.id === activeQuestionId);
+    if (aq) collapsed.delete(aq.category);
+  }
+  if (activeConceptId) {
+    const ac = CONCEPTS.find(c => c.id === activeConceptId);
+    if (ac) collapsed.delete('cg:' + ac.group);
   }
 
-  const groups = {};
-  QUESTIONS.forEach(q => {
-    (groups[q.category] = groups[q.category] || []).push(q);
-  });
+  // ── Concepts section ────────────────────────────────────────────────────────
+  const conByGroup = {};
+  CONCEPTS.forEach(c => { (conByGroup[c.group] = conByGroup[c.group] || []).push(c); });
 
-  nav.innerHTML = CATEGORY_ORDER.map(cat => {
+  const conceptHtml = CONCEPT_GROUPS.map(group => {
+    const items = conByGroup[group] || [];
+    if (!items.length) return '';
+    const key = 'cg:' + group;
+    const isCollapsed = collapsed.has(key);
+    const doneCount = items.filter(c => done.has(CONCEPT_PREFIX + c.id)).length;
+    return `
+      <div class="nav-group${isCollapsed ? ' collapsed' : ''}" data-group="${esc(key)}">
+        <div class="nav-group-label" data-toggle="${esc(key)}">
+          <span class="nav-group-text">${esc(group)}</span>
+          <span class="nav-group-meta">
+            <span class="nav-group-count">${doneCount}/${items.length}</span>
+            <svg class="nav-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          </span>
+        </div>
+        <div class="nav-group-items">
+          ${items.map(c => {
+            const isActive = c.id === activeConceptId;
+            const isDone = done.has(CONCEPT_PREFIX + c.id);
+            if (!c.built) {
+              return `<span class="nav-item nav-soon" title="${esc(c.title)} — coming soon">
+                <span class="nav-icon">${c.icon || '•'}</span>
+                <span class="nav-label">${esc(c.title)}</span>
+                <span class="nav-soon-badge">soon</span></span>`;
+            }
+            return `<a href="#${CONCEPT_PREFIX}${c.id}"
+                 class="nav-item${isActive ? ' active' : ''}${isDone ? ' done' : ''}"
+                 data-id="${CONCEPT_PREFIX}${c.id}" title="${esc(c.title)}">
+              <span class="nav-icon">${c.icon || '•'}</span>
+              <span class="nav-label">${esc(c.title)}</span>
+              ${isDone ? '<span class="nav-check">✓</span>' : ''}</a>`;
+          }).join('')}
+        </div>
+      </div>`;
+  }).join('');
+
+  // ── Questions section ───────────────────────────────────────────────────────
+  const groups = {};
+  QUESTIONS.forEach(q => { (groups[q.category] = groups[q.category] || []).push(q); });
+
+  const questionHtml = CATEGORY_ORDER.map(cat => {
     const items = groups[cat] || [];
     if (!items.length) return '';
     const isCollapsed = collapsed.has(cat);
@@ -32,26 +78,27 @@ export function renderNav(activeId, done) {
           <span class="nav-group-text">${esc(CATEGORY_LABEL[cat] || cat)}</span>
           <span class="nav-group-meta">
             <span class="nav-group-count">${doneCount}/${items.length}</span>
-            <svg class="nav-chevron" width="12" height="12" viewBox="0 0 24 24"
-                 fill="none" stroke="currentColor" stroke-width="2.5">
-              <path d="M6 9l6 6 6-6"/>
-            </svg>
+            <svg class="nav-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
           </span>
         </div>
         <div class="nav-group-items">
           ${items.map(q => `
             <a href="#${q.id}"
-               class="nav-item${q.id === activeId ? ' active' : ''}${done.has(q.id) ? ' done' : ''}"
+               class="nav-item${q.id === activeQuestionId ? ' active' : ''}${done.has(q.id) ? ' done' : ''}"
                data-id="${q.id}" title="${esc(q.question)}">
               <span class="nav-icon">${q.icon || '•'}</span>
               <span class="nav-label">${esc(q.question)}</span>
               ${done.has(q.id) ? '<span class="nav-check">✓</span>' : ''}
-            </a>
-          `).join('')}
+            </a>`).join('')}
         </div>
-      </div>
-    `;
+      </div>`;
   }).join('');
+
+  nav.innerHTML = `
+    <div class="nav-section-label">🧭 Concepts</div>
+    ${conceptHtml}
+    <div class="nav-section-label">❓ Questions</div>
+    ${questionHtml}`;
 
   nav.querySelectorAll('.nav-group-label[data-toggle]').forEach(label => {
     label.addEventListener('click', () => {
