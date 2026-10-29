@@ -5,6 +5,8 @@ export default {
   chapter: 11,
   group: "Classic designs",
   summary: "Build the home timeline (Facebook/Twitter style): when a user opens the app, show recent posts from everyone they follow. The central decision is fan-out on write vs on read — and the hybrid that handles celebrities.",
+  widget: "feed-fanout",
+  widgetIntro: "The defining choice for a feed is **where the fan-out happens**. With **push (fan-out on write)** a new post is copied into every follower's inbox the moment it's posted — reads are then trivially fast, but each post costs one write per follower. With **pull (fan-out on read)** the post is stored once and each follower's timeline is assembled when they open the app — writes are cheap, but every read fans out across everyone they follow.\n\nPost in each model and watch the packets. Then tick **Celebrity author** and see push explode into millions of inbox writes per post — the \"celebrity problem\" that pushes real systems to a **hybrid**: push for ordinary users, pull for the handful of accounts with enormous followings.",
   sections: [
     {
       title: "Two operations, two paths",

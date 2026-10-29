@@ -5,6 +5,8 @@ export default {
   chapter: 27,
   group: "Money & real-time",
   summary: "Hold balances and move money between users (PayPal/Venmo style) with correctness under concurrency. The crux is atomic balance transfers — debit one wallet and credit another with no partial state — built on a double-entry ledger, often across shards.",
+  widget: "cap",
+  widgetIntro: "A wallet is the textbook case where the **CAP** trade-off is already decided for you. When a network partition splits your replicas, you must choose: keep serving and risk two conflicting balances (**AP**), or refuse writes you can't confirm and stay correct (**CP**). For money, a double-spend is unacceptable — wallets choose **CP**: reject the transfer rather than let a balance diverge.\n\nTrigger a partition and pick what to sacrifice. Choosing availability shows the anomaly a wallet can never tolerate; choosing consistency shows the (correct) cost — some requests fail until the partition heals.",
   sections: [
     {
       title: "Requirements",

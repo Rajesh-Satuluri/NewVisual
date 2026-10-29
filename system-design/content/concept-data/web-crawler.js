@@ -5,6 +5,8 @@ export default {
   chapter: 9,
   group: "Classic designs",
   summary: "Systematically download the web starting from seed URLs: fetch pages, extract links, and repeat — at billions-of-pages scale, while being polite to servers, avoiding traps, and deduplicating relentlessly.",
+  widget: "backoff",
+  widgetIntro: "A crawler hammers millions of hosts, and some of them will be overloaded or briefly down. If every failed fetch is retried immediately, those retries **stack on top of new load** and keep the target pinned down long after it would have recovered — a self-inflicted retry storm, the same dynamic that takes down internal services.\n\nCompare naive immediate retries against **exponential backoff + jitter** and watch the offered load. Backoff spreads retries out so the host can recover; jitter stops all your crawlers from retrying in lockstep. It's the politeness-meets-resilience rule every large crawler lives by.",
   sections: [
     {
       title: "Requirements",

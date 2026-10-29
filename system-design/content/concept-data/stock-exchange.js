@@ -5,6 +5,8 @@ export default {
   chapter: 28,
   group: "Money & real-time",
   summary: "Match buy and sell orders fairly, in order, with ultra-low and predictable latency. The heart is a single-threaded in-memory matching engine over an order book, fed by a strict sequencer, with correctness and determinism prized above raw parallelism.",
+  widget: "order-book",
+  widgetIntro: "The **order book** is the core data structure of an exchange: resting **bids** (buy orders) on one side, **asks** (sell orders) on the other, each sorted by price and then by arrival time. The **best bid** and **best ask** define the market; the gap between them is the **spread**.\n\nSend a buy or sell order and watch it match by **price-time priority** — best price first, oldest order first within a price level. A marketable order crosses the spread and prints a trade; whatever it can't fill rests in the book and becomes the new best price. This is exactly what the single-threaded matching engine does millions of times per second.",
   sections: [
     {
       title: "Requirements",

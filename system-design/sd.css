@@ -607,6 +607,52 @@
 .sd-widget-loading, .sd-widget-error { color: var(--text3); font-size: 14px; padding: 20px 0; }
 .sd-widget-error { color: var(--red); }
 
+/* ── leading Simulation tab (Kafka-style animation-first concept page) ───────*/
+.sd-sim-head { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 14px; }
+.sd-sim-badge {
+  flex-shrink: 0;
+  font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  color: #fff; background: var(--accent);
+  border-radius: 999px; padding: 4px 11px; margin-top: 3px;
+}
+.sd-sim-headtext { min-width: 0; }
+.sd-sim-title { margin: 0 0 2px; font-size: 18px; }
+.sd-sim-hint { margin: 0; color: var(--text2); font-size: 14px; line-height: 1.5; }
+.sd-sim-intro { margin: 0 0 18px; color: var(--text2); font-size: 14.5px; line-height: 1.65; }
+.sd-sim-intro p { margin: 0 0 8px; }
+.sd-sim-intro p:last-child { margin-bottom: 0; }
+
+/* ── live-canvas simulation scaffold ───────────────────────────────────────*/
+.wg-sim { display: block; }
+.sim-stage {
+  background: color-mix(in srgb, var(--accent) 5%, var(--bg2));
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+  border-radius: 16px;
+  padding: 16px; display: flex; justify-content: center;
+}
+.sim-canvas { display: block; }
+.sim-controls { margin-top: 14px; }
+.sim-controls .wg-btnrow { margin-top: 12px; }
+.sim-note {
+  padding: 10px 14px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 10px; color: var(--text2); font-size: 13.5px; line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+.sim-note b { color: var(--text); }
+.sim-caption {
+  margin: 14px 0 0; color: var(--text3); font-size: 13px; line-height: 1.6;
+}
+.wg-sim .wg-seg { margin-left: 2px; }
+.q-steppers { display: inline-flex; gap: 10px; flex-wrap: wrap; }
+.q-step { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; color: var(--text2); }
+.q-step b { min-width: 14px; text-align: center; color: var(--text); font-variant-numeric: tabular-nums; }
+.q-step button {
+  width: 24px; height: 24px; border-radius: 7px; cursor: pointer;
+  background: var(--bg3); color: var(--text); border: 1px solid var(--border);
+  font-size: 15px; line-height: 1; display: inline-flex; align-items: center; justify-content: center;
+}
+.q-step button:hover { background: var(--accent); color: #fff; border-color: transparent; }
+
 /* ── shared widget primitives ──────────────────────────────────────────────*/
 .wg { font-size: 14px; color: var(--text); }
 .wg-controls { margin-bottom: 14px; }

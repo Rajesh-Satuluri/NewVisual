@@ -5,6 +5,8 @@ export default {
   chapter: 6,
   group: "Core building blocks",
   summary: "A distributed hash table: get(key) / put(key, value) spread across many nodes with replication for durability and availability. The design is a tour of the CAP theorem, quorums, versioning, and failure handling — the core ideas behind Dynamo, Cassandra and Riak.",
+  widget: "quorum",
+  widgetIntro: "Each key is stored on **N** replicas. A write waits for **W** of them to acknowledge; a read gathers **R** of them and takes the newest version it sees. The single most important rule falls out of the arithmetic: when **W + R > N**, the write set and read set are forced to overlap, so a read is *guaranteed* to observe the latest write.\n\nDial **W** and **R** and fire writes and reads. With W=2, R=2, N=3 every read is fresh. Drop to W=1, R=1 and keep reading — eventually you'll hit a replica that never received the latest write and read **stale** data. That's the consistency-vs-latency knob Dynamo-style stores give you per operation.",
   sections: [
     {
       title: "Requirements",

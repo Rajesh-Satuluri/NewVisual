@@ -167,11 +167,13 @@ export function mount(container, data, opts = {}) {
   const widgetMeta = (widgetId && WIDGET_META[widgetId]) || { title: 'Interactive', hint: '' };
 
   const tabs = [
+    ...(widgetId ? [{ id: 'sim', label: '▶ Simulation' }] : []),
     { id: 'concept', label: '📖 Concept' },
     ...(deep.length ? [{ id: 'deep', label: deepTitle }] : []),
     ...(qa.length ? [{ id: 'qa', label: `💬 Interview Q&A · ${qa.length}` }] : []),
     ...(relItems.length ? [{ id: 'related', label: `🔗 Related · ${relItems.length}` }] : []),
   ];
+  const firstTab = tabs[0].id;
 
   container.innerHTML = `
     <div class="module-page sd-concept">
@@ -185,22 +187,23 @@ export function mount(container, data, opts = {}) {
       </div>
 
       <div class="sd-tabbar" role="tablist">
-        ${tabs.map((t, i) => `<button class="sd-tab${i === 0 ? ' active' : ''}" role="tab" data-tab="${t.id}" aria-selected="${i === 0}">${t.label}</button>`).join('')}
+        ${tabs.map(t => `<button class="sd-tab${t.id === firstTab ? ' active' : ''}" role="tab" data-tab="${t.id}" aria-selected="${t.id === firstTab}">${t.label}</button>`).join('')}
       </div>
 
-      <div class="sd-tab-panel active" data-panel="concept">
+      ${widgetId ? `<div class="sd-tab-panel${firstTab === 'sim' ? ' active' : ''}" data-panel="sim">
+        <div class="sd-sim-head">
+          <span class="sd-sim-badge">▶ Interactive simulation</span>
+          <div class="sd-sim-headtext">
+            <h3 class="sd-sim-title">${esc(widgetMeta.title)}</h3>
+            ${widgetMeta.hint ? `<p class="sd-sim-hint">${esc(widgetMeta.hint)}</p>` : ''}
+          </div>
+        </div>
+        ${data.widgetIntro ? `<div class="sd-sim-intro">${paras(data.widgetIntro)}</div>` : ''}
+        <div class="sd-widget-mount" id="sd-con-widget"><div class="sd-widget-loading">Loading interactive…</div></div>
+      </div>` : ''}
+
+      <div class="sd-tab-panel${firstTab === 'concept' ? ' active' : ''}" data-panel="concept">
         ${sections.map(sectionCard).join('')}
-        ${widgetId ? `
-          <section class="sd-section sd-widget-section">
-            <div class="sd-widget-head">
-              <span class="sd-widget-badge">▶ Interactive</span>
-              <div>
-                <h3 class="sd-section-title sd-widget-title">${esc(widgetMeta.title)}</h3>
-                ${widgetMeta.hint ? `<p class="sd-widget-hint">${esc(widgetMeta.hint)}</p>` : ''}
-              </div>
-            </div>
-            <div class="sd-widget-mount" id="sd-con-widget"><div class="sd-widget-loading">Loading interactive…</div></div>
-          </section>` : ''}
       </div>
 
       ${deep.length ? `<div class="sd-tab-panel" data-panel="deep">

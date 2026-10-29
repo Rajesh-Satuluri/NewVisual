@@ -5,6 +5,8 @@ export default {
   chapter: 4,
   group: "Core building blocks",
   summary: "A rate limiter caps how many requests a client can make in a window — protecting services from abuse, accidental floods, and cascading overload. The core choices: which algorithm, where to enforce it, and how to make it work consistently across many servers.",
+  widget: "token-bucket",
+  widgetIntro: "The **token bucket** is the algorithm most production rate limiters use, because it absorbs short bursts while still capping the sustained rate. Tokens drip into a bucket at a fixed **refill rate** up to a **capacity**; every request spends one token, and a request that finds the bucket empty is rejected with **HTTP 429**.\n\nStart on **Steady** traffic and watch almost everything pass. Switch to **Spike** and the bucket drains faster than it refills — excess requests start bouncing red. That is exactly the property you want: a burst up to the bucket size is allowed through, but no client can exceed the refill rate for long.",
   sections: [
     {
       title: "Why rate-limit",
