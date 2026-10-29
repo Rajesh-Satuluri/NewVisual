@@ -42,12 +42,12 @@ export const CONCEPTS = [
   { id: "youtube", title: "Design YouTube", icon: "▶️", chapter: 14, wave: 4, group: "Scale & media", summary: "Upload + transcode pipeline, CDN delivery, and blob storage at scale.", built: true },
   { id: "google-drive", title: "Design Google Drive", icon: "📁", chapter: 15, wave: 4, group: "Scale & media", summary: "Chunked upload, sync, dedup, and metadata vs block storage.", built: true },
   { id: "proximity-service", title: "Design a proximity service", icon: "📍", chapter: 16, wave: 4, group: "Scale & media", summary: "Geohash / quadtree indexing to find nearby businesses fast.", built: true },
-  { id: "nearby-friends", title: "Design nearby friends", icon: "👥", chapter: 17, wave: 5, group: "Scale & media", summary: "Live location updates, pub/sub fan-out, and ephemeral geo state.", built: false },
-  { id: "google-maps", title: "Design Google Maps", icon: "🛰️", chapter: 18, wave: 5, group: "Scale & media", summary: "Map tiles, routing/ETA, and serving navigation at planet scale.", built: false },
+  { id: "nearby-friends", title: "Design nearby friends", icon: "👥", chapter: 17, wave: 5, group: "Scale & media", summary: "Live location updates, pub/sub fan-out, and ephemeral geo state.", built: true },
+  { id: "google-maps", title: "Design Google Maps", icon: "🛰️", chapter: 18, wave: 5, group: "Scale & media", summary: "Map tiles, routing/ETA, and serving navigation at planet scale.", built: true },
 
   // ── Data & infra systems ──────────────────────────────────────────────────
-  { id: "distributed-message-queue", title: "Design a distributed message queue", icon: "📨", chapter: 19, wave: 5, group: "Data & infra systems", summary: "Partitioned logs, consumer groups, ordering and delivery guarantees.", built: false },
-  { id: "metrics-monitoring", title: "Design metrics monitoring & alerting", icon: "📊", chapter: 20, wave: 5, group: "Data & infra systems", summary: "Time-series ingestion, downsampling, and alerting on the right signals.", built: false },
+  { id: "distributed-message-queue", title: "Design a distributed message queue", icon: "📨", chapter: 19, wave: 5, group: "Data & infra systems", summary: "Partitioned logs, consumer groups, ordering and delivery guarantees.", built: true },
+  { id: "metrics-monitoring", title: "Design metrics monitoring & alerting", icon: "📊", chapter: 20, wave: 5, group: "Data & infra systems", summary: "Time-series ingestion, downsampling, and alerting on the right signals.", built: true },
   { id: "ad-click-aggregation", title: "Design ad click event aggregation", icon: "🖱️", chapter: 21, wave: 6, group: "Data & infra systems", summary: "Streaming aggregation, exactly-once counting, and late/duplicate events.", built: false },
   { id: "hotel-reservation", title: "Design a hotel reservation system", icon: "🏨", chapter: 22, wave: 6, group: "Data & infra systems", summary: "Inventory, overbooking, concurrency control and idempotent booking.", built: false },
   { id: "distributed-email", title: "Design a distributed email service", icon: "📧", chapter: 23, wave: 6, group: "Data & infra systems", summary: "Mail storage, search, and reliable send/receive at scale.", built: false },
@@ -78,6 +78,10 @@ export const CONCEPT_LOADERS = {
   "youtube": () => import("./concept-data/youtube.js"),
   "google-drive": () => import("./concept-data/google-drive.js"),
   "proximity-service": () => import("./concept-data/proximity-service.js"),
+  "nearby-friends": () => import("./concept-data/nearby-friends.js"),
+  "google-maps": () => import("./concept-data/google-maps.js"),
+  "distributed-message-queue": () => import("./concept-data/distributed-message-queue.js"),
+  "metrics-monitoring": () => import("./concept-data/metrics-monitoring.js"),
 };
 
 export const CONCEPT_PREFIX = "c:";   // hash routing: #c:<id>
