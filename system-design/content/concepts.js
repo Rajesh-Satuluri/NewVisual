@@ -26,12 +26,12 @@ export const CONCEPTS = [
 
   // ── Core building blocks ──────────────────────────────────────────────────
   { id: "rate-limiter", title: "Design a rate limiter", icon: "🚦", chapter: 4, wave: 1, group: "Core building blocks", summary: "Token bucket vs sliding window, where to enforce, and doing it across many servers.", built: true },
-  { id: "consistent-hashing", title: "Consistent hashing", icon: "💍", chapter: 5, wave: 2, group: "Core building blocks", summary: "Distribute keys across nodes so adding/removing one moves as few keys as possible.", built: false },
-  { id: "key-value-store", title: "Design a key-value store", icon: "🗄️", chapter: 6, wave: 2, group: "Core building blocks", summary: "Replication, quorums, versioning and the CAP trade-offs behind a distributed KV store.", built: false },
-  { id: "unique-id-generator", title: "Unique ID generator in distributed systems", icon: "🆔", chapter: 7, wave: 2, group: "Core building blocks", summary: "Snowflake-style IDs: roughly sortable, unique, and generated without coordination.", built: false },
+  { id: "consistent-hashing", title: "Consistent hashing", icon: "💍", chapter: 5, wave: 2, group: "Core building blocks", summary: "Distribute keys across nodes so adding/removing one moves as few keys as possible.", built: true },
+  { id: "key-value-store", title: "Design a key-value store", icon: "🗄️", chapter: 6, wave: 2, group: "Core building blocks", summary: "Replication, quorums, versioning and the CAP trade-offs behind a distributed KV store.", built: true },
+  { id: "unique-id-generator", title: "Unique ID generator in distributed systems", icon: "🆔", chapter: 7, wave: 2, group: "Core building blocks", summary: "Snowflake-style IDs: roughly sortable, unique, and generated without coordination.", built: true },
 
   // ── Classic designs ───────────────────────────────────────────────────────
-  { id: "url-shortener", title: "Design a URL shortener", icon: "🔗", chapter: 8, wave: 2, group: "Classic designs", summary: "Hashing vs counter encoding, redirect path, and read-heavy caching.", built: false },
+  { id: "url-shortener", title: "Design a URL shortener", icon: "🔗", chapter: 8, wave: 2, group: "Classic designs", summary: "Hashing vs counter encoding, redirect path, and read-heavy caching.", built: true },
   { id: "web-crawler", title: "Design a web crawler", icon: "🕷️", chapter: 9, wave: 3, group: "Classic designs", summary: "BFS frontier, politeness, dedup, and crawling the web at scale.", built: false },
   { id: "notification-system", title: "Design a notification system", icon: "🔔", chapter: 10, wave: 3, group: "Classic designs", summary: "Fan-out across push/SMS/email with queues, retries and dedup.", built: false },
   { id: "news-feed-system", title: "Design a news feed system", icon: "📰", chapter: 11, wave: 3, group: "Classic designs", summary: "Fan-out on write vs on read, and the hybrid that handles celebrities.", built: false },
@@ -66,6 +66,10 @@ export const CONCEPT_LOADERS = {
   "back-of-envelope-estimation": () => import("./concept-data/back-of-envelope-estimation.js"),
   "interview-framework": () => import("./concept-data/interview-framework.js"),
   "rate-limiter": () => import("./concept-data/rate-limiter.js"),
+  "consistent-hashing": () => import("./concept-data/consistent-hashing.js"),
+  "key-value-store": () => import("./concept-data/key-value-store.js"),
+  "unique-id-generator": () => import("./concept-data/unique-id-generator.js"),
+  "url-shortener": () => import("./concept-data/url-shortener.js"),
 };
 
 export const CONCEPT_PREFIX = "c:";   // hash routing: #c:<id>
