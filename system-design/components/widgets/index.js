@@ -59,6 +59,11 @@ export const WIDGETS = {
   "de-lineage":       () => import('./de-lineage.js'),
   "de-iam":           () => import('./de-iam.js'),
   "de-cost":          () => import('./de-cost.js'),
+  "de-clickstream":   () => import('./de-clickstream.js'),
+  "de-ecommerce":     () => import('./de-ecommerce.js'),
+  "de-iot":           () => import('./de-iot.js'),
+  "de-banking":       () => import('./de-banking.js'),
+  "de-multitenant":   () => import('./de-multitenant.js'),
 };
 
 // Short human label + one-line pitch, shown in the widget section header.
@@ -118,4 +123,9 @@ export const WIDGET_META = {
   "de-lineage":       { title: "Data lineage", hint: "Focus an asset and its upstream (root cause) and downstream (impact) light up across the lineage graph." },
   "de-iam":           { title: "IAM access gates", hint: "Switch role and watch the same query clear authenticate, authorize, row-level and column-mask gates differently." },
   "de-cost":          { title: "Storage lifecycle & cost", hint: "Data ages hot → warm → cold under a lifecycle policy; toggle it and watch the monthly spend drop." },
+  "de-clickstream":   { title: "Clickstream platform", hint: "One durable log fans to a speed path (live dashboard, seconds) and a batch path (lake → warehouse, bulk)." },
+  "de-ecommerce":     { title: "E-commerce analytics platform", hint: "CDC, streaming and batch sources converge into one conformed star schema, then fan out to BI, ops and recs." },
+  "de-iot":           { title: "IoT analytics platform", hint: "A device swarm streams readings that downsample into a rollup pyramid; threshold breaches fire alerts." },
+  "de-banking":       { title: "Banking ledger & reconciliation", hint: "Balanced double-entry postings append to an immutable ledger; reconciliation flags any that don't balance." },
+  "de-multitenant":   { title: "Multi-tenant isolation", hint: "Tenants share one table; row-level security scopes each query — toggle it off to see a cross-tenant leak." },
 };
