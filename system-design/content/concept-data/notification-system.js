@@ -5,6 +5,8 @@ export default {
   chapter: 10,
   group: "Classic designs",
   summary: "Deliver push notifications, SMS, and email to millions of users reliably. The design is about decoupling with queues, fanning out across channels and third-party providers, and handling retries, rate limits, and dedup.",
+  widget: "backoff",
+  widgetIntro: "Notification delivery leans on **third-party providers** (APNs, FCM, SMS gateways, email) that occasionally fail or throttle. Retrying a failed send immediately — across millions of notifications — amplifies the outage and can get you rate-limited or blocked, making delivery *worse*.\n\nCompare naive retries against **exponential backoff + jitter**. Backoff gives the provider room to recover; jitter desynchronizes your workers so they don't all retry at the same instant. It's the difference between a transient blip and a self-sustaining delivery storm.",
   sections: [
     {
       title: "Requirements",

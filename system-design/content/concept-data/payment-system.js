@@ -5,6 +5,8 @@ export default {
   chapter: 26,
   group: "Money & real-time",
   summary: "Move money correctly: charge a buyer, pay a seller, and never lose, duplicate, or mis-record a cent. Correctness and auditability dominate — idempotency, a double-entry ledger, reconciliation with external providers, and handling partial failures are the whole game.",
+  widget: "idempotency-race",
+  widgetIntro: "The network is **at-least-once**: a user double-clicks, a client retries a timed-out request, a webhook redelivers. The payment effect must be **exactly-once**. The tool is an **idempotency key** — the client attaches one key to the charge, the server records that key with the operation's outcome, and any repeat with the same key returns the stored result instead of charging again.\n\nFire two concurrent requests carrying the same key and watch only one of them actually move money while the other returns the first one's result. That single mechanism is what stops a retry from becoming a double-charge.",
   sections: [
     {
       title: "Requirements",

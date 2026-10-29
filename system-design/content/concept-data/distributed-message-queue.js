@@ -5,6 +5,8 @@ export default {
   chapter: 19,
   group: "Data & infra systems",
   summary: "Build a Kafka-style queue: producers publish messages, consumers read them, decoupled and durable at massive throughput. The core ideas are the partitioned append-only log, consumer groups with offsets, replication, and the ordering/delivery guarantees that fall out of them.",
+  widget: "idempotency-race",
+  widgetIntro: "A queue delivers **at-least-once** by default: if a consumer crashes after processing a message but before committing its offset, the message is redelivered and processed twice. True exactly-once is hard, so the practical answer is **idempotent consumers** — make processing a message twice have the same effect as processing it once, keyed on a unique message/operation id.\n\nFire two deliveries of the same message id and watch the idempotency check let the first through and dedupe the second. This is the same key-based guard that turns at-least-once delivery into an exactly-once *effect*.",
   sections: [
     {
       title: "Requirements",

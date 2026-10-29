@@ -5,6 +5,8 @@ export default {
   chapter: 1,
   group: "Foundations",
   summary: "A single server is fine for the first users. Growth forces a predictable sequence of moves: separate the database, add a load balancer and replicas, cache, push static assets to a CDN, make the web tier stateless, go multi-data-center, then shard. Each step removes the next bottleneck.",
+  widget: "cache-strategy",
+  widgetIntro: "One of the biggest scaling levers is a **cache** in front of the database — but *how* you keep it consistent with the database changes the failure modes. **Write-through** writes cache and DB together (simple, always consistent, slower writes). **Write-back** writes the cache and flushes to the DB later (fast, but a crash can lose data). **Write-around** writes only the DB and lets the cache fill on reads (avoids cache churn, but the first read is a miss).\n\nRun a write under each strategy and watch where the data lands and when — the trade-off between write latency, consistency, and durability that every scaling story eventually confronts.",
   sections: [
     {
       title: "Start: everything on one server",
