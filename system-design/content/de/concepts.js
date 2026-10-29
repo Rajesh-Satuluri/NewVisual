@@ -46,17 +46,17 @@ export const CONCEPTS = [
   { id: 'delivery-guarantees', title: 'Delivery guarantees & exactly-once', icon: '🎯', chapter: 19, wave: 'C', group: 'Streaming systems', summary: 'At-most / at-least / exactly-once, offset commits, and idempotent sinks.', built: true },
 
   // ── Performance & quality ─────────────────────────────────────────────────
-  { id: 'spark-shuffle', title: 'Spark execution & the shuffle', icon: '🔀', chapter: 20, wave: 'D', group: 'Performance & quality', summary: 'Stages, tasks, and the shuffle boundary that dominates distributed job cost.', built: false },
-  { id: 'join-strategies', title: 'Join strategies (broadcast vs shuffle)', icon: '🔗', chapter: 21, wave: 'D', group: 'Performance & quality', summary: 'Broadcast a small table to every executor vs shuffle both sides — the single biggest tuning lever.', built: false },
-  { id: 'warehouse-tuning', title: 'Warehouse tuning (dist & sort keys)', icon: '⚙️', chapter: 22, wave: 'D', group: 'Performance & quality', summary: 'Distribution and sort keys that cut data movement and scan on big joins.', built: false },
-  { id: 'data-quality', title: 'Data quality & validation', icon: '✅', chapter: 23, wave: 'D', group: 'Performance & quality', summary: 'Schema, null, range and uniqueness checks that stop bad data at the gate.', built: false },
-  { id: 'reconciliation-dedup', title: 'Reconciliation & deduplication', icon: '🧮', chapter: 24, wave: 'D', group: 'Performance & quality', summary: 'Prove source and target agree, and collapse duplicates from retries and at-least-once delivery.', built: false },
+  { id: 'spark-shuffle', title: 'Spark execution & the shuffle', icon: '🔀', chapter: 20, wave: 'D', group: 'Performance & quality', summary: 'Stages, tasks, and the shuffle boundary that dominates distributed job cost.', built: true },
+  { id: 'join-strategies', title: 'Join strategies (broadcast vs shuffle)', icon: '🔗', chapter: 21, wave: 'D', group: 'Performance & quality', summary: 'Broadcast a small table to every executor vs shuffle both sides — the single biggest tuning lever.', built: true },
+  { id: 'warehouse-tuning', title: 'Warehouse tuning (dist & sort keys)', icon: '⚙️', chapter: 22, wave: 'D', group: 'Performance & quality', summary: 'Distribution and sort keys that cut data movement and scan on big joins.', built: true },
+  { id: 'data-quality', title: 'Data quality & validation', icon: '✅', chapter: 23, wave: 'D', group: 'Performance & quality', summary: 'Schema, null, range and uniqueness checks that stop bad data at the gate.', built: true },
+  { id: 'reconciliation-dedup', title: 'Reconciliation & deduplication', icon: '🧮', chapter: 24, wave: 'D', group: 'Performance & quality', summary: 'Prove source and target agree, and collapse duplicates from retries and at-least-once delivery.', built: true },
 
   // ── Operations ────────────────────────────────────────────────────────────
-  { id: 'pipeline-monitoring', title: 'Pipeline monitoring & SLAs', icon: '📟', chapter: 25, wave: 'D', group: 'Operations', summary: 'Freshness, volume and latency signals, and alerting when a pipeline misses its SLA.', built: false },
-  { id: 'governance-lineage', title: 'Data governance & lineage', icon: '🧬', chapter: 26, wave: 'D', group: 'Operations', summary: 'Catalog, ownership and column-level lineage from source to report.', built: false },
-  { id: 'security-iam', title: 'Security (IAM, RBAC, encryption)', icon: '🔐', chapter: 27, wave: 'D', group: 'Operations', summary: 'Least-privilege access, roles, and encryption in transit and at rest.', built: false },
-  { id: 'cost-optimization', title: 'Cost optimization', icon: '💰', chapter: 28, wave: 'D', group: 'Operations', summary: 'Storage tiering, lifecycle policies, and right-sized compute that keep the bill sane.', built: false },
+  { id: 'pipeline-monitoring', title: 'Pipeline monitoring & SLAs', icon: '📟', chapter: 25, wave: 'D', group: 'Operations', summary: 'Freshness, volume and latency signals, and alerting when a pipeline misses its SLA.', built: true },
+  { id: 'governance-lineage', title: 'Data governance & lineage', icon: '🧬', chapter: 26, wave: 'D', group: 'Operations', summary: 'Catalog, ownership and column-level lineage from source to report.', built: true },
+  { id: 'security-iam', title: 'Security (IAM, RBAC, encryption)', icon: '🔐', chapter: 27, wave: 'D', group: 'Operations', summary: 'Least-privilege access, roles, and encryption in transit and at rest.', built: true },
+  { id: 'cost-optimization', title: 'Cost optimization', icon: '💰', chapter: 28, wave: 'D', group: 'Operations', summary: 'Storage tiering, lifecycle policies, and right-sized compute that keep the bill sane.', built: true },
 
   // ── End-to-end platforms ──────────────────────────────────────────────────
   { id: 'clickstream-analytics', title: 'Design a clickstream analytics platform', icon: '🖱️', chapter: 29, wave: 'E', group: 'End-to-end platforms', summary: 'Ingest web/app events at scale, from real-time dashboards to historical analysis.', built: false },
@@ -87,6 +87,15 @@ export const CONCEPT_LOADERS = {
   'windowing': () => import('./concept-data/windowing.js'),
   'watermarking': () => import('./concept-data/watermarking.js'),
   'delivery-guarantees': () => import('./concept-data/delivery-guarantees.js'),
+  'spark-shuffle': () => import('./concept-data/spark-shuffle.js'),
+  'join-strategies': () => import('./concept-data/join-strategies.js'),
+  'warehouse-tuning': () => import('./concept-data/warehouse-tuning.js'),
+  'data-quality': () => import('./concept-data/data-quality.js'),
+  'reconciliation-dedup': () => import('./concept-data/reconciliation-dedup.js'),
+  'pipeline-monitoring': () => import('./concept-data/pipeline-monitoring.js'),
+  'governance-lineage': () => import('./concept-data/governance-lineage.js'),
+  'security-iam': () => import('./concept-data/security-iam.js'),
+  'cost-optimization': () => import('./concept-data/cost-optimization.js'),
 };
 
 export const CONCEPT_PREFIX = 'c:';
