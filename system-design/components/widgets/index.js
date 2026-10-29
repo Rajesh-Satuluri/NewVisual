@@ -41,6 +41,15 @@ export const WIDGETS = {
   "de-partition-prune": () => import('./de-partition-prune.js'),
   "de-table-format":  () => import('./de-table-format.js'),
   "de-compaction":    () => import('./de-compaction.js'),
+  "de-etl-vs-elt":    () => import('./de-etl-vs-elt.js'),
+  "de-incremental":   () => import('./de-incremental.js'),
+  "de-dag":           () => import('./de-dag.js'),
+  "de-idempotent":    () => import('./de-idempotent.js'),
+  "de-kafka":         () => import('./de-kafka.js'),
+  "de-event-driven":  () => import('./de-event-driven.js'),
+  "de-windowing":     () => import('./de-windowing.js'),
+  "de-watermark":     () => import('./de-watermark.js'),
+  "de-delivery":      () => import('./de-delivery.js'),
 };
 
 // Short human label + one-line pitch, shown in the widget section header.
@@ -82,4 +91,13 @@ export const WIDGET_META = {
   "de-partition-prune": { title: "Partition pruning", hint: "Pick a filter and watch the engine scan only matching partitions — or scan everything when the filter isn't on the partition key." },
   "de-table-format":  { title: "Table format commits & time travel", hint: "Commit atomic changes, then time-travel a reader to an older snapshot while new commits land." },
   "de-compaction":    { title: "Small-file compaction", hint: "Streaming scatters tiny files; run compaction to bin-pack them and watch the per-file overhead drop." },
+  "de-etl-vs-elt":    { title: "ETL vs ELT", hint: "The same source down both pipelines — see where the transform runs and that ELT keeps a raw copy." },
+  "de-incremental":   { title: "Incremental vs full loads", hint: "Add rows and run each load — incremental moves only what's above the high-water mark; full re-copies everything." },
+  "de-dag":           { title: "Orchestration DAG", hint: "Run a DAG in dependency order; fail a task to see retries, then the downstream subtree skipped." },
+  "de-idempotent":    { title: "Idempotent pipeline writes", hint: "Re-run the task — append duplicates the slice, overwrite-by-partition keeps it correct." },
+  "de-kafka":         { title: "Kafka partitioned log", hint: "Keyed messages append to partitions; a consumer group shares them out by offset. Add a consumer to rebalance." },
+  "de-event-driven":  { title: "Event-driven fan-out", hint: "One event fans out to every subscriber; add or remove consumers without touching the producer." },
+  "de-windowing":     { title: "Stream windowing", hint: "Toggle tumbling, sliding and session windows and watch events bucket and each window emit a count." },
+  "de-watermark":     { title: "Watermarks & late data", hint: "The watermark advances at max-seen minus lateness; windows fire as it passes, late events are dropped." },
+  "de-delivery":      { title: "Delivery guarantees", hint: "At-most-once loses, at-least-once duplicates, exactly-once dedupes — watch the tallies by mode." },
 };
