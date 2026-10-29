@@ -5,6 +5,8 @@ export default {
   chapter: 15,
   group: "Scale & media",
   summary: "Store, sync, and share files across a user's devices. The interesting parts are chunked/resumable upload, efficient sync of only what changed, block-level deduplication, and keeping file metadata separate from the file bytes.",
+  widget: "block-sync",
+  widgetIntro: "The reason editing one line of a big file syncs instantly is **block-level delta sync**. The file is split into fixed-size blocks, each identified by a **content hash**; when you change something, only the blocks whose hash changed are uploaded, and the rest are **deduped** against the copy the server already holds.\n\nEdit a block and watch just that one chunk fly up to the server while the others stay put. The stat shows the payoff: a one-block edit of a large file costs one block of upload, not the entire file.",
   sections: [
     {
       title: "Requirements",

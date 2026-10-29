@@ -5,6 +5,8 @@ export default {
   chapter: 20,
   group: "Data & infra systems",
   summary: "Collect metrics from thousands of machines, store them as time series, visualize dashboards, and alert on problems. The defining constraints are a huge write rate of timestamped numbers, time-based queries, and keeping storage bounded via downsampling and retention.",
+  widget: "metrics-stream",
+  widgetIntro: "A monitoring system ingests a relentless stream of timestamped samples, stores them as a **time series**, and continuously evaluates **alerting rules** against the latest values. The core runtime loop is simple: append the newest sample, compare it to a threshold, and change state when it crosses.\n\nWatch a live metric scroll across the chart. Drag the **threshold** and hit **inject spike** to push the value over the line — the series turns red, the system enters an *alerting* state, and an alert fires. That threshold-crossing is the heartbeat of every on-call pager.",
   sections: [
     {
       title: "Requirements",

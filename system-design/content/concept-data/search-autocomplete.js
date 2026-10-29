@@ -5,6 +5,8 @@ export default {
   chapter: 13,
   group: "Classic designs",
   summary: "As a user types, suggest the top few completions in a few milliseconds. The core is a trie of popular queries, precomputed top-K per prefix, aggressive caching, and an offline pipeline that updates frequencies from logs.",
+  widget: "trie-autocomplete",
+  widgetIntro: "The core data structure is a **trie** (prefix tree): the characters you type trace a path down the tree, and the suggestions are the highest-**frequency** words hanging off the node you land on. Lookup cost depends on the length of the prefix, not the size of the dictionary — which is why suggestions come back in milliseconds.\n\nType into the box and watch the prefix path light up and the ranked completions update. Real systems precompute the top-K per node and cache aggressively, but the walk-the-prefix idea you see here is the heart of it.",
   sections: [
     {
       title: "Requirements",

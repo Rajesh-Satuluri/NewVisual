@@ -5,6 +5,8 @@ export default {
   chapter: 16,
   group: "Scale & media",
   summary: "Find things near a location — 'restaurants within 5 km of me' (Yelp/Uber style). The core challenge is indexing 2D geography so range queries are fast; the answer is geohash or a quadtree rather than scanning every row.",
+  widget: "quadtree",
+  widgetIntro: "The whole problem is **indexing 2D space** so a range query doesn't scan every row. A **quadtree** recursively splits space into four quadrants wherever points get dense, so crowded areas get fine-grained cells and empty space stays coarse. A radius query then descends only into the cells that overlap the circle — pruning the rest.\n\nMove the query around and watch which cells light up: the search examines only the points in those overlapping cells, not the whole dataset. That pruning is why geohash/quadtree indexes make 'nearby' queries fast at scale.",
   sections: [
     {
       title: "Requirements",

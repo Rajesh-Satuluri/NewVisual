@@ -5,6 +5,8 @@ export default {
   chapter: 23,
   group: "Data & infra systems",
   summary: "Build Gmail-scale email: send and receive mail reliably over SMTP, store billions of messages, and make mailboxes searchable. The design spans protocol gateways, metadata-vs-blob storage, a dedicated search index, and reliable async delivery.",
+  widget: "email-pipeline",
+  widgetIntro: "Outbound email is fundamentally a **queue** problem. A submitted message enters an outbound queue so submission never blocks on a slow recipient; a worker then attempts delivery to the recipient's mail server, and each attempt ends one of three ways: **delivered**, a **transient failure** (requeue and retry with backoff), or a **hard bounce** (give up and notify the sender).\n\nSend a burst of mail and watch the queue drain through those outcomes. Decoupling submission from delivery, and retrying transient failures, is exactly how real mail systems stay reliable against flaky downstream servers.",
   sections: [
     {
       title: "Requirements",

@@ -5,6 +5,8 @@ export default {
   chapter: 24,
   group: "Data & infra systems",
   summary: "Store arbitrary blobs (objects) in flat namespaces (buckets) with extreme durability and virtually unlimited scale. The key ideas: separate metadata from data, achieve 11-nines durability via replication or erasure coding, and expose a simple key→object API.",
+  widget: "erasure-coding",
+  widgetIntro: "Eleven-nines durability without paying 3× for triple replication comes from **erasure coding**. An object is split into **k data shards** plus **m parity shards** across k+m nodes, and the math guarantees that **any k of the k+m shards** can rebuild the whole object — so it tolerates up to **m** simultaneous failures at only (k+m)/k× storage overhead.\n\nFail nodes one at a time and watch the object stay recoverable and rebuild from parity, right up until more than m shards are gone and the data is finally unrecoverable. That's the durability-vs-cost trade erasure coding buys you over plain replication.",
   sections: [
     {
       title: "Requirements",
