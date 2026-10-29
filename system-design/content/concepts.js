@@ -32,10 +32,10 @@ export const CONCEPTS = [
 
   // ── Classic designs ───────────────────────────────────────────────────────
   { id: "url-shortener", title: "Design a URL shortener", icon: "🔗", chapter: 8, wave: 2, group: "Classic designs", summary: "Hashing vs counter encoding, redirect path, and read-heavy caching.", built: true },
-  { id: "web-crawler", title: "Design a web crawler", icon: "🕷️", chapter: 9, wave: 3, group: "Classic designs", summary: "BFS frontier, politeness, dedup, and crawling the web at scale.", built: false },
-  { id: "notification-system", title: "Design a notification system", icon: "🔔", chapter: 10, wave: 3, group: "Classic designs", summary: "Fan-out across push/SMS/email with queues, retries and dedup.", built: false },
-  { id: "news-feed-system", title: "Design a news feed system", icon: "📰", chapter: 11, wave: 3, group: "Classic designs", summary: "Fan-out on write vs on read, and the hybrid that handles celebrities.", built: false },
-  { id: "chat-system", title: "Design a chat system", icon: "💬", chapter: 12, wave: 3, group: "Classic designs", summary: "WebSocket presence, message delivery, ordering and 1:1 vs group chat.", built: false },
+  { id: "web-crawler", title: "Design a web crawler", icon: "🕷️", chapter: 9, wave: 3, group: "Classic designs", summary: "BFS frontier, politeness, dedup, and crawling the web at scale.", built: true },
+  { id: "notification-system", title: "Design a notification system", icon: "🔔", chapter: 10, wave: 3, group: "Classic designs", summary: "Fan-out across push/SMS/email with queues, retries and dedup.", built: true },
+  { id: "news-feed-system", title: "Design a news feed system", icon: "📰", chapter: 11, wave: 3, group: "Classic designs", summary: "Fan-out on write vs on read, and the hybrid that handles celebrities.", built: true },
+  { id: "chat-system", title: "Design a chat system", icon: "💬", chapter: 12, wave: 3, group: "Classic designs", summary: "WebSocket presence, message delivery, ordering and 1:1 vs group chat.", built: true },
   { id: "search-autocomplete", title: "Design search autocomplete", icon: "🔎", chapter: 13, wave: 4, group: "Classic designs", summary: "Trie-backed prefix suggestions, ranking, and keeping it fast.", built: false },
 
   // ── Scale & media ─────────────────────────────────────────────────────────
@@ -70,6 +70,10 @@ export const CONCEPT_LOADERS = {
   "key-value-store": () => import("./concept-data/key-value-store.js"),
   "unique-id-generator": () => import("./concept-data/unique-id-generator.js"),
   "url-shortener": () => import("./concept-data/url-shortener.js"),
+  "web-crawler": () => import("./concept-data/web-crawler.js"),
+  "notification-system": () => import("./concept-data/notification-system.js"),
+  "news-feed-system": () => import("./concept-data/news-feed-system.js"),
+  "chat-system": () => import("./concept-data/chat-system.js"),
 };
 
 export const CONCEPT_PREFIX = "c:";   // hash routing: #c:<id>
