@@ -8,5 +8,6 @@ export default {
   tldr: "Retry only idempotent calls, with exponential backoff + jitter, a cap, and a budget — and never retry through a tripped circuit.",
   steps: [],
   checklist: [],
+  widget: "backoff",
   draft: true
 };

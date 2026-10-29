@@ -8,5 +8,6 @@ export default {
   tldr: "Make it stateless, cache aggressively, and scale horizontally behind a load balancer so capacity is a knob, not a rewrite.",
   steps: [],
   checklist: [],
+  widget: "estimator",
   draft: true
 };

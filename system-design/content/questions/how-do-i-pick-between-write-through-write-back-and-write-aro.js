@@ -8,5 +8,6 @@ export default {
   tldr: "Write-through for consistency, write-back for write-heavy speed (with durability risk), write-around when writes are rarely re-read.",
   steps: [],
   checklist: [],
+  widget: "cache-strategy",
   draft: true
 };

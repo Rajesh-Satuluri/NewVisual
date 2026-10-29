@@ -570,3 +570,178 @@
   .sd-fc-q { font-size: 19px; }
   .sd-result-actions { gap: 10px; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Block E — interactive widgets
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* "interactive" badge on home cards */
+.sd-interactive {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+/* widget section wrapper in the question page */
+.sd-widget-section {
+  background: color-mix(in srgb, var(--accent) 5%, var(--bg2));
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
+  border-radius: 16px;
+  padding: 20px 22px 24px;
+}
+.sd-widget-head { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 16px; }
+.sd-widget-badge {
+  flex-shrink: 0;
+  font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  color: #fff; background: var(--accent);
+  border-radius: 999px; padding: 4px 11px; margin-top: 2px;
+}
+.sd-widget-title { margin: 0 0 2px; }
+.sd-widget-hint { margin: 0; color: var(--text2); font-size: 14px; line-height: 1.5; }
+.sd-widget-loading, .sd-widget-error { color: var(--text3); font-size: 14px; padding: 20px 0; }
+.sd-widget-error { color: var(--red); }
+
+/* ── shared widget primitives ──────────────────────────────────────────────*/
+.wg { font-size: 14px; color: var(--text); }
+.wg-controls { margin-bottom: 14px; }
+.wg-btnrow { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 16px; }
+.wg-note {
+  margin-top: 14px; padding: 12px 14px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+  color: var(--text2); line-height: 1.55; font-size: 13.5px;
+}
+.wg-note.good { border-color: color-mix(in srgb, var(--green) 45%, var(--border)); color: var(--text); }
+.wg-note.bad  { border-color: color-mix(in srgb, var(--red) 45%, var(--border)); color: var(--text); }
+.wg code { background: var(--bg3); padding: 1px 5px; border-radius: 5px; font-size: .92em; }
+
+.wg-switch { display: inline-flex; align-items: center; gap: 9px; cursor: pointer; color: var(--text2); }
+.wg-switch input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+
+.wg-seg { display: inline-flex; flex-wrap: wrap; gap: 4px; background: var(--bg3); border-radius: 10px; padding: 4px; }
+.wg-seg-btn {
+  border: none; background: transparent; color: var(--text2);
+  font-size: 13px; font-weight: 600; padding: 7px 13px; border-radius: 7px; cursor: pointer;
+}
+.wg-seg-btn.active { background: var(--accent); color: #fff; }
+
+.wg-stat {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
+  padding: 14px 16px; text-align: left;
+}
+.wg-stat-val { font-size: 22px; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
+.wg-stat-label { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.wg-stat-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+.wg-leg { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text2); margin-right: 12px; }
+.wg-leg-dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+.wg-pill { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+.wg-pill.s-processing { background: color-mix(in srgb, var(--amber) 20%, transparent); color: var(--amber); }
+.wg-pill.s-completed  { background: color-mix(in srgb, var(--green) 20%, transparent); color: var(--green); }
+
+/* ── idempotency race ──────────────────────────────────────────────────────*/
+.wg-idem .wg-lanes { display: grid; grid-template-columns: 1fr auto 1fr; gap: 14px; align-items: start; }
+.wg-lane { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 12px; min-height: 120px; }
+.wg-lane-head { font-weight: 700; font-size: 13px; margin-bottom: 10px; display: flex; justify-content: space-between; gap: 6px; flex-wrap: wrap; }
+.wg-key { color: var(--text3); font-weight: 500; }
+.wg-msg {
+  font-size: 12.5px; background: var(--bg3); border-radius: 7px; padding: 6px 9px; margin-bottom: 6px;
+  color: var(--text2); animation: wg-fade .35s ease;
+}
+.wg-msg.live { background: color-mix(in srgb, var(--accent) 16%, var(--bg3)); color: var(--text); }
+.wg-msg b { color: var(--text); }
+.wg-db { background: var(--bg3); border: 1px dashed var(--border); border-radius: 12px; padding: 12px; min-width: 150px; }
+.wg-db-title { font-size: 12px; font-weight: 700; color: var(--text2); margin-bottom: 8px; text-align: center; }
+.wg-db-empty { color: var(--text3); font-size: 12px; text-align: center; padding: 14px 0; }
+.wg-db-row { display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 5px 0; border-top: 1px solid var(--border); }
+.wg-db-res { margin-left: auto; color: var(--text3); }
+@keyframes wg-fade { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+
+/* ── cache strategy ────────────────────────────────────────────────────────*/
+.wg-cache-stage { display: flex; align-items: center; justify-content: center; gap: 28px; margin: 18px 0; flex-wrap: wrap; }
+.wg-node {
+  padding: 14px 18px; border-radius: 12px; font-weight: 700; font-size: 14px;
+  background: var(--bg); border: 2px solid var(--border); transition: all .25s ease;
+}
+.wg-node.hit { border-color: var(--green); background: color-mix(in srgb, var(--green) 14%, var(--bg)); }
+.wg-node.async { border-color: var(--amber); background: color-mix(in srgb, var(--amber) 14%, var(--bg)); border-style: dashed; }
+.wg-steps { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 8px 0; }
+.wg-step-chip { font-size: 12.5px; padding: 6px 10px; border-radius: 8px; background: var(--bg3); color: var(--text3); transition: all .2s; }
+.wg-step-chip.seen { color: var(--text2); }
+.wg-step-chip.live { background: var(--accent); color: #fff; }
+.wg-step-arr { color: var(--text3); }
+.wg-bars { margin-top: 14px; display: grid; gap: 8px; }
+.wg-bar-row { display: grid; grid-template-columns: 110px 1fr 46px; align-items: center; gap: 10px; font-size: 12.5px; }
+.wg-bar-label { color: var(--text2); }
+.wg-bar { height: 8px; background: var(--bg3); border-radius: 999px; overflow: hidden; }
+.wg-bar-fill { display: block; height: 100%; border-radius: 999px; }
+.wg-bar-fill.lvl-1 { background: var(--red); }
+.wg-bar-fill.lvl-2 { background: var(--amber); }
+.wg-bar-fill.lvl-3 { background: var(--green); }
+.wg-bar-val { color: var(--text3); text-align: right; }
+
+/* ── consistent hash ring ──────────────────────────────────────────────────*/
+.wg-ring { display: grid; grid-template-columns: auto 1fr; gap: 24px; align-items: center; }
+.wg-ring-stage { display: flex; justify-content: center; }
+.wg-ring-legend { display: flex; flex-direction: column; gap: 6px; margin: 14px 0; }
+.wg-ring-moved { animation: wg-pop .5s ease; }
+@keyframes wg-pop { 0% { transform: scale(0.4); } 60% { transform: scale(1.4); } 100% { transform: scale(1); } }
+
+/* ── estimator ─────────────────────────────────────────────────────────────*/
+.wg-est-grid { display: grid; grid-template-columns: 260px 1fr; gap: 22px; }
+.wg-est-inputs { display: flex; flex-direction: column; gap: 10px; }
+.wg-est-field { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--text2); }
+.wg-est-field input {
+  padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--bg); color: var(--text); font-size: 14px; font-variant-numeric: tabular-nums;
+}
+.wg-est-field input:focus { outline: none; border-color: var(--accent); }
+.wg-est-out { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; align-content: start; }
+
+/* ── backoff / retry storm ─────────────────────────────────────────────────*/
+.wg-chart {
+  position: relative; display: flex; align-items: flex-end; gap: 4px;
+  height: 190px; margin: 18px 0 8px; padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+.wg-bar-col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; position: relative; }
+.wg-bar-col.down::before { content: ""; position: absolute; inset: 0 0 18px; background: color-mix(in srgb, var(--red) 8%, transparent); border-radius: 4px; }
+.wg-stack { width: 72%; display: flex; flex-direction: column-reverse; height: 100%; justify-content: flex-start; }
+.wg-seg-ok { background: var(--green); border-radius: 0 0 3px 3px; min-height: 0; transition: height .4s ease; }
+.wg-seg-fail { background: var(--red); border-radius: 3px 3px 0 0; transition: height .4s ease; }
+.wg-bar-t { position: absolute; bottom: -16px; font-size: 9px; color: var(--text3); }
+.wg-cap-line { position: absolute; left: 0; right: 0; border-top: 2px dashed var(--accent); z-index: 1; }
+.wg-chart-legend { display: flex; flex-wrap: wrap; gap: 4px; font-size: 12px; color: var(--text2); }
+.wg-cap-key { color: var(--accent); margin-left: 8px; }
+
+/* ── CAP picker ────────────────────────────────────────────────────────────*/
+.wg-cap-stage { display: flex; align-items: center; justify-content: center; gap: 0; margin: 10px 0 6px; }
+.wg-cap-side { display: flex; flex-direction: column; gap: 8px; padding: 14px; }
+.wg-cap-node, .wg-cap-client { background: var(--bg); border: 1px solid var(--border); border-radius: 9px; padding: 8px 14px; font-size: 13px; font-weight: 600; text-align: center; }
+.wg-cap-client { border-style: dashed; color: var(--text2); }
+.wg-cap-link { position: relative; width: 70px; height: 2px; background: var(--green); transition: background .3s; }
+.wg-cap-link span { position: absolute; top: -18px; left: 50%; transform: translateX(-50%); font-size: 10px; color: var(--text3); white-space: nowrap; }
+.wg-cap-link.broken { background: repeating-linear-gradient(90deg, var(--red) 0 6px, transparent 6px 12px); }
+.wg-cap-link.broken span { color: var(--red); }
+.wg-cap-stage.split .wg-cap-link { width: 100px; }
+.wg-cap-detail { margin-top: 14px; display: grid; gap: 10px; }
+.wg-cap-row { display: grid; grid-template-columns: 110px 1fr; gap: 12px; font-size: 13px; line-height: 1.5; }
+.wg-cap-row b { color: var(--text); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+.wg-cap-row span { color: var(--text2); }
+
+@media (max-width: 720px) {
+  .sd-widget-section { padding: 16px 14px 20px; }
+  .wg-idem .wg-lanes { grid-template-columns: 1fr; }
+  .wg-db { order: -1; }
+  .wg-ring { grid-template-columns: 1fr; }
+  .wg-est-grid { grid-template-columns: 1fr; }
+  .wg-est-out { grid-template-columns: repeat(2, 1fr); }
+  .wg-cap-row { grid-template-columns: 1fr; gap: 2px; }
+}
+

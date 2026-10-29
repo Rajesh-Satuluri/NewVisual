@@ -8,5 +8,6 @@ export default {
   tldr: "Under a partition you must choose: stay available and serve possibly-stale data, or stay consistent and reject — decide per feature.",
   steps: [],
   checklist: [],
+  widget: "cap",
   draft: true
 };

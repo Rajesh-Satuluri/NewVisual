@@ -6,6 +6,7 @@
 // mount(container, data, { label }) → cleanup()
 
 import { CATEGORY_LABEL } from '../content/index.js';
+import { WIDGETS, WIDGET_META } from './widgets/index.js';
 
 const DIFF_CLASS = {
   Fundamental: 'diff-fundamental',
@@ -80,6 +81,9 @@ export function mount(container, data, opts = {}) {
   const tags = (data.tags || [])
     .map(t => `<span class="sd-tag">${esc(t)}</span>`).join('');
 
+  const widgetId = data.widget && WIDGETS[data.widget] ? data.widget : null;
+  const widgetMeta = (widgetId && WIDGET_META[widgetId]) || { title: 'Interactive', hint: '' };
+
   container.innerHTML = `
     <div class="module-page sd-question">
       <div class="module-hero">
@@ -94,6 +98,20 @@ export function mount(container, data, opts = {}) {
       </div>
 
       ${data.intro ? `<div class="sd-intro">${paras(data.intro)}</div>` : ''}
+
+      ${widgetId ? `
+        <section class="sd-section sd-widget-section">
+          <div class="sd-widget-head">
+            <span class="sd-widget-badge">▶ Interactive</span>
+            <div>
+              <h3 class="sd-section-title sd-widget-title">${esc(widgetMeta.title)}</h3>
+              ${widgetMeta.hint ? `<p class="sd-widget-hint">${esc(widgetMeta.hint)}</p>` : ''}
+            </div>
+          </div>
+          <div class="sd-widget-mount" id="sd-widget-mount">
+            <div class="sd-widget-loading">Loading interactive…</div>
+          </div>
+        </section>` : ''}
 
       ${data.flow && data.flow.length ? `
         <section class="sd-section">
@@ -189,7 +207,29 @@ export function mount(container, data, opts = {}) {
     });
   }
 
+  // ── flagship interactive widget (Block E) ─────────────────────────────────
+  let widgetCleanup = null;
+  let widgetCancelled = false;
+  if (widgetId) {
+    const mountEl = container.querySelector('#sd-widget-mount');
+    WIDGETS[widgetId]()
+      .then(mod => {
+        if (widgetCancelled || !mountEl) return;
+        const fn = mod.mount || (mod.default && mod.default.mount) || mod.default;
+        if (typeof fn !== 'function') throw new Error('widget has no mount()');
+        mountEl.innerHTML = '';
+        const c = fn(mountEl, { data });
+        if (typeof c === 'function') widgetCleanup = c;
+      })
+      .catch(err => {
+        if (mountEl) mountEl.innerHTML =
+          `<div class="sd-widget-error">Interactive failed to load: ${esc(err.message)}</div>`;
+      });
+  }
+
   return function cleanup() {
     document.removeEventListener('keydown', onKey);
+    widgetCancelled = true;
+    if (widgetCleanup) { try { widgetCleanup(); } catch {} widgetCleanup = null; }
   };
 }

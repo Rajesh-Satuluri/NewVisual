@@ -119,6 +119,7 @@ export function mount(container, { done } = { done: new Set() }) {
         <div class="sd-card-top">
           <span class="sd-card-icon">${qn.icon || '📘'}</span>
           <span class="sd-diff ${dc}">${esc(qn.difficulty || '')}</span>
+          ${qn.widget ? '<span class="sd-interactive" title="Has an interactive widget">▶ interactive</span>' : ''}
           ${qn.draft ? '<span class="sd-draft">draft</span>' : ''}
           ${isDone ? '<span class="sd-card-check" title="Completed">✓</span>' : ''}
         </div>

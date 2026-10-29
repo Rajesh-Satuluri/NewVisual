@@ -8,5 +8,6 @@ export default {
   tldr: "Shard on the key your queries filter by so most reads hit one shard — usually user or tenant — and avoid cross-shard fan-out.",
   steps: [],
   checklist: [],
+  widget: "consistent-hash",
   draft: true
 };
