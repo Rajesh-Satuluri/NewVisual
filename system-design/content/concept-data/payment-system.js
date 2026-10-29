@@ -46,6 +46,54 @@ export default {
       body: "Even with care, your records and the PSP's/bank's can drift (missed webhook, timeout). Run a scheduled **reconciliation** job that compares your ledger against the provider's settlement reports and flags/fixes discrepancies. Reconciliation is the safety net that guarantees the books match reality — non-negotiable in payments.",
     },
   ],
+  deepDiveTitle: "🔬 Deep dive",
+  deepDiveIntro: "Payments are where \"it usually works\" isn't good enough. Here are the three failure moments that define the design — a double-click, a crash mid-charge, and a lost webhook — and exactly how idempotency, state, and reconciliation handle each.",
+  deepDive: [
+    {
+      title: "The network is at-least-once; the effect must be exactly-once",
+      body: "Every hard part of a payment system comes from one fact: requests, retries and webhooks can all happen **more than once**. The whole design is about making duplicates harmless.",
+      stats: [
+        { value: "≥1", label: "times any request may arrive", tone: "amber" },
+        { value: "=1", label: "times money may actually move", tone: "green" },
+        { value: "0", label: "acceptable lost or duplicated charges", tone: "red" },
+      ],
+    },
+    {
+      title: "Three failure moments, three mechanisms",
+      timeline: [
+        { t: "double-click", icon: "🖱️", tone: "warn", title: "User submits twice", detail: "Both requests carry the same idempotency key. The first charges; the second finds the stored outcome and returns it — no second charge. The PSP is also sent the key as a second line of defense." },
+        { t: "crash", icon: "💥", tone: "bad", title: "Service dies right after calling the PSP", detail: "The payment was persisted as PENDING before the call, so on restart we know a call was in flight. We query the PSP for the authoritative result instead of guessing — avoiding the 'charged them but lost our record' disaster." },
+        { t: "webhook lost", icon: "📭", tone: "warn", title: "A settlement webhook never arrives", detail: "Our record and the PSP's drift. The scheduled reconciliation job compares our ledger to the PSP's settlement report, spots the gap, and posts the correcting entry." },
+        { t: "settled", icon: "✅", tone: "good", title: "Books balance", detail: "Idempotency stopped duplicates, state recovery handled the crash, reconciliation caught the drift. Every cent is accounted for and auditable." },
+      ],
+    },
+    {
+      title: "On crash recovery: never guess",
+      compare: {
+        title: "Service crashed after calling the PSP — now what?",
+        cols: [
+          { title: "Guess (re-charge or assume failure)", tone: "bad", body: "Act on an assumption about what the PSP did.", points: [
+            "Re-charge → you double-charge the customer.",
+            "Assume failure → you ship goods you were never paid for.",
+            "Either way the books are wrong.",
+          ] },
+          { title: "Persist PENDING, then query the PSP", tone: "good", body: "The PSP is the source of truth for what actually happened.", points: [
+            "PENDING written before the call tells you a charge was in flight.",
+            "On restart, ask the PSP (by idempotency key) for the real outcome.",
+            "Reconcile your record to it — no double charge, no phantom.",
+          ] },
+        ],
+      },
+    },
+    {
+      title: "Why a ledger, not a balance column",
+      body: "Money is tracked as **append-only, double-entry** ledger lines — balanced debits and credits that always sum to zero. You never edit an entry; you post a reversing one. That gives a provable audit trail and makes it structurally impossible to silently 'lose' money.",
+      callouts: [
+        { tone: "key", label: "State machine:", body: "PENDING → AUTHORIZED → CAPTURED → SETTLED (or FAILED / REFUNDED). Persisting state before each external call is what makes recovery deterministic." },
+        { tone: "tip", label: "The one-liner:", body: "\"Idempotency keys for duplicates, persisted state + query-the-PSP for partial failures, and reconciliation for drift — on top of an immutable double-entry ledger.\" That's the senior answer in a sentence." },
+      ],
+    },
+  ],
   qa: [
     {
       q: "How do you guarantee a customer is never double-charged?",

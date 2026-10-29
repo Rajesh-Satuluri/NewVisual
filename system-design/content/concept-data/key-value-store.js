@@ -63,6 +63,61 @@ export default {
       ],
     },
   ],
+  deepDiveTitle: "🔬 Deep dive",
+  deepDiveIntro: "A distributed key-value store is the clearest lens on CAP and quorums. Here's the quorum math that lets you dial consistency vs availability per operation, and what happens to a write when a replica is down.",
+  deepDive: [
+    {
+      title: "The quorum knob: W + R > N",
+      body: "With **N** replicas, require **W** acknowledgements to write and **R** to read. If **W + R > N**, the read set and write set always overlap, so a read is guaranteed to see the latest write. Tuning W and R slides you between consistency, latency and availability — per operation.",
+      stats: [
+        { value: "N = 3", label: "replicas per key", tone: "blue" },
+        { value: "W=2, R=2", label: "W+R=4 > 3 → strong reads", tone: "green" },
+        { value: "W=1", label: "fast writes, weaker guarantee", tone: "amber" },
+        { value: "R=1", label: "fast reads, may be stale", tone: "amber" },
+      ],
+    },
+    {
+      title: "Dialing the trade-off",
+      compare: {
+        title: "Same N=3, different W/R",
+        cols: [
+          { title: "W=3, R=1 — write-all", tone: "accent", body: "Every replica must ack a write.", points: [
+            "Reads are cheap and always fresh.",
+            "Writes are slow and fail if any replica is down.",
+            "Good for read-heavy, write-rare data.",
+          ] },
+          { title: "W=1, R=1 — fastest", tone: "bad", body: "One ack is enough either way.", points: [
+            "Lowest latency, highest availability.",
+            "W+R=2 ≤ 3 → reads can be stale.",
+            "Eventual consistency; fine for likes/counters.",
+          ] },
+          { title: "W=2, R=2 — balanced", tone: "good", body: "Majority quorum.", points: [
+            "W+R=4 > 3 → reads see latest write.",
+            "Tolerates one replica down and still works.",
+            "The common default for strong-ish KV.",
+          ] },
+        ],
+      },
+    },
+    {
+      title: "CAP in one decision",
+      body: "During a network partition you can't have both consistency and availability. A KV store picks per use case: **CP** refuses writes that can't reach a quorum (stay correct, lose availability); **AP** accepts writes anywhere and reconciles later (stay available, allow temporary divergence).",
+      callouts: [
+        { tone: "key", label: "CP vs AP:", body: "Dynamo-style stores lean AP (always writable, reconcile conflicts); systems needing correctness (locks, balances) lean CP (reject rather than diverge)." },
+        { tone: "info", label: "Reconciliation:", body: "AP systems detect concurrent writes with version vectors / vector clocks and resolve them (last-writer-wins, or merge) rather than silently dropping one." },
+      ],
+    },
+    {
+      title: "A write when a replica is down",
+      steps: [
+        { title: "Coordinator routes the write", detail: "Consistent hashing picks the N replicas for the key; the coordinator sends the write to all of them." },
+        { title: "Wait for W acks", detail: "As soon as W replicas confirm, the write succeeds — you don't wait for the slow or dead one." },
+        { title: "Hinted handoff for the missing replica", detail: "Another node temporarily stores a 'hint' for the down replica so the write isn't lost, and it still counts toward availability." },
+        { title: "Replica recovers → handoff + repair", detail: "When the node returns, hints are delivered and anti-entropy (e.g. Merkle-tree comparison) repairs any remaining divergence." },
+      ],
+      callout: { tone: "tip", label: "The one-liner:", body: "\"W+R>N gives me overlap for fresh reads; I tune W and R per operation, pick CP or AP by whether correctness or availability matters more, and use hinted handoff + read repair to stay available through failures.\"" },
+    },
+  ],
   qa: [
     {
       q: "Explain the N, W, R quorum model and how you'd tune it.",

@@ -46,6 +46,68 @@ export default {
       flow: ["Sequenced input log (replicated)", "Matching engine (replay to rebuild)", "Snapshots + log = recovery", "Market data feed → consumers"],
     },
   ],
+  deepDiveTitle: "🔬 Deep dive",
+  deepDiveIntro: "The stock exchange is the one system where a single thread beats a cluster. Here's why determinism outranks parallelism, how an order matches, and how you recover a purely in-memory engine without losing a trade.",
+  deepDive: [
+    {
+      title: "The counter-intuitive core",
+      body: "You'd expect to scale a hot system by adding threads and machines. The matching engine does the opposite: **one thread, in memory, per symbol**. Correctness and fairness must be exact and reproducible, and locks + parallelism destroy both.",
+      stats: [
+        { value: "1 thread", label: "per symbol's matching engine", tone: "accent" },
+        { value: "in-memory", label: "order book; disk off the hot path", tone: "blue" },
+        { value: "µs", label: "latency target per order", tone: "green" },
+        { value: "deterministic", label: "replay = identical result", tone: "amber" },
+      ],
+    },
+    {
+      title: "How an order matches (price-time priority)",
+      svg: `<svg viewBox="0 0 560 190" width="560" role="img" aria-label="Order book matching" style="font-family:system-ui">
+        <text x="110" y="20" text-anchor="middle" fill="#10B981" font-size="12" font-weight="700">BIDS (buy)</text>
+        <rect x="30" y="30" width="160" height="22" rx="4" fill="none" stroke="#10B981" stroke-opacity="0.6"/><text x="110" y="45" text-anchor="middle" fill="currentColor" font-size="11">$10.02 × 100</text>
+        <rect x="30" y="56" width="160" height="22" rx="4" fill="none" stroke="#10B981" stroke-opacity="0.4"/><text x="110" y="71" text-anchor="middle" fill="currentColor" font-size="11">$10.01 × 300</text>
+        <rect x="30" y="82" width="160" height="22" rx="4" fill="none" stroke="#10B981" stroke-opacity="0.25"/><text x="110" y="97" text-anchor="middle" fill="currentColor" font-size="11">$10.00 × 500</text>
+        <text x="450" y="20" text-anchor="middle" fill="#EF4444" font-size="12" font-weight="700">ASKS (sell)</text>
+        <rect x="370" y="30" width="160" height="22" rx="4" fill="none" stroke="#EF4444" stroke-opacity="0.6"/><text x="450" y="45" text-anchor="middle" fill="currentColor" font-size="11">$10.03 × 200</text>
+        <rect x="370" y="56" width="160" height="22" rx="4" fill="none" stroke="#EF4444" stroke-opacity="0.4"/><text x="450" y="71" text-anchor="middle" fill="currentColor" font-size="11">$10.04 × 150</text>
+        <text x="280" y="140" text-anchor="middle" fill="currentColor" font-size="11" font-weight="700">Incoming: BUY 250 @ $10.03</text>
+        <text x="280" y="160" text-anchor="middle" fill="currentColor" font-size="10" opacity="0.75">matches lowest ask first: 200 @ $10.03, then rests 50 in the book</text>
+        <text x="280" y="177" text-anchor="middle" fill="currentColor" font-size="10" opacity="0.6">spread = best ask − best bid = $10.03 − $10.02</text>
+      </svg>`,
+      caption: "Match best price first; among equal prices, earliest order first (FIFO). Leftover quantity rests in the book.",
+    },
+    {
+      title: "Why single-threaded wins here",
+      compare: {
+        title: "Matching engine architecture",
+        cols: [
+          { title: "Multi-threaded / distributed", tone: "bad", body: "The 'obvious' way to scale.", points: [
+            "Lock contention on the order book kills latency.",
+            "Nondeterministic interleavings break fair, reproducible ordering.",
+            "Can't replay to audit or recover exactly.",
+          ] },
+          { title: "Single-threaded, in-memory", tone: "good", body: "What real exchanges do.", points: [
+            "No locks → cache-friendly, microsecond latency.",
+            "One total order of events → fully deterministic.",
+            "Replaying the input log reproduces the book exactly.",
+          ] },
+        ],
+      },
+    },
+    {
+      title: "The sequencer makes recovery trivial",
+      body: "A **sequencer** stamps every incoming order with a strict sequence number *before* matching, defining one true order of events. Because matching is deterministic, durability doesn't need disk on the hot path — it needs the input log.",
+      steps: [
+        { title: "Sequence every order", detail: "Assign a monotonic sequence number and append it to a replicated input log before the engine sees it." },
+        { title: "Match in memory", detail: "The single thread processes orders in sequence order, emitting trades and book updates — no disk, no locks." },
+        { title: "Snapshot periodically", detail: "Checkpoint the in-memory book every so often so recovery doesn't replay from the beginning of time." },
+        { title: "Recover by replay", detail: "On crash: load the latest snapshot, replay the log forward. Determinism guarantees the rebuilt book is byte-identical." },
+      ],
+      callouts: [
+        { tone: "key", label: "Scale by partition, not by thread:", body: "Throughput comes from running independent single-threaded engines per symbol, not from parallelizing one book." },
+        { tone: "tip", label: "Separate the read path:", body: "Market-data fan-out (trades, book changes) is published to consumers independently, so serving quotes never slows matching." },
+      ],
+    },
+  ],
   qa: [
     {
       q: "Why is the matching engine often single-threaded and in-memory?",
