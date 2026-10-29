@@ -36,12 +36,12 @@ export const CONCEPTS = [
   { id: "notification-system", title: "Design a notification system", icon: "🔔", chapter: 10, wave: 3, group: "Classic designs", summary: "Fan-out across push/SMS/email with queues, retries and dedup.", built: true },
   { id: "news-feed-system", title: "Design a news feed system", icon: "📰", chapter: 11, wave: 3, group: "Classic designs", summary: "Fan-out on write vs on read, and the hybrid that handles celebrities.", built: true },
   { id: "chat-system", title: "Design a chat system", icon: "💬", chapter: 12, wave: 3, group: "Classic designs", summary: "WebSocket presence, message delivery, ordering and 1:1 vs group chat.", built: true },
-  { id: "search-autocomplete", title: "Design search autocomplete", icon: "🔎", chapter: 13, wave: 4, group: "Classic designs", summary: "Trie-backed prefix suggestions, ranking, and keeping it fast.", built: false },
+  { id: "search-autocomplete", title: "Design search autocomplete", icon: "🔎", chapter: 13, wave: 4, group: "Classic designs", summary: "Trie-backed prefix suggestions, ranking, and keeping it fast.", built: true },
 
   // ── Scale & media ─────────────────────────────────────────────────────────
-  { id: "youtube", title: "Design YouTube", icon: "▶️", chapter: 14, wave: 4, group: "Scale & media", summary: "Upload + transcode pipeline, CDN delivery, and blob storage at scale.", built: false },
-  { id: "google-drive", title: "Design Google Drive", icon: "📁", chapter: 15, wave: 4, group: "Scale & media", summary: "Chunked upload, sync, dedup, and metadata vs block storage.", built: false },
-  { id: "proximity-service", title: "Design a proximity service", icon: "📍", chapter: 16, wave: 4, group: "Scale & media", summary: "Geohash / quadtree indexing to find nearby businesses fast.", built: false },
+  { id: "youtube", title: "Design YouTube", icon: "▶️", chapter: 14, wave: 4, group: "Scale & media", summary: "Upload + transcode pipeline, CDN delivery, and blob storage at scale.", built: true },
+  { id: "google-drive", title: "Design Google Drive", icon: "📁", chapter: 15, wave: 4, group: "Scale & media", summary: "Chunked upload, sync, dedup, and metadata vs block storage.", built: true },
+  { id: "proximity-service", title: "Design a proximity service", icon: "📍", chapter: 16, wave: 4, group: "Scale & media", summary: "Geohash / quadtree indexing to find nearby businesses fast.", built: true },
   { id: "nearby-friends", title: "Design nearby friends", icon: "👥", chapter: 17, wave: 5, group: "Scale & media", summary: "Live location updates, pub/sub fan-out, and ephemeral geo state.", built: false },
   { id: "google-maps", title: "Design Google Maps", icon: "🛰️", chapter: 18, wave: 5, group: "Scale & media", summary: "Map tiles, routing/ETA, and serving navigation at planet scale.", built: false },
 
@@ -74,6 +74,10 @@ export const CONCEPT_LOADERS = {
   "notification-system": () => import("./concept-data/notification-system.js"),
   "news-feed-system": () => import("./concept-data/news-feed-system.js"),
   "chat-system": () => import("./concept-data/chat-system.js"),
+  "search-autocomplete": () => import("./concept-data/search-autocomplete.js"),
+  "youtube": () => import("./concept-data/youtube.js"),
+  "google-drive": () => import("./concept-data/google-drive.js"),
+  "proximity-service": () => import("./concept-data/proximity-service.js"),
 };
 
 export const CONCEPT_PREFIX = "c:";   // hash routing: #c:<id>
