@@ -2,6 +2,9 @@ import { renderNav } from './components/nav.js';
 import { mount as mountQuestion } from './components/question-renderer.js';
 import { mount as mountConcept } from './components/concept-renderer.js';
 import { mount as mountHome } from './components/home.js';
+import { mount as mountGlossary } from './components/glossary.js';
+import { mount as mountCheatsheet } from './components/cheatsheet.js';
+import { mount as mountDashboard } from './components/dashboard.js';
 import { createCommandPalette } from './components/command-palette.js';
 import { toast } from './components/toast.js';
 import {
@@ -34,6 +37,17 @@ let currentCleanup = null;
 let currentId = null;     // full hash value (e.g. "c:rate-limiter" or a question id)
 
 const TOTAL = QUESTIONS.length + builtConceptCount();
+
+// ── Static reference/practice pages ──────────────────────────────────────────
+const PAGE_PREFIX = 'p:';
+const PAGES = {
+  glossary:   { title: 'Glossary',    group: 'Reference', icon: '📖', mount: mountDashboardProxy(mountGlossary) },
+  cheatsheet: { title: 'Cheat sheet', group: 'Reference', icon: '📋', mount: mountDashboardProxy(mountCheatsheet) },
+  dashboard:  { title: 'Dashboard',   group: 'Reference', icon: '📊', mount: (el) => mountDashboard(el, { done }) },
+};
+// glossary/cheatsheet take (container) only; wrap so all share one signature.
+function mountDashboardProxy(fn) { return (el) => fn(el); }
+export const PAGE_LIST = Object.entries(PAGES).map(([id, p]) => ({ id, ...p }));
 
 // ── Theme ──────────────────────────────────────────────────────────────────
 const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
@@ -113,10 +127,27 @@ async function navigateConcept(id) {
   document.getElementById('module-canvas').scrollTo(0, 0);
 }
 
+// ── Page route (reference / practice) ─────────────────────────────────────────
+function navigatePage(id) {
+  const page = PAGES[id];
+  if (!page) { showHome(); return; }
+  if (currentCleanup) { currentCleanup(); currentCleanup = null; }
+  currentId = PAGE_PREFIX + id;
+  breadcrumbGroup.textContent = page.group;
+  breadcrumbTitle.textContent = page.title;
+  markDoneBtn.style.display = 'none';
+  root.innerHTML = '';
+  const cleanup = page.mount(root);
+  if (typeof cleanup === 'function') currentCleanup = cleanup;
+  renderNav(currentId, done);
+  document.getElementById('module-canvas').scrollTo(0, 0);
+}
+
 // ── Question route ────────────────────────────────────────────────────────────
 async function navigate(id) {
   if (!id) { showHome(); return; }
   if (id.startsWith(CONCEPT_PREFIX)) { navigateConcept(id.slice(CONCEPT_PREFIX.length)); return; }
+  if (id.startsWith(PAGE_PREFIX)) { navigatePage(id.slice(PAGE_PREFIX.length)); return; }
   if (!LOADERS[id]) { showHome(); return; }
   if (currentCleanup) { currentCleanup(); currentCleanup = null; }
 
@@ -164,6 +195,9 @@ const BUILT_CONCEPTS = CONCEPTS.filter(c => c.built).sort((a, b) => a.chapter - 
 function searchIndex() {
   const items = [];
   items.push({ hash: '', title: 'Home', subtitle: 'Concepts & question explorer', icon: '🏠', group: 'Pages' });
+  PAGE_LIST.forEach(p => items.push({
+    hash: PAGE_PREFIX + p.id, title: p.title, subtitle: p.group, icon: p.icon, group: 'Pages',
+  }));
   BUILT_CONCEPTS.forEach(c => items.push({
     hash: CONCEPT_PREFIX + c.id,
     title: c.title,

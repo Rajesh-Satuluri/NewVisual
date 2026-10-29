@@ -78,6 +78,30 @@ export function mount(container, { done } = { done: new Set() }) {
       </div>
 
       <div id="sd-home-view"></div>
+
+      <section class="sd-ref-row">
+        <div class="sd-section-head sd-section-head-mt">
+          <h2 class="sd-section-h">📚 Reference & progress</h2>
+          <p class="sd-section-sub">Quick-access pages to track where you are and look things up.</p>
+        </div>
+        <div class="sd-ref-cards">
+          <a class="sd-ref-card" href="#p:dashboard">
+            <span class="sd-ref-card-icon">📊</span>
+            <span class="sd-ref-card-title">Dashboard</span>
+            <span class="sd-ref-card-sum">Your progress by theme and what to study next.</span>
+          </a>
+          <a class="sd-ref-card" href="#p:glossary">
+            <span class="sd-ref-card-icon">📖</span>
+            <span class="sd-ref-card-title">Glossary</span>
+            <span class="sd-ref-card-sum">Every key term in one line, linked to its concept.</span>
+          </a>
+          <a class="sd-ref-card" href="#p:cheatsheet">
+            <span class="sd-ref-card-icon">📋</span>
+            <span class="sd-ref-card-title">Cheat sheet</span>
+            <span class="sd-ref-card-sum">Latency numbers, capacity math, and pattern picks.</span>
+          </a>
+        </div>
+      </section>
     </div>`;
 
   const viewEl = container.querySelector('#sd-home-view');

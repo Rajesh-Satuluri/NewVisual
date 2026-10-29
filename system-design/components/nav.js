@@ -2,6 +2,12 @@ import { QUESTIONS, CATEGORY_ORDER, CATEGORY_LABEL } from '../content/index.js';
 import { CONCEPTS, CONCEPT_GROUPS, CONCEPT_PREFIX } from '../content/concepts.js';
 
 const COLLAPSE_KEY = 'system-design-nav-collapsed';
+const PAGE_PREFIX = 'p:';
+const REFERENCE_PAGES = [
+  { id: 'dashboard',  title: 'Dashboard',  icon: '📊' },
+  { id: 'glossary',   title: 'Glossary',   icon: '📖' },
+  { id: 'cheatsheet', title: 'Cheat sheet', icon: '📋' },
+];
 
 export function renderNav(activeHash, done) {
   const nav = document.getElementById('nav-list');
@@ -9,9 +15,11 @@ export function renderNav(activeHash, done) {
 
   const collapsed = new Set(JSON.parse(localStorage.getItem(COLLAPSE_KEY) || '[]'));
 
-  const activeConceptId = activeHash && activeHash.startsWith(CONCEPT_PREFIX)
-    ? activeHash.slice(CONCEPT_PREFIX.length) : null;
-  const activeQuestionId = activeHash && !activeHash.startsWith(CONCEPT_PREFIX) ? activeHash : null;
+  const isConcept = activeHash && activeHash.startsWith(CONCEPT_PREFIX);
+  const isPage = activeHash && activeHash.startsWith(PAGE_PREFIX);
+  const activeConceptId = isConcept ? activeHash.slice(CONCEPT_PREFIX.length) : null;
+  const activePageId = isPage ? activeHash.slice(PAGE_PREFIX.length) : null;
+  const activeQuestionId = activeHash && !isConcept && !isPage ? activeHash : null;
 
   // Auto-expand the active item's group.
   if (activeQuestionId) {
@@ -94,7 +102,15 @@ export function renderNav(activeHash, done) {
       </div>`;
   }).join('');
 
+  const referenceHtml = REFERENCE_PAGES.map(p => `
+    <a href="#${PAGE_PREFIX}${p.id}" class="nav-item${p.id === activePageId ? ' active' : ''}" data-id="${PAGE_PREFIX}${p.id}" title="${esc(p.title)}">
+      <span class="nav-icon">${p.icon}</span>
+      <span class="nav-label">${esc(p.title)}</span>
+    </a>`).join('');
+
   nav.innerHTML = `
+    <div class="nav-section-label">📚 Reference</div>
+    <div class="nav-group"><div class="nav-group-items">${referenceHtml}</div></div>
     <div class="nav-section-label">🧭 Concepts</div>
     ${conceptHtml}
     <div class="nav-section-label">❓ Questions</div>

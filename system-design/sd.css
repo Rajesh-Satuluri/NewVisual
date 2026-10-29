@@ -1229,3 +1229,89 @@
 .sd-lvl.lvl-int { color: var(--blue);  border-color: color-mix(in srgb, var(--blue) 40%, transparent);  background: color-mix(in srgb, var(--blue) 10%, transparent); }
 .sd-lvl.lvl-adv { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 40%, transparent); background: color-mix(in srgb, var(--amber) 10%, transparent); }
 .sd-mins { font-size: 11.5px; color: var(--text3); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   WAVE 2 — Reference surfaces: glossary, cheat sheet, dashboard, home ref row
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Home reference row ────────────────────────────────────────────────────*/
+.sd-ref-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.sd-ref-card {
+  display: flex; flex-direction: column; gap: 5px;
+  padding: 16px 18px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  text-decoration: none;
+  transition: border-color .15s, transform .12s, box-shadow .15s;
+}
+.sd-ref-card:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); transform: translateY(-2px); box-shadow: 0 8px 22px rgba(0,0,0,.18); }
+.sd-ref-card-icon { font-size: 22px; }
+.sd-ref-card-title { font-size: 15px; font-weight: 700; color: var(--text); }
+.sd-ref-card-sum { font-size: 12.5px; color: var(--text3); line-height: 1.5; }
+
+/* ── Shared reference-page header ──────────────────────────────────────────*/
+.sd-ref-search-wrap { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; flex-wrap: wrap; }
+.sd-ref-search-wrap .sd-search { flex: 1; min-width: 220px; }
+.sd-ref-count { font-size: 13px; color: var(--text3); white-space: nowrap; }
+
+/* ── Glossary ──────────────────────────────────────────────────────────────*/
+.sd-gl-group { margin-bottom: 26px; }
+.sd-gl-group-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text3); margin: 0 0 12px; display: flex; align-items: center; gap: 8px; }
+.sd-gl-group-n { font-size: 11px; font-weight: 700; color: var(--accent); background: var(--accent-lo); border-radius: 999px; padding: 1px 8px; }
+.sd-gl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.sd-gl-item { background: var(--bg2); border: 1px solid var(--border); border-radius: 11px; padding: 14px 16px; }
+.sd-gl-term { font-size: 14.5px; font-weight: 700; color: var(--text); margin-bottom: 5px; }
+.sd-gl-def { font-size: 13px; color: var(--text2); line-height: 1.6; }
+.sd-gl-see { display: inline-block; margin-top: 9px; font-size: 12px; font-weight: 600; color: var(--accent); text-decoration: none; }
+.sd-gl-see:hover { text-decoration: underline; }
+
+/* ── Cheat sheet ───────────────────────────────────────────────────────────*/
+.sd-cs-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; align-items: start; }
+.sd-cs-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; }
+.sd-cs-title { font-size: 15px; font-weight: 800; color: var(--text); margin: 0 0 12px; display: flex; align-items: center; gap: 9px; }
+.sd-cs-icon { font-size: 18px; }
+.sd-cs-note { font-size: 13px; color: var(--text2); line-height: 1.6; margin: 0 0 12px; font-style: italic; }
+.sd-cs-card .sd-table { font-size: 12.5px; }
+.sd-cs-card .sd-rules { margin-top: 10px; }
+
+/* ── Dashboard ─────────────────────────────────────────────────────────────*/
+.sd-db-top { display: flex; gap: 20px; align-items: stretch; flex-wrap: wrap; margin-bottom: 22px; }
+.sd-db-ring-card {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 18px 28px;
+}
+.sd-db-ring-bg { stroke: var(--bg3); }
+.sd-db-ring-fg { stroke: var(--accent); transition: stroke-dasharray .6s ease; }
+.sd-db-ring-pct { fill: var(--text); font-size: 24px; font-weight: 800; }
+.sd-db-ring-sub { fill: var(--text3); font-size: 11px; }
+.sd-db-ring-caption { font-size: 12px; color: var(--text3); }
+.sd-db-stats { flex: 1; min-width: 260px; display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; align-content: center; }
+
+.sd-db-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-bottom: 16px; }
+.sd-db-panel { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; }
+.sd-db-panel-title { font-size: 14px; font-weight: 800; color: var(--text); margin: 0 0 14px; }
+.sd-db-row { margin-bottom: 12px; }
+.sd-db-row-head { display: flex; justify-content: space-between; font-size: 12.5px; margin-bottom: 5px; }
+.sd-db-row-label { color: var(--text2); }
+.sd-db-row-count { color: var(--text3); font-variant-numeric: tabular-nums; }
+.sd-db-bar { height: 7px; background: var(--bg3); border-radius: 4px; overflow: hidden; }
+.sd-db-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 4px; transition: width .5s ease; }
+.sd-db-fill.full { background: var(--green); }
+.sd-db-row-link { text-decoration: none; display: block; }
+
+.sd-db-next-list { display: flex; flex-direction: column; gap: 8px; }
+.sd-db-next-item { display: flex; align-items: center; gap: 12px; padding: 11px 14px; background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; text-decoration: none; transition: border-color .15s, transform .12s; }
+.sd-db-next-item:hover { border-color: color-mix(in srgb, var(--accent) 50%, var(--border)); transform: translateX(2px); }
+.sd-db-next-icon { font-size: 18px; }
+.sd-db-next-text { flex: 1; display: flex; flex-direction: column; }
+.sd-db-next-title { font-size: 13.5px; font-weight: 600; color: var(--text); }
+.sd-db-next-sub { font-size: 11.5px; color: var(--text3); }
+.sd-db-next-arrow { color: var(--accent); font-weight: 700; }
+.sd-db-done-all { font-size: 13.5px; color: var(--text2); padding: 10px 4px; }
+
+@media (max-width: 720px) {
+  .sd-cs-grid, .sd-gl-grid { grid-template-columns: 1fr; }
+  .sd-db-top { flex-direction: column; align-items: stretch; }
+  .sd-db-ring-card { flex-direction: row; justify-content: center; }
+}
