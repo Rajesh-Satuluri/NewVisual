@@ -21,15 +21,15 @@ export const CONCEPTS = [
   // ── Foundations ───────────────────────────────────────────────────────────
   { id: 'data-lake', title: 'Data lake architecture', icon: '🏞️', chapter: 1, wave: 'A', group: 'Foundations', summary: 'Store any data cheaply in open formats on object storage, schema-on-read — the landing zone for every downstream system.', built: true },
   { id: 'medallion-architecture', title: 'Medallion architecture (Bronze/Silver/Gold)', icon: '🥉', chapter: 2, wave: 'A', group: 'Foundations', summary: 'Refine data in layers: raw Bronze → cleaned Silver → business-ready Gold, each a quality checkpoint.', built: true },
-  { id: 'warehouse-design', title: 'Data warehouse design (star & snowflake)', icon: '🏢', chapter: 3, wave: 'B', group: 'Foundations', summary: 'Fact and dimension tables, star vs snowflake schemas, and modeling for analytical queries.', built: false },
-  { id: 'oltp-vs-olap', title: 'OLTP vs OLAP & data modeling', icon: '🧱', chapter: 4, wave: 'B', group: 'Foundations', summary: 'Row vs columnar stores, normalization vs denormalization, and why analytics needs a different model.', built: false },
-  { id: 'batch-vs-streaming', title: 'Batch vs streaming', icon: '🌊', chapter: 5, wave: 'B', group: 'Foundations', summary: 'Bounded batch jobs vs unbounded streams — latency, cost, and when each wins.', built: false },
+  { id: 'warehouse-design', title: 'Data warehouse design (star & snowflake)', icon: '🏢', chapter: 3, wave: 'B', group: 'Foundations', summary: 'Fact and dimension tables, star vs snowflake schemas, and modeling for analytical queries.', built: true },
+  { id: 'oltp-vs-olap', title: 'OLTP vs OLAP & data modeling', icon: '🧱', chapter: 4, wave: 'B', group: 'Foundations', summary: 'Row vs columnar stores, normalization vs denormalization, and why analytics needs a different model.', built: true },
+  { id: 'batch-vs-streaming', title: 'Batch vs streaming', icon: '🌊', chapter: 5, wave: 'B', group: 'Foundations', summary: 'Bounded batch jobs vs unbounded streams — latency, cost, and when each wins.', built: true },
 
   // ── Storage & table formats ───────────────────────────────────────────────
-  { id: 'file-formats', title: 'File formats (Parquet, ORC, Avro)', icon: '🗜️', chapter: 6, wave: 'B', group: 'Storage & table formats', summary: 'Row vs columnar encoding, compression, and column projection that makes analytics fast.', built: false },
-  { id: 'partitioning-bucketing', title: 'Partitioning & bucketing', icon: '🗂️', chapter: 7, wave: 'B', group: 'Storage & table formats', summary: 'Lay data out so queries prune to only the files they need — and avoid the skew traps.', built: false },
-  { id: 'table-formats', title: 'Open table formats (Delta, Iceberg, Hudi)', icon: '🧊', chapter: 8, wave: 'B', group: 'Storage & table formats', summary: 'ACID transactions, snapshot isolation, and time travel over files in a lake.', built: false },
-  { id: 'small-file-compaction', title: 'The small-file problem & compaction', icon: '🧩', chapter: 9, wave: 'B', group: 'Storage & table formats', summary: 'Why millions of tiny files kill performance, and how compaction fixes it.', built: false },
+  { id: 'file-formats', title: 'File formats (Parquet, ORC, Avro)', icon: '🗜️', chapter: 6, wave: 'B', group: 'Storage & table formats', summary: 'Row vs columnar encoding, compression, and column projection that makes analytics fast.', built: true },
+  { id: 'partitioning-bucketing', title: 'Partitioning & bucketing', icon: '🗂️', chapter: 7, wave: 'B', group: 'Storage & table formats', summary: 'Lay data out so queries prune to only the files they need — and avoid the skew traps.', built: true },
+  { id: 'table-formats', title: 'Open table formats (Delta, Iceberg, Hudi)', icon: '🧊', chapter: 8, wave: 'B', group: 'Storage & table formats', summary: 'ACID transactions, snapshot isolation, and time travel over files in a lake.', built: true },
+  { id: 'small-file-compaction', title: 'The small-file problem & compaction', icon: '🧩', chapter: 9, wave: 'B', group: 'Storage & table formats', summary: 'Why millions of tiny files kill performance, and how compaction fixes it.', built: true },
 
   // ── Ingestion & pipelines ─────────────────────────────────────────────────
   { id: 'etl-vs-elt', title: 'Batch ETL vs ELT', icon: '🔄', chapter: 10, wave: 'C', group: 'Ingestion & pipelines', summary: 'Transform-before-load vs load-then-transform, and why ELT won in the cloud warehouse era.', built: false },
@@ -71,6 +71,13 @@ export const CONCEPT_LOADERS = {
   'data-lake': () => import('./concept-data/data-lake.js'),
   'medallion-architecture': () => import('./concept-data/medallion-architecture.js'),
   'cdc-pipeline': () => import('./concept-data/cdc-pipeline.js'),
+  'warehouse-design': () => import('./concept-data/warehouse-design.js'),
+  'oltp-vs-olap': () => import('./concept-data/oltp-vs-olap.js'),
+  'batch-vs-streaming': () => import('./concept-data/batch-vs-streaming.js'),
+  'file-formats': () => import('./concept-data/file-formats.js'),
+  'partitioning-bucketing': () => import('./concept-data/partitioning-bucketing.js'),
+  'table-formats': () => import('./concept-data/table-formats.js'),
+  'small-file-compaction': () => import('./concept-data/small-file-compaction.js'),
 };
 
 export const CONCEPT_PREFIX = 'c:';
