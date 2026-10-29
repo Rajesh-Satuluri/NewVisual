@@ -45,6 +45,68 @@ export default {
       body: "For small groups, fan out the message to each member's connection (like a mini feed fan-out). For large groups, that fan-out gets expensive, so you cap group size or use a shared conversation inbox that members pull from. Each member tracks their own last-read position for per-user receipts and unread counts.",
     },
   ],
+  deepDiveTitle: "🔬 Deep dive",
+  deepDiveIntro: "Trace a single message from one phone to another and the whole chat design falls out: why WebSockets, how the online and offline paths differ, and what 'delivered' actually means.",
+  deepDive: [
+    {
+      title: "Why a persistent connection",
+      compare: {
+        title: "Getting real-time messages to a client",
+        cols: [
+          { title: "HTTP polling", tone: "bad", body: "Client asks \"anything new?\" on a timer.", points: [
+            "Wasteful: mostly empty responses.",
+            "Latency bounded by the poll interval.",
+            "Doesn't scale to millions of idle clients.",
+          ] },
+          { title: "WebSocket (persistent, bidirectional)", tone: "good", body: "Server pushes the instant a message arrives.", points: [
+            "True real-time, no polling waste.",
+            "One stateful connection per online client.",
+            "Needs a connection layer that tracks who's connected where.",
+          ] },
+        ],
+      },
+    },
+    {
+      title: "One message, end to end",
+      svg: `<svg viewBox="0 0 620 150" width="620" role="img" aria-label="Chat message flow" style="font-family:system-ui">
+        <rect x="10" y="55" width="92" height="40" rx="8" fill="none" stroke="#4F46E5" stroke-width="1.5"/>
+        <text x="56" y="79" text-anchor="middle" fill="currentColor" font-size="11" font-weight="700">Sender</text>
+        <rect x="160" y="55" width="110" height="40" rx="8" fill="none" stroke="#4F46E5" stroke-width="1.5"/>
+        <text x="215" y="73" text-anchor="middle" fill="currentColor" font-size="10" font-weight="700">Chat server</text>
+        <text x="215" y="87" text-anchor="middle" fill="currentColor" font-size="9" opacity="0.7">(WebSocket)</text>
+        <rect x="330" y="55" width="100" height="40" rx="8" fill="none" stroke="#10B981" stroke-width="1.5"/>
+        <text x="380" y="73" text-anchor="middle" fill="currentColor" font-size="10" font-weight="700">Store +</text>
+        <text x="380" y="87" text-anchor="middle" fill="currentColor" font-size="9" opacity="0.7">presence</text>
+        <rect x="500" y="55" width="100" height="40" rx="8" fill="none" stroke="#4F46E5" stroke-width="1.5"/>
+        <text x="550" y="79" text-anchor="middle" fill="currentColor" font-size="11" font-weight="700">Recipient</text>
+        <line x1="102" y1="75" x2="158" y2="75" stroke="currentColor" stroke-width="1.5" marker-end="url(#csA)"/>
+        <line x1="270" y1="75" x2="328" y2="75" stroke="currentColor" stroke-width="1.5" marker-end="url(#csA)"/>
+        <line x1="430" y1="70" x2="498" y2="70" stroke="#10B981" stroke-width="1.5" marker-end="url(#csG)"/>
+        <text x="464" y="60" text-anchor="middle" fill="#10B981" font-size="9">online: push</text>
+        <path d="M380 95 L380 125 L300 125" fill="none" stroke="#F59E0B" stroke-width="1.5" stroke-dasharray="3,3" marker-end="url(#csAm)"/>
+        <text x="300" y="140" text-anchor="middle" fill="#F59E0B" font-size="9">offline: queue → push notification</text>
+        <defs>
+          <marker id="csA" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="currentColor"/></marker>
+          <marker id="csG" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#10B981"/></marker>
+          <marker id="csAm" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#F59E0B"/></marker>
+        </defs>
+      </svg>`,
+      caption: "The server persists every message, then routes by whether the recipient is online.",
+    },
+    {
+      title: "Online vs offline delivery",
+      steps: [
+        { title: "Persist the message first", detail: "Write to durable storage before anything else, so it survives a crash and can be re-delivered. Assign it a per-conversation sequence for ordering." },
+        { title: "Is the recipient connected?", detail: "A presence/routing layer maps user → which chat server holds their WebSocket. If online, push straight down that connection." },
+        { title: "If offline, queue + notify", detail: "Store it as undelivered and send a push notification. On reconnect the client syncs everything after its last-seen sequence number." },
+        { title: "Acknowledge", detail: "Sent → delivered → read receipts flow back as the message changes state, each an update keyed by message id." },
+      ],
+      callouts: [
+        { tone: "key", label: "Ordering:", body: "Per-conversation sequence numbers (not wall-clock time) give a stable order across clients and devices, even when messages arrive out of order." },
+        { tone: "tip", label: "Delivery semantics:", body: "Aim for at-least-once + idempotent apply by message id, so a re-delivered message is de-duplicated rather than shown twice." },
+      ],
+    },
+  ],
   qa: [
     {
       q: "How does the server push a message to a recipient in real time?",

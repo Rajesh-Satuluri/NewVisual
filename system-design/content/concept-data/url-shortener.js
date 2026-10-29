@@ -54,6 +54,53 @@ export default {
       rules: ["301 = cacheable, less load, no repeat-click analytics.", "302 = every click hits you → analytics + changeable target."],
     },
   ],
+  deepDiveTitle: "🔬 Deep dive",
+  deepDiveIntro: "A URL shortener looks trivial, but it's a clinic in read-heavy design and ID encoding. Here's the sizing, the redirect hot path, and the counter-vs-hash decision that interviewers actually probe.",
+  deepDive: [
+    {
+      title: "Size it first",
+      body: "Say 100M new URLs/month and a 100:1 read:write ratio. The numbers drive every choice that follows.",
+      stats: [
+        { value: "~40/s", label: "writes (100M ÷ month)", tone: "blue" },
+        { value: "~4,000/s", label: "reads (redirects) at 100:1", tone: "accent" },
+        { value: "7 chars", label: "base62 → 62⁷ ≈ 3.5 trillion keys", tone: "green" },
+        { value: "100:1", label: "read:write → cache + replicas", tone: "amber" },
+      ],
+    },
+    {
+      title: "The redirect is the hot path",
+      body: "Reads outnumber writes 100:1, and each read is a single lookup: short code → long URL → redirect. This path must be fast and cheap, so it lives almost entirely in cache.",
+      steps: [
+        { title: "Request hits `GET /abc1234`", detail: "Served at the edge / app tier, not the database tier." },
+        { title: "Look up the code in cache (Redis)", detail: "~95%+ hit ratio — popular links dominate, exactly the Pareto a cache loves." },
+        { title: "On a miss, read the DB and backfill the cache", detail: "A key-value or indexed lookup on the short code; then populate Redis so the next read is a hit." },
+        { title: "Return 301/302 with the long URL", detail: "The browser follows the redirect; your service is done in one round trip." },
+      ],
+      callout: { tone: "key", label: "301 vs 302:", body: "A 301 (permanent) lets browsers and proxies cache the redirect — fewer hits reach you, but you lose per-click analytics and can never repoint the link. A 302 (temporary) keeps every click flowing through you (good for analytics, editable links) at higher load. Name the trade-off; it's a classic follow-up." },
+    },
+    {
+      title: "Generating the short code: two camps",
+      compare: {
+        title: "How do you turn a URL into `abc1234`?",
+        cols: [
+          { title: "Hash the URL (e.g. MD5 → base62, take 7 chars)", tone: "bad", body: "Deterministic and stateless, but…", points: [
+            "Truncating a hash creates collisions you must detect and resolve (rehash / append) — extra reads on the write path.",
+            "Same URL → same code can be a feature or a privacy leak.",
+          ] },
+          { title: "Counter + base62 encode", tone: "good", body: "Encode a globally unique incrementing id.", points: [
+            "No collisions by construction — every id is unique.",
+            "Shortest possible codes; grows only as needed.",
+            "Needs a distributed counter (ranges/Snowflake) so it's not a single bottleneck.",
+          ] },
+        ],
+      },
+    },
+    {
+      title: "Why a plain auto-increment won't do",
+      body: "A single database `AUTO_INCREMENT` is a coordination bottleneck and a single point of failure, and it leaks how many URLs exist. Instead, hand each app server a **range** of ids to encode (e.g. a counter service doling out blocks of 1,000), or use **Snowflake-style** ids. Each server then base62-encodes locally with zero per-request coordination.",
+      callout: { tone: "tip", label: "The senior framing:", body: "\"Reads are 100:1, so I optimize the redirect with cache + replicas; writes just need collision-free short codes, so I encode a distributed counter in base62 rather than hashing.\" That connects the sizing to both design choices." },
+    },
+  ],
   qa: [
     {
       q: "How do you generate the short code — hashing or a counter?",

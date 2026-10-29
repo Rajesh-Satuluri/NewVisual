@@ -55,6 +55,55 @@ export default {
       body: "A simple feed is reverse-chronological. Ranked feeds score posts by recency, affinity, and engagement — usually as a separate ranking step over the merged candidate set. Cap feed length (store the most recent N IDs) and paginate with cursors for infinite scroll.",
     },
   ],
+  deepDiveTitle: "🔬 Deep dive",
+  deepDiveIntro: "The news feed is where the fan-out trade-off becomes concrete. Follow one celebrity post through the system and you'll see exactly why neither pure strategy works — and what the hybrid actually does.",
+  deepDive: [
+    {
+      title: "Two ways to build a feed",
+      compare: {
+        title: "Fan-out on write vs on read",
+        cols: [
+          { title: "Fan-out on WRITE (push)", tone: "accent", body: "When you post, copy it into every follower's precomputed feed.", points: [
+            "Reads are instant — the feed is already assembled.",
+            "Writes are expensive: one post = N feed inserts.",
+            "Wastes work on inactive followers.",
+          ] },
+          { title: "Fan-out on READ (pull)", tone: "accent", body: "Assemble the feed at read time from who you follow.", points: [
+            "Writes are cheap — just store the post once.",
+            "Reads are expensive: scatter-gather across all followees.",
+            "Slow p99 for the common feed load.",
+          ] },
+        ],
+      },
+    },
+    {
+      title: "The celebrity problem, by the numbers",
+      body: "Most users have a few hundred followers — fan-out on write is cheap and reads are instant. But a celebrity with 50M followers turns one post into **50 million feed writes**: a fan-out storm that saturates the write path and mostly lands in feeds nobody will read soon.",
+      stats: [
+        { value: "~300", label: "followers for a normal user", tone: "green" },
+        { value: "50M", label: "followers for a celebrity", tone: "red" },
+        { value: "50M writes", label: "one celebrity post, push model", tone: "red" },
+        { value: "O(followees)", label: "celebrity pulled in at read instead", tone: "green" },
+      ],
+    },
+    {
+      title: "A celebrity post, step by step (hybrid)",
+      timeline: [
+        { t: "write", icon: "📝", tone: "accent", title: "Celebrity posts", detail: "The post is stored once. Because this author is flagged high-fan-out, we do NOT push it to 50M feeds." },
+        { t: "write", icon: "⚡", tone: "good", title: "Normal authors still push", detail: "A regular user's post fans out on write to their few hundred followers' feeds — cheap, and their followers get instant reads." },
+        { t: "read", icon: "📥", tone: "accent", title: "Follower opens their feed", detail: "We read their precomputed feed (fast) AND pull recent posts from the handful of celebrities they follow." },
+        { t: "read", icon: "🔀", tone: "good", title: "Merge + rank", detail: "Merge the pushed feed with the pulled celebrity posts, rank, and return. The expensive fan-out never happened." },
+      ],
+    },
+    {
+      title: "Why the hybrid is the real answer",
+      body: "Push for the many (normal users) so the common read is instant; pull for the few (celebrities) so a viral post never triggers a write storm. The threshold (how many followers makes you a \"celebrity\") is a tuned number, not a constant.",
+      callouts: [
+        { tone: "key", label: "The principle:", body: "Optimize the common case, special-case the heavy tail. A single uniform strategy loses whenever the workload is skewed." },
+        { tone: "tip", label: "Follow-ups to expect:", body: "Feed ranking (chronological vs ML), pagination over a changing feed, and caching the assembled feed with a short TTL." },
+      ],
+    },
+  ],
   qa: [
     {
       q: "Fan-out on write vs on read — explain the trade-off and what you'd actually build.",
