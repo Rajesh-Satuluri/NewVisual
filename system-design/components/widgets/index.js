@@ -34,6 +34,13 @@ export const WIDGETS = {
   "de-datalake":      () => import('./de-datalake.js'),
   "de-medallion":     () => import('./de-medallion.js'),
   "de-cdc":           () => import('./de-cdc.js'),
+  "de-star-schema":   () => import('./de-star-schema.js'),
+  "de-row-vs-column": () => import('./de-row-vs-column.js'),
+  "de-batch-vs-stream": () => import('./de-batch-vs-stream.js'),
+  "de-columnar":      () => import('./de-columnar.js'),
+  "de-partition-prune": () => import('./de-partition-prune.js'),
+  "de-table-format":  () => import('./de-table-format.js'),
+  "de-compaction":    () => import('./de-compaction.js'),
 };
 
 // Short human label + one-line pitch, shown in the widget section header.
@@ -68,4 +75,11 @@ export const WIDGET_META = {
   "de-datalake":      { title: "Data lake ingest & serve", hint: "Any-format sources land as-is on cheap object storage; BI, SQL and ML read straight from the lake." },
   "de-medallion":     { title: "Medallion refinement (Bronze → Silver → Gold)", hint: "Inject records and watch them get cleaned, de-duplicated, and aggregated across the three quality tiers." },
   "de-cdc":           { title: "Change data capture", hint: "Mutate the source and watch only the row-level changes stream to the target — far less data than a full reload." },
+  "de-star-schema":   { title: "Star vs snowflake schema", hint: "Run a query and watch it join the fact to its dimensions; toggle snowflake to add a normalizing join hop." },
+  "de-row-vs-column": { title: "Row-store vs column-store", hint: "Run the same query on both layouts and watch which cells each has to read." },
+  "de-batch-vs-stream": { title: "Batch vs streaming latency", hint: "The same events down two lanes — batch flushes on a schedule, streaming flows per event. Watch latency diverge." },
+  "de-columnar":      { title: "Columnar projection & push-down", hint: "Toggle projection and the predicate and watch a Parquet query read a small corner of the file." },
+  "de-partition-prune": { title: "Partition pruning", hint: "Pick a filter and watch the engine scan only matching partitions — or scan everything when the filter isn't on the partition key." },
+  "de-table-format":  { title: "Table format commits & time travel", hint: "Commit atomic changes, then time-travel a reader to an older snapshot while new commits land." },
+  "de-compaction":    { title: "Small-file compaction", hint: "Streaming scatters tiny files; run compaction to bin-pack them and watch the per-file overhead drop." },
 };
