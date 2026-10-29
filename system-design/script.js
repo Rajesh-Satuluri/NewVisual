@@ -1,9 +1,13 @@
 import { renderNav } from './components/nav.js';
 import { mount as mountQuestion } from './components/question-renderer.js';
+import { mount as mountConcept } from './components/concept-renderer.js';
 import { mount as mountHome } from './components/home.js';
 import {
-  QUESTIONS, LOADERS, CATEGORY_ORDER, CATEGORY_LABEL,
+  QUESTIONS, LOADERS, CATEGORY_LABEL,
 } from './content/index.js';
+import {
+  CONCEPTS, CONCEPT_LOADERS, CONCEPT_PREFIX, conceptMeta, builtConceptCount,
+} from './content/concepts.js';
 
 // ── Persistence ────────────────────────────────────────────────────────────
 const DONE_KEY = 'system-design-done';
@@ -25,7 +29,9 @@ const breadcrumbGroup = document.getElementById('breadcrumb-group');
 const breadcrumbTitle = document.getElementById('breadcrumb-title');
 
 let currentCleanup = null;
-let currentId = null;
+let currentId = null;     // full hash value (e.g. "c:rate-limiter" or a question id)
+
+const TOTAL = QUESTIONS.length + builtConceptCount();
 
 // ── Theme ──────────────────────────────────────────────────────────────────
 const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
@@ -47,9 +53,9 @@ sidebarClose.addEventListener('click',  () => sidebar.classList.add('collapsed')
 
 // ── Progress bar ───────────────────────────────────────────────────────────
 function updateProgress() {
-  const pct = QUESTIONS.length ? (done.size / QUESTIONS.length) * 100 : 0;
+  const pct = TOTAL ? (done.size / TOTAL) * 100 : 0;
   progressFill.style.width = pct + '%';
-  progressText.textContent = `${done.size} / ${QUESTIONS.length}`;
+  progressText.textContent = `${done.size} / ${TOTAL}`;
 }
 
 // ── Mark done ──────────────────────────────────────────────────────────────
@@ -69,13 +75,59 @@ function esc(s) {
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
   ));
 }
-// ── Router ─────────────────────────────────────────────────────────────────
+function setLoading() {
+  root.innerHTML = '<div class="coming-soon"><div class="coming-soon-icon">⏳</div><p>Loading…</p></div>';
+}
+function showError(msg) {
+  root.innerHTML = `<div class="coming-soon"><div class="coming-soon-icon">⚠️</div><h3>Unavailable</h3><p>${esc(msg)}</p></div>`;
+}
+
+// ── Concept route ────────────────────────────────────────────────────────────
+async function navigateConcept(id) {
+  const meta = conceptMeta(id);
+  if (!meta) { showHome(); return; }
+  if (currentCleanup) { currentCleanup(); currentCleanup = null; }
+  currentId = CONCEPT_PREFIX + id;
+
+  breadcrumbGroup.textContent = meta.group;
+  breadcrumbTitle.textContent = meta.title;
+  markDoneBtn.style.display = 'flex';
+  markDoneBtn.style.color = done.has(currentId) ? 'var(--green)' : '';
+
+  if (!meta.built || !CONCEPT_LOADERS[id]) {
+    root.innerHTML = `<div class="coming-soon">
+      <div class="coming-soon-icon">${meta.icon || '🧭'}</div>
+      <h3>${esc(meta.title)}</h3>
+      <p>This concept is on the roadmap and lands in a coming wave.</p>
+      <p class="coming-soon-sub">${esc(meta.summary || '')}</p></div>`;
+    renderNav(currentId, done);
+    document.getElementById('module-canvas').scrollTo(0, 0);
+    return;
+  }
+
+  setLoading();
+  try {
+    const mod = await CONCEPT_LOADERS[id]();
+    const data = mod.default || mod;
+    root.innerHTML = '';
+    const cleanup = mountConcept(root, data, { meta });
+    if (typeof cleanup === 'function') currentCleanup = cleanup;
+  } catch (e) {
+    showError(e.message);
+  }
+  renderNav(currentId, done);
+  document.getElementById('module-canvas').scrollTo(0, 0);
+}
+
+// ── Question route ────────────────────────────────────────────────────────────
 async function navigate(id) {
-  if (!id || !LOADERS[id]) { showHome(); return; }
+  if (!id) { showHome(); return; }
+  if (id.startsWith(CONCEPT_PREFIX)) { navigateConcept(id.slice(CONCEPT_PREFIX.length)); return; }
+  if (!LOADERS[id]) { showHome(); return; }
   if (currentCleanup) { currentCleanup(); currentCleanup = null; }
 
   currentId = id;
-  root.innerHTML = '<div class="coming-soon"><div class="coming-soon-icon">⏳</div><p>Loading…</p></div>';
+  setLoading();
 
   const meta = QUESTIONS.find(q => q.id === id);
   if (meta) {
@@ -92,9 +144,7 @@ async function navigate(id) {
     const cleanup = mountQuestion(root, data, { label: meta && meta.question });
     if (typeof cleanup === 'function') currentCleanup = cleanup;
   } catch (e) {
-    root.innerHTML = `<div class="coming-soon">
-      <div class="coming-soon-icon">⚠️</div><h3>Question unavailable</h3>
-      <p>${esc(e.message)}</p></div>`;
+    showError(e.message);
   }
 
   renderNav(id, done);
@@ -107,7 +157,7 @@ function showHome() {
   currentId = null;
   markDoneBtn.style.display = 'none';
   breadcrumbGroup.textContent = 'System Design';
-  breadcrumbTitle.textContent = 'All questions';
+  breadcrumbTitle.textContent = 'Home';
   root.innerHTML = '';
   const cleanup = mountHome(root, { done });
   if (typeof cleanup === 'function') currentCleanup = cleanup;
