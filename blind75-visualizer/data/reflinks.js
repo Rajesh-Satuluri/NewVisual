@@ -158,6 +158,8 @@
     169: [{ name: "CodeDive", url: "https://codedive.in/" }, { name: "AlgoMaster", url: "https://algomaster.io/animations/dsa/majority-element" }],
     88: [{ name: "CodeDive", url: "https://codedive.in/" }, { name: "AlgoMaster", url: "https://algomaster.io/animations/dsa/merge-sorted-array" }],
     18: [{ name: "CodeDive", url: "https://codedive.in/" }, { name: "AlgoMaster", url: "https://algomaster.io/animations/dsa/4sum" }],
+    485: [{ name: "CodeDive", url: "https://codedive.in/" }, { name: "AlgoMaster", url: "https://algomaster.io/animations/dsa/max-consecutive-ones" }],
+    487: [{ name: "CodeDive", url: "https://codedive.in/" }, { name: "AlgoMaster", url: "https://algomaster.io/animations/dsa/max-consecutive-ones-ii" }],
     1004: [{ name: "CodeDive", url: "https://codedive.in/" }, { name: "AlgoMaster", url: "https://algomaster.io/animations/dsa/max-consecutive-ones-iii" }],
     904: [{ name: "CodeDive", url: "https://codedive.in/" }, { name: "AlgoMaster", url: "https://algomaster.io/animations/dsa/fruit-into-baskets" }],
     496: [{ name: "CodeDive", url: "https://codedive.in/" }, { name: "AlgoMaster", url: "https://algomaster.io/animations/dsa/next-greater-element-i" }],

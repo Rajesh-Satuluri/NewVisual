@@ -903,6 +903,219 @@
     },
 
     {
+      id: "max-consecutive-ones",
+      lc: 485,
+      title: "Max Consecutive Ones",
+      difficulty: "Easy",
+      category: "Sliding Window",
+      link: "https://leetcode.com/problems/max-consecutive-ones/",
+      meta: { pattern: "Running counter", dataStructure: "Linear scan over a binary array", technique: "Count current run, reset on zero" },
+      description:
+        "Given a binary array `nums`, return the **maximum number of consecutive `1`s** in the array.",
+      constraints: [
+        "`1 <= nums.length <= 10^5`",
+        "`nums[i]` is `0` or `1`"
+      ],
+      notes: [
+        "This is the base case of the Max Consecutive Ones family: **no flips allowed**. II lets you flip one zero; III lets you flip `k`.",
+        "A single counter is enough — no second pointer is needed because a `0` ends the current run completely."
+      ],
+      examples: [
+        {
+          input: "nums = [1,1,0,1,1,1]",
+          output: "3",
+          reasoning: "The first run of 1s has length 2; the run after the zero has length 3. The maximum is 3.",
+          visual: "```\nval: 1 1 0 1 1 1\nrun: 1 2 0 1 2 3   <- best = 3\n```"
+        },
+        { input: "nums = [1,0,1,1,0,1]", output: "2", reasoning: "Longest unbroken run of 1s is the pair at indices 2-3." },
+        { input: "nums = [0,0,0]", output: "0", reasoning: "No 1s present, so the longest run is 0." }
+      ],
+      approaches: [
+        {
+          name: "One-pass running counter",
+          time: "O(n)",
+          space: "O(1)",
+          whenToUse: "Any 'longest unbroken run of X' with no exceptions allowed.",
+          logic:
+            "**What it asks.** The length of the longest unbroken block of `1`s.\n\n" +
+            "**Key Idea.** Walk left to right keeping a running count of the current streak of `1`s. Each `1` extends the streak; each `0` ends it, so reset the count to `0`. Track the largest streak ever seen.\n\n" +
+            "**What each variable holds.** `curr` = length of the run of 1s ending at the current index; `best` = longest run seen so far.\n\n" +
+            "**Step-by-Step.**\n" +
+            "1. `curr = best = 0`.\n" +
+            "2. For each `x` in `nums`: if `x == 1`, `curr += 1`, else `curr = 0`.\n" +
+            "3. `best = max(best, curr)` each step.\n\n" +
+            "**Why it works.** A run of 1s is maximal exactly up to the next 0. Resetting on a 0 means `curr` always measures the run ending here, and the running max captures the best of all runs.\n\n" +
+            "**Complexity.** Time `O(n)`, space `O(1)`.\n\n" +
+            "**Interview mindset.** With no flips allowed this collapses to a single counter — it is the warm-up before the 'at most k zeros' window in II and III.",
+          rcs:
+            "class Solution:\n" +
+            "    def findMaxConsecutiveOnes(self, nums: List[int]) -> int:\n" +
+            "        curr = best = 0\n" +
+            "        for x in nums:\n" +
+            "            if x == 1:\n" +
+            "                curr += 1               # Extend the current run.\n" +
+            "            else:\n" +
+            "                curr = 0                # A zero breaks the run.\n" +
+            "            best = max(best, curr)      # Remember the longest run.\n" +
+            "        return best",
+          plain:
+            "class Solution:\n" +
+            "    def findMaxConsecutiveOnes(self, nums: List[int]) -> int:\n" +
+            "        curr = best = 0\n" +
+            "        for x in nums:\n" +
+            "            if x == 1:\n" +
+            "                curr += 1\n" +
+            "            else:\n" +
+            "                curr = 0\n" +
+            "            best = max(best, curr)\n" +
+            "        return best"
+        }
+      ],
+      patternRecognition: [
+        "'Longest unbroken run, no exceptions' -> single running counter reset on the breaking element.",
+        "No window/two-pointer needed when zero exceptions are allowed.",
+        "This is Max Consecutive Ones III with k = 0."
+      ],
+      interviewRecall: [
+        "Count the current streak; reset to 0 on a zero; track the max.",
+        "O(n) time, O(1) space, one pass.",
+        "Generalizes to II (flip one zero) and III (flip k zeros) via a sliding window."
+      ]
+    },
+
+    {
+      id: "max-consecutive-ones-ii",
+      lc: 487,
+      title: "Max Consecutive Ones II",
+      difficulty: "Medium",
+      category: "Sliding Window",
+      link: "https://leetcode.com/problems/max-consecutive-ones-ii/",
+      meta: { pattern: "Variable Sliding Window", dataStructure: "Sliding window over a binary array", technique: "Allow at most one zero in the window" },
+      description:
+        "Given a binary array `nums`, return the length of the **longest contiguous subarray of `1`s after flipping at most one `0`**.\n\n*Follow-up:* what if the input is an infinite stream and you cannot store all of it?",
+      constraints: [
+        "`1 <= nums.length <= 10^5`",
+        "`nums[i]` is `0` or `1`"
+      ],
+      notes: [
+        "This is exactly **Max Consecutive Ones III with `k = 1`**: the longest window containing at most one zero.",
+        "The follow-up (infinite stream) is solved by tracking only the current run and the previous run, in `O(1)` space without an array."
+      ],
+      examples: [
+        {
+          input: "nums = [1,0,1,1,0]",
+          output: "4",
+          reasoning: "Flip the zero at index 1 (or index 4) to join runs into [1,1,1,1] of length 4.",
+          visual: "```\nidx: 0 1 2 3 4\nval: 1 0 1 1 0\n     ^window [0..3] has one zero -> length 4\n```"
+        },
+        { input: "nums = [1,0,1,1,0,1]", output: "4", reasoning: "Window [1..3] plus the flipped zero spans four 1s." },
+        { input: "nums = [1,1,1,1]", output: "4", reasoning: "No zero to flip; the whole array is already all 1s." }
+      ],
+      approaches: [
+        {
+          name: "Variable window with at most one zero",
+          time: "O(n)",
+          space: "O(1)",
+          whenToUse: "The 'at most 1 exception' window — the k=1 specialization of the general template.",
+          logic:
+            "**What it asks.** Longest run of 1s if a single 0 may be flipped.\n\n" +
+            "**Key reframing.** A valid window is one containing **at most one zero**; flipping that zero makes the window all 1s.\n\n" +
+            "**Key Idea.** Expand `right`, counting zeros. When the count exceeds 1, shrink from `left` until at most one zero remains. Measure the window each step.\n\n" +
+            "**What each variable holds.** `zeros` = number of 0s in `[left, right]`; `best` = longest valid window.\n\n" +
+            "**Step-by-Step.**\n" +
+            "1. `left = zeros = best = 0`.\n" +
+            "2. For each `right`: if `nums[right] == 0`, `zeros += 1`.\n" +
+            "3. While `zeros > 1`: if `nums[left] == 0`, `zeros -= 1`; then `left += 1`.\n" +
+            "4. `best = max(best, right - left + 1)`.\n\n" +
+            "**Why it works.** The invariant 'at most one zero' is restored before measuring, so each measured window is achievable with one flip. Both pointers move forward only.\n\n" +
+            "**Complexity.** Time `O(n)`, space `O(1)`.\n\n" +
+            "**Interview mindset.** Recognize it as III with `k = 1`; the exact same template handles both.",
+          rcs:
+            "class Solution:\n" +
+            "    def findMaxConsecutiveOnes(self, nums: List[int]) -> int:\n" +
+            "        left = zeros = best = 0\n" +
+            "        for right in range(len(nums)):\n" +
+            "            if nums[right] == 0:\n" +
+            "                zeros += 1                    # A zero entered the window.\n" +
+            "            while zeros > 1:                  # More than one -> shrink.\n" +
+            "                if nums[left] == 0:\n" +
+            "                    zeros -= 1               # Zero leaving reduces the count.\n" +
+            "                left += 1\n" +
+            "            best = max(best, right - left + 1)\n" +
+            "        return best",
+          plain:
+            "class Solution:\n" +
+            "    def findMaxConsecutiveOnes(self, nums: List[int]) -> int:\n" +
+            "        left = zeros = best = 0\n" +
+            "        for right in range(len(nums)):\n" +
+            "            if nums[right] == 0:\n" +
+            "                zeros += 1\n" +
+            "            while zeros > 1:\n" +
+            "                if nums[left] == 0:\n" +
+            "                    zeros -= 1\n" +
+            "                left += 1\n" +
+            "            best = max(best, right - left + 1)\n" +
+            "        return best"
+        },
+        {
+          name: "O(1)-space prev/curr run tracking (stream follow-up)",
+          time: "O(n)",
+          space: "O(1)",
+          whenToUse: "The follow-up: an infinite stream you cannot index or re-read.",
+          logic:
+            "**What it asks.** The same answer, but without storing the array — each value is seen once.\n\n" +
+            "**Key Idea.** Keep two run lengths: `curr` = length of the run of 1s ending now, and `prev` = length of the run of 1s immediately before the last zero (`-1` if no zero seen yet). A single flip joins `prev` and `curr` across one zero, so the best window ending here is `prev + 1 + curr`.\n\n" +
+            "**What each variable holds.** `curr` = current run of 1s; `prev` = run of 1s before the most recent 0 (or `-1`); `best` = longest joinable span.\n\n" +
+            "**Step-by-Step.**\n" +
+            "1. `curr = 0`, `prev = -1`, `best = 0`.\n" +
+            "2. For each `x`: if `x == 1`, `curr += 1`; else set `prev = curr`, then `curr = 0`.\n" +
+            "3. `best = max(best, prev + 1 + curr)` each step.\n\n" +
+            "**Why it works.** The one flip is spent on exactly one zero, fusing the run before it (`prev`) with the run after it (`curr`), plus the flipped zero itself (`+1`). Using `prev = -1` before any zero makes `prev + 1 = 0`, so the all-ones prefix is handled correctly.\n\n" +
+            "**Complexity.** Time `O(n)`, space `O(1)` with no array retained — valid for a stream.\n\n" +
+            "**Interview mindset.** When asked 'what if you can't store the input', convert a window into a couple of rolling counters.",
+          rcs:
+            "class Solution:\n" +
+            "    def findMaxConsecutiveOnes(self, nums: List[int]) -> int:\n" +
+            "        curr = 0\n" +
+            "        prev = -1                       # No zero seen yet.\n" +
+            "        best = 0\n" +
+            "        for x in nums:\n" +
+            "            if x == 1:\n" +
+            "                curr += 1               # Extend the current run.\n" +
+            "            else:\n" +
+            "                prev = curr             # Run before this zero.\n" +
+            "                curr = 0                # Start a new run.\n" +
+            "            best = max(best, prev + 1 + curr)   # Fuse across one flip.\n" +
+            "        return best",
+          plain:
+            "class Solution:\n" +
+            "    def findMaxConsecutiveOnes(self, nums: List[int]) -> int:\n" +
+            "        curr = 0\n" +
+            "        prev = -1\n" +
+            "        best = 0\n" +
+            "        for x in nums:\n" +
+            "            if x == 1:\n" +
+            "                curr += 1\n" +
+            "            else:\n" +
+            "                prev = curr\n" +
+            "                curr = 0\n" +
+            "            best = max(best, prev + 1 + curr)\n" +
+            "        return best"
+        }
+      ],
+      patternRecognition: [
+        "'Flip at most one zero, longest run' -> window with at most one zero (III with k=1).",
+        "'Infinite stream / cannot store input' -> replace the window with prev/curr rolling counters.",
+        "Both pointers / both counters advance forward only -> O(n)."
+      ],
+      interviewRecall: [
+        "Window version: expand right, count zeros; while zeros > 1 shrink left; measure each step.",
+        "Stream version: track curr and prev runs; answer is max(prev + 1 + curr).",
+        "This is the bridge between I (k=0) and III (general k)."
+      ]
+    },
+
+    {
       id: "max-consecutive-ones-iii",
       lc: 1004,
       title: "Max Consecutive Ones III",
