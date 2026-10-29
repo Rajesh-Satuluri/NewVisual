@@ -68,6 +68,7 @@ window.PYSPARK_CHEAT = {
       group: "DataFrame",
       name: "DataFrame.select",
       signature: "df.select(*cols)",
+      use: "Picks which columns to keep or builds new ones from existing columns. The everyday way to trim a wide table down or add a derived column.",
       summary: "Project or derive columns; returns a <b>new</b> DataFrame (a narrow transformation, lazy).",
       returns: "DataFrame",
       params: [
@@ -82,6 +83,7 @@ window.PYSPARK_CHEAT = {
       group: "DataFrame",
       name: "DataFrame.selectExpr",
       signature: "df.selectExpr(*expr)",
+      use: "Like <code>select</code> but you write plain SQL strings instead of column objects. Handy when a quick <code>CASE</code> or math expression is easier to type as SQL.",
       summary: "Like <code>select</code> but each argument is a <b>SQL expression string</b> parsed by Spark SQL.",
       returns: "DataFrame",
       params: [
@@ -96,6 +98,7 @@ window.PYSPARK_CHEAT = {
       group: "DataFrame",
       name: "DataFrame.filter / where",
       signature: "df.filter(condition)   # where is an alias",
+      use: "Keeps only the rows that match a condition — the SQL <code>WHERE</code> of PySpark. Used in almost every pipeline to drop rows you do not want.",
       summary: "Keep only rows where the boolean condition is true. Rows where the predicate is <code>null</code> are <b>dropped</b>.",
       returns: "DataFrame",
       params: [
@@ -110,6 +113,7 @@ window.PYSPARK_CHEAT = {
       group: "DataFrame",
       name: "DataFrame.withColumn",
       signature: "df.withColumn(colName, col)",
+      use: "Adds a new column or overwrites an existing one with a computed value. The go-to for feature engineering and cleaning up fields.",
       summary: "Add a new column or <b>replace</b> an existing one of the same name; returns a new DataFrame.",
       returns: "DataFrame",
       params: [
@@ -125,6 +129,7 @@ window.PYSPARK_CHEAT = {
       group: "DataFrame",
       name: "DataFrame.withColumnRenamed",
       signature: "df.withColumnRenamed(existing, new)",
+      use: "Renames a single column. Handy right before a join or a write so column names line up and stay readable.",
       summary: "Rename one column; a <b>no-op</b> (no error) if <code>existing</code> is not present.",
       returns: "DataFrame",
       params: [
@@ -140,6 +145,7 @@ window.PYSPARK_CHEAT = {
       group: "DataFrame",
       name: "DataFrame.drop",
       signature: "df.drop(*cols)",
+      use: "Removes one or more columns you no longer need, giving a lighter DataFrame. Common before a join to avoid duplicate column names.",
       summary: "Remove one or more columns; silently ignores names that don't exist.",
       returns: "DataFrame",
       params: [
@@ -154,6 +160,7 @@ window.PYSPARK_CHEAT = {
       group: "DataFrame",
       name: "DataFrame.distinct",
       signature: "df.distinct()",
+      use: "Returns only the unique rows, throwing away exact duplicates. The quick way to de-dupe a whole table.",
       summary: "Return rows that are unique across <b>all</b> columns. A wide transformation (shuffle).",
       returns: "DataFrame",
       params: [
@@ -168,6 +175,7 @@ window.PYSPARK_CHEAT = {
       group: "DataFrame",
       name: "DataFrame.dropDuplicates",
       signature: "df.dropDuplicates(subset=None)",
+      use: "Removes duplicate rows, but you choose which columns decide what counts as a duplicate. Used to keep one row per customer, id, etc.",
       summary: "Drop duplicate rows, optionally considering only a <b>subset</b> of columns for equality.",
       returns: "DataFrame",
       params: [
@@ -182,6 +190,7 @@ window.PYSPARK_CHEAT = {
       group: "DataFrame",
       name: "DataFrame.orderBy / sort",
       signature: "df.orderBy(*cols, ascending=...)",
+      use: "Sorts the rows by one or more columns, ascending or descending. Used for top-N results and before showing or writing ordered output.",
       summary: "Globally sort rows. A wide transformation that forces a full shuffle (range partitioning).",
       returns: "DataFrame",
       params: [
@@ -197,6 +206,7 @@ window.PYSPARK_CHEAT = {
       group: "DataFrame",
       name: "DataFrame.limit",
       signature: "df.limit(num)",
+      use: "Keeps just the first N rows. Great for peeking at data or grabbing a small sample without pulling everything.",
       summary: "Return at most <code>num</code> rows as a new DataFrame (lazy, unlike <code>take</code>).",
       returns: "DataFrame",
       params: [
@@ -211,6 +221,7 @@ window.PYSPARK_CHEAT = {
       group: "DataFrame",
       name: "DataFrame.union / unionByName",
       signature: "df.union(other)  |  df.unionByName(other, allowMissingColumns=False)",
+      use: "Stacks two DataFrames on top of each other (append rows). Use <code>unionByName</code> when the column order differs so they match by name.",
       summary: "Concatenate rows of two DataFrames (bag union — duplicates kept).",
       returns: "DataFrame",
       params: [
@@ -226,6 +237,7 @@ window.PYSPARK_CHEAT = {
       group: "DataFrame",
       name: "DataFrame.sample",
       signature: "df.sample(withReplacement=False, fraction, seed=None)",
+      use: "Grabs a random fraction of the rows. Used to work on a small slice of huge data while developing or for quick stats.",
       summary: "Return a random sampled subset of rows (approximate size).",
       returns: "DataFrame",
       params: [
@@ -242,6 +254,7 @@ window.PYSPARK_CHEAT = {
       group: "DataFrame",
       name: "DataFrame.repartition",
       signature: "df.repartition(numPartitions=None, *cols)",
+      use: "Reshuffles the data into a chosen number of partitions, optionally by a key. Used to spread work evenly or set up a clean partitioned write.",
       summary: "Reshuffle data into a new number of partitions and/or by key. Always a <b>full shuffle</b>.",
       returns: "DataFrame",
       params: [
@@ -257,6 +270,7 @@ window.PYSPARK_CHEAT = {
       group: "DataFrame",
       name: "DataFrame.coalesce",
       signature: "df.coalesce(numPartitions)",
+      use: "Shrinks the number of partitions without a full shuffle. The cheap way to avoid writing thousands of tiny output files.",
       summary: "<b>Reduce</b> the number of partitions by merging existing ones — no full shuffle (narrow).",
       returns: "DataFrame",
       params: [
@@ -271,6 +285,7 @@ window.PYSPARK_CHEAT = {
       group: "DataFrame",
       name: "DataFrame.cache / persist",
       signature: "df.cache()  |  df.persist(storageLevel=MEMORY_AND_DISK)",
+      use: "Keeps a DataFrame in memory so repeated use does not recompute it from scratch. Big speed-up when you reuse the same result many times.",
       summary: "Mark a DataFrame to be materialized and reused across actions. <b>Lazy</b> — populated on the first action.",
       returns: "DataFrame (self)",
       params: [
@@ -285,6 +300,7 @@ window.PYSPARK_CHEAT = {
       group: "DataFrame",
       name: "DataFrame.alias",
       signature: "df.alias(name)",
+      use: "Gives a DataFrame a short name so you can refer to its columns in a self-join or ambiguous join. Avoids column-name clashes.",
       summary: "Give the whole DataFrame a table alias, so its columns can be qualified in joins.",
       returns: "DataFrame",
       params: [
@@ -299,6 +315,7 @@ window.PYSPARK_CHEAT = {
       group: "DataFrame",
       name: "DataFrame.toDF",
       signature: "df.toDF(*cols)",
+      use: "Renames all columns at once by passing the new names in order. Quick way to clean up messy or auto-generated column names.",
       summary: "Return a new DataFrame with all columns renamed by <b>position</b>.",
       returns: "DataFrame",
       params: [
@@ -313,6 +330,7 @@ window.PYSPARK_CHEAT = {
       group: "DataFrame",
       name: "DataFrame.columns / dtypes / schema",
       signature: "df.columns  |  df.dtypes  |  df.printSchema()",
+      use: "Inspect the table structure — the column names, their types, and the full schema. The first thing you check on an unfamiliar DataFrame.",
       summary: "Inspect the schema (metadata only — no job runs).",
       returns: "list / list[tuple] / None",
       params: [
@@ -329,6 +347,7 @@ window.PYSPARK_CHEAT = {
       group: "DataFrame",
       name: "DataFrame.show",
       signature: "df.show(n=20, truncate=True, vertical=False)",
+      use: "Prints the first few rows to the console in a readable table. The main way to eyeball your data while developing.",
       summary: "<b>Action</b>: print the first rows in a formatted table to stdout.",
       returns: "None",
       params: [
@@ -345,6 +364,7 @@ window.PYSPARK_CHEAT = {
       group: "DataFrame",
       name: "DataFrame.collect",
       signature: "df.collect()",
+      use: "Pulls all rows back to the driver as a Python list. Use with care — only safe on small results, or you can blow up driver memory.",
       summary: "<b>Action</b>: bring <b>all</b> rows to the driver as a Python list of <code>Row</code>.",
       returns: "list[Row]",
       params: [
@@ -359,6 +379,7 @@ window.PYSPARK_CHEAT = {
       group: "DataFrame",
       name: "DataFrame.count",
       signature: "df.count()",
+      use: "Counts how many rows are in the DataFrame. Common for sanity checks and before/after comparisons in a pipeline.",
       summary: "<b>Action</b>: return the exact number of rows as a Python int (triggers a full scan).",
       returns: "int",
       params: [
@@ -373,6 +394,7 @@ window.PYSPARK_CHEAT = {
       group: "DataFrame",
       name: "DataFrame.first / head / take",
       signature: "df.first()  |  df.head(n=1)  |  df.take(n)",
+      use: "Grabs the first row (or first N rows) as plain Python objects. Handy for a quick look or to pull a single value.",
       summary: "<b>Action</b>: pull the first row(s) to the driver.",
       returns: "Row | list[Row]",
       params: [
@@ -387,6 +409,7 @@ window.PYSPARK_CHEAT = {
       group: "DataFrame",
       name: "DataFrame.explain",
       signature: "df.explain(extended=False, mode=None)",
+      use: "Shows the physical plan Spark will run, so you can see shuffles, joins, and scans. The main tool for debugging slow jobs.",
       summary: "Print the query plan — the key tool for reasoning about shuffles, joins, and pushdown.",
       returns: "None",
       params: [
@@ -404,6 +427,7 @@ window.PYSPARK_CHEAT = {
       group: "Column",
       name: "F.col / F.column",
       signature: "F.col(name)",
+      use: "Refers to a column by name so you can build expressions on it. The basic building block of almost every PySpark transformation.",
       summary: "Reference an existing column by name, producing a <code>Column</code> to build expressions.",
       returns: "Column",
       params: [
@@ -418,6 +442,7 @@ window.PYSPARK_CHEAT = {
       group: "Column",
       name: "F.lit",
       signature: "F.lit(value)",
+      use: "Wraps a plain constant (a number, string, True) so Spark treats it as a column value. Needed whenever you mix constants into column math.",
       summary: "Wrap a Python literal as a constant <code>Column</code>.",
       returns: "Column",
       params: [
@@ -432,6 +457,7 @@ window.PYSPARK_CHEAT = {
       group: "Column",
       name: "Column.alias / name",
       signature: "col.alias(*names, metadata=None)",
+      use: "Renames the result of a column expression. Used so computed columns get a clean name instead of something like <code>sum(amount)</code>.",
       summary: "Rename a column expression in the output.",
       returns: "Column",
       params: [
@@ -447,6 +473,7 @@ window.PYSPARK_CHEAT = {
       group: "Column",
       name: "Column.cast / astype",
       signature: "col.cast(dataType)",
+      use: "Converts a column from one type to another, like string to int or to date. Essential for cleaning up data loaded as text.",
       summary: "Convert a column to another type. Invalid conversions become <code>null</code> (no error).",
       returns: "Column",
       params: [
@@ -461,6 +488,7 @@ window.PYSPARK_CHEAT = {
       group: "Column",
       name: "F.when / Column.otherwise",
       signature: "F.when(condition, value).when(...).otherwise(default)",
+      use: "Builds if/else logic on a column — if this condition then that value, else something else. The PySpark version of a SQL <code>CASE</code>.",
       summary: "Vectorized if/elif/else. Builds a <code>CASE WHEN</code> expression.",
       returns: "Column",
       params: [
@@ -477,6 +505,7 @@ window.PYSPARK_CHEAT = {
       group: "Column",
       name: "Column.isNull / isNotNull",
       signature: "col.isNull()  |  col.isNotNull()",
+      use: "Tests whether a value is missing (<code>NULL</code>) or present. Used constantly for filtering out or counting missing data.",
       summary: "Boolean test for SQL <code>NULL</code> (the only correct null check — do not use <code>== None</code>).",
       returns: "Column",
       params: [
@@ -491,6 +520,7 @@ window.PYSPARK_CHEAT = {
       group: "Column",
       name: "Column.isin",
       signature: "col.isin(*values)",
+      use: "Checks whether a column value is in a given list of values. The clean way to write many OR conditions at once.",
       summary: "True when the column value is in the given set of literals.",
       returns: "Column",
       params: [
@@ -505,6 +535,7 @@ window.PYSPARK_CHEAT = {
       group: "Column",
       name: "Column.between",
       signature: "col.between(lower, upper)",
+      use: "Checks whether a value falls within a low-to-high range, inclusive. Common for date ranges and numeric bands.",
       summary: "True when <code>lower &lt;= col &lt;= upper</code> (both bounds <b>inclusive</b>).",
       returns: "Column",
       params: [
@@ -520,6 +551,7 @@ window.PYSPARK_CHEAT = {
       group: "Column",
       name: "Column.like / rlike / ilike",
       signature: "col.like(pattern)  |  col.rlike(regex)  |  col.ilike(pattern)",
+      use: "Matches text against a pattern — <code>like</code> for SQL wildcards, <code>rlike</code> for full regex. Used for fuzzy text filtering.",
       summary: "Pattern matching: SQL wildcards (<code>like</code>) or full regex (<code>rlike</code>).",
       returns: "Column",
       params: [
@@ -535,6 +567,7 @@ window.PYSPARK_CHEAT = {
       group: "Column",
       name: "Column operators (& | ~ comparisons)",
       signature: "(a > 5) & (b == 'x') | ~c",
+      use: "Combine conditions with <code>&</code> (and), <code>|</code> (or), <code>~</code> (not). Remember to wrap each comparison in parentheses.",
       summary: "Combine and compare Column expressions with Python operators (overloaded to Spark SQL).",
       returns: "Column",
       params: [
@@ -551,6 +584,7 @@ window.PYSPARK_CHEAT = {
       group: "Column",
       name: "Column.getItem",
       signature: "col.getItem(key)  |  col[key]",
+      use: "Pulls a value out of an array by position or a map by key. Used when a column holds nested list or dictionary data.",
       summary: "Index into an array (by position) or map (by key).",
       returns: "Column",
       params: [
@@ -565,6 +599,7 @@ window.PYSPARK_CHEAT = {
       group: "Column",
       name: "Column.getField",
       signature: "col.getField(name)  |  col.name",
+      use: "Pulls a named field out of a struct column. Used to flatten nested records into plain columns.",
       summary: "Extract a field from a struct column.",
       returns: "Column",
       params: [
@@ -579,6 +614,7 @@ window.PYSPARK_CHEAT = {
       group: "Column",
       name: "Column.substr",
       signature: "col.substr(startPos, length)",
+      use: "Takes a slice of a string by start position and length. Handy for chopping fixed-width codes or pulling a prefix.",
       summary: "Extract a fixed-length substring by position (1-based).",
       returns: "Column",
       params: [
@@ -596,6 +632,7 @@ window.PYSPARK_CHEAT = {
       group: "Functions",
       name: "F.concat",
       signature: "F.concat(*cols)",
+      use: "Glues several columns or strings together into one. Used to build keys, labels, or combined text fields.",
       category: "Column function · string / array",
       summary: "Concatenate strings (or arrays) end-to-end. <b>Null-propagating</b>: if any argument is null, the whole result is null.",
       returns: "Column",
@@ -630,6 +667,7 @@ window.PYSPARK_CHEAT = {
       group: "Functions",
       name: "F.concat_ws",
       signature: "F.concat_ws(sep, *cols)",
+      use: "Joins columns into one string with a separator you choose (comma, dash, space). Great for building CSV-like or readable labels.",
       category: "Column function · string",
       summary: "Concatenate with a separator, <b>skipping nulls</b> (no doubled delimiters).",
       returns: "Column",
@@ -663,6 +701,7 @@ window.PYSPARK_CHEAT = {
       group: "Functions",
       name: "F.substring / substring_index",
       signature: "F.substring(str, pos, len)",
+      use: "Extracts part of a string by position. Common for parsing codes, extracting a year from a string, and similar slicing.",
       category: "Column function · string",
       summary: "Fixed-length substring by position (function form of <code>Column.substr</code>). Positions are <b>1-based</b>.",
       returns: "Column",
@@ -689,6 +728,7 @@ window.PYSPARK_CHEAT = {
       group: "Functions",
       name: "F.split",
       signature: "F.split(str, pattern, limit=-1)",
+      use: "Breaks a string into an array on a delimiter or regex. The first step when you need to parse CSV-in-a-cell or tags.",
       category: "Column function · string → array",
       summary: "Split a string by a <b>regex</b> into an <code>array&lt;string&gt;</code>.",
       returns: "Column (array<string>)",
@@ -720,6 +760,7 @@ window.PYSPARK_CHEAT = {
       group: "Functions",
       name: "F.regexp_replace",
       signature: "F.regexp_replace(str, pattern, replacement)",
+      use: "Finds text matching a pattern and swaps it out. The workhorse for cleaning messy strings — stripping symbols, fixing formats.",
       category: "Column function · string / regex",
       summary: "Replace <b>all</b> regex matches in a string (global).",
       returns: "Column",
@@ -756,6 +797,7 @@ window.PYSPARK_CHEAT = {
       group: "Functions",
       name: "F.regexp_extract",
       signature: "F.regexp_extract(str, pattern, idx)",
+      use: "Pulls out the piece of a string that matches a regex group. Used to extract ids, codes, or fields from raw text.",
       category: "Column function · string / regex",
       summary: "Extract one capture group from the <b>first</b> regex match. No match → <b>empty string</b> (not null).",
       returns: "Column",
@@ -787,6 +829,7 @@ window.PYSPARK_CHEAT = {
       group: "Functions",
       name: "F.upper / lower / trim / initcap",
       signature: "F.upper(col) | F.lower(col) | F.trim(col) | F.ltrim/rtrim | F.initcap(col)",
+      use: "Changes the case of text or trims stray spaces (<code>upper</code>, <code>lower</code>, <code>trim</code>, <code>initcap</code>). Key for normalizing text before grouping or joining.",
       category: "Column function · string",
       summary: "Case and whitespace normalization for strings — the standard cleanup before joins/dedup.",
       returns: "Column",
@@ -811,6 +854,7 @@ window.PYSPARK_CHEAT = {
       group: "Functions",
       name: "F.lpad / rpad",
       signature: "F.lpad(col, len, pad)",
+      use: "Pads a string to a fixed width by adding characters on the left or right. Used to zero-pad ids or line up fixed-width output.",
       category: "Column function · string",
       summary: "Pad a string to a fixed width on the left (<code>lpad</code>) or right (<code>rpad</code>). <b>Truncates</b> if already longer.",
       returns: "Column",
@@ -835,6 +879,7 @@ window.PYSPARK_CHEAT = {
       group: "Functions",
       name: "F.length",
       signature: "F.length(col)",
+      use: "Returns how many characters are in a string. Handy for validation and for filtering out blank or oversized values.",
       category: "Column function · string",
       summary: "Number of characters in a string (or bytes for binary). <code>null</code> in → <code>null</code> out.",
       returns: "Column (int)",
@@ -857,6 +902,7 @@ window.PYSPARK_CHEAT = {
       group: "Functions",
       name: "F.coalesce",
       signature: "F.coalesce(*cols)",
+      use: "Returns the first non-null value from a list of columns. The standard way to fill gaps with a fallback column.",
       category: "Column function · null-handling",
       summary: "Return the first <b>non-null</b> value across the given columns, evaluated left to right, per row.",
       returns: "Column",
@@ -899,6 +945,7 @@ window.PYSPARK_CHEAT = {
       group: "Functions",
       name: "F.nvl / ifnull / nvl2 / nullif",
       signature: "F.nvl(col, default)  |  F.ifnull(col, default)",
+      use: "Replaces nulls with a default value (<code>nvl</code>, <code>ifnull</code>, <code>nullif</code>). Used to clean missing data before math or display.",
       category: "Column function · null-handling",
       summary: "Two-argument null replacement — a readable subset of <code>coalesce</code>. Plus the <code>nvl2</code>/<code>nullif</code> siblings.",
       returns: "Column",
@@ -929,6 +976,7 @@ window.PYSPARK_CHEAT = {
       group: "Functions",
       name: "F.nanvl / isnan",
       signature: "F.nanvl(col1, col2)",
+      use: "Handles the special floating-point <code>NaN</code> value, swapping it for a fallback. Needed when bad math produces NaN instead of null.",
       category: "Column function · null / NaN-handling",
       summary: "Replace <b>NaN</b> (not null) in float/double columns with a fallback. NaN and null are different in Spark.",
       returns: "Column",
@@ -959,6 +1007,7 @@ window.PYSPARK_CHEAT = {
       group: "Functions",
       name: "F.round / bround",
       signature: "F.round(col, scale=0)",
+      use: "Rounds a number to a set number of decimal places. Used for money, rates, and tidying up display values.",
       category: "Column function · math",
       summary: "Round a numeric column to <code>scale</code> decimal places. <code>round</code> = HALF_UP, <code>bround</code> = HALF_EVEN (banker's).",
       returns: "Column",
@@ -990,6 +1039,7 @@ window.PYSPARK_CHEAT = {
       group: "Functions",
       name: "F.floor / ceil / abs",
       signature: "F.floor(col) | F.ceil(col) | F.abs(col)",
+      use: "Rounds down, up, or takes the absolute value (<code>floor</code>, <code>ceil</code>, <code>abs</code>). Common in bucketing and distance math.",
       category: "Column function · math",
       summary: "Elementary math: round down, round up, absolute value.",
       returns: "Column",
@@ -1012,6 +1062,7 @@ window.PYSPARK_CHEAT = {
       group: "Functions",
       name: "F.greatest / least",
       signature: "F.greatest(*cols)  |  F.least(*cols)",
+      use: "Returns the largest (or smallest) value across several columns in the same row. Handy for row-wise max/min across fields.",
       category: "Column function · row-wise comparison",
       summary: "Row-wise max / min <b>across columns</b> — not down a column (that's the <code>max</code>/<code>min</code> aggregate).",
       returns: "Column",
@@ -1044,6 +1095,7 @@ window.PYSPARK_CHEAT = {
       group: "Functions",
       name: "F.expr",
       signature: "F.expr(sqlString)",
+      use: "Lets you drop a raw SQL expression anywhere a column is expected. An escape hatch for logic that is quicker to write as SQL.",
       category: "Column function · SQL escape hatch",
       summary: "Parse a Spark SQL expression string into a <code>Column</code> — the escape hatch for SQL not surfaced in the Python API.",
       returns: "Column",
@@ -1073,6 +1125,7 @@ window.PYSPARK_CHEAT = {
       group: "Functions",
       name: "F.array",
       signature: "F.array(*cols)",
+      use: "Builds an array column out of several columns. Used to group related values together before exploding or passing them on.",
       category: "Column function · array builder",
       summary: "Build an <code>array</code> column from several columns/literals, in order.",
       returns: "Column (array)",
@@ -1097,6 +1150,7 @@ window.PYSPARK_CHEAT = {
       group: "Functions",
       name: "F.explode / explode_outer",
       signature: "F.explode(col)  |  F.explode_outer(col)",
+      use: "Turns each item of an array column into its own row. The classic way to flatten lists so you can group or join on them.",
       category: "Generator function · array/map → rows",
       summary: "Turn each element of an array (or key/value of a map) into its own <b>row</b>. The workhorse for flattening nested data.",
       returns: "Column (generator)",
@@ -1138,6 +1192,7 @@ window.PYSPARK_CHEAT = {
       group: "Functions",
       name: "F.posexplode / posexplode_outer",
       signature: "F.posexplode(col)",
+      use: "Like <code>explode</code> but also gives you each item's position in the array. Used when the order inside the list matters.",
       category: "Generator function · array → rows + index",
       summary: "Explode an array to rows <b>plus</b> each element's 0-based index — use when position matters.",
       returns: "Column (generator, two outputs)",
@@ -1162,6 +1217,7 @@ window.PYSPARK_CHEAT = {
       group: "Functions",
       name: "F.array_contains",
       signature: "F.array_contains(col, value)",
+      use: "Checks whether an array column holds a given value. Handy for filtering rows whose list includes a tag or id.",
       category: "Column function · array predicate",
       summary: "True if the array column contains the given value — array membership test without exploding.",
       returns: "Column (bool)",
@@ -1187,6 +1243,7 @@ window.PYSPARK_CHEAT = {
       group: "Functions",
       name: "F.size / array_size",
       signature: "F.size(col)",
+      use: "Returns how many elements are in an array or map column. Used to filter empty lists or to count tags per row.",
       category: "Column function · array/map length",
       summary: "Number of elements in an array or map. <b>Watch the −1-on-null trap.</b>",
       returns: "Column (int)",
@@ -1219,6 +1276,7 @@ window.PYSPARK_CHEAT = {
       group: "Functions",
       name: "F.collect_list / collect_set",
       signature: "F.collect_list(col)  |  F.collect_set(col)",
+      use: "Gathers values into an array — <code>collect_list</code> keeps duplicates, <code>collect_set</code> drops them. Often used to roll rows up into lists.",
       category: "Aggregate function · rows → array",
       summary: "Gather a group's values into an array. <code>collect_list</code> keeps dups; <code>collect_set</code> deduplicates. Both used in <code>agg</code>/window.",
       returns: "Column (array)",
@@ -1251,6 +1309,7 @@ window.PYSPARK_CHEAT = {
       group: "Functions",
       name: "F.struct",
       signature: "F.struct(*cols)",
+      use: "Bundles several columns into one nested struct column. Used to package related fields, often before writing nested JSON.",
       category: "Column function · struct builder",
       summary: "Bundle several columns into one nested <code>struct</code> — the key to the <code>max(struct(...))</code> 'latest value' idiom.",
       returns: "Column (struct)",
@@ -1281,6 +1340,7 @@ window.PYSPARK_CHEAT = {
       group: "Functions",
       name: "F.map_keys / map_values / create_map",
       signature: "F.map_keys(col) | F.map_values(col) | F.create_map(*cols)",
+      use: "Works with map (key-value) columns — list the keys, list the values, or build a map. Used when a column holds dictionary-like data.",
       category: "Column function · map type",
       summary: "Build and inspect map-typed columns — keys array, values array, and map construction.",
       returns: "Column",
@@ -1311,6 +1371,7 @@ window.PYSPARK_CHEAT = {
       group: "Aggregation",
       name: "DataFrame.groupBy",
       signature: "df.groupBy(*cols)",
+      use: "Groups rows that share the same key so you can aggregate them. The starting point for any sum, count, or average per category.",
       summary: "Group rows by keys, returning a <code>GroupedData</code> to aggregate. A wide transformation (shuffle).",
       returns: "GroupedData",
       params: [
@@ -1325,6 +1386,7 @@ window.PYSPARK_CHEAT = {
       group: "Aggregation",
       name: "GroupedData.agg / DataFrame.agg",
       signature: "gd.agg(*exprs)  |  df.agg(*exprs)",
+      use: "Applies aggregate functions (sum, avg, count…) to grouped data, often several at once. The main way to compute summary metrics.",
       summary: "Apply one or more aggregate expressions to each group (or the whole frame).",
       returns: "DataFrame",
       params: [
@@ -1339,6 +1401,7 @@ window.PYSPARK_CHEAT = {
       group: "Aggregation",
       name: "F.count / GroupedData.count",
       signature: "F.count(col)  |  df.groupBy(...).count()",
+      use: "Counts rows per group, or counts non-null values of a column. The most common aggregate in reporting queries.",
       summary: "Count rows (or non-null values of a column) per group.",
       returns: "Column | DataFrame",
       params: [
@@ -1353,6 +1416,7 @@ window.PYSPARK_CHEAT = {
       group: "Aggregation",
       name: "F.countDistinct / approx_count_distinct",
       signature: "F.countDistinct(*cols)  |  F.approx_count_distinct(col, rsd=0.05)",
+      use: "Counts the unique values per group; <code>approx_count_distinct</code> does it fast for huge data. Used for metrics like unique users.",
       summary: "Count unique values — exact (expensive) or approximate (fast).",
       returns: "Column",
       params: [
@@ -1368,6 +1432,7 @@ window.PYSPARK_CHEAT = {
       group: "Aggregation",
       name: "F.sum / sum_distinct",
       signature: "F.sum(col)  |  F.sum_distinct(col)",
+      use: "Adds up the values in a column, per group or overall. The bread-and-butter aggregate for totals like revenue.",
       summary: "Sum of a numeric column per group.",
       returns: "Column",
       params: [
@@ -1382,6 +1447,7 @@ window.PYSPARK_CHEAT = {
       group: "Aggregation",
       name: "F.avg / mean",
       signature: "F.avg(col)   # mean is an alias",
+      use: "Computes the average (mean) of a column. Used for metrics like average order value or average score per group.",
       summary: "Arithmetic mean of a numeric column per group.",
       returns: "Column",
       params: [
@@ -1396,6 +1462,7 @@ window.PYSPARK_CHEAT = {
       group: "Aggregation",
       name: "F.min / max / min_by / max_by",
       signature: "F.min(col) | F.max(col) | F.max_by(val, ord)",
+      use: "Finds the smallest or largest value, optionally picking a partner column with <code>max_by</code>. Common for earliest/latest and top records.",
       summary: "Extremes per group, optionally the value at the extreme of another column.",
       returns: "Column",
       params: [
@@ -1411,6 +1478,7 @@ window.PYSPARK_CHEAT = {
       group: "Aggregation",
       name: "F.first / last",
       signature: "F.first(col, ignorenulls=False)",
+      use: "Grabs the first or last value in each group. Often paired with ordering to pull the earliest or most recent row's field.",
       summary: "First / last value in each group (order-dependent).",
       returns: "Column",
       params: [
@@ -1426,6 +1494,7 @@ window.PYSPARK_CHEAT = {
       group: "Aggregation",
       name: "F.stddev / variance / skewness",
       signature: "F.stddev(col)  |  F.stddev_pop(col)  |  F.variance(col)",
+      use: "Measures how spread out the numbers are (standard deviation, variance). Used in stats, anomaly detection, and data profiling.",
       summary: "Spread statistics per group.",
       returns: "Column",
       params: [
@@ -1440,6 +1509,7 @@ window.PYSPARK_CHEAT = {
       group: "Aggregation",
       name: "F.collect_list / collect_set (agg)",
       signature: "F.collect_list(col)  |  F.collect_set(col)",
+      use: "In a group-by, gathers each group's values into an array. Used to roll many rows up into one list per key.",
       summary: "Gather a group's values into an array (list keeps dups, set dedups).",
       returns: "Column (array)",
       params: [
@@ -1454,6 +1524,7 @@ window.PYSPARK_CHEAT = {
       group: "Aggregation",
       name: "F.percentile_approx / median",
       signature: "F.percentile_approx(col, percentage, accuracy=10000)",
+      use: "Estimates percentiles like the median or p95 quickly on big data. Used for latency SLAs and distribution summaries.",
       summary: "Approximate quantile(s) of a column per group.",
       returns: "Column",
       params: [
@@ -1470,6 +1541,7 @@ window.PYSPARK_CHEAT = {
       group: "Aggregation",
       name: "GroupedData.pivot",
       signature: "df.groupBy(...).pivot(col, values=None).agg(...)",
+      use: "Turns distinct row values into columns, like a spreadsheet pivot table. Used to reshape long data into a wide cross-tab.",
       summary: "Reshape long-to-wide: promote distinct values of a column into their own columns.",
       returns: "GroupedData",
       params: [
@@ -1487,6 +1559,7 @@ window.PYSPARK_CHEAT = {
       group: "Window",
       name: "Window.partitionBy",
       signature: "Window.partitionBy(*cols)",
+      use: "Defines the groups a window calculation runs over, without collapsing rows. The first half of setting up ranking or running totals.",
       summary: "Define the partition (group) over which a window function computes — without collapsing rows.",
       returns: "WindowSpec",
       params: [
@@ -1501,6 +1574,7 @@ window.PYSPARK_CHEAT = {
       group: "Window",
       name: "Window.orderBy",
       signature: "Window.orderBy(*cols)",
+      use: "Sets the order within each window group, which ranking and lag/lead depend on. The second half of defining a window.",
       summary: "Order rows within each window partition — required for ranking / lag / lead / running frames.",
       returns: "WindowSpec",
       params: [
@@ -1515,6 +1589,7 @@ window.PYSPARK_CHEAT = {
       group: "Window",
       name: "WindowSpec.rowsBetween",
       signature: "w.rowsBetween(start, end)",
+      use: "Sets a window frame by a fixed number of rows around the current row. Used for moving averages and running totals.",
       summary: "Define a <b>physical</b> frame by row offsets relative to the current row.",
       returns: "WindowSpec",
       params: [
@@ -1530,6 +1605,7 @@ window.PYSPARK_CHEAT = {
       group: "Window",
       name: "WindowSpec.rangeBetween",
       signature: "w.rangeBetween(start, end)",
+      use: "Sets a window frame by value range rather than row count. Used for time-based windows like last 7 days of values.",
       summary: "Define a <b>logical/value</b> frame: bounds are offsets on the ordering column's value.",
       returns: "WindowSpec",
       params: [
@@ -1545,6 +1621,7 @@ window.PYSPARK_CHEAT = {
       group: "Window",
       name: "Window sentinels",
       signature: "Window.unboundedPreceding / currentRow / unboundedFollowing",
+      use: "The edge markers (<code>unboundedPreceding</code>, <code>currentRow</code>…) that define a window frame. Used to say from the start up to now.",
       summary: "Special frame-boundary constants used with <code>rowsBetween</code>/<code>rangeBetween</code>.",
       returns: "int constants",
       params: [
@@ -1561,6 +1638,7 @@ window.PYSPARK_CHEAT = {
       group: "Window",
       name: "F.row_number",
       signature: "F.row_number().over(w)",
+      use: "Numbers rows 1,2,3… within each window group. The standard trick for picking the single latest row per key.",
       summary: "Assign a unique sequential integer (1,2,3,...) within each ordered partition.",
       returns: "Column (int)",
       params: [
@@ -1575,6 +1653,7 @@ window.PYSPARK_CHEAT = {
       group: "Window",
       name: "F.rank / dense_rank",
       signature: "F.rank().over(w)  |  F.dense_rank().over(w)",
+      use: "Ranks rows within a group, with <code>rank</code> leaving gaps after ties and <code>dense_rank</code> not. Used for leaderboards and top-N.",
       summary: "Rank rows within a partition; ties share a rank.",
       returns: "Column (int)",
       params: [
@@ -1589,6 +1668,7 @@ window.PYSPARK_CHEAT = {
       group: "Window",
       name: "F.ntile",
       signature: "F.ntile(n).over(w)",
+      use: "Splits each group's rows into N roughly equal buckets. Used for quartiles, deciles, and percentile bands.",
       summary: "Bucket ordered rows into <code>n</code> roughly-equal groups (1..n).",
       returns: "Column (int)",
       params: [
@@ -1603,6 +1683,7 @@ window.PYSPARK_CHEAT = {
       group: "Window",
       name: "F.lag / lead",
       signature: "F.lag(col, offset=1, default=None).over(w)",
+      use: "Looks at the previous (<code>lag</code>) or next (<code>lead</code>) row's value within a group. The key to period-over-period and change calculations.",
       summary: "Access a value from a row <code>offset</code> positions before (<code>lag</code>) or after (<code>lead</code>) the current row.",
       returns: "Column",
       params: [
@@ -1619,6 +1700,7 @@ window.PYSPARK_CHEAT = {
       group: "Window",
       name: "F.cume_dist / percent_rank",
       signature: "F.cume_dist().over(w)  |  F.percent_rank().over(w)",
+      use: "Gives each row's relative standing in its group as a fraction. Used for percentile and distribution analysis.",
       summary: "Relative position of a row within its ordered partition, as a fraction.",
       returns: "Column (double)",
       params: [
@@ -1633,6 +1715,7 @@ window.PYSPARK_CHEAT = {
       group: "Window",
       name: "Running / cumulative aggregate pattern",
       signature: "F.sum(col).over(w.rowsBetween(unboundedPreceding, currentRow))",
+      use: "The pattern for a cumulative total that grows row by row within a group. Common for running revenue and balances.",
       summary: "Any aggregate (<code>sum</code>, <code>avg</code>, <code>max</code>...) over an ordered, growing frame gives a running total.",
       returns: "Column",
       params: [
@@ -1650,6 +1733,7 @@ window.PYSPARK_CHEAT = {
       group: "Dates",
       name: "F.current_date / current_timestamp",
       signature: "F.current_date()  |  F.current_timestamp()",
+      use: "Returns today's date or the current timestamp. Used to stamp records and to compute ages or how recent something is.",
       summary: "The session's current date / timestamp, evaluated once per query.",
       returns: "Column",
       params: [
@@ -1664,6 +1748,7 @@ window.PYSPARK_CHEAT = {
       group: "Dates",
       name: "F.to_date",
       signature: "F.to_date(col, format=None)",
+      use: "Turns text dates like <code>\"2024-01-31\"</code> into real date values you can sort, filter and do date math on. Used constantly when raw files load dates as plain strings.",
       summary: "Parse a string (or truncate a timestamp) into a <code>date</code>.",
       returns: "Column (date)",
       params: [
@@ -1679,6 +1764,7 @@ window.PYSPARK_CHEAT = {
       group: "Dates",
       name: "F.to_timestamp",
       signature: "F.to_timestamp(col, format=None)",
+      use: "Parses a text value into a full date-and-time. Used when raw files carry timestamps as plain strings.",
       summary: "Parse a string into a <code>timestamp</code> (date + time).",
       returns: "Column (timestamp)",
       params: [
@@ -1694,6 +1780,7 @@ window.PYSPARK_CHEAT = {
       group: "Dates",
       name: "F.date_format",
       signature: "F.date_format(col, format)",
+      use: "Turns a date or timestamp into a formatted string you control. Used for report labels and grouping by month or day name.",
       summary: "Format a date/timestamp into a string.",
       returns: "Column (string)",
       params: [
@@ -1709,6 +1796,7 @@ window.PYSPARK_CHEAT = {
       group: "Dates",
       name: "F.datediff",
       signature: "F.datediff(end, start)",
+      use: "Returns the number of days between two dates. Used for tenure, age, and how-long-since calculations.",
       summary: "Number of days between two dates (<code>end - start</code>).",
       returns: "Column (int)",
       params: [
@@ -1724,6 +1812,7 @@ window.PYSPARK_CHEAT = {
       group: "Dates",
       name: "F.date_add / date_sub / add_months",
       signature: "F.date_add(start, days)  |  F.add_months(start, n)",
+      use: "Shifts a date forward or back by days or months (<code>date_add</code>, <code>date_sub</code>, <code>add_months</code>). Used for due dates and windows.",
       summary: "Shift a date by a number of days or months.",
       returns: "Column (date)",
       params: [
@@ -1740,6 +1829,7 @@ window.PYSPARK_CHEAT = {
       group: "Dates",
       name: "F.months_between",
       signature: "F.months_between(end, start, roundOff=True)",
+      use: "Returns the number of months between two dates, including a fraction. Used for subscription length and billing math.",
       summary: "Fractional number of months between two timestamps/dates.",
       returns: "Column (double)",
       params: [
@@ -1756,6 +1846,7 @@ window.PYSPARK_CHEAT = {
       group: "Dates",
       name: "F.year / month / dayofmonth / dayofweek / weekofyear / hour",
       signature: "F.year(col) | F.month(col) | F.dayofweek(col) | F.hour(col)",
+      use: "Pulls a piece out of a date — year, month, day, weekday, hour. Used constantly to group or filter by time period.",
       summary: "Extract calendar/time components from a date or timestamp.",
       returns: "Column (int)",
       params: [
@@ -1770,6 +1861,7 @@ window.PYSPARK_CHEAT = {
       group: "Dates",
       name: "F.date_trunc / trunc / last_day",
       signature: "F.date_trunc(format, timestamp)  |  F.trunc(date, format)",
+      use: "Chops a timestamp down to the start of its hour, day, or month. The standard way to bucket events by time period.",
       summary: "Truncate a timestamp/date down to a unit (start of hour/day/month...).",
       returns: "Column",
       params: [
@@ -1785,6 +1877,7 @@ window.PYSPARK_CHEAT = {
       group: "Dates",
       name: "F.unix_timestamp / from_unixtime",
       signature: "F.unix_timestamp(col, format)  |  F.from_unixtime(col, format)",
+      use: "Converts between dates and epoch seconds (<code>unix_timestamp</code>, <code>from_unixtime</code>). Used when systems store time as a number.",
       summary: "Convert between datetime and epoch seconds.",
       returns: "Column",
       params: [
@@ -1800,6 +1893,7 @@ window.PYSPARK_CHEAT = {
       group: "Dates",
       name: "F.window (tumbling / sliding)",
       signature: "F.window(timeColumn, windowDuration, slideDuration=None, startTime=None)",
+      use: "Groups time-series rows into fixed or sliding time buckets. Used for per-minute/hour rollups of event streams.",
       summary: "Bucket rows into fixed time windows — group time series into intervals.",
       returns: "Column (struct<start, end>)",
       params: [
@@ -1819,6 +1913,7 @@ window.PYSPARK_CHEAT = {
       group: "Joins",
       name: "DataFrame.join",
       signature: "df.join(other, on=None, how='inner')",
+      use: "Combines two DataFrames on a matching key, with inner/left/outer modes. The core operation for enriching data from multiple tables.",
       summary: "Combine two DataFrames on a condition. The type (<code>how</code>) determines which unmatched rows survive.",
       returns: "DataFrame",
       params: [
@@ -1835,6 +1930,7 @@ window.PYSPARK_CHEAT = {
       group: "Joins",
       name: "Join conditions (on=)",
       signature: "df.join(other, [conds], how)",
+      use: "Join on complex rules — multiple keys or inequality conditions, not just equality. Used for range joins and multi-column matches.",
       summary: "How to express single, multi-key, and inequality join predicates.",
       returns: "DataFrame",
       params: [
@@ -1851,6 +1947,7 @@ window.PYSPARK_CHEAT = {
       group: "Joins",
       name: "F.broadcast",
       signature: "F.broadcast(df)",
+      use: "Hints Spark to copy a small table to every worker so the join skips a big shuffle. A major speed-up for small-plus-large joins.",
       summary: "Hint Spark to broadcast a small DataFrame to every executor, turning a shuffle join into a map-side broadcast-hash join.",
       returns: "DataFrame (hinted)",
       params: [
@@ -1865,6 +1962,7 @@ window.PYSPARK_CHEAT = {
       group: "Joins",
       name: "DataFrame.crossJoin",
       signature: "df.crossJoin(other)",
+      use: "Pairs every row of one table with every row of another (a Cartesian product). Used deliberately for grids; dangerous by accident.",
       summary: "Explicit Cartesian product — every left row paired with every right row.",
       returns: "DataFrame",
       params: [
@@ -1881,6 +1979,7 @@ window.PYSPARK_CHEAT = {
       group: "I/O",
       name: "spark.read.parquet",
       signature: "spark.read.parquet(*paths)",
+      use: "Reads Parquet files, the fast columnar format Spark loves. The default way to load data in most data-lake pipelines.",
       summary: "Read Parquet — the preferred columnar format (schema embedded, predicate/column pushdown).",
       returns: "DataFrame",
       params: [
@@ -1895,6 +1994,7 @@ window.PYSPARK_CHEAT = {
       group: "I/O",
       name: "spark.read.csv",
       signature: "spark.read.csv(path, **options)",
+      use: "Reads CSV files, with options for headers, schema, and delimiters. The common starting point for raw or exported data.",
       summary: "Read delimited text; needs options because CSV carries no schema.",
       returns: "DataFrame",
       params: [
@@ -1913,6 +2013,7 @@ window.PYSPARK_CHEAT = {
       group: "I/O",
       name: "spark.read.json",
       signature: "spark.read.json(path, **options)",
+      use: "Reads JSON files, including nested structures. Used for API dumps and log data that arrive as JSON.",
       summary: "Read JSON — one JSON object per line by default (JSON Lines).",
       returns: "DataFrame",
       params: [
@@ -1930,6 +2031,7 @@ window.PYSPARK_CHEAT = {
       group: "I/O",
       name: "DataFrame.write",
       signature: "df.write.mode(m).partitionBy(*c).format(f).save(path)",
+      use: "Saves a DataFrame to storage, choosing format, mode, and partitioning. The final step that persists your pipeline's output.",
       summary: "Write a DataFrame out. Configure via the <code>DataFrameWriter</code> builder before <code>save</code>.",
       returns: "None (action)",
       params: [
@@ -1946,6 +2048,7 @@ window.PYSPARK_CHEAT = {
       group: "I/O",
       name: "DataFrameWriter.saveAsTable / insertInto",
       signature: "df.write.mode(m).saveAsTable(name)",
+      use: "Writes a DataFrame as a managed table in the catalog (or inserts into one). Used when results should be queryable as a table.",
       summary: "Persist as a managed/external table registered in the metastore (queryable via SQL).",
       returns: "None",
       params: [
@@ -1961,6 +2064,7 @@ window.PYSPARK_CHEAT = {
       group: "I/O",
       name: "DataFrame.createOrReplaceTempView",
       signature: "df.createOrReplaceTempView(name)",
+      use: "Registers a DataFrame as a temporary SQL view so you can query it with <code>spark.sql</code>. Handy for mixing SQL into PySpark.",
       summary: "Register a DataFrame as a session-scoped temp view so it can be queried with <code>spark.sql</code>.",
       returns: "None",
       params: [
@@ -1977,6 +2081,7 @@ window.PYSPARK_CHEAT = {
       group: "Performance",
       name: "repartition vs coalesce",
       signature: "df.repartition(n[, *cols])  vs  df.coalesce(n)",
+      use: "When to reshuffle vs. just merge partitions: <code>repartition</code> balances with a shuffle, <code>coalesce</code> merges cheaply. Key for output file sizing.",
       summary: "Two ways to change partition count with very different cost and behavior.",
       returns: "DataFrame",
       params: [
@@ -1992,6 +2097,7 @@ window.PYSPARK_CHEAT = {
       group: "Performance",
       name: "Broadcast join (skew & shuffle avoidance)",
       signature: "df.join(F.broadcast(small), key)",
+      use: "Avoids a costly shuffle by broadcasting the small side of a join. One of the highest-impact Spark performance tricks.",
       summary: "Replicate a small table to all executors so the big table never shuffles.",
       returns: "concept",
       params: [
@@ -2007,6 +2113,7 @@ window.PYSPARK_CHEAT = {
       group: "Performance",
       name: "cache / persist + StorageLevel",
       signature: "df.persist(StorageLevel.MEMORY_AND_DISK)",
+      use: "Reuse an expensive result by caching it at the right storage level. Speeds up jobs that touch the same DataFrame repeatedly.",
       summary: "Materialize a reused DataFrame once instead of recomputing its lineage per action.",
       returns: "concept",
       params: [
@@ -2022,6 +2129,7 @@ window.PYSPARK_CHEAT = {
       group: "Performance",
       name: "partitionBy on write (partition pruning)",
       signature: "df.write.partitionBy('dt').parquet(path)",
+      use: "Partition the data on disk by a column so later queries scan only the folders they need. Big speed-up via partition pruning.",
       summary: "Lay out output in per-value directories so reads can skip (prune) irrelevant partitions.",
       returns: "concept",
       params: [
@@ -2037,6 +2145,7 @@ window.PYSPARK_CHEAT = {
       group: "Performance",
       name: "Adaptive Query Execution (AQE)",
       signature: "spark.conf.set('spark.sql.adaptive.enabled', True)",
+      use: "Adaptive Query Execution lets Spark re-optimize a job at runtime from real stats. Turning it on often fixes skew and bad joins for free.",
       summary: "Runtime re-optimization using actual shuffle statistics (on by default in Spark 3.2+).",
       returns: "concept",
       params: [
@@ -2053,6 +2162,7 @@ window.PYSPARK_CHEAT = {
       group: "Performance",
       name: "Salting for join/aggregation skew",
       signature: "add a random salt to the hot key, then join/group, then strip it",
+      use: "Spreads out a hot, lopsided key by adding randomness so one worker is not overloaded. The fix for join and group-by data skew.",
       summary: "Break up a hot key by appending a random bucket so its rows spread across many partitions/tasks.",
       returns: "concept",
       params: [
@@ -2073,6 +2183,7 @@ window.PYSPARK_CHEAT = {
       group: "Regex",
       name: "English → regex, step by step",
       signature: "English → regex, step by step",
+      use: "A guided walkthrough that turns a plain-English requirement into a working regex, step by step. Great for learning how to build patterns.",
       category: "🧭 Method · turn a problem statement into a pattern",
       summary: "The reliable way from a sentence to a working pattern: don't try to <i>recall</i> the regex — <b>build</b> it. Anchor the boundaries, chunk the target left-to-right, classify each chunk's character type, count it, and capture only what you must extract.",
       works:
@@ -2107,6 +2218,7 @@ window.PYSPARK_CHEAT = {
       divider: "Interview patterns · the ones you'll actually be asked",
       name: "Apache / nginx log-line parser",
       signature: "^(\\S+) \\S+ \\S+ \\[([^\\]]+)\\] \"(\\S+) (\\S+) [^\"]*\" (\\d+)",
+      use: "A ready-made pattern for pulling fields out of web-server log lines. Handy when parsing Apache or nginx access logs.",
       returns: "5 fields",
       category: "📑 Interview pattern · log / structured-text parsing",
       summary: "The canonical \"parse this raw log line into columns\" question. One <code>regexp_extract</code> per capture group pulls out IP, timestamp, method, path and status. Master this and most structured-text prompts fall out the same way.",
@@ -2153,6 +2265,7 @@ window.PYSPARK_CHEAT = {
       divider: "Foundations · how to think in regex",
       name: "How to read any regex",
       signature: "How to read any regex",
+      use: "How to read any regex by breaking it into its pieces. The mental model that makes scary patterns understandable.",
       category: "🧭 Method · interpret a pattern you're handed",
       summary: "Given a wall of symbols, don't panic — <b>narrate it left to right</b>, one token at a time, in plain English. Every regex is just a sequence of 'match THIS, then THIS'. Bucket the symbols into the six building blocks below and the meaning falls out.",
       works:
@@ -2182,6 +2295,7 @@ window.PYSPARK_CHEAT = {
       divider: "Constructs A–Z · the building blocks",
       name: "Literals & escaping",
       signature: "literal chars · \\ escapes a special",
+      use: "The basics: plain characters match themselves, and <code>\</code> escapes special ones. The foundation every regex builds on.",
       category: "🔤 Construct · the 12 metacharacters",
       summary: "Most characters match themselves. Twelve are 'special' and must be <b>escaped with a backslash</b> to match literally: <code>. ^ $ * + ? ( ) [ ] { } \\ |</code>. Everything else is a plain literal.",
       works:
@@ -2206,6 +2320,7 @@ window.PYSPARK_CHEAT = {
       group: "Regex",
       name: "Character classes  [ ]",
       signature: "[abc] · [a-z] · [^…]",
+      use: "Character classes like <code>[a-z]</code> match any one character from a set. The first tool for matching families of characters.",
       category: "🔤 Construct · match one char from a set",
       summary: "<code>[ ]</code> matches exactly <b>one</b> character from the set inside. Ranges with <code>-</code>, negate with a leading <code>^</code>, combine freely.",
       works:
@@ -2232,6 +2347,7 @@ window.PYSPARK_CHEAT = {
       group: "Regex",
       name: "Shorthand classes  \\d \\w \\s",
       signature: "\\d \\w \\s . (caps = negation)",
+      use: "Shortcuts for common sets — <code>\d</code> digits, <code>\w</code> word chars, <code>\s</code> spaces. Makes patterns shorter and clearer.",
       category: "🔤 Construct · common class shortcuts",
       summary: "One-letter shortcuts for the classes you reach for constantly. The capital is the negation.",
       works:
@@ -2256,6 +2372,7 @@ window.PYSPARK_CHEAT = {
       group: "Regex",
       name: "Anchors & boundaries  ^ $ \\b",
       signature: "^ $ \\b \\B \\A \\z",
+      use: "Anchors like <code>^</code>, <code>$</code>, and <code>\b</code> match positions, not characters. Used to pin a match to a line edge or word boundary.",
       category: "🔤 Construct · assert a position (matches no char)",
       summary: "Anchors don't match characters — they assert <i>where</i> you are. Essential for whole-string validation and whole-word matching.",
       works:
@@ -2280,6 +2397,7 @@ window.PYSPARK_CHEAT = {
       group: "Regex",
       name: "Quantifiers  * + ? {n} (greedy/lazy)",
       signature: "* + ? {n} {n,m} · +? *? (lazy)",
+      use: "Quantifiers like <code>*</code>, <code>+</code>, and <code>{n}</code> say how many times to match. Add <code>?</code> to make them lazy instead of greedy.",
       category: "🔤 Construct · how many times to repeat",
       summary: "A quantifier says how many of the <b>preceding token</b> to match. They're <b>greedy</b> by default (grab as much as possible); add <code>?</code> to make them <b>lazy</b> (as little as possible).",
       works:
@@ -2306,6 +2424,7 @@ window.PYSPARK_CHEAT = {
       group: "Regex",
       name: "Groups & alternation  ( ) (?:) |",
       signature: "(capture) (?:non-cap) a|b",
+      use: "Parentheses group parts of a pattern and <code>|</code> offers alternatives. The building blocks for capturing and OR-ing patterns.",
       category: "🔤 Construct · bundle, capture, either/or",
       summary: "Parentheses bundle tokens into a unit. A plain <code>( )</code> also <b>captures</b> (numbered 1,2,3…); <code>(?:…)</code> groups WITHOUT capturing; <code>|</code> means 'either / or'.",
       works:
@@ -2330,6 +2449,7 @@ window.PYSPARK_CHEAT = {
       group: "Regex",
       name: "Backreferences  \\1  $1",
       signature: "\\1 (in pattern) · $1 (in replacement)",
+      use: "Backreferences reuse what an earlier group captured, in the pattern or the replacement. Used to find repeats and reshape text.",
       category: "🔤 Construct · reuse a captured group",
       summary: "A backreference reuses what a group already captured — <code>\\1</code> inside the pattern (match the same text again) and <code>$1</code> in a <b>replacement</b> string (reinsert it). The engine behind 'reformat X into Y'.",
       works:
@@ -2351,6 +2471,7 @@ window.PYSPARK_CHEAT = {
       group: "Regex",
       name: "Lookaround  (?=) (?!) (?<=) (?<!)",
       signature: "(?=…) (?!…) (?<=…) (?<!…)",
+      use: "Lookaround checks what comes before or after without consuming it. Used for tricky matches like mask-all-but-last-four.",
       category: "🔤 Construct · assert without consuming",
       summary: "Lookarounds check that something does (or doesn't) come next/before, <b>without consuming</b> those characters. Perfect for 'match X only if followed/preceded by Y' — like masking all but the last N.",
       works:
@@ -2376,6 +2497,7 @@ window.PYSPARK_CHEAT = {
       group: "Regex",
       name: "Email — validate & extract",
       signature: "^[\\w.+-]+@[\\w-]+\\.[\\w.-]+$",
+      use: "A practical pattern for validating or extracting email addresses. A classic data-cleaning and interview task.",
       returns: "bool / domain",
       category: "📑 Interview pattern · email",
       summary: "Two jobs: (1) <b>validate</b> a whole address with an anchored <code>rlike</code>; (2) <b>extract</b> the local part or domain. A pragmatic pattern beats a spec-perfect monster — say so in the interview.",
@@ -2408,6 +2530,7 @@ window.PYSPARK_CHEAT = {
       group: "Regex",
       name: "Phone — clean, mask, format",
       signature: "\\D  ·  (\\d{3})(\\d{3})(\\d{4})",
+      use: "Patterns to clean, mask, and reformat phone numbers. Common when normalizing messy contact data.",
       category: "📑 Interview pattern · phone numbers",
       summary: "Real phone data is messy: <code>(555) 123-4567</code>, <code>555.123.4567</code>, <code>+1 555 123 4567</code>. The robust play: <b>normalize first</b> (strip non-digits), then format or mask the clean digit string.",
       example: "(555) 123-4567 · 555.123.4567",
@@ -2432,6 +2555,7 @@ window.PYSPARK_CHEAT = {
       group: "Regex",
       name: "URL / domain extraction",
       signature: "https?://([^/]+)(/\\S*)?",
+      use: "Patterns to pull the domain or path out of a URL. Used for web analytics and log parsing.",
       category: "📑 Interview pattern · URLs",
       summary: "Pull the host (and optionally path) out of a URL. Capture the piece between <code>//</code> and the first <code>/</code> for the domain.",
       example: "https://www.acme.com/pricing?ref=x",
@@ -2457,6 +2581,7 @@ window.PYSPARK_CHEAT = {
       group: "Regex",
       name: "IPv4 address",
       signature: "(\\d{1,3}\\.){3}\\d{1,3}",
+      use: "A pattern for matching IPv4 addresses. Handy for log analysis and basic input validation.",
       category: "📑 Interview pattern · IP addresses",
       summary: "Four dot-separated numbers. A quick pattern uses <code>\\d{1,3}</code>; a strict one bounds each octet to 0–255 (worth naming, rarely worth writing under time pressure).",
       example: "10.0.0.5 · 127.0.0.1 · 999.1.1.1",
@@ -2481,6 +2606,7 @@ window.PYSPARK_CHEAT = {
       group: "Regex",
       name: "Dates  YYYY-MM-DD / MM-DD-YYYY",
       signature: "(\\d{4})-(\\d{2})-(\\d{2})",
+      use: "Patterns for recognizing and reshaping dates in text. Used when dates arrive in mixed string formats.",
       category: "📑 Interview pattern · dates",
       summary: "Extract or validate date parts from text. For real parsing prefer <code>to_date</code> with a format; use regex when the date is embedded in a larger string or the format is irregular.",
       example: "2026-09-20 · 09/20/2026",
@@ -2505,6 +2631,7 @@ window.PYSPARK_CHEAT = {
       group: "Regex",
       name: "Numbers, currency & separators",
       signature: "-?\\d+(\\.\\d+)? · \\d{1,3}(,\\d{3})*",
+      use: "Patterns for numbers, currency, and thousands separators. Used to extract or validate amounts from text.",
       category: "📑 Interview pattern · numbers & money",
       summary: "Extract numbers from text, handle thousands separators and currency symbols. Usually: strip the noise, then cast.",
       example: "$1,234.50 · -42 · 3.14",
@@ -2529,6 +2656,7 @@ window.PYSPARK_CHEAT = {
       group: "Regex",
       name: "PII masking (keep last 4)",
       signature: "\\d(?=\\d{4})  ·  (\\d{3})\\d{2}(\\d{4})",
+      use: "Patterns to mask sensitive data while keeping the last few digits. Used for safely displaying cards and SSNs.",
       category: "📑 Interview pattern · masking / redaction",
       summary: "Redact sensitive numbers while keeping a suffix for reference — the classic 'show only the last 4 of the card/SSN'. A lookahead does it in one pass.",
       example: "4111111111111234 · 123-45-6789",
@@ -2553,6 +2681,7 @@ window.PYSPARK_CHEAT = {
       group: "Regex",
       name: "Whitespace: trim & collapse",
       signature: "\\s+  ·  ^\\s+|\\s+$",
+      use: "Patterns to trim and collapse extra spaces. A staple of text cleanup before analysis.",
       category: "📑 Interview pattern · text cleanup",
       summary: "The most common cleaning step: squeeze runs of spaces/tabs/newlines to one, and/or trim the ends. Bread-and-butter before joins and grouping.",
       example: "'  hello   world \\t'",
@@ -2577,6 +2706,7 @@ window.PYSPARK_CHEAT = {
       group: "Regex",
       name: "Whole words & word count",
       signature: "\\bword\\b  ·  split on \\s+",
+      use: "Match whole words and count them with word boundaries. Used for text analysis and simple tokenizing.",
       category: "📑 Interview pattern · tokens & counting",
       summary: "Match a term as a <b>whole word</b> (not a substring), or split text into tokens to count. Word boundaries <code>\\b</code> are the key.",
       example: "'the theory of the cat'",
@@ -2601,6 +2731,7 @@ window.PYSPARK_CHEAT = {
       group: "Regex",
       name: "Hashtags & @mentions",
       signature: "(#\\w+)  ·  (@\\w+)",
+      use: "Patterns to pull hashtags and @mentions out of text. Common in social-media and comment analysis.",
       category: "📑 Interview pattern · social text",
       summary: "Extract every hashtag or mention from a post — a repeating pattern, so grab them ALL into an array and explode.",
       example: "'love #spark and #python, thx @asha'",
@@ -2625,6 +2756,7 @@ window.PYSPARK_CHEAT = {
       group: "Regex",
       name: "Strip HTML / XML tags",
       signature: "<[^>]+>",
+      use: "A pattern to strip HTML or XML tags out of text. Handy for turning markup into plain readable content.",
       category: "📑 Interview pattern · markup cleanup",
       summary: "Remove tags to get plain text. <code>&lt;[^&gt;]+&gt;</code> matches a tag safely by stopping at the first <code>&gt;</code>.",
       example: "'<p>Hi <b>there</b></p>'",
@@ -2648,6 +2780,7 @@ window.PYSPARK_CHEAT = {
       group: "Regex",
       name: "Reshape via capture groups",
       signature: "(\\d{4})(\\d{2})(\\d{2}) → $1-$2-$3",
+      use: "Use capture groups to rearrange text, like reformatting a date. A powerful find-and-reshape technique.",
       category: "📑 Interview pattern · reformat in place",
       summary: "Capture the pieces you want to keep, then rebuild the string in the replacement with <code>$1 $2 …</code>. The general 'turn format A into format B' tool.",
       example: "'20260920' · 'Doe, Jane'",
@@ -2671,6 +2804,7 @@ window.PYSPARK_CHEAT = {
       group: "Regex",
       name: "Duplicate-word detection",
       signature: "\\b(\\w+)\\s+\\1\\b",
+      use: "A pattern that spots accidentally repeated words. Useful for proofreading and data-quality checks.",
       category: "📑 Interview pattern · backreference trick",
       summary: "Find a repeated word ('the the') with a <b>backreference</b>: capture a word, then require the same text again. A classic 'aha' interview question.",
       example: "'this is is a test the the end'",
@@ -2695,6 +2829,7 @@ window.PYSPARK_CHEAT = {
       group: "Regex",
       name: "camelCase ↔ snake_case",
       signature: "([a-z0-9])([A-Z]) → $1_$2",
+      use: "Convert between camelCase and snake_case with regex. Handy for normalizing column or field names.",
       category: "📑 Interview pattern · identifier casing",
       summary: "Convert column/identifier styles. camelCase→snake inserts an underscore at each lower→upper boundary, then lowercases.",
       example: "'firstName' · 'user_id'",
@@ -2721,6 +2856,7 @@ window.PYSPARK_CHEAT = {
       divider: "PySpark specifics · functions, flavor & performance",
       name: "The Spark regex functions",
       signature: "regexp_replace · regexp_extract · rlike · split",
+      use: "The Spark functions that actually run regex — <code>regexp_replace</code>, <code>regexp_extract</code>, <code>rlike</code>, <code>split</code>. Where patterns get applied.",
       category: "⚙️ PySpark · which function does what",
       summary: "Spark's regex surface. Pick by the shape of answer you need: a boolean, one piece, all pieces, or a rewrite.",
       works:
@@ -2744,6 +2880,7 @@ window.PYSPARK_CHEAT = {
       group: "Regex",
       name: "Java/ICU flavor & double-escaping",
       signature: "'\\\\d' vs r'\\d'  ·  (?i) flags",
+      use: "Spark uses Java/ICU regex, so backslashes often need doubling. Knowing this saves hours of why-wont-it-match pain.",
       category: "⚙️ PySpark · the escaping gotcha",
       summary: "Spark compiles patterns with <b>Java's</b> regex engine (java.util.regex), not Python's <code>re</code>. Two practical consequences: how you escape backslashes, and which flags/syntax exist.",
       works:
@@ -2768,6 +2905,7 @@ window.PYSPARK_CHEAT = {
       group: "Regex",
       name: "Regex performance & when NOT to use it",
       signature: "contains / startswith > regex",
+      use: "Regex is powerful but slow — plain <code>contains</code> or <code>startswith</code> is faster when it fits. Knowing when NOT to use regex matters.",
       category: "⚙️ PySpark · cost & alternatives",
       summary: "Regex is powerful but per-row and CPU-heavy. For plain substrings or prefixes, cheaper column functions win — and predicate pushdown behaves better.",
       works:

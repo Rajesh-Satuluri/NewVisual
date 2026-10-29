@@ -475,18 +475,28 @@
     order.forEach(function (name) {
       var card = h("div", { class: "lab-tbl-card" });
       card.appendChild(h("div", { class: "lab-tbl-card-name" }, esc(name)));
+      // schema definition (Column/Type) and sample rows sit side by side so each
+      // narrow table fills the card's width instead of stacking into a tall column;
+      // wraps back to stacked when the card is too narrow.
+      var cols = h("div", { class: "lab-tbl-cols" });
       var sc = findSchema(name);
       if (sc) {
         var defRows = (sc.columns || []).map(function (c) { return [c.name, c.type + (c.note ? "  · " + c.note : "")]; });
-        card.appendChild(dataTable(["Column", "Type"], defRows));
+        var def = h("div", { class: "lab-tbl-def" });
+        def.appendChild(h("div", { class: "lab-tbl-sub" }, "Schema"));
+        def.appendChild(dataTable(["Column", "Type"], defRows));
+        cols.appendChild(def);
       }
       var sm = findSample(name);
       if (sm) {
-        card.appendChild(h("div", { class: "lab-tbl-sub" }, sc ? "Sample rows" : "Sample data"));
+        var smp = h("div", { class: "lab-tbl-smp" });
+        smp.appendChild(h("div", { class: "lab-tbl-sub" }, sc ? "Sample rows" : "Sample data"));
         var box = h("div", { class: "lab-sample-box" });
         box.appendChild(dataTable(sm.columns, sm.rows));
-        card.appendChild(box);
+        smp.appendChild(box);
+        cols.appendChild(smp);
       }
+      card.appendChild(cols);
       grid.appendChild(card);
     });
     return grid;
@@ -758,8 +768,25 @@
       main.appendChild(section("learnlink", "📚 Learn the concepts behind this", rcBody));
     }
 
-    // schema + sample data (SQL)
-    if ((p.schema && p.schema.length) || (p.sampleData && p.sampleData.length)) {
+    // schema + sample data (SQL) — paired side-by-side with the expected output
+    // so a SQL problem shows "here's the input / here's what you must produce"
+    // in one glance. Falls back to a standalone section when only one is present.
+    var _hasSchema = (p.schema && p.schema.length) || (p.sampleData && p.sampleData.length);
+    var _hasExpected = p.expectedOutput && p.expectedOutput.columns;
+    var _expRows = _hasExpected ? (p.expectedOutput.rows || []).length : 0;
+    if (_hasSchema && _hasExpected) {
+      var ioWrap = h("div", { class: "lab-io-split" });
+      var inPanel = h("div", { class: "lab-io-panel lab-io-in" });
+      inPanel.appendChild(h("div", { class: "lab-io-head" }, "Sample Input"));
+      inPanel.appendChild(schemaDataGrid(p));
+      var outPanel = h("div", { class: "lab-io-panel lab-io-out" });
+      var outHead = h("div", { class: "lab-io-head" }, "Expected Output");
+      outHead.appendChild(h("span", { class: "lab-io-badge" }, _expRows + " row" + (_expRows === 1 ? "" : "s")));
+      outPanel.appendChild(outHead);
+      outPanel.appendChild(dataTable(p.expectedOutput.columns, p.expectedOutput.rows));
+      ioWrap.appendChild(inPanel); ioWrap.appendChild(outPanel);
+      main.appendChild(section("schema", "Sample Input & Expected Output", ioWrap));
+    } else if (_hasSchema) {
       main.appendChild(section("schema", "Schema & Sample Data", schemaDataGrid(p)));
     }
 
@@ -801,11 +828,12 @@
       main.appendChild(section("examples", "Examples", exWrap, { badge: p.examples.length + "" }));
     }
 
-    // expected output (SQL)
-    if (p.expectedOutput && p.expectedOutput.columns) {
+    // expected output (SQL) — only standalone when it wasn't paired with the
+    // sample input above (i.e. a problem that has expected output but no schema).
+    if (_hasExpected && !_hasSchema) {
       main.appendChild(section("expected", "Expected Output",
         dataTable(p.expectedOutput.columns, p.expectedOutput.rows),
-        { badge: (p.expectedOutput.rows || []).length + " row" + ((p.expectedOutput.rows || []).length === 1 ? "" : "s") }));
+        { badge: _expRows + " row" + (_expRows === 1 ? "" : "s") }));
     }
 
     // approaches: logic + code toggle.  Both the approach switcher and the

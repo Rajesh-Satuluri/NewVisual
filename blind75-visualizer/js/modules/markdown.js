@@ -169,9 +169,110 @@
     return out;
   }
 
+  // Strip stray SVG <text> wrappers that sometimes leak into pasted content.
+  // Real diagrams in this app are drawn at runtime via createElementNS (pyviz.js),
+  // never as Markdown, so a literal <text ...> / </text> here is always junk — e.g.
+  // ASCII art pasted wrapped in <text preserveWhitespace>...</text>. Because the
+  // renderer escapes HTML, those tags would otherwise show as visible garbage.
+  // We drop the wrapper tags only, keeping the ASCII art between them intact.
+  function stripLeakedSvgText(s) {
+    return s.replace(/<\/?text\b[^>]*>/gi, "");
+  }
+
+  // --- Linked-list diagram -------------------------------------------------
+  // A ```linkedlist fenced block renders a clean, theme-aware SVG instead of
+  // ASCII art: value boxes joined by arrows, a `head` pointer, a `None`
+  // terminator, and a curved back-arrow for a cycle. Syntax (one chain line):
+  //   1 -> 2 -> 3 -> 4 -> None      (terminated list)
+  //   1 -> 2 -> 3 -> 4 -> *2        (tail links back to the node labelled 2)
+  // Arrows may be written -> or →. A trailing *<label> (or @<label>) marks the
+  // node the tail points back to. Colours come from the app's CSS variables so
+  // the diagram matches both themes.
+  var llSeq = 0;
+  function renderLinkedList(spec) {
+    var raw = String(spec || "").replace(/\n+/g, " ").trim();
+    if (!raw) return "";
+    var parts = raw.split(/\s*(?:->|→)\s*/);
+    var nodes = [];        // { label } for each real node
+    var terminated = false;
+    var cycleTo = -1;      // index of node the tail loops back to, or -1
+    for (var pi = 0; pi < parts.length; pi++) {
+      var tok = parts[pi].trim();
+      if (tok === "") continue;
+      if (/^(none|null|nil|∅)$/i.test(tok)) { terminated = true; continue; }
+      if (tok.charAt(0) === "*" || tok.charAt(0) === "@") {
+        var want = tok.slice(1).trim();
+        for (var fi = 0; fi < nodes.length; fi++) {
+          if (nodes[fi].label === want) { cycleTo = fi; break; }
+        }
+        if (cycleTo === -1) { var ix = parseInt(want, 10); if (!isNaN(ix) && ix >= 0 && ix < nodes.length) cycleTo = ix; }
+        continue;
+      }
+      nodes.push({ label: tok });
+    }
+    var n = nodes.length;
+    if (n === 0) return "";
+
+    var boxW = 48, boxH = 34, gap = 34, topPad = 28;
+    var boxTop = topPad, boxBottom = topPad + boxH, midY = topPad + boxH / 2;
+    var bottomPad = cycleTo >= 0 ? 46 : 14;
+    var totalH = boxBottom + bottomPad;
+    function nodeX(i) { return 12 + i * (boxW + gap); }
+    function cx(i) { return nodeX(i) + boxW / 2; }
+    var lastRight = nodeX(n - 1) + boxW;
+    var width = lastRight + (terminated ? gap + 46 : 14);
+
+    var uid = "llm" + (++llSeq);
+    var s = '<svg class="md-ll" viewBox="0 0 ' + width + ' ' + totalH +
+      '" width="' + width + '" height="' + totalH +
+      '" role="img" aria-label="Linked list diagram" xmlns="http://www.w3.org/2000/svg">';
+    s += '<defs><marker id="' + uid + '" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">' +
+      '<path d="M0,0 L8,4 L0,8 z" style="fill:var(--brand)"></path></marker>' +
+      '<marker id="' + uid + 'c" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">' +
+      '<path d="M0,0 L8,4 L0,8 z" style="fill:var(--brand-2)"></path></marker></defs>';
+
+    // head pointer above the first node
+    s += '<text x="' + cx(0) + '" y="12" text-anchor="middle" style="fill:var(--muted);font:600 11px var(--font,sans-serif)">head</text>';
+    s += '<line x1="' + cx(0) + '" y1="16" x2="' + cx(0) + '" y2="' + (boxTop - 3) +
+      '" style="stroke:var(--brand);stroke-width:1.5" marker-end="url(#' + uid + ')"></line>';
+
+    // node boxes + value labels
+    for (var i = 0; i < n; i++) {
+      var x = nodeX(i);
+      s += '<rect x="' + x + '" y="' + boxTop + '" width="' + boxW + '" height="' + boxH +
+        '" rx="7" style="fill:var(--bg-2);stroke:var(--brand);stroke-width:1.5"></rect>';
+      s += '<text x="' + (x + boxW / 2) + '" y="' + (midY + 4) +
+        '" text-anchor="middle" style="fill:var(--text);font:600 13px ui-monospace,Menlo,Consolas,monospace">' +
+        escapeHtml(nodes[i].label) + '</text>';
+      if (i < n - 1) {
+        s += '<line x1="' + (x + boxW) + '" y1="' + midY + '" x2="' + (nodeX(i + 1) - 2) + '" y2="' + midY +
+          '" style="stroke:var(--brand);stroke-width:1.5" marker-end="url(#' + uid + ')"></line>';
+      }
+    }
+
+    // terminator: arrow to a None cap
+    if (terminated) {
+      var tx = lastRight, ty = midY;
+      s += '<line x1="' + tx + '" y1="' + ty + '" x2="' + (tx + gap - 2) + '" y2="' + ty +
+        '" style="stroke:var(--brand);stroke-width:1.5" marker-end="url(#' + uid + ')"></line>';
+      s += '<text x="' + (tx + gap + 4) + '" y="' + (ty + 4) +
+        '" style="fill:var(--muted);font:600 12px ui-monospace,Menlo,Consolas,monospace">None</text>';
+    }
+
+    // cycle: curved back-arrow from the tail to the target node
+    if (cycleTo >= 0) {
+      var sxp = cx(n - 1), txp = cx(cycleTo), dip = boxBottom + 34;
+      s += '<path d="M' + sxp + ',' + boxBottom + ' C' + sxp + ',' + dip + ' ' + txp + ',' + dip + ' ' + txp + ',' + (boxBottom + 3) +
+        '" style="fill:none;stroke:var(--brand-2);stroke-width:1.5" marker-end="url(#' + uid + 'c)"></path>';
+    }
+
+    s += "</svg>";
+    return '<figure class="md-ll-fig">' + s + "</figure>";
+  }
+
   function render(md) {
     if (md == null) return "";
-    var prot = protectMath(String(md));
+    var prot = protectMath(stripLeakedSvgText(String(md)));
     var src = escapeHtml(prot.src);
     var lines = src.split("\n");
     var html = [];
@@ -191,6 +292,13 @@
           i++;
         }
         i++; // skip closing fence
+        if (lang === "linkedlist" || lang === "ll") {
+          // buf was already HTML-escaped; renderLinkedList re-escapes labels, so
+          // unescape the arrow/text source first to parse the chain cleanly.
+          var llSrc = buf.join("\n").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+          var llSvg = renderLinkedList(llSrc);
+          if (llSvg) { html.push(llSvg); continue; }
+        }
         var cls = lang ? ' class="language-' + lang + '"' : "";
         html.push('<pre class="md-pre"><code' + cls + ">" + buf.join("\n") + "</code></pre>");
         continue;
