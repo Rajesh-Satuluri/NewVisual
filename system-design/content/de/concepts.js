@@ -32,18 +32,18 @@ export const CONCEPTS = [
   { id: 'small-file-compaction', title: 'The small-file problem & compaction', icon: '🧩', chapter: 9, wave: 'B', group: 'Storage & table formats', summary: 'Why millions of tiny files kill performance, and how compaction fixes it.', built: true },
 
   // ── Ingestion & pipelines ─────────────────────────────────────────────────
-  { id: 'etl-vs-elt', title: 'Batch ETL vs ELT', icon: '🔄', chapter: 10, wave: 'C', group: 'Ingestion & pipelines', summary: 'Transform-before-load vs load-then-transform, and why ELT won in the cloud warehouse era.', built: false },
-  { id: 'incremental-vs-full', title: 'Incremental vs full loads', icon: '⏫', chapter: 11, wave: 'C', group: 'Ingestion & pipelines', summary: 'High-water marks and change windows that move only new data instead of reloading everything.', built: false },
+  { id: 'etl-vs-elt', title: 'Batch ETL vs ELT', icon: '🔄', chapter: 10, wave: 'C', group: 'Ingestion & pipelines', summary: 'Transform-before-load vs load-then-transform, and why ELT won in the cloud warehouse era.', built: true },
+  { id: 'incremental-vs-full', title: 'Incremental vs full loads', icon: '⏫', chapter: 11, wave: 'C', group: 'Ingestion & pipelines', summary: 'High-water marks and change windows that move only new data instead of reloading everything.', built: true },
   { id: 'cdc-pipeline', title: 'Change data capture (CDC)', icon: '📝', chapter: 12, wave: 'A', group: 'Ingestion & pipelines', summary: 'Tail the database log and stream inserts/updates/deletes to keep a target in sync — without full reloads.', built: true },
-  { id: 'orchestration-dag', title: 'Orchestration (Airflow DAGs)', icon: '🧭', chapter: 13, wave: 'C', group: 'Ingestion & pipelines', summary: 'Model pipelines as DAGs: dependencies, scheduling, retries, and backfills.', built: false },
-  { id: 'idempotent-pipelines', title: 'Idempotent & retriable pipelines', icon: '♻️', chapter: 14, wave: 'C', group: 'Ingestion & pipelines', summary: 'Design tasks so a re-run never double-writes — the backbone of reliable data pipelines.', built: false },
+  { id: 'orchestration-dag', title: 'Orchestration (Airflow DAGs)', icon: '🧭', chapter: 13, wave: 'C', group: 'Ingestion & pipelines', summary: 'Model pipelines as DAGs: dependencies, scheduling, retries, and backfills.', built: true },
+  { id: 'idempotent-pipelines', title: 'Idempotent & retriable pipelines', icon: '♻️', chapter: 14, wave: 'C', group: 'Ingestion & pipelines', summary: 'Design tasks so a re-run never double-writes — the backbone of reliable data pipelines.', built: true },
 
   // ── Streaming systems ─────────────────────────────────────────────────────
-  { id: 'kafka-architecture', title: 'Kafka architecture', icon: '📬', chapter: 15, wave: 'C', group: 'Streaming systems', summary: 'Partitioned logs, producers, consumer groups and offsets — the backbone of streaming.', built: false },
-  { id: 'event-driven', title: 'Event-driven architecture', icon: '⚡', chapter: 16, wave: 'C', group: 'Streaming systems', summary: 'Decouple producers and consumers with events and fan-out to many independent sinks.', built: false },
-  { id: 'windowing', title: 'Windowing (tumbling, sliding, session)', icon: '🪟', chapter: 17, wave: 'C', group: 'Streaming systems', summary: 'Slice an unbounded stream into finite windows you can aggregate over.', built: false },
-  { id: 'watermarking', title: 'Watermarking & late data', icon: '💧', chapter: 18, wave: 'C', group: 'Streaming systems', summary: 'Track event-time progress so you know when a window is complete — and handle stragglers.', built: false },
-  { id: 'delivery-guarantees', title: 'Delivery guarantees & exactly-once', icon: '🎯', chapter: 19, wave: 'C', group: 'Streaming systems', summary: 'At-most / at-least / exactly-once, offset commits, and idempotent sinks.', built: false },
+  { id: 'kafka-architecture', title: 'Kafka architecture', icon: '📬', chapter: 15, wave: 'C', group: 'Streaming systems', summary: 'Partitioned logs, producers, consumer groups and offsets — the backbone of streaming.', built: true },
+  { id: 'event-driven', title: 'Event-driven architecture', icon: '⚡', chapter: 16, wave: 'C', group: 'Streaming systems', summary: 'Decouple producers and consumers with events and fan-out to many independent sinks.', built: true },
+  { id: 'windowing', title: 'Windowing (tumbling, sliding, session)', icon: '🪟', chapter: 17, wave: 'C', group: 'Streaming systems', summary: 'Slice an unbounded stream into finite windows you can aggregate over.', built: true },
+  { id: 'watermarking', title: 'Watermarking & late data', icon: '💧', chapter: 18, wave: 'C', group: 'Streaming systems', summary: 'Track event-time progress so you know when a window is complete — and handle stragglers.', built: true },
+  { id: 'delivery-guarantees', title: 'Delivery guarantees & exactly-once', icon: '🎯', chapter: 19, wave: 'C', group: 'Streaming systems', summary: 'At-most / at-least / exactly-once, offset commits, and idempotent sinks.', built: true },
 
   // ── Performance & quality ─────────────────────────────────────────────────
   { id: 'spark-shuffle', title: 'Spark execution & the shuffle', icon: '🔀', chapter: 20, wave: 'D', group: 'Performance & quality', summary: 'Stages, tasks, and the shuffle boundary that dominates distributed job cost.', built: false },
@@ -78,6 +78,15 @@ export const CONCEPT_LOADERS = {
   'partitioning-bucketing': () => import('./concept-data/partitioning-bucketing.js'),
   'table-formats': () => import('./concept-data/table-formats.js'),
   'small-file-compaction': () => import('./concept-data/small-file-compaction.js'),
+  'etl-vs-elt': () => import('./concept-data/etl-vs-elt.js'),
+  'incremental-vs-full': () => import('./concept-data/incremental-vs-full.js'),
+  'orchestration-dag': () => import('./concept-data/orchestration-dag.js'),
+  'idempotent-pipelines': () => import('./concept-data/idempotent-pipelines.js'),
+  'kafka-architecture': () => import('./concept-data/kafka-architecture.js'),
+  'event-driven': () => import('./concept-data/event-driven.js'),
+  'windowing': () => import('./concept-data/windowing.js'),
+  'watermarking': () => import('./concept-data/watermarking.js'),
+  'delivery-guarantees': () => import('./concept-data/delivery-guarantees.js'),
 };
 
 export const CONCEPT_PREFIX = 'c:';
