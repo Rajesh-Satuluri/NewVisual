@@ -59,11 +59,11 @@ export const CONCEPTS = [
   { id: 'cost-optimization', title: 'Cost optimization', icon: '💰', chapter: 28, wave: 'D', group: 'Operations', summary: 'Storage tiering, lifecycle policies, and right-sized compute that keep the bill sane.', built: true },
 
   // ── End-to-end platforms ──────────────────────────────────────────────────
-  { id: 'clickstream-analytics', title: 'Design a clickstream analytics platform', icon: '🖱️', chapter: 29, wave: 'E', group: 'End-to-end platforms', summary: 'Ingest web/app events at scale, from real-time dashboards to historical analysis.', built: false },
-  { id: 'ecommerce-analytics', title: 'Design an e-commerce analytics platform', icon: '🛒', chapter: 30, wave: 'E', group: 'End-to-end platforms', summary: 'Orders, inventory and behavior into a warehouse powering BI and recommendations.', built: false },
-  { id: 'iot-analytics', title: 'Design an IoT analytics platform', icon: '📡', chapter: 31, wave: 'E', group: 'End-to-end platforms', summary: 'Millions of devices, time-series at the edge and in the cloud, and downsampling.', built: false },
-  { id: 'banking-data-platform', title: 'Design a banking data platform', icon: '🏦', chapter: 32, wave: 'E', group: 'End-to-end platforms', summary: 'Correctness, auditability and regulation over transactional and risk data.', built: false },
-  { id: 'multi-tenant-analytics', title: 'Design a multi-tenant analytics platform', icon: '🏘️', chapter: 33, wave: 'E', group: 'End-to-end platforms', summary: 'Isolate many customers’ data and compute in one platform without leaks or noisy neighbors.', built: false },
+  { id: 'clickstream-analytics', title: 'Design a clickstream analytics platform', icon: '🖱️', chapter: 29, wave: 'E', group: 'End-to-end platforms', summary: 'Ingest web/app events at scale, from real-time dashboards to historical analysis.', built: true },
+  { id: 'ecommerce-analytics', title: 'Design an e-commerce analytics platform', icon: '🛒', chapter: 30, wave: 'E', group: 'End-to-end platforms', summary: 'Orders, inventory and behavior into a warehouse powering BI and recommendations.', built: true },
+  { id: 'iot-analytics', title: 'Design an IoT analytics platform', icon: '📡', chapter: 31, wave: 'E', group: 'End-to-end platforms', summary: 'Millions of devices, time-series at the edge and in the cloud, and downsampling.', built: true },
+  { id: 'banking-data-platform', title: 'Design a banking data platform', icon: '🏦', chapter: 32, wave: 'E', group: 'End-to-end platforms', summary: 'Correctness, auditability and regulation over transactional and risk data.', built: true },
+  { id: 'multi-tenant-analytics', title: 'Design a multi-tenant analytics platform', icon: '🏘️', chapter: 33, wave: 'E', group: 'End-to-end platforms', summary: 'Isolate many customers’ data and compute in one platform without leaks or noisy neighbors.', built: true },
 ];
 
 // Lazy loaders — only for built concepts.
@@ -96,6 +96,11 @@ export const CONCEPT_LOADERS = {
   'governance-lineage': () => import('./concept-data/governance-lineage.js'),
   'security-iam': () => import('./concept-data/security-iam.js'),
   'cost-optimization': () => import('./concept-data/cost-optimization.js'),
+  'clickstream-analytics': () => import('./concept-data/clickstream-analytics.js'),
+  'ecommerce-analytics': () => import('./concept-data/ecommerce-analytics.js'),
+  'iot-analytics': () => import('./concept-data/iot-analytics.js'),
+  'banking-data-platform': () => import('./concept-data/banking-data-platform.js'),
+  'multi-tenant-analytics': () => import('./concept-data/multi-tenant-analytics.js'),
 };
 
 export const CONCEPT_PREFIX = 'c:';
