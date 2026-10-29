@@ -81,10 +81,20 @@ export function mount(container, { done } = { done: new Set() }) {
 
       <section class="sd-ref-row">
         <div class="sd-section-head sd-section-head-mt">
-          <h2 class="sd-section-h">📚 Reference & progress</h2>
-          <p class="sd-section-sub">Quick-access pages to track where you are and look things up.</p>
+          <h2 class="sd-section-h">🎯 Practice & reference</h2>
+          <p class="sd-section-sub">Drill the trade-off calls, sharpen your answers, and look things up.</p>
         </div>
         <div class="sd-ref-cards">
+          <a class="sd-ref-card" href="#p:decisions">
+            <span class="sd-ref-card-icon">🧭</span>
+            <span class="sd-ref-card-title">Choose the approach</span>
+            <span class="sd-ref-card-sum">Make the trade-off call on real scenarios, then see why each option wins or loses.</span>
+          </a>
+          <a class="sd-ref-card" href="#p:answers">
+            <span class="sd-ref-card-icon">🎯</span>
+            <span class="sd-ref-card-title">Level up your answer</span>
+            <span class="sd-ref-card-sum">The same question answered Weak / Good / Senior — and why the senior version wins.</span>
+          </a>
           <a class="sd-ref-card" href="#p:dashboard">
             <span class="sd-ref-card-icon">📊</span>
             <span class="sd-ref-card-title">Dashboard</span>

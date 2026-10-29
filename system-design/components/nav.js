@@ -8,6 +8,10 @@ const REFERENCE_PAGES = [
   { id: 'glossary',   title: 'Glossary',   icon: '📖' },
   { id: 'cheatsheet', title: 'Cheat sheet', icon: '📋' },
 ];
+const PRACTICE_PAGES = [
+  { id: 'decisions', title: 'Choose the approach', icon: '🧭' },
+  { id: 'answers',   title: 'Level up your answer', icon: '🎯' },
+];
 
 export function renderNav(activeHash, done) {
   const nav = document.getElementById('nav-list');
@@ -102,15 +106,19 @@ export function renderNav(activeHash, done) {
       </div>`;
   }).join('');
 
-  const referenceHtml = REFERENCE_PAGES.map(p => `
+  const pageLink = p => `
     <a href="#${PAGE_PREFIX}${p.id}" class="nav-item${p.id === activePageId ? ' active' : ''}" data-id="${PAGE_PREFIX}${p.id}" title="${esc(p.title)}">
       <span class="nav-icon">${p.icon}</span>
       <span class="nav-label">${esc(p.title)}</span>
-    </a>`).join('');
+    </a>`;
+  const referenceHtml = REFERENCE_PAGES.map(pageLink).join('');
+  const practiceHtml = PRACTICE_PAGES.map(pageLink).join('');
 
   nav.innerHTML = `
     <div class="nav-section-label">📚 Reference</div>
     <div class="nav-group"><div class="nav-group-items">${referenceHtml}</div></div>
+    <div class="nav-section-label">🎯 Practice</div>
+    <div class="nav-group"><div class="nav-group-items">${practiceHtml}</div></div>
     <div class="nav-section-label">🧭 Concepts</div>
     ${conceptHtml}
     <div class="nav-section-label">❓ Questions</div>

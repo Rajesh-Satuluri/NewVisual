@@ -5,6 +5,8 @@ import { mount as mountHome } from './components/home.js';
 import { mount as mountGlossary } from './components/glossary.js';
 import { mount as mountCheatsheet } from './components/cheatsheet.js';
 import { mount as mountDashboard } from './components/dashboard.js';
+import { mount as mountDecisions } from './components/decisions.js';
+import { mount as mountTiered } from './components/tiered.js';
 import { createCommandPalette } from './components/command-palette.js';
 import { toast } from './components/toast.js';
 import {
@@ -41,9 +43,11 @@ const TOTAL = QUESTIONS.length + builtConceptCount();
 // ── Static reference/practice pages ──────────────────────────────────────────
 const PAGE_PREFIX = 'p:';
 const PAGES = {
-  glossary:   { title: 'Glossary',    group: 'Reference', icon: '📖', mount: mountDashboardProxy(mountGlossary) },
-  cheatsheet: { title: 'Cheat sheet', group: 'Reference', icon: '📋', mount: mountDashboardProxy(mountCheatsheet) },
-  dashboard:  { title: 'Dashboard',   group: 'Reference', icon: '📊', mount: (el) => mountDashboard(el, { done }) },
+  glossary:   { title: 'Glossary',          group: 'Reference', icon: '📖', mount: mountDashboardProxy(mountGlossary) },
+  cheatsheet: { title: 'Cheat sheet',        group: 'Reference', icon: '📋', mount: mountDashboardProxy(mountCheatsheet) },
+  dashboard:  { title: 'Dashboard',          group: 'Reference', icon: '📊', mount: (el) => mountDashboard(el, { done }) },
+  decisions:  { title: 'Choose the approach', group: 'Practice',  icon: '🧭', mount: mountDashboardProxy(mountDecisions) },
+  answers:    { title: 'Level up your answer', group: 'Practice', icon: '🎯', mount: mountDashboardProxy(mountTiered) },
 };
 // glossary/cheatsheet take (container) only; wrap so all share one signature.
 function mountDashboardProxy(fn) { return (el) => fn(el); }

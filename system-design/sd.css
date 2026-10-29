@@ -1315,3 +1315,102 @@
   .sd-db-top { flex-direction: column; align-items: stretch; }
   .sd-db-ring-card { flex-direction: row; justify-content: center; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   WAVE 3 — Practice surfaces: decision drills + tiered answers
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Shared ───────────────────────────────────────────────────────────────── */
+.sd-dec-n {
+  flex-shrink: 0;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #fff; font-weight: 800; font-size: 13px;
+  display: flex; align-items: center; justify-content: center;
+}
+.sd-dec-takeaway {
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: color-mix(in srgb, var(--accent) 7%, var(--bg2));
+  border-left: 3px solid var(--accent);
+  border-radius: 0 10px 10px 0;
+  font-size: 13.5px; line-height: 1.6; color: var(--text2);
+}
+.sd-dec-takeaway-tag { font-weight: 700; color: var(--accent); margin-right: 6px; text-transform: uppercase; font-size: 11px; letter-spacing: .05em; }
+.sd-dec-see { display: inline-block; margin-top: 12px; font-size: 13px; font-weight: 600; color: var(--accent); text-decoration: none; }
+.sd-dec-see:hover { text-decoration: underline; }
+
+/* ── Decision drills ──────────────────────────────────────────────────────── */
+.sd-dec-list { display: flex; flex-direction: column; gap: 18px; }
+.sd-dec-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px; }
+.sd-dec-scenario { display: flex; gap: 13px; margin-bottom: 16px; }
+.sd-dec-title { font-size: 16px; font-weight: 800; color: var(--text); margin: 2px 0 6px; }
+.sd-dec-text { font-size: 14px; color: var(--text2); line-height: 1.65; margin: 0; }
+.sd-dec-options { display: flex; flex-direction: column; gap: 8px; }
+.sd-dec-opt {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; text-align: left;
+  padding: 13px 15px;
+  background: var(--bg3);
+  border: 1.5px solid var(--border);
+  border-radius: 11px;
+  color: var(--text);
+  font-size: 13.5px; line-height: 1.5;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.sd-dec-opt:not(.revealed):hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); background: var(--accent-lo); }
+.sd-dec-opt-letter {
+  flex-shrink: 0; width: 24px; height: 24px; border-radius: 6px;
+  background: var(--bg2); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 12px; color: var(--text2);
+}
+.sd-dec-opt-label { flex: 1; }
+.sd-dec-opt-verdict { flex-shrink: 0; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.sd-dec-card.answered .sd-dec-opt { cursor: default; }
+.sd-dec-opt.revealed { background: var(--bg2); }
+.sd-dec-opt.v-good { border-color: color-mix(in srgb, var(--green) 55%, transparent); }
+.sd-dec-opt.v-good .sd-dec-opt-verdict { color: var(--green); }
+.sd-dec-opt.v-good .sd-dec-opt-letter { background: color-mix(in srgb, var(--green) 18%, transparent); color: var(--green); border-color: transparent; }
+.sd-dec-opt.v-warn { border-color: color-mix(in srgb, var(--amber) 55%, transparent); }
+.sd-dec-opt.v-warn .sd-dec-opt-verdict { color: var(--amber); }
+.sd-dec-opt.v-warn .sd-dec-opt-letter { background: color-mix(in srgb, var(--amber) 18%, transparent); color: var(--amber); border-color: transparent; }
+.sd-dec-opt.v-bad { border-color: color-mix(in srgb, var(--red) 50%, transparent); }
+.sd-dec-opt.v-bad .sd-dec-opt-verdict { color: var(--red); }
+.sd-dec-opt.v-bad .sd-dec-opt-letter { background: color-mix(in srgb, var(--red) 18%, transparent); color: var(--red); border-color: transparent; }
+.sd-dec-opt.picked { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent); }
+.sd-dec-why {
+  display: none;
+  font-size: 13px; color: var(--text2); line-height: 1.6;
+  padding: 2px 15px 8px 51px;
+}
+.sd-dec-why.show { display: block; }
+.sd-dec-reveal { display: none; }
+.sd-dec-reveal.show { display: block; }
+
+/* ── Tiered answers ───────────────────────────────────────────────────────── */
+.sd-tier-list { display: flex; flex-direction: column; gap: 18px; }
+.sd-tier-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px; }
+.sd-tier-q { display: flex; gap: 13px; align-items: flex-start; margin-bottom: 16px; }
+.sd-tier-qtext { font-size: 15.5px; font-weight: 700; color: var(--text); margin: 3px 0; line-height: 1.4; }
+.sd-tier-tiers { display: flex; flex-direction: column; gap: 10px; }
+.sd-tier { border: 1.5px solid var(--border); border-radius: 11px; overflow: hidden; }
+.sd-tier-head {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 15px; background: var(--bg3); border: none; cursor: pointer; color: var(--text);
+}
+.sd-tier-badge { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
+.sd-tier-chevron { color: var(--text3); transition: transform .2s; }
+.sd-tier.open .sd-tier-chevron { transform: rotate(180deg); }
+.sd-tier-body { max-height: 0; overflow: hidden; transition: max-height .28s ease; }
+.sd-tier-answer { font-size: 13.5px; color: var(--text); line-height: 1.7; margin: 14px 15px 10px; }
+.sd-tier-note { font-size: 12.5px; color: var(--text2); line-height: 1.6; margin: 0 15px 14px; padding: 9px 13px; border-radius: 9px; background: var(--bg3); }
+.sd-tier-note-tag { font-weight: 700; margin-right: 5px; text-transform: uppercase; font-size: 10.5px; letter-spacing: .05em; color: var(--text3); }
+.sd-tier-weak   { border-color: color-mix(in srgb, var(--red) 40%, var(--border)); }
+.sd-tier-weak   .sd-tier-badge { color: var(--red); }
+.sd-tier-good   { border-color: color-mix(in srgb, var(--amber) 40%, var(--border)); }
+.sd-tier-good   .sd-tier-badge { color: var(--amber); }
+.sd-tier-senior { border-color: color-mix(in srgb, var(--green) 45%, var(--border)); }
+.sd-tier-senior .sd-tier-badge { color: var(--green); }
