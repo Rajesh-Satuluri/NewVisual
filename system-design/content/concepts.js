@@ -54,10 +54,10 @@ export const CONCEPTS = [
   { id: "object-storage", title: "Design an S3-like object storage", icon: "🪣", chapter: 24, wave: 6, group: "Data & infra systems", summary: "Buckets, durability via replication/erasure coding, and metadata.", built: true },
 
   // ── Money & real-time ─────────────────────────────────────────────────────
-  { id: "realtime-leaderboard", title: "Design a real-time gaming leaderboard", icon: "🏆", chapter: 25, wave: 7, group: "Money & real-time", summary: "Sorted sets, top-K at scale, and real-time rank updates.", built: false },
-  { id: "payment-system", title: "Design a payment system", icon: "💳", chapter: 26, wave: 7, group: "Money & real-time", summary: "Payment flow, idempotency, reconciliation and exactly-once money movement.", built: false },
-  { id: "digital-wallet", title: "Design a digital wallet", icon: "👛", chapter: 27, wave: 7, group: "Money & real-time", summary: "Balance transfers, double-entry ledger, and distributed transactions.", built: false },
-  { id: "stock-exchange", title: "Design a stock exchange", icon: "🏦", chapter: 28, wave: 7, group: "Money & real-time", summary: "Matching engine, order book, sequencing and ultra-low latency.", built: false },
+  { id: "realtime-leaderboard", title: "Design a real-time gaming leaderboard", icon: "🏆", chapter: 25, wave: 7, group: "Money & real-time", summary: "Sorted sets, top-K at scale, and real-time rank updates.", built: true },
+  { id: "payment-system", title: "Design a payment system", icon: "💳", chapter: 26, wave: 7, group: "Money & real-time", summary: "Payment flow, idempotency, reconciliation and exactly-once money movement.", built: true },
+  { id: "digital-wallet", title: "Design a digital wallet", icon: "👛", chapter: 27, wave: 7, group: "Money & real-time", summary: "Balance transfers, double-entry ledger, and distributed transactions.", built: true },
+  { id: "stock-exchange", title: "Design a stock exchange", icon: "🏦", chapter: 28, wave: 7, group: "Money & real-time", summary: "Matching engine, order book, sequencing and ultra-low latency.", built: true },
 ];
 
 // Lazy loaders — only for built concepts.
@@ -86,6 +86,10 @@ export const CONCEPT_LOADERS = {
   "hotel-reservation": () => import("./concept-data/hotel-reservation.js"),
   "distributed-email": () => import("./concept-data/distributed-email.js"),
   "object-storage": () => import("./concept-data/object-storage.js"),
+  "realtime-leaderboard": () => import("./concept-data/realtime-leaderboard.js"),
+  "payment-system": () => import("./concept-data/payment-system.js"),
+  "digital-wallet": () => import("./concept-data/digital-wallet.js"),
+  "stock-exchange": () => import("./concept-data/stock-exchange.js"),
 };
 
 export const CONCEPT_PREFIX = "c:";   // hash routing: #c:<id>
