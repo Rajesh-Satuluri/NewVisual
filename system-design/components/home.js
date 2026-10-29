@@ -5,10 +5,7 @@
 //
 // mount(container, { done }) → cleanup()
 
-import {
-  QUESTIONS, CATEGORY_ORDER, CATEGORY_LABEL, DIFFICULTY_ORDER, allTags,
-} from '../content/index.js';
-import { CONCEPTS, CONCEPT_GROUPS, CONCEPT_PREFIX } from '../content/concepts.js';
+import { reg } from '../content/registry.js';
 import { mount as mountFlashcards } from './flashcards.js';
 
 const DIFF_CLASS = {
@@ -17,27 +14,35 @@ const DIFF_CLASS = {
 const VIEW_KEY = 'system-design-home-view';
 
 // Difficulty + rough reading time per concept group, so a learner can gauge a
-// concept before opening it.
+// concept before opening it. Covers both tracks' groups; unknown groups fall
+// back to Intermediate / 14 min.
 const GROUP_LEVEL = {
+  // SWE
   'Foundations': 'Beginner',
   'Core building blocks': 'Intermediate',
   'Classic designs': 'Intermediate',
   'Scale & media': 'Advanced',
   'Data & infra systems': 'Advanced',
   'Money & real-time': 'Advanced',
+  // DE
+  'Storage & table formats': 'Intermediate',
+  'Ingestion & pipelines': 'Intermediate',
+  'Streaming systems': 'Advanced',
+  'Performance & quality': 'Advanced',
+  'Operations': 'Intermediate',
+  'End-to-end platforms': 'Advanced',
 };
 const GROUP_MINS = {
   'Foundations': 8, 'Core building blocks': 12, 'Classic designs': 14,
   'Scale & media': 16, 'Data & infra systems': 16, 'Money & real-time': 18,
+  'Storage & table formats': 12, 'Ingestion & pipelines': 14, 'Streaming systems': 16,
+  'Performance & quality': 16, 'Operations': 12, 'End-to-end platforms': 18,
 };
 const LEVEL_CLASS = { Beginner: 'lvl-beg', Intermediate: 'lvl-int', Advanced: 'lvl-adv' };
 function conceptBadges(c) {
   const lv = GROUP_LEVEL[c.group] || 'Intermediate';
   return `<span class="sd-card-badges"><span class="sd-lvl ${LEVEL_CLASS[lv]}">${lv}</span><span class="sd-mins">~${GROUP_MINS[c.group] || 14} min</span></span>`;
 }
-
-// The shortest path from "what is system design" to interview-ready.
-const START_PATH = ['interview-framework', 'back-of-envelope-estimation', 'scaling-zero-to-millions', 'rate-limiter', 'url-shortener', 'news-feed-system'];
 
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c => (
@@ -49,69 +54,63 @@ function esc(s) {
 const state = { q: '', difficulty: null, tags: new Set(), category: 'all' };
 
 export function mount(container, { done } = { done: new Set() }) {
+  const { CONCEPTS, CONCEPT_GROUPS, CONCEPT_PREFIX, QUESTIONS, CATEGORY_ORDER, CATEGORY_LABEL, DIFFICULTY_ORDER, allTags, track } = reg;
+  const START_PATH = track.startPath || [];
+  const hasQuestions = QUESTIONS.length > 0;
+
   let view = localStorage.getItem(VIEW_KEY) || 'concepts';
   if (view !== 'concepts' && view !== 'questions') view = 'concepts';
+  if (!hasQuestions) view = 'concepts';
 
   const builtCount = CONCEPTS.filter(c => c.built).length;
   const conceptsDone = CONCEPTS.filter(c => c.built && done.has(CONCEPT_PREFIX + c.id)).length;
   const questionsDone = QUESTIONS.filter(q => done.has(q.id)).length;
 
+  // Track-aware reference / practice cards.
+  const REF_CARD = {
+    decisions:  { href: '#p:decisions',  icon: '🧭', title: 'Choose the approach', sum: 'Make the trade-off call on real scenarios, then see why each option wins or loses.' },
+    answers:    { href: '#p:answers',    icon: '🎯', title: 'Level up your answer', sum: 'The same question answered Weak / Good / Senior — and why the senior version wins.' },
+    dashboard:  { href: '#p:dashboard',  icon: '📊', title: 'Dashboard', sum: 'Your progress by theme and what to study next.' },
+    glossary:   { href: '#p:glossary',   icon: '📖', title: 'Glossary', sum: 'Every key term in one line, linked to its concept.' },
+    cheatsheet: { href: '#p:cheatsheet', icon: '📋', title: 'Cheat sheet', sum: 'Latency numbers, capacity math, and pattern picks.' },
+  };
+  const refIds = [...(track.practicePages || []), ...(track.refPages || [])];
+  const refCardsHtml = refIds.map(id => REF_CARD[id]).filter(Boolean).map(c => `
+          <a class="sd-ref-card" href="${c.href}">
+            <span class="sd-ref-card-icon">${c.icon}</span>
+            <span class="sd-ref-card-title">${esc(c.title)}</span>
+            <span class="sd-ref-card-sum">${esc(c.sum)}</span>
+          </a>`).join('');
+
+  const home = track.home || {};
+  const statsHtml = `
+          <span><b>${builtCount}</b> of ${CONCEPTS.length} concepts</span>
+          ${hasQuestions ? `<span><b>${QUESTIONS.length}</b> questions</span>` : ''}
+          <span><b>${conceptsDone + questionsDone}</b> completed</span>`;
+
   container.innerHTML = `
     <div class="module-page sd-home">
       <div class="sd-home-hero">
-        <div class="module-tag">Visual Learning Lab</div>
-        <h1 class="sd-home-title">System design,<br><span class="sd-home-title-grad">from the inside out.</span></h1>
-        <p class="sd-home-sub">
-          Learn the concepts first, then drill with real-world questions, model
-          answers, flashcards and interactive widgets.
-        </p>
-        <div class="sd-home-stats">
-          <span><b>${builtCount}</b> of ${CONCEPTS.length} concepts</span>
-          <span><b>${QUESTIONS.length}</b> questions</span>
-          <span><b>${conceptsDone + questionsDone}</b> completed</span>
-        </div>
+        <div class="module-tag">${esc(home.kicker || 'Visual Learning Lab')}</div>
+        <h1 class="sd-home-title">${esc(home.titleTop || 'System design,')}<br><span class="sd-home-title-grad">${esc(home.titleGrad || 'from the inside out.')}</span></h1>
+        <p class="sd-home-sub">${esc(home.sub || 'Learn the concepts first, then drill with real-world questions, model answers, flashcards and interactive simulations.')}</p>
+        <div class="sd-home-stats">${statsHtml}</div>
       </div>
 
-      <div class="sd-view-toggle" role="tablist">
+      ${hasQuestions ? `<div class="sd-view-toggle" role="tablist">
         <button class="sd-view-btn${view === 'concepts' ? ' active' : ''}" data-view="concepts" role="tab">🧭 Concepts</button>
         <button class="sd-view-btn${view === 'questions' ? ' active' : ''}" data-view="questions" role="tab">❓ Questions</button>
-      </div>
+      </div>` : ''}
 
       <div id="sd-home-view"></div>
 
-      <section class="sd-ref-row">
+      ${refCardsHtml ? `<section class="sd-ref-row">
         <div class="sd-section-head sd-section-head-mt">
           <h2 class="sd-section-h">🎯 Practice & reference</h2>
           <p class="sd-section-sub">Drill the trade-off calls, sharpen your answers, and look things up.</p>
         </div>
-        <div class="sd-ref-cards">
-          <a class="sd-ref-card" href="#p:decisions">
-            <span class="sd-ref-card-icon">🧭</span>
-            <span class="sd-ref-card-title">Choose the approach</span>
-            <span class="sd-ref-card-sum">Make the trade-off call on real scenarios, then see why each option wins or loses.</span>
-          </a>
-          <a class="sd-ref-card" href="#p:answers">
-            <span class="sd-ref-card-icon">🎯</span>
-            <span class="sd-ref-card-title">Level up your answer</span>
-            <span class="sd-ref-card-sum">The same question answered Weak / Good / Senior — and why the senior version wins.</span>
-          </a>
-          <a class="sd-ref-card" href="#p:dashboard">
-            <span class="sd-ref-card-icon">📊</span>
-            <span class="sd-ref-card-title">Dashboard</span>
-            <span class="sd-ref-card-sum">Your progress by theme and what to study next.</span>
-          </a>
-          <a class="sd-ref-card" href="#p:glossary">
-            <span class="sd-ref-card-icon">📖</span>
-            <span class="sd-ref-card-title">Glossary</span>
-            <span class="sd-ref-card-sum">Every key term in one line, linked to its concept.</span>
-          </a>
-          <a class="sd-ref-card" href="#p:cheatsheet">
-            <span class="sd-ref-card-icon">📋</span>
-            <span class="sd-ref-card-title">Cheat sheet</span>
-            <span class="sd-ref-card-sum">Latency numbers, capacity math, and pattern picks.</span>
-          </a>
-        </div>
-      </section>
+        <div class="sd-ref-cards">${refCardsHtml}</div>
+      </section>` : ''}
     </div>`;
 
   const viewEl = container.querySelector('#sd-home-view');
@@ -136,7 +135,9 @@ export function mount(container, { done } = { done: new Set() }) {
   function renderConcepts() {
     const byGroup = {};
     CONCEPTS.forEach(c => { (byGroup[c.group] = byGroup[c.group] || []).push(c); });
-    const startCards = START_PATH.map((id, i) => startHereCard(id, i + 1)).filter(Boolean).join('');
+    const startCards = START_PATH
+      .filter(id => { const c = CONCEPTS.find(x => x.id === id); return c && c.built; })
+      .map((id, i) => startHereCard(id, i + 1)).filter(Boolean).join('');
     viewEl.innerHTML = `
       ${startCards ? `
       <section class="sd-start-here">

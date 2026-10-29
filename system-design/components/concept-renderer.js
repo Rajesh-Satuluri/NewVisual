@@ -6,7 +6,7 @@
 //
 // mount(container, data, { meta }) → cleanup()
 
-import { QUESTIONS, CATEGORY_LABEL } from '../content/index.js';
+import { reg } from '../content/registry.js';
 import { WIDGETS, WIDGET_META } from './widgets/index.js';
 
 const DIFF_CLASS = {
@@ -139,6 +139,7 @@ function qaHtml(qa) {
 }
 
 function relatedHtml(ids) {
+  const { QUESTIONS, CATEGORY_LABEL } = reg;
   const items = ids.map(id => QUESTIONS.find(q => q.id === id)).filter(Boolean);
   if (!items.length) return '';
   return `<div class="sd-rel-list">${items.map(q => `
@@ -162,7 +163,7 @@ export function mount(container, data, opts = {}) {
   const deepTitle = data.deepDiveTitle || '🔬 Deep dive';
   const qa = data.qa || [];
   const relIds = data.related || [];
-  const relItems = relIds.map(id => QUESTIONS.find(q => q.id === id)).filter(Boolean);
+  const relItems = relIds.map(id => reg.QUESTIONS.find(q => q.id === id)).filter(Boolean);
   const widgetId = data.widget && WIDGETS[data.widget] ? data.widget : null;
   const widgetMeta = (widgetId && WIDGET_META[widgetId]) || { title: 'Interactive', hint: '' };
 
