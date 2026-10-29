@@ -5,6 +5,8 @@ export default {
   chapter: 8,
   group: "Classic designs",
   summary: "Turn a long URL into a short one (bit.ly style) and redirect. A deceptively deep problem that covers ID generation, base-62 encoding, a read-heavy workload, caching, and the redirect itself.",
+  widget: "base62",
+  widgetIntro: "The cleanest way to mint short codes is a **monotonic counter** encoded in **base62** (0-9, a-z, A-Z). Each new URL gets the next integer id, converted to a compact string — collision-free by construction, with no hashing or retry-on-collision. Seven characters already cover 62⁷ ≈ 3.5 trillion URLs, and the code decodes straight back to a primary-key lookup on redirect.\n\nShorten a URL and watch the id become a base62 code, then land in the mapping table. Every id is unique, so every code is unique — no collision checks required.",
   sections: [
     {
       title: "Requirements & scale",

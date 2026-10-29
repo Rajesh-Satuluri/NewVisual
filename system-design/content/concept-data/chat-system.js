@@ -5,6 +5,8 @@ export default {
   chapter: 12,
   group: "Classic designs",
   summary: "Real-time 1:1 and group messaging (WhatsApp/Messenger style). The hard parts: pushing messages to online users over persistent connections, storing and ordering messages, presence, and delivery to users who are offline.",
+  widget: "chat-delivery",
+  widgetIntro: "A message travels from sender to recipient through a chat server that holds a **persistent connection** (WebSocket) to each online user. If the recipient is online, the server **pushes** the message instantly down their socket; if they're offline, it's **stored** and flushed the moment they reconnect — so nothing is lost, only delayed. Delivery state advances **sent → delivered → read**.\n\nSend messages with Bob online, then toggle him offline and send more — watch them queue at the server and burst to him when he comes back. That push-vs-store-and-forward split, plus presence, is the heart of a chat backend.",
   sections: [
     {
       title: "Requirements",

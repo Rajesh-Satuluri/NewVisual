@@ -5,6 +5,8 @@ export default {
   chapter: 21,
   group: "Data & infra systems",
   summary: "Count ad clicks in near-real-time for billing and dashboards, at firehose scale. It's a streaming aggregation problem where correctness (you're billing advertisers) collides with late, duplicate, and out-of-order events.",
+  widget: "click-aggregation",
+  widgetIntro: "You can't bill advertisers by storing and counting every click individually at firehose scale — you **aggregate into fixed time windows**. Each click lands in the currently-open window; when the window's timer expires it **closes**, emits its total downstream, and a fresh window opens (a *tumbling window*). Because a click can fire twice, a **dedup** step drops repeats so an impression is never double-counted.\n\nWatch clicks stream into the open window and the countdown close it. Toggle dedup off and inject a duplicate to see why exactly-once counting matters when real money is attached to the number.",
   sections: [
     {
       title: "Requirements",

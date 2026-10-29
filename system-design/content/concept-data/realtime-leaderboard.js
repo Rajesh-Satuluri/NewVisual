@@ -5,6 +5,8 @@ export default {
   chapter: 25,
   group: "Money & real-time",
   summary: "Rank millions of players by score and serve the top-K plus 'my rank' in real time. The elegant core is a sorted set (Redis ZSET); the scaling challenges are rank queries over millions of entries and sharding a global ranking.",
+  widget: "leaderboard",
+  widgetIntro: "The elegant core is a **sorted set** (Redis ZSET): scores are kept in rank order, and a single score change is an **O(log n)** update that shifts only the affected positions — you never re-sort the whole board. That's what makes 'show me the top 10 and my rank' fast even with millions of players.\n\nBump scores and watch players slide up and down to their new ranks in real time. The leader, runner-up, and third place stay highlighted — exactly the top-K view a leaderboard serves.",
   sections: [
     {
       title: "Requirements",

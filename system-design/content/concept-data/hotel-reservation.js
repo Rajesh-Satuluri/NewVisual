@@ -5,6 +5,8 @@ export default {
   chapter: 22,
   group: "Data & infra systems",
   summary: "Book rooms without ever selling the same room twice. Unlike high-QPS feed systems, this is a correctness-first, concurrency-control problem: limited inventory, racing bookings, idempotent payments, and the overbooking trade-off.",
+  widget: "booking-race",
+  widgetIntro: "The defining bug is the **lost-update race**: two guests book the last room at the same time, each reads \"1 available\", and if each then writes independently, both succeed — you've overbooked. The fix is an **atomic conditional update** (decrement only if > 0, or `SELECT … FOR UPDATE`) that serializes the two requests so exactly one wins.\n\nSend two concurrent bookings for the last room, then toggle the atomic guard off. Without it you'll watch inventory go negative; with it, one guest is confirmed and the other sees 'sold out' — correctness under concurrency, which is the whole game here.",
   sections: [
     {
       title: "Requirements",

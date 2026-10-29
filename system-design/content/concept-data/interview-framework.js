@@ -5,6 +5,8 @@ export default {
   chapter: 3,
   group: "Foundations",
   summary: "A system design interview is not about the 'right' answer — it's about how you navigate ambiguity and trade-offs. A reliable 4-step structure: scope the problem, sketch a high-level design, deep-dive the hard parts, then wrap up. Spend the time deliberately.",
+  widget: "interview-clock",
+  widgetIntro: "A 45-minute round lives or dies on **time management**. This clock walks a playhead through the phases with the minute budget each deserves: a few minutes to scope and estimate, a solid block for the high-level design, and the **largest share for the deep dive**, where senior signal actually shows.\n\nPress play and rehearse the pacing, or jump to a phase to see what it's for. The most common failure mode is over-investing early — 20 minutes on requirements — and running out of clock before the part that differentiates candidates.",
   sections: [
     {
       title: "What the interviewer is actually testing",

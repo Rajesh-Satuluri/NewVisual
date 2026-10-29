@@ -5,6 +5,8 @@ export default {
   chapter: 14,
   group: "Scale & media",
   summary: "Upload, store, transcode, and stream video to a global audience. The heavy lifting is an asynchronous transcoding pipeline, blob storage for enormous files, and a CDN that delivers the right quality to each viewer with low latency.",
+  widget: "abr-streaming",
+  widgetIntro: "This is why a video is transcoded into a **ladder** of renditions (240p…4K). The player downloads small segments and, for each one, picks the **highest-quality rendition the measured bandwidth can sustain** — **adaptive bitrate** streaming — while keeping a **buffer** as a shock absorber for dips.\n\nHit **network drop** and watch the player step *down* the ladder and keep playing, rather than freezing on a fixed quality. If bandwidth stays below the current bitrate and the buffer drains to zero, playback **stalls** — which is exactly what adaptive bitrate is designed to avoid by switching down early.",
   sections: [
     {
       title: "Requirements",

@@ -5,6 +5,8 @@ export default {
   chapter: 18,
   group: "Scale & media",
   summary: "Render the map, locate the user, and compute routes with ETAs at planet scale. Three distinct subsystems: map tiles served from a CDN, a routing engine over a road graph, and live traffic feeding ETA — each with very different storage and compute profiles.",
+  widget: "route-finder",
+  widgetIntro: "The routing engine treats the road network as a **graph** and finds a shortest path over it. This sim runs a **breadth-first search** from the start that expands a frontier outward ring by ring; the first time the frontier reaches the destination, it has found a route with the fewest hops, which it then traces back.\n\nPress **Find route** and watch the search sweep the map, then **randomize obstacles** and rerun. Real maps weight edges by travel time and traffic (Dijkstra / A\\* with heuristics), but the expanding-frontier intuition you see here is exactly what's underneath.",
   sections: [
     {
       title: "Requirements",

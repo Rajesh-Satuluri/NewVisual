@@ -5,6 +5,8 @@ export default {
   chapter: 17,
   group: "Scale & media",
   summary: "Show which of a user's friends are near them, updating in near-real-time as everyone moves. Unlike a proximity service over static places, here both the subjects and the query move constantly — so it's a high-write, pub/sub + ephemeral-location problem.",
+  widget: "geo-pubsub",
+  widgetIntro: "Because both you and your friends are constantly moving, this is a **geospatial publish/subscribe** problem: you subscribe to location updates only from friends inside a **radius** around you, and a friend who wanders out stops streaming to you automatically. The geo-index prunes a potentially huge friend list down to the local neighbourhood, so you aren't flooded with updates from people far away.\n\nWatch friends roam — those inside the radius ping you with live positions (green), those outside go quiet. Drag the radius and see subscriptions start and stop as friends cross the boundary.",
   sections: [
     {
       title: "Requirements & what makes it different",

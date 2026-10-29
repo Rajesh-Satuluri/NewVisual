@@ -5,6 +5,8 @@ export default {
   chapter: 7,
   group: "Core building blocks",
   summary: "Generate unique IDs across many machines without a central bottleneck — ideally IDs that are also roughly time-sortable and compact. The go-to answer is a Snowflake-style 64-bit ID built from timestamp + machine + sequence bits.",
+  widget: "snowflake",
+  widgetIntro: "A **Snowflake** ID packs three fields into one 64-bit integer: a **41-bit timestamp**, a **10-bit machine id**, and a **12-bit sequence**. No coordination is needed — the timestamp makes IDs roughly time-sortable, the machine bits keep two servers from ever colliding, and the sequence disambiguates up to 4096 IDs minted on one machine in the same millisecond.\n\nGenerate IDs and watch the bit fields fill. Hit **burst** to mint several within one millisecond and see the sequence counter increment to keep them unique — the mechanism that replaces a central auto-increment bottleneck.",
   sections: [
     {
       title: "Requirements",
