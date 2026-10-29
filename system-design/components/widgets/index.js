@@ -50,6 +50,15 @@ export const WIDGETS = {
   "de-windowing":     () => import('./de-windowing.js'),
   "de-watermark":     () => import('./de-watermark.js'),
   "de-delivery":      () => import('./de-delivery.js'),
+  "de-shuffle":       () => import('./de-shuffle.js'),
+  "de-join":          () => import('./de-join.js'),
+  "de-distkey":       () => import('./de-distkey.js'),
+  "de-quality":       () => import('./de-quality.js'),
+  "de-reconcile":     () => import('./de-reconcile.js'),
+  "de-monitoring":    () => import('./de-monitoring.js'),
+  "de-lineage":       () => import('./de-lineage.js'),
+  "de-iam":           () => import('./de-iam.js'),
+  "de-cost":          () => import('./de-cost.js'),
 };
 
 // Short human label + one-line pitch, shown in the widget section header.
@@ -100,4 +109,13 @@ export const WIDGET_META = {
   "de-windowing":     { title: "Stream windowing", hint: "Toggle tumbling, sliding and session windows and watch events bucket and each window emit a count." },
   "de-watermark":     { title: "Watermarks & late data", hint: "The watermark advances at max-seen minus lateness; windows fire as it passes, late events are dropped." },
   "de-delivery":      { title: "Delivery guarantees", hint: "At-most-once loses, at-least-once duplicates, exactly-once dedupes — watch the tallies by mode." },
+  "de-shuffle":       { title: "Spark shuffle", hint: "A narrow stage keeps data in place; a wide one shuffles records across partitions by key — toggle to see the movement." },
+  "de-join":          { title: "Broadcast vs shuffle join", hint: "Broadcast ships one small table to every executor; shuffle repartitions both — watch the data moved." },
+  "de-distkey":       { title: "Dist & sort keys", hint: "A matched distribution key makes a join local; a mismatch redistributes. The sort key prunes the scan." },
+  "de-quality":       { title: "Data quality gates", hint: "Records pass validation gates; failures are quarantined with a reason, not dropped. Watch the pass rate." },
+  "de-reconcile":     { title: "Reconciliation & dedup", hint: "Duplicates arrive; dedup keeps source = target, without it the target inflates and reconciliation flags it." },
+  "de-monitoring":    { title: "Pipeline SLA monitoring", hint: "Runs land against an SLA deadline; a slow run breaches it and alerts, while freshness tracks staleness." },
+  "de-lineage":       { title: "Data lineage", hint: "Focus an asset and its upstream (root cause) and downstream (impact) light up across the lineage graph." },
+  "de-iam":           { title: "IAM access gates", hint: "Switch role and watch the same query clear authenticate, authorize, row-level and column-mask gates differently." },
+  "de-cost":          { title: "Storage lifecycle & cost", hint: "Data ages hot → warm → cold under a lifecycle policy; toggle it and watch the monthly spend drop." },
 };
