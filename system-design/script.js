@@ -2,6 +2,8 @@ import { renderNav } from './components/nav.js';
 import { mount as mountQuestion } from './components/question-renderer.js';
 import { mount as mountConcept } from './components/concept-renderer.js';
 import { mount as mountHome } from './components/home.js';
+import { createCommandPalette } from './components/command-palette.js';
+import { toast } from './components/toast.js';
 import {
   QUESTIONS, LOADERS, CATEGORY_LABEL,
 } from './content/index.js';
@@ -59,15 +61,7 @@ function updateProgress() {
 }
 
 // ── Mark done ──────────────────────────────────────────────────────────────
-markDoneBtn.addEventListener('click', () => {
-  if (!currentId) return;
-  if (done.has(currentId)) done.delete(currentId);
-  else done.add(currentId);
-  saveDone();
-  updateProgress();
-  renderNav(currentId, done);
-  markDoneBtn.style.color = done.has(currentId) ? 'var(--green)' : '';
-});
+markDoneBtn.addEventListener('click', () => toggleDone());
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 function esc(s) {
@@ -163,6 +157,102 @@ function showHome() {
   if (typeof cleanup === 'function') currentCleanup = cleanup;
   renderNav(null, done);
 }
+
+// ── Command palette ──────────────────────────────────────────────────────────
+const BUILT_CONCEPTS = CONCEPTS.filter(c => c.built).sort((a, b) => a.chapter - b.chapter);
+
+function searchIndex() {
+  const items = [];
+  items.push({ hash: '', title: 'Home', subtitle: 'Concepts & question explorer', icon: '🏠', group: 'Pages' });
+  BUILT_CONCEPTS.forEach(c => items.push({
+    hash: CONCEPT_PREFIX + c.id,
+    title: c.title,
+    subtitle: `Ch ${c.chapter} · ${c.group}`,
+    icon: c.icon || '🧭',
+    group: 'Concepts',
+  }));
+  QUESTIONS.forEach(q => items.push({
+    hash: q.id,
+    title: q.question,
+    subtitle: CATEGORY_LABEL[q.category] || q.category || '',
+    icon: q.icon || '📘',
+    group: 'Questions',
+  }));
+  return items;
+}
+
+const palette = createCommandPalette({ getItems: searchIndex });
+const searchBtn = document.getElementById('search-btn');
+if (searchBtn) searchBtn.addEventListener('click', () => palette.open());
+
+// ── Prev / next concept navigation ───────────────────────────────────────────
+function stepConcept(dir) {
+  if (!currentId || !currentId.startsWith(CONCEPT_PREFIX)) return;
+  const id = currentId.slice(CONCEPT_PREFIX.length);
+  const idx = BUILT_CONCEPTS.findIndex(c => c.id === id);
+  if (idx < 0) return;
+  const next = BUILT_CONCEPTS[idx + dir];
+  if (next) location.hash = CONCEPT_PREFIX + next.id;
+}
+
+// ── Keyboard shortcuts ───────────────────────────────────────────────────────
+function toggleDone() {
+  if (!currentId) return;
+  if (done.has(currentId)) { done.delete(currentId); toast('Marked as not done', { tone: 'note' }); }
+  else { done.add(currentId); toast('Marked as done', { tone: 'good' }); }
+  saveDone();
+  updateProgress();
+  renderNav(currentId, done);
+  markDoneBtn.style.color = done.has(currentId) ? 'var(--green)' : '';
+}
+
+let helpOverlay = null;
+function toggleHelp() {
+  if (helpOverlay) { helpOverlay.remove(); helpOverlay = null; return; }
+  helpOverlay = document.createElement('div');
+  helpOverlay.className = 'sd-help-overlay';
+  helpOverlay.innerHTML = `
+    <div class="sd-help-modal" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
+      <div class="sd-help-head"><h2>Keyboard shortcuts</h2><button class="sd-help-close" aria-label="Close">✕</button></div>
+      <table class="sd-help-table">
+        <tr><td><kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>Open command palette</td></tr>
+        <tr><td><kbd>/</kbd></td><td>Search everything</td></tr>
+        <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>Previous / next concept</td></tr>
+        <tr><td><kbd>d</kbd></td><td>Mark current page done</td></tr>
+        <tr><td><kbd>t</kbd></td><td>Toggle light / dark theme</td></tr>
+        <tr><td><kbd>h</kbd></td><td>Go home</td></tr>
+        <tr><td><kbd>?</kbd></td><td>Show this help</td></tr>
+        <tr><td><kbd>esc</kbd></td><td>Close overlays</td></tr>
+      </table>
+    </div>`;
+  document.body.appendChild(helpOverlay);
+  const kill = () => { if (helpOverlay) { helpOverlay.remove(); helpOverlay = null; } };
+  helpOverlay.addEventListener('mousedown', e => { if (e.target === helpOverlay) kill(); });
+  helpOverlay.querySelector('.sd-help-close').addEventListener('click', kill);
+}
+
+document.addEventListener('keydown', e => {
+  const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable;
+
+  // palette toggle works everywhere
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+    e.preventDefault(); palette.toggle(); return;
+  }
+  if (e.key === 'Escape') {
+    if (helpOverlay) { toggleHelp(); return; }
+  }
+  if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+
+  switch (e.key) {
+    case '/': e.preventDefault(); palette.open(); break;
+    case '?': e.preventDefault(); toggleHelp(); break;
+    case 't': theme = theme === 'dark' ? 'light' : 'dark'; applyTheme(theme); break;
+    case 'd': if (currentId) { e.preventDefault(); toggleDone(); } break;
+    case 'h': if (location.hash) location.hash = ''; break;
+    case 'ArrowLeft': stepConcept(-1); break;
+    case 'ArrowRight': stepConcept(1); break;
+  }
+});
 
 // ── Routing + init ──────────────────────────────────────────────────────────
 window.addEventListener('hashchange', () => navigate(location.hash.slice(1) || null));

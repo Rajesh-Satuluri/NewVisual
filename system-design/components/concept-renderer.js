@@ -40,6 +40,63 @@ function flowStrip(steps) {
   ).join('')}</div>`;
 }
 
+// ── Rich primitives (Kafka-grade content blocks) ─────────────────────────────
+const CALLOUT_ICON = { note: '📌', tip: '💡', warn: '⚠️', good: '✅', bad: '❌', key: '🔑', info: 'ℹ️' };
+function calloutHtml(c) {
+  const tone = c.tone || 'note';
+  const icon = c.icon || CALLOUT_ICON[tone] || '📌';
+  const label = c.label ? `<strong class="sd-callout-label">${fmt(c.label)}</strong> ` : '';
+  return `<div class="sd-callout sd-callout-${tone}"><span class="sd-callout-icon" aria-hidden="true">${icon}</span><div class="sd-callout-body">${label}${fmt(c.body || c.text || '')}</div></div>`;
+}
+
+// Vertical scenario timeline: [{ t, icon, title, detail, tone }]
+function timelineHtml(items) {
+  return `<div class="sd-timeline">${items.map((e, i) => `
+    <div class="sd-tl-row sd-tl-${e.tone || 'note'}">
+      <div class="sd-tl-time">${e.t ? fmt(e.t) : ''}</div>
+      <div class="sd-tl-dotcol"><span class="sd-tl-dot"></span>${i < items.length - 1 ? '<span class="sd-tl-line"></span>' : ''}</div>
+      <div class="sd-tl-card">
+        <div class="sd-tl-head">${e.icon ? `<span class="sd-tl-icon">${e.icon}</span>` : ''}<span class="sd-tl-title">${fmt(e.title || '')}</span></div>
+        ${e.detail ? `<div class="sd-tl-detail">${fmt(e.detail)}</div>` : ''}
+      </div>
+    </div>`).join('')}</div>`;
+}
+
+// Side-by-side contrast cards: { title?, cols: [{ title, tone, body?, points?[] }] }
+function compareHtml(c) {
+  const cols = c.cols || [];
+  const prefix = t => (t === 'good' ? '✅ ' : t === 'bad' ? '❌ ' : '');
+  return `${c.title ? `<div class="sd-cmp-title">${fmt(c.title)}</div>` : ''}
+    <div class="sd-compare" style="--cmp-cols:${cols.length}">${cols.map(col => `
+      <div class="sd-cmp-col sd-cmp-${col.tone || 'note'}">
+        <div class="sd-cmp-head">${prefix(col.tone)}${fmt(col.title || '')}</div>
+        ${col.body ? `<p class="sd-cmp-body">${fmt(col.body)}</p>` : ''}
+        ${col.points && col.points.length ? `<ul class="sd-cmp-points">${col.points.map(p => `<li>${fmt(p)}</li>`).join('')}</ul>` : ''}
+      </div>`).join('')}</div>`;
+}
+
+// Numbered step list: ["step", ...] or [{ title, detail }]
+function stepsHtml(steps) {
+  return `<ol class="sd-steps">${steps.map(s => {
+    const o = typeof s === 'string' ? { title: s } : s;
+    return `<li class="sd-step"><div class="sd-step-title">${fmt(o.title || '')}</div>${o.detail ? `<div class="sd-step-detail">${fmt(o.detail)}</div>` : ''}</li>`;
+  }).join('')}</ol>`;
+}
+
+// Author-trusted inline SVG (from our own concept-data files).
+function diagramHtml(svg, caption) {
+  return `<figure class="sd-diagram">${svg}${caption ? `<figcaption class="sd-diagram-cap">${fmt(caption)}</figcaption>` : ''}</figure>`;
+}
+
+// Key-figure stat tiles: [{ value, label, tone? }]
+function statsHtml(stats) {
+  return `<div class="sd-stat-row">${stats.map(s => `
+    <div class="sd-stat-tile sd-stat-${s.tone || 'accent'}">
+      <span class="sd-stat-value">${fmt(s.value)}</span>
+      <span class="sd-stat-label">${fmt(s.label)}</span>
+    </div>`).join('')}</div>`;
+}
+
 function sectionCard(s, i) {
   const parts = [];
   if (s.body) parts.push(paras(s.body));
@@ -48,6 +105,13 @@ function sectionCard(s, i) {
   if (s.table) parts.push(tableHtml(s.table));
   if (s.body2) parts.push(paras(s.body2));
   if (s.flow && s.flow.length) parts.push(flowStrip(s.flow));
+  if (s.steps && s.steps.length) parts.push(stepsHtml(s.steps));
+  if (s.stats && s.stats.length) parts.push(statsHtml(s.stats));
+  if (s.svg) parts.push(diagramHtml(s.svg, s.caption));
+  if (s.timeline && s.timeline.length) parts.push(timelineHtml(s.timeline));
+  if (s.compare) parts.push(compareHtml(s.compare));
+  if (s.callout) parts.push(calloutHtml(s.callout));
+  if (s.callouts && s.callouts.length) parts.push(s.callouts.map(calloutHtml).join(''));
   return `<section class="sd-con-section">
     ${s.title ? `<h3 class="sd-con-h"><span class="sd-con-n">${i + 1}</span>${fmt(s.title)}</h3>` : ''}
     <div class="sd-con-body">${parts.join('')}</div>
@@ -94,6 +158,8 @@ function relatedHtml(ids) {
 export function mount(container, data, opts = {}) {
   const meta = opts.meta || {};
   const sections = data.sections || [];
+  const deep = data.deepDive || [];
+  const deepTitle = data.deepDiveTitle || '🔬 Deep dive';
   const qa = data.qa || [];
   const relIds = data.related || [];
   const relItems = relIds.map(id => QUESTIONS.find(q => q.id === id)).filter(Boolean);
@@ -102,6 +168,7 @@ export function mount(container, data, opts = {}) {
 
   const tabs = [
     { id: 'concept', label: '📖 Concept' },
+    ...(deep.length ? [{ id: 'deep', label: deepTitle }] : []),
     ...(qa.length ? [{ id: 'qa', label: `💬 Interview Q&A · ${qa.length}` }] : []),
     ...(relItems.length ? [{ id: 'related', label: `🔗 Related · ${relItems.length}` }] : []),
   ];
@@ -135,6 +202,10 @@ export function mount(container, data, opts = {}) {
             <div class="sd-widget-mount" id="sd-con-widget"><div class="sd-widget-loading">Loading interactive…</div></div>
           </section>` : ''}
       </div>
+
+      ${deep.length ? `<div class="sd-tab-panel" data-panel="deep">
+        ${data.deepDiveIntro ? `<p class="sd-deep-intro">${fmt(data.deepDiveIntro)}</p>` : ''}
+        ${deep.map(sectionCard).join('')}</div>` : ''}
 
       ${qa.length ? `<div class="sd-tab-panel" data-panel="qa">${qaHtml(qa)}</div>` : ''}
       ${relItems.length ? `<div class="sd-tab-panel" data-panel="related">

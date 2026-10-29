@@ -16,6 +16,29 @@ const DIFF_CLASS = {
 };
 const VIEW_KEY = 'system-design-home-view';
 
+// Difficulty + rough reading time per concept group, so a learner can gauge a
+// concept before opening it.
+const GROUP_LEVEL = {
+  'Foundations': 'Beginner',
+  'Core building blocks': 'Intermediate',
+  'Classic designs': 'Intermediate',
+  'Scale & media': 'Advanced',
+  'Data & infra systems': 'Advanced',
+  'Money & real-time': 'Advanced',
+};
+const GROUP_MINS = {
+  'Foundations': 8, 'Core building blocks': 12, 'Classic designs': 14,
+  'Scale & media': 16, 'Data & infra systems': 16, 'Money & real-time': 18,
+};
+const LEVEL_CLASS = { Beginner: 'lvl-beg', Intermediate: 'lvl-int', Advanced: 'lvl-adv' };
+function conceptBadges(c) {
+  const lv = GROUP_LEVEL[c.group] || 'Intermediate';
+  return `<span class="sd-card-badges"><span class="sd-lvl ${LEVEL_CLASS[lv]}">${lv}</span><span class="sd-mins">~${GROUP_MINS[c.group] || 14} min</span></span>`;
+}
+
+// The shortest path from "what is system design" to interview-ready.
+const START_PATH = ['interview-framework', 'back-of-envelope-estimation', 'scaling-zero-to-millions', 'rate-limiter', 'url-shortener', 'news-feed-system'];
+
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
@@ -37,7 +60,7 @@ export function mount(container, { done } = { done: new Set() }) {
     <div class="module-page sd-home">
       <div class="sd-home-hero">
         <div class="module-tag">Visual Learning Lab</div>
-        <h1 class="sd-home-title">System Design Knowledge Base</h1>
+        <h1 class="sd-home-title">System design,<br><span class="sd-home-title-grad">from the inside out.</span></h1>
         <p class="sd-home-sub">
           Learn the concepts first, then drill with real-world questions, model
           answers, flashcards and interactive widgets.
@@ -62,11 +85,37 @@ export function mount(container, { done } = { done: new Set() }) {
   let fcCleanup = null;
 
   // ── Concepts view ───────────────────────────────────────────────────────────
+  function startHereCard(id, n) {
+    const c = CONCEPTS.find(x => x.id === id);
+    if (!c || !c.built) return '';
+    const isDone = done.has(CONCEPT_PREFIX + c.id);
+    return `<a class="sd-step-card${isDone ? ' done' : ''}" href="#${CONCEPT_PREFIX}${c.id}">
+      <span class="sd-step-card-num">${n}</span>
+      <span class="sd-step-card-body">
+        <span class="sd-step-card-title">${c.icon || '🧭'} ${esc(c.title)}</span>
+        <span class="sd-step-card-sum">${esc(c.summary || '')}</span>
+      </span>
+      <span class="sd-step-card-mark">${isDone ? '✓' : '→'}</span>
+    </a>`;
+  }
+
   function renderConcepts() {
     const byGroup = {};
     CONCEPTS.forEach(c => { (byGroup[c.group] = byGroup[c.group] || []).push(c); });
+    const startCards = START_PATH.map((id, i) => startHereCard(id, i + 1)).filter(Boolean).join('');
     viewEl.innerHTML = `
-      <p class="sd-view-intro">Start here — each concept gives a clear explanation, interview Q&amp;A, and links to related questions.</p>
+      ${startCards ? `
+      <section class="sd-start-here">
+        <div class="sd-section-head">
+          <h2 class="sd-section-h">🚀 Start here</h2>
+          <p class="sd-section-sub">The shortest path from "what is system design" to interview-ready.</p>
+        </div>
+        <div class="sd-steps-grid">${startCards}</div>
+      </section>` : ''}
+      <div class="sd-section-head sd-section-head-mt">
+        <h2 class="sd-section-h">📚 Full curriculum</h2>
+        <p class="sd-section-sub">All ${CONCEPTS.length} concepts, grouped by theme — each with a clear explanation, interview Q&amp;A, and linked questions.</p>
+      </div>
       ${CONCEPT_GROUPS.map(group => {
         const items = byGroup[group] || [];
         if (!items.length) return '';
@@ -101,6 +150,7 @@ export function mount(container, { done } = { done: new Set() }) {
       </div>
       <h3 class="sd-card-q">${esc(c.title)}</h3>
       <div class="sd-card-sum">${esc(c.summary || '')}</div>
+      ${conceptBadges(c)}
     </a>`;
   }
 
