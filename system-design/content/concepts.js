@@ -48,10 +48,10 @@ export const CONCEPTS = [
   // ── Data & infra systems ──────────────────────────────────────────────────
   { id: "distributed-message-queue", title: "Design a distributed message queue", icon: "📨", chapter: 19, wave: 5, group: "Data & infra systems", summary: "Partitioned logs, consumer groups, ordering and delivery guarantees.", built: true },
   { id: "metrics-monitoring", title: "Design metrics monitoring & alerting", icon: "📊", chapter: 20, wave: 5, group: "Data & infra systems", summary: "Time-series ingestion, downsampling, and alerting on the right signals.", built: true },
-  { id: "ad-click-aggregation", title: "Design ad click event aggregation", icon: "🖱️", chapter: 21, wave: 6, group: "Data & infra systems", summary: "Streaming aggregation, exactly-once counting, and late/duplicate events.", built: false },
-  { id: "hotel-reservation", title: "Design a hotel reservation system", icon: "🏨", chapter: 22, wave: 6, group: "Data & infra systems", summary: "Inventory, overbooking, concurrency control and idempotent booking.", built: false },
-  { id: "distributed-email", title: "Design a distributed email service", icon: "📧", chapter: 23, wave: 6, group: "Data & infra systems", summary: "Mail storage, search, and reliable send/receive at scale.", built: false },
-  { id: "object-storage", title: "Design an S3-like object storage", icon: "🪣", chapter: 24, wave: 6, group: "Data & infra systems", summary: "Buckets, durability via replication/erasure coding, and metadata.", built: false },
+  { id: "ad-click-aggregation", title: "Design ad click event aggregation", icon: "🖱️", chapter: 21, wave: 6, group: "Data & infra systems", summary: "Streaming aggregation, exactly-once counting, and late/duplicate events.", built: true },
+  { id: "hotel-reservation", title: "Design a hotel reservation system", icon: "🏨", chapter: 22, wave: 6, group: "Data & infra systems", summary: "Inventory, overbooking, concurrency control and idempotent booking.", built: true },
+  { id: "distributed-email", title: "Design a distributed email service", icon: "📧", chapter: 23, wave: 6, group: "Data & infra systems", summary: "Mail storage, search, and reliable send/receive at scale.", built: true },
+  { id: "object-storage", title: "Design an S3-like object storage", icon: "🪣", chapter: 24, wave: 6, group: "Data & infra systems", summary: "Buckets, durability via replication/erasure coding, and metadata.", built: true },
 
   // ── Money & real-time ─────────────────────────────────────────────────────
   { id: "realtime-leaderboard", title: "Design a real-time gaming leaderboard", icon: "🏆", chapter: 25, wave: 7, group: "Money & real-time", summary: "Sorted sets, top-K at scale, and real-time rank updates.", built: false },
@@ -82,6 +82,10 @@ export const CONCEPT_LOADERS = {
   "google-maps": () => import("./concept-data/google-maps.js"),
   "distributed-message-queue": () => import("./concept-data/distributed-message-queue.js"),
   "metrics-monitoring": () => import("./concept-data/metrics-monitoring.js"),
+  "ad-click-aggregation": () => import("./concept-data/ad-click-aggregation.js"),
+  "hotel-reservation": () => import("./concept-data/hotel-reservation.js"),
+  "distributed-email": () => import("./concept-data/distributed-email.js"),
+  "object-storage": () => import("./concept-data/object-storage.js"),
 };
 
 export const CONCEPT_PREFIX = "c:";   // hash routing: #c:<id>
