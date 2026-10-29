@@ -66,6 +66,99 @@ export default {
       flow: ["Request", "Check counter (Redis)", "Under limit? serve : 429 + Retry-After"],
     },
   ],
+  deepDiveTitle: "🔬 Deep dive",
+  deepDiveIntro: "A concrete walk-through: a public API takes a 10× traffic surge from one abusive client. Watch exactly how a token-bucket limiter at the edge absorbs it — and how you'd build the same thing correctly across a fleet.",
+  deepDive: [
+    {
+      title: "The numbers at a glance",
+      body: "A single tenant is allowed **100 requests/second** with a burst capacity of **200**. During the incident one client tries to push **1,000 req/s**.",
+      stats: [
+        { value: "100/s", label: "Sustained limit (refill rate)", tone: "accent" },
+        { value: "200", label: "Burst capacity (bucket size)", tone: "blue" },
+        { value: "1,000/s", label: "Attempted by abuser", tone: "red" },
+        { value: "900/s", label: "Rejected with 429", tone: "green" },
+      ],
+    },
+    {
+      title: "How a token bucket decides",
+      body: "The bucket refills at the sustained rate and holds at most *capacity* tokens. Every request spends one token; an empty bucket means an instant **429** — the request never reaches your servers.",
+      svg: `<svg viewBox="0 0 640 230" width="640" role="img" aria-label="Token bucket flow diagram" style="font-family:system-ui">
+        <!-- refill -->
+        <text x="90" y="30" text-anchor="middle" fill="#4F46E5" font-size="12" font-weight="700">refill 100 tokens/s</text>
+        <path d="M90 38 L90 70" stroke="#4F46E5" stroke-width="2" marker-end="url(#rlArrow)"/>
+        <!-- bucket -->
+        <rect x="40" y="72" width="100" height="96" rx="10" fill="none" stroke="#4F46E5" stroke-width="2"/>
+        <text x="90" y="100" text-anchor="middle" fill="currentColor" font-size="11" font-weight="700">Bucket</text>
+        <text x="90" y="118" text-anchor="middle" fill="currentColor" font-size="10" opacity="0.7">cap 200</text>
+        <circle cx="68" cy="140" r="7" fill="#4F46E5"/><circle cx="90" cy="140" r="7" fill="#4F46E5"/><circle cx="112" cy="140" r="7" fill="#4F46E5"/>
+        <circle cx="79" cy="156" r="7" fill="#4F46E5" opacity="0.5"/><circle cx="101" cy="156" r="7" fill="#4F46E5" opacity="0.5"/>
+        <!-- incoming -->
+        <rect x="230" y="96" width="120" height="48" rx="8" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.8"/>
+        <text x="290" y="117" text-anchor="middle" fill="currentColor" font-size="11" font-weight="700">Incoming</text>
+        <text x="290" y="133" text-anchor="middle" fill="currentColor" font-size="10" opacity="0.7">1,000 req/s</text>
+        <path d="M230 120 L148 120" stroke="currentColor" stroke-width="2" opacity="0.6" marker-end="url(#rlArrowN)"/>
+        <text x="190" y="112" text-anchor="middle" fill="currentColor" font-size="9" opacity="0.6">take 1</text>
+        <!-- decision -->
+        <path d="M350 112 L430 86" stroke="#10B981" stroke-width="2" marker-end="url(#rlArrowG)"/>
+        <path d="M350 128 L430 168" stroke="#EF4444" stroke-width="2" marker-end="url(#rlArrowR)"/>
+        <rect x="432" y="64" width="176" height="44" rx="8" fill="none" stroke="#10B981" stroke-width="1.5"/>
+        <text x="520" y="82" text-anchor="middle" fill="#10B981" font-size="11" font-weight="700">Token available → 200 served</text>
+        <text x="520" y="98" text-anchor="middle" fill="currentColor" font-size="10" opacity="0.7">forwarded to the service</text>
+        <rect x="432" y="148" width="176" height="44" rx="8" fill="none" stroke="#EF4444" stroke-width="1.5"/>
+        <text x="520" y="166" text-anchor="middle" fill="#EF4444" font-size="11" font-weight="700">Empty → 800 get 429</text>
+        <text x="520" y="182" text-anchor="middle" fill="currentColor" font-size="10" opacity="0.7">rejected at the edge</text>
+        <defs>
+          <marker id="rlArrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#4F46E5"/></marker>
+          <marker id="rlArrowN" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="currentColor"/></marker>
+          <marker id="rlArrowG" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#10B981"/></marker>
+          <marker id="rlArrowR" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#EF4444"/></marker>
+        </defs>
+      </svg>`,
+      caption: "One empty-bucket check is O(1) and happens before any application work — the surge is absorbed at the gateway.",
+    },
+    {
+      title: "The surge, second by second",
+      timeline: [
+        { t: "t+0.0s", icon: "🌊", tone: "warn", title: "Surge begins", detail: "The abuser jumps from 50 req/s to 1,000 req/s. The bucket has ~200 tokens banked from being under-used." },
+        { t: "t+0.2s", icon: "⚡", tone: "accent", title: "Burst absorbed", detail: "The first ~200 requests each find a token and are served — this is the burst allowance doing its job. The bucket drains to empty." },
+        { t: "t+0.3s", icon: "⛔", tone: "bad", title: "429s kick in", detail: "With the bucket empty and refill at only 100/s, ~900 of every 1,000 requests get an instant 429 + Retry-After. Your service never sees them." },
+        { t: "t+1.0s", icon: "🛡️", tone: "good", title: "Steady state", detail: "The service receives a flat 100 req/s from this tenant — exactly the limit. Other tenants are unaffected; their buckets are independent." },
+        { t: "t+5.0s", icon: "✅", tone: "good", title: "Client backs off", detail: "A well-behaved client reads Retry-After and slows down. CPU on the service stays flat the entire time — no cascading overload." },
+      ],
+    },
+    {
+      title: "Where you enforce it changes everything",
+      compare: {
+        title: "Same limit, two placements",
+        cols: [
+          { title: "At the edge / gateway", tone: "good", body: "Reject before the request touches an app server.", points: [
+            "Bad traffic costs ~one Redis op, not a DB query.",
+            "One place to configure, language-agnostic.",
+            "Protects every downstream at once.",
+          ] },
+          { title: "Only inside the service", tone: "bad", body: "The request already consumed a connection and app CPU.", points: [
+            "The surge still lands on your servers.",
+            "Each service must re-implement the logic.",
+            "A shared downstream can still be overwhelmed.",
+          ] },
+        ],
+      },
+    },
+    {
+      title: "Building it correctly across a fleet",
+      body: "Per-server memory counters let a client beat the global limit by spreading requests across servers. The fix is one shared, atomic counter — here's the shape of it:",
+      steps: [
+        { title: "Key per tenant + window", detail: "Use a Redis key like `rl:{tenant}` holding the current token count and a last-refill timestamp." },
+        { title: "Atomic check-and-decrement", detail: "Run a Lua script that refills based on elapsed time, then decrements if ≥1 token — all in one atomic round-trip, so two servers can't both admit on a stale read." },
+        { title: "Return the decision + headers", detail: "On success, serve and send `X-RateLimit-Remaining`; on failure, return 429 with `Retry-After` computed from the refill rate." },
+        { title: "Shed Redis latency where it hurts", detail: "For ultra-hot paths, give each server a small local token lease and reconcile — trading a sliver of accuracy for fewer round-trips." },
+      ],
+      callouts: [
+        { tone: "key", label: "The race to name:", body: "A naive read-modify-write under-counts under concurrency — two servers read `5`, both admit, both write `4`. Atomicity (Lua or `INCR`) is the fix, and interviewers listen for it." },
+        { tone: "tip", label: "Pair with the client:", body: "A 429 without client-side exponential backoff + jitter just becomes a retry storm. The limiter and the client's backoff are two halves of one contract." },
+      ],
+    },
+  ],
   qa: [
     {
       q: "Compare token bucket and sliding window — which would you pick?",
