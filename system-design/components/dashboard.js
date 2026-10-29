@@ -2,11 +2,11 @@
 // Honest mastery analytics from the local progress set: overall + per-group
 // progress, and a "study next" list. mount(container, { done }) → cleanup
 
-import { QUESTIONS, CATEGORY_ORDER, CATEGORY_LABEL } from '../content/index.js';
-import { CONCEPTS, CONCEPT_GROUPS, CONCEPT_PREFIX } from '../content/concepts.js';
+import { reg } from '../content/registry.js';
 import { esc } from './render-helpers.js';
 
 export function mount(container, { done } = { done: new Set() }) {
+  const { QUESTIONS, CATEGORY_ORDER, CATEGORY_LABEL, CONCEPTS, CONCEPT_GROUPS, CONCEPT_PREFIX } = reg;
   const builtConcepts = CONCEPTS.filter(c => c.built);
   const conceptsDone = builtConcepts.filter(c => done.has(CONCEPT_PREFIX + c.id)).length;
   const questionsDone = QUESTIONS.filter(q => done.has(q.id)).length;
@@ -86,7 +86,7 @@ export function mount(container, { done } = { done: new Set() }) {
         </div>
         <div class="sd-db-stats">
           ${stat(`${conceptsDone}/${builtConcepts.length}`, 'Concepts done', 'blue')}
-          ${stat(`${questionsDone}/${QUESTIONS.length}`, 'Questions done', 'green')}
+          ${QUESTIONS.length ? stat(`${questionsDone}/${QUESTIONS.length}`, 'Questions done', 'green') : ''}
           ${stat(doneTotal, 'Total completed', 'accent')}
           ${stat(total - doneTotal, 'Remaining', 'amber')}
         </div>
@@ -97,10 +97,10 @@ export function mount(container, { done } = { done: new Set() }) {
           <h2 class="sd-db-panel-title">🧭 Concepts by theme</h2>
           ${conceptBars}
         </section>
-        <section class="sd-db-panel">
+        ${QUESTIONS.length ? `<section class="sd-db-panel">
           <h2 class="sd-db-panel-title">❓ Questions by category</h2>
           ${questionBars}
-        </section>
+        </section>` : ''}
       </div>
 
       <section class="sd-db-panel sd-db-next">

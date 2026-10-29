@@ -1460,3 +1460,39 @@
 .sd-tier-good   .sd-tier-badge { color: var(--amber); }
 .sd-tier-senior { border-color: color-mix(in srgb, var(--green) 45%, var(--border)); }
 .sd-tier-senior .sd-tier-badge { color: var(--green); }
+
+/* ── Track switcher (SWE · DE) ─────────────────────────────────────────────── */
+.sd-track-switch {
+  display: flex;
+  gap: 4px;
+  margin: 10px 14px 2px;
+  padding: 4px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.sd-track-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 7px;
+  cursor: pointer;
+  background: transparent;
+  color: var(--text2);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  transition: background .15s ease, color .15s ease;
+}
+.sd-track-btn:hover { color: var(--text); }
+.sd-track-btn.active {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .22);
+}
+.sd-track-ico { font-size: 14px; line-height: 1; }

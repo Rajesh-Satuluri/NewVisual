@@ -9,19 +9,20 @@ import { mount as mountDecisions } from './components/decisions.js';
 import { mount as mountTiered } from './components/tiered.js';
 import { createCommandPalette } from './components/command-palette.js';
 import { toast } from './components/toast.js';
-import {
-  QUESTIONS, LOADERS, CATEGORY_LABEL,
-} from './content/index.js';
-import {
-  CONCEPTS, CONCEPT_LOADERS, CONCEPT_PREFIX, conceptMeta, builtConceptCount,
-} from './content/concepts.js';
+import { reg, loadTrack } from './content/registry.js';
+import { TRACKS, TRACK_IDS } from './content/tracks.js';
 
-// ── Persistence ────────────────────────────────────────────────────────────
-const DONE_KEY = 'system-design-done';
-const done = new Set(JSON.parse(localStorage.getItem(DONE_KEY) || '[]'));
-function saveDone() {
-  localStorage.setItem(DONE_KEY, JSON.stringify([...done]));
-}
+// ── Track state ──────────────────────────────────────────────────────────────
+const TRACK_KEY = 'sd-track';
+let trackId = localStorage.getItem(TRACK_KEY);
+if (!TRACKS[trackId]) trackId = 'swe';
+
+// Per-track progress. SWE keeps the original key for backward compatibility.
+function doneKey(t) { return t === 'swe' ? 'system-design-done' : `system-design-done-${t}`; }
+let DONE_KEY = doneKey(trackId);
+let done = new Set();
+function loadDone() { done = new Set(JSON.parse(localStorage.getItem(DONE_KEY) || '[]')); }
+function saveDone() { localStorage.setItem(DONE_KEY, JSON.stringify([...done])); }
 
 // ── UI references ──────────────────────────────────────────────────────────
 const root            = document.getElementById('module-root');
@@ -34,11 +35,21 @@ const progressFill    = document.getElementById('progress-fill');
 const progressText    = document.getElementById('progress-text');
 const breadcrumbGroup = document.getElementById('breadcrumb-group');
 const breadcrumbTitle = document.getElementById('breadcrumb-title');
+const trackSwitch     = document.getElementById('track-switch');
+const brandTitleEl    = document.getElementById('brand-title');
+const brandSubEl      = document.getElementById('brand-sub');
+const brandIconEl     = document.getElementById('brand-icon');
 
 let currentCleanup = null;
 let currentId = null;     // full hash value (e.g. "c:rate-limiter" or a question id)
 
-const TOTAL = QUESTIONS.length + builtConceptCount();
+// Track-derived values, refreshed whenever the active track changes.
+let TOTAL = 0;
+let BUILT_CONCEPTS = [];
+function refreshDerived() {
+  BUILT_CONCEPTS = reg.CONCEPTS.filter(c => c.built).sort((a, b) => a.chapter - b.chapter);
+  TOTAL = reg.QUESTIONS.length + reg.builtConceptCount();
+}
 
 // ── Static reference/practice pages ──────────────────────────────────────────
 const PAGE_PREFIX = 'p:';
@@ -52,6 +63,8 @@ const PAGES = {
 // glossary/cheatsheet take (container) only; wrap so all share one signature.
 function mountDashboardProxy(fn) { return (el) => fn(el); }
 export const PAGE_LIST = Object.entries(PAGES).map(([id, p]) => ({ id, ...p }));
+// Pages available in the active track.
+function allowedPages() { return [...(reg.track.refPages || []), ...(reg.track.practicePages || [])]; }
 
 // ── Theme ──────────────────────────────────────────────────────────────────
 const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
@@ -96,17 +109,17 @@ function showError(msg) {
 
 // ── Concept route ────────────────────────────────────────────────────────────
 async function navigateConcept(id) {
-  const meta = conceptMeta(id);
+  const meta = reg.conceptMeta(id);
   if (!meta) { showHome(); return; }
   if (currentCleanup) { currentCleanup(); currentCleanup = null; }
-  currentId = CONCEPT_PREFIX + id;
+  currentId = reg.CONCEPT_PREFIX + id;
 
   breadcrumbGroup.textContent = meta.group;
   breadcrumbTitle.textContent = meta.title;
   markDoneBtn.style.display = 'flex';
   markDoneBtn.style.color = done.has(currentId) ? 'var(--green)' : '';
 
-  if (!meta.built || !CONCEPT_LOADERS[id]) {
+  if (!meta.built || !reg.CONCEPT_LOADERS[id]) {
     root.innerHTML = `<div class="coming-soon">
       <div class="coming-soon-icon">${meta.icon || '🧭'}</div>
       <h3>${esc(meta.title)}</h3>
@@ -119,7 +132,7 @@ async function navigateConcept(id) {
 
   setLoading();
   try {
-    const mod = await CONCEPT_LOADERS[id]();
+    const mod = await reg.CONCEPT_LOADERS[id]();
     const data = mod.default || mod;
     root.innerHTML = '';
     const cleanup = mountConcept(root, data, { meta });
@@ -134,7 +147,7 @@ async function navigateConcept(id) {
 // ── Page route (reference / practice) ─────────────────────────────────────────
 function navigatePage(id) {
   const page = PAGES[id];
-  if (!page) { showHome(); return; }
+  if (!page || !allowedPages().includes(id)) { showHome(); return; }
   if (currentCleanup) { currentCleanup(); currentCleanup = null; }
   currentId = PAGE_PREFIX + id;
   breadcrumbGroup.textContent = page.group;
@@ -150,24 +163,24 @@ function navigatePage(id) {
 // ── Question route ────────────────────────────────────────────────────────────
 async function navigate(id) {
   if (!id) { showHome(); return; }
-  if (id.startsWith(CONCEPT_PREFIX)) { navigateConcept(id.slice(CONCEPT_PREFIX.length)); return; }
+  if (id.startsWith(reg.CONCEPT_PREFIX)) { navigateConcept(id.slice(reg.CONCEPT_PREFIX.length)); return; }
   if (id.startsWith(PAGE_PREFIX)) { navigatePage(id.slice(PAGE_PREFIX.length)); return; }
-  if (!LOADERS[id]) { showHome(); return; }
+  if (!reg.LOADERS[id]) { showHome(); return; }
   if (currentCleanup) { currentCleanup(); currentCleanup = null; }
 
   currentId = id;
   setLoading();
 
-  const meta = QUESTIONS.find(q => q.id === id);
+  const meta = reg.QUESTIONS.find(q => q.id === id);
   if (meta) {
-    breadcrumbGroup.textContent = CATEGORY_LABEL[meta.category] || meta.category;
+    breadcrumbGroup.textContent = reg.CATEGORY_LABEL[meta.category] || meta.category;
     breadcrumbTitle.textContent = meta.question;
     markDoneBtn.style.display = 'flex';
     markDoneBtn.style.color = done.has(id) ? 'var(--green)' : '';
   }
 
   try {
-    const mod = await LOADERS[id]();
+    const mod = await reg.LOADERS[id]();
     const data = mod.default || mod;
     root.innerHTML = '';
     const cleanup = mountQuestion(root, data, { label: meta && meta.question });
@@ -185,7 +198,7 @@ function showHome() {
   if (currentCleanup) { currentCleanup(); currentCleanup = null; }
   currentId = null;
   markDoneBtn.style.display = 'none';
-  breadcrumbGroup.textContent = 'System Design';
+  breadcrumbGroup.textContent = reg.track.brandTitle || 'System Design';
   breadcrumbTitle.textContent = 'Home';
   root.innerHTML = '';
   const cleanup = mountHome(root, { done });
@@ -194,25 +207,24 @@ function showHome() {
 }
 
 // ── Command palette ──────────────────────────────────────────────────────────
-const BUILT_CONCEPTS = CONCEPTS.filter(c => c.built).sort((a, b) => a.chapter - b.chapter);
-
 function searchIndex() {
   const items = [];
   items.push({ hash: '', title: 'Home', subtitle: 'Concepts & question explorer', icon: '🏠', group: 'Pages' });
-  PAGE_LIST.forEach(p => items.push({
+  const allowed = allowedPages();
+  PAGE_LIST.filter(p => allowed.includes(p.id)).forEach(p => items.push({
     hash: PAGE_PREFIX + p.id, title: p.title, subtitle: p.group, icon: p.icon, group: 'Pages',
   }));
   BUILT_CONCEPTS.forEach(c => items.push({
-    hash: CONCEPT_PREFIX + c.id,
+    hash: reg.CONCEPT_PREFIX + c.id,
     title: c.title,
     subtitle: `Ch ${c.chapter} · ${c.group}`,
     icon: c.icon || '🧭',
     group: 'Concepts',
   }));
-  QUESTIONS.forEach(q => items.push({
+  reg.QUESTIONS.forEach(q => items.push({
     hash: q.id,
     title: q.question,
-    subtitle: CATEGORY_LABEL[q.category] || q.category || '',
+    subtitle: reg.CATEGORY_LABEL[q.category] || q.category || '',
     icon: q.icon || '📘',
     group: 'Questions',
   }));
@@ -225,12 +237,46 @@ if (searchBtn) searchBtn.addEventListener('click', () => palette.open());
 
 // ── Prev / next concept navigation ───────────────────────────────────────────
 function stepConcept(dir) {
-  if (!currentId || !currentId.startsWith(CONCEPT_PREFIX)) return;
-  const id = currentId.slice(CONCEPT_PREFIX.length);
+  if (!currentId || !currentId.startsWith(reg.CONCEPT_PREFIX)) return;
+  const id = currentId.slice(reg.CONCEPT_PREFIX.length);
   const idx = BUILT_CONCEPTS.findIndex(c => c.id === id);
   if (idx < 0) return;
   const next = BUILT_CONCEPTS[idx + dir];
-  if (next) location.hash = CONCEPT_PREFIX + next.id;
+  if (next) location.hash = reg.CONCEPT_PREFIX + next.id;
+}
+
+// ── Track switcher ───────────────────────────────────────────────────────────
+function renderTrackSwitch() {
+  if (!trackSwitch) return;
+  trackSwitch.innerHTML = TRACK_IDS.map(id => {
+    const t = TRACKS[id];
+    return `<button class="sd-track-btn${id === trackId ? ' active' : ''}" data-track="${id}" title="${esc(t.label)}" aria-selected="${id === trackId}">
+      <span class="sd-track-ico">${t.icon}</span><span class="sd-track-lbl">${esc(t.short)}</span></button>`;
+  }).join('');
+  trackSwitch.querySelectorAll('.sd-track-btn').forEach(b => {
+    b.addEventListener('click', () => switchTrack(b.dataset.track));
+  });
+}
+function updateBrand() {
+  if (brandTitleEl) brandTitleEl.textContent = reg.track.brandTitle;
+  if (brandSubEl) brandSubEl.textContent = reg.track.brandSub;
+  if (brandIconEl) brandIconEl.textContent = reg.track.icon;
+  document.title = `${reg.track.brandTitle} — Knowledge Base`;
+}
+async function switchTrack(id) {
+  if (!TRACKS[id] || id === trackId) return;
+  saveDone();
+  trackId = id;
+  localStorage.setItem(TRACK_KEY, id);
+  DONE_KEY = doneKey(id);
+  await loadTrack(id);
+  loadDone();
+  refreshDerived();
+  updateBrand();
+  renderTrackSwitch();
+  // Reset to home so a stale hash doesn't resolve in the new track.
+  if (location.hash) { location.hash = ''; } else { showHome(); }
+  updateProgress();
 }
 
 // ── Keyboard shortcuts ───────────────────────────────────────────────────────
@@ -294,5 +340,13 @@ document.addEventListener('keydown', e => {
 
 // ── Routing + init ──────────────────────────────────────────────────────────
 window.addEventListener('hashchange', () => navigate(location.hash.slice(1) || null));
-updateProgress();
-navigate(location.hash.slice(1) || null);
+
+(async function init() {
+  await loadTrack(trackId);
+  loadDone();
+  refreshDerived();
+  updateBrand();
+  renderTrackSwitch();
+  updateProgress();
+  navigate(location.hash.slice(1) || null);
+})();

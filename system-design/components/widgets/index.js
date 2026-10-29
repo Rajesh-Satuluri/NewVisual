@@ -30,6 +30,10 @@ export const WIDGETS = {
   "base62":           () => import('./base62.js'),
   "booking-race":     () => import('./booking-race.js'),
   "interview-clock":  () => import('./interview-clock.js'),
+  // ── Data Engineering track ──
+  "de-datalake":      () => import('./de-datalake.js'),
+  "de-medallion":     () => import('./de-medallion.js'),
+  "de-cdc":           () => import('./de-cdc.js'),
 };
 
 // Short human label + one-line pitch, shown in the widget section header.
@@ -60,4 +64,8 @@ export const WIDGET_META = {
   "base62":           { title: "URL shortener (base62)", hint: "Shorten a URL and watch a counter id become a compact, collision-free code." },
   "booking-race":     { title: "Last-room booking race", hint: "Two guests book the last room — toggle the atomic guard and watch overbooking appear or vanish." },
   "interview-clock":  { title: "45-minute interview clock", hint: "Rehearse pacing: a playhead walks the phases with the minute budget each deserves." },
+  // ── Data Engineering track ──
+  "de-datalake":      { title: "Data lake ingest & serve", hint: "Any-format sources land as-is on cheap object storage; BI, SQL and ML read straight from the lake." },
+  "de-medallion":     { title: "Medallion refinement (Bronze → Silver → Gold)", hint: "Inject records and watch them get cleaned, de-duplicated, and aggregated across the three quality tiers." },
+  "de-cdc":           { title: "Change data capture", hint: "Mutate the source and watch only the row-level changes stream to the target — far less data than a full reload." },
 };

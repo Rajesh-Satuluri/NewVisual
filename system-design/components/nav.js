@@ -1,21 +1,22 @@
-import { QUESTIONS, CATEGORY_ORDER, CATEGORY_LABEL } from '../content/index.js';
-import { CONCEPTS, CONCEPT_GROUPS, CONCEPT_PREFIX } from '../content/concepts.js';
+import { reg } from '../content/registry.js';
 
 const COLLAPSE_KEY = 'system-design-nav-collapsed';
 const PAGE_PREFIX = 'p:';
-const REFERENCE_PAGES = [
-  { id: 'dashboard',  title: 'Dashboard',  icon: '📊' },
-  { id: 'glossary',   title: 'Glossary',   icon: '📖' },
-  { id: 'cheatsheet', title: 'Cheat sheet', icon: '📋' },
-];
-const PRACTICE_PAGES = [
-  { id: 'decisions', title: 'Choose the approach', icon: '🧭' },
-  { id: 'answers',   title: 'Level up your answer', icon: '🎯' },
-];
+const PAGE_INFO = {
+  dashboard:  { id: 'dashboard',  title: 'Dashboard',  icon: '📊' },
+  glossary:   { id: 'glossary',   title: 'Glossary',   icon: '📖' },
+  cheatsheet: { id: 'cheatsheet', title: 'Cheat sheet', icon: '📋' },
+  decisions:  { id: 'decisions', title: 'Choose the approach', icon: '🧭' },
+  answers:    { id: 'answers',   title: 'Level up your answer', icon: '🎯' },
+};
 
 export function renderNav(activeHash, done) {
   const nav = document.getElementById('nav-list');
   if (!nav) return;
+
+  const { QUESTIONS, CATEGORY_ORDER, CATEGORY_LABEL, CONCEPTS, CONCEPT_GROUPS, CONCEPT_PREFIX, track } = reg;
+  const REFERENCE_PAGES = (track.refPages || []).map(id => PAGE_INFO[id]).filter(Boolean);
+  const PRACTICE_PAGES = (track.practicePages || []).map(id => PAGE_INFO[id]).filter(Boolean);
 
   const collapsed = new Set(JSON.parse(localStorage.getItem(COLLAPSE_KEY) || '[]'));
 
@@ -115,14 +116,14 @@ export function renderNav(activeHash, done) {
   const practiceHtml = PRACTICE_PAGES.map(pageLink).join('');
 
   nav.innerHTML = `
-    <div class="nav-section-label">📚 Reference</div>
-    <div class="nav-group"><div class="nav-group-items">${referenceHtml}</div></div>
-    <div class="nav-section-label">🎯 Practice</div>
-    <div class="nav-group"><div class="nav-group-items">${practiceHtml}</div></div>
+    ${referenceHtml ? `<div class="nav-section-label">📚 Reference</div>
+    <div class="nav-group"><div class="nav-group-items">${referenceHtml}</div></div>` : ''}
+    ${practiceHtml ? `<div class="nav-section-label">🎯 Practice</div>
+    <div class="nav-group"><div class="nav-group-items">${practiceHtml}</div></div>` : ''}
     <div class="nav-section-label">🧭 Concepts</div>
     ${conceptHtml}
-    <div class="nav-section-label">❓ Questions</div>
-    ${questionHtml}`;
+    ${questionHtml ? `<div class="nav-section-label">❓ Questions</div>
+    ${questionHtml}` : ''}`;
 
   nav.querySelectorAll('.nav-group-label[data-toggle]').forEach(label => {
     label.addEventListener('click', () => {
