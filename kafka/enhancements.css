@@ -1160,3 +1160,141 @@ body.cmdk-open { overflow: hidden; }
   .cd-sol-body { display: flex !important; }
   .cd-hint { display: flex !important; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Change Data Capture track (M23–M24+) — prose, callouts, method cards,
+   poll-vs-log demo, and the WAL & replication-slot simulator. Theme-aware via
+   the shared tokens; no hardcoded surface colors.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Prose + callouts (shared by CDC modules) */
+.prose-block { max-width: 820px; margin: 4px 0 18px; }
+.prose-block h3 { font-size: 16px; margin: 20px 0 8px; color: var(--text); }
+.prose-block h3:first-child { margin-top: 4px; }
+.prose-block p { color: var(--text2); line-height: 1.65; margin: 0 0 12px; }
+.prose-block code { background: var(--bg3); color: var(--accent2); padding: 1px 5px; border-radius: 4px; font-size: 0.88em; }
+.prose-block a { color: var(--accent); }
+
+.callout { border: 1px solid var(--border); border-left-width: 3px; border-radius: 10px; padding: 12px 16px; margin: 16px 0; background: var(--bg2); max-width: 820px; }
+.callout-head { font-weight: 700; font-size: 13px; margin-bottom: 6px; color: var(--text); }
+.callout p { margin: 0; color: var(--text2); line-height: 1.6; font-size: 14px; }
+.callout p code { background: var(--bg3); color: var(--accent2); padding: 1px 5px; border-radius: 4px; }
+.callout-key { border-left-color: var(--accent); }
+.callout-note { border-left-color: var(--blue); }
+
+/* Scope / simulation honesty note */
+.cdc-scope-note { background: var(--accent-lo); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; margin: 0 0 16px; font-size: 13px; color: var(--text2); }
+.cdc-sim-tag { display: inline-block; font-size: 11px; background: var(--bg3); color: var(--text3); border-radius: 999px; padding: 1px 8px; margin-left: 4px; vertical-align: middle; }
+
+/* Shared tables */
+.cdc-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.cdc-tbl th { text-align: left; color: var(--text3); font-weight: 600; padding: 4px 8px; border-bottom: 1px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; }
+.cdc-tbl td { padding: 5px 8px; border-bottom: 1px solid var(--border); color: var(--text); }
+.cdc-tbl tbody tr:last-child td { border-bottom: none; }
+.cdc-empty { color: var(--text3); font-style: italic; padding: 14px 8px; text-align: center; font-size: 13px; }
+
+/* Change-event op badges */
+.cdc-ev-op { display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: 0.04em; padding: 1px 6px; border-radius: 4px; border: 1px solid var(--border); }
+.cdc-ev-c .cdc-ev-op, .cdc-ev-op.cdc-ev-c { color: var(--green); border-color: var(--green); }
+.cdc-ev-u .cdc-ev-op, .cdc-ev-op.cdc-ev-u { color: var(--blue);  border-color: var(--blue); }
+.cdc-ev-d .cdc-ev-op, .cdc-ev-op.cdc-ev-d { color: var(--red);   border-color: var(--red); }
+.cdc-ev-r .cdc-ev-op, .cdc-ev-op.cdc-ev-r { color: var(--text2); border-color: var(--border); }
+
+/* ── M23 poll-vs-log demo ──────────────────────────────────────────────── */
+.cdc-demo { border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin: 18px 0; background: var(--bg2); }
+.cdc-demo-head h3 { margin: 0 0 4px; font-size: 15px; color: var(--text); }
+.cdc-demo-sub { margin: 0 0 12px; font-size: 13px; color: var(--text2); line-height: 1.5; }
+.cdc-demo-controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.cdc-demo-panes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.cdc-pane { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--bg); display: flex; flex-direction: column; }
+.cdc-pane-poll { border-top: 3px solid var(--text3); }
+.cdc-pane-log  { border-top: 3px solid var(--accent); }
+.cdc-pane-head { font-size: 12px; font-weight: 700; padding: 8px 12px; background: var(--bg2); color: var(--text); display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.cdc-pane-n { font-size: 11px; color: var(--text3); font-weight: 600; }
+.cdc-pane-body { padding: 8px 10px; min-height: 120px; flex: 1; }
+.cdc-pane-foot { font-size: 11px; color: var(--text3); padding: 8px 12px; border-top: 1px dashed var(--border); line-height: 1.45; }
+
+.cdc-ev { display: flex; align-items: center; gap: 8px; padding: 5px 4px; border-bottom: 1px solid var(--border); font-size: 12px; }
+.cdc-ev:last-child { border-bottom: none; }
+.cdc-ev-key { color: var(--text2); font-family: ui-monospace, monospace; }
+.cdc-ev-change { color: var(--text); flex: 1; }
+.cdc-ev-lsn { color: var(--text3); font-size: 11px; font-family: ui-monospace, monospace; }
+
+/* ── M23 method cards ──────────────────────────────────────────────────── */
+.cdc-method-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin: 8px 0 16px; }
+.cdc-method { border: 1px solid var(--border); border-left-width: 3px; border-radius: 10px; padding: 12px 14px; background: var(--bg2); }
+.cdc-method-best     { border-left-color: var(--green); }
+.cdc-method-viable   { border-left-color: var(--blue); }
+.cdc-method-limited  { border-left-color: var(--amber); }
+.cdc-method-baseline { border-left-color: var(--text3); }
+.cdc-method-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.cdc-method-icon { font-size: 18px; }
+.cdc-method-name { font-weight: 700; color: var(--text); flex: 1; font-size: 14px; }
+.cdc-verdict { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 7px; border-radius: 999px; }
+.cdc-verdict-best     { color: var(--green); background: color-mix(in srgb, var(--green) 15%, transparent); }
+.cdc-verdict-viable   { color: var(--blue);  background: color-mix(in srgb, var(--blue) 15%, transparent); }
+.cdc-verdict-limited  { color: var(--amber); background: color-mix(in srgb, var(--amber) 15%, transparent); }
+.cdc-verdict-baseline { color: var(--text3); background: var(--bg3); }
+.cdc-method-how { font-size: 13px; color: var(--text); margin-bottom: 8px; }
+.cdc-method-how code { background: var(--bg3); color: var(--accent2); padding: 0 4px; border-radius: 3px; }
+.cdc-method-row { font-size: 12.5px; color: var(--text2); line-height: 1.5; margin-bottom: 6px; }
+.cdc-tag-pro, .cdc-tag-con, .cdc-tag-when { display: inline-block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; padding: 1px 6px; border-radius: 4px; margin-right: 6px; }
+.cdc-tag-pro  { color: var(--green); background: color-mix(in srgb, var(--green) 14%, transparent); }
+.cdc-tag-con  { color: var(--red);   background: color-mix(in srgb, var(--red) 14%, transparent); }
+.cdc-tag-when { color: var(--text2); background: var(--bg3); }
+
+/* ── M24 key/value grid (WAL concepts) ─────────────────────────────────── */
+.cdc-kv-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 10px; margin: 14px 0; max-width: 820px; }
+.cdc-kv { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; background: var(--bg2); }
+.cdc-kv-k { font-weight: 700; color: var(--text); font-size: 13px; margin-bottom: 4px; }
+.cdc-kv-tag { font-weight: 500; font-size: 11px; color: var(--text3); }
+.cdc-kv-v { font-size: 12.5px; color: var(--text2); line-height: 1.5; }
+.cdc-kv-v code { background: var(--bg3); color: var(--accent2); padding: 0 4px; border-radius: 3px; }
+
+/* ── M24 simulator ─────────────────────────────────────────────────────── */
+.cdc-lab { margin-top: 4px; }
+.cdc-lab-controls { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; margin-bottom: 14px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg2); }
+.cdc-ctrl-group { display: flex; flex-direction: column; gap: 6px; }
+.cdc-ctrl-group .ctrl-btn { margin: 0; }
+.cdc-ctrl-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text3); font-weight: 700; }
+.cdc-ctrl-group:has(.ctrl-btn) { flex-flow: row wrap; align-items: center; }
+.cdc-ctrl-group > .cdc-ctrl-label { flex-basis: 100%; }
+.cdc-reset { margin-left: auto; }
+
+.cdc-lab-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.cdc-box { border: 1px solid var(--border); border-radius: 10px; background: var(--bg2); overflow: hidden; }
+.cdc-box-wide { margin-bottom: 12px; }
+.cdc-box-head { font-size: 12.5px; font-weight: 700; color: var(--text); padding: 8px 12px; background: var(--bg3); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cdc-box-sub { font-size: 11px; font-weight: 500; color: var(--text3); }
+.cdc-box-body { padding: 10px 12px; }
+.cdc-box-foot { font-size: 11px; color: var(--text3); margin-top: 8px; line-height: 1.45; }
+
+.cdc-pill { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; padding: 2px 8px; border-radius: 999px; }
+.cdc-pill-ok   { color: var(--green); background: color-mix(in srgb, var(--green) 15%, transparent); }
+.cdc-pill-stop { color: var(--red);   background: color-mix(in srgb, var(--red) 15%, transparent); }
+.cdc-pill-warn { color: var(--amber); background: color-mix(in srgb, var(--amber) 15%, transparent); }
+
+.cdc-slot-row { display: flex; justify-content: space-between; font-size: 13px; color: var(--text2); padding: 3px 0; }
+.cdc-slot-row strong { color: var(--text); font-family: ui-monospace, monospace; }
+.cdc-warn-text { color: var(--amber) !important; }
+.cdc-ok-text { color: var(--green) !important; }
+.cdc-backlog-bar { height: 8px; border-radius: 999px; background: var(--bg3); overflow: hidden; margin-top: 8px; }
+.cdc-backlog-fill { height: 100%; background: var(--green); transition: width 0.25s ease; }
+.cdc-backlog-hot { background: var(--red); }
+.cdc-warn { margin-top: 10px; font-size: 12px; color: var(--amber); background: color-mix(in srgb, var(--amber) 12%, transparent); border-radius: 6px; padding: 8px 10px; line-height: 1.45; }
+
+.cdc-wal-scroll { max-height: 220px; overflow-y: auto; }
+.cdc-wal-rec { display: flex; align-items: center; gap: 10px; font-size: 12.5px; padding: 4px 8px; border-bottom: 1px solid var(--border); color: var(--text); }
+.cdc-wal-rec:last-child { border-bottom: none; }
+.cdc-wal-retained { border-left: 3px solid var(--amber); background: color-mix(in srgb, var(--amber) 7%, transparent); }
+.cdc-wal-confirmed { border-left: 3px solid transparent; opacity: 0.72; }
+.cdc-wal-lsn { font-family: ui-monospace, monospace; font-size: 11px; color: var(--text3); min-width: 56px; }
+.cdc-wal-marker { font-size: 10px; font-weight: 700; letter-spacing: 0.04em; color: var(--text3); }
+.cdc-retained-key { color: var(--amber); font-weight: 700; }
+
+.cdc-tbl-ev td { font-size: 12px; }
+.cdc-kafka-cell { font-family: ui-monospace, monospace; color: var(--text2); }
+
+@media (max-width: 760px) {
+  .cdc-demo-panes, .cdc-lab-grid { grid-template-columns: 1fr; }
+}

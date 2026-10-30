@@ -138,4 +138,16 @@ export const SELF_EXPLAIN = {
       answer: `New brokers start <strong>empty</strong> — Kafka never auto-moves existing partition data. To use them you generate and execute a <strong>partition reassignment</strong> plan (e.g. with the tool's <code>--generate</code>) that relocates some replicas onto the new brokers and rebalances leadership. Because moving replicas copies large amounts of data (the follower backfills from the leader), you apply a <strong>replication throttle</strong> so that migration traffic doesn't saturate network/disk and starve live produce/consume. Reassignment changes <em>where</em> replicas live, not the partition count — so it doesn't affect key→partition mapping or ordering.`,
     },
   ],
+  m23: [
+    {
+      prompt: `Explain why you can always rebuild a table's current state from its CDC change stream, but never rebuild the stream from the current state — and why that asymmetry matters.`,
+      answer: `The change stream is the <strong>ordered history</strong> of everything that happened to each row — every insert, every update, and the delete. Fold it by primary key (apply each event in order) and you land on exactly the <strong>current state</strong>; that fold is how a CDC "Silver" table is materialised. Going the other way is impossible: the current state is a single value per key <em>right now</em>, so it has thrown away the intermediate versions and — fatally — it has no record that a deleted row ever existed. So the log is strictly richer than the snapshot. Anything that needs order or deletes — replication, audit, event-driven microservices, precise cache invalidation — needs the stream, which is why CDC reads the log instead of querying the table.`,
+    },
+  ],
+  m24: [
+    {
+      prompt: `A replication slot is both what makes CDC resumable after a restart and what can take the source database down. Explain the single mechanism behind both.`,
+      answer: `A slot stores the consumer's confirmed position (<code>confirmed_flush_lsn</code>) and <strong>guarantees the WAL after that position is retained until the consumer confirms it</strong>. That one guarantee is the good news: if the connector restarts, its changes are still in the WAL, so it resumes with no data loss. It is also the bad news: if the connector stalls, lags, or all the write activity is on tables you're <em>not</em> capturing (so the slot never advances), Postgres cannot recycle that WAL and it grows without bound until the primary's disk fills. The fixes all keep the slot moving or bound its damage: monitor slot lag, enable <strong>heartbeats</strong> (so it advances even when captured tables are idle), set <code>max_slot_wal_keep_size</code> as a safety cap, and drop slots you no longer use.`,
+    },
+  ],
 };

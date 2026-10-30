@@ -86,6 +86,8 @@ const LOADERS = {
   m20: () => import('./modules/m20-competitors.js'),
   m21: () => import('./modules/m21-mirrormaker.js'),
   m22: () => import('./modules/m22-partition-reassignment.js'),
+  m23: () => import('./modules/m23-cdc-fundamentals.js'),
+  m24: () => import('./modules/m24-postgres-wal.js'),
 };
 
 // ── Navigate ───────────────────────────────────────────────────────────────
@@ -166,7 +168,7 @@ function markDone(id) {
     const mod = MODULES.find(m => m.id === id);
     if (mod) toast(`Module mastered — ${mod.label}`, { icon: '✅' });
     const real = [...done].filter(x => MODULES.some(m => m.id === x)).length;
-    if (real === MODULES.length) toast('All 22 modules mastered!', { icon: '🏆', duration: 4200 });
+    if (real === MODULES.length) toast(`All ${MODULES.length} modules mastered!`, { icon: '🏆', duration: 4200 });
   }
 }
 
