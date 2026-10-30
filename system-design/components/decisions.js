@@ -1,8 +1,7 @@
 // ── Decision drills page ("Choose the Approach") ─────────────────────────────────
 // Pick an option, then every option reveals its verdict + why. mount(container) → cleanup
 
-import { DECISIONS } from '../content/decisions.js';
-import { CONCEPTS, CONCEPT_PREFIX } from '../content/concepts.js';
+import { reg } from '../content/registry.js';
 import { esc, fmt } from './render-helpers.js';
 
 const VERDICT = {
@@ -10,9 +9,11 @@ const VERDICT = {
   ok:   { label: 'Defensible', cls: 'warn', icon: '🤔' },
   bad:  { label: 'Weak choice', cls: 'bad', icon: '❌' },
 };
-const conceptTitle = id => (CONCEPTS.find(c => c.id === id) || {}).title || id;
 
 export function mount(container) {
+  const { DECISIONS, CONCEPTS, CONCEPT_PREFIX } = reg;
+  const conceptTitle = id => (CONCEPTS.find(c => c.id === id) || {}).title || id;
+
   container.innerHTML = `
     <div class="module-page sd-ref-page">
       <div class="module-hero">

@@ -31,6 +31,8 @@ export const TRACKS = {
     questions: () => import('./index.js'),
     glossary: () => import('./glossary.js'),
     cheatsheet: () => import('./cheatsheet.js'),
+    decisions: () => import('./decisions.js'),
+    tiered: () => import('./tiered.js'),
   },
 
   de: {
@@ -48,10 +50,12 @@ export const TRACKS = {
     },
     startPath: ['data-lake', 'medallion-architecture', 'batch-vs-streaming', 'cdc-pipeline', 'kafka-architecture', 'warehouse-design'],
     refPages: ['dashboard', 'glossary', 'cheatsheet'],
-    practicePages: [],
+    practicePages: ['decisions', 'answers'],
     concepts: () => import('./de/concepts.js'),
     questions: () => import('./de/index.js'),
     glossary: () => import('./de/glossary.js'),
     cheatsheet: () => import('./de/cheatsheet.js'),
+    decisions: () => import('./de/decisions.js'),
+    tiered: () => import('./de/tiered.js'),
   },
 };
