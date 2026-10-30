@@ -2,14 +2,15 @@
 // The same question answered Weak → Good → Senior, revealed one tier at a time.
 // mount(container) → cleanup
 
-import { TIERED } from '../content/tiered.js';
-import { CONCEPTS, CONCEPT_PREFIX } from '../content/concepts.js';
+import { reg } from '../content/registry.js';
 import { esc, fmt } from './render-helpers.js';
 
 const TIER_CLASS = { Weak: 'weak', Good: 'good', Senior: 'senior' };
-const conceptTitle = id => (CONCEPTS.find(c => c.id === id) || {}).title || id;
 
 export function mount(container) {
+  const { TIERED, CONCEPTS, CONCEPT_PREFIX } = reg;
+  const conceptTitle = id => (CONCEPTS.find(c => c.id === id) || {}).title || id;
+
   container.innerHTML = `
     <div class="module-page sd-ref-page">
       <div class="module-hero">

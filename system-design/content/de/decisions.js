@@ -1,0 +1,96 @@
+// ── DE Decision drills ("Choose the Approach") ──────────────────────────────────
+// Realistic data-engineering trade-off calls: pick an option, then see why each
+// wins or loses. verdict: 'best' | 'ok' | 'bad'. Rendered by components/decisions.js.
+
+export const DECISIONS = [
+  {
+    id: 'ingestion-strategy',
+    title: 'Syncing an operational DB into the lake',
+    scenario: 'A busy production Postgres backs your app. Analytics needs a near-current copy in the lake, including deletes, without hammering the source. How do you ingest it?',
+    options: [
+      { label: 'Nightly full-table export and reload', verdict: 'bad',
+        why: 'Re-copies the whole table every night — expensive, heavy on the source, and up to 24h stale. It also can’t tell you what changed, so downstream incremental logic has nothing to work with.' },
+      { label: 'Incremental pull on an `updated_at` timestamp', verdict: 'ok',
+        why: 'Much cheaper than a full reload, but it silently misses hard deletes (a deleted row has no updated_at) and any row changed without touching the timestamp. Fine for append-mostly tables, risky for mutable ones.' },
+      { label: 'Log-based CDC reading the WAL/binlog', verdict: 'best',
+        why: 'Captures every insert, update, and delete in commit order with low latency and minimal load on the source, then MERGEs into the lake. It’s the only option that reliably captures deletes.' },
+    ],
+    takeaway: 'Log-based CDC captures deletes and is low-impact on the source; timestamp polling is cheaper but silently misses deletes and untouched-timestamp changes.',
+    see: 'cdc-pipeline',
+  },
+  {
+    id: 'partition-key',
+    title: 'Partitioning a huge events table',
+    scenario: 'A 50TB events table is almost always queried by a date range (“last 7 days”). You need scans to stay fast as it grows. How do you lay it out?',
+    options: [
+      { label: 'No partitioning — rely on a bigger cluster', verdict: 'bad',
+        why: 'Every query full-scans 50TB no matter the filter. You’re paying compute to brute-force work that layout could eliminate, and it only gets worse as the table grows.' },
+      { label: 'Partition by `user_id`', verdict: 'bad',
+        why: 'Millions of distinct users means millions of tiny partitions and files — the small-files problem — and queries filter by date, not user, so nothing prunes. Worse than no partitioning.' },
+      { label: 'Partition by `event_date`', verdict: 'best',
+        why: 'Low cardinality (365/year), matches the date filter queries actually use, so a 7-day query prunes to 7 partitions instead of scanning everything. Cluster/Z-order inside for secondary filters.' },
+    ],
+    takeaway: 'Partition on the low-cardinality column queries filter by (usually date). A high-cardinality id explodes into tiny files and never prunes.',
+    see: 'partitioning-bucketing',
+  },
+  {
+    id: 'file-format',
+    title: 'Format for a BI analytics table',
+    scenario: 'A wide table is scanned constantly by BI dashboards that select a handful of columns and aggregate. What storage format do you choose?',
+    options: [
+      { label: 'JSON / CSV files', verdict: 'bad',
+        why: 'Row-oriented text with no column pruning, poor compression, and a parse cost on every read. A dashboard selecting 3 of 80 columns still reads all 80. Fine for interchange, wrong for scale.' },
+      { label: 'Avro', verdict: 'ok',
+        why: 'A compact row format with schema evolution — excellent for streaming and write/serialization paths, but it stores whole rows, so analytical scans that touch few columns still read everything.' },
+      { label: 'Parquet (columnar)', verdict: 'best',
+        why: 'Column-oriented, so a scan reads only the columns needed and compresses far better; min/max stats let it skip row groups too. The default for scan-heavy analytics.' },
+    ],
+    takeaway: 'Columnar (Parquet/ORC) for analytical reads; row format (Avro) for streaming and write paths. Match the format to the access pattern.',
+    see: 'file-formats',
+  },
+  {
+    id: 'delivery-semantics',
+    title: 'Aggregating revenue events from a stream',
+    scenario: 'A stream of purchase events feeds a revenue total. Dropping events undercounts money; counting one twice overcounts it. Each event has a stable `event_id`. What delivery do you build?',
+    options: [
+      { label: 'At-most-once (fire and forget)', verdict: 'bad',
+        why: 'Fast, but any failure drops events — you undercount revenue with no way to know by how much. Unacceptable when the number is money.' },
+      { label: 'Transactional exactly-once end-to-end', verdict: 'ok',
+        why: 'Correct, but it ties offset commits and writes into one transaction across every hop — real throughput and latency cost and operational complexity. Overkill here, because you already have a natural dedup key.' },
+      { label: 'At-least-once delivery + dedup on `event_id`', verdict: 'best',
+        why: 'Never loses an event, and the idempotent sink dedupes replays within a window — exactly-once *effect* at a fraction of the cost of transactional exactly-once. Use the key you already have.' },
+    ],
+    takeaway: 'Exactly-once *effect* = at-least-once delivery + an idempotent/dedup sink. Reserve transactional exactly-once for when there is no natural dedup key.',
+    see: 'delivery-guarantees',
+  },
+  {
+    id: 'scd-history',
+    title: 'Tracking customer address changes',
+    scenario: 'Customers move. Finance must be able to report sales by the region a customer lived in *at the time of each sale*, not just where they live now. How do you model the customer dimension?',
+    options: [
+      { label: 'Overwrite the address in place (SCD Type 1)', verdict: 'bad',
+        why: 'Simple, but it destroys history: re-running an old report re-attributes past sales to the new region. You can never answer “as of” questions once the row is overwritten.' },
+      { label: 'Current row + a separate audit log of changes', verdict: 'ok',
+        why: 'History survives, but point-in-time joins are awkward — facts reference “the customer”, and reconstructing which version applied to an old sale from an audit log is fiddly and error-prone.' },
+      { label: 'SCD Type 2 — versioned rows with validity dates + surrogate key', verdict: 'best',
+        why: 'Each change adds a new row with valid-from/valid-to and a new surrogate key; the fact stores the surrogate key current at the time, so “as of” reporting is a clean join. The standard for dimension history.' },
+    ],
+    takeaway: 'Use SCD Type 2 (versioned rows + surrogate keys) when you must query attributes as of a point in time. Type 1 only when history genuinely doesn’t matter.',
+    see: 'warehouse-design',
+  },
+  {
+    id: 'batch-vs-stream',
+    title: 'A sales dashboard refreshed each morning',
+    scenario: 'Leadership looks at yesterday’s sales once a day, every morning. The data is large but only needs to be current as of the overnight run. How do you build the pipeline?',
+    options: [
+      { label: 'A full streaming pipeline (broker + stream processor)', verdict: 'bad',
+        why: 'Pays streaming’s whole complexity and cost — state, watermarks, 24/7 ops — to deliver data that’s only looked at once a day. The latency buys nothing the use case needs.' },
+      { label: 'Micro-batch every few minutes', verdict: 'ok',
+        why: 'Simpler than true streaming and fresher than needed, but it still runs constantly and adds cost and operational surface for a freshness no one is using before morning.' },
+      { label: 'A nightly (or hourly) batch job', verdict: 'best',
+        why: 'Matches the SLA exactly: simple, cheap, trivially reprocessable, and easy to reason about. The freshness the business actually needs, with the least machinery.' },
+    ],
+    takeaway: 'Match freshness to the SLA. Streaming earns its complexity only when lower latency changes a decision — don’t pay the tax for daily reporting.',
+    see: 'batch-vs-streaming',
+  },
+];
