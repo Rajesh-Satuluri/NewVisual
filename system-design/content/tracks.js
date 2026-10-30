@@ -29,6 +29,8 @@ export const TRACKS = {
     practicePages: ['decisions', 'answers'],
     concepts: () => import('./concepts.js'),
     questions: () => import('./index.js'),
+    glossary: () => import('./glossary.js'),
+    cheatsheet: () => import('./cheatsheet.js'),
   },
 
   de: {
@@ -45,9 +47,11 @@ export const TRACKS = {
       sub: 'Learn the platform concepts first — lakes, warehouses, streaming, pipelines, CDC — then watch each one run as a live simulation.',
     },
     startPath: ['data-lake', 'medallion-architecture', 'batch-vs-streaming', 'cdc-pipeline', 'kafka-architecture', 'warehouse-design'],
-    refPages: ['dashboard'],
+    refPages: ['dashboard', 'glossary', 'cheatsheet'],
     practicePages: [],
     concepts: () => import('./de/concepts.js'),
     questions: () => import('./de/index.js'),
+    glossary: () => import('./de/glossary.js'),
+    cheatsheet: () => import('./de/cheatsheet.js'),
   },
 };
