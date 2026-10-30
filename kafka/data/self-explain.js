@@ -174,4 +174,16 @@ export const SELF_EXPLAIN = {
       answer: `Slot lag is special because it's the only failure that threatens the <strong>source database itself</strong>: the slot pins WAL at <code>confirmed_flush_lsn</code>, and if it stops advancing the WAL grows until the primary's disk fills and production goes down. Everything else (consumer lag, DLQ rate) degrades the <em>pipeline</em>; this degrades the <em>database</em>. Three reasons it stalls: (1) the connector/task is <strong>down or failing</strong> → restart it, fix the error; (2) it's <strong>lagging under load</strong> → scale downstream, speed the sink, or split tables across connectors; (3) the <strong>quiet-tables trap</strong> — all writes are on uncaptured tables so the slot never gets anything to confirm → enable <code>heartbeat.interval.ms</code> (+ <code>heartbeat.action.query</code>). Bound the blast radius with <code>max_slot_wal_keep_size</code>, and drop orphaned slots from deleted connectors.`,
     },
   ],
+  m29: [
+    {
+      prompt: `Your service saves an order to its database and then publishes an OrderPlaced event to Kafka. Explain what can go wrong, and how the transactional outbox pattern fixes it.`,
+      answer: `The database and Kafka are <strong>two systems with no shared transaction</strong>, so there\'s a gap between the two writes. Crash after the DB commit but before the publish → the order exists but <strong>no event is ever sent</strong> (a lost event; downstream never reacts). Publish first, then the DB transaction rolls back → a <strong>phantom event</strong> for an order that doesn\'t exist. You can\'t wrap Postgres and Kafka in one practical distributed transaction. The <strong>outbox</strong> fixes it by writing the order <em>and</em> an event row into an <strong>outbox table in one local transaction</strong> — atomic, so they can never disagree — and letting <strong>Debezium capture the outbox table</strong> and publish. The remaining caveat is at-least-once delivery, so consumers dedupe by the event id.`,
+    },
+  ],
+  m30: [
+    {
+      prompt: `Explain why you can\'t just append your CDC event stream into a table and call it your current-state table — and what the Bronze→Silver step actually has to do.`,
+      answer: `The event stream is a <strong>history</strong>, not a snapshot. An append-only landing (Bronze) keeps <em>every version</em> of each row plus the deletes as their own records — three updates to one order become four rows, and a deleted order is still sitting there. A correct current-state table (Silver) has exactly one row per key, reflecting the latest change and honoring deletes. Getting there requires an <strong>upsert by primary key</strong> (Delta <code>MERGE</code>, or Iceberg equality deletes), applying deletes as removals, and <strong>de-duplicating within each micro-batch</strong> — a batch can hold several events for one key, and MERGE needs at most one source row per key, so you keep the latest by sequence/LSN first. Bronze is the audit log; Silver is a materialization you compute from it (and Gold aggregates Silver).`,
+    },
+  ],
 };

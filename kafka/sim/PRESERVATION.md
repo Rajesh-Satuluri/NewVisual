@@ -157,3 +157,20 @@ plus a separate runnable Docker lab. Built and deployed per batch.
   self-explain for m25–m28. Home/dashboard/search auto-scale (count now 28).
 - Verified: engine 33/33; Playwright both themes 0 console errors across all four
   modules' interactives; nav CDC group = 6; home count = 28. Baseline untouched.
+
+### Batch 3 — Kafka integrations ✅ (new group "CDC Integrations & Lakehouse")
+
+- `modules/m29-outbox-pattern.js` — `#m29`. Services as producers, the dual-write
+  trap (lost event / phantom event), the transactional outbox + Debezium Outbox
+  Event Router, and a **failure playground**: dual-write with an injected crash
+  (shows inconsistency) vs outbox on the CDC engine (one txn → always consistent).
+- `modules/m30-lakehouse.js` — `#m30`. Two sink paths (Iceberg Kafka Connect
+  coordinator/control-topic commits vs Spark Structured Streaming → Delta
+  checkpoint + foreachBatch/MERGE), the four distinct progress markers, small-
+  files/compaction + schema defaults, and a **Bronze/Silver/Gold explorer**
+  (append-only Bronze vs latest-by-LSN Silver vs Gold aggregate; duplicate =
+  idempotent, stale/out-of-order = ignored by LSN ordering).
+- Wiring (additive): LOADERS m29/m30; second nav group added to nav + home +
+  dashboard GROUP_ORDER; quizzes + self-explain for m29/m30. Count now 30.
+- Verified: engine 33/33; Playwright both themes 0 console errors; nav groups
+  6 + 2; home count = 30; dashboard shows both CDC groups. Baseline untouched.

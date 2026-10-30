@@ -1400,3 +1400,48 @@ body.cmdk-open { overflow: hidden; }
   .cdc-arch-flow { flex-direction: column; }
   .cdc-arch-arrow { transform: rotate(90deg); min-height: 24px; }
 }
+
+/* ═══ CDC track batch 3 (M29–M30): outbox playground + lakehouse medallion ═══ */
+
+/* M29 outbox */
+.cdc-outbox-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; margin: 12px 0; max-width: 820px; }
+.cdc-outbox-col { border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; padding: 8px 12px; background: var(--bg2); }
+.cdc-outbox-col code { color: var(--accent2); background: var(--bg3); padding: 1px 6px; border-radius: 4px; font-size: 12px; }
+.cdc-outbox-col span { display: block; font-size: 12px; color: var(--text2); margin-top: 4px; line-height: 1.4; }
+.cdc-ob-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+.cdc-verdict-bar { margin-bottom: 12px; }
+.cdc-verdict-box { border: 1px solid var(--border); border-left-width: 4px; border-radius: 10px; padding: 12px 14px; font-size: 13.5px; line-height: 1.5; background: var(--bg2); color: var(--text2); }
+.cdc-verdict-box code { background: var(--bg3); color: var(--accent2); padding: 0 4px; border-radius: 3px; }
+.cdc-verdict-good { border-left-color: var(--green); }
+.cdc-verdict-bad { border-left-color: var(--red); }
+.cdc-verdict-idle { border-left-color: var(--text3); }
+
+/* M30 two paths */
+.cdc-paths { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 8px 0 16px; }
+.cdc-path { border: 1px solid var(--border); border-top-width: 3px; border-radius: 10px; padding: 12px 14px; background: var(--bg2); }
+.cdc-path-ice { border-top-color: #2DD4BF; }
+.cdc-path-delta { border-top-color: #3B82F6; }
+.cdc-path-head { font-weight: 700; color: var(--text); font-size: 14px; margin-bottom: 8px; }
+.cdc-path ul { margin: 0; padding-left: 18px; }
+.cdc-path li { font-size: 12.5px; color: var(--text2); line-height: 1.5; margin-bottom: 6px; }
+.cdc-path li code { background: var(--bg3); color: var(--accent2); padding: 0 4px; border-radius: 3px; }
+
+/* M30 medallion */
+.cdc-med-caption { margin-bottom: 12px; }
+.cdc-med-note { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; background: var(--bg2); font-size: 13px; color: var(--text2); line-height: 1.5; }
+.cdc-med-note code { background: var(--bg3); color: var(--accent2); padding: 0 4px; border-radius: 3px; }
+.cdc-med-grid { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 12px; }
+.cdc-med-bronze { border-top: 3px solid #CD7F32; }
+.cdc-med-silver { border-top: 3px solid #9CA3AF; }
+.cdc-med-gold { border-top: 3px solid var(--amber); }
+.cdc-med-inject { border-left: 3px solid #8B5CF6; background: color-mix(in srgb, #8B5CF6 7%, transparent); }
+.cdc-gold-metric { display: flex; justify-content: space-between; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.cdc-gold-metric span { font-size: 12px; color: var(--text3); }
+.cdc-gold-metric strong { font-size: 18px; color: var(--text); font-family: ui-monospace, monospace; }
+.cdc-gold-sub { font-size: 10px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text3); margin: 10px 0 4px; }
+.cdc-gold-row { display: flex; justify-content: space-between; font-size: 13px; color: var(--text2); padding: 2px 0; }
+.cdc-gold-row strong { color: var(--text); font-family: ui-monospace, monospace; }
+
+@media (max-width: 860px) {
+  .cdc-paths, .cdc-med-grid { grid-template-columns: 1fr; }
+}
