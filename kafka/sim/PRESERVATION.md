@@ -132,3 +132,28 @@ plus a separate runnable Docker lab. Built and deployed per batch.
 - Verified: engine 31/31 (17 Kafka + 14 CDC); Playwright both themes 0 console
   errors (m23 demo, m24 simulator, nav group, home count=24, dashboard group,
   search). Baseline 22 modules untouched.
+
+### Batch 2 — the Debezium pillar ✅
+
+- Engine additions (backward-compatible): `simulateWalLoss()` + `needsSnapshot`/
+  `slot.invalid` (streaming stalls until a fresh snapshot recovers), and
+  `incrementalSnapshot()` (READ events without rewinding the stream). 2 new tests
+  → **16 CDC tests, 33 total** green.
+- `modules/m25-debezium-architecture.js` — `#m25`. Debezium as a Kafka Connect
+  source connector (worker/task/offset model, single-task capture) + an
+  interactive **connector-lifecycle machine** (create→snapshot→streaming→pause→
+  restart→WAL-loss→recover).
+- `modules/m26-snapshots-streaming.js` — `#m26`. Initial snapshot + the LSN
+  watermark handoff, snapshot modes, incremental snapshots, + a **snapshot-vs-
+  streaming lab** (pick a mode, see which backfill pre-existing rows).
+- `modules/m27-change-events.js` — `#m27`. The event envelope (op/before/after/
+  source), deletes+tombstones, serialization/SMTs, + a live **event-envelope
+  inspector** (REPLICA IDENTITY + tombstone toggles) and a **schema-evolution
+  drill** (backward/forward/FULL verdicts).
+- `modules/m28-debezium-ops.js` — `#m28`. Annotated connector config + an
+  interactive **ops console** that injects failures (outage, slot WAL growth,
+  WAL loss) and diagnoses them live, plus a monitor/alert reference.
+- Wiring (additive): LOADERS m25–m28; nav group now 6 modules; quizzes +
+  self-explain for m25–m28. Home/dashboard/search auto-scale (count now 28).
+- Verified: engine 33/33; Playwright both themes 0 console errors across all four
+  modules' interactives; nav CDC group = 6; home count = 28. Baseline untouched.

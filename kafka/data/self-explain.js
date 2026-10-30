@@ -150,4 +150,28 @@ export const SELF_EXPLAIN = {
       answer: `A slot stores the consumer's confirmed position (<code>confirmed_flush_lsn</code>) and <strong>guarantees the WAL after that position is retained until the consumer confirms it</strong>. That one guarantee is the good news: if the connector restarts, its changes are still in the WAL, so it resumes with no data loss. It is also the bad news: if the connector stalls, lags, or all the write activity is on tables you're <em>not</em> capturing (so the slot never advances), Postgres cannot recycle that WAL and it grows without bound until the primary's disk fills. The fixes all keep the slot moving or bound its damage: monitor slot lag, enable <strong>heartbeats</strong> (so it advances even when captured tables are idle), set <code>max_slot_wal_keep_size</code> as a safety cap, and drop slots you no longer use.`,
     },
   ],
+  m25: [
+    {
+      prompt: `A Debezium connector restarts. Explain the two places it tracks progress, how a normal restart resumes with no data loss, and the one case where it must re-snapshot instead.`,
+      answer: `Two positions. On the <strong>database side</strong>, the replication slot holds <code>confirmed_flush_lsn</code> — how far into the WAL the connector has acknowledged, and the WAL after it is <em>retained</em>. On the <strong>Connect side</strong>, the connector's source offset (its last processed LSN) is stored in Connect's internal offsets topic. On a normal restart it reads that offset and <strong>resumes streaming from the slot at that position</strong> — the needed WAL is still there, so nothing is lost. The exception: if that WAL has already been removed (slot invalidated past <code>max_slot_wal_keep_size</code>, or a very long outage), there is no position to stream from, so the connector must take a <strong>fresh snapshot</strong> to rebuild its position. That's why slot health is the thing you watch.`,
+    },
+  ],
+  m26: [
+    {
+      prompt: `Explain how the initial snapshot hands off to streaming without leaving a gap or creating duplicates — and when you'd deliberately choose no_data or never instead of initial.`,
+      answer: `The snapshot takes a <strong>consistent read</strong>, emits a READ (op:r) event per existing row, and records the <strong>LSN it is consistent as of</strong>. When it finishes, streaming begins from <em>exactly that LSN</em> via the slot. Because both halves pivot on one shared watermark, everything up to the LSN came from the snapshot and everything after from the stream — no gap, no overlap. You'd pick <code>no_data</code> (schema only) or <code>never</code> when you genuinely don't need the pre-existing rows — only changes from now on matter, and backfilling millions of historical rows would be wasteful — accepting that downstream won't have the old data unless you later run an incremental snapshot.`,
+    },
+  ],
+  m27: [
+    {
+      prompt: `Explain why a single DELETE produces two Kafka records, and what that forces every consumer of a CDC topic to handle.`,
+      answer: `The first record is the delete event itself: <code>op:"d"</code> with the <code>before</code> image populated (per REPLICA IDENTITY) and <code>after</code> null — it tells you <em>what</em> was deleted. The second is a <strong>tombstone</strong>: the same message key with a <strong>null value</strong>. It exists for <strong>log compaction</strong> — a compacted topic keeps the latest value per key, and a null value is the instruction to remove the key entirely, so deleted rows don't live forever in the compacted log. The consequence: every consumer of a CDC topic must <strong>tolerate null-valued records</strong>; code that assumes every message has a value will crash on a tombstone. (A primary-key change shows up the same way: delete+tombstone of the old key, create of the new.)`,
+    },
+  ],
+  m28: [
+    {
+      prompt: `Of all the things you could monitor on a CDC pipeline, explain why replication-slot lag is the one to page on, and the three reasons a slot stops advancing (with the fix for each).`,
+      answer: `Slot lag is special because it's the only failure that threatens the <strong>source database itself</strong>: the slot pins WAL at <code>confirmed_flush_lsn</code>, and if it stops advancing the WAL grows until the primary's disk fills and production goes down. Everything else (consumer lag, DLQ rate) degrades the <em>pipeline</em>; this degrades the <em>database</em>. Three reasons it stalls: (1) the connector/task is <strong>down or failing</strong> → restart it, fix the error; (2) it's <strong>lagging under load</strong> → scale downstream, speed the sink, or split tables across connectors; (3) the <strong>quiet-tables trap</strong> — all writes are on uncaptured tables so the slot never gets anything to confirm → enable <code>heartbeat.interval.ms</code> (+ <code>heartbeat.action.query</code>). Bound the blast radius with <code>max_slot_wal_keep_size</code>, and drop orphaned slots from deleted connectors.`,
+    },
+  ],
 };

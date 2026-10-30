@@ -172,3 +172,31 @@ test('determinism: reset + same ops ⇒ identical state snapshot', () => {
   };
   assert.deepEqual(run(), run());
 });
+
+test('lost WAL stalls streaming until a fresh snapshot recovers it', () => {
+  const sim = shop();
+  sim.applyInsert('orders', { id: 1, status: 'NEW', amount: 10 });
+  sim.poll();
+  sim.stopConnector();
+  sim.applyInsert('orders', { id: 2, status: 'NEW', amount: 20 });
+  assert.equal(sim.simulateWalLoss(), true);     // there was a backlog to lose
+  sim.startConnector();
+  assert.deepEqual(sim.poll(), []);              // streaming is stuck
+  assert.equal(sim.connector.needsSnapshot, true);
+  const reads = sim.snapshot('orders');          // recover
+  assert.ok(reads.length >= 1 && reads.every(e => e.op === 'r'));
+  assert.equal(sim.connector.needsSnapshot, false);
+  assert.equal(sim.slot.invalid, false);
+});
+
+test('incremental snapshot emits reads without rewinding the stream position', () => {
+  const sim = shop();
+  sim.applyInsert('orders', { id: 1, status: 'NEW', amount: 10 });
+  sim.poll();
+  const posBefore = sim.connector.lastLsn;
+  const reads = sim.incrementalSnapshot('orders');
+  assert.equal(reads.length, 1);
+  assert.equal(reads[0].op, 'r');
+  assert.equal(reads[0].source.snapshot, 'incremental');
+  assert.equal(sim.connector.lastLsn, posBefore); // streaming position unchanged
+});

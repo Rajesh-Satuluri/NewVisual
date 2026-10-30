@@ -1298,3 +1298,105 @@ body.cmdk-open { overflow: hidden; }
 @media (max-width: 760px) {
   .cdc-demo-panes, .cdc-lab-grid { grid-template-columns: 1fr; }
 }
+
+/* ═══ CDC track batch 2 (M25–M28): architecture, lifecycle, snapshot lab,
+   event inspector, schema evolution, config & ops console ═══════════════════ */
+
+/* M25 architecture flow */
+.cdc-arch-flow { display: flex; flex-wrap: wrap; align-items: stretch; gap: 6px; margin: 14px 0; }
+.cdc-arch-node { flex: 1 1 140px; border: 1px solid var(--border); border-top: 3px solid var(--accent); border-radius: 10px; padding: 10px 12px; background: var(--bg2); min-width: 130px; }
+.cdc-arch-db { border-top-color: var(--amber); }
+.cdc-arch-worker { border-top-color: #8B5CF6; }
+.cdc-arch-kafka { border-top-color: var(--accent); }
+.cdc-arch-cons { border-top-color: var(--green); }
+.cdc-arch-ic { font-size: 20px; }
+.cdc-arch-t { font-weight: 700; color: var(--text); font-size: 13px; margin: 2px 0; }
+.cdc-arch-s { font-size: 11px; color: var(--text3); line-height: 1.35; }
+.cdc-arch-arrow { display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text3); font-size: 18px; min-width: 40px; }
+.cdc-arch-arrow span { font-size: 9px; text-align: center; line-height: 1.2; }
+
+/* M25 lifecycle */
+.cdc-life-states { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.cdc-life-state { display: flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 999px; padding: 5px 12px; font-size: 12px; color: var(--text3); background: var(--bg2); }
+.cdc-life-state.active { color: var(--text); border-color: var(--accent); background: var(--accent-lo); font-weight: 700; }
+.cdc-life-ic { font-size: 14px; }
+.cdc-life-narrate { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; background: var(--bg2); color: var(--text2); font-size: 13.5px; line-height: 1.55; margin-bottom: 12px; }
+.cdc-life-phase { font-weight: 800; text-transform: uppercase; font-size: 11px; letter-spacing: 0.04em; padding: 2px 8px; border-radius: 4px; margin-right: 6px; }
+.cdc-life-phase-none { color: var(--text3); background: var(--bg3); }
+.cdc-life-phase-snapshot { color: var(--blue); background: color-mix(in srgb, var(--blue) 15%, transparent); }
+.cdc-life-phase-streaming { color: var(--green); background: color-mix(in srgb, var(--green) 15%, transparent); }
+.cdc-life-phase-paused { color: var(--amber); background: color-mix(in srgb, var(--amber) 15%, transparent); }
+.cdc-life-phase-failed { color: var(--red); background: color-mix(in srgb, var(--red) 15%, transparent); }
+.cdc-life-metrics, .cdc-ops-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.cdc-metric { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; background: var(--bg2); display: flex; flex-direction: column; gap: 2px; }
+.cdc-metric span { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.03em; }
+.cdc-metric strong { font-size: 15px; color: var(--text); font-family: ui-monospace, monospace; }
+.cdc-life-controls, .cdc-insp .cdc-lab-controls { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* M26 modes + phase + source tags */
+.cdc-modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 8px; margin: 12px 0; max-width: 820px; }
+.cdc-mode { border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; background: var(--bg2); }
+.cdc-mode code { display: inline-block; color: var(--accent2); background: var(--bg3); padding: 1px 6px; border-radius: 4px; font-size: 12px; margin-bottom: 4px; }
+.cdc-mode span { display: block; font-size: 12px; color: var(--text2); line-height: 1.45; }
+.cdc-note-line { font-size: 13px; color: var(--text2); max-width: 820px; }
+.cdc-phase-bar { border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; font-size: 13px; color: var(--text2); background: var(--bg2); }
+.cdc-phase { font-weight: 800; text-transform: uppercase; font-size: 11px; letter-spacing: 0.04em; padding: 2px 8px; border-radius: 4px; margin-right: 8px; }
+.cdc-phase-idle { color: var(--text3); background: var(--bg3); }
+.cdc-phase-snap { color: var(--blue); background: color-mix(in srgb, var(--blue) 15%, transparent); }
+.cdc-phase-stream { color: var(--green); background: color-mix(in srgb, var(--green) 15%, transparent); }
+.cdc-src-tag { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 999px; margin-left: auto; }
+.cdc-src-snap { color: var(--blue); background: color-mix(in srgb, var(--blue) 14%, transparent); }
+.cdc-src-incr { color: #8B5CF6; background: color-mix(in srgb, #8B5CF6 16%, transparent); }
+.cdc-src-stream { color: var(--green); background: color-mix(in srgb, var(--green) 14%, transparent); }
+.cdc-mode-select { min-width: 140px; }
+
+/* M27 event inspector + evolution */
+.cdc-insp-grid { display: grid; grid-template-columns: 1fr 1.4fr; gap: 12px; }
+.cdc-insp-row { cursor: pointer; }
+.cdc-insp-row:hover { background: var(--bg3); }
+.cdc-insp-row.active { background: var(--accent-lo); border-left: 3px solid var(--accent); }
+.cdc-insp-sub { font-size: 11px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.03em; margin: 8px 0 4px; }
+.cdc-insp-tomb { color: var(--red); }
+.cdc-json { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.5; color: var(--text); overflow-x: auto; white-space: pre; margin: 0; }
+.cdc-check { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text2); align-self: flex-end; }
+.cdc-evolve-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin: 8px 0 16px; }
+.cdc-evolve { border: 1px solid var(--border); border-left-width: 3px; border-radius: 10px; padding: 12px 14px; background: var(--bg2); }
+.cdc-evolve-safe { border-left-color: var(--green); }
+.cdc-evolve-warn { border-left-color: var(--amber); }
+.cdc-evolve-danger { border-left-color: var(--red); }
+.cdc-evolve-name { font-weight: 700; color: var(--text); font-size: 13px; margin-bottom: 8px; }
+.cdc-evolve-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.cdc-compat { font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 999px; }
+.cdc-compat-ok { color: var(--green); background: color-mix(in srgb, var(--green) 14%, transparent); }
+.cdc-compat-no { color: var(--red); background: color-mix(in srgb, var(--red) 14%, transparent); }
+.cdc-evolve-why { font-size: 12.5px; color: var(--text2); line-height: 1.5; }
+.cdc-evolve-why code { background: var(--bg3); color: var(--accent2); padding: 0 4px; border-radius: 3px; }
+
+/* M28 config + ops console */
+.cdc-config { max-width: 820px; }
+.cdc-cfg-table { margin: 14px 0; overflow-x: auto; }
+.cdc-cfg-val { font-family: ui-monospace, monospace; color: var(--text2); font-size: 11px; }
+.cdc-ops-metric { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; background: var(--bg2); }
+.cdc-ops-k { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.03em; }
+.cdc-ops-v { font-size: 15px; color: var(--text); font-weight: 700; font-family: ui-monospace, monospace; }
+.cdc-ops-ok { border-left: 3px solid var(--green); }
+.cdc-ops-warn { border-left: 3px solid var(--amber); }
+.cdc-ops-crit { border-left: 3px solid var(--red); }
+.cdc-ops-diag { margin-bottom: 12px; }
+.cdc-diag { border: 1px solid var(--border); border-left-width: 4px; border-radius: 10px; padding: 12px 14px; background: var(--bg2); }
+.cdc-diag-ok { border-left-color: var(--green); }
+.cdc-diag-warn { border-left-color: var(--amber); }
+.cdc-diag-crit { border-left-color: var(--red); }
+.cdc-diag-t { font-weight: 800; font-size: 14px; color: var(--text); margin-bottom: 4px; }
+.cdc-diag-m { font-size: 13px; color: var(--text2); line-height: 1.55; }
+.cdc-diag-m code { background: var(--bg3); color: var(--accent2); padding: 0 4px; border-radius: 3px; }
+.cdc-alert-grid { display: grid; gap: 8px; }
+.cdc-alert { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: var(--text2); line-height: 1.5; }
+.cdc-alert-rank { flex: 0 0 auto; width: 20px; height: 20px; border-radius: 999px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+.cdc-alert code { background: var(--bg3); color: var(--accent2); padding: 0 4px; border-radius: 3px; }
+
+@media (max-width: 760px) {
+  .cdc-insp-grid { grid-template-columns: 1fr; }
+  .cdc-arch-flow { flex-direction: column; }
+  .cdc-arch-arrow { transform: rotate(90deg); min-height: 24px; }
+}
