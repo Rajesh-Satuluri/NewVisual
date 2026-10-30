@@ -58,7 +58,16 @@
 .dint-card.revealed .dint-q-chevron { transform:rotate(180deg); }
 .dint-answer { display:none; border-top:1px solid var(--border-subtle); padding:16px 18px; background:var(--bg-1); }
 .dint-card.revealed .dint-answer { display:block; }
-.dint-answer-text { font-size:13px; color:var(--text-secondary); line-height:1.65; margin-bottom:12px; white-space:pre-line; }
+.dint-answer-text { font-size:13px; color:var(--text-secondary); line-height:1.65; margin-bottom:12px; display:flex; flex-direction:column; gap:10px; }
+.dint-a-p { margin:0; }
+.dint-a-ol, .dint-a-ul { margin:0; padding-left:22px; }
+.dint-a-ol li, .dint-a-ul li { line-height:1.6; margin:4px 0; }
+.dint-a-ol li::marker { color:var(--brand); font-weight:700; }
+.dint-a-head { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--text-primary); margin:4px 0 0; }
+.dint-a-def { display:flex; flex-direction:column; gap:2px; padding:2px 0 2px 12px; border-left:2px solid var(--brand); }
+.dint-a-term { font-size:13px; font-weight:700; color:var(--text-primary); }
+.dint-a-desc { font-size:13px; color:var(--text-secondary); line-height:1.6; }
+.dint-answer-text code { font-family:var(--font-mono); font-size:.88em; color:var(--text-primary); background:var(--code-bg); border:1px solid var(--border-subtle); border-radius:4px; padding:1px 5px; }
 .dint-answer-code {
   font-family:var(--font-mono); font-size:11.5px; color:var(--text-secondary);
   background:var(--code-bg); border:1px solid var(--border-subtle);
@@ -280,6 +289,62 @@ Rule of thumb: Delta for Databricks-centric lakehouses, Iceberg for multi-engine
 
   function levelLabel(l) { return l === 'basic' ? 'beginner' : l; }
 
+  /* Turn the structured answer text (blank-line blocks, numbered points,
+     "• " bullets, "<strong>Label:</strong>" rows) into real paragraphs,
+     lists, sub-headings and labelled rows. Answer data is unchanged. */
+  const _RE_OL_STRONG = /^<strong>\s*(\d+)\.\s*([\s\S]*?)<\/strong>\s*(.*)$/;
+  const _RE_OL_PLAIN  = /^(\d+)\.\s+(.*)$/;
+  const _RE_UL        = /^[-•]\s+(.*)$/;
+  const _RE_HEAD      = /^<strong>(.+?):<\/strong>$/;
+  const _RE_LABEL     = /^<strong>(.+?)<\/strong>\s+([\s\S]+)$/;
+
+  function _formatAnswer(raw) {
+    const lines = String(raw).replace(/\r/g, '').split('\n');
+    const out = [];
+    let para = [], listType = null, listItems = [];
+    function flushPara() { if (para.length) { out.push('<p class="dint-a-p">' + para.join(' ') + '</p>'); para = []; } }
+    function flushList() {
+      if (listItems.length) {
+        out.push('<' + listType + ' class="dint-a-' + listType + '">' +
+          listItems.map(it => '<li>' + it + '</li>').join('') + '</' + listType + '>');
+        listItems = []; listType = null;
+      }
+    }
+    function flushAll() { flushPara(); flushList(); }
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) { flushAll(); continue; }
+      let m;
+      if ((m = line.match(_RE_OL_STRONG))) {
+        flushPara(); if (listType && listType !== 'ol') flushList(); listType = 'ol';
+        const label = m[2].trim(), rest = m[3].trim();
+        listItems.push(label ? ('<strong>' + label + '</strong>' + (rest ? ' ' + rest : '')) : rest);
+        continue;
+      }
+      if ((m = line.match(_RE_OL_PLAIN))) {
+        flushPara(); if (listType && listType !== 'ol') flushList(); listType = 'ol';
+        listItems.push(m[2].trim()); continue;
+      }
+      if ((m = line.match(_RE_UL))) {
+        flushPara(); if (listType && listType !== 'ul') flushList(); listType = 'ul';
+        listItems.push(m[1].trim()); continue;
+      }
+      if ((m = line.match(_RE_HEAD))) {
+        flushAll(); out.push('<div class="dint-a-head">' + m[1].trim() + '</div>'); continue;
+      }
+      if ((m = line.match(_RE_LABEL))) {
+        flushAll();
+        const term = m[1].trim().replace(/:$/, ''), desc = m[2].trim().replace(/^[—:-]\s*/, '');
+        out.push('<div class="dint-a-def"><span class="dint-a-term">' + term +
+          '</span><span class="dint-a-desc">' + desc + '</span></div>');
+        continue;
+      }
+      flushList(); para.push(line);
+    }
+    flushAll();
+    return out.join('');
+  }
+
   function render(container) {
     injectStyles();
     let activeFilter = 'all';
@@ -301,7 +366,7 @@ Rule of thumb: Delta for Databricks-centric lakehouses, Iceberg for multi-engine
             </div>
           </div>
           <div class="dint-answer">
-            <div class="dint-answer-text">${qa.a}</div>
+            <div class="dint-answer-text">${_formatAnswer(qa.a)}</div>
             ${qa.code ? `<div class="dint-answer-code">${qa.code}</div>` : ''}
             ${qa.note ? `<div class="dint-note">${qa.note}</div>` : ''}
           </div>

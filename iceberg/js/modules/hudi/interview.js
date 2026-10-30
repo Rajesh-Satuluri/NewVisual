@@ -42,7 +42,16 @@
 .hint-card.revealed .hint-q-chevron { transform:rotate(180deg); }
 .hint-answer { display:none; border-top:1px solid var(--border-subtle); padding:16px 18px; background:var(--bg-1); }
 .hint-card.revealed .hint-answer { display:block; }
-.hint-answer-text { font-size:13px; color:var(--text-secondary); line-height:1.65; margin-bottom:12px; white-space:pre-line; }
+.hint-answer-text { font-size:13px; color:var(--text-secondary); line-height:1.65; margin-bottom:12px; display:flex; flex-direction:column; gap:10px; }
+.hint-a-p { margin:0; }
+.hint-a-ol, .hint-a-ul { margin:0; padding-left:22px; }
+.hint-a-ol li, .hint-a-ul li { line-height:1.6; margin:4px 0; }
+.hint-a-ol li::marker { color:var(--brand); font-weight:700; }
+.hint-a-head { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--text-primary); margin:4px 0 0; }
+.hint-a-def { display:flex; flex-direction:column; gap:2px; padding:2px 0 2px 12px; border-left:2px solid var(--brand); }
+.hint-a-term { font-size:13px; font-weight:700; color:var(--text-primary); }
+.hint-a-desc { font-size:13px; color:var(--text-secondary); line-height:1.6; }
+.hint-answer-text code { font-family:var(--font-mono); font-size:.88em; color:var(--text-primary); background:var(--code-bg); border:1px solid var(--border-subtle); border-radius:4px; padding:1px 5px; }
 .hint-answer-code { font-family:var(--font-mono); font-size:11.5px; color:var(--text-secondary); background:var(--code-bg); border:1px solid var(--border-subtle); border-radius:var(--radius-sm); padding:12px 14px; line-height:1.7; white-space:pre; overflow-x:auto; margin-bottom:10px; }
 .hint-answer-code .k { color:var(--brand); font-weight:600; } .hint-answer-code .s { color:var(--orange); } .hint-answer-code .c { color:var(--text-muted); font-style:italic; }
 .hint-note { font-size:11.5px; color:var(--text-secondary); background:var(--bg-1); border-left:3px solid var(--brand); border-radius:0 6px 6px 0; padding:8px 12px; line-height:1.55; }
@@ -142,6 +151,62 @@ Time travel only reads a past instant (the head doesn't move); restore actually 
   TV.HudiInterview = QA;
   function levelLabel(l) { return l === 'basic' ? 'beginner' : l; }
 
+  /* Turn the structured answer text (blank-line blocks, numbered points,
+     "• " bullets, "<strong>Label:</strong>" rows) into real paragraphs,
+     lists, sub-headings and labelled rows. Answer data is unchanged. */
+  const _RE_OL_STRONG = /^<strong>\s*(\d+)\.\s*([\s\S]*?)<\/strong>\s*(.*)$/;
+  const _RE_OL_PLAIN  = /^(\d+)\.\s+(.*)$/;
+  const _RE_UL        = /^[-•]\s+(.*)$/;
+  const _RE_HEAD      = /^<strong>(.+?):<\/strong>$/;
+  const _RE_LABEL     = /^<strong>(.+?)<\/strong>\s+([\s\S]+)$/;
+
+  function _formatAnswer(raw) {
+    const lines = String(raw).replace(/\r/g, '').split('\n');
+    const out = [];
+    let para = [], listType = null, listItems = [];
+    function flushPara() { if (para.length) { out.push('<p class="hint-a-p">' + para.join(' ') + '</p>'); para = []; } }
+    function flushList() {
+      if (listItems.length) {
+        out.push('<' + listType + ' class="hint-a-' + listType + '">' +
+          listItems.map(it => '<li>' + it + '</li>').join('') + '</' + listType + '>');
+        listItems = []; listType = null;
+      }
+    }
+    function flushAll() { flushPara(); flushList(); }
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) { flushAll(); continue; }
+      let m;
+      if ((m = line.match(_RE_OL_STRONG))) {
+        flushPara(); if (listType && listType !== 'ol') flushList(); listType = 'ol';
+        const label = m[2].trim(), rest = m[3].trim();
+        listItems.push(label ? ('<strong>' + label + '</strong>' + (rest ? ' ' + rest : '')) : rest);
+        continue;
+      }
+      if ((m = line.match(_RE_OL_PLAIN))) {
+        flushPara(); if (listType && listType !== 'ol') flushList(); listType = 'ol';
+        listItems.push(m[2].trim()); continue;
+      }
+      if ((m = line.match(_RE_UL))) {
+        flushPara(); if (listType && listType !== 'ul') flushList(); listType = 'ul';
+        listItems.push(m[1].trim()); continue;
+      }
+      if ((m = line.match(_RE_HEAD))) {
+        flushAll(); out.push('<div class="hint-a-head">' + m[1].trim() + '</div>'); continue;
+      }
+      if ((m = line.match(_RE_LABEL))) {
+        flushAll();
+        const term = m[1].trim().replace(/:$/, ''), desc = m[2].trim().replace(/^[—:-]\s*/, '');
+        out.push('<div class="hint-a-def"><span class="hint-a-term">' + term +
+          '</span><span class="hint-a-desc">' + desc + '</span></div>');
+        continue;
+      }
+      flushList(); para.push(line);
+    }
+    flushAll();
+    return out.join('');
+  }
+
   function render(container) {
     injectStyles();
     let activeFilter = 'all';
@@ -160,7 +225,7 @@ Time travel only reads a past instant (the head doesn't move); restore actually 
             <div class="hint-q-chevron"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" width="12" height="12"><path d="M2 4l4 4 4-4"/></svg></div>
           </div>
           <div class="hint-answer">
-            <div class="hint-answer-text">${qa.a}</div>
+            <div class="hint-answer-text">${_formatAnswer(qa.a)}</div>
             ${qa.code ? `<div class="hint-answer-code">${qa.code}</div>` : ''}
             ${qa.note ? `<div class="hint-note">${qa.note}</div>` : ''}
           </div>
