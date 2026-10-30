@@ -90,3 +90,45 @@ simulated is labelled "simulation", never presented as live.
 | Code execution | Not yet | Iteration 7: static validation, labelled |
 | Real Kafka cluster | Out of scope | Track 2 (needs backend) |
 | Accounts / cloud sync | Out of scope | Track 2; local-first + export/import instead |
+
+## CDC / Debezium / Lakehouse track (new groups, m23+)
+
+A layered journey on top of the Kafka curriculum: Postgres → WAL/logical
+decoding → Debezium → Kafka → microservice/outbox events → lakehouse
+Bronze/Silver/Gold. Nine first-class modules (m23–m31) in two new nav groups,
+plus a separate runnable Docker lab. Built and deployed per batch.
+
+### Honesty ledger additions
+
+| Capability | This build | Notes |
+|---|---|---|
+| CDC / WAL / slot / decoding dynamics | **Deterministic simulation** | `sim/cdc-engine.js`; labelled, Node-tested |
+| Source LSN vs Kafka offset vs sink version | **Modelled as 3 distinct markers** | engine never conflates them |
+| Real Postgres→Debezium→Kafka→lakehouse | Out of scope for the SPA | **the Docker lab** (Track 2 / needs backend) |
+
+### Batch 1 — CDC engine + fundamentals + WAL ✅
+
+- `sim/cdc-engine.js` — deterministic `CDCSim`, **composes `KafkaSim`** (reuses
+  the real murmur2 partitioner + real offsets). Models: source tables, txn
+  commit/rollback, WAL + monotonic LSN, logical decoding → Debezium-shaped change
+  events (op c/u/d/r, before/after honouring REPLICA IDENTITY), replication slot
+  + confirmed-flush + retained-WAL backlog, heartbeat, snapshot (r events),
+  Bronze append-log, Silver materialization (upsert/delete by key), reconcile.
+- `sim/cdc-engine.test.mjs` — `node --test`, **14 tests** (commit/rollback
+  visibility, LSN monotonicity, multi-statement txn, slot backlog grow/drain,
+  heartbeat advance, Silver↔source reconcile, poll-vs-log history, idempotent
+  materialization, snapshot reads, LSN≠offset, determinism).
+- `modules/m23-cdc-fundamentals.js` — `#m23`. Why CDC, the four capture methods,
+  the state-vs-stream idea, + a live **poll-vs-log demo** on the engine.
+- `modules/m24-postgres-wal.js` — `#m24`. WAL / physical-vs-logical / LSN / slot
+  / publication / REPLICA IDENTITY, + an interactive **WAL & slot simulator**
+  (drive writes, poll, pause to grow a backlog, heartbeat, reconcile Silver).
+- Wiring (additive): `script.js` (LOADERS m23/m24; dynamic mastery toast),
+  `components/nav.js` (new group "Change Data Capture" + GROUP_ORDER),
+  `data/quiz-bank.js` (m23/m24, 3 each), `data/self-explain.js` (m23/m24),
+  `modules/home.js` (GROUP_ORDER + dynamic count), `modules/dashboard.js`
+  (GROUP_ORDER). Search auto-includes modules (no edit needed).
+- `enhancements.css` — `.cdc-*` / `.prose-block` / `.callout` blocks, theme-aware.
+- Verified: engine 31/31 (17 Kafka + 14 CDC); Playwright both themes 0 console
+  errors (m23 demo, m24 simulator, nav group, home count=24, dashboard group,
+  search). Baseline 22 modules untouched.

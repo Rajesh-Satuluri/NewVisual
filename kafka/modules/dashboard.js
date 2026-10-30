@@ -5,7 +5,7 @@
 import { MODULES } from '../components/nav.js';
 import { all, counts } from '../data/progress-store.js';
 
-const GROUP_ORDER = ['Foundation', 'Core Internals', 'Consumer Side', 'Delivery', 'Ecosystem', 'Operations', 'Advanced'];
+const GROUP_ORDER = ['Foundation', 'Core Internals', 'Consumer Side', 'Delivery', 'Ecosystem', 'Operations', 'Advanced', 'Change Data Capture'];
 
 function readDone() {
   try { return new Set(JSON.parse(localStorage.getItem('kafka-done') || '[]')); } catch (e) { return new Set(); }

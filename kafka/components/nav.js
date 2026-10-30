@@ -28,9 +28,12 @@ export const MODULES = [
   { id:'m18', label:'Failure Simulation',      icon:'💥', group:'Advanced',      desc:'Kill producers, brokers, leaders — watch recovery cascade' },
   { id:'m19', label:'Amazon Pipeline',         icon:'🛒', group:'Advanced',      desc:'End-to-end: order → Kafka → 8 services → Snowflake → BI' },
   { id:'m21', label:'MirrorMaker 2',           icon:'🌐', group:'Advanced',      desc:'Cross-cluster replication, active-active DR, offset translation' },
+  // ── Change Data Capture ────────────────────────────────────────────────────
+  { id:'m23', label:'CDC Fundamentals',        icon:'🔄', group:'Change Data Capture', desc:'What CDC is, the four capture methods, and why a table\'s state ≠ its change stream' },
+  { id:'m24', label:'Postgres WAL & Decoding',  icon:'🪵', group:'Change Data Capture', desc:'WAL, logical decoding, LSNs, replication slots — drive the slot and watch it lag' },
 ];
 
-const GROUP_ORDER = ['Foundation','Core Internals','Consumer Side','Delivery','Ecosystem','Operations','Advanced'];
+const GROUP_ORDER = ['Foundation','Core Internals','Consumer Side','Delivery','Ecosystem','Operations','Advanced','Change Data Capture'];
 const PLAYGROUND = [
   { id:'playground',      label:'Partition Simulator', icon:'🎮' },
   { id:'consumer-lab',    label:'Consumer Group Lab',  icon:'👥' },
