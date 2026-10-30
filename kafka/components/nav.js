@@ -35,9 +35,12 @@ export const MODULES = [
   { id:'m26', label:'Snapshots & Streaming',   icon:'📸', group:'Change Data Capture', desc:'Initial snapshot, snapshot modes, incremental snapshots, the streaming handoff' },
   { id:'m27', label:'Change Events & Contracts', icon:'✉️', group:'Change Data Capture', desc:'The event envelope, deletes & tombstones, serialization, and schema evolution' },
   { id:'m28', label:'Debezium Config & Ops',   icon:'⚙️', group:'Change Data Capture', desc:'Connector config, replication-slot WAL growth, failure labs, and what to alert on' },
+  // ── CDC Integrations & Lakehouse ────────────────────────────────────────────
+  { id:'m29', label:'Outbox Pattern',          icon:'📬', group:'CDC Integrations & Lakehouse', desc:'Services as producers, the dual-write trap, and the transactional outbox + Event Router' },
+  { id:'m30', label:'Kafka → Lakehouse',       icon:'🏞️', group:'CDC Integrations & Lakehouse', desc:'Iceberg (Connect) vs Spark→Delta, Bronze/Silver/Gold, and why append ≠ current state' },
 ];
 
-const GROUP_ORDER = ['Foundation','Core Internals','Consumer Side','Delivery','Ecosystem','Operations','Advanced','Change Data Capture'];
+const GROUP_ORDER = ['Foundation','Core Internals','Consumer Side','Delivery','Ecosystem','Operations','Advanced','Change Data Capture','CDC Integrations & Lakehouse'];
 const PLAYGROUND = [
   { id:'playground',      label:'Partition Simulator', icon:'🎮' },
   { id:'consumer-lab',    label:'Consumer Group Lab',  icon:'👥' },

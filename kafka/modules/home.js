@@ -5,13 +5,13 @@ import { MODULES } from '../components/nav.js';
 import { QUIZ_BANK } from '../data/quiz-bank.js';
 import { loadAllIQ } from '../data/iq-aggregate.js';
 
-const GROUP_ORDER = ['Foundation', 'Core Internals', 'Consumer Side', 'Delivery', 'Ecosystem', 'Operations', 'Advanced', 'Change Data Capture'];
+const GROUP_ORDER = ['Foundation', 'Core Internals', 'Consumer Side', 'Delivery', 'Ecosystem', 'Operations', 'Advanced', 'Change Data Capture', 'CDC Integrations & Lakehouse'];
 
 // Difficulty + rough reading-time by theme group, so a learner can gauge a
 // module before opening it. Time is an estimate for the interactive content.
-const LEVEL = { Foundation: 'Beginner', 'Core Internals': 'Intermediate', 'Consumer Side': 'Intermediate', Delivery: 'Intermediate', Ecosystem: 'Intermediate', Operations: 'Advanced', Advanced: 'Advanced', 'Change Data Capture': 'Advanced' };
+const LEVEL = { Foundation: 'Beginner', 'Core Internals': 'Intermediate', 'Consumer Side': 'Intermediate', Delivery: 'Intermediate', Ecosystem: 'Intermediate', Operations: 'Advanced', Advanced: 'Advanced', 'Change Data Capture': 'Advanced', 'CDC Integrations & Lakehouse': 'Advanced' };
 const LEVEL_CLASS = { Beginner: 'lvl-beg', Intermediate: 'lvl-int', Advanced: 'lvl-adv' };
-const MINS = { Foundation: 10, 'Core Internals': 15, 'Consumer Side': 14, Delivery: 14, Ecosystem: 13, Operations: 15, Advanced: 18, 'Change Data Capture': 16 };
+const MINS = { Foundation: 10, 'Core Internals': 15, 'Consumer Side': 14, Delivery: 14, Ecosystem: 13, Operations: 15, Advanced: 18, 'Change Data Capture': 16, 'CDC Integrations & Lakehouse': 16 };
 const badges = m => {
   const lv = LEVEL[m.group] || 'Intermediate';
   return `<span class="home-card-badges"><span class="mlvl ${LEVEL_CLASS[lv]}">${lv}</span><span class="mmins">~${MINS[m.group] || 14} min</span></span>`;

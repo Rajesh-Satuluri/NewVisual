@@ -92,6 +92,8 @@ const LOADERS = {
   m26: () => import('./modules/m26-snapshots-streaming.js'),
   m27: () => import('./modules/m27-change-events.js'),
   m28: () => import('./modules/m28-debezium-ops.js'),
+  m29: () => import('./modules/m29-outbox-pattern.js'),
+  m30: () => import('./modules/m30-lakehouse.js'),
 };
 
 // ── Navigate ───────────────────────────────────────────────────────────────
