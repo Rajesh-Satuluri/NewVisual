@@ -82,6 +82,26 @@
 .int-answer-text {
   font-size:13px; color:var(--text-secondary); line-height:1.65;
   margin-bottom:12px;
+  display:flex; flex-direction:column; gap:10px;
+}
+.int-a-p { margin:0; }
+.int-a-ol, .int-a-ul { margin:0; padding-left:22px; }
+.int-a-ol li, .int-a-ul li { line-height:1.6; margin:4px 0; }
+.int-a-ol li::marker { color:var(--blue); font-weight:700; }
+.int-a-head {
+  font-size:12px; font-weight:700; text-transform:uppercase;
+  letter-spacing:.04em; color:var(--text-primary); margin:4px 0 0;
+}
+.int-a-def {
+  display:flex; flex-direction:column; gap:2px;
+  padding:2px 0 2px 12px; border-left:2px solid var(--blue);
+}
+.int-a-term { font-size:13px; font-weight:700; color:var(--text-primary); }
+.int-a-desc { font-size:13px; color:var(--text-secondary); line-height:1.6; }
+.int-answer-text code {
+  font-family:var(--font-mono); font-size:.88em; color:var(--text-primary);
+  background:var(--bg-3); border:1px solid var(--border-subtle);
+  border-radius:4px; padding:1px 5px;
 }
 .int-answer-code {
   font-family:var(--font-mono); font-size:11.5px; color:var(--text-secondary);
@@ -795,6 +815,86 @@ Rule of thumb: REST for a governed, multi-engine lakehouse; Glue if you're all-i
     },
   ];
 
+  /* ── Answer formatter ───────────────────────────────────────
+     The QA answers already carry structure (blank-line separated
+     blocks, numbered points, "- " bullets and "<strong>Label:</strong>"
+     rows), but rendered raw they collapse into one paragraph. This
+     turns that same content into paragraphs, ordered/unordered lists,
+     sub-headings and labelled rows — no change to the data itself. */
+  const _RE_OL_STRONG = /^<strong>\s*(\d+)\.\s*([\s\S]*?)<\/strong>\s*(.*)$/;
+  const _RE_OL_PLAIN  = /^(\d+)\.\s+(.*)$/;
+  const _RE_UL        = /^[-•]\s+(.*)$/;
+  const _RE_HEAD      = /^<strong>(.+?):<\/strong>$/;
+  const _RE_LABEL     = /^<strong>(.+?)<\/strong>\s+([\s\S]+)$/;
+
+  function _formatAnswer(raw) {
+    const lines = String(raw).replace(/\r/g, '').split('\n');
+    const out = [];
+    let para = [];
+    let listType = null;
+    let listItems = [];
+
+    function flushPara() {
+      if (para.length) { out.push('<p class="int-a-p">' + para.join(' ') + '</p>'); para = []; }
+    }
+    function flushList() {
+      if (listItems.length) {
+        out.push('<' + listType + ' class="int-a-' + listType + '">' +
+          listItems.map(it => '<li>' + it + '</li>').join('') +
+          '</' + listType + '>');
+        listItems = []; listType = null;
+      }
+    }
+    function flushAll() { flushPara(); flushList(); }
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) { flushAll(); continue; }
+      let m;
+
+      if ((m = line.match(_RE_OL_STRONG))) {
+        flushPara();
+        if (listType && listType !== 'ol') flushList();
+        listType = 'ol';
+        const label = m[2].trim(), rest = m[3].trim();
+        listItems.push(label ? ('<strong>' + label + '</strong>' + (rest ? ' ' + rest : '')) : rest);
+        continue;
+      }
+      if ((m = line.match(_RE_OL_PLAIN))) {
+        flushPara();
+        if (listType && listType !== 'ol') flushList();
+        listType = 'ol';
+        listItems.push(m[2].trim());
+        continue;
+      }
+      if ((m = line.match(_RE_UL))) {
+        flushPara();
+        if (listType && listType !== 'ul') flushList();
+        listType = 'ul';
+        listItems.push(m[1].trim());
+        continue;
+      }
+      if ((m = line.match(_RE_HEAD))) {
+        flushAll();
+        out.push('<div class="int-a-head">' + m[1].trim() + '</div>');
+        continue;
+      }
+      if ((m = line.match(_RE_LABEL))) {
+        flushAll();
+        const term = m[1].trim().replace(/:$/, '');
+        const desc = m[2].trim().replace(/^[—:-]\s*/, '');
+        out.push('<div class="int-a-def"><span class="int-a-term">' + term +
+          '</span><span class="int-a-desc">' + desc + '</span></div>');
+        continue;
+      }
+
+      flushList();
+      para.push(line);
+    }
+    flushAll();
+    return out.join('');
+  }
+
   /* ── Render ──────────────────────────────────────────────── */
   function _render(container) {
     _injectStyles();
@@ -825,7 +925,7 @@ Rule of thumb: REST for a governed, multi-engine lakehouse; Glue if you're all-i
             </div>
           </div>
           <div class="int-answer">
-            <div class="int-answer-text">${qa.answer}</div>
+            <div class="int-answer-text">${_formatAnswer(qa.answer)}</div>
             ${qa.code ? `<div class="int-answer-code">${qa.code}</div>` : ''}
             <div class="int-shopkart-note">${qa.shopkart}</div>
           </div>
