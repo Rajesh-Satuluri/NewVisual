@@ -44,8 +44,8 @@ export class CDCSim {
     this.txns = new Map();        // txId → { id, changes:[], status }
     this.wal = [];               // [{ lsn, txId, kind, change? }]
     this.bronze = [];            // append-only log of every delivered change event
-    this.slot = { name: 'debezium', confirmedFlushLsn: 0, active: true };
-    this.connector = { running: true, lastLsn: 0, snapshotDone: false };
+    this.slot = { name: 'debezium', confirmedFlushLsn: 0, active: true, invalid: false };
+    this.connector = { running: true, lastLsn: 0, snapshotDone: false, needsSnapshot: false };
     this.nextLsn = 1;
     this.nextTxId = 1;
     this.tick = 0;               // deterministic logical clock (not wall time)
@@ -182,6 +182,9 @@ export class CDCSim {
   // slot. Returns the events delivered this poll. Does nothing during an outage.
   poll() {
     if (!this.connector.running) return [];
+    // Streaming cannot resume if the WAL it needs was already removed — the
+    // connector is stuck until a fresh snapshot rebuilds its position.
+    if (this.connector.needsSnapshot) return [];
     const pending = this.pendingWal();
     const out = [];
     let maxLsn = this.connector.lastLsn;
@@ -217,10 +220,44 @@ export class CDCSim {
       }
     }
     this.connector.snapshotDone = true;
+    // A fresh snapshot also clears a "needs snapshot" / invalid-slot state:
+    // this is exactly how a connector recovers after required WAL was lost.
+    this.connector.needsSnapshot = false;
+    this.slot.invalid = false;
     // Streaming resumes from the current WAL head.
     this.connector.lastLsn = this.nextLsn - 1;
     this.slot.confirmedFlushLsn = this.connector.lastLsn;
     return out;
+  }
+
+  // Incremental snapshot: re-read current rows as READ (op:'r') events WITHOUT
+  // resetting the streaming position — Debezium runs these in chunks, concurrently
+  // with streaming, to backfill newly-captured tables or re-sync without a stop.
+  incrementalSnapshot(table) {
+    const names = table ? [table] : [...this.tables.keys()];
+    const out = [];
+    for (const name of names) {
+      const t = this.getTable(name);
+      for (const row of t.rows.values()) {
+        const ev = this._toEvent(
+          { op: 'r', table: name, key: row[t.pk], before: null, after: { ...row } },
+          { lsn: this.connector.lastLsn, txId: null, snapshot: 'incremental' });
+        out.push(ev); this.bronze.push(ev);
+      }
+    }
+    return out;
+  }
+
+  // Simulate the WAL the connector still needs being removed/recycled (e.g. a
+  // slot invalidated past max_slot_wal_keep_size, or WAL recycled during a long
+  // outage). Streaming is then stuck until a new snapshot runs. Returns whether
+  // anything was actually lost (there must be unconsumed WAL to lose).
+  simulateWalLoss() {
+    const backlog = this.walBacklog();
+    if (backlog.records === 0) return false;
+    this.connector.needsSnapshot = true;
+    this.slot.invalid = true;
+    return true;
   }
 
   // Build one Debezium-shaped change event and publish it to Kafka. The before
@@ -240,7 +277,7 @@ export class CDCSim {
       key: change.key,
       before,
       after: change.after,
-      source: { lsn, txId, tsMs: this._now(), snapshot: !!snapshot, table: change.table, db: 'shop' },
+      source: { lsn, txId, tsMs: this._now(), snapshot: typeof snapshot === 'string' ? snapshot : !!snapshot, table: change.table, db: 'shop' },
       tsMs: this._now(),
       kafka: { topic: pub.topic, partition: pub.partition, offset: pub.offset },
     };

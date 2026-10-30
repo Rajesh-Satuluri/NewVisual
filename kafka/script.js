@@ -88,6 +88,10 @@ const LOADERS = {
   m22: () => import('./modules/m22-partition-reassignment.js'),
   m23: () => import('./modules/m23-cdc-fundamentals.js'),
   m24: () => import('./modules/m24-postgres-wal.js'),
+  m25: () => import('./modules/m25-debezium-architecture.js'),
+  m26: () => import('./modules/m26-snapshots-streaming.js'),
+  m27: () => import('./modules/m27-change-events.js'),
+  m28: () => import('./modules/m28-debezium-ops.js'),
 };
 
 // ── Navigate ───────────────────────────────────────────────────────────────
