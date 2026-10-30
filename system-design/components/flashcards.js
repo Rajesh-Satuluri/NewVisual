@@ -6,7 +6,7 @@
 // mount(container, { cards, onExit }) → cleanup()
 //   cards: array of question METADATA objects (id, question, difficulty…)
 
-import { LOADERS, CATEGORY_LABEL } from '../content/index.js';
+import { reg } from '../content/registry.js';
 
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c => (
@@ -72,7 +72,7 @@ export function mount(container, { cards, onExit } = {}) {
   async function loadData(id) {
     if (cache[id]) return cache[id];
     try {
-      const mod = await LOADERS[id]();
+      const mod = await reg.LOADERS[id]();
       cache[id] = mod.default || mod;
     } catch { cache[id] = null; }
     return cache[id];
@@ -85,7 +85,7 @@ export function mount(container, { cards, onExit } = {}) {
       <div class="sd-fc-face sd-fc-front">
         <div class="sd-fc-meta">
           <span class="sd-diff ${{Fundamental:'diff-fundamental',Intermediate:'diff-intermediate',Advanced:'diff-advanced'}[meta.difficulty] || ''}">${esc(meta.difficulty || '')}</span>
-          <span class="sd-cat">${esc(CATEGORY_LABEL[meta.category] || meta.category || '')}</span>
+          <span class="sd-cat">${esc(reg.CATEGORY_LABEL[meta.category] || meta.category || '')}</span>
         </div>
         <div class="sd-fc-icon">${meta.icon || '📘'}</div>
         <h2 class="sd-fc-q">${esc(meta.question)}</h2>

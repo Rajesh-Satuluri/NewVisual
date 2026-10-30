@@ -5,7 +5,7 @@
 //
 // mount(container, data, { label }) → cleanup()
 
-import { CATEGORY_LABEL } from '../content/index.js';
+import { reg } from '../content/registry.js';
 import { WIDGETS, WIDGET_META } from './widgets/index.js';
 
 const DIFF_CLASS = {
@@ -90,7 +90,7 @@ export function mount(container, data, opts = {}) {
         <div class="sd-badges">
           <span class="sd-diff ${diffClass}">${esc(data.difficulty || '')}</span>
           ${data.draft ? '<span class="sd-draft">draft</span>' : ''}
-          <span class="sd-cat">${esc(CATEGORY_LABEL[data.category] || data.category || '')}</span>
+          <span class="sd-cat">${esc(reg.CATEGORY_LABEL[data.category] || data.category || '')}</span>
         </div>
         <h1 class="module-title">${esc(data.question)}</h1>
         ${data.tldr ? `<p class="sd-tldr"><span class="sd-tldr-tag">TL;DR</span> ${fmt(data.tldr)}</p>` : ''}

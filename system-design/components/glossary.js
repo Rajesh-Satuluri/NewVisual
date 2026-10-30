@@ -2,13 +2,13 @@
 // Searchable, grouped glossary. Each term optionally links to a concept.
 // mount(container) → cleanup
 
-import { GLOSSARY, GLOSSARY_GROUPS } from '../content/glossary.js';
-import { CONCEPTS, CONCEPT_PREFIX } from '../content/concepts.js';
+import { reg } from '../content/registry.js';
 import { esc, fmt } from './render-helpers.js';
 
-const conceptTitle = id => (CONCEPTS.find(c => c.id === id) || {}).title || id;
-
 export function mount(container) {
+  const { GLOSSARY, GLOSSARY_GROUPS, CONCEPTS, CONCEPT_PREFIX } = reg;
+  const conceptTitle = id => (CONCEPTS.find(c => c.id === id) || {}).title || id;
+
   const byGroup = {};
   GLOSSARY.forEach(t => { (byGroup[t.group] = byGroup[t.group] || []).push(t); });
 
@@ -17,7 +17,7 @@ export function mount(container) {
       <div class="module-hero">
         <div class="module-tag">📖 · Reference</div>
         <h1 class="module-title">Glossary</h1>
-        <p class="sd-tldr"><span class="sd-tldr-tag">${GLOSSARY.length} terms</span> Every key system-design term in one line — search it, or jump to the concept that uses it.</p>
+        <p class="sd-tldr"><span class="sd-tldr-tag">${GLOSSARY.length} terms</span> Every key term in one line — search it, or jump to the concept that uses it.</p>
       </div>
 
       <div class="sd-ref-search-wrap">

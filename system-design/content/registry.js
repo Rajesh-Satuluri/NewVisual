@@ -25,12 +25,22 @@ export const reg = {
   CATEGORY_LABEL: {},
   DIFFICULTY_ORDER: ['Fundamental', 'Intermediate', 'Advanced'],
   allTags: () => [],
+  // reference content
+  GLOSSARY: [],
+  GLOSSARY_GROUPS: [],
+  CHEATSHEET: [],
 };
 
-// Load a track's modules into `reg`. Returns reg once populated.
+// Load a track's modules into `reg`. Returns reg once populated. Reference
+// content (glossary/cheatsheet) is optional per track and loaded if present.
 export async function loadTrack(id) {
   const track = TRACKS[id] || TRACKS.swe;
-  const [c, q] = await Promise.all([track.concepts(), track.questions()]);
+  const [c, q, g, cs] = await Promise.all([
+    track.concepts(),
+    track.questions(),
+    track.glossary ? track.glossary() : Promise.resolve({}),
+    track.cheatsheet ? track.cheatsheet() : Promise.resolve({}),
+  ]);
   Object.assign(reg, {
     trackId: track.id,
     track,
@@ -46,6 +56,9 @@ export async function loadTrack(id) {
     CATEGORY_LABEL: q.CATEGORY_LABEL || {},
     DIFFICULTY_ORDER: q.DIFFICULTY_ORDER || ['Fundamental', 'Intermediate', 'Advanced'],
     allTags: q.allTags || (() => []),
+    GLOSSARY: g.GLOSSARY || [],
+    GLOSSARY_GROUPS: g.GLOSSARY_GROUPS || [],
+    CHEATSHEET: cs.CHEATSHEET || [],
   });
   return reg;
 }

@@ -1,10 +1,11 @@
 // ── Cheat sheet page ──────────────────────────────────────────────────────────
 // The numbers, formulas and one-liners worth memorizing. mount(container) → cleanup
 
-import { CHEATSHEET } from '../content/cheatsheet.js';
+import { reg } from '../content/registry.js';
 import { esc, fmt, tableHtml, bulletsHtml, rulesHtml, statsHtml, stepsHtml } from './render-helpers.js';
 
 export function mount(container) {
+  const { CHEATSHEET } = reg;
   const section = s => {
     const parts = [];
     if (s.note) parts.push(`<p class="sd-cs-note">${fmt(s.note)}</p>`);
@@ -24,7 +25,7 @@ export function mount(container) {
       <div class="module-hero">
         <div class="module-tag">📋 · Reference</div>
         <h1 class="module-title">Cheat sheet</h1>
-        <p class="sd-tldr"><span class="sd-tldr-tag">Memorize these</span> The latency numbers, capacity math, availability nines, and pattern picks worth having at your fingertips before an interview.</p>
+        <p class="sd-tldr"><span class="sd-tldr-tag">Memorize these</span> The numbers, pickers, and one-liners worth having at your fingertips before an interview.</p>
       </div>
       <div class="sd-cs-grid">${CHEATSHEET.map(section).join('')}</div>
     </div>`;
