@@ -6,8 +6,26 @@
 (function () {
   'use strict';
 
+  const EDIT_PREFIX = 'cdwh-cvedit:';
+
   const CodeViewer = {
-    create(code, lang, title) {
+    /**
+     * @param {string} code    the original/pristine source
+     * @param {string} lang    json|sql|snowflake|python|…
+     * @param {string} [title] header label
+     * @param {Object} [opts]  { editable?: boolean (default true),
+     *                           editKey?: string (stable persistence id) }
+     */
+    create(code, lang, title, opts) {
+      opts = opts || {};
+      const editable = opts.editable !== false;
+      const original = code;
+      const editKey = editable ? _slug(opts.editKey || title || lang, original) : null;
+
+      // current = original unless a saved override exists
+      let current = original;
+      if (editKey) { const ov = _loadOverride(editKey); if (ov != null) current = ov; }
+
       const wrapper = document.createElement('div');
       wrapper.className = 'code-block';
 
@@ -18,11 +36,18 @@
       langEl.className = 'code-block-lang';
       langEl.textContent = title || lang.toUpperCase();
 
+      const badge = document.createElement('span');
+      badge.className = 'cv-edited-badge';
+      badge.textContent = 'edited';
+
+      const actions = document.createElement('div');
+      actions.className = 'code-block-actions';
+
       const copyBtn = document.createElement('button');
       copyBtn.className = 'code-block-copy btn-icon';
       copyBtn.innerHTML = _iconCopy() + '<span>Copy</span>';
       copyBtn.addEventListener('click', () => {
-        navigator.clipboard.writeText(code).then(() => {
+        navigator.clipboard.writeText(current).then(() => {
           copyBtn.classList.add('copied');
           copyBtn.querySelector('span').textContent = 'Copied!';
           setTimeout(() => {
@@ -32,15 +57,81 @@
         });
       });
 
-      header.appendChild(langEl);
-      header.appendChild(copyBtn);
-
       const body = document.createElement('div');
       body.className = 'code-block-body';
-
       const pre = document.createElement('pre');
-      pre.innerHTML = this.highlight(code, lang);
       body.appendChild(pre);
+
+      const self = this;
+      const renderView = () => {
+        pre.innerHTML = self.highlight(current, lang);
+        wrapper.classList.toggle('cv-edited', editKey && current !== original);
+      };
+
+      header.appendChild(langEl);
+      if (editKey) header.appendChild(badge);
+      header.appendChild(actions);
+
+      // ── Editable controls ─────────────────────────────────────
+      if (editKey) {
+        const editBtn = document.createElement('button');
+        editBtn.className = 'code-block-copy btn-icon cv-edit-btn';
+        editBtn.innerHTML = _iconEdit() + '<span>Edit</span>';
+
+        const saveBtn = _mkBtn('Save', 'cv-save');
+        const cancelBtn = _mkBtn('Cancel', 'cv-cancel');
+        const resetBtn = _mkBtn('Reset', 'cv-reset');
+
+        const enterEdit = () => {
+          const ta = document.createElement('textarea');
+          ta.className = 'cv-editor';
+          ta.value = current;
+          ta.spellcheck = false;
+          ta.setAttribute('aria-label', 'Edit code');
+          body.replaceChild(ta, body.firstChild);
+          ta.style.height = Math.max(ta.scrollHeight, 80) + 'px';
+          ta.focus();
+          editBtn.style.display = 'none';
+          copyBtn.style.display = 'none';
+          [saveBtn, cancelBtn, resetBtn].forEach(b => (b.style.display = ''));
+
+          const commit = (val) => {
+            current = val;
+            if (current === original) { _saveOverride(editKey, null); }
+            else { _saveOverride(editKey, current); }
+            exitEdit();
+          };
+          ta.addEventListener('keydown', (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); commit(ta.value); }
+            else if (e.key === 'Escape') { e.preventDefault(); exitEdit(); }
+          });
+          saveBtn.onclick = () => commit(ta.value);
+          cancelBtn.onclick = () => exitEdit();
+          resetBtn.onclick = () => { _saveOverride(editKey, null); current = original; exitEdit(); };
+        };
+        const exitEdit = () => {
+          renderView();
+          if (body.firstChild !== pre) body.replaceChild(pre, body.firstChild);
+          editBtn.style.display = '';
+          copyBtn.style.display = '';
+          [saveBtn, cancelBtn, resetBtn].forEach(b => (b.style.display = 'none'));
+        };
+
+        editBtn.addEventListener('click', enterEdit);
+        [saveBtn, cancelBtn, resetBtn].forEach(b => { b.style.display = 'none'; actions.appendChild(b); });
+        actions.appendChild(editBtn);
+
+        // Live re-apply when state is imported/synced from elsewhere.
+        window.addEventListener('clouddwh:state-refresh', () => {
+          if (body.firstChild !== pre) return; // don't stomp an active edit
+          const ov = _loadOverride(editKey);
+          current = ov != null ? ov : original;
+          renderView();
+        });
+      }
+
+      actions.appendChild(copyBtn);
+      renderView();
 
       wrapper.appendChild(header);
       wrapper.appendChild(body);
@@ -58,6 +149,37 @@
       }
     },
   };
+
+  /* ── Override persistence (cdwh- namespace → carried by export/import) ── */
+  function _loadOverride(key) {
+    try { const v = localStorage.getItem(EDIT_PREFIX + key); return v == null ? null : JSON.parse(v); }
+    catch (_) { return null; }
+  }
+  function _saveOverride(key, val) {
+    try {
+      if (val == null) localStorage.removeItem(EDIT_PREFIX + key);
+      else localStorage.setItem(EDIT_PREFIX + key, JSON.stringify(val));
+    } catch (_) {}
+  }
+
+  /* stable slug: explicit editKey if given, else (title|lang) + short hash of
+     the original source so same-titled blocks don't share an override. */
+  function _slug(base, source) {
+    const s = String(base || 'code').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48) || 'code';
+    return s + '-' + _hash(source || '');
+  }
+  function _hash(str) {
+    let h = 5381;
+    for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
+    return (h >>> 0).toString(36);
+  }
+
+  function _mkBtn(label, cls) {
+    const b = document.createElement('button');
+    b.className = 'code-block-copy btn-icon ' + cls;
+    b.innerHTML = '<span>' + label + '</span>';
+    return b;
+  }
 
   function _esc(s) {
     return s
@@ -171,6 +293,13 @@
     return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
       <rect x="9" y="9" width="13" height="13" rx="2"/>
       <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+    </svg>`;
+  }
+
+  function _iconEdit() {
+    return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
+      <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+      <path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
     </svg>`;
   }
 
