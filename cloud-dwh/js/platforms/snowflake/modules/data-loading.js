@@ -1,440 +1,235 @@
 /* ============================================================
-   Data Loading Module — Snowpipe, COPY INTO, Kafka Connector
-   Netflix: 1.4B watch events/day ingestion animation
-   ============================================================ */
+   Data Loading — End-to-End Snowflake Ingestion Simulator (P0-A)
 
+   An interactive, clickable 14-stage lifecycle. Pick one of five
+   pipeline patterns (COPY INTO batch, Snowpipe auto-ingest, Snowpipe
+   Streaming, Kafka connector, Postgres+Debezium CDC); step through
+   the stages with the player controls or click any stage to inspect
+   what physically happens, the SQL/config, state changes, failure
+   modes and troubleshooting. Metrics are derived deterministically
+   from the pattern + cursor (loadingSim.deriveMetrics) and are
+   clearly labelled as illustrative. Nothing runs against a live
+   account.
+   ============================================================ */
 (function () {
   'use strict';
 
-  const AE = () => window.CDWH.AnimationEngine;
+  const AE  = () => window.CDWH.AnimationEngine;
+  const CV  = () => window.CDWH.CodeViewer;
+  const SIM = () => window.CDWH.P.snowflake.loadingSim;
+  const SPEC = () => window.CDWH.P.snowflake.ingestPipelines;
 
-  const SNOWPIPE_SQL = `-- Snowpipe: auto-ingest from S3 event notifications
-CREATE OR REPLACE PIPE EVENTS_DB.PUBLIC.watch_events_pipe
-  AUTO_INGEST = TRUE
-AS
-COPY INTO EVENTS_DB.RAW.WATCH_EVENTS
-FROM @EVENTS_DB.PUBLIC.s3_stage/watch_events/
-FILE_FORMAT = (TYPE = 'PARQUET')
-MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE;
+  const ROLE_LABEL = { upstream: 'Upstream (outside Snowflake)', snowflake: 'Snowflake ingest', table: 'Table / transform', ops: 'Operations' };
 
--- Check pipe lag
-SELECT SYSTEM$PIPE_STATUS('watch_events_pipe');`;
-
-  const COPY_SQL = `-- COPY INTO: bulk historical backfill (3 years)
-COPY INTO EVENTS_DB.RAW.WATCH_EVENTS
-FROM @EVENTS_DB.PUBLIC.s3_stage/historical/
-FILE_FORMAT = (
-  TYPE = 'PARQUET'
-  COMPRESSION = SNAPPY
-)
-PATTERN = '.*watch_events_202[0-3].*\\.parquet'
-ON_ERROR = 'CONTINUE'
-PURGE = FALSE;
-
--- Audit load history
-SELECT * FROM TABLE(INFORMATION_SCHEMA.COPY_HISTORY(
-  TABLE_NAME => 'WATCH_EVENTS',
-  START_TIME => DATEADD('hours', -2, CURRENT_TIMESTAMP)
-));`;
-
-  const KAFKA_SQL = `// Kafka Connector config (kafka-connect-snowflake)
-{
-  "name": "snowflake-watch-events",
-  "connector.class":
-    "com.snowflake.kafka.connector.SnowflakeSinkConnector",
-  "tasks.max": "16",
-  "topics": "watch-events-prod",
-  "snowflake.database.name": "EVENTS_DB",
-  "snowflake.schema.name": "STREAMING",
-  "snowflake.table.name": "WATCH_EVENTS_STREAM",
-  "snowflake.ingestion.method": "SNOWPIPE_STREAMING",
-  "buffer.flush.time": "5",
-  "buffer.count.records": "10000"
-}`;
-
-  const DataLoadingModule = {
+  const Module = {
     render(canvas) {
       canvas.innerHTML = '';
+      const spec = SPEC();
+      if (!spec) { canvas.innerHTML = '<div class="placeholder-msg"><p>Pipeline spec not loaded.</p></div>'; return {}; }
 
-      const wrap = _el('div', 'dl-page');
-      canvas.appendChild(wrap);
+      const state = { pattern: spec.patterns[0], activeIds: [], engine: null, selected: null };
 
-      const hdr = _el('div', 'mod-header');
-      hdr.innerHTML = `
-        <div class="mod-eyebrow">Query &amp; Data</div>
-        <h1 class="mod-title">Data Loading</h1>
-        <p class="mod-subtitle">Netflix ingests 1.4 billion watch events daily into Snowflake using three complementary loading strategies for different latency and throughput requirements.</p>`;
-      wrap.appendChild(hdr);
+      const page = _el('div', 'dl2-page');
+      page.innerHTML = `
+        <div class="mod-header">
+          <div class="mod-eyebrow">Query &amp; Data</div>
+          <h1 class="mod-title">End-to-End Ingestion Simulator</h1>
+          <p class="mod-subtitle">Follow data from a source system all the way to a curated, reconciled Snowflake table. Pick a pipeline pattern, then step through — or click — any of the 14 lifecycle stages.</p>
+        </div>`;
+      canvas.appendChild(page);
 
-      const layout = _el('div', 'dl-layout');
-      wrap.appendChild(layout);
-
-      const left  = _el('div', 'dl-left');
-      const right = _el('div', 'dl-right');
-      layout.appendChild(left);
-      layout.appendChild(right);
-
-      /* ── Method selector tabs ── */
-      const tabsTitle = _el('div', 'partition-section-title');
-      tabsTitle.textContent = 'Ingestion Method';
-      left.appendChild(tabsTitle);
-
-      const tabs = _el('div', 'dl-method-tabs');
-      tabs.id = 'dl-tabs';
-      [
-        { id: 'snowpipe', label: '⚡ Snowpipe',       color: '#29b5e8', sub: 'Micro-batch · ~45s latency' },
-        { id: 'copy',     label: '📦 COPY INTO',      color: '#a371f7', sub: 'Bulk load · minutes' },
-        { id: 'kafka',    label: '🌊 Kafka Connector', color: '#3fb950', sub: 'Streaming · < 5s' },
-      ].forEach(m => {
-        const btn = _el('div', 'dl-method-tab');
-        btn.dataset.method = m.id;
-        btn.style.setProperty('--tab-color', m.color);
-        btn.innerHTML = `<span class="dl-tab-label">${m.label}</span><span class="dl-tab-sub">${m.sub}</span>`;
-        tabs.appendChild(btn);
+      /* Pattern selector */
+      const selWrap = _el('div', 'dl2-patterns');
+      spec.patterns.forEach(p => {
+        const b = _el('button', 'dl2-pattern');
+        b.type = 'button';
+        b.dataset.pattern = p.id;
+        b.style.setProperty('--p-accent', p.accent);
+        b.innerHTML = `<span class="dl2-pattern-label">${p.label}</span><span class="dl2-pattern-sub">${p.tagline}</span>`;
+        b.addEventListener('click', () => selectPattern(p.id));
+        selWrap.appendChild(b);
       });
-      left.appendChild(tabs);
+      page.appendChild(selWrap);
 
-      /* ── Pipeline diagram ── */
-      const pipeTitle = _el('div', 'partition-section-title');
-      pipeTitle.style.marginTop = '1.5rem';
-      pipeTitle.textContent = 'Ingestion Pipeline';
-      left.appendChild(pipeTitle);
+      const layout = _el('div', 'dl2-layout');
+      const left = _el('div', 'dl2-left');
+      const right = _el('div', 'dl2-right');
+      layout.append(left, right);
+      page.appendChild(layout);
 
-      const pipeRow = _el('div', 'dl-pipe-row');
-      pipeRow.id = 'dl-pipe-row';
-      const NODES = [
-        { id: 'source',  label: 'Source',         sub: 'S3 / Kafka', icon: '☁️' },
-        { id: 'stage',   label: 'Stage',           sub: 'External / Int.', icon: '🗂️' },
-        { id: 'ingest',  label: 'Ingest Engine',   sub: 'Snowpipe / WH', icon: '⚙️' },
-        { id: 'table',   label: 'Target Table',    sub: 'WATCH_EVENTS', icon: '🗄️' },
-      ];
-      NODES.forEach((n, idx) => {
-        const node = _el('div', 'dl-pipe-node');
-        node.id = `dl-node-${n.id}`;
-        node.innerHTML = `
-          <div class="dl-node-icon">${n.icon}</div>
-          <div class="dl-node-label">${n.label}</div>
-          <div class="dl-node-sub">${n.sub}</div>`;
-        pipeRow.appendChild(node);
-        if (idx < NODES.length - 1) {
-          const arr = _el('div', 'dl-pipe-arrow');
-          arr.id = `dl-arr-${n.id}`;
-          arr.innerHTML = `<div class="dl-arrow-inner"><div class="dl-arrow-line"></div><span class="dl-arrow-tip">▶</span></div>`;
-          pipeRow.appendChild(arr);
-        }
-      });
-      left.appendChild(pipeRow);
+      /* Pipeline canvas (all 14 stages; skipped ones greyed) */
+      left.appendChild(_sectionTitle('Lifecycle — click a stage'));
+      const pipe = _el('div', 'dl2-pipe'); pipe.id = 'dl2-pipe';
+      left.appendChild(pipe);
 
-      /* ── Status + metrics ── */
-      const statusBar = _el('div', 'dl-status-bar');
-      statusBar.id = 'dl-status';
-      statusBar.innerHTML = `<span class="dl-status-dot" id="dl-sdot"></span><span id="dl-stext">Idle — select a method and press Play</span>`;
-      left.appendChild(statusBar);
+      /* Status + metrics */
+      const status = _el('div', 'dl2-status'); status.id = 'dl2-status';
+      status.innerHTML = `<span class="dl2-dot" id="dl2-dot"></span><span id="dl2-stext">Idle</span>`;
+      left.appendChild(status);
 
-      const metricsTitle = _el('div', 'partition-section-title');
-      metricsTitle.style.marginTop = '1.5rem';
-      metricsTitle.textContent = 'Ingestion Metrics (illustrative)';
-      left.appendChild(metricsTitle);
-
-      const metrics = _el('div', 'dl-metrics');
-      metrics.id = 'dl-metrics';
-      metrics.innerHTML = `
-        <div class="dl-metric"><div class="dl-metric-val" id="dlm-files">—</div><div class="dl-metric-lbl">Files / Batches</div></div>
-        <div class="dl-metric"><div class="dl-metric-val" id="dlm-rows">—</div><div class="dl-metric-lbl">Rows Ingested</div></div>
-        <div class="dl-metric"><div class="dl-metric-val" id="dlm-latency">—</div><div class="dl-metric-lbl">Avg Latency</div></div>
-        <div class="dl-metric"><div class="dl-metric-val" id="dlm-credits">—</div><div class="dl-metric-lbl">Credits</div></div>`;
+      left.appendChild(_sectionTitle('Pipeline metrics (illustrative)'));
+      const metrics = _el('div', 'dl2-metrics'); metrics.id = 'dl2-metrics';
+      metrics.innerHTML = [
+        ['files-disc', 'Files discovered'], ['files-load', 'Files loaded'],
+        ['rows-parse', 'Rows parsed'], ['rows-ins', 'Rows inserted'],
+        ['rows-rej', 'Rows rejected'], ['backlog', 'Backlog'],
+        ['dur', 'Elapsed (sim)'], ['stat', 'Status'],
+      ].map(([k, l]) => `<div class="dl2-metric"><div class="dl2-metric-val" id="m-${k}">—</div><div class="dl2-metric-lbl">${l}</div></div>`).join('');
       left.appendChild(metrics);
 
-      const note = _el('div', 'dl-note');
-      note.innerHTML = '⚠️ Simulated walkthrough. Latency, credit and throughput figures are illustrative teaching values — not guaranteed Snowflake performance. No query runs against a live account.';
+      const note = _el('div', 'dl2-note');
+      note.innerHTML = '⚠️ <strong>Simulation.</strong> Figures are illustrative teaching values derived from the selected pattern — not guaranteed Snowflake throughput, latency or credit figures. No SQL runs against a live account.';
       left.appendChild(note);
 
-      /* ── Right: anim panel + SQL ── */
-      const panel = _el('div', 'anim-panel');
-      panel.id = 'dl-panel';
-      panel.innerHTML = `
-        <div class="anim-panel-step-num" id="dlpanel-step">Overview</div>
-        <div class="anim-panel-title"    id="dlpanel-title">Data Loading Methods</div>
-        <div class="anim-panel-body"     id="dlpanel-body">Press Play to explore how Netflix loads 1.4B daily watch events using Snowpipe, COPY INTO, and the Kafka Connector.</div>
-        <div class="anim-panel-facts"    id="dlpanel-facts"></div>`;
-      right.appendChild(panel);
+      const distinction = _el('div', 'dl2-distinction'); distinction.id = 'dl2-distinction';
+      left.appendChild(distinction);
 
-      const sqlTitle = _el('div', 'partition-section-title');
-      sqlTitle.style.marginTop = '1.5rem';
-      sqlTitle.textContent = 'Example SQL / Config';
-      right.appendChild(sqlTitle);
+      /* Right: detail panel */
+      const detail = _el('div', 'dl2-detail'); detail.id = 'dl2-detail';
+      right.appendChild(detail);
 
-      const sqlBox = _el('div', 'storage-query-box');
-      sqlBox.id = 'dl-sql';
-      sqlBox.style.minHeight = '150px';
-      sqlBox.style.whiteSpace = 'pre';
-      sqlBox.textContent = '-- Select a method to see its SQL';
-      right.appendChild(sqlBox);
+      const ctx = { canvas, state };
 
-      /* ── Engine ── */
-      const ctx = { container: canvas, panel };
-      const engine = new (AE())({ steps: _buildSteps(ctx), speed: 1 });
-      engine.setContext(ctx);
-      window.CDWH.AnimationControls.register(engine);
+      function selectPattern(id) {
+        state.pattern = spec.byId(id);
+        state.activeIds = spec.stages.filter(s => !(state.pattern.skip || []).includes(s.id)).map(s => s.id);
+        // highlight selector
+        selWrap.querySelectorAll('.dl2-pattern').forEach(b => b.classList.toggle('active', b.dataset.pattern === id));
+        document.documentElement.style.setProperty('--dl2-accent', state.pattern.accent);
+        buildPipe();
+        rebuildEngine();
+        renderIdle();
+        distinction.innerHTML = `<div class="dl2-distinction-tag">🔑 What makes this pattern different</div><p>${state.pattern.distinction}</p>`;
+        showOverview();
+      }
 
-      /* Make the method tabs live: jump the walkthrough to that method's first step. */
-      const TAB_STEP = { snowpipe: 1, copy: 5, kafka: 7 };
-      tabs.querySelectorAll('.dl-method-tab').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const idx = TAB_STEP[btn.dataset.method];
-          if (idx == null) return;
-          engine.pause();
-          engine.goto(idx);
+      function buildPipe() {
+        pipe.innerHTML = '';
+        let lastGroup = null;
+        spec.stages.forEach((s, i) => {
+          if (s.group !== lastGroup) {
+            const g = _el('div', 'dl2-group-label'); g.textContent = s.group; pipe.appendChild(g); lastGroup = s.group;
+          }
+          const used = !(state.pattern.skip || []).includes(s.id);
+          const node = _el('button', 'dl2-node' + (used ? '' : ' dl2-skip'));
+          node.type = 'button';
+          node.dataset.stage = s.id;
+          node.id = 'dl2-node-' + s.id;
+          node.innerHTML = `<span class="dl2-node-icon">${s.icon}</span><span class="dl2-node-label">${s.label}</span>${used ? '' : '<span class="dl2-node-skip">not used</span>'}`;
+          node.addEventListener('click', () => {
+            if (used) { const idx = state.activeIds.indexOf(s.id); if (state.engine) state.engine.goto(idx); else selectStage(s.id); }
+            else showSkipped(s.id);
+          });
+          pipe.appendChild(node);
         });
-      });
+      }
 
-      return { destroy: () => engine.destroy() };
+      function rebuildEngine() {
+        if (state.engine) { try { state.engine.destroy(); } catch (_) {} }
+        const F = AE().fnStep;
+        const steps = state.activeIds.map((id, i) =>
+          F(state.pattern.detail[id].title, state.pattern.detail[id].what, () => renderCursor(i), null, 2600));
+        const engine = new (AE())({ steps, speed: 1 });
+        engine.setContext(ctx);
+        engine.on('stepchange', i => { if (i < 0) renderIdle(); });
+        window.CDWH.AnimationControls.register(engine);
+        state.engine = engine;
+      }
+
+      function renderCursor(i) {
+        const ids = state.activeIds;
+        pipe.querySelectorAll('.dl2-node').forEach(n => n.classList.remove('dl2-active', 'dl2-done'));
+        ids.forEach((id, k) => {
+          const n = pipe.querySelector('#dl2-node-' + id);
+          if (!n) return;
+          if (k < i) n.classList.add('dl2-done');
+          else if (k === i) n.classList.add('dl2-active');
+        });
+        const m = SIM().deriveMetrics(state.pattern, ids, i);
+        paintMetrics(m);
+        selectStage(ids[i], true);
+      }
+
+      function renderIdle() {
+        pipe.querySelectorAll('.dl2-node').forEach(n => n.classList.remove('dl2-active', 'dl2-done'));
+        paintMetrics(SIM().deriveMetrics(state.pattern, state.activeIds, -1));
+      }
+
+      function paintMetrics(m) {
+        const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+        set('m-files-disc', m.filesDiscovered); set('m-files-load', m.filesLoaded);
+        set('m-rows-parse', m.rowsParsed); set('m-rows-ins', m.rowsInserted);
+        set('m-rows-rej', m.rowsRejected); set('m-backlog', m.backlog);
+        set('m-dur', m.duration); set('m-stat', m.raw.done ? 'done' : (m.raw.idle ? 'idle' : 'running'));
+        const dot = document.getElementById('dl2-dot'); const st = document.getElementById('dl2-stext');
+        if (st) st.textContent = m.status;
+        if (dot) dot.className = 'dl2-dot ' + (m.raw.done ? 'done' : m.raw.idle ? '' : 'live');
+      }
+
+      function showOverview() {
+        detail.innerHTML =
+          `<div class="dl2-detail-eyebrow">${state.pattern.label}</div>
+           <h2 class="dl2-detail-title">${state.pattern.tagline}</h2>
+           <p class="dl2-detail-what">Press <strong>Play</strong> (or click any lit stage) to walk the lifecycle. Greyed stages are <em>not used</em> by this pattern — click them to learn why.</p>`;
+      }
+
+      function showSkipped(id) {
+        const s = spec.stages.find(x => x.id === id);
+        detail.innerHTML =
+          `<div class="dl2-detail-eyebrow dl2-badge-skip">Not used in ${state.pattern.short}</div>
+           <h2 class="dl2-detail-title">${s.icon} ${s.label}</h2>
+           <p class="dl2-detail-what">${_skipReason(state.pattern.id, id)}</p>`;
+        pipe.querySelectorAll('.dl2-node').forEach(n => n.classList.remove('dl2-sel'));
+        const n = pipe.querySelector('#dl2-node-' + id); if (n) n.classList.add('dl2-sel');
+      }
+
+      function selectStage(id, fromCursor) {
+        const d = state.pattern.detail[id];
+        const s = spec.stages.find(x => x.id === id);
+        if (!d || !s) return;
+        state.selected = id;
+        pipe.querySelectorAll('.dl2-node').forEach(n => n.classList.remove('dl2-sel'));
+        const n = pipe.querySelector('#dl2-node-' + id); if (n) n.classList.add('dl2-sel');
+        const rows = [];
+        if (d.io && d.io !== '—')     rows.push(['Input → output', d.io]);
+        if (d.state && d.state !== '—') rows.push(['State change', d.state]);
+        detail.innerHTML =
+          `<div class="dl2-detail-eyebrow dl2-role-${d.role}">${ROLE_LABEL[d.role] || ''}</div>
+           <h2 class="dl2-detail-title">${s.icon} ${d.title}</h2>
+           <p class="dl2-detail-what">${d.what}</p>
+           ${rows.length ? '<div class="dl2-kv">' + rows.map(r => `<div class="dl2-kv-row"><span>${r[0]}</span><b>${r[1]}</b></div>`).join('') + '</div>' : ''}
+           ${d.fail && d.fail !== '—' ? `<div class="dl2-fail"><h4>💥 Common failure</h4><p>${d.fail}</p></div>` : ''}
+           ${d.fix && d.fix !== '—' ? `<div class="dl2-fix"><h4>🛠️ Troubleshoot</h4><p>${d.fix}</p></div>` : ''}
+           <div id="dl2-code-slot"></div>`;
+        if (d.code && CV()) {
+          document.getElementById('dl2-code-slot').appendChild(CV().create(d.code.text, d.code.lang, d.code.label));
+        }
+      }
+
+      selectPattern(spec.patterns[0].id);
+      return { destroy() { if (state.engine) { try { state.engine.destroy(); } catch (_) {} } } };
     },
   };
 
-  /* ── Helpers ── */
-  function _setPanel(ctx, step, title, body, facts = []) {
-    const p = ctx.panel;
-    if (!p) return;
-    p.querySelector('#dlpanel-step').textContent  = step;
-    p.querySelector('#dlpanel-title').textContent = title;
-    p.querySelector('#dlpanel-body').innerHTML    = body;
-    p.querySelector('#dlpanel-facts').innerHTML   = facts.map(f => `<div class="anim-panel-fact">${f}</div>`).join('');
-    p.classList.add('highlighted');
+  function _skipReason(patternId, stageId) {
+    const R = {
+      'streaming|transport': 'Snowpipe Streaming writes rows directly through a channel using the SDK — there is no object storage in the path at all.',
+      'streaming|notify': 'There are no files, so there is no file-arrival event to react to. The channel carries rows continuously.',
+      'streaming|discover': 'Nothing to discover: rows stream in through the channel rather than being found as files in a stage.',
+      'snowpipe|': '', // none
+      'batch_copy|notify': 'Bulk COPY INTO is pull-based: you run it (or a scheduled task runs it). It is not triggered by an arrival event the way Snowpipe is.',
+      'kafka|notify': 'Kafka delivery is poll-based from the topic; the connector consumes records rather than reacting to a storage event.',
+      'kafka|discover': 'The connector consumes topic partitions directly — there is no file-discovery step.',
+      'cdc|notify': 'Change events arrive on a Kafka topic; the connector consumes them rather than reacting to a storage notification.',
+      'cdc|discover': 'Changes are consumed from the topic in offset order — there are no files to discover.',
+    };
+    return R[patternId + '|' + stageId] || 'This pattern takes a different path and does not use this stage.';
   }
 
-  function _resetState(ctx) {
-    ctx.container.querySelectorAll('.dl-pipe-node').forEach(el => el.classList.remove('dl-active', 'dl-complete', 'dl-streaming'));
-    ctx.container.querySelectorAll('.dl-pipe-arrow').forEach(el => el.classList.remove('dl-active', 'dl-flowing'));
-    ctx.container.querySelectorAll('.dl-method-tab').forEach(el => el.classList.remove('active'));
-    ctx.panel?.classList.remove('highlighted');
-    _status(ctx, '', 'Idle');
-  }
-
-  function _tab(ctx, id) {
-    ctx.container.querySelectorAll('.dl-method-tab').forEach(el => el.classList.toggle('active', el.dataset.method === id));
-  }
-
-  function _node(ctx, id, state) {
-    const el = ctx.container.querySelector(`#dl-node-${id}`);
-    if (el) { el.classList.remove('dl-active', 'dl-complete', 'dl-streaming'); el.classList.add(`dl-${state}`); }
-  }
-
-  function _arrow(ctx, fromId, state) {
-    const el = ctx.container.querySelector(`#dl-arr-${fromId}`);
-    if (el) { el.classList.remove('dl-active', 'dl-flowing'); el.classList.add(`dl-${state}`); }
-  }
-
-  function _status(ctx, state, text) {
-    const dot  = ctx.container.querySelector('#dl-sdot');
-    const txt  = ctx.container.querySelector('#dl-stext');
-    if (dot) dot.className = `dl-status-dot${state ? ' ' + state : ''}`;
-    if (txt) txt.textContent = text;
-  }
-
-  function _metrics(ctx, files, rows, latency, credits) {
-    const s = (id, v) => { const e = ctx.container.querySelector('#' + id); if (e) e.textContent = v; };
-    s('dlm-files', files);
-    s('dlm-rows', rows);
-    s('dlm-latency', latency);
-    s('dlm-credits', credits);
-  }
-
-  function _sql(ctx, code) {
-    const el = ctx.container.querySelector('#dl-sql');
-    if (el) { el.textContent = code; el.classList.add('active'); }
-  }
-
-  function _buildSteps(ctx) {
-    const F = AE().fnStep;
-    return [
-      F('Loading Methods', 'Three strategies for different latency profiles',
-        c => {
-          _resetState(c);
-          _setPanel(c, 'Step 1 of 9', 'Three Data Loading Strategies',
-            'Snowflake supports three primary ingestion patterns. <strong>Snowpipe</strong> (micro-batch, ~45s latency), <strong>COPY INTO</strong> (bulk batch, minutes to hours), and <strong>Kafka Connector</strong> with Snowpipe Streaming (< 5s). Netflix uses all three.',
-            [
-              'Snowpipe: S3/GCS event notifications trigger micro-batch loads',
-              'COPY INTO: warehouse-based bulk loading for large historical datasets',
-              'Kafka Connector: Snowpipe Streaming API for near-realtime ingestion',
-              'Netflix uses Kafka for live events, Snowpipe for regional files, COPY for backfills',
-            ]);
-        }, _resetState, 3000),
-
-      F('Snowpipe — File in S3', 'Watch event Parquet files land in S3',
-        c => {
-          _resetState(c);
-          _tab(c, 'snowpipe');
-          _node(c, 'source', 'active');
-          _sql(c, SNOWPIPE_SQL);
-          _status(c, 'loading', 'Snowpipe — S3 event detected, SQS notification fired');
-          _metrics(c, '0 / ~1,440', '0', '~45s avg', '0.06/1K files');
-          _setPanel(c, 'Step 2 of 9', 'S3 Event → SQS → Snowpipe',
-            'Every 60 seconds Netflix streaming services write ~1M rows as Parquet to S3 (one file per region per minute). S3 fires an SQS event notification that Snowpipe listens to automatically.',
-            [
-              '~1,440 Parquet files per region per day (~1M rows each)',
-              'File size: ~128 MB compressed Parquet (Snappy codec)',
-              'S3 PUT event → SQS queue → Snowpipe listener (no polling needed)',
-              'AUTO_INGEST = TRUE: Snowpipe subscribes to the SQS queue automatically',
-            ]);
-        }, _resetState, 3500),
-
-      F('Snowpipe — Stage Read', 'Files referenced from external S3 stage',
-        c => {
-          _resetState(c);
-          _tab(c, 'snowpipe');
-          _node(c, 'source', 'complete');
-          _arrow(c, 'source', 'flowing');
-          _node(c, 'stage', 'active');
-          _sql(c, SNOWPIPE_SQL);
-          _status(c, 'loading', 'Snowpipe — reading batch from external stage…');
-          _metrics(c, '12', '12M', '—', '0.02');
-          _setPanel(c, 'Step 3 of 9', 'External Stage — No Data Movement',
-            'Snowpipe reads the Parquet file directly from the external S3 stage. There is no copy into Snowflake storage first — Snowpipe reads the S3 bytes in place via the stage definition.',
-            [
-              'External stage: @EVENTS_DB.PUBLIC.s3_stage (points to S3 bucket + prefix)',
-              'No data copied into Snowflake-managed storage — reads S3 in place',
-              'MATCH_BY_COLUMN_NAME: Parquet column names auto-mapped to table columns',
-              '12 files queued in this batch = ~12M rows, ~1.5 GB compressed',
-            ]);
-        }, _resetState, 3500),
-
-      F('Snowpipe — Ingest', 'Serverless engine transforms and writes rows',
-        c => {
-          _resetState(c);
-          _tab(c, 'snowpipe');
-          _node(c, 'source', 'complete');
-          _node(c, 'stage',  'complete');
-          _arrow(c, 'source', 'flowing');
-          _arrow(c, 'stage',  'flowing');
-          _node(c, 'ingest', 'streaming');
-          _sql(c, SNOWPIPE_SQL);
-          _status(c, 'streaming', 'Snowpipe — ingesting rows into micro-partitions…');
-          _metrics(c, '12', '12M', '~40s so far', '0.06');
-          _setPanel(c, 'Step 4 of 9', 'Serverless Ingest Engine — No Warehouse Needed',
-            'Snowpipe\'s serverless compute converts Parquet columns into Snowflake\'s internal columnar format and writes new micro-partitions. No virtual warehouse credit is used — billed per file.',
-            [
-              'Serverless: Snowflake manages compute automatically — no WH credits',
-              'Billing: ~0.06 credits per 1,000 files (much cheaper than warehouse)',
-              '12 files → ~96 new micro-partitions in WATCH_EVENTS (8 per file)',
-              'Load completes 30–90 seconds after SQS notification received',
-            ]);
-        }, _resetState, 4000),
-
-      F('Snowpipe — Committed', 'ACID commit to WATCH_EVENTS',
-        c => {
-          _resetState(c);
-          _tab(c, 'snowpipe');
-          _node(c, 'source', 'complete');
-          _node(c, 'stage',  'complete');
-          _node(c, 'ingest', 'complete');
-          _arrow(c, 'source', 'active');
-          _arrow(c, 'stage',  'active');
-          _arrow(c, 'ingest', 'flowing');
-          _node(c, 'table', 'active');
-          _sql(c, SNOWPIPE_SQL);
-          _status(c, 'done', 'Snowpipe — batch committed ✓');
-          _metrics(c, '12', '12M', '45s', '0.08');
-          _setPanel(c, 'Step 5 of 9', 'ACID Commit — 12M Rows Visible to Queries',
-            '12M rows committed to EVENTS_DB.RAW.WATCH_EVENTS in a single ACID transaction. Queries see a consistent snapshot — no partial file reads. Result Cache for WATCH_EVENTS is automatically invalidated.',
-            [
-              '12,000,000 rows added → 96 new micro-partitions created',
-              'ACID guarantee: all-or-nothing commit, no partial loads visible',
-              'Result Cache invalidated for all queries on WATCH_EVENTS',
-              'COPY_HISTORY updated — tracks file ETag, rows, errors, duration',
-            ]);
-        }, _resetState, 4000),
-
-      F('COPY INTO — Start', 'Historical backfill: 3 years of data',
-        c => {
-          _resetState(c);
-          _tab(c, 'copy');
-          _node(c, 'source', 'active');
-          _sql(c, COPY_SQL);
-          _status(c, 'loading', 'COPY INTO — warehouse-based bulk load starting…');
-          _metrics(c, '0 / 1,440', '0', '~8min total', '32 (4XL WH)');
-          _setPanel(c, 'Step 6 of 9', 'COPY INTO — Bulk Historical Backfill',
-            'Netflix migrated 3 years of watch history into Snowflake using COPY INTO. Unlike Snowpipe, COPY INTO requires an active virtual warehouse. Pattern matching selects only 2020–2023 Parquet files.',
-            [
-              'COPY INTO requires an active virtual warehouse (billed per second)',
-              'PATTERN: regex filters which S3 files to load — watch_events_202[0-3]',
-              'ON_ERROR = CONTINUE: skips corrupted files and logs errors in COPY_HISTORY',
-              'Total load: ~2 TB compressed Parquet → ~180 TB logical in Snowflake',
-            ]);
-        }, _resetState, 3500),
-
-      F('COPY INTO — Parallel', '16-node warehouse distributes files',
-        c => {
-          _resetState(c);
-          _tab(c, 'copy');
-          _node(c, 'source', 'complete');
-          _arrow(c, 'source', 'flowing');
-          _node(c, 'stage', 'active');
-          _arrow(c, 'stage', 'flowing');
-          _node(c, 'ingest', 'active');
-          _arrow(c, 'ingest', 'flowing');
-          _node(c, 'table', 'active');
-          _sql(c, COPY_SQL);
-          _status(c, 'streaming', 'COPY INTO — 16 nodes processing ~90 files each in parallel…');
-          _metrics(c, '1,440', '1.44B', '~8min', '32');
-          _setPanel(c, 'Step 7 of 9', '16 Nodes × 90 Files — Maximum Parallelism',
-            'COPY INTO distributes files across all 16 warehouse nodes in the 4XL warehouse. Each node processes ~90 files in parallel. Safe to retry — Snowflake tracks loaded files by S3 ETag and skips duplicates.',
-            [
-              '4XL warehouse: 16 nodes, each handles ~90 Parquet files',
-              '1,440 files × ~1M rows = 1.44B rows loaded in ~8 minutes',
-              'File deduplication: Snowflake tracks loaded ETags — retry is always safe',
-              'PURGE = FALSE: files stay in S3 after load (enables replay if needed)',
-            ]);
-        }, _resetState, 4000),
-
-      F('Kafka Connector — Streaming', 'Sub-5-second latency via Snowpipe Streaming',
-        c => {
-          _resetState(c);
-          _tab(c, 'kafka');
-          _node(c, 'source', 'streaming');
-          _arrow(c, 'source', 'flowing');
-          _node(c, 'stage', 'streaming');
-          _arrow(c, 'stage', 'flowing');
-          _node(c, 'ingest', 'streaming');
-          _arrow(c, 'ingest', 'flowing');
-          _node(c, 'table', 'streaming');
-          _sql(c, KAFKA_SQL);
-          _status(c, 'streaming', 'Kafka Connector — live streaming at ~16K rows/sec…');
-          _metrics(c, '∞ (streaming)', '~16K rows/sec', '< 5s end-to-end', 'serverless');
-          _setPanel(c, 'Step 8 of 9', 'Kafka Connector — Snowpipe Streaming API',
-            'The Kafka Connector v2.0 uses the Snowpipe Streaming API for row-level rather than file-level ingestion. 16 consumer tasks flush to Snowflake every 5 seconds or 10,000 records — whichever comes first.',
-            [
-              '16 Kafka consumer tasks → 16 parallel Snowpipe Streaming channels',
-              'Buffer flush: 5s OR 10K records — rows committed at sub-second granularity',
-              'Snowpipe Streaming: row-level ingestion, no file staging needed',
-              'Netflix real-time recommendation engine reads from WATCH_EVENTS_STREAM',
-            ]);
-        }, _resetState, 4000),
-
-      F('Load Monitoring', 'COPY_HISTORY, pipe status, and alerting',
-        c => {
-          _resetState(c);
-          _status(c, 'done', 'All ingestion pipelines healthy ✓');
-          _metrics(c, '1,440 files/day', '1.4B rows/day', '< 60s avg', '~120 credits/day');
-          _setPanel(c, 'Step 9 of 9', 'Monitoring All Three Ingestion Paths',
-            'Netflix monitors ingestion health using COPY_HISTORY, SYSTEM$PIPE_STATUS, and Kafka consumer lag metrics. Automated alerts fire if any pipeline falls > 5 minutes behind the expected ingestion rate.',
-            [
-              'COPY_HISTORY: file-level audit — status, rows loaded, errors, duration',
-              'SYSTEM$PIPE_STATUS: returns JSON with lag seconds, credits, pending files',
-              'Kafka: consumer group lag < 60s target for real-time recommendations',
-              'Step Functions + Lambda: retry logic for failed Snowpipe or COPY files',
-            ]);
-        }, _resetState, 4000),
-    ];
-  }
-
-  function _el(tag, cls) {
-    const el = document.createElement(tag);
-    if (cls) el.className = cls;
-    return el;
-  }
+  function _sectionTitle(t) { const e = _el('div', 'dl2-section-title'); e.textContent = t; return e; }
+  function _el(tag, cls) { const el = document.createElement(tag); if (cls) el.className = cls; return el; }
 
   window.CDWH = window.CDWH || {};
   window.CDWH.Modules = window.CDWH.Modules || {};
-  window.CDWH.P.snowflake.Modules.dataLoading = DataLoadingModule;
+  window.CDWH.P.snowflake.Modules.dataLoading = Module;
 })();

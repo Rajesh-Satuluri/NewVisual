@@ -1,0 +1,86 @@
+/* ============================================================
+   Data-loading labs — P0-A simulator (dl2-*), shared loading UI.
+   Token-based; inherits light/dark from the app's CSS variables.
+   ============================================================ */
+
+:root { --dl2-accent: var(--snowflake, #29b5e8); }
+
+/* ---- Pattern selector ---- */
+.dl2-patterns { display: flex; flex-wrap: wrap; gap: .5rem; margin: 1rem 0 1.25rem; }
+.dl2-pattern {
+  flex: 1 1 180px; text-align: left; cursor: pointer;
+  background: var(--surface); color: var(--text-primary);
+  border: 1px solid var(--border); border-left: 3px solid var(--p-accent, var(--border));
+  border-radius: var(--radius); padding: .6rem .8rem;
+  transition: background .2s, border-color .2s, box-shadow .2s;
+}
+.dl2-pattern:hover { border-color: var(--p-accent, var(--snowflake)); }
+.dl2-pattern.active { box-shadow: 0 0 0 1px var(--p-accent); background: rgba(var(--blue-rgb), .06); }
+.dl2-pattern-label { display: block; font-weight: 600; font-size: .9rem; }
+.dl2-pattern.active .dl2-pattern-label { color: var(--p-accent); }
+.dl2-pattern-sub { display: block; font-size: .7rem; color: var(--text-muted); margin-top: .15rem; line-height: 1.3; }
+
+/* ---- Layout ---- */
+.dl2-layout { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 1.25rem; align-items: start; }
+@media (max-width: 960px) { .dl2-layout { grid-template-columns: 1fr; } }
+.dl2-section-title { font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); margin: 1.1rem 0 .55rem; font-weight: 600; }
+
+/* ---- Pipeline ---- */
+.dl2-pipe { display: flex; flex-wrap: wrap; gap: .4rem; align-items: stretch; }
+.dl2-group-label {
+  flex-basis: 100%; font-size: .62rem; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--text-muted); opacity: .8; margin: .5rem 0 .1rem; font-weight: 700;
+}
+.dl2-group-label:first-child { margin-top: 0; }
+.dl2-node {
+  cursor: pointer; display: flex; flex-direction: column; gap: .2rem; align-items: flex-start;
+  background: var(--surface); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: .45rem .55rem; min-width: 104px; flex: 1 1 104px;
+  transition: border-color .18s, background .18s, box-shadow .18s, transform .12s;
+}
+.dl2-node:hover { border-color: var(--dl2-accent); }
+.dl2-node-icon { font-size: 1rem; }
+.dl2-node-label { font-size: .7rem; font-weight: 600; line-height: 1.2; }
+.dl2-node.dl2-active { border-color: var(--dl2-accent); box-shadow: 0 0 0 2px var(--dl2-accent); background: rgba(var(--blue-rgb), .08); transform: translateY(-1px); }
+.dl2-node.dl2-done { border-color: color-mix(in srgb, var(--dl2-accent) 50%, var(--border)); background: rgba(var(--blue-rgb), .04); }
+.dl2-node.dl2-sel { outline: 2px dashed var(--dl2-accent); outline-offset: 1px; }
+.dl2-node.dl2-skip { opacity: .42; cursor: help; border-style: dashed; }
+.dl2-node.dl2-skip:hover { opacity: .7; }
+.dl2-node-skip { font-size: .56rem; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); }
+
+/* ---- Status + metrics ---- */
+.dl2-status { display: flex; align-items: center; gap: .5rem; margin-top: 1rem; font-size: .8rem; color: var(--text-secondary, var(--text-muted)); }
+.dl2-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--text-muted); flex: none; }
+.dl2-dot.live { background: var(--dl2-accent); box-shadow: 0 0 0 4px rgba(var(--blue-rgb), .18); animation: dl2-pulse 1.3s infinite; }
+.dl2-dot.done { background: #3fb950; }
+@keyframes dl2-pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
+
+.dl2-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: .45rem; }
+@media (max-width: 600px) { .dl2-metrics { grid-template-columns: repeat(2, 1fr); } }
+.dl2-metric { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: .5rem .4rem; text-align: center; }
+.dl2-metric-val { font-size: .9rem; font-weight: 700; color: var(--dl2-accent); font-variant-numeric: tabular-nums; word-break: break-word; }
+.dl2-metric-lbl { font-size: .58rem; color: var(--text-muted); margin-top: .2rem; text-transform: uppercase; letter-spacing: .03em; }
+
+.dl2-note { margin-top: .9rem; padding: .55rem .7rem; font-size: .7rem; line-height: 1.45; color: var(--text-muted); background: rgba(var(--blue-rgb), .04); border: 1px dashed var(--border); border-radius: var(--radius); }
+.dl2-distinction { margin-top: .9rem; padding: .7rem .8rem; background: rgba(var(--blue-rgb), .05); border-left: 3px solid var(--dl2-accent); border-radius: var(--radius); }
+.dl2-distinction-tag { font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--dl2-accent); margin-bottom: .3rem; }
+.dl2-distinction p { font-size: .78rem; line-height: 1.5; margin: 0; color: var(--text-secondary, var(--text-primary)); }
+
+/* ---- Detail panel ---- */
+.dl2-detail { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.1rem; position: sticky; top: .5rem; }
+.dl2-detail-eyebrow { font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); margin-bottom: .3rem; }
+.dl2-role-upstream { color: #f0883e; } .dl2-role-snowflake { color: var(--snowflake); }
+.dl2-role-table { color: #a371f7; } .dl2-role-ops { color: #3fb950; }
+.dl2-badge-skip { color: var(--text-muted); }
+.dl2-detail-title { font-size: 1.05rem; margin: 0 0 .5rem; color: var(--text-primary); }
+.dl2-detail-what { font-size: .83rem; line-height: 1.55; color: var(--text-secondary, var(--text-primary)); margin: 0 0 .7rem; }
+.dl2-kv { display: flex; flex-direction: column; gap: .3rem; margin: .6rem 0; }
+.dl2-kv-row { display: flex; justify-content: space-between; gap: .75rem; font-size: .74rem; border-bottom: 1px dotted var(--border); padding-bottom: .25rem; }
+.dl2-kv-row span { color: var(--text-muted); } .dl2-kv-row b { color: var(--text-primary); text-align: right; }
+.dl2-fail, .dl2-fix { margin-top: .6rem; padding: .5rem .65rem; border-radius: var(--radius); font-size: .76rem; line-height: 1.5; }
+.dl2-fail { background: rgba(248, 81, 73, .08); border-left: 3px solid #f85149; }
+.dl2-fix  { background: rgba(63, 185, 80, .08); border-left: 3px solid #3fb950; }
+.dl2-fail h4, .dl2-fix h4 { margin: 0 0 .2rem; font-size: .72rem; }
+.dl2-fail p, .dl2-fix p { margin: 0; color: var(--text-secondary, var(--text-primary)); }
+#dl2-code-slot:not(:empty) { margin-top: .75rem; }
