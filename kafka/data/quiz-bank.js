@@ -422,4 +422,18 @@ export const QUIZ_BANK = {
       answer: 1,
       explanation: 'Streaming can\'t MERGE directly, so you use foreachBatch and run MERGE INTO per micro-batch (deduping to one source row per key first). Pair it with txnAppId/txnVersion for idempotent, exactly-once commits.' },
   ],
+  m31: [
+    { q: 'At what moment does a row change first become visible to CDC (Debezium)?',
+      options: ['As soon as the statement runs', 'Only after the transaction commits', 'When the next snapshot runs', 'When Kafka acknowledges the produce'],
+      answer: 1,
+      explanation: 'Changes buffer in the transaction and are only written to the WAL (and thus decodable) on commit. Uncommitted or rolled-back changes never reach logical decoding, so they never appear downstream.' },
+    { q: 'During a Debezium connector outage, what grows dangerously, and what is the recovery when the needed WAL still exists?',
+      options: ['Kafka disk grows; delete the topic', 'Retained WAL on the source grows (slot can\'t advance); restart to resume and drain — the idempotent MERGE makes redelivery safe', 'Consumer memory grows; add partitions', 'Nothing grows; just wait'],
+      answer: 1,
+      explanation: 'The source keeps committing but the slot can\'t advance, so retained WAL grows and can fill the primary\'s disk. If the WAL is still present, a restart resumes from the confirmed LSN and drains the backlog; at-least-once redelivery is harmless because the sink upsert is idempotent. If the WAL was recycled, you need a fresh snapshot.' },
+    { q: 'A duplicate and an out-of-order (older-LSN) event both reach the sink. Why does the current-state table stay correct?',
+      options: ['Kafka guarantees exactly-once so neither happens', 'The sink upserts by key (duplicate is a no-op) and keeps the latest by LSN (the stale one is ignored)', 'A DISTINCT at query time removes them', 'Retries are disabled'],
+      answer: 1,
+      explanation: 'An idempotent upsert-by-key absorbs duplicates (same key → same row), and resolving conflicts by LSN/sequence rather than arrival time makes a late, older event lose to newer data. Ordering by sequence, not arrival, is the key idea.' },
+  ],
 };

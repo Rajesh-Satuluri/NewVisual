@@ -290,3 +290,37 @@ behaviour until the backend is configured AND a sync code is linked.
 **User action still required for live sync:** run `supabase/schema.sql` once and
 link a sync code. Until then sync is inert and never claims to be live; the local
 export/import backup works regardless.
+
+### Batch 4 — End-to-End Capstone (m31) + CDC Incident Lab ✅
+
+- `modules/m31-cdc-capstone.js` — `#m31`, in the "CDC Integrations & Lakehouse"
+  group. Ties m23–m30 together on a single `CDCSim`. Three tabs: the whole
+  pipeline (theory + the four-markers recap), the **End-to-End Capstone**
+  interactive, and Interview Q&A (4). The capstone drives one order through
+  Postgres → WAL/slot → Debezium → Kafka → Silver → Gold with a live stage rail
+  and panels (source table, slot/WAL backlog, Bronze, Silver, Gold, and a
+  **reconciliation badge** comparing Silver to the source). Scenario buttons:
+  insert / advance / cancel, duplicate, out-of-order (stale), outage, restart,
+  WAL loss, snapshot & recover, additive schema evolution, reset. Reconciliation
+  turns amber on drift (e.g. source moves during an outage while Silver stalls)
+  and green again once the pipeline catches up (restart drains; snapshot rebuilds
+  after WAL loss).
+- `data/cdc-incidents.js` — 4 CDC production incidents (slot WAL growth; stuck
+  after a long outage / invalidated slot; missing deletes / ghost rows; duplicate
+  & out-of-order double-counting), same shape as `data/incidents.js`.
+- `modules/cdc-incidents.js` — `#cdc-incidents` PAGE in the Practice section;
+  reuses the shared `investigation-flow` component (records under the existing
+  `troubleshoot` progress category; the Troubleshooting Lab still counts only its
+  own ids, so no cross-inflation).
+- Wiring (additive): `nav.js` (m31 in the CDC group; `cdc-incidents` in Practice),
+  `script.js` (PAGES + LOADERS for both; m31 LOADER), `data/quiz-bank.js` (m31, 3
+  Q), `data/self-explain.js` (m31), `data/iq-aggregate.js` (m31). Home / dashboard
+  GROUP_ORDER + LEVEL/MINS already covered the group; search, review (SRS from
+  QUIZ_BANK), and the Study Hub auto-include m31. Count now 31.
+- `enhancements.css` — `.cap-*` block (pipeline chain, live rail + status dots,
+  grid, slot backlog bar, reconciliation badge), theme-token based.
+- Verified: merge + engine suites still 49/49; Playwright both themes 0 console
+  errors — capstone reconciliation transitions correctly (stream = reconciled,
+  outage+change = drift, restart = reconciled, WAL-loss→snapshot = reconciled),
+  IQ edit controls present on m31, all 4 incident scenarios solvable to outcome,
+  nav shows m31 + CDC Incident Lab, sidebar count = 31. Baseline untouched.
