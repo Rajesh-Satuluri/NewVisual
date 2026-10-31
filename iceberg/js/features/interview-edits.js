@@ -58,6 +58,11 @@
     st.id = "ie-style";
     st.textContent = [
       ".ie-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;}",
+      ".ie-edit-hdr{flex:none;cursor:pointer;display:inline-flex;align-items:center;gap:5px;margin-left:10px;",
+      "  border:1px solid var(--border-default,rgba(127,127,127,.3));border-radius:7px;",
+      "  background:var(--bg-3,rgba(127,127,127,.08));color:var(--text-secondary,#8b949e);",
+      "  font:600 11px/1 inherit;padding:5px 9px;white-space:nowrap;align-self:flex-start;}",
+      ".ie-edit-hdr:hover{color:var(--text-primary,inherit);border-color:var(--brand,#3fb950);}",
       ".ie-btn{cursor:pointer;border-radius:7px;border:1px solid var(--border-default,rgba(127,127,127,.3));",
       "  background:var(--bg-3,rgba(127,127,127,.08));color:var(--text-primary,inherit);",
       "  font:600 12px/1 inherit;padding:6px 10px;display:inline-flex;align-items:center;gap:5px;}",
@@ -128,19 +133,23 @@
       }
     }
 
-    // Edit toolbar inside the (revealed) answer block.
-    var ansBlock = card.querySelector("." + cfg.prefix + "-answer");
-    if (ansBlock && !ansBlock.querySelector(".ie-toolbar") && !ansBlock.querySelector(".ie-editor")) {
-      var bar = document.createElement("div");
-      bar.className = "ie-toolbar";
-      bar.innerHTML = '<button type="button" class="ie-btn" data-ie="edit">' + svgEdit() + "Edit</button>";
-      // Our controls must never bubble to the card's reveal toggle.
-      bar.addEventListener("click", function (e) {
+    // Edit button in the card header (question row), next to the chevron.
+    var qRow = card.querySelector("." + cfg.prefix + "-q-row");
+    if (qRow && !qRow.querySelector(".ie-edit-hdr")) {
+      var hbtn = document.createElement("button");
+      hbtn.type = "button";
+      hbtn.className = "ie-edit-hdr";
+      hbtn.setAttribute("data-ie", "edit");
+      hbtn.setAttribute("aria-label", "Edit this question and answer");
+      hbtn.innerHTML = svgEdit() + "Edit";
+      // Must not bubble to the card's reveal toggle; reveal + open directly.
+      hbtn.addEventListener("click", function (e) {
         e.stopPropagation();
-        var btn = e.target.closest ? e.target.closest("[data-ie]") : null;
-        if (btn && btn.getAttribute("data-ie") === "edit") openEditor(card, cfg);
+        card.classList.add("revealed");
+        openEditor(card, cfg);
       });
-      ansBlock.appendChild(bar);
+      var chev = qRow.querySelector("." + cfg.prefix + "-q-chevron");
+      if (chev) qRow.insertBefore(hbtn, chev); else qRow.appendChild(hbtn);
     }
   }
 
@@ -163,8 +172,8 @@
     var curQ = (ov && ov.q != null) ? ov.q : origQ;
     var curA = (ov && ov.a != null) ? ov.a : origA;
 
-    var toolbar = ansBlock.querySelector(".ie-toolbar");
-    if (toolbar) toolbar.style.display = "none";
+    var aText = ansBlock.querySelector("." + cfg.prefix + "-answer-text");
+    if (aText) aText.style.display = "none";
 
     var ed = document.createElement("div");
     ed.className = "ie-editor";
@@ -222,8 +231,8 @@
     if (!ansBlock) return;
     var ed = ansBlock.querySelector(".ie-editor");
     if (ed && ed.parentNode) ed.parentNode.removeChild(ed);
-    var toolbar = ansBlock.querySelector(".ie-toolbar");
-    if (toolbar) toolbar.style.display = "";
+    var aText = ansBlock.querySelector("." + cfg.prefix + "-answer-text");
+    if (aText) aText.style.display = "";
   }
 
   /* ── public: called once per render by each interview module ─ */
