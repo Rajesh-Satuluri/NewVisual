@@ -83,6 +83,7 @@
   }
   function origQHtml(cfg, idx) { return String(cfg.QA[idx].q == null ? "" : cfg.QA[idx].q); }
   function origAHtml(cfg, idx) { return fmtAnswer(cfg, cfg.QA[idx][cfg.answerField]); }
+  function origCHtml(cfg, idx) { return String(cfg.QA[idx].code == null ? "" : cfg.QA[idx].code); }
 
   /* ── badge + header tools ────────────────────────────────── */
   function ensureBadge(card, cfg, on) {
@@ -141,8 +142,8 @@
   }
 
   // Stop editable clicks/keys from toggling the card or firing app shortcuts.
-  function ensureGuards(card, cfg, qEl, aEl) {
-    [qEl, aEl].forEach(function (el) {
+  function ensureGuards(card, cfg, els) {
+    els.forEach(function (el) {
       if (!el || el.__ieGuarded) return;
       el.__ieGuarded = true;
       el.addEventListener("click", function (e) { if (card.__ieEditing) e.stopPropagation(); });
@@ -162,14 +163,16 @@
     var ov = loadStore(cfg.fmt)[idx];
     var qEl = card.querySelector("." + cfg.prefix + "-q-text");
     var aEl = card.querySelector("." + cfg.prefix + "-answer-text");
+    var cEl = card.querySelector("." + cfg.prefix + "-answer-code");  // may be absent
 
     if (!card.__ieEditing) {       // don't clobber an in-progress edit
       if (qEl) qEl.innerHTML = (ov && ov.qHtml != null) ? ov.qHtml : origQHtml(cfg, idx);
       if (aEl) aEl.innerHTML = (ov && ov.aHtml != null) ? ov.aHtml : origAHtml(cfg, idx);
+      if (cEl) cEl.innerHTML = (ov && ov.cHtml != null) ? ov.cHtml : origCHtml(cfg, idx);
     }
     ensureBadge(card, cfg, !!ov);
     ensureTools(card, cfg);
-    ensureGuards(card, cfg, qEl, aEl);
+    ensureGuards(card, cfg, [qEl, aEl, cEl]);
   }
 
   function applyAll(container, cfg) {
@@ -184,8 +187,10 @@
     card.__ieEditing = true;
     var qEl = card.querySelector("." + cfg.prefix + "-q-text");
     var aEl = card.querySelector("." + cfg.prefix + "-answer-text");
+    var cEl = card.querySelector("." + cfg.prefix + "-answer-code");
     if (qEl) qEl.setAttribute("contenteditable", "true");
     if (aEl) aEl.setAttribute("contenteditable", "true");
+    if (cEl) cEl.setAttribute("contenteditable", "true");
 
     // A small formatting hint under the answer (removed on exit).
     var ansBlock = card.querySelector("." + cfg.prefix + "-answer");
@@ -205,8 +210,10 @@
     card.classList.remove("ie-editing");
     var qEl = card.querySelector("." + cfg.prefix + "-q-text");
     var aEl = card.querySelector("." + cfg.prefix + "-answer-text");
+    var cEl = card.querySelector("." + cfg.prefix + "-answer-code");
     if (qEl) qEl.removeAttribute("contenteditable");
     if (aEl) aEl.removeAttribute("contenteditable");
+    if (cEl) cEl.removeAttribute("contenteditable");
     var ansBlock = card.querySelector("." + cfg.prefix + "-answer");
     var tip = ansBlock && ansBlock.querySelector(".ie-edit-tip");
     if (tip && tip.parentNode) tip.parentNode.removeChild(tip);
@@ -217,12 +224,22 @@
     if (isNaN(idx) || !cfg.QA[idx]) return;
     var qEl = card.querySelector("." + cfg.prefix + "-q-text");
     var aEl = card.querySelector("." + cfg.prefix + "-answer-text");
+    var cEl = card.querySelector("." + cfg.prefix + "-answer-code");
     var qHtml = qEl ? qEl.innerHTML.trim() : "";
     var aHtml = aEl ? aEl.innerHTML.trim() : "";
+    var hasCode = !!cEl;
+    var cHtml = hasCode ? cEl.innerHTML.trim() : null;
     var store = loadStore(cfg.fmt);
-    // If it matches the original render, drop the override (back to default).
-    if (qHtml === origQHtml(cfg, idx).trim() && aHtml === origAHtml(cfg, idx).trim()) delete store[idx];
-    else store[idx] = { qHtml: qHtml, aHtml: aHtml };
+    // If everything matches the original render, drop the override (back to default).
+    var same = qHtml === origQHtml(cfg, idx).trim() &&
+               aHtml === origAHtml(cfg, idx).trim() &&
+               (!hasCode || cHtml === origCHtml(cfg, idx).trim());
+    if (same) delete store[idx];
+    else {
+      var entry = { qHtml: qHtml, aHtml: aHtml };
+      if (hasCode) entry.cHtml = cHtml;
+      store[idx] = entry;
+    }
     saveStore(cfg.fmt, store);                        // -> cloudsync pushes
     endEdit(card, cfg);
     applyCard(card, cfg);
