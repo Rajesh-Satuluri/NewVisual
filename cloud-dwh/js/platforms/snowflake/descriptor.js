@@ -26,6 +26,7 @@
         { id: 'caching',         label: 'Caching',          icon: '💾' },
         { id: 'data-loading',    label: 'Data Loading',     icon: '📥' },
         { id: 'loading-workshop',label: 'Loading Workshop', icon: '🧰' },
+        { id: 'loading-incremental', label: 'Incremental & CDC', icon: '🔀' },
         { id: 'semi-structured', label: 'Semi-Structured',  icon: '🧩' },
         { id: 'data-engineering',label: 'Data Engineering',  icon: '🔧' },
         { id: 'objects',         label: 'Objects & Hierarchy', icon: '🗂️' },

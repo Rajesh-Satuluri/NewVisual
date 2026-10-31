@@ -146,3 +146,26 @@
 .wk-reason { font-weight: 400; font-size: .68rem; color: var(--text-muted); white-space: normal; margin-top: .2rem; max-width: 320px; }
 #wk-sql:not(:empty) { margin-top: .9rem; }
 @media (max-width: 600px) { .wk-table { display: block; overflow-x: auto; } }
+
+/* ============================================================
+   Incremental & CDC Lab (in-*, op-*) — P0-C
+   ============================================================ */
+.in-layout { display: grid; grid-template-columns: minmax(0,1.3fr) minmax(0,1fr); gap: 1rem; align-items: start; margin-top: .4rem; }
+@media (max-width: 860px) { .in-layout { grid-template-columns: 1fr; } }
+.in-count { font-weight: 400; color: var(--text-muted); font-size: .72rem; }
+.in-empty { font-size: .76rem; color: var(--text-muted); font-style: italic; margin: .3rem 0; }
+.in-null { color: var(--text-muted); opacity: .6; }
+.in-batchbtns { display: inline-flex; flex-wrap: wrap; gap: .35rem; }
+.in-bbtn { cursor: pointer; background: var(--surface); color: var(--text-primary); border: 1px solid var(--border); border-radius: var(--radius); padding: .4rem .7rem; font-size: .74rem; font-weight: 600; }
+.in-bbtn:hover:not(:disabled) { border-color: var(--snowflake); }
+.in-bbtn:disabled { opacity: .4; cursor: not-allowed; }
+.in-bbtn.done { border-color: #3fb950; color: #2ea043; }
+.in-bbtn.done::before { content: '✓ '; }
+
+.wk-pill.upd { background: rgba(163,113,247,.18); color: #a371f7; }
+.wk-pill.del { background: rgba(248,81,73,.18); color: #e5534b; }
+.wk-pill.ign { background: rgba(139,148,158,.18); color: var(--text-muted); }
+
+.wk-table tr.op-c td { background: rgba(63,185,80,.06); }
+.wk-table tr.op-u td { background: rgba(163,113,247,.07); }
+.wk-table tr.op-d td { background: rgba(248,81,73,.07); }

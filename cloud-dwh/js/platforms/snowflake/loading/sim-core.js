@@ -158,5 +158,106 @@
     };
   }
 
-  return { deriveMetrics, ramp, fmtInt, fmtDur, SIM_SECONDS, copySim, rowResult };
+  /* ============================================================
+     Incremental / MERGE / CDC / idempotency reducers (P0-C).
+     Pure and deterministic: fold a batch of change events into a
+     target-table state under a chosen strategy. Target is an array
+     of records; business key = order_id; source order = lsn.
+     ============================================================ */
+  function newTargetState() { return { rows: [], seenEvents: {}, loadedFiles: {}, history: [] }; }
+  function cloneState(s) {
+    return { rows: s.rows.map(r => ({ ...r })), seenEvents: { ...s.seenEvents },
+             loadedFiles: { ...s.loadedFiles }, history: s.history.slice() };
+  }
+  function keyIndex(rows, id) { return rows.findIndex(r => r.order_id === id); }
+  function stripEvent(e) { return { order_id: e.order_id, customer_id: e.customer_id, status: e.status, amount: e.amount, updated_at: e.updated_at, lsn: e.lsn }; }
+  // Collapse to one event per business key, keeping the highest lsn (deterministic).
+  function dedupLatest(events) {
+    const m = {};
+    events.forEach(e => { if (!m[e.order_id] || e.lsn > m[e.order_id].lsn) m[e.order_id] = e; });
+    return Object.values(m).sort((a, b) => a.lsn - b.lsn);
+  }
+
+  const STRATEGIES = {
+    append:        'Blind append',
+    dedup_insert:  'Dedup + insert-only',
+    merge:         'MERGE (upsert, no delete)',
+    merge_cdc:     'MERGE with delete handling',
+    copy_tracking: 'COPY file-load tracking',
+    force_reload:  'COPY FORCE = TRUE',
+    cdc_replay:    'CDC replay (event-id + lsn)',
+  };
+
+  /**
+   * Apply one batch of events to target state under a strategy.
+   * @returns { state, stats:{inserted,updated,deleted,ignored,rejected}, count }
+   */
+  function applyBatch(state, batch, strategy) {
+    const s = cloneState(state);
+    const stats = { inserted: 0, updated: 0, deleted: 0, ignored: 0, rejected: 0 };
+    const events = batch.events || [];
+    const fileId = batch.id;
+
+    function upsert(e, handleDelete) {
+      const i = keyIndex(s.rows, e.order_id);
+      if (e.op === 'd') {
+        if (handleDelete) { if (i >= 0) { s.rows.splice(i, 1); stats.deleted++; } else stats.ignored++; }
+        else stats.ignored++;                       // insert/update-only MERGE ignores deletes
+        return;
+      }
+      if (i >= 0) { s.rows[i] = stripEvent(e); stats.updated++; }
+      else { s.rows.push(stripEvent(e)); stats.inserted++; }
+    }
+
+    switch (strategy) {
+      case 'append':
+      case 'force_reload':
+        events.forEach(e => { s.rows.push({ ...e }); stats.inserted++; });
+        break;
+      case 'dedup_insert':
+        events.forEach(e => {
+          if (s.seenEvents[e.event_id]) { stats.ignored++; return; }
+          s.seenEvents[e.event_id] = 1;
+          if (keyIndex(s.rows, e.order_id) >= 0) stats.ignored++;
+          else { s.rows.push(stripEvent(e)); stats.inserted++; }
+        });
+        break;
+      case 'merge': {
+        const collapsed = dedupLatest(events);
+        stats.ignored += events.length - collapsed.length;
+        collapsed.forEach(e => upsert(e, false));
+        break;
+      }
+      case 'merge_cdc':
+      case 'cdc_replay': {
+        const fresh = events.filter(e => { if (s.seenEvents[e.event_id]) return false; s.seenEvents[e.event_id] = 1; return true; });
+        const collapsed = dedupLatest(fresh);
+        stats.ignored += (events.length - fresh.length) + (fresh.length - collapsed.length);
+        collapsed.forEach(e => upsert(e, true));
+        break;
+      }
+      case 'copy_tracking':
+        if (s.loadedFiles[fileId]) { stats.ignored += events.length; }
+        else { s.loadedFiles[fileId] = 1; events.forEach(e => { s.rows.push({ ...e }); stats.inserted++; }); }
+        break;
+      default:
+        events.forEach(e => { s.rows.push({ ...e }); stats.inserted++; });
+    }
+    s.history.push({ batch: batch.label, strategy, stats: { ...stats }, count: s.rows.length });
+    return { state: s, stats, count: s.rows.length };
+  }
+
+  /** Seed the target from an initial snapshot (always a clean keyed load). */
+  function seedTarget(snapshot) {
+    let st = newTargetState();
+    return applyBatch(st, { id: 'snapshot', label: 'Initial snapshot', events: snapshot }, 'merge_cdc').state;
+  }
+
+  /** Watermark pick: which events a high-water mark would select. */
+  function watermarkPick(events, column, mark) {
+    return events.filter(e => (column === 'lsn' ? e.lsn > mark : new Date(e.updated_at) > new Date(mark)));
+  }
+
+  return { deriveMetrics, ramp, fmtInt, fmtDur, SIM_SECONDS, copySim, rowResult,
+           applyBatch, seedTarget, newTargetState, dedupLatest, watermarkPick, STRATEGIES };
 });
