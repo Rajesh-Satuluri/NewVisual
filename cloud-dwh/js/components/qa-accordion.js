@@ -124,6 +124,16 @@
     return (h >>> 0).toString(36);
   }
 
+  // Broadcast an edit so every other mounted accordion showing the SAME
+  // question (same key) re-renders in place — the copy in a module's
+  // Interview Questions section and the one in the aggregate Interview Prep
+  // view stay in lockstep without a navigation.
+  function _broadcast(key) {
+    try {
+      window.dispatchEvent(new CustomEvent('clouddwh:qaedit', { detail: { key: key } }));
+    } catch (_) {}
+  }
+
   function _caretEnd(el) {
     try {
       const r = document.createRange(); r.selectNodeContents(el); r.collapse(false);
@@ -207,6 +217,7 @@
       if (a && a !== orig.a) obj.a = a;
       _saveEdit(key, (obj.q != null || obj.a != null) ? obj : null);
       render();
+      _broadcast(key);   // sync every other copy of this question on the page
     };
 
     editBox.addEventListener('click', (e) => {
@@ -215,12 +226,19 @@
       if (act === 'edit') startEdit();
       else if (act === 'save') commit();
       else if (act === 'cancel') { qText.onkeydown = aInner.onkeydown = null; render(); }
-      else if (act === 'reset') { qText.onkeydown = aInner.onkeydown = null; _saveEdit(key, null); render(); }
+      else if (act === 'reset') { qText.onkeydown = aInner.onkeydown = null; _saveEdit(key, null); render(); _broadcast(key); }
     });
 
     // Live re-apply when an edit arrives from another device — but never while
     // this card is being edited here (don't stomp an in-progress edit).
     window.addEventListener('clouddwh:state-refresh', () => {
+      if (item.classList.contains('editing')) return;
+      render();
+    });
+    // Live re-apply when the SAME question is edited elsewhere on this page
+    // (e.g. Architecture tab ↔ Interview Prep view) in the same session.
+    window.addEventListener('clouddwh:qaedit', (e) => {
+      if (!e.detail || e.detail.key !== key) return;
       if (item.classList.contains('editing')) return;
       render();
     });
