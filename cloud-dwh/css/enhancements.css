@@ -238,6 +238,43 @@
   line-height: var(--leading-relaxed);
 }
 
+/* ── Per-card "My notes" (synced) ────────────────────────────── */
+.qa-note-dot { color: var(--yellow); font-size: 9px; margin-left: var(--space-2); line-height: 1; }
+.qa-note { padding: 0 var(--space-4) var(--space-4); }
+.qa-note-add {
+  font-size: var(--text-xs); color: var(--text-muted);
+  border: 1px dashed var(--border-muted); border-radius: var(--radius-sm);
+  padding: 4px 10px; background: transparent;
+  transition: color var(--ease-fast), border-color var(--ease-fast);
+}
+.qa-note-add:hover { color: var(--snowflake); border-color: var(--snowflake); }
+.qa-note-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.qa-note-label { font-size: var(--text-xs); font-weight: 600; color: var(--yellow); text-transform: uppercase; letter-spacing: 0.04em; }
+.qa-note-actions { display: flex; gap: var(--space-2); }
+.qa-note-btn {
+  font-size: var(--text-xs); color: var(--text-muted);
+  padding: 2px 8px; border-radius: var(--radius-xs); background: var(--bg-3);
+  transition: color var(--ease-fast), background var(--ease-fast);
+}
+.qa-note-btn:hover { color: var(--text-primary); background: var(--bg-4); }
+.qa-note-save { color: var(--green); }
+.qa-note-save:hover { background: var(--green-subtle); color: var(--green); }
+.qa-note-clear:hover { background: var(--red-subtle); color: var(--red); }
+.qa-note-body {
+  font-size: var(--text-sm); color: var(--text-primary);
+  background: var(--yellow-subtle); border-left: 2px solid var(--yellow);
+  border-radius: var(--radius-sm); padding: var(--space-3);
+  white-space: pre-wrap; word-break: break-word;
+}
+.qa-note-editor {
+  width: 100%; box-sizing: border-box; min-height: 72px; resize: vertical;
+  background: var(--bg-1); color: var(--text-primary);
+  border: 1px solid var(--snowflake); border-radius: var(--radius-sm);
+  padding: var(--space-3); font-family: var(--font-ui); font-size: var(--text-sm);
+  line-height: var(--leading-relaxed); outline: none;
+}
+.qa-note-edit-actions { display: flex; gap: var(--space-2); margin-top: 6px; }
+
 /* ── Interview Q&A section (appended below module content) ────── */
 .interview-qa-section {
   max-width: 1400px;

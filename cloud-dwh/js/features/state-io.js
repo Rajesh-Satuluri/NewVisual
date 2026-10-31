@@ -264,6 +264,37 @@
     btn.innerHTML = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
     btn.addEventListener('click', open);
     bar.insertBefore(btn, bar.firstChild);
+
+    // Dedicated "Cloud sync" button (Spec 2) — only when sync is configured.
+    const c = _cloud();
+    if (c && c.configured() && !document.getElementById('cloudsync-btn')) {
+      const cb = document.createElement('button');
+      cb.id = 'cloudsync-btn';
+      cb.className = 'btn-icon';
+      cb.title = 'Cloud sync across devices';
+      cb.setAttribute('aria-label', 'Cloud sync across devices');
+      cb.innerHTML = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z"/></svg>`;
+      cb.addEventListener('click', openCloudSync);
+      bar.insertBefore(cb, btn); // sits just before Backup & restore
+      // Reflect "linked" state with a small accent dot.
+      cb.classList.toggle('cloudsync-on', c.enabled());
+      if (c.onSync) c.onSync(() => cb.classList.add('cloudsync-on'));
+    }
+  }
+
+  /* Open the dialog and focus the Cloud sync section (Spec 2 discoverability). */
+  function openCloudSync() {
+    open();
+    const modal = document.getElementById('stateio-modal');
+    const sec = modal && modal.querySelector('[data-sio="cloud"]');
+    if (!sec) return;
+    try { sec.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) {}
+    sec.classList.remove('sio-flash');
+    // reflow so the animation re-triggers on repeated clicks
+    void sec.offsetWidth;
+    sec.classList.add('sio-flash');
+    const code = sec.querySelector('[data-sio="code"]');
+    if (code && !code.disabled) setTimeout(() => { try { code.focus(); } catch (_) {} }, 300);
   }
 
   function _init() { _injectButton(); }
@@ -272,4 +303,5 @@
 
   window.CDWH = window.CDWH || {};
   window.CDWH.StateIO = { export: exportState, open, applyImport };
+  window.CDWH.openCloudSync = openCloudSync;
 })();
