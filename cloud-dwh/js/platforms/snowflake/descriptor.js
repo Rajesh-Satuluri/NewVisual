@@ -4,7 +4,7 @@
   const P=(viz.P.snowflake=viz.P.snowflake||{});
   P.Modules=P.Modules||{}; P.data=P.data||{}; P.concepts=P.concepts||{};
   P.quizBank=P.quizBank||{}; P.interviewBank=P.interviewBank||{};
-  P.meta={ id:"snowflake", label:"Snowflake", short:"Snowflake", version:"v3.5",
+  P.meta={ id:"snowflake", label:"Snowflake", short:"Snowflake", version:"v3.6",
            tagline:"Netflix on Snowflake", accent:"#29b5e8",
            docsUrl:"https://docs.snowflake.com", home:"home", logoSvg:"<svg viewBox=\"0 0 40 40\" width=\"26\" height=\"26\" aria-hidden=\"true\"><rect x=\"5\" y=\"9\" width=\"30\" height=\"7\" rx=\"2\" fill=\"#29b5e8\"/><rect x=\"5\" y=\"19\" width=\"30\" height=\"7\" rx=\"2\" fill=\"none\" stroke=\"#29b5e8\" stroke-width=\"2\"/><rect x=\"5\" y=\"29\" width=\"18\" height=\"5\" rx=\"2\" fill=\"#29b5e8\" opacity=\".6\"/></svg>" };
   P.navGroups = [
