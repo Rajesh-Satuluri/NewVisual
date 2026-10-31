@@ -38,6 +38,7 @@ export const MODULES = [
   // ── CDC Integrations & Lakehouse ────────────────────────────────────────────
   { id:'m29', label:'Outbox Pattern',          icon:'📬', group:'CDC Integrations & Lakehouse', desc:'Services as producers, the dual-write trap, and the transactional outbox + Event Router' },
   { id:'m30', label:'Kafka → Lakehouse',       icon:'🏞️', group:'CDC Integrations & Lakehouse', desc:'Iceberg (Connect) vs Spark→Delta, Bronze/Silver/Gold, and why append ≠ current state' },
+  { id:'m31', label:'End-to-End Capstone',     icon:'🎛️', group:'CDC Integrations & Lakehouse', desc:'The whole pipeline on one engine — drive an order through it and inject every failure mode, with live reconciliation' },
 ];
 
 const GROUP_ORDER = ['Foundation','Core Internals','Consumer Side','Delivery','Ecosystem','Operations','Advanced','Change Data Capture','CDC Integrations & Lakehouse'];
@@ -58,6 +59,7 @@ const REFERENCE = [
 const PRACTICE = [
   { id:'decisions',    label:'Choose the Approach', icon:'🧭' },
   { id:'troubleshoot', label:'Troubleshooting Lab', icon:'🔍' },
+  { id:'cdc-incidents', label:'CDC Incident Lab',   icon:'🛠️' },
   { id:'answers',      label:'Level Up Your Answer', icon:'🎯' },
   { id:'coding',       label:'Coding Dojo',          icon:'💻' },
 ];

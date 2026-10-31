@@ -33,6 +33,7 @@ const PAGES = {
   'master-map': `Reference &rsaquo; <strong>🗺️ Master Map</strong>`,
   decisions: `Practice &rsaquo; <strong>🧭 Choose the Approach</strong>`,
   troubleshoot: `Practice &rsaquo; <strong>🔍 Troubleshooting Lab</strong>`,
+  'cdc-incidents': `Practice &rsaquo; <strong>🛠️ CDC Incident Lab</strong>`,
   answers: `Practice &rsaquo; <strong>🎯 Level Up Your Answer</strong>`,
   coding: `Practice &rsaquo; <strong>💻 Coding Dojo</strong>`,
   'incident-bank': `Reference &rsaquo; <strong>🚑 Incident Bank</strong>`,
@@ -61,6 +62,7 @@ const LOADERS = {
   'master-map': () => import('./modules/master-map.js'),
   decisions: () => import('./modules/decisions.js'),
   troubleshoot: () => import('./modules/troubleshoot.js'),
+  'cdc-incidents': () => import('./modules/cdc-incidents.js'),
   answers: () => import('./modules/answers.js'),
   coding: () => import('./modules/coding.js'),
   'incident-bank': () => import('./modules/incident-bank.js'),
@@ -97,6 +99,7 @@ const LOADERS = {
   m28: () => import('./modules/m28-debezium-ops.js'),
   m29: () => import('./modules/m29-outbox-pattern.js'),
   m30: () => import('./modules/m30-lakehouse.js'),
+  m31: () => import('./modules/m31-cdc-capstone.js'),
 };
 
 // ── Navigate ───────────────────────────────────────────────────────────────
