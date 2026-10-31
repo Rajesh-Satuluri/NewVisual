@@ -238,12 +238,32 @@
   function _setupMobileNav() {
     const toggle = document.getElementById('nav-toggle'); const sidebar = document.getElementById('sidebar'); const backdrop = document.getElementById('nav-backdrop');
     if (!toggle || !sidebar) return;
+    const isMobile = () => window.innerWidth <= 1024;
+    const CK = 'cdwh-sidebar-collapsed';
+    /* mobile: off-canvas drawer */
     const open = () => { sidebar.classList.add('open'); backdrop && backdrop.classList.add('visible'); toggle.setAttribute('aria-expanded', 'true'); };
     const close = () => { sidebar.classList.remove('open'); backdrop && backdrop.classList.remove('visible'); toggle.setAttribute('aria-expanded', 'false'); };
-    toggle.addEventListener('click', () => sidebar.classList.contains('open') ? close() : open());
+    /* desktop: persistent icon-rail collapse */
+    const applyCollapsed = (c) => {
+      sidebar.classList.toggle('collapsed', c);
+      toggle.setAttribute('aria-expanded', String(!c));
+      toggle.setAttribute('aria-label', c ? 'Expand navigation menu' : 'Collapse navigation menu');
+    };
+    let collapsed = false;
+    try { collapsed = localStorage.getItem(CK) === '1'; } catch (_) {}
+    if (!isMobile()) applyCollapsed(collapsed);
+    toggle.addEventListener('click', () => {
+      if (isMobile()) { sidebar.classList.contains('open') ? close() : open(); return; }
+      collapsed = !sidebar.classList.contains('collapsed');
+      applyCollapsed(collapsed);
+      try { localStorage.setItem(CK, collapsed ? '1' : '0'); } catch (_) {}
+    });
     backdrop && backdrop.addEventListener('click', close);
     document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
-    window.addEventListener('resize', () => { if (window.innerWidth > 1024) close(); });
+    window.addEventListener('resize', () => {
+      if (isMobile()) { sidebar.classList.remove('collapsed'); close(); }
+      else { close(); applyCollapsed(collapsed); }
+    });
     viz._closeMobileNav = close;
   }
   function _updateBreadcrumb(item) {
