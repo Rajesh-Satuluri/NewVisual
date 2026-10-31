@@ -197,6 +197,7 @@
           `<div class="dl2-detail-eyebrow dl2-role-${d.role}">${ROLE_LABEL[d.role] || ''}</div>
            <h2 class="dl2-detail-title">${s.icon} ${d.title}</h2>
            <p class="dl2-detail-what">${d.what}</p>
+           ${d.theory ? `<div class="dl2-theory"><div class="dl2-theory-tag">Why it works this way</div><p>${d.theory}</p></div>` : ''}
            ${rows.length ? '<div class="dl2-kv">' + rows.map(r => `<div class="dl2-kv-row"><span>${r[0]}</span><b>${r[1]}</b></div>`).join('') + '</div>' : ''}
            ${d.fail && d.fail !== '—' ? `<div class="dl2-fail"><h4>💥 Common failure</h4><p>${d.fail}</p></div>` : ''}
            ${d.fix && d.fix !== '—' ? `<div class="dl2-fix"><h4>🛠️ Troubleshoot</h4><p>${d.fix}</p></div>` : ''}

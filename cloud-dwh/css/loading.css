@@ -219,3 +219,8 @@
 
 .rc-workflow { margin: .4rem 0 .4rem 1.1rem; }
 .rc-workflow li { font-size: .82rem; line-height: 1.6; margin-bottom: .2rem; color: var(--text-secondary, var(--text-primary)); }
+
+/* Theory block in the simulator detail panel */
+.dl2-theory { margin: 0 0 .75rem; padding: .6rem .75rem; background: rgba(var(--blue-rgb), .05); border-left: 3px solid var(--dl2-accent); border-radius: var(--radius); }
+.dl2-theory-tag { font-size: .64rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--dl2-accent); margin-bottom: .3rem; }
+.dl2-theory p { margin: 0; font-size: .8rem; line-height: 1.6; color: var(--text-secondary, var(--text-primary)); }
