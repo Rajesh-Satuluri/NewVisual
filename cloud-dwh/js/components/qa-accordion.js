@@ -169,8 +169,7 @@
       aInner.innerHTML = _answer(c.a) + (c.edited ? ' <span class="qa-edited-badge">edited</span>' : '');
       if (dot) dot.hidden = !c.edited;
       editBox.innerHTML = c.edited
-        ? `<button class="qa-edit-btn" data-e="edit">${_pencil()} Edit</button>
-           <button class="qa-edit-btn qa-edit-reset" data-e="reset">Reset to original</button>`
+        ? `<button class="qa-edit-btn" data-e="edit">${_pencil()} Edit</button>`
         : `<button class="qa-edit-btn" data-e="edit">${_pencil()} Edit in place</button>`;
     };
 
@@ -192,7 +191,6 @@
         <div class="qa-edit-actions">
           <button class="qa-edit-btn qa-edit-save" data-e="save">Save</button>
           <button class="qa-edit-btn" data-e="cancel">Cancel</button>
-          <button class="qa-edit-btn qa-edit-reset" data-e="reset">Reset to original</button>
         </div>`;
       qText.focus(); _caretEnd(qText);
 
@@ -229,7 +227,6 @@
       if (act === 'edit') startEdit();
       else if (act === 'save') commit();
       else if (act === 'cancel') { qText.onkeydown = aInner.onkeydown = null; render(); }
-      else if (act === 'reset') { qText.onkeydown = aInner.onkeydown = null; _saveEdit(key, null); render(); _broadcast(key); }
     });
 
     // Live re-apply when an edit arrives from another device — but never while
