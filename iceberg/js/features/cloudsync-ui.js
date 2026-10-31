@@ -34,7 +34,10 @@
       "  letter-spacing:.5px;}",
       ".cs-status{margin:10px 0 2px;font-size:12.5px;min-height:1.2em;opacity:.9;}",
       ".cs-last{font-variant-numeric:tabular-nums;}",
-      ".cs-badge{margin-left:8px;}"
+      ".cs-badge{margin-left:8px;}",
+      "#cs-section.cs-flash{border-radius:12px;animation:csflash 1.6s ease;}",
+      "@keyframes csflash{0%,100%{box-shadow:0 0 0 0 rgba(31,111,235,0);}" +
+      "  20%,60%{box-shadow:0 0 0 3px rgba(31,111,235,.45);}}"
     ].join("\n");
     (document.head || document.documentElement).appendChild(st);
   }
@@ -126,19 +129,63 @@
     if (TV.cloud && TV.cloud.onSync) TV.cloud.onSync(refreshLast);
   }
 
-  // Insert the section into the backup modal (before the footer), once.
+  // Insert the section at the TOP of the backup modal (first section, right
+  // after the title), once — so it's the first thing seen.
   function ensureSection() {
     var modal = document.getElementById("bk-modal");
     if (!modal) return;
     var box = modal.querySelector(".modal-box");
     if (!box || box.querySelector("#" + SECTION_ID)) { syncOnOpen(); return; }
     var sec = buildSection();
-    var footer = box.querySelector(".bk-footer");
-    if (footer) box.insertBefore(sec, footer);
-    else box.appendChild(sec);
+    var firstSection = box.querySelector(".bk-section");
+    if (firstSection) box.insertBefore(sec, firstSection);
+    else {
+      var footer = box.querySelector(".bk-footer");
+      if (footer) box.insertBefore(sec, footer); else box.appendChild(sec);
+    }
     wire(sec);
     syncOnOpen();
   }
+
+  // Open the backup dialog and bring the Cloud sync section into focus.
+  function openCloudSync() {
+    if (typeof TV._openBackup === "function") TV._openBackup();
+    ensureSection();
+    var sec = document.getElementById(SECTION_ID);
+    if (sec) {
+      try { sec.scrollIntoView({ block: "start", behavior: "smooth" }); } catch (e) {}
+      sec.classList.remove("cs-flash");
+      void sec.offsetWidth;                 // restart the animation
+      sec.classList.add("cs-flash");
+      if (codeInput && codeInput.focus) { try { codeInput.focus(); } catch (e2) {} }
+    }
+  }
+  TV.openCloudSync = openCloudSync;
+
+  /* ── dedicated top-bar button ─────────────────────────────── */
+  function mountButton() {
+    var themeBtn = document.getElementById("theme-toggle");
+    if (!themeBtn || !themeBtn.parentNode) return;
+    if (document.getElementById("cs-open")) return;
+    var btn = document.createElement("button");
+    btn.id = "cs-open";
+    btn.className = "btn-icon";
+    btn.type = "button";
+    btn.title = "Cloud sync — keep progress & edits in sync across devices";
+    btn.setAttribute("data-tooltip", "Cloud sync across devices");
+    btn.setAttribute("aria-label", "Cloud sync across devices");
+    btn.innerHTML = icon('<path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z"/>');
+    btn.addEventListener("click", openCloudSync);
+    // Place it just before the Backup button if present, else before theme.
+    var bk = document.getElementById("bk-open");
+    if (bk && bk.parentNode === themeBtn.parentNode) themeBtn.parentNode.insertBefore(btn, bk);
+    else themeBtn.parentNode.insertBefore(btn, themeBtn);
+  }
+  // The backup button mounts on DOMContentLoaded; mount ours a touch later so
+  // #bk-open already exists and we can sit next to it.
+  function tryMount() { mountButton(); if (!document.getElementById("cs-open")) setTimeout(tryMount, 200); }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", function () { setTimeout(tryMount, 50); });
+  else setTimeout(tryMount, 50);
 
   // Reflect current code + status whenever the dialog opens.
   function syncOnOpen() {
