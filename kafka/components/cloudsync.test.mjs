@@ -104,3 +104,20 @@ test('merge is idempotent — merging a result with itself is stable', () => {
   const twice = mergeAll(once, once, once);
   assert.deepEqual(twice, once);
 });
+
+test('coding-dojo pads (kafka_cd_pad_*) sync as generic keys', () => {
+  // A pad edited on another device, untouched here, is adopted.
+  const base = { 'kafka_cd_pad_p1': 'old' };
+  const out = mergeAll(base, { 'kafka_cd_pad_p1': 'old' }, { 'kafka_cd_pad_p1': 'edited on phone' });
+  assert.equal(out['kafka_cd_pad_p1'], 'edited on phone');
+});
+
+test('interview-edit overrides (kafka_iqedit_*) are per-question, no cross-collision', () => {
+  // Device A edited q0, device B edited q1 — both survive (different keys).
+  const base = {};
+  const out = mergeAll(base,
+    { 'kafka_iqedit_m23_0': { a: 'my answer' } },
+    { 'kafka_iqedit_m23_1': { q: 'reworded' } });
+  assert.deepEqual(out['kafka_iqedit_m23_0'], { a: 'my answer' });
+  assert.deepEqual(out['kafka_iqedit_m23_1'], { q: 'reworded' });
+});
