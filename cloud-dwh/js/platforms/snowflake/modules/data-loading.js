@@ -25,7 +25,7 @@ COPY INTO EVENTS_DB.RAW.WATCH_EVENTS
 FROM @EVENTS_DB.PUBLIC.s3_stage/historical/
 FILE_FORMAT = (
   TYPE = 'PARQUET'
-  SNAPPY_COMPRESSION = TRUE
+  COMPRESSION = SNAPPY
 )
 PATTERN = '.*watch_events_202[0-3].*\\.parquet'
 ON_ERROR = 'CONTINUE'
@@ -133,7 +133,7 @@ SELECT * FROM TABLE(INFORMATION_SCHEMA.COPY_HISTORY(
 
       const metricsTitle = _el('div', 'partition-section-title');
       metricsTitle.style.marginTop = '1.5rem';
-      metricsTitle.textContent = 'Ingestion Metrics';
+      metricsTitle.textContent = 'Ingestion Metrics (illustrative)';
       left.appendChild(metricsTitle);
 
       const metrics = _el('div', 'dl-metrics');
@@ -144,6 +144,10 @@ SELECT * FROM TABLE(INFORMATION_SCHEMA.COPY_HISTORY(
         <div class="dl-metric"><div class="dl-metric-val" id="dlm-latency">—</div><div class="dl-metric-lbl">Avg Latency</div></div>
         <div class="dl-metric"><div class="dl-metric-val" id="dlm-credits">—</div><div class="dl-metric-lbl">Credits</div></div>`;
       left.appendChild(metrics);
+
+      const note = _el('div', 'dl-note');
+      note.innerHTML = '⚠️ Simulated walkthrough. Latency, credit and throughput figures are illustrative teaching values — not guaranteed Snowflake performance. No query runs against a live account.';
+      left.appendChild(note);
 
       /* ── Right: anim panel + SQL ── */
       const panel = _el('div', 'anim-panel');
@@ -172,6 +176,17 @@ SELECT * FROM TABLE(INFORMATION_SCHEMA.COPY_HISTORY(
       const engine = new (AE())({ steps: _buildSteps(ctx), speed: 1 });
       engine.setContext(ctx);
       window.CDWH.AnimationControls.register(engine);
+
+      /* Make the method tabs live: jump the walkthrough to that method's first step. */
+      const TAB_STEP = { snowpipe: 1, copy: 5, kafka: 7 };
+      tabs.querySelectorAll('.dl-method-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = TAB_STEP[btn.dataset.method];
+          if (idx == null) return;
+          engine.pause();
+          engine.goto(idx);
+        });
+      });
 
       return { destroy: () => engine.destroy() };
     },
