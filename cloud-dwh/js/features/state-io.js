@@ -113,6 +113,59 @@
     return Object.keys(incoming).filter(k => k.indexOf(PREFIX) === 0).length;
   }
 
+  /* ── Cloud sync section (Supabase engine lives in cloudsync.js) ── */
+  function _cloud() { return (window.CDWH && window.CDWH.cloud) || null; }
+
+  function _cloudSectionHTML() {
+    const c = _cloud();
+    if (!c || !c.configured()) return ''; // sync not wired / not configured → hide
+    const linked = c.enabled();
+    return `
+      <div class="sio-cloud" data-sio="cloud">
+        <div class="sio-row-title">Cloud sync across devices</div>
+        <div class="sio-row-sub">Share a secret code between devices — no login. Progress merges automatically (best score &amp; visited always kept).</div>
+        <div class="sio-cloud-controls">
+          <input type="text" data-sio="code" class="sio-code" placeholder="sync code (≥ 8 chars)" autocomplete="off" spellcheck="false" ${linked ? 'disabled' : ''} value="${linked ? _mask(c.getCode()) : ''}">
+          <button class="btn" data-sio="gen" ${linked ? 'style="display:none"' : ''}>Generate</button>
+          <button class="btn btn-primary" data-sio="link" ${linked ? 'style="display:none"' : ''}>Link</button>
+          <button class="btn" data-sio="sync" ${linked ? '' : 'style="display:none"'}>Sync now</button>
+          <button class="btn sio-danger" data-sio="unlink" ${linked ? '' : 'style="display:none"'}>Unlink</button>
+        </div>
+        <div class="sio-cloud-status" data-sio="cloud-status" aria-live="polite">${_esc(c.status() || (linked ? c.syncLabel() : ''))}</div>
+      </div>`;
+  }
+  function _mask(code) { if (!code) return ''; return code.length <= 4 ? code : code.slice(0, 4) + '•'.repeat(Math.max(0, code.length - 4)); }
+  function _esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m])); }
+
+  function _wireCloud(modal) {
+    const c = _cloud();
+    const root = modal.querySelector('[data-sio="cloud"]');
+    if (!c || !root) return;
+    const codeEl = root.querySelector('[data-sio="code"]');
+    const statusEl = root.querySelector('[data-sio="cloud-status"]');
+    const show = (sel, on) => { const el = root.querySelector(sel); if (el) el.style.display = on ? '' : 'none'; };
+    const refresh = () => {
+      const linked = c.enabled();
+      show('[data-sio="gen"]', !linked); show('[data-sio="link"]', !linked);
+      show('[data-sio="sync"]', linked); show('[data-sio="unlink"]', linked);
+      codeEl.disabled = linked;
+      if (linked) codeEl.value = _mask(c.getCode());
+    };
+    c.onStatus((txt) => { statusEl.textContent = txt; });
+    c.onSync(() => { statusEl.textContent = c.syncLabel(); });
+    root.addEventListener('click', (e) => {
+      const act = e.target.closest('[data-sio]') && e.target.closest('[data-sio]').getAttribute('data-sio');
+      if (act === 'gen') { codeEl.value = c.generateCode(); codeEl.focus(); }
+      else if (act === 'link') {
+        const code = (codeEl.value || '').trim();
+        if (code.length < 8) { statusEl.textContent = 'Code must be at least 8 characters.'; return; }
+        statusEl.textContent = 'Linking…';
+        Promise.resolve(c.link(code)).then(refresh);
+      } else if (act === 'sync') { c.pull({ force: true }); }
+      else if (act === 'unlink') { c.unlink(); refresh(); }
+    });
+  }
+
   /* ── UI ──────────────────────────────────────────────────── */
   function open() {
     let modal = document.getElementById('stateio-modal');
@@ -133,6 +186,7 @@
           </button>
         </div>
         <div class="sio-body">
+          ${_cloudSectionHTML()}
           <p class="sio-note">Your progress lives only in this browser. Export a file to move it to another device or keep a backup — then import it anywhere.</p>
           <div class="sio-row">
             <div>
@@ -194,6 +248,7 @@
       fileInput.value = '';
     });
 
+    _wireCloud(modal);
     modal.classList.add('visible');
   }
 

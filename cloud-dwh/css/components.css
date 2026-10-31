@@ -418,6 +418,26 @@
 .sio-status.sio-ok { color: var(--green); }
 .sio-status.sio-err { color: var(--red); }
 
+/* Cloud sync section */
+.sio-cloud {
+  padding: var(--space-4);
+  background: var(--blue-subtle);
+  border: 1px solid var(--snowflake);
+  border-radius: var(--radius-md);
+  display: flex; flex-direction: column; gap: var(--space-2);
+}
+.sio-cloud-controls { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+.sio-code {
+  flex: 1 1 180px; min-width: 140px;
+  background: var(--bg-1); color: var(--text-primary);
+  border: 1px solid var(--border-default); border-radius: var(--radius-sm);
+  padding: 6px 10px; font-family: var(--font-mono); font-size: var(--text-sm);
+}
+.sio-code:focus { outline: none; border-color: var(--snowflake); }
+.sio-danger { color: var(--red); }
+.sio-danger:hover { background: var(--red-subtle); color: var(--red); }
+.sio-cloud-status { font-size: var(--text-xs); color: var(--text-secondary); min-height: 1.1em; }
+
 /* Syntax tokens */
 .tok-key   { color: #79c0ff; }
 .tok-str   { color: var(--orange); }
