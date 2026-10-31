@@ -172,7 +172,9 @@ body {
 #module-canvas::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
 /* ── Module Page ──────────────────────────────────────────────────────────── */
-.module-page { min-height: 100%; }
+/* Cap the reading column and centre it so wide screens get balanced gutters
+   instead of content hugging the left with a large dead void on the right. */
+.module-page { min-height: 100%; max-width: 1180px; margin-inline: auto; }
 
 .module-hero {
   background: linear-gradient(135deg, var(--bg2) 0%, var(--bg) 100%);
