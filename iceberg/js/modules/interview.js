@@ -985,6 +985,13 @@ Rule of thumb: REST for a governed, multi-engine lakehouse; Glue if you're all-i
         });
       });
     });
+
+    // Editable, cross-device-synced Q&A overlay (additive; no-op if absent).
+    if (IV.interviewEdits) {
+      IV.interviewEdits.enhance(container, {
+        prefix: 'int', fmt: 'iceberg', QA: QA, answerField: 'answer', formatAnswer: _formatAnswer
+      });
+    }
   }
 
   IV.modules['interview'] = {

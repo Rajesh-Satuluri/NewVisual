@@ -421,6 +421,13 @@ Rule of thumb: Delta for Databricks-centric lakehouses, Iceberg for multi-engine
         wireBody();
       });
     });
+
+    // Editable, cross-device-synced Q&A overlay (additive; no-op if absent).
+    if (TV.interviewEdits) {
+      TV.interviewEdits.enhance(container, {
+        prefix: 'dint', fmt: 'delta', QA: QA, answerField: 'a', formatAnswer: _formatAnswer
+      });
+    }
   }
 
   TV.registerModule('delta', {

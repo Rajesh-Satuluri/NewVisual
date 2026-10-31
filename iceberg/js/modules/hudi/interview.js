@@ -271,6 +271,13 @@ Time travel only reads a past instant (the head doesn't move); restore actually 
         container.querySelector('#hint-body').innerHTML = buildList(); updateProgress(); wire();
       });
     });
+
+    // Editable, cross-device-synced Q&A overlay (additive; no-op if absent).
+    if (TV.interviewEdits) {
+      TV.interviewEdits.enhance(container, {
+        prefix: 'hint', fmt: 'hudi', QA: QA, answerField: 'a', formatAnswer: _formatAnswer
+      });
+    }
   }
 
   TV.registerModule('hudi', {
