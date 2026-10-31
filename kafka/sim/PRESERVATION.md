@@ -283,9 +283,17 @@ behaviour until the backend is configured AND a sync code is linked.
 |---|---|
 | 1 — Cross-device cloud sync engine | ✅ Supabase-backed, opt-in, Node-tested merge |
 | 2 — Sync UI (+ local JSON backup) | ✅ header ☁ button + modal; export/import |
-| 3 — Editable interview Q&A (synced) | ✅ per-question edit on every module tab |
+| 3 — Editable interview Q&A (synced) | ✅ per-question edit on every module tab + every "Level Up Your Answer" card |
 | 4 — Editable code blocks | ✅ as the valuable slice — Coding-Dojo pads sync; no CodeViewer retrofit |
 | 5 — Interview filter bug fix | ✅ audited — the bug does not exist in this tool |
+
+**Follow-up (editable "Level Up Your Answer"):** `components/tiered-edits.js` makes
+each tiered answer card editable in place (question, topic, all three tier bodies,
+and the "why the senior wins" note), with an "edited" badge, Save/Cancel/Reset, and
+Ctrl/Cmd+Enter / Esc. Overrides are one key per card — `kafka_taedit_<id>` — so the
+generic 3-way LWW merge carries them across devices; `answers.js` applies overrides
+at render and re-renders on `kafka:cloud-refresh`. Verified both themes, 0 console
+errors: edit → persists across reload → head badge + title update → reset clears.
 
 **User action still required for live sync:** run `supabase/schema.sql` once and
 link a sync code. Until then sync is inert and never claims to be live; the local

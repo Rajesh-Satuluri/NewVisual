@@ -1485,6 +1485,17 @@ body.cmdk-open { overflow: hidden; }
 .iqe-reset:hover { border-color:var(--red); background:rgba(239,68,68,.1); }
 .iqe-hint { font-size:11px; color:var(--text3); margin-top:2px; }
 
+/* ── Editable "Level Up Your Answer" cards (components/tiered-edits.js) ─────── */
+.tae-tools { display:flex; align-items:center; justify-content:flex-end; gap:8px; margin:0 0 10px; }
+.tae-head-badge { margin-left:auto; }
+.ca-card.tae-edited .ca-card-head { border-left:2px solid var(--accent); }
+.tae-edit {
+  cursor:pointer; border:1px solid var(--border); background:var(--bg3); color:var(--text2);
+  border-radius:8px; width:auto; height:28px; padding:0 11px; font:600 12px/1 inherit; gap:5px;
+}
+.tae-editor .iqe-field { min-height:3.4em; }
+.tae-editor .tae-q, .tae-editor .tae-topic { min-height:2.2em; }
+
 /* ── M31 End-to-End CDC Capstone ──────────────────────────────────────────── */
 /* Theory pipeline chain */
 .cap-chain { display:flex; flex-wrap:wrap; align-items:stretch; gap:8px; margin:16px 0; }
