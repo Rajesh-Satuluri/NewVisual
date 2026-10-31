@@ -183,7 +183,7 @@
       qText.contentEditable = 'true';
       qText.classList.add('qa-ce');
       qText.spellcheck = true;
-      aInner.textContent = c.a;                 // plain text, drop the badge markup
+      aInner.innerHTML = _answer(c.a);          // WYSIWYG: edit the rendered answer, drop the badge
       aInner.contentEditable = 'true';
       aInner.classList.add('qa-ce');
       aInner.spellcheck = true;
@@ -209,7 +209,10 @@
     const commit = () => {
       qText.onkeydown = aInner.onkeydown = null;
       const q = (qText.innerText || '').replace(/\s+$/,'').trim();
-      const a = (aInner.innerText || '').replace(/\s+$/,'').trim();
+      // Serialize the edited DOM back to markdown-lite text instead of a flat
+      // innerText dump — preserves bold / italic / lists and never inflates the
+      // paragraph spacing the way stacked <br>s did.
+      const a = _serialize(aInner);
       // Store only fields that diverge, so an untouched field keeps tracking
       // future curated-content updates.
       const obj = {};
@@ -253,8 +256,81 @@
   function _esc(s) {
     return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   }
-  // Escape, then preserve intentional line breaks in longer answers.
-  function _answer(s) { return _esc(s).replace(/\n/g, '<br>'); }
+  // Inline markdown-lite on already-escaped text: **bold**, *italic*, `code`.
+  function _inline(t) {
+    return t
+      .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*([^*\n]+)\*/g, '<em>$1</em>')
+      .replace(/`([^`\n]+)`/g, '<code>$1</code>');
+  }
+
+  // Render a stored answer (markdown-lite text) to clean HTML. Blank lines split
+  // paragraphs; a run of "1." / "-" lines becomes an ordered / unordered list.
+  // Spacing is owned by CSS (<p>/<ul> margins), not by stacked <br>s — so the
+  // saved answer reads exactly like what was shown in the editor.
+  function _answer(s) {
+    const src = String(s == null ? '' : s).replace(/\r\n?/g, '\n');
+    const blocks = src.split(/\n{2,}/);
+    const html = blocks.map((block) => {
+      const lines = block.split('\n').map(l => l.replace(/\s+$/, '')).filter(l => l.trim() !== '');
+      if (!lines.length) return '';
+      if (lines.every(l => /^\s*\d+[.)]\s+/.test(l))) {
+        return '<ol>' + lines.map(l => '<li>' + _inline(_esc(l.replace(/^\s*\d+[.)]\s+/, ''))) + '</li>').join('') + '</ol>';
+      }
+      if (lines.every(l => /^\s*[-*•]\s+/.test(l))) {
+        return '<ul>' + lines.map(l => '<li>' + _inline(_esc(l.replace(/^\s*[-*•]\s+/, ''))) + '</li>').join('') + '</ul>';
+      }
+      return '<p>' + lines.map(l => _inline(_esc(l))).join('<br>') + '</p>';
+    }).filter(Boolean).join('');
+    return html;
+  }
+
+  // Serialize a contenteditable answer DOM back to markdown-lite text, without
+  // the blank-line inflation that innerText produces on block elements.
+  function _serialize(root) {
+    const inline = (node) => {
+      let s = '';
+      node.childNodes.forEach((n) => {
+        if (n.nodeType === 3) { s += n.nodeValue; return; }
+        if (n.nodeType !== 1) return;
+        const tag = n.tagName.toLowerCase();
+        if (tag === 'br') s += '\n';
+        else if (tag === 'strong' || tag === 'b') s += '**' + inline(n).trim() + '**';
+        else if (tag === 'em' || tag === 'i') s += '*' + inline(n).trim() + '*';
+        else if (tag === 'code') s += '`' + inline(n).trim() + '`';
+        else s += inline(n);
+      });
+      return s;
+    };
+    const parts = [];
+    root.childNodes.forEach((n) => {
+      if (n.nodeType === 3) { if (n.nodeValue.trim()) parts.push(n.nodeValue.trim()); return; }
+      if (n.nodeType !== 1) return;
+      const tag = n.tagName.toLowerCase();
+      if (tag === 'ol' || tag === 'ul') {
+        let i = 0;
+        [].forEach.call(n.children, (li) => {
+          if (li.tagName.toLowerCase() !== 'li') return;
+          i++;
+          parts.push((tag === 'ol' ? i + '. ' : '- ') + inline(li).trim());
+        });
+        parts.push('');
+      } else if (tag === 'p') {
+        parts.push(inline(n).replace(/\s+$/, ''));
+        parts.push('');
+      } else if (tag === 'div') {
+        parts.push(inline(n).replace(/\s+$/, ''));
+      } else if (tag === 'br') {
+        parts.push('');
+      } else {
+        parts.push(inline(n));
+      }
+    });
+    return parts.join('\n')
+      .replace(/[ \t]+\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .replace(/^\n+|\n+$/g, '');
+  }
 
   window.CDWH = window.CDWH || {};
   window.CDWH.QAAccordion = QAAccordion;

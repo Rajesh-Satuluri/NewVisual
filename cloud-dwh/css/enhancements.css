@@ -250,6 +250,20 @@
   color: var(--text-secondary);
   line-height: var(--leading-relaxed);
 }
+/* Structured answer rendering — margins own the spacing (no stacked <br>s). */
+.qa-a-inner > :first-child { margin-top: 0; }
+.qa-a-inner > :last-child { margin-bottom: 0; }
+.qa-a-inner p { margin: 0 0 var(--space-3); }
+.qa-a-inner ol,
+.qa-a-inner ul { margin: 0 0 var(--space-3); padding-left: 1.4em; }
+.qa-a-inner li { margin: 0 0 var(--space-1); }
+.qa-a-inner li:last-child { margin-bottom: 0; }
+.qa-a-inner strong { color: var(--text-primary); font-weight: 700; }
+.qa-a-inner code {
+  font-family: var(--font-mono, monospace); font-size: 0.9em;
+  background: var(--bg-1); border: 1px solid var(--border-muted);
+  border-radius: var(--radius-sm); padding: 1px 5px;
+}
 
 /* ── Editable Q&A (question + answer, synced) ─────────────────── */
 .qa-edit-dot { color: var(--snowflake); font-size: 9px; margin-left: var(--space-2); line-height: 1; }
