@@ -255,3 +255,38 @@ behaviour until the backend is configured AND a sync code is linked.
   errors — 3 edit controls on m23, editor opens, Save stores the override, badge
   shows, the edit persists across a full page reload, Reset removes the key, and
   the Study Hub now lists CDC (m23–m30) questions.
+
+### Batch S3 — audit + cleanups ✅
+
+- **SPEC 5 (filter stacked-listener bug): audited, not present.** The sibling
+  tool's bug was re-attaching a *delegated* listener to a persistent container on
+  every filtered re-render. The Kafka tool never does this:
+  - Study Hub (`modules/study.js`) — `apply()` sets `#study-results` innerHTML
+    then binds a click handler to each **freshly recreated** `.iq-question`; the
+    search/chip/select listeners are bound once to persistent controls.
+  - Search (`modules/search.js`) — results are `<a>` links; the input/chip
+    listeners are bound once.
+  - Nav filter (`components/nav.js`) — hides items; `renderNav` replaces the nav
+    wholesale and binds fresh listeners once.
+  Nothing to fix.
+- **SPEC 4 (editable code blocks): confirmed covered by sync.** The Coding Dojo
+  scratchpads already persist to `kafka_cd_pad_<id>` (`components/coding-problem.js`
+  reads on load, debounced `setItem` on input), so the transparent write observer
+  picks them up and they sync across devices — no invasive CodeViewer retrofit.
+- `components/cloudsync.test.mjs` — +2 tests (cd-pad as a generic synced key;
+  per-question iqedit keys never cross-collide). **16 merge tests total.**
+- Verified: merge suite 16/16 (engine still 33/33 → 49 total).
+
+### Cross-device sync track — summary of what shipped (S1–S3)
+
+| Spec (from the sibling tools) | Status in Kafka |
+|---|---|
+| 1 — Cross-device cloud sync engine | ✅ Supabase-backed, opt-in, Node-tested merge |
+| 2 — Sync UI (+ local JSON backup) | ✅ header ☁ button + modal; export/import |
+| 3 — Editable interview Q&A (synced) | ✅ per-question edit on every module tab |
+| 4 — Editable code blocks | ✅ as the valuable slice — Coding-Dojo pads sync; no CodeViewer retrofit |
+| 5 — Interview filter bug fix | ✅ audited — the bug does not exist in this tool |
+
+**User action still required for live sync:** run `supabase/schema.sql` once and
+link a sync code. Until then sync is inert and never claims to be live; the local
+export/import backup works regardless.
