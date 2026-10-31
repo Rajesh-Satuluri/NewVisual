@@ -169,3 +169,53 @@
 .wk-table tr.op-c td { background: rgba(63,185,80,.06); }
 .wk-table tr.op-u td { background: rgba(163,113,247,.07); }
 .wk-table tr.op-d td { background: rgba(248,81,73,.07); }
+
+/* ============================================================
+   Failure / Recovery / Reconciliation Lab (rc-*) — P0-D
+   ============================================================ */
+.rc-scorebar { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: .6rem .85rem; font-size: .82rem; color: var(--text-muted); margin-bottom: .9rem; }
+.rc-score-val { font-size: 1.1rem; font-weight: 800; color: var(--snowflake); }
+.rc-score-sub { font-size: .7rem; }
+.rc-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: .6rem; }
+.rc-card { cursor: pointer; text-align: left; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: .65rem .7rem; color: var(--text-primary); }
+.rc-card:hover { border-color: var(--snowflake); }
+.rc-card.solved { border-color: #3fb950; }
+.rc-card-top { display: flex; align-items: center; gap: .4rem; margin-bottom: .35rem; }
+.rc-cat { font-size: .62rem; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); font-weight: 700; }
+.rc-sev { font-size: .6rem; font-weight: 700; text-transform: uppercase; padding: .1rem .4rem; border-radius: 999px; margin-left: auto; }
+.rc-sev-critical { background: rgba(248,81,73,.2); color: #e5534b; }
+.rc-sev-high { background: rgba(210,153,34,.2); color: #d29922; }
+.rc-sev-medium { background: rgba(88,166,255,.18); color: #58a6ff; }
+.rc-card-title { font-size: .82rem; font-weight: 600; line-height: 1.3; }
+.lab-check { color: #3fb950; font-weight: 800; }
+
+.rc-incident-head { margin: .6rem 0 .5rem; }
+.rc-incident-title { font-size: 1.1rem; margin: .3rem 0 .5rem; }
+.rc-impact, .rc-symptom, .rc-status { font-size: .82rem; line-height: 1.5; margin: .25rem 0; color: var(--text-secondary, var(--text-primary)); }
+.rc-symptom { padding: .4rem .6rem; background: rgba(248,81,73,.06); border-left: 3px solid #f85149; border-radius: var(--radius); }
+.rc-meta { display: flex; flex-wrap: wrap; gap: .5rem; margin: .7rem 0; }
+.rc-meta-item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: .4rem .6rem; font-size: .72rem; }
+.rc-meta-item span { color: var(--text-muted); margin-right: .4rem; } .rc-meta-item b { color: var(--text-primary); }
+
+.rc-subhead { font-size: .74rem; text-transform: uppercase; letter-spacing: .04em; color: var(--snowflake); font-weight: 700; margin: 1rem 0 .5rem; }
+.rc-diag { display: flex; flex-direction: column; gap: .4rem; }
+.rc-diag-row { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; font-size: .76rem; }
+.rc-diag-row code { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: .2rem .45rem; font-size: .72rem; }
+.rc-reveal { cursor: pointer; font-size: .68rem; background: none; border: 1px dashed var(--border); border-radius: 999px; padding: .15rem .55rem; color: var(--text-muted); }
+.rc-diag-a { font-size: .76rem; color: var(--text-secondary, var(--text-primary)); }
+
+.rc-lesson { margin-top: .7rem; padding: .6rem .8rem; background: rgba(var(--blue-rgb), .05); border-left: 3px solid var(--snowflake); border-radius: var(--radius); }
+.rc-lesson-tag { font-size: .68rem; font-weight: 700; text-transform: uppercase; color: var(--snowflake); margin-bottom: .25rem; }
+.rc-lesson p { margin: 0; font-size: .8rem; line-height: 1.5; }
+
+.rc-recon { margin: .5rem 0; display: flex; flex-direction: column; gap: .35rem; }
+.rc-funnel-row { display: grid; grid-template-columns: 110px 1fr 90px; align-items: center; gap: .6rem; font-size: .74rem; }
+.rc-funnel-k { color: var(--text-muted); }
+.rc-funnel-bar { background: var(--border); border-radius: 999px; height: 10px; overflow: hidden; }
+.rc-funnel-fill { display: block; height: 100%; background: var(--snowflake); border-radius: 999px; }
+.rc-funnel-fill.warn { background: #f85149; }
+.rc-funnel-v { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.rc-recon-note { margin-top: .5rem; font-size: .76rem; line-height: 1.5; color: var(--text-muted); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: .5rem .65rem; }
+
+.rc-workflow { margin: .4rem 0 .4rem 1.1rem; }
+.rc-workflow li { font-size: .82rem; line-height: 1.6; margin-bottom: .2rem; color: var(--text-secondary, var(--text-primary)); }

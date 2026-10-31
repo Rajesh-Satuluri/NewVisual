@@ -51,6 +51,7 @@
         { id: 'lab-troubleshooting', label: 'Troubleshooting Lab', icon: '🔥' },
         { id: 'lab-de',      label: 'Snowflake + Data Eng', icon: '🔗' },
         { id: 'lab-failure', label: 'Architecture Failure',  icon: '💥' },
+        { id: 'loading-recovery', label: 'Recovery & Reconcile', icon: '🧯' },
       ],
     },
     {
