@@ -975,14 +975,11 @@ Rule of thumb: REST for a governed, multi-engine lakehouse; Glue if you're all-i
         container.querySelectorAll('.int-btn[data-filter]').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         activeFilter = btn.dataset.filter;
+        // Re-render the list only. #int-body itself persists, so the delegated
+        // click handler above keeps working — do NOT re-attach it here, or each
+        // filter change would stack another listener and toggle cards twice.
         container.querySelector('#int-body').innerHTML = _buildList();
         _updateProgress();
-        container.querySelector('#int-body').addEventListener('click', (e) => {
-          const card = e.target.closest('.int-card');
-          if (!card) return;
-          card.classList.toggle('revealed');
-          _updateProgress();
-        });
       });
     });
 
