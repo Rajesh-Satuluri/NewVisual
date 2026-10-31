@@ -416,9 +416,11 @@ Rule of thumb: Delta for Databricks-centric lakehouses, Iceberg for multi-engine
         container.querySelectorAll('.dint-btn[data-filter]').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         activeFilter = btn.dataset.filter;
+        // Re-render the list only. #dint-body itself persists, so the delegated
+        // click handler keeps working — do NOT call wireBody() again here, or each
+        // filter change would stack another listener and toggle cards twice.
         container.querySelector('#dint-body').innerHTML = buildList();
         updateProgress();
-        wireBody();
       });
     });
 

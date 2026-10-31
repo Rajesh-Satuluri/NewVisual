@@ -268,7 +268,10 @@ Time travel only reads a past instant (the head doesn't move); restore actually 
       btn.addEventListener('click', () => {
         container.querySelectorAll('.hint-btn[data-filter]').forEach(b => b.classList.remove('active'));
         btn.classList.add('active'); activeFilter = btn.dataset.filter;
-        container.querySelector('#hint-body').innerHTML = buildList(); updateProgress(); wire();
+        // Re-render the list only. #hint-body itself persists, so the delegated
+        // click handler keeps working — do NOT call wire() again here, or each
+        // filter change would stack another listener and toggle cards twice.
+        container.querySelector('#hint-body').innerHTML = buildList(); updateProgress();
       });
     });
 
