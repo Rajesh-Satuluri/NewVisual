@@ -12,6 +12,7 @@ import { SELF_EXPLAIN } from './data/self-explain.js';
 import { record } from './data/progress-store.js';
 import { initCloudSync } from './components/cloudsync.js';
 import { initCloudSyncUI } from './components/cloudsync-ui.js';
+import { initIQEdits } from './components/iq-edits.js';
 
 // A module counts as "complete" only when its quiz is passed at this ratio —
 // mastery, not merely opening the page. Honest progress.
@@ -126,7 +127,7 @@ async function navigate(id) {
     canvas.innerHTML = '';
     cleanupFn = m.mount(canvas) || null;
     if (mod) {
-      initTabs(canvas); initIQ(canvas); enhanceModule(id);
+      initTabs(canvas); initIQ(canvas); initIQEdits(canvas, id); enhanceModule(id);
       // Canvas visuals are opaque to screen readers; give them an accessible
       // name so AT announces something, while the module's prose carries detail.
       canvas.querySelectorAll('canvas:not([aria-label])').forEach(c => {

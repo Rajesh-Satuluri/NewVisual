@@ -228,3 +228,30 @@ behaviour until the backend is configured AND a sync code is linked.
   present, and **no Supabase call while unlinked** (inert). Live DB round-trip is
   NOT yet verifiable here — it needs `schema.sql` applied; until then sync is
   correctly inert and never claims to be live.
+
+### Batch S2 — editable interview Q&A (synced) ✅
+
+- `components/iq-edits.js` — enhances each module's Interview Questions tab. Per
+  question it adds an ✎ Edit control; editing happens inside the expanded answer
+  (never fighting the open/close toggle), with Save / Cancel / Reset and an
+  "edited" badge. Both the question and the answer are editable in place.
+  Overrides are stored one key per question — `kafka_iqedit_<moduleId>_<index>`
+  → `{q?, a?}` — so cloudsync.js carries them automatically and concurrent edits
+  to different questions never collide. Originals are captured from the freshly
+  rendered (raw) DOM each mount, so Reset is always exact. Re-applies on mount and
+  on `kafka:cloud-refresh` (a single, leak-free listener), so an edit from another
+  device shows up live.
+- `script.js` — one import + `initIQEdits(canvas, id)` right after `initIQ`.
+- `enhancements.css` — `.iqe-*` block (edit button, badge, editor fields,
+  actions), theme-token based.
+- `data/iq-aggregate.js` — **fixed a pre-existing gap**: the Study-Hub aggregator
+  listed only m01–m22, so the CDC modules' interview questions never appeared in
+  the Study Hub. Added m23–m30 loaders; they now show up (aggregator already
+  defaults difficulty and preserves per-module index).
+- Scope note: editing is on the module IQ tabs (the canonical, index-stable
+  surface). The Study Hub stays a read-only aggregate pulled straight from the
+  modules; reflecting per-user edits there is a possible later nicety.
+- Verified: merge + engine suites still 47/47; Playwright both themes 0 console
+  errors — 3 edit controls on m23, editor opens, Save stores the override, badge
+  shows, the edit persists across a full page reload, Reset removes the key, and
+  the Study Hub now lists CDC (m23–m30) questions.
