@@ -41,6 +41,28 @@
       if (!Object.keys(obj).length) localStorage.removeItem(storeKey(fmt));
       else localStorage.setItem(storeKey(fmt), JSON.stringify(obj));
     } catch (e) { /* private mode — edit just won't persist */ }
+    // Belt-and-suspenders: explicitly ask cloud sync to push this change (the
+    // storage observer in cloudsync.js also catches it; this guarantees it even
+    // if the observer isn't active), then tell the user what happened.
+    if (TV.cloud && TV.cloud.onLocalChange) { try { TV.cloud.onLocalChange(); } catch (e2) {} }
+    nudgeSync();
+  }
+
+  // After an edit: confirm syncing when cloud sync is on, or (once) point the
+  // user to Cloud sync when it's off — otherwise edits stay on this device.
+  var nudgedOff = false;
+  function nudgeSync() {
+    if (!TV.cloud) return;
+    try {
+      if (TV.cloud.enabled()) {
+        if (TV.toast) TV.toast("Saved — syncing to your other devices.", { type: "success", duration: 2500 });
+      } else if (!nudgedOff) {
+        nudgedOff = true;
+        if (TV.toast) TV.toast(
+          "Saved on this device. To sync edits across devices, open the Backup dialog → Cloud sync and link the same code on each device.",
+          { title: "Turn on Cloud sync to sync edits", type: "warn", duration: 8000 });
+      }
+    } catch (e) { /* toast is optional */ }
   }
 
   /* ── one-time scoped styles ──────────────────────────────── */
