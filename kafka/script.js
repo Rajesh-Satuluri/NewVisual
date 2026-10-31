@@ -10,6 +10,8 @@ import { createSelfExplain, initSelfExplain } from './components/self-explain.js
 import { QUIZ_BANK } from './data/quiz-bank.js';
 import { SELF_EXPLAIN } from './data/self-explain.js';
 import { record } from './data/progress-store.js';
+import { initCloudSync } from './components/cloudsync.js';
+import { initCloudSyncUI } from './components/cloudsync-ui.js';
 
 // A module counts as "complete" only when its quiz is passed at this ratio —
 // mastery, not merely opening the page. Honest progress.
@@ -228,6 +230,10 @@ themeToggle.addEventListener('click', () => {
   root.setAttribute('data-theme', next);
   localStorage.setItem('kafka-theme', next);
 });
+
+// ── Cross-device cloud sync (optional; inert until configured + linked) ───────
+initCloudSyncUI();
+initCloudSync();
 
 // ── Tooltip ────────────────────────────────────────────────────────────────
 export const tooltip = {

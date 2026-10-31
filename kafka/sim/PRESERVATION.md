@@ -89,7 +89,8 @@ simulated is labelled "simulation", never presented as live.
 | Cluster / produce / offsets | Simulated (deterministic) | No network, no real broker |
 | Code execution | Not yet | Iteration 7: static validation, labelled |
 | Real Kafka cluster | Out of scope | Track 2 (needs backend) |
-| Accounts / cloud sync | Out of scope | Track 2; local-first + export/import instead |
+| Accounts | Out of scope | No login; identity is a shared "sync code" |
+| Cross-device cloud sync | **Real (opt-in)** | Supabase-backed; inert until `schema.sql` is run + a code is linked — see the Cross-device sync track below |
 
 ## CDC / Debezium / Lakehouse track (new groups, m23+)
 
@@ -174,3 +175,56 @@ plus a separate runnable Docker lab. Built and deployed per batch.
   dashboard GROUP_ORDER; quizzes + self-explain for m29/m30. Count now 30.
 - Verified: engine 33/33; Playwright both themes 0 console errors; nav groups
   6 + 2; home count = 30; dashboard shows both CDC groups. Baseline untouched.
+
+## Cross-device sync track (ported from the sibling tools — new groups, Batch S1+)
+
+Optional, opt-in cross-device sync of everything this tool stores, plus a local
+JSON backup. Ported from the blind75 / table-formats implementations and adapted
+to Kafka's storage model. Fully additive: no existing module was changed except
+two `init` calls added to `script.js`, and the app is byte-for-byte unchanged in
+behaviour until the backend is configured AND a sync code is linked.
+
+### Honesty ledger additions
+
+| Capability | This build | Notes |
+|---|---|---|
+| Cross-device sync | **Real**, opt-in | Supabase RPC (`kafka_get`/`kafka_put`); no login — a shared "sync code", stored only as its SHA-256 hash |
+| Until `schema.sql` is run + a code linked | **Inert** | No network call; everything stays local, per device (verified) |
+| Merge (who-wins-per-key) | **Deterministic, Node-tested** | `components/cloudsync.js`; 14 unit tests |
+| Local backup (export / import JSON) | **Real** | Works even with no backend configured |
+
+### Batch S1 — cloud sync engine + UI ✅
+
+- `supabase/schema.sql` — **the user runs this once** in the Supabase SQL Editor.
+  Own isolated `kafka_state` table + `kafka_get`/`kafka_put` SECURITY DEFINER
+  functions (≥8-char code guard); RLS on with no policies so the publishable key
+  has zero direct table access. Shares the project with the sibling tools without
+  colliding.
+- `supabase-config.js` — ESM `export const SUPABASE` (reuses the monorepo's
+  existing publishable key; safe to ship). Blank url/key ⇒ sync stays off.
+- `components/cloudsync.js` — ESM. **Pure, exported merge core** (`mergeAll`,
+  `mergeProgress`, `unionArrays`, `isSyncedKey`) + `initCloudSync()` and the
+  `cloud` singleton. Syncs every `kafka-*` / `kafka_*` key (the code itself lives
+  under `kafka:synccode`, outside the synced prefixes). Merge is per-key and
+  type-aware: `kafka-done` unions, `kafka-progress-v1` deep-merges by record `ts`
+  and never regresses a pass/correct, `kafka_quiz_*` takes the max, everything
+  else is a 3-way LWW against a common ancestor (honours deletions). A
+  transparent `localStorage` write observer (with an `applying` guard) means no
+  existing module had to call us; pulls on boot/focus/visibility/`storage`/15s/
+  reconnect; fires `kafka:cloud-refresh` + `kafka:progress` so open views repaint.
+- `components/cloudsync-ui.js` — ESM. A ☁ button in the header actions opens a
+  modal (generate/enter code, Link & sync, Sync now, Disconnect, live status) +
+  local Export/Import JSON. Styled entirely with the app's CSS tokens, correct in
+  both themes (data-theme, not prefers-color-scheme).
+- `index.html` — added `topbar-right` to `.header-actions` so the shared backup
+  button slots **inline** instead of as a floating pill. Bonus: this fixed a
+  pre-existing overlap where the floating pill sat on top of the theme toggle;
+  both it and the new sync button are now cleanly clickable.
+- `script.js` — two imports + `initCloudSyncUI()` / `initCloudSync()` at boot.
+- `components/cloudsync.test.mjs` — `node --test`, **14 tests** for the merge
+  rules (union, pass-never-lost, best=max, ts-wins, deletions, idempotence).
+- Verified: 14/14 merge tests; engine suite still 33/33; Playwright both themes
+  0 console errors, sync button present & clickable, modal opens/closes, export
+  present, and **no Supabase call while unlinked** (inert). Live DB round-trip is
+  NOT yet verifiable here — it needs `schema.sql` applied; until then sync is
+  correctly inert and never claims to be live.
