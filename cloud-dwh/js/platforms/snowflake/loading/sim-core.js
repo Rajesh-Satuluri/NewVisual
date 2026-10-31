@@ -91,5 +91,72 @@
     };
   }
 
-  return { deriveMetrics, ramp, fmtInt, fmtDur, SIM_SECONDS };
+  /* ============================================================
+     copySim — deterministic COPY INTO loader for the P0-B workshop.
+     Pure: given rows (each tagged with an `issue`) and COPY options,
+     decide per-row load/reject and apply the ON_ERROR policy.
+     Mirrors real Snowflake semantics without executing anything.
+     ============================================================ */
+  // Does a single row parse, given the file-format options?
+  function rowResult(issue, opts) {
+    switch (issue) {
+      case 'ok':           return { ok: true };
+      case 'quoted_comma': return opts.enclosed
+        ? { ok: true }
+        : { ok: false, reason: 'Unquoted comma split the field → too many columns. Set FIELD_OPTIONALLY_ENCLOSED_BY = \'"\'.' };
+      case 'empty_number': return opts.nullIf
+        ? { ok: true }
+        : { ok: false, reason: "Empty string cannot cast to NUMBER. Add NULL_IF = ('') so blanks load as NULL." };
+      case 'bad_date':     return opts.dateDMY
+        ? { ok: true }
+        : { ok: false, reason: "Date '15/01/2024' not recognised by AUTO. Set DATE_FORMAT = 'DD/MM/YYYY'." };
+      case 'overflow':     return { ok: false, reason: 'Numeric value out of range for the target NUMBER — a real data error, not a format fix.' };
+      default:             return { ok: true };
+    }
+  }
+
+  /**
+   * Simulate one COPY INTO over a single file.
+   * @param rows  [{ id, cells:[], issue }]
+   * @param opts  { onError:'ABORT_STATEMENT'|'CONTINUE'|'SKIP_FILE', enclosed, nullIf, dateDMY }
+   * @returns { rows:[{...,status,reason}], loaded, rejected, status, statusText, note }
+   */
+  function copySim(rows, opts) {
+    const evaluated = rows.map(r => {
+      const res = rowResult(r.issue, opts);
+      return { ...r, status: res.ok ? 'loaded' : 'error', reason: res.ok ? null : res.reason };
+    });
+    const anyError = evaluated.some(r => r.status === 'error');
+    const policy = opts.onError || 'ABORT_STATEMENT';
+
+    if (policy === 'ABORT_STATEMENT' && anyError) {
+      const first = evaluated.find(r => r.status === 'error');
+      return {
+        rows: evaluated.map(r => ({ ...r, status: 'aborted' })),
+        loaded: 0, rejected: evaluated.length, status: 'aborted',
+        statusText: 'Load aborted — ON_ERROR = ABORT_STATEMENT fails the whole statement on the first bad row.',
+        note: `First error: ${first.reason}`,
+      };
+    }
+    if (policy === 'SKIP_FILE' && anyError) {
+      return {
+        rows: evaluated.map(r => ({ ...r, status: 'skipped' })),
+        loaded: 0, rejected: evaluated.length, status: 'skipped',
+        statusText: 'File skipped — ON_ERROR = SKIP_FILE discards the entire file when any row errors.',
+        note: 'Good rows in the file are NOT loaded. Use CONTINUE to load good rows and quarantine the rest.',
+      };
+    }
+    const loaded = evaluated.filter(r => r.status === 'loaded').length;
+    const rejected = evaluated.length - loaded;
+    return {
+      rows: evaluated, loaded, rejected,
+      status: rejected ? 'partial' : 'success',
+      statusText: rejected
+        ? `Loaded ${loaded} row(s); ${rejected} rejected and routed to quarantine (ON_ERROR = CONTINUE).`
+        : `All ${loaded} row(s) loaded cleanly.`,
+      note: rejected ? 'Rejected rows should be captured (reason + source) for triage and reload — never dropped silently.' : '',
+    };
+  }
+
+  return { deriveMetrics, ramp, fmtInt, fmtDur, SIM_SECONDS, copySim, rowResult };
 });
