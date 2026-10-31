@@ -55,6 +55,20 @@ jobs:
           # Ensure Pages serves underscore paths (e.g. _next/) verbatim.
           touch .nojekyll
 
+      - name: Cache-bust local assets
+        # Stamp the commit SHA onto every local css/ and js/ reference in each
+        # index.html so a deploy can never leave a browser on a stale, mixed
+        # bundle (the cause of a module rendering its "coming soon" fallback).
+        # Edits the ephemeral CI checkout only — nothing is committed to git.
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          SHA="${GITHUB_SHA::8}"
+          find . -name index.html -not -path './.git/*' | while read -r f; do
+            sed -i -E "s#(href|src)=\"((css|js)/[^\"?]*)\"#\1=\"\2?v=${SHA}\"#g" "$f"
+          done
+          echo "Cache-busted assets with v=${SHA}"
+
       - name: Build per-project backup zips
         # A zip failure for one tool must never take down the whole deploy.
         continue-on-error: true
