@@ -2,8 +2,8 @@
    Baked from cloud sync by .github/workflows/bake-edits.yml. It overlays the
    user's in-tool edits (logic / description / code) onto the problems at load,
    so edits render for everyone and are captured in the Backup (.zip).
-   generatedAt: 2026-10-31T13:51:38.682Z
-   edits: logic=76 desc=0 code=39 */
+   generatedAt: 2026-10-31T18:00:03.898Z
+   edits: logic=76 desc=0 code=40 */
 (function () {
   "use strict";
   var B = window.BLIND75 || (window.BLIND75 = {});
@@ -309,6 +309,9 @@
     "pacific-atlantic-water-flow": {
       "1:plain": "class Solution:\n    def pacificAtlantic(self, heights: list[list[int]]) -> list[list[int]]:\n        m, n = len(heights), len(heights[0])\n        pacific = [[False] * n for _ in range(m)]\n        atlantic = [[False] * n for _ in range(m)]\n        directions = [(0, 1), (0, -1), (1, 0), (-1, 0)]\n\n        def dfs(r, c, reachable):\n            reachable[r][c] = True\n            for dr, dc in directions:\n                nr, nc = r + dr, c + dc\n                # Move to neighbor if it has equal or greater height (reverse flow)\n                if 0 <= nr < m and 0 <= nc < n and not reachable[nr][nc] and heights[nr][nc] >= heights[r][c]:\n                    dfs(nr, nc, reachable)\n\n        # DFS from Pacific border (top row + left column)\n        for c in range(n):\n            dfs(0, c, pacific)\n        for r in range(m):\n            dfs(r, 0, pacific)\n\n        # DFS from Atlantic border (bottom row + right column)\n        for c in range(n):\n            dfs(m - 1, c, atlantic)\n        for r in range(m):\n            dfs(r, n - 1, atlantic)\n\n        # Collect cells reachable from both oceans\n        result = []\n        for r in range(m):\n            for c in range(n):\n                if pacific[r][c] and atlantic[r][c]:\n                    result.append([r, c])\n        return result"
     },
+    "spark:create-df-from-tuples": {
+      "0:secondary": "from pyspark.sql import SparkSession\n\nspark = SparkSession.builder.getOrCreate()\n\ndata = [   # Take a list of tuples (data).\n    (1, 'Asha', 'Engineering', 120000),\n    (2, 'Ravi', 'Sales', 80000),\n]\ncolumns = ['employee_id', 'name', 'department', 'salary']  # List of strings (header).\n\ndf = spark.createDataFrame(data, columns)\ndf.show()"
+    },
     "spark:split-full-name-parts": {
       "0:primary": "from pyspark.sql.functions import col, split, element_at, size, trim  # Import column, split, array-element, array-size, and whitespace-trimming functions.\n\nparts = split(trim(col('name')), r'\\s+')  # Trim outer spaces, then split name on 1+ whitespace characters.\n# Regex: r'\\s+' → \\s = whitespace; + = one or more → \"Maria  de la Cruz\" → ['Maria','de','la','Cruz'].\n\nresult = (customers\n    .withColumn('first_name', element_at(parts, 1))       # element_at(array, 1) → first element; Spark arrays use 1-based indexing.\n    .withColumn('last_name', element_at(parts, size(parts))))  # size(parts) → array length; element_at(..., size) → last element.\n)\n\nresult.select(  # Keep only the required output columns.\n    'customer_id', 'name', 'first_name', 'last_name'\n).show(truncate=False)  # show() triggers Spark execution and displays the complete values."
     },
@@ -354,7 +357,7 @@
     }
   }
 };
-  OV.generatedAt = "2026-10-31T13:51:38.682Z";
+  OV.generatedAt = "2026-10-31T18:00:03.898Z";
   B.USER_OVERRIDES = OV;
 
   // Every problem registry the unified app exposes an .all() on.
