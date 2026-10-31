@@ -1,32 +1,25 @@
 /* ============================================================
-   interview-edits.js — editable interview Q&A, synced across devices.
+   interview-edits.js — in-place editable interview Q&A, synced across devices.
 
-   Lets you edit the QUESTION and ANSWER of any Interview Mode card
-   (Iceberg / Delta / Hudi). Edits are stored per format in localStorage under
-   the synced "iv:" prefix (iv:iedit-<fmt>), so js/features/cloudsync.js carries
-   them across devices automatically, and an edit made on another device shows
-   up live here on the next cloud refresh.
+   Click "Edit" in a card header and the QUESTION and the formatted ANSWER
+   become editable right where they're shown (contentEditable — WYSIWYG, no raw
+   markup). Save stores the edited HTML per format under the synced "iv:" prefix
+   (iv:iedit-<fmt>), so js/features/cloudsync.js carries edits across devices
+   automatically, and an edit made on another device re-applies live on the next
+   cloud refresh.
 
-   Additive only: the three interview modules each call
+   Works for all three interview modules (Iceberg / Delta / Hudi). Each calls
        TV.interviewEdits.enhance(container, cfg)
-   once at the end of render(). This feature then overlays an Edit control on
-   each card, applies any stored overrides, and re-applies them after the filter
-   rebuilds (via a MutationObserver) or after a cloud sync. It edits no module
-   logic, router, or animation, and falls back silently if anything is missing.
+   once at the end of render(). Additive: no module logic, router or animation
+   is changed, and it no-ops if anything is missing.
 
    cfg = {
-     prefix:       'int' | 'dint' | 'hint',   // the module's CSS class prefix
-     fmt:          'iceberg' | 'delta' | 'hudi',
-     QA:           <the module's question array>,
-     answerField:  'answer' | 'a',            // which field holds the raw answer
-     formatAnswer: function(raw){...}         // the module's answer formatter
+     prefix:'int'|'dint'|'hint', fmt:'iceberg'|'delta'|'hudi',
+     QA:<array>, answerField:'answer'|'a', formatAnswer:function(raw){...}
    }
 
-   Note on trust: an edited answer is rendered through the module's own
-   formatAnswer (which emits the same light markup — <strong>, lists — the
-   built-in answers use). Edits are your own content, gated behind your private
-   sync code and only ever shared with your own devices; the question field is
-   written as plain text.
+   Note on trust: edits are your own content, rendered as HTML you authored,
+   gated behind your private sync code and shared only with your own devices.
    ============================================================ */
 (function () {
   "use strict";
@@ -34,7 +27,7 @@
   var TV = (window.TableViz = window.TableViz || window.IcebergViz || {});
   window.IcebergViz = window.IcebergViz || TV;
 
-  var active = [];          // [{ container, cfg, applyAll }] for cloud re-apply
+  var active = [];
   var cloudHooked = false;
 
   /* ── store (per format), under the synced iv: prefix ──────── */
@@ -45,8 +38,7 @@
   }
   function saveStore(fmt, obj) {
     try {
-      var keys = Object.keys(obj);
-      if (!keys.length) localStorage.removeItem(storeKey(fmt));   // tidy when empty
+      if (!Object.keys(obj).length) localStorage.removeItem(storeKey(fmt));
       else localStorage.setItem(storeKey(fmt), JSON.stringify(obj));
     } catch (e) { /* private mode — edit just won't persist */ }
   }
@@ -57,36 +49,25 @@
     var st = document.createElement("style");
     st.id = "ie-style";
     st.textContent = [
-      ".ie-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;}",
-      ".ie-edit-hdr{flex:none;cursor:pointer;display:inline-flex;align-items:center;gap:5px;margin-left:10px;",
-      "  border:1px solid var(--border-default,rgba(127,127,127,.3));border-radius:7px;",
-      "  background:var(--bg-3,rgba(127,127,127,.08));color:var(--text-secondary,#8b949e);",
-      "  font:600 11px/1 inherit;padding:5px 9px;white-space:nowrap;align-self:flex-start;}",
-      ".ie-edit-hdr:hover{color:var(--text-primary,inherit);border-color:var(--brand,#3fb950);}",
+      ".ie-hdr-tools{flex:none;display:inline-flex;gap:6px;align-items:flex-start;margin-left:10px;}",
       ".ie-btn{cursor:pointer;border-radius:7px;border:1px solid var(--border-default,rgba(127,127,127,.3));",
-      "  background:var(--bg-3,rgba(127,127,127,.08));color:var(--text-primary,inherit);",
-      "  font:600 12px/1 inherit;padding:6px 10px;display:inline-flex;align-items:center;gap:5px;}",
-      ".ie-btn:hover{border-color:var(--brand,#3fb950);}",
+      "  background:var(--bg-3,rgba(127,127,127,.08));color:var(--text-secondary,#8b949e);",
+      "  font:600 11px/1 inherit;padding:5px 9px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;}",
+      ".ie-btn:hover{color:var(--text-primary,inherit);border-color:var(--brand,#3fb950);}",
       ".ie-btn-primary{background:var(--blue,#1f6feb);border-color:transparent;color:#fff;}",
-      ".ie-btn-primary:hover{filter:brightness(1.08);}",
+      ".ie-btn-primary:hover{filter:brightness(1.08);color:#fff;}",
       ".ie-btn-danger{color:#ff8a8a;border-color:rgba(255,138,138,.4);background:transparent;}",
       ".ie-btn-danger:hover{background:rgba(255,138,138,.12);}",
       ".ie-badge{display:inline-block;margin-left:8px;font-size:10px;font-weight:700;text-transform:uppercase;",
       "  letter-spacing:.05em;color:var(--blue,#1f6feb);border:1px solid currentColor;border-radius:999px;",
       "  padding:1px 7px;vertical-align:middle;opacity:.9;}",
-      ".ie-editor{margin-top:12px;display:flex;flex-direction:column;gap:10px;",
-      "  border-top:1px dashed var(--border-subtle,rgba(127,127,127,.3));padding-top:12px;}",
-      ".ie-field{display:flex;flex-direction:column;gap:4px;}",
-      ".ie-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;",
-      "  color:var(--text-secondary,#8b949e);}",
-      ".ie-area{width:100%;box-sizing:border-box;border-radius:8px;",
-      "  border:1px solid var(--border-default,rgba(127,127,127,.3));",
-      "  background:var(--bg-2,rgba(127,127,127,.06));color:var(--text-primary,inherit);",
-      "  font:13px/1.6 inherit;padding:8px 10px;resize:vertical;}",
-      ".ie-area:focus{outline:none;border-color:var(--blue,#1f6feb);}",
-      ".ie-area-q{min-height:52px;}",
-      ".ie-area-a{min-height:180px;font-family:inherit;}",
-      ".ie-hint{font-size:11px;color:var(--text-secondary,#8b949e);opacity:.85;margin:0;}"
+      /* the editable regions while editing */
+      ".ie-editing [contenteditable=\"true\"]{outline:none;border:1px solid var(--blue,#1f6feb);",
+      "  border-radius:8px;padding:8px 10px;background:var(--bg-2,rgba(127,127,127,.06));",
+      "  box-shadow:0 0 0 3px rgba(31,111,235,.12);cursor:text;}",
+      ".ie-editing [contenteditable=\"true\"]:focus{border-color:var(--blue,#1f6feb);}",
+      ".ie-edit-tip{font-size:11px;color:var(--text-secondary,#8b949e);opacity:.85;margin:8px 0 0;}",
+      ".ie-edit-tip code{font-family:var(--font-mono,ui-monospace,Menlo,monospace);}"
     ].join("\n");
     (document.head || document.documentElement).appendChild(st);
   }
@@ -96,61 +77,99 @@
       'width="13" height="13" aria-hidden="true">' +
       '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>';
   }
+  function fmtAnswer(cfg, raw) {
+    try { return cfg.formatAnswer(String(raw == null ? "" : raw)); }
+    catch (e) { return String(raw == null ? "" : raw); }
+  }
+  function origQHtml(cfg, idx) { return String(cfg.QA[idx].q == null ? "" : cfg.QA[idx].q); }
+  function origAHtml(cfg, idx) { return fmtAnswer(cfg, cfg.QA[idx][cfg.answerField]); }
 
-  /* ── apply overrides + inject the Edit control on one card ── */
+  /* ── badge + header tools ────────────────────────────────── */
+  function ensureBadge(card, cfg, on) {
+    var qMain = card.querySelector("." + cfg.prefix + "-q-main");
+    if (!qMain) return;
+    var qText = qMain.querySelector("." + cfg.prefix + "-q-text");
+    var badge = qMain.querySelector(".ie-badge");
+    if (on) {
+      if (!badge) {
+        badge = document.createElement("span");
+        badge.className = "ie-badge";
+        badge.textContent = "edited";
+        if (qText && qText.nextSibling) qMain.insertBefore(badge, qText.nextSibling);
+        else qMain.appendChild(badge);
+      }
+    } else if (badge && badge.parentNode) {
+      badge.parentNode.removeChild(badge);
+    }
+  }
+
+  function renderTools(card, cfg) {
+    var tools = card.__ieTools;
+    if (!tools) return;
+    var editing = !!card.__ieEditing;
+    var hasOv = !!loadStore(cfg.fmt)[parseInt(card.getAttribute("data-idx"), 10)];
+    if (editing) {
+      tools.innerHTML =
+        '<button type="button" class="ie-btn ie-btn-primary" data-ie="save">Save</button>' +
+        '<button type="button" class="ie-btn" data-ie="cancel">Cancel</button>' +
+        (hasOv ? '<button type="button" class="ie-btn ie-btn-danger" data-ie="reset">Reset</button>' : '');
+    } else {
+      tools.innerHTML = '<button type="button" class="ie-btn" data-ie="edit">' + svgEdit() + "Edit</button>";
+    }
+  }
+
+  function ensureTools(card, cfg) {
+    if (card.__ieTools) { renderTools(card, cfg); return; }
+    var qRow = card.querySelector("." + cfg.prefix + "-q-row");
+    if (!qRow) return;
+    var tools = document.createElement("div");
+    tools.className = "ie-hdr-tools";
+    card.__ieTools = tools;
+    tools.addEventListener("click", function (e) {
+      e.stopPropagation();                      // never toggle the card
+      var btn = e.target.closest ? e.target.closest("[data-ie]") : null;
+      if (!btn) return;
+      var act = btn.getAttribute("data-ie");
+      if (act === "edit") startEdit(card, cfg);
+      else if (act === "save") saveEdit(card, cfg);
+      else if (act === "cancel") cancelEdit(card, cfg);
+      else if (act === "reset") resetEdit(card, cfg);
+    });
+    var chev = qRow.querySelector("." + cfg.prefix + "-q-chevron");
+    if (chev) qRow.insertBefore(tools, chev); else qRow.appendChild(tools);
+    renderTools(card, cfg);
+  }
+
+  // Stop editable clicks/keys from toggling the card or firing app shortcuts.
+  function ensureGuards(card, cfg, qEl, aEl) {
+    [qEl, aEl].forEach(function (el) {
+      if (!el || el.__ieGuarded) return;
+      el.__ieGuarded = true;
+      el.addEventListener("click", function (e) { if (card.__ieEditing) e.stopPropagation(); });
+      el.addEventListener("keydown", function (e) {
+        if (!card.__ieEditing) return;
+        e.stopPropagation();
+        if (e.key === "Escape") { cancelEdit(card, cfg); }
+        else if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { saveEdit(card, cfg); }
+      });
+    });
+  }
+
+  /* ── apply overrides + wire a card ───────────────────────── */
   function applyCard(card, cfg) {
     var idx = parseInt(card.getAttribute("data-idx"), 10);
     if (isNaN(idx) || !cfg.QA[idx]) return;
-    var store = loadStore(cfg.fmt);
-    var ov = store[idx];
-
+    var ov = loadStore(cfg.fmt)[idx];
     var qEl = card.querySelector("." + cfg.prefix + "-q-text");
     var aEl = card.querySelector("." + cfg.prefix + "-answer-text");
-    var origQ = String(cfg.QA[idx].q == null ? "" : cfg.QA[idx].q);
-    var origA = String(cfg.QA[idx][cfg.answerField] == null ? "" : cfg.QA[idx][cfg.answerField]);
 
-    // Effective values (override or original) — always set, so a Reset restores.
-    if (qEl) qEl.textContent = (ov && ov.q != null) ? ov.q : origQ;
-    if (aEl) {
-      var rawA = (ov && ov.a != null) ? ov.a : origA;
-      try { aEl.innerHTML = cfg.formatAnswer(rawA); } catch (e) { aEl.textContent = rawA; }
+    if (!card.__ieEditing) {       // don't clobber an in-progress edit
+      if (qEl) qEl.innerHTML = (ov && ov.qHtml != null) ? ov.qHtml : origQHtml(cfg, idx);
+      if (aEl) aEl.innerHTML = (ov && ov.aHtml != null) ? ov.aHtml : origAHtml(cfg, idx);
     }
-
-    // "Edited" badge next to the question.
-    var qMain = card.querySelector("." + cfg.prefix + "-q-main");
-    if (qMain) {
-      var badge = qMain.querySelector(".ie-badge");
-      if (ov) {
-        if (!badge) {
-          badge = document.createElement("span");
-          badge.className = "ie-badge";
-          badge.textContent = "edited";
-          var qText = qMain.querySelector("." + cfg.prefix + "-q-text");
-          if (qText) qText.appendChild(badge); else qMain.appendChild(badge);
-        }
-      } else if (badge && badge.parentNode) {
-        badge.parentNode.removeChild(badge);
-      }
-    }
-
-    // Edit button in the card header (question row), next to the chevron.
-    var qRow = card.querySelector("." + cfg.prefix + "-q-row");
-    if (qRow && !qRow.querySelector(".ie-edit-hdr")) {
-      var hbtn = document.createElement("button");
-      hbtn.type = "button";
-      hbtn.className = "ie-edit-hdr";
-      hbtn.setAttribute("data-ie", "edit");
-      hbtn.setAttribute("aria-label", "Edit this question and answer");
-      hbtn.innerHTML = svgEdit() + "Edit";
-      // Must not bubble to the card's reveal toggle; reveal + open directly.
-      hbtn.addEventListener("click", function (e) {
-        e.stopPropagation();
-        card.classList.add("revealed");
-        openEditor(card, cfg);
-      });
-      var chev = qRow.querySelector("." + cfg.prefix + "-q-chevron");
-      if (chev) qRow.insertBefore(hbtn, chev); else qRow.appendChild(hbtn);
-    }
+    ensureBadge(card, cfg, !!ov);
+    ensureTools(card, cfg);
+    ensureGuards(card, cfg, qEl, aEl);
   }
 
   function applyAll(container, cfg) {
@@ -158,81 +177,69 @@
     for (var i = 0; i < cards.length; i++) applyCard(cards[i], cfg);
   }
 
-  /* ── inline editor ───────────────────────────────────────── */
-  function openEditor(card, cfg) {
-    var idx = parseInt(card.getAttribute("data-idx"), 10);
-    if (isNaN(idx) || !cfg.QA[idx]) return;
+  /* ── edit lifecycle (in place) ───────────────────────────── */
+  function startEdit(card, cfg) {
+    card.classList.add("revealed");                 // answer must be visible
+    card.classList.add("ie-editing");
+    card.__ieEditing = true;
+    var qEl = card.querySelector("." + cfg.prefix + "-q-text");
+    var aEl = card.querySelector("." + cfg.prefix + "-answer-text");
+    if (qEl) qEl.setAttribute("contenteditable", "true");
+    if (aEl) aEl.setAttribute("contenteditable", "true");
+
+    // A small formatting hint under the answer (removed on exit).
     var ansBlock = card.querySelector("." + cfg.prefix + "-answer");
-    if (!ansBlock || ansBlock.querySelector(".ie-editor")) return;  // already open
-
-    var store = loadStore(cfg.fmt);
-    var ov = store[idx];
-    var origQ = String(cfg.QA[idx].q == null ? "" : cfg.QA[idx].q);
-    var origA = String(cfg.QA[idx][cfg.answerField] == null ? "" : cfg.QA[idx][cfg.answerField]);
-    var curQ = (ov && ov.q != null) ? ov.q : origQ;
-    var curA = (ov && ov.a != null) ? ov.a : origA;
-
-    var aText = ansBlock.querySelector("." + cfg.prefix + "-answer-text");
-    if (aText) aText.style.display = "none";
-
-    var ed = document.createElement("div");
-    ed.className = "ie-editor";
-    ed.innerHTML =
-      '<div class="ie-field"><label class="ie-label">Question</label>' +
-        '<textarea class="ie-area ie-area-q" spellcheck="true"></textarea></div>' +
-      '<div class="ie-field"><label class="ie-label">Answer</label>' +
-        '<textarea class="ie-area ie-area-a" spellcheck="true"></textarea>' +
-        '<p class="ie-hint">Blank line = new paragraph · start a line with <code>1.</code> for a numbered list or <code>-</code> for a bullet · wrap a label in <code>&lt;strong&gt;…&lt;/strong&gt;</code>.</p></div>' +
-      '<div class="ie-toolbar">' +
-        '<button type="button" class="ie-btn ie-btn-primary" data-ie="save">Save</button>' +
-        '<button type="button" class="ie-btn" data-ie="cancel">Cancel</button>' +
-        (ov ? '<button type="button" class="ie-btn ie-btn-danger" data-ie="reset">Reset to original</button>' : '') +
-      '</div>';
-
-    // Prefill via value (so markup/newlines are literal, not parsed as HTML).
-    ed.querySelector(".ie-area-q").value = curQ;
-    ed.querySelector(".ie-area-a").value = curA;
-
-    // Keep every interaction inside the editor from toggling the card.
-    ed.addEventListener("click", function (e) { e.stopPropagation(); });
-    ed.addEventListener("keydown", function (e) { e.stopPropagation(); });
-
-    ed.addEventListener("click", function (e) {
-      var btn = e.target.closest ? e.target.closest("[data-ie]") : null;
-      if (!btn) return;
-      var act = btn.getAttribute("data-ie");
-      if (act === "save") {
-        var q = ed.querySelector(".ie-area-q").value;
-        var a = ed.querySelector(".ie-area-a").value;
-        var s = loadStore(cfg.fmt);
-        if (q === origQ && a === origA) delete s[idx];          // back to default
-        else s[idx] = { q: q, a: a };
-        saveStore(cfg.fmt, s);                                  // -> cloudsync pushes
-        closeEditor(card, cfg);
-        applyCard(card, cfg);
-      } else if (act === "cancel") {
-        closeEditor(card, cfg);
-      } else if (act === "reset") {
-        var s2 = loadStore(cfg.fmt);
-        delete s2[idx];
-        saveStore(cfg.fmt, s2);
-        closeEditor(card, cfg);
-        applyCard(card, cfg);
-      }
-    });
-
-    ansBlock.appendChild(ed);
-    var qa = ed.querySelector(".ie-area-q");
-    if (qa) qa.focus();
+    if (ansBlock && !ansBlock.querySelector(".ie-edit-tip")) {
+      var tip = document.createElement("p");
+      tip.className = "ie-edit-tip";
+      tip.innerHTML = "Editing in place — type to change the text. <b>Ctrl/Cmd+B</b> bolds a selection · " +
+        "<b>Ctrl/Cmd+Enter</b> saves · <b>Esc</b> cancels.";
+      ansBlock.appendChild(tip);
+    }
+    renderTools(card, cfg);
+    if (aEl && aEl.focus) aEl.focus();
   }
 
-  function closeEditor(card, cfg) {
+  function endEdit(card, cfg) {
+    card.__ieEditing = false;
+    card.classList.remove("ie-editing");
+    var qEl = card.querySelector("." + cfg.prefix + "-q-text");
+    var aEl = card.querySelector("." + cfg.prefix + "-answer-text");
+    if (qEl) qEl.removeAttribute("contenteditable");
+    if (aEl) aEl.removeAttribute("contenteditable");
     var ansBlock = card.querySelector("." + cfg.prefix + "-answer");
-    if (!ansBlock) return;
-    var ed = ansBlock.querySelector(".ie-editor");
-    if (ed && ed.parentNode) ed.parentNode.removeChild(ed);
-    var aText = ansBlock.querySelector("." + cfg.prefix + "-answer-text");
-    if (aText) aText.style.display = "";
+    var tip = ansBlock && ansBlock.querySelector(".ie-edit-tip");
+    if (tip && tip.parentNode) tip.parentNode.removeChild(tip);
+  }
+
+  function saveEdit(card, cfg) {
+    var idx = parseInt(card.getAttribute("data-idx"), 10);
+    if (isNaN(idx) || !cfg.QA[idx]) return;
+    var qEl = card.querySelector("." + cfg.prefix + "-q-text");
+    var aEl = card.querySelector("." + cfg.prefix + "-answer-text");
+    var qHtml = qEl ? qEl.innerHTML.trim() : "";
+    var aHtml = aEl ? aEl.innerHTML.trim() : "";
+    var store = loadStore(cfg.fmt);
+    // If it matches the original render, drop the override (back to default).
+    if (qHtml === origQHtml(cfg, idx).trim() && aHtml === origAHtml(cfg, idx).trim()) delete store[idx];
+    else store[idx] = { qHtml: qHtml, aHtml: aHtml };
+    saveStore(cfg.fmt, store);                        // -> cloudsync pushes
+    endEdit(card, cfg);
+    applyCard(card, cfg);
+  }
+
+  function cancelEdit(card, cfg) {
+    endEdit(card, cfg);
+    applyCard(card, cfg);                             // restore stored/original
+  }
+
+  function resetEdit(card, cfg) {
+    var idx = parseInt(card.getAttribute("data-idx"), 10);
+    var store = loadStore(cfg.fmt);
+    delete store[idx];
+    saveStore(cfg.fmt, store);
+    endEdit(card, cfg);
+    applyCard(card, cfg);
   }
 
   /* ── public: called once per render by each interview module ─ */
@@ -245,21 +252,18 @@
       var run = function () { applyAll(container, cfg); };
       run();
 
-      // Re-apply after the filter rebuilds the list (innerHTML swap on the body).
       var body = container.querySelector("#" + cfg.prefix + "-body") || container;
       if (body && !body.__ieObserved && window.MutationObserver) {
         body.__ieObserved = true;
-        var mo = new MutationObserver(function (muts) {
+        new MutationObserver(function (muts) {
           for (var i = 0; i < muts.length; i++) {
             if (muts[i].type === "childList" && muts[i].addedNodes.length) { run(); return; }
           }
-        });
-        mo.observe(body, { childList: true });
+        }).observe(body, { childList: true });
       }
 
-      // Track for cloud-refresh re-apply; prune dead containers.
-      active = active.filter(function (a) { return a.container && a.container.isConnected !== false && document.contains(a.container); });
-      active.push({ container: container, cfg: cfg, applyAll: run });
+      active = active.filter(function (a) { return a.container && document.contains(a.container); });
+      active.push({ container: container, applyAll: run });
 
       if (!cloudHooked) {
         cloudHooked = true;
