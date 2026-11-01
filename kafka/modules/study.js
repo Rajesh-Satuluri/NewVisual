@@ -5,7 +5,7 @@
 import { MODULES } from '../components/nav.js';
 import { QUIZ_BANK } from '../data/quiz-bank.js';
 import { loadAllIQ } from '../data/iq-aggregate.js';
-import { loadOverride, saveOverride, applyOverrideTo } from '../components/iq-overrides.js';
+import { loadOverride, saveOverride, applyOverrideTo, syncHint, wireSyncCta } from '../components/iq-overrides.js';
 import { cloud } from '../components/cloudsync.js';
 
 const DIFF_ORDER = { easy: 0, medium: 1, hard: 2 };
@@ -133,10 +133,11 @@ export function mount(container) {
           <button type="button" class="iqe-btn iqe-cancel">Cancel</button>
           <button type="button" class="iqe-btn iqe-reset"${ov ? '' : ' hidden'}>Reset to original</button>
         </div>
-        <div class="iqe-hint">Edits sync to this question everywhere — the module's own Q&amp;A tab and across your devices when cloud sync is on.</div>
+        <div class="iqe-hint">${syncHint()}</div>
       </div>`;
     const qField = ae.querySelector('.iqe-q');
     const aField = ae.querySelector('.iqe-a');
+    wireSyncCta(ae);
     qField?.focus();
 
     ae.querySelector('.iqe-save').addEventListener('click', () => {

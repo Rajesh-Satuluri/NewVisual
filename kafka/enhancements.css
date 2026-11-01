@@ -1484,6 +1484,11 @@ body.cmdk-open { overflow: hidden; }
 .iqe-reset { color:var(--red); }
 .iqe-reset:hover { border-color:var(--red); background:rgba(239,68,68,.1); }
 .iqe-hint { font-size:11px; color:var(--text3); margin-top:2px; }
+.iqe-synccta {
+  background:none; border:none; padding:0; font:inherit; cursor:pointer;
+  color:var(--accent, #6366f1); font-weight:600; text-decoration:underline;
+}
+.iqe-synccta:hover { opacity:.8; }
 
 /* ── Editable "Level Up Your Answer" cards (components/tiered-edits.js) ─────── */
 .tae-tools { display:flex; align-items:center; justify-content:flex-end; gap:8px; margin:0 0 10px; }
