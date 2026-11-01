@@ -2,8 +2,8 @@
    Baked from cloud sync by .github/workflows/bake-edits.yml. It overlays the
    user's in-tool edits (logic / description / code) onto the problems at load,
    so edits render for everyone and are captured in the Backup (.zip).
-   generatedAt: 2026-11-01T00:15:46.788Z
-   edits: logic=76 desc=0 code=40 */
+   generatedAt: 2026-11-01T06:20:02.840Z
+   edits: logic=76 desc=0 code=41 */
 (function () {
   "use strict";
   var B = window.BLIND75 || (window.BLIND75 = {});
@@ -299,6 +299,9 @@
     "container-with-most-water": {
       "1:plain": "class Solution:\n    def maxArea(self, height: List[int]) -> int:\n        left, right = 0, len(height) - 1\n        best = 0\n        while left < right:\n            area = (right - left) * min(height[left], height[right])  # Area formula\n            best = max(best, area)   # Update the best\n            if height[left] < height[right]:   # Move the pointers\n                left += 1\n            else:\n                right -= 1\n        return best"
     },
+    "spark:create-df-structtype": {
+      "0:secondary": "from pyspark.sql.types import StructType, StructField, IntegerType, StringType, DoubleType\n\nschema = StructType([  # StructType represents the entire schema — the collection of columns.\n    StructField('employee_id', IntegerType(), False),   # nullable=False — the column must not contain NULL values.\n    StructField('name', StringType(), True),     # nullable=True— the column can contain NULL values.\n    StructField('department', StringType(), True), # StructField represents one column within that schema.\n    StructField('salary', DoubleType(), True),\n])\n\ndata = [(1, 'Asha', 'Engineering', 120000.0)]\ndf = spark.createDataFrame(data, schema)\ndf.printSchema()"
+    },
     "spark:extract-email-domain": {
       "0:primary": "from pyspark.sql.functions import col, split, element_at, regexp_extract  # Import column, split, array-element, and regex-extraction functions.\n\n# Option A: Split the email at '@' and take the second element.\ndomA = element_at(split(col('email'), '@'), 2)  # 'asha@acme.com' → ['asha', 'acme.com'] → 'acme.com'.\n# split takes two params, string and the delimeter.\n\n# Option B: Use one regex to capture everything after '@'.\ndomB = regexp_extract(col('email'), '@(.+)$', 1)  # Group 1 captures the domain → 'asha@acme.com' → 'acme.com'.\n# Regex: '@(.+)$'\n# @   → Match the literal '@'.\n# (.+) → Capture group 1: one or more of any character.\n# $   → End of string.\n# Overall → Capture everything after the '@' until the end.\n\nresult = (users\n    .withColumn('domain', domA))  # Add the extracted domain as a new column; this is a narrow transformation (no shuffle).\n\nresult.select(  # Select only the columns needed in the output.\n    'user_id', 'email', 'domain'\n).show(truncate=False)  # show() triggers Spark execution and displays the complete values.",
       "0:secondary": "from pyspark.sql.functions import col, split, element_at, regexp_extract\n# split() Breaks a string into an array on a delimiter or regex.  returns an array  [\"john\", \"example.com\"]\n# element_at() retrieves the second element from the array.\n\nresult = users.withColumn('domain', element_at(split(col('email'), '@'), 2)) \nresult.select('user_id', 'email', 'domain').show(truncate=False)"
@@ -357,7 +360,7 @@
     }
   }
 };
-  OV.generatedAt = "2026-11-01T00:15:46.788Z";
+  OV.generatedAt = "2026-11-01T06:20:02.840Z";
   B.USER_OVERRIDES = OV;
 
   // Every problem registry the unified app exposes an .all() on.
