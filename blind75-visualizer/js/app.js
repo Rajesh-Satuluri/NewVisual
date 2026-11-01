@@ -88,7 +88,8 @@
     mode: "practice",                                // learn | practice
     pyGroupMode: store.getPref("pyGroupMode") || "pattern", // pattern | ds | difficulty
     approachIndex: {},  // problemId -> selected approach index
-    focusLocal: null    // per-problem focus override: null=inherit global, true/false=forced (reset on nav)
+    focusLocal: null,   // per-problem focus override: null=inherit global, true/false=forced (reset on nav)
+    focusCodeOnly: false // PySpark-only deeper focus tier: show ONLY the solution code (reset on nav)
   };
 
   // ---- master stack/mode model ----
@@ -2267,6 +2268,7 @@
       if (!document.body.classList.contains("focus-on")) return;
       store.setPref("focus", false);
       state.focusLocal = null;
+      state.focusCodeOnly = false;
       applyFocus();
       // DSA chip is rebuilt by renderProblem; ProblemLab chip is synced by applyFocus.
       if (state.stack === "python" && state.mode === "practice" && focusViewOk()) renderProblem();
@@ -2557,6 +2559,9 @@
     var g = !!store.getPref("focus");
     var ok = focusViewOk();
     document.body.classList.toggle("focus-on", ok && focusEffective());
+    // Deeper "code only" tier: PySpark practice only, layered on top of focus-on.
+    document.body.classList.toggle("focus-code-only",
+      ok && focusEffective() && state.focusCodeOnly && state.stack === "spark");
     var gb = el("focusGlobalBtn");
     if (gb) {
       gb.setAttribute("aria-pressed", g ? "true" : "false");
@@ -2576,14 +2581,28 @@
     if (!btn) {
       btn = h("button", { class: "chip-btn focus-local-btn" }, "🎯 Focus");
       btn.addEventListener("click", function () {
-        state.focusLocal = !focusEffective(); // flip the effective state for this problem
-        applyFocus();                         // re-paint body class + chip label
+        if (state.stack === "spark") {
+          // 3-state cycle (PySpark only): Off -> Focus -> Focus: Code -> Off.
+          if (!focusEffective()) {             // Off -> standard focus
+            state.focusLocal = true;
+            state.focusCodeOnly = false;
+          } else if (!state.focusCodeOnly) {   // standard -> code only
+            state.focusCodeOnly = true;
+          } else {                             // code only -> Off
+            state.focusLocal = false;
+            state.focusCodeOnly = false;
+          }
+        } else {
+          state.focusLocal = !focusEffective(); // other labs: plain on/off toggle
+        }
+        applyFocus();                           // re-paint body class + chip label
       });
       actions.appendChild(btn);
     }
     var on = focusEffective();
+    var codeOnly = on && state.focusCodeOnly && state.stack === "spark";
     btn.classList.toggle("on", on);
-    btn.textContent = on ? "🎯 Focus: ON" : "🎯 Focus";
+    btn.textContent = codeOnly ? "🎯 Focus: Code" : (on ? "🎯 Focus: ON" : "🎯 Focus");
   }
 
   // Set the shell "chrome" (state, body attrs, switch highlights) WITHOUT
@@ -2703,6 +2722,7 @@
 
     lastRenderedHash = location.hash;
     state.focusLocal = null; // per-problem focus override resets on every navigation
+    state.focusCodeOnly = false; // deeper code-only tier is transient too
     navProgress();
     var r = parseRoute(location.hash);
 

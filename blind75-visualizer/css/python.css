@@ -795,6 +795,11 @@ mark.sx-hit {
 .focus-on #main .prob-section .sec-body-outer { height: auto !important; }
 .focus-on #main .prob-section.collapsed .sec-caret { transform: none; }
 
+/* Deeper "code only" tier (PySpark practice): drop Description + Examples too,
+   leaving only the solution code block. Layered on top of .focus-on. */
+.focus-on.focus-code-only #main > .prob-section[data-key="description"],
+.focus-on.focus-code-only #main > .prob-section[data-key="examples"] { display: none !important; }
+
 /* A little more breathing room for the stripped-down reading view. */
 .focus-on #main { padding-top: 6px; }
 
