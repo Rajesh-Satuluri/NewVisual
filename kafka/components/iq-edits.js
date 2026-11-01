@@ -18,27 +18,7 @@
  * edit made on another device shows up live.
  */
 import { cloud } from './cloudsync.js';
-
-const PREFIX = 'kafka_iqedit_';
-const keyFor = (mid, i) => `${PREFIX}${mid}_${i}`;
-
-function loadOverride(mid, i) {
-  try {
-    const raw = localStorage.getItem(keyFor(mid, i));
-    if (!raw) return null;
-    const o = JSON.parse(raw);
-    return (o && typeof o === 'object') ? o : null;
-  } catch (e) { return null; }
-}
-function saveOverride(mid, i, obj) {
-  try {
-    if (obj && (typeof obj.q === 'string' || typeof obj.a === 'string')) {
-      localStorage.setItem(keyFor(mid, i), JSON.stringify(obj));
-    } else {
-      localStorage.removeItem(keyFor(mid, i));
-    }
-  } catch (e) {}
-}
+import { loadOverride, saveOverride } from './iq-overrides.js';
 
 function qSpan(item) {
   // The question text span: the flex child that isn't the number or the chevron.
