@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="css/main.css" />
   <link rel="stylesheet" href="css/layout.css?v=20261028llsvg" />
   <link rel="stylesheet" href="css/components.css?v=20261024logiccopy" />
-  <link rel="stylesheet" href="css/python.css?v=20261101codefocus" />
+  <link rel="stylesheet" href="css/python.css?v=20261101codeglobal" />
   <link rel="stylesheet" href="css/master.css?v=20261027iofit" />
   <link rel="stylesheet" href="css/ipad.css" />
 </head>
@@ -44,6 +44,7 @@
       </div>
     </div>
     <button id="focusGlobalBtn" class="focus-global-btn" aria-pressed="false" title="Global focus mode — show only the problem, examples &amp; solution (Esc to exit)" aria-label="Toggle global focus mode">🎯 <span class="btx">Focus</span></button>
+    <button id="focusCodeBtn" class="focus-global-btn focus-code-global-btn" aria-pressed="false" style="display:none" title="Global code-only focus (PySpark) — show only the solution code (Esc to exit)" aria-label="Toggle global code-only focus">💻 <span class="btx">Focus: Code</span></button>
     <div class="topbar-right">
       <button id="paletteBtn" class="ghost-btn" title="Jump to anything (Cmd/Ctrl+K)" aria-label="Command palette — jump to any topic or problem">⌘K <span class="btx">Jump to…</span></button>
       <button id="rosettaBtn" class="ghost-btn" title="Same task in SQL / Spark SQL / PySpark / Pandas / Python" aria-label="Rosetta — same task in every dialect">🔀 <span class="btx">Rosetta</span></button>
@@ -201,7 +202,7 @@
   <script src="js/learncore.js"></script>
   <script src="js/modules/markdown.js?v=20261028llsvg"></script>
   <script src="js/supabase-config.js"></script>
-  <script src="js/modules/store.js?v=20261022searchnext"></script>
+  <script src="js/modules/store.js?v=20261101codeglobal"></script>
   <script src="js/modules/cloudsync.js"></script>
   <script src="js/filters.js"></script>
   <script src="js/modules/pyviz.js"></script>
@@ -253,7 +254,7 @@
   <script src="data/user_overrides.js?v=20261024publish"></script>
 
   <script src="js/search-enhance.js?v=20261020sqlfocus"></script>
-  <script src="js/app.js?v=20261101codefocus"></script>
+  <script src="js/app.js?v=20261101codeglobal"></script>
   <script src="js/pyrun.js"></script>
   <script src="js/pyapp.js"></script>
   <script src="js/problemlab.js?v=20261027iocols"></script>

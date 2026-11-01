@@ -2267,6 +2267,7 @@
       if (e.key !== "Escape") return;
       if (!document.body.classList.contains("focus-on")) return;
       store.setPref("focus", false);
+      store.setPref("focusCode", false);
       state.focusLocal = null;
       state.focusCodeOnly = false;
       applyFocus();
@@ -2298,6 +2299,17 @@
         applyFocus();
         // DSA rebuilds its chip via renderProblem; ProblemLab chip is synced by applyFocus.
         if (state.stack === "python" && state.mode === "practice" && focusViewOk()) renderProblem();
+      });
+    }
+
+    // global code-only focus toggle (topbar, PySpark practice only) — persisted
+    var focusCodeBtn = el("focusCodeBtn");
+    if (focusCodeBtn) {
+      focusCodeBtn.addEventListener("click", function () {
+        store.setPref("focusCode", !store.getPref("focusCode"));
+        state.focusLocal = null;      // clear per-problem overrides so global applies
+        state.focusCodeOnly = false;
+        applyFocus();
       });
     }
 
@@ -2550,22 +2562,43 @@
     var main = el("main");
     return !!(main && main.querySelector('.prob-section[data-key="code"]'));
   }
+  // Is the current view PySpark practice? (the only place code-only focus lives)
+  function sparkPracticeView() {
+    return state.stack === "spark" && state.mode === "practice";
+  }
   // Effective focus for the current problem: a per-problem override (focusLocal
-  // = true/false) wins over the persisted global pref; null means "inherit".
+  // = true/false) wins over the persisted global prefs; null means "inherit".
+  // Base focus is on when global "focus" is set, OR (PySpark practice) when the
+  // global "focusCode" pref is set — code-only implies the base focus layout.
   function focusEffective() {
-    return state.focusLocal === null ? !!store.getPref("focus") : state.focusLocal;
+    if (state.focusLocal !== null) return state.focusLocal;
+    if (store.getPref("focus")) return true;
+    if (sparkPracticeView() && store.getPref("focusCode")) return true;
+    return false;
+  }
+  // Effective code-only tier for the current problem (PySpark practice only):
+  // a per-problem cycle override wins; otherwise inherit the global focusCode pref.
+  function codeOnlyEffective() {
+    if (!sparkPracticeView()) return false;
+    if (state.focusLocal === null) return !!store.getPref("focusCode");
+    return state.focusCodeOnly;
   }
   function applyFocus() {
     var g = !!store.getPref("focus");
     var ok = focusViewOk();
     document.body.classList.toggle("focus-on", ok && focusEffective());
     // Deeper "code only" tier: PySpark practice only, layered on top of focus-on.
-    document.body.classList.toggle("focus-code-only",
-      ok && focusEffective() && state.focusCodeOnly && state.stack === "spark");
+    document.body.classList.toggle("focus-code-only", ok && focusEffective() && codeOnlyEffective());
     var gb = el("focusGlobalBtn");
     if (gb) {
       gb.setAttribute("aria-pressed", g ? "true" : "false");
       gb.style.display = ok ? "" : "none"; // hide the toggle off the problem view
+    }
+    // Global code-only button: PySpark practice only.
+    var cb = el("focusCodeBtn");
+    if (cb) {
+      cb.setAttribute("aria-pressed", store.getPref("focusCode") ? "true" : "false");
+      cb.style.display = (ok && sparkPracticeView()) ? "" : "none";
     }
     if (ok) ensureLabFocusBtn();
   }
@@ -2581,14 +2614,17 @@
     if (!btn) {
       btn = h("button", { class: "chip-btn focus-local-btn" }, "🎯 Focus");
       btn.addEventListener("click", function () {
-        if (state.stack === "spark") {
+        if (sparkPracticeView()) {
           // 3-state cycle (PySpark only): Off -> Focus -> Focus: Code -> Off.
-          if (!focusEffective()) {             // Off -> standard focus
+          // Written as explicit per-problem overrides off the EFFECTIVE state, so
+          // the chip cleanly overrides the global focus / focusCode prefs here.
+          if (!focusEffective()) {              // Off -> standard focus
             state.focusLocal = true;
             state.focusCodeOnly = false;
-          } else if (!state.focusCodeOnly) {   // standard -> code only
+          } else if (!codeOnlyEffective()) {    // standard -> code only
+            state.focusLocal = true;
             state.focusCodeOnly = true;
-          } else {                             // code only -> Off
+          } else {                              // code only -> Off
             state.focusLocal = false;
             state.focusCodeOnly = false;
           }
@@ -2600,7 +2636,7 @@
       actions.appendChild(btn);
     }
     var on = focusEffective();
-    var codeOnly = on && state.focusCodeOnly && state.stack === "spark";
+    var codeOnly = on && codeOnlyEffective();
     btn.classList.toggle("on", on);
     btn.textContent = codeOnly ? "🎯 Focus: Code" : (on ? "🎯 Focus: ON" : "🎯 Focus");
   }
