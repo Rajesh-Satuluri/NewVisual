@@ -2302,7 +2302,7 @@
       });
     }
 
-    // global code-only focus toggle (topbar, PySpark practice only) — persisted
+    // global code-only focus toggle (topbar, PySpark + SQL practice) — persisted
     var focusCodeBtn = el("focusCodeBtn");
     if (focusCodeBtn) {
       focusCodeBtn.addEventListener("click", function () {
@@ -2562,9 +2562,9 @@
     var main = el("main");
     return !!(main && main.querySelector('.prob-section[data-key="code"]'));
   }
-  // Is the current view PySpark practice? (the only place code-only focus lives)
+  // Is the current view one where code-only focus is offered? (PySpark + SQL practice)
   function sparkPracticeView() {
-    return state.stack === "spark" && state.mode === "practice";
+    return state.mode === "practice" && (state.stack === "spark" || state.stack === "sql");
   }
   // Effective focus for the current problem: a per-problem override (focusLocal
   // = true/false) wins over the persisted global prefs; null means "inherit".
