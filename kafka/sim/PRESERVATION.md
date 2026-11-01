@@ -9,8 +9,8 @@ reason; iterations extend.
 | Area | File(s) | Status |
 |---|---|---|
 | 22 learning modules | `modules/m01`–`m22` | Preserved; enriched (Passes 1–5) |
-| Interview Q&A per module | module `IQ` arrays + `components/module-shell.js` | Preserved |
-| Interview question bank | `data/iq-bank.js`, `data/tiered.js` | Preserved (to deepen, Iteration 5) |
+| Interview Q&A per module | module `IQ` arrays (single source) + `components/module-shell.js`; aggregated via `data/iq-aggregate.js`; user edits via `components/iq-overrides.js` (shared by module tab + Study Hub) | Preserved |
+| Tiered depth bank | `data/tiered.js` | Preserved (to deepen, Iteration 5) |
 | Quizzes | `data/quiz-bank.js`, `components/quiz.js` | Preserved |
 | Self-explain | `data/self-explain.js`, `components/self-explain.js` | Preserved |
 | Incident bank + investigation | `data/incidents.js`, `modules/incident-bank.js`, `components/investigation-flow.js` | Preserved (branching + scoring, Iteration 8) |
