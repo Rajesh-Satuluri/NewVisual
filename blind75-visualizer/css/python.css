@@ -747,6 +747,9 @@ mark.sx-hit {
   box-shadow: 0 0 12px var(--brand-glow);
 }
 @media (max-width: 1540px) { .focus-global-btn .btx { display: none; } }
+/* The PySpark code-only global button sits right after the focus button (whose
+   margin-left:auto pushes the pair toward the centre), not auto-pushed itself. */
+.focus-code-global-btn { margin-left: 8px; }
 
 /* --- per-problem local focus chip (always available, even under global focus) --- */
 .focus-local-btn.on { background: var(--brand); color: #06111f; border-color: var(--brand); box-shadow: 0 0 10px var(--brand-glow); }
