@@ -2,8 +2,8 @@
    Baked from cloud sync by .github/workflows/bake-edits.yml. It overlays the
    user's in-tool edits (logic / description / code) onto the problems at load,
    so edits render for everyone and are captured in the Backup (.zip).
-   generatedAt: 2026-11-02T08:15:23.944Z
-   edits: logic=76 desc=0 code=41 */
+   generatedAt: 2026-11-02T18:29:33.782Z
+   edits: logic=76 desc=0 code=42 */
 (function () {
   "use strict";
   var B = window.BLIND75 || (window.BLIND75 = {});
@@ -336,6 +336,9 @@
     "spark:orders-on-consecutive-days": {
       "0:secondary": "from pyspark.sql.window import Window\nfrom pyspark.sql.functions import col, lag, datediff\n\ndays = orders.select('customer_id', 'order_date').distinct()  # Get the distinct orders\n\nw = (Window   #  PySpark window specification builder\n     .partitionBy('customer_id')\n     .orderBy('order_date'))\n\nprev_day = lag('order_date').over(w)  # prev_day is a PySpark Column expression, not an actual column in your DataFrame yet.\n\nresult = (days\n    .withColumn('gap', datediff(col('order_date'), prev_day))  # Gap between curr and prev order\n    .filter(col('gap') == 1)      # Gap==1 means orders are on consecutive days\n    .select('customer_id').distinct())\nresult.show()"
     },
+    "spark:inner-join-customers-orders": {
+      "0:secondary": "from pyspark.sql.functions import col\n\nc = customers.alias('c')\no = orders.alias('o')\nresult = c.join(\n    o,\n    on=col('c.customer_id') == col('o.customer_id'),\n    how='inner'\n)\nresult.select(\n    col('o.order_id'),\n    col('c.customer_id'),\n    col('c.name'),\n    col('o.order_amount')\n).show()"
+    },
     "spark:parse-json-string-to-struct": {
       "1:primary": "from pyspark.sql.functions import col, from_json, schema_of_json, lit  \n\nsample = '{\"user\":\"u1\",\"action\":\"click\",\"count\":3}'  # Representative JSON string used to infer the expected structure.\ninferred = schema_of_json(lit(sample))               # Infer a Spark schema from the sample JSON.\n\n# Regex: None — this code does not use a regex.\n\nresult = (events\n    .withColumn(  # Add a new column containing the parsed JSON as a STRUCT.\n        'parsed',\n        from_json(col('payload'), inferred)  # Parse the JSON string in payload using the inferred schema.\n    )\n    .select(  # Select the event ID and expand the STRUCT fields into separate columns.\n        'event_id',\n        'parsed.*'  # * expands user, action, count from the parsed STRUCT.\n    )\n)\n\nresult.show()  # show() is an ACTION → Spark executes the transformations and displays the result.",
       "1:secondary": "# In dataframe one column is a JSON String\n\nfrom pyspark.sql.functions import col, from_json, schema_of_json, lit\n\nsample = '{\"user\":\"u1\",\"action\":\"click\",\"count\":3}' \ninferred = schema_of_json(lit(sample))   # It tells Spark what kind of fields to expect.\n\nresult = (events\n    .withColumn('parsed', from_json(col('payload'), inferred))  # payload is the column containing JSON\n    .select('event_id', 'parsed.*'))\nresult.show()"
@@ -360,7 +363,7 @@
     }
   }
 };
-  OV.generatedAt = "2026-11-02T08:15:23.944Z";
+  OV.generatedAt = "2026-11-02T18:29:33.782Z";
   B.USER_OVERRIDES = OV;
 
   // Every problem registry the unified app exposes an .all() on.
