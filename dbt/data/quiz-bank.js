@@ -415,4 +415,24 @@ export const QUIZ_BANK = {
       explanation: 'The SQL is valid, so nothing errors — but the grain quietly becomes one row per order-payment and sums double-count. A unique test on order_id catches it.',
     },
   ],
+  m34: [
+    {
+      q: 'Your BI tool and a data-science notebook both report "total revenue" but the numbers differ. How does the dbt Semantic Layer prevent this?',
+      options: ['It caches the dashboard', 'Both query one governed metric definition, and MetricFlow compiles the same SQL for each', 'It locks the warehouse', 'It emails a warning'],
+      answer: 1,
+      explanation: 'The metric is defined once in YAML; every tool asks the Semantic Layer for it and MetricFlow compiles identical SQL, so there is a single source of truth for the number.',
+    },
+    {
+      q: 'In a semantic model, what is the role of an entity?',
+      options: ['It stores the metric value', 'It is a join key that lets MetricFlow join semantic models on shared keys', 'It formats the output', 'It schedules the query'],
+      answer: 1,
+      explanation: 'Entities (primary/foreign/unique) are the join keys. Two models sharing an entity name let MetricFlow auto-join them, so you can slice one model by another model\'s dimension.',
+    },
+    {
+      q: 'A metric defined as numerator ÷ denominator of two measures is which metric type?',
+      options: ['simple', 'ratio', 'cumulative', 'derived'],
+      answer: 1,
+      explanation: 'A ratio metric divides one measure by another (e.g. revenue ÷ orders = average order value). simple wraps one measure; derived is an expression of other metrics; cumulative is a running total.',
+    },
+  ],
 };

@@ -44,6 +44,8 @@ export const MODULES = [
   // ── Mastery & Capstone ────────────────────────────────────────────────────
   { id:'m32', title:'Command Playground',     icon:'⌨️', group:'Mastery & Capstone', num:'32', desc:'Every dbt command: purpose, example, internals, prod use, mistake' },
   { id:'m33', title:'Real-World Production',   icon:'🏭', group:'Mastery & Capstone', num:'33', desc:'One e-commerce project from raw source to BI dashboard — the capstone' },
+  // ── Modern dbt ─────────────────────────────────────────────────────────────
+  { id:'m34', title:'Semantic Layer',         icon:'🧮', group:'Modern dbt', num:'34', desc:'Define a metric once; MetricFlow compiles every slice to SQL — one number everywhere' },
 ];
 
 // Synthetic entries: reference & review pages. They live in the sidebar but

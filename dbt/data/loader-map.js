@@ -42,6 +42,8 @@ export const MODULE_FILES = {
   m31: 'm31-case-studies.js',
   m32: 'm32-command-playground.js',
   m33: 'm33-production-lab.js',
+  // Modern dbt
+  m34: 'm34-semantic-layer.js',
   // Practice
   studio: 'studio.js',
   'config-lab': 'config-lab.js',
