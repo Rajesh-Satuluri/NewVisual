@@ -28,6 +28,7 @@
         { id: 'loading-workshop',label: 'Loading Workshop', icon: '🧰' },
         { id: 'loading-incremental', label: 'Incremental & CDC', icon: '🔀' },
         { id: 'loading-cheatsheet', label: 'Loading Cheat-Sheet', icon: '🗂️' },
+        { id: 'loading-flashcards', label: 'Loading Flashcards', icon: '🃏' },
         { id: 'semi-structured', label: 'Semi-Structured',  icon: '🧩' },
         { id: 'data-engineering',label: 'Data Engineering',  icon: '🔧' },
         { id: 'objects',         label: 'Objects & Hierarchy', icon: '🗂️' },
