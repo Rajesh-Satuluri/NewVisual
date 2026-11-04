@@ -18,7 +18,7 @@
  * edit made on another device shows up live.
  */
 import { cloud } from './cloudsync.js';
-import { loadOverride, saveOverride } from './iq-overrides.js';
+import { loadOverride, saveOverride, syncHint, wireSyncCta } from './iq-overrides.js';
 
 function qSpan(item) {
   // The question text span: the flex child that isn't the number or the chevron.
@@ -62,10 +62,11 @@ function enterEdit(item, orig, mid, i) {
         <button type="button" class="iqe-btn iqe-cancel">Cancel</button>
         <button type="button" class="iqe-btn iqe-reset"${ov ? '' : ' hidden'}>Reset to original</button>
       </div>
-      <div class="iqe-hint">Your edits are private to you and sync across your devices when cloud sync is on.</div>
+      <div class="iqe-hint">${syncHint()}</div>
     </div>`;
   const qField = ae.querySelector('.iqe-q');
   const aField = ae.querySelector('.iqe-a');
+  wireSyncCta(ae);
   qField?.focus();
 
   const finish = () => { item.classList.remove('iqe-editing'); applyDisplay(item, orig, mid, i); };

@@ -35,6 +35,7 @@ const LOADERS = {
   m29: () => import('../modules/m29-outbox-pattern.js'),
   m30: () => import('../modules/m30-lakehouse.js'),
   m31: () => import('../modules/m31-cdc-capstone.js'),
+  m32: () => import('../modules/m32-debezium-internals.js'),
 };
 
 const numOf = id => id.replace(/^m/, '');
