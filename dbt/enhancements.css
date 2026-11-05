@@ -582,6 +582,16 @@ body.cmdk-open { overflow: hidden; }
 .sl-result td { color: var(--text); }
 .sl-link { color: var(--accent); text-decoration: none; border-bottom: 1px dotted var(--accent); }
 .sl-link:hover { opacity: 0.8; }
+
+/* ── M35 · dbt Mesh (multi-project DAG) ───────────────────────────────────── */
+.mesh-legend { display: flex; flex-wrap: wrap; gap: 14px; margin: 0 0 14px; }
+.mesh-leg { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--text-2); font-family: var(--font-mono); }
+.mesh-dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.mesh-reslist { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.mesh-res { font-size: 13px; padding: 7px 11px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); }
+.mesh-res code { font-size: 12px; }
+.mesh-ok { border-left: 3px solid #10B981; }
+.mesh-err { border-left: 3px solid #EF4444; color: var(--text); }
 .mx-cell { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); padding: 11px 14px; }
 .mx-k { font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-3); margin-bottom: 6px; }
 .mx-v { font-size: 13px; color: var(--text); line-height: 1.6; }

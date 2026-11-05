@@ -44,6 +44,7 @@ export const MODULE_FILES = {
   m33: 'm33-production-lab.js',
   // Modern dbt
   m34: 'm34-semantic-layer.js',
+  m35: 'm35-dbt-mesh.js',
   // Practice
   studio: 'studio.js',
   'config-lab': 'config-lab.js',

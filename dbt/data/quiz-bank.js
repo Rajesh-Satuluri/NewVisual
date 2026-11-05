@@ -435,4 +435,24 @@ export const QUIZ_BANK = {
       explanation: 'A ratio metric divides one measure by another (e.g. revenue ÷ orders = average order value). simple wraps one measure; derived is an expression of other metrics; cumulative is a running total.',
     },
   ],
+  m35: [
+    {
+      q: 'In dbt Mesh, which access level is required for a model to be referenced from ANOTHER project?',
+      options: ['protected', 'private', 'public', 'exposed'],
+      answer: 2,
+      explanation: 'Only access: public lets a model be referenced across projects via ref(\'project\',\'model\'). protected is same-project only (the default); private is same-group only.',
+    },
+    {
+      q: 'What is the correct syntax for a cross-project reference to fct_orders in the platform project?',
+      options: ["ref('fct_orders')", "ref('platform.fct_orders')", "ref('platform', 'fct_orders')", "source('platform', 'fct_orders')"],
+      answer: 2,
+      explanation: 'A cross-project ref takes two arguments: the project name first, then the model name — ref(\'platform\', \'fct_orders\'). The one-arg form only resolves within the current project.',
+    },
+    {
+      q: 'Why attach a contract (contract: { enforced: true }) to a public model?',
+      options: ['It makes the model build faster', 'It pins the columns, types and constraints so a breaking change fails the build before it reaches downstream projects', 'It encrypts the data', 'It schedules the model'],
+      answer: 1,
+      explanation: 'A public model is an API other teams depend on. A contract enforces its declared shape at build time, so an incompatible change is caught before it silently breaks every consumer.',
+    },
+  ],
 };

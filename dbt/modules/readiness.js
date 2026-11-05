@@ -15,7 +15,7 @@ const AREAS = [
   { name: 'CI/CD & Environments',color: '#F59E0B', ids: ['m27','m28'] },
   { name: 'Architecture',        color: '#EC4899', ids: ['m29','m30','m31'] },
   { name: 'Commands & Interview',color: '#14B8A6', ids: ['m32'] },
-  { name: 'Modern dbt',          color: '#A855F7', ids: ['m34'] },
+  { name: 'Modern dbt',          color: '#A855F7', ids: ['m34','m35'] },
 ];
 
 function readState() {
