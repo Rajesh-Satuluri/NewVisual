@@ -47,6 +47,7 @@ export const MODULES = [
   // ── Modern dbt ─────────────────────────────────────────────────────────────
   { id:'m34', title:'Semantic Layer',         icon:'🧮', group:'Modern dbt', num:'34', desc:'Define a metric once; MetricFlow compiles every slice to SQL — one number everywhere' },
   { id:'m35', title:'dbt Mesh',               icon:'🕸️', group:'Modern dbt', num:'35', desc:'Split a monolith into many projects; cross-project refs, access levels, contracts & versions' },
+  { id:'m36', title:'Core vs Cloud',          icon:'☁️', group:'Modern dbt', num:'36', desc:'Same engine, two runtimes — what dbt Cloud adds around dbt Core, and when you need it' },
 ];
 
 // Synthetic entries: reference & review pages. They live in the sidebar but

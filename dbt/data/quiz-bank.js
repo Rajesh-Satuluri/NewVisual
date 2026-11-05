@@ -455,4 +455,24 @@ export const QUIZ_BANK = {
       explanation: 'A public model is an API other teams depend on. A contract enforces its declared shape at build time, so an incompatible change is caught before it silently breaks every consumer.',
     },
   ],
+  m36: [
+    {
+      q: 'What is the relationship between dbt Core and dbt Cloud?',
+      options: ['They are competing tools with different SQL dialects', 'dbt Cloud runs dbt Core under the hood and adds a managed platform around it', 'dbt Core is a paid version of dbt Cloud', 'dbt Cloud replaces dbt Core entirely'],
+      answer: 1,
+      explanation: 'dbt Cloud runs the same open-source dbt Core engine, hosted, and wraps a platform around it (scheduler, IDE, APIs, hosted Semantic Layer, Explorer, governance). Your project runs unchanged on both.',
+    },
+    {
+      q: 'Your team uses dbt Core. Which capability is NOT built in, so you must bring your own tool?',
+      options: ['Running models with ref()', 'Writing tests', 'A job scheduler / orchestration', 'Compiling Jinja'],
+      answer: 2,
+      explanation: 'dbt Core has no scheduler — you orchestrate it with cron, Airflow, Dagster, or a CI runner. Models, tests, ref(), and Jinja compilation are all core engine features.',
+    },
+    {
+      q: 'Defining metrics with MetricFlow works in dbt Core. What specifically requires dbt Cloud?',
+      options: ['Writing the metrics YAML', 'Querying metrics locally with the CLI', 'Serving metrics to BI tools over the JDBC/GraphQL Semantic Layer APIs', 'Using ref() in a metric'],
+      answer: 2,
+      explanation: 'You can define and query metrics in Core (dbt sl query). The hosted Semantic Layer — serving those metrics to BI tools over JDBC/GraphQL APIs — is the dbt Cloud feature.',
+    },
+  ],
 };
