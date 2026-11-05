@@ -56,6 +56,7 @@ export const EXTRAS = [
   { id:'studio',    title:'Coding Studio',     icon:'💻', group:'Practice', num:'', desc:'Write and run real SQL on the e-commerce dataset (DuckDB-WASM).' },
   { id:'config-lab',title:'Config Lab',        icon:'⚙️', group:'Practice', num:'', desc:'Jinja templating + YAML/config repair with real validation.' },
   { id:'incident-simulator', title:'Incident Simulator', icon:'🚨', group:'Practice', num:'', desc:'Work 20 real dbt incidents on-call: briefing → evidence → root cause → recovery → fix.' },
+  { id:'project-ide', title:'Project Builder', icon:'🛠️', group:'Practice', num:'', desc:'Edit a multi-model dbt project and Build it for real on DuckDB — ref() DAG, execution order, and tests.' },
   { id:'project-explorer', title:'Sample Project', icon:'📦', group:'Practice', num:'', desc:'Browse a complete, runnable dbt project and download it to dbt run locally on DuckDB.' },
   { id:'spaced-review', title:'Spaced Review', icon:'🗓️', group:'Practice', num:'', desc:'Spaced-repetition review over the interview bank — SM-2 scheduling, due-today queue.' },
   { id:'modes',     title:'Learning Modes',    icon:'🧭', group:'Guide', num:'', desc:'Six goal-based paths through the modules.' },

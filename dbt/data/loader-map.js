@@ -50,6 +50,7 @@ export const MODULE_FILES = {
   studio: 'studio.js',
   'config-lab': 'config-lab.js',
   'incident-simulator': 'incident-simulator.js',
+  'project-ide': 'project-ide.js',
   'project-explorer': 'project-explorer.js',
   'spaced-review': 'spaced-review.js',
   // Reference & review
