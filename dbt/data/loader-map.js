@@ -48,6 +48,7 @@ export const MODULE_FILES = {
   m36: 'm36-core-vs-cloud.js',
   // Ecosystem
   m37: 'm37-packages.js',
+  m38: 'm38-python-models.js',
   // Practice
   studio: 'studio.js',
   'config-lab': 'config-lab.js',

@@ -50,6 +50,7 @@ export const MODULES = [
   { id:'m36', title:'Core vs Cloud',          icon:'☁️', group:'Modern dbt', num:'36', desc:'Same engine, two runtimes — what dbt Cloud adds around dbt Core, and when you need it' },
   // ── Ecosystem ───────────────────────────────────────────────────────────────
   { id:'m37', title:'dbt Packages',           icon:'📦', group:'Ecosystem', num:'37', desc:'Reusable dbt code — dbt_utils, expectations, codegen, audit_helper — and how to install & use it' },
+  { id:'m38', title:'Python Models',          icon:'🐍', group:'Ecosystem', num:'38', desc:'Models as Python functions returning DataFrames — run on the warehouse; when Python beats SQL' },
 ];
 
 // Synthetic entries: reference & review pages. They live in the sidebar but

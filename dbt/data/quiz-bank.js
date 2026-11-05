@@ -495,4 +495,24 @@ export const QUIZ_BANK = {
       explanation: 'A package is a dependency; an unpinned version means a new release can change your build without you touching anything. Pinning a range takes safe patches while blocking breaking majors.',
     },
   ],
+  m38: [
+    {
+      q: 'Where does the code in a dbt Python model actually run?',
+      options: ['On your laptop, inside dbt', 'On the warehouse Python runtime (Snowpark / PySpark / BigQuery)', 'In a separate Airflow worker', 'In the browser'],
+      answer: 1,
+      explanation: 'dbt orchestrates it, but the Python executes on the warehouse\'s own Python runtime — Snowpark on Snowflake, PySpark on Databricks, Dataproc on BigQuery — not locally and not inside dbt.',
+    },
+    {
+      q: 'Which task is the RIGHT reason to use a Python model instead of SQL?',
+      options: ['Revenue rollup by month', 'Pivoting categories to columns', 'Scoring customers with a trained scikit-learn model', 'Deduplicating exact duplicate rows'],
+      answer: 2,
+      explanation: 'ML inference needs a library SQL can\'t express — that is the canonical Python-model case. Rollups, pivots and dedupe are all cleaner and cheaper in SQL.',
+    },
+    {
+      q: 'Can a SQL model ref() a Python model?',
+      options: ['No, they are separate DAGs', 'Yes — a Python model\'s output is a table, and lineage/selection cross the language boundary', 'Only in dbt Cloud', 'Only if both are materialized as views'],
+      answer: 1,
+      explanation: 'Python and SQL models live in one DAG. A Python model outputs a table that downstream SQL models can ref(), and tests, lineage and state:modified+ all work across the boundary.',
+    },
+  ],
 };
