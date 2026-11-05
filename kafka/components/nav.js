@@ -58,6 +58,7 @@ const REFERENCE = [
   { id:'incident-bank', label:'Incident Bank', icon:'🚑' },
 ];
 const PRACTICE = [
+  { id:'mock-interview', label:'Mock Interview',     icon:'🎤' },
   { id:'decisions',    label:'Choose the Approach', icon:'🧭' },
   { id:'troubleshoot', label:'Troubleshooting Lab', icon:'🔍' },
   { id:'cdc-incidents', label:'CDC Incident Lab',   icon:'🛠️' },

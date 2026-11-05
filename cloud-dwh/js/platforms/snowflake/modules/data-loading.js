@@ -27,7 +27,8 @@
       const spec = SPEC();
       if (!spec) { canvas.innerHTML = '<div class="placeholder-msg"><p>Pipeline spec not loaded.</p></div>'; return {}; }
 
-      const state = { pattern: spec.patterns[0], activeIds: [], engine: null, selected: null };
+      const state = { pattern: spec.patterns[0], activeIds: [], engine: null, selected: null,
+                      whatif: { badRows: false, policy: 'continue', rerun: 'none' } };
 
       const page = _el('div', 'dl2-page');
       page.innerHTML = `
@@ -88,6 +89,10 @@
       const detail = _el('div', 'dl2-detail'); detail.id = 'dl2-detail';
       right.appendChild(detail);
 
+      /* What-if lab (full width, below the two columns) */
+      const whatif = _el('section', 'dl2-whatif'); whatif.id = 'dl2-whatif';
+      page.appendChild(whatif);
+
       const ctx = { canvas, state };
 
       function selectPattern(id) {
@@ -101,6 +106,64 @@
         renderIdle();
         distinction.innerHTML = `<div class="dl2-distinction-tag">🔑 What makes this pattern different</div><p>${state.pattern.distinction}</p>`;
         showOverview();
+        renderWhatIf();
+      }
+
+      /* ── What-if lab: predict how the load reacts to failures & replays ── */
+      function renderWhatIf() {
+        const p = state.pattern, wi = state.whatif, fileBased = !!p.fileBased;
+        const policies = fileBased
+          ? [['continue', "ON_ERROR = CONTINUE"], ['skip_file', "SKIP_FILE"], ['abort', "ABORT_STATEMENT"]]
+          : [['continue', 'Dead-letter bad rows'], ['abort', 'Fail the pipeline']];
+        // keep policy valid for this pattern
+        if (!policies.some(x => x[0] === wi.policy)) wi.policy = 'continue';
+        const reruns = [['none', 'No re-run'], ['replay', 'Replay same data'], ['force', fileBased ? 'Replay + FORCE' : 'Replay (FORCE n/a)']];
+
+        const seg = (name, opts, cur, disabled) => opts.map(([v, l]) =>
+          `<button type="button" class="dl2-seg${v === cur ? ' active' : ''}" data-seg="${name}" data-val="${v}"${disabled ? ' disabled' : ''}>${l}</button>`).join('');
+
+        whatif.innerHTML =
+          `<div class="dl2-whatif-head">
+             <div class="dl2-section-title" style="margin:0">🧪 What-if lab — predict the outcome</div>
+             <p class="dl2-whatif-sub">Flip a switch, predict what the load does, then read the result. All figures illustrative for <b>${_esc(p.label)}</b>.</p>
+           </div>
+           <div class="dl2-whatif-controls">
+             <label class="dl2-switch">
+               <input type="checkbox" id="wi-bad"${wi.badRows ? ' checked' : ''}>
+               <span>Inject 3 malformed rows</span>
+             </label>
+             <div class="dl2-ctrl${wi.badRows ? '' : ' dimmed'}">
+               <span class="dl2-ctrl-lbl">On a bad row:</span>
+               <div class="dl2-seg-group">${seg('policy', policies, wi.policy, !wi.badRows)}</div>
+             </div>
+             <div class="dl2-ctrl">
+               <span class="dl2-ctrl-lbl">Then re-deliver:</span>
+               <div class="dl2-seg-group">${seg('rerun', reruns, wi.rerun, false)}</div>
+             </div>
+           </div>
+           <div id="dl2-whatif-out"></div>`;
+
+        whatif.querySelector('#wi-bad').addEventListener('change', (e) => { wi.badRows = e.target.checked; renderWhatIf(); });
+        whatif.querySelectorAll('.dl2-seg').forEach(b => b.addEventListener('click', () => {
+          if (b.disabled) return;
+          wi[b.dataset.seg] = b.dataset.val; renderWhatIf();
+        }));
+
+        const r = computeWhatIf(p, wi);
+        const kind = { ok: 'ok', partial: 'warn', abort: 'bad', dup: 'bad' }[r.statusKind] || 'ok';
+        const stat = (v, l) => `<div class="dl2-metric"><div class="dl2-metric-val">${v}</div><div class="dl2-metric-lbl">${l}</div></div>`;
+        whatif.querySelector('#dl2-whatif-out').innerHTML =
+          `<div class="dl2-outcome dl2-outcome-${kind}">
+             <div class="dl2-outcome-title">${_esc(r.title)}</div>
+             <div class="dl2-outcome-metrics">
+               ${fileBased ? stat(_fmt(r.filesLoaded) + ' / ' + _fmt(p.totals.files), 'Files loaded') : ''}
+               ${stat(_fmt(r.inserted), 'Rows inserted')}
+               ${stat(_fmt(r.rejected), 'Rows rejected')}
+               ${stat(_fmt(r.dup), 'Duplicates')}
+             </div>
+             <p class="dl2-outcome-explain">${_esc(r.explain)}</p>
+             <code class="dl2-outcome-config">${_esc(r.config)}</code>
+           </div>`;
       }
 
       function buildPipe() {
@@ -227,6 +290,78 @@
     return R[patternId + '|' + stageId] || 'This pattern takes a different path and does not use this stage.';
   }
 
+  /* Pure: predict the load outcome for a pattern given the what-if switches. */
+  function computeWhatIf(pattern, wi) {
+    const T = pattern.totals || { files: 0, rows: 0 };
+    const fileBased = !!pattern.fileBased;
+    const BAD = 3;
+    const rowsTotal = T.rows;
+    let filesLoaded = fileBased ? T.files : null;
+    let inserted = rowsTotal, rejected = 0, dup = 0, statusKind = 'ok';
+    let title = 'Clean load — everything lands exactly once';
+    let explain = 'No injected issues: every row parses, loads once and reconciles. This is the happy path the lifecycle above walks.';
+    let config = 'happy path — no error handling triggered';
+
+    if (wi.badRows) {
+      if (fileBased && wi.policy === 'skip_file') {
+        const perFile = Math.max(1, Math.round(rowsTotal / Math.max(1, T.files)));
+        filesLoaded = Math.max(0, T.files - 1); inserted = rowsTotal - perFile; rejected = 0; statusKind = 'partial';
+        title = '1 file skipped — ' + _fmt(perFile) + ' good rows lost with it';
+        explain = "ON_ERROR = SKIP_FILE discards the ENTIRE file on its first bad row, so the ~" + _fmt(perFile) + " good rows in that file never load. Safe for all-or-nothing files, wasteful when only a few rows are bad.";
+        config = "ON_ERROR = 'SKIP_FILE'";
+      } else if (wi.policy === 'abort') {
+        inserted = 0; rejected = rowsTotal; if (fileBased) filesLoaded = 0; statusKind = 'abort';
+        if (fileBased) {
+          title = 'Whole load ABORTED — nothing lands';
+          explain = 'ON_ERROR = ABORT_STATEMENT (the default) fails the entire COPY on the first bad row and rolls back. Predictable, but a single bad row blocks the whole batch.';
+          config = "ON_ERROR = 'ABORT_STATEMENT'";
+        } else {
+          title = 'Pipeline halted at the bad record';
+          explain = 'Failing the channel/consumer on a bad record stops ingestion at that point; downstream rows back up until someone intervenes. Minimal data loss, but latency and backlog spike.';
+          config = 'on bad row → fail pipeline';
+        }
+      } else { // continue / dead-letter
+        rejected = BAD; inserted = rowsTotal - BAD; statusKind = 'partial';
+        if (fileBased) {
+          title = BAD + ' rows rejected, the rest load fine';
+          explain = 'ON_ERROR = CONTINUE loads every good row and writes the ' + BAD + ' malformed ones to the rejected-records output. The load succeeds; you quarantine and fix the rejects separately.';
+          config = "ON_ERROR = 'CONTINUE'";
+        } else {
+          title = BAD + ' rows dead-lettered, stream keeps flowing';
+          explain = 'Routing bad records to a dead-letter / error table lets the channel keep ingesting the good ones with no latency hit. You reconcile the dead-letter table later — the usual streaming choice.';
+          config = 'on bad row → dead-letter table';
+        }
+      }
+    }
+
+    if (wi.rerun === 'replay') {
+      const why = fileBased ? 'load metadata skips files already loaded'
+        : (pattern.id === 'cdc' ? 'the MERGE upserts by key' : 'the channel offset token dedups');
+      title += ' · replay = no change';
+      explain += ' Re-delivering the same data changes nothing — ' + why + ', so the pipeline is idempotent.';
+      config += '  ·  replay (idempotent)';
+    } else if (wi.rerun === 'force') {
+      if (fileBased && inserted > 0) {
+        dup = inserted; statusKind = 'dup';
+        title = 'Duplicates! FORCE re-loaded every row';
+        explain = 'FORCE = TRUE bypasses the load-metadata dedup and re-inserts every row — now you have ~' + _fmt(dup) + ' duplicate rows. Reserve FORCE for a deliberate, controlled reload, never routine retries.';
+        config += '  ·  FORCE = TRUE';
+      } else if (fileBased) {
+        // Nothing landed on the first pass (aborted) → FORCE just retries it.
+        title += ' · FORCE re-runs, same result';
+        explain += ' FORCE only bypasses file dedup; with nothing successfully loaded there is nothing to duplicate — the re-run hits the same bad row and ends the same way.';
+        config += '  ·  FORCE = TRUE';
+      } else {
+        title += ' · FORCE n/a';
+        explain += ' FORCE is a file-load flag with no meaning for a streaming/offset pattern, which dedups by token or key regardless.';
+      }
+    }
+
+    return { fileBased, filesLoaded, inserted, rejected, dup, statusKind, title, explain, config };
+  }
+
+  function _fmt(n) { return n == null ? '—' : Math.round(n).toLocaleString('en-US'); }
+  function _esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
   function _sectionTitle(t) { const e = _el('div', 'dl2-section-title'); e.textContent = t; return e; }
   function _el(tag, cls) { const el = document.createElement(tag); if (cls) el.className = cls; return el; }
 
