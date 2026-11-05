@@ -696,6 +696,12 @@ body.cmdk-open { overflow: hidden; }
   .ide-grid { grid-template-columns: 1fr; }
   .ide-tree { max-height: 180px; }
 }
+
+/* ── M37 · dbt Packages ───────────────────────────────────────────────────── */
+.pkg-tagline { font-size: 15px; font-weight: 600; color: var(--text); margin: 0 0 10px; }
+.pkg-step { font-size: 10px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); margin: 14px 0 7px; }
+.pkg-when { margin-top: 14px; padding: 11px 14px; background: var(--surface-2); border-left: 3px solid var(--accent); border-radius: 8px; font-size: 13.5px; line-height: 1.6; color: var(--text); }
+.pkg-when-k { font-size: 10px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); margin-right: 8px; }
 .mx-cell { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); padding: 11px 14px; }
 .mx-k { font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-3); margin-bottom: 6px; }
 .mx-v { font-size: 13px; color: var(--text); line-height: 1.6; }

@@ -475,4 +475,24 @@ export const QUIZ_BANK = {
       explanation: 'You can define and query metrics in Core (dbt sl query). The hosted Semantic Layer — serving those metrics to BI tools over JDBC/GraphQL APIs — is the dbt Cloud feature.',
     },
   ],
+  m37: [
+    {
+      q: 'How do you add a dbt package like dbt_utils to your project?',
+      options: ['pip install dbt_utils', 'Declare it in packages.yml and run dbt deps', 'Copy its macros into your repo by hand', 'Enable it in dbt_project.yml'],
+      answer: 1,
+      explanation: 'You declare the package (and a pinned version) in packages.yml, then run dbt deps, which clones it into dbt_packages/. pip installs Python adapters, not dbt packages.',
+    },
+    {
+      q: 'You are refactoring fct_orders and must prove the output did not change. Which package helps?',
+      options: ['codegen', 'dbt_expectations', 'audit_helper', 'dbt_project_evaluator'],
+      answer: 2,
+      explanation: 'audit_helper (compare_relations / compare_queries) does a row-level diff between the old and new output. A perfect refactor returns zero differing rows.',
+    },
+    {
+      q: 'Why should you pin package versions in packages.yml?',
+      options: ['It makes dbt deps run faster', 'So a new package release cannot silently change your compiled SQL or tests', 'It is required by dbt Hub', 'To reduce the repo size'],
+      answer: 1,
+      explanation: 'A package is a dependency; an unpinned version means a new release can change your build without you touching anything. Pinning a range takes safe patches while blocking breaking majors.',
+    },
+  ],
 };

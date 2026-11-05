@@ -46,6 +46,8 @@ export const MODULE_FILES = {
   m34: 'm34-semantic-layer.js',
   m35: 'm35-dbt-mesh.js',
   m36: 'm36-core-vs-cloud.js',
+  // Ecosystem
+  m37: 'm37-packages.js',
   // Practice
   studio: 'studio.js',
   'config-lab': 'config-lab.js',
