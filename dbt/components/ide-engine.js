@@ -153,7 +153,9 @@ export function parseSchemaTests(yamlText) {
   let doc;
   try { doc = parseYaml(yamlText); } catch (e) { return { tests: [], error: e.message }; }
   const out = [];
-  const models = (doc && doc.models) || [];
+  // models: must be a sequence of model entries; a mapping (as in dbt_project.yml)
+  // is a different `models:` and carries no tests.
+  const models = (doc && Array.isArray(doc.models)) ? doc.models : [];
   for (const m of models) {
     if (!m || !m.name) continue;
     for (const col of (m.columns || [])) {

@@ -1,102 +1,22 @@
 // M19 · Manifest & Artifact Explorer
-// dbt's artifacts turned browsable. Explore a realistic (abbreviated)
-// manifest.json / run_results.json / catalog.json, then pick a node to see its
-// parents, children, compiled SQL, and last execution result — the exact things
-// lineage, docs, Slim CI and cost analysis read out of these files.
+// dbt's artifacts turned browsable. The manifest here is DERIVED from the actual
+// sample project (data/sample-project.js, the jaffle_commerce files the Sample
+// Project Explorer ships) — its nodes, depends_on, parent/child maps and compiled
+// SQL are built by parsing each model's ref()/source() calls (data/manifest-gen.js).
+// run_results/catalog are products of an execution we don't run in-browser, so they
+// are synthesized for the real node ids and labeled "illustrative sample run".
 import { createModuleShell, createIQSection } from '../components/module-shell.js';
 import { renderJsonTree, initJsonTree } from '../components/json-tree.js';
 import { injectCodeEnhancements } from '../components/module-shell.js';
+import { buildArtifacts } from '../data/manifest-gen.js';
 
-// ── Sample project: a small revenue pipeline ────────────────────────────────
-const NODES = {
-  'source.acme.raw.orders':       { label: 'raw.orders (source)', kind: 'source', parents: [], children: ['model.acme.stg_orders'] },
-  'source.acme.raw.customers':    { label: 'raw.customers (source)', kind: 'source', parents: [], children: ['model.acme.stg_customers'] },
-  'model.acme.stg_orders':        { label: 'stg_orders', kind: 'model', materialized: 'view', parents: ['source.acme.raw.orders'], children: ['model.acme.fct_orders'] },
-  'model.acme.stg_customers':     { label: 'stg_customers', kind: 'model', materialized: 'view', parents: ['source.acme.raw.customers'], children: ['model.acme.fct_orders'] },
-  'model.acme.fct_orders':        { label: 'fct_orders', kind: 'model', materialized: 'incremental', parents: ['model.acme.stg_orders', 'model.acme.stg_customers'], children: ['model.acme.fct_revenue'] },
-  'model.acme.fct_revenue':       { label: 'fct_revenue', kind: 'model', materialized: 'table', parents: ['model.acme.fct_orders'], children: ['model.acme.dashboard_revenue'] },
-  'model.acme.dashboard_revenue': { label: 'dashboard_revenue', kind: 'model', materialized: 'table', parents: ['model.acme.fct_revenue'], children: [] },
-};
-
-const COMPILED = {
-  'model.acme.fct_orders': `select o.order_id, o.customer_id, c.segment, o.order_total, o.updated_at
-from analytics.staging.stg_orders o
-join analytics.staging.stg_customers c using (customer_id)
-where o.updated_at > (select max(updated_at) from analytics.marts.fct_orders)`,
-  'model.acme.fct_revenue': `select date_trunc('day', order_ts) as day, sum(order_total) as revenue
-from analytics.marts.fct_orders
-group by 1`,
-  'model.acme.dashboard_revenue': `select day, revenue, sum(revenue) over (order by day) as revenue_cumulative
-from analytics.marts.fct_revenue`,
-  'model.acme.stg_orders': `select id as order_id, cust_id as customer_id, amount as order_total, updated_at
-from raw.orders`,
-  'model.acme.stg_customers': `select id as customer_id, segment from raw.customers`,
-};
-
-const RESULTS = {
-  'model.acme.stg_orders':        { status: 'success', execution_time: 0.4, rows_affected: null },
-  'model.acme.stg_customers':     { status: 'success', execution_time: 0.3, rows_affected: null },
-  'model.acme.fct_orders':        { status: 'success', execution_time: 12.4, rows_affected: 513204 },
-  'model.acme.fct_revenue':       { status: 'success', execution_time: 3.1, rows_affected: 365 },
-  'model.acme.dashboard_revenue': { status: 'error', execution_time: 0.0, message: 'SQL compilation error: column "order_ts" does not exist' },
-};
-
-// ── Abbreviated artifact JSON for the tree view ─────────────────────────────
-const MANIFEST = {
-  metadata: { dbt_version: '1.8.0', project_name: 'acme', generated_at: '2024-06-01T02:14:11Z' },
-  nodes: {
-    'model.acme.fct_orders': {
-      resource_type: 'model',
-      config: { materialized: 'incremental', unique_key: 'order_id' },
-      depends_on: { nodes: ['model.acme.stg_orders', 'model.acme.stg_customers'] },
-      compiled: true,
-    },
-    'model.acme.fct_revenue': {
-      resource_type: 'model',
-      config: { materialized: 'table' },
-      depends_on: { nodes: ['model.acme.fct_orders'] },
-      compiled: true,
-    },
-  },
-  sources: { 'source.acme.raw.orders': { resource_type: 'source', loaded_at_field: 'updated_at' } },
-  parent_map: {
-    'model.acme.fct_orders': ['model.acme.stg_orders', 'model.acme.stg_customers'],
-    'model.acme.fct_revenue': ['model.acme.fct_orders'],
-  },
-  child_map: {
-    'model.acme.fct_orders': ['model.acme.fct_revenue'],
-    'model.acme.stg_orders': ['model.acme.fct_orders'],
-  },
-};
-
-const RUN_RESULTS = {
-  metadata: { dbt_version: '1.8.0', generated_at: '2024-06-01T02:16:03Z' },
-  elapsed_time: 19.2,
-  results: [
-    { unique_id: 'model.acme.fct_orders', status: 'success', execution_time: 12.4, adapter_response: { rows_affected: 513204 } },
-    { unique_id: 'model.acme.fct_revenue', status: 'success', execution_time: 3.1 },
-    { unique_id: 'model.acme.dashboard_revenue', status: 'error', message: 'column "order_ts" does not exist' },
-  ],
-};
-
-const CATALOG = {
-  metadata: { dbt_version: '1.8.0', generated_at: '2024-06-01T02:17:40Z' },
-  nodes: {
-    'model.acme.fct_orders': {
-      columns: {
-        order_id: { type: 'NUMBER', index: 1 },
-        customer_id: { type: 'NUMBER', index: 2 },
-        order_total: { type: 'FLOAT', index: 3 },
-      },
-      stats: { row_count: { value: 513204 }, bytes: { value: 41231872 } },
-    },
-  },
-};
+// Everything below is derived from the sample project at load time.
+const { NODES, COMPILED, RESULTS, MANIFEST, RUN_RESULTS, CATALOG } = buildArtifacts();
 
 const ARTIFACTS = {
-  manifest:    { label: 'manifest.json', data: MANIFEST, open: 2, highlight: ['nodes', 'parent_map', 'child_map', 'depends_on'], blurb: 'The complete project graph. Powers lineage, docs, state comparison and defer.' },
-  run_results: { label: 'run_results.json', data: RUN_RESULTS, open: 3, highlight: ['results', 'status', 'execution_time'], blurb: 'Per-node status + timing from the last invocation. Powers observability & cost analysis.' },
-  catalog:     { label: 'catalog.json', data: CATALOG, open: 3, highlight: ['columns', 'stats'], blurb: 'Column types & table stats from the warehouse (dbt docs generate). Powers the docs site.' },
+  manifest:    { label: 'manifest.json', data: MANIFEST, open: 2, highlight: ['nodes', 'parent_map', 'child_map', 'depends_on'], blurb: 'The complete project graph — derived here from the jaffle_commerce sample project. Powers lineage, docs, state comparison and defer.' },
+  run_results: { label: 'run_results.json', data: RUN_RESULTS, open: 3, highlight: ['results', 'status', 'execution_time'], blurb: 'Per-node status + timing from an invocation. Powers observability & cost analysis. (Illustrative sample run — synthesized for the real node ids; not executed here.)' },
+  catalog:     { label: 'catalog.json', data: CATALOG, open: 3, highlight: ['columns', 'stats'], blurb: 'Column types & table stats from the warehouse (dbt docs generate). Powers the docs site. (Illustrative — the one artifact whose data comes from the warehouse, not your code.)' },
 };
 
 const IQ = [
@@ -127,7 +47,7 @@ export function mount(container) {
   container.innerHTML = createModuleShell({
     tag: 'M19 · dbt Internals',
     title: 'Manifest & Artifact Explorer',
-    subtitle: 'Browse a real manifest, run_results and catalog — then trace any node through its lineage.',
+    subtitle: 'Browse a manifest derived from the jaffle_commerce sample project, plus run_results and catalog — then trace any node through its lineage.',
     tabs: [
       { id: 'explorer', label: '🗂️ Artifact Explorer' },
       { id: 'detail',   label: '📋 What each artifact holds' },
@@ -143,7 +63,9 @@ export function mount(container) {
 function buildExplorer(container) {
   const tab = container.querySelector('#tab-explorer');
   tab.innerHTML = `
-    <p class="lab-intro">These are dbt's own output files. Switch artifacts to browse the raw JSON, then use the
+    <p class="lab-intro">These are dbt's own output files. The <strong>manifest is derived from the
+    <a href="#project-explorer" style="color:var(--accent);font-weight:600">sample project</a></strong> — its graph
+    and compiled SQL come from parsing the real model files. Switch artifacts to browse the raw JSON, then use the
     <strong>node inspector</strong> to trace any model's parents, children, compiled SQL and last result.</p>
     <div class="lab-picker" id="m19-picker">
       ${Object.entries(ARTIFACTS).map(([k, v], i) =>
@@ -207,7 +129,7 @@ function buildExplorer(container) {
   tab.querySelector('#m19-node').addEventListener('change', e => renderNode(e.target.value));
 
   renderArtifact('manifest');
-  renderNode('model.acme.fct_orders');
+  renderNode('model.jaffle_commerce.fct_orders');
 }
 
 function buildDetail(container) {
