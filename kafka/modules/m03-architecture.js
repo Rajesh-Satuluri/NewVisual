@@ -42,6 +42,8 @@ export function mount(container) {
 function buildDiagram(container) {
   const tab = container.querySelector('#tab-diagram');
   tab.innerHTML = `
+    <div class="arch-layout">
+    <div class="arch-main">
     <div class="arch-controls">
       <button id="arch-play" class="arch-btn arch-btn-play" type="button">▶ Play event flow</button>
       <div class="arch-seg" role="group" aria-label="Producer acks setting">
@@ -53,7 +55,6 @@ function buildDiagram(container) {
       <button id="arch-reset" class="arch-btn arch-btn-ghost" type="button">↺ Reset</button>
     </div>
     <div id="arch-status" class="arch-status">Press <b>▶ Play event flow</b> to send a live order event through the cluster — or <b>💥 Kill Broker 1</b> to watch it self-heal.</div>
-    <div class="arch-layout">
     <div class="svg-wrap">
       <svg viewBox="0 0 860 480" width="860" height="480" style="font-family:system-ui">
         <defs>
@@ -173,6 +174,7 @@ function buildDiagram(container) {
           }).join('')}
         </g>
       </svg>
+    </div>
     </div>
     <aside class="arch-detail" id="arch-detail">
       <div class="arch-detail-hint">
