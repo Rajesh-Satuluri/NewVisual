@@ -42,6 +42,17 @@ export function mount(container) {
 function buildDiagram(container) {
   const tab = container.querySelector('#tab-diagram');
   tab.innerHTML = `
+    <div class="arch-controls">
+      <button id="arch-play" class="arch-btn arch-btn-play" type="button">▶ Play event flow</button>
+      <div class="arch-seg" role="group" aria-label="Producer acks setting">
+        <span class="arch-seg-label">acks</span>
+        <button class="arch-seg-btn" data-acks="1" type="button">=1</button>
+        <button class="arch-seg-btn is-active" data-acks="all" type="button">=all</button>
+      </div>
+      <button id="arch-kill" class="arch-btn arch-btn-kill" type="button">💥 Kill Broker 1</button>
+      <button id="arch-reset" class="arch-btn arch-btn-ghost" type="button">↺ Reset</button>
+    </div>
+    <div id="arch-status" class="arch-status">Press <b>▶ Play event flow</b> to send a live order event through the cluster — or <b>💥 Kill Broker 1</b> to watch it self-heal.</div>
     <div class="arch-layout">
     <div class="svg-wrap">
       <svg viewBox="0 0 860 480" width="860" height="480" style="font-family:system-ui">
@@ -52,6 +63,14 @@ function buildDiagram(container) {
           <marker id="a3r" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
             <path d="M0,0 L0,6 L8,3 z" fill="#FF6900"/>
           </marker>
+          <linearGradient id="clusterGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#101A30"/>
+            <stop offset="1" stop-color="#0A0F1E"/>
+          </linearGradient>
+          <filter id="archGlow" x="-60%" y="-60%" width="220%" height="220%">
+            <feGaussianBlur stdDeviation="3.4" result="b"/>
+            <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
         </defs>
 
         <!-- Producers -->
@@ -70,11 +89,11 @@ function buildDiagram(container) {
         <line x1="130" y1="163" x2="205" y2="200" stroke="#FF6900" stroke-width="1.5" marker-end="url(#a3r)"/>
 
         <!-- Cluster box -->
-        <rect x="200" y="60" width="400" height="350" rx="12" fill="#0F172A" stroke="#334155" stroke-width="2"/>
+        <rect x="200" y="60" width="400" height="350" rx="12" fill="url(#clusterGrad)" stroke="#334155" stroke-width="2"/>
         <text x="400" y="85" text-anchor="middle" fill="#8A98AE" font-size="11" font-weight="700" letter-spacing="1">KAFKA CLUSTER  (RF = 3)</text>
 
         <!-- Broker 1 (controller + leader) -->
-        <rect x="220" y="100" width="110" height="140" rx="8" fill="#1E293B" stroke="#FF6900" stroke-width="2"/>
+        <rect id="b1-rect" x="220" y="100" width="110" height="140" rx="8" fill="#1E293B" stroke="#FF6900" stroke-width="2"/>
         <text x="275" y="120" text-anchor="middle" fill="#FF6900" font-size="10" font-weight="800">Broker 1</text>
         <rect x="228" y="127" width="94" height="14" rx="4" fill="#FF690022"/>
         <text x="275" y="138" text-anchor="middle" fill="#FF6900" font-size="9">★ Controller</text>
@@ -140,6 +159,11 @@ function buildDiagram(container) {
         <text x="757" y="410" text-anchor="middle" fill="#94A3B8" font-size="9">Avro · Protobuf · JSON Schema</text>
         <line x1="680" y1="395" x2="603" y2="395" stroke="#06B6D4" stroke-width="1" stroke-dasharray="4,3"/>
 
+        <!-- Fault-injection overlay (red X, controller migration) — populated by JS -->
+        <g id="arch-fault"></g>
+        <!-- Live animation layer (event packets, replication, acks) — populated by JS -->
+        <g id="arch-anim"></g>
+
         <!-- Clickable hit-layer (transparent). Draws a selection ring on the chosen component. -->
         <g id="arch-hits">
           ${Object.entries(ARCH_NODES).map(([id, n]) => {
@@ -157,6 +181,14 @@ function buildDiagram(container) {
       </div>
     </aside>
     </div>
+    <div class="arch-legend">
+      <span class="arch-legend-item"><i class="arch-dot" style="background:#FF6900"></i>Live event / write</span>
+      <span class="arch-legend-item"><i class="arch-dot" style="background:#FFB066"></i>Replication copy</span>
+      <span class="arch-legend-item"><i class="arch-dot" style="background:#10B981"></i>Ack (committed)</span>
+      <span class="arch-legend-item"><i class="arch-dot" style="background:#3B82F6"></i>Consumer read</span>
+      <span class="arch-legend-item"><i class="arch-swatch arch-swatch-leader"></i>Leader broker</span>
+      <span class="arch-legend-item"><i class="arch-swatch arch-swatch-follower"></i>Follower</span>
+    </div>
     <div class="scroll-content">
       <div class="prose">
         <h3>The moment you click "Buy Now" on Amazon</h3>
@@ -171,12 +203,15 @@ function buildDiagram(container) {
 }
 
 // Wire the clickable architecture: selecting a component highlights it and
-// renders its explanation (from ARCH_NODES) into the detail panel.
+// renders its explanation (from ARCH_NODES) into the detail panel. Also drives
+// the live animation layer (event flow, acks, replication) and the
+// fault-injection scenario (kill Broker 1 → controller re-election).
 function initArchDiagram(tab) {
   const detail = tab.querySelector('#arch-detail');
   const hits = [...tab.querySelectorAll('.arch-hit')];
   if (!detail || !hits.length) return;
 
+  // ---------- click-to-explain (unchanged behaviour) ----------
   function select(id) {
     const n = ARCH_NODES[id];
     if (!n) return;
@@ -192,13 +227,187 @@ function initArchDiagram(tab) {
       </div>`;
     detail.scrollTop = 0;
   }
-
   hits.forEach(h => {
     h.addEventListener('click', () => select(h.dataset.node));
     h.addEventListener('keydown', e => {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(h.dataset.node); }
     });
   });
+
+  // ---------- interactive animation + fault injection ----------
+  const NS = 'http://www.w3.org/2000/svg';
+  const anim   = tab.querySelector('#arch-anim');
+  const fault  = tab.querySelector('#arch-fault');
+  const status = tab.querySelector('#arch-status');
+  const b1Rect = tab.querySelector('#b1-rect');
+  const playBtn  = tab.querySelector('#arch-play');
+  const killBtn  = tab.querySelector('#arch-kill');
+  const resetBtn = tab.querySelector('#arch-reset');
+  const segBtns  = [...tab.querySelectorAll('.arch-seg-btn')];
+  if (!anim || !playBtn) return; // defensive: older markup
+
+  let token = 0;       // bumped on every new play/kill/reset to cancel in-flight frames
+  let acks = 'all';    // 'all' | '1'
+  let dead = false;    // Broker 1 killed?
+  let running = false;
+
+  // Waypoints in SVG user units (viewBox 0 0 860 480).
+  const PRODUCE = [[130, 88], [205, 120], [480, 150], [525, 165]];
+  const REP_B1  = [[512, 178], [320, 200]];
+  const REP_B2  = [[512, 178], [432, 195]];
+  const ACK     = [[520, 158], [205, 100], [130, 80]];
+  const C_FUL   = [[600, 150], [758, 106]];
+  const C_FRA   = [[600, 178], [758, 208]];
+  const C_NOT   = [[600, 205], [758, 310]];
+
+  const lerp = (a, b, k) => a + (b - a) * k;
+  function polyAt(pts, k) {
+    const L = []; let tot = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const d = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+      L.push(d); tot += d;
+    }
+    let d = k * tot, i = 0;
+    while (i < L.length && d > L[i]) { d -= L[i]; i++; }
+    if (i >= L.length) return pts[pts.length - 1];
+    const r = L[i] ? d / L[i] : 0;
+    return [lerp(pts[i][0], pts[i + 1][0], r), lerp(pts[i][1], pts[i + 1][1], r)];
+  }
+  function tween(dur, fn, tok) {
+    return new Promise(res => {
+      let s = null;
+      function frame(t) {
+        if (tok !== token) return res();
+        if (s === null) s = t;
+        const k = Math.min(1, (t - s) / dur);
+        fn(k);
+        if (k < 1 && tok === token) requestAnimationFrame(frame); else res();
+      }
+      requestAnimationFrame(frame);
+    });
+  }
+  function el(name, attrs) {
+    const n = document.createElementNS(NS, name);
+    for (const k in attrs) n.setAttribute(k, attrs[k]);
+    return n;
+  }
+  function packet(color, label) {
+    const g = el('g', {});
+    g.appendChild(el('circle', { r: 10, fill: color, filter: 'url(#archGlow)' }));
+    if (label) {
+      const t = el('text', { 'text-anchor': 'middle', dy: 3, 'font-size': 8, 'font-weight': 700, fill: '#0A0E1A' });
+      t.textContent = label; g.appendChild(t);
+    }
+    anim.appendChild(g);
+    return g;
+  }
+  const place = (g, x, y) => g.setAttribute('transform', `translate(${x},${y})`);
+  async function fly(color, label, path, dur, tok) {
+    const g = packet(color, label);
+    place(g, path[0][0], path[0][1]);
+    await tween(dur, k => { const [x, y] = polyAt(path, k); place(g, x, y); }, tok);
+    return g;
+  }
+  function fade(g) {
+    if (!g) return;
+    g.style.transition = 'opacity .4s'; g.style.opacity = '0';
+    setTimeout(() => g.remove(), 420);
+  }
+  const clearAnim = () => { anim.innerHTML = ''; };
+  const say = html => { if (status) status.innerHTML = html; };
+
+  async function replicate(tok) {
+    const targets = dead ? [REP_B2] : [REP_B1, REP_B2];
+    const lines = targets.map(p => {
+      const l = el('path', {
+        d: `M${p[0][0]},${p[0][1]} L${p[p.length - 1][0]},${p[p.length - 1][1]}`,
+        stroke: '#FFB066', 'stroke-width': 2, fill: 'none', 'stroke-dasharray': '5,4', opacity: 0.75,
+      });
+      anim.appendChild(l); return l;
+    });
+    const gs = await Promise.all(targets.map(p => fly('#FFB066', '', p, 650, tok)));
+    gs.forEach(fade); lines.forEach(fade);
+  }
+  async function ackAnim(tok) { fade(await fly('#10B981', '✓', ACK, 700, tok)); }
+
+  async function play() {
+    if (running) return;
+    token++; const tok = token; running = true;
+    clearAnim(); playBtn.disabled = true;
+    say(`<b>1 · Produce</b> — the Order Service appends the event to the <b>leader</b> of <code>orders-P2</code> (Broker 3).`);
+    const p = await fly('#FF6900', 'ev', PRODUCE, 900, tok);
+    if (tok !== token) { running = false; return; }
+    if (acks === '1') {
+      say(`<b>2 · Ack (acks=1)</b> — the leader has the record, so the producer is acknowledged <i>immediately</i> — fast, but only one copy exists yet.`);
+      await ackAnim(tok);
+      if (tok !== token) { running = false; return; }
+      say(`<b>3 · Replicate</b> — Broker${dead ? ' 2 copies' : 's 1 &amp; 2 copy'} the record <i>after</i> the ack. A leader crash now could lose it.`);
+      await replicate(tok);
+    } else {
+      say(`<b>2 · Replicate (acks=all)</b> — Broker${dead ? ' 2 copies' : 's 1 &amp; 2 copy'} the record; it is <b>committed</b> only once every in-sync replica has it.`);
+      await replicate(tok);
+      if (tok !== token) { running = false; return; }
+      say(`<b>3 · Ack (acks=all)</b> — all in-sync replicas hold the record → durable → the producer gets "Order confirmed!".`);
+      await ackAnim(tok);
+    }
+    if (tok !== token) { running = false; return; }
+    fade(p);
+    say(`<b>4 · Consume</b> — three independent consumer groups read the <i>same</i> event in parallel, each at its own offset.`);
+    const cs = await Promise.all([
+      fly('#3B82F6', '', C_FUL, 800, tok),
+      fly('#8B5CF6', '', C_FRA, 850, tok),
+      fly('#F59E0B', '', C_NOT, 900, tok),
+    ]);
+    cs.forEach(fade);
+    if (tok !== token) { running = false; return; }
+    say(`✅ <b>Delivered.</b> One write → durably replicated → fanned out to every consumer. Toggle <b>acks</b> or press <b>💥 Kill Broker 1</b> to see failover.`);
+    playBtn.disabled = false; running = false;
+  }
+
+  function renderDown() {
+    fault.innerHTML = '';
+    const [x, y, w, h] = [220, 100, 110, 140];
+    fault.appendChild(el('rect', { x, y, width: w, height: h, rx: 8, fill: 'rgba(10,14,26,.72)', stroke: '#EF4444', 'stroke-width': 2 }));
+    fault.appendChild(el('line', { x1: x + 14, y1: y + 14, x2: x + w - 14, y2: y + h - 14, stroke: '#EF4444', 'stroke-width': 3 }));
+    fault.appendChild(el('line', { x1: x + w - 14, y1: y + 14, x2: x + 14, y2: y + h - 14, stroke: '#EF4444', 'stroke-width': 3 }));
+    const t = el('text', { x: 275, y: y + h - 16, 'text-anchor': 'middle', fill: '#EF4444', 'font-size': 11, 'font-weight': 800 });
+    t.textContent = '✖ DOWN'; fault.appendChild(t);
+    if (b1Rect) b1Rect.classList.add('arch-is-dead');
+  }
+  function renderHealed() {
+    const pill = el('rect', { x: 356, y: 128, width: 88, height: 15, rx: 4, fill: '#10B98122' });
+    fault.appendChild(pill);
+    const ctl = el('text', { x: 400, y: 139, 'text-anchor': 'middle', fill: '#10B981', 'font-size': 9, 'font-weight': 700 });
+    ctl.textContent = '★ Controller'; fault.appendChild(ctl);
+    const note = el('text', { x: 400, y: 254, 'text-anchor': 'middle', fill: '#10B981', 'font-size': 8, 'font-weight': 700 });
+    note.textContent = 'orders-P0 leader → Broker 2'; fault.appendChild(note);
+  }
+  function kill() {
+    token++; dead = true; running = false;
+    clearAnim(); renderDown();
+    killBtn.disabled = true; playBtn.disabled = false;
+    say(`💥 <b>Broker 1 is down.</b> It was the <b>controller</b> and the leader of <code>orders-P0</code>. Both roles must move — but every follower already holds a copy.`);
+    setTimeout(() => {
+      if (!dead) return;
+      renderHealed();
+      say(`♻️ <b>Re-election (~1s).</b> Broker 2 becomes the controller and takes over <code>orders-P0</code> leadership from its in-sync copy. <b>No data lost.</b> Press <b>▶ Play</b> to produce on the healed cluster, or <b>↺ Reset</b>.`);
+    }, 1100);
+  }
+  function reset() {
+    token++; dead = false; running = false;
+    clearAnim(); fault.innerHTML = '';
+    if (b1Rect) b1Rect.classList.remove('arch-is-dead');
+    killBtn.disabled = false; playBtn.disabled = false;
+    say(`Cluster reset. Press <b>▶ Play event flow</b>, toggle <b>acks</b>, or <b>💥 Kill Broker 1</b>.`);
+  }
+
+  playBtn.addEventListener('click', play);
+  killBtn.addEventListener('click', kill);
+  resetBtn.addEventListener('click', reset);
+  segBtns.forEach(b => b.addEventListener('click', () => {
+    acks = b.dataset.acks;
+    segBtns.forEach(x => x.classList.toggle('is-active', x === b));
+  }));
 }
 
 function buildAmazon(container) {

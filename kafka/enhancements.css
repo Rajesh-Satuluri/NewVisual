@@ -674,6 +674,44 @@ body.cmdk-open { overflow: hidden; }
   .arch-detail { width: 100%; }
 }
 
+/* ── Interactive architecture: controls, status, legend ─────────────────────── */
+.arch-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 12px; }
+.arch-btn { font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+  border-radius: 8px; padding: 8px 14px; border: 1px solid var(--border);
+  background: var(--bg2); color: var(--text); transition: background .15s, border-color .15s, transform .05s, opacity .15s; }
+.arch-btn:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
+.arch-btn:active { transform: translateY(1px); }
+.arch-btn:disabled { opacity: .45; cursor: default; transform: none; }
+.arch-btn-play { background: var(--accent); border-color: var(--accent); color: #0A0E1A; font-weight: 700; }
+.arch-btn-play:hover:not(:disabled) { filter: brightness(1.08); }
+.arch-btn-kill { color: #FCA5A5; border-color: color-mix(in srgb, #EF4444 45%, var(--border)); }
+.arch-btn-kill:hover:not(:disabled) { background: #EF444416; border-color: #EF4444; }
+.arch-btn-ghost { color: var(--text3); }
+.arch-seg { display: inline-flex; align-items: center; gap: 2px; padding: 3px; border: 1px solid var(--border);
+  border-radius: 8px; background: var(--bg2); }
+.arch-seg-label { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--text3); padding: 0 6px 0 4px; }
+.arch-seg-btn { font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; border: 0;
+  border-radius: 6px; padding: 5px 11px; background: transparent; color: var(--text2); font-family: ui-monospace, Menlo, monospace; }
+.arch-seg-btn:hover { color: var(--text); }
+.arch-seg-btn.is-active { background: var(--accent); color: #0A0E1A; }
+
+.arch-status { margin: 0 0 14px; padding: 11px 15px; border-radius: 9px; line-height: 1.55;
+  background: color-mix(in srgb, var(--accent) 7%, var(--bg2)); border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+  color: var(--text2); font-size: 13.5px; min-height: 22px; }
+.arch-status code { background: var(--bg3); padding: 1px 6px; border-radius: 5px; font-size: .9em; }
+
+.arch-legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 14px 2px 2px;
+  font-size: 12px; color: var(--text3); }
+.arch-legend-item { display: inline-flex; align-items: center; gap: 7px; }
+.arch-dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+.arch-swatch { width: 15px; height: 11px; border-radius: 3px; display: inline-block; background: #1E293B; }
+.arch-swatch-leader { border: 1.5px solid #FF6900; }
+.arch-swatch-follower { border: 1.5px solid #334155; }
+
+#b1-rect { transition: opacity .3s; }
+#b1-rect.arch-is-dead { opacity: .35; }
+
 /* ── Canvas caption (teaching lead-in above an interactive canvas) ──────────── */
 .canvas-caption {
   width: 100%;
