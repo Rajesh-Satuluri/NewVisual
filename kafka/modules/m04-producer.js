@@ -198,6 +198,16 @@ function buildAmazon(container) {
           </div>`).join('')}
       </div>
 
+      <!-- Theory: a producer is a batching machine -->
+      <div style="margin-bottom:28px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">The theory behind the 11ms — a producer is a batching machine, not a sender</div>
+        <div style="background:#111827;border:1px solid #1E293B;border-radius:12px;padding:18px 22px;font-size:12.5px;color:#94A3B8;line-height:1.75">
+          <p style="margin:0 0 14px">When Order Service calls <code style="font-size:11px;color:#FF6900;background:#0A0E1A;padding:2px 6px;border-radius:5px">producer.send(orderEvent)</code>, nothing travels the network yet. The call <strong style="color:#E2E8F0">returns almost instantly with a Future</strong> — the record has simply been dropped into an in-memory buffer. This is the single most important idea in the whole pipeline: <strong style="color:#E2E8F0">send() is asynchronous.</strong> The customer's request thread is never blocked waiting for a broker in another data centre to reply, which is why one Order Service box can accept thousands of orders a second.</p>
+          <p style="margin:0 0 14px">Two threads make this work. The <strong style="color:#F59E0B">application thread</strong> (the one handling the HTTP request) serializes the record and appends it to the accumulator, then moves on. A separate, single <strong style="color:#FF6900">Sender / I/O thread</strong> wakes up in the background, drains full batches, compresses them, and does all the network I/O. Because one background thread services every partition's traffic, a single producer instance can saturate a network card — so producer tuning is about <em>batching</em>, not adding threads.</p>
+          <p style="margin:0">The accumulator (<code style="font-size:11px;color:#8B5CF6;background:#0A0E1A;padding:2px 6px;border-radius:5px">RecordAccumulator</code>) is just a map of <code style="font-size:11px;color:#94A3B8;background:#0A0E1A;padding:2px 6px;border-radius:5px">partition → deque&lt;batch&gt;</code>, bounded by <code style="font-size:11px;color:#94A3B8;background:#0A0E1A;padding:2px 6px;border-radius:5px">buffer.memory</code> (32 MB). <code style="font-size:11px;color:#F59E0B;background:#0A0E1A;padding:2px 6px;border-radius:5px">batch.size</code> and <code style="font-size:11px;color:#F59E0B;background:#0A0E1A;padding:2px 6px;border-radius:5px">linger.ms</code> are a race — <strong style="color:#E2E8F0">whichever fires first ships the batch.</strong> At low traffic <code style="font-size:11px;color:#94A3B8;background:#0A0E1A;padding:2px 6px;border-radius:5px">linger.ms</code> wins, so it acts as your latency <em>floor</em> (5 ms here). At Prime-Day traffic, batches fill to <code style="font-size:11px;color:#94A3B8;background:#0A0E1A;padding:2px 6px;border-radius:5px">batch.size</code> long before 5 ms elapse, so throughput — not linger — sets the pace. Same two knobs, two completely different behaviours depending on load.</p>
+        </div>
+      </div>
+
       <!-- Config explained in plain English -->
       <div style="margin-bottom:28px">
         <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">Why Amazon chose these producer settings — in plain English</div>
@@ -215,6 +225,24 @@ function buildAmazon(container) {
                 <code style="font-size:11px;color:${c.color};background:#0A0E1A;padding:4px 8px;border-radius:5px;font-weight:700">${c.key}</code>
               </div>
               <div style="font-size:12px;color:#94A3B8;line-height:1.65">${c.plain}</div>
+            </div>`).join('')}
+        </div>
+      </div>
+
+      <!-- Failure modes Amazon plans for -->
+      <div style="margin-bottom:28px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">When it goes wrong — the producer failure modes Amazon plans for</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          ${
+            [
+              { title:'A replica dies — ISR shrinks below min.insync.replicas', color:'#F59E0B', body:'A broker in the replica set goes down during a deploy. With <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">acks=all</code> and <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">min.insync.replicas=2</code>, if only the leader is left the broker <em>rejects</em> the write (NotEnoughReplicas). The order is never silently lost — the producer keeps retrying until a follower catches up or the deadline below expires. The system fails safe: a stalled order, never a vanished one.' },
+              { title:'Brokers fall behind — the buffer fills (backpressure)', color:'#EF4444', body:'If brokers can\'t keep up during a spike, the 32 MB accumulator fills. The next <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">send()</code> then <em>blocks</em> for up to <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">max.block.ms</code> (60 s) and finally throws. That backpressure is deliberate — it stops Order Service from building an unbounded in-memory queue and running out of heap mid-Prime-Day. Slowing the producer is the safe failure.' },
+              { title:'The partition leader fails over', color:'#3B82F6', body:'Broker 1, the leader of Partition 0, crashes. The in-flight batch fails with NotLeaderForPartition; the producer transparently refreshes cluster metadata, finds the new leader (Broker 2), and resends — the application code never sees it. Idempotence guarantees that resend isn\'t written as a duplicate.' },
+              { title:'The total deadline — delivery.timeout.ms', color:'#10B981', body:'Every retry, every linger wait, and every request timeout happens inside one budget: <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">delivery.timeout.ms</code> (default 2 min). When it expires, the <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">send()</code> Future fails for good and Order Service shows the customer a "please try again." Retries are bounded and predictable — never an infinite loop that hides a dead cluster.' },
+            ].map(f => `
+            <div style="background:#111827;border:1px solid #1E293B;border-left:3px solid ${f.color};border-radius:10px;padding:14px 18px">
+              <div style="font-size:12.5px;font-weight:700;color:${f.color};margin-bottom:6px">${f.title}</div>
+              <div style="font-size:12px;color:#94A3B8;line-height:1.7">${f.body}</div>
             </div>`).join('')}
         </div>
       </div>
