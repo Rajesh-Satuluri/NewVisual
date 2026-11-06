@@ -6,6 +6,7 @@ import { MODULES } from '../components/nav.js';
 import { QUIZ_BANK } from '../data/quiz-bank.js';
 import { loadAllIQ } from '../data/iq-aggregate.js';
 import { loadOverride, saveOverride, applyOverrideTo, syncHint, wireSyncCta } from '../components/iq-overrides.js';
+import { renderAnswer } from '../components/module-shell.js';
 import { cloud } from '../components/cloudsync.js';
 
 const DIFF_ORDER = { easy: 0, medium: 1, hard: 2 };
@@ -57,7 +58,7 @@ export function mount(container) {
 
   const answerInner = v => `
     <div class="study-src"><a href="#${v.moduleId}">${v.icon} ${v.moduleTitle}</a></div>
-    ${v.a}
+    ${renderAnswer(v)}
     ${v.tip ? `<div class="tip">💡 <strong>Interview tip:</strong> ${v.tip}</div>` : ''}`;
 
   function apply() {
@@ -117,7 +118,11 @@ export function mount(container) {
     if (!orig) return;
     const ov = loadOverride(mid, idx);
     const curQ = (ov && typeof ov.q === 'string') ? ov.q : orig.q;
-    const curA = (ov && typeof ov.a === 'string') ? ov.a : orig.a;
+    // The rich-text editor works in HTML. A Markdown answer is rendered to HTML
+    // first so the author edits the formatted form (never raw **asterisks**);
+    // saving it then stores HTML and drops the `md` flag (see applyOverrideTo).
+    const baseA = renderAnswer(orig);
+    const curA = (ov && typeof ov.a === 'string') ? ov.a : baseA;
     const ae = item.querySelector('.iq-answer');
     if (!ae) return;
     item.classList.add('open', 'iqe-editing');
@@ -145,7 +150,7 @@ export function mount(container) {
       const a = (aField.innerHTML || '').trim();
       const next = {};
       if (q && q !== orig.q.trim()) next.q = q;
-      if (a && a !== orig.a.trim()) next.a = a;
+      if (a && a !== baseA.trim()) next.a = a;
       saveOverride(mid, idx, next);
       try { cloud.onLocalChange(); } catch (e) {}
       apply();
