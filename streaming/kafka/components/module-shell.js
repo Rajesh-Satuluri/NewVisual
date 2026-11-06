@@ -68,12 +68,12 @@ export function createIQSection(questions) {
 }
 
 export function initIQ(container) {
+  // Multi-open accordion: each question toggles independently and opening one
+  // never collapses another, so a clicked answer always expands straight down
+  // instead of being yanked upward when the item above it collapsed.
   container.querySelectorAll('.iq-question').forEach(q => {
     q.addEventListener('click', () => {
-      const item = q.closest('.iq-item');
-      const wasOpen = item.classList.contains('open');
-      container.querySelectorAll('.iq-item').forEach(i => i.classList.remove('open'));
-      if (!wasOpen) item.classList.add('open');
+      q.closest('.iq-item').classList.toggle('open');
     });
   });
 }
