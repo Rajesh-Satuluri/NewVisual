@@ -350,5 +350,62 @@ function buildFlow(container) {
           </marker>
         </defs>
       </svg>
+    </div>
+
+    <!-- Leader / follower model -->
+    <div style="margin-top:8px;margin-bottom:28px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">One leader, N followers — per partition</div>
+      <div style="background:#111827;border:1px solid #1E293B;border-radius:12px;padding:18px 22px;font-size:12.5px;color:#94A3B8;line-height:1.75">
+        <p style="margin:0 0 14px">Every partition has exactly one <strong style="color:#FF6900">leader</strong> and a set of <strong style="color:#3B82F6">followers</strong> — here the orders partition is led by Broker 1 and followed by Brokers 2 and 3, a <strong style="color:#E2E8F0">replication factor of 3</strong>. All reads and writes go through the leader; the followers exist only to hold identical copies so the partition survives a broker failure. Leadership is per-partition, so across a real topic every broker is leader for some partitions and follower for others — the load spreads out, there is no single "primary" node.</p>
+        <p style="margin:0">Followers are <strong style="color:#E2E8F0">not passive backups</strong> — they pull. Each follower runs a fetch loop against the leader exactly like a consumer does, asking "give me everything after my last offset," and appends what it gets to its own local log. The leader never pushes; it just answers fetch requests. That is why the arrows read <em>fetch → replicate</em>.</p>
+      </div>
+    </div>
+
+    <!-- The write path -->
+    <div style="margin-bottom:28px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">What happens when the Producer sends with acks=all</div>
+      <div style="background:#111827;border:1px solid #1E293B;border-radius:12px;padding:18px 22px">
+        <div style="display:flex;flex-direction:column;gap:10px">
+          ${
+            [
+              { n:'1', color:'#FF6900', step:'Produce to the leader',   detail:'The Producer sends the order to Broker 1 (the leader) and only the leader. It appends the record to its local log at the next offset (off:142) — but does not yet acknowledge the Producer.' },
+              { n:'2', color:'#3B82F6', step:'Followers fetch & replicate', detail:'Brokers 2 and 3 fetch the new record on their next replication round and append it to their own logs. Each then reports back to the leader the highest offset it has persisted.' },
+              { n:'3', color:'#10B981', step:'Leader acks the Producer',  detail:'Because acks=all, the leader waits until every in-sync replica has the record, then sends one acknowledgement back to the Producer. Only now is the write considered "committed" — durable on all three brokers.' },
+            ].map(s => `
+            <div style="display:flex;gap:12px;align-items:flex-start">
+              <div style="flex-shrink:0;width:24px;height:24px;border-radius:50%;background:${s.color}22;border:1.5px solid ${s.color};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:${s.color};margin-top:2px">${s.n}</div>
+              <div style="flex:1;background:#0A0E1A;border-radius:8px;padding:10px 14px">
+                <div style="font-size:12px;font-weight:700;color:${s.color};margin-bottom:4px">${s.step}</div>
+                <div style="font-size:12px;color:#94A3B8;line-height:1.65">${s.detail}</div>
+              </div>
+            </div>`).join('')}
+        </div>
+        <div style="margin-top:14px;padding:10px 14px;background:#0A0E1A;border-radius:8px;font-size:12px;color:#94A3B8;line-height:1.7">
+          <strong style="color:#F59E0B">acks matters:</strong> with <code style="font-size:11px;color:#CBD5E1;background:#111827;padding:2px 5px;border-radius:5px">acks=1</code> the leader acknowledges the moment <em>it</em> has the record — fast, but a leader crash before replication loses the write. With <code style="font-size:11px;color:#CBD5E1;background:#111827;padding:2px 5px;border-radius:5px">acks=all</code> you trade a few milliseconds of latency for the guarantee above: no committed order is lost unless every in-sync replica dies at once.
+        </div>
+      </div>
+    </div>
+
+    <!-- ISR -->
+    <div style="margin-bottom:28px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">The ISR — who "all" actually means</div>
+      <div style="background:#111827;border:1px solid #1E293B;border-radius:12px;padding:18px 22px;font-size:12.5px;color:#94A3B8;line-height:1.75">
+        <p style="margin:0 0 14px">"All replicas" really means the <strong style="color:#E2E8F0">in-sync replica set (ISR)</strong> — the leader plus every follower currently caught up with it (within <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">replica.lag.time.max.ms</code>, default 30s). A follower that falls behind — GC pause, slow disk, network blip — is <strong style="color:#E2E8F0">dropped out of the ISR</strong> so it can't hold up acknowledgements, and rejoins once it catches up.</p>
+        <p style="margin:0">This is the safety valve: <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">acks=all</code> waits for the ISR, not for all 3 brokers blindly. If Broker 3 is lagging it leaves the ISR and the leader keeps acking on Brokers 1 + 2, so one slow node never stalls the whole partition. The floor is set by <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">min.insync.replicas</code> (typically 2): if the ISR shrinks below it, the leader rejects writes rather than accept an order it can't make durable.</p>
+      </div>
+    </div>
+
+    <!-- High-water mark -->
+    <div style="margin-bottom:28px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">The High-Water Mark — why consumers can't read ahead</div>
+      <div style="background:#111827;border:1px solid #1E293B;border-left:3px solid #F59E0B;border-radius:10px;padding:14px 18px;font-size:12.5px;color:#94A3B8;line-height:1.75">
+        <p style="margin:0 0 12px">The <strong style="color:#F59E0B">High-Water Mark (HWM)</strong> is the highest offset that <em>every</em> ISR member has written. Consumers are only ever allowed to read records <strong style="color:#E2E8F0">at or below the HWM</strong> — the leader hides anything newer, even though it already has it on its own disk.</p>
+        <p style="margin:0">That restriction is what makes a failover safe. If the leader handed out an order that only it had, then crashed before any follower replicated it, a new leader elected from the followers wouldn't have that order — and a consumer would have read a record that no longer exists in the cluster. By releasing records only once they're on every in-sync replica, Kafka guarantees that anything a consumer has seen will survive a leader change. The HWM is the dividing line between "written" and "safe to read."</p>
+      </div>
+    </div>
+
+    <!-- Key takeaway -->
+    <div style="background:#10B98112;border:1.5px solid #10B98133;border-radius:12px;padding:16px 20px;font-size:13px;color:#94A3B8;line-height:1.7">
+      💡 <strong style="color:#10B981">Durability is a handshake, not a copy.</strong> The leader takes the write, the in-sync followers pull it, and only when the ISR agrees does the Producer get its ack and the consumer get to see the record. <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">acks=all</code> + <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">min.insync.replicas=2</code> + the High-Water Mark are the three settings that stand between "order confirmed" and an order silently lost to a broker crash.
     </div>`;
 }
