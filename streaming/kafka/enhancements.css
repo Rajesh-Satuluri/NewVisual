@@ -645,8 +645,10 @@ body.cmdk-open { overflow: hidden; }
 @media (max-width: 768px) { .ta-list { padding-left: 16px; padding-right: 16px; } }
 
 /* ── m03 clickable architecture diagram ────────────────────────────────────── */
-.arch-layout { display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap; }
-.arch-layout .svg-wrap { flex: 1 1 520px; min-width: 0; }
+.arch-layout { display: flex; gap: 18px; align-items: stretch; flex-wrap: wrap; }
+.arch-main { flex: 1 1 520px; min-width: 0; display: flex; flex-direction: column; }
+.arch-main .svg-wrap { flex: 0 0 auto; min-width: 0; }
+.arch-main .svg-wrap svg { height: auto; }
 
 .arch-hit { fill: transparent; stroke: transparent; stroke-width: 2.5; cursor: pointer;
   transition: stroke .12s, fill .12s; pointer-events: all; }
