@@ -266,6 +266,23 @@ consumer.commitSync()              // flush final offsets before exit</code>
         </div>
       </div>
 
+      <!-- Theory: offset commit is a message -->
+      <div style="margin-bottom:28px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">The theory — an offset commit is just another Kafka message</div>
+        <div style="background:#111827;border:1px solid #1E293B;border-radius:12px;padding:18px 22px;font-size:12.5px;color:#94A3B8;line-height:1.75">
+          <p style="margin:0 0 14px">A committed offset isn't kept in some special database — it's a record <strong style="color:#E2E8F0">produced to an internal, compacted topic</strong> called <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">__consumer_offsets</code>, keyed by <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">(group, topic, partition)</code>. Committing is a produce; reading your starting position on restart is just reading the latest value for that key. Because it's an ordinary compacted topic (50 partitions by default), it inherits Kafka's own scaling — which is how one cluster tracks offsets for millions of group/partition pairs without a bottleneck.</p>
+          <p style="margin:0">One number to get right: a committed offset is the <strong style="color:#E2E8F0">next offset to read</strong> — last-processed + 1 — not the last one finished. Lag = Log-End Offset − committed offset. That's why the crash above resumed <em>at</em> 847,050 and reprocessed forward: the committed offset is a bookmark for "start here next," so a commit always points one past the work you've actually acknowledged.</p>
+        </div>
+      </div>
+
+      <!-- Pitfall: auto.commit -->
+      <div style="margin-bottom:28px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">The auto.commit footgun</div>
+        <div style="background:#111827;border:1px solid #1E293B;border-left:3px solid #EF4444;border-radius:10px;padding:14px 18px;font-size:12px;color:#94A3B8;line-height:1.7">
+          With <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">enable.auto.commit=true</code>, the client commits in the background every <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">auto.commit.interval.ms</code> — and it commits the offsets it has <em>polled</em>, before your code has necessarily finished processing them. Crash in that window and the restart <strong style="color:#EF4444">skips the unprocessed records</strong>: silent data loss, effectively at-most-once. That's why fulfillment-group sets <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">enable.auto.commit=false</code> and commits <em>after</em> the idempotent write — commit-after-process is what makes it at-least-once, and the idempotent upsert is what makes the inevitable reprocessing harmless.
+        </div>
+      </div>
+
       <!-- Replay scenario -->
       <div style="background:#3B82F612;border:1.5px solid #3B82F633;border-radius:12px;padding:18px 22px">
         <div style="font-size:13px;font-weight:700;color:#3B82F6;margin-bottom:10px">Midnight reconciliation — replaying 24 hours of orders from Kafka</div>
