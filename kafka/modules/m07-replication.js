@@ -251,6 +251,16 @@ function buildAmazon(container) {
         </div>
       </div>
 
+      <!-- Theory: ISR, HWM, committed -->
+      <div style="margin-bottom:28px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">The theory behind it — ISR, the High-Water Mark, and what "committed" means</div>
+        <div style="background:#111827;border:1px solid #1E293B;border-radius:12px;padding:18px 22px;font-size:12.5px;color:#94A3B8;line-height:1.75">
+          <p style="margin:0 0 14px">The <strong style="color:#3B82F6">in-sync replica set (ISR)</strong> is the subset of replicas fully caught up to the leader. A follower stays in the ISR as long as it keeps fetching within <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">replica.lag.time.max.ms</code> (30 s here); fall behind — a long GC pause, a slow disk — and the leader ejects it until it catches up. The ISR is <strong style="color:#E2E8F0">dynamic</strong>: it shrinks and grows on its own, and that membership is exactly what <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">acks=all</code> and <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">min.insync.replicas</code> are defined against.</p>
+          <p style="margin:0 0 14px">Each replica has a Log-End Offset (its last written record). The leader's <strong style="color:#F59E0B">High-Water Mark</strong> is the <em>minimum</em> LEO across the whole ISR — the highest offset every in-sync replica already holds. Consumers may only read <em>up to</em> the HWM, never past it. That single rule is why a failover can never show a consumer a record that later disappears: an un-replicated record sits above the HWM, so no consumer ever saw it in the first place. No phantom reads, no rollback.</p>
+          <p style="margin:0">A record is <strong style="color:#10B981">committed</strong> once every ISR member has it — that is what <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">acks=all</code> waits for. On failover Kafka only ever promotes an ISR member, so the new leader already holds every committed record; a <strong style="color:#E2E8F0">leader epoch</strong> stamped on the log lets a returning broker detect and truncate any records it had that were never committed, so logs can never silently diverge. The durability math falls straight out: with <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">replication.factor=3</code> and <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">min.insync.replicas=2</code> you lose any <strong style="color:#10B981">1</strong> broker with zero data loss and no downtime; lose <strong style="color:#EF4444">2</strong> and the partition stops accepting writes rather than lose a committed order — availability sacrificed, durability never.</p>
+        </div>
+      </div>
+
       <!-- Unclean election contrast -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
         <div style="background:#EF444412;border:1.5px solid #EF444444;border-radius:12px;padding:16px 20px">
