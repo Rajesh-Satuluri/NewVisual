@@ -429,6 +429,108 @@ body {
   color: var(--text2);
 }
 
+/* ── Q&A answer rich content ───────────────────────────────────────────────
+   Scoped styling for the markup answers use (hand-written HTML or Markdown
+   rendered by components/md.js). Without these, lists/code/tables/headings
+   inside an answer fall back to raw browser defaults. Applies in both the
+   module Interview-Q&A tab and the Study Hub (both render into .iq-answer). */
+.iq-answer > *:first-child { margin-top: 0; }
+.iq-answer > *:last-child { margin-bottom: 0; }
+.iq-answer p { margin: 0 0 10px; }
+.iq-answer strong, .iq-answer b { color: var(--text); font-weight: 600; }
+.iq-answer em { font-style: italic; }
+.iq-answer del { opacity: 0.6; }
+.iq-answer a { color: var(--accent2); text-decoration: none; border-bottom: 1px solid transparent; }
+.iq-answer a:hover { border-bottom-color: currentColor; }
+
+.iq-answer code {
+  font-family: 'SF Mono', ui-monospace, monospace;
+  font-size: 12px;
+  background: var(--bg3);
+  color: var(--accent2);
+  padding: 1px 5px;
+  border-radius: 4px;
+  word-break: break-word;
+}
+.iq-answer pre, .iq-answer .md-pre {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin: 0 0 12px;
+  overflow-x: auto;
+  line-height: 1.55;
+}
+.iq-answer pre code, .iq-answer .md-pre code {
+  background: none;
+  color: var(--text);
+  padding: 0;
+  font-size: 12px;
+  display: block;
+  white-space: pre;
+}
+
+.iq-answer h1, .iq-answer h2, .iq-answer h3, .iq-answer h4, .iq-answer .md-h {
+  color: var(--text);
+  font-weight: 700;
+  line-height: 1.3;
+  margin: 16px 0 8px;
+}
+.iq-answer h1, .iq-answer h2 { font-size: 15px; }
+.iq-answer h3 { font-size: 14px; }
+.iq-answer h4 { font-size: 13px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.03em; }
+
+.iq-answer ul, .iq-answer ol, .iq-answer .md-list {
+  margin: 0 0 12px;
+  padding-left: 22px;
+}
+.iq-answer li { margin: 4px 0; }
+.iq-answer li > ul, .iq-answer li > ol { margin: 4px 0 4px; }
+
+.iq-answer blockquote, .iq-answer .md-quote {
+  margin: 0 0 12px;
+  padding: 8px 14px;
+  background: var(--bg2);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 6px 6px 0;
+  color: var(--text2);
+}
+.iq-answer hr, .iq-answer .md-hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 14px 0;
+}
+
+.iq-answer table, .iq-answer .md-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 12px;
+  font-size: 12px;
+}
+.iq-answer th, .iq-answer td {
+  border: 1px solid var(--border);
+  padding: 7px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+.iq-answer th {
+  background: var(--bg3);
+  color: var(--text);
+  font-weight: 600;
+}
+.iq-answer tbody tr:nth-child(even) td { background: rgba(148,163,184,0.06); }
+
+.iq-answer kbd {
+  font-family: 'SF Mono', ui-monospace, monospace;
+  font-size: 11px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 1px 5px;
+  color: var(--text);
+}
+
 /* ── SVG Diagram ──────────────────────────────────────────────────────────── */
 .svg-wrap {
   padding: 32px 40px;

@@ -42,10 +42,16 @@ export function saveOverride(mid, i, obj) {
 export function applyOverrideTo(orig, mid, i) {
   const ov = loadOverride(mid, i);
   if (!ov) return orig;
+  const aEdited = typeof ov.a === 'string';
   return {
     ...orig,
     q: (typeof ov.q === 'string') ? ov.q : orig.q,
-    a: (typeof ov.a === 'string') ? ov.a : orig.a,
+    a: aEdited ? ov.a : orig.a,
+    // An edited answer comes from the rich-text (contentEditable) editor and is
+    // therefore already HTML — never re-run it through the Markdown renderer, or
+    // its tags would be escaped and shown literally. Only an untouched Markdown
+    // answer keeps its `md` flag.
+    md: aEdited ? false : orig.md,
     edited: true,
   };
 }

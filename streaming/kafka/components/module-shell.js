@@ -33,6 +33,14 @@ export function initTabs(container) {
   });
 }
 
+import { renderMarkdown } from './md.js';
+
+// An answer is HTML by default. Opt into Markdown rendering with `md: true`
+// on the question object (used for answers authored or pasted as Markdown).
+export function renderAnswer(q) {
+  return q && q.md ? renderMarkdown(q.a) : (q ? q.a : '');
+}
+
 export function createIQSection(questions) {
   return `
     <div class="section-header">
@@ -48,7 +56,7 @@ export function createIQSection(questions) {
             <span class="q-chevron">▼</span>
           </div>
           <div class="iq-answer">
-            ${q.a}
+            ${renderAnswer(q)}
             ${q.tip ? `<div class="tip">💡 <strong>Interview tip:</strong> ${q.tip}</div>` : ''}
           </div>
         </div>

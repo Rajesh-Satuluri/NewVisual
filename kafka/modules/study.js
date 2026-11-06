@@ -6,6 +6,8 @@ import { MODULES } from '../components/nav.js';
 import { QUIZ_BANK } from '../data/quiz-bank.js';
 import { loadAllIQ } from '../data/iq-aggregate.js';
 import { loadOverride, saveOverride, applyOverrideTo, syncHint, wireSyncCta } from '../components/iq-overrides.js';
+import { renderAnswer } from '../components/module-shell.js';
+import { renderMarkdown } from '../components/md.js';
 import { cloud } from '../components/cloudsync.js';
 
 const DIFF_ORDER = { easy: 0, medium: 1, hard: 2 };
@@ -57,7 +59,7 @@ export function mount(container) {
 
   const answerInner = v => `
     <div class="study-src"><a href="#${v.moduleId}">${v.icon} ${v.moduleTitle}</a></div>
-    ${v.a}
+    ${renderAnswer(v)}
     ${v.tip ? `<div class="tip">💡 <strong>Interview tip:</strong> ${v.tip}</div>` : ''}`;
 
   function apply() {
@@ -117,7 +119,11 @@ export function mount(container) {
     if (!orig) return;
     const ov = loadOverride(mid, idx);
     const curQ = (ov && typeof ov.q === 'string') ? ov.q : orig.q;
-    const curA = (ov && typeof ov.a === 'string') ? ov.a : orig.a;
+    // The rich-text editor works in HTML. A Markdown answer is rendered to HTML
+    // first so the author edits the formatted form (never raw **asterisks**);
+    // saving it then stores HTML and drops the `md` flag (see applyOverrideTo).
+    const baseA = renderAnswer(orig);
+    const curA = (ov && typeof ov.a === 'string') ? ov.a : baseA;
     const ae = item.querySelector('.iq-answer');
     if (!ae) return;
     item.classList.add('open', 'iqe-editing');
@@ -126,8 +132,14 @@ export function mount(container) {
       <div class="iqe-editor">
         <label class="iqe-label">Question</label>
         <div class="iqe-field iqe-q" contenteditable="true" role="textbox" aria-label="Edit question">${curQ}</div>
-        <label class="iqe-label">Answer</label>
+        <label class="iqe-label">
+          Answer
+          <span class="iqe-md-toggle" title="Tick if you pasted Markdown (**bold**, lists, tables, `code`)">
+            <input type="checkbox" class="iqe-md"> Markdown
+          </span>
+        </label>
         <div class="iqe-field iqe-a" contenteditable="true" role="textbox" aria-label="Edit answer">${curA}</div>
+        <div class="iqe-md-note" hidden>Editing as Markdown — <code>**bold**</code>, <code>- lists</code>, <code>| tables |</code>, <code>\`code\`</code>. It renders on Save.</div>
         <div class="iqe-actions">
           <button type="button" class="iqe-btn iqe-save">Save</button>
           <button type="button" class="iqe-btn iqe-cancel">Cancel</button>
@@ -137,15 +149,33 @@ export function mount(container) {
       </div>`;
     const qField = ae.querySelector('.iqe-q');
     const aField = ae.querySelector('.iqe-a');
+    const mdToggle = ae.querySelector('.iqe-md');
+    const mdNote = ae.querySelector('.iqe-md-note');
     wireSyncCta(ae);
     qField?.focus();
 
+    // Markdown mode: collapse the rich field to editable plain text so the
+    // author types/pastes raw Markdown, which is rendered to HTML on Save.
+    mdToggle?.addEventListener('change', () => {
+      if (mdToggle.checked) {
+        aField.textContent = aField.innerText;   // strip formatting → raw text
+        aField.classList.add('iqe-a-md');
+      } else {
+        aField.classList.remove('iqe-a-md');
+      }
+      if (mdNote) mdNote.hidden = !mdToggle.checked;
+    });
+
     ae.querySelector('.iqe-save').addEventListener('click', () => {
       const q = (qField.innerHTML || '').trim();
-      const a = (aField.innerHTML || '').trim();
+      // In Markdown mode the field holds raw Markdown source; render it to the
+      // HTML that gets stored (so the override is HTML, same as any other edit).
+      const a = (mdToggle?.checked
+        ? renderMarkdown(aField.innerText || '')
+        : (aField.innerHTML || '')).trim();
       const next = {};
       if (q && q !== orig.q.trim()) next.q = q;
-      if (a && a !== orig.a.trim()) next.a = a;
+      if (a && a !== baseA.trim()) next.a = a;
       saveOverride(mid, idx, next);
       try { cloud.onLocalChange(); } catch (e) {}
       apply();
