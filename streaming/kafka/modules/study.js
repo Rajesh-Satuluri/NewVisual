@@ -72,11 +72,11 @@ export function mount(container) {
               <span class="diff-badge diff-${x.difficulty}">${x.difficulty}</span>
               <span class="q-chevron">▼</span>
             </div>
-            <div class="iq-answer">
+            <div class="iq-answer-wrap"><div class="iq-answer">
               <div class="study-src"><a href="#${x.moduleId}">${x.icon} ${x.moduleTitle}</a></div>
               ${renderAnswer(x)}
               ${x.tip ? `<div class="tip">💡 <strong>Interview tip:</strong> ${x.tip}</div>` : ''}
-            </div>
+            </div></div>
           </div>`).join('')}
       </div>`;
 

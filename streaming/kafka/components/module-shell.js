@@ -55,9 +55,11 @@ export function createIQSection(questions) {
             <span style="flex:1">${q.q}</span>
             <span class="q-chevron">▼</span>
           </div>
-          <div class="iq-answer">
-            ${renderAnswer(q)}
-            ${q.tip ? `<div class="tip">💡 <strong>Interview tip:</strong> ${q.tip}</div>` : ''}
+          <div class="iq-answer-wrap">
+            <div class="iq-answer">
+              ${renderAnswer(q)}
+              ${q.tip ? `<div class="tip">💡 <strong>Interview tip:</strong> ${q.tip}</div>` : ''}
+            </div>
           </div>
         </div>
       `).join('')}

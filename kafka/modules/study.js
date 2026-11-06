@@ -90,7 +90,7 @@ export function mount(container) {
               </span>
               <span class="q-chevron">▼</span>
             </div>
-            <div class="iq-answer">${answerInner(x)}</div>
+            <div class="iq-answer-wrap"><div class="iq-answer">${answerInner(x)}</div></div>
           </div>`).join('')}
       </div>`;
 
