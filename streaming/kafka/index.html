@@ -34,6 +34,52 @@
   <link rel="stylesheet" href="styles.css" />
   <link rel="stylesheet" href="responsive.css" />
   <link rel="stylesheet" href="enhancements.css" />
+
+  <script>
+    /* HiDPI canvas rendering — upscale every 2D canvas backing store to the
+       device pixel ratio so visuals stay crisp on Retina / high-DPI screens.
+       Runs before any module draws; draw code keeps using logical coordinates. */
+    (function () {
+      try {
+        var dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 3));
+        if (dpr === 1 || !window.HTMLCanvasElement) return;
+        var proto = HTMLCanvasElement.prototype;
+        var wDesc = Object.getOwnPropertyDescriptor(proto, 'width');
+        var hDesc = Object.getOwnPropertyDescriptor(proto, 'height');
+        if (!wDesc || !hDesc || !wDesc.set || !hDesc.set) return;
+        var origGetContext = proto.getContext;
+        proto.getContext = function (type) {
+          var ctx = origGetContext.apply(this, arguments);
+          if ((type === '2d' || type === '2D') && ctx && !this.__hidpi) {
+            this.__hidpi = true;
+            var el = this;
+            var logicalW = wDesc.get.call(el);
+            var logicalH = hDesc.get.call(el);
+            // Keep on-screen (CSS) size unchanged; only the backing store grows.
+            if (!el.style.width)  el.style.width  = logicalW + 'px';
+            if (!el.style.height) el.style.height = logicalH + 'px';
+            function applyBacking() {
+              wDesc.set.call(el, Math.round(logicalW * dpr));
+              hDesc.set.call(el, Math.round(logicalH * dpr));
+              ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            }
+            Object.defineProperty(el, 'width', {
+              configurable: true,
+              get: function () { return logicalW; },
+              set: function (v) { logicalW = v; applyBacking(); }
+            });
+            Object.defineProperty(el, 'height', {
+              configurable: true,
+              get: function () { return logicalH; },
+              set: function (v) { logicalH = v; applyBacking(); }
+            });
+            applyBacking();
+          }
+          return ctx;
+        };
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
   <div id="app">
