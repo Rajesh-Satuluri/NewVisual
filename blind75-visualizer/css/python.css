@@ -728,13 +728,17 @@ mark.sx-hit {
    The topbar "🎯 Focus" button toggles global; a per-problem "🎯 Focus" chip
    in the problem header toggles the transient local focus. */
 
-/* --- topbar global focus button (sits in the empty topbar center) --- */
-/* In-flow (never absolute) so it can't overlap the Home / Backup / right-side
-   tools. margin-left:auto + the topbar-right's own margin-left:auto split the
-   free space, so it floats roughly centred between the mode switch and the
-   right-side toolbar and simply slides left as that toolbar grows. */
+/* --- topbar global focus button --- */
+/* Anchored to the LEFT group (mode switch) with a fixed gap, NOT margin:auto.
+   Using auto here used to split the free space 50/50 with .topbar-right's own
+   margin:auto, so toggling focus — which hides the right-side tools and shrinks
+   that toolbar — changed the split and made the focus buttons slide. A fixed
+   margin glues the cluster to the (stable) left group, so it stays put when
+   focus is toggled. .topbar-right keeps its own margin:auto and absorbs all the
+   remaining space, staying flush right. In-flow (never absolute) so it can't
+   overlap the right-side tools. */
 .focus-global-btn {
-  margin-left: auto;
+  margin-left: 14px;
   display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto;
   background: var(--bg-2); border: 1px solid var(--border); border-radius: 999px;
   color: var(--text); font-size: 12.5px; font-weight: 700;
@@ -747,8 +751,8 @@ mark.sx-hit {
   box-shadow: 0 0 12px var(--brand-glow);
 }
 @media (max-width: 1540px) { .focus-global-btn .btx { display: none; } }
-/* The PySpark code-only global button sits right after the focus button (whose
-   margin-left:auto pushes the pair toward the centre), not auto-pushed itself. */
+/* The PySpark/SQL code-only global button sits right after the focus button with
+   a small gap, so the two move together as one steady cluster. */
 .focus-code-global-btn { margin-left: 8px; }
 
 /* --- per-problem local focus chip (always available, even under global focus) --- */
