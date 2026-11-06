@@ -3,19 +3,41 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>o9 Solver Visualizer</title>
-  <meta name="description" content="Interactive o9 Supply Chain Solver internals — DRP, inputs, constraints, decisions, shortage & allocation, and interview prep. Taught through the CAT Aftermarket Parts Network." />
+  <title>o9 SCS Mastery</title>
+  <meta name="description" content="The end-to-end o9 Supply Chain Solver (SCS) study tool — the solver engine, inputs, constraints, decisions, outputs, RCA, supported models, optimization, and interview prep. Built from the o9 Platform Wiki." />
+
+  <!-- No-flash theme: apply stored preference before first paint -->
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("o9viz-theme");
+        if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
+      } catch (e) {}
+    })();
+  </script>
+
+  <meta name="theme-color" content="#0f1226" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f8faff" media="(prefers-color-scheme: light)" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="favicon.svg" />
 
   <link rel="stylesheet" href="css/main.css" />
   <link rel="stylesheet" href="css/layout.css" />
   <link rel="stylesheet" href="css/components.css" />
   <link rel="stylesheet" href="css/animations.css" />
+  <link rel="stylesheet" href="css/platform.css" />
 </head>
 <body>
   <div id="app">
 
     <header id="topbar" class="topbar">
       <div class="topbar-brand">
+        <button id="sidebar-toggle" class="icon-btn sidebar-toggle" title="Menu" aria-label="Toggle navigation">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+          </svg>
+        </button>
         <span class="brand-icon" aria-hidden="true">
           <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
             <circle cx="16" cy="16" r="14" fill="var(--airflow)" opacity="0.15"/>
@@ -25,18 +47,23 @@
             <circle cx="26" cy="22" r="2" fill="var(--supplier)"/>
           </svg>
         </span>
-        <span class="brand-name">o9 Solver <span class="brand-accent">Visualizer</span></span>
-        <span class="brand-version badge">CATMPN</span>
+        <span class="brand-name">o9 SCS <span class="brand-accent">Mastery</span></span>
+        <span class="brand-version badge">SCS</span>
       </div>
 
-      <nav class="topbar-nav" aria-label="Module categories">
+      <nav class="topbar-nav" aria-label="Primary">
         <a href="#home" class="nav-pill" data-route="home">Home</a>
         <a href="#business-scenario" class="nav-pill" data-route="business-scenario">📦 Business Scenario</a>
-        <a href="#what-is-solver" class="nav-pill" data-route="what-is-solver">What is the Solver</a>
-        <a href="#planning-engine-stack" class="nav-pill" data-route="planning-engine-stack">Engine Stack</a>
+        <a href="#worked-example" class="nav-pill" data-route="worked-example">Worked Example</a>
+        <a href="#sim-lab" class="nav-pill" data-route="sim-lab">Scenario Lab</a>
       </nav>
 
       <div class="topbar-actions">
+        <button id="palette-open" class="palette-btn" title="Search (⌘K)" aria-label="Search modules">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <span class="pb-text">Search</span>
+          <kbd>⌘K</kbd>
+        </button>
         <button id="theme-toggle" class="icon-btn" title="Toggle theme (T)" aria-label="Toggle theme">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
@@ -52,91 +79,8 @@
     </header>
 
     <div class="app-body">
-      <aside id="sidebar" class="sidebar" aria-label="Module navigation">
-        <div class="sidebar-section">
-          <div class="sidebar-label">Real-World Scenario</div>
-          <ul class="sidebar-list" role="list">
-            <li><a href="#business-scenario" class="sidebar-link" data-route="business-scenario">📦 Nightly Supply Solve</a></li>
-          </ul>
-        </div>
-
-        <div class="sidebar-section">
-          <div class="sidebar-label">Foundations</div>
-          <ul class="sidebar-list" role="list">
-            <li><a href="#home" class="sidebar-link" data-route="home">Home</a></li>
-            <li><a href="#what-is-solver" class="sidebar-link" data-route="what-is-solver">What is the o9 Solver</a></li>
-            <li><a href="#planning-engine-stack" class="sidebar-link" data-route="planning-engine-stack">Planning Engine Stack</a></li>
-            <li><a href="#why-solver" class="sidebar-link" data-route="why-solver">Why a Solver</a></li>
-            <li><a href="#solver-components" class="sidebar-link" data-route="solver-components">Solver Components</a></li>
-          </ul>
-        </div>
-
-        <div class="sidebar-section">
-          <div class="sidebar-label">DRP Framework</div>
-          <ul class="sidebar-list" role="list">
-            <li><a href="#drp-overview" class="sidebar-link" data-route="drp-overview">DRP Overview</a></li>
-            <li><a href="#multi-echelon" class="sidebar-link" data-route="multi-echelon">Multi-Echelon Flow</a></li>
-            <li><a href="#objectives" class="sidebar-link" data-route="objectives">Solver Objectives</a></li>
-          </ul>
-        </div>
-
-        <div class="sidebar-section">
-          <div class="sidebar-label">Solver Inputs</div>
-          <ul class="sidebar-list" role="list">
-            <li><a href="#demand-inputs" class="sidebar-link" data-route="demand-inputs">Demand Inputs</a></li>
-            <li><a href="#inventory-inputs" class="sidebar-link" data-route="inventory-inputs">Inventory Inputs</a></li>
-            <li><a href="#supply-order-inputs" class="sidebar-link" data-route="supply-order-inputs">In-Flight Supply</a></li>
-            <li><a href="#network-topology" class="sidebar-link" data-route="network-topology">Network Topology</a></li>
-            <li><a href="#constraint-params" class="sidebar-link" data-route="constraint-params">Constraint Params</a></li>
-            <li><a href="#capacity-inputs" class="sidebar-link" data-route="capacity-inputs">Capacity Inputs</a></li>
-          </ul>
-        </div>
-
-        <div class="sidebar-section">
-          <div class="sidebar-label">Constraints</div>
-          <ul class="sidebar-list" role="list">
-            <li><a href="#freeze-windows" class="sidebar-link" data-route="freeze-windows">Freeze Windows</a></li>
-            <li><a href="#calendar-constraints" class="sidebar-link" data-route="calendar-constraints">Calendar Constraints</a></li>
-            <li><a href="#quantity-constraints" class="sidebar-link" data-route="quantity-constraints">Min / Mult / EOQ</a></li>
-            <li><a href="#capacity-constraints" class="sidebar-link" data-route="capacity-constraints">Capacity Limits</a></li>
-            <li><a href="#network-validity" class="sidebar-link" data-route="network-validity">Network Validity</a></li>
-            <li><a href="#priority-constraints" class="sidebar-link" data-route="priority-constraints">Priority Rules</a></li>
-          </ul>
-        </div>
-
-        <div class="sidebar-section">
-          <div class="sidebar-label">Solver Decisions</div>
-          <ul class="sidebar-list" role="list">
-            <li><a href="#net-requirements" class="sidebar-link" data-route="net-requirements">Net Requirements</a></li>
-            <li><a href="#timing-logic" class="sidebar-link" data-route="timing-logic">Timing Logic</a></li>
-            <li><a href="#sourcing-logic" class="sidebar-link" data-route="sourcing-logic">Sourcing Logic</a></li>
-            <li><a href="#shortage-handling" class="sidebar-link" data-route="shortage-handling">Shortage Handling</a></li>
-            <li><a href="#allocation" class="sidebar-link" data-route="allocation">Allocation</a></li>
-            <li><a href="#pegging" class="sidebar-link" data-route="pegging">Pegging</a></li>
-          </ul>
-        </div>
-
-        <div class="sidebar-section">
-          <div class="sidebar-label">Execution &amp; Outputs</div>
-          <ul class="sidebar-list" role="list">
-            <li><a href="#batch-sequence" class="sidebar-link" data-route="batch-sequence">Batch Sequence</a></li>
-            <li><a href="#solver-outputs" class="sidebar-link" data-route="solver-outputs">Solver Outputs</a></li>
-            <li><a href="#worked-example" class="sidebar-link" data-route="worked-example">Worked Example</a></li>
-          </ul>
-        </div>
-
-        <div class="sidebar-section">
-          <div class="sidebar-label">Learning Mode</div>
-          <ul class="sidebar-list" role="list">
-            <li><a href="#sim-lab" class="sidebar-link" data-route="sim-lab">Solver Behavior Lab</a></li>
-            <li><a href="#interview" class="sidebar-link" data-route="interview">Interview Q&amp;A</a></li>
-            <li><a href="#scenario-interview" class="sidebar-link" data-route="scenario-interview">Scenario Interviews</a></li>
-            <li><a href="#quiz" class="sidebar-link" data-route="quiz">Quiz</a></li>
-            <li><a href="#glossary" class="sidebar-link" data-route="glossary">Glossary</a></li>
-            <li><a href="#master-map" class="sidebar-link" data-route="master-map">Master Concept Map</a></li>
-          </ul>
-        </div>
-      </aside>
+      <!-- Sidebar is built dynamically from the TRACKS registry in app.js -->
+      <aside id="sidebar" class="sidebar" aria-label="Module navigation"></aside>
 
       <main id="canvas" class="canvas" role="main" aria-live="polite">
         <div id="module-container" class="module-container"></div>
@@ -179,6 +123,10 @@
   <script src="js/components/timeline.js"></script>
   <script src="js/components/concept-factory.js"></script>
   <script src="js/components/business-lens.js"></script>
+
+  <!-- Platform features (decoupled; subscribe to app:navigate) -->
+  <script src="js/features/progress.js"></script>
+  <script src="js/features/command-palette.js"></script>
 
   <!-- Data -->
   <script src="js/data/catmpn-data.js"></script>

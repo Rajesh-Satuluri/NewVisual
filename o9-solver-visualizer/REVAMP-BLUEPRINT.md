@@ -9,7 +9,7 @@ the repo's Kafka and Iceberg tools.
 - **Current tool:** `o9-solver-visualizer/` — vanilla JS, no build step, GitHub Pages.
 - **Source of truth:** 44 SCS wiki pages (extracted from `SQLFIles/*.7z`).
 - **Inspiration:** `kafka/` (32 modules + sim engine + mastery layer), `iceberg/` (35 modules + feature bus).
-- **Status:** Blueprint / proposal. Nothing built yet. Iterations gated by explicit "go."
+- **Status:** Iteration 0 shipped (mastery shell). Content iterations gated by explicit "go." See §8 for the log.
 
 ---
 
@@ -241,6 +241,25 @@ Scope control: **preserve everything** (nothing removed without a logged reason)
 3. **Measure-level fidelity** — the wiki's power is in named measures/flags; the tool treats them as the API (config reference + capability matrix), which is exactly what interviews and real config demand.
 4. **Practice to mastery** — quizzes, RCA clinic, decision drills, interview banks and spaced repetition turn passive reading into recall.
 5. **Honest** — a labelled real/simulated ledger builds trust and teaches the real boundaries of the heuristic.
+
+---
+
+---
+
+## 8. Iteration log
+
+### Iteration 0 — Mastery shell ✅
+*Scaffolding for the full platform; all 37 existing modules preserved and working.*
+
+- **TRACKS registry** (`app.js`) — single source of truth for the full 11-track IA (~90 screens). Routes + sidebar derived from it; new topics registered as roadmap placeholders (`ready:false` → router shows a "Roadmap" screen, so navigation never breaks).
+- **Dynamic collapsible sidebar** — per-track sections (collapse state persisted), auto-expands the active track, per-track `visited/built` counts.
+- **Event bus** — `app:navigate` CustomEvent + `AV.getScreens()/getTracks()/currentScreenId()` accessors; features subscribe, the router stays untouched (Iceberg pattern).
+- **Progress feature** (`features/progress.js`) — local-first visited tracking, sidebar meter + checkmarks. Storage `o9scs-progress`.
+- **Command palette** (`features/command-palette.js`) — ⌘K / Ctrl-K / `/`, fuzzy search across every screen, keyboard nav, topbar Search button.
+- **PWA** — `manifest.json`, `favicon.svg`, `icon-192/512.png`, theme-color metas, no-flash theme script. Rebrand to **o9 SCS Mastery**.
+- **Verification** — `scripts/check-syntax.mjs` (node --check gate) + `scripts/verify.mjs` (headless Chromium sweep: every screen × dark/light, 0 console errors). New CI workflow `.github/workflows/o9-check.yml` (path-scoped; never touches the shared Pages deploy).
+- **Verified:** 53/53 JS pass syntax; **202/202** headless checks pass (both themes). Screenshotted dark + light.
+- **Next (Iter 1):** the deterministic **SCS Mini-Engine** + **Solver Playground**.
 
 ---
 
