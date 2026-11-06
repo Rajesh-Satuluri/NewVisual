@@ -97,14 +97,16 @@ export function createIQSection(questions) {
 }
 
 export function initIQ(container) {
+  // Multi-open accordion: each question toggles independently and opening one
+  // never collapses another. The old single-open behaviour collapsed the open
+  // item above the one just clicked, which yanked the clicked header upward (the
+  // answer looked like it "opened upward") — worst at the top of the list, where
+  // there is no scroll room to absorb the shift. Toggling in place means the
+  // answer always expands straight down. Matches the Study Hub's behaviour.
   const toggle = q => {
     const item = q.closest('.iq-item');
-    const wasOpen = item.classList.contains('open');
-    container.querySelectorAll('.iq-item').forEach(i => {
-      i.classList.remove('open');
-      i.querySelector('.iq-question')?.setAttribute('aria-expanded', 'false');
-    });
-    if (!wasOpen) { item.classList.add('open'); q.setAttribute('aria-expanded', 'true'); }
+    const nowOpen = item.classList.toggle('open');
+    q.setAttribute('aria-expanded', nowOpen ? 'true' : 'false');
   };
   container.querySelectorAll('.iq-question').forEach(q => {
     q.addEventListener('click', () => toggle(q));
