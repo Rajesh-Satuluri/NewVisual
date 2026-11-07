@@ -3,6 +3,251 @@
 // Auto-appended under a module by script.js → enhanceModule(). Passing at the
 // 2/3 ratio marks the module mastered. Grows as modules are built.
 export const QUIZ_BANK = {
+  'inventory': [
+    {
+      q: 'Before requesting new production upstream, what does the solver do first in a bucket?',
+      options: [
+        'Always build fresh supply to be safe',
+        'Consume existing on-hand / inventory / expected-receipt supplies',
+        'Short the demand',
+        'Round up to the max stock',
+      ],
+      answer: 1,
+      explanation: 'The solver looks for existing surplus/inventory/expected-receipt supplies in the JIT and earlier buckets before asking upstream for new supply.',
+    },
+    {
+      q: 'Beginning-On-Hand (BOH) is applicable in which bucket?',
+      options: ['Every bucket in the horizon', 'Only the Plan Current bucket', 'Only Plan Start', 'The due-date bucket'],
+      answer: 1,
+      explanation: 'BOH is only applicable at the current time bucket; BOH defined earlier than current is ignored. Expected Receipts are treated as cumulatively available at Plan Current.',
+    },
+    {
+      q: 'In the inventory buckets, what does EOH represent?',
+      options: ['Earliest order horizon', 'End-On-Hand — inventory carried out of the bucket', 'Expected order hold', 'Excess on hold'],
+      answer: 1,
+      explanation: 'The inventory profile runs BOH → … → EOH: End-On-Hand is what remains (and carries forward) after receipts and consumption in the bucket.',
+    },
+  ],
+  'demand-inputs': [
+    {
+      q: 'Which attributes of a demand drive the order-by-order sort?',
+      options: [
+        'Only the quantity',
+        'Priority, Fair-Share Priority, Due Date, Quantity, then the Demand Node Component keys',
+        'Only the due date',
+        'The item and location only',
+      ],
+      answer: 1,
+      explanation: 'The sort keys are Priority → Fair-Share → Due Date (asc) → Quantity (asc) → key on the remaining Demand Node Components.',
+    },
+    {
+      q: 'What are the "Demand Node Components"?',
+      options: [
+        'The BOM components of the demanded item',
+        'The configured dimensions/attributes that identify a demand node (used for the final key sort and attribute-based planning)',
+        'The capacity resources',
+        'The safety-stock bands',
+      ],
+      answer: 1,
+      explanation: 'Demand Node Components are the configured attributes of the demand node; the final sort key walks them in configured order, and they drive attribute-based demand planning.',
+    },
+    {
+      q: 'On the quantity sort key, which demand is planned first on a tie?',
+      options: ['The larger quantity', 'The smaller quantity', 'Whichever arrived first', 'Random'],
+      answer: 1,
+      explanation: 'Quantity is ascending — the lower quantity is planned first.',
+    },
+  ],
+  'activity-params': [
+    {
+      q: 'What does an activity’s lead time determine during backward traversal?',
+      options: [
+        'The lot size',
+        'How many buckets earlier the supply must start to arrive on the due date',
+        'The demand priority',
+        'The safety-stock target',
+      ],
+      answer: 1,
+      explanation: 'Lead time offsets the start bucket backward from the due date — the solver subtracts it to find the latest feasible start.',
+    },
+    {
+      q: 'An activity has effectivity Start W2 / End W5. The backward-planned start bucket lands on W6. What happens?',
+      options: [
+        'The activity is used anyway',
+        'Nothing is planned on this activity — the start is outside its effective window',
+        'The lead time is ignored',
+        'The demand is split',
+      ],
+      answer: 1,
+      explanation: 'Effectivity (Solver Activity Start/End Date) bounds when an activity may be used; a start outside the window makes the edge inactive, so nothing is planned on it.',
+    },
+    {
+      q: 'When both a time-varying lead time and an expedited lead time apply, which takes precedence?',
+      options: ['Expedited lead time', 'The time-varying lead time', 'Whichever is shorter', 'Neither — they add'],
+      answer: 1,
+      explanation: 'The time-varying lead time takes precedence over an expedited (reduced) lead time.',
+    },
+  ],
+  'capacity': [
+    {
+      q: 'What do the capacity bands REGULAR / BAND1 / BAND2 represent?',
+      options: [
+        'Three separate resources',
+        'Base capacity plus additional flex capacity tiers',
+        'Three demand priorities',
+        'Lot-size multiples',
+      ],
+      answer: 1,
+      explanation: 'REGULAR is base capacity; BAND1/BAND2 are flex tiers used on top of base (e.g. during constrained phases) at the cost of using more expensive capacity.',
+    },
+    {
+      q: 'With Capacity Constraint = False (unconstrained), what happens?',
+      options: [
+        'No supply is planned',
+        'Capacity is treated as unlimited, so supply can be planned JIT regardless of load',
+        'Only safety stock is planned',
+        'All demand is shorted',
+      ],
+      answer: 1,
+      explanation: 'Unconstrained planning ignores capacity limits — useful to see demand feasibility without the capacity bottleneck.',
+    },
+    {
+      q: 'The Capacity Consumption Graph association tells the solver that an activity:',
+      options: [
+        'Produces a product',
+        'Is constrained by the capacity of the resource it is attached to',
+        'Consumes a material',
+        'Has a lot size',
+      ],
+      answer: 1,
+      explanation: 'The Capacity Consumption Graph marks that an activity node is constrained by the capacity available from its resource.',
+    },
+  ],
+  'safety-stock': [
+    {
+      q: 'When is safety stock typically planned relative to regular demand?',
+      options: [
+        'Before regular demand',
+        'After regular demand (as an additional demand on the target)',
+        'It is never planned, only reported',
+        'Simultaneously with WIP',
+      ],
+      answer: 1,
+      explanation: 'Safety stock is planned as an additional "demand" to top inventory up to its target, typically after regular demand (unless SS-interleaves-with-demand is set).',
+    },
+    {
+      q: 'Under the TARGET_LEVEL inventory plan policy, the solver replenishes to:',
+      options: ['Zero', 'The safety-stock target level in each bucket', 'The max stock only', 'The lot multiple'],
+      answer: 1,
+      explanation: 'TARGET_LEVEL tops projected on-hand up to the configured safety-stock target level.',
+    },
+    {
+      q: 'What does Adaptive SS BAL do?',
+      options: [
+        'Increases safety stock everywhere',
+        'Reduces the Build-Ahead Limit for safety-stock demands to optimise performance',
+        'Disables safety stock',
+        'Sets the lot size',
+      ],
+      answer: 1,
+      explanation: 'Adaptive SS BAL reduces the Build-Ahead Limit for safety-stock planning (performance optimisation) when the target isn’t met in a bucket.',
+    },
+  ],
+  'wip': [
+    {
+      q: 'By default, when is WIP planned relative to demand?',
+      options: ['After demand', 'Before demand', 'Only on holidays', 'Never'],
+      answer: 1,
+      explanation: 'WIP is planned before demand by default; the "WIP Interleaves With Demand" flag lets demand be planned ahead of WIP.',
+    },
+    {
+      q: 'What does the freeze window (Respect Freeze Window For WIPs) protect?',
+      options: [
+        'The safety-stock target',
+        'Near-term committed WIP from being replanned',
+        'The max stock',
+        'The objective rank list',
+      ],
+      answer: 1,
+      explanation: 'The freeze window protects near-term in-progress production from being disturbed by replanning.',
+    },
+    {
+      q: 'Setting "WIP Interleaves With Demand" to TRUE means:',
+      options: [
+        'WIP is ignored',
+        'Demand can be planned ahead of WIP (they interleave)',
+        'WIP always wins',
+        'Safety stock is planned first',
+      ],
+      answer: 1,
+      explanation: 'When true, WIP and demand can interleave — demand may be planned ahead of WIP rather than strictly after it.',
+    },
+  ],
+  'lot-sizing': [
+    {
+      q: 'In what order does lot sizing shape a net requirement?',
+      options: [
+        'Cap at max → raise to min → round to multiple',
+        'Raise to minimum order qty → ceil to the order multiple → cap at max',
+        'Round to multiple → cap at max → raise to min',
+        'It applies none of these',
+      ],
+      answer: 1,
+      explanation: 'roundToLot: raise to the minimum, ceil to the order multiple, then cap at the max (0/undefined max = uncapped).',
+    },
+    {
+      q: 'What does the Max Stock constraint limit?',
+      options: [
+        'The minimum order quantity',
+        'How much inventory may be held at a node',
+        'The demand priority',
+        'The lead time',
+      ],
+      answer: 1,
+      explanation: 'Max Stock caps the inventory a node may carry, limiting build-ahead that would exceed it.',
+    },
+    {
+      q: 'The Storage constraint restricts:',
+      options: [
+        'The number of demands',
+        'The physical storage capacity available to hold inventory',
+        'The activity priority',
+        'The safety-stock bands',
+      ],
+      answer: 1,
+      explanation: 'The Storage constraint bounds how much can be stored (storage capacity), another ceiling on carried inventory.',
+    },
+  ],
+  'objective-rank-list': [
+    {
+      q: 'What are the four levels of the Objective Rank List?',
+      options: [
+        'Priority, Fair-Share, Due Date, Quantity',
+        'Band, Lot, Activity Marker, Late',
+        'JIT, Build-Ahead, Build-Late, Short',
+        'BOH, ER, EOH, WIP',
+      ],
+      answer: 1,
+      explanation: 'The four soft constraints are Band (capacity/storage), Lot, Activity Marker, and Late. Default order: Band, Lot, ActivityMarker, Late.',
+    },
+    {
+      q: 'In which direction does the solver relax the Objective Rank List?',
+      options: ['Left to right', 'Right to left', 'Randomly', 'All at once'],
+      answer: 1,
+      explanation: 'Right to left: the rightmost entry is sacrificed first, the leftmost protected longest. Default relaxes Late → ActivityMarker → Lot → Band.',
+    },
+    {
+      q: 'If a user provides only "Late, ActivityMarker", what does the solver use?',
+      options: [
+        'Just those two',
+        'Late, ActivityMarker, Band, Lot (missing ones appended on the right in default order)',
+        'The default, ignoring the input',
+        'Band, Lot, Late, ActivityMarker',
+      ],
+      answer: 1,
+      explanation: 'The solver appends the missing entries on the right in default order, giving Late, ActivityMarker, Band, Lot.',
+    },
+  ],
   'network-types': [
     {
       q: 'Which building blocks define a Manufacturing (MAKE) network in SCS?',
