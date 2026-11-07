@@ -49,8 +49,12 @@ export function roundToLot(qty, { min = 0, mult = 1, max = Infinity } = {}) {
 }
 
 // Demand sort: Priority → Fair-Share Priority → Due Date → Quantity → key.
-// STABLE (tie-break on original index). Lower numeric priority = more urgent;
-// earlier due date first; larger quantity first. Returns a new array.
+// STABLE (tie-break on original index). Per the SCS wiki (High Level Overview →
+// Algorithm): lower numeric priority = more urgent; lower fair-share number first;
+// earlier due date first; then — on a tie — LOWER QUANTITY is planned first
+// ("demands are sorted in increasing order of the demand quantity i.e., lower
+// quantity is planned first"); finally the ascending Key on the remaining Demand
+// Node Components. Returns a new array.
 export function sortDemands(demands = []) {
   const n = (v, d) => (v === undefined || v === null ? d : v);
   return demands
@@ -61,7 +65,7 @@ export function sortDemands(demands = []) {
         n(A.priority, 1e9) - n(B.priority, 1e9) ||
         n(A.fairShare, 1e9) - n(B.fairShare, 1e9) ||
         String(n(A.dueDate, "")).localeCompare(String(n(B.dueDate, ""))) ||
-        n(B.qty, 0) - n(A.qty, 0) ||
+        n(A.qty, 0) - n(B.qty, 0) ||
         String(n(A.key, "")).localeCompare(String(n(B.key, ""))) ||
         a.i - b.i
       );
