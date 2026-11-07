@@ -134,4 +134,10 @@ export const SELF_EXPLAIN = {
       answer: 'A valid plan has: (1) no Negative On-Hand, (2) no Capacity Overload, (3) Σ Pegging = Plan (the pegged totals reconcile to the plan, no mismatch). The solver runs: config validation → truncate outputs → load data → WIP planning & WIP RCA → excess cleanup (flag-based) → Demand Planning (OBO) → excess cleanup → Safety Stock Planning → Replanning of late/short → Push Planning → Min Res utilization → OBO RCA → Peggings → Exports → additive/SS/zero-qty RCA & exports → finish.',
     },
   ],
+  'invocation': [
+    {
+      prompt: 'How is the SCS solver invoked, and what is the difference between a FULL plan and an INCREMENTAL_PLAN?',
+      answer: 'It is invoked two ways: a command-line exec statement — `exec plugin instance SupplyChainSolver for Measures {...} using scope (...) arguments {([Material Constrained], "true"), ([Capacity Constrained], "true"), ([Plan Type], "...")}` — or a configured Action Button in the Workspace (confirm success via the bell icon). Plan Type = FULL_PLAN rebuilds the whole plan from scratch; INCREMENTAL_PLAN (net-change) handles new/rush demands on top of the existing plan while minimizing impact on existing commitments; Delete_Plan clears the plan outputs. The [Material Constrained] / [Capacity Constrained] flags select unconstrained vs constrained (both true = fully constrained). Persist Mode (None / Persist) gives a data-load read-time benefit for incremental runs.',
+    },
+  ],
 };

@@ -718,4 +718,39 @@ export const QUIZ_BANK = {
       explanation: 'Pegging is a post-process that reconciles supply to demand; the sum of pegged quantities must equal the plan across all nodes, or there is a mismatch to investigate.',
     },
   ],
+  'invocation': [
+    {
+      q: 'What are the two ways the SCS solver can be invoked?',
+      options: [
+        'Only automatically on a schedule',
+        'Via a command-line exec-plugin statement, or via a configured Action Button in the Workspace',
+        'Only by editing the database directly',
+        'Only through a REST API',
+      ],
+      answer: 1,
+      explanation: 'The solver can be invoked two ways: a command-line `exec plugin instance SupplyChainSolver ... arguments {([Material Constrained], ...), ([Capacity Constrained], ...), ([Plan Type], ...)}`, or a configured Action Button in the Workspace (success is confirmed via the bell icon).',
+    },
+    {
+      q: 'What is an INCREMENTAL_PLAN (net-change) run used for?',
+      options: [
+        'Rebuilding the entire plan from scratch every time',
+        'Handling exceptions (e.g. a rush order) on top of the existing plan while minimizing impact on existing commitments',
+        'Deleting all plan outputs',
+        'Exporting data with no planning',
+      ],
+      answer: 1,
+      explanation: 'The basic rule of incremental (net-change) planning is to handle exceptions while minimizing the impact on existing commitments — e.g. expediting a last-minute rush order on top of the existing plan. Plan Type is set to INCREMENTAL_PLAN; FULL_PLAN instead rebuilds the whole plan.',
+    },
+    {
+      q: 'Which exec arguments make a run a "fully constrained" plan?',
+      options: [
+        'Plan Type = Delete_Plan',
+        '[Material Constrained] = "true" AND [Capacity Constrained] = "true"',
+        'Only [Capacity Constrained] = "true"',
+        'Persist Mode = Persist',
+      ],
+      answer: 1,
+      explanation: 'A fully constrained plan sets both [Material Constrained]="true" and [Capacity Constrained]="true". Setting neither gives an unconstrained plan; setting one gives a material- or capacity-constrained plan.',
+    },
+  ],
 };
