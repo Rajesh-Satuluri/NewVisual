@@ -1,0 +1,17 @@
+/* ============================================================
+   print.css — printable Cheat Sheet styling
+   Loaded with media="print" (wired when the Cheat Sheet module ships).
+   Hides chrome (sidebar, topbar, controls), flattens the canvas to a
+   single-column, ink-friendly one-pager.
+   STATUS: SCAFFOLD — baseline rules; refined in the polish iteration.
+   ============================================================ */
+@media print {
+  .sidebar, .topbar, .command-palette, .animation-controls,
+  #kbd-modal, #theme-toggle, .pager, .quiz, .self-explain { display: none !important; }
+
+  html, body { background: #fff !important; color: #000 !important; }
+  #canvas, .module-container { margin: 0 !important; padding: 0 !important; max-width: 100% !important; }
+
+  a { color: #000 !important; text-decoration: none !important; }
+  .page-break { break-before: page; }
+}

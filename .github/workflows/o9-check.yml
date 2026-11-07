@@ -32,6 +32,9 @@ jobs:
       - name: Syntax gate (node --check every JS file)
         run: node scripts/check-syntax.mjs
 
+      - name: Unit tests (node --test — sim engine + data logic)
+        run: node scripts/test.mjs
+
       - name: Headless smoke sweep (best-effort)
         continue-on-error: true
         run: |

@@ -132,6 +132,15 @@
   <script src="js/data/catmpn-data.js"></script>
   <script src="js/data/solver-concepts.js"></script>
   <script src="js/data/interview-bank.js"></script>
+  <script src="js/data/progress-store.js"></script>
+
+  <!-- SCS Mini-Engine (ES module) bridged to the global namespace so plain
+       <script> modules can call the unit-tested solver helpers. -->
+  <script type="module">
+    import * as Engine from "./sim/scs-engine.js";
+    (window.SolverViz = window.SolverViz || {}).Engine = Engine;
+    try { window.dispatchEvent(new CustomEvent("o9scs:engine-ready")); } catch (e) {}
+  </script>
 
   <script src="js/app.js"></script>
   <!-- Offline backup: one-click .zip download of this project (top-right) -->

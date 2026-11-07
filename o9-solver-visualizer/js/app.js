@@ -35,7 +35,7 @@
       ["solver-components", "Solver Components", true],
       ["planning-engine-stack", "Planning Engine Stack", true],
       ["objectives", "Solver Objectives", true],
-      ["obo-heuristic", "Order-by-Order Heuristic", false],
+      ["obo-heuristic", "Order-by-Order Heuristic", true],
       ["demand-sorting", "Demand Sorting", false],
       ["three-phases", "JIT · Build-Ahead · Build-Late", false],
       ["solve-pipeline", "The 23-Step Solve Pipeline", false]
@@ -137,9 +137,19 @@
       ["mock-interview", "Mock Interview", false],
       ["quiz", "Quiz", true],
       ["decision-drills", "Decision Drills", false],
+      ["review-center", "Review Center (Spaced Rep)", false],
       ["glossary", "Glossary", true],
       ["cheatsheet", "Cheat Sheet", false],
       ["master-map", "Master Concept Map", true]
+    ]},
+    { id: "t11", label: "11 · Data, Integration & the Real Tenant", items: [
+      ["tenant-model", "The CATMPN Tenant Model", false],
+      ["inbound-tables", "Inbound Tables Explorer", false],
+      ["staging-pipeline", "SSIS Staging Pipeline", false],
+      ["solver-run-ops", "Solver Run & Orchestration", false],
+      ["outbound-pegging", "Outbound Pegging & Outputs", false],
+      ["measure-grain", "Measure Naming & Grain", false],
+      ["end-to-end-trace", "Capstone: End-to-End Trace", false]
     ]}
   ];
   AV.tracks = TRACKS;
