@@ -17,7 +17,7 @@ export const GLOSS = {
   routing:      { t: 'routing',         d: 'The ordered operations (and the resources they use) required to produce an item.' },
   activity:     { t: 'activity',        d: 'A node representing a production or movement step the solver can execute to create supply.' },
   capacity:     { t: 'capacity',        d: 'A resource limits throughput per bucket; unlike material it expires at the end of its bucket and cannot be carried over.' },
-  bucket:       { t: 'bucket',          d: 'A time period on the planning calendar (a day, week or month) that demand and supply are placed into — this is what "time-phased" means.' },
+  bucket:       { t: 'bucket',          d: 'One slot of time on the planning calendar — a single day, week or month. The plan is divided into a row of these buckets (the W1, W2, W3… columns), and every demand and every unit of supply is dropped into one of them. Saying a plan is time-phased just means it is sorted into buckets like this.' },
   heuristic:    { t: 'heuristic',       d: 'A fast, rule-based method that finds a good, feasible, explainable plan — not a math search that proves the single optimal answer.' },
   'lp-mip':     { t: 'LP / MIP',        d: 'Linear / Mixed-Integer Programming — classic optimization that searches for a provably optimal solution. The SCS is a heuristic instead.' },
   scs:          { t: 'SCS',             d: 'Supply Chain Solver — o9’s heuristic planning engine, a plugin inside the GraphCube server, that turns demand into time-phased supply.' },
