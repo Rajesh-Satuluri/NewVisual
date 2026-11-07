@@ -8,7 +8,10 @@ import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const JS_DIRS = ["js"];
+// Flat kafka-style layout (components/, data/, modules/, sim/) + root entry
+// scripts. ("js" is the legacy tree; kept here while it is still present.)
+const JS_DIRS = ["components", "data", "modules", "sim", "js"];
+const ROOT_FILES = ["script.js", "supabase-config.js"];
 const files = [];
 
 function walk(dir) {
@@ -21,6 +24,9 @@ function walk(dir) {
 }
 for (const d of JS_DIRS) {
   try { walk(join(root, d)); } catch { /* dir may not exist */ }
+}
+for (const f of ROOT_FILES) {
+  try { if (statSync(join(root, f)).isFile()) files.push(join(root, f)); } catch { /* may not exist */ }
 }
 
 let failed = 0;
