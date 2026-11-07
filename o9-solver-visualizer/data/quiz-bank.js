@@ -3,6 +3,76 @@
 // Auto-appended under a module by script.js → enhanceModule(). Passing at the
 // 2/3 ratio marks the module mastered. Grows as modules are built.
 export const QUIZ_BANK = {
+  'sc-basics': [
+    {
+      q: 'In which direction does the o9 solver traverse the network to plan a demand?',
+      options: [
+        'Forward — from supplier (upstream) to customer (downstream)',
+        'Backward — from customer (downstream) to supplier (upstream)',
+        'Top-down — from finished good to raw material in one pass',
+        'It plans all nodes simultaneously',
+      ],
+      answer: 1,
+      explanation: 'Planning is demand-driven backward propagation: it starts at the order and asks each upstream node for what it needs, until it reaches real supply — then confirms the flow forward.',
+    },
+    {
+      q: 'Which SCOR operation does a Distribution network model, and what is its building block?',
+      options: [
+        'MAKE — Bill of Material',
+        'SOURCE — Supplier',
+        'DELIVER — Bill of Distribution + Transport Mode',
+        'PLAN — Objective Rank List',
+      ],
+      answer: 2,
+      explanation: 'Distribution = the DELIVER operation: moving an item between locations, modelled with Bill of Distribution (BOD) and Transport Mode. Manufacturing = MAKE (BOM + Routing); Procurement = SOURCE (Supplier).',
+    },
+    {
+      q: 'Why does the solver traverse backward from the due date rather than forward from the factory?',
+      options: [
+        'Because upstream nodes are always faster',
+        'Because the due date is the fixed point — walking lead times back finds the latest feasible start that still arrives on time',
+        'Because forward planning is not supported by GraphCube',
+        'To minimise the number of suppliers used',
+      ],
+      answer: 1,
+      explanation: 'The due date is fixed; the only way to know when to start is to subtract each hop’s lead time back from when the customer needs it — the Just-In-Time ideal.',
+    },
+  ],
+  'demand-sorting': [
+    {
+      q: 'What is the correct order of the demand sort keys?',
+      options: [
+        'Due Date → Priority → Quantity → Fair-Share → Key',
+        'Priority → Fair-Share → Due Date → Quantity → Key',
+        'Priority → Due Date → Quantity → Fair-Share → Key',
+        'Quantity → Priority → Due Date → Fair-Share → Key',
+      ],
+      answer: 1,
+      explanation: 'Demand Priority → Fair-Share Priority → Due Date (ascending) → Quantity (ascending) → Key sort on remaining Demand Node Components.',
+    },
+    {
+      q: 'Two demands tie on priority, fair-share and due date. Which is planned first?',
+      options: [
+        'The one with the LARGER quantity',
+        'The one with the SMALLER quantity',
+        'Whichever was entered first',
+        'They are planned together',
+      ],
+      answer: 1,
+      explanation: 'Quantity is the 4th key and is ASCENDING — "lower quantity is planned first". A common trap: it is not largest-first.',
+    },
+    {
+      q: 'Which SCS config property configures the FAIR-SHARE priority key?',
+      options: [
+        'Demand Layer Measure',
+        'Demand Priority Measure',
+        'Demand Qty Measure Name',
+        'Demand Node Components',
+      ],
+      answer: 1,
+      explanation: 'Naming quirk: Demand Priority Measure configures the fair-share key. The primary Demand Priority is configured by Demand Layer Measure.',
+    },
+  ],
   'what-is-solver': [
     {
       q: 'What kind of engine is the o9 Supply Chain Solver?',

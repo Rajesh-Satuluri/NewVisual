@@ -31,6 +31,25 @@ test("sortDemands: Priority → FairShare → DueDate → Qty → key, stable", 
   assert.deepEqual(out.map((d) => d.key), ["d3", "d2", "d1"]);
 });
 
+test("sortDemands: on a full tie, LOWER quantity is planned first (wiki rule 4)", () => {
+  // Same priority, same fair-share, same due date → quantity breaks the tie,
+  // ascending ("lower quantity is planned first" — SCS High Level Overview).
+  const out = sortDemands([
+    { key: "big", priority: 1, fairShare: 1, dueDate: "2026-01-01", qty: 90 },
+    { key: "small", priority: 1, fairShare: 1, dueDate: "2026-01-01", qty: 10 },
+    { key: "mid", priority: 1, fairShare: 1, dueDate: "2026-01-01", qty: 40 }
+  ]);
+  assert.deepEqual(out.map((d) => d.key), ["small", "mid", "big"]);
+});
+
+test("sortDemands: fair-share priority breaks a priority tie before due date", () => {
+  const out = sortDemands([
+    { key: "a", priority: 1, fairShare: 2, dueDate: "2026-01-01", qty: 10 },
+    { key: "b", priority: 1, fairShare: 1, dueDate: "2026-01-20", qty: 99 }
+  ]);
+  assert.deepEqual(out.map((d) => d.key), ["b", "a"]); // lower fairShare first
+});
+
 test("offsetByLeadTime: steps back N working days over the calendar", () => {
   const cal = [1, 2, 3, 6, 7, 8]; // skips a weekend 4,5
   assert.equal(offsetByLeadTime(8, cal, 2), 6);

@@ -46,8 +46,10 @@ let cleanupFn = null;
 const LOADERS = {
   home: () => import('./modules/home.js'),
   glossary: () => import('./modules/glossary.js'),
+  'sc-basics': () => import('./modules/sc-basics.js'),
   'what-is-solver': () => import('./modules/what-is-solver.js'),
   'obo-heuristic': () => import('./modules/obo-heuristic.js'),
+  'demand-sorting': () => import('./modules/demand-sorting.js'),
   'three-phases': () => import('./modules/three-phases.js'),
 };
 

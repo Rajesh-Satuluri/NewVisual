@@ -2,6 +2,18 @@
 // Shape: { <moduleId>: [ { prompt, answer } ] }
 // Auto-appended under a module by script.js → enhanceModule().
 export const SELF_EXPLAIN = {
+  'sc-basics': [
+    {
+      prompt: 'Explain why supply chain planning traverses the network BACKWARD, and what the three network types (Manufacturing / Distribution / Procurement) contribute.',
+      answer: 'It traverses backward because the due date is the fixed point: starting at the order and subtracting each hop’s lead time upstream finds the latest start that still arrives on time. Procurement (SOURCE) buys components from a supplier, Manufacturing (MAKE) transforms them via BOM + Routing, and Distribution (DELIVER) moves the item to the customer via BOD + Transport Mode — chained together they form the path the demand pulls along.',
+    },
+  ],
+  'demand-sorting': [
+    {
+      prompt: 'State the five demand sort keys in order, and explain why the sort order is effectively the allocation of scarce supply.',
+      answer: 'Priority → Fair-Share Priority → Due Date (ascending) → Quantity (ascending, lower first) → Key sort on remaining Demand Node Components. Because the solver plans each demand to completion before the next, the demand that sorts first gets first claim on scarce on-hand stock and JIT capacity; later demands see only what remains. So ordering the demands is rationing the supply.',
+    },
+  ],
   'obo-heuristic': [
     {
       prompt: 'Why does the ORDER in which demands are planned change the final plan?',
