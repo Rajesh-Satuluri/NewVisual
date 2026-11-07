@@ -2,6 +2,24 @@
 // Shape: { <moduleId>: [ { prompt, answer } ] }
 // Auto-appended under a module by script.js → enhanceModule().
 export const SELF_EXPLAIN = {
+  'network-types': [
+    {
+      prompt: 'Name the three network types, the SCOR operation each maps to, and how the solver chooses between alternate producers at a material node.',
+      answer: 'Manufacturing → MAKE (BOM + Routing), Distribution → DELIVER (BOD + Transport Mode), Procurement → SOURCE (Supplier). Between alternate producers it sorts by Activity Priority (lower = higher), then proportion-enabled edges, then activity key (lower member key first), then later activity end date — using each next key only on a tie.',
+    },
+  ],
+  'nodes-graphs': [
+    {
+      prompt: 'Explain material vs activity nodes, the three input graphs, and what the Production Priority values 0, NULL and negative mean.',
+      answer: 'A material node is Item×Location; an activity node is the Activity that transforms/moves material; they are linked by graphs (FROM node, TO node, edge). The three input graphs: Material Consumption (activity consumes a product), Material Production (activity produces a product, carrying Production Priority), and Capacity Consumption (activity constrained by its resource) — each with a Boolean Association (1 active / 0 inactive). Production Priority: lower = higher, 0 is top; NULL = 32,767; negative = path blocked.',
+    },
+  ],
+  'planning-horizon': [
+    {
+      prompt: 'Describe Plan Start/Current/End and the three horizon rules (two for demand, one for supply).',
+      answer: 'Start/Current/End bound the plan window (Current defaults to the server current bucket). Rule 1: demands outside the horizon are strictly ignored. Rule 2: demands between Start and Current are shifted to Current and planned there or later, regardless of the Build-Late Limit (RCA: lead time plan before current). Rule 3: BOH before Current is ignored — on-hand only counts at the Current bucket; expected receipts are treated as cumulatively available at Current.',
+    },
+  ],
   'sc-basics': [
     {
       prompt: 'Explain why supply chain planning traverses the network BACKWARD, and what the three network types (Manufacturing / Distribution / Procurement) contribute.',
