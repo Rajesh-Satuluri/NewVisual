@@ -51,6 +51,7 @@ export function mount(container) {
     title: 'Demand Sorting — the 5-Key Order',
     subtitle: `Before it plans anything, the solver sorts every demand by five keys in a fixed order — this is the ${gloss('priority', 'priority')} sort at the heart of the ${gloss('obo', 'order-by-order')} heuristic. That sort decides who gets the scarce supply first. Step through the keys and watch the queue settle.`,
     tabs: [
+      { id: 'fundamentals', label: '🌱 Fundamentals', content: fundamentalsTab() },
       { id: 'sort',   label: '↕️ Progressive Sort' },
       { id: 'keys',   label: '🔑 The 5 Keys', content: keysTab() },
       { id: 'engine', label: '⚙️ Run the Engine' },
@@ -245,4 +246,22 @@ function buildEngine(container) {
     run.hidden = true; rst.hidden = false;
   });
   rst.addEventListener('click', () => { body.innerHTML = engineRows(CARDS, false); note.textContent = ''; rst.hidden = true; run.hidden = false; });
+}
+
+// ── Tab 0: Fundamentals (plain-language on-ramp) ──────────────────────────────
+function fundamentalsTab() {
+  return `
+    <div class="scroll-content">
+      <div class="section-header"><div class="section-title">In plain words</div></div>
+      <div class="prose">
+        <p>Because the solver plans ${gloss('obo', 'one demand at a time')}, the <strong>order of the queue is the single most important input</strong> to the whole plan. Demand sorting is simply <em>how that queue is built</em>.</p>
+        <p>Every demand is ranked by <strong>five keys applied in a strict order</strong>: ${gloss('priority', 'priority')} first, then ${gloss('fair-share', 'fair-share')}, then due date, then quantity, then a node key. The solver only looks at the next key when all the earlier keys are tied — like sorting words by first letter, then second, then third.</p>
+      </div>
+      <div class="info-grid">
+        <div class="info-card" style="border-left:3px solid #10B981"><div class="info-card-title">Why order matters</div><div class="info-card-body">Whoever sorts first gets first claim on scarce stock and the best capacity. The sort literally decides who is met on time.</div></div>
+        <div class="info-card" style="border-left:3px solid #38BDF8"><div class="info-card-title">Five keys, in order</div><div class="info-card-body">Priority → Fair-Share → Due Date → Quantity → Node Key. Lower priority number = planned earlier; earlier due date and smaller quantity win their ties.</div></div>
+        <div class="info-card" style="border-left:3px solid #A78BFA"><div class="info-card-title">Ties break downward</div><div class="info-card-body">The next key is consulted only when all earlier keys are equal — so most demands are separated by priority alone.</div></div>
+      </div>
+      <div class="canvas-explainer"><h3>What the animation shows</h3><p>Open <strong>Progressive Sort</strong> and step through the keys one at a time: watch an unordered set of demands settle, key by key, into the exact order the solver will plan them in.</p></div>
+    </div>`;
 }

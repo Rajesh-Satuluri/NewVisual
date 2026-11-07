@@ -126,10 +126,26 @@ async function navigate(id) {
   }
 }
 
+// Inject the difficulty level badge + prerequisite line into the module hero.
+function renderLadder(id) {
+  const canvas = document.getElementById('module-canvas');
+  const hero = canvas.querySelector('.module-hero');
+  const mod = MODULES.find(m => m.id === id);
+  if (!hero || !mod || !mod.level) return;
+  if (hero.querySelector('.module-ladder')) return;
+  const lv = mod.level;
+  const el = document.createElement('div');
+  el.className = 'module-ladder';
+  el.innerHTML = `<span class="level-badge level-${lv.toLowerCase()}">${lv}</span>` +
+    (mod.prereq ? `<span class="prereq">Builds on: <strong>${mod.prereq}</strong></span>` : '');
+  hero.appendChild(el);
+}
+
 // Inject the self-explain + quiz sections (if banks exist) and the Prev/Next pager.
 function enhanceModule(id) {
   const canvas = document.getElementById('module-canvas');
   const page = canvas.querySelector('.module-page');
+  renderLadder(id);
   if (page && SELF_EXPLAIN[id]) {
     const holder = document.createElement('div');
     holder.innerHTML = createSelfExplain(id, SELF_EXPLAIN[id]);
