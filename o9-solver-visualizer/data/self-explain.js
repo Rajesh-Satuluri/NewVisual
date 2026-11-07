@@ -2,6 +2,54 @@
 // Shape: { <moduleId>: [ { prompt, answer } ] }
 // Auto-appended under a module by script.js → enhanceModule().
 export const SELF_EXPLAIN = {
+  'inventory': [
+    {
+      prompt: 'Explain how the solver uses on-hand and expected receipts before producing new supply, and the horizon rule about BOH timing.',
+      answer: 'In each bucket the solver first looks for existing supply — on-hand inventory, prior surplus carried forward, and expected receipts — and consumes that before asking upstream to produce anything new. Beginning-On-Hand only counts at the Plan Current bucket (BOH defined earlier is ignored); expected receipts are treated as cumulatively available at Plan Current. The inventory profile runs BOH → receipts/consumption → EOH (end-on-hand carried forward).',
+    },
+  ],
+  'demand-inputs': [
+    {
+      prompt: 'Describe how a demand is represented and which of its attributes drive the sort versus pegging/sourcing.',
+      answer: 'A demand is a signal incident on a material node (Item×Location), with a composite grain (Order, Time, optional Customer, Item, Location, Version). Its attributes drive the sort — Priority (Demand Layer Measure), Fair-Share (Demand Priority Measure), Due Date, Quantity (Demand Qty Measure Name), then the remaining Demand Node Component keys — while attribute-based fields (e.g. revised priority / network selection) drive sourcing and pegging.',
+    },
+  ],
+  'activity-params': [
+    {
+      prompt: 'Explain how lead time and yield on an activity change what and when the solver starts.',
+      answer: 'Lead time offsets the start backward from the due date — the solver subtracts it to find the latest feasible start bucket. Yield means you must start more than you need: at 80% yield, netting 100 good units requires starting 125. Quantity-per sets the consumption/production recipe, and activity priority (lower = higher) orders alternate producers.',
+    },
+  ],
+  'capacity': [
+    {
+      prompt: 'Explain capacity bands and the difference between constrained and unconstrained planning.',
+      answer: 'Capacity is modelled via the Capacity Consumption Graph: an activity is constrained by its resource. REGULAR is base capacity; BAND1/BAND2 are flex tiers used on top of base during constrained phases. With Capacity Constraint = True the solver must respect these limits (spilling into flex, then building ahead/late); with it False (unconstrained) capacity is treated as unlimited and everything can be met JIT.',
+    },
+  ],
+  'safety-stock': [
+    {
+      prompt: 'Explain how safety stock is planned and what the TARGET_LEVEL policy does.',
+      answer: 'Safety stock is planned as an additional "demand" that tops projected on-hand up to a target, typically after regular demand (unless SS-interleaves-with-demand is set). Under the TARGET_LEVEL inventory plan policy the solver replenishes each bucket up to the configured safety-stock target. SS bands/priority allocate scarce supply across SS, and Adaptive SS BAL reduces the build-ahead limit for SS to optimise performance.',
+    },
+  ],
+  'wip': [
+    {
+      prompt: 'Explain what WIP is, when it is planned relative to demand, and what the freeze window and interleave flag do.',
+      answer: 'WIP is in-progress production already committed on a routing. By default the solver plans WIP before demand. The freeze window protects near-term committed WIP from being replanned. Setting "WIP Interleaves With Demand" to true lets demand be planned ahead of WIP (they interleave) rather than strictly after it.',
+    },
+  ],
+  'lot-sizing': [
+    {
+      prompt: 'Describe how a net requirement becomes a lot-sized order, and how Max Stock and Storage further constrain it.',
+      answer: 'Lot sizing raises the net requirement to the minimum order quantity, ceils it to the order multiple, then caps it at the max (roundToLot). Max Stock caps how much inventory a node may hold, and the Storage constraint caps the physical storage available — both act as ceilings that limit build-ahead beyond what can be carried/stored.',
+    },
+  ],
+  'objective-rank-list': [
+    {
+      prompt: 'Explain the Objective Rank List, its four levels, and the direction of relaxation.',
+      answer: 'It is the solver\'s objective: a four-level nested list of soft constraints — Band (capacity/storage), Lot, Activity Marker, Late. When a demand can\'t be met fully, the solver relaxes them from right to left, so the rightmost is sacrificed first and the leftmost protected longest. Default is Band, Lot, ActivityMarker, Late (relaxing Late first). Fewer than four entries are auto-filled on the right in default order; 24 orderings are possible.',
+    },
+  ],
   'network-types': [
     {
       prompt: 'Name the three network types, the SCOR operation each maps to, and how the solver chooses between alternate producers at a material node.',

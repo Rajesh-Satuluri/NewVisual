@@ -54,6 +54,14 @@ const LOADERS = {
   'network-types': () => import('./modules/network-types.js'),
   'nodes-graphs': () => import('./modules/nodes-graphs.js'),
   'planning-horizon': () => import('./modules/planning-horizon.js'),
+  'inventory': () => import('./modules/inventory.js'),
+  'demand-inputs': () => import('./modules/demand-inputs.js'),
+  'activity-params': () => import('./modules/activity-params.js'),
+  'capacity': () => import('./modules/capacity.js'),
+  'safety-stock': () => import('./modules/safety-stock.js'),
+  'wip': () => import('./modules/wip.js'),
+  'lot-sizing': () => import('./modules/lot-sizing.js'),
+  'objective-rank-list': () => import('./modules/objective-rank-list.js'),
 };
 
 function comingSoon(mod, id) {
