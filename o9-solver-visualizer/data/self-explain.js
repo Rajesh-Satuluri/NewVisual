@@ -116,4 +116,22 @@ export const SELF_EXPLAIN = {
       answer: 'Excess is Ending-On-Hand a node carries above the safety-stock target (the Excess Clean Up parameter defaults to SS; the workflow resolves EOH violations). The Excess Clean Up Strategy has three options: RELEASE (default) releases the producing flow plan so it is never built; MOVE_OUT pushes the excess out of the node downstream to a consuming node (as Push Excess does at no-carry nodes); None leaves the excess in place. Bands for Excess and Push Excess By give finer control over where and how the excess is pushed.',
     },
   ],
+  'solver-outputs': [
+    {
+      prompt: 'Name the main output plans/reports SCS writes, and say what the Delivery Plan captures for an unmet demand.',
+      answer: 'SCS writes the Demand Fulfilment Report, the Delivery Plan, Flow Plans (aggregate flow of goods across material nodes — consumption, production, capacity, storage), the Inventory Plan (BOH/EOH per material node), and the Feasible WIP Plan Export, plus the Where-Used report. For a demand not fully met in a constrained run the Delivery Plan records Total MetOnTime, Total Short Quantity, Total Late Quantity, a Weighted Late Quantity, and the Commit Date.',
+    },
+  ],
+  'rca': [
+    {
+      prompt: 'Explain what an RCA record gives you for a short/late demand, and name the RCA kinds.',
+      answer: 'For each short or late demand RCA reports the Problem Type — the root-cause constraint that bound it (Material: MaterialShort, LeadTimePlanBeforeCurrent, FrozenPeriod, Effectiveness, NoBuild, Holiday…; Capacity: CapacityShort / RegularCapacityShort / ARCConstraint; Storage) — with the constraint item/resource, the constraint bucket and the RCA (short) quantity; the committed/available date is the Commit Date measure. RCA is reported against the JIT constraint bucket. Kinds: Stand-Alone RCA (RCA-only pass, no planning), Combined Material & Capacity RCA (merged into one graph), Actionable RCA (primary path + JIT bucket, with RCA Fence / exclude-demands / due-date offset), and Enhanced RCA (WIP-sweep + cost-analysis pre-process).',
+    },
+  ],
+  'debug': [
+    {
+      prompt: 'List the three quick checks that tell you an SCS plan is valid, and sketch the solver execution order.',
+      answer: 'A valid plan has: (1) no Negative On-Hand, (2) no Capacity Overload, (3) Σ Pegging = Plan (the pegged totals reconcile to the plan, no mismatch). The solver runs: config validation → truncate outputs → load data → WIP planning & WIP RCA → excess cleanup (flag-based) → Demand Planning (OBO) → excess cleanup → Safety Stock Planning → Replanning of late/short → Push Planning → Min Res utilization → OBO RCA → Peggings → Exports → additive/SS/zero-qty RCA & exports → finish.',
+    },
+  ],
 };
