@@ -3,6 +3,111 @@
 // Auto-appended under a module by script.js → enhanceModule(). Passing at the
 // 2/3 ratio marks the module mastered. Grows as modules are built.
 export const QUIZ_BANK = {
+  'network-types': [
+    {
+      q: 'Which building blocks define a Manufacturing (MAKE) network in SCS?',
+      options: [
+        'Bill of Distribution + Transport Mode',
+        'Bill of Material + Routing',
+        'Supplier + Lead Time',
+        'Objective Rank List + Priority',
+      ],
+      answer: 1,
+      explanation: 'Manufacturing (SCOR MAKE) is built from BOM (produced part + components) and Routing (process lane + resources). BOD + Transport Mode is Distribution.',
+    },
+    {
+      q: 'A material node has several alternate production edges. Which attribute does the solver compare FIRST?',
+      options: [
+        'Activity node end date',
+        'Whether proportion is enabled',
+        'Activity Priority (lower = higher)',
+        'The activity key',
+      ],
+      answer: 2,
+      explanation: 'Producer sort: Activity Priority → proportion-enabled → activity key → later end date. Priority dominates.',
+    },
+    {
+      q: 'What is a "composite activity node"?',
+      options: [
+        'A material node shared by two locations',
+        'An activity assembled from component dimensions (e.g. BOM + Routing)',
+        'A demand split across two items',
+        'The output pegging record',
+      ],
+      answer: 1,
+      explanation: 'A composite activity node is one activity built from component dimensions — BOM + Routing for Manufacturing, BOD + Transport Mode for Distribution. It is optional.',
+    },
+  ],
+  'nodes-graphs': [
+    {
+      q: 'What three elements make up every SCS graph relationship?',
+      options: [
+        'Item, Location, Time',
+        'FROM node, TO node, and the edge',
+        'Demand, Supply, Capacity',
+        'Priority, Quantity, Due date',
+      ],
+      answer: 1,
+      explanation: 'Graphs link nodes via a FROM node, a TO node, and the edge between them — this is how the whole network is built.',
+    },
+    {
+      q: 'In the Material Production Graph, what does a Production Priority of n < 0 mean?',
+      options: [
+        'Highest possible priority',
+        'The path is blocked — the solver will not use that edge',
+        'Treated as 32,767',
+        'Produce in reverse order',
+      ],
+      answer: 1,
+      explanation: 'Lower = higher (0 is top); NULL = 32,767; a negative value blocks the path entirely.',
+    },
+    {
+      q: 'What does the Association measure (value 1 or 0) on a graph edge control?',
+      options: [
+        'The lot size',
+        'Whether the edge is active (1) or inactive (0) in the network',
+        'The demand priority',
+        'The number of units produced',
+      ],
+      answer: 1,
+      explanation: 'Association is a Boolean switch: 1 = edge active in the network, 0 = inactive. Qty Per carries the per-unit quantity separately.',
+    },
+  ],
+  'planning-horizon': [
+    {
+      q: 'A demand’s due date falls before Plan Start. What does the solver do?',
+      options: [
+        'Shifts it to Plan Start',
+        'Plans it anyway',
+        'Strictly ignores it',
+        'Shifts it to Plan Current',
+      ],
+      answer: 2,
+      explanation: 'Demands with due dates outside the horizon (before Start or after End) are strictly ignored.',
+    },
+    {
+      q: 'A demand is due between Plan Start and Plan Current. What happens, and does the Build-Late Limit matter for the shift?',
+      options: [
+        'It is ignored unless BLL > 0',
+        'It is shifted to Plan Current regardless of the BLL, then planned there or later',
+        'It is planned exactly on its original due date',
+        'It is split evenly across the horizon',
+      ],
+      answer: 1,
+      explanation: 'Such demands are shifted to the Current bucket irrespective of the BLL; BLL only governs whether they can be planned later than Current.',
+    },
+    {
+      q: 'Beginning-On-Hand (BOH) defined in a bucket earlier than Plan Current is:',
+      options: [
+        'Carried forward to Current automatically',
+        'Ignored — BOH only counts at the Current bucket',
+        'Doubled',
+        'Used only for safety stock',
+      ],
+      answer: 1,
+      explanation: 'BOH before the current bucket is ignored; on-hand is only applicable at Plan Current. A common cause of phantom shortages.',
+    },
+  ],
   'sc-basics': [
     {
       q: 'In which direction does the o9 solver traverse the network to plan a demand?',

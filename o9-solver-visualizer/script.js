@@ -51,6 +51,9 @@ const LOADERS = {
   'obo-heuristic': () => import('./modules/obo-heuristic.js'),
   'demand-sorting': () => import('./modules/demand-sorting.js'),
   'three-phases': () => import('./modules/three-phases.js'),
+  'network-types': () => import('./modules/network-types.js'),
+  'nodes-graphs': () => import('./modules/nodes-graphs.js'),
+  'planning-horizon': () => import('./modules/planning-horizon.js'),
 };
 
 function comingSoon(mod, id) {
