@@ -1,5 +1,6 @@
 import { createModuleShell, createIQSection } from '../components/module-shell.js';
 import { drawRoundRect } from '../components/canvas-primitives.js';
+import { gloss } from '../components/glossary-tooltip.js';
 
 export const IQ = [
   { q: 'Walk through the three timing phases the solver tries for a single demand.',
@@ -29,7 +30,7 @@ export function mount(container) {
   container.innerHTML = createModuleShell({
     tag: 'Foundations',
     title: 'JIT · Build-Ahead · Build-Late',
-    subtitle: 'For every demand the solver tries three timing phases in a fixed order — on-time, then early (within the Build-Ahead Limit), then late (within the Build-Late Limit) — before it ever reports a shortage. Watch it search the timeline.',
+    subtitle: `For every demand the solver tries three timing phases in a fixed order — on-time (${gloss('jit', 'JIT')}), then early (${gloss('build-ahead', 'within the Build-Ahead Limit')}), then late (${gloss('build-late', 'within the Build-Late Limit')}) — before it ever reports a shortage. Watch it search the timeline.`,
     tabs: [
       { id: 'timeline', label: '⏱️ Timeline Search' },
       { id: 'example',  label: '🧮 Worked Example', content: exampleTab() },

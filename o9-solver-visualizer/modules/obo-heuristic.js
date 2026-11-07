@@ -1,5 +1,6 @@
 import { createModuleShell, createIQSection } from '../components/module-shell.js';
 import { EventPacket, drawRoundRect } from '../components/canvas-primitives.js';
+import { gloss } from '../components/glossary-tooltip.js';
 import { sortDemands } from '../sim/scs-engine.js';
 
 export const IQ = [
@@ -35,7 +36,7 @@ export function mount(container) {
   container.innerHTML = createModuleShell({
     tag: 'Meet the Solver',
     title: 'The Order-by-Order Heuristic',
-    subtitle: 'Plan one demand at a time, in priority order, backward from customer to supplier — watch priority order decide who is met Just-In-Time and who is forced late.',
+    subtitle: `Plan one demand at a time, in ${gloss('priority', 'priority order')}, backward from customer to supplier — watch priority order decide who is met ${gloss('jit', 'Just-In-Time')} and who is forced late.`,
     tabs: [
       { id: 'solve',  label: '🔁 Solve Animation' },
       { id: 'sort',   label: '↕️ Demand Sort' },

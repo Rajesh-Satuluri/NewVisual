@@ -753,4 +753,74 @@ export const QUIZ_BANK = {
       explanation: 'A fully constrained plan sets both [Material Constrained]="true" and [Capacity Constrained]="true". Setting neither gives an unconstrained plan; setting one gives a material- or capacity-constrained plan.',
     },
   ],
+  'why-planning': [
+    {
+      q: 'Why can’t a supply chain simply produce each order the instant it is placed?',
+      options: [
+        'Because customers prefer to wait',
+        'Because making, moving, or buying takes time (lead time) AND a resource can only make so much per period (finite capacity)',
+        'Because the solver is slow',
+        'Because demand is always unknown',
+      ],
+      answer: 1,
+      explanation: 'Two physical facts force a plan: lead time (nothing is instant, so supply must start before the due date) and finite capacity (a bucket can only hold so much, and capacity expires at bucket end). Together they force work to shift earlier or later in time.',
+    },
+    {
+      q: 'When two demands compete for the same scarce supply, what decides which one is filled first?',
+      options: [
+        'Whichever is larger',
+        'Priority — the solver plans demands one at a time in priority order, so the higher-priority demand consumes the scarce supply first',
+        'Whichever was entered first',
+        'They are always split 50/50',
+      ],
+      answer: 1,
+      explanation: 'The solver is order-by-order: it plans the higher-priority demand first, which consumes the Just-In-Time supply, so a lower-priority demand may be forced to build ahead, build late, or go short. The outcome is order-dependent.',
+    },
+    {
+      q: 'In an unconstrained plan, where is a demand’s supply placed?',
+      options: [
+        'Spread evenly across all buckets',
+        'All Just-In-Time on the demand’s own due date — the resource is treated as infinite',
+        'Always built late',
+        'Only after safety stock is met',
+      ],
+      answer: 1,
+      explanation: 'Unconstrained treats capacity as infinite, so every demand is built Just-In-Time on its due date, limited only by lead time. It shows the pure demand signal — the baseline a constrained plan is measured against.',
+    },
+  ],
+  'planning-language': [
+    {
+      q: 'What is the formula for a net requirement?',
+      options: [
+        'demand + on-hand − safety stock',
+        'max(0, demand − on-hand + safety stock)',
+        'demand × safety stock',
+        'on-hand − demand',
+      ],
+      answer: 1,
+      explanation: 'Net requirement = max(0, demand − on-hand + safety stock): the quantity the solver must still create after using existing stock. The max(0, …) means if on-hand already covers demand, nothing new is created.',
+    },
+    {
+      q: 'Why does the solver plan backward from the due date rather than forward from today?',
+      options: [
+        'To save memory',
+        'So that supply arrives Just-In-Time — it subtracts the lead-time offset at each hop up the chain to find start dates',
+        'Because forward planning is not supported',
+        'To ignore lead time',
+      ],
+      answer: 1,
+      explanation: 'Planning backward applies the lead-time offset (stepping back over working days) at each hop — customer → DC → plant → supplier — so the supply arrives exactly when it is due.',
+    },
+    {
+      q: 'What is "pegging"?',
+      options: [
+        'A way to fix prices',
+        'The traceable link from a demand back to the exact supply that filled it',
+        'A type of safety stock',
+        'The order in which demands are sorted',
+      ],
+      answer: 1,
+      explanation: 'Pegging is the audit trail of the plan: it records which supply (and the material and capacity behind it) was used to meet which demand — BOM says what it’s made of, routing says how, pegging says which supply met which demand.',
+    },
+  ],
 };

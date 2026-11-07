@@ -1796,3 +1796,54 @@ body.cmdk-open { overflow: hidden; }
 .pill-green { background: rgba(16,185,129,.15); color: var(--green); border-color: transparent; }
 .pill-amber { background: rgba(245,158,11,.16); color: #D97706; border-color: transparent; }
 [data-theme="dark"] .pill-amber { color: #FBBF24; }
+
+/* ── Inline glossary tooltips (gloss) ───────────────────────────────────────
+   A dotted-underline term that reveals its definition on hover or keyboard
+   focus. Theme-aware (uses --bg2/--text/--border). Authored in
+   components/glossary-tooltip.js. */
+.gloss {
+  border-bottom: 1px dotted var(--accent2, #818CF8);
+  cursor: help;
+  position: relative;
+  color: inherit;
+  font-weight: inherit;
+}
+.gloss:focus { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+.gloss::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 9px);
+  width: max-content;
+  max-width: 280px;
+  background: var(--bg2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 11px;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+  text-align: left;
+  white-space: normal;
+  box-shadow: 0 10px 28px rgba(0,0,0,.38);
+  opacity: 0;
+  transform: translateY(4px);
+  pointer-events: none;
+  transition: opacity .12s ease, transform .12s ease;
+  z-index: 60;
+}
+.gloss::before {
+  content: '';
+  position: absolute;
+  left: 11px;
+  bottom: calc(100% + 3px);
+  border: 6px solid transparent;
+  border-top-color: var(--border);
+  opacity: 0;
+  transition: opacity .12s ease;
+  z-index: 61;
+}
+.gloss:hover::after, .gloss:focus::after,
+.gloss:hover::before, .gloss:focus::before { opacity: 1; transform: translateY(0); }
+@media (max-width: 640px) { .gloss::after { max-width: 220px; } }

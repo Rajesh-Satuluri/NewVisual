@@ -1,5 +1,6 @@
 import { createModuleShell, createIQSection } from '../components/module-shell.js';
 import { drawRoundRect } from '../components/canvas-primitives.js';
+import { gloss } from '../components/glossary-tooltip.js';
 import { sortDemands } from '../sim/scs-engine.js';
 
 export const IQ = [
@@ -48,7 +49,7 @@ export function mount(container) {
   container.innerHTML = createModuleShell({
     tag: 'Foundations',
     title: 'Demand Sorting — the 5-Key Order',
-    subtitle: 'Before it plans anything, the solver sorts every demand by five keys in a fixed order. That sort decides who gets the scarce supply first. Step through the keys and watch the queue settle.',
+    subtitle: `Before it plans anything, the solver sorts every demand by five keys in a fixed order — this is the ${gloss('priority', 'priority')} sort at the heart of the ${gloss('obo', 'order-by-order')} heuristic. That sort decides who gets the scarce supply first. Step through the keys and watch the queue settle.`,
     tabs: [
       { id: 'sort',   label: '↕️ Progressive Sort' },
       { id: 'keys',   label: '🔑 The 5 Keys', content: keysTab() },
