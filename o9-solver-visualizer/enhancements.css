@@ -1847,3 +1847,25 @@ body.cmdk-open { overflow: hidden; }
 .gloss:hover::after, .gloss:focus::after,
 .gloss:hover::before, .gloss:focus::before { opacity: 1; transform: translateY(0); }
 @media (max-width: 640px) { .gloss::after { max-width: 220px; } }
+
+/* ── Difficulty ladder (Move 3) ─────────────────────────────────────────────
+   Level badge + prerequisite line in the module hero, and a small level dot in
+   the sidebar. Levels: Beginner (green) · Core (indigo) · Advanced (amber). */
+.module-ladder { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 14px; }
+.level-badge {
+  font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  padding: 3px 11px; border-radius: 999px; border: 1px solid transparent; white-space: nowrap;
+}
+.level-beginner { background: rgba(16,185,129,.15); color: #10B981; border-color: rgba(16,185,129,.32); }
+.level-core     { background: rgba(99,102,241,.15); color: #818CF8; border-color: rgba(99,102,241,.32); }
+.level-advanced { background: rgba(245,158,11,.16); color: #D97706; border-color: rgba(245,158,11,.32); }
+[data-theme="dark"] .level-advanced { color: #FBBF24; }
+.module-ladder .prereq { font-size: 12.5px; color: var(--text2); line-height: 1.4; }
+
+.nav-level {
+  width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; margin-left: 6px;
+  box-shadow: 0 0 0 2px rgba(0,0,0,.18);
+}
+.nav-level-beginner { background: #10B981; }
+.nav-level-core     { background: #818CF8; }
+.nav-level-advanced { background: #F59E0B; }

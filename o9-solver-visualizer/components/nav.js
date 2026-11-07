@@ -5,13 +5,13 @@
 // SCS wiki (consolidated where 1:1 pages would over-fragment the flow).
 export const MODULES = [
   // ── Foundations — the mental model ──────────────────────────────────────────
-  { id:'why-planning',     label:'Why Planning Is Hard',     icon:'🧱', group:'Foundations', desc:'Start here — the three walls (lead time, finite capacity, priority) that force a plan and make a solver necessary' },
-  { id:'planning-language',label:'The Language of Planning', icon:'📖', group:'Foundations', desc:'Start here — demand, on-hand, net requirement, lead time, BOM, routing, pegging and buckets, taught once on one order' },
-  { id:'sc-basics',        label:'Supply Chain & the Match', icon:'🔗', group:'Foundations', desc:'The three supply-chain functions and the demand–supply match the solver exists to make' },
-  { id:'what-is-solver',   label:'What is the Solver',       icon:'🧠', group:'Foundations', desc:'A heuristic plugin inside the GraphCube server — not an LP/MIP optimiser' },
-  { id:'obo-heuristic',    label:'Order-by-Order Heuristic', icon:'🔢', group:'Foundations', desc:'Plan one demand at a time, in priority order, backward downstream → upstream' },
-  { id:'demand-sorting',   label:'Demand Sorting',           icon:'↕️', group:'Foundations', desc:'Priority → Fair-Share → Due Date → Quantity → key' },
-  { id:'three-phases',     label:'JIT · Build-Ahead · Late', icon:'⏱️', group:'Foundations', desc:'The three timing phases the solver tries for every demand' },
+  { id:'why-planning',     label:'Why Planning Is Hard',     icon:'🧱', group:'Foundations', level:'Beginner', prereq:'Nothing — start here.', desc:'Start here — the three walls (lead time, finite capacity, priority) that force a plan and make a solver necessary' },
+  { id:'planning-language',label:'The Language of Planning', icon:'📖', group:'Foundations', level:'Beginner', prereq:'Why Planning Is Hard (recommended first)', desc:'Start here — demand, on-hand, net requirement, lead time, BOM, routing, pegging and buckets, taught once on one order' },
+  { id:'sc-basics',        label:'Supply Chain & the Match', icon:'🔗', group:'Foundations', level:'Beginner', prereq:'The Language of Planning', desc:'The three supply-chain functions and the demand–supply match the solver exists to make' },
+  { id:'what-is-solver',   label:'What is the Solver',       icon:'🧠', group:'Foundations', level:'Core', prereq:'Supply Chain & the Match', desc:'A heuristic plugin inside the GraphCube server — not an LP/MIP optimiser' },
+  { id:'obo-heuristic',    label:'Order-by-Order Heuristic', icon:'🔢', group:'Foundations', level:'Core', prereq:'What is the Solver', desc:'Plan one demand at a time, in priority order, backward downstream → upstream' },
+  { id:'demand-sorting',   label:'Demand Sorting',           icon:'↕️', group:'Foundations', level:'Core', prereq:'The Order-by-Order Heuristic', desc:'Priority → Fair-Share → Due Date → Quantity → key' },
+  { id:'three-phases',     label:'JIT · Build-Ahead · Late', icon:'⏱️', group:'Foundations', level:'Core', prereq:'The Order-by-Order Heuristic', desc:'The three timing phases the solver tries for every demand' },
 
   // ── Network & Data Model — the world it plans over ──────────────────────────
   { id:'network-types',    label:'Network Types',            icon:'🕸️', group:'Network & Data Model', desc:'Manufacturing (BOM + Routing), Distribution (BOD + Mode), Procurement (Supplier)' },
@@ -110,6 +110,7 @@ export function renderNav(activeId, done) {
             <a href="#${m.id}" class="nav-item${m.id === activeId ? ' active' : ''}${done.has(m.id) ? ' done' : ''}" data-id="${m.id}">
               <span class="nav-icon">${m.icon}</span>
               <span class="nav-label">${m.label}</span>
+              ${m.level ? `<span class="nav-level nav-level-${m.level.toLowerCase()}" title="${m.level}" aria-label="${m.level} level"></span>` : ''}
               ${done.has(m.id) ? '<span class="nav-check">✓</span>' : ''}
             </a>`).join('')}
           ${extra || ''}

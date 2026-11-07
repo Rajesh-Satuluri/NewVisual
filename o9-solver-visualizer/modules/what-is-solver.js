@@ -26,6 +26,7 @@ export function mount(container) {
     title: 'What is the o9 Solver?',
     subtitle: 'A heuristic planning engine that lives inside the GraphCube server as a plugin — it reads demand, inventory, the network and constraints, and writes back a time-phased, constraint-aware supply plan.',
     tabs: [
+      { id: 'fundamentals', label: '🌱 Fundamentals', content: fundamentalsTab() },
       { id: 'run',      label: '⚙️ How It Runs' },
       { id: 'overview', label: '🧠 Overview', content: overviewTab() },
       { id: 'stack',    label: '🧱 Planning Stack', content: stackTab() },
@@ -216,4 +217,22 @@ function notlpTab() {
     <div class="scroll-content"><div class="prose">
       <p>The practical punchline: <strong>the Objective Rank List is the objective.</strong> There is no separate cost model quietly overruling the priorities — change the ranking and you change the plan. That is what makes the solver predictable and auditable in production.</p>
     </div></div>`;
+}
+
+// ── Tab 0: Fundamentals (plain-language on-ramp) ──────────────────────────────
+function fundamentalsTab() {
+  return `
+    <div class="scroll-content">
+      <div class="section-header"><div class="section-title">In plain words</div></div>
+      <div class="prose">
+        <p>A "solver" here is simply a <strong>program that reads your current situation and writes a plan</strong>. It takes in demand, ${gloss('on-hand', 'on-hand')} stock, in-flight supply, the network and the rules; it gives back what to <strong>make, move, or buy</strong> — where, and when.</p>
+        <p>The o9 solver is a <strong>${gloss('heuristic', 'heuristic')}</strong>: it follows smart rules quickly, rather than searching for a mathematically perfect answer (${gloss('lp-mip', 'LP / MIP')}). It is not a separate app — it runs <em>inside</em> the ${gloss('graphcube', 'GraphCube')} data server as a plugin, reading and writing the planning data directly.</p>
+      </div>
+      <div class="info-grid">
+        <div class="info-card" style="border-left:3px solid #38BDF8"><div class="info-card-title">What it reads</div><div class="info-card-body">Demand with ${gloss('priority', 'priority')}, on-hand inventory, in-flight supply, network lanes, ${gloss('lead-time', 'lead times')}, lot sizes, capacity and calendars.</div></div>
+        <div class="info-card" style="border-left:3px solid #10B981"><div class="info-card-title">What it writes</div><div class="info-card-body">A time-phased supply plan, a ${gloss('pegging', 'pegging')} trace (which supply met which demand), and a ${gloss('rca', 'root cause')} for anything it can’t fulfil.</div></div>
+        <div class="info-card" style="border-left:3px solid #6366F1"><div class="info-card-title">How it decides</div><div class="info-card-body">One demand at a time, in priority order, working backward from the customer — the ${gloss('obo', 'order-by-order')} heuristic you’ll meet next.</div></div>
+      </div>
+      <div class="canvas-explainer"><h3>What the animation shows</h3><p>Open <strong>How It Runs</strong> and press <em>Run</em>: watch the inputs flow into the SCS plugin and a finished plan — plus pegging and RCA — flow back out. That in → solve → out loop is the solver in one picture.</p></div>
+    </div>`;
 }

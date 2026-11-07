@@ -29,6 +29,7 @@ export function mount(container) {
     title: 'Supply, Demand & the Match',
     subtitle: 'Before any solver logic: a supply chain is a network that must match time-phased supply to prioritised demand. Watch a single order pull a plan backward from customer to supplier — the shape of every plan the solver makes.',
     tabs: [
+      { id: 'fundamentals', label: '🌱 Fundamentals', content: fundamentalsTab() },
       { id: 'network', label: '🔗 The Network' },
       { id: 'types',   label: '🏭 Three Networks', content: typesTab() },
       { id: 'match',   label: '🎯 The Match',       content: matchTab() },
@@ -229,5 +230,23 @@ function matchTab() {
         <div class="info-card" style="border-left:3px solid #F59E0B"><div class="info-card-title">Explainable</div><div class="info-card-body">Every unit traces to an order (${gloss('pegging', 'pegging')}), and every shortfall has a reason (${gloss('rca', 'RCA')}). You can always answer "why?".</div></div>
       </div>
       <div class="canvas-explainer"><h3>The through-line</h3><p>The o9 solver is a <strong>${gloss('heuristic', 'heuristic')}</strong> that produces a feasible, priority-respecting, lean, explainable plan by handling one order at a time in backward traversal. Everything in the Foundations group — order-by-order planning, demand sorting, the three timing phases — is just <em>how</em> it makes this match reliably and at scale.</p></div>
+    </div>`;
+}
+
+// ── Tab 0: Fundamentals (plain-language on-ramp) ──────────────────────────────
+function fundamentalsTab() {
+  return `
+    <div class="scroll-content">
+      <div class="section-header"><div class="section-title">In plain words</div></div>
+      <div class="prose">
+        <p>A <strong>supply chain</strong> is the chain of steps that gets a product from raw materials to a customer: someone <strong>buys</strong> components, someone <strong>makes</strong> the product, someone <strong>moves</strong> it, and a customer finally <strong>receives</strong> it. Every step takes time and has limits.</p>
+        <p>A customer order is a <strong>${gloss('demand', 'demand')}</strong> — a quantity needed by a date — and everything upstream exists to meet it. The solver’s whole job is the <strong>match</strong>: lining up <strong>${gloss('supply', 'supply')}</strong> (what can be made or is in stock) against demand (what’s needed, and how urgently), across the network and across time.</p>
+      </div>
+      <div class="info-grid">
+        <div class="info-card" style="border-left:3px solid #10B981"><div class="info-card-title">Demand pulls</div><div class="info-card-body">Planning starts at the <strong>order</strong>, not the factory. The order asks "who upstream can give me this, and by when?" — all the way back to the supplier.</div></div>
+        <div class="info-card" style="border-left:3px solid #38BDF8"><div class="info-card-title">Three kinds of step</div><div class="info-card-body"><strong>Make</strong> (a plant, using a ${gloss('bom', 'BOM')} + ${gloss('routing', 'routing')}), <strong>move</strong> (a lane, using a ${gloss('bod', 'BOD')}), and <strong>buy</strong> (a supplier). Real networks chain all three.</div></div>
+        <div class="info-card" style="border-left:3px solid #A78BFA"><div class="info-card-title">Everything is timed</div><div class="info-card-body">Each step carries a ${gloss('lead-time', 'lead time')}, so the plan must work <strong>backward</strong> from the due date to know when to start.</div></div>
+      </div>
+      <div class="canvas-explainer"><h3>What the animation shows</h3><p>Open <strong>The Network</strong> tab and press <em>Pull Demand</em>: one order travels backward from the customer to the supplier, then the product builds forward and arrives on time. That backward-then-forward motion is the shape of <em>every</em> plan the solver makes.</p></div>
     </div>`;
 }

@@ -32,6 +32,7 @@ export function mount(container) {
     title: 'JIT · Build-Ahead · Build-Late',
     subtitle: `For every demand the solver tries three timing phases in a fixed order — on-time (${gloss('jit', 'JIT')}), then early (${gloss('build-ahead', 'within the Build-Ahead Limit')}), then late (${gloss('build-late', 'within the Build-Late Limit')}) — before it ever reports a shortage. Watch it search the timeline.`,
     tabs: [
+      { id: 'fundamentals', label: '🌱 Fundamentals', content: fundamentalsTab() },
       { id: 'timeline', label: '⏱️ Timeline Search' },
       { id: 'example',  label: '🧮 Worked Example', content: exampleTab() },
       { id: 'limits',   label: '🎚️ BAL & BLL', content: limitsTab() },
@@ -235,5 +236,23 @@ function limitsTab() {
         <div class="info-card"><div class="info-card-title">Build-Late Limit (BLL)</div><div class="info-card-body">The maximum number of periods a demand may be met <strong>after</strong> its due date before it is declared short. Larger BLL = fewer shortages but more lateness. Bounded by the End Time Bucket.</div></div>
       </div>
       <div class="prose"><p>Tuning BAL/BLL is how planners trade <strong>on-time service</strong> against <strong>inventory</strong> and <strong>shortages</strong> — without touching the solver’s logic, only its limits. (The <em>Late Plan Strategy</em> parameter — e.g. LINEAR — further shapes how lateness is distributed across the build-late window.)</p></div>
+    </div>`;
+}
+
+// ── Tab 0: Fundamentals (plain-language on-ramp) ──────────────────────────────
+function fundamentalsTab() {
+  return `
+    <div class="scroll-content">
+      <div class="section-header"><div class="section-title">In plain words</div></div>
+      <div class="prose">
+        <p>For each demand, the solver tries three timing options <strong>in a fixed order</strong>, and only moves to the next when the current one won’t work.</p>
+        <p>First it tries to arrive <strong>exactly on the due date</strong> (${gloss('jit', 'Just-In-Time')}). If capacity or material make that impossible, it tries to <strong>build earlier</strong> and hold the stock (${gloss('build-ahead', 'build-ahead')}), up to a limit. If that still isn’t enough, it allows the supply to arrive <strong>late</strong> (${gloss('build-late', 'build-late')}), up to a limit. Only if all three fail is the demand <strong>short</strong>.</p>
+      </div>
+      <div class="info-grid">
+        <div class="info-card" style="border-left:3px solid #10B981"><div class="info-card-title">1 · On time (JIT)</div><div class="info-card-body">The preferred outcome — supply arrives exactly when it’s due. No early inventory, no lateness.</div></div>
+        <div class="info-card" style="border-left:3px solid #38BDF8"><div class="info-card-title">2 · Early (build-ahead)</div><div class="info-card-body">Made in an earlier bucket and carried as inventory, when the due bucket can’t supply it.</div></div>
+        <div class="info-card" style="border-left:3px solid #F59E0B"><div class="info-card-title">3 · Late, then short</div><div class="info-card-body">Delivered after the due date within the late limit; past that, the remainder is short with an ${gloss('rca', 'RCA')} reason.</div></div>
+      </div>
+      <div class="canvas-explainer"><h3>What the animation shows</h3><p>Open <strong>Timeline Search</strong>: watch the solver probe the timeline for each demand — on-time first, then earlier buckets, then later ones — before it ever declares a shortage.</p></div>
     </div>`;
 }

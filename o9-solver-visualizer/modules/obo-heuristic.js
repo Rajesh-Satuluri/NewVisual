@@ -38,6 +38,7 @@ export function mount(container) {
     title: 'The Order-by-Order Heuristic',
     subtitle: `Plan one demand at a time, in ${gloss('priority', 'priority order')}, backward from customer to supplier — watch priority order decide who is met ${gloss('jit', 'Just-In-Time')} and who is forced late.`,
     tabs: [
+      { id: 'fundamentals', label: '🌱 Fundamentals', content: fundamentalsTab() },
       { id: 'solve',  label: '🔁 Solve Animation' },
       { id: 'sort',   label: '↕️ Demand Sort' },
       { id: 'phases', label: '⏱️ Three Phases' },
@@ -230,5 +231,23 @@ function buildPhases(container) {
         <div class="info-card" style="border-left:3px solid #F59E0B"><div class="info-card-title">3 · Build-Late</div><div class="info-card-body">If still unmet, allow <strong>late</strong> supply up to the <strong>Build-Late Limit (BLL)</strong>, minimising lateness. Past it → shortage + RCA.</div></div>
       </div>
       <div class="canvas-explainer"><h3>Why it matters</h3><p>In the Solve Animation, D-High gets <strong>JIT</strong> from on-hand, while D-Low is forced to <strong>Build-Late</strong> from the supplier — not because of anything about D-Low itself, but because the earlier, higher-priority demands already consumed the JIT-able stock.</p></div>
+    </div>`;
+}
+
+// ── Tab 0: Fundamentals (plain-language on-ramp) ──────────────────────────────
+function fundamentalsTab() {
+  return `
+    <div class="scroll-content">
+      <div class="section-header"><div class="section-title">In plain words</div></div>
+      <div class="prose">
+        <p>The solver does <strong>not</strong> plan all demands at once. It takes them <strong>one at a time, in ${gloss('priority', 'priority order')}</strong>, and finishes each one completely before starting the next. This single rule is what "${gloss('obo', 'order-by-order')}" means.</p>
+        <p>The big consequence: the demand that is planned <strong>first gets first pick</strong> of the ${gloss('on-hand', 'on-hand')} stock and the best, ${gloss('jit', 'Just-In-Time')} capacity. Later demands see only what remains — so a demand’s fate often depends not on itself, but on <em>who went before it</em>.</p>
+      </div>
+      <div class="info-grid">
+        <div class="info-card" style="border-left:3px solid #38BDF8"><div class="info-card-title">One at a time</div><div class="info-card-body">Each demand is planned to completion — found supply, chosen timing — before the next demand is touched.</div></div>
+        <div class="info-card" style="border-left:3px solid #A78BFA"><div class="info-card-title">Priority first</div><div class="info-card-body">The queue is ordered by priority, so scarce supply is consumed by the most important demands first.</div></div>
+        <div class="info-card" style="border-left:3px solid #F59E0B"><div class="info-card-title">Order-dependent</div><div class="info-card-body">Re-order the queue and you re-decide who is met on time — the reason demand sorting matters so much.</div></div>
+      </div>
+      <div class="canvas-explainer"><h3>What the animation shows</h3><p>Open <strong>Solve Animation</strong>: watch a high-priority demand fill Just-In-Time from stock while a low-priority one is forced late — not because it’s "worse", but because it was planned after the stock was already gone.</p></div>
     </div>`;
 }
