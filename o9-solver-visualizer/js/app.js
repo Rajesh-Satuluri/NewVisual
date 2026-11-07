@@ -35,7 +35,7 @@
       ["solver-components", "Solver Components", true],
       ["planning-engine-stack", "Planning Engine Stack", true],
       ["objectives", "Solver Objectives", true],
-      ["obo-heuristic", "Order-by-Order Heuristic", false],
+      ["obo-heuristic", "Order-by-Order Heuristic", true],
       ["demand-sorting", "Demand Sorting", false],
       ["three-phases", "JIT · Build-Ahead · Build-Late", false],
       ["solve-pipeline", "The 23-Step Solve Pipeline", false]
