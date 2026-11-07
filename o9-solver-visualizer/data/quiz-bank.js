@@ -508,4 +508,109 @@ export const QUIZ_BANK = {
       explanation: 'Beyond the Build-Late Limit the demand is short; the solver records the shortfall and a Root-Cause Problem Type.',
     },
   ],
+  'sourcing-logic': [
+    {
+      q: 'At a material node with several alternate production edges, which attribute does the solver compare FIRST to pick a producer?',
+      options: [
+        'The edge with the later end date',
+        'Activity Priority — lower number = higher priority',
+        'Whichever edge has proportion enabled',
+        'The edge with the lower member key',
+      ],
+      answer: 1,
+      explanation: 'The alternate activities are sorted by Activity Priority first (lower number = higher priority), then proportion-enabled edges, then the activity/member key, and finally a later end date — each key used only to break a tie in the previous one.',
+    },
+    {
+      q: 'Two alternate edges have the SAME Activity Priority. What breaks the tie next?',
+      options: [
+        'A random pick',
+        'The edge with proportion enabled gets higher priority',
+        'The more expensive edge',
+        'The edge is skipped entirely',
+      ],
+      answer: 1,
+      explanation: 'When Activity Priority ties, an edge with proportion enabled is given higher priority; if that still ties, the lower activity (member) key wins, then the activity with the later end date.',
+    },
+    {
+      q: 'With TIME-VARYING alternate production priority, which bucket’s priority does the solver use to select the alternate?',
+      options: [
+        'Always the Plan Current bucket',
+        'The priority in the produced time bucket (when the material is required)',
+        'The average across the horizon',
+        'The priority at Plan Start',
+      ],
+      answer: 1,
+      explanation: 'SCS considers the alternate activity priority in the produced time bucket to select an alternate (time-varying priority takes precedence over static). Alternate-priority change has no impact on Demand Build-Ahead, No-Carry, SS MOVE_IN, or Excess Cleanup MOVE_OUT.',
+    },
+  ],
+  'pegging': [
+    {
+      q: 'What is the difference between a Flow Plan and Pegging?',
+      options: [
+        'They are the same thing',
+        'Flow Plan is the aggregate flow of goods across nodes; Pegging links how many units are tied to each individual order',
+        'Flow Plan is per-order; Pegging is aggregate',
+        'Pegging only applies to capacity, Flow Plan only to material',
+      ],
+      answer: 1,
+      explanation: 'A Flow Plan gives the aggregate flow of goods across material nodes; Pegging (a FIFO post-process after the run) links the quantities produced/consumed at material and capacity nodes to the fulfilment of a particular order.',
+    },
+    {
+      q: 'Pegging can link a demand to which kinds of supply?',
+      options: [
+        'Material only',
+        'Capacity only',
+        'Both material and capacity nodes (across time buckets)',
+        'Neither — it only records totals',
+      ],
+      answer: 2,
+      explanation: 'Pegging links the demand to the supply, be it material or capacity — the documented tables include Material Consumption/Production, Capacity Consumption, and Storage pegging.',
+    },
+    {
+      q: 'What does Preferential Pegging use to tie a specific supply to a specific demand?',
+      options: [
+        'The due date only',
+        'A Pegging ID (lower number = higher priority), as an intra-bucket tie-breaker — FIFO is always respected',
+        'The lowest quantity',
+        'Random assignment',
+      ],
+      answer: 1,
+      explanation: 'Preferential Pegging uses a Pegging ID (lower = higher priority) as an intra-bucket tie-breaker while FIFO is always respected; the page also documents hard / class-based pegging to on-hand and pegging with proportional sourcing.',
+    },
+  ],
+  'excess-cleanup': [
+    {
+      q: 'The Excess Clean Up Strategy measure supports which set of options?',
+      options: [
+        'HIGH, LOW, MEDIUM',
+        'RELEASE, MOVE_OUT, and None',
+        'JIT, BUILD_AHEAD, BUILD_LATE',
+        'ADD, DELETE, HOLD',
+      ],
+      answer: 1,
+      explanation: 'Three options are supported: RELEASE, MOVE_OUT and None (the default strategy is RELEASE).',
+    },
+    {
+      q: 'Roughly, what does the solver treat as "excess" to be cleaned up?',
+      options: [
+        'Any supply at all',
+        'Ending-On-Hand carried above the safety-stock target',
+        'Only supply that arrives late',
+        'Capacity left unused in a bucket',
+      ],
+      answer: 1,
+      explanation: 'Excess is the Ending-On-Hand a node carries above the safety-stock target (the Excess Clean Up parameter defaults to SS and the workflow resolves EOH violations); the clean-up step releases or moves it out.',
+    },
+    {
+      q: 'Under the MOVE_OUT strategy, what happens to the excess inventory?',
+      options: [
+        'The triggering order is cancelled/released',
+        'It is pushed out of the node (downstream) to a consuming node',
+        'It is left in place and flagged',
+        'It is scrapped with no record',
+      ],
+      answer: 1,
+      explanation: 'MOVE_OUT pushes the excess out of the node (as with Push Excess at no-carry nodes); RELEASE instead releases the producing flow plan so it is never built; None leaves the excess in place.',
+    },
+  ],
 };
