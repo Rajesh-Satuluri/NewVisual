@@ -1,55 +1,63 @@
 // nav.js — the MODULES registry (single source of truth for the curriculum)
-// plus the sidebar renderer. Same architecture as the Kafka tool: a flat
-// MODULES list grouped by `group`, rendered into #nav-list, with Playground /
-// Reference / Practice / Review sections below.
+// plus the sidebar renderer. Same architecture as the Kafka tool.
+//
+// Curriculum = a curated, beginner→mastery learning path grounded in the o9
+// SCS wiki (consolidated where 1:1 pages would over-fragment the flow).
 export const MODULES = [
-  // ── Foundations ────────────────────────────────────────────────────────────
-  { id:'sc-basics',          label:'Supply Chain Basics',        icon:'🔗', group:'Foundations',        desc:'Nodes, flows, echelons — the vocabulary the solver plans over' },
-  { id:'planning-landscape', label:'MRP · DRP · MPS · S&OP',      icon:'🗺️', group:'Foundations',        desc:'Where the Supply Chain Solver sits in the planning stack' },
-  // ── Meet the Solver ────────────────────────────────────────────────────────
-  { id:'what-is-solver',     label:'What is the o9 Solver',      icon:'🧠', group:'Meet the Solver',    desc:'A heuristic plugin in the GraphCube server — not an LP/MIP' },
-  { id:'why-solver',         label:'Why a Solver',               icon:'❓', group:'Meet the Solver',    desc:'Why manual multi-echelon balancing is infeasible' },
-  { id:'obo-heuristic',      label:'Order-by-Order Heuristic',   icon:'🔢', group:'Meet the Solver',    desc:'Plan one demand at a time, in priority order, backward' },
-  { id:'demand-sorting',     label:'Demand Sorting',             icon:'↕️', group:'Meet the Solver',    desc:'Priority → Fair-Share → Due Date → Qty → key' },
-  { id:'three-phases',       label:'JIT · Build-Ahead · Late',   icon:'⏱️', group:'Meet the Solver',    desc:'The three timing phases the solver tries, in order' },
-  { id:'objectives',         label:'Objective Rank List',        icon:'🎯', group:'Meet the Solver',    desc:'The ordered list of soft constraints — the objective itself' },
-  // ── Network & Data Model ───────────────────────────────────────────────────
-  { id:'nodes',              label:'Nodes & Node Types',         icon:'⬢', group:'Network & Data Model', desc:'Material, Activity, Demand, Capacity, Storage nodes' },
-  { id:'network-types',      label:'Mfg · Distribution · Proc',  icon:'🕸️', group:'Network & Data Model', desc:'BOM+Routing · BOD+Mode · Supplier+Mode' },
-  { id:'multi-echelon',      label:'Multi-Echelon Flow',         icon:'🏭', group:'Network & Data Model', desc:'Demand propagation up a multi-tier network' },
-  // ── Solver Inputs ──────────────────────────────────────────────────────────
-  { id:'inventory-inputs',   label:'Inventory (BOH / ER)',       icon:'📦', group:'Solver Inputs',      desc:'On-hand buckets and expected receipts' },
-  { id:'demand-inputs',      label:'Demand with Attributes',     icon:'📨', group:'Solver Inputs',      desc:'Priority, policy, proportional, BAL/BLL' },
-  { id:'supply-order-inputs',label:'In-Flight Supply',           icon:'🚚', group:'Solver Inputs',      desc:'POs, STOs and ASNs as scheduled receipts' },
-  { id:'capacity-inputs',    label:'Capacity',                   icon:'⚙️', group:'Solver Inputs',      desc:'Capacity bands, MRU, categories' },
-  { id:'safety-stock',       label:'Safety Stock',               icon:'🛟', group:'Solver Inputs',      desc:'Target / WOS / Min-Max; HSS vs SSS' },
-  // ── Constraints & Timing ───────────────────────────────────────────────────
-  { id:'hard-vs-soft',       label:'Hard vs Soft Constraints',   icon:'🧱', group:'Constraints & Timing', desc:'What the solver must honour vs what it may relax' },
-  { id:'quantity-constraints', label:'Lot Size · Min/Mult/Max',  icon:'📏', group:'Constraints & Timing', desc:'Minimum order qty, order multiple, maximum' },
-  { id:'calendar-constraints', label:'Calendar & Holidays',      icon:'📅', group:'Constraints & Timing', desc:'Working days, lead-time offset, freeze windows' },
-  // ── Solver Decisions ───────────────────────────────────────────────────────
-  { id:'net-requirements',   label:'Net Requirements',           icon:'➖', group:'Solver Decisions',   desc:'max(0, demand − on-hand + safety stock)' },
-  { id:'timing-logic',       label:'Timing Logic',               icon:'🕰️', group:'Solver Decisions',   desc:'Backward lead-time offset over working days' },
-  { id:'sourcing-logic',     label:'Sourcing Logic',             icon:'🔀', group:'Solver Decisions',   desc:'Alternates, split %, priority & proportion' },
-  { id:'shortage-handling',  label:'Shortage Handling',          icon:'⚠️', group:'Solver Decisions',   desc:'Partial fill, late, or short — and why' },
-  { id:'allocation',         label:'Allocation / Fair Share',    icon:'⚖️', group:'Solver Decisions',   desc:'Sharing scarce supply across demands' },
-  { id:'pegging',            label:'Pegging',                    icon:'🔗', group:'Solver Decisions',   desc:'Trace supply back to demand, from→to grain' },
-  // ── Outputs & RCA ──────────────────────────────────────────────────────────
-  { id:'solver-outputs',     label:'Solver Outputs',             icon:'📤', group:'Outputs & RCA',      desc:'Flow, inventory, delivery, pegging plans' },
-  { id:'inventory-plan',     label:'Inventory Plan',             icon:'🗃️', group:'Outputs & RCA',      desc:'BOH → EOH across the inventory buckets' },
-  { id:'rca',                label:'Root Cause Analysis',        icon:'🔎', group:'Outputs & RCA',      desc:'Problem Type + suggested available date' },
-  // ── Supported Models ───────────────────────────────────────────────────────
-  { id:'lot-based',          label:'Lot-Based Planning',         icon:'🏷️', group:'Supported Models',   desc:'Lot-level pegging and genealogy' },
-  { id:'shelf-life',         label:'Shelf Life',                 icon:'⏳', group:'Supported Models',   desc:'Expiry-aware planning' },
-  { id:'no-carry',           label:'No Inventory Hold',          icon:'🚫', group:'Supported Models',   desc:'No-carry push behaviour' },
-  { id:'class-based-planning', label:'Class-Based Planning',     icon:'🧬', group:'Supported Models',   desc:'The hard-peg → class hinge' },
-  // ── Optimization & Ops ─────────────────────────────────────────────────────
-  { id:'optimization',       label:'Optimization Passes',        icon:'🚀', group:'Optimization & Ops', desc:'ORL, WIP sweep, reallocation, multipass' },
-  { id:'performance',        label:'Performance & Scale',        icon:'📈', group:'Optimization & Ops', desc:'Telescopic buckets, segmentation, memoization' },
-  { id:'debug',              label:'Debug & Diagnostics',        icon:'🩺', group:'Optimization & Ops', desc:'Pipeline-as-debugger; Σ Pegging = Plan' },
+  // ── Foundations — the mental model ──────────────────────────────────────────
+  { id:'sc-basics',        label:'Supply Chain & the Match', icon:'🔗', group:'Foundations', desc:'The three supply-chain functions and the demand–supply match the solver exists to make' },
+  { id:'what-is-solver',   label:'What is the Solver',       icon:'🧠', group:'Foundations', desc:'A heuristic plugin inside the GraphCube server — not an LP/MIP optimiser' },
+  { id:'obo-heuristic',    label:'Order-by-Order Heuristic', icon:'🔢', group:'Foundations', desc:'Plan one demand at a time, in priority order, backward downstream → upstream' },
+  { id:'demand-sorting',   label:'Demand Sorting',           icon:'↕️', group:'Foundations', desc:'Priority → Fair-Share → Due Date → Quantity → key' },
+  { id:'three-phases',     label:'JIT · Build-Ahead · Late', icon:'⏱️', group:'Foundations', desc:'The three timing phases the solver tries for every demand' },
+
+  // ── Network & Data Model — the world it plans over ──────────────────────────
+  { id:'network-types',    label:'Network Types',            icon:'🕸️', group:'Network & Data Model', desc:'Manufacturing (BOM + Routing), Distribution (BOD + Mode), Procurement (Supplier)' },
+  { id:'nodes-graphs',     label:'Nodes & Graphs',           icon:'⬢', group:'Network & Data Model', desc:'Material / Activity / Demand / Capacity / Storage nodes and the association graphs' },
+  { id:'planning-horizon', label:'Planning Horizon',         icon:'📆', group:'Network & Data Model', desc:'Plan Start / Current / End and how the horizon bounds demand and supply' },
+
+  // ── Solver Inputs — what you feed it ────────────────────────────────────────
+  { id:'inventory',        label:'Inventory (BOH / ER)',     icon:'📦', group:'Solver Inputs', desc:'Beginning on-hand buckets and expected receipts' },
+  { id:'demand-inputs',    label:'Demand with Attributes',   icon:'📨', group:'Solver Inputs', desc:'Priority, fulfilment policy, proportional split, build-ahead/late limits' },
+  { id:'activity-params',  label:'Activity & Parameters',    icon:'⚙️', group:'Solver Inputs', desc:'Activities, lead time, effectivity, and BOM component effectiveness' },
+  { id:'capacity',         label:'Capacity',                 icon:'🏭', group:'Solver Inputs', desc:'Capacity buckets, bands and resource units' },
+  { id:'safety-stock',     label:'Safety Stock',             icon:'🛟', group:'Solver Inputs', desc:'Target / WOS / Min-Max, and the safety-stock pass' },
+  { id:'wip',              label:'WIP',                      icon:'🔧', group:'Solver Inputs', desc:'Work-in-process as in-flight supply' },
+  { id:'lot-sizing',       label:'Lot Size · Max · Storage', icon:'📏', group:'Solver Inputs', desc:'Min / multiple / max order quantity, max stock and storage limits' },
+  { id:'objective-rank-list', label:'Objective Rank List',   icon:'🎯', group:'Solver Inputs', desc:'The ordered soft constraints — the solver’s objective itself (Other Inputs)' },
+
+  // ── How It Solves — the decisions ───────────────────────────────────────────
+  { id:'sourcing-logic',   label:'Sourcing & Alternates',    icon:'🔀', group:'How It Solves', desc:'Choosing among alternate producers: priority, proportion, key, end-date' },
+  { id:'pegging',          label:'Pegging',                  icon:'🔗', group:'How It Solves', desc:'FIFO order / material / capacity / lot pegging — supply traced to demand' },
+  { id:'excess-cleanup',   label:'Excess Clean-Up',          icon:'🧹', group:'How It Solves', desc:'Releasing or moving out supply above ending-on-hand minus safety stock' },
+
+  // ── Outputs & Diagnostics — what comes out ──────────────────────────────────
+  { id:'solver-outputs',   label:'Solver Outputs',           icon:'📤', group:'Outputs & Diagnostics', desc:'Flow / inventory / delivery plans, fulfilment & load reports, where-used' },
+  { id:'rca',              label:'Root Cause Analysis',      icon:'🔎', group:'Outputs & Diagnostics', desc:'Problem Type and suggested available date for every short or late demand' },
+  { id:'debug',            label:'Debug a Plan',             icon:'🩺', group:'Outputs & Diagnostics', desc:'Σ pegging = plan, no negative on-hand, no capacity overload' },
+
+  // ── Invocation ──────────────────────────────────────────────────────────────
+  { id:'invocation',       label:'Invocation & Plan Types',  icon:'▶️', group:'Invocation', desc:'exec plugin; FULL / INCREMENTAL / IDENTIFY_SEGMENTS / EXPORT_ONLY' },
+
+  // ── Models Supported — advanced capabilities ────────────────────────────────
+  { id:'lot-based',        label:'Lot-Based Planning',       icon:'🏷️', group:'Models Supported', desc:'Lot-level pegging and genealogy' },
+  { id:'supply-code',      label:'Supply Code (+ Mix&Match)',icon:'🧮', group:'Models Supported', desc:'Supply-code planning and mix-and-match supply codes' },
+  { id:'shelf-life',       label:'Shelf Life (+ Class)',     icon:'⏳', group:'Models Supported', desc:'Expiry-aware planning, including class-based shelf life' },
+  { id:'class-based-planning', label:'Class-Based Planning', icon:'🧬', group:'Models Supported', desc:'The hard-peg → class hinge' },
+  { id:'no-carry',         label:'No Inventory Hold',        icon:'🚫', group:'Models Supported', desc:'No-carry push behaviour' },
+  { id:'yield-time-varying', label:'Time-Varying Yield',     icon:'📉', group:'Models Supported', desc:'Time-varying production & consumption (yield)' },
+  { id:'co-products',      label:'Co-Products',              icon:'⚗️', group:'Models Supported', desc:'One activity producing multiple outputs' },
+  { id:'multi-step-routing', label:'Multi-Step Routing',     icon:'🪜', group:'Models Supported', desc:'Multi-operation routings, including WIP support' },
+  { id:'special-models',   label:'Special Cases',            icon:'✨', group:'Models Supported', desc:'Alt-resource consolidation, campaign/batch, PSP, soft quarantine, holidays, transition & substitution' },
+
+  // ── Optimization & Ops ──────────────────────────────────────────────────────
+  { id:'optimization',     label:'Optimization Passes',      icon:'🚀', group:'Optimization & Ops', desc:'ORL passes, WIP sweep, material reallocation, multipass' },
+  { id:'performance',      label:'Performance & Scale',      icon:'📈', group:'Optimization & Ops', desc:'Telescopic buckets, segmentation / parallelism, memoization' },
+  { id:'config-ui',        label:'Solver Config UI',         icon:'🛠️', group:'Optimization & Ops', desc:'How a solver instance is configured — inputs, outputs, parameters' },
+  { id:'deployment',       label:'Remote · Retail · ML',     icon:'🌐', group:'Optimization & Ops', desc:'Remote SCS, Retail SCS and the ML flow' },
 ];
 
-const GROUP_ORDER = ['Foundations','Meet the Solver','Network & Data Model','Solver Inputs','Constraints & Timing','Solver Decisions','Outputs & RCA','Supported Models','Optimization & Ops'];
+const GROUP_ORDER = ['Foundations','Network & Data Model','Solver Inputs','How It Solves','Outputs & Diagnostics','Invocation','Models Supported','Optimization & Ops'];
 const PLAYGROUND = [
   { id:'playground', label:'Solver Playground', icon:'🎮' },
   { id:'sim-lab',    label:'Scenario Lab',      icon:'🧪' },
@@ -57,7 +65,6 @@ const PLAYGROUND = [
 const REFERENCE = [
   { id:'master-map',      label:'Master Map',      icon:'🗺️' },
   { id:'glossary',        label:'Glossary',        icon:'📖' },
-  { id:'config-reference',label:'Config Reference',icon:'⚙️' },
   { id:'cheatsheet',      label:'Cheat Sheet',     icon:'📋' },
 ];
 const PRACTICE = [
