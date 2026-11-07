@@ -1,5 +1,6 @@
 import { createModuleShell, createIQSection } from '../components/module-shell.js';
 import { EventPacket, drawRoundRect, drawArrow } from '../components/canvas-primitives.js';
+import { gloss } from '../components/glossary-tooltip.js';
 
 export const IQ = [
   { q: 'In one sentence, what problem does a supply chain planning solver actually solve?',
@@ -186,11 +187,11 @@ function typesTab() {
       <div class="info-grid">
         <div class="info-card" style="border-left:3px solid #A78BFA">
           <div class="info-card-title">🏭 Manufacturing — <span style="color:var(--text3)">MAKE</span></div>
-          <div class="info-card-body">Transform components into intermediates or finished goods. Building blocks: <strong>Bill of Material (BOM)</strong> — the produced part and the components it consumes (4 legs + 1 top → a table) — and <strong>Routing</strong>, the process lane and resources used. Supports alternate BOMs, alternate components, date-effective components, time-varying yields.</div>
+          <div class="info-card-body">Transform components into intermediates or finished goods. Building blocks: <strong>${gloss('bom', 'Bill of Material (BOM)')}</strong> — the produced part and the components it consumes (4 legs + 1 top → a table) — and <strong>${gloss('routing', 'Routing')}</strong>, the process lane and resources used. Supports alternate BOMs, alternate components, date-effective components, time-varying yields.</div>
         </div>
         <div class="info-card" style="border-left:3px solid #38BDF8">
           <div class="info-card-title">🚚 Distribution — <span style="color:var(--text3)">DELIVER</span></div>
-          <div class="info-card-body">Move an item from one location to another — the connection between a source and a destination. Building blocks: <strong>Bill of Distribution (BOD)</strong> (the move, plus lot size / effectivity) and <strong>Transport Mode</strong> (truck, rail, ship, air — differing lead times and cost, primary/secondary/tertiary).</div>
+          <div class="info-card-body">Move an item from one location to another — the connection between a source and a destination. Building blocks: <strong>${gloss('bod', 'Bill of Distribution (BOD)')}</strong> (the move, plus lot size / effectivity) and <strong>Transport Mode</strong> (truck, rail, ship, air — differing lead times and cost, primary/secondary/tertiary).</div>
         </div>
         <div class="info-card" style="border-left:3px solid #F59E0B">
           <div class="info-card-title">📦 Procurement — <span style="color:var(--text3)">SOURCE</span></div>
@@ -225,8 +226,8 @@ function matchTab() {
         <div class="info-card" style="border-left:3px solid #10B981"><div class="info-card-title">Feasible</div><div class="info-card-body">Respects hard constraints — lead times, lot sizes, material and capacity availability. A plan that can't physically happen is worthless.</div></div>
         <div class="info-card" style="border-left:3px solid #38BDF8"><div class="info-card-title">On-time, by priority</div><div class="info-card-body">The most important demands are met Just-In-Time; lateness and shortage are pushed onto the least important orders first.</div></div>
         <div class="info-card" style="border-left:3px solid #A78BFA"><div class="info-card-title">Lean</div><div class="info-card-body">No more early build / carried inventory than needed — build ahead only when on-time delivery requires it.</div></div>
-        <div class="info-card" style="border-left:3px solid #F59E0B"><div class="info-card-title">Explainable</div><div class="info-card-body">Every unit traces to an order (pegging), and every shortfall has a reason (RCA). You can always answer "why?".</div></div>
+        <div class="info-card" style="border-left:3px solid #F59E0B"><div class="info-card-title">Explainable</div><div class="info-card-body">Every unit traces to an order (${gloss('pegging', 'pegging')}), and every shortfall has a reason (${gloss('rca', 'RCA')}). You can always answer "why?".</div></div>
       </div>
-      <div class="canvas-explainer"><h3>The through-line</h3><p>The o9 solver is a <strong>heuristic</strong> that produces a feasible, priority-respecting, lean, explainable plan by handling one order at a time in backward traversal. Everything in the Foundations group — order-by-order planning, demand sorting, the three timing phases — is just <em>how</em> it makes this match reliably and at scale.</p></div>
+      <div class="canvas-explainer"><h3>The through-line</h3><p>The o9 solver is a <strong>${gloss('heuristic', 'heuristic')}</strong> that produces a feasible, priority-respecting, lean, explainable plan by handling one order at a time in backward traversal. Everything in the Foundations group — order-by-order planning, demand sorting, the three timing phases — is just <em>how</em> it makes this match reliably and at scale.</p></div>
     </div>`;
 }

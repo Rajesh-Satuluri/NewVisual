@@ -140,4 +140,16 @@ export const SELF_EXPLAIN = {
       answer: 'It is invoked two ways: a command-line exec statement — `exec plugin instance SupplyChainSolver for Measures {...} using scope (...) arguments {([Material Constrained], "true"), ([Capacity Constrained], "true"), ([Plan Type], "...")}` — or a configured Action Button in the Workspace (confirm success via the bell icon). Plan Type = FULL_PLAN rebuilds the whole plan from scratch; INCREMENTAL_PLAN (net-change) handles new/rush demands on top of the existing plan while minimizing impact on existing commitments; Delete_Plan clears the plan outputs. The [Material Constrained] / [Capacity Constrained] flags select unconstrained vs constrained (both true = fully constrained). Persist Mode (None / Persist) gives a data-load read-time benefit for incremental runs.',
     },
   ],
+  'why-planning': [
+    {
+      prompt: 'Explain, from first principles, the three forces that make planning hard and why they require a solver rather than a spreadsheet.',
+      answer: 'Three walls force a plan. (1) Lead time: making, moving or buying takes time, so supply must be started before the due date — nothing is instant. (2) Finite capacity: a resource can only produce so much per bucket, and that capacity expires at the end of the bucket (it cannot be saved), so demand above a bucket must shift to build-ahead (earlier, carried as inventory) or build-late (after the due date). (3) Priority/scarcity: when several demands want the same scarce supply, the solver plans them one at a time in priority order, so the higher-priority demand consumes the Just-In-Time supply and a lower-priority one may be forced late or short. These forces interact — planning one order changes what is left for the next — across thousands of items, locations and periods, which explodes combinatorially. A heuristic solver automates that matching fast, repeatably, and with an explainable reason (RCA) for every short or late order.',
+    },
+  ],
+  'planning-language': [
+    {
+      prompt: 'Walk through the core vocabulary of a plan on a single order: demand, on-hand, net requirement, lead-time offset, BOM, routing, supply, pegging and buckets.',
+      answer: 'A demand is the order to satisfy (e.g. 100 units due W6). It is netted against on-hand stock to get the net requirement = max(0, demand − on-hand + safety stock) — only that quantity triggers new supply. The lead-time offset steps backward over working days from the due date to the start date, which is why the solver plans backward up the chain (customer → DC → plant → supplier) so supply arrives Just-In-Time. At the plant the BOM (bill of materials) is the recipe of components and the routing is the ordered operations/resources to build it. The resulting supply flows down to the customer, and pegging records the traceable link from that supply back to the demand it filled. All of it is placed on time-phased buckets (day/week/month periods). The one formula to memorize is the net-requirement formula; everything else is how the net requirement gets created.',
+    },
+  ],
 };

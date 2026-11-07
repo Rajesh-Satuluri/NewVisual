@@ -5,6 +5,8 @@
 // SCS wiki (consolidated where 1:1 pages would over-fragment the flow).
 export const MODULES = [
   // ── Foundations — the mental model ──────────────────────────────────────────
+  { id:'why-planning',     label:'Why Planning Is Hard',     icon:'🧱', group:'Foundations', desc:'Start here — the three walls (lead time, finite capacity, priority) that force a plan and make a solver necessary' },
+  { id:'planning-language',label:'The Language of Planning', icon:'📖', group:'Foundations', desc:'Start here — demand, on-hand, net requirement, lead time, BOM, routing, pegging and buckets, taught once on one order' },
   { id:'sc-basics',        label:'Supply Chain & the Match', icon:'🔗', group:'Foundations', desc:'The three supply-chain functions and the demand–supply match the solver exists to make' },
   { id:'what-is-solver',   label:'What is the Solver',       icon:'🧠', group:'Foundations', desc:'A heuristic plugin inside the GraphCube server — not an LP/MIP optimiser' },
   { id:'obo-heuristic',    label:'Order-by-Order Heuristic', icon:'🔢', group:'Foundations', desc:'Plan one demand at a time, in priority order, backward downstream → upstream' },

@@ -1,5 +1,6 @@
 import { createModuleShell, createIQSection } from '../components/module-shell.js';
 import { EventPacket, drawRoundRect } from '../components/canvas-primitives.js';
+import { gloss } from '../components/glossary-tooltip.js';
 
 export const IQ = [
   {
@@ -169,7 +170,7 @@ function overviewTab() {
     <div class="scroll-content">
       <div class="section-header"><div class="section-title">The one-paragraph version</div></div>
       <div class="prose">
-        <p>The <strong>o9 Supply Chain Solver (SCS)</strong> is a <strong>heuristic</strong> engine, packaged as a global plugin inside the o9 <strong>GraphCube</strong> server. Given demand, on-hand inventory, in-flight supply, the network, and constraints, it produces a <strong>time-phased supply plan</strong>: what to make, move, or buy, where, and when — plus a full <strong>pegging</strong> trace and a <strong>root cause</strong> for anything it can’t fulfil.</p>
+        <p>The <strong>o9 ${gloss('scs', 'Supply Chain Solver (SCS)')}</strong> is a <strong>${gloss('heuristic', 'heuristic')}</strong> engine, packaged as a global plugin inside the o9 <strong>${gloss('graphcube', 'GraphCube')}</strong> server. Given demand, ${gloss('on-hand', 'on-hand')} inventory, in-flight supply, the network, and constraints, it produces a <strong>time-phased supply plan</strong>: what to make, move, or buy, where, and when — plus a full <strong>${gloss('pegging', 'pegging')}</strong> trace and a <strong>${gloss('rca', 'root cause')}</strong> for anything it can’t fulfil.</p>
         <p>It does this by planning <strong>one demand at a time</strong>, in priority order, working <em>backward</em> from the customer toward the supplier — the order-by-order heuristic.</p>
       </div>
       <div class="info-grid">
@@ -204,7 +205,7 @@ function notlpTab() {
   ];
   return `
     <div class="compare-table-wrap">
-      <div class="section-header"><div class="section-title">SCS heuristic vs an LP / MIP optimiser</div></div>
+      <div class="section-header"><div class="section-title">SCS ${gloss('heuristic', 'heuristic')} vs an ${gloss('lp-mip', 'LP / MIP')} optimiser</div></div>
       <table class="compare-table">
         <thead><tr><th>Dimension</th><th>LP / MIP optimiser</th><th>o9 SCS (heuristic)</th></tr></thead>
         <tbody>
