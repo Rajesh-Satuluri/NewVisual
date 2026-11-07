@@ -68,6 +68,7 @@ const LOADERS = {
   'solver-outputs': () => import('./modules/solver-outputs.js'),
   'rca': () => import('./modules/rca.js'),
   'debug': () => import('./modules/debug.js'),
+  'invocation': () => import('./modules/invocation.js'),
 };
 
 function comingSoon(mod, id) {
