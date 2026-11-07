@@ -445,7 +445,17 @@ every screen × dark/light, 0 console errors). Nothing is removed.
 - **Mandate 1 — elaborative like Kafka:** adopted Kafka's exact conventions (tested sim engine, `data/*.js` banks, `progress-store` + spaced-repetition `review.js`, `create/init` components, `module-shell` tabs, visit-vs-mastery, mock interview, decision/incident/RCA drills, optional Supabase cloud sync). §4 maps each Kafka convention to a KEEP/ADD/RENAME action on the current tool.
 - **Mandate 2 — real CATMPN grounding:** digested the uploaded tenant export (392 SSIS packages, 3,810-table schema, 43 MB config backup, 17 real inbound tables). Added **Track 11 (Data, Integration & the Real Tenant)**, a real `catmpn-dataset.js`, and the rule that every I/O module cites its real table/columns/measure. The engine's output schema is set to the real `Out_Fact_*` `from→to` pegging + RCA `Problem Type` grain.
 - **Build-ready outputs:** §3 engine API, §6 data-bank schemas, §8 full file manifest, §9 roadmap with per-iteration `node --test` + `verify.mjs` gates.
-- **Next (Iter 1, on "go"):** the SCS Mini-Engine + real dataset + Solver Playground.
+
+### Structure scaffold — skeleton laid, modules deferred 🏗️
+*The full §8 file tree now exists as valid, documented stubs; no module logic yet.*
+- **IA completed** (`app.js`): added **Track 11 — Data, Integration & the Real Tenant** (7 modules) + `review-center` to Track 10. All new entries `ready:false` → render the Roadmap screen until built, so nav never breaks.
+- **`sim/`** (ES modules, kafka pattern): `scs-engine.js` (pure helpers `netRequirement`/`roundToLot`/`sortDemands`/`offsetByLeadTime`/`mulberry32` **implemented + tested**; `ScsSolver.solve()` a documented stub returning the real `Out_Fact_*` Plan shape), `networks.js` (3 canonical presets, shape fixed), `scs-engine.test.mjs` + `networks.test.mjs` (**10 tests green**), `PRESERVATION.md` (honesty ledger).
+- **`js/components/`** (IIFE globals, `create/init` contract, no-op stubs): `module-shell`, `quiz`, `pager`, `self-explain`, `toast`, `tour`, `cloudsync`, `cloudsync-ui`.
+- **`js/data/`** (IIFE globals, documented §6 shapes, empty containers): `catmpn-dataset` (staged as `AV.CATMPN_DATASET`, does not clobber the working synthetic `AV.CATMPN`), `quiz-bank`, `decisions`, `incidents`, `rca-cases`, `self-explain`, `config-reference`, `capability-matrix`, `mock-exam`, `review` (SM-2 stub), and **`progress-store` (core implemented)**.
+- **Infra:** `css/print.css`, `supabase-config.js` (blank == sync off) + `supabase/schema.sql`, `scripts/test.mjs` (runs `node --test`), and the `node --test` step wired into `.github/workflows/o9-check.yml`.
+- **Not touched:** `index.html` (new stubs are intentionally un-wired until their modules are built, per §8) and all 37 existing modules.
+- **Verified:** 72/72 syntax · 10/10 `node --test` · **218/218** headless (both themes, 0 console errors).
+- **Next (Iter 1, on "go"):** fill the skeleton — implement the engine `solve()` pipeline + real `catmpn-dataset.js`, then the Solver Playground.
 
 ---
 
