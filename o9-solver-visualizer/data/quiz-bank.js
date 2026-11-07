@@ -613,4 +613,109 @@ export const QUIZ_BANK = {
       explanation: 'MOVE_OUT pushes the excess out of the node (as with Push Excess at no-carry nodes); RELEASE instead releases the producing flow plan so it is never built; None leaves the excess in place.',
     },
   ],
+  'solver-outputs': [
+    {
+      q: 'What does the Delivery Plan record when a constrained run cannot fully satisfy a demand?',
+      options: [
+        'Nothing — it only shows what was met',
+        'The Total Short Quantity and Total Late Quantity (and weighted lateness) for that demand',
+        'Only the due date',
+        'It deletes the demand',
+      ],
+      answer: 1,
+      explanation: 'In a constrained plan some demands may be short or built late. The Delivery Plan writes the Total MetOnTime, Total Short Quantity, Total Late Quantity and a Weighted Late Quantity (Sum of late qty × buckets-from-current) per demand, plus the Commit Date.',
+    },
+    {
+      q: 'How does a Flow Plan differ from Pegging?',
+      options: [
+        'A Flow Plan is per-order; pegging is aggregate',
+        'A Flow Plan shows the aggregate flow of goods across material nodes; pegging links units to individual orders',
+        'They are identical',
+        'A Flow Plan only covers capacity',
+      ],
+      answer: 1,
+      explanation: 'A Flow Plan gives the aggregate flow of goods (Material Consumption/Production, Capacity Consumption, Storage) across nodes and buckets; pegging (a separate output) links quantities to the fulfilment of a particular order.',
+    },
+    {
+      q: 'What does the Where-Used report answer?',
+      options: [
+        'When a demand is due',
+        'Where a given component/material is used across the supply network (with cumulative lead time, yield and level)',
+        'How much capacity is left',
+        'Which demands are late',
+      ],
+      answer: 1,
+      explanation: 'The Where-Used report traverses upstream (To→From) to show where a component/material is used, with cumulative lead time, cumulative yield and the level (number of activities) — useful for impact analysis.',
+    },
+  ],
+  'rca': [
+    {
+      q: 'What does an RCA (Root Cause Analysis) record provide for a short or late demand?',
+      options: [
+        'A new due date chosen at random',
+        'A root-cause Problem Type (e.g. MaterialShort / CapacityShort) with the constraint item/resource, constraint bucket and RCA quantity',
+        'Only the demand priority',
+        'A discount',
+      ],
+      answer: 1,
+      explanation: 'For every short or late demand RCA reports the Problem Type — the binding root cause (Material: MaterialShort…; Capacity: CapacityShort / RegularCapacityShort; Storage) — plus the constraint item/resource, the constraint bucket and the RCA (short) quantity. The demand’s committed/available date comes from the Commit Date measure.',
+    },
+    {
+      q: 'Which RCA kind runs with no planning — just an RCA pass (e.g. Plan Type = EXPORT_ONLY)?',
+      options: [
+        'Combined Material & Capacity RCA',
+        'Stand-Alone RCA',
+        'Actionable RCA',
+        'Enhanced RCA',
+      ],
+      answer: 1,
+      explanation: 'Stand-Alone RCA is an independent workflow that only generates RCA with no actual planning (used for LPS and incremental plans). Combined Material & Capacity RCA instead merges the material and capacity RCAs into a single graph.',
+    },
+    {
+      q: 'Why was the "JIT Constraint Bucket for All RCA" enhancement added?',
+      options: [
+        'To report RCA in a random bucket',
+        'Because profile-based reporting sometimes put the RCA bucket POST the JIT bucket, causing confusion — so RCA now reports the JIT constraint bucket for all RCA types',
+        'To delete late demands',
+        'To raise demand priority',
+      ],
+      answer: 1,
+      explanation: 'Profile-based RCA sometimes reported a bucket after the JIT bucket; the enhancement reports the JIT constraint bucket consistently across all RCA types (Additive, OBO, Cascade, WIP, SS).',
+    },
+  ],
+  'debug': [
+    {
+      q: 'What are the three core correctness checks when quickly validating an SCS plan?',
+      options: [
+        'Lowest cost, fastest run, fewest nodes',
+        'No Negative On-Hand, no Capacity Overload, and Σ Pegging = Plan (no mismatch)',
+        'All demands on time, no inventory, no WIP',
+        'Only that the run finished',
+      ],
+      answer: 1,
+      explanation: 'The wiki: "There should not be Negative on Hand, or Capacity Overload, or Sigma Pegging = Plan mismatch." A valid plan passes all three.',
+    },
+    {
+      q: 'Roughly where does Demand Planning (the OBO plan) sit in the solver execution order?',
+      options: [
+        'Before data is loaded',
+        'After WIP planning, and before Safety Stock Planning and Replanning',
+        'It is the very last step',
+        'There is no fixed order',
+      ],
+      answer: 1,
+      explanation: 'The order runs: config validation → truncate outputs → data load → WIP planning & WIP RCA → (excess cleanup) → Demand Planning (OBO) → (excess cleanup) → Safety Stock Planning → Replanning of late/short → Push Planning → Min Res utilization → OBO RCA → Peggings → Exports → additive/SS/zero-qty RCA & exports.',
+    },
+    {
+      q: 'What does "Σ Pegging = Plan" verify?',
+      options: [
+        'That pegging IDs are unique',
+        'That the total pegged quantity reconciles to the planned quantity across all nodes (no mismatch)',
+        'That every demand is pegged to on-hand',
+        'That capacity is fully used',
+      ],
+      answer: 1,
+      explanation: 'Pegging is a post-process that reconciles supply to demand; the sum of pegged quantities must equal the plan across all nodes, or there is a mismatch to investigate.',
+    },
+  ],
 };

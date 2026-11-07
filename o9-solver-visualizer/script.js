@@ -65,6 +65,9 @@ const LOADERS = {
   'sourcing-logic': () => import('./modules/sourcing-logic.js'),
   'pegging': () => import('./modules/pegging.js'),
   'excess-cleanup': () => import('./modules/excess-cleanup.js'),
+  'solver-outputs': () => import('./modules/solver-outputs.js'),
+  'rca': () => import('./modules/rca.js'),
+  'debug': () => import('./modules/debug.js'),
 };
 
 function comingSoon(mod, id) {
