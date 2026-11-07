@@ -60,7 +60,16 @@ function buildDilemma(container) {
       <div id="whyp-ledger" class="info-grid" style="margin-top:14px"></div>
     </div>
     <div class="canvas-explainer">
-      <h3>What you’re watching</h3>
+      <h3>First, the words on this page</h3>
+      <p>Before the walls make sense, four plain-English terms. Each one is something you can point at in the picture above.</p>
+      <div class="info-grid" style="margin-top:4px">
+        <div class="info-card" style="border-left:3px solid #94a3b8"><div class="info-card-title">A ${gloss('bucket', 'bucket')} = one column</div><div class="info-card-body">The timeline is cut into equal slots of time — here, weeks. <b>W1, W2, W3 …</b> are the buckets. "The order is due in W6" just means it is needed in that one time-slot. Every unit of supply has to live in <em>some</em> bucket. Think of them as the week-columns on a calendar.</div></div>
+        <div class="info-card" style="border-left:3px solid #10B981"><div class="info-card-title">${gloss('jit', 'Just-In-Time (JIT)')} = the right column</div><div class="info-card-body">Supply made <b>in the same bucket</b> it is due — the green bar landing on W6. This is the ideal: not early, not late, exactly on time.</div></div>
+        <div class="info-card" style="border-left:3px solid #38BDF8"><div class="info-card-title">${gloss('build-ahead', 'Build-ahead')} = an earlier column</div><div class="info-card-body">When the due bucket is full, some supply is made in an <b>earlier</b> bucket (W5, W4…) and held as inventory until W6. The blue bars sitting to the <em>left</em> of the due week.</div></div>
+        <div class="info-card" style="border-left:3px solid #F59E0B"><div class="info-card-title">${gloss('build-late', 'Build-late')} = a later column</div><div class="info-card-body">When even the earlier buckets are taken, supply spills into a bucket <b>after</b> the due date (W7…) and the order is late. The amber bars sitting to the <em>right</em> of the due week.</div></div>
+      </div>
+      <p style="margin-top:12px">The faint outline on each column is that bucket's <strong>${gloss('capacity', 'capacity')}</strong> — the most that bucket can hold (here ${CAP} units). Unlike inventory, capacity <em>cannot be saved</em>: whatever a bucket doesn't use is gone when that week ends. That is exactly why work has to spread sideways into other buckets.</p>
+      <h3 style="margin-top:16px">Now, what you’re watching</h3>
       <p>With <strong>all walls down</strong>, the order is a fantasy: the whole ${QTY} units simply appear on the due bucket, Just-In-Time. That’s an <strong>unconstrained</strong> plan.</p>
       <p>Raise <strong>Lead Time</strong> and nothing is instant any more — the supply has to be <em>started</em> buckets before it can arrive. Raise <strong>Finite Capacity</strong> and the due bucket can only hold ${CAP}; the rest must be made earlier and carried as inventory (<strong>build-ahead</strong>). Raise the <strong>Competing Order</strong> — a higher-priority demand that is planned first — and it takes the nearest capacity, shoving our order into build-ahead and even <strong>build-late</strong>. The order never changed; its fate did. That shifting-in-time, repeated across thousands of items, <em>is</em> planning.</p>
     </div>`;
