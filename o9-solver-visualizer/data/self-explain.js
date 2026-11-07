@@ -98,4 +98,22 @@ export const SELF_EXPLAIN = {
       answer: 'It tries JIT (arrive exactly when due) first. If JIT is infeasible (capacity, lot size, lead time), it builds earlier and carries, up to the Build-Ahead Limit. If still unmet, it allows late supply up to the Build-Late Limit, minimising lateness; beyond that the demand is short.',
     },
   ],
+  'sourcing-logic': [
+    {
+      prompt: 'List, in order, the keys the solver compares to choose among alternate production edges at a material node — and say what time-varying priority changes.',
+      answer: 'Alternate production edges are sorted by: (1) Activity Priority (lower number = higher priority), (2) edge with proportion enabled, (3) the activity/member key (lower first), (4) the activity with the later end date — each key breaking a tie in the one before. With time-varying priority the solver uses the alternate priority in the PRODUCED bucket to select (it takes precedence over static priority); alternate-priority changes do not affect Demand Build-Ahead, No-Carry, SS MOVE_IN, or Excess Cleanup MOVE_OUT.',
+    },
+  ],
+  'pegging': [
+    {
+      prompt: 'Explain what pegging is, how it differs from a flow plan, and what it can be pegged to.',
+      answer: 'Pegging is a FIFO post-process that links a demand/order to the specific supply that fulfils it — the quantities produced and consumed at each material and capacity node across time buckets along the supply path. A Flow Plan shows only the aggregate flow of goods across nodes; pegging is per-order ("how many units are pegged to this order"). It can peg to material or capacity (and storage), supports Preferential Pegging via a Pegging ID, proportional-sourcing pegging, and hard / class-based pegging to on-hand supplies.',
+    },
+  ],
+  'excess-cleanup': [
+    {
+      prompt: 'Explain what "excess" is and what the three Excess Clean Up strategies (RELEASE, MOVE_OUT, None) do.',
+      answer: 'Excess is Ending-On-Hand a node carries above the safety-stock target (the Excess Clean Up parameter defaults to SS; the workflow resolves EOH violations). The Excess Clean Up Strategy has three options: RELEASE (default) releases the producing flow plan so it is never built; MOVE_OUT pushes the excess out of the node downstream to a consuming node (as Push Excess does at no-carry nodes); None leaves the excess in place. Bands for Excess and Push Excess By give finer control over where and how the excess is pushed.',
+    },
+  ],
 };

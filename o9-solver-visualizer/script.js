@@ -62,6 +62,9 @@ const LOADERS = {
   'wip': () => import('./modules/wip.js'),
   'lot-sizing': () => import('./modules/lot-sizing.js'),
   'objective-rank-list': () => import('./modules/objective-rank-list.js'),
+  'sourcing-logic': () => import('./modules/sourcing-logic.js'),
+  'pegging': () => import('./modules/pegging.js'),
+  'excess-cleanup': () => import('./modules/excess-cleanup.js'),
 };
 
 function comingSoon(mod, id) {
