@@ -86,6 +86,27 @@
     return rootURL ? rootURL + tool + "/" + name : name;
   }
 
+  // --- today's date as YYYYMMDD (local time) ---
+  function todayStamp() {
+    var d = new Date();
+    function pad(n) { return (n < 10 ? "0" : "") + n; }
+    return "" + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate());
+  }
+
+  // --- the filename the browser should save the download as ---
+  // Turns the zip's own basename into "<name>_YYYYMMDD.zip" so a download of
+  // e.g. dbt.zip lands as dbt_20261109.zip. Works for the per-tool archive and
+  // the data-zip override (whole-repo "download all") alike. The download
+  // attribute only renames same-origin files, which these archives are.
+  function downloadName(zipHref) {
+    var file = (zipHref || "").split("/").pop().split(/[?#]/)[0] || "project.zip";
+    var ext = "";
+    var base = file;
+    var m = /^(.*)(\.[a-z0-9]+)$/i.exec(file);
+    if (m) { base = m[1]; ext = m[2]; }
+    return base + "_" + todayStamp() + ext;
+  }
+
   var ICON =
     '<svg class="nv-backup-ic" width="15" height="15" viewBox="0 0 24 24"' +
     ' fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"' +
@@ -156,7 +177,12 @@
     a.id = "nv-backup-link";
     a.className = "nv-backup";
     a.href = zip;
-    a.setAttribute("download", "");
+    a.setAttribute("download", downloadName(zip));
+    // Refresh the stamp at click time so a tab left open across midnight still
+    // saves with today's date rather than the date the page first loaded.
+    a.addEventListener("click", function () {
+      a.setAttribute("download", downloadName(zip));
+    });
     a.setAttribute("rel", "nofollow");
     a.title = title;
     a.setAttribute("aria-label", title);
