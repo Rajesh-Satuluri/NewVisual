@@ -637,6 +637,12 @@
     actions.appendChild(miniBtn("⧉ Duplicate", duplicateResume));
     actions.appendChild(miniBtn("🗑 Delete", function () { deleteResume(activeResume()); }, "btn-danger"));
     var spacer = el("span"); spacer.style.flex = "1"; actions.appendChild(spacer);
+    var coachBtn = miniBtn((coachOn() ? "✓ " : "") + "Writing tips", function () {
+      setCoach(!coachOn()); renderApp();
+      flash(coachOn() ? "Writing tips on — inline bullet coaching." : "Writing tips hidden.");
+    }, coachOn() ? "coach-on" : "");
+    coachBtn.title = "Toggle inline bullet coaching (strength chips under each bullet)";
+    actions.appendChild(coachBtn);
     actions.appendChild(miniBtn("⊕ Expand all", function () { setAllCollapsed(false); }));
     actions.appendChild(miniBtn("⊖ Collapse all", function () { setAllCollapsed(true); }));
     panel.appendChild(actions);
@@ -938,6 +944,91 @@
     return f;
   }
 
+  /* ============================================================
+     INLINE WRITING ASSIST — a deterministic, in-browser bullet coach.
+     No AI call, no upload: pure heuristics that mirror what a recruiter
+     or a strong resume reviewer looks for. Each bullet is scored against
+     a handful of rules; the issues render as compact chips under the
+     field, and a per-entry strength tally rolls up in the editor header.
+     ============================================================ */
+  /* Strong past-tense action verbs → offered when a bullet opens weakly. */
+  var ACTION_VERBS = ["Led", "Built", "Designed", "Developed", "Launched", "Shipped",
+    "Drove", "Reduced", "Increased", "Improved", "Automated", "Migrated", "Architected",
+    "Delivered", "Created", "Scaled", "Optimized", "Streamlined", "Implemented",
+    "Spearheaded", "Negotiated", "Cut", "Grew", "Accelerated", "Established",
+    "Redesigned", "Owned", "Mentored", "Directed", "Orchestrated", "Rebuilt", "Saved"];
+  /* openings that signal passive / low-ownership phrasing */
+  var WEAK_OPENERS = /^(responsible for|worked on|worked with|helped(\s+to)?|assisted (?:with|in)|duties includ\w*|tasked with|involved in|participated in|in charge of|handled|dealt with|was (?:responsible|tasked)|part of (?:a|the) team)\b/i;
+  /* filler / soft words → suggestion to cut or swap */
+  var FILLER = [
+    { re: /\bin order to\b/i, msg: "“in order to” → just “to”" },
+    { re: /\butiliz(e|ed|ing)\b/i, msg: "“utilize” → “use”" },
+    { re: /\b(successfully|basically|actually|literally|really|very|quite|highly|a lot of|lots of|numerous|various|several)\b/i, msg: "cut filler (“successfully”, “various”, “very”…)" },
+    { re: /\b(things?|stuff|various tasks)\b/i, msg: "vague — name the specific thing" },
+    { re: /\betc\.?\b/i, msg: "avoid “etc.” — list what matters" }
+  ];
+  function wordCount(s) { s = (s || "").trim(); return s ? s.split(/\s+/).length : 0; }
+  /* Evaluate one bullet → { issues:[{sev,msg}], strong:bool }.
+     sev: "warn" (worth fixing) | "tip" (nice-to-have) | "good" (praise). */
+  function bulletLint(raw) {
+    var t = (raw || "").replace(/\s+/g, " ").trim();
+    var issues = [];
+    if (!t) return { issues: issues, strong: false, empty: true };
+    var wc = wordCount(t);
+    var hasMetric = /\d/.test(t);
+    var weakOpen = WEAK_OPENERS.test(t);
+    var firstWord = (t.match(/^[A-Za-z][\w'-]*/) || [""])[0];
+    var opensStrong = ACTION_VERBS.some(function (v) { return v.toLowerCase() === firstWord.toLowerCase(); });
+
+    if (weakOpen) {
+      var pick = ACTION_VERBS[Math.abs(hash(t)) % ACTION_VERBS.length];
+      issues.push({ sev: "warn", msg: "weak opener — start with a strong verb (e.g. “" + pick + "…”)" });
+    } else if (!opensStrong && /^[a-z]/.test(firstWord)) {
+      issues.push({ sev: "tip", msg: "start with a capitalized action verb" });
+    }
+    if (!hasMetric) issues.push({ sev: "warn", msg: "add a metric (%, $, #, time) to show impact" });
+    if (/\b(i|my|me|we|our|us)\b/i.test(t)) issues.push({ sev: "warn", msg: "drop first-person words (“I”, “my”, “we”)" });
+    for (var i = 0; i < FILLER.length; i++) if (FILLER[i].re.test(t)) { issues.push({ sev: "tip", msg: FILLER[i].msg }); break; }
+    if (wc > 34) issues.push({ sev: "tip", msg: "long (" + wc + " words) — tighten to one idea" });
+    else if (wc > 0 && wc < 4) issues.push({ sev: "tip", msg: "thin — add the result or scope" });
+
+    var strong = !issues.some(function (x) { return x.sev === "warn"; }) && opensStrong && hasMetric && wc >= 5;
+    return { issues: issues, strong: strong, empty: false };
+  }
+  function hash(s) { var h = 0; for (var i = 0; i < s.length; i++) { h = (h << 5) - h + s.charCodeAt(i); h |= 0; } return h; }
+  /* Roll a section's bullets into a one-line strength summary for the header. */
+  function entryStrength(it) {
+    var strong = 0, weak = 0, total = 0;
+    (it.bullets || []).forEach(function (b) {
+      var r = bulletLint(b); if (r.empty) return;
+      total++; if (r.strong) strong++; if (r.issues.some(function (x) { return x.sev === "warn"; })) weak++;
+    });
+    return { strong: strong, weak: weak, total: total };
+  }
+  function coachOn() { try { return localStorage.getItem(COACH_KEY) !== "off"; } catch (e) { return true; } }
+  function setCoach(on) { try { localStorage.setItem(COACH_KEY, on ? "on" : "off"); } catch (e) {} }
+  var COACH_KEY = "newvisual.resume.coach";
+  /* Build the chip strip shown under a bullet. Returns null when clean/off. */
+  function coachStrip(raw) {
+    if (!coachOn()) return null;
+    var res = bulletLint(raw);
+    if (res.empty) return null;
+    if (!res.issues.length && res.strong) {
+      var okw = el("div", "coach coach-ok");
+      okw.appendChild(svgIcon("star", "ico-fill"));
+      okw.appendChild(elText("span", "coach-ok-txt", "Strong bullet — action verb + measurable impact."));
+      return okw;
+    }
+    if (!res.issues.length) return null;
+    var strip = el("div", "coach");
+    res.issues.forEach(function (iss) {
+      var chip = el("span", "coach-chip coach-" + iss.sev);
+      chip.textContent = iss.msg;
+      strip.appendChild(chip);
+    });
+    return strip;
+  }
+
   function renderEntriesEditor(body, sec, allowSave) {
     sec.items = sec.items || [];
     var bar = el("div", "item-bar");
@@ -950,6 +1041,16 @@
       var egrip = el("span", "move grip item-grip"); setGlyph(egrip, "grip"); egrip.setAttribute("aria-label", "Drag to reorder");
       top.appendChild(egrip);
       top.appendChild(elText("span", "lbl", it.heading || ("Entry " + (i + 1))));
+      if (coachOn()) {
+        var st = entryStrength(it);
+        if (st.total) {
+          var pillCls = st.weak ? "warn" : (st.strong === st.total ? "good" : "ok");
+          var pill = elText("span", "strength-pill strength-" + pillCls,
+            st.weak ? (st.weak + " to improve") : (st.strong === st.total ? "all strong" : st.strong + "/" + st.total + " strong"));
+          pill.title = "Bullet strength for this entry (writing tips)";
+          top.appendChild(pill);
+        }
+      }
       var tools = el("div", "item-tools");
       tools.appendChild(miniBtn("▲", function () { if (moveIn(sec.items, i, -1)) { renderApp(); touch(); } }));
       tools.appendChild(miniBtn("▼", function () { if (moveIn(sec.items, i, 1)) { renderApp(); touch(); } }));
@@ -978,7 +1079,13 @@
         var grip = el("span", "move grip bullet-grip"); setGlyph(grip, "grip"); grip.setAttribute("aria-label", "Drag to reorder");
         row.appendChild(grip);
         var ta = el("textarea", "inp"); ta.value = bt; ta.setAttribute("data-b", it.id + "_" + bi);
-        ta.addEventListener("input", function () { it.bullets[bi] = ta.value; autoGrow(ta); touch(); });
+        var coachHost = el("div", "coach-host");
+        function refreshCoach() {
+          coachHost.innerHTML = "";
+          var s = coachStrip(ta.value);
+          if (s) coachHost.appendChild(s);
+        }
+        ta.addEventListener("input", function () { it.bullets[bi] = ta.value; autoGrow(ta); refreshCoach(); touch(); });
         /* Enter adds the next bullet and focuses it (Shift+Enter = newline within) */
         ta.addEventListener("keydown", function (e) {
           if (e.key === "Enter" && !e.shiftKey) {
@@ -997,7 +1104,8 @@
         row.appendChild(miniBtn("✕", function () { it.bullets.splice(bi, 1); renderApp(); touch(); }, "btn-danger"));
         makeDragItem(row, grip, it.bullets, bi, "bullets:" + it.id);
         bl.appendChild(row);
-        if (bt && bt.trim() && !/\d/.test(bt)) bl.appendChild(elText("div", "quant-nudge", "＋ add a metric (%, $, #, time) to strengthen this"));
+        refreshCoach();
+        bl.appendChild(coachHost);
       });
       wrap.appendChild(bl);
       body.appendChild(wrap);
@@ -1114,6 +1222,7 @@
     card.appendChild(elText("p", "onboard-lead", "Start from a blank resume, or load a clearly-marked sample to see how everything fits together."));
     var row = el("div", "onboard-actions");
     row.appendChild(miniBtn("✍ Start blank", function () { store.onboarded = true; renderApp(); touch(); flash("Blank resume ready — fill in your details."); }, "btn-primary"));
+    row.appendChild(miniBtn("⬆ Import existing resume", function () { store.onboarded = true; openResumeImport(); }));
     row.appendChild(miniBtn("🧪 Load a sample", function () { loadSample(); }));
     card.appendChild(row);
     return card;
@@ -1389,6 +1498,59 @@
     { key: "other",      label: "Anything else", ph: "Extra notes, keywords, publications, languages — anything that could help." }
   ];
 
+  /* ---- Unify AI Assist with the resume ----
+     Serialize one resume section into the plain text an AI field expects, and
+     map the whole active resume into the AI_FIELDS so the user never has to
+     re-type what they've already built. This closes the gap that made AI Assist
+     feel like a separate, duplicate data entry. */
+  function sectionToPlainField(sec) {
+    if (sec.type === "text") return (sec.text || "").trim();
+    if (sec.type === "labeled") {
+      return (sec.items || []).map(function (it) {
+        return (it.label ? it.label + ": " : "") + (it.value || "");
+      }).filter(function (s) { return s.trim(); }).join("\n");
+    }
+    return (sec.items || []).map(function (it) {
+      var head = [it.heading, it.role].filter(Boolean).join(" — ");
+      if (it.date) head += (head ? "  (" + it.date + ")" : it.date);
+      var lines = [head.trim()];
+      if (it.meta) lines.push(it.meta);
+      (it.bullets || []).forEach(function (b) { if (b && b.trim()) lines.push("- " + b.trim()); });
+      return lines.filter(Boolean).join("\n");
+    }).filter(function (s) { return s.trim(); }).join("\n\n");
+  }
+  var SEC_TO_AIKEY = { summaries: "summary", skills: "skills", awards: "awards", experiences: "experience", projects: "projects", education: "education" };
+  function aiFieldsFromResume(r) {
+    var f = {};
+    var p = r.profile || {};
+    var head = [];
+    if (p.name) head.push(p.name);
+    if (p.title) head.push(p.title);
+    (p.contacts || []).forEach(function (c) { if (c.value) head.push(c.value); });
+    if (head.length) f.header = head.join("\n");
+    (r.sections || []).forEach(function (sec) {
+      var key = SEC_TO_AIKEY[classifyLib(sec)];
+      if (!key) return;
+      var txt = sectionToPlainField(sec);
+      if (!txt) return;
+      f[key] = f[key] ? f[key] + "\n\n" + txt : txt;
+    });
+    return f;
+  }
+  function pullResumeIntoAi() {
+    var r = activeResume();
+    var pulled = aiFieldsFromResume(r);
+    var keys = Object.keys(pulled);
+    if (!keys.length) { flash("This resume has no content to pull yet."); return; }
+    var cur = store.aiAssist.fields || {};
+    var hasExisting = keys.some(function (k) { return (cur[k] || "").trim(); });
+    if (hasExisting && !confirm("Replace the AI Assist data with the content of “" + (r.name || "this resume") + "”?\n\nThis overwrites the matching fields below (your resume itself is not changed).")) return;
+    store.aiAssist.fields = store.aiAssist.fields || {};
+    keys.forEach(function (k) { store.aiAssist.fields[k] = pulled[k]; });
+    touch(); renderApp();
+    flash("Pulled " + keys.length + " section" + (keys.length !== 1 ? "s" : "") + " from “" + (r.name || "your resume") + "”.");
+  }
+
   function buildBackground() {
     var f = store.aiAssist.fields || {};
     var parts = [];
@@ -1408,7 +1570,7 @@
   }
 
   var AI_STEPS = [
-    "Fill in your resume data below, section by section (Header, Summary, Skills, Experience, Projects, Education, Awards) — with everything about you, including numbers/impact. The more raw material, the better the result.",
+    "Fill in your resume data below — or click “Pull from my resume” to load it straight from the resume you're editing. Add everything about you, including numbers/impact; the more raw material, the better the result.",
     "Paste the job description you're applying to into the Job Description box.",
     "Click “Copy full prompt” — it bundles the instructions + your vault + the JD into one block.",
     "Open any AI chat (ChatGPT, Claude, or Gemini) and paste it in one message.",
@@ -1447,8 +1609,13 @@
     }));
 
     /* Selectable section list */
+    var pullBtn = miniBtn("↡ Pull from my resume", pullResumeIntoAi, "btn-primary");
+    pullBtn.title = "Fill these fields from the resume you're editing, so you don't retype it";
     var copyAll = miniBtn("⧉ Copy all my data", function () { copyText(buildBackground(), "Your data copied."); });
     panel.appendChild(blockEl("Your resume data — click a section to edit", "ai.vault", function (body) {
+      var tip = el("p", "hint");
+      tip.innerHTML = "Already built a resume? Click <strong>“Pull from my resume”</strong> to fill these from the resume you're editing — no retyping.";
+      body.appendChild(tip);
       items.forEach(function (item) {
         var row = el("div", "ai-row" + (item.key === editingAiKey ? " active" : "") + (item.jd ? " ai-row-jd" : ""));
         row.appendChild(elText("span", "ai-row-label", item.label));
@@ -1458,7 +1625,7 @@
         row.addEventListener("click", function () { editingAiKey = item.key; renderApp(); });
         body.appendChild(row);
       });
-    }, [copyAll]));
+    }, [pullBtn, copyAll]));
 
     /* Prompt */
     var copyFull = miniBtn("⧉ Copy full prompt", function () { copyText(buildFullPrompt(), "Full prompt copied — paste it into your AI chat."); });
@@ -2380,6 +2547,38 @@
 
     var h = analyzeHealth(r);
     panel.appendChild(healthCard(h));
+
+    /* Writing strength — the same per-bullet coaching surfaced inline, rolled up
+       across the whole resume so Health and the editor tell one story. */
+    var tally = { strong: 0, weak: 0, total: 0, examples: [] };
+    (r.sections || []).forEach(function (sec) {
+      (sec.items || []).forEach(function (it) {
+        (it.bullets || []).forEach(function (b) {
+          var res = bulletLint(b); if (res.empty) return;
+          tally.total++;
+          if (res.strong) tally.strong++;
+          var warn = res.issues.filter(function (x) { return x.sev === "warn"; });
+          if (warn.length) { tally.weak++; if (tally.examples.length < 4) tally.examples.push((b.length > 80 ? b.slice(0, 77) + "…" : b) + " — " + warn[0].msg); }
+        });
+      });
+    });
+    if (tally.total) {
+      var lvl = tally.weak ? "warn" : (tally.strong === tally.total ? "good" : "warn");
+      panel.appendChild(blockEl((tally.weak ? "▲ " : "✓ ") + "Bullet writing strength", "health.coach", function (body) {
+        var p = el("div", "rec-body");
+        p.innerHTML = tally.weak
+          ? "<strong>" + tally.weak + "</strong> of <strong>" + tally.total + "</strong> bullets could be stronger (weak opener, no metric, or first-person). " + tally.strong + " are already strong. Open the <strong>Resumes</strong> tab — each flagged bullet shows inline tips as you type."
+          : "All <strong>" + tally.total + "</strong> bullets open with a strong verb and carry a measurable result. Nicely done.";
+        body.appendChild(p);
+        if (tally.examples.length) {
+          body.appendChild(elText("p", "hint hl-items-label", "To improve:"));
+          var ul = el("ul", "hl-items");
+          tally.examples.forEach(function (t) { ul.appendChild(elText("li", null, t)); });
+          body.appendChild(ul);
+        }
+        body.appendChild(miniBtn("→ Edit bullets in Resumes", function () { activeTab = "resumes"; if (!coachOn()) setCoach(true); renderApp(); }, "btn-primary"));
+      }, [elText("span", "hl-pill hl-" + lvl, tally.weak ? (tally.weak + " to improve") : "Strong")]));
+    }
 
     h.checks.forEach(function (c) {
       panel.appendChild(blockEl((c.level === "good" ? "✓ " : (c.level === "warn" ? "▲ " : "✕ ")) + c.label, "health." + c.label, function (body) {
@@ -3464,6 +3663,395 @@
     a.download = (activeResume().profile.name || "resume").replace(/\s+/g, "_").toLowerCase() + "_resume_data.json";
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(url); }, 500);
   }
+  /* ============================================================
+     IMPORT AN EXISTING RESUME (.txt / .docx / .pdf / pasted text)
+     Everything runs in the browser — the file is read locally and never
+     uploaded. Text is extracted, then a heuristic parser lays it out into
+     editable sections. The result is created as a NEW resume (your existing
+     resumes are never touched) and clearly flagged as a draft to clean up.
+     ============================================================ */
+  var IMPORT_DOC_MAX = 8 * 1024 * 1024;   /* docx/pdf/text resumes are small; cap junk */
+  function latin1(bytes) {
+    /* decode a Uint8Array as latin1 without blowing the call stack */
+    var s = "", CH = 0x8000;
+    for (var i = 0; i < bytes.length; i += CH) s += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
+    return s;
+  }
+  /* native, dependency-free inflate via the Compression Streams API */
+  function inflate(bytes, fmt) {
+    if (typeof DecompressionStream === "undefined") return Promise.reject(new Error("no-inflate"));
+    try {
+      var ds = new DecompressionStream(fmt);
+      var stream = new Blob([bytes]).stream().pipeThrough(ds);
+      return new Response(stream).arrayBuffer().then(function (buf) { return new Uint8Array(buf); });
+    } catch (e) { return Promise.reject(e); }
+  }
+  /* ---- minimal ZIP reader: pull one named entry out of a .docx ---- */
+  function readUint32(b, o) { return (b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 24)) >>> 0; }
+  function readUint16(b, o) { return b[o] | (b[o + 1] << 8); }
+  function zipFindEntry(bytes, wantRe) {
+    /* locate the End Of Central Directory, then walk the central directory */
+    var eocd = -1;
+    for (var i = bytes.length - 22; i >= 0 && i >= bytes.length - 65558; i--) {
+      if (readUint32(bytes, i) === 0x06054b50) { eocd = i; break; }
+    }
+    if (eocd < 0) return null;
+    var cdOff = readUint32(bytes, eocd + 16), count = readUint16(bytes, eocd + 10), p = cdOff;
+    for (var n = 0; n < count; n++) {
+      if (readUint32(bytes, p) !== 0x02014b50) break;
+      var method = readUint16(bytes, p + 10);
+      var compSize = readUint32(bytes, p + 20);
+      var nameLen = readUint16(bytes, p + 28), extraLen = readUint16(bytes, p + 30), cmtLen = readUint16(bytes, p + 32);
+      var lho = readUint32(bytes, p + 42);
+      var name = latin1(bytes.subarray(p + 46, p + 46 + nameLen));
+      if (wantRe.test(name)) {
+        var lNameLen = readUint16(bytes, lho + 26), lExtra = readUint16(bytes, lho + 28);
+        var dataStart = lho + 30 + lNameLen + lExtra;
+        var data = bytes.subarray(dataStart, dataStart + compSize);
+        return { method: method, data: data };
+      }
+      p += 46 + nameLen + extraLen + cmtLen;
+    }
+    return null;
+  }
+  function docxBytesToText(bytes) {
+    var entry = zipFindEntry(bytes, /^word\/document\.xml$/);
+    if (!entry) return Promise.reject(new Error("Not a Word document (no document.xml)."));
+    var xmlP = entry.method === 0 ? Promise.resolve(entry.data) : inflate(entry.data, "deflate-raw");
+    return xmlP.then(function (xmlBytes) {
+      var xml = new TextDecoder("utf-8").decode(xmlBytes);
+      /* paragraphs → lines; <w:t> → text; tabs/breaks → spaces */
+      return xml
+        .replace(/<w:tab\b[^>]*\/?>/g, " ")
+        .replace(/<w:br\b[^>]*\/?>/g, " ")
+        .replace(/<\/w:p>/g, "\n")
+        .replace(/<[^>]+>/g, "")
+        .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'")
+        .replace(/[ \t]+\n/g, "\n");
+    });
+  }
+  /* ---- best-effort PDF text layer extraction (text-based PDFs) ---- */
+  function pdfStreamToText(s) {
+    /* pull text out of a decoded content stream: ( ) Tj and [ ] TJ, with
+       line breaks on text-positioning operators. Font encoding is assumed
+       WinAnsi/ASCII — true for resumes made with standard fonts. */
+    var out = "", i = 0, n = s.length;
+    function readStr() {
+      var depth = 1, r = "";
+      while (i < n && depth > 0) {
+        var c = s[i++];
+        if (c === "\\") {
+          var e = s[i++];
+          if (e === "n") r += "\n"; else if (e === "t") r += " ";
+          else if (e === "r") r += ""; else if (e >= "0" && e <= "7") {
+            var oct = e; while (/[0-7]/.test(s[i]) && oct.length < 3) oct += s[i++];
+            r += String.fromCharCode(parseInt(oct, 8));
+          } else r += e;
+        } else if (c === "(") { depth++; r += c; }
+        else if (c === ")") { depth--; if (depth > 0) r += c; }
+        else r += c;
+      }
+      return r;
+    }
+    while (i < n) {
+      var c = s[i];
+      if (c === "(") { i++; out += readStr(); }
+      else if (c === "T" && (s[i + 1] === "*")) { out += "\n"; i += 2; }
+      else if ((c === "T") && (s[i + 1] === "d" || s[i + 1] === "D")) { out += "\n"; i += 2; }
+      else if (c === "'" || c === '"') { out += "\n"; i++; }
+      else i++;
+    }
+    return out;
+  }
+  /* ASCII85 (some PDFs wrap FlateDecode in ASCII85Decode) */
+  function ascii85Decode(bytes) {
+    var s = latin1(bytes);
+    var a = s.indexOf("<~"); if (a >= 0) s = s.slice(a + 2);
+    var e = s.indexOf("~>"); if (e >= 0) s = s.slice(0, e);
+    var out = [], tuple = 0, count = 0;
+    for (var k = 0; k < s.length; k++) {
+      var c = s.charCodeAt(k);
+      if (c === 122 && count === 0) { out.push(0, 0, 0, 0); continue; }   /* 'z' */
+      if (c < 33 || c > 117) continue;                                    /* skip whitespace / noise */
+      tuple = tuple * 85 + (c - 33); count++;
+      if (count === 5) { out.push((tuple >>> 24) & 255, (tuple >>> 16) & 255, (tuple >>> 8) & 255, tuple & 255); tuple = 0; count = 0; }
+    }
+    if (count > 0) { for (var z = count; z < 5; z++) tuple = tuple * 85 + 84; for (var bi = 0; bi < count - 1; bi++) out.push((tuple >>> (24 - bi * 8)) & 255); }
+    return new Uint8Array(out);
+  }
+  /* decode one raw stream slice → latin1 text, trying ASCII85 + Flate as needed */
+  function decodeStream(slice) {
+    var head = latin1(slice.subarray(0, 2)), tail = latin1(slice.subarray(Math.max(0, slice.length - 3)));
+    var pre = (head === "<~" || /~>\s*$/.test(tail)) ? ascii85Decode(slice) : slice;
+    return inflate(pre, "deflate").then(function (b) { return latin1(b); }, function () { return latin1(pre); });
+  }
+  function pdfBytesToText(bytes) {
+    var raw = latin1(bytes);
+    var idx = 0, got = 0;
+    var jobs = [];
+    while (true) {
+      var sPos = raw.indexOf("stream", idx);
+      if (sPos < 0) break;
+      var dStart = sPos + 6;
+      if (raw[dStart] === "\r") dStart++;
+      if (raw[dStart] === "\n") dStart++;
+      var ePos = raw.indexOf("endstream", dStart);
+      if (ePos < 0) break;
+      var slice = bytes.subarray(dStart, ePos);
+      idx = ePos + 9;
+      if (++got > 400) break;      /* sanity cap */
+      jobs.push(slice);
+    }
+    return Promise.all(jobs.map(decodeStream)).then(function (texts) {
+      var all = texts.map(pdfStreamToText).join("\n");
+      /* collapse the many stray newlines the heuristic produces */
+      all = all.replace(/[ \t]+/g, " ").replace(/\n{2,}/g, "\n").replace(/ ?\n ?/g, "\n");
+      return all.trim();
+    });
+  }
+  function extractTextFromFile(file) {
+    var name = (file.name || "").toLowerCase();
+    if (file.size > IMPORT_DOC_MAX) return Promise.reject(new Error("That file is " + (file.size / 1048576).toFixed(1) + " MB — too large. A resume is normally well under 1 MB."));
+    if (/\.docx$/.test(name)) return file.arrayBuffer().then(function (b) { return docxBytesToText(new Uint8Array(b)); });
+    if (/\.pdf$/.test(name)) return file.arrayBuffer().then(function (b) { return pdfBytesToText(new Uint8Array(b)); });
+    if (/\.(txt|md|rtf)$/.test(name)) return file.text().then(function (t) { return name.match(/\.rtf$/) ? t.replace(/\\par[d]?/g, "\n").replace(/\\[a-z]+-?\d* ?/g, "").replace(/[{}]/g, "") : t; });
+    if (/\.docx?$/.test(name)) return Promise.reject(new Error("Old .doc files aren't supported — save as .docx or paste the text."));
+    /* unknown extension: try as text */
+    return file.text();
+  }
+
+  /* ---------- heuristic text → resume structure ---------- */
+  var IMP_DATE = /((?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z.]*\.?\s*\d{4}|\b(?:19|20)\d{2}\b)\s*(?:–|—|-|to|through)\s*(present|current|now|ongoing|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z.]*\.?\s*\d{4}|\b(?:19|20)\d{2}\b)/i;
+  var IMP_YEAR = /\b(19|20)\d{2}\b/;
+  function isAllCaps(s) { return /[A-Z]/.test(s) && s === s.toUpperCase() && !/[a-z]/.test(s); }
+  function isTitleCaseHeading(s) {
+    var words = s.split(/\s+/).filter(Boolean);
+    if (!words.length || words.length > 5) return false;
+    var small = { of: 1, and: 1, the: 1, to: 1, in: 1, for: 1, "&": 1, a: 1, "/": 1 };
+    return words.every(function (w) {
+      if (small[w.toLowerCase()]) return true;
+      return /^[A-Z][A-Za-z/&.,-]*$/.test(w);
+    });
+  }
+  function importSectionMeta(line) {
+    var t = line.toLowerCase().replace(/[:•\-–—]+$/, "").trim();
+    if (/^(professional\s+)?summary$|^objective$|^profile$|^about( me)?$|^overview$/.test(t)) return { title: "Professional Summary", type: "text" };
+    if (/^(technical\s+|core\s+|key\s+)?(skills|competenc\w*|proficienc\w*|technolog\w*|technical expertise)$/.test(t)) return { title: "Technical Skills", type: "skills" };
+    if (/experience|employment|work history|professional background|career/.test(t)) return { title: "Professional Experience", type: "entries" };
+    if (/^projects?$|side projects|personal projects|selected projects/.test(t)) return { title: "Projects", type: "entries" };
+    if (/education|academic/.test(t)) return { title: "Education", type: "entries" };
+    if (/certific|licens|credential/.test(t)) return { title: "Certifications", type: "entries" };
+    if (/award|honor|achievement|accomplishment/.test(t)) return { title: "Awards / Achievements", type: "labeled" };
+    if (/publication|research/.test(t)) return { title: "Publications", type: "entries" };
+    if (/^languages?$/.test(t)) return { title: "Languages", type: "text" };
+    if (/interest|hobb|volunteer|activit/.test(t)) return { title: line.replace(/[:]+$/, "").trim(), type: "text" };
+    return null;
+  }
+  function isHeadingLine(line) {
+    var s = line.trim();
+    if (!s || s.length > 42) return null;
+    if (/^[•\-\*•‣◦⁃∙‣▪◦]/.test(s)) return null;
+    var meta = importSectionMeta(s);
+    if (!meta) return null;
+    if (isAllCaps(s) || isTitleCaseHeading(s) || /^(professional\s+)?summary$|^skills$|^education$|^experience$|^projects?$/i.test(s.replace(/[:]+$/, "").trim())) return meta;
+    return null;
+  }
+  function makeContacts(headerLines) {
+    var contacts = [], seen = {};
+    var tokens = [];
+    headerLines.forEach(function (ln) {
+      ln.split(/\s*(?:\||•|·|�|,(?=\s*(?:https?:|www\.|linkedin|github|\+?\d)))\s*/i).forEach(function (p) { if (p && p.trim()) tokens.push(p.trim()); });
+    });
+    tokens.forEach(function (tk) {
+      var icon = null, val = tk;
+      if (/[\w.+-]+@[\w.-]+\.\w+/.test(tk)) { icon = "✉"; val = (tk.match(/[\w.+-]+@[\w.-]+\.\w+/) || [tk])[0]; }
+      else if (/(linkedin\.com|github\.com|https?:\/\/|www\.|\.io\b|\.dev\b|portfolio)/i.test(tk)) { icon = "🔗"; }
+      else if (/(\+?\d[\d\s().-]{6,}\d)/.test(tk)) { icon = "☎"; val = (tk.match(/\+?\d[\d\s().-]{6,}\d/) || [tk])[0].trim(); }
+      else if (/[A-Za-z]+,\s*[A-Z]{2}\b|[A-Za-z]+,\s*[A-Za-z]{3,}/.test(tk) && tk.length < 40) { icon = "⚲"; }
+      if (icon && !seen[val.toLowerCase()]) { seen[val.toLowerCase()] = 1; contacts.push({ icon: icon, value: val }); }
+    });
+    return contacts;
+  }
+  function impExtractDate(line) { var m = line.match(IMP_DATE); if (m) return m[0].replace(/\s+/g, " ").replace(/\s*(–|—|-|to|through)\s*/i, " – "); var y = line.match(IMP_YEAR); return y ? y[0] : ""; }
+  function impAssignHeadingLine(cur, line) {
+    var date = impExtractDate(line);
+    var textOnly = date ? line.replace(IMP_DATE, "").replace(IMP_YEAR, "").replace(/[|•·,–—-]\s*$/, "").trim() : line.trim();
+    if (date && !cur.date) cur.date = date;
+    if (!cur.heading) { cur.heading = textOnly || cur.heading; }
+    else if (!cur.role && textOnly && textOnly.length <= 60) { cur.role = textOnly; }
+    else if (textOnly) { cur.meta = cur.meta ? cur.meta + " · " + textOnly : textOnly; }
+  }
+  function impParseEntries(lines) {
+    var items = [], cur = null;
+    lines.forEach(function (ln) {
+      var b = ln.match(/^\s*[•\-\*•‣◦⁃∙‣▪◦]\s*(.+)/);
+      if (b) {
+        if (!cur) { cur = { id: uid(), heading: "", role: "", date: "", meta: "", bullets: [] }; items.push(cur); }
+        cur.bullets.push(b[1].trim());
+        return;
+      }
+      if (!cur || cur.bullets.length) {
+        cur = { id: uid(), heading: "", role: "", date: "", meta: "", bullets: [] }; items.push(cur);
+      }
+      impAssignHeadingLine(cur, ln);
+    });
+    return items.filter(function (it) { return it.heading || it.role || it.bullets.length; });
+  }
+  function impParseSkills(lines) {
+    var rows = [], loose = [];
+    lines.forEach(function (ln) {
+      var m = ln.match(/^\s*([A-Za-z][A-Za-z0-9 &/+.-]{1,34}?)\s*[:：]\s*(.+)$/);
+      if (m) rows.push({ id: uid(), label: m[1].trim(), value: m[2].trim() });
+      else loose.push(ln.replace(/^\s*[•\-\*]\s*/, "").trim());
+    });
+    if (loose.length) rows.push({ id: uid(), label: "", value: loose.join(", ").replace(/,\s*,/g, ", ") });
+    return rows.length ? rows : [{ id: uid(), label: "", value: lines.join(" ") }];
+  }
+  function impParseAwards(lines) {
+    return lines.map(function (ln) {
+      ln = ln.replace(/^\s*[•\-\*]\s*/, "").trim();
+      var m = ln.match(/^(.+?)\s*[:–—-]\s+(.+)$/);
+      return m ? { id: uid(), label: m[1].trim(), value: m[2].trim() } : { id: uid(), label: ln, value: "" };
+    });
+  }
+  function parseResumeText(text) {
+    var rawLines = String(text || "").replace(/\r\n?/g, "\n").split("\n").map(function (l) { return l.replace(/\s+$/, ""); });
+    var lines = rawLines.filter(function (l) { return l.trim() !== ""; });
+    if (!lines.length) return null;
+
+    /* split into a leading header block + titled sections */
+    var firstHeadingIdx = -1;
+    for (var i = 0; i < lines.length; i++) { if (isHeadingLine(lines[i])) { firstHeadingIdx = i; break; } }
+    var headerBlock = (firstHeadingIdx < 0 ? lines.slice(0, Math.min(5, lines.length)) : lines.slice(0, firstHeadingIdx));
+
+    /* name = first line that looks like a person's name; title = next plausible line */
+    var name = "", title = "", contactLines = [];
+    headerBlock.forEach(function (ln, k) {
+      var isContact = /[\w.+-]+@|https?:|linkedin|github|www\.|\+?\d[\d\s().-]{6,}\d|[A-Za-z]+,\s*[A-Z]{2}\b/i.test(ln);
+      if (isContact) { contactLines.push(ln); return; }
+      if (!name && /^[A-Za-z][A-Za-z.'-]*(\s+[A-Za-z][A-Za-z.'-]*){0,3}$/.test(ln.trim()) && ln.trim().length <= 44) { name = ln.trim(); return; }
+      if (name && !title && ln.trim().length <= 60) { title = ln.trim(); return; }
+    });
+    var contacts = makeContacts(contactLines);
+    if (!contacts.length) contacts = [{ icon: "✉", value: "" }, { icon: "☎", value: "" }, { icon: "⚲", value: "" }];
+
+    /* collect sections */
+    var sections = [], cur = null;
+    function flush() {
+      if (!cur) return;
+      var body = cur.lines;
+      if (cur.meta.type === "text") {
+        sections.push({ id: uid(), title: cur.meta.title, type: "text", text: body.join("\n").replace(/\n/g, " ").replace(/\s{2,}/g, " ").trim() });
+      } else if (cur.meta.type === "skills") {
+        sections.push({ id: uid(), title: cur.meta.title, type: "labeled", items: impParseSkills(body) });
+      } else if (cur.meta.type === "labeled") {
+        sections.push({ id: uid(), title: cur.meta.title, type: "labeled", items: impParseAwards(body) });
+      } else {
+        sections.push({ id: uid(), title: cur.meta.title, type: "entries", items: impParseEntries(body) });
+      }
+      cur = null;
+    }
+    var startIdx = firstHeadingIdx < 0 ? lines.length : firstHeadingIdx;
+    for (var j = startIdx; j < lines.length; j++) {
+      var hm = isHeadingLine(lines[j]);
+      if (hm) { flush(); cur = { meta: hm, lines: [] }; }
+      else if (cur) { cur.lines.push(lines[j]); }
+    }
+    flush();
+
+    /* if no sections were detected at all, drop everything into a summary so
+       nothing is lost — the user can re-split it by hand */
+    if (!sections.length) {
+      sections.push({ id: uid(), title: "Professional Summary", type: "text", text: lines.slice(headerBlock.length).join(" ").trim() });
+    }
+    /* ensure a summary section exists up top */
+    if (!sections.some(function (s) { return s.type === "text"; })) sections.unshift({ id: uid(), title: "Professional Summary", type: "text", text: "" });
+
+    return { profile: { name: name, title: title, contacts: contacts }, sections: sections };
+  }
+  function importedResumeStats(parsed) {
+    var entries = 0, bullets = 0;
+    parsed.sections.forEach(function (s) { (s.items || []).forEach(function (it) { if (it.bullets) { entries++; bullets += it.bullets.length; } }); });
+    return { sections: parsed.sections.length, entries: entries, bullets: bullets };
+  }
+  function commitImportedResume(parsed, sourceLabel) {
+    var before = snapshotStr();
+    var r = {
+      id: uid(), name: (parsed.profile.name ? parsed.profile.name.replace(/\s+/g, "_") + "_Resume" : "Imported_Resume"),
+      targetRole: "", profile: parsed.profile, sections: parsed.sections,
+      theme: normalizeTheme(null), pages: 1, imported: true
+    };
+    store.resumes.push(r); store.activeResumeId = r.id;
+    if (before) { undoStack.push(before); if (undoStack.length > UNDO_CAP) undoStack.shift(); redoStack = []; }
+    renderApp(); touch(); updateUndoButtons();
+    var st = importedResumeStats(parsed);
+    flash("Imported " + st.sections + " sections, " + st.entries + " entries. Review and clean it up — Ctrl+Z to undo.");
+  }
+  /* The import modal: paste text or pick a file, preview the extracted text,
+     then parse into a new resume. */
+  function openResumeImport() {
+    var overlay = el("div", "modal-overlay");
+    var modal = el("div", "modal modal-import");
+    modal.appendChild(elText("h3", "modal-title", "Import an existing resume"));
+    var lead = el("p", "hint");
+    lead.innerHTML = "Paste your resume text below, or choose a <strong>.docx</strong>, <strong>.pdf</strong>, or <strong>.txt</strong> file. Everything is read <strong>in your browser — nothing is uploaded.</strong> We'll lay it out into editable sections as a <strong>new resume</strong> (your current resumes are untouched). Parsing is a best-effort draft — expect to tidy it up.";
+    modal.appendChild(lead);
+
+    var fileRow = el("div", "import-filerow");
+    var pick = miniBtn("⬆ Choose a file…", function () { fi.click(); }, "btn-primary");
+    var fi = el("input"); fi.type = "file"; fi.accept = ".docx,.pdf,.txt,.md,.rtf"; fi.style.display = "none";
+    var fname = elText("span", "import-fname", "");
+    fileRow.appendChild(pick); fileRow.appendChild(fi); fileRow.appendChild(fname);
+    modal.appendChild(fileRow);
+
+    var status = el("div", "import-status"); status.hidden = true; modal.appendChild(status);
+
+    var ta = el("textarea", "import-ta"); ta.placeholder = "…or paste your full resume text here.";
+    modal.appendChild(ta);
+
+    fi.addEventListener("change", function () {
+      var f = fi.files && fi.files[0]; if (!f) return;
+      fname.textContent = f.name;
+      status.hidden = false; status.className = "import-status busy"; status.textContent = "Reading " + f.name + "…";
+      extractTextFromFile(f).then(function (txt) {
+        txt = (txt || "").replace(/\u0000/g, "").trim();
+        if (!txt || txt.replace(/\s/g, "").length < 20) {
+          status.className = "import-status warn";
+          status.textContent = /\.pdf$/i.test(f.name)
+            ? "Couldn't read selectable text from this PDF (it may be a scan or use embedded fonts). Open it in your PDF viewer, select all, and paste the text above."
+            : "Couldn't find readable text in that file. Try pasting the text instead.";
+          return;
+        }
+        ta.value = txt;
+        status.className = "import-status ok";
+        status.textContent = "Extracted " + txt.length.toLocaleString() + " characters — review below, then Parse.";
+      }, function (err) {
+        status.className = "import-status warn";
+        status.textContent = (err && err.message) || "Couldn't read that file. Try pasting the text instead.";
+      });
+    });
+
+    var actions = el("div", "import-actions");
+    var parseBtn = miniBtn("Parse into a new resume", function () {
+      var text = ta.value.trim();
+      if (!text) { flash("Paste your resume text, or choose a file, first."); return; }
+      var parsed;
+      try { parsed = parseResumeText(text); } catch (e) { flash("Couldn't parse that text: " + e.message); return; }
+      if (!parsed) { flash("Nothing to import — the text looked empty."); return; }
+      document.body.removeChild(overlay);
+      commitImportedResume(parsed, fname.textContent || "pasted text");
+    }, "btn-primary");
+    var cancel = miniBtn("Cancel", function () { document.body.removeChild(overlay); });
+    actions.appendChild(parseBtn); actions.appendChild(cancel);
+    modal.appendChild(actions);
+
+    overlay.appendChild(modal);
+    overlay.addEventListener("click", function (e) { if (e.target === overlay) document.body.removeChild(overlay); });
+    document.body.appendChild(overlay);
+    setTimeout(function () { ta.focus(); }, 30);
+  }
+
   var IMPORT_MAX_BYTES = 12 * 1024 * 1024;   /* resume JSON is normally < 1 MB; cap guards against junk/huge files */
   var BACKUP_KEY = "newvisual.resumedata.backup";
   function backupCurrent(str) {
@@ -3578,6 +4166,7 @@
     wireMenuItem("miPdf", downloadPdf);
     wireMenuItem("miDocx", exportDocx);
     wireMenuItem("miJson", exportJson);
+    wireMenuItem("miImportResume", openResumeImport);
     wireMenuItem("miImport", function () { document.getElementById("fileImport").click(); });
     wireMenuItem("miPrint", printToPdf);
     wireMenuItem("miReset", resetAll);
