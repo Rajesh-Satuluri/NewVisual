@@ -1065,11 +1065,26 @@ a:focus-visible, button:focus-visible, [role="button"]:focus-visible,
 
 /* ── Sync modal ─────────────────────────────────────────── */
 .cs-overlay {
-  position: fixed; inset: 0; z-index: 200; display: none;
+  /* Must clear the shared Home/Backup fixed overlay (z-index 9999) so the
+     modal isn't covered by those pills. */
+  position: fixed; inset: 0; z-index: 10000; display: none;
   align-items: center; justify-content: center; padding: 20px;
   background: rgba(2, 6, 18, 0.62); backdrop-filter: blur(3px);
 }
 .cs-overlay.open { display: flex; }
+
+/* Header icon buttons slotted into the shared .nv-actions group (next to
+   Home/Backup). Quiet pill look so Backup stays the accent. */
+.nv-actions .cs-headbtn {
+  background: rgba(120, 130, 150, 0.16);
+  border: 1px solid rgba(130, 140, 160, 0.34);
+  color: var(--text, inherit);
+  border-radius: 8px; padding: 8px; width: auto; height: auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
+}
+.nv-actions .cs-headbtn:hover { background: rgba(120, 130, 150, 0.30); color: var(--text, inherit); }
+.nv-actions .cs-headbtn svg { width: 16px; height: 16px; }
 .cs-modal {
   position: relative; width: 100%; max-width: 440px;
   background: var(--bg-elevated, var(--bg-card)); color: var(--text);

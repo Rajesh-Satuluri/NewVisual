@@ -15,18 +15,41 @@
     if (!cloud) return;
 
     // ── Header button ─────────────────────────────────────────────────────────
-    const actions = document.querySelector('.header-actions');
-    if (actions && !document.getElementById('cloud-sync-btn')) {
+    // The shared Home/Backup group mounts as a fixed top-right overlay
+    // (.nv-actions--fixed, z-index 9999) that sits ON TOP of #module-header's
+    // .header-actions — a button placed there is hidden behind it. So prefer
+    // slotting the sync button (and the otherwise-buried theme toggle) into that
+    // visible group; fall back to .header-actions only when the group is absent.
+    function makeBtn() {
       const btn = document.createElement('button');
       btn.id = 'cloud-sync-btn';
-      btn.className = 'icon-btn';
+      btn.className = 'icon-btn cs-headbtn';
       btn.type = 'button';
       btn.title = 'Sync across devices';
       btn.setAttribute('aria-label', 'Sync across devices');
       btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>';
       btn.addEventListener('click', openModal);
-      actions.insertBefore(btn, actions.firstChild);
+      return btn;
     }
+    function placeButton(attempt) {
+      if (document.getElementById('cloud-sync-btn')) return;
+      const group = document.querySelector('.nv-actions');
+      if (group) {
+        const btn = makeBtn();
+        group.insertBefore(btn, group.firstChild);
+        // Rescue the theme toggle, which the overlay covers in the same way.
+        const theme = document.getElementById('theme-toggle');
+        if (theme && theme.closest('.header-actions')) {
+          theme.classList.add('cs-headbtn');
+          group.insertBefore(theme, btn);
+        }
+        return;
+      }
+      const actions = document.querySelector('.header-actions');
+      if (actions) { actions.insertBefore(makeBtn(), actions.firstChild); return; }
+      if (attempt < 10) setTimeout(() => placeButton(attempt + 1), 150);
+    }
+    placeButton(0);
 
     // ── Modal ─────────────────────────────────────────────────────────────────
     let overlay = null;

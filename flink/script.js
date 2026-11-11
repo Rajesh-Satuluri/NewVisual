@@ -17,7 +17,7 @@ import { applyCodeOverrides, injectEditButtons, bindCloudRefresh } from './compo
 // fresh deploy is fetched immediately instead of served from the browser/CDN
 // cache (a hard-reload does not reliably re-fetch dynamic import() subresources).
 // Bump this on each deploy that changes module code.
-const BUILD = '20261111a';
+const BUILD = '20261111b';
 const imp = (p) => import(`${p}?v=${BUILD}`);
 const LOADERS = {
   home:  () => imp('./modules/home.js'),
