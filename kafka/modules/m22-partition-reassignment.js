@@ -110,10 +110,12 @@ function buildSim(container) {
     ctx.font = 'bold 11px system-ui';
     ctx.fillStyle = b.color;
     ctx.textAlign = 'center';
-    ctx.fillText(b.label, b.x, b.y + 4);
+    ctx.fillText(b.label, b.x, b.y + 2);
+    // Stack the two stats on separate lines so each fits inside the circle
     ctx.font = '10px system-ui';
     ctx.fillStyle = '#94A3B8';
-    ctx.fillText(`Leaders: ${b.leaders}  Replicas: ${b.replicas}`, b.x, b.y + 18);
+    ctx.fillText(`Leaders: ${b.leaders}`, b.x, b.y + 16);
+    ctx.fillText(`Replicas: ${b.replicas}`, b.x, b.y + 28);
 
     ctx.globalAlpha = 1;
   }
