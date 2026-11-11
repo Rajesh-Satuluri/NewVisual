@@ -650,6 +650,9 @@
     /* readiness dashboard — a one-glance summary of this resume's state */
     panel.appendChild(readinessBlock(r));
 
+    /* ATS live checklist — the high-leverage rules, checked against this resume */
+    if (hasGradableContent(r)) panel.appendChild(atsChecklist(r));
+
     /* archived resumes — tucked away, restorable */
     var archivedList = store.resumes.filter(function (r) { return r.archived; });
     if (archivedList.length) {
@@ -696,16 +699,7 @@
 
     /* add section + add from library */
     var foot = el("div", "foot-actions");
-    foot.appendChild(miniBtn("＋ Add custom section", function () {
-      r.sections.push({ id: uid(), title: "New Section", type: "entries", items: [] }); renderApp(); touch();
-      var ed = document.getElementById("editor"); ed.scrollTop = ed.scrollHeight;
-    }, "js-add"));
-    foot.appendChild(miniBtn("📜 Add Certifications", function () {
-      if (findSection(r, "Certifications", "entries")) { flash("You already have a Certifications section."); return; }
-      r.sections.push({ id: uid(), title: "Certifications", type: "entries", items: [ { id: uid(), heading: "", role: "", date: "", meta: "", bullets: [] } ] });
-      renderApp(); touch();
-      var ed = document.getElementById("editor"); ed.scrollTop = ed.scrollHeight;
-    }, "js-add"));
+    foot.appendChild(miniBtn("＋ Add a section…", function () { openSectionPresets(r); }, "js-add"));
     foot.appendChild(miniBtn("📚 Add from Library…", function () { openLibraryInsert(r); }, "js-add"));
     panel.appendChild(foot);
   }
@@ -1214,6 +1208,66 @@
     return block;
   }
 
+  /* ---------- ATS live checklist ----------
+     A always-on, at-a-glance read of the handful of ATS rules that actually
+     move the needle (exact title, quantified bullets, active voice, standard
+     headings, parseable contact, length) — computed live against the resume
+     so the ATS Guide's advice is reflected in the document, not just read. */
+  function atsChecklist(r) {
+    var p = r.profile || {};
+    var bullets = collectBullets(r).map(function (b) { return b.text; });
+    var noMetric = bullets.filter(function (b) { return b.trim() && !/\d/.test(b); });
+    var firstPerson = bullets.filter(function (b) { return /\b(i|my|me|we|our|us)\b/i.test(b); });
+    var hasSummary = !!(findSummary(r) || "").trim();
+    var cats = {};
+    (r.sections || []).forEach(function (s) { cats[classifyLib(s)] = true; });
+    var stdHeadings = hasSummary && cats.experiences && cats.skills && cats.education;
+    var email = (p.contacts || []).filter(function (c) { return /@/.test(c.value || ""); })[0];
+    var emailOk = email && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test((email.value || "").trim());
+    var over = document.body.classList.contains("is-over");
+
+    var rows = [
+      { ok: !!(p.title && p.title.trim()), label: "Exact job title in your header",
+        good: "Your title line is set. Make sure it copies the posting's literal title — it's the single biggest callback lever.",
+        bad: "Add the target job title under your name, copied exactly from the posting. Matching the literal title drives far more recruiter callbacks." },
+      { ok: !!emailOk, label: "Valid, parseable email",
+        good: "A clean email is present as plain text.", bad: "Add a professional email as plain text in your header." },
+      { ok: (p.contacts || []).some(function (c) { return c.value && c.value.trim() && !/@/.test(c.value); }), label: "Phone / location present",
+        good: "Contact details beyond email are present.", bad: "Add a phone number and city + state." },
+      { ok: stdHeadings, label: "Standard section headings",
+        good: "Summary, Experience, Skills and Education are all present — the headings ATS parsers expect.", bad: "Use the standard set: a Summary, Professional Experience, Technical Skills, and Education." },
+      { level: noMetric.length ? "warn" : "good", ok: !noMetric.length, label: "Every bullet quantified",
+        good: "Every bullet carries a number — the kind of measurable impact recruiters scan for.",
+        bad: noMetric.length + " bullet" + (noMetric.length !== 1 ? "s" : "") + " have no metric. Add a %, $, count, or time to each to show impact." },
+      { level: firstPerson.length ? "warn" : "good", ok: !firstPerson.length, label: "Active, third-person voice",
+        good: "No first-person pronouns — bullets read as strong, active statements.",
+        bad: firstPerson.length + " bullet" + (firstPerson.length !== 1 ? "s" : "") + " use “I/my/we”. Drop the pronoun and open with an action verb." },
+      { ok: !over, label: "Fits " + (r.pages === 2 ? "two pages" : "one page"),
+        good: "Content fits the length you chose.", bad: "The resume overflows — trim content, or the export will shrink the type to fit." },
+      { ok: true, label: "Single-column, selectable text", always: true,
+        good: "Every template here is single-column with real, extractable text — exactly what ATS parsers read best." }
+    ];
+    var passing = rows.filter(function (x) { return x.ok; }).length;
+    if (collapsed["r.ats"] === undefined) collapsed["r.ats"] = true;
+    return blockEl("ATS checklist", "r.ats", function (body) {
+      body.appendChild(elText("p", "hint", "Live against this resume. Fix the flags, don't stuff keywords — see the ATS Guide tab for the why."));
+      var ul = el("div", "ats-check");
+      rows.forEach(function (row) {
+        var lvl = row.ok ? "good" : (row.level === "warn" ? "warn" : "bad");
+        var item = el("div", "ats-check-row ats-" + lvl);
+        var ic = el("span", "ats-check-ic");
+        ic.innerHTML = svgMarkup(row.ok ? "star" : "x", row.ok ? "ico-fill" : "");
+        item.appendChild(ic);
+        var tx = el("div", "ats-check-tx");
+        tx.appendChild(elText("span", "ats-check-lbl", row.label));
+        tx.appendChild(elText("span", "ats-check-det", row.ok ? row.good : row.bad));
+        item.appendChild(tx);
+        ul.appendChild(item);
+      });
+      body.appendChild(ul);
+    }, [elText("span", "hl-pill hl-" + (passing >= rows.length - 1 ? "good" : "warn"), passing + "/" + rows.length)]);
+  }
+
   /* ---------- onboarding (first run) ---------- */
   function onboardingCard() {
     var card = el("div", "onboard-card");
@@ -1339,6 +1393,67 @@
       });
     });
     if (!anyContent) modal.appendChild(elText("p", "hint", "Your Library is empty. Save sections to it with “★ Save to Library”, or add items in the Library tab."));
+    var close = miniBtn("Done", function () { document.body.removeChild(overlay); }); close.classList.add("modal-close");
+    modal.appendChild(close);
+    overlay.appendChild(modal);
+    overlay.addEventListener("click", function (e) { if (e.target === overlay) document.body.removeChild(overlay); });
+    document.body.appendChild(overlay);
+  }
+
+  /* ---------- section presets ----------
+     Quick-add correctly-typed, standard-named sections (the headings ATS
+     parsers expect) instead of only a blank custom section. */
+  var SECTION_PRESETS = [
+    { title: "Professional Summary", type: "text", desc: "A 3–4 line pitch up top" },
+    { title: "Technical Skills", type: "labeled", desc: "Grouped, scannable skills" },
+    { title: "Professional Experience", type: "entries", desc: "Jobs with impact bullets" },
+    { title: "Projects", type: "entries", desc: "Side / portfolio work" },
+    { title: "Education", type: "entries", desc: "Degrees & schools" },
+    { title: "Certifications", type: "entries", desc: "Licenses & credentials" },
+    { title: "Awards / Achievements", type: "labeled", desc: "Recognition & honors" },
+    { title: "Languages", type: "labeled", desc: "Languages & fluency" },
+    { title: "Volunteer Experience", type: "entries", desc: "Community & pro-bono work" },
+    { title: "Publications", type: "entries", desc: "Papers, talks & patents" },
+    { title: "Interests", type: "text", desc: "A brief, human closing line" }
+  ];
+  function presetItem(type) {
+    if (type === "labeled") return { id: uid(), label: "", value: "" };
+    return { id: uid(), heading: "", role: "", date: "", meta: "", bullets: type === "entries" ? [""] : [] };
+  }
+  function addPresetSection(r, preset) {
+    if (findSection(r, preset.title, preset.type)) { flash("You already have a “" + preset.title + "” section."); return false; }
+    var sec = { id: uid(), title: preset.title, type: preset.type };
+    if (preset.type === "text") sec.text = ""; else sec.items = [presetItem(preset.type)];
+    r.sections.push(sec); renderApp(); touch();
+    var ed = document.getElementById("editor"); if (ed) ed.scrollTop = ed.scrollHeight;
+    return true;
+  }
+  function openSectionPresets(r) {
+    var overlay = el("div", "modal-overlay");
+    var modal = el("div", "modal modal-presets");
+    modal.appendChild(elText("h3", "modal-title", "Add a section"));
+    modal.appendChild(elText("p", "hint", "Standard, ATS-friendly headings — correctly structured and ready to fill. Already-added sections are marked."));
+    var grid = el("div", "preset-grid");
+    SECTION_PRESETS.forEach(function (preset) {
+      var exists = !!findSection(r, preset.title, preset.type);
+      var b = el("button", "preset-opt" + (exists ? " added" : "")); b.type = "button";
+      b.appendChild(svgIcon(iconFor(preset.title), "preset-ic"));
+      var tx = el("div", "preset-tx");
+      tx.appendChild(elText("span", "preset-name", preset.title));
+      tx.appendChild(elText("span", "preset-desc", exists ? "Already in this resume" : preset.desc));
+      b.appendChild(tx);
+      if (exists) b.disabled = true;
+      else b.addEventListener("click", function () { if (addPresetSection(r, preset)) { document.body.removeChild(overlay); flash("Added “" + preset.title + "”."); } });
+      grid.appendChild(b);
+    });
+    modal.appendChild(grid);
+    var custom = miniBtn("＋ Blank custom section", function () {
+      r.sections.push({ id: uid(), title: "New Section", type: "entries", items: [presetItem("entries")] });
+      renderApp(); touch(); document.body.removeChild(overlay);
+      var ed = document.getElementById("editor"); if (ed) ed.scrollTop = ed.scrollHeight;
+    });
+    custom.classList.add("preset-custom");
+    modal.appendChild(custom);
     var close = miniBtn("Done", function () { document.body.removeChild(overlay); }); close.classList.add("modal-close");
     modal.appendChild(close);
     overlay.appendChild(modal);
@@ -4147,10 +4262,36 @@
     if (it) it.addEventListener("click", function () { closeMenu(); fn(); });
   }
 
+  /* mobile Edit/Preview view (one pane at a time on phones) */
+  var MVIEW_KEY = "newvisual.resume.mview";
+  function setMView(v) {
+    v = v === "preview" ? "preview" : "edit";
+    document.body.classList.remove("mview-edit", "mview-preview");
+    document.body.classList.add("mview-" + v);
+    try { localStorage.setItem(MVIEW_KEY, v); } catch (e) {}
+    var e = document.getElementById("mswEdit"), p = document.getElementById("mswPreview");
+    if (e) { e.classList.toggle("active", v === "edit"); e.setAttribute("aria-pressed", v === "edit" ? "true" : "false"); }
+    if (p) { p.classList.toggle("active", v === "preview"); p.setAttribute("aria-pressed", v === "preview" ? "true" : "false"); }
+    if (v === "preview") setTimeout(fitPreview, 20);
+  }
+  function isMobileLayout() { return (window.matchMedia && window.matchMedia("(max-width: 900px)").matches); }
+
   function init() {
     store = load(); lastSnapshot = snapshotStr(); renderApp();
     var tabs = document.querySelectorAll("#tabs .tab");
-    for (var i = 0; i < tabs.length; i++) tabs[i].addEventListener("click", function () { activeTab = this.getAttribute("data-tab"); renderApp(); });
+    for (var i = 0; i < tabs.length; i++) tabs[i].addEventListener("click", function () {
+      activeTab = this.getAttribute("data-tab"); renderApp();
+      /* on phones, a tab change swaps the editor's content — show it */
+      if (isMobileLayout()) setMView("edit");
+    });
+
+    /* mobile Edit/Preview switch */
+    var savedMView = "edit";
+    try { savedMView = localStorage.getItem(MVIEW_KEY) || "edit"; } catch (e) {}
+    setMView(savedMView);
+    var mswE = document.getElementById("mswEdit"), mswP = document.getElementById("mswPreview");
+    if (mswE) mswE.addEventListener("click", function () { setMView("edit"); });
+    if (mswP) mswP.addEventListener("click", function () { setMView("preview"); });
 
     /* toolbar icons */
     setGlyph(document.getElementById("btnUndo"), "undo");
