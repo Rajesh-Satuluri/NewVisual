@@ -377,6 +377,22 @@ button.kw-chip.have { cursor: pointer; }
 .modal-row .modal-name { flex: 1; font-size: 12.5px; }
 .modal-close { margin-top: 14px; width: 100%; padding: 9px; }
 
+/* ---------- Import existing resume modal ---------- */
+.modal-import { max-width: 620px; }
+.modal-import .hint { line-height: 1.5; margin-bottom: 12px; }
+.import-filerow { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+.import-fname { font-size: 12px; color: var(--muted); word-break: break-all; }
+.import-status { font-size: 12px; line-height: 1.45; padding: 8px 10px; border-radius: 8px; margin-bottom: 10px; border: 1px solid var(--border); }
+.import-status.busy { color: var(--muted); }
+.import-status.ok { color: #58c08a; background: rgba(88,192,138,.08); border-color: rgba(88,192,138,.3); }
+.import-status.warn { color: #e8b86b; background: rgba(201,162,74,.09); border-color: rgba(201,162,74,.32); }
+.import-ta { width: 100%; min-height: 180px; max-height: 40vh; resize: vertical; font-family: var(--font-ui);
+  font-size: 12.5px; line-height: 1.5; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--panel-2); color: var(--text); }
+.import-ta:focus { outline: none; border-color: var(--brand); }
+.import-actions { display: flex; gap: 8px; margin-top: 14px; }
+.import-actions .btn { padding: 9px 14px; }
+
 /* toast */
 .toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(12px); background: var(--brand-ink); color: #fff; font-size: 13px; font-weight: 600; padding: 9px 16px; border-radius: 999px; box-shadow: 0 6px 24px rgba(0,0,0,.4); opacity: 0; transition: opacity .25s, transform .25s; z-index: 120; }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -520,6 +536,26 @@ textarea.inp { resize: none; overflow: hidden; min-height: 32px; }
 }
 .bank-del:hover { border-color: #7a3a3a; color: #ffb3b3; background: #241515; }
 .quant-nudge { font-size: 10.5px; color: #c9a24a; margin: -1px 0 2px 2px; letter-spacing: .01em; }
+
+/* ---------- Inline writing assist (bullet coach) ---------- */
+.coach { display: flex; flex-wrap: wrap; gap: 4px; margin: -2px 0 4px 26px; }
+.coach-chip {
+  font-size: 10.5px; line-height: 1.3; padding: 2px 7px; border-radius: 999px;
+  border: 1px solid transparent; letter-spacing: .005em; white-space: nowrap;
+}
+.coach-warn { color: #e8b86b; background: rgba(201, 162, 74, .11); border-color: rgba(201, 162, 74, .32); }
+.coach-tip  { color: #8fa6c8; background: rgba(120, 150, 200, .10); border-color: rgba(120, 150, 200, .26); }
+.coach-ok { display: flex; align-items: center; gap: 5px; margin: -2px 0 4px 26px; }
+.coach-ok .ico-svg { width: 13px; height: 13px; color: #58c08a; }
+.coach-ok-txt { font-size: 10.5px; color: #58c08a; letter-spacing: .005em; }
+.strength-pill {
+  font-size: 10px; font-weight: 600; padding: 1px 7px; border-radius: 999px; margin-left: 8px;
+  letter-spacing: .02em; text-transform: uppercase; white-space: nowrap;
+}
+.strength-good { color: #58c08a; background: rgba(88, 192, 138, .14); }
+.strength-ok   { color: #8fa6c8; background: rgba(120, 150, 200, .14); }
+.strength-warn { color: #e8b86b; background: rgba(201, 162, 74, .16); }
+.btn-mini.coach-on { color: var(--brand); border-color: rgba(47, 155, 179, .45); background: rgba(47, 155, 179, .08); }
 
 /* resume health */
 .hl-pill { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; letter-spacing: .03em; text-transform: uppercase; margin-left: auto; }
