@@ -33,6 +33,14 @@ export function initTabs(container) {
   });
 }
 
+import { renderMarkdown } from './md.js';
+
+// An answer is HTML by default. Opt into Markdown rendering with `md: true`
+// on the question object (used for answers authored or pasted as Markdown).
+export function renderAnswer(q) {
+  return q && q.md ? renderMarkdown(q.a) : (q ? q.a : '');
+}
+
 export function createIQSection(questions) {
   return `
     <div class="section-header">
@@ -47,9 +55,11 @@ export function createIQSection(questions) {
             <span style="flex:1">${q.q}</span>
             <span class="q-chevron">▼</span>
           </div>
-          <div class="iq-answer">
-            ${q.a}
-            ${q.tip ? `<div class="tip">💡 <strong>Interview tip:</strong> ${q.tip}</div>` : ''}
+          <div class="iq-answer-wrap">
+            <div class="iq-answer">
+              ${renderAnswer(q)}
+              ${q.tip ? `<div class="tip">💡 <strong>Interview tip:</strong> ${q.tip}</div>` : ''}
+            </div>
           </div>
         </div>
       `).join('')}
@@ -58,12 +68,12 @@ export function createIQSection(questions) {
 }
 
 export function initIQ(container) {
+  // Multi-open accordion: each question toggles independently and opening one
+  // never collapses another, so a clicked answer always expands straight down
+  // instead of being yanked upward when the item above it collapsed.
   container.querySelectorAll('.iq-question').forEach(q => {
     q.addEventListener('click', () => {
-      const item = q.closest('.iq-item');
-      const wasOpen = item.classList.contains('open');
-      container.querySelectorAll('.iq-item').forEach(i => i.classList.remove('open'));
-      if (!wasOpen) item.classList.add('open');
+      q.closest('.iq-item').classList.toggle('open');
     });
   });
 }

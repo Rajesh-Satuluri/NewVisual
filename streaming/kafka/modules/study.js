@@ -5,6 +5,7 @@
 import { MODULES } from '../components/nav.js';
 import { QUIZ_BANK } from '../data/quiz-bank.js';
 import { loadAllIQ } from '../data/iq-aggregate.js';
+import { renderAnswer } from '../components/module-shell.js';
 
 const DIFF_ORDER = { easy: 0, medium: 1, hard: 2 };
 const numOf = id => id.replace(/^m/, '');
@@ -71,11 +72,11 @@ export function mount(container) {
               <span class="diff-badge diff-${x.difficulty}">${x.difficulty}</span>
               <span class="q-chevron">▼</span>
             </div>
-            <div class="iq-answer">
+            <div class="iq-answer-wrap"><div class="iq-answer">
               <div class="study-src"><a href="#${x.moduleId}">${x.icon} ${x.moduleTitle}</a></div>
-              ${x.a}
+              ${renderAnswer(x)}
               ${x.tip ? `<div class="tip">💡 <strong>Interview tip:</strong> ${x.tip}</div>` : ''}
-            </div>
+            </div></div>
           </div>`).join('')}
       </div>`;
 

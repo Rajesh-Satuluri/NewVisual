@@ -32,6 +32,8 @@
       workspace: "dsa",      // "dsa" | "python"
       lastTopic: null,       // last Python topic viewed
       lastProblem: null,
+      focus: false,            // global focus mode (all practice stacks)
+      focusCode: false,        // global code-only focus (PySpark + SQL practice)
       filtersOpen: false,      // sidebar filter panel expanded?
       sidebarCollapsed: false, // desktop: sidebar hidden to give the reader full width
       collapsedCats: {}      // category -> true if collapsed in sidebar

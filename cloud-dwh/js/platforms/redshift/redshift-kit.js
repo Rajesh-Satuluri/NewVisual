@@ -98,7 +98,8 @@
 
         /* optional code block */
         if (spec.code && viz.CodeViewer) {
-          const cv = viz.CodeViewer.create(spec.code.src, spec.code.lang || 'sql', spec.code.title || 'Example');
+          const cv = viz.CodeViewer.create(spec.code.src, spec.code.lang || 'sql', spec.code.title || 'Example',
+            { editKey: 'rk-' + (spec.id || spec.code.title || 'example') });
           const wrap = el('div', 'rk-code'); wrap.appendChild(cv); page.appendChild(wrap);
         }
         /* optional takeaways */

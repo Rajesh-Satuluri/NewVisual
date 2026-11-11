@@ -28,9 +28,21 @@ export const MODULES = [
   { id:'m18', label:'Failure Simulation',      icon:'💥', group:'Advanced',      desc:'Kill producers, brokers, leaders — watch recovery cascade' },
   { id:'m19', label:'Amazon Pipeline',         icon:'🛒', group:'Advanced',      desc:'End-to-end: order → Kafka → 8 services → Snowflake → BI' },
   { id:'m21', label:'MirrorMaker 2',           icon:'🌐', group:'Advanced',      desc:'Cross-cluster replication, active-active DR, offset translation' },
+  // ── Change Data Capture ────────────────────────────────────────────────────
+  { id:'m23', label:'CDC Fundamentals',        icon:'🔄', group:'Change Data Capture', desc:'What CDC is, the four capture methods, and why a table\'s state ≠ its change stream' },
+  { id:'m24', label:'Postgres WAL & Decoding',  icon:'🪵', group:'Change Data Capture', desc:'WAL, logical decoding, LSNs, replication slots — drive the slot and watch it lag' },
+  { id:'m25', label:'Debezium Architecture',   icon:'🔌', group:'Change Data Capture', desc:'Debezium as a Kafka Connect source connector — lifecycle, offsets, restart & recovery' },
+  { id:'m32', label:'Debezium Internals',      icon:'🔬', group:'Change Data Capture', desc:'Trace one change end-to-end, the pgoutput protocol, internal state & topics, snapshot & delivery internals' },
+  { id:'m26', label:'Snapshots & Streaming',   icon:'📸', group:'Change Data Capture', desc:'Initial snapshot, snapshot modes, incremental snapshots, the streaming handoff' },
+  { id:'m27', label:'Change Events & Contracts', icon:'✉️', group:'Change Data Capture', desc:'The event envelope, deletes & tombstones, serialization, and schema evolution' },
+  { id:'m28', label:'Debezium Config & Ops',   icon:'⚙️', group:'Change Data Capture', desc:'Connector config, replication-slot WAL growth, failure labs, and what to alert on' },
+  // ── CDC Integrations & Lakehouse ────────────────────────────────────────────
+  { id:'m29', label:'Outbox Pattern',          icon:'📬', group:'CDC Integrations & Lakehouse', desc:'Services as producers, the dual-write trap, and the transactional outbox + Event Router' },
+  { id:'m30', label:'Kafka → Lakehouse',       icon:'🏞️', group:'CDC Integrations & Lakehouse', desc:'Iceberg (Connect) vs Spark→Delta, Bronze/Silver/Gold, and why append ≠ current state' },
+  { id:'m31', label:'End-to-End Capstone',     icon:'🎛️', group:'CDC Integrations & Lakehouse', desc:'The whole pipeline on one engine — drive an order through it and inject every failure mode, with live reconciliation' },
 ];
 
-const GROUP_ORDER = ['Foundation','Core Internals','Consumer Side','Delivery','Ecosystem','Operations','Advanced'];
+const GROUP_ORDER = ['Foundation','Core Internals','Consumer Side','Delivery','Ecosystem','Operations','Advanced','Change Data Capture','CDC Integrations & Lakehouse'];
 const PLAYGROUND = [
   { id:'playground',      label:'Partition Simulator', icon:'🎮' },
   { id:'consumer-lab',    label:'Consumer Group Lab',  icon:'👥' },
@@ -46,9 +58,12 @@ const REFERENCE = [
   { id:'incident-bank', label:'Incident Bank', icon:'🚑' },
 ];
 const PRACTICE = [
+  { id:'mock-interview', label:'Mock Interview',     icon:'🎤' },
   { id:'decisions',    label:'Choose the Approach', icon:'🧭' },
   { id:'troubleshoot', label:'Troubleshooting Lab', icon:'🔍' },
+  { id:'cdc-incidents', label:'CDC Incident Lab',   icon:'🛠️' },
   { id:'answers',      label:'Level Up Your Answer', icon:'🎯' },
+  { id:'coding',       label:'Coding Dojo',          icon:'💻' },
 ];
 const REVIEW = [
   { id:'dashboard', label:'Dashboard',    icon:'📊' },

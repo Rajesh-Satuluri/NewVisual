@@ -21,17 +21,54 @@
   // Build one cheatsheet panel from a config object. Every panel is independent
   // (its own overlay, its own persisted sort), but shares this exact behavior.
   function makeCheatsheet(cfg) {
-    var DATA = cfg.data || { groups: [], fns: [] };
     var LANG = cfg.lang || "python";
     var COLLAPSIBLE = !!cfg.collapsible;   // cards collapse to just their signature
-    var overlay = null, bodyEl = null, searchEl = null, active = "all", query = "", sortMode = "used";
+    var overlay = null, bodyEl = null, searchEl = null, active = "all", query = "", sortMode = "used", editMode = false;
+
+    // ---- editable notes: the per-function "use" line is user-editable in the UI.
+    // Edits are saved to localStorage (namespaced per panel) and override the
+    // shipped default; Export downloads them as JSON so they can be merged back.
+    var USE_NS = "cheatuse:" + cfg.overlayId + ":";
+    function useOverride(id) { try { return localStorage.getItem(USE_NS + id); } catch (e) { return null; } }
+    function setUseOverride(id, html) { try { localStorage.setItem(USE_NS + id, html); } catch (e) {} }
+    function clearUseOverride(id) { try { localStorage.removeItem(USE_NS + id); } catch (e) {} }
+    function allOverrides() {
+      var o = {};
+      try { for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf(USE_NS) === 0) o[k.slice(USE_NS.length)] = localStorage.getItem(k); } } catch (e) {}
+      return o;
+    }
+    function exportNotes() {
+      var data = allOverrides();
+      var n = Object.keys(data).length;
+      if (!n) { alert("No edited notes yet. Turn on “✎ Edit notes”, click a note to change it, then Export."); return; }
+      var blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url; a.download = cfg.overlayId + "-notes.json"; document.body.appendChild(a); a.click();
+      document.body.removeChild(a); setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    }
+
+    // The cheatsheet dataset is shipped in a LAZY dataloader group (spark /
+    // pylearn / sql), so window[cfg.dataKey] is NOT defined when this file is
+    // parsed at page load. Resolving it here once would permanently capture the
+    // empty default and render a blank "No functions match" panel. Instead we
+    // (re)read the global — and recompute everything derived from it — every time
+    // the panel opens, after ensuring its data group is loaded. See open().
+    var DATA = { groups: [], fns: [] };
+    var RANK = {};
+    var ESSENTIAL = 0;
+
+    function resolveData() {
+      var d = (cfg.dataKey && window[cfg.dataKey]) || cfg.data;
+      DATA = d && d.fns ? d : { groups: [], fns: [] };
+      RANK = {}; (DATA.rankOrder || []).forEach(function (id, i) { RANK[id] = i; });
+      ESSENTIAL = DATA.essentialCount || 0;
+    }
 
     // Usage rank (lower = more used). Drives the default "Most used" sort, the
     // within-category ordering, and the ★ essential badge on the top tier.
-    var RANK = {}; (DATA.rankOrder || []).forEach(function (id, i) { RANK[id] = i; });
     function rankOf(f) { var r = RANK[f.id]; return r == null ? 9999 : r; }
     function byRank(a, b) { var d = rankOf(a) - rankOf(b); return d !== 0 ? d : (a.name || "").localeCompare(b.name || ""); }
-    var ESSENTIAL = DATA.essentialCount || 0;
     function isEssential(f) { return rankOf(f) < ESSENTIAL; }
 
     var SORT_KEY = cfg.sortKey;
@@ -85,6 +122,13 @@
       c.className = "cht-card" + (isEssential(fn) ? " cht-essential" : "") +
         (COLLAPSIBLE ? " cht-collapsible" : "") + (collapsed ? " collapsed" : "");
 
+      // The one-line "what it's for" note: a user edit (saved in localStorage)
+      // wins over the shipped default. Shown even while a card is collapsed, and
+      // made inline-editable when Edit mode is on. See useOverride()/editMode.
+      var ov = useOverride(fn.id);
+      var useHtml = ov != null ? ov : (fn.use || "");
+      var showUse = !!(useHtml || editMode);
+
       var head = document.createElement("div");
       head.className = "cht-head";
       head.innerHTML =
@@ -93,11 +137,39 @@
           (isEssential(fn) ? '<span class="cht-star" title="Essential — one of the most-used; learn these first">★</span>' : "") +
           '<code class="cht-sig">' + esc(fn.signature || fn.name) + "</code>" +
         "</span>" +
+        // One-line plain-English "what it's for / where it's used" — sits in the
+        // middle of the head so it shows even while the card is collapsed.
+        (showUse ? '<span class="cht-use' + (ov != null ? " cht-use-edited" : "") + '" data-fnid="' + esc(fn.id) + '">' + useHtml + "</span>" : "") +
         '<span class="cht-head-r">' +
           (showPill && fn.group ? '<span class="cht-group-pill">' + esc(fn.group) + "</span>" : "") +
           (fn.returns ? '<span class="cht-ret">→ ' + esc(fn.returns) + "</span>" : "") +
         "</span>";
       c.appendChild(head);
+
+      // In Edit mode, make the note directly editable in place. Edits persist to
+      // localStorage (per panel, per function id) and override the default.
+      if (editMode) {
+        var u = head.querySelector(".cht-use");
+        if (u) {
+          u.setAttribute("contenteditable", "true");
+          u.setAttribute("spellcheck", "false");
+          u.classList.add("cht-use-editable");
+          // Don't let a click in the note toggle the collapsible card.
+          u.addEventListener("mousedown", function (e) { e.stopPropagation(); });
+          u.addEventListener("click", function (e) { e.stopPropagation(); });
+          u.addEventListener("keydown", function (e) {
+            e.stopPropagation();
+            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); u.blur(); }
+            else if (e.key === "Escape") { e.preventDefault(); u.innerHTML = (useOverride(fn.id) != null ? useOverride(fn.id) : (fn.use || "")); u.blur(); }
+          });
+          u.addEventListener("blur", function () {
+            var html = u.innerHTML.trim();
+            var def = fn.use || "";
+            if (html === "" || html === def) { clearUseOverride(fn.id); u.classList.remove("cht-use-edited"); if (html === "") u.innerHTML = def; }
+            else { setUseOverride(fn.id, html); u.classList.add("cht-use-edited"); }
+          });
+        }
+      }
 
       // In collapsible mode everything below the head lives in a togglable body.
       var body = COLLAPSIBLE ? document.createElement("div") : c;
@@ -203,6 +275,27 @@
       });
     }
 
+    // (Re)build the category filter chips from the current DATA.groups. Runs on
+    // every open because the dataset arrives lazily (see open()/resolveData()).
+    function renderChips() {
+      if (!overlay) return;
+      var filter = overlay.querySelector(".ros-filter");
+      if (!filter) return;
+      if (active !== "all" && DATA.groups.indexOf(active) === -1) active = "all";
+      filter.innerHTML =
+        '<button class="ros-chip ros-chip-all' + (active === "all" ? " active" : "") + '" data-g="all">All</button>' +
+        DATA.groups.map(function (g) {
+          return '<button class="ros-chip' + (active === g ? " active" : "") + '" data-g="' + esc(g) + '">' + esc(g) + "</button>";
+        }).join("");
+      filter.querySelectorAll(".ros-chip").forEach(function (b) {
+        b.addEventListener("click", function () {
+          active = b.getAttribute("data-g");
+          filter.querySelectorAll(".ros-chip").forEach(function (c) { c.classList.toggle("active", c === b); });
+          render();
+        });
+      });
+    }
+
     function render() {
       bodyEl.innerHTML = "";
       updateChipCounts();
@@ -236,8 +329,6 @@
       overlay = document.createElement("div");
       overlay.id = cfg.overlayId;
       overlay.className = "ros hidden" + (cfg.wide ? " ros-wide" : "");
-      var chips = '<button class="ros-chip ros-chip-all active" data-g="all">All</button>' +
-        DATA.groups.map(function (g) { return '<button class="ros-chip" data-g="' + esc(g) + '">' + esc(g) + "</button>"; }).join("");
       overlay.innerHTML =
         '<div class="ros-box" role="dialog" aria-label="' + esc(cfg.ariaLabel) + '">' +
         '  <div class="ros-head">' +
@@ -255,8 +346,12 @@
         '      <button class="cht-xall-btn" data-x="open" title="Expand every function">Expand all</button>' +
         '      <button class="cht-xall-btn" data-x="close" title="Collapse to just names">Collapse all</button>' +
         '    </div>' : "") +
+        '    <div class="cht-notes-tools" role="group" aria-label="Edit the one-line notes">' +
+        '      <button class="cht-edit-btn" data-edit="toggle" title="Edit the one-line notes in place; your edits are saved in this browser">✎ Edit notes</button>' +
+        '      <button class="cht-edit-btn" data-edit="export" title="Download your edited notes as a JSON file">⬇ Export</button>' +
+        '    </div>' +
         '  </div>' +
-        '  <div class="ros-filter">' + chips + '</div>' +
+        '  <div class="ros-filter"></div>' +
         '  <div class="ros-body"></div>' +
         '</div>';
       document.body.appendChild(overlay);
@@ -264,19 +359,23 @@
       searchEl = overlay.querySelector(".cht-search");
       overlay.addEventListener("mousedown", function (e) { if (e.target === overlay) close(); });
       overlay.querySelector(".ros-close").addEventListener("click", close);
-      overlay.querySelectorAll(".ros-chip").forEach(function (b) {
-        b.addEventListener("click", function () {
-          active = b.getAttribute("data-g");
-          overlay.querySelectorAll(".ros-chip").forEach(function (c) { c.classList.toggle("active", c === b); });
-          render();
-        });
-      });
       searchEl.addEventListener("input", function () { query = searchEl.value.trim().toLowerCase(); render(); });
       overlay.querySelectorAll(".cht-sort-btn").forEach(function (b) {
         b.addEventListener("click", function () {
           sortMode = b.getAttribute("data-sort");
           overlay.querySelectorAll(".cht-sort-btn").forEach(function (c) { c.classList.toggle("active", c === b); });
           saveSort();
+          render();
+        });
+      });
+      overlay.querySelectorAll(".cht-edit-btn").forEach(function (b) {
+        b.addEventListener("click", function () {
+          var a = b.getAttribute("data-edit");
+          if (a === "export") { exportNotes(); return; }
+          // toggle edit mode: re-render so every note becomes (un)editable
+          editMode = !editMode;
+          b.classList.toggle("active", editMode);
+          overlay.classList.toggle("cht-editing", editMode);
           render();
         });
       });
@@ -299,7 +398,18 @@
       if (!overlay) build();
       restoreSort();
       syncSortButtons();
-      render();
+
+      // The dataset lives in a lazy dataloader group; make sure it is present,
+      // then (re)read the global and paint. We show the shell immediately and
+      // fill it once the group resolves (synchronously if already loaded).
+      function paint() { resolveData(); renderChips(); render(); }
+      if (cfg.group && window.DATALOADER && !window.DATALOADER.loaded(cfg.group)) {
+        paint(); // show the shell (empty for an instant) while the group loads
+        window.DATALOADER.ensure(cfg.group, paint);
+      } else {
+        paint();
+      }
+
       overlay.classList.remove("hidden");
       requestAnimationFrame(function () { overlay.classList.add("open"); if (searchEl) searchEl.focus(); });
       document.body.classList.add("cmdk-lock");
@@ -323,7 +433,8 @@
 
   // ---- the three panels -----------------------------------------------------
   window.CHEATSHEET = makeCheatsheet({
-    data: window.PYSPARK_CHEAT,
+    dataKey: "PYSPARK_CHEAT",   // resolved lazily on open (ships in the "spark" group)
+    group: "spark",
     lang: "python",
     overlayId: "cheatsheet",
     btnId: "cheatBtn",
@@ -337,7 +448,8 @@
   });
 
   window.PYCHEATSHEET = makeCheatsheet({
-    data: window.PYTHON_CHEAT,
+    dataKey: "PYTHON_CHEAT",    // resolved lazily on open (ships in the "pylearn" group)
+    group: "pylearn",
     lang: "python",
     overlayId: "pycheatsheet",
     btnId: "pyCheatBtn",
@@ -349,7 +461,8 @@
   });
 
   window.SQLCHEATSHEET = makeCheatsheet({
-    data: window.SQL_CHEAT,
+    dataKey: "SQL_CHEAT",       // resolved lazily on open (ships in the "sql" group)
+    group: "sql",
     lang: "sql",
     overlayId: "sqlcheatsheet",
     btnId: "sqlCheatBtn",
@@ -357,7 +470,9 @@
     ariaLabel: "SQL function cheatsheet",
     title: "🗄 SQL cheatsheet",
     sub: "every function, its parameters, and how to use it",
-    placeholder: "Search… (row_number, coalesce, datediff, case, string_agg…)"
+    placeholder: "Search… (row_number, coalesce, datediff, case, string_agg…)",
+    collapsible: true,   // cards collapse to just their signature; click to expand
+    wide: true           // landscape aspect — roomier for comparison tables
   });
 
 })();

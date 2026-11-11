@@ -8,10 +8,11 @@
 // is_incremental()/var()/target come from the supplied context.
 //
 // Supports: {{ expr }}, {% if/elif/else/endif %}, {% for x in seq %}{% endfor %}
-// (with loop.index/first/last), {% set x = expr %}, filters (upper, lower, trim,
-// default, replace, length, join), operators (== != < > <= >= and or not in + - *),
-// literals, dotted access, and the dbt helpers ref/source/var/is_incremental.
-// Whitespace control: {%- -%} and {{- -}}.
+// (with loop.index/first/last), {% set x = expr %}, {% macro name(args) %}…
+// {% endmacro %} (hoisted + callable, with default args), filters (upper, lower,
+// trim, default, replace, length, join), operators (== != < > <= >= and or not
+// in + - *), literals, dotted access, and the dbt helpers ref/source/var/
+// is_incremental. Whitespace control: {%- -%} and {{- -}}.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export class JinjaError extends Error { constructor(m) { super(m); this.name = 'JinjaError'; } }
@@ -149,6 +150,28 @@ function applyFilter(name, val, args) {
 export function render(template, context = {}) {
   const ctx = { target: { schema: 'analytics', name: 'prod' }, is_incremental: false, vars: {}, ...context };
   if (ctx.this == null) ctx.this = `${ctx.target.schema}.this_model`;
+
+  // ── Macros: {% macro name(params) %}…{% endmacro %} ─────────────────────────
+  // Hoist macro definitions (as Jinja2 does): register each as a callable on ctx
+  // that renders its body with the params bound (supporting `param=default`),
+  // then strip the definition from the template so the main pass never sees it.
+  const MACRO_RE = /\{%-?\s*macro\s+([A-Za-z_]\w*)\s*\(([^)]*)\)\s*-?%\}([\s\S]*?)\{%-?\s*endmacro\s*-?%\}/g;
+  template = template.replace(MACRO_RE, (_m, name, paramStr, body) => {
+    const params = paramStr.split(',').map(s => s.trim()).filter(Boolean).map(p => {
+      const eq = p.indexOf('=');
+      return eq < 0 ? { name: p } : { name: p.slice(0, eq).trim(), def: p.slice(eq + 1).trim() };
+    });
+    ctx[name] = (...args) => {
+      const child = { ...ctx };
+      params.forEach((pr, idx) => {
+        child[pr.name] = idx < args.length ? args[idx]
+          : (pr.def !== undefined ? evalExpr(pr.def, ctx) : '');
+      });
+      return render(body, child);
+    };
+    return '';
+  });
+
   // Tokenize into text / {{ }} / {% %}
   const re = /\{\{-?\s*([\s\S]*?)\s*-?\}\}|\{%-?\s*([\s\S]*?)\s*-?%\}/g;
   const toks = []; let last = 0, m;

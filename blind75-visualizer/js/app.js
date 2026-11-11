@@ -88,7 +88,8 @@
     mode: "practice",                                // learn | practice
     pyGroupMode: store.getPref("pyGroupMode") || "pattern", // pattern | ds | difficulty
     approachIndex: {},  // problemId -> selected approach index
-    focusLocal: null    // per-problem focus override: null=inherit global, true/false=forced (reset on nav)
+    focusLocal: null,   // per-problem focus override: null=inherit global, true/false=forced (reset on nav)
+    focusCodeOnly: false // PySpark-only deeper focus tier: show ONLY the solution code (reset on nav)
   };
 
   // ---- master stack/mode model ----
@@ -106,7 +107,34 @@
     if (stack === "pandas") return !!(window.PANDAS && window.PANDAS.all().length);
     return false;
   }
-  function modeAvailable(stack, mode) { return mode === "learn" ? hasLearn(stack) : hasPractice(stack); }
+  function modeAvailable(stack, mode) {
+    // Content already registered for this cell?
+    if (mode === "learn" ? hasLearn(stack) : hasPractice(stack)) return true;
+    // Not yet — but if a lazy data group is DECLARED for it, navigation loads it
+    // on demand (see applyRoute), so the mode is reachable. Treating it as
+    // available here avoids a "coming soon" deadlock where the button stays
+    // disabled because the data never loads (and the data never loads because
+    // the button is disabled). Genuinely contentless cells have no group and
+    // correctly stay unavailable.
+    return groupsForStack(stack, mode).length > 0;
+  }
+
+  // Which lazy data group(s) must be present before we can render (stack, mode)?
+  // DSA (python practice) ships eagerly; every other stack's data is injected on
+  // demand by js/dataloader.js. mode == null means "both modes" (used on resume).
+  function groupsForStack(stack, mode) {
+    if (!window.DATALOADER) return [];
+    var want = [];
+    if (stack === "python") {
+      if (mode === "learn" || mode == null) want.push("pylearn");
+    } else {
+      if (mode === "practice" || mode == null) want.push(stack);
+      if (mode === "learn" || mode == null) want.push(stack + "learn");
+    }
+    var out = [];
+    for (var i = 0; i < want.length; i++) if (window.DATALOADER.has(want[i])) out.push(want[i]);
+    return out;
+  }
 
   // Build the hash for a (mode, stack, id). Python keeps its legacy routes so old
   // deep links still resolve; every other stack uses "#learn|solve/<stack>/<id>".
@@ -765,15 +793,58 @@
     function render() {
       body.innerHTML = "";
       actions.innerHTML = "";
+      // Mark the wrap while editing so a capped logic section moves its scroll
+      // onto the textarea (native caret-follow) instead of the prose container.
+      wrap.classList.toggle("editing", editing);
 
       if (savedEdit() != null) {
         actions.appendChild(h("span", { class: "code-edited", title: "This logic was edited locally" }, "edited"));
       }
 
+      // Copy the logic (its Markdown source) to the clipboard — handy for
+      // re-pasting a write-up elsewhere. Hidden while editing (the textarea
+      // already lets you select/copy natively).
+      if (!editing) {
+        var copyBtn = h("button", { class: "code-mini copy-logic", title: "Copy this logic to the clipboard" }, "⧉ Copy");
+        var copyTimer = null;
+        copyBtn.addEventListener("click", function (e) {
+          e.stopPropagation();
+          copyText(currentSource(), function () {
+            copyBtn.textContent = "✓ Copied";
+            copyBtn.classList.add("on");
+            if (copyTimer) clearTimeout(copyTimer);
+            copyTimer = setTimeout(function () { copyBtn.textContent = "⧉ Copy"; copyBtn.classList.remove("on"); }, 1300);
+          });
+        });
+        actions.appendChild(copyBtn);
+      }
+
       var lock = h("button", { class: "code-mini lock" + (editing ? " on" : "") },
         editing ? "🔓 Editing" : "✏️ Edit");
       lock.title = editing ? "Lock to stop editing (changes are saved)" : "Unlock to rewrite this logic in Markdown";
-      lock.addEventListener("click", function () { editing = !editing; render(); });
+      lock.addEventListener("click", function () {
+        // Carry the reading position across the read<->edit swap so a mid-logic
+        // Edit opens where you were, not scrolled back to the top. The read
+        // scroller is .logic-body (capped); the edit scroller is the textarea.
+        var cur = editing ? body.querySelector(".logic-edit") : body;
+        var denom = cur ? cur.scrollHeight - cur.clientHeight : 0;
+        var frac = denom > 0 ? cur.scrollTop / denom : 0;
+        editing = !editing;
+        render();
+        // Defer past render()'s own focus/fit (both on setTimeout 0) so our
+        // restore wins. When entering edit, also place the caret near the same
+        // spot so the first keystroke doesn't snap the view back to the top.
+        setTimeout(function () {
+          var next = editing ? body.querySelector(".logic-edit") : body;
+          if (!next) return;
+          if (editing && next.value) {
+            var pos = Math.round(frac * next.value.length);
+            try { next.setSelectionRange(pos, pos); } catch (e) {}
+          }
+          var d = next.scrollHeight - next.clientHeight;
+          next.scrollTop = d > 0 ? Math.round(frac * d) : 0;
+        }, 0);
+      });
       actions.appendChild(lock);
 
       if (editing) {
@@ -910,6 +981,13 @@
     ta.value = text; document.body.appendChild(ta); ta.select();
     try { document.execCommand("copy"); } catch (e) {}
     document.body.removeChild(ta);
+  }
+  // Copy text to the clipboard (async API with a synchronous fallback) and run
+  // `done` once it's on the clipboard, for a short "Copied" confirmation.
+  function copyText(text, done) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text); done(); });
+    } else { fallbackCopy(text); done(); }
   }
 
   // ============================================================= SECTION
@@ -1194,6 +1272,9 @@
     // Logic (editable — unlock to rewrite in your own words for active recall)
     var logicSection = section("logic", "Complete Logic — " + (cur.name || "Approach"),
       logicBlock(cur.logic, { id: p.id, ai: ai }, blur), { collapsed: true });
+    // Cap the expanded logic at a fixed viewport height with an internal scroll
+    // instead of letting it push the whole page down.
+    logicSection.classList.add("logic-capped");
     apWrap.appendChild(logicSection);
 
     // Code (RCS / Plain toggle)
@@ -1509,19 +1590,80 @@
   }
 
   // ============================================================= REVISION GRID
+  // Sortable columns in the grid. getVal returns a comparable key (number for
+  // numeric/ranked columns, lower-cased string for text). Columns not listed
+  // here (Problem / Time / Space / Status) are not sortable.
+  var GRID_SORTS = {
+    lc:         { getVal: function (p) { return typeof p.lc === "number" ? p.lc : Number.MAX_SAFE_INTEGER; } },
+    category:   { getVal: function (p) { return String(p.category || "").toLowerCase(); } },
+    difficulty: { getVal: function (p) { var d = DIFF_ORDER[p.difficulty]; return d == null ? 99 : d; } },
+    importance: { getVal: function (p) { return IMP_RANK[impOf(p)]; } },
+    pattern:    { getVal: function (p) { return String((p.meta && p.meta.pattern) || "").toLowerCase(); } }
+  };
+  // Persisted across opens within a session. null key = natural (unsorted) order.
+  var gridSort = { key: null, dir: 1 };
+
   function openGrid() {
-    var modal = el("gridModal");
     var body = el("gridBody");
     body.innerHTML = "";
+    // Restore the DSA title (a lab grid may have overwritten it).
+    var h2 = document.querySelector("#gridModal h2");
+    if (h2) h2.textContent = "All 75 — Revision Grid";
     var table = h("table", { class: "grid-table" });
-    table.innerHTML = "<thead><tr><th>#</th><th>Problem</th><th>Category</th><th>Difficulty</th>" +
-      "<th>Importance</th><th>Pattern</th><th>Time</th><th>Space</th><th>Status</th></tr></thead>";
+
+    // Columns: [label, sortKey|null]. Only keyed columns are clickable.
+    // "S.No." is a running row counter in display order — never sortable.
+    var cols = [
+      ["S.No.", null], ["#", "lc"], ["Problem", null], ["Category", "category"],
+      ["Difficulty", "difficulty"], ["Importance", "importance"],
+      ["Pattern", "pattern"], ["Time", null], ["Space", null], ["Status", null]
+    ];
+    var thead = h("thead");
+    var htr = h("tr");
+    cols.forEach(function (c) {
+      var key = c[1];
+      var sortable = !!key;
+      var arrow = sortable && gridSort.key === key ? (gridSort.dir === 1 ? " ▲" : " ▼") : "";
+      var th = h("th", sortable ? { class: "g-sortable", role: "button", tabindex: "0",
+        "aria-sort": gridSort.key === key ? (gridSort.dir === 1 ? "ascending" : "descending") : "none" } : null,
+        esc(c[0]) + '<span class="g-arrow">' + arrow + "</span>");
+      if (sortable) {
+        th.addEventListener("click", function () { sortGrid(key); });
+        th.addEventListener("keydown", function (e) {
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); sortGrid(key); }
+        });
+      }
+      htr.appendChild(th);
+    });
+    thead.appendChild(htr);
+    table.appendChild(thead);
+
+    var rows = activeProblems().slice();
+    if (gridSort.key && GRID_SORTS[gridSort.key]) {
+      var getVal = GRID_SORTS[gridSort.key].getVal;
+      // Stable sort with a value compare; ties fall back to leetcode number then
+      // title so the order is deterministic.
+      rows = rows.map(function (p, i) { return { p: p, i: i }; });
+      rows.sort(function (x, y) {
+        var av = getVal(x.p), bv = getVal(y.p);
+        var cmp = av < bv ? -1 : av > bv ? 1 : 0;
+        if (cmp === 0) {
+          var al = typeof x.p.lc === "number" ? x.p.lc : Number.MAX_SAFE_INTEGER;
+          var bl = typeof y.p.lc === "number" ? y.p.lc : Number.MAX_SAFE_INTEGER;
+          cmp = al - bl || String(x.p.title).localeCompare(String(y.p.title)) || (x.i - y.i);
+        }
+        return cmp * gridSort.dir;
+      });
+      rows = rows.map(function (o) { return o.p; });
+    }
+
     var tbody = h("tbody");
-    activeProblems().forEach(function (p) {
+    rows.forEach(function (p, idx) {
       var a0 = p.approaches[p.approaches.length - 1] || {};
       var stt = store.getStatus(p.id);
       var tr = h("tr", { class: "grid-row" });
       tr.innerHTML =
+        '<td class="g-sno">' + (idx + 1) + "</td>" +
         "<td>" + (p.lc || "—") + "</td>" +
         '<td class="g-title">' + esc(p.title) + "</td>" +
         "<td>" + esc(p.category) + "</td>" +
@@ -1537,6 +1679,17 @@
     table.appendChild(tbody);
     body.appendChild(table);
     openModal("gridModal");
+  }
+
+  // Toggle sort on a column: first click ascending, second descending, third
+  // clears back to natural order. Re-renders the grid in place.
+  function sortGrid(key) {
+    if (gridSort.key !== key) { gridSort.key = key; gridSort.dir = 1; }
+    else if (gridSort.dir === 1) { gridSort.dir = -1; }
+    else { gridSort.key = null; gridSort.dir = 1; }
+    var scroll = el("gridBody").scrollTop;
+    openGrid();
+    el("gridBody").scrollTop = scroll;
   }
 
   // ============================================================= REVIEW SESSION
@@ -1696,6 +1849,22 @@
   }
 
   function openDashboard() {
+    // The cross-stack dashboard counts every stack, so make sure all lazy data
+    // is present first (show the modal with a loader while it finishes).
+    if (window.DATALOADER && !window.DATALOADER.allLoaded()) {
+      openModal("dashModal");
+      var pend = el("dashBody");
+      if (pend) pend.innerHTML = '<div class="empty-state">Loading all stacks…</div>';
+      window.DATALOADER.ensureAll(function () {
+        if (B.applyOverridesAll) B.applyOverridesAll();
+        buildDashboard();
+      });
+      return;
+    }
+    buildDashboard();
+  }
+
+  function buildDashboard() {
     var body = el("dashBody");
     body.innerHTML = "";
     renderCrossStack(body);
@@ -2098,7 +2267,9 @@
       if (e.key !== "Escape") return;
       if (!document.body.classList.contains("focus-on")) return;
       store.setPref("focus", false);
+      store.setPref("focusCode", false);
       state.focusLocal = null;
+      state.focusCodeOnly = false;
       applyFocus();
       // DSA chip is rebuilt by renderProblem; ProblemLab chip is synced by applyFocus.
       if (state.stack === "python" && state.mode === "practice" && focusViewOk()) renderProblem();
@@ -2131,8 +2302,28 @@
       });
     }
 
+    // global code-only focus toggle (topbar, PySpark + SQL practice) — persisted
+    var focusCodeBtn = el("focusCodeBtn");
+    if (focusCodeBtn) {
+      focusCodeBtn.addEventListener("click", function () {
+        store.setPref("focusCode", !store.getPref("focusCode"));
+        state.focusLocal = null;      // clear per-problem overrides so global applies
+        state.focusCodeOnly = false;
+        applyFocus();
+      });
+    }
+
     // grid
-    el("gridBtn").addEventListener("click", openGrid);
+    el("gridBtn").addEventListener("click", function () {
+      // The SQL & PySpark practice tabs own their own revision grid (ProblemLab);
+      // every other context uses the DSA grid.
+      if ((state.stack === "spark" || state.stack === "sql") && state.mode === "practice"
+          && window.ProblemLab && window.ProblemLab.openGrid) {
+        window.ProblemLab.openGrid();
+      } else {
+        openGrid();
+      }
+    });
     el("gridClose").addEventListener("click", function () { closeModal("gridModal"); });
     el("gridModal").addEventListener("click", function (e) { if (e.target === el("gridModal")) closeModal("gridModal"); });
 
@@ -2158,11 +2349,24 @@
     // settings popover (⋯) — declutters the toolbar
     var settingsBtn = el("settingsBtn"), settingsMenu = el("settingsMenu");
     function closeSettings() { if (!settingsMenu) return; settingsMenu.classList.add("hidden"); settingsBtn.setAttribute("aria-expanded", "false"); }
+    // Anchor the popover to the button in fixed (viewport) coordinates so it
+    // escapes the topbar's horizontal scroll container, which on tablets gets
+    // overflow-x:auto and would otherwise clip an absolutely-positioned menu.
+    function positionSettings() {
+      if (!settingsMenu || !settingsBtn) return;
+      var r = settingsBtn.getBoundingClientRect();
+      settingsMenu.style.position = "fixed";
+      settingsMenu.style.top = (r.bottom + 6) + "px";
+      settingsMenu.style.right = Math.max(8, window.innerWidth - r.right) + "px";
+      settingsMenu.style.left = "auto";
+    }
     function toggleSettings() {
       if (!settingsMenu) return;
       var open = settingsMenu.classList.toggle("hidden") === false;
+      if (open) positionSettings();
       settingsBtn.setAttribute("aria-expanded", open ? "true" : "false");
     }
+    window.addEventListener("resize", function () { if (settingsMenu && !settingsMenu.classList.contains("hidden")) positionSettings(); });
     if (settingsBtn) settingsBtn.addEventListener("click", function (e) { e.stopPropagation(); toggleSettings(); });
     if (settingsMenu) {
       settingsMenu.addEventListener("click", function (e) {
@@ -2358,19 +2562,43 @@
     var main = el("main");
     return !!(main && main.querySelector('.prob-section[data-key="code"]'));
   }
+  // Is the current view one where code-only focus is offered? (PySpark + SQL practice)
+  function sparkPracticeView() {
+    return state.mode === "practice" && (state.stack === "spark" || state.stack === "sql");
+  }
   // Effective focus for the current problem: a per-problem override (focusLocal
-  // = true/false) wins over the persisted global pref; null means "inherit".
+  // = true/false) wins over the persisted global prefs; null means "inherit".
+  // Base focus is on when global "focus" is set, OR (PySpark practice) when the
+  // global "focusCode" pref is set — code-only implies the base focus layout.
   function focusEffective() {
-    return state.focusLocal === null ? !!store.getPref("focus") : state.focusLocal;
+    if (state.focusLocal !== null) return state.focusLocal;
+    if (store.getPref("focus")) return true;
+    if (sparkPracticeView() && store.getPref("focusCode")) return true;
+    return false;
+  }
+  // Effective code-only tier for the current problem (PySpark practice only):
+  // a per-problem cycle override wins; otherwise inherit the global focusCode pref.
+  function codeOnlyEffective() {
+    if (!sparkPracticeView()) return false;
+    if (state.focusLocal === null) return !!store.getPref("focusCode");
+    return state.focusCodeOnly;
   }
   function applyFocus() {
     var g = !!store.getPref("focus");
     var ok = focusViewOk();
     document.body.classList.toggle("focus-on", ok && focusEffective());
+    // Deeper "code only" tier: PySpark practice only, layered on top of focus-on.
+    document.body.classList.toggle("focus-code-only", ok && focusEffective() && codeOnlyEffective());
     var gb = el("focusGlobalBtn");
     if (gb) {
       gb.setAttribute("aria-pressed", g ? "true" : "false");
       gb.style.display = ok ? "" : "none"; // hide the toggle off the problem view
+    }
+    // Global code-only button: PySpark practice only.
+    var cb = el("focusCodeBtn");
+    if (cb) {
+      cb.setAttribute("aria-pressed", store.getPref("focusCode") ? "true" : "false");
+      cb.style.display = (ok && sparkPracticeView()) ? "" : "none";
     }
     if (ok) ensureLabFocusBtn();
   }
@@ -2386,14 +2614,31 @@
     if (!btn) {
       btn = h("button", { class: "chip-btn focus-local-btn" }, "🎯 Focus");
       btn.addEventListener("click", function () {
-        state.focusLocal = !focusEffective(); // flip the effective state for this problem
-        applyFocus();                         // re-paint body class + chip label
+        if (sparkPracticeView()) {
+          // 3-state cycle (PySpark only): Off -> Focus -> Focus: Code -> Off.
+          // Written as explicit per-problem overrides off the EFFECTIVE state, so
+          // the chip cleanly overrides the global focus / focusCode prefs here.
+          if (!focusEffective()) {              // Off -> standard focus
+            state.focusLocal = true;
+            state.focusCodeOnly = false;
+          } else if (!codeOnlyEffective()) {    // standard -> code only
+            state.focusLocal = true;
+            state.focusCodeOnly = true;
+          } else {                              // code only -> Off
+            state.focusLocal = false;
+            state.focusCodeOnly = false;
+          }
+        } else {
+          state.focusLocal = !focusEffective(); // other labs: plain on/off toggle
+        }
+        applyFocus();                           // re-paint body class + chip label
       });
       actions.appendChild(btn);
     }
     var on = focusEffective();
+    var codeOnly = on && codeOnlyEffective();
     btn.classList.toggle("on", on);
-    btn.textContent = on ? "🎯 Focus: ON" : "🎯 Focus";
+    btn.textContent = codeOnly ? "🎯 Focus: Code" : (on ? "🎯 Focus: ON" : "🎯 Focus");
   }
 
   // Set the shell "chrome" (state, body attrs, switch highlights) WITHOUT
@@ -2489,10 +2734,31 @@
   // It NEVER writes history, so it is safe to call on popstate and on load.
   var lastRenderedHash = null;
   var lastView = null; // "stack:mode" of what is currently painted
-  function applyRoute() {
-    if (location.hash === lastRenderedHash) return; // Back can fire popstate + hashchange
+  function applyRoute(force) {
+    // popstate/hashchange/cloud-refresh pass an Event as the first arg; only an
+    // explicit boolean true (from the lazy-load callback below) counts as force.
+    if (force !== true && location.hash === lastRenderedHash) return; // Back can fire popstate + hashchange
+
+    // Lazy-load this stack's data before rendering. Show a brief placeholder,
+    // then re-enter once the group(s) are present. DSA needs nothing here.
+    var pre = parseRoute(location.hash);
+    var need = groupsForStack(pre.stack, pre.mode);
+    if (need.length && window.DATALOADER && !window.DATALOADER.loadedAll(need)) {
+      var loadingEl = el("main");
+      if (loadingEl) loadingEl.innerHTML =
+        '<div class="empty-state">Loading ' + esc(STACK_LABEL[pre.stack] || pre.stack) + '…</div>';
+      window.DATALOADER.ensure(need, function () {
+        // A lazily-loaded stack just registered its problems — overlay any
+        // baked user edits onto them before this (re)render.
+        if (B.applyOverridesAll) B.applyOverridesAll();
+        applyRoute(true);
+      });
+      return;
+    }
+
     lastRenderedHash = location.hash;
     state.focusLocal = null; // per-problem focus override resets on every navigation
+    state.focusCodeOnly = false; // deeper code-only tier is transient too
     navProgress();
     var r = parseRoute(location.hash);
 
@@ -2531,6 +2797,9 @@
     applyRoute();
   }
   B.navigate = navigate;
+  // Let ProblemLab reuse the shared modal transitions for its revision grid.
+  B.openModal = openModal;
+  B.closeModal = closeModal;
   // Let the practice lab refresh the header collapse-all icon after it changes
   // its own group set (e.g. flipping Pattern ⇄ Domain grouping).
   B.updateToggleAllIcon = updateToggleAllIcon;
@@ -2579,7 +2848,34 @@
     renderSidebar(); renderProblem(); renderProgress();
   }
 
+  // Ensure the stack we're about to show has its data, THEN boot; afterwards
+  // hydrate the remaining stacks in the background so the cross-stack dashboard
+  // and progress totals fill in without blocking first paint.
   function boot() {
+    var tgt, mode;
+    if (location.hash && location.hash !== "#") {
+      var r0 = parseRoute(location.hash);
+      tgt = r0.stack; mode = r0.mode;
+    } else {
+      tgt = store.getPref("lastStack") || "python";
+      if (STACK_KEYS.indexOf(tgt) === -1) tgt = "python";
+      mode = store.getPref("lastModeFor_" + tgt) || "practice";
+    }
+    // Pre-load only the stack+mode we're about to paint (applyRoute still
+    // lazy-loads correctly on its own, so this just avoids a "Loading" flash).
+    var need = groupsForStack(tgt, mode);
+    // On-demand only: each stack's data loads when that stack is first opened
+    // (applyRoute gate), and the cross-stack dashboard pulls the rest when it is
+    // opened. We deliberately do NOT background-load every stack, so a device
+    // never has to hold all stacks in memory at once (avoids "Out of Memory").
+    if (need.length && window.DATALOADER) window.DATALOADER.ensure(need, function () {
+      if (B.applyOverridesAll) B.applyOverridesAll();
+      bootReal();
+    });
+    else bootReal();
+  }
+
+  function bootReal() {
     // restore persisted desktop sidebar-collapse state
     if (store.getPref("sidebarCollapsed")) document.body.classList.add("sidebar-collapsed");
 

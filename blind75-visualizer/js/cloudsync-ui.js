@@ -11,6 +11,10 @@
 
   var B = window.BLIND75 || (window.BLIND75 = {});
 
+  // Where the automatic publisher runs (GitHub Actions). Shown to the user so
+  // they can watch a publish happen.
+  var GH_ACTIONS_URL = "https://github.com/Rajesh-Satuluri/NewVisual/actions/workflows/bake-edits.yml";
+
   // ---- "Last synced …" label shown near My Notes --------------------------
   // The notes sections (app.js + problemlab.js) drop in a <span
   // class="note-sync-time">; a single listener keeps whichever one is on
@@ -68,7 +72,20 @@
     ".cs-warn{margin:10px 0;padding:9px 11px;border-radius:9px;font-size:12.5px;",
     "  background:rgba(255,196,0,.12);border:1px solid rgba(255,196,0,.35);}",
     ".cs-warn code{font-family:ui-monospace,Menlo,monospace;}",
-    "@media (prefers-color-scheme:light){.cs-card{background:#fff;color:#0b1a2b;}}"
+    "@media (prefers-color-scheme:light){.cs-card{background:#fff;color:#0b1a2b;}}",
+    /* publish toast */
+    ".cs-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);",
+    "  z-index:10001;max-width:min(92vw,520px);box-sizing:border-box;",
+    "  background:var(--panel,#121a2a);color:var(--ink,#e7eef7);",
+    "  border:1px solid rgba(255,255,255,.14);border-left:4px solid #0a6fd0;",
+    "  border-radius:11px;box-shadow:0 12px 40px rgba(0,0,0,.45);",
+    "  padding:13px 15px;font:13.5px/1.5 inherit;}",
+    ".cs-toast.err{border-left-color:#ff8a8a;}",
+    ".cs-toast b{display:block;margin-bottom:2px;font-size:14px;}",
+    ".cs-toast a{color:#5cb3ff;}",
+    ".cs-toast .cs-x{float:right;margin-left:12px;cursor:pointer;opacity:.6;",
+    "  background:none;border:0;color:inherit;font-size:16px;line-height:1;}",
+    "@media (prefers-color-scheme:light){.cs-toast{background:#fff;color:#0b1a2b;}}"
   ].join("\n");
 
   function injectStyleOnce() {
@@ -159,6 +176,13 @@
       if (B.cloud) B.cloud.pull({ force: true });
     });
 
+    var pubBtn = document.createElement("button");
+    pubBtn.className = "cs-btn cs-btn-primary";
+    pubBtn.type = "button";
+    pubBtn.textContent = "↑ Publish to GitHub";
+    pubBtn.title = "Push your edits so they're baked into the live tool and the Backup";
+    pubBtn.addEventListener("click", publishNow);
+
     var discBtn = document.createElement("button");
     discBtn.className = "cs-btn cs-btn-danger";
     discBtn.type = "button";
@@ -179,6 +203,7 @@
 
     actions.appendChild(linkBtn);
     actions.appendChild(syncBtn);
+    actions.appendChild(pubBtn);
     actions.appendChild(discBtn);
     actions.appendChild(spacer);
     actions.appendChild(closeBtn);
@@ -201,6 +226,58 @@
   }
 
   function setStatus(txt) { if (statusEl) statusEl.textContent = txt || ""; }
+
+  // ---- publish toast ------------------------------------------------------
+  var toastEl = null, toastTimer = null;
+  function toast(titleHtml, bodyHtml, isErr, stickyMs) {
+    injectStyleOnce();
+    if (toastEl && toastEl.parentNode) toastEl.parentNode.removeChild(toastEl);
+    if (toastTimer) clearTimeout(toastTimer);
+    toastEl = document.createElement("div");
+    toastEl.className = "cs-toast" + (isErr ? " err" : "");
+    toastEl.setAttribute("role", "status");
+    toastEl.innerHTML =
+      '<button class="cs-x" aria-label="Dismiss">&times;</button>' +
+      "<b></b><span></span>";
+    toastEl.querySelector("b").textContent = titleHtml;
+    toastEl.querySelector("span").innerHTML = bodyHtml; // bodyHtml is built by us only
+    toastEl.querySelector(".cs-x").addEventListener("click", function () {
+      if (toastEl && toastEl.parentNode) toastEl.parentNode.removeChild(toastEl);
+    });
+    (document.body || document.documentElement).appendChild(toastEl);
+    toastTimer = setTimeout(function () {
+      if (toastEl && toastEl.parentNode) toastEl.parentNode.removeChild(toastEl);
+    }, stickyMs || 9000);
+  }
+
+  // ---- "Publish now": push edits to the cloud; the scheduled GitHub Action
+  // bakes them into the site (and the Backup zip) within a few minutes. ------
+  var publishing = false;
+  function publishNow() {
+    if (publishing) return;
+    if (!B.cloud || !B.cloud.enabled()) {
+      // Sync must be on, otherwise the edits never leave this browser and the
+      // publisher has nothing to read. Walk the user straight into setup.
+      toast("Turn on Cloud sync first",
+        "Your edits only live in this browser until sync is on. Opening Cloud sync — pick a code and press <b>Link &amp; sync</b>, then Publish.",
+        true, 11000);
+      open();
+      return;
+    }
+    publishing = true;
+    toast("Publishing…", "Sending your latest edits to the cloud.", false, 60000);
+    B.cloud.flush().then(function () {
+      publishing = false;
+      toast("Saved to the cloud ✓",
+        'GitHub will bake your edits into the live tool and the Backup within a few minutes. ' +
+        'You can watch it at <a href="' + GH_ACTIONS_URL + '" target="_blank" rel="noopener">GitHub Actions</a>.',
+        false, 12000);
+    })["catch"](function (err) {
+      publishing = false;
+      toast("Couldn't publish", (err && err.message ? err.message : "Please try again."), true, 11000);
+    });
+  }
+  B.publishEdits = publishNow;
 
   function open() {
     buildModal();
@@ -227,6 +304,20 @@
     var anchor = document.getElementById("importBtn");
     if (anchor && anchor.parentNode === menu) menu.insertBefore(item, anchor.nextSibling);
     else menu.appendChild(item);
+
+    // A one-click "publish my edits to GitHub" item, right below Cloud sync.
+    if (!document.getElementById("publishEditsBtn")) {
+      var pub = document.createElement("button");
+      pub.id = "publishEditsBtn";
+      pub.className = "menu-item";
+      pub.setAttribute("role", "menuitem");
+      pub.textContent = "↑ Publish edits → GitHub";
+      pub.addEventListener("click", function () {
+        menu.classList.add("hidden");
+        publishNow();
+      });
+      menu.insertBefore(pub, item.nextSibling);
+    }
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", addMenuItem);

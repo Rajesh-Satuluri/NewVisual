@@ -5,7 +5,7 @@
 import { MODULES } from '../components/nav.js';
 import { all, counts } from '../data/progress-store.js';
 
-const GROUP_ORDER = ['Foundation', 'Core Internals', 'Consumer Side', 'Delivery', 'Ecosystem', 'Operations', 'Advanced'];
+const GROUP_ORDER = ['Foundation', 'Core Internals', 'Consumer Side', 'Delivery', 'Ecosystem', 'Operations', 'Advanced', 'Change Data Capture', 'CDC Integrations & Lakehouse'];
 
 function readDone() {
   try { return new Set(JSON.parse(localStorage.getItem('kafka-done') || '[]')); } catch (e) { return new Set(); }
@@ -45,6 +45,7 @@ export function mount(container) {
     const quizAttempted = Object.keys(quiz).length;
     const dec = counts('decisions');
     const trb = counts('troubleshoot');
+    const cod = counts('coding');
     const tiered = Object.keys(all('tiered')).length;
     const srs = all('srs');
     const srsLearning = Object.values(srs).filter(s => s.reps > 0).length;
@@ -81,6 +82,7 @@ export function mount(container) {
         ${stat(`${tiered}`, 'Tiered answers studied', 'Weak→Senior')}
         ${stat(`${selfx}`, 'Self-explanations written', 'generate-then-compare')}
         ${stat(`${srsLearning}`, 'Cards in review', 'spaced repetition')}
+        ${stat(`${cod.correct}/${cod.attempted || 0}`, 'Coding drills', 'got it / rated')}
       </div>
 
       <div class="db-grid2">

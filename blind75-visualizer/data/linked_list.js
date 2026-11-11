@@ -26,7 +26,11 @@
       description:
         "Given the `head` of a singly linked list, determine whether the list contains a **cycle**.\n\n" +
         "A cycle exists if some node can be reached again by continuously following the `next` pointers. Internally the position is tracked by a `pos` index that marks which node the tail's `next` connects to, but `pos` is **not** passed to you \u2014 you only get `head`.\n\n" +
-        "Return `true` if there is a cycle, otherwise `false`.",
+        "Return `true` if there is a cycle, otherwise `false`.\n\n" +
+        "**A cycle — the tail's `next` links back to an earlier node (here node 2):**\n\n" +
+        "```linkedlist\n1 -> 2 -> 3 -> 4 -> *2\n```\n\n" +
+        "**No cycle — the list ends at `None`:**\n\n" +
+        "```linkedlist\n1 -> 2 -> 3 -> 4 -> None\n```",
       constraints: [
         "The number of nodes is in the range `[0, 10^4]`.",
         "`-10^5 <= Node.val <= 10^5`",
@@ -68,6 +72,8 @@
           space: "O(n)",
           whenToUse: "The most intuitive answer; reach for it first if constant space is not required.",
           logic:
+            "**The list to test — here the tail loops back to node 2, forming a cycle:**\n\n" +
+            "```linkedlist\n1 -> 2 -> 3 -> 4 -> *2\n```\n\n" +
             "**What it asks.** Starting from `head` and following the `next` pointers, decide whether you ever revisit a node, i.e. whether the chain loops back on itself instead of ending at `null`. You are given only `head`; the hidden `pos` that defines where the tail links back is never handed to you, so the loop must be inferred purely from the pointer structure.\n\n" +
             "**Why the naive idea fails.** There is nothing logically wrong with the brute-force intuition here, it is simply memory-hungry. A cycle means you eventually step onto a node you have already stepped on, so the obvious plan is to record every node you pass and flag the first repeat. That is correct, but it spends `O(n)` extra memory, which the constant-space Floyd's version below avoids entirely.\n\n" +
             "**Key Idea.** In a singly linked list each node is reached by following exactly one `next`. The only way to land on the same node twice is for some node's `next` to point backward into the part you have already walked, and that is exactly the definition of a cycle. So remembering the nodes you have already seen and watching for a repeat is a direct and correct test.\n\n" +
@@ -215,7 +221,13 @@
       link: "https://leetcode.com/problems/merge-two-sorted-lists/",
       meta: { pattern: "Two Pointers + Dummy Head", dataStructure: "Linked List", technique: "Splice sorted nodes" },
       description:
-        "You are given the heads of two sorted singly linked lists, `list1` and `list2`. Merge them into **one sorted list** by splicing together the existing nodes (do not create new node values), and return the head of the merged list.",
+        "You are given the heads of two sorted singly linked lists, `list1` and `list2`. Merge them into **one sorted list** by splicing together the existing nodes (do not create new node values), and return the head of the merged list.\n\n" +
+        "**`list1`:**\n\n" +
+        "```linkedlist\n1 -> 2 -> 4 -> None\n```\n\n" +
+        "**`list2`:**\n\n" +
+        "```linkedlist\n1 -> 3 -> 4 -> None\n```\n\n" +
+        "**Merged:**\n\n" +
+        "```linkedlist\n1 -> 1 -> 2 -> 3 -> 4 -> 4 -> None\n```",
       constraints: [
         "The number of nodes in each list is in the range `[0, 50]`.",
         "`-100 <= Node.val <= 100`",
@@ -256,6 +268,9 @@
           space: "O(1)",
           whenToUse: "The clean, standard answer for merging two sorted linked lists.",
           logic:
+            "**Two sorted inputs to weave into one:**\n\n" +
+            "```linkedlist\n1 -> 2 -> 4 -> None\n```\n\n" +
+            "```linkedlist\n1 -> 3 -> 4 -> None\n```\n\n" +
             "**What it asks.** Given the heads of two already-sorted singly linked lists, weave them into one sorted list by relinking the existing nodes, not by allocating new ones.\n\n" +
             "**Why the naive idea fails.** You could dump every value into an array, sort it, and build a fresh list, but that throws away the fact that the inputs are already sorted, wastes `O(n + m)` space, and creates new nodes when the problem explicitly asks you to splice the given ones. Exploiting the existing order is both faster and cleaner.\n\n" +
             "**Key Idea.** Because both lists are sorted, the next node of the merged result is always the smaller of the two current front nodes. Compare the two heads, splice off the smaller, advance only that list, and repeat, which is exactly the merge step of merge sort. The one nuisance is the first output node, which has no predecessor to attach to; a `dummy` (sentinel) node placed in front solves that so every append is uniform.\n\n" +
@@ -349,7 +364,13 @@
       link: "https://leetcode.com/problems/merge-k-sorted-lists/",
       meta: { pattern: "K-Way Merge", dataStructure: "Min-Heap", technique: "Priority queue over heads" },
       description:
-        "You are given an array `lists` of `k` sorted linked lists, each in non-decreasing order. Merge all of them into a single sorted linked list and return its head.",
+        "You are given an array `lists` of `k` sorted linked lists, each in non-decreasing order. Merge all of them into a single sorted linked list and return its head.\n\n" +
+        "**Three input lists (`k = 3`):**\n\n" +
+        "```linkedlist\n1 -> 4 -> 5 -> None\n```\n\n" +
+        "```linkedlist\n1 -> 3 -> 4 -> None\n```\n\n" +
+        "```linkedlist\n2 -> 6 -> None\n```\n\n" +
+        "**Merged into one sorted list:**\n\n" +
+        "```linkedlist\n1 -> 1 -> 2 -> 3 -> 4 -> 4 -> 5 -> 6 -> None\n```",
       constraints: [
         "`0 <= k <= 10^4`",
         "`0 <= lists[i].length <= 500`",
@@ -392,6 +413,10 @@
           space: "O(1)",
           whenToUse: "Simple to reason about, but slow when k is large.",
           logic:
+            "**`k` sorted lists to combine into one sorted list:**\n\n" +
+            "```linkedlist\n1 -> 4 -> 5 -> None\n```\n\n" +
+            "```linkedlist\n1 -> 3 -> 4 -> None\n```\n\n" +
+            "```linkedlist\n2 -> 6 -> None\n```\n\n" +
             "**What it asks.** Combine `k` sorted linked lists into a single sorted list. This approach reaches for the simplest correct plan before worrying about speed.\n\n" +
             "**Why the naive idea fails.** The idea itself is fine; its running time is the problem. Reuse the two-list merge from LC 21 and fold the lists in one at a time: merge list 1 with list 2, merge that result with list 3, then with list 4, and so on until every list is absorbed. It is clearly correct because each individual pairwise merge is correct. The cost is that the accumulated list keeps growing, and every later merge re-walks all the nodes already merged. By the time you fold in the last list you re-touch nearly all `N` nodes again, and across `k` rounds that repeated walking sums to `O(k * N)`, which for large `k` is far worse than the heap version.\n\n" +
             "**Key Idea.** The only structural insight in play is that merging is associative: merging the lists pairwise in sequence yields the same sorted result as any other grouping. That is what makes the fold valid. The inefficiency comes purely from re-scanning the ever-larger accumulator on each round, not from any error in the logic.\n\n" +
@@ -566,7 +591,11 @@
       meta: { pattern: "Two Pointers (Gap of n)", dataStructure: "Linked List", technique: "One-pass with dummy" },
       description:
         "Given the `head` of a linked list, remove the `n`-th node counting from the **end** of the list, and return the head of the modified list.\n\n" +
-        "Aim to do it in a single pass over the list.",
+        "Aim to do it in a single pass over the list.\n\n" +
+        "**Before — remove the 2nd node from the end (node 4):**\n\n" +
+        "```linkedlist\n1 -> 2 -> 3 -> 4 -> 5 -> None\n```\n\n" +
+        "**After — node 3 now links straight to node 5:**\n\n" +
+        "```linkedlist\n1 -> 2 -> 3 -> 5 -> None\n```",
       constraints: [
         "The number of nodes is `sz`, with `1 <= sz <= 30`.",
         "`0 <= Node.val <= 100`",
@@ -609,6 +638,9 @@
           space: "O(1)",
           whenToUse: "The expected answer: find the node before the target in a single scan.",
           logic:
+            "**Remove the 2nd node from the end (node 4), then node 3 links to node 5:**\n\n" +
+            "```linkedlist\n1 -> 2 -> 3 -> 4 -> 5 -> None\n```\n\n" +
+            "```linkedlist\n1 -> 2 -> 3 -> 5 -> None\n```\n\n" +
             "**What it asks.** Remove the `n`-th node counting from the end of the list and return the new head, ideally in a single pass and without first measuring the list's length.\n\n" +
             "**Why the naive idea fails.** The straightforward plan is to walk the whole list once to count its length `sz`, then walk again `sz - n` steps to reach the node before the target and unlink it. That is correct but takes two passes. With a fixed gap between two pointers you can achieve the same in one pass.\n\n" +
             "**Key Idea.** To delete a node you need a handle on the node *before* it. Keep two pointers exactly `n` links apart: a `fast` front-runner and a `slow` trailer. Advance `fast` ahead by `n` first, then move both in lockstep. When `fast` reaches the last node, the fixed gap guarantees `slow` is sitting exactly on the predecessor of the node to remove. A `dummy` node placed before `head` ensures the target always has a predecessor, even when the target is the head itself, so deleting the first node needs no special case.\n\n" +
@@ -696,7 +728,11 @@
       description:
         "You are given the head of a singly linked list `L0 -> L1 -> ... -> Ln-1 -> Ln`.\n\n" +
         "Reorder it in place to `L0 -> Ln -> L1 -> Ln-1 -> L2 -> Ln-2 -> ...`, interleaving nodes from the front and the back.\n\n" +
-        "You may **not** change node values \u2014 only rearrange the nodes themselves. Return nothing (the list is modified in place).",
+        "You may **not** change node values \u2014 only rearrange the nodes themselves. Return nothing (the list is modified in place).\n\n" +
+        "**Before:**\n\n" +
+        "```linkedlist\n1 -> 2 -> 3 -> 4 -> None\n```\n\n" +
+        "**After \u2014 interleave front and back (`L0 -> Ln -> L1 -> Ln-1 -> ...`):**\n\n" +
+        "```linkedlist\n1 -> 4 -> 2 -> 3 -> None\n```",
       constraints: [
         "The number of nodes is in the range `[1, 5 * 10^4]`.",
         "`1 <= Node.val <= 1000`"
@@ -738,6 +774,9 @@
           space: "O(1)",
           whenToUse: "The expected in-place answer combining three classic linked-list moves.",
           logic:
+            "**Before, then interleaved front-and-back after:**\n\n" +
+            "```linkedlist\n1 -> 2 -> 3 -> 4 -> None\n```\n\n" +
+            "```linkedlist\n1 -> 4 -> 2 -> 3 -> None\n```\n\n" +
             "**What it asks.** Rearrange the list in place to `L0 -> Ln -> L1 -> Ln-1 -> L2 -> ...`, interleaving nodes from the front and the back, without changing any values and without allocating a new list.\n\n" +
             "**Why the naive idea fails.** You could copy every node reference into an array to get `O(1)` indexing, then relink by walking one index inward from each end. It is correct but spends `O(n)` extra space; the pointer-surgery method below achieves the same result in `O(1)`.\n\n" +
             "**Key Idea.** The target ordering is precisely the front half of the list woven together with the *reversed* back half. That decomposes the problem into three staple linked-list operations: find the middle, reverse the second half, and merge the two halves by alternating one node from each. Each move is well known on its own; the real insight is recognizing that this problem is their composition.\n\n" +
@@ -856,7 +895,11 @@
       meta: { pattern: "Pointer Reversal", dataStructure: "Linked List", technique: "prev/curr in-place flip" },
       description:
         "Given the `head` of a singly linked list, reverse the list and return the head of the reversed list.\n\n" +
-        "Each node's `next` pointer must be flipped so that the last node becomes the new head and the original head becomes the tail.",
+        "Each node's `next` pointer must be flipped so that the last node becomes the new head and the original head becomes the tail.\n\n" +
+        "**Before:**\n\n" +
+        "```linkedlist\n1 -> 2 -> 3 -> 4 -> None\n```\n\n" +
+        "**After — every arrow flipped; old tail is the new head:**\n\n" +
+        "```linkedlist\n4 -> 3 -> 2 -> 1 -> None\n```",
       constraints: [
         "The number of nodes is in the range `[0, 5000]`.",
         "`-5000 <= Node.val <= 5000`"
@@ -896,6 +939,9 @@
           space: "O(1)",
           whenToUse: "The standard, constant-space answer; reach for this first.",
           logic:
+            "**Flip every arrow — before, then after (old tail becomes the new head):**\n\n" +
+            "```linkedlist\n1 -> 2 -> 3 -> 4 -> None\n```\n\n" +
+            "```linkedlist\n4 -> 3 -> 2 -> 1 -> None\n```\n\n" +
             "**What it asks.** You are handed the `head` of a singly linked list, where each node knows only its own value and a single forward pointer `next` to the node after it. Turn the chain `head -> ... -> tail -> null` into `tail -> ... -> head -> null` by redirecting every `next` pointer to face the opposite way, then return the new head (which is the old tail). Crucially, you are rewiring the *existing* nodes, not producing a copy.\n\n" +
             "**Why the naive idea fails.** The tempting shortcut is to walk the list once collecting all values into an array, then build a brand-new list by reading that array back to front. It works, but it allocates `O(n)` extra memory for the array and constructs `n` fresh nodes, when the real task is simply to turn the arrows already present. It also side-steps the actual skill the problem is testing — pointer manipulation on the nodes themselves. In-place flipping achieves the same result touching each node once and using only a handful of pointer variables.\n\n" +
             "**Key Idea.** Sweep the list a single time with a `curr` cursor, while dragging a second pointer `prev` one step behind it. Think of `prev` as the head of the part you have *already* reversed and `curr` as the head of the part still untouched. At each node you perform one local surgery: make `curr.next` point *backward* at `prev` instead of forward at its old successor. But there is a trap unique to linked lists — the moment you overwrite `curr.next`, the link to the rest of the untouched list is gone forever. So before rewiring you must stash `curr.next` in a temporary (`nxt`); that saved reference is your only remaining handle on the remainder. `prev` is seeded with `None` because the original head is destined to become the new tail, and a tail's `next` must be `null`.\n\n" +
@@ -1044,7 +1090,13 @@
       description:
         "You are given two non-empty linked lists, `l1` and `l2`, representing two non-negative integers. The digits are stored in **reverse order**, one digit per node (so the ones place is the head).\n\n" +
         "Add the two numbers and return the sum as a linked list, also in reverse-order digits.\n\n" +
-        "Neither number has leading zeros, except the number 0 itself.",
+        "Neither number has leading zeros, except the number 0 itself.\n\n" +
+        "**`l1` = 342, stored least-significant digit first:**\n\n" +
+        "```linkedlist\n2 -> 4 -> 3 -> None\n```\n\n" +
+        "**`l2` = 465:**\n\n" +
+        "```linkedlist\n5 -> 6 -> 4 -> None\n```\n\n" +
+        "**Sum = 807, also reverse-order digits:**\n\n" +
+        "```linkedlist\n7 -> 0 -> 8 -> None\n```",
       constraints: [
         "The number of nodes in each list is in the range `[1, 100]`.",
         "`0 <= Node.val <= 9`",
@@ -1087,6 +1139,10 @@
           space: "O(max(n, m))",
           whenToUse: "The standard, single-pass answer for reverse-order digit lists.",
           logic:
+            "**342 + 465 = 807, each stored least-significant digit first:**\n\n" +
+            "```linkedlist\n2 -> 4 -> 3 -> None\n```\n\n" +
+            "```linkedlist\n5 -> 6 -> 4 -> None\n```\n\n" +
+            "```linkedlist\n7 -> 0 -> 8 -> None\n```\n\n" +
             "**What it asks.** Add two numbers whose digits are given least-significant-first as linked lists, returning the sum in the same reverse-digit format.\n\n" +
             "**Why the naive idea fails.** You might walk both lists to reconstruct two integers, add them, then rebuild a list from the sum's digits. In many languages that overflows for the 100-digit inputs allowed here; even in Python it throws away the very convenience the format hands you. Because the heads are the ones digits, you can add place by place in one pass with a running carry — exactly grade-school addition.\n\n" +
             "**Key Idea.** Reverse order means the two nodes you meet at each step share the same place value, so their digits add directly. Maintain a single `carry`. At each position compute `carry + d1 + d2`, write `sum % 10` as the new digit, and roll `sum // 10` into the carry for the next position. A `dummy` head lets you append result nodes uniformly without special-casing the first one, and a running `tail` tracks where to append.\n\n" +
@@ -1161,7 +1217,9 @@
       description:
         "You are given the `head` of a linked list where each node has a `val`, a `next` pointer, and an extra `random` pointer that can point to **any** node in the list or to `null`.\n\n" +
         "Construct a **deep copy** of the list: a brand-new set of nodes whose `next` and `random` pointers mirror the original structure but point only to the copied nodes, never to the originals. Return the head of the copied list.\n\n" +
-        "Each node is described as a pair `[val, random_index]`, where `random_index` is the index of the node `random` points to, or `null`.",
+        "Each node is described as a pair `[val, random_index]`, where `random_index` is the index of the node `random` points to, or `null`.\n\n" +
+        "**The `next` chain (each node *also* carries a second `random` pointer, not drawn here):**\n\n" +
+        "```linkedlist\n7 -> 13 -> 11 -> 10 -> 1 -> None\n```",
       constraints: [
         "The number of nodes is in the range `[0, 1000]`.",
         "`-10^4 <= Node.val <= 10^4`",
@@ -1202,6 +1260,8 @@
           space: "O(n)",
           whenToUse: "The most intuitive answer; explain this first before the O(1)-space trick.",
           logic:
+            "**The `next` chain to clone (each node also carries a `random` pointer, not drawn here):**\n\n" +
+            "```linkedlist\n7 -> 13 -> 11 -> 10 -> 1 -> None\n```\n\n" +
             "**What it asks.** Produce a fully independent clone of the list — new nodes only — whose `next` and `random` pointers reproduce the original wiring but stay entirely within the copy.\n\n" +
             "**Why the naive idea fails.** Copying `next` in a single walk is easy, but `random` can point to a node you have not created yet (a forward reference) or one you already passed. You cannot set a clone's `random` until the clone of its target exists, so a single naive pass cannot resolve all the back- and forward-references.\n\n" +
             "**Key Idea.** Break the dependency by first creating every clone, then wiring the pointers. A hash map from each original node to its clone gives you `O(1)` lookup of 'the copy of this node.' In pass one, create a bare clone for every original and record the mapping. In pass two, for each original node set `clone.next = map[original.next]` and `clone.random = map[original.random]` — both targets now exist in the map, forward or backward.\n\n" +
@@ -1347,7 +1407,10 @@
       meta: { pattern: "Cycle Detection on Implicit List", dataStructure: "Array as Linked List", technique: "Floyd's tortoise & hare" },
       description:
         "Given an array `nums` of `n + 1` integers where each value is in the range `[1, n]`, exactly one value is repeated — possibly more than once. Return that repeated number.\n\n" +
-        "You must solve it **without modifying** the array and using only `O(1)` extra space.",
+        "You must solve it **without modifying** the array and using only `O(1)` extra space.\n\n" +
+        "**Key insight — treat each index as a node whose `next` is `nums[i]`. A repeated value makes two indices point to the same place, so this implicit list must contain a cycle. For `nums = [1, 3, 4, 2, 2]` the index chain `0 -> 1 -> 3 -> 2 -> 4 -> 2 ...` loops back to node 2:**\n\n" +
+        "```linkedlist\n0 -> 1 -> 3 -> 2 -> 4 -> *2\n```\n\n" +
+        "Floyd's cycle detection on this implicit list finds the cycle entry, which is the duplicate number.",
       constraints: [
         "`1 <= n <= 10^5`, and `nums` has length `n + 1`.",
         "`1 <= nums[i] <= n`",
@@ -1388,6 +1451,8 @@
           space: "O(1)",
           whenToUse: "The expected answer given the no-modify, O(1)-space constraints.",
           logic:
+            "**Treat each index as a node whose `next` is `nums[i]`; the repeated value forces a cycle. For `nums = [1, 3, 4, 2, 2]` the index chain loops back to node 2:**\n\n" +
+            "```linkedlist\n0 -> 1 -> 3 -> 2 -> 4 -> *2\n```\n\n" +
             "**What it asks.** Find the one repeated value among `n + 1` numbers drawn from `[1, n]`, without altering the array and using constant extra space.\n\n" +
             "**Why the naive idea fails.** Sorting or a hash set finds the duplicate easily, but sorting mutates the array (or costs `O(n)` space for a copy) and a set costs `O(n)` space — both violate the constraints. Marking visited indices by negating values also mutates the input. The constraints deliberately rule out every easy route.\n\n" +
             "**Key Idea.** Treat the array as a hidden linked list: from index `i`, the 'next' index is `nums[i]`. Because every value lies in `[1, n]`, following `i -> nums[i]` always lands on a valid index and never on index 0 after the start, so the sequence `0, nums[0], nums[nums[0]], ...` never falls off. With `n + 1` slots but values only in `[1, n]`, two different indices must point to the same value — that shared target is a node with two incoming links, which forces a **cycle**, and the value at the cycle's entrance is exactly the duplicate. So this is Floyd's tortoise-and-hare cycle detection, and finding the cycle's entry point yields the answer.\n\n" +
@@ -1505,7 +1570,9 @@
         "- `LRUCache(capacity)` initializes the cache with a positive `capacity`.\n" +
         "- `get(key)` returns the value for `key` if present, otherwise `-1`.\n" +
         "- `put(key, value)` inserts or updates the value. If inserting exceeds `capacity`, evict the **least recently used** entry first.\n\n" +
-        "Both `get` and `put` must run in average `O(1)` time. Any access (get or put) counts as a use, making that key the most recently used.",
+        "Both `get` and `put` must run in average `O(1)` time. Any access (get or put) counts as a use, making that key the most recently used.\n\n" +
+        "**A doubly linked list holds entries in use-order: most-recently-used at the front (`head`), least-recently-used at the back — the one evicted on overflow. `prev` pointers exist too but aren't drawn here:**\n\n" +
+        "```linkedlist\n4 -> 1 -> 3 -> None\n```",
       constraints: [
         "`1 <= capacity <= 3000`",
         "`0 <= key <= 10^4`, `0 <= value <= 10^5`",
@@ -1546,6 +1613,8 @@
           space: "O(capacity)",
           whenToUse: "The expected design answer, showing you can build the O(1) structure by hand.",
           logic:
+            "**Entries held in use-order — most-recently-used at `head`, least-recently-used at the tail (the eviction end); `prev` arrows omitted:**\n\n" +
+            "```linkedlist\n4 -> 1 -> 3 -> None\n```\n\n" +
             "**What it asks.** Support `get` and `put` in `O(1)` while always knowing which entry is least recently used so it can be evicted on overflow.\n\n" +
             "**Why the naive idea fails.** A plain dictionary gives `O(1)` lookup but no notion of recency order, so finding the LRU entry to evict would need an `O(n)` scan. An array or singly linked list ordered by recency makes eviction easy but moving a touched entry to the front is `O(n)` because you cannot splice it out without its predecessor. You need both: instant lookup **and** instant reordering.\n\n" +
             "**Key Idea.** Combine a hash map with a **doubly** linked list. The hash map maps `key -> node` for `O(1)` lookup. The doubly linked list keeps entries in recency order, most-recent at the head and least-recent at the tail. Because the list is doubly linked, any node can be unlinked in `O(1)` (you have both neighbors) and reinserted at the head in `O(1)`. Two sentinel nodes, `head` and `tail`, remove all edge cases for inserting and removing at the ends. The core invariant: after any access, the touched node sits right behind `head`, and the node just before `tail` is always the eviction victim.\n\n" +
@@ -1740,7 +1809,11 @@
       description:
         "Given the `head` of a linked list, reverse the nodes of the list `k` at a time and return the modified list.\n\n" +
         "`k` is a positive integer no larger than the list length. If the number of nodes is not a multiple of `k`, the leftover nodes at the end stay in their original order.\n\n" +
-        "You may not change node values — only rearrange the nodes themselves.",
+        "You may not change node values — only rearrange the nodes themselves.\n\n" +
+        "**Before — with `k = 2`:**\n\n" +
+        "```linkedlist\n1 -> 2 -> 3 -> 4 -> 5 -> None\n```\n\n" +
+        "**After — each group of 2 reversed; the final lone node 5 stays as-is:**\n\n" +
+        "```linkedlist\n2 -> 1 -> 4 -> 3 -> 5 -> None\n```",
       constraints: [
         "The number of nodes is `n`, with `1 <= k <= n <= 5000`.",
         "`0 <= Node.val <= 1000`",
@@ -1783,6 +1856,9 @@
           space: "O(1)",
           whenToUse: "The expected in-place answer; the canonical hard linked-list reversal.",
           logic:
+            "**With `k = 2` — before, then each group of 2 reversed (the lone trailing 5 stays put):**\n\n" +
+            "```linkedlist\n1 -> 2 -> 3 -> 4 -> 5 -> None\n```\n\n" +
+            "```linkedlist\n2 -> 1 -> 4 -> 3 -> 5 -> None\n```\n\n" +
             "**What it asks.** Reverse the list in consecutive blocks of `k` nodes, leaving a final block shorter than `k` untouched, all in place without altering values.\n\n" +
             "**Why the naive idea fails.** Reversing the whole list, or copying values into an array to reverse in chunks, either produces the wrong order or spends `O(n)` extra space and sidesteps the pointer work the problem is about. The real task is careful pointer surgery: reverse each full group and re-stitch the groups so the boundaries connect correctly.\n\n" +
             "**Key Idea.** Process the list group by group. Before reversing a group, check that a full `k` nodes remain — if not, stop and leave the tail as-is. Track a `group_prev` pointer: the node just before the current group (initially a `dummy` before `head`). Find the group's `kth` node, reverse the `k` nodes with the standard `prev`/`curr` flip, then reconnect: `group_prev.next` becomes the group's new front (the old `kth` node), and the group's new tail (the old first node) links to the node after the group. Advance `group_prev` to that old first node and repeat.\n\n" +
@@ -1882,7 +1958,7 @@
         "dataStructure": "Linked List",
         "technique": "Two-speed traversal"
       },
-      "description": "Given the `head` of a singly linked list, return its **middle node**. If the list has an even number of nodes, return the **second** of the two middles.\n\nThe elegant one-pass solution uses two pointers moving at different speeds.",
+      "description": "Given the `head` of a singly linked list, return its **middle node**. If the list has an even number of nodes, return the **second** of the two middles.\n\nThe elegant one-pass solution uses two pointers moving at different speeds.\n\n**Odd length — the middle is node 3:**\n\n```linkedlist\n1 -> 2 -> 3 -> 4 -> 5 -> None\n```\n\n**Even length — return the second middle, node 4:**\n\n```linkedlist\n1 -> 2 -> 3 -> 4 -> 5 -> 6 -> None\n```",
       "constraints": [
         "The list has at least one node.",
         "`1 <= number of nodes <= 100`"
@@ -1915,7 +1991,7 @@
           "time": "O(n)",
           "space": "O(1)",
           "whenToUse": "Simple and correct; two passes instead of one.",
-          "logic": "**What it asks.** Return the middle node (second middle if even).\n\n**Idea.** First pass counts the length `n`; second pass walks `n // 2` steps to the middle.\n\n**Step-by-Step Approach.**\n1. Traverse once to get `n`.\n2. Traverse again `n // 2` steps and return that node.\n\n**Why `n // 2`.** For `n = 5`, `5 // 2 = 2` steps reach index 2 (the middle); for `n = 6`, `3` steps reach index 3 (the second middle).\n\n**Complexity.** Two passes, `O(n)` time, `O(1)` space.\n\n**Interview mindset.** Works, but the fast/slow trick does it in one pass.",
+          "logic": "**Odd length returns the middle (node 3); even length returns the second middle (node 4):**\n\n```linkedlist\n1 -> 2 -> 3 -> 4 -> 5 -> None\n```\n\n```linkedlist\n1 -> 2 -> 3 -> 4 -> 5 -> 6 -> None\n```\n\n**What it asks.** Return the middle node (second middle if even).\n\n**Idea.** First pass counts the length `n`; second pass walks `n // 2` steps to the middle.\n\n**Step-by-Step Approach.**\n1. Traverse once to get `n`.\n2. Traverse again `n // 2` steps and return that node.\n\n**Why `n // 2`.** For `n = 5`, `5 // 2 = 2` steps reach index 2 (the middle); for `n = 6`, `3` steps reach index 3 (the second middle).\n\n**Complexity.** Two passes, `O(n)` time, `O(1)` space.\n\n**Interview mindset.** Works, but the fast/slow trick does it in one pass.",
           "rcs": "from typing import Optional\n\n\nclass Solution:\n    def middleNode(self, head: Optional[ListNode]) -> Optional[ListNode]:\n        n = 0\n        node = head\n        while node:  # Pass 1: count nodes.\n            n += 1\n            node = node.next\n        node = head\n        for _ in range(n // 2):  # Pass 2: walk to the middle (second middle if even).\n            node = node.next\n        return node",
           "plain": "from typing import Optional\n\n\nclass Solution:\n    def middleNode(self, head: Optional[ListNode]) -> Optional[ListNode]:\n        n = 0\n        node = head\n        while node:\n            n += 1\n            node = node.next\n        node = head\n        for _ in range(n // 2):\n            node = node.next\n        return node"
         },
@@ -1952,7 +2028,7 @@
         "dataStructure": "Linked List",
         "technique": "Length equalization"
       },
-      "description": "Given the heads of two singly linked lists `headA` and `headB`, return the **node where they intersect** (the first node they share, after which all nodes are common). Return `None` if they never intersect.\n\nIntersection is by **node identity**, not value. Aim for `O(1)` extra space.",
+      "description": "Given the heads of two singly linked lists `headA` and `headB`, return the **node where they intersect** (the first node they share, after which all nodes are common). Return `None` if they never intersect.\n\nIntersection is by **node identity**, not value. Aim for `O(1)` extra space.\n\n**`headA`:**\n\n```linkedlist\n4 -> 1 -> 8 -> 4 -> 5 -> None\n```\n\n**`headB`:**\n\n```linkedlist\n5 -> 6 -> 1 -> 8 -> 4 -> 5 -> None\n```\n\n**From node `8` onward both lists are the *same shared nodes* — so the intersection node is `8`.**",
       "constraints": [
         "The lists keep their original structure after the function returns.",
         "There are no cycles anywhere in the lists.",
@@ -1986,7 +2062,7 @@
           "time": "O(n + m)",
           "space": "O(n)",
           "whenToUse": "Simple and fast; uses linear extra space.",
-          "logic": "**What it asks.** The first node shared by both lists (by identity).\n\n**Idea.** Put every node of list A into a set, then walk list B; the first node already in the set is the intersection.\n\n**Step-by-Step Approach.**\n1. Traverse A, adding each node object to a set.\n2. Traverse B; return the first node found in the set.\n3. If none, return `None`.\n\n**Complexity.** `O(n + m)` time, `O(n)` space.\n\n**Interview mindset.** Correct, but the follow-up asks for `O(1)` space — that's the two-pointer switch.",
+          "logic": "**Two lists that share a tail — from node `8` onward the nodes are identical, so `8` is the intersection:**\n\n```linkedlist\n4 -> 1 -> 8 -> 4 -> 5 -> None\n```\n\n```linkedlist\n5 -> 6 -> 1 -> 8 -> 4 -> 5 -> None\n```\n\n**What it asks.** The first node shared by both lists (by identity).\n\n**Idea.** Put every node of list A into a set, then walk list B; the first node already in the set is the intersection.\n\n**Step-by-Step Approach.**\n1. Traverse A, adding each node object to a set.\n2. Traverse B; return the first node found in the set.\n3. If none, return `None`.\n\n**Complexity.** `O(n + m)` time, `O(n)` space.\n\n**Interview mindset.** Correct, but the follow-up asks for `O(1)` space — that's the two-pointer switch.",
           "rcs": "from typing import Optional\n\n\nclass Solution:\n    def getIntersectionNode(self, headA: ListNode, headB: ListNode) -> Optional[ListNode]:\n        seen = set()  # Node OBJECTS from list A.\n        node = headA\n        while node:\n            seen.add(node)\n            node = node.next\n        node = headB\n        while node:  # First B-node already in the set is the intersection.\n            if node in seen:\n                return node\n            node = node.next\n        return None",
           "plain": "from typing import Optional\n\n\nclass Solution:\n    def getIntersectionNode(self, headA: ListNode, headB: ListNode) -> Optional[ListNode]:\n        seen = set()\n        node = headA\n        while node:\n            seen.add(node)\n            node = node.next\n        node = headB\n        while node:\n            if node in seen:\n                return node\n            node = node.next\n        return None"
         },
@@ -2023,7 +2099,7 @@
         "dataStructure": "Linked List",
         "technique": "Reverse second half"
       },
-      "description": "Given the `head` of a singly linked list, return whether its values read the **same forwards and backwards** (a palindrome). Aim for `O(n)` time and `O(1)` extra space.",
+      "description": "Given the `head` of a singly linked list, return whether its values read the **same forwards and backwards** (a palindrome). Aim for `O(n)` time and `O(1)` extra space.\n\n**A palindrome — `1, 2, 2, 1` reads the same in both directions:**\n\n```linkedlist\n1 -> 2 -> 2 -> 1 -> None\n```\n\n**Not a palindrome:**\n\n```linkedlist\n1 -> 2 -> 3 -> None\n```",
       "constraints": [
         "`1 <= number of nodes <= 10^5`",
         "`0 <= Node.val <= 9`"
@@ -2056,7 +2132,7 @@
           "time": "O(n)",
           "space": "O(n)",
           "whenToUse": "Trivial; uses linear extra space.",
-          "logic": "**What it asks.** Is the list a palindrome?\n\n**Idea.** Copy all values into an array, then check the array with two pointers (or compare it to its reverse).\n\n**Step-by-Step Approach.**\n1. Walk the list, appending each value to `vals`.\n2. Two-pointer check from both ends of `vals`.\n\n**Complexity.** `O(n)` time, `O(n)` space.\n\n**Interview mindset.** Fine to state, but the `O(1)`-space follow-up wants the reverse-half trick.",
+          "logic": "**A palindrome reads the same both ways; the second list does not:**\n\n```linkedlist\n1 -> 2 -> 2 -> 1 -> None\n```\n\n```linkedlist\n1 -> 2 -> 3 -> None\n```\n\n**What it asks.** Is the list a palindrome?\n\n**Idea.** Copy all values into an array, then check the array with two pointers (or compare it to its reverse).\n\n**Step-by-Step Approach.**\n1. Walk the list, appending each value to `vals`.\n2. Two-pointer check from both ends of `vals`.\n\n**Complexity.** `O(n)` time, `O(n)` space.\n\n**Interview mindset.** Fine to state, but the `O(1)`-space follow-up wants the reverse-half trick.",
           "rcs": "from typing import Optional\n\n\nclass Solution:\n    def isPalindrome(self, head: Optional[ListNode]) -> bool:\n        vals = []\n        node = head\n        while node:  # Dump values into an array for random access.\n            vals.append(node.val)\n            node = node.next\n        # A list is a palindrome iff the array equals its reverse.\n        return vals == vals[::-1]",
           "plain": "from typing import Optional\n\n\nclass Solution:\n    def isPalindrome(self, head: Optional[ListNode]) -> bool:\n        vals = []\n        node = head\n        while node:\n            vals.append(node.val)\n            node = node.next\n        return vals == vals[::-1]"
         },
@@ -2093,7 +2169,7 @@
         "dataStructure": "Linked List",
         "technique": "Divide & conquer"
       },
-      "description": "Given the `head` of a linked list, return it **sorted in ascending order**. The ideal solution runs in `O(n log n)` time.\n\n**Merge sort** is the natural fit: unlike quicksort it needs no random access, so it works smoothly on linked lists.",
+      "description": "Given the `head` of a linked list, return it **sorted in ascending order**. The ideal solution runs in `O(n log n)` time.\n\n**Merge sort** is the natural fit: unlike quicksort it needs no random access, so it works smoothly on linked lists.\n\n**Before:**\n\n```linkedlist\n4 -> 2 -> 1 -> 3 -> None\n```\n\n**After — sorted ascending:**\n\n```linkedlist\n1 -> 2 -> 3 -> 4 -> None\n```",
       "constraints": [
         "`0 <= number of nodes <= 5 * 10^4`",
         "`-10^5 <= Node.val <= 10^5`",
@@ -2127,7 +2203,7 @@
           "time": "O(n log n)",
           "space": "O(n)",
           "whenToUse": "Easy to get right; uses O(n) extra space for the array.",
-          "logic": "**What it asks.** Return the list sorted.\n\n**Idea.** Copy the values into an array, sort the array, then overwrite the list's values in order.\n\n**Step-by-Step Approach.**\n1. Collect all node values into `vals`.\n2. Sort `vals`.\n3. Walk the list again writing the sorted values back.\n\n**Complexity.** `O(n log n)` time, `O(n)` space.\n\n**Interview mindset.** Works, but the expected answer sorts the nodes in place with merge sort (`O(1)` auxiliary besides recursion).",
+          "logic": "**Before, then sorted ascending:**\n\n```linkedlist\n4 -> 2 -> 1 -> 3 -> None\n```\n\n```linkedlist\n1 -> 2 -> 3 -> 4 -> None\n```\n\n**What it asks.** Return the list sorted.\n\n**Idea.** Copy the values into an array, sort the array, then overwrite the list's values in order.\n\n**Step-by-Step Approach.**\n1. Collect all node values into `vals`.\n2. Sort `vals`.\n3. Walk the list again writing the sorted values back.\n\n**Complexity.** `O(n log n)` time, `O(n)` space.\n\n**Interview mindset.** Works, but the expected answer sorts the nodes in place with merge sort (`O(1)` auxiliary besides recursion).",
           "rcs": "from typing import Optional\n\n\nclass Solution:\n    def sortList(self, head: Optional[ListNode]) -> Optional[ListNode]:\n        vals = []\n        node = head\n        while node:  # Collect values.\n            vals.append(node.val)\n            node = node.next\n        vals.sort()  # Sort in the array world.\n        node = head\n        for v in vals:  # Write sorted values back into the same nodes.\n            node.val = v\n            node = node.next\n        return head",
           "plain": "from typing import Optional\n\n\nclass Solution:\n    def sortList(self, head: Optional[ListNode]) -> Optional[ListNode]:\n        vals = []\n        node = head\n        while node:\n            vals.append(node.val)\n            node = node.next\n        vals.sort()\n        node = head\n        for v in vals:\n            node.val = v\n            node = node.next\n        return head"
         },
@@ -2164,7 +2240,7 @@
         "dataStructure": "Doubly Linked List",
         "technique": "Depth-first inline insertion"
       },
-      "description": "A doubly linked list where each node has `prev`, `next`, and a `child` pointer to a separate doubly linked list (which may have its own children). **Flatten** it into a single-level doubly linked list.\n\nWhen a node has a child, that child list must be inserted **between the node and its next** (depth-first), with all `prev`/`next` pointers fixed and every `child` set to `None`.",
+      "description": "A doubly linked list where each node has `prev`, `next`, and a `child` pointer to a separate doubly linked list (which may have its own children). **Flatten** it into a single-level doubly linked list.\n\nWhen a node has a child, that child list must be inserted **between the node and its next** (depth-first), with all `prev`/`next` pointers fixed and every `child` set to `None`.\n\nSuppose node `2` has a child list `7 -> 8`. The top level is `1 -> 2 -> 3`; flattening splices the child in right after `2`:\n\n**After flattening (doubly-linked; `prev` arrows omitted):**\n\n```linkedlist\n1 -> 2 -> 7 -> 8 -> 3 -> None\n```",
       "constraints": [
         "Number of nodes `<= 1000`.",
         "`1 <= Node.val <= 10^5`",
@@ -2198,7 +2274,7 @@
           "time": "O(n)",
           "space": "O(n)",
           "whenToUse": "The standard iterative solution: splice each child list inline, using a stack to resume.",
-          "logic": "**What it asks.** Flatten a multilevel *doubly* linked list so children are inserted depth-first between a node and its `next`, with `prev`/`next` consistent and all `child` cleared.\n\n**Key Idea.** Walk the list. When the current node has a `child`, that child subtree must come **before** the current node's `next`. So we: remember `curr.next` on a **stack**, splice the child in as `curr.next` (fixing `prev` and clearing `child`), and keep walking — naturally descending into the child first (depth-first). When we hit a node with no `next`, we pop the stack to reconnect the saved continuation.\n\n**Step-by-Step Approach.**\n1. If `head` is `None`, return it.\n2. `curr = head`.\n3. If `curr.child`: push `curr.next` (when non-`None`) onto the stack; set `curr.next = curr.child`, `curr.child.prev = curr`, and `curr.child = None`.\n4. If `curr.next` is `None` and the stack is non-empty: pop a node, link it as `curr.next` and set its `prev = curr`.\n5. Advance `curr = curr.next`; repeat. Return `head`.\n\n**Why it works.** Splicing a child in as `next` forces the traversal through the entire child subtree before the saved continuation; the stack restores each level's `next` in the correct (LIFO) order, yielding the depth-first flattening with valid `prev` links.\n\n**Common Gotchas.**\n- Fix **both** directions: set the child's `prev` and the popped node's `prev`.\n- Clear `curr.child = None` after splicing, or the result still has child links.\n- Only push `curr.next` when it isn't `None`.\n\n**Complexity.** Each node is visited once -> `O(n)` time; the stack can hold up to `O(n)` saved continuations.\n\n**Interview mindset.** Recognize it as a DFS over a tree-shaped list; the explicit stack mirrors the recursion.",
+          "logic": "**If node `2` has a child list `7 -> 8`, flattening splices it in right after `2` (doubly-linked; `prev` arrows omitted):**\n\n```linkedlist\n1 -> 2 -> 7 -> 8 -> 3 -> None\n```\n\n**What it asks.** Flatten a multilevel *doubly* linked list so children are inserted depth-first between a node and its `next`, with `prev`/`next` consistent and all `child` cleared.\n\n**Key Idea.** Walk the list. When the current node has a `child`, that child subtree must come **before** the current node's `next`. So we: remember `curr.next` on a **stack**, splice the child in as `curr.next` (fixing `prev` and clearing `child`), and keep walking — naturally descending into the child first (depth-first). When we hit a node with no `next`, we pop the stack to reconnect the saved continuation.\n\n**Step-by-Step Approach.**\n1. If `head` is `None`, return it.\n2. `curr = head`.\n3. If `curr.child`: push `curr.next` (when non-`None`) onto the stack; set `curr.next = curr.child`, `curr.child.prev = curr`, and `curr.child = None`.\n4. If `curr.next` is `None` and the stack is non-empty: pop a node, link it as `curr.next` and set its `prev = curr`.\n5. Advance `curr = curr.next`; repeat. Return `head`.\n\n**Why it works.** Splicing a child in as `next` forces the traversal through the entire child subtree before the saved continuation; the stack restores each level's `next` in the correct (LIFO) order, yielding the depth-first flattening with valid `prev` links.\n\n**Common Gotchas.**\n- Fix **both** directions: set the child's `prev` and the popped node's `prev`.\n- Clear `curr.child = None` after splicing, or the result still has child links.\n- Only push `curr.next` when it isn't `None`.\n\n**Complexity.** Each node is visited once -> `O(n)` time; the stack can hold up to `O(n)` saved continuations.\n\n**Interview mindset.** Recognize it as a DFS over a tree-shaped list; the explicit stack mirrors the recursion.",
           "rcs": "from typing import Optional\n\n\n# Node has: val, prev, next, child\nclass Solution:\n    def flatten(self, head: 'Optional[Node]') -> 'Optional[Node]':\n        if not head:\n            return head\n        stack = []  # Saved 'next' continuations to resume after child subtrees.\n        curr = head\n        while curr:\n            if curr.child:  # Descend into the child list first (depth-first).\n                if curr.next:\n                    stack.append(curr.next)  # Remember where to resume later.\n                curr.next = curr.child  # Splice the child in as the next node.\n                curr.child.prev = curr  # Fix the backward link.\n                curr.child = None  # Flatten: clear the child pointer.\n            if not curr.next and stack:  # End of a branch -> reconnect a saved tail.\n                nxt = stack.pop()\n                curr.next = nxt\n                nxt.prev = curr  # Fix the backward link.\n            curr = curr.next  # Advance.\n        return head",
           "plain": "from typing import Optional\n\n\nclass Solution:\n    def flatten(self, head: 'Optional[Node]') -> 'Optional[Node]':\n        if not head:\n            return head\n        stack = []\n        curr = head\n        while curr:\n            if curr.child:\n                if curr.next:\n                    stack.append(curr.next)\n                curr.next = curr.child\n                curr.child.prev = curr\n                curr.child = None\n            if not curr.next and stack:\n                nxt = stack.pop()\n                curr.next = nxt\n                nxt.prev = curr\n            curr = curr.next\n        return head"
         }

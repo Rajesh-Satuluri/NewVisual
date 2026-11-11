@@ -5,13 +5,13 @@ import { MODULES } from '../components/nav.js';
 import { QUIZ_BANK } from '../data/quiz-bank.js';
 import { loadAllIQ } from '../data/iq-aggregate.js';
 
-const GROUP_ORDER = ['Foundation', 'Core Internals', 'Consumer Side', 'Delivery', 'Ecosystem', 'Operations', 'Advanced'];
+const GROUP_ORDER = ['Foundation', 'Core Internals', 'Consumer Side', 'Delivery', 'Ecosystem', 'Operations', 'Advanced', 'Change Data Capture', 'CDC Integrations & Lakehouse'];
 
 // Difficulty + rough reading-time by theme group, so a learner can gauge a
 // module before opening it. Time is an estimate for the interactive content.
-const LEVEL = { Foundation: 'Beginner', 'Core Internals': 'Intermediate', 'Consumer Side': 'Intermediate', Delivery: 'Intermediate', Ecosystem: 'Intermediate', Operations: 'Advanced', Advanced: 'Advanced' };
+const LEVEL = { Foundation: 'Beginner', 'Core Internals': 'Intermediate', 'Consumer Side': 'Intermediate', Delivery: 'Intermediate', Ecosystem: 'Intermediate', Operations: 'Advanced', Advanced: 'Advanced', 'Change Data Capture': 'Advanced', 'CDC Integrations & Lakehouse': 'Advanced' };
 const LEVEL_CLASS = { Beginner: 'lvl-beg', Intermediate: 'lvl-int', Advanced: 'lvl-adv' };
-const MINS = { Foundation: 10, 'Core Internals': 15, 'Consumer Side': 14, Delivery: 14, Ecosystem: 13, Operations: 15, Advanced: 18 };
+const MINS = { Foundation: 10, 'Core Internals': 15, 'Consumer Side': 14, Delivery: 14, Ecosystem: 13, Operations: 15, Advanced: 18, 'Change Data Capture': 16, 'CDC Integrations & Lakehouse': 16 };
 const badges = m => {
   const lv = LEVEL[m.group] || 'Intermediate';
   return `<span class="home-card-badges"><span class="mlvl ${LEVEL_CLASS[lv]}">${lv}</span><span class="mmins">~${MINS[m.group] || 14} min</span></span>`;
@@ -80,7 +80,7 @@ export function mount(container) {
         <h1 class="home-title">Apache Kafka,<br><span class="home-title-grad">from the inside out.</span></h1>
         <p class="home-sub">A visual, animated walkthrough of Kafka's internals — producers, brokers,
         partitions, replication, delivery guarantees, and the failure modes you'll be asked about in
-        senior data-engineering interviews. 22 modules, zero setup, runs in your browser.</p>
+        senior data-engineering interviews — now extended with change data capture. ${MODULES.length} modules, zero setup, runs in your browser.</p>
         <div class="home-cta">
           <a class="home-btn home-btn-primary" href="#m01">Start learning →</a>
           <a class="home-btn home-btn-ghost" href="#dashboard">Your dashboard</a>
@@ -199,6 +199,13 @@ export function mount(container) {
           <span class="home-card-text">
             <span class="home-card-title">Level Up Your Answer</span>
             <span class="home-card-desc">The same question answered Weak / Good / Senior — and why the senior version wins.</span>
+          </span>
+        </a>
+        <a href="#coding" class="home-card">
+          <span class="home-card-icon">💻</span>
+          <span class="home-card-text">
+            <span class="home-card-title">Coding Dojo</span>
+            <span class="home-card-desc">Python coding problems on streams of events — dedup, aggregation, ordering, producers — each with a reference solution and its Kafka-pipeline follow-up.</span>
           </span>
         </a>
         <a href="#dashboard" class="home-card">

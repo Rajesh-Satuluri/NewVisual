@@ -44,6 +44,13 @@ export const MODULES = [
   // ── Mastery & Capstone ────────────────────────────────────────────────────
   { id:'m32', title:'Command Playground',     icon:'⌨️', group:'Mastery & Capstone', num:'32', desc:'Every dbt command: purpose, example, internals, prod use, mistake' },
   { id:'m33', title:'Real-World Production',   icon:'🏭', group:'Mastery & Capstone', num:'33', desc:'One e-commerce project from raw source to BI dashboard — the capstone' },
+  // ── Modern dbt ─────────────────────────────────────────────────────────────
+  { id:'m34', title:'Semantic Layer',         icon:'🧮', group:'Modern dbt', num:'34', desc:'Define a metric once; MetricFlow compiles every slice to SQL — one number everywhere' },
+  { id:'m35', title:'dbt Mesh',               icon:'🕸️', group:'Modern dbt', num:'35', desc:'Split a monolith into many projects; cross-project refs, access levels, contracts & versions' },
+  { id:'m36', title:'Core vs Cloud',          icon:'☁️', group:'Modern dbt', num:'36', desc:'Same engine, two runtimes — what dbt Cloud adds around dbt Core, and when you need it' },
+  // ── Ecosystem ───────────────────────────────────────────────────────────────
+  { id:'m37', title:'dbt Packages',           icon:'📦', group:'Ecosystem', num:'37', desc:'Reusable dbt code — dbt_utils, expectations, codegen, audit_helper — and how to install & use it' },
+  { id:'m38', title:'Python Models',          icon:'🐍', group:'Ecosystem', num:'38', desc:'Models as Python functions returning DataFrames — run on the warehouse; when Python beats SQL' },
 ];
 
 // Synthetic entries: reference & review pages. They live in the sidebar but
@@ -52,6 +59,7 @@ export const EXTRAS = [
   { id:'studio',    title:'Coding Studio',     icon:'💻', group:'Practice', num:'', desc:'Write and run real SQL on the e-commerce dataset (DuckDB-WASM).' },
   { id:'config-lab',title:'Config Lab',        icon:'⚙️', group:'Practice', num:'', desc:'Jinja templating + YAML/config repair with real validation.' },
   { id:'incident-simulator', title:'Incident Simulator', icon:'🚨', group:'Practice', num:'', desc:'Work 20 real dbt incidents on-call: briefing → evidence → root cause → recovery → fix.' },
+  { id:'project-ide', title:'Project Builder', icon:'🛠️', group:'Practice', num:'', desc:'Edit a multi-model dbt project and Build it for real on DuckDB — ref() DAG, execution order, and tests.' },
   { id:'project-explorer', title:'Sample Project', icon:'📦', group:'Practice', num:'', desc:'Browse a complete, runnable dbt project and download it to dbt run locally on DuckDB.' },
   { id:'spaced-review', title:'Spaced Review', icon:'🗓️', group:'Practice', num:'', desc:'Spaced-repetition review over the interview bank — SM-2 scheduling, due-today queue.' },
   { id:'modes',     title:'Learning Modes',    icon:'🧭', group:'Guide', num:'', desc:'Six goal-based paths through the modules.' },

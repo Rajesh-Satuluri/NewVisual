@@ -52,6 +52,11 @@
 body[data-ws="python"] .progress-box,
 body[data-ws="python"] #gridBtn,
 body[data-ws="python"] #dashBtn { display: none !important; }
+/* The SQL & PySpark practice tabs get their own revision grid (built by
+   ProblemLab), so re-show the grid button there — but keep it hidden in focus
+   mode, matching the DSA behaviour. */
+body[data-ws="python"][data-mode="practice"][data-stack="spark"]:not(.focus-on) #gridBtn,
+body[data-ws="python"][data-mode="practice"][data-stack="sql"]:not(.focus-on) #gridBtn { display: inline-block !important; }
 /* The shared "Categories" tools bar (expand/collapse-all) is used by the SQL,
    PySpark, NumPy and Pandas workspaces too. Hide it only for Python-Learn,
    which renders its own .py-tools bar with an equivalent toggle. */
@@ -723,13 +728,17 @@ mark.sx-hit {
    The topbar "🎯 Focus" button toggles global; a per-problem "🎯 Focus" chip
    in the problem header toggles the transient local focus. */
 
-/* --- topbar global focus button (sits in the empty topbar center) --- */
-/* In-flow (never absolute) so it can't overlap the Home / Backup / right-side
-   tools. margin-left:auto + the topbar-right's own margin-left:auto split the
-   free space, so it floats roughly centred between the mode switch and the
-   right-side toolbar and simply slides left as that toolbar grows. */
+/* --- topbar global focus button --- */
+/* Anchored to the LEFT group (mode switch) with a fixed gap, NOT margin:auto.
+   Using auto here used to split the free space 50/50 with .topbar-right's own
+   margin:auto, so toggling focus — which hides the right-side tools and shrinks
+   that toolbar — changed the split and made the focus buttons slide. A fixed
+   margin glues the cluster to the (stable) left group, so it stays put when
+   focus is toggled. .topbar-right keeps its own margin:auto and absorbs all the
+   remaining space, staying flush right. In-flow (never absolute) so it can't
+   overlap the right-side tools. */
 .focus-global-btn {
-  margin-left: auto;
+  margin-left: 14px;
   display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto;
   background: var(--bg-2); border: 1px solid var(--border); border-radius: 999px;
   color: var(--text); font-size: 12.5px; font-weight: 700;
@@ -742,6 +751,9 @@ mark.sx-hit {
   box-shadow: 0 0 12px var(--brand-glow);
 }
 @media (max-width: 1540px) { .focus-global-btn .btx { display: none; } }
+/* The PySpark/SQL code-only global button sits right after the focus button with
+   a small gap, so the two move together as one steady cluster. */
+.focus-code-global-btn { margin-left: 8px; }
 
 /* --- per-problem local focus chip (always available, even under global focus) --- */
 .focus-local-btn.on { background: var(--brand); color: #06111f; border-color: var(--brand); box-shadow: 0 0 10px var(--brand-glow); }
@@ -789,6 +801,14 @@ mark.sx-hit {
    (Examples starts collapsed). Overrides the inline grid-collapse height. */
 .focus-on #main .prob-section .sec-body-outer { height: auto !important; }
 .focus-on #main .prob-section.collapsed .sec-caret { transform: none; }
+
+/* Deeper "code only" tier (PySpark + SQL practice): drop Description + Examples
+   too — and, for SQL, the schema + expected-output sections — leaving only the
+   solution code block. Layered on top of .focus-on. */
+.focus-on.focus-code-only #main > .prob-section[data-key="description"],
+.focus-on.focus-code-only #main > .prob-section[data-key="examples"],
+.focus-on.focus-code-only #main > .prob-section[data-key="schema"],
+.focus-on.focus-code-only #main > .prob-section[data-key="expected"] { display: none !important; }
 
 /* A little more breathing room for the stripped-down reading view. */
 .focus-on #main { padding-top: 6px; }

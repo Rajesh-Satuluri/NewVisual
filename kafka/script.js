@@ -10,6 +10,9 @@ import { createSelfExplain, initSelfExplain } from './components/self-explain.js
 import { QUIZ_BANK } from './data/quiz-bank.js';
 import { SELF_EXPLAIN } from './data/self-explain.js';
 import { record } from './data/progress-store.js';
+import { initCloudSync } from './components/cloudsync.js';
+import { initCloudSyncUI } from './components/cloudsync-ui.js';
+import { initIQEdits } from './components/iq-edits.js';
 
 // A module counts as "complete" only when its quiz is passed at this ratio —
 // mastery, not merely opening the page. Honest progress.
@@ -28,9 +31,12 @@ const PAGES = {
   glossary: `Reference &rsaquo; <strong>📖 Glossary</strong>`,
   cheatsheet: `Reference &rsaquo; <strong>📋 Cheat Sheet</strong>`,
   'master-map': `Reference &rsaquo; <strong>🗺️ Master Map</strong>`,
+  'mock-interview': `Practice &rsaquo; <strong>🎤 Mock Interview</strong>`,
   decisions: `Practice &rsaquo; <strong>🧭 Choose the Approach</strong>`,
   troubleshoot: `Practice &rsaquo; <strong>🔍 Troubleshooting Lab</strong>`,
+  'cdc-incidents': `Practice &rsaquo; <strong>🛠️ CDC Incident Lab</strong>`,
   answers: `Practice &rsaquo; <strong>🎯 Level Up Your Answer</strong>`,
+  coding: `Practice &rsaquo; <strong>💻 Coding Dojo</strong>`,
   'incident-bank': `Reference &rsaquo; <strong>🚑 Incident Bank</strong>`,
   dashboard: `Review &rsaquo; <strong>📊 Dashboard</strong>`,
   review: `Review &rsaquo; <strong>🔁 Review Center</strong>`,
@@ -57,7 +63,10 @@ const LOADERS = {
   'master-map': () => import('./modules/master-map.js'),
   decisions: () => import('./modules/decisions.js'),
   troubleshoot: () => import('./modules/troubleshoot.js'),
+  'cdc-incidents': () => import('./modules/cdc-incidents.js'),
   answers: () => import('./modules/answers.js'),
+  coding: () => import('./modules/coding.js'),
+  'mock-interview': () => import('./modules/mock-interview.js'),
   'incident-bank': () => import('./modules/incident-bank.js'),
   dashboard: () => import('./modules/dashboard.js'),
   review: () => import('./modules/review.js'),
@@ -84,6 +93,16 @@ const LOADERS = {
   m20: () => import('./modules/m20-competitors.js'),
   m21: () => import('./modules/m21-mirrormaker.js'),
   m22: () => import('./modules/m22-partition-reassignment.js'),
+  m23: () => import('./modules/m23-cdc-fundamentals.js'),
+  m24: () => import('./modules/m24-postgres-wal.js'),
+  m25: () => import('./modules/m25-debezium-architecture.js'),
+  m26: () => import('./modules/m26-snapshots-streaming.js'),
+  m27: () => import('./modules/m27-change-events.js'),
+  m28: () => import('./modules/m28-debezium-ops.js'),
+  m29: () => import('./modules/m29-outbox-pattern.js'),
+  m30: () => import('./modules/m30-lakehouse.js'),
+  m31: () => import('./modules/m31-cdc-capstone.js'),
+  m32: () => import('./modules/m32-debezium-internals.js'),
 };
 
 // ── Navigate ───────────────────────────────────────────────────────────────
@@ -114,7 +133,7 @@ async function navigate(id) {
     canvas.innerHTML = '';
     cleanupFn = m.mount(canvas) || null;
     if (mod) {
-      initTabs(canvas); initIQ(canvas); enhanceModule(id);
+      initTabs(canvas); initIQ(canvas); initIQEdits(canvas, id); enhanceModule(id);
       // Canvas visuals are opaque to screen readers; give them an accessible
       // name so AT announces something, while the module's prose carries detail.
       canvas.querySelectorAll('canvas:not([aria-label])').forEach(c => {
@@ -164,7 +183,7 @@ function markDone(id) {
     const mod = MODULES.find(m => m.id === id);
     if (mod) toast(`Module mastered — ${mod.label}`, { icon: '✅' });
     const real = [...done].filter(x => MODULES.some(m => m.id === x)).length;
-    if (real === MODULES.length) toast('All 22 modules mastered!', { icon: '🏆', duration: 4200 });
+    if (real === MODULES.length) toast(`All ${MODULES.length} modules mastered!`, { icon: '🏆', duration: 4200 });
   }
 }
 
@@ -218,6 +237,10 @@ themeToggle.addEventListener('click', () => {
   root.setAttribute('data-theme', next);
   localStorage.setItem('kafka-theme', next);
 });
+
+// ── Cross-device cloud sync (optional; inert until configured + linked) ───────
+initCloudSyncUI();
+initCloudSync();
 
 // ── Tooltip ────────────────────────────────────────────────────────────────
 export const tooltip = {

@@ -9,6 +9,7 @@ import { ADVANCED_TOPICS } from './advanced-topics.js';
 import { DECISIONS } from './decisions.js';
 import { INCIDENTS } from './incidents.js';
 import { TIERED } from './tiered.js';
+import { CODING_BANK } from './coding-bank.js';
 import { loadAllIQ } from './iq-aggregate.js';
 
 const strip = html => String(html).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -59,6 +60,12 @@ export function buildStaticIndex() {
     type: 'Interview', typeClass: 'iq', title: t.question, icon: '🎯',
     snippet: `Weak / Good / Senior answer — ${t.topic}`, hash: '#answers',
     text: `${t.question} ${t.topic} ${strip(t.whySenior)}`.toLowerCase(),
+  }));
+
+  CODING_BANK.forEach(p => out.push({
+    type: 'Coding', typeClass: 'cod', title: p.title, icon: '💻',
+    snippet: `L${p.level} · ${p.category} — ${strip(p.prompt).slice(0, 120)}`, hash: '#coding',
+    text: `${p.title} ${p.category} ${(p.tags || []).join(' ')} ${strip(p.prompt)} ${strip(p.kafkaFollowup || '')}`.toLowerCase(),
   }));
 
   return out;

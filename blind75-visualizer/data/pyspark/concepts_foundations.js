@@ -763,5 +763,181 @@ window.LEARN.register("spark", "Foundations", [
         "orders = spark.read.csv('orders.csv', header=True, schema=schema)  # one pass\n" +
         "joined = orders.join(customers, 'order_id')   # keys are string=string -> matches"
     }
+  },
+
+  {
+    id: "sparksession-and-spark-submit",
+    title: "SparkSession & spark-submit",
+    difficulty: "Core",
+    estMinutes: 14,
+    relevance: 3,
+    tagline: "The SparkSession is the one object every Spark program starts from — your handle to the whole cluster. spark-submit is how that program is launched onto it. Learn both and you can go from a notebook cell to a production job.",
+
+    whatIsIt: [
+      "A <b>SparkSession</b> is the single entry point to all of Spark's functionality — reading data, creating DataFrames, running SQL, and configuring the engine. You build it once with <code>SparkSession.builder.getOrCreate()</code> and pass it (as <code>spark</code>) through your whole application. In notebooks (Databricks, Jupyter with findspark, the <code>pyspark</code> shell) a <code>spark</code> variable is <b>created for you</b>; in a standalone script you create it yourself.",
+      "Under the SparkSession sits the older <b>SparkContext</b> (<code>spark.sparkContext</code> / <code>sc</code>) — the low-level connection to the cluster manager that owns RDDs, accumulators, and broadcast variables. Since Spark 2.0 the SparkSession <b>wraps and unifies</b> SparkContext, SQLContext, and HiveContext, so you rarely touch SparkContext directly except for RDDs or cluster info.",
+      "<code>getOrCreate()</code> is deliberate: it <b>returns the existing session if one is already running</b>, and only builds a new one otherwise. That's why calling it twice in a notebook doesn't spawn a second cluster — there is one active SparkSession per JVM/application, and config set via <code>.config(...)</code> applies when the session is first created.",
+      "<b>spark-submit</b> is the command-line launcher that takes your script (or JAR), ships it and its dependencies to the cluster, starts the <b>driver</b>, requests <b>executors</b> from the cluster manager, and runs your <code>main</code>. The same script runs locally or on a 500-node cluster — only the <code>--master</code> and resource flags change. <b>How you create the SparkSession and how you spark-submit are two halves of one setup</b>: options you don't hard-code in the builder are passed as <code>--conf</code> / resource flags at submit time."
+    ],
+
+    showMe: {
+      code:
+        "# ============================================================\n" +
+        "# 1) CREATE A SPARKSESSION  (job.py)\n" +
+        "# ============================================================\n" +
+        "from pyspark.sql import SparkSession\n" +
+        "from pyspark.sql import functions as F\n" +
+        "\n" +
+        "spark = (SparkSession.builder\n" +
+        "         .appName('daily_sales_rollup')          # name shown in the Spark UI\n" +
+        "         .master('local[*]')                     # OVERRIDDEN by spark-submit --master\n" +
+        "         .config('spark.sql.shuffle.partitions', '200')   # tuning knob\n" +
+        "         .config('spark.sql.adaptive.enabled', 'true')    # AQE on\n" +
+        "         .enableHiveSupport()                    # optional: Hive metastore\n" +
+        "         .getOrCreate())                         # reuse if one already exists\n" +
+        "\n" +
+        "spark.sparkContext.setLogLevel('WARN')           # quieter logs\n" +
+        "sc = spark.sparkContext                          # the underlying SparkContext\n" +
+        "print(sc.applicationId, sc.master, sc.defaultParallelism)\n" +
+        "\n" +
+        "# --- your actual job ---\n" +
+        "df = spark.read.parquet('s3://events/')\n" +
+        "out = (df.filter(F.col('amount') > 0)\n" +
+        "         .groupBy('country')\n" +
+        "         .agg(F.sum('amount').alias('total')))\n" +
+        "out.write.mode('overwrite').parquet('s3://out/by_country/')\n" +
+        "\n" +
+        "spark.stop()                                     # release the cluster resources\n" +
+        "\n" +
+        "# ============================================================\n" +
+        "# 2) LAUNCH IT WITH spark-submit  (from the shell)\n" +
+        "# ============================================================\n" +
+        "# Local (one JVM, all cores) — great for dev/tests:\n" +
+        "#   spark-submit --master 'local[*]' job.py\n" +
+        "#\n" +
+        "# On a YARN cluster, full production shape:\n" +
+        "#   spark-submit \\\n" +
+        "#     --master yarn \\                 # cluster manager: yarn | k8s | spark://host:7077 | local[*]\n" +
+        "#     --deploy-mode cluster \\         # driver runs ON the cluster (vs 'client' = on your machine)\n" +
+        "#     --name daily_sales_rollup \\     # app name (same as .appName)\n" +
+        "#     --num-executors 10 \\            # how many executor JVMs to request\n" +
+        "#     --executor-cores 4 \\            # cores per executor (task parallelism)\n" +
+        "#     --executor-memory 8g \\          # heap per executor\n" +
+        "#     --driver-memory 4g \\            # heap for the driver\n" +
+        "#     --conf spark.sql.shuffle.partitions=400 \\        # override any config\n" +
+        "#     --conf spark.dynamicAllocation.enabled=true \\\n" +
+        "#     --packages org.apache.hadoop:hadoop-aws:3.3.4 \\  # fetch Maven deps (JARs)\n" +
+        "#     --py-files deps.zip,utils.py \\  # extra Python modules shipped to executors\n" +
+        "#     --files log4j.properties \\      # files placed in each working dir\n" +
+        "#     --jars extra1.jar,extra2.jar \\  # extra JARs on the classpath\n" +
+        "#     job.py --date 2026-10-27        # YOUR script + ITS own args (after the .py)",
+      caption:
+        "Top: a real script builds ONE SparkSession with builder + getOrCreate(), does its work, and stops. Bottom: spark-submit launches that same script — --master/--deploy-mode pick where the driver and executors run, the resource flags size them, --conf overrides any builder config, and --packages/--py-files/--files/--jars ship dependencies. Anything after job.py is passed to your script, not to Spark."
+    },
+
+    whyMatters:
+      "<p>Everyone writes DataFrame logic; far fewer can answer <b>'how does this actually get onto a cluster, and who decides how big it runs?'</b> That gap is exactly what the SparkSession + spark-submit pairing fills — and it's a very common interview and on-call topic.</p>" +
+      "<ul>" +
+      "<li><b>One session, passed around.</b> Don't create a SparkSession in every module — build it once in <code>main</code> and pass <code>spark</code> down. <code>getOrCreate()</code> protects you, but relying on hidden globals hurts testability.</li>" +
+      "<li><b>Config precedence.</b> <code>--conf</code> / resource flags at submit time override what the builder sets, which overrides <code>spark-defaults.conf</code>. So bake sensible defaults in the builder, and let ops tune per-run via spark-submit without touching code.</li>" +
+      "<li><b>client vs cluster deploy mode.</b> <code>client</code> runs the driver on the machine you launched from (great for notebooks/REPL, logs stream to you); <code>cluster</code> runs the driver <i>inside</i> the cluster (right for scheduled production jobs — survives your laptop closing).</li>" +
+      "<li><b>Ship your dependencies.</b> Executors are separate machines; code and files on your laptop aren't there automatically. Use <code>--py-files</code> (Python), <code>--jars</code> / <code>--packages</code> (JVM), and <code>--files</code> (data/config) so the whole cluster has what it needs.</li>" +
+      "</ul>" +
+      "<pre class=\"why-pre\">spark-submit  --master  --deploy-mode  --num-executors/--executor-* / --driver-*  --conf  --packages/--py-files/--files/--jars   your_app.py  [app args]\n" +
+      "               WHERE     DRIVER WHERE        HOW BIG                            OVERRIDES   DEPENDENCIES                               YOUR CODE  YOUR ARGS\n" +
+      "\n" +
+      "precedence (highest wins):  spark-submit --conf / flags  >  SparkSession.builder.config(...)  >  spark-defaults.conf</pre>" +
+      "<p>Mental model: the <b>builder</b> is what your code wants; <b>spark-submit</b> is what the environment grants. Keep the two cleanly separated and the same script runs unchanged from your laptop to prod.</p>",
+
+    recognize: [
+      { q: "\"Do I need to create a SparkSession in a notebook?\"", think: "No — Databricks / the pyspark shell / Jupyter-with-findspark give you a ready `spark` (and `sc`). In a standalone .py script you build it yourself with SparkSession.builder.getOrCreate()." },
+      { q: "\"I set a config in .config() but it had no effect.\"", think: "Either a session was already running (getOrCreate returned it, ignoring new config) or spark-submit --conf overrode it. Some configs (executor memory/cores, master) can only be set at submit/launch, not after the session starts." },
+      { q: "\"My job runs but uses only one machine / is tiny.\"", think: "Check --master (is it local[*]?) and the resource flags. Without --num-executors / --executor-cores (or dynamic allocation) on a cluster, you may be under-provisioned." },
+      { q: "\"ModuleNotFoundError on the executors, but it works on the driver.\"", think: "Executors don't have your local files. Ship them: --py-files for Python modules/zip, --packages/--jars for JVM libs, --files for data/config." },
+      { q: "\"Should I use client or cluster deploy mode?\"", think: "client = driver on your launch machine (interactive, logs to you, dies if you disconnect). cluster = driver inside the cluster (scheduled/production, resilient). Notebooks are effectively client." },
+      { q: "\"How do I pass arguments to my own script?\"", think: "Put them AFTER the .py in spark-submit: `spark-submit ... job.py --date 2026-10-27`. Flags before job.py go to Spark; everything after goes to your sys.argv." },
+      { q: "\"What's the difference between SparkSession and SparkContext?\"", think: "SparkContext (sc) is the older low-level cluster connection (RDDs, broadcasts, accumulators). SparkSession wraps it and adds DataFrame/SQL. Reach sc via spark.sparkContext when you need RDD-level APIs." }
+    ],
+
+    matchTags: ["sparksession", "spark session", "spark-submit", "spark submit", "sparkcontext", "getorcreate", "builder",
+                "appname", "master", "deploy mode", "client", "cluster", "yarn", "kubernetes", "num-executors",
+                "executor-memory", "executor-cores", "driver-memory", "conf", "packages", "py-files", "jars", "files",
+                "entry point", "local[*]", "spark.stop", "enablehivesupport", "dynamic allocation"],
+
+    traps: [
+      {
+        bad: "# a new SparkSession built in several modules / called repeatedly\nspark = SparkSession.builder.appName('a').getOrCreate()\n# ...elsewhere...\nspark2 = SparkSession.builder.appName('b').getOrCreate()  # 'b' is ignored",
+        good: "# build ONCE in main(), pass `spark` to the functions that need it\ndef main():\n    spark = SparkSession.builder.appName('job').getOrCreate()\n    run(spark)\n    spark.stop()",
+        why: "There's one active SparkSession per application. getOrCreate() returns the existing one, so later appName/config calls are silently ignored. Create it once at the entry point and pass it down."
+      },
+      {
+        bad: "# trying to set cluster-sizing config in code after the session exists\nspark.conf.set('spark.executor.memory', '16g')   # too late — ignored",
+        good: "# set it at launch:\n#   spark-submit --executor-memory 16g job.py\n# (or in the builder BEFORE getOrCreate, if the launcher honors it)",
+        why: "Executor count/cores/memory and the master are fixed when the cluster is requested. Runtime spark.conf.set only affects SQL/runtime configs, not resources already allocated — pass those to spark-submit."
+      },
+      {
+        bad: "# local helper imported on the driver, missing on executors\nfrom my_utils import clean   # NameError/ModuleNotFoundError in tasks\ndf.rdd.map(clean)",
+        good: "# ship it so every executor has it\n#   spark-submit --py-files my_utils.py job.py\n# or zip a package:  --py-files deps.zip",
+        why: "Executors run in separate processes/machines and only have what you ship. Driver-side imports don't travel; use --py-files (Python) or --jars/--packages (JVM) so the code exists cluster-wide."
+      },
+      {
+        bad: "spark-submit --master yarn --conf spark.foo=1 job.py 2026-10-27 --verbose\n# '--verbose' here is parsed by spark-submit, not your script",
+        good: "spark-submit --master yarn --conf spark.foo=1 job.py 2026-10-27 --verbose\n# ^ put ALL Spark flags BEFORE job.py; everything AFTER job.py -> your argv",
+        why: "spark-submit splits its command line at your application file. Flags meant for Spark must precede job.py; your own arguments (and your own --flags) must come after it, or Spark will try to interpret them."
+      }
+    ],
+
+    complexity: [
+      { op: "SparkSession.builder.getOrCreate()", big_o: "O(1) after first", note: "Building the first session initializes the driver and requests executors (seconds of startup); subsequent getOrCreate() calls just return the existing session instantly." },
+      { op: ".config() in the builder", big_o: "O(1), applied at create", note: "Each config is recorded and applied when the session is first created; after that the session is live and resource-level configs can't change." },
+      { op: "spark-submit (job startup)", big_o: "O(cluster provisioning)", note: "Ships code + deps, starts the driver, and negotiates executors with the cluster manager — a fixed startup cost before any data is read, larger in cluster mode and with --packages (Maven resolution)." },
+      { op: "--num-executors × --executor-cores", big_o: "sets task parallelism", note: "Total concurrent tasks ≈ executors × cores; too few under-uses the cluster, too many oversubscribes memory. Dynamic allocation scales this between min/max at runtime." },
+      { op: "spark.stop()", big_o: "O(1)", note: "Tears down the SparkContext and releases executors back to the cluster manager; always call it (or use a context) so a long-lived process doesn't hold resources." }
+    ],
+
+    engineNote:
+      "<p><b>Under the hood.</b> <code>spark-submit</code> is a thin wrapper around <code>org.apache.spark.deploy.SparkSubmit</code>. It reads your flags, merges them with <code>spark-defaults.conf</code> and <code>SPARK_*</code> env vars, uploads your application and any <code>--jars</code>/<code>--py-files</code>/<code>--files</code> to a distribution location, then launches the <b>driver</b>. In <code>client</code> mode the driver JVM starts on your launch host; in <code>cluster</code> mode the cluster manager starts it on a worker node.</p>" +
+      "<p>The driver creates the <b>SparkSession</b>, which spins up a <b>SparkContext</b> that registers with the cluster manager (<b>YARN ResourceManager</b>, <b>Kubernetes API server</b>, or the Spark <b>standalone Master</b>). The manager allocates <b>executor</b> containers per your <code>--num-executors</code>/<code>--executor-cores</code>/<code>--executor-memory</code> (or grows/shrinks them under <code>spark.dynamicAllocation</code>). Each executor registers back with the driver, which then schedules <b>tasks</b> onto their cores.</p>" +
+      "<p>Config precedence is resolved here too: values from <code>--conf</code> and dedicated flags win over <code>SparkSession.builder.config(...)</code>, which wins over <code>spark-defaults.conf</code>. For PySpark, the executors also launch a companion <b>Python worker</b> process, and <code>--py-files</code> content is added to their <code>PYTHONPATH</code> so your modules import cluster-wide.</p>",
+
+    challenge: {
+      prompt:
+        "A teammate's script works in their Jupyter notebook but fails when scheduled via spark-submit on YARN: it (a) ignores the executor memory they set in code, (b) throws ModuleNotFoundError: my_etl on the executors, and (c) 'runs but on a single core.' Explain each cause and write a correct spark-submit command plus the SparkSession builder.",
+      starter:
+        "# their script (job.py)\n" +
+        "from pyspark.sql import SparkSession\n" +
+        "spark = SparkSession.builder.getOrCreate()\n" +
+        "spark.conf.set('spark.executor.memory', '8g')   # (a) set after session exists\n" +
+        "from my_etl import transform                     # (b) local module\n" +
+        "# ...\n" +
+        "\n" +
+        "# how they launched it\n" +
+        "# spark-submit job.py          # (c) no master / no resources",
+      solution:
+        "# Causes:\n" +
+        "#  (a) spark.conf.set('spark.executor.memory',...) runs AFTER the session is\n" +
+        "#      built, so executors were already allocated — the value is ignored.\n" +
+        "#      Executor memory is a LAUNCH-time setting -> pass it to spark-submit.\n" +
+        "#  (b) my_etl lives only on the driver/laptop; executors never received it.\n" +
+        "#      Ship it with --py-files.\n" +
+        "#  (c) no --master/--deploy-mode/resources -> defaults to a tiny local run.\n" +
+        "\n" +
+        "# job.py — bake code-level defaults in the builder, not resources:\n" +
+        "from pyspark.sql import SparkSession\n" +
+        "spark = (SparkSession.builder\n" +
+        "         .appName('etl_daily')\n" +
+        "         .config('spark.sql.adaptive.enabled', 'true')\n" +
+        "         .getOrCreate())\n" +
+        "from my_etl import transform\n" +
+        "\n" +
+        "# launch — master, deploy mode, resources, and the shipped module:\n" +
+        "#   spark-submit \\\n" +
+        "#     --master yarn \\\n" +
+        "#     --deploy-mode cluster \\\n" +
+        "#     --num-executors 10 --executor-cores 4 --executor-memory 8g \\\n" +
+        "#     --driver-memory 4g \\\n" +
+        "#     --py-files my_etl.py \\\n" +
+        "#     job.py"
+    }
   }
 ]);

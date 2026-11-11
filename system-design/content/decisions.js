@@ -1,0 +1,96 @@
+// ── Decision drills ("Choose the Approach") ─────────────────────────────────────
+// Realistic scenarios where you pick an option, then see why each wins or loses.
+// verdict: 'best' | 'ok' | 'bad'. Rendered by components/decisions.js.
+
+export const DECISIONS = [
+  {
+    id: 'feed-fanout',
+    title: 'News feed for a social app',
+    scenario: 'You are building the home feed. Most users follow a few hundred accounts, but a handful of celebrities have 50M+ followers. Reads vastly outnumber writes. How do you build the feed?',
+    options: [
+      { label: 'Fan-out on write for everyone (precompute every follower’s feed on each post)', verdict: 'bad',
+        why: 'Great for normal users, but a single celebrity post triggers 50M feed writes — a "fan-out storm" that melts your write path and wastes work on inactive followers.' },
+      { label: 'Fan-out on read for everyone (assemble the feed from followees at read time)', verdict: 'ok',
+        why: 'Cheap writes and no storm, but every feed load now does a large scatter-gather across all followees — slow reads at the 99th percentile for the common case, which is the opposite of what a read-heavy product wants.' },
+      { label: 'Hybrid: fan-out on write for normal users, fan-out on read for celebrities', verdict: 'best',
+        why: 'Normal users get fast precomputed feeds; celebrity posts are pulled in at read time so you avoid the write storm. This is what real feeds do — optimize the common case, special-case the outliers.' },
+    ],
+    takeaway: 'When the workload has a heavy tail (celebrities), one uniform strategy loses. Split by the characteristic that causes the pain.',
+    see: 'news-feed-system',
+  },
+  {
+    id: 'order-consistency',
+    title: 'Inventory for a flash sale',
+    scenario: 'A limited-stock product drops and thousands try to buy the last units simultaneously. Overselling means refunds and angry customers. What consistency do you choose for the stock count?',
+    options: [
+      { label: 'Eventually consistent counter in a cache, reconcile later', verdict: 'bad',
+        why: 'Fast, but two buyers can both read "1 left" and both succeed — you oversell. Reconciling after the fact means refunds and support pain exactly when visibility is highest.' },
+      { label: 'Strong consistency with a conditional/atomic decrement (`WHERE stock > 0`)', verdict: 'best',
+        why: 'The database serializes the decrements so only one buyer wins the last unit. Correctness on money/inventory is worth the latency cost; this is the textbook "last room" guard.' },
+      { label: 'Optimistic locking with version checks and client retries', verdict: 'ok',
+        why: 'Also correct, and good under moderate contention — but on a single hot item thousands of retries thrash. A conditional atomic update is simpler and avoids the retry storm.' },
+    ],
+    takeaway: 'For money and inventory, choose strong consistency and let the database enforce the invariant. Weak consistency is for likes and view counts, not stock.',
+    see: 'hotel-reservation',
+  },
+  {
+    id: 'queue-vs-rpc',
+    title: 'Order service calls the email service',
+    scenario: 'After an order is placed, a confirmation email must be sent. The email provider is occasionally slow or down. Should the order service call email synchronously or via a queue?',
+    options: [
+      { label: 'Synchronous RPC — order service calls email and waits', verdict: 'bad',
+        why: 'Now a slow/down email provider makes placing an order slow or fail. You have coupled a critical path (ordering) to a non-critical dependency (email). Latency and failures propagate backward.' },
+      { label: 'Publish an event to a queue; an email worker consumes it', verdict: 'best',
+        why: 'The order completes immediately; email happens asynchronously with retries and a dead-letter queue for failures. The slow dependency is decoupled and the spike is absorbed by the buffer.' },
+      { label: 'Fire-and-forget async call with no queue', verdict: 'ok',
+        why: 'Keeps ordering fast, but with no durable buffer a crash or provider outage silently drops emails — no retry, no record. A queue gives you the durability and retry the "fire-and-forget" lacks.' },
+    ],
+    takeaway: 'Use a queue when the work can be async and the dependency is spiky or unreliable. Reserve synchronous RPC for when you truly need the result before responding.',
+    see: 'notification-system',
+  },
+  {
+    id: 'id-generation',
+    title: 'Primary keys across regions',
+    scenario: 'A multi-region service needs unique IDs for new records, generated fast, without a central coordinator, and ideally roughly time-ordered for good index locality. What do you use?',
+    options: [
+      { label: 'Auto-increment integers from a single database', verdict: 'bad',
+        why: 'A single source of IDs is a coordination bottleneck and a single point of failure, and it does not work across regions. It also leaks row counts.' },
+      { label: 'Random UUIDv4', verdict: 'ok',
+        why: 'Unique and coordination-free, but fully random — terrible index locality (random B-tree inserts) and not sortable by time, which hurts range scans and pagination.' },
+      { label: 'Snowflake-style IDs (timestamp + machine id + sequence)', verdict: 'best',
+        why: 'Coordination-free, unique, compact (64-bit), and roughly time-sortable for good index locality and easy "recent" queries. The standard answer for distributed ID generation.' },
+    ],
+    takeaway: 'Name the three requirements — unique, coordination-free, time-sortable — and Snowflake falls out. UUIDv4 misses sortability; auto-increment misses distribution.',
+    see: 'unique-id-generator',
+  },
+  {
+    id: 'cache-write',
+    title: 'Caching a frequently-updated profile',
+    scenario: 'User profiles are read constantly and updated occasionally. A stale profile for a few seconds is acceptable, but losing an update is not. What caching write policy?',
+    options: [
+      { label: 'Write-back (write to cache, flush to DB later)', verdict: 'bad',
+        why: 'Fastest writes, but if the cache node dies before the flush you lose the update — unacceptable here. Write-back suits loss-tolerant, write-heavy data like metrics, not profiles.' },
+      { label: 'Write-through + cache-aside reads with a short TTL', verdict: 'best',
+        why: 'Writes go to DB and cache together so nothing is lost; reads are served from cache; a short TTL bounds staleness to the acceptable window. Matches the stated requirements exactly.' },
+      { label: 'No cache — read from the DB every time', verdict: 'ok',
+        why: 'Always fresh and never loses data, but throws away the huge read:write ratio advantage — you pay full DB cost for reads that rarely change. Correct but wasteful at scale.' },
+    ],
+    takeaway: 'Map the requirement to the policy: "can’t lose writes" rules out write-back; "stale is ok briefly" invites a TTL. Let the constraints pick the pattern.',
+    see: 'scaling-zero-to-millions',
+  },
+  {
+    id: 'exactly-once',
+    title: 'Counting ad clicks for billing',
+    scenario: 'Clicks arrive through an at-least-once pipeline, so duplicates and late events happen. Advertisers are billed per click, so double-counting costs real money. How do you count?',
+    options: [
+      { label: 'Just increment a counter per event', verdict: 'bad',
+        why: 'At-least-once delivery means retries and redeliveries inflate the count — you bill advertisers for clicks that happened once. Direct increments and "exactly-once money" are incompatible.' },
+      { label: 'Deduplicate by a unique click id (idempotent aggregation) + windowing for late events', verdict: 'best',
+        why: 'Each click id is counted once no matter how many times it arrives, and time windows with a watermark absorb late events. This is effectively-once: at-least-once delivery + idempotent processing.' },
+      { label: 'Exactly-once delivery from the message system', verdict: 'ok',
+        why: 'Appealing, but true end-to-end exactly-once delivery is expensive and often illusory across system boundaries. The robust industry answer is at-least-once + idempotency, not relying on the transport.' },
+    ],
+    takeaway: '"Exactly-once" in practice = at-least-once delivery + idempotent, deduplicated processing. Don’t promise exactly-once delivery; design so duplicates don’t matter.',
+    see: 'ad-click-aggregation',
+  },
+];
