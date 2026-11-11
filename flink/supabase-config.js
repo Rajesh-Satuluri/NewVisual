@@ -9,6 +9,6 @@
 // ─────────────────────────────────────────────────────────────────────────
 window.Flink = window.Flink || {};
 window.Flink.SUPABASE = {
-  url: '',      // e.g. 'https://xxxxxxxx.supabase.co'
-  anonKey: '',  // the project's publishable/anon key
+  url: 'https://zkqbgjttjrljikeylchu.supabase.co',
+  anonKey: 'sb_publishable_5vWJiCbxESEkKqLtXK_UKA_e1Bw_okx',
 };
