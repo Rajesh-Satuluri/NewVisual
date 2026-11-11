@@ -10,13 +10,14 @@ import { createSelfExplain, initSelfExplain, createDecisionDrill, initDecisionDr
 import { SELF_EXPLAIN } from './data/self-explain.js';
 import { DECISIONS } from './data/decisions.js';
 import { highlightCodeBlocks } from './components/highlight.js';
+import { applyCodeOverrides, injectEditButtons, bindCloudRefresh } from './components/code-edit.js';
 
 // ── Module loaders (lazy) ─────────────────────────────────────────────────
 // Cache-busting build tag: appended to every lazily-imported module URL so a
 // fresh deploy is fetched immediately instead of served from the browser/CDN
 // cache (a hard-reload does not reliably re-fetch dynamic import() subresources).
 // Bump this on each deploy that changes module code.
-const BUILD = '20261022f';
+const BUILD = '20261111a';
 const imp = (p) => import(`${p}?v=${BUILD}`);
 const LOADERS = {
   home:  () => imp('./modules/home.js'),
@@ -86,10 +87,12 @@ async function navigate(id) {
 
     // Auto-inject the "Test Yourself" quiz (where a bank exists) + Prev/Next pager.
     enhanceModule(id);
-    // Syntax-highlight every code block (incl. the just-injected practice ones)
-    // before the copy buttons attach — copy reads innerText, so spans are safe.
+    // Apply saved code edits BEFORE highlighting so overrides get tokenised,
+    // then highlight, add copy buttons, and add the in-place Edit controls.
+    applyCodeOverrides(canvas);
     highlightCodeBlocks(canvas);
     injectCopyButtons(canvas);
+    injectEditButtons(canvas);
 
     // Honest progress: opening a module records a "visit" only. Mastery is
     // earned by passing the module quiz (see the flink:quiz-graded listener).
@@ -348,10 +351,15 @@ window.addEventListener('flink:quiz-graded', e => {
     scheduled = true;
     requestAnimationFrame(() => {
       scheduled = false;
+      applyCodeOverrides(canvasEl);
       highlightCodeBlocks(canvasEl);
       injectCopyButtons(canvasEl);
+      injectEditButtons(canvasEl);
     });
   }).observe(canvasEl, { childList: true, subtree: true });
+
+  // Re-apply code edits that arrive from another device.
+  bindCloudRefresh(() => canvasEl);
 })();
 
 // ── Boot ──────────────────────────────────────────────────────────────────
