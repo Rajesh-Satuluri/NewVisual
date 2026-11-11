@@ -16,7 +16,14 @@
       description:
         "Given `emp(id, name, salary, manager_id)`, list employees whose `salary` is **greater than their manager's** salary.",
       examples: [
-        { input: "Joe(70k, mgr Sam), Sam(60k)", output: "Joe", reasoning: "Self-join emp to itself on manager_id = manager's id, then compare salaries." }
+        {
+          inputs: [
+            { name: "emp", columns: ["id", "name", "salary", "manager_id"],
+              rows: [[1, "Sam", 60000, null], [2, "Joe", 70000, 1]] }
+          ],
+          output: { columns: ["employee"], rows: [["Joe"]] },
+          reasoning: "Self-join emp to itself on manager_id = manager's id, then compare salaries."
+        }
       ],
       approaches: [
         {
@@ -69,7 +76,14 @@
       description:
         "From `purchases(customer_id, product_id)`, find **distinct pairs of customers** who bought the **same product** (each unordered pair once, no self-pairs).",
       examples: [
-        { input: "p1 bought by {A,B,C}", output: "(A,B),(A,C),(B,C)", reasoning: "Self-join on product_id, keep a.customer < b.customer to dedupe and drop self-pairs." }
+        {
+          inputs: [
+            { name: "purchases", columns: ["customer_id", "product_id"],
+              rows: [["A", "p1"], ["B", "p1"], ["C", "p1"]] }
+          ],
+          output: { columns: ["c1", "c2"], rows: [["A", "B"], ["A", "C"], ["B", "C"]] },
+          reasoning: "Self-join on product_id, keep a.customer < b.customer to dedupe and drop self-pairs."
+        }
       ],
       approaches: [
         {

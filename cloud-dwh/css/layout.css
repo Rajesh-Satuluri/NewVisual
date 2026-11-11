@@ -20,7 +20,8 @@
   flex-direction: column;
   background: var(--bg-2);
   border-right: 1px solid var(--border-default);
-  transition: width var(--ease-slow), min-width var(--ease-slow);
+  transition: width var(--ease-liquid), min-width var(--ease-liquid);
+  will-change: width;
   z-index: var(--z-raised);
   overflow: hidden;
 }
@@ -548,3 +549,41 @@ kbd {
 
 .tab-content { display: none; }
 .tab-content.active { display: block; }
+
+/* ── Hamburger nav-toggle: liquid collapse/expand control ────── */
+.nav-toggle {
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  transition: background var(--ease-fast), color var(--ease-fast),
+              transform var(--ease-liquid);
+}
+.nav-toggle:hover { color: var(--text-primary); background: var(--bg-3); }
+.nav-toggle:active { transform: scale(0.9); }
+.nav-toggle svg { overflow: visible; }
+/* Each bar eases independently so the icon reads as fluid, not snappy. */
+.nav-toggle svg line {
+  transition: transform var(--ease-liquid), opacity var(--ease-base);
+  transform-origin: center;
+}
+.nav-toggle:hover svg line:nth-child(1) { transform: translateX(-1.5px); }
+.nav-toggle:hover svg line:nth-child(3) { transform: translateX(1.5px); }
+/* Collapsed rail → bars pull toward a compact chevron-ish glyph. */
+#app:has(#sidebar.collapsed) .nav-toggle svg line:nth-child(1) { transform: translateX(3px) scaleX(0.72); }
+#app:has(#sidebar.collapsed) .nav-toggle svg line:nth-child(3) { transform: translateX(3px) scaleX(0.72); }
+
+/* Labels fade in step with the width so nothing pops at the end. */
+.sidebar .nav-label,
+.sidebar .nav-group-label,
+.sidebar .logo-wordmark,
+.sidebar .sidebar-footer-text {
+  transition: opacity var(--ease-base);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .nav-toggle,
+  .nav-toggle svg line { transition: none; }
+}

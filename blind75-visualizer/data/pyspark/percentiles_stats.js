@@ -20,8 +20,12 @@
         "The median (the 50th percentile) is the middle value — half the customer's orders are below it, half above. Unlike `avg`, it is not dragged around by a single huge or tiny order, so it is the honest \"typical order\" number interviewers ask for. Use `F.percentile_approx(col, 0.5)` inside `agg` (available as a `functions` API in Spark 3.1+).",
       examples: [
         {
-          input: "orders: (1,c1,100),(2,c1,200),(3,c1,900),(4,c2,50)",
-          output: "c1 → 200, c2 → 50",
+          inputs: [
+            { name: "orders", columns: ["order_id", "customer_id", "order_amount"],
+              rows: [[1, "c1", 100], [2, "c1", 200], [3, "c1", 900], [4, "c2", 50]] }
+          ],
+          output: { columns: ["customer_id", "median_amount"],
+            rows: [["c1", 200], ["c2", 50]] },
           reasoning: "c1's sorted amounts are 100,200,900 → the middle value is 200 (avg would be 400, skewed by the 900). c2 has one order, so its median is 50."
         }
       ],
@@ -158,7 +162,10 @@
         "`percentile` gives the exact answer but pays a full sort/shuffle; `percentile_approx` is far cheaper and, with a higher accuracy value, arbitrarily close. Knowing when each is worth it is the interview point.",
       examples: [
         {
-          input: "orders: c1 amounts 100,200,900",
+          inputs: [
+            { name: "orders", columns: ["customer_id", "order_amount"],
+              rows: [["c1", 100], ["c1", 200], ["c1", 900]] }
+          ],
           output: "exact_median = 200; approx_median = 200 (approx may differ on large/skewed data unless accuracy is raised)",
           reasoning: "On small data both agree. At scale, `percentile` is exact but expensive; `percentile_approx` is fast and within an error bound set by the accuracy argument (default 10000)."
         }
@@ -234,8 +241,12 @@
         "Quartiles summarize a distribution's shape in one row; the IQR measures spread using the middle 50% of values, so it ignores extreme tails and is the basis of Tukey outlier fences (Q264). Compute all three quantiles at once with `F.percentile_approx('salary', [0.25, 0.5, 0.75])`.",
       examples: [
         {
-          input: "employees dept 10 salaries: 40,50,60,70,80 (k)",
-          output: "dept 10 → p25=50, p50=60, p75=70, IQR=20",
+          inputs: [
+            { name: "employees", columns: ["department_id", "salary"],
+              rows: [[10, 40], [10, 50], [10, 60], [10, 70], [10, 80]] }
+          ],
+          output: { columns: ["department_id", "p25", "p50", "p75", "iqr"],
+            rows: [[10, 50, 60, 70, 20]] },
           reasoning: "Q1=50, median=60, Q3=70; IQR = 70 - 50 = 20 describes the spread of the central half."
         }
       ],
@@ -311,8 +322,12 @@
         "This is a two-stage job: (1) aggregate per-department fences, then (2) **join** those fences back onto every employee row and compare each salary to its own department's fences with `F.when`. Fences are computed per group, so an outlier is relative to that department, not the company.",
       examples: [
         {
-          input: "dept 10 salaries: 40,50,55,60,300 → Q1=50, Q3=60, IQR=10; upper fence=60+15=75",
-          output: "the 300 row is flagged is_outlier=true; 40,50,55,60 are within [35, 75]",
+          inputs: [
+            { name: "employees", columns: ["department_id", "salary"],
+              rows: [[10, 40], [10, 50], [10, 55], [10, 60], [10, 300]] }
+          ],
+          output: { columns: ["department_id", "salary", "is_outlier"],
+            rows: [[10, 40, false], [10, 50, false], [10, 55, false], [10, 60, false], [10, 300, true]] },
           reasoning: "300 > upper fence 75, so it's a Tukey outlier for dept 10; the rest sit inside the fences and are not flagged."
         }
       ],
@@ -410,8 +425,12 @@
         "Standard deviation measures absolute spread in the same units as the data; CV normalizes that spread by the mean so you can compare volatility across departments with very different pay scales. Use `F.stddev` (sample std, same as `F.stddev_samp`) and `F.avg`, then divide.",
       examples: [
         {
-          input: "dept 10 salaries: 50,50,50 ; dept 20 salaries: 20,60,100 (k)",
-          output: "dept 10 → stddev=0, cv=0 ; dept 20 → stddev=40, avg=60, cv≈0.67",
+          inputs: [
+            { name: "employees", columns: ["department_id", "salary"],
+              rows: [[10, 50], [10, 50], [10, 50], [20, 20], [20, 60], [20, 100]] }
+          ],
+          output: { columns: ["department_id", "sd", "mean", "cv"],
+            rows: [[10, "0.0", "50.0", "0.0"], [20, "40.0", "60.0", "0.67"]] },
           reasoning: "Dept 10 pay is identical (no spread). Dept 20 varies widely; CV≈0.67 says the spread is about 67% of the mean, comparable across pay scales."
         }
       ],

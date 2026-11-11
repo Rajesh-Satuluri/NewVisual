@@ -127,6 +127,7 @@
   --ease-in: 200ms cubic-bezier(0.4, 0, 1, 1);
   --ease-out: 200ms cubic-bezier(0, 0, 0.2, 1);
   --ease-in-out: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-liquid: 460ms cubic-bezier(0.22, 1, 0.36, 1);
 
   /* Z-indices */
   --z-base: 0;

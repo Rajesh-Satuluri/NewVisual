@@ -512,13 +512,14 @@
 .code-block-body {
   padding: var(--space-4);
   overflow-x: auto;
-  line-height: 1.7;
+  line-height: 1.5;
   color: var(--text-primary);
 }
 
 .code-block-body pre {
   margin: 0;
   white-space: pre;
+  line-height: 1.5;
 }
 
 /* ── Annotated JSON: code + trailing "// note" ───────────────── */
@@ -526,17 +527,26 @@
   display: grid;
   grid-template-columns: max-content minmax(160px, 1fr);
   column-gap: var(--space-6);
+  row-gap: 0;
   align-items: baseline;
+  line-height: 1.5;
 }
 .code-block-body .cv-code {
   white-space: pre;
   font-family: var(--font-mono);
+  line-height: 1.5;
 }
+/* Notes stay on a single line so a long explanation can't inflate the
+   row height and open up gaps between code lines. The full text is kept
+   on the title attribute for hover. */
 .code-block-body .cv-cmt {
   color: var(--text-muted);
   font-style: italic;
-  white-space: normal;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  line-height: 1.5;
   -webkit-user-select: none;
   user-select: none;
 }
@@ -545,6 +555,70 @@
   grid-template-columns: max-content;
 }
 .code-block.cv-hide-comments .cv-cmt { display: none; }
+
+/* ── Editable code blocks ───────────────────────────────────── */
+.code-block-titlewrap {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.code-block-edited {
+  display: none;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--teal);
+  border: 1px solid var(--teal);
+  border-radius: var(--radius-xs);
+  padding: 1px 5px;
+  opacity: 0.85;
+}
+.code-block.cv-edited .code-block-edited { display: inline-block; }
+
+.code-block-edit,
+.code-block-save,
+.code-block-reset,
+.code-block-cancel {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-xs);
+  transition: background var(--ease-fast), color var(--ease-fast);
+}
+.code-block-edit:hover,
+.code-block-reset:hover { background: var(--bg-3); color: var(--text-primary); }
+.code-block-save { color: var(--green); }
+.code-block-save:hover { background: var(--bg-3); }
+.code-block-cancel:hover { background: var(--bg-3); color: var(--text-primary); }
+
+.code-block-body .cv-editor {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 120px;
+  resize: vertical;
+  background: var(--bg-1);
+  color: var(--text-primary);
+  border: 1px solid var(--border-strong, var(--border-default));
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  white-space: pre;
+  overflow: auto;
+  tab-size: 2;
+}
+.code-block-body .cv-editor:focus {
+  outline: none;
+  border-color: var(--teal);
+  box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.18);
+}
+.code-block.cv-editing .code-block-body { padding: var(--space-3); }
 
 /* Syntax tokens */
 .tok-key { color: #79c0ff; }       /* JSON keys */

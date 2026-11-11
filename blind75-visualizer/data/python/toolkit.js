@@ -392,7 +392,7 @@ window.PYDSA.register("DSA Toolkit", [
     ],
 
     matchTags: ["binary search", "sorted", "search", "lis"],
-    relatedProblems: ["binary-search", "search-in-rotated-sorted-array", "search-a-2d-matrix", "two-sum-ii-input-array-is-sorted"],
+    relatedProblems: ["binary-search", "search-a-2d-matrix", "two-sum-ii-input-array-is-sorted"],
 
     traps: [
       {

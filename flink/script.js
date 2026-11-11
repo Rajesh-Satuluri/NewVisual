@@ -5,13 +5,18 @@ import { toast } from './components/toast.js';
 import { maybeRunTour } from './components/tour.js';
 import { createQuiz, initQuiz } from './components/quiz.js';
 import { QUIZ_BANK } from './data/quiz-bank.js';
+import { markVisited } from './data/progress-store.js';
+import { createSelfExplain, initSelfExplain, createDecisionDrill, initDecisionDrill } from './components/practice.js';
+import { SELF_EXPLAIN } from './data/self-explain.js';
+import { DECISIONS } from './data/decisions.js';
+import { highlightCodeBlocks } from './components/highlight.js';
 
 // ── Module loaders (lazy) ─────────────────────────────────────────────────
 // Cache-busting build tag: appended to every lazily-imported module URL so a
 // fresh deploy is fetched immediately instead of served from the browser/CDN
 // cache (a hard-reload does not reliably re-fetch dynamic import() subresources).
 // Bump this on each deploy that changes module code.
-const BUILD = '20261009e';
+const BUILD = '20261022f';
 const imp = (p) => import(`${p}?v=${BUILD}`);
 const LOADERS = {
   home:  () => imp('./modules/home.js'),
@@ -41,6 +46,14 @@ const LOADERS = {
   comparison:   () => imp('./modules/comparison.js'),
   glossary:     () => imp('./modules/glossary.js'),
   cheatsheet:   () => imp('./modules/cheatsheet.js'),
+  'config-reference': () => imp('./modules/config-reference.js'),
+  advanced:     () => imp('./modules/advanced.js'),
+  sizing:       () => imp('./modules/sizing.js'),
+  search:       () => imp('./modules/search.js'),
+  dashboard:    () => imp('./modules/dashboard.js'),
+  review:       () => imp('./modules/review.js'),
+  'rescale-lab': () => imp('./modules/rescale-lab.js'),
+  'watermark-lab': () => imp('./modules/watermark-lab.js'),
   study:        () => imp('./modules/study.js'),
 };
 
@@ -73,28 +86,22 @@ async function navigate(id) {
 
     // Auto-inject the "Test Yourself" quiz (where a bank exists) + Prev/Next pager.
     enhanceModule(id);
+    // Syntax-highlight every code block (incl. the just-injected practice ones)
+    // before the copy buttons attach — copy reads innerText, so spans are safe.
+    highlightCodeBlocks(canvas);
     injectCopyButtons(canvas);
 
-    // Mark real modules done after 30s of viewing (Study Hub is excluded).
-    if (mod && !done.has(id)) {
-      setTimeout(() => {
-        if (activeId === id) {
-          done.add(id);
-          localStorage.setItem('flink_done', JSON.stringify([...done]));
-          renderNav(id, done);
-          updateProgress(done);
-          toast(`Module complete — ${mod.title}`, { icon: '✅' });
-          if (done.size === MODULES.length) toast(`All ${MODULES.length} modules complete!`, { icon: '🏆', duration: 4200 });
-        }
-      }, 30000);
-    }
+    // Honest progress: opening a module records a "visit" only. Mastery is
+    // earned by passing the module quiz (see the flink:quiz-graded listener).
+    if (mod) markVisited(id);
     updateProgress(done);
   } catch(err) {
     console.error('Module load error:', err);
-    canvas.innerHTML = `<div class="welcome-screen">
-      <div style="font-size:48px">🚧</div>
-      <div class="welcome-title" style="font-size:28px;margin-top:16px">Coming Soon</div>
-      <p class="welcome-sub">This module is being built in the next iteration.</p>
+    canvas.innerHTML = `<div class="welcome-screen" role="alert">
+      <div style="font-size:48px">⚠️</div>
+      <div class="welcome-title" style="font-size:28px;margin-top:16px">Couldn't load this section</div>
+      <p class="welcome-sub">Something went wrong loading this page. Check your connection and try again — a hard refresh usually fixes a stale cache.</p>
+      <div class="welcome-actions"><button class="btn btn-primary" onclick="location.reload()">Reload</button></div>
     </div>`;
   }
 }
@@ -103,13 +110,17 @@ async function navigate(id) {
 function enhanceModule(id) {
   const canvas = document.getElementById('module-canvas');
   const page = canvas.querySelector('.module-page');
-  if (page && QUIZ_BANK[id]) {
-    const holder = document.createElement('div');
-    holder.innerHTML = createQuiz(id, QUIZ_BANK[id]);
-    if (holder.firstElementChild) {
-      page.appendChild(holder.firstElementChild);
-      initQuiz(page);
-    }
+  if (page) {
+    const appendHTML = (html) => {
+      if (!html) return false;
+      const holder = document.createElement('div');
+      holder.innerHTML = html;
+      if (holder.firstElementChild) { page.appendChild(holder.firstElementChild); return true; }
+      return false;
+    };
+    if (QUIZ_BANK[id] && appendHTML(createQuiz(id, QUIZ_BANK[id]))) initQuiz(page);
+    if (SELF_EXPLAIN[id] && appendHTML(createSelfExplain(id, SELF_EXPLAIN[id]))) initSelfExplain(page);
+    if (DECISIONS[id] && appendHTML(createDecisionDrill(id, DECISIONS[id]))) initDecisionDrill(page);
   }
   renderPager(id);
 }
@@ -167,7 +178,7 @@ function renderWelcome() {
         real-time data engineering platform. Go from zero to interview-ready.
       </p>
       <div class="welcome-meta">
-        <span class="badge badge-orange">19 Modules</span>
+        <span class="badge badge-orange">20 Modules</span>
         <span class="badge badge-blue">Fully Interactive</span>
         <span class="badge badge-green">Uber Examples</span>
         <span class="badge badge-purple">Interview Ready</span>
@@ -187,9 +198,17 @@ function renderWelcome() {
 
 // ── Hash routing ─────────────────────────────────────────────────────────
 function onHashChange() {
-  const id = window.location.hash.slice(1) || 'home';
+  const raw = window.location.hash.slice(1) || 'home';
+  const id = raw.split('?')[0]; // strip query (e.g. search?q=…)
   navigate(LOADERS[id] ? id : 'home');
 }
+
+// ── Skip link (hash-router-safe: focus main without changing the route) ─────
+document.getElementById('skip-link')?.addEventListener('click', e => {
+  e.preventDefault();
+  const c = document.getElementById('module-canvas');
+  if (c) { c.setAttribute('tabindex', '-1'); c.focus(); }
+});
 
 // ── Sidebar toggle ────────────────────────────────────────────────────────
 document.getElementById('sidebar-toggle')?.addEventListener('click', () => {
@@ -297,6 +316,42 @@ document.addEventListener('keydown', e => {
     if (dx < 0 && idx < MODULES.length - 1) window.location.hash = MODULES[idx + 1].id;
     else if (dx > 0 && idx > 0) window.location.hash = MODULES[idx - 1].id;
   }, { passive: true });
+})();
+
+// ── Honest progress: master a module when its quiz is passed ────────────────
+window.addEventListener('flink:quiz-graded', e => {
+  const { id, passed } = e.detail || {};
+  if (!passed || !id) return;
+  const mod = MODULES.find(m => m.id === id);
+  if (!mod || done.has(id)) return;
+  done.add(id);
+  try { localStorage.setItem('flink_done', JSON.stringify([...done])); } catch (_) {}
+  renderNav(activeId, done);
+  updateProgress(done);
+  toast(`Module mastered — ${mod.title}`, { icon: '🎓' });
+  if (done.size === MODULES.length) toast(`All ${MODULES.length} modules mastered!`, { icon: '🏆', duration: 4200 });
+});
+
+// ── Keep dynamically-injected code blocks highlighted ───────────────────────
+// The mount-time pass handles everything present at mount, but some modules
+// re-render part of themselves after an interaction (e.g. the Performance
+// accordion injects its before/after code only when an item is opened). One
+// observer on the canvas covers every current and future dynamic injection;
+// both passes are idempotent (dataset.hl / existing copy-btn guards), so this
+// can't loop.
+(() => {
+  const canvasEl = document.getElementById('module-canvas');
+  if (!canvasEl || !('MutationObserver' in window)) return;
+  let scheduled = false;
+  new MutationObserver(() => {
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(() => {
+      scheduled = false;
+      highlightCodeBlocks(canvasEl);
+      injectCopyButtons(canvasEl);
+    });
+  }).observe(canvasEl, { childList: true, subtree: true });
 })();
 
 // ── Boot ──────────────────────────────────────────────────────────────────

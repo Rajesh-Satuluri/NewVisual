@@ -140,7 +140,7 @@ function buildSimTab() {
           <button id="sim-inject" class="btn btn-primary" style="padding:6px 14px;font-size:12px">+ Inject Event</button>
         </div>
       </div>
-      <canvas id="stream-canvas" style="width:100%;height:200px;display:block"></canvas>
+      <canvas id="stream-canvas" role="img" aria-label="Animated diagram of an unbounded stream of events arriving continuously and flowing through a Flink operator, contrasted with a bounded batch." style="width:100%;height:200px;display:block"></canvas>
       <div style="padding:14px 20px;border-top:1px solid var(--border);display:grid;grid-template-columns:repeat(4,1fr);gap:16px">
         <div>
           <div class="form-hint">Events Processed</div>

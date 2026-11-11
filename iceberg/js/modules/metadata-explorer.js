@@ -588,7 +588,7 @@ File Footer:
         ch.className = 'me-panel-header';
         ch.innerHTML = `<span class="me-panel-title">${content.title}</span>`;
         contentPanel.appendChild(ch);
-        const codeEl = window.IcebergViz.CodeViewer.create(content.code, content.lang, content.title);
+        const codeEl = window.IcebergViz.CodeViewer.create(content.code, content.lang, content.title, { editKey: 'meta-' + fileType });
         contentPanel.appendChild(codeEl);
         // update context panel body only (preserve the sticky header)
         const ctxBody = contextPanel.querySelector('.me-context-body');

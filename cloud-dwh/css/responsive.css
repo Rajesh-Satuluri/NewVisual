@@ -13,8 +13,9 @@ body,
   height: 100dvh;
 }
 
-/* ── Mobile nav toggle (hamburger) — hidden on desktop ───────── */
-.nav-toggle { display: none; }
+/* ── Nav toggle (hamburger) — collapses the rail on desktop,
+      opens the off-canvas drawer on tablet/mobile ───────────── */
+.nav-toggle { display: flex; }
 
 /* ── Off-canvas backdrop element (inert until a drawer opens) ── */
 .nav-backdrop {

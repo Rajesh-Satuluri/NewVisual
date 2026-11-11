@@ -177,7 +177,7 @@ export function mount(container) {
 
     <div class="tab-content" data-tab="anim">
       <div class="card" style="padding:24px;margin-bottom:20px">
-        <canvas id="ckpt-canvas" width="680" height="360" style="width:100%;max-width:680px;display:block;border-radius:8px;background:var(--surface2)"></canvas>
+        <canvas id="ckpt-canvas" role="img" aria-label="Animated diagram of Chandy-Lamport checkpoint barriers injected at the source and flowing through the Flink dataflow, with each operator snapshotting its state as the barrier passes." width="680" height="360" style="width:100%;max-width:680px;display:block;border-radius:8px;background:var(--surface2)"></canvas>
         <div style="display:flex;gap:12px;margin-top:16px;flex-wrap:wrap;align-items:center">
           <button class="btn btn-primary" id="ckpt-play">▶ Trigger Checkpoint #42</button>
           <button class="btn btn-secondary" id="ckpt-reset">↺ Reset</button>

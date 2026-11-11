@@ -44,6 +44,7 @@ window.SQL_CHEAT = {
     {
       id: "count", group: "Aggregates", name: "COUNT",
       signature: "COUNT(*) | COUNT(expr) | COUNT(DISTINCT expr)",
+      use: "Counts rows — all of them with <code>COUNT(*)</code>, or just the non-empty ones with <code>COUNT(col)</code>. One of the first things you reach for in any report.",
       summary: "Count rows. <code>COUNT(*)</code> counts all rows; <code>COUNT(col)</code> skips <b>NULLs</b>.",
       returns: "INT / BIGINT",
       params: [
@@ -58,6 +59,7 @@ window.SQL_CHEAT = {
     {
       id: "sum", group: "Aggregates", name: "SUM",
       signature: "SUM([DISTINCT] expr)",
+      use: "Adds up the values in a column. The bread-and-butter aggregate for totals like revenue or quantity.",
       summary: "Total a numeric expression across a group. Ignores NULLs.",
       returns: "numeric",
       params: [
@@ -71,6 +73,7 @@ window.SQL_CHEAT = {
     {
       id: "avg", group: "Aggregates", name: "AVG",
       signature: "AVG(expr)",
+      use: "Computes the average of a column. Used for metrics like average order value, ignoring NULLs automatically.",
       summary: "Mean of non-NULL values. Beware <b>integer</b> division.",
       returns: "numeric",
       params: [
@@ -83,6 +86,7 @@ window.SQL_CHEAT = {
     {
       id: "min-max", group: "Aggregates", name: "MIN / MAX",
       signature: "MIN(expr) | MAX(expr)",
+      use: "Finds the smallest or largest value in a column. Common for earliest/latest dates and cheapest/priciest items.",
       summary: "Smallest / largest value in a group. Work on numbers, dates, and strings.",
       returns: "same type as expr",
       params: [
@@ -95,6 +99,7 @@ window.SQL_CHEAT = {
     {
       id: "count-distinct", group: "Aggregates", name: "COUNT(DISTINCT ...)",
       signature: "COUNT(DISTINCT expr)",
+      use: "Counts how many different values appear, skipping duplicates. The standard way to measure unique users or products.",
       summary: "Number of unique non-NULL values — distinct customers, distinct days active.",
       returns: "INT",
       params: [
@@ -107,6 +112,7 @@ window.SQL_CHEAT = {
     {
       id: "string-agg", group: "Aggregates", name: "STRING_AGG",
       signature: "STRING_AGG(expr, sep) [WITHIN GROUP (ORDER BY ...)]",
+      use: "Rolls many row values up into one delimited string per group. Great for listing all tags or names on a single line.",
       summary: "Concatenate a column's values across a group into one delimited string.",
       returns: "VARCHAR",
       params: [
@@ -121,6 +127,7 @@ window.SQL_CHEAT = {
     {
       id: "group-by", group: "Aggregates", name: "GROUP BY",
       signature: "GROUP BY col1, col2, ...",
+      use: "Collapses rows that share a key into groups so you can aggregate each one. The heart of every summary query.",
       summary: "Collapse rows sharing the grouping keys into one row per group for aggregation.",
       returns: "grouped result set",
       params: [
@@ -133,6 +140,7 @@ window.SQL_CHEAT = {
     {
       id: "having", group: "Aggregates", name: "HAVING",
       signature: "HAVING aggregate_condition",
+      use: "Filters groups after aggregating — like <code>WHERE</code> but for sums and counts. Used to keep only groups above a threshold.",
       summary: "Filter <b>groups</b> after aggregation — use it for conditions on <code>COUNT</code>/<code>SUM</code>/etc.",
       returns: "filtered groups",
       params: [
@@ -145,6 +153,7 @@ window.SQL_CHEAT = {
     {
       id: "grouping-sets", group: "Aggregates", name: "GROUPING SETS / ROLLUP / CUBE",
       signature: "GROUP BY ROLLUP(a, b) | GROUPING SETS ((a),(b),())",
+      use: "Computes several levels of subtotals and grand totals in one query (<code>ROLLUP</code>, <code>CUBE</code>). Used for report-style summaries.",
       summary: "Multiple aggregation levels (incl. subtotals & grand total) in one query.",
       returns: "grouped result set",
       params: [
@@ -161,6 +170,7 @@ window.SQL_CHEAT = {
     {
       id: "row-number", group: "Window", name: "ROW_NUMBER",
       signature: "ROW_NUMBER() OVER (PARTITION BY ... ORDER BY ...)",
+      use: "Numbers rows 1,2,3… within each group. The classic trick for picking the single latest row per customer.",
       summary: "Unique 1..N sequence per partition — the go-to for <b>top-N-per-group</b> and dedup.",
       returns: "BIGINT",
       params: [
@@ -174,6 +184,7 @@ window.SQL_CHEAT = {
     {
       id: "rank", group: "Window", name: "RANK",
       signature: "RANK() OVER (PARTITION BY ... ORDER BY ...)",
+      use: "Ranks rows within a group, leaving gaps after ties. Used for leaderboards where ties should share a place.",
       summary: "Ranking with <b>gaps</b> on ties — tied rows share a rank, then the next value skips ahead.",
       returns: "BIGINT",
       params: [
@@ -186,6 +197,7 @@ window.SQL_CHEAT = {
     {
       id: "dense-rank", group: "Window", name: "DENSE_RANK",
       signature: "DENSE_RANK() OVER (ORDER BY ...)",
+      use: "Ranks rows within a group with no gaps after ties. Used when you want 1,1,2 instead of 1,1,3.",
       summary: "Ranking with <b>no gaps</b> — tied rows share a rank and the next value is +1.",
       returns: "BIGINT",
       params: [
@@ -198,6 +210,7 @@ window.SQL_CHEAT = {
     {
       id: "ntile", group: "Window", name: "NTILE",
       signature: "NTILE(n) OVER (ORDER BY ...)",
+      use: "Splits each group's rows into N equal buckets. Used for quartiles, deciles, and percentile bands.",
       summary: "Split ordered rows into <code>n</code> roughly equal buckets — quartiles, percentile bands.",
       returns: "INT (1..n)",
       params: [
@@ -211,6 +224,7 @@ window.SQL_CHEAT = {
     {
       id: "lag-lead", group: "Window", name: "LAG / LEAD",
       signature: "LAG(expr, offset, default) OVER (ORDER BY ...)",
+      use: "Looks at the previous or next row's value within a group. The key to period-over-period and change-since-last calculations.",
       summary: "Read a value from a <b>previous / next</b> row — deltas, gaps, run detection.",
       returns: "same type as expr",
       params: [
@@ -225,6 +239,7 @@ window.SQL_CHEAT = {
     {
       id: "sum-over", group: "Window", name: "SUM / AVG OVER (running)",
       signature: "SUM(expr) OVER (PARTITION BY .. ORDER BY .. ROWS ...)",
+      use: "Computes a running or windowed total without collapsing rows. Used for cumulative revenue and moving averages.",
       summary: "Aggregate <b>without collapsing rows</b> — running totals, moving averages, group shares.",
       returns: "numeric",
       params: [
@@ -239,6 +254,7 @@ window.SQL_CHEAT = {
     {
       id: "first-last-value", group: "Window", name: "FIRST_VALUE / LAST_VALUE",
       signature: "FIRST_VALUE(expr) OVER (PARTITION BY .. ORDER BY .. frame)",
+      use: "Returns the first or last value in an ordered window. Used to carry the opening or latest value across rows.",
       summary: "Grab the first / last value in the window frame — e.g. each group's opening price.",
       returns: "same type as expr",
       params: [
@@ -252,6 +268,7 @@ window.SQL_CHEAT = {
     {
       id: "window-frame", group: "Window", name: "ROWS / RANGE frame",
       signature: "ROWS BETWEEN n PRECEDING AND m FOLLOWING",
+      use: "Defines exactly which rows a window function sees (e.g. last 3 rows). The control behind moving averages and running totals.",
       summary: "Define exactly which rows an OVER aggregate sees — sliding windows, moving averages.",
       returns: "window frame",
       params: [
@@ -268,6 +285,7 @@ window.SQL_CHEAT = {
     {
       id: "case", group: "Conditional & NULL", name: "CASE",
       signature: "CASE WHEN cond THEN a ... ELSE b END",
+      use: "Builds if/else logic inside a query — if this then that, else something. The all-purpose tool for buckets and conditional values.",
       summary: "Inline if/else — bucketing, conditional aggregation, pivoting.",
       returns: "any (single type)",
       params: [
@@ -281,6 +299,7 @@ window.SQL_CHEAT = {
     {
       id: "coalesce", group: "Conditional & NULL", name: "COALESCE",
       signature: "COALESCE(expr1, expr2, ...)",
+      use: "Returns the first non-NULL value from a list. The standard way to supply a fallback for missing data.",
       summary: "Return the first <b>non-NULL</b> argument — the standard NULL fallback.",
       returns: "first non-NULL",
       params: [
@@ -293,6 +312,7 @@ window.SQL_CHEAT = {
     {
       id: "nullif", group: "Conditional & NULL", name: "NULLIF",
       signature: "NULLIF(a, b)",
+      use: "Returns NULL when two values are equal. Handy trick to dodge divide-by-zero by turning a zero into NULL.",
       summary: "Return NULL when <code>a = b</code>, else <code>a</code> — famously guards divide-by-zero.",
       returns: "type of a or NULL",
       params: [
@@ -306,6 +326,7 @@ window.SQL_CHEAT = {
     {
       id: "isnull", group: "Conditional & NULL", name: "ISNULL (T-SQL)",
       signature: "ISNULL(expr, replacement)",
+      use: "Replaces a NULL with a value you choose (T-SQL). Used to show 0 or a default instead of blanks.",
       summary: "Two-arg NULL replacement — SQL Server's shorthand for a single fallback.",
       returns: "type of expr",
       params: [
@@ -319,6 +340,7 @@ window.SQL_CHEAT = {
     {
       id: "iif", group: "Conditional & NULL", name: "IIF (T-SQL)",
       signature: "IIF(condition, true_val, false_val)",
+      use: "A short inline if/else for one condition (T-SQL). A compact alternative to <code>CASE</code> for simple either/or logic.",
       summary: "Compact two-branch CASE — quick flags and labels.",
       returns: "type of the values",
       params: [
@@ -334,6 +356,7 @@ window.SQL_CHEAT = {
     {
       id: "datediff", group: "Dates", name: "DATEDIFF",
       signature: "DATEDIFF(datepart, start, end)",
+      use: "Returns the gap between two dates in days, months, or years. Used for age, tenure, and how-long-since metrics.",
       summary: "Whole-unit difference between two dates — ages, tenure, gaps.",
       returns: "INT",
       params: [
@@ -347,6 +370,7 @@ window.SQL_CHEAT = {
     {
       id: "dateadd", group: "Dates", name: "DATEADD",
       signature: "DATEADD(datepart, number, date)",
+      use: "Shifts a date forward or back by a chosen amount. Used for due dates, rolling windows, and date math.",
       summary: "Shift a date by N units — windows like 'last 30 days', month boundaries.",
       returns: "date/datetime",
       params: [
@@ -361,6 +385,7 @@ window.SQL_CHEAT = {
     {
       id: "datepart", group: "Dates", name: "DATEPART / YEAR / MONTH / DAY",
       signature: "DATEPART(part, date) | YEAR(date) | MONTH(date)",
+      use: "Pulls a piece out of a date — year, month, day. Used constantly to group or filter by time period.",
       summary: "Extract a component of a date for grouping/filtering (e.g. monthly rollups).",
       returns: "INT",
       params: [
@@ -374,6 +399,7 @@ window.SQL_CHEAT = {
     {
       id: "getdate", group: "Dates", name: "GETDATE / SYSDATETIME / CURRENT_TIMESTAMP",
       signature: "GETDATE() | CAST(GETDATE() AS date)",
+      use: "Returns the current date and time. Used to stamp records and to compute how recent something is.",
       summary: "The current date/time on the server — 'now' for recency filters.",
       returns: "datetime",
       params: [
@@ -386,6 +412,7 @@ window.SQL_CHEAT = {
     {
       id: "format-date", group: "Dates", name: "FORMAT / CONVERT (date → string)",
       signature: "FORMAT(date, 'yyyy-MM') | CONVERT(varchar, date, style)",
+      use: "Turns a date into a formatted text string you control. Used for report labels like <code>2024-01</code>.",
       summary: "Render a date as a formatted string — month labels, report keys.",
       returns: "VARCHAR",
       params: [
@@ -399,6 +426,7 @@ window.SQL_CHEAT = {
     {
       id: "eomonth", group: "Dates", name: "EOMONTH / DATETRUNC",
       signature: "EOMONTH(date [, offset]) | DATETRUNC(month, date)",
+      use: "Finds the last day of a month, or truncates a date to a period start. Used for month-end reporting and bucketing.",
       summary: "Month-end date, or truncate a date to the start of a unit — month/period bucketing.",
       returns: "date",
       params: [
@@ -415,6 +443,7 @@ window.SQL_CHEAT = {
     {
       id: "concat", group: "Strings", name: "CONCAT / CONCAT_WS",
       signature: "CONCAT(a, b, ...) | CONCAT_WS(sep, a, b, ...)",
+      use: "Glues values into one string, with <code>CONCAT_WS</code> adding a separator. Used to build keys and readable labels.",
       summary: "Join values into one string; <code>CONCAT</code> treats NULL as empty (unlike <code>+</code>).",
       returns: "VARCHAR",
       params: [
@@ -428,6 +457,7 @@ window.SQL_CHEAT = {
     {
       id: "substring", group: "Strings", name: "SUBSTRING",
       signature: "SUBSTRING(str, start, length)",
+      use: "Extracts part of a string by start position and length. Common for parsing codes and pulling fixed-width fields.",
       summary: "Extract part of a string. T-SQL indexes are <b>1-based</b>.",
       returns: "VARCHAR",
       params: [
@@ -442,6 +472,7 @@ window.SQL_CHEAT = {
     {
       id: "charindex", group: "Strings", name: "CHARINDEX / PATINDEX",
       signature: "CHARINDEX(needle, haystack [, start])",
+      use: "Finds the position of one string inside another. Used to locate a delimiter before slicing text apart.",
       summary: "Position of a substring (1-based), or <code>0</code> if not found — split on delimiters.",
       returns: "INT",
       params: [
@@ -456,6 +487,7 @@ window.SQL_CHEAT = {
     {
       id: "len", group: "Strings", name: "LEN / DATALENGTH",
       signature: "LEN(str) | DATALENGTH(expr)",
+      use: "Returns how many characters are in a string. Handy for validation and filtering out blanks.",
       summary: "Character count of a string. <code>LEN</code> ignores <b>trailing</b> spaces.",
       returns: "INT",
       params: [
@@ -469,6 +501,7 @@ window.SQL_CHEAT = {
     {
       id: "left-right", group: "Strings", name: "LEFT / RIGHT",
       signature: "LEFT(str, n) | RIGHT(str, n)",
+      use: "Takes a given number of characters from the start or end of a string. Quick way to grab a prefix or suffix.",
       summary: "First / last <code>n</code> characters — prefixes, suffixes, last-4-digits.",
       returns: "VARCHAR",
       params: [
@@ -482,6 +515,7 @@ window.SQL_CHEAT = {
     {
       id: "replace", group: "Strings", name: "REPLACE",
       signature: "REPLACE(str, find, replace)",
+      use: "Swaps every copy of some text for another inside a string. Everyday cleanup for messy data.",
       summary: "Swap every occurrence of a substring — cleaning, normalization.",
       returns: "VARCHAR",
       params: [
@@ -496,6 +530,7 @@ window.SQL_CHEAT = {
     {
       id: "trim", group: "Strings", name: "TRIM / LTRIM / RTRIM",
       signature: "TRIM(str) | LTRIM(str) | RTRIM(str)",
+      use: "Removes stray spaces from the ends of a string. Essential before comparing or joining on text.",
       summary: "Remove leading/trailing whitespace (or specified chars) — clean user input.",
       returns: "VARCHAR",
       params: [
@@ -509,6 +544,7 @@ window.SQL_CHEAT = {
     {
       id: "upper-lower", group: "Strings", name: "UPPER / LOWER",
       signature: "UPPER(str) | LOWER(str)",
+      use: "Changes text to all upper or all lower case. Key for case-insensitive matching and grouping.",
       summary: "Case conversion — normalize before comparing or grouping.",
       returns: "VARCHAR",
       params: [
@@ -521,6 +557,7 @@ window.SQL_CHEAT = {
     {
       id: "replicate", group: "Strings", name: "REPLICATE / SPACE",
       signature: "REPLICATE(str, n)",
+      use: "Repeats a string a number of times (or makes spaces). Used for padding and simple formatting.",
       summary: "Repeat a string N times — padding, masking, simple bar charts.",
       returns: "VARCHAR",
       params: [
@@ -536,6 +573,7 @@ window.SQL_CHEAT = {
     {
       id: "cast", group: "Numeric & Cast", name: "CAST",
       signature: "CAST(expr AS type)",
+      use: "Converts a value from one type to another, like text to a number or date. Core tool for cleaning typed data.",
       summary: "Convert between types — the ANSI-standard, portable conversion.",
       returns: "target type",
       params: [
@@ -549,6 +587,7 @@ window.SQL_CHEAT = {
     {
       id: "convert", group: "Numeric & Cast", name: "CONVERT (T-SQL)",
       signature: "CONVERT(type, expr [, style])",
+      use: "Converts types with extra date-formatting styles (T-SQL). Used when you need a specific date string layout.",
       summary: "Like <code>CAST</code> but with a <b>style</b> code — mainly for date⇄string formatting.",
       returns: "target type",
       params: [
@@ -563,6 +602,7 @@ window.SQL_CHEAT = {
     {
       id: "try-cast", group: "Numeric & Cast", name: "TRY_CAST / TRY_CONVERT",
       signature: "TRY_CAST(expr AS type)",
+      use: "Converts a value but returns NULL instead of erroring on bad input. The safe way to parse dirty data.",
       summary: "Like <code>CAST</code> but returns <b>NULL</b> instead of erroring on bad input — dirty data.",
       returns: "target type or NULL",
       params: [
@@ -576,6 +616,7 @@ window.SQL_CHEAT = {
     {
       id: "round", group: "Numeric & Cast", name: "ROUND",
       signature: "ROUND(number, decimals [, trunc])",
+      use: "Rounds a number to a set number of decimal places. Used for money, rates, and tidy display values.",
       summary: "Round to N decimal places (or truncate with the 3rd arg).",
       returns: "numeric",
       params: [
@@ -590,6 +631,7 @@ window.SQL_CHEAT = {
     {
       id: "floor-ceiling", group: "Numeric & Cast", name: "FLOOR / CEILING",
       signature: "FLOOR(x) | CEILING(x)",
+      use: "Rounds a number down or up to a whole number. Common in bucketing and paging math.",
       summary: "Round toward −∞ / +∞ — bucketing, pagination math.",
       returns: "numeric",
       params: [
@@ -602,6 +644,7 @@ window.SQL_CHEAT = {
     {
       id: "abs", group: "Numeric & Cast", name: "ABS / SIGN / POWER",
       signature: "ABS(x) | SIGN(x) | POWER(x, y)",
+      use: "Absolute value, sign, and powers for numbers. Everyday math helpers in calculations.",
       summary: "Magnitude, sign (−1/0/1), and exponentiation — deltas and scoring.",
       returns: "numeric",
       params: [
@@ -617,6 +660,7 @@ window.SQL_CHEAT = {
     {
       id: "where-in", group: "Filtering & Sets", name: "IN / NOT IN",
       signature: "expr IN (v1, v2, ...) | expr IN (subquery)",
+      use: "Keeps rows whose value matches any item in a list or subquery. The clean way to write many ORs.",
       summary: "Match against a list or a subquery — cleaner than chained <code>OR</code>s.",
       returns: "boolean",
       params: [
@@ -629,6 +673,7 @@ window.SQL_CHEAT = {
     {
       id: "like", group: "Filtering & Sets", name: "LIKE",
       signature: "expr LIKE 'pattern'",
+      use: "Matches text against a wildcard pattern (<code>%</code>, <code>_</code>). The standard tool for partial-text searches.",
       summary: "Pattern match: <code>%</code> = any run, <code>_</code> = one char. Prefix matches can use an index.",
       returns: "boolean",
       params: [
@@ -642,6 +687,7 @@ window.SQL_CHEAT = {
     {
       id: "between", group: "Filtering & Sets", name: "BETWEEN",
       signature: "expr BETWEEN low AND high",
+      use: "Keeps values that fall within a low-to-high range, inclusive. Common for date ranges and numeric bands.",
       summary: "Inclusive range test — both endpoints are included.",
       returns: "boolean",
       params: [
@@ -654,6 +700,7 @@ window.SQL_CHEAT = {
     {
       id: "exists", group: "Filtering & Sets", name: "EXISTS / NOT EXISTS",
       signature: "WHERE [NOT] EXISTS (correlated subquery)",
+      use: "Tests whether a related subquery returns any rows. The efficient way to check for matching records.",
       summary: "Test whether a related row exists — the NULL-safe alternative to <code>IN</code>.",
       returns: "boolean",
       params: [
@@ -666,6 +713,7 @@ window.SQL_CHEAT = {
     {
       id: "distinct", group: "Filtering & Sets", name: "DISTINCT",
       signature: "SELECT DISTINCT col1, col2, ...",
+      use: "Returns only unique rows, dropping duplicates. The quick way to de-dupe query results.",
       summary: "De-duplicate rows by the selected columns.",
       returns: "unique rows",
       params: [
@@ -678,6 +726,7 @@ window.SQL_CHEAT = {
     {
       id: "union", group: "Filtering & Sets", name: "UNION / UNION ALL",
       signature: "query1 UNION [ALL] query2",
+      use: "Stacks the results of two queries — <code>UNION</code> removes duplicates, <code>UNION ALL</code> keeps them all. Used to combine similar result sets.",
       summary: "Stack result sets. <code>UNION</code> removes duplicates; <code>UNION ALL</code> keeps them (faster).",
       returns: "combined result set",
       params: [
@@ -691,6 +740,7 @@ window.SQL_CHEAT = {
     {
       id: "intersect-except", group: "Filtering & Sets", name: "INTERSECT / EXCEPT",
       signature: "query1 INTERSECT | EXCEPT query2",
+      use: "Returns rows common to both queries (<code>INTERSECT</code>) or only in the first (<code>EXCEPT</code>). Handy for comparing two sets.",
       summary: "Set intersection / difference of two result sets (both dedupe).",
       returns: "result set",
       params: [
@@ -704,6 +754,7 @@ window.SQL_CHEAT = {
     {
       id: "top-fetch", group: "Filtering & Sets", name: "TOP",
       signature: "SELECT TOP (n) [WITH TIES] ... ORDER BY ...",
+      use: "Returns only the first N rows (T-SQL). Used for top-N lists and quick previews.",
       summary: "Limit to the first <code>n</code> rows of an ordered result — top-N queries.",
       returns: "≤ n rows",
       params: [
@@ -717,6 +768,7 @@ window.SQL_CHEAT = {
     {
       id: "offset-fetch", group: "Filtering & Sets", name: "OFFSET / FETCH",
       signature: "ORDER BY ... OFFSET n ROWS FETCH NEXT m ROWS ONLY",
+      use: "Skips some rows then returns the next batch. The standard way to page through results.",
       summary: "Standard pagination — skip <code>n</code> rows, take the next <code>m</code>.",
       returns: "result page",
       params: [
@@ -730,6 +782,7 @@ window.SQL_CHEAT = {
     {
       id: "pivot", group: "Filtering & Sets", name: "PIVOT (CASE pivot)",
       signature: "SUM(CASE WHEN k='A' THEN v END) AS A, ...",
+      use: "Turns row values into columns, usually via conditional sums. Used to reshape long data into a wide cross-tab.",
       summary: "Rotate rows into columns. The portable form is conditional aggregation.",
       returns: "wide result set",
       params: [
@@ -745,6 +798,7 @@ window.SQL_CHEAT = {
     {
       id: "join", group: "Clauses & CTEs", name: "JOIN (INNER / LEFT / SELF)",
       signature: "FROM a [INNER|LEFT|RIGHT|FULL] JOIN b ON a.k = b.k",
+      use: "Combines rows from two tables on a matching key, with inner/left/right modes. The core way to bring tables together.",
       summary: "Combine rows across tables on a predicate — the heart of most queries.",
       returns: "combined rows",
       params: [
@@ -759,6 +813,7 @@ window.SQL_CHEAT = {
     {
       id: "order-by", group: "Clauses & CTEs", name: "ORDER BY",
       signature: "ORDER BY col [ASC|DESC], ... [NULLS pos]",
+      use: "Sorts the result rows by one or more columns. Used for top-N output and anytime order matters.",
       summary: "Sort the final result. The only clause allowed to reference SELECT aliases.",
       returns: "ordered result set",
       params: [
@@ -772,6 +827,7 @@ window.SQL_CHEAT = {
     {
       id: "cte", group: "Clauses & CTEs", name: "WITH (CTE)",
       signature: "WITH cte AS ( SELECT ... ) SELECT ... FROM cte",
+      use: "Names a subquery up front with <code>WITH</code> so the main query reads cleanly. Makes complex queries far more readable.",
       summary: "Name a subquery up front for readable, layered queries (esp. with window functions).",
       returns: "—",
       params: [
@@ -784,6 +840,7 @@ window.SQL_CHEAT = {
     {
       id: "recursive-cte", group: "Clauses & CTEs", name: "WITH RECURSIVE",
       signature: "WITH cte AS (anchor UNION ALL recursive_member) ...",
+      use: "A CTE that refers to itself to walk hierarchies or sequences. The tool for org charts, trees, and running chains.",
       summary: "Walk hierarchies / generate sequences — org charts, tree ancestry, number series.",
       returns: "—",
       params: [

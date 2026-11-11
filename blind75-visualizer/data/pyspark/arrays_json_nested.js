@@ -24,8 +24,12 @@
         "Given an `orders` DataFrame (`order_id`, `product_ids`) where `product_ids` is an **array** of the product IDs bought in that order, compute how many times **each product** was purchased across all orders. Flatten the array so every product ID becomes its own row, then count occurrences per product.",
       examples: [
         {
-          input: "orders: (1, ['A','B']), (2, ['A']), (3, ['B','C','A'])",
-          output: "A -> 3 ; B -> 2 ; C -> 1",
+          inputs: [
+            { name: "orders", columns: ["order_id", "product_ids"],
+              rows: [[1, "['A', 'B']"], [2, "['A']"], [3, "['B', 'C', 'A']"]] }
+          ],
+          output: { columns: ["product_id", "purchase_count"],
+            rows: [["A", 3], ["B", 2], ["C", 1]] },
           reasoning: "A appears in orders 1, 2 and 3 (3 times); B in orders 1 and 3 (2 times); C only in order 3 (1 time)."
         }
       ],
@@ -90,8 +94,12 @@
         "Given a `purchases` DataFrame (`customer_id`, `product_ids`) where `product_ids` is an **array** of product IDs, return the customers who bought a **specific** product (say `'P100'`). Test each row's array for membership rather than exploding the whole table.",
       examples: [
         {
-          input: "purchases: (c1, ['P100','P200']), (c2, ['P200']), (c3, ['P300','P100'])",
-          output: "c1 and c3 (both contain P100) ; c2 excluded",
+          inputs: [
+            { name: "purchases", columns: ["customer_id", "product_ids"],
+              rows: [["c1", "['P100', 'P200']"], ["c2", "['P200']"], ["c3", "['P300', 'P100']"]] }
+          ],
+          output: { name: "filter array_contains(product_ids, 'P100')", columns: ["customer_id"],
+            rows: [["c1"], ["c3"]] },
           reasoning: "c1 and c3 have P100 inside their product_ids array; c2 does not, so it is filtered out."
         }
       ],
@@ -154,8 +162,12 @@
         "Given a `readings` DataFrame (`id`, `nums`) where `nums` is an **array of integers**, compute for each row the array's `sum`, `avg`, `min` and `max` — without exploding the array. Use the higher-order `aggregate` for the sum, `size` for the count (to derive the average), and the built-in `array_min` / `array_max`.",
       examples: [
         {
-          input: "readings: (1, [10, 20, 30]), (2, [5, 15])",
-          output: "row 1 -> sum 60, avg 20.0, min 10, max 30 ; row 2 -> sum 20, avg 10.0, min 5, max 15",
+          inputs: [
+            { name: "readings", columns: ["id", "nums"],
+              rows: [[1, "[10, 20, 30]"], [2, "[5, 15]"]] }
+          ],
+          output: { columns: ["id", "sum", "avg", "min", "max"],
+            rows: [[1, 60, "20.0", 10, 30], [2, 20, "10.0", 5, 15]] },
           reasoning: "Row 1: 10+20+30=60, 60/3=20.0, min 10, max 30. Row 2: 5+15=20, 20/2=10.0, min 5, max 15."
         }
       ],
@@ -229,8 +241,12 @@
         "Given an `orders` DataFrame (`order_id`, `items`) where `items` is an **array of structs** each shaped `{product_id, quantity, price}`, produce one flat row per item with the struct's fields lifted into their own top-level columns. Explode the array, then reach into the struct with dot notation.",
       examples: [
         {
-          input: "orders: (1, [{p:'A', q:2, pr:10.0}, {p:'B', q:1, pr:5.0}])",
-          output: "(1,'A',2,10.0) ; (1,'B',1,5.0)",
+          inputs: [
+            { name: "orders", columns: ["order_id", "items (array<struct>)"],
+              rows: [[1, "[{product_id:'A', quantity:2, price:10.0}, {product_id:'B', quantity:1, price:5.0}]"]] }
+          ],
+          output: { columns: ["order_id", "product_id", "quantity", "price"],
+            rows: [[1, "A", 2, "10.0"], [1, "B", 1, "5.0"]] },
           reasoning: "The single order's two-element struct array becomes two rows, each with product_id, quantity and price pulled out of the struct into flat columns."
         }
       ],
@@ -303,8 +319,12 @@
         "Given an `events` DataFrame (`event_id`, `payload`) where `payload` is a **JSON string** like `{\"user\":\"u1\",\"action\":\"click\",\"count\":3}`, parse it into a real typed struct and lift its fields into their own columns. Define a `StructType` schema and apply `from_json`.",
       examples: [
         {
-          input: "events: (1, '{\"user\":\"u1\",\"action\":\"click\",\"count\":3}')",
-          output: "(1, 'u1', 'click', 3)  with typed columns user:string, action:string, count:int",
+          inputs: [
+            { name: "events", columns: ["event_id", "payload (json string)"],
+              rows: [[1, '{"user":"u1","action":"click","count":3}']] }
+          ],
+          output: { name: "typed columns: user string, action string, count int", columns: ["event_id", "user", "action", "count"],
+            rows: [[1, "u1", "click", 3]] },
           reasoning: "from_json parses the JSON string against the schema into a struct; selecting the struct's fields yields typed top-level columns."
         }
       ],
@@ -418,12 +438,31 @@
       category: CAT,
       meta: { pattern: "Pull nested JSON fields", transformation: "Narrow (no shuffle)", functions: "from_json, get_json_object, dot access" },
       description:
-        "Given a `logs` DataFrame (`log_id`, `body`) where `body` is a JSON string with **nested** objects like `{\"user\":{\"id\":\"u1\",\"geo\":{\"city\":\"NYC\"}},\"status\":200}`, pull out deep fields such as the user's city and the status code. Either parse the whole thing with a nested `from_json` schema and dot into it, or grab a single field cheaply with `get_json_object`.",
+        "Given a `profiles` DataFrame (`profile_id`, `body`) where `body` is a JSON string describing a person with **nested** objects (`address`, `contact`), a **string array** (`skills`), and an **array of structs** (`projects`), pull out deep fields such as the person's name, their city and country from `address`, and their email from `contact`. Either parse the whole thing with a nested `from_json` schema and dot into it, or grab a single field cheaply with `get_json_object`.\n\n" +
+        "Sample `body`:\n\n" +
+        "```json\n" +
+        "{\n" +
+        "  \"id\": 101,\n" +
+        "  \"name\": \"John Doe\",\n" +
+        "  \"isActive\": true,\n" +
+        "  \"address\": { \"street\": \"123 Main Street\", \"city\": \"Mumbai\", \"country\": \"India\", \"postalCode\": \"400001\" },\n" +
+        "  \"contact\": { \"email\": \"john@example.com\", \"phone\": \"+91-9876543210\" },\n" +
+        "  \"skills\": [\"JavaScript\", \"Python\", \"Java\"],\n" +
+        "  \"projects\": [\n" +
+        "    { \"projectId\": 1, \"projectName\": \"Website Development\", \"status\": \"Completed\" },\n" +
+        "    { \"projectId\": 2, \"projectName\": \"Mobile App\", \"status\": \"In Progress\" }\n" +
+        "  ]\n" +
+        "}\n" +
+        "```",
       examples: [
         {
-          input: "logs: (1, '{\"user\":{\"id\":\"u1\",\"geo\":{\"city\":\"NYC\"}},\"status\":200}')",
-          output: "(1, 'u1', 'NYC', 200)",
-          reasoning: "user.id -> 'u1', user.geo.city -> 'NYC', status -> 200, each lifted from its nested position in the JSON."
+          inputs: [
+            { name: "profiles", columns: ["profile_id", "body (nested json string)"],
+              rows: [[1, '{"id":101,"name":"John Doe","isActive":true,"address":{"street":"123 Main Street","city":"Mumbai","country":"India","postalCode":"400001"},"contact":{"email":"john@example.com","phone":"+91-9876543210"},"skills":["JavaScript","Python","Java"],"projects":[{"projectId":1,"projectName":"Website Development","status":"Completed"},{"projectId":2,"projectName":"Mobile App","status":"In Progress"}]}']] }
+          ],
+          output: { columns: ["profile_id", "name", "city", "country", "email", "skills"],
+            rows: [[1, "John Doe", "Mumbai", "India", "john@example.com", "[JavaScript, Python, Java]"]] },
+          reasoning: "name -> 'John Doe', address.city -> 'Mumbai', address.country -> 'India', contact.email -> 'john@example.com', and skills -> the parsed string array, each lifted from its nested position in the JSON."
         }
       ],
       approaches: [
@@ -431,105 +470,141 @@
           name: "from_json with a nested schema, then dot-access deep fields",
           whenToUse: "You need several nested fields as typed columns — parse once, reuse the struct.",
           logic:
-            "**What it asks.** Deeply nested values (e.g. `user.geo.city`) lifted into flat, typed columns.\n\n" +
-            "**Key Idea.** Build a `StructType` that **mirrors the nesting** (a struct inside a struct), parse the whole body once with `from_json`, then reach any depth with chained dot access: `col('parsed.user.geo.city')`.\n\n" +
+            "**What it asks.** Deeply nested values (e.g. `address.city`, `contact.email`) and collections (`skills`, `projects`) lifted into flat, typed columns.\n\n" +
+            "**Key Idea.** Build a `StructType` that **mirrors the nesting** (structs inside the outer struct, an `ArrayType` for `skills`, and an array of structs for `projects`), parse the whole body once with `from_json`, then reach any depth with chained dot access: `col('parsed.address.city')`.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. Declare a nested schema: an outer struct with a `user` StructField that itself contains `id` and a nested `geo` struct with `city`, plus a top-level `status`.\n" +
+            "1. Declare a nested schema: top-level `id`/`name`/`isActive`, an `address` struct (`street`, `city`, `country`, `postalCode`), a `contact` struct (`email`, `phone`), `skills` as `ArrayType(StringType())`, and `projects` as an array of structs (`projectId`, `projectName`, `status`).\n" +
             "2. Parse once: `withColumn('parsed', from_json(col('body'), schema))`.\n" +
-            "3. Dot into the depths: `col('parsed.user.id')`, `col('parsed.user.geo.city')`, `col('parsed.status')`.\n\n" +
-            "**Why it works.** `from_json` reconstructs the full nested struct in one parse; chained dot access resolves each level against the schema, so extracting many fields costs only one parse.\n\n" +
+            "3. Dot into the depths: `col('parsed.name')`, `col('parsed.address.city')`, `col('parsed.address.country')`, `col('parsed.contact.email')`, `col('parsed.skills')`.\n\n" +
+            "**Why it works.** `from_json` reconstructs the full nested struct in one parse; chained dot access resolves each level against the schema, so extracting many fields costs only one parse. The `skills` array and `projects` array-of-structs come back as real array columns you can later `explode`.\n\n" +
             "**Common Gotchas.**\n" +
-            "- The schema must reflect the **nesting** exactly; a flat schema can't reach `user.geo.city`.\n" +
-            "- For a **single** field, `get_json_object(col('body'), '$.user.geo.city')` avoids declaring a schema entirely (see the alternative) — but it returns a **string** and re-scans the JSON per call, so it's wasteful for many fields.\n" +
-            "- Missing nested keys resolve to null rather than erroring.\n\n" +
+            "- The schema must reflect the **nesting** exactly; a flat schema can't reach `address.city`.\n" +
+            "- For a **single** field, `get_json_object(col('body'), '$.address.city')` avoids declaring a schema entirely (see the alternative) — but it returns a **string** and re-scans the JSON per call, so it's wasteful for many fields.\n" +
+            "- Missing nested keys resolve to null rather than erroring.\n" +
+            "- To flatten `skills` or `projects` into rows, add `explode(col('parsed.skills'))` / `explode(col('parsed.projects'))` after parsing.\n\n" +
             "**Interview mindset.** 'Parse once with a nested schema, then dot-access many fields' vs 'get_json_object for a quick one-off field' — state the trade-off (one parse + typed vs schema-free + string, re-parsed).",
           rcs:
             "from pyspark.sql.functions import col, from_json\n" +
-            "from pyspark.sql.types import StructType, StructField, StringType, IntegerType\n" +
+            "from pyspark.sql.types import (StructType, StructField, StringType,\n" +
+            "                               IntegerType, BooleanType, ArrayType)\n" +
             "\n" +
             "schema = StructType([                                    # mirror the JSON nesting\n" +
-            "    StructField('user', StructType([\n" +
-            "        StructField('id', StringType()),\n" +
-            "        StructField('geo', StructType([\n" +
-            "            StructField('city', StringType())]))])),\n" +
-            "    StructField('status', IntegerType())])\n" +
+            "    StructField('id', IntegerType()),\n" +
+            "    StructField('name', StringType()),\n" +
+            "    StructField('isActive', BooleanType()),\n" +
+            "    StructField('address', StructType([\n" +
+            "        StructField('street', StringType()),\n" +
+            "        StructField('city', StringType()),\n" +
+            "        StructField('country', StringType()),\n" +
+            "        StructField('postalCode', StringType())])),\n" +
+            "    StructField('contact', StructType([\n" +
+            "        StructField('email', StringType()),\n" +
+            "        StructField('phone', StringType())])),\n" +
+            "    StructField('skills', ArrayType(StringType())),\n" +
+            "    StructField('projects', ArrayType(StructType([\n" +
+            "        StructField('projectId', IntegerType()),\n" +
+            "        StructField('projectName', StringType()),\n" +
+            "        StructField('status', StringType())])))])\n" +
             "\n" +
-            "result = (logs\n" +
+            "result = (profiles\n" +
             "    .withColumn('parsed', from_json(col('body'), schema))    # parse once\n" +
             "    .select(\n" +
-            "        'log_id',\n" +
-            "        col('parsed.user.id').alias('user_id'),          # dot to any depth\n" +
-            "        col('parsed.user.geo.city').alias('city'),\n" +
-            "        col('parsed.status').alias('status')))\n" +
-            "result.show()",
+            "        'profile_id',\n" +
+            "        col('parsed.name').alias('name'),                 # dot to any depth\n" +
+            "        col('parsed.address.city').alias('city'),\n" +
+            "        col('parsed.address.country').alias('country'),\n" +
+            "        col('parsed.contact.email').alias('email'),\n" +
+            "        col('parsed.skills').alias('skills')))\n" +
+            "result.show(truncate=False)",
           plain:
             "from pyspark.sql.functions import col, from_json\n" +
-            "from pyspark.sql.types import StructType, StructField, StringType, IntegerType\n" +
+            "from pyspark.sql.types import (StructType, StructField, StringType,\n" +
+            "                               IntegerType, BooleanType, ArrayType)\n" +
             "\n" +
             "schema = StructType([\n" +
-            "    StructField('user', StructType([\n" +
-            "        StructField('id', StringType()),\n" +
-            "        StructField('geo', StructType([\n" +
-            "            StructField('city', StringType())]))])),\n" +
-            "    StructField('status', IntegerType())])\n" +
+            "    StructField('id', IntegerType()),\n" +
+            "    StructField('name', StringType()),\n" +
+            "    StructField('isActive', BooleanType()),\n" +
+            "    StructField('address', StructType([\n" +
+            "        StructField('street', StringType()),\n" +
+            "        StructField('city', StringType()),\n" +
+            "        StructField('country', StringType()),\n" +
+            "        StructField('postalCode', StringType())])),\n" +
+            "    StructField('contact', StructType([\n" +
+            "        StructField('email', StringType()),\n" +
+            "        StructField('phone', StringType())])),\n" +
+            "    StructField('skills', ArrayType(StringType())),\n" +
+            "    StructField('projects', ArrayType(StructType([\n" +
+            "        StructField('projectId', IntegerType()),\n" +
+            "        StructField('projectName', StringType()),\n" +
+            "        StructField('status', StringType())])))])\n" +
             "\n" +
-            "result = (logs\n" +
+            "result = (profiles\n" +
             "    .withColumn('parsed', from_json(col('body'), schema))\n" +
             "    .select(\n" +
-            "        'log_id',\n" +
-            "        col('parsed.user.id').alias('user_id'),\n" +
-            "        col('parsed.user.geo.city').alias('city'),\n" +
-            "        col('parsed.status').alias('status')))\n" +
-            "result.show()"
+            "        'profile_id',\n" +
+            "        col('parsed.name').alias('name'),\n" +
+            "        col('parsed.address.city').alias('city'),\n" +
+            "        col('parsed.address.country').alias('country'),\n" +
+            "        col('parsed.contact.email').alias('email'),\n" +
+            "        col('parsed.skills').alias('skills')))\n" +
+            "result.show(truncate=False)"
         },
         {
           name: "get_json_object for a single deep field (no schema)",
           whenToUse: "Pulling one or two fields quickly without declaring a schema; values can stay strings.",
           logic:
-            "**What it asks.** The same nested value, but grabbed directly without building a `StructType`.\n\n" +
-            "**Key Idea.** `get_json_object(col('body'), '$.user.geo.city')` uses a **JSONPath** to extract one field from the raw JSON string, returning it as a string. No schema required.\n\n" +
+            "**What it asks.** The same nested values, but grabbed directly without building a `StructType`.\n\n" +
+            "**Key Idea.** `get_json_object(col('body'), '$.address.city')` uses a **JSONPath** to extract one field from the raw JSON string, returning it as a string. No schema required. Array elements are reachable too: `'$.skills[0]'`, `'$.projects[0].projectName'`.\n\n" +
             "**Step-by-Step Approach.**\n" +
-            "1. Write the JSONPath for each field: `'$.user.id'`, `'$.user.geo.city'`, `'$.status'`.\n" +
-            "2. Extract: `withColumn('city', get_json_object(col('body'), '$.user.geo.city'))`.\n" +
-            "3. Cast where a non-string type is needed: `get_json_object(...).cast('int')` for `status`.\n\n" +
+            "1. Write the JSONPath for each field: `'$.name'`, `'$.address.city'`, `'$.address.country'`, `'$.contact.email'`.\n" +
+            "2. Extract: `withColumn('city', get_json_object(col('body'), '$.address.city'))`.\n" +
+            "3. Cast where a non-string type is needed: `get_json_object(col('body'), '$.id').cast('int')`, `get_json_object(col('body'), '$.isActive').cast('boolean')`.\n\n" +
             "**Why it works.** `get_json_object` parses the JSON on the fly and follows the JSONPath to the target, yielding that leaf value as text.\n\n" +
             "**Common Gotchas.**\n" +
-            "- Every result is a **string** — cast explicitly for numeric/boolean fields.\n" +
+            "- Every result is a **string** — cast explicitly for numeric/boolean fields (`id`, `isActive`).\n" +
             "- Each `get_json_object` call re-parses the JSON, so extracting many fields this way is far slower than one `from_json`.\n" +
+            "- Indexing into arrays (`'$.skills[0]'`) pulls a single element; it does not fan the array into rows — use `from_json` + `explode` for that.\n" +
             "- A missing path returns null.\n\n" +
-            "**Interview mindset.** 'get_json_object = quick, schema-free, one field, string result'; escalate to `from_json` once you need several fields or real types.",
+            "**Interview mindset.** 'get_json_object = quick, schema-free, one field, string result'; escalate to `from_json` once you need several fields, real types, or whole arrays.",
           rcs:
             "from pyspark.sql.functions import col, get_json_object\n" +
             "\n" +
-            "result = (logs.select(\n" +
-            "    'log_id',\n" +
-            "    get_json_object(col('body'), '$.user.id').alias('user_id'),          # JSONPath extract\n" +
-            "    get_json_object(col('body'), '$.user.geo.city').alias('city'),\n" +
-            "    get_json_object(col('body'), '$.status').cast('int').alias('status')))  # cast string -> int\n" +
-            "result.show()",
+            "result = (profiles.select(\n" +
+            "    'profile_id',\n" +
+            "    get_json_object(col('body'), '$.name').alias('name'),                 # JSONPath extract\n" +
+            "    get_json_object(col('body'), '$.address.city').alias('city'),\n" +
+            "    get_json_object(col('body'), '$.address.country').alias('country'),\n" +
+            "    get_json_object(col('body'), '$.contact.email').alias('email'),\n" +
+            "    get_json_object(col('body'), '$.projects[0].projectName').alias('first_project')))\n" +
+            "result.show(truncate=False)",
           plain:
             "from pyspark.sql.functions import col, get_json_object\n" +
             "\n" +
-            "result = (logs.select(\n" +
-            "    'log_id',\n" +
-            "    get_json_object(col('body'), '$.user.id').alias('user_id'),\n" +
-            "    get_json_object(col('body'), '$.user.geo.city').alias('city'),\n" +
-            "    get_json_object(col('body'), '$.status').cast('int').alias('status')))\n" +
-            "result.show()"
+            "result = (profiles.select(\n" +
+            "    'profile_id',\n" +
+            "    get_json_object(col('body'), '$.name').alias('name'),\n" +
+            "    get_json_object(col('body'), '$.address.city').alias('city'),\n" +
+            "    get_json_object(col('body'), '$.address.country').alias('country'),\n" +
+            "    get_json_object(col('body'), '$.contact.email').alias('email'),\n" +
+            "    get_json_object(col('body'), '$.projects[0].projectName').alias('first_project')))\n" +
+            "result.show(truncate=False)"
         }
       ],
       sparkInternals:
-        "Both routes are **narrow**, per-row, no shuffle. `from_json` with a nested schema parses each record **once** into a typed struct; deep dot access (`parsed.user.geo.city`) is a codegen projection over that struct and can benefit from nested-column pruning (Spark reads only the referenced leaves). `get_json_object` is schema-free but **re-parses** the JSON string on every call and always returns a string, so pulling K fields means K parses per row — fine for one-off extraction, wasteful at scale. Rule of thumb: many fields or typed output -> one `from_json`; a single ad-hoc field -> `get_json_object`.",
+        "Both routes are **narrow**, per-row, no shuffle. `from_json` with a nested schema parses each record **once** into a typed struct; deep dot access (`parsed.address.city`) is a codegen projection over that struct and can benefit from nested-column pruning (Spark reads only the referenced leaves). The `skills`/`projects` arrays come back typed, ready for an `explode` (which fans rows — the follow-up `groupBy` is the wide step). `get_json_object` is schema-free but **re-parses** the JSON string on every call and always returns a string, so pulling K fields means K parses per row — fine for one-off extraction, wasteful at scale. Rule of thumb: many fields, arrays, or typed output -> one `from_json`; a single ad-hoc field -> `get_json_object`.",
       sparkSql:
-        "SELECT log_id,\n" +
-        "       GET_JSON_OBJECT(body, '$.user.id')       AS user_id,\n" +
-        "       GET_JSON_OBJECT(body, '$.user.geo.city') AS city,\n" +
-        "       CAST(GET_JSON_OBJECT(body, '$.status') AS INT) AS status\n" +
-        "FROM logs;",
+        "SELECT profile_id,\n" +
+        "       GET_JSON_OBJECT(body, '$.name')            AS name,\n" +
+        "       GET_JSON_OBJECT(body, '$.address.city')    AS city,\n" +
+        "       GET_JSON_OBJECT(body, '$.address.country') AS country,\n" +
+        "       GET_JSON_OBJECT(body, '$.contact.email')   AS email,\n" +
+        "       GET_JSON_OBJECT(body, '$.projects[0].projectName') AS first_project\n" +
+        "FROM profiles;",
       recognizeRecall: [
-        "**Spot it:** 'nested JSON', 'pull user.geo.city', 'deep field inside a JSON column'.",
-        "**Say it:** nested `StructType` + `from_json` then `col('parsed.user.geo.city')`; or `get_json_object(body, '$.user.geo.city')` for one field.",
-        "**Trap:** get_json_object returns strings and re-parses per call; from_json parses once and keeps types — schema must mirror the nesting."
+        "**Spot it:** 'nested JSON', 'pull address.city / contact.email', 'deep field inside a JSON column', 'skills/projects arrays'.",
+        "**Say it:** nested `StructType` (structs + `ArrayType`) + `from_json`, then `col('parsed.address.city')`; or `get_json_object(body, '$.address.city')` for one field.",
+        "**Trap:** get_json_object returns strings and re-parses per call; from_json parses once and keeps types — schema must mirror the nesting, and arrays need `explode` to become rows."
       ]
     },
 
@@ -545,8 +620,12 @@
         "Given a `users` DataFrame (`user_id`, `tags`) where `tags` is a **comma-separated string** like `'sports,music,tech'`, produce one row per individual tag. Split the string into an array on the delimiter, then explode that array into rows.",
       examples: [
         {
-          input: "users: (1, 'sports,music'), (2, 'tech')",
-          output: "(1,'sports'), (1,'music'), (2,'tech')",
+          inputs: [
+            { name: "users", columns: ["user_id", "tags"],
+              rows: [[1, "sports,music"], [2, "tech"]] }
+          ],
+          output: { columns: ["user_id", "tag"],
+            rows: [[1, "sports"], [1, "music"], [2, "tech"]] },
           reasoning: "User 1's 'sports,music' splits into ['sports','music'] then explodes to two rows; user 2's single 'tech' becomes one row."
         }
       ],
@@ -608,8 +687,12 @@
         "Given a `baskets` DataFrame (`basket_id`, `items`) where `items` is an **array** of product names, find the single **most frequently occurring** item across all baskets. Explode the arrays, count each item, and take the top one by frequency.",
       examples: [
         {
-          input: "baskets: (1, ['milk','bread']), (2, ['milk','eggs']), (3, ['milk','bread'])",
-          output: "milk (appears 3 times)",
+          inputs: [
+            { name: "baskets", columns: ["basket_id", "items"],
+              rows: [[1, "['milk', 'bread']"], [2, "['milk', 'eggs']"], [3, "['milk', 'bread']"]] }
+          ],
+          output: { columns: ["item", "freq"],
+            rows: [["milk", 3]] },
           reasoning: "milk appears in all three baskets (3), bread in two (2), eggs in one (1); milk is the most common."
         }
       ],

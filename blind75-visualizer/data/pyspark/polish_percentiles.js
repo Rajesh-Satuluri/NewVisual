@@ -16,7 +16,15 @@
       description:
         "Compute the **median** `salary` per `department`. Use the scalable approach for large data.",
       examples: [
-        { input: "eng: [100,120,140]; ops: [80,90]", output: "eng→120, ops→85", reasoning: "Median is the 0.5 quantile; percentile_approx computes it without a full sort/collect." }
+        {
+          inputs: [
+            { name: "emp", columns: ["department", "salary"],
+              rows: [["eng", 100], ["eng", 120], ["eng", 140], ["ops", 80], ["ops", 90]] }
+          ],
+          output: { columns: ["department", "median_salary"],
+            rows: [["eng", 120], ["ops", 85]] },
+          reasoning: "Median is the 0.5 quantile; percentile_approx computes it without a full sort/collect."
+        }
       ],
       approaches: [
         {

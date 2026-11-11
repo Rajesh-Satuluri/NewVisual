@@ -42,10 +42,18 @@ export const MODULE_FILES = {
   m31: 'm31-case-studies.js',
   m32: 'm32-command-playground.js',
   m33: 'm33-production-lab.js',
+  // Modern dbt
+  m34: 'm34-semantic-layer.js',
+  m35: 'm35-dbt-mesh.js',
+  m36: 'm36-core-vs-cloud.js',
+  // Ecosystem
+  m37: 'm37-packages.js',
+  m38: 'm38-python-models.js',
   // Practice
   studio: 'studio.js',
   'config-lab': 'config-lab.js',
   'incident-simulator': 'incident-simulator.js',
+  'project-ide': 'project-ide.js',
   'project-explorer': 'project-explorer.js',
   'spaced-review': 'spaced-review.js',
   // Reference & review

@@ -1,0 +1,117 @@
+name: Publish user edits
+
+# Pulls the user's in-tool edits (logic / description / code) from cloud sync,
+# bakes them into blind75-visualizer/data/user_overrides.js, commits the change,
+# and deploys GitHub Pages so the edits go live AND land in the Backup .zip.
+#
+# One-time setup: add a repo secret named BLIND75_SYNC_CODE containing the same
+# sync code you entered in the tool (Settings -> Secrets and variables ->
+# Actions -> New repository secret). Until that secret exists this workflow is a
+# harmless no-op.
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"   # every 5 minutes (GitHub's minimum granularity)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+# Share the Pages concurrency group with deploy.yml so the two never deploy at
+# the same time. Don't cancel an in-flight deploy — let it finish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  bake-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Fetch cloud state and bake overrides
+        id: bake
+        env:
+          SYNC_CODE: ${{ secrets.BLIND75_SYNC_CODE }}
+          SUPA_URL: "https://zkqbgjttjrljikeylchu.supabase.co"
+          SUPA_KEY: "sb_publishable_5vWJiCbxESEkKqLtXK_UKA_e1Bw_okx"
+        run: |
+          set -euo pipefail
+          if [ -z "${SYNC_CODE:-}" ]; then
+            echo "BLIND75_SYNC_CODE secret not set — nothing to publish. Skipping."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Build the request body with node so the sync code is JSON-escaped safely.
+          BODY="$(node -e 'process.stdout.write(JSON.stringify({p_code:process.env.SYNC_CODE}))')"
+          curl -sS -X POST "$SUPA_URL/rest/v1/rpc/study_get" \
+            -H "Content-Type: application/json" \
+            -H "apikey: $SUPA_KEY" \
+            --data "$BODY" \
+            -o cloud.json
+          echo "Fetched $(wc -c < cloud.json) bytes from cloud."
+          node scripts/bake-edits.mjs cloud.json blind75-visualizer/data/user_overrides.js
+          rm -f cloud.json
+          if git diff --quiet -- blind75-visualizer/data/user_overrides.js; then
+            echo "No edit changes since last publish."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit baked edits
+        if: steps.bake.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add blind75-visualizer/data/user_overrides.js
+          git commit -m "Publish user edits (auto-baked from cloud sync)"
+          git push origin main
+
+      - name: Setup Pages
+        if: steps.bake.outputs.changed == 'true'
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Build per-project backup zips
+        if: steps.bake.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          for dir in */ ; do
+            name="${dir%/}"
+            [ -f "${name}/index.html" ] || continue
+            ( cd "${name}" && zip -rqX "${RUNNER_TEMP}/${name}.zip" . -x '*.zip' )
+            cp "${RUNNER_TEMP}/${name}.zip" "${name}/${name}.zip"
+            echo "backup: ${name}/${name}.zip ($(du -h "${name}/${name}.zip" | cut -f1))"
+          done
+          zip -rqX "${RUNNER_TEMP}/newvisual-all.zip" . \
+            -x '.git/*' -x '*/.git/*' -x '*.zip' -x 'node_modules/*' -x '*/node_modules/*'
+          cp "${RUNNER_TEMP}/newvisual-all.zip" newvisual-all.zip
+          echo "backup: newvisual-all.zip ($(du -h newvisual-all.zip | cut -f1))"
+
+      - name: Upload artifact
+        if: steps.bake.outputs.changed == 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        if: steps.bake.outputs.changed == 'true'
+        uses: actions/deploy-pages@v4

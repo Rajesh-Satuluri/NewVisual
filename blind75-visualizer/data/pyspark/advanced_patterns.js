@@ -25,7 +25,10 @@
         "Given a long `sales` DataFrame (`product_id`, `sale_month`, `revenue`) with one row per product per month, reshape it **wide** so there is one row per product and one column per month (`groupBy('product_id').pivot('sale_month').agg(sum(...))`). Then show the reverse: **unpivot** the wide table back to long form with `stack(...)` inside `selectExpr`. Pivot turns row values into columns (a crosstab); unpivot turns columns back into rows.",
       examples: [
         {
-          input: "sales: (p1, 2026-01, 100), (p1, 2026-02, 140), (p2, 2026-01, 50)",
+          inputs: [
+            { name: "sales", columns: ["product_id", "sale_month", "revenue"],
+              rows: [["p1", "2026-01", 100], ["p1", "2026-02", 140], ["p2", "2026-01", 50]] }
+          ],
           output: "pivoted -> p1: {`2026-01`: 100, `2026-02`: 140}; p2: {`2026-01`: 50, `2026-02`: null}. unpivot -> back to (p1, 2026-01, 100), (p1, 2026-02, 140), (p2, 2026-01, 50) [null cells dropped].",
           reasoning: "pivot promotes each distinct sale_month into its own column filled by sum(revenue) per product; a product with no row for a month gets null there. stack(...) reverses it, emitting one (month, revenue) row per non-null column."
         }
@@ -125,8 +128,12 @@
         "Given a `logs` DataFrame with a single raw string column `line` holding Apache/Nginx-style access lines, extract `ip`, `event_ts`, `method`, `path`, and `status` into typed columns. Use `regexp_extract(line, pattern, group)` with one capture group per field. Mention `regexp_extract_all` (all matches of a repeating pattern) and `split` (a cheaper option when the format is a simple fixed delimiter).",
       examples: [
         {
-          input: "line = '10.0.0.5 - - [02/Sep/2026:10:15:32 +0000] \"GET /home HTTP/1.1\" 200 512'",
-          output: "ip=10.0.0.5, event_ts=02/Sep/2026:10:15:32, method=GET, path=/home, status=200",
+          inputs: [
+            { name: "logs", columns: ["line"],
+              rows: [['10.0.0.5 - - [02/Sep/2026:10:15:32 +0000] "GET /home HTTP/1.1" 200 512']] }
+          ],
+          output: { columns: ["ip", "event_ts", "method", "path", "status"],
+            rows: [["10.0.0.5", "02/Sep/2026:10:15:32", "GET", "/home", 200]] },
           reasoning: "One regex with five capture groups pulls each field by group index: group 1 the IP, group 2 the bracketed timestamp, group 3 the verb, group 4 the path, group 5 the status code."
         }
       ],
@@ -225,7 +232,12 @@
         "Maintain a **Slowly Changing Dimension Type 2** `customers_dim` (columns `customer_id`, attributes, `effective_date`, `end_date`, `is_current`). Given a batch of incoming records, close the currently-active row for any customer whose attributes changed (set `end_date` and `is_current = false`) and insert a **new version** row marked current — preserving full history. Implement it with Delta Lake `MERGE INTO` via `DeltaTable.forName(...).merge(...)`, using the classic **two-step** (expire + insert) merge pattern.",
       examples: [
         {
-          input: "dim has (c1, city=NYC, is_current=true). Incoming: (c1, city=LA). ",
+          inputs: [
+            { name: "customers_dim", columns: ["customer_id", "city", "is_current"],
+              rows: [["c1", "NYC", true]] },
+            { name: "incoming", columns: ["customer_id", "city"],
+              rows: [["c1", "LA"]] }
+          ],
           output: "After merge: (c1, NYC, end_date=today, is_current=false) AND a new (c1, LA, effective_date=today, end_date=null, is_current=true). c1 now has two history rows.",
           reasoning: "c1's city changed, so the active NYC row is expired (end-dated, is_current=false) and a fresh LA row is inserted as the current version. Unchanged customers are untouched; brand-new customers are inserted as a single current row."
         }
@@ -347,7 +359,12 @@
         "Given a **change-data-capture** feed `cdc` (`id`, columns, `op` in {`I`, `U`, `D`}, `change_ts`), apply only the **latest** change per key to a target table. First **dedupe to the latest change per id** with `row_number()` over `change_ts` desc, then **upsert**: inserts/updates write the row, `op = 'D'` deletes it. Show the batch apply with a Delta `MERGE` (matched-delete / matched-update / not-matched-insert) and note the full-outer-join fallback when Delta is unavailable.",
       examples: [
         {
-          input: "cdc for id=7: (U, city=LA, 10:00), (U, city=SF, 10:05), (D, 10:09). target has (7, NYC).",
+          inputs: [
+            { name: "cdc", columns: ["id", "op", "city", "change_ts"],
+              rows: [[7, "U", "LA", "10:00"], [7, "U", "SF", "10:05"], [7, "D", null, "10:09"]] },
+            { name: "target", columns: ["id", "city"],
+              rows: [[7, "NYC"]] }
+          ],
           output: "Latest change for id=7 is the D at 10:09, so id=7 is DELETED from target. The intermediate LA/SF updates are ignored.",
           reasoning: "row_number desc by change_ts keeps only the last event per id (the delete). The merge then applies that single net change: op='D' removes the row; had the latest been an I/U it would upsert the row's values."
         }
@@ -455,8 +472,12 @@
         "From an `activity` DataFrame (`user_id`, `login_date`) of login/activity events, compute **D1, D7, and D30 retention**: for each user, whether they returned **within** 1, 7, and 30 days after their **first-seen** date. Then roll up per **cohort** (the first-seen date): cohort size and the D1/D7/D30 retained counts and rates. Uses a first-seen milestone, a day-offset from it, and conditional counting.",
       examples: [
         {
-          input: "activity: u1 first-seen 2026-01-01, also active 2026-01-02 and 2026-01-20; u2 first-seen 2026-01-01, no later activity.",
-          output: "cohort 2026-01-01: size 2; d1_retained 1 (u1 back within 1 day), d7_retained 1, d30_retained 1; rates 0.5/0.5/0.5. u2 retained on none.",
+          inputs: [
+            { name: "activity", columns: ["user_id", "login_date"],
+              rows: [["u1", "2026-01-01"], ["u1", "2026-01-02"], ["u1", "2026-01-20"], ["u2", "2026-01-01"]] }
+          ],
+          output: { columns: ["first_seen", "cohort_size", "d1_retained", "retained_7d", "retained_30d", "d1_rate", "d7_rate", "d30_rate"],
+            rows: [["2026-01-01", 2, 1, 1, 1, "0.5", "0.5", "0.5"]] },
           reasoning: "u1's offsets from first-seen are 0,1,19 -> within 1 (yes), within 7 (yes), within 30 (yes). u2 has only day 0 -> retained on none. The cohort keyed by first-seen date aggregates these per-user flags into counts and rates."
         }
       ],
@@ -591,7 +612,10 @@
         "You are handed a short PySpark snippet that runs but returns wrong results (or raises). Find and fix the bugs. The broken code:\n\n```python\n# BROKEN\nres = (orders\n    .filter(col('status') == 'PAID' and col('amount') > 100)      # bug 1\n    .withColumnRenamed('total', 'amount')                          # bug 2\n    .filter(col('coupon') == None)                                 # bug 3\n    .groupBy('region')\n    .agg(_sum('amount').alias('rev'), col('order_id')))            # bug 4\n```\n\nPick out each defect, explain why it fails, and give the corrected version. Bugs: (1) Python `and` between two Column conditions; (2) `withColumnRenamed` arguments swapped (existing name first, new name second); (3) comparing to null with `== None` instead of `isNull()`; (4) an aggregate referencing a non-aggregated column `order_id`.",
       examples: [
         {
-          input: "orders: (o1, PAID, amount=150, coupon=null, region=W), (o2, PAID, amount=50, coupon=X, region=W)",
+          inputs: [
+            { name: "orders", columns: ["order_id", "status", "amount", "coupon", "region"],
+              rows: [["o1", "PAID", 150, null, "W"], ["o2", "PAID", 50, "X", "W"]] }
+          ],
           output: "Broken: raises/`ValueError: Cannot convert column into bool` at the `and`; even past that, wrong rename and null filter drop everything, and the agg errors on `order_id`. Fixed: region=W -> rev=150 (only o1 qualifies: PAID, amount>100, no coupon).",
           reasoning: "Each bug either raises or silently drops/miscounts rows; fixing all four yields one correct aggregated row per region over the rows that truly match (PAID, amount>100, coupon is null)."
         }
@@ -771,8 +795,14 @@
         "Given `events` (`event_id`, `product_id`, `event_ts`) and a `rules` price table (`product_id`, `effective_ts`, `price`) where each product accumulates rule versions over time, attach to every event the rule that was **in effect at that event's timestamp** — the latest rule for that product with `effective_ts <= event_ts`. Show the correct **as-of join**: an inequality (range) join on `product_id AND rules.effective_ts <= events.event_ts`, then `row_number()` to keep the single most-recent applicable rule per event. Explain why a plain equi-join on timestamp finds nothing.",
       examples: [
         {
-          input: "rules for p1: (effective_ts=2026-01-01, price=10), (2026-06-01, price=12). event: (e9, p1, event_ts=2026-07-15).",
-          output: "e9 gets price=12: both rules have effective_ts <= 2026-07-15, and 2026-06-01 is the latest of those, so the rule in effect on 2026-07-15 is price=12.",
+          inputs: [
+            { name: "events", columns: ["event_id", "product_id", "event_ts"],
+              rows: [["e9", "p1", "2026-07-15"]] },
+            { name: "rules", columns: ["product_id", "effective_ts", "price"],
+              rows: [["p1", "2026-01-01", 10], ["p1", "2026-06-01", 12]] }
+          ],
+          output: { columns: ["event_id", "product_id", "event_ts", "price"],
+            rows: [["e9", "p1", "2026-07-15", 12]] },
           reasoning: "The range join keeps both candidate rules (each effective on/before the event); row_number ordered by effective_ts desc picks the most recent one (2026-06-01), which is the rule actually in force at the event time."
         }
       ],
@@ -873,8 +903,12 @@
         "Given a `sales` DataFrame (`category`, `revenue`), compute each category's revenue **and its percentage of the overall (grand) total** — e.g. `Electronics 4000 (40%)`. The clean way is a window with **no partitionBy**: `_sum('revenue').over(Window.partitionBy())` computes the grand total on every row without collapsing the rows, so you can divide row revenue by it in the same pass. Show the equivalent **cross-join to the scalar total** (with `broadcast`) and explain the single-partition cost of an unpartitioned window.",
       examples: [
         {
-          input: "sales: (Electronics, 4000), (Clothing, 3000), (Books, 3000)",
-          output: "grand_total = 10000 on every row; pct_share -> Electronics 40.0, Clothing 30.0, Books 30.0 (percentages sum to 100).",
+          inputs: [
+            { name: "sales", columns: ["category", "revenue"],
+              rows: [["Electronics", 4000], ["Clothing", 3000], ["Books", 3000]] }
+          ],
+          output: { columns: ["category", "revenue", "grand_total", "pct_share"],
+            rows: [["Electronics", 4000, 10000, "40.0"], ["Clothing", 3000, 10000, "30.0"], ["Books", 3000, 10000, "30.0"]] },
           reasoning: "An unpartitioned window sums revenue across the entire DataFrame and writes that single total (10000) onto each row, so revenue/total*100 gives each category's share; the shares add up to 100%."
         }
       ],
@@ -980,7 +1014,10 @@
         "From an `activity` DataFrame (`user_id`, `activity_date`) of login/activity events, compute, per date, (a) the **cumulative distinct active users** — the number of *distinct* users seen on or before that date (the growth curve of the user base) — and (b) a **rolling 30-day active-users** count — distinct users active in the trailing 30 days ending on that date. The trap: cumulative-distinct is **not** a running `SUM` of daily active counts (a user active on many days would be counted many times). Use each user's **first-seen** date for the cumulative curve, and a **self-join / range** approach for the 30-day rolling distinct count.",
       examples: [
         {
-          input: "activity: (u1, 2026-01-01), (u1, 2026-01-05), (u2, 2026-01-05). Daily active counts: 01-01 -> 1, 01-05 -> 2.",
+          inputs: [
+            { name: "activity", columns: ["user_id", "activity_date"],
+              rows: [["u1", "2026-01-01"], ["u1", "2026-01-05"], ["u2", "2026-01-05"]] }
+          ],
           output: "Cumulative distinct users: 01-01 -> 1 (u1), 01-05 -> 2 (u1,u2). A naive running SUM of daily counts would give 01-05 -> 1+2 = 3 (WRONG — u1 double-counted). Rolling 30-day distinct on 01-05 -> 2 (u1,u2 both active within the trailing 30 days).",
           reasoning: "u1 appears on two days, so summing daily active counts over-counts it. Counting each user only at its FIRST-seen date and running-summing those first-appearances gives the true cumulative distinct curve; the trailing-30-day distinct count needs a range join because a user active 3 days ago still counts today."
         }

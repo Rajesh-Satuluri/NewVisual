@@ -29,8 +29,14 @@
         "You get a fresh full <b>source</b> snapshot and the current <b>target</b> snapshot of the same entity (key <code>id</code>), and must derive the change set: label each key <b>INSERT</b> (in source, not target), <b>DELETE</b> (in target, not source), <b>UPDATE</b> (in both, some non-key column differs) or <b>UNCHANGED</b>. Do it with a single <code>full_outer</code> join and a null-safe column comparison &mdash; this is how you synthesize a CDC feed when the upstream only hands you daily dumps, not a change log.",
       examples: [
         {
-          input: "target = (1,NYC),(2,LA),(3,SF).  source = (1,NYC),(2,BOS),(4,SEA).",
-          output: "1 -> UNCHANGED, 2 -> UPDATE (LA->BOS), 3 -> DELETE (gone from source), 4 -> INSERT (new in source).",
+          inputs: [
+            { name: "target", columns: ["id", "city"],
+              rows: [[1, "NYC"], [2, "LA"], [3, "SF"]] },
+            { name: "source", columns: ["id", "city"],
+              rows: [[1, "NYC"], [2, "BOS"], [4, "SEA"]] }
+          ],
+          output: { columns: ["id", "change_type"],
+            rows: [[1, "UNCHANGED"], [2, "UPDATE"], [3, "DELETE"], [4, "INSERT"]] },
           reasoning: "Full outer join aligns keys from both sides. Key 3 has no source row (DELETE), key 4 has no target row (INSERT), key 2 exists on both but city differs (UPDATE), key 1 matches on every column (UNCHANGED)."
         }
       ],
@@ -118,8 +124,14 @@
         "Given an <b>old</b> and a <b>new</b> version of each record (key <code>id</code>, several attribute columns), produce for each key the <b>list of column names that changed</b> &mdash; not just that the row changed, but which fields. This drives audit logs, change notifications, and column-level CDC. Build the list generically so it works for any set of columns, using a null-safe comparison per column.",
       examples: [
         {
-          input: "old = (1,A,10,x),(2,B,20,y).  new = (1,A,99,z),(2,B,20,y).  columns: name, amount, note.",
-          output: "id 1 -> [amount, note] ; id 2 -> [] (nothing changed).",
+          inputs: [
+            { name: "old", columns: ["id", "name", "amount", "note"],
+              rows: [[1, "A", 10, "x"], [2, "B", 20, "y"]] },
+            { name: "new", columns: ["id", "name", "amount", "note"],
+              rows: [[1, "A", 99, "z"], [2, "B", 20, "y"]] }
+          ],
+          output: { columns: ["id", "changed_cols"],
+            rows: [[1, "[amount, note]"], [2, "[]"]] },
           reasoning: "For id 1, name is unchanged (A=A) but amount (10->99) and note (x->z) differ, so both names are collected. For id 2 every column matches, so the changed-list is empty."
         }
       ],
@@ -195,8 +207,12 @@
         "An append-only log records partial field updates as <code>(entity_id, attribute, value, seq)</code> &mdash; each event sets <b>one attribute</b> of an entity at a monotonically increasing <code>seq</code>. Reconstruct each entity's <b>current state</b> by applying <b>field-level last-write-wins</b>: for every (entity, attribute) keep the value from the highest <code>seq</code>, then pivot attributes back into columns. This differs from 'latest row per key' &mdash; different fields can have their newest value at different events.",
       examples: [
         {
-          input: "log: (1,city,NYC,1),(1,city,LA,3),(1,plan,free,2),(1,plan,pro,5),(2,city,SF,1).",
-          output: "entity 1 -> city=LA, plan=pro ; entity 2 -> city=SF, plan=null.",
+          inputs: [
+            { name: "log", columns: ["entity_id", "attribute", "value", "seq"],
+              rows: [[1, "city", "NYC", 1], [1, "city", "LA", 3], [1, "plan", "free", 2], [1, "plan", "pro", 5], [2, "city", "SF", 1]] }
+          ],
+          output: { columns: ["entity_id", "city", "plan"],
+            rows: [[1, "LA", "pro"], [2, "SF", null]] },
           reasoning: "Per (entity, attribute) the newest seq wins: city for 1 is LA (seq 3 beats 1), plan for 1 is pro (seq 5 beats 2); entity 2 only ever set city, so plan is null. A naive 'latest row per entity' would wrongly pick a single event and lose the other field's history."
         }
       ],
@@ -272,8 +288,14 @@
         "You maintain an SCD Type 2 dimension (<code>id</code>, attribute, <code>effective_date</code>, <code>end_date</code>, <code>is_current</code>). A correction arrives <b>late</b> &mdash; a record whose <code>effective_date</code> falls <i>between</i> existing versions &mdash; so you cannot just expire the current row and append. Rebuild the affected entity's timeline so the late version slots into its correct historical position and the surrounding <code>end_date</code>/<code>is_current</code> values are recomputed.",
       examples: [
         {
-          input: "existing id 1: (free, eff 2021-01-01, cur), (pro, eff 2022-01-01, cur). late: (trial, eff 2021-06-01).",
-          output: "free 2021-01-01->2021-05-31, trial 2021-06-01->2021-12-31, pro 2022-01-01->open (is_current). History re-split around the late row.",
+          inputs: [
+            { name: "existing (dim)", columns: ["id", "plan", "effective_date", "is_current"],
+              rows: [[1, "free", "2021-01-01", true], [1, "pro", "2022-01-01", true]] },
+            { name: "late", columns: ["id", "plan", "effective_date"],
+              rows: [[1, "trial", "2021-06-01"]] }
+          ],
+          output: { columns: ["id", "plan", "effective_date", "end_date", "is_current"],
+            rows: [[1, "free", "2021-01-01", "2021-05-31", false], [1, "trial", "2021-06-01", "2021-12-31", false], [1, "pro", "2022-01-01", null, true]] },
           reasoning: "Ordering all versions by effective_date, each row's end_date is the day before the next version's effective_date; the last row stays open/current. The late 'trial' row lands between free and pro and both neighbours' end_dates adjust automatically."
         }
       ],
@@ -360,8 +382,14 @@
         "An incremental job processes input in batches (e.g. per file or per <code>batch_id</code>) and a few batches failed mid-run. Maintain a <b>processing ledger</b> (control table) recording each batch's status, and on restart <b>resume</b>: process only batches not already marked <code>SUCCESS</code>, reprocess failed ones safely, and record the outcome. This is how production pipelines get exactly-once over an orchestrator that retries.",
       examples: [
         {
-          input: "incoming batches: b1,b2,b3,b4. ledger: b1=SUCCESS, b2=FAILED, b3=SUCCESS.",
-          output: "to-process on restart = {b2, b4}. b1/b3 skipped (already done), b2 retried, b4 is new.",
+          inputs: [
+            { name: "incoming", columns: ["batch_id"],
+              rows: [["b1"], ["b2"], ["b3"], ["b4"]] },
+            { name: "ledger", columns: ["batch_id", "status"],
+              rows: [["b1", "SUCCESS"], ["b2", "FAILED"], ["b3", "SUCCESS"]] }
+          ],
+          output: { name: "to_process", columns: ["batch_id"],
+            rows: [["b2"], ["b4"]] },
           reasoning: "A left_anti join of incoming against the SUCCESS set yields batches still needing work: b2 (its last attempt failed, not success) and b4 (never attempted). After each batch's write commits, append a SUCCESS row so the next restart skips it."
         }
       ],

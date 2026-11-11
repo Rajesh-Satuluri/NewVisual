@@ -455,6 +455,11 @@ svg { display: block; }
 /* ============================================================ CODE BLOCKS */
 .code-block {
   background: #060912;
+  /* The block background is always dark (both themes), so the text colour must
+     be fixed-light too — otherwise it inherits the theme text colour and goes
+     dark-on-dark (invisible) in light mode. The syntax-token colours below are
+     likewise tuned for this dark surface. */
+  color: #cdd9e5;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 20px;
@@ -464,6 +469,7 @@ svg { display: block; }
   overflow-x: auto;
   position: relative;
 }
+.code-block pre { color: #cdd9e5; margin: 0; }
 .code-block .lang-tag {
   position: absolute;
   top: 10px; right: 12px;
@@ -479,7 +485,7 @@ svg { display: block; }
 .cn   { color: #FCD34D; }  /* number */
 .cf   { color: #38BDF8; }  /* function */
 .ct   { color: #A78BFA; }  /* type */
-.cp   { color: var(--text-primary); }
+.cp   { color: #cdd9e5; }  /* plain — fixed-light for the dark code surface */
 
 /* ============================================================ INTERVIEW Q */
 .iq-list { display: flex; flex-direction: column; gap: 10px; }

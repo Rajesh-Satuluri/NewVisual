@@ -68,7 +68,15 @@
       description:
         "**Predict the output** for customer `c3`, whose only order has a null amount.\n\n```\n# orders: (c1,100),(c1,50),(c2,90),(c3,null)\norders.groupBy('customer_id').agg(sum('amount').alias('total')).show()\n```",
       examples: [
-        { input: "(c1,100),(c1,50),(c2,90),(c3,null)", output: "c1→150, c2→90, c3→null", reasoning: "sum ignores nulls; a group with only nulls yields null, not 0." }
+        {
+          inputs: [
+            { name: "orders", columns: ["customer_id", "amount"],
+              rows: [["c1", 100], ["c1", 50], ["c2", 90], ["c3", null]] }
+          ],
+          output: { columns: ["customer_id", "total"],
+            rows: [["c1", 150], ["c2", 90], ["c3", null]] },
+          reasoning: "sum ignores nulls; a group with only nulls yields null, not 0."
+        }
       ],
       approaches: [
         {
@@ -261,7 +269,15 @@
       description:
         "**Predict all three outputs.** The `email` column has one null and one duplicate.\n\n```\n# users emails: ['a@x', 'a@x', null, 'b@x']\ndf.select(count('*'), count('email'), countDistinct('email')).show()\n```",
       examples: [
-        { input: "['a@x','a@x',null,'b@x']", output: "count(*)=4, count(email)=3, countDistinct(email)=2", reasoning: "count(*) counts rows; count(col) skips nulls; countDistinct skips nulls AND dupes." }
+        {
+          inputs: [
+            { name: "users", columns: ["email"],
+              rows: [["a@x"], ["a@x"], [null], ["b@x"]] }
+          ],
+          output: { columns: ["count(*)", "count(email)", "countDistinct(email)"],
+            rows: [[4, 3, 2]] },
+          reasoning: "count(*) counts rows; count(col) skips nulls; countDistinct skips nulls AND dupes."
+        }
       ],
       approaches: [
         {
@@ -357,7 +373,15 @@
       description:
         "A running total over a column with **tied order keys** surprises people. **Predict the running total for the two rows tied at day=2.**\n\n```\nw = Window.orderBy('day')   # no explicit frame\ndf.withColumn('rt', sum('amt').over(w)).show()\n# rows: (day1,10),(day2,20),(day2,30),(day3,5)\n```",
       examples: [
-        { input: "(d1,10),(d2,20),(d2,30),(d3,5)", output: "d1→10, d2→60, d2→60, d3→65", reasoning: "With orderBy and no frame, the default is RANGE unboundedPreceding→currentRow; tied rows share one cumulative value (both d2 = 10+20+30 = 60)." }
+        {
+          inputs: [
+            { name: "df", columns: ["day", "amt"],
+              rows: [["d1", 10], ["d2", 20], ["d2", 30], ["d3", 5]] }
+          ],
+          output: { columns: ["day", "amt", "rt"],
+            rows: [["d1", 10, 10], ["d2", 20, 60], ["d2", 30, 60], ["d3", 5, 65]] },
+          reasoning: "With orderBy and no frame, the default is RANGE unboundedPreceding→currentRow; tied rows share one cumulative value (both d2 = 10+20+30 = 60)."
+        }
       ],
       approaches: [
         {

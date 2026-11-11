@@ -45,6 +45,13 @@ export function initCommandPalette() {
       .filter(r => r.s !== null)
       .sort((a, b) => a.s - b.s)
       .map(r => r.m);
+    // Full-content search action: always offered when there's a query.
+    if (q) {
+      results.unshift({
+        id: `search?q=${encodeURIComponent(q)}`,
+        title: `Search all content for “${q}”`, icon: '🔍', group: 'Search',
+      });
+    }
     if (sel >= results.length) sel = 0;
     list.innerHTML = results.length
       ? results.map((m, i) => `

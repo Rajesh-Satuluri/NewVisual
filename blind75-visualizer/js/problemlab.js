@@ -296,13 +296,61 @@
 
     function render() {
       body.innerHTML = ""; actions.innerHTML = "";
+      // Mark the wrap while editing so a capped logic section moves its scroll
+      // onto the textarea (native caret-follow) instead of the prose container.
+      wrap.classList.toggle("editing", editing);
       var edited = savedEdit() != null;
       if (edited) {
         actions.appendChild(h("span", { class: "code-edited", title: "This logic was edited locally" }, "edited"));
       }
+      // Copy the logic (its Markdown source) to the clipboard. Hidden while
+      // editing — the textarea already supports native select/copy.
+      if (!editing) {
+        var copyBtn = h("button", { class: "code-mini copy-logic", title: "Copy this logic to the clipboard" }, "⧉ Copy");
+        var copyTimer = null;
+        copyBtn.addEventListener("click", function (e) {
+          e.stopPropagation();
+          var text = currentSource();
+          function flash() {
+            copyBtn.textContent = "✓ Copied"; copyBtn.classList.add("on");
+            if (copyTimer) clearTimeout(copyTimer);
+            copyTimer = setTimeout(function () { copyBtn.textContent = "⧉ Copy"; copyBtn.classList.remove("on"); }, 1300);
+          }
+          if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(flash, flash);
+          else {
+            var tmp = document.createElement("textarea");
+            tmp.value = text; document.body.appendChild(tmp); tmp.select();
+            try { document.execCommand("copy"); } catch (e2) {}
+            document.body.removeChild(tmp); flash();
+          }
+        });
+        actions.appendChild(copyBtn);
+      }
       var lock = h("button", { class: "code-mini lock" + (editing ? " on" : "") }, editing ? "🔓 Editing" : "✏️ Edit");
       lock.title = editing ? "Lock to stop editing (changes are saved)" : "Unlock to rewrite this logic in Markdown";
-      lock.addEventListener("click", function () { editing = !editing; render(); });
+      lock.addEventListener("click", function () {
+        // Carry the reading position across the read<->edit swap so a mid-logic
+        // Edit opens where you were, not scrolled back to the top. The read
+        // scroller is .logic-body (capped); the edit scroller is the textarea.
+        var curEl = editing ? body.querySelector(".logic-edit") : body;
+        var denom = curEl ? curEl.scrollHeight - curEl.clientHeight : 0;
+        var frac = denom > 0 ? curEl.scrollTop / denom : 0;
+        editing = !editing;
+        render();
+        // Defer past render()'s own focus/fit (both on setTimeout 0) so our
+        // restore wins. When entering edit, also place the caret near the same
+        // spot so the first keystroke doesn't snap the view back to the top.
+        setTimeout(function () {
+          var next = editing ? body.querySelector(".logic-edit") : body;
+          if (!next) return;
+          if (editing && next.value) {
+            var pos = Math.round(frac * next.value.length);
+            try { next.setSelectionRange(pos, pos); } catch (e) {}
+          }
+          var d = next.scrollHeight - next.clientHeight;
+          next.scrollTop = d > 0 ? Math.round(frac * d) : 0;
+        }, 0);
+      });
       actions.appendChild(lock);
 
       if (editing) {
@@ -427,18 +475,28 @@
     order.forEach(function (name) {
       var card = h("div", { class: "lab-tbl-card" });
       card.appendChild(h("div", { class: "lab-tbl-card-name" }, esc(name)));
+      // schema definition (Column/Type) and sample rows sit side by side so each
+      // narrow table fills the card's width instead of stacking into a tall column;
+      // wraps back to stacked when the card is too narrow.
+      var cols = h("div", { class: "lab-tbl-cols" });
       var sc = findSchema(name);
       if (sc) {
         var defRows = (sc.columns || []).map(function (c) { return [c.name, c.type + (c.note ? "  · " + c.note : "")]; });
-        card.appendChild(dataTable(["Column", "Type"], defRows));
+        var def = h("div", { class: "lab-tbl-def" });
+        def.appendChild(h("div", { class: "lab-tbl-sub" }, "Schema"));
+        def.appendChild(dataTable(["Column", "Type"], defRows));
+        cols.appendChild(def);
       }
       var sm = findSample(name);
       if (sm) {
-        card.appendChild(h("div", { class: "lab-tbl-sub" }, sc ? "Sample rows" : "Sample data"));
+        var smp = h("div", { class: "lab-tbl-smp" });
+        smp.appendChild(h("div", { class: "lab-tbl-sub" }, sc ? "Sample rows" : "Sample data"));
         var box = h("div", { class: "lab-sample-box" });
         box.appendChild(dataTable(sm.columns, sm.rows));
-        card.appendChild(box);
+        smp.appendChild(box);
+        cols.appendChild(smp);
       }
+      card.appendChild(cols);
       grid.appendChild(card);
     });
     return grid;
@@ -586,7 +644,11 @@
     }
     var a = approaches[ai] || {};
     if (a.logic) {
-      apWrap.appendChild(section("logic", "Complete Logic — " + (a.name || "Approach"), logicBlock(a.logic, { id: nid, ai: ai })));
+      var logicSec = section("logic", "Complete Logic — " + (a.name || "Approach"), logicBlock(a.logic, { id: nid, ai: ai }));
+      // Cap the expanded logic (fixed height + internal scroll, pinned bar) on
+      // the SQL and PySpark practice tabs, matching the DSA app.
+      if (cur.stack === "sql" || cur.stack === "spark") logicSec.classList.add("logic-capped");
+      apWrap.appendChild(logicSec);
     }
     var codeArea = h("div", { class: "code-area" });
     var pk = cfg().codePrimary, sk = cfg().codeSecondary;
@@ -706,20 +768,59 @@
       main.appendChild(section("learnlink", "📚 Learn the concepts behind this", rcBody));
     }
 
-    // schema + sample data (SQL)
-    if ((p.schema && p.schema.length) || (p.sampleData && p.sampleData.length)) {
+    // schema + sample data (SQL) — paired side-by-side with the expected output
+    // so a SQL problem shows "here's the input / here's what you must produce"
+    // in one glance. Falls back to a standalone section when only one is present.
+    var _hasSchema = (p.schema && p.schema.length) || (p.sampleData && p.sampleData.length);
+    var _hasExpected = p.expectedOutput && p.expectedOutput.columns;
+    var _expRows = _hasExpected ? (p.expectedOutput.rows || []).length : 0;
+    if (_hasSchema && _hasExpected) {
+      var ioWrap = h("div", { class: "lab-io-split" });
+      var inPanel = h("div", { class: "lab-io-panel lab-io-in" });
+      inPanel.appendChild(h("div", { class: "lab-io-head" }, "Sample Input"));
+      inPanel.appendChild(schemaDataGrid(p));
+      var outPanel = h("div", { class: "lab-io-panel lab-io-out" });
+      var outHead = h("div", { class: "lab-io-head" }, "Expected Output");
+      outHead.appendChild(h("span", { class: "lab-io-badge" }, _expRows + " row" + (_expRows === 1 ? "" : "s")));
+      outPanel.appendChild(outHead);
+      outPanel.appendChild(dataTable(p.expectedOutput.columns, p.expectedOutput.rows));
+      ioWrap.appendChild(inPanel); ioWrap.appendChild(outPanel);
+      main.appendChild(section("schema", "Sample Input & Expected Output", ioWrap));
+    } else if (_hasSchema) {
       main.appendChild(section("schema", "Schema & Sample Data", schemaDataGrid(p)));
     }
 
-    // examples (PySpark / generic)
+    // examples (PySpark / generic) — render DataFrame tables when the example is
+    // structured ({name,columns,rows}), fall back to a <code> line for prose/scalar.
     if (p.examples && p.examples.length) {
       var exWrap = h("div", { class: "examples" });
+      // one Input/Output column (label on top): table(s) when structured, else code
+      function exCol(label, tables, str) {
+        var tbls = tables && tables.length ? tables : null;
+        var col = h("div", { class: "ex-col" });
+        col.appendChild(h("span", { class: "ex-label" }, label));
+        var body = h("div", { class: "ex-body" });
+        if (tbls) {
+          tbls.forEach(function (t) {
+            if (t.name) body.appendChild(h("div", { class: "lab-table-cap" }, esc(t.name)));
+            body.appendChild(dataTable(t.columns, t.rows));
+          });
+        } else {
+          body.innerHTML = "<code>" + esc(str) + "</code>";
+        }
+        col.appendChild(body);
+        return col;
+      }
       p.examples.forEach(function (ex, i) {
         var card = h("div", { class: "example-card" });
         card.appendChild(h("div", { class: "ex-num" }, "Example " + (i + 1)));
-        var io = h("div", { class: "ex-io" });
-        io.innerHTML = '<div class="ex-row"><span class="ex-label">Input</span><code>' + esc(ex.input) + "</code></div>" +
-          '<div class="ex-row"><span class="ex-label">Output</span><code>' + esc(ex.output) + "</code></div>";
+        // Input | Output side by side (wraps to stacked when the row is too narrow).
+        var io = h("div", { class: "ex-io ex-io-split" });
+        // input: ex.inputs = [{name,columns,rows}, ...]  OR  ex.input = string
+        io.appendChild(exCol("Input", ex.inputs, ex.input));
+        // output: ex.output = {name?,columns,rows}  OR  ex.output = string
+        var outTbls = (ex.output && typeof ex.output === "object" && ex.output.columns) ? [ex.output] : null;
+        io.appendChild(exCol("Output", outTbls, ex.output));
         card.appendChild(io);
         if (ex.reasoning) { var r = h("div", { class: "ex-reason md" }); r.innerHTML = md(ex.reasoning); card.appendChild(r); }
         exWrap.appendChild(card);
@@ -727,11 +828,12 @@
       main.appendChild(section("examples", "Examples", exWrap, { badge: p.examples.length + "" }));
     }
 
-    // expected output (SQL)
-    if (p.expectedOutput && p.expectedOutput.columns) {
+    // expected output (SQL) — only standalone when it wasn't paired with the
+    // sample input above (i.e. a problem that has expected output but no schema).
+    if (_hasExpected && !_hasSchema) {
       main.appendChild(section("expected", "Expected Output",
         dataTable(p.expectedOutput.columns, p.expectedOutput.rows),
-        { badge: (p.expectedOutput.rows || []).length + " row" + ((p.expectedOutput.rows || []).length === 1 ? "" : "s") }));
+        { badge: _expRows + " row" + (_expRows === 1 ? "" : "s") }));
     }
 
     // approaches: logic + code toggle.  Both the approach switcher and the
@@ -917,6 +1019,113 @@
   }
 
   // ============================================================ PUBLIC API
+  // ============================================================ REVISION GRID
+  // A sortable "all problems" grid for the SQL & PySpark practice tabs, mirroring
+  // the DSA revision grid. Reuses the shared #gridModal + its CSS.
+  var GRID_DIFF_ORDER = { "Easy": 0, "Medium": 1, "Hard": 2 };
+  var GRID_IMP_RANK = { essential: 0, common: 1, occasional: 2 };
+  var gridSort = { key: null, dir: 1 };
+
+  // Numeric key for the "#" column: PySpark uses the numeric lc; SQL stores a
+  // "LC 570"-style string, so pull the first number out of it.
+  function gridNum(p) {
+    if (typeof p.lc === "number") return p.lc;
+    var m = String(p.number || "").match(/\d+/);
+    return m ? parseInt(m[0], 10) : Number.MAX_SAFE_INTEGER;
+  }
+  var GRID_SORTS = {
+    num:        { getVal: function (p) { return gridNum(p); } },
+    category:   { getVal: function (p) { return String(p.category || "").toLowerCase(); } },
+    difficulty: { getVal: function (p) { var d = GRID_DIFF_ORDER[p.difficulty]; return d == null ? 99 : d; } },
+    importance: { getVal: function (p) { return GRID_IMP_RANK[cfg().importanceOf(p)]; } },
+    pattern:    { getVal: function (p) { return String((p.meta && p.meta.pattern) || "").toLowerCase(); } }
+  };
+
+  function openGrid() {
+    var c = cfg();
+    var body = el("gridBody");
+    if (!c || !body) return;
+    body.innerHTML = "";
+    var h2 = document.querySelector("#gridModal h2");
+    if (h2) h2.textContent = c.langLabel + " — Revision Grid";
+    var table = h("table", { class: "grid-table" });
+
+    // [label, sortKey|null]. Only keyed columns are clickable/sortable.
+    // "S.No." is a running row counter in display order — never sortable.
+    var cols = [
+      ["S.No.", null], ["#", "num"], ["Problem", null], ["Category", "category"],
+      ["Difficulty", "difficulty"], ["Importance", "importance"],
+      ["Pattern", "pattern"], ["Status", null]
+    ];
+    var thead = h("thead");
+    var htr = h("tr");
+    cols.forEach(function (col) {
+      var key = col[1];
+      var sortable = !!key;
+      var arrow = sortable && gridSort.key === key ? (gridSort.dir === 1 ? " ▲" : " ▼") : "";
+      var th = h("th", sortable ? { class: "g-sortable", role: "button", tabindex: "0",
+        "aria-sort": gridSort.key === key ? (gridSort.dir === 1 ? "ascending" : "descending") : "none" } : null,
+        esc(col[0]) + '<span class="g-arrow">' + arrow + "</span>");
+      if (sortable) {
+        th.addEventListener("click", function () { sortGrid(key); });
+        th.addEventListener("keydown", function (e) {
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); sortGrid(key); }
+        });
+      }
+      htr.appendChild(th);
+    });
+    thead.appendChild(htr);
+    table.appendChild(thead);
+
+    var rows = all().slice();
+    if (gridSort.key && GRID_SORTS[gridSort.key]) {
+      var getVal = GRID_SORTS[gridSort.key].getVal;
+      // Stable sort; ties fall back to problem number then title.
+      rows = rows.map(function (p, i) { return { p: p, i: i }; });
+      rows.sort(function (x, y) {
+        var av = getVal(x.p), bv = getVal(y.p);
+        var cmp = av < bv ? -1 : av > bv ? 1 : 0;
+        if (cmp === 0) cmp = gridNum(x.p) - gridNum(y.p) || String(x.p.title).localeCompare(String(y.p.title)) || (x.i - y.i);
+        return cmp * gridSort.dir;
+      });
+      rows = rows.map(function (o) { return o.p; });
+    }
+
+    var tbody = h("tbody");
+    rows.forEach(function (p, idx) {
+      var stt = store.getStatus(nsId(p.id));
+      var imp = c.importanceOf(p);
+      var tr = h("tr", { class: "grid-row" });
+      tr.innerHTML =
+        '<td class="g-sno">' + (idx + 1) + "</td>" +
+        "<td>" + esc(c.numberOf(p) || "—") + "</td>" +
+        '<td class="g-title">' + esc(p.title) + "</td>" +
+        "<td>" + esc(p.category || "") + "</td>" +
+        '<td class="d-' + String(p.difficulty).toLowerCase() + '">' + esc(p.difficulty) + "</td>" +
+        '<td class="' + IMP_META[imp].cls + '" title="' + IMP_META[imp].label + '">' + IMP_META[imp].stars + "</td>" +
+        "<td>" + esc((p.meta && p.meta.pattern) || "") + "</td>" +
+        '<td class="st st-' + stt + '">' + STATUS_GLYPH[stt] + "</td>";
+      tr.addEventListener("click", function () {
+        window.BLIND75.closeModal("gridModal");
+        window.BLIND75.goTo("practice", cur.stack, p.id);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    body.appendChild(table);
+    window.BLIND75.openModal("gridModal");
+  }
+
+  // Toggle sort on a column: ascending -> descending -> natural order.
+  function sortGrid(key) {
+    if (gridSort.key !== key) { gridSort.key = key; gridSort.dir = 1; }
+    else if (gridSort.dir === 1) { gridSort.dir = -1; }
+    else { gridSort.key = null; gridSort.dir = 1; }
+    var sc = el("gridBody").scrollTop;
+    openGrid();
+    el("gridBody").scrollTop = sc;
+  }
+
   window.ProblemLab = {
     // Render the given stack's practice view; id null => first problem.
     mount: function (stack, id) {
@@ -960,6 +1169,8 @@
     allCollapsed: function () {
       var gs = activeGroups();
       return gs.length > 0 && gs.every(function (g) { return store.isCatCollapsed(catCollapseKey(g.category)); });
-    }
+    },
+    // Open the sortable revision grid for the current (SQL / PySpark) stack.
+    openGrid: openGrid
   };
 })();

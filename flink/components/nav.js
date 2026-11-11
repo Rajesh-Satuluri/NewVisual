@@ -21,19 +21,28 @@ export const MODULES = [
   // Group: APIs & Connectors
   { id: 'm15', title: 'Flink SQL & Table API',   icon: '📊', group: 'APIs & Connectors', num: '15' },
   { id: 'm16', title: 'Connectors',              icon: '🔌', group: 'APIs & Connectors', num: '16' },
-  { id: 'm17', title: 'Flink SQL',               icon: '📊', group: 'APIs & Connectors', num: '17' },
-  { id: 'm18', title: 'Performance',             icon: '🚀', group: 'APIs & Connectors', num: '18' },
+  { id: 'm17', title: 'Flink SQL · Advanced',    icon: '🧮', group: 'APIs & Connectors', num: '17' },
+  // Group: Optimization
+  { id: 'm18', title: 'Performance',             icon: '🚀', group: 'Optimization',    num: '18' },
   { id: 'm19', title: 'Uber Pipeline',           icon: '🗺️', group: 'End-to-End',     num: '19' },
 ];
 
 // Synthetic entries that live in the sidebar but aren't numbered modules.
 // They don't count toward course progress or the prev/next pager.
 export const EXTRAS = [
+  { id: 'dashboard',  title: 'Dashboard',        icon: '📊', group: 'Start', num: '' },
   { id: 'learning-path', title: 'Learning Path', icon: '🧭', group: 'Start', num: '▶' },
+  { id: 'search',     title: 'Search',           icon: '🔍', group: 'Start', num: '' },
   { id: 'master-map', title: 'Master Map',       icon: '🗺️', group: 'Reference', num: '' },
   { id: 'comparison', title: 'Engine Comparison', icon: '⚖️', group: 'Reference', num: '' },
   { id: 'glossary',   title: 'Glossary',          icon: '📖', group: 'Reference', num: '' },
   { id: 'cheatsheet', title: 'Cheat Sheet',       icon: '📋', group: 'Reference', num: '' },
+  { id: 'config-reference', title: 'Config Reference', icon: '⚙️', group: 'Reference', num: '' },
+  { id: 'advanced',   title: 'Advanced Topics',   icon: '🧬', group: 'Reference', num: '' },
+  { id: 'sizing',     title: 'Sizing Lab',        icon: '📐', group: 'Labs', num: '' },
+  { id: 'rescale-lab', title: 'Rescaling Lab',    icon: '🧩', group: 'Labs', num: '' },
+  { id: 'watermark-lab', title: 'Watermark Lab',  icon: '💧', group: 'Labs', num: '' },
+  { id: 'review',     title: 'Review Center',     icon: '🔁', group: 'Review',    num: '' },
   { id: 'study',      title: 'Study Hub',         icon: '📚', group: 'Review',    num: '★' },
 ];
 const REVIEW = EXTRAS;

@@ -76,7 +76,14 @@
       description:
         "A CSV of `customer_id` (like `007123`), `signup_ts`, `balance` reads slowly and mangles types — IDs lose leading zeros, dates become strings. **Read it in one pass with correct, pinned types.**",
       examples: [
-        { input: "customer_id '007123', signup_ts '2024-06-01', balance '12.50'", output: "id kept as string '007123'; ts as timestamp; balance as double — in a single read pass", reasoning: "An explicit schema avoids the inference pass and pins each column's type, preserving leading zeros." }
+        {
+          inputs: [
+            { name: "customers.csv (raw text)", columns: ["customer_id", "signup_ts", "balance"],
+              rows: [["007123", "2024-06-01", "12.50"]] }
+          ],
+          output: "id kept as string '007123'; ts as timestamp; balance as double — in a single read pass",
+          reasoning: "An explicit schema avoids the inference pass and pins each column's type, preserving leading zeros."
+        }
       ],
       approaches: [
         {
@@ -127,7 +134,14 @@
       description:
         "A string `amount` column should be numeric, but some rows contain junk like `'N/A'`. Casting silently turns those into null. **Separate cleanly-cast rows from rows whose value failed to parse** (distinguishing a real null from a bad string).",
       examples: [
-        { input: "amount = ['100', 'N/A', null, '50']", output: "clean: 100, (null stays null), 50 ; rejects: 'N/A'", reasoning: "cast('N/A') → null; a row is a reject only if the original was non-null but became null after cast." }
+        {
+          inputs: [
+            { name: "df", columns: ["amount"],
+              rows: [["100"], ["N/A"], [null], ["50"]] }
+          ],
+          output: "clean: 100, (null stays null), 50 ; rejects: 'N/A'",
+          reasoning: "cast('N/A') → null; a row is a reject only if the original was non-null but became null after cast."
+        }
       ],
       approaches: [
         {

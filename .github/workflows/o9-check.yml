@@ -1,0 +1,42 @@
+name: o9 SCS Mastery — checks
+
+# Scoped, non-deploy CI for the o9 Supply Chain Solver tool. Runs only when
+# that folder changes, so it never affects the other visualizers or the shared
+# Pages deploy. The syntax gate is a hard check; the headless sweep is
+# best-effort (self-skips when Playwright/Chromium isn't present on the runner).
+
+on:
+  push:
+    paths:
+      - "o9-solver-visualizer/**"
+  pull_request:
+    paths:
+      - "o9-solver-visualizer/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: o9-solver-visualizer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Syntax gate (node --check every JS file)
+        run: node scripts/check-syntax.mjs
+
+      - name: Unit tests (node --test — sim engine + data logic)
+        run: node scripts/test.mjs
+
+      - name: Headless smoke sweep (best-effort)
+        continue-on-error: true
+        run: |
+          npx --yes playwright@1.48.0 install chromium || echo "chromium install skipped"
+          node scripts/verify.mjs || echo "verify sweep skipped/failed (non-blocking)"
