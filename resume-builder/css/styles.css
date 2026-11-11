@@ -393,6 +393,21 @@ button.kw-chip.have { cursor: pointer; }
 .import-actions { display: flex; gap: 8px; margin-top: 14px; }
 .import-actions .btn { padding: 9px 14px; }
 
+/* ---------- Section presets modal ---------- */
+.modal-presets { max-width: 560px; }
+.preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
+.preset-opt { display: flex; align-items: center; gap: 10px; text-align: left; padding: 10px 11px;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--panel-2); color: var(--text); cursor: pointer; }
+.preset-opt:hover:not(.added) { border-color: var(--brand); background: rgba(47,155,179,.08); }
+.preset-opt.added { opacity: .5; cursor: default; }
+.preset-ic { width: 18px; height: 18px; flex: 0 0 auto; color: var(--brand); }
+.preset-ic.ico-svg, .preset-ic .ico-svg { width: 18px; height: 18px; }
+.preset-tx { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.preset-name { font-size: 12.5px; font-weight: 600; }
+.preset-desc { font-size: 11px; color: var(--muted); }
+.preset-custom { width: 100%; justify-content: center; padding: 9px; }
+@media (max-width: 520px) { .preset-grid { grid-template-columns: 1fr; } }
+
 /* toast */
 .toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(12px); background: var(--brand-ink); color: #fff; font-size: 13px; font-weight: 600; padding: 9px 16px; border-radius: 999px; box-shadow: 0 6px 24px rgba(0,0,0,.4); opacity: 0; transition: opacity .25s, transform .25s; z-index: 120; }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -556,6 +571,21 @@ textarea.inp { resize: none; overflow: hidden; min-height: 32px; }
 .strength-ok   { color: #8fa6c8; background: rgba(120, 150, 200, .14); }
 .strength-warn { color: #e8b86b; background: rgba(201, 162, 74, .16); }
 .btn-mini.coach-on { color: var(--brand); border-color: rgba(47, 155, 179, .45); background: rgba(47, 155, 179, .08); }
+
+/* ---------- ATS live checklist ---------- */
+.ats-check { display: flex; flex-direction: column; gap: 7px; }
+.ats-check-row { display: flex; gap: 9px; align-items: flex-start; padding: 7px 9px; border-radius: 8px; background: var(--panel-2); border: 1px solid var(--border); }
+.ats-check-ic { flex: 0 0 auto; width: 16px; height: 16px; margin-top: 1px; }
+.ats-check-ic .ico-svg { width: 16px; height: 16px; }
+.ats-good .ats-check-ic { color: #58c08a; }
+.ats-warn .ats-check-ic { color: #e8b86b; }
+.ats-bad .ats-check-ic  { color: var(--danger); }
+.ats-good { border-color: rgba(88,192,138,.28); }
+.ats-warn { border-color: rgba(201,162,74,.3); }
+.ats-bad  { border-color: rgba(208,90,90,.34); }
+.ats-check-tx { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.ats-check-lbl { font-size: 12.5px; font-weight: 600; color: var(--text); }
+.ats-check-det { font-size: 11.5px; line-height: 1.4; color: var(--muted); }
 
 /* resume health */
 .hl-pill { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; letter-spacing: .03em; text-transform: uppercase; margin-left: auto; }
@@ -777,11 +807,25 @@ textarea.cover-body { min-height: 300px; resize: vertical; line-height: 1.55; wh
 @media (max-width: 640px) { .tmpl-grid { grid-template-columns: 1fr; } }
 
 /* ---------- Responsive ---------- */
+/* Mobile Edit/Preview switch — hidden on desktop, a floating segmented pill on phones */
+.mobile-switch { display: none; }
+.msw-btn { font: inherit; font-size: 13px; font-weight: 600; padding: 9px 22px; border: none; background: transparent; color: var(--muted); cursor: pointer; border-radius: 999px; }
+.msw-btn.active { background: var(--brand); color: #fff; }
+
 @media (max-width: 900px) {
   .layout { grid-template-columns: 1fr; height: auto; }
   .resizer { display: none; }
   .editor { border-right: none; border-bottom: 1px solid var(--border); max-height: 65vh; }
   .preview-wrap { padding: 14px; }
+  /* one pane at a time, driven by the floating switch */
+  .mobile-switch { display: inline-flex; position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+    z-index: 95; background: var(--panel); border: 1px solid var(--border); border-radius: 999px; padding: 3px;
+    box-shadow: 0 6px 24px rgba(0,0,0,.4); }
+  body.mview-edit .preview-wrap { display: none; }
+  body.mview-edit .editor { max-height: none; border-bottom: none; }
+  body.mview-preview .editor { display: none; }
+  body.mview-preview .preview-wrap { min-height: calc(100vh - 120px); }
+  .editor, .preview-wrap { padding-bottom: 72px; }
   .page { width: 100%; padding: 28px 24px; }
   /* topbar: let it wrap, make the tab row horizontally scrollable */
   .topbar { flex-wrap: wrap; gap: 8px; }

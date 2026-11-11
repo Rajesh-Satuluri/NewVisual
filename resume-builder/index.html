@@ -81,6 +81,13 @@
     </section>
   </main>
 
+  <!-- Mobile-only: switch between editing and the live preview (the split
+       layout is cramped on phones; this shows one pane at a time) -->
+  <div class="mobile-switch no-print" id="mobileSwitch" role="group" aria-label="Edit or preview">
+    <button class="msw-btn active" id="mswEdit" type="button" aria-pressed="true">Edit</button>
+    <button class="msw-btn" id="mswPreview" type="button" aria-pressed="false">Preview</button>
+  </div>
+
   <script src="js/app.js"></script>
   <!-- Offline backup: one-click .zip download of this project (top-right) -->
   <script src="../shared/backup-button.js" defer></script>
