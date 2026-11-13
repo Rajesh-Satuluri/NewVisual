@@ -54,6 +54,8 @@
     "senior-decisions": { title: "Senior Design Decisions", ready: true, group: "Production & Practice" },
     challenges: { title: "Scenario Challenges", ready: true, group: "Production & Practice" },
     "interview-prep": { title: "Knowledge & Interview Prep", ready: true, group: "Production & Practice" },
+    review: { title: "Spaced Review", ready: true, group: "Production & Practice" },
+    capstone: { title: "Final Capstone", ready: true, group: "Production & Practice" },
     progress: { title: "Learning Progress", ready: true, group: "Production & Practice" }
   };
   AV.routes = ROUTES;
@@ -69,8 +71,9 @@
   AV.nextUp = function () {
     var visited = [];
     try { visited = JSON.parse(localStorage.getItem("apilab-visited") || "[]"); } catch (e) {}
+    var SKIP = { home: 1, progress: 1, review: 1, capstone: 1 };
     var lessons = NAV_ORDER.filter(function (k) {
-      return ROUTES[k].ready && k !== "home" && k !== "progress";
+      return ROUTES[k].ready && !SKIP[k];
     });
     for (var i = 0; i < lessons.length; i++) {
       if (visited.indexOf(lessons[i]) === -1) {
