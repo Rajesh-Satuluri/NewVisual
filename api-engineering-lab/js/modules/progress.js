@@ -35,10 +35,21 @@
         });
         var quizTaken = quizRows.filter(function (q) { return q.best > 0; }).length;
 
+        var next = AV.nextUp ? AV.nextUp() : null;
+        var nextCard = next
+          ? '<a class="panel" href="#' + next.id + '" style="display:flex;align-items:center;gap:var(--space-4);margin-bottom:var(--space-6);text-decoration:none">' +
+              '<span style="font-size:1.6rem">▶️</span><div>' +
+              '<div class="panel-title" style="margin:0">Next up: ' + next.title + '</div>' +
+              '<div class="text-muted text-sm">' + next.group + ' · ' + next.reason + ' — click to resume</div>' +
+            '</div></a>'
+          : "";
+
         container.innerHTML =
-          '<div class="module-header animate-fade-in-up"><div class="module-eyebrow">Practice</div>' +
+          '<div class="module-header animate-fade-in-up"><div class="module-eyebrow">Production &amp; Practice</div>' +
             '<h1 class="module-title">Your learning progress</h1>' +
             '<p class="module-subtitle">Tracked locally in your browser. Explore modules and take the Test-Yourself quizzes to fill this in.</p></div>' +
+
+          nextCard +
 
           '<div class="stat-row" style="margin-bottom:var(--space-6)">' +
             stat(pct + "%", "modules explored") + stat(done.length + " / " + ready.length, "modules") +
