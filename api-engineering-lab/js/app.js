@@ -40,6 +40,7 @@
     "testing-workbench": { title: "API Testing Workbench", ready: true, group: "Implementation & Testing" },
     "testing-challenges": { title: "Testing Challenges", ready: true, group: "Implementation & Testing" },
     "openapi-studio": { title: "OpenAPI & Docs Studio", ready: true, group: "Implementation & Testing" },
+    "design-reviewer": { title: "Design Reviewer (Capstone)", ready: true, group: "Implementation & Testing" },
 
     security: { title: "Security Lab", ready: true, group: "Security & Performance" },
     oauth: { title: "OAuth 2.0 & JWT", ready: true, group: "Security & Performance" },
