@@ -173,6 +173,82 @@ function buildCommit(container) {
             <div class="info-card-body">${s.desc}</div>
           </div>`).join('')}
       </div>
+      ${commitDeepDive()}
+    </div>`;
+}
+
+function commitDeepDive() {
+  const chip = 'font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px;font-family:monospace';
+  return `
+    <div style="max-width:940px;margin:36px auto 0">
+
+      <!-- The one mental model -->
+      <div style="background:linear-gradient(135deg,#06B6D412,#10B98112);border:1px solid #10B98144;border-radius:12px;padding:18px 22px;margin-bottom:28px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#94A3B8;margin-bottom:8px">The decision that actually matters</div>
+        <div style="font-size:14px;color:#E2E8F0;line-height:1.8">Every commit strategy is really answering one question: <strong style="color:#10B981">do you commit the offset <em>before</em> or <em>after</em> you process the record?</strong> Commit <em>before</em> → a crash loses the record (<span style="color:#EF4444">at-most-once</span>). Commit <em>after</em> → a crash reprocesses it (<span style="color:#F59E0B">at-least-once</span>). Make the two atomic → <span style="color:#10B981">exactly-once</span>. Everything below is a variation on <em>when</em> that commit happens and <em>what it's tied to</em>.</div>
+      </div>
+
+      <!-- Which one when: real-world mapping -->
+      <div style="margin-bottom:28px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">Which strategy is used when — real-world mapping</div>
+        <div style="overflow-x:auto;border-radius:10px;border:1px solid #1E293B">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:760px">
+            <thead><tr style="background:#0F172A;border-bottom:1px solid #1E293B">
+              ${['Workload','Strategy used','Why'].map((h,i)=>`<th style="padding:10px 14px;text-align:left;color:#94A3B8;font-size:10px;text-transform:uppercase;letter-spacing:.06em;${i===0?'min-width:180px':''}">${h}</th>`).join('')}
+            </tr></thead>
+            <tbody>
+              ${
+                [
+                  ['#F59E0B','Metrics / logs / clickstream into a dashboard','Auto commit','Losing a handful of log lines on a crash is fine. Nobody writes offset code for telemetry — auto-commit\'s throughput and zero complexity win. At-most-once is a feature here, not a bug.'],
+                  ['#10B981','Payments, orders, fulfillment (the 99% case)','Manual sync commit after a batch + idempotent writes','This is what most production services actually do. Process the batch, write with an idempotent key (upsert on order_id), then commitSync(). Duplicates on retry are harmless because the write is idempotent — so at-least-once behaves like exactly-once without the cost of transactions.'],
+                  ['#3B82F6','High-throughput pipelines that can tolerate rare dup handling','Manual async commit (+ sync on shutdown)','commitAsync() per poll for throughput, with a commitSync() in the finally/close path so the final offsets are durable. The standard high-volume pattern.'],
+                  ['#8B5CF6','Kafka-to-Kafka stream processing (read-process-write)','Transactional / EOS','Kafka Streams with processing.guarantee=exactly_once_v2. The produce and the offset commit are one atomic transaction, so a crash mid-flight neither double-writes nor drops. Only works when the sink is the same Kafka cluster.'],
+                  ['#EC4899','Kafka → external DB / warehouse (Flink, Connect)','Framework-managed (checkpoint / flush-then-commit)','You don\'t pick a commitSync() here — Flink ties offsets to checkpoints, and Kafka Connect commits only after a successful flush to the sink. The framework owns the strategy; your job is to make the sink write idempotent or transactional.'],
+                ].map(([c,w,s,why])=>`
+                <tr style="border-bottom:1px solid #0F172A">
+                  <td style="padding:11px 14px;color:#E2E8F0;font-weight:600;border-left:3px solid ${c}">${w}</td>
+                  <td style="padding:11px 14px;color:${c};font-weight:600;font-size:11.5px">${s}</td>
+                  <td style="padding:11px 14px;color:#94A3B8;font-size:11px;line-height:1.6">${why}</td>
+                </tr>`).join('')
+              }
+            </tbody>
+          </table>
+        </div>
+        <div style="margin-top:12px;padding:12px 16px;background:#10B98112;border:1px solid #10B98133;border-radius:10px;font-size:12.5px;color:#94A3B8;line-height:1.75">
+          <strong style="color:#10B981">The industry default you should remember:</strong> most teams never use Kafka transactions. They use <strong style="color:#E2E8F0">at-least-once + idempotent writes</strong> — process, write with a natural key, then commit. It is simpler, faster, and has no cross-cluster restriction, and it delivers the same end result as exactly-once for any write you can make idempotent. Reach for true EOS only when the output is another Kafka topic and you genuinely can't dedupe downstream.
+        </div>
+      </div>
+
+      <!-- The gotchas each strategy hides -->
+      <div style="margin-bottom:28px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">The subtle mechanics behind each card</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          ${
+            [
+              ['#EF4444','Auto commit is on a timer, not on your progress','The commit fires every <code style="'+chip+'">auto.commit.interval.ms</code> during a <code style="'+chip+'">poll()</code> call — it commits the offsets of records <em>returned by the previous poll</em>, whether or not you finished processing them. That is the data-loss window: poll returns 500 records, the 5s timer fires and commits all 500, you crash after processing 200. The other 300 are gone — their offsets are already committed.'],
+              ['#F59E0B','Sync commit is correct but blocks the poll loop','<code style="'+chip+'">commitSync()</code> retries until it succeeds and blocks your thread meanwhile. Correct and durable, but every commit is a network round-trip on the critical path — commit per-record and throughput collapses. The fix is to commit per <em>batch</em> (once per poll), not per record.'],
+              ['#3B82F6','Async commit can commit offsets out of order','<code style="'+chip+'">commitAsync()</code> doesn\'t retry (a late retry could overwrite a newer offset with an older one and silently rewind you). So you pair them: <code style="'+chip+'">commitAsync()</code> in the hot loop for speed, and one <code style="'+chip+'">commitSync()</code> in the <code style="'+chip+'">finally</code> block on shutdown/rebalance so the last position is guaranteed durable.'],
+              ['#8B5CF6','EOS is atomic only inside one Kafka cluster','The transaction that makes produce + offset-commit atomic lives on the Kafka brokers via <code style="'+chip+'">sendOffsetsToTransaction()</code>. It cannot enroll an external database or a second cluster in that transaction. So "exactly-once to Postgres" is not Kafka EOS — it is at-least-once plus an idempotent/transactional write on the Postgres side.'],
+            ].map(([color,title,body])=>`
+            <div style="background:#111827;border:1px solid #1E293B;border-left:3px solid ${color};border-radius:10px;padding:13px 17px">
+              <div style="font-size:12.5px;font-weight:700;color:${color};margin-bottom:5px">${title}</div>
+              <div style="font-size:12px;color:#94A3B8;line-height:1.75">${body}</div>
+            </div>`).join('')
+          }
+        </div>
+      </div>
+
+      <!-- Amazon mapping -->
+      <div style="margin-bottom:8px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">How Amazon's 4 order-groups each commit</div>
+        <div style="background:#111827;border:1px solid #1E293B;border-radius:12px;padding:18px 22px;font-size:12.5px;color:#94A3B8;line-height:1.8">
+          <strong style="color:#10B981">fulfillment-group</strong> processes an order then does an idempotent DynamoDB upsert keyed on <code style="${chip}">order_id</code>, then <code style="${chip}">commitSync()</code> the batch — at-least-once, but a reprocessed order just overwrites itself, so no double shipment.<br><br>
+          <strong style="color:#3B82F6">fraud-detection-group</strong> is a Flink job: offsets ride its checkpoints, never auto-commit — exactly-once scoring state.<br><br>
+          <strong style="color:#8B5CF6">notifications-group</strong> uses async commit with a sync-on-shutdown; a rare duplicate email is acceptable, so throughput wins.<br><br>
+          <strong style="color:#F59E0B">analytics-group</strong> is a Kafka Connect S3 sink — Connect commits offsets only after each Parquet file is flushed to S3, so the file and the offset advance together.
+        </div>
+      </div>
+
     </div>`;
 }
 
