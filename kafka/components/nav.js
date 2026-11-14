@@ -9,6 +9,7 @@ export const MODULES = [
   { id:'m06', label:'Partitions',              icon:'🗂️', group:'Core Internals', desc:'Distribution, ordering, parallelism, hot partition' },
   { id:'m07', label:'Replication',             icon:'🔁', group:'Core Internals', desc:'Leader, ISR, follower lag — kill a broker and watch recovery' },
   // ── Consumer Side ────────────────────────────────────────────────────────
+  { id:'m33', label:'Consumer Deep Dive',      icon:'🔄', group:'Consumer Side', desc:'Poll loop, fetch protocol, zero-copy, deserialize — the read path animated' },
   { id:'m08', label:'Consumer Groups',         icon:'👥', group:'Consumer Side', desc:'Assignment, rebalancing, cooperative vs stop-the-world' },
   { id:'m09', label:'Offsets',                 icon:'📍', group:'Consumer Side', desc:'Committed vs current, lag, replay, seek controls' },
   { id:'m10', label:'Retention & Compaction',  icon:'🗑️', group:'Consumer Side', desc:'Time/size retention, log compaction, tombstone records' },

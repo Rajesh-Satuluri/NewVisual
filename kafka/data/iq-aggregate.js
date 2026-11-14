@@ -36,6 +36,7 @@ const LOADERS = {
   m30: () => import('../modules/m30-lakehouse.js'),
   m31: () => import('../modules/m31-cdc-capstone.js'),
   m32: () => import('../modules/m32-debezium-internals.js'),
+  m33: () => import('../modules/m33-consumer-deep-dive.js'),
 };
 
 const numOf = id => id.replace(/^m/, '');
