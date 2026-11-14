@@ -151,6 +151,57 @@ function buildConcepts(container) {
           doesn't slow Fulfillment by even 1ms.
         </div>`
     },
+    {
+      icon: '📦',
+      title: 'Record',
+      tag: 'The Atom',
+      body: `The single unit Kafka moves and stores — also called an <strong>event</strong> or message. Six fields always travel together: <strong>key, value, timestamp, headers, partition, offset</strong>.
+        <div class="example-block">
+          <span class="example-label">Amazon</span>
+          One Buy Now click becomes one record. <code>key = "U-88234"</code> (routes it to P2),
+          <code>value = {orderId, product, price}</code> (the actual order JSON),
+          <code>timestamp</code> = the moment you clicked, and <code>headers</code> carry metadata <em>about</em> the event —
+          <code>trace-id</code>, <code>source=ios-app</code> — kept out of the value so consumers can route or filter without parsing it.
+          The broker then stamps <strong>partition = P2</strong> and <strong>offset = 847,231</strong> — the record's permanent address.
+          Key and headers are optional; a <code>null</code> value is even meaningful (a delete marker). Everything the business cares about rides in these six fields.
+        </div>`
+    },
+    {
+      icon: '🔀',
+      title: 'Queue vs Pub/Sub',
+      tag: 'Two Models, One Log',
+      body: `Older systems make you pick: a <strong>queue</strong> (one message → one worker, then deleted) or <strong>pub/sub</strong> (one message → every subscriber). Kafka is <strong>both at once</strong> — the <em>consumer group</em> alone decides which.
+        <div class="example-block">
+          <span class="example-label">Amazon</span>
+          <strong>Inside</strong> the <code>fulfillment</code> group, 3 consumers split the partitions — each order goes to exactly one worker. That is the <strong>queue</strong> model: competing consumers, work shared.
+          <strong>Across</strong> groups, <code>fulfillment</code>, <code>fraud-detection</code> and <code>notifications</code> each get their own full copy of every order. That is the <strong>pub/sub</strong> model: fan-out.
+          Same topic, same records — grouping is the only knob. And unlike a real queue, nothing is deleted on read, so a brand-new group can appear tomorrow and still receive all of it.
+        </div>`
+    },
+    {
+      icon: '🎯',
+      title: 'Delivery Semantics',
+      tag: 'Processing Guarantee',
+      body: `How many times a record can be <strong>processed</strong> when something crashes — decided mostly by <em>when</em> the consumer commits its offset. Three levels:
+        <div class="example-block">
+          <span class="example-label">Amazon</span>
+          <strong>At-most-once</strong> — commit <em>before</em> processing. A crash loses the order; it is never retried. (Fine for a click metric, fatal for a purchase.)<br>
+          <strong>At-least-once</strong> — commit <em>after</em> processing. A crash replays the order, so Fulfillment could ship twice unless the step is idempotent. This is Kafka's practical default.<br>
+          <strong>Exactly-once</strong> — commit and processing happen as one atomic step. Payment Service charges your card once, even through a crash. Strongest guarantee, most setup.
+        </div>`
+    },
+    {
+      icon: '🔁',
+      title: 'Replay',
+      tag: 'Rewind the Log',
+      body: `Because the log <strong>keeps records after they are read</strong> (a queue deletes them), a consumer can move its offset <strong>backward</strong> and read history again — the capability a traditional queue can never offer.
+        <div class="example-block">
+          <span class="example-label">Amazon</span>
+          The <code>analytics</code> team ships a new dashboard on Thursday. Instead of starting empty, it <strong>resets its offset to Monday</strong> and replays 3 days of real orders to backfill every chart.
+          Fulfillment, Fraud and Notifications never notice — their offsets don't move. A fixed bug can be re-run over the exact events that tripped it.
+          Replay only reaches as far back as <strong>retention</strong> allows (here, 7 days) — older records are pruned and gone for good.
+        </div>`
+    },
   ];
 
   tab.innerHTML = `
