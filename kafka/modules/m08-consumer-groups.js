@@ -16,6 +16,7 @@ export function mount(container) {
       { id: 'assign',    label: '👥 Assignment Demo' },
       { id: 'rebalance', label: '⚡ Rebalance Types' },
       { id: 'amazon',    label: '📦 Amazon Groups' },
+      { id: 'realconsumers', label: '🔌 What Consumers Actually Are' },
       { id: 'iq',        label: '🎯 Interview Q&A' },
     ]
   });
@@ -23,6 +24,7 @@ export function mount(container) {
   let cleanup = buildAssign(container);
   buildRebalance(container);
   buildAmazon(container);
+  buildRealConsumers(container);
   container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
   return cleanup;
 }
@@ -309,6 +311,128 @@ function buildAmazon(container) {
             </div>`).join('')
           }
         </div>
+      </div>
+
+    </div>`;
+}
+
+function buildRealConsumers(container) {
+  const tab = container.querySelector('#tab-realconsumers');
+  const chip = 'font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px;font-family:monospace';
+  tab.innerHTML = `
+    <div class="scroll-content" style="max-width:920px;margin:0 auto">
+
+      <!-- Hero -->
+      <div style="background:#111827;border:1px solid #06B6D4;border-radius:14px;padding:20px 24px;margin-bottom:28px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#94A3B8;margin-bottom:8px">What is on the other end of a partition?</div>
+        <div style="font-size:18px;font-weight:800;color:#F1F5F9;margin-bottom:6px">A "consumer" is not a thing — it is any process that runs the poll loop</div>
+        <div style="font-size:13px;color:#94A3B8;line-height:1.7">A microservice, a Flink job, a warehouse loader, a Lambda — in Kafka's eyes they are <em>identical</em>: each is a client that owns some partitions, sends <code style="${chip}">FetchRequest</code>s to brokers, and commits offsets. The differences people obsess over (Flink vs. a plain service vs. a lakehouse sink) are differences in the <strong style="color:#E2E8F0">code wrapped around the poll loop</strong> and in <strong style="color:#E2E8F0">who owns the offset</strong> — never in the wire protocol. Get this and consumers stop being mysterious.</div>
+      </div>
+
+      <!-- The 5 kinds -->
+      <div style="margin-bottom:28px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">The 5 kinds of real-world consumers on the orders topic</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          ${
+            [
+              ['#10B981','Stateless microservice','KafkaConsumer (Java/Spring, Go, librdkafka)','fulfillment-service — 6 pods, each pod = 1 consumer','Classic poll loop. Each pod polls its partitions, upserts to DynamoDB, commits offset. Scale = run more pods (up to 6, the partition count). Kafka owns the offset in __consumer_offsets.'],
+              ['#8B5CF6','Stream processor','Apache Flink / Kafka Streams','fraud-detection — Flink job, parallelism 3','Flink does NOT bypass the consumer — its Kafka source operator CONTAINS a KafkaConsumer. 3 source subtasks share 6 partitions (2 each). Offsets are stored in Flink checkpoints, not auto-committed — that is how Flink gets exactly-once.'],
+              ['#F59E0B','Warehouse / lakehouse sink','Kafka Connect (S3, Iceberg, Redshift, Snowflake)','analytics-group — Connect S3 + Iceberg sink','You write zero consumer code. A Connect worker runs the consumer FOR you; each task ≈ one consumer. It buffers records and flushes them as Parquet files to S3 / an Iceberg table — offset commit is tied to a successful file flush.'],
+              ['#3B82F6','Database / search sink','Kafka Connect SinkTask','notifications → DynamoDB + OpenSearch','Same Connect runtime, different sink plugin. The SinkTask batches records and writes them to the target; offsets commit only after the batch is durably written, so a crash re-delivers un-flushed records.'],
+              ['#EC4899','Serverless','AWS Lambda event source mapping','low-volume alerts','No long-running process at all. AWS polls Kafka on your behalf and invokes your Lambda with a batch of records. The "consumer" is fully managed — you only write the handler. Offsets advance when the invocation succeeds.'],
+            ].map(([color,kind,runtime,example,how]) => `
+            <div style="background:#111827;border:1px solid #1E293B;border-left:3px solid ${color};border-radius:12px;padding:16px 18px">
+              <div style="font-size:13px;font-weight:800;color:${color};margin-bottom:3px">${kind}</div>
+              <div style="font-size:11px;color:#CBD5E1;margin-bottom:10px">${runtime}</div>
+              <div style="background:#0A0E1A;border-radius:7px;padding:8px 11px;margin-bottom:10px;font-size:11px;color:#E2E8F0;font-family:monospace">${example}</div>
+              <div style="font-size:12px;color:#94A3B8;line-height:1.7">${how}</div>
+            </div>`).join('')
+          }
+        </div>
+        <div style="margin-top:12px;padding:12px 16px;background:#06B6D412;border:1px solid #06B6D433;border-radius:10px;font-size:12.5px;color:#94A3B8;line-height:1.75">
+          <strong style="color:#06B6D4">The one insight that unlocks this:</strong> Flink and a lakehouse are <em>not</em> alternatives to the consumer protocol. A Flink job <strong style="color:#E2E8F0">contains</strong> a KafkaConsumer inside its source operator; a lakehouse is fed by <strong style="color:#E2E8F0">Kafka Connect, which is itself a managed consumer</strong>. Every box above speaks the exact same <code style="${chip}">FetchRequest</code> protocol to the brokers. What changes is (1) who runs the loop (you, Connect, or AWS) and (2) where the committed offset lives.
+        </div>
+      </div>
+
+      <!-- How a consumer actually gets the data -->
+      <div style="margin-bottom:28px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">How a consumer actually pulls bytes off a partition — the poll loop</div>
+
+        <!-- Flow diagram -->
+        <div style="background:#0A0E1A;border:1px solid #1E293B;border-radius:12px;padding:18px;margin-bottom:14px;overflow-x:auto">
+          <svg viewBox="0 0 860 150" width="100%" style="min-width:720px;display:block" font-family="ui-sans-serif,system-ui">
+            <!-- consumer -->
+            <rect x="10" y="50" width="130" height="50" rx="8" fill="#06B6D412" stroke="#06B6D4" stroke-width="1.5"/>
+            <text x="75" y="72" fill="#06B6D4" font-size="12" font-weight="700" text-anchor="middle">Consumer</text>
+            <text x="75" y="88" fill="#94A3B8" font-size="9" text-anchor="middle">poll(timeout)</text>
+            <!-- arrow 1 -->
+            <line x1="140" y1="75" x2="215" y2="75" stroke="#475569" stroke-width="1.5" marker-end="url(#ar)"/>
+            <text x="177" y="68" fill="#CBD5E1" font-size="9" text-anchor="middle">FetchRequest</text>
+            <!-- broker -->
+            <rect x="215" y="50" width="130" height="50" rx="8" fill="#10B98112" stroke="#10B981" stroke-width="1.5"/>
+            <text x="280" y="72" fill="#10B981" font-size="12" font-weight="700" text-anchor="middle">Leader broker</text>
+            <text x="280" y="88" fill="#94A3B8" font-size="9" text-anchor="middle">owns the partition</text>
+            <!-- arrow 2 -->
+            <line x1="345" y1="75" x2="420" y2="75" stroke="#475569" stroke-width="1.5" marker-end="url(#ar)"/>
+            <text x="382" y="68" fill="#CBD5E1" font-size="9" text-anchor="middle">sendfile()</text>
+            <text x="382" y="112" fill="#64748B" font-size="8" text-anchor="middle">zero-copy</text>
+            <!-- page cache -->
+            <rect x="420" y="50" width="130" height="50" rx="8" fill="#F59E0B12" stroke="#F59E0B" stroke-width="1.5"/>
+            <text x="485" y="72" fill="#F59E0B" font-size="12" font-weight="700" text-anchor="middle">Page cache</text>
+            <text x="485" y="88" fill="#94A3B8" font-size="9" text-anchor="middle">log segment</text>
+            <!-- arrow 3 back -->
+            <line x1="550" y1="75" x2="625" y2="75" stroke="#475569" stroke-width="1.5" marker-end="url(#ar)"/>
+            <text x="587" y="68" fill="#CBD5E1" font-size="9" text-anchor="middle">record batch</text>
+            <!-- your code -->
+            <rect x="625" y="50" width="130" height="50" rx="8" fill="#8B5CF612" stroke="#8B5CF6" stroke-width="1.5"/>
+            <text x="690" y="70" fill="#8B5CF6" font-size="12" font-weight="700" text-anchor="middle">Your code</text>
+            <text x="690" y="86" fill="#94A3B8" font-size="9" text-anchor="middle">deserialize+process</text>
+            <!-- commit arrow -->
+            <line x1="755" y1="75" x2="830" y2="75" stroke="#475569" stroke-width="1.5" marker-end="url(#ar)"/>
+            <text x="792" y="68" fill="#CBD5E1" font-size="9" text-anchor="middle">commit</text>
+            <text x="792" y="88" fill="#64748B" font-size="8" text-anchor="middle">__consumer</text>
+            <text x="792" y="98" fill="#64748B" font-size="8" text-anchor="middle">_offsets</text>
+            <defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#475569"/></marker></defs>
+          </svg>
+        </div>
+
+        <!-- numbered walkthrough -->
+        <div style="display:flex;flex-direction:column;gap:8px">
+          ${
+            [
+              ['1','#06B6D4','poll() sends a multiplexed FetchRequest','Your call to <code style="'+chip+'">poll(Duration)</code> doesn\'t hit the network per-partition. The client batches one FetchRequest per broker, asking for data from every partition that broker leads, up to <code style="'+chip+'">fetch.max.bytes</code> total and <code style="'+chip+'">max.partition.fetch.bytes</code> per partition.'],
+              ['2','#10B981','The broker serves from page cache via zero-copy','The leader finds the record batches at your current fetch offset and streams them straight from the OS page cache to the socket with <code style="'+chip+'">sendfile()</code> — never copying into the JVM heap. (This is exactly the broker-side mechanic from the Broker Internals → Page Cache tab.) It waits up to <code style="'+chip+'">fetch.max.wait.ms</code> to fill <code style="'+chip+'">fetch.min.bytes</code>.'],
+              ['3','#F59E0B','Records land in the client buffer; poll() hands you a slice','The fetched batches sit in an in-memory buffer inside the consumer. A single <code style="'+chip+'">poll()</code> returns at most <code style="'+chip+'">max.poll.records</code> (default 500) records to your loop — the rest stay buffered for the next call. This is the knob that keeps you under <code style="'+chip+'">max.poll.interval.ms</code>.'],
+              ['4','#8B5CF6','Deserialize → process → commit the offset','Bytes become objects via your deserializer (e.g. Avro + Schema Registry). You process them, then commit the <em>next</em> offset to read. The commit is written to the internal <code style="'+chip+'">__consumer_offsets</code> topic — the data itself is never moved or deleted by reading it.'],
+              ['5','#EC4899','Prefetch keeps the pipe full','While your code processes batch N, the client is already fetching batch N+1 in the background. That overlap is why a consumer can saturate the network instead of stalling one round-trip per batch — the poll loop is pipelined, not request/response.'],
+            ].map(([n,color,title,body]) => `
+            <div style="display:flex;gap:12px;align-items:flex-start">
+              <div style="flex-shrink:0;width:26px;height:26px;border-radius:50%;background:${color}22;border:1.5px solid ${color};display:flex;align-items:center;justify-content:center;margin-top:10px">
+                <span style="font-size:12px;font-weight:800;color:${color}">${n}</span>
+              </div>
+              <div style="flex:1;background:#111827;border:1px solid #1E293B;border-radius:9px;padding:11px 15px">
+                <div style="font-size:12.5px;font-weight:700;color:${color};margin-bottom:4px">${title}</div>
+                <div style="font-size:12px;color:#94A3B8;line-height:1.7">${body}</div>
+              </div>
+            </div>`).join('')
+          }
+        </div>
+      </div>
+
+      <!-- Flink worked example -->
+      <div style="margin-bottom:28px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">Worked example — the fraud-detection Flink job vs. a plain service</div>
+        <div style="background:#111827;border:1px solid #1E293B;border-radius:12px;padding:18px 22px;font-size:12.5px;color:#94A3B8;line-height:1.75">
+          <p style="margin:0 0 14px">The <code style="${chip}">fraud-detection</code> group is a <strong style="color:#8B5CF6">Flink job with parallelism 3</strong> on the 6-partition orders topic. Flink's Kafka source splits into 3 <strong style="color:#E2E8F0">source subtasks</strong>, and <em>each subtask owns 2 partitions</em> — the same partition-to-consumer math as everywhere else, because each subtask literally holds a KafkaConsumer. From Kafka's side this looks like a 3-member consumer group. Nothing exotic.</p>
+          <p style="margin:0 0 14px">The difference is <strong style="color:#E2E8F0">who owns the offset</strong>. A plain microservice commits offsets back to Kafka (<code style="${chip}">enable.auto.commit</code> or a manual <code style="${chip}">commitSync()</code>). Flink turns auto-commit <strong style="color:#EF4444">off</strong>: every ~N seconds a <strong style="color:#8B5CF6">checkpoint barrier</strong> flows through the job, and the offset of each partition is snapshotted into Flink's state backend <em>atomically with the rest of the operator state</em>. On recovery, Flink restores both together and replays from the checkpointed offset.</p>
+          <p style="margin:0">That is why Flink gives <strong style="color:#10B981">exactly-once</strong> across the whole pipeline while a naive service only gets at-least-once: the offset and the computed state advance as one unit, so a crash can never leave "I processed it but didn't record that I did" — or the reverse. Same FetchRequest protocol underneath; completely different offset ownership on top.</p>
+        </div>
+      </div>
+
+      <!-- Key takeaway -->
+      <div style="background:linear-gradient(135deg,#06B6D412,#8B5CF612);border:1px solid #06B6D444;border-radius:12px;padding:18px 22px">
+        <div style="font-size:13px;font-weight:800;color:#06B6D4;margin-bottom:6px">Key takeaway</div>
+        <div style="font-size:13px;color:#E2E8F0;line-height:1.8">A <strong>partition is the unit of parallelism</strong>; a <strong>consumer is whatever implements the poll loop</strong> — a service pod, a Flink source subtask, a Connect task, or an AWS-managed poller. They all send the same <code style="${chip}">FetchRequest</code> and read the same zero-copy batches. When you design a pipeline, the only real questions are: <em>how many partitions</em> (your max parallelism) and <em>who owns the committed offset</em> (which decides your delivery guarantee).</div>
       </div>
 
     </div>`;
