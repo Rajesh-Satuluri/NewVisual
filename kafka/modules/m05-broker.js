@@ -330,6 +330,51 @@ function buildPageCache(container) {
       </div>
     </div>
 
+    <!-- Worked example: a real cluster -->
+    <div style="margin-bottom:28px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">A real cluster — watch the page cache actually happen</div>
+      <div style="background:#111827;border:1px solid #1E293B;border-radius:12px;padding:18px 22px;font-size:12.5px;color:#94A3B8;line-height:1.75">
+        <p style="margin:0 0 16px">Abstractions get slippery without numbers, so here is a concrete Amazon-scale <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">orders</code> cluster. Every claim below is just arithmetic on these specs — no Kafka magic.</p>
+
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:18px">
+          <div style="background:#0A0E1A;border:1px solid #1E293B;border-radius:9px;padding:12px 14px">
+            <div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#64748B;margin-bottom:6px">Hardware — per broker</div>
+            <div style="font-size:12px;color:#CBD5E1;line-height:1.8">6 × AWS <strong style="color:#E2E8F0">i3en.2xlarge</strong><br>8 vCPU · <strong style="color:#E2E8F0">64 GB RAM</strong> · 25 Gbps NIC<br>2 × 2.5 TB local NVMe SSD</div>
+          </div>
+          <div style="background:#0A0E1A;border:1px solid #1E293B;border-radius:9px;padding:12px 14px">
+            <div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#64748B;margin-bottom:6px">Memory split</div>
+            <div style="font-size:12px;color:#CBD5E1;line-height:1.8">JVM heap: <strong style="color:#E2E8F0">6 GB</strong><br>OS + overhead: ~3 GB<br>Free for <strong style="color:#10B981">page cache: ~55 GB</strong></div>
+          </div>
+          <div style="background:#0A0E1A;border:1px solid #1E293B;border-radius:9px;padding:12px 14px">
+            <div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#64748B;margin-bottom:6px">Topic + load (Prime Day peak)</div>
+            <div style="font-size:12px;color:#CBD5E1;line-height:1.8">36 partitions · RF 3 · lz4<br>~1 KB/record · <strong style="color:#E2E8F0">500 MB/s</strong> written per broker</div>
+          </div>
+          <div style="background:#0A0E1A;border:1px solid #1E293B;border-radius:9px;padding:12px 14px">
+            <div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#64748B;margin-bottom:6px">Consumers</div>
+            <div style="font-size:12px;color:#CBD5E1;line-height:1.8"><span style="color:#10B981">Fulfillment</span> — lags ~10 s<br><span style="color:#06B6D4">Analytics</span> — backfills hours/days</div>
+          </div>
+        </div>
+
+        <p style="margin:0 0 6px;color:#E2E8F0;font-weight:700;font-size:12px">① The write (a producer appends an order)</p>
+        <p style="margin:0 0 16px">The broker's <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">write()</code> to the active segment file returns in <strong style="color:#E2E8F0">microseconds</strong> — it only copied ~1 KB into a page cache page and marked that page <em>dirty</em>. No platter was touched. The kernel's flusher threads write dirty pages to NVMe in the background, governed by <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">vm.dirty_background_ratio</code> (start flushing at ~N% dirty) and <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">vm.dirty_ratio</code> (block writers if dirty pages pile up too high). At 500 MB/s the SSD keeps up easily, so dirty pages rarely accumulate — the write path never stalls.</p>
+
+        <p style="margin:0 0 6px;color:#E2E8F0;font-weight:700;font-size:12px">② The cache horizon — the one number that explains everything</p>
+        <p style="margin:0 0 10px">How long does a record stay in RAM before the kernel evicts it to make room for newer writes? It's just capacity ÷ rate:</p>
+        <div style="background:#0A0E1A;border:1px solid #10B98144;border-radius:9px;padding:14px 16px;margin-bottom:12px;font-family:ui-monospace,monospace;font-size:12px;color:#CBD5E1;line-height:1.9">
+          cache horizon ≈ page cache size ÷ write rate<br>
+          &nbsp;&nbsp;= 55 GB ÷ 500 MB/s<br>
+          &nbsp;&nbsp;≈ <strong style="color:#10B981">110 seconds</strong> of the newest data lives in RAM
+        </div>
+        <p style="margin:0 0 16px">So <strong style="color:#E2E8F0">any consumer lagging under ~110 seconds is a guaranteed cache hit</strong> — its reads never touch disk. Fulfillment, lagging ~10 s, sits comfortably inside the window: that's the <strong style="color:#10B981">~99.7% hit rate</strong>. Note the direction: a <em>bigger</em> write rate <em>shrinks</em> the window, so the busier the cluster gets, the shorter the span a lagging consumer can afford before it falls to disk.</p>
+
+        <p style="margin:0 0 6px;color:#E2E8F0;font-weight:700;font-size:12px">③ The read (Fulfillment fetches offset 847,231)</p>
+        <p style="margin:0 0 16px">The record was written 10 s ago — well inside the 110 s horizon — so its page is still resident. The broker issues <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">sendfile()</code> and the kernel DMA-streams those bytes from the page cache straight to the NIC. Zero user-space copies, no JVM heap allocation, no disk seek. The 25 Gbps network — not the CPU and not the SSD — is the ceiling.</p>
+
+        <p style="margin:0 0 6px;color:#06B6D4;font-weight:700;font-size:12px">④ The miss (Analytics backfills 3-day-old orders)</p>
+        <p style="margin:0">Those pages were evicted ~110 s after they were written, three days ago. The fetch now triggers a <strong style="color:#E2E8F0">real NVMe read</strong>, and — worse — the kernel pulls those cold pages <em>into</em> the cache, evicting hot pages the live consumers were using. One greedy backfill can quietly cool the cache for everyone, which is exactly why Amazon runs Analytics on a separate consumer (often a separate set of follower-fetch or tiered-storage brokers) so its cold reads never evict Fulfillment's hot pages.</p>
+      </div>
+    </div>
+
     <!-- Key takeaway -->
     <div style="background:#10B98112;border:1.5px solid #10B98133;border-radius:12px;padding:16px 20px;font-size:13px;color:#94A3B8;line-height:1.7">
       💡 <strong style="color:#10B981">Kafka's speed is borrowed, not built.</strong> It doesn't implement a cache, a buffer pool, or a read-ahead engine — it lets the Linux page cache do all three, then uses <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">sendfile()</code> to move bytes from that cache to the network without ever touching user space. The write warms the cache; the read drains it; the disk is just the backing store the kernel flushes to in the background.
