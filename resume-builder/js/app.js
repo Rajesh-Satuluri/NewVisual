@@ -23,11 +23,25 @@
   var LIB_KEYS = ["summaries", "skills", "experiences", "projects", "education", "awards"];
 
   /* ---------- templates & theming (ATS-safe, single-column) ---------- */
+  /* Each template is a spec read identically by the CSS preview, the DOCX
+     builder, the PDF engine, and the picker thumbnail — so all four stay in
+     sync. All are single-column and ATS-safe (selectable text, no multi-column
+     body, no content tables). Fields:
+       nameAlign  "center" | "left"
+       nameAccent name in accent color vs ink
+       rule       heading rule: "underline" | "accent" | "full" | "none" | "tick"
+       band       soft accent header band (banner)
+       caps       extra letter-spacing on name/title (executive)
+       dense      tighter spacing (compact) */
   var THEME_TEMPLATES = {
-    classic:  { label: "Classic",  desc: "Centered name, underlined headings" },
-    modern:   { label: "Modern",   desc: "Left-aligned, accent name, bold rules" },
-    compact:  { label: "Compact",  desc: "Tighter spacing, fits more content" }
+    classic:   { label: "Classic",   desc: "Centered name, underlined headings",   nameAlign: "center", nameAccent: false, rule: "underline" },
+    modern:    { label: "Modern",    desc: "Left-aligned, accent name, bold rules", nameAlign: "left",   nameAccent: true,  rule: "accent" },
+    compact:   { label: "Compact",   desc: "Tighter spacing, fits more content",    nameAlign: "center", nameAccent: false, rule: "underline", dense: true },
+    executive: { label: "Executive", desc: "Formal, spaced caps, header rule",      nameAlign: "center", nameAccent: false, rule: "full", caps: true },
+    minimal:   { label: "Minimal",   desc: "No rules, generous whitespace",         nameAlign: "left",   nameAccent: false, rule: "none" },
+    banner:    { label: "Banner",    desc: "Name in a soft accent header band",     nameAlign: "center", nameAccent: true,  rule: "tick", band: true }
   };
+  function templateSpec(id) { return THEME_TEMPLATES[id] || THEME_TEMPLATES.classic; }
   /* ATS-safe font stacks. The `docx` name is what Word embeds. */
   var THEME_FONTS = {
     calibri:  { label: "Calibri",  css: '"Calibri","Segoe UI",Candara,Arial,sans-serif', docx: "Calibri" },
@@ -47,6 +61,15 @@
   ];
   var THEME_DENSITIES = { compact: 0.92, normal: 1, relaxed: 1.08 };
   function accentHex(id) { for (var i = 0; i < THEME_ACCENTS.length; i++) if (THEME_ACCENTS[i].id === id) return THEME_ACCENTS[i].hex; return THEME_ACCENTS[1].hex; }
+  /* Mix a 6-hex color toward white by `frac` (0..1). Used for the soft header
+     band tint so it matches across preview, PDF and Word. Returns bare hex. */
+  function tintHex(hex, frac) {
+    var n = parseInt(hex.replace("#", ""), 16);
+    if (isNaN(n)) return "FFFFFF";
+    var r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    r = Math.round(r + (255 - r) * frac); g = Math.round(g + (255 - g) * frac); b = Math.round(b + (255 - b) * frac);
+    return ((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1).toUpperCase();
+  }
   function normalizeTheme(t) {
     t = t && typeof t === "object" ? t : {};
     return {
@@ -120,53 +143,59 @@
   function sampleContent() {
     return {
       profile: {
-        name: "RAJESH SATULURI", title: "Senior Data Engineer",
+        name: "JORDAN AVERY", title: "Senior Data Engineer",
         contacts: [
-          { icon: "✉", value: "rajesh.satuluri79@gmail.com" },
-          { icon: "☎", value: "+91 8106783397" },
-          { icon: "⚲", value: "Hyderabad, Telangana" }
+          { icon: "✉", value: "jordan.avery@example.com" },
+          { icon: "☎", value: "+1 (415) 555-0142" },
+          { icon: "⚲", value: "Austin, TX" },
+          { icon: "🔗", value: "linkedin.com/in/jordanavery" }
         ]
       },
       sections: [
         { id: uid(), title: "Professional Summary", type: "text",
-          text: "Senior Technical Consultant with 4+ years of experience delivering **o9 Solutions, supply chain planning, data integration, and enterprise ETL solutions** for global manufacturing clients. Experienced in **o9 platform integration, SQL, T-SQL, SSIS, Apache NiFi, REST APIs, ETL, batch processing, and real-time data pipelines** across Demand Planning, Supply Planning, Kit Planning, Order Handling, and Global Costing. Proven experience in **technical solution design, requirements analysis, integration development, troubleshooting, data quality, testing, and go-live support** with functional, product, and client teams." },
+          text: "Senior Data Engineer with 6+ years building **batch and real-time data platforms** that cut pipeline costs and speed up decisions. Experienced across **Python, SQL, Spark, Airflow, dbt, and the cloud data stack** (AWS and Azure). Proven record of **shipping reliable production pipelines, mentoring engineers, and partnering with analytics and product teams** to turn raw data into trusted, self-serve datasets." },
         { id: uid(), title: "Technical Skills", type: "labeled", items: [
-          { id: uid(), label: "Programming & Data Processing", value: "Python, PySpark, Apache Spark, Spark SQL." },
-          { id: uid(), label: "o9 Solutions Platform", value: "o9 Digital Brain, IBPL, o9 DB Designer, Enterprise Knowledge Graph, Graph Cube." },
-          { id: uid(), label: "Data Integration & ETL", value: "SQL, T-SQL, SSIS, Apache NiFi, ETL, Data Integration, Batch Integration, REST APIs, SFTP." },
-          { id: uid(), label: "Orchestration", value: "Apache Airflow." },
-          { id: uid(), label: "Cloud & Big Data", value: "Azure: ADLS, ADF, Databricks, Synapse, Unity Catalog." },
-          { id: uid(), label: "Databases", value: "SQL Server, MySQL, PostgreSQL, Snowflake." }
+          { id: uid(), label: "Languages & Processing", value: "Python, SQL, PySpark, Apache Spark, Scala." },
+          { id: uid(), label: "Data Integration & ETL", value: "dbt, Apache Airflow, Fivetran, Kafka, REST APIs, CDC." },
+          { id: uid(), label: "Cloud & Warehouses", value: "AWS (S3, Glue, Redshift), Snowflake, Databricks, BigQuery." },
+          { id: uid(), label: "Storage & Modeling", value: "Delta Lake, Apache Iceberg, dimensional modeling, star schema." },
+          { id: uid(), label: "Databases", value: "PostgreSQL, MySQL, DynamoDB." },
+          { id: uid(), label: "Practices", value: "CI/CD, data quality testing, observability, cost optimization." }
         ] },
         { id: uid(), title: "Professional Experience", type: "entries", items: [
-          { id: uid(), heading: "o9 Solutions", role: "Senior Data Engineer", date: "Jul 2022 – Present",
-            meta: "Supply chain data integration · o9 Digital Brain platform · Apache NiFi · SQL",
+          { id: uid(), heading: "Meridian Analytics", role: "Senior Data Engineer", date: "Jul 2021 – Present",
+            meta: "Cloud data platform · Snowflake · dbt · Airflow",
             bullets: [
-              "Built end-to-end data integration pipelines for Supply Planning, Demand Planning, Order Handling, Kitting, and Costing workflows on the o9 Digital Brain platform.",
-              "Developed ingestion, validation, transformation, deduplication, and aggregation logic across SFTP/API → SQL staging → o9 data flows; created source-to-target mappings and business transformation rules for high-volume supply-chain datasets.",
-              "Delivered near-real-time integration using Apache NiFi, APIs, and SQL with watermark-based incremental processing to prevent duplicate records and reliably propagate transactional data.",
-              "Developed integrations using IBPL, o9 DB Designer, Enterprise Knowledge Graph, and Graph Cube across Supply Planning, Demand Planning, Order Handling, Kitting, and Costing modules.",
-              "Delivered multiple integration enhancements and major production go-lives while maintaining reliable data delivery across upstream, transformation, and o9 layers."
+              "Rebuilt the core ingestion framework to process 400M+ events per day, cutting end-to-end latency from 6 hours to under 20 minutes.",
+              "Migrated 120+ legacy SQL jobs to dbt with automated testing, reducing data incidents by 70% and onboarding time for new analysts from weeks to days.",
+              "Cut warehouse compute spend 35% ($480K/year) by redesigning partitioning, clustering, and incremental models.",
+              "Led a team of 4 engineers and introduced CI/CD and code review for all pipelines, raising deployment frequency 3x with zero rollback incidents."
+            ] },
+          { id: uid(), heading: "Northwind Logistics", role: "Data Engineer", date: "Aug 2018 – Jun 2021",
+            meta: "Batch & streaming pipelines · AWS · Spark",
+            bullets: [
+              "Built a real-time shipment-tracking pipeline with Kafka and Spark Structured Streaming serving 2M daily lookups at 99.9% uptime.",
+              "Designed the company's first dimensional warehouse on Redshift, powering 30+ self-serve dashboards for operations and finance.",
+              "Automated manual reporting with Airflow, saving the analytics team an estimated 25 hours per week."
             ] }
         ] },
         { id: uid(), title: "Projects", type: "entries", items: [
-          { id: uid(), heading: "Real-Time Data Pipeline", role: "", date: "", meta: "Kafka · Apache Flink · Apache Iceberg · Databricks · Snowflake",
+          { id: uid(), heading: "Open Lakehouse Reference Pipeline", role: "", date: "", meta: "Kafka · Apache Flink · Apache Iceberg · Snowflake",
             bullets: [
-              "Designed a production-scale real-time pipeline using Kafka for event ingestion, Flink for stateful stream processing, Apache Iceberg for Lakehouse storage, and Snowflake for analytical serving.",
-              "Implemented event-time processing, windowing, watermarking, state management, schema evolution, and fault-tolerant handling for out-of-order and late-arriving events."
+              "Designed a production-scale streaming pipeline using Kafka for ingestion, Flink for stateful processing, Iceberg for lakehouse storage, and Snowflake for serving.",
+              "Implemented event-time windowing, watermarking, and exactly-once handling for out-of-order and late-arriving events."
             ] },
-          { id: uid(), heading: "E-Commerce Batch Data Engineering Project", role: "", date: "", meta: "ADLS Gen2 · Databricks · PySpark · Apache Airflow · dbt · Delta Lake · Unity Catalog",
+          { id: uid(), heading: "Metadata-Driven ELT Framework", role: "", date: "", meta: "Databricks · PySpark · dbt · Delta Lake",
             bullets: [
-              "Engineered an end-to-end batch data pipeline using ADLS Gen2, Databricks, PySpark, Delta Lake, and Apache Airflow, implementing a Medallion Architecture for analytics-ready e-commerce data.",
-              "Implemented incremental ETL/ELT and CDC ingestion with Databricks Auto Loader and developed metadata-driven dbt/Jinja transformations, supporting schema evolution and scalable Silver-to-Gold processing.",
-              "Designed SCD Type 2 dimensional models using dbt Snapshots and orchestrated workflows with Apache Airflow, incorporating data-quality checks, retries, task dependencies, Unity Catalog governance, and GitHub CI/CD."
+              "Built a config-driven ELT framework on Databricks implementing a medallion architecture, reused across 15+ source systems.",
+              "Added incremental CDC ingestion and SCD Type 2 modeling with automated data-quality checks and GitHub CI/CD."
             ] }
         ] },
         { id: uid(), title: "Education", type: "entries", items: [
-          { id: uid(), heading: "NIT Tiruchirappalli — Bachelor of Technology, Production Engineering", role: "", date: "Jul 2018 – Aug 2022", meta: "", bullets: [] }
+          { id: uid(), heading: "State University — B.S. in Computer Science", role: "", date: "2014 – 2018", meta: "", bullets: [] }
         ] },
         { id: uid(), title: "Awards / Achievements", type: "labeled", items: [
-          { id: uid(), label: "Spot Award (×2) – o9 Solutions", value: "Recognized twice for exceptional contribution and on-time delivery of high-impact supply chain data integration projects." }
+          { id: uid(), label: "Engineering Excellence Award (×2)", value: "Recognized twice for high-impact platform work and on-time delivery of critical data initiatives." }
         ] }
       ]
     };
@@ -399,24 +428,93 @@
     t.addEventListener("input", function () { onInput(t.value); autoGrow(t); });
     f.appendChild(t); return f;
   }
-  function miniBtn(txt, onClick, extra) { var b = el("button", "btn btn-mini" + (extra ? " " + extra : "")); b.type = "button"; b.textContent = txt; b.addEventListener("click", onClick); return b; }
-  /* pick a glyph for a section so the stack of blocks is scannable, not uniform */
+  /* ---------- inline SVG icon set (one visual language, OS-independent) ----------
+     All 24-box, stroke=currentColor so they inherit text color and size. This
+     replaces the emoji glyphs that rendered differently on every platform. */
+  var ICONS = {
+    chevron:  '<path d="M6 9l6 6 6-6"/>',
+    up:       '<path d="M6 15l6-6 6 6"/>',
+    down:     '<path d="M6 9l6 6 6-6"/>',
+    x:        '<path d="M6 6l12 12M18 6L6 18"/>',
+    plus:     '<path d="M12 5v14M5 12h14"/>',
+    star:     '<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.9L12 17l-5.2 2.7 1-5.9L3.5 9.7l5.9-.9z"/>',
+    grip:     '<circle cx="9" cy="6" r="1.3"/><circle cx="15" cy="6" r="1.3"/><circle cx="9" cy="12" r="1.3"/><circle cx="15" cy="12" r="1.3"/><circle cx="9" cy="18" r="1.3"/><circle cx="15" cy="18" r="1.3"/>',
+    undo:     '<path d="M9 7L4 12l5 5"/><path d="M4 12h10a5 5 0 0 1 0 10h-2"/>',
+    redo:     '<path d="M15 7l5 5-5 5"/><path d="M20 12H10a5 5 0 0 0 0 10h2"/>',
+    gear:     '<circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5 5l2.1 2.1M16.9 16.9L19 19M5 19l2.1-2.1M16.9 7.1L19 5"/>',
+    user:     '<circle cx="12" cy="8" r="3.6"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/>',
+    doc:      '<path d="M7 2.5h7l4 4v15H7z"/><path d="M9 8h5M9 12h6M9 16h4"/>',
+    briefcase:'<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18"/>',
+    cube:     '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/>',
+    code:     '<path d="M8.5 9L5 12l3.5 3M15.5 9l3.5 3-3.5 3"/>',
+    cap:      '<path d="M12 4L2 9l10 5 10-5z"/><path d="M6 11v5c0 1.2 2.7 3 6 3s6-1.8 6-3v-5"/>',
+    award:    '<circle cx="12" cy="9" r="5"/><path d="M8.5 13.5L7 21l5-2.8L17 21l-1.5-7.5"/>',
+    trophy:   '<path d="M7 4h10v4a5 5 0 0 1-10 0zM7 4H4.5v1.5A3 3 0 0 0 7 8.5M17 4h2.5v1.5A3 3 0 0 1 17 8.5M10 13h4v3h-4zM8 20h8"/>',
+    mail:     '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3.5 7l8.5 6 8.5-6"/>',
+    globe:    '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>',
+    book:     '<path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5z"/><path d="M5 19.5A1.5 1.5 0 0 1 6.5 18H19"/>',
+    heart:    '<path d="M12 20s-6.5-4.2-8.5-8.4A4.3 4.3 0 0 1 12 6.6a4.3 4.3 0 0 1 8.5 5C18.5 15.8 12 20 12 20z"/>',
+    page:     '<path d="M7 2.5h7l4 4v15H7z"/><path d="M14 2.5v4h4"/>',
+    trash:    '<path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13"/>',
+    calendar: '<rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18M8 2.8v3.4M16 2.8v3.4"/>',
+    inbox:    '<path d="M4 13l2.4-8h11.2L20 13M4 13h5l1 2.5h4L15 13h5M4 13v5a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-5"/>',
+    flask:    '<path d="M9.5 3h5M11 3v6.5l-4.6 8A1.5 1.5 0 0 0 7.7 20h8.6a1.5 1.5 0 0 0 1.3-2.5L13 9.5V3"/><path d="M8 15h8"/>',
+    download: '<path d="M12 3v11M7.5 9.5L12 14l4.5-4.5M5 20h14"/>',
+    dots:     '<circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/>',
+    upload:   '<path d="M12 20V9M7.5 13.5L12 9l4.5 4.5M5 4h14"/>',
+    print:    '<path d="M7 9V3h10v6M7 19H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2M7 15h10v6H7z"/>'
+  };
+  function svgMarkup(name, cls) {
+    return '<svg class="ico-svg' + (cls ? " " + cls : "") + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+      'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' +
+      (ICONS[name] || ICONS.page) + "</svg>";
+  }
+  function svgIcon(name, cls) { var s = el("span", "ico-wrap"); s.innerHTML = svgMarkup(name, cls); return s.firstChild; }
+  /* star & grip read better filled */
+  function setGlyph(node, name) { node.innerHTML = svgMarkup(name); return node; }
+  /* map the old single-glyph button labels → icon names + accessible labels */
+  var GLYPH_ICON = { "▲": "up", "▼": "down", "✕": "x", "☆": "star", "★": "star", "⠿": "grip", "↶": "undo", "↷": "redo", "＋": "plus" };
+  var LEAD_ICON = { "🗑": "trash", "📅": "calendar", "⇭": "inbox", "⚙": "gear", "🧪": "flask", "📜": "award", "📚": "book" };
+
+  function miniBtn(txt, onClick, extra) {
+    var b = el("button", "btn btn-mini" + (extra ? " " + extra : "")); b.type = "button";
+    var s = (txt || "").trim();
+    var lead = Array.from(s)[0] || "";                     /* first full code point (astral-safe) */
+    if (GLYPH_ICON[s]) {                                   /* pure icon button */
+      b.classList.add("btn-ico");
+      b.innerHTML = svgMarkup(GLYPH_ICON[s], s === "☆" || s === "★" ? "ico-fill" : "");
+      if (GLYPH_LABELS[s]) { b.setAttribute("aria-label", GLYPH_LABELS[s]); b.title = GLYPH_LABELS[s]; }
+    } else if (/^[＋+]\s+/.test(txt)) {                     /* "＋ Label" → plus icon + text */
+      b.appendChild(svgIcon("plus"));
+      b.appendChild(elText("span", "mini-lbl", txt.replace(/^[＋+]\s+/, "")));
+    } else if (lead === "★" && /\s/.test(txt)) {            /* "★ Label" → star icon + text */
+      b.appendChild(svgIcon("star", "ico-fill"));
+      b.appendChild(elText("span", "mini-lbl", txt.replace(/^\S+\s+/, "")));
+    } else if (LEAD_ICON[lead] && /\s/.test(txt)) {        /* "<glyph> Label" → icon + text */
+      b.appendChild(svgIcon(LEAD_ICON[lead]));
+      b.appendChild(elText("span", "mini-lbl", txt.replace(/^\S+\s+/, "")));
+    } else {
+      b.textContent = txt;
+    }
+    b.addEventListener("click", onClick); return b;
+  }
+  /* pick an icon name for a section so the stack of blocks is scannable */
   function iconFor(title) {
     var t = (title || "").toLowerCase();
-    if (/setting|config/.test(t)) return "⚙️";
-    if (/header|identity|personal|detail/.test(t)) return "👤";
-    if (/summary|profile|objective|about|overview/.test(t)) return "📝";
-    if (/experience|employ|work history|career/.test(t)) return "💼";
-    if (/project/.test(t)) return "🚀";
-    if (/skill|competenc|technolog|tool|tech stack/.test(t)) return "🛠️";
-    if (/education|academ|degree|school|college/.test(t)) return "🎓";
-    if (/certif|licen|course|training/.test(t)) return "📜";
-    if (/achiev|award|honor|accomplish/.test(t)) return "🏆";
-    if (/contact|reach/.test(t)) return "✉️";
-    if (/language/.test(t)) return "🌐";
-    if (/publication|research|paper/.test(t)) return "📚";
-    if (/volunteer|interest|hobb|activit/.test(t)) return "🌟";
-    return "📄";
+    if (/setting|config/.test(t)) return "gear";
+    if (/header|identity|personal|detail/.test(t)) return "user";
+    if (/summary|profile|objective|about|overview/.test(t)) return "doc";
+    if (/experience|employ|work history|career/.test(t)) return "briefcase";
+    if (/project/.test(t)) return "cube";
+    if (/skill|competenc|technolog|tool|tech stack/.test(t)) return "code";
+    if (/education|academ|degree|school|college/.test(t)) return "cap";
+    if (/certif|licen|course|training/.test(t)) return "award";
+    if (/achiev|award|honor|accomplish/.test(t)) return "trophy";
+    if (/contact|reach/.test(t)) return "mail";
+    if (/language/.test(t)) return "globe";
+    if (/publication|research|paper/.test(t)) return "book";
+    if (/volunteer|interest|hobb|activit/.test(t)) return "heart";
+    return "doc";
   }
   function blockEl(titleText, collapseKey, buildBody, headRight, headInput) {
     var b = el("div", "block");
@@ -427,8 +525,8 @@
     head.setAttribute("tabindex", "0");
     head.setAttribute("aria-expanded", collapsed[collapseKey] ? "false" : "true");
     head.setAttribute("aria-label", (titleText || (headInput && headInput.value) || "Section") + " — toggle");
-    head.appendChild(elText("span", "caret", "▼"));
-    head.appendChild(elText("span", "sec-icon", iconFor(titleText || (headInput && headInput.value))));
+    var caret = el("span", "caret"); caret.innerHTML = svgMarkup("chevron"); head.appendChild(caret);
+    var secIcon = el("span", "sec-icon"); secIcon.appendChild(svgIcon(iconFor(titleText || (headInput && headInput.value)))); head.appendChild(secIcon);
     if (headInput) head.appendChild(headInput); else head.appendChild(elText("span", "sec-title", titleText));
     if (headRight) { for (var i = 0; i < headRight.length; i++) head.appendChild(headRight[i]); }
     function toggle() {
@@ -507,7 +605,7 @@
     var act = activeResume();
     if (act && act.isSample) {
       var sb = el("div", "sample-banner");
-      sb.appendChild(elText("span", "sb-icon", "🧪"));
+      var sbi = el("span", "sb-icon"); sbi.appendChild(svgIcon("flask")); sb.appendChild(sbi);
       var sbt = el("div", "sb-text");
       sbt.appendChild(elText("strong", null, "This is sample content."));
       sbt.appendChild(elText("span", null, " It's here to show the structure — edit it into your own, or delete it. Nothing here is your real data."));
@@ -539,12 +637,21 @@
     actions.appendChild(miniBtn("⧉ Duplicate", duplicateResume));
     actions.appendChild(miniBtn("🗑 Delete", function () { deleteResume(activeResume()); }, "btn-danger"));
     var spacer = el("span"); spacer.style.flex = "1"; actions.appendChild(spacer);
+    var coachBtn = miniBtn((coachOn() ? "✓ " : "") + "Writing tips", function () {
+      setCoach(!coachOn()); renderApp();
+      flash(coachOn() ? "Writing tips on — inline bullet coaching." : "Writing tips hidden.");
+    }, coachOn() ? "coach-on" : "");
+    coachBtn.title = "Toggle inline bullet coaching (strength chips under each bullet)";
+    actions.appendChild(coachBtn);
     actions.appendChild(miniBtn("⊕ Expand all", function () { setAllCollapsed(false); }));
     actions.appendChild(miniBtn("⊖ Collapse all", function () { setAllCollapsed(true); }));
     panel.appendChild(actions);
 
     /* readiness dashboard — a one-glance summary of this resume's state */
     panel.appendChild(readinessBlock(r));
+
+    /* ATS live checklist — the high-leverage rules, checked against this resume */
+    if (hasGradableContent(r)) panel.appendChild(atsChecklist(r));
 
     /* archived resumes — tucked away, restorable */
     var archivedList = store.resumes.filter(function (r) { return r.archived; });
@@ -592,18 +699,32 @@
 
     /* add section + add from library */
     var foot = el("div", "foot-actions");
-    foot.appendChild(miniBtn("＋ Add custom section", function () {
-      r.sections.push({ id: uid(), title: "New Section", type: "entries", items: [] }); renderApp(); touch();
-      var ed = document.getElementById("editor"); ed.scrollTop = ed.scrollHeight;
-    }, "js-add"));
-    foot.appendChild(miniBtn("📜 Add Certifications", function () {
-      if (findSection(r, "Certifications", "entries")) { flash("You already have a Certifications section."); return; }
-      r.sections.push({ id: uid(), title: "Certifications", type: "entries", items: [ { id: uid(), heading: "", role: "", date: "", meta: "", bullets: [] } ] });
-      renderApp(); touch();
-      var ed = document.getElementById("editor"); ed.scrollTop = ed.scrollHeight;
-    }, "js-add"));
+    foot.appendChild(miniBtn("＋ Add a section…", function () { openSectionPresets(r); }, "js-add"));
     foot.appendChild(miniBtn("📚 Add from Library…", function () { openLibraryInsert(r); }, "js-add"));
     panel.appendChild(foot);
+  }
+
+  /* A schematic mini-preview of a template for the picker card — communicates
+     the layout (name alignment, heading rule style, header band) without the
+     cost of cloning and scaling the real resume. */
+  function templateThumb(id, accent) {
+    var s = templateSpec(id);
+    var wrap = el("div", "tmpl-thumb" + (s.band ? " tt-band" : ""));
+    wrap.style.setProperty("--tt-accent", accent || "#1f7d92");
+    var alignCls = s.nameAlign === "left" ? "tt-left" : "tt-center";
+    var nameStyle = s.nameAccent ? ' style="background:var(--tt-accent)"' : "";
+    var head = '<div class="tt-head ' + alignCls + '">'
+      + '<div class="tt-name"' + nameStyle + "></div>"
+      + '<div class="tt-sub"></div>'
+      + '<div class="tt-contacts"></div></div>';
+    var ruleCls = "tt-rule-" + s.rule;
+    function sec() {
+      return '<div class="tt-sec">'
+        + '<div class="tt-sectitle ' + ruleCls + '"></div>'
+        + '<div class="tt-line"></div><div class="tt-line tt-short"></div></div>';
+    }
+    wrap.innerHTML = head + sec() + sec();
+    return wrap;
   }
 
   function designBlock(r) {
@@ -617,6 +738,8 @@
       Object.keys(THEME_TEMPLATES).forEach(function (key) {
         var t = THEME_TEMPLATES[key];
         var b = el("button", "tmpl-opt" + (r.theme.template === key ? " sel" : "")); b.type = "button";
+        b.setAttribute("aria-pressed", r.theme.template === key ? "true" : "false");
+        b.appendChild(templateThumb(key, r.theme.accent));
         b.appendChild(elText("span", "tmpl-name", t.label));
         b.appendChild(elText("span", "tmpl-desc", t.desc));
         b.addEventListener("click", function () { r.theme.template = key; renderApp(); touch(); });
@@ -687,10 +810,10 @@
     var titleInput = el("input", "sec-title"); titleInput.value = sec.title; titleInput.title = "Edit section heading";
     titleInput.addEventListener("input", function () { sec.title = titleInput.value; touch(); });
 
-    var grip = el("span", "move grip"); grip.textContent = "⠿"; grip.title = "Drag to reorder section";
-    var up = el("span", "move"); up.textContent = "▲"; up.title = "Move section up";
+    var grip = el("span", "move grip"); setGlyph(grip, "grip"); grip.title = "Drag to reorder section"; grip.setAttribute("aria-label", "Drag to reorder");
+    var up = el("span", "move"); setGlyph(up, "up"); up.title = "Move section up"; up.setAttribute("aria-label", "Move up");
     up.addEventListener("click", function () { if (moveIn(r.sections, idx, -1)) { renderApp(); touch(); } });
-    var down = el("span", "move"); down.textContent = "▼"; down.title = "Move section down";
+    var down = el("span", "move"); setGlyph(down, "down"); down.title = "Move section down"; down.setAttribute("aria-label", "Move down");
     down.addEventListener("click", function () { if (moveIn(r.sections, idx, 1)) { renderApp(); touch(); } });
     var star = miniBtn("★ Save to Library", function () { saveSectionToLibrary(sec); }, "js-add");
     var del = miniBtn("Delete", function () { if (confirm("Delete section \"" + sec.title + "\"?")) { r.sections.splice(idx, 1); renderApp(); touch(); } }, "btn-danger");
@@ -789,7 +912,8 @@
     var inp = el("input", "inp"); inp.value = it.date || ""; inp.placeholder = "e.g. Jul 2022 – Present";
     inp.addEventListener("input", function () { it.date = inp.value; touch(); });
     f.appendChild(inp);
-    var toggle = el("button", "btn btn-mini date-pick-toggle"); toggle.type = "button"; toggle.textContent = "📅 Pick dates";
+    var toggle = el("button", "btn btn-mini date-pick-toggle"); toggle.type = "button";
+    toggle.appendChild(svgIcon("calendar")); toggle.appendChild(elText("span", "mini-lbl", "Pick dates"));
     var pick = el("div", "date-pick");
     var rng = splitRange(it.date), sp = parseDatePart(rng.start), ep = parseDatePart(rng.end);
     function monthSel(val) { var s = el("select", "inp"); var o0 = el("option"); o0.value = ""; o0.textContent = "Month"; s.appendChild(o0); MONTHS_ABBR.forEach(function (m) { var o = el("option"); o.value = m; o.textContent = m; if (m === val) o.selected = true; s.appendChild(o); }); return s; }
@@ -814,6 +938,91 @@
     return f;
   }
 
+  /* ============================================================
+     INLINE WRITING ASSIST — a deterministic, in-browser bullet coach.
+     No AI call, no upload: pure heuristics that mirror what a recruiter
+     or a strong resume reviewer looks for. Each bullet is scored against
+     a handful of rules; the issues render as compact chips under the
+     field, and a per-entry strength tally rolls up in the editor header.
+     ============================================================ */
+  /* Strong past-tense action verbs → offered when a bullet opens weakly. */
+  var ACTION_VERBS = ["Led", "Built", "Designed", "Developed", "Launched", "Shipped",
+    "Drove", "Reduced", "Increased", "Improved", "Automated", "Migrated", "Architected",
+    "Delivered", "Created", "Scaled", "Optimized", "Streamlined", "Implemented",
+    "Spearheaded", "Negotiated", "Cut", "Grew", "Accelerated", "Established",
+    "Redesigned", "Owned", "Mentored", "Directed", "Orchestrated", "Rebuilt", "Saved"];
+  /* openings that signal passive / low-ownership phrasing */
+  var WEAK_OPENERS = /^(responsible for|worked on|worked with|helped(\s+to)?|assisted (?:with|in)|duties includ\w*|tasked with|involved in|participated in|in charge of|handled|dealt with|was (?:responsible|tasked)|part of (?:a|the) team)\b/i;
+  /* filler / soft words → suggestion to cut or swap */
+  var FILLER = [
+    { re: /\bin order to\b/i, msg: "“in order to” → just “to”" },
+    { re: /\butiliz(e|ed|ing)\b/i, msg: "“utilize” → “use”" },
+    { re: /\b(successfully|basically|actually|literally|really|very|quite|highly|a lot of|lots of|numerous|various|several)\b/i, msg: "cut filler (“successfully”, “various”, “very”…)" },
+    { re: /\b(things?|stuff|various tasks)\b/i, msg: "vague — name the specific thing" },
+    { re: /\betc\.?\b/i, msg: "avoid “etc.” — list what matters" }
+  ];
+  function wordCount(s) { s = (s || "").trim(); return s ? s.split(/\s+/).length : 0; }
+  /* Evaluate one bullet → { issues:[{sev,msg}], strong:bool }.
+     sev: "warn" (worth fixing) | "tip" (nice-to-have) | "good" (praise). */
+  function bulletLint(raw) {
+    var t = (raw || "").replace(/\s+/g, " ").trim();
+    var issues = [];
+    if (!t) return { issues: issues, strong: false, empty: true };
+    var wc = wordCount(t);
+    var hasMetric = /\d/.test(t);
+    var weakOpen = WEAK_OPENERS.test(t);
+    var firstWord = (t.match(/^[A-Za-z][\w'-]*/) || [""])[0];
+    var opensStrong = ACTION_VERBS.some(function (v) { return v.toLowerCase() === firstWord.toLowerCase(); });
+
+    if (weakOpen) {
+      var pick = ACTION_VERBS[Math.abs(hash(t)) % ACTION_VERBS.length];
+      issues.push({ sev: "warn", msg: "weak opener — start with a strong verb (e.g. “" + pick + "…”)" });
+    } else if (!opensStrong && /^[a-z]/.test(firstWord)) {
+      issues.push({ sev: "tip", msg: "start with a capitalized action verb" });
+    }
+    if (!hasMetric) issues.push({ sev: "warn", msg: "add a metric (%, $, #, time) to show impact" });
+    if (/\b(i|my|me|we|our|us)\b/i.test(t)) issues.push({ sev: "warn", msg: "drop first-person words (“I”, “my”, “we”)" });
+    for (var i = 0; i < FILLER.length; i++) if (FILLER[i].re.test(t)) { issues.push({ sev: "tip", msg: FILLER[i].msg }); break; }
+    if (wc > 34) issues.push({ sev: "tip", msg: "long (" + wc + " words) — tighten to one idea" });
+    else if (wc > 0 && wc < 4) issues.push({ sev: "tip", msg: "thin — add the result or scope" });
+
+    var strong = !issues.some(function (x) { return x.sev === "warn"; }) && opensStrong && hasMetric && wc >= 5;
+    return { issues: issues, strong: strong, empty: false };
+  }
+  function hash(s) { var h = 0; for (var i = 0; i < s.length; i++) { h = (h << 5) - h + s.charCodeAt(i); h |= 0; } return h; }
+  /* Roll a section's bullets into a one-line strength summary for the header. */
+  function entryStrength(it) {
+    var strong = 0, weak = 0, total = 0;
+    (it.bullets || []).forEach(function (b) {
+      var r = bulletLint(b); if (r.empty) return;
+      total++; if (r.strong) strong++; if (r.issues.some(function (x) { return x.sev === "warn"; })) weak++;
+    });
+    return { strong: strong, weak: weak, total: total };
+  }
+  function coachOn() { try { return localStorage.getItem(COACH_KEY) !== "off"; } catch (e) { return true; } }
+  function setCoach(on) { try { localStorage.setItem(COACH_KEY, on ? "on" : "off"); } catch (e) {} }
+  var COACH_KEY = "newvisual.resume.coach";
+  /* Build the chip strip shown under a bullet. Returns null when clean/off. */
+  function coachStrip(raw) {
+    if (!coachOn()) return null;
+    var res = bulletLint(raw);
+    if (res.empty) return null;
+    if (!res.issues.length && res.strong) {
+      var okw = el("div", "coach coach-ok");
+      okw.appendChild(svgIcon("star", "ico-fill"));
+      okw.appendChild(elText("span", "coach-ok-txt", "Strong bullet — action verb + measurable impact."));
+      return okw;
+    }
+    if (!res.issues.length) return null;
+    var strip = el("div", "coach");
+    res.issues.forEach(function (iss) {
+      var chip = el("span", "coach-chip coach-" + iss.sev);
+      chip.textContent = iss.msg;
+      strip.appendChild(chip);
+    });
+    return strip;
+  }
+
   function renderEntriesEditor(body, sec, allowSave) {
     sec.items = sec.items || [];
     var bar = el("div", "item-bar");
@@ -823,9 +1032,19 @@
     sec.items.forEach(function (it, i) {
       var wrap = el("div", "item");
       var top = el("div", "item-bar");
-      var egrip = el("span", "move grip item-grip"); egrip.textContent = "⠿";
+      var egrip = el("span", "move grip item-grip"); setGlyph(egrip, "grip"); egrip.setAttribute("aria-label", "Drag to reorder");
       top.appendChild(egrip);
       top.appendChild(elText("span", "lbl", it.heading || ("Entry " + (i + 1))));
+      if (coachOn()) {
+        var st = entryStrength(it);
+        if (st.total) {
+          var pillCls = st.weak ? "warn" : (st.strong === st.total ? "good" : "ok");
+          var pill = elText("span", "strength-pill strength-" + pillCls,
+            st.weak ? (st.weak + " to improve") : (st.strong === st.total ? "all strong" : st.strong + "/" + st.total + " strong"));
+          pill.title = "Bullet strength for this entry (writing tips)";
+          top.appendChild(pill);
+        }
+      }
       var tools = el("div", "item-tools");
       tools.appendChild(miniBtn("▲", function () { if (moveIn(sec.items, i, -1)) { renderApp(); touch(); } }));
       tools.appendChild(miniBtn("▼", function () { if (moveIn(sec.items, i, 1)) { renderApp(); touch(); } }));
@@ -851,10 +1070,16 @@
       var bl = el("div", "bullets");
       (it.bullets || []).forEach(function (bt, bi) {
         var row = el("div", "bullet-row");
-        var grip = el("span", "move grip bullet-grip"); grip.textContent = "⠿";
+        var grip = el("span", "move grip bullet-grip"); setGlyph(grip, "grip"); grip.setAttribute("aria-label", "Drag to reorder");
         row.appendChild(grip);
         var ta = el("textarea", "inp"); ta.value = bt; ta.setAttribute("data-b", it.id + "_" + bi);
-        ta.addEventListener("input", function () { it.bullets[bi] = ta.value; autoGrow(ta); touch(); });
+        var coachHost = el("div", "coach-host");
+        function refreshCoach() {
+          coachHost.innerHTML = "";
+          var s = coachStrip(ta.value);
+          if (s) coachHost.appendChild(s);
+        }
+        ta.addEventListener("input", function () { it.bullets[bi] = ta.value; autoGrow(ta); refreshCoach(); touch(); });
         /* Enter adds the next bullet and focuses it (Shift+Enter = newline within) */
         ta.addEventListener("keydown", function (e) {
           if (e.key === "Enter" && !e.shiftKey) {
@@ -873,7 +1098,8 @@
         row.appendChild(miniBtn("✕", function () { it.bullets.splice(bi, 1); renderApp(); touch(); }, "btn-danger"));
         makeDragItem(row, grip, it.bullets, bi, "bullets:" + it.id);
         bl.appendChild(row);
-        if (bt && bt.trim() && !/\d/.test(bt)) bl.appendChild(elText("div", "quant-nudge", "＋ add a metric (%, $, #, time) to strengthen this"));
+        refreshCoach();
+        bl.appendChild(coachHost);
       });
       wrap.appendChild(bl);
       body.appendChild(wrap);
@@ -916,8 +1142,9 @@
   // "Satuluri_Rajesh_Resume_FISGlobal". Falls back to a sensible default.
   function resumeFileBase(r) {
     r = r || activeResume();
-    var base = ((r && r.name) || "Satuluri_Rajesh_Resume").trim().replace(/\s+/g, "_");
-    if (!base) base = "Satuluri_Rajesh_Resume";
+    var who = (r && r.profile && r.profile.name) || "";
+    var base = (((r && r.name) || who || "Resume").trim() || "Resume").replace(/\s+/g, "_");
+    if (!base) base = "Resume";
     var company = ((r && r.targetRole) || "").trim().replace(/[^A-Za-z0-9]+/g, "");
     return company ? base + "_" + company : base;
   }
@@ -935,6 +1162,24 @@
       { ok: (r.sections || []).some(function (s) { return /educ/i.test(s.title || "") && (s.items || []).some(function (it) { return (it.heading || "").trim(); }); }), label: "Education" }
     ];
   }
+  /* True once there's enough real content to grade. Guards against showing a
+     flattering Health score (deductions only fire on content that exists) on
+     an essentially empty resume — a wrong number erodes trust in every number. */
+  function hasGradableContent(r) {
+    if (!r) return false;
+    if (collectBullets(r).length) return true;
+    /* count only user-entered VALUES — never section titles/structure, so an
+       empty scaffold (which still has headings) never looks gradable. */
+    var n = 0, p = r.profile || {};
+    (p.contacts || []).forEach(function (c) { if (c.value) n += c.value.trim().length; });
+    (r.sections || []).forEach(function (sec) {
+      if (sec.type === "text") { if (sec.text) n += stripMd(sec.text).trim().length; }
+      else (sec.items || []).forEach(function (it) {
+        n += ((it.value || "") + (it.heading || "") + (it.meta || "") + (it.role || "")).trim().length;
+      });
+    });
+    return n > 60;
+  }
   function scoreBand(n) { return n >= 85 ? "high" : (n >= 60 ? "mid" : "low"); }
   function statTile(label, val, bandCls, onClick) {
     var t = el(onClick ? "button" : "div", "stat-tile " + (bandCls || "")); if (onClick) { t.type = "button"; t.addEventListener("click", onClick); t.title = "Open " + label; }
@@ -951,8 +1196,9 @@
     var block = el("div", "readiness");
     block.appendChild(elText("div", "readiness-title", "Resume readiness"));
     var grid = el("div", "readiness-grid");
+    var gradable = hasGradableContent(r);
     grid.appendChild(statTile("Complete", pct + "%", scoreBand(pct)));
-    grid.appendChild(statTile("Health", health.score, scoreBand(health.score), function () { activeTab = "health"; renderApp(); }));
+    grid.appendChild(statTile("Health", gradable ? health.score : "—", gradable ? scoreBand(health.score) : "none", function () { activeTab = "health"; renderApp(); }));
     grid.appendChild(statTile("Page fit", fitOver ? "Review" : (r.pages === 2 ? "2 pg" : "1 pg"), fitOver ? "low" : "high"));
     grid.appendChild(statTile("JD match", jd != null ? jd + "%" : "—", jd != null ? scoreBand(jd) : "none", function () { activeTab = "jd"; renderApp(); }));
     block.appendChild(grid);
@@ -960,6 +1206,66 @@
     if (missing.length) block.appendChild(elText("p", "readiness-missing", "To finish: " + missing.map(function (m) { return m.label; }).join(" · ")));
     else block.appendChild(elText("p", "readiness-done", "✓ All the essentials are filled in — polish it in Health and tailor it in JD Match."));
     return block;
+  }
+
+  /* ---------- ATS live checklist ----------
+     A always-on, at-a-glance read of the handful of ATS rules that actually
+     move the needle (exact title, quantified bullets, active voice, standard
+     headings, parseable contact, length) — computed live against the resume
+     so the ATS Guide's advice is reflected in the document, not just read. */
+  function atsChecklist(r) {
+    var p = r.profile || {};
+    var bullets = collectBullets(r).map(function (b) { return b.text; });
+    var noMetric = bullets.filter(function (b) { return b.trim() && !/\d/.test(b); });
+    var firstPerson = bullets.filter(function (b) { return /\b(i|my|me|we|our|us)\b/i.test(b); });
+    var hasSummary = !!(findSummary(r) || "").trim();
+    var cats = {};
+    (r.sections || []).forEach(function (s) { cats[classifyLib(s)] = true; });
+    var stdHeadings = hasSummary && cats.experiences && cats.skills && cats.education;
+    var email = (p.contacts || []).filter(function (c) { return /@/.test(c.value || ""); })[0];
+    var emailOk = email && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test((email.value || "").trim());
+    var over = document.body.classList.contains("is-over");
+
+    var rows = [
+      { ok: !!(p.title && p.title.trim()), label: "Exact job title in your header",
+        good: "Your title line is set. Make sure it copies the posting's literal title — it's the single biggest callback lever.",
+        bad: "Add the target job title under your name, copied exactly from the posting. Matching the literal title drives far more recruiter callbacks." },
+      { ok: !!emailOk, label: "Valid, parseable email",
+        good: "A clean email is present as plain text.", bad: "Add a professional email as plain text in your header." },
+      { ok: (p.contacts || []).some(function (c) { return c.value && c.value.trim() && !/@/.test(c.value); }), label: "Phone / location present",
+        good: "Contact details beyond email are present.", bad: "Add a phone number and city + state." },
+      { ok: stdHeadings, label: "Standard section headings",
+        good: "Summary, Experience, Skills and Education are all present — the headings ATS parsers expect.", bad: "Use the standard set: a Summary, Professional Experience, Technical Skills, and Education." },
+      { level: noMetric.length ? "warn" : "good", ok: !noMetric.length, label: "Every bullet quantified",
+        good: "Every bullet carries a number — the kind of measurable impact recruiters scan for.",
+        bad: noMetric.length + " bullet" + (noMetric.length !== 1 ? "s" : "") + " have no metric. Add a %, $, count, or time to each to show impact." },
+      { level: firstPerson.length ? "warn" : "good", ok: !firstPerson.length, label: "Active, third-person voice",
+        good: "No first-person pronouns — bullets read as strong, active statements.",
+        bad: firstPerson.length + " bullet" + (firstPerson.length !== 1 ? "s" : "") + " use “I/my/we”. Drop the pronoun and open with an action verb." },
+      { ok: !over, label: "Fits " + (r.pages === 2 ? "two pages" : "one page"),
+        good: "Content fits the length you chose.", bad: "The resume overflows — trim content, or the export will shrink the type to fit." },
+      { ok: true, label: "Single-column, selectable text", always: true,
+        good: "Every template here is single-column with real, extractable text — exactly what ATS parsers read best." }
+    ];
+    var passing = rows.filter(function (x) { return x.ok; }).length;
+    if (collapsed["r.ats"] === undefined) collapsed["r.ats"] = true;
+    return blockEl("ATS checklist", "r.ats", function (body) {
+      body.appendChild(elText("p", "hint", "Live against this resume. Fix the flags, don't stuff keywords — see the ATS Guide tab for the why."));
+      var ul = el("div", "ats-check");
+      rows.forEach(function (row) {
+        var lvl = row.ok ? "good" : (row.level === "warn" ? "warn" : "bad");
+        var item = el("div", "ats-check-row ats-" + lvl);
+        var ic = el("span", "ats-check-ic");
+        ic.innerHTML = svgMarkup(row.ok ? "star" : "x", row.ok ? "ico-fill" : "");
+        item.appendChild(ic);
+        var tx = el("div", "ats-check-tx");
+        tx.appendChild(elText("span", "ats-check-lbl", row.label));
+        tx.appendChild(elText("span", "ats-check-det", row.ok ? row.good : row.bad));
+        item.appendChild(tx);
+        ul.appendChild(item);
+      });
+      body.appendChild(ul);
+    }, [elText("span", "hl-pill hl-" + (passing >= rows.length - 1 ? "good" : "warn"), passing + "/" + rows.length)]);
   }
 
   /* ---------- onboarding (first run) ---------- */
@@ -970,6 +1276,7 @@
     card.appendChild(elText("p", "onboard-lead", "Start from a blank resume, or load a clearly-marked sample to see how everything fits together."));
     var row = el("div", "onboard-actions");
     row.appendChild(miniBtn("✍ Start blank", function () { store.onboarded = true; renderApp(); touch(); flash("Blank resume ready — fill in your details."); }, "btn-primary"));
+    row.appendChild(miniBtn("⬆ Import existing resume", function () { store.onboarded = true; openResumeImport(); }));
     row.appendChild(miniBtn("🧪 Load a sample", function () { loadSample(); }));
     card.appendChild(row);
     return card;
@@ -1086,6 +1393,67 @@
       });
     });
     if (!anyContent) modal.appendChild(elText("p", "hint", "Your Library is empty. Save sections to it with “★ Save to Library”, or add items in the Library tab."));
+    var close = miniBtn("Done", function () { document.body.removeChild(overlay); }); close.classList.add("modal-close");
+    modal.appendChild(close);
+    overlay.appendChild(modal);
+    overlay.addEventListener("click", function (e) { if (e.target === overlay) document.body.removeChild(overlay); });
+    document.body.appendChild(overlay);
+  }
+
+  /* ---------- section presets ----------
+     Quick-add correctly-typed, standard-named sections (the headings ATS
+     parsers expect) instead of only a blank custom section. */
+  var SECTION_PRESETS = [
+    { title: "Professional Summary", type: "text", desc: "A 3–4 line pitch up top" },
+    { title: "Technical Skills", type: "labeled", desc: "Grouped, scannable skills" },
+    { title: "Professional Experience", type: "entries", desc: "Jobs with impact bullets" },
+    { title: "Projects", type: "entries", desc: "Side / portfolio work" },
+    { title: "Education", type: "entries", desc: "Degrees & schools" },
+    { title: "Certifications", type: "entries", desc: "Licenses & credentials" },
+    { title: "Awards / Achievements", type: "labeled", desc: "Recognition & honors" },
+    { title: "Languages", type: "labeled", desc: "Languages & fluency" },
+    { title: "Volunteer Experience", type: "entries", desc: "Community & pro-bono work" },
+    { title: "Publications", type: "entries", desc: "Papers, talks & patents" },
+    { title: "Interests", type: "text", desc: "A brief, human closing line" }
+  ];
+  function presetItem(type) {
+    if (type === "labeled") return { id: uid(), label: "", value: "" };
+    return { id: uid(), heading: "", role: "", date: "", meta: "", bullets: type === "entries" ? [""] : [] };
+  }
+  function addPresetSection(r, preset) {
+    if (findSection(r, preset.title, preset.type)) { flash("You already have a “" + preset.title + "” section."); return false; }
+    var sec = { id: uid(), title: preset.title, type: preset.type };
+    if (preset.type === "text") sec.text = ""; else sec.items = [presetItem(preset.type)];
+    r.sections.push(sec); renderApp(); touch();
+    var ed = document.getElementById("editor"); if (ed) ed.scrollTop = ed.scrollHeight;
+    return true;
+  }
+  function openSectionPresets(r) {
+    var overlay = el("div", "modal-overlay");
+    var modal = el("div", "modal modal-presets");
+    modal.appendChild(elText("h3", "modal-title", "Add a section"));
+    modal.appendChild(elText("p", "hint", "Standard, ATS-friendly headings — correctly structured and ready to fill. Already-added sections are marked."));
+    var grid = el("div", "preset-grid");
+    SECTION_PRESETS.forEach(function (preset) {
+      var exists = !!findSection(r, preset.title, preset.type);
+      var b = el("button", "preset-opt" + (exists ? " added" : "")); b.type = "button";
+      b.appendChild(svgIcon(iconFor(preset.title), "preset-ic"));
+      var tx = el("div", "preset-tx");
+      tx.appendChild(elText("span", "preset-name", preset.title));
+      tx.appendChild(elText("span", "preset-desc", exists ? "Already in this resume" : preset.desc));
+      b.appendChild(tx);
+      if (exists) b.disabled = true;
+      else b.addEventListener("click", function () { if (addPresetSection(r, preset)) { document.body.removeChild(overlay); flash("Added “" + preset.title + "”."); } });
+      grid.appendChild(b);
+    });
+    modal.appendChild(grid);
+    var custom = miniBtn("＋ Blank custom section", function () {
+      r.sections.push({ id: uid(), title: "New Section", type: "entries", items: [presetItem("entries")] });
+      renderApp(); touch(); document.body.removeChild(overlay);
+      var ed = document.getElementById("editor"); if (ed) ed.scrollTop = ed.scrollHeight;
+    });
+    custom.classList.add("preset-custom");
+    modal.appendChild(custom);
     var close = miniBtn("Done", function () { document.body.removeChild(overlay); }); close.classList.add("modal-close");
     modal.appendChild(close);
     overlay.appendChild(modal);
@@ -1245,6 +1613,59 @@
     { key: "other",      label: "Anything else", ph: "Extra notes, keywords, publications, languages — anything that could help." }
   ];
 
+  /* ---- Unify AI Assist with the resume ----
+     Serialize one resume section into the plain text an AI field expects, and
+     map the whole active resume into the AI_FIELDS so the user never has to
+     re-type what they've already built. This closes the gap that made AI Assist
+     feel like a separate, duplicate data entry. */
+  function sectionToPlainField(sec) {
+    if (sec.type === "text") return (sec.text || "").trim();
+    if (sec.type === "labeled") {
+      return (sec.items || []).map(function (it) {
+        return (it.label ? it.label + ": " : "") + (it.value || "");
+      }).filter(function (s) { return s.trim(); }).join("\n");
+    }
+    return (sec.items || []).map(function (it) {
+      var head = [it.heading, it.role].filter(Boolean).join(" — ");
+      if (it.date) head += (head ? "  (" + it.date + ")" : it.date);
+      var lines = [head.trim()];
+      if (it.meta) lines.push(it.meta);
+      (it.bullets || []).forEach(function (b) { if (b && b.trim()) lines.push("- " + b.trim()); });
+      return lines.filter(Boolean).join("\n");
+    }).filter(function (s) { return s.trim(); }).join("\n\n");
+  }
+  var SEC_TO_AIKEY = { summaries: "summary", skills: "skills", awards: "awards", experiences: "experience", projects: "projects", education: "education" };
+  function aiFieldsFromResume(r) {
+    var f = {};
+    var p = r.profile || {};
+    var head = [];
+    if (p.name) head.push(p.name);
+    if (p.title) head.push(p.title);
+    (p.contacts || []).forEach(function (c) { if (c.value) head.push(c.value); });
+    if (head.length) f.header = head.join("\n");
+    (r.sections || []).forEach(function (sec) {
+      var key = SEC_TO_AIKEY[classifyLib(sec)];
+      if (!key) return;
+      var txt = sectionToPlainField(sec);
+      if (!txt) return;
+      f[key] = f[key] ? f[key] + "\n\n" + txt : txt;
+    });
+    return f;
+  }
+  function pullResumeIntoAi() {
+    var r = activeResume();
+    var pulled = aiFieldsFromResume(r);
+    var keys = Object.keys(pulled);
+    if (!keys.length) { flash("This resume has no content to pull yet."); return; }
+    var cur = store.aiAssist.fields || {};
+    var hasExisting = keys.some(function (k) { return (cur[k] || "").trim(); });
+    if (hasExisting && !confirm("Replace the AI Assist data with the content of “" + (r.name || "this resume") + "”?\n\nThis overwrites the matching fields below (your resume itself is not changed).")) return;
+    store.aiAssist.fields = store.aiAssist.fields || {};
+    keys.forEach(function (k) { store.aiAssist.fields[k] = pulled[k]; });
+    touch(); renderApp();
+    flash("Pulled " + keys.length + " section" + (keys.length !== 1 ? "s" : "") + " from “" + (r.name || "your resume") + "”.");
+  }
+
   function buildBackground() {
     var f = store.aiAssist.fields || {};
     var parts = [];
@@ -1264,7 +1685,7 @@
   }
 
   var AI_STEPS = [
-    "Fill in your resume data below, section by section (Header, Summary, Skills, Experience, Projects, Education, Awards) — with everything about you, including numbers/impact. The more raw material, the better the result.",
+    "Fill in your resume data below — or click “Pull from my resume” to load it straight from the resume you're editing. Add everything about you, including numbers/impact; the more raw material, the better the result.",
     "Paste the job description you're applying to into the Job Description box.",
     "Click “Copy full prompt” — it bundles the instructions + your vault + the JD into one block.",
     "Open any AI chat (ChatGPT, Claude, or Gemini) and paste it in one message.",
@@ -1303,8 +1724,13 @@
     }));
 
     /* Selectable section list */
+    var pullBtn = miniBtn("↡ Pull from my resume", pullResumeIntoAi, "btn-primary");
+    pullBtn.title = "Fill these fields from the resume you're editing, so you don't retype it";
     var copyAll = miniBtn("⧉ Copy all my data", function () { copyText(buildBackground(), "Your data copied."); });
     panel.appendChild(blockEl("Your resume data — click a section to edit", "ai.vault", function (body) {
+      var tip = el("p", "hint");
+      tip.innerHTML = "Already built a resume? Click <strong>“Pull from my resume”</strong> to fill these from the resume you're editing — no retyping.";
+      body.appendChild(tip);
       items.forEach(function (item) {
         var row = el("div", "ai-row" + (item.key === editingAiKey ? " active" : "") + (item.jd ? " ai-row-jd" : ""));
         row.appendChild(elText("span", "ai-row-label", item.label));
@@ -1314,7 +1740,7 @@
         row.addEventListener("click", function () { editingAiKey = item.key; renderApp(); });
         body.appendChild(row);
       });
-    }, [copyAll]));
+    }, [pullBtn, copyAll]));
 
     /* Prompt */
     var copyFull = miniBtn("⧉ Copy full prompt", function () { copyText(buildFullPrompt(), "Full prompt copied — paste it into your AI chat."); });
@@ -2229,9 +2655,45 @@
     hint.innerHTML = "An instant quality read on <strong>" + esc(r ? (r.name || "this resume") : "your resume") + "</strong> — quantified impact, strong verbs, clichés, passive voice, length, contact &amp; date validity, one-page fit. All in your browser. <strong>Fix the flags, not fake keywords.</strong> These are heuristic writing checks, not a guarantee — use your judgement.";
     panel.appendChild(hint);
     if (!r) { panel.appendChild(elText("div", "jd-empty", "Create a resume first.")); return; }
+    if (!hasGradableContent(r)) {
+      panel.appendChild(elText("div", "jd-empty", "Add some content — a summary and a few experience bullets — and your quality score will appear here. There's nothing to grade on an empty resume."));
+      return;
+    }
 
     var h = analyzeHealth(r);
     panel.appendChild(healthCard(h));
+
+    /* Writing strength — the same per-bullet coaching surfaced inline, rolled up
+       across the whole resume so Health and the editor tell one story. */
+    var tally = { strong: 0, weak: 0, total: 0, examples: [] };
+    (r.sections || []).forEach(function (sec) {
+      (sec.items || []).forEach(function (it) {
+        (it.bullets || []).forEach(function (b) {
+          var res = bulletLint(b); if (res.empty) return;
+          tally.total++;
+          if (res.strong) tally.strong++;
+          var warn = res.issues.filter(function (x) { return x.sev === "warn"; });
+          if (warn.length) { tally.weak++; if (tally.examples.length < 4) tally.examples.push((b.length > 80 ? b.slice(0, 77) + "…" : b) + " — " + warn[0].msg); }
+        });
+      });
+    });
+    if (tally.total) {
+      var lvl = tally.weak ? "warn" : (tally.strong === tally.total ? "good" : "warn");
+      panel.appendChild(blockEl((tally.weak ? "▲ " : "✓ ") + "Bullet writing strength", "health.coach", function (body) {
+        var p = el("div", "rec-body");
+        p.innerHTML = tally.weak
+          ? "<strong>" + tally.weak + "</strong> of <strong>" + tally.total + "</strong> bullets could be stronger (weak opener, no metric, or first-person). " + tally.strong + " are already strong. Open the <strong>Resumes</strong> tab — each flagged bullet shows inline tips as you type."
+          : "All <strong>" + tally.total + "</strong> bullets open with a strong verb and carry a measurable result. Nicely done.";
+        body.appendChild(p);
+        if (tally.examples.length) {
+          body.appendChild(elText("p", "hint hl-items-label", "To improve:"));
+          var ul = el("ul", "hl-items");
+          tally.examples.forEach(function (t) { ul.appendChild(elText("li", null, t)); });
+          body.appendChild(ul);
+        }
+        body.appendChild(miniBtn("→ Edit bullets in Resumes", function () { activeTab = "resumes"; if (!coachOn()) setCoach(true); renderApp(); }, "btn-primary"));
+      }, [elText("span", "hl-pill hl-" + lvl, tally.weak ? (tally.weak + " to improve") : "Strong")]));
+    }
 
     h.checks.forEach(function (c) {
       panel.appendChild(blockEl((c.level === "good" ? "✓ " : (c.level === "warn" ? "▲ " : "✕ ")) + c.label, "health." + c.label, function (body) {
@@ -2585,14 +3047,15 @@
     applyThemeToPage(page, r.theme);
     page.setAttribute("data-pages", r.pages === 2 ? "2" : "1");
     var p = r.profile;
-    var h = '<div class="r-name">' + esc(p.name || "Your Name") + "</div>";
-    if (p.title) h += '<div class="r-title">' + esc(p.title) + "</div>";
+    var hd = '<div class="r-name">' + esc(p.name || "Your Name") + "</div>";
+    if (p.title) hd += '<div class="r-title">' + esc(p.title) + "</div>";
     var contacts = (p.contacts || []).filter(function (c) { return c.value; });
-    if (contacts.length) h += '<div class="r-contacts">' + contacts.map(function (c) {
+    if (contacts.length) hd += '<div class="r-contacts">' + contacts.map(function (c) {
       var t = contactTarget(c.value);
       var val = t ? '<a href="' + esc(t) + '" target="_blank" rel="noopener noreferrer">' + esc(c.value) + "</a>" : esc(c.value);
       return '<span class="ico">' + esc(c.icon) + "</span>" + val;
     }).join('<span class="sep">|</span>') + "</div>";
+    var h = '<header class="r-head">' + hd + "</header>";
 
     r.sections.forEach(function (sec) {
       h += '<div class="r-section"><div class="r-sec-title">' + esc(sec.title || "Section") + "</div>";
@@ -2765,6 +3228,7 @@
     if (opt.color) rpr += '<w:color w:val="' + opt.color + '"/>';
     if (opt.under) rpr += '<w:u w:val="single"/>';
     if (opt.caps) rpr += "<w:caps/>";
+    if (opt.spacing) rpr += '<w:spacing w:val="' + opt.spacing + '"/>';
     return "<w:r>" + (rpr ? "<w:rPr>" + rpr + "</w:rPr>" : "") +
       '<w:t xml:space="preserve">' + xmlEsc(r.t) + "</w:t></w:r>";
   }
@@ -2831,10 +3295,21 @@
     /* theme → OOXML: accent color on title & headings (and the name in Modern),
        header alignment, matching the on-screen preview exactly. */
     var theme = normalizeTheme(r.theme);
+    var spec = templateSpec(theme.template);
     var accent = theme.accent.replace("#", "").toUpperCase();
-    var nameAlign = theme.template === "modern" ? "left" : "center";
-    var nameColor = theme.template === "modern" ? accent : "111111";
-    var ruleColor = theme.template === "modern" ? accent : "999999";
+    var nameAlign = spec.nameAlign;
+    var nameColor = spec.nameAccent ? accent : "111111";
+    var ruleColor = spec.rule === "accent" ? accent : "999999";
+    var bandFill = spec.band ? tintHex(accent, 0.86) : null;
+    var headShd = bandFill ? '<w:shd w:val="clear" w:color="auto" w:fill="' + bandFill + '"/>' : "";
+    /* heading rule per template: accent/underline/full draw a bottom border;
+       none/tick draw no border (tick prepends a small accent mark instead). */
+    function headBorder() {
+      if (spec.rule === "none" || spec.rule === "tick") return "";
+      var bsz = spec.rule === "accent" ? 12 : 6;
+      var bcol = spec.rule === "accent" ? accent : (spec.rule === "full" ? "999999" : ruleColor);
+      return '<w:pBdr><w:bottom w:val="single" w:sz="' + bsz + '" w:space="2" w:color="' + bcol + '"/></w:pBdr>';
+    }
     function sz(base) { return Math.max(15, Math.round(base * scale)); }           /* half-points, floor 7.5pt */
     function sp(base) { return Math.max(0, Math.round(base * scale)); }            /* twips */
     function add(xml, sizeHalfPt, text, widthTwips, before, after, extraPt) {
@@ -2848,28 +3323,30 @@
        ->9.5pt, etc., so the .docx matches what the preview and PDF show. */
     /* name */
     var nSize = sz(36);
-    add(para(runXml({ t: p.name || "Your Name", b: true }, { size: nSize, bold: true, color: nameColor }),
-      pPr('<w:jc w:val="' + nameAlign + '"/>' + spacing(0, sp(40)))), nSize, p.name || "Your Name", USABLE_W, 0, sp(40));
+    add(para(runXml({ t: p.name || "Your Name", b: true }, { size: nSize, bold: true, color: nameColor, spacing: spec.caps ? 40 : 0 }),
+      pPr('<w:jc w:val="' + nameAlign + '"/>' + headShd + spacing(0, sp(40)))), nSize, p.name || "Your Name", USABLE_W, 0, sp(40));
     /* title */
     if (p.title) { var tSize = sz(24);
-      add(para(runXml({ t: p.title }, { size: tSize, color: accent }),
-        pPr('<w:jc w:val="' + nameAlign + '"/>' + spacing(0, sp(30)))), tSize, p.title, USABLE_W, 0, sp(30)); }
+      add(para(runXml({ t: p.title }, { size: tSize, color: accent, spacing: spec.caps ? 30 : 0 }),
+        pPr('<w:jc w:val="' + nameAlign + '"/>' + headShd + spacing(0, sp(30)))), tSize, p.title, USABLE_W, 0, sp(30)); }
     /* contacts (hyperlinked where the value is an email or URL) */
     var contacts = (p.contacts || []).filter(function (c) { return c.value; });
     if (contacts.length) {
       var cSize = sz(19);
       var cInner = contactsRunXml(contacts, cSize, accent);
       var joined = contacts.map(function (c) { return c.value; }).join("   |   ");
-      add(para(cInner, pPr('<w:jc w:val="' + nameAlign + '"/>' + spacing(0, sp(110)))), cSize, joined, USABLE_W, 0, sp(110));
+      /* a letterhead rule under the header for executive & banner */
+      var headRule = (spec.rule === "full" || spec.band) ? '<w:pBdr><w:bottom w:val="single" w:sz="' + (spec.band ? 12 : 8) + '" w:space="6" w:color="' + accent + '"/></w:pBdr>' : "";
+      add(para(cInner, pPr('<w:jc w:val="' + nameAlign + '"/>' + headShd + headRule + spacing(0, sp(spec.band || spec.rule === "full" ? 140 : 110)))), cSize, joined, USABLE_W, 0, sp(110));
     }
 
     /* sections */
     (r.sections || []).forEach(function (sec) {
-      var hdBdr = '<w:pBdr><w:bottom w:val="single" w:sz="6" w:space="2" w:color="' + ruleColor + '"/></w:pBdr>';
       var hSize = sz(19);
       var hBefore = sp(110) + fillTwips;
-      add(para(runXml({ t: sec.title || "Section" }, { bold: true, size: hSize, caps: true, color: accent }),
-        pPr(hdBdr + spacing(hBefore, sp(44)))), hSize, sec.title || "Section", USABLE_W, hBefore, sp(44), 2.5);
+      var tick = spec.rule === "tick" ? runXml({ t: "▪  " }, { bold: true, size: hSize, color: accent }) : "";
+      add(para(tick + runXml({ t: sec.title || "Section" }, { bold: true, size: hSize, caps: true, color: accent }),
+        pPr(headBorder() + spacing(hBefore, sp(44)))), hSize, sec.title || "Section", USABLE_W, hBefore, sp(44), 2.5);
 
       if (sec.type === "text") {
         var bSize = sz(19);
@@ -2948,6 +3425,303 @@
       '<w:body>' + built.xml + '</w:body></w:document>';
   }
 
+  /* ============================================================
+     PDF EXPORT — hand-rolled, text-based (selectable & ATS-extractable).
+     Lays the resume out in the SAME 794x1123px coordinate system as the
+     on-screen preview, measures wrapping with canvas, then emits a real PDF
+     using the base-14 fonts (no embedding, universally rendered). One click,
+     no print dialog. Template / accent / density / 2-page all honored.
+     ============================================================ */
+  var PDF_PAGE_W = 794, PDF_PAGE_H = 1123;          /* px, A4 @96dpi — mirrors .page */
+  var PX2PT = 72 / 96;                               /* px → PostScript points */
+  var _pdfCanvasCtx = null;
+  function pdfCtx() {
+    if (!_pdfCanvasCtx) { var c = document.createElement("canvas"); _pdfCanvasCtx = c.getContext("2d"); }
+    return _pdfCanvasCtx;
+  }
+  /* theme font → a base-14 family + a canvas family for measuring */
+  function pdfFontFamily(themeFont) {
+    return (themeFont === "georgia" || themeFont === "garamond" || themeFont === "times")
+      ? { base: "times", canvas: '"Times New Roman", Times, serif' }
+      : { base: "helv", canvas: "Helvetica, Arial, sans-serif" };
+  }
+  function pdfFontRef(base, bold, ital) {
+    if (base === "times") return bold && ital ? "F8" : bold ? "F6" : ital ? "F7" : "F5";
+    return bold && ital ? "F4" : bold ? "F2" : ital ? "F3" : "F1";
+  }
+  function pdfMeasure(fam, px, bold, ital, s) {
+    var ctx = pdfCtx();
+    ctx.font = (ital ? "italic " : "") + (bold ? "700 " : "400 ") + px + "px " + fam.canvas;
+    return ctx.measureText(s).width;
+  }
+  /* unicode → WinAnsi byte (null if it needs transliteration) */
+  var WIN_MAP = { 0x20AC: 128, 0x201A: 130, 0x0192: 131, 0x201E: 132, 0x2026: 133, 0x2020: 134, 0x2021: 135, 0x02C6: 136, 0x2030: 137, 0x0160: 138, 0x2039: 139, 0x0152: 140, 0x017D: 142, 0x2018: 145, 0x2019: 146, 0x201C: 147, 0x201D: 148, 0x2022: 149, 0x2013: 150, 0x2014: 151, 0x02DC: 152, 0x2122: 153, 0x0161: 154, 0x203A: 155, 0x0153: 156, 0x017E: 158, 0x0178: 159 };
+  var WIN_TRANSLIT = { 0x2192: "->", 0x2190: "<-", 0x21D2: "=>", 0x2713: "", 0x2714: "", 0x00B7: String.fromCharCode(183) };
+  function pdfEscapeBytes(s) {
+    var out = "";
+    for (var i = 0; i < s.length; i++) {
+      var cp = s.charCodeAt(i), b = null;
+      if (cp >= 32 && cp <= 126) b = cp;
+      else if (cp >= 160 && cp <= 255) b = cp;
+      else if (WIN_MAP[cp] != null) b = WIN_MAP[cp];
+      else if (WIN_TRANSLIT[cp] != null) { out += pdfEscapeBytes(WIN_TRANSLIT[cp]); continue; }
+      else if (cp > 0xD7FF && cp < 0xE000) { continue; }   /* drop surrogate halves (emoji) */
+      else b = 63;                                           /* '?' */
+      if (b === 40 || b === 41 || b === 92) out += "\\" + String.fromCharCode(b);
+      else if (b < 32 || b > 126) out += "\\" + ("00" + b.toString(8)).slice(-3);
+      else out += String.fromCharCode(b);
+    }
+    return out;
+  }
+  /* Greedy line-breaker over styled runs. Returns lines; each line is an array
+     of segments {text, bold, ital, w}. Preserves inter-word spaces. */
+  function pdfWrap(parts, fam, px, maxW) {
+    var tokens = [];
+    parts.forEach(function (p) {
+      var bits = (p.t || "").split(/(\s+)/);
+      bits.forEach(function (bt) { if (bt !== "") tokens.push({ text: bt, bold: !!p.b, ital: !!p.i, space: /^\s+$/.test(bt) }); });
+    });
+    var lines = [], line = [], w = 0;
+    tokens.forEach(function (tk) {
+      var tw = pdfMeasure(fam, px, tk.bold, tk.ital, tk.text);
+      if (tk.space) {
+        if (!line.length) return;                 /* no leading space */
+        line.push({ text: tk.text, bold: tk.bold, ital: tk.ital, w: tw }); w += tw;
+      } else if (w + tw > maxW && line.length) {
+        while (line.length && line[line.length - 1].w != null && /^\s+$/.test(line[line.length - 1].text)) { w -= line.pop().w; }
+        lines.push(line); line = [{ text: tk.text, bold: tk.bold, ital: tk.ital, w: tw }]; w = tw;
+      } else { line.push({ text: tk.text, bold: tk.bold, ital: tk.ital, w: tw }); w += tw; }
+    });
+    if (line.length) lines.push(line);
+    return lines.length ? lines : [[]];
+  }
+
+  function buildPdf(r) {
+    var theme = normalizeTheme(r.theme);
+    var spec = templateSpec(theme.template);
+    var fam = pdfFontFamily(theme.font);
+    var accent = pdfColorArr(theme.accent);
+    var ink = [0.07, 0.07, 0.07], gray = [0.2, 0.2, 0.2], muteGray = [0.33, 0.33, 0.33], rule = [0.8, 0.82, 0.85];
+    var dens = THEME_DENSITIES[theme.density] || 1;
+    var padX = spec.dense ? 38 : 46, padTop = spec.dense ? 26 : 34, padBot = padTop;
+    var contentW = PDF_PAGE_W - padX * 2;
+    var maxPages = r.pages === 2 ? 2 : 1;
+    var usableH = PDF_PAGE_H - padTop - padBot;
+
+    /* base sizes (px) mirror the preview */
+    function sizes(s) {
+      var c = spec.dense ? 0.96 : 1;
+      return {
+        name: (spec.dense ? 21 : 24) * s, title: (spec.dense ? 14 : 16) * s, contact: 12.5 * s,
+        sec: 12.5 * c * s, body: 12.8 * c * s, lab: 12.8 * c * s,
+        eTitle: 13 * c * s, date: 11.5 * s, role: 12.8 * c * s, meta: 12 * s, bullet: 12.5 * c * s
+      };
+    }
+
+    /* A flow produces a list of absolute-positioned draw commands in one tall
+       column (y from top). We then paginate. scale shrinks everything to fit. */
+    function flow(s) {
+      var S = sizes(s), cmds = [], y = padTop, LH = dens;
+      function lead(px) { return px * 1.32 * LH; }
+      function para(parts, px, color, align, indent, hang, gapAfter, italDefault) {
+        var x0 = padX + (indent || 0), w = contentW - (indent || 0);
+        var lines = pdfWrap(parts, fam, px, w);
+        lines.forEach(function (ln, li) {
+          var lx = x0; if (li > 0 && hang) lx = padX + hang;
+          var lineW = ln.reduce(function (a, b) { return a + b.w; }, 0);
+          if (align === "center") lx = padX + (contentW - lineW) / 2;
+          else if (align === "right") lx = padX + contentW - lineW;
+          var cx = lx, base = y + px * 0.8;
+          ln.forEach(function (seg) {
+            if (seg.text.trim() !== "") cmds.push({ t: "text", x: cx, yBase: base, px: px, bold: seg.bold, ital: seg.ital || italDefault, color: color, s: seg.text });
+            cx += seg.w;
+          });
+          y += lead(px);
+        });
+        y += (gapAfter || 0);
+      }
+      function lineRule(yy, color, wdt, fromX, toX) { cmds.push({ t: "rule", y: yy, x1: fromX == null ? padX : fromX, x2: toX == null ? padX + contentW : toX, color: color, w: wdt || 1 }); }
+
+      /* ---- header ---- */
+      var headTopY = y, nameAlign = spec.nameAlign;
+      if (spec.band) { /* placeholder; rect added after we know header height */ }
+      var p = r.profile || {};
+      para([{ t: p.name || "Your Name", b: true }], S.name, spec.nameAccent ? accent : ink, nameAlign, 0, 0, S.name * 0.12);
+      if (p.title) para([{ t: (p.title || "").toUpperCase() }], S.title, accent, nameAlign, 0, 0, S.title * 0.2);
+      var contacts = (p.contacts || []).filter(function (c) { return c.value; });
+      if (contacts.length) para([{ t: contacts.map(function (c) { return c.value; }).join("    |    ") }], S.contact, gray, nameAlign, 0, 0, 6);
+      if (spec.band) {
+        var bandBot = y + 8;
+        cmds.unshift({ t: "fill", x: 0, y1: 0, w: PDF_PAGE_W, h: bandBot, color: pdfTint(accent, 0.86) });
+        lineRule(bandBot - 1, accent, 2, 0, PDF_PAGE_W); y = bandBot + 10;
+      } else if (spec.rule === "full") {
+        lineRule(y + 2, accent, 2); y += 12;
+      }
+
+      /* ---- sections ---- */
+      (r.sections || []).forEach(function (sec) {
+        y += 12 * dens;                                 /* space before section */
+        var title = (sec.title || "Section").toUpperCase();
+        var tickW = spec.rule === "tick" ? S.sec * 0.9 : 0;
+        cmds.push({ t: "text", x: padX + tickW, yBase: y + S.sec * 0.8, px: S.sec, bold: true, color: accent, s: title });
+        if (spec.rule === "tick") cmds.push({ t: "fill", x: padX, y1: y + S.sec * 0.12, w: S.sec * 0.6, h: S.sec * 0.6, color: accent });
+        y += S.sec * 1.15;
+        if (spec.rule === "underline" || spec.rule === "accent" || spec.rule === "full") {
+          lineRule(y, spec.rule === "accent" ? accent : rule, spec.rule === "accent" ? 1.6 : 1); y += 5;
+        } else { y += 4; }
+
+        if (sec.type === "text") {
+          para(runs(sec.text || ""), S.body, gray, "left", 0, 0, 2);
+        } else if (sec.type === "labeled") {
+          (sec.items || []).forEach(function (it) {
+            var parts = [];
+            if (it.label) parts.push({ t: it.label + ": ", b: true });
+            runs(it.value || "").forEach(function (x) { parts.push(x); });
+            para(parts, S.lab, gray, "left", 0, 0, 3);
+          });
+        } else {
+          (sec.items || []).forEach(function (it) {
+            /* heading row: title left (bold), date right on same baseline */
+            var base = y + S.eTitle * 0.8;
+            if (it.heading) cmds.push({ t: "text", x: padX, yBase: base, px: S.eTitle, bold: true, color: ink, s: it.heading });
+            if (it.date) { var dw = pdfMeasure(fam, S.date, false, false, it.date); cmds.push({ t: "text", x: padX + contentW - dw, yBase: y + S.date * 0.8 + (S.eTitle - S.date) * 0.5, px: S.date, color: muteGray, s: it.date }); }
+            y += S.eTitle * 1.3;
+            if (it.role) para([{ t: it.role, b: true }], S.role, gray, "left", 0, 0, 1);
+            if (it.meta) para([{ t: it.meta }], S.meta, muteGray, "left", 0, 0, 2, true);
+            (it.bullets || []).forEach(function (bt) {
+              if (!bt) return;
+              var bulletParts = [{ t: "•   " }].concat(runs(bt));
+              para(bulletParts, S.bullet, gray, "left", 0, 18, 1.5);
+            });
+            y += 5 * dens;
+          });
+        }
+      });
+      return { cmds: cmds, height: y + padBot };
+    }
+
+    /* choose a scale that fits within maxPages (shrink only; mirror DOCX) */
+    var scale = 1, f = flow(1), capacity = usableH * maxPages;
+    for (var pass = 0; pass < 4 && f.height - padBot - padTop > capacity && scale > 0.55; pass++) {
+      scale = Math.max(0.55, scale * (capacity / (f.height - padBot - padTop)) * 0.99);
+      f = flow(scale);
+    }
+
+    /* paginate: split the single column into page-height slices, keeping the
+       header band only on page 1; move a command to the next page if it would
+       cross the bottom margin. */
+    var pages = [[]], pageH = padTop + usableH;
+    var pageIndex = 0, yOffset = 0;
+    /* compute page boundaries from command y; a text command's reference is yBase */
+    function yTopOf(c) { return c.t === "text" ? c.yBase - c.px * 0.8 : (c.t === "fill" ? c.y1 : c.y); }
+    function yBotOf(c) { return c.t === "text" ? c.yBase + c.px * 0.25 : (c.t === "fill" ? c.y1 + c.h : c.y); }
+    var curBottom = pageH, shift = 0;
+    f.cmds.forEach(function (c) {
+      if (c.t === "fill" && c.y1 === 0) { pages[0].push(c); return; }     /* header band: page 1 only */
+      var top = yTopOf(c) - shift, bot = yBotOf(c) - shift;
+      if (bot > curBottom && maxPages > 1 && pages.length < maxPages) {
+        shift += (curBottom - padTop);                                     /* next page starts at padTop */
+        pages.push([]);
+      }
+      var cc = shiftCmd(c, shift);
+      pages[pages.length - 1].push(cc);
+    });
+
+    return emitPdf(pages, fam);
+  }
+  function shiftCmd(c, dy) {
+    var n = {}; for (var k in c) n[k] = c[k];
+    if (c.t === "text") n.yBase = c.yBase - dy;
+    else if (c.t === "fill") n.y1 = c.y1 - dy;
+    else n.y = c.y - dy;
+    return n;
+  }
+  function pdfColorArr(hex) { var n = parseInt(String(hex).replace("#", ""), 16); return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]; }
+  function pdfTint(arr, frac) { return [arr[0] + (1 - arr[0]) * frac, arr[1] + (1 - arr[1]) * frac, arr[2] + (1 - arr[2]) * frac]; }
+  function fmt(n) { return (Math.round(n * 100) / 100).toString(); }
+  function col(a) { return fmt(a[0]) + " " + fmt(a[1]) + " " + fmt(a[2]); }
+  /* turn one page's draw commands into a PDF content stream (y flipped to PDF space) */
+  function pageStream(cmds, fam) {
+    var H = PDF_PAGE_H;
+    var out = [];
+    cmds.forEach(function (c) {
+      if (c.t === "fill") {
+        out.push(col(c.color) + " rg");
+        out.push(fmt(c.x * PX2PT) + " " + fmt((H - (c.y1 + c.h)) * PX2PT) + " " + fmt(c.w * PX2PT) + " " + fmt(c.h * PX2PT) + " re f");
+      } else if (c.t === "rule") {
+        out.push(col(c.color) + " RG " + fmt((c.w || 1) * PX2PT) + " w");
+        out.push(fmt(c.x1 * PX2PT) + " " + fmt((H - c.y) * PX2PT) + " m " + fmt(c.x2 * PX2PT) + " " + fmt((H - c.y) * PX2PT) + " l S");
+      } else if (c.t === "text") {
+        var ref = pdfFontRef(fam.base, c.bold, c.ital);
+        out.push("BT /" + ref + " " + fmt(c.px * PX2PT) + " Tf " + col(c.color || [0, 0, 0]) + " rg " +
+          fmt(c.x * PX2PT) + " " + fmt((H - c.yBase) * PX2PT) + " Td (" + pdfEscapeBytes(c.s) + ") Tj ET");
+      }
+    });
+    return out.join("\n");
+  }
+  function emitPdf(pages, fam) {
+    var objs = [], offsets = [];
+    function add(str) { objs.push(str); return objs.length; }               /* returns object number */
+    /* 1 catalog, 2 pages — fill later. Reserve by pushing placeholders. */
+    var N = pages.length;
+    var fontBases = { F1: "Helvetica", F2: "Helvetica-Bold", F3: "Helvetica-Oblique", F4: "Helvetica-BoldOblique", F5: "Times-Roman", F6: "Times-Bold", F7: "Times-Italic", F8: "Times-BoldItalic" };
+    /* object numbering: 1=catalog,2=pages,3..=page objs, then content streams, then fonts */
+    var pageObjNums = [], contentNums = [], fontNums = {};
+    var num = 2;                                                            /* after catalog(1), pages(2) */
+    pages.forEach(function () { pageObjNums.push(++num); });
+    pages.forEach(function () { contentNums.push(++num); });
+    Object.keys(fontBases).forEach(function (k) { fontNums[k] = ++num; });
+
+    var fontResource = Object.keys(fontBases).map(function (k) { return "/" + k + " " + fontNums[k] + " 0 R"; }).join(" ");
+    var body = [];
+    body[1] = "<< /Type /Catalog /Pages 2 0 R >>";
+    body[2] = "<< /Type /Pages /Kids [" + pageObjNums.map(function (n) { return n + " 0 R"; }).join(" ") + "] /Count " + N + " >>";
+    pages.forEach(function (cmds, i) {
+      body[pageObjNums[i]] = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 " + fmt(PDF_PAGE_W * PX2PT) + " " + fmt(PDF_PAGE_H * PX2PT) +
+        "] /Resources << /Font << " + fontResource + " >> >> /Contents " + contentNums[i] + " 0 R >>";
+      var stream = pageStream(cmds, fam);
+      body[contentNums[i]] = "<< /Length " + stream.length + " >>\nstream\n" + stream + "\nendstream";
+    });
+    Object.keys(fontBases).forEach(function (k) {
+      body[fontNums[k]] = "<< /Type /Font /Subtype /Type1 /BaseFont /" + fontBases[k] + " /Encoding /WinAnsiEncoding >>";
+    });
+
+    /* serialize with xref */
+    var head = "%PDF-1.4\n%âãÏÓ\n";
+    var out = head, xref = [];
+    for (var n = 1; n <= num; n++) {
+      xref[n] = out.length;
+      out += n + " 0 obj\n" + body[n] + "\nendobj\n";
+    }
+    var xrefStart = out.length;
+    out += "xref\n0 " + (num + 1) + "\n0000000000 65535 f \n";
+    for (var n2 = 1; n2 <= num; n2++) { out += ("0000000000" + xref[n2]).slice(-10) + " 00000 n \n"; }
+    out += "trailer\n<< /Size " + (num + 1) + " /Root 1 0 R >>\nstartxref\n" + xrefStart + "\n%%EOF";
+    /* bytes: WinAnsi/Latin-1 — write as Latin-1 so \ddd octals and high bytes survive */
+    var bytes = new Uint8Array(out.length);
+    for (var bi = 0; bi < out.length; bi++) bytes[bi] = out.charCodeAt(bi) & 0xff;
+    return bytes;
+  }
+
+  function downloadPdfReal() {
+    var r = activeResume();
+    if (!r) { printToPdf(); return; }
+    try {
+      var bytes = buildPdf(r);
+      var blob = new Blob([bytes], { type: "application/pdf" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url; a.download = resumeFileBase(r) + ".pdf";
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+      flash("PDF downloaded.");
+    } catch (e) {
+      /* never leave the user stuck — fall back to the print dialog */
+      if (window.console) console.error("PDF build failed, using print:", e);
+      printToPdf();
+    }
+  }
+
   function exportDocx() {
     var r = activeResume();
     var contentTypes = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
@@ -3004,6 +3778,395 @@
     a.download = (activeResume().profile.name || "resume").replace(/\s+/g, "_").toLowerCase() + "_resume_data.json";
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(url); }, 500);
   }
+  /* ============================================================
+     IMPORT AN EXISTING RESUME (.txt / .docx / .pdf / pasted text)
+     Everything runs in the browser — the file is read locally and never
+     uploaded. Text is extracted, then a heuristic parser lays it out into
+     editable sections. The result is created as a NEW resume (your existing
+     resumes are never touched) and clearly flagged as a draft to clean up.
+     ============================================================ */
+  var IMPORT_DOC_MAX = 8 * 1024 * 1024;   /* docx/pdf/text resumes are small; cap junk */
+  function latin1(bytes) {
+    /* decode a Uint8Array as latin1 without blowing the call stack */
+    var s = "", CH = 0x8000;
+    for (var i = 0; i < bytes.length; i += CH) s += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
+    return s;
+  }
+  /* native, dependency-free inflate via the Compression Streams API */
+  function inflate(bytes, fmt) {
+    if (typeof DecompressionStream === "undefined") return Promise.reject(new Error("no-inflate"));
+    try {
+      var ds = new DecompressionStream(fmt);
+      var stream = new Blob([bytes]).stream().pipeThrough(ds);
+      return new Response(stream).arrayBuffer().then(function (buf) { return new Uint8Array(buf); });
+    } catch (e) { return Promise.reject(e); }
+  }
+  /* ---- minimal ZIP reader: pull one named entry out of a .docx ---- */
+  function readUint32(b, o) { return (b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 24)) >>> 0; }
+  function readUint16(b, o) { return b[o] | (b[o + 1] << 8); }
+  function zipFindEntry(bytes, wantRe) {
+    /* locate the End Of Central Directory, then walk the central directory */
+    var eocd = -1;
+    for (var i = bytes.length - 22; i >= 0 && i >= bytes.length - 65558; i--) {
+      if (readUint32(bytes, i) === 0x06054b50) { eocd = i; break; }
+    }
+    if (eocd < 0) return null;
+    var cdOff = readUint32(bytes, eocd + 16), count = readUint16(bytes, eocd + 10), p = cdOff;
+    for (var n = 0; n < count; n++) {
+      if (readUint32(bytes, p) !== 0x02014b50) break;
+      var method = readUint16(bytes, p + 10);
+      var compSize = readUint32(bytes, p + 20);
+      var nameLen = readUint16(bytes, p + 28), extraLen = readUint16(bytes, p + 30), cmtLen = readUint16(bytes, p + 32);
+      var lho = readUint32(bytes, p + 42);
+      var name = latin1(bytes.subarray(p + 46, p + 46 + nameLen));
+      if (wantRe.test(name)) {
+        var lNameLen = readUint16(bytes, lho + 26), lExtra = readUint16(bytes, lho + 28);
+        var dataStart = lho + 30 + lNameLen + lExtra;
+        var data = bytes.subarray(dataStart, dataStart + compSize);
+        return { method: method, data: data };
+      }
+      p += 46 + nameLen + extraLen + cmtLen;
+    }
+    return null;
+  }
+  function docxBytesToText(bytes) {
+    var entry = zipFindEntry(bytes, /^word\/document\.xml$/);
+    if (!entry) return Promise.reject(new Error("Not a Word document (no document.xml)."));
+    var xmlP = entry.method === 0 ? Promise.resolve(entry.data) : inflate(entry.data, "deflate-raw");
+    return xmlP.then(function (xmlBytes) {
+      var xml = new TextDecoder("utf-8").decode(xmlBytes);
+      /* paragraphs → lines; <w:t> → text; tabs/breaks → spaces */
+      return xml
+        .replace(/<w:tab\b[^>]*\/?>/g, " ")
+        .replace(/<w:br\b[^>]*\/?>/g, " ")
+        .replace(/<\/w:p>/g, "\n")
+        .replace(/<[^>]+>/g, "")
+        .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'")
+        .replace(/[ \t]+\n/g, "\n");
+    });
+  }
+  /* ---- best-effort PDF text layer extraction (text-based PDFs) ---- */
+  function pdfStreamToText(s) {
+    /* pull text out of a decoded content stream: ( ) Tj and [ ] TJ, with
+       line breaks on text-positioning operators. Font encoding is assumed
+       WinAnsi/ASCII — true for resumes made with standard fonts. */
+    var out = "", i = 0, n = s.length;
+    function readStr() {
+      var depth = 1, r = "";
+      while (i < n && depth > 0) {
+        var c = s[i++];
+        if (c === "\\") {
+          var e = s[i++];
+          if (e === "n") r += "\n"; else if (e === "t") r += " ";
+          else if (e === "r") r += ""; else if (e >= "0" && e <= "7") {
+            var oct = e; while (/[0-7]/.test(s[i]) && oct.length < 3) oct += s[i++];
+            r += String.fromCharCode(parseInt(oct, 8));
+          } else r += e;
+        } else if (c === "(") { depth++; r += c; }
+        else if (c === ")") { depth--; if (depth > 0) r += c; }
+        else r += c;
+      }
+      return r;
+    }
+    while (i < n) {
+      var c = s[i];
+      if (c === "(") { i++; out += readStr(); }
+      else if (c === "T" && (s[i + 1] === "*")) { out += "\n"; i += 2; }
+      else if ((c === "T") && (s[i + 1] === "d" || s[i + 1] === "D")) { out += "\n"; i += 2; }
+      else if (c === "'" || c === '"') { out += "\n"; i++; }
+      else i++;
+    }
+    return out;
+  }
+  /* ASCII85 (some PDFs wrap FlateDecode in ASCII85Decode) */
+  function ascii85Decode(bytes) {
+    var s = latin1(bytes);
+    var a = s.indexOf("<~"); if (a >= 0) s = s.slice(a + 2);
+    var e = s.indexOf("~>"); if (e >= 0) s = s.slice(0, e);
+    var out = [], tuple = 0, count = 0;
+    for (var k = 0; k < s.length; k++) {
+      var c = s.charCodeAt(k);
+      if (c === 122 && count === 0) { out.push(0, 0, 0, 0); continue; }   /* 'z' */
+      if (c < 33 || c > 117) continue;                                    /* skip whitespace / noise */
+      tuple = tuple * 85 + (c - 33); count++;
+      if (count === 5) { out.push((tuple >>> 24) & 255, (tuple >>> 16) & 255, (tuple >>> 8) & 255, tuple & 255); tuple = 0; count = 0; }
+    }
+    if (count > 0) { for (var z = count; z < 5; z++) tuple = tuple * 85 + 84; for (var bi = 0; bi < count - 1; bi++) out.push((tuple >>> (24 - bi * 8)) & 255); }
+    return new Uint8Array(out);
+  }
+  /* decode one raw stream slice → latin1 text, trying ASCII85 + Flate as needed */
+  function decodeStream(slice) {
+    var head = latin1(slice.subarray(0, 2)), tail = latin1(slice.subarray(Math.max(0, slice.length - 3)));
+    var pre = (head === "<~" || /~>\s*$/.test(tail)) ? ascii85Decode(slice) : slice;
+    return inflate(pre, "deflate").then(function (b) { return latin1(b); }, function () { return latin1(pre); });
+  }
+  function pdfBytesToText(bytes) {
+    var raw = latin1(bytes);
+    var idx = 0, got = 0;
+    var jobs = [];
+    while (true) {
+      var sPos = raw.indexOf("stream", idx);
+      if (sPos < 0) break;
+      var dStart = sPos + 6;
+      if (raw[dStart] === "\r") dStart++;
+      if (raw[dStart] === "\n") dStart++;
+      var ePos = raw.indexOf("endstream", dStart);
+      if (ePos < 0) break;
+      var slice = bytes.subarray(dStart, ePos);
+      idx = ePos + 9;
+      if (++got > 400) break;      /* sanity cap */
+      jobs.push(slice);
+    }
+    return Promise.all(jobs.map(decodeStream)).then(function (texts) {
+      var all = texts.map(pdfStreamToText).join("\n");
+      /* collapse the many stray newlines the heuristic produces */
+      all = all.replace(/[ \t]+/g, " ").replace(/\n{2,}/g, "\n").replace(/ ?\n ?/g, "\n");
+      return all.trim();
+    });
+  }
+  function extractTextFromFile(file) {
+    var name = (file.name || "").toLowerCase();
+    if (file.size > IMPORT_DOC_MAX) return Promise.reject(new Error("That file is " + (file.size / 1048576).toFixed(1) + " MB — too large. A resume is normally well under 1 MB."));
+    if (/\.docx$/.test(name)) return file.arrayBuffer().then(function (b) { return docxBytesToText(new Uint8Array(b)); });
+    if (/\.pdf$/.test(name)) return file.arrayBuffer().then(function (b) { return pdfBytesToText(new Uint8Array(b)); });
+    if (/\.(txt|md|rtf)$/.test(name)) return file.text().then(function (t) { return name.match(/\.rtf$/) ? t.replace(/\\par[d]?/g, "\n").replace(/\\[a-z]+-?\d* ?/g, "").replace(/[{}]/g, "") : t; });
+    if (/\.docx?$/.test(name)) return Promise.reject(new Error("Old .doc files aren't supported — save as .docx or paste the text."));
+    /* unknown extension: try as text */
+    return file.text();
+  }
+
+  /* ---------- heuristic text → resume structure ---------- */
+  var IMP_DATE = /((?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z.]*\.?\s*\d{4}|\b(?:19|20)\d{2}\b)\s*(?:–|—|-|to|through)\s*(present|current|now|ongoing|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z.]*\.?\s*\d{4}|\b(?:19|20)\d{2}\b)/i;
+  var IMP_YEAR = /\b(19|20)\d{2}\b/;
+  function isAllCaps(s) { return /[A-Z]/.test(s) && s === s.toUpperCase() && !/[a-z]/.test(s); }
+  function isTitleCaseHeading(s) {
+    var words = s.split(/\s+/).filter(Boolean);
+    if (!words.length || words.length > 5) return false;
+    var small = { of: 1, and: 1, the: 1, to: 1, in: 1, for: 1, "&": 1, a: 1, "/": 1 };
+    return words.every(function (w) {
+      if (small[w.toLowerCase()]) return true;
+      return /^[A-Z][A-Za-z/&.,-]*$/.test(w);
+    });
+  }
+  function importSectionMeta(line) {
+    var t = line.toLowerCase().replace(/[:•\-–—]+$/, "").trim();
+    if (/^(professional\s+)?summary$|^objective$|^profile$|^about( me)?$|^overview$/.test(t)) return { title: "Professional Summary", type: "text" };
+    if (/^(technical\s+|core\s+|key\s+)?(skills|competenc\w*|proficienc\w*|technolog\w*|technical expertise)$/.test(t)) return { title: "Technical Skills", type: "skills" };
+    if (/experience|employment|work history|professional background|career/.test(t)) return { title: "Professional Experience", type: "entries" };
+    if (/^projects?$|side projects|personal projects|selected projects/.test(t)) return { title: "Projects", type: "entries" };
+    if (/education|academic/.test(t)) return { title: "Education", type: "entries" };
+    if (/certific|licens|credential/.test(t)) return { title: "Certifications", type: "entries" };
+    if (/award|honor|achievement|accomplishment/.test(t)) return { title: "Awards / Achievements", type: "labeled" };
+    if (/publication|research/.test(t)) return { title: "Publications", type: "entries" };
+    if (/^languages?$/.test(t)) return { title: "Languages", type: "text" };
+    if (/interest|hobb|volunteer|activit/.test(t)) return { title: line.replace(/[:]+$/, "").trim(), type: "text" };
+    return null;
+  }
+  function isHeadingLine(line) {
+    var s = line.trim();
+    if (!s || s.length > 42) return null;
+    if (/^[•\-\*•‣◦⁃∙‣▪◦]/.test(s)) return null;
+    var meta = importSectionMeta(s);
+    if (!meta) return null;
+    if (isAllCaps(s) || isTitleCaseHeading(s) || /^(professional\s+)?summary$|^skills$|^education$|^experience$|^projects?$/i.test(s.replace(/[:]+$/, "").trim())) return meta;
+    return null;
+  }
+  function makeContacts(headerLines) {
+    var contacts = [], seen = {};
+    var tokens = [];
+    headerLines.forEach(function (ln) {
+      ln.split(/\s*(?:\||•|·|�|,(?=\s*(?:https?:|www\.|linkedin|github|\+?\d)))\s*/i).forEach(function (p) { if (p && p.trim()) tokens.push(p.trim()); });
+    });
+    tokens.forEach(function (tk) {
+      var icon = null, val = tk;
+      if (/[\w.+-]+@[\w.-]+\.\w+/.test(tk)) { icon = "✉"; val = (tk.match(/[\w.+-]+@[\w.-]+\.\w+/) || [tk])[0]; }
+      else if (/(linkedin\.com|github\.com|https?:\/\/|www\.|\.io\b|\.dev\b|portfolio)/i.test(tk)) { icon = "🔗"; }
+      else if (/(\+?\d[\d\s().-]{6,}\d)/.test(tk)) { icon = "☎"; val = (tk.match(/\+?\d[\d\s().-]{6,}\d/) || [tk])[0].trim(); }
+      else if (/[A-Za-z]+,\s*[A-Z]{2}\b|[A-Za-z]+,\s*[A-Za-z]{3,}/.test(tk) && tk.length < 40) { icon = "⚲"; }
+      if (icon && !seen[val.toLowerCase()]) { seen[val.toLowerCase()] = 1; contacts.push({ icon: icon, value: val }); }
+    });
+    return contacts;
+  }
+  function impExtractDate(line) { var m = line.match(IMP_DATE); if (m) return m[0].replace(/\s+/g, " ").replace(/\s*(–|—|-|to|through)\s*/i, " – "); var y = line.match(IMP_YEAR); return y ? y[0] : ""; }
+  function impAssignHeadingLine(cur, line) {
+    var date = impExtractDate(line);
+    var textOnly = date ? line.replace(IMP_DATE, "").replace(IMP_YEAR, "").replace(/[|•·,–—-]\s*$/, "").trim() : line.trim();
+    if (date && !cur.date) cur.date = date;
+    if (!cur.heading) { cur.heading = textOnly || cur.heading; }
+    else if (!cur.role && textOnly && textOnly.length <= 60) { cur.role = textOnly; }
+    else if (textOnly) { cur.meta = cur.meta ? cur.meta + " · " + textOnly : textOnly; }
+  }
+  function impParseEntries(lines) {
+    var items = [], cur = null;
+    lines.forEach(function (ln) {
+      var b = ln.match(/^\s*[•\-\*•‣◦⁃∙‣▪◦]\s*(.+)/);
+      if (b) {
+        if (!cur) { cur = { id: uid(), heading: "", role: "", date: "", meta: "", bullets: [] }; items.push(cur); }
+        cur.bullets.push(b[1].trim());
+        return;
+      }
+      if (!cur || cur.bullets.length) {
+        cur = { id: uid(), heading: "", role: "", date: "", meta: "", bullets: [] }; items.push(cur);
+      }
+      impAssignHeadingLine(cur, ln);
+    });
+    return items.filter(function (it) { return it.heading || it.role || it.bullets.length; });
+  }
+  function impParseSkills(lines) {
+    var rows = [], loose = [];
+    lines.forEach(function (ln) {
+      var m = ln.match(/^\s*([A-Za-z][A-Za-z0-9 &/+.-]{1,34}?)\s*[:：]\s*(.+)$/);
+      if (m) rows.push({ id: uid(), label: m[1].trim(), value: m[2].trim() });
+      else loose.push(ln.replace(/^\s*[•\-\*]\s*/, "").trim());
+    });
+    if (loose.length) rows.push({ id: uid(), label: "", value: loose.join(", ").replace(/,\s*,/g, ", ") });
+    return rows.length ? rows : [{ id: uid(), label: "", value: lines.join(" ") }];
+  }
+  function impParseAwards(lines) {
+    return lines.map(function (ln) {
+      ln = ln.replace(/^\s*[•\-\*]\s*/, "").trim();
+      var m = ln.match(/^(.+?)\s*[:–—-]\s+(.+)$/);
+      return m ? { id: uid(), label: m[1].trim(), value: m[2].trim() } : { id: uid(), label: ln, value: "" };
+    });
+  }
+  function parseResumeText(text) {
+    var rawLines = String(text || "").replace(/\r\n?/g, "\n").split("\n").map(function (l) { return l.replace(/\s+$/, ""); });
+    var lines = rawLines.filter(function (l) { return l.trim() !== ""; });
+    if (!lines.length) return null;
+
+    /* split into a leading header block + titled sections */
+    var firstHeadingIdx = -1;
+    for (var i = 0; i < lines.length; i++) { if (isHeadingLine(lines[i])) { firstHeadingIdx = i; break; } }
+    var headerBlock = (firstHeadingIdx < 0 ? lines.slice(0, Math.min(5, lines.length)) : lines.slice(0, firstHeadingIdx));
+
+    /* name = first line that looks like a person's name; title = next plausible line */
+    var name = "", title = "", contactLines = [];
+    headerBlock.forEach(function (ln, k) {
+      var isContact = /[\w.+-]+@|https?:|linkedin|github|www\.|\+?\d[\d\s().-]{6,}\d|[A-Za-z]+,\s*[A-Z]{2}\b/i.test(ln);
+      if (isContact) { contactLines.push(ln); return; }
+      if (!name && /^[A-Za-z][A-Za-z.'-]*(\s+[A-Za-z][A-Za-z.'-]*){0,3}$/.test(ln.trim()) && ln.trim().length <= 44) { name = ln.trim(); return; }
+      if (name && !title && ln.trim().length <= 60) { title = ln.trim(); return; }
+    });
+    var contacts = makeContacts(contactLines);
+    if (!contacts.length) contacts = [{ icon: "✉", value: "" }, { icon: "☎", value: "" }, { icon: "⚲", value: "" }];
+
+    /* collect sections */
+    var sections = [], cur = null;
+    function flush() {
+      if (!cur) return;
+      var body = cur.lines;
+      if (cur.meta.type === "text") {
+        sections.push({ id: uid(), title: cur.meta.title, type: "text", text: body.join("\n").replace(/\n/g, " ").replace(/\s{2,}/g, " ").trim() });
+      } else if (cur.meta.type === "skills") {
+        sections.push({ id: uid(), title: cur.meta.title, type: "labeled", items: impParseSkills(body) });
+      } else if (cur.meta.type === "labeled") {
+        sections.push({ id: uid(), title: cur.meta.title, type: "labeled", items: impParseAwards(body) });
+      } else {
+        sections.push({ id: uid(), title: cur.meta.title, type: "entries", items: impParseEntries(body) });
+      }
+      cur = null;
+    }
+    var startIdx = firstHeadingIdx < 0 ? lines.length : firstHeadingIdx;
+    for (var j = startIdx; j < lines.length; j++) {
+      var hm = isHeadingLine(lines[j]);
+      if (hm) { flush(); cur = { meta: hm, lines: [] }; }
+      else if (cur) { cur.lines.push(lines[j]); }
+    }
+    flush();
+
+    /* if no sections were detected at all, drop everything into a summary so
+       nothing is lost — the user can re-split it by hand */
+    if (!sections.length) {
+      sections.push({ id: uid(), title: "Professional Summary", type: "text", text: lines.slice(headerBlock.length).join(" ").trim() });
+    }
+    /* ensure a summary section exists up top */
+    if (!sections.some(function (s) { return s.type === "text"; })) sections.unshift({ id: uid(), title: "Professional Summary", type: "text", text: "" });
+
+    return { profile: { name: name, title: title, contacts: contacts }, sections: sections };
+  }
+  function importedResumeStats(parsed) {
+    var entries = 0, bullets = 0;
+    parsed.sections.forEach(function (s) { (s.items || []).forEach(function (it) { if (it.bullets) { entries++; bullets += it.bullets.length; } }); });
+    return { sections: parsed.sections.length, entries: entries, bullets: bullets };
+  }
+  function commitImportedResume(parsed, sourceLabel) {
+    var before = snapshotStr();
+    var r = {
+      id: uid(), name: (parsed.profile.name ? parsed.profile.name.replace(/\s+/g, "_") + "_Resume" : "Imported_Resume"),
+      targetRole: "", profile: parsed.profile, sections: parsed.sections,
+      theme: normalizeTheme(null), pages: 1, imported: true
+    };
+    store.resumes.push(r); store.activeResumeId = r.id;
+    if (before) { undoStack.push(before); if (undoStack.length > UNDO_CAP) undoStack.shift(); redoStack = []; }
+    renderApp(); touch(); updateUndoButtons();
+    var st = importedResumeStats(parsed);
+    flash("Imported " + st.sections + " sections, " + st.entries + " entries. Review and clean it up — Ctrl+Z to undo.");
+  }
+  /* The import modal: paste text or pick a file, preview the extracted text,
+     then parse into a new resume. */
+  function openResumeImport() {
+    var overlay = el("div", "modal-overlay");
+    var modal = el("div", "modal modal-import");
+    modal.appendChild(elText("h3", "modal-title", "Import an existing resume"));
+    var lead = el("p", "hint");
+    lead.innerHTML = "Paste your resume text below, or choose a <strong>.docx</strong>, <strong>.pdf</strong>, or <strong>.txt</strong> file. Everything is read <strong>in your browser — nothing is uploaded.</strong> We'll lay it out into editable sections as a <strong>new resume</strong> (your current resumes are untouched). Parsing is a best-effort draft — expect to tidy it up.";
+    modal.appendChild(lead);
+
+    var fileRow = el("div", "import-filerow");
+    var pick = miniBtn("⬆ Choose a file…", function () { fi.click(); }, "btn-primary");
+    var fi = el("input"); fi.type = "file"; fi.accept = ".docx,.pdf,.txt,.md,.rtf"; fi.style.display = "none";
+    var fname = elText("span", "import-fname", "");
+    fileRow.appendChild(pick); fileRow.appendChild(fi); fileRow.appendChild(fname);
+    modal.appendChild(fileRow);
+
+    var status = el("div", "import-status"); status.hidden = true; modal.appendChild(status);
+
+    var ta = el("textarea", "import-ta"); ta.placeholder = "…or paste your full resume text here.";
+    modal.appendChild(ta);
+
+    fi.addEventListener("change", function () {
+      var f = fi.files && fi.files[0]; if (!f) return;
+      fname.textContent = f.name;
+      status.hidden = false; status.className = "import-status busy"; status.textContent = "Reading " + f.name + "…";
+      extractTextFromFile(f).then(function (txt) {
+        txt = (txt || "").replace(/\u0000/g, "").trim();
+        if (!txt || txt.replace(/\s/g, "").length < 20) {
+          status.className = "import-status warn";
+          status.textContent = /\.pdf$/i.test(f.name)
+            ? "Couldn't read selectable text from this PDF (it may be a scan or use embedded fonts). Open it in your PDF viewer, select all, and paste the text above."
+            : "Couldn't find readable text in that file. Try pasting the text instead.";
+          return;
+        }
+        ta.value = txt;
+        status.className = "import-status ok";
+        status.textContent = "Extracted " + txt.length.toLocaleString() + " characters — review below, then Parse.";
+      }, function (err) {
+        status.className = "import-status warn";
+        status.textContent = (err && err.message) || "Couldn't read that file. Try pasting the text instead.";
+      });
+    });
+
+    var actions = el("div", "import-actions");
+    var parseBtn = miniBtn("Parse into a new resume", function () {
+      var text = ta.value.trim();
+      if (!text) { flash("Paste your resume text, or choose a file, first."); return; }
+      var parsed;
+      try { parsed = parseResumeText(text); } catch (e) { flash("Couldn't parse that text: " + e.message); return; }
+      if (!parsed) { flash("Nothing to import — the text looked empty."); return; }
+      document.body.removeChild(overlay);
+      commitImportedResume(parsed, fname.textContent || "pasted text");
+    }, "btn-primary");
+    var cancel = miniBtn("Cancel", function () { document.body.removeChild(overlay); });
+    actions.appendChild(parseBtn); actions.appendChild(cancel);
+    modal.appendChild(actions);
+
+    overlay.appendChild(modal);
+    overlay.addEventListener("click", function (e) { if (e.target === overlay) document.body.removeChild(overlay); });
+    document.body.appendChild(overlay);
+    setTimeout(function () { ta.focus(); }, 30);
+  }
+
   var IMPORT_MAX_BYTES = 12 * 1024 * 1024;   /* resume JSON is normally < 1 MB; cap guards against junk/huge files */
   var BACKUP_KEY = "newvisual.resumedata.backup";
   function backupCurrent(str) {
@@ -3048,26 +4211,108 @@
     };
     reader.readAsText(file);
   }
-  function resetAll() { if (!confirm("Reset everything (all resumes and library) back to the sample? Your current data will be lost.")) return; store = sampleStore(); renderApp(); save(); }
+  /* Reset is destructive and now lives in the overflow menu; require the user
+     to type the word so it can't happen by a stray click. */
+  function resetAll() {
+    var ans = prompt("This replaces ALL your resumes and library with the sample data. This cannot be undone.\n\nType RESET to confirm:");
+    if ((ans || "").trim().toUpperCase() !== "RESET") { if (ans !== null) flash("Reset cancelled."); return; }
+    store = sampleStore(); renderApp(); save(); flash("Reset to the sample.");
+  }
+
+  /* Browser print → PDF (fallback / "Print…"): sets the filename via title. */
+  function printToPdf() {
+    var prev = document.title;
+    document.title = resumeFileBase(activeResume());
+    var restore = function () { document.title = prev; window.removeEventListener("afterprint", restore); };
+    window.addEventListener("afterprint", restore);
+    window.print();
+    setTimeout(restore, 1000);
+  }
+
+  /* One-click text PDF (real engine in the PDF section); falls back to print. */
+  function downloadPdf() { downloadPdfReal(); }
+
+  /* Dropdown-menu controller: one open at a time, closes on outside click / Esc,
+     full keyboard support. Wires a trigger button to its menu element. */
+  var _openMenu = null;
+  function closeMenu() {
+    if (!_openMenu) return;
+    _openMenu.menu.hidden = true; _openMenu.btn.setAttribute("aria-expanded", "false");
+    _openMenu = null;
+  }
+  function wireMenu(btn, menu) {
+    function open() {
+      closeMenu();
+      menu.hidden = false; btn.setAttribute("aria-expanded", "true");
+      _openMenu = { btn: btn, menu: menu };
+      var first = menu.querySelector(".menu-item"); if (first) first.focus();
+    }
+    btn.addEventListener("click", function (e) { e.stopPropagation(); if (menu.hidden) open(); else closeMenu(); });
+    menu.addEventListener("click", function (e) { e.stopPropagation(); });
+    menu.addEventListener("keydown", function (e) {
+      var items = Array.prototype.slice.call(menu.querySelectorAll(".menu-item"));
+      var idx = items.indexOf(document.activeElement);
+      if (e.key === "ArrowDown") { e.preventDefault(); (items[idx + 1] || items[0]).focus(); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); (items[idx - 1] || items[items.length - 1]).focus(); }
+      else if (e.key === "Escape") { e.preventDefault(); closeMenu(); btn.focus(); }
+    });
+  }
+  function wireMenuItem(id, fn) {
+    var it = document.getElementById(id);
+    if (it) it.addEventListener("click", function () { closeMenu(); fn(); });
+  }
+
+  /* mobile Edit/Preview view (one pane at a time on phones) */
+  var MVIEW_KEY = "newvisual.resume.mview";
+  function setMView(v) {
+    v = v === "preview" ? "preview" : "edit";
+    document.body.classList.remove("mview-edit", "mview-preview");
+    document.body.classList.add("mview-" + v);
+    try { localStorage.setItem(MVIEW_KEY, v); } catch (e) {}
+    var e = document.getElementById("mswEdit"), p = document.getElementById("mswPreview");
+    if (e) { e.classList.toggle("active", v === "edit"); e.setAttribute("aria-pressed", v === "edit" ? "true" : "false"); }
+    if (p) { p.classList.toggle("active", v === "preview"); p.setAttribute("aria-pressed", v === "preview" ? "true" : "false"); }
+    if (v === "preview") setTimeout(fitPreview, 20);
+  }
+  function isMobileLayout() { return (window.matchMedia && window.matchMedia("(max-width: 900px)").matches); }
 
   function init() {
     store = load(); lastSnapshot = snapshotStr(); renderApp();
     var tabs = document.querySelectorAll("#tabs .tab");
-    for (var i = 0; i < tabs.length; i++) tabs[i].addEventListener("click", function () { activeTab = this.getAttribute("data-tab"); renderApp(); });
-    document.getElementById("btnPdf").addEventListener("click", function () {
-      /* the browser's "Save as PDF" uses document.title as the filename —
-         swap it to the desired resume name, print, then restore it. */
-      var prev = document.title;
-      document.title = resumeFileBase(activeResume());
-      var restore = function () { document.title = prev; window.removeEventListener("afterprint", restore); };
-      window.addEventListener("afterprint", restore);
-      window.print();
-      /* fallback restore in case afterprint doesn't fire */
-      setTimeout(restore, 1000);
+    for (var i = 0; i < tabs.length; i++) tabs[i].addEventListener("click", function () {
+      activeTab = this.getAttribute("data-tab"); renderApp();
+      /* on phones, a tab change swaps the editor's content — show it */
+      if (isMobileLayout()) setMView("edit");
     });
-    document.getElementById("btnDocx").addEventListener("click", exportDocx);
-    document.getElementById("btnExport").addEventListener("click", exportJson);
-    document.getElementById("btnReset").addEventListener("click", resetAll);
+
+    /* mobile Edit/Preview switch */
+    var savedMView = "edit";
+    try { savedMView = localStorage.getItem(MVIEW_KEY) || "edit"; } catch (e) {}
+    setMView(savedMView);
+    var mswE = document.getElementById("mswEdit"), mswP = document.getElementById("mswPreview");
+    if (mswE) mswE.addEventListener("click", function () { setMView("edit"); });
+    if (mswP) mswP.addEventListener("click", function () { setMView("preview"); });
+
+    /* toolbar icons */
+    setGlyph(document.getElementById("btnUndo"), "undo");
+    setGlyph(document.getElementById("btnRedo"), "redo");
+    var dl = document.getElementById("btnDownload");
+    dl.insertBefore(svgIcon("download"), dl.firstChild);
+    dl.appendChild(svgIcon("chevron", "btn-menu-caret"));
+    setGlyph(document.getElementById("btnMore"), "dots");
+
+    /* download + more menus */
+    wireMenu(dl, document.getElementById("downloadMenu"));
+    wireMenu(document.getElementById("btnMore"), document.getElementById("moreMenu"));
+    wireMenuItem("miPdf", downloadPdf);
+    wireMenuItem("miDocx", exportDocx);
+    wireMenuItem("miJson", exportJson);
+    wireMenuItem("miImportResume", openResumeImport);
+    wireMenuItem("miImport", function () { document.getElementById("fileImport").click(); });
+    wireMenuItem("miPrint", printToPdf);
+    wireMenuItem("miReset", resetAll);
+    document.addEventListener("click", closeMenu);
+
     var btnUndo = document.getElementById("btnUndo"), btnRedo = document.getElementById("btnRedo");
     if (btnUndo) btnUndo.addEventListener("click", doUndo);
     if (btnRedo) btnRedo.addEventListener("click", doRedo);
@@ -3083,7 +4328,6 @@
       else if ((k === "z" && e.shiftKey) || k === "y") { e.preventDefault(); doRedo(); }
     });
     var fileInput = document.getElementById("fileImport");
-    document.getElementById("btnImport").addEventListener("click", function () { fileInput.click(); });
     fileInput.addEventListener("change", function () { if (fileInput.files && fileInput.files[0]) importJson(fileInput.files[0]); fileInput.value = ""; });
     window.addEventListener("resize", fitPreview);
     setupResizer();

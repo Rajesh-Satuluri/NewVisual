@@ -3,13 +3,29 @@
 // errors, flips to light theme, and runs extra assertions passed per-route.
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import pw from '/opt/node22/lib/node_modules/playwright/index.js';
 const { chromium } = pw;
 
 const ROOT = '/home/user/newvisual/flink';
-const CHROME = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+// Resolve the pre-installed Chromium dynamically — the pinned version dir
+// changes across container images, so don't hard-code it.
+function resolveChrome() {
+  if (process.env.PW_CHROME && existsSync(process.env.PW_CHROME)) return process.env.PW_CHROME;
+  const base = '/opt/pw-browsers';
+  try {
+    const dirs = readdirSync(base).filter((d) => /^chromium-\d+$/.test(d)).sort();
+    for (const d of dirs.reverse()) {
+      for (const sub of ['chrome-linux64/chrome', 'chrome-linux/chrome']) {
+        const p = path.join(base, d, sub);
+        if (existsSync(p)) return p;
+      }
+    }
+  } catch (_) {}
+  return undefined; // let Playwright use its default
+}
+const CHROME = resolveChrome();
 const PORT = 8099;
 
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',

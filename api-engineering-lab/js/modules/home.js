@@ -45,17 +45,20 @@
     { icon: "🐢", t: "Diagnose a slow API", d: "Where the latency hides.", href: "#resilience" }
   ];
 
+  // Canonical learning journey — same order as the sidebar sections.
   var JOURNEY = [
-    ["Understand the API contract", "fundamentals"],
-    ["Understand HTTP", "http-lab"],
-    ["Design resources", "rest-resources"],
-    ["Explore API architecture", "architecture"],
-    ["Implement an API", "express-workshop"],
-    ["Test and debug it", "testing-workbench"],
+    ["Meet ShopSphere, the business you'll build for", "business-scenario"],
+    ["Understand what an API is", "fundamentals"],
+    ["Master HTTP: requests, methods, status codes", "http-lab"],
+    ["Design REST resources & endpoints", "rest-resources"],
+    ["Explore architecture & protocols", "architecture"],
+    ["Implement an API in Express", "express-workshop"],
+    ["Test and document it", "testing-workbench"],
     ["Secure it", "security"],
-    ["Optimize performance", "performance"],
-    ["Operate in production", "production-ops"],
-    ["Apply it to ShopSphere", "business-scenario"]
+    ["Make it fast and observable", "performance"],
+    ["Operate it in production", "production-ops"],
+    ["Prove it: challenges & interview prep", "challenges"],
+    ["Capstone: apply everything back to ShopSphere", "business-scenario"]
   ];
 
   var module = {
@@ -71,6 +74,23 @@
       try { visited = JSON.parse(localStorage.getItem("apilab-visited") || "[]"); } catch (e) {}
       var explored = ready.filter(function (k) { return visited.indexOf(k) !== -1; }).length;
 
+      // Computed, honest stats — never hard-coded.
+      var banks = (AV.data && AV.data.quizBanks) || {};
+      var quizCount = 0;
+      Object.keys(banks).forEach(function (k) { quizCount += banks[k].length; });
+      var orderCount = (AV.data && AV.data.store && AV.data.store.orders && AV.data.store.orders.length) || 320;
+
+      var next = AV.nextUp ? AV.nextUp() : null;
+      var nextCard = next
+        ? '<a class="panel" href="#' + next.id + '" style="display:flex;align-items:center;gap:var(--space-4);margin-bottom:var(--space-6);text-decoration:none">' +
+            '<span style="font-size:1.6rem">▶️</span><div>' +
+            '<div class="panel-title" style="margin:0">Next up: ' + next.title + '</div>' +
+            '<div class="text-muted text-sm">' + next.group + ' · ' + next.reason + ' — click to jump in</div>' +
+          '</div></a>'
+        : (explored > 0
+          ? '<div class="panel" style="margin-bottom:var(--space-6)"><div class="panel-title" style="margin:0">🎉 You’ve explored every module and aced every quiz</div><div class="text-muted text-sm">Revisit <a href="#challenges">Scenario Challenges</a> or <a href="#interview-prep">Interview Prep</a> to stay sharp.</div></div>'
+          : "");
+
       container.innerHTML =
         '<div class="module-header animate-fade-in-up">' +
           '<div class="module-eyebrow">API Engineering Lab</div>' +
@@ -78,10 +98,12 @@
           '<p class="module-subtitle">Interactive labs for HTTP, REST design, architecture, protocols, security, performance and production — all tied to one realistic enterprise case: <b>ShopSphere</b>. Everything here is a hands-on simulation, not just docs.</p>' +
         "</div>" +
 
+        nextCard +
+
         '<div class="stat-row" style="margin-bottom:var(--space-6)">' +
           stat(explored, "/ " + ready.length + " live modules explored") +
-          stat("21", "interactive modules (phases 1–4)") +
-          stat("320", "simulated ShopSphere orders") +
+          stat(quizCount, "quiz questions") +
+          stat(orderCount, "simulated ShopSphere orders") +
           stat("5", "learning modes") +
         "</div>" +
 

@@ -1058,3 +1058,117 @@ a:focus-visible, button:focus-visible, [role="button"]:focus-visible,
 .wl-op-val { font-size: 28px; font-weight: 800; font-family: var(--font-mono); color: var(--text); }
 .wl-verdict { flex: 1; color: var(--text-secondary); line-height: 1.6; }
 @media (max-width: 620px) { .wl-result { flex-direction: column; align-items: flex-start; } }
+
+/* ============================================================
+   CLOUD SYNC + EDITABLE CONTENT  (Specs 1–4)
+   ============================================================ */
+
+/* ── Sync modal ─────────────────────────────────────────── */
+.cs-overlay {
+  /* Must clear the shared Home/Backup fixed overlay (z-index 9999) so the
+     modal isn't covered by those pills. */
+  position: fixed; inset: 0; z-index: 10000; display: none;
+  align-items: center; justify-content: center; padding: 20px;
+  background: rgba(2, 6, 18, 0.62); backdrop-filter: blur(3px);
+}
+.cs-overlay.open { display: flex; }
+
+/* Header icon buttons slotted into the shared .nv-actions group (next to
+   Home/Backup). Quiet pill look so Backup stays the accent. */
+.nv-actions .cs-headbtn {
+  background: rgba(120, 130, 150, 0.16);
+  border: 1px solid rgba(130, 140, 160, 0.34);
+  color: var(--text, inherit);
+  border-radius: 8px; padding: 8px; width: auto; height: auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
+}
+.nv-actions .cs-headbtn:hover { background: rgba(120, 130, 150, 0.30); color: var(--text, inherit); }
+.nv-actions .cs-headbtn svg { width: 16px; height: 16px; }
+.cs-modal {
+  position: relative; width: 100%; max-width: 440px;
+  background: var(--bg-elevated, var(--bg-card)); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg); padding: 24px 24px 22px;
+}
+.cs-close {
+  position: absolute; top: 10px; right: 12px; width: 30px; height: 30px;
+  font-size: 22px; line-height: 1; color: var(--text-muted);
+  background: none; border: none; cursor: pointer; border-radius: var(--radius-sm);
+}
+.cs-close:hover { color: var(--text-primary); background: var(--surface2); }
+.cs-head { margin: 0 0 6px; font-size: 19px; font-weight: 800; }
+.cs-sub { margin: 0 0 16px; font-size: 13px; line-height: 1.55; color: var(--text-secondary); }
+.cs-row { display: flex; gap: 8px; margin-bottom: 12px; }
+.cs-input {
+  flex: 1; padding: 9px 11px; font-family: var(--font-mono); font-size: 13px;
+  color: var(--text); background: var(--bg-primary); border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.cs-input:focus { outline: none; border-color: var(--accent); }
+.cs-gen {
+  padding: 0 12px; font-size: 12px; font-weight: 600; white-space: nowrap;
+  color: var(--text-secondary); background: var(--surface2);
+  border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer;
+}
+.cs-gen:hover { color: var(--text-primary); border-color: var(--border-hover); }
+.cs-actions { margin-bottom: 12px; }
+.cs-actions .btn { width: 100%; }
+.cs-status { font-size: 12.5px; color: var(--text-muted); min-height: 18px; }
+.cs-hint { margin: 10px 0 0; font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+.cs-note { font-size: 13px; line-height: 1.55; padding: 11px 13px; border-radius: var(--radius-sm); }
+.cs-note.cs-warn { color: var(--text-secondary); background: var(--yellow-dim); border: 1px solid var(--border); }
+.cs-note code { font-family: var(--font-mono); font-size: 12px; color: var(--accent-text, var(--accent)); }
+
+/* ── Editable code blocks (Spec 4) ──────────────────────── */
+.code-edit-btn {
+  position: absolute; top: 8px; right: 58px;
+  display: inline-flex; align-items: center; padding: 4px 9px;
+  font-size: 11px; font-weight: 600; color: var(--text-muted);
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); cursor: pointer; opacity: 0;
+  transition: opacity var(--transition), color var(--transition), border-color var(--transition);
+  z-index: 3;
+}
+.code-block:hover .code-edit-btn { opacity: 1; }
+.code-edit-btn:hover { color: var(--text-primary); border-color: var(--border-hover); }
+.cv-badge {
+  position: absolute; top: 8px; left: 10px; z-index: 3;
+  padding: 2px 8px; font-size: 10px; font-weight: 700; letter-spacing: .03em;
+  text-transform: uppercase; color: var(--accent-text, #fff);
+  background: var(--accent-dim); border: 1px solid var(--accent); border-radius: 999px;
+}
+.code-block.cv-edited { border-color: var(--accent); }
+.cv-editor { margin-top: 10px; }
+.cv-textarea {
+  width: 100%; box-sizing: border-box; padding: 12px; resize: vertical;
+  font-family: var(--font-mono); font-size: 13px; line-height: 1.5;
+  color: #cdd9e5; background: #060912; border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+}
+.cv-textarea:focus { outline: none; }
+.cv-toolbar { display: flex; gap: 8px; margin-top: 10px; }
+.cv-toolbar .btn { padding: 6px 14px; font-size: 12px; }
+
+/* ── Editable interview Q&A (Spec 3) ────────────────────── */
+.iq-edit-btn {
+  flex: none; width: 26px; height: 26px; margin: 0 4px;
+  font-size: 13px; color: var(--text-muted); background: var(--surface2);
+  border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer;
+}
+.iq-edit-btn:hover { color: var(--accent); border-color: var(--accent); }
+.iq-badge {
+  flex: none; margin-right: 6px; padding: 2px 8px; font-size: 10px; font-weight: 700;
+  letter-spacing: .03em; text-transform: uppercase; color: var(--accent-text, #fff);
+  background: var(--accent-dim); border: 1px solid var(--accent); border-radius: 999px;
+}
+.iq-item.iq-edited { border-left: 2px solid var(--accent); }
+.iq-editing {
+  outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+}
+.q-text.iq-editing { padding: 2px 6px; }
+.iq-answer-body.iq-editing { padding: 8px; }
+.iq-edit-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.iq-edit-toolbar .btn { padding: 5px 13px; font-size: 12px; }
+.iq-edit-hint { font-size: 11px; color: var(--text-muted); }

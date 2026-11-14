@@ -30,13 +30,29 @@
       <span class="save-state" id="saveState" aria-live="polite">Saved</span>
     </div>
     <div class="topbar-actions">
-      <button class="btn btn-icon" id="btnUndo" title="Undo (Ctrl+Z)" aria-label="Undo" disabled>↶</button>
-      <button class="btn btn-icon" id="btnRedo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled>↷</button>
-      <button class="btn" id="btnImport" title="Import all data (JSON)">Import</button>
-      <button class="btn" id="btnExport" title="Export all data (JSON)">Export</button>
-      <button class="btn" id="btnReset" title="Reset to sample data">Reset</button>
-      <button class="btn btn-primary" id="btnPdf" title="Download the active resume as a print-quality PDF">⬇ PDF</button>
-      <button class="btn btn-primary" id="btnDocx" title="Download the active resume as an editable Word .docx">⬇ DOCX</button>
+      <button class="btn btn-icon" id="btnUndo" title="Undo (Ctrl+Z)" aria-label="Undo" disabled></button>
+      <button class="btn btn-icon" id="btnRedo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled></button>
+      <div class="menu-wrap" id="downloadWrap">
+        <button class="btn btn-primary btn-menu" id="btnDownload" aria-haspopup="menu" aria-expanded="false" title="Download this resume">
+          <span class="btn-menu-label">Download</span>
+        </button>
+        <div class="menu" id="downloadMenu" role="menu" aria-label="Download" hidden>
+          <button class="menu-item" role="menuitem" id="miPdf"><span class="mi-title">PDF</span><span class="mi-sub">Print-quality, ATS-safe</span></button>
+          <button class="menu-item" role="menuitem" id="miDocx"><span class="mi-title">Word (.docx)</span><span class="mi-sub">Editable document</span></button>
+          <div class="menu-sep"></div>
+          <button class="menu-item" role="menuitem" id="miJson"><span class="mi-title">Data backup (.json)</span><span class="mi-sub">All resumes &amp; library</span></button>
+        </div>
+      </div>
+      <div class="menu-wrap" id="moreWrap">
+        <button class="btn btn-icon" id="btnMore" aria-haspopup="menu" aria-expanded="false" aria-label="More actions" title="More actions"></button>
+        <div class="menu menu-right" id="moreMenu" role="menu" aria-label="More actions" hidden>
+          <button class="menu-item" role="menuitem" id="miImportResume"><span class="mi-title">Import existing resume…</span><span class="mi-sub">From .docx, .pdf, or pasted text</span></button>
+          <button class="menu-item" role="menuitem" id="miImport"><span class="mi-title">Import data…</span><span class="mi-sub">Restore from a .json backup</span></button>
+          <button class="menu-item" role="menuitem" id="miPrint"><span class="mi-title">Print…</span><span class="mi-sub">Use the browser print dialog</span></button>
+          <div class="menu-sep"></div>
+          <button class="menu-item menu-danger" role="menuitem" id="miReset"><span class="mi-title">Reset to sample…</span><span class="mi-sub">Replace everything with the demo</span></button>
+        </div>
+      </div>
       <input type="file" id="fileImport" accept="application/json" hidden />
     </div>
   </header>
@@ -64,6 +80,13 @@
       <div class="ai-pane no-print" id="aiPane"><!-- big editor for AI Assist, built by JS --></div>
     </section>
   </main>
+
+  <!-- Mobile-only: switch between editing and the live preview (the split
+       layout is cramped on phones; this shows one pane at a time) -->
+  <div class="mobile-switch no-print" id="mobileSwitch" role="group" aria-label="Edit or preview">
+    <button class="msw-btn active" id="mswEdit" type="button" aria-pressed="true">Edit</button>
+    <button class="msw-btn" id="mswPreview" type="button" aria-pressed="false">Preview</button>
+  </div>
 
   <script src="js/app.js"></script>
   <!-- Offline backup: one-click .zip download of this project (top-right) -->

@@ -23,43 +23,75 @@
     "status-codes": { title: "Status Code Explorer", ready: true, group: "Fundamentals" },
     "json-lab": { title: "JSON Laboratory", ready: true, group: "Fundamentals" },
 
-    "rest-resources": { title: "Resources & CRUD", ready: true, group: "REST Design" },
-    "endpoint-designer": { title: "Endpoint Designer", ready: true, group: "REST Design" },
-    pagination: { title: "Pagination Simulator", ready: true, group: "REST Design" },
-    idempotency: { title: "Idempotency & Retries", ready: true, group: "REST Design" },
-    versioning: { title: "API Versioning", ready: true, group: "REST Design" },
-    "error-design": { title: "Error Response Design", ready: true, group: "REST Design" },
+    "rest-resources": { title: "Resources & CRUD", ready: true, group: "REST API Design Studio" },
+    "endpoint-designer": { title: "Endpoint Designer", ready: true, group: "REST API Design Studio" },
+    pagination: { title: "Pagination Simulator", ready: true, group: "REST API Design Studio" },
+    idempotency: { title: "Idempotency & Retries", ready: true, group: "REST API Design Studio" },
+    versioning: { title: "API Versioning", ready: true, group: "REST API Design Studio" },
+    "error-design": { title: "Error Response Design", ready: true, group: "REST API Design Studio" },
 
-    architecture: { title: "Architecture Explorer", ready: true, group: "Architecture" },
-    resilience: { title: "Failure Injection & Resilience", ready: true, group: "Architecture" },
-    protocols: { title: "REST · GraphQL · gRPC", ready: true, group: "Architecture" },
-    "realtime-protocols": { title: "WebSockets · Webhooks · Queues", ready: true, group: "Architecture" },
-    "protocol-matrix": { title: "Protocol Decision Matrix", ready: true, group: "Architecture" },
+    architecture: { title: "Architecture Explorer", ready: true, group: "Architecture & Protocols" },
+    resilience: { title: "Failure Injection & Resilience", ready: true, group: "Architecture & Protocols" },
+    protocols: { title: "REST · GraphQL · gRPC", ready: true, group: "Architecture & Protocols" },
+    "realtime-protocols": { title: "WebSockets · Webhooks · Queues", ready: true, group: "Architecture & Protocols" },
+    "protocol-matrix": { title: "Protocol Decision Matrix", ready: true, group: "Architecture & Protocols" },
 
-    "express-workshop": { title: "Express.js Workshop", ready: true, group: "Implementation" },
-    "testing-workbench": { title: "API Testing Workbench", ready: true, group: "Implementation" },
-    "testing-challenges": { title: "Testing Challenges", ready: true, group: "Implementation" },
-    "openapi-studio": { title: "OpenAPI & Docs Studio", ready: true, group: "Implementation" },
+    "express-workshop": { title: "Express.js Workshop", ready: true, group: "Implementation & Testing" },
+    "testing-workbench": { title: "API Testing Workbench", ready: true, group: "Implementation & Testing" },
+    "testing-challenges": { title: "Testing Challenges", ready: true, group: "Implementation & Testing" },
+    "openapi-studio": { title: "OpenAPI & Docs Studio", ready: true, group: "Implementation & Testing" },
+    "design-reviewer": { title: "Design Reviewer (Capstone)", ready: true, group: "Implementation & Testing" },
 
-    security: { title: "Security Lab", ready: true, group: "Security" },
-    oauth: { title: "OAuth 2.0 & JWT", ready: true, group: "Security" },
-    "rate-limiting": { title: "Rate Limiting", ready: true, group: "Security" },
-    performance: { title: "Performance Lab", ready: true, group: "Performance" },
-    caching: { title: "Caching", ready: true, group: "Performance" },
-    observability: { title: "Observability", ready: true, group: "Performance" },
+    security: { title: "Security Lab", ready: true, group: "Security & Performance" },
+    oauth: { title: "OAuth 2.0 & JWT", ready: true, group: "Security & Performance" },
+    "rate-limiting": { title: "Rate Limiting", ready: true, group: "Security & Performance" },
+    performance: { title: "Performance Lab", ready: true, group: "Security & Performance" },
+    caching: { title: "Caching", ready: true, group: "Security & Performance" },
+    observability: { title: "Observability", ready: true, group: "Security & Performance" },
 
-    "production-ops": { title: "Production Operations Lab", ready: true, group: "Practice" },
-    incidents: { title: "Incident Simulator", ready: true, group: "Practice" },
-    "senior-decisions": { title: "Senior Design Decisions", ready: true, group: "Practice" },
-    challenges: { title: "Scenario Challenges", ready: true, group: "Practice" },
-    "interview-prep": { title: "Knowledge & Interview Prep", ready: true, group: "Practice" },
-    progress: { title: "Learning Progress", ready: true, group: "Practice" }
+    "production-ops": { title: "Production Operations Lab", ready: true, group: "Production & Practice" },
+    incidents: { title: "Incident Simulator", ready: true, group: "Production & Practice" },
+    "senior-decisions": { title: "Senior Design Decisions", ready: true, group: "Production & Practice" },
+    challenges: { title: "Scenario Challenges", ready: true, group: "Production & Practice" },
+    "interview-prep": { title: "Knowledge & Interview Prep", ready: true, group: "Production & Practice" },
+    review: { title: "Spaced Review", ready: true, group: "Production & Practice" },
+    capstone: { title: "Final Capstone", ready: true, group: "Production & Practice" },
+    progress: { title: "Learning Progress", ready: true, group: "Production & Practice" }
   };
   AV.routes = ROUTES;
 
   // Ordered list (sidebar order) drives prev/next lesson navigation.
   var NAV_ORDER = Object.keys(ROUTES);
   AV.navOrder = NAV_ORDER;
+
+  // ── "Next up" engine ─────────────────────────────────────
+  // The next recommended module: first unvisited lesson in the
+  // canonical order, else the first lesson whose quiz isn't aced.
+  // Returns { id, title, group, reason } or null when all done.
+  AV.nextUp = function () {
+    var visited = [];
+    try { visited = JSON.parse(localStorage.getItem("apilab-visited") || "[]"); } catch (e) {}
+    var SKIP = { home: 1, progress: 1, review: 1, capstone: 1 };
+    var lessons = NAV_ORDER.filter(function (k) {
+      return ROUTES[k].ready && !SKIP[k];
+    });
+    for (var i = 0; i < lessons.length; i++) {
+      if (visited.indexOf(lessons[i]) === -1) {
+        return { id: lessons[i], title: ROUTES[lessons[i]].title, group: ROUTES[lessons[i]].group, reason: "not yet explored" };
+      }
+    }
+    var banks = (AV.data && AV.data.quizBanks) || {};
+    for (var j = 0; j < lessons.length; j++) {
+      var bank = banks[lessons[j]];
+      if (!bank || !bank.length) continue;
+      var best = 0;
+      try { best = parseInt(localStorage.getItem("apilab-quiz-" + lessons[j]), 10) || 0; } catch (e) {}
+      if (best < bank.length) {
+        return { id: lessons[j], title: ROUTES[lessons[j]].title, group: ROUTES[lessons[j]].group, reason: "quiz best " + best + " / " + bank.length + " — ace it" };
+      }
+    }
+    return null;
+  };
 
   var App = {
     initTheme: function () {
