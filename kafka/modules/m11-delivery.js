@@ -96,10 +96,12 @@ function buildLanes(container) {
   let crashed = false;
   let raf = null, lastT = 0, tick = 0;
 
-  function spawnPackets() {
+  // nearCrash=true positions each message just before its lane's crash point
+  // so the crash resolves in a beat instead of a long crawl from Producer.
+  function spawnPackets(nearCrash = false) {
     packets.length = 0;
     LANES.forEach((lane, li) => {
-      packets.push(new EventPacket({
+      const pk = new EventPacket({
         label: `msg-${li+1}`,
         color: lane.color,
         path: [
@@ -109,7 +111,9 @@ function buildLanes(container) {
           { x: 720, y: lane.y + 30 },
         ],
         speed: 1.5,
-      }));
+      });
+      if (nearCrash) pk.traveled = Math.max(0, (lane.crashX - 60) - 70);
+      packets.push(pk);
     });
   }
 
@@ -213,12 +217,14 @@ function buildLanes(container) {
       }
     });
 
-    // Message movement. Normally each message runs to Done. After a crash is
-    // simulated it advances only as far as its lane's crash point, then freezes
-    // there — so the message and its verdict always sit at the same stage.
+    // Message movement. Normally each message flows to Done and then loops, so
+    // the happy path stays alive on screen. After a crash is simulated it
+    // advances only as far as its lane's crash point, then freezes there — so
+    // the message and its verdict always sit at the same stage.
     packets.forEach((p, li) => {
       if (!crashed) {
         p.update(dt);
+        if (p.done) { p.traveled = 0; p.done = false; p.trail.length = 0; }
       } else {
         const crashDist = LANES[li].crashX - 60;
         if (p.traveled < crashDist) {
@@ -234,7 +240,7 @@ function buildLanes(container) {
 
   raf = requestAnimationFrame(ts => { lastT = ts; draw(ts); });
 
-  tab.querySelector('#dlv-crash').addEventListener('click', () => { crashed = true; spawnPackets(); });
+  tab.querySelector('#dlv-crash').addEventListener('click', () => { crashed = true; spawnPackets(true); });
   tab.querySelector('#dlv-reset').addEventListener('click', () => { crashed = false; spawnPackets(); });
 
   return () => { if (raf) cancelAnimationFrame(raf); };
