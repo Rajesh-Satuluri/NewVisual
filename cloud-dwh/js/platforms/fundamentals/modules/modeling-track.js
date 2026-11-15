@@ -158,5 +158,43 @@
       ],
     },
 
+    /* ─────────────── Slowly-changing dimensions ─────────────── */
+    'fund-scd': {
+      eyebrow: '🏗️ Modeling & Design',
+      title: 'Slowly-changing dimensions (SCD 1 / 2 / 3)',
+      lead: 'Dimension attributes drift over time — a customer moves city, a product is recategorized. How you handle that change is the <strong>SCD type</strong>, and it decides whether your reports can answer "what was true <em>then</em>" or only "what is true <em>now</em>."',
+      sections: [
+        { h: 'The common SCD types', p:
+          '<ul>' +
+          '<li><strong>Type 0 — retain:</strong> the attribute never changes (e.g. original signup date). Updates are ignored.</li>' +
+          '<li><strong>Type 1 — overwrite:</strong> update in place, keep no history. Simple; the dimension always reflects the latest value. You lose the ability to report on the old value.</li>' +
+          '<li><strong>Type 2 — add new row:</strong> keep full history by versioning. The old row is closed (valid-to set, current flag off) and a new row is inserted with a new surrogate key. Facts point at whichever version was current at event time. This is the workhorse.</li>' +
+          '<li><strong>Type 3 — add new column:</strong> keep a limited history by storing a "previous value" column alongside the current. Only the last change is retained. Useful for a planned, one-off re-org you still want to compare against.</li>' +
+          '<li><strong>Type 4 / 6:</strong> Type 4 moves history to a separate table; Type 6 (a.k.a. 1+2+3) combines overwrite, versioned rows, and a current-value column for flexible reporting.</li>' +
+          '</ul>' },
+        { h: 'Type 2 table shape', p:
+          '<p>A Type 2 dimension carries the versioning columns explicitly:</p>' +
+          '<div class="code-block" data-noswipe><pre>dim_customer\n  customer_sk     BIGINT   -- surrogate PK (unique per version)\n  customer_id     VARCHAR  -- natural/business key (repeats across versions)\n  name            VARCHAR\n  city            VARCHAR  -- the Type-2 tracked attribute\n  valid_from      DATE\n  valid_to        DATE     -- 9999-12-31 while current\n  is_current      BOOLEAN</pre></div>' +
+          '<p>One business customer can have several rows — one per historical state — but exactly one with <code>is_current = true</code>.</p>' },
+        { h: 'Applying a Type 2 change with MERGE', p:
+          '<p>A single <code>MERGE</code> can\'t both expire the old row <em>and</em> insert a new version for the same key, so the robust, portable pattern is two steps: (1) close out rows whose tracked attribute changed, (2) insert the new versions.</p>' +
+          '<div class="code-block" data-noswipe><pre>-- Step 1: expire current rows that changed\nUPDATE dim_customer AS d\nSET    valid_to  = CURRENT_DATE - 1,\n       is_current = FALSE\nFROM   staging_customer AS s\nWHERE  d.customer_id = s.customer_id\n  AND  d.is_current  = TRUE\n  AND  d.city       <> s.city;        -- a tracked attribute changed\n\n-- Step 2: insert the new current version\nINSERT INTO dim_customer\n  (customer_sk, customer_id, name, city, valid_from, valid_to, is_current)\nSELECT next_sk(), s.customer_id, s.name, s.city,\n       CURRENT_DATE, DATE \'9999-12-31\', TRUE\nFROM   staging_customer AS s\nLEFT JOIN dim_customer d\n       ON d.customer_id = s.customer_id AND d.is_current = TRUE\nWHERE  d.customer_id IS NULL           -- brand-new customer\n   OR  d.city <> s.city;               -- or a tracked change</pre></div>' +
+          '<p>Some engines let you do the expire-step inside a <code>MERGE … WHEN MATCHED THEN UPDATE</code> and the insert-step in a second pass; the two-statement form above works everywhere and is easy to reason about. Fact loads then look up the surrogate by natural key <em>and</em> event date (<code>valid_from ≤ event_date &lt; valid_to</code>) so each fact points at the correct version.</p>' },
+        { h: 'Choosing a type', p:
+          '<p>Use <strong>Type 1</strong> when history doesn\'t matter (fixing a typo, non-analytical attributes). Use <strong>Type 2</strong> whenever point-in-time correctness matters — the default for analytical dimensions. Use <strong>Type 3</strong> for a specific "compare to previous grouping" need. Decide <em>per attribute</em>: one dimension often mixes Type 1 columns (overwrite) and Type 2 columns (version).</p>' },
+      ],
+      map: {
+        intro: 'SCD is modeling logic in SQL; the only platform difference is the MERGE/upsert syntax and surrogate generation.',
+        sf: { term: 'MERGE + streams', points: ['Standard MERGE for the expire step', 'Streams detect changes incrementally', 'Tasks schedule the Type-2 load'] },
+        rs: { term: 'MERGE / staged upsert', points: ['Native MERGE (GA) or DELETE+INSERT', 'IDENTITY for the surrogate key', 'Distribute/sort dim on the natural key'] },
+        fb: { term: 'MERGE (T-SQL)', points: ['T-SQL MERGE in the Warehouse', 'Or pipeline/dataflow SCD transforms', 'Semantic model reads the current rows'] },
+      },
+      takeaway: 'The SCD <b>type</b> decides whether you can report history. <b>Type 1</b> overwrites (no history), <b>Type 2</b> versions rows (full point-in-time history — the default), <b>Type 3</b> keeps one prior value in a column. Apply Type 2 as a two-step <b>expire-then-insert</b>, and choose the type per attribute, not per table.',
+      docs: [
+        { label: 'Kimball: Slowly changing dimensions', url: 'https://www.kimballgroup.com/data-warehouse-business-intelligence-resources/kimball-techniques/dimensional-modeling-techniques/' },
+        { label: 'Fabric: SCD with MERGE', url: 'https://learn.microsoft.com/en-us/fabric/data-warehouse/dimensional-modeling-load-tables' },
+      ],
+    },
+
   });
 })();

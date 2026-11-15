@@ -43,6 +43,7 @@
       { id: 'fund-star-snow',  label: 'Star vs Snowflake',         icon: '✦' },
       { id: 'fund-fact-types', label: 'Fact Types & Additivity',   icon: '📏' },
       { id: 'fund-keys',       label: 'Surrogate vs Natural Keys', icon: '🔑' },
+      { id: 'fund-scd',        label: 'Slowly-Changing Dims',      icon: '🕰️' },
     ] },
     { label: '🛡️ Operations', items: [
       { id: 'fund-governance', label: 'Governance & Security', icon: '🔐' },

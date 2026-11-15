@@ -110,6 +110,13 @@
       { q: 'Why does SCD Type 2 require surrogate keys?', choices: ['They save space', 'One business entity has multiple versioned rows that need distinct primary keys', 'They are faster to type', 'Natural keys are not allowed'], answer: 1, explain: 'Versioned rows share a natural key but need unique PKs so a fact can point at the version current at event time.' },
       { q: 'What should you do with the natural/business key in a dimension?', choices: ['Discard it after loading', 'Keep it as an attribute for lookups, matching, and traceability', 'Use it as the fact foreign key', 'Hash and delete it'], answer: 1, explain: 'Surrogate is the PK, but the natural key stays on the dimension to match source records during loads and trace rows back.' },
     ],
+    'fund-scd': [
+      { q: 'Which SCD type keeps full history by versioning rows?', choices: ['Type 1', 'Type 2', 'Type 3', 'Type 0'], answer: 1, explain: 'Type 2 closes the old row and inserts a new one with a new surrogate key, so facts can reference the version current at event time.' },
+      { q: 'What does SCD Type 1 do on a change?', choices: ['Adds a new row', 'Overwrites in place, keeping no history', 'Adds a previous-value column', 'Ignores the change'], answer: 1, explain: 'Type 1 updates the attribute in place; the dimension always shows the latest value and the old value is lost.' },
+      { q: 'Why is applying a Type 2 change usually done as two steps (expire, then insert)?', choices: ['To save storage', 'A single MERGE can\'t both update the old row and insert a new version for the same key', 'Because INSERT is faster', 'To avoid surrogate keys'], answer: 1, explain: 'Standard SQL MERGE matches a source row once, so the portable pattern expires the changed current row, then inserts the new version.' },
+      { q: 'In a Type 2 dimension, which column marks the single active version?', choices: ['customer_id', 'is_current (with valid_to = 9999-12-31)', 'customer_sk', 'name'], answer: 1, explain: 'Exactly one row per business key has is_current = true / an open valid_to; the surrogate (customer_sk) differs per version.' },
+      { q: 'SCD type decisions are best made…', choices: ['Once per whole table', 'Per attribute — one dimension can mix Type 1 and Type 2 columns', 'Only at the database level', 'By the BI tool'], answer: 1, explain: 'A dimension commonly overwrites some attributes (Type 1) while versioning others (Type 2); choose per column by whether its history matters.' },
+    ],
 
   };
 })();
