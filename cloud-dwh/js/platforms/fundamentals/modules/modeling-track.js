@@ -196,5 +196,147 @@
       ],
     },
 
+    /* ─────────────── Kimball vs Inmon ─────────────── */
+    'fund-kimball-inmon': {
+      eyebrow: '🏗️ Modeling & Design',
+      title: 'Kimball vs Inmon — two philosophies',
+      lead: 'The two foundational approaches to warehouse architecture differ in <strong>where modeling happens</strong> and <strong>what the enterprise core looks like</strong>. Most modern platforms blend them, but knowing the pure forms sharpens every design decision — and it\'s a classic interview question.',
+      sections: [
+        { h: 'Inmon — top-down, normalized core (CIF)', p:
+          '<p>Bill Inmon\'s <strong>Corporate Information Factory</strong> builds an enterprise data warehouse (EDW) first: a <strong>normalized (3NF)</strong>, integrated, subject-oriented repository that is the single source of truth. Dimensional <strong>data marts</strong> are then derived <em>from</em> the EDW for each department. Strengths: strong integration and consistency, less redundancy, a durable enterprise model. Cost: more upfront design, slower first delivery, extra ETL from EDW to marts.</p>' },
+        { h: 'Kimball — bottom-up, dimensional bus', p:
+          '<p>Ralph Kimball builds <strong>dimensional data marts directly</strong>, unified by <strong>conformed dimensions</strong> on a shared bus (the bus matrix). There\'s no separate normalized core — the collection of conformed star schemas <em>is</em> the warehouse. Strengths: fast delivery of business value, query-friendly from day one, incremental. Cost: discipline required so marts actually conform; integration is a practice, not a layer.</p>' },
+        { h: 'How they compare', p:
+          '<div class="code-block" data-noswipe><pre>                 Inmon (CIF)            Kimball (bus)\nDirection        top-down               bottom-up\nEnterprise core  normalized 3NF EDW     none (conformed dims)\nMarts            derived from EDW       built directly\nFirst delivery   slower                 faster\nIntegration      by design (the EDW)    by conformed dimensions\nStorage          less redundant         some redundancy (cheap)\nBest when        many sources, strong   fast BI value, evolving\n                 governance needs        requirements</pre></div>' },
+        { h: 'The modern synthesis', p:
+          '<p>Cheap storage and elastic compute blur the debate. A very common pattern: land raw data, build a <strong>cleaned/normalized or Data-Vault core</strong> for integration and history, then serve <strong>Kimball-style stars</strong> (often as the gold layer / semantic models) for BI. You get Inmon\'s integration <em>and</em> Kimball\'s usability — which is exactly what the medallion architecture formalizes.</p>' },
+      ],
+      map: {
+        intro: 'All three platforms run either philosophy; their "serving layer" is where the Kimball star usually lands.',
+        sf: { term: 'Layered databases/schemas', points: ['RAW / INTEGRATION / PRESENTATION schemas', 'Streams + tasks move between layers', 'Stars served to BI from PRESENTATION'] },
+        rs: { term: 'Staging → core → marts', points: ['Staging schema for raw loads', 'Normalized/integrated core', 'Dimensional marts for BI tools'] },
+        fb: { term: 'Medallion + semantic model', points: ['Bronze/Silver/Gold in the lakehouse', 'Gold = Kimball stars', 'Semantic model serves Power BI'] },
+      },
+      takeaway: '<b>Inmon</b> = top-down normalized EDW first, marts derived from it (integration by design, slower start). <b>Kimball</b> = bottom-up conformed dimensional marts, no separate core (fast value, integration by discipline). Modern warehouses usually <b>blend</b> them: an integrated core feeding Kimball stars for BI — the medallion pattern.',
+      docs: [
+        { label: 'Kimball Group: techniques', url: 'https://www.kimballgroup.com/data-warehouse-business-intelligence-resources/kimball-techniques/' },
+        { label: 'Fabric: Medallion architecture', url: 'https://learn.microsoft.com/en-us/fabric/onelake/onelake-medallion-lakehouse-architecture' },
+      ],
+    },
+
+    /* ─────────────── Data Vault 2.0 ─────────────── */
+    'fund-data-vault': {
+      eyebrow: '🏗️ Modeling & Design',
+      title: 'Data Vault 2.0 — a primer',
+      lead: 'Data Vault is a modeling approach for the <strong>integration core</strong> — built for many changing sources, full auditability, and parallel loading. It is not a BI-serving model; you still build stars on top. Know it for enterprise and interview contexts.',
+      sections: [
+        { h: 'The three building blocks', p:
+          '<ul>' +
+          '<li><strong>Hubs</strong> — the list of unique business keys for a concept (customer, product), plus a hash key and load metadata. Hubs are stable: business keys rarely change.</li>' +
+          '<li><strong>Links</strong> — relationships/associations between hubs (a customer places an order). Links are many-to-many by design, so new relationships don\'t require restructuring.</li>' +
+          '<li><strong>Satellites</strong> — the descriptive, <em>time-stamped</em> attributes hanging off a hub or link. All history is kept by inserting new satellite rows — never updating — so the vault is inherently auditable.</li>' +
+          '</ul>' },
+        { h: 'Why teams use it', p:
+          '<ul>' +
+          '<li><strong>Source agility:</strong> add a new source by adding satellites/links without remodeling existing structures.</li>' +
+          '<li><strong>Auditability:</strong> insert-only, fully historized, with record source and load timestamps on everything — strong for compliance.</li>' +
+          '<li><strong>Parallel loads:</strong> hubs, links, and satellites load independently (hash keys decouple them), which suits big automated pipelines.</li>' +
+          '</ul>' +
+          '<p>Data Vault 2.0 adds <strong>hash keys</strong> (deterministic hashes of business keys) for load parallelism and join stability, plus patterns for the whole pipeline.</p>' },
+        { h: 'Where it sits (and its cost)', p:
+          '<p>The vault is the <strong>raw/integration layer</strong>, not what analysts query. Its normalization means <em>many</em> joins, so you build a dimensional <strong>information mart</strong> (Kimball stars / views) on top for BI. The trade-off: excellent flexibility and auditability, but more tables, more joins, and real complexity — justified for large, multi-source, heavily-governed enterprises, overkill for a small warehouse.</p>' },
+      ],
+      map: {
+        intro: 'Data Vault is vendor-neutral SQL; platforms differ only in hashing and automation support.',
+        sf: { term: 'Vault + streams/tasks', points: ['HASH keys via MD5/SHA functions', 'Insert-only satellites, no updates', 'Serve marts from PRESENTATION schema'] },
+        rs: { term: 'Vault in staging/core', points: ['Hubs/links/sats as normal tables', 'Distribute on hash keys', 'Derive marts for BI'] },
+        fb: { term: 'Vault in the lakehouse', points: ['Bronze/Silver hold the vault', 'Gold = dimensional marts', 'Automate loads via pipelines'] },
+      },
+      takeaway: 'Data Vault models an auditable, source-agile <b>integration core</b> from <b>hubs</b> (business keys), <b>links</b> (relationships), and insert-only <b>satellites</b> (historized attributes). It\'s not for direct BI — build Kimball <b>stars on top</b>. Great for large multi-source, compliance-heavy shops; overkill for small ones.',
+      docs: [
+        { label: 'Fabric: Medallion & modeling', url: 'https://learn.microsoft.com/en-us/fabric/onelake/onelake-medallion-lakehouse-architecture' },
+      ],
+    },
+
+    /* ─────────────── Data marts & ODS ─────────────── */
+    'fund-marts-ods': {
+      eyebrow: '🏗️ Modeling & Design',
+      title: 'Data marts & the ODS',
+      lead: 'Beyond the warehouse core sit two supporting structures: the <strong>data mart</strong> (a focused slice for one audience) and the <strong>operational data store</strong> (near-real-time integrated operational data). Knowing when to use each keeps a platform tidy.',
+      sections: [
+        { h: 'Data marts — the focused serving layer', p:
+          '<p>A <strong>data mart</strong> is a subject- or department-focused subset of the warehouse — Finance, Marketing, Sales — usually a small set of star schemas tuned for that audience\'s questions. Benefits: simpler and faster for that group, easier to secure, clear ownership. Risk: if marts are built in isolation they drift apart — which is exactly why <strong>conformed dimensions</strong> matter. Marts can be <em>dependent</em> (derived from a central warehouse, Inmon-style) or <em>independent</em> (standalone — convenient but prone to silos).</p>' },
+        { h: 'The ODS — integrated, current, operational', p:
+          '<p>An <strong>operational data store</strong> integrates data from multiple source systems and keeps it <strong>current</strong> (near-real-time, frequently overwritten) for <em>operational</em> reporting and lookups — "what is the customer\'s status right now across all systems?" Unlike the warehouse, the ODS holds little history and favors current state. It often serves as a landing/integration hop on the way to the warehouse.</p>' },
+        { h: 'How they fit together', p:
+          '<div class="code-block" data-noswipe><pre>Sources ─▶ ODS (current, integrated, operational)\n         └▶ Warehouse / core (historical, analytical)\n                 └▶ Data marts (focused, dimensional, for BI)</pre></div>' +
+          '<p>Rule of thumb: <strong>ODS</strong> answers "what\'s true now" for operations; the <strong>warehouse</strong> answers "what happened over time" for analytics; <strong>marts</strong> make the warehouse fast and friendly for a specific audience. In cloud platforms the ODS is often just a current-state schema/layer rather than a separate system.</p>' },
+      ],
+      map: {
+        intro: 'These are architectural roles; each platform realizes them as schemas/layers rather than separate products.',
+        sf: { term: 'Schemas per role', points: ['ODS as a current-state schema', 'Marts as PRESENTATION schemas', 'Secure data sharing per mart'] },
+        rs: { term: 'Schemas / databases', points: ['Current-state staging ~ ODS', 'Marts as schemas or datashares', 'Per-group access control'] },
+        fb: { term: 'Lakehouse layers + workspaces', points: ['Current-state Silver ~ ODS', 'Gold stars = marts', 'Workspaces give per-team marts'] },
+      },
+      takeaway: 'A <b>data mart</b> is a focused, dimensional slice for one audience (keep them conformed so they don\'t silo). An <b>ODS</b> holds current, integrated, operational data for "what\'s true now" reporting, with little history. ODS = now/operations, warehouse = history/analytics, marts = fast serving.',
+      docs: [
+        { label: 'Fabric: Warehousing in Fabric', url: 'https://learn.microsoft.com/en-us/fabric/data-warehouse/data-warehousing' },
+      ],
+    },
+
+    /* ─────────────── Medallion meets dimensional ─────────────── */
+    'fund-medallion': {
+      eyebrow: '🏗️ Modeling & Design',
+      title: 'Medallion meets dimensional',
+      lead: 'The <strong>medallion architecture</strong> (Bronze → Silver → Gold) organizes a lakehouse by data quality. It isn\'t a rival to dimensional modeling — it\'s <em>where</em> dimensional modeling lives. This page connects the two so the whole track clicks into place.',
+      sections: [
+        { h: 'The three layers', p:
+          '<ul>' +
+          '<li><strong>Bronze (raw):</strong> source data landed as-is, append-only, with full fidelity and history. Your audit trail and reprocessing source. Minimal transformation.</li>' +
+          '<li><strong>Silver (cleaned/conformed):</strong> validated, deduplicated, type-cast, integrated across sources. Often normalized or a Data-Vault-style integration core. Trustworthy but not yet BI-shaped.</li>' +
+          '<li><strong>Gold (curated/serving):</strong> business-ready <strong>dimensional models</strong> — the Kimball star schemas, aggregates, and semantic models BI tools consume.</li>' +
+          '</ul>' },
+        { h: 'Dimensional modeling lives in Gold', p:
+          '<p>Everything in this track — grain, conformed dimensions, star schemas, SCD Type 2, surrogate keys — is applied when you build the <strong>Gold</strong> layer from Silver. Bronze/Silver are about <em>getting data correct and integrated</em>; Gold is about <em>shaping it for analysis</em>. SCD history is often maintained in Silver (or the vault) and projected into Gold dimensions.</p>' },
+        { h: 'Why this ordering works', p:
+          '<p>Each layer has one job, so pipelines stay debuggable and reprocessable: re-run Silver from Bronze when a rule changes; rebuild Gold from Silver when the model changes — all without re-ingesting. It also reconciles Inmon and Kimball: Silver gives you Inmon-style integration, Gold gives you Kimball-style serving. One flow, both strengths.</p>' },
+      ],
+      diagramTitle: '🎬 From raw landings to dimensional serving',
+      stage: { caption: 'Bronze (raw) → Silver (clean/integrated) → Gold (dimensional) → BI',
+        groups: [
+          { id: 'src', label: 'Sources', nodes: [ { id: 's1', label: 'Apps · files · CDC' } ], connectorAfter: 'land as-is' },
+          { id: 'bronze', label: '🥉 Bronze — raw', sub: 'append-only, full history', nodes: [ { id: 'b', label: 'Raw tables' } ], connectorAfter: 'clean & integrate' },
+          { id: 'silver', label: '🥈 Silver — cleaned', sub: 'validated, conformed, integrated', nodes: [ { id: 'sv', label: 'Integration core' } ], connectorAfter: 'shape for analysis' },
+          { id: 'gold', label: '🥇 Gold — dimensional', sub: 'star schemas + SCD2', nodes: [ { id: 'g', label: 'Facts + dimensions' } ], connectorAfter: 'serve' },
+          { id: 'bi', label: 'BI / ML', nodes: [ { id: 'q', label: 'Dashboards & models' } ] },
+        ] },
+      steps: [
+        { label: 'Bronze', title: 'Land raw, keep everything', on: { spot: ['bronze'], flow: ['b'], conn: ['src'] },
+          body: 'Source data lands append-only with full fidelity — the audit trail and the source you reprocess from. Minimal transformation here.',
+          facts: ['Append-only, full history', 'Your reprocessing source', 'Little/no transformation'] },
+        { label: 'Silver', title: 'Clean, integrate, conform', on: { spot: ['silver'], flow: ['sv'], conn: ['bronze'] },
+          body: 'Validate, dedupe, type-cast, and integrate across sources — often a normalized or Data-Vault core. Trustworthy, but not yet BI-shaped.',
+          facts: ['Validated & deduplicated', 'Integrated across sources', 'Inmon-style integration'] },
+        { label: 'Gold', title: 'Shape it dimensionally', on: { spot: ['gold'], flow: ['g'], conn: ['silver'] },
+          body: 'Build the star schemas: grain, conformed dimensions, surrogate keys, SCD Type 2. This is where the whole modeling track is applied.',
+          facts: ['Kimball star schemas', 'Surrogate keys + SCD2', 'Business-ready'] },
+        { label: 'Serve', title: 'BI & ML read Gold', on: { spot: ['bi'], flow: ['q'], conn: ['gold'] },
+          body: 'Dashboards, semantic models, and ML read the Gold layer — fast, intuitive, and governed. One flow delivered both integration and usability.',
+          facts: ['Fast, intuitive queries', 'Governed serving layer', 'Inmon + Kimball reconciled'] },
+      ],
+      map: {
+        intro: 'Every platform implements medallion; the vocabulary and serving tech differ slightly.',
+        sf: { term: 'Schema layers', points: ['RAW → INTEGRATION → PRESENTATION', 'Streams/tasks promote between layers', 'Gold stars served to BI'] },
+        rs: { term: 'Staging → core → marts', points: ['Lakehouse via Spectrum or native', 'Core integration then marts', 'Gold served to QuickSight/BI'] },
+        fb: { term: 'Bronze/Silver/Gold native', points: ['OneLake medallion by default', 'Gold = dimensional + semantic model', 'Direct Lake serves Power BI'] },
+      },
+      takeaway: 'Medallion organizes a lakehouse by quality: <b>Bronze</b> (raw), <b>Silver</b> (cleaned/integrated), <b>Gold</b> (dimensional serving). Dimensional modeling — this whole track — is applied in <b>Gold</b>. Silver gives Inmon-style integration, Gold gives Kimball-style serving: one flow, both strengths, fully reprocessable.',
+      compare: 'cmp-query-lake', compareLabel: 'Querying the Lake',
+      docs: [
+        { label: 'Fabric: Medallion architecture', url: 'https://learn.microsoft.com/en-us/fabric/onelake/onelake-medallion-lakehouse-architecture' },
+        { label: 'Databricks: Medallion', url: 'https://www.databricks.com/glossary/medallion-architecture' },
+      ],
+    },
+
   });
 })();

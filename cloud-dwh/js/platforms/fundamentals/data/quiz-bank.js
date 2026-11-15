@@ -117,6 +117,26 @@
       { q: 'In a Type 2 dimension, which column marks the single active version?', choices: ['customer_id', 'is_current (with valid_to = 9999-12-31)', 'customer_sk', 'name'], answer: 1, explain: 'Exactly one row per business key has is_current = true / an open valid_to; the surrogate (customer_sk) differs per version.' },
       { q: 'SCD type decisions are best made…', choices: ['Once per whole table', 'Per attribute — one dimension can mix Type 1 and Type 2 columns', 'Only at the database level', 'By the BI tool'], answer: 1, explain: 'A dimension commonly overwrites some attributes (Type 1) while versioning others (Type 2); choose per column by whether its history matters.' },
     ],
+    'fund-kimball-inmon': [
+      { q: 'What does the Inmon approach build first?', choices: ['Dimensional data marts', 'A normalized (3NF) enterprise data warehouse', 'A BI dashboard', 'A data lake'], answer: 1, explain: 'Inmon is top-down: a normalized, integrated EDW is the source of truth, and dimensional marts are derived from it.' },
+      { q: 'How does Kimball achieve enterprise integration without a normalized core?', choices: ['It does not integrate', 'Through conformed dimensions shared across marts (the bus)', 'By copying all data', 'With a separate ODS'], answer: 1, explain: 'Kimball builds dimensional marts directly, unified by conformed dimensions on a shared bus — integration by discipline, not a separate layer.' },
+      { q: 'A common modern synthesis of the two is…', choices: ['Pick one and never mix', 'An integrated/normalized core feeding Kimball-style stars for BI (medallion)', 'Skip modeling entirely', 'Only use Inmon'], answer: 1, explain: 'Cheap storage + elastic compute let teams keep an integrated core (Silver/vault) and serve Kimball stars (Gold) — Inmon integration plus Kimball usability.' },
+    ],
+    'fund-data-vault': [
+      { q: 'In Data Vault, what does a Hub contain?', choices: ['Descriptive attributes', 'The unique business keys for a concept (plus hash key and load metadata)', 'Relationships between entities', 'Aggregated measures'], answer: 1, explain: 'Hubs are the stable list of business keys; descriptive data goes in satellites and relationships in links.' },
+      { q: 'Where do historized, time-stamped descriptive attributes live in Data Vault?', choices: ['Hubs', 'Links', 'Satellites (insert-only)', 'The fact table'], answer: 2, explain: 'Satellites hang off hubs/links and keep all history by inserting new rows — never updating — making the vault auditable.' },
+      { q: 'Is Data Vault what analysts query directly for BI?', choices: ['Yes, always', 'No — it is the integration core; you build dimensional marts (stars) on top', 'Yes, it replaces star schemas', 'Only for dashboards'], answer: 1, explain: 'The vault is highly normalized (many joins); you serve BI from Kimball-style information marts built on top of it.' },
+    ],
+    'fund-marts-ods': [
+      { q: 'What is a data mart?', choices: ['A raw landing zone', 'A subject/department-focused subset of the warehouse (usually stars)', 'A streaming pipeline', 'A backup copy'], answer: 1, explain: 'A mart is a focused, dimensional slice tuned for one audience; keep marts conformed so they do not drift into silos.' },
+      { q: 'What primarily distinguishes an ODS from the warehouse?', choices: ['It stores more history', 'It holds current, integrated operational data with little history', 'It is columnar', 'It is only for ML'], answer: 1, explain: 'An ODS answers "what is true now" across systems for operational reporting; the warehouse keeps history for analytics.' },
+      { q: 'An independent data mart (built in isolation) risks…', choices: ['Being too fast', 'Drifting from other marts — data silos and inconsistent definitions', 'Using too little storage', 'Too much conformity'], answer: 1, explain: 'Without conformed dimensions, independent marts define things differently and cannot be compared — the classic silo problem.' },
+    ],
+    'fund-medallion': [
+      { q: 'In the medallion architecture, what does the Bronze layer hold?', choices: ['Business-ready star schemas', 'Raw source data landed as-is (append-only, full history)', 'Aggregated KPIs', 'The semantic model'], answer: 1, explain: 'Bronze is the raw, append-only landing zone — your audit trail and the source you reprocess from.' },
+      { q: 'Where is dimensional modeling (stars, SCD2, surrogate keys) applied?', choices: ['Bronze', 'Silver', 'Gold', 'Nowhere'], answer: 2, explain: 'Gold is the curated serving layer; you build the Kimball star schemas and semantic models there from cleaned Silver data.' },
+      { q: 'How does medallion reconcile Inmon and Kimball?', choices: ['It picks Kimball only', 'Silver provides Inmon-style integration; Gold provides Kimball-style serving', 'It avoids both', 'It only uses Bronze'], answer: 1, explain: 'One flow: Silver integrates (Inmon), Gold serves dimensional stars (Kimball) — both strengths, fully reprocessable.' },
+    ],
 
   };
 })();
