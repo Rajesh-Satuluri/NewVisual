@@ -118,6 +118,8 @@
     if (!canvas) return;
     const old = canvas.querySelector('.lpath');
     if (old) old.remove();
+    // Snowflake-only strip: other platforms reuse ids like `lab-loading`.
+    if (window.CDWH.activePlatform !== 'snowflake') return;
     if (!(id in IDS)) return;
     canvas.insertBefore(build(id), canvas.firstChild);
   }

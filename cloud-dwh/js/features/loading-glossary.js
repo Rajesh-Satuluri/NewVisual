@@ -96,6 +96,8 @@
 
   document.addEventListener('cdwh:navigate', function (e) {
     const id = e && e.detail && e.detail.id;
+    // Snowflake-only: the term definitions are Snowflake-specific.
+    if (!e || !e.detail || e.detail.platform !== 'snowflake') return;
     if (!AUTO_IDS[id]) return;
     // Run after the module + enhance.js have populated the canvas.
     setTimeout(function () {
