@@ -133,39 +133,69 @@ function buildLanes(container) {
       ctx.fillStyle = '#94A3B8';
       ctx.fillText(lane.desc, 50, lane.y + 82);
 
-      // Stage markers — order differs per lane (at-least-once & exactly-once
-      // process BEFORE committing the offset; at-most-once commits first).
-      const stages = lane.stages;
+      // Stage markers. For at-most-once & at-least-once these are discrete,
+      // ordered steps. Exactly-once is different: process + commit are a SINGLE
+      // atomic transaction — there is no gap between them to crash into — so it
+      // is drawn as one fused block, not two sequential dots.
       const xs = [60, 280, 500, 720];
-      stages.forEach((s, i) => {
-        ctx.font = '9px system-ui';
-        ctx.fillStyle = '#8A98AE';
-        ctx.textAlign = 'center';
-        ctx.fillText(s, xs[i], lane.y + 55);
-        ctx.beginPath();
-        ctx.arc(xs[i], lane.y + 30, 5, 0, Math.PI * 2);
-        ctx.fillStyle = lane.color + '66';
-        ctx.fill();
-      });
+      if (lane.commit === 'atomic') {
+        // Endpoints: Producer and Done
+        [[60, 'Producer'], [720, 'Done']].forEach(([x, label]) => {
+          ctx.font = '9px system-ui';
+          ctx.fillStyle = '#8A98AE';
+          ctx.textAlign = 'center';
+          ctx.fillText(label, x, lane.y + 55);
+          ctx.beginPath();
+          ctx.arc(x, lane.y + 30, 5, 0, Math.PI * 2);
+          ctx.fillStyle = lane.color + '66';
+          ctx.fill();
+        });
+        // Fused atomic-transaction block spanning the two middle stages
+        const bx = 230, bw = 320, by = lane.y + 16, bh = 40;
+        drawRoundRect(ctx, bx, by, bw, bh, 8, lane.color + (crashed ? '12' : '1F'), lane.color);
+        if (!crashed) {
+          ctx.textAlign = 'center';
+          ctx.fillStyle = lane.color;
+          ctx.font = 'bold 10px system-ui';
+          ctx.fillText('⚛️  Process  +  Commit offset', bx + bw / 2, by + 17);
+          ctx.fillStyle = '#94A3B8';
+          ctx.font = '9px system-ui';
+          ctx.fillText('one atomic transaction — all or nothing', bx + bw / 2, by + 31);
+        }
+      } else {
+        const stages = lane.stages;
+        stages.forEach((s, i) => {
+          ctx.font = '9px system-ui';
+          ctx.fillStyle = '#8A98AE';
+          ctx.textAlign = 'center';
+          ctx.fillText(s, xs[i], lane.y + 55);
+          ctx.beginPath();
+          ctx.arc(xs[i], lane.y + 30, 5, 0, Math.PI * 2);
+          ctx.fillStyle = lane.color + '66';
+          ctx.fill();
+        });
+      }
 
       // Crash marker
       if (crashed) {
-        const crashX = lane.commit === 'before' ? 370 : lane.commit === 'after' ? 370 : 600;
+        const crashX = lane.commit === 'atomic' ? 390 : 370;
         ctx.font = 'bold 16px system-ui';
         ctx.fillStyle = '#EF4444';
         ctx.textAlign = 'center';
-        ctx.fillText('💥', crashX, lane.y + 35);
+        ctx.fillText('💥', crashX, lane.y + 38);
 
+        ctx.font = 'bold 10px system-ui';
         if (lane.commit === 'before') {
           ctx.fillStyle = '#EF4444';
-          ctx.font = 'bold 10px system-ui';
-          ctx.fillText('LOST!', crashX + 50, lane.y + 35);
+          ctx.fillText('LOST!', crashX + 50, lane.y + 36);
         } else if (lane.commit === 'after') {
           ctx.fillStyle = '#F59E0B';
-          ctx.fillText('RETRY', crashX + 50, lane.y + 35);
+          ctx.fillText('RETRY', crashX + 50, lane.y + 36);
         } else {
+          // atomic: the whole transaction rolls back and is retried cleanly —
+          // neither the process output nor the offset commit is left behind.
           ctx.fillStyle = '#10B981';
-          ctx.fillText('ABORT TX', crashX + 60, lane.y + 35);
+          ctx.fillText('ROLLED BACK → RETRIED — nothing lost, nothing duplicated', crashX + 10, lane.y + 12);
         }
       }
     });
