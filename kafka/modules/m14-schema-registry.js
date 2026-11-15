@@ -18,7 +18,7 @@ export function mount(container) {
   container.innerHTML = createModuleShell({
     tag: 'M14 · Ecosystem',
     title: 'Schema Registry',
-    subtitle: 'The service, the wire format, the full lifecycle, evolution, subjects & formats, the REST API & ops — end to end, with Amazon examples',
+    subtitle: 'The service, Day 0 bootstrap, the wire format, the full lifecycle, subjects & formats, compatibility & evolution, the REST API & ops — end to end, with Amazon examples',
     tabs: [
       { id: 'whatwhy',   label: '🏛️ What & Why' },
       { id: 'dayzero',   label: '🚀 Day 0: Define → Deploy → Align' },
@@ -399,7 +399,7 @@ function buildWire(container) {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   TAB 3 — End-to-End Lifecycle (canvas animation)
+   TAB 4 — End-to-End Lifecycle (canvas animation)
    ───────────────────────────────────────────────────────────────────────── */
 function buildLifecycle(container) {
   const tab = container.querySelector('#tab-lifecycle');
@@ -586,7 +586,7 @@ function buildLifecycle(container) {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   TAB 4 — Compatibility Modes (existing content, preserved)
+   TAB 6 — Compatibility Modes (existing content, preserved)
    ───────────────────────────────────────────────────────────────────────── */
 function buildCompat(container) {
   const tab = container.querySelector('#tab-compat');
@@ -647,7 +647,7 @@ function buildCompat(container) {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   TAB 5 — Schema Evolution Walkthrough
+   TAB 7 — Schema Evolution Walkthrough
    ───────────────────────────────────────────────────────────────────────── */
 function buildEvolution(container) {
   const tab = container.querySelector('#tab-evolution');
@@ -767,7 +767,7 @@ function buildEvolution(container) {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   TAB 6 — Subjects & Naming + Formats
+   TAB 5 — Subjects & Naming + Formats
    ───────────────────────────────────────────────────────────────────────── */
 function buildSubjects(container) {
   const tab = container.querySelector('#tab-subjects');
@@ -848,11 +848,13 @@ function buildSubjects(container) {
         <div style="font-size:12.5px;color:#CBD5E1;line-height:1.75">Default to <b>Avro + TopicNameStrategy</b> — it's the path of least resistance and most Kafka tooling assumes it. Reach for <b>Protobuf</b> when you already live in a gRPC/protobuf ecosystem, and <b>JSON Schema</b> when human-readability or JSON-native consumers matter more than wire size. Switch away from TopicNameStrategy only when you deliberately need multiple event types on one topic.</div>
       </div>
 
+      <div style="font-size:12px;color:#94A3B8;text-align:center;margin-top:18px;padding-top:16px;border-top:1px solid #1E293B">Now that you know what a <b>subject</b> is, the next tab — <b>🔄 Compatibility Modes</b> — shows the rule the Registry enforces <i>within</i> one subject every time you register a new version.</div>
+
     </div>`;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   TAB 7 — REST API & Operations
+   TAB 8 — REST API & Operations
    ───────────────────────────────────────────────────────────────────────── */
 function buildOps(container) {
   const tab = container.querySelector('#tab-ops');
@@ -939,7 +941,7 @@ function buildOps(container) {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   TAB 8 — Amazon End-to-End
+   TAB 9 — Amazon End-to-End
    ───────────────────────────────────────────────────────────────────────── */
 function buildAmazon(container) {
   const tab = container.querySelector('#tab-amazon');
