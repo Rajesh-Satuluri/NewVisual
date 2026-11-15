@@ -29,6 +29,7 @@
         { id: "mirroring", label: "Mirroring", icon: "🪞" },
         { id: "cross-db-queries", label: "Cross-Database Queries", icon: "🔀" },
         { id: "semantic-models", label: "Semantic Models", icon: "📐" },
+        { id: "medallion", label: "Medallion Architecture", icon: "🥇" },
       ],
     },
     {
@@ -46,7 +47,6 @@
       items: [
         { id: "rls-cls-masking", label: "RLS / CLS / Masking", icon: "🔒" },
         { id: "purview", label: "Microsoft Purview", icon: "🏷️" },
-        { id: "medallion", label: "Medallion Architecture", icon: "🥇" },
       ],
     },
     {

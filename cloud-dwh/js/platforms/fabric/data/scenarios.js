@@ -153,8 +153,8 @@
           sql: "SELECT user_id, plan, updated_at\nFROM (\n  SELECT *,\n         ROW_NUMBER() OVER (PARTITION BY user_id\n                            ORDER BY updated_at DESC) AS rn\n  FROM stg_users\n) t\nWHERE rn = 1;",
           a: 'Fabric Warehouse is T-SQL (no QUALIFY), so wrap ROW_NUMBER() in a derived table and filter rn = 1.' },
         { q: 'How do you upsert into the clean table?',
-          sql: "MERGE dbo.users_clean AS tgt\nUSING stg_latest AS src\n  ON tgt.user_id = src.user_id\nWHEN MATCHED AND src.updated_at > tgt.updated_at\n  THEN UPDATE SET tgt.plan = src.plan, tgt.updated_at = src.updated_at\nWHEN NOT MATCHED THEN\n  INSERT (user_id, plan, updated_at)\n  VALUES (src.user_id, src.plan, src.updated_at);",
-          a: 'The Warehouse supports T-SQL MERGE with multi-table transactions, giving an idempotent upsert that converges on every run.' },
+          sql: "WITH stg_latest AS (   -- the deduped staging rows from step 1\n  SELECT user_id, plan, updated_at\n  FROM (\n    SELECT *,\n           ROW_NUMBER() OVER (PARTITION BY user_id\n                              ORDER BY updated_at DESC) AS rn\n    FROM stg_users\n  ) d\n  WHERE rn = 1\n)\nMERGE dbo.users_clean AS tgt\nUSING stg_latest AS src\n  ON tgt.user_id = src.user_id\nWHEN MATCHED AND src.updated_at > tgt.updated_at\n  THEN UPDATE SET tgt.plan = src.plan, tgt.updated_at = src.updated_at\nWHEN NOT MATCHED THEN\n  INSERT (user_id, plan, updated_at)\n  VALUES (src.user_id, src.plan, src.updated_at);",
+          a: 'The Warehouse supports T-SQL MERGE, giving an idempotent upsert that converges on every run. Here stg_latest is the deduped staging set (a CTE) so the statement is self-contained.' },
       ] },
   ]);
 
