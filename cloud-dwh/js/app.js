@@ -274,9 +274,29 @@
   }
   function _setupShortcutsModal() {
     const modal = document.getElementById('shortcuts-modal'); const closeBtn = document.getElementById('shortcuts-close'); if (!modal) return;
-    viz._showShortcutsModal = () => { _renderShortcuts(modal); modal.classList.add('visible'); };
-    closeBtn?.addEventListener('click', () => modal.classList.remove('visible'));
-    modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('visible'); });
+    let lastFocus = null;
+    const close = () => { modal.classList.remove('visible'); if (lastFocus && lastFocus.focus) lastFocus.focus(); };
+    viz._showShortcutsModal = () => {
+      lastFocus = document.activeElement;
+      _renderShortcuts(modal);
+      modal.classList.add('visible');
+      (closeBtn || modal).focus();
+    };
+    viz._closeShortcutsModal = close;
+    closeBtn?.addEventListener('click', close);
+    modal.addEventListener('click', e => { if (e.target === modal) close(); });
+    // Escape to close + a minimal focus trap (modal is aria-modal).
+    modal.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { e.preventDefault(); close(); return; }
+      if (e.key === 'Tab') {
+        const f = [...modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+          .filter(el => el.offsetParent !== null);
+        if (!f.length) return;
+        const first = f[0], last = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    });
   }
   function _renderShortcuts(modal) {
     const grid = modal.querySelector('.shortcuts-grid'); if (!grid || !viz.Keyboard) return;
