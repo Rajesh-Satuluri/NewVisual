@@ -25,7 +25,9 @@
   const IDS = {}; PATH.forEach((s, i) => { IDS[s.id] = i; });
 
   function _visited() {
-    try { return new Set(JSON.parse(localStorage.getItem('cdwh-visited') || '[]')); }
+    // Snowflake-only strip → read the platform-namespaced visited set.
+    const key = 'cdwh-' + ((window.CDWH && window.CDWH.activePlatform) || 'snowflake') + '-visited';
+    try { return new Set(JSON.parse(localStorage.getItem(key) || '[]')); }
     catch (_) { return new Set(); }
   }
 

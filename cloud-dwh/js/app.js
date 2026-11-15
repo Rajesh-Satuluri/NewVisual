@@ -39,8 +39,38 @@
     if (ver) ver.textContent = p.meta.version || 'v0.1 · multi';
   }
 
+  /* One-time migration: progress keys used to be un-namespaced, so other
+     platforms (Redshift/Fabric/…) collided with Snowflake on shared ids. All
+     pre-existing data was written in the original Snowflake-only era, so move
+     it under the `snowflake` namespace. Runs once, before anything reads it. */
+  function _migrateNamespacedKeys() {
+    try {
+      if (localStorage.getItem('cdwh-ns-migrated-v1') === '1') return;
+      // visited: single legacy key -> snowflake namespace
+      const v = localStorage.getItem('cdwh-visited');
+      if (v != null) {
+        if (localStorage.getItem('cdwh-snowflake-visited') == null) localStorage.setItem('cdwh-snowflake-visited', v);
+        localStorage.removeItem('cdwh-visited');
+      }
+      // quiz best scores: cdwh-quiz-<id> -> cdwh-snowflake-quiz-<id>
+      const legacy = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && /^cdwh-quiz-/.test(k)) legacy.push(k); // won't match cdwh-<plat>-quiz-
+      }
+      legacy.forEach(k => {
+        const nk = 'cdwh-snowflake-quiz-' + k.slice('cdwh-quiz-'.length);
+        const val = localStorage.getItem(k);
+        if (val != null && localStorage.getItem(nk) == null) localStorage.setItem(nk, val);
+        localStorage.removeItem(k);
+      });
+      localStorage.setItem('cdwh-ns-migrated-v1', '1');
+    } catch (_) {}
+  }
+
   /* ── Boot ───────────────────────────────────────────────── */
   function init() {
+    _migrateNamespacedKeys();
     _buildSwitcher();
     _bindSearch();
     _bindThemeToggle();
