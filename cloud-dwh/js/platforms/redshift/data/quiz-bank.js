@@ -144,5 +144,32 @@
       { q: 'Why combine Lake Formation with Redshift Spectrum?', choices: ['To disable S3', 'To govern who can query which lake columns/rows consistently', 'To avoid IAM', 'To speed up VACUUM'], answer: 1, explain: 'It gives consistent, centrally-managed fine-grained governance over the S3 data Spectrum reads.' },
     ],
 
+    /* ── New topic pages (P2-3) ──────────────────────────────── */
+    'zero-etl': [
+      { q: 'What does a Redshift zero-ETL integration do?', choices: ['Encrypts tables', 'Automatically replicates data from sources like Aurora/RDS/DynamoDB into Redshift, no pipeline', 'Deletes old data', 'Resizes the cluster'], answer: 1, explain: 'Zero-ETL continuously replicates operational source changes into Redshift with no pipeline to build or run.' },
+      { q: 'How fresh is data with zero-ETL?', choices: ['Weekly', 'Near real-time (seconds)', 'Only on manual refresh', 'Never updated'], answer: 1, explain: 'Changes are replicated continuously, so data is queryable in Redshift within seconds of the source change.' },
+      { q: 'Which is a supported zero-ETL source?', choices: ['A CSV on your laptop', 'Aurora / RDS MySQL & PostgreSQL / DynamoDB', 'A Kafka topic only', 'Google BigQuery'], answer: 1, explain: 'Zero-ETL targets AWS operational databases (Aurora, RDS MySQL/PostgreSQL, DynamoDB); files/lakes still use COPY/Spectrum.' },
+    ],
+    'streaming-ingestion': [
+      { q: 'How does Redshift streaming ingestion land data?', choices: ['Via nightly COPY', 'Directly from Kinesis/MSK into a materialized view, no S3 staging', 'Through email', 'Only through Spectrum'], answer: 1, explain: 'A materialized view over an external schema reads the stream directly — no intermediate S3 files.' },
+      { q: 'Which sources does streaming ingestion support?', choices: ['Only S3', 'Amazon Kinesis Data Streams and Amazon MSK (Kafka)', 'DynamoDB only', 'RDS only'], answer: 1, explain: 'Streaming ingestion reads from Kinesis Data Streams or MSK into a materialized view.' },
+      { q: 'How are JSON payloads typically handled in a streaming MV?', choices: ['Ignored', 'Parsed into a SUPER column via JSON_PARSE', 'Stored as images', 'Rejected'], answer: 1, explain: 'The MV can JSON_PARSE the raw record into a SUPER column, then query nested fields with PartiQL.' },
+    ],
+    'system-tables': [
+      { q: 'What does EXPLAIN give you?', choices: ['The query result', 'The estimated plan incl. join methods and data-movement (DS_DIST_*) before running', 'A backup', 'Encryption status'], answer: 1, explain: 'EXPLAIN shows the planned steps, costs, and redistribution labels so you can spot expensive shuffles before execution.' },
+      { q: 'Which system view family holds logged history of completed queries?', choices: ['STV', 'STL (and SVL/SVV aggregates)', 'KMS', 'WLM'], answer: 1, explain: 'STL views log completed activity; STV holds live/transient state; SVL/SVV are convenient aggregated views.' },
+      { q: 'Which view surfaces table skew and unsorted percentage?', choices: ['STV_SLICES', 'SVV_TABLE_INFO', 'STL_CONNECTION_LOG', 'SYS_LOAD_ERROR'], answer: 1, explain: 'SVV_TABLE_INFO reports skew_rows, unsorted %, and stats_off — pointing directly at dist/sort/VACUUM/ANALYZE fixes.' },
+    ],
+    'row-level-security': [
+      { q: 'What does a row-level security (RLS) policy do?', choices: ['Encrypts columns', 'Filters which rows a user/role can see via a predicate', 'Caches results', 'Resizes the cluster'], answer: 1, explain: 'RLS attaches a predicate so each role sees only matching rows — enforced automatically on every query.' },
+      { q: 'What does dynamic data masking do?', choices: ['Deletes columns', 'Transforms sensitive column values (e.g. redacts PII) based on the viewer\'s role', 'Drops rows', 'Disables RBAC'], answer: 1, explain: 'A masking policy rewrites a column\'s value at query time per role, so some users see full data and others a masked form.' },
+      { q: 'Why use RLS/masking instead of separate per-team tables or views?', choices: ['It is slower', 'One base table, central auditable policies, no duplicate copies to drift', 'It avoids SQL', 'It removes IAM'], answer: 1, explain: 'Policies enforce row/column access in-engine on a single table — no duplicate tables/views to maintain or drift.' },
+    ],
+    'snapshots-dr': [
+      { q: 'How does Redshift back up a cluster?', choices: ['Manual CSV export only', 'Incremental snapshots to S3 (automated + manual)', 'It does not', 'Only via UNLOAD'], answer: 1, explain: 'Redshift continuously takes incremental snapshots to S3; automated ones honor a retention period, manual ones persist until deleted.' },
+      { q: 'What is the basis of cross-region disaster recovery?', choices: ['Larger nodes', 'Cross-region snapshot copy', 'Result caching', 'More slices'], answer: 1, explain: 'Enabling cross-region snapshot copy keeps a recent backup in a second region to restore from after a regional failure.' },
+      { q: 'What restore granularity does Redshift support?', choices: ['Whole cluster only', 'A new cluster from a snapshot, or individual tables from a snapshot', 'Single rows only', 'None'], answer: 1, explain: 'You can restore a snapshot to a new cluster (any region) or restore specific tables without a full cluster restore.' },
+    ],
+
   };
 })();
