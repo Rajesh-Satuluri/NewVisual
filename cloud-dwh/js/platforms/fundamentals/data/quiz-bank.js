@@ -87,5 +87,29 @@
       { q: 'Which practice most directly lowers scan-based cost?', choices: ['SELECT * everywhere', 'Partition pruning and selecting only needed columns', 'Disabling compression', 'Running every query twice'], answer: 1, explain: 'Scanning fewer bytes — via pruning, clustering, and narrow column selection — directly reduces both runtime and cost.' },
     ],
 
+    /* ── Modeling & Design Track ─────────────────────────────── */
+    'fund-dim-grain': [
+      { q: 'What should you decide first when designing a fact table?', choices: ['The distribution key', 'The grain — what one fact row represents', 'The compression codec', 'The BI tool'], answer: 1, explain: 'Grain is declared first because it determines which dimensions apply and whether measures are additive. Mixing grains silently double-counts.' },
+      { q: 'What is a conformed dimension?', choices: ['A dimension used by only one fact', 'One dimension (same keys/attributes/meaning) shared across many fact tables', 'A normalized sub-dimension', 'A fact with no measures'], answer: 1, explain: 'Conformed dimensions let facts from different processes be compared and combined — they turn isolated marts into an integrated warehouse.' },
+      { q: 'Why model at the atomic (lowest) grain?', choices: ['It uses less storage', 'Atomic facts can always roll up, but pre-aggregated facts can never drill down', 'It avoids surrogate keys', 'BI tools require it'], answer: 1, explain: 'Keep the atomic fact as source of truth; add summary tables for speed, but you can never recover detail you didn\'t store.' },
+      { q: 'A single dim_date joined as order date, ship date, and delivery date is an example of…', choices: ['A junk dimension', 'A role-playing dimension', 'A degenerate dimension', 'A factless fact'], answer: 1, explain: 'One physical dimension plays multiple roles via several keys/aliases — a role-playing dimension.' },
+    ],
+    'fund-star-snow': [
+      { q: 'How does a star schema store a dimension?', choices: ['Normalized into sub-tables', 'As one wide, denormalized table', 'Inside the fact table', 'As a view only'], answer: 1, explain: 'Star keeps each dimension flat and denormalized, so queries need few, predictable joins.' },
+      { q: 'Why is a star schema usually preferred over snowflake in a columnar warehouse?', choices: ['It uses less storage', 'Fewer joins and simpler SQL; columnar compression makes the redundancy nearly free', 'It avoids surrogate keys', 'It disables pruning'], answer: 1, explain: 'In MPP columnar engines, join count matters more than storage, and repeated attribute values compress well — so star wins.' },
+      { q: 'When is snowflaking a dimension branch justified?', choices: ['Always', 'For huge/high-cardinality or governed shared hierarchies that must stay consistent', 'Never', 'Only for the date dimension'], answer: 1, explain: 'Normalize selectively — large or centrally-governed branches — not the whole model.' },
+    ],
+    'fund-fact-types': [
+      { q: 'Which fact type stores one row per entity per time period (e.g. daily balance)?', choices: ['Transaction fact', 'Periodic snapshot', 'Accumulating snapshot', 'Factless fact'], answer: 1, explain: 'Periodic snapshots capture state over regular intervals; their measures are often semi-additive.' },
+      { q: 'An account balance is which kind of measure?', choices: ['Fully additive', 'Semi-additive (not summable across time)', 'Non-additive', 'Degenerate'], answer: 1, explain: 'You can sum balances across accounts but not across days — take the last/average value over time instead.' },
+      { q: 'How should you handle a non-additive ratio like average unit price?', choices: ['SUM it directly', 'Store the additive numerator and denominator and compute the ratio after aggregation', 'Store it as a dimension', 'Never report it'], answer: 1, explain: 'Aggregate the components first, then divide — averaging pre-computed ratios gives wrong answers.' },
+      { q: 'An order number stored directly on the fact with no separate table is a…', choices: ['Conformed dimension', 'Degenerate dimension', 'Junk dimension', 'Surrogate key'], answer: 1, explain: 'A degenerate dimension is a dimension attribute (like invoice/order number) that lives on the fact itself.' },
+    ],
+    'fund-keys': [
+      { q: 'What is a surrogate key?', choices: ['The source system\'s business ID', 'A meaningless warehouse-generated integer used as the dimension\'s primary key', 'A composite of all natural keys', 'A hash of the row'], answer: 1, explain: 'Surrogates are warehouse-generated integers; the fact stores the surrogate, not the natural key.' },
+      { q: 'Why does SCD Type 2 require surrogate keys?', choices: ['They save space', 'One business entity has multiple versioned rows that need distinct primary keys', 'They are faster to type', 'Natural keys are not allowed'], answer: 1, explain: 'Versioned rows share a natural key but need unique PKs so a fact can point at the version current at event time.' },
+      { q: 'What should you do with the natural/business key in a dimension?', choices: ['Discard it after loading', 'Keep it as an attribute for lookups, matching, and traceability', 'Use it as the fact foreign key', 'Hash and delete it'], answer: 1, explain: 'Surrogate is the PK, but the natural key stays on the dimension to match source records during loads and trace rows back.' },
+    ],
+
   };
 })();

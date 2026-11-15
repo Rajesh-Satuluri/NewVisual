@@ -38,6 +38,12 @@
       { id: 'fund-modeling',  label: 'Dimensional Modeling',     icon: '⭐' },
       { id: 'fund-lakehouse', label: 'Open Formats & Lakehouse', icon: '🧊' },
     ] },
+    { label: '🏗️ Modeling & Design Track', items: [
+      { id: 'fund-dim-grain',  label: 'Grain & Dimensions',        icon: '🎯' },
+      { id: 'fund-star-snow',  label: 'Star vs Snowflake',         icon: '✦' },
+      { id: 'fund-fact-types', label: 'Fact Types & Additivity',   icon: '📏' },
+      { id: 'fund-keys',       label: 'Surrogate vs Natural Keys', icon: '🔑' },
+    ] },
     { label: '🛡️ Operations', items: [
       { id: 'fund-governance', label: 'Governance & Security', icon: '🔐' },
       { id: 'fund-cost',       label: 'Cost Models & Tuning',  icon: '💰' },
