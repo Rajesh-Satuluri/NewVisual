@@ -9,6 +9,8 @@ export const IQ = [
   { q: 'What are subject-name strategies and when would you use RecordNameStrategy?', a: 'A "subject" is the namespace under which schema versions evolve, and the strategy decides the subject name from a record. TopicNameStrategy (default): subject = <topic>-key / <topic>-value — one schema lineage per topic; simplest, enforces "one record type per topic." RecordNameStrategy: subject = the record\'s fully-qualified name (e.g. com.amazon.OrderPlaced) — lets a single topic carry MULTIPLE event types, each evolving independently, and the same type shares a schema across topics. TopicRecordNameStrategy: subject = <topic>-<record.fullname> — multiple types per topic but scoped per topic. Use RecordName/TopicRecordName for event-sourcing or "all events for an aggregate on one topic" patterns where you need heterogeneous records but still want per-type compatibility enforcement.', tip: 'The default TopicNameStrategy quietly assumes one schema per topic. The moment you want several event types on one topic (common in event sourcing), you must switch strategy or compatibility checks compare unrelated schemas and reject everything.' },
   { q: 'Can a producer serialize if the Schema Registry is down?', a: 'It depends on the cache. The serializer caches schema→ID mappings after first use (auto.register or lookup). If the producer has ALREADY registered/looked up the schema for this subject in its lifetime, that mapping is cached and it keeps serializing with the cached ID without calling the Registry — so a steady-state producer survives a brief Registry outage. But a cold producer, or one encountering a NEW schema that is not cached, cannot obtain an ID and serialization throws — the send fails. Consumers are similar: a cached schema ID keeps deserializing; a never-seen ID forces a GET /schemas/ids/{id} that fails if the Registry is unreachable. Mitigations: run the Registry HA (multiple nodes), pre-register schemas at deploy time (disable auto-register in prod), and keep caches warm.', tip: 'This is why production disables client-side auto.register.schemas and registers via CI/CD: you never want a schema first-seen on the hot path, and you want the Registry off the critical path except on cache misses.' },
   { q: 'What is the difference between a soft delete and a hard delete, and why is deleting schemas dangerous?', a: 'DELETE /subjects/{subject}/versions/{v} is a SOFT delete: the version is marked deleted and hidden from normal listing, but the schema and its ID remain resolvable so consumers reading old records (which reference that ID in their 5-byte header) can still fetch the writer schema. Adding ?permanent=true is a HARD delete: it is removed entirely and the ID can no longer be resolved — any consumer that later reads an old record written with that schema will fail to deserialize. That is why hard delete is reserved for schemas that were never used in production data, and compatibility history / TRANSITIVE checks also walk only live versions. In practice you almost never hard-delete a schema that real records point at.', tip: 'Records are immutable and self-describe by ID forever; the Registry must be able to resolve that ID for as long as the data is retained. Hard-deleting a referenced schema is effectively corrupting your topic.' },
+  { q: 'When you first stand up a system, how does a schema get into the Registry before any records flow — and what is auto.register.schemas?', a: 'A schema begins as a file in the service repo (e.g. order-placed.avsc / .proto / .json), reviewed and versioned like code. It only becomes a subject/version/ID when it is DEPLOYED. Three ways: (1) auto.register.schemas=true — the producer serializer registers it on first send; the client default, fine for dev but discouraged in prod because a schema is first-seen on the hot path and any producer can mint a version. (2) CI/CD deploy — a pipeline step (Gradle/Maven Schema Registry plugin or an explicit POST) registers the schema BEFORE the app ships, and the app runs with auto.register.schemas=false so it only looks up IDs that already exist. (3) Manual REST POST for bootstrap/hotfix. Registration is also where the compatibility gate runs: the first version has nothing to compare against (becomes v1) and later versions are checked and can be rejected with 409.', tip: 'Production answer: disable auto-register in the app and register from CI. You never want a schema first-registered on the critical path, and you want new versions gated by the pipeline, not minted by whoever produces first.' },
+  { q: 'When a producer sends a record, how exactly is that record aligned to its schema?', a: 'By schema ID, not by field names. On producer.send(), the serializer: (1) extracts the schema from the typed object, (2) resolves schema→ID from its local cache, calling the Registry only on a miss, (3) serializes the fields to compact Avro/Protobuf binary (field names are NOT repeated per record), and (4) prepends the 5-byte header 0x00 + the 4-byte big-endian ID. That ID is the alignment: the record carries a pointer to its schema, not the schema itself. The broker stores the bytes verbatim and has no idea a schema exists. A consumer reads the ID, does one cached GET /schemas/ids/{id} to fetch the exact WRITER schema, and decodes correctly even if its own code is on a different version — which is why a record can outlive the code that wrote it.', tip: 'Say "records align to schema by a 4-byte ID stamped at serialize time." The first record costs one lookup to warm the cache; the millionth is stamped straight from memory with no Registry call.' },
   { q: 'What does FULL_TRANSITIVE add over FULL, and why do payment schemas use it?', a: 'Non-transitive modes (BACKWARD/FORWARD/FULL) only check the new schema against the IMMEDIATELY previous version. TRANSITIVE variants check the new schema against ALL previous versions still live. FULL means v3 is compatible with v2 in both directions; FULL_TRANSITIVE means v3 is compatible with v2 AND v1 AND v0 in both directions. This matters when old data lingers: a consumer might encounter a record written years ago at v1 while producers are on v4. Non-transitive can let a chain of individually-adjacent-compatible changes accumulate into v4 being unreadable against v1. Payment / financial schemas use FULL_TRANSITIVE because records are retained long-term and every historical version must remain mutually readable — any version by any version, in any order.', tip: 'Transitive = "compatible with the whole history," non-transitive = "compatible with the last one." Long-retention, audited data (payments, ledgers) needs transitive; short-lived operational streams usually don\'t.' },
 ];
 
@@ -19,6 +21,7 @@ export function mount(container) {
     subtitle: 'The service, the wire format, the full lifecycle, evolution, subjects & formats, the REST API & ops — end to end, with Amazon examples',
     tabs: [
       { id: 'whatwhy',   label: '🏛️ What & Why' },
+      { id: 'dayzero',   label: '🚀 Day 0: Define → Deploy → Align' },
       { id: 'wire',      label: '📡 Wire Format' },
       { id: 'lifecycle', label: '🎬 End-to-End Lifecycle' },
       { id: 'compat',    label: '🔄 Compatibility Modes' },
@@ -31,6 +34,7 @@ export function mount(container) {
   });
 
   buildWhatWhy(container);
+  buildDayZero(container);
   buildWire(container);
   const cleanup = buildLifecycle(container);
   buildCompat(container);
@@ -144,7 +148,186 @@ function buildWhatWhy(container) {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   TAB 2 — Wire Format (existing content, preserved)
+   TAB 2 — Day 0: Define → Deploy → Align  (cold start + serializer mechanics)
+   ───────────────────────────────────────────────────────────────────────── */
+function buildDayZero(container) {
+  const tab = container.querySelector('#tab-dayzero');
+  const chip = 'font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px;font-family:monospace';
+  const codeBox = (title, lines) => `
+    <div style="background:#0D1117;border:1px solid #1E293B;border-radius:8px;padding:12px 14px">
+      <div style="font-size:10px;color:#8B949E;margin-bottom:8px;font-family:monospace">${title}</div>
+      ${lines.map(l => `<div style="font-size:11px;font-family:monospace;color:${l.c || '#79c0ff'};line-height:1.7">${l.t}</div>`).join('')}
+    </div>`;
+  const stageHead = (n, color, title, sub) => `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+      <div style="flex-shrink:0;width:34px;height:34px;border-radius:50%;background:${color}22;border:2px solid ${color};color:${color};font-size:15px;font-weight:800;display:flex;align-items:center;justify-content:center">${n}</div>
+      <div>
+        <div style="font-size:16px;font-weight:800;color:#F1F5F9">${title}</div>
+        <div style="font-size:12px;color:#94A3B8">${sub}</div>
+      </div>
+    </div>`;
+
+  tab.innerHTML = `
+    <div class="scroll-content" style="max-width:940px;margin:0 auto">
+
+      <div style="background:#111827;border:1px solid #06B6D4;border-radius:14px;padding:20px 24px;margin-bottom:12px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#94A3B8;margin-bottom:8px">The cold-start question</div>
+        <div style="font-size:18px;font-weight:800;color:#F1F5F9;margin-bottom:6px">You just stood up Kafka. There are zero schemas. How does the <i>first</i> schema come to exist, get deployed, and then bind to every record?</div>
+        <div style="font-size:13px;color:#94A3B8;line-height:1.6">The Lifecycle tab animates the running loop; the Evolution tab changes a schema that already exists. This tab is the part before both: <b>define</b> the schema as a file, <b>deploy</b> it into the Registry, and <b>align</b> each record to it at send time. Follow the three stages top to bottom.</div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:30px;font-size:12px;font-weight:700;flex-wrap:wrap">
+        <span style="color:#8B5CF6">① Define (a file in your repo)</span>
+        <span style="color:#475569">→</span>
+        <span style="color:#F59E0B">② Deploy (into the Registry)</span>
+        <span style="color:#475569">→</span>
+        <span style="color:#10B981">③ Align (every record, by ID)</span>
+      </div>
+
+      <!-- ─── STAGE 1 — DEFINE ─── -->
+      <div style="background:#0A0E1A;border:1px solid #1E293B;border-left:3px solid #8B5CF6;border-radius:10px;padding:18px 20px;margin-bottom:22px">
+        ${stageHead('1', '#8B5CF6', 'Define — the schema is just a file you own', 'Kafka and the Registry do not exist in this step yet. A developer writes the contract and commits it.')}
+        <div style="font-size:12.5px;color:#94A3B8;line-height:1.7;margin-bottom:14px">
+          Before any broker is involved, the schema lives as a plain file in your service's repository — e.g. <span style="${chip}">src/main/avro/order-placed.avsc</span>. It is authored by hand, code-reviewed in a pull request, and versioned in git <b>exactly like source code</b>, because it <i>is</i> the contract your service promises. Nothing has touched Kafka.
+        </div>
+        ${codeBox('order-placed.avsc  — committed to git, reviewed in a PR', [
+          {t:'{', c:'#ff7b72'},
+          {t:'&nbsp;&nbsp;"type": "record",'},
+          {t:'&nbsp;&nbsp;"namespace": "com.amazon.orders",', c:'#a5d6ff'},
+          {t:'&nbsp;&nbsp;"name": "OrderPlaced",', c:'#a5d6ff'},
+          {t:'&nbsp;&nbsp;"fields": ['},
+          {t:'&nbsp;&nbsp;&nbsp;&nbsp;{"name": "orderId", "type": "string"},'},
+          {t:'&nbsp;&nbsp;&nbsp;&nbsp;{"name": "total",   "type": "double"},'},
+          {t:'&nbsp;&nbsp;&nbsp;&nbsp;{"name": "placedAt","type": "long",'},
+          {t:'&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"logicalType":"timestamp-millis"}'},
+          {t:'&nbsp;&nbsp;]'},
+          {t:'}', c:'#ff7b72'},
+        ])}
+        <div style="font-size:11px;color:#64748B;line-height:1.6;margin-top:10px">Avro here; the same idea holds for a <span style="${chip}">.proto</span> (Protobuf) or a <span style="${chip}">.json</span> (JSON Schema) file. See the <b>Subjects &amp; Formats</b> tab for how the three compare. At this point there is still no subject, no version, no ID — those are assigned only when the file is <i>deployed</i>.</div>
+      </div>
+
+      <!-- ─── STAGE 2 — DEPLOY ─── -->
+      <div style="background:#0A0E1A;border:1px solid #1E293B;border-left:3px solid #F59E0B;border-radius:10px;padding:18px 20px;margin-bottom:22px">
+        ${stageHead('2', '#F59E0B', 'Deploy — register the file so the Registry assigns subject · version · ID', 'Three real ways this happens. Who registers, and when, is the decision that separates dev from prod.')}
+
+        <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px">
+          ${[
+            { c:'#EF4444', tag:'① Auto-register', when:'dev / local', d:`With <span style="${chip}">auto.register.schemas=true</span> (the client default), the producer's serializer registers the schema itself on the <b>first send</b>. Zero setup — great for a laptop, <b>discouraged in prod</b> because a schema is first seen on the hot path and anyone who can produce can mint a new version.` },
+            { c:'#10B981', tag:'② CI/CD deploy', when:'production standard', d:`A pipeline step registers the schema <b>before the app ships</b> — e.g. the Gradle/Maven Schema Registry plugin or an explicit API call in the deploy job. The app itself runs with <span style="${chip}">auto.register.schemas=false</span>, so production code never registers; it only looks up IDs it expects to already exist.` },
+            { c:'#3B82F6', tag:'③ Manual REST', when:'one-off / bootstrap', d:`A human (or a bootstrap script) <span style="${chip}">POST</span>s the schema once. Useful for the very first deploy, a hotfix, or seeding a new environment.` },
+          ].map(x => `
+            <div style="background:#111827;border:1px solid #1E293B;border-left:3px solid ${x.c};border-radius:9px;padding:12px 16px">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                <span style="font-size:12.5px;font-weight:800;color:${x.c}">${x.tag}</span>
+                <span style="font-size:10px;color:#CBD5E1;background:#0A0E1A;padding:2px 8px;border-radius:10px">${x.when}</span>
+              </div>
+              <div style="font-size:12px;color:#94A3B8;line-height:1.65">${x.d}</div>
+            </div>`).join('')}
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+          ${codeBox('② / ③  Register the .avsc (CI step or manual curl)', [
+            {t:'# auto.register.schemas=false in the app', c:'#8b949e'},
+            {t:'# so CI registers it ahead of the deploy', c:'#8b949e'},
+            {t:'curl -X POST \\\\', c:'#7ee787'},
+            {t:'&nbsp;&nbsp;http://registry:8081/subjects/ \\\\'},
+            {t:'&nbsp;&nbsp;orders-value/versions \\\\'},
+            {t:'&nbsp;&nbsp;-H "Content-Type: application/\\\\'},
+            {t:'&nbsp;&nbsp;vnd.schemaregistry.v1+json" \\\\'},
+            {t:`&nbsp;&nbsp;-d '{"schema":"<order-placed.avsc>"}'`},
+          ])}
+          ${codeBox('Registry response — identity assigned', [
+            {t:'HTTP/1.1 200 OK', c:'#7ee787'},
+            {t:'{ "id": 152 }', c:'#ff7b72'},
+            {t:'', c:'#8b949e'},
+            {t:'// what the Registry now holds:', c:'#8b949e'},
+            {t:'subject : orders-value', c:'#ffa657'},
+            {t:'version : 1', c:'#ffa657'},
+            {t:'id&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: 152&nbsp;&nbsp;(global)', c:'#7ee787'},
+            {t:'stored in _schemas (compacted)', c:'#8b949e'},
+          ])}
+        </div>
+        <div style="font-size:11.5px;color:#94A3B8;line-height:1.6;background:#F59E0B0f;border-left:3px solid #F59E0B;border-radius:0 8px 8px 0;padding:10px 14px">
+          <b style="color:#F59E0B">The deploy also runs the gate.</b> Registration is where the <b>compatibility check</b> fires (<span style="${chip}">BACKWARD</span> by default). On the very first version there is nothing to compare against, so it always succeeds and becomes <b>v1 · id 152</b>. On every later deploy the Registry compares the new file to the existing version(s) and returns <span style="${chip}">409 Conflict</span> if it would break a running reader — see the <b>Schema Evolution</b> tab.
+        </div>
+      </div>
+
+      <!-- ─── STAGE 3 — ALIGN ─── -->
+      <div style="background:#0A0E1A;border:1px solid #1E293B;border-left:3px solid #10B981;border-radius:10px;padding:18px 20px;margin-bottom:22px">
+        ${stageHead('3', '#10B981', 'Align — every record binds to the schema by ID, at send time', 'Records are not aligned by field names. They are aligned by the 4-byte schema ID the serializer stamps on each one.')}
+
+        <div style="font-size:12.5px;color:#94A3B8;line-height:1.7;margin-bottom:16px">
+          Now the app calls <span style="${chip}">producer.send()</span>. The <b>serializer</b> sits between your object and the bytes on the wire and does four things, every record:
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">
+          ${[
+            { n:'1', t:'Extract schema', d:'Read the schema embedded in the generated <span style="'+chip+'">OrderPlaced</span> object you handed to <span style="'+chip+'">send()</span>.' },
+            { n:'2', t:'Resolve ID', d:'Look up schema → ID in the local cache. Miss → one call to the Registry → get <span style="'+chip+'">152</span> → cache it. Hit → use cached ID, no network.' },
+            { n:'3', t:'Serialize', d:'Encode the fields to compact Avro binary. Field names are <b>not</b> repeated per record.' },
+            { n:'4', t:'Stamp header', d:'Prepend <span style="'+chip+'">0x00</span> + <span style="'+chip+'">152</span> (4 bytes BE). <b>This is the alignment.</b>' },
+          ].map(x => `
+            <div style="background:#111827;border:1px solid #1E293B;border-radius:9px;padding:12px;position:relative">
+              <div style="width:22px;height:22px;border-radius:50%;background:#10B98122;border:1.5px solid #10B981;color:#10B981;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-bottom:8px">${x.n}</div>
+              <div style="font-size:12px;font-weight:700;color:#10B981;margin-bottom:5px">${x.t}</div>
+              <div style="font-size:10.5px;color:#94A3B8;line-height:1.55">${x.d}</div>
+            </div>`).join('')}
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+          ${codeBox('Producer — you never touch bytes or IDs', [
+            {t:'// serializer wired once, at startup', c:'#8b949e'},
+            {t:'props.put("value.serializer",', c:'#79c0ff'},
+            {t:'&nbsp;&nbsp;KafkaAvroSerializer.class);', c:'#79c0ff'},
+            {t:'props.put("schema.registry.url",', c:'#79c0ff'},
+            {t:'&nbsp;&nbsp;"http://registry:8081");', c:'#a5d6ff'},
+            {t:'props.put("auto.register.schemas",', c:'#79c0ff'},
+            {t:'&nbsp;&nbsp;"false");  // prod: CI registered it', c:'#ffa657'},
+            {t:'', c:'#8b949e'},
+            {t:'// just send a typed object:', c:'#8b949e'},
+            {t:'producer.send(new ProducerRecord<>(', c:'#7ee787'},
+            {t:'&nbsp;&nbsp;"orders", order.getId(), order));', c:'#7ee787'},
+          ])}
+          ${codeBox('What actually lands on the topic', [
+            {t:'byte[] on the wire:', c:'#8b949e'},
+            {t:'┌──────┬────────────┬──────────┐', c:'#475569'},
+            {t:'│ 0x00 │ 00 00 00 98 │ payload  │', c:'#ffa657'},
+            {t:'└──────┴────────────┴──────────┘', c:'#475569'},
+            {t:'&nbsp;magic&nbsp;&nbsp;id=152 (BE)&nbsp;&nbsp;Avro bytes', c:'#8b949e'},
+            {t:'', c:'#8b949e'},
+            {t:'// the broker stores this verbatim', c:'#8b949e'},
+            {t:'// it has NO idea a schema exists', c:'#8b949e'},
+            {t:'// the record points at 152; it', c:'#8b949e'},
+            {t:'// does not carry the schema itself', c:'#8b949e'},
+          ])}
+        </div>
+        <div style="font-size:11.5px;color:#94A3B8;line-height:1.6;background:#10B9810f;border-left:3px solid #10B981;border-radius:0 8px 8px 0;padding:10px 14px">
+          <b style="color:#10B981">Alignment = the ID, not the field layout.</b> The consumer reads <span style="${chip}">152</span> from the header, does one <span style="${chip}">GET /schemas/ids/152</span> (then caches it), and now holds the exact <b>writer</b> schema used to encode those bytes — so it decodes them correctly even if its own code is on a different version. That is why a record can outlive the code that wrote it: the ID always resolves back to the right schema.
+        </div>
+      </div>
+
+      <!-- first vs millionth -->
+      <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin:26px 0 12px">First record vs. the millionth — where the Registry actually sits</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:26px">
+        <div style="background:#111827;border:1px solid #EF444455;border-radius:10px;padding:14px 18px">
+          <div style="font-size:12px;font-weight:800;color:#EF4444;margin-bottom:8px">The 1st record (cold cache)</div>
+          <div style="font-size:11.5px;color:#94A3B8;line-height:1.7">Serializer cache is empty → <b>one</b> round trip to resolve the schema ID (or, with auto-register, to register it). Costs a single network hop, once per producer lifetime per schema. After that the ID is cached.</div>
+        </div>
+        <div style="background:#111827;border:1px solid #10B98155;border-radius:10px;padding:14px 18px">
+          <div style="font-size:12px;font-weight:800;color:#10B981;margin-bottom:8px">The millionth record (warm cache)</div>
+          <div style="font-size:11.5px;color:#94A3B8;line-height:1.7">Cache hit → the serializer stamps <span style="${chip}">0x00|152</span> straight from memory and <b>never calls the Registry</b>. The Registry is off the hot path entirely; it is consulted for <i>new</i> schemas, not for throughput.</div>
+        </div>
+      </div>
+
+      <div style="background:#06B6D412;border:1.5px solid #06B6D444;border-radius:12px;padding:18px 22px">
+        <div style="font-size:13px;font-weight:700;color:#06B6D4;margin-bottom:10px">Day 0 in one breath</div>
+        <div style="font-size:12.5px;color:#CBD5E1;line-height:1.75">A schema starts life as a <b>reviewed file in your repo</b>. Deploying it (ideally from <b>CI, with auto-register off</b>) hands it to the Registry, which runs the compatibility gate and assigns <b>subject · version · global ID</b>. From then on the producer's serializer <b>stamps that ID onto every record</b> — so records align to their schema by a 4-byte pointer, the broker stays oblivious, and any consumer can resolve the exact writer schema by ID. Define once, deploy with a gate, align forever.</div>
+      </div>
+
+    </div>`;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   TAB 3 — Wire Format (existing content, preserved)
    ───────────────────────────────────────────────────────────────────────── */
 function buildWire(container) {
   const tab = container.querySelector('#tab-wire');
