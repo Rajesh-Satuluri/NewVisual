@@ -12,6 +12,10 @@ export function mount(container) {
     tag: 'M17 · Operations',
     title: 'Performance Tuning',
     subtitle: 'Producer, consumer, and broker configs with animated impact meters',
+    definition: {
+      formal: "Performance tuning is the deliberate adjustment of producer, consumer, and broker configuration — batch size, linger, compression, fetch sizes, acks — to trade off throughput, latency, and durability for a given workload.",
+      easy: "Turning the knobs. Settings on writers, readers, and servers let you trade speed for safety (or latency for throughput). Tuning means picking the right knob positions for your workload.",
+    },
     tabs: [
       { id: 'producer', label: '⚡ Producer Tuning' },
       { id: 'consumer', label: '📥 Consumer Tuning' },

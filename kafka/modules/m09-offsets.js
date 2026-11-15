@@ -12,6 +12,10 @@ export function mount(container) {
     tag: 'M09 · Consumer Side',
     title: 'Offsets',
     subtitle: 'Committed vs current vs log-end offset — lag, replay, and consumer group management',
+    definition: {
+      formal: "An offset is the sequential position of a record within a partition. A consumer’s committed offset records how far it has processed, and the gap between that and the newest record is consumer lag — the basis for replay and progress tracking.",
+      easy: "An offset is a bookmark number for each message in a lane. Consumers save the bookmark of what they have finished; how far that bookmark is behind the latest message is their “lag.”",
+    },
     tabs: [
       { id: 'lag',    label: '📍 Lag Visualization' },
       { id: 'commit', label: '💾 Commit Strategies' },

@@ -12,6 +12,10 @@ export function mount(container) {
     tag: 'M11 · Delivery',
     title: 'Delivery Guarantees',
     subtitle: 'At-most-once, at-least-once, exactly-once — animated 3-lane comparison',
+    definition: {
+      formal: "A delivery guarantee is the contract for how many times a message may be processed when failures occur: at-most-once (0 or 1, risks loss), at-least-once (1 or more, risks duplicates), or exactly-once (effectively once, via idempotent producers and transactions).",
+      easy: "It is the promise about what happens to a message when something crashes: it might be dropped (at-most-once), it might be handled twice (at-least-once), or — with extra machinery — it counts exactly once.",
+    },
     tabs: [
       { id: 'lanes',  label: '🛡️ 3-Lane Comparison' },
       { id: 'eos',    label: '⚛️ EOS Deep Dive' },

@@ -24,6 +24,10 @@ export function mount(container) {
     tag: 'M03 · Foundation',
     title: 'Kafka Architecture',
     subtitle: 'Brokers, topics, partitions, replication — explained through a real Amazon order',
+    definition: {
+      formal: "Kafka’s architecture is the arrangement of its building blocks: brokers (servers) holding topics that are split into partitions, each partition replicated across brokers for durability, coordinated so producers and consumers can scale out horizontally.",
+      easy: "It is the floor plan of Kafka — a cluster of servers, topics split into lanes (partitions), with copies kept on other servers so nothing is lost if one machine dies.",
+    },
     tabs: [
       { id: 'diagram',  label: '🏗️ Cluster Diagram' },
       { id: 'amazon',   label: '📦 Amazon Order Flow' },

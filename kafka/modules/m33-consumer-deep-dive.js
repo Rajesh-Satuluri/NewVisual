@@ -13,6 +13,10 @@ export function mount(container) {
     tag: 'M33 · Consumer Side',
     title: 'Consumer Deep Dive',
     subtitle: 'Poll loop → Fetch protocol → Zero-copy → Deserialize — the read path traced through Amazon\'s Fulfillment Service',
+    definition: {
+      formal: "A consumer is the client that reads records from Kafka. This traces its read path: the poll loop that fetches batches, the broker-side fetch protocol, zero-copy transfer from disk to network, and deserialization — the mechanics behind how messages actually reach an application.",
+      easy: "The reader side, in detail. An app loops asking Kafka “anything new?”, the broker ships batches straight from disk to the network with minimal copying, and the bytes get turned back into objects the app understands.",
+    },
     tabs: [
       { id: 'pollloop',  label: '🔄 The Poll Loop' },
       { id: 'fetch',     label: '📡 Fetch Protocol' },

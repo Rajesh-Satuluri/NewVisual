@@ -12,6 +12,10 @@ export function mount(container) {
     tag: 'M07 · Core Internals',
     title: 'Replication',
     subtitle: 'Leader/follower replication, ISR, and what happens when a Prime Day broker dies',
+    definition: {
+      formal: "Replication keeps copies of each partition on multiple brokers: one leader handles all reads and writes while in-sync follower replicas (the ISR) copy its log — so a broker failure causes no data loss and a follower can be promoted to leader.",
+      easy: "Every lane of data is copied onto other servers. One copy is the “boss” everyone talks to; the backups stay in sync, so if the boss’s server dies a backup takes over with no data lost.",
+    },
     tabs: [
       { id: 'sim',    label: '💀 Kill-Broker Simulation' },
       { id: 'flow',   label: '🔄 Replication Flow' },

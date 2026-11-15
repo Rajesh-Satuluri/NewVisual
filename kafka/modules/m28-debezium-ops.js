@@ -28,6 +28,10 @@ export function mount(container) {
     tag: 'M28 · Change Data Capture',
     title: 'Debezium Config & Operations',
     subtitle: 'The connector properties that matter, and running it for real — replication-slot WAL growth, outages, missing WAL, heartbeats, and what to monitor and alert on.',
+    definition: {
+      formal: "Operating Debezium in production means setting the connector properties that govern capture behavior and running it reliably — managing replication-slot WAL growth, surviving outages and missing WAL, using heartbeats, and monitoring and alerting on connector health.",
+      easy: "The real-world side of Debezium: which settings matter, and how to keep it alive — stopping the database journal from ballooning, recovering from outages, and watching the right alarms.",
+    },
     tabs: [
       { id: 'config', label: '⚙️ Configuration' },
       { id: 'ops', label: '🚨 Operations & Failure' },

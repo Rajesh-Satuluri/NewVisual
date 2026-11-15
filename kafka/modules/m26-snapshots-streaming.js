@@ -28,6 +28,10 @@ export function mount(container) {
     tag: 'M26 · Change Data Capture',
     title: 'Snapshots & Streaming',
     subtitle: 'How a connector captures the data that existed before it started, then keeps up with new changes — snapshot modes, the consistent-read handoff, and incremental snapshots.',
+    definition: {
+      formal: "A snapshot is a connector’s initial consistent read of data that already existed before CDC started; streaming is the subsequent phase that tails the transaction log for new changes — with a careful handoff (and incremental snapshots) to avoid gaps or duplicates between the two.",
+      easy: "Two phases: first the tool takes a full photo of the existing rows (snapshot), then it switches to following new changes as they happen (streaming). The tricky part is stitching the two together with nothing missed or doubled.",
+    },
     tabs: [
       { id: 'theory', label: '📸 Snapshot → Stream' },
       { id: 'lab', label: '🧪 Snapshot vs Streaming' },

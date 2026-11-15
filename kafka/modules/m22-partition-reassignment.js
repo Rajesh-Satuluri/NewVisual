@@ -24,6 +24,10 @@ export function mount(container) {
     tag: 'M22 · Operations',
     title: 'Partition Reassignment',
     subtitle: 'Add brokers, rebalance leaders, decommission nodes — safely and without downtime',
+    definition: {
+      formal: "Partition reassignment is the operation of moving partition replicas between brokers — to add capacity, balance load, or decommission a node — executed as a controlled background data copy that keeps the cluster online throughout.",
+      easy: "Rearranging which servers hold which lanes of data — to add a new server, even out the load, or retire an old one — all while Kafka keeps running, with no downtime.",
+    },
     tabs: [
       { id: 'sim',      label: '🔀 Reassignment Sim' },
       { id: 'playbook', label: '📋 Ops Playbook' },

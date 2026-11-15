@@ -63,6 +63,10 @@ export function mount(container) {
     tag: 'M01 · Foundation',
     title: 'Why Kafka?',
     subtitle: 'From LinkedIn logs to the backbone of Amazon Prime — the distributed log that changed data engineering',
+    definition: {
+      formal: "Apache Kafka is a distributed, append-only commit log that lets many producers publish streams of events and many consumers read them independently — durably storing each event and replaying it on demand. It is a publish/subscribe messaging system built for high-throughput, fault-tolerant data pipelines.",
+      easy: "Think of a shared, never-ending notebook: apps keep writing new events to the end, and any number of other apps read through it at their own pace. Nothing is erased when it is read, so everyone gets their own copy of the story.",
+    },
     tabs: [
       { id: 'timeline', label: '📜 Timeline' },
       { id: 'compare',  label: '⚡ Kafka vs Queue' },

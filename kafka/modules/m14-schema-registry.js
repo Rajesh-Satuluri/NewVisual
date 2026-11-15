@@ -19,6 +19,10 @@ export function mount(container) {
     tag: 'M14 · Ecosystem',
     title: 'Schema Registry',
     subtitle: 'The service, Day 0 bootstrap, the wire format, the full lifecycle, subjects & formats, compatibility & evolution, the REST API & ops — end to end, with Amazon examples',
+    definition: {
+      formal: "The Schema Registry is a service that stores and versions the schemas (Avro, Protobuf, JSON) used by Kafka messages, assigns each a global ID that the serializer stamps into every record, and enforces compatibility rules so producers and consumers can evolve independently without breaking.",
+      easy: "A central rulebook for the shape of your messages. Instead of putting the full blueprint in every message, producers stamp a tiny ID and readers look it up. It also blocks changes that would break existing readers.",
+    },
     tabs: [
       { id: 'whatwhy',   label: '🏛️ What & Why' },
       { id: 'dayzero',   label: '🚀 Day 0: Define → Deploy → Align' },

@@ -12,6 +12,10 @@ export function mount(container) {
     tag: 'M08 · Consumer Side',
     title: 'Consumer Groups',
     subtitle: 'Partition assignment, rebalancing strategies, and cooperative vs stop-the-world — animated',
+    definition: {
+      formal: "A consumer group is a set of consumers that cooperatively read a topic, with each partition assigned to exactly one member so the work is divided. When members join or leave, Kafka rebalances the partition assignments.",
+      easy: "A team of readers sharing the work on one topic. Each lane is handled by exactly one teammate; if someone joins or quits, the lanes get redistributed automatically.",
+    },
     tabs: [
       { id: 'assign',    label: '👥 Assignment Demo' },
       { id: 'rebalance', label: '⚡ Rebalance Types' },

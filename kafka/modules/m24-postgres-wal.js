@@ -30,6 +30,10 @@ export function mount(container) {
     tag: 'M24 · Change Data Capture',
     title: 'Postgres WAL & Logical Decoding',
     subtitle: 'The log that log-based CDC reads: the write-ahead log, physical vs logical replication, LSNs, replication slots, publications, and REPLICA IDENTITY — then drive it yourself.',
+    definition: {
+      formal: "The write-ahead log (WAL) is Postgres’s ordered record of every change, written before the change reaches the data files. Logical decoding reads that log and turns low-level entries into row-level change events — the foundation log-based CDC consumes, tracked by LSNs and replication slots.",
+      easy: "Postgres writes down every change in a journal (the WAL) before applying it. Logical decoding reads that journal and translates it into plain “row X changed” events — which is how CDC tools tap in without touching your tables.",
+    },
     tabs: [
       { id: 'wal', label: '🪵 WAL & Logical Decoding' },
       { id: 'lab', label: '🧪 WAL & Slot Simulator' },

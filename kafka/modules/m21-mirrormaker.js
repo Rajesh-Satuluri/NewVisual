@@ -24,6 +24,10 @@ export function mount(container) {
     tag: 'M21 · Advanced',
     title: 'MirrorMaker 2',
     subtitle: 'Cross-cluster replication, active-active DR, offset translation — the multi-region Kafka story',
+    definition: {
+      formal: "MirrorMaker 2 is Kafka’s tool for replicating topics across clusters — copying records, configs, and consumer-offset positions between data centers — to enable cross-region disaster recovery and active-active architectures.",
+      easy: "A copier that mirrors one Kafka cluster into another, even in a different region — including everyone’s bookmarks — so you can fail over to the second site if the first goes down.",
+    },
     tabs: [
       { id: 'flow',    label: '🌐 Replication Flow' },
       { id: 'modes',   label: '🔄 Deployment Modes' },

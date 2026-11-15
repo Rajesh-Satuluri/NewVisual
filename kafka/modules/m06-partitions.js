@@ -12,6 +12,10 @@ export function mount(container) {
     tag: 'M06 · Core Internals',
     title: 'Partitions',
     subtitle: 'Distribution, ordering, parallelism, hot partitions — decisions Amazon makes for every topic',
+    definition: {
+      formal: "A partition is an ordered, immutable sequence of records within a topic. It is Kafka’s unit of parallelism and ordering: records are ordered within a partition but not across partitions, and a record’s key decides which partition it lands in.",
+      easy: "A topic is split into lanes called partitions. Order is guaranteed inside one lane but not between lanes, and a message’s key picks its lane. More lanes means more readers working at once.",
+    },
     tabs: [
       { id: 'balance', label: '⚖️ Load Distribution' },
       { id: 'hot',     label: '🔥 Hot Partition Demo' },

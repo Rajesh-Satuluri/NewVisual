@@ -11,6 +11,10 @@ export function mount(container) {
     tag: 'M15 · Operations',
     title: 'Security',
     subtitle: 'TLS encryption, SASL authentication, ACL authorization — Amazon\'s security stack',
+    definition: {
+      formal: "Kafka security is the combination of encryption in transit (TLS), authentication of clients (SASL — who are you?), and authorization via ACLs (what are you allowed to do?) — the three layers that protect data and control access to the cluster.",
+      easy: "Three locks on Kafka: TLS scrambles data on the wire, SASL checks who you are at the door, and ACLs decide which topics you are allowed to touch once you are in.",
+    },
     tabs: [
       { id: 'layers', label: '🔐 Security Layers' },
       { id: 'acl',    label: '📋 ACL Matrix' },

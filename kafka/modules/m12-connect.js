@@ -12,6 +12,10 @@ export function mount(container) {
     tag: 'M12 · Ecosystem',
     title: 'Kafka Connect',
     subtitle: 'Source & sink connectors, SMT, DLQ — streaming data in and out of Kafka',
+    definition: {
+      formal: "Kafka Connect is a framework for streaming data between Kafka and external systems using reusable connectors — source connectors pull data in, sink connectors push data out — with transformations (SMTs) and dead-letter queues, all configuration-driven and scalable without custom code.",
+      easy: "Connect is ready-made plumbing to move data in and out of Kafka without writing code. Source connectors pull data in from databases and APIs; sink connectors push it out to warehouses and stores — you just fill in config.",
+    },
     tabs: [
       { id: 'flow',  label: '🔌 Connect Flow' },
       { id: 'types', label: '📦 Connector Types' },

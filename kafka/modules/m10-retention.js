@@ -11,6 +11,10 @@ export function mount(container) {
     tag: 'M10 · Consumer Side',
     title: 'Retention & Compaction',
     subtitle: 'Time/size retention, log compaction, and tombstone records — visualized',
+    definition: {
+      formal: "Retention is Kafka’s policy for how long records are kept — by time or size — after which old segments are deleted. Log compaction is an alternative that keeps only the latest record per key, preserving the most recent state indefinitely.",
+      easy: "Retention decides when old messages get thrown away (after X days or X gigabytes). Compaction is a different mode that keeps only the newest value for each key — like keeping only the latest address per person.",
+    },
     tabs: [
       { id: 'retention',  label: '🗑️ Retention Policies' },
       { id: 'compaction', label: '🗜️ Log Compaction' },

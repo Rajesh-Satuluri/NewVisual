@@ -11,6 +11,10 @@ export function mount(container) {
     tag: 'M13 · Ecosystem',
     title: 'Kafka Streams',
     subtitle: 'DSL builder — map, filter, aggregate, join, state store — with Amazon pipeline example',
+    definition: {
+      formal: "Kafka Streams is a client library for building stream-processing apps that read from Kafka topics, transform records (map, filter, aggregate, join) using managed local state stores, and write results back to Kafka — with no separate processing cluster required.",
+      easy: "A code library that lets your own app transform Kafka data on the fly — filtering, counting, joining streams — and write the results back, without standing up a separate big-data cluster.",
+    },
     tabs: [
       { id: 'dsl',      label: '🌊 Stream DSL' },
       { id: 'topology', label: '🗺️ Topology View' },

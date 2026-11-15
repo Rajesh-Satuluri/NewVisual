@@ -28,6 +28,10 @@ export function mount(container) {
     tag: 'M25 · Change Data Capture',
     title: 'Debezium Architecture & Lifecycle',
     subtitle: 'What Debezium is (a Kafka Connect source connector), how it rides the Connect framework, and a connector\'s life from snapshot to streaming to failure and recovery.',
+    definition: {
+      formal: "Debezium is an open-source CDC platform implemented as a set of Kafka Connect source connectors. It reads a database’s transaction log, converts changes into Kafka events, and runs through a lifecycle from initial snapshot to continuous streaming, with built-in failure recovery.",
+      easy: "Debezium is the popular tool that does CDC for you. It plugs into Kafka Connect, reads the database’s journal, and streams out changes — first taking a full photo (snapshot), then following along live.",
+    },
     tabs: [
       { id: 'arch', label: '🏗️ What Debezium Is' },
       { id: 'life', label: '🔄 Connector Lifecycle' },

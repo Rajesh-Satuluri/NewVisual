@@ -12,6 +12,10 @@ export function mount(container) {
     tag: 'M05 · Core Internals',
     title: 'Broker Internals',
     subtitle: 'Log segments, page cache, zero-copy I/O — explained through Amazon\'s orders broker',
+    definition: {
+      formal: "A broker is a Kafka server that stores partition data on disk as segmented log files and serves reads and writes. Internally it relies on the OS page cache and zero-copy transfer to move data at near-network speed.",
+      easy: "A broker is one Kafka server. It writes messages to files on disk and hands them out to readers, leaning on the operating system’s memory tricks to stay fast.",
+    },
     tabs: [
       { id: 'segments',  label: '📁 Log Segments' },
       { id: 'pagecache', label: '🧠 Page Cache' },

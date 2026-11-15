@@ -23,6 +23,10 @@ export function mount(container) {
     tag: 'M02 · Foundation',
     title: 'Messaging Fundamentals',
     subtitle: 'Producers, brokers, topics, consumers — every concept explained through Amazon\'s order system',
+    definition: {
+      formal: "Messaging is the pattern of moving data between systems as discrete events through an intermediary — decoupling the apps that produce data (producers) from those that consume it (consumers) via named streams called topics on a broker.",
+      easy: "Instead of apps calling each other directly, they drop messages into labeled mailboxes (topics). Senders do not need to know who reads them, and readers do not need the sender to be online.",
+    },
     tabs: [
       { id: 'concepts', label: '📖 Core Concepts' },
       { id: 'flow',     label: '🔄 Message Journey' },

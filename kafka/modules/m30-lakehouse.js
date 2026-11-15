@@ -33,6 +33,10 @@ export function mount(container) {
     tag: 'M30 · CDC Integrations',
     title: 'Kafka → Lakehouse (Iceberg & Delta)',
     subtitle: 'Two distinct sink paths — Kafka Connect → Apache Iceberg and Spark Structured Streaming → Delta — the medallion architecture, and why appending events is not a current-state table.',
+    definition: {
+      formal: "A lakehouse is a data architecture that puts database-like tables (Apache Iceberg, Delta Lake) on cheap object storage. This module covers two sink paths from Kafka into it and the medallion (bronze/silver/gold) refinement — and why appending raw events is not the same as a current-state table.",
+      easy: "A lakehouse stores big analytics tables on cheap cloud storage but makes them behave like a database. The catch: dumping raw Kafka events in gives you a pile of changes, not a clean “current state” table — you have to refine them.",
+    },
     tabs: [
       { id: 'paths', label: '🧭 Two Paths' },
       { id: 'medallion', label: '🥉🥈🥇 Bronze → Silver → Gold' },

@@ -12,6 +12,10 @@ export function mount(container) {
     tag: 'M16 · Operations',
     title: 'Monitoring',
     subtitle: 'Live Grafana-style dashboard — lag, throughput, ISR, disk',
+    definition: {
+      formal: "Monitoring is the continuous collection and visualization of Kafka’s health metrics — consumer lag, throughput, in-sync replica count, disk usage — exposed via JMX and scraped into dashboards and alerts to detect problems before they cause outages.",
+      easy: "The dashboard and alarms for your cluster: are readers falling behind, is data flowing, are the backups healthy, is the disk filling up? You watch these so you catch trouble early.",
+    },
     tabs: [
       { id: 'dashboard', label: '📊 Live Dashboard' },
       { id: 'metrics',   label: '📐 Key Metrics' },

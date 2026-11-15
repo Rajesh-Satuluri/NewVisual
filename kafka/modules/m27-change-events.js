@@ -33,6 +33,10 @@ export function mount(container) {
     tag: 'M27 · Change Data Capture',
     title: 'Change Events & Data Contracts',
     subtitle: 'The exact shape of a change event — op codes, before/after, source metadata, deletes and tombstones — plus serialization, SMTs, and schema evolution.',
+    definition: {
+      formal: "A change event is the structured message a CDC tool emits for each row change — carrying an operation code (c/u/d/r), the before and after row images, and source metadata. Together with serialization, transformations, and schema evolution rules, its shape forms the data contract with consumers.",
+      easy: "Each change becomes a little packet that says what happened (created/updated/deleted), the row before and after, and where it came from. The agreed shape of that packet is the “contract” readers rely on.",
+    },
     tabs: [
       { id: 'envelope', label: '✉️ The Envelope' },
       { id: 'inspector', label: '🔬 Event Inspector' },

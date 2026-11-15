@@ -12,6 +12,10 @@ export function mount(container) {
     tag: 'M04 · Core Internals',
     title: 'Producer Deep Dive',
     subtitle: 'Serializer → Partitioner → Accumulator → Sender — traced through Amazon\'s Order Service',
+    definition: {
+      formal: "A producer is the client that publishes events to Kafka: it serializes each record, chooses a target partition, batches records in memory, and sends them to the partition leader — waiting for the acknowledgements its durability setting (acks) requires.",
+      easy: "The producer is the app doing the writing. It packs messages into envelopes, decides which lane each one goes to, bundles them for efficiency, and (optionally) waits for Kafka to confirm “got it.”",
+    },
     tabs: [
       { id: 'pipeline', label: '⚡ Pipeline Animation' },
       { id: 'config',   label: '⚙️ Key Configs' },
