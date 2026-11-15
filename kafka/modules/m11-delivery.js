@@ -83,9 +83,13 @@ function buildLanes(container) {
   const ctx = canvas.getContext('2d');
 
   const LANES = [
-    { y: 80,  label: 'At-Most-Once',  color: '#EF4444', commit: 'before', stages: ['Producer', 'Commit Offset', 'Process', 'Done'],       desc: 'Commit offset → process → crash → LOST' },
-    { y: 200, label: 'At-Least-Once', color: '#F59E0B', commit: 'after',  stages: ['Producer', 'Process', 'Commit Offset', 'Done'],       desc: 'Process → commit offset → crash → REPROCESS (duplicate)' },
-    { y: 320, label: 'Exactly-Once',  color: '#10B981', commit: 'atomic', stages: ['Producer', 'Process', 'Commit (atomic)', 'Done'],     desc: 'Atomic transaction: process + commit = one unit' },
+    // crashX = the x where the crash strikes this lane, in the critical gap:
+    //   before → after Commit Offset (280), before Process (500)
+    //   after  → after Process (280), before Commit Offset (500)
+    //   atomic → inside the single Process+Commit transaction block
+    { y: 80,  label: 'At-Most-Once',  color: '#EF4444', commit: 'before', crashX: 390, stages: ['Producer', 'Commit Offset', 'Process', 'Done'],       desc: 'Commit offset → process → crash → LOST' },
+    { y: 200, label: 'At-Least-Once', color: '#F59E0B', commit: 'after',  crashX: 390, stages: ['Producer', 'Process', 'Commit Offset', 'Done'],       desc: 'Process → commit offset → crash → REPROCESS (duplicate)' },
+    { y: 320, label: 'Exactly-Once',  color: '#10B981', commit: 'atomic', crashX: 390, stages: ['Producer', 'Process', 'Commit (atomic)', 'Done'],     desc: 'Atomic transaction: process + commit = one unit' },
   ];
 
   const packets = [];
@@ -104,7 +108,7 @@ function buildLanes(container) {
           { x: 500, y: lane.y + 30 },
           { x: 720, y: lane.y + 30 },
         ],
-        speed: 0.8,
+        speed: 1.5,
       }));
     });
   }
@@ -120,7 +124,15 @@ function buildLanes(container) {
     ctx.fillStyle = '#0A0E1A';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    LANES.forEach(lane => {
+    LANES.forEach((lane, li) => {
+      const packet = packets[li];
+      const crashDist = lane.crashX - 60;
+      // A crash only produces its verdict once the message has actually
+      // travelled to the critical point for this lane; until then the message
+      // is still in flight and nothing has been lost, duplicated or rolled back.
+      const reached = crashed && packet && packet.traveled >= crashDist - 0.5;
+      const px = packet ? Math.min(packet.traveled, crashDist) + 60 : lane.crashX;
+
       // Lane box
       drawRoundRect(ctx, 30, lane.y, 760, 100, 10, '#1E293B', lane.color + '44');
 
@@ -152,8 +164,8 @@ function buildLanes(container) {
         });
         // Fused atomic-transaction block spanning the two middle stages
         const bx = 230, bw = 320, by = lane.y + 16, bh = 40;
-        drawRoundRect(ctx, bx, by, bw, bh, 8, lane.color + (crashed ? '12' : '1F'), lane.color);
-        if (!crashed) {
+        drawRoundRect(ctx, bx, by, bw, bh, 8, lane.color + (reached ? '12' : '1F'), lane.color);
+        if (!reached) {
           ctx.textAlign = 'center';
           ctx.fillStyle = lane.color;
           ctx.font = 'bold 10px system-ui';
@@ -176,38 +188,53 @@ function buildLanes(container) {
         });
       }
 
-      // Crash marker
-      if (crashed) {
-        const crashX = lane.commit === 'atomic' ? 390 : 370;
-        ctx.font = 'bold 16px system-ui';
-        ctx.fillStyle = '#EF4444';
+      // Crash verdict — drawn at the message's actual (frozen) position, and
+      // only once the message has reached the crash point for this lane.
+      if (reached) {
         ctx.textAlign = 'center';
-        ctx.fillText('💥', crashX, lane.y + 38);
+        ctx.font = 'bold 16px system-ui';
+        ctx.fillText('💥', px - 42, lane.y + 33);
 
-        ctx.font = 'bold 10px system-ui';
+        ctx.font = 'bold 11px system-ui';
         if (lane.commit === 'before') {
+          // offset already committed, processing never ran → skipped on restart
           ctx.fillStyle = '#EF4444';
-          ctx.fillText('LOST!', crashX + 50, lane.y + 36);
+          ctx.fillText('CRASH after commit → message LOST', px, lane.y + 12);
         } else if (lane.commit === 'after') {
+          // processed but offset not yet committed → replayed on restart
           ctx.fillStyle = '#F59E0B';
-          ctx.fillText('RETRY', crashX + 50, lane.y + 36);
+          ctx.fillText('CRASH before commit → REPROCESSED (duplicate)', px, lane.y + 12);
         } else {
           // atomic: the whole transaction rolls back and is retried cleanly —
           // neither the process output nor the offset commit is left behind.
           ctx.fillStyle = '#10B981';
-          ctx.fillText('ROLLED BACK → RETRIED — nothing lost, nothing duplicated', crashX + 10, lane.y + 12);
+          ctx.fillText('ROLLED BACK → RETRIED — nothing lost, nothing duplicated', px, lane.y + 12);
         }
       }
     });
 
-    packets.forEach(p => { if (!crashed) p.update(dt); p.draw(ctx); });
+    // Message movement. Normally each message runs to Done. After a crash is
+    // simulated it advances only as far as its lane's crash point, then freezes
+    // there — so the message and its verdict always sit at the same stage.
+    packets.forEach((p, li) => {
+      if (!crashed) {
+        p.update(dt);
+      } else {
+        const crashDist = LANES[li].crashX - 60;
+        if (p.traveled < crashDist) {
+          p.update(dt);
+          if (p.traveled > crashDist) p.traveled = crashDist;
+        }
+      }
+      p.draw(ctx);
+    });
 
     raf = requestAnimationFrame(draw);
   }
 
   raf = requestAnimationFrame(ts => { lastT = ts; draw(ts); });
 
-  tab.querySelector('#dlv-crash').addEventListener('click', () => { crashed = true; });
+  tab.querySelector('#dlv-crash').addEventListener('click', () => { crashed = true; spawnPackets(); });
   tab.querySelector('#dlv-reset').addEventListener('click', () => { crashed = false; spawnPackets(); });
 
   return () => { if (raf) cancelAnimationFrame(raf); };
