@@ -111,5 +111,32 @@
       { q: 'Lineage in Purview helps you…', choices: ['Encrypt disks', 'Trace data from source through pipelines to reports for impact analysis/audit', 'Mask columns', 'Scale Spark'], answer: 1, explain: 'End-to-end lineage shows how data flows, enabling impact analysis, audit, and troubleshooting.' },
     ],
 
+    /* ── New topic pages (P2-4) ──────────────────────────────── */
+    'spark-notebooks': [
+      { q: 'What do Fabric notebooks run on?', choices: ['A single VM', 'Apache Spark pools over OneLake', 'Power BI', 'KQL only'], answer: 1, explain: 'Notebooks execute on Spark pools and read/write Delta tables in OneLake.' },
+      { q: 'What is a starter pool?', choices: ['A paid add-on', 'A pre-warmed Spark pool for near-instant session startup', 'A Delta table', 'A capacity SKU'], answer: 1, explain: 'Starter pools give fast session startup; custom pools let you size executors. Both draw on the capacity CUs.' },
+      { q: 'Where does notebook output land?', choices: ['Only in the notebook', 'As Delta tables in OneLake, shared with SQL endpoint + Direct Lake', 'In email', 'In a CSV only'], answer: 1, explain: 'Results written as Delta are instantly queryable by T-SQL and Direct Lake — one copy for every engine.' },
+    ],
+    'capacity-throttling': [
+      { q: 'What happens when a Fabric capacity is sustained over 100%?', choices: ['Nothing', 'Progressive throttling — interactive delays, then request rejection', 'Automatic refund', 'Data loss'], answer: 1, explain: 'Smoothing/bursting absorb spikes, but sustained overload throttles progressively: delays first, then rejection.' },
+      { q: 'What do bursting and smoothing achieve?', choices: ['Encryption', 'Absorb short spikes and spread consumption over time to avoid instant throttling', 'Delete data', 'Resize storage'], answer: 1, explain: 'Bursting handles spikes; smoothing averages usage over a window, effectively borrowing against future capacity.' },
+      { q: 'Which tool diagnoses capacity consumption?', choices: ['SSMS', 'The Microsoft Fabric Capacity Metrics app', 'VACUUM', 'Purview'], answer: 1, explain: 'The Capacity Metrics app shows which items consume CUs and when throttling occurs, so you can scale/isolate/optimize.' },
+    ],
+    'warehouse-ingestion': [
+      { q: 'Which command bulk-loads files into a Fabric Warehouse table?', choices: ['OPTIMIZE', 'COPY INTO', 'VACUUM', 'REFRESH'], answer: 1, explain: 'COPY INTO bulk-loads Parquet/CSV from OneLake/ADLS into a Warehouse table.' },
+      { q: 'What does OPTIMIZE do to Delta tables?', choices: ['Encrypts them', 'Compacts many small files into larger ones (with V-Order) for faster reads', 'Deletes rows', 'Adds columns'], answer: 1, explain: 'OPTIMIZE fixes the small-file problem by compacting files; V-Order speeds reads/BI.' },
+      { q: 'What does VACUUM reclaim?', choices: ['CPU', 'Storage from files no longer referenced by the Delta log (within retention)', 'Memory', 'Network'], answer: 1, explain: 'VACUUM removes stale, unreferenced data files, reclaiming storage while respecting the retention window.' },
+    ],
+    'permission-matrix': [
+      { q: 'What is the broadest Fabric access layer?', choices: ['Column-level security', 'Workspace roles (Admin/Member/Contributor/Viewer)', 'A masking policy', 'OneLake shortcuts'], answer: 1, explain: 'Workspace roles grant the coarsest access; finer control comes from item permissions and data-layer security.' },
+      { q: 'How do you grant access to a single asset without the whole workspace?', choices: ['You cannot', 'Share the item with Read/ReadData/Build permissions', 'Give Admin', 'Disable RLS'], answer: 1, explain: 'Item-level sharing grants granular permissions on one warehouse/model/report for least privilege.' },
+      { q: 'Where should sensitive-data rules (RLS/CLS/masking) be enforced for full coverage?', choices: ['Only in reports', 'At the data layer (warehouse/SQL endpoint) so every consumer path is covered', 'Only at the workspace', 'Nowhere'], answer: 1, explain: 'Enforcing at the data layer protects all T-SQL consumers, not just Power BI reports.' },
+    ],
+    'real-time-intelligence': [
+      { q: 'Where does Real-Time Intelligence store ingested events for analytics?', choices: ['A Warehouse', 'An Eventhouse (KQL database)', 'A semantic model', 'A Dataflow'], answer: 1, explain: 'Events land in an Eventhouse — a KQL database optimized for time-series/log analytics (also available as Delta in OneLake).' },
+      { q: 'What routes and lightly transforms incoming events?', choices: ['VACUUM', 'Eventstreams', 'OPTIMIZE', 'Deployment pipelines'], answer: 1, explain: 'Eventstreams ingest from Event Hubs/Kafka/IoT and route/transform events with low/no code.' },
+      { q: 'What triggers condition-based alerts/actions in Real-Time Intelligence?', choices: ['Copilot', 'Data Activator (Reflex)', 'Purview', 'V-Order'], answer: 1, explain: 'Data Activator watches for conditions on streaming data and fires alerts or actions — closing the event-to-response loop.' },
+    ],
+
   };
 })();

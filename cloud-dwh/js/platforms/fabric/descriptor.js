@@ -25,6 +25,8 @@
       items: [
         { id: "directlake", label: "DirectLake Mode", icon: "⚡" },
         { id: "capacities", label: "Capacities & F-SKUs", icon: "🧮" },
+        { id: "capacity-throttling", label: "Capacity & Throttling", icon: "🚦" },
+        { id: "warehouse-ingestion", label: "Ingestion & Maintenance", icon: "📥" },
         { id: "shortcuts", label: "Shortcuts", icon: "🔗" },
         { id: "mirroring", label: "Mirroring", icon: "🪞" },
         { id: "cross-db-queries", label: "Cross-Database Queries", icon: "🔀" },
@@ -40,12 +42,15 @@
         { id: "dataflows-gen2", label: "Dataflows Gen2", icon: "🔄" },
         { id: "git-deployment", label: "Git & Deployment Pipelines", icon: "🚀" },
         { id: "copilot", label: "Copilot in Fabric", icon: "🤖" },
+        { id: "spark-notebooks", label: "Spark & Notebooks", icon: "📓" },
+        { id: "real-time-intelligence", label: "Real-Time Intelligence", icon: "📡" },
       ],
     },
     {
       label: "🔐 Security & Governance",
       items: [
         { id: "rls-cls-masking", label: "RLS / CLS / Masking", icon: "🔒" },
+        { id: "permission-matrix", label: "Permission Model", icon: "🧷" },
         { id: "purview", label: "Microsoft Purview", icon: "🏷️" },
       ],
     },
