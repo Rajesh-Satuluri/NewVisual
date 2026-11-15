@@ -15,6 +15,7 @@
   P.navGroups = [
     { label: '🧭 Start Here', items: [
       { id: 'foundations-home', label: 'Why Fundamentals', icon: '🧭' },
+      { id: 'sql-playground', label: 'SQL Playground', icon: '🧪' },
     ] },
     { label: '🏛️ Foundations', items: [
       { id: 'fund-olap-oltp',    label: 'OLAP vs OLTP',            icon: '📊' },
