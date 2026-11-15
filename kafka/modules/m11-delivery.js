@@ -83,9 +83,9 @@ function buildLanes(container) {
   const ctx = canvas.getContext('2d');
 
   const LANES = [
-    { y: 80,  label: 'At-Most-Once',  color: '#EF4444', commit: 'before', desc: 'Commit offset → process → crash → LOST' },
-    { y: 200, label: 'At-Least-Once', color: '#F59E0B', commit: 'after',  desc: 'Process → commit offset → crash → REPROCESS (duplicate)' },
-    { y: 320, label: 'Exactly-Once',  color: '#10B981', commit: 'atomic', desc: 'Atomic transaction: process + commit = one unit' },
+    { y: 80,  label: 'At-Most-Once',  color: '#EF4444', commit: 'before', stages: ['Producer', 'Commit Offset', 'Process', 'Done'],       desc: 'Commit offset → process → crash → LOST' },
+    { y: 200, label: 'At-Least-Once', color: '#F59E0B', commit: 'after',  stages: ['Producer', 'Process', 'Commit Offset', 'Done'],       desc: 'Process → commit offset → crash → REPROCESS (duplicate)' },
+    { y: 320, label: 'Exactly-Once',  color: '#10B981', commit: 'atomic', stages: ['Producer', 'Process', 'Commit (atomic)', 'Done'],     desc: 'Atomic transaction: process + commit = one unit' },
   ];
 
   const packets = [];
@@ -133,8 +133,9 @@ function buildLanes(container) {
       ctx.fillStyle = '#94A3B8';
       ctx.fillText(lane.desc, 50, lane.y + 82);
 
-      // Stage markers
-      const stages = ['Producer', 'Commit Offset', 'Process', 'Done'];
+      // Stage markers — order differs per lane (at-least-once & exactly-once
+      // process BEFORE committing the offset; at-most-once commits first).
+      const stages = lane.stages;
       const xs = [60, 280, 500, 720];
       stages.forEach((s, i) => {
         ctx.font = '9px system-ui';
