@@ -115,9 +115,12 @@
     const list = platforms();
     const track = document.createElement('div');
     track.className = 'plat-track';
+    track.setAttribute('role', 'group');
+    track.setAttribute('aria-label', 'Choose platform');
     list.forEach(id => {
       const b = document.createElement('button');
       b.type = 'button'; b.className = 'plat-seg'; b.dataset.platform = id;
+      b.setAttribute('aria-pressed', 'false');
       b.textContent = P(id).meta.short;
       b.addEventListener('click', () => setPlatform(id));
       track.appendChild(b);
@@ -125,6 +128,7 @@
     if (list.length > 1 && viz.P.compare && viz.P.compare.meta) {
       const c = document.createElement('button');
       c.type = 'button'; c.className = 'plat-seg plat-seg--compare'; c.dataset.platform = 'compare';
+      c.setAttribute('aria-pressed', 'false');
       c.textContent = '⇄ Compare';
       c.addEventListener('click', () => setPlatform('compare'));
       track.appendChild(c);
@@ -133,7 +137,9 @@
   }
   function _syncSwitcher() {
     document.querySelectorAll('#platform-switch .plat-seg').forEach(b => {
-      b.classList.toggle('active', b.dataset.platform === _platform);
+      const on = b.dataset.platform === _platform;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', String(on));
     });
   }
 
@@ -188,6 +194,9 @@
     }
     canvas.classList.remove('loading');
     if (window.innerWidth <= 1024 && viz._closeMobileNav) viz._closeMobileNav();
+    // Announce just the module to screen readers (not the whole canvas).
+    const ann = document.getElementById('route-announcer');
+    if (ann) ann.textContent = P().meta.label + ': ' + target.label;
     document.dispatchEvent(new CustomEvent('cdwh:navigate', { detail: { id: target.id, platform: _platform } }));
   }
 

@@ -22,6 +22,33 @@
       document.addEventListener('mouseout',   this._onMouseOut.bind(this));
       document.addEventListener('mousemove',  this._onMouseMove.bind(this));
       document.addEventListener('scroll', () => this.hide(), true);
+      // Keyboard + touch so the glossary is reachable without a mouse.
+      document.addEventListener('focusin',  this._onFocusIn.bind(this));
+      document.addEventListener('focusout', () => this.hide());
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') this.hide(); });
+      document.addEventListener('touchstart', this._onTouch.bind(this), { passive: true });
+    },
+
+    _contentFor(target) {
+      const content = target.dataset.tooltip;
+      const title = target.dataset.tooltipTitle;
+      return title ? `<strong>${title}</strong>${content}` : content;
+    },
+
+    _onFocusIn(e) {
+      const target = e.target.closest && e.target.closest('[data-tooltip]');
+      if (!target) return;
+      clearTimeout(this._hideTimer);
+      const r = target.getBoundingClientRect();
+      this.show(this._contentFor(target), r.left + r.width / 2, r.bottom);
+    },
+
+    _onTouch(e) {
+      const target = e.target.closest && e.target.closest('[data-tooltip]');
+      if (!target) { this.hide(); return; }
+      const t = e.touches && e.touches[0];
+      const r = target.getBoundingClientRect();
+      this.show(this._contentFor(target), t ? t.clientX : r.left + r.width / 2, r.bottom);
     },
 
     show(content, x, y) {
