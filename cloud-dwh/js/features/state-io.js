@@ -54,24 +54,37 @@
   /* Parse a stored JSON value; returns {ok, val}. */
   function _json(raw) { try { return { ok: true, val: JSON.parse(raw) }; } catch (_) { return { ok: false }; } }
 
-  /* Progress-preserving merge of one incoming key against local. */
+  /* Progress-preserving merge of one incoming key against local.
+     Delegates to cloudsync's type-aware mergers so import and cloud-sync
+     share one engine (the old numeric quiz merge used Number() on the
+     {best,total,ts} object, got NaN, and let a lower incoming score win). */
   function _mergeValue(key, localRaw, incomingRaw) {
     if (localRaw == null) return incomingRaw;
     if (incomingRaw === localRaw) return localRaw;
 
-    // Quiz best scores: numeric max wins.
-    if (/quiz/.test(key)) {
-      const a = Number(localRaw), b = Number(incomingRaw);
-      if (!isNaN(a) && !isNaN(b)) return String(Math.max(a, b));
+    const M = window.CDWH && window.CDWH.cloud && window.CDWH.cloud._merge;
+    if (M) {
+      if (/-quiz-/.test(key))    return M.mergeQuiz(localRaw, incomingRaw);     // higher best wins, never regress
+      if (/-visited$/.test(key)) return M.unionArrays(localRaw, incomingRaw);   // union
+      if (/-prog-/.test(key))    return M.mergeProg(localRaw, incomingRaw);     // item-wise OR-merge
+      return incomingRaw; // prefs/theme/etc: the imported copy wins
     }
-    // Visited lists: union of arrays (order-independent).
-    if (/visited/.test(key)) {
+
+    // Fallback if cloudsync.js is not present: keep the higher quiz best score.
+    if (/-quiz-/.test(key)) {
+      const lo = _json(localRaw), io = _json(incomingRaw);
+      if (lo.ok && io.ok && lo.val && io.val && typeof lo.val.best === 'number' && typeof io.val.best === 'number') {
+        if (io.val.best > lo.val.best) return incomingRaw;
+        if (lo.val.best > io.val.best) return localRaw;
+        return (io.val.ts || 0) > (lo.val.ts || 0) ? incomingRaw : localRaw;
+      }
+    }
+    if (/-visited$/.test(key)) {
       const la = _json(localRaw), ia = _json(incomingRaw);
       if (la.ok && ia.ok && Array.isArray(la.val) && Array.isArray(ia.val)) {
         return JSON.stringify([...new Set([...la.val, ...ia.val])]);
       }
     }
-    // Progress records ({items:{id:{done,correct,ts}}}): item-wise merge.
     if (/-prog-/.test(key)) {
       const lo = _json(localRaw), io = _json(incomingRaw);
       if (lo.ok && io.ok && lo.val && io.val && lo.val.items && io.val.items) {
