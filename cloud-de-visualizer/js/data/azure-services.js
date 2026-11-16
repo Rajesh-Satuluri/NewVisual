@@ -2077,6 +2077,175 @@
         { q: 'How would you monitor a data pipeline built on ADF and Databricks?', a: 'Enable diagnostic settings on ADF and Databricks to ship run/activity and cluster/job logs to a Log Analytics workspace. Use KQL to track failed activities, durations and data volumes; build a Workbook for pipeline SLAs and freshness; and configure alert rules to fire on failures, latency breaches, or storage throttling so issues are caught before users report them.' },
       ],
     },
+    /* ── DEVOPS & CI/CD ─────────────────────────────────────── */
+    {
+      id: 'azure-pipelines', name: 'Azure Pipelines', category: 'devops',
+      aka: 'Azure DevOps Pipelines — YAML (pipeline-as-code) and Classic',
+      tagline: 'Azure DevOps’ CI/CD engine: build, test and deploy any language to any cloud, defined as versioned YAML, run on managed or self-hosted agents, and gated by environments, approvals and checks.',
+      keyFacts: [
+        { k: 'Definition', v: 'YAML (pipeline-as-code) or Classic UI' },
+        { k: 'Hierarchy', v: 'stages → jobs → steps' },
+        { k: 'Compute', v: 'Microsoft-hosted or self-hosted agents' },
+        { k: 'Auth to Azure', v: 'Service connection (SPN / MI / workload identity federation)' },
+      ],
+      what: {
+        lead: 'Azure Pipelines is the CI/CD service inside Azure DevOps. You describe your build-test-deploy process — ideally as a YAML file committed next to your code — and the service runs it on agents whenever code changes, on a schedule, or on demand, promoting the same validated artifact through environments to production.',
+        bullets: [
+          { h: 'Pipeline-as-code (YAML)', d: 'The pipeline lives in the repo as azure-pipelines.yml, so it is versioned, code-reviewed and promoted like any other source — the modern default over the Classic visual designer.' },
+          { h: 'stages → jobs → steps', d: 'A stage is a major phase (Build, Test, DeployProd); a job runs on a single agent and jobs can run in parallel; a step is one task or script.' },
+          { h: 'Any language, any target', d: '.NET, Python, Node, Java, containers — deploy to Azure, AKS, VMs, other clouds or on-prem. Hundreds of built-in tasks plus a marketplace.' },
+        ],
+      },
+      why: {
+        lead: 'Shipping data and software reliably means every change is built, tested and deployed the same way, with no manual steps in higher environments. Azure Pipelines makes that process a reviewable artifact and enforces gates between stages.',
+        bullets: [
+          { h: 'Consistency & traceability', d: 'The same pipeline runs for every change; each run links commits and work items to what was deployed where, so you can always answer “what shipped to prod and when”.' },
+          { h: 'Quality gates before prod', d: 'Build validation on PRs, automated tests, and environment approvals/checks stop unvalidated changes from reaching production.' },
+          { h: 'Elastic, reproducible compute', d: 'Microsoft-hosted agents give a clean VM per run; self-hosted agents reach private networks and carry custom tooling — you never hand-build a release box.' },
+        ],
+      },
+      how: {
+        lead: 'A YAML pipeline declares triggers, the agent pool, variables, and a tree of stages/jobs/steps. Deployment jobs target an environment, which is where approvals and checks attach. Expressions come in three flavours: ${{ }} compile-time, $( ) runtime macro, and $[ ] runtime.',
+        bullets: [
+          { h: 'Triggers', d: 'trigger: (CI on push), pr: (PR validation — GitHub/Bitbucket only; Azure Repos uses branch-policy build validation), schedules: (cron), and pipeline/resource triggers.' },
+          { h: 'Deployment jobs + environments', d: 'A deployment: job targets an environment and gets deployment history and strategies (runOnce / rolling / canary) automatically.' },
+          { h: 'Templates for reuse & governance', d: 'step/job/stage/variable templates with typed parameters; extends templates let a central team enforce mandatory steps app teams cannot remove.' },
+        ],
+        code: {
+          lang: 'yaml (azure-pipelines.yml)',
+          text: "trigger:\n  branches: { include: [ main ] }\n  paths: { include: [ src/* ] }   # monorepo: build only on src changes\n\nvariables:\n  - group: prod-secrets            # variable group (can link to Key Vault)\n\npool:\n  vmImage: ubuntu-latest           # Microsoft-hosted agent\n\nstages:\n  - stage: Build\n    jobs:\n      - job: build\n        steps:\n          - script: dotnet build -c Release\n          - task: PublishPipelineArtifact@1\n            inputs: { targetPath: '$(Build.ArtifactStagingDirectory)', artifact: drop }\n\n  - stage: DeployProd\n    dependsOn: Build\n    jobs:\n      - deployment: prod\n        environment: production      # approvals/checks attach here\n        strategy:\n          canary:\n            increments: [ 10, 50 ]\n            deploy:\n              steps:\n                - download: current\n                - script: ./deploy.sh",
+        },
+      },
+      deUseCase: {
+        lead: 'For data engineering, Azure Pipelines is how pipeline code and infrastructure ship safely — most commonly promoting Azure Data Factory across environments and deploying Databricks jobs, with data-quality checks as gates.',
+        bullets: [
+          { h: 'ADF CI/CD', d: 'The Dev factory is Git-connected; Publish generates ARM templates on the adf_publish branch; an Azure Pipeline deploys those templates to QA and Prod, overriding per-environment parameters (endpoints, Key Vault URIs, storage paths) with approval gates — nobody edits higher environments by hand.' },
+          { h: 'Databricks deployment', d: 'Deploy notebooks/jobs/clusters as code with Databricks Asset Bundles (DABs) run from a pipeline stage, promoted dev → prod.' },
+          { h: 'Data quality as a gate', d: 'Run schema/row-count/freshness checks as a stage; branch to a quarantine/alert path instead of promoting bad data.' },
+        ],
+      },
+      integrations: [
+        { id: 'data-factory', label: 'Azure Data Factory', note: 'ARM template promotion via adf_publish' },
+        { id: 'key-vault', label: 'Azure Key Vault', note: 'secrets via variable group / AzureKeyVault task' },
+        { label: 'Azure Repos / GitHub', note: 'source + branch-policy build validation' },
+        { label: 'Azure Artifacts', note: 'publish/consume package feeds' },
+        { label: 'AKS / ACR', note: 'build image → push → deploy to Kubernetes' },
+      ],
+      runtime: {
+        lead: 'At runtime the pipeline is queued, an agent is leased from a pool, the YAML is compiled (template/${{}} expansion) and then each job runs its steps on a clean or persistent agent. Parallelism is bounded by purchased parallel jobs.',
+        bullets: [
+          { h: 'Agent lifecycle', d: 'Microsoft-hosted: a fresh VM per job, discarded after — no state leaks but no warm cache. Self-hosted: a persistent machine you maintain, with warm caches and private-network reach.' },
+          { h: 'Parallelism & matrix', d: 'Concurrent jobs are capped by parallel-job grants; strategy: matrix fans one job into many combinations; maxParallel caps concurrency.' },
+          { h: 'Artifacts between stages', d: 'PublishPipelineArtifact / download move build outputs across jobs and stages; the Cache@2 task speeds dependency restores (best-effort, unlike guaranteed artifacts).' },
+        ],
+      },
+      architecture: {
+        lead: 'Azure Pipelines separates a cloud control plane (orchestration, queueing, YAML compilation, approvals, logs) from the execution plane (agents in pools that actually run jobs). Understanding compile-time vs runtime and the agent/pool model is what interviewers probe.',
+        bullets: [
+          { h: 'Control plane vs agents', d: 'The service parses and schedules the run and evaluates checks; agents (listener processes) poll their pool, lease a job, run steps, and stream logs back. No inbound firewall hole is needed — self-hosted agents dial out.' },
+          { h: 'Compile-time vs runtime', d: 'Templates and ${{ }} expressions expand when the YAML compiles (before any step runs), fixing the shape of the run; $( ) macros and $[ ] runtime expressions resolve during execution. Conditional structure must use compile-time; conditional values can use runtime.' },
+          { h: 'Agent pools & capabilities', d: 'A pool groups interchangeable agents; agents advertise capabilities and jobs declare demands so work lands on a matching agent. Pools are shared across projects via security.' },
+          { h: 'Environments as deploy targets', d: 'An environment is a logical collection of resources with deployment history and the attach point for approvals and checks — the governance seam between a built artifact and production.' },
+        ],
+      },
+      security: {
+        lead: 'Pipeline security centers on how jobs authenticate to Azure (service connections), how secrets are stored and surfaced, and how deployments are gated. The modern, secretless path is workload identity federation.',
+        bullets: [
+          { h: 'Service connections', d: 'An Azure Resource Manager service connection holds the credential a pipeline uses to reach Azure. Options: service principal (secret/cert — rotation burden), managed identity, or workload identity federation (OIDC trust, no stored secret) — prefer WIF.' },
+          { h: 'Secret handling', d: 'Secret variables are masked in logs and are NOT auto-injected into scripts — you must map them explicitly via env:. Prefer Key Vault-linked variable groups or the AzureKeyVault task so secrets never live in ADO.' },
+          { h: 'Resource authorization', d: 'Pipelines must be explicitly authorized to use a service connection, environment, variable group or repo; checks on those resources (branch control, approvals) gate who/what can consume them.' },
+          { h: 'Approvals & checks', d: 'Environment checks — manual approvals, branch control, business hours, invoke-REST, query Azure Monitor alerts, exclusive lock — are the YAML successor to Classic release gates.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating pipelines means watching run health, making failures recoverable, and keeping deployments auditable. Environments give deployment history; retries, timeouts and conditions make runs resilient.',
+        bullets: [
+          { h: 'Resilience', d: 'Per-step retryCountOnTaskFailure, job timeouts, condition: and dependsOn let a pipeline fail fast, retry transient steps, and run cleanup even on failure (condition: always()).' },
+          { h: 'Deployment history & rollback', d: 'Each environment records what deployed and from which commit; redeploying a previous successful run is the common rollback. Canary/rolling strategies limit blast radius.' },
+          { h: 'Observability', d: 'Run/stage/job logs, test and coverage publishing, and pipeline analytics (pass rate, duration) surface flaky stages; alerts/notifications fire on failures.' },
+          { h: 'Agent fleet', d: 'For self-hosted pools, keep agents patched and right-sized, scale with VM scale-set agents, and isolate privileged pools from untrusted PR builds.' },
+        ],
+      },
+      cost: {
+        lead: 'Azure Pipelines bills on parallelism, not per pipeline. You buy parallel jobs; Microsoft-hosted and self-hosted parallelism are priced separately, and self-hosted still needs your own VM/infra. (Free grants exist for public projects and a limited private tier — price against the official Azure DevOps pricing page.)',
+        bullets: [
+          { h: 'Parallel jobs', d: 'Concurrency is the unit of cost: one Microsoft-hosted parallel job runs one job at a time; more concurrency = more parallel-job grants. Self-hosted parallel jobs are cheaper per unit but you pay for the machines.' },
+          { h: 'Hosted vs self-hosted trade-off', d: 'Hosted removes maintenance but has per-job spin-up and capped minutes; self-hosted amortizes with warm caches and big builds but adds ops/patching cost.' },
+          { h: 'Cost levers', d: 'Cache dependencies, filter triggers with path filters, fail fast, right-size agents, and avoid matrix fan-out beyond what you need.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'How a commit becomes a gated production deployment, end to end.',
+        steps: [
+          { h: 'Commit / open PR', d: 'A developer pushes to a feature branch and opens a PR into main. On Azure Repos, a branch policy runs the pipeline as build validation (YAML pr: triggers apply only to GitHub/Bitbucket).' },
+          { h: 'CI stage runs', d: 'The service queues the run, leases an agent, compiles the YAML (template/${{}} expansion), then builds, tests and publishes a pipeline artifact.' },
+          { h: 'Merge triggers CD', d: 'On merge to main, the CI trigger fires the full pipeline; the Build stage produces the artifact the deploy stages consume.' },
+          { h: 'Gate at the environment', d: 'The DeployProd deployment job targets the production environment; its approval/check (manual approval, business hours, Monitor query) must pass before any step runs.' },
+          { h: 'Deploy with a strategy', d: 'A canary/rolling strategy ships to a slice first, observes, then ramps to 100%. Deployment history records the commit and approver for audit; a prior run can be redeployed to roll back.' },
+        ],
+        note: 'Simplified; exact trigger, environment-check and strategy behavior is defined in the Azure Pipelines documentation.',
+      },
+      examples: [{
+        title: 'Promote Azure Data Factory dev → prod with ARM templates and an approval gate',
+        requirement: 'Ship ADF changes from the Git-connected Dev factory to Prod with no manual editing in Prod, overriding environment-specific parameters and requiring a human approval before Prod.',
+        input: 'A Dev data factory connected to Azure Repos; Publish has generated ARM templates on the adf_publish branch.',
+        architecture: 'Azure Repos (adf_publish) → Azure Pipeline (Build stage validates/stages ARM, Deploy stage runs ARM deployment) → production environment with a manual-approval check → target Prod factory via an ARM service connection.',
+        code: {
+          lang: 'yaml (adf deploy, illustrative)',
+          text: "trigger:\n  branches: { include: [ adf_publish ] }\n\nstages:\n  - stage: DeployProd\n    jobs:\n      - deployment: adfProd\n        environment: adf-production      # manual approval attached here\n        strategy:\n          runOnce:\n            deploy:\n              steps:\n                - task: AzureResourceManagerTemplateDeployment@3\n                  inputs:\n                    deploymentScope: 'Resource Group'\n                    azureResourceManagerConnection: 'sc-prod-wif'\n                    resourceGroupName: 'rg-data-prod'\n                    csmFile: 'ARMTemplateForFactory.json'\n                    overrideParameters: >-\n                      -factoryName adf-prod\n                      -LS_KeyVault_url https://kv-prod.vault.azure.net/",
+        },
+        steps: [
+          'Connect the Dev factory to Git; author on feature branches, PR into the collaboration branch.',
+          'Publish in ADF to generate ARM templates on adf_publish.',
+          'Pipeline Build stage stages/validates the ARM output as an artifact.',
+          'DeployProd deployment job targets the adf-production environment (manual approval) and runs the ARM deployment with overridden parameters.',
+        ],
+        output: 'Prod factory is updated to match Dev, with per-environment endpoints/Key Vault URIs substituted, only after an approver signs off.',
+        validation: 'Run a smoke pipeline in Prod; confirm linked services point at Prod resources and the approval + deployment appear in the environment history.',
+        errorHandling: 'If triggers run during deploy, stop them before and restart after. An auth failure to Prod usually means the service connection lacks a role assignment on the target resource group.',
+        production: 'Use workload identity federation for the service connection (no secrets), parameterize every environment-specific value, and gate Prod with approvals + business hours.',
+        cleanup: 'Disable the pipeline or remove the environment approval in non-prod experiments; revoke unused service-connection role assignments.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'A YAML pr: trigger on an Azure Repos Git repo never runs the pipeline when a pull request is opened.',
+          evidence: 'Pushes trigger CI fine, but opening/updating a PR runs nothing; the pipeline has a pr: block that works for a GitHub mirror of the same repo.',
+          causes: ['The repo is Azure Repos Git, where YAML pr: triggers are not supported', 'No branch policy build validation is configured on the target branch', 'The build-validation policy points at a different pipeline'],
+          investigation: ['Confirm the repo type is Azure Repos Git (not GitHub/Bitbucket)', 'Check Project Settings → Repos → branch policies on the target branch for a Build Validation entry', 'Verify the build-validation policy references this pipeline'],
+          rootCause: 'For Azure Repos Git, PR validation is driven by branch policies, not the YAML pr: trigger, so the pr: block is ignored.',
+          remediation: ['Add a Build Validation branch policy on the target branch pointing at this pipeline', 'Keep the YAML pr: block only for GitHub/Bitbucket repos', 'Set the policy required/optional and path filters as needed'],
+          validation: 'Open a PR into the protected branch and confirm the build-validation run appears on the PR and blocks completion until green.',
+          prevention: 'Document the repo-type difference; standardize on branch-policy build validation for all Azure Repos pipelines.',
+        },
+        {
+          symptom: 'A deployment step fails because a secret is empty, even though the secret variable is defined in a variable group.',
+          evidence: 'Logs show the variable as *** (masked) but the script sees an empty value; non-secret variables in the same group resolve fine.',
+          causes: ['Secret variables are not auto-mapped into the script environment', 'The variable group is not linked/authorized for the pipeline or stage', 'Using $(secret) inside a script step without an explicit env: mapping'],
+          investigation: ['Confirm the variable group is linked and the pipeline is authorized to use it', 'Check whether the secret is mapped via env: on the step', 'Verify the Key Vault link (if used) and the service-connection access policy'],
+          rootCause: 'Secret variables are intentionally not injected into the process environment; they must be passed explicitly, so an unmapped $(secret) is empty at runtime.',
+          remediation: ['Map the secret on the step: env: { MY_SECRET: $(mySecret) }', 'Authorize the variable group / Key Vault for the pipeline', 'For Key Vault, ensure the service connection has get/list secret permissions'],
+          validation: 'Re-run the step; the script receives the secret value (still masked in logs) and the deployment succeeds.',
+          prevention: 'Always map secrets via env:, keep secrets in Key Vault-linked groups, and least-privilege the service connection.',
+        },
+      ],
+      certMapping: {
+        lead: 'Azure Pipelines is the core of Microsoft’s DevOps certification. It also underpins the CI/CD objectives data engineers meet when promoting ADF/Fabric assets.',
+        items: [
+          { label: 'AZ-400 Designing and Implementing Microsoft DevOps Solutions (Expert)', objectives: ['YAML pipelines, stages/jobs/steps, templates', 'Agents, pools and parallelism', 'Environments, approvals, gates and deployment strategies', 'Secrets, service connections and secure files'] },
+          'Relevant to DP-700 / data CI-CD workflows: promoting Fabric/ADF assets across environments with gated pipelines.',
+        ],
+      },
+      interview: [
+        { q: 'What is the structure of a YAML pipeline in Azure DevOps?', a: 'A pipeline is a tree of stages → jobs → steps. A stage is a major phase like Build or DeployProd; a job runs on a single agent and jobs can run in parallel; a step is one task or script. Triggers, the agent pool and variables sit at the top. Deployment jobs target an environment, which is where approvals and checks attach.' },
+        { q: 'How do PR triggers differ between Azure Repos and GitHub?', a: 'The YAML pr: trigger works for GitHub and Bitbucket. For Azure Repos Git it is ignored — you configure PR validation through a branch policy’s Build Validation on the target branch. Getting this right is a common signal of real Azure DevOps experience.' },
+        { q: 'Microsoft-hosted vs self-hosted agents — when do you use each?', a: 'Microsoft-hosted give a fresh, maintained VM per job — great for standard public builds, no maintenance, but capped minutes and no warm cache. Self-hosted are persistent machines you manage — needed for private-network/on-prem access, custom or licensed tooling, and large builds that benefit from warm caches. You group agents into pools and match work with capabilities/demands.' },
+        { q: 'How do you handle secrets in a pipeline?', a: 'Store them in a Key Vault-linked variable group (or use the AzureKeyVault task) so they never live in ADO. Secret variables are masked in logs and are not auto-injected into scripts — you must map them explicitly via env:. For auth to Azure, prefer a service connection using workload identity federation, which uses OIDC and stores no secret at all.' },
+        { q: 'What are environments, approvals and gates?', a: 'An environment is a named deployment target (dev/staging/prod) with deployment history. Approvals and checks attach to the environment: manual approvals, branch control, business hours, invoke-REST, query Azure Monitor alerts, exclusive lock. An approval is a human sign-off; a gate/check is an automated condition that must pass before the deployment job runs.' },
+        { q: 'Explain the deployment strategies.', a: 'In a deployment job you choose runOnce (deploy once, simplest), rolling (update instances in batches), or canary (ship to a small percentage first, observe, then ramp). Canary and rolling limit blast radius and give you a point to abort or roll back by redeploying the previous successful run.' },
+        { q: 'How do templates help, and what does extends add?', a: 'step/job/stage/variable templates let you reuse YAML with typed parameters — DRY pipelines. An extends template enforces governance: a pipeline extends a central template, so a platform/security team can require steps (scanning, approvals) that app teams cannot remove. Combined with required-template checks, it is how large orgs standardize pipelines.' },
+        { q: 'How would you design CI/CD for Azure Data Factory?', a: 'Connect only the Dev factory to Git; author on feature branches and PR into the collaboration branch. Publish generates ARM templates on the adf_publish branch. An Azure Pipeline deploys those templates to QA then Prod, overriding environment-specific parameters (endpoints, Key Vault URIs, storage paths) per stage, gated by approvals, and stops/starts triggers around the deploy. The point interviewers listen for: the same artifact promotes across environments with only parameters changing, and no one edits higher environments by hand.' },
+      ],
+    },
   ];
 
   TV.AzureServices = AZURE_SERVICES;

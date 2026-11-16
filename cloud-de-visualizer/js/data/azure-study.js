@@ -96,5 +96,14 @@
         what: [{ kind: 'insight', body: 'Azure Monitor + Log Analytics is the observability plane: metrics, logs and alerts across services, queried with KQL — the place you watch pipeline health and set up alerting.' }],
       },
     },
+    'azure-pipelines': {
+      level: 'core',
+      callouts: {
+        what: [{ kind: 'insight', body: 'Azure Pipelines is CI/CD as code: a YAML file of stages → jobs → steps, versioned next to your app, run on agents, and gated by environments. For DE it is how ADF and Databricks changes promote safely to prod.' }],
+        how: [{ kind: 'gotcha', body: 'The YAML pr: trigger works for GitHub/Bitbucket but is IGNORED for Azure Repos Git — there you configure PR validation through a branch policy’s Build Validation. This is the single most common Azure Pipelines interview gotcha.' }],
+        security: [{ kind: 'interview', body: 'Secrets: secret variables are masked and NOT auto-injected — map them with env:. For Azure auth prefer a service connection using workload identity federation (OIDC, no stored secret) over a service-principal secret.' }],
+        runtime: [{ kind: 'tip', body: 'Microsoft-hosted agents = clean VM per job, zero maintenance, capped minutes; self-hosted = persistent, private-network reach, warm caches, custom tooling. Cost is per parallel job, not per pipeline.' }],
+      },
+    },
   };
 })();
