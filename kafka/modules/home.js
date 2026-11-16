@@ -84,6 +84,7 @@ export function mount(container) {
         <div class="home-cta">
           <a class="home-btn home-btn-primary" href="#m01">Start learning →</a>
           <a class="home-btn home-btn-ghost" href="#dashboard">Your dashboard</a>
+          <a class="home-btn home-btn-ghost" href="#study">Interview questions →</a>
         </div>
         <div class="stats-row home-stats">
           ${stat(MODULES.length, 'Modules')}
