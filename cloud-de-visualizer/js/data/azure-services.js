@@ -2246,6 +2246,801 @@
         { q: 'How would you design CI/CD for Azure Data Factory?', a: 'Connect only the Dev factory to Git; author on feature branches and PR into the collaboration branch. Publish generates ARM templates on the adf_publish branch. An Azure Pipeline deploys those templates to QA then Prod, overriding environment-specific parameters (endpoints, Key Vault URIs, storage paths) per stage, gated by approvals, and stops/starts triggers around the deploy. The point interviewers listen for: the same artifact promotes across environments with only parameters changing, and no one edits higher environments by hand.' },
       ],
     },
+    {
+      id: 'azure-devops', name: 'Azure DevOps Fundamentals', category: 'devops',
+      aka: 'Azure DevOps Services — org/project structure & the five services',
+      tagline: 'Microsoft’s end-to-end DevOps platform: five integrated services (Boards, Repos, Pipelines, Artifacts, Test Plans) under one org/project and security model, backed by Microsoft Entra ID.',
+      keyFacts: [
+        { k: 'Five services', v: 'Boards / Repos / Pipelines / Artifacts / Test Plans' },
+        { k: 'Hierarchy', v: 'Organization → Projects → services' },
+        { k: 'Identity', v: 'Microsoft Entra ID; PAT / OAuth for APIs' },
+        { k: 'Adoption', v: 'à la carte — enable only the services you need' },
+      ],
+      what: {
+        lead: 'Azure DevOps is a suite of integrated services that cover the whole software delivery lifecycle. You can adopt any subset, and they share one organization/project structure, one identity and permission model, and cross-links between them so work, code, builds, packages and tests all trace to each other.',
+        bullets: [
+          { h: 'The five services', d: 'Boards (Agile work tracking), Repos (Git hosting + policies), Pipelines (CI/CD), Artifacts (package feeds), Test Plans (manual/exploratory test management).' },
+          { h: 'Org → project', d: 'An organization contains projects; each project scopes its own repos, pipelines, boards and security. Teams subdivide a project.' },
+          { h: 'Integrated by design', d: 'A commit in Repos can resolve a Boards work item and trigger a Pipeline that publishes to Artifacts — one traceable chain.' },
+        ],
+      },
+      why: {
+        lead: 'Teams need planning, source control, CI/CD, packages and testing to work together with consistent identity, permissions and traceability. Azure DevOps provides that as one platform rather than a stack of disconnected tools.',
+        bullets: [
+          { h: 'End-to-end traceability', d: 'Link work items → commits → pull requests → builds → releases, so you can answer “what shipped, from which change, for which requirement”.' },
+          { h: 'One security model', d: 'Entra-backed identity plus project groups and granular object permissions, instead of reconciling access across separate products.' },
+          { h: 'Enterprise-ready', d: 'Mature approvals, auditing, and governance that large/regulated orgs rely on; works alongside GitHub (Microsoft owns both).' },
+        ],
+      },
+      how: {
+        lead: 'You create an organization (tied to an Entra tenant), add projects, and enable the services a team needs. Access is granted through built-in groups (Readers, Contributors, Project Administrators) and object-level permissions; automation authenticates with PATs or Entra OAuth/service principals.',
+        bullets: [
+          { h: 'Projects & teams', d: 'A project is the security and configuration boundary; teams within it get their own backlogs, boards and area/iteration paths.' },
+          { h: 'Permissions', d: 'Permissions inherit org → project → object; you grant via groups and can Allow/Deny at fine granularity (repo, branch, pipeline, area path).' },
+          { h: 'Authentication for automation', d: 'Personal Access Tokens (scoped, expiring) or Entra OAuth/managed identities authenticate CLI, REST and pipeline access — prefer scoped, short-lived tokens.' },
+        ],
+      },
+      deUseCase: {
+        lead: 'For a data team, Azure DevOps is the home base: plan the backlog in Boards, keep ADF/Databricks/SQL code in Repos, ship it with Pipelines, share internal libraries via Artifacts, and trace every production change back to a work item.',
+        bullets: [
+          { h: 'Platform for data code', d: 'ADF ARM templates, Databricks notebooks/bundles, dbt projects and SQL live in Repos with branch policies; Pipelines promote them across environments.' },
+          { h: 'Shared internal packages', d: 'Common Python/utility libraries publish to an Artifacts feed consumed by every data pipeline.' },
+          { h: 'Auditable delivery', d: 'Work item → PR → pipeline → environment deployment gives the audit trail compliance asks for.' },
+        ],
+      },
+      integrations: [
+        { id: 'azure-pipelines', label: 'Azure Pipelines', note: 'CI/CD across the org' },
+        { id: 'entra-id', label: 'Microsoft Entra ID', note: 'identity & SSO backing the org' },
+        { id: 'key-vault', label: 'Azure Key Vault', note: 'secrets for pipelines/service connections' },
+        { label: 'Azure Repos / Boards / Artifacts / Test Plans', note: 'the sibling services' },
+        { label: 'GitHub', note: 'interop — Boards/Pipelines can target GitHub repos' },
+      ],
+      runtime: {
+        lead: 'Azure DevOps Services is a fully managed SaaS — there is no infrastructure to run except self-hosted pipeline agents. Work, code, builds and packages are stored and served by the service; you operate configuration, permissions and automation.',
+        bullets: [
+          { h: 'Managed service', d: 'Microsoft runs and scales the platform; data is hosted in the organization’s chosen region.' },
+          { h: 'APIs & extensibility', d: 'Everything is scriptable via REST/CLI; the Marketplace adds extensions and pipeline tasks.' },
+          { h: 'Server option', d: 'Azure DevOps Server is the self-hosted on-prem counterpart for organizations that cannot use SaaS.' },
+        ],
+      },
+      architecture: {
+        lead: 'The platform layers a shared identity/security core under five service areas, all addressed within one organization bound to an Entra tenant. Understanding the org → project → object permission inheritance and where identity comes from is what fundamentals questions probe.',
+        bullets: [
+          { h: 'Organization = tenant boundary', d: 'An org is backed by an Entra directory; users/groups come from Entra, and org-level policies (conditional access, IP allow-lists) apply across projects.' },
+          { h: 'Project = isolation unit', d: 'Each project has its own repos, pipelines, boards, artifacts and security groups; cross-project sharing is explicit.' },
+          { h: 'Permission inheritance', d: 'Permissions flow org → project → object with Allow/Deny; Deny generally wins, and group membership is the intended grant mechanism.' },
+          { h: 'Process model for Boards', d: 'A project is created from a process (Basic/Agile/Scrum/CMMI) that defines its work item types and workflow.' },
+        ],
+      },
+      security: {
+        lead: 'Security rests on Entra identity, layered group-based permissions, scoped tokens for automation, and org-level guardrails. The common interview theme: use Entra groups + least privilege, and never long-lived full-scope PATs.',
+        bullets: [
+          { h: 'Entra-backed identity', d: 'Users, groups, service principals and managed identities come from Entra; SSO, MFA and conditional access are enforced there.' },
+          { h: 'Groups & least privilege', d: 'Grant through built-in/custom groups (Readers/Contributors/Admins) at the smallest scope; prefer Deny sparingly and audit membership.' },
+          { h: 'Tokens', d: 'PATs are scoped and expiring — scope them to the minimum and rotate; prefer Entra OAuth/managed identity for pipelines over PATs.' },
+          { h: 'Org guardrails', d: 'Conditional access, IP allow-lists, and policies restricting PAT creation/scope harden the whole org.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating Azure DevOps means managing projects, users/licenses, permissions and auditing — plus any self-hosted agents. The platform itself is managed, so ops focuses on governance and access hygiene.',
+        bullets: [
+          { h: 'Users & access levels', d: 'Assign access levels (Stakeholder/Basic/Basic+Test) and group membership; deprovision via Entra to cut access everywhere at once.' },
+          { h: 'Auditing', d: 'The audit log records security-relevant events (permission changes, token creation, policy edits) for review and export.' },
+          { h: 'Project hygiene', d: 'Standardize process templates, area/iteration paths, and naming; archive dead projects and stale PATs.' },
+        ],
+      },
+      cost: {
+        lead: 'Azure DevOps bills by user access level and by pipeline parallelism/consumption; several services have free tiers for small teams. (Exact inclusions change — price against the official Azure DevOps pricing page.)',
+        bullets: [
+          { h: 'Per-user access levels', d: 'Stakeholder (free, limited), Basic (repos/boards/pipelines), Basic+Test Plans (adds Test Plans). First few Basic users are often free.' },
+          { h: 'Pipelines parallelism', d: 'Billed on parallel jobs (Microsoft-hosted vs self-hosted priced separately), with a free grant that is larger for public projects.' },
+          { h: 'Artifacts storage', d: 'Feeds include free storage up to a threshold, then per-GB; retention policies keep it bounded.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'How a change flows through the integrated services, end to end.',
+        steps: [
+          { h: 'Plan in Boards', d: 'A user story/task is created on the backlog and assigned to a sprint, carrying the requirement and acceptance criteria.' },
+          { h: 'Code in Repos', d: 'A developer branches, commits referencing the work item (e.g. #1234), and opens a pull request gated by branch policies.' },
+          { h: 'Validate with Pipelines', d: 'Build validation runs the CI pipeline on the PR; on merge, the pipeline builds, tests and publishes artifacts.' },
+          { h: 'Share via Artifacts', d: 'Reusable libraries are published to a feed; downstream projects consume versioned packages.' },
+          { h: 'Deploy & trace', d: 'A deployment pipeline promotes to environments with approvals; the work item now links commit → PR → build → deployment for a full audit trail.' },
+        ],
+        note: 'Simplified; the exact linking and permission behavior is defined in the Azure DevOps documentation.',
+      },
+      examples: [{
+        title: 'Stand up a governed data-team project with least-privilege access',
+        requirement: 'Create a project where data engineers can code and run pipelines, analysts can read, and automation uses a scoped identity — all via Entra groups.',
+        input: 'An Azure DevOps organization bound to the company Entra tenant.',
+        architecture: 'Entra groups (data-engineers, data-readers) → Azure DevOps project security groups (Contributors, Readers) → object permissions on repos/pipelines; automation via a scoped PAT or workload identity.',
+        steps: [
+          'Create the project from the Agile process; set area/iteration paths.',
+          'Map Entra groups to project Contributors/Readers rather than adding individuals.',
+          'Set branch policies on main; restrict who can manage pipelines/service connections.',
+          'Provision automation with a least-scope PAT (or Entra service principal) and store it in Key Vault.',
+        ],
+        output: 'Engineers can push/build, analysts can read, and automation authenticates with a scoped, rotatable credential — access is managed centrally in Entra.',
+        validation: 'A reader cannot push or edit pipelines; removing a user from the Entra group revokes their access to the project.',
+        errorHandling: 'If someone has unexpected access, check group inheritance and any explicit Allow at object scope; Deny overrides Allow.',
+        production: 'Enforce conditional access/MFA, restrict PAT scope/lifetime org-wide, and review the audit log regularly.',
+        cleanup: 'Remove group mappings, revoke PATs, and archive the project when the initiative ends.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'A user added to a project still cannot see a repository or pipeline they need.',
+          evidence: 'They are in the project, but the specific repo/pipeline is missing from their view; other members with a different group see it.',
+          causes: ['They are in a group without the needed object permission', 'An explicit Deny at the object (repo/pipeline) scope overrides their group Allow', 'Access level too low (e.g. Stakeholder) for that feature'],
+          investigation: ['Check effective permissions on the specific object for that user', 'Look for a Deny on a group they belong to', 'Verify their access level supports the feature'],
+          rootCause: 'Permissions resolve org → project → object with Deny winning; a low access level or an object-scope Deny blocks access despite project membership.',
+          remediation: ['Add them to a group with the right object permission (or grant at object scope)', 'Remove the conflicting Deny', 'Raise the access level if the feature requires it'],
+          validation: 'The user can now see and act on the object; effective-permissions view shows Allow with no overriding Deny.',
+          prevention: 'Grant through a small set of Entra-mapped groups, avoid ad-hoc Deny, and document the access model.',
+        },
+        {
+          symptom: 'A pipeline or script using a PAT starts failing with 401/403 after working for weeks.',
+          evidence: 'Auth suddenly fails; the PAT’s expiry date is in the past, or its scopes do not cover the operation.',
+          causes: ['The PAT expired', 'The PAT lacks the required scope', 'An org policy now restricts PAT scope/lifetime'],
+          investigation: ['Check the PAT’s expiry and scopes', 'Confirm the operation’s required scope', 'Review org PAT policies/conditional access'],
+          rootCause: 'PATs are scoped and expiring by design; an expired or under-scoped token fails auth.',
+          remediation: ['Reissue a least-scope PAT and store it in Key Vault', 'Better: switch pipeline auth to Entra OAuth/managed identity (no expiry churn)', 'Align with org PAT policy'],
+          validation: 'The pipeline authenticates and completes; the credential is rotatable and least-scope.',
+          prevention: 'Prefer workload identity/managed identity over PATs; track PAT expiry and rotate ahead of time.',
+        },
+      ],
+      certMapping: {
+        lead: 'Fundamentals underpin both the DevOps expert track and general Azure administration of identity/access.',
+        items: [
+          { label: 'AZ-400 Designing and Implementing Microsoft DevOps Solutions (Expert)', objectives: ['Organization/project structure & process', 'Security, access levels and token strategy', 'Integrating Boards/Repos/Pipelines/Artifacts/Test Plans'] },
+          'Identity/governance concepts overlap with AZ-104 (Entra groups, access) and SC-300 (identity governance).',
+        ],
+      },
+      interview: [
+        { q: 'What are the five services in Azure DevOps?', a: 'Boards (Agile work tracking), Repos (Git hosting and branch policies), Pipelines (CI/CD), Artifacts (package feeds), and Test Plans (manual/exploratory test management). They share one org/project structure and security model, and you can adopt any subset.' },
+        { q: 'How is Azure DevOps structured?', a: 'An organization (bound to an Entra tenant) contains projects; each project scopes its own repos, pipelines, boards, artifacts and security, and is subdivided into teams with their own backlogs and area/iteration paths. Permissions inherit org → project → object.' },
+        { q: 'How does the permission model work?', a: 'Access is granted through groups (built-in Readers/Contributors/Project Administrators or custom) and can be set at fine object scope with Allow/Deny. Permissions inherit org → project → object and Deny generally wins. Identity comes from Entra, so you grant to Entra-mapped groups for least privilege.' },
+        { q: 'PAT vs Entra OAuth — how should automation authenticate?', a: 'A Personal Access Token is scoped and expiring — fine for quick scripts if least-scoped and rotated. For pipelines and services prefer Entra OAuth, a managed identity, or workload identity federation, which avoid long-lived secrets and expiry churn. Org policies can restrict PAT scope and lifetime.' },
+        { q: 'Azure DevOps vs GitHub — when would you pick each?', a: 'Azure DevOps is an integrated enterprise suite with mature Boards/Repos/Pipelines/Artifacts/Test Plans and strong release governance. GitHub is community/marketplace-centric with Actions and a huge ecosystem. Microsoft owns both and they interoperate (Boards/Pipelines can target GitHub repos); large regulated orgs often lean ADO, open-source/community-heavy teams lean GitHub.' },
+        { q: 'How do the services give end-to-end traceability?', a: 'Work items in Boards link to commits and pull requests in Repos, which trigger builds/releases in Pipelines that publish to Artifacts and deploy to environments. The chain work item → PR → build → deployment answers what shipped, from which change, for which requirement — exactly what audits need.' },
+      ],
+    },
+
+    {
+      id: 'azure-repos', name: 'Azure Repos', category: 'devops',
+      aka: 'Azure DevOps Repos — Git hosting with branch policies',
+      tagline: 'Private Git (and legacy TFVC) repositories in Azure DevOps, with branch policies, pull-request workflows and build validation as the quality gate before code reaches a protected branch.',
+      keyFacts: [
+        { k: 'Version control', v: 'Git (recommended) or TFVC (centralized, legacy)' },
+        { k: 'Quality gate', v: 'Branch policies on protected branches' },
+        { k: 'PR enforcement', v: 'Required reviewers, build validation, linked work items' },
+        { k: 'Merge types', v: 'Merge / squash / rebase / semi-linear' },
+      ],
+      what: {
+        lead: 'Azure Repos hosts Git repositories inside an Azure DevOps project. Beyond hosting, its value is branch policies and pull requests: the rules that stop unreviewed or unvalidated code from landing on main.',
+        bullets: [
+          { h: 'Git first', d: 'Distributed Git is the default and recommended model; TFVC (centralized) remains for legacy migrations.' },
+          { h: 'Pull requests', d: 'The review and merge workflow — reviewers, comments, linked work items and status checks — all converge on the PR.' },
+          { h: 'Branch policies', d: 'Per-branch rules enforce reviewers, build validation and more before a merge is allowed.' },
+        ],
+      },
+      why: {
+        lead: 'Protected branches with enforced review and validation are how teams keep main releasable. Azure Repos builds those controls into the platform and ties them to work items and pipelines for traceability.',
+        bullets: [
+          { h: 'Keep main shippable', d: 'Build validation runs CI on every PR; required reviewers and comment resolution stop low-quality or risky changes.' },
+          { h: 'Traceability', d: 'Requiring linked work items ties each change back to a requirement in Boards.' },
+          { h: 'Consistent process', d: 'Policies apply to everyone the same way, replacing informal “please review my PR” conventions with enforcement.' },
+        ],
+      },
+      how: {
+        lead: 'You protect a branch (usually main) with a branch policy. Developers work on feature branches, open PRs into the protected branch, and the policy decides when the PR can complete. For Azure Repos, PR-triggered CI comes from the Build Validation policy — not a YAML pr: trigger.',
+        bullets: [
+          { h: 'Branch policies', d: 'Minimum reviewers (with reset-on-new-push), check for linked work items, comment resolution, build validation, and external status checks.' },
+          { h: 'Merge strategies', d: 'Choose merge commit, squash (one tidy commit), rebase (linear), or semi-linear; policies can restrict which are allowed.' },
+          { h: 'Auto-complete & protection', d: 'Auto-complete merges once all policies pass; branch security blocks direct pushes and force-pushes to protected branches.' },
+        ],
+        code: {
+          lang: 'git (feature-branch PR flow)',
+          text: "git checkout -b feature/ingest-fix\n# ... commit work, referencing a work item ...\ngit commit -m \"Fix null handling in ingest  #1234\"\ngit push -u origin feature/ingest-fix\n# Open a PR into main in Azure Repos; branch policy runs\n# build validation + requires reviewers before completion.",
+        },
+      },
+      deUseCase: {
+        lead: 'For data engineering, Azure Repos is where ADF ARM output, Databricks notebooks/bundles, dbt models and SQL live — with branch policies ensuring every pipeline change is reviewed and CI-validated before it can be promoted.',
+        bullets: [
+          { h: 'Gate data-pipeline changes', d: 'A build-validation policy runs schema/lint/unit checks on PRs that touch ADF or dbt code before merge.' },
+          { h: 'Collaboration branch for ADF', d: 'ADF’s Git integration uses a collaboration branch here; Publish produces ARM templates on adf_publish.' },
+          { h: 'Review discipline', d: 'Required reviewers + linked work items make data changes auditable and peer-reviewed.' },
+        ],
+      },
+      integrations: [
+        { id: 'azure-pipelines', label: 'Azure Pipelines', note: 'build validation on PRs' },
+        { id: 'data-factory', label: 'Azure Data Factory', note: 'Git-backed authoring + adf_publish' },
+        { label: 'Azure Boards', note: 'link commits/PRs to work items' },
+        { label: 'GitHub', note: 'alternative Git host Pipelines/Boards can target' },
+      ],
+      runtime: {
+        lead: 'Azure Repos is managed Git served by the platform. The runtime concerns are policy evaluation on PRs and repository performance at scale (large repos, many files).',
+        bullets: [
+          { h: 'Policy evaluation', d: 'On each PR push the service re-evaluates policies (reviewers reset if configured, build validation re-runs) and blocks completion until all pass.' },
+          { h: 'Scale features', d: 'Large repos benefit from features like Git LFS for big binaries and shallow/partial clone for CI speed.' },
+          { h: 'Hooks & webhooks', d: 'Service hooks fire on push/PR events to drive automation and notifications.' },
+        ],
+      },
+      architecture: {
+        lead: 'Azure Repos is Git hosting plus a policy engine bound to branches and a PR object that aggregates reviews, votes, comments, linked items and status checks. The key architectural point interviewers probe: for Azure Repos Git, PR validation is policy-driven, not YAML-trigger-driven.',
+        bullets: [
+          { h: 'Branch as policy scope', d: 'Policies attach to a specific branch (or pattern); the protected branch cannot be pushed to directly and only merges via a passing PR.' },
+          { h: 'Pull request as hub', d: 'The PR aggregates required reviewer votes, comment threads, linked work items, and build-validation/status checks; completion is blocked until policy is satisfied.' },
+          { h: 'Build validation = PR CI', d: 'A build-validation policy points at a pipeline that runs on the PR — this is how Azure Repos triggers CI on pull requests, replacing the YAML pr: trigger used for GitHub/Bitbucket.' },
+          { h: 'Git vs TFVC', d: 'Git is distributed (branches are cheap, history is per-clone); TFVC is centralized with server-side changesets — chosen only for legacy continuity.' },
+        ],
+      },
+      security: {
+        lead: 'Repo security combines branch protection, repo/branch permissions, and controls on what can be merged and by whom. Protect main, require review, and keep secrets out of history.',
+        bullets: [
+          { h: 'Branch protection', d: 'Deny direct push and force-push to protected branches; require PRs and passing policies to change them.' },
+          { h: 'Granular permissions', d: 'Repo- and branch-level permissions (contribute, force push, manage policies, bypass policies) via groups; restrict who can bypass policies.' },
+          { h: 'Review as control', d: 'Required reviewers (and reset-on-push) ensure a human vets changes; required linked work items add accountability.' },
+          { h: 'Secret hygiene', d: 'Use push protection/secret scanning where available and .gitignore; a committed secret must be rotated, not just deleted, since history retains it.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating Azure Repos means keeping policies consistent, repos healthy, and history clean — plus recovering from mistakes like force-pushes or large accidental commits.',
+        bullets: [
+          { h: 'Policy consistency', d: 'Standardize branch policies across repos (reviewers, build validation, work-item links) so every repo is protected the same way.' },
+          { h: 'Repo health', d: 'Watch repo size, use Git LFS for binaries, and prune stale branches; large histories slow clones and CI.' },
+          { h: 'Recovery', d: 'Reflog and PR history help recover from bad merges; protected-branch rules prevent most destructive force-pushes.' },
+        ],
+      },
+      cost: {
+        lead: 'Azure Repos is included with Basic access — there is no separate per-repo charge; cost is effectively the per-user access level and any storage for very large repos/LFS. (Price against the official Azure DevOps pricing page.)',
+        bullets: [
+          { h: 'Included with Basic', d: 'Unlimited private Git repos come with the Basic access level; no per-repo fee.' },
+          { h: 'Storage', d: 'Very large repos and Git LFS consume storage; keep binaries in LFS and prune history to control it.' },
+          { h: 'Indirect cost', d: 'Build validation consumes pipeline parallel-job minutes — the real variable cost of enforcing PR CI.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'How a change reaches protected main through policy.',
+        steps: [
+          { h: 'Branch & commit', d: 'Developer creates feature/… and commits, referencing a work item (#1234) to satisfy the linked-work-item policy.' },
+          { h: 'Open PR', d: 'They open a PR into main; the branch policy requires reviewers, resolved comments, a linked work item, and build validation.' },
+          { h: 'Build validation runs', d: 'The associated pipeline runs CI on the PR merge preview; it must pass for the PR to be completable.' },
+          { h: 'Review & vote', d: 'Required reviewers approve; a new push resets approvals if configured, forcing re-review of changes.' },
+          { h: 'Complete', d: 'With all policies green, auto-complete merges using the allowed strategy (e.g. squash); direct pushes to main were never possible.' },
+        ],
+        note: 'Simplified; exact policy and merge behavior is defined in the Azure Repos documentation.',
+      },
+      examples: [{
+        title: 'Protect main for a data repo with reviewer + build-validation policy',
+        requirement: 'No direct pushes to main; every change needs a passing CI run, at least one reviewer, and a linked work item.',
+        input: 'An Azure Repos Git repository holding ADF/dbt code with a CI pipeline defined.',
+        architecture: 'Branch policy on main → (required reviewers + comment resolution + linked work items + build validation pipeline) → PR completion with squash merge.',
+        steps: [
+          'Enable branch policy on main: minimum 1 reviewer with reset-on-new-push.',
+          'Add Build Validation pointing at the CI pipeline (required).',
+          'Require linked work items and comment resolution.',
+          'Restrict merge types to squash; deny direct push via branch security.',
+        ],
+        output: 'main can only change via a PR that passed CI, was reviewed, resolved comments, and linked a work item.',
+        validation: 'Attempt a direct push to main (rejected); open a PR with a failing build (cannot complete); fix and it becomes completable.',
+        errorHandling: 'If PR CI never runs, confirm the Build Validation policy exists and points at the right pipeline — the YAML pr: trigger does not apply to Azure Repos.',
+        production: 'Apply the same policy template to every repo; restrict who can bypass policies; enable secret scanning/push protection.',
+        cleanup: 'Relax or remove policies only with team agreement; prune merged feature branches automatically.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'Opening a pull request does not start any CI build on an Azure Repos Git repo.',
+          evidence: 'Pushes to branches may run CI, but the PR shows no build-validation check; a GitHub copy of the repo triggers fine via its pr: block.',
+          causes: ['No Build Validation branch policy configured on the target branch', 'Relying on a YAML pr: trigger, which Azure Repos ignores', 'The policy points at the wrong pipeline'],
+          investigation: ['Check the target branch’s policies for a Build Validation entry', 'Confirm the repo is Azure Repos Git (not GitHub)', 'Verify the policy references the intended pipeline'],
+          rootCause: 'Azure Repos drives PR CI through branch-policy Build Validation; the YAML pr: trigger only applies to GitHub/Bitbucket.',
+          remediation: ['Add a Build Validation policy on the target branch pointing at the CI pipeline', 'Remove reliance on pr: for Azure Repos', 'Mark it required and set path filters as needed'],
+          validation: 'A new PR shows the build-validation check and cannot complete until it passes.',
+          prevention: 'Template branch policies (including Build Validation) across all Azure Repos repositories.',
+        },
+        {
+          symptom: 'A reviewer’s approval disappears and the PR becomes un-completable after the author pushes a fix.',
+          evidence: 'The PR had the required approvals, then a new commit was pushed and the approval count dropped below the minimum.',
+          causes: ['The policy has “reset approvals when new changes are pushed” enabled', 'This is expected behavior to force re-review of new code'],
+          investigation: ['Check the minimum-reviewers policy settings for reset-on-push', 'Confirm the new push changed files under review'],
+          rootCause: 'Reset-on-new-push intentionally invalidates prior approvals so reviewers vet the latest changes.',
+          remediation: ['Ask reviewers to re-approve the updated PR', 'If inappropriate for the repo, adjust the reset-on-push setting with team agreement'],
+          validation: 'After re-approval the PR meets the minimum and can complete.',
+          prevention: 'Communicate the reset-on-push policy; keep fix-up pushes small and late so re-review is quick.',
+        },
+      ],
+      certMapping: {
+        lead: 'Repos and branch policies are core to the DevOps expert track’s source-control and PR-flow objectives.',
+        items: [
+          { label: 'AZ-400 Designing and Implementing Microsoft DevOps Solutions (Expert)', objectives: ['Git repositories and branching strategies', 'Branch policies, PRs and build validation', 'Repository security and protected branches'] },
+          'General Git/source-control fundamentals apply across any DevOps role.',
+        ],
+      },
+      interview: [
+        { q: 'What are branch policies and which ones matter most?', a: 'Branch policies are per-branch rules that gate merges into a protected branch. The high-value ones: minimum reviewers (with reset-on-new-push), build validation (runs CI on the PR), check for linked work items, comment resolution, and restricting merge types. Together they keep main reviewed, validated and traceable.' },
+        { q: 'How does PR-triggered CI work in Azure Repos vs GitHub?', a: 'For Azure Repos Git you configure a Build Validation branch policy that runs a pipeline on the PR — the YAML pr: trigger is ignored. For GitHub/Bitbucket the YAML pr: trigger works directly. Mixing these up is a classic mistake.' },
+        { q: 'What merge strategies does Azure Repos support?', a: 'Merge commit (preserves all commits + a merge node), squash (collapses the PR into one commit — tidy history), rebase (linear, replays commits), and semi-linear (rebase then merge commit). Policies can restrict which are allowed; squash is popular for a clean main.' },
+        { q: 'How do you protect the main branch?', a: 'Enable a branch policy requiring reviewers, build validation, resolved comments and linked work items; deny direct push and force-push via branch security; restrict who can bypass policies; and allow only approved merge types. Then main can only change through a passing, reviewed PR.' },
+        { q: 'Git vs TFVC — when would you use TFVC?', a: 'Almost never for new work — Git is the distributed default with cheap branching and local history. TFVC is the older centralized model (server-side changesets, exclusive checkouts) kept only for legacy continuity or specific centralized-control needs during migration.' },
+        { q: 'A secret was committed and pushed — what do you do?', a: 'Treat it as compromised: rotate/revoke the secret immediately, because Git history retains it even after you delete the file. Then remove it from history if required (filter-repo/BFG) and force-update with care, add it to .gitignore, and enable secret scanning/push protection to prevent recurrence.' },
+      ],
+    },
+    {
+      id: 'azure-artifacts', name: 'Azure Artifacts', category: 'devops',
+      aka: 'Azure DevOps Artifacts — package feeds',
+      tagline: 'Hosted package feeds in Azure DevOps for npm, NuGet, Maven, Python and Universal packages, with upstream sources that proxy and cache public registries and views that promote packages through quality stages.',
+      keyFacts: [
+        { k: 'Package types', v: 'npm, NuGet, Maven, Python (PyPI), Universal' },
+        { k: 'Scope', v: 'Organization- or project-scoped feeds' },
+        { k: 'Upstream sources', v: 'Proxy + cache public registries' },
+        { k: 'Views', v: '@local / @prerelease / @release promotion' },
+      ],
+      what: {
+        lead: 'Azure Artifacts hosts package feeds so teams can share and consume versioned packages privately, and proxy public registries through one trusted, cached endpoint. It is the “shared libraries” piece of the DevOps suite.',
+        bullets: [
+          { h: 'Feeds', d: 'A feed is a container for packages; it can be scoped to a project or the whole organization and secured per-feed.' },
+          { h: 'Many ecosystems', d: 'One feed can hold npm, NuGet, Maven, Python and Universal (arbitrary file) packages.' },
+          { h: 'Upstream sources', d: 'A feed can proxy public registries (npmjs, nuget.org, PyPI, Maven Central), caching what you use.' },
+        ],
+      },
+      why: {
+        lead: 'Sharing internal libraries and controlling your public-dependency supply chain both need a private, reliable package source. Azure Artifacts gives you that, with promotion views for release quality.',
+        bullets: [
+          { h: 'Reuse internal code', d: 'Publish a common library once; every pipeline consumes a versioned package instead of copying code.' },
+          { h: 'Reproducible, resilient builds', d: 'Upstream caching means a build still works if the public registry is slow or down, and you get one audit point for dependencies.' },
+          { h: 'Controlled promotion', d: 'Views let you mark a version @prerelease then @release, so consumers pin to the quality level they trust.' },
+        ],
+      },
+      how: {
+        lead: 'You create a feed, connect your package client to it (npm/pip/NuGet/Maven config), and publish/consume versioned packages. Add upstream sources to proxy public registries, and promote versions across views as they mature.',
+        bullets: [
+          { h: 'Connect & publish', d: 'The feed gives per-ecosystem setup (a .npmrc, pip index-url, NuGet source); authenticate with the artifacts credential provider or a PAT.' },
+          { h: 'Upstream order', d: 'With an upstream configured, the client resolves from the feed first, then the cached upstream — the first matching version wins, so name/version collisions matter.' },
+          { h: 'Views & retention', d: 'Promote a version to @prerelease/@release; retention policies delete old unreferenced versions to bound storage.' },
+        ],
+        code: {
+          lang: 'bash (python feed, illustrative)',
+          text: "# Consume from an Azure Artifacts Python feed\npip install my-lib \\\n  --index-url https://pkgs.dev.azure.com/<org>/<project>/_packaging/<feed>/pypi/simple/\n\n# Publish (via twine) after authenticating with the artifacts credential provider\ntwine upload -r <feed> dist/*",
+        },
+      },
+      deUseCase: {
+        lead: 'For data teams, Azure Artifacts hosts the shared Python/Scala/utility libraries that pipelines depend on, and proxies PyPI/Maven so Spark/dbt/ETL builds are reproducible and not at the mercy of a public outage.',
+        bullets: [
+          { h: 'Shared DE libraries', d: 'Common ingestion/quality/transform utilities publish to a feed and are versioned into every pipeline and notebook job.' },
+          { h: 'Dependency control', d: 'Upstream-cache PyPI/Maven Central so Databricks/Spark builds resolve from one trusted, cached source.' },
+          { h: 'Promotion for prod', d: 'Mark a library version @release only after it passes tests, so production pipelines pin to vetted versions.' },
+        ],
+      },
+      integrations: [
+        { id: 'azure-pipelines', label: 'Azure Pipelines', note: 'publish/restore packages in builds' },
+        { label: 'npm / pip / NuGet / Maven clients', note: 'consume feeds directly' },
+        { label: 'Databricks / Spark', note: 'resolve shared libs + cached PyPI/Maven' },
+        { label: 'Upstream registries', note: 'npmjs, nuget.org, PyPI, Maven Central' },
+      ],
+      runtime: {
+        lead: 'A feed is a managed package store with per-ecosystem protocol endpoints. At runtime, resolution walks feed-then-upstream, caching upstream packages on first use; storage grows with versions unless retention prunes it.',
+        bullets: [
+          { h: 'Resolution & caching', d: 'First request for an upstream package fetches and caches it in the feed; later builds serve from cache — faster and outage-resilient.' },
+          { h: 'Immutability', d: 'A published version is immutable (you cannot overwrite x.y.z); publish a new version instead — which is what makes builds reproducible.' },
+          { h: 'Storage growth', d: 'Every version consumes storage; retention policies and view scoping keep it bounded.' },
+        ],
+      },
+      architecture: {
+        lead: 'Azure Artifacts layers feeds (secured package containers) with multi-protocol endpoints, upstream sources (proxy/cache of public registries), and views (named promotion filters over a feed). The interview themes are resolution order and promotion.',
+        bullets: [
+          { h: 'Feed + protocol endpoints', d: 'One feed exposes npm/NuGet/Maven/PyPI/Universal endpoints over the same stored packages; clients point at the matching endpoint.' },
+          { h: 'Upstream sources', d: 'Configured upstreams make the feed a caching proxy; resolution is feed-first then upstream, and cached copies are retained for reproducibility.' },
+          { h: 'Views as promotion', d: 'A view (@local/@prerelease/@release) is a filtered slice of the feed; promoting a version into a view signals its quality without moving bits.' },
+          { h: 'Scope', d: 'Project-scoped feeds isolate a team; org-scoped feeds share widely — secured by feed permissions (readers/contributors/owners).' },
+        ],
+      },
+      security: {
+        lead: 'Feed security controls who can read, publish and administer packages, how clients authenticate, and how you keep the dependency supply chain trustworthy.',
+        bullets: [
+          { h: 'Feed permissions', d: 'Reader/Contributor/Owner roles per feed via groups; restrict publish to pipelines/maintainers, read widely as appropriate.' },
+          { h: 'Authentication', d: 'Clients authenticate with the artifacts credential provider or a scoped PAT; pipelines use the build identity — avoid embedding tokens.' },
+          { h: 'Supply-chain hygiene', d: 'Upstream caching plus immutability gives one audit point; beware dependency-confusion — control resolution so internal names are not shadowed by public ones.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating feeds means managing retention/storage, promotion workflow, and upstream health, so builds stay fast, reproducible and within storage limits.',
+        bullets: [
+          { h: 'Retention', d: 'Set retention to delete old unreferenced versions automatically; recently-downloaded and promoted versions can be protected.' },
+          { h: 'Promotion workflow', d: 'Standardize promotion to @release in the pipeline after tests pass, so consumers have a clear quality signal.' },
+          { h: 'Upstream monitoring', d: 'Watch for upstream resolution failures and cache growth; pin critical dependencies.' },
+        ],
+      },
+      cost: {
+        lead: 'Azure Artifacts includes free feed storage up to a threshold, then bills per-GB of stored artifacts; access follows the user access level. (Price against the official Azure DevOps pricing page.)',
+        bullets: [
+          { h: 'Free then per-GB', d: 'A storage allowance is included; beyond it you pay per GB-month of artifact storage.' },
+          { h: 'Retention as the lever', d: 'Pruning old versions is the main cost control; upstream caches also count toward storage.' },
+          { h: 'Access', d: 'Consuming/publishing requires a Basic access level; no separate per-feed license.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'How a shared library is published, promoted and consumed.',
+        steps: [
+          { h: 'Build & version', d: 'A pipeline builds the library and assigns a version (e.g. 1.4.0), which is immutable once published.' },
+          { h: 'Publish to feed', d: 'The pipeline publishes to the feed using the build identity; the version appears under @local.' },
+          { h: 'Test & promote', d: 'After tests pass, the pipeline promotes 1.4.0 to @prerelease, then @release once validated.' },
+          { h: 'Consume', d: 'Downstream pipelines point their package client at the feed’s @release view and restore 1.4.0.' },
+          { h: 'Upstream resolution', d: 'Third-party deps resolve feed-first then cached upstream, so the build is reproducible even if the public registry is down.' },
+        ],
+        note: 'Simplified; exact feed, view and upstream behavior is defined in the Azure Artifacts documentation.',
+      },
+      examples: [{
+        title: 'Private Python library feed with PyPI upstream for data pipelines',
+        requirement: 'Share an internal data-utils library across pipelines and proxy PyPI so Spark/dbt builds are reproducible and resilient.',
+        input: 'An Azure DevOps project with pipelines that build and consume Python packages.',
+        architecture: 'Azure Artifacts feed (Python) + PyPI upstream → publish data-utils from CI → consumers pip install from the feed index.',
+        steps: [
+          'Create a feed and add PyPI as an upstream source.',
+          'In the library’s CI pipeline, build a wheel and publish it to the feed.',
+          'Promote the version to @release after tests pass.',
+          'Point consumer pipelines’ pip index-url at the feed; they get data-utils and cached PyPI deps.',
+        ],
+        output: 'All pipelines install the internal library and their third-party deps from one trusted, cached feed.',
+        validation: 'Install succeeds offline-of-PyPI (served from cache); a new library version is resolvable by consumers.',
+        errorHandling: 'If a public package suddenly resolves to an internal name (dependency confusion), control resolution/scoping so internal names cannot be shadowed by upstream.',
+        production: 'Restrict publish to pipelines, set retention, and promote to @release only vetted versions.',
+        cleanup: 'Apply retention to prune old versions; remove unused upstreams and feeds.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'A build resolves the wrong version of a package, or an internal package is unexpectedly pulled from a public registry.',
+          evidence: 'The restored version differs from what the feed holds; logs show resolution hitting an upstream for a name you publish internally.',
+          causes: ['Upstream resolution order served a public version before the internal one', 'A name collision between an internal and a public package (dependency confusion)', 'Client configured against the wrong index/source'],
+          investigation: ['Check the client config (.npmrc/pip index-url/NuGet source) points at the feed', 'Review upstream sources and resolution order', 'Look for a public package sharing the internal name'],
+          rootCause: 'Resolution is feed-first then upstream; a naming collision or misconfigured source can let a public version satisfy the request.',
+          remediation: ['Scope/namespace internal packages so public names cannot shadow them', 'Ensure clients resolve from the feed only (or feed-first) for internal names', 'Pin versions where exactness matters'],
+          validation: 'The build restores the intended internal version; no unexpected upstream resolution for internal names.',
+          prevention: 'Namespace internal packages, control upstreams deliberately, and pin critical versions.',
+        },
+        {
+          symptom: 'Publishing a package fails with a conflict even though you bumped the code.',
+          evidence: 'The publish is rejected because the version already exists in the feed.',
+          causes: ['Re-publishing an existing immutable version (same x.y.z)', 'Version not incremented in the build', 'A previous run already published that version'],
+          investigation: ['Check whether that exact version exists in the feed', 'Confirm the build increments the version', 'Review prior pipeline runs'],
+          rootCause: 'Published versions are immutable — you cannot overwrite an existing version, which is what guarantees reproducibility.',
+          remediation: ['Increment the version and re-publish', 'Automate version bumping in CI', 'Use prerelease suffixes for iterative builds'],
+          validation: 'The new, higher version publishes successfully and is resolvable.',
+          prevention: 'Automate semantic version bumps; never attempt to overwrite a released version.',
+        },
+      ],
+      certMapping: {
+        lead: 'Artifacts covers the package-management objectives of the DevOps expert track.',
+        items: [
+          { label: 'AZ-400 Designing and Implementing Microsoft DevOps Solutions (Expert)', objectives: ['Package feeds and package management strategy', 'Upstream sources and dependency management', 'Versioning, promotion (views) and retention'] },
+          'Supply-chain/dependency-management concepts apply to any CI/CD role.',
+        ],
+      },
+      interview: [
+        { q: 'What is a feed and what package types does it hold?', a: 'A feed is a secured container for packages in Azure Artifacts, scoped to a project or the whole org. One feed can hold npm, NuGet, Maven, Python (PyPI) and Universal (arbitrary file) packages, each over its own protocol endpoint.' },
+        { q: 'What are upstream sources and why use them?', a: 'Upstream sources make a feed a caching proxy for public registries (npmjs, nuget.org, PyPI, Maven Central). Resolution is feed-first then upstream, and used packages are cached — so builds are reproducible, resilient to public-registry outages, and auditable through one source.' },
+        { q: 'What are views (@local/@prerelease/@release)?', a: 'Views are named, filtered slices of a feed used for promotion. You publish to @local, then promote a version to @prerelease and @release as it passes quality gates, without moving the bits. Consumers point at the view whose quality level they trust.' },
+        { q: 'Why are published versions immutable?', a: 'You cannot overwrite an existing version (x.y.z) — to change something you publish a new version. Immutability is what makes builds reproducible: a given version always means the same bits. It also means a re-publish of the same version fails, so CI must bump the version.' },
+        { q: 'What is dependency confusion and how do you prevent it?', a: 'It is when a public package with the same name as your internal one gets resolved instead, potentially pulling malicious code. Prevent it by namespacing/scoping internal packages so public names cannot shadow them, controlling upstream resolution for internal names, and pinning versions — so internal names always resolve from your feed.' },
+      ],
+    },
+
+    {
+      id: 'azure-boards-test', name: 'Azure Boards & Test Plans', category: 'devops',
+      aka: 'Azure DevOps Boards (Agile work tracking) + Test Plans (test management)',
+      tagline: 'Agile planning and test management in Azure DevOps: work-item tracking across Basic/Agile/Scrum/CMMI processes with backlogs, sprints, boards and queries, plus manual/exploratory Test Plans that gate quality.',
+      keyFacts: [
+        { k: 'Boards', v: 'Work items, backlogs, sprint boards, queries (WIQL)' },
+        { k: 'Processes', v: 'Basic / Agile / Scrum / CMMI' },
+        { k: 'Test Plans', v: 'Test plans, suites, cases; manual & exploratory' },
+        { k: 'Traceability', v: 'Work items ↔ commits/PRs ↔ builds ↔ tests' },
+      ],
+      what: {
+        lead: 'Azure Boards is the Agile planning service — work items, backlogs, sprints, boards and queries. Azure Test Plans adds structured manual and exploratory testing. Together they bracket the delivery lifecycle: plan the work, verify the result, with traceability to code and builds.',
+        bullets: [
+          { h: 'Work items', d: 'Epics, Features, User Stories/Product Backlog Items, Tasks and Bugs model the work, linked in a hierarchy.' },
+          { h: 'Processes', d: 'A project is created from a process — Basic (simple), Agile, Scrum, or CMMI — which defines work-item types and workflow states.' },
+          { h: 'Test Plans', d: 'Test plans group test suites and cases for manual execution, exploratory testing, and tracking test outcomes.' },
+        ],
+      },
+      why: {
+        lead: 'Planning and testing need to connect to the code and builds that satisfy them. Boards and Test Plans provide that in the same platform, so requirements, work, and verification trace end to end.',
+        bullets: [
+          { h: 'Shared, visible plan', d: 'Backlogs and boards make priorities and progress visible; everyone works from one source of truth.' },
+          { h: 'Requirement-to-code trace', d: 'Linking work items to commits/PRs/builds answers “what implemented this, and did it ship”.' },
+          { h: 'Structured quality', d: 'Test Plans track manual/exploratory coverage and outcomes that automated tests do not cover, and gate release.' },
+        ],
+      },
+      how: {
+        lead: 'You pick a process when creating the project, then plan on backlogs and sprint boards, slicing work by area and iteration paths. Queries (WIQL) report across work items. Test Plans organize suites/cases and record runs, which link back to requirements.',
+        bullets: [
+          { h: 'Backlogs & boards', d: 'Order the backlog by priority; the sprint board (Kanban/Taskboard) moves items across states (New → Active → Done).' },
+          { h: 'Area & iteration paths', d: 'Area paths group work by component/team; iteration paths are sprints — together they scope backlogs and capacity.' },
+          { h: 'Queries & test suites', d: 'WIQL queries filter/report across work items; Test Plans hold static/requirement-based/query-based suites of test cases run manually or via exploratory sessions.' },
+        ],
+      },
+      deUseCase: {
+        lead: 'For a data team, Boards tracks the pipeline backlog and incidents, and links each change to the ADF/dbt/SQL commit that delivered it; Test Plans can capture manual data-validation checks that automated tests do not cover.',
+        bullets: [
+          { h: 'Backlog & incidents', d: 'User stories for new datasets, bugs for data-quality issues, tasks for pipeline work — prioritized on one backlog.' },
+          { h: 'Trace data changes', d: 'Link a story to the PR and pipeline run that shipped a schema change, for an auditable data-platform history.' },
+          { h: 'Manual data validation', d: 'Test Plans capture structured manual sign-off (e.g. reconciliation against source) before a dataset is released.' },
+        ],
+      },
+      integrations: [
+        { id: 'azure-repos', label: 'Azure Repos', note: 'link commits/PRs to work items' },
+        { id: 'azure-pipelines', label: 'Azure Pipelines', note: 'associate builds + publish test results' },
+        { label: 'GitHub', note: 'Boards can link GitHub commits/PRs' },
+        { label: 'Dashboards & Analytics', note: 'burndown, velocity, query widgets' },
+      ],
+      runtime: {
+        lead: 'Boards and Test Plans are managed services over a work-item store and an analytics layer. The runtime concerns are query performance at scale and keeping the process/customizations coherent.',
+        bullets: [
+          { h: 'Work-item store + Analytics', d: 'Work items are tracked with full history; the Analytics service powers burndown/velocity and query-based widgets.' },
+          { h: 'Queries at scale', d: 'WIQL queries can be shared and drive dashboards; broad queries over large projects are heavier — scope by area/iteration.' },
+          { h: 'Process customization', d: 'Inherited processes let you add fields/states/rules without breaking the base — changes apply to all projects using that process.' },
+        ],
+      },
+      architecture: {
+        lead: 'Boards centers on a work-item model defined by the project’s process, organized by area/iteration paths, and reported via WIQL/Analytics. Test Plans layer a plan → suite → case hierarchy with runs that link to requirements. The interview focus is the process model and traceability links.',
+        bullets: [
+          { h: 'Process defines the model', d: 'Basic/Agile/Scrum/CMMI set the work-item types and state workflow; inherited processes customize fields/rules centrally.' },
+          { h: 'Area/iteration paths', d: 'Area paths partition work by component/team; iteration paths define sprints — the two axes backlogs and capacity use.' },
+          { h: 'Link types', d: 'Parent/child, related, and especially work-item ↔ commit/PR/build links create the traceability graph.' },
+          { h: 'Test hierarchy', d: 'Test plan → test suites (static/requirement-based/query-based) → test cases; runs record pass/fail and link back to the requirements tested.' },
+        ],
+      },
+      security: {
+        lead: 'Boards/Test Plans security is about who can see and change work items and test artifacts, scoped by project and area path, plus the Test Plans access level.',
+        bullets: [
+          { h: 'Area-path permissions', d: 'Work-item visibility/editing can be scoped by area path, so teams see their own components.' },
+          { h: 'Access levels', d: 'Stakeholders get limited boards access for free; Test Plans requires the Basic + Test Plans access level.' },
+          { h: 'Process governance', d: 'Only administrators change the (inherited) process; changes propagate to all projects on it, so control who can edit it.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating Boards/Test Plans means keeping the process, paths and queries tidy, and dashboards meaningful, so planning data stays trustworthy.',
+        bullets: [
+          { h: 'Backlog hygiene', d: 'Groom regularly, keep states accurate, and close stale items so velocity/burndown reflect reality.' },
+          { h: 'Paths & process', d: 'Maintain area/iteration paths per team/sprint; evolve the inherited process deliberately since it affects every project using it.' },
+          { h: 'Dashboards', d: 'Curate query-based widgets (burndown, velocity, bug trends) so stakeholders self-serve status.' },
+        ],
+      },
+      cost: {
+        lead: 'Boards comes with Basic access (Stakeholders get limited access free); Test Plans requires the Basic + Test Plans access level. (Price against the official Azure DevOps pricing page.)',
+        bullets: [
+          { h: 'Boards with Basic', d: 'Full Boards is included in Basic; Stakeholder (free) gives limited board access for non-coders.' },
+          { h: 'Test Plans add-on', d: 'Manual/exploratory Test Plans need the Basic + Test Plans access level per user.' },
+          { h: 'No infra cost', d: 'Fully managed — cost is per-user access levels only.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'How a requirement is planned, built and verified with traceability.',
+        steps: [
+          { h: 'Create & order', d: 'A User Story is added to the backlog, estimated, and ordered by priority under an Epic/Feature.' },
+          { h: 'Plan the sprint', d: 'The story is assigned to an iteration (sprint); tasks are added and capacity is set on the sprint board.' },
+          { h: 'Build with links', d: 'Commits/PRs reference the story (#id); builds associate it, so the story shows what implemented it.' },
+          { h: 'Verify with Test Plans', d: 'A requirement-based test suite for the story runs its test cases; outcomes are recorded and linked to the story.' },
+          { h: 'Close with trace', d: 'The story moves to Done carrying links to the PR, build and test results — a full requirement-to-verification trail.' },
+        ],
+        note: 'Simplified; exact process, linking and test behavior is defined in the Azure Boards/Test Plans documentation.',
+      },
+      examples: [{
+        title: 'Trace a data-quality fix from backlog to verified release',
+        requirement: 'Track a data-quality bug, link it to the fix and pipeline run, and record a manual reconciliation check before release.',
+        input: 'An Azure DevOps project (Agile process) with Repos + Pipelines and the Test Plans access level.',
+        architecture: 'Bug work item → linked PR/commit in Repos → associated pipeline build → requirement-based test suite with a manual reconciliation case → Done with links.',
+        steps: [
+          'File a Bug with repro steps and assign it to the current iteration.',
+          'Fix on a branch; reference the bug id in commits/PR so it links.',
+          'Let the pipeline associate the build to the bug on merge.',
+          'Run a manual reconciliation test case in a Test Plan and record the outcome.',
+        ],
+        output: 'The bug closes carrying links to the PR, build and passing test — an auditable trail of what fixed it and how it was verified.',
+        validation: 'The bug’s Links tab shows PR/build/test; a stakeholder can trace the fix without asking the team.',
+        errorHandling: 'If links are missing, ensure commits reference the work-item id and the pipeline is set to associate work items.',
+        production: 'Standardize linking conventions and test sign-off so every data change is traceable and verified.',
+        cleanup: 'Keep the backlog groomed; archive completed test runs per retention needs.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'Commits and pull requests do not show up on the related work item.',
+          evidence: 'The work item’s Development/Links section is empty even though a branch and PR exist for the change.',
+          causes: ['Commit messages/PR did not reference the work-item id', 'The PR was not linked to the work item', 'Linked-work-item policy not enforced'],
+          investigation: ['Check whether commits reference #id', 'Confirm the PR has a linked work item', 'Review whether the branch policy requires linked work items'],
+          rootCause: 'Work-item links are created from explicit references (#id) or manual linking; without them Boards cannot build the traceability graph.',
+          remediation: ['Reference the work-item id in commits/PRs (e.g. #1234)', 'Manually link the PR to the work item', 'Enable the “check for linked work items” branch policy'],
+          validation: 'The work item now shows the commit/PR/build links.',
+          prevention: 'Enforce linked-work-item policy and standardize referencing #id in commits.',
+        },
+        {
+          symptom: 'A user cannot open or run Test Plans even though they can see the board.',
+          evidence: 'Boards works for them, but Test Plans features are greyed out or inaccessible.',
+          causes: ['They have Stakeholder/Basic access without the Test Plans access level', 'Test Plans permissions not granted', 'Licensing not assigned'],
+          investigation: ['Check the user’s access level', 'Confirm Test Plans permissions', 'Verify license assignment'],
+          rootCause: 'Manual/exploratory Test Plans require the Basic + Test Plans access level, which is separate from Boards access.',
+          remediation: ['Assign the Basic + Test Plans access level', 'Grant the needed Test Plans permissions'],
+          validation: 'The user can create/run test plans and record outcomes.',
+          prevention: 'Map access levels to roles (testers get Basic + Test Plans) during onboarding.',
+        },
+      ],
+      certMapping: {
+        lead: 'Boards and Test Plans cover the Agile planning and test-management objectives alongside the DevOps track.',
+        items: [
+          { label: 'AZ-400 Designing and Implementing Microsoft DevOps Solutions (Expert)', objectives: ['Agile planning: work items, backlogs, boards', 'Processes (Basic/Agile/Scrum/CMMI) and customization', 'Test management and traceability'] },
+          'Agile/Scrum practice knowledge (sprints, backlogs, velocity) applies to any delivery role.',
+        ],
+      },
+      interview: [
+        { q: 'What processes does Azure Boards offer and how do they differ?', a: 'Basic (Issues/Tasks/Epics — simplest), Agile (User Stories + Bugs, Kanban-friendly), Scrum (Product Backlog Items, sprint-focused), and CMMI (Requirements + formal change/risk, for heavier governance). You pick one when creating the project; it defines the work-item types and workflow states.' },
+        { q: 'What are area paths and iteration paths?', a: 'Area paths partition work by component or team; iteration paths define sprints/time-boxes. Backlogs, boards and capacity use these two axes — area to decide whose work it is, iteration to decide when it is planned.' },
+        { q: 'How do you get end-to-end traceability from a work item?', a: 'Link work items to commits/PRs (by referencing #id), associate builds, and attach test outcomes. The work item then shows what implemented it, which build shipped it, and whether tests passed — answering what delivered a requirement and whether it was verified.' },
+        { q: 'What are Test Plans, suites and cases?', a: 'A test plan groups test suites; suites can be static (hand-picked), requirement-based (tied to a work item), or query-based (dynamic). Suites hold test cases run manually or via exploratory sessions, and runs record pass/fail linked back to requirements — covering verification that automated tests do not.' },
+        { q: 'What is WIQL?', a: 'The Work Item Query Language — a SQL-like syntax to filter and report across work items (by state, area, iteration, tags, links). Shared queries drive dashboards and charts (burndown, bug trends), so stakeholders self-serve status.' },
+      ],
+    },
+    {
+      id: 'github-actions', name: 'GitHub & GitHub Actions', category: 'devops',
+      aka: 'GitHub repos + Actions CI/CD — and how it compares to Azure DevOps / Jenkins',
+      tagline: 'GitHub’s Git hosting plus Actions, its event-driven CI/CD built from reusable Marketplace actions in YAML workflows — the other half of Microsoft’s DevOps story and a near-certain comparison question.',
+      keyFacts: [
+        { k: 'CI/CD', v: 'GitHub Actions — YAML workflows in .github/workflows' },
+        { k: 'Model', v: 'Event-driven (on: push/pull_request/…)' },
+        { k: 'Reuse', v: 'Marketplace actions + reusable/composite workflows' },
+        { k: 'Compute', v: 'GitHub-hosted or self-hosted runners' },
+      ],
+      what: {
+        lead: 'GitHub is the world’s most-used Git host; GitHub Actions is its built-in CI/CD. You put YAML workflow files under .github/workflows, and events in the repo (a push, a PR, a release, a schedule) trigger jobs built largely from reusable actions pulled from the Marketplace.',
+        bullets: [
+          { h: 'Event-driven workflows', d: 'A workflow runs on events (on: push, pull_request, schedule, workflow_dispatch) — CI/CD framed around what happened in the repo.' },
+          { h: 'Jobs, steps, actions', d: 'A workflow has jobs (on runners) made of steps; a step runs a shell command or a reusable action (uses:).' },
+          { h: 'Marketplace', d: 'Thousands of community/vendor actions (checkout, setup-python, cloud deploys) make workflows short and composable.' },
+        ],
+      },
+      why: {
+        lead: 'For teams already on GitHub, Actions is the lowest-friction CI/CD, with a huge ecosystem and tight repo integration. Knowing it — and how it differs from Azure DevOps and Jenkins — is expected of any DevOps-literate engineer.',
+        bullets: [
+          { h: 'Lowest friction on GitHub', d: 'CI/CD lives in the repo; a PR workflow is a few lines of YAML plus Marketplace actions.' },
+          { h: 'Ecosystem', d: 'The Marketplace covers most build/test/deploy needs; reusable and composite workflows keep large orgs DRY.' },
+          { h: 'Interop with Azure', d: 'Azure DevOps Boards/Pipelines can target GitHub repos, and Actions deploys to Azure via OIDC — you often use both.' },
+        ],
+      },
+      how: {
+        lead: 'You commit a workflow YAML under .github/workflows. It declares events (on:), jobs with a runs-on runner, and steps that either run commands or use actions. Secrets come from repo/environment secrets; deployments to Azure use OIDC (no stored secret), mirroring Azure Pipelines’ workload identity federation.',
+        bullets: [
+          { h: 'Triggers (on:)', d: 'push, pull_request, schedule (cron), workflow_dispatch (manual), release, and more — event-driven rather than a single CI trigger.' },
+          { h: 'Runners', d: 'GitHub-hosted (fresh VM per job, maintained) or self-hosted (your machines, private-network/custom tooling) — the same trade-off as Azure Pipelines agents.' },
+          { h: 'Reuse & governance', d: 'Composite actions and reusable workflows (workflow_call) DRY up logic; required workflows / rulesets enforce org standards.' },
+        ],
+        code: {
+          lang: 'yaml (.github/workflows/ci.yml)',
+          text: "name: CI\non:\n  push: { branches: [ main ] }\n  pull_request: { branches: [ main ] }\n\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - uses: actions/setup-python@v5\n        with: { python-version: '3.12' }\n      - run: pip install -r requirements.txt && pytest\n\n  deploy:\n    needs: build\n    if: github.ref == 'refs/heads/main'\n    runs-on: ubuntu-latest\n    environment: production        # approvals attach here\n    permissions: { id-token: write, contents: read }  # OIDC to Azure\n    steps:\n      - uses: azure/login@v2         # federated, no stored secret\n        with: { client-id: ${{ vars.AZURE_CLIENT_ID }}, tenant-id: ${{ vars.AZURE_TENANT_ID }}, subscription-id: ${{ vars.AZURE_SUB }} }\n      - run: ./deploy.sh",
+        },
+      },
+      deUseCase: {
+        lead: 'Data teams on GitHub use Actions to test and deploy dbt, Databricks bundles, ADF/IaC and Python ETL — the same CI/CD patterns as Azure Pipelines, with OIDC to Azure for secretless deploys.',
+        bullets: [
+          { h: 'dbt / Databricks CI', d: 'Run dbt build / unit tests and deploy Databricks Asset Bundles from a workflow on PR and main.' },
+          { h: 'Secretless Azure deploys', d: 'azure/login with OIDC federates to an Entra app — deploy ADF/IaC with no stored secret, like Pipelines’ WIF.' },
+          { h: 'Env gating', d: 'GitHub Environments add required reviewers/wait timers before a production data deploy.' },
+        ],
+      },
+      integrations: [
+        { id: 'azure-pipelines', label: 'Azure Pipelines', note: 'alternative CI/CD; can also build GitHub repos' },
+        { id: 'entra-id', label: 'Microsoft Entra ID', note: 'OIDC federation for azure/login' },
+        { label: 'Azure Boards', note: 'link GitHub commits/PRs to work items' },
+        { label: 'Databricks / dbt / Azure', note: 'common deploy targets' },
+      ],
+      runtime: {
+        lead: 'A workflow run is queued on an event, a runner is leased, and jobs run their steps; jobs are parallel by default and ordered with needs:. Concurrency and runner minutes are the cost/runtime levers.',
+        bullets: [
+          { h: 'Runner lifecycle', d: 'GitHub-hosted: clean VM per job, discarded after. Self-hosted: persistent, warm caches, private reach — the Azure Pipelines agent trade-off.' },
+          { h: 'Parallel jobs + needs', d: 'Jobs run in parallel unless ordered by needs:; matrix strategies fan a job across versions/OSes.' },
+          { h: 'Caching & artifacts', d: 'actions/cache speeds dependency restores; actions/upload-artifact / download-artifact move outputs across jobs.' },
+        ],
+      },
+      architecture: {
+        lead: 'GitHub Actions is an event-driven workflow engine: events in the repo dispatch workflows whose jobs run on runners and compose reusable actions. The interview value is contrasting this model with Azure Pipelines and Jenkins.',
+        bullets: [
+          { h: 'Event → workflow', d: 'Everything hangs off on: events; there is no separate “pipeline” object — the workflow file IS the pipeline, versioned in .github/workflows.' },
+          { h: 'Actions as units', d: 'A step’s uses: pulls a published action (JavaScript, Docker, or composite); the Marketplace is the reuse mechanism, versus Azure Pipelines’ built-in tasks + templates.' },
+          { h: 'Environments & OIDC', d: 'Environments carry approvals/secrets; OIDC federation issues short-lived cloud tokens — the GitHub equivalent of Pipelines’ environments + workload identity federation.' },
+          { h: 'Governance', d: 'Rulesets, required workflows and CODEOWNERS enforce standards, paralleling Azure Repos branch policies + extends templates.' },
+        ],
+      },
+      security: {
+        lead: 'Actions security centers on the GITHUB_TOKEN’s permissions, how secrets are scoped, secretless cloud auth via OIDC, and trusting third-party actions.',
+        bullets: [
+          { h: 'Least-privilege token', d: 'The automatic GITHUB_TOKEN should be scoped with permissions: (e.g. contents: read); grant write only where needed.' },
+          { h: 'Secrets & environments', d: 'Repo/org/environment secrets are masked; environment protection rules gate who/what can use production secrets.' },
+          { h: 'OIDC for cloud', d: 'Federated OIDC (azure/login) issues short-lived tokens — no long-lived cloud secret stored in GitHub, the recommended pattern.' },
+          { h: 'Third-party action risk', d: 'Pin actions to a full commit SHA (not a moving tag) and review them — a compromised action runs in your pipeline.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating Actions means managing runners, workflow reuse, and run hygiene so CI/CD stays fast, consistent and governed.',
+        bullets: [
+          { h: 'Runner fleet', d: 'Scale self-hosted runners (and runner groups) for private/custom needs; keep them patched and isolated from untrusted forks.' },
+          { h: 'Reuse', d: 'Centralize logic in reusable/composite workflows and required workflows so teams do not copy-paste YAML.' },
+          { h: 'Observability', d: 'Watch run durations/flake, concurrency limits, and minute consumption; use concurrency: to cancel superseded runs.' },
+        ],
+      },
+      cost: {
+        lead: 'GitHub Actions bills by runner minutes (GitHub-hosted, with a monthly free grant that is generous for public repos) and storage for artifacts/packages; self-hosted runners are free to Actions but you pay for the machines. (Price against the official GitHub pricing page.)',
+        bullets: [
+          { h: 'Hosted minutes', d: 'Metered per minute with a multiplier by OS (Linux cheapest); a free monthly grant covers small private usage, public repos are free.' },
+          { h: 'Self-hosted', d: 'No per-minute Actions charge — you own the infra/patching cost, worthwhile for heavy or private-network builds.' },
+          { h: 'Storage', d: 'Artifacts and Packages consume billable storage; set retention to bound it.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'How a push becomes a gated, secretless Azure deploy with Actions.',
+        steps: [
+          { h: 'Event fires', d: 'A push/PR to main matches a workflow’s on: trigger and queues a run.' },
+          { h: 'Build job', d: 'A runner checks out the repo (actions/checkout), sets up the toolchain, installs deps and runs tests.' },
+          { h: 'Gate at environment', d: 'The deploy job targets a production Environment whose required-reviewer rule must be satisfied before it runs.' },
+          { h: 'Federate to Azure', d: 'azure/login uses OIDC (permissions: id-token: write) to get a short-lived token — no stored cloud secret.' },
+          { h: 'Deploy', d: 'The job deploys (ADF/IaC/Databricks); the run and approval are recorded for audit.' },
+        ],
+        note: 'Simplified; exact event, environment and OIDC behavior is defined in the GitHub Actions documentation.',
+      },
+      examples: [{
+        title: 'Secretless Databricks bundle deploy from GitHub Actions',
+        requirement: 'Test and deploy a Databricks Asset Bundle on push to main, authenticating to Azure/Databricks without storing a secret, gated by an environment approval.',
+        input: 'A GitHub repo with a Databricks bundle and an Entra app configured for OIDC federation to this repo.',
+        architecture: 'push → CI job (validate/test bundle) → deploy job (environment: production, OIDC azure/login → deploy bundle).',
+        code: {
+          lang: 'yaml (deploy job excerpt)',
+          text: "  deploy:\n    needs: test\n    runs-on: ubuntu-latest\n    environment: production\n    permissions: { id-token: write, contents: read }\n    steps:\n      - uses: actions/checkout@v4\n      - uses: azure/login@v2\n        with:\n          client-id: ${{ vars.AZURE_CLIENT_ID }}\n          tenant-id: ${{ vars.AZURE_TENANT_ID }}\n          subscription-id: ${{ vars.AZURE_SUB }}\n      - run: databricks bundle deploy -t prod",
+        },
+        steps: [
+          'Register an Entra app and add a federated credential trusting this repo/environment.',
+          'Store only non-secret ids as Actions variables; grant the app rights on the workspace.',
+          'CI job validates and tests the bundle on PR/push.',
+          'Deploy job gates on the production environment approval, logs in via OIDC, and deploys.',
+        ],
+        output: 'The bundle deploys to prod after approval with no long-lived secret stored in GitHub.',
+        validation: 'The run shows a successful OIDC login and bundle deploy; revoking the federated credential blocks future deploys.',
+        errorHandling: 'An OIDC failure usually means a missing permissions: id-token: write or a federated-credential subject mismatch (repo/environment/branch).',
+        production: 'Pin actions to SHAs, scope the GITHUB_TOKEN, require environment reviewers, and least-privilege the Entra app.',
+        cleanup: 'Remove the federated credential and environment when retiring the pipeline.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'azure/login fails with an OIDC/federated-credential error in a GitHub Actions deploy job.',
+          evidence: 'The login step errors on token exchange; the job lacks id-token permission or the credential’s subject does not match.',
+          causes: ['Missing permissions: id-token: write on the job', 'Federated credential subject mismatch (wrong repo/branch/environment)', 'Entra app lacks the needed role on the target'],
+          investigation: ['Confirm the job sets permissions: id-token: write', 'Check the federated credential’s subject vs the run context (repo/environment/ref)', 'Verify the app’s role assignment on the Azure resource'],
+          rootCause: 'OIDC federation only issues a token when the workflow requests id-token write AND the credential’s trust subject matches the run context.',
+          remediation: ['Add permissions: id-token: write (and contents: read)', 'Fix the federated-credential subject to match repo/environment/branch', 'Assign the app the required Azure role'],
+          validation: 'The login step succeeds and the deploy proceeds with a short-lived token.',
+          prevention: 'Template the OIDC setup; document the subject format; least-privilege the app.',
+        },
+        {
+          symptom: 'A workflow does not run when a pull request is opened from a fork.',
+          evidence: 'Internal-branch PRs trigger CI, but fork PRs do not run the same workflow (or run with no secrets).',
+          causes: ['Fork PRs run with restricted permissions and no secrets by design', 'The event used (pull_request) deliberately limits fork access', 'Approval required for first-time contributors'],
+          investigation: ['Check whether the PR is from a fork', 'Review which on: event and permissions the workflow uses', 'Check fork-PR workflow approval settings'],
+          rootCause: 'GitHub restricts fork PR workflows (no secrets, read-only token) to prevent untrusted code from stealing secrets — expected security behavior.',
+          remediation: ['Design CI for forks to need no secrets', 'Use pull_request_target carefully (only for trusted, non-code steps) if labeling/triage needs secrets', 'Require maintainer approval for fork-PR runs'],
+          validation: 'Fork PRs run the intended (secretless) CI; secret-dependent steps run only after merge/approval.',
+          prevention: 'Separate untrusted CI from privileged deploys; never expose secrets to fork PRs.',
+        },
+      ],
+      certMapping: {
+        lead: 'GitHub Actions appears in the DevOps expert track and in GitHub’s own certifications; the comparison with Azure Pipelines is the common interview framing.',
+        items: [
+          { label: 'AZ-400 Designing and Implementing Microsoft DevOps Solutions (Expert)', objectives: ['GitHub Actions workflows and runners', 'OIDC federation to Azure', 'Choosing between GitHub Actions and Azure Pipelines'] },
+          'GitHub Actions / GitHub Foundations certifications cover Actions directly.',
+        ],
+      },
+      interview: [
+        { q: 'How is GitHub Actions structured and how does a workflow trigger?', a: 'Workflows are YAML files in .github/workflows. They are event-driven: on: push / pull_request / schedule / workflow_dispatch / release, etc. A workflow has jobs (each on a runner) made of steps, where a step runs a shell command or a reusable action via uses:. There is no separate pipeline object — the workflow file is the pipeline.' },
+        { q: 'Azure Pipelines vs GitHub Actions — what are the real differences?', a: 'Both are YAML CI/CD with hosted/self-hosted compute and environments. Actions is event-driven and Marketplace-centric, tightly coupled to GitHub, with reuse via community actions and reusable workflows. Azure Pipelines is part of an integrated enterprise suite with built-in tasks, templates (incl. extends for governance) and mature release/approval tooling. Microsoft owns both and they converge; pick by where your code and org already live.' },
+        { q: 'How do you deploy to Azure from Actions without storing a secret?', a: 'Use OIDC federation: set permissions: id-token: write, add a federated credential on an Entra app that trusts the repo/environment, and use azure/login to exchange the OIDC token for a short-lived Azure token. It is the GitHub equivalent of Azure Pipelines’ workload identity federation — no long-lived secret in GitHub.' },
+        { q: 'GitHub-hosted vs self-hosted runners?', a: 'Same trade-off as Azure Pipelines agents: GitHub-hosted give a clean, maintained VM per job (easy, metered minutes); self-hosted are persistent machines you manage for private-network access, custom/licensed tooling, warm caches, or heavy builds. Isolate self-hosted runners from untrusted fork PRs.' },
+        { q: 'How do you keep Actions workflows secure?', a: 'Scope the automatic GITHUB_TOKEN with permissions: (least privilege), keep secrets in environment/repo secrets with environment protection rules, use OIDC instead of stored cloud secrets, pin third-party actions to a commit SHA (not a moving tag), and never expose secrets to fork PRs.' },
+        { q: 'Where does Jenkins fit in the comparison?', a: 'Jenkins is self-managed and plugin-heavy with Groovy pipelines — maximum flexibility but you run, patch and secure the server and its plugins. GitHub Actions and Azure Pipelines are managed, YAML-first, and integrated with their platforms, so teams increasingly prefer them unless they need Jenkins’ on-prem control or an existing plugin ecosystem.' },
+      ],
+    },
   ];
 
   TV.AzureServices = AZURE_SERVICES;
