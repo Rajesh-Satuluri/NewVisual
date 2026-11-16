@@ -105,5 +105,57 @@
         runtime: [{ kind: 'tip', body: 'Microsoft-hosted agents = clean VM per job, zero maintenance, capped minutes; self-hosted = persistent, private-network reach, warm caches, custom tooling. Cost is per parallel job, not per pipeline.' }],
       },
     },
+    'azure-devops': {
+      level: 'foundational',
+      callouts: {
+        what: [{ kind: 'insight', body: 'Azure DevOps is five services under one roof — Boards, Repos, Pipelines, Artifacts, Test Plans — sharing one org/project structure and one Entra-backed security model. Adopt any subset; they cross-link for traceability.' }],
+        security: [{ kind: 'interview', body: 'Permissions inherit org → project → object and Deny wins. Grant via Entra-mapped groups (least privilege), and prefer Entra OAuth/managed identity over long-lived PATs for automation.' }],
+      },
+    },
+    'azure-repos': {
+      level: 'core',
+      callouts: {
+        what: [{ kind: 'analogy', body: 'Private GitHub-style Git hosting, but the value is branch policies: the enforced rules (reviewers, build validation, linked work items) that keep main releasable.' }],
+        how: [{ kind: 'gotcha', body: 'PR-triggered CI on Azure Repos Git comes from a Build Validation branch policy — NOT a YAML pr: trigger (that only fires for GitHub/Bitbucket). Same gotcha as Azure Pipelines, from the repo side.' }],
+      },
+    },
+    'azure-artifacts': {
+      level: 'foundational',
+      callouts: {
+        what: [{ kind: 'insight', body: 'Package feeds for npm/NuGet/Maven/PyPI/Universal, with upstream sources that proxy + cache public registries (reproducible builds) and views (@local/@prerelease/@release) for promotion.' }],
+        runtime: [{ kind: 'gotcha', body: 'Published versions are immutable — you cannot overwrite x.y.z, so CI must bump the version. Watch dependency confusion: namespace internal packages so a public name cannot shadow them.' }],
+      },
+    },
+    'azure-boards-test': {
+      level: 'foundational',
+      callouts: {
+        what: [{ kind: 'insight', body: 'Boards = Agile work tracking (work items, backlogs, sprints, WIQL queries) on a process (Basic/Agile/Scrum/CMMI); Test Plans = manual/exploratory test management. Together they bracket the lifecycle with traceability.' }],
+        how: [{ kind: 'tip', body: 'Area paths = whose work it is; iteration paths = which sprint. Link work items to commits/PRs (#id) and builds to get the requirement → code → verification trail interviewers love.' }],
+      },
+    },
+    'github-actions': {
+      level: 'core',
+      callouts: {
+        what: [{ kind: 'analogy', body: 'GitHub’s event-driven CI/CD: YAML workflows in .github/workflows built from reusable Marketplace actions. The workflow file IS the pipeline — no separate pipeline object.' }],
+        security: [{ kind: 'interview', body: 'Deploy to Azure with OIDC (azure/login + permissions: id-token: write) — short-lived token, no stored secret, the GitHub twin of Pipelines’ workload identity federation. Pin third-party actions to a commit SHA.' }],
+        architecture: [{ kind: 'tip', body: 'Classic comparison answer: Actions = event-driven + Marketplace, GitHub-coupled; Azure Pipelines = integrated enterprise suite with tasks/templates + mature release governance; Jenkins = self-managed, plugin-heavy. Microsoft owns both of the first two and they converge.' }],
+      },
+    },
+    'azure-service-bus': {
+      level: 'core',
+      callouts: {
+        what: [{ kind: 'insight', body: 'Enterprise message broker for discrete commands/transactions: queues (point-to-point) + topics/subscriptions (pub/sub), with sessions (FIFO), dead-letter, duplicate detection and PeekLock reliability.' }],
+        architecture: [{ kind: 'interview', body: 'The must-know contrast: Service Bus = discrete messages, per-message ack, dead-letter/dedup/sessions (commands/transactions). Event Hubs = high-throughput replayable stream (telemetry). Kafka = open-source distributed log. Commands → Service Bus; event streams → Event Hubs/Kafka.' }],
+        how: [{ kind: 'gotcha', body: 'Delivery is at-least-once, not exactly-once. PeekLock + Complete gives reliability; if the lock expires or Complete is missed, the message is redelivered — so make consumers idempotent and use duplicate detection.' }],
+      },
+    },
+    'azure-containers': {
+      level: 'core',
+      callouts: {
+        what: [{ kind: 'insight', body: 'The Azure container pattern: build a Docker image → store in Azure Container Registry (ACR) → run on AKS (managed Kubernetes), ACI (serverless single container) or Container Apps (serverless, scale-to-zero). For DE: reproducible ETL runtimes + self-hosted pipeline agents.' }],
+        architecture: [{ kind: 'interview', body: 'AKS vs ACI vs Container Apps: AKS = full Kubernetes control for complex/large workloads (run a cluster); ACI = simplest serverless single container, fast start; Container Apps = serverless microservices/jobs with KEDA scale-to-zero. Match the target to the workload.' }],
+        security: [{ kind: 'gotcha', body: 'Never bake secrets into an image — they persist in layers. Inject at runtime via Key Vault (CSI driver) and authenticate to ACR with a managed identity (AcrPull), not the admin account.' }],
+      },
+    },
   };
 })();

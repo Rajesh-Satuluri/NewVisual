@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-16T10:27:01.263Z",
+  "generated": "2026-11-16T10:50:48.669Z",
   "groups": {
     "services.aws": [
       "s3",
@@ -35,7 +35,14 @@
       "entra-id",
       "key-vault",
       "azure-monitor",
-      "azure-pipelines"
+      "azure-pipelines",
+      "azure-devops",
+      "azure-repos",
+      "azure-artifacts",
+      "azure-boards-test",
+      "github-actions",
+      "azure-service-bus",
+      "azure-containers"
     ],
     "services.databricks": [
       "delta-lake",
@@ -100,7 +107,19 @@
       "monitoring",
       "scenario",
       "cicd",
-      "senior-architecture"
+      "senior-architecture",
+      "ado-fundamentals",
+      "ado-repos",
+      "ado-pipelines-yaml",
+      "ado-pipelines-advanced",
+      "ado-service-connections",
+      "ado-environments",
+      "ado-artifacts",
+      "ado-github-cicd",
+      "ado-cicd-for-data",
+      "ado-service-bus",
+      "ado-containers",
+      "ado-scenarios"
     ],
     "interview.databricks": [
       "spark-arch",
