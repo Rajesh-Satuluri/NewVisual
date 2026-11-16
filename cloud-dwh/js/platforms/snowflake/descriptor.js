@@ -83,6 +83,12 @@
       ],
     },
     {
+      label: '🚀 Projects',
+      items: [
+        { id: 'project-dw-raw', label: 'DW from Raw Files', icon: '🏗️' },
+      ],
+    },
+    {
       label: '🎤 Interview',
       items: [
         { id: 'lab-chains',  label: 'Follow-Up Chains',    icon: '🎤' },

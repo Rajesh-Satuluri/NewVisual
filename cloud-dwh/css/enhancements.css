@@ -1037,3 +1037,115 @@
   font-size: var(--text-sm); color: var(--text-secondary);
 }
 .sqlp-seednote code { font-family: var(--font-mono); color: var(--snowflake); }
+
+/* ============================================================
+   ProjectKit — end-to-end project modules (P3-2)
+   ============================================================ */
+.pk-page { max-width: 960px; }
+.pk-head { margin-bottom: var(--space-6); }
+.pk-head .mod-subtitle { max-width: 72ch; }
+.pk-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: var(--space-4) 0; }
+.pk-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; border-radius: var(--radius-full);
+  background: var(--bg-3); border: 1px solid var(--border);
+  font-size: var(--text-xs); color: var(--text-secondary); white-space: nowrap;
+}
+.pk-chip-skill { background: var(--snowflake-glow, rgba(41,181,232,.12)); color: var(--snowflake); border-color: transparent; }
+.pk-goals {
+  margin-top: var(--space-4); padding: var(--space-4) var(--space-5);
+  background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius-lg);
+}
+.pk-goals-h { font-weight: 700; color: var(--text-primary); margin-bottom: var(--space-2); font-size: var(--text-sm); text-transform: uppercase; letter-spacing: .04em; }
+.pk-goals ul { margin: 0; padding-left: var(--space-5); }
+.pk-goals li { margin: 4px 0; color: var(--text-secondary); font-size: var(--text-sm); }
+.pk-goals code, .pk-step-explain code, .pk-debug-brief code, .pk-lesson-body code {
+  font-family: var(--font-mono); font-size: .92em; color: var(--snowflake);
+  background: var(--bg-3); padding: 1px 5px; border-radius: var(--radius-sm);
+}
+
+/* sections */
+.pk-section { margin: var(--space-8) 0; padding-top: var(--space-6); border-top: 1px solid var(--border); }
+.pk-section-head { display: flex; gap: var(--space-3); align-items: flex-start; margin-bottom: var(--space-4); }
+.pk-section-n {
+  flex: 0 0 auto; width: 28px; height: 28px; border-radius: var(--radius-full);
+  background: var(--snowflake); color: #fff; font-weight: 700; font-size: var(--text-sm);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.pk-section-title { margin: 0; font-size: var(--text-xl, 1.25rem); color: var(--text-primary); line-height: 1.3; }
+.pk-section-sub { margin: 2px 0 0; font-size: var(--text-sm); color: var(--text-secondary); max-width: 70ch; }
+.pk-run-tag { font-size: var(--text-xs); color: var(--green); background: var(--green-subtle); padding: 2px 8px; border-radius: var(--radius-full); white-space: nowrap; }
+.pk-ddl-tag { font-size: var(--text-xs); color: var(--text-muted); background: var(--bg-3); padding: 2px 8px; border-radius: var(--radius-full); white-space: nowrap; }
+
+/* diagram */
+.pk-diagram { background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-4); overflow-x: auto; }
+.pk-svg { width: 100%; min-width: 620px; height: auto; display: block; }
+.pk-svg-box { fill: var(--bg-1); stroke: var(--border-emphasis, var(--border)); stroke-width: 1.5; }
+.pk-svg-title { fill: var(--text-primary); font-size: 14px; font-weight: 700; }
+.pk-svg-sub { fill: var(--text-secondary); font-size: 11px; }
+.pk-svg-lane { fill: var(--text-muted); font-size: 11px; font-weight: 700; letter-spacing: .08em; }
+.pk-svg-star { fill: var(--text-secondary); font-size: 12px; }
+.pk-svg-fact { fill: var(--snowflake); font-weight: 700; }
+.pk-svg-arrow { stroke: var(--text-muted); stroke-width: 1.6; }
+.pk-svg-note { fill: var(--text-secondary); font-size: 11px; font-style: italic; }
+.pk-svg-note-dim { fill: var(--text-muted); }
+
+/* datasets */
+.pk-data-actions { margin-bottom: var(--space-4); }
+.pk-dataset { background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: var(--space-4); overflow: hidden; }
+.pk-dataset-head { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); background: var(--bg-3); flex-wrap: wrap; }
+.pk-dataset-name { font-family: var(--font-mono); color: var(--snowflake); font-weight: 700; font-size: var(--text-sm); }
+.pk-dataset-cap { color: var(--text-secondary); font-size: var(--text-xs); flex: 1 1 200px; }
+.pk-dataset-body { padding: var(--space-3) var(--space-4); overflow-x: auto; }
+
+/* generic grid (datasets + expected output) */
+.pk-grid-wrap { overflow-x: auto; }
+.pk-grid { border-collapse: collapse; width: 100%; font-size: var(--text-sm); }
+.pk-grid th, .pk-grid td { padding: 5px 12px; text-align: left; border-bottom: 1px solid var(--border); font-family: var(--font-mono); white-space: nowrap; }
+.pk-grid th { background: var(--bg-3); color: var(--text-primary); font-weight: 600; }
+.pk-col-type { display: block; font-size: 9px; color: var(--text-muted); font-weight: 400; letter-spacing: .04em; }
+.pk-grid tbody tr:last-child td { border-bottom: none; }
+.pk-grid tbody tr:nth-child(even) { background: var(--bg-1); }
+.pk-null { color: var(--text-muted); font-style: italic; }
+.pk-more { margin: var(--space-2) 0 0; font-size: var(--text-xs); color: var(--text-muted); }
+.pk-empty { color: var(--text-muted); font-size: var(--text-sm); }
+
+/* buttons */
+.pk-btn { font: inherit; cursor: pointer; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--bg-3); color: var(--text-primary); padding: 6px 14px; font-size: var(--text-sm); transition: background var(--ease-fast, .12s); }
+.pk-btn:hover { background: var(--bg-4, var(--bg-2)); }
+.pk-btn-primary { background: var(--snowflake); color: #fff; border-color: transparent; font-weight: 600; }
+.pk-btn-primary:hover { filter: brightness(1.05); background: var(--snowflake); }
+.pk-btn-sm { padding: 3px 10px; font-size: var(--text-xs); }
+
+/* build steps */
+.pk-step { background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-4) var(--space-5); margin-bottom: var(--space-5); }
+.pk-step-head { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-2); }
+.pk-step-n { font-size: var(--text-xs); font-weight: 700; color: var(--snowflake); text-transform: uppercase; letter-spacing: .05em; }
+.pk-step-title { margin: 0; font-size: var(--text-lg); color: var(--text-primary); flex: 1 1 auto; }
+.pk-step-explain { color: var(--text-secondary); font-size: var(--text-sm); margin-bottom: var(--space-3); }
+.pk-step-explain p { margin: 0 0 var(--space-2); }
+.pk-step-run { margin-top: var(--space-4); }
+.pk-dialect-note, .pk-step .pk-dialect-note { margin: var(--space-3) 0 0; font-size: var(--text-xs); color: var(--text-secondary); background: var(--bg-3); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); border-left: 3px solid var(--snowflake); }
+
+/* expected-output panel */
+.pk-expected { margin-top: var(--space-3); }
+.pk-expected summary, .pk-lesson summary { cursor: pointer; font-size: var(--text-sm); color: var(--snowflake); font-weight: 600; padding: var(--space-2) 0; user-select: none; }
+.pk-expected-body { padding: var(--space-2) 0; }
+
+/* debug */
+.pk-debug { background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-4) var(--space-5); margin-bottom: var(--space-5); }
+.pk-debug-head { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-3); }
+.pk-debug-n { font-size: var(--text-xs); font-weight: 700; color: var(--red); text-transform: uppercase; letter-spacing: .05em; }
+.pk-debug-title { margin: 0; font-size: var(--text-lg); color: var(--text-primary); flex: 1 1 auto; }
+.pk-debug-kind { font-size: var(--text-xs); color: var(--blue); background: var(--blue-subtle); padding: 2px 8px; border-radius: var(--radius-full); white-space: nowrap; }
+.pk-debug-fix { color: var(--orange); background: var(--orange-subtle); }
+.pk-debug-brief { color: var(--text-secondary); font-size: var(--text-sm); margin-bottom: var(--space-3); }
+.pk-debug-brief p { margin: 0 0 var(--space-2); }
+.pk-lesson { margin-top: var(--space-3); border-top: 1px dashed var(--border); padding-top: var(--space-2); }
+.pk-lesson-body { font-size: var(--text-sm); color: var(--text-secondary); }
+.pk-lesson-body p { margin: var(--space-2) 0; }
+
+@media (max-width: 640px) {
+  .pk-step, .pk-debug, .pk-goals { padding: var(--space-3) var(--space-4); }
+  .pk-dataset-cap { flex-basis: 100%; }
+}
