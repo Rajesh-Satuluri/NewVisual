@@ -149,5 +149,13 @@
         how: [{ kind: 'gotcha', body: 'Delivery is at-least-once, not exactly-once. PeekLock + Complete gives reliability; if the lock expires or Complete is missed, the message is redelivered — so make consumers idempotent and use duplicate detection.' }],
       },
     },
+    'azure-containers': {
+      level: 'core',
+      callouts: {
+        what: [{ kind: 'insight', body: 'The Azure container pattern: build a Docker image → store in Azure Container Registry (ACR) → run on AKS (managed Kubernetes), ACI (serverless single container) or Container Apps (serverless, scale-to-zero). For DE: reproducible ETL runtimes + self-hosted pipeline agents.' }],
+        architecture: [{ kind: 'interview', body: 'AKS vs ACI vs Container Apps: AKS = full Kubernetes control for complex/large workloads (run a cluster); ACI = simplest serverless single container, fast start; Container Apps = serverless microservices/jobs with KEDA scale-to-zero. Match the target to the workload.' }],
+        security: [{ kind: 'gotcha', body: 'Never bake secrets into an image — they persist in layers. Inject at runtime via Key Vault (CSI driver) and authenticate to ACR with a managed identity (AcrPull), not the admin account.' }],
+      },
+    },
   };
 })();

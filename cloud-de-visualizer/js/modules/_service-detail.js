@@ -27,6 +27,7 @@
     orchestration:{ label: 'Orchestration',        icon: 'git-branch', order: 60 },
     devops:       { label: 'DevOps & CI/CD',        icon: 'merge',   order: 65 },
     compute:      { label: 'Compute & Runtime',    icon: 'zap',     order: 70 },
+    containers:   { label: 'Containers',           icon: 'package', order: 72 },
     ml:           { label: 'ML & AI',              icon: 'sparkles', order: 80 },
     governance:   { label: 'Governance & Security', icon: 'shield', order: 90 },
     ops:          { label: 'Monitoring & Ops',     icon: 'sliders', order: 100 },

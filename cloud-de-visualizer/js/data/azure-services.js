@@ -3203,6 +3203,168 @@
         { q: 'PeekLock vs ReceiveAndDelete?', a: 'PeekLock locks the message so you process then Complete — reliable, at-least-once, with retry/dead-letter on failure. ReceiveAndDelete removes the message on read — faster but at-most-once (a crash after receive loses it). PeekLock is the default for anything you cannot afford to lose.' },
       ],
     },
+    /* ── CONTAINERS ─────────────────────────────────────────── */
+    {
+      id: 'azure-containers', name: 'Containers on Azure', category: 'containers',
+      aka: 'Docker + ACR + AKS + ACI — containerized data workloads & pipeline agents',
+      tagline: 'How containers run on Azure for data engineering: package once with Docker, store images in Azure Container Registry, and run them on AKS (Kubernetes), ACI (serverless containers) or Container Apps.',
+      keyFacts: [
+        { k: 'Package', v: 'Docker image (Dockerfile → image → container)' },
+        { k: 'Registry', v: 'Azure Container Registry (ACR)' },
+        { k: 'Orchestrate', v: 'AKS (managed Kubernetes)' },
+        { k: 'Serverless run', v: 'ACI / Azure Container Apps' },
+      ],
+      what: {
+        lead: 'Containerization packages code and its dependencies into a portable image that runs the same everywhere. On Azure the pattern is: build an image with Docker, push it to Azure Container Registry, then run it on a managed platform — AKS for orchestration at scale, ACI/Container Apps for serverless simplicity.',
+        bullets: [
+          { h: 'Docker image', d: 'A Dockerfile builds an immutable, layered image; a container is a running instance — same artifact from laptop to prod.' },
+          { h: 'ACR (registry)', d: 'Azure Container Registry stores and secures private images, with geo-replication and optional in-registry builds (ACR Tasks).' },
+          { h: 'Run targets', d: 'AKS (managed Kubernetes for orchestration/scale), ACI (fast serverless single containers), Azure Container Apps (serverless microservices/jobs on managed Kubernetes).' },
+        ],
+      },
+      why: {
+        lead: 'Data pipelines need reproducible runtimes (exact Python/Spark/driver versions), portability across environments, and elastic execution. Containers deliver all three, which is why “containerization / cloud-native” shows up on data-engineering job specs.',
+        bullets: [
+          { h: 'Reproducibility', d: 'Pin the whole runtime (libs, drivers, OS packages) in the image so a job behaves identically in dev, CI and prod — no “works on my machine”.' },
+          { h: 'Portability & isolation', d: 'The same image runs on any container host; each job is isolated from others’ dependencies.' },
+          { h: 'Elastic, cheap execution', d: 'Orchestrators scale containers with load; serverless options bill per use — good for bursty batch/ETL jobs.' },
+        ],
+      },
+      how: {
+        lead: 'You write a Dockerfile, build and tag the image, push it to ACR, then deploy it — as a Kubernetes workload on AKS, a one-shot/long-running container on ACI, or a scalable app/job on Container Apps. CI/CD (Azure Pipelines or GitHub Actions) automates build→push→deploy, authenticating to ACR/AKS via managed identity.',
+        bullets: [
+          { h: 'Build & push', d: 'docker build → tag with the ACR login server → docker push (or let ACR Tasks build in the cloud). Images are versioned by tag/digest.' },
+          { h: 'Run on AKS', d: 'Kubernetes schedules pods from the image across a node pool; Deployments/Jobs, autoscaling and secrets manage lifecycle at scale.' },
+          { h: 'Run serverless', d: 'ACI spins up a container in seconds with no cluster to manage; Container Apps adds scaling (incl. scale-to-zero) and jobs for event/queue-driven work.' },
+        ],
+        code: {
+          lang: 'bash + Dockerfile (illustrative)',
+          text: "# Dockerfile for a Python ETL job\n# FROM python:3.12-slim\n# COPY . /app\n# RUN pip install -r /app/requirements.txt\n# ENTRYPOINT [\"python\", \"/app/run_etl.py\"]\n\naz acr build -r myregistry -t etl-job:1.4.0 .   # build in ACR (no local Docker)\n\n# Run once, serverless, on ACI\naz container create -g rg-data --name etl-run \\\n  --image myregistry.azurecr.io/etl-job:1.4.0 \\\n  --assign-identity <managed-identity> --restart-policy Never",
+        },
+      },
+      deUseCase: {
+        lead: 'In data engineering, containers package ETL/Spark jobs and custom tooling for reproducible runs, back self-hosted pipeline agents, and host APIs/services — with ACR as the shared image store feeding every environment.',
+        bullets: [
+          { h: 'Containerized ETL/jobs', d: 'Package a Python/Spark job with pinned deps; run it on ACI/Container Apps jobs or as a Kubernetes Job on AKS, triggered by a pipeline or queue.' },
+          { h: 'Self-hosted pipeline agents', d: 'Run Azure Pipelines / GitHub Actions self-hosted runners as containers (incl. scale-set/AKS) for private-network, custom-tooling builds.' },
+          { h: 'Reproducible dependencies', d: 'The image pins driver/library versions so Spark/ODBC/data jobs behave identically across environments.' },
+        ],
+      },
+      integrations: [
+        { id: 'azure-pipelines', label: 'Azure Pipelines', note: 'build → push to ACR → deploy to AKS/ACI' },
+        { id: 'github-actions', label: 'GitHub Actions', note: 'same build/push/deploy via OIDC' },
+        { id: 'key-vault', label: 'Azure Key Vault', note: 'inject secrets into containers (CSI driver)' },
+        { id: 'entra-id', label: 'Microsoft Entra ID', note: 'managed identity for ACR/AKS auth' },
+        { label: 'ADLS Gen2 / Databricks', note: 'containers read/write lake data' },
+      ],
+      runtime: {
+        lead: 'At runtime, images are pulled from ACR to the host, started as containers, and scheduled/scaled by the platform. Image size, startup time and node/MU sizing drive performance and cost.',
+        bullets: [
+          { h: 'Pull & start', d: 'The host authenticates to ACR (managed identity), pulls the image layers (cached across pulls), and starts the container; small, layered images start faster.' },
+          { h: 'Scaling model', d: 'AKS autoscales pods (HPA) and nodes (cluster autoscaler); Container Apps scales on HTTP/events (KEDA) incl. scale-to-zero; ACI is per-container, no autoscaler.' },
+          { h: 'Resource limits', d: 'CPU/memory requests/limits govern scheduling and throttling; right-size them so data jobs are not OOM-killed or starved.' },
+        ],
+      },
+      architecture: {
+        lead: 'The Azure container stack separates packaging (Docker image), storage (ACR), and execution (AKS / ACI / Container Apps). The interview value is choosing the right run target and knowing the build→push→deploy chain and its identity.',
+        bullets: [
+          { h: 'Image → registry → runtime', d: 'Build an immutable image, push to ACR (versioned by tag/digest), then pull-and-run on a platform — one artifact promoted across environments.' },
+          { h: 'AKS (control)', d: 'Managed Kubernetes: you get the full K8s API (Deployments, Jobs, HPA, secrets, networking) for complex, multi-service or large-scale workloads — more power, more ops.' },
+          { h: 'ACI vs Container Apps (serverless)', d: 'ACI: simplest single-container, fast start, no orchestration. Container Apps: serverless microservices/jobs on managed Kubernetes with KEDA scaling (scale-to-zero) and Dapr — the middle ground without running a cluster.' },
+          { h: 'Identity & secrets', d: 'Managed identity authenticates to ACR and other Azure services (no stored registry creds); Key Vault secrets inject via the CSI driver rather than baking them into images.' },
+        ],
+      },
+      security: {
+        lead: 'Container security spans the image supply chain, registry access, runtime isolation, and secrets handling. Use managed identity, scan images, and never bake secrets into layers.',
+        bullets: [
+          { h: 'Registry access', d: 'Authenticate to ACR with managed identity/RBAC (AcrPull/AcrPush) instead of admin credentials; disable the admin account.' },
+          { h: 'Image hygiene', d: 'Use minimal/trusted base images, scan for vulnerabilities (Defender for Containers / ACR scanning), and pin by digest for immutability.' },
+          { h: 'Secrets', d: 'Never COPY secrets into an image (they persist in layers); inject at runtime via Key Vault (CSI driver) or platform secrets.' },
+          { h: 'Runtime isolation', d: 'Run as non-root, set resource limits, and use network policies/private endpoints to constrain blast radius.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating containers means managing the registry, keeping images current/patched, and running the platform (node upgrades on AKS, scaling config) with good observability.',
+        bullets: [
+          { h: 'Registry lifecycle', d: 'Apply ACR retention/purge to remove old tags; geo-replicate for multi-region pulls.' },
+          { h: 'Patch & upgrade', d: 'Rebuild images on base-image CVEs; on AKS, keep node pools and Kubernetes versions upgraded.' },
+          { h: 'Observability', d: 'Container Insights/Azure Monitor collect logs/metrics; watch restarts, OOM kills, pull failures and job success.' },
+        ],
+      },
+      cost: {
+        lead: 'Cost differs sharply by run target: AKS bills for the node VMs (you run a cluster), ACI bills per vCPU/GB-second (pay-per-use), Container Apps bills on usage with scale-to-zero; ACR bills by tier + storage. (Price against the official Azure pricing pages.)',
+        bullets: [
+          { h: 'AKS', d: 'Pay for the node pool VMs (and optionally a paid control-plane tier); cost-effective for steady, dense workloads — wasteful if idle.' },
+          { h: 'ACI / Container Apps', d: 'ACI bills per-second for the container’s vCPU/memory — great for short bursty jobs; Container Apps adds scale-to-zero so idle costs nothing.' },
+          { h: 'ACR', d: 'Billed by tier (Basic/Standard/Premium) plus storage; Premium adds geo-replication/throughput. Prune old images to control storage.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'How a containerized ETL job ships from code to a scheduled run.',
+        steps: [
+          { h: 'Write the Dockerfile', d: 'Pin the base image and dependencies, set the ENTRYPOINT to the ETL script.' },
+          { h: 'Build & push', d: 'CI builds (or ACR Tasks builds) the image, tags it with a version, and pushes to ACR — authenticated via managed identity.' },
+          { h: 'Choose a run target', d: 'A short nightly batch → ACI or a Container Apps job; a complex multi-service/large-scale workload → AKS Job/Deployment.' },
+          { h: 'Deploy & inject secrets', d: 'The pipeline deploys the image; Key Vault secrets are injected at runtime (CSI driver / platform secrets), not baked in.' },
+          { h: 'Run & observe', d: 'The job pulls the image, runs to completion (restart-policy Never for one-shot), and logs/metrics flow to Azure Monitor.' },
+        ],
+        note: 'Simplified; exact build, identity and scaling behavior is defined in the ACR/AKS/ACI/Container Apps documentation.',
+      },
+      examples: [{
+        title: 'Reproducible nightly ETL as a serverless container job',
+        requirement: 'Run a Python ETL with pinned dependencies every night, with no cluster to manage, authenticating to Azure without stored secrets.',
+        input: 'An ETL repo with a Dockerfile, an ACR, and a managed identity with data access.',
+        architecture: 'CI (ACR build) → image in ACR → Container Apps job (or ACI) on a schedule, using managed identity for ACR pull + data access, Key Vault for secrets.',
+        steps: [
+          'Write a Dockerfile pinning Python and deps; set the ETL entrypoint.',
+          'Build with az acr build (or CI) and tag a version in ACR.',
+          'Define a scheduled Container Apps job (or ACI with restart-policy Never) using the image.',
+          'Assign a managed identity (AcrPull + data roles); inject secrets from Key Vault.',
+        ],
+        output: 'The ETL runs nightly in an identical, isolated runtime, scales to zero when idle, and uses no stored credentials.',
+        validation: 'Trigger the job manually; confirm it pulls the pinned image, reads data via managed identity, and completes with logs in Azure Monitor.',
+        errorHandling: 'An ACR pull 401 means the identity lacks AcrPull; an OOM kill means raise the memory limit or reduce batch size.',
+        production: 'Scan images, pin by digest, least-privilege the identity, set retention on ACR, and alert on job failures.',
+        cleanup: 'Delete the job/ACI, prune old ACR tags, and remove the identity/role assignments when retired.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'A container fails to start with an image pull (401/403) error from ACR.',
+          evidence: 'Events show ImagePullBackOff / authentication required; the image exists in ACR but the host cannot pull it.',
+          causes: ['The pulling identity lacks the AcrPull role', 'Using admin credentials that are disabled/rotated', 'AKS not attached to the ACR (no managed-identity link)'],
+          investigation: ['Check the node/pod/container identity’s role assignments on the ACR', 'Confirm whether admin account is used/enabled', 'For AKS, verify the cluster is attached to the registry'],
+          rootCause: 'The runtime identity is not authorized to pull from the registry (missing AcrPull or a broken admin-credential path).',
+          remediation: ['Grant AcrPull to the managed identity', 'Attach AKS to the ACR (az aks update --attach-acr)', 'Stop relying on the admin account; use managed identity'],
+          validation: 'The container pulls the image and starts; no auth errors in events.',
+          prevention: 'Standardize on managed identity + AcrPull, disable the ACR admin account, and template the AKS–ACR attachment.',
+        },
+        {
+          symptom: 'A containerized data job is killed partway through with an out-of-memory error.',
+          evidence: 'The container exits with OOMKilled; it processes large batches or loads big data frames into memory.',
+          causes: ['Memory limit lower than the job’s peak usage', 'Processing too large a batch in memory at once', 'No streaming/chunking of large inputs'],
+          investigation: ['Check the container’s memory limit vs observed peak', 'Review batch/partition sizes', 'Look for loading entire datasets into memory'],
+          rootCause: 'Peak memory exceeded the container’s limit, so the platform OOM-killed it.',
+          remediation: ['Raise the memory request/limit to cover peak', 'Chunk/stream the data or increase partitioning', 'Use a larger node/instance size if needed'],
+          validation: 'The job completes without OOMKilled under representative data volumes.',
+          prevention: 'Right-size limits from observed usage, stream large inputs, and load-test with production-scale data.',
+        },
+      ],
+      certMapping: {
+        lead: 'Containers span Azure developer/architect certs; for data roles they satisfy the “cloud-native / containerization” expectation.',
+        items: [
+          { label: 'AZ-204 Developing Solutions for Microsoft Azure', objectives: ['Create and manage container images in ACR', 'Run containers on ACI / Container Apps', 'Authenticate with managed identity'] },
+          { label: 'AZ-305 Designing Microsoft Azure Infrastructure Solutions', objectives: ['Choose a compute/container platform (AKS vs ACI vs Container Apps)', 'Design for scale, identity and secrets'] },
+          'Kubernetes depth maps to the CKA/CKAD community certifications.',
+        ],
+      },
+      interview: [
+        { q: 'Why containerize data pipelines?', a: 'For reproducibility, portability and elastic execution. The image pins the exact runtime (Python/Spark/driver/OS versions) so a job behaves identically in dev, CI and prod; the same artifact runs on any container host; and orchestrators/serverless options scale and bill per use for bursty batch/ETL work — eliminating “works on my machine”.' },
+        { q: 'AKS vs ACI vs Container Apps — when do you use each?', a: 'AKS is managed Kubernetes — full control (Deployments, Jobs, HPA, networking) for complex, multi-service or large-scale workloads, at the cost of running a cluster. ACI runs a single container serverlessly in seconds with no orchestration — great for short, bursty jobs. Container Apps is serverless microservices/jobs on managed Kubernetes with KEDA scaling (scale-to-zero) and Dapr — the middle ground without managing a cluster.' },
+        { q: 'What is ACR and how should containers authenticate to it?', a: 'Azure Container Registry is the private image store (build/push/pull, geo-replication, ACR Tasks). Authenticate with a managed identity holding AcrPull/AcrPush (attach AKS to the ACR, or assign the identity on ACI/Container Apps) rather than the admin account — disable admin and avoid stored registry credentials.' },
+        { q: 'How do you handle secrets in containers?', a: 'Never bake secrets into the image — they persist in layers and anyone with the image can read them. Inject at runtime: Key Vault via the Secrets Store CSI driver on AKS, or platform/environment secrets on Container Apps/ACI, with a managed identity reading Key Vault. Keep images free of credentials.' },
+        { q: 'What goes in a good data-job Dockerfile?', a: 'A minimal trusted base image, pinned dependency versions, only the needed files (use .dockerignore), a non-root user, and an explicit ENTRYPOINT for the job. Keep layers small and ordered so dependency installs cache; pin by digest in production for immutability and scan for vulnerabilities.' },
+      ],
+    },
   ];
 
   TV.AzureServices = AZURE_SERVICES;
