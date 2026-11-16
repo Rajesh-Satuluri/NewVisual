@@ -141,5 +141,13 @@
         architecture: [{ kind: 'tip', body: 'Classic comparison answer: Actions = event-driven + Marketplace, GitHub-coupled; Azure Pipelines = integrated enterprise suite with tasks/templates + mature release governance; Jenkins = self-managed, plugin-heavy. Microsoft owns both of the first two and they converge.' }],
       },
     },
+    'azure-service-bus': {
+      level: 'core',
+      callouts: {
+        what: [{ kind: 'insight', body: 'Enterprise message broker for discrete commands/transactions: queues (point-to-point) + topics/subscriptions (pub/sub), with sessions (FIFO), dead-letter, duplicate detection and PeekLock reliability.' }],
+        architecture: [{ kind: 'interview', body: 'The must-know contrast: Service Bus = discrete messages, per-message ack, dead-letter/dedup/sessions (commands/transactions). Event Hubs = high-throughput replayable stream (telemetry). Kafka = open-source distributed log. Commands → Service Bus; event streams → Event Hubs/Kafka.' }],
+        how: [{ kind: 'gotcha', body: 'Delivery is at-least-once, not exactly-once. PeekLock + Complete gives reliability; if the lock expires or Complete is missed, the message is redelivered — so make consumers idempotent and use duplicate detection.' }],
+      },
+    },
   };
 })();

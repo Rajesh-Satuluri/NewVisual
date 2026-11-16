@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-16T10:38:57.607Z",
+  "generated": "2026-11-16T10:41:52.064Z",
   "groups": {
     "services.aws": [
       "s3",
@@ -40,7 +40,8 @@
       "azure-repos",
       "azure-artifacts",
       "azure-boards-test",
-      "github-actions"
+      "github-actions",
+      "azure-service-bus"
     ],
     "services.databricks": [
       "delta-lake",

@@ -21,6 +21,7 @@
     storage:      { label: 'Storage',              icon: 'folder',  order: 10 },
     'ingest-etl': { label: 'Ingestion & ETL',      icon: 'arrow-down', order: 20 },
     streaming:    { label: 'Streaming',            icon: 'activity', order: 30 },
+    messaging:    { label: 'Messaging',            icon: 'message-square', order: 35 },
     analytics:    { label: 'Analytics & Warehouse', icon: 'cpu',    order: 40 },
     databases:    { label: 'Databases',            icon: 'layers',  order: 50 },
     orchestration:{ label: 'Orchestration',        icon: 'git-branch', order: 60 },

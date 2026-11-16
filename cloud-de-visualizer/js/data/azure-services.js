@@ -3041,6 +3041,168 @@
         { q: 'Where does Jenkins fit in the comparison?', a: 'Jenkins is self-managed and plugin-heavy with Groovy pipelines — maximum flexibility but you run, patch and secure the server and its plugins. GitHub Actions and Azure Pipelines are managed, YAML-first, and integrated with their platforms, so teams increasingly prefer them unless they need Jenkins’ on-prem control or an existing plugin ecosystem.' },
       ],
     },
+    /* ── MESSAGING ──────────────────────────────────────────── */
+    {
+      id: 'azure-service-bus', name: 'Azure Service Bus', category: 'messaging',
+      aka: 'Azure Service Bus — enterprise message broker (queues + topics/subscriptions)',
+      tagline: 'Azure’s fully managed enterprise message broker for reliable command/transaction messaging: durable queues and publish/subscribe topics with ordering (sessions), dead-lettering, duplicate detection and transactions.',
+      keyFacts: [
+        { k: 'Model', v: 'Queues (point-to-point) + Topics/Subscriptions (pub/sub)' },
+        { k: 'Delivery', v: 'At-least-once; exactly-once effect via sessions + dedup + transactions' },
+        { k: 'Protocol', v: 'AMQP 1.0 (also HTTPS); JMS on Premium' },
+        { k: 'vs Event Hubs', v: 'Messaging (discrete messages) ≠ streaming (event firehose)' },
+      ],
+      what: {
+        lead: 'Azure Service Bus is a managed enterprise message broker. Unlike a streaming service, it deals in discrete messages — commands and transactions — with broker features that keep them reliable, ordered and de-duplicated. It is the “decouple these services safely” piece of an event-driven architecture.',
+        bullets: [
+          { h: 'Queues', d: 'Point-to-point: one producer-side send, competing consumers pull; load-levels and decouples sender from receiver.' },
+          { h: 'Topics & subscriptions', d: 'Publish/subscribe: a message sent to a topic is copied to each subscription, which can filter with rules — one event, many independent consumers.' },
+          { h: 'Broker features', d: 'Sessions (FIFO + state), dead-letter queues, duplicate detection, scheduled/deferred messages, and transactions.' },
+        ],
+      },
+      why: {
+        lead: 'Microservices and data services must hand off work without losing or double-processing it, even when a consumer is down. Service Bus provides durable, ordered, exactly-once-effect messaging that plain HTTP calls or a streaming log do not.',
+        bullets: [
+          { h: 'Reliable decoupling', d: 'The broker persists messages until a consumer acknowledges, so a slow or offline consumer never loses work or back-pressures the producer.' },
+          { h: 'Ordering & dedup when it matters', d: 'Sessions guarantee FIFO per key and duplicate detection drops resends — essential for financial/transactional messages.' },
+          { h: 'Poison-message handling', d: 'Dead-letter queues capture messages that repeatedly fail so the main flow is not blocked and failures are inspectable.' },
+        ],
+      },
+      how: {
+        lead: 'You create a namespace (Basic/Standard/Premium tier), then queues and/or topics with subscriptions. Producers send messages (optionally with a SessionId and MessageId); consumers receive in PeekLock mode, process, then Complete — or the message is retried and eventually dead-lettered.',
+        bullets: [
+          { h: 'PeekLock vs ReceiveAndDelete', d: 'PeekLock locks the message, you process then Complete (safe, at-least-once); ReceiveAndDelete removes on read (fast, at-most-once). PeekLock is the reliable default.' },
+          { h: 'Sessions for FIFO', d: 'Set SessionId; a session-aware consumer processes one session’s messages in order with stored session state — ordered processing within a key.' },
+          { h: 'Dedup & dead-letter', d: 'Duplicate detection drops repeats with the same MessageId within a window; messages exceeding max delivery count (or TTL) move to the dead-letter sub-queue.' },
+        ],
+        code: {
+          lang: 'python (azure-servicebus, illustrative)',
+          text: "from azure.servicebus import ServiceBusClient, ServiceBusMessage\n\n# Send with a session id for ordered processing + a message id for dedup\nwith client.get_queue_sender('orders') as sender:\n    sender.send_messages(ServiceBusMessage(\n        body, session_id='cust-42', message_id='order-1001'))\n\n# Receive in PeekLock, process, then complete (at-least-once)\nwith client.get_queue_receiver('orders') as receiver:\n    for msg in receiver:\n        handle(msg)\n        receiver.complete_message(msg)   # on failure: abandon → retried → dead-lettered",
+        },
+      },
+      deUseCase: {
+        lead: 'In data platforms Service Bus is the reliable control/command channel — triggering pipelines, coordinating microservices, and buffering transactional events — as opposed to Event Hubs, which ingests high-volume telemetry streams.',
+        bullets: [
+          { h: 'Command / trigger bus', d: 'A service drops an “ingest this file” or “run this job” command on a queue; a worker (or Logic App/Function) picks it up reliably.' },
+          { h: 'Fan-out with filters', d: 'A topic publishes “order created”; subscriptions with rules route to billing, analytics and fraud independently.' },
+          { h: 'Decouple transactional producers', d: 'Durable buffering absorbs spikes and consumer downtime for order/payment events where loss or duplication is unacceptable.' },
+        ],
+      },
+      integrations: [
+        { id: 'event-hubs', label: 'Event Hubs', note: 'streaming sibling — telemetry firehose vs discrete messages' },
+        { id: 'stream-analytics', label: 'Stream Analytics', note: 'processes the Event Hubs stream (not ASB)' },
+        { label: 'Functions / Logic Apps', note: 'native triggers/bindings on queues & subscriptions' },
+        { label: 'Data Factory / workers', note: 'consume commands to run pipelines' },
+      ],
+      runtime: {
+        lead: 'Service Bus persists messages durably and serves them over AMQP. Throughput, latency isolation and features depend on tier; the broker tracks lock, delivery count and TTL per message.',
+        bullets: [
+          { h: 'Tiers', d: 'Basic (queues only), Standard (topics, shared capacity, pay-per-op), Premium (dedicated messaging units, predictable low latency, JMS, larger messages).' },
+          { h: 'Locks & retries', d: 'PeekLock holds a lock for a lock-duration; if not completed in time the lock expires and the message is redelivered — processing must finish or renew the lock before expiry.' },
+          { h: 'Partitioning & scale', d: 'Premium scales via messaging units; sessions cap per-session parallelism at one consumer, so key design affects throughput.' },
+        ],
+      },
+      architecture: {
+        lead: 'Service Bus is a broker with durable entities (queues, topics, subscriptions) and per-message state (lock, delivery count, TTL, session). The single most-tested point is messaging vs streaming: Service Bus (discrete messages, broker semantics) versus Event Hubs (high-throughput replayable event stream) versus Kafka (distributed commit log).',
+        bullets: [
+          { h: 'Queue vs topic', d: 'A queue is point-to-point (competing consumers share the load); a topic copies each message to every subscription, each of which can filter — pub/sub fan-out.' },
+          { h: 'Message lifecycle', d: 'Sent → locked (PeekLock) → Completed / Abandoned / Dead-lettered. Delivery count and TTL drive automatic dead-lettering of poison/expired messages.' },
+          { h: 'ASB vs Event Hubs vs Kafka', d: 'Service Bus: discrete command/transaction messages, per-message ack, dead-letter, dedup, sessions — broker deletes on consume. Event Hubs: high-volume event streaming, partitioned replayable log, consumer offsets, Kafka-compatible endpoint. Kafka: open-source distributed log, partitions/offsets, long retention, huge ecosystem. Rule of thumb: commands/transactions → Service Bus; telemetry/event streams → Event Hubs/Kafka.' },
+          { h: 'Exactly-once effect', d: 'There is no magic exactly-once; you approximate it with at-least-once + idempotent consumers, plus duplicate detection and sessions where ordering/dedup is required.' },
+        ],
+      },
+      security: {
+        lead: 'Security combines Entra identity (preferred) or SAS keys, network isolation, and encryption. Prefer managed identity + RBAC over connection strings.',
+        bullets: [
+          { h: 'Identity', d: 'Microsoft Entra ID with RBAC roles (Service Bus Data Sender/Receiver/Owner) is preferred; SAS policies (connection strings) are the legacy alternative — scope and rotate them.' },
+          { h: 'Network', d: 'Private Endpoints and IP firewall (Premium) keep the namespace off the public internet.' },
+          { h: 'Encryption', d: 'Encrypted in transit (TLS/AMQP) and at rest; Premium supports customer-managed keys.' },
+          { h: 'Least privilege', d: 'Grant senders send-only and consumers receive-only via RBAC; avoid sharing a single all-powerful connection string.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating Service Bus means watching queue depth and dead-letter counts, tuning lock/TTL/retry, and sizing the tier for latency — the broker itself is managed.',
+        bullets: [
+          { h: 'Monitor depth & DLQ', d: 'Active message count rising = consumers falling behind; dead-letter count rising = poison messages or bad processing — alert on both.' },
+          { h: 'Tune reliability knobs', d: 'Set lock duration, max delivery count, TTL and duplicate-detection window to match processing time and ordering/dedup needs.' },
+          { h: 'Dead-letter handling', d: 'Build a process to inspect, fix and re-submit (or discard) dead-lettered messages so failures are not silently lost.' },
+        ],
+      },
+      cost: {
+        lead: 'Service Bus bills by tier: Standard is pay-per-operation with shared capacity; Premium bills fixed per messaging unit for dedicated, predictable performance. (Price against the official Service Bus pricing page.)',
+        bullets: [
+          { h: 'Standard (pay-per-op)', d: 'Billed per million operations plus base charges; good for variable/low-to-moderate volume and full feature access (topics).' },
+          { h: 'Premium (per MU)', d: 'Fixed cost per messaging unit for isolation, predictable latency, JMS and larger messages — for high/steady throughput or strict SLAs.' },
+          { h: 'Cost levers', d: 'Right-size the tier, batch operations, set TTL to avoid unbounded storage, and drain dead-letter queues.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'How an order message is processed reliably and in order.',
+        steps: [
+          { h: 'Send', d: 'The order service sends a message to the orders queue with SessionId=customer-42 and a unique MessageId.' },
+          { h: 'Dedup', d: 'Duplicate detection drops any resend with the same MessageId inside the detection window, so a retried send is not double-processed.' },
+          { h: 'Locked receive', d: 'A session-aware consumer locks the next message for customer-42 (PeekLock), guaranteeing in-order processing for that customer.' },
+          { h: 'Process & complete', d: 'The consumer processes idempotently and calls Complete, removing the message; if it fails it Abandons, incrementing delivery count.' },
+          { h: 'Dead-letter on poison', d: 'After max delivery attempts (or TTL) the message auto-moves to the dead-letter queue for inspection, keeping the main flow unblocked.' },
+        ],
+        note: 'Simplified; exact lock, session and dead-letter behavior is defined in the Azure Service Bus documentation.',
+      },
+      examples: [{
+        title: 'Ordered, exactly-once-effect order processing with sessions + dedup',
+        requirement: 'Process per-customer order messages in order, never double-charge on producer retries, and isolate poison messages.',
+        input: 'A Service Bus (Standard/Premium) namespace with a session-enabled orders queue.',
+        architecture: 'Order service → orders queue (sessions on, dedup window set) → session-aware idempotent consumer → dead-letter queue for failures.',
+        steps: [
+          'Enable sessions and duplicate detection on the queue.',
+          'Send with SessionId=customerId and a stable MessageId per logical order.',
+          'Consume in PeekLock with a session receiver; process idempotently then Complete.',
+          'Alert on dead-letter count; build a re-submit path.',
+        ],
+        output: 'Per-customer ordering holds, retried sends are de-duplicated, and failed messages land in the DLQ instead of blocking the queue.',
+        validation: 'Send a duplicate MessageId (only one processed); kill the consumer mid-batch and confirm the locked message is redelivered, not lost.',
+        errorHandling: 'If messages are redelivered unexpectedly, the consumer likely exceeded the lock duration — renew the lock or shorten processing; ensure Complete is called.',
+        production: 'Use managed identity + RBAC, Private Endpoint, right-sized tier, and monitoring on depth/DLQ.',
+        cleanup: 'Delete unused queues/topics and the namespace to stop charges; drain DLQs first.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'Messages are processed more than once even though each was handled successfully.',
+          evidence: 'Consumers see redelivery of messages they already processed; delivery count climbs; processing sometimes exceeds the lock duration.',
+          causes: ['Processing took longer than the PeekLock lock duration, so the lock expired and the message was redelivered', 'Complete was never called (or failed) after processing', 'Consumer crashed after side effects but before Complete'],
+          investigation: ['Compare processing time to the queue’s lock duration', 'Confirm Complete is called on success', 'Check for exceptions between side effect and Complete'],
+          rootCause: 'Service Bus is at-least-once: if the lock expires or Complete is not called, the message is redelivered — so non-idempotent consumers double-process.',
+          remediation: ['Make the consumer idempotent (dedupe by MessageId)', 'Renew the lock for long processing or shorten the work', 'Ensure Complete runs after successful processing'],
+          validation: 'Redelivered messages no longer cause duplicate side effects; locks no longer expire mid-processing.',
+          prevention: 'Design idempotent consumers, right-size lock duration, and use duplicate detection where applicable.',
+        },
+        {
+          symptom: 'A queue’s dead-letter count keeps growing while the main queue drains.',
+          evidence: 'Messages accumulate in the dead-letter sub-queue; many share a delivery count equal to max delivery count.',
+          causes: ['Messages repeatedly fail processing and hit max delivery count', 'Expired TTL moves messages to DLQ', 'A subscription filter/handler bug rejects valid messages'],
+          investigation: ['Inspect dead-lettered messages’ reason/description', 'Check the handler for a consistent failure on certain payloads', 'Review max delivery count and TTL settings'],
+          rootCause: 'Poison messages (or expired TTL) auto-move to the dead-letter queue after exhausting delivery attempts — the DLQ is doing its job; the handler/payload is the real issue.',
+          remediation: ['Fix the handler bug or bad payloads', 'Build a DLQ inspection + re-submit process', 'Tune max delivery count/TTL appropriately'],
+          validation: 'DLQ growth stops; re-submitted messages process successfully.',
+          prevention: 'Validate payloads, monitor/alert on DLQ depth, and operate a routine to triage dead-lettered messages.',
+        },
+      ],
+      certMapping: {
+        lead: 'Service Bus is core messaging for Azure solution/developer certifications and relevant to event-driven data architectures.',
+        items: [
+          { label: 'AZ-204 Developing Solutions for Microsoft Azure', objectives: ['Queues vs topics/subscriptions', 'Message handling: sessions, dead-letter, dedup, PeekLock', 'Secure access (Entra RBAC / SAS)'] },
+          { label: 'AZ-305 Designing Microsoft Azure Infrastructure Solutions', objectives: ['Choosing messaging vs streaming (Service Bus vs Event Hubs)', 'Reliable, decoupled integration design'] },
+          'Relevant to event-driven data architecture: command bus vs streaming ingestion.',
+        ],
+      },
+      interview: [
+        { q: 'Service Bus vs Event Hubs vs Kafka — when do you use each?', a: 'Service Bus is an enterprise message broker for discrete commands/transactions: per-message acknowledgement, dead-lettering, duplicate detection, sessions for FIFO — messages are consumed and removed. Event Hubs is high-throughput event streaming: a partitioned, replayable log with consumer offsets and a Kafka-compatible endpoint, for telemetry firehoses. Kafka is the open-source distributed log with partitions/offsets, long retention and a huge ecosystem. Rule of thumb: commands/transactions → Service Bus; high-volume event streams/analytics → Event Hubs or Kafka.' },
+        { q: 'Queue vs topic/subscription?', a: 'A queue is point-to-point: many consumers compete and each message is processed once by one of them (load leveling). A topic is publish/subscribe: each message is copied to every subscription, and subscriptions can filter with rules — so one published event fans out to multiple independent consumers.' },
+        { q: 'How does Service Bus handle reliability and poison messages?', a: 'Receive in PeekLock: the message is locked, you process, then Complete; if you Abandon or the lock expires, delivery count increments and it is retried. After max delivery count (or TTL) it auto-moves to the dead-letter queue, so poison messages do not block the queue and can be inspected and re-submitted.' },
+        { q: 'Does Service Bus give exactly-once delivery?', a: 'Not literally — delivery is at-least-once. You achieve an exactly-once effect by making consumers idempotent (dedupe by MessageId) and using duplicate detection (drops resends within a window) plus sessions where ordering matters. Claiming true exactly-once is a red flag.' },
+        { q: 'What are sessions and when do you need them?', a: 'Sessions give FIFO ordering and shared state per SessionId: a session-aware consumer processes all messages for one key in order. Use them when per-entity ordering matters (all events for one customer/order). The trade-off is one consumer per active session, which caps parallelism per key.' },
+        { q: 'PeekLock vs ReceiveAndDelete?', a: 'PeekLock locks the message so you process then Complete — reliable, at-least-once, with retry/dead-letter on failure. ReceiveAndDelete removes the message on read — faster but at-most-once (a crash after receive loses it). PeekLock is the default for anything you cannot afford to lose.' },
+      ],
+    },
   ];
 
   TV.AzureServices = AZURE_SERVICES;
