@@ -39,6 +39,8 @@
   <link rel="stylesheet" href="css/loading.css" />
 </head>
 <body>
+  <a href="#canvas" class="skip-link">Skip to content</a>
+  <div id="route-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
   <div id="app">
     <aside id="sidebar" class="sidebar">
       <div id="sidebar-header" class="sidebar-header">
@@ -69,7 +71,7 @@
           <a href="https://docs.snowflake.com" id="docs-link" target="_blank" rel="noopener" class="btn-icon" title="Docs" aria-label="Documentation"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
         </div>
       </header>
-      <div id="canvas" role="main" aria-live="polite"></div>
+      <div id="canvas" tabindex="-1"></div>
       <div id="anim-controls-bar" class="anim-controls-bar" role="toolbar" aria-label="Animation controls">
         <button id="anim-btn-reset" class="btn-icon anim-btn" title="Reset (R)" aria-label="Reset animation"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-5"/></svg></button>
         <button id="anim-btn-prev" class="btn-icon anim-btn" title="Previous (←)" aria-label="Previous step"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><polygon points="19,3 5,12 19,21"/></svg></button>
@@ -104,6 +106,8 @@
   <script src="js/features/enhance.js"></script>
   <script src="js/features/loading-glossary.js"></script>
   <script src="js/features/loading-path.js"></script>
+  <script src="js/features/sql-playground.js"></script>
+  <script src="js/features/project-kit.js"></script>
   <script src="js/supabase-config.js"></script>
   <script src="js/features/cloudsync.js"></script>
   <script src="js/features/state-io.js"></script>
@@ -184,6 +188,9 @@
   <script src="js/platforms/snowflake/modules/lab-traps.js"></script>
   <script src="js/platforms/snowflake/modules/lab-troubleshooting.js"></script>
   <script src="js/platforms/snowflake/modules/objects.js"></script>
+  <script src="js/platforms/snowflake/modules/project-dw-raw.js"></script>
+  <script src="js/platforms/snowflake/modules/project-scd2.js"></script>
+  <script src="js/platforms/snowflake/modules/project-ecom-dim.js"></script>
   <script src="js/platforms/snowflake/modules/query-execution.js"></script>
   <script src="js/platforms/snowflake/modules/rbac.js"></script>
   <script src="js/platforms/snowflake/modules/reference.js"></script>
@@ -201,8 +208,15 @@
   <script src="js/platforms/fundamentals/modules/ingestion.js"></script>
   <script src="js/platforms/fundamentals/modules/performance.js"></script>
   <script src="js/platforms/fundamentals/modules/modeling.js"></script>
+  <script src="js/platforms/fundamentals/modules/modeling-track.js"></script>
+  <script src="js/platforms/fundamentals/modules/scd2-sim.js"></script>
+  <script src="js/platforms/fundamentals/modules/sql-playground.js"></script>
   <script src="js/platforms/fundamentals/modules/operations.js"></script>
   <script src="js/platforms/fundamentals/modules/home.js"></script>
+
+  <!-- ── Fundamentals data banks (quiz + interview) ─────── -->
+  <script src="js/platforms/fundamentals/data/quiz-bank.js"></script>
+  <script src="js/platforms/fundamentals/data/interview-bank.js"></script>
 
   <!-- ── Redshift + Fabric module stubs ─────────────────── -->
   <script src="js/platforms/redshift/modules/stubs.js"></script>
@@ -218,6 +232,7 @@
   <script src="js/platforms/redshift/modules/scale.js"></script>
   <script src="js/platforms/redshift/modules/ecosystem.js"></script>
   <script src="js/platforms/redshift/modules/security.js"></script>
+  <script src="js/platforms/redshift/modules/topics.js"></script>
   <script src="js/platforms/redshift/data/scenarios.js"></script>
   <script src="js/platforms/redshift/modules/labs.js"></script>
   <script src="js/platforms/redshift/modules/reference.js"></script>
@@ -230,6 +245,7 @@
   <script src="js/platforms/fabric/modules/internals.js"></script>
   <script src="js/platforms/fabric/modules/platform.js"></script>
   <script src="js/platforms/fabric/modules/security.js"></script>
+  <script src="js/platforms/fabric/modules/topics.js"></script>
   <script src="js/platforms/fabric/data/scenarios.js"></script>
   <script src="js/platforms/fabric/modules/labs.js"></script>
   <script src="js/platforms/fabric/modules/reference.js"></script>

@@ -68,6 +68,7 @@
         <div class="home-hero-cta">
           <button class="btn btn-primary" id="home-start-btn">Start Learning</button>
           <button class="btn btn-ghost" id="home-jump-arch-btn">Jump to Architecture</button>
+          <button class="btn btn-ghost" id="home-jump-interview-btn">💬 Interview Questions</button>
         </div>`;
       canvas.appendChild(hero);
 
@@ -199,6 +200,9 @@
       });
       canvas.querySelector('#home-jump-arch-btn')?.addEventListener('click', () => {
         window.CDWH.navigate('architecture');
+      });
+      canvas.querySelector('#home-jump-interview-btn')?.addEventListener('click', () => {
+        window.CDWH.navigate('interview-prep');
       });
 
       return {};

@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-11T03:23:33.461Z",
+  "generated": "2026-11-16T10:27:01.263Z",
   "groups": {
     "services.aws": [
       "s3",
@@ -34,7 +34,8 @@
       "purview",
       "entra-id",
       "key-vault",
-      "azure-monitor"
+      "azure-monitor",
+      "azure-pipelines"
     ],
     "services.databricks": [
       "delta-lake",

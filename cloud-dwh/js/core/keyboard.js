@@ -13,6 +13,14 @@
       this._navigate = navigateFn;
       this._registerDefaults();
       document.addEventListener('keydown', this._onKeyDown.bind(this));
+      // Rebuild the g-chord navigation shortcuts for the active platform.
+      document.addEventListener('cdwh:navigate', (e) => {
+        const plat = e && e.detail && e.detail.platform;
+        if (plat && plat !== this._lastNavPlatform) {
+          this._lastNavPlatform = plat;
+          this.rebuildNav(window.CDWH.NAV_GROUPS);
+        }
+      });
     },
 
     register(key, description, handler, group = 'General') {
@@ -28,7 +36,12 @@
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       if (document.activeElement && document.activeElement.isContentEditable) return;
       const key = this._getKeyStr(e);
-      const shortcut = this._shortcuts.find(s => s.key === key);
+      let shortcut = this._shortcuts.find(s => s.key === key);
+      // Shifted punctuation (e.g. '?') reports shiftKey; also match the bare symbol.
+      if (!shortcut && key.startsWith('shift+')) {
+        const bare = key.slice(6);
+        if (bare.length === 1 && /[^a-z0-9]/.test(bare)) shortcut = this._shortcuts.find(s => s.key === bare);
+      }
       if (shortcut) {
         e.preventDefault();
         try { shortcut.handler(e); } catch (_) {}
@@ -46,44 +59,8 @@
     },
 
     _registerDefaults() {
-      const nav = this._navigate;
-
-      // Navigation — Foundation
-      this.register('g h', 'Go to Home',         () => nav('home'),          'Navigation');
-      this.register('g 1', 'Go to Introduction',  () => nav('intro'),         'Navigation');
-
-      // Navigation — Architecture
-      this.register('g 2', 'Go to Architecture',  () => nav('architecture'),  'Navigation');
-      this.register('g 3', 'Go to Cloud Services',() => nav('cloud-services'),'Navigation');
-      this.register('g 4', 'Go to Storage Layer', () => nav('storage'),       'Navigation');
-      this.register('g 5', 'Go to Compute Layer', () => nav('compute'),       'Navigation');
-
-      // Navigation — Query & Data
-      this.register('g 6', 'Go to Query Execution',() => nav('query-execution'),'Navigation');
-      this.register('g 7', 'Go to Caching',        () => nav('caching'),        'Navigation');
-      this.register('g 8', 'Go to Data Loading',   () => nav('data-loading'),   'Navigation');
-      this.register('g v', 'Go to Semi-Structured', () => nav('semi-structured'),'Navigation');
-      this.register('g d', 'Go to Data Engineering', () => nav('data-engineering'),'Navigation');
-
-      // Navigation — Platform
-      this.register('g 9', 'Go to Objects',        () => nav('objects'),         'Navigation');
-      this.register('g b', 'Go to RBAC & Roles',   () => nav('rbac'),            'Navigation');
-      this.register('g a', 'Go to Advanced Features',() => nav('advanced'),      'Navigation');
-      this.register('g s', 'Go to Security',        () => nav('security'),        'Navigation');
-      this.register('g o', 'Go to Data Governance', () => nav('governance'),     'Navigation');
-      this.register('g m', 'Go to Data Sharing',    () => nav('data-sharing'),   'Navigation');
-      this.register('g p', 'Go to Apps on Snowflake', () => nav('apps'),         'Navigation');
-      this.register('g u', 'Go to Business Continuity', () => nav('business-continuity'),'Navigation');
-
-      // Navigation — Operations
-      this.register('g c', 'Go to Cost & Performance', () => nav('cost-performance'),'Navigation');
-      this.register('g i', 'Go to Editions & Connectivity', () => nav('editions'), 'Navigation');
-      this.register('g l', 'Go to Glossary & Cheat Sheet', () => nav('reference'), 'Navigation');
-      this.register('g x', 'Go to Snowflake vs Field', () => nav('comparison'),   'Navigation');
-      this.register('g t', 'Go to SnowPro Cert Map',   () => nav('certification'),'Navigation');
-      this.register('g q', 'Go to Interview Prep',     () => nav('interview-prep'),'Navigation');
-
-      this.register('g e', 'Go to E2E Flow',         () => nav('e2e-flow'),       'Navigation');
+      // Navigation g-chords are built per platform in rebuildNav().
+      this.rebuildNav(window.CDWH.NAV_GROUPS);
 
       // Animation
       this.register(' ', 'Play / Pause animation', () => {
@@ -115,7 +92,9 @@
         document.querySelectorAll('.modal-backdrop.visible').forEach(m => m.classList.remove('visible'));
       }, 'General');
 
-      this.register('ctrl+k', 'Focus search', () => {
+      // Ctrl/Cmd+K is owned by the command palette; '/' focuses the
+      // sidebar filter without colliding with it.
+      this.register('/', 'Focus sidebar search', () => {
         const inp = document.getElementById('sidebar-search');
         if (inp) { inp.focus(); inp.select(); }
       }, 'General');
@@ -123,13 +102,35 @@
       this._setupTwoKeySequences();
     },
 
+    _navUnregs: [],
+    _lastNavPlatform: null,
+
+    // Build `g h` (home) + `g 1`..`g 9` chords from the active platform's nav.
+    rebuildNav(groups) {
+      this._navUnregs.forEach(u => { try { u(); } catch (_) {} });
+      this._navUnregs = [];
+      const nav = this._navigate;
+      if (!nav) return;
+      const items = (groups || []).flatMap(g => g.items || []);
+      let n = 1;
+      items.forEach(item => {
+        let key;
+        if (item.id === 'home') key = 'g h';
+        else if (n <= 9) { key = 'g ' + n; n++; }
+        else return;
+        this._navUnregs.push(
+          this.register(key, 'Go to ' + item.label, () => nav(item.id), 'Navigation'));
+      });
+    },
+
     _twoKeyTimer: null,
     _awaitingSecond: false,
 
     _setupTwoKeySequences() {
       document.addEventListener('keydown', (e) => {
-        const tag = document.activeElement ? document.activeElement.tagName : '';
-        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        const ae = document.activeElement;
+        const tag = ae ? ae.tagName : '';
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (ae && ae.isContentEditable)) return;
 
         if (e.key.toLowerCase() === 'g' && !e.ctrlKey && !e.metaKey) {
           this._awaitingSecond = true;

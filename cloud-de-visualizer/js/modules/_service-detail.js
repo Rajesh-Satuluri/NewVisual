@@ -24,6 +24,7 @@
     analytics:    { label: 'Analytics & Warehouse', icon: 'cpu',    order: 40 },
     databases:    { label: 'Databases',            icon: 'layers',  order: 50 },
     orchestration:{ label: 'Orchestration',        icon: 'git-branch', order: 60 },
+    devops:       { label: 'DevOps & CI/CD',        icon: 'merge',   order: 65 },
     compute:      { label: 'Compute & Runtime',    icon: 'zap',     order: 70 },
     ml:           { label: 'ML & AI',              icon: 'sparkles', order: 80 },
     governance:   { label: 'Governance & Security', icon: 'shield', order: 90 },

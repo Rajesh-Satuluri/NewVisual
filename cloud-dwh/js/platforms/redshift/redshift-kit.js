@@ -109,10 +109,13 @@
              <ul>${spec.takeaways.map(x => `<li>${x}</li>`).join('')}</ul>`);
           page.appendChild(t);
         }
-        /* optional docs link */
+        /* optional docs link — label follows the active platform, not hard-coded to AWS */
         if (spec.doc) {
+          const _meta = viz.P && viz.P[viz.activePlatform] && viz.P[viz.activePlatform].meta;
+          const docLabel = spec.docLabel
+            || (_meta && _meta.label ? 'Official ' + _meta.label + ' documentation' : 'Official documentation');
           page.appendChild(el('div', 'rk-doc',
-            `<a href="${spec.doc}" target="_blank" rel="noopener">📄 Official AWS documentation ↗</a>`));
+            `<a href="${spec.doc}" target="_blank" rel="noopener">📄 ${docLabel} ↗</a>`));
         }
         canvas.appendChild(page);
 
