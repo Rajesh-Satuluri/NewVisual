@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-16T10:46:41.244Z",
+  "generated": "2026-11-16T10:48:29.290Z",
   "groups": {
     "services.aws": [
       "s3",
@@ -110,7 +110,10 @@
       "senior-architecture",
       "ado-fundamentals",
       "ado-repos",
-      "ado-pipelines-yaml"
+      "ado-pipelines-yaml",
+      "ado-pipelines-advanced",
+      "ado-service-connections",
+      "ado-environments"
     ],
     "interview.databricks": [
       "spark-arch",
