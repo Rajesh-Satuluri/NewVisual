@@ -284,6 +284,33 @@
 .qa-filter-chip:not(.active) .qa-filter-count {
   background: var(--bg-4);
 }
+/* Smooth expand/collapse: animate the grid row from 0fr → 1fr so the
+   panel slides open to its natural height (no JS height measuring). */
+.qa-a {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 280ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.qa-item.open .qa-a { grid-template-rows: 1fr; }
+.qa-a-body {
+  overflow: hidden;
+  min-height: 0;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px);
+  transition: opacity 180ms ease, transform 220ms ease, visibility 0s linear 280ms;
+}
+.qa-item.open .qa-a-body {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition: opacity 220ms ease 60ms, transform 240ms ease 40ms, visibility 0s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .qa-a { transition: none; }
+  .qa-a-body { transition: visibility 0s; transform: none; }
+}
+
 .qa-a-inner {
   padding: var(--space-3) var(--space-5) var(--space-5);
   margin-left: var(--space-5);

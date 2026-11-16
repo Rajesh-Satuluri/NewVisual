@@ -64,9 +64,11 @@
             ${diff ? `<span class="qa-diff qa-diff-${_esc(diff)}">${_esc(diff)}</span>` : ''}
             <svg class="qa-chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
-          <div class="qa-a" id="${panelId}" role="region" aria-labelledby="${btnId}" hidden>
-            <div class="qa-a-inner"></div>
-            <div class="qa-edit" data-edit-key="${_esc(editKey)}"></div>
+          <div class="qa-a" id="${panelId}" role="region" aria-labelledby="${btnId}">
+            <div class="qa-a-body">
+              <div class="qa-a-inner"></div>
+              <div class="qa-edit" data-edit-key="${_esc(editKey)}"></div>
+            </div>
           </div>`;
 
         const header = item.querySelector('.qa-q');
@@ -74,9 +76,13 @@
 
         const setOpen = (open) => {
           header.setAttribute('aria-expanded', String(open));
-          panel.hidden = !open;
           item.classList.toggle('open', open);
+          // Height is animated in CSS (grid-template-rows); keep the collapsed
+          // panel out of the a11y tree and tab order via aria-hidden + the
+          // visibility rule on .qa-a-body.
+          panel.setAttribute('aria-hidden', String(!open));
         };
+        panel.setAttribute('aria-hidden', 'true');
         const toggle = () => {
           if (item.classList.contains('editing')) return;   // never collapse mid-edit
           setOpen(header.getAttribute('aria-expanded') !== 'true');
