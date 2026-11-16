@@ -86,6 +86,7 @@
       label: '🚀 Projects',
       items: [
         { id: 'project-dw-raw', label: 'DW from Raw Files', icon: '🏗️' },
+        { id: 'project-scd2',   label: 'SCD2 End-to-End',   icon: '🕰️' },
       ],
     },
     {
