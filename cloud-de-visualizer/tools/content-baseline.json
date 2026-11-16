@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-16T10:48:29.290Z",
+  "generated": "2026-11-16T10:50:48.669Z",
   "groups": {
     "services.aws": [
       "s3",
@@ -113,7 +113,13 @@
       "ado-pipelines-yaml",
       "ado-pipelines-advanced",
       "ado-service-connections",
-      "ado-environments"
+      "ado-environments",
+      "ado-artifacts",
+      "ado-github-cicd",
+      "ado-cicd-for-data",
+      "ado-service-bus",
+      "ado-containers",
+      "ado-scenarios"
     ],
     "interview.databricks": [
       "spark-arch",
