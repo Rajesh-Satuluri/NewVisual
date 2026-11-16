@@ -23,6 +23,18 @@ export const IQ = [
     a: '<code>REPLICA IDENTITY</code> on a table decides what the WAL records as the <em>old</em> row for updates and deletes — i.e. what ends up in a change event\'s <code>before</code> image and in a delete\'s key. <strong>DEFAULT</strong> records only the <em>primary-key</em> columns of the old row — enough to identify which row changed, but the event\'s <code>before</code> won\'t carry the old non-key values. <strong>FULL</strong> records <em>every</em> column\'s old value, so updates/deletes carry a complete before-image — needed if a downstream consumer wants to see what a field changed <em>from</em>, or to build audit diffs — at the cost of more WAL volume. <strong>NOTHING</strong> records no identity, which means a table with no PK and REPLICA IDENTITY NOTHING cannot even be updated/deleted while in a publication. For CDC you typically leave DEFAULT on PK tables and switch specific tables to FULL only when you genuinely need full before-images.',
     tip: 'Tie it to a real need: "we set REPLICA IDENTITY FULL on the accounts table because the fraud consumer needed the previous balance, not just the new one." That shows you know FULL is a deliberate, costed choice, not a default.',
   },
+  {
+    q: 'What happens to a Debezium replication slot when the primary PostgreSQL fails over to a replica?',
+    a: 'Replication slots are not copied to physical standbys before PostgreSQL 16, so a classic failover loses the slot. (1) The slot lives only on the primary; when a standby is promoted it has no slot and no record of how far Debezium read, so the connector cannot resume logical decoding and may error or re-snapshot. (2) Pre-PG16, you recreate the slot on the new primary and restart the connector, accepting a gap or a fresh snapshot. (3) PostgreSQL 16+ adds <strong>failover slots</strong> that sync to standbys, so the slot survives promotion. The tradeoff: without them, CDC DR must plan for slot loss — idempotent sinks and a re-snapshot path — not seamless continuation.',
+    tip: 'The gotcha: logical slots do not fail over before PG16. Say "we planned for slot loss with idempotent sinks and a re-snapshot" — or "we are on PG16 failover slots."',
+    difficulty: 'hard'
+  },
+  {
+    q: 'What PostgreSQL settings must be in place before Debezium can capture changes?',
+    a: 'Debezium needs logical decoding enabled and the right grants. (1) Set <code>wal_level=logical</code> (needs a restart) so the WAL carries enough detail for row-level decoding — the single most important setting. (2) Size <code>max_replication_slots</code> and <code>max_wal_senders</code> to at least the number of connectors, since each holds one slot and one WAL sender. (3) The connector user needs <strong>REPLICATION</strong> privilege and table access, plus a <strong>publication</strong> for the <code>pgoutput</code> plugin. (4) Set <code>REPLICA IDENTITY</code> for tables that need before-images. The tradeoff: <code>wal_level=logical</code> raises WAL volume, so provision disk and watch slot lag.',
+    tip: 'Lead with wal_level=logical — it needs a restart, so it is the one you cannot forget. Then slots, a REPLICATION user, and a pgoutput publication.',
+    difficulty: 'medium'
+  },
 ];
 
 export function mount(container) {
