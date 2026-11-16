@@ -134,7 +134,7 @@ export function mount(container) {
         <div class="iqe-field iqe-q" contenteditable="true" role="textbox" aria-label="Edit question">${curQ}</div>
         <label class="iqe-label">
           Answer
-          <span class="iqe-md-toggle" title="Tick if you pasted Markdown (**bold**, lists, tables, `code`)">
+          <span class="iqe-md-toggle" title="Tick if you pasted Markdown (**bold**, lists, tables, \`code\`)">
             <input type="checkbox" class="iqe-md"> Markdown
           </span>
         </label>
