@@ -85,8 +85,9 @@
     {
       label: '🚀 Projects',
       items: [
-        { id: 'project-dw-raw', label: 'DW from Raw Files', icon: '🏗️' },
-        { id: 'project-scd2',   label: 'SCD2 End-to-End',   icon: '🕰️' },
+        { id: 'project-dw-raw',   label: 'DW from Raw Files',  icon: '🏗️' },
+        { id: 'project-scd2',     label: 'SCD2 End-to-End',    icon: '🕰️' },
+        { id: 'project-ecom-dim', label: 'E-commerce Star',    icon: '⭐' },
       ],
     },
     {
