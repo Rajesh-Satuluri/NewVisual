@@ -16,6 +16,18 @@ export const IQ = [
     a: 'Kafka retains messages durably; consumers pull at their own pace. Push-based pub/sub (SNS, Google Pub/Sub) delivers and typically deletes. Amazon\'s own SNS+SQS: SNS fans out to SQS queues, each queue gets one copy, and once consumed the message is gone. With Kafka: the fulfillment, fraud-detection, and notifications consumer groups all read the same <code>orders</code> topic independently — no separate fan-out wiring needed. If fraud-detection crashes and restarts, it replays from its last offset — it doesn\'t miss a single order. That durable, replayable log is Kafka\'s core difference.',
     tip: 'SNS+SQS is push-based fan-out + competing consumers. Kafka unifies both patterns, adds durable replay, and gives strict per-partition ordering.'
   },
+  {
+    q: 'How does a single Kafka topic serve both queue-style and pub/sub-style consumers?',
+    a: 'Consumer groups are the switch. Put every consumer in the same group and Kafka load-balances the partitions across them — that is queue semantics, each message handled once by the group. Put consumers in different groups and each group gets its own full copy — that is pub/sub fan-out. Amazon example: the <code>orders</code> topic is read by a <code>fulfillment</code> group (3 instances splitting the partitions, queue-style) and independently by <code>fraud-detection</code> and <code>notifications</code> groups, each replaying every order. One topic, one copy on disk, both patterns at once — no separate SNS fan-out wiring. The <code>group.id</code> is the only thing that decides which behavior you get.',
+    tip: 'Say "same <code>group.id</code> = competing consumers (queue); different <code>group.id</code> = independent subscribers (pub/sub)." That one sentence answers the whole question.',
+    difficulty: 'easy'
+  },
+  {
+    q: 'What three things does a message key control in Kafka?',
+    a: 'The key controls three things at once. (1) Partition routing: Kafka hashes the key (murmur2 mod partition count) so all records with the same key land on the same partition. (2) Ordering: because order is only guaranteed within a partition, a stable key keeps one customer\'s or order\'s events in sequence. (3) Compaction: with <code>cleanup.policy=compact</code>, Kafka keeps only the latest value per key, making the key a changelog\'s primary key. Amazon example: keying <code>orders</code> by <code>order_id</code> keeps every status update for one order on one partition and in order. A null key means round-robin, which sacrifices ordering.',
+    tip: 'Remember the chain: key → hash → partition → ordering. When someone\'s events arrive out of order, the first question is always "what is your key?"',
+    difficulty: 'medium'
+  },
 ];
 
 export function mount(container) {
