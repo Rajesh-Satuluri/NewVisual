@@ -380,6 +380,24 @@
           a: 'Use Workflows run history and alerts (email/webhook on failure/SLA) for the job itself; for streaming, watch input-vs-processing rate and lag in the Spark UI / streaming metrics. Across the platform, system.query.history surfaces slow/expensive queries, system.billing.usage tracks spend, and DLT pipelines expose event logs and data-quality (expectation) metrics. Combine job-level alerting with system-table dashboards so you see both "did this run fail" and "is the platform healthy and on-budget."' },
       ],
     },
+    {
+      id: 'federation',
+      label: 'Lakehouse Federation & Ingestion',
+      icon: 'git-branch',
+      blurb: 'Getting data in and reaching data out: query external databases in place with Lakehouse Federation, and ingest with Auto Loader vs managed Lakeflow Connect connectors. Maps straight to a Postgres/Kafka source stack.',
+      questions: [
+        { q: 'What is Lakehouse Federation and when would you use it?', tags: ['federation', 'architecture'],
+          a: 'Lakehouse Federation lets Unity Catalog query external data sources — PostgreSQL, MySQL, Snowflake, Redshift, SQL Server, BigQuery and others — in place, without first copying the data into the lakehouse. You register a connection and a foreign catalog, and the external tables appear in the three-level namespace with UC governance, so you can join them with Delta tables. Use it for exploration, lightweight joins against an operational store, or to avoid building an ingestion pipeline for data you only occasionally need — not as a replacement for ingesting high-volume data you query constantly, where federation pushes load onto the source system.' },
+        { q: 'When should you federate a source versus ingest it?', tags: ['federation', 'trade-offs'],
+          a: 'Federate when you need occasional or exploratory access, the data volume is modest, freshness-from-source matters, and you want to avoid a pipeline — accepting that each query hits the source database and its performance depends on that system. Ingest (Auto Loader / Lakeflow Connect / CDC) when the data is queried frequently or at scale, you need it co-located as Delta for fast joins and data skipping, you must not load the operational database with analytical queries, or you need history/time travel. Rule of thumb: federate for reach and convenience, ingest for performance and isolation.' },
+        { q: 'What is Lakeflow Connect and how does it relate to Auto Loader?', tags: ['ingestion'],
+          a: 'Lakeflow Connect is Databricks’ managed ingestion layer — built-in connectors that pull from SaaS apps and databases (including CDC from operational databases like PostgreSQL/SQL Server) into the lakehouse with minimal pipeline code. Auto Loader (cloudFiles) is the incremental file-ingestion engine for data already landed in cloud storage. They’re complementary: Lakeflow Connect gets data out of external systems into storage/Delta, Auto Loader incrementally picks up files as they arrive. For a Kafka/Event Hubs stream you’d use Structured Streaming; for files, Auto Loader; for a managed DB/SaaS pull, Lakeflow Connect.' },
+        { q: 'How would you bring a PostgreSQL source into a Databricks lakehouse?', tags: ['ingestion', 'architecture'],
+          a: 'Two paths by need. For analytical queries at scale, ingest: use a managed CDC connector (Lakeflow Connect) or a batch/CDC pipeline to land Postgres changes as Delta in Bronze, then build Silver/Gold — so analytics never hits the OLTP database. For occasional joins or exploration, federate: register a PostgreSQL connection and foreign catalog via Lakehouse Federation and query it in place under UC governance. Choose ingestion when volume/frequency is high or you must isolate the operational DB; choose federation for convenience and freshness on modest access.' },
+        { q: 'What are the governance and performance caveats of Lakehouse Federation?', tags: ['federation', 'security', 'operations'],
+          a: 'Governance: the connection uses credentials to the external system, managed as a UC connection object; UC applies its grants on the foreign catalog, but the underlying source still has its own security you must respect. Performance: queries run against the live source, so Databricks pushes down filters/projections where it can but a heavy query can load the operational database and is bounded by its speed and connectivity; there’s no Delta data-skipping or time travel on federated tables. So federate deliberately for reach, and ingest when you need isolation, scale, or history.' },
+      ],
+    },
   ];
 
   TV.DatabricksInterviewQA = TOPICS;

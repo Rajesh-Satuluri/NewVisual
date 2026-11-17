@@ -23,6 +23,7 @@
         what: [{ kind: 'insight', body: 'Unity Catalog is the account-level governance layer — a three-level namespace (catalog.schema.table), one place for grants, lineage, and audit across every workspace.' }],
         how: [{ kind: 'interview', body: 'Know the three-level namespace and that governance is centralized above the workspace. Contrast with the legacy Hive metastore, which was per-workspace with no unified lineage.' }],
         operations: [{ kind: 'tip', body: 'System Tables (the read-only system catalog, e.g. system.billing.usage, system.access.audit, system.query.history, system.access.table_lineage) are how you observe the platform with SQL: attribute DBU cost to jobs/users, audit who accessed what, and answer "what feeds this table" for lineage — no separate monitoring tool. A common senior answer for cost/governance questions.' }],
+        why: [{ kind: 'interview', body: 'Lakehouse Federation lets UC query external databases (PostgreSQL, MySQL, Snowflake, Redshift, SQL Server, BigQuery…) in place via a connection + foreign catalog — no copy. Federate for occasional/exploratory access on modest volume; ingest (Auto Loader / Lakeflow Connect / CDC) when data is queried at scale or you must keep analytical load off the operational database. Federation has no Delta skipping or time travel and runs on the live source.' }],
       },
     },
     'delta-live-tables': {

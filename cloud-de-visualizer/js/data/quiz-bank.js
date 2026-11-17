@@ -139,6 +139,12 @@
       { q: 'How does Unity Catalog support an auditor asking "what feeds this table?"',
         options: ['It emails the owner', 'It captures table/column lineage automatically, queryable in system.access.table_lineage', 'It requires a third-party catalog', 'It only tracks who created the table'],
         answer: 1, topic: 'unity-catalog', why: 'UC records lineage for operations run through it, surfaced in Catalog Explorer and the lineage system tables — built-in governance, no separate lineage system.' },
+      { q: 'What does Lakehouse Federation let you do?',
+        options: ['Compress Delta tables', 'Query external databases (Postgres, Snowflake, etc.) in place under UC governance, without copying', 'Replace Unity Catalog', 'Run Spark on-premises'],
+        answer: 1, topic: 'unity-catalog', why: 'A UC connection + foreign catalog exposes external sources in the namespace and queries them live — great for occasional joins; it has no Delta skipping or time travel and loads the source.' },
+      { q: 'When should you ingest a source into Delta rather than federate it?',
+        options: ['When you only need occasional exploratory access', 'Never — federation is always better', 'When data is queried frequently/at scale or you must keep analytical load off the operational database', 'When the source is already Delta'],
+        answer: 2, topic: 'unity-catalog', why: 'Federation runs every query against the live source; ingesting to Delta gives fast joins, data skipping, time travel, and isolates the OLTP database from analytical load.' },
     ],
     aws: [
       { q: 'What storage property makes Amazon S3 the backbone of an AWS data lake?',

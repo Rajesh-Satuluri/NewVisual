@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-17T13:54:49.622Z",
+  "generated": "2026-11-17T13:56:02.830Z",
   "groups": {
     "services.aws": [
       "s3",
@@ -139,7 +139,8 @@
       "pyspark-coding",
       "senior-architecture",
       "cicd",
-      "observability"
+      "observability",
+      "federation"
     ],
     "interview.fabric": [
       "onelake",
