@@ -21,6 +21,12 @@ export const IQ = [
     a: 'The WAL is one totally-ordered log, and logical decoding reads it through one replication slot — so the connector consumes it with a <strong>single task</strong>; you cannot split reading one WAL across parallel tasks without breaking order and duplicating the slot. That means you scale the <em>capture</em> vertically (the one task must keep up with the DB\'s write rate) and you scale <em>downstream</em> consumption by Kafka\'s normal mechanism: the connector writes to topics with many partitions (keyed by primary key for per-row ordering), and any number of consumers/consumer groups read those partitions in parallel. So capture is single-threaded by design; fan-out and parallel processing happen after Kafka. If one connector can\'t keep up, you split by <em>table set</em> across multiple connectors (each with its own slot), not by parallelising one.',
     tip: 'The clean mental model: "one WAL → one slot → one task → many Kafka partitions → many consumers." Parallelism lives after Kafka, not in the capture.',
   },
+  {
+    q: 'How does a Debezium PostgreSQL connector handle a schema change (DDL) on a captured table?',
+    a: 'Debezium tracks each table\'s schema and versions it as DDL happens. (1) For PostgreSQL the logical decoding stream carries the new column shape, so when a column is added or altered the next change event is emitted with the updated schema and recorded in schema history. (2) With the Schema Registry the new event schema is registered, and compatibility rules (usually <strong>BACKWARD</strong>) decide whether consumers keep working — an added nullable column is backward-compatible and safe. (3) Destructive changes (dropping a column, narrowing a type) can break consumers or be rejected by the registry. The tradeoff: additive, optional changes flow through transparently, but destructive DDL needs a coordinated consumer rollout — so plan additive-first.',
+    tip: 'Say "additive DDL flows through; destructive DDL needs coordination." Tie it to the registry\'s BACKWARD compatibility as the guardrail.',
+    difficulty: 'medium'
+  },
 ];
 
 export function mount(container) {

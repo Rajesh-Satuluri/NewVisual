@@ -26,6 +26,12 @@ export const IQ = [
     a: '<strong>Small files:</strong> streaming commits every few minutes (or per micro-batch) produce many small files, and CDC upserts add delete files on top — both wreck read performance. Iceberg fixes this with the <code>rewrite_data_files</code> action (bin-pack/sort) plus <code>expire_snapshots</code>; Delta uses <code>OPTIMIZE</code> (optionally <code>ZORDER</code>) and auto-compaction. (Note a naming trap: Delta writes a <code>_delta_log</code> <em>checkpoint</em> every ~10 commits to speed log reads — that\'s table-log compaction, <em>not</em> the Spark streaming checkpoint.) <strong>Schema:</strong> the Iceberg sink has schema evolution <em>off by default</em> (<code>iceberg.tables.evolve-schema-enabled</code>) and only adds fields when enabled — safe because Iceberg tracks columns by field-id. Delta has <strong>schema enforcement on by default</strong> (mismatched writes rejected) and opt-in evolution via <code>mergeSchema</code>. Both favor additive, backward-compatible changes — the same discipline as the Kafka schema contract (M27).',
     tip: 'Two different "checkpoints" in Delta is a classic gotcha — call it out. And know the defaults: Iceberg evolve-schema OFF, Delta schema-enforcement ON. Compaction: Iceberg rewrite_data_files, Delta OPTIMIZE.',
   },
+  {
+    q: 'Appending CDC events to a lakehouse table gives you a log, not current state. How do you get an upserted current-state table?',
+    a: 'You turn the append stream of change events into a <strong>MERGE</strong> keyed on the primary key. (1) A raw sink appends every insert/update/delete event, so the table is an ever-growing change log with duplicates and stale rows — not queryable current state. (2) To get current state you periodically <code>MERGE</code> (upsert) the latest event per key into the target: update on insert/update ops, delete on delete/tombstone ops. (3) Ordering matters — dedupe by the event\'s <code>ts_ms</code> or LSN so a stale event never overwrites a newer one. In <strong>Iceberg</strong> this is <code>MERGE INTO</code>; in <strong>Delta</strong> it is <code>MERGE</code> via Structured Streaming <code>foreachBatch</code>. The tradeoff: MERGE is far costlier than append, so you batch it and compact small files after.',
+    tip: 'Say "append gives a log; MERGE on the key gives current state." Dedupe by ts_ms/LSN so stale events never win, and batch the MERGE because it is expensive.',
+    difficulty: 'hard'
+  },
 ];
 
 export function mount(container) {

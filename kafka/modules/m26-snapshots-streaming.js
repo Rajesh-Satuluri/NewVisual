@@ -21,6 +21,12 @@ export const IQ = [
     a: 'A normal initial snapshot is all-at-once and happens before streaming — if you later add a new table to the capture list, or need to re-sync a table, re-running a full snapshot would mean a disruptive stop. An <strong>incremental snapshot</strong> fixes that: you trigger it by writing an <code>execute-snapshot</code> signal (to a signaling table, named by <code>signal.data.collection</code>), and the connector snapshots the requested tables <strong>in chunks, concurrently with ongoing streaming</strong>, and it is <strong>resumable</strong> if interrupted. So you can backfill a newly-captured table, or re-sync one that drifted, without stopping the connector or pausing the live change stream. The READ events it emits are interleaved with the normal stream and de-duplicated against it by key.',
     tip: 'The three words that matter: signal-triggered, chunked/concurrent, resumable. Give the real use case — "backfill a newly added table without stopping the connector" — to show you know why it exists.',
   },
+  {
+    q: 'How do you trigger a snapshot of one table without restarting the Debezium connector?',
+    a: 'Use an <strong>ad-hoc incremental snapshot</strong> driven by a signaling table. (1) You configure a <code>signal.data.collection</code> — a small table (or a signal topic) Debezium watches. (2) Inserting an <code>execute-snapshot</code> signal row naming the target table tells the running connector to snapshot just that table, in chunks, while streaming continues. (3) The snapshot reads the table in bounded windows and interleaves rows with live change events using watermarking, so there is no gap and no stop-the-world lock. This is how you backfill a newly added table or re-seed one after a downstream wipe. The tradeoff: the extra read load competes with streaming, so chunk size and timing matter on a busy source.',
+    tip: 'Name it: ad-hoc incremental snapshot via signal.data.collection + an execute-snapshot signal. The win is "backfill without restarting or locking."',
+    difficulty: 'medium'
+  },
 ];
 
 export function mount(container) {
