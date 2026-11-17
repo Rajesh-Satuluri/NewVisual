@@ -14,6 +14,7 @@
       callouts: {
         what: [{ kind: 'insight', body: 'Delta = Parquet files + a transaction log (_delta_log). That JSON/checkpoint log is what adds ACID, time travel, and schema enforcement on top of plain object storage.' }],
         how: [{ kind: 'gotcha', body: 'The log also creates the small-files and stale-metadata problems: run OPTIMIZE (and Z-ORDER) to compact, and VACUUM to retire old files — but VACUUM too aggressively and you break time travel.' }],
+        architecture: [{ kind: 'interview', body: 'Modern layout answer: Liquid Clustering (CLUSTER BY) replaces both hive partitioning and Z-ORDER. You pick clustering keys once; Databricks keeps data skipping efficient as the table grows and lets you change keys without rewriting the whole table — avoiding over-partitioning (too many tiny folders) and the rigid partition columns you could never alter. Say "I’d use Liquid Clustering over partition-by-date + ZORDER for a high-cardinality, evolving table."' }],
       },
     },
     'unity-catalog': {

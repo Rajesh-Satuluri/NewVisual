@@ -124,6 +124,12 @@
       { q: 'What stops ephemeral PR/test bundle environments from costing money after the PR closes?',
         options: ['They expire automatically after an hour', 'Databricks never charges for test targets', 'Running databricks bundle destroy -t <target> to remove the deployed resources', 'Pausing the whole workspace'],
         answer: 2, topic: 'databricks-cicd', why: 'Deployed jobs keep their schedules and incur DBUs until torn down; bundle destroy removes a target’s resources.' },
+      { q: 'What does Liquid Clustering (CLUSTER BY) replace on a Delta table?',
+        options: ['The transaction log', 'Both hive partitioning and Z-ordering, with keys you can change without a full rewrite', 'Unity Catalog grants', 'The need for OPTIMIZE entirely'],
+        answer: 1, topic: 'delta-lake', why: 'Liquid keeps data skipping efficient on high-cardinality/evolving tables without directory partitioning, and clustering keys can be altered later — unlike immutable partition columns or rewrite-heavy ZORDER.' },
+      { q: 'Why choose Liquid Clustering over partitioning by a high-cardinality column?',
+        options: ['It encrypts the data', 'Partitioning on high cardinality creates millions of tiny folders; Liquid avoids directory sprawl and is maintained incrementally', 'It is required for ACID', 'It disables time travel'],
+        answer: 1, topic: 'delta-lake', why: 'High-cardinality partition columns explode into tiny files/folders; Liquid clusters without directories and keeps skipping efficient as the table grows.' },
     ],
     aws: [
       { q: 'What storage property makes Amazon S3 the backbone of an AWS data lake?',
