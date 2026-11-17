@@ -360,6 +360,26 @@
           a: 'Deploy them to their own target, then tear them down with databricks bundle destroy -t <target> once the PR closes — otherwise the deployed jobs keep their schedules and incur DBUs. Keep CI smoke-test runs small and targeted rather than gating every PR on a full production-scale bundle run.' },
       ],
     },
+    {
+      id: 'observability',
+      label: 'Observability, Cost & System Tables',
+      icon: 'activity',
+      blurb: 'Running the lakehouse in production: serverless vs classic compute, attributing DBU cost, and using Unity Catalog System Tables to audit access, track lineage and watch spend with SQL.',
+      questions: [
+        { q: 'What are Databricks System Tables and what do you use them for?', tags: ['governance', 'observability'],
+          a: 'System Tables are a read-only, Unity-Catalog-governed system catalog of operational data you query with plain SQL — no external monitoring tool. The ones that matter: system.billing.usage (DBU consumption, for cost attribution), system.access.audit (who did what, for security audits), system.query.history (query performance), and system.access.table_lineage / column_lineage (what feeds what). You use them to attribute cost to jobs/users/warehouses, answer auditor questions, and build chargeback and governance dashboards from the warehouse itself.' },
+        { q: 'How would you attribute Databricks cost to a team or a specific job?', tags: ['cost', 'observability'],
+          a: 'Query system.billing.usage, which records DBU consumption with identifiers (workspace, SKU, and tags). The key practice is tagging clusters/jobs/warehouses (and SQL warehouses) with team/cost-center/pipeline tags, which flow into the usage records — then you GROUP BY tag to build chargeback. Combine with list prices for the SKUs to turn DBUs into money. So cost attribution is tagging discipline plus a SQL query over system.billing.usage, not a guess from the console.' },
+        { q: 'Serverless vs classic compute — when do you pick each?', tags: ['compute', 'trade-offs'],
+          a: 'Serverless starts in seconds with no instance sizing and is managed in Databricks’ account — ideal for spiky/interactive SQL warehouses and short jobs where cold-start latency and tuning overhead hurt. Classic gives you specific instance types and full config control — better for long-running, carefully tuned, or cost-optimized workloads and where you need particular hardware (e.g. memory-optimized, GPU). Decide on workload shape (interactive/spiky vs steady/tuned), startup-latency sensitivity, control needs, and the cost model.' },
+        { q: 'How do you track data lineage for an audit in Databricks?', tags: ['governance', 'lineage'],
+          a: 'Unity Catalog captures table- and column-level lineage automatically for operations run through it, surfaced in the Catalog Explorer UI and queryable in system.access.table_lineage / system.access.column_lineage. For an auditor asking "what feeds this report," you trace upstream from the target table through those lineage tables; for "who read this," you query system.access.audit. It is built-in governance — you do not stand up a separate lineage system for Databricks-native work.' },
+        { q: 'What is the most common Databricks cost leak and how do you catch it?', tags: ['cost', 'operations'],
+          a: 'Idle all-purpose (interactive) clusters left running — they bill while nobody uses them. Catch it by setting auto-termination on all-purpose clusters, moving scheduled work to ephemeral job clusters or serverless, enforcing cluster policies (max size, auto-terminate) so nobody can spin up oversized always-on compute, and querying system.billing.usage for clusters with high uptime but low query activity. Prevention is policy + serverless/job clusters; detection is the billing system table.' },
+        { q: 'How do you monitor a Databricks job or pipeline in production?', tags: ['operations', 'observability'],
+          a: 'Use Workflows run history and alerts (email/webhook on failure/SLA) for the job itself; for streaming, watch input-vs-processing rate and lag in the Spark UI / streaming metrics. Across the platform, system.query.history surfaces slow/expensive queries, system.billing.usage tracks spend, and DLT pipelines expose event logs and data-quality (expectation) metrics. Combine job-level alerting with system-table dashboards so you see both "did this run fail" and "is the platform healthy and on-budget."' },
+      ],
+    },
   ];
 
   TV.DatabricksInterviewQA = TOPICS;

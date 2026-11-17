@@ -22,6 +22,7 @@
       callouts: {
         what: [{ kind: 'insight', body: 'Unity Catalog is the account-level governance layer — a three-level namespace (catalog.schema.table), one place for grants, lineage, and audit across every workspace.' }],
         how: [{ kind: 'interview', body: 'Know the three-level namespace and that governance is centralized above the workspace. Contrast with the legacy Hive metastore, which was per-workspace with no unified lineage.' }],
+        operations: [{ kind: 'tip', body: 'System Tables (the read-only system catalog, e.g. system.billing.usage, system.access.audit, system.query.history, system.access.table_lineage) are how you observe the platform with SQL: attribute DBU cost to jobs/users, audit who accessed what, and answer "what feeds this table" for lineage — no separate monitoring tool. A common senior answer for cost/governance questions.' }],
       },
     },
     'delta-live-tables': {
@@ -69,6 +70,7 @@
       level: 'core',
       callouts: {
         how: [{ kind: 'interview', body: 'Know the three shapes: all-purpose (interactive, shared, pricey) for dev; job clusters (spun up per run, cheaper) for production; serverless for instant start with no infra to size. Picking the right one is a cost-and-latency tradeoff.' }],
+        cost: [{ kind: 'tip', body: 'Serverless removes the VM-sizing decision and starts in seconds (no cold-start wait), but you pay a managed per-DBU rate with compute running in Databricks’ account — less low-level control than classic. Reach for serverless for spiky/interactive SQL and short jobs; reach for classic when you need specific instance types, long-running tuned workloads, or tighter cost control. Idle all-purpose clusters are the classic cost leak — use job/serverless for scheduled work and set auto-termination.' }],
       },
     },
     'databricks-sql': {
