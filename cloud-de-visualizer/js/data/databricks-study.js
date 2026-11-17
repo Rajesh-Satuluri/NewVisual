@@ -88,5 +88,14 @@
         what: [{ kind: 'analogy', body: 'An open protocol for sharing live Delta data across orgs and platforms without copying — the recipient reads your tables directly, even from non-Databricks tools.' }],
       },
     },
+    'databricks-cicd': {
+      level: 'core',
+      callouts: {
+        what: [{ kind: 'insight', body: 'Databricks Asset Bundles (DABs) are infrastructure-as-code for the lakehouse: one databricks.yml declares jobs, DLT pipelines and config plus dev/staging/prod targets, and the Databricks CLI deploys the identical bundle to each — the opposite of hand-editing jobs in every workspace’s UI.' }],
+        security: [{ kind: 'interview', body: 'Two identities, don’t conflate them: the CI deploy identity (authenticate as a service principal via OAuth M2M / OIDC — never a personal PAT) only needs rights to create the job; the job’s run_as service principal needs explicit Unity Catalog grants on everything it reads/writes. A clean deploy can still fail at run time if run_as lacks grants.' }],
+        how: [{ kind: 'gotcha', body: 'The development target mode prefixes resources per user and pauses schedules so engineers test private copies; production mode does not prefix. Same databricks.yml, different targets — that’s how one definition serves every environment.' }],
+        architecture: [{ kind: 'tip', body: 'This is the Databricks end of the Azure DevOps CI/CD story: notebooks + databricks.yml in Azure Repos/GitHub, PRs run bundle validate as build validation, Azure Pipelines/GitHub Actions deploy per environment behind approvals — mirrors ADF’s adf_publish promotion.' }],
+      },
+    },
   };
 })();

@@ -330,6 +330,30 @@
           followUps: ['What makes a streaming change checkpoint-incompatible?', 'How does the watermark bound both lateness and state?', 'How do you reprocess after a bug without duplicates?'] },
       ],
     },
+    {
+      id: 'cicd',
+      label: 'CI/CD & Asset Bundles',
+      icon: 'merge',
+      blurb: 'Shipping Databricks work as code: Asset Bundles (DABs), Repos/Git folders, and deploying through Azure Pipelines or GitHub Actions with service-principal auth. The productionization questions a product-company loop asks.',
+      questions: [
+        { q: 'What are Databricks Asset Bundles (DABs) and what problem do they solve?', tags: ['fundamentals'],
+          a: 'DABs are Databricks’ native infrastructure-as-code format: a databricks.yml declares resources (jobs, DLT pipelines, experiments) and per-environment targets (dev/staging/prod) with variable overrides, deployed by the Databricks CLI (bundle validate/deploy/run). They solve environment drift and click-ops — instead of hand-editing jobs in each workspace UI, you version one definition in git, review it in a PR, and deploy the identical bundle to every environment with history and rollback.' },
+        { q: 'How do you deploy Databricks through Azure Pipelines or GitHub Actions without a personal access token?', tags: ['security', 'ci'],
+          a: 'The CI job runs the Databricks CLI and authenticates as a Databricks service principal via OAuth machine-to-machine (client id/secret stored as pipeline secrets) or OIDC federation from Azure DevOps/GitHub — a short-lived token, no long-lived PAT. On merge it deploys to staging, smoke-tests with bundle run, and after an environment approval deploys the same commit to prod.' },
+        { q: 'Why can a bundle deploy succeed but the job still fail at run time?', tags: ['gotcha', 'security'],
+          a: 'Deploying and running use different identities. The deploy identity only needs rights to create/update the job; the job’s run_as service principal needs explicit Unity Catalog grants on every table, schema and external location the job touches. A clean deploy fails on the first run if run_as was never granted that access — so run_as grants must be provisioned as part of the deployment, per environment.' },
+        { q: 'How do you give each engineer isolation while sharing one bundle definition?', tags: ['workflow'],
+          a: 'Use the development target mode: it prefixes deployed resources with the user’s name and pauses schedules, so each engineer runs a private copy of the same job in the same workspace without colliding. Staging/prod use production mode (no prefixing). One databricks.yml, different targets.' },
+        { q: 'What is the difference between Databricks Repos (Git folders) and Asset Bundles?', tags: ['fundamentals'],
+          a: 'Repos/Git folders version-control notebooks inside the workspace (commit/branch/pull against a remote) — they cover the source. Asset Bundles cover the resources (jobs/pipelines/config) and the deployment. A mature setup deploys bundles from git in CI rather than relying on a manually-pulled workspace Repo, so the repository — not the workspace — is the source of truth.' },
+        { q: 'How does Databricks CI/CD fit the rest of an Azure DevOps platform?', tags: ['architecture', 'trade-offs'],
+          a: 'It’s the Databricks end of the same story: notebooks and databricks.yml live in Azure Repos/GitHub, PRs run build validation (bundle validate), and Azure Pipelines/GitHub Actions deploy per environment behind approvals — exactly how ADF changes promote via adf_publish/ARM. One pipeline can promote ADF and Databricks together so the whole platform moves as a unit.' },
+        { q: 'How do you promote a change dev → staging → prod and roll back if it regresses?', tags: ['operations'],
+          a: 'Deploy a tagged/approved commit to staging (bundle deploy -t staging), smoke-test with bundle run, then deploy the same commit to prod behind an approval gate. Rollback is redeploying the previous tagged commit — bundle deploys are repeatable, so prod returns to the prior declared state. Treat manual UI edits to deployed jobs as drift to be re-deployed away.' },
+        { q: 'How do you keep ephemeral PR/test environments from costing money?', tags: ['cost', 'operations'],
+          a: 'Deploy them to their own target, then tear them down with databricks bundle destroy -t <target> once the PR closes — otherwise the deployed jobs keep their schedules and incur DBUs. Keep CI smoke-test runs small and targeted rather than gating every PR on a full production-scale bundle run.' },
+      ],
+    },
   ];
 
   TV.DatabricksInterviewQA = TOPICS;
