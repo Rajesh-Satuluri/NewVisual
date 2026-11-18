@@ -7,6 +7,11 @@ export const IQ = [
   { q: 'What is a stream-table join and give an Amazon use case?', a: 'A KStream-KTable join enriches each event in the stream with the latest state from a table. For each stream record, Kafka Streams does a local RocksDB lookup — no network hop. Amazon order enrichment: KStream<orderId, OrderPlaced> joined with KTable<customerId, CustomerProfile>. Result: each order event enriched with customer tier (Prime/regular), shipping address, payment preference — all without a database query on the hot path. The KTable is kept fresh via a Debezium CDC topic from the customer database.', tip: 'Kafka Streams joins are always co-partitioned — stream and table must have the same partition key and count. Repartition if needed (results in a repartition topic).' },
   { q: 'How does Kafka Streams windowing handle late-arriving events?', a: 'Streams windows are driven by event time plus a grace period. (1) Each record is placed in its window by its event timestamp, not arrival time, so out-of-order records still land in the right window. (2) A window stays open for its size plus grace.ms; a late event arriving within grace is folded in and updates the result. (3) After the grace period the window closes and truly late events are dropped. (4) Stream time advances by the max timestamp seen, so a sparse partition can delay window closing. The tradeoff: a longer grace tolerates more lateness but holds state longer and delays the final result.', tip: 'Name the knob: grace period (ofSizeAndGrace / grace.ms). Say "windows close on stream time, size + grace; events later than grace are dropped" — shows event-time vs processing-time understanding.', difficulty: 'hard' },
   { q: 'When would you choose Kafka Streams over Flink or Spark Structured Streaming?', a: 'Kafka Streams is a library, not a cluster — it runs inside your own application JVM, so there is no separate processing cluster to operate. (1) Choose Streams when source and sink are both Kafka, you want simple per-key stateful processing, and you prefer embedding logic in a microservice. (2) Choose Flink for advanced event-time windowing, very low latency at large scale, exactly-once across many external systems, or non-Kafka sources. (3) Choose Spark Structured Streaming when you already run Spark and want micro-batch analytics beside batch jobs. The tradeoff: Streams is lightest to operate but Kafka-centric; Flink is heavier but far more capable.', tip: 'Lead with "Streams is a library, Flink/Spark are clusters." That one distinction drives most of the decision — operational simplicity vs raw capability.', difficulty: 'medium' },
+  { q: 'How does Kafka Streams achieve exactly-once processing, and what are its limits?', a: 'Set processing.guarantee=exactly_once_v2. A Streams task\'s unit of work is read-from-Kafka → update-local-state → write-to-Kafka, and because the state store is itself backed by a Kafka changelog, Streams can wrap the whole cycle in ONE Kafka transaction: output records, consumer-offset commits, and changelog writes commit atomically or roll back together. A crash rolls back the incomplete transaction, so there are no duplicate outputs and no state reflecting records whose output never shipped. Limits: (1) it only covers the Kafka→Kafka path — an external sink (DB, S3) still needs its own idempotent/transactional write; (2) it adds latency (transactions have a commit interval, default 100ms) and requires a transactional-capable broker. exactly_once_v2 (Kafka ≥2.8) shares a single producer per instance instead of one per task, so it scales far better than the original EOS.', tip: 'Say "read-process-write + changelog = one Kafka transaction." Then flag the boundary: EOS is end-to-end only within Kafka; external systems need their own idempotency.', difficulty: 'hard' },
+  { q: 'What is co-partitioning and why do most joins require it?', a: 'Co-partitioning means both join inputs have (1) the same key, (2) the same number of partitions, and (3) the same partitioning strategy — so records with the same key are guaranteed to be on the same partition number, and therefore handled by the same Streams task. That is what lets a join do a LOCAL RocksDB lookup with no network hop. If inputs aren\'t co-partitioned, Streams can\'t guarantee the matching record is local, so it throws a TopologyException. The fix is to re-key the offending stream (selectKey/map) so both share a key; Streams then writes an internal repartition topic to physically reshuffle the data by the new key before the join. The exception is a GlobalKTable, which is fully replicated to every instance, so a KStream-GlobalKTable join needs no co-partitioning and can key off any field.', tip: 'One line: "same key, same partition count, same partitioner → matching keys are co-located, so the join is a local lookup." Re-keying triggers a repartition topic; GlobalKTable sidesteps the whole requirement.', difficulty: 'hard' },
+  { q: 'What internal topics does a Kafka Streams application create, and why care?', a: 'Two kinds, both auto-created and prefixed with your application.id. (1) Changelog topics (…-changelog, log-compacted) back every state store, giving durability and restore. (2) Repartition topics (…-repartition) are created whenever you re-key before a stateful op (selectKey/map/groupBy/join on a new key) to shuffle data so it\'s correctly co-partitioned. Why care: they consume real broker storage, partitions, and throughput; a topology with many re-keys and stores can silently create dozens of internal topics. They also tie your app to its application.id — changing it orphans state and forces a full restore. Monitoring, retention, and partition-count planning must account for them, and tools like the TopologyDescription / reset tool exist specifically to inspect and clean them up.', tip: 'Name both: changelog (durability for stores) and repartition (co-partitioning after re-key). Mentioning that application.id owns them — and that the reset tool cleans them — shows operational maturity.', difficulty: 'medium' },
+  { q: 'Your windowed aggregation emits an updated result on every input record, but you only want the final value per window. What do you use?', a: 'suppress(). By default a windowed KTable is emitted continuously — every record that updates a window produces a new downstream record, so consumers see many intermediate results. Suppressed.untilWindowCloses(...) buffers updates and emits only the single final result once the window closes (stream time passes window-end + grace). You must give the buffer a BufferConfig (maxBytes/maxRecords with either shutDownWhenFull or emitEarlyWhenFull) because it holds state in memory until the window closes. Trade-off: suppress adds latency equal to the grace period (you wait for the window to close) in exchange for emitting exactly one clean result per window instead of a stream of partial updates. It only works with a defined grace period, so windows must use ofSizeAndGrace.', tip: 'The keyword is suppress(Suppressed.untilWindowCloses(...)). Say "it trades latency (wait for close) for a single final result per window," and note it needs a bounded buffer and a grace period.', difficulty: 'hard' },
+  { q: 'Compare a KTable and a GlobalKTable — when would you use each?', a: 'A KTable is PARTITIONED: each instance holds only the partitions (shard of the key space) assigned to its tasks, mirroring the source topic\'s partitioning. A GlobalKTable is FULLY REPLICATED: every instance materializes the ENTIRE topic locally. Consequences: (1) a KStream-KTable join requires co-partitioning (same key + partition count) and joins on the stream\'s key; a KStream-GlobalKTable join needs NO co-partitioning and can join on any field via a KeyValueMapper — great for enriching with reference data keyed differently than the stream. (2) GlobalKTable uses more memory/disk per instance (full copy) and is bootstrapped fully on startup, so it suits SMALL, relatively static data (country codes, product catalog, feature flags); a large or high-cardinality table should stay a partitioned KTable. (3) GlobalKTable updates are not synchronized with stream-time, so joins are eventually consistent.', tip: 'KTable = sharded/co-partitioned; GlobalKTable = full replica, no co-partitioning, join on any field, but only for small reference data. That size/consistency trade-off is the whole answer.', difficulty: 'medium' },
 ];
 
 export function mount(container) {
@@ -24,6 +29,7 @@ export function mount(container) {
       { id: 'state',    label: '🗄️ State & Changelog' },
       { id: 'windows',  label: '⏱️ Windows & Time' },
       { id: 'tasks',    label: '🧵 Tasks & Threads' },
+      { id: 'joins',    label: '🔗 Joins & EOS' },
       { id: 'topology', label: '🗺️ Topology View' },
       { id: 'iq',       label: '🎯 Interview Q&A' },
     ]
@@ -35,6 +41,7 @@ export function mount(container) {
   buildState(container);
   cleanups.push(buildWindows(container));
   cleanups.push(buildTasks(container));
+  buildJoins(container);
   buildTopology(container);
   container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
   return () => cleanups.forEach(fn => { if (typeof fn === 'function') fn(); });
@@ -600,6 +607,132 @@ function buildTasks(container) {
   tab.querySelector('#kt-reset').addEventListener('click', () => { instCount = 2; reassign(); });
 
   return () => { if (raf) cancelAnimationFrame(raf); };
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   TAB — Joins & Exactly-Once (join types, co-partitioning, EOS, recipes)
+   ───────────────────────────────────────────────────────────────────────── */
+function buildJoins(container) {
+  const tab = container.querySelector('#tab-joins');
+
+  const JOINS = {
+    ss: {
+      label: 'Stream–Stream', col: '#8B5CF6',
+      left: 'KStream clicks', right: 'KStream impressions', out: 'KStream (events)',
+      trigger: 'A record on EITHER side looks for matches on the other side within a time window (JoinWindows).',
+      state: 'Both sides buffered in windowed state stores (retention = window + grace).',
+      example: 'Attribute a click to an impression seen within the last 5 minutes.',
+      code: 'clicks.join(impressions,\n  (click, imp) -> attribute(click, imp),\n  JoinWindows.ofTimeDifferenceAndGrace(ofMinutes(5), ofMinutes(1)))',
+    },
+    st: {
+      label: 'Stream–Table', col: '#10B981',
+      left: 'KStream orders', right: 'KTable customers', out: 'KStream (enriched)',
+      trigger: 'ONLY a stream record triggers output; it looks up the table\'s current value. A table update alone emits nothing.',
+      state: 'Table is materialized (RocksDB); the stream side is not stored — pure lookup.',
+      example: 'Enrich each order with the customer\'s current tier / address.',
+      code: 'orders.join(customerTable,\n  (order, profile) -> enrich(order, profile))',
+    },
+    tt: {
+      label: 'Table–Table', col: '#3B82F6',
+      left: 'KTable account', right: 'KTable balance', out: 'KTable (changelog)',
+      trigger: 'A change on EITHER table re-emits the joined row — the result is itself a continuously-updated table.',
+      state: 'Both tables materialized; the output is a new materialized KTable.',
+      example: 'Maintain a live "account + current balance" view.',
+      code: 'accounts.join(balances,\n  (acct, bal) -> new AccountView(acct, bal))',
+    },
+  };
+  let jk = 'st';
+
+  function renderJoin() {
+    const j = JOINS[jk];
+    ['ss', 'st', 'tt'].forEach(k => {
+      const btn = tab.querySelector('#jn-' + k);
+      btn.style.borderColor = k === jk ? JOINS[k].col : '';
+      btn.style.color = k === jk ? JOINS[k].col : '';
+    });
+    tab.querySelector('#jn-diagram').innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center">
+        <div style="padding:8px 12px;border-radius:8px;background:#111A2B;border:1px solid ${j.col};color:${j.col};font-size:11px;font-weight:600">${j.left}</div>
+        <div style="color:#64748B;font-size:18px">⋈</div>
+        <div style="padding:8px 12px;border-radius:8px;background:#111A2B;border:1px solid ${j.col};color:${j.col};font-size:11px;font-weight:600">${j.right}</div>
+        <div style="color:#334155">→</div>
+        <div style="padding:8px 12px;border-radius:8px;background:#0E1626;border:1px solid #10B981;color:#10B981;font-size:11px;font-weight:600">${j.out}</div>
+      </div>`;
+    tab.querySelector('#jn-detail').innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:12px">
+        <div><div style="font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:#64748B;margin-bottom:3px">What triggers output</div><div style="font-size:11.5px;color:#CBD5E1;line-height:1.5">${j.trigger}</div></div>
+        <div><div style="font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:#64748B;margin-bottom:3px">State kept</div><div style="font-size:11.5px;color:#CBD5E1;line-height:1.5">${j.state}</div></div>
+        <div><div style="font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:#64748B;margin-bottom:3px">Example</div><div style="font-size:11.5px;color:#CBD5E1;line-height:1.5">${j.example}</div></div>
+      </div>
+      <pre style="margin:12px 0 0;padding:10px 12px;background:#070B14;border:1px solid #1C2740;border-radius:8px;font-size:10.5px;line-height:1.5;font-family:ui-monospace,monospace;color:#86EFAC;white-space:pre-wrap">${j.code}</pre>`;
+  }
+
+  tab.innerHTML = `
+    <div class="canvas-wrap">
+      <div class="canvas-caption">Kafka Streams has <b>three join flavors</b>, and which side can <b>trigger</b> output is the whole game. Pick one to see its semantics, the state it keeps, and its code — then below, the <b>co-partitioning</b> rule every join (except GlobalKTable) must obey, and how exactly-once works.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+        <button class="ctrl-btn" id="jn-ss">KStream ⋈ KStream</button>
+        <button class="ctrl-btn" id="jn-st">KStream ⋈ KTable</button>
+        <button class="ctrl-btn" id="jn-tt">KTable ⋈ KTable</button>
+      </div>
+      <div style="background:#0C1424;border:1px solid #1C2740;border-radius:10px;padding:16px">
+        <div id="jn-diagram"></div>
+        <div id="jn-detail"></div>
+      </div>
+
+      <div style="margin-top:20px">
+        <div class="section-header" style="margin-bottom:10px"><div class="section-title">Co-partitioning &amp; internal topics</div><div class="section-desc">The precondition every key-based join depends on</div></div>
+        <div class="info-grid">
+          <div class="info-card" style="border-left:3px solid #EF4444">
+            <div class="info-card-title">⚠ Co-partitioning required</div>
+            <div class="info-card-body">Both inputs must share the <b>same key</b>, the <b>same partition count</b>, and the same partitioning strategy — so matching keys land on the same task. Streams checks this and throws <code>TopologyException</code> if it can't guarantee it.</div>
+          </div>
+          <div class="info-card" style="border-left:3px solid #F59E0B">
+            <div class="info-card-title">🔁 Repartition topics</div>
+            <div class="info-card-body">Change the key (<code>selectKey</code>, <code>map</code>, <code>groupBy</code>) before a join/aggregation and Streams auto-creates an internal <b>repartition topic</b> to shuffle data by the new key — real Kafka topics, named <code>&lt;app-id&gt;-…-repartition</code>.</div>
+          </div>
+          <div class="info-card" style="border-left:3px solid #10B981">
+            <div class="info-card-title">🌍 GlobalKTable exception</div>
+            <div class="info-card-body">A <b>GlobalKTable</b> is fully replicated to every instance, so a <code>KStream</code>-<code>GlobalKTable</code> join needs <b>no co-partitioning</b> and can key off any field via a mapper — ideal for small reference data.</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:18px;background:#0C1424;border:1px solid #1C2740;border-left:3px solid #06B6D4;border-radius:10px;padding:14px 16px">
+        <div style="font-size:11px;font-weight:700;color:#06B6D4;margin-bottom:6px">⚛ Exactly-once (processing.guarantee = exactly_once_v2)</div>
+        <div style="font-size:12px;line-height:1.6;color:#94A3B8">Flip one config and Streams wraps each <b>read → process → update-state → write</b> cycle in a single <b>Kafka transaction</b>: the output records, the offset commits, <em>and</em> the state-store changelog writes all commit atomically or not at all. A crash rolls back the incomplete transaction, so no duplicates and no half-updated state — true end-to-end exactly-once <b>as long as you stay within Kafka</b> (an external sink still needs idempotent writes). <code>exactly_once_v2</code> (Kafka ≥ 2.8) shares one producer per instance, so it scales far better than the original per-task-producer design.</div>
+      </div>
+
+      <div style="margin-top:18px">
+        <div class="section-header" style="margin-bottom:10px"><div class="section-title">Real-world topologies</div><div class="section-desc">What these pieces build in production</div></div>
+        <div class="info-grid">
+          <div class="info-card" style="border-left:3px solid #10B981">
+            <div class="info-card-title">🛒 Order enrichment</div>
+            <div class="info-card-body">A <code>KStream</code> of orders joined to a <code>KTable</code> of customer profiles (kept fresh by Debezium CDC) stamps every order with tier, address, and payment prefs — no DB call on the hot path.</div>
+          </div>
+          <div class="info-card" style="border-left:3px solid #EF4444">
+            <div class="info-card-title">🚨 Fraud / rate limiting</div>
+            <div class="info-card-body">Windowed <code>count</code> per card over a hopping window flags "&gt; N transactions in 1 min". Pure Streams, exactly-once, feeding an alerts topic a sink pushes to dashboards.</div>
+          </div>
+          <div class="info-card" style="border-left:3px solid #8B5CF6">
+            <div class="info-card-title">📊 Real-time rollups</div>
+            <div class="info-card-body"><code>groupBy(category).windowedBy(5min).aggregate(sum)</code> produces live revenue-by-category, materialized as a queryable KTable exposed via interactive queries — a dashboard with no warehouse.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="canvas-explainer">
+      <h3>What you're watching</h3>
+      <p>Joins are where the stream/table duality pays off. The three flavors differ mainly in <strong>which side can trigger an output</strong> and <strong>what state they hold</strong>. A <strong>KStream-KStream</strong> join is inherently <em>windowed</em> — two unbounded logs can only be matched within a bounded time window, so both sides are buffered in windowed stores and a record on either side probes the other. A <strong>KStream-KTable</strong> join is an asymmetric <em>lookup</em>: only the stream side triggers, doing a local RocksDB point-lookup against the table's current value — this is the enrichment workhorse, and it's fast precisely because the table is co-partitioned and local. A <strong>KTable-KTable</strong> join is symmetric and produces another continuously-maintained table: a change on either input re-emits the joined row.</p>
+      <p>The precondition that trips people up is <strong>co-partitioning</strong>. For Streams to join by key locally with no network call, matching keys must already sit on the same task — which requires both inputs to have the <em>same key, same number of partitions, and same partitioning</em>. If your join key differs from the topic's key, you must re-key first (<code>selectKey</code>/<code>map</code>), and that forces Streams to write a <strong>repartition topic</strong> to physically reshuffle the data by the new key before the join. Those internal repartition and changelog topics are real Kafka topics your app auto-creates; knowing they exist (and cost throughput and storage) is a senior-level detail.</p>
+      <p>Finally, <strong>exactly-once</strong>. Because a Streams task's work is read-from-Kafka, update-local-state, write-to-Kafka — and the state is itself backed by a Kafka changelog — Streams can make the <em>entire</em> cycle a single Kafka transaction. With <code>processing.guarantee=exactly_once_v2</code>, output records, consumer-offset commits, and changelog writes commit atomically; a failure rolls the whole thing back, so there are no duplicate outputs and no state that reflects records whose output never shipped. This is stronger than what a hand-rolled consumer/producer gives you for free, and it's one config line — the catch being it only covers the Kafka-to-Kafka path, so any external sink still needs its own idempotency.</p>
+      <p><strong>Interview angle:</strong> "stream-stream is windowed and symmetric; stream-table is an unwindowed lookup triggered only by the stream; table-table is symmetric and yields a table — and all key joins need co-partitioning, which re-keying satisfies via a repartition topic." Add "exactly_once_v2 makes read-process-write-plus-changelog one Kafka transaction" and you've covered the join and correctness story most interviews probe.</p>
+    </div>`;
+
+  renderJoin();
+  tab.querySelector('#jn-ss').addEventListener('click', () => { jk = 'ss'; renderJoin(); });
+  tab.querySelector('#jn-st').addEventListener('click', () => { jk = 'st'; renderJoin(); });
+  tab.querySelector('#jn-tt').addEventListener('click', () => { jk = 'tt'; renderJoin(); });
 }
 
 function buildTopology(container) {
