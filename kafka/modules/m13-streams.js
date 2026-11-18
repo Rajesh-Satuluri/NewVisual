@@ -1,4 +1,5 @@
 import { createModuleShell, createIQSection } from '../components/module-shell.js';
+import { drawRoundRect, drawArrow, EventPacket } from '../components/canvas-primitives.js';
 
 export const IQ = [
   { q: 'What is the difference between KStream and KTable in Kafka Streams?', a: 'KStream: an unbounded sequence of records where each record is an independent event. Analogous to a database INSERT — all records are meaningful. KTable: a changelog stream where each record is an UPDATE — only the latest value for a key is relevant. Analogous to a database table. KTable is backed by a changelog topic (compacted) and a local RocksDB state store. Joining a KStream with a KTable: for each stream record, look up the matching KTable entry — powerful for enrichment (e.g., join order events with customer profile).', tip: 'Mental model: KStream = append-only log, KTable = materialized view. Same data, different interpretation.' },
@@ -19,15 +20,108 @@ export function mount(container) {
     },
     tabs: [
       { id: 'dsl',      label: '🌊 Stream DSL' },
+      { id: 'duality',  label: '🔀 KStream ⇄ KTable' },
       { id: 'topology', label: '🗺️ Topology View' },
       { id: 'iq',       label: '🎯 Interview Q&A' },
     ]
   });
 
+  const cleanups = [];
   buildDSL(container);
+  cleanups.push(buildDuality(container));
   buildTopology(container);
   container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
-  return null;
+  return () => cleanups.forEach(fn => { if (typeof fn === 'function') fn(); });
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   TAB — KStream ⇄ KTable (the stream/table duality)
+   ───────────────────────────────────────────────────────────────────────── */
+function buildDuality(container) {
+  const tab = container.querySelector('#tab-duality');
+
+  // A sequence of keyed updates — e.g. each user's running cart total as they shop.
+  const RECS = [
+    { k: 'alice', v: 40 }, { k: 'bob', v: 15 }, { k: 'alice', v: 65 },
+    { k: 'carol', v: 22 }, { k: 'bob', v: 30 }, { k: 'alice', v: 12 }, { k: 'carol', v: 48 },
+  ];
+  const KCOL = { alice: '#3B82F6', bob: '#10B981', carol: '#F59E0B' };
+  let step = 0, timer = null;
+
+  function render() {
+    const seen = RECS.slice(0, step);
+    const lastKey = step > 0 ? RECS[step - 1].k : null;
+
+    // KStream column — every record is a row (append-only)
+    tab.querySelector('#dz-stream').innerHTML = seen.length === 0
+      ? `<div style="color:#5B6B82;font-size:11px;padding:10px">No records yet — press Next.</div>`
+      : seen.map((r, i) => {
+        const isLast = i === seen.length - 1;
+        return `<div style="display:flex;justify-content:space-between;padding:6px 10px;border-radius:6px;margin-bottom:4px;
+          background:${isLast ? KCOL[r.k] + '26' : '#0E1626'};border:1px solid ${isLast ? KCOL[r.k] : '#1C2740'};font-family:ui-monospace,monospace;font-size:11px">
+          <span style="color:${KCOL[r.k]}">${r.k}</span><span style="color:#CBD5E1">cart = $${r.v}</span></div>`;
+      }).join('');
+
+    // KTable column — latest value per key (materialized view)
+    const table = {};
+    seen.forEach(r => { table[r.k] = r.v; });
+    const keys = Object.keys(table);
+    tab.querySelector('#dz-table').innerHTML = keys.length === 0
+      ? `<div style="color:#5B6B82;font-size:11px;padding:10px">Empty table.</div>`
+      : keys.map(k => {
+        const updated = k === lastKey;
+        return `<div style="display:flex;justify-content:space-between;padding:7px 10px;border-radius:6px;margin-bottom:4px;
+          background:${updated ? KCOL[k] + '26' : '#0E1626'};border:1px solid ${updated ? KCOL[k] : '#1C2740'};font-family:ui-monospace,monospace;font-size:11.5px">
+          <span style="color:${KCOL[k]};font-weight:700">${k}</span>
+          <span style="color:#CBD5E1">$${table[k]}${updated ? ' <span style="color:' + KCOL[k] + ';font-size:9px">◂ upsert</span>' : ''}</span></div>`;
+      }).join('');
+
+    tab.querySelector('#dz-counts').innerHTML =
+      `<span style="color:#60A5FA">KStream: ${seen.length} records</span> &nbsp;·&nbsp; <span style="color:#FBBF24">KTable: ${keys.length} keys</span>`;
+    tab.querySelector('#dz-next').textContent = step >= RECS.length ? '✓ Done' : '▶ Next record';
+  }
+
+  tab.innerHTML = `
+    <div class="canvas-wrap">
+      <div class="canvas-caption">The deepest idea in Kafka Streams: <b>a stream and a table are two readings of the same data</b>. The exact same keyed records, seen as an append-only <b>KStream</b> (every event matters) on the left, and as a materialized <b>KTable</b> (only the latest value per key) on the right. Step records in and watch the table <b>upsert in place</b> while the stream just grows.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div style="background:#0C1424;border:1px solid #1C2740;border-radius:10px;padding:12px 14px">
+          <div style="font-size:11px;font-weight:700;color:#60A5FA;margin-bottom:3px">KStream &nbsp;<span style="font-weight:400;color:#64748B">— append-only log</span></div>
+          <div style="font-size:9px;color:#5B6B82;margin-bottom:10px">every record is an independent event (INSERT)</div>
+          <div id="dz-stream" style="max-height:280px;overflow:auto"></div>
+        </div>
+        <div style="background:#0C1424;border:1px solid #1C2740;border-radius:10px;padding:12px 14px">
+          <div style="font-size:11px;font-weight:700;color:#FBBF24;margin-bottom:3px">KTable &nbsp;<span style="font-weight:400;color:#64748B">— materialized view</span></div>
+          <div style="font-size:9px;color:#5B6B82;margin-bottom:10px">latest value per key (UPSERT), backed by a compacted changelog</div>
+          <div id="dz-table"></div>
+        </div>
+      </div>
+      <div id="dz-counts" style="text-align:center;font-size:11px;font-family:ui-monospace,monospace;margin-top:12px"></div>
+      <div class="canvas-controls">
+        <button class="ctrl-btn" id="dz-next">▶ Next record</button>
+        <button class="ctrl-btn" id="dz-run">⏩ Play</button>
+        <button class="ctrl-btn" id="dz-reset">↻ Reset</button>
+        <span class="ctrl-label">Same records → the stream grows, the table upserts</span>
+      </div>
+    </div>
+    <div class="canvas-explainer">
+      <h3>What you're watching</h3>
+      <p>This is the <strong>stream–table duality</strong>, and internalising it is the thing that makes everything else in Kafka Streams click. The identical sequence of keyed records can be interpreted two ways. As a <strong>KStream</strong> it is an unbounded, append-only log where <em>every</em> record is a meaningful fact — alice's cart hit $40, then later $65, then $12; all three are real events you might count, filter, or join. As a <strong>KTable</strong> it is a changelog: each record is an <em>update</em> for its key, so only the latest value survives — alice's cart <em>is</em> $12 now, the earlier values are history. KStream ≈ INSERTs; KTable ≈ UPSERTs into a keyed table.</p>
+      <p>A KTable isn't just a logical view — it is physically <strong>materialized</strong> in a local RocksDB state store and backed by a <strong>compacted changelog topic</strong>, so compaction eventually keeps only the latest record per key, exactly mirroring the table. That's why a KTable can be looked up by key with no network hop (crucial for joins) and rebuilt after a crash by replaying its changelog. The two directions are first-class DSL operations: <code>builder.table(topic)</code> or <code>stream.toTable()</code> collapses a stream into a table, and <code>table.toStream()</code> re-emits the table's changes as a stream of updates.</p>
+      <p>There's a third type worth naming: a <strong>GlobalKTable</strong>, which materializes the <em>entire</em> topic on <em>every</em> instance (not partitioned), so you can join a stream to it without co-partitioning — ideal for small, mostly-static reference data (country codes, product catalog). The cost is full replication of the table to every instance.</p>
+      <p><strong>Interview angle:</strong> say "a stream is a table's changelog, and a table is a stream's latest-value snapshot — they're duals." Then connect it: aggregations turn a KStream into a KTable (<code>groupByKey().count()</code> yields a KTable of counts); <code>toStream()</code> turns it back. Knowing which operations cross the stream⇄table boundary is what separates someone who has read the docs from someone who understands the model.</p>
+    </div>`;
+
+  render();
+  const next = () => { if (step < RECS.length) { step++; render(); } };
+  tab.querySelector('#dz-next').addEventListener('click', next);
+  tab.querySelector('#dz-reset').addEventListener('click', () => { if (timer) { clearInterval(timer); timer = null; } step = 0; render(); });
+  tab.querySelector('#dz-run').addEventListener('click', () => {
+    if (timer) { clearInterval(timer); timer = null; }
+    step = 0; render();
+    timer = setInterval(() => { if (step >= RECS.length) { clearInterval(timer); timer = null; return; } step++; render(); }, 850);
+  });
+  return () => { if (timer) clearInterval(timer); };
 }
 
 function buildDSL(container) {
