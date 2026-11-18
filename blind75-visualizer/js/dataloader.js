@@ -76,7 +76,7 @@
       "data/pyspark/cdc_versioning_recovery.js",
       "data/pyspark/schema_drift_dq.js",
       "data/pyspark/perf_oom_diagnosis.js",
-      "data/pyspark/interview_qa.js",
+      "data/pyspark/interview_qa.js?v=20261118deepanswers",
       "data/spark/cheatsheet.js?v=20261027useall"
     ],
     sparklearn: [
@@ -121,7 +121,7 @@
       "data/sql/timeseries_cohort.js",
       "data/sql/domains.js",
       "data/sql/practice_extra.js",
-      "data/sql/interview_qa.js",
+      "data/sql/interview_qa.js?v=20261118sqladd6",
       "data/sql/cheatsheet.js?v=20261027useall"
     ],
     sqllearn: [

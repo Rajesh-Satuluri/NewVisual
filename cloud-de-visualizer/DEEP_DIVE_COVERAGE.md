@@ -1,6 +1,6 @@
 # Deep-Dive Coverage Ledger
 
-_Generated 2026-11-16 by tools/coverage-ledger.js — a structural audit of enrichment-field presence. It reports what content EXISTS; it does not claim any content has been independently verified, and all code examples in the banks are authored as illustrative, not tested._
+_Generated 2026-11-17 by tools/coverage-ledger.js — a structural audit of enrichment-field presence. It reports what content EXISTS; it does not claim any content has been independently verified, and all code examples in the banks are authored as illustrative, not tested._
 
 ## AWS — 18/18 full deep dives
 
@@ -51,7 +51,7 @@ _Generated 2026-11-16 by tools/coverage-ledger.js — a structural audit of enri
 | Azure Service Bus (`azure-service-bus`) | ✅ full | — |
 | Containers on Azure (`azure-containers`) | ✅ full | — |
 
-## Databricks — 12/12 full deep dives
+## Databricks — 13/13 full deep dives
 
 | Service | Status | Missing fields |
 |---|---|---|
@@ -67,6 +67,7 @@ _Generated 2026-11-16 by tools/coverage-ledger.js — a structural audit of enri
 | Databricks SQL (`databricks-sql`) | ✅ full | — |
 | MLflow (`mlflow`) | ✅ full | — |
 | Delta Sharing (`delta-sharing`) | ✅ full | — |
+| Databricks CI/CD (Asset Bundles & Repos) (`databricks-cicd`) | ✅ full | — |
 
 ## Fabric — 14/14 full deep dives
 
@@ -89,7 +90,7 @@ _Generated 2026-11-16 by tools/coverage-ledger.js — a structural audit of enri
 
 ## Summary
 
-- **Full deep dives:** 65/65 services (100%).
+- **Full deep dives:** 66/66 services (100%).
 - **Partial:** 0 services.
 
 ### Honest gap report

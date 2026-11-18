@@ -49,12 +49,28 @@
   };
 
   var overlay = null, bodyEl = null, searchEl = null;
+  var rootEl = null;           // element to query for chips / reveal / due pill (overlay box OR inline host)
+  var inlineHost = null;       // the page container when rendered inline (null when overlay)
   var bank = BANKS.spark;      // current bank
   var builtBank = null;        // which bank the current overlay DOM was built for
   var activeCat = "all";
   var query = "";
   var revealAll = false;
   var got = {};
+
+  // inline ("Study Hub"-style) view state
+  var inlineListEl = null;     // the .study-results container when rendered inline
+  var diffFilter = "all";      // difficulty chip filter (inline only)
+  // difficulty tiers used by the banks (Common → Core → Deep), ordered.
+  var DIFF_META = {
+    common: { label: "Common", order: 0 },
+    core:   { label: "Core",   order: 1 },
+    deep:   { label: "Deep",   order: 2 }
+  };
+  function diffKey(d) { return String(d == null ? "core" : d).toLowerCase(); }
+  function diffLabel(d) { var m = DIFF_META[diffKey(d)]; return m ? m.label : (d || "Core"); }
+  function diffOrder(d) { var m = DIFF_META[diffKey(d)]; return m ? m.order : 1; }
+  function pad2(n) { n = String(n); return n.length < 2 ? "0" + n : n; }
 
   function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
 
@@ -146,8 +162,10 @@
     return wrap;
   }
 
-  // Spaced-repetition grade row for srs banks.
-  function srsRow(p) {
+  // Spaced-repetition grade row for srs banks. `onGrade` (optional) overrides the
+  // post-grade refresh — the inline view passes one so it doesn't touch the
+  // overlay's bodyEl/render() pipeline.
+  function srsRow(p, onGrade) {
     var box = el("div", "iqa-srs");
     var rec = store && store.getSrs ? store.getSrs(srsId(p)) : null;
     var status = !rec
@@ -161,6 +179,7 @@
       b.addEventListener("click", function (ev) {
         ev.stopPropagation();
         if (store && store.reviewCard) store.reviewCard(srsId(p), g[0]);
+        if (onGrade) { onGrade(); return; }
         bodyEl.__keepScroll = bodyEl.scrollTop;
         render(); syncDueChip();
       });
@@ -246,20 +265,19 @@
   }
 
   function syncRevealBtn() {
-    if (!overlay) return;
-    var b = overlay.querySelector(".iqa-reveal");
+    if (!rootEl) return;
+    var b = rootEl.querySelector(".iqa-reveal");
     if (b) { b.textContent = revealAll ? "Hide all" : "Reveal all"; b.classList.toggle("on", revealAll); }
   }
   function syncDueChip() {
-    if (!overlay) return;
-    var chip = overlay.querySelector('.ros-cat-chip[data-cat="__due"] .ros-cat-n');
+    if (!rootEl) return;
+    var chip = rootEl.querySelector('.ros-cat-chip[data-cat="__due"] .ros-cat-n');
     if (chip) chip.textContent = "(" + dueCount() + ")";
   }
 
-  function build() {
-    overlay = document.createElement("div");
-    overlay.id = "interviewqa";
-    overlay.className = "ros iqa hidden";
+  // The filter/search/reveal bar + category chips + body — shared verbatim by the
+  // modal overlay and the inline (in-page) render.
+  function panelMarkup() {
     var total = allItems().length;
     var dueChip = bank.srs
       ? '<button class="ros-chip ros-cat-chip iqa-due-chip" data-cat="__due">🔁 Due <span class="ros-cat-n">(' + dueCount() + ')</span></button>'
@@ -271,12 +289,7 @@
         return '<button class="ros-chip ros-cat-chip" data-cat="' + esc(g) + '">' + esc(g) + ' <span class="ros-cat-n">(' + n + ')</span></button>';
       }).join("");
     var hint = bank.srs ? "tap a question to flip · grade your recall to schedule it" : "tap a question to flip · mark what you know";
-    overlay.innerHTML =
-      '<div class="ros-box" role="dialog" aria-label="' + bank.aria + '">' +
-      '  <div class="ros-head">' +
-      '    <div class="ros-title">' + bank.title + ' <span class="ros-sub">' + bank.subtitle + '</span></div>' +
-      '    <button class="ros-close" aria-label="Close">✕</button>' +
-      '  </div>' +
+    return '' +
       '  <div class="ros-filter iqa-tools">' +
       '    <input type="search" class="iqa-search" placeholder="Search questions, tags…" aria-label="Search questions" />' +
       '    <button class="ros-chip iqa-reveal" type="button">Reveal all</button>' +
@@ -284,36 +297,53 @@
       '  <div class="ros-filter ros-cat-filter">' + catChips +
       '    <span class="ros-hint">' + hint + '</span>' +
       '  </div>' +
-      '  <div class="ros-body iqa-body"></div>' +
-      '</div>';
-    document.body.appendChild(overlay);
-    bodyEl = overlay.querySelector(".ros-body");
-    searchEl = overlay.querySelector(".iqa-search");
+      '  <div class="ros-body iqa-body"></div>';
+  }
 
-    overlay.addEventListener("mousedown", function (e) { if (e.target === overlay) close(); });
-    overlay.querySelector(".ros-close").addEventListener("click", close);
-
-    overlay.querySelectorAll(".ros-cat-chip").forEach(function (b) {
+  // Wire chip / search / reveal handlers within a container, and point the shared
+  // bodyEl/searchEl/rootEl at it. Used by both the overlay and the inline render.
+  function wirePanel(container) {
+    rootEl = container;
+    bodyEl = container.querySelector(".ros-body");
+    searchEl = container.querySelector(".iqa-search");
+    container.querySelectorAll(".ros-cat-chip").forEach(function (b) {
       b.addEventListener("click", function () {
         activeCat = b.getAttribute("data-cat");
-        overlay.querySelectorAll(".ros-cat-chip").forEach(function (c) { c.classList.toggle("active", c === b); });
+        container.querySelectorAll(".ros-cat-chip").forEach(function (c) { c.classList.toggle("active", c === b); });
         bodyEl.__keepScroll = 0;
         render();
       });
     });
-
     searchEl.addEventListener("input", function () {
       query = (searchEl.value || "").trim().toLowerCase();
       bodyEl.__keepScroll = 0;
       render();
     });
-
-    overlay.querySelector(".iqa-reveal").addEventListener("click", function () {
+    container.querySelector(".iqa-reveal").addEventListener("click", function () {
       revealAll = !revealAll;
       allItems().forEach(function (p) { p.__open = false; });
       syncRevealBtn();
       render();
     });
+  }
+
+  function build() {
+    overlay = document.createElement("div");
+    overlay.id = "interviewqa";
+    overlay.className = "ros iqa hidden";
+    overlay.innerHTML =
+      '<div class="ros-box" role="dialog" aria-label="' + bank.aria + '">' +
+      '  <div class="ros-head">' +
+      '    <div class="ros-title">' + bank.title + ' <span class="ros-sub">' + bank.subtitle + '</span></div>' +
+      '    <button class="ros-close" aria-label="Close">✕</button>' +
+      '  </div>' +
+      panelMarkup() +
+      '</div>';
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener("mousedown", function (e) { if (e.target === overlay) close(); });
+    overlay.querySelector(".ros-close").addEventListener("click", close);
+    wirePanel(overlay.querySelector(".ros-box"));
 
     document.addEventListener("keydown", function (e) {
       if (e.key === "Escape" && overlay.classList.contains("open")) close();
@@ -323,7 +353,8 @@
 
   function teardown() {
     if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
-    overlay = null; bodyEl = null; searchEl = null; builtBank = null;
+    overlay = null; builtBank = null;
+    if (!inlineHost) { bodyEl = null; searchEl = null; rootEl = null; }
   }
 
   function open(bankKey) {
@@ -333,7 +364,12 @@
     bank = b;
     got = loadGot();
     activeCat = "all"; query = ""; revealAll = false;
+    inlineHost = null;           // we're in overlay mode now
     if (!overlay) build();
+    // Re-point the shared panel refs at the overlay box (an inline render may have
+    // moved them elsewhere); listeners were attached once in build().
+    var box = overlay.querySelector(".ros-box");
+    rootEl = box; bodyEl = box.querySelector(".ros-body"); searchEl = box.querySelector(".iqa-search");
     if (searchEl) searchEl.value = "";
     syncRevealBtn(); syncDueChip();
     render();
@@ -349,6 +385,174 @@
     setTimeout(function () { overlay.classList.add("hidden"); }, 160);
   }
 
+  // ---- inline ("Study Hub") render -----------------------------------------
+  // A page view (not a modal) styled after the Kafka course's Study Hub:
+  // hero + stat boxes, a search / difficulty-chip / group-select control bar,
+  // and an accordion of questions. Reuses the shared data + SRS helpers.
+  function availDiffs() {
+    var seen = {};
+    allItems().forEach(function (p) { seen[diffKey(p.difficulty)] = true; });
+    return ["common", "core", "deep"].filter(function (k) { return seen[k]; });
+  }
+  function inlineVisible() {
+    return allItems().filter(function (p) {
+      if (activeCat !== "all" && p.group !== activeCat) return false;
+      if (diffFilter !== "all" && diffKey(p.difficulty) !== diffFilter) return false;
+      return matchesQuery(p);
+    }).sort(function (a, b) { return diffOrder(a.difficulty) - diffOrder(b.difficulty); });
+  }
+  function syncInlineDue() {
+    if (!inlineHost) return;
+    var s = inlineHost.querySelector('.stat-val[data-stat="due"]');
+    if (s) s.textContent = dueCount();
+  }
+
+  // Build an accordion row. Answer content is created lazily on first open so the
+  // initial list stays light even with 100+ cards.
+  function iqItem(p, idx) {
+    var item = el("div", "iq-item" + (got[p.id] ? " iqs-known" : "") + (bank.srs && isDue(p) ? " iqs-due" : ""));
+    var dk = diffKey(p.difficulty);
+    var q = el("div", "iq-question");
+    q.innerHTML =
+      '<span class="q-num">' + pad2(idx + 1) + '</span>' +
+      '<span class="iq-qtext">' + esc(p.q) + '</span>' +
+      (bank.srs && isDue(p) ? '<span class="iqs-due-dot" title="Due for review">●</span>' : '') +
+      '<span class="diff-badge diff-' + dk + '">' + esc(diffLabel(p.difficulty)) + '</span>' +
+      '<span class="q-chevron">▾</span>';
+    q.addEventListener("click", function (e) {
+      if (e.target.closest("button") || e.target.closest("a")) return;
+      buildAnswerOnce(item, p);
+      item.classList.toggle("open");
+    });
+    item.appendChild(q);
+    var wrap = el("div", "iq-answer-wrap");
+    wrap.appendChild(el("div", "iq-answer"));
+    item.appendChild(wrap);
+    return item;
+  }
+  function buildAnswerOnce(item, p) {
+    if (item.__built) return;
+    var ans = item.querySelector(".iq-answer");
+    if (!ans) return;
+    ans.appendChild(el("div", "iqs-a-body", p.a || ""));
+    if (p.code) ans.appendChild(codeBlock(p.code, p.lang));
+    if (p.tip) ans.appendChild(el("div", "tip", "💡 <strong>Interview tip:</strong> " + p.tip));
+    if (bank.srs) {
+      var srsHost = el("div", "iqs-srs-host");
+      ans.appendChild(srsHost);
+      var paint = function () {
+        srsHost.innerHTML = "";
+        srsHost.appendChild(srsRow(p, function () {
+          paint(); syncInlineDue();
+          item.classList.toggle("iqs-due", isDue(p));
+        }));
+      };
+      paint();
+    }
+    var foot = el("div", "iqs-foot");
+    var gotBtn = el("button", "iqa-got-btn" + (got[p.id] ? " on" : ""));
+    gotBtn.type = "button";
+    gotBtn.textContent = got[p.id] ? "✓ Got it" : "Mark as known";
+    gotBtn.addEventListener("click", function (ev) {
+      ev.stopPropagation();
+      if (got[p.id]) delete got[p.id]; else got[p.id] = 1;
+      saveGot();
+      item.classList.toggle("iqs-known", !!got[p.id]);
+      gotBtn.classList.toggle("on", !!got[p.id]);
+      gotBtn.textContent = got[p.id] ? "✓ Got it" : "Mark as known";
+    });
+    foot.appendChild(gotBtn);
+    if (p.tags && p.tags.length) {
+      var tags = el("div", "iqa-tags");
+      p.tags.slice(0, 5).forEach(function (t) { tags.appendChild(el("span", "iqa-tag", esc(t))); });
+      foot.appendChild(tags);
+    }
+    ans.appendChild(foot);
+    item.__built = true;
+  }
+  function renderInlineList() {
+    if (!inlineListEl) return;
+    var rows = inlineVisible();
+    if (!rows.length) {
+      inlineListEl.innerHTML = '<div class="study-empty">' +
+        (query ? "No questions match “" + esc(query) + "”." : "No questions in this view.") + '</div>';
+      return;
+    }
+    inlineListEl.innerHTML =
+      '<div class="study-count">' + rows.length + " question" + (rows.length === 1 ? "" : "s") + '</div>' +
+      '<div class="iq-list"></div>';
+    var listEl = inlineListEl.querySelector(".iq-list");
+    rows.forEach(function (p, i) { listEl.appendChild(iqItem(p, i)); });
+  }
+
+  // Render the Q&A INLINE into a page container (the Learn main panel), Study-Hub
+  // style. The host owns scrolling.
+  function mount(bankKey, host) {
+    if (!host) return;
+    var b = BANKS[bankKey] || bank || BANKS.spark;
+    bank = b;
+    got = loadGot();
+    activeCat = "all"; query = ""; revealAll = false; diffFilter = "all";
+    inlineHost = host;
+
+    var total = allItems().length;
+    var groups = groupsWithItems();
+    var diffs = availDiffs();
+    var tagText = bank.key === "sql" ? "★ · Interview Theory · SQL" : "★ · Interview Theory · PySpark";
+
+    var diffChips = '<button class="study-chip active" data-diff="all">All levels</button>' +
+      diffs.map(function (k) { return '<button class="study-chip" data-diff="' + k + '">' + esc(DIFF_META[k].label) + '</button>'; }).join("");
+    var groupOpts = '<option value="all">All groups</option>' +
+      groups.map(function (g) { return '<option value="' + esc(g) + '">' + esc(g) + ' (' + itemsFor(g).length + ')</option>'; }).join("");
+    var statDue = bank.srs
+      ? '<div class="stat-box"><span class="stat-val" data-stat="due">' + dueCount() + '</span><span class="stat-label">Due for review</span></div>'
+      : '';
+
+    host.innerHTML =
+      '<div class="iqs-page">' +
+      '  <div class="module-hero iqs-hero">' +
+      '    <div class="module-tag">' + esc(tagText) + '</div>' +
+      '    <h1 class="module-title">' + bank.title + '</h1>' +
+      '    <p class="module-subtitle">Rapid-fire interview theory — filter by level, group, or keyword, then tap a question to reveal an interview-ready answer.</p>' +
+      '  </div>' +
+      '  <div class="study-stats">' +
+      '    <div class="stat-box"><span class="stat-val">' + total + '</span><span class="stat-label">Interview Q&amp;As</span></div>' +
+      '    <div class="stat-box"><span class="stat-val">' + groups.length + '</span><span class="stat-label">Topic groups</span></div>' +
+      statDue +
+      '  </div>' +
+      '  <div class="study-controls">' +
+      '    <input class="study-search" type="search" placeholder="🔍 Search questions, tags…" aria-label="Search questions" />' +
+      '    <div class="study-chips" data-filter="difficulty">' + diffChips + '</div>' +
+      '    <select class="study-select" aria-label="Filter by group">' + groupOpts + '</select>' +
+      '  </div>' +
+      '  <div class="study-results"></div>' +
+      '</div>';
+
+    var page = host.firstChild;
+    rootEl = page;
+    inlineListEl = page.querySelector(".study-results");
+    searchEl = page.querySelector(".study-search");
+
+    searchEl.addEventListener("input", function () {
+      query = (searchEl.value || "").trim().toLowerCase();
+      renderInlineList();
+    });
+    page.querySelectorAll(".study-chip").forEach(function (ch) {
+      ch.addEventListener("click", function () {
+        diffFilter = ch.getAttribute("data-diff");
+        page.querySelectorAll(".study-chip").forEach(function (c) { c.classList.toggle("active", c === ch); });
+        renderInlineList();
+      });
+    });
+    page.querySelector(".study-select").addEventListener("change", function (e) {
+      activeCat = e.target.value || "all";
+      renderInlineList();
+    });
+
+    renderInlineList();
+    if (host.scrollTop) host.scrollTop = 0;
+  }
+
   function init() {
     // Topbar button: open the bank for whichever stack is active (PySpark or SQL).
     var btn = document.getElementById("interviewBtn");
@@ -360,5 +564,5 @@
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
   else init();
 
-  window.INTERVIEW_QA_UI = { open: open, close: close };
+  window.INTERVIEW_QA_UI = { open: open, close: close, mount: mount };
 })();

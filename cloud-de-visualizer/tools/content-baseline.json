@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-16T10:50:48.669Z",
+  "generated": "2026-11-17T13:56:02.830Z",
   "groups": {
     "services.aws": [
       "s3",
@@ -56,7 +56,8 @@
       "clusters",
       "databricks-sql",
       "mlflow",
-      "delta-sharing"
+      "delta-sharing",
+      "databricks-cicd"
     ],
     "services.fabric": [
       "onelake",
@@ -136,7 +137,10 @@
       "pricing",
       "workflows",
       "pyspark-coding",
-      "senior-architecture"
+      "senior-architecture",
+      "cicd",
+      "observability",
+      "federation"
     ],
     "interview.fabric": [
       "onelake",
