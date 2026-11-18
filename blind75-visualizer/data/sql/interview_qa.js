@@ -1339,6 +1339,125 @@ window.SQL_QA = {
         "</ul>" +
         "<p>Verify with the <b>execution plan</b> rather than assuming.</p>",
       tip: "The senior answer: \"The optimizer often transforms between them, so I compare <b>execution plans</b>. The real killer is a <b>correlated</b> subquery running per row — that I rewrite as a join or window function.\""
+    },
+
+    // ═══════════════ Coverage-gap additions (2026-11) ═══════════════
+    {
+      id: "case-expression",
+      group: "Fundamentals & Command Types",
+      q: "What is a CASE expression and where can you use it?",
+      difficulty: "Core",
+      tags: ["case", "conditional", "expression"],
+      a:
+        "<p><b>CASE is SQL's conditional expression — the <code>if/else</code> of SQL.</b> It returns a value based on conditions and can appear <i>anywhere an expression is allowed</i>: <code>SELECT</code>, <code>WHERE</code>, <code>ORDER BY</code>, <code>GROUP BY</code>, <code>HAVING</code>, and inside aggregates.</p>" +
+        "<ul>" +
+        "<li><b>Searched CASE</b> — <code>CASE WHEN cond THEN x WHEN … ELSE y END</code> (full boolean conditions).</li>" +
+        "<li><b>Simple CASE</b> — <code>CASE col WHEN v1 THEN … END</code> (equality against one expression).</li>" +
+        "<li>Returns <code>NULL</code> if no branch matches and there's no <code>ELSE</code>.</li>" +
+        "</ul>" +
+        "<p><b>High-value uses:</b> <b>conditional aggregation</b> (<code>SUM(CASE WHEN …)</code> for pivoting), bucketing values into bands, custom sort order, and avoiding divide-by-zero.</p>",
+      code:
+        "SELECT\n" +
+        "  SUM(CASE WHEN status='paid'    THEN amount ELSE 0 END) AS paid,\n" +
+        "  SUM(CASE WHEN status='pending' THEN amount ELSE 0 END) AS pending,\n" +
+        "  CASE WHEN AVG(score) >= 90 THEN 'A'\n" +
+        "       WHEN AVG(score) >= 80 THEN 'B' ELSE 'C' END        AS grade\n" +
+        "FROM orders;",
+      tip: "The power move to mention: <b>conditional aggregation</b> — <code>SUM(CASE WHEN …)</code> is how you pivot and compute multiple filtered metrics in one pass over the table."
+    },
+    {
+      id: "cte-vs-temp-table",
+      group: "Subqueries & CTEs",
+      q: "CTE vs temp table vs table variable — when do you use each?",
+      difficulty: "Deep",
+      tags: ["cte", "temp table", "table variable"],
+      a:
+        "<ul>" +
+        "<li><b>CTE</b> — exists only for the <b>single statement</b> that follows; not materialized by default (the optimizer inlines it), no statistics, no indexes. Best for <b>readability</b> and recursion.</li>" +
+        "<li><b>Temp table</b> (<code>#tmp</code> / <code>CREATE TEMP TABLE</code>) — a real table in tempdb/temp schema for the <b>session</b>. It's <b>materialized</b>, can hold <b>indexes and statistics</b>, and is reused across multiple statements. Best when an intermediate result is large and queried repeatedly.</li>" +
+        "<li><b>Table variable</b> (SQL Server <code>@t</code>) — like a lightweight temp table but with <b>no/weak statistics</b> (the optimizer often assumes 1 row), minimal logging, and tighter scope. Best for small sets.</li>" +
+        "</ul>" +
+        "<p><b>The deciding factor is reuse + size:</b> a CTE is re-evaluated each time it's referenced, so if you reference a heavy intermediate result several times, a <b>temp table</b> (computed once, indexed) usually wins. For a one-shot, readable step, use a CTE.</p>",
+      tip: "Don't say \"CTEs are faster.\" Say: \"<b>CTE for readability/recursion, temp table when I need to materialize once, index, and reuse a big intermediate result.</b>\""
+    },
+    {
+      id: "scd-types",
+      group: "Normalization & Design",
+      q: "What are Slowly Changing Dimensions (SCD Type 1, 2, 3)?",
+      difficulty: "Deep",
+      tags: ["scd", "dimensional", "warehouse", "history"],
+      a:
+        "<p><b>SCD describes how a data warehouse handles changes to dimension attributes over time</b> (e.g. a customer moves city). The type is the strategy for keeping — or discarding — history:</p>" +
+        "<ul>" +
+        "<li><b>Type 1 — overwrite.</b> Update the value in place; <b>no history</b>. Simple, but you lose the old value. Use when history doesn't matter (fix a typo).</li>" +
+        "<li><b>Type 2 — add a new row.</b> Keep the old row and insert a new version, tracked with <b><code>effective_from</code> / <code>effective_to</code> dates and an <code>is_current</code> flag</b> (and a surrogate key per version). <b>Full history</b>; the most common for real auditing.</li>" +
+        "<li><b>Type 3 — add a column.</b> Keep a <code>previous_value</code> column alongside the current — only <b>limited (one-step) history</b>.</li>" +
+        "</ul>" +
+        "<p>Type 2 is implemented with a <code>MERGE</code>: expire the current row (set <code>effective_to</code> / <code>is_current = false</code>) and insert the new version.</p>",
+      tip: "Lead with Type 2 — it's what interviewers mean by \"track history\": <b>new row per change, with effective dates + an is_current flag</b>, applied via MERGE."
+    },
+    {
+      id: "execution-plan",
+      group: "Indexes & Performance",
+      q: "What is an execution plan, and how do you read EXPLAIN / EXPLAIN ANALYZE?",
+      difficulty: "Deep",
+      tags: ["execution plan", "explain", "optimizer", "cost"],
+      a:
+        "<p><b>An execution plan is the step-by-step strategy the query optimizer chose to run your query</b> — which indexes, join algorithms, and access methods, in what order. It's the single most important tool for tuning.</p>" +
+        "<ul>" +
+        "<li><b><code>EXPLAIN</code></b> — shows the <i>estimated</i> plan (operators + estimated row counts/cost) without running it.</li>" +
+        "<li><b><code>EXPLAIN ANALYZE</code></b> — actually runs the query and shows <i>actual</i> times and row counts, so you can compare estimate vs reality.</li>" +
+        "</ul>" +
+        "<p><b>What to look for:</b></p>" +
+        "<ul>" +
+        "<li><b>Seq/table scan on a big table</b> where a seek was expected → missing index or a non-sargable predicate.</li>" +
+        "<li><b>Estimated vs actual rows far apart</b> → stale statistics, so the optimizer picked a bad plan.</li>" +
+        "<li><b>Join algorithm</b> — a nested loop over millions of rows (should be hash/merge), or the wrong build side.</li>" +
+        "<li><b>Sorts / spills to disk</b> and <b>key lookups</b> → candidates for a covering index.</li>" +
+        "</ul>",
+      tip: "The senior habit: <b>\"I read EXPLAIN ANALYZE and compare estimated vs actual rows\"</b> — a big gap means stale stats; a surprise scan means a missing index or a non-sargable filter."
+    },
+    {
+      id: "replication",
+      group: "OLTP vs OLAP & Misc",
+      q: "What is database replication (read replicas, sync vs async)?",
+      difficulty: "Deep",
+      tags: ["replication", "read replica", "availability", "consistency"],
+      a:
+        "<p><b>Replication keeps copies of the data on multiple servers</b> — for <b>read scalability</b> (offload reads to replicas), <b>high availability</b> (fail over if the primary dies), and disaster recovery.</p>" +
+        "<ul>" +
+        "<li><b>Primary / replica (leader-follower)</b> — writes go to the primary; changes stream to read replicas, which serve reads.</li>" +
+        "<li><b>Synchronous</b> — the primary waits for a replica to confirm before committing: <b>no data loss</b> on failover, but higher write latency.</li>" +
+        "<li><b>Asynchronous</b> — the primary commits immediately and ships changes after: <b>fast writes</b>, but a crash can lose the last unreplicated changes and reads can be stale (<b>replication lag</b>).</li>" +
+        "</ul>" +
+        "<p>The trade-off is the CAP-style tension: sync favors <b>consistency</b>, async favors <b>latency/availability</b>. Reading from an async replica gives <b>eventual consistency</b>.</p>",
+      tip: "Name the trade-off: <b>sync = no data loss, slower writes; async = fast writes, risk of lag/stale reads</b>. And distinguish replication (copies) from partitioning/sharding (splits)."
+    },
+    {
+      id: "gaps-and-islands",
+      group: "Classic Query Patterns",
+      q: "How do you solve a gaps-and-islands problem (consecutive streaks)?",
+      difficulty: "Deep",
+      tags: ["gaps and islands", "streaks", "row_number", "window"],
+      a:
+        "<p><b>\"Islands\" are groups of consecutive rows (a login streak, a run of in-stock days); \"gaps\" are the breaks between them.</b> The classic trick is the <b>difference of two sequences</b>: subtract <code>ROW_NUMBER()</code> from the ordered value — within one consecutive run that difference is <b>constant</b>, so it becomes a group key.</p>" +
+        "<ul>" +
+        "<li>For integer/date sequences: <code>value - ROW_NUMBER() OVER (ORDER BY value)</code> is constant inside an island.</li>" +
+        "<li>Group by (partition key + that constant) to collapse each island; <code>MIN</code>/<code>MAX</code> give its start/end, <code>COUNT</code> its length.</li>" +
+        "<li>An alternative uses <code>LAG()</code> to flag where a new island starts, then a running <code>SUM</code> of those flags as the group id.</li>" +
+        "</ul>",
+      code:
+        "WITH g AS (\n" +
+        "  SELECT user_id, login_date,\n" +
+        "         login_date\n" +
+        "           - (ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY login_date))\n" +
+        "             * INTERVAL '1 day' AS grp\n" +
+        "  FROM logins\n" +
+        ")\n" +
+        "SELECT user_id, MIN(login_date) AS streak_start,\n" +
+        "       MAX(login_date) AS streak_end, COUNT(*) AS days\n" +
+        "FROM g GROUP BY user_id, grp;",
+      tip: "The one-liner that signals you know it: <b>\"subtract ROW_NUMBER() from the value — it's constant within a consecutive run, so it's your island group key.\"</b>"
     }
   ]
 };
