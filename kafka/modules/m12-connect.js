@@ -1,5 +1,5 @@
 import { createModuleShell, createIQSection } from '../components/module-shell.js';
-import { EventPacket } from '../components/canvas-primitives.js';
+import { EventPacket, drawRoundRect, drawArrow } from '../components/canvas-primitives.js';
 
 export const IQ = [
   { q: 'What is Kafka Connect and how does it differ from writing a custom producer/consumer?', a: 'Kafka Connect is a framework for scalable, fault-tolerant data integration without writing Kafka client code. It provides: distributed execution (worker cluster), automatic offset management, schema inference, REST API for connector management, and 200+ pre-built connectors (JDBC, S3, Elasticsearch, Snowflake, Debezium). A custom producer/consumer gives more control but requires you to handle offset management, parallelism, restarts, and schema. Connect is preferred when a connector already exists for your system.', tip: 'Mention SMT (Single Message Transform) — lightweight record transformations applied inline (add field, mask PII, route by value) without a separate streaming job.' },
@@ -19,16 +19,19 @@ export function mount(container) {
       easy: "Connect is ready-made plumbing to move data in and out of Kafka without writing code. Source connectors pull data in from databases and APIs; sink connectors push it out to warehouses and stores — you just fill in config.",
     },
     tabs: [
-      { id: 'flow',  label: '🔌 Connect Flow' },
-      { id: 'types', label: '📦 Connector Types' },
-      { id: 'iq',    label: '🎯 Interview Q&A' },
+      { id: 'flow',    label: '🔌 Connect Flow' },
+      { id: 'workers', label: '⚙️ Workers & Tasks' },
+      { id: 'types',   label: '📦 Connector Types' },
+      { id: 'iq',      label: '🎯 Interview Q&A' },
     ]
   });
 
-  let cleanup = buildFlow(container);
+  const cleanups = [];
+  cleanups.push(buildFlow(container));
+  cleanups.push(buildWorkers(container));
   buildTypes(container);
   container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
-  return cleanup;
+  return () => cleanups.forEach(fn => { if (typeof fn === 'function') fn(); });
 }
 
 function buildFlow(container) {
@@ -136,6 +139,164 @@ function buildFlow(container) {
         }));
       }, si * 150);
     });
+  });
+
+  return () => { if (raf) cancelAnimationFrame(raf); };
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   TAB — Workers, Tasks & Rebalancing (distributed Connect cluster)
+   ───────────────────────────────────────────────────────────────────────── */
+function buildWorkers(container) {
+  const tab = container.querySelector('#tab-workers');
+  tab.innerHTML = `
+    <div class="canvas-wrap">
+      <div class="canvas-caption">A connector is just <b>config</b>; the real work runs as <b>tasks</b>. A distributed Connect <b>worker cluster</b> splits each connector into up to <code>tasks.max</code> tasks and spreads them across workers. All cluster state — configs, offsets, status — lives in <b>three internal compacted Kafka topics</b>, so workers are stateless. Press <b>Kill a worker</b> to watch its tasks <b>rebalance</b> onto the survivors; <b>Add a worker</b> to scale out and rebalance the other way.</div>
+      <canvas id="kc-workers-canvas" width="820" height="380" style="width:100%;max-width:820px"></canvas>
+      <div class="canvas-controls">
+        <button class="ctrl-btn" id="kcw-kill">💀 Kill a worker</button>
+        <button class="ctrl-btn" id="kcw-add">➕ Add a worker</button>
+        <button class="ctrl-btn" id="kcw-reset">↻ Reset</button>
+        <span class="ctrl-label" id="kcw-status">3 workers · 6 tasks · 2 tasks/worker</span>
+      </div>
+    </div>
+    <div class="canvas-explainer">
+      <h3>What you're watching</h3>
+      <p>The thing that trips people up is that <strong>a connector does not "run" anywhere</strong> — it is just a configuration document. When you POST a connector config to the Connect REST API, the connector's <code>Connector</code> class is asked one question: "given <code>tasks.max</code>, how do you want to divide this work?" It returns a list of <strong>task configs</strong>, and <em>those</em> are the units that actually move data. A Debezium source connector typically returns a single task (one task reads one database's log); a sink connector returns up to <code>tasks.max</code> tasks, and the topic's partitions are divided among them exactly like a consumer group.</p>
+      <p>In <strong>distributed mode</strong>, a set of <strong>worker</strong> processes (JVMs) form a group that shares the same <code>group.id</code>. They elect a leader, and the leader assigns tasks to workers. Crucially, <strong>workers hold no durable state of their own</strong> — everything lives in three internal <strong>compacted</strong> Kafka topics: <code>connect-configs</code> (connector + task configs), <code>connect-offsets</code> (source-connector progress), and <code>connect-status</code> (running/failed/paused state). Because all state is in Kafka, any worker can pick up any task at any time. That is the whole trick.</p>
+      <p>When a worker <strong>dies</strong> (press the button), the group coordinator notices the missing member and triggers a <strong>rebalance</strong>: the leader recomputes the task-to-worker assignment and the dead worker's tasks are restarted on the survivors — resuming from the offsets already committed in <code>connect-offsets</code>, so no data is lost and nothing is reprocessed beyond the last commit. Add a worker and the same machinery spreads tasks back out. Modern Connect uses <strong>incremental cooperative rebalancing</strong> (KIP-415), so only the tasks that must move are stopped — the rest keep running through the rebalance instead of the old stop-the-world "everyone drops everything" behaviour.</p>
+      <p><strong>Interview angle:</strong> <code>tasks.max</code> is your parallelism knob, but it is a ceiling, not a guarantee — a source connector that can only produce one task (single DB log reader) ignores a higher value, and a sink connector can never usefully run more tasks than the topic has partitions. "Workers are stateless because all state is in compacted internal topics" and "tasks are the unit of parallelism and of rebalancing" are the two sentences that signal you actually understand Connect's architecture.</p>
+    </div>`;
+
+  const canvas = tab.querySelector('#kc-workers-canvas');
+  if (!canvas) return null;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width;
+
+  const TASK_N = 6;
+  const WCOLORS = ['#3B82F6', '#10B981', '#8B5CF6', '#F59E0B'];
+  // Internal topics (top row)
+  const topics = [
+    { key: 'cfg',  label: 'connect-configs',  color: '#06B6D4', flash: 0 },
+    { key: 'off',  label: 'connect-offsets',  color: '#10B981', flash: 0 },
+    { key: 'stat', label: 'connect-status',   color: '#F59E0B', flash: 0 },
+  ];
+
+  let workerCount = 3;
+  // tasks: each has animated x,y and target tx,ty, plus assigned worker index
+  const tasks = Array.from({ length: TASK_N }, (_, i) => ({
+    id: i, w: 0, x: W / 2, y: 300, tx: W / 2, ty: 300, born: 0,
+  }));
+
+  function workerLayout(n) {
+    const pad = 28, gap = 16;
+    const area = W - pad * 2;
+    const wW = Math.min(180, (area - gap * (n - 1)) / n);
+    const totW = wW * n + gap * (n - 1);
+    const startX = (W - totW) / 2;
+    const boxes = [];
+    for (let i = 0; i < n; i++) {
+      boxes.push({ x: startX + i * (wW + gap), y: 170, w: wW, h: 170 });
+    }
+    return boxes;
+  }
+
+  function reassign() {
+    const boxes = workerLayout(workerCount);
+    // round-robin tasks across workers → even, deterministic rebalance
+    tasks.forEach((t, i) => {
+      t.w = i % workerCount;
+      const b = boxes[t.w];
+      const slot = Math.floor(i / workerCount);            // vertical slot within worker
+      t.tx = b.x + b.w / 2;
+      t.ty = b.y + 50 + slot * 34;
+    });
+    topics.forEach(tp => { tp.flash = tp.key === 'stat' ? 1 : 0.55; });
+    const per = (TASK_N / workerCount);
+    const perTxt = Number.isInteger(per) ? `${per} tasks/worker`
+      : `${Math.floor(per)}–${Math.ceil(per)} tasks/worker`;
+    tab.querySelector('#kcw-status').textContent =
+      `${workerCount} worker${workerCount > 1 ? 's' : ''} · ${TASK_N} tasks · ${perTxt}`;
+  }
+  reassign();
+  // snap into place on first render
+  tasks.forEach(t => { t.x = t.tx; t.y = t.ty; });
+
+  let raf = null, lastT = 0;
+  function draw(ts) {
+    const dt = Math.min((ts - lastT) / 1000, 0.05); lastT = ts;
+    ctx.clearRect(0, 0, W, canvas.height);
+    ctx.fillStyle = '#0A0E1A'; ctx.fillRect(0, 0, W, canvas.height);
+
+    // ── Internal topics row ──
+    const tW = 210, tGap = 18, tTot = tW * 3 + tGap * 2, tStart = (W - tTot) / 2;
+    ctx.font = '600 10px system-ui'; ctx.textAlign = 'center';
+    ctx.fillStyle = '#64748B';
+    ctx.fillText('INTERNAL STATE — compacted Kafka topics (workers are stateless)', W / 2, 20);
+    topics.forEach((tp, i) => {
+      const x = tStart + i * (tW + tGap), y = 32, h = 40;
+      tp.flash = Math.max(0, tp.flash - dt * 1.6);
+      const glow = tp.flash;
+      drawRoundRect(ctx, x, y, tW, h, 8,
+        `rgba(${glow > 0 ? '30,41,59' : '20,28,44'},1)`,
+        glow > 0 ? tp.color : '#263247');
+      if (glow > 0) {
+        ctx.save(); ctx.globalAlpha = glow * 0.6;
+        drawRoundRect(ctx, x, y, tW, h, 8, tp.color + '33', tp.color); ctx.restore();
+      }
+      ctx.font = 'bold 11px ui-monospace,monospace'; ctx.fillStyle = tp.color;
+      ctx.fillText(tp.label, x + tW / 2, y + 18);
+      ctx.font = '8px system-ui'; ctx.fillStyle = '#8A98AE';
+      const sub = tp.key === 'cfg' ? 'connector + task configs'
+        : tp.key === 'off' ? 'source-task progress' : 'running / failed / paused';
+      ctx.fillText(sub, x + tW / 2, y + 32);
+    });
+
+    // ── Connector banner ──
+    ctx.font = '600 10px system-ui'; ctx.fillStyle = '#64748B';
+    ctx.fillText('CONNECTOR  "s3-sink"  ·  tasks.max = 6  →  6 tasks spread across the worker group', W / 2, 108);
+
+    // ── Workers ──
+    const boxes = workerLayout(workerCount);
+    boxes.forEach((b, i) => {
+      const color = WCOLORS[i % WCOLORS.length];
+      drawRoundRect(ctx, b.x, b.y, b.w, b.h, 10, '#111A2B', color);
+      ctx.font = 'bold 11px system-ui'; ctx.fillStyle = color; ctx.textAlign = 'center';
+      ctx.fillText(`Worker ${i + 1}`, b.x + b.w / 2, b.y + 20);
+      ctx.font = '8px system-ui'; ctx.fillStyle = '#64748B';
+      ctx.fillText('same group.id', b.x + b.w / 2, b.y + 33);
+      if (i === 0) {
+        ctx.fillStyle = '#F59E0B'; ctx.font = 'bold 8px system-ui';
+        ctx.fillText('★ leader (assigns tasks)', b.x + b.w / 2, b.y + b.h - 8);
+      }
+    });
+
+    // ── Tasks (glide to targets) ──
+    tasks.forEach(t => {
+      t.x += (t.tx - t.x) * Math.min(1, dt * 7);
+      t.y += (t.ty - t.y) * Math.min(1, dt * 7);
+      const color = WCOLORS[t.w % WCOLORS.length];
+      const moving = Math.abs(t.x - t.tx) + Math.abs(t.y - t.ty) > 1.5;
+      const bw = Math.min(150, (boxes[t.w].w - 20));
+      drawRoundRect(ctx, t.x - bw / 2, t.y - 13, bw, 26, 7,
+        moving ? color + 'cc' : '#1E293B', color);
+      ctx.font = 'bold 10px ui-monospace,monospace'; ctx.fillStyle = moving ? '#fff' : color;
+      ctx.textAlign = 'center';
+      ctx.fillText(`task-${t.id}`, t.x, t.y + 3.5);
+    });
+
+    raf = requestAnimationFrame(draw);
+  }
+  raf = requestAnimationFrame(ts => { lastT = ts; draw(ts); });
+
+  tab.querySelector('#kcw-kill').addEventListener('click', () => {
+    if (workerCount > 1) { workerCount--; reassign(); }
+  });
+  tab.querySelector('#kcw-add').addEventListener('click', () => {
+    if (workerCount < 4) { workerCount++; reassign(); }
+  });
+  tab.querySelector('#kcw-reset').addEventListener('click', () => {
+    workerCount = 3; reassign();
   });
 
   return () => { if (raf) cancelAnimationFrame(raf); };
