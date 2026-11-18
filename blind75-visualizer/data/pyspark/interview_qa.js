@@ -11,7 +11,7 @@
  * Answers render via innerHTML (allow <b>,<code>,<i>,<ul>,<li>,<p>); code
  * renders via textContent through Prism.
  *
- * Q0 pilot = 2 groups: "Spark Fundamentals" + "Lazy Eval, DAG, Lineage & Catalyst".
+ * Q0 pilot = 2 groups: "Spark Fundamentals" + "Lazy Eval, DAG, Lineage & Fault Tolerance".
  */
 window.PYSPARK_QA = {
   // Full 10-group order (only groups with items render as chips).
@@ -21,7 +21,8 @@ window.PYSPARK_QA = {
     "RDD Deep-Dive",
     "Transformations, Actions & RDD API",
     "DataFrames, Datasets & Spark SQL",
-    "Lazy Eval, DAG, Lineage & Catalyst",
+    "Lazy Eval, DAG, Lineage & Fault Tolerance",
+    "Query Optimization",
     "Partitions, Shuffle & Performance",
     "Skew & Broadcast",
     "I/O, Formats & Data Quality",
@@ -145,7 +146,7 @@ window.PYSPARK_QA = {
     // ─────────────── G6 · Lazy Eval, DAG, Lineage & Catalyst ───────────────
     {
       id: "lazy-evaluation",
-      group: "Lazy Eval, DAG, Lineage & Catalyst",
+      group: "Lazy Eval, DAG, Lineage & Fault Tolerance",
       q: "What is lazy evaluation in Spark, and why does it help?",
       difficulty: "Core",
       tags: ["lazy", "transformation", "action", "optimization"],
@@ -167,7 +168,7 @@ window.PYSPARK_QA = {
     },
     {
       id: "what-is-dag",
-      group: "Lazy Eval, DAG, Lineage & Catalyst",
+      group: "Lazy Eval, DAG, Lineage & Fault Tolerance",
       q: "What is a DAG in Spark and why is it needed?",
       difficulty: "Core",
       tags: ["dag", "scheduler", "stages"],
@@ -182,7 +183,7 @@ window.PYSPARK_QA = {
     },
     {
       id: "dag-vs-lineage",
-      group: "Lazy Eval, DAG, Lineage & Catalyst",
+      group: "Lazy Eval, DAG, Lineage & Fault Tolerance",
       q: "What's the difference between a DAG and lineage?",
       difficulty: "Common",
       tags: ["dag", "lineage", "comparison"],
@@ -197,7 +198,7 @@ window.PYSPARK_QA = {
     },
     {
       id: "lineage-graph",
-      group: "Lazy Eval, DAG, Lineage & Catalyst",
+      group: "Lazy Eval, DAG, Lineage & Fault Tolerance",
       q: "What is a lineage graph (RDD lineage)?",
       difficulty: "Core",
       tags: ["lineage", "fault-tolerance", "rdd"],
@@ -212,7 +213,7 @@ window.PYSPARK_QA = {
     },
     {
       id: "catalyst-optimizer",
-      group: "Lazy Eval, DAG, Lineage & Catalyst",
+      group: "Query Optimization",
       q: "What is the Catalyst optimizer?",
       difficulty: "Common",
       tags: ["catalyst", "spark-sql", "optimization"],
@@ -229,7 +230,7 @@ window.PYSPARK_QA = {
     },
     {
       id: "fault-tolerance",
-      group: "Lazy Eval, DAG, Lineage & Catalyst",
+      group: "Lazy Eval, DAG, Lineage & Fault Tolerance",
       q: "How does Spark achieve fault tolerance?",
       difficulty: "Core",
       tags: ["fault-tolerance", "lineage", "reliability"],
@@ -928,7 +929,7 @@ window.PYSPARK_QA = {
     },
     {
       id: "optimization-techniques",
-      group: "Partitions, Shuffle & Performance",
+      group: "Query Optimization",
       q: "What are the main optimization techniques in Spark?",
       difficulty: "Core",
       tags: ["optimization", "tuning", "performance"],
@@ -1294,7 +1295,7 @@ window.PYSPARK_QA = {
     // ───────────── Technical cards into existing groups ─────────────
     {
       id: "tungsten-engine",
-      group: "Lazy Eval, DAG, Lineage & Catalyst",
+      group: "Query Optimization",
       q: "How does the Tungsten engine speed up execution in Spark?",
       difficulty: "Deep",
       tags: ["tungsten", "codegen", "performance"],
@@ -1348,7 +1349,7 @@ window.PYSPARK_QA = {
     },
     {
       id: "tune-shuffle-partitions-aqe",
-      group: "Partitions, Shuffle & Performance",
+      group: "Query Optimization",
       q: "How do you tune shuffle partitions, and what does AQE do for you?",
       difficulty: "Deep",
       tags: ["shuffle", "aqe", "spark.sql.shuffle.partitions"],
@@ -1378,7 +1379,7 @@ window.PYSPARK_QA = {
     },
     {
       id: "spark-join-strategies",
-      group: "Skew & Broadcast",
+      group: "Query Optimization",
       q: "What are the join strategies in Spark and when is each chosen?",
       difficulty: "Deep",
       tags: ["joins", "broadcast", "sort-merge", "shuffle-hash"],
@@ -1814,7 +1815,7 @@ window.PYSPARK_QA = {
     },
     {
       id: "reading-query-plan",
-      group: "Lazy Eval, DAG, Lineage & Catalyst",
+      group: "Query Optimization",
       q: "How do you read a query plan with explain()?",
       difficulty: "Deep",
       tags: ["explain", "query-plan", "exchange", "catalyst"],
@@ -1837,7 +1838,7 @@ window.PYSPARK_QA = {
     },
     {
       id: "pushdown-pruning",
-      group: "Lazy Eval, DAG, Lineage & Catalyst",
+      group: "Query Optimization",
       q: "What are predicate pushdown, column pruning and partition pruning?",
       difficulty: "Core",
       tags: ["predicate-pushdown", "column-pruning", "partition-pruning", "dpp"],
@@ -1904,7 +1905,7 @@ window.PYSPARK_QA = {
     },
     {
       id: "nondeterminism-recompute",
-      group: "Lazy Eval, DAG, Lineage & Catalyst",
+      group: "Lazy Eval, DAG, Lineage & Fault Tolerance",
       q: "How can lazy recomputation cause non-deterministic results?",
       difficulty: "Deep",
       tags: ["non-determinism", "monotonically-increasing-id", "rand", "cache"],
@@ -1925,7 +1926,7 @@ window.PYSPARK_QA = {
     },
     {
       id: "withcolumn-loop",
-      group: "Partitions, Shuffle & Performance",
+      group: "Query Optimization",
       q: "Why is calling withColumn in a loop a performance problem?",
       difficulty: "Deep",
       tags: ["withcolumn", "catalyst", "plan-bloat", "select"],
@@ -1964,6 +1965,23 @@ window.PYSPARK_QA = {
         "   .mode('overwrite').parquet('/lake/events'))",
       lang: "python",
       tip: "The nuance that scores: <b>partition on a low-cardinality column, and <code>repartition</code> before writing to avoid the small-file problem</b>. Call out that <code>repartition</code> ≠ <code>partitionBy</code>."
+    },
+    {
+      id: "cost-based-optimization",
+      group: "Query Optimization",
+      q: "What is Cost-Based Optimization (CBO) and why do table statistics matter?",
+      difficulty: "Deep",
+      tags: ["cbo", "statistics", "analyze-table", "optimizer"],
+      a:
+        "<p>Catalyst has two layers of optimization. <b>Rule-based optimization (RBO)</b> always applies fixed rewrites (pushdown, pruning, constant folding). <b>Cost-Based Optimization (CBO)</b> goes further: it uses <b>statistics about your data</b> to choose between plans that RBO can't rank on its own.</p>" +
+        "<ul>" +
+        "<li><b>What stats</b> — row counts, distinct counts, min/max, null counts, and (with histograms) value distribution per column.</li>" +
+        "<li><b>What CBO decides</b> — <b>join order</b> (which tables to join first so intermediate results stay small), whether a side is small enough to <b>broadcast</b>, and join strategy selection.</li>" +
+        "<li><b>How you get stats</b> — run <code>ANALYZE TABLE t COMPUTE STATISTICS FOR COLUMNS ...</code>; enable with <code>spark.sql.cbo.enabled=true</code> (off by default).</li>" +
+        "<li><b>Why it matters</b> — without stats the optimizer guesses sizes and can pick a bad join order or miss a broadcast, turning a fast query slow.</li>" +
+        "</ul>" +
+        "<p><b>AQE vs CBO:</b> CBO uses <i>pre-computed</i> stats at planning time; <b>AQE</b> re-optimizes at <i>runtime</i> using the actual sizes it observes — so AQE helps even when stats are stale or missing.</p>",
+      tip: "The clean distinction to state: <b>RBO = always-true rewrites; CBO = stats-driven choices (join order, broadcast); AQE = runtime re-optimization from real sizes.</b> Mention <code>ANALYZE TABLE</code> to show you know how stats get there."
     }
   ]
 };
