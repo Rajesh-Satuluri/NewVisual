@@ -324,3 +324,10 @@
 /* ---- Q&A group heads are not navigable here (unlike interview-prep) ---- */
 .ldd-qa-head { cursor: default; }
 .ldd-qa-head:hover { background: var(--surface); }
+
+/* ---- Interview masterclass: STAR story cards (shared renderer) ---- */
+.ldd-results { background: rgba(63, 185, 80, .06); }
+.ldd-results .ldd-block-tag { color: #3fb950; }
+.ldd-story-nums { margin-top: .75rem; }
+.ldd-story-nums table { font-size: .78rem; }
+.ldd-story .ldd-when { background: rgba(var(--blue-rgb), .05); }
