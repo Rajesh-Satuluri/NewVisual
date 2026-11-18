@@ -21,6 +21,7 @@ export function mount(container) {
     tabs: [
       { id: 'dsl',      label: '🌊 Stream DSL' },
       { id: 'duality',  label: '🔀 KStream ⇄ KTable' },
+      { id: 'state',    label: '🗄️ State & Changelog' },
       { id: 'topology', label: '🗺️ Topology View' },
       { id: 'iq',       label: '🎯 Interview Q&A' },
     ]
@@ -29,6 +30,7 @@ export function mount(container) {
   const cleanups = [];
   buildDSL(container);
   cleanups.push(buildDuality(container));
+  buildState(container);
   buildTopology(container);
   container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
   return () => cleanups.forEach(fn => { if (typeof fn === 'function') fn(); });
@@ -182,6 +184,128 @@ function buildDSL(container) {
           </div>`).join('')}
       </div>
     </div>`;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   TAB — State Stores & Changelog (RocksDB + changelog restore + standby)
+   ───────────────────────────────────────────────────────────────────────── */
+function buildState(container) {
+  const tab = container.querySelector('#tab-state');
+
+  const RECS = ['pageA', 'pageB', 'pageA', 'pageA', 'pageB', 'pageC', 'pageA'];
+  const KCOL = { pageA: '#3B82F6', pageB: '#10B981', pageC: '#F59E0B' };
+  let idx = 0;
+  let counts = {};          // live state store contents
+  let changelog = [];       // [{k, v}] appended on every state update
+  let storeAlive = true;    // false after a crash with no standby
+  let standby = false;
+  let note = '';
+
+  function render() {
+    // mini flow
+    tab.querySelector('#st-flow').innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:10px;font-weight:600">
+        <span style="padding:6px 10px;border-radius:7px;background:#111A2B;border:1px solid #FF690066;color:#FF9900">clicks topic</span>
+        <span style="color:#334155">→</span>
+        <span style="padding:6px 10px;border-radius:7px;background:#111A2B;border:1px solid #8B5CF6;color:#8B5CF6">groupByKey().count()</span>
+        <span style="color:#334155">→ writes →</span>
+        <span style="padding:6px 10px;border-radius:7px;background:#111A2B;border:1px solid #06B6D4;color:#06B6D4">changelog topic</span>
+      </div>`;
+
+    // state store panel
+    const storeKeys = Object.keys(counts);
+    tab.querySelector('#st-store').innerHTML =
+      `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-size:11px;font-weight:700;color:${storeAlive ? '#8B5CF6' : '#EF4444'}">Local State Store · RocksDB ${standby ? '<span style="color:#10B981;font-size:9px">+ standby warm</span>' : ''}</div>
+        <div style="font-size:9px;color:${storeAlive ? '#10B981' : '#EF4444'}">${storeAlive ? '● on instance A' : '✖ lost with instance A'}</div>
+      </div>` +
+      (!storeAlive
+        ? `<div style="color:#F87171;font-size:11px;padding:14px;text-align:center;border:1px dashed #7F1D1D;border-radius:8px">state store gone — local disk died with the instance</div>`
+        : storeKeys.length === 0
+          ? `<div style="color:#5B6B82;font-size:11px;padding:10px">empty — process a record</div>`
+          : storeKeys.map(k => `<div style="display:flex;justify-content:space-between;padding:6px 10px;border-radius:6px;margin-bottom:4px;background:#0E1626;border:1px solid ${KCOL[k]}55;font-family:ui-monospace,monospace;font-size:11.5px"><span style="color:${KCOL[k]};font-weight:700">${k}</span><span style="color:#CBD5E1">count = ${counts[k]}</span></div>`).join(''));
+
+    // changelog panel — compacted: dim superseded entries
+    const latestIdxForKey = {};
+    changelog.forEach((e, i) => { latestIdxForKey[e.k] = i; });
+    tab.querySelector('#st-changelog').innerHTML =
+      `<div style="font-size:11px;font-weight:700;color:#06B6D4;margin-bottom:8px">Changelog topic <span style="font-weight:400;color:#64748B">— compacted, in Kafka (survives crashes)</span></div>` +
+      (changelog.length === 0
+        ? `<div style="color:#5B6B82;font-size:11px;padding:10px">no changelog records yet</div>`
+        : changelog.map((e, i) => {
+          const superseded = latestIdxForKey[e.k] !== i;
+          return `<div style="display:flex;justify-content:space-between;padding:5px 10px;border-radius:6px;margin-bottom:3px;font-family:ui-monospace,monospace;font-size:10.5px;opacity:${superseded ? 0.4 : 1};background:#0E1626;border:1px solid ${superseded ? '#1C2740' : KCOL[e.k] + '55'}">
+            <span style="color:${KCOL[e.k]}">${e.k}</span><span style="color:#CBD5E1">→ ${e.v}${superseded ? ' <span style="color:#64748B;font-size:8px">compacted away</span>' : ' <span style="color:#10B981;font-size:8px">kept</span>'}</span></div>`;
+        }).join(''));
+
+    tab.querySelector('#st-note').innerHTML = note || `<span style="color:#64748B">Process records to build state. Each update is written to the local store <b>and</b> appended to the changelog topic in Kafka. Then crash the instance.</span>`;
+    tab.querySelector('#st-standby').innerHTML = `standby replica = <b>${standby ? 'on' : 'off'}</b>`;
+    tab.querySelector('#st-standby').style.borderColor = standby ? '#10B981' : '';
+    tab.querySelector('#st-next').textContent = idx >= RECS.length ? '↻ (all processed)' : '▶ Process click';
+  }
+
+  tab.innerHTML = `
+    <div class="canvas-wrap">
+      <div class="canvas-caption">Stateful operators (<code>count</code>, <code>aggregate</code>, <code>join</code>) keep a <b>local RocksDB state store</b> — fast, on-instance, but ephemeral. Durability comes from a <b>compacted changelog topic</b> in Kafka: every state update is written there too. Build some state, then <b>crash the instance</b> and watch it rebuild by replaying the changelog — or fail over instantly with a <b>standby replica</b>.</div>
+      <div id="st-flow" style="margin-bottom:14px"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div id="st-store" style="background:#0C1424;border:1px solid #1C2740;border-radius:10px;padding:12px 14px;min-height:150px"></div>
+        <div id="st-changelog" style="background:#0C1424;border:1px solid #1C2740;border-radius:10px;padding:12px 14px;min-height:150px;max-height:280px;overflow:auto"></div>
+      </div>
+      <div id="st-note" style="font-size:11.5px;line-height:1.6;margin-top:12px;min-height:34px"></div>
+      <div class="canvas-controls">
+        <button class="ctrl-btn" id="st-next">▶ Process click</button>
+        <button class="ctrl-btn" id="st-crash">💥 Crash instance</button>
+        <button class="ctrl-btn" id="st-restore">♻ Restore</button>
+        <button class="ctrl-btn" id="st-standby">standby</button>
+        <button class="ctrl-btn" id="st-reset">↻ Reset</button>
+      </div>
+    </div>
+    <div class="canvas-explainer">
+      <h3>What you're watching</h3>
+      <p>Anything stateful in Kafka Streams — a running <code>count</code>, an <code>aggregate</code>, the table side of a join, a window — needs somewhere to remember past records. That somewhere is a <strong>local state store</strong>, RocksDB by default, living on the instance's own disk right next to the processing thread. Local means a key lookup is an embedded-database read with <em>no network hop</em>, which is exactly why Streams joins and aggregations are fast. But local also means <strong>ephemeral</strong>: if the instance dies, its disk goes with it.</p>
+      <p>Durability is solved by backing every store with a <strong>changelog topic</strong> in Kafka (auto-created, named <code>&lt;application.id&gt;-&lt;store&gt;-changelog</code>, and <strong>log-compacted</strong>). Every write to the store is also produced to the changelog, so the topic is a complete, replayable history of the store — and because it's compacted, Kafka eventually keeps only the latest value per key (watch the superseded entries dim above), so the changelog's retained size tracks the store's size rather than growing forever. On a clean restart or a crash, Streams rebuilds the store by <strong>replaying the changelog</strong> from the beginning into a fresh RocksDB instance.</p>
+      <p>The catch is <strong>restore time</strong>: for a multi-gigabyte store, replaying the whole changelog can take minutes, during which that task processes nothing. Two mitigations: <strong>standby replicas</strong> (<code>num.standby.replicas</code>) keep a warm, continuously-updated copy of the store on another instance, so a failure fails over to the standby almost instantly instead of replaying from zero; and Streams persists RocksDB to disk so a restart on the <em>same</em> instance only needs to replay the tail since the last checkpoint, not everything.</p>
+      <p><strong>Interview angle:</strong> the one-liner is "state is local RocksDB for speed, durable via a compacted changelog topic for recovery." Then the senior detail: restore cost is proportional to state size, so you use standby replicas for fast failover and you care about <code>num.standby.replicas</code>, rack-aware assignment, and keeping stores small. Interactive queries (<code>KafkaStreams#store</code> + an RPC layer) let other instances read these same local stores — turning your streaming app into a queryable materialized view with no external database.</p>
+    </div>`;
+
+  function processNext() {
+    if (idx >= RECS.length || !storeAlive) return;
+    const k = RECS[idx++];
+    counts[k] = (counts[k] || 0) + 1;
+    changelog.push({ k, v: counts[k] });
+    note = `<span style="color:#CBD5E1">Processed <b style="color:${KCOL[k]}">${k}</b> → store now ${k}=${counts[k]}, and appended <code>${k}→${counts[k]}</code> to the changelog.</span>`;
+    render();
+  }
+  function crash() {
+    if (!storeAlive) return;
+    if (standby) {
+      note = `<span style="color:#86EFAC">✓ Instance A crashed — but the <b>standby</b> on instance B was warm (kept up to date from the changelog), so the task failed over in <b>seconds</b> with full state intact. No replay needed.</span>`;
+      // state preserved via standby
+    } else {
+      storeAlive = false;
+      note = `<span style="color:#F87171">💥 Instance A crashed and its local RocksDB store is gone. The changelog topic in Kafka survives. Press <b>Restore</b> to rebuild the store by replaying it.</span>`;
+    }
+    render();
+  }
+  function restore() {
+    if (storeAlive) { note = `<span style="color:#64748B">Nothing to restore — the store is alive. Crash the instance first.</span>`; render(); return; }
+    // replay compacted changelog → latest value per key
+    counts = {};
+    const latest = {};
+    changelog.forEach(e => { latest[e.k] = e.v; });
+    Object.assign(counts, latest);
+    storeAlive = true;
+    note = `<span style="color:#86EFAC">♻ Restored: replayed the compacted changelog (${Object.keys(latest).length} live keys) into a fresh RocksDB store on a new instance. State is back — processing resumes. For a large store this replay is what takes minutes.</span>`;
+    render();
+  }
+
+  render();
+  tab.querySelector('#st-next').addEventListener('click', processNext);
+  tab.querySelector('#st-crash').addEventListener('click', crash);
+  tab.querySelector('#st-restore').addEventListener('click', restore);
+  tab.querySelector('#st-standby').addEventListener('click', () => { standby = !standby; note = standby ? `<span style="color:#86EFAC">Standby replica enabled — instance B now keeps a warm copy of the store, updated live from the changelog. A crash will fail over to it instantly.</span>` : ''; render(); });
+  tab.querySelector('#st-reset').addEventListener('click', () => { idx = 0; counts = {}; changelog = []; storeAlive = true; standby = false; note = ''; render(); });
 }
 
 function buildTopology(container) {
