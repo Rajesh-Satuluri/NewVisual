@@ -23,6 +23,7 @@ export function mount(container) {
       { id: 'duality',  label: '🔀 KStream ⇄ KTable' },
       { id: 'state',    label: '🗄️ State & Changelog' },
       { id: 'windows',  label: '⏱️ Windows & Time' },
+      { id: 'tasks',    label: '🧵 Tasks & Threads' },
       { id: 'topology', label: '🗺️ Topology View' },
       { id: 'iq',       label: '🎯 Interview Q&A' },
     ]
@@ -33,6 +34,7 @@ export function mount(container) {
   cleanups.push(buildDuality(container));
   buildState(container);
   cleanups.push(buildWindows(container));
+  cleanups.push(buildTasks(container));
   buildTopology(container);
   container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
   return () => cleanups.forEach(fn => { if (typeof fn === 'function') fn(); });
@@ -480,6 +482,124 @@ function buildWindows(container) {
     timer = setInterval(() => { if (step >= EVENTS.length) { clearInterval(timer); timer = null; return; } step++; render(); }, 1100);
   });
   return () => { if (timer) clearInterval(timer); };
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   TAB — Tasks, Threads & Partitions (parallelism + rebalance)
+   ───────────────────────────────────────────────────────────────────────── */
+function buildTasks(container) {
+  const tab = container.querySelector('#tab-tasks');
+  tab.innerHTML = `
+    <div class="canvas-wrap">
+      <div class="canvas-caption">Kafka Streams parallelism is <b>fixed by partitions</b>. The framework splits your topology into exactly one <b>task per input partition</b> (here 4 partitions → 4 tasks). Tasks are the atomic unit of work and of rebalancing; they're handed to <b>stream threads</b> across your app <b>instances</b>, which coordinate like a consumer group. <b>Add</b> or <b>kill</b> instances to watch tasks rebalance — and see why you can't scale past the partition count.</div>
+      <canvas id="kc-tasks-canvas" width="820" height="400" style="width:100%;max-width:820px"></canvas>
+      <div class="canvas-controls">
+        <button class="ctrl-btn" id="kt-kill">💀 Kill instance</button>
+        <button class="ctrl-btn" id="kt-add">➕ Add instance</button>
+        <button class="ctrl-btn" id="kt-reset">↻ Reset</button>
+        <span class="ctrl-label" id="kt-status">2 instances · 4 tasks · 2 tasks/instance</span>
+      </div>
+    </div>
+    <div class="canvas-explainer">
+      <h3>What you're watching</h3>
+      <p>Kafka Streams doesn't have a tunable "parallelism" number — it's <strong>derived from your input topics</strong>. When the app starts, Streams compiles your topology into tasks by taking the <em>maximum partition count</em> across the source topics of each sub-topology and creating that many <strong>tasks</strong> (named <code>subtopology_partition</code>, e.g. <code>0_0</code>…<code>0_3</code>). Each task owns one partition from every topic its sub-topology reads, plus its own slice of every state store. Tasks are <strong>fixed at startup</strong> and are the unit that gets assigned, moved, and restored.</p>
+      <p>Tasks run on <strong>stream threads</strong> (<code>num.stream.threads</code> per instance), and threads live inside your application <strong>instances</strong> (JVMs you deploy). All instances sharing an <code>application.id</code> form a single <strong>consumer group</strong>, so Streams reuses Kafka's group-membership and rebalance protocol to assign tasks to threads across instances. Add an instance (or a thread) and the group rebalances to spread tasks out; kill one and its tasks — and their state-store restoration — move to the survivors. Modern Streams uses a <strong>sticky, cooperative</strong> assignor that keeps tasks on the instance that already has their state (to avoid re-restoring RocksDB) and moves the minimum necessary.</p>
+      <p>The hard ceiling: <strong>you can never have more useful tasks than partitions.</strong> With 4 partitions you get 4 tasks, so a 5th instance (or extra threads beyond 4) sits <strong>idle</strong> with nothing assigned — exactly like an extra consumer in a group. If you need more parallelism, you must repartition the input topic to more partitions. This is why partition count is a capacity-planning decision you make <em>up front</em>: it is the permanent upper bound on how far a Streams app can scale out.</p>
+      <p><strong>Interview angle:</strong> "tasks = max partitions of the source topics, fixed at startup; threads run tasks; instances hold threads; all instances with the same application.id are one consumer group." Then the punchline every interviewer wants: "max parallelism = partition count — beyond that, instances idle." Bonus senior points for naming the sticky cooperative assignor and the reason it exists (avoid needless state-store restoration on every rebalance).</p>
+    </div>`;
+
+  const canvas = tab.querySelector('#kc-tasks-canvas');
+  if (!canvas) return null;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width;
+
+  const TASK_N = 4, MAX_INST = 5;
+  const ICOLORS = ['#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#EC4899'];
+  let instCount = 2;
+
+  const tasks = Array.from({ length: TASK_N }, (_, i) => ({ id: i, inst: 0, x: W / 2, y: 320, tx: W / 2, ty: 320 }));
+
+  function instLayout(n) {
+    const pad = 28, gap = 16, area = W - pad * 2;
+    const wW = Math.min(150, (area - gap * (n - 1)) / n);
+    const totW = wW * n + gap * (n - 1), startX = (W - totW) / 2;
+    return Array.from({ length: n }, (_, i) => ({ x: startX + i * (wW + gap), y: 180, w: wW, h: 180 }));
+  }
+
+  function reassign() {
+    const boxes = instLayout(instCount);
+    tasks.forEach((t, i) => {
+      t.inst = i % instCount;
+      const b = boxes[t.inst];
+      const slot = Math.floor(i / instCount);
+      t.tx = b.x + b.w / 2;
+      t.ty = b.y + 66 + slot * 34;
+    });
+    const assigned = new Set(tasks.map(t => t.inst));
+    const idle = instCount - assigned.size;
+    const per = TASK_N / instCount;
+    const perTxt = idle > 0 ? `${idle} instance${idle > 1 ? 's' : ''} idle (ceiling ${TASK_N})`
+      : (Number.isInteger(per) ? `${per} tasks/instance` : `${Math.floor(per)}–${Math.ceil(per)} tasks/instance`);
+    tab.querySelector('#kt-status').textContent = `${instCount} instances · ${TASK_N} tasks · ${perTxt}`;
+  }
+  reassign();
+  tasks.forEach(t => { t.x = t.tx; t.y = t.ty; });
+
+  let raf = null, lastT = 0;
+  function draw(ts) {
+    const dt = Math.min((ts - lastT) / 1000, 0.05); lastT = ts;
+    ctx.clearRect(0, 0, W, canvas.height); ctx.fillStyle = '#0A0E1A'; ctx.fillRect(0, 0, W, canvas.height);
+
+    // partitions row
+    ctx.font = '600 10px system-ui'; ctx.textAlign = 'center'; ctx.fillStyle = '#64748B';
+    ctx.fillText('SOURCE TOPIC  "clicks"  —  4 partitions  →  1 task each', W / 2, 20);
+    const pW = 150, pGap = 14, pTot = pW * TASK_N + pGap * (TASK_N - 1), pStart = (W - pTot) / 2;
+    for (let i = 0; i < TASK_N; i++) {
+      const x = pStart + i * (pW + pGap);
+      drawRoundRect(ctx, x, 30, pW, 34, 7, '#111A2B', '#FF690066');
+      ctx.font = 'bold 10px ui-monospace,monospace'; ctx.fillStyle = '#FF9900';
+      ctx.fillText(`P${i}`, x + 20, 51);
+      ctx.font = '9px system-ui'; ctx.fillStyle = '#64748B';
+      ctx.fillText(`→ task 0_${i}`, x + pW / 2 + 14, 51);
+    }
+
+    // instances
+    const boxes = instLayout(instCount);
+    const assigned = new Set(tasks.map(t => t.inst));
+    boxes.forEach((b, i) => {
+      const color = ICOLORS[i % ICOLORS.length];
+      const isIdle = !assigned.has(i);
+      drawRoundRect(ctx, b.x, b.y, b.w, b.h, 10, '#111A2B', isIdle ? '#334155' : color);
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 11px system-ui'; ctx.fillStyle = isIdle ? '#64748B' : color;
+      ctx.fillText(`Instance ${i + 1}`, b.x + b.w / 2, b.y + 18);
+      ctx.font = '8px system-ui'; ctx.fillStyle = '#5B6B82';
+      ctx.fillText('num.stream.threads = 2', b.x + b.w / 2, b.y + 32);
+      ctx.fillText('· same application.id', b.x + b.w / 2, b.y + 44);
+      if (isIdle) { ctx.fillStyle = '#EF4444'; ctx.font = 'bold 9px system-ui'; ctx.fillText('⚠ idle — no partition', b.x + b.w / 2, b.y + b.h / 2); }
+    });
+
+    // tasks glide
+    tasks.forEach(t => {
+      t.x += (t.tx - t.x) * Math.min(1, dt * 7);
+      t.y += (t.ty - t.y) * Math.min(1, dt * 7);
+      const color = ICOLORS[t.inst % ICOLORS.length];
+      const moving = Math.abs(t.x - t.tx) + Math.abs(t.y - t.ty) > 1.5;
+      const bw = Math.min(120, boxes[t.inst].w - 20);
+      drawRoundRect(ctx, t.x - bw / 2, t.y - 13, bw, 26, 7, moving ? color + 'cc' : '#1E293B', color);
+      ctx.font = 'bold 10px ui-monospace,monospace'; ctx.fillStyle = moving ? '#fff' : color; ctx.textAlign = 'center';
+      ctx.fillText(`task 0_${t.id}`, t.x, t.y + 3.5);
+    });
+
+    raf = requestAnimationFrame(draw);
+  }
+  raf = requestAnimationFrame(ts => { lastT = ts; draw(ts); });
+
+  tab.querySelector('#kt-kill').addEventListener('click', () => { if (instCount > 1) { instCount--; reassign(); } });
+  tab.querySelector('#kt-add').addEventListener('click', () => { if (instCount < MAX_INST) { instCount++; reassign(); } });
+  tab.querySelector('#kt-reset').addEventListener('click', () => { instCount = 2; reassign(); });
+
+  return () => { if (raf) cancelAnimationFrame(raf); };
 }
 
 function buildTopology(container) {
