@@ -22,6 +22,7 @@ export function mount(container) {
       { id: 'flow',    label: '🔌 Connect Flow' },
       { id: 'workers', label: '⚙️ Workers & Tasks' },
       { id: 'smt',     label: '🧩 SMT Chain' },
+      { id: 'dlq',     label: '💀 Errors & DLQ' },
       { id: 'types',   label: '📦 Connector Types' },
       { id: 'iq',      label: '🎯 Interview Q&A' },
     ]
@@ -31,6 +32,7 @@ export function mount(container) {
   cleanups.push(buildFlow(container));
   cleanups.push(buildWorkers(container));
   cleanups.push(buildSMT(container));
+  cleanups.push(buildDLQ(container));
   buildTypes(container);
   container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
   return () => cleanups.forEach(fn => { if (typeof fn === 'function') fn(); });
@@ -465,6 +467,181 @@ function buildSMT(container) {
   });
 
   return () => { if (timer) clearInterval(timer); };
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   TAB — Error Handling & DLQ (poison pill: fail-fast vs tolerate-all)
+   ───────────────────────────────────────────────────────────────────────── */
+function buildDLQ(container) {
+  const tab = container.querySelector('#tab-dlq');
+  tab.innerHTML = `
+    <div class="canvas-wrap">
+      <div class="canvas-caption">One malformed record — a <b>poison pill</b> — can take down an entire connector. Flip <code>errors.tolerance</code> and send a bad record to watch the two outcomes: <b>none</b> stops the task dead; <b>all</b> retries, then routes the record to a <b>dead-letter queue</b> with diagnostic headers and keeps the pipeline running.</div>
+      <canvas id="kc-dlq-canvas" width="820" height="320" style="width:100%;max-width:820px"></canvas>
+      <div class="canvas-controls">
+        <button class="ctrl-btn" id="dlq-tol">errors.tolerance = <b>none</b></button>
+        <button class="ctrl-btn" id="dlq-good">▶ Good record</button>
+        <button class="ctrl-btn" id="dlq-bad">☠️ Poison pill</button>
+        <button class="ctrl-btn" id="dlq-reset">↻ Reset</button>
+        <span class="ctrl-label" id="dlq-status">delivered 0 · failed 0 · DLQ 0</span>
+      </div>
+      <div id="dlq-headers" style="display:none;margin-top:12px;background:#0C1424;border:1px solid #7F1D1D;border-left:3px solid #EF4444;border-radius:10px;padding:12px 14px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#F87171;margin-bottom:8px">☠️ Dead-letter record → <span style="font-family:ui-monospace,monospace">orders.DLQ</span> · headers written by Connect</div>
+        <pre style="margin:0;font-size:10.5px;line-height:1.6;font-family:ui-monospace,monospace;color:#CBD5E1;white-space:pre-wrap;word-break:break-word">__connect.errors.topic              = orders
+__connect.errors.partition          = 3
+__connect.errors.offset             = 104271
+__connect.errors.stage              = VALUE_CONVERTER
+__connect.errors.class.name         = io.confluent.connect.avro.AvroConverter
+__connect.errors.exception.class    = org.apache.kafka.connect.errors.DataException
+__connect.errors.exception.message  = Failed to deserialize data for topic orders to Avro: Unknown magic byte!
+<span style="color:#64748B">payload</span>                             = &lt;original raw bytes, preserved verbatim&gt;</pre>
+      </div>
+    </div>
+    <div class="canvas-explainer">
+      <h3>What you're watching</h3>
+      <p>By default, Kafka Connect is <strong>fail-fast</strong>: <code>errors.tolerance=none</code>. If a single record throws anywhere in the pipeline — a bad deserialization, a converter that hits a non-Avro byte on an Avro topic, an SMT that trips on a missing field — the task catches the exception, transitions to <strong>FAILED</strong>, and <em>stops consuming</em>. Because the offset of the bad record was never committed, nothing past it is processed. One corrupt message silently halts the whole flow until a human restarts the task — and on restart it hits the same record and fails again. That is the classic "poison pill" outage.</p>
+      <p>Setting <code>errors.tolerance=all</code> changes the contract: <strong>tolerate per-record failures instead of killing the task.</strong> A failing record is first <strong>retried</strong> — <code>errors.retry.timeout</code> bounds how long, <code>errors.retry.delay.max.ms</code> caps the backoff — because many failures (a momentarily unreachable Schema Registry, a brief sink outage) are transient. If it still fails after retries, and a <strong>dead-letter queue</strong> is configured (<code>errors.deadletterqueue.topic.name=orders.DLQ</code>), Connect writes the original record <em>verbatim</em> to that topic and moves on. The good records keep flowing; the bad one is quarantined for later inspection, replay, or alerting — without ever blocking the pipeline.</p>
+      <p>The DLQ's real power is in its <strong>headers</strong>. With <code>errors.deadletterqueue.context.headers.enable=true</code>, Connect stamps each dead-lettered record with exactly where and why it died: the source topic/partition/offset, the failing <strong>stage</strong> (<code>VALUE_CONVERTER</code>, <code>KEY_CONVERTER</code>, <code>TRANSFORMATION</code>, <code>PUT</code>), the exception class, and the error message — while the original bytes stay untouched as the payload. That turns debugging from "grep gigabytes of worker logs" into "consume one topic and read the headers," and makes automated replay possible once the root cause is fixed.</p>
+      <p><strong>Interview angle:</strong> the sharp distinctions are (1) <code>errors.tolerance</code> governs <em>conversion and transformation</em> errors in the Connect runtime — it is <em>not</em> a retry for sink-system write failures, which each connector handles with its own retry config; (2) a DLQ is only meaningful for <strong>sink</strong> connectors (a source has no upstream Kafka topic to divert to — its errors are tolerated or they fail the task); and (3) <code>errors.tolerance=all</code> without a configured DLQ topic means failing records are <em>silently dropped</em> — data loss. Saying "tolerate-all plus a DLQ with context headers" is the answer that shows you'd run this safely in production.</p>
+    </div>`;
+
+  const canvas = tab.querySelector('#kc-dlq-canvas');
+  if (!canvas) return null;
+  const ctx = canvas.getContext('2d');
+
+  let tolerateAll = false;
+  let failed = false;
+  let retryPulse = 0;
+  const stats = { delivered: 0, failed: 0, dlq: 0 };
+  const packets = [];
+  let raf = null, lastT = 0;
+
+  // layout anchors
+  const SRC = { x: 30, y: 120, w: 110, h: 80 };
+  const CONV = { x: 310, y: 120, w: 150, h: 80 };
+  const SINK = { x: 650, y: 40, w: 140, h: 70 };
+  const DLQ = { x: 650, y: 200, w: 140, h: 70 };
+
+  function setStatus() {
+    tab.querySelector('#dlq-status').textContent =
+      `delivered ${stats.delivered} · failed ${stats.failed} · DLQ ${stats.dlq}`;
+  }
+
+  function box(b, color, title, sub, opts = {}) {
+    drawRoundRect(ctx, b.x, b.y, b.w, b.h, 10, opts.fill || '#111A2B', opts.stroke || color);
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 11px system-ui'; ctx.fillStyle = color;
+    ctx.fillText(title, b.x + b.w / 2, b.y + b.h / 2 - 2);
+    if (sub) { ctx.font = '8px system-ui'; ctx.fillStyle = '#8A98AE'; ctx.fillText(sub, b.x + b.w / 2, b.y + b.h / 2 + 14); }
+  }
+
+  function draw(ts) {
+    const dt = Math.min((ts - lastT) / 1000, 0.05); lastT = ts;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#0A0E1A'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // connectors
+    drawArrow(ctx, SRC.x + SRC.w, SRC.y + SRC.h / 2, CONV.x, CONV.y + CONV.h / 2, '#334155', 1.5);
+    drawArrow(ctx, CONV.x + CONV.w, CONV.y + 10, SINK.x, SINK.y + SINK.h / 2, failed ? '#3A2530' : '#334155', 1.5);
+    if (tolerateAll) drawArrow(ctx, CONV.x + CONV.w, CONV.y + CONV.h - 10, DLQ.x, DLQ.y + DLQ.h / 2, '#7F1D1D', 1.5);
+
+    box(SRC, '#FF6900', 'orders', 'Kafka topic');
+    // converter box flashes red on retry/fail
+    const convColor = failed ? '#EF4444' : retryPulse > 0 ? '#F59E0B' : '#8B5CF6';
+    box(CONV, convColor, 'Sink Task', 'converter + SMTs',
+      { stroke: convColor, fill: failed ? '#2A1620' : '#111A2B' });
+    if (retryPulse > 0) {
+      retryPulse = Math.max(0, retryPulse - dt);
+      ctx.font = 'bold 9px system-ui'; ctx.fillStyle = '#F59E0B';
+      ctx.fillText('⟳ retry…', CONV.x + CONV.w / 2, CONV.y - 6);
+    }
+    box(SINK, '#10B981', 'Elasticsearch', 'sink system', { stroke: failed ? '#273449' : '#10B981' });
+    if (tolerateAll) box(DLQ, '#EF4444', 'orders.DLQ', 'dead-letter topic');
+
+    // task state badge
+    ctx.textAlign = 'left';
+    ctx.font = 'bold 10px system-ui';
+    ctx.fillStyle = failed ? '#EF4444' : '#10B981';
+    ctx.fillText(failed ? '● TASK: FAILED (stopped consuming)' : '● TASK: RUNNING', CONV.x - 6, CONV.y + CONV.h + 24);
+    ctx.font = '9px ui-monospace,monospace'; ctx.fillStyle = '#64748B';
+    ctx.fillText(`errors.tolerance = ${tolerateAll ? 'all' : 'none'}` + (tolerateAll ? '  ·  DLQ = orders.DLQ' : ''), CONV.x - 6, CONV.y + CONV.h + 40);
+
+    if (failed) {
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 12px system-ui'; ctx.fillStyle = '#F87171';
+      ctx.fillText('✖ DataException: Unknown magic byte — task halted', canvas.width / 2, 24);
+    }
+
+    for (let i = packets.length - 1; i >= 0; i--) {
+      const p = packets[i]; p.update(dt); p.draw(ctx);
+      if (p.done && p.opacity <= 0) packets.splice(i, 1);
+    }
+    while (packets.length > 24) packets.shift();
+
+    raf = requestAnimationFrame(draw);
+  }
+  raf = requestAnimationFrame(ts => { lastT = ts; draw(ts); });
+
+  function sendGood() {
+    if (failed) return;
+    packets.push(new EventPacket({
+      label: 'ok', color: '#10B981', speed: 3.6,
+      path: [
+        { x: SRC.x + SRC.w, y: SRC.y + SRC.h / 2 },
+        { x: CONV.x + CONV.w / 2, y: CONV.y + CONV.h / 2 },
+        { x: SINK.x + 10, y: SINK.y + SINK.h / 2 },
+      ],
+      onArrive: () => { stats.delivered++; setStatus(); },
+    }));
+  }
+
+  function sendPoison() {
+    if (failed) return;
+    if (!tolerateAll) {
+      // fail-fast: travel to converter, then fail the task
+      packets.push(new EventPacket({
+        label: '☠', color: '#EF4444', speed: 3.4,
+        path: [
+          { x: SRC.x + SRC.w, y: SRC.y + SRC.h / 2 },
+          { x: CONV.x + CONV.w / 2, y: CONV.y + CONV.h / 2 },
+        ],
+        onArrive: () => { failed = true; stats.failed++; setStatus(); },
+      }));
+    } else {
+      // tolerate: retry pulse, then route to DLQ + show headers
+      retryPulse = 1.1;
+      packets.push(new EventPacket({
+        label: '☠', color: '#EF4444', speed: 3.2,
+        path: [
+          { x: SRC.x + SRC.w, y: SRC.y + SRC.h / 2 },
+          { x: CONV.x + CONV.w / 2, y: CONV.y + CONV.h / 2 },
+          { x: CONV.x + CONV.w / 2, y: CONV.y + CONV.h - 6 },
+          { x: DLQ.x + 10, y: DLQ.y + DLQ.h / 2 },
+        ],
+        onArrive: () => {
+          stats.dlq++; setStatus();
+          tab.querySelector('#dlq-headers').style.display = 'block';
+        },
+      }));
+    }
+  }
+
+  const tolBtn = tab.querySelector('#dlq-tol');
+  function syncTolBtn() {
+    tolBtn.innerHTML = `errors.tolerance = <b>${tolerateAll ? 'all' : 'none'}</b>`;
+    tolBtn.style.borderColor = tolerateAll ? '#10B981' : '';
+  }
+  tolBtn.addEventListener('click', () => { tolerateAll = !tolerateAll; failed = false; syncTolBtn(); });
+  tab.querySelector('#dlq-good').addEventListener('click', sendGood);
+  tab.querySelector('#dlq-bad').addEventListener('click', sendPoison);
+  tab.querySelector('#dlq-reset').addEventListener('click', () => {
+    failed = false; retryPulse = 0; packets.length = 0;
+    stats.delivered = stats.failed = stats.dlq = 0; setStatus();
+    tab.querySelector('#dlq-headers').style.display = 'none';
+  });
+  syncTolBtn();
+
+  return () => { if (raf) cancelAnimationFrame(raf); };
 }
 
 function buildTypes(container) {
