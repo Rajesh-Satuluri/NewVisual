@@ -157,7 +157,8 @@ window.PYSPARK_QA = {
         "<li>Transformations (<code>select</code>, <code>filter</code>, <code>withColumn</code>, <code>join</code>) only <b>build up a DAG</b>; nothing computes yet.</li>" +
         "<li>An action (<code>show</code>, <code>count</code>, <code>collect</code>, <code>write</code>) is what <b>triggers the job</b>.</li>" +
         "</ul>" +
-        "<p><b>Why it helps:</b> because Spark sees the <i>whole</i> pipeline before running, it can optimize across it — push filters down to the source, prune unused columns, and combine narrow steps into one pass. An eager, line-by-line engine can't do that.</p>",
+        "<p><b>Why it helps:</b> because Spark sees the <i>whole</i> pipeline before running, it can optimize across it — push filters down to the source, prune unused columns, and combine narrow steps into one pass. An eager, line-by-line engine can't do that.</p>" +
+        "<p><b>Two consequences worth naming</b> if they probe: (1) a <b>runtime error in a transformation surfaces only when the action runs</b>, not where you wrote the line — surprising when debugging; (2) without caching, each action <b>re-runs the whole lineage</b> from the source, so a DataFrame used by several actions is recomputed each time unless you <code>cache()</code> it. (Note: some operations like <code>printSchema</code> or reading with <code>inferSchema</code> do trigger a small eager job.)</p>",
       code:
         "df2 = (df.filter(F.col('amt') > 0)      # lazy - nothing runs\n" +
         "         .withColumn('tax', F.col('amt') * 0.1)\n" +
@@ -226,8 +227,10 @@ window.PYSPARK_QA = {
         "<li><b>Logical optimization</b> — rule-based rewrites: predicate pushdown, column pruning, constant folding.</li>" +
         "<li><b>Physical planning</b> — generate multiple physical plans and pick the cheapest by <b>cost</b> (e.g. broadcast vs sort-merge join).</li>" +
         "<li><b>Code generation</b> — compile parts of the plan to JVM bytecode (Tungsten / whole-stage codegen) for speed.</li>" +
-        "</ul>",
-      tip: "Say the four phases and drop <b>\"predicate pushdown + column pruning\"</b> — those are the optimizations interviewers most want to hear named."
+        "</ul>" +
+        "<p><b>The plan artifacts to name</b> (what <code>explain(True)</code> prints): <b>unresolved logical plan → resolved (analyzed) logical plan → optimized logical plan → one or more physical plans → selected physical plan</b>. It mixes <b>rule-based</b> rewrites (always-true) with <b>cost-based</b> choices (join order/strategy from statistics).</p>" +
+        "<p><b>Key caveat:</b> Catalyst only sees <b>DataFrame/Dataset/SQL</b> code — raw RDD operations are opaque to it, which is exactly why DataFrames outperform hand-written RDDs for structured work.</p>",
+      tip: "Say the four phases and drop <b>\"predicate pushdown + column pruning\"</b> — those are the optimizations interviewers most want to hear named. If pushed, recite the plan chain (unresolved → analyzed → optimized → physical) and note Catalyst <i>can't</i> optimize RDD code."
     },
     {
       id: "fault-tolerance",
@@ -261,8 +264,14 @@ window.PYSPARK_QA = {
         "<li><b>Executors</b> (on worker nodes) — JVM processes that actually run tasks and cache data in memory/disk.</li>" +
         "<li><b>Task</b> — the smallest unit of work, one per partition, sent to an executor.</li>" +
         "</ul>" +
-        "<p>Flow: driver asks the cluster manager for executors, ships them your code, then sends tasks to run in parallel and collects results.</p>",
-      tip: "Say the chain out loud: <b>Driver → Cluster Manager → Executors → Tasks (one per partition)</b>. That single sentence shows you understand how a job actually runs."
+        "<p><b>End-to-end flow when an action fires</b> (the deeper version interviewers want):</p>" +
+        "<ul>" +
+        "<li>The driver builds a <b>DAG</b> of your transformations; the <b>DAGScheduler</b> splits it into <b>stages at shuffle boundaries</b> and each stage into <b>tasks</b> (one per partition).</li>" +
+        "<li>The <b>TaskScheduler</b> hands those tasks to executors via the cluster manager, respecting <b>data locality</b>.</li>" +
+        "<li>Executors run the tasks on their partitions, cache/shuffle as needed, and report status back; the driver assembles the result.</li>" +
+        "</ul>" +
+        "<p>Hierarchy to recite: <b>Application → Jobs (one per action) → Stages (cut at shuffles) → Tasks (one per partition)</b>.</p>",
+      tip: "Say the chain out loud: <b>Driver → Cluster Manager → Executors → Tasks</b>, then the scheduling detail — <b>DAGScheduler cuts stages at shuffles, TaskScheduler places tasks on executors by locality</b>. That second sentence is what separates a senior answer."
     },
     {
       id: "spark-driver",
@@ -275,9 +284,10 @@ window.PYSPARK_QA = {
         "<ul>" +
         "<li>Creates the <b>SparkSession/SparkContext</b> — the entry point to the cluster.</li>" +
         "<li>Converts your code into a <b>DAG → stages → tasks</b> and schedules those tasks on executors.</li>" +
-        "<li>Tracks metadata and cluster state, and <b>collects results</b> back.</li>" +
+        "<li>Houses the two schedulers: the <b>DAGScheduler</b> (splits the DAG into stages at shuffle boundaries, handles stage retries) and the <b>TaskScheduler</b> (launches tasks on executors, handles task retries and speculation).</li>" +
+        "<li>Tracks metadata, accumulator values and cluster state, hosts the <b>Spark UI</b> (port 4040), and <b>collects results</b> back.</li>" +
         "</ul>" +
-        "<p>It's a single point of coordination — if the driver dies, the whole application dies, which is why in production it runs inside the cluster (cluster mode).</p>",
+        "<p>It's a single point of coordination — if the driver dies, the whole application dies, which is why in production it runs inside the cluster (cluster mode). Note it's also a bottleneck for <code>collect()</code>: pulling a big result to the driver OOMs it.</p>",
       tip: "Call it the <b>brain</b>: it holds SparkContext, builds the DAG, and schedules tasks. If the driver dies, the whole application dies."
     },
     {
@@ -439,8 +449,16 @@ window.PYSPARK_QA = {
         "<li><b>Distributed</b> — split into partitions across nodes.</li>" +
         "<li><b>Dataset</b> — the records themselves.</li>" +
         "</ul>" +
+        "<p><b>If they dig deeper, name the five internal properties</b> every RDD exposes (the classic follow-up):</p>" +
+        "<ul>" +
+        "<li><b>A list of partitions</b> (<code>getPartitions</code>) — how the data is split.</li>" +
+        "<li><b>A compute function</b> (<code>compute</code>) — how to produce each partition.</li>" +
+        "<li><b>Dependencies on parent RDDs</b> — the lineage, narrow or wide.</li>" +
+        "<li><b>(Optional) a Partitioner</b> — hash/range, for key-value RDDs.</li>" +
+        "<li><b>(Optional) preferred locations</b> — data-locality hints (e.g. HDFS block hosts) so tasks run near the data.</li>" +
+        "</ul>" +
         "<p>Key traits: in-memory, immutable, lazily evaluated, fault-tolerant. Downside: <b>no schema and no Catalyst optimizer</b>, so it's more verbose and slower than DataFrames for structured work.</p>",
-      tip: "The phrase to say: <b>immutable, partitioned, fault-tolerant (via lineage) distributed collection</b>. Those four words are the whole definition."
+      tip: "The phrase to say: <b>immutable, partitioned, fault-tolerant (via lineage) distributed collection</b>. If they push further, the <b>five properties</b> (partitions, compute, dependencies, partitioner, preferred locations) is the answer they're fishing for."
     },
     {
       id: "rdd-immutable",
@@ -556,9 +574,10 @@ window.PYSPARK_QA = {
       a:
         "<ul>" +
         "<li><b>Narrow</b> — each input partition contributes to <b>exactly one</b> output partition; no data moves across the network. Examples: <code>map</code>, <code>filter</code>, <code>flatMap</code>, <code>union</code>. Fast, pipelined within a stage.</li>" +
-        "<li><b>Wide</b> — output partitions depend on <b>many</b> input partitions, so Spark must <b>shuffle</b> data across executors. Examples: <code>groupByKey</code>, <code>reduceByKey</code>, <code>join</code>, <code>repartition</code>.</li>" +
+        "<li><b>Wide</b> — output partitions depend on <b>many</b> input partitions, so Spark must <b>shuffle</b> data across executors. Examples: <code>groupByKey</code>, <code>reduceByKey</code>, <code>join</code>, <code>distinct</code>, <code>repartition</code>.</li>" +
         "</ul>" +
-        "<p>This matters because <b>wide transformations create stage boundaries and are the expensive part</b> of a job — minimizing shuffles is most of Spark tuning.</p>",
+        "<p>This matters because <b>wide transformations create stage boundaries and are the expensive part</b> of a job — minimizing shuffles is most of Spark tuning.</p>" +
+        "<p><b>The mechanism to connect it to:</b> a run of narrow transformations is <b>pipelined into a single stage</b> — each task runs the whole chain (filter→map→…) on one partition in memory, with no network and no materialization between steps. A wide transformation forces an <b>Exchange (shuffle)</b>, which <i>ends one stage and starts the next</i>. So the technical definition is really about the <b>dependency type</b>: narrow = one parent partition per child (<code>OneToOneDependency</code>), wide = many parents per child (<code>ShuffleDependency</code>).</p>",
       tip: "The payoff sentence: <b>wide = shuffle = a new stage boundary</b>. Minimizing wide transformations is basically what Spark tuning <i>is</i>."
     },
     {
@@ -620,9 +639,10 @@ window.PYSPARK_QA = {
         "<ul>" +
         "<li><b>groupByKey</b> — shuffles <b>all</b> values for each key across the network, then groups. Expensive; risks OOM on hot keys.</li>" +
         "<li><b>reduceByKey</b> — combines values <b>locally first</b> (map-side combine) and only then shuffles partial results. Far less network traffic — prefer it.</li>" +
-        "<li><b>aggregateByKey</b> — like reduceByKey but lets the <b>output type differ</b> from the input (e.g. build a (sum, count) tuple for an average).</li>" +
-        "</ul>",
-      tip: "The classic answer: <b>\"prefer reduceByKey over groupByKey\"</b> because reduceByKey combines on the map side and shuffles less. Interviewers wait for exactly that line."
+        "<li><b>aggregateByKey</b> — like reduceByKey but lets the <b>output type differ</b> from the input (e.g. build a (sum, count) tuple for an average); <code>combineByKey</code> is the most general form all three are built on.</li>" +
+        "</ul>" +
+        "<p><b>Why the difference is so large:</b> <code>reduceByKey</code> runs a <b>map-side combine (a mini-reduce in each partition before the shuffle)</b>, so only one partial value per key per partition crosses the network. <code>groupByKey</code> has <b>no combiner</b> — it ships <i>every</i> value for a key to the one reducer partition, so network traffic scales with total rows and a hot key can pile millions of values onto a single task and <b>OOM</b> it.</p>",
+      tip: "The classic answer: <b>\"prefer reduceByKey over groupByKey\"</b> because reduceByKey does a <b>map-side combine</b> and shuffles only partial results. Interviewers wait for exactly that line — and for the OOM risk of groupByKey on a hot key."
     },
     {
       id: "rdd-set-ops",
@@ -866,6 +886,12 @@ window.PYSPARK_QA = {
       a:
         "<p><b>A shuffle is Spark redistributing data across partitions/executors</b> so that related records (e.g. the same key) end up together. It's triggered by wide transformations: <code>groupByKey</code>, <code>reduceByKey</code>, <code>join</code>, <code>distinct</code>, <code>repartition</code>.</p>" +
         "<p>It's the most expensive thing Spark does because it involves <b>disk I/O, data serialization, and network transfer</b> between executors, plus it creates a <b>stage boundary</b>.</p>" +
+        "<p><b>What actually happens under the hood</b> (the deep follow-up):</p>" +
+        "<ul>" +
+        "<li><b>Map (write) side</b> — each task in the upstream stage partitions its output by the target partitioner, sorts/spills it, and writes <b>shuffle files to local disk</b> (this is the <i>Shuffle Write</i> you see in the UI).</li>" +
+        "<li><b>Reduce (read) side</b> — each task in the downstream stage <b>fetches its slice</b> of those files from every map output across the network (<i>Shuffle Read</i>), then merges them.</li>" +
+        "<li>Spark uses a <b>sort-based shuffle manager</b>; if a task's data exceeds execution memory it <b>spills to disk</b>, which is why shuffle + skew so often causes spill and slowness.</li>" +
+        "</ul>" +
         "<p>Tuning Spark is largely about <b>reducing shuffles</b>: prefer reduceByKey over groupByKey, use broadcast joins, filter early, and partition wisely.</p>",
       tip: "Name it the <b>single most expensive thing Spark does</b> (disk + network + serialization + a stage boundary) — so reducing shuffles is most of tuning."
     },
@@ -879,10 +905,10 @@ window.PYSPARK_QA = {
         "<p>Both store a DataFrame/RDD so it isn't recomputed on every action — the difference is control over <i>where</i>:</p>" +
         "<ul>" +
         "<li><b>cache()</b> — shorthand for the default storage level (<code>MEMORY_AND_DISK</code> for DataFrames).</li>" +
-        "<li><b>persist(level)</b> — you pick the <b>storage level</b>: MEMORY_ONLY, MEMORY_AND_DISK, DISK_ONLY, and _SER (serialized) variants.</li>" +
-        "<li><b>unpersist()</b> — evict it when you're done to free memory.</li>" +
+        "<li><b>persist(level)</b> — you pick the <b>storage level</b>; the ones to know: <code>MEMORY_ONLY</code> (fast, recomputes what won't fit), <code>MEMORY_AND_DISK</code> (spills overflow to disk — the DataFrame default), <code>DISK_ONLY</code>, the <code>_SER</code> variants (serialized — smaller, more CPU; the default in Scala/Java RDDs is <code>MEMORY_ONLY</code>, in PySpark it's already serialized via pickle), and <code>_2</code> suffixes that <b>replicate</b> each partition on two nodes.</li>" +
+        "<li><b>unpersist()</b> — evict it when you're done to free memory (it's blocking by default).</li>" +
         "</ul>" +
-        "<p>Cache when a DataFrame is <b>reused across multiple actions</b>; caching something used once just wastes memory.</p>",
+        "<p>Cache when a DataFrame is <b>reused across multiple actions</b>; caching something used once just wastes memory. Remember it <b>keeps lineage</b> — a lost cached partition is recomputed, not re-replicated (that's the difference from checkpointing).</p>",
       tip: "Remember: caching is lazy too — it only materializes on the <b>next action</b>. And <code>cache()</code> == <code>persist()</code> with the default level."
     },
     {
@@ -1000,7 +1026,9 @@ window.PYSPARK_QA = {
       tags: ["broadcast-join", "join", "shuffle"],
       a:
         "<p><b>A broadcast (map-side) join ships a small table to every executor so the join happens locally — with no shuffle of the big table.</b></p>" +
-        "<p>Use it when one side is <b>small enough to fit in memory</b> (default auto-broadcast threshold is 10 MB). It turns an expensive shuffle join into a cheap local lookup — one of the biggest wins for star-schema fact/dimension joins.</p>",
+        "<p><b>How it works:</b> the driver <b>collects the small side</b>, then broadcasts it (via an efficient torrent-style broadcast) so each executor holds a full copy as an in-memory hash map. The big table is then joined in place — each task probes the local map, so there's <b>no exchange/shuffle</b> and, as a bonus, <b>skew on the join key stops mattering</b> (no key redistribution happens).</p>" +
+        "<p>Use it when one side is <b>small enough to fit in executor (and driver) memory</b> — the default auto-broadcast threshold is <b>10 MB</b> (<code>spark.sql.autoBroadcastJoinThreshold</code>; set <code>-1</code> to disable). It turns an expensive shuffle join into a cheap local lookup — one of the biggest wins for star-schema fact/dimension joins.</p>" +
+        "<p><b>The caveat to volunteer:</b> broadcasting a side that's too big OOMs the driver (on collect) or the executors — so it's for genuinely small dimension tables only. AQE (Spark 3.x) can also switch a sort-merge join to broadcast at runtime once it sees the real size.</p>",
       code:
         "from pyspark.sql import functions as F\n" +
         "big.join(F.broadcast(small_dim), 'dim_id')   # no shuffle of `big`",
@@ -1018,12 +1046,13 @@ window.PYSPARK_QA = {
         "<ul>" +
         "<li><b>Broadcast variable</b> — <b>read-only</b>, sent <b>driver → executors</b> once and cached on each node. Use it to share a large lookup/config efficiently (avoids re-shipping it per task).</li>" +
         "<li><b>Accumulator</b> — <b>write-only</b> from executors, aggregated back <b>executors → driver</b>. Use it for counters/sums (like MapReduce counters), e.g. counting bad records.</li>" +
-        "</ul>",
+        "</ul>" +
+        "<p><b>The accumulator gotcha to volunteer:</b> values are only <b>exactly-once inside actions</b>. If you update an accumulator inside a <b>transformation</b>, a task retry, stage recomputation, or speculative execution can run it more than once and <b>double-count</b> — so accumulators are reliable for debugging/metrics but not for correctness-critical totals unless done in an action.</p>",
       code:
         "b = spark.sparkContext.broadcast({'US': 1, 'IN': 2})   # read-only\n" +
         "acc = spark.sparkContext.accumulator(0)                # write-only counter",
       lang: "python",
-      tip: "Clean contrast: <b>broadcast = read-only data pushed OUT to executors</b>; <b>accumulator = write-only metric sent BACK to the driver</b>."
+      tip: "Clean contrast: <b>broadcast = read-only data pushed OUT to executors</b>; <b>accumulator = write-only metric sent BACK to the driver</b>. Deep follow-up: accumulators can <b>double-count on retries/speculation</b> inside transformations — exactly-once only inside actions."
     },
     {
       id: "shared-variables",
@@ -1204,8 +1233,9 @@ window.PYSPARK_QA = {
         "<p><b>Spark Streaming processes real-time data streams</b> using the same engine as batch.</p>" +
         "<ul>" +
         "<li><b>Legacy (DStreams)</b> — micro-batches the stream into a sequence of small RDDs processed on an interval.</li>" +
-        "<li><b>Structured Streaming</b> (modern) — treats the stream as an <b>unbounded DataFrame</b> that grows; you write normal DataFrame/SQL code and Spark runs it incrementally, with <b>event-time windows</b>, <b>watermarks</b> for late data, and exactly-once sinks.</li>" +
+        "<li><b>Structured Streaming</b> (modern) — treats the stream as an <b>unbounded input table</b> that grows; every trigger runs your query on the new rows and updates a result table. You write normal DataFrame/SQL code and Spark runs it incrementally, with <b>event-time windows</b>, <b>watermarks</b> for late data, checkpointed state, and exactly-once sinks.</li>" +
         "</ul>" +
+        "<p><b>The real-time caveat interviewers test:</b> Structured Streaming is <b>micro-batch by default</b> (latency ~100 ms–seconds), not per-event — so it's \"near real-time.\" There is a <b>continuous processing</b> mode for ~1 ms latency, but it's experimental with limited operations; for true per-event, sub-ms latency you'd reach for Flink. Also distinguish <b>processing time</b> (when Spark sees the row) from <b>event time</b> (when it actually happened) — event-time + watermarks is what makes windowed results correct under late/out-of-order data.</p>" +
         "<p>Say you'd use <b>Structured Streaming</b> today — DStreams are legacy.</p>",
       tip: "Say you'd use <b>Structured Streaming</b> today (DataFrame API, event-time, exactly-once) and that <b>DStreams are legacy</b> (RDD-based)."
     },
