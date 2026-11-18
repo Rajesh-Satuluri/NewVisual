@@ -23,6 +23,7 @@ export function mount(container) {
       { id: 'workers', label: '⚙️ Workers & Tasks' },
       { id: 'smt',     label: '🧩 SMT Chain' },
       { id: 'dlq',     label: '💀 Errors & DLQ' },
+      { id: 'offsets', label: '📍 Offsets & EOS' },
       { id: 'types',   label: '📦 Connector Types' },
       { id: 'iq',      label: '🎯 Interview Q&A' },
     ]
@@ -33,6 +34,7 @@ export function mount(container) {
   cleanups.push(buildWorkers(container));
   cleanups.push(buildSMT(container));
   cleanups.push(buildDLQ(container));
+  buildOffsets(container);
   buildTypes(container);
   container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
   return () => cleanups.forEach(fn => { if (typeof fn === 'function') fn(); });
@@ -642,6 +644,151 @@ __connect.errors.exception.message  = Failed to deserialize data for topic order
   syncTolBtn();
 
   return () => { if (raf) cancelAnimationFrame(raf); };
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   TAB — Offsets & Exactly-Once (source vs sink offset models + crash/restart)
+   ───────────────────────────────────────────────────────────────────────── */
+function buildOffsets(container) {
+  const tab = container.querySelector('#tab-offsets');
+
+  const MODEL = {
+    source: {
+      badge: 'SOURCE  ·  Debezium', col: '#8B5CF6',
+      flow: ['External DB (WAL)', 'Source Task', 'Kafka topic'],
+      store: 'connect-offsets',
+      storeNote: 'internal compacted topic — connector-defined positions, NOT Kafka consumer offsets',
+      keyLabel: 'source partition', key: '{ "server": "dbserver1" }',
+      valLabel: 'source offset', val: '{ "lsn": 23897451, "txId": 9912, "ts_usec": 1731951600 }',
+      commit: 'offset.flush.interval.ms (default 60 000 ms)',
+      resume: 'On restart the task re-opens the WAL and resumes streaming from the stored LSN.',
+      eosLabel: 'exactly.once.support',
+      eosOff: 'disabled', eosOn: 'required',
+      eosOnNote: 'KIP-618 (Kafka ≥ 3.3): the task writes its data records AND its source offset inside one Kafka transaction, so a crash can never leave records committed with a stale offset — no re-emission on restart.',
+      eosOffNote: 'At-least-once: records emitted after the last offset flush are re-read from that LSN on restart, so downstream may see duplicates (dedupe by LSN / primary key).',
+    },
+    sink: {
+      badge: 'SINK  ·  S3 / JDBC', col: '#3B82F6',
+      flow: ['Kafka topic', 'Sink Task', 'External store'],
+      store: '__consumer_offsets',
+      storeNote: 'a sink connector IS a Kafka consumer group: group.id = connect-<connector-name>',
+      keyLabel: 'group · topic-partition', key: 'connect-s3-sink · orders-3',
+      valLabel: 'committed offset', val: '104271',
+      commit: 'after the connector\'s flush()/preCommit() reports safely-written offsets',
+      resume: 'On restart the group resumes consuming orders-3 from the committed offset 104271.',
+      eosLabel: 'sink write mode',
+      eosOff: 'at-least-once', eosOn: 'idempotent upsert',
+      eosOnNote: 'Connect delivery to a sink is at-least-once; "exactly once" comes from the SINK being idempotent (keyed upsert) or transactional, so re-delivered records overwrite rather than duplicate.',
+      eosOffNote: 'Records written to the store but whose offset wasn\'t yet committed are re-delivered after a crash and written AGAIN — duplicate rows unless the sink is idempotent.',
+    },
+  };
+
+  let mode = 'source';
+  let eos = false;
+  let crashed = false;
+
+  function render() {
+    const m = MODEL[mode];
+    // flow diagram
+    tab.querySelector('#off-flow').innerHTML = m.flow.map((n, i) => `
+      <div style="display:flex;align-items:center;gap:0">
+        <div style="padding:8px 12px;border-radius:8px;background:#111A2B;border:1px solid ${i === 1 ? m.col : '#243149'};
+          font-size:10.5px;font-weight:600;color:${i === 1 ? m.col : '#CBD5E1'}">${n}</div>
+        ${i < m.flow.length - 1 ? `<div style="width:26px;height:2px;background:#2A3A52"></div>` : ''}
+      </div>`).join('');
+
+    tab.querySelector('#off-badge').innerHTML =
+      `<span style="color:${m.col};font-weight:700">${m.badge}</span>`;
+    tab.querySelector('#off-store').innerHTML =
+      `<div style="font-size:11px;font-family:ui-monospace,monospace;color:${m.col};font-weight:700">${m.store}</div>
+       <div style="font-size:10px;color:#64748B;margin-top:3px">${m.storeNote}</div>`;
+    tab.querySelector('#off-kv').innerHTML =
+      `<div style="margin-bottom:6px"><span style="color:#64748B;font-size:9px;text-transform:uppercase;letter-spacing:.05em">${m.keyLabel}</span><br><span style="color:#7DD3FC">${m.key}</span></div>
+       <div><span style="color:#64748B;font-size:9px;text-transform:uppercase;letter-spacing:.05em">${m.valLabel}</span><br><span style="color:#86EFAC">${m.val}</span></div>`;
+    tab.querySelector('#off-commit').textContent = m.commit;
+
+    // EOS toggle button
+    const eb = tab.querySelector('#off-eos');
+    eb.innerHTML = `${m.eosLabel} = <b>${eos ? m.eosOn : m.eosOff}</b>`;
+    eb.style.borderColor = eos ? '#10B981' : '';
+
+    // record timeline (crash scenario)
+    const committedUpTo = 3;     // offsets flushed through r3
+    const records = [1, 2, 3, 4, 5];
+    tab.querySelector('#off-timeline').innerHTML = records.map(r => {
+      const committed = r <= committedUpTo;
+      // r4,r5 were processed but not committed → re-processed on restart
+      const replayed = crashed && r > committedUpTo;
+      const dup = replayed && !eos;
+      const bg = dup ? '#7F1D1D' : replayed ? '#1E3A2E' : committed ? '#14233B' : '#111A2B';
+      const bd = dup ? '#EF4444' : replayed ? '#10B981' : committed ? '#3B82F6' : '#243149';
+      const tagTxt = dup ? 'DUPLICATE' : replayed ? 'replayed ✓once' : committed ? 'committed' : 'processed';
+      const tagCol = dup ? '#F87171' : replayed ? '#86EFAC' : committed ? '#93C5FD' : '#8A98AE';
+      return `<div style="flex:1;min-width:70px;padding:8px 6px;border-radius:8px;background:${bg};border:1px solid ${bd};text-align:center">
+        <div style="font-size:11px;font-weight:700;color:#E2E8F0">r${r}</div>
+        <div style="font-size:8px;color:${tagCol};margin-top:3px">${tagTxt}</div>
+      </div>`;
+    }).join('');
+
+    tab.querySelector('#off-verdict').innerHTML = !crashed
+      ? `<span style="color:#64748B">Offsets flushed through <b style="color:#93C5FD">r3</b>. r4–r5 are processed but not yet committed. Press <b>Crash &amp; restart</b> to see what happens to them.</span>`
+      : eos
+        ? `<span style="color:#86EFAC">✓ Exactly once — on restart r4–r5 resume cleanly with <b>no duplicates</b> (${mode === 'source' ? 'records + offset committed atomically' : 'idempotent upsert overwrites in place'}).</span>`
+        : `<span style="color:#F87171">⚠ At-least-once — r4–r5 are re-processed after restart and delivered <b>a second time</b> (duplicates). Downstream must dedupe by ${mode === 'source' ? 'LSN / primary key' : 'record key'}.</span>`;
+
+    tab.querySelector('#off-resume').textContent = m.resume;
+    tab.querySelector('#off-eosnote').textContent = eos ? m.eosOnNote : m.eosOffNote;
+
+    // mode buttons active state
+    tab.querySelector('#off-src').style.borderColor = mode === 'source' ? MODEL.source.col : '';
+    tab.querySelector('#off-snk').style.borderColor = mode === 'sink' ? MODEL.sink.col : '';
+  }
+
+  tab.innerHTML = `
+    <div class="canvas-wrap">
+      <div class="canvas-caption">"Offset" means two completely different things in Connect. A <b>source</b> connector tracks a <b>connector-defined position</b> in the external system (a WAL LSN, a file byte, a query timestamp) in the internal <code>connect-offsets</code> topic. A <b>sink</b> connector <i>is a consumer group</i> and commits ordinary <b>Kafka consumer offsets</b>. Switch between them, then crash the task to see how delivery semantics play out.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+        <button class="ctrl-btn" id="off-src">📤 Source connector</button>
+        <button class="ctrl-btn" id="off-snk">📥 Sink connector</button>
+        <button class="ctrl-btn" id="off-eos">eos</button>
+      </div>
+      <div id="off-flow" style="display:flex;align-items:center;gap:0;margin-bottom:14px;flex-wrap:wrap"></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:14px">
+        <div style="background:#0C1424;border:1px solid #1C2740;border-radius:10px;padding:12px 14px">
+          <div style="font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:#64748B;margin-bottom:6px">Offset store</div>
+          <div id="off-store"></div>
+          <div style="font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:#64748B;margin:12px 0 6px">Commit cadence</div>
+          <div id="off-commit" style="font-size:10.5px;font-family:ui-monospace,monospace;color:#CBD5E1"></div>
+        </div>
+        <div style="background:#0C1424;border:1px solid #1C2740;border-radius:10px;padding:12px 14px">
+          <div style="font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:#64748B;margin-bottom:8px">Stored offset record</div>
+          <div id="off-kv" style="font-size:11px;font-family:ui-monospace,monospace;line-height:1.5"></div>
+        </div>
+      </div>
+      <div style="background:#0C1424;border:1px solid #1C2740;border-radius:10px;padding:12px 14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px">
+          <div id="off-badge" style="font-size:11px"></div>
+          <button class="ctrl-btn" id="off-crash" style="font-size:11px;padding:5px 10px">💥 Crash &amp; restart</button>
+        </div>
+        <div id="off-timeline" style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap"></div>
+        <div id="off-verdict" style="font-size:11.5px;line-height:1.6"></div>
+        <div id="off-resume" style="font-size:10.5px;color:#64748B;margin-top:8px"></div>
+      </div>
+      <div id="off-eosnote" style="font-size:12px;line-height:1.6;color:#94A3B8;margin-top:12px"></div>
+    </div>
+    <div class="canvas-explainer">
+      <h3>What you're watching</h3>
+      <p>The word "offset" is overloaded in Connect, and conflating the two is a classic interview stumble. A <strong>source connector</strong> reads from something that is <em>not</em> Kafka — a database WAL, a file, an API cursor — so Kafka's consumer-offset machinery doesn't apply. Instead the connector defines its own position as an opaque <code>(sourcePartition → sourceOffset)</code> pair and Connect persists it in the internal <strong><code>connect-offsets</code></strong> compacted topic. For Debezium the partition is the logical server and the offset is the log sequence number; on restart the task asks "what LSN was I at?" and resumes streaming the WAL from there. These are flushed periodically (<code>offset.flush.interval.ms</code>), independently of how fast records are produced.</p>
+      <p>A <strong>sink connector</strong> is the mirror image: it reads <em>from</em> Kafka, so it is quite literally a <strong>Kafka consumer group</strong> with <code>group.id = connect-&lt;connector-name&gt;</code>, and it commits ordinary <strong>Kafka consumer offsets</strong> to <code>__consumer_offsets</code>. The crucial subtlety is <em>when</em>: Connect only commits an offset after the connector confirms (via <code>flush()</code>/<code>preCommit()</code>) that everything up to it has been durably written to the external store. That ordering — write to the sink first, commit the Kafka offset second — is exactly what makes the default behaviour <strong>at-least-once</strong>: if the task crashes after writing but before committing, those records get redelivered and written again.</p>
+      <p><strong>Getting to exactly-once</strong> works differently on each side. For <strong>sources</strong>, Kafka 3.3's <strong>KIP-618</strong> lets a connector declare <code>exactly.once.support=required</code>; Connect then writes the data records and the source-offset update inside a <em>single Kafka transaction</em>, so a crash can never leave records visible with a stale offset — no re-emission, no duplicates. For <strong>sinks</strong>, there is no such framework transaction across an arbitrary external system, so "exactly once" is achieved by making the <em>sink write itself</em> idempotent (a keyed upsert that overwrites) or transactional (the JDBC sink's exactly-once mode, an iceberg/warehouse MERGE). Press <strong>Crash &amp; restart</strong> with the toggle off and on to watch r4–r5 either duplicate or resolve cleanly.</p>
+      <p><strong>Interview angle:</strong> the sentences that land are "source offsets are connector-defined positions in <code>connect-offsets</code>; sink offsets are real consumer offsets in <code>__consumer_offsets</code>," "default Connect delivery is at-least-once because the external write commits before the Kafka offset," and "exactly-once is a Kafka transaction for sources (KIP-618) but an idempotent/transactional sink for sinks." Bonus: you can rewind or edit offsets with the Connect REST <code>/offsets</code> endpoint (Kafka 3.6+) to replay or skip a stuck record without hand-editing internal topics.</p>
+    </div>`;
+
+  render();
+  tab.querySelector('#off-src').addEventListener('click', () => { mode = 'source'; crashed = false; eos = false; render(); });
+  tab.querySelector('#off-snk').addEventListener('click', () => { mode = 'sink'; crashed = false; eos = false; render(); });
+  tab.querySelector('#off-eos').addEventListener('click', () => { eos = !eos; render(); });
+  tab.querySelector('#off-crash').addEventListener('click', () => { crashed = !crashed; render(); });
 }
 
 function buildTypes(container) {
